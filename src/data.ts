@@ -1,0 +1,371 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { ExhibitionHall, Supplier, Opportunity, LearningMaterial, FAQItem } from "./types";
+
+export const EXHIBITION_HALLS: ExhibitionHall[] = [
+  {
+    id: "eh-01",
+    nameZh: "中国智能制造及医疗器械（德国法兰克福）展厅",
+    nameEn: "Sino Intelligent Manufacturing & Medical Devices Exhibition Hall (Frankfurt, Germany)",
+    regionZh: "欧洲",
+    regionEn: "Europe",
+    countryZh: "德国",
+    countryEn: "Germany",
+    cityZh: "法兰克福",
+    cityEn: "Frankfurt",
+    descriptionZh: "旨在将中国顶尖的自动化机械及中高端医疗器械直连欧洲采购商，常年提供样机展示与商机配对服务。",
+    descriptionEn: "Aims to connect top-tier automated machinery and mid-to-high-end medical devices from China directly with European buyers, offering year-round physical demos and business matchmaking.",
+    bannerUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["智能机械手臂", "高精度心电图机", "微创耗材"],
+    featuredProductsEn: ["Robotic Arms", "High-Precision ECG Machines", "Minimally Invasive Consumables"],
+    capacityValue: "3,500 ㎡"
+  },
+  {
+    id: "eh-02",
+    nameZh: "中东新能源及电力设备（阿联酋迪拜）展厅",
+    nameEn: "Middle East New Energy & Power Equipment Hall (Dubai, UAE)",
+    regionZh: "中东",
+    regionEn: "Middle East",
+    countryZh: "阿联酋",
+    countryEn: "UAE",
+    cityZh: "迪拜",
+    cityEn: "Dubai",
+    descriptionZh: "聚焦于光伏组件、储能系统及智慧电网解决方案在中东多国项目的工程落地与配套采购。",
+    descriptionEn: "Focusing on the engineered deployment and supporting procurement of PV modules, battery energy storage systems (BESS), and smart grid solutions across multiple Middle Eastern countries.",
+    bannerUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["双面单晶硅光伏组件", "集装箱式储能电池柜", "防沙智能清扫机器人"],
+    featuredProductsEn: ["Bifacial Solar PV Modules", "Containerized Battery Energy Storage", "Anti-dust Smart Cleaning Robots"],
+    capacityValue: "5,000 ㎡"
+  },
+  {
+    id: "eh-03",
+    nameZh: "中非基础设施及民生农机（肯尼亚内罗毕）展厅",
+    nameEn: "Sino-Africa Infrastructure & Agricultural Machinery Hall (Nairobi, Kenya)",
+    regionZh: "非洲",
+    regionEn: "Africa",
+    countryZh: "肯尼亚",
+    countryEn: "Kenya",
+    cityZh: "内罗毕",
+    cityEn: "Nairobi",
+    descriptionZh: "立足东非，辐射非洲共采，提供灌溉农机、低成本建材与联合国援助物资常态化入库联络处。",
+    descriptionEn: "Based in East Africa and radiating into UNGM-based joint procurement, providing irrigation machinery, budget building materials, and a liaison office for UN humanitarian aid supplies.",
+    bannerUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["柴油多功能拖拉机", "模块化活动板房", "水旱两用播种机"],
+    featuredProductsEn: ["Diesel Multi-use Tractors", "Modular Prefab Housing Units", "Dual-use Wet/Dry Seeders"],
+    capacityValue: "2,200 ㎡"
+  },
+  {
+    id: "eh-04",
+    nameZh: "中拉绿色建材及家居软装（巴西圣保罗）展厅",
+    nameEn: "Sino-Latin America Green Building Materials & Home Furnishing Hall (Sao Paulo, Brazil)",
+    regionZh: "南美",
+    regionEn: "South America",
+    countryZh: "巴西",
+    countryEn: "Brazil",
+    cityZh: "圣保罗",
+    cityEn: "Sao Paulo",
+    descriptionZh: "面向拉丁美洲新兴城市建设，精选绿色低碳建筑材料、高装配度轻钢、轻质隔墙板及现代家居办公展出。",
+    descriptionEn: "Serving Latin American urban builders with green low-carbon materials, prefabricated light steel structures, partition panels, and modern office/home furnishing showrooms.",
+    bannerUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["轻复合环保外墙板", "轻钢别墅装配单元", "智能静音办公隔音舱"],
+    featuredProductsEn: ["Eco Composite Siding Panels", "Light Steel Villa Frames", "Smart Silent Office Cubicles"],
+    capacityValue: "4,000 ㎡"
+  },
+  {
+    id: "eh-05",
+    nameZh: "北美智能家居与跨境电商生态（美国洛杉矶）展厅",
+    nameEn: "North America Smart Home & Cross-Border E-Commerce Hall (Los Angeles, USA)",
+    regionZh: "北美",
+    regionEn: "North America",
+    countryZh: "美国",
+    countryEn: "USA",
+    cityZh: "洛杉矶",
+    cityEn: "Los Angeles",
+    descriptionZh: "为北美分销商、大型电商及跨国民用采购商展示前沿IoT物联网设备、智慧安防系统与柔性供应链产品包。",
+    descriptionEn: "Displaying cutting-edge IoT smart home products, modern safety/monitoring equipment, and highly customized supply-chain kits for North American retail giants and e-commerce companies.",
+    bannerUrl: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["4K无线太阳能安防头", "多模Wi-Fi 7智能网关", "全自动宠物智能喂食舱"],
+    featuredProductsEn: ["4K Wireless Solar Cameras", "Multi-mode Wi-Fi 7 Smart Gateways", "Automated Smart Pet Feeders"],
+    capacityValue: "6,000 ㎡"
+  },
+  {
+    id: "eh-06",
+    nameZh: "东盟电子元件与工业辅料（越南胡志明）展厅",
+    nameEn: "ASEAN Electronic Components & Industrial Accoutrements Hall (Ho Chi Minh, Vietnam)",
+    regionZh: "亚洲",
+    regionEn: "Asia",
+    countryZh: "越南",
+    countryEn: "Vietnam",
+    cityZh: "胡志明市",
+    cityEn: "Ho Chi Minh",
+    descriptionZh: "针对东南亚迅猛发展的电子装配及轻工制造，展示电子元器件精密接插件、配套线束及高强度五金件。",
+    descriptionEn: "Fulfilling Southeast Asia's skyrocketing light manufacturing demands with premium precision connectors, wire harnesses, and industrial fasteners on seamless supply pipelines.",
+    bannerUrl: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80",
+    featuredProductsZh: ["SMD贴片高寿命连接器", "柔性耐折工业线束组", "防强碱耐腐蚀电镀件"],
+    featuredProductsEn: ["SMD High-durability Connectors", "Flexible Industrial Wire Harness", "Anti-corrosion Metal Electroplated Spares"],
+    capacityValue: "2,800 ㎡"
+  }
+];
+
+export const SUPPLIERS: Supplier[] = [
+  {
+    id: "sup-01",
+    nameZh: "常州恒力精密机床股份有限公司",
+    nameEn: "Changzhou Hengli Precision Tooling Co., Ltd.",
+    type: "domestic",
+    industryZh: "机械",
+    industryEn: "Machinery",
+    countryZh: "中国",
+    countryEn: "China",
+    cityZh: "常州",
+    cityEn: "Changzhou",
+    mainProductsZh: ["五轴联动加工中心", "数控精雕机", "汽车齿轮专用切面机"],
+    mainProductsEn: ["5-Axis CNC Machining Centers", "High-Precision Engravers", "Automotive Gear Shaper Tools"],
+    complianceLabelsZh: ["ISO9001", "CE认证", "国家高新技术企业"],
+    complianceLabelsEn: ["ISO9001", "CE Certification", "National High-Tech Enterprise"],
+    contactPerson: "林建国 (Lin Jianguo)",
+    contactEmail: "jg.lin@czhengli-precision.com",
+    contactPhone: "+86 138-5522-8899",
+    status: "approved"
+  },
+  {
+    id: "sup-02",
+    nameZh: "深圳拓森光电技术有限公司",
+    nameEn: "Shenzhen Topson Optoelectronics Co., Ltd.",
+    type: "domestic",
+    industryZh: "电子",
+    industryEn: "Electronics",
+    countryZh: "中国",
+    countryEn: "China",
+    cityZh: "深圳",
+    cityEn: "Shenzhen",
+    mainProductsZh: ["COB小间距LED模组", "多功能智慧路灯显示屏", "柔性薄膜温度触感屏"],
+    mainProductsEn: ["COB Fine Pixel Pitch LED Modules", "Smart Streetpole Digital Displays", "Flexible Tactile Thin-film Screens"],
+    complianceLabelsZh: ["RoHS无铅", "CCC强制认证", "FCC认证"],
+    complianceLabelsEn: ["RoHS Lead-Free", "CCC Certified", "FCC Certified"],
+    contactPerson: "陈瑞祺 (Sherry Chen)",
+    contactEmail: "sherry.chen@topsen-opto.com",
+    contactPhone: "+86 186-8888-0021",
+    status: "approved"
+  },
+  {
+    id: "sup-03",
+    nameZh: "山东金玺新型建材有限公司",
+    nameEn: "Shandong Jinxi Structural New Materials Ltd.",
+    type: "domestic",
+    industryZh: "建材",
+    industryEn: "Construction",
+    countryZh: "中国",
+    countryEn: "China",
+    cityZh: "临沂",
+    cityEn: "Linyi",
+    mainProductsZh: ["A级防火硅酸钙基保温板", "快装轻钢房屋系统", "天然竹木纤维饰面板"],
+    mainProductsEn: ["Class-A Fire-rated Structural Thermal Board", "Prefabricated Light-Steel Framing", "Natural Charcoal Wood-fiber Panels"],
+    complianceLabelsZh: ["绿色建材三星标志", "REACH合规", "SGS测试报告"],
+    complianceLabelsEn: ["Green Building Materials 3-Star", "REACH Compliant", "SGS Lab Tested"],
+    contactPerson: "马永超 (Ma Yongchao)",
+    contactEmail: "sales@shandon-jinxi.cn",
+    contactPhone: "+86 150-5399-5566",
+    status: "approved"
+  },
+  {
+    id: "sup-04",
+    nameZh: "北京安捷尔医疗器械开发中心",
+    nameEn: "Beijing Angelic Medical Equipment Dev Corp",
+    type: "domestic",
+    industryZh: "医疗",
+    industryEn: "Medical",
+    countryZh: "中国",
+    countryEn: "China",
+    cityZh: "北京",
+    cityEn: "Beijing",
+    mainProductsZh: ["便携式血液分析仪", "智能负压呼吸支持车", "一次性可降解外科缝合包"],
+    mainProductsEn: ["Portable Hematology Assay Readers", "Smart Portable Air Resuscitation carts", "Biodegradable Disposable Suture Packs"],
+    complianceLabelsZh: ["ISO13485医疗器械认证", "FDA 510K注册", "欧盟MDR审核中"],
+    complianceLabelsEn: ["ISO13485 QMS Medical", "FDA 510k Registered", "EU MDR Pending Audit"],
+    contactPerson: "赵晓雯 (Zhaoxiao Wen)",
+    contactEmail: "xwzhao@angelicmed.org.cn",
+    contactPhone: "+86 139-1100-3443",
+    status: "approved"
+  },
+  {
+    id: "sup-05",
+    nameZh: "Apex Biomaterial GmbH",
+    nameEn: "Apex Biomaterial GmbH",
+    type: "international",
+    industryZh: "化工",
+    industryEn: "Chemical",
+    countryZh: "德国",
+    countryEn: "Germany",
+    cityZh: "慕尼黑",
+    cityEn: "Munich",
+    ungmCode: "43211500", // UNGM: Plastic & Resins
+    mainProductsZh: ["可完全降解PLA生物塑料粒子", "高强度耐水性植物粘合胶", "医用级耐酸碱密封胶圈"],
+    mainProductsEn: ["Fully Compostable PLA Resins", "Bio-based Plant Water-resistant Adhesives", "Acid-resistant Medical sealing rings"],
+    complianceLabelsZh: ["UNGM Level 2", "EN13432 Composting Certification", "ISO14001环境安全"],
+    complianceLabelsEn: ["UNGM Level 2 Registered", "EN13432 Compost Certificate", "ISO14001 Environmental Health"],
+    contactPerson: "Dr. Marcus Weber",
+    contactEmail: "m.weber@apex-bioplastic.de",
+    contactPhone: "+49 89-4566-10",
+    status: "approved"
+  },
+  {
+    id: "sup-06",
+    nameZh: "Nairobi Agro-Hydraulics Engineering",
+    nameEn: "Nairobi Agro-Hydraulics Engineering Ltd.",
+    type: "international",
+    industryZh: "机械",
+    industryEn: "Machinery",
+    countryZh: "肯尼亚",
+    countryEn: "Kenya",
+    cityZh: "内罗毕",
+    cityEn: "Nairobi",
+    ungmCode: "42141505", // UNGM: Irrigation & Agricultural equipment
+    mainProductsZh: ["抗沙泵体过滤器", "中小型自控式滴灌系统装置", "水罐拖车柔性卡箍"],
+    mainProductsEn: ["Anti-abrasive Water Well Pump Screens", "Modular Smart Micro-drip Irrigation Kits", "Water Bowser Trailer Heavy Quick Clampers"],
+    complianceLabelsZh: ["UNGM Basic Regist", "肯尼亚KEBS国家安全标志", "SGS现场审厂合规"],
+    complianceLabelsEn: ["UNGM Basic Level", "KEBS Quality Safety Mark", "SGS On-site Audited"],
+    contactPerson: "Samuel Gichuru",
+    contactEmail: "samuel.g@nairobi-agrohydraulics.co.ke",
+    contactPhone: "+254 20-3344-998",
+    status: "approved"
+  },
+  {
+    id: "sup-07",
+    nameZh: "Al-Noor Eco-Furniture Corporation",
+    nameEn: "Al-Noor Eco-Furniture Corporation",
+    type: "international",
+    industryZh: "家居",
+    industryEn: "Home",
+    countryZh: "埃及",
+    countryEn: "Egypt",
+    cityZh: "开罗",
+    cityEn: "Cairo",
+    ungmCode: "51101500", // UNGM: Office Furniture & Supplies
+    mainProductsZh: ["高防潮抗菌复合办公桌椅", "学校课室专用折叠护脊学习椅", "医院病区防霉模块化钢塑柜"],
+    mainProductsEn: ["Antimicrobial Damp-proof Office Desks", "Orthopedic School Folding Study Chairs", "Mold-resistant Steelwork Ward Lockers"],
+    complianceLabelsZh: ["UNGM Level 1", "NFPA阻燃等级", "Global GreenTag一级环保"],
+    complianceLabelsEn: ["UNGM Level 1 Registered", "NFPA Fire Retardant", "Global GreenTag certified Level A"],
+    contactPerson: "Amir Al-Sisi",
+    contactEmail: "sales@alnoor-ecofurniture.eg",
+    contactPhone: "+20 2-2577-4560",
+    status: "approved"
+  }
+];
+
+export const OPPORTUNITIES: Opportunity[] = [
+  {
+    id: "opp-01",
+    titleZh: "东非难民营2026年度移动板房及拼装卫浴集采商机",
+    titleEn: "Joint UNGM RFP: Prefabricated Housing and Prefab Bathroom Pods for East Africa Projects",
+    industryZh: "建材",
+    industryEn: "Construction",
+    countryZh: "肯尼亚",
+    countryEn: "Kenya",
+    budget: "$2,800,000 USD",
+    deadline: "2026-08-30",
+    descriptionZh: "本次代办集采由两部分组成：第一部分为2500套应急快装拉铆模块化集成瓦房；第二部分为1200套内嵌高附着防腐拼装复合板无水生物降解卫生箱卫浴间。",
+    descriptionEn: "Joint Procurement opportunity composed of two lots: Lot 1 consists of 2,500 emergency clip-lock steel panel housing blocks; Lot 2 consists of 1,200 dry-system biodegradable latrine bathroom modules.",
+    subscribersCount: 46
+  },
+  {
+    id: "opp-02",
+    titleZh: "红十字援助委便携式多维数字健康心电监护设备专项招标",
+    titleEn: "NGO Bid Invitation: Multi-lead Portable Digital ECG Monitoring Devices for Rural Health Deployments",
+    industryZh: "医疗",
+    industryEn: "Medical",
+    countryZh: "阿联酋",
+    countryEn: "UAE",
+    budget: "$1,450,000 USD",
+    deadline: "2026-07-15",
+    descriptionZh: "计划大规模援助多国边远社区诊所。要求供应商设备具有内置5G微卡与低频电离防雷特性、内置太阳能自给背夹蓄电配置。提供三方EN60601-2安规报告。",
+    descriptionEn: "Aimed at deploying medical units globally to marginalized health structures. Requirements include solar battery-clips, rugged IP54 shells, and integrated 5G modules. Tested with EN60601-2 standards.",
+    subscribersCount: 32
+  },
+  {
+    id: "opp-03",
+    titleZh: "迪拜智慧园区智慧LED光能一体多边照明路灯集采计划",
+    titleEn: "Dubai Smart Park Integrated Photovoltaic street pole & smart LED illuminating system procurement",
+    industryZh: "电子",
+    industryEn: "Electronics",
+    countryZh: "阿联酋",
+    countryEn: "UAE",
+    budget: "$4,200,000 USD",
+    deadline: "2026-10-10",
+    descriptionZh: "总数2400基。要求微处理网关芯片支持Zigbee及Wi-Fi通导协议双重热备，抗沙尘及长期55℃恶劣运行环境下保持高流明输出与长效散热可靠度。",
+    descriptionEn: "Total need of 2,400 poles. Micro-controller gates must support dual Zigbee + Wi-Fi mesh hot standbys. Must run under continuous 55 degree desert thermal test with sandstorm protection.",
+    subscribersCount: 59
+  }
+];
+
+export const LEARNING_MATERIALS: LearningMaterial[] = [
+  {
+    id: "lm-01",
+    titleZh: "联合国采购（UNGM）基础级别(Basic)与等级一级(Level 1)入驻新手实操指南",
+    titleEn: "UNGM Registration Guide: Step-by-Step Practical Blueprint for Basic & Level 1 Access",
+    categoryZh: "UNGM入驻",
+    categoryEn: "UNGM Registration",
+    summaryZh: "手把手教授如何整理企业资质材料、填写供应商财务申明和标准主营物料UNSPSC编码匹配。",
+    summaryEn: "A comprehensive manual instruction instructing teams on QMS papers, preparing standard templates and mapping UNSPSC codes accurately.",
+    contentZh: "此指南详细叙述：1. 中国商事主体三证合一证照中英翻译格式要求；2. 财务资产负债表一页模板；3. UNSPSC精确至细分项的匹配口径；4. 防范常见账户被拒被挂起关键要点。",
+    contentEn: "Comprehensive instructions spanning: 1. Business registration English templates checklist; 2. Financial statement formats; 3. Mapping of multi-tiered UNSPSC categorizations; 4. Standard pitfalls to avoid registration delays.",
+    isPremium: false,
+    downloadsCount: 1420
+  },
+  {
+    id: "lm-02",
+    titleZh: "海外政府公共工程及难民署人道主义采购投标书（中英）经典范本与避坑要点",
+    titleEn: "Overseas Public Procurement & UNHCR Bidding Templates (Chn/Eng) & Compliance Standard Case Studies",
+    categoryZh: "政策解读",
+    categoryEn: "Policy Guide",
+    summaryZh: "精选近2年实际中标的公共设施、日用品集采投标文本，标注在合规承诺、不可抗力条款上的特殊用词。",
+    summaryEn: "Compiles premium, winning public sector technical schedules and checklists, with deep-dive callouts on force majeure and ethical declaration statements.",
+    contentZh: "包含正规合同样本、不可抗力声明信、劳工健康保障承诺声明中英格式，以及针对突发供应链运力中断时期的免责举证公函案例。",
+    contentEn: "Contains full legal bidding specimens, worker health compliance templates, fair-wage pledges, and official indemnity declaration case studies to guard against downstream shipping disruptions.",
+    isPremium: true,
+    downloadsCount: 580
+  },
+  {
+    id: "lm-03",
+    titleZh: "海外实体国家级展厅‘前展后仓’一站式直采协同网络部署及落地服务包指南",
+    titleEn: "Physical Overseas Showrooms 'Front Exhibition, Rear Warehouse' One-stop Supply Grid Deployment Handbook",
+    categoryZh: "参展指南",
+    categoryEn: "Exhibition Guide",
+    summaryZh: "介绍如何在保税区建立备品备件库，实现现场样品展示与同城24小时现货物流响应的协同模式。",
+    summaryEn: "Explains standard operational procedures for bonding spare parts inside foreign custom free-zones, empowering seamless sample displays with same-day local shipping capabilities.",
+    contentZh: "重点分析欧洲、中东、东南亚保税物流中转保税政策、常态样机通关减免规则，多区域展示大件货物清关周期预算表。",
+    contentEn: "Contains policy breakdowns for bond logistics in Frankfurt, Dubai, and Saigon, alongside customs handling tariff exemption matrices for persistent sample machinery items.",
+    isPremium: true,
+    downloadsCount: 310
+  }
+];
+
+export const FAQS: FAQItem[] = [
+  {
+    id: "faq-01",
+    questionZh: "什么是联合国全球采购（UNGM）编码体系？国内建材企业该如何匹配对应的UNGM code？",
+    questionEn: "What is the UNGM coding system? How do building materials companies map their UNSPSC codes?",
+    answerZh: "UNGM采用UNSPSC（联合国标准产品与服务分类）编码。例如，建筑材料及预制房屋归属于第30门类（30000000）。您可以在UNGM官网使用英文关键字（如‘prefabricated’、'building cement'）进行精确搜索，并关联到您公司的产品属性。匹配不精准可能导致无法及时获取智能系统推送的相关招标线索。",
+    answerEn: "The UNGM utilizes the UNSPSC system. For instance, structural building supplies fall under Division 30 (30000000). You can query keywords like 'prefabricated structure' or 'panel wood' on the portal to locate specific 8-digit codes. Precise search matching guarantees automated, relevant system tender notifications.",
+    category: "ungm"
+  },
+  {
+    id: "faq-02",
+    questionZh: "加入海外展厅有什么增值优势？企业不在当地如何维护现场展品？",
+    questionEn: "What are the core value of joining an overseas exhibition hall? How are samples managed without locally active staff?",
+    answerZh: "海外展厅采用‘前展后仓、联人联货’常态化运营模式。我们有派驻法兰克福、迪拜、内罗毕等当地的高素质中英双语顾问，负责现场接待客商采购、演示设备，并随时把线索回传国内，您只需通过视频及本平台的CRM消息系统即可在几分钟内与买方取得一对一远程商务对接机会。",
+    answerEn: "Our overseas exhibition spaces combine 'persistent hardware showroom with local bonded depots.' Fully trained bilingual coordinators manage your physical displays, perform basic operations, and gather offline client inquiries. You receive qualified leads in real-time through this CRM to spark instant video conferences.",
+    category: "exhibition"
+  },
+  {
+    id: "faq-03",
+    questionZh: "平台的供应商审核流程要多久？国内外的差异是什么？",
+    questionEn: "How long does the supplier vetting process take? What is the difference between local and foreign applicants?",
+    answerZh: "注册提交后，平台运营专员通常在1-2个工作日内完成合规与资质初审。国内企业侧重其三证、出口清关测试及主营业务是否具备代加工或跨国贸易经验。国外企业由于接入UNGM共采网络，必须提供有效的UNGM供应商注册编码，便于我们从UN系统进行合规自动核验。",
+    answerEn: "Once submitted, the compliance audit completes within 1-2 business days. For domestic factories, the focus rests on export track-records and manufacturing capabilities. For foreign companies, the active UNGM code must be specified to trigger credentials sync verification through UN-level channels.",
+    category: "general"
+  }
+];

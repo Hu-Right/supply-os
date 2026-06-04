@@ -1,0 +1,6 @@
+{
+  "name": "Global Procurement & Supply Portal",
+  "description": "A comprehensive portal for Overseas Exhibition Halls, UNGM Procurement, Supplier Management, CRM Clients, Industry Opportunities, and AI Matchmaking, tailored for desktop and mobile with multi-language support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
