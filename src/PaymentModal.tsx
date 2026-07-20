@@ -145,7 +145,7 @@ export default function PaymentModal({
   const getProviderLabel = (provider: string) =>
     provider === "alipay" ? t.paymentAlipay : t.paymentWechat;
 
-  const currencySymbol = currency === "CNY" ? "楼" : "$";
+  const currencySymbol = currency === "CNY" ? "¥" : "$";
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-center items-center p-4">

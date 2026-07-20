@@ -136,6 +136,27 @@ function getPaymentRuntimeConfig() {
   };
 }
 
+async function hydratePaymentEnvFromDb(dbPool: any) {
+  const [rows] = await dbPool.query(
+    `SELECT provider, mode, app_id, notify_url, return_url, public_key, private_key_ref, is_active
+     FROM crm_payment_provider_configs
+     WHERE provider = 'alipay' AND is_active = 1
+     ORDER BY id DESC
+     LIMIT 1`
+  );
+  const alipay = (rows as any[])[0];
+  if (!alipay) return false;
+
+  process.env.PAYMENT_MODE = "live";
+  process.env.ALIPAY_APP_ID = alipay.app_id || process.env.ALIPAY_APP_ID || "";
+  process.env.ALIPAY_PRIVATE_KEY = alipay.private_key_ref || process.env.ALIPAY_PRIVATE_KEY || "";
+  process.env.ALIPAY_PUBLIC_KEY = alipay.public_key || process.env.ALIPAY_PUBLIC_KEY || "";
+  process.env.ALIPAY_NOTIFY_URL = alipay.notify_url || process.env.ALIPAY_NOTIFY_URL || "";
+  process.env.ALIPAY_RETURN_URL = alipay.return_url || process.env.ALIPAY_RETURN_URL || "";
+  process.env.ALIPAY_SANDBOX = alipay.mode === "sandbox" ? "true" : "false";
+  return true;
+}
+
 async function ensureColumn(dbPool: any, table: string, column: string, ddl: string) {
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
@@ -145,6 +166,19 @@ async function ensureColumn(dbPool: any, table: string, column: string, ddl: str
   );
   if (Number((rows as any[])[0]?.total || 0) === 0) {
     await dbPool.query(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  }
+}
+
+async function ensureColumnType(dbPool: any, table: string, column: string, ddl: string) {
+  const [rows] = await dbPool.query(
+    `SELECT COLUMN_TYPE AS column_type
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+     LIMIT 1`,
+    [table, column]
+  );
+  if ((rows as any[]).length > 0) {
+    await dbPool.query(`ALTER TABLE ${table} MODIFY COLUMN ${ddl}`);
   }
 }
 
@@ -206,6 +240,7 @@ async function ensureProcurementSchema(dbPool: any) {
       display_name VARCHAR(190) NULL,
       password_hash VARCHAR(128) NULL,
       membership_tier VARCHAR(40) NOT NULL DEFAULT 'free',
+      account_status VARCHAR(30) NOT NULL DEFAULT 'pending',
       supplier_id BIGINT UNSIGNED NULL,
       supplier_link_status VARCHAR(30) NOT NULL DEFAULT 'none',
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -214,9 +249,34 @@ async function ensureProcurementSchema(dbPool: any) {
   `);
   await ensureColumn(dbPool, "crm_users", "password_hash", "password_hash VARCHAR(128) NULL AFTER display_name");
   await ensureColumn(dbPool, "crm_users", "membership_tier", "membership_tier VARCHAR(40) NOT NULL DEFAULT 'free' AFTER password_hash");
+  await ensureColumn(dbPool, "crm_users", "account_status", "account_status VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER membership_tier");
   await ensureColumn(dbPool, "crm_users", "supplier_id", "supplier_id BIGINT UNSIGNED NULL AFTER membership_tier");
   await ensureColumn(dbPool, "crm_users", "supplier_link_status", "supplier_link_status VARCHAR(30) NOT NULL DEFAULT 'none' AFTER supplier_id");
   await ensureIndex(dbPool, "crm_users", "idx_supplier_link", "CREATE INDEX idx_supplier_link ON crm_users (supplier_id, supplier_link_status)");
+
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_training_registrations (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      legacy_supplier_id BIGINT UNSIGNED NULL UNIQUE,
+      company_name VARCHAR(255) NOT NULL,
+      industry_id INT NULL,
+      industry VARCHAR(255) NULL,
+      main_product VARCHAR(255) NULL,
+      export_experience VARCHAR(255) NULL,
+      certification TEXT NULL,
+      contact_name VARCHAR(100) NOT NULL,
+      position VARCHAR(100) NULL,
+      telephone VARCHAR(50) NOT NULL,
+      email VARCHAR(190) NULL,
+      remark TEXT NULL,
+      audit_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      ip VARCHAR(45) NULL,
+      KEY idx_training_status (audit_status),
+      KEY idx_training_contact (telephone, email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_user_subscriptions (
@@ -326,6 +386,9 @@ async function ensureProcurementSchema(dbPool: any) {
   await ensureColumn(dbPool, "crm_payment_orders", "raw_request", "raw_request JSON NULL AFTER qr_code_url");
   await ensureColumn(dbPool, "crm_payment_orders", "raw_notify", "raw_notify JSON NULL AFTER raw_request");
   await ensureColumn(dbPool, "crm_payment_orders", "paid_at", "paid_at DATETIME NULL AFTER raw_notify");
+  await ensureColumnType(dbPool, "crm_payment_orders", "provider", "provider ENUM('alipay','wechat','mock') NOT NULL");
+  await ensureColumnType(dbPool, "crm_payment_orders", "pay_url", "pay_url TEXT NULL");
+  await ensureColumnType(dbPool, "crm_payment_orders", "qr_code_url", "qr_code_url TEXT NULL");
 
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_payment_provider_configs (
@@ -355,6 +418,7 @@ async function ensureProcurementSchema(dbPool: any) {
   await ensureColumn(dbPool, "crm_payment_provider_configs", "private_key_ref", "private_key_ref VARCHAR(500) NULL AFTER public_key");
   await ensureColumn(dbPool, "crm_payment_provider_configs", "cert_ref", "cert_ref VARCHAR(500) NULL AFTER private_key_ref");
   await ensureColumn(dbPool, "crm_payment_provider_configs", "is_active", "is_active TINYINT NOT NULL DEFAULT 0 AFTER cert_ref");
+  await ensureColumnType(dbPool, "crm_payment_provider_configs", "private_key_ref", "private_key_ref TEXT NULL");
 
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_user_entitlements (
@@ -901,6 +965,7 @@ async function startServer() {
 
   await ensureProcurementSchema(dbPool);
   await backfillUserIds(dbPool);
+  await hydratePaymentEnvFromDb(dbPool);
   // UNSPSC bridge 同步已停用：crm_bid_notices.unspsc_codes 字段数据不准，
   // 由 CRM 侧 AI 分类后直接写入 crm_bid_notice_unspsc_codes，supply-os 不介入。
 
@@ -914,8 +979,8 @@ async function startServer() {
       if (password.length < 6) return res.status(400).json({ error: "密码至少 6 位" });
 
       await dbPool.execute(
-        `INSERT INTO crm_users (user_key, email, display_name, password_hash, membership_tier)
-         VALUES (?, ?, ?, ?, 'free')
+        `INSERT INTO crm_users (user_key, email, display_name, password_hash, membership_tier, account_status)
+         VALUES (?, ?, ?, ?, 'free', 'pending')
          ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), password_hash = VALUES(password_hash), updated_at = NOW()`,
         [email, email, displayName, hashPassword(password)]
       );
@@ -934,12 +999,15 @@ async function startServer() {
       const email = String(req.body.email || "").trim().toLowerCase();
       const password = String(req.body.password || "");
       const [rows] = await dbPool.query(
-        "SELECT user_key, email, display_name, password_hash, membership_tier, supplier_id, supplier_link_status FROM crm_users WHERE user_key = ? LIMIT 1",
+        "SELECT user_key, email, display_name, password_hash, membership_tier, account_status, supplier_id, supplier_link_status FROM crm_users WHERE user_key = ? LIMIT 1",
         [email]
       );
       const user = (rows as any[])[0];
       if (!user || user.password_hash !== hashPassword(password)) {
         return res.status(401).json({ error: "账号或密码错误" });
+      }
+      if (user.account_status === "disabled" || user.account_status === "rejected") {
+        return res.status(403).json({ error: "账号未通过审核或已停用" });
       }
       const [subs] = await dbPool.query(
         "SELECT id FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
@@ -961,6 +1029,51 @@ async function startServer() {
           email: user.email,
           display_name: user.display_name,
           membership_tier: tier,
+          account_status: user.account_status || "pending",
+          supplier_id: supplier?.id || null,
+          supplier_industry_id: supplier?.industry_id || null,
+          supplier_industry: supplier?.industry || null,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/auth/user", async (req, res) => {
+    try {
+      const userKey = String(req.query.user_key || "").trim().toLowerCase();
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+
+      const [rows] = await dbPool.query(
+        "SELECT user_key, email, display_name, membership_tier, account_status, supplier_id, supplier_link_status FROM crm_users WHERE user_key = ? LIMIT 1",
+        [userKey]
+      );
+      const user = (rows as any[])[0];
+      if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+      const [subs] = await dbPool.query(
+        "SELECT id FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
+        [userKey]
+      );
+      let supplier: any = null;
+      if (user.supplier_id && user.supplier_link_status === "verified") {
+        const [supplierRows] = await dbPool.query(
+          "SELECT id, industry_id, industry FROM crm_suppliers WHERE id = ? LIMIT 1",
+          [user.supplier_id]
+        );
+        supplier = (supplierRows as any[])[0] || null;
+      }
+      const tier = (subs as any[]).length > 0 ? "vip" : user.membership_tier || "free";
+
+      res.json({
+        success: true,
+        user: {
+          user_key: user.user_key,
+          email: user.email,
+          display_name: user.display_name,
+          membership_tier: tier,
+          account_status: user.account_status || "pending",
           supplier_id: supplier?.id || null,
           supplier_industry_id: supplier?.industry_id || null,
           supplier_industry: supplier?.industry || null,
@@ -1030,7 +1143,7 @@ async function startServer() {
 
   // =========== Payment API ===========
 
-  // 初始化 PaymentService：只有显式 PAYMENT_MODE=live 才走真实支付网关，否则使用 mock 闭环。
+  // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
   const { PaymentService: _PaymentService } = await import("./src/payment/PaymentService");
   const paymentMode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
   const paymentService = _PaymentService.initDefault(paymentMode);
@@ -1044,12 +1157,35 @@ async function startServer() {
         provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as any,
         return_url: String(req.body.return_url || ""),
       });
+      const clientPayUrl = result.provider === "alipay"
+        ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
+        : result.pay_url;
       res.status(201).json({
         ...result,
+        pay_url: clientPayUrl,
+        qr_code_url: result.provider === "alipay" ? clientPayUrl : result.qr_code_url,
         payment_mode: paymentMode === "live" ? "configured" : "mock",
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/payment/alipay/redirect/:orderNo", async (req, res) => {
+    try {
+      const orderNo = String(req.params.orderNo || "");
+      const [rows] = await dbPool.query(
+        "SELECT order_no, provider, status, pay_url FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
+        [orderNo]
+      );
+      const order = (rows as any[])[0];
+      if (!order) return res.status(404).send("Order not found");
+      if (order.provider !== "alipay") return res.status(400).send("Not an Alipay order");
+      if (order.status !== "pending") return res.status(400).send("Order is not pending");
+
+      res.redirect(302, order.pay_url);
+    } catch (err: any) {
+      res.status(500).send(err.message || "Alipay redirect failed");
     }
   });
 
@@ -1257,16 +1393,11 @@ async function startServer() {
            n.reference,
            n.title,
            n.notice_type,
-           n.agency,
-           n.organization,
            n.country,
            n.deadline,
            n.deadline_ts,
            n.estimated_value,
-           n.description,
-           n.industry,
-           n.url AS source_url,
-           n.unspsc_codes
+           n.description
          FROM crm_bid_notices n
          ${idFilterSql}
          WHERE ${whereSql}
@@ -1278,8 +1409,11 @@ async function startServer() {
       res.json({
         items: (rows as any[]).map((row) => ({
           ...row,
-          agency: row.agency || row.organization,
-          unspsc_codes: normalizeUnspscCodes(row.unspsc_codes),
+          agency: null,
+          organization: null,
+          source_url: null,
+          unspsc_codes: [],
+          core_locked: true,
         })),
         total,
         page,
@@ -1621,6 +1755,58 @@ async function startServer() {
     }
   });
 
+  app.get("/api/notices/:id/detail", async (req, res) => {
+    try {
+      const noticeId = Number(req.params.id);
+      const userKey = String(req.query.user_key || "").slice(0, 190);
+      if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
+
+      const [unlockRows] = await dbPool.query(
+        "SELECT id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
+        [userKey, noticeId]
+      );
+      const unlock = (unlockRows as any[])[0];
+      if (!unlock) {
+        return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
+      }
+
+      const [noticeRows] = await dbPool.query(
+        `SELECT
+           id,
+           notice_id,
+           reference,
+           title,
+           notice_type,
+           agency,
+           organization,
+           country,
+           deadline,
+           deadline_ts,
+           estimated_value,
+           description,
+           industry,
+           unspsc_codes
+         FROM crm_bid_notices
+         WHERE id = ?
+         LIMIT 1`,
+        [noticeId]
+      );
+      const notice = (noticeRows as any[])[0];
+      if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+
+      res.json({
+        ...notice,
+        agency: notice.agency || notice.organization,
+        unspsc_codes: normalizeUnspscCodes(notice.unspsc_codes),
+        core_locked: false,
+        unlock_type: unlock.unlock_type,
+        unlocked_at: unlock.unlocked_at,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post("/api/notices/:id/unlock", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
@@ -1879,10 +2065,10 @@ async function startServer() {
         }
       }
 
-      // certification fields use comma as separator
       const [result] = await dbPool.execute(
-        `INSERT INTO crm_suppliers (company_name, industry_id, industry, main_product, export_experience, certification, contact_name, position, telephone, email, remark, created_at, ip, is_paid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 0)`,
+        `INSERT INTO crm_training_registrations
+          (company_name, industry_id, industry, main_product, export_experience, certification, contact_name, position, telephone, email, remark, created_at, ip, audit_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
         [
           company_name,
           industry_id || null,
@@ -1899,21 +2085,11 @@ async function startServer() {
         ]
       );
 
-      const supplierId = (result as any).insertId;
-      if (supplierId && industryCode) {
-        const source = industryCode.level === 1 ? "register_level1" : "manual_filter";
-        await dbPool.execute(
-          `INSERT INTO crm_supplier_unspsc_interests
-            (supplier_id, code_id, code, level, source, weight)
-           VALUES (?, ?, ?, ?, ?, 1.00)
-           ON DUPLICATE KEY UPDATE weight = VALUES(weight), updated_at = NOW()`,
-          [supplierId, industryCode.id, industryCode.code, industryCode.level, source]
-        );
-      }
+      const registrationId = (result as any).insertId;
 
       return res.status(201).json({
         success: true,
-        id: supplierId,
+        id: registrationId,
         message: "\u7814\u4fee\u73ed\u62a5\u540d\u4fe1\u606f\u5df2\u63d0\u4ea4",
       });
     } catch (err: any) {

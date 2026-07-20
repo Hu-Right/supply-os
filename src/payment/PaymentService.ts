@@ -80,6 +80,12 @@ export class PaymentService {
         `${plan.name}`,
         return_url,
       );
+      await dbPool.execute(
+        `UPDATE crm_payment_orders
+         SET provider = ?, amount = ?, currency = ?, pay_url = ?, qr_code_url = ?, updated_at = NOW()
+         WHERE order_no = ? AND status = 'pending'`,
+        [provider, amount, plan.currency || "CNY", pay_url, qr_code_url || null, existingOrder.order_no],
+      );
 
       return {
         order_no: existingOrder.order_no,
@@ -328,6 +334,7 @@ export class PaymentService {
       const alipayAppId = process.env.ALIPAY_APP_ID || "";
       const alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || "";
       const alipayPublicKey = process.env.ALIPAY_PUBLIC_KEY || "";
+      const alipayNotifyUrl = process.env.ALIPAY_NOTIFY_URL || "";
 
       if (alipayAppId) {
         service.registerStrategy(
@@ -336,6 +343,7 @@ export class PaymentService {
             appId: alipayAppId,
             privateKey: alipayPrivateKey,
             publicKey: alipayPublicKey,
+            notifyUrl: alipayNotifyUrl,
             sandbox: process.env.ALIPAY_SANDBOX === "true",
           }),
         );

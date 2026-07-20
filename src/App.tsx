@@ -190,14 +190,33 @@ export default function App() {
     }
   };
 
+  const persistAuthUser = (user: AuthUser) => {
+    setAuthUser(user);
+    setUserEmail(user.email);
+    setIsVip(user.membership_tier === "vip");
+    window.localStorage.setItem("supply_os_auth_user", JSON.stringify(user));
+  };
+
+  const refreshAuthUser = async (userKey: string) => {
+    try {
+      const res = await fetch(`/api/auth/user?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.user) throw new Error(data.error || "刷新账号状态失败");
+      persistAuthUser(data.user);
+      return data.user as AuthUser;
+    } catch (err) {
+      console.error("Error refreshing auth user:", err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const savedUser = window.localStorage.getItem("supply_os_auth_user");
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser) as AuthUser;
-        setAuthUser(parsedUser);
-        setUserEmail(parsedUser.email);
-        setIsVip(parsedUser.membership_tier === "vip");
+        persistAuthUser(parsedUser);
+        refreshAuthUser(parsedUser.user_key);
       } catch {
         window.localStorage.removeItem("supply_os_auth_user");
       }
@@ -225,12 +244,11 @@ export default function App() {
     return () => window.removeEventListener("hashchange", syncHashRoute);
   }, []);
 
-  const persistAuthUser = (user: AuthUser) => {
-    setAuthUser(user);
-    setUserEmail(user.email);
-    setIsVip(user.membership_tier === "vip");
-    window.localStorage.setItem("supply_os_auth_user", JSON.stringify(user));
-  };
+  useEffect(() => {
+    if (showAuthModal && authUser?.user_key) {
+      refreshAuthUser(authUser.user_key);
+    }
+  }, [showAuthModal, authUser?.user_key]);
 
   const submitAuth = async (e: React.FormEvent) => {
     e.preventDefault();

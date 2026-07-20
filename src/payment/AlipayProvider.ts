@@ -20,17 +20,20 @@ export class AlipayProvider implements PaymentStrategy {
   private appId: string;
   private privateKey: string;
   private publicKey: string;
+  private notifyUrl: string;
   private gateway: string;
 
   constructor(config: {
     appId: string;
     privateKey: string;
     publicKey: string;
+    notifyUrl?: string;
     sandbox?: boolean;
   }) {
     this.appId = config.appId;
-    this.privateKey = config.privateKey;
-    this.publicKey = config.publicKey;
+    this.privateKey = this.normalizePem(config.privateKey, "PRIVATE KEY");
+    this.publicKey = this.normalizePem(config.publicKey, "PUBLIC KEY");
+    this.notifyUrl = String(config.notifyUrl || "");
     this.gateway = config.sandbox
       ? "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
       : "https://openapi.alipay.com/gateway.do";
@@ -63,10 +66,11 @@ export class AlipayProvider implements PaymentStrategy {
       format: "JSON",
       charset: "utf-8",
       sign_type: "RSA2",
-      timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "+0800"),
+      timestamp: this.formatAlipayTimestamp(new Date()),
       version: "1.0",
       biz_content: JSON.stringify(bizContent),
       return_url: returnUrl || "",
+      notify_url: this.notifyUrl,
     };
 
     const signStr = this.buildSignStr(params);
@@ -110,7 +114,7 @@ export class AlipayProvider implements PaymentStrategy {
   // 构建待签名字符串（支付宝 RSA2 签名规则）
   private buildSignStr(params: Record<string, string>): string {
     return Object.keys(params)
-      .filter((k) => k !== "sign" && k !== "sign_type" && params[k] !== "")
+      .filter((k) => k !== "sign" && params[k] !== "")
       .sort()
       .map((k) => `${k}=${params[k]}`)
       .join("&");
@@ -123,5 +127,17 @@ export class AlipayProvider implements PaymentStrategy {
     const sign = crypto.createSign("RSA-SHA256");
     sign.update(data, "utf-8");
     return sign.sign(this.privateKey, "base64");
+  }
+
+  private normalizePem(value: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
+    const text = String(value || "").trim();
+    if (!text || text.includes("-----BEGIN")) return text;
+    const body = text.replace(/\s+/g, "").match(/.{1,64}/g)?.join("\n") || text;
+    return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
+  }
+
+  private formatAlipayTimestamp(date: Date): string {
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 }

@@ -12,7 +12,8 @@ import {
   Lock,
   Search,
   SlidersHorizontal,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 
 type Lang = "zh" | "en";
@@ -40,6 +41,9 @@ type NoticeItem = {
   description?: string;
   source_url?: string;
   unspsc_codes?: Array<{ code?: string; name?: string; description?: string }>;
+  core_locked?: boolean;
+  unlock_type?: string;
+  unlocked_at?: string;
 };
 
 type NoticeResponse = {
@@ -117,18 +121,6 @@ const fetchJsonCached = <T,>(url: string): Promise<T> => {
   return request;
 };
 
-const ANNUAL_SERVICE_PLAN: MembershipPlan = {
-  plan_code: "annual_manual_8800",
-  name: "Annual advisory service",
-  description: "Includes lead contact guidance, bid opportunity analysis, contract process, corporate transfer confirmation and WeChat service group.",
-  price: 8800,
-  currency: "CNY",
-  duration_days: 365,
-  unlock_quota: 0,
-  free_quota: 0,
-  plan_type: "manual"
-};
-
 const copy = {
   zh: {
     back: "返回采购列表",
@@ -163,15 +155,15 @@ const copy = {
     paidQuota: "付费额度",
     used: "已用",
     remaining: "剩余",
-    actionTip: "前 3 次可直接查看详情，之后请联系顾问开通年度服务。",
+    actionTip: "前 3 次可直接查看详情，之后可购买单次解锁、套餐或会员服务继续查看。",
     actionSuccess: "已记录兴趣，顾问可据此提供商机解读。",
     subscribedSuccess: "已订阅该商机，后续可通过邮件或顾问跟进。",
-    freeLimit: "免费详情查看已超过 3 次，请联系顾问开通年度服务。",
+    freeLimit: "免费详情查看已超过 3 次，请选择单次解锁、套餐或会员服务继续查看。",
     unlockFail: "解锁失败，请稍后再试。",
     freeUnlockOk: "免费查看成功。",
     paidUnlockOk: "已解锁该商机。",
-    orderCreated: "请确认人工服务流程后扫码联系顾问。",
-    orderFail: "创建服务单失败。",
+    orderCreated: "支付订单已创建，请在打开的支付页面完成付款。",
+    orderFail: "创建支付订单失败。",
     paidFail: "支付状态确认失败。",
     paidOk: "会员权益已生效。",
     metaNo: "编号",
@@ -180,45 +172,25 @@ const copy = {
     budget: "预算",
     description: "采购说明",
     tags: "分类标签",
-    source: "查看原始公告",
     noDesc: "该线索暂无公开描述。顾问服务可补充采购说明、联系方式和投标风险拆解。",
-    products: "顾问服务",
-    productsDesc: "当前隐藏单次和套餐价格，统一使用年度顾问服务流程。",
+    lockedCoreTitle: "核心信息已隐藏",
+    lockedCoreDesc: "真实机构、联系方式、拆解文件和分类明细将在解锁核验通过后展示。",
+    products: "解锁产品",
+    productsDesc: "选择单次解锁、尝鲜包、周卡或年卡，支付成功后自动发放查看额度。",
     close: "关闭",
     alipay: "支付宝",
     wechat: "微信支付",
-    choosePay: "联系顾问",
+    choosePay: "立即支付",
     creatingOrder: "正在处理...",
-    orderNo: "服务单号",
-    mockNote: "当前为人工确认流程。",
+    orderNo: "订单号",
+    mockNote: "当前为本地模拟支付，确认后会自动发放权益。",
     mockPaid: "确认完成",
-    paymentTip: "支付通道接通前，使用线上合同、对公转账和微信服务群的人工流程。",
+    paymentTip: "支付完成后系统会自动确认订单并发放对应查看额度。",
     paidServiceTitle: "付费服务包括",
     paidServiceContact: "采购方或项目联系方式获取指导与跟进建议",
     paidServiceAnalysis: "1 对 1 深度解读投标商机、资质、UNSPSC、交付与报价风险",
-    paidServiceProcess: "线上合同、对公转账确认、微信服务群一对一跟进",
-    paidServiceManualNote: "支付通道暂未对接，请确认后走人工服务流程。",
-    annualServiceTitle: "联系顾问开通年度服务",
-    annualServiceDesc: "单次解锁和套餐价格暂不展示，当前统一使用年度顾问服务流程。",
-    annualServiceButton: "确认服务：¥8800/年",
-    annualServicePlanName: "年度顾问服务",
-    yearSuffix: "年",
-    manualTitle: "人工顾问服务确认",
-    manualSubtitle: "年度顾问服务流程",
-    manualDesc: "在线支付暂未开通，请确认流程后扫码联系顾问。",
-    manualSelected: "已选服务",
-    manualAnnualDesc: "年度顾问服务，包含商机分析与投标支持。",
-    manualStep1Title: "线上合同",
-    manualStep1Desc: "确认服务范围、交付节点与双方分工。",
-    manualStep2Title: "对公转账",
-    manualStep2Desc: "顾问发送企业账户信息，客户回传付款凭证。",
-    manualStep3Title: "微信服务群",
-    manualStep3Desc: "进入专属服务群，进行 1 对 1 商机解读。",
-    manualIncludesTitle: "付费服务包含什么？",
-    manualIncludesDesc: "顾问对接、联系方式指导、资质审核、UNSPSC 匹配、交付与定价风险拆解、投标决策分析。",
-    manualConfirmBtn: "我已确认流程，显示二维码联系",
-    manualQrTitle: "扫码添加顾问",
-    manualQrDesc: "发送公司名称、已选服务和目标商机标题，顾问将安排合同、转账确认及服务群。"
+    paidServiceProcess: "支付宝/微信在线支付后自动发放查看额度",
+    paidServiceManualNote: "需要深度顾问服务时，可在年卡权益基础上继续对接顾问。"
   },
   en: {
     back: "Back to notices",
@@ -253,15 +225,15 @@ const copy = {
     paidQuota: "Paid quota",
     used: "Used",
     remaining: "Remaining",
-    actionTip: "The first 3 details are free. Contact an advisor for annual service after that.",
+    actionTip: "The first 3 details are free. Buy a single unlock, package or membership to keep viewing.",
     actionSuccess: "Interest recorded.",
     subscribedSuccess: "Lead subscribed.",
-    freeLimit: "Free detail views are used up. Contact an advisor for annual service.",
+    freeLimit: "Free detail views are used up. Choose a single unlock, package or membership to keep viewing.",
     unlockFail: "Unlock failed. Please try again later.",
     freeUnlockOk: "Free view succeeded.",
     paidUnlockOk: "Lead unlocked.",
-    orderCreated: "Please confirm the manual service process and scan to contact the advisor.",
-    orderFail: "Failed to create order.",
+    orderCreated: "Payment order created. Complete payment in the page that opened.",
+    orderFail: "Failed to create payment order.",
     paidFail: "Payment confirmation failed.",
     paidOk: "Benefits are active.",
     metaNo: "Reference",
@@ -270,46 +242,25 @@ const copy = {
     budget: "Budget",
     description: "Description",
     tags: "UNSPSC tags",
-    source: "Open source notice",
     noDesc: "No public description yet. Advisor service can enrich contacts, requirements and bid risks.",
-    products: "Advisor service",
-    productsDesc: "Single unlock and package pricing are hidden for now. Annual advisor service is used manually.",
+    lockedCoreTitle: "Core information hidden",
+    lockedCoreDesc: "Agency, contact guidance, analysis files and classification details are shown only after unlock verification.",
+    products: "Unlock products",
+    productsDesc: "Choose single unlock, starter package, weekly card or annual card. Quota is issued after payment.",
     close: "Close",
     alipay: "Alipay",
     wechat: "WeChat Pay",
-    choosePay: "Contact advisor",
+    choosePay: "Pay now",
     creatingOrder: "Processing...",
-    orderNo: "Service order",
-    mockNote: "Manual confirmation is active.",
+    orderNo: "Order no.",
+    mockNote: "Local mock payment is active. Confirm to issue benefits.",
     mockPaid: "Confirmed",
-    paymentTip: "Before payment channels are connected, we use online contract, corporate transfer and WeChat service group.",
+    paymentTip: "After payment succeeds, the system confirms the order and issues view quota automatically.",
     paidServiceTitle: "Paid service includes",
     paidServiceContact: "Buyer or project contact guidance and follow-up suggestions",
     paidServiceAnalysis: "1-on-1 bid opportunity analysis: qualification, UNSPSC, delivery and pricing risk",
-    paidServiceProcess: "Online contract, corporate transfer confirmation and WeChat service group",
-    paidServiceManualNote: "Payment channels are not connected yet. Annual service is handled manually.",
-    annualServiceTitle: "Contact advisor for annual service",
-    annualServiceDesc: "Single unlock and package pricing are hidden for now. Please use the annual advisor service process.",
-    annualServiceButton: "Annual service: ?8800/year",
-    annualServicePlanName: "Annual advisor service",
-    yearSuffix: "year",
-    // ManualPaymentModal i18n
-    manualTitle: "Manual service confirmation",
-    manualSubtitle: "Annual advisor service process",
-    manualDesc: "Online payment is not connected yet. Confirm the steps, then scan to contact the advisor.",
-    manualSelected: "Selected service",
-    manualAnnualDesc: "Annual advisor service for procurement opportunity analysis.",
-    manualStep1Title: "Online contract",
-    manualStep1Desc: "Confirm service scope, delivery milestones and responsibilities.",
-    manualStep2Title: "Corporate transfer",
-    manualStep2Desc: "Advisor sends company account information; client returns payment proof.",
-    manualStep3Title: "WeChat service group",
-    manualStep3Desc: "Join the service group for 1-on-1 bid opportunity analysis.",
-    manualIncludesTitle: "What does paid service include?",
-    manualIncludesDesc: "Advisor support for contact guidance, qualification review, UNSPSC matching, delivery risk, pricing risk and bid decision analysis.",
-    manualConfirmBtn: "I confirm the process. Show QR contact.",
-    manualQrTitle: "Scan to add the advisor",
-    manualQrDesc: "Send your company name, selected service and target notice title. The advisor will arrange the contract, transfer confirmation and service group."
+    paidServiceProcess: "Alipay or WeChat Pay issues view quota automatically after payment",
+    paidServiceManualNote: "For deeper advisory work, continue with advisor support on top of the annual card."
   }
 };
 
@@ -319,7 +270,7 @@ const getOptionLabel = (item: UnspscOption, lang: Lang) => {
 };
 
 const formatMoney = (price: number, currency = "CNY") => {
-  const symbol = currency === "CNY" ? "?" : `${currency} `;
+  const symbol = currency === "CNY" ? "¥" : `${currency} `;
   return `${symbol}${Number(price || 0).toFixed(0)}`;
 };
 
@@ -343,8 +294,6 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
   const [busyPlanCode, setBusyPlanCode] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
-  const [manualPaymentOpen, setManualPaymentOpen] = useState(false);
-  const [manualPaymentQrVisible, setManualPaymentQrVisible] = useState(false);
   const noticesRequestSeq = useRef(0);
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
@@ -363,6 +312,20 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
   const setDetailViewCount = (count: number) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(getDetailViewCountKey(), String(count));
+  };
+
+  const loadUnlockedNoticeDetail = async (noticeId: number) => {
+    if (!userKey) return false;
+    try {
+      const res = await fetch(`/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
+      if (!res.ok) return false;
+      const data = await res.json();
+      setSelectedNotice((prev) => (prev?.id === noticeId ? { ...prev, ...data } : prev));
+      setPaywallNotice(null);
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const deepestCodeId = useMemo(() => {
@@ -454,12 +417,12 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
 
     const currentViews = getDetailViewCount();
     if (!isVip && currentViews >= FREE_DETAIL_VIEW_LIMIT) {
+      setSelectedNotice(notice);
       setPaywallNotice(notice);
       setPaymentOrder(null);
       setPaymentMessage("");
-      setManualPaymentOpen(true);
-      setManualPaymentQrVisible(false);
       setActionMessage(text.freeLimit);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -474,6 +437,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     setPaywallNotice(null);
     setPaymentOrder(null);
     setActionMessage("");
+    await loadUnlockedNoticeDetail(notice.id);
     await refreshMembership();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -485,10 +449,12 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     }
 
     if (!unlockType && !canUsePaidQuota && freeRemaining <= 0) {
+      setSelectedNotice(notice);
       setPaywallNotice(notice);
       setPaymentOrder(null);
       setPaymentMessage("");
       setActionMessage(text.freeLimit);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return false;
     }
 
@@ -504,6 +470,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     });
 
     if (res.status === 402) {
+      setSelectedNotice(notice);
       setPaywallNotice(notice);
       setPaymentOrder(null);
       setPaymentMessage("");
@@ -520,6 +487,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
 
     await refreshMembership();
     setActionMessage(nextUnlockType === "free" ? text.freeUnlockOk : text.paidUnlockOk);
+    await loadUnlockedNoticeDetail(notice.id);
     return true;
   };
 
@@ -554,11 +522,42 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
       return;
     }
 
-    setManualPaymentOpen(true);
-    setManualPaymentQrVisible(false);
-    setPaymentOrder(null);
+    setBusyPlanCode(planCode);
     setPaymentMessage("");
-    setActionMessage(text.orderCreated);
+    setActionMessage("");
+
+    try {
+      const res = await fetch("/api/payment/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_key: userKey,
+          plan_code: planCode,
+          provider: paymentProvider,
+          return_url: `${window.location.origin}${window.location.pathname}#procurement`,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || text.orderFail);
+      }
+
+      const order = await res.json();
+      setPaymentOrder({ ...order, plan_code: planCode });
+      setPaymentMessage(text.orderCreated);
+      setActionMessage(text.orderCreated);
+      if (order.pay_url && order.provider !== "mock") {
+        const payWindow = window.open(order.pay_url, "_blank");
+        if (!payWindow) window.location.href = order.pay_url;
+      }
+      startPaymentPolling(order.order_no, planCode);
+    } catch (err: any) {
+      setPaymentMessage(err?.message || text.orderFail);
+      setActionMessage(err?.message || text.orderFail);
+    } finally {
+      setBusyPlanCode("");
+    }
   };
 
   const startPaymentPolling = (orderNo: string, planCode: string) => {
@@ -616,6 +615,10 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
   });
 
   if (selectedNotice) {
+    const coreUnlocked = selectedNotice.core_locked === false;
+    const visibleAgency = coreUnlocked
+      ? selectedNotice.agency || selectedNotice.organization || text.unknownAgency
+      : text.lockedCoreTitle;
     return (
       <div className="space-y-5">
         <button
@@ -633,7 +636,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
                 <p className="text-xs font-black text-teal-600 uppercase tracking-wider">{selectedNotice.notice_type || "Procurement Notice"}</p>
                 <h3 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">{selectedNotice.title}</h3>
                 <p className="text-sm text-slate-500 mt-3">
-                  {selectedNotice.agency || selectedNotice.organization || text.unknownAgency} ? {selectedNotice.country || text.global} ? {selectedNotice.deadline || text.noDeadline}
+                  {visibleAgency} · {selectedNotice.country || text.global} · {selectedNotice.deadline || text.noDeadline}
                 </p>
               </div>
 
@@ -646,7 +649,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                 {[
                   [text.metaNo, selectedNotice.reference || selectedNotice.notice_id || "-"],
-                  [text.agency, selectedNotice.agency || selectedNotice.organization || "-"],
+                  [text.agency, visibleAgency],
                   [text.country, selectedNotice.country || "-"],
                   [text.budget, selectedNotice.estimated_value || text.budgetPending]
                 ].map(([label, value]) => (
@@ -664,22 +667,28 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
                 </p>
               </div>
 
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-900 mb-2">{text.tags}</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(selectedNotice.unspsc_codes || []).slice(0, 16).map((code, index) => (
-                    <span key={`${code.code || index}`} className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-mono text-slate-600">
-                      {code.code || code.name || code.description}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              {coreUnlocked ? (
+                <>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-900 mb-2">{text.tags}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {(selectedNotice.unspsc_codes || []).slice(0, 16).map((code, index) => (
+                        <span key={`${code.code || index}`} className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-mono text-slate-600">
+                          {code.code || code.name || code.description}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-              {selectedNotice.source_url && (
-                <a href={selectedNotice.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline">
-                  {text.source}
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+                </>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-700" />
+                    {text.lockedCoreTitle}
+                  </h4>
+                  <p className="text-sm text-amber-900 leading-7 mt-2">{text.lockedCoreDesc}</p>
+                </div>
               )}
             </main>
 
@@ -733,50 +742,27 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
               </div>
 
               {paywallNotice && (
-                <section className="border border-blue-100 rounded-xl bg-white p-4 shadow-sm space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-sm font-extrabold text-slate-900">{text.annualServiceTitle}</h4>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-5">
-                        {text.annualServiceDesc}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setPaywallNotice(null);
-                        setPaymentOrder(null);
-                      }}
-                      className="text-xs font-bold text-slate-500 hover:text-slate-800"
-                    >
-                      {text.close}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => createPaymentOrder(ANNUAL_SERVICE_PLAN.plan_code)}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    {text.annualServiceButton}
-                  </button>
-                </section>
+                <PaymentPanel
+                  plans={paidPlans}
+                  provider={paymentProvider}
+                  order={paymentOrder}
+                  lang={lang}
+                  busyPlanCode={busyPlanCode}
+                  message={paymentMessage}
+                  onProviderChange={setPaymentProvider}
+                  onCreateOrder={createPaymentOrder}
+                  onMockPaid={markPaymentPaid}
+                  onClose={() => {
+                    setPaywallNotice(null);
+                    setPaymentOrder(null);
+                    setPaymentMessage("");
+                  }}
+                />
               )}
             </aside>
           </div>
         </article>
 
-        {manualPaymentOpen && (
-          <ManualPaymentModal
-            plan={ANNUAL_SERVICE_PLAN}
-            qrVisible={manualPaymentQrVisible}
-            onShowQr={() => setManualPaymentQrVisible(true)}
-            onClose={() => {
-              setManualPaymentOpen(false);
-              setManualPaymentQrVisible(false);
-            }}
-            lang={lang}
-          />
-        )}
       </div>
     );
   }
@@ -852,9 +838,11 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
                 <span className="text-[10px] text-slate-500 font-mono text-right">{item.deadline}</span>
               </div>
               <h4 className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
-              <p className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || text.noDesc}</p>
+              <p className="text-xs text-slate-500 mt-3 line-clamp-3">
+                {item.description || text.noDesc}
+              </p>
               <div className="flex flex-wrap gap-1.5 mt-3">
-                {(item.unspsc_codes || []).slice(0, 4).map((code, index) => (
+                {(item.core_locked === false ? item.unspsc_codes || [] : []).slice(0, 4).map((code, index) => (
                   <span key={`${code.code || index}`} className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-mono text-slate-600">
                     {code.code || code.name || code.description}
                   </span>
@@ -905,18 +893,6 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
         </div>
       </section>
 
-      {manualPaymentOpen && (
-        <ManualPaymentModal
-          plan={ANNUAL_SERVICE_PLAN}
-          qrVisible={manualPaymentQrVisible}
-          onShowQr={() => setManualPaymentQrVisible(true)}
-          onClose={() => {
-            setManualPaymentOpen(false);
-            setManualPaymentQrVisible(false);
-          }}
-          lang={lang}
-        />
-      )}
     </div>
   );
 }
@@ -947,13 +923,21 @@ function PaymentPanel({
   const text = copy[lang];
 
   return (
-    <section className="border border-blue-100 rounded-xl bg-white p-4 shadow-sm space-y-4">
+    <section className="border border-slate-200 rounded-xl bg-white p-4 shadow-lg space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h4 className="text-sm font-extrabold text-slate-900">{text.products}</h4>
           <p className="text-[11px] text-slate-500 mt-1 leading-5">{text.productsDesc}</p>
         </div>
-        <button onClick={onClose} className="text-xs font-bold text-slate-500 hover:text-slate-800">{text.close}</button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={text.close}
+          title={text.close}
+          className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
       {(message || busyPlanCode) && (
@@ -976,36 +960,58 @@ function PaymentPanel({
               {text.mockPaid}
             </button>
           )}
+          {order.pay_url && order.payment_mode === "configured" && (
+            <button
+              type="button"
+              onClick={() => window.open(order.pay_url, "_blank")}
+              className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-700 text-white text-xs font-black hover:bg-blue-800"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {text.choosePay}
+            </button>
+          )}
         </div>
       )}
 
       <div className="grid grid-cols-2 gap-2">
-        {(["alipay", "wechat"] as const).map((item) => (
+        {(["alipay", "wechat"] as const).map((item) => {
+          const disabled = item === "wechat";
+          return (
           <button
             key={item}
-            onClick={() => onProviderChange(item)}
-            className={`px-3 py-2 rounded-lg border text-xs font-black ${provider === item ? "bg-blue-600 text-white border-blue-600" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              if (!disabled) onProviderChange(item);
+            }}
+            className={`px-3 py-2 rounded-lg border text-xs font-black ${
+              disabled
+                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                : provider === item
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
+            }`}
           >
-            {item === "alipay" ? text.alipay : text.wechat}
+            {item === "alipay" ? text.alipay : `${text.wechat}（暂未开通）`}
           </button>
-        ))}
+        )})}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {plans.map((plan) => (
           <div key={plan.plan_code} className={`border rounded-lg p-3 bg-slate-50 ${order?.plan_code === plan.plan_code ? "border-teal-300 ring-1 ring-teal-100" : "border-slate-200"}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="text-xs font-extrabold text-slate-900">{plan.name}</p>
+            <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold text-slate-900">{plan.name}</p>
                 <p className="text-[11px] text-slate-500 mt-1 leading-5">{plan.description}</p>
               </div>
-              <p className="text-lg font-black text-blue-700 whitespace-nowrap">{formatMoney(plan.price, plan.currency)}</p>
+              <p className="text-xl font-black text-blue-700 leading-none whitespace-nowrap">{formatMoney(plan.price, plan.currency)}</p>
             </div>
             <button
               type="button"
               disabled={busyPlanCode === plan.plan_code}
               onClick={() => onCreateOrder(plan.plan_code)}
-              className="mt-2 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60"
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60"
             >
               <CreditCard className="w-4 h-4" />
               {busyPlanCode === plan.plan_code ? text.creatingOrder : order?.plan_code === plan.plan_code ? text.orderNo : text.choosePay}
@@ -1018,92 +1024,5 @@ function PaymentPanel({
         {text.paymentTip}
       </div>
     </section>
-  );
-}
-
-function ManualPaymentModal({
-  plan,
-  qrVisible,
-  onShowQr,
-  onClose,
-  lang
-}: {
-  plan: MembershipPlan;
-  qrVisible: boolean;
-  onShowQr: () => void;
-  onClose: () => void;
-  lang: Lang;
-}) {
-  const text = copy[lang];
-  const qrSrc = useMemo(() => `/wechat-service-qr.png?t=${Date.now()}`, []);
-  const steps: [string, string, string][] = [
-    ["1", text.manualStep1Title, text.manualStep1Desc],
-    ["2", text.manualStep2Title, text.manualStep2Desc],
-    ["3", text.manualStep3Title, text.manualStep3Desc]
-  ];
-  return (
-    <div className="fixed inset-0 z-[80] bg-slate-950/55 backdrop-blur-sm flex items-center justify-center px-4">
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-black tracking-widest text-teal-700 uppercase">{text.manualTitle}</p>
-            <h3 className="text-lg font-black text-slate-900 mt-1">{text.manualSubtitle}</h3>
-            <p className="text-xs text-slate-500 mt-1">{text.manualDesc}</p>
-          </div>
-          <button onClick={onClose} className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-600 hover:bg-slate-200">
-            {text.close}
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs text-blue-700 font-bold">{text.manualSelected}</p>
-              <p className="text-sm font-black text-slate-900 mt-1">{text.annualServicePlanName}</p>
-              <p className="text-[11px] text-slate-500 mt-1">{text.manualAnnualDesc}</p>
-            </div>
-            <p className="text-2xl font-black text-blue-700 whitespace-nowrap">{formatMoney(plan.price, plan.currency)}/{text.yearSuffix}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {steps.map(([step, title, desc]) => (
-              <div key={step} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <span className="w-7 h-7 rounded bg-slate-900 text-white text-xs font-black inline-flex items-center justify-center">{step}</span>
-                <p className="text-sm font-black text-slate-900 mt-2">{title}</p>
-                <p className="text-[11px] text-slate-500 leading-5 mt-1">{desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 leading-6">
-            <p className="font-black text-slate-900 mb-1">{text.manualIncludesTitle}</p>
-            <p>{text.manualIncludesDesc}</p>
-          </div>
-
-          {!qrVisible ? (
-            <button
-              onClick={onShowQr}
-              className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-black"
-            >
-              {text.manualConfirmBtn}
-            </button>
-          ) : (
-            <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 flex flex-col md:flex-row gap-4 items-center">
-              <div className="w-44 h-44 bg-white rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                <img
-                  src={qrSrc}
-                  alt={text.manualQrTitle}
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div className="flex-1">
-                <p className="text-base font-black text-slate-900">{text.manualQrTitle}</p>
-                <p className="text-xs text-slate-600 leading-6 mt-2">{text.manualQrDesc}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
