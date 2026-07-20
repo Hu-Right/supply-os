@@ -7,8 +7,8 @@ export interface ExhibitionHall {
   id: string;
   nameZh: string;
   nameEn: string;
-  regionZh: string; // e.g. 亚洲, 欧洲, 非洲, 北美, 南美, 中东
-  regionEn: string; // e.g. Asia, Europe, Africa, North America, South America, Middle East
+  regionZh: string;
+  regionEn: string;
   countryZh: string;
   countryEn: string;
   cityZh: string;
@@ -18,7 +18,7 @@ export interface ExhibitionHall {
   bannerUrl: string;
   featuredProductsZh: string[];
   featuredProductsEn: string[];
-  capacityValue: string; // e.g., "5000㎡"
+  capacityValue: string;
 }
 
 export interface Supplier {
@@ -26,13 +26,14 @@ export interface Supplier {
   nameZh: string;
   nameEn: string;
   type: "domestic" | "international";
-  industryZh: string; // e.g., 机械, 电子, 建材, 医疗, 化工, 家居
-  industryEn: string; // e.g., Machinery, Electronics, Construction, Medical, Chemical, Home
+  industryZh: string;
+  industryEn: string;
   countryZh: string;
   countryEn: string;
   cityZh: string;
   cityEn: string;
-  ungmCode?: string; // Optional for domestic, required for international
+  国际公共采购Code?: string;
+  ungmCode?: string;
   mainProductsZh: string[];
   mainProductsEn: string[];
   complianceLabelsZh: string[];
@@ -49,11 +50,11 @@ export interface Lead {
   country: string;
   city: string;
   contactPerson: string;
-  contactMethod: string; // E.g., Phone / WhatsApp / Email
+  contactMethod: string;
   email: string;
   industry: string;
   mainProducts: string;
-  hasUngmParticipation: boolean;
+  has国际公共采购Participation: boolean;
   notes: string;
   type: "exhibition_register" | "supplier_register" | "consulting_advisor" | "requirement_submit" | "custom";
   status: "new" | "contacted" | "qualified" | "lost";
@@ -80,7 +81,7 @@ export interface LearningMaterial {
   id: string;
   titleZh: string;
   titleEn: string;
-  categoryZh: string; // E.g., 政策解读, UNGM入驻, 参展指南
+  categoryZh: string;
   categoryEn: string;
   summaryZh: string;
   summaryEn: string;
@@ -88,6 +89,8 @@ export interface LearningMaterial {
   contentEn: string;
   isPremium: boolean; // Member-only
   downloadsCount: number;
+  fileUrl?: string;
+  fileName?: string;
 }
 
 export interface FAQItem {

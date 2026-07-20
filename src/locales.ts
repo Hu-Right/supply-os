@@ -5,10 +5,9 @@
 
 export const TRANSLATIONS = {
   zh: {
-    // Nav
-    brandName: "全球共采与海外展厅协同门户",
+    brandName: "全球公采与海外展厅协同门户",
     navShowrooms: "海外展厅",
-    navJointProcure: "共采系列",
+    navJointProcure: "公采系列",
     navSuppliers: "供应商管理",
     navCRM: "客户管理 / CRM",
     navServices: "服务生态",
@@ -17,7 +16,6 @@ export const TRANSLATIONS = {
     loginRegister: "登录 / 注册",
     guestMode: "游客模式",
 
-    // Global filters
     allRegions: "全部地区",
     allCountries: "全部国家",
     allIndustries: "全部行业",
@@ -27,7 +25,6 @@ export const TRANSLATIONS = {
     selectIndustry: "选择行业",
     noData: "暂无匹配数据",
 
-    // Overseas Showrooms
     showroomTitle: "海外永久展示中心",
     registerShowroomBtn: "入驻海外展厅",
     capacityLabel: "展厅物理面积",
@@ -37,21 +34,19 @@ export const TRANSLATIONS = {
     quickSubmitLead: "一键提交海外展厅意向申请",
     showroomSubTitle: "常态化线下展示 + 驻外双语顾问 + 24小时前展后仓备配协同，直达国际巨头采购网络",
 
-    // Joint Procure
-    ungmBriefIntro: "UNGM 联合国采购资质及参展配套体系",
+    国际公共采购BriefIntro: "国际公共采购 联合国采购资质及参展配套体系",
     qualificationSpecs: "采购资质及标准说明",
     entryProcess: "自理入驻五步流程",
     procureFAQ: "联合国采购常见问答 FAQ",
     servicePackages: "官方定制参展/投标服务包",
-    caseMilestones: "近年典型共采中标成果案例",
+    caseMilestones: "近年典型公采中标成果案例",
     downloadMaterials: "实用高频招标文件及合规材料下载",
     submitProcureReq: "提交国际和联合国代办采购需求",
     contactConsultant: "寻求资深联合国采购顾问协助",
 
-    // Supplier Management
     supplierMgmtTitle: "中国及国际供采供应商目录",
     domesticSuppliers: "中国优质供应商 (按行业筛选)",
-    internationalSuppliers: "国外入网供应商 (按 UNGM Code)",
+    internationalSuppliers: "国外入网供应商 (按 国际公共采购 Code)",
     registerSupplierBtn: "注册成为认证供应商",
     supplierType: "供应商类型",
     supplierTypeDomestic: "国内优质工厂",
@@ -59,9 +54,8 @@ export const TRANSLATIONS = {
     complianceLabel: "合规及体系认证",
     mainProducts: "核心主营产品",
     location: "企业所在地",
-    ungmCodeLabel: "UNGM 标准 8 位分类码",
+    国际公共采购CodeLabel: "国际公共采购 标准 8 位分类码",
 
-    // CRM Panel
     crmDashboard: "平台客户池 & CRM 跟进协作后台",
     leadTracker: "线索实时采集与分拨",
     clientSegments: "高意向客户池 (找客源)",
@@ -77,13 +71,11 @@ export const TRANSLATIONS = {
     aiAnalyzing: "Gemini 深度分析匹配中，基于您的主营及全球采购政策...",
     aiMatchingResult: "Gemini 智能供采匹配及 CRM 阶段建议 report：",
 
-    // Services Eco
     serviceEcoTitle: "国际商贸一站式配套服务生态网络",
     ecosystemsSummary: "从跨国参展、认证、合规评估到保税清关，专人为您的出海护航",
     bookServiceNow: "预约专业服务顾问",
     successStory: "标杆出海服务成功案例",
 
-    // Forms
     companyName: "企业名称",
     contactPerson: "联系人姓名",
     contactMethod: "联系电话 / WhatsApp / 微信",
@@ -96,22 +88,55 @@ export const TRANSLATIONS = {
     formError: "请填写各必填项！",
     uploadPlaceholder: "拖拽文件到此处或点击选择 (PDF, PNG, ZIP, Word)",
 
-    // Membership & Learning
-    learningTitle: "常采共采知识培训中心",
+    learningTitle: "常采公采知识培训中心",
     membershipTitle: "出海尊享会员权益",
     unlockedPremium: "【高级会员专属知识】已解锁，请放心阅读！",
     lockedPremium: "本深度文件为【高级会员专属】。您当前为游客，请点击升级或申请代注册体验解锁全量合规模板。",
     membershipRequired: "会员专属级别",
-    upgradeToVip: "一键升级为金牌共采高级会员",
+    upgradeToVip: "一键升级为金牌公采系列高级会员",
     downloadBtn: "下载模板 (模拟)",
     hasDownloaded: "已模拟下载！请查收您的存储目录。",
-    alreadyVip: "您当前已是金牌高级会员！可获取全部合规政策与招标文件模板。"
+    alreadyVip: "您当前已是金牌高级会员！可获取全部合规政策与招标文件模板。",
+
+    // Payment
+    paymentTitle: "确认支付",
+    paymentPlanLabel: "套餐",
+    paymentSelectMethod: "选择支付方式",
+    paymentAlipay: "支付宝",
+    paymentWechat: "微信支付",
+    paymentRecommended: "推荐",
+    paymentAlipayTipBrowser: "将自动唤起支付宝完成支付",
+    paymentAlipayTipWechat: "微信内无法使用支付宝，请在浏览器打开",
+    paymentAlipayTipPC: "请使用支付宝 App 扫描二维码",
+    paymentWechatTipWechat: "点击下方按钮，在微信内完成支付",
+    paymentWechatTipBrowser: "将唤起微信完成支付",
+    paymentWechatTipPC: "请使用微信 App 扫描二维码",
+    paymentConfirmBtn: "确认支付",
+    paymentCreating: "创建订单中...",
+    paymentWaitingTitle: "等待支付完成",
+    paymentWaitingDesc: "系统会自动刷新支付状态",
+    paymentReOpenBtn: "重新打开支付页面",
+    paymentCopyLink: "复制支付链接",
+    paymentSuccessTitle: "支付成功！",
+    paymentSuccessDesc: "您的会员权益已激活",
+    paymentOrderNo: "订单号",
+    paymentDoneBtn: "完成",
+    paymentFailedTitle: "支付未完成",
+    paymentFailedDesc: "订单已过期或支付失败",
+    paymentRetryBtn: "重新选择支付方式",
+    paymentTimeoutError: "支付已超时或失败，请重新下单",
+    paymentCreateError: "创建订单失败，请稍后重试",
+    membershipFreePlan: "基础免费版",
+    membershipBuyNow: "立即购买",
+    membershipCurrentPlan: "当前套餐",
+    membershipLoginRequired: "请先登录后再购买",
+    membershipPurchaseSuccess: "购买成功！当前额度",
+    membershipUpgradedToVip: "已升级为VIP会员",
   },
   en: {
-    // Nav
     brandName: "Global Procurement & Showrooms Portal",
     navShowrooms: "Overseas Showrooms",
-    navJointProcure: "UNGM Procure",
+    navJointProcure: "国际公共采购 Procure",
     navSuppliers: "Suppliers Directory",
     navCRM: "Client Mgmt / CRM",
     navServices: "Ecosystem Services",
@@ -120,7 +145,6 @@ export const TRANSLATIONS = {
     loginRegister: "Login / Register",
     guestMode: "Guest Mode",
 
-    // Global filters
     allRegions: "All Regions",
     allCountries: "All Countries",
     allIndustries: "All Industries",
@@ -130,7 +154,6 @@ export const TRANSLATIONS = {
     selectIndustry: "Select Industry",
     noData: "No matching data found",
 
-    // Overseas Showrooms
     showroomTitle: "Physical Exhibition Centers",
     registerShowroomBtn: "Register in Showroom",
     capacityLabel: "Physical Size",
@@ -140,21 +163,19 @@ export const TRANSLATIONS = {
     quickSubmitLead: "Submit Application Form",
     showroomSubTitle: "Year-Round Physical Showroom + Multi-lingual Local Advisors + 24/7 Custom Depot Delivery Ecosystem",
 
-    // Joint Procure
-    ungmBriefIntro: "UNGM Procurement Framework & Supportive Systems",
+    国际公共采购BriefIntro: "国际公共采购 Procurement Framework & Supportive Systems",
     qualificationSpecs: "Qualifications & Standards Instruction",
     entryProcess: "5-Step Registration Guideline",
-    procureFAQ: "UNGM Joint Procurement FAQs",
+    procureFAQ: "国际公共采购 Joint Procurement FAQs",
     servicePackages: "Tailored Procurement Service Bundles",
     caseMilestones: "Bid Winning Case Studies & Milestones",
     downloadMaterials: "High-Frequency Tender Files & Templates",
     submitProcureReq: "Submit Standard Procurement Requirements",
-    contactConsultant: "Talk to Senior UNGM Procurement Advisor",
+    contactConsultant: "Talk to Senior 国际公共采购 Procurement Advisor",
 
-    // Supplier Management
     supplierMgmtTitle: "Domestic & International Suppliers Catalog",
     domesticSuppliers: "优质中国工厂 (By Sector Filter)",
-    internationalSuppliers: "International Registered Suppliers (By UNGM Code)",
+    internationalSuppliers: "International Registered Suppliers (By 国际公共采购 Code)",
     registerSupplierBtn: "Register as Certified Supplier",
     supplierType: "Supplier Type",
     supplierTypeDomestic: "Domestic OEM Factory",
@@ -162,9 +183,8 @@ export const TRANSLATIONS = {
     complianceLabel: "Compliance & Industry Quality Certs",
     mainProducts: "Main Products Offered",
     location: "Company Location",
-    ungmCodeLabel: "UNGM UNSPSC 8-digit Code",
+    国际公共采购CodeLabel: "国际公共采购 UNSPSC 8-digit Code",
 
-    // CRM Panel
     crmDashboard: "Public Leads Pool & Intelligent CRM Workspace",
     leadTracker: "Inbound Leads Stream",
     clientSegments: "High-Intent Clients Segments (Client Finder)",
@@ -180,13 +200,11 @@ export const TRANSLATIONS = {
     aiAnalyzing: "Gemini is deeply analyzing your capacity and local custom policies...",
     aiMatchingResult: "Gemini Smart Matchmaking & CRM Advice Report:",
 
-    // Services Eco
     serviceEcoTitle: "Global One-Stop Business Support Network",
     ecosystemsSummary: "From cross-border exhibitions, compliance, auditing to bond custom clearance, experts guide your expansion.",
     bookServiceNow: "Book Expert Consultation Now",
     successStory: "Outstanding Global Delivery Case Studies",
 
-    // Forms
     companyName: "Company Legal Name",
     contactPerson: "Contact Person Full Name",
     contactMethod: "Phone Number / WhatsApp / WeChat",
@@ -199,7 +217,6 @@ export const TRANSLATIONS = {
     formError: "Please complete all required fields!",
     uploadPlaceholder: "Drag papers here or click to choose (PDF, PNG, ZIP, Word)",
 
-    // Membership & Learning
     learningTitle: "Joint Procurement Knowledge Training Hub",
     membershipTitle: "Premium Global Member Services",
     unlockedPremium: "[Premium Exclusive Content] Unlocked. Enjoy your study!",
@@ -208,6 +225,41 @@ export const TRANSLATIONS = {
     upgradeToVip: "Upgrade to Premium Gold Membership with 1-Click",
     downloadBtn: "Download File (Simulation)",
     hasDownloaded: "File downloaded successfully in simulated environment.",
-    alreadyVip: "You are currently a Gold Premium Member! Enjoy access to all regulatory checklists & bidding dossiers."
-  }
+    alreadyVip: "You are currently a Gold Premium Member! Enjoy access to all regulatory checklists & bidding dossiers.",
+
+    // Payment
+    paymentTitle: "Confirm Payment",
+    paymentPlanLabel: "Plan",
+    paymentSelectMethod: "Select Payment Method",
+    paymentAlipay: "Alipay",
+    paymentWechat: "WeChat Pay",
+    paymentRecommended: "Recommended",
+    paymentAlipayTipBrowser: "Will redirect to Alipay to complete payment",
+    paymentAlipayTipWechat: "Alipay not available in WeChat. Please open in browser",
+    paymentAlipayTipPC: "Please scan QR code with Alipay App",
+    paymentWechatTipWechat: "Click the button below to pay within WeChat",
+    paymentWechatTipBrowser: "Will redirect to WeChat to complete payment",
+    paymentWechatTipPC: "Please scan QR code with WeChat App",
+    paymentConfirmBtn: "Confirm Payment",
+    paymentCreating: "Creating order...",
+    paymentWaitingTitle: "Waiting for payment",
+    paymentWaitingDesc: "Payment status will update automatically",
+    paymentReOpenBtn: "Re-open Payment Page",
+    paymentCopyLink: "Copy Payment Link",
+    paymentSuccessTitle: "Payment Successful!",
+    paymentSuccessDesc: "Your membership benefits have been activated",
+    paymentOrderNo: "Order No",
+    paymentDoneBtn: "Done",
+    paymentFailedTitle: "Payment Incomplete",
+    paymentFailedDesc: "Order expired or payment failed",
+    paymentRetryBtn: "Choose Another Method",
+    paymentTimeoutError: "Payment timed out or failed, please try again",
+    paymentCreateError: "Failed to create order, please try again",
+    membershipFreePlan: "Free Basic",
+    membershipBuyNow: "Buy Now",
+    membershipCurrentPlan: "Current Plan",
+    membershipLoginRequired: "Please login first to purchase",
+    membershipPurchaseSuccess: "Purchase successful! Quota",
+    membershipUpgradedToVip: "Upgraded to VIP Member",
+  },
 };

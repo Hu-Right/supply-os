@@ -50,8 +50,8 @@ export const EXHIBITION_HALLS: ExhibitionHall[] = [
     countryEn: "Kenya",
     cityZh: "内罗毕",
     cityEn: "Nairobi",
-    descriptionZh: "立足东非，辐射非洲共采，提供灌溉农机、低成本建材与联合国援助物资常态化入库联络处。",
-    descriptionEn: "Based in East Africa and radiating into UNGM-based joint procurement, providing irrigation machinery, budget building materials, and a liaison office for UN humanitarian aid supplies.",
+    descriptionZh: "立足东非，辐射非洲公采，提供灌溉农机、低成本建材与联合国援助物资常态化入库联络处。",
+    descriptionEn: "Based in East Africa and radiating into 国际公共采购-based joint procurement, providing irrigation machinery, budget building materials, and a liaison office for UN humanitarian aid supplies.",
     bannerUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=800&q=80",
     featuredProductsZh: ["柴油多功能拖拉机", "模块化活动板房", "水旱两用播种机"],
     featuredProductsEn: ["Diesel Multi-use Tractors", "Modular Prefab Housing Units", "Dual-use Wet/Dry Seeders"],
@@ -202,11 +202,11 @@ export const SUPPLIERS: Supplier[] = [
     countryEn: "Germany",
     cityZh: "慕尼黑",
     cityEn: "Munich",
-    ungmCode: "43211500", // UNGM: Plastic & Resins
+    ungmCode: "43211500", // 国际公共采购: Plastic & Resins
     mainProductsZh: ["可完全降解PLA生物塑料粒子", "高强度耐水性植物粘合胶", "医用级耐酸碱密封胶圈"],
     mainProductsEn: ["Fully Compostable PLA Resins", "Bio-based Plant Water-resistant Adhesives", "Acid-resistant Medical sealing rings"],
-    complianceLabelsZh: ["UNGM Level 2", "EN13432 Composting Certification", "ISO14001环境安全"],
-    complianceLabelsEn: ["UNGM Level 2 Registered", "EN13432 Compost Certificate", "ISO14001 Environmental Health"],
+    complianceLabelsZh: ["国际公共采购 Level 2", "EN13432 Composting Certification", "ISO14001环境安全"],
+    complianceLabelsEn: ["国际公共采购 Level 2 Registered", "EN13432 Compost Certificate", "ISO14001 Environmental Health"],
     contactPerson: "Dr. Marcus Weber",
     contactEmail: "m.weber@apex-bioplastic.de",
     contactPhone: "+49 89-4566-10",
@@ -223,11 +223,11 @@ export const SUPPLIERS: Supplier[] = [
     countryEn: "Kenya",
     cityZh: "内罗毕",
     cityEn: "Nairobi",
-    ungmCode: "42141505", // UNGM: Irrigation & Agricultural equipment
+    ungmCode: "42141505", // 国际公共采购: Irrigation & Agricultural equipment
     mainProductsZh: ["抗沙泵体过滤器", "中小型自控式滴灌系统装置", "水罐拖车柔性卡箍"],
     mainProductsEn: ["Anti-abrasive Water Well Pump Screens", "Modular Smart Micro-drip Irrigation Kits", "Water Bowser Trailer Heavy Quick Clampers"],
-    complianceLabelsZh: ["UNGM Basic Regist", "肯尼亚KEBS国家安全标志", "SGS现场审厂合规"],
-    complianceLabelsEn: ["UNGM Basic Level", "KEBS Quality Safety Mark", "SGS On-site Audited"],
+    complianceLabelsZh: ["国际公共采购 Basic Regist", "肯尼亚KEBS国家安全标志", "SGS现场审厂合规"],
+    complianceLabelsEn: ["国际公共采购 Basic Level", "KEBS Quality Safety Mark", "SGS On-site Audited"],
     contactPerson: "Samuel Gichuru",
     contactEmail: "samuel.g@nairobi-agrohydraulics.co.ke",
     contactPhone: "+254 20-3344-998",
@@ -244,11 +244,11 @@ export const SUPPLIERS: Supplier[] = [
     countryEn: "Egypt",
     cityZh: "开罗",
     cityEn: "Cairo",
-    ungmCode: "51101500", // UNGM: Office Furniture & Supplies
+    ungmCode: "51101500", // 国际公共采购: Office Furniture & Supplies
     mainProductsZh: ["高防潮抗菌复合办公桌椅", "学校课室专用折叠护脊学习椅", "医院病区防霉模块化钢塑柜"],
     mainProductsEn: ["Antimicrobial Damp-proof Office Desks", "Orthopedic School Folding Study Chairs", "Mold-resistant Steelwork Ward Lockers"],
-    complianceLabelsZh: ["UNGM Level 1", "NFPA阻燃等级", "Global GreenTag一级环保"],
-    complianceLabelsEn: ["UNGM Level 1 Registered", "NFPA Fire Retardant", "Global GreenTag certified Level A"],
+    complianceLabelsZh: ["国际公共采购 Level 1", "NFPA阻燃等级", "Global GreenTag一级环保"],
+    complianceLabelsEn: ["国际公共采购 Level 1 Registered", "NFPA Fire Retardant", "Global GreenTag certified Level A"],
     contactPerson: "Amir Al-Sisi",
     contactEmail: "sales@alnoor-ecofurniture.eg",
     contactPhone: "+20 2-2577-4560",
@@ -260,7 +260,7 @@ export const OPPORTUNITIES: Opportunity[] = [
   {
     id: "opp-01",
     titleZh: "东非难民营2026年度移动板房及拼装卫浴集采商机",
-    titleEn: "Joint UNGM RFP: Prefabricated Housing and Prefab Bathroom Pods for East Africa Projects",
+    titleEn: "Joint 国际公共采购 RFP: Prefabricated Housing and Prefab Bathroom Pods for East Africa Projects",
     industryZh: "建材",
     industryEn: "Construction",
     countryZh: "肯尼亚",
@@ -304,10 +304,10 @@ export const OPPORTUNITIES: Opportunity[] = [
 export const LEARNING_MATERIALS: LearningMaterial[] = [
   {
     id: "lm-01",
-    titleZh: "联合国采购（UNGM）基础级别(Basic)与等级一级(Level 1)入驻新手实操指南",
-    titleEn: "UNGM Registration Guide: Step-by-Step Practical Blueprint for Basic & Level 1 Access",
-    categoryZh: "UNGM入驻",
-    categoryEn: "UNGM Registration",
+    titleZh: "联合国采购（国际公共采购）基础级别(Basic)与等级一级(Level 1)入驻新手实操指南",
+    titleEn: "国际公共采购 Registration Guide: Step-by-Step Practical Blueprint for Basic & Level 1 Access",
+    categoryZh: "国际公共采购入驻",
+    categoryEn: "国际公共采购 Registration",
     summaryZh: "手把手教授如何整理企业资质材料、填写供应商财务申明和标准主营物料UNSPSC编码匹配。",
     summaryEn: "A comprehensive manual instruction instructing teams on QMS papers, preparing standard templates and mapping UNSPSC codes accurately.",
     contentZh: "此指南详细叙述：1. 中国商事主体三证合一证照中英翻译格式要求；2. 财务资产负债表一页模板；3. UNSPSC精确至细分项的匹配口径；4. 防范常见账户被拒被挂起关键要点。",
@@ -343,13 +343,181 @@ export const LEARNING_MATERIALS: LearningMaterial[] = [
   }
 ];
 
+export const TRAINING_DOWNLOAD_MATERIALS: LearningMaterial[] = [
+  {
+    id: "training-doc-01",
+    titleZh: "1-采购形式判断卡",
+    titleEn: "1 - Procurement Form Judgement Card",
+    categoryZh: "研修班工具",
+    categoryEn: "Workshop Toolkit",
+    summaryZh: "用于快速判断项目适合公开招标、询价、框架协议或其他采购方式，帮助企业在前期选对响应路径。",
+    summaryEn: "A quick worksheet for choosing the right procurement approach before committing bid resources.",
+    contentZh: "适用场景：采购需求初筛、客户沟通前准备、项目响应方式判断。建议在收到采购线索后先填写本卡。",
+    contentEn: "Use it for early lead review, buyer conversations and procurement route decisions.",
+    isPremium: false,
+    downloadsCount: 128,
+    fileUrl: "/downloads/training/01-procurement-form-judgement-card.docx",
+    fileName: "1-采购形式判断卡.docx"
+  },
+  {
+    id: "training-doc-02",
+    titleZh: "2-采购官10问",
+    titleEn: "2 - Ten Questions from Procurement Officers",
+    categoryZh: "访谈准备",
+    categoryEn: "Buyer Interview",
+    summaryZh: "整理采购官常问的 10 个关键问题，帮助销售、投标和管理层提前统一回答口径。",
+    summaryEn: "Ten practical buyer questions for aligning sales, bid and leadership responses.",
+    contentZh: "适用场景：采购官访谈、展会洽谈、线上答疑、标前澄清准备。可作为团队内部演练提纲。",
+    contentEn: "Use it for buyer interviews, trade-show conversations and pre-bid clarification rehearsals.",
+    isPremium: false,
+    downloadsCount: 96,
+    fileUrl: "/downloads/training/02-procurement-officer-10-questions.docx",
+    fileName: "2-采购官10问.docx"
+  },
+  {
+    id: "training-doc-03",
+    titleZh: "3-供应商履约能力自检表",
+    titleEn: "3 - Supplier Performance Capability Checklist",
+    categoryZh: "履约自检",
+    categoryEn: "Delivery Readiness",
+    summaryZh: "围绕产能、资质、交期、质量和售后能力做自查，判断企业是否具备承接国际采购订单的基础条件。",
+    summaryEn: "A readiness checklist covering capacity, credentials, lead time, quality and service capability.",
+    contentZh: "适用场景：报名研修班前自评、进入供应商库前准备、投标前内部复盘。",
+    contentEn: "Use it before training, supplier onboarding or a bid-readiness review.",
+    isPremium: false,
+    downloadsCount: 112,
+    fileUrl: "/downloads/training/03-supplier-performance-capability-checklist.docx",
+    fileName: "3-供应商履约能力自检表.docx"
+  },
+  {
+    id: "training-doc-04",
+    titleZh: "4-合同与交付风险清单",
+    titleEn: "4 - Contract and Delivery Risk Checklist",
+    categoryZh: "风险控制",
+    categoryEn: "Risk Control",
+    summaryZh: "从合同条款、付款节点、交货责任、验收标准和违约风险等维度梳理项目风险。",
+    summaryEn: "A contract and delivery risk checklist for payment, acceptance and liability review.",
+    contentZh: "适用场景：合同评审、报价前风险核算、供应链与法务协同检查。",
+    contentEn: "Use it before quotation and contract review to surface delivery, payment and acceptance risks.",
+    isPremium: false,
+    downloadsCount: 88,
+    fileUrl: "/downloads/training/04-contract-delivery-risk-checklist.docx",
+    fileName: "4-合同与交付风险清单.docx"
+  },
+  {
+    id: "training-doc-05",
+    titleZh: "5-UN采购机会卡",
+    titleEn: "5 - UN Procurement Opportunity Card",
+    categoryZh: "机会分析",
+    categoryEn: "Opportunity Review",
+    summaryZh: "将联合国采购机会拆解为需求、预算、资质、时间线、竞争态势和下一步动作。",
+    summaryEn: "A one-page opportunity card for UN procurement leads, budgets, timelines and next steps.",
+    contentZh: "适用场景：采购机会池筛选、销售会议、企业内部立项判断。",
+    contentEn: "Use it to qualify UN procurement opportunities and align the next action owner.",
+    isPremium: false,
+    downloadsCount: 101,
+    fileUrl: "/downloads/training/05-un-procurement-opportunity-card.docx",
+    fileName: "5-UN采购机会卡.docx"
+  },
+  {
+    id: "training-doc-06",
+    titleZh: "6-强制文件清单",
+    titleEn: "6 - Mandatory Document Checklist",
+    categoryZh: "文件准备",
+    categoryEn: "Document Prep",
+    summaryZh: "汇总投标和供应商注册阶段常见的强制材料，便于企业逐项检查缺口。",
+    summaryEn: "A mandatory document checklist for supplier registration and bid preparation.",
+    contentZh: "适用场景：资料包准备、标书附件核对、供应商档案完善。",
+    contentEn: "Use it to keep qualification files, bid attachments and supplier records complete.",
+    isPremium: false,
+    downloadsCount: 119,
+    fileUrl: "/downloads/training/06-mandatory-document-checklist.docx",
+    fileName: "6-强制文件清单.docx"
+  },
+  {
+    id: "training-doc-07",
+    titleZh: "7-技术响应矩阵",
+    titleEn: "7 - Technical Response Matrix",
+    categoryZh: "技术响应",
+    categoryEn: "Technical Response",
+    summaryZh: "用于逐条对照招标技术要求、企业响应内容、证明材料和偏离说明。",
+    summaryEn: "A response matrix for matching technical requirements with evidence and deviations.",
+    contentZh: "适用场景：技术标编制、需求偏离分析、证明文件索引。",
+    contentEn: "Use it when drafting technical submissions and managing evidence references.",
+    isPremium: false,
+    downloadsCount: 135,
+    fileUrl: "/downloads/training/07-technical-response-matrix.docx",
+    fileName: "7-技术响应矩阵.docx"
+  },
+  {
+    id: "training-doc-08",
+    titleZh: "8-报价成本核算表",
+    titleEn: "8 - Quotation Cost Calculation Sheet",
+    categoryZh: "报价测算",
+    categoryEn: "Costing",
+    summaryZh: "帮助企业拆分产品、运输、认证、保险、税费、服务和风险缓冲，形成更稳健的报价。",
+    summaryEn: "A costing worksheet for product, logistics, certification, insurance, tax and contingency.",
+    contentZh: "适用场景：报价前测算、利润复核、不同交付条款下的成本比较。",
+    contentEn: "Use it to validate margins and compare cost assumptions across delivery terms.",
+    isPremium: false,
+    downloadsCount: 124,
+    fileUrl: "/downloads/training/08-quotation-cost-calculation-sheet.docx",
+    fileName: "8-报价成本核算表.docx"
+  },
+  {
+    id: "training-doc-09",
+    titleZh: "9-供应商就绪度评估表",
+    titleEn: "9 - Supplier Readiness Assessment",
+    categoryZh: "能力评估",
+    categoryEn: "Readiness Assessment",
+    summaryZh: "从组织、产品、合规、交付、语言和商务响应能力评估企业进入国际采购市场的就绪程度。",
+    summaryEn: "A structured supplier readiness assessment across organization, product, compliance and delivery.",
+    contentZh: "适用场景：研修班课前评估、供应商分层、后续辅导计划制定。",
+    contentEn: "Use it before training or advisory work to identify supplier enablement priorities.",
+    isPremium: false,
+    downloadsCount: 93,
+    fileUrl: "/downloads/training/09-supplier-readiness-assessment.docx",
+    fileName: "9-供应商就绪度评估表.docx"
+  },
+  {
+    id: "training-doc-10",
+    titleZh: "10-会后30天行动计划",
+    titleEn: "10 - Post-event 30-day Action Plan",
+    categoryZh: "行动计划",
+    categoryEn: "Action Plan",
+    summaryZh: "把研修班后的资料整理、平台注册、机会筛选、团队分工和跟进节奏拆成 30 天行动表。",
+    summaryEn: "A 30-day action plan for turning workshop learning into concrete execution.",
+    contentZh: "适用场景：会后复盘、管理层汇报、团队执行追踪。",
+    contentEn: "Use it after the workshop to assign owners, deadlines and measurable progress.",
+    isPremium: false,
+    downloadsCount: 76,
+    fileUrl: "/downloads/training/10-post-event-30-day-action-plan.docx",
+    fileName: "10-会后30天行动计划.docx"
+  },
+  {
+    id: "training-doc-11",
+    titleZh: "11-联合意向表",
+    titleEn: "11 - Joint Intention Form",
+    categoryZh: "合作意向",
+    categoryEn: "Cooperation Intent",
+    summaryZh: "用于记录企业参与联合采购、供应商库、海外展厅或后续辅导服务的初步合作意向。",
+    summaryEn: "An intent form for joint procurement, supplier onboarding, showrooms and advisory services.",
+    contentZh: "适用场景：会后合作登记、顾问跟进、企业需求归档。",
+    contentEn: "Use it to record follow-up intent and keep advisory conversations organized.",
+    isPremium: false,
+    downloadsCount: 82,
+    fileUrl: "/downloads/training/11-joint-intention-form.docx",
+    fileName: "11-联合意向表.docx"
+  }
+];
+
 export const FAQS: FAQItem[] = [
   {
     id: "faq-01",
-    questionZh: "什么是联合国全球采购（UNGM）编码体系？国内建材企业该如何匹配对应的UNGM code？",
-    questionEn: "What is the UNGM coding system? How do building materials companies map their UNSPSC codes?",
-    answerZh: "UNGM采用UNSPSC（联合国标准产品与服务分类）编码。例如，建筑材料及预制房屋归属于第30门类（30000000）。您可以在UNGM官网使用英文关键字（如‘prefabricated’、'building cement'）进行精确搜索，并关联到您公司的产品属性。匹配不精准可能导致无法及时获取智能系统推送的相关招标线索。",
-    answerEn: "The UNGM utilizes the UNSPSC system. For instance, structural building supplies fall under Division 30 (30000000). You can query keywords like 'prefabricated structure' or 'panel wood' on the portal to locate specific 8-digit codes. Precise search matching guarantees automated, relevant system tender notifications.",
+    questionZh: "什么是联合国全球采购（国际公共采购）编码体系？国内建材企业该如何匹配对应的国际公共采购 code？",
+    questionEn: "What is the 国际公共采购 coding system? How do building materials companies map their UNSPSC codes?",
+    answerZh: "国际公共采购采用UNSPSC（联合国标准产品与服务分类）编码。例如，建筑材料及预制房屋归属于第30门类（30000000）。您可以在国际公共采购官网使用英文关键字（如‘prefabricated’、'building cement'）进行精确搜索，并关联到您公司的产品属性。匹配不精准可能导致无法及时获取智能系统推送的相关招标线索。",
+    answerEn: "The 国际公共采购 utilizes the UNSPSC system. For instance, structural building supplies fall under Division 30 (30000000). You can query keywords like 'prefabricated structure' or 'panel wood' on the portal to locate specific 8-digit codes. Precise search matching guarantees automated, relevant system tender notifications.",
     category: "ungm"
   },
   {
@@ -358,14 +526,14 @@ export const FAQS: FAQItem[] = [
     questionEn: "What are the core value of joining an overseas exhibition hall? How are samples managed without locally active staff?",
     answerZh: "海外展厅采用‘前展后仓、联人联货’常态化运营模式。我们有派驻法兰克福、迪拜、内罗毕等当地的高素质中英双语顾问，负责现场接待客商采购、演示设备，并随时把线索回传国内，您只需通过视频及本平台的CRM消息系统即可在几分钟内与买方取得一对一远程商务对接机会。",
     answerEn: "Our overseas exhibition spaces combine 'persistent hardware showroom with local bonded depots.' Fully trained bilingual coordinators manage your physical displays, perform basic operations, and gather offline client inquiries. You receive qualified leads in real-time through this CRM to spark instant video conferences.",
-    category: "exhibition"
+    category: "ungm"
   },
   {
     id: "faq-03",
     questionZh: "平台的供应商审核流程要多久？国内外的差异是什么？",
     questionEn: "How long does the supplier vetting process take? What is the difference between local and foreign applicants?",
-    answerZh: "注册提交后，平台运营专员通常在1-2个工作日内完成合规与资质初审。国内企业侧重其三证、出口清关测试及主营业务是否具备代加工或跨国贸易经验。国外企业由于接入UNGM共采网络，必须提供有效的UNGM供应商注册编码，便于我们从UN系统进行合规自动核验。",
-    answerEn: "Once submitted, the compliance audit completes within 1-2 business days. For domestic factories, the focus rests on export track-records and manufacturing capabilities. For foreign companies, the active UNGM code must be specified to trigger credentials sync verification through UN-level channels.",
-    category: "general"
+    answerZh: "注册提交后，平台运营专员通常在1-2个工作日内完成合规与资质初审。国内企业侧重其三证、出口清关测试及主营业务是否具备代加工或跨国贸易经验。国外企业由于接入国际公共采购公采网络，必须提供有效的国际公共采购供应商注册编码，便于我们从UN系统进行合规自动核验。",
+    answerEn: "Once submitted, the compliance audit completes within 1-2 business days. For domestic factories, the focus rests on export track-records and manufacturing capabilities. For foreign companies, the active 国际公共采购 code must be specified to trigger credentials sync verification through UN-level channels.",
+    category: "ungm"
   }
 ];

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,6 +14,7 @@ import {
   Crown,
   Search,
   Filter,
+  ArrowLeft,
   ArrowRight,
   Plus,
   MessageSquare,
@@ -33,9 +34,22 @@ import {
   Menu
 } from "lucide-react";
 
-import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, LEARNING_MATERIALS, FAQS } from "./data";
+import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "./data";
 import { TRANSLATIONS } from "./locales";
 import { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "./types";
+import ProcurementNoticesPool from "./ProcurementNoticesPool";
+import TrainingPage from "./TrainingPage";
+import PaymentModal from "./PaymentModal";
+
+type AuthUser = {
+  user_key: string;
+  email: string;
+  display_name?: string;
+  membership_tier?: "free" | "vip" | string;
+  supplier_id?: number | null;
+  supplier_industry_id?: number | null;
+  supplier_industry?: string | null;
+};
 
 export default function App() {
   // Localization state
@@ -45,9 +59,32 @@ export default function App() {
   // Membership & Mode state
   const [isVip, setIsVip] = useState<boolean>(false);
   const [userEmail, setUserEmail] = useState<string>("sirming2024@gmail.com");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authError, setAuthError] = useState<string>("");
+  const [billingMessage, setBillingMessage] = useState<string>("");
+  const [claimMessage, setClaimMessage] = useState<string>("");
+  const [authForm, setAuthForm] = useState({
+    displayName: "",
+    email: "",
+    password: ""
+  });
+  const [isTrainingRoute, setIsTrainingRoute] = useState<boolean>(window.location.hash === "#training");
+  const [claimForm, setClaimForm] = useState({
+    companyName: "",
+    supplierType: "domestic",
+    contactName: "",
+    contactPhone: "",
+    businessLicenseNo: ""
+  });
 
   // Main UI Navigation Tab
   // 1: Showrooms, 2: Joint Procure, 3: Suppliers, 4: CRM Panel, 5: Ecosystem, 6: Learning, 7: Membership
+  // Payment modal state
+  const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+  const [paymentPlan, setPaymentPlan] = useState<{ code: string; name: string; price: number; currency: string } | null>(null);
+
   const [activeTab, setActiveTab] = useState<number>(1);
 
   // Search & Filter States
@@ -59,7 +96,7 @@ export default function App() {
   // Suppliers custom filters
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState<string>("");
-  const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState<string>("");
+  const [supplier国际公共采购CodeSearch, setSupplier国际公共采购CodeSearch] = useState<string>("");
 
   // Server-state data synchronization
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -107,7 +144,7 @@ export default function App() {
     email: "",
     industry: "机械 (Machinery)",
     mainProducts: "",
-    hasUngm: false,
+    has国际公共采购: false,
     notes: ""
   });
 
@@ -122,7 +159,7 @@ export default function App() {
     countryEn: "China",
     cityZh: "",
     cityEn: "",
-    ungmCode: "",
+    国际公共采购Code: "",
     mainProductsZh: "",
     mainProductsEn: "",
     complianceLabelsZh: "ISO9001, CE认证",
@@ -154,6 +191,17 @@ export default function App() {
   };
 
   useEffect(() => {
+    const savedUser = window.localStorage.getItem("supply_os_auth_user");
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser) as AuthUser;
+        setAuthUser(parsedUser);
+        setUserEmail(parsedUser.email);
+        setIsVip(parsedUser.membership_tier === "vip");
+      } catch {
+        window.localStorage.removeItem("supply_os_auth_user");
+      }
+    }
     fetchData();
     // Default selecting elements for AI matchmaking
     if (SUPPLIERS.length > 0) {
@@ -163,6 +211,146 @@ export default function App() {
       setMatchSelectedOpportunity(OPPORTUNITIES[0]);
     }
   }, []);
+
+  useEffect(() => {
+    const syncHashRoute = () => {
+      const hash = window.location.hash;
+      setIsTrainingRoute(hash === "#training");
+      if (hash === "#procurement") {
+        setActiveTab(2);
+      }
+    };
+    syncHashRoute();
+    window.addEventListener("hashchange", syncHashRoute);
+    return () => window.removeEventListener("hashchange", syncHashRoute);
+  }, []);
+
+  const persistAuthUser = (user: AuthUser) => {
+    setAuthUser(user);
+    setUserEmail(user.email);
+    setIsVip(user.membership_tier === "vip");
+    window.localStorage.setItem("supply_os_auth_user", JSON.stringify(user));
+  };
+
+  const submitAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setBillingMessage("");
+    setClaimMessage("");
+
+    if (authMode === "register" && !claimForm.companyName.trim()) {
+      setAuthError("注册供应商会员时请填写公司名称");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: authForm.email,
+          password: authForm.password,
+          display_name: authForm.displayName || authForm.email.split("@")[0]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
+      persistAuthUser(data.user);
+      setAuthForm({ displayName: "", email: data.user.email, password: "" });
+
+      if (authMode === "register") {
+        const claimRes = await fetch("/api/supplier-claims", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_key: data.user.user_key,
+            company_name: claimForm.companyName,
+            supplier_type: claimForm.supplierType,
+            contact_name: claimForm.contactName || authForm.displayName,
+            contact_phone: claimForm.contactPhone,
+            contact_email: data.user.email,
+            business_license_no: claimForm.businessLicenseNo
+          })
+        });
+        const claimData = await claimRes.json().catch(() => ({}));
+        if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
+        setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "登录失败，请稍后重试");
+    }
+  };
+
+  const logout = () => {
+    setAuthUser(null);
+    setIsVip(false);
+    window.localStorage.removeItem("supply_os_auth_user");
+  };
+
+  // 硬编码套餐 fallback（API 不可用时使用）
+  const FALLBACK_PLANS: Record<string, { name: string; price: number; currency: string; zhName: string; enName: string }> = {
+    annual_8800: { name: "年度顾问服务 / Annual Advisory Service", price: 8800, currency: "CNY", zhName: "年度顾问服务", enName: "Annual Advisory Service" },
+  };
+
+  const buyPlan = (planCode: string) => {
+    if (!authUser) {
+      setShowAuthModal(true);
+      setAuthMode("login");
+      setBillingMessage(lang === "zh" ? "请先登录后再购买会员产品" : "Please login first to purchase");
+      return;
+    }
+    setBillingMessage("");
+
+    // 优先使用 fallback 快速打开支付弹窗（API 异步拉取作为补充）
+    const cached = FALLBACK_PLANS[planCode];
+    if (cached) {
+      const displayName = lang === "zh" ? cached.zhName : cached.enName;
+      setPaymentPlan({ code: planCode, name: displayName, price: cached.price, currency: cached.currency });
+      setShowPaymentModal(true);
+    }
+
+    // 后台异步验证套餐（如果 API 可用就更新价格）
+    fetch("/api/membership/plans")
+      .then((res) => res.json())
+      .then((plans) => {
+        const plan = plans.find((p: any) => p.plan_code === planCode);
+        if (plan && plan.price > 0) {
+          setPaymentPlan({ code: plan.plan_code, name: plan.name, price: Number(plan.price), currency: plan.currency || "CNY" });
+        }
+      })
+      .catch(() => {
+        // API 不可用，使用 fallback 数据不报错
+      });
+  };
+
+  const submitSupplierClaim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authUser) {
+      setClaimMessage("请先登录后再绑定公司");
+      return;
+    }
+    setClaimMessage("");
+    try {
+      const res = await fetch("/api/supplier-claims", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_key: authUser.user_key,
+          company_name: claimForm.companyName,
+          supplier_type: claimForm.supplierType,
+          contact_name: claimForm.contactName,
+          contact_phone: claimForm.contactPhone,
+          contact_email: authUser.email,
+          business_license_no: claimForm.businessLicenseNo
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "绑定申请提交失败");
+      setClaimMessage(`绑定申请已提交，状态：${data.status}`);
+    } catch (err: any) {
+      setClaimMessage(err.message || "绑定申请提交失败");
+    }
+  };
 
   // Post new Exhibition Hall leads to server
   const handleShowroomSubmit = async (e: React.FormEvent) => {
@@ -184,7 +372,7 @@ export default function App() {
           email: showroomFormInputs.email,
           industry: showroomFormInputs.industry,
           mainProducts: showroomFormInputs.mainProducts,
-          hasUngmParticipation: showroomFormInputs.hasUngm,
+          has国际公共采购Participation: showroomFormInputs.has国际公共采购,
           notes: `[申请海外展厅: ${selectedShowroom ? selectedShowroom.nameZh : '通用展厅'}] ${showroomFormInputs.notes}. 模拟附件: ${uploadedFiles.join(", ") || "无"}`,
           type: "exhibition_register"
         })
@@ -213,7 +401,7 @@ export default function App() {
       email: "",
       industry: "机械 (Machinery)",
       mainProducts: "",
-      hasUngm: false,
+      has国际公共采购: false,
       notes: ""
     });
     setUploadedFiles([]);
@@ -265,7 +453,7 @@ export default function App() {
       countryEn: "China",
       cityZh: "",
       cityEn: "",
-      ungmCode: "",
+      国际公共采购Code: "",
       mainProductsZh: "",
       mainProductsEn: "",
       complianceLabelsZh: "ISO9001, CE认证",
@@ -383,9 +571,20 @@ export default function App() {
     }, 4000);
   };
 
-  // Simulation of downloading file from Learning Center
-  const handleSimulatedDownload = () => {
-    alert(t.hasDownloaded);
+  // 真实下载文件并上报下载次数统计
+  const handleRealDownload = (fileUrl: string, fileName: string, materialId: string) => {
+    const a = document.createElement("a");
+    a.href = fileUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // 异步上报下载统计，失败不影响下载
+    fetch("/api/training/downloads/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ material_id: materialId, file_name: fileName })
+    }).catch(() => {});
   };
 
   // Drag and drop handlers for simulation
@@ -458,23 +657,31 @@ export default function App() {
       sup.nameZh.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sup.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sup.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sup.ungmCode && sup.ungmCode.includes(searchTerm));
+      (sup.国际公共采购Code && sup.国际公共采购Code.includes(searchTerm));
 
     // Sector Filter
     const sectVal = lang === "zh" ? sup.industryZh : sup.industryEn;
     const matchesIndustry = !supplierIndustry || sectVal === supplierIndustry;
 
-    // UNGM Code manual query
-    const matchesUngmCode =
-      !supplierUngmCodeSearch || (sup.ungmCode && sup.ungmCode.includes(supplierUngmCodeSearch));
+    // 国际公共采购 Code manual query
+    const matches国际公共采购Code =
+      !supplier国际公共采购CodeSearch || (sup.国际公共采购Code && sup.国际公共采购Code.includes(supplier国际公共采购CodeSearch));
 
-    return matchesSearch && matchesIndustry && matchesUngmCode;
+    return matchesSearch && matchesIndustry && matches国际公共采购Code;
   });
 
   // Unique industries mapping
   const availableSupplierIndustries = Array.from(
     new Set(totalSuppliersList.map((s) => (lang === "zh" ? s.industryZh : s.industryEn)))
   );
+
+  const switchMainTab = (tabId: number) => {
+    if (window.location.hash) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    }
+    setIsTrainingRoute(false);
+    setActiveTab(tabId);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white transition-colors duration-200">
@@ -503,16 +710,19 @@ export default function App() {
             
             {/* VIP Display Pill */}
             <button
-              onClick={() => setIsVip(!isVip)}
+              onClick={() => {
+                setShowAuthModal(true);
+                setAuthMode(authUser ? "login" : "login");
+              }}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-300 ${
                 isVip
                   ? "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
                   : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
               }`}
-              title={isVip ? "Gold Premium Member Active" : "Guest Mode - Tap to Upgrade"}
+              title={authUser ? authUser.email : "登录 / 注册会员"}
             >
               <Crown className="w-3.5 h-3.5" />
-              <span>{isVip ? "GOLD VIP" : "GUEST LEVEL"}</span>
+              <span>{authUser ? `${authUser.display_name || authUser.email} · ${isVip ? "VIP" : "FREE"}` : "GUEST LEVEL"}</span>
             </button>
 
             {/* Language Switch Button */}
@@ -540,38 +750,38 @@ export default function App() {
         <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 space-y-2 text-sm z-30 shadow-md">
           <div className="grid grid-cols-2 gap-2 text-center">
             <button
-              onClick={() => { setActiveTab(1); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 1 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(1); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 1 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navShowrooms}
             </button>
             <button
-              onClick={() => { setActiveTab(2); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 2 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(2); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 2 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navJointProcure}
             </button>
             <button
-              onClick={() => { setActiveTab(3); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 3 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(3); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 3 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navSuppliers}
             </button>
             <button
-              onClick={() => { setActiveTab(4); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 4 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(4); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 4 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navCRM}
             </button>
             <button
-              onClick={() => { setActiveTab(5); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 5 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(5); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 5 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navServices}
             </button>
             <button
-              onClick={() => { setActiveTab(6); setMobileMenuOpen(false); }}
-              className={`p-2 rounded-lg ${activeTab === 6 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
+              onClick={() => { switchMainTab(6); setMobileMenuOpen(false); }}
+              className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === 6 ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}
             >
               {t.navLearning}
             </button>
@@ -580,10 +790,10 @@ export default function App() {
             <div className="flex items-center justify-between text-xs text-slate-500">
               <span>{t.guestMode}: <strong>{userEmail}</strong></span>
               <button
-                onClick={() => setIsVip(!isVip)}
+                onClick={() => setShowAuthModal(true)}
                 className="text-teal-600 font-bold hover:underline"
               >
-                {isVip ? "✓ VIP ON" : "👉 UPGRADE VIP"}
+                {authUser ? (isVip ? "✓ VIP ON" : "👉 UPGRADE VIP") : "登录 / 注册"}
               </button>
             </div>
           </div>
@@ -608,16 +818,16 @@ export default function App() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => switchMainTab(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    activeTab === tab.id
+                    !isTrainingRoute && activeTab === tab.id
                       ? "bg-teal-600 text-white shadow-md font-semibold"
                       : tab.highlight
                       ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20"
                       : "hover:bg-slate-800 text-slate-300"
                   }`}
                 >
-                  <IconComp className={`w-4 h-4 ${tab.highlight && activeTab !== tab.id ? "text-amber-400 animate-pulse" : ""}`} />
+                  <IconComp className={`w-4 h-4 ${tab.highlight && (!isTrainingRoute && activeTab !== tab.id) ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
                   {tab.alert && (
                     <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
@@ -639,27 +849,41 @@ export default function App() {
               SESSION ACTIVE STATUS
             </span>
             <h2 className="text-xl md:text-2xl font-extrabold text-slate-800">
-              {activeTab === 1 && t.showroomTitle}
-              {activeTab === 2 && t.ungmBriefIntro}
-              {activeTab === 3 && t.supplierMgmtTitle}
-              {activeTab === 4 && t.crmDashboard}
-              {activeTab === 5 && t.serviceEcoTitle}
-              {activeTab === 6 && t.learningTitle}
-              {activeTab === 7 && t.membershipTitle}
+              {isTrainingRoute && "联合国采购投标研修班报名"}
+              {!isTrainingRoute && activeTab === 1 && t.showroomTitle}
+              {!isTrainingRoute && activeTab === 2 && "国际公共采购 采购线索池"}
+              {!isTrainingRoute && activeTab === 3 && t.supplierMgmtTitle}
+              {!isTrainingRoute && activeTab === 4 && t.crmDashboard}
+              {!isTrainingRoute && activeTab === 5 && t.serviceEcoTitle}
+              {!isTrainingRoute && activeTab === 6 && t.learningTitle}
+              {!isTrainingRoute && activeTab === 7 && t.membershipTitle}
             </h2>
             <p className="text-sm text-slate-500 mt-1 max-w-3xl">
-              {activeTab === 1 && t.showroomSubTitle}
-              {activeTab === 2 && "结合UNSPSC标准8位编码，提供一站式、透明高效的联合国及其下设机构联合采购匹配、出海案例与流程指引。"}
-              {activeTab === 3 && "聚合中方顶尖智造工业制造厂商、以及拥有UNGM合规标签认证的国外跨国配套供应商名册，提供双语筛查。"}
-              {activeTab === 4 && "将前端所有海外展厅申请意向、咨询件联络信息全清透录入云端CRM，在线记录并由AI生成跟进转化行动。"}
-              {activeTab === 5 && t.ecosystemsSummary}
-              {activeTab === 6 && "全面覆盖联合国采购组织合规说明、不可抗力法律投标模板、资质认证测试避坑指南。"}
-              {activeTab === 7 && "升级尊享全部金牌共采会员权限，解锁深度招投标文件及多点供采商机报告。"}
+              {isTrainingRoute && "独立报名页面，可用于海报、二维码和外部跳转访问。"}
+              {!isTrainingRoute && activeTab === 1 && t.showroomSubTitle}
+              {!isTrainingRoute && activeTab === 3 && "聚合国内制造商与海外合规供应商名册，支持行业、国家和 国际公共采购 代码筛查。"}
+              {!isTrainingRoute && activeTab === 4 && "集中管理海外展厅、供应商申请和服务咨询线索，沉淀可跟进的 CRM 记录。"}
+              {!isTrainingRoute && activeTab === 5 && t.ecosystemsSummary}
+              {!isTrainingRoute && activeTab === 6 && "沉淀联合国采购规则、投标模板、合规白皮书和操作案例。"}
+              {!isTrainingRoute && activeTab === 7 && "升级会员后可解锁更多采购线索、深度文件和推荐权益。"}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5 shrink-0">
-            {activeTab === 1 && (
+            {isTrainingRoute && (
+              <button
+                onClick={() => {
+                  switchMainTab(2);
+                  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement`);
+                  setIsTrainingRoute(false);
+                }}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>返回公采系列</span>
+              </button>
+            )}
+            {!isTrainingRoute && activeTab === 1 && (
               <button
                 onClick={() => {
                   setSelectedShowroom(null);
@@ -671,13 +895,24 @@ export default function App() {
                 <span>{t.registerShowroomBtn}</span>
               </button>
             )}
-            {activeTab === 3 && (
+            {!isTrainingRoute && activeTab === 3 && (
               <button
                 onClick={() => setShowSupplierForm(true)}
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-teal-550 text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>{t.registerSupplierBtn}</span>
+              </button>
+            )}
+            {!isTrainingRoute && activeTab === 2 && (
+              <button
+                onClick={() => {
+                  window.location.hash = "training";
+                }}
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
+              >
+                <BookOpen className="w-4 h-4 text-orange-100" />
+                <span>联合国采购招投标能力初筛问卷</span>
               </button>
             )}
             <button
@@ -698,10 +933,12 @@ export default function App() {
           </div>
         )}
 
+        {isTrainingRoute && <TrainingPage />}
+
         {/* ======================================= */}
         {/* TAB 1: OVERSEAS SHOWROOMS (海外展厅) */}
         {/* ======================================= */}
-        {activeTab === 1 && (
+        {!isTrainingRoute && activeTab === 1 && (
           <div className="space-y-6">
             
             {/* Active Filters */}
@@ -853,216 +1090,24 @@ export default function App() {
         )}
 
         {/* ======================================= */}
-        {/* TAB 2: JOINT PROCUREMENT & UNGM (共采系列) */}
+        {/* TAB 2: JOINT PROCUREMENT & 国际公共采购 */}
         {/* ======================================= */}
-        {activeTab === 2 && (
-          <div className="space-y-6">
-            
-            {/* UNGM Grid info */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Left col: Detailed info guide */}
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs lg:col-span-8 space-y-6">
-                
-                <div className="border-b border-indigo-100 pb-3">
-                  <h3 className="text-lg font-bold text-slate-800 flex items-center">
-                    <Globe className="w-5 h-5 text-indigo-600 mr-2" />
-                    <span>{t.qualificationSpecs}</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1">联合国采购核心在于将企业资产信誉、技术标准通过UNSPSC主营描述与国际标准精准吻合对接。</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <h4 className="text-sm font-bold text-slate-800 flex items-center">
-                      <span className="w-2.5 h-2.5 rounded-full bg-teal-500 mr-2" />
-                      基础认证：基本资格 (Basic Access)
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      要求企业在线建立账户、如实核验中/英文营业执照即可申请。适合承接小额度、少规格的试点援助类或者即期零星项目。
-                    </p>
-                  </div>
-
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <h4 className="text-sm font-bold text-slate-805 flex items-center">
-                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 mr-2" />
-                      等级一级：单笔不超过 15 万美金
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                      需额外提交3个不同独立买方近年的合规商业合作报告与质量合格证书。
-                    </p>
-                  </div>
-                </div>
-
-                {/* 5 steps chart */}
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 mb-3">{t.entryProcess}</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-center text-xs">
-                    {[
-                      { step: "01", title: "注册UNGM账户", desc: "创建基础公司账户" },
-                      { step: "02", title: "关联UNSPSC码", desc: "行业标签分类匹配" },
-                      { step: "03", title: "上传资质三证", desc: "合规声明与执照" },
-                      { step: "04", title: "对接特定机构", desc: "如WHO、UNHCR" },
-                      { step: "05", title: "投标与资质晋级", desc: "提升为1级或2级" }
-                    ].map((st, i) => (
-                      <div key={i} className="bg-slate-50 rounded-lg p-2.5 border border-slate-200/60 relative">
-                        <div className="text-lg font-black text-teal-600/35">{st.step}</div>
-                        <div className="font-bold text-slate-700 mt-1 leading-tight">{st.title}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{st.desc}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Win Case Study examples */}
-                <div>
-                  <h4 className="text-sm font-bold text-slate-800 mb-3">{t.caseMilestones}</h4>
-                  <div className="space-y-2">
-                    {[
-                      {
-                        entity: "中国某医疗高科企业 (深圳)",
-                        scope: "中标WHO无创呼吸制氧机集采项目",
-                        val: "合共金额: $1,280,000 USD",
-                        badge: "医疗/健康"
-                      },
-                      {
-                        entity: "山东建筑材料国标龙头工厂",
-                        scope: "中标东非某国救灾救援营拆装活动瓦房项目",
-                        val: "合共金额: $3,500,000 USD",
-                        badge: "建材/装配"
-                      }
-                    ].map((cs, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-teal-50/40 p-3 rounded-lg border border-teal-100 text-xs">
-                        <div>
-                          <span className="bg-teal-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold mr-2 uppercase">{cs.badge}</span>
-                          <strong className="text-slate-800">{cs.entity}</strong>
-                          <span className="text-slate-500 mx-1">-</span>
-                          <span className="text-slate-600">{cs.scope}</span>
-                        </div>
-                        <div className="text-teal-700 font-bold shrink-0">{cs.val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Right col: Supportive services packages & submit reqs */}
-              <div className="space-y-6 lg:col-span-4">
-                
-                {/* Submit Procure Request requirement */}
-                <div className="bg-gradient-to-tr from-slate-900 to-slate-800 text-slate-100 rounded-2xl p-5 border border-slate-800 shadow-sm">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <Sparkles className="w-5 h-5 text-amber-400 animate-pulse" />
-                    <h3 className="text-base font-bold text-white">{t.submitProcureReq}</h3>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed mb-4">
-                    如果您是国外主权机构或联合国常驻代办代理商，或者国内贸易商需要协助采购某类大宗保税货源，请在此告知。该需求会瞬间同步至我们后台的备灾供应商链中匹配。
-                  </p>
-
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.currentTarget;
-                      const cname = (form.elements.namedItem("cname") as HTMLInputElement).value;
-                      const contact = (form.elements.namedItem("contact") as HTMLInputElement).value;
-                      const body = (form.elements.namedItem("reqbody") as HTMLTextAreaElement).value;
-                      
-                      if (!cname || !contact || !body) {
-                        alert("请填写全部输入项！");
-                        return;
-                      }
-
-                      try {
-                        const res = await fetch("/api/leads", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            companyName: cname,
-                            contactPerson: "海外采购代表",
-                            contactMethod: contact,
-                            notes: `[共采平台采购意向提交] 需求详情: ${body}`,
-                            type: "requirement_submit"
-                          })
-                        });
-                        if (res.ok) {
-                          alert(t.formSuccess);
-                          form.reset();
-                          fetchData();
-                        }
-                      } catch (err) {
-                        console.error(err);
-                      }
-                    }}
-                    className="space-y-3"
-                  >
-                    <div>
-                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">您的机构企业名</label>
-                      <input
-                        type="text"
-                        name="cname"
-                        placeholder="E.g., Global RedCross Logistics"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">联系人与方式 (WhatsApp)</label>
-                      <input
-                        type="text"
-                        name="contact"
-                        placeholder="+971-50-xxxxxxx"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-400 font-bold uppercase mb-1">采购产品规格、数量及运抵港口</label>
-                      <textarea
-                        name="reqbody"
-                        rows={3}
-                        placeholder="如需5000套可快装防水活动帐篷，运抵肯尼亚蒙巴萨港口"
-                        className="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500"
-                        required
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-gradient-to-r from-teal-500 to-teal-600 text-white text-xs font-bold rounded hover:from-teal-600 hover:to-teal-700 cursor-pointer"
-                    >
-                      提交共采需求
-                    </button>
-                  </form>
-                </div>
-
-                {/* FAQ Collapsible */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-                  <h4 className="text-sm font-bold text-slate-800 mb-3">{t.procureFAQ}</h4>
-                  <div className="space-y-2">
-                    {FAQS.filter((f) => f.category === "ungm").map((faq) => (
-                      <div key={faq.id} className="border-b border-slate-100 pb-2.5 last:border-b-0">
-                        <strong className="text-xs text-slate-700 block mb-1">
-                          Q: {lang === "zh" ? faq.questionZh : faq.questionEn}
-                        </strong>
-                        <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded leading-relaxed">
-                          {lang === "zh" ? faq.answerZh : faq.answerEn}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-
-          </div>
+        {!isTrainingRoute && activeTab === 2 && (
+          <ProcurementNoticesPool
+            userKey={authUser?.user_key}
+            isVip={isVip}
+            lang={lang}
+            onRequireLogin={() => {
+              setShowAuthModal(true);
+              setAuthMode("login");
+            }}
+          />
         )}
 
         {/* ======================================= */}
         {/* TAB 3: SUPPLIERS DIRECTORY (供应商管理) */}
         {/* ======================================= */}
-        {activeTab === 3 && (
+        {!isTrainingRoute && activeTab === 3 && (
           <div className="space-y-6">
             
             {/* Inline Toggle Filter tabs for Suppliers */}
@@ -1072,7 +1117,7 @@ export default function App() {
                 {[
                   { id: "all", label: "全部供采资源" },
                   { id: "domestic", label: "中方优质工厂" },
-                  { id: "international", label: "国外(UNGM入网)" }
+                  { id: "international", label: "国外(国际公共采购入网)" }
                 ].map((s) => (
                   <button
                     key={s.id}
@@ -1110,9 +1155,9 @@ export default function App() {
 
                 <input
                   type="text"
-                  placeholder="UNSPSC/UNGM码"
-                  value={supplierUngmCodeSearch}
-                  onChange={(e) => setSupplierUngmCodeSearch(e.target.value)}
+                  placeholder="UNSPSC/国际公共采购码"
+                  value={supplier国际公共采购CodeSearch}
+                  onChange={(e) => setSupplier国际公共采购CodeSearch(e.target.value)}
                   className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200"
                   title="仅适用于国外供应商8位分类码匹配"
                 />
@@ -1157,10 +1202,10 @@ export default function App() {
                         <span className="text-slate-700">{lang === "zh" ? `${sup.countryZh} · ${sup.cityZh}` : `${sup.countryEn}, ${sup.cityEn}`}</span>
                       </p>
                       
-                      {sup.ungmCode && (
+                      {sup.国际公共采购Code && (
                         <p className="flex items-center text-indigo-700 bg-indigo-50/50 px-2 py-1 rounded inline-block">
-                          <span className="font-extrabold mr-1.5 shrink-0">UNGM Code:</span>
-                          <span className="font-mono font-black">{sup.ungmCode}</span>
+                          <span className="font-extrabold mr-1.5 shrink-0">国际公共采购 Code:</span>
+                          <span className="font-mono font-black">{sup.国际公共采购Code}</span>
                         </p>
                       )}
                     </div>
@@ -1230,7 +1275,7 @@ export default function App() {
         {/* ======================================= */}
         {/* TAB 4: CRM CLIENTS WORKSPACE (客户管理 & 与 CRM 联动) */}
         {/* ======================================= */}
-        {activeTab === 4 && (
+        {!isTrainingRoute && activeTab === 4 && (
           <div className="space-y-6">
             
             {/* Top metrics tracker */}
@@ -1497,7 +1542,7 @@ export default function App() {
                     <form onSubmit={addCrmFollowUpLog} className="space-y-2">
                       <div>
                         <textarea
-                          placeholder="例如: '已发送中英双语版UNGM Basic认证准备清单，等待对方回执。'"
+                          placeholder="例如: '已发送中英双语版国际公共采购 Basic认证准备清单，等待对方回执。'"
                           value={newCrmLogEntry}
                           onChange={(e) => setNewCrmLogEntry(e.target.value)}
                           rows={2}
@@ -1540,13 +1585,13 @@ export default function App() {
         {/* ======================================= */}
         {/* TAB 5: SERVICES ECO SYSTEM (服务生态) */}
         {/* ======================================= */}
-        {activeTab === 5 && (
+        {!isTrainingRoute && activeTab === 5 && (
           <div className="space-y-6">
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 {
-                  title: "UNGM 资质代办 & 代注册托管",
+                  title: "国际公共采购 资质代办 & 代注册托管",
                   desc: "帮助中方精密智造、生物制药、环保机械工厂快速完成联合国全球开发署/卫生组织一级或二级资格账户升级，减少多周期退单延误风险。",
                   icon: LayoutGrid,
                   specs: ["英文财务报表制作", "UNSPSC精确对准码", "1对1合规排雷"],
@@ -1647,24 +1692,20 @@ export default function App() {
         )}
 
         {/* ======================================= */}
-        {/* TAB 6: LEARNING HUB & ACADEMY (学习区) */}
+        {/* TAB 6: TRAINING REGISTRATION */}
         {/* ======================================= */}
-        {activeTab === 6 && (
+        {!isTrainingRoute && activeTab === 6 && (
           <div className="space-y-6">
-            
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Left col: list of articles with membership validation */}
               <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-6">
-                
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-800">联合国与主权采购合规政策学习区</h3>
-                  <p className="text-xs text-slate-500 mt-1">整合高价值招标文件、ESG劳工评估测试合规模板及入驻高频白皮书供我国创新厂商自主下载学习。</p>
+                  <h3 className="text-base font-extrabold text-slate-800">联合国采购与国际投标学习区</h3>
+                  <p className="text-xs text-slate-500 mt-1">沉淀投标模板、合规说明、采购案例和会员资料，供团队持续学习。</p>
                 </div>
 
                 <div className="space-y-4">
-                  {LEARNING_MATERIALS.map((lm) => (
-                    <div key={lm.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/40 space-y-3 relative overflow-hidden">
+                  {TRAINING_DOWNLOAD_MATERIALS.map((lm, index) => (
+                    <div key={lm.id} className="p-4 rounded-lg border border-slate-200 bg-white hover:border-teal-200 hover:shadow-sm transition-all space-y-3 relative overflow-hidden">
                       {lm.isPremium && (
                         <div className="absolute top-0 right-0">
                           <span className="bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-900 text-[9px] font-black px-2.5 py-1 rounded-bl">
@@ -1677,7 +1718,7 @@ export default function App() {
                         <span className="bg-teal-50 text-teal-700 text-[10px] px-2.5 py-0.5 rounded font-bold border border-teal-200">
                           {lang === "zh" ? lm.categoryZh : lm.categoryEn}
                         </span>
-                        <span className="text-[11px] text-slate-400">已学习 (下载): {lm.downloadsCount} 次</span>
+                        <span className="text-[11px] text-slate-400">已学习(下载): {lm.downloadsCount} 次</span>
                       </div>
 
                       <h4 className="text-sm font-bold text-slate-800 pr-16">
@@ -1688,15 +1729,14 @@ export default function App() {
                         <strong>概要说明:</strong> {lang === "zh" ? lm.summaryZh : lm.summaryEn}
                       </p>
 
-                      {/* Decisive Area: Validate if this is a Premium document and if user is Gold VIP */}
                       {lm.isPremium && !isVip ? (
-                        <div className="bg-amber-150/45 p-3 rounded-lg border border-amber-300 text-xs text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                        <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                           <div className="flex items-start space-x-2">
                             <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                             <span>{t.lockedPremium}</span>
                           </div>
                           <button
-                            onClick={() => setIsVip(true)}
+                            onClick={() => setShowAuthModal(true)}
                             className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-3 py-1.5 rounded text-[11px] transition-colors cursor-pointer"
                           >
                             {t.upgradeToVip}
@@ -1705,21 +1745,22 @@ export default function App() {
                       ) : (
                         <div className="space-y-3">
                           {lm.isPremium && (
-                            <div className="bg-emerald-50 text-emerald-800 text-xs p-2.5 rounded border border-emerald-250 flex items-center space-x-2">
+                            <div className="bg-emerald-50 text-emerald-800 text-xs p-2.5 rounded border border-emerald-200 flex items-center space-x-2">
                               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                               <span>{t.unlockedPremium}</span>
                             </div>
                           )}
 
                           <div className="bg-slate-100 p-3 rounded-lg text-xs text-slate-700 font-mono overflow-x-auto leading-relaxed max-h-36 overflow-y-auto">
-                            <strong className="block text-[10px] text-slate-400 font-bold uppercase mb-1">文件节选 / 核心内容</strong>
+                            <strong className="block text-[10px] text-slate-400 font-bold uppercase mb-1">核心内容</strong>
                             {lang === "zh" ? lm.contentZh : lm.contentEn}
                           </div>
 
                           <div className="flex justify-end gap-2 text-xs pt-1">
                             <button
-                              onClick={handleSimulatedDownload}
-                              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold flex items-center space-x-1.5 cursor-pointer"
+                              onClick={() => handleRealDownload(lm.fileUrl ?? "", lm.fileName ?? lm.titleZh, lm.id)}
+                              disabled={!lm.fileUrl}
+                              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                               <FileDown className="w-3.5 h-3.5 text-teal-400" />
                               <span>{t.downloadBtn}</span>
@@ -1727,18 +1768,14 @@ export default function App() {
                           </div>
                         </div>
                       )}
-
                     </div>
                   ))}
                 </div>
-
               </div>
 
-              {/* Right column: general FAQ list */}
               <div className="lg:col-span-4 space-y-6">
-                
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-                  <h4 className="text-sm font-bold text-slate-800 mb-3">平台常见采购避坑 FAQ</h4>
+                  <h4 className="text-sm font-bold text-slate-800 mb-3">常见问题 FAQ</h4>
                   <div className="space-y-4">
                     {FAQS.map((faq) => (
                       <div key={faq.id} className="border-b border-slate-100 pb-3 last:border-b-0 space-y-1.5">
@@ -1755,18 +1792,15 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-
               </div>
-
             </div>
-
           </div>
         )}
 
         {/* ======================================= */}
         {/* TAB 7: MEMBERSHIP ZONE (会员专区) */}
         {/* ======================================= */}
-        {activeTab === 7 && (
+        {!isTrainingRoute && activeTab === 7 && (
           <div className="space-y-6">
             
             {/* VIP Card Display status */}
@@ -1779,7 +1813,7 @@ export default function App() {
                     <Crown className="w-3.5 h-3.5" />
                     <span>GOLD VIP ACCESS PANEL</span>
                   </div>
-                  <h3 className="text-2xl font-extrabold text-white">尊享平台金牌共采高级会员</h3>
+                  <h3 className="text-2xl font-extrabold text-white">尊享平台金牌公采系列高级会员</h3>
                   <p className="text-xs text-slate-400 max-w-xl">
                     享有全部高级招标文件模板无限畅读下载、AI供采匹配建议不限次生成、系统对接资深联合国顾问1对1会商连线。
                   </p>
@@ -1796,7 +1830,7 @@ export default function App() {
                       </span>
                     ) : (
                       <button
-                        onClick={() => setIsVip(true)}
+                        onClick={() => setShowAuthModal(true)}
                         className="w-full py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
                       >
                         {t.upgradeToVip}
@@ -1810,7 +1844,7 @@ export default function App() {
               <div className="mt-8 pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                   { title: "全网标讯先知权限", desc: "由于系统直联，您可在标讯对公众公布前3-4天获取相关数据推荐。" },
-                  { title: "AI 高精度匹配不限次", desc: "无限次评估您与特定UNGM采购Lot或采购组织需求的兼容度并一建生成报告。" },
+                  { title: "AI 高精度匹配不限次", desc: "无限次评估您与特定国际公共采购采购Lot或采购组织需求的兼容度并一建生成报告。" },
                   { title: "展厅实体沙盘展示", desc: "每年免费获赠德国或迪拜、内罗毕展厅内1㎡的实物样品、画册陈列位。" },
                   { title: "1对1出海顾问随行", desc: "针对中英双语、海牙合规、资质加急审核等提供全程跟进陪伴。" }
                 ].map((priv, idx) => (
@@ -1827,7 +1861,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs text-center max-w-xl mx-auto space-y-4">
               <h4 className="text-base font-extrabold text-slate-800">对高级会员体系存有疑问？</h4>
               <p className="text-xs text-slate-500">
-                输入您的企业邮箱，我们可以把详细的多语种权益说明、UNGM合规白皮书全套发至您的邮箱中。
+                输入您的企业邮箱，我们可以把详细的多语种权益说明、国际公共采购合规白皮书全套发至您的邮箱中。
               </p>
               
               <div className="flex gap-2">
@@ -1853,6 +1887,157 @@ export default function App() {
       </main>
 
       {/* 4. MODALS & FORMS OVERLAYS */}
+
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-xs flex justify-center items-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl border border-slate-200">
+            <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-start">
+              <div>
+                <div className="inline-flex items-center gap-1.5 text-[10px] font-black text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-1 mb-2">
+                  <Crown className="w-3.5 h-3.5" />
+                  SUPPLY OS ACCOUNT
+                </div>
+                <h3 className="text-lg font-extrabold">会员登录与供应商注册</h3>
+                <p className="text-xs text-slate-400 mt-1">注册时同步提交公司申请，审核通过后再关联正式供应商身份。</p>
+              </div>
+              <button onClick={() => setShowAuthModal(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 overflow-y-auto max-h-[calc(90vh-88px)]">
+              {authUser ? (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-black text-slate-500 uppercase">当前账号</p>
+                        <h4 className="text-lg font-extrabold text-slate-900 mt-1">{authUser.display_name || authUser.email}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">{authUser.email}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-black ${isVip ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-white text-slate-600 border border-slate-200"}`}>
+                        {isVip ? "VIP MEMBER" : "FREE MEMBER"}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-white border border-slate-200 rounded-lg p-3">
+                        <p className="font-black text-slate-400">供应商身份</p>
+                        <p className="font-bold text-slate-800 mt-1">{authUser.supplier_id ? `已审核关联 #${authUser.supplier_id}` : "待提交或待审核"}</p>
+                      </div>
+                      <div className="bg-white border border-slate-200 rounded-lg p-3">
+                        <p className="font-black text-slate-400">线索权益</p>
+                        <p className="font-bold text-slate-800 mt-1">{isVip ? "会员额度可用" : "免费体验额度"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  {claimMessage && <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">{claimMessage}</p>}
+                  <button
+                    onClick={logout}
+                    className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    退出登录
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={submitAuth} className="space-y-4">
+                  <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("login")}
+                      className={`py-2.5 rounded-lg text-sm font-black ${authMode === "login" ? "bg-white shadow-xs text-slate-900" : "text-slate-500"}`}
+                    >
+                      登录
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("register")}
+                      className={`py-2.5 rounded-lg text-sm font-black ${authMode === "register" ? "bg-white shadow-xs text-slate-900" : "text-slate-500"}`}
+                    >
+                      注册供应商
+                    </button>
+                  </div>
+
+                  {authMode === "register" && (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-extrabold text-slate-900">公司申请信息</h4>
+                        <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">待审核</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={authForm.displayName}
+                          onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
+                          placeholder="联系人姓名"
+                          className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                        <select
+                          value={claimForm.supplierType}
+                          onChange={(e) => setClaimForm({ ...claimForm, supplierType: e.target.value })}
+                          className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        >
+                          <option value="domestic">国内供应商</option>
+                          <option value="international">国外供应商</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={claimForm.companyName}
+                          onChange={(e) => setClaimForm({ ...claimForm, companyName: e.target.value })}
+                          placeholder="公司名称 *"
+                          className="sm:col-span-2 px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                        <input
+                          type="text"
+                          value={claimForm.contactPhone}
+                          onChange={(e) => setClaimForm({ ...claimForm, contactPhone: e.target.value })}
+                          placeholder="联系电话 / WhatsApp"
+                          className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                        <input
+                          type="text"
+                          value={claimForm.businessLicenseNo}
+                          onChange={(e) => setClaimForm({ ...claimForm, businessLicenseNo: e.target.value })}
+                          placeholder="营业执照号 / 海外注册号"
+                          className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <input
+                      type="email"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                      placeholder="邮箱"
+                      className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      required
+                    />
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                      placeholder="密码，至少 6 位"
+                      className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  {authError && <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">{authError}</p>}
+                  {claimMessage && <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">{claimMessage}</p>}
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
+                  >
+                    {authMode === "login" ? "登录会员" : "注册并提交供应商申请"}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* OVERLAY A: Overseas Exhibition Hall Register Form */}
       {showShowroomForm && (
@@ -1985,13 +2170,13 @@ export default function App() {
                 <div className="flex items-center space-x-2 bg-slate-50 p-2.5 rounded border border-slate-150">
                   <input
                     type="checkbox"
-                    id="hasUngmC"
-                    checked={showroomFormInputs.hasUngm}
-                    onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, hasUngm: e.target.checked }))}
+                    id="has国际公共采购C"
+                    checked={showroomFormInputs.has国际公共采购}
+                    onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, has国际公共采购: e.target.checked }))}
                     className="w-4 h-4 text-teal-600 rounded"
                   />
-                  <label htmlFor="hasUngmC" className="text-xs text-slate-700 font-bold select-none cursor-pointer">
-                    我司已在 UNGM 联合国采购平台注册或意向由平台同步其匹配资质。
+                  <label htmlFor="has国际公共采购C" className="text-xs text-slate-700 font-bold select-none cursor-pointer">
+                    我司已在 国际公共采购 联合国采购平台注册或意向由平台同步其匹配资质。
                   </label>
                 </div>
 
@@ -2136,12 +2321,12 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-extrabold text-slate-700 mb-1">UNGM Registration Code (如有/非必填)</label>
+                    <label className="block text-xs font-extrabold text-slate-700 mb-1">国际公共采购 Registration Code (如有/非必填)</label>
                     <input
                       type="text"
-                      value={supplierFormInputs.ungmCode}
-                      onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, ungmCode: e.target.value }))}
-                      placeholder="8位 UNSPSC/UNGM 注册码"
+                      value={supplierFormInputs.国际公共采购Code}
+                      onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, 国际公共采购Code: e.target.value }))}
+                      placeholder="8位 UNSPSC/国际公共采购 注册码"
                       className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-205"
                     />
                   </div>
@@ -2285,7 +2470,7 @@ export default function App() {
                   <textarea
                     name="notes"
                     rows={2}
-                    placeholder="如: 我司生产医疗包装袋，需要了解UNGM Level1 的最低财务申报流和海外展厅展示费率。"
+                    placeholder="如: 我司生产医疗包装袋，需要了解国际公共采购 Level1 的最低财务申报流和海外展厅展示费率。"
                     className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
@@ -2327,7 +2512,7 @@ export default function App() {
       <footer className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/80 shadow-lg py-1 flex justify-around items-center">
         {[
           { id: 1, label: "展厅", icon: Building2 },
-          { id: 2, label: "共采", icon: Globe },
+          { id: 2, label: "公采", icon: Globe },
           { id: 3, label: "供应商", icon: Users },
           { id: 4, label: "CRM", icon: Briefcase },
           { id: 6, label: "学习", icon: BookOpen }
@@ -2351,7 +2536,7 @@ export default function App() {
       {/* DESKTOP FOOTER */}
       <footer className="hidden md:block bg-slate-100 border-t border-slate-200 py-6 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <p>© 2026 全球共采与海外展厅协同网络协同云平台. All Rights Reserved.</p>
+          <p>© 2026 全球公采与海外展厅协同网络协同云平台. All Rights Reserved.</p>
           <div className="flex space-x-4">
             <span className="hover:underline cursor-pointer">服务协议</span>
             <span className="hover:underline cursor-pointer">隐私保护</span>
@@ -2359,6 +2544,26 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Payment Modal */}
+      {showPaymentModal && paymentPlan && authUser && (
+        <PaymentModal
+          planCode={paymentPlan.code}
+          planName={paymentPlan.name}
+          amount={paymentPlan.price}
+          currency={paymentPlan.currency}
+          userKey={authUser.user_key}
+          lang={lang}
+          t={t as any}
+          onClose={() => setShowPaymentModal(false)}
+          onPaymentSuccess={(_orderNo) => {
+            setShowPaymentModal(false);
+            setPaymentPlan(null);
+            setIsVip(true);
+            persistAuthUser({ ...authUser, membership_tier: "vip" });
+          }}
+        />
+      )}
 
     </div>
   );
