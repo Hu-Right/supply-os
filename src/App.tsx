@@ -1111,9 +1111,9 @@ export default function App() {
 
                             <div className="flex bg-slate-100 p-1 rounded-lg">
                                 {[
-                                    { id: "all", label: "全部供采资源" },
-                                    { id: "domestic", label: "中方优质工厂" },
-                                    { id: "international", label: "国外(国际公共采购入网)" }
+                                    { id: "all", label: t("supplierFilterAll") },
+                                    { id: "domestic", label: t("supplierFilterDomestic") },
+                                    { id: "international", label: t("supplierFilterIntl") }
                                 ].map((s) => (
                                     <button
                                         key={s.id}
@@ -1180,9 +1180,9 @@ export default function App() {
                                                 {sup.type === "domestic" ? t("supplierTypeDomestic") : t("supplierTypeIntl")}
                                             </span>
                                             {sup.status === "pending" ? (
-                                                <span className="text-[10px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase animate-pulse">待常驻顾问初审</span>
+                                                <span className="text-[10px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase animate-pulse">{t("supplierStatusPending")}</span>
                                             ) : (
-                                                <span className="text-[10px] text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase">已联网核验</span>
+                                                <span className="text-[10px] text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase">{t("supplierStatusVerified")}</span>
                                             )}
                                         </div>
 

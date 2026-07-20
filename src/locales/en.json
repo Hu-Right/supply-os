@@ -324,5 +324,10 @@
   "consultCompanyPlaceholder": "Enter full company name",
   "consultPersonPlaceholder": "e.g. John Smith",
   "consultNotesPlaceholder": "e.g. We produce medical packaging and need UN Level 1 guidance.",
-  "uploadFileHint": "Supports PDF, product brochures and multi-language business licenses. Max 30MB."
+  "uploadFileHint": "Supports PDF, product brochures and multi-language business licenses. Max 30MB.",
+  "supplierFilterAll": "All Suppliers",
+  "supplierFilterDomestic": "Chinese Factories",
+  "supplierFilterIntl": "International (UNSPSC)",
+  "supplierStatusPending": "Pending Review",
+  "supplierStatusVerified": "Verified"
 }

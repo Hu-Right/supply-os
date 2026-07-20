@@ -324,5 +324,10 @@
   "consultCompanyPlaceholder": "请输入完整的企业名",
   "consultPersonPlaceholder": "例如: 林经理",
   "consultNotesPlaceholder": "如: 我司生产医疗包装袋，需要了解国际公共采购 Level1 的最低财务申报流和海外展厅展示费率。",
-  "uploadFileHint": "支持PDF、物料白皮书及多文案营业执照。最长限制30MB。"
+  "uploadFileHint": "支持PDF、物料白皮书及多文案营业执照。最长限制30MB。",
+  "supplierFilterAll": "全部供采资源",
+  "supplierFilterDomestic": "中方优质工厂",
+  "supplierFilterIntl": "国外(国际公共采购入网)",
+  "supplierStatusPending": "待常驻顾问初审",
+  "supplierStatusVerified": "已联网核验"
 }
