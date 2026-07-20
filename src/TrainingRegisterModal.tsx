@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckCircle2, GraduationCap, Send } from "lucide-react";
+import { useLocale } from "./locales/LocaleContext";
 
 interface TrainingRegisterModalProps {
   onClose: () => void;
@@ -19,6 +20,7 @@ interface Industry {
 const EXPORT_EXPERIENCE_OPTIONS = ["3年以下", "3~5年", "5~10年", "10年以上"];
 
 export default function TrainingRegisterModal({ onClose }: TrainingRegisterModalProps) {
+  const { t, locale } = useLocale();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -73,7 +75,7 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
     setError("");
 
     if (!form.company_name || !form.contact_name || !form.telephone) {
-      setError("企业名称、参会人姓名、手机号码为必填项");
+      setError(t("trainingRegisterValidationError"));
       return;
     }
 
@@ -106,10 +108,10 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
         setTimeout(() => onClose(), 2500);
       } else {
         const data = await res.json();
-        setError(data.error || "提交失败");
+        setError(data.error || t("formError"));
       }
     } catch (err) {
-      setError("网络错误，请稍后重试");
+      setError(t("formError"));
     } finally {
       setLoading(false);
     }
@@ -122,9 +124,9 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
           <div>
             <div className="flex items-center gap-2 mb-1">
               <GraduationCap className="w-5 h-5 text-teal-400" />
-              <h3 className="text-base font-extrabold">联合国采购投标实操与能力建设研修班</h3>
+              <h3 className="text-base font-extrabold">{t("trainingRegisterTitle")}</h3>
             </div>
-            <p className="text-[10px] text-slate-400">填写企业信息完成报名，信息将加密录入供应商数据库</p>
+            <p className="text-[10px] text-slate-400">{t("trainingRegisterSubtitle")}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white ml-2">
             <X className="w-5 h-5" />
@@ -136,9 +138,9 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
             <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-teal-600" />
             </div>
-            <h4 className="text-lg font-bold text-slate-800">报名信息已成功提交！</h4>
+            <h4 className="text-lg font-bold text-slate-800">{t("trainingRegisterSuccessTitle")}</h4>
             <p className="text-xs text-slate-500 max-w-md">
-              您的企业信息已录入全球供应商数据库，我们将在研修班开班前通过邮件/电话与您确认参会细节。
+              {t("trainingRegisterSuccessDesc")}
             </p>
           </div>
         ) : (
@@ -151,16 +153,16 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">企业名称 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormCompanyName")} <span className="text-rose-500">*</span></label>
                 <input type="text" name="company_name" value={form.company_name} onChange={handleChange}
-                  placeholder="如：浙江利得森医疗器械有限公司"
+                  placeholder={locale === "zh" ? "如：浙江利得森医疗器械有限公司" : "e.g. Liderson Medical Devices Co."}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required />
               </div>
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">所属行业（UNSPSC分类）<span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormIndustry")}<span className="text-rose-500">*</span></label>
                 <select name="industry_id" value={form.industry_id} onChange={handleChange}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required>
-                  <option value="">请选择行业</option>
+                  <option value="">{t("trainingRegisterFormSelectIndustry")}</option>
                   {industries.map((ind) => (
                     <option key={ind.id} value={ind.id}>{ind.code} - {ind.title_zh}</option>
                   ))}
@@ -170,23 +172,23 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">主营产品 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormMainProduct")} <span className="text-rose-500">*</span></label>
                 <input type="text" name="main_product" value={form.main_product} onChange={handleChange}
-                  placeholder="如：医用耗材与器械"
+                  placeholder={locale === "zh" ? "如：医用耗材与器械" : "e.g. Medical consumables"}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required />
               </div>
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">出口贸易经验 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormExportExp")} <span className="text-rose-500">*</span></label>
                 <select name="export_experience" value={form.export_experience} onChange={handleChange}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required>
-                  <option value="">请选择经验年限</option>
+                  <option value="">{t("trainingFormSelectExport")}</option>
                   {EXPORT_EXPERIENCE_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-slate-700 mb-2">持有资质证书（可多选）</label>
+              <label className="block text-xs font-extrabold text-slate-700 mb-2">{t("trainingFormCertifications")}</label>
               <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 bg-slate-50 rounded-lg border border-slate-200">
                 {certifications.map((cert) => {
                   const isSelected = form.certification.includes(cert.name);
@@ -206,60 +208,60 @@ export default function TrainingRegisterModal({ onClose }: TrainingRegisterModal
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-slate-700 mb-1">其他资质证书</label>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormOtherCert")}</label>
               <input type="text" name="other_certification" value={form.other_certification} onChange={handleChange}
-                placeholder="如：BSCI-A level, SLCP, GRS, TCCC"
+                placeholder={t("trainingFormOtherCertPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">参会人姓名 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormContactName")} <span className="text-rose-500">*</span></label>
                 <input type="text" name="contact_name" value={form.contact_name} onChange={handleChange}
-                  placeholder="如：高百红"
+                  placeholder={locale === "zh" ? "如：高百红" : "e.g. John Smith"}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required />
               </div>
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">职务/岗位</label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormPosition")}</label>
                 <input type="text" name="position" value={form.position} onChange={handleChange}
-                  placeholder="如：总经理"
+                  placeholder={locale === "zh" ? "如：总经理" : "e.g. GM"}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">手机号码 <span className="text-rose-500">*</span></label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormPhone")} <span className="text-rose-500">*</span></label>
                 <input type="text" name="telephone" value={form.telephone} onChange={handleChange}
-                  placeholder="如：13515727150"
+                  placeholder={locale === "zh" ? "如：13515727150" : "e.g. +1 555-0100"}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" required />
               </div>
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 mb-1">电子邮箱</label>
+                <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormEmail")}</label>
                 <input type="email" name="email" value={form.email} onChange={handleChange}
-                  placeholder="如：James@liderson.com"
+                  placeholder={locale === "zh" ? "如：James@liderson.com" : "e.g. James@company.com"}
                   className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-extrabold text-slate-700 mb-1">其他需说明事项</label>
+              <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingRegisterFormRemark")}</label>
               <textarea name="remark" value={form.remark} onChange={handleChange} rows={2}
-                placeholder="如：多人参会请备注姓名+职务+手机"
+                placeholder={t("trainingRegisterFormRemarkPlaceholder")}
                 className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <button type="button" onClick={onClose}
                 className="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg text-xs hover:bg-slate-50 cursor-pointer">
-                取消
+                {t("trainingRegisterCancel")}
               </button>
               <button type="submit" disabled={loading}
                 className={`px-5 py-2 rounded-lg text-xs font-bold text-white flex items-center gap-2 cursor-pointer ${
                   loading ? "bg-slate-400" : "bg-slate-900 hover:bg-teal-600"
                 }`}>
                 <Send className="w-3.5 h-3.5" />
-                {loading ? "提交中..." : "提交报名"}
+                {loading ? t("trainingSubmitting") : t("trainingRegisterSubmitBtn")}
               </button>
             </div>
           </form>

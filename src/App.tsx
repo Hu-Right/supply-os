@@ -714,8 +714,8 @@ export default function App() {
                                 setAuthMode(authUser ? "login" : "login");
                             }}
                             className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-300 ${isVip
-                                    ? "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
-                                    : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
+                                : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"
                                 }`}
                             title={authUser ? authUser.email : "登录 / 注册会员"}
                         >
@@ -818,10 +818,10 @@ export default function App() {
                                     key={tab.id}
                                     onClick={() => switchMainTab(tab.id)}
                                     className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${!isTrainingRoute && activeTab === tab.id
-                                            ? "bg-teal-600 text-white shadow-md font-semibold"
-                                            : tab.highlight
-                                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20"
-                                                : "hover:bg-slate-800 text-slate-300"
+                                        ? "bg-teal-600 text-white shadow-md font-semibold"
+                                        : tab.highlight
+                                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20"
+                                            : "hover:bg-slate-800 text-slate-300"
                                         }`}
                                 >
                                     <IconComp className={`w-4 h-4 ${tab.highlight && (!isTrainingRoute && activeTab !== tab.id) ? "text-amber-400 animate-pulse" : ""}`} />
@@ -846,9 +846,9 @@ export default function App() {
                             SESSION ACTIVE STATUS
                         </span>
                         <h2 className="text-xl md:text-2xl font-extrabold text-slate-800">
-                            {isTrainingRoute && "联合国采购投标研修班报名"}
+                            {isTrainingRoute && t("trainingRegisterTitle")}
                             {!isTrainingRoute && activeTab === 1 && t("showroomTitle")}
-                            {!isTrainingRoute && activeTab === 2 && "国际公共采购 采购线索池"}
+                            {!isTrainingRoute && activeTab === 2 && t("procurementNoticePoolTitle")}
                             {!isTrainingRoute && activeTab === 3 && t("supplierMgmtTitle")}
                             {!isTrainingRoute && activeTab === 4 && t("crmDashboard")}
                             {!isTrainingRoute && activeTab === 5 && t("serviceEcoTitle")}
@@ -858,11 +858,11 @@ export default function App() {
                         <p className="text-sm text-slate-500 mt-1 max-w-3xl">
                             {isTrainingRoute && "独立报名页面，可用于海报、二维码和外部跳转访问。"}
                             {!isTrainingRoute && activeTab === 1 && t("showroomSubTitle")}
-                            {!isTrainingRoute && activeTab === 3 && "聚合国内制造商与海外合规供应商名册，支持行业、国家和 国际公共采购 代码筛查。"}
-                            {!isTrainingRoute && activeTab === 4 && "集中管理海外展厅、供应商申请和服务咨询线索，沉淀可跟进的 CRM 记录。"}
+                            {!isTrainingRoute && activeTab === 3 && t("tabSupplierDesc")}
+                            {!isTrainingRoute && activeTab === 4 && t("tabCrmDesc")}
                             {!isTrainingRoute && activeTab === 5 && t("ecosystemsSummary")}
-                            {!isTrainingRoute && activeTab === 6 && "沉淀联合国采购规则、投标模板、合规白皮书和操作案例。"}
-                            {!isTrainingRoute && activeTab === 7 && "升级会员后可解锁更多采购线索、深度文件和推荐权益。"}
+                            {!isTrainingRoute && activeTab === 6 && t("tabLearningDesc")}
+                            {!isTrainingRoute && activeTab === 7 && t("tabMembershipDesc")}
                         </p>
                     </div>
 
@@ -877,7 +877,7 @@ export default function App() {
                                 className="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
                             >
                                 <ArrowLeft className="w-4 h-4" />
-                                <span>返回公采系列</span>
+                                <span>{t("backToProcurement")}</span>
                             </button>
                         )}
                         {!isTrainingRoute && activeTab === 1 && (
@@ -909,7 +909,7 @@ export default function App() {
                                 className="inline-flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
                             >
                                 <BookOpen className="w-4 h-4 text-orange-100" />
-                                <span>联合国采购招投标能力初筛问卷</span>
+                                <span>{t("procurementScreeningBtn")}</span>
                             </button>
                         )}
                         <button
@@ -996,7 +996,7 @@ export default function App() {
                                         }}
                                         className="text-xs text-rose-600 font-bold hover:underline"
                                     >
-                                        重置
+                                        {t("resetFilter")}
                                     </button>
                                 )}
                             </div>
@@ -1067,7 +1067,7 @@ export default function App() {
                                                             setShowShowroomForm(true);
                                                         }}
                                                         className="px-3 py-2 text-slate-500 hover:text-teal-600 bg-slate-100 hover:bg-teal-50 rounded-lg text-xs font-medium cursor-pointer"
-                                                        title="提交咨询"
+                                                        title={t("showroomConsultTitle")}
                                                     >
                                                         {t("showroomConsultBtn")}
                                                     </button>
@@ -1129,7 +1129,7 @@ export default function App() {
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 w-full md:w-auto">
                                 <input
                                     type="text"
-                                    placeholder="搜索企业/产品..."
+                                    placeholder={t("searchSupplierPlaceholder")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -1150,7 +1150,7 @@ export default function App() {
 
                                 <input
                                     type="text"
-                                    placeholder="UNSPSC/国际公共采购码"
+                                    placeholder={t("searchUnspscPlaceholder")}
                                     value={supplier国际公共采购CodeSearch}
                                     onChange={(e) => setSupplier国际公共采购CodeSearch(e.target.value)}
                                     className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200"
@@ -1173,8 +1173,8 @@ export default function App() {
                                         <div className="flex justify-between items-start mb-3">
                                             <span
                                                 className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sup.type === "domestic"
-                                                        ? "bg-teal-50 text-teal-700 border border-teal-200"
-                                                        : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                                    ? "bg-teal-50 text-teal-700 border border-teal-200"
+                                                    : "bg-indigo-50 text-indigo-700 border border-indigo-200"
                                                     }`}
                                             >
                                                 {sup.type === "domestic" ? t("supplierTypeDomestic") : t("supplierTypeIntl")}
@@ -1248,7 +1248,7 @@ export default function App() {
                                             onClick={() => alert(`联络人: ${sup.contactPerson}\n邮箱: ${sup.contactEmail}\n电话: ${sup.contactPhone}`)}
                                             className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs cursor-pointer"
                                         >
-                                            直接联络
+                                            {t("supplierContactBtn")}
                                         </button>
                                     </div>
 
@@ -1313,8 +1313,8 @@ export default function App() {
                                                 key={opp.id}
                                                 onClick={() => setMatchSelectedOpportunity(opp)}
                                                 className={`p-4 rounded-xl border transition-all cursor-pointer ${matchSelectedOpportunity?.id === opp.id
-                                                        ? "bg-gradient-to-tr from-slate-50 to-teal-55/15 border-teal-500 shadow-sm"
-                                                        : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
+                                                    ? "bg-gradient-to-tr from-slate-50 to-teal-55/15 border-teal-500 shadow-sm"
+                                                    : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
                                                     }`}
                                             >
                                                 <div className="flex justify-between items-start">
@@ -1338,7 +1338,7 @@ export default function App() {
                                                         }}
                                                         className="bg-slate-900 text-white px-2 py-1 rounded hover:bg-slate-800 font-bold"
                                                     >
-                                                        关注并订阅
+                                                        {t("opportunitySubscribe")}
                                                     </button>
                                                 </div>
                                             </div>
@@ -1443,18 +1443,18 @@ export default function App() {
                                                 key={lead.id}
                                                 onClick={() => setActiveLeadForLog(lead)}
                                                 className={`p-3.5 rounded-xl border transition-all cursor-pointer ${activeLeadForLog?.id === lead.id
-                                                        ? "bg-slate-50 border-teal-500 shadow-xs"
-                                                        : "border-slate-100 bg-slate-50/20 hover:bg-slate-55"
+                                                    ? "bg-slate-50 border-teal-500 shadow-xs"
+                                                    : "border-slate-100 bg-slate-50/20 hover:bg-slate-55"
                                                     }`}
                                             >
                                                 <div className="flex justify-between items-start">
                                                     <strong className="text-sm text-slate-800 line-clamp-1">{lead.companyName}</strong>
                                                     <span
                                                         className={`text-[9px] font-mono px-2 py-0.5 rounded uppercase ${lead.status === "new"
-                                                                ? "bg-rose-100 text-rose-800"
-                                                                : lead.status === "contacted"
-                                                                    ? "bg-amber-100 text-amber-800"
-                                                                    : "bg-emerald-100 text-emerald-800"
+                                                            ? "bg-rose-100 text-rose-800"
+                                                            : lead.status === "contacted"
+                                                                ? "bg-amber-100 text-amber-800"
+                                                                : "bg-emerald-100 text-emerald-800"
                                                             }`}
                                                     >
                                                         {lead.status}
@@ -1533,7 +1533,7 @@ export default function App() {
                                         <form onSubmit={addCrmFollowUpLog} className="space-y-2">
                                             <div>
                                                 <textarea
-                                                    placeholder="例如: '已发送中英双语版国际公共采购 Basic认证准备清单，等待对方回执。'"
+                                                    placeholder={t("crmLogPlaceholder")}
                                                     value={newCrmLogEntry}
                                                     onChange={(e) => setNewCrmLogEntry(e.target.value)}
                                                     rows={2}
@@ -1559,7 +1559,7 @@ export default function App() {
                                                     type="submit"
                                                     className="flex-1 py-1 px-3 bg-slate-900 hover:bg-slate-855 text-white rounded text-xs font-semibold"
                                                 >
-                                                    录入至 CRM
+                                                    {t("crmSaveToCRM")}
                                                 </button>
                                             </div>
                                         </form>
@@ -1690,8 +1690,8 @@ export default function App() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                             <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-6">
                                 <div>
-                                    <h3 className="text-base font-extrabold text-slate-800">联合国采购与国际投标学习区</h3>
-                                    <p className="text-xs text-slate-500 mt-1">沉淀投标模板、合规说明、采购案例和会员资料，供团队持续学习。</p>
+                                    <h3 className="text-base font-extrabold text-slate-800">{t("learningSectionTitle")}</h3>
+                                    <p className="text-xs text-slate-500 mt-1">{t("learningSectionDesc")}</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -1804,7 +1804,7 @@ export default function App() {
                                         <Crown className="w-3.5 h-3.5" />
                                         <span>GOLD VIP ACCESS PANEL</span>
                                     </div>
-                                    <h3 className="text-2xl font-extrabold text-white">尊享平台金牌公采系列高级会员</h3>
+                                    <h3 className="text-2xl font-extrabold text-white">{t("memberGoldTitle")}</h3>
                                     <p className="text-xs text-slate-400 max-w-xl">
                                         享有全部高级招标文件模板无限畅读下载、AI供采匹配建议不限次生成、系统对接资深联合国顾问1对1会商连线。
                                     </p>
@@ -1867,7 +1867,7 @@ export default function App() {
                                     onClick={() => alert(`已将权益介绍书发送至: ${userEmail}`)}
                                     className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800"
                                 >
-                                    免费发送资料
+                                    {t("membershipSendFree")}
                                 </button>
                             </div>
                         </div>
@@ -1959,7 +1959,7 @@ export default function App() {
                                                     type="text"
                                                     value={authForm.displayName}
                                                     onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
-                                                    placeholder="联系人姓名"
+                                                    placeholder={t("authContactNamePlaceholder")}
                                                     className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                                 />
                                                 <select
@@ -1974,21 +1974,21 @@ export default function App() {
                                                     type="text"
                                                     value={claimForm.companyName}
                                                     onChange={(e) => setClaimForm({ ...claimForm, companyName: e.target.value })}
-                                                    placeholder="公司名称 *"
+                                                    placeholder={t("authCompanyPlaceholder")}
                                                     className="sm:col-span-2 px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={claimForm.contactPhone}
                                                     onChange={(e) => setClaimForm({ ...claimForm, contactPhone: e.target.value })}
-                                                    placeholder="联系电话 / WhatsApp"
+                                                    placeholder={t("authPhonePlaceholder")}
                                                     className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={claimForm.businessLicenseNo}
                                                     onChange={(e) => setClaimForm({ ...claimForm, businessLicenseNo: e.target.value })}
-                                                    placeholder="营业执照号 / 海外注册号"
+                                                    placeholder={t("authLicensePlaceholder")}
                                                     className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                                 />
                                             </div>
@@ -2000,7 +2000,7 @@ export default function App() {
                                             type="email"
                                             value={authForm.email}
                                             onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-                                            placeholder="邮箱"
+                                            placeholder={t("authEmailPlaceholder")}
                                             className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                             required
                                         />
@@ -2008,7 +2008,7 @@ export default function App() {
                                             type="password"
                                             value={authForm.password}
                                             onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-                                            placeholder="密码，至少 6 位"
+                                            placeholder={t("authPasswordPlaceholder")}
                                             className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                             required
                                             minLength={6}
@@ -2038,7 +2038,7 @@ export default function App() {
                         <div className="bg-slate-900 text-white p-4 flex justify-between items-center bg-gradient-to-r from-slate-950 to-slate-850">
                             <div>
                                 <h3 className="text-base font-extrabold">
-                                    {selectedShowroom ? t("showroomApplyTitle", { name: selectedShowroom.nameZh }) : t("showroomApplyDefault")}
+                                    {selectedShowroom ? t("showroomApplyTitle", { name: locale === "zh" ? selectedShowroom.nameZh : selectedShowroom.nameEn }) : t("showroomApplyDefault")}
                                 </h3>
                                 <p className="text-[10px] text-slate-400">{t("showroomFormSubtitle")}</p>
                             </div>
@@ -2060,7 +2060,7 @@ export default function App() {
                                 </div>
                                 <h4 className="text-base font-bold text-slate-800">{t("formSuccess")}</h4>
                                 <p className="text-xs text-slate-500">
-                                    当前处于演示系统，您可以切换到<strong>“客户管理/CRM”</strong>模块查看此项线索的推进及AI跟进细节！
+                                    {t("showroomFormDemoNote")}
                                 </p>
                             </div>
                         ) : (
@@ -2070,7 +2070,7 @@ export default function App() {
                                         <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("companyName")} *</label>
                                         <input
                                             type="text"
-                                            placeholder="中英文工商登记企业名"
+                                            placeholder={t("showroomCompanyPlaceholder")}
                                             value={showroomFormInputs.companyName}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, companyName: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -2081,7 +2081,7 @@ export default function App() {
                                         <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("contactPerson")} *</label>
                                         <input
                                             type="text"
-                                            placeholder="负责此展出的对接人姓名"
+                                            placeholder={t("showroomContactPlaceholder")}
                                             value={showroomFormInputs.contactPerson}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, contactPerson: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -2089,10 +2089,10 @@ export default function App() {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-extrabold text-slate-700 mb-1">对接方式 (手机号/WhatsApp) *</label>
+                                        <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("formContactMethod")}</label>
                                         <input
                                             type="text"
-                                            placeholder="以便驻外代表联络"
+                                            placeholder={t("showroomPhonePlaceholder")}
                                             value={showroomFormInputs.contactMethod}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, contactMethod: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
@@ -2124,7 +2124,7 @@ export default function App() {
                                             </select>
                                             <input
                                                 type="text"
-                                                placeholder="主要所在城市"
+                                                placeholder={t("showroomCityPlaceholder")}
                                                 value={showroomFormInputs.city}
                                                 onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, city: e.target.value }))}
                                                 className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs"
@@ -2147,7 +2147,7 @@ export default function App() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-extrabold text-slate-700 mb-1">核心主营产品群 (逗号隔开) *</label>
+                                    <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("formMainProductsGroup")}</label>
                                     <input
                                         type="text"
                                         value={showroomFormInputs.mainProducts}
@@ -2167,7 +2167,7 @@ export default function App() {
                                         className="w-4 h-4 text-teal-600 rounded"
                                     />
                                     <label htmlFor="has国际公共采购C" className="text-xs text-slate-700 font-bold select-none cursor-pointer">
-                                        我司已在 国际公共采购 联合国采购平台注册或意向由平台同步其匹配资质。
+                                        {t("showroomUngmCheckbox")}
                                     </label>
                                 </div>
 
@@ -2184,7 +2184,7 @@ export default function App() {
                                     >
                                         <FileText className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                                         <p className="text-xs text-slate-600 font-semibold">{t("uploadPlaceholder")}</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">支持PDF、物料白皮书及多文案营业执照。最长限制30MB。</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">{t("uploadFileHint")}</p>
 
                                         {uploadedFiles.length > 0 && (
                                             <div className="mt-3 space-y-1.5 text-left border-t border-slate-200 pt-2.5 max-h-24 overflow-y-auto">
@@ -2205,13 +2205,13 @@ export default function App() {
                                         rows={2}
                                         value={showroomFormInputs.notes}
                                         onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, notes: e.target.value }))}
-                                        placeholder="如需在德国法兰克福保税备件库中租用3个托盘托位..."
+                                        placeholder={t("showroomNotesPlaceholder")}
                                         className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                     />
                                 </div>
 
                                 <div className="text-[11px] text-slate-400">
-                                    点击提交即同意平台出海服务协议，您的上述所有信息将加密注入高优 CRM。
+                                    {t("formSubmitAgreement")}
                                 </div>
 
                                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -2281,7 +2281,7 @@ export default function App() {
                                             type="text"
                                             value={supplierFormInputs.nameZh}
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, nameZh: e.target.value }))}
-                                            placeholder="常州恒力精密机床股份有限公司"
+                                            placeholder={t("supplierNameZhPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
                                             required
                                         />
@@ -2316,13 +2316,13 @@ export default function App() {
                                             type="text"
                                             value={supplierFormInputs.国际公共采购Code}
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, 国际公共采购Code: e.target.value }))}
-                                            placeholder="8位 UNSPSC/国际公共采购 注册码"
+                                            placeholder={t("supplierUnspscPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-205"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-extrabold text-slate-700 mb-1">产品行业 *</label>
+                                        <label className="block text-xs font-extrabold text-slate-700 mb-1">{t("formIndustry")}</label>
                                         <select
                                             value={supplierFormInputs.industryZh}
                                             onChange={(e) => {
@@ -2346,7 +2346,7 @@ export default function App() {
                                             type="text"
                                             value={supplierFormInputs.contactPerson}
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, contactPerson: e.target.value, contactPhone: e.target.value }))}
-                                            placeholder="马永超 manager"
+                                            placeholder={t("supplierContactPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
                                             required
                                         />
@@ -2370,7 +2370,7 @@ export default function App() {
                                             type="text"
                                             value={supplierFormInputs.mainProductsZh}
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, mainProductsZh: e.target.value, mainProductsEn: e.target.value }))}
-                                            placeholder="五轴加工,数控铣刀"
+                                            placeholder={t("supplierProductsPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
                                             required
                                         />
@@ -2392,7 +2392,7 @@ export default function App() {
                                         type="submit"
                                         className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800"
                                     >
-                                        立即提交注册申请
+                                        {t("supplierRegSubmitBtn")}
                                     </button>
                                 </div>
 
@@ -2430,23 +2430,23 @@ export default function App() {
                                     <input
                                         type="text"
                                         name="companyName"
-                                        placeholder="请输入完整的企业名"
+                                        placeholder={t("consultCompanyPlaceholder")}
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">对接人姓名 *</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">{t("consultFormContactName")}</label>
                                     <input
                                         type="text"
                                         name="contactPerson"
-                                        placeholder="例如: 林经理"
+                                        placeholder={t("consultPersonPlaceholder")}
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">手机号码 / WhatsApp *</label>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">{t("consultFormPhone")}</label>
                                     <input
                                         type="text"
                                         name="phone"
@@ -2460,7 +2460,7 @@ export default function App() {
                                     <textarea
                                         name="notes"
                                         rows={2}
-                                        placeholder="如: 我司生产医疗包装袋，需要了解国际公共采购 Level1 的最低财务申报流和海外展厅展示费率。"
+                                        placeholder={t("consultNotesPlaceholder")}
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                     />
                                 </div>
@@ -2471,13 +2471,13 @@ export default function App() {
                                         onClick={() => setShowConsultForm(false)}
                                         className="px-3 py-1.5 border border-slate-200 text-slate-400 rounded text-xs"
                                     >
-                                        取消
+                                        {t("cancel")}
                                     </button>
                                     <button
                                         type="submit"
                                         className="px-4 py-1.5 bg-slate-900 text-white rounded text-xs font-semibold hover:bg-slate-800"
                                     >
-                                        立即提交预约
+                                        {t("consultSubmitBtn")}
                                     </button>
                                 </div>
                             </form>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
+import { useLocale } from "./locales/LocaleContext";
 
 type DictionaryItem = {
   id: number;
@@ -12,6 +13,7 @@ type DictionaryItem = {
 const EXPORT_EXPERIENCE_OPTIONS = ["3年以内", "3-5年", "5-10年", "10年以上"];
 
 export default function TrainingPage() {
+  const { t, locale } = useLocale();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -110,7 +112,7 @@ export default function TrainingPage() {
     setError("");
 
     if (!form.company_name || !form.industry_id || !form.contact_name || !form.telephone) {
-      setError("请填写企业名称、一级行业、参会人姓名和手机号码。");
+      setError(t("trainingValidationError"));
       return;
     }
 
@@ -138,21 +140,21 @@ export default function TrainingPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "提交失败");
+        throw new Error(data.error || t("formError"));
       }
 
       setSubmitted(true);
       resetForm();
       setTimeout(() => setSubmitted(false), 4000);
     } catch (err: any) {
-      setError(err.message || "网络错误，请稍后重试。");
+      setError(err.message || t("formError"));
     } finally {
       setLoading(false);
     }
   };
 
   const labelOf = (item: DictionaryItem) =>
-    `${item.code || ""}${item.code ? " - " : ""}${item.title_zh || item.title_en || item.name || "未命名"}`;
+    `${item.code || ""}${item.code ? " - " : ""}${locale === "zh" ? item.title_zh || item.title_en || item.name : item.title_en || item.title_zh || item.name || "Unnamed"}`;
 
   return (
     <div className="space-y-6">
@@ -160,8 +162,8 @@ export default function TrainingPage() {
         <div className="flex items-center gap-3">
           <GraduationCap className="w-7 h-7 text-amber-300" />
           <div>
-            <h2 className="text-xl font-extrabold">联合国采购投标实操与能力建设研修班</h2>
-            <p className="text-xs text-slate-400 mt-1">填写报名信息后，系统会同步写入供应商报名表并沉淀 UNSPSC 行业画像。</p>
+            <h2 className="text-xl font-extrabold">{t("trainingPageTitle")}</h2>
+            <p className="text-xs text-slate-400 mt-1">{t("trainingPageSubtitle")}</p>
           </div>
         </div>
       </section>
@@ -170,8 +172,8 @@ export default function TrainingPage() {
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-teal-600" />
           <div>
-            <p className="text-sm font-bold text-teal-800">报名信息已提交。</p>
-            <p className="text-xs text-teal-600">我们将在开班前通过电话或邮件确认参会细节。</p>
+            <p className="text-sm font-bold text-teal-800">{t("trainingSubmittedTitle")}</p>
+            <p className="text-xs text-teal-600">{t("trainingSubmittedDesc")}</p>
           </div>
         </div>
       )}
@@ -181,25 +183,25 @@ export default function TrainingPage() {
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-xs space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">企业名称 *</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormCompanyName")}</span>
             <input
               name="company_name"
               value={form.company_name}
               onChange={handleChange}
-              placeholder="如：浙江某医疗器械有限公司"
+              placeholder={locale === "zh" ? "如：浙江某医疗器械有限公司" : "e.g. Zhejiang Medical Devices Co."}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
           </label>
 
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">一级行业（UNSPSC）*</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormLevel1Industry")}</span>
             <select
               name="industry_id"
               value={form.industry_id}
               onChange={handleChange}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
-              <option value="">请选择一级行业</option>
+              <option value="">{t("trainingFormSelectLevel1")}</option>
               {level1Industries.map((item) => (
                 <option key={item.id} value={item.id}>{labelOf(item)}</option>
               ))}
@@ -207,7 +209,7 @@ export default function TrainingPage() {
           </label>
 
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">可选二级行业</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormLevel2Industry")}</span>
             <select
               name="industry_level2_id"
               value={form.industry_level2_id}
@@ -215,7 +217,7 @@ export default function TrainingPage() {
               disabled={!level2Industries.length}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
-              <option value="">可选二级行业</option>
+              <option value="">{t("trainingFormSelectLevel2")}</option>
               {level2Industries.map((item) => (
                 <option key={item.id} value={item.id}>{labelOf(item)}</option>
               ))}
@@ -223,7 +225,7 @@ export default function TrainingPage() {
           </label>
 
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">可选三级行业</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormLevel3Industry")}</span>
             <select
               name="industry_level3_id"
               value={form.industry_level3_id}
@@ -231,7 +233,7 @@ export default function TrainingPage() {
               disabled={!level3Industries.length}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
-              <option value="">可选三级行业</option>
+              <option value="">{t("trainingFormSelectLevel3")}</option>
               {level3Industries.map((item) => (
                 <option key={item.id} value={item.id}>{labelOf(item)}</option>
               ))}
@@ -239,25 +241,25 @@ export default function TrainingPage() {
           </label>
 
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">主营产品 *</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormMainProduct")}</span>
             <input
               name="main_product"
               value={form.main_product}
               onChange={handleChange}
-              placeholder="如：医用耗材与器械"
+              placeholder={locale === "zh" ? "如：医用耗材与器械" : "e.g. Medical consumables"}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
           </label>
 
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">出口贸易经验</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormExportExperience")}</span>
             <select
               name="export_experience"
               value={form.export_experience}
               onChange={handleChange}
               className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
-              <option value="">请选择经验年限</option>
+              <option value="">{t("trainingFormSelectExport")}</option>
               {EXPORT_EXPERIENCE_OPTIONS.map((item) => (
                 <option key={item} value={item}>{item}</option>
               ))}
@@ -266,7 +268,7 @@ export default function TrainingPage() {
         </div>
 
         <section>
-          <p className="text-xs font-extrabold text-slate-700 mb-2">持有资质证书（可多选）</p>
+          <p className="text-xs font-extrabold text-slate-700 mb-2">{t("trainingFormCertifications")}</p>
           <div className="border border-slate-200 rounded-xl p-3 flex flex-wrap gap-2 bg-slate-50">
             {certifications.map((item) => {
               const name = item.name || item.title_zh || item.title_en || String(item.id);
@@ -287,38 +289,38 @@ export default function TrainingPage() {
             name="other_certification"
             value={form.other_certification}
             onChange={handleChange}
-            placeholder="其他资质证书，如 BSCI-A level、SLCP、GRS、TCCC"
+            placeholder={t("trainingFormOtherCertPlaceholder")}
             className="mt-3 w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
         </section>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">参会人姓名 *</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormContactName")}</span>
             <input name="contact_name" value={form.contact_name} onChange={handleChange} className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">职务 / 岗位</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormPosition")}</span>
             <input name="position" value={form.position} onChange={handleChange} className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">手机号码 *</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormPhone")}</span>
             <input name="telephone" value={form.telephone} onChange={handleChange} className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
           <label className="block">
-            <span className="block text-xs font-extrabold text-slate-700 mb-1">邮箱</span>
+            <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormEmail")}</span>
             <input name="email" value={form.email} onChange={handleChange} className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500" />
           </label>
         </div>
 
         <label className="block">
-          <span className="block text-xs font-extrabold text-slate-700 mb-1">备注</span>
+          <span className="block text-xs font-extrabold text-slate-700 mb-1">{t("trainingFormRemark")}</span>
           <textarea
             name="remark"
             value={form.remark}
             onChange={handleChange}
             rows={3}
-            placeholder="可填写参训诉求、目标采购市场、已关注的 国际公共采购 机构等"
+            placeholder={t("trainingFormRemarkPlaceholder")}
             className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
         </label>
@@ -330,7 +332,7 @@ export default function TrainingPage() {
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-600 text-white text-sm font-black hover:bg-orange-700 disabled:opacity-60"
           >
             <Send className="w-4 h-4" />
-            {loading ? "提交中..." : "提交研修班报名"}
+            {loading ? t("trainingSubmitting") : t("trainingSubmitBtn")}
           </button>
         </div>
       </form>
