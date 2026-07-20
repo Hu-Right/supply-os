@@ -1278,7 +1278,7 @@ export default function App() {
                                 { title: t("leadCount"), val: leads.length, icon: Activity, col: "text-teal-600 bg-teal-50" },
                                 { title: t("oppCount"), val: OPPORTUNITIES.length, icon: TrendingUp, col: "text-indigo-600 bg-indigo-50" },
                                 { title: t("clientPool"), val: leads.filter(l => l.status === "qualified" || l.status === "contacted").length, icon: Users, col: "text-emerald-600 bg-emerald-50" },
-                                { title: "跨国跟进节点历史", val: leads.reduce((acc, current) => acc + (current.followUpLogs?.length || 0), 0), icon: Clock, col: "text-amber-600 bg-amber-50" }
+                                { title: t("crmFollowUpHistory"), val: leads.reduce((acc, current) => acc + (current.followUpLogs?.length || 0), 0), icon: Clock, col: "text-amber-600 bg-amber-50" }
                             ].map((m, idx) => {
                                 const Icon = m.icon;
                                 return (
@@ -1305,7 +1305,7 @@ export default function App() {
                                 <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
                                     <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center justify-between">
                                         <span>{t("opportunityHub")}</span>
-                                        <span className="text-xs text-teal-600 font-mono">2026 最新公开标讯</span>
+                                        <span className="text-xs text-teal-600 font-mono">{t("crmLatestNotices")}</span>
                                     </h3>
                                     <div className="space-y-4">
                                         {OPPORTUNITIES.map((opp) => (
@@ -1431,11 +1431,11 @@ export default function App() {
                                         <span>{t("leadTracker")}</span>
                                         <span className="text-[10px] bg-teal-600 text-white font-mono px-2 py-0.5 rounded-full">REALTIME INGESTED</span>
                                     </h3>
-                                    <p className="text-xs text-slate-500 mt-1">展示来自海外展厅申请表、顾问预约、国际采购意向等端口生成的真实云端客户线索。</p>
+                                    <p className="text-xs text-slate-500 mt-1">{t("crmLeadDesc")}</p>
                                 </div>
 
                                 {isLoadingLeads ? (
-                                    <div className="text-center py-6 text-slate-400 text-xs animate-pulse">正在从远端拉取最新CRM线索池数据...</div>
+                                    <div className="text-center py-6 text-slate-400 text-xs animate-pulse">{t("crmLoadingLeads")}</div>
                                 ) : (
                                     <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
                                         {leads.map((lead) => (
@@ -1463,21 +1463,21 @@ export default function App() {
 
                                                 <div className="grid grid-cols-2 gap-1.5 mt-2 text-[11px] text-slate-500 border-b border-dashed border-slate-150 pb-2">
                                                     <p>
-                                                        <strong>主营/类型:</strong> {lead.industry || "未指定"}
+                                                        <strong>{t("crmFieldIndustry")}:</strong> {lead.industry || t("crmIndustryUnknown")}
                                                     </p>
                                                     <p>
-                                                        <strong>国家:</strong> {lead.country || "China"}
+                                                        <strong>{t("crmFieldCountry")}:</strong> {lead.country || "China"}
                                                     </p>
                                                     <p>
-                                                        <strong>联系人:</strong> {lead.contactPerson}
+                                                        <strong>{t("crmFieldContact")}:</strong> {lead.contactPerson}
                                                     </p>
                                                     <p className="truncate">
-                                                        <strong>联络方式:</strong> {lead.contactMethod}
+                                                        <strong>{t("crmFieldMethod")}:</strong> {lead.contactMethod}
                                                     </p>
                                                 </div>
 
                                                 <p className="text-xs text-slate-600 mt-2 bg-white p-2 rounded leading-relaxed border border-slate-100">
-                                                    <strong>诉求备注:</strong> {lead.notes}
+                                                    <strong>{t("crmFieldNotes")}:</strong> {lead.notes}
                                                 </p>
 
                                                 <div className="flex justify-between items-center text-[10px] text-slate-400 mt-2">
@@ -1486,7 +1486,7 @@ export default function App() {
                                                         {new Date(lead.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
                                                     </span>
                                                     <span className="text-teal-600 hover:underline">
-                                                        包含 {lead.followUpLogs?.length || 0} 条跟进记录 »
+                                                        {t("crmFollowUpCount", { count: lead.followUpLogs?.length || 0 })}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1499,7 +1499,7 @@ export default function App() {
                                     <div className="bg-slate-50 rounded-xl p-4 border border-teal-200 mt-4 space-y-4">
                                         <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                                             <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest text-teal-700">
-                                                » 正在编辑 & 录入跟进状态: {activeLeadForLog.companyName}
+                                                {t("crmEditingLead", { company: activeLeadForLog.companyName })}
                                             </h4>
                                             <button
                                                 onClick={() => setActiveLeadForLog(null)}

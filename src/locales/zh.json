@@ -329,5 +329,17 @@
   "supplierFilterDomestic": "中方优质工厂",
   "supplierFilterIntl": "国外(国际公共采购入网)",
   "supplierStatusPending": "待常驻顾问初审",
-  "supplierStatusVerified": "已联网核验"
+  "supplierStatusVerified": "已联网核验",
+  "crmFollowUpHistory": "跨国跟进节点历史",
+  "crmLeadDesc": "展示来自海外展厅申请表、顾问预约、国际采购意向等端口生成的真实云端客户线索。",
+  "crmLatestNotices": "2026 最新公开标讯",
+  "crmLoadingLeads": "正在从远端拉取最新CRM线索池数据...",
+  "crmFieldIndustry": "主营/类型",
+  "crmFieldCountry": "国家",
+  "crmFieldContact": "联系人",
+  "crmFieldMethod": "联络方式",
+  "crmFieldNotes": "诉求备注",
+  "crmFollowUpCount": "包含 {count} 条跟进记录 »",
+  "crmIndustryUnknown": "未指定",
+  "crmEditingLead": "» 正在编辑 & 录入跟进状态: {company}"
 }

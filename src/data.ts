@@ -260,7 +260,7 @@ export const OPPORTUNITIES: Opportunity[] = [
   {
     id: "opp-01",
     titleZh: "东非难民营2026年度移动板房及拼装卫浴集采商机",
-    titleEn: "Joint 国际公共采购 RFP: Prefabricated Housing and Prefab Bathroom Pods for East Africa Projects",
+    titleEn: "Mobile prefabricated houses and assembled bathroom sets procurement opportunity for the East African refugee camp in 2026",
     industryZh: "建材",
     industryEn: "Construction",
     countryZh: "肯尼亚",

@@ -329,5 +329,17 @@
   "supplierFilterDomestic": "Chinese Factories",
   "supplierFilterIntl": "International (UNSPSC)",
   "supplierStatusPending": "Pending Review",
-  "supplierStatusVerified": "Verified"
+  "supplierStatusVerified": "Verified",
+  "crmFollowUpHistory": "Cross-Border Follow-ups",
+  "crmLeadDesc": "Real-time CRM leads from showroom applications, advisor bookings and procurement inquiries.",
+  "crmLatestNotices": "2026 Latest Notices",
+  "crmLoadingLeads": "Loading latest CRM leads...",
+  "crmFieldIndustry": "Industry/Type",
+  "crmFieldCountry": "Country",
+  "crmFieldContact": "Contact",
+  "crmFieldMethod": "Phone/WhatsApp",
+  "crmFieldNotes": "Notes",
+  "crmFollowUpCount": "{count} follow-up logs »",
+  "crmIndustryUnknown": "Unspecified",
+  "crmEditingLead": "» Editing & logging follow-up: {company}"
 }
