@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle, Smartphone } from "lucide-react";
-import { getAvailableProviders, getPaymentTips, detectPlatformEnv, isMobile } from "./payment/env-detector";
-
-// 缈昏瘧绫诲瀷锛堢畝鍖栵紝閬垮厤鍏ㄩ噺寮曞叆 TRANSLATIONS锛?
-type LangDict = Record<string, string>;
+import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle } from "lucide-react";
+import { getAvailableProviders, getPaymentTips, isMobile } from "./payment/env-detector";
+import { useLocale } from "./locales/LocaleContext";
 
 type PaymentModalProps = {
   planCode: string;
@@ -11,8 +9,6 @@ type PaymentModalProps = {
   amount: number;
   currency: string;
   userKey: string;
-  lang: "zh" | "en";
-  t: LangDict;
   onClose: () => void;
   onPaymentSuccess: (orderNo: string) => void;
 };
@@ -33,11 +29,10 @@ export default function PaymentModal({
   amount,
   currency,
   userKey,
-  lang,
-  t,
   onClose,
   onPaymentSuccess,
 }: PaymentModalProps) {
+  const { t, locale } = useLocale();
   const [step, setStep] = useState<PaymentStep>("choose");
   const [selectedProvider, setSelectedProvider] = useState<"alipay" | "wechat" | "mock">("mock");
   const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
@@ -76,7 +71,7 @@ export default function PaymentModal({
           } else if (data.status === "closed" || data.status === "failed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setStep("failed");
-            setError(t.paymentTimeoutError);
+            setError(t("paymentTimeoutError"));
           }
         } catch {
           // silent polling
@@ -104,7 +99,7 @@ export default function PaymentModal({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || t.paymentCreateError);
+        throw new Error(data.error || t("paymentCreateError"));
       }
 
       const order = await res.json();
@@ -112,17 +107,15 @@ export default function PaymentModal({
       setStep("waiting");
 
       if (order.provider === "mock") {
-        // 后端 mock 模式：自动轮询订单状态。
         startPolling(order.order_no);
       } else {
-        // 真实支付：创建订单成功后打开支付页面。
         const payWindow = window.open(order.pay_url, "_blank");
         if (!payWindow) window.location.href = order.pay_url;
         startPolling(order.order_no);
       }
     } catch (err: any) {
-      console.error("[PaymentModal] 鍒涘缓璁㈠崟澶辫触:", err);
-      setError(err.message || t.paymentCreateError);
+      console.error("[PaymentModal] create order failed:", err);
+      setError(err.message || t("paymentCreateError"));
     } finally {
       setIsCreating(false);
     }
@@ -143,16 +136,16 @@ export default function PaymentModal({
   };
 
   const getProviderLabel = (provider: string) =>
-    provider === "alipay" ? t.paymentAlipay : t.paymentWechat;
+    provider === "alipay" ? t("paymentAlipay") : t("paymentWechat");
 
-  const currencySymbol = currency === "CNY" ? "楼" : "$";
+  const currencySymbol = currency === "CNY" ? "¥" : "$";
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex justify-center items-center p-4">
-      <div className="bg-white rounded-3xl border-2 border-slate-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] max-w-md w-full max-h-[90vh] overflow-y-auto" lang={lang}>
+      <div className="bg-white rounded-3xl border-2 border-slate-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] max-w-md w-full max-h-[90vh] overflow-y-auto" lang={locale}>
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b-2 border-slate-200">
-          <h2 className="text-lg font-black text-slate-900">{t.paymentTitle}</h2>
+          <h2 className="text-lg font-black text-slate-900">{t("paymentTitle")}</h2>
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
@@ -162,12 +155,12 @@ export default function PaymentModal({
         </div>
 
         <div className="p-5 space-y-5">
-          {/* 濂楅淇℃伅 */}
+          {/* Plan info */}
           <div className="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm font-bold text-slate-600">{planName}</span>
               <span className="text-xs bg-slate-800 text-white px-2 py-0.5 rounded-full font-mono">
-                {t.paymentPlanLabel}: {planCode}
+                {t("paymentPlanLabel")}: {planCode}
               </span>
             </div>
             <div className="text-3xl font-black text-slate-900">
@@ -178,7 +171,7 @@ export default function PaymentModal({
           {/* Step: Choose provider */}
           {step === "choose" && (
             <>
-              <p className="text-sm font-bold text-slate-700">{t.paymentSelectMethod}</p>
+              <p className="text-sm font-bold text-slate-700">{t("paymentSelectMethod")}</p>
               <div className="space-y-2">
                 {availableProviders.map((provider) => (
                   <button
@@ -199,7 +192,7 @@ export default function PaymentModal({
                     </div>
                     {provider.recommended && (
                       <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-400 text-amber-900 rounded-full uppercase">
-                        {t.paymentRecommended}
+                        {t("paymentRecommended")}
                       </span>
                     )}
                   </button>
@@ -225,10 +218,10 @@ export default function PaymentModal({
                 {isCreating ? (
                   <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    {t.paymentCreating}
+                    {t("paymentCreating")}
                   </span>
                 ) : (
-                  `${t.paymentConfirmBtn} ${currencySymbol}${amount.toFixed(2)}`
+                  `${t("paymentConfirmBtn")} ${currencySymbol}${amount.toFixed(2)}`
                 )}
               </button>
             </>
@@ -239,8 +232,12 @@ export default function PaymentModal({
             <div className="text-center space-y-4">
               <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4">
                 <Loader2 className="w-8 h-8 animate-spin text-amber-600 mx-auto mb-2" />
-                <p className="font-bold text-amber-900 text-sm">{t.paymentWaitingTitle}</p>
-                <p className="text-xs text-amber-700 mt-1">{selectedProvider === "mock" ? "本地模拟支付会自动完成，用于测试支付闭环。" : getPaymentTips(selectedProvider)}</p>
+                <p className="font-bold text-amber-900 text-sm">{t("paymentWaitingTitle")}</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  {selectedProvider === "mock"
+                    ? locale === "zh" ? "本地模拟支付会自动完成，用于测试支付闭环。" : "Mock payment will auto-complete for testing."
+                    : getPaymentTips(selectedProvider)}
+                </p>
               </div>
 
               <div className="space-y-3">
@@ -249,19 +246,19 @@ export default function PaymentModal({
                   className="w-full py-3 rounded-2xl bg-slate-800 text-white font-bold text-sm hover:bg-slate-700 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  {t.paymentReOpenBtn}
+                  {t("paymentReOpenBtn")}
                 </button>
                 {!mobile && (
                   <button
                     onClick={handleCopyPayUrl}
                     className="w-full py-2 rounded-2xl border-2 border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 cursor-pointer"
                   >
-                    {t.paymentCopyLink}
+                    {t("paymentCopyLink")}
                   </button>
                 )}
               </div>
 
-              <p className="text-xs text-slate-400">{t.paymentWaitingDesc}</p>
+              <p className="text-xs text-slate-400">{t("paymentWaitingDesc")}</p>
             </div>
           )}
 
@@ -270,11 +267,11 @@ export default function PaymentModal({
             <div className="text-center space-y-4">
               <div className="bg-teal-50 border-2 border-teal-300 rounded-2xl p-5">
                 <CheckCircle2 className="w-12 h-12 text-teal-600 mx-auto mb-3" />
-                <p className="font-black text-teal-800 text-lg">{t.paymentSuccessTitle}</p>
-                <p className="text-sm text-teal-700 mt-1">{t.paymentSuccessDesc}</p>
+                <p className="font-black text-teal-800 text-lg">{t("paymentSuccessTitle")}</p>
+                <p className="text-sm text-teal-700 mt-1">{t("paymentSuccessDesc")}</p>
                 {orderInfo && (
                   <p className="text-xs text-teal-500 mt-2 font-mono">
-                    {t.paymentOrderNo}: {orderInfo.order_no}
+                    {t("paymentOrderNo")}: {orderInfo.order_no}
                   </p>
                 )}
               </div>
@@ -282,7 +279,7 @@ export default function PaymentModal({
                 onClick={onClose}
                 className="w-full py-3 rounded-2xl bg-teal-600 text-white font-black text-sm cursor-pointer hover:bg-teal-700"
               >
-                {t.paymentDoneBtn}
+                {t("paymentDoneBtn")}
               </button>
             </div>
           )}
@@ -292,14 +289,14 @@ export default function PaymentModal({
             <div className="text-center space-y-4">
               <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-5">
                 <AlertCircle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
-                <p className="font-black text-rose-800 text-lg">{t.paymentFailedTitle}</p>
-                <p className="text-sm text-rose-700 mt-1">{error || t.paymentFailedDesc}</p>
+                <p className="font-black text-rose-800 text-lg">{t("paymentFailedTitle")}</p>
+                <p className="text-sm text-rose-700 mt-1">{error || t("paymentFailedDesc")}</p>
               </div>
               <button
                 onClick={handleRetry}
                 className="w-full py-3 rounded-2xl bg-rose-600 text-white font-black text-sm cursor-pointer hover:bg-rose-700"
               >
-                {t.paymentRetryBtn}
+                {t("paymentRetryBtn")}
               </button>
             </div>
           )}
