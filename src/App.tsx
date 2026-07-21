@@ -1837,7 +1837,7 @@ export default function App() {
                                     </div>
                                     <h3 className="text-2xl font-extrabold text-white">{t("memberGoldTitle")}</h3>
                                     <p className="text-xs text-slate-400 max-w-xl">
-                                        享有全部高级招标文件模板无限畅读下载、AI供采匹配建议不限次生成、系统对接资深联合国顾问1对1会商连线。
+                                        {t("membershipVipDesc")}
                                     </p>
                                 </div>
 
@@ -1865,10 +1865,10 @@ export default function App() {
                             {/* Grid of VIP custom privileges */}
                             <div className="mt-8 pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-6">
                                 {[
-                                    { title: "全网标讯先知权限", desc: "由于系统直联，您可在标讯对公众公布前3-4天获取相关数据推荐。" },
-                                    { title: "AI 高精度匹配不限次", desc: "无限次评估您与特定国际公共采购采购Lot或采购组织需求的兼容度并一建生成报告。" },
-                                    { title: "展厅实体沙盘展示", desc: "每年免费获赠德国或迪拜、内罗毕展厅内1㎡的实物样品、画册陈列位。" },
-                                    { title: "1对1出海顾问随行", desc: "针对中英双语、海牙合规、资质加急审核等提供全程跟进陪伴。" }
+                                    { title: t("vipPriv1Title"), desc: t("vipPriv1Desc") },
+                                    { title: t("vipPriv2Title"), desc: t("vipPriv2Desc") },
+                                    { title: t("vipPriv3Title"), desc: t("vipPriv3Desc") },
+                                    { title: t("vipPriv4Title"), desc: t("vipPriv4Desc") }
                                 ].map((priv, idx) => (
                                     <div key={idx} className="space-y-1 bg-slate-850 p-4 rounded-xl border border-slate-800/50">
                                         <strong className="text-xs font-bold text-teal-400 block">{priv.title}</strong>
@@ -1881,9 +1881,9 @@ export default function App() {
 
                         {/* Simulated interactive feedback section */}
                         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs text-center max-w-xl mx-auto space-y-4">
-                            <h4 className="text-base font-extrabold text-slate-800">对高级会员体系存有疑问？</h4>
+                            <h4 className="text-base font-extrabold text-slate-800">{t("membershipQuestionTitle")}</h4>
                             <p className="text-xs text-slate-500">
-                                输入您的企业邮箱，我们可以把详细的多语种权益说明、国际公共采购合规白皮书全套发至您的邮箱中。
+                                {t("membershipQuestionDesc")}
                             </p>
 
                             <div className="flex gap-2">
@@ -1895,7 +1895,7 @@ export default function App() {
                                     className="flex-1 px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                                 />
                                 <button
-                                    onClick={() => alert(`已将权益介绍书发送至: ${userEmail}`)}
+                                    onClick={() => alert(t("membershipSendEmailAlert", { email: userEmail }))}
                                     className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800"
                                 >
                                     {t("membershipSendFree")}

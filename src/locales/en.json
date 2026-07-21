@@ -345,5 +345,17 @@
   "formRequired": "Please fill out this field",
   "learningDownloadCount": "Downloaded: {count} times",
   "learningSummary": "Summary",
-  "learningCoreContent": "Core Content"
+  "learningCoreContent": "Core Content",
+  "vipPriv1Title": "Early Notice Alerts",
+  "vipPriv1Desc": "Direct system link delivers tender data 3-4 days before public release.",
+  "vipPriv2Title": "Unlimited AI Matchmaking",
+  "vipPriv2Desc": "Unlimited compatibility evaluations with one-click report generation.",
+  "vipPriv3Title": "Physical Showroom Display",
+  "vipPriv3Desc": "Free 1㎡ sample & brochure display space annually in Germany, Dubai or Nairobi showrooms.",
+  "vipPriv4Title": "1-on-1 Overseas Advisor",
+  "vipPriv4Desc": "Full bilingual support for Hague compliance, expedited certification and more.",
+  "membershipQuestionTitle": "Questions about Premium Membership?",
+  "membershipQuestionDesc": "Enter your company email and we will send detailed multilingual benefits and UN procurement compliance whitepapers.",
+  "membershipVipDesc": "Unlimited access to premium tender templates, AI matchmaking and 1-on-1 UN advisor consultations.",
+  "membershipSendEmailAlert": "Membership info sent to: {email}"
 }
