@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: frontend_app
+title: 应用根组件与全局初始化
+scope:
+    - src/App.tsx
+    - src/main.tsx
+    - src/index.css
+source_files: []
+depends_on: []
+related_to: []

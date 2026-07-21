@@ -26,4 +26,4 @@ export type {
   PaymentProviderConfig,
 } from "./payment";
 export type { NoticeItem, NoticeResponse } from "./procurement";
-export type { MembershipProductPlan, MembershipStatus } from "./membership";
+export type { MembershipPlan, MembershipStatus } from "./membership";

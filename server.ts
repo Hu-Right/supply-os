@@ -885,7 +885,7 @@ async function startServer() {
             countryEn,
             cityZh,
             cityEn,
-            国际公共采购Code,
+            ungmCode,
             mainProductsZh,
             mainProductsEn,
             complianceLabelsZh,
@@ -910,7 +910,7 @@ async function startServer() {
             countryEn: countryEn || "China",
             cityZh: cityZh || "未指定",
             cityEn: cityEn || "Unspecified",
-            国际公共采购Code: 国际公共采购Code || undefined,
+            ungmCode: ungmCode || undefined,
             mainProductsZh: Array.isArray(mainProductsZh) ? mainProductsZh : [mainProductsZh || ""],
             mainProductsEn: Array.isArray(mainProductsEn) ? mainProductsEn : [mainProductsEn || ""],
             complianceLabelsZh: Array.isArray(complianceLabelsZh) ? complianceLabelsZh : ["已提交初批材料"],
@@ -934,8 +934,8 @@ async function startServer() {
             email: contactEmail,
             industry: industryZh || "Other",
             mainProducts: Array.isArray(mainProductsZh) ? mainProductsZh.join(", ") : mainProductsZh,
-            has国际公共采购Participation: !!国际公共采购Code,
-            notes: `申请注册为供应商。类型: ${type}. 国际公共采购 Code: ${国际公共采购Code || "None"}. 待运营专家进行出海合规资质审查。`,
+            has国际公共采购Participation: !!ungmCode,
+            notes: `申请注册为供应商。类型: ${type}. 国际公共采购 Code: ${ungmCode || "None"}. 待运营专家进行出海合规资质审查。`,
             type: "supplier_register",
             status: "new",
             createdAt: new Date().toISOString(),
@@ -2127,7 +2127,7 @@ async function startServer() {
         const localAnalysisZh = `#### 本地智能算法分析报告
 * 匹配度预测比例: **88%**
 * **优势分析**: 供应商 ${supplier.nameZh} 的核心产品 ${supplier.mainProductsZh?.join(", ")} 与采购方商机 ${opportunity.titleZh}（预算：${opportunity.budget}）的核心需求高度吻合。该企业所在地 ${supplier.cityZh || ""} 产业链配套完备。
-* **合规比对**: 采购国为 ${opportunity.countryZh}。供应商持有 ${supplier.complianceLabelsZh?.join(", ")}，基本满足合规准入门槛。${supplier.国际公共采购Code ? `该国外企业已持有国际公共采购 Code (${supplier.国际公共采购Code})，属于高优匹配！` : "建议该国内优质工厂申请代入驻国际公共采购资质，能额外提高35%中标权重。"}
+* **合规比对**: 采购国为 ${opportunity.countryZh}。供应商持有 ${supplier.complianceLabelsZh?.join(", ")}，基本满足合规准入门槛。${supplier.ungmCode ? `该国外企业已持有国际公共采购 Code (${supplier.ungmCode})，属于高优匹配！` : "建议该国内优质工厂申请代入驻国际公共采购资质，能额外提高35%中标权重。"}
 * **CRM 拓展动作建议**:
   1. 委派海外展厅当地代表打印宣传画册并向客商现场推荐。
   2. 协助起草中英双语版合规投标书，并在截止日前提交初审。
@@ -2136,7 +2136,7 @@ async function startServer() {
         const localAnalysisEn = `#### Smart Rule-Based Matchmaking Report
 * Matchmaking Feasibility Index: **88%**
 * **Key Advantages**: Supplier ${supplier.nameEn || supplier.nameZh}'s main products ${supplier.mainProductsEn?.join(", ")} are closely aligned with ${opportunity.titleEn || opportunity.titleZh} (Budget: ${opportunity.budget}).
-* **Compliance Review**: Bidding is active in ${opportunity.countryEn || opportunity.countryZh}. Supplier certifications ${supplier.complianceLabelsEn?.join(", ")} match core administrative gates. ${supplier.国际公共采购Code ? `Already has active 国际公共采购 code [${supplier.国际公共采购Code}].` : "We recommend registering a basic-level International Public Procurement profile to improve evaluation weight."}
+* **Compliance Review**: Bidding is active in ${opportunity.countryEn || opportunity.countryZh}. Supplier certifications ${supplier.complianceLabelsEn?.join(", ")} match core administrative gates. ${supplier.ungmCode ? `Already has active 国际公共采购 code [${supplier.ungmCode}].` : "We recommend registering a basic-level International Public Procurement profile to improve evaluation weight."}
 * **CRM Follow-up Recommendations**:
   1. Print specs at relevant local showrooms to catch active regional delegates.
   2. Co-write translated bid templates before the strict deadline: ${opportunity.deadline}.
@@ -2176,7 +2176,7 @@ Supplier Information:
 - Type: ${supplier.type}
 - Industry: ${supplier.industryZh} / ${supplier.industryEn}
 - Location: ${supplier.countryZh} (${supplier.cityZh})
-- 国际公共采购 Code: ${supplier.国际公共采购Code || "None"}
+- 国际公共采购 Code: ${supplier.ungmCode || "None"}
 - Products: ${supplier.mainProductsZh?.join(", ")} / ${supplier.mainProductsEn?.join(", ")}
 - Certifications: ${supplier.complianceLabelsZh?.join(", ")}
 

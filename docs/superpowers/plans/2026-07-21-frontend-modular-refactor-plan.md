@@ -11,7 +11,9 @@
 ## Global Constraints
 
 - React ^19.0.1, Tailwind v4.3.0, TypeScript ^5
-- 新增依赖：`react-router-dom` ^7.x（唯一新增）
+- 新增依赖：
+  - `react-router-dom` ^7.x（路由层）
+  - `i18next` + `react-i18next`（i18n 引擎，替换自研 LocaleContext）——因平台需支持联合国 6 种语言（中/英/法/俄/西/阿），含阿拉伯语 RTL 及数字/货币/日期本地化，自研方案能力不足，故引入。分阶段落地：先在新引擎下对齐现有 zh/en 效果（消费方零改动），RTL 与 Intl 格式化按需后续启用。
 - 所有现有功能保持完整可用
 - 不涉及 `server.ts` 后端代码
 - 不提交 git
@@ -167,6 +169,8 @@ npx tsc --noEmit && npx vite build --mode development
 **依赖方向：** core 仅依赖 types/，不依赖 shared/ 或 features/。
 
 ### Task 2.1: 迁移 i18n → `@/core/i18n/`
+
+> **引擎升级说明：** i18n 引擎从自研 `LocaleContext` 换为 `react-i18next`（保留 `useLocale()` 门面与从 `zh.json` 推导的编译期类型安全）。第一阶段仅在新引擎下对齐现有 zh/en 效果，消费方零改动；插值配置对齐现有单花括号 `{param}` 语法（`prefix:"{"`, `suffix:"}"`, `escapeValue:false`）。RTL 与 Intl 格式化留待后续按需启用。
 
 **Files:**
 - Move: `src/locales/LocaleContext.tsx` → `src/core/i18n/LocaleContext.tsx`
@@ -792,10 +796,10 @@ interface ImportMeta {
 
 ## 文件统计
 
-| 层级 | 文件数 |
-|------|--------|
-| `types/` | 6 |
-| `data/` | 6 |
+| 层级 | 文件数 | 备注 |
+|------|--------|------|
+| `types/` | 9 | exhibition / supplier / crm / learning / auth / payment / procurement / membership + barrel |
+| `data/` | 6 | exhibition-halls / suppliers / opportunities / materials / faqs + barrel |
 | `core/auth/` | 3 |
 | `core/i18n/` | 5 |
 | `core/http/` | 3 |
@@ -815,4 +819,4 @@ interface ImportMeta {
 | `features/training/` | 6 |
 | `features/auth/` | 7 |
 | `__tests__/` | 8 |
-| **总计** | **~128** |
+| **总计** | **~131** |

@@ -34,7 +34,7 @@ import {
     Menu
 } from "lucide-react";
 
-import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "./data";
+import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
 import { useLocale } from "./locales/LocaleContext";
 import type { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "@/types";
 import ProcurementNoticesPool from "./ProcurementNoticesPool";
@@ -95,7 +95,7 @@ export default function App() {
     // Suppliers custom filters
     const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
     const [supplierIndustry, setSupplierIndustry] = useState<string>("");
-    const [supplier国际公共采购CodeSearch, setSupplier国际公共采购CodeSearch] = useState<string>("");
+    const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState<string>("");
 
     // Server-state data synchronization
     const [leads, setLeads] = useState<Lead[]>([]);
@@ -158,7 +158,7 @@ export default function App() {
         countryEn: "China",
         cityZh: "",
         cityEn: "",
-        国际公共采购Code: "",
+        ungmCode: "",
         mainProductsZh: "",
         mainProductsEn: "",
         complianceLabelsZh: "ISO9001, CE认证",
@@ -479,7 +479,7 @@ export default function App() {
             countryEn: "China",
             cityZh: "",
             cityEn: "",
-            国际公共采购Code: "",
+            ungmCode: "",
             mainProductsZh: "",
             mainProductsEn: "",
             complianceLabelsZh: "ISO9001, CE认证",
@@ -688,17 +688,17 @@ export default function App() {
             sup.nameZh.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sup.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
             sup.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (sup.国际公共采购Code && sup.国际公共采购Code.includes(searchTerm));
+            (sup.ungmCode && sup.ungmCode.includes(searchTerm));
 
         // Sector Filter
         const sectVal = locale === "zh" ? sup.industryZh : sup.industryEn;
         const matchesIndustry = !supplierIndustry || sectVal === supplierIndustry;
 
         // 国际公共采购 Code manual query
-        const matches国际公共采购Code =
-            !supplier国际公共采购CodeSearch || (sup.国际公共采购Code && sup.国际公共采购Code.includes(supplier国际公共采购CodeSearch));
+        const matchesUngmCode =
+            !supplierUngmCodeSearch || (sup.ungmCode && sup.ungmCode.includes(supplierUngmCodeSearch));
 
-        return matchesSearch && matchesIndustry && matches国际公共采购Code;
+        return matchesSearch && matchesIndustry && matchesUngmCode;
     });
 
     // Unique industries mapping
@@ -1183,8 +1183,8 @@ export default function App() {
                                 <input
                                     type="text"
                                     placeholder={t("searchUnspscPlaceholder")}
-                                    value={supplier国际公共采购CodeSearch}
-                                    onChange={(e) => setSupplier国际公共采购CodeSearch(e.target.value)}
+                                    value={supplierUngmCodeSearch}
+                                    onChange={(e) => setSupplierUngmCodeSearch(e.target.value)}
                                     className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200"
                                     title="仅适用于国外供应商8位分类码匹配"
                                 />
@@ -1228,10 +1228,10 @@ export default function App() {
                                                 <span className="text-slate-700">{locale === "zh" ? `${sup.countryZh} · ${sup.cityZh}` : `${sup.countryEn}, ${sup.cityEn}`}</span>
                                             </p>
 
-                                            {sup.国际公共采购Code && (
+                                            {sup.ungmCode && (
                                                 <p className="flex items-center text-indigo-700 bg-indigo-50/50 px-2 py-1 rounded inline-block">
                                                     <span className="font-extrabold mr-1.5 shrink-0">国际公共采购 Code:</span>
-                                                    <span className="font-mono font-black">{sup.国际公共采购Code}</span>
+                                                    <span className="font-mono font-black">{sup.ungmCode}</span>
                                                 </p>
                                             )}
                                         </div>
@@ -2338,8 +2338,8 @@ export default function App() {
                                         <label className="block text-xs font-extrabold text-slate-700 mb-1">国际公共采购 Registration Code (如有/非必填)</label>
                                         <input
                                             type="text"
-                                            value={supplierFormInputs.国际公共采购Code}
-                                            onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, 国际公共采购Code: e.target.value }))}
+                                            value={supplierFormInputs.ungmCode}
+                                            onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, ungmCode: e.target.value }))}
                                             placeholder={t("supplierUnspscPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-205"
                                         />

@@ -1,0 +1,40 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+branch: zhang
+nodes_managed: true
+exported_at: "2026-07-21T07:50:51Z"
+modules:
+    "":
+        dir_name: 国际采购供应链平台（前后端一体化单仓）
+        title: 国际采购供应链平台（前后端一体化单仓）
+        scope:
+            - README.md
+            - .gitignore
+            - index.html
+            - metadata.json
+            - package.json
+            - tsconfig.json
+            - vite.config.ts
+            - .env.example
+            - AI_CRAWLER_SENIOR_ENGINEER_REQUIREMENTS.md
+            - package-lock.json
+            - server.ts
+            - 国际采购供应链平台外包项目需求设计.md
+            - 要求.md
+        source_files: []
+        children:
+            - frontend_app
+        depends_on: []
+        related_to: []
+    frontend_app:
+        dir_name: 应用根组件与全局初始化
+        title: 应用根组件与全局初始化
+        scope:
+            - src/App.tsx
+            - src/main.tsx
+            - src/index.css
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

@@ -18,7 +18,6 @@ export interface Supplier {
   countryEn: string;
   cityZh: string;
   cityEn: string;
-  国际公共采购Code?: string;
   ungmCode?: string;
   mainProductsZh: string[];
   mainProductsEn: string[];

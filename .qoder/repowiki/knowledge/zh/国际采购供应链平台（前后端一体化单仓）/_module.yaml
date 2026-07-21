@@ -1,0 +1,20 @@
+schema_version: 1
+module_path: ""
+title: 国际采购供应链平台（前后端一体化单仓）
+scope:
+    - README.md
+    - .gitignore
+    - index.html
+    - metadata.json
+    - package.json
+    - tsconfig.json
+    - vite.config.ts
+    - .env.example
+    - AI_CRAWLER_SENIOR_ENGINEER_REQUIREMENTS.md
+    - package-lock.json
+    - server.ts
+    - 国际采购供应链平台外包项目需求设计.md
+    - 要求.md
+source_files: []
+depends_on: []
+related_to: []

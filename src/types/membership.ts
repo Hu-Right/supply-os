@@ -7,7 +7,7 @@
  *              Membership product plans (purchasable packages) and membership status (quota/subscription/expiry)
  */
 
-export interface MembershipProductPlan {
+export interface MembershipPlan {
   plan_code: string;
   name: string;
   description?: string;
@@ -29,4 +29,12 @@ export interface MembershipStatus {
   paid_quota_used?: number;
   paid_quota_remaining?: number;
   active_subscriptions?: Array<{ plan_code: string; status: string; expires_at?: string | null }>;
+  entitlements?: Array<{
+    id: number;
+    plan_code: string;
+    quota_total: number;
+    quota_used: number;
+    quota_remaining: number;
+    expires_at?: string | null;
+  }>;
 }
