@@ -189,138 +189,153 @@ export default function App() {
         }
     };
 
-    useEffect(() => {
-        const savedUser = window.localStorage.getItem("supply_os_auth_user");
-        if (savedUser) {
-            try {
-                const parsedUser = JSON.parse(savedUser) as AuthUser;
-                setAuthUser(parsedUser);
-                setUserEmail(parsedUser.email);
-                setIsVip(parsedUser.membership_tier === "vip");
-            } catch {
-                window.localStorage.removeItem("supply_os_auth_user");
-            }
-        }
-        fetchData();
-        // Default selecting elements for AI matchmaking
-        if (SUPPLIERS.length > 0) {
-            setMatchSelectedSupplier(SUPPLIERS[0]);
-        }
-        if (OPPORTUNITIES.length > 0) {
-            setMatchSelectedOpportunity(OPPORTUNITIES[0]);
-        }
-    }, []);
+  const persistAuthUser = (user: AuthUser) => {
+    setAuthUser(user);
+    setUserEmail(user.email);
+    setIsVip(user.membership_tier === "vip");
+    window.localStorage.setItem("supply_os_auth_user", JSON.stringify(user));
+  };
 
-    useEffect(() => {
-        const syncHashRoute = () => {
-            const hash = window.location.hash;
-            setIsTrainingRoute(hash === "#training");
-            if (hash === "#procurement") {
-                setActiveTab(2);
-            }
-        };
-        syncHashRoute();
-        window.addEventListener("hashchange", syncHashRoute);
-        return () => window.removeEventListener("hashchange", syncHashRoute);
-    }, []);
+  const refreshAuthUser = async (userKey: string) => {
+    try {
+      const res = await fetch(`/api/auth/user?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.user) throw new Error(data.error || "刷新账号状态失败");
+      persistAuthUser(data.user);
+      return data.user as AuthUser;
+    } catch (err) {
+      console.error("Error refreshing auth user:", err);
+      return null;
+    }
+  };
 
-    const persistAuthUser = (user: AuthUser) => {
-        setAuthUser(user);
-        setUserEmail(user.email);
-        setIsVip(user.membership_tier === "vip");
-        window.localStorage.setItem("supply_os_auth_user", JSON.stringify(user));
-    };
-
-    const submitAuth = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setAuthError("");
-        setBillingMessage("");
-        setClaimMessage("");
-
-        if (authMode === "register" && !claimForm.companyName.trim()) {
-            setAuthError("注册供应商会员时请填写公司名称");
-            return;
-        }
-
-        try {
-            const res = await fetch(`/api/auth/${authMode}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email: authForm.email,
-                    password: authForm.password,
-                    display_name: authForm.displayName || authForm.email.split("@")[0]
-                })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
-            persistAuthUser(data.user);
-            setAuthForm({ displayName: "", email: data.user.email, password: "" });
-
-            if (authMode === "register") {
-                const claimRes = await fetch("/api/supplier-claims", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        user_key: data.user.user_key,
-                        company_name: claimForm.companyName,
-                        supplier_type: claimForm.supplierType,
-                        contact_name: claimForm.contactName || authForm.displayName,
-                        contact_phone: claimForm.contactPhone,
-                        contact_email: data.user.email,
-                        business_license_no: claimForm.businessLicenseNo
-                    })
-                });
-                const claimData = await claimRes.json().catch(() => ({}));
-                if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
-                setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
-            }
-        } catch (err: any) {
-            setAuthError(err.message || "登录失败，请稍后重试");
-        }
-    };
-
-    const logout = () => {
-        setAuthUser(null);
-        setIsVip(false);
+  useEffect(() => {
+    const savedUser = window.localStorage.getItem("supply_os_auth_user");
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser) as AuthUser;
+        persistAuthUser(parsedUser);
+        refreshAuthUser(parsedUser.user_key);
+      } catch {
         window.localStorage.removeItem("supply_os_auth_user");
-    };
+      }
+    }
+    fetchData();
+    // Default selecting elements for AI matchmaking
+    if (SUPPLIERS.length > 0) {
+      setMatchSelectedSupplier(SUPPLIERS[0]);
+    }
+    if (OPPORTUNITIES.length > 0) {
+      setMatchSelectedOpportunity(OPPORTUNITIES[0]);
+    }
+  }, []);
 
-    // 硬编码套餐 fallback（API 不可用时使用）
-    const FALLBACK_PLANS: Record<string, { name: string; price: number; currency: string; zhName: string; enName: string }> = {
-        annual_8800: { name: "年度顾问服务 / Annual Advisory Service", price: 8800, currency: "CNY", zhName: "年度顾问服务", enName: "Annual Advisory Service" },
+  useEffect(() => {
+    const syncHashRoute = () => {
+      const hash = window.location.hash;
+      setIsTrainingRoute(hash === "#training");
+      if (hash === "#procurement") {
+        setActiveTab(2);
+      }
     };
+    syncHashRoute();
+    window.addEventListener("hashchange", syncHashRoute);
+    return () => window.removeEventListener("hashchange", syncHashRoute);
+  }, []);
 
-    const buyPlan = (planCode: string) => {
-        if (!authUser) {
-            setShowAuthModal(true);
-            setAuthMode("login");
-            setBillingMessage(t("authLoginRequiredToPurchase"));
-            return;
+  useEffect(() => {
+    if (showAuthModal && authUser?.user_key) {
+      refreshAuthUser(authUser.user_key);
+    }
+  }, [showAuthModal, authUser?.user_key]);
+
+  const submitAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setBillingMessage("");
+    setClaimMessage("");
+
+    if (authMode === "register" && !claimForm.companyName.trim()) {
+      setAuthError("注册供应商会员时请填写公司名称");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/auth/${authMode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: authForm.email,
+          password: authForm.password,
+          display_name: authForm.displayName || authForm.email.split("@")[0]
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
+      persistAuthUser(data.user);
+      setAuthForm({ displayName: "", email: data.user.email, password: "" });
+
+      if (authMode === "register") {
+        const claimRes = await fetch("/api/supplier-claims", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_key: data.user.user_key,
+            company_name: claimForm.companyName,
+            supplier_type: claimForm.supplierType,
+            contact_name: claimForm.contactName || authForm.displayName,
+            contact_phone: claimForm.contactPhone,
+            contact_email: data.user.email,
+            business_license_no: claimForm.businessLicenseNo
+          })
+        });
+        const claimData = await claimRes.json().catch(() => ({}));
+        if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
+        setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "登录失败，请稍后重试");
+    }
+  };
+
+  const logout = () => {
+    setAuthUser(null);
+    setIsVip(false);
+    window.localStorage.removeItem("supply_os_auth_user");
+  };
+
+  // 硬编码套餐 fallback（API 不可用时使用）
+  const FALLBACK_PLANS: Record<string, { name: string; price: number; currency: string; zhName: string; enName: string }> = {
+    annual_8800: { name: "年度顾问服务 / Annual Advisory Service", price: 8800, currency: "CNY", zhName: "年度顾问服务", enName: "Annual Advisory Service" },
+  };
+
+  const buyPlan = (planCode: string) => {
+    if (!authUser) {
+      setShowAuthModal(true);
+      setAuthMode("login");
+      setBillingMessage(t("authLoginRequiredToPurchase"));
+      return;
+    }
+    setBillingMessage("");
+
+    // 优先使用 fallback 快速打开支付弹窗（API 异步拉取作为补充）
+    const cached = FALLBACK_PLANS[planCode];
+    if (cached) {
+      const displayName = locale === "zh" ? cached.zhName : cached.enName;
+      setPaymentPlan({ code: planCode, name: displayName, price: cached.price, currency: cached.currency });
+      setShowPaymentModal(true);
+    }
+
+    // 后台异步验证套餐（如果 API 可用就更新价格）
+    fetch("/api/membership/plans")
+      .then((res) => res.json())
+      .then((plans) => {
+        const plan = plans.find((p: any) => p.plan_code === planCode);
+        if (plan && plan.price > 0) {
+          setPaymentPlan({ code: plan.plan_code, name: plan.name, price: Number(plan.price), currency: plan.currency || "CNY" });
         }
-        setBillingMessage("");
-
-        // 优先使用 fallback 快速打开支付弹窗（API 异步拉取作为补充）
-        const cached = FALLBACK_PLANS[planCode];
-        if (cached) {
-            const displayName = locale === "zh" ? cached.zhName : cached.enName;
-            setPaymentPlan({ code: planCode, name: displayName, price: cached.price, currency: cached.currency });
-            setShowPaymentModal(true);
-        }
-
-        // 后台异步验证套餐（如果 API 可用就更新价格）
-        fetch("/api/membership/plans")
-            .then((res) => res.json())
-            .then((plans) => {
-                const plan = plans.find((p: any) => p.plan_code === planCode);
-                if (plan && plan.price > 0) {
-                    setPaymentPlan({ code: plan.plan_code, name: plan.name, price: Number(plan.price), currency: plan.currency || "CNY" });
-                }
-            })
-            .catch(() => {
-                // API 不可用，使用 fallback 数据不报错
-            });
-    };
+      });
+  };
 
     const submitSupplierClaim = async (e: React.FormEvent) => {
         e.preventDefault();

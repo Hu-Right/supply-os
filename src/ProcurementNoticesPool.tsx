@@ -12,7 +12,8 @@ import {
     Lock,
     Search,
     SlidersHorizontal,
-    WalletCards
+    WalletCards,
+    X
 } from "lucide-react";
 import { useLocale } from "./locales/LocaleContext";
 
@@ -39,6 +40,9 @@ type NoticeItem = {
     description?: string;
     source_url?: string;
     unspsc_codes?: Array<{ code?: string; name?: string; description?: string }>;
+    core_locked?: boolean;
+    unlock_type?: string;
+    unlocked_at?: string;
 };
 
 type NoticeResponse = {
@@ -619,7 +623,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin 
                             <h4 className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
                             <p className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || t("procurement_noDesc")}</p>
                             <div className="flex flex-wrap gap-1.5 mt-3">
-                                {(item.unspsc_codes || []).slice(0, 4).map((code, index) => (
+                                {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
                                     <span key={`${code.code || index}`} className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-mono text-slate-600">
                                         {code.code || code.name || code.description}
                                     </span>
