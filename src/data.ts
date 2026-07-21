@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ExhibitionHall, Supplier, Opportunity, LearningMaterial, FAQItem } from "./types";
+import type { ExhibitionHall, Supplier, Opportunity, LearningMaterial, FAQItem } from "@/types";
 
 export const EXHIBITION_HALLS: ExhibitionHall[] = [
   {

@@ -36,7 +36,7 @@ import {
 
 import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "./data";
 import { useLocale } from "./locales/LocaleContext";
-import { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "./types";
+import type { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "@/types";
 import ProcurementNoticesPool from "./ProcurementNoticesPool";
 import TrainingPage from "./TrainingPage";
 import PaymentModal from "./PaymentModal";
