@@ -341,5 +341,9 @@
   "crmFieldNotes": "诉求备注",
   "crmFollowUpCount": "包含 {count} 条跟进记录 »",
   "crmIndustryUnknown": "未指定",
-  "crmEditingLead": "» 正在编辑 & 录入跟进状态: {company}"
+  "crmEditingLead": "» 正在编辑 & 录入跟进状态: {company}",
+  "formRequired": "请填写该字段",
+  "learningDownloadCount": "已学习(下载): {count} 次",
+  "learningSummary": "概要说明",
+  "learningCoreContent": "核心内容"
 }

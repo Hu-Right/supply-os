@@ -251,9 +251,17 @@ export default function App() {
 
   const submitAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    const f = e.currentTarget as HTMLFormElement;
+    f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
+    if (!f.reportValidity()) return;
     setAuthError("");
     setBillingMessage("");
     setClaimMessage("");
+
+    if (!authForm.email || !authForm.password) {
+      setAuthError(t("formError"));
+      return;
+    }
 
     if (authMode === "register" && !claimForm.companyName.trim()) {
       setAuthError("注册供应商会员时请填写公司名称");
@@ -369,8 +377,10 @@ export default function App() {
     // Post new Exhibition Hall leads to server
     const handleShowroomSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const f = e.currentTarget as HTMLFormElement;
+        f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
+        if (!f.reportValidity()) return;
         if (!showroomFormInputs.companyName || !showroomFormInputs.contactPerson || !showroomFormInputs.contactMethod) {
-            alert("Missing required fields!");
             return;
         }
         try {
@@ -424,8 +434,10 @@ export default function App() {
     // Post Supplier Registration to server
     const handleSupplierSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const f = e.currentTarget as HTMLFormElement;
+        f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
+        if (!f.reportValidity()) return;
         if (!supplierFormInputs.nameZh || !supplierFormInputs.contactPerson || !supplierFormInputs.contactEmail) {
-            alert("Please complete required fields!");
             return;
         }
 
@@ -481,13 +493,15 @@ export default function App() {
     // Submit Consult Request Lead
     const handleConsultSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const f = e.currentTarget as HTMLFormElement;
+        f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
+        if (!f.reportValidity()) return;
         const company = (e.currentTarget as any).companyName.value;
         const person = (e.currentTarget as any).contactPerson.value;
         const phone = (e.currentTarget as any).phone.value;
         const notes = (e.currentTarget as any).notes.value;
 
         if (!company || !person || !phone) {
-            alert("Missing parameters!");
             return;
         }
 
@@ -551,7 +565,10 @@ export default function App() {
     // Add Operation CRM interaction follow up log dynamically
     const addCrmFollowUpLog = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!activeLeadForLog || !newCrmLogEntry) return;
+        const f = e.currentTarget as HTMLFormElement;
+        f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
+        if (!f.reportValidity()) return;
+        if (!activeLeadForLog || !newCrmLogEntry) { return; }
 
         try {
             const res = await fetch("/api/leads/log", {
@@ -1553,7 +1570,6 @@ export default function App() {
                                                     onChange={(e) => setNewCrmLogEntry(e.target.value)}
                                                     rows={2}
                                                     className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-755 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                    required
                                                 />
                                             </div>
 
@@ -1724,7 +1740,7 @@ export default function App() {
                                                 <span className="bg-teal-50 text-teal-700 text-[10px] px-2.5 py-0.5 rounded font-bold border border-teal-200">
                                                     {locale === "zh" ? lm.categoryZh : lm.categoryEn}
                                                 </span>
-                                                <span className="text-[11px] text-slate-400">已学习(下载): {lm.downloadsCount} 次</span>
+                                                <span className="text-[11px] text-slate-400">{t("learningDownloadCount", { count: lm.downloadsCount })}</span>
                                             </div>
 
                                             <h4 className="text-sm font-bold text-slate-800 pr-16">
@@ -1732,7 +1748,7 @@ export default function App() {
                                             </h4>
 
                                             <p className="text-xs text-slate-500 leading-relaxed bg-white p-3 rounded border border-slate-100">
-                                                <strong>概要说明:</strong> {locale === "zh" ? lm.summaryZh : lm.summaryEn}
+                                                <strong>{t("learningSummary")}:</strong> {locale === "zh" ? lm.summaryZh : lm.summaryEn}
                                             </p>
 
                                             {lm.isPremium && !isVip ? (
@@ -1758,7 +1774,7 @@ export default function App() {
                                                     )}
 
                                                     <div className="bg-slate-100 p-3 rounded-lg text-xs text-slate-700 font-mono overflow-x-auto leading-relaxed max-h-36 overflow-y-auto">
-                                                        <strong className="block text-[10px] text-slate-400 font-bold uppercase mb-1">核心内容</strong>
+                                                        <strong className="block text-[10px] text-slate-400 font-bold uppercase mb-1">{t("learningCoreContent")}</strong>
                                                         {locale === "zh" ? lm.contentZh : lm.contentEn}
                                                     </div>
 
@@ -2017,7 +2033,6 @@ export default function App() {
                                             onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
                                             placeholder={t("authEmailPlaceholder")}
                                             className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            required
                                         />
                                         <input
                                             type="password"
@@ -2025,7 +2040,6 @@ export default function App() {
                                             onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
                                             placeholder={t("authPasswordPlaceholder")}
                                             className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            required
                                             minLength={6}
                                         />
                                     </div>
@@ -2089,7 +2103,6 @@ export default function App() {
                                             value={showroomFormInputs.companyName}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, companyName: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            required
                                         />
                                     </div>
                                     <div>
@@ -2100,7 +2113,6 @@ export default function App() {
                                             value={showroomFormInputs.contactPerson}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, contactPerson: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            required
                                         />
                                     </div>
                                     <div>
@@ -2111,7 +2123,6 @@ export default function App() {
                                             value={showroomFormInputs.contactMethod}
                                             onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, contactMethod: e.target.value }))}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            required
                                         />
                                     </div>
                                     <div>
@@ -2169,7 +2180,6 @@ export default function App() {
                                         onChange={(e) => setShowroomFormInputs(prev => ({ ...prev, mainProducts: e.target.value }))}
                                         placeholder={t("mainProductsPlaceholder")}
                                         className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                        required
                                     />
                                 </div>
 
@@ -2298,7 +2308,6 @@ export default function App() {
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, nameZh: e.target.value }))}
                                             placeholder={t("supplierNameZhPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                            required
                                         />
                                     </div>
 
@@ -2363,7 +2372,6 @@ export default function App() {
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, contactPerson: e.target.value, contactPhone: e.target.value }))}
                                             placeholder={t("supplierContactPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                            required
                                         />
                                     </div>
 
@@ -2375,7 +2383,6 @@ export default function App() {
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, contactEmail: e.target.value }))}
                                             placeholder="name@company.com"
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                            required
                                         />
                                     </div>
 
@@ -2387,7 +2394,6 @@ export default function App() {
                                             onChange={(e) => setSupplierFormInputs(prev => ({ ...prev, mainProductsZh: e.target.value, mainProductsEn: e.target.value }))}
                                             placeholder={t("supplierProductsPlaceholder")}
                                             className="w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                            required
                                         />
                                     </div>
                                 </div>
@@ -2447,7 +2453,6 @@ export default function App() {
                                         name="companyName"
                                         placeholder={t("consultCompanyPlaceholder")}
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                        required
                                     />
                                 </div>
                                 <div>
@@ -2457,7 +2462,6 @@ export default function App() {
                                         name="contactPerson"
                                         placeholder={t("consultPersonPlaceholder")}
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                        required
                                     />
                                 </div>
                                 <div>
@@ -2467,7 +2471,6 @@ export default function App() {
                                         name="phone"
                                         placeholder="+86 138-xxxx-xxxx"
                                         className="w-full px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                        required
                                     />
                                 </div>
                                 <div>

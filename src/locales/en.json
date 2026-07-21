@@ -341,5 +341,9 @@
   "crmFieldNotes": "Notes",
   "crmFollowUpCount": "{count} follow-up logs »",
   "crmIndustryUnknown": "Unspecified",
-  "crmEditingLead": "» Editing & logging follow-up: {company}"
+  "crmEditingLead": "» Editing & logging follow-up: {company}",
+  "formRequired": "Please fill out this field",
+  "learningDownloadCount": "Downloaded: {count} times",
+  "learningSummary": "Summary",
+  "learningCoreContent": "Core Content"
 }
