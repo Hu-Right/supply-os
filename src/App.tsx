@@ -94,17 +94,6 @@ export default function App() {
 
     const [activeTab, setActiveTab] = useState<number>(1);
 
-    // Search & Filter States
-    const [searchTerm, setSearchTerm] = useState<string>("");
-    const [selectedRegion, setSelectedRegion] = useState<string>("");
-    const [selectedCountry, setSelectedCountry] = useState<string>("");
-    const [selectedIndustry, setSelectedIndustry] = useState<string>("");
-
-    // Suppliers custom filters
-    const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
-    const [supplierIndustry, setSupplierIndustry] = useState<string>("");
-    const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState<string>("");
-
     // Server-state data synchronization
     const [leads, setLeads] = useState<Lead[]>([]);
     const [customSuppliers, setCustomSuppliers] = useState<Supplier[]>([]);
@@ -119,18 +108,13 @@ export default function App() {
     const [selectedShowroom, setSelectedShowroom] = useState<ExhibitionHall | null>(null);
     const [showroomFormSubmitted, setShowroomFormSubmitted] = useState<boolean>(false);
     const [supplierFormSubmitted, setSupplierFormSubmitted] = useState<boolean>(false);
-    const [consultFormSubmitted, setConsultFormSubmitted] = useState<boolean>(false);
+    const [consultFormSubmitted, setConsultFormSubmitted] = useState<boolean>(false)  ;
 
     // AI Matchmake Workspace State
     const [matchSelectedSupplier, setMatchSelectedSupplier] = useState<Supplier | null>(null);
     const [matchSelectedOpportunity, setMatchSelectedOpportunity] = useState<Opportunity | null>(null);
     const [isAiMatching, setIsAiMatching] = useState<boolean>(false);
     const [aiReport, setAiReport] = useState<string>("");
-
-    // CRM Workspace State
-    const [activeLeadForLog, setActiveLeadForLog] = useState<Lead | null>(null);
-    const [newCrmLogEntry, setNewCrmLogEntry] = useState<string>("");
-    const [crmLogStatus, setCrmLogStatus] = useState<string>("");
     const [subscribingOppMessage, setSubscribingOppMessage] = useState<string | null>(null);
 
     // Drag and drop simulator state
@@ -571,35 +555,11 @@ export default function App() {
     };
 
     // Add Operation CRM interaction follow up log dynamically
-    const addCrmFollowUpLog = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const f = e.currentTarget as HTMLFormElement;
-        f.querySelectorAll('input, textarea, select').forEach((el: any) => el.setCustomValidity(!el.value || !String(el.value).trim() ? t("formRequired") : ''));
-        if (!f.reportValidity()) return;
-        if (!activeLeadForLog || !newCrmLogEntry) { return; }
-
-        try {
-            const res = await fetch("/api/leads/log", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    leadId: activeLeadForLog.id,
-                    content: newCrmLogEntry,
-                    author: `运营经理 (${userEmail})`,
-                    nextStatus: crmLogStatus || activeLeadForLog.status
-                })
-            });
-            if (res.ok) {
-                const updatedLead = await res.json();
-                // Update local state list automatically
-                setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
-                setActiveLeadForLog(updatedLead);
-                setNewCrmLogEntry("");
-                alert(t("addLogSuccess"));
-            }
-        } catch (err) {
-            console.error(err);
-        }
+    // 注意：此函数已迁移至 CrmPage 组件内部管理，App 层保留简化版本用于向后兼容
+    const addCrmFollowUpLog = async (_e: React.FormEvent) => {
+        // CrmPage 组件现在完全管理自己的跟进日志逻辑
+        // 这个函数保留为空实现，避免编译错误
+        console.log("CRM follow-up log is now managed by CrmPage component");
     };
 
     // Subscribe to Opportunity Simulation
@@ -651,68 +611,6 @@ export default function App() {
         const randomName = names[Math.floor(Math.random() * names.length)];
         setUploadedFiles((prev) => [...prev, randomName]);
     };
-
-    // Multi-dimensional filtering logic
-    const filteredShowrooms = EXHIBITION_HALLS.filter((eh) => {
-        const matchesSearch =
-            eh.nameZh.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            eh.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            eh.cityZh.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            eh.cityEn.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const regionVal = locale === "zh" ? eh.regionZh : eh.regionEn;
-        const countryVal = locale === "zh" ? eh.countryZh : eh.countryEn;
-
-        const matchesRegion = !selectedRegion || regionVal === selectedRegion;
-        const matchesCountry = !selectedCountry || countryVal === selectedCountry;
-
-        return matchesSearch && matchesRegion && matchesCountry;
-    });
-
-    // Unique list of Regions and Countries for dynamic linking selector UI
-    const availableRegions = Array.from(
-        new Set(EXHIBITION_HALLS.map((eh) => (locale === "zh" ? eh.regionZh : eh.regionEn)))
-    );
-
-    // Available countries depend on the chosen Region
-    const availableCountries = Array.from(
-        new Set(
-            EXHIBITION_HALLS.filter(
-                (eh) => !selectedRegion || (locale === "zh" ? eh.regionZh === selectedRegion : eh.regionEn === selectedRegion)
-            ).map((eh) => (locale === "zh" ? eh.countryZh : eh.countryEn))
-        )
-    );
-
-    // Combine default suppliers database with user-created custom suppliers
-    const totalSuppliersList = [...customSuppliers, ...SUPPLIERS];
-
-    const filteredSuppliers = totalSuppliersList.filter((sup) => {
-        // Basic types
-        if (supplierSubTab === "domestic" && sup.type !== "domestic") return false;
-        if (supplierSubTab === "international" && sup.type !== "international") return false;
-
-        // Search query
-        const matchesSearch =
-            sup.nameZh.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sup.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            sup.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (sup.ungmCode && sup.ungmCode.includes(searchTerm));
-
-        // Sector Filter
-        const sectVal = locale === "zh" ? sup.industryZh : sup.industryEn;
-        const matchesIndustry = !supplierIndustry || sectVal === supplierIndustry;
-
-        // 国际公共采购 Code manual query
-        const matchesUngmCode =
-            !supplierUngmCodeSearch || (sup.ungmCode && sup.ungmCode.includes(supplierUngmCodeSearch));
-
-        return matchesSearch && matchesIndustry && matchesUngmCode;
-    });
-
-    // Unique industries mapping
-    const availableSupplierIndustries = Array.from(
-        new Set(totalSuppliersList.map((s) => (locale === "zh" ? s.industryZh : s.industryEn)))
-    );
 
     const switchMainTab = (tabId: number) => {
         if (window.location.hash) {
@@ -1024,7 +922,7 @@ export default function App() {
                     <CrmPage
                         leads={leads}
                         isLoadingLeads={isLoadingLeads}
-                        totalSuppliersList={totalSuppliersList}
+                        totalSuppliersList={[...customSuppliers, ...SUPPLIERS]}
                         matchSelectedSupplier={matchSelectedSupplier}
                         matchSelectedOpportunity={matchSelectedOpportunity}
                         isAiMatching={isAiMatching}
