@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: zhang
 nodes_managed: true
-exported_at: "2026-07-22T01:56:57Z"
+exported_at: "2026-07-22T02:25:12Z"
 modules:
     "":
-        dir_name: SupplyOS 供应链平台（Express + Vite 单进程全栈）
-        title: SupplyOS 供应链平台（Express + Vite 单进程全栈）
+        dir_name: SupplyOS 单体全栈应用（Express + React + MySQL2）
+        title: SupplyOS 单体全栈应用（Express + React + MySQL2）
         scope:
             - README.md
             - .gitignore
