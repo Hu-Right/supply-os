@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     Globe,
     Building2,
@@ -34,9 +35,9 @@ import {
     Menu
 } from "lucide-react";
 
-import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
+import { SUPPLIERS, OPPORTUNITIES } from "@/data";
 import { useLocale } from "@/core/i18n";
-import type { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "@/types";
+import type { ExhibitionHall, Supplier, Lead, Opportunity } from "@/types";
 import PaymentModal from "./PaymentModal";
 
 // Features modules (Phase 4 migration)
@@ -62,6 +63,10 @@ type AuthUser = {
 export default function App() {
     // Localization — managed by LocaleContext
     const { t, locale, setLocale } = useLocale();
+    
+    // React Router hooks
+    const navigate = useNavigate();
+    const location = useLocation();
 
     // Membership & Mode state
     const [isVip, setIsVip] = useState<boolean>(false);
@@ -77,7 +82,6 @@ export default function App() {
         email: "",
         password: ""
     });
-    const [isTrainingRoute, setIsTrainingRoute] = useState<boolean>(window.location.hash === "#training");
     const [claimForm, setClaimForm] = useState({
         companyName: "",
         supplierType: "domestic",
@@ -92,7 +96,20 @@ export default function App() {
     const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
     const [paymentPlan, setPaymentPlan] = useState<{ code: string; name: string; price: number; currency: string } | null>(null);
 
-    const [activeTab, setActiveTab] = useState<number>(1);
+    // Derive route state from URL pathname
+    const isTrainingRoute = location.pathname === "/training";
+    const activeTab = (() => {
+        if (isTrainingRoute) return 0;
+        const path = location.pathname;
+        if (path === "/showroom" || path === "/") return 1;
+        if (path === "/procurement") return 2;
+        if (path === "/supplier") return 3;
+        if (path === "/crm") return 4;
+        if (path === "/services") return 5;
+        if (path === "/learning") return 6;
+        if (path === "/membership") return 7;
+        return 1; // default
+    })();
 
     // Server-state data synchronization
     const [leads, setLeads] = useState<Lead[]>([]);
@@ -220,19 +237,6 @@ export default function App() {
     if (OPPORTUNITIES.length > 0) {
       setMatchSelectedOpportunity(OPPORTUNITIES[0]);
     }
-  }, []);
-
-  useEffect(() => {
-    const syncHashRoute = () => {
-      const hash = window.location.hash;
-      setIsTrainingRoute(hash === "#training");
-      if (hash === "#procurement") {
-        setActiveTab(2);
-      }
-    };
-    syncHashRoute();
-    window.addEventListener("hashchange", syncHashRoute);
-    return () => window.removeEventListener("hashchange", syncHashRoute);
   }, []);
 
   useEffect(() => {
@@ -613,11 +617,17 @@ export default function App() {
     };
 
     const switchMainTab = (tabId: number) => {
-        if (window.location.hash) {
-            window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-        }
-        setIsTrainingRoute(false);
-        setActiveTab(tabId);
+        const routes: Record<number, string> = {
+            1: "/showroom",
+            2: "/procurement",
+            3: "/supplier",
+            4: "/crm",
+            5: "/services",
+            6: "/learning",
+            7: "/membership"
+        };
+        const route = routes[tabId] || "/showroom";
+        navigate(route);
     };
 
     return (
@@ -808,9 +818,7 @@ export default function App() {
                         {isTrainingRoute && (
                             <button
                                 onClick={() => {
-                                    switchMainTab(2);
-                                    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement`);
-                                    setIsTrainingRoute(false);
+                                    navigate("/procurement");
                                 }}
                                 className="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
                             >
@@ -907,7 +915,7 @@ export default function App() {
                     <SupplierPage
                         onAiMatch={(sup) => {
                             setMatchSelectedSupplier(sup);
-                            setActiveTab(4);
+                            navigate("/crm");
                         }}
                         onContact={(sup) => {
                             alert(`联络人: ${sup.contactPerson}\n邮箱: ${sup.contactEmail}\n电话: ${sup.contactPhone}`);
@@ -1588,7 +1596,7 @@ export default function App() {
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => switchMainTab(tab.id)}
                             className={`flex flex-col items-center justify-center w-14 py-1 text-[10px] font-semibold transition-colors ${activeTab === tab.id ? "text-teal-600 font-bold" : "text-slate-400"
                                 }`}
                         >

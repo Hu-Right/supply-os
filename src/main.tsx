@@ -1,5 +1,6 @@
 import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import { LocaleProvider } from '@/core/i18n';
 import * as i18nModule from 'i18next';
 const i18n = (i18nModule as any).default || i18nModule;
@@ -69,9 +70,11 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <ErrorBoundary>
-            <LocaleProvider>
-                <App />
-            </LocaleProvider>
+            <BrowserRouter>
+                <LocaleProvider>
+                    <App />
+                </LocaleProvider>
+            </BrowserRouter>
         </ErrorBoundary>
     </StrictMode>,
 );
