@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: frontend_app
-title: SupplyOS 前端应用入口与根组件
+title: SupplyOS 前端应用根入口与全局装配
 scope:
     - src/App.tsx
     - src/main.tsx
