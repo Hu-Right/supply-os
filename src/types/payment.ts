@@ -70,3 +70,30 @@ export interface PaymentProviderConfig {
   cert_ref?: string;
   is_active: boolean;
 }
+
+/**
+ * 支付策略接口（后端使用）
+ * Payment Strategy Interface (used by backend)
+ */
+export interface PaymentStrategy {
+  readonly name: PaymentProviderName;
+  createPaymentUrl(
+    orderNo: string,
+    amount: number,
+    description: string,
+    returnUrl?: string,
+  ): Promise<{
+    pay_url: string;
+    qr_code_url?: string;
+  }>;
+  verifyCallback(rawBody: any, signature: string): Promise<{
+    verified: boolean;
+    order_no: string;
+    provider_trade_no: string;
+    amount: number;
+  }>;
+  queryOrderStatus(orderNo: string): Promise<{
+    status: PaymentOrderStatus;
+    provider_trade_no?: string;
+  }>;
+}

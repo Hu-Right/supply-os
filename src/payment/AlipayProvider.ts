@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { PaymentStrategy, PaymentOrderStatus } from "./types";
+import type { PaymentStrategy, PaymentOrderStatus } from "@/types/payment";
 
 /**
  * 支付宝 H5 支付策略

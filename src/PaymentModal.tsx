@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle } from "lucide-react";
-import { getAvailableProviders, getPaymentTips, isMobile } from "./payment/env-detector";
+import { getAvailableProviders, getPaymentTips, isMobile } from "@/core/payment";
 import { useLocale } from "@/core/i18n";
 
 type PaymentModalProps = {

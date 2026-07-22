@@ -1,7 +1,18 @@
-import type { PlatformEnv } from "./types";
+/**
+ * 平台环境检测
+ * Platform Environment Detection
+ *
+ * @module core/payment/env-detector
+ * @description 检测当前运行平台（微信/浏览器/App），提供支付方式可用性判断。
+ *              Detect current platform (WeChat/Browser/App), provide payment method availability.
+ */
+
+import type { PlatformEnv } from "@/types/payment";
 
 /**
- * 检测当前运行平台环境：
+ * 检测当前运行平台环境
+ * Detect current platform environment
+ *
  * - "wechat": 微信内置浏览器
  * - "browser": 普通浏览器（移动端/PC端）
  * - "app": 未来 App WebView（预留）
@@ -29,6 +40,7 @@ export function detectPlatformEnv(): PlatformEnv {
 
 /**
  * 是否为移动端设备
+ * Is mobile device
  */
 export function isMobile(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -37,6 +49,7 @@ export function isMobile(): boolean {
 
 /**
  * 是否为桌面端
+ * Is desktop device
  */
 export function isDesktop(): boolean {
   return !isMobile();
@@ -44,6 +57,8 @@ export function isDesktop(): boolean {
 
 /**
  * 获取当前环境支持的支付方式
+ * Get available payment providers for current environment
+ *
  * - 微信内：微信屏蔽支付宝，只展示微信支付
  * - 非微信：支付宝 + 微信支付都可
  */
@@ -81,7 +96,8 @@ export function getAvailableProviders(): Array<{
 }
 
 /**
- * 获取支付方式的中文提示文案（用于各种平台兼容说明）
+ * 获取支付方式的中文提示文案
+ * Get payment tips in Chinese for current platform
  */
 export function getPaymentTips(provider: "alipay" | "wechat"): string {
   const env = detectPlatformEnv();

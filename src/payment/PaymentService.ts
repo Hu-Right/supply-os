@@ -5,7 +5,7 @@ import type {
   CreateOrderRequest,
   CreateOrderResult,
   OrderStatusResult,
-} from "./types";
+} from "@/types/payment";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
