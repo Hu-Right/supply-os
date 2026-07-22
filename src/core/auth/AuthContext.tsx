@@ -79,11 +79,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（含供应商绑定申请）
    * Register (with supplier claim application)
    */
-  const register = async (form: SupplierClaimForm) => {
-    // 注意：此方法需要 email/password/displayName 参数，但接口设计为只接收 SupplierClaimForm
-    // 实际使用时，App 层应先调用 register 创建账号，再调用 submitSupplierClaim
-    // 这里简化为：注册时自动提交供应商绑定申请
-    throw new Error("register() 需要 email/password，请使用 submitAuth() 在 App 层处理");
+  const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm) => {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0] }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
+
+    // 响应式更新，无需 reload
+    persistAuthUser(data.user);
+
+    // 提交供应商绑定申请
+    if (claim) {
+      const claimRes = await fetch("/api/supplier-claims", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_key: data.user.user_key,
+          company_name: claim.companyName,
+          supplier_type: claim.supplierType,
+          contact_name: claim.contactName || displayName,
+          contact_phone: claim.contactPhone,
+          contact_email: data.user.email,
+          business_license_no: claim.businessLicenseNo,
+        }),
+      });
+      const claimData = await claimRes.json().catch(() => ({}));
+      if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
+      setClaimMessage(`绑定申请已提交，状态：${claimData.status}`);
+    }
   };
 
   /**

@@ -35,7 +35,7 @@ export interface AuthContextValue {
   /** 登录 */
   login: (email: string, password: string) => Promise<void>;
   /** 注册（含供应商绑定申请） */
-  register: (form: SupplierClaimForm) => Promise<void>;
+  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm) => Promise<void>;
   /** 登出 */
   logout: () => void;
   /** 刷新认证状态 */

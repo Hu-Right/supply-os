@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { Crown, X } from "lucide-react";
 import { useAuth } from "@/core/auth";
+import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 
 type AuthModalProps = {
@@ -18,7 +19,7 @@ type AuthModalProps = {
 
 export function AuthModal({ onClose }: AuthModalProps) {
   const { t } = useLocale();
-  const { authUser, isVip, login, logout, claimMessage } = useAuth();
+  const { authUser, isVip, login, register, logout, claimMessage } = useAuth();
 
   // Local UI state
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -67,49 +68,14 @@ export function AuthModal({ onClose }: AuthModalProps) {
         await login(authForm.email, authForm.password);
         setAuthForm({ displayName: "", email: authForm.email, password: "" });
       } else {
-        // 注册路径 — 创建账号 + 提交供应商绑定
-        const res = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: authForm.email,
-            password: authForm.password,
-            display_name:
-              authForm.displayName || authForm.email.split("@")[0],
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok)
-          throw new Error(data.error || "注册失败，请稍后重试");
-
-        // 注册 API 已返回用户数据，直接持久化到 localStorage
-        window.localStorage.setItem(
-          "supply_os_auth_user",
-          JSON.stringify(data.user)
+        // 注册路径 — 使用 AuthContext.register()（内部已含持久化 + 供应商绑定）
+        await register(
+          authForm.email,
+          authForm.password,
+          authForm.displayName,
+          claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined
         );
-
-        // 提交供应商绑定申请
-        const claimRes = await fetch("/api/supplier-claims", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_key: data.user.user_key,
-            company_name: claimForm.companyName,
-            supplier_type: claimForm.supplierType,
-            contact_name: claimForm.contactName || authForm.displayName,
-            contact_phone: claimForm.contactPhone,
-            contact_email: data.user.email,
-            business_license_no: claimForm.businessLicenseNo,
-          }),
-        });
-        const claimData = await claimRes.json().catch(() => ({}));
-        if (!claimRes.ok)
-          throw new Error(
-            claimData.error || "账号已注册，但供应商申请提交失败"
-          );
-
-        // 注册 + 绑定全部成功，刷新页面让 AuthContext 恢复用户状态
-        window.location.reload();
+        onClose();
       }
     } catch (err: any) {
       setAuthError(err.message || "登录失败，请稍后重试");

@@ -18,7 +18,14 @@ export default function MembershipPage() {
   const userEmail = authUser?.email || "";
 
   const handleUpgradeClick = () => {
-    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+    if (!authUser) {
+      window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+      return;
+    }
+    // 已登录但非 VIP → 触发支付
+    window.dispatchEvent(new CustomEvent("supply-os:pay", {
+      detail: { code: "annual_8800", name: "年度顾问服务", price: 8800, currency: "CNY" }
+    }));
   };
 
   const handleSendEmail = (_email: string) => {

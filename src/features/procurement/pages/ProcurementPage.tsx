@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Bell,
@@ -60,10 +61,21 @@ const getOptionLabel = (item: UnspscOption, locale: "zh" | "en") => {
 export default function ProcurementPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip } = useAuth();
+  const navigate = useNavigate();
   const userKey = authUser?.user_key;
 
   const onRequireLogin = () => {
     window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+  };
+
+  const handleBuyPlan = () => {
+    if (!authUser) {
+      onRequireLogin();
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("supply-os:pay", {
+      detail: { code: ANNUAL_SERVICE_PLAN.plan_code, name: ANNUAL_SERVICE_PLAN.name, price: ANNUAL_SERVICE_PLAN.price, currency: ANNUAL_SERVICE_PLAN.currency }
+    }));
   };
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
@@ -411,6 +423,14 @@ export default function ProcurementPage() {
                 ? t("procurement_vipActive")
                 : `${t("procurement_freeTrial")} ${membership?.free_remaining ?? 2} ${t("procurement_items")}`}
             </span>
+            {!isVip && (
+              <button onClick={handleBuyPlan} className="px-3 py-1.5 rounded-full bg-teal-600 text-white font-bold hover:bg-teal-500 cursor-pointer">
+                {t("procurement_upgradeVip")}
+              </button>
+            )}
+            <button onClick={() => navigate("/training")} className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 cursor-pointer">
+              {t("procurementTrainingBtn")}
+            </button>
           </div>
         </div>
 

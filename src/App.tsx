@@ -17,6 +17,7 @@ import { useAuth } from "@/core/auth";
 import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
+import { ConsultForm } from "@/shared/forms";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
@@ -27,7 +28,6 @@ export default function App() {
 
   // UI state
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState<{ code: string; name: string; price: number; currency: string } | null>(null);
   const [showConsultForm, setShowConsultForm] = useState(false);
@@ -48,16 +48,17 @@ export default function App() {
     return 1;
   })();
 
+  const tabRoutes: Record<number, string> = { 1: "/showroom", 2: "/procurement", 3: "/supplier", 4: "/crm", 5: "/services", 6: "/learning", 7: "/membership" };
+
   const switchMainTab = (tabId: number) => {
-    const routes: Record<number, string> = { 1: "/showroom", 2: "/procurement", 3: "/supplier", 4: "/crm", 5: "/services", 6: "/learning", 7: "/membership" };
-    navigate(routes[tabId] || "/showroom");
+    navigate(tabRoutes[tabId] || "/showroom");
   };
 
   // Global event listeners (see docs 3.5.4 TODO checklist)
   useEffect(() => {
-    const onRequireLogin = () => { setShowAuthModal(true); setAuthMode("login"); };
-    const onUnauthorized = () => { setShowAuthModal(true); setAuthMode("login"); };
-    const onRequireVip = () => { setShowAuthModal(true); setAuthMode("login"); };
+    const onRequireLogin = () => setShowAuthModal(true);
+    const onUnauthorized = () => setShowAuthModal(true);
+    const onRequireVip = () => setShowAuthModal(true);
     const onConsult = () => setShowConsultForm(true);
     const onPay = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -99,7 +100,7 @@ export default function App() {
             <h1 className="text-lg md:text-xl font-bold tracking-tight bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
           </div>
           <div className="flex items-center space-x-3">
-            <button onClick={() => { setShowAuthModal(true); setAuthMode("login"); }}
+            <button onClick={() => setShowAuthModal(true)}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"}`}>
               <Crown className="w-3.5 h-3.5" />
               <span>{authUser ? `${authUser.display_name || authUser.email} · ${isVip ? "VIP" : "FREE"}` : "GUEST LEVEL"}</span>
@@ -138,7 +139,7 @@ export default function App() {
               const Icon = tab.icon;
               return (
                 <button key={tab.id} onClick={() => switchMainTab(tab.id)}
-                  onMouseEnter={() => preloadRoute(`/${tab.label === t("navShowrooms") ? "showroom" : ""}`)}
+                  onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
                   className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25" : "hover:bg-slate-800 text-slate-300"}`}>
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
@@ -157,6 +158,8 @@ export default function App() {
 
       {/* MODALS */}
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+
+      {showConsultForm && <ConsultForm onClose={() => setShowConsultForm(false)} />}
 
       {showPaymentModal && paymentPlan && authUser && (
         <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}

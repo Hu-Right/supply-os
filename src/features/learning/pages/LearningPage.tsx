@@ -15,7 +15,7 @@ import { FAQPanel } from "../components/FAQPanel";
 
 export default function LearningPage() {
   const { t } = useLocale();
-  const { isVip } = useAuth();
+  const { authUser, isVip } = useAuth();
 
   const handleDownload = (fileUrl: string, fileName: string, materialId: string) => {
     const a = document.createElement("a");
@@ -32,7 +32,14 @@ export default function LearningPage() {
   };
 
   const handleUpgradeClick = () => {
-    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+    if (!authUser) {
+      window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+      return;
+    }
+    // 已登录但非 VIP → 触发支付
+    window.dispatchEvent(new CustomEvent("supply-os:pay", {
+      detail: { code: "annual_8800", name: "年度顾问服务", price: 8800, currency: "CNY" }
+    }));
   };
 
   return (

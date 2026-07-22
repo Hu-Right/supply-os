@@ -25,7 +25,7 @@ export type UseCrmDataReturn = {
   setMatchSelectedSupplier: (s: Supplier | null) => void;
   setMatchSelectedOpportunity: (o: Opportunity | null) => void;
   triggerAiMatchmaking: () => Promise<void>;
-  subscribeOpportunity: (title: string) => void;
+  subscribeOpportunity: () => void;
 };
 
 /**
@@ -91,7 +91,7 @@ export function useCrmData(): UseCrmDataReturn {
   };
 
   // Subscribe to opportunity simulation
-  const subscribeOpportunity = (_title: string) => {
+  const subscribeOpportunity = () => {
     setSubscribingOppMessage(t("subscribeOppSuccess"));
     setTimeout(() => {
       setSubscribingOppMessage(null);

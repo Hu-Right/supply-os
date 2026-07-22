@@ -105,7 +105,7 @@ export default function CrmPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        subscribeOpportunity(opp.titleZh);
+                        subscribeOpportunity();
                       }}
                       className="bg-slate-900 text-white px-2 py-1 rounded hover:bg-slate-800 font-bold"
                     >

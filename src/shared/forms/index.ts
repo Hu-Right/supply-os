@@ -12,3 +12,6 @@ export type { FormFieldProps } from "./FormField";
 
 export { FileDropZone } from "./FileDropZone";
 export type { FileDropZoneProps } from "./FileDropZone";
+
+export { ConsultForm } from "./ConsultForm";
+export type { ConsultFormProps } from "./ConsultForm";
