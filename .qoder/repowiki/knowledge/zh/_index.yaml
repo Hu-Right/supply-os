@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: zhang
 nodes_managed: true
-exported_at: "2026-07-22T02:25:12Z"
+exported_at: "2026-07-22T02:59:34Z"
 modules:
     "":
-        dir_name: SupplyOS 单体全栈应用（Express + React + MySQL2）
-        title: SupplyOS 单体全栈应用（Express + React + MySQL2）
+        dir_name: SupplyOS 单体全栈应用（Vite+Express 单进程）
+        title: SupplyOS 单体全栈应用（Vite+Express 单进程）
         scope:
             - README.md
             - .gitignore
@@ -25,6 +25,7 @@ modules:
         source_files: []
         children:
             - frontend_app
+            - shared
         depends_on: []
         related_to: []
     frontend_app:
@@ -34,6 +35,19 @@ modules:
             - src/App.tsx
             - src/main.tsx
             - src/index.css
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    shared:
+        dir_name: 共享 UI 与布局组件库 (Shared Layer)
+        title: 共享 UI 与布局组件库 (Shared Layer)
+        scope:
+            - src/shared/filters/
+            - src/shared/forms/
+            - src/shared/layout/
+            - src/shared/ui/
+            - src/shared/index.ts
         source_files: []
         children: []
         depends_on: []
