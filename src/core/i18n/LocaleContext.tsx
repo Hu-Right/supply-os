@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, type ReactNode } from "react";
-import i18n from "i18next";
+import * as i18nModule from "i18next";
+const i18nInstance = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
 import type { Locale, LocaleKey } from "./types";
 import zh from "./zh.json";
@@ -24,8 +25,9 @@ function detectLocale(): Locale {
 
 // 初始化 react-i18next 引擎（模块级、仅一次；StrictMode 双调用由 isInitialized 守卫）。
 // 插值配置对齐现有单花括号 `{param}` 语法，escapeValue: false 交由 React 转义（与旧实现行为一致）。
-if (!i18n.isInitialized) {
-    i18n
+// fallbackLng 设为 "en"：缺 key 时回退英文（国际化通用做法，英文为兜底 lingua franca）。
+if (!i18nInstance.isInitialized) {
+    i18nInstance
         .use(initReactI18next)
         .init({
             resources: {
@@ -33,7 +35,7 @@ if (!i18n.isInitialized) {
                 en: { translation: en },
             },
             lng: detectLocale(),
-            fallbackLng: "zh",
+            fallbackLng: "en",
             interpolation: {
                 escapeValue: false,
                 prefix: "{",

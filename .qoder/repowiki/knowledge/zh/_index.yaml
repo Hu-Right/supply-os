@@ -3,11 +3,11 @@ schema_version: 1
 locale: zh-CN
 branch: zhang
 nodes_managed: true
-exported_at: "2026-07-21T07:50:51Z"
+exported_at: "2026-07-21T08:53:13Z"
 modules:
     "":
-        dir_name: 国际采购供应链平台（前后端一体化单仓）
-        title: 国际采购供应链平台（前后端一体化单仓）
+        dir_name: SupplyOS 国际采购供应链平台（单进程全栈）
+        title: SupplyOS 国际采购供应链平台（单进程全栈）
         scope:
             - README.md
             - .gitignore
@@ -28,8 +28,8 @@ modules:
         depends_on: []
         related_to: []
     frontend_app:
-        dir_name: 应用根组件与全局初始化
-        title: 应用根组件与全局初始化
+        dir_name: SupplyOS 前端应用入口与根组件
+        title: SupplyOS 前端应用入口与根组件
         scope:
             - src/App.tsx
             - src/main.tsx

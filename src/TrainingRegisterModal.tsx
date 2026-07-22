@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckCircle2, GraduationCap, Send } from "lucide-react";
-import { useLocale } from "./locales/LocaleContext";
+import { useLocale } from "@/core/i18n";
 
 interface TrainingRegisterModalProps {
   onClose: () => void;

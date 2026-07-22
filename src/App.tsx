@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 
 import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
-import { useLocale } from "./locales/LocaleContext";
+import { useLocale } from "@/core/i18n";
 import type { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "@/types";
 import ProcurementNoticesPool from "./ProcurementNoticesPool";
 import TrainingPage from "./TrainingPage";
@@ -553,10 +553,10 @@ export default function App() {
                 const resJson = await response.json();
                 setAiReport(resJson.analysis);
             } else {
-                setAiReport(locale === "zh" ? "匹配请求失败，请检查网络设置。" : "Matchmaker API error, please retry.");
+                setAiReport(t("aiMatchHttpError"));
             }
         } catch (err) {
-            setAiReport(locale === "zh" ? "链接API服务出现故障。" : "Connection error to Gemini service.");
+            setAiReport(t("aiMatchNetworkError"));
         } finally {
             setIsAiMatching(false);
         }
@@ -1518,7 +1518,7 @@ export default function App() {
                                                         {new Date(lead.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
                                                     </span>
                                                     <span className="text-teal-600 hover:underline">
-                                                        {t("crmFollowUpCount", { count: lead.followUpLogs?.length || 0 })}
+                                                        {t("crmFollowUpCount", { num: lead.followUpLogs?.length || 0 })}
                                                     </span>
                                                 </div>
                                             </div>
@@ -1740,7 +1740,7 @@ export default function App() {
                                                 <span className="bg-teal-50 text-teal-700 text-[10px] px-2.5 py-0.5 rounded font-bold border border-teal-200">
                                                     {locale === "zh" ? lm.categoryZh : lm.categoryEn}
                                                 </span>
-                                                <span className="text-[11px] text-slate-400">{t("learningDownloadCount", { count: lm.downloadsCount })}</span>
+                                                <span className="text-[11px] text-slate-400">{t("learningDownloadCount", { num: lm.downloadsCount })}</span>
                                             </div>
 
                                             <h4 className="text-sm font-bold text-slate-800 pr-16">

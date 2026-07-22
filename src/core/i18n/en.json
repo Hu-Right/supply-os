@@ -339,11 +339,11 @@
   "crmFieldContact": "Contact",
   "crmFieldMethod": "Phone/WhatsApp",
   "crmFieldNotes": "Notes",
-  "crmFollowUpCount": "{count} follow-up logs »",
+  "crmFollowUpCount": "{num} follow-up logs »",
   "crmIndustryUnknown": "Unspecified",
   "crmEditingLead": "» Editing & logging follow-up: {company}",
   "formRequired": "Please fill out this field",
-  "learningDownloadCount": "Downloaded: {count} times",
+  "learningDownloadCount": "Downloaded: {num} times",
   "learningSummary": "Summary",
   "learningCoreContent": "Core Content",
   "vipPriv1Title": "Early Notice Alerts",
@@ -357,5 +357,10 @@
   "membershipQuestionTitle": "Questions about Premium Membership?",
   "membershipQuestionDesc": "Enter your company email and we will send detailed multilingual benefits and UN procurement compliance whitepapers.",
   "membershipVipDesc": "Unlimited access to premium tender templates, AI matchmaking and 1-on-1 UN advisor consultations.",
-  "membershipSendEmailAlert": "Membership info sent to: {email}"
+  "membershipSendEmailAlert": "Membership info sent to: {email}",
+  "errorBoundaryTitle": "Page Rendering Error",
+  "errorBoundaryDesc": "A component failed to load. The page has been stopped to prevent a white screen. Please refresh or return to the home page.",
+  "errorBoundaryBackHome": "Back to Home",
+  "aiMatchHttpError": "Matchmaker API error, please retry.",
+  "aiMatchNetworkError": "Connection error to Gemini service."
 }

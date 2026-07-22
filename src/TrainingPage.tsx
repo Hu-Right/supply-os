@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
-import { useLocale } from "./locales/LocaleContext";
+import { useLocale } from "@/core/i18n";
 
 type DictionaryItem = {
   id: number;

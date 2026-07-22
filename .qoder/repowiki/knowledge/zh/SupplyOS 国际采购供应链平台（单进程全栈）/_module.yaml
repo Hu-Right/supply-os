@@ -1,6 +1,6 @@
 schema_version: 1
 module_path: ""
-title: 国际采购供应链平台（前后端一体化单仓）
+title: SupplyOS 国际采购供应链平台（单进程全栈）
 scope:
     - README.md
     - .gitignore

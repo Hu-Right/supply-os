@@ -15,7 +15,7 @@ import {
     WalletCards,
     X
 } from "lucide-react";
-import { useLocale } from "./locales/LocaleContext";
+import { useLocale } from "@/core/i18n";
 
 type UnspscOption = {
     id: number;
