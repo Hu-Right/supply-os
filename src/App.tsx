@@ -37,9 +37,17 @@ import {
 import { EXHIBITION_HALLS, SUPPLIERS, OPPORTUNITIES, TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
 import { useLocale } from "@/core/i18n";
 import type { ExhibitionHall, Supplier, Lead, Opportunity, LearningMaterial, FAQItem } from "@/types";
-import ProcurementNoticesPool from "./ProcurementNoticesPool";
-import TrainingPage from "./TrainingPage";
 import PaymentModal from "./PaymentModal";
+
+// Features modules (Phase 4 migration)
+import { ShowroomPage } from "@/features/showroom";
+import { ProcurementPage } from "@/features/procurement";
+import { SupplierPage } from "@/features/supplier";
+import { CrmPage } from "@/features/crm";
+import { ServicesPage } from "@/features/services";
+import { LearningPage } from "@/features/learning";
+import { MembershipPage } from "@/features/membership";
+import { TrainingPage as FeatureTrainingPage } from "@/features/training";
 
 type AuthUser = {
     user_key: string;
@@ -962,167 +970,29 @@ export default function App() {
                     </div>
                 )}
 
-                {isTrainingRoute && <TrainingPage />}
+                {isTrainingRoute && <FeatureTrainingPage />}
 
                 {/* ======================================= */}
                 {/* TAB 1: OVERSEAS SHOWROOMS (海外展厅) */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 1 && (
-                    <div className="space-y-6">
-
-                        {/* Active Filters */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
-                            <div className="relative w-full md:w-1/3">
-                                <Search className="absolute left-3 top-2.5 w-4.5 h-4.5 text-slate-400" />
-                                <input
-                                    type="text"
-                                    placeholder={t("searchPlaceholder")}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                />
-                            </div>
-
-                            <div className="flex flex-wrap gap-2.5 w-full md:w-auto items-center justify-end">
-                                <div className="flex items-center space-x-1 text-xs text-slate-500 mr-2">
-                                    <Filter className="w-3.5 h-3.5 text-teal-600" />
-                                    <span>{t("regionFilter")}:</span>
-                                </div>
-
-                                <select
-                                    value={selectedRegion}
-                                    onChange={(e) => {
-                                        setSelectedRegion(e.target.value);
-                                        setSelectedCountry(""); // reset country linkage
-                                    }}
-                                    className="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-700"
-                                >
-                                    <option value="">{t("allRegions")}</option>
-                                    {availableRegions.map((r) => (
-                                        <option key={r} value={r}>
-                                            {r}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <select
-                                    value={selectedCountry}
-                                    onChange={(e) => setSelectedCountry(e.target.value)}
-                                    className="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-700"
-                                    disabled={!selectedRegion}
-                                >
-                                    <option value="">{t("allCountries")}</option>
-                                    {availableCountries.map((c) => (
-                                        <option key={c} value={c}>
-                                            {c}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                {(selectedRegion || selectedCountry || searchTerm) && (
-                                    <button
-                                        onClick={() => {
-                                            setSelectedRegion("");
-                                            setSelectedCountry("");
-                                            setSearchTerm("");
-                                        }}
-                                        className="text-xs text-rose-600 font-bold hover:underline"
-                                    >
-                                        {t("resetFilter")}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* List of Exhibitions */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredShowrooms.length > 0 ? (
-                                filteredShowrooms.map((eh) => (
-                                    <div
-                                        key={eh.id}
-                                        className="bg-white rounded-2xl border border-slate-200 hover:border-teal-500/55 shadow-xs overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col group"
-                                    >
-                                        {/* Banner Image with Badge */}
-                                        <div className="relative h-48 w-full overflow-hidden bg-slate-100">
-                                            <img
-                                                src={eh.bannerUrl}
-                                                alt={eh.nameZh}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-550"
-                                            />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
-                                            <div className="absolute top-4 left-4 bg-teal-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-xs">
-                                                {locale === "zh" ? eh.regionZh : eh.regionEn} · {locale === "zh" ? eh.countryZh : eh.countryEn}
-                                            </div>
-                                            <div className="absolute bottom-4 left-4 right-4 text-white">
-                                                <p className="text-xl font-bold line-clamp-1">{locale === "zh" ? eh.nameZh : eh.nameEn}</p>
-                                                <p className="text-xs text-slate-200 mt-0.5 flex items-center">
-                                                    <Clock className="w-3.5 h-3.5 text-teal-400 mr-1" />
-                                                    <span>{t("capacityLabel")}: {eh.capacityValue}</span>
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="p-5 flex-1 flex flex-col justify-between">
-                                            <p className="text-sm text-slate-600 line-clamp-3 mb-4 leading-relaxed">
-                                                {locale === "zh" ? eh.descriptionZh : eh.descriptionEn}
-                                            </p>
-
-                                            <div className="border-t border-slate-100 pt-4 space-y-3">
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t("featuredProducts")}</p>
-                                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                        {(locale === "zh" ? eh.featuredProductsZh : eh.featuredProductsEn).map((prod, idx) => (
-                                                            <span
-                                                                key={idx}
-                                                                className="bg-slate-100 text-slate-800 text-[11px] px-2.5 py-1 rounded-md border border-slate-200/50"
-                                                            >
-                                                                {prod}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex gap-2 pt-2">
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedShowroom(eh);
-                                                            setShowShowroomForm(true);
-                                                        }}
-                                                        className="flex-1 py-2 text-center text-xs font-bold text-white bg-slate-900 group-hover:bg-teal-600 rounded-lg shadow-sm transition-colors cursor-pointer"
-                                                    >
-                                                        {t("showroomApplyBtn")}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedShowroom(eh);
-                                                            setShowShowroomForm(true);
-                                                        }}
-                                                        className="px-3 py-2 text-slate-500 hover:text-teal-600 bg-slate-100 hover:bg-teal-50 rounded-lg text-xs font-medium cursor-pointer"
-                                                        title={t("showroomConsultTitle")}
-                                                    >
-                                                        {t("showroomConsultBtn")}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="col-span-full py-12 bg-white rounded-2xl border border-dashed border-slate-200 text-center text-slate-400">
-                                    <Globe className="w-12 h-12 mx-auto text-slate-300 mb-2" />
-                                    <p>{t("noData")}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <ShowroomPage
+                        onRegister={(showroom) => {
+                            setSelectedShowroom(showroom);
+                            setShowShowroomForm(true);
+                        }}
+                        onConsult={(showroom) => {
+                            setSelectedShowroom(showroom);
+                            setShowShowroomForm(true);
+                        }}
+                    />
                 )}
 
                 {/* ======================================= */}
                 {/* TAB 2: JOINT PROCUREMENT & 国际公共采购 */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 2 && (
-                    <ProcurementNoticesPool
+                    <ProcurementPage
                         userKey={authUser?.user_key}
                         isVip={isVip}
                         onRequireLogin={() => {
@@ -1136,774 +1006,65 @@ export default function App() {
                 {/* TAB 3: SUPPLIERS DIRECTORY (供应商管理) */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 3 && (
-                    <div className="space-y-6">
-
-                        {/* Inline Toggle Filter tabs for Suppliers */}
-                        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
-
-                            <div className="flex bg-slate-100 p-1 rounded-lg">
-                                {[
-                                    { id: "all", label: t("supplierFilterAll") },
-                                    { id: "domestic", label: t("supplierFilterDomestic") },
-                                    { id: "international", label: t("supplierFilterIntl") }
-                                ].map((s) => (
-                                    <button
-                                        key={s.id}
-                                        onClick={() => setSupplierSubTab(s.id as any)}
-                                        className={`px-4 py-1.5 rounded-md text-xs font-semibold cursor-pointer ${supplierSubTab === s.id ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
-                                            }`}
-                                    >
-                                        {s.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 w-full md:w-auto">
-                                <input
-                                    type="text"
-                                    placeholder={t("searchSupplierPlaceholder")}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                />
-
-                                <select
-                                    value={supplierIndustry}
-                                    onChange={(e) => setSupplierIndustry(e.target.value)}
-                                    className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                >
-                                    <option value="">{t("allIndustries")}</option>
-                                    {availableSupplierIndustries.map((ind) => (
-                                        <option key={ind} value={ind}>
-                                            {ind}
-                                        </option>
-                                    ))}
-                                </select>
-
-                                <input
-                                    type="text"
-                                    placeholder={t("searchUnspscPlaceholder")}
-                                    value={supplierUngmCodeSearch}
-                                    onChange={(e) => setSupplierUngmCodeSearch(e.target.value)}
-                                    className="px-3 py-1.5 text-xs bg-slate-50 rounded-lg border border-slate-200"
-                                    title="仅适用于国外供应商8位分类码匹配"
-                                />
-                            </div>
-
-                        </div>
-
-                        {/* Suppliers Grid cards view */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                            {filteredSuppliers.map((sup) => (
-                                <div
-                                    key={sup.id}
-                                    className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-indigo-400-shadow-xs hover:shadow-xs flex flex-col justify-between"
-                                >
-                                    <div>
-                                        {/* Header line with tag */}
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span
-                                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sup.type === "domestic"
-                                                    ? "bg-teal-50 text-teal-700 border border-teal-200"
-                                                    : "bg-indigo-50 text-indigo-700 border border-indigo-200"
-                                                    }`}
-                                            >
-                                                {sup.type === "domestic" ? t("supplierTypeDomestic") : t("supplierTypeIntl")}
-                                            </span>
-                                            {sup.status === "pending" ? (
-                                                <span className="text-[10px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase animate-pulse">{t("supplierStatusPending")}</span>
-                                            ) : (
-                                                <span className="text-[10px] text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded font-mono font-bold uppercase">{t("supplierStatusVerified")}</span>
-                                            )}
-                                        </div>
-
-                                        <h4 className="text-base font-extrabold text-slate-800 line-clamp-1">
-                                            {locale === "zh" ? sup.nameZh : sup.nameEn}
-                                        </h4>
-
-                                        <div className="mt-2 space-y-1.5 text-xs text-slate-500">
-                                            <p className="flex items-center">
-                                                <span className="font-extrabold mr-1.5 shrink-0 text-slate-400">{t("location")}:</span>
-                                                <span className="text-slate-700">{locale === "zh" ? `${sup.countryZh} · ${sup.cityZh}` : `${sup.countryEn}, ${sup.cityEn}`}</span>
-                                            </p>
-
-                                            {sup.ungmCode && (
-                                                <p className="flex items-center text-indigo-700 bg-indigo-50/50 px-2 py-1 rounded inline-block">
-                                                    <span className="font-extrabold mr-1.5 shrink-0">国际公共采购 Code:</span>
-                                                    <span className="font-mono font-black">{sup.ungmCode}</span>
-                                                </p>
-                                            )}
-                                        </div>
-
-                                        {/* Products & compliance badges */}
-                                        <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
-                                            <div>
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t("mainProducts")}</span>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {(locale === "zh" ? sup.mainProductsZh : sup.mainProductsEn).map((p, idx) => (
-                                                        <span key={idx} className="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded">
-                                                            {p}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{t("complianceLabel")}</span>
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {(locale === "zh" ? sup.complianceLabelsZh : sup.complianceLabelsEn).map((c, idx) => (
-                                                        <span key={idx} className="bg-emerald-50 text-emerald-800 border border-emerald-100 text-[10px] px-1.5 py-0.5 rounded">
-                                                            {c}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Operational actions: select as target for Gemini matchmaking, or view contact */}
-                                    <div className="mt-5 pt-3 border-t border-slate-100 flex gap-2">
-                                        <button
-                                            onClick={() => {
-                                                setMatchSelectedSupplier(sup);
-                                                // Force redirecting to CRM tab to perform AI matchmaking safely
-                                                setActiveTab(4);
-                                                triggerAiMatchmaking();
-                                            }}
-                                            className="flex-1 py-1.5 bg-gradient-to-tr from-teal-500 to-teal-600 text-white rounded text-xs font-bold hover:from-teal-600 hover:to-teal-700 flex items-center justify-center space-x-1 cursor-pointer"
-                                        >
-                                            <Sparkles className="w-3.5 h-3.5" />
-                                            <span>{t("supplierAiMatchBtn")}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => alert(`联络人: ${sup.contactPerson}\n邮箱: ${sup.contactEmail}\n电话: ${sup.contactPhone}`)}
-                                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs cursor-pointer"
-                                        >
-                                            {t("supplierContactBtn")}
-                                        </button>
-                                    </div>
-
-                                </div>
-                            ))}
-
-                            {filteredSuppliers.length === 0 && (
-                                <div className="col-span-full py-12 bg-white rounded-2xl border border-dashed border-slate-200 text-center text-slate-400">
-                                    <p>{t("noData")}</p>
-                                </div>
-                            )}
-
-                        </div>
-
-                    </div>
+                    <SupplierPage
+                        onAiMatch={(sup) => {
+                            setMatchSelectedSupplier(sup);
+                            setActiveTab(4);
+                        }}
+                        onContact={(sup) => {
+                            alert(`联络人: ${sup.contactPerson}\n邮箱: ${sup.contactEmail}\n电话: ${sup.contactPhone}`);
+                        }}
+                    />
                 )}
 
                 {/* ======================================= */}
                 {/* TAB 4: CRM CLIENTS WORKSPACE (客户管理 & 与 CRM 联动) */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 4 && (
-                    <div className="space-y-6">
-
-                        {/* Top metrics tracker */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {[
-                                { title: t("leadCount"), val: leads.length, icon: Activity, col: "text-teal-600 bg-teal-50" },
-                                { title: t("oppCount"), val: OPPORTUNITIES.length, icon: TrendingUp, col: "text-indigo-600 bg-indigo-50" },
-                                { title: t("clientPool"), val: leads.filter(l => l.status === "qualified" || l.status === "contacted").length, icon: Users, col: "text-emerald-600 bg-emerald-50" },
-                                { title: t("crmFollowUpHistory"), val: leads.reduce((acc, current) => acc + (current.followUpLogs?.length || 0), 0), icon: Clock, col: "text-amber-600 bg-amber-50" }
-                            ].map((m, idx) => {
-                                const Icon = m.icon;
-                                return (
-                                    <div key={idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
-                                        <p className="text-xs text-slate-400 font-semibold">{m.title}</p>
-                                        <div className="flex items-center justify-between mt-1.5">
-                                            <span className="text-2xl font-black text-slate-800">{m.val}</span>
-                                            <div className={`p-2 rounded-lg ${m.col}`}>
-                                                <Icon className="w-5 h-5" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Main CRM Grid split: Active Opportunity Matchmaker & Lead Follow Up History */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-                            {/* Left Column: List of Overseas Opportunities & AI smart Matchmaking */}
-                            <div className="lg:col-span-6 space-y-6">
-
-                                {/* 1. Smart Outbound Opportunities Hub */}
-                                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-                                    <h3 className="text-base font-extrabold text-slate-800 mb-4 flex items-center justify-between">
-                                        <span>{t("opportunityHub")}</span>
-                                        <span className="text-xs text-teal-600 font-mono">{t("crmLatestNotices")}</span>
-                                    </h3>
-                                    <div className="space-y-4">
-                                        {OPPORTUNITIES.map((opp) => (
-                                            <div
-                                                key={opp.id}
-                                                onClick={() => setMatchSelectedOpportunity(opp)}
-                                                className={`p-4 rounded-xl border transition-all cursor-pointer ${matchSelectedOpportunity?.id === opp.id
-                                                    ? "bg-gradient-to-tr from-slate-50 to-teal-55/15 border-teal-500 shadow-sm"
-                                                    : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
-                                                    }`}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <span className="bg-indigo-100 text-indigo-800 text-[9px] px-2 py-0.5 rounded font-bold uppercase">
-                                                        {locale === "zh" ? opp.industryZh : opp.industryEn}
-                                                    </span>
-                                                    <span className="text-xs font-semibold text-teal-700">{opp.budget}</span>
-                                                </div>
-                                                <h4 className="text-sm font-bold text-slate-800 mt-2 line-clamp-1">
-                                                    {locale === "zh" ? opp.titleZh : opp.titleEn}
-                                                </h4>
-                                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                                                    {locale === "zh" ? opp.descriptionZh : opp.descriptionEn}
-                                                </p>
-                                                <div className="mt-3 flex justify-between items-center border-t border-slate-200/50 pt-2 text-[11px] text-slate-400">
-                                                    <span>{t("opportunityDeadline", { deadline: opp.deadline })}</span>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleSubscribeOpportunity(opp.titleZh);
-                                                        }}
-                                                        className="bg-slate-900 text-white px-2 py-1 rounded hover:bg-slate-800 font-bold"
-                                                    >
-                                                        {t("opportunitySubscribe")}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* 2. AI Smart Matchmaking with Gemini */}
-                                <div className="bg-gradient-to-br from-slate-900 to-slate-950 text-slate-100 rounded-2xl p-5 border border-slate-900 shadow-lg">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="bg-teal-500 text-slate-900 p-1.5 rounded-lg">
-                                                <Sparkles className="w-5 h-5 animate-pulse" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-base font-bold text-teal-400">{t("aiMatchmaking")}</h3>
-                                                <p className="text-[11px] text-slate-400">基于 Gemini-3.5-flash 与多语言资质智能比对</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3 bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 text-xs">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">1. 所选出海企业 (Supplier)</span>
-                                            <select
-                                                value={matchSelectedSupplier ? matchSelectedSupplier.id : ""}
-                                                onChange={(e) => {
-                                                    const found = totalSuppliersList.find((x) => x.id === e.target.value);
-                                                    if (found) setMatchSelectedSupplier(found);
-                                                }}
-                                                className="bg-slate-700 text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            >
-                                                {totalSuppliersList.map((s) => (
-                                                    <option key={s.id} value={s.id}>
-                                                        {locale === "zh" ? s.nameZh : s.nameEn}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-slate-400">2. 特定标讯商机 (Opportunity)</span>
-                                            <select
-                                                value={matchSelectedOpportunity ? matchSelectedOpportunity.id : ""}
-                                                onChange={(e) => {
-                                                    const found = OPPORTUNITIES.find((x) => x.id === e.target.value);
-                                                    if (found) setMatchSelectedOpportunity(found);
-                                                }}
-                                                className="bg-slate-700 text-white rounded px-2 py-1 max-w-[200px] truncate focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                            >
-                                                {OPPORTUNITIES.map((o) => (
-                                                    <option key={o.id} value={o.id}>
-                                                        {locale === "zh" ? o.titleZh : o.titleEn}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-
-                                        <button
-                                            onClick={triggerAiMatchmaking}
-                                            disabled={isAiMatching}
-                                            className="w-full py-2.5 mt-2 bg-teal-500 text-slate-955 rounded-lg text-xs font-bold hover:bg-teal-400 transition-colors disabled:opacity-50 cursor-pointer text-center text-slate-900"
-                                        >
-                                            {isAiMatching ? t("aiAnalyzing") : t("clickAiMatch")}
-                                        </button>
-                                    </div>
-
-                                    {/* Output Generated matching log */}
-                                    {aiReport && (
-                                        <div className="mt-4 p-4 rounded-xl bg-slate-800 border border-slate-700/60 text-xs max-h-80 overflow-y-auto leading-relaxed scrollbar-thin">
-                                            <div className="flex justify-between items-center border-b border-slate-750 pb-1.5 mb-2.5">
-                                                <span className="font-extrabold text-teal-400">{t("aiMatchingResult")}</span>
-                                                <span className="bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono text-[9px] uppercase">GEMINI PROMPT REPORT</span>
-                                            </div>
-                                            <div className="whitespace-pre-wrap text-slate-300 prose prose-invert font-sans space-y-2">
-                                                {aiReport}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                </div>
-
-                            </div>
-
-                            {/* Right Column: Leads pool & CRM history interactions log tracker */}
-                            <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-6">
-
-                                <div>
-                                    <h3 className="text-base font-extrabold text-slate-800 flex items-center justify-between">
-                                        <span>{t("leadTracker")}</span>
-                                        <span className="text-[10px] bg-teal-600 text-white font-mono px-2 py-0.5 rounded-full">REALTIME INGESTED</span>
-                                    </h3>
-                                    <p className="text-xs text-slate-500 mt-1">{t("crmLeadDesc")}</p>
-                                </div>
-
-                                {isLoadingLeads ? (
-                                    <div className="text-center py-6 text-slate-400 text-xs animate-pulse">{t("crmLoadingLeads")}</div>
-                                ) : (
-                                    <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
-                                        {leads.map((lead) => (
-                                            <div
-                                                key={lead.id}
-                                                onClick={() => setActiveLeadForLog(lead)}
-                                                className={`p-3.5 rounded-xl border transition-all cursor-pointer ${activeLeadForLog?.id === lead.id
-                                                    ? "bg-slate-50 border-teal-500 shadow-xs"
-                                                    : "border-slate-100 bg-slate-50/20 hover:bg-slate-55"
-                                                    }`}
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <strong className="text-sm text-slate-800 line-clamp-1">{lead.companyName}</strong>
-                                                    <span
-                                                        className={`text-[9px] font-mono px-2 py-0.5 rounded uppercase ${lead.status === "new"
-                                                            ? "bg-rose-100 text-rose-800"
-                                                            : lead.status === "contacted"
-                                                                ? "bg-amber-100 text-amber-800"
-                                                                : "bg-emerald-100 text-emerald-800"
-                                                            }`}
-                                                    >
-                                                        {lead.status}
-                                                    </span>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-1.5 mt-2 text-[11px] text-slate-500 border-b border-dashed border-slate-150 pb-2">
-                                                    <p>
-                                                        <strong>{t("crmFieldIndustry")}:</strong> {lead.industry || t("crmIndustryUnknown")}
-                                                    </p>
-                                                    <p>
-                                                        <strong>{t("crmFieldCountry")}:</strong> {lead.country || "China"}
-                                                    </p>
-                                                    <p>
-                                                        <strong>{t("crmFieldContact")}:</strong> {lead.contactPerson}
-                                                    </p>
-                                                    <p className="truncate">
-                                                        <strong>{t("crmFieldMethod")}:</strong> {lead.contactMethod}
-                                                    </p>
-                                                </div>
-
-                                                <p className="text-xs text-slate-600 mt-2 bg-white p-2 rounded leading-relaxed border border-slate-100">
-                                                    <strong>{t("crmFieldNotes")}:</strong> {lead.notes}
-                                                </p>
-
-                                                <div className="flex justify-between items-center text-[10px] text-slate-400 mt-2">
-                                                    <span className="flex items-center">
-                                                        <Clock className="w-3 h-3 mr-1" />
-                                                        {new Date(lead.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
-                                                    </span>
-                                                    <span className="text-teal-600 hover:underline">
-                                                        {t("crmFollowUpCount", { num: lead.followUpLogs?.length || 0 })}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Lead Detailed Interaction Dialog & Custom additions */}
-                                {activeLeadForLog && (
-                                    <div className="bg-slate-50 rounded-xl p-4 border border-teal-200 mt-4 space-y-4">
-                                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest text-teal-700">
-                                                {t("crmEditingLead", { company: activeLeadForLog.companyName })}
-                                            </h4>
-                                            <button
-                                                onClick={() => setActiveLeadForLog(null)}
-                                                className="text-slate-400 hover:text-slate-600"
-                                            >
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-
-                                        {/* Timeline logs */}
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-extrabold pb-2">{t("followUpLogs")}</p>
-                                            {activeLeadForLog.followUpLogs && activeLeadForLog.followUpLogs.length > 0 ? (
-                                                <div className="space-y-2 max-h-36 overflow-y-auto">
-                                                    {activeLeadForLog.followUpLogs.map((log, lIdx) => (
-                                                        <div key={lIdx} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
-                                                            <div className="flex justify-between text-[10px] text-slate-400">
-                                                                <strong>{log.author}</strong>
-                                                                <span>{log.date}</span>
-                                                            </div>
-                                                            <p className="text-slate-700 mt-1 leading-relaxed">{log.content}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-[11px] text-slate-400 italic">暂无联络节点，快在下方录入首个转化里程碑。</div>
-                                            )}
-                                        </div>
-
-                                        {/* Quick Follow up submit Form */}
-                                        <form onSubmit={addCrmFollowUpLog} className="space-y-2">
-                                            <div>
-                                                <textarea
-                                                    placeholder={t("crmLogPlaceholder")}
-                                                    value={newCrmLogEntry}
-                                                    onChange={(e) => setNewCrmLogEntry(e.target.value)}
-                                                    rows={2}
-                                                    className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-755 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                />
-                                            </div>
-
-                                            <div className="flex gap-2 items-center">
-                                                <select
-                                                    value={crmLogStatus}
-                                                    onChange={(e) => setCrmLogStatus(e.target.value)}
-                                                    className="px-2 py-1 bg-white border border-slate-200 rounded text-xs"
-                                                >
-                                                    <option value="">{t("crmLeadPhase")}</option>
-                                                    <option value="new">🆕 new (未联系)</option>
-                                                    <option value="contacted">📞 contacted (已对接)</option>
-                                                    <option value="qualified">✅ qualified (高意向)</option>
-                                                    <option value="lost">❌ lost (已流失)</option>
-                                                </select>
-
-                                                <button
-                                                    type="submit"
-                                                    className="flex-1 py-1 px-3 bg-slate-900 hover:bg-slate-855 text-white rounded text-xs font-semibold"
-                                                >
-                                                    {t("crmSaveToCRM")}
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                )}
-
-                            </div>
-
-                        </div>
-
-                    </div>
+                    <CrmPage
+                        leads={leads}
+                        isLoadingLeads={isLoadingLeads}
+                        totalSuppliersList={totalSuppliersList}
+                        matchSelectedSupplier={matchSelectedSupplier}
+                        matchSelectedOpportunity={matchSelectedOpportunity}
+                        isAiMatching={isAiMatching}
+                        aiReport={aiReport}
+                        onSetMatchSelectedSupplier={setMatchSelectedSupplier}
+                        onSetMatchSelectedOpportunity={setMatchSelectedOpportunity}
+                        onTriggerAiMatchmaking={triggerAiMatchmaking}
+                        onSubscribeOpportunity={handleSubscribeOpportunity}
+                        onAddCrmFollowUpLog={addCrmFollowUpLog}
+                    />
                 )}
 
                 {/* ======================================= */}
                 {/* TAB 5: SERVICES ECO SYSTEM (服务生态) */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 5 && (
-                    <div className="space-y-6">
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {[
-                                {
-                                    title: "国际公共采购 资质代办 & 代注册托管",
-                                    desc: "帮助中方精密智造、生物制药、环保机械工厂快速完成联合国全球开发署/卫生组织一级或二级资格账户升级，减少多周期退单延误风险。",
-                                    icon: LayoutGrid,
-                                    specs: ["英文财务报表制作", "UNSPSC精确对准码", "1对1合规排雷"],
-                                    active: true
-                                },
-                                {
-                                    title: "海外保税区‘前展后仓’备件物流",
-                                    desc: "位于法兰克福、迪拜、内罗毕、越南等展厅15公里保税工业园区内，提供样机直接存放、即刻提报、本地送样24小时极速响应。",
-                                    icon: Globe,
-                                    specs: ["海外关税退税核验", "常年Bilingual代表接洽", "同城快配配送服务"],
-                                    active: true
-                                },
-                                {
-                                    title: "中英法阿多文案海牙与使馆认证",
-                                    desc: "提供专业的进出口通关凭证、测试报告、企业章程法务公证、以及出口目的地海牙或联合国指定认证材料加急翻译代办服务。",
-                                    icon: FileText,
-                                    specs: ["使馆背书直连", "特许多语言别名资质印章", "电子化核验通道"],
-                                    active: true
-                                },
-                                {
-                                    title: "国际大宗标书（中英）翻译与编排",
-                                    desc: "资深跨国采购代理起草，在履约违约免责声明、不可抗力风险划分、以及联合国劳工福利合规声明上做针对性编排。",
-                                    icon: BookOpen,
-                                    specs: ["合规范文填充", "PDF高精度防改编排", "AI辅助匹配预测"],
-                                    active: true
-                                },
-                                {
-                                    title: "金牌出海企业深度合规培训",
-                                    desc: "针对合规禁买红线、ESG标准审核、联合国国际劳工保护法、以及防范中东和非洲外汇限额无法结汇的财务防护应对机制全系列培训。",
-                                    icon: Crown,
-                                    specs: ["线下高管封闭课", "高频避坑标准教案", "在线视频实案演练"],
-                                    active: true
-                                },
-                                {
-                                    title: "1v1 全球直联远程会商支持",
-                                    desc: "为入驻会员搭建的高清远程会议系统，当有国际买家在海外展厅中表现出高度意向时，我们顾问一键接连您与买家实现云端即时在线沟通谈判。",
-                                    icon: MessageSquare,
-                                    specs: ["同声即时传译协助", "会商纪要自动创建CRM", "一键订阅商机"],
-                                    active: true
-                                }
-                            ].map((serv, idx) => {
-                                const Icon = serv.icon;
-                                return (
-                                    <div key={idx} className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-teal-500 hover:shadow-xs transition-all flex flex-col justify-between">
-                                        <div>
-                                            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold mb-4">
-                                                <Icon className="w-5 h-5" />
-                                            </div>
-                                            <h4 className="text-base font-extrabold text-slate-800">{serv.title}</h4>
-                                            <p className="text-xs text-slate-500 mt-2 leading-relaxed">{serv.desc}</p>
-
-                                            <div className="mt-4 pt-3 border-t border-slate-100">
-                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">技术指标 / 服务涵盖</span>
-                                                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                                    {serv.specs.map((sp, sIdx) => (
-                                                        <span key={sIdx} className="bg-slate-50 border border-slate-150 text-[10px] text-slate-600 px-2 py-0.5 rounded">
-                                                            {sp}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => setShowConsultForm(true)}
-                                            className="w-full mt-5 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-850 cursor-pointer"
-                                        >
-                                            {t("bookServiceNow")}
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Success milestone tracker slider simulator */}
-                        <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-md">
-                            <h4 className="text-sm font-bold text-teal-400 mb-3">{t("successStory")}</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                                <div className="bg-slate-800 p-4 rounded-xl">
-                                    <span className="text-teal-400 font-mono font-bold">2026.04</span>
-                                    <p className="font-bold text-slate-200 mt-1">常州精密机床成功在法兰克福样品展厅接单三万套零件采购</p>
-                                    <p className="text-slate-400 mt-1 select-none">在双语展厅代表接待后，通过CRM一键会商顺利开单。</p>
-                                </div>
-                                <div className="bg-slate-800 p-4 rounded-xl">
-                                    <span className="text-teal-400 font-mono font-bold">2026.03</span>
-                                    <p className="font-bold text-slate-200 mt-1">非洲水利滴灌系统成套配套设备快速送达多座联合国援助仓</p>
-                                    <p className="text-slate-400 mt-1 select-none">通过肯尼亚内罗毕物理展厅样品核验，加速通过KEBS国标审定。</p>
-                                </div>
-                                <div className="bg-slate-800 p-4 rounded-xl">
-                                    <span className="text-teal-400 font-mono font-bold">2026.01</span>
-                                    <p className="font-bold text-slate-200 mt-1">山东某新型装配公司获免税绿皮书，全量中标人道救灾营房项目</p>
-                                    <p className="text-slate-400 mt-1 select-none">联合顾问在线编制英文投标书，14天成功获得最终入选通知。</p>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
+                    <ServicesPage onBookService={() => setShowConsultForm(true)} />
                 )}
 
                 {/* ======================================= */}
                 {/* TAB 6: TRAINING REGISTRATION */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 6 && (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-6">
-                                <div>
-                                    <h3 className="text-base font-extrabold text-slate-800">{t("learningSectionTitle")}</h3>
-                                    <p className="text-xs text-slate-500 mt-1">{t("learningSectionDesc")}</p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    {TRAINING_DOWNLOAD_MATERIALS.map((lm, index) => (
-                                        <div key={lm.id} className="p-4 rounded-lg border border-slate-200 bg-white hover:border-teal-200 hover:shadow-sm transition-all space-y-3 relative overflow-hidden">
-                                            {lm.isPremium && (
-                                                <div className="absolute top-0 right-0">
-                                                    <span className="bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-900 text-[9px] font-black px-2.5 py-1 rounded-bl">
-                                                        {t("membershipRequired")}
-                                                    </span>
-                                                </div>
-                                            )}
-
-                                            <div className="flex items-center space-x-2">
-                                                <span className="bg-teal-50 text-teal-700 text-[10px] px-2.5 py-0.5 rounded font-bold border border-teal-200">
-                                                    {locale === "zh" ? lm.categoryZh : lm.categoryEn}
-                                                </span>
-                                                <span className="text-[11px] text-slate-400">{t("learningDownloadCount", { num: lm.downloadsCount })}</span>
-                                            </div>
-
-                                            <h4 className="text-sm font-bold text-slate-800 pr-16">
-                                                {locale === "zh" ? lm.titleZh : lm.titleEn}
-                                            </h4>
-
-                                            <p className="text-xs text-slate-500 leading-relaxed bg-white p-3 rounded border border-slate-100">
-                                                <strong>{t("learningSummary")}:</strong> {locale === "zh" ? lm.summaryZh : lm.summaryEn}
-                                            </p>
-
-                                            {lm.isPremium && !isVip ? (
-                                                <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-900 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                                                    <div className="flex items-start space-x-2">
-                                                        <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                                                        <span>{t("lockedPremium")}</span>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setShowAuthModal(true)}
-                                                        className="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-3 py-1.5 rounded text-[11px] transition-colors cursor-pointer"
-                                                    >
-                                                        {t("upgradeToVip")}
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    {lm.isPremium && (
-                                                        <div className="bg-emerald-50 text-emerald-800 text-xs p-2.5 rounded border border-emerald-200 flex items-center space-x-2">
-                                                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                                                            <span>{t("unlockedPremium")}</span>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="bg-slate-100 p-3 rounded-lg text-xs text-slate-700 font-mono overflow-x-auto leading-relaxed max-h-36 overflow-y-auto">
-                                                        <strong className="block text-[10px] text-slate-400 font-bold uppercase mb-1">{t("learningCoreContent")}</strong>
-                                                        {locale === "zh" ? lm.contentZh : lm.contentEn}
-                                                    </div>
-
-                                                    <div className="flex justify-end gap-2 text-xs pt-1">
-                                                        <button
-                                                            onClick={() => handleRealDownload(lm.fileUrl ?? "", lm.fileName ?? lm.titleZh, lm.id)}
-                                                            disabled={!lm.fileUrl}
-                                                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                                                        >
-                                                            <FileDown className="w-3.5 h-3.5 text-teal-400" />
-                                                            <span>{t("downloadBtn")}</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="lg:col-span-4 space-y-6">
-                                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-                                    <h4 className="text-sm font-bold text-slate-800 mb-3">常见问题 FAQ</h4>
-                                    <div className="space-y-4">
-                                        {FAQS.map((faq) => (
-                                            <div key={faq.id} className="border-b border-slate-100 pb-3 last:border-b-0 space-y-1.5">
-                                                <span className="bg-slate-100 text-slate-600 text-[9px] px-2 py-0.5 rounded font-black font-mono">
-                                                    {faq.category.toUpperCase()}
-                                                </span>
-                                                <h5 className="text-xs font-bold text-slate-800">
-                                                    Q: {locale === "zh" ? faq.questionZh : faq.questionEn}
-                                                </h5>
-                                                <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded leading-relaxed border border-slate-100/50">
-                                                    {locale === "zh" ? faq.answerZh : faq.answerEn}
-                                                </p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <LearningPage
+                        isVip={isVip}
+                        onDownload={handleRealDownload}
+                        onUpgradeClick={() => setShowAuthModal(true)}
+                    />
                 )}
 
                 {/* ======================================= */}
                 {/* TAB 7: MEMBERSHIP ZONE (会员专区) */}
                 {/* ======================================= */}
                 {!isTrainingRoute && activeTab === 7 && (
-                    <div className="space-y-6">
-
-                        {/* VIP Card Display status */}
-                        <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden border border-slate-800 shadow-lg bg-gradient-to-tr from-slate-950 via-slate-900 to-teal-950">
-                            <div className="absolute right-0 top-0 translate-x-[20%] translate-y-[-20%] w-80 h-80 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
-
-                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                                <div className="space-y-2">
-                                    <div className="inline-flex items-center space-x-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                                        <Crown className="w-3.5 h-3.5" />
-                                        <span>GOLD VIP ACCESS PANEL</span>
-                                    </div>
-                                    <h3 className="text-2xl font-extrabold text-white">{t("memberGoldTitle")}</h3>
-                                    <p className="text-xs text-slate-400 max-w-xl">
-                                        {t("membershipVipDesc")}
-                                    </p>
-                                </div>
-
-                                <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700 text-center space-y-1.5 shrink-0 min-w-56">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t("guestMode")}</p>
-                                    <p className="text-sm font-mono font-bold text-teal-400">{userEmail}</p>
-
-                                    <div className="pt-2">
-                                        {isVip ? (
-                                            <span className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
-                                                {t("alreadyVip")}
-                                            </span>
-                                        ) : (
-                                            <button
-                                                onClick={() => setShowAuthModal(true)}
-                                                className="w-full py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 rounded-xl text-xs font-black transition-colors cursor-pointer"
-                                            >
-                                                {t("upgradeToVip")}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Grid of VIP custom privileges */}
-                            <div className="mt-8 pt-8 border-t border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-6">
-                                {[
-                                    { title: t("vipPriv1Title"), desc: t("vipPriv1Desc") },
-                                    { title: t("vipPriv2Title"), desc: t("vipPriv2Desc") },
-                                    { title: t("vipPriv3Title"), desc: t("vipPriv3Desc") },
-                                    { title: t("vipPriv4Title"), desc: t("vipPriv4Desc") }
-                                ].map((priv, idx) => (
-                                    <div key={idx} className="space-y-1 bg-slate-850 p-4 rounded-xl border border-slate-800/50">
-                                        <strong className="text-xs font-bold text-teal-400 block">{priv.title}</strong>
-                                        <p className="text-[11px] text-slate-400 leading-relaxed select-none">{priv.desc}</p>
-                                    </div>
-                                ))}
-                            </div>
-
-                        </div>
-
-                        {/* Simulated interactive feedback section */}
-                        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs text-center max-w-xl mx-auto space-y-4">
-                            <h4 className="text-base font-extrabold text-slate-800">{t("membershipQuestionTitle")}</h4>
-                            <p className="text-xs text-slate-500">
-                                {t("membershipQuestionDesc")}
-                            </p>
-
-                            <div className="flex gap-2">
-                                <input
-                                    type="email"
-                                    value={userEmail}
-                                    onChange={(e) => setUserEmail(e.target.value)}
-                                    placeholder="name@company.com"
-                                    className="flex-1 px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                />
-                                <button
-                                    onClick={() => alert(t("membershipSendEmailAlert", { email: userEmail }))}
-                                    className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800"
-                                >
-                                    {t("membershipSendFree")}
-                                </button>
-                            </div>
-                        </div>
-
-                    </div>
+                    <MembershipPage
+                        userEmail={userEmail}
+                        isVip={isVip}
+                        onUpgradeClick={() => setShowAuthModal(true)}
+                        onSendEmail={(email) => alert(t("membershipSendEmailAlert", { email }))}
+                    />
                 )}
 
             </main>
