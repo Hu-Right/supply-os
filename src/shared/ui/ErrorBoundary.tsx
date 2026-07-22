@@ -8,6 +8,9 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import * as i18nModule from "i18next";
+
+const i18n = (i18nModule as any).default || i18nModule;
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -70,6 +73,7 @@ export class ErrorBoundary extends Component<
       }
 
       if (this.state.isChunkError) {
+        const t = i18n.getFixedT(i18n.language || "en");
         return (
           <div
             role="alert"
@@ -77,23 +81,24 @@ export class ErrorBoundary extends Component<
           >
             <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
               <h1 className="text-lg font-bold text-slate-900">
-                网络波动导致资源加载失败
+                {t("errorBoundaryChunkTitle")}
               </h1>
               <p className="mt-2 text-sm text-slate-500">
-                请检查网络连接后重试
+                {t("errorBoundaryChunkDesc")}
               </p>
               <button
                 type="button"
                 onClick={this.handleRetry}
                 className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
               >
-                重新加载
+                {t("errorBoundaryRetry")}
               </button>
             </div>
           </div>
         );
       }
 
+      const t = i18n.getFixedT(i18n.language || "en");
       return (
         <div
           role="alert"
@@ -104,10 +109,10 @@ export class ErrorBoundary extends Component<
               Supply OS
             </p>
             <h1 className="mt-2 text-xl font-extrabold text-slate-900">
-              页面渲染异常
+              {t("errorBoundaryTitle")}
             </h1>
             <p className="mt-2 text-sm text-slate-500">
-              当前页面组件加载失败，已阻止整站白屏。请刷新页面或返回首页重试。
+              {t("errorBoundaryDesc")}
             </p>
             {this.state.error && (
               <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-slate-100 p-3 text-xs text-slate-600">
@@ -121,7 +126,7 @@ export class ErrorBoundary extends Component<
               }}
               className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
             >
-              返回首页
+              {t("errorBoundaryBackHome")}
             </button>
           </div>
         </div>

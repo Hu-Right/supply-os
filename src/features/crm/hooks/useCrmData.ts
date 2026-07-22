@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { SUPPLIERS, OPPORTUNITIES } from "@/data";
 import type { Lead, Supplier, Opportunity } from "@/types";
+import { useAiMatch } from "./useAiMatch";
 
 export type UseCrmDataReturn = {
   leads: Lead[];
@@ -35,18 +36,15 @@ export type UseCrmDataReturn = {
  * CRM-related state and logic migrated from App.tsx
  */
 export function useCrmData(): UseCrmDataReturn {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
+
+  // Compose AI matching hook (single responsibility)
+  const aiMatch = useAiMatch();
 
   // Data fetching state
   const [leads, setLeads] = useState<Lead[]>([]);
   const [customSuppliers, setCustomSuppliers] = useState<Supplier[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
-
-  // AI Matchmaking state
-  const [matchSelectedSupplier, setMatchSelectedSupplier] = useState<Supplier | null>(null);
-  const [matchSelectedOpportunity, setMatchSelectedOpportunity] = useState<Opportunity | null>(null);
-  const [isAiMatching, setIsAiMatching] = useState(false);
-  const [aiReport, setAiReport] = useState("");
 
   // Subscribe opportunity message
   const [subscribingOppMessage, setSubscribingOppMessage] = useState<string | null>(null);
@@ -76,42 +74,20 @@ export function useCrmData(): UseCrmDataReturn {
   useEffect(() => {
     fetchData();
     if (SUPPLIERS.length > 0) {
-      setMatchSelectedSupplier(SUPPLIERS[0]);
+      aiMatch.setSelectedSupplier(SUPPLIERS[0]);
     }
     if (OPPORTUNITIES.length > 0) {
-      setMatchSelectedOpportunity(OPPORTUNITIES[0]);
+      aiMatch.setSelectedOpportunity(OPPORTUNITIES[0]);
     }
   }, []);
 
-  // Trigger Gemini AI matching
+  // Trigger AI matching (delegates to useAiMatch)
   const triggerAiMatchmaking = async () => {
-    if (!matchSelectedSupplier || !matchSelectedOpportunity) {
+    if (!aiMatch.selectedSupplier || !aiMatch.selectedOpportunity) {
       alert("Please select a target supplier and opportunity benchmark first!");
       return;
     }
-    setIsAiMatching(true);
-    setAiReport("");
-    try {
-      const response = await fetch("/api/ai/matchmake", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          supplier: matchSelectedSupplier,
-          opportunity: matchSelectedOpportunity,
-          language: locale,
-        }),
-      });
-      if (response.ok) {
-        const resJson = await response.json();
-        setAiReport(resJson.analysis);
-      } else {
-        setAiReport(t("aiMatchHttpError"));
-      }
-    } catch {
-      setAiReport(t("aiMatchNetworkError"));
-    } finally {
-      setIsAiMatching(false);
-    }
+    await aiMatch.triggerMatch(aiMatch.selectedSupplier, aiMatch.selectedOpportunity);
   };
 
   // Subscribe to opportunity simulation
@@ -128,13 +104,13 @@ export function useCrmData(): UseCrmDataReturn {
     leads,
     isLoadingLeads,
     totalSuppliersList,
-    matchSelectedSupplier,
-    matchSelectedOpportunity,
-    isAiMatching,
-    aiReport,
+    matchSelectedSupplier: aiMatch.selectedSupplier,
+    matchSelectedOpportunity: aiMatch.selectedOpportunity,
+    isAiMatching: aiMatch.isMatching,
+    aiReport: aiMatch.report,
     subscribingOppMessage,
-    setMatchSelectedSupplier,
-    setMatchSelectedOpportunity,
+    setMatchSelectedSupplier: aiMatch.setSelectedSupplier,
+    setMatchSelectedOpportunity: aiMatch.setSelectedOpportunity,
     triggerAiMatchmaking,
     subscribeOpportunity,
   };

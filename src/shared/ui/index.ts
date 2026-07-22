@@ -36,6 +36,3 @@ export type { SearchInputProps } from "./SearchInput";
 
 export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
-
-export { AuthModal } from "./AuthModal";
-export type { AuthModalProps } from "./AuthModal";
