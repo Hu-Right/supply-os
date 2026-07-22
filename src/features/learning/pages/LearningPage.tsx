@@ -8,18 +8,32 @@
  */
 
 import { useLocale } from "@/core/i18n";
+import { useAuth } from "@/core/auth";
 import { TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
 
-export interface LearningPageProps {
-  isVip: boolean;
-  onDownload: (fileUrl: string, fileName: string, materialId: string) => void;
-  onUpgradeClick: () => void;
-}
-
-export default function LearningPage({ isVip, onDownload, onUpgradeClick }: LearningPageProps) {
+export default function LearningPage() {
   const { t } = useLocale();
+  const { isVip } = useAuth();
+
+  const handleDownload = (fileUrl: string, fileName: string, materialId: string) => {
+    const a = document.createElement("a");
+    a.href = fileUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    fetch("/api/training/downloads/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ material_id: materialId, file_name: fileName }),
+    }).catch(() => {});
+  };
+
+  const handleUpgradeClick = () => {
+    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+  };
 
   return (
     <div className="space-y-6">
@@ -38,8 +52,8 @@ export default function LearningPage({ isVip, onDownload, onUpgradeClick }: Lear
                 key={lm.id}
                 material={lm}
                 isVip={isVip}
-                onDownload={onDownload}
-                onUpgradeClick={onUpgradeClick}
+                onDownload={handleDownload}
+                onUpgradeClick={handleUpgradeClick}
               />
             ))}
           </div>

@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useAuth } from "@/core/auth";
 import type {
   UnspscOption,
   NoticeItem,
@@ -56,14 +57,14 @@ const getOptionLabel = (item: UnspscOption, locale: "zh" | "en") => {
   return `${item.code || ""}${item.code ? " - " : ""}${title || "Unnamed category"}`;
 };
 
-interface Props {
-  userKey?: string;
-  isVip: boolean;
-  onRequireLogin: () => void;
-}
-
-export default function ProcurementPage({ userKey, isVip, onRequireLogin }: Props) {
+export default function ProcurementPage() {
   const { t, locale } = useLocale();
+  const { authUser, isVip } = useAuth();
+  const userKey = authUser?.user_key;
+
+  const onRequireLogin = () => {
+    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+  };
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
   const [page, setPage] = useState(1);

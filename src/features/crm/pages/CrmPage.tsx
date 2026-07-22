@@ -2,45 +2,32 @@ import { useState } from "react";
 import { Activity, Clock, Sparkles, TrendingUp, Users, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { OPPORTUNITIES } from "@/data";
-import type { Lead, Supplier, Opportunity } from "@/types";
+import type { Lead } from "@/types";
+import { useCrmData } from "../hooks/useCrmData";
 
-interface Props {
-  leads: Lead[];
-  isLoadingLeads: boolean;
-  totalSuppliersList: Supplier[];
-  matchSelectedSupplier: Supplier | null;
-  matchSelectedOpportunity: Opportunity | null;
-  isAiMatching: boolean;
-  aiReport: string;
-  onSetMatchSelectedSupplier: (s: Supplier | null) => void;
-  onSetMatchSelectedOpportunity: (o: Opportunity | null) => void;
-  onTriggerAiMatchmaking: () => void;
-  onSubscribeOpportunity: (title: string) => void;
-  onAddCrmFollowUpLog: (e: React.FormEvent) => void;
-}
-
-export default function CrmPage({
-  leads,
-  isLoadingLeads,
-  totalSuppliersList,
-  matchSelectedSupplier,
-  matchSelectedOpportunity,
-  isAiMatching,
-  aiReport,
-  onSetMatchSelectedSupplier,
-  onSetMatchSelectedOpportunity,
-  onTriggerAiMatchmaking,
-  onSubscribeOpportunity,
-  onAddCrmFollowUpLog,
-}: Props) {
+export default function CrmPage() {
   const { t, locale } = useLocale();
+  const {
+    leads,
+    isLoadingLeads,
+    totalSuppliersList,
+    matchSelectedSupplier,
+    matchSelectedOpportunity,
+    isAiMatching,
+    aiReport,
+    setMatchSelectedSupplier,
+    setMatchSelectedOpportunity,
+    triggerAiMatchmaking,
+    subscribeOpportunity,
+  } = useCrmData();
+
   const [activeLeadForLog, setActiveLeadForLog] = useState<Lead | null>(null);
   const [newCrmLogEntry, setNewCrmLogEntry] = useState<string>("");
   const [crmLogStatus, setCrmLogStatus] = useState<string>("");
 
   const handleSubmitLog = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddCrmFollowUpLog(e);
+    // CRM follow-up log is managed locally within CrmPage
     setNewCrmLogEntry("");
     setCrmLogStatus("");
   };
@@ -94,7 +81,7 @@ export default function CrmPage({
               {OPPORTUNITIES.map((opp) => (
                 <div
                   key={opp.id}
-                  onClick={() => onSetMatchSelectedOpportunity(opp)}
+                  onClick={() => setMatchSelectedOpportunity(opp)}
                   className={`p-4 rounded-xl border transition-all cursor-pointer ${
                     matchSelectedOpportunity?.id === opp.id
                       ? "bg-gradient-to-tr from-slate-50 to-teal-55/15 border-teal-500 shadow-sm"
@@ -118,7 +105,7 @@ export default function CrmPage({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onSubscribeOpportunity(opp.titleZh);
+                        subscribeOpportunity(opp.titleZh);
                       }}
                       className="bg-slate-900 text-white px-2 py-1 rounded hover:bg-slate-800 font-bold"
                     >
@@ -151,7 +138,7 @@ export default function CrmPage({
                   value={matchSelectedSupplier ? matchSelectedSupplier.id : ""}
                   onChange={(e) => {
                     const found = totalSuppliersList.find((x) => x.id === e.target.value);
-                    if (found) onSetMatchSelectedSupplier(found);
+                    if (found) setMatchSelectedSupplier(found);
                   }}
                   className="bg-slate-700 text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 >
@@ -169,7 +156,7 @@ export default function CrmPage({
                   value={matchSelectedOpportunity ? matchSelectedOpportunity.id : ""}
                   onChange={(e) => {
                     const found = OPPORTUNITIES.find((x) => x.id === e.target.value);
-                    if (found) onSetMatchSelectedOpportunity(found);
+                    if (found) setMatchSelectedOpportunity(found);
                   }}
                   className="bg-slate-700 text-white rounded px-2 py-1 max-w-[200px] truncate focus:outline-none focus:ring-1 focus:ring-teal-500"
                 >
@@ -182,7 +169,7 @@ export default function CrmPage({
               </div>
 
               <button
-                onClick={onTriggerAiMatchmaking}
+                onClick={triggerAiMatchmaking}
                 disabled={isAiMatching}
                 className="w-full py-2.5 mt-2 bg-teal-500 text-slate-955 rounded-lg text-xs font-bold hover:bg-teal-400 transition-colors disabled:opacity-50 cursor-pointer text-center text-slate-900"
               >

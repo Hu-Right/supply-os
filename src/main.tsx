@@ -2,6 +2,7 @@ import { Component, StrictMode, type ErrorInfo, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { LocaleProvider } from '@/core/i18n';
+import { AuthProvider } from '@/core/auth';
 import * as i18nModule from 'i18next';
 const i18n = (i18nModule as any).default || i18nModule;
 import App from './App.tsx';
@@ -72,7 +73,9 @@ createRoot(document.getElementById('root')!).render(
         <ErrorBoundary>
             <BrowserRouter>
                 <LocaleProvider>
-                    <App />
+                    <AuthProvider>
+                        <App />
+                    </AuthProvider>
                 </LocaleProvider>
             </BrowserRouter>
         </ErrorBoundary>

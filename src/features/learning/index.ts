@@ -8,4 +8,3 @@
  */
 
 export { default as LearningPage } from "./pages/LearningPage";
-export type { LearningPageProps } from "./pages/LearningPage";

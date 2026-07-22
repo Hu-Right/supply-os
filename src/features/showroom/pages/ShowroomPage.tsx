@@ -13,17 +13,15 @@ import { useLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
 import { ShowroomCard } from "../components/ShowroomCard";
+import { RegisterForm } from "../components/RegisterForm";
 
-export interface ShowroomPageProps {
-  onRegister: (showroom: ExhibitionHall | null) => void;
-  onConsult: (showroom: ExhibitionHall | null) => void;
-}
-
-export default function ShowroomPage({ onRegister, onConsult }: ShowroomPageProps) {
+export default function ShowroomPage() {
   const { t, locale } = useLocale();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [selectedShowroom, setSelectedShowroom] = useState<ExhibitionHall | null>(null);
 
   // 计算可用地区和国家
   const availableRegions = useMemo(() => {
@@ -66,6 +64,15 @@ export default function ShowroomPage({ onRegister, onConsult }: ShowroomPageProp
     setSelectedRegion("");
     setSelectedCountry("");
     setSearchTerm("");
+  };
+
+  const handleRegister = (showroom: ExhibitionHall | null) => {
+    setSelectedShowroom(showroom);
+    setShowRegisterForm(true);
+  };
+
+  const handleConsult = (_showroom: ExhibitionHall | null) => {
+    window.dispatchEvent(new CustomEvent("supply-os:consult"));
   };
 
   return (
@@ -137,8 +144,8 @@ export default function ShowroomPage({ onRegister, onConsult }: ShowroomPageProp
             <ShowroomCard
               key={eh.id}
               showroom={eh}
-              onApply={onRegister}
-              onConsult={onConsult}
+              onApply={handleRegister}
+              onConsult={handleConsult}
             />
           ))
         ) : (
@@ -148,6 +155,21 @@ export default function ShowroomPage({ onRegister, onConsult }: ShowroomPageProp
           </div>
         )}
       </div>
+
+      {/* Register Form Overlay */}
+      {showRegisterForm && (
+        <RegisterForm
+          selectedShowroom={selectedShowroom}
+          onClose={() => {
+            setShowRegisterForm(false);
+            setSelectedShowroom(null);
+          }}
+          onSuccess={() => {
+            setShowRegisterForm(false);
+            setSelectedShowroom(null);
+          }}
+        />
+      )}
     </div>
   );
 }

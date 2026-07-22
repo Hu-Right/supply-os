@@ -8,7 +8,6 @@
  */
 
 export { default as ShowroomPage } from "./pages/ShowroomPage";
-export type { ShowroomPageProps } from "./pages/ShowroomPage";
 
 // API 类型（供外部使用）
 export type { ShowroomRegisterForm } from "./api";

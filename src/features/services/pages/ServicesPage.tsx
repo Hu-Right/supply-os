@@ -12,12 +12,12 @@ import { ServiceCard } from "../components/ServiceCard";
 import { SuccessStories } from "../components/SuccessStories";
 import { SERVICES, SUCCESS_STORIES } from "../data";
 
-export interface ServicesPageProps {
-  onBookService: () => void;
-}
-
-export default function ServicesPage({ onBookService }: ServicesPageProps) {
+export default function ServicesPage() {
   const { t } = useLocale();
+
+  const handleBookService = () => {
+    window.dispatchEvent(new CustomEvent("supply-os:consult"));
+  };
 
   return (
     <div className="space-y-6">
@@ -26,7 +26,7 @@ export default function ServicesPage({ onBookService }: ServicesPageProps) {
           <ServiceCard
             key={idx}
             service={service}
-            onBook={onBookService}
+            onBook={handleBookService}
             bookLabel={t("bookServiceNow")}
           />
         ))}

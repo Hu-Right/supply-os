@@ -8,18 +8,15 @@
  */
 
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { SUPPLIERS } from "@/data";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 
-export interface SupplierPageProps {
-  onAiMatch: (supplier: Supplier) => void;
-  onContact: (supplier: Supplier) => void;
-}
-
-export default function SupplierPage({ onAiMatch, onContact }: SupplierPageProps) {
+export default function SupplierPage() {
   const { t, locale } = useLocale();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState("");
@@ -52,6 +49,10 @@ export default function SupplierPage({ onAiMatch, onContact }: SupplierPageProps
       return matchesSearch && matchesSubTab && matchesIndustry && matchesUngmCode;
     });
   }, [locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
+
+  const handleAiMatch = (supplier: Supplier) => {
+    navigate("/crm");
+  };
 
   const handleContact = (supplier: Supplier) => {
     alert(
@@ -121,7 +122,7 @@ export default function SupplierPage({ onAiMatch, onContact }: SupplierPageProps
           <SupplierCard
             key={sup.id}
             supplier={sup}
-            onAiMatch={onAiMatch}
+            onAiMatch={handleAiMatch}
             onContact={handleContact}
           />
         ))}

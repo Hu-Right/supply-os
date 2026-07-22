@@ -7,31 +7,32 @@
  *              Membership zone page entry, displays VIP card and email subscription
  */
 
+import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { VipCard } from "../components/VipCard";
 import { EmailSubscription } from "../components/EmailSubscription";
 
-export interface MembershipPageProps {
-  userEmail: string;
-  isVip: boolean;
-  onUpgradeClick: () => void;
-  onSendEmail: (email: string) => void;
-}
+export default function MembershipPage() {
+  const { t } = useLocale();
+  const { authUser, isVip } = useAuth();
+  const userEmail = authUser?.email || "";
 
-export default function MembershipPage({
-  userEmail,
-  isVip,
-  onUpgradeClick,
-  onSendEmail,
-}: MembershipPageProps) {
+  const handleUpgradeClick = () => {
+    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+  };
+
+  const handleSendEmail = (_email: string) => {
+    alert(t("membershipSendEmailAlert", { email: _email }));
+  };
   return (
     <div className="space-y-6">
       <VipCard
         userEmail={userEmail}
         isVip={isVip}
-        onUpgradeClick={onUpgradeClick}
+        onUpgradeClick={handleUpgradeClick}
       />
 
-      <EmailSubscription initialEmail={userEmail} onSend={onSendEmail} />
+      <EmailSubscription initialEmail={userEmail} onSend={handleSendEmail} />
     </div>
   );
 }

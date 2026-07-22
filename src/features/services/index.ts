@@ -8,7 +8,6 @@
  */
 
 export { default as ServicesPage } from "./pages/ServicesPage";
-export type { ServicesPageProps } from "./pages/ServicesPage";
 
 // 数据类型（供外部使用）
 export type { ServiceItem, SuccessStoryItem } from "./types";

@@ -8,7 +8,6 @@
  */
 
 export { default as MembershipPage } from "./pages/MembershipPage";
-export type { MembershipPageProps } from "./pages/MembershipPage";
 
 // 数据类型（供外部使用）
 export type { VipPrivilege } from "./data";

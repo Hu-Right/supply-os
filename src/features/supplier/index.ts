@@ -8,4 +8,3 @@
  */
 
 export { default as SupplierPage } from "./pages/SupplierPage";
-export type { SupplierPageProps } from "./pages/SupplierPage";
