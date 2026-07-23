@@ -58,7 +58,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
     }
 
     if (authMode === "register" && !claimForm.companyName.trim()) {
-      setAuthError("注册供应商会员时请填写公司名称");
+      setAuthError(t("authCompanyNameRequired"));
       return;
     }
 
@@ -78,7 +78,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
         onClose();
       }
     } catch (err: any) {
-      setAuthError(err.message || "登录失败，请稍后重试");
+      setAuthError(err.message || t("authLoginFailed"));
     }
   };
 
@@ -90,11 +90,11 @@ export function AuthModal({ onClose }: AuthModalProps) {
           <div>
             <div className="inline-flex items-center gap-1.5 text-[10px] font-black text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-1 mb-2">
               <Crown className="w-3.5 h-3.5" />
-              SUPPLY OS ACCOUNT
+              {t("authModalBadge")}
             </div>
-            <h3 className="text-lg font-extrabold">会员登录与供应商注册</h3>
+            <h3 className="text-lg font-extrabold">{t("authModalTitle")}</h3>
             <p className="text-xs text-slate-400 mt-1">
-              注册时同步提交公司申请，审核通过后再关联正式供应商身份。
+              {t("authModalDesc")}
             </p>
           </div>
           <button
@@ -114,7 +114,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-black text-slate-500 uppercase">
-                      当前账号
+                      {t("authCurrentAccount")}
                     </p>
                     <h4 className="text-lg font-extrabold text-slate-900 mt-1">
                       {authUser.display_name || authUser.email}
@@ -130,22 +130,22 @@ export function AuthModal({ onClose }: AuthModalProps) {
                         : "bg-white text-slate-600 border border-slate-200"
                     }`}
                   >
-                    {isVip ? "VIP MEMBER" : "FREE MEMBER"}
+                    {isVip ? t("authVipMember") : t("authFreeMember")}
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="font-black text-slate-400">供应商身份</p>
+                    <p className="font-black text-slate-400">{t("authSupplierStatus")}</p>
                     <p className="font-bold text-slate-800 mt-1">
                       {authUser.supplier_id
-                        ? `已审核关联 #${authUser.supplier_id}`
-                        : "待提交或待审核"}
+                        ? t("authSupplierVerified", { id: authUser.supplier_id })
+                        : t("authSupplierPending")}
                     </p>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-lg p-3">
-                    <p className="font-black text-slate-400">线索权益</p>
+                    <p className="font-black text-slate-400">{t("authLeadQuota")}</p>
                     <p className="font-bold text-slate-800 mt-1">
-                      {isVip ? "会员额度可用" : "免费体验额度"}
+                      {isVip ? t("authVipQuota") : t("authFreeQuota")}
                     </p>
                   </div>
                 </div>
@@ -159,7 +159,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 onClick={logout}
                 className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
               >
-                退出登录
+                {t("authLogout")}
               </button>
             </div>
           ) : (
@@ -176,7 +176,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                       : "text-slate-500"
                   }`}
                 >
-                  登录
+                  {t("authLoginTab")}
                 </button>
                 <button
                   type="button"
@@ -187,7 +187,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
                       : "text-slate-500"
                   }`}
                 >
-                  注册供应商
+                  {t("authRegisterTab")}
                 </button>
               </div>
 
@@ -196,10 +196,10 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-extrabold text-slate-900">
-                      公司申请信息
+                      {t("authCompanyClaimInfo")}
                     </h4>
                     <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
-                      待审核
+                      {t("authPendingReview")}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -222,8 +222,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
                       }
                       className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     >
-                      <option value="domestic">国内供应商</option>
-                      <option value="international">国外供应商</option>
+                      <option value="domestic">{t("authSupplierDomestic")}</option>
+                      <option value="international">{t("authSupplierInternational")}</option>
                     </select>
                     <input
                       type="text"
@@ -304,8 +304,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
               >
                 {authMode === "login"
-                  ? "登录会员"
-                  : "注册并提交供应商申请"}
+                  ? t("authLoginSubmit")
+                  : t("authRegisterSubmit")}
               </button>
             </form>
           )}
