@@ -8,7 +8,7 @@
  */
 
 import { Sparkles } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import type { Supplier } from "@/types";
 
 export interface SupplierCardProps {
@@ -45,16 +45,16 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
         </div>
 
         <h4 className="line-clamp-1 text-base font-extrabold text-slate-800">
-          {locale === "zh" ? supplier.nameZh : supplier.nameEn}
+          {pickLocale(locale, supplier.nameZh, supplier.nameEn)}
         </h4>
 
         <div className="mt-2 space-y-1.5 text-xs text-slate-500">
           <p className="flex items-center">
             <span className="mr-1.5 shrink-0 font-extrabold text-slate-400">{t("location")}:</span>
             <span className="text-slate-700">
-              {locale === "zh"
-                ? `${supplier.countryZh} · ${supplier.cityZh}`
-                : `${supplier.countryEn}, ${supplier.cityEn}`}
+              {pickLocale(locale,
+                `${supplier.countryZh} · ${supplier.cityZh}`,
+                `${supplier.countryEn}, ${supplier.cityEn}`)}
             </span>
           </p>
 
@@ -73,7 +73,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
               {t("mainProducts")}
             </span>
             <div className="mt-1 flex flex-wrap gap-1">
-              {(locale === "zh" ? supplier.mainProductsZh : supplier.mainProductsEn).map((p, idx) => (
+              {pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn).map((p, idx) => (
                 <span key={idx} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
                   {p}
                 </span>
@@ -86,7 +86,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
               {t("complianceLabel")}
             </span>
             <div className="mt-1 flex flex-wrap gap-1">
-              {(locale === "zh" ? supplier.complianceLabelsZh : supplier.complianceLabelsEn).map(
+              {pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn).map(
                 (c, idx) => (
                   <span
                     key={idx}

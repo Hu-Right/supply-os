@@ -26,6 +26,7 @@ const AUTH_USER_KEY = "supply_os_auth_user";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isVip, setIsVip] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
 
   // 使用 ref 避免闭包陈旧引用
@@ -50,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userKey = authUserRef.current?.user_key;
     if (!userKey) return;
 
+    setIsAuthLoading(true);
     try {
       const res = await fetch(`/api/auth/user?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
       const data = await res.json();
@@ -57,6 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persistAuthUser(data.user);
     } catch (err) {
       console.error("Error refreshing auth user:", err);
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -65,14 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Login
    */
   const login = async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
-    persistAuthUser(data.user);
+    setIsAuthLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
+      persistAuthUser(data.user);
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
   /**
@@ -80,35 +89,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Register (with supplier claim application)
    */
   const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm) => {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0] }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
-
-    // 响应式更新，无需 reload
-    persistAuthUser(data.user);
-
-    // 提交供应商绑定申请
-    if (claim) {
-      const claimRes = await fetch("/api/supplier-claims", {
+    setIsAuthLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_key: data.user.user_key,
-          company_name: claim.companyName,
-          supplier_type: claim.supplierType,
-          contact_name: claim.contactName || displayName,
-          contact_phone: claim.contactPhone,
-          contact_email: data.user.email,
-          business_license_no: claim.businessLicenseNo,
-        }),
+        body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0] }),
       });
-      const claimData = await claimRes.json().catch(() => ({}));
-      if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
-      setClaimMessage(`绑定申请已提交，状态：${claimData.status}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
+
+      // 响应式更新，无需 reload
+      persistAuthUser(data.user);
+
+      // 提交供应商绑定申请
+      if (claim) {
+        const claimRes = await fetch("/api/supplier-claims", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_key: data.user.user_key,
+            company_name: claim.companyName,
+            supplier_type: claim.supplierType,
+            contact_name: claim.contactName || displayName,
+            contact_phone: claim.contactPhone,
+            contact_email: data.user.email,
+            business_license_no: claim.businessLicenseNo,
+          }),
+        });
+        const claimData = await claimRes.json().catch(() => ({}));
+        if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
+        setClaimMessage(`绑定申请已提交，状态：${claimData.status}`);
+      }
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -134,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setClaimMessage("");
+    setIsAuthLoading(true);
     try {
       const res = await fetch("/api/supplier-claims", {
         method: "POST",
@@ -153,6 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setClaimMessage(`绑定申请已提交，状态：${data.status}`);
     } catch (err: any) {
       setClaimMessage(err.message || "绑定申请提交失败");
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -174,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     authUser,
     isVip,
+    isAuthLoading,
     login,
     register,
     logout,

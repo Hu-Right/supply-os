@@ -8,7 +8,7 @@
  */
 
 import { Clock } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import type { ExhibitionHall } from "@/types";
 
 export interface ShowroomCardProps {
@@ -26,17 +26,17 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
       <div className="relative h-48 w-full overflow-hidden bg-slate-100">
         <img
           src={showroom.bannerUrl}
-          alt={locale === "zh" ? showroom.nameZh : showroom.nameEn}
+          alt={pickLocale(locale, showroom.nameZh, showroom.nameEn)}
           className="h-full w-full object-cover transition-transform duration-550 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
         <div className="absolute left-4 top-4 rounded-full bg-teal-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
-          {locale === "zh" ? showroom.regionZh : showroom.regionEn} ·{" "}
-          {locale === "zh" ? showroom.countryZh : showroom.countryEn}
+          {pickLocale(locale, showroom.regionZh, showroom.regionEn)} ·{" "}
+          {pickLocale(locale, showroom.countryZh, showroom.countryEn)}
         </div>
         <div className="absolute bottom-4 left-4 right-4 text-white">
           <p className="line-clamp-1 text-xl font-bold">
-            {locale === "zh" ? showroom.nameZh : showroom.nameEn}
+            {pickLocale(locale, showroom.nameZh, showroom.nameEn)}
           </p>
           <p className="mt-0.5 flex items-center text-xs text-slate-200">
             <Clock className="mr-1 h-3.5 w-3.5 text-teal-400" />
@@ -50,7 +50,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
       {/* Content */}
       <div className="flex flex-1 flex-col justify-between p-5">
         <p className="mb-4 line-clamp-3 text-sm leading-relaxed text-slate-600">
-          {locale === "zh" ? showroom.descriptionZh : showroom.descriptionEn}
+          {pickLocale(locale, showroom.descriptionZh, showroom.descriptionEn)}
         </p>
 
         <div className="space-y-3 border-t border-slate-100 pt-4">
@@ -59,7 +59,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
               {t("featuredProducts")}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {(locale === "zh" ? showroom.featuredProductsZh : showroom.featuredProductsEn).map(
+              {pickLocale(locale, showroom.featuredProductsZh, showroom.featuredProductsEn).map(
                 (prod, idx) => (
                   <span
                     key={idx}

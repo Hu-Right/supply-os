@@ -5,7 +5,7 @@
  * @module features/crm/components/OpportunityList
  */
 
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { OPPORTUNITIES } from "@/data";
 import type { Opportunity } from "@/types";
 
@@ -49,15 +49,15 @@ export function OpportunityList({
           >
             <div className="flex justify-between items-start">
               <span className="bg-indigo-100 text-indigo-800 text-[9px] px-2 py-0.5 rounded font-bold uppercase">
-                {locale === "zh" ? opp.industryZh : opp.industryEn}
+                {pickLocale(locale, opp.industryZh, opp.industryEn)}
               </span>
               <span className="text-xs font-semibold text-teal-700">{opp.budget}</span>
             </div>
             <h4 className="text-sm font-bold text-slate-800 mt-2 line-clamp-1">
-              {locale === "zh" ? opp.titleZh : opp.titleEn}
+              {pickLocale(locale, opp.titleZh, opp.titleEn)}
             </h4>
             <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-              {locale === "zh" ? opp.descriptionZh : opp.descriptionEn}
+              {pickLocale(locale, opp.descriptionZh, opp.descriptionEn)}
             </p>
             <div className="mt-3 flex justify-between items-center border-t border-slate-200/50 pt-2 text-[11px] text-slate-400">
               <span>{deadlineLabel(opp.deadline)}</span>

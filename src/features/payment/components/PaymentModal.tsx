@@ -9,7 +9,7 @@
 
 import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import { getPaymentTips, isMobile } from "@/core/payment";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { usePayment } from "../hooks/usePayment";
 
 type PaymentModalProps = {
@@ -147,7 +147,7 @@ export default function PaymentModal({
                 <p className="font-bold text-amber-900 text-sm">{t("paymentWaitingTitle")}</p>
                 <p className="text-xs text-amber-700 mt-1">
                   {selectedProvider === "mock"
-                    ? locale === "zh" ? "本地模拟支付会自动完成，用于测试支付闭环。" : "Mock payment will auto-complete for testing."
+                    ? pickLocale(locale, "本地模拟支付会自动完成，用于测试支付闭环。", "Mock payment will auto-complete for testing.")
                     : getPaymentTips(selectedProvider)}
                 </p>
               </div>

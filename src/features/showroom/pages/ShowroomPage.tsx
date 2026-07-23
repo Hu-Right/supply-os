@@ -9,7 +9,7 @@
 
 import { useState, useMemo } from "react";
 import { Globe, Search, Filter } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
 import { ShowroomCard } from "../components/ShowroomCard";
@@ -26,16 +26,16 @@ export default function ShowroomPage() {
   // 计算可用地区和国家
   const availableRegions = useMemo(() => {
     const regions = new Set<string>();
-    EXHIBITION_HALLS.forEach((h) => regions.add(locale === "zh" ? h.regionZh : h.regionEn));
+    EXHIBITION_HALLS.forEach((h) => regions.add(pickLocale(locale, h.regionZh, h.regionEn)));
     return Array.from(regions);
   }, [locale]);
 
   const availableCountries = useMemo(() => {
     const countries = new Set<string>();
     EXHIBITION_HALLS.forEach((h) => {
-      const region = locale === "zh" ? h.regionZh : h.regionEn;
+      const region = pickLocale(locale, h.regionZh, h.regionEn);
       if (!selectedRegion || region === selectedRegion) {
-        countries.add(locale === "zh" ? h.countryZh : h.countryEn);
+        countries.add(pickLocale(locale, h.countryZh, h.countryEn));
       }
     });
     return Array.from(countries);
@@ -44,10 +44,10 @@ export default function ShowroomPage() {
   // 筛选展厅
   const filteredShowrooms = useMemo(() => {
     return EXHIBITION_HALLS.filter((eh) => {
-      const region = locale === "zh" ? eh.regionZh : eh.regionEn;
-      const country = locale === "zh" ? eh.countryZh : eh.countryEn;
-      const name = locale === "zh" ? eh.nameZh : eh.nameEn;
-      const desc = locale === "zh" ? eh.descriptionZh : eh.descriptionEn;
+      const region = pickLocale(locale, eh.regionZh, eh.regionEn);
+      const country = pickLocale(locale, eh.countryZh, eh.countryEn);
+      const name = pickLocale(locale, eh.nameZh, eh.nameEn);
+      const desc = pickLocale(locale, eh.descriptionZh, eh.descriptionEn);
 
       const matchesSearch =
         !searchTerm ||

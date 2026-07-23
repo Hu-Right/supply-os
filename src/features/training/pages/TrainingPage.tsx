@@ -8,7 +8,7 @@
  */
 
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { useTrainingForm } from "../hooks/useTrainingForm";
 import type { DictionaryItem } from "../api";
 
@@ -30,7 +30,7 @@ export default function TrainingPage() {
   } = useTrainingForm();
 
   const labelOf = (item: DictionaryItem) =>
-    `${item.code || ""}${item.code ? " - " : ""}${locale === "zh" ? item.title_zh || item.title_en || item.name : item.title_en || item.title_zh || item.name || "Unnamed"}`;
+    `${item.code || ""}${item.code ? " - " : ""}${pickLocale(locale, item.title_zh || item.title_en || item.name, item.title_en || item.title_zh || item.name || "Unnamed")}`;
 
   return (
     <div className="space-y-6">
@@ -73,7 +73,7 @@ export default function TrainingPage() {
               name="company_name"
               value={form.company_name}
               onChange={handleChange}
-              placeholder={locale === "zh" ? "如：浙江某医疗器械有限公司" : "e.g. Zhejiang Medical Devices Co."}
+              placeholder={pickLocale(locale, "如：浙江某医疗器械有限公司", "e.g. Zhejiang Medical Devices Co.")}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
@@ -145,7 +145,7 @@ export default function TrainingPage() {
               name="main_product"
               value={form.main_product}
               onChange={handleChange}
-              placeholder={locale === "zh" ? "如：医用耗材与器械" : "e.g. Medical consumables"}
+              placeholder={pickLocale(locale, "如：医用耗材与器械", "e.g. Medical consumables")}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>

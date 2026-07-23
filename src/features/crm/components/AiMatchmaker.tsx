@@ -6,7 +6,7 @@
  */
 
 import { Sparkles } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { OPPORTUNITIES } from "@/data";
 import type { Supplier, Opportunity } from "@/types";
 
@@ -71,7 +71,7 @@ export function AiMatchmaker({
           >
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
-                {locale === "zh" ? s.nameZh : s.nameEn}
+                {pickLocale(locale, s.nameZh, s.nameEn)}
               </option>
             ))}
           </select>
@@ -89,7 +89,7 @@ export function AiMatchmaker({
           >
             {OPPORTUNITIES.map((o) => (
               <option key={o.id} value={o.id}>
-                {locale === "zh" ? o.titleZh : o.titleEn}
+                {pickLocale(locale, o.titleZh, o.titleEn)}
               </option>
             ))}
           </select>

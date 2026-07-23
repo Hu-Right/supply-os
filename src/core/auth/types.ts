@@ -32,6 +32,8 @@ export interface AuthContextValue {
   authUser: AuthUser | null;
   /** 是否为 VIP 会员 */
   isVip: boolean;
+  /** 认证操作加载中（登录/注册/刷新） */
+  isAuthLoading: boolean;
   /** 登录 */
   login: (email: string, password: string) => Promise<void>;
   /** 注册（含供应商绑定申请） */

@@ -9,7 +9,7 @@
 
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import { SUPPLIERS } from "@/data";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
@@ -26,7 +26,7 @@ export default function SupplierPage() {
   const availableSupplierIndustries = useMemo(() => {
     const industries = new Set<string>();
     SUPPLIERS.forEach((s) => {
-      const ind = locale === "zh" ? s.industryZh : s.industryEn;
+      const ind = pickLocale(locale, s.industryZh, s.industryEn);
       if (ind) industries.add(ind);
     });
     return Array.from(industries);
@@ -35,13 +35,13 @@ export default function SupplierPage() {
   // 筛选供应商
   const filteredSuppliers = useMemo(() => {
     return SUPPLIERS.filter((sup) => {
-      const name = locale === "zh" ? sup.nameZh : sup.nameEn;
+      const name = pickLocale(locale, sup.nameZh, sup.nameEn);
       const matchesSearch =
         !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesSubTab = supplierSubTab === "all" || sup.type === supplierSubTab;
       const matchesIndustry =
         !supplierIndustry ||
-        (locale === "zh" ? sup.industryZh : sup.industryEn) === supplierIndustry;
+        pickLocale(locale, sup.industryZh, sup.industryEn) === supplierIndustry;
       const matchesUngmCode =
         !supplierUngmCodeSearch ||
         (sup.ungmCode && sup.ungmCode.includes(supplierUngmCodeSearch));

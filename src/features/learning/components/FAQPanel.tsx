@@ -7,7 +7,7 @@
  *              FAQ display panel
  */
 
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import type { FAQItem } from "@/types";
 
 export interface FAQPanelProps {
@@ -28,10 +28,10 @@ export function FAQPanel({ faqs, title = "常见问题 FAQ" }: FAQPanelProps) {
               {faq.category.toUpperCase()}
             </span>
             <h5 className="text-xs font-bold text-slate-800">
-              Q: {locale === "zh" ? faq.questionZh : faq.questionEn}
+              Q: {pickLocale(locale, faq.questionZh, faq.questionEn)}
             </h5>
             <p className="rounded border border-slate-100/50 bg-slate-50 p-2.5 text-[11px] leading-relaxed text-slate-500">
-              {locale === "zh" ? faq.answerZh : faq.answerEn}
+              {pickLocale(locale, faq.answerZh, faq.answerEn)}
             </p>
           </div>
         ))}

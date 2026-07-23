@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
 
@@ -51,7 +51,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
       const submitData: ShowroomRegisterForm = {
         ...form,
         country: form.country === "China" ? "中国" : form.country,
-        notes: `[申请海外展厅: ${selectedShowroom ? (locale === "zh" ? selectedShowroom.nameZh : selectedShowroom.nameEn) : "通用展厅"}] ${form.notes}`,
+        notes: `[申请海外展厅: ${selectedShowroom ? pickLocale(locale, selectedShowroom.nameZh, selectedShowroom.nameEn) : "通用展厅"}] ${form.notes}`,
       };
       await submitShowroomRegister(submitData);
       setSubmitted(true);
@@ -71,7 +71,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
             <h3 className="text-base font-extrabold">
               {selectedShowroom
                 ? t("showroomApplyTitle", {
-                    name: locale === "zh" ? selectedShowroom.nameZh : selectedShowroom.nameEn,
+                    name: pickLocale(locale, selectedShowroom.nameZh, selectedShowroom.nameEn),
                   })
                 : t("showroomApplyDefault")}
             </h3>

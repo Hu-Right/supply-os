@@ -9,4 +9,5 @@
  */
 
 export { LocaleProvider, useLocale } from "./LocaleContext";
+export { pickLocale } from "./pickLocale";
 export type { Locale, LocaleKey } from "./types";

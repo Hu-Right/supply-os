@@ -8,7 +8,7 @@
  */
 
 import { AlertCircle, CheckCircle2, FileDown } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { useLocale, pickLocale } from "@/core/i18n";
 import type { LearningMaterial } from "@/types";
 
 export interface MaterialCardProps {
@@ -35,7 +35,7 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
 
       <div className="flex items-center space-x-2">
         <span className="rounded border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10px] font-bold text-teal-700">
-          {locale === "zh" ? material.categoryZh : material.categoryEn}
+          {pickLocale(locale, material.categoryZh, material.categoryEn)}
         </span>
         <span className="text-[11px] text-slate-400">
           {t("learningDownloadCount", { num: material.downloadsCount })}
@@ -43,12 +43,12 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
       </div>
 
       <h4 className="pr-16 text-sm font-bold text-slate-800">
-        {locale === "zh" ? material.titleZh : material.titleEn}
+        {pickLocale(locale, material.titleZh, material.titleEn)}
       </h4>
 
       <p className="rounded border border-slate-100 bg-white p-3 text-xs leading-relaxed text-slate-500">
         <strong>{t("learningSummary")}:</strong>{" "}
-        {locale === "zh" ? material.summaryZh : material.summaryEn}
+        {pickLocale(locale, material.summaryZh, material.summaryEn)}
       </p>
 
       {isLocked ? (
@@ -77,7 +77,7 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
             <strong className="mb-1 block text-[10px] font-bold uppercase text-slate-400">
               {t("learningCoreContent")}
             </strong>
-            {locale === "zh" ? material.contentZh : material.contentEn}
+            {pickLocale(locale, material.contentZh, material.contentEn)}
           </div>
 
           <div className="flex justify-end gap-2 pt-1 text-xs">
