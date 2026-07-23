@@ -1,5 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+
+// Mock i18next to avoid initialization issues in test environment
+vi.mock("i18next", () => ({
+  default: {
+    getFixedT: () => (key: string) => key,
+  },
+  getFixedT: () => (key: string) => key,
+}));
+
 import { ErrorBoundary } from "@/shared/ui";
 
 describe("ErrorBoundary", () => {
@@ -28,7 +37,7 @@ describe("ErrorBoundary", () => {
     );
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText(/页面渲染异常/i)).toBeInTheDocument();
+    expect(screen.getByText("errorBoundaryTitle")).toBeInTheDocument();
 
     vi.restoreAllMocks();
   });
