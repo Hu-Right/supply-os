@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { AuthModal } from "@/features/auth/pages/AuthModal";
 
 // Mock useAuth
@@ -31,6 +31,8 @@ describe("AuthModal", () => {
     mockAuth.authUser = null;
     mockAuth.isVip = false;
     mockAuth.claimMessage = "";
+    // Mock form validation to always pass
+    HTMLFormElement.prototype.reportValidity = vi.fn(() => true);
   });
 
   it("renders login form when not authenticated", () => {
@@ -93,10 +95,12 @@ describe("AuthModal", () => {
 
     fireEvent.click(screen.getByText("authLoginSubmit"));
 
-    // Wait for async submit
-    await vi.waitFor(() => {
+    // Wait for async submit and state update to settle
+    await waitFor(() => {
       expect(mockAuth.login).toHaveBeenCalledWith("test@test.com", "password123");
     });
+    // Allow any pending state updates to flush
+    await waitFor(() => {});
   });
 
   it("calls onClose when close button is clicked", () => {
@@ -111,5 +115,90 @@ describe("AuthModal", () => {
       fireEvent.click(closeX);
       expect(onClose).toHaveBeenCalled();
     }
+  });
+
+  it("shows claimMessage when present", () => {
+    mockAuth.claimMessage = "Your claim is pending review";
+    render(<AuthModal onClose={onClose} />);
+    expect(screen.getByText("Your claim is pending review")).toBeInTheDocument();
+  });
+
+  it("shows free member badge when not VIP", () => {
+    mockAuth.authUser = { user_key: "u1", email: "free@test.com", display_name: "Free" };
+    mockAuth.isVip = false;
+    render(<AuthModal onClose={onClose} />);
+    expect(screen.getByText("authFreeMember")).toBeInTheDocument();
+  });
+
+  it("shows supplier pending status when no supplier_id", () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test", supplier_id: null };
+    render(<AuthModal onClose={onClose} />);
+    expect(screen.getByText("authSupplierPending")).toBeInTheDocument();
+  });
+
+  it("shows supplier verified status when supplier_id exists", () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test", supplier_id: "sup123" };
+    render(<AuthModal onClose={onClose} />);
+    expect(screen.getByText("authSupplierVerified")).toBeInTheDocument();
+  });
+
+  it("calls logout when logout button clicked", () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authLogout"));
+    expect(mockAuth.logout).toHaveBeenCalled();
+  });
+
+  it("shows error when register without company name", async () => {
+    mockAuth.register.mockRejectedValue(new Error("Company name required"));
+    render(<AuthModal onClose={onClose} />);
+
+    // Switch to register mode
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    // Fill email and password
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+
+    // Submit without company name
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authCompanyNameRequired")).toBeInTheDocument();
+    });
+  });
+
+  it("calls register with claim data when company name provided", async () => {
+    mockAuth.register.mockResolvedValue(undefined);
+    render(<AuthModal onClose={onClose} />);
+
+    // Switch to register mode
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    // Fill form
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+    fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
+
+    // Submit
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+
+    await waitFor(() => {
+      expect(mockAuth.register).toHaveBeenCalled();
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("shows login error when login fails", async () => {
+    mockAuth.login.mockRejectedValue(new Error("Invalid credentials"));
+    render(<AuthModal onClose={onClose} />);
+
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+    fireEvent.click(screen.getByText("authLoginSubmit"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { useLocale } from "@/core/i18n";
+import type { Locale } from "@/core/i18n";
 import type { UnspscOption } from "../types";
 
 interface UnspcsSelectorProps {
@@ -7,7 +8,8 @@ interface UnspcsSelectorProps {
   onChange: (levelIndex: number, value: string) => void;
 }
 
-const getOptionLabel = (item: UnspscOption, locale: "zh" | "en") => {
+// 非中文（含新增 fr/ru/es/ar）统一回退英文标题，与 fallbackLng: "en" 策略一致。
+const getOptionLabel = (item: UnspscOption, locale: Locale) => {
   const title =
     locale === "zh"
       ? item.title_zh || item.title || item.name

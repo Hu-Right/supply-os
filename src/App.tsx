@@ -18,10 +18,11 @@ import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
 import { ConsultForm } from "@/shared/forms";
+import { LanguageSwitcher } from "@/shared/layout";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
-  const { t, locale, setLocale } = useLocale();
+  const { t } = useLocale();
   const navigate = useNavigate();
   const location = useLocation();
   const { authUser, isVip } = useAuth();
@@ -105,11 +106,7 @@ export default function App() {
               <Crown className="w-3.5 h-3.5" />
               <span>{authUser ? `${authUser.display_name || authUser.email} · ${isVip ? t("vipLabel") : t("freeLabel")}` : t("guestLevel")}</span>
             </button>
-            <button onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium cursor-pointer">
-              <Globe className="w-3.5 h-3.5 text-teal-600" />
-              <span>{locale === "zh" ? "English" : "中文"}</span>
-            </button>
+            <LanguageSwitcher />
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100">
               <Menu className="w-6 h-6" />
             </button>

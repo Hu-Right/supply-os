@@ -3,21 +3,28 @@ import * as i18nModule from "i18next";
 const i18nInstance = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
 import type { Locale, LocaleKey } from "./types";
+import { SUPPORTED_LOCALE_CODES } from "./locales";
 import zh from "./zh.json";
 import en from "./en.json";
+import fr from "./fr.json";
+import ru from "./ru.json";
+import es from "./es.json";
+import ar from "./ar.json";
 
 const STORAGE_KEY = "supply_os_locale";
 
 function detectLocale(): Locale {
     try {
         const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored === "zh" || stored === "en") return stored;
+        if (stored && (SUPPORTED_LOCALE_CODES as string[]).includes(stored)) {
+            return stored as Locale;
+        }
     } catch { /* localStorage unavailable */ }
 
     if (typeof navigator !== "undefined" && navigator.language) {
         const lang = navigator.language.toLowerCase();
-        if (lang.startsWith("zh")) return "zh";
-        if (lang.startsWith("en")) return "en";
+        const matched = SUPPORTED_LOCALE_CODES.find((code) => lang.startsWith(code));
+        if (matched) return matched;
     }
 
     return "zh";
@@ -33,6 +40,10 @@ if (!i18nInstance.isInitialized) {
             resources: {
                 zh: { translation: zh },
                 en: { translation: en },
+                fr: { translation: fr },
+                ru: { translation: ru },
+                es: { translation: es },
+                ar: { translation: ar },
             },
             lng: detectLocale(),
             fallbackLng: "en",
@@ -43,6 +54,12 @@ if (!i18nInstance.isInitialized) {
             },
             returnNull: false,
         });
+}
+
+// 首屏同步文档语言标记（不再全局设置 dir="rtl"，避免 Tailwind 逻辑属性翻转页面布局）
+if (typeof document !== "undefined") {
+    const initial = i18nInstance.language as Locale;
+    document.documentElement.lang = initial;
 }
 
 type LocaleContextValue = {
@@ -64,6 +81,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
         try {
             window.localStorage.setItem(STORAGE_KEY, next);
         } catch { /* ignore */ }
+        if (typeof document !== "undefined") {
+            document.documentElement.lang = next;
+        }
     }, [instance]);
 
     const t = useCallback(

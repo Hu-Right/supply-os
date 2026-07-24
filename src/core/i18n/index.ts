@@ -10,4 +10,6 @@
 
 export { LocaleProvider, useLocale } from "./LocaleContext";
 export { pickLocale } from "./pickLocale";
+export { SUPPORTED_LOCALES, SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
 export type { Locale, LocaleKey } from "./types";
+export type { LocaleMeta } from "./locales";

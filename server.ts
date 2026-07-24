@@ -320,7 +320,9 @@ async function ensureProcurementSchema(dbPool: any) {
       ('single_89', '单点解锁', '单条查看完整采购详情与机构信息。', 89, NULL, 1, 0, 'single', 10),
       ('trial_99_3', '尝鲜特惠包', '适合初步测试转化率，3 条订单额度。', 99, NULL, 3, 0, 'bundle', 20),
       ('week_299_21', '抢单周卡', '7 天内 21 条订单额度，适合集中筛单。', 299, 7, 21, 0, 'subscription', 30),
-      ('annual_5600', '企业至尊年卡', '全年最高 1095 条订单额度，适合团队稳定使用。', 5600, 365, 1095, 0, 'subscription', 40)
+      ('annual_5600', '企业至尊年卡', '全年最高 1095 条订单额度，适合团队稳定使用。', 5600, 365, 1095, 0, 'subscription', 40),
+      ('annual_8800', '年度顾问服务', '年度顾问服务，含采购机会对接与专业支持。', 8800, 365, 0, 0, 'manual', 45),
+      ('annual_manual_8800', '年度人工顾问服务', '含线索对接指导、投标机会分析、合同流程、企业转账确认及微信服务群。', 8800, 365, 0, 0, 'manual', 50)
     ON DUPLICATE KEY UPDATE
       name = VALUES(name),
       description = VALUES(description),
@@ -353,7 +355,7 @@ async function ensureProcurementSchema(dbPool: any) {
         ELSE description
       END,
       updated_at = NOW()
-    WHERE plan_code IN ('free','single_89','trial_99_3','week_299_21','annual_5600')
+    WHERE plan_code IN ('free','single_89','trial_99_3','week_299_21','annual_5600','annual_8800','annual_manual_8800')
   `);
     await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_payment_orders (

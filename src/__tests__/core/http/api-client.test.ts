@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { api, apiCached, clearApiCache } from "@/core/http/api-client";
+import { api, apiCached, clearApiCache, getCachedData, setCachedData, deleteCachedData } from "@/core/http/api-client";
 
 describe("api-client", () => {
   beforeEach(() => {
@@ -56,6 +56,58 @@ describe("api-client", () => {
 
       await expect(api("/api/test")).rejects.toThrow("Server error");
     });
+
+    it("should serialize POST body as JSON", async () => {
+      const mockData = { success: true };
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(mockData),
+      });
+
+      const body = { name: "test", value: 42 };
+      await api("/api/test", { method: "POST", body: body as any });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/test",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(body),
+        })
+      );
+    });
+
+    it("should pass custom headers", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      await api("/api/test", { headers: { "X-Custom": "value" } });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/test",
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+            "X-Custom": "value",
+          }),
+        })
+      );
+    });
+
+    it("should use absolute URL when endpoint starts with http", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({}),
+      });
+
+      await api("https://external.api.com/data");
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://external.api.com/data",
+        expect.any(Object)
+      );
+    });
   });
 
   describe("apiCached()", () => {
@@ -96,6 +148,21 @@ describe("api-client", () => {
       const result2 = await apiCached("/api/test", 100);
       expect(result2).toEqual(mockData2);
       expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("manual cache controls", () => {
+    it("getCachedData / setCachedData / deleteCachedData work correctly", () => {
+      // Initially empty
+      expect(getCachedData("/manual")).toBeUndefined();
+
+      // Set data
+      setCachedData("/manual", { value: 42 });
+      expect(getCachedData("/manual")).toEqual({ value: 42 });
+
+      // Delete data
+      deleteCachedData("/manual");
+      expect(getCachedData("/manual")).toBeUndefined();
     });
   });
 

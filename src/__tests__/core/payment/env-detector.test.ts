@@ -117,4 +117,40 @@ describe("getPaymentTips", () => {
     const tip = getPaymentTips("wechat");
     expect(tip).toContain("扫描");
   });
+
+  it("returns mobile tip for alipay on mobile", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) Chrome/120.0.0.0 Mobile",
+      writable: true,
+    });
+    const tip = getPaymentTips("alipay");
+    expect(tip).toContain("唤起");
+  });
+
+  it("returns mobile tip for wechat on mobile", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) Chrome/120.0.0.0 Mobile",
+      writable: true,
+    });
+    const tip = getPaymentTips("wechat");
+    expect(tip).toContain("跳转");
+  });
+
+  it("returns QR scan message for alipay on desktop", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+      writable: true,
+    });
+    const tip = getPaymentTips("alipay");
+    expect(tip).toContain("扫描");
+  });
+
+  it("returns wechat in-wechat tip", () => {
+    Object.defineProperty(navigator, "userAgent", {
+      value: "Mozilla/5.0 MicroMessenger/8.0.0",
+      writable: true,
+    });
+    const tip = getPaymentTips("wechat");
+    expect(tip).toContain("微信内");
+  });
 });

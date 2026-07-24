@@ -6,4 +6,4 @@ import zh from "./zh.json";
 
 export type LocaleKey = keyof typeof zh;
 
-export type Locale = "zh" | "en";
+export type Locale = "zh" | "en" | "fr" | "ru" | "es" | "ar";
