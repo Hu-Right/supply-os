@@ -26,6 +26,38 @@ export interface NoticeItem {
   core_locked?: boolean;
   unlock_type?: string;
   unlocked_at?: string;
+  // 解锁后由 /api/notices/:id/detail 补充的拓展字段
+  // Extended fields provided by /api/notices/:id/detail once unlocked
+  url?: string;
+  agency_full?: string;
+  published_date?: string;
+  difficulty?: string;
+  registration_level?: string;
+  contacts?: NoticeContact[];
+  key_contacts?: NoticeContact[];
+  documents?: NoticeAttachment[];
+  procurement_files?: NoticeAttachment[];
+  external_links?: NoticeAttachment[];
+}
+
+/** 公告联系人（解锁详情） */
+export interface NoticeContact {
+  name?: string;
+  title?: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  organization?: string;
+}
+
+/** 公告文件 / 外部链接（解锁详情） */
+export interface NoticeAttachment {
+  name?: string;
+  title?: string;
+  label?: string;
+  url?: string;
+  link?: string;
+  type?: string;
 }
 
 export interface NoticeResponse {

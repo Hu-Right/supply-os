@@ -43,16 +43,15 @@ export function AuthModal({ onClose }: AuthModalProps) {
    */
   const submitAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    const f = e.currentTarget as HTMLFormElement;
-    f.querySelectorAll("input, textarea, select").forEach((el: any) =>
-      el.setCustomValidity(
-        !el.value || !String(el.value).trim() ? t("formRequired") : ""
-      )
-    );
-    if (!f.reportValidity()) return;
     setAuthError("");
 
-    if (!authForm.email || !authForm.password) {
+    // 必填校验以 React 受控状态为准：浏览器自动填充邮箱/密码时，出于隐私策略
+    // 直接读取 DOM 的 el.value 可能返回空串，导致「已填却提示请填写该字段」。
+    // 受控状态由 onChange 写入，不受该屏蔽影响，是可靠的真值来源。
+    const email = authForm.email.trim();
+    const password = authForm.password;
+
+    if (!email || !password) {
       setAuthError(t("formError"));
       return;
     }
@@ -65,13 +64,13 @@ export function AuthModal({ onClose }: AuthModalProps) {
     try {
       if (authMode === "login") {
         // 登录路径 — 使用 AuthContext.login()
-        await login(authForm.email, authForm.password);
-        setAuthForm({ displayName: "", email: authForm.email, password: "" });
+        await login(email, password);
+        setAuthForm({ displayName: "", email, password: "" });
       } else {
         // 注册路径 — 使用 AuthContext.register()（内部已含持久化 + 供应商绑定）
         await register(
-          authForm.email,
-          authForm.password,
+          email,
+          password,
           authForm.displayName,
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined
         );

@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* 隐藏滚动条但保留滚动功能（鼠标滚轮 / 触控板仍可用） */
+.scrollbar-none {
+  -ms-overflow-style: none;   /* IE / Edge */
+  scrollbar-width: none;       /* Firefox */
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;               /* Chrome / Safari */
+}
+
 @theme {
   --color-primary-50: #f0fdfa;
   --color-primary-100: #ccfbf1;

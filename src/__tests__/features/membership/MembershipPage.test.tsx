@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import MembershipPage from "@/features/membership/pages/MembershipPage";
+
+// ── Mock membership api（套餐价格校准） ──
+const mockFetchPlans = vi.fn();
+vi.mock("@/features/membership/api", () => ({
+  fetchPlans: () => mockFetchPlans(),
+}));
 
 // ── Mock VipCard ──
 vi.mock("@/features/membership/components/VipCard", () => ({
@@ -39,6 +45,8 @@ describe("MembershipPage", () => {
     vi.clearAllMocks();
     mockAuth.authUser = null;
     mockAuth.isVip = false;
+    // 默认：套餐拉取返回空（走兜底价）
+    mockFetchPlans.mockResolvedValue([]);
   });
 
   it("renders VipCard and EmailSubscription", () => {
@@ -65,6 +73,42 @@ describe("MembershipPage", () => {
 
     fireEvent.click(screen.getByText("upgrade"));
     expect(spy).toHaveBeenCalled();
+    // 套餐拉取返回空 → 使用兜底价 annual_8800 / 8800
+    const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail).toMatchObject({ code: "annual_8800", price: 8800, currency: "CNY" });
+    window.removeEventListener("supply-os:pay", spy);
+  });
+
+  it("calibrates pay price from DB plans before dispatching", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com" };
+    mockFetchPlans.mockResolvedValue([
+      { plan_code: "annual_8800", name: "年度顾问服务", price: 9900, currency: "CNY" },
+    ]);
+    const spy = vi.fn();
+    window.addEventListener("supply-os:pay", spy);
+    render(<MembershipPage />);
+
+    // 等待异步校准生效
+    await waitFor(() => expect(mockFetchPlans).toHaveBeenCalled());
+    fireEvent.click(screen.getByText("upgrade"));
+
+    const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail).toMatchObject({ code: "annual_8800", price: 9900 });
+    window.removeEventListener("supply-os:pay", spy);
+  });
+
+  it("falls back to default price when plan fetch fails", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com" };
+    mockFetchPlans.mockRejectedValue(new Error("network"));
+    const spy = vi.fn();
+    window.addEventListener("supply-os:pay", spy);
+    render(<MembershipPage />);
+
+    await waitFor(() => expect(mockFetchPlans).toHaveBeenCalled());
+    fireEvent.click(screen.getByText("upgrade"));
+
+    const detail = (spy.mock.calls[0][0] as CustomEvent).detail;
+    expect(detail).toMatchObject({ code: "annual_8800", price: 8800 });
     window.removeEventListener("supply-os:pay", spy);
   });
 

@@ -56,11 +56,17 @@ vi.mock("@/core/auth", () => ({
   useAuth: () => mockAuth,
 }));
 
-// ── Mock useNavigate ──
+// ── Mock useNavigate / useSearchParams ──
 const mockNavigate = vi.fn();
+const mockSetSearchParams = vi.fn();
+let mockSearchParams = new URLSearchParams();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
-  return { ...actual, useNavigate: () => mockNavigate };
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useSearchParams: () => [mockSearchParams, mockSetSearchParams],
+  };
 });
 
 describe("ProcurementPage", () => {

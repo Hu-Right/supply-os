@@ -30,6 +30,7 @@ export interface CreateOrderRequest {
   user_key: string;
   plan_code: string;
   provider: PaymentProviderName;
+  notice_id?: number | null;
   return_url?: string;
 }
 
@@ -41,12 +42,18 @@ export interface CreateOrderResult {
   pay_url: string;
   qr_code_url?: string;
   status: PaymentOrderStatus;
+  notice_id?: number | null;
   created_at: string;
 }
 
 export interface OrderStatusResult {
   order_no: string;
   status: PaymentOrderStatus;
+  notice_id?: number | null;
+  provider?: PaymentProviderName;
+  plan_code?: string;
+  amount?: number;
+  currency?: string;
   provider_trade_no?: string;
   paid_at?: string;
 }
@@ -92,7 +99,7 @@ export interface PaymentStrategy {
     provider_trade_no: string;
     amount: number;
   }>;
-  queryOrderStatus(orderNo: string): Promise<{
+  queryOrderStatus(orderNo: string, providerTradeNo?: string): Promise<{
     status: PaymentOrderStatus;
     provider_trade_no?: string;
   }>;

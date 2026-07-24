@@ -32,6 +32,7 @@ describe("NoticeDetail", () => {
     onBack: vi.fn(),
     onExpressInterest: vi.fn(),
     onUnlock: vi.fn(),
+    onPayUnlock: vi.fn(),
   };
 
   it("renders notice title and details", () => {
@@ -63,6 +64,17 @@ describe("NoticeDetail", () => {
     render(<NoticeDetail {...defaultProps} />);
     fireEvent.click(screen.getByText(/procurement_freeUnlock/));
     expect(defaultProps.onUnlock).toHaveBeenCalledWith(mockNotice);
+  });
+
+  it("calls onPayUnlock when the single paid-unlock button is clicked", () => {
+    render(<NoticeDetail {...defaultProps} />);
+    fireEvent.click(screen.getByText("procurement_singleUnlock"));
+    expect(defaultProps.onPayUnlock).toHaveBeenCalledWith(mockNotice);
+  });
+
+  it("hides the paid-unlock button when notice is already unlocked", () => {
+    render(<NoticeDetail {...defaultProps} notice={{ ...mockNotice, core_locked: false } as any} />);
+    expect(screen.queryByText("procurement_singleUnlock")).not.toBeInTheDocument();
   });
 
   it("shows action message when provided", () => {

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, MembershipStatus } from "../types";
+import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
 
 interface NoticeDetailProps {
   notice: NoticeItem;
@@ -21,6 +22,7 @@ interface NoticeDetailProps {
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
+  onPayUnlock: (notice: NoticeItem) => void;
 }
 
 export function NoticeDetail({
@@ -34,6 +36,7 @@ export function NoticeDetail({
   onBack,
   onExpressInterest,
   onUnlock,
+  onPayUnlock,
 }: NoticeDetailProps) {
   const { t } = useLocale();
 
@@ -116,6 +119,8 @@ export function NoticeDetail({
                 <ExternalLink className="w-4 h-4" />
               </a>
             )}
+
+            <NoticeUnlockedDetails notice={notice} />
           </main>
 
           <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
@@ -145,6 +150,16 @@ export function NoticeDetail({
                     ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
                     : t("procurement_freeUsedUp")}
               </button>
+
+              {notice.core_locked !== false && (
+                <button
+                  onClick={() => onPayUnlock(notice)}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700"
+                >
+                  <WalletCards className="w-4 h-4" />
+                  {t("procurement_singleUnlock")}
+                </button>
+              )}
 
               <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 space-y-2">
                 <p className="font-black text-slate-800 flex items-center gap-2">

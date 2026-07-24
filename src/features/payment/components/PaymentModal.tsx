@@ -18,6 +18,8 @@ type PaymentModalProps = {
   amount: number;
   currency: string;
   userKey: string;
+  noticeId?: number | null;
+  returnUrl?: string;
   onClose: () => void;
   onPaymentSuccess: (orderNo: string) => void;
 };
@@ -28,6 +30,8 @@ export default function PaymentModal({
   amount,
   currency,
   userKey,
+  noticeId,
+  returnUrl,
   onClose,
   onPaymentSuccess,
 }: PaymentModalProps) {
@@ -47,7 +51,7 @@ export default function PaymentModal({
     handleRetry,
     handleOpenPayUrl,
     handleCopyPayUrl,
-  } = usePayment({ planCode, userKey, onPaymentSuccess });
+  } = usePayment({ planCode, userKey, noticeId, returnUrl, onPaymentSuccess });
 
   const getProviderLabel = (provider: string) =>
     provider === "alipay" ? t("paymentAlipay") : t("paymentWechat");

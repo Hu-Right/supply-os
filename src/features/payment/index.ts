@@ -11,4 +11,15 @@ export { default as PaymentModal } from "./components/PaymentModal";
 export { default } from "./components/PaymentModal";
 export { usePayment } from "./hooks/usePayment";
 export type { UsePaymentOptions, UsePaymentReturn, PaymentStep } from "./hooks/usePayment";
-export type { OrderInfo, CreateOrderParams } from "./api";
+export { useOrderHistory } from "./hooks/useOrderHistory";
+export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
+export { default as MyPurchasesPage } from "./pages/MyPurchasesPage";
+export { fetchOrders, fetchUnlocks } from "./api";
+export type {
+  OrderInfo,
+  CreateOrderParams,
+  OrderRecord,
+  UnlockRecord,
+  OrderNoticeBrief,
+  PagedResult,
+} from "./api";

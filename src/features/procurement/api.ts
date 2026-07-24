@@ -2,6 +2,7 @@
 import type {
   UnspscOption,
   NoticeResponse,
+  NoticeItem,
   MembershipPlan,
   MembershipStatus,
 } from "./types";
@@ -75,3 +76,19 @@ export const expressInterest = (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_key: userKey, interest_type: interestType }),
   });
+
+/**
+ * 获取已解锁公告的完整详情
+ * Fetch the full detail of an unlocked notice
+ *
+ * @remarks 需该用户已解锁该公告，否则后端返回 403 NOTICE_LOCKED。
+ *          Requires the notice to be unlocked for the user; otherwise the
+ *          backend responds with 403 NOTICE_LOCKED.
+ */
+export const fetchNoticeDetail = async (noticeId: number, userKey: string): Promise<NoticeItem> => {
+  const res = await fetch(
+    `/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`
+  );
+  if (!res.ok) throw new Error(`NOTICE_DETAIL_${res.status}`);
+  return res.json();
+};

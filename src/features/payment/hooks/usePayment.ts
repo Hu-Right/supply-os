@@ -17,6 +17,8 @@ export type PaymentStep = "choose" | "waiting" | "success" | "failed";
 export type UsePaymentOptions = {
   planCode: string;
   userKey: string;
+  noticeId?: number | null;
+  returnUrl?: string;
   onPaymentSuccess: (orderNo: string) => void;
 };
 
@@ -55,6 +57,8 @@ export type UsePaymentReturn = {
 export function usePayment({
   planCode,
   userKey,
+  noticeId,
+  returnUrl,
   onPaymentSuccess,
 }: UsePaymentOptions): UsePaymentReturn {
   const { t } = useLocale();
@@ -122,6 +126,8 @@ export function usePayment({
         userKey,
         planCode,
         provider: selectedProvider,
+        noticeId,
+        returnUrl,
       });
       setOrderInfo(order);
       setStep("waiting");

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Crown,
   Search,
@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { getOrderStatus } from "@/features/payment/api";
+import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
 import type {
   UnspscOption,
   NoticeItem,
@@ -22,6 +24,7 @@ import {
   viewNotice,
   unlockNotice,
   expressInterest,
+  fetchNoticeDetail,
 } from "../api";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
@@ -48,6 +51,7 @@ export default function ProcurementPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const userKey = authUser?.user_key;
 
   const onRequireLogin = () => {
@@ -187,7 +191,94 @@ export default function ProcurementPage() {
     setActionMessage("");
     await refreshMembership();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    // 若该公告此前已解锁，拉取拓展详情并合并（未解锁时后端返回 403，静默忽略）
+    void loadNoticeDetail(notice);
   };
+
+  // 拉取已解锁公告的拓展详情并合并进当前选中项
+  const loadNoticeDetail = async (notice: NoticeItem) => {
+    if (!userKey) return;
+    try {
+      const detail = await fetchNoticeDetail(notice.id, userKey);
+      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
+    } catch {
+      // 未解锁或加载失败：保留列表数据，不阻断详情页
+    }
+  };
+
+  // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
+  const openNoticeById = async (id: number) => {
+    const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
+    setSelectedNotice(base);
+    setActionMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    await loadNoticeDetail(base);
+  };
+
+  // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
+  const handlePayUnlock = (notice: NoticeItem) => {
+    if (!userKey) {
+      onRequireLogin();
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("supply-os:pay", {
+      detail: {
+        code: "single_89",
+        name: t("procurement_singleUnlockName"),
+        price: 89,
+        currency: "CNY",
+        noticeId: notice.id,
+        returnUrl: `${window.location.origin}/procurement`,
+      },
+    }));
+  };
+
+  // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
+  useEffect(() => {
+    const orderNo = searchParams.get("order_no");
+    const noticeIdParam = searchParams.get("notice_id");
+    const tradeNo = searchParams.get("trade_no") || undefined;
+    if (!orderNo && !noticeIdParam) return;
+    let cancelled = false;
+    (async () => {
+      if (orderNo) {
+        try {
+          const status = await getOrderStatus(orderNo, tradeNo);
+          if (cancelled) return;
+          if (status.status === "paid") {
+            setActionMessage(t("procurement_paymentReturnPaid"));
+            await refreshMembership();
+            const nid = status.notice_id ?? (noticeIdParam ? Number(noticeIdParam) : null);
+            if (nid) await openNoticeById(nid);
+          } else {
+            setActionMessage(t("procurement_paymentReturnPending"));
+          }
+        } catch {
+          if (!cancelled) setActionMessage(t("procurement_paymentReturnFailed"));
+        }
+      } else if (noticeIdParam) {
+        await openNoticeById(Number(noticeIdParam));
+      }
+      if (!cancelled) setSearchParams({}, { replace: true });
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // 同页支付成功（mock/弹窗轮询）：刷新配额并展开已解锁详情
+  useEffect(() => {
+    const onNoticePaid = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.noticeId) {
+        void refreshMembership().then(() => openNoticeById(Number(detail.noticeId)));
+      }
+    };
+    window.addEventListener("supply-os:notice-paid", onNoticePaid);
+    return () => window.removeEventListener("supply-os:notice-paid", onNoticePaid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, userKey]);
 
   const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => {
     if (!userKey) {
@@ -211,6 +302,8 @@ export default function ProcurementPage() {
 
     await refreshMembership();
     setActionMessage(nextUnlockType === "free" ? t("procurement_freeUnlockOk") : t("procurement_paidUnlockOk"));
+    // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
+    await loadNoticeDetail(notice);
     return true;
   };
 
@@ -251,6 +344,7 @@ export default function ProcurementPage() {
         onBack={() => setSelectedNotice(null)}
         onExpressInterest={handleExpressInterest}
         onUnlock={(n) => handleUnlockNotice(n)}
+        onPayUnlock={handlePayUnlock}
       />
     );
   }
@@ -284,6 +378,9 @@ export default function ProcurementPage() {
             <button onClick={() => navigate("/training")} className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 cursor-pointer">
               {t("procurementTrainingBtn")}
             </button>
+            <button onClick={() => navigate("/my-purchases")} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer">
+              {t("myPurchasesTitle")}
+            </button>
           </div>
         </div>
 
@@ -312,6 +409,8 @@ export default function ProcurementPage() {
           </span>
           {loading && <span className="font-bold text-teal-600">{t("procurement_loading")}</span>}
         </div>
+
+        {userKey && <RecentUnlocks userKey={userKey} onOpenNotice={openNoticeById} />}
 
         {error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{error}</div>}
 
