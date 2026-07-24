@@ -3,7 +3,7 @@ import * as i18nModule from "i18next";
 const i18nInstance = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
 import type { Locale, LocaleKey } from "./types";
-import { SUPPORTED_LOCALE_CODES } from "./locales";
+import { SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
 import zh from "./zh.json";
 import en from "./en.json";
 import fr from "./fr.json";
@@ -21,13 +21,20 @@ function detectLocale(): Locale {
         }
     } catch { /* localStorage unavailable */ }
 
-    if (typeof navigator !== "undefined" && navigator.language) {
-        const lang = navigator.language.toLowerCase();
-        const matched = SUPPORTED_LOCALE_CODES.find((code) => lang.startsWith(code));
-        if (matched) return matched;
+    // 按用户偏好顺序遍历 navigator.languages（如 ["fr-CA", "fr", "en"]），
+    // 返回首个受支持语言；navigator.languages 不可用时回退到单一 navigator.language。
+    if (typeof navigator !== "undefined") {
+        const preferred = (navigator.languages && navigator.languages.length > 0)
+            ? navigator.languages
+            : (navigator.language ? [navigator.language] : []);
+        for (const pref of preferred) {
+            const lang = pref.toLowerCase();
+            const matched = SUPPORTED_LOCALE_CODES.find((code) => lang.startsWith(code));
+            if (matched) return matched;
+        }
     }
 
-    return "zh";
+    return "en";
 }
 
 // 初始化 react-i18next 引擎（模块级、仅一次；StrictMode 双调用由 isInitialized 守卫）。
@@ -64,6 +71,7 @@ if (typeof document !== "undefined") {
 
 type LocaleContextValue = {
     locale: Locale;
+    localeDir: "ltr" | "rtl";
     setLocale: (locale: Locale) => void;
     t: (key: LocaleKey, params?: Record<string, string | number>) => string;
 };
@@ -74,7 +82,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     // useTranslation 订阅语言变化，changeLanguage 时自动触发重渲染。
     const { t: translate, i18n: instance } = useTranslation();
 
-    const locale = (instance.language as Locale) || "zh";
+    const locale = (instance.language as Locale) || "en";
+    const localeDir = getLocaleDir(locale);
 
     const setLocale = useCallback((next: Locale) => {
         instance.changeLanguage(next);
@@ -93,7 +102,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     );
 
     return (
-        <LocaleContext.Provider value={{ locale, setLocale, t }}>
+        <LocaleContext.Provider value={{ locale, localeDir, setLocale, t }}>
             {children}
         </LocaleContext.Provider>
     );

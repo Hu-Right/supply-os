@@ -8,6 +8,7 @@ vi.mock("@/core/i18n", () => ({
   useLocale: () => ({
     t: (key: string) => key,
     locale: "zh",
+    localeDir: "ltr" as const,
     setLocale: vi.fn(),
   }),
   SUPPORTED_LOCALES: [

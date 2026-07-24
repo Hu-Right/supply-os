@@ -6,11 +6,11 @@
  * 业务内容全部委托给 routes.tsx 和各 feature 模块
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Globe, Building2, Users, Briefcase, BookOpen, Crown,
-  MessageSquare, Menu
+  MessageSquare, Menu, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -22,7 +22,7 @@ import { LanguageSwitcher } from "@/shared/layout";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
-  const { t } = useLocale();
+  const { t, locale, localeDir } = useLocale();
   const navigate = useNavigate();
   const location = useLocation();
   const { authUser, isVip } = useAuth();
@@ -89,6 +89,45 @@ export default function App() {
     { id: 7, label: t("navMembership"), icon: Crown, highlight: true },
   ];
 
+  // 桌面导航横向滚动：检测两端是否还有可滚动内容，用于显隐渐隐遮罩与箭头。
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const [navEdges, setNavEdges] = useState({ left: false, right: false });
+
+  const updateNavEdges = useCallback(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    let left: boolean;
+    let right: boolean;
+    if (localeDir === "rtl") {
+      // RTL：现代浏览器采用负值模型，scrollLeft 从 0（起点，最右）递减至 -maxScroll（终点，最左）。
+      left = el.scrollLeft > -maxScroll + 1; // 视觉左侧仍有未显示内容
+      right = el.scrollLeft < -1; // 视觉右侧（起点方向）仍有未显示内容
+    } else {
+      left = el.scrollLeft > 1;
+      right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    }
+    // 仅在实际变化时更新，避免无谓重渲染。
+    setNavEdges((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
+  }, [localeDir]);
+
+  // 挂载、滚动、窗口尺寸变化及语言切换（标签宽度变化）时重算边界。
+  useEffect(() => {
+    updateNavEdges();
+    const el = navScrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateNavEdges, { passive: true });
+    window.addEventListener("resize", updateNavEdges);
+    return () => {
+      el.removeEventListener("scroll", updateNavEdges);
+      window.removeEventListener("resize", updateNavEdges);
+    };
+  }, [updateNavEdges, locale]);
+
+  const scrollNav = (dir: number) => {
+    navScrollRef.current?.scrollBy({ left: dir * 240, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
       {/* HEADER */}
@@ -131,25 +170,47 @@ export default function App() {
       {/* DESKTOP NAV */}
       <nav className="hidden md:block bg-slate-900 text-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-1.5 py-2 overflow-x-auto whitespace-nowrap scrollbar-none">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button key={tab.id} onClick={() => switchMainTab(tab.id)}
-                  onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
-                  className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                  {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
+          <div className="relative">
+            {/* 左侧滚动提示：渐隐遮罩 + 箭头（仅在可向左滚动时出现） */}
+            {navEdges.left && (
+              <>
+                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-slate-900 to-transparent" />
+                <button type="button" aria-label="Scroll navigation left" onClick={() => scrollNav(-1)}
+                  className="absolute left-0 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-slate-800 text-slate-200 shadow-md hover:bg-slate-700 cursor-pointer">
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-              );
-            })}
+              </>
+            )}
+            <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button key={tab.id} onClick={() => switchMainTab(tab.id)}
+                    onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
+                    className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25" : "hover:bg-slate-800 text-slate-300"}`}>
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                    {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
+                  </button>
+                );
+              })}
+            </div>
+            {/* 右侧滚动提示：渐隐遮罩 + 箭头（仅在可向右滚动时出现） */}
+            {navEdges.right && (
+              <>
+                <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-slate-900 to-transparent" />
+                <button type="button" aria-label="Scroll navigation right" onClick={() => scrollNav(1)}
+                  className="absolute right-0 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-slate-800 text-slate-200 shadow-md hover:bg-slate-700 cursor-pointer">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>
 
       {/* MAIN */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+      <main dir={localeDir} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <AppRoutes />
       </main>
 
