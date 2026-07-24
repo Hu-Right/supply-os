@@ -40,6 +40,16 @@ type NoticeItem = {
   estimated_value?: string;
   description?: string;
   source_url?: string;
+  url?: string;
+  contacts?: Array<{ name?: string; email?: string; phone?: string; telephone?: string; title?: string; role?: string }>;
+  documents?: Array<{ name?: string; url?: string }>;
+  procurement_files?: Array<{ name?: string; url?: string }>;
+  external_links?: Array<{ name?: string; title?: string; url?: string }>;
+  agency_full?: string;
+  published_date?: string;
+  difficulty?: string;
+  registration_level?: string;
+  key_contacts?: string;
   unspsc_codes?: Array<{ code?: string; name?: string; description?: string }>;
   core_locked?: boolean;
   unlock_type?: string;
@@ -89,12 +99,27 @@ type PaymentOrder = {
   order_no: string;
   provider: "alipay" | "wechat" | "mock";
   plan_code: string;
+  notice_id?: number | null;
   amount: number;
   currency?: string;
   status: string;
   payment_mode?: "configured" | "mock";
   pay_url?: string;
   qr_code_url?: string;
+};
+
+type PaymentHistoryRow = {
+  order_no?: string;
+  status?: string;
+  plan_code?: string;
+  notice_id?: number | null;
+  amount?: number;
+  currency?: string;
+  paid_at?: string;
+  created_at?: string;
+  unlock_type?: string;
+  unlocked_at?: string;
+  notice?: Pick<NoticeItem, "id" | "title" | "agency" | "country" | "notice_id" | "reference"> | null;
 };
 
 type Props = {
@@ -270,8 +295,7 @@ const getOptionLabel = (item: UnspscOption, lang: Lang) => {
 };
 
 const formatMoney = (price: number, currency = "CNY") => {
-  const symbol = currency === "CNY" ? "¥" : `${currency} `;
-  return `${symbol}${Number(price || 0).toFixed(0)}`;
+  return `${currency || "CNY"} ${Number(price || 0).toFixed(0)}`;
 };
 
 export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin, lang = "zh" }: Props) {
@@ -294,6 +318,8 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
   const [busyPlanCode, setBusyPlanCode] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryRow[]>([]);
+  const [unlockHistory, setUnlockHistory] = useState<PaymentHistoryRow[]>([]);
   const noticesRequestSeq = useRef(0);
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
@@ -320,7 +346,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
       const res = await fetch(`/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
       if (!res.ok) return false;
       const data = await res.json();
-      setSelectedNotice((prev) => (prev?.id === noticeId ? { ...prev, ...data } : prev));
+      setSelectedNotice((prev) => (prev?.id === noticeId ? { ...prev, ...data } : { ...data, id: noticeId }));
       setPaywallNotice(null);
       return true;
     } catch {
@@ -352,6 +378,27 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     }
   };
 
+  const refreshPaymentHistory = async () => {
+    if (!userKey) {
+      setPaymentHistory([]);
+      setUnlockHistory([]);
+      return;
+    }
+    try {
+      const [ordersRes, unlocksRes] = await Promise.all([
+        fetch(`/api/payment/orders?user_key=${encodeURIComponent(userKey)}&limit=3`, { cache: "no-store" }),
+        fetch(`/api/payment/unlocks?user_key=${encodeURIComponent(userKey)}&limit=3`, { cache: "no-store" }),
+      ]);
+      const orders = ordersRes.ok ? await ordersRes.json() : {};
+      const unlocks = unlocksRes.ok ? await unlocksRes.json() : {};
+      setPaymentHistory(Array.isArray(orders.list) ? orders.list : []);
+      setUnlockHistory(Array.isArray(unlocks.list) ? unlocks.list : []);
+    } catch {
+      setPaymentHistory([]);
+      setUnlockHistory([]);
+    }
+  };
+
   useEffect(() => {
     fetchJsonCached<UnspscOption[]>("/api/unspsc/industries")
       .then((data) => setLevels((prev) => [Array.isArray(data) ? data : [], prev[1], prev[2], prev[3], prev[4]]))
@@ -364,7 +411,63 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
 
   useEffect(() => {
     refreshMembership(true);
+    refreshPaymentHistory();
   }, [userKey, isVip]);
+
+  useEffect(() => {
+    if (!userKey || typeof window === "undefined") return;
+
+    const applyPaymentReturn = async () => {
+      const hash = window.location.hash || "";
+      if (!hash.startsWith("#procurement")) return;
+
+      const queryIndex = hash.indexOf("?");
+      if (queryIndex < 0) return;
+
+      const params = new URLSearchParams(hash.slice(queryIndex + 1));
+      const paid = params.get("paid");
+      const orderNo = params.get("order_no") || "";
+      const tradeNo = params.get("trade_no") || "";
+      const noticeId = Number(params.get("notice_id") || 0);
+      if (!noticeId) return;
+
+      if (!orderNo) {
+        setSelectedNotice((prev) => prev || items.find((item) => item.id === noticeId) || null);
+        const opened = await loadUnlockedNoticeDetail(noticeId);
+        setActionMessage(opened ? text.paidUnlockOk : text.unlockFail);
+        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement`);
+        return;
+      }
+
+      setActionMessage(paid === "0" ? text.paidFail : text.orderCreated);
+
+      try {
+        const statusUrl = `/api/payment/orders/${encodeURIComponent(orderNo)}${tradeNo ? `?trade_no=${encodeURIComponent(tradeNo)}` : ""}`;
+        const statusRes = await fetch(statusUrl, { cache: "no-store" });
+        const status = statusRes.ok ? await statusRes.json() : null;
+        if (status?.status === "paid") {
+          await loadUnlockedNoticeDetail(noticeId);
+          await refreshMembership();
+          await refreshPaymentHistory();
+          setPaymentOrder({ ...status, plan_code: status.plan_code || "single_89", provider: status.provider || "alipay" });
+          setPaymentMessage(text.paidOk);
+          setActionMessage(text.paidOk);
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement`);
+          return;
+        }
+
+        setSelectedNotice((prev) => prev || items.find((item) => item.id === noticeId) || null);
+        setPaywallNotice((prev) => prev || items.find((item) => item.id === noticeId) || null);
+        setPaymentOrder(status ? { ...status, plan_code: status.plan_code || "single_89", provider: status.provider || "alipay" } : null);
+        setPaymentMessage(text.orderCreated);
+        startPaymentPolling(orderNo, status?.plan_code || "single_89", noticeId);
+      } catch {
+        setActionMessage(text.paidFail);
+      }
+    };
+
+    applyPaymentReturn();
+  }, [userKey, items]);
 
   useEffect(() => {
     const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) });
@@ -486,6 +589,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     }
 
     await refreshMembership();
+    await refreshPaymentHistory();
     setActionMessage(nextUnlockType === "free" ? text.freeUnlockOk : text.paidUnlockOk);
     await loadUnlockedNoticeDetail(notice.id);
     return true;
@@ -533,6 +637,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
         body: JSON.stringify({
           user_key: userKey,
           plan_code: planCode,
+          notice_id: paywallNotice.id,
           provider: paymentProvider,
           return_url: `${window.location.origin}${window.location.pathname}#procurement`,
         }),
@@ -547,11 +652,12 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
       setPaymentOrder({ ...order, plan_code: planCode });
       setPaymentMessage(text.orderCreated);
       setActionMessage(text.orderCreated);
+      await refreshPaymentHistory();
       if (order.pay_url && order.provider !== "mock") {
         const payWindow = window.open(order.pay_url, "_blank");
         if (!payWindow) window.location.href = order.pay_url;
       }
-      startPaymentPolling(order.order_no, planCode);
+      startPaymentPolling(order.order_no, planCode, paywallNotice.id);
     } catch (err: any) {
       setPaymentMessage(err?.message || text.orderFail);
       setActionMessage(err?.message || text.orderFail);
@@ -560,7 +666,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     }
   };
 
-  const startPaymentPolling = (orderNo: string, planCode: string) => {
+  const startPaymentPolling = (orderNo: string, planCode: string, noticeId?: number) => {
     let attempts = 0;
     const timer = window.setInterval(async () => {
       attempts += 1;
@@ -570,12 +676,16 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
           const status = await res.json();
           if (status.status === "paid") {
             window.clearInterval(timer);
-            if (paywallNotice) {
-              await unlockNotice(paywallNotice, planCode === "single_89" ? "single" : "subscription");
+            const targetNotice = paywallNotice || (noticeId ? items.find((item) => item.id === noticeId) : null);
+            if (targetNotice) {
+              await unlockNotice(targetNotice, planCode === "single_89" ? "single" : "subscription");
+            } else if (noticeId) {
+              await loadUnlockedNoticeDetail(noticeId);
             }
             setPaymentMessage(text.paidOk);
             setActionMessage(text.paidOk);
             await refreshMembership();
+            await refreshPaymentHistory();
           }
           if (status.status === "closed" || status.status === "failed") {
             window.clearInterval(timer);
@@ -605,7 +715,25 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     setPaymentOrder(null);
     setPaywallNotice(null);
     await refreshMembership();
+    await refreshPaymentHistory();
     setActionMessage(text.paidOk);
+  };
+
+  const openHistoryNotice = async (row: PaymentHistoryRow) => {
+    const noticeId = Number(row.notice_id || row.notice?.id || 0);
+    if (!noticeId) return;
+    setSelectedNotice({
+      id: noticeId,
+      title: row.notice?.title || row.order_no || "",
+      notice_id: row.notice?.notice_id,
+      reference: row.notice?.reference,
+      agency: row.notice?.agency,
+      country: row.notice?.country,
+      core_locked: true,
+    });
+    setActionMessage("");
+    await loadUnlockedNoticeDetail(noticeId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const visibleItems = items.filter((item) => {
@@ -617,8 +745,11 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
   if (selectedNotice) {
     const coreUnlocked = selectedNotice.core_locked === false;
     const visibleAgency = coreUnlocked
-      ? selectedNotice.agency || selectedNotice.organization || text.unknownAgency
+      ? selectedNotice.agency_full || selectedNotice.agency || selectedNotice.organization || text.unknownAgency
       : text.lockedCoreTitle;
+    const unlockedContacts = selectedNotice.contacts || [];
+    const unlockedFiles = [...(selectedNotice.documents || []), ...(selectedNotice.procurement_files || [])].filter((item) => item?.url || item?.name);
+    const unlockedLinks = selectedNotice.external_links || [];
     return (
       <div className="space-y-5">
         <button
@@ -636,7 +767,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
                 <p className="text-xs font-black text-teal-600 uppercase tracking-wider">{selectedNotice.notice_type || "Procurement Notice"}</p>
                 <h3 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">{selectedNotice.title}</h3>
                 <p className="text-sm text-slate-500 mt-3">
-                  {visibleAgency} · {selectedNotice.country || text.global} · {selectedNotice.deadline || text.noDeadline}
+                  {visibleAgency} 路 {selectedNotice.country || text.global} 路 {selectedNotice.deadline || text.noDeadline}
                 </p>
               </div>
 
@@ -679,6 +810,80 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
                       ))}
                     </div>
                   </div>
+
+                  <section className="rounded-xl border border-teal-100 bg-teal-50 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CheckCircle2 className="w-4 h-4 text-teal-700" />
+                      <h4 className="text-sm font-extrabold text-teal-950">已解锁交付信息</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-lg border border-teal-100 bg-white p-3">
+                        <p className="font-black text-slate-900 mb-2">采购方/机构信息</p>
+                        <div className="space-y-1.5 text-slate-600 leading-5">
+                          <p><span className="font-bold text-slate-500">机构全称：</span>{selectedNotice.agency_full || selectedNotice.agency || selectedNotice.organization || "-"}</p>
+                          <p><span className="font-bold text-slate-500">国家/地区：</span>{selectedNotice.country || "-"}</p>
+                          <p><span className="font-bold text-slate-500">发布日期：</span>{selectedNotice.published_date || "-"}</p>
+                          <p><span className="font-bold text-slate-500">原始链接：</span>{selectedNotice.url ? <a className="font-black text-blue-700 hover:text-blue-900" href={selectedNotice.url} target="_blank" rel="noreferrer">打开公告</a> : "-"}</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-teal-100 bg-white p-3">
+                        <p className="font-black text-slate-900 mb-2">联系方式</p>
+                        <div className="space-y-2 text-slate-600 leading-5">
+                          {selectedNotice.key_contacts && <p>{selectedNotice.key_contacts}</p>}
+                          {unlockedContacts.length === 0 && !selectedNotice.key_contacts && <p className="text-slate-400">当前源公告未公开电话/邮箱，建议通过原始公告文件或平台留言入口跟进。</p>}
+                          {unlockedContacts.map((contact, index) => (
+                            <div key={`${contact.name || "contact"}-${index}`} className="rounded-md bg-slate-50 border border-slate-100 px-2 py-1.5">
+                              <p className="font-bold text-slate-800">{contact.name || contact.title || contact.role || `联系人 ${index + 1}`}</p>
+                              <p>{contact.email || contact.phone || contact.telephone || "未公开邮箱/电话"}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-lg border border-teal-100 bg-white p-3 text-xs">
+                      <p className="font-black text-slate-900 mb-2">采购文件/拆解材料</p>
+                      <div className="space-y-2">
+                        {unlockedFiles.length === 0 && <p className="text-slate-400">暂无可下载文件。</p>}
+                        {unlockedFiles.map((file, index) => (
+                          <a
+                            key={`${file.url || file.name}-${index}`}
+                            className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200"
+                            href={file.url || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <span className="font-bold text-slate-700 truncate">{file.name || `采购文件 ${index + 1}`}</span>
+                            <ExternalLink className="w-4 h-4 shrink-0 text-blue-600" />
+                          </a>
+                        ))}
+                        {unlockedLinks.map((link, index) => (
+                          <a
+                            key={`${link.url || link.name || index}`}
+                            className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200"
+                            href={link.url || "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <span className="font-bold text-slate-700 truncate">{link.name || link.title || `外部链接 ${index + 1}`}</span>
+                            <ExternalLink className="w-4 h-4 shrink-0 text-blue-600" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-3 rounded-lg border border-teal-100 bg-white p-3 text-xs">
+                      <p className="font-black text-slate-900 mb-2">投标拆解建议</p>
+                      <ul className="list-disc pl-4 space-y-1.5 leading-6 text-slate-600">
+                        <li>紧急度：{selectedNotice.difficulty || "待评估"}；注册门槛：{selectedNotice.registration_level || "待确认"}。</li>
+                        <li>预算参考：{selectedNotice.estimated_value || "未公开"}；截止时间：{selectedNotice.deadline || text.noDeadline}。</li>
+                        <li>分类代码：{(selectedNotice.unspsc_codes || []).map((code) => code.code).filter(Boolean).slice(0, 4).join(", ") || "待补充"}。</li>
+                        <li>下一步：下载 RFQ/附件，核对资质、交付时间、报价币种和文件签章要求后再提交。</li>
+                      </ul>
+                    </div>
+                  </section>
 
                 </>
               ) : (
@@ -785,6 +990,7 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
             </span>
           </div>
         </div>
+
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
@@ -992,7 +1198,7 @@ function PaymentPanel({
                   : "bg-slate-50 text-slate-600 border-slate-200"
             }`}
           >
-            {item === "alipay" ? text.alipay : `${text.wechat}（暂未开通）`}
+            {item === "alipay" ? text.alipay : `${text.wechat}\uff08\u6682\u672a\u5f00\u901a\uff09`}
           </button>
         )})}
       </div>

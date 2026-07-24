@@ -102,13 +102,47 @@ export class AlipayProvider implements PaymentStrategy {
     };
   }
 
-  async queryOrderStatus(orderNo: string): Promise<{
+  async queryOrderStatus(orderNo: string, providerTradeNo?: string): Promise<{
     status: PaymentOrderStatus;
     provider_trade_no?: string;
   }> {
-    // 待安装 alipay-sdk 后，调用 alipay.trade.query
-    // 当前 stub
-    return { status: "pending" };
+    if (!this.appId || !this.privateKey) return { status: "pending" };
+
+    const bizContent: Record<string, string> = { out_trade_no: orderNo };
+    if (providerTradeNo) bizContent.trade_no = providerTradeNo;
+
+    const params: Record<string, string> = {
+      app_id: this.appId,
+      method: "alipay.trade.query",
+      format: "JSON",
+      charset: "utf-8",
+      sign_type: "RSA2",
+      timestamp: this.formatAlipayTimestamp(new Date()),
+      version: "1.0",
+      biz_content: JSON.stringify(bizContent),
+    };
+
+    params.sign = this.rsa256Sign(this.buildSignStr(params));
+
+    const res = await fetch(this.gateway, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: new URLSearchParams(params).toString(),
+    });
+    if (!res.ok) return { status: "pending" };
+
+    const payload = await res.json().catch(() => null);
+    const result = payload?.alipay_trade_query_response;
+    if (!result || result.code !== "10000") return { status: "pending" };
+
+    const tradeStatus = String(result.trade_status || "");
+    if (tradeStatus === "TRADE_SUCCESS" || tradeStatus === "TRADE_FINISHED") {
+      return { status: "paid", provider_trade_no: result.trade_no || providerTradeNo };
+    }
+    if (tradeStatus === "TRADE_CLOSED") {
+      return { status: "closed", provider_trade_no: result.trade_no || providerTradeNo };
+    }
+    return { status: "pending", provider_trade_no: result.trade_no || providerTradeNo };
   }
 
   // 构建待签名字符串（支付宝 RSA2 签名规则）

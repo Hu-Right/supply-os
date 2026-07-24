@@ -51,6 +51,29 @@ type AuthUser = {
   supplier_industry?: string | null;
 };
 
+type MyProcurementRecord = {
+  order_no?: string;
+  status?: string;
+  plan_code?: string;
+  notice_id?: number | null;
+  amount?: number;
+  currency?: string;
+  paid_at?: string;
+  created_at?: string;
+  unlock_type?: string;
+  unlocked_at?: string;
+  notice?: {
+    id?: number;
+    notice_id?: string;
+    reference?: string;
+    title?: string;
+    agency?: string;
+    country?: string;
+  } | null;
+};
+
+const MY_RECORD_PAGE_SIZE = 8;
+
 export default function App() {
   // Localization state
   const [lang, setLang] = useState<"zh" | "en">("zh");
@@ -65,6 +88,14 @@ export default function App() {
   const [authError, setAuthError] = useState<string>("");
   const [billingMessage, setBillingMessage] = useState<string>("");
   const [claimMessage, setClaimMessage] = useState<string>("");
+  const [myPaymentOrders, setMyPaymentOrders] = useState<MyProcurementRecord[]>([]);
+  const [myUnlockedNotices, setMyUnlockedNotices] = useState<MyProcurementRecord[]>([]);
+  const [myRecordsLoading, setMyRecordsLoading] = useState<boolean>(false);
+  const [myRecordsView, setMyRecordsView] = useState<"overview" | "orders" | "unlocks">("overview");
+  const [myOrdersPage, setMyOrdersPage] = useState<number>(1);
+  const [myUnlocksPage, setMyUnlocksPage] = useState<number>(1);
+  const [myOrdersTotal, setMyOrdersTotal] = useState<number>(0);
+  const [myUnlocksTotal, setMyUnlocksTotal] = useState<number>(0);
   const [authForm, setAuthForm] = useState({
     displayName: "",
     email: "",
@@ -234,8 +265,9 @@ export default function App() {
   useEffect(() => {
     const syncHashRoute = () => {
       const hash = window.location.hash;
-      setIsTrainingRoute(hash === "#training");
-      if (hash === "#procurement") {
+      const routeName = hash.split("?")[0];
+      setIsTrainingRoute(routeName === "#training");
+      if (routeName === "#procurement") {
         setActiveTab(2);
       }
     };
@@ -247,8 +279,9 @@ export default function App() {
   useEffect(() => {
     if (showAuthModal && authUser?.user_key) {
       refreshAuthUser(authUser.user_key);
+      refreshMyProcurementRecords(authUser.user_key);
     }
-  }, [showAuthModal, authUser?.user_key]);
+  }, [showAuthModal, authUser?.user_key, myOrdersPage, myUnlocksPage]);
 
   const submitAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,7 +335,62 @@ export default function App() {
   const logout = () => {
     setAuthUser(null);
     setIsVip(false);
+    setMyPaymentOrders([]);
+    setMyUnlockedNotices([]);
+    setMyOrdersTotal(0);
+    setMyUnlocksTotal(0);
+    setMyOrdersPage(1);
+    setMyUnlocksPage(1);
+    setMyRecordsView("overview");
     window.localStorage.removeItem("supply_os_auth_user");
+  };
+
+  const refreshMyProcurementRecords = async (userKey = authUser?.user_key) => {
+    if (!userKey) {
+      setMyPaymentOrders([]);
+      setMyUnlockedNotices([]);
+      setMyOrdersTotal(0);
+      setMyUnlocksTotal(0);
+      return;
+    }
+    setMyRecordsLoading(true);
+    try {
+      const [ordersRes, unlocksRes] = await Promise.all([
+        fetch(`/api/payment/orders?user_key=${encodeURIComponent(userKey)}&page=${myOrdersPage}&limit=${MY_RECORD_PAGE_SIZE}`, { cache: "no-store" }),
+        fetch(`/api/payment/unlocks?user_key=${encodeURIComponent(userKey)}&page=${myUnlocksPage}&limit=${MY_RECORD_PAGE_SIZE}`, { cache: "no-store" }),
+      ]);
+      const orders = ordersRes.ok ? await ordersRes.json() : {};
+      const unlocks = unlocksRes.ok ? await unlocksRes.json() : {};
+      const orderPayload = orders.data || orders;
+      const unlockPayload = unlocks.data || unlocks;
+      setMyPaymentOrders(Array.isArray(orderPayload.list) ? orderPayload.list : []);
+      setMyUnlockedNotices(Array.isArray(unlockPayload.list) ? unlockPayload.list : []);
+      setMyOrdersTotal(Number(orderPayload.total || 0));
+      setMyUnlocksTotal(Number(unlockPayload.total || 0));
+    } catch {
+      setMyPaymentOrders([]);
+      setMyUnlockedNotices([]);
+      setMyOrdersTotal(0);
+      setMyUnlocksTotal(0);
+    } finally {
+      setMyRecordsLoading(false);
+    }
+  };
+
+  const openMyRecordsView = (view: "orders" | "unlocks") => {
+    setMyRecordsView(view);
+    if (view === "orders") setMyOrdersPage(1);
+    if (view === "unlocks") setMyUnlocksPage(1);
+  };
+
+  const openMyProcurementNotice = (row: MyProcurementRecord) => {
+    const noticeId = Number(row.notice_id || row.notice?.id || 0);
+    if (!noticeId) return;
+    setShowAuthModal(false);
+    setIsTrainingRoute(false);
+    setActiveTab(2);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement?notice_id=${noticeId}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
   };
 
   // 硬编码套餐 fallback（API 不可用时使用）
@@ -691,6 +779,46 @@ export default function App() {
   // Unique industries mapping
   const availableSupplierIndustries = Array.from(
     new Set(totalSuppliersList.map((s) => (lang === "zh" ? s.industryZh : s.industryEn)))
+  );
+
+  const recordTitle = (row: MyProcurementRecord) => row.notice?.title || row.order_no || row.notice_id || "未命名采购";
+  const formatUserDateTime = (value?: string) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value.replace("T", " ").replace(".000Z", "");
+    const pad = (num: number) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+  const recordTime = (row: MyProcurementRecord) => formatUserDateTime(row.unlocked_at || row.paid_at || row.created_at);
+  const orderPageCount = Math.max(1, Math.ceil(myOrdersTotal / MY_RECORD_PAGE_SIZE));
+  const unlockPageCount = Math.max(1, Math.ceil(myUnlocksTotal / MY_RECORD_PAGE_SIZE));
+  const currentRecordTotal = myRecordsView === "orders" ? myOrdersTotal : myUnlocksTotal;
+  const currentRecordPage = myRecordsView === "orders" ? myOrdersPage : myUnlocksPage;
+  const currentRecordPageCount = myRecordsView === "orders" ? orderPageCount : unlockPageCount;
+  const setCurrentRecordPage = myRecordsView === "orders" ? setMyOrdersPage : setMyUnlocksPage;
+
+  const renderRecordPager = () => (
+    <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+      <span>共 {currentRecordTotal} 条 · 第 {currentRecordPage}/{currentRecordPageCount} 页</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={currentRecordPage <= 1 || myRecordsLoading}
+          onClick={() => setCurrentRecordPage((page) => Math.max(1, page - 1))}
+          className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+        >
+          上一页
+        </button>
+        <button
+          type="button"
+          disabled={currentRecordPage >= currentRecordPageCount || myRecordsLoading}
+          onClick={() => setCurrentRecordPage((page) => Math.min(currentRecordPageCount, page + 1))}
+          className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+        >
+          下一页
+        </button>
+      </div>
+    </div>
   );
 
   const switchMainTab = (tabId: number) => {
@@ -1948,6 +2076,106 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  {myRecordsView === "overview" ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => openMyRecordsView("orders")}
+                        className="text-left rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-extrabold text-slate-900">我的支付订单</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">查看全部订单、支付状态和解锁入口</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">{myOrdersTotal}</span>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+                          <p className="font-black text-slate-800 truncate">{myPaymentOrders[0] ? recordTitle(myPaymentOrders[0]) : "暂无支付订单"}</p>
+                          <p className="mt-1 text-slate-500">{myPaymentOrders[0]?.order_no || "点击进入订单管理列表"}</p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openMyRecordsView("unlocks")}
+                        className="text-left rounded-xl border border-teal-100 bg-teal-50 p-4 hover:border-teal-300"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-extrabold text-teal-950">我的已解锁采购</p>
+                            <p className="text-[11px] text-teal-700 mt-0.5">集中管理已可查看完整信息的采购</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">{myUnlocksTotal}</span>
+                        </div>
+                        <div className="mt-3 rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs">
+                          <p className="font-black text-slate-800 truncate">{myUnlockedNotices[0] ? recordTitle(myUnlockedNotices[0]) : "暂无已解锁采购"}</p>
+                          <p className="mt-1 text-slate-500">{myUnlockedNotices[0] ? recordTime(myUnlockedNotices[0]) : "点击进入已解锁采购列表"}</p>
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    <section className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMyRecordsView("overview")}
+                            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+                            title="返回我的"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </button>
+                          <div>
+                            <p className="text-sm font-extrabold text-slate-900">{myRecordsView === "orders" ? "支付订单管理" : "已解锁采购管理"}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{myRecordsView === "orders" ? "按创建时间倒序展示全部支付订单" : "按解锁时间倒序展示全部已解锁采购"}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => refreshMyProcurementRecords()}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-teal-700 hover:bg-teal-50"
+                        >
+                          {myRecordsLoading ? "刷新中" : "刷新"}
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {(myRecordsView === "orders" ? myPaymentOrders : myUnlockedNotices).length === 0 && (
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+                            {myRecordsLoading ? "正在加载..." : myRecordsView === "orders" ? "暂无支付订单" : "暂无已解锁采购"}
+                          </div>
+                        )}
+                        {(myRecordsView === "orders" ? myPaymentOrders : myUnlockedNotices).map((row) => (
+                          <article key={myRecordsView === "orders" ? row.order_no : `${row.notice_id}-${row.unlocked_at}`} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
+                              <div className="min-w-0 pr-2">
+                                <p className="font-black text-slate-800 truncate">{recordTitle(row)}</p>
+                                <p className="mt-1 text-slate-500 truncate">{myRecordsView === "orders" ? row.order_no : `${row.unlock_type || "unlock"} · ${recordTime(row)}`}</p>
+                              </div>
+                              {myRecordsView === "orders" ? (
+                                <span className={`shrink-0 font-black ${row.status === "paid" ? "text-teal-700" : row.status === "closed" ? "text-slate-400" : "text-amber-700"}`}>
+                                  {row.status === "paid" ? "已支付" : row.status || "-"}
+                                </span>
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600" />
+                              )}
+                            </div>
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
+                              <span className="truncate">{myRecordsView === "orders" ? `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)} · ${recordTime(row)}` : row.notice?.country || row.notice?.reference || "-"}</span>
+                              {row.notice_id && (myRecordsView === "unlocks" || row.status === "paid") && (
+                                <button type="button" onClick={() => openMyProcurementNotice(row)} className="shrink-0 font-black text-blue-700 hover:text-blue-900">
+                                  打开详情
+                                </button>
+                              )}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+
+                      {renderRecordPager()}
+                    </section>
+                  )}
                   {claimMessage && <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">{claimMessage}</p>}
                   <button
                     onClick={logout}

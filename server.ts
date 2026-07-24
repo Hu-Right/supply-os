@@ -904,7 +904,7 @@ async function startServer() {
       nameZh,
       nameEn: nameEn || nameZh,
       type: type || "domestic",
-      industryZh: industryZh || "鍏朵粬",
+      industryZh: industryZh || "\u5176\u4ed6",
       industryEn: industryEn || "Other",
       countryZh: countryZh || "\u4e2d\u56fd",
       countryEn: countryEn || "China",
@@ -1154,6 +1154,7 @@ async function startServer() {
       const result = await paymentService.createOrder(dbPool, {
         user_key: String(req.body.user_key || "").trim().toLowerCase(),
         plan_code: String(req.body.plan_code || ""),
+        notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
         provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as any,
         return_url: String(req.body.return_url || ""),
       });
@@ -1168,6 +1169,145 @@ async function startServer() {
       });
     } catch (err: any) {
       res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/payment/orders", async (req, res) => {
+    try {
+      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const status = String(req.query.status || "").trim();
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+      const page = Math.max(1, Number(req.query.page || 1));
+      const offset = (page - 1) * limit;
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+
+      const params: any[] = [userKey];
+      const countParams: any[] = [userKey];
+      let where = "WHERE o.user_key = ?";
+      if (status) {
+        where += " AND o.status = ?";
+        params.push(status);
+        countParams.push(status);
+      }
+      params.push(limit, offset);
+
+      const [countRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total
+         FROM crm_payment_orders o
+         ${where}`,
+        countParams,
+      );
+
+      const [rows] = await dbPool.query(
+        `SELECT
+           o.order_no, o.user_key, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
+           o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
+           n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
+           n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
+         FROM crm_payment_orders o
+         LEFT JOIN crm_bid_notices n ON n.id = o.notice_id
+         ${where}
+         ORDER BY o.id DESC
+         LIMIT ? OFFSET ?`,
+        params,
+      );
+
+      res.json({
+        total: Number((countRows as any[])[0]?.total || 0),
+        page,
+        limit,
+        list: (rows as any[]).map((row) => ({
+          order_no: row.order_no,
+          user_key: row.user_key,
+          provider: row.provider,
+          plan_code: row.plan_code,
+          notice_id: row.notice_id,
+          amount: Number(row.amount || 0),
+          currency: row.currency,
+          status: row.status,
+          provider_trade_no: row.provider_trade_no,
+          paid_at: row.paid_at,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          notice: row.notice_id ? {
+            id: row.notice_id,
+            notice_id: row.external_notice_id,
+            source_channel: row.source_channel,
+            reference: row.reference,
+            title: row.title,
+            notice_type: row.notice_type,
+            agency: row.agency || row.agency_full,
+            agency_full: row.agency_full,
+            country: row.country,
+            deadline: row.deadline,
+            urgency: row.urgency,
+            url: row.url,
+            industry: row.industry,
+          } : null,
+        })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/payment/unlocks", async (req, res) => {
+    try {
+      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+      const page = Math.max(1, Number(req.query.page || 1));
+      const offset = (page - 1) * limit;
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+
+      const [countRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total
+         FROM crm_opportunity_unlocks u
+         WHERE u.user_key = ? AND u.notice_id IS NOT NULL`,
+        [userKey],
+      );
+
+      const [rows] = await dbPool.query(
+        `SELECT
+           u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+           n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
+           n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
+         FROM crm_opportunity_unlocks u
+         LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
+         WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+         ORDER BY u.id DESC
+         LIMIT ? OFFSET ?`,
+        [userKey, limit, offset],
+      );
+
+      res.json({
+        total: Number((countRows as any[])[0]?.total || 0),
+        page,
+        limit,
+        list: (rows as any[]).map((row) => ({
+          user_key: row.user_key,
+          notice_id: row.notice_id,
+          unlock_type: row.unlock_type,
+          price: Number(row.price || 0),
+          unlocked_at: row.unlocked_at,
+          notice: row.notice_id ? {
+            id: row.notice_id,
+            notice_id: row.external_notice_id,
+            source_channel: row.source_channel,
+            reference: row.reference,
+            title: row.title,
+            notice_type: row.notice_type,
+            agency: row.agency || row.agency_full,
+            agency_full: row.agency_full,
+            country: row.country,
+            deadline: row.deadline,
+            urgency: row.urgency,
+            url: row.url,
+            industry: row.industry,
+          } : null,
+        })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -1192,7 +1332,7 @@ async function startServer() {
   // GET /api/payment/orders/:orderNo - 查询订单状态
   app.get("/api/payment/orders/:orderNo", async (req, res) => {
     try {
-      const result = await paymentService.queryOrder(dbPool, req.params.orderNo);
+      const result = await paymentService.queryOrder(dbPool, req.params.orderNo, String(req.query.trade_no || ""));
       res.json(result);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -1631,7 +1771,7 @@ async function startServer() {
         },
         required_env: {
           alipay: ["ALIPAY_APP_ID", "ALIPAY_PRIVATE_KEY", "ALIPAY_PUBLIC_KEY", "ALIPAY_NOTIFY_URL"],
-          wechat: ["WECHAT_APP_ID", "WECHAT_MCH_ID 鎴?WECHAT_MERCHANT_ID", "WECHAT_API_V3_KEY", "WECHAT_PRIVATE_KEY", "WECHAT_NOTIFY_URL"],
+          wechat: ["WECHAT_APP_ID", "WECHAT_MCH_ID \u6216 WECHAT_MERCHANT_ID", "WECHAT_API_V3_KEY", "WECHAT_PRIVATE_KEY", "WECHAT_NOTIFY_URL"],
         },
       });
     } catch (err: any) {
@@ -1785,6 +1925,16 @@ async function startServer() {
            estimated_value,
            description,
            industry,
+           url,
+           contacts,
+           documents,
+           procurement_files,
+           external_links,
+           agency_full,
+           published_date,
+           difficulty,
+           registration_level,
+           key_contacts,
            unspsc_codes
          FROM crm_bid_notices
          WHERE id = ?
@@ -1796,7 +1946,11 @@ async function startServer() {
 
       res.json({
         ...notice,
-        agency: notice.agency || notice.organization,
+        agency: notice.agency_full || notice.agency || notice.organization,
+        contacts: safeJson(notice.contacts),
+        documents: safeJson(notice.documents),
+        procurement_files: safeJson(notice.procurement_files),
+        external_links: safeJson(notice.external_links),
         unspsc_codes: normalizeUnspscCodes(notice.unspsc_codes),
         core_locked: false,
         unlock_type: unlock.unlock_type,

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle, Smartphone } from "lucide-react";
 import { getAvailableProviders, getPaymentTips, detectPlatformEnv, isMobile } from "./payment/env-detector";
 
-// 缈昏瘧绫诲瀷锛堢畝鍖栵紝閬垮厤鍏ㄩ噺寮曞叆 TRANSLATIONS锛?
+// Local translation dictionary type.
 type LangDict = Record<string, string>;
 
 type PaymentModalProps = {
