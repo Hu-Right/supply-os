@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { PaymentStrategy, PaymentOrderStatus } from "./types";
+import type { PaymentStrategy, PaymentOrderStatus } from "@/types/payment";
 
 /**
  * 支付宝 H5 支付策略
@@ -20,17 +20,20 @@ export class AlipayProvider implements PaymentStrategy {
   private appId: string;
   private privateKey: string;
   private publicKey: string;
+  private notifyUrl: string;
   private gateway: string;
 
   constructor(config: {
     appId: string;
     privateKey: string;
     publicKey: string;
+    notifyUrl?: string;
     sandbox?: boolean;
   }) {
     this.appId = config.appId;
-    this.privateKey = config.privateKey;
-    this.publicKey = config.publicKey;
+    this.privateKey = this.normalizePem(config.privateKey, "PRIVATE KEY");
+    this.publicKey = this.normalizePem(config.publicKey, "PUBLIC KEY");
+    this.notifyUrl = String(config.notifyUrl || "");
     this.gateway = config.sandbox
       ? "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
       : "https://openapi.alipay.com/gateway.do";
@@ -63,10 +66,11 @@ export class AlipayProvider implements PaymentStrategy {
       format: "JSON",
       charset: "utf-8",
       sign_type: "RSA2",
-      timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, "+0800"),
+      timestamp: this.formatAlipayTimestamp(new Date()),
       version: "1.0",
       biz_content: JSON.stringify(bizContent),
       return_url: returnUrl || "",
+      notify_url: this.notifyUrl,
     };
 
     const signStr = this.buildSignStr(params);
@@ -98,19 +102,53 @@ export class AlipayProvider implements PaymentStrategy {
     };
   }
 
-  async queryOrderStatus(orderNo: string): Promise<{
+  async queryOrderStatus(orderNo: string, providerTradeNo?: string): Promise<{
     status: PaymentOrderStatus;
     provider_trade_no?: string;
   }> {
-    // 待安装 alipay-sdk 后，调用 alipay.trade.query
-    // 当前 stub
-    return { status: "pending" };
+    if (!this.appId || !this.privateKey) return { status: "pending" };
+
+    const bizContent: Record<string, string> = { out_trade_no: orderNo };
+    if (providerTradeNo) bizContent.trade_no = providerTradeNo;
+
+    const params: Record<string, string> = {
+      app_id: this.appId,
+      method: "alipay.trade.query",
+      format: "JSON",
+      charset: "utf-8",
+      sign_type: "RSA2",
+      timestamp: this.formatAlipayTimestamp(new Date()),
+      version: "1.0",
+      biz_content: JSON.stringify(bizContent),
+    };
+
+    params.sign = this.rsa256Sign(this.buildSignStr(params));
+
+    const res = await fetch(this.gateway, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: new URLSearchParams(params).toString(),
+    });
+    if (!res.ok) return { status: "pending" };
+
+    const payload = await res.json().catch(() => null);
+    const result = payload?.alipay_trade_query_response;
+    if (!result || result.code !== "10000") return { status: "pending" };
+
+    const tradeStatus = String(result.trade_status || "");
+    if (tradeStatus === "TRADE_SUCCESS" || tradeStatus === "TRADE_FINISHED") {
+      return { status: "paid", provider_trade_no: result.trade_no || providerTradeNo };
+    }
+    if (tradeStatus === "TRADE_CLOSED") {
+      return { status: "closed", provider_trade_no: result.trade_no || providerTradeNo };
+    }
+    return { status: "pending", provider_trade_no: result.trade_no || providerTradeNo };
   }
 
   // 构建待签名字符串（支付宝 RSA2 签名规则）
   private buildSignStr(params: Record<string, string>): string {
     return Object.keys(params)
-      .filter((k) => k !== "sign" && k !== "sign_type" && params[k] !== "")
+      .filter((k) => k !== "sign" && params[k] !== "")
       .sort()
       .map((k) => `${k}=${params[k]}`)
       .join("&");
@@ -123,5 +161,17 @@ export class AlipayProvider implements PaymentStrategy {
     const sign = crypto.createSign("RSA-SHA256");
     sign.update(data, "utf-8");
     return sign.sign(this.privateKey, "base64");
+  }
+
+  private normalizePem(value: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
+    const text = String(value || "").trim();
+    if (!text || text.includes("-----BEGIN")) return text;
+    const body = text.replace(/\s+/g, "").match(/.{1,64}/g)?.join("\n") || text;
+    return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
+  }
+
+  private formatAlipayTimestamp(date: Date): string {
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 }

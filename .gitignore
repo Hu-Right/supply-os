@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+.qoder/
+docs/
+要求.md
+~$*
