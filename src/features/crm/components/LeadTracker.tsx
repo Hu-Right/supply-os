@@ -13,6 +13,7 @@ import { FollowUpLogPanel } from "./FollowUpLogPanel";
 type LeadTrackerProps = {
   leads: Lead[];
   isLoading: boolean;
+  onSubmitLog: (leadId: string, content: string, nextStatus?: string) => Promise<Lead | null>;
   labels: {
     title: string;
     badge: string;
@@ -31,11 +32,19 @@ type LeadTrackerProps = {
     logPlaceholder: string;
     leadPhase: string;
     saveToCRM: string;
+    saveFailed: string;
   };
 };
 
-export function LeadTracker({ leads, isLoading, labels }: LeadTrackerProps) {
+export function LeadTracker({ leads, isLoading, onSubmitLog, labels }: LeadTrackerProps) {
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+
+  // 提交跟进日志：落库后用返回的线索即时更新时间线
+  const handleSubmitLog = async (leadId: string, content: string, nextStatus?: string) => {
+    const updated = await onSubmitLog(leadId, content, nextStatus);
+    if (updated) setActiveLead(updated);
+    return updated;
+  };
 
   const cardLabels = {
     fieldIndustry: labels.fieldIndustry,
@@ -79,6 +88,7 @@ export function LeadTracker({ leads, isLoading, labels }: LeadTrackerProps) {
         <FollowUpLogPanel
           lead={activeLead}
           onClose={() => setActiveLead(null)}
+          onSubmit={handleSubmitLog}
           labels={{
             editingLead: labels.editingLead,
             followUpLogs: labels.followUpLogs,
@@ -86,6 +96,7 @@ export function LeadTracker({ leads, isLoading, labels }: LeadTrackerProps) {
             logPlaceholder: labels.logPlaceholder,
             leadPhase: labels.leadPhase,
             saveToCRM: labels.saveToCRM,
+            saveFailed: labels.saveFailed,
           }}
         />
       )}

@@ -30,6 +30,7 @@ import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { ProcurementPagination } from "../components/ProcurementPagination";
+import { useNoticePayment } from "../hooks/useNoticePayment";
 
 const PAGE_SIZE = 9;
 const FREE_DETAIL_VIEW_LIMIT = 3;
@@ -78,6 +79,7 @@ export default function ProcurementPage() {
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [query, setQuery] = useState("");
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
+  const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const noticesRequestSeq = useRef(0);
 
@@ -117,13 +119,52 @@ export default function ProcurementPage() {
     }
   };
 
+  // 拉取已解锁公告的拓展详情并合并进当前选中项
+  const loadNoticeDetail = async (notice: NoticeItem) => {
+    if (!userKey) return;
+    try {
+      const detail = await fetchNoticeDetail(notice.id, userKey);
+      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
+    } catch {
+      // 未解锁或加载失败：保留列表数据，不阻断详情页
+    }
+  };
+
+  // 采购详情内嵌多套餐付费面板状态：付费墙 / 订单 / 轮询对账，对齐远端 PaymentPanel
+  const {
+    paywallNotice,
+    paymentOrder,
+    paymentProvider,
+    busyPlanCode,
+    paymentMessage,
+    setPaymentProvider,
+    openPaywall,
+    closePaywall,
+    createNoticeOrder,
+    markPaid,
+  } = useNoticePayment({
+    userKey,
+    onRequireLogin,
+    onPaid: async (noticeId, planCode) => {
+      const unlockType = planCode.includes("single") ? "single" : "subscription";
+      try {
+        await unlockNotice(noticeId, userKey || "", unlockType, unlockType === "single" ? 89 : 0);
+      } catch {
+        // 支付回调可能已在服务端完成解锁，忽略此处失败
+      }
+      await refreshMembership();
+      await loadNoticeDetail({ id: noticeId } as NoticeItem);
+      setActionMessage(t("procurement_paidUnlockOk"));
+    },
+  });
+
   useEffect(() => {
     fetchUnspscIndustries()
       .then((data) => setLevels((prev) => [Array.isArray(data) ? data : [], prev[1], prev[2], prev[3], prev[4]]))
       .catch(() => setError("Failed to load UNSPSC categories."));
 
     fetchMembershipPlans()
-      .then(() => {})
+      .then((plans) => setPaidPlans(Array.isArray(plans) ? plans : []))
       .catch(() => {});
   }, []);
 
@@ -180,7 +221,10 @@ export default function ProcurementPage() {
 
     const currentViews = getDetailViewCount();
     if (!isVip && currentViews >= FREE_DETAIL_VIEW_LIMIT) {
+      setSelectedNotice(notice);
       setActionMessage(t("procurement_freeLimit"));
+      openPaywall(notice);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
@@ -193,17 +237,6 @@ export default function ProcurementPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
     // 若该公告此前已解锁，拉取拓展详情并合并（未解锁时后端返回 403，静默忽略）
     void loadNoticeDetail(notice);
-  };
-
-  // 拉取已解锁公告的拓展详情并合并进当前选中项
-  const loadNoticeDetail = async (notice: NoticeItem) => {
-    if (!userKey) return;
-    try {
-      const detail = await fetchNoticeDetail(notice.id, userKey);
-      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
-    } catch {
-      // 未解锁或加载失败：保留列表数据，不阻断详情页
-    }
   };
 
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
@@ -288,6 +321,7 @@ export default function ProcurementPage() {
 
     if (!unlockType && !canUsePaidQuota && freeRemaining <= 0) {
       setActionMessage(t("procurement_freeLimit"));
+      openPaywall(notice);
       return false;
     }
 
@@ -295,7 +329,12 @@ export default function ProcurementPage() {
     const res = await unlockNotice(notice.id, userKey, nextUnlockType, nextUnlockType === "single" ? 89 : 0);
 
     if (!res.ok) {
-      setActionMessage(t("procurement_unlockFail"));
+      if (res.status === 402) {
+        setActionMessage(t("procurement_freeLimit"));
+        openPaywall(notice);
+      } else {
+        setActionMessage(t("procurement_unlockFail"));
+      }
       await refreshMembership();
       return false;
     }
@@ -322,6 +361,7 @@ export default function ProcurementPage() {
 
     setActionMessage(interestType === "subscribed" ? t("procurement_subscribedSuccess") : t("procurement_actionSuccess"));
     await refreshMembership();
+    openPaywall(notice);
   };
 
   const visibleItems = items.filter((item) => {
@@ -341,10 +381,25 @@ export default function ProcurementPage() {
         freeQuota={freeQuota}
         canUsePaidQuota={canUsePaidQuota}
         isVip={isVip}
-        onBack={() => setSelectedNotice(null)}
+        onBack={() => {
+          closePaywall();
+          setSelectedNotice(null);
+        }}
         onExpressInterest={handleExpressInterest}
         onUnlock={(n) => handleUnlockNotice(n)}
         onPayUnlock={handlePayUnlock}
+        payment={{
+          plans: paidPlans,
+          paywallNotice,
+          order: paymentOrder,
+          provider: paymentProvider,
+          busyPlanCode,
+          message: paymentMessage,
+          onProviderChange: setPaymentProvider,
+          onCreateOrder: createNoticeOrder,
+          onMockPaid: markPaid,
+          onClose: closePaywall,
+        }}
       />
     );
   }
@@ -378,7 +433,7 @@ export default function ProcurementPage() {
             <button onClick={() => navigate("/training")} className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 cursor-pointer">
               {t("procurementTrainingBtn")}
             </button>
-            <button onClick={() => navigate("/my-purchases")} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer">
+            <button onClick={() => window.dispatchEvent(new CustomEvent("supply-os:open-account"))} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer">
               {t("myPurchasesTitle")}
             </button>
           </div>

@@ -14,6 +14,11 @@ export type OrderInfo = {
   provider: "alipay" | "wechat" | "mock";
   status: "pending" | "paid" | "closed" | "failed";
   notice_id?: number | null;
+  /** 支付模式：configured=真实网关，mock=本地模拟 */
+  payment_mode?: "configured" | "mock";
+  plan_code?: string;
+  amount?: number;
+  currency?: string;
 };
 
 export type CreateOrderParams = {
@@ -61,6 +66,17 @@ export async function getOrderStatus(orderNo: string, tradeNo?: string): Promise
   const res = await fetch(url);
   if (!res.ok) throw new Error("查询订单失败");
   return res.json();
+}
+
+/**
+ * 本地模拟支付确认（mock 模式下手动完成付款）
+ * Mock payment confirmation (manually complete payment under mock mode)
+ */
+export async function mockPaid(orderNo: string): Promise<void> {
+  const res = await fetch(`/api/payments/${encodeURIComponent(orderNo)}/mock-paid`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error("确认支付失败");
 }
 
 /**

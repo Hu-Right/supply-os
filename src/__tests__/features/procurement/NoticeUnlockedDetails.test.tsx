@@ -52,4 +52,86 @@ describe("NoticeUnlockedDetails", () => {
     expect(screen.getByText(/NoLinkDoc/)).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+
+  // ── P1-C: bid breakdown suggestions card ──
+  it("renders the bid breakdown card and limits category codes to the first 4", () => {
+    const notice = {
+      id: 1,
+      title: "t",
+      difficulty: "High",
+      registration_level: "Level 3",
+      estimated_value: "$1M",
+      deadline: "2026-12-31",
+      unspsc_codes: [
+        { code: "A1" },
+        { code: "A2" },
+        { code: "A3" },
+        { code: "A4" },
+        { code: "A5" },
+      ],
+    } as unknown as NoticeItem;
+    render(<NoticeUnlockedDetails notice={notice} />);
+
+    expect(screen.getByText("procurement_bidBreakdownTitle")).toBeInTheDocument();
+    expect(screen.getByText("procurement_bidNextStep")).toBeInTheDocument();
+    // Only the first 4 codes are shown, A5 is dropped
+    expect(screen.getByText(/A1, A2, A3, A4/)).toBeInTheDocument();
+    expect(screen.queryByText(/A5/)).toBeNull();
+  });
+
+  it("falls back to placeholder wording when bid fields are missing", () => {
+    const notice = {
+      id: 1,
+      title: "t",
+      // no difficulty / registration_level / estimated_value / unspsc_codes
+      documents: [{ name: "Doc", url: "https://example.com/doc" }],
+    } as unknown as NoticeItem;
+    render(<NoticeUnlockedDetails notice={notice} />);
+
+    expect(screen.getByText(/procurement_bidPendingEval/)).toBeInTheDocument();
+    expect(screen.getByText(/procurement_bidPendingConfirm/)).toBeInTheDocument();
+    expect(screen.getByText(/procurement_bidUndisclosed/)).toBeInTheDocument();
+    expect(screen.getByText(/procurement_bidPendingSupplement/)).toBeInTheDocument();
+  });
+
+  // ── P1-D: original notice link + key_contacts compatibility ──
+  it("renders the original notice link when notice.url is present", () => {
+    const notice = {
+      id: 1,
+      title: "t",
+      url: "https://notices.example.com/abc",
+    } as unknown as NoticeItem;
+    render(<NoticeUnlockedDetails notice={notice} />);
+
+    expect(screen.getByText("procurement_originalLink")).toBeInTheDocument();
+    const link = screen.getByText("procurement_openNotice").closest("a");
+    expect(link).toHaveAttribute("href", "https://notices.example.com/abc");
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("renders key_contacts as a text paragraph when it is a string", () => {
+    const notice = {
+      id: 1,
+      title: "t",
+      key_contacts: "Jane Doe, procurement@un.org, +1 555 0100",
+    } as unknown as NoticeItem;
+    render(<NoticeUnlockedDetails notice={notice} />);
+
+    expect(screen.getByText("procurement_keyContacts")).toBeInTheDocument();
+    expect(
+      screen.getByText("Jane Doe, procurement@un.org, +1 555 0100")
+    ).toBeInTheDocument();
+  });
+
+  it("renders key_contacts as contact cards when it is an object array", () => {
+    const notice = {
+      id: 1,
+      title: "t",
+      key_contacts: [{ name: "John Smith", email: "john@un.org", role: "Officer" }],
+    } as unknown as NoticeItem;
+    render(<NoticeUnlockedDetails notice={notice} />);
+
+    expect(screen.getByText(/John Smith/)).toBeInTheDocument();
+    expect(screen.getByText("john@un.org")).toHaveAttribute("href", "mailto:john@un.org");
+  });
 });

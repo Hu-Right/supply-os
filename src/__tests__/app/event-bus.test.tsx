@@ -152,4 +152,16 @@ describe("Global Event Bus (App.tsx)", () => {
 
     expect(screen.getByTestId("payment-modal")).toBeInTheDocument();
   });
+
+  // ── 6. supply-os:open-account → AuthModal (account panel entry) ──
+  it("supply-os:open-account → shows AuthModal", () => {
+    renderApp();
+    expect(screen.queryByTestId("auth-modal")).toBeNull();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("supply-os:open-account"));
+    });
+
+    expect(screen.getByTestId("auth-modal")).toBeInTheDocument();
+  });
 });

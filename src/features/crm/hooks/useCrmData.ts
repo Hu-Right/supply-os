@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
+import { useAuth } from "@/core/auth";
 import { SUPPLIERS, OPPORTUNITIES } from "@/data";
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
@@ -26,6 +27,8 @@ export type UseCrmDataReturn = {
   setMatchSelectedOpportunity: (o: Opportunity | null) => void;
   triggerAiMatchmaking: () => Promise<void>;
   subscribeOpportunity: () => void;
+  /** 录入线索跟进日志：POST /api/leads/log 并回写 leads，返回更新后的线索 */
+  addFollowUpLog: (leadId: string, content: string, nextStatus?: string) => Promise<Lead | null>;
 };
 
 /**
@@ -37,6 +40,7 @@ export type UseCrmDataReturn = {
  */
 export function useCrmData(): UseCrmDataReturn {
   const { t } = useLocale();
+  const { authUser } = useAuth();
 
   // Compose AI matching hook (single responsibility)
   const aiMatch = useAiMatch();
@@ -98,6 +102,33 @@ export function useCrmData(): UseCrmDataReturn {
     }, 4000);
   };
 
+  // Add follow-up log: persist to backend then write back into leads list
+  const addFollowUpLog = async (
+    leadId: string,
+    content: string,
+    nextStatus?: string,
+  ): Promise<Lead | null> => {
+    if (!content.trim()) return null;
+    try {
+      const res = await fetch("/api/leads/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId,
+          content,
+          author: authUser?.email ? `运营经理 (${authUser.email})` : "Operator",
+          nextStatus,
+        }),
+      });
+      if (!res.ok) return null;
+      const updatedLead: Lead = await res.json();
+      setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
+      return updatedLead;
+    } catch {
+      return null;
+    }
+  };
+
   const totalSuppliersList = [...customSuppliers, ...SUPPLIERS];
 
   return {
@@ -113,5 +144,6 @@ export function useCrmData(): UseCrmDataReturn {
     setMatchSelectedOpportunity: aiMatch.setSelectedOpportunity,
     triggerAiMatchmaking,
     subscribeOpportunity,
+    addFollowUpLog,
   };
 }

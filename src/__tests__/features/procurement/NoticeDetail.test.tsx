@@ -20,6 +20,8 @@ const mockNotice = {
   unspsc_codes: [{ code: "1000", name: "Fuel" }],
 };
 
+const unlockedNotice = { ...mockNotice, core_locked: false };
+
 describe("NoticeDetail", () => {
   const defaultProps = {
     notice: mockNotice as any,
@@ -35,10 +37,10 @@ describe("NoticeDetail", () => {
     onPayUnlock: vi.fn(),
   };
 
-  it("renders notice title and details", () => {
-    render(<NoticeDetail {...defaultProps} />);
+  it("renders notice title, country and unlocked agency", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getByText("Test Notice")).toBeInTheDocument();
-    expect(screen.getByText("Test Agency")).toBeInTheDocument();
+    expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
     expect(screen.getByText("US")).toBeInTheDocument();
   });
 
@@ -73,7 +75,7 @@ describe("NoticeDetail", () => {
   });
 
   it("hides the paid-unlock button when notice is already unlocked", () => {
-    render(<NoticeDetail {...defaultProps} notice={{ ...mockNotice, core_locked: false } as any} />);
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.queryByText("procurement_singleUnlock")).not.toBeInTheDocument();
   });
 
@@ -82,13 +84,34 @@ describe("NoticeDetail", () => {
     expect(screen.getByText("Success!")).toBeInTheDocument();
   });
 
-  it("shows source URL link when available", () => {
-    render(<NoticeDetail {...defaultProps} />);
+  it("shows source URL link when unlocked", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getByText("procurement_source")).toBeInTheDocument();
   });
 
-  it("renders UNSPSC tags", () => {
-    render(<NoticeDetail {...defaultProps} />);
+  it("renders UNSPSC tags when unlocked", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getByText("1000")).toBeInTheDocument();
+  });
+
+  // ── P1-B: core-locked mask gating ──
+  it("shows the locked-core mask and hides core details when core is locked", () => {
+    render(<NoticeDetail {...defaultProps} />);
+    // Mask box title + description
+    expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument();
+    // Masked agency: title appears (subtitle + meta grid + mask heading), never real agency
+    expect(screen.queryByText("Test Agency")).toBeNull();
+    // UNSPSC tags and source link hidden
+    expect(screen.queryByText("1000")).toBeNull();
+    expect(screen.queryByText("procurement_source")).toBeNull();
+  });
+
+  it("reveals real agency, tags and source when core is unlocked", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
+    expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
+    expect(screen.getByText("1000")).toBeInTheDocument();
+    expect(screen.getByText("procurement_source")).toBeInTheDocument();
+    // Mask description should not be shown
+    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
   });
 });

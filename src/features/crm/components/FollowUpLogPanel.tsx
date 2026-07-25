@@ -12,6 +12,7 @@ import type { Lead } from "@/types";
 type FollowUpLogPanelProps = {
   lead: Lead;
   onClose: () => void;
+  onSubmit: (leadId: string, content: string, nextStatus?: string) => Promise<Lead | null>;
   labels: {
     editingLead: (company: string) => string;
     followUpLogs: string;
@@ -19,17 +20,29 @@ type FollowUpLogPanelProps = {
     logPlaceholder: string;
     leadPhase: string;
     saveToCRM: string;
+    saveFailed: string;
   };
 };
 
-export function FollowUpLogPanel({ lead, onClose, labels }: FollowUpLogPanelProps) {
+export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLogPanelProps) {
   const [newEntry, setNewEntry] = useState("");
   const [status, setStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setNewEntry("");
-    setStatus("");
+    if (!newEntry.trim() || submitting) return;
+    setSubmitting(true);
+    setError("");
+    const updated = await onSubmit(lead.id, newEntry, status || lead.status);
+    setSubmitting(false);
+    if (updated) {
+      setNewEntry("");
+      setStatus("");
+    } else {
+      setError(labels.saveFailed);
+    }
   };
 
   return (
@@ -90,11 +103,14 @@ export function FollowUpLogPanel({ lead, onClose, labels }: FollowUpLogPanelProp
 
           <button
             type="submit"
-            className="flex-1 py-1 px-3 bg-slate-900 hover:bg-slate-855 text-white rounded text-xs font-semibold"
+            disabled={submitting}
+            className="flex-1 py-1 px-3 bg-slate-900 hover:bg-slate-855 text-white rounded text-xs font-semibold disabled:opacity-60"
           >
             {labels.saveToCRM}
           </button>
         </div>
+
+        {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
       </form>
     </div>
   );

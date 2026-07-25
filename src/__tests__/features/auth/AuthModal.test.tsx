@@ -23,6 +23,22 @@ vi.mock("@/core/i18n", () => ({
   }),
 }));
 
+// Mock useNavigate (AuthModal opens notices via navigate)
+const mockNavigate = vi.fn();
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+// Mock the embedded records panel to a marker (avoids order-history fetching)
+vi.mock("@/features/payment", () => ({
+  MyRecordsPanel: ({ onOpenNotice }: any) => (
+    <div data-testid="my-records-panel">
+      <button onClick={() => onOpenNotice(5)}>panel-open-notice</button>
+    </div>
+  ),
+}));
+
 describe("AuthModal", () => {
   const onClose = vi.fn();
 
@@ -147,6 +163,20 @@ describe("AuthModal", () => {
     render(<AuthModal onClose={onClose} />);
     fireEvent.click(screen.getByText("authLogout"));
     expect(mockAuth.logout).toHaveBeenCalled();
+  });
+
+  it("embeds the records panel when authenticated", () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+    expect(screen.getByTestId("my-records-panel")).toBeInTheDocument();
+  });
+
+  it("closes the modal and navigates when opening a notice from the panel", () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("panel-open-notice"));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith("/procurement?notice_id=5");
   });
 
   it("shows error when register without company name", async () => {

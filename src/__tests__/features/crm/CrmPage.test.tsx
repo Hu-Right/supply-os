@@ -93,4 +93,17 @@ describe("CrmPage", () => {
     render(<CrmPage />);
     expect(screen.getByText("测试科技有限公司")).toBeInTheDocument();
   });
+
+  it("does not render subscription banner when message is empty", () => {
+    render(<CrmPage />);
+    expect(screen.queryByText("subscribeOppSuccess")).toBeNull();
+  });
+
+  it("renders subscription success banner when message is present", () => {
+    mockUseCrmData.mockReturnValue(
+      defaultCrmData({ subscribingOppMessage: "subscribeOppSuccess" })
+    );
+    render(<CrmPage />);
+    expect(screen.getByText("subscribeOppSuccess")).toBeInTheDocument();
+  });
 });

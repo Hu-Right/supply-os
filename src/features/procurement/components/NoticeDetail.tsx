@@ -8,8 +8,9 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import type { NoticeItem, MembershipStatus } from "../types";
+import type { NoticeItem, MembershipStatus, MembershipPlan, PaymentOrder } from "../types";
 import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
+import { NoticePaymentPanel } from "./NoticePaymentPanel";
 
 interface NoticeDetailProps {
   notice: NoticeItem;
@@ -23,6 +24,19 @@ interface NoticeDetailProps {
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
   onPayUnlock: (notice: NoticeItem) => void;
+  /** 内嵌多套餐付费面板（付费墙）状态与回调；paywallNotice 存在时在 aside 渲染面板 */
+  payment?: {
+    plans: MembershipPlan[];
+    paywallNotice: NoticeItem | null;
+    order: PaymentOrder | null;
+    provider: "alipay" | "wechat";
+    busyPlanCode: string;
+    message: string;
+    onProviderChange: (provider: "alipay" | "wechat") => void;
+    onCreateOrder: (planCode: string) => void;
+    onMockPaid: () => void;
+    onClose: () => void;
+  };
 }
 
 export function NoticeDetail({
@@ -37,8 +51,13 @@ export function NoticeDetail({
   onExpressInterest,
   onUnlock,
   onPayUnlock,
+  payment,
 }: NoticeDetailProps) {
   const { t } = useLocale();
+  const coreUnlocked = notice.core_locked === false;
+  const visibleAgency = coreUnlocked
+    ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
+    : t("procurement_lockedCoreTitle");
 
   return (
     <div className="space-y-5">
@@ -61,7 +80,7 @@ export function NoticeDetail({
                 {notice.title}
               </h3>
               <p className="text-sm text-slate-500 mt-3">
-                {notice.agency || notice.organization || t("procurement_unknownAgency")} ·{" "}
+                {visibleAgency} ·{" "}
                 {notice.country || t("procurement_global")} ·{" "}
                 {notice.deadline || t("procurement_noDeadline")}
               </p>
@@ -76,7 +95,7 @@ export function NoticeDetail({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
               {[
                 [t("procurement_metaNo"), notice.reference || notice.notice_id || "-"],
-                [t("procurement_agency"), notice.agency || notice.organization || "-"],
+                [t("procurement_agency"), visibleAgency],
                 [t("procurement_country"), notice.country || "-"],
                 [t("procurement_budget"), notice.estimated_value || t("procurement_budgetPending")],
               ].map(([label, value]) => (
@@ -94,33 +113,45 @@ export function NoticeDetail({
               </p>
             </div>
 
-            <div>
-              <h4 className="text-sm font-extrabold text-slate-900 mb-2">{t("procurement_tags")}</h4>
-              <div className="flex flex-wrap gap-2">
-                {(notice.unspsc_codes || []).slice(0, 16).map((code, index) => (
-                  <span
-                    key={`${code.code || index}`}
-                    className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-mono text-slate-600"
+            {coreUnlocked ? (
+              <>
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-900 mb-2">{t("procurement_tags")}</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(notice.unspsc_codes || []).slice(0, 16).map((code, index) => (
+                      <span
+                        key={`${code.code || index}`}
+                        className="px-2 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-mono text-slate-600"
+                      >
+                        {code.code || code.name || code.description}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {notice.source_url && (
+                  <a
+                    href={notice.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline"
                   >
-                    {code.code || code.name || code.description}
-                  </span>
-                ))}
+                    {t("procurement_source")}
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+
+                <NoticeUnlockedDetails notice={notice} />
+              </>
+            ) : (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-700" />
+                  {t("procurement_lockedCoreTitle")}
+                </h4>
+                <p className="text-sm text-amber-900 leading-7 mt-2">{t("procurement_lockedCoreDesc")}</p>
               </div>
-            </div>
-
-            {notice.source_url && (
-              <a
-                href={notice.source_url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-sm font-bold text-blue-700 hover:underline"
-              >
-                {t("procurement_source")}
-                <ExternalLink className="w-4 h-4" />
-              </a>
             )}
-
-            <NoticeUnlockedDetails notice={notice} />
           </main>
 
           <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
@@ -192,6 +223,20 @@ export function NoticeDetail({
 
               <p className="text-[11px] leading-5 text-slate-500">{t("procurement_actionTip")}</p>
             </div>
+
+            {payment?.paywallNotice && (
+              <NoticePaymentPanel
+                plans={payment.plans}
+                provider={payment.provider}
+                order={payment.order}
+                busyPlanCode={payment.busyPlanCode}
+                message={payment.message}
+                onProviderChange={payment.onProviderChange}
+                onCreateOrder={payment.onCreateOrder}
+                onMockPaid={payment.onMockPaid}
+                onClose={payment.onClose}
+              />
+            )}
           </aside>
         </div>
       </article>

@@ -8,6 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
+import { CheckCircle2 } from "lucide-react";
 import { useCrmData } from "../hooks/useCrmData";
 import { StatsCards } from "../components/StatsCards";
 import { OpportunityList } from "../components/OpportunityList";
@@ -28,10 +29,19 @@ export default function CrmPage() {
     setMatchSelectedOpportunity,
     triggerAiMatchmaking,
     subscribeOpportunity,
+    subscribingOppMessage,
+    addFollowUpLog,
   } = useCrmData();
 
   return (
     <div className="space-y-6">
+      {subscribingOppMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-teal-300 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-700 animate-bounce">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          {subscribingOppMessage}
+        </div>
+      )}
+
       <StatsCards
         leads={leads}
         labels={{
@@ -84,6 +94,7 @@ export default function CrmPage() {
           <LeadTracker
             leads={leads}
             isLoading={isLoadingLeads}
+            onSubmitLog={addFollowUpLog}
             labels={{
               title: t("leadTracker"),
               badge: "REALTIME INGESTED",
@@ -102,6 +113,7 @@ export default function CrmPage() {
               logPlaceholder: t("crmLogPlaceholder"),
               leadPhase: t("crmLeadPhase"),
               saveToCRM: t("crmSaveToCRM"),
+              saveFailed: t("crmSaveToCRMFailed"),
             }}
           />
         </div>

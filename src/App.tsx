@@ -60,6 +60,7 @@ export default function App() {
     const onRequireLogin = () => setShowAuthModal(true);
     const onUnauthorized = () => setShowAuthModal(true);
     const onRequireVip = () => setShowAuthModal(true);
+    const onOpenAccount = () => setShowAuthModal(true);
     const onConsult = () => setShowConsultForm(true);
     const onPay = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -68,12 +69,14 @@ export default function App() {
     window.addEventListener("supply-os:require-login", onRequireLogin);
     window.addEventListener("supply-os:unauthorized", onUnauthorized);
     window.addEventListener("supply-os:require-vip", onRequireVip);
+    window.addEventListener("supply-os:open-account", onOpenAccount);
     window.addEventListener("supply-os:consult", onConsult);
     window.addEventListener("supply-os:pay", onPay);
     return () => {
       window.removeEventListener("supply-os:require-login", onRequireLogin);
       window.removeEventListener("supply-os:unauthorized", onUnauthorized);
       window.removeEventListener("supply-os:require-vip", onRequireVip);
+      window.removeEventListener("supply-os:open-account", onOpenAccount);
       window.removeEventListener("supply-os:consult", onConsult);
       window.removeEventListener("supply-os:pay", onPay);
     };

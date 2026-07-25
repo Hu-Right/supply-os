@@ -7,12 +7,15 @@
  *              Supplier page entry, displays supplier list and filters
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Store } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SUPPLIERS } from "@/data";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
+import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
+import { fetchCustomSuppliers } from "../api";
 
 export default function SupplierPage() {
   const { t, locale } = useLocale();
@@ -21,20 +24,39 @@ export default function SupplierPage() {
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState("");
   const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState("");
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [customSuppliers, setCustomSuppliers] = useState<Supplier[]>([]);
+
+  // 拉取用户自助入驻的自定义供应商（失败静默回退到仅静态列表）
+  const loadCustomSuppliers = useCallback(() => {
+    fetchCustomSuppliers()
+      .then((list) => setCustomSuppliers(Array.isArray(list) ? list : []))
+      .catch(() => setCustomSuppliers([]));
+  }, []);
+
+  useEffect(() => {
+    loadCustomSuppliers();
+  }, [loadCustomSuppliers]);
+
+  // 展示列表：自定义（pending）供应商排在静态目录之前
+  const allSuppliers = useMemo(
+    () => [...customSuppliers, ...SUPPLIERS],
+    [customSuppliers]
+  );
 
   // 计算可用行业
   const availableSupplierIndustries = useMemo(() => {
     const industries = new Set<string>();
-    SUPPLIERS.forEach((s) => {
+    allSuppliers.forEach((s) => {
       const ind = pickLocale(locale, s.industryZh, s.industryEn);
       if (ind) industries.add(ind);
     });
     return Array.from(industries);
-  }, [locale]);
+  }, [locale, allSuppliers]);
 
   // 筛选供应商
   const filteredSuppliers = useMemo(() => {
-    return SUPPLIERS.filter((sup) => {
+    return allSuppliers.filter((sup) => {
       const name = pickLocale(locale, sup.nameZh, sup.nameEn);
       const matchesSearch =
         !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -48,7 +70,7 @@ export default function SupplierPage() {
 
       return matchesSearch && matchesSubTab && matchesIndustry && matchesUngmCode;
     });
-  }, [locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
+  }, [allSuppliers, locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
 
   const handleAiMatch = (supplier: Supplier) => {
     navigate("/crm");
@@ -114,6 +136,14 @@ export default function SupplierPage() {
             title="仅适用于国外供应商8位分类码匹配"
           />
         </div>
+
+        <button
+          onClick={() => setShowRegisterModal(true)}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800 md:w-auto"
+        >
+          <Store className="h-4 w-4" />
+          {t("supplierRegOpenBtn")}
+        </button>
       </div>
 
       {/* Suppliers Grid cards view */}
@@ -133,6 +163,13 @@ export default function SupplierPage() {
           </div>
         )}
       </div>
+
+      {showRegisterModal && (
+        <SupplierRegisterModal
+          onClose={() => setShowRegisterModal(false)}
+          onRegistered={loadCustomSuppliers}
+        />
+      )}
     </div>
   );
 }

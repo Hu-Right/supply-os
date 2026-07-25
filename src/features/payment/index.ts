@@ -13,7 +13,7 @@ export { usePayment } from "./hooks/usePayment";
 export type { UsePaymentOptions, UsePaymentReturn, PaymentStep } from "./hooks/usePayment";
 export { useOrderHistory } from "./hooks/useOrderHistory";
 export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
-export { default as MyPurchasesPage } from "./pages/MyPurchasesPage";
+export { MyRecordsPanel } from "./components/MyRecordsPanel";
 export { fetchOrders, fetchUnlocks } from "./api";
 export type {
   OrderInfo,

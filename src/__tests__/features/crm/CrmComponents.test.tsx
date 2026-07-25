@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { StatsCards } from "@/features/crm/components/StatsCards";
 import { OpportunityList } from "@/features/crm/components/OpportunityList";
 import { LeadTracker } from "@/features/crm/components/LeadTracker";
@@ -117,6 +117,7 @@ const trackerLabels = {
   logPlaceholder: "输入跟进内容...",
   leadPhase: "阶段",
   saveToCRM: "保存到CRM",
+  saveFailed: "录入失败",
 };
 
 const panelLabels = {
@@ -126,6 +127,7 @@ const panelLabels = {
   logPlaceholder: "输入跟进内容...",
   leadPhase: "阶段",
   saveToCRM: "保存",
+  saveFailed: "录入失败",
 };
 
 describe("StatsCards", () => {
@@ -188,14 +190,14 @@ describe("LeadTracker", () => {
 
   it("shows loading text when isLoading is true", () => {
     render(
-      <LeadTracker leads={[]} isLoading={true} labels={trackerLabels} />
+      <LeadTracker leads={[]} isLoading={true} onSubmitLog={vi.fn()} labels={trackerLabels} />
     );
     expect(screen.getByText("加载中...")).toBeInTheDocument();
   });
 
   it("renders lead cards when data is available", () => {
     render(
-      <LeadTracker leads={mockLeads} isLoading={false} labels={trackerLabels} />
+      <LeadTracker leads={mockLeads} isLoading={false} onSubmitLog={vi.fn()} labels={trackerLabels} />
     );
     expect(screen.getByText("北京精密机械有限公司")).toBeInTheDocument();
     expect(screen.getByText("上海生物科技有限公司")).toBeInTheDocument();
@@ -203,7 +205,7 @@ describe("LeadTracker", () => {
 
   it("opens FollowUpLogPanel when clicking a lead card", () => {
     render(
-      <LeadTracker leads={mockLeads} isLoading={false} labels={trackerLabels} />
+      <LeadTracker leads={mockLeads} isLoading={false} onSubmitLog={vi.fn()} labels={trackerLabels} />
     );
     fireEvent.click(screen.getByText("北京精密机械有限公司"));
     // After clicking, the FollowUpLogPanel should appear with editingLead label
@@ -221,21 +223,35 @@ describe("FollowUpLogPanel", () => {
 
   it("renders follow-up form with textarea and submit button", () => {
     render(
-      <FollowUpLogPanel lead={mockLead} onClose={onClose} labels={panelLabels} />
+      <FollowUpLogPanel lead={mockLead} onClose={onClose} onSubmit={vi.fn().mockResolvedValue(mockLead)} labels={panelLabels} />
     );
     expect(screen.getByPlaceholderText("输入跟进内容...")).toBeInTheDocument();
     expect(screen.getByText("保存")).toBeInTheDocument();
   });
 
-  it("clears textarea after form submit", () => {
+  it("clears textarea after successful form submit", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(mockLead);
     render(
-      <FollowUpLogPanel lead={mockLead} onClose={onClose} labels={panelLabels} />
+      <FollowUpLogPanel lead={mockLead} onClose={onClose} onSubmit={onSubmit} labels={panelLabels} />
     );
     const textarea = screen.getByPlaceholderText("输入跟进内容...");
     fireEvent.change(textarea, { target: { value: "新的跟进记录" } });
     expect((textarea as HTMLTextAreaElement).value).toBe("新的跟进记录");
-    
+
     fireEvent.submit(textarea.closest("form")!);
-    expect((textarea as HTMLTextAreaElement).value).toBe("");
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(mockLead.id, "新的跟进记录", mockLead.status));
+    await waitFor(() => expect((textarea as HTMLTextAreaElement).value).toBe(""));
+  });
+
+  it("keeps input and shows error when submit fails", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(null);
+    render(
+      <FollowUpLogPanel lead={mockLead} onClose={onClose} onSubmit={onSubmit} labels={panelLabels} />
+    );
+    const textarea = screen.getByPlaceholderText("输入跟进内容...");
+    fireEvent.change(textarea, { target: { value: "失败的记录" } });
+    fireEvent.submit(textarea.closest("form")!);
+    await waitFor(() => expect(screen.getByText("录入失败")).toBeInTheDocument());
+    expect((textarea as HTMLTextAreaElement).value).toBe("失败的记录");
   });
 });

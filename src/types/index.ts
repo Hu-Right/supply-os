@@ -25,5 +25,5 @@ export type {
   PaymentNotifyResult,
   PaymentProviderConfig,
 } from "./payment";
-export type { NoticeItem, NoticeResponse } from "./procurement";
+export type { NoticeItem, NoticeContact, NoticeAttachment, NoticeResponse } from "./procurement";
 export type { MembershipPlan, MembershipStatus } from "./membership";

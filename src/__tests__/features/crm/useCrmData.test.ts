@@ -9,6 +9,11 @@ vi.mock("@/core/i18n", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
 }));
 
+// ── Mock useAuth ──
+vi.mock("@/core/auth", () => ({
+  useAuth: () => ({ authUser: { email: "ops@example.com" } }),
+}));
+
 // ── Mock useAiMatch ──
 const mockTriggerMatch = vi.fn();
 const mockSetSelectedSupplier = vi.fn();

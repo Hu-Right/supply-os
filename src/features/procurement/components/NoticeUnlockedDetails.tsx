@@ -8,7 +8,7 @@
  *              external links and supplementary meta info.
  */
 
-import { FileText, Link2, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { ExternalLink, FileText, Link2, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 
@@ -38,7 +38,11 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   const { t } = useLocale();
 
   const contacts = (notice.contacts as RawContact[] | undefined) || [];
-  const keyContacts = (notice.key_contacts as RawContact[] | undefined) || [];
+  // key_contacts 兼容字符串（整体文本）与对象数组两种形态
+  const rawKeyContacts = notice.key_contacts;
+  const keyContactsText = typeof rawKeyContacts === "string" ? rawKeyContacts : "";
+  const keyContacts: RawContact[] =
+    typeof rawKeyContacts === "string" ? [] : (rawKeyContacts as RawContact[] | undefined) || [];
   const documents = (notice.documents as RawAttachment[] | undefined) || [];
   const procurementFiles = (notice.procurement_files as RawAttachment[] | undefined) || [];
   const externalLinks = (notice.external_links as RawAttachment[] | undefined) || [];
@@ -56,9 +60,22 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
     documents.length > 0 ||
     procurementFiles.length > 0 ||
     externalLinks.length > 0 ||
-    metaRows.length > 0;
+    metaRows.length > 0 ||
+    !!keyContactsText ||
+    !!notice.url;
 
   if (!hasContent) return null;
+
+  const bidDifficulty = notice.difficulty || t("procurement_bidPendingEval");
+  const bidRegistration = notice.registration_level || t("procurement_bidPendingConfirm");
+  const bidBudget = notice.estimated_value || t("procurement_bidUndisclosed");
+  const bidDeadline = notice.deadline || t("procurement_noDeadline");
+  const bidCodes =
+    (notice.unspsc_codes || [])
+      .map((code) => code.code)
+      .filter(Boolean)
+      .slice(0, 4)
+      .join(", ") || t("procurement_bidPendingSupplement");
 
   return (
     <div className="rounded-xl border border-teal-200 bg-teal-50/40 p-4 space-y-4">
@@ -75,6 +92,30 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
               <p className="font-bold text-slate-800 mt-1 break-words">{value}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {notice.url && (
+        <div>
+          <p className="text-xs font-black text-slate-500 uppercase mb-2">{t("procurement_originalLink")}</p>
+          <a
+            href={notice.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:underline break-all"
+          >
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+            {t("procurement_openNotice")}
+          </a>
+        </div>
+      )}
+
+      {keyContactsText && (
+        <div>
+          <p className="text-xs font-black text-slate-500 uppercase mb-2">{t("procurement_keyContacts")}</p>
+          <p className="bg-white border border-slate-100 rounded-lg p-3 text-xs text-slate-700 leading-6 whitespace-pre-line break-words">
+            {keyContactsText}
+          </p>
         </div>
       )}
 
@@ -134,6 +175,25 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
         actionLabel={t("procurement_openLink")}
         icon="link"
       />
+
+      <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
+        <p className="font-black text-slate-900 mb-2 flex items-center gap-1.5">
+          <ListChecks className="w-3.5 h-3.5 text-teal-600" />
+          {t("procurement_bidBreakdownTitle")}
+        </p>
+        <ul className="list-disc pl-4 space-y-1.5 leading-6 text-slate-600">
+          <li>
+            {t("procurement_bidUrgency")}：{bidDifficulty}；{t("procurement_bidRegBar")}：{bidRegistration}。
+          </li>
+          <li>
+            {t("procurement_bidBudgetRef")}：{bidBudget}；{t("procurement_bidDeadline")}：{bidDeadline}。
+          </li>
+          <li>
+            {t("procurement_bidCodes")}：{bidCodes}。
+          </li>
+          <li>{t("procurement_bidNextStep")}</li>
+        </ul>
+      </div>
     </div>
   );
 }

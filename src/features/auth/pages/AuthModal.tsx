@@ -9,9 +9,11 @@
 
 import { useState } from "react";
 import { Crown, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { MyRecordsPanel } from "@/features/payment";
 
 type AuthModalProps = {
   onClose: () => void;
@@ -20,6 +22,13 @@ type AuthModalProps = {
 export function AuthModal({ onClose }: AuthModalProps) {
   const { t } = useLocale();
   const { authUser, isVip, login, register, logout, claimMessage } = useAuth();
+  const navigate = useNavigate();
+
+  // 打开关联公告：先关闭账户弹窗再跳转到公采页
+  const openNotice = (noticeId: number) => {
+    onClose();
+    navigate(`/procurement?notice_id=${noticeId}`);
+  };
 
   // Local UI state
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -154,6 +163,9 @@ export function AuthModal({ onClose }: AuthModalProps) {
                   {claimMessage}
                 </p>
               )}
+              <div className="rounded-xl border border-slate-200 p-4">
+                <MyRecordsPanel onOpenNotice={openNotice} />
+              </div>
               <button
                 onClick={logout}
                 className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"

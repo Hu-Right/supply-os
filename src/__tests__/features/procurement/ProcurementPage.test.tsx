@@ -364,4 +364,39 @@ describe("ProcurementPage", () => {
       expect(screen.getByText(/procurement_freeTrial/)).toBeInTheDocument();
     });
   });
+
+  // ── 21. Free-limit exhausted opens the embedded payment paywall panel ──
+  it("opens the payment paywall panel with plans when non-VIP exhausts free detail views", async () => {
+    mockAuth.isVip = false;
+    mockFetchMembershipPlans.mockResolvedValue([
+      {
+        plan_code: "single_89",
+        name: "Single Unlock",
+        description: "One-off unlock",
+        price: 89,
+        currency: "CNY",
+        unlock_quota: 1,
+        free_quota: 0,
+        plan_type: "single",
+      },
+    ]);
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockReturnValue("3");
+
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("procurement_detail").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText("procurement_detail")[0]);
+
+    await waitFor(() => {
+      // 付费面板标题 + 免费上限提示同时出现，套餐渲染进面板
+      expect(screen.getByText("procurement_products")).toBeInTheDocument();
+      expect(screen.getByText("procurement_freeLimit")).toBeInTheDocument();
+      expect(screen.getByText("Single Unlock")).toBeInTheDocument();
+    });
+
+    getItemSpy.mockRestore();
+  });
 });
