@@ -467,6 +467,8 @@ export default function ProcurementNoticesPool({ userKey, isVip, onRequireLogin,
     };
 
     applyPaymentReturn();
+    window.addEventListener("hashchange", applyPaymentReturn);
+    return () => window.removeEventListener("hashchange", applyPaymentReturn);
   }, [userKey, items]);
 
   useEffect(() => {

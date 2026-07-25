@@ -390,7 +390,7 @@ export default function App() {
     setIsTrainingRoute(false);
     setActiveTab(2);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#procurement?notice_id=${noticeId}`);
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    window.dispatchEvent(new Event("hashchange"));
   };
 
   // 硬编码套餐 fallback（API 不可用时使用）

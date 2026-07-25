@@ -41,14 +41,14 @@ function normalizeUnspscCodes(value: any) {
     }
     if (typeof item === "object") {
       const codeText = String(item.code || "");
-      const matches = codeText.match(/\d{8}/g) || [];
+      const matches = codeText.match(/\b\d{2}(?:\d{2}){0,3}\b/g) || [];
       for (const code of matches) {
         if (!found.has(code)) found.set(code, { code, name: String(item.name || item.description || "") });
       }
       if (matches.length === 0) Object.values(item).forEach(visit);
       return;
     }
-    const matches = String(item).match(/\d{8}/g) || [];
+    const matches = String(item).match(/\b\d{2}(?:\d{2}){0,3}\b/g) || [];
     for (const code of matches) {
       if (!found.has(code)) found.set(code, { code, name: "" });
     }
@@ -56,6 +56,321 @@ function normalizeUnspscCodes(value: any) {
 
   visit(source);
   return Array.from(found.values());
+}
+
+function normalizeContactRows(...sources: any[]) {
+  const rows: Array<{ name: string; title: string; email: string; phone: string }> = [];
+  const seen = new Set<string>();
+  const add = (contact: any) => {
+    if (!contact || typeof contact !== "object") return;
+    const email = String(contact.email || contact.mail || "").trim();
+    const phone = String(contact.phone || contact.tel || contact.telephone || "").trim();
+    const name = String(contact.name || contact.person || contact.contact || [contact.firstName, contact.lastName].filter(Boolean).join(" ")).trim();
+    const title = String(contact.title || contact.role || "").trim();
+    const key = `${email.toLowerCase()}|${phone}|${name.toLowerCase()}`;
+    if (key === "||" || seen.has(key)) return;
+    seen.add(key);
+    rows.push({ name, title, email, phone });
+  };
+
+  for (const source of sources) {
+    const list = Array.isArray(source) ? source : safeJson(source);
+    if (Array.isArray(list)) list.forEach(add);
+  }
+  return rows;
+}
+
+function extractContactsFromText(text: string) {
+  const emails = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi) || [];
+  const phones = text.match(/(?:\+?\d[\d\s().\-]{7,}\d)/g) || [];
+  const count = Math.max(emails.length, phones.length);
+  return Array.from({ length: count }).map((_, index) => ({
+    name: "",
+    title: "",
+    email: emails[index] || "",
+    phone: phones[index] || "",
+  }));
+}
+
+function normalizeDocumentRows(...sources: any[]) {
+  const rows: any[] = [];
+  const seen = new Set<string>();
+  const add = (doc: any) => {
+    if (!doc || typeof doc !== "object") return;
+    const url = String(doc.url || doc.href || doc.link || doc.downloadUrl || "").trim();
+    const name = String(doc.name || doc.title || doc.fileName || doc.filename || "").trim() || (url ? path.basename(url.split("?")[0]) : "");
+    const key = `${url.toLowerCase()}|${name.toLowerCase()}`;
+    if (key === "|" || seen.has(key)) return;
+    seen.add(key);
+    rows.push({ ...doc, url, name });
+  };
+
+  for (const source of sources) {
+    const list = Array.isArray(source) ? source : safeJson(source);
+    if (Array.isArray(list)) list.forEach(add);
+  }
+  return rows;
+}
+
+function preferValue(primary: any, fallback: any) {
+  if (primary === null || primary === undefined || primary === "") return fallback;
+  if (Array.isArray(primary) && primary.length === 0) return fallback;
+  return primary;
+}
+
+function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: any) {
+  const detailSource = opportunity ? "opportunity" : "notice";
+  const contacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
+  const mergedContacts = contacts.length > 0 ? contacts : extractContactsFromText(String(notice.description || ""));
+  const documents = normalizeDocumentRows(opportunity?.documents, notice.documents, notice.procurement_files);
+  const externalLinks = normalizeDocumentRows(opportunity?.external_links, notice.external_links);
+  const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes));
+  const agency = opportunity?.agency_full || opportunity?.agency || notice.agency_full || notice.agency || notice.organization || "";
+  const description = preferValue(opportunity?.description, notice.description);
+
+  return {
+    ...notice,
+    title: preferValue(opportunity?.title, notice.title),
+    notice_type: preferValue(opportunity?.notice_type, notice.notice_type),
+    reference: preferValue(opportunity?.reference, notice.reference),
+    country: preferValue(opportunity?.country, notice.country),
+    deadline: preferValue(opportunity?.deadline, notice.deadline),
+    deadline_ts: preferValue(opportunity?.deadline_ts, notice.deadline_ts),
+    estimated_value: preferValue(opportunity?.estimated_value, notice.estimated_value),
+    description,
+    description_cn: opportunity?.description_cn || "",
+    bid_overview: opportunity?.bid_overview || "",
+    supplier_conditions: opportunity?.supplier_conditions || "",
+    eligibility: opportunity?.eligibility || "",
+    technical_hurdles: opportunity?.technical_hurdles || "",
+    ai_products: safeJson(opportunity?.ai_products),
+    ai_analysis: safeJson(opportunity?.ai_analysis),
+    product_code: opportunity?.product_code || "",
+    agency,
+    agency_full: opportunity?.agency_full || notice.agency_full,
+    source_url: opportunity?.source_url || notice.url || "",
+    contacts: mergedContacts,
+    contact_methods: mergedContacts,
+    documents,
+    procurement_files: documents,
+    tender_documents: documents,
+    external_links: externalLinks,
+    unspsc_codes: unspscCodes,
+    core_info: {
+      notice_id: notice.notice_id || "",
+      opportunity_id: opportunity?.id || notice.converted_opp_id || null,
+      detail_source: detailSource,
+      reference: preferValue(opportunity?.reference, notice.reference) || "",
+      notice_type: preferValue(opportunity?.notice_type, notice.notice_type) || "",
+      agency,
+      country: preferValue(opportunity?.country, notice.country) || "",
+      deadline: preferValue(opportunity?.deadline, notice.deadline) || "",
+      estimated_value: preferValue(opportunity?.estimated_value, notice.estimated_value) || "",
+      registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",
+      unspsc_codes: unspscCodes,
+    },
+    opportunity_info: opportunity ? {
+      id: opportunity.id,
+      status: opportunity.status || "",
+      is_qualified: Number(opportunity.is_qualified || 0),
+      audit_status: opportunity.audit_status,
+      review_status: opportunity.review_status || "",
+      priority: opportunity.priority || "",
+    } : null,
+    core_locked: false,
+    unlock_type: unlock?.unlock_type,
+    unlocked_at: unlock?.unlocked_at,
+  };
+}
+
+function unspscPrefixFromCode(code: string) {
+  const digits = String(code || "").replace(/\D/g, "").slice(0, 8);
+  if (!digits) return "";
+  for (let len = 8; len > 2; len -= 2) {
+    if (digits.slice(len - 2, len) !== "00") return digits.slice(0, len);
+  }
+  return digits.slice(0, 2);
+}
+
+function unspscLevelColumnByPrefix(prefix: string) {
+  const length = String(prefix || "").length;
+  if (length <= 2) return "level1_id";
+  if (length <= 4) return "level2_id";
+  if (length <= 6) return "level3_id";
+  return "level4_id";
+}
+
+async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
+  if (!codeId) return { sql: "", params: [] as any[] };
+
+  const [codeRows] = await dbPool.query(
+    "SELECT id, code, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
+    [codeId]
+  );
+  const code = (codeRows as UnspscCodeRow[])[0];
+  if (!code) return { sql: "", params: [] as any[] };
+
+  const codeText = String(code.code || "");
+  if (/^[A-J]$/.test(codeText)) {
+    const [children] = await dbPool.query(
+      "SELECT code FROM crm_unspsc_codes WHERE parent_id = ? ORDER BY code",
+      [code.id]
+    );
+    const prefixes = (children as any[])
+      .map((row) => unspscPrefixFromCode(row.code))
+      .filter(Boolean);
+    if (prefixes.length === 0) return { sql: "", params: [] as any[] };
+    return {
+      sql: `INNER JOIN (
+        SELECT DISTINCT notice_id
+        FROM crm_bid_notice_unspsc_codes
+        WHERE level1_id IN (${prefixes.map(() => "?").join(",")})
+      ) filtered_notices ON filtered_notices.notice_id = n.id`,
+      params: prefixes,
+    };
+  }
+
+  const prefix = unspscPrefixFromCode(codeText);
+  if (!prefix) return { sql: "", params: [] as any[] };
+  const levelColumn = unspscLevelColumnByPrefix(prefix);
+  return {
+    sql: `INNER JOIN (
+      SELECT DISTINCT notice_id
+      FROM crm_bid_notice_unspsc_codes
+      WHERE ${levelColumn} = ?
+    ) filtered_notices ON filtered_notices.notice_id = n.id`,
+    params: [prefix],
+  };
+}
+
+function expandUnspscInterestPrefixes(code: string) {
+  const significant = unspscPrefixFromCode(code);
+  if (!significant) return [];
+  const prefixes: string[] = [];
+  for (let len = 2; len <= significant.length; len += 2) {
+    prefixes.push(significant.slice(0, len));
+  }
+  return Array.from(new Set(prefixes));
+}
+
+function padUnspscPrefix(prefix: string) {
+  return String(prefix || "").padEnd(8, "0").slice(0, 8);
+}
+
+async function persistUserInterestCodes(dbPool: any, userKey: string, snapshot: any[], source: string, weight: number) {
+  const prefixes = new Set<string>();
+  for (const item of snapshot) {
+    const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
+    expandUnspscInterestPrefixes(rawCode).forEach((prefix) => prefixes.add(prefix));
+  }
+
+  for (const prefix of prefixes) {
+    const [codeRows] = await dbPool.query(
+      "SELECT id, level FROM crm_unspsc_codes WHERE code IN (?, ?) ORDER BY CHAR_LENGTH(code) DESC LIMIT 1",
+      [prefix, padUnspscPrefix(prefix)]
+    );
+    const codeRow = (codeRows as UnspscCodeRow[])[0];
+    await dbPool.execute(
+      `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE weight = weight + VALUES(weight), updated_at = NOW()`,
+      [userKey, userKey, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
+    );
+  }
+}
+
+async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
+  const fields = `
+    id, source_notice_id, source_url, title, reference, notice_type, registration_level,
+    agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,
+    estimated_value, description, description_cn, bid_overview, supplier_conditions,
+    eligibility, technical_hurdles, industry, unspsc_codes, thresholds, difficulty,
+    contacts, documents, external_links, ai_products, ai_analysis, status, priority,
+    audit_status, review_status, is_qualified, product_code
+  `;
+  const qualifiedWhere = "(is_qualified = 1 OR status = 'won' OR audit_status = 1)";
+
+  if (Number(notice.converted_opp_id || 0) > 0) {
+    const [rows] = await dbPool.query(
+      `SELECT ${fields}
+       FROM crm_bid_opportunities
+       WHERE id = ? AND ${qualifiedWhere}
+       LIMIT 1`,
+      [Number(notice.converted_opp_id)]
+    );
+    if ((rows as any[])[0]) return (rows as any[])[0];
+  }
+
+  if (notice.notice_id) {
+    const [rows] = await dbPool.query(
+      `SELECT ${fields}
+       FROM crm_bid_opportunities
+       WHERE source_notice_id = ? AND ${qualifiedWhere}
+       ORDER BY is_qualified DESC, id DESC
+       LIMIT 1`,
+      [String(notice.notice_id)]
+    );
+    if ((rows as any[])[0]) return (rows as any[])[0];
+  }
+
+  if (notice.reference) {
+    const [rows] = await dbPool.query(
+      `SELECT ${fields}
+       FROM crm_bid_opportunities
+       WHERE reference = ? AND ${qualifiedWhere}
+       ORDER BY is_qualified DESC, id DESC
+       LIMIT 1`,
+      [String(notice.reference)]
+    );
+    if ((rows as any[])[0]) return (rows as any[])[0];
+  }
+
+  return null;
+}
+
+function mapUngmAppointmentRow(row: any): Lead {
+  return {
+    id: row.appointment_key,
+    companyName: row.company_name,
+    country: row.country || "China",
+    city: row.city || "Unknown",
+    contactPerson: row.contact_person,
+    contactMethod: row.contact_method,
+    email: row.email || "",
+    industry: row.industry || "Services",
+    mainProducts: "",
+    has国际公共采购Participation: false,
+    notes: row.consultation_needs || "",
+    type: "consulting_advisor",
+    status: row.status || "new",
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    followUpLogs: safeJson(row.follow_up_logs),
+  };
+}
+
+async function insertUngmAppointment(dbPool: any, lead: Lead, rawPayload: any, ip: string) {
+  await dbPool.execute(
+    `INSERT INTO ungm_1v1_appointments
+      (appointment_key, company_name, country, city, contact_person, contact_method, email, industry, consultation_needs, status, follow_up_logs, extra, raw_payload, ip, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      lead.id,
+      lead.companyName,
+      lead.country || "China",
+      lead.city || "Unknown",
+      lead.contactPerson,
+      lead.contactMethod,
+      lead.email || "",
+      lead.industry || "Services",
+      lead.notes || "",
+      lead.status || "new",
+      JSON.stringify(lead.followUpLogs || []),
+      JSON.stringify({ source: "consult_form", lead_type: "consulting_advisor" }),
+      JSON.stringify(rawPayload || {}),
+      ip,
+      new Date(lead.createdAt),
+    ]
+  );
 }
 
 function hashPassword(password: string) {
@@ -275,6 +590,30 @@ async function ensureProcurementSchema(dbPool: any) {
       ip VARCHAR(45) NULL,
       KEY idx_training_status (audit_status),
       KEY idx_training_contact (telephone, email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS ungm_1v1_appointments (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      appointment_key VARCHAR(190) NOT NULL UNIQUE,
+      company_name VARCHAR(255) NOT NULL,
+      country VARCHAR(120) NULL,
+      city VARCHAR(120) NULL,
+      contact_person VARCHAR(190) NOT NULL,
+      contact_method VARCHAR(190) NOT NULL,
+      email VARCHAR(190) NULL,
+      industry VARCHAR(190) NULL,
+      consultation_needs TEXT NULL,
+      status VARCHAR(30) NOT NULL DEFAULT 'new',
+      follow_up_logs JSON NULL,
+      extra JSON NULL,
+      raw_payload JSON NULL,
+      ip VARCHAR(80) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_ungm_1v1_status_created (status, created_at),
+      INDEX idx_ungm_1v1_contact_method (contact_method)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -638,12 +977,12 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
       [rawCode]
     );
     const codeRow = (codeRows as UnspscCodeRow[])[0];
-    const path = codeRow ? await getUnspscPath(dbPool, codeRow.id) : {
-      level1_id: null,
-      level2_id: null,
-      level3_id: null,
-      level4_id: null,
-      level5_id: null,
+    const path = {
+      level1_id: rawCode.length >= 2 ? rawCode.slice(0, 2) : null,
+      level2_id: rawCode.length >= 4 ? rawCode.slice(0, 4) : null,
+      level3_id: rawCode.length >= 6 ? rawCode.slice(0, 6) : null,
+      level4_id: rawCode.length >= 8 ? rawCode.slice(0, 8) : null,
+      level5_id: rawCode.length >= 10 ? rawCode.slice(0, 10) : null,
     };
 
     await dbPool.execute(
@@ -783,12 +1122,25 @@ async function startServer() {
   app.use(express.json());
 
   // 1. GET ALL LEADS
-  app.get("/api/leads", (req, res) => {
-    res.json(leadsDb);
+  app.get("/api/leads", async (_req, res) => {
+    try {
+      const [appointmentRows] = await dbPool.query(
+        `SELECT appointment_key, company_name, country, city, contact_person, contact_method, email, industry,
+                consultation_needs, status, follow_up_logs, created_at
+         FROM ungm_1v1_appointments
+         ORDER BY created_at DESC, id DESC
+         LIMIT 200`
+      );
+      const appointments = (appointmentRows as any[]).map(mapUngmAppointmentRow);
+      const persistedIds = new Set(appointments.map((lead) => lead.id));
+      res.json([...appointments, ...leadsDb.filter((lead) => !persistedIds.has(lead.id))]);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // 2. CREATE NEW LEAD (Automatically synchronized with CRM intake)
-  app.post("/api/leads", (req, res) => {
+  app.post("/api/leads", async (req, res) => {
     try {
       const {
         companyName,
@@ -832,6 +1184,9 @@ async function startServer() {
         ]
       };
 
+      if (newLead.type === "consulting_advisor") {
+        await insertUngmAppointment(dbPool, newLead, req.body, req.ip || req.socket?.remoteAddress || "");
+      }
       leadsDb.unshift(newLead);
       return res.status(201).json(newLead);
     } catch (err: any) {
@@ -840,32 +1195,52 @@ async function startServer() {
   });
 
   // 3. EDIT LEAD STATUS OR ADD ACTIONS Tracker LOG
-  app.post("/api/leads/log", (req, res) => {
+  app.post("/api/leads/log", async (req, res) => {
     const { leadId, content, author, nextStatus } = req.body;
     if (!leadId || !content) {
       return res.status(400).json({ error: "Missing leadId or content log parameter" });
     }
 
     const lead = leadsDb.find((l) => l.id === leadId);
+    let persistedLead: Lead | null = null;
     if (!lead) {
-      return res.status(404).json({ error: "Lead not found" });
+      const [appointmentRows] = await dbPool.query(
+        `SELECT appointment_key, company_name, country, city, contact_person, contact_method, email, industry,
+                consultation_needs, status, follow_up_logs, created_at
+         FROM ungm_1v1_appointments
+         WHERE appointment_key = ?
+         LIMIT 1`,
+        [leadId]
+      );
+      persistedLead = (appointmentRows as any[])[0] ? mapUngmAppointmentRow((appointmentRows as any[])[0]) : null;
+      if (!persistedLead) {
+        return res.status(404).json({ error: "Lead not found" });
+      }
     }
 
-    if (!lead.followUpLogs) {
-      lead.followUpLogs = [];
+    const targetLead = lead || persistedLead!;
+    if (!targetLead.followUpLogs) {
+      targetLead.followUpLogs = [];
     }
 
-    lead.followUpLogs.push({
+    targetLead.followUpLogs.push({
       date: new Date().toISOString().substring(0, 16).replace("T", " "),
       content,
       author: author || "Operator"
     });
 
     if (nextStatus) {
-      lead.status = nextStatus;
+      targetLead.status = nextStatus;
     }
 
-    return res.json(lead);
+    if (targetLead.type === "consulting_advisor") {
+      await dbPool.execute(
+        "UPDATE ungm_1v1_appointments SET follow_up_logs = ?, status = ?, updated_at = NOW() WHERE appointment_key = ?",
+        [JSON.stringify(targetLead.followUpLogs), targetLead.status, leadId]
+      );
+    }
+
+    return res.json(targetLead);
   });
 
   // 4. GET REGISTERED SUPPLIERS (Combined default + Custom user ones)
@@ -874,7 +1249,7 @@ async function startServer() {
   });
 
   // 5. POST REGISTER NEW SUPPLIER
-  app.post("/api/suppliers", (req, res) => {
+  app.post("/api/suppliers", async (req, res) => {
     const {
       nameZh,
       nameEn,
@@ -1504,20 +1879,9 @@ async function startServer() {
       const idFilterParams: any[] = [];
 
       if (codeId) {
-        const [codeRows] = await dbPool.query(
-          "SELECT id, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
-          [codeId]
-        );
-        const code = (codeRows as UnspscCodeRow[])[0];
-        if (code && code.level >= 1 && code.level <= 5) {
-          const levelColumn = `level${code.level}_id`;
-          idFilterSql = `INNER JOIN (
-            SELECT DISTINCT notice_id
-            FROM crm_bid_notice_unspsc_codes
-            WHERE ${levelColumn} = ?
-          ) filtered_notices ON filtered_notices.notice_id = n.id`;
-          idFilterParams.push(code.id);
-        }
+        const filter = await buildNoticeUnspscFilter(dbPool, codeId);
+        idFilterSql = filter.sql;
+        idFilterParams.push(...filter.params);
       }
 
       const whereSql = where.join(" AND ");
@@ -1572,6 +1936,96 @@ async function startServer() {
         [userKey]
       );
       res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/notices/recommended", async (req, res) => {
+    try {
+      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const page = Math.max(1, Number(req.query.page || 1));
+      const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
+      const offset = (page - 1) * pageSize;
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+
+      const [interestRows] = await dbPool.query(
+        `SELECT code, level, SUM(weight) AS weight, MAX(updated_at) AS last_update
+         FROM crm_user_interest_codes
+         WHERE user_key = ?
+         GROUP BY code, level
+         ORDER BY weight DESC, last_update DESC
+         LIMIT 80`,
+        [userKey]
+      );
+      const interestByLevel: Record<number, string[]> = { 1: [], 2: [], 3: [], 4: [] };
+      for (const row of interestRows as any[]) {
+        const level = Math.min(4, Math.max(1, Number(row.level || 1)));
+        const code = String(row.code || "").trim();
+        if (code) interestByLevel[level].push(code);
+      }
+
+      const clauses: string[] = [];
+      const params: any[] = [];
+      const addClause = (level: number, column: string) => {
+        const codes = Array.from(new Set(interestByLevel[level] || []));
+        if (codes.length === 0) return;
+        clauses.push(`b.${column} IN (${codes.map(() => "?").join(",")})`);
+        params.push(...codes);
+      };
+      addClause(1, "level1_id");
+      addClause(2, "level2_id");
+      addClause(3, "level3_id");
+      addClause(4, "level4_id");
+
+      if (clauses.length === 0) {
+        return res.json({ items: [], total: 0, page, pageSize });
+      }
+
+      const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
+      const [countRows] = await dbPool.query(
+        `SELECT COUNT(DISTINCT n.id) AS total
+         FROM crm_bid_notices n
+         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
+         WHERE (${bridgeWhere}) AND (n.is_expired = 0 OR n.is_expired IS NULL)`,
+        params
+      );
+      const [rows] = await dbPool.query(
+        `SELECT
+           n.id,
+           n.notice_id,
+           n.reference,
+           n.title,
+           n.notice_type,
+           n.country,
+           n.deadline,
+           n.deadline_ts,
+           n.estimated_value,
+           n.description,
+           COUNT(DISTINCT b.code) AS match_score
+         FROM crm_bid_notices n
+         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
+         WHERE (${bridgeWhere}) AND (n.is_expired = 0 OR n.is_expired IS NULL)
+         GROUP BY n.id
+         ORDER BY match_score DESC, (n.deadline_ts IS NULL), n.deadline_ts, n.id DESC
+         LIMIT ? OFFSET ?`,
+        [...params, pageSize, offset]
+      );
+
+      res.json({
+        items: (rows as any[]).map((row) => ({
+          ...row,
+          match_score: Number(row.match_score || 0),
+          agency: null,
+          organization: null,
+          source_url: null,
+          unspsc_codes: [],
+          core_locked: true,
+        })),
+        total: Number((countRows as any[])[0]?.total || 0),
+        page,
+        pageSize,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1663,6 +2117,7 @@ async function startServer() {
     try {
       const tables = [
         "crm_users",
+        "ungm_1v1_appointments",
         "crm_membership_plans",
         "crm_user_subscriptions",
         "crm_payment_orders",
@@ -1684,6 +2139,7 @@ async function startServer() {
       const existing = new Set((rows as any[]).map((row) => row.table_name));
       const requiredColumns: Record<string, string[]> = {
         crm_users: ["user_key", "email", "display_name", "password_hash", "membership_tier", "supplier_id", "supplier_link_status"],
+        ungm_1v1_appointments: ["appointment_key", "company_name", "contact_person", "contact_method", "consultation_needs", "status", "extra", "raw_payload"],
         crm_membership_plans: ["plan_code", "name", "price", "unlock_quota", "free_quota", "plan_type", "is_active"],
         crm_user_subscriptions: ["user_id", "user_key", "plan_code", "status", "started_at", "expires_at"],
         crm_payment_orders: ["user_id", "order_no", "user_key", "provider", "plan_code", "notice_id", "amount", "status", "pay_url", "raw_request", "raw_notify", "paid_at"],
@@ -1935,7 +2391,9 @@ async function startServer() {
            difficulty,
            registration_level,
            key_contacts,
-           unspsc_codes
+           unspsc_codes,
+           converted_opp_id,
+           is_converted
          FROM crm_bid_notices
          WHERE id = ?
          LIMIT 1`,
@@ -1943,19 +2401,9 @@ async function startServer() {
       );
       const notice = (noticeRows as any[])[0];
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+      const opportunity = await findQualifiedOpportunityForNotice(dbPool, notice);
 
-      res.json({
-        ...notice,
-        agency: notice.agency_full || notice.agency || notice.organization,
-        contacts: safeJson(notice.contacts),
-        documents: safeJson(notice.documents),
-        procurement_files: safeJson(notice.procurement_files),
-        external_links: safeJson(notice.external_links),
-        unspsc_codes: normalizeUnspscCodes(notice.unspsc_codes),
-        core_locked: false,
-        unlock_type: unlock.unlock_type,
-        unlocked_at: unlock.unlocked_at,
-      });
+      res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2031,21 +2479,7 @@ async function startServer() {
         );
       }
 
-      for (const item of snapshot) {
-        const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
-        if (!rawCode) continue;
-        const [codeRows] = await dbPool.query(
-          "SELECT id, level FROM crm_unspsc_codes WHERE code = ? LIMIT 1",
-          [rawCode]
-        );
-        const codeRow = (codeRows as UnspscCodeRow[])[0];
-        await dbPool.execute(
-          `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 'unlock_order', 2.50)
-           ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
-          [userKey, userKey, codeRow?.id || null, rawCode, codeRow?.level || 1]
-        );
-      }
+      await persistUserInterestCodes(dbPool, userKey, snapshot, "unlock_order", 2.50);
 
       res.status(201).json({ success: true, unlock_type: unlockType });
     } catch (err: any) {
@@ -2076,21 +2510,13 @@ async function startServer() {
       );
 
       const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
-      for (const item of snapshot) {
-        const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
-        if (!rawCode) continue;
-        const [codeRows] = await dbPool.query(
-          "SELECT id, level FROM crm_unspsc_codes WHERE code = ? LIMIT 1",
-          [rawCode]
-        );
-        const codeRow = (codeRows as UnspscCodeRow[])[0];
-        await dbPool.execute(
-          `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE weight = weight + VALUES(weight), updated_at = NOW()`,
-          [userKey, userKey, codeRow?.id || null, rawCode, codeRow?.level || 1, interestType === "subscribed" ? "subscribe_notice" : "express_interest", interestType === "subscribed" ? 2.0 : 1.0]
-        );
-      }
+      await persistUserInterestCodes(
+        dbPool,
+        userKey,
+        snapshot,
+        interestType === "subscribed" ? "subscribe_notice" : "express_interest",
+        interestType === "subscribed" ? 2.0 : 1.0
+      );
 
       res.status(201).json({ success: true, interest_type: interestType });
     } catch (err: any) {
