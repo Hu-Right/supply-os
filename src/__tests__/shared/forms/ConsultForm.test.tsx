@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { ConsultForm } from "@/shared/forms/ConsultForm";
 
 // Mock useLocale
@@ -19,13 +19,25 @@ describe("ConsultForm", () => {
     global.fetch = vi.fn();
   });
 
-  it("renders form fields", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // 填齐全部必填字段（企业名/对接人/手机，required 对齐远端）
+  const fillRequired = () => {
+    fireEvent.change(screen.getByPlaceholderText("consultCompanyPlaceholder"), { target: { value: "Test Corp" } });
+    fireEvent.change(screen.getByPlaceholderText("consultPersonPlaceholder"), { target: { value: "林经理" } });
+    fireEvent.change(screen.getByPlaceholderText("consultPhonePlaceholder"), { target: { value: "13800138000" } });
+  };
+
+  it("renders form fields (remote-aligned layout)", () => {
     render(<ConsultForm onClose={onClose} />);
-    expect(screen.getByText("consultFormTitle")).toBeInTheDocument();
-    expect(screen.getByText("consultFieldName")).toBeInTheDocument();
-    expect(screen.getByText("consultFieldEmail")).toBeInTheDocument();
-    expect(screen.getByText("consultFieldPhone")).toBeInTheDocument();
-    expect(screen.getByText("consultFieldMessage")).toBeInTheDocument();
+    expect(screen.getByText("consultTitle")).toBeInTheDocument();
+    expect(screen.getByText("formConsultCompany")).toBeInTheDocument();
+    expect(screen.getByText("consultFormContactName")).toBeInTheDocument();
+    expect(screen.getByText("consultFormPhone")).toBeInTheDocument();
+    expect(screen.getByText("formConsultNeeds")).toBeInTheDocument();
+    expect(screen.getByText("cancel")).toBeInTheDocument();
     expect(screen.getByText("consultSubmitBtn")).toBeInTheDocument();
   });
 
@@ -37,43 +49,69 @@ describe("ConsultForm", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("submits form and shows success on 200", async () => {
-    (global.fetch as any).mockResolvedValue({ ok: true });
+  it("calls onClose when cancel button is clicked", () => {
+    render(<ConsultForm onClose={onClose} />);
+    fireEvent.click(screen.getByText("cancel"));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("submits lead to /api/leads and shows booked view on 200", async () => {
+    (global.fetch as any).mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
 
     render(<ConsultForm onClose={onClose} />);
+    fillRequired();
+    fireEvent.change(screen.getByPlaceholderText("consultNotesPlaceholder"), { target: { value: "医疗包装出海" } });
 
-    // Fill required fields: name, email, message
-    const inputs = screen.getAllByRole("textbox");
-    fireEvent.change(inputs[0], { target: { value: "John" } });
-    fireEvent.change(inputs[1], { target: { value: "john@test.com" } });
-    const textareas = document.querySelectorAll("textarea");
-    fireEvent.change(textareas[0], { target: { value: "Hello" } });
-
-    // Submit
     fireEvent.click(screen.getByText("consultSubmitBtn"));
 
     await waitFor(() => {
-      expect(screen.getByText("consultSubmitSuccess")).toBeInTheDocument();
+      expect(screen.getByText("consultBookedTitle")).toBeInTheDocument();
     });
+    expect(screen.getByText("consultBookedDesc")).toBeInTheDocument();
 
-    expect(global.fetch).toHaveBeenCalledWith("/api/consult", expect.objectContaining({
-      method: "POST",
-    }));
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/leads",
+      expect.objectContaining({ method: "POST" }),
+    );
+    const body = JSON.parse((global.fetch as any).mock.calls[0][1].body);
+    expect(body).toMatchObject({
+      companyName: "Test Corp",
+      contactPerson: "林经理",
+      contactMethod: "13800138000",
+      type: "consulting_advisor",
+      industry: "Services",
+    });
+    expect(body.notes).toContain("[咨询顾问申请]");
+    expect(body.notes).toContain("医疗包装出海");
+  });
+
+  it("auto-closes 2.2 seconds after successful submit", async () => {
+    vi.useFakeTimers();
+    (global.fetch as any).mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+
+    render(<ConsultForm onClose={onClose} />);
+    fillRequired();
+    fireEvent.click(screen.getByText("consultSubmitBtn"));
+
+    // 刷微任务让异步提交完成
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText("consultBookedTitle")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(2200);
+    });
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("shows error alert on failed submit", async () => {
-    (global.fetch as any).mockResolvedValue({ ok: false });
+    (global.fetch as any).mockResolvedValue({ ok: false, json: async () => ({}) });
     vi.spyOn(window, "alert").mockImplementation(() => {});
 
     render(<ConsultForm onClose={onClose} />);
-
-    // Fill required fields and submit
-    const inputs = screen.getAllByRole("textbox");
-    fireEvent.change(inputs[0], { target: { value: "John" } });
-    fireEvent.change(inputs[1], { target: { value: "john@test.com" } });
-    const textareas = document.querySelectorAll("textarea");
-    fireEvent.change(textareas[0], { target: { value: "msg" } });
-
+    fillRequired();
     fireEvent.click(screen.getByText("consultSubmitBtn"));
 
     await waitFor(() => {

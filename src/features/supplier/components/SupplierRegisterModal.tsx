@@ -3,13 +3,15 @@
  * Supplier Self-Registration Modal
  *
  * @module features/supplier/components/SupplierRegisterModal
- * @description 供应商自助入驻表单弹窗，字段对齐远端并提交 POST /api/suppliers
- *              Supplier self-registration form modal, fields aligned with the
- *              remote implementation, submits to POST /api/suppliers.
+ * @description 供应商自助入驻表单弹窗，UI 对齐原版 OVERLAY B（label 式表单 +
+ *              隐藏默认值 + 行业下拉），提交 POST /api/suppliers。
+ *              Supplier self-registration form modal aligned with the original
+ *              OVERLAY B (labeled form + hidden defaults + industry select),
+ *              submits to POST /api/suppliers.
  */
 
 import { useState } from "react";
-import { CheckCircle2, Store, X } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
 
@@ -19,23 +21,25 @@ type SupplierRegisterModalProps = {
   onRegistered?: () => void;
 };
 
+// 原版表单不展示行业外的地域/合规字段，提交时携带隐藏默认值
 const EMPTY_FORM: SupplierRegisterInput = {
   nameZh: "",
   nameEn: "",
   type: "domestic",
-  industryZh: "",
-  countryZh: "",
+  industryZh: "机械",
+  countryZh: "中国",
   cityZh: "",
   ungmCode: "",
   mainProductsZh: "",
-  complianceLabelsZh: "",
+  complianceLabelsZh: "ISO9001, CE认证",
   contactPerson: "",
   contactEmail: "",
   contactPhone: "",
 };
 
-const inputClass =
-  "w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500";
+const labelClass = "block text-xs font-extrabold text-slate-700 mb-1";
+const inputClass = "w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200";
+const selectClass = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs";
 
 export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegisterModalProps) {
   const { t } = useLocale();
@@ -53,7 +57,12 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
     setError("");
 
     // 必填校验以受控状态为准（浏览器自动填充下 DOM el.value 可能为空串）。
-    if (!form.nameZh.trim() || !form.contactPerson.trim() || !form.contactEmail.trim()) {
+    if (
+      !form.nameZh.trim() ||
+      !form.contactPerson.trim() ||
+      !form.contactEmail.trim() ||
+      !form.mainProductsZh.trim()
+    ) {
       setError(t("formError"));
       return;
     }
@@ -63,6 +72,8 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
       await registerSupplier(form);
       setSubmitted(true);
       onRegistered?.();
+      // 对齐原版 fetchData()：通知 CRM 模块刷新线索池与自定义供应商
+      window.dispatchEvent(new CustomEvent("supply-os:crm-refresh"));
       // 成功态展示 3 秒后自动关闭
       setTimeout(() => {
         onClose();
@@ -75,38 +86,36 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-xs flex justify-center items-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl border border-slate-200">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200">
         {/* Header */}
-        <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-start">
+        <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-black text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-1 mb-2">
-              <Store className="w-3.5 h-3.5" />
-              {t("supplierRegSubmitBtn")}
-            </div>
-            <h3 className="text-lg font-extrabold">{t("supplierRegTitle")}</h3>
-            <p className="text-xs text-slate-400 mt-1">{t("supplierRegDesc")}</p>
+            <h3 className="text-base font-extrabold">{t("supplierRegTitle")}</h3>
+            <p className="text-[10px] text-slate-400">{t("supplierRegDesc")}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
-          >
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 overflow-y-auto max-h-[calc(90vh-88px)]">
-          {submitted ? (
-            <div className="flex flex-col items-center gap-3 py-10 text-center">
-              <CheckCircle2 className="w-12 h-12 text-teal-500" />
-              <p className="text-sm font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-4 py-3">
-                {t("supplierRegSuccess")}
-              </p>
+        {submitted ? (
+          <div className="p-8 text-center space-y-4">
+            <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <h4 className="text-base font-bold text-slate-800">{t("formSuccess")}</h4>
+            <p className="text-xs text-slate-500">
+              {t("supplierRegSuccessBefore")}
+              <strong>pending</strong>
+              {t("supplierRegSuccessAfter")}
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>{t("supplierRegNameZhLabel")}</label>
                 <input
                   type="text"
                   value={form.nameZh}
@@ -114,6 +123,10 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
                   placeholder={t("supplierNameZhPlaceholder")}
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className={labelClass}>{t("supplierRegNameEnLabel")}</label>
                 <input
                   type="text"
                   value={form.nameEn}
@@ -121,95 +134,110 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
                   placeholder={t("supplierNameEnPlaceholder")}
                   className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className={labelClass}>{t("supplierRegTypeLabel")}</label>
                 <select
                   value={form.type}
                   onChange={(e) => setField("type", e.target.value as SupplierRegisterInput["type"])}
-                  className={inputClass}
+                  className={selectClass}
                 >
                   <option value="domestic">{t("supplierTypeDomestic")}</option>
                   <option value="international">{t("supplierTypeIntl")}</option>
                 </select>
-                <input
-                  type="text"
-                  value={form.industryZh}
-                  onChange={(e) => setField("industryZh", e.target.value)}
-                  placeholder={t("supplierIndustryPlaceholder")}
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={form.countryZh}
-                  onChange={(e) => setField("countryZh", e.target.value)}
-                  placeholder={t("supplierCountryPlaceholder")}
-                  className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={form.cityZh}
-                  onChange={(e) => setField("cityZh", e.target.value)}
-                  placeholder={t("supplierCityPlaceholder")}
-                  className={inputClass}
-                />
+              </div>
+
+              <div>
+                <label className={labelClass}>{t("supplierRegUngmLabel")}</label>
                 <input
                   type="text"
                   value={form.ungmCode}
                   onChange={(e) => setField("ungmCode", e.target.value)}
                   placeholder={t("supplierUnspscPlaceholder")}
-                  className="sm:col-span-2 px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className={inputClass}
                 />
+              </div>
+
+              <div>
+                <label className={labelClass}>{t("supplierRegIndustryLabel")}</label>
+                <select
+                  value={form.industryZh}
+                  onChange={(e) => setField("industryZh", e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="机械">{t("industryOptionMachinery")}</option>
+                  <option value="电子">{t("industryOptionElectronics")}</option>
+                  <option value="建材">{t("industryOptionConstruction")}</option>
+                  <option value="医疗">{t("industryOptionMedical")}</option>
+                  <option value="化工">{t("industryOptionChemical")}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>{t("supplierRegContactLabel")}</label>
+                <input
+                  type="text"
+                  value={form.contactPerson}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      contactPerson: e.target.value,
+                      contactPhone: e.target.value,
+                    }))
+                  }
+                  placeholder={t("supplierContactPlaceholder")}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelClass}>{t("supplierRegEmailLabel")}</label>
+                <input
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={(e) => setField("contactEmail", e.target.value)}
+                  placeholder={t("supplierRegEmailPlaceholder")}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelClass}>{t("supplierRegProductsLabel")}</label>
                 <input
                   type="text"
                   value={form.mainProductsZh}
                   onChange={(e) => setField("mainProductsZh", e.target.value)}
                   placeholder={t("supplierProductsPlaceholder")}
-                  className="sm:col-span-2 px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                />
-                <input
-                  type="text"
-                  value={form.complianceLabelsZh}
-                  onChange={(e) => setField("complianceLabelsZh", e.target.value)}
-                  placeholder={t("supplierCompliancePlaceholder")}
-                  className="sm:col-span-2 px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                />
-                <input
-                  type="text"
-                  value={form.contactPerson}
-                  onChange={(e) => setField("contactPerson", e.target.value)}
-                  placeholder={t("supplierContactPlaceholder")}
                   className={inputClass}
-                />
-                <input
-                  type="text"
-                  value={form.contactPhone}
-                  onChange={(e) => setField("contactPhone", e.target.value)}
-                  placeholder={t("supplierContactPhonePlaceholder")}
-                  className={inputClass}
-                />
-                <input
-                  type="email"
-                  value={form.contactEmail}
-                  onChange={(e) => setField("contactEmail", e.target.value)}
-                  placeholder={t("supplierContactEmailPlaceholder")}
-                  className="sm:col-span-2 px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
+            </div>
 
-              {error && (
-                <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
-                  {error}
-                </p>
-              )}
+            {error && (
+              <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+                {error}
+              </p>
+            )}
 
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg text-xs"
+              >
+                {t("cancel")}
+              </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {t("supplierRegSubmitBtn")}
               </button>
-            </form>
-          )}
-        </div>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

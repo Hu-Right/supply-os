@@ -10,3 +10,4 @@
 export { ProtectedRoute } from "./ProtectedRoute";
 export type { ProtectedRouteProps } from "./ProtectedRoute";
 export { LanguageSwitcher } from "./LanguageSwitcher";
+export { SessionBanner } from "./SessionBanner";

@@ -14,6 +14,12 @@ vi.mock("@/features/crm/hooks/useCrmData", () => ({
   useCrmData: (...args: any[]) => mockUseCrmData(...args),
 }));
 
+// Mock useLocation (CrmPage reads router state for cross-page AI match)
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return { ...actual, useLocation: () => ({ state: null }) };
+});
+
 const mockLead = {
   id: "lead-1",
   companyName: "测试科技有限公司",

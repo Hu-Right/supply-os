@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Globe, Building2, Users, Briefcase, BookOpen, Crown,
-  MessageSquare, Menu
+  LayoutGrid, MessageSquare, Menu
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -18,7 +18,7 @@ import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
 import { ConsultForm } from "@/shared/forms";
-import { LanguageSwitcher } from "@/shared/layout";
+import { LanguageSwitcher, SessionBanner } from "@/shared/layout";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
@@ -87,7 +87,7 @@ export default function App() {
     { id: 2, label: t("navJointProcure"), icon: Globe },
     { id: 3, label: t("navSuppliers"), icon: Users },
     { id: 4, label: t("navCRM"), icon: Briefcase, alert: true },
-    { id: 5, label: t("navServices"), icon: MessageSquare },
+    { id: 5, label: t("navServices"), icon: LayoutGrid },
     { id: 6, label: t("navLearning"), icon: BookOpen },
     { id: 7, label: t("navMembership"), icon: Crown, highlight: true },
   ];
@@ -117,7 +117,12 @@ export default function App() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
               <Globe className="w-6 h-6 animate-spin-slow" />
             </div>
-            <h1 className="text-lg md:text-xl font-bold tracking-tight bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold tracking-tight bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
+              <div className="text-xs text-slate-400 font-mono hidden md:block">
+                SYS: ACTIVE | UTC: 2026-05-30
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-3">
             <button onClick={() => setShowAuthModal(true)}
@@ -156,8 +161,8 @@ export default function App() {
               return (
                 <button key={tab.id} onClick={() => switchMainTab(tab.id)}
                   onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className="w-4 h-4" />
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
+                  <Icon className={`w-4 h-4 ${tab.highlight && !isTrainingRoute && activeTab !== tab.id ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
                   {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
                 </button>
@@ -169,6 +174,7 @@ export default function App() {
 
       {/* MAIN */}
       <main dir={localeDir} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+        <SessionBanner />
         <AppRoutes />
       </main>
 
@@ -220,6 +226,7 @@ export default function App() {
           <div className="flex space-x-4">
             <span className="hover:underline cursor-pointer">{t("footerTerms")}</span>
             <span className="hover:underline cursor-pointer">{t("footerPrivacy")}</span>
+            <span className="hover:underline cursor-pointer">{t("footerUnspsc")}</span>
           </div>
         </div>
       </footer>

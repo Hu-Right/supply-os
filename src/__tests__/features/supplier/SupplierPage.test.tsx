@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import SupplierPage from "@/features/supplier/pages/SupplierPage";
 
 // ── Mock data ──
@@ -81,11 +81,13 @@ describe("SupplierPage", () => {
     expect(screen.queryByTestId("supplier-card-2")).toBeNull();
   });
 
-  it("AI match button navigates to /crm", () => {
+  it("AI match button navigates to /crm carrying the supplier in router state", () => {
     render(<SupplierPage />);
     const card = screen.getByTestId("supplier-card-1");
     fireEvent.click(card.querySelector("button")!);
-    expect(mockNavigate).toHaveBeenCalledWith("/crm");
+    expect(mockNavigate).toHaveBeenCalledWith("/crm", {
+      state: { aiMatchSupplier: expect.objectContaining({ id: 1, nameZh: "国内供应商A" }) },
+    });
   });
 
   it("shows empty state when no match", () => {
@@ -95,15 +97,17 @@ describe("SupplierPage", () => {
     expect(screen.getByText("noData")).toBeInTheDocument();
   });
 
-  it("renders the register open button", () => {
+  it("does not render an inline register button (remote-aligned, entry lives in banner)", () => {
     render(<SupplierPage />);
-    expect(screen.getByText("supplierRegOpenBtn")).toBeInTheDocument();
+    expect(screen.queryByText("supplierRegOpenBtn")).toBeNull();
   });
 
-  it("opens the register modal when the button is clicked", () => {
+  it("opens the register modal on supply-os:open-supplier-register event", () => {
     render(<SupplierPage />);
     expect(screen.queryByTestId("register-modal")).toBeNull();
-    fireEvent.click(screen.getByText("supplierRegOpenBtn"));
+    act(() => {
+      window.dispatchEvent(new CustomEvent("supply-os:open-supplier-register"));
+    });
     expect(screen.getByTestId("register-modal")).toBeInTheDocument();
   });
 
@@ -122,7 +126,9 @@ describe("SupplierPage", () => {
   it("reloads custom suppliers after a successful registration", async () => {
     render(<SupplierPage />);
     await waitFor(() => expect(mockFetchCustom).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByText("supplierRegOpenBtn"));
+    act(() => {
+      window.dispatchEvent(new CustomEvent("supply-os:open-supplier-register"));
+    });
     fireEvent.click(screen.getByText("trigger-registered"));
     await waitFor(() => expect(mockFetchCustom).toHaveBeenCalledTimes(2));
   });

@@ -138,24 +138,17 @@ describe("ProcurementPage", () => {
     expect(screen.queryByText("Notice C")).toBeNull();
   });
 
-  // ── 5. VIP upgrade button for non-VIP users ──
-  it("shows upgrade button for non-VIP users", async () => {
+  // ── 5. 对齐原版：头部无升级VIP/采购培训/我的采购记录按钮 ──
+  it("does not render extra header action buttons (remote-aligned)", async () => {
     mockAuth.isVip = false;
     render(<ProcurementPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("procurement_upgradeVip")).toBeInTheDocument();
+      expect(screen.getByText("procurement_poolTitle")).toBeInTheDocument();
     });
-  });
-
-  // ── 6. No upgrade button for VIP users ──
-  it("hides upgrade button for VIP users", async () => {
-    mockAuth.isVip = true;
-    render(<ProcurementPage />);
-
-    await waitFor(() => {
-      expect(screen.queryByText("procurement_upgradeVip")).toBeNull();
-    });
+    expect(screen.queryByText("procurement_upgradeVip")).toBeNull();
+    expect(screen.queryByText("procurementTrainingBtn")).toBeNull();
+    expect(screen.queryByText("myPurchasesTitle")).toBeNull();
   });
 
   // ── 7. Pagination renders ──
@@ -214,51 +207,6 @@ describe("ProcurementPage", () => {
     // Detail view should render NoticeDetail component
     // Since we can't easily test the detail view without more mocks,
     // we just verify the click doesn't crash
-  });
-
-  // ── 11. Training navigation button ──
-  it("renders training navigation button", async () => {
-    render(<ProcurementPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("procurementTrainingBtn")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText("procurementTrainingBtn"));
-    expect(mockNavigate).toHaveBeenCalledWith("/training");
-  });
-
-  // ── 12. handleBuyPlan dispatches pay event for logged-in user ──
-  it("dispatches supply-os:pay event when logged-in user clicks buy plan", async () => {
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-    render(<ProcurementPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("procurement_upgradeVip")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText("procurement_upgradeVip"));
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "supply-os:pay" })
-    );
-    dispatchSpy.mockRestore();
-  });
-
-  // ── 13. handleBuyPlan requires login for unauthenticated user ──
-  it("dispatches require-login when unauthenticated user clicks buy plan", async () => {
-    mockAuth.authUser = null as any;
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-    render(<ProcurementPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("procurement_upgradeVip")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText("procurement_upgradeVip"));
-    expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "supply-os:require-login" })
-    );
-    dispatchSpy.mockRestore();
   });
 
   // ── 14. Loading state display ──

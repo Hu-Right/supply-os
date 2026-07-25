@@ -7,7 +7,7 @@
  *              Showroom page entry, displays showroom list and filters
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
@@ -22,6 +22,16 @@ export default function ShowroomPage() {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [selectedShowroom, setSelectedShowroom] = useState<ExhibitionHall | null>(null);
+
+  // 监听页头横幅"入驻海外展厅"事件，打开注册表单
+  useEffect(() => {
+    const onOpenRegister = () => {
+      setSelectedShowroom(null);
+      setShowRegisterForm(true);
+    };
+    window.addEventListener("supply-os:open-showroom-register", onOpenRegister);
+    return () => window.removeEventListener("supply-os:open-showroom-register", onOpenRegister);
+  }, []);
 
   // 计算可用地区和国家
   const availableRegions = useMemo(() => {

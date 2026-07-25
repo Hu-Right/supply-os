@@ -29,23 +29,22 @@ vi.mock("@/features/payment/hooks/useRecordsSummary", () => ({
   useRecordsSummary: () => mockSummary,
 }));
 
-// ── Mock list components (markers exposing onOpenNotice) ──
-vi.mock("@/features/payment/components/OrderHistoryList", () => ({
-  OrderHistoryList: ({ orders, onOpenNotice }: any) => (
-    <div data-testid="order-list">
-      <span>orders:{orders.length}</span>
-      <button onClick={() => onOpenNotice(42)}>open-notice</button>
-    </div>
-  ),
-}));
-vi.mock("@/features/payment/components/UnlockHistoryList", () => ({
-  UnlockHistoryList: ({ unlocks, onOpenNotice }: any) => (
-    <div data-testid="unlock-list">
-      <span>unlocks:{unlocks.length}</span>
-      <button onClick={() => onOpenNotice(7)}>open-notice-unlock</button>
-    </div>
-  ),
-}));
+const paidOrder = {
+  order_no: "O-1",
+  status: "paid",
+  amount: 99,
+  currency: "CNY",
+  notice_id: 42,
+  created_at: "2026-07-01T08:00:00.000Z",
+  notice: { title: "订单公告A" },
+};
+
+const unlockRow = {
+  notice_id: 7,
+  unlock_type: "single",
+  unlocked_at: "2026-07-02T09:30:00.000Z",
+  notice: { title: "解锁公告B", country: "Kenya" },
+};
 
 function baseHistory(overrides = {}) {
   return {
@@ -54,8 +53,8 @@ function baseHistory(overrides = {}) {
     page: 1,
     setPage: mockSetPage,
     limit: 10,
-    orders: { list: [{ order_no: "O-1" }], total: 1 },
-    unlocks: { list: [{ id: 1 }], total: 1 },
+    orders: { list: [paidOrder], total: 1 },
+    unlocks: { list: [unlockRow], total: 1 },
     loading: false,
     error: "",
     total: 1,
@@ -91,93 +90,130 @@ describe("MyRecordsPanel", () => {
     expect(screen.getByText("myPurchasesLoginRequired")).toBeInTheDocument();
   });
 
-  it("renders overview with two drill-down cards", () => {
+  it("renders overview with orders and unlocks cards", () => {
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    expect(screen.getByText("myPurchasesTitle")).toBeInTheDocument();
-    expect(screen.getByText("myPurchasesTabOrders")).toBeInTheDocument();
-    expect(screen.getByText("myPurchasesTabUnlocks")).toBeInTheDocument();
-    // 概览态不渲染列表
-    expect(screen.queryByTestId("order-list")).toBeNull();
+    expect(screen.getByText("myRecordsOrdersTitle")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsUnlocksTitle")).toBeInTheDocument();
+    // 概览态空预览兜底：空文案 + 引导提示
+    expect(screen.getByText("myPurchasesEmptyOrders")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsOrdersHint")).toBeInTheDocument();
+    expect(screen.getByText("myPurchasesEmptyUnlocks")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsUnlocksHint")).toBeInTheDocument();
+    // 概览态不渲染管理列表
+    expect(screen.queryByText("myRecordsOrdersManage")).toBeNull();
   });
 
   it("renders count badges and first-record previews on overview cards", () => {
     mockSummary = baseSummary({
       ordersTotal: 3,
       unlocksTotal: 5,
-      ordersFirst: { order_no: "O-9", notice: { title: "订单公告A" } },
-      unlocksFirst: { notice_id: 88, notice: { title: "解锁公告B" } },
+      ordersFirst: paidOrder,
+      unlocksFirst: unlockRow,
     });
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText("myRecordsLatest: 订单公告A")).toBeInTheDocument();
-    expect(screen.getByText("myRecordsLatest: 解锁公告B")).toBeInTheDocument();
+    expect(screen.getByText("订单公告A")).toBeInTheDocument();
+    expect(screen.getByText("O-1")).toBeInTheDocument();
+    expect(screen.getByText("解锁公告B")).toBeInTheDocument();
+    // 解锁卡预览第二行为 yyyy-MM-dd HH:mm 格式时间
+    expect(screen.getByText(/^2026-07-02 \d{2}:\d{2}$/)).toBeInTheDocument();
   });
 
-  it("falls back to order_no / notice id when preview title is missing", () => {
-    mockSummary = baseSummary({
-      ordersTotal: 1,
-      unlocksTotal: 1,
-      ordersFirst: { order_no: "O-42", notice: null },
-      unlocksFirst: { notice_id: 77, notice: null },
-    });
+  it("drills into orders management view and back to overview", () => {
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    expect(screen.getByText("myRecordsLatest: O-42")).toBeInTheDocument();
-    expect(screen.getByText("myRecordsLatest: #77")).toBeInTheDocument();
-  });
-
-  it("hides badges and previews when totals are zero", () => {
-    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    expect(screen.queryByText("myRecordsLatest:", { exact: false })).toBeNull();
-  });
-
-  it("drills into orders view and back to overview", () => {
-    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    fireEvent.click(screen.getByText("myPurchasesTabOrders"));
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
     expect(mockSetTab).toHaveBeenCalledWith("orders");
-    expect(screen.getByTestId("order-list")).toBeInTheDocument();
-    expect(screen.getByText("orders:1")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsOrdersManage")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsOrdersManageDesc")).toBeInTheDocument();
+    expect(screen.getByText("O-1")).toBeInTheDocument();
+    expect(screen.getByText("myPurchasesStatus_paid")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("myRecordsBackToOverview"));
-    expect(screen.queryByTestId("order-list")).toBeNull();
-    expect(screen.getByText("myPurchasesTitle")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("myRecordsBackTitle"));
+    expect(screen.queryByText("myRecordsOrdersManage")).toBeNull();
+    expect(screen.getByText("myRecordsOrdersTitle")).toBeInTheDocument();
   });
 
-  it("drills into unlocks view", () => {
+  it("drills into unlocks management view", () => {
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    fireEvent.click(screen.getByText("myPurchasesTabUnlocks"));
+    fireEvent.click(screen.getByText("myRecordsUnlocksTitle"));
     expect(mockSetTab).toHaveBeenCalledWith("unlocks");
-    expect(screen.getByTestId("unlock-list")).toBeInTheDocument();
+    expect(screen.getByText("myRecordsUnlocksManage")).toBeInTheDocument();
+    expect(screen.getByText("解锁公告B")).toBeInTheDocument();
+    expect(screen.getByText("Kenya")).toBeInTheDocument();
   });
 
-  it("triggers history refresh from the drill-down refresh button", () => {
+  it("triggers history refresh from the management refresh button", () => {
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    fireEvent.click(screen.getByText("myPurchasesTabOrders"));
-    fireEvent.click(screen.getByLabelText("myRecordsRefresh"));
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    fireEvent.click(screen.getByText("myRecordsRefresh"));
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it("forwards onOpenNotice from the orders list", () => {
+  it("shows refreshing label while loading", () => {
+    mockHistory = baseHistory({ loading: true });
+    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    expect(screen.getByText("myRecordsRefreshing")).toBeInTheDocument();
+  });
+
+  it("opens notice detail for paid orders with notice_id", () => {
     const onOpenNotice = vi.fn();
     render(<MyRecordsPanel onOpenNotice={onOpenNotice} />);
-    fireEvent.click(screen.getByText("myPurchasesTabOrders"));
-    fireEvent.click(screen.getByText("open-notice"));
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    fireEvent.click(screen.getByText("myPurchasesOpenDetail"));
     expect(onOpenNotice).toHaveBeenCalledWith(42);
+  });
+
+  it("hides open-detail for non-paid orders and shows raw status", () => {
+    mockHistory = baseHistory({
+      orders: { list: [{ ...paidOrder, status: "pending" }], total: 1 },
+    });
+    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    expect(screen.queryByText("myPurchasesOpenDetail")).toBeNull();
+    expect(screen.getByText("pending")).toBeInTheDocument();
+  });
+
+  it("opens notice detail from unlock rows", () => {
+    const onOpenNotice = vi.fn();
+    render(<MyRecordsPanel onOpenNotice={onOpenNotice} />);
+    fireEvent.click(screen.getByText("myRecordsUnlocksTitle"));
+    fireEvent.click(screen.getByText("myPurchasesOpenDetail"));
+    expect(onOpenNotice).toHaveBeenCalledWith(7);
   });
 
   it("shows empty state when the orders list is empty", () => {
     mockHistory = baseHistory({ orders: { list: [], total: 0 } });
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    fireEvent.click(screen.getByText("myPurchasesTabOrders"));
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
     expect(screen.getByText("myPurchasesEmptyOrders")).toBeInTheDocument();
   });
 
-  it("shows load-failed state with retry", () => {
-    mockHistory = baseHistory({ error: "load_failed" });
+  it("shows loading text in empty state while loading", () => {
+    mockHistory = baseHistory({ loading: true, orders: { list: [], total: 0 } });
     render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
-    fireEvent.click(screen.getByText("myPurchasesTabOrders"));
-    expect(screen.getByText("myPurchasesLoadFailed")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("myPurchasesRetry"));
-    expect(mockRefresh).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    expect(screen.getByText("myRecordsLoading")).toBeInTheDocument();
+  });
+
+  it("renders pager and pages through records", () => {
+    mockHistory = baseHistory({ page: 2, total: 25, totalPages: 3 });
+    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    expect(screen.getByText("myRecordsPagerInfo")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("myPurchasesPrev"));
+    expect(mockSetPage).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByText("myPurchasesNext"));
+    expect(mockSetPage).toHaveBeenCalledWith(3);
+  });
+
+  it("disables pager buttons on boundary pages", () => {
+    mockHistory = baseHistory({ page: 1, total: 5, totalPages: 1 });
+    render(<MyRecordsPanel onOpenNotice={vi.fn()} />);
+    fireEvent.click(screen.getByText("myRecordsOrdersTitle"));
+    expect(screen.getByText("myPurchasesPrev")).toBeDisabled();
+    expect(screen.getByText("myPurchasesNext")).toBeDisabled();
   });
 });

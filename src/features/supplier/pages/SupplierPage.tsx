@@ -8,7 +8,6 @@
  */
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Store } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SUPPLIERS } from "@/data";
@@ -37,6 +36,13 @@ export default function SupplierPage() {
   useEffect(() => {
     loadCustomSuppliers();
   }, [loadCustomSuppliers]);
+
+  // 监听页头横幅"注册成为认证供应商"事件，打开入驻表单
+  useEffect(() => {
+    const onOpenRegister = () => setShowRegisterModal(true);
+    window.addEventListener("supply-os:open-supplier-register", onOpenRegister);
+    return () => window.removeEventListener("supply-os:open-supplier-register", onOpenRegister);
+  }, []);
 
   // 展示列表：自定义（pending）供应商排在静态目录之前
   const allSuppliers = useMemo(
@@ -73,7 +79,8 @@ export default function SupplierPage() {
   }, [allSuppliers, locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
 
   const handleAiMatch = (supplier: Supplier) => {
-    navigate("/crm");
+    // 对齐原版：带上目标供应商跳转 CRM，由 CRM 页自动执行 AI 撮合
+    navigate("/crm", { state: { aiMatchSupplier: supplier } });
   };
 
   const handleContact = (supplier: Supplier) => {
@@ -136,14 +143,6 @@ export default function SupplierPage() {
             title="仅适用于国外供应商8位分类码匹配"
           />
         </div>
-
-        <button
-          onClick={() => setShowRegisterModal(true)}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-black text-white hover:bg-slate-800 md:w-auto"
-        >
-          <Store className="h-4 w-4" />
-          {t("supplierRegOpenBtn")}
-        </button>
       </div>
 
       {/* Suppliers Grid cards view */}

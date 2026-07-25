@@ -158,14 +158,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
                   </div>
                 </div>
               </div>
+              <MyRecordsPanel onOpenNotice={openNotice} />
               {claimMessage && (
                 <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
                   {claimMessage}
                 </p>
               )}
-              <div className="rounded-xl border border-slate-200 p-4">
-                <MyRecordsPanel onOpenNotice={openNotice} />
-              </div>
               <button
                 onClick={logout}
                 className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"

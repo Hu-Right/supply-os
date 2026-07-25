@@ -21,14 +21,3 @@ export const fetchLeads = () => api<Lead[]>("/api/leads");
  * Fetch custom suppliers list
  */
 export const fetchCustomSuppliers = () => api<import("@/types").Supplier[]>("/api/suppliers/custom");
-
-/**
- * 提交跟进日志
- * Submit follow-up log
- */
-export const submitFollowUp = (leadId: string, log: { action: string; note: string }) =>
-  fetch(`/api/leads/${leadId}/follow-up`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(log),
-  }).then((res) => res.json() as Promise<{ success: boolean }>);

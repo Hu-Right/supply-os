@@ -100,6 +100,21 @@ describe("useCrmData", () => {
       expect(mockSetSelectedSupplier).toHaveBeenCalled();
       expect(mockSetSelectedOpportunity).toHaveBeenCalled();
     });
+    expect(mockTriggerMatch).not.toHaveBeenCalled();
+  });
+
+  it("selects incoming supplier and auto-triggers match when autoMatchSupplier provided", async () => {
+    const incoming = { id: "sup-x", nameZh: "跨页供应商", nameEn: "Cross X" } as any;
+    renderHook(() => useCrmData({ autoMatchSupplier: incoming }));
+
+    await waitFor(() => {
+      expect(mockSetSelectedSupplier).toHaveBeenCalledWith(incoming);
+      // 自动撮合：目标供应商 + 默认首条商机
+      expect(mockTriggerMatch).toHaveBeenCalledWith(
+        incoming,
+        expect.objectContaining({ id: "opp-1" }),
+      );
+    });
   });
 
   it("triggerAiMatchmaking alerts when no selection", async () => {

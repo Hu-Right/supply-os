@@ -8,11 +8,13 @@ describe("Showroom API", () => {
     vi.clearAllMocks();
   });
 
-  it("submitShowroomRegister sends POST request", async () => {
+  it("submitShowroomRegister posts lead to /api/leads with exhibition_register type", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
     server.use(
-      http.post("/api/showroom/register", () =>
-        HttpResponse.json({ success: true })
-      )
+      http.post("/api/leads", async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ id: "lead-user-1", companyName: "Test Corp" });
+      })
     );
 
     const result = await submitShowroomRegister({
@@ -28,12 +30,18 @@ describe("Showroom API", () => {
       notes: "Test notes",
     });
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ id: "lead-user-1", companyName: "Test Corp" });
+    expect(capturedBody).toMatchObject({
+      companyName: "Test Corp",
+      contactPerson: "John",
+      contactMethod: "13800138000",
+      type: "exhibition_register",
+    });
   });
 
   it("submitShowroomRegister handles failure", async () => {
     server.use(
-      http.post("/api/showroom/register", () =>
+      http.post("/api/leads", () =>
         HttpResponse.json({ error: "Invalid data" }, { status: 400 })
       )
     );

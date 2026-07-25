@@ -3,23 +3,21 @@
  * My Records Panel
  *
  * @module features/payment/components/MyRecordsPanel
- * @description 账户弹窗内嵌的采购记录面板，本地 view 状态在概览与
- *              订单 / 解锁两个下钻视图之间切换，复用 useOrderHistory 与列表组件。
+ * @description 账户弹窗内嵌的采购记录面板，UI 对齐原版：概览态为订单蓝卡 +
+ *              解锁 teal 卡，下钻态为管理列表（返回/刷新 + article 行 + 分页条）。
  *              Self-contained purchase records panel embedded in the account
- *              modal. A local `view` state switches between the overview and the
- *              orders / unlocks drill-down views, reusing useOrderHistory and the
- *              list components.
+ *              modal, aligned with the original UI: overview shows the blue
+ *              orders card and teal unlocks card; drill-down shows a management
+ *              list (back/refresh header + article rows + pager).
  */
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ListChecks, Lock, RefreshCw, ShoppingBag } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
-import { Button, EmptyState, Spinner } from "@/shared/ui";
+import type { OrderRecord, UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
 import { useRecordsSummary } from "../hooks/useRecordsSummary";
-import { OrderHistoryList } from "./OrderHistoryList";
-import { UnlockHistoryList } from "./UnlockHistoryList";
 
 type MyRecordsPanelProps = {
   /** 打开关联公告（由外层负责关闭弹窗并跳转） */
@@ -27,6 +25,24 @@ type MyRecordsPanelProps = {
 };
 
 type PanelView = "overview" | PurchaseTab;
+
+type RecordRow = OrderRecord | UnlockRecord;
+
+/** 原版 formatUserDateTime：yyyy-MM-dd HH:mm */
+const formatUserDateTime = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.replace("T", " ").replace(".000Z", "");
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const recordTime = (row: RecordRow) =>
+  formatUserDateTime(
+    ("unlocked_at" in row ? row.unlocked_at : undefined) ||
+      ("paid_at" in row ? row.paid_at : undefined) ||
+      ("created_at" in row ? row.created_at : undefined),
+  );
 
 export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const { t } = useLocale();
@@ -44,176 +60,190 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     );
   }
 
+  const recordTitle = (row: RecordRow) =>
+    row.notice?.title ||
+    ("order_no" in row ? row.order_no : "") ||
+    (row.notice_id ? String(row.notice_id) : "") ||
+    t("myRecordsUntitled");
+
   const openView = (next: PurchaseTab) => {
     history.setTab(next);
     setView(next);
   };
 
   if (view === "overview") {
-    const cards: Array<{
-      key: PurchaseTab;
-      icon: typeof ListChecks;
-      title: string;
-      desc: string;
-      total: number;
-      preview: string;
-    }> = [
-      {
-        key: "orders",
-        icon: ListChecks,
-        title: t("myPurchasesTabOrders"),
-        desc: t("myRecordsOrdersDesc"),
-        total: summary.ordersTotal,
-        preview: summary.ordersFirst
-          ? summary.ordersFirst.notice?.title || summary.ordersFirst.order_no
-          : "",
-      },
-      {
-        key: "unlocks",
-        icon: Lock,
-        title: t("myPurchasesTabUnlocks"),
-        desc: t("myRecordsUnlocksDesc"),
-        total: summary.unlocksTotal,
-        preview: summary.unlocksFirst
-          ? summary.unlocksFirst.notice?.title || `#${summary.unlocksFirst.notice_id}`
-          : "",
-      },
-    ];
-
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
-          <ShoppingBag className="h-4 w-4 text-teal-600" />
-          {t("myPurchasesTitle")}
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {cards.map(({ key, icon: Icon, title, desc, total, preview }) => (
-            <button
-              key={key}
-              onClick={() => openView(key)}
-              className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-teal-300 hover:bg-teal-50/40"
-            >
-              <span className="rounded-lg bg-teal-50 p-2 text-teal-600">
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2">
-                  <span className="block text-sm font-bold text-slate-900">{title}</span>
-                  {total > 0 && (
-                    <span className="shrink-0 rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-black text-teal-700">
-                      {total}
-                    </span>
-                  )}
-                </span>
-                <span className="mt-0.5 block text-xs text-slate-500">{desc}</span>
-                {preview && (
-                  <span className="mt-1 block truncate text-[11px] text-slate-400">
-                    {t("myRecordsLatest")}: {preview}
-                  </span>
-                )}
-              </span>
-            </button>
-          ))}
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => openView("orders")}
+          className="text-left rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold text-slate-900">{t("myRecordsOrdersTitle")}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t("myRecordsOrdersDesc")}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
+              {summary.ordersTotal}
+            </span>
+          </div>
+          <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
+            <p className="font-black text-slate-800 truncate">
+              {summary.ordersFirst ? recordTitle(summary.ordersFirst) : t("myPurchasesEmptyOrders")}
+            </p>
+            <p className="mt-1 text-slate-500">
+              {summary.ordersFirst?.order_no || t("myRecordsOrdersHint")}
+            </p>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => openView("unlocks")}
+          className="text-left rounded-xl border border-teal-100 bg-teal-50 p-4 hover:border-teal-300"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-extrabold text-teal-950">{t("myRecordsUnlocksTitle")}</p>
+              <p className="text-[11px] text-teal-700 mt-0.5">{t("myRecordsUnlocksDesc")}</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
+              {summary.unlocksTotal}
+            </span>
+          </div>
+          <div className="mt-3 rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs">
+            <p className="font-black text-slate-800 truncate">
+              {summary.unlocksFirst ? recordTitle(summary.unlocksFirst) : t("myPurchasesEmptyUnlocks")}
+            </p>
+            <p className="mt-1 text-slate-500">
+              {summary.unlocksFirst ? recordTime(summary.unlocksFirst) : t("myRecordsUnlocksHint")}
+            </p>
+          </div>
+        </button>
       </div>
     );
   }
 
-  const orders = history.orders?.list || [];
-  const unlocks = history.unlocks?.list || [];
-  const isEmpty =
-    !history.loading &&
-    !history.error &&
-    (view === "orders" ? orders.length === 0 : unlocks.length === 0);
+  const rows: RecordRow[] =
+    view === "orders" ? history.orders?.list || [] : history.unlocks?.list || [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setView("overview")}
-          className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          {t("myRecordsBackToOverview")}
-        </button>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-extrabold text-slate-900">
-            {view === "orders" ? t("myPurchasesTabOrders") : t("myPurchasesTabUnlocks")}
-          </span>
+    <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={history.refresh}
-            aria-label={t("myRecordsRefresh")}
-            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-teal-700"
+            type="button"
+            onClick={() => setView("overview")}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+            title={t("myRecordsBackTitle")}
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            {t("myRecordsRefresh")}
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <p className="text-sm font-extrabold text-slate-900">
+              {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsUnlocksManage")}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {view === "orders" ? t("myRecordsOrdersManageDesc") : t("myRecordsUnlocksManageDesc")}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={history.refresh}
+          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-teal-700 hover:bg-teal-50"
+        >
+          {history.loading ? t("myRecordsRefreshing") : t("myRecordsRefresh")}
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {rows.length === 0 && (
+          <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+            {history.loading
+              ? t("myRecordsLoading")
+              : view === "orders"
+                ? t("myPurchasesEmptyOrders")
+                : t("myPurchasesEmptyUnlocks")}
+          </div>
+        )}
+        {rows.map((row) => {
+          const isOrder = "order_no" in row;
+          const canOpen = Boolean(
+            row.notice_id && (view === "unlocks" || (isOrder && row.status === "paid")),
+          );
+          return (
+            <article
+              key={isOrder ? row.order_no : `${row.notice_id}-${row.unlocked_at}`}
+              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+            >
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
+                <div className="min-w-0 pr-2">
+                  <p className="font-black text-slate-800 truncate">{recordTitle(row)}</p>
+                  <p className="mt-1 text-slate-500 truncate">
+                    {isOrder ? row.order_no : `${row.unlock_type || "unlock"} · ${recordTime(row)}`}
+                  </p>
+                </div>
+                {isOrder ? (
+                  <span
+                    className={`shrink-0 font-black ${row.status === "paid" ? "text-teal-700" : row.status === "closed" ? "text-slate-400" : "text-amber-700"}`}
+                  >
+                    {row.status === "paid" ? t("myPurchasesStatus_paid") : row.status || "-"}
+                  </span>
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600" />
+                )}
+              </div>
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-slate-500">
+                <span className="truncate">
+                  {isOrder
+                    ? `${row.currency || "CNY"} ${Number(row.amount || 0).toFixed(2)} · ${recordTime(row)}`
+                    : row.notice?.country || row.notice?.reference || "-"}
+                </span>
+                {canOpen && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenNotice(Number(row.notice_id))}
+                    className="shrink-0 font-black text-blue-700 hover:text-blue-900"
+                  >
+                    {t("myPurchasesOpenDetail")}
+                  </button>
+                )}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <span>
+          {t("myRecordsPagerInfo", {
+            total: history.total,
+            page: history.page,
+            pages: history.totalPages,
+          })}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={history.page <= 1 || history.loading}
+            onClick={() => history.setPage(Math.max(1, history.page - 1))}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+          >
+            {t("myPurchasesPrev")}
+          </button>
+          <button
+            type="button"
+            disabled={history.page >= history.totalPages || history.loading}
+            onClick={() => history.setPage(Math.min(history.totalPages, history.page + 1))}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+          >
+            {t("myPurchasesNext")}
           </button>
         </div>
       </div>
-
-      {history.loading && (
-        <div className="py-10">
-          <Spinner size="lg" className="mx-auto" />
-        </div>
-      )}
-
-      {!history.loading && history.error && (
-        <div className="py-8">
-          <EmptyState
-            title={t("myPurchasesLoadFailed")}
-            action={
-              <Button variant="secondary" size="sm" onClick={history.refresh}>
-                {t("myPurchasesRetry")}
-              </Button>
-            }
-          />
-        </div>
-      )}
-
-      {isEmpty && (
-        <EmptyState
-          title={
-            view === "orders" ? t("myPurchasesEmptyOrders") : t("myPurchasesEmptyUnlocks")
-          }
-        />
-      )}
-
-      {!history.loading && !history.error && !isEmpty && (
-        <>
-          {view === "orders" ? (
-            <OrderHistoryList orders={orders} onOpenNotice={onOpenNotice} />
-          ) : (
-            <UnlockHistoryList unlocks={unlocks} onOpenNotice={onOpenNotice} />
-          )}
-
-          {history.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-1">
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={history.page <= 1}
-                onClick={() => history.setPage(history.page - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                {t("myPurchasesPrev")}
-              </Button>
-              <span className="text-xs font-bold text-slate-500">
-                {t("myPurchasesPageInfo", { page: history.page, total: history.totalPages })}
-              </span>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={history.page >= history.totalPages}
-                onClick={() => history.setPage(history.page + 1)}
-              >
-                {t("myPurchasesNext")}
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+    </section>
   );
 }
 

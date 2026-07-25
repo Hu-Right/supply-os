@@ -24,7 +24,7 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
   const isLocked = material.isPremium && !isVip;
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-teal-200 hover:shadow-sm">
+    <div className="relative space-y-3 overflow-hidden rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-teal-200 hover:shadow-sm">
       {material.isPremium && (
         <div className="absolute right-0 top-0">
           <span className="rounded-bl bg-gradient-to-tr from-amber-500 to-amber-600 px-2.5 py-1 text-[9px] font-black text-slate-900">

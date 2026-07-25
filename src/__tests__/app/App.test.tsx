@@ -82,6 +82,8 @@ describe("App.tsx — Tab Navigation & Layout", () => {
     renderAt("/showroom");
     // t("brandName") returns "brandName" since our mock t returns the key
     expect(screen.getByText("brandName")).toBeInTheDocument();
+    // 品牌名下方的系统状态行
+    expect(screen.getByText("SYS: ACTIVE | UTC: 2026-05-30")).toBeInTheDocument();
   });
 
   // ── 2. Desktop Tab navigation renders all 7 tabs ──
@@ -156,6 +158,7 @@ describe("App.tsx — Tab Navigation & Layout", () => {
     // Also check terms and privacy links
     expect(screen.getByText("footerTerms")).toBeInTheDocument();
     expect(screen.getByText("footerPrivacy")).toBeInTheDocument();
+    expect(screen.getByText("footerUnspsc")).toBeInTheDocument();
   });
 
   // ── 7. Global event: supply-os:require-login ──
@@ -232,8 +235,9 @@ describe("App.tsx — Tab Navigation & Layout", () => {
   // ── 14. Training route sets activeTab to 0 ──
   it("training route does not highlight any main tab", () => {
     renderAt("/training");
-    // No main tab should have active class
-    const tabs = screen.getAllByRole("button");
+    // 仅检查主导航区内的 Tab 按钮（页头横幅的"返回公采"按钮同为 teal，不在断言范围）
+    const nav = document.querySelector("nav")!;
+    const tabs = Array.from(nav.querySelectorAll("button"));
     const activeTabs = tabs.filter(btn => btn.className.includes("bg-teal-600"));
     // Training is a special route, no main tab is active
     expect(activeTabs.length).toBe(0);

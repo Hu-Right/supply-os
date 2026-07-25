@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import {
   Crown,
   Search,
@@ -35,38 +35,14 @@ import { useNoticePayment } from "../hooks/useNoticePayment";
 const PAGE_SIZE = 9;
 const FREE_DETAIL_VIEW_LIMIT = 3;
 
-const ANNUAL_SERVICE_PLAN: MembershipPlan = {
-  plan_code: "annual_manual_8800",
-  name: "Annual advisory service",
-  description:
-    "Includes lead contact guidance, bid opportunity analysis, contract process, corporate transfer confirmation and WeChat service group.",
-  price: 8800,
-  currency: "CNY",
-  duration_days: 365,
-  unlock_quota: 0,
-  free_quota: 0,
-  plan_type: "manual",
-};
-
 export default function ProcurementPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const userKey = authUser?.user_key;
 
   const onRequireLogin = () => {
     window.dispatchEvent(new CustomEvent("supply-os:require-login"));
-  };
-
-  const handleBuyPlan = () => {
-    if (!authUser) {
-      onRequireLogin();
-      return;
-    }
-    window.dispatchEvent(new CustomEvent("supply-os:pay", {
-      detail: { code: ANNUAL_SERVICE_PLAN.plan_code, name: ANNUAL_SERVICE_PLAN.name, price: ANNUAL_SERVICE_PLAN.price, currency: ANNUAL_SERVICE_PLAN.currency }
-    }));
   };
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
@@ -425,17 +401,6 @@ export default function ProcurementPage() {
                 ? t("procurement_vipActive")
                 : `${t("procurement_freeTrial")} ${membership?.free_remaining ?? 2} ${t("procurement_items")}`}
             </span>
-            {!isVip && (
-              <button onClick={handleBuyPlan} className="px-3 py-1.5 rounded-full bg-teal-600 text-white font-bold hover:bg-teal-500 cursor-pointer">
-                {t("procurement_upgradeVip")}
-              </button>
-            )}
-            <button onClick={() => navigate("/training")} className="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 cursor-pointer">
-              {t("procurementTrainingBtn")}
-            </button>
-            <button onClick={() => window.dispatchEvent(new CustomEvent("supply-os:open-account"))} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer">
-              {t("myPurchasesTitle")}
-            </button>
           </div>
         </div>
 

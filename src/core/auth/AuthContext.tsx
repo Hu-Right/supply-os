@@ -119,7 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         const claimData = await claimRes.json().catch(() => ({}));
         if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
-        setClaimMessage(`绑定申请已提交，状态：${claimData.status}`);
+        // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
+        setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
       }
     } finally {
       setIsAuthLoading(false);

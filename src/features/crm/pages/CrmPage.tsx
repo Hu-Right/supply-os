@@ -8,7 +8,9 @@
  */
 
 import { useLocale } from "@/core/i18n";
+import { useLocation } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
+import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";
 import { StatsCards } from "../components/StatsCards";
 import { OpportunityList } from "../components/OpportunityList";
@@ -17,6 +19,10 @@ import { LeadTracker } from "../components/LeadTracker";
 
 export default function CrmPage() {
   const { t } = useLocale();
+  // 供应商页"AI 撮合商机"跳转时通过路由 state 带入目标供应商，挂载后自动撮合
+  const location = useLocation();
+  const autoMatchSupplier =
+    (location.state as { aiMatchSupplier?: Supplier } | null)?.aiMatchSupplier ?? null;
   const {
     leads,
     isLoadingLeads,
@@ -31,7 +37,7 @@ export default function CrmPage() {
     subscribeOpportunity,
     subscribingOppMessage,
     addFollowUpLog,
-  } = useCrmData();
+  } = useCrmData({ autoMatchSupplier });
 
   return (
     <div className="space-y-6">

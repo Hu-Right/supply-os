@@ -14,6 +14,11 @@ import { SUPPLIERS, OPPORTUNITIES } from "@/data";
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
 
+export type UseCrmDataOptions = {
+  /** 跨页跳转带入的供应商：选中并自动触发一次 AI 撮合（对齐原版供应商卡"AI 撮合商机"） */
+  autoMatchSupplier?: Supplier | null;
+};
+
 export type UseCrmDataReturn = {
   leads: Lead[];
   isLoadingLeads: boolean;
@@ -38,7 +43,8 @@ export type UseCrmDataReturn = {
  * 从 App.tsx 迁移的 CRM 相关状态和逻辑
  * CRM-related state and logic migrated from App.tsx
  */
-export function useCrmData(): UseCrmDataReturn {
+export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
+  const { autoMatchSupplier } = options;
   const { t } = useLocale();
   const { authUser } = useAuth();
 
@@ -77,12 +83,28 @@ export function useCrmData(): UseCrmDataReturn {
   // Initial data load + default AI match selections
   useEffect(() => {
     fetchData();
-    if (SUPPLIERS.length > 0) {
+    // 跨页带入的供应商优先于默认首个静态供应商
+    if (autoMatchSupplier) {
+      aiMatch.setSelectedSupplier(autoMatchSupplier);
+    } else if (SUPPLIERS.length > 0) {
       aiMatch.setSelectedSupplier(SUPPLIERS[0]);
     }
     if (OPPORTUNITIES.length > 0) {
       aiMatch.setSelectedOpportunity(OPPORTUNITIES[0]);
     }
+    // 自动执行一次 AI 撮合（商机取默认首条，对齐原版行为）
+    if (autoMatchSupplier && OPPORTUNITIES.length > 0) {
+      aiMatch.triggerMatch(autoMatchSupplier, OPPORTUNITIES[0]);
+    }
+  }, []);
+
+  // 展厅/供应商入驻成功后刷新线索池（对齐原版提交成功即 fetchData 的行为）
+  useEffect(() => {
+    const onCrmRefresh = () => {
+      fetchData();
+    };
+    window.addEventListener("supply-os:crm-refresh", onCrmRefresh);
+    return () => window.removeEventListener("supply-os:crm-refresh", onCrmRefresh);
   }, []);
 
   // Trigger AI matching (delegates to useAiMatch)

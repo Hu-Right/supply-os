@@ -45,7 +45,7 @@ export default function LearningPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-8">
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-8">
           <div>
             <h3 className="text-base font-extrabold text-slate-800">
               {t("learningSectionTitle")}
@@ -66,7 +66,7 @@ export default function LearningPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-4">
+        <div className="space-y-6 lg:col-span-4">
           <FAQPanel faqs={FAQS} />
         </div>
       </div>
