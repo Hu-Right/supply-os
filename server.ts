@@ -894,6 +894,23 @@ async function ensureProcurementSchema(dbPool: any) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ── 账号默认行业偏好（本地差异 #5：偏好表 + 读写接口）──
+  // 存储用户在注册/个人中心选取的 UNSPSC 类目路径，公采页进入时按此默认筛选
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_user_industry_prefs (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_key VARCHAR(190) NOT NULL,
+      level1_id INT NULL,
+      level2_id INT NULL,
+      level3_id INT NULL,
+      level4_id INT NULL,
+      level5_id INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_user_pref (user_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_notice_interests (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -2097,6 +2114,48 @@ async function startServer() {
         page,
         pageSize,
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── 账号默认行业偏好（本地差异 #5：偏好表 + 读写接口）──
+  app.get("/api/user/industry-prefs", async (req, res) => {
+    try {
+      const userKey = String(req.query.user_key || "").trim().slice(0, 190);
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      const [rows] = await dbPool.query(
+        "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, updated_at FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1",
+        [userKey]
+      );
+      res.json({ prefs: (rows as any[])[0] || null });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/user/industry-prefs", async (req, res) => {
+    try {
+      const userKey = String(req.body.user_key || "").trim().slice(0, 190);
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      // 逐级取数字 id，非法值一律置 NULL；level1 为空视为清除偏好
+      const levels = [1, 2, 3, 4, 5].map((n) => {
+        const value = Number(req.body[`level${n}_id`] || 0);
+        return Number.isInteger(value) && value > 0 ? value : null;
+      });
+      if (!levels[0]) {
+        await dbPool.execute("DELETE FROM crm_user_industry_prefs WHERE user_key = ?", [userKey]);
+        return res.json({ success: true, cleared: true });
+      }
+      await dbPool.execute(
+        `INSERT INTO crm_user_industry_prefs (user_key, level1_id, level2_id, level3_id, level4_id, level5_id)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           level1_id = VALUES(level1_id), level2_id = VALUES(level2_id), level3_id = VALUES(level3_id),
+           level4_id = VALUES(level4_id), level5_id = VALUES(level5_id), updated_at = NOW()`,
+        [userKey, ...levels]
+      );
+      res.status(201).json({ success: true });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
