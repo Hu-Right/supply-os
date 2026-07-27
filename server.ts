@@ -957,7 +957,7 @@ async function startServer() {
     // MySQL2 connection pool for crm database
     const mysql2 = await import("mysql2/promise");
     const dbPool = mysql2.createPool({
-        host: "127.0.0.1",
+        host: "192.168.1.2",
         user: "root",
         password: "123456",
         database: "crm",
