@@ -27,6 +27,8 @@ const mockFetchMembershipStatus = vi.fn().mockResolvedValue({
   free_remaining: 2,
   paid_unlocks: 0,
 });
+const mockFetchNoticeDetail = vi.fn().mockRejectedValue(new Error("NOTICE_DETAIL_403"));
+const mockFetchUnlockedNoticeIds = vi.fn().mockResolvedValue([]);
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
@@ -37,6 +39,8 @@ vi.mock("@/features/procurement/api", () => ({
   viewNotice: vi.fn().mockResolvedValue({ ok: true }),
   unlockNotice: vi.fn().mockResolvedValue({ ok: true }),
   expressInterest: vi.fn().mockResolvedValue({ ok: true }),
+  fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
+  fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
 }));
 
 // ── Mock useLocale ──
@@ -83,6 +87,8 @@ describe("ProcurementPage", () => {
       total: 3,
       pageSize: 9,
     });
+    mockFetchNoticeDetail.mockRejectedValue(new Error("NOTICE_DETAIL_403"));
+    mockFetchUnlockedNoticeIds.mockResolvedValue([]);
   });
 
   // ── 1. UNSPSC level-1 selection ──
@@ -346,5 +352,39 @@ describe("ProcurementPage", () => {
     });
 
     getItemSpy.mockRestore();
+  });
+
+  // ── 闪烁修复：已解锁公告免闪烁直达完整详情 ──
+  it("opens an already-unlocked notice without flashing the locked panel", async () => {
+    mockFetchUnlockedNoticeIds.mockResolvedValue([1]);
+    mockFetchNoticeDetail.mockResolvedValue({
+      id: 1,
+      title: "Notice A",
+      core_locked: false,
+      agency_full: "UNDP Kenya",
+    });
+
+    render(<ProcurementPage />);
+    await waitFor(() => expect(mockFetchUnlockedNoticeIds).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("Notice A")).toBeInTheDocument());
+
+    // 点击 Notice A（首张卡）的"查看详情"按钮触发 openNotice
+    fireEvent.click(screen.getAllByText("procurement_detail")[0]);
+
+    // 锁定面板自始至终不出现，完整数据直接呈现
+    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    await waitFor(() => expect(screen.getByText("UNDP Kenya")).toBeInTheDocument());
+    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+  });
+
+  it("still shows the locked panel for a locked notice", async () => {
+    render(<ProcurementPage />);
+    await waitFor(() => expect(screen.getByText("Notice B")).toBeInTheDocument());
+
+    // Notice B 为第二张卡，未解锁：详情应照常渲染锁定面板
+    fireEvent.click(screen.getAllByText("procurement_detail")[1]);
+    await waitFor(() =>
+      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+    );
   });
 });

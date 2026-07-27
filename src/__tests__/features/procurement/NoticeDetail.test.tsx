@@ -114,4 +114,19 @@ describe("NoticeDetail", () => {
     // Mask description should not be shown
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
   });
+
+  // ── 闪烁修复：detailLoading 骨架屏 ──
+  it("shows skeleton instead of locked panel while detailLoading", () => {
+    render(<NoticeDetail {...defaultProps} detailLoading />);
+    expect(screen.getByTestId("detail-skeleton")).toBeInTheDocument();
+    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_singleUnlock")).toBeNull();
+    expect(screen.getAllByText("procurement_loading").length).toBeGreaterThan(0);
+  });
+
+  it("ignores detailLoading once core is unlocked", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} detailLoading />);
+    expect(screen.queryByTestId("detail-skeleton")).toBeNull();
+    expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
+  });
 });

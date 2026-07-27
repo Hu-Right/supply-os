@@ -77,18 +77,47 @@ export const expressInterest = (
     body: JSON.stringify({ user_key: userKey, interest_type: interestType }),
   });
 
+// 已解锁详情按 (notice, user) 会话级缓存：回列表再进同一公告零请求零闪烁
+const noticeDetailCache = new Map<string, Promise<NoticeItem>>();
+
 /**
  * 获取已解锁公告的完整详情
  * Fetch the full detail of an unlocked notice
  *
  * @remarks 需该用户已解锁该公告，否则后端返回 403 NOTICE_LOCKED。
- *          Requires the notice to be unlocked for the user; otherwise the
- *          backend responds with 403 NOTICE_LOCKED.
+ *          成功结果按 URL 缓存（同 notice+user 只请求一次），失败不缓存。
+ *          Requires the notice to be unlocked for the user; successful
+ *          results are cached per URL, failures are evicted.
  */
-export const fetchNoticeDetail = async (noticeId: number, userKey: string): Promise<NoticeItem> => {
-  const res = await fetch(
-    `/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`
-  );
-  if (!res.ok) throw new Error(`NOTICE_DETAIL_${res.status}`);
-  return res.json();
+export const fetchNoticeDetail = (noticeId: number, userKey: string): Promise<NoticeItem> => {
+  const url = `/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`;
+  const cached = noticeDetailCache.get(url);
+  if (cached) return cached;
+
+  const request = fetch(url).then((res) => {
+    if (!res.ok) throw new Error(`NOTICE_DETAIL_${res.status}`);
+    return res.json() as Promise<NoticeItem>;
+  });
+  noticeDetailCache.set(url, request);
+  request.catch(() => noticeDetailCache.delete(url));
+  return request;
+};
+
+/**
+ * 拉取当前用户已解锁的公告 id 集合（详情首帧免闪烁判定用）
+ * Fetch ids of notices already unlocked by the user (first-frame gating)
+ *
+ * @remarks 任何异常均返回空数组，不阻断采购页。
+ */
+export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]> => {
+  try {
+    const res = await fetch(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`);
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return Array.isArray(rows)
+      ? rows.map((row) => Number(row?.notice_id)).filter((id) => Number.isFinite(id) && id > 0)
+      : [];
+  } catch {
+    return [];
+  }
 };
