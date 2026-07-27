@@ -30,6 +30,8 @@ const mockFetchMembershipStatus = vi.fn().mockResolvedValue({
 const mockFetchNoticeDetail = vi.fn().mockRejectedValue(new Error("NOTICE_DETAIL_403"));
 const mockFetchUnlockedNoticeIds = vi.fn().mockResolvedValue([]);
 const mockUnlockNotice = vi.fn().mockResolvedValue({ ok: true });
+// 翻译默认不可用：hook 静默回退原文，与旧行为等价
+const mockFetchNoticeTranslation = vi.fn().mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
@@ -42,6 +44,7 @@ vi.mock("@/features/procurement/api", () => ({
   expressInterest: vi.fn().mockResolvedValue({ ok: true }),
   fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
   fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
+  fetchNoticeTranslation: (id: number, lang: string) => mockFetchNoticeTranslation(id, lang),
 }));
 
 // ── Mock useLocale ──
@@ -91,6 +94,7 @@ describe("ProcurementPage", () => {
     mockFetchNoticeDetail.mockRejectedValue(new Error("NOTICE_DETAIL_403"));
     mockFetchUnlockedNoticeIds.mockResolvedValue([]);
     mockUnlockNotice.mockResolvedValue({ ok: true });
+    mockFetchNoticeTranslation.mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
   });
 
   // ── 1. UNSPSC level-1 selection ──
