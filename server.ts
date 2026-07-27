@@ -546,6 +546,61 @@ async function getUnspscPath(dbPool: any, codeId: number) {
   return path;
 }
 
+// ── 公告按需翻译（本地差异 #4：缓存表 + 翻译接口）──
+const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
+  zh: "Simplified Chinese",
+  fr: "French",
+  ru: "Russian",
+  es: "Spanish",
+  ar: "Arabic",
+};
+
+// 同一 (notice, lang) 的并发首次请求只触发一次 Gemini 调用
+const pendingNoticeTranslations = new Map<
+  string,
+  Promise<{ title: string; description: string }>
+>();
+
+async function translateNoticeText(
+  title: string,
+  description: string,
+  langName: string
+): Promise<{ title: string; description: string }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    throw new Error("TRANSLATION_UNAVAILABLE");
+  }
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+  });
+  const prompt = `You are a professional procurement document translator. Translate the tender notice fields below into ${langName}.
+Rules:
+- Keep organization names, reference numbers, UNSPSC codes, URLs, emails and abbreviations (e.g. UNGM, RFQ, ITB, EOI) unchanged.
+- Preserve line breaks inside the description.
+- Return ONLY valid JSON in exactly this shape: {"title": "...", "description": "..."}
+
+TITLE:
+${title}
+
+DESCRIPTION:
+${description}`;
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: prompt,
+  });
+  const raw = (response.text || "")
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
+  const parsed = JSON.parse(raw);
+  if (typeof parsed?.title !== "string" || typeof parsed?.description !== "string") {
+    throw new Error("TRANSLATION_MALFORMED");
+  }
+  return { title: parsed.title, description: parsed.description };
+}
+
 async function ensureProcurementSchema(dbPool: any) {
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
@@ -856,6 +911,20 @@ async function ensureProcurementSchema(dbPool: any) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
   await ensureColumn(dbPool, "crm_notice_interests", "user_id", "user_id BIGINT UNSIGNED NULL AFTER id");
+
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_notice_translations (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      notice_id BIGINT UNSIGNED NOT NULL,
+      lang VARCHAR(10) NOT NULL,
+      title_tr TEXT NULL,
+      description_tr MEDIUMTEXT NULL,
+      model VARCHAR(60) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_notice_lang (notice_id, lang),
+      KEY idx_lang (lang)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_supplier_unspsc_interests (
@@ -2407,6 +2476,63 @@ async function startServer() {
 
       res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/notices/:id/translation", async (req, res) => {
+    try {
+      const noticeId = Number(req.params.id);
+      const lang = String(req.query.lang || "").toLowerCase();
+      if (!noticeId || !NOTICE_TRANSLATION_LANGS[lang]) {
+        return res.status(400).json({ error: "INVALID_NOTICE_OR_LANG" });
+      }
+
+      const [cachedRows] = await dbPool.query(
+        "SELECT title_tr, description_tr FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
+        [noticeId, lang]
+      );
+      const cachedRow = (cachedRows as any[])[0];
+      if (cachedRow) {
+        return res.json({
+          lang,
+          title: cachedRow.title_tr,
+          description: cachedRow.description_tr,
+          cached: true,
+        });
+      }
+
+      const [noticeRows] = await dbPool.query(
+        "SELECT title, description FROM crm_bid_notices WHERE id = ? LIMIT 1",
+        [noticeId]
+      );
+      const notice = (noticeRows as any[])[0];
+      if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+
+      const pendingKey = `${noticeId}:${lang}`;
+      let pending = pendingNoticeTranslations.get(pendingKey);
+      if (!pending) {
+        pending = translateNoticeText(
+          String(notice.title || ""),
+          String(notice.description || ""),
+          NOTICE_TRANSLATION_LANGS[lang]
+        );
+        pendingNoticeTranslations.set(pendingKey, pending);
+        pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
+      }
+      const translated = await pending;
+
+      await dbPool.query(
+        `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+         VALUES (?, ?, ?, ?, 'gemini-3.5-flash')
+         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr)`,
+        [noticeId, lang, translated.title, translated.description]
+      );
+      res.json({ lang, title: translated.title, description: translated.description, cached: false });
+    } catch (err: any) {
+      if (err?.message === "TRANSLATION_UNAVAILABLE") {
+        return res.status(503).json({ error: "TRANSLATION_UNAVAILABLE" });
+      }
       res.status(500).json({ error: err.message });
     }
   });
