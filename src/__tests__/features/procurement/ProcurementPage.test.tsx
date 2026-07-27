@@ -29,6 +29,7 @@ const mockFetchMembershipStatus = vi.fn().mockResolvedValue({
 });
 const mockFetchNoticeDetail = vi.fn().mockRejectedValue(new Error("NOTICE_DETAIL_403"));
 const mockFetchUnlockedNoticeIds = vi.fn().mockResolvedValue([]);
+const mockUnlockNotice = vi.fn().mockResolvedValue({ ok: true });
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
@@ -37,7 +38,7 @@ vi.mock("@/features/procurement/api", () => ({
   fetchMembershipPlans: () => mockFetchMembershipPlans(),
   fetchMembershipStatus: (key: string, cache?: boolean) => mockFetchMembershipStatus(key, cache),
   viewNotice: vi.fn().mockResolvedValue({ ok: true }),
-  unlockNotice: vi.fn().mockResolvedValue({ ok: true }),
+  unlockNotice: (...args: any[]) => mockUnlockNotice(...args),
   expressInterest: vi.fn().mockResolvedValue({ ok: true }),
   fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
   fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
@@ -89,6 +90,7 @@ describe("ProcurementPage", () => {
     });
     mockFetchNoticeDetail.mockRejectedValue(new Error("NOTICE_DETAIL_403"));
     mockFetchUnlockedNoticeIds.mockResolvedValue([]);
+    mockUnlockNotice.mockResolvedValue({ ok: true });
   });
 
   // ── 1. UNSPSC level-1 selection ──
@@ -386,5 +388,50 @@ describe("ProcurementPage", () => {
     await waitFor(() =>
       expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
     );
+  });
+
+  // ── 解锁过程中显示骨架屏而非锁定面板 ──
+  it("shows skeleton during unlock until detail data arrives", async () => {
+    render(<ProcurementPage />);
+    await waitFor(() => expect(screen.getByText("Notice B")).toBeInTheDocument());
+
+    // 打开未解锁公告：锁定面板照常
+    fireEvent.click(screen.getAllByText("procurement_detail")[1]);
+    await waitFor(() =>
+      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+    );
+
+    // 解锁成功但详情响应挂起：期间应显示骨架屏、隐藏锁定面板
+    let resolveDetail!: (value: unknown) => void;
+    mockFetchNoticeDetail.mockImplementation(
+      () => new Promise((resolve) => { resolveDetail = resolve; })
+    );
+    fireEvent.click(screen.getByText(/procurement_freeUnlock/));
+
+    await waitFor(() => expect(screen.getByTestId("detail-skeleton")).toBeInTheDocument());
+    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+
+    // 详情返回后骨架屏让位于完整内容
+    resolveDetail({ id: 2, title: "Notice B", core_locked: false, agency_full: "WHO Geneva" });
+    await waitFor(() => expect(screen.getByText("WHO Geneva")).toBeInTheDocument());
+    expect(screen.queryByTestId("detail-skeleton")).toBeNull();
+  });
+
+  it("restores the locked panel when unlock fails", async () => {
+    render(<ProcurementPage />);
+    await waitFor(() => expect(screen.getByText("Notice B")).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByText("procurement_detail")[1]);
+    await waitFor(() =>
+      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+    );
+
+    // 解锁失败：骨架屏不得残留，锁定面板恢复
+    mockUnlockNotice.mockResolvedValue({ ok: false, status: 500 });
+    fireEvent.click(screen.getByText(/procurement_freeUnlock/));
+
+    await waitFor(() => expect(screen.getByText("procurement_unlockFail")).toBeInTheDocument());
+    expect(screen.queryByTestId("detail-skeleton")).toBeNull();
+    expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument();
   });
 });
