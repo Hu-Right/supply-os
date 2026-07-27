@@ -60,3 +60,11 @@ export interface PaymentOrder {
   pay_url?: string;
   qr_code_url?: string;
 }
+
+/** 公告标题/说明的按需 AI 译文 On-demand AI translation of a notice */
+export interface NoticeTranslation {
+  lang: string;
+  title: string | null;
+  description: string | null;
+  cached: boolean;
+}

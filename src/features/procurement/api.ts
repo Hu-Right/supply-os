@@ -5,6 +5,7 @@ import type {
   NoticeItem,
   MembershipPlan,
   MembershipStatus,
+  NoticeTranslation,
 } from "./types";
 
 const apiCache = new Map<string, Promise<any>>();
@@ -121,3 +122,12 @@ export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]>
     return [];
   }
 };
+
+/**
+ * 获取公告标题/说明的按需译文（服务端缓存，同 URL 前端也只请求一次）
+ * Fetch on-demand translation of a notice (server-side cached; deduped by URL)
+ */
+export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
+  fetchJsonCached<NoticeTranslation>(
+    `/api/notices/${noticeId}/translation?lang=${encodeURIComponent(lang)}`
+  );
