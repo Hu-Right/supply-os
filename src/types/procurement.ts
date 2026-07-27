@@ -27,6 +27,8 @@ export interface NoticeItem {
   core_locked?: boolean;
   unlock_type?: string;
   unlocked_at?: string;
+  /** 推荐模式命中的 UNSPSC 兴趣码数（仅 /api/notices/recommended 返回） */
+  match_score?: number;
   // 解锁后由 /api/notices/:id/detail 补充的拓展字段
   // Extended fields provided by /api/notices/:id/detail once unlocked
   url?: string;
