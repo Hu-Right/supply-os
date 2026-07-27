@@ -10,6 +10,7 @@ import {
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, MembershipStatus, MembershipPlan, PaymentOrder } from "../types";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
+import { noticeTypeKey } from "../notice-type";
 import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
 import { NoticePaymentPanel } from "./NoticePaymentPanel";
 
@@ -67,6 +68,8 @@ export function NoticeDetail({
   const displayDescription =
     showTranslated && translation?.description ? translation.description : notice.description;
   const coreUnlocked = notice.core_locked === false;
+  // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
+  const typeKey = noticeTypeKey(notice.notice_type);
   const showSkeleton = !coreUnlocked && !!detailLoading;
   const visibleAgency = coreUnlocked
     ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
@@ -89,7 +92,7 @@ export function NoticeDetail({
           <main className="min-w-0 space-y-5">
             <div className="border-b border-slate-100 pb-5">
               <p className="text-xs font-black text-teal-600 uppercase tracking-wider">
-                {notice.notice_type || "Procurement Notice"}
+                {typeKey ? t(typeKey) : notice.notice_type || "Procurement Notice"}
               </p>
               <h3 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">
                 {displayTitle}

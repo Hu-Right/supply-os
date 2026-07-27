@@ -28,8 +28,15 @@ describe("NoticeCard", () => {
   it("renders notice info", () => {
     render(<NoticeCard item={mockNotice} onClick={onClick} />);
     expect(screen.getByText("Test Notice")).toBeInTheDocument();
-    expect(screen.getByText("RFQ")).toBeInTheDocument();
+    // 已知类型归一化为 i18n 键（mock t 原样返回键名）
+    expect(screen.getByText("procurement_type_rfq")).toBeInTheDocument();
     expect(screen.getByText("2026-12-31")).toBeInTheDocument();
+  });
+
+  it("falls back to raw notice_type for unmapped values", () => {
+    const rawType = { ...mockNotice, notice_type: "Timber Auction" };
+    render(<NoticeCard item={rawType} onClick={onClick} />);
+    expect(screen.getByText("Timber Auction")).toBeInTheDocument();
   });
 
   it("renders description", () => {

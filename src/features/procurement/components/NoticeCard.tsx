@@ -1,6 +1,7 @@
 import { Crown } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
+import { noticeTypeKey } from "../notice-type";
 
 interface NoticeCardProps {
   item: NoticeItem;
@@ -9,6 +10,8 @@ interface NoticeCardProps {
 
 export function NoticeCard({ item, onClick }: NoticeCardProps) {
   const { t } = useLocale();
+  // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
+  const typeKey = noticeTypeKey(item.notice_type);
 
   return (
     <article
@@ -16,7 +19,7 @@ export function NoticeCard({ item, onClick }: NoticeCardProps) {
     >
       <div className="flex items-start justify-between gap-3">
         <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black">
-          {item.notice_type || "Notice"}
+          {typeKey ? t(typeKey) : item.notice_type || "Notice"}
         </span>
         <span className="text-[10px] text-slate-500 font-mono text-right">{item.deadline}</span>
       </div>
