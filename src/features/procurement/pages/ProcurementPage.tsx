@@ -25,6 +25,7 @@ import {
   unlockNotice,
   expressInterest,
   fetchNoticeDetail,
+  fetchUnlockedNoticeIds,
 } from "../api";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
@@ -58,6 +59,17 @@ export default function ProcurementPage() {
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const noticesRequestSeq = useRef(0);
+
+  // 已解锁公告 id 集合 + 详情拓展加载态（闪烁修复）
+  // detailLoadingId 记录"正在为哪条公告加载"：快速连续点击时 A 的 finally 不会误清 B 的加载态
+  const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
+  const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
+  const markUnlocked = (id: number) =>
+    setUnlockedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
@@ -95,14 +107,35 @@ export default function ProcurementPage() {
     }
   };
 
+  // 登录后预取已解锁集合：详情首帧据此决定骨架屏还是锁定面板
+  useEffect(() => {
+    if (!userKey) {
+      setUnlockedIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    fetchUnlockedNoticeIds(userKey).then((ids) => {
+      if (!cancelled) setUnlockedIds(new Set(ids));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userKey]);
+
   // 拉取已解锁公告的拓展详情并合并进当前选中项
   const loadNoticeDetail = async (notice: NoticeItem) => {
-    if (!userKey) return;
+    if (!userKey) {
+      setDetailLoadingId(null);
+      return;
+    }
     try {
       const detail = await fetchNoticeDetail(notice.id, userKey);
       setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
+      markUnlocked(notice.id);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
+    } finally {
+      setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
     }
   };
 
@@ -196,7 +229,8 @@ export default function ProcurementPage() {
     }
 
     const currentViews = getDetailViewCount();
-    if (!isVip && currentViews >= FREE_DETAIL_VIEW_LIMIT) {
+    const alreadyUnlocked = unlockedIds.has(notice.id);
+    if (!isVip && !alreadyUnlocked && currentViews >= FREE_DETAIL_VIEW_LIMIT) {
       setSelectedNotice(notice);
       setActionMessage(t("procurement_freeLimit"));
       openPaywall(notice);
@@ -204,20 +238,21 @@ export default function ProcurementPage() {
       return;
     }
 
-    await viewNotice(notice.id, userKey);
-
-    if (!isVip) setDetailViewCount(currentViews + 1);
+    // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
+    void viewNotice(notice.id, userKey);
+    if (!isVip && !alreadyUnlocked) setDetailViewCount(currentViews + 1);
+    setDetailLoadingId(alreadyUnlocked ? notice.id : null);
     setSelectedNotice(notice);
     setActionMessage("");
-    await refreshMembership();
     window.scrollTo({ top: 0, behavior: "smooth" });
-    // 若该公告此前已解锁，拉取拓展详情并合并（未解锁时后端返回 403，静默忽略）
+    void refreshMembership();
     void loadNoticeDetail(notice);
   };
 
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = async (id: number) => {
     const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
+    setDetailLoadingId(id);
     setSelectedNotice(base);
     setActionMessage("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -316,6 +351,7 @@ export default function ProcurementPage() {
     }
 
     await refreshMembership();
+    markUnlocked(notice.id);
     setActionMessage(nextUnlockType === "free" ? t("procurement_freeUnlockOk") : t("procurement_paidUnlockOk"));
     // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
     await loadNoticeDetail(notice);
@@ -357,8 +393,10 @@ export default function ProcurementPage() {
         freeQuota={freeQuota}
         canUsePaidQuota={canUsePaidQuota}
         isVip={isVip}
+        detailLoading={detailLoadingId === selectedNotice.id}
         onBack={() => {
           closePaywall();
+          setDetailLoadingId(null);
           setSelectedNotice(null);
         }}
         onExpressInterest={handleExpressInterest}
