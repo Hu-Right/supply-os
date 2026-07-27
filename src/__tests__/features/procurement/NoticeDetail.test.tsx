@@ -2,9 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NoticeDetail } from "@/features/procurement/components/NoticeDetail";
 
-// ── Mock useLocale ──
+// ── Mock useLocale ──（en：翻译 hook 零请求，用例与译文解耦）
 vi.mock("@/core/i18n", () => ({
-  useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
+  useLocale: () => ({ t: (key: string) => key, locale: "en" }),
 }));
 
 const mockNotice = {
@@ -128,5 +128,12 @@ describe("NoticeDetail", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} detailLoading />);
     expect(screen.queryByTestId("detail-skeleton")).toBeNull();
     expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
+  });
+
+  it("renders no translation UI in en locale", () => {
+    render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
+    expect(screen.queryByText("procurement_translating")).toBeNull();
+    expect(screen.queryByText("procurement_viewOriginal")).toBeNull();
+    expect(screen.queryByText("procurement_translateNote")).toBeNull();
   });
 });

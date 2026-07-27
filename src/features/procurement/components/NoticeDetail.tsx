@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, MembershipStatus, MembershipPlan, PaymentOrder } from "../types";
+import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
 import { NoticePaymentPanel } from "./NoticePaymentPanel";
 
@@ -56,7 +57,15 @@ export function NoticeDetail({
   detailLoading,
   payment,
 }: NoticeDetailProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const { translation, translating, showOriginal, toggleOriginal } = useNoticeTranslation(
+    (notice as { id?: number }).id,
+    locale
+  );
+  const showTranslated = !showOriginal && !!translation;
+  const displayTitle = showTranslated && translation?.title ? translation.title : notice.title;
+  const displayDescription =
+    showTranslated && translation?.description ? translation.description : notice.description;
   const coreUnlocked = notice.core_locked === false;
   const showSkeleton = !coreUnlocked && !!detailLoading;
   const visibleAgency = coreUnlocked
@@ -83,7 +92,7 @@ export function NoticeDetail({
                 {notice.notice_type || "Procurement Notice"}
               </p>
               <h3 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">
-                {notice.title}
+                {displayTitle}
               </h3>
               <p className="text-sm text-slate-500 mt-3">
                 {visibleAgency} ·{" "}
@@ -113,10 +122,28 @@ export function NoticeDetail({
             </div>
 
             <div>
-              <h4 className="text-sm font-extrabold text-slate-900 mb-2">{t("procurement_description")}</h4>
+              <div className="flex items-center gap-3 mb-2">
+                <h4 className="text-sm font-extrabold text-slate-900">{t("procurement_description")}</h4>
+                {translating && (
+                  <span className="text-xs font-bold text-blue-600 animate-pulse">
+                    {t("procurement_translating")}
+                  </span>
+                )}
+                {translation && (
+                  <button
+                    onClick={toggleOriginal}
+                    className="text-xs font-bold text-blue-700 hover:underline"
+                  >
+                    {showOriginal ? t("procurement_viewTranslation") : t("procurement_viewOriginal")}
+                  </button>
+                )}
+              </div>
               <p className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
-                {notice.description || t("procurement_noDesc")}
+                {displayDescription || t("procurement_noDesc")}
               </p>
+              {showTranslated && (
+                <p className="text-[11px] text-slate-400 mt-2">{t("procurement_translateNote")}</p>
+              )}
             </div>
 
             {coreUnlocked ? (
