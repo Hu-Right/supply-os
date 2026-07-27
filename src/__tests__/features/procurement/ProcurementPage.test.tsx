@@ -32,6 +32,10 @@ const mockFetchUnlockedNoticeIds = vi.fn().mockResolvedValue([]);
 const mockUnlockNotice = vi.fn().mockResolvedValue({ ok: true });
 // 翻译默认不可用：hook 静默回退原文，与旧行为等价
 const mockFetchNoticeTranslation = vi.fn().mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
+// 行业偏好/推荐默认为空：走全量列表，与旧行为等价
+const mockFetchIndustryPrefs = vi.fn().mockResolvedValue(null);
+const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
+const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
@@ -45,6 +49,9 @@ vi.mock("@/features/procurement/api", () => ({
   fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
   fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
   fetchNoticeTranslation: (id: number, lang: string) => mockFetchNoticeTranslation(id, lang),
+  fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
+  saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
+  fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
 }));
 
 // ── Mock useLocale ──
@@ -82,6 +89,14 @@ describe("ProcurementPage", () => {
     vi.clearAllMocks();
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
     mockAuth.isVip = false;
+    // 用例 18 会把 industries 改为 rejected：此处复位，避免污染后续依赖级联数据的用例
+    mockFetchUnspscIndustries.mockResolvedValue([
+      { id: 1, code: "10000000", title: "Fuel" },
+      { id: 2, code: "20000000", title: "Lubricants" },
+    ]);
+    mockFetchUnspscChildren.mockResolvedValue([
+      { id: 11, code: "10100000", title: "Diesel" },
+    ]);
     mockFetchNotices.mockResolvedValue({
       items: [
         { id: 1, title: "Notice A", agency: "Agency A", country: "US", reference: "REF-001" },
@@ -95,6 +110,9 @@ describe("ProcurementPage", () => {
     mockFetchUnlockedNoticeIds.mockResolvedValue([]);
     mockUnlockNotice.mockResolvedValue({ ok: true });
     mockFetchNoticeTranslation.mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
+    mockFetchIndustryPrefs.mockResolvedValue(null);
+    mockSaveIndustryPrefs.mockResolvedValue({ ok: true });
+    mockFetchRecommendedNotices.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
   });
 
   // ── 1. UNSPSC level-1 selection ──
@@ -437,5 +455,94 @@ describe("ProcurementPage", () => {
     await waitFor(() => expect(screen.getByText("procurement_unlockFail")).toBeInTheDocument());
     expect(screen.queryByTestId("detail-skeleton")).toBeNull();
     expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument();
+  });
+
+  // ── 账号默认行业偏好三级降级（本地差异 #5）──
+
+  it("preselects saved industry prefs and filters by code_id with banner", async () => {
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(mockFetchIndustryPrefs).toHaveBeenCalledWith("u1");
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+    // 级联选择器按偏好路径预选，公告请求带最深层 code_id
+    await waitFor(() => {
+      const selects = document.querySelectorAll("select");
+      expect((selects[0] as HTMLSelectElement).value).toBe("1");
+      expect((selects[1] as HTMLSelectElement).value).toBe("11");
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: "11" }));
+    });
+  });
+
+  it("falls back to recommended notices when no prefs but interests exist", async () => {
+    mockFetchRecommendedNotices.mockResolvedValue({
+      items: [{ id: 9, title: "Reco Notice", agency: "A", country: "US", reference: "R-9", match_score: 3 }],
+      total: 1,
+      page: 1,
+      pageSize: 9,
+    });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(mockFetchRecommendedNotices).toHaveBeenCalledWith(
+        expect.objectContaining({ userKey: "u1", page: 1 })
+      );
+      expect(screen.getByText("procurement_recommendedBanner")).toBeInTheDocument();
+      expect(screen.getByText("Reco Notice")).toBeInTheDocument();
+    });
+  });
+
+  it("keeps the default full list when neither prefs nor recommendations exist", async () => {
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Notice A")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+    expect(screen.queryByText("procurement_recommendedBanner")).toBeNull();
+    expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
+  });
+
+  it("does not call prefs or recommended APIs when logged out", async () => {
+    mockAuth.authUser = null;
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Notice A")).toBeInTheDocument();
+    });
+    expect(mockFetchIndustryPrefs).not.toHaveBeenCalled();
+    expect(mockFetchRecommendedNotices).not.toHaveBeenCalled();
+  });
+
+  it("exits auto prefs mode via the view-all button", async () => {
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: null });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("procurement_viewAll"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
+    });
+  });
+
+  it("exits auto prefs mode when the selector is changed manually", async () => {
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: null });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+    const selects = document.querySelectorAll("select");
+    fireEvent.change(selects[0], { target: { value: "2" } });
+
+    await waitFor(() => {
+      expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+    });
   });
 });
