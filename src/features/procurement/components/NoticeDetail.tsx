@@ -24,6 +24,8 @@ interface NoticeDetailProps {
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
   onPayUnlock: (notice: NoticeItem) => void;
+  /** 已解锁公告的拓展详情加载中：以骨架屏替代锁定面板，避免闪烁 */
+  detailLoading?: boolean;
   /** 内嵌多套餐付费面板（付费墙）状态与回调；paywallNotice 存在时在 aside 渲染面板 */
   payment?: {
     plans: MembershipPlan[];
@@ -51,13 +53,17 @@ export function NoticeDetail({
   onExpressInterest,
   onUnlock,
   onPayUnlock,
+  detailLoading,
   payment,
 }: NoticeDetailProps) {
   const { t } = useLocale();
   const coreUnlocked = notice.core_locked === false;
+  const showSkeleton = !coreUnlocked && !!detailLoading;
   const visibleAgency = coreUnlocked
     ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
-    : t("procurement_lockedCoreTitle");
+    : showSkeleton
+      ? t("procurement_loading")
+      : t("procurement_lockedCoreTitle");
 
   return (
     <div className="space-y-5">
@@ -143,6 +149,15 @@ export function NoticeDetail({
 
                 <NoticeUnlockedDetails notice={notice} />
               </>
+            ) : showSkeleton ? (
+              <div
+                data-testid="detail-skeleton"
+                className="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3 animate-pulse"
+              >
+                <div className="h-4 w-1/3 bg-slate-200 rounded" />
+                <div className="h-3 w-full bg-slate-200 rounded" />
+                <div className="h-3 w-2/3 bg-slate-200 rounded" />
+              </div>
             ) : (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
                 <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
@@ -182,7 +197,7 @@ export function NoticeDetail({
                     : t("procurement_freeUsedUp")}
               </button>
 
-              {notice.core_locked !== false && (
+              {notice.core_locked !== false && !showSkeleton && (
                 <button
                   onClick={() => onPayUnlock(notice)}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700"
