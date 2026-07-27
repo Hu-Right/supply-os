@@ -39,6 +39,18 @@ vi.mock("@/features/payment", () => ({
   ),
 }));
 
+// ── Mock procurement api（UNSPSC 级联 + 行业偏好，本地差异 #5 配套）──
+const mockFetchUnspscIndustries = vi.fn();
+const mockFetchUnspscChildren = vi.fn();
+const mockFetchIndustryPrefs = vi.fn();
+const mockSaveIndustryPrefs = vi.fn();
+vi.mock("@/features/procurement/api", () => ({
+  fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
+  fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
+  fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
+  saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
+}));
+
 describe("AuthModal", () => {
   const onClose = vi.fn();
 
@@ -47,6 +59,14 @@ describe("AuthModal", () => {
     mockAuth.authUser = null;
     mockAuth.isVip = false;
     mockAuth.claimMessage = "";
+    // 行业偏好默认：无已存偏好；级联数据可用
+    mockFetchUnspscIndustries.mockResolvedValue([
+      { id: 1, code: "10000000", title: "Fuel" },
+      { id: 2, code: "20000000", title: "Lubricants" },
+    ]);
+    mockFetchUnspscChildren.mockResolvedValue([{ id: 11, code: "10100000", title: "Diesel" }]);
+    mockFetchIndustryPrefs.mockResolvedValue(null);
+    mockSaveIndustryPrefs.mockResolvedValue({ ok: true });
     // Mock form validation to always pass
     HTMLFormElement.prototype.reportValidity = vi.fn(() => true);
   });
@@ -230,5 +250,139 @@ describe("AuthModal", () => {
     await waitFor(() => {
       expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
     });
+  });
+
+  // ── 账号默认行业偏好（本地差异 #5 配套 UI）──
+
+  it("renders industry pref selects in register mode", async () => {
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    expect(screen.getByText("authIndustryPrefLabel")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+  });
+
+  it("loads sub-categories after selecting a level-1 industry", async () => {
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+
+    await waitFor(() => {
+      expect(mockFetchUnspscChildren).toHaveBeenCalledWith("1");
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+  });
+
+  it("silently saves industry prefs after successful register", async () => {
+    mockAuth.register.mockResolvedValue(undefined);
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+    fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+
+    await waitFor(() => {
+      expect(mockAuth.register).toHaveBeenCalled();
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("test@test.com", {
+        level1_id: 1,
+        level2_id: 11,
+      });
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does not save industry prefs when none selected (optional field)", async () => {
+    mockAuth.register.mockResolvedValue(undefined);
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+    fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+
+    await waitFor(() => {
+      expect(mockAuth.register).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(mockSaveIndustryPrefs).not.toHaveBeenCalled();
+  });
+
+  it("shows my default industry card with saved prefs when authenticated", async () => {
+    mockAuth.authUser = { user_key: "vip@qq.com", email: "vip@qq.com", display_name: "VIP" };
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+
+    render(<AuthModal onClose={onClose} />);
+
+    expect(screen.getByText("authIndustryPrefLabel")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockFetchIndustryPrefs).toHaveBeenCalledWith("vip@qq.com");
+    });
+    await waitFor(() => {
+      const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+      const level2 = screen.getByRole("combobox", { name: "authIndustryPrefSub" }) as HTMLSelectElement;
+      expect(level1.value).toBe("1");
+      expect(level2.value).toBe("11");
+    });
+  });
+
+  it("saves prefs from the logged-in panel and shows confirmation", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Lubricants/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefSave"));
+
+    await waitFor(() => {
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: 2, level2_id: null });
+      expect(screen.getByText("authIndustryPrefSaved")).toBeInTheDocument();
+    });
+  });
+
+  it("clears prefs via the clear button", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: null });
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+      expect(level1.value).toBe("1");
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefClear"));
+
+    await waitFor(() => {
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: null });
+    });
+    const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+    expect(level1.value).toBe("");
   });
 });

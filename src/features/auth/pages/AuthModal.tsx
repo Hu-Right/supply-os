@@ -7,20 +7,37 @@
  *              Auth modal extracted from App.tsx, including login/register/supplier claim
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Crown, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import type { Locale } from "@/core/i18n";
 import { MyRecordsPanel } from "@/features/payment";
+import {
+  fetchUnspscIndustries,
+  fetchUnspscChildren,
+  fetchIndustryPrefs,
+  saveIndustryPrefs,
+} from "@/features/procurement/api";
+import type { UnspscOption } from "@/features/procurement/types";
 
 type AuthModalProps = {
   onClose: () => void;
 };
 
+// 与公采页 UnspcsSelector 一致的选项文案策略：中文优先 title_zh，其余回退英文
+const getOptionLabel = (item: UnspscOption, locale: Locale) => {
+  const title =
+    locale === "zh"
+      ? item.title_zh || item.title || item.name
+      : item.title_en || item.title || item.name || item.title_zh;
+  return `${item.code || ""}${item.code ? " - " : ""}${title || "Unnamed category"}`;
+};
+
 export function AuthModal({ onClose }: AuthModalProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { authUser, isVip, login, register, logout, claimMessage } = useAuth();
   const navigate = useNavigate();
 
@@ -45,6 +62,74 @@ export function AuthModal({ onClose }: AuthModalProps) {
     contactPhone: "",
     businessLicenseNo: "",
   });
+
+  // ── 账号默认行业偏好（本地差异 #5 配套 UI）──
+  // 注册模式选取 + 已登录面板管理共用同一组级联状态
+  const [industryOptions, setIndustryOptions] = useState<UnspscOption[]>([]);
+  const [subOptions, setSubOptions] = useState<UnspscOption[]>([]);
+  const [prefLevel1, setPrefLevel1] = useState("");
+  const [prefLevel2, setPrefLevel2] = useState("");
+  const [prefMessage, setPrefMessage] = useState("");
+
+  // 一级行业选项：接口有缓存，弹窗打开即加载
+  useEffect(() => {
+    fetchUnspscIndustries()
+      .then(setIndustryOptions)
+      .catch(() => setIndustryOptions([]));
+  }, []);
+
+  // 已登录时回填已保存的偏好（fetchIndustryPrefs 异常时内部返回 null，不会抛出）
+  useEffect(() => {
+    if (!authUser?.user_key) return;
+    fetchIndustryPrefs(authUser.user_key).then((prefs) => {
+      setPrefLevel1(prefs?.level1_id ? String(prefs.level1_id) : "");
+      setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
+    });
+  }, [authUser?.user_key]);
+
+  // 选定一级后加载二级细分类目
+  useEffect(() => {
+    if (!prefLevel1) {
+      setSubOptions([]);
+      return;
+    }
+    fetchUnspscChildren(prefLevel1)
+      .then(setSubOptions)
+      .catch(() => setSubOptions([]));
+  }, [prefLevel1]);
+
+  const handlePrefLevel1Change = (value: string) => {
+    setPrefLevel1(value);
+    setPrefLevel2("");
+    setPrefMessage("");
+  };
+
+  /** 已登录面板：保存当前选择为账号默认行业 */
+  const savePrefs = async () => {
+    if (!authUser?.user_key || !prefLevel1) return;
+    try {
+      await saveIndustryPrefs(authUser.user_key, {
+        level1_id: Number(prefLevel1),
+        level2_id: prefLevel2 ? Number(prefLevel2) : null,
+      });
+      setPrefMessage(t("authIndustryPrefSaved"));
+    } catch (err) {
+      console.error("Failed to save industry prefs", err);
+    }
+  };
+
+  /** 已登录面板：清除账号默认行业（level1 传空即删除） */
+  const clearPrefs = async () => {
+    if (!authUser?.user_key) return;
+    try {
+      await saveIndustryPrefs(authUser.user_key, { level1_id: null });
+      setPrefLevel1("");
+      setPrefLevel2("");
+      setPrefMessage(t("authIndustryPrefSaved"));
+    } catch (err) {
+      console.error("Failed to clear industry prefs", err);
+    }
+  };
 
   /**
    * 提交认证（登录或注册）
@@ -83,12 +168,55 @@ export function AuthModal({ onClose }: AuthModalProps) {
           authForm.displayName,
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined
         );
+        // 行业为选填：注册成功后静默保存偏好（user_key 即小写邮箱），失败不阻断注册流程
+        if (prefLevel1) {
+          saveIndustryPrefs(email.toLowerCase(), {
+            level1_id: Number(prefLevel1),
+            level2_id: prefLevel2 ? Number(prefLevel2) : null,
+          }).catch((err) => console.error("Failed to save industry prefs", err));
+        }
         onClose();
       }
     } catch (err: any) {
       setAuthError(err.message || t("authLoginFailed"));
     }
   };
+
+  // 两级级联下拉：注册模式与已登录面板共用
+  const industrySelects = (
+    <>
+      <select
+        aria-label={t("authIndustryPrefSelect")}
+        value={prefLevel1}
+        onChange={(e) => handlePrefLevel1Change(e.target.value)}
+        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+      >
+        <option value="">{t("authIndustryPrefSelect")}</option>
+        {industryOptions.map((item) => (
+          <option key={item.id} value={item.id}>
+            {getOptionLabel(item, locale)}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label={t("authIndustryPrefSub")}
+        value={prefLevel2}
+        onChange={(e) => {
+          setPrefLevel2(e.target.value);
+          setPrefMessage("");
+        }}
+        disabled={!prefLevel1}
+        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
+      >
+        <option value="">{t("authIndustryPrefSub")}</option>
+        {subOptions.map((item) => (
+          <option key={item.id} value={item.id}>
+            {getOptionLabel(item, locale)}
+          </option>
+        ))}
+      </select>
+    </>
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/55 backdrop-blur-xs flex justify-center items-center p-4">
@@ -157,6 +285,37 @@ export function AuthModal({ onClose }: AuthModalProps) {
                     </p>
                   </div>
                 </div>
+              </div>
+              {/* 我的默认行业 — 公采页进入时按此偏好默认筛选（本地差异 #5 配套 UI） */}
+              <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+                <h4 className="text-sm font-extrabold text-slate-900">
+                  {t("authIndustryPrefLabel")}
+                </h4>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {industrySelects}
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={savePrefs}
+                    disabled={!prefLevel1}
+                    className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-black hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {t("authIndustryPrefSave")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearPrefs}
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white"
+                  >
+                    {t("authIndustryPrefClear")}
+                  </button>
+                </div>
+                {prefMessage && (
+                  <p className="mt-3 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
+                    {prefMessage}
+                  </p>
+                )}
               </div>
               <MyRecordsPanel onOpenNotice={openNotice} />
               {claimMessage && (
@@ -270,6 +429,15 @@ export function AuthModal({ onClose }: AuthModalProps) {
                       placeholder={t("authLicensePlaceholder")}
                       className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
+                  </div>
+                  {/* 主营行业选取（选填，注册成功后作为公采页默认筛选偏好） */}
+                  <div>
+                    <p className="text-xs font-black text-slate-500">
+                      {t("authIndustryPrefLabel")}
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {industrySelects}
+                    </div>
                   </div>
                 </div>
               )}

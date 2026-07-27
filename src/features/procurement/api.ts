@@ -131,3 +131,65 @@ export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
   fetchJsonCached<NoticeTranslation>(
     `/api/notices/${noticeId}/translation?lang=${encodeURIComponent(lang)}`
   );
+
+// ── 账号默认行业偏好（本地差异 #5 配套前端）──
+
+/** 账号默认行业偏好：UNSPSC 类目路径 id（本期 UI 只用 1~2 级） */
+export interface IndustryPrefs {
+  level1_id: number | null;
+  level2_id?: number | null;
+  level3_id?: number | null;
+  level4_id?: number | null;
+  level5_id?: number | null;
+}
+
+/**
+ * 读取账号默认行业偏好
+ * Fetch the account's default industry preference
+ *
+ * @remarks 任何异常返回 null（回退到推荐/全量），绝不阻断公采页。
+ *          偏好可在个人中心随时修改，故不走缓存。
+ */
+export const fetchIndustryPrefs = async (userKey: string): Promise<IndustryPrefs | null> => {
+  try {
+    const res = await fetch(`/api/user/industry-prefs?user_key=${encodeURIComponent(userKey)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.prefs || null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 保存账号默认行业偏好（level1_id 传空即清除偏好）
+ * Save the account's default industry preference (null level1_id clears it)
+ */
+export const saveIndustryPrefs = (userKey: string, prefs: Partial<IndustryPrefs>) =>
+  fetch("/api/user/industry-prefs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_key: userKey, ...prefs }),
+  });
+
+/**
+ * 按用户行为兴趣码拉取推荐公告（match_score 降序）
+ * Fetch recommended notices ranked by the user's interest codes
+ *
+ * @remarks 兴趣码随解锁/订阅行为实时演进，故不走缓存，每次都请求最新结果。
+ */
+export const fetchRecommendedNotices = (params: {
+  userKey: string;
+  page: number;
+  pageSize: number;
+}): Promise<NoticeResponse> => {
+  const searchParams = new URLSearchParams({
+    user_key: params.userKey,
+    page: String(params.page),
+    page_size: String(params.pageSize),
+  });
+  return fetch(`/api/notices/recommended?${searchParams.toString()}`).then((res) => {
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    return res.json();
+  });
+};

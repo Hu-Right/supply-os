@@ -55,6 +55,13 @@ export const handlers = [
     HttpResponse.json({ notices: [], total: 0 })
   ),
 
+  // ── Industry prefs & recommended（默认：无偏好/无推荐，测试按需覆盖）──
+  http.get("/api/user/industry-prefs", () => HttpResponse.json({ prefs: null })),
+  http.post("/api/user/industry-prefs", () => HttpResponse.json({ success: true }, { status: 201 })),
+  http.get("/api/notices/recommended", () =>
+    HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 9 })
+  ),
+
   // ── Training ──────────────────────────────────────────
   http.get("/api/training/certifications", () => HttpResponse.json([])),
   http.get("/api/training/industries", () => HttpResponse.json([])),
