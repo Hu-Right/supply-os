@@ -136,4 +136,19 @@ describe("NoticeDetail", () => {
     expect(screen.queryByText("procurement_viewOriginal")).toBeNull();
     expect(screen.queryByText("procurement_translateNote")).toBeNull();
   });
+
+  // ── notice_type 本地化：已知类型映射 i18n 键，未知类型原样回退 ──
+  it("localizes known notice_type via i18n key", () => {
+    render(<NoticeDetail {...defaultProps} />);
+    // "Open Tender" 命中 tender 规则 → itb 键（mock t 原样返回键名）
+    expect(screen.getByText("procurement_type_itb")).toBeInTheDocument();
+    expect(screen.queryByText("Open Tender")).toBeNull();
+  });
+
+  it("falls back to raw notice_type for unmapped values", () => {
+    render(
+      <NoticeDetail {...defaultProps} notice={{ ...mockNotice, notice_type: "Timber Auction" } as any} />
+    );
+    expect(screen.getByText("Timber Auction")).toBeInTheDocument();
+  });
 });
