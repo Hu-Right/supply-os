@@ -38,8 +38,8 @@ const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
 const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
 
 vi.mock("@/features/procurement/api", () => ({
-  fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
-  fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
+  fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
+  fetchUnspscChildren: (id: string, locale?: string) => mockFetchUnspscChildren(id, locale),
   fetchNotices: (params: any) => mockFetchNotices(params),
   fetchMembershipPlans: () => mockFetchMembershipPlans(),
   fetchMembershipStatus: (key: string, cache?: boolean) => mockFetchMembershipStatus(key, cache),
@@ -54,11 +54,12 @@ vi.mock("@/features/procurement/api", () => ({
   fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
 }));
 
-// ── Mock useLocale ──
+// ── Mock useLocale（locale 可变：切语言重拉级联用例需要）──
+const localeState = { locale: "zh" };
 vi.mock("@/core/i18n", () => ({
   useLocale: () => ({
     t: (key: string) => key,
-    locale: "zh",
+    locale: localeState.locale,
   }),
 }));
 
@@ -87,6 +88,7 @@ vi.mock("react-router-dom", async () => {
 describe("ProcurementPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localeState.locale = "zh";
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
     mockAuth.isVip = false;
     // 用例 18 会把 industries 改为 rejected：此处复位，避免污染后续依赖级联数据的用例
@@ -678,6 +680,29 @@ it("preselects three-level industry prefs and filters by the deepest code_id", a
       const selects = document.querySelectorAll("select");
       expect((selects[0] as HTMLSelectElement).value).toBe("");
       expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
+    });
+  });
+
+  // ── 切语言后按当前选择路径重拉级联（localeRef 守卫：仅语言变化触发）──
+  it("refetches cascade levels with new locale after language switch", async () => {
+    const { rerender } = render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Fuel" })).toBeInTheDocument();
+    });
+    // 选中一级（id=1）：children 以 ("1", "zh") 拉取
+    const selects = document.querySelectorAll("select");
+    fireEvent.change(selects[0], { target: { value: "1" } });
+    await waitFor(() => {
+      expect(mockFetchUnspscChildren).toHaveBeenLastCalledWith("1", "zh");
+    });
+
+    // 切语言为 fr：localeRef 守卫识别语言变化，按已选路径重拉各级选项
+    localeState.locale = "fr";
+    rerender(<ProcurementPage />);
+    await waitFor(() => {
+      expect(mockFetchUnspscIndustries).toHaveBeenLastCalledWith("fr");
+      expect(mockFetchUnspscChildren).toHaveBeenLastCalledWith("1", "fr");
     });
   });
 });

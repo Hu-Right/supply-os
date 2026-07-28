@@ -95,4 +95,24 @@ describe("Payment history API", () => {
     );
     await expect(fetchUnlocks({ userKey: "uk_test" })).rejects.toThrow();
   });
+
+  it("fetchUnlocks appends lang for non-en locales and omits it for en/unknown", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get("/api/payment/unlocks", ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ total: 0, page: 1, limit: 3, list: [] });
+      })
+    );
+
+    await fetchUnlocks({ userKey: "uk", limit: 3, locale: "ar" });
+    expect(capturedUrl).toContain("lang=ar");
+
+    // en 为原文语言不传 lang；未传 locale 同样不带
+    await fetchUnlocks({ userKey: "uk", limit: 3, locale: "en" });
+    expect(capturedUrl).not.toContain("lang=");
+
+    await fetchUnlocks({ userKey: "uk", limit: 3 });
+    expect(capturedUrl).not.toContain("lang=");
+  });
 });

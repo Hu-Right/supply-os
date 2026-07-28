@@ -27,4 +27,21 @@ describe("getUnspscOptionLabel", () => {
   it("uses the placeholder when neither title nor code is available", () => {
     expect(getUnspscOptionLabel({ id: 1, code: "" }, "zh")).toBe("Unnamed category");
   });
+
+  it("prefers title_i18n over title_en for non-zh locales", () => {
+    const item = {
+      id: 1,
+      code: "10000000",
+      title: "Live Plant and Animal Material",
+      title_zh: "活体动植物",
+      title_i18n: "Matériel végétal et animal vivant",
+    };
+    expect(getUnspscOptionLabel(item, "fr")).toBe("Matériel végétal et animal vivant");
+    // zh 不受 title_i18n 影响
+    expect(getUnspscOptionLabel(item, "zh")).toBe("活体动植物");
+    // title_i18n 为空时回退 title_en → title 链
+    expect(getUnspscOptionLabel({ ...item, title_i18n: null }, "fr")).toBe(
+      "Live Plant and Animal Material"
+    );
+  });
 });

@@ -54,4 +54,51 @@ describe("RecentUnlocks", () => {
     );
     await waitFor(() => expect(container.firstChild).toBeNull());
   });
+
+  it("renders translated title with original toggle and AI note", async () => {
+    vi.spyOn(api, "fetchUnlocks").mockResolvedValue({
+      list: [
+        {
+          user_key: "uk",
+          notice_id: 11,
+          unlock_type: "single",
+          price: 89,
+          unlocked_at: "2026-07-01T00:00:00Z",
+          notice: { id: 11, title: "Recent Notice", title_i18n: "近期公告" },
+        },
+      ],
+      total: 1,
+    } as any);
+    render(<RecentUnlocks userKey="uk" onOpenNotice={vi.fn()} />);
+
+    // 默认显示译文 + AI 来源提示 + "查看原文"按钮
+    await waitFor(() => expect(screen.getByText("近期公告")).toBeInTheDocument());
+    expect(screen.getByText("procurement_translateNote")).toBeInTheDocument();
+
+    // 切原文：标题变原文、AI 提示消失、按钮变"查看译文"
+    fireEvent.click(screen.getByText("procurement_viewOriginal"));
+    expect(screen.getByText("Recent Notice")).toBeInTheDocument();
+    expect(screen.queryByText("procurement_translateNote")).not.toBeInTheDocument();
+    expect(screen.getByText("procurement_viewTranslation")).toBeInTheDocument();
+  });
+
+  it("hides toggle and note when no translation is available", async () => {
+    vi.spyOn(api, "fetchUnlocks").mockResolvedValue({
+      list: [
+        {
+          user_key: "uk",
+          notice_id: 11,
+          unlock_type: "single",
+          price: 89,
+          notice: { id: 11, title: "Recent Notice", title_i18n: null },
+        },
+      ],
+      total: 1,
+    } as any);
+    render(<RecentUnlocks userKey="uk" onOpenNotice={vi.fn()} />);
+    // 缺译回退原文，无切换按钮、无 AI 提示（en 环境同此形态）
+    await waitFor(() => expect(screen.getByText("Recent Notice")).toBeInTheDocument());
+    expect(screen.queryByText("procurement_viewOriginal")).not.toBeInTheDocument();
+    expect(screen.queryByText("procurement_translateNote")).not.toBeInTheDocument();
+  });
 });

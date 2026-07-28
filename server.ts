@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// 本地开发从 .env 读取环境变量（MYMEMORY_EMAIL 等）；无 .env 时静默跳过，
+// 不影响 AI Studio 的运行时注入
+import "dotenv/config";
 import express from "express";
 import path from "path";
 import crypto from "crypto";
@@ -555,11 +558,8 @@ const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
   ar: "Arabic",
 };
 
-// 同一 (notice, lang) 的并发首次请求只触发一次 Gemini 调用
-const pendingNoticeTranslations = new Map<
-  string,
-  Promise<{ title: string; description: string }>
->();
+// 同一 (notice, lang) 的并发首次请求只触发一次翻译链调用
+const pendingNoticeTranslations = new Map<string, Promise<ChainResult>>();
 
 async function translateNoticeText(
   title: string,
@@ -618,8 +618,8 @@ type SupplierTranslatableFields = {
   enterpriseNature: string;
 };
 
-// 同一 (supplier, lang) 的并发首次翻译只触发一次 Gemini 调用
-const pendingSupplierTranslations = new Map<string, Promise<SupplierTranslatableFields>>();
+// 同一 (supplier, lang) 的并发首次翻译只触发一次翻译链调用
+const pendingSupplierTranslations = new Map<string, Promise<ChainResult>>();
 
 async function translateSupplierFields(
   fields: SupplierTranslatableFields,
@@ -686,8 +686,8 @@ const UNSPSC_TRANSLATION_LANGS: Record<string, string> = {
   ar: "Arabic",
 };
 
-// 同一 (父级列表, lang) 的并发首次翻译只触发一次 Gemini 调用
-const pendingUnspscTranslations = new Map<string, Promise<string[]>>();
+// 同一 (父级列表, lang) 的并发首次翻译只触发一次翻译链调用
+const pendingUnspscTranslations = new Map<string, Promise<ChainResult>>();
 
 // 整批列表一次调用：children 列表 ≤ 60 条，逐条调用会打爆配额
 async function translateUnspscTitles(titles: string[], langName: string): Promise<string[]> {
@@ -724,6 +724,231 @@ ${JSON.stringify(titles)}`;
     throw new Error("TRANSLATION_MALFORMED");
   }
   return parsed;
+}
+
+// ── 翻译通道链（本地差异 #4 扩展：DeepL Free → MyMemory → Gemini 兜底）──
+// 三通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时由 Gemini
+// 兜底函数抛 TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
+// 缓存表 model 列写入真实提供方（deepl-free / mymemory / gemini-3.5-flash）。
+
+type ChainResult = { translations: string[]; provider: string };
+
+// 占位符值与空值均视为"未配置该通道"（与 GEMINI_API_KEY 占位符检查同款语义）
+const CHANNEL_PLACEHOLDERS = new Set(["MY_DEEPL_API_KEY", "MY_CONTACT_EMAIL", "MY_GEMINI_API_KEY"]);
+function channelConfigured(value: string | undefined): boolean {
+  return !!value && value.trim() !== "" && !CHANNEL_PLACEHOLDERS.has(value.trim());
+}
+
+// 内部 locale → 各服务语言码（源语言仅两种：公告/UNSPSC 为 en，供应商为 zh）
+const DEEPL_SOURCE_CODES: Record<string, string> = { en: "EN", zh: "ZH" };
+const DEEPL_TARGET_CODES: Record<string, string> = {
+  zh: "ZH",
+  en: "EN-US",
+  fr: "FR",
+  ru: "RU",
+  es: "ES",
+  ar: "AR",
+};
+const MYMEMORY_CODES: Record<string, string> = {
+  zh: "zh-CN",
+  en: "en",
+  fr: "fr",
+  ru: "ru",
+  es: "es",
+  ar: "ar",
+};
+
+// 进程内软额度计数：达到阈值主动跳下一通道，减少无谓的超额请求
+const DEEPL_SOFT_LIMIT = 450_000; // 官方 50 万字符/月，留 5 万余量
+const MYMEMORY_SOFT_LIMIT = 45_000; // email 模式 5 万字符/天，留 5 千余量
+const deeplUsage = { period: "", chars: 0 };
+const mymemoryUsage = { period: "", chars: 0 };
+
+function budgetAllows(
+  usage: { period: string; chars: number },
+  period: string,
+  chars: number,
+  limit: number
+): boolean {
+  if (usage.period !== period) {
+    usage.period = period;
+    usage.chars = 0;
+  }
+  return usage.chars + chars <= limit;
+}
+
+// MT 通道的术语保护：URL/邮箱/参考号/常见缩写抽出为占位符，译后回填；
+// 任一占位符在译文中丢失即判本通道失败落下一层（Gemini 通道靠 prompt 规则，不套占位符）
+const PROTECT_PATTERNS: RegExp[] = [
+  /https?:\/\/[^\s)]+/g,
+  /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
+  /\b[A-Z]{2,10}(?:[-/][A-Z0-9]{1,12})+\b/g, // 参考号，如 RFQ-2026-0042
+  /\b(?:UNGM|RFQ|ITB|EOI|UNSPSC|ISO|FDA|CE|GMP|RoHS|3C)\b/g,
+];
+
+function protectTerms(text: string): { masked: string; tokens: string[] } {
+  const tokens: string[] = [];
+  let masked = text;
+  for (const pattern of PROTECT_PATTERNS) {
+    masked = masked.replace(pattern, (match) => {
+      const token = `⟦T${tokens.length}⟧`;
+      tokens.push(match);
+      return token;
+    });
+  }
+  return { masked, tokens };
+}
+
+function restoreTerms(text: string, tokens: string[]): string {
+  let restored = text;
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = `⟦T${i}⟧`;
+    if (!restored.includes(token)) throw new Error("MT_PLACEHOLDER_LOST");
+    restored = restored.split(token).join(tokens[i]);
+  }
+  return restored;
+}
+
+// 通道1：DeepL API Free（一次多段，preserve_formatting 保留描述换行）
+async function translateViaDeepL(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string
+): Promise<string[]> {
+  const apiKey = process.env.DEEPL_API_KEY;
+  const source = DEEPL_SOURCE_CODES[sourceLang];
+  const target = DEEPL_TARGET_CODES[targetLang];
+  if (!channelConfigured(apiKey) || !source || !target) throw new Error("CHANNEL_SKIPPED");
+  const chars = texts.reduce((sum, text) => sum + text.length, 0);
+  const month = new Date().toISOString().slice(0, 7);
+  if (!budgetAllows(deeplUsage, month, chars, DEEPL_SOFT_LIMIT)) throw new Error("CHANNEL_SKIPPED");
+
+  const request = () =>
+    fetch("https://api-free.deepl.com/v2/translate", {
+      method: "POST",
+      headers: {
+        Authorization: `DeepL-Auth-Key ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: texts,
+        source_lang: source,
+        target_lang: target,
+        preserve_formatting: true,
+      }),
+    });
+  let res = await request();
+  if (res.status === 429) {
+    // 限流：退避一次后重试，仍失败则落下一通道
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    res = await request();
+  }
+  if (res.status === 456) {
+    deeplUsage.chars = DEEPL_SOFT_LIMIT; // 本月额度耗尽：后续请求直接跳过本通道
+    throw new Error("QUOTA_EXCEEDED");
+  }
+  if (!res.ok) throw new Error(`DEEPL_HTTP_${res.status}`);
+  const data: any = await res.json();
+  const translations = (data?.translations || []).map((item: any) => String(item?.text ?? ""));
+  if (translations.length !== texts.length) throw new Error("DEEPL_MALFORMED");
+  deeplUsage.chars += chars;
+  return translations;
+}
+
+// 通道2：MyMemory（单条接口；官方单次上限 500 字符，长文本不走本通道；
+// match 低于 0.85 的翻译记忆陈旧匹配视为失败落下一层）
+const MYMEMORY_MAX_CHARS = 480;
+async function translateViaMyMemory(
+  text: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<string> {
+  const email = process.env.MYMEMORY_EMAIL;
+  const source = MYMEMORY_CODES[sourceLang];
+  const target = MYMEMORY_CODES[targetLang];
+  if (!channelConfigured(email) || !source || !target) throw new Error("CHANNEL_SKIPPED");
+  if (text.length > MYMEMORY_MAX_CHARS) throw new Error("CHANNEL_SKIPPED");
+  const day = new Date().toISOString().slice(0, 10);
+  if (!budgetAllows(mymemoryUsage, day, text.length, MYMEMORY_SOFT_LIMIT)) {
+    throw new Error("CHANNEL_SKIPPED");
+  }
+  const params = new URLSearchParams({
+    q: text,
+    langpair: `${source}|${target}`,
+    de: String(email),
+  });
+  const res = await fetch(`https://api.mymemory.translated.net/get?${params.toString()}`);
+  if (!res.ok) throw new Error(`MYMEMORY_HTTP_${res.status}`);
+  const data: any = await res.json();
+  const translated = String(data?.responseData?.translatedText ?? "").trim();
+  const match = Number(data?.responseData?.match ?? 0);
+  if (Number(data?.responseStatus) !== 200 || !translated || match < 0.85) {
+    throw new Error("MYMEMORY_LOW_QUALITY");
+  }
+  mymemoryUsage.chars += text.length;
+  return translated;
+}
+
+// 通道链入口：空文本原样透传（供应商空字段等）；ar 可经环境开关直通 Gemini；
+// geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
+async function translateViaChain(
+  texts: string[],
+  sourceLang: "en" | "zh",
+  targetLang: string,
+  geminiFallback: () => Promise<string[]>
+): Promise<ChainResult> {
+  const jobs = texts
+    .map((text, index) => ({ text, index }))
+    .filter((job) => job.text.trim() !== "");
+  if (jobs.length === 0) return { translations: texts, provider: "none" };
+
+  const assemble = (translated: Map<number, string>): string[] =>
+    texts.map((text, index) => translated.get(index) ?? text);
+
+  const arDirectToGemini =
+    targetLang === "ar" &&
+    String(process.env.TRANSLATION_AR_PROVIDER || "chain").toLowerCase() === "gemini";
+
+  if (!arDirectToGemini) {
+    try {
+      const protectedJobs = jobs.map((job) => ({ ...job, ...protectTerms(job.text) }));
+      const results = await translateViaDeepL(
+        protectedJobs.map((job) => job.masked),
+        sourceLang,
+        targetLang
+      );
+      const translated = new Map<number, string>();
+      protectedJobs.forEach((job, i) => {
+        translated.set(job.index, restoreTerms(results[i], job.tokens));
+      });
+      return { translations: assemble(translated), provider: "deepl-free" };
+    } catch {
+      // 未配置/超额/失败：落下一通道
+    }
+    try {
+      const translated = new Map<number, string>();
+      for (const job of jobs) {
+        const { masked, tokens } = protectTerms(job.text);
+        translated.set(job.index, restoreTerms(await translateViaMyMemory(masked, sourceLang, targetLang), tokens));
+      }
+      return { translations: assemble(translated), provider: "mymemory" };
+    } catch {
+      // 未配置/超限/低质：落下一通道
+    }
+  }
+  return { translations: await geminiFallback(), provider: "gemini-3.5-flash" };
+}
+
+// 公告标题+描述过链的适配器（详情端点与解锁补翻共用，与 pendingNoticeTranslations 键配套）
+function translateNoticeViaChain(
+  title: string,
+  description: string,
+  lang: string
+): Promise<ChainResult> {
+  return translateViaChain([title, description], "en", lang, async () => {
+    const result = await translateNoticeText(title, description, NOTICE_TRANSLATION_LANGS[lang]);
+    return [result.title, result.description];
+  });
 }
 
 async function ensureProcurementSchema(dbPool: any) {
@@ -1582,39 +1807,55 @@ async function startServer() {
     }
   });
 
-  // 缺失译文后台补翻：串行执行避免打爆 Gemini；无 Key 时静默停止（列表已回退中文）
+  // 缺失译文后台补翻：串行执行避免打爆免费额度；翻译链全不可用时静默停止（列表已回退中文）
   async function backfillSupplierTranslations(rows: any[], lang: string) {
     for (const row of rows) {
       const pendingKey = `${row.id}:${lang}`;
       if (pendingSupplierTranslations.has(pendingKey)) continue;
-      const pending = translateSupplierFields(
-        {
-          industry: String(row.industry || "").trim(),
-          mainProducts: String(row.main_product || "").trim(),
-          certification: String(row.certification || "").trim(),
-          enterpriseNature: String(row.enterprise_nature || "").trim(),
-        },
-        SUPPLIER_TRANSLATION_LANGS[lang]
-      );
+      // 4 字段按固定顺序过链：industry / mainProducts / certification / enterpriseNature
+      const fields = [
+        String(row.industry || "").trim(),
+        String(row.main_product || "").trim(),
+        String(row.certification || "").trim(),
+        String(row.enterprise_nature || "").trim(),
+      ];
+      const pending = translateViaChain(fields, "zh", lang, async () => {
+        const translated = await translateSupplierFields(
+          {
+            industry: fields[0],
+            mainProducts: fields[1],
+            certification: fields[2],
+            enterpriseNature: fields[3],
+          },
+          SUPPLIER_TRANSLATION_LANGS[lang]
+        );
+        return [
+          translated.industry,
+          translated.mainProducts,
+          translated.certification,
+          translated.enterpriseNature,
+        ];
+      });
       pendingSupplierTranslations.set(pendingKey, pending);
       try {
-        const translated = await pending;
+        const { translations, provider } = await pending;
         await dbPool.query(
           `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, certification_tr, enterprise_nature_tr, model)
-           VALUES (?, ?, ?, ?, ?, ?, 'gemini-3.5-flash')
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE industry_tr = VALUES(industry_tr), main_products_tr = VALUES(main_products_tr),
-             certification_tr = VALUES(certification_tr), enterprise_nature_tr = VALUES(enterprise_nature_tr)`,
+             certification_tr = VALUES(certification_tr), enterprise_nature_tr = VALUES(enterprise_nature_tr), model = VALUES(model)`,
           [
             row.id,
             lang,
-            translated.industry,
-            translated.mainProducts,
-            translated.certification,
-            translated.enterpriseNature,
+            translations[0],
+            translations[1],
+            translations[2],
+            translations[3],
+            provider,
           ]
         );
       } catch (err: any) {
-        if (err?.message === "TRANSLATION_UNAVAILABLE") return; // 无 Key：整批放弃
+        if (err?.message === "TRANSLATION_UNAVAILABLE") return; // 全链不可用：整批放弃
         // 单家失败不阻塞后续供应商
       } finally {
         pendingSupplierTranslations.delete(pendingKey);
@@ -2128,27 +2369,27 @@ async function startServer() {
       });
 
       // 缺译行响应后逐条后台补翻（标题+描述整条入库，与详情端点缓存互通；
-      // pendingNoticeTranslations 按 noticeId:lang 去重，无 GEMINI_API_KEY 时静默跳过）
+      // pendingNoticeTranslations 按 noticeId:lang 去重，翻译链全不可用时静默跳过）
       if (translatable) {
         void (async () => {
           for (const row of rows as any[]) {
             if (!row.notice_id || row.title_i18n || !String(row.title || "").trim()) continue;
             const pendingKey = `${row.notice_id}:${lang}`;
             if (pendingNoticeTranslations.has(pendingKey)) continue;
-            const pending = translateNoticeText(
+            const pending = translateNoticeViaChain(
               String(row.title || ""),
               String(row.description || ""),
-              NOTICE_TRANSLATION_LANGS[lang]
+              lang
             );
             pendingNoticeTranslations.set(pendingKey, pending);
             pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
             try {
-              const translated = await pending;
+              const { translations, provider } = await pending;
               await dbPool.query(
                 `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
-                 VALUES (?, ?, ?, ?, 'gemini-3.5-flash')
-                 ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr)`,
-                [row.notice_id, lang, translated.title, translated.description]
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
+                [row.notice_id, lang, translations[0], translations[1], provider]
               );
             } catch {
               // 翻译不可用或失败：保持英文原文，下次请求重试
@@ -2255,19 +2496,19 @@ async function startServer() {
     if (missing.length === 0) return;
     const pendingKey = `${scopeKey}:${lang}`;
     if (pendingUnspscTranslations.has(pendingKey)) return;
-    const pending = translateUnspscTitles(
-      missing.map((row) => String(row.title || row.title_zh || "").trim()),
-      UNSPSC_TRANSLATION_LANGS[lang]
+    const titles = missing.map((row) => String(row.title || row.title_zh || "").trim());
+    const pending = translateViaChain(titles, "en", lang, () =>
+      translateUnspscTitles(titles, UNSPSC_TRANSLATION_LANGS[lang])
     );
     pendingUnspscTranslations.set(pendingKey, pending);
     try {
-      const translated = await pending;
+      const { translations, provider } = await pending;
       for (let i = 0; i < missing.length; i += 1) {
         await dbPool.query(
           `INSERT INTO crm_unspsc_translations (code_id, lang, title_tr, model)
-           VALUES (?, ?, ?, 'gemini-3.5-flash')
-           ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr)`,
-          [missing[i].id, lang, translated[i]]
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), model = VALUES(model)`,
+          [missing[i].id, lang, translations[i], provider]
         );
       }
     } catch {
@@ -3014,23 +3255,23 @@ async function startServer() {
       const pendingKey = `${noticeId}:${lang}`;
       let pending = pendingNoticeTranslations.get(pendingKey);
       if (!pending) {
-        pending = translateNoticeText(
+        pending = translateNoticeViaChain(
           String(notice.title || ""),
           String(notice.description || ""),
-          NOTICE_TRANSLATION_LANGS[lang]
+          lang
         );
         pendingNoticeTranslations.set(pendingKey, pending);
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
-      const translated = await pending;
+      const { translations, provider } = await pending;
 
       await dbPool.query(
         `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
-         VALUES (?, ?, ?, ?, 'gemini-3.5-flash')
-         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr)`,
-        [noticeId, lang, translated.title, translated.description]
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
+        [noticeId, lang, translations[0], translations[1], provider]
       );
-      res.json({ lang, title: translated.title, description: translated.description, cached: false });
+      res.json({ lang, title: translations[0], description: translations[1], cached: false });
     } catch (err: any) {
       if (err?.message === "TRANSLATION_UNAVAILABLE") {
         return res.status(503).json({ error: "TRANSLATION_UNAVAILABLE" });

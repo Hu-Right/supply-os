@@ -29,6 +29,7 @@ function LocaleConsumer() {
       <span data-testid="locale">{locale}</span>
       <span data-testid="translated">{t("brandName")}</span>
       <button data-testid="switch-en" onClick={() => setLocale("en")}>EN</button>
+      <button data-testid="switch-ar" onClick={() => setLocale("ar")}>AR</button>
     </div>
   );
 }
@@ -87,5 +88,25 @@ describe("LocaleContext", () => {
     });
     // Should not throw
     setItemSpy.mockRestore();
+  });
+
+  it("sets document.documentElement.dir on mount and locale switch", () => {
+    render(<LocaleProvider><LocaleConsumer /></LocaleProvider>);
+    // 模块级初始化（mock language "zh"）→ ltr
+    expect(document.documentElement.dir).toBe("ltr");
+
+    // 切阿语：全局方向翻转为 rtl，lang 同步
+    act(() => {
+      screen.getByTestId("switch-ar").click();
+    });
+    expect(document.documentElement.dir).toBe("rtl");
+    expect(document.documentElement.lang).toBe("ar");
+
+    // 切回英语：恢复 ltr
+    act(() => {
+      screen.getByTestId("switch-en").click();
+    });
+    expect(document.documentElement.dir).toBe("ltr");
+    expect(document.documentElement.lang).toBe("en");
   });
 });
