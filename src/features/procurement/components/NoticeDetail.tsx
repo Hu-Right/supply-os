@@ -83,7 +83,7 @@ export function NoticeDetail({
         onClick={onBack}
         className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
         {t("procurement_back")}
       </button>
 
@@ -94,7 +94,7 @@ export function NoticeDetail({
               <p className="text-xs font-black text-teal-600 uppercase tracking-wider">
                 {typeKey ? t(typeKey) : notice.notice_type || "Procurement Notice"}
               </p>
-              <h3 className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">
+              <h3 dir="auto" className="text-2xl md:text-3xl font-extrabold text-slate-950 mt-2 leading-tight">
                 {displayTitle}
               </h3>
               <p className="text-sm text-slate-500 mt-3">
@@ -141,7 +141,7 @@ export function NoticeDetail({
                   </button>
                 )}
               </div>
-              <p className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
+              <p dir="auto" className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
                 {displayDescription || t("procurement_noDesc")}
               </p>
               {showTranslated && (
@@ -242,7 +242,7 @@ export function NoticeDetail({
                       <div className="w-3.5 h-3.5 rounded bg-teal-100" />
                       <div className="h-3.5 w-28 bg-slate-200 rounded" />
                     </div>
-                    <div className="space-y-2 pl-4">
+                    <div className="space-y-2 ps-4">
                       <div className="h-3 w-full bg-slate-100 rounded" />
                       <div className="h-3 w-11/12 bg-slate-100 rounded" />
                       <div className="h-3 w-4/5 bg-slate-100 rounded" />
@@ -321,7 +321,7 @@ export function NoticeDetail({
                   <Crown className="w-4 h-4 text-amber-600" />
                   {t("procurement_paidServiceTitle")}
                 </p>
-                <ul className="space-y-1 leading-5 list-disc pl-4">
+                <ul className="space-y-1 leading-5 list-disc ps-4">
                   <li>{t("procurement_paidServiceContact")}</li>
                   <li>{t("procurement_paidServiceAnalysis")}</li>
                   <li>{t("procurement_paidServiceProcess")}</li>

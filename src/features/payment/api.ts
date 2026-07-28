@@ -89,6 +89,8 @@ export type OrderNoticeBrief = {
   source_channel?: string | null;
   reference?: string | null;
   title?: string | null;
+  /** 当前界面语言的标题译文（仅 fetchUnlocks 传 lang 时返回；缺译为 null） */
+  title_i18n?: string | null;
   notice_type?: string | null;
   agency?: string | null;
   agency_full?: string | null;
@@ -162,18 +164,26 @@ export async function fetchOrders(params: {
   return res.json();
 }
 
+// 公告原文为英文：除 en 外的界面语言都请求译文（与后端 NOTICE_TRANSLATION_LANGS 对齐）
+const NOTICE_API_LANGS = new Set(["zh", "fr", "ru", "es", "ar"]);
+
 /**
  * 查询用户解锁记录（分页）
  * Fetch user's unlock records (paged)
+ *
+ * @remarks 传入 locale（zh/fr/ru/es/ar）时后端附带公告标题译文 title_i18n，
+ *          与公告详情翻译共用缓存；en 为原文语言不传 lang。
  */
 export async function fetchUnlocks(params: {
   userKey: string;
   page?: number;
   limit?: number;
+  locale?: string;
 }): Promise<PagedResult<UnlockRecord>> {
   const search = new URLSearchParams({ user_key: params.userKey });
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
+  if (params.locale && NOTICE_API_LANGS.has(params.locale)) search.set("lang", params.locale);
   const res = await fetch(`/api/payment/unlocks?${search.toString()}`);
   if (!res.ok) throw new Error("查询解锁记录失败");
   return res.json();

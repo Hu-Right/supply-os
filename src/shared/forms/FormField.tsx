@@ -33,7 +33,7 @@ export function FormField({
     <div className={`space-y-1 ${className}`}>
       <label className="block text-xs font-semibold text-slate-700">
         {label}
-        {required && <span className="ml-0.5 text-rose-500">*</span>}
+        {required && <span className="ms-0.5 text-rose-500">*</span>}
       </label>
       {children}
       {error && <p className="text-xs text-rose-600">{error}</p>}

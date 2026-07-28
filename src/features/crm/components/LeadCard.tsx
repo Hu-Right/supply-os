@@ -72,7 +72,7 @@ export function LeadCard({ lead, isActive, onClick, labels }: LeadCardProps) {
 
       <div className="flex justify-between items-center text-[10px] text-slate-400 mt-2">
         <span className="flex items-center">
-          <Clock className="w-3 h-3 mr-1" />
+          <Clock className="w-3 h-3 me-1" />
           {new Date(lead.createdAt).toLocaleString(pickLocale(locale, "zh-CN", "en-US"))}
         </span>
         <span className="text-teal-600 hover:underline">

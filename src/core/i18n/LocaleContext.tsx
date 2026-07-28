@@ -63,10 +63,12 @@ if (!i18nInstance.isInitialized) {
         });
 }
 
-// 首屏同步文档语言标记（不再全局设置 dir="rtl"，避免 Tailwind 逻辑属性翻转页面布局）
+// 首屏同步文档语言标记与书写方向：阿语设全局 dir="rtl"，
+// 导航/弹窗等 main 外区域随 Tailwind v4 逻辑属性一并翻转（全页真 RTL）
 if (typeof document !== "undefined") {
     const initial = i18nInstance.language as Locale;
     document.documentElement.lang = initial;
+    document.documentElement.dir = getLocaleDir(initial);
 }
 
 type LocaleContextValue = {
@@ -92,6 +94,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
         } catch { /* ignore */ }
         if (typeof document !== "undefined") {
             document.documentElement.lang = next;
+            document.documentElement.dir = getLocaleDir(next);
         }
     }, [instance]);
 

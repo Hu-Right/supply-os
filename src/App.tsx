@@ -22,7 +22,7 @@ import { LanguageSwitcher, SessionBanner } from "@/shared/layout";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
-  const { t, localeDir } = useLocale();
+  const { t } = useLocale();
   const navigate = useNavigate();
   const location = useLocation();
   const { authUser, isVip } = useAuth();
@@ -173,7 +173,8 @@ export default function App() {
       </nav>
 
       {/* MAIN */}
-      <main dir={localeDir} className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+      {/* 方向由 LocaleContext 设置的 html.dir 全局接管（全页真 RTL），不再局部覆盖 */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <SessionBanner />
         <AppRoutes />
       </main>
@@ -198,7 +199,7 @@ export default function App() {
       )}
 
       {/* CONSULT FAB */}
-      <div className="md:hidden fixed bottom-18 right-4 z-50">
+      <div className="md:hidden fixed bottom-18 end-4 z-50">
         <button onClick={() => setShowConsultForm(true)}
           className="w-12 h-12 bg-gradient-to-tr from-teal-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg">
           <MessageSquare className="w-5 h-5" />

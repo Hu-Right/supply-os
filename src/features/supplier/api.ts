@@ -94,13 +94,23 @@ export async function fetchSuppliers(lang: string): Promise<Supplier[]> {
 }
 
 /**
+ * 供应商明文联系方式
+ * Plaintext supplier contact info
+ */
+export type SupplierContact = {
+  contactPerson: string;
+  contactPhone: string;
+  contactEmail: string;
+};
+
+/**
  * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
  * Fetch plaintext supplier contact (VIP only)
  */
 export async function fetchSupplierContact(
   id: string,
   userKey: string
-): Promise<{ contactPerson: string; contactPhone: string; contactEmail: string }> {
+): Promise<SupplierContact> {
   const res = await fetch(
     `/api/suppliers/${encodeURIComponent(id)}/contact?user_key=${encodeURIComponent(userKey)}`,
     { cache: "no-store" }

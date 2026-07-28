@@ -214,7 +214,6 @@ describe("SupplierPage", () => {
       contactEmail: "zhangsan@real.com",
       contactPhone: "13800001686",
     });
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
@@ -223,31 +222,31 @@ describe("SupplierPage", () => {
     fireEvent.click(card.querySelectorAll("button")[1]);
     await waitFor(() => {
       expect(mockFetchContact).toHaveBeenCalledWith("sup-db-72", "vip@test.com");
-      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("13800001686"));
+      // 联络弹窗展示明文三字段（替代原生 alert）
+      expect(screen.getByText("13800001686")).toBeInTheDocument();
     });
-    alertSpy.mockRestore();
+    expect(screen.getByText("zhangsan@real.com")).toBeInTheDocument();
+    expect(screen.getByText("supplierContactPersonLabel")).toBeInTheDocument();
   });
 
   it("non-VIP user: contact button shows VIP-only hint without fetching", async () => {
     mockAuth.authUser = { user_key: "free@test.com" };
     mockAuth.isVip = false;
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
     });
     const card = screen.getByTestId("supplier-card-sup-db-72");
     fireEvent.click(card.querySelectorAll("button")[1]);
-    expect(alertSpy).toHaveBeenCalledWith("supplierContactVipOnly");
+    // VIP 门槛提示改为弹窗内文案（替代原生 alert）
+    expect(screen.getByText("supplierContactVipOnly")).toBeInTheDocument();
     expect(mockFetchContact).not.toHaveBeenCalled();
-    alertSpy.mockRestore();
   });
 
   it("VIP user: shows failure hint when contact fetch fails", async () => {
     mockAuth.authUser = { user_key: "vip@test.com" };
     mockAuth.isVip = true;
     mockFetchContact.mockRejectedValue(new Error("VIP_REQUIRED"));
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
@@ -255,9 +254,9 @@ describe("SupplierPage", () => {
     const card = screen.getByTestId("supplier-card-sup-db-72");
     fireEvent.click(card.querySelectorAll("button")[1]);
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith("supplierContactFailed");
+      // 失败提示改为弹窗内文案（替代原生 alert）
+      expect(screen.getByText("supplierContactFailed")).toBeInTheDocument();
     });
-    alertSpy.mockRestore();
   });
 
   // ── 骨架屏（结构对齐 SupplierCard，加载完成后替换为真实数据）──

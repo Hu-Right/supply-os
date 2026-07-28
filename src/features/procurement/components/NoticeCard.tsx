@@ -21,14 +21,15 @@ export function NoticeCard({ item, onClick }: NoticeCardProps) {
         <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black">
           {typeKey ? t(typeKey) : item.notice_type || "Notice"}
         </span>
-        <span className="text-[10px] text-slate-500 font-mono text-right">{item.deadline}</span>
+        <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">{item.deadline}</span>
       </div>
-      <h4 className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
-      <p className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || t("procurement_noDesc")}</p>
+      <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
+      <p dir="auto" className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || t("procurement_noDesc")}</p>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
           <span
             key={`${code.code || index}`}
+            dir="ltr"
             className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-mono text-slate-600"
           >
             {code.code || code.name || code.description}

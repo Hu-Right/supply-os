@@ -33,7 +33,7 @@ export function ProcurementPagination({
           onClick={() => onPageChange(Math.max(1, page - 1))}
           className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-50 hover:bg-slate-50"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 rtl:-scale-x-100" />
           {t("procurement_prev")}
         </button>
         <button
@@ -43,7 +43,7 @@ export function ProcurementPagination({
           className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-50 hover:bg-slate-50"
         >
           {t("procurement_next")}
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-4 h-4 rtl:-scale-x-100" />
         </button>
       </div>
     </div>

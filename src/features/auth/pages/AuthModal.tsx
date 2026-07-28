@@ -65,12 +65,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
   const [prefMessage, setPrefMessage] = useState("");
   const [prefMessageIsError, setPrefMessageIsError] = useState(false);
 
-  // 一级行业选项：接口有缓存，弹窗打开即加载
+  // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
-    fetchUnspscIndustries()
+    fetchUnspscIndustries(locale)
       .then(setIndustryOptions)
       .catch(() => setIndustryOptions([]));
-  }, []);
+  }, [locale]);
 
   // 已登录时回填已保存的偏好（fetchIndustryPrefs 异常时内部返回 null，不会抛出）
   useEffect(() => {
@@ -88,10 +88,10 @@ export function AuthModal({ onClose }: AuthModalProps) {
       setSubOptions([]);
       return;
     }
-    fetchUnspscChildren(prefLevel1)
+    fetchUnspscChildren(prefLevel1, locale)
       .then(setSubOptions)
       .catch(() => setSubOptions([]));
-  }, [prefLevel1]);
+  }, [prefLevel1, locale]);
 
   // 选定二级后加载三级类目（可选级，与 UnspscSelector 的逐级下钻一致）
   useEffect(() => {
@@ -99,10 +99,10 @@ export function AuthModal({ onClose }: AuthModalProps) {
       setSubOptions2([]);
       return;
     }
-    fetchUnspscChildren(prefLevel2)
+    fetchUnspscChildren(prefLevel2, locale)
       .then(setSubOptions2)
       .catch(() => setSubOptions2([]));
-  }, [prefLevel2]);
+  }, [prefLevel2, locale]);
 
   const handlePrefLevel1Change = (value: string) => {
     setPrefLevel1(value);

@@ -141,7 +141,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
                   {email && (
                     <p className="flex items-center gap-1.5 break-all">
                       <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <a href={`mailto:${email}`} className="text-blue-700 hover:underline">
+                      <a href={`mailto:${email}`} dir="ltr" className="text-blue-700 hover:underline">
                         {email}
                       </a>
                     </p>
@@ -149,7 +149,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
                   {phone && (
                     <p className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      {phone}
+                      <span dir="ltr">{phone}</span>
                     </p>
                   )}
                 </li>
@@ -181,7 +181,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
           <ListChecks className="w-3.5 h-3.5 text-teal-600" />
           {t("procurement_bidBreakdownTitle")}
         </p>
-        <ul className="list-disc pl-4 space-y-1.5 leading-6 text-slate-600">
+        <ul className="list-disc ps-4 space-y-1.5 leading-6 text-slate-600">
           <li>
             {t("procurement_bidUrgency")}：{bidDifficulty}；{t("procurement_bidRegBar")}：{bidRegistration}。
           </li>
@@ -189,7 +189,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
             {t("procurement_bidBudgetRef")}：{bidBudget}；{t("procurement_bidDeadline")}：{bidDeadline}。
           </li>
           <li>
-            {t("procurement_bidCodes")}：{bidCodes}。
+            {t("procurement_bidCodes")}：<span dir="ltr">{bidCodes}</span>。
           </li>
           <li>{t("procurement_bidNextStep")}</li>
         </ul>

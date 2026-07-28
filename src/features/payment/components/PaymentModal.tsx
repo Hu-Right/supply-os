@@ -101,7 +101,7 @@ export default function PaymentModal({
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{provider.icon}</span>
-                      <div className="text-left">
+                      <div className="text-start">
                         <div className="font-bold text-slate-800">{getProviderLabel(provider.provider)}</div>
                         <div className="text-xs text-slate-500">{getPaymentTips(provider.provider)}</div>
                       </div>

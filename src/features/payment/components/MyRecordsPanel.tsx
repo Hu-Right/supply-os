@@ -77,7 +77,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
         <button
           type="button"
           onClick={() => openView("orders")}
-          className="text-left rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
+          className="text-start rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -101,7 +101,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
         <button
           type="button"
           onClick={() => openView("unlocks")}
-          className="text-left rounded-xl border border-teal-100 bg-teal-50 p-4 hover:border-teal-300"
+          className="text-start rounded-xl border border-teal-100 bg-teal-50 p-4 hover:border-teal-300"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -138,7 +138,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
             className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
             title={t("myRecordsBackTitle")}
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
           </button>
           <div>
             <p className="text-sm font-extrabold text-slate-900">
@@ -179,7 +179,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
             >
               <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
-                <div className="min-w-0 pr-2">
+                <div className="min-w-0 pe-2">
                   <p className="font-black text-slate-800 truncate">{recordTitle(row)}</p>
                   <p className="mt-1 text-slate-500 truncate">
                     {isOrder ? row.order_no : `${row.unlock_type || "unlock"} · ${recordTime(row)}`}

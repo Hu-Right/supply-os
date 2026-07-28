@@ -677,6 +677,55 @@ ${fields.enterpriseNature}`;
   };
 }
 
+// ── UNSPSC 类目标题按需翻译（对齐供应商翻译：缓存表 + Gemini + 并发去重）──
+// 源文本为类目英文标题；zh/en 界面直接用类目表原列，仅 fr/ru/es/ar 需要译文
+const UNSPSC_TRANSLATION_LANGS: Record<string, string> = {
+  fr: "French",
+  ru: "Russian",
+  es: "Spanish",
+  ar: "Arabic",
+};
+
+// 同一 (父级列表, lang) 的并发首次翻译只触发一次 Gemini 调用
+const pendingUnspscTranslations = new Map<string, Promise<string[]>>();
+
+// 整批列表一次调用：children 列表 ≤ 60 条，逐条调用会打爆配额
+async function translateUnspscTitles(titles: string[], langName: string): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    throw new Error("TRANSLATION_UNAVAILABLE");
+  }
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+  });
+  const prompt = `You are a professional translator of the UNSPSC procurement classification. Translate each category title in the JSON array below into ${langName}.
+Rules:
+- Keep abbreviations, acronyms and proper nouns unchanged.
+- Return ONLY a valid JSON array of strings with exactly ${titles.length} items, in the same order as the input.
+
+INPUT:
+${JSON.stringify(titles)}`;
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: prompt,
+  });
+  const raw = (response.text || "")
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
+  const parsed = JSON.parse(raw);
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length !== titles.length ||
+    parsed.some((item) => typeof item !== "string")
+  ) {
+    throw new Error("TRANSLATION_MALFORMED");
+  }
+  return parsed;
+}
+
 async function ensureProcurementSchema(dbPool: any) {
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
@@ -1032,6 +1081,20 @@ async function ensureProcurementSchema(dbPool: any) {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uk_supplier_lang (supplier_id, lang),
       KEY idx_supplier_lang (lang)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // UNSPSC 类目标题译文缓存（fr/ru/es/ar；zh/en 直接用 crm_unspsc_codes 原列）
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_unspsc_translations (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      code_id INT NOT NULL,
+      lang VARCHAR(10) NOT NULL,
+      title_tr VARCHAR(255) NULL,
+      model VARCHAR(60) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_code_lang (code_id, lang),
+      KEY idx_unspsc_tr_lang (lang)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -1998,6 +2061,10 @@ async function startServer() {
       const offset = (page - 1) * limit;
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
+      // 可选 lang：附带公告标题译文（与详情翻译共用缓存表；en 为原文语言无需翻译）
+      const lang = String(req.query.lang || "").toLowerCase();
+      const translatable = !!NOTICE_TRANSLATION_LANGS[lang];
+
       const [countRows] = await dbPool.query(
         `SELECT COUNT(*) AS total
          FROM crm_opportunity_unlocks u
@@ -2005,17 +2072,30 @@ async function startServer() {
         [userKey],
       );
 
+      // translatable 时多取 n.description（仅供后台补翻用，不返回）与缓存译文标题
       const [rows] = await dbPool.query(
-        `SELECT
-           u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
-           n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-           n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
-         FROM crm_opportunity_unlocks u
-         LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
-         WHERE u.user_key = ? AND u.notice_id IS NOT NULL
-         ORDER BY u.id DESC
-         LIMIT ? OFFSET ?`,
-        [userKey, limit, offset],
+        translatable
+          ? `SELECT
+               u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+               n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
+               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry,
+               n.description, tr.title_tr AS title_i18n
+             FROM crm_opportunity_unlocks u
+             LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
+             LEFT JOIN crm_notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
+             WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+             ORDER BY u.id DESC
+             LIMIT ? OFFSET ?`
+          : `SELECT
+               u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+               n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
+               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
+             FROM crm_opportunity_unlocks u
+             LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
+             WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+             ORDER BY u.id DESC
+             LIMIT ? OFFSET ?`,
+        translatable ? [lang, userKey, limit, offset] : [userKey, limit, offset],
       );
 
       res.json({
@@ -2034,6 +2114,7 @@ async function startServer() {
             source_channel: row.source_channel,
             reference: row.reference,
             title: row.title,
+            title_i18n: translatable ? row.title_i18n ?? null : undefined,
             notice_type: row.notice_type,
             agency: row.agency || row.agency_full,
             agency_full: row.agency_full,
@@ -2045,6 +2126,36 @@ async function startServer() {
           } : null,
         })),
       });
+
+      // 缺译行响应后逐条后台补翻（标题+描述整条入库，与详情端点缓存互通；
+      // pendingNoticeTranslations 按 noticeId:lang 去重，无 GEMINI_API_KEY 时静默跳过）
+      if (translatable) {
+        void (async () => {
+          for (const row of rows as any[]) {
+            if (!row.notice_id || row.title_i18n || !String(row.title || "").trim()) continue;
+            const pendingKey = `${row.notice_id}:${lang}`;
+            if (pendingNoticeTranslations.has(pendingKey)) continue;
+            const pending = translateNoticeText(
+              String(row.title || ""),
+              String(row.description || ""),
+              NOTICE_TRANSLATION_LANGS[lang]
+            );
+            pendingNoticeTranslations.set(pendingKey, pending);
+            pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
+            try {
+              const translated = await pending;
+              await dbPool.query(
+                `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+                 VALUES (?, ?, ?, ?, 'gemini-3.5-flash')
+                 ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr)`,
+                [row.notice_id, lang, translated.title, translated.description]
+              );
+            } catch {
+              // 翻译不可用或失败：保持英文原文，下次请求重试
+            }
+          }
+        })();
+      }
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2115,12 +2226,66 @@ async function startServer() {
   });
 
   // 6b. GET UNSPSC INDUSTRIES
+  // lang=fr/ru/es/ar 时 LEFT JOIN 译文缓存附加 title_i18n（缺失回退英文并后台补翻）；
+  // zh/en 或不传 lang 时行为与旧版完全一致
+  async function queryUnspscRows(whereAndOrder: string, params: any[], lang: string) {
+    if (UNSPSC_TRANSLATION_LANGS[lang]) {
+      const [rows] = await dbPool.query(
+        `SELECT u.id, u.title_zh, u.title, u.code, u.parent_id, u.level, tr.title_tr AS title_i18n
+         FROM crm_unspsc_codes u
+         LEFT JOIN crm_unspsc_translations tr ON tr.code_id = u.id AND tr.lang = ?
+         WHERE ${whereAndOrder}`,
+        [lang, ...params]
+      );
+      return rows as any[];
+    }
+    const [rows] = await dbPool.query(
+      `SELECT u.id, u.title_zh, u.title, u.code, u.parent_id, u.level FROM crm_unspsc_codes u WHERE ${whereAndOrder}`,
+      params
+    );
+    return rows as any[];
+  }
+
+  // 缺译行后台整批补翻：一次 Gemini 调用翻译整个列表，入库后下次请求命中缓存；
+  // 无 Key 或翻译失败静默放弃（响应已按英文回退，不影响可用性）
+  async function backfillUnspscTranslations(rows: any[], lang: string, scopeKey: string) {
+    const missing = rows.filter(
+      (row) => !row.title_i18n && String(row.title || row.title_zh || "").trim()
+    );
+    if (missing.length === 0) return;
+    const pendingKey = `${scopeKey}:${lang}`;
+    if (pendingUnspscTranslations.has(pendingKey)) return;
+    const pending = translateUnspscTitles(
+      missing.map((row) => String(row.title || row.title_zh || "").trim()),
+      UNSPSC_TRANSLATION_LANGS[lang]
+    );
+    pendingUnspscTranslations.set(pendingKey, pending);
+    try {
+      const translated = await pending;
+      for (let i = 0; i < missing.length; i += 1) {
+        await dbPool.query(
+          `INSERT INTO crm_unspsc_translations (code_id, lang, title_tr, model)
+           VALUES (?, ?, ?, 'gemini-3.5-flash')
+           ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr)`,
+          [missing[i].id, lang, translated[i]]
+        );
+      }
+    } catch {
+      // TRANSLATION_UNAVAILABLE / 单批失败：静默，前端已有英文兜底
+    } finally {
+      pendingUnspscTranslations.delete(pendingKey);
+    }
+  }
+
   app.get("/api/unspsc/industries", async (req, res) => {
     try {
-      const [rows] = await dbPool.query(
-        "SELECT id, title_zh, title, code, parent_id, level FROM crm_unspsc_codes WHERE level = 1 ORDER BY id"
-      );
+      const lang = String(req.query.lang || "").toLowerCase();
+      const rows = await queryUnspscRows("u.level = 1 ORDER BY u.id", [], lang);
       res.json(rows);
+      // fire-and-forget：缺译行整批后台补翻（下次请求即命中缓存）
+      if (UNSPSC_TRANSLATION_LANGS[lang]) {
+        void backfillUnspscTranslations(rows, lang, "industries");
+      }
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2132,11 +2297,12 @@ async function startServer() {
       if (!parentId) {
         return res.status(400).json({ error: "parent_id is required" });
       }
-      const [rows] = await dbPool.query(
-        "SELECT id, title_zh, title, code, parent_id, level FROM crm_unspsc_codes WHERE parent_id = ? ORDER BY code",
-        [parentId]
-      );
+      const lang = String(req.query.lang || "").toLowerCase();
+      const rows = await queryUnspscRows("u.parent_id = ? ORDER BY u.code", [parentId], lang);
       res.json(rows);
+      if (UNSPSC_TRANSLATION_LANGS[lang]) {
+        void backfillUnspscTranslations(rows, lang, `children:${parentId}`);
+      }
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -102,7 +102,7 @@ export default function ProcurementPage() {
         const nextChildren: UnspscOption[][] = [[], [], [], []];
         for (let i = 0; i < 4 && path[i]; i += 1) {
           try {
-            const children = await fetchUnspscChildren(path[i]);
+            const children = await fetchUnspscChildren(path[i], locale);
             nextChildren[i] = Array.isArray(children) ? children : [];
           } catch {
             nextChildren[i] = [];
@@ -158,7 +158,7 @@ export default function ProcurementPage() {
       const title =
         locale === "zh"
           ? opt.title_zh || opt.title || opt.name
-          : opt.title_en || opt.title || opt.name || opt.title_zh;
+          : opt.title_i18n || opt.title_en || opt.title || opt.name || opt.title_zh;
       if (title) names.push(title);
     });
     return names.join(" / ");
@@ -282,7 +282,7 @@ export default function ProcurementPage() {
   });
 
   useEffect(() => {
-    fetchUnspscIndustries()
+    fetchUnspscIndustries(locale)
       .then((data) => setLevels((prev) => [Array.isArray(data) ? data : [], prev[1], prev[2], prev[3], prev[4]]))
       .catch(() => setError("Failed to load UNSPSC categories."));
 
@@ -290,6 +290,32 @@ export default function ProcurementPage() {
       .then((plans) => setPaidPlans(Array.isArray(plans) ? plans : []))
       .catch(() => {});
   }, []);
+
+  // 切语言后按当前选择路径重拉各级选项：fr/ru/es/ar 的选项译文由后端按 lang 返回，
+  // 必须重新请求才能刷新文案。localeRef 守卫保证仅语言变化时触发（挂载与选级联不重拉）
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    if (localeRef.current === locale) return;
+    localeRef.current = locale;
+    (async () => {
+      const nextLevels: UnspscOption[][] = [[], [], [], [], []];
+      try {
+        const industries = await fetchUnspscIndustries(locale);
+        nextLevels[0] = Array.isArray(industries) ? industries : [];
+      } catch {
+        nextLevels[0] = [];
+      }
+      for (let i = 0; i < 4 && selectedIds[i]; i += 1) {
+        try {
+          const children = await fetchUnspscChildren(selectedIds[i], locale);
+          nextLevels[i + 1] = Array.isArray(children) ? children : [];
+        } catch {
+          nextLevels[i + 1] = [];
+        }
+      }
+      setLevels(nextLevels);
+    })();
+  }, [locale, selectedIds]);
 
   useEffect(() => {
     refreshMembership(true);
@@ -337,7 +363,7 @@ export default function ProcurementPage() {
     const nextLevels = levels.map((list, index) => (index <= levelIndex ? list : []));
     if (value && levelIndex < 4) {
       try {
-        const children = await fetchUnspscChildren(value);
+        const children = await fetchUnspscChildren(value, locale);
         nextLevels[levelIndex + 1] = Array.isArray(children) ? children : [];
       } catch {
         nextLevels[levelIndex + 1] = [];
@@ -581,12 +607,13 @@ export default function ProcurementPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
             <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t("procurement_search")}
-                className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                dir="auto"
+                className="w-full ps-9 pe-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </div>
           </div>

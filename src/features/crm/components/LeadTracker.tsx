@@ -71,7 +71,7 @@ export function LeadTracker({ leads, isLoading, onSubmitLog, labels }: LeadTrack
       {isLoading ? (
         <div className="text-center py-6 text-slate-400 text-xs animate-pulse">{labels.loadingLeads}</div>
       ) : (
-        <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[420px] overflow-y-auto pe-1">
           {leads.map((lead) => (
             <LeadCard
               key={lead.id}

@@ -60,7 +60,7 @@ export function SessionBanner() {
             onClick={() => navigate("/procurement")}
             className="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
             <span>{t("backToProcurement")}</span>
           </button>
         )}

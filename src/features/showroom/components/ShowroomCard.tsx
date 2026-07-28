@@ -30,7 +30,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
           className="h-full w-full object-cover transition-transform duration-550 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
-        <div className="absolute left-4 top-4 rounded-full bg-teal-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
+        <div className="absolute start-4 top-4 rounded-full bg-teal-600 px-3 py-1 text-xs font-bold text-white shadow-xs">
           {pickLocale(locale, showroom.regionZh, showroom.regionEn)} ·{" "}
           {pickLocale(locale, showroom.countryZh, showroom.countryEn)}
         </div>
@@ -39,7 +39,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
             {pickLocale(locale, showroom.nameZh, showroom.nameEn)}
           </p>
           <p className="mt-0.5 flex items-center text-xs text-slate-200">
-            <Clock className="mr-1 h-3.5 w-3.5 text-teal-400" />
+            <Clock className="me-1 h-3.5 w-3.5 text-teal-400" />
             <span>
               {t("capacityLabel")}: {showroom.capacityValue}
             </span>

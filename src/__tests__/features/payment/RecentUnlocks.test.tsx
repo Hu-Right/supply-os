@@ -32,8 +32,8 @@ describe("RecentUnlocks", () => {
     render(<RecentUnlocks userKey="uk" onOpenNotice={onOpenNotice} />);
 
     await waitFor(() => expect(screen.getByText("Recent Notice")).toBeInTheDocument());
-    // limits the query to the latest 3 records
-    expect(spy).toHaveBeenCalledWith({ userKey: "uk", limit: 3 });
+    // limits the query to the latest 3 records; locale from useLocale mock
+    expect(spy).toHaveBeenCalledWith({ userKey: "uk", limit: 3, locale: "zh" });
 
     fireEvent.click(screen.getByText("myPurchasesOpenDetail"));
     expect(onOpenNotice).toHaveBeenCalledWith(11);

@@ -267,7 +267,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <p className="mt-0.5 text-[10px] text-slate-400">{t("uploadFileHint")}</p>
 
                 {uploadedFiles.length > 0 && (
-                  <div className="mt-3 max-h-24 space-y-1.5 overflow-y-auto border-t border-slate-200 pt-2.5 text-left">
+                  <div className="mt-3 max-h-24 space-y-1.5 overflow-y-auto border-t border-slate-200 pt-2.5 text-start">
                     {uploadedFiles.map((fn, idx) => (
                       <div
                         key={idx}

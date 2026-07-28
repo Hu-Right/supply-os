@@ -23,11 +23,19 @@ export const fetchJsonCached = <T,>(url: string): Promise<T> => {
   return request;
 };
 
-export const fetchUnspscIndustries = () =>
-  fetchJsonCached<UnspscOption[]>("/api/unspsc/industries");
+// 需要向后端请求译文的界面语言（zh/en 直接用类目表原列，不传 lang）
+const UNSPSC_API_LANGS = new Set(["fr", "ru", "es", "ar"]);
 
-export const fetchUnspscChildren = (parentId: string) =>
-  fetchJsonCached<UnspscOption[]>(`/api/unspsc/children?parent_id=${encodeURIComponent(parentId)}`);
+export const fetchUnspscIndustries = (locale?: string) => {
+  const lang = locale && UNSPSC_API_LANGS.has(locale) ? `?lang=${encodeURIComponent(locale)}` : "";
+  return fetchJsonCached<UnspscOption[]>(`/api/unspsc/industries${lang}`);
+};
+
+export const fetchUnspscChildren = (parentId: string, locale?: string) => {
+  const searchParams = new URLSearchParams({ parent_id: parentId });
+  if (locale && UNSPSC_API_LANGS.has(locale)) searchParams.set("lang", locale);
+  return fetchJsonCached<UnspscOption[]>(`/api/unspsc/children?${searchParams.toString()}`);
+};
 
 export const fetchNotices = (params: { page: number; pageSize: number; codeId?: string }) => {
   const searchParams = new URLSearchParams({

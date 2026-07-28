@@ -15,8 +15,9 @@ import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
+import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
 import { ProcurementPagination } from "@/features/procurement/components/ProcurementPagination";
-import { fetchSuppliers, fetchSupplierContact } from "../api";
+import { fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 
 // 与公采页保持一致的每页条数（3 列网格 × 3 行）
 const PAGE_SIZE = 9;
@@ -30,6 +31,12 @@ export default function SupplierPage() {
   const [supplierIndustry, setSupplierIndustry] = useState("");
   const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState("");
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  // 联络弹窗状态：null 表示关闭（替代原生 alert 的自定义弹窗）
+  const [contactModal, setContactModal] = useState<{
+    supplier: Supplier;
+    status: SupplierContactStatus;
+    contact: SupplierContact | null;
+  } | null>(null);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   // 首次挂载即处于加载中：渲染骨架屏而非空状态
   const [loading, setLoading] = useState(true);
@@ -99,16 +106,16 @@ export default function SupplierPage() {
   // 联系方式为 VIP 专属：命中门槛后向后端请求明文（列表数据为掩码）
   const handleContact = async (supplier: Supplier) => {
     if (!authUser?.user_key || !isVip) {
-      alert(t("supplierContactVipOnly"));
+      setContactModal({ supplier, status: "vipOnly", contact: null });
       return;
     }
+    // 弹窗先开（加载态），数据到达后原地切换，避免点击后无反馈
+    setContactModal({ supplier, status: "loading", contact: null });
     try {
       const contact = await fetchSupplierContact(supplier.id, authUser.user_key);
-      alert(
-        `联络人: ${contact.contactPerson}\n邮箱: ${contact.contactEmail}\n电话: ${contact.contactPhone}`
-      );
+      setContactModal({ supplier, status: "success", contact });
     } catch {
-      alert(t("supplierContactFailed"));
+      setContactModal({ supplier, status: "error", contact: null });
     }
   };
 
@@ -218,6 +225,15 @@ export default function SupplierPage() {
         <SupplierRegisterModal
           onClose={() => setShowRegisterModal(false)}
           onRegistered={loadSuppliers}
+        />
+      )}
+
+      {contactModal && (
+        <SupplierContactModal
+          supplier={contactModal.supplier}
+          status={contactModal.status}
+          contact={contactModal.contact}
+          onClose={() => setContactModal(null)}
         />
       )}
     </div>

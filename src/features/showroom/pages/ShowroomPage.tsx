@@ -90,18 +90,18 @@ export default function ShowroomPage() {
       {/* Active Filters */}
       <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs md:flex-row">
         <div className="relative w-full md:w-1/3">
-          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
+          <Search className="absolute start-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
           <input
             type="text"
             placeholder={t("searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 py-2 pl-10 pr-4 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+            className="w-full rounded-lg border border-slate-200 py-2 ps-10 pe-4 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
           />
         </div>
 
         <div className="flex w-full flex-wrap items-center justify-end gap-2.5 md:w-auto">
-          <div className="mr-2 flex items-center space-x-1 text-xs text-slate-500">
+          <div className="me-2 flex items-center space-x-1 text-xs text-slate-500">
             <Filter className="h-3.5 w-3.5 text-teal-600" />
             <span>{t("regionFilter")}:</span>
           </div>

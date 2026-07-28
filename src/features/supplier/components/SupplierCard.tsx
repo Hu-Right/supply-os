@@ -50,7 +50,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
 
         <div className="mt-2 space-y-1.5 text-xs text-slate-500">
           <p className="flex items-center">
-            <span className="mr-1.5 shrink-0 font-extrabold text-slate-400">{t("location")}:</span>
+            <span className="me-1.5 shrink-0 font-extrabold text-slate-400">{t("location")}:</span>
             <span className="text-slate-700">
               {pickLocale(locale,
                 `${supplier.countryZh} · ${supplier.cityZh}`,
@@ -60,7 +60,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
 
           {supplier.ungmCode && (
             <p className="inline-block rounded bg-indigo-50/50 px-2 py-1 text-indigo-700">
-              <span className="mr-1.5 shrink-0 font-extrabold">国际公共采购 Code:</span>
+              <span className="me-1.5 shrink-0 font-extrabold">国际公共采购 Code:</span>
               <span className="font-mono font-black">{supplier.ungmCode}</span>
             </p>
           )}
