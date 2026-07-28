@@ -601,6 +601,82 @@ ${description}`;
   return { title: parsed.title, description: parsed.description };
 }
 
+// ── 供应商字段按需翻译（对齐公告翻译：缓存表 + Gemini + 并发去重）──
+// 原文为中文，仅需翻译非中文界面语言；公司名保留原文不翻译
+const SUPPLIER_TRANSLATION_LANGS: Record<string, string> = {
+  en: "English",
+  fr: "French",
+  ru: "Russian",
+  es: "Spanish",
+  ar: "Arabic",
+};
+
+type SupplierTranslatableFields = {
+  industry: string;
+  mainProducts: string;
+  certification: string;
+  enterpriseNature: string;
+};
+
+// 同一 (supplier, lang) 的并发首次翻译只触发一次 Gemini 调用
+const pendingSupplierTranslations = new Map<string, Promise<SupplierTranslatableFields>>();
+
+async function translateSupplierFields(
+  fields: SupplierTranslatableFields,
+  langName: string
+): Promise<SupplierTranslatableFields> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
+    throw new Error("TRANSLATION_UNAVAILABLE");
+  }
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+  });
+  const prompt = `You are a professional B2B trade-directory translator. Translate the Chinese supplier profile fields below into ${langName}.
+Rules:
+- Keep certification abbreviations (e.g. ISO, FDA, CE, 3C, GMP, RoHS) and brand names unchanged.
+- Keep list separators (commas) unchanged so each field stays a comma-separated list.
+- If a field is empty, return an empty string for it.
+- Return ONLY valid JSON in exactly this shape: {"industry": "...", "mainProducts": "...", "certification": "...", "enterpriseNature": "..."}
+
+INDUSTRY:
+${fields.industry}
+
+MAIN PRODUCTS:
+${fields.mainProducts}
+
+CERTIFICATION:
+${fields.certification}
+
+ENTERPRISE NATURE:
+${fields.enterpriseNature}`;
+  const response = await ai.models.generateContent({
+    model: "gemini-3.5-flash",
+    contents: prompt,
+  });
+  const raw = (response.text || "")
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/, "")
+    .trim();
+  const parsed = JSON.parse(raw);
+  if (
+    typeof parsed?.industry !== "string" ||
+    typeof parsed?.mainProducts !== "string" ||
+    typeof parsed?.certification !== "string" ||
+    typeof parsed?.enterpriseNature !== "string"
+  ) {
+    throw new Error("TRANSLATION_MALFORMED");
+  }
+  return {
+    industry: parsed.industry,
+    mainProducts: parsed.mainProducts,
+    certification: parsed.certification,
+    enterpriseNature: parsed.enterpriseNature,
+  };
+}
+
 async function ensureProcurementSchema(dbPool: any) {
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
@@ -944,6 +1020,22 @@ async function ensureProcurementSchema(dbPool: any) {
   `);
 
   await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_supplier_translations (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      supplier_id BIGINT UNSIGNED NOT NULL,
+      lang VARCHAR(10) NOT NULL,
+      industry_tr VARCHAR(255) NULL,
+      main_products_tr TEXT NULL,
+      certification_tr TEXT NULL,
+      enterprise_nature_tr VARCHAR(100) NULL,
+      model VARCHAR(60) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_supplier_lang (supplier_id, lang),
+      KEY idx_supplier_lang (lang)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_supplier_unspsc_interests (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       supplier_id BIGINT UNSIGNED NOT NULL,
@@ -1201,7 +1293,62 @@ let leadsDb: Lead[] = [
     followUpLogs: []
   }
 ];
-let customSuppliersDb: Supplier[] = [];
+
+// ── crm_suppliers 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
+function maskPhone(raw: unknown): string {
+  const p = String(raw || "").trim();
+  if (!p) return "";
+  if (p.length < 8) return p.slice(0, 2) + "****";
+  return p.slice(0, 3) + "****" + p.slice(-4);
+}
+
+function maskEmail(raw: unknown): string {
+  const e = String(raw || "").trim();
+  if (!e) return "";
+  const at = e.indexOf("@");
+  if (at <= 0) return "***";
+  return e.slice(0, Math.min(2, at)) + "***" + e.slice(at);
+}
+
+// 逗号/顿号等分隔的原始字符串切分为去空数组
+function splitListField(raw: unknown): string[] {
+  return String(raw || "")
+    .split(/[,，、;；]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+// 把「当前请求语言的译文」填进 *En 槽位：前端 pickLocale 对非 zh 语言取第二槽，组件零改动
+function mapSupplierRow(row: any, tr: any | null): Supplier {
+  const industryZh =
+    String(row.industry || "").trim() || splitListField(row.main_product)[0] || "其他";
+  const productsZh = splitListField(row.main_product);
+  const complianceZh = splitListField(row.certification);
+  const industryTr = String(tr?.industry_tr || "").trim() || industryZh;
+  const productsTr = tr?.main_products_tr ? splitListField(tr.main_products_tr) : productsZh;
+  const complianceTr = tr?.certification_tr ? splitListField(tr.certification_tr) : complianceZh;
+  return {
+    id: `sup-db-${row.id}`,
+    nameZh: row.company_name,
+    nameEn: row.company_name, // 公司名保留真实原文，不翻译
+    type: "domestic",
+    industryZh,
+    industryEn: industryTr,
+    countryZh: "中国",
+    countryEn: "China",
+    cityZh: "—",
+    cityEn: "—",
+    ungmCode: undefined,
+    mainProductsZh: productsZh,
+    mainProductsEn: productsTr,
+    complianceLabelsZh: complianceZh,
+    complianceLabelsEn: complianceTr,
+    contactPerson: row.contact_name || "",
+    contactEmail: maskEmail(row.email),
+    contactPhone: maskPhone(row.telephone),
+    status: "approved",
+  };
+}
 
 async function startServer() {
   const app = express();
@@ -1331,88 +1478,217 @@ async function startServer() {
     return res.json(targetLead);
   });
 
-  // 4. GET REGISTERED SUPPLIERS (Combined default + Custom user ones)
-  app.get("/api/suppliers/custom", (req, res) => {
-    res.json(customSuppliersDb);
+  // 4. GET SUPPLIERS (DB-backed directory with per-language translations)
+  app.get("/api/suppliers", async (req, res) => {
+    try {
+      const lang = String(req.query.lang || "zh").toLowerCase();
+      const [rows] = await dbPool.query(
+        `SELECT id, company_name, contact_name, telephone, email, main_product, industry, certification, enterprise_nature
+         FROM crm_suppliers
+         WHERE company_name <> '测试'
+         ORDER BY id DESC
+         LIMIT 500`
+      );
+      const supplierRows = rows as any[];
+
+      // 命中翻译缓存的直接返回译文，缺失的回退中文原文
+      const trMap = new Map<number, any>();
+      if (SUPPLIER_TRANSLATION_LANGS[lang] && supplierRows.length > 0) {
+        const [trRows] = await dbPool.query(
+          `SELECT supplier_id, industry_tr, main_products_tr, certification_tr
+           FROM crm_supplier_translations
+           WHERE lang = ? AND supplier_id IN (?)`,
+          [lang, supplierRows.map((row) => row.id)]
+        );
+        for (const tr of trRows as any[]) {
+          trMap.set(Number(tr.supplier_id), tr);
+        }
+      }
+
+      res.json(supplierRows.map((row) => mapSupplierRow(row, trMap.get(Number(row.id)) || null)));
+
+      // fire-and-forget：缺失译文的供应商后台逐家补翻（下次请求即命中缓存）
+      if (SUPPLIER_TRANSLATION_LANGS[lang]) {
+        const missing = supplierRows.filter((row) => !trMap.has(Number(row.id)));
+        if (missing.length > 0) {
+          void backfillSupplierTranslations(missing, lang);
+        }
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
-  // 5. POST REGISTER NEW SUPPLIER
-  app.post("/api/suppliers", async (req, res) => {
-    const {
-      nameZh,
-      nameEn,
-      type,
-      industryZh,
-      industryEn,
-      countryZh,
-      countryEn,
-      cityZh,
-      cityEn,
-      ungmCode,
-      mainProductsZh,
-      mainProductsEn,
-      complianceLabelsZh,
-      complianceLabelsEn,
-      contactPerson,
-      contactEmail,
-      contactPhone
-    } = req.body;
-
-    if (!nameZh || !contactPerson || !contactEmail) {
-      return res.status(400).json({ error: "Missing name or contact data" });
-    }
-
-    const newSupplier: Supplier = {
-      id: `sup-user-${Date.now()}`,
-      nameZh,
-      nameEn: nameEn || nameZh,
-      type: type || "domestic",
-      industryZh: industryZh || "\u5176\u4ed6",
-      industryEn: industryEn || "Other",
-      countryZh: countryZh || "\u4e2d\u56fd",
-      countryEn: countryEn || "China",
-      cityZh: cityZh || "未指定",
-      cityEn: cityEn || "Unspecified",
-      ungmCode: ungmCode || undefined,
-      mainProductsZh: Array.isArray(mainProductsZh) ? mainProductsZh : [mainProductsZh || ""],
-      mainProductsEn: Array.isArray(mainProductsEn) ? mainProductsEn : [mainProductsEn || ""],
-      complianceLabelsZh: Array.isArray(complianceLabelsZh) ? complianceLabelsZh : ["已提交初批材料"],
-      complianceLabelsEn: Array.isArray(complianceLabelsEn) ? complianceLabelsEn : ["Documents under review"],
-      contactPerson,
-      contactEmail,
-      contactPhone: contactPhone || "",
-      status: "pending" // Auto pending review status!
-    };
-
-    customSuppliersDb.unshift(newSupplier);
-
-    // Also automatically create a CRM lead for tracing this approval task!
-    const companionLead: Lead = {
-      id: `lead-user-sup-${Date.now()}`,
-      companyName: nameZh,
-      country: countryZh || "China",
-      city: cityZh || "Unknown",
-      contactPerson,
-      contactMethod: contactPhone || contactEmail,
-      email: contactEmail,
-      industry: industryZh || "Other",
-      mainProducts: Array.isArray(mainProductsZh) ? mainProductsZh.join(", ") : mainProductsZh,
-      has国际公共采购Participation: !!ungmCode,
-      notes: `申请注册为供应商。类型: ${type}. 国际公共采购 Code: ${ungmCode || "None"}. 待运营专家进行出海合规资质审查。`,
-      type: "supplier_register",
-      status: "new",
-      createdAt: new Date().toISOString(),
-      followUpLogs: [
+  // 缺失译文后台补翻：串行执行避免打爆 Gemini；无 Key 时静默停止（列表已回退中文）
+  async function backfillSupplierTranslations(rows: any[], lang: string) {
+    for (const row of rows) {
+      const pendingKey = `${row.id}:${lang}`;
+      if (pendingSupplierTranslations.has(pendingKey)) continue;
+      const pending = translateSupplierFields(
         {
-          date: new Date().toISOString().substring(0, 16).replace("T", " "),
-          content: "供应商入驻申请：等待检验出资及三方安规检测单据。",
-          author: "Admin System"
-        }
-      ]
-    };
-    leadsDb.unshift(companionLead);
+          industry: String(row.industry || "").trim(),
+          mainProducts: String(row.main_product || "").trim(),
+          certification: String(row.certification || "").trim(),
+          enterpriseNature: String(row.enterprise_nature || "").trim(),
+        },
+        SUPPLIER_TRANSLATION_LANGS[lang]
+      );
+      pendingSupplierTranslations.set(pendingKey, pending);
+      try {
+        const translated = await pending;
+        await dbPool.query(
+          `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, certification_tr, enterprise_nature_tr, model)
+           VALUES (?, ?, ?, ?, ?, ?, 'gemini-3.5-flash')
+           ON DUPLICATE KEY UPDATE industry_tr = VALUES(industry_tr), main_products_tr = VALUES(main_products_tr),
+             certification_tr = VALUES(certification_tr), enterprise_nature_tr = VALUES(enterprise_nature_tr)`,
+          [
+            row.id,
+            lang,
+            translated.industry,
+            translated.mainProducts,
+            translated.certification,
+            translated.enterpriseNature,
+          ]
+        );
+      } catch (err: any) {
+        if (err?.message === "TRANSLATION_UNAVAILABLE") return; // 无 Key：整批放弃
+        // 单家失败不阻塞后续供应商
+      } finally {
+        pendingSupplierTranslations.delete(pendingKey);
+      }
+    }
+  }
 
-    return res.status(201).json({ supplier: newSupplier, companionLead });
+  // 4b. GET SUPPLIER PLAINTEXT CONTACT (VIP only)
+  app.get("/api/suppliers/:id/contact", async (req, res) => {
+    try {
+      const supplierId = Number(String(req.params.id).replace(/^sup-db-/, ""));
+      if (!supplierId) return res.status(400).json({ error: "INVALID_SUPPLIER" });
+      const userKey = String(req.query.user_key || "").trim().toLowerCase();
+      if (!userKey) return res.status(403).json({ error: "VIP_REQUIRED" });
+
+      // VIP 判定与登录接口同款：active 订阅未过期 或 membership_tier = 'vip'
+      const [userRows] = await dbPool.query(
+        "SELECT membership_tier FROM crm_users WHERE user_key = ? LIMIT 1",
+        [userKey]
+      );
+      const user = (userRows as any[])[0];
+      if (!user) return res.status(403).json({ error: "VIP_REQUIRED" });
+      const [subs] = await dbPool.query(
+        "SELECT id FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
+        [userKey]
+      );
+      const isVip = (subs as any[]).length > 0 || user.membership_tier === "vip";
+      if (!isVip) return res.status(403).json({ error: "VIP_REQUIRED" });
+
+      const [supplierRows] = await dbPool.query(
+        "SELECT contact_name, telephone, email FROM crm_suppliers WHERE id = ? LIMIT 1",
+        [supplierId]
+      );
+      const supplier = (supplierRows as any[])[0];
+      if (!supplier) return res.status(404).json({ error: "SUPPLIER_NOT_FOUND" });
+
+      res.json({
+        contactPerson: supplier.contact_name || "",
+        contactPhone: supplier.telephone || "",
+        contactEmail: supplier.email || "",
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 5. POST REGISTER NEW SUPPLIER (persisted into crm_suppliers)
+  app.post("/api/suppliers", async (req, res) => {
+    try {
+      const {
+        nameZh,
+        type,
+        industryZh,
+        ungmCode,
+        mainProductsZh,
+        complianceLabelsZh,
+        contactPerson,
+        contactEmail,
+        contactPhone
+      } = req.body;
+
+      if (!nameZh || !contactPerson || !contactEmail) {
+        return res.status(400).json({ error: "Missing name or contact data" });
+      }
+
+      const mainProduct = Array.isArray(mainProductsZh)
+        ? mainProductsZh.join(", ")
+        : String(mainProductsZh || "");
+      const certification = Array.isArray(complianceLabelsZh)
+        ? complianceLabelsZh.join(", ")
+        : String(complianceLabelsZh || "");
+      const requestHash = crypto
+        .createHash("md5")
+        .update(`${String(nameZh).trim()}|${String(contactEmail).trim().toLowerCase()}`)
+        .digest("hex");
+
+      // 防重：同公司同邮箱重复提交返回既有记录
+      const [dupRows] = await dbPool.query(
+        "SELECT * FROM crm_suppliers WHERE request_hash = ? LIMIT 1",
+        [requestHash]
+      );
+      let supplierRow = (dupRows as any[])[0];
+      if (!supplierRow) {
+        const [insertResult] = await dbPool.query(
+          `INSERT INTO crm_suppliers
+             (company_name, contact_name, telephone, email, main_product, industry, certification, created_at, request_hash)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+          [
+            String(nameZh).trim(),
+            String(contactPerson).trim(),
+            String(contactPhone || "").trim(),
+            String(contactEmail).trim(),
+            mainProduct,
+            String(industryZh || "").trim(),
+            certification,
+            requestHash,
+          ]
+        );
+        const [newRows] = await dbPool.query(
+          "SELECT * FROM crm_suppliers WHERE id = ? LIMIT 1",
+          [(insertResult as any).insertId]
+        );
+        supplierRow = (newRows as any[])[0];
+      }
+
+      const newSupplier = mapSupplierRow(supplierRow, null);
+
+      // Also automatically create a CRM lead for tracing this approval task!
+      const companionLead: Lead = {
+        id: `lead-user-sup-${Date.now()}`,
+        companyName: nameZh,
+        country: "China",
+        city: "Unknown",
+        contactPerson,
+        contactMethod: contactPhone || contactEmail,
+        email: contactEmail,
+        industry: industryZh || "Other",
+        mainProducts: mainProduct,
+        has国际公共采购Participation: !!ungmCode,
+        notes: `申请注册为供应商。类型: ${type}. 国际公共采购 Code: ${ungmCode || "None"}. 待运营专家进行出海合规资质审查。`,
+        type: "supplier_register",
+        status: "new",
+        createdAt: new Date().toISOString(),
+        followUpLogs: [
+          {
+            date: new Date().toISOString().substring(0, 16).replace("T", " "),
+            content: "供应商入驻申请：等待检验出资及三方安规检测单据。",
+            author: "Admin System"
+          }
+        ]
+      };
+      leadsDb.unshift(companionLead);
+
+      return res.status(201).json({ supplier: newSupplier, companionLead });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   // MySQL2 connection pool for crm database
@@ -2258,6 +2534,7 @@ async function startServer() {
         "crm_notice_interests",
         "crm_user_interest_codes",
         "crm_supplier_claims",
+        "crm_supplier_translations",
         "crm_bid_notice_unspsc_codes"
       ];
       const [rows] = await dbPool.query(

@@ -59,12 +59,20 @@ describe("AuthModal", () => {
     mockAuth.authUser = null;
     mockAuth.isVip = false;
     mockAuth.claimMessage = "";
-    // 行业偏好默认：无已存偏好；级联数据可用
+    // 行业偏好默认：无已存偏好；三级级联数据按父级区分（1→Diesel→Biodiesel）
     mockFetchUnspscIndustries.mockResolvedValue([
       { id: 1, code: "10000000", title: "Fuel" },
       { id: 2, code: "20000000", title: "Lubricants" },
     ]);
-    mockFetchUnspscChildren.mockResolvedValue([{ id: 11, code: "10100000", title: "Diesel" }]);
+    mockFetchUnspscChildren.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "1"
+          ? [{ id: 11, code: "10100000", title: "Diesel" }]
+          : id === "11"
+            ? [{ id: 111, code: "10101500", title: "Biodiesel" }]
+            : []
+      )
+    );
     mockFetchIndustryPrefs.mockResolvedValue(null);
     mockSaveIndustryPrefs.mockResolvedValue({ ok: true });
     // Mock form validation to always pass
@@ -230,6 +238,20 @@ describe("AuthModal", () => {
     fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
     fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
 
+    // 主营行业前两级必选：补选后才可注册
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+
     // Submit
     fireEvent.click(screen.getByText("authRegisterSubmit"));
 
@@ -264,7 +286,7 @@ describe("AuthModal", () => {
     });
   });
 
-  it("loads sub-categories after selecting a level-1 industry", async () => {
+  it("loads sub-categories cascade down to level 3", async () => {
     render(<AuthModal onClose={onClose} />);
     fireEvent.click(screen.getByText("authRegisterTab"));
 
@@ -279,9 +301,59 @@ describe("AuthModal", () => {
       expect(mockFetchUnspscChildren).toHaveBeenCalledWith("1");
       expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
     });
+
+    // 选定二级后加载第三级（可选级）
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    await waitFor(() => {
+      expect(mockFetchUnspscChildren).toHaveBeenCalledWith("11");
+      expect(screen.getByRole("option", { name: /Biodiesel/ })).toBeInTheDocument();
+    });
   });
 
-  it("silently saves industry prefs after successful register", async () => {
+  it("silently saves three-level industry prefs after successful register", async () => {
+    mockAuth.register.mockResolvedValue(undefined);
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
+    fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
+    fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Biodiesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub3" }), {
+      target: { value: "111" },
+    });
+
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+
+    await waitFor(() => {
+      expect(mockAuth.register).toHaveBeenCalled();
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("test@test.com", {
+        level1_id: 1,
+        level2_id: 11,
+        level3_id: 111,
+      });
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("registers with two levels only: level3 stays optional", async () => {
     mockAuth.register.mockResolvedValue(undefined);
     render(<AuthModal onClose={onClose} />);
     fireEvent.click(screen.getByText("authRegisterTab"));
@@ -310,12 +382,13 @@ describe("AuthModal", () => {
       expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("test@test.com", {
         level1_id: 1,
         level2_id: 11,
+        level3_id: null,
       });
     });
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("does not save industry prefs when none selected (optional field)", async () => {
+  it("blocks register when the first two industry levels are not selected", async () => {
     mockAuth.register.mockResolvedValue(undefined);
     render(<AuthModal onClose={onClose} />);
     fireEvent.click(screen.getByText("authRegisterTab"));
@@ -323,18 +396,32 @@ describe("AuthModal", () => {
     fireEvent.change(screen.getByPlaceholderText("authEmailPlaceholder"), { target: { value: "test@test.com" } });
     fireEvent.change(screen.getByPlaceholderText("authPasswordPlaceholder"), { target: { value: "password123" } });
     fireEvent.change(screen.getByPlaceholderText("authCompanyPlaceholder"), { target: { value: "Test Corp" } });
-    fireEvent.click(screen.getByText("authRegisterSubmit"));
 
+    // 完全未选行业：阻断注册并提示前两级必选
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
     await waitFor(() => {
-      expect(mockAuth.register).toHaveBeenCalled();
-      expect(onClose).toHaveBeenCalled();
+      expect(screen.getByText("authIndustryPrefRequired")).toBeInTheDocument();
     });
+    expect(mockAuth.register).not.toHaveBeenCalled();
+
+    // 只选一级未选二级：同样阻断
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    fireEvent.click(screen.getByText("authRegisterSubmit"));
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefRequired")).toBeInTheDocument();
+    });
+    expect(mockAuth.register).not.toHaveBeenCalled();
     expect(mockSaveIndustryPrefs).not.toHaveBeenCalled();
   });
 
-  it("shows my default industry card with saved prefs when authenticated", async () => {
+  it("shows my default industry card with saved three-level prefs when authenticated", async () => {
     mockAuth.authUser = { user_key: "vip@qq.com", email: "vip@qq.com", display_name: "VIP" };
-    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: 111 });
 
     render(<AuthModal onClose={onClose} />);
 
@@ -345,8 +432,10 @@ describe("AuthModal", () => {
     await waitFor(() => {
       const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
       const level2 = screen.getByRole("combobox", { name: "authIndustryPrefSub" }) as HTMLSelectElement;
+      const level3 = screen.getByRole("combobox", { name: "authIndustryPrefSub3" }) as HTMLSelectElement;
       expect(level1.value).toBe("1");
       expect(level2.value).toBe("11");
+      expect(level3.value).toBe("111");
     });
   });
 
@@ -355,22 +444,31 @@ describe("AuthModal", () => {
     render(<AuthModal onClose={onClose} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("option", { name: /Lubricants/ })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
     });
     fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
-      target: { value: "2" },
+      target: { value: "1" },
+    });
+    // 前两级必选：只选一级时保存按钮不可用
+    expect(screen.getByText("authIndustryPrefSave")).toBeDisabled();
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
     });
     fireEvent.click(screen.getByText("authIndustryPrefSave"));
 
     await waitFor(() => {
-      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: 2, level2_id: null });
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: 1, level2_id: 11, level3_id: null });
       expect(screen.getByText("authIndustryPrefSaved")).toBeInTheDocument();
     });
   });
 
   it("clears prefs via the clear button", async () => {
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
-    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: null });
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: null });
     render(<AuthModal onClose={onClose} />);
 
     await waitFor(() => {
@@ -381,8 +479,206 @@ describe("AuthModal", () => {
 
     await waitFor(() => {
       expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: null });
+      // 清除应显示"已清除"文案，而非误用"已保存"
+      expect(screen.getByText("authIndustryPrefCleared")).toBeInTheDocument();
     });
     const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+    const level2 = screen.getByRole("combobox", { name: "authIndustryPrefSub" }) as HTMLSelectElement;
     expect(level1.value).toBe("");
+    expect(level2.value).toBe("");
+  });
+
+  it("shows failure message when saving prefs fails (no fake success)", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    // 模拟后端路由缺失/旧服务：POST 返回非 2xx
+    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 404 });
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefSave"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefFailed")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("authIndustryPrefSaved")).toBeNull();
+  });
+
+  it("shows failure message when clearing prefs fails", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: null });
+    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 500 });
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+      expect(level1.value).toBe("1");
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefClear"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefFailed")).toBeInTheDocument();
+    });
+    // 清除失败：本地选择不应被复位（仍保持已保存的偏好）
+    const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+    expect(level1.value).toBe("1");
+  });
+
+  // ── 偏好变更事件广播（公采页据此响应式重筛）──
+
+  it("dispatches industry-prefs-updated event after saving prefs succeeds", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    const onPrefsUpdated = vi.fn();
+    window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefSave"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefSaved")).toBeInTheDocument();
+    });
+    expect(onPrefsUpdated).toHaveBeenCalledTimes(1);
+    window.removeEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+  });
+
+  it("dispatches industry-prefs-updated event after clearing prefs succeeds", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: null });
+    const onPrefsUpdated = vi.fn();
+    window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      const level1 = screen.getByRole("combobox", { name: "authIndustryPrefSelect" }) as HTMLSelectElement;
+      expect(level1.value).toBe("1");
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefClear"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefCleared")).toBeInTheDocument();
+    });
+    expect(onPrefsUpdated).toHaveBeenCalledTimes(1);
+    window.removeEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+  });
+
+  it("does not dispatch industry-prefs-updated event when saving fails", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 404 });
+    const onPrefsUpdated = vi.fn();
+    window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    fireEvent.click(screen.getByText("authIndustryPrefSave"));
+
+    await waitFor(() => {
+      expect(screen.getByText("authIndustryPrefFailed")).toBeInTheDocument();
+    });
+    // 保存失败不得广播：否则公采页会按旧偏好白白重拉一轮
+    expect(onPrefsUpdated).not.toHaveBeenCalled();
+    window.removeEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+  });
+
+  // ── 前两级必选提示（进入即可见，而非点保存时才发现不可用）──
+
+  it("logged-in panel: shows required hint and save hint before first two levels are selected", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    // 选区静态说明：前两级必选、第三级可选
+    expect(screen.getByText("authIndustryPrefRequiredHint")).toBeInTheDocument();
+    // 保存按钮旁的引导提示：未选满前两级时可见
+    expect(screen.getByText("authIndustryPrefSaveHint")).toBeInTheDocument();
+  });
+
+  it("logged-in panel: save hint disappears once first two levels are selected", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    // 仅选一级：保存仍不可用，提示保留
+    expect(screen.getByText("authIndustryPrefSaveHint")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Diesel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSub" }), {
+      target: { value: "11" },
+    });
+    // 前两级齐：保存可用，引导提示消失；静态说明保留
+    expect(screen.queryByText("authIndustryPrefSaveHint")).toBeNull();
+    expect(screen.getByText("authIndustryPrefRequiredHint")).toBeInTheDocument();
+  });
+
+  it("register mode: shows the required hint in the industry pref area", async () => {
+    render(<AuthModal onClose={onClose} />);
+    fireEvent.click(screen.getByText("authRegisterTab"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Fuel/ })).toBeInTheDocument();
+    });
+    expect(screen.getByText("authIndustryPrefRequiredHint")).toBeInTheDocument();
+  });
+
+  // ── 级联选项文案：只显示标题，编码不进入文案（选中后不再显示"编码 - 名称"）──
+
+  it("renders industry options with title only, without the UNSPSC code", async () => {
+    mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
+    render(<AuthModal onClose={onClose} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Fuel" })).toBeInTheDocument();
+    });
+    // 一级选项文案精确等于标题，不含 "10000000 - " 前缀
+    expect(screen.queryByRole("option", { name: /10000000/ })).toBeNull();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "authIndustryPrefSelect" }), {
+      target: { value: "1" },
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Diesel" })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("option", { name: /10100000/ })).toBeNull();
   });
 });

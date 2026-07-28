@@ -69,15 +69,32 @@ export default function ProcurementPage() {
   // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
   // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
   const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (authUser?.user_key ? "loading" : "default"));
-  const prefsInitRef = useRef(false);
+  // 记录已探测过的账号：布尔锁会漏掉"登出→换号"场景，按 userKey 判重才能给新账号重新探测
+  const prefsInitKeyRef = useRef<string | null>(null);
+  // 偏好变更事件的重探测信号量：prefsMode 可能已是 loading（setState 同值不触发 effect），
+  // 递增 tick 才能保证探测 effect 必定重跑，不会卡死在 loading
+  const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
 
   useEffect(() => {
-    if (prefsInitRef.current || !userKey) return;
-    prefsInitRef.current = true;
-    let cancelled = false;
+    if (!userKey) {
+      // 登出：清掉上一账号的自动筛选残留（预选 + 提示条），回未登录全量现状
+      prefsInitKeyRef.current = null;
+      if (prefsMode !== "default") {
+        setPrefsMode("default");
+        setSelectedIds(["", "", "", "", ""]);
+        setLevels((prev) => [prev[0], [], [], [], []]);
+        setPage(1);
+      }
+      return;
+    }
+    if (prefsInitKeyRef.current === userKey) return;
+    prefsInitKeyRef.current = userKey;
+    // 过期判定用 ref 而非 cleanup 标志：StrictMode 双执行下 cleanup 会把首轮探测
+    // 全部作废、次轮又被判重拦截，导致 prefsMode 永远卡在 loading（公告不加载）
+    const stale = () => prefsInitKeyRef.current !== userKey;
     (async () => {
       const prefs = await fetchIndustryPrefs(userKey);
-      if (cancelled) return;
+      if (stale()) return;
       if (prefs?.level1_id) {
         // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
         const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, prefs.level4_id, prefs.level5_id]
@@ -91,7 +108,7 @@ export default function ProcurementPage() {
             nextChildren[i] = [];
           }
         }
-        if (cancelled) return;
+        if (stale()) return;
         setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
         setSelectedIds(path);
         setPrefsMode("prefs");
@@ -100,7 +117,7 @@ export default function ProcurementPage() {
       // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
       try {
         const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
-        if (cancelled) return;
+        if (stale()) return;
         if (Number(probe.total || 0) > 0) {
           setPrefsMode("recommended");
           return;
@@ -109,11 +126,26 @@ export default function ProcurementPage() {
         // 推荐接口异常同样回退全量
       }
       // S2 双空：现状全量列表
-      if (!cancelled) setPrefsMode("default");
+      if (!stale()) setPrefsMode("default");
     })();
-    return () => {
-      cancelled = true;
+    // prefsMode 入依赖仅服务登出清理分支；已登录路径有 prefsInitKeyRef 判重，不会重复探测；
+    // prefsRefreshTick 由偏好变更事件递增，强制清锁后重新探测
+  }, [userKey, prefsMode, prefsRefreshTick]);
+
+  // 账号弹窗中保存/清除默认行业后广播 supply-os:industry-prefs-updated：
+  // 同页打开弹窗时组件不卸载、userKey 不变，判重锁会拦住重新探测，
+  // 故收到事件后清锁 + 清残留预选 + 回 loading + 递增 tick，让上方探测 effect 按新偏好重跑
+  useEffect(() => {
+    const onPrefsUpdated = () => {
+      prefsInitKeyRef.current = null;
+      setSelectedIds(["", "", "", "", ""]);
+      setLevels((prev) => [prev[0], [], [], [], []]);
+      setPage(1);
+      setPrefsMode(userKey ? "loading" : "default");
+      setPrefsRefreshTick((tick) => tick + 1);
     };
+    window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+    return () => window.removeEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
   }, [userKey]);
 
   // 提示条中展示的偏好类目名（一级/二级名按 locale 取词，多级用 / 连接）

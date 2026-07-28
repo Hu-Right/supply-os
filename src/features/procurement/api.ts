@@ -134,7 +134,7 @@ export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
 
 // ── 账号默认行业偏好（本地差异 #5 配套前端）──
 
-/** 账号默认行业偏好：UNSPSC 类目路径 id（本期 UI 只用 1~2 级） */
+/** 账号默认行业偏好：UNSPSC 类目路径 id（UI 使用 1~3 级：前两级必选，第三级可选） */
 export interface IndustryPrefs {
   level1_id: number | null;
   level2_id?: number | null;

@@ -13,7 +13,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import type { Locale } from "@/core/i18n";
 import { MyRecordsPanel } from "@/features/payment";
 import {
   fetchUnspscIndustries,
@@ -22,18 +21,10 @@ import {
   saveIndustryPrefs,
 } from "@/features/procurement/api";
 import type { UnspscOption } from "@/features/procurement/types";
+import { getUnspscOptionLabel } from "@/features/procurement/unspsc-label";
 
 type AuthModalProps = {
   onClose: () => void;
-};
-
-// 与公采页 UnspcsSelector 一致的选项文案策略：中文优先 title_zh，其余回退英文
-const getOptionLabel = (item: UnspscOption, locale: Locale) => {
-  const title =
-    locale === "zh"
-      ? item.title_zh || item.title || item.name
-      : item.title_en || item.title || item.name || item.title_zh;
-  return `${item.code || ""}${item.code ? " - " : ""}${title || "Unnamed category"}`;
 };
 
 export function AuthModal({ onClose }: AuthModalProps) {
@@ -64,12 +55,15 @@ export function AuthModal({ onClose }: AuthModalProps) {
   });
 
   // ── 账号默认行业偏好（本地差异 #5 配套 UI）──
-  // 注册模式选取 + 已登录面板管理共用同一组级联状态
+  // 注册模式选取 + 已登录面板管理共用同一组三级级联状态（前两级必选，第三级可选）
   const [industryOptions, setIndustryOptions] = useState<UnspscOption[]>([]);
   const [subOptions, setSubOptions] = useState<UnspscOption[]>([]);
+  const [subOptions2, setSubOptions2] = useState<UnspscOption[]>([]);
   const [prefLevel1, setPrefLevel1] = useState("");
   const [prefLevel2, setPrefLevel2] = useState("");
+  const [prefLevel3, setPrefLevel3] = useState("");
   const [prefMessage, setPrefMessage] = useState("");
+  const [prefMessageIsError, setPrefMessageIsError] = useState(false);
 
   // 一级行业选项：接口有缓存，弹窗打开即加载
   useEffect(() => {
@@ -84,6 +78,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
     fetchIndustryPrefs(authUser.user_key).then((prefs) => {
       setPrefLevel1(prefs?.level1_id ? String(prefs.level1_id) : "");
       setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
+      setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
     });
   }, [authUser?.user_key]);
 
@@ -98,23 +93,49 @@ export function AuthModal({ onClose }: AuthModalProps) {
       .catch(() => setSubOptions([]));
   }, [prefLevel1]);
 
+  // 选定二级后加载三级类目（可选级，与 UnspscSelector 的逐级下钻一致）
+  useEffect(() => {
+    if (!prefLevel2) {
+      setSubOptions2([]);
+      return;
+    }
+    fetchUnspscChildren(prefLevel2)
+      .then(setSubOptions2)
+      .catch(() => setSubOptions2([]));
+  }, [prefLevel2]);
+
   const handlePrefLevel1Change = (value: string) => {
     setPrefLevel1(value);
     setPrefLevel2("");
+    setPrefLevel3("");
     setPrefMessage("");
   };
 
-  /** 已登录面板：保存当前选择为账号默认行业 */
+  const handlePrefLevel2Change = (value: string) => {
+    setPrefLevel2(value);
+    setPrefLevel3("");
+    setPrefMessage("");
+  };
+
+  /** 已登录面板：保存当前选择为账号默认行业（前两级必选） */
   const savePrefs = async () => {
-    if (!authUser?.user_key || !prefLevel1) return;
+    if (!authUser?.user_key || !prefLevel1 || !prefLevel2) return;
     try {
-      await saveIndustryPrefs(authUser.user_key, {
+      const res = await saveIndustryPrefs(authUser.user_key, {
         level1_id: Number(prefLevel1),
-        level2_id: prefLevel2 ? Number(prefLevel2) : null,
+        level2_id: Number(prefLevel2),
+        level3_id: prefLevel3 ? Number(prefLevel3) : null,
       });
+      // 必须校验 res.ok：旧 dev 服务/路由缺失时 POST 返回非 2xx，不能提示假成功
+      if (!res.ok) throw new Error(`SAVE_PREFS_${res.status}`);
+      setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefSaved"));
+      // 广播偏好已变更：公采页监听后按新偏好重新探测筛选（失败路径不广播）
+      window.dispatchEvent(new CustomEvent("supply-os:industry-prefs-updated"));
     } catch (err) {
       console.error("Failed to save industry prefs", err);
+      setPrefMessageIsError(true);
+      setPrefMessage(t("authIndustryPrefFailed"));
     }
   };
 
@@ -122,12 +143,20 @@ export function AuthModal({ onClose }: AuthModalProps) {
   const clearPrefs = async () => {
     if (!authUser?.user_key) return;
     try {
-      await saveIndustryPrefs(authUser.user_key, { level1_id: null });
+      const res = await saveIndustryPrefs(authUser.user_key, { level1_id: null });
+      if (!res.ok) throw new Error(`CLEAR_PREFS_${res.status}`);
+      // 仅在后端确认清除后才复位本地选择，失败时保留原偏好显示
       setPrefLevel1("");
       setPrefLevel2("");
-      setPrefMessage(t("authIndustryPrefSaved"));
+      setPrefLevel3("");
+      setPrefMessageIsError(false);
+      setPrefMessage(t("authIndustryPrefCleared"));
+      // 广播偏好已清除：公采页监听后退出偏好筛选回全量
+      window.dispatchEvent(new CustomEvent("supply-os:industry-prefs-updated"));
     } catch (err) {
       console.error("Failed to clear industry prefs", err);
+      setPrefMessageIsError(true);
+      setPrefMessage(t("authIndustryPrefFailed"));
     }
   };
 
@@ -155,6 +184,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
       return;
     }
 
+    // 主营行业前两级必选（三级联动的第三级为可选）
+    if (authMode === "register" && (!prefLevel1 || !prefLevel2)) {
+      setAuthError(t("authIndustryPrefRequired"));
+      return;
+    }
+
     try {
       if (authMode === "login") {
         // 登录路径 — 使用 AuthContext.login()
@@ -168,13 +203,12 @@ export function AuthModal({ onClose }: AuthModalProps) {
           authForm.displayName,
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined
         );
-        // 行业为选填：注册成功后静默保存偏好（user_key 即小写邮箱），失败不阻断注册流程
-        if (prefLevel1) {
-          saveIndustryPrefs(email.toLowerCase(), {
-            level1_id: Number(prefLevel1),
-            level2_id: prefLevel2 ? Number(prefLevel2) : null,
-          }).catch((err) => console.error("Failed to save industry prefs", err));
-        }
+        // 注册成功后静默保存偏好（user_key 即小写邮箱），保存失败不阻断注册流程
+        saveIndustryPrefs(email.toLowerCase(), {
+          level1_id: Number(prefLevel1),
+          level2_id: Number(prefLevel2),
+          level3_id: prefLevel3 ? Number(prefLevel3) : null,
+        }).catch((err) => console.error("Failed to save industry prefs", err));
         onClose();
       }
     } catch (err: any) {
@@ -182,7 +216,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
     }
   };
 
-  // 两级级联下拉：注册模式与已登录面板共用
+  // 三级级联下拉：注册模式与已登录面板共用（前两级必选，第三级可选）
   const industrySelects = (
     <>
       <select
@@ -194,24 +228,38 @@ export function AuthModal({ onClose }: AuthModalProps) {
         <option value="">{t("authIndustryPrefSelect")}</option>
         {industryOptions.map((item) => (
           <option key={item.id} value={item.id}>
-            {getOptionLabel(item, locale)}
+            {getUnspscOptionLabel(item, locale)}
           </option>
         ))}
       </select>
       <select
         aria-label={t("authIndustryPrefSub")}
         value={prefLevel2}
-        onChange={(e) => {
-          setPrefLevel2(e.target.value);
-          setPrefMessage("");
-        }}
+        onChange={(e) => handlePrefLevel2Change(e.target.value)}
         disabled={!prefLevel1}
         className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
       >
         <option value="">{t("authIndustryPrefSub")}</option>
         {subOptions.map((item) => (
           <option key={item.id} value={item.id}>
-            {getOptionLabel(item, locale)}
+            {getUnspscOptionLabel(item, locale)}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label={t("authIndustryPrefSub3")}
+        value={prefLevel3}
+        onChange={(e) => {
+          setPrefLevel3(e.target.value);
+          setPrefMessage("");
+        }}
+        disabled={!prefLevel2}
+        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
+      >
+        <option value="">{t("authIndustryPrefSub3")}</option>
+        {subOptions2.map((item) => (
+          <option key={item.id} value={item.id}>
+            {getUnspscOptionLabel(item, locale)}
           </option>
         ))}
       </select>
@@ -291,28 +339,44 @@ export function AuthModal({ onClose }: AuthModalProps) {
                 <h4 className="text-sm font-extrabold text-slate-900">
                   {t("authIndustryPrefLabel")}
                 </h4>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 进入即说明必选规则，避免用户点保存时才发现按钮不可用 */}
+                <p className="mt-1 text-xs text-slate-400">
+                  {t("authIndustryPrefRequiredHint")}
+                </p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {industrySelects}
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={savePrefs}
-                    disabled={!prefLevel1}
-                    className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-black hover:bg-slate-800 disabled:opacity-50"
+                    disabled={!prefLevel1 || !prefLevel2}
+                    className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-black shadow-xs hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600"
                   >
                     {t("authIndustryPrefSave")}
                   </button>
                   <button
                     type="button"
                     onClick={clearPrefs}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-white"
+                    className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
                   >
                     {t("authIndustryPrefClear")}
                   </button>
+                  {/* 未选满前两级时按钮旁给出引导，选满后自动消失 */}
+                  {(!prefLevel1 || !prefLevel2) && (
+                    <p className="text-xs font-bold text-amber-600">
+                      {t("authIndustryPrefSaveHint")}
+                    </p>
+                  )}
                 </div>
                 {prefMessage && (
-                  <p className="mt-3 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
+                  <p
+                    className={`mt-3 text-xs font-bold rounded-lg p-3 border ${
+                      prefMessageIsError
+                        ? "text-rose-600 bg-rose-50 border-rose-100"
+                        : "text-teal-700 bg-teal-50 border-teal-100"
+                    }`}
+                  >
                     {prefMessage}
                   </p>
                 )}
@@ -430,12 +494,16 @@ export function AuthModal({ onClose }: AuthModalProps) {
                       className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
                     />
                   </div>
-                  {/* 主营行业选取（选填，注册成功后作为公采页默认筛选偏好） */}
+                  {/* 主营行业选取（前两级必选，注册成功后作为公采页默认筛选偏好） */}
                   <div>
                     <p className="text-xs font-black text-slate-500">
                       {t("authIndustryPrefLabel")}
                     </p>
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* 进入即说明必选规则，避免提交时才报错 */}
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {t("authIndustryPrefRequiredHint")}
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {industrySelects}
                     </div>
                   </div>

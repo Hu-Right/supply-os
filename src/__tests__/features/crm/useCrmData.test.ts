@@ -31,11 +31,8 @@ vi.mock("@/features/crm/hooks/useAiMatch", () => ({
   }),
 }));
 
-// ── Mock @/data ──
+// ── Mock @/data（静态 SUPPLIERS 已移除，仅剩商机基准）──
 vi.mock("@/data", () => ({
-  SUPPLIERS: [
-    { id: "sup-1", nameZh: "供应商A", nameEn: "Supplier A", country: "CN", region: "asia" },
-  ],
   OPPORTUNITIES: [
     { id: "opp-1", titleZh: "联合国采购", titleEn: "UN Procurement", region: "asia", deadline: "2026-12-31" },
   ],
@@ -58,13 +55,16 @@ describe("useCrmData", () => {
     });
   });
 
-  it("fetches leads and custom suppliers on mount", async () => {
+  it("fetches leads and DB suppliers on mount", async () => {
     const mockLeads = [{ id: "lead-1", name: "Test Lead" }];
-    const mockCustomSuppliers = [{ id: "sup-c1", nameZh: "自定义供应商", nameEn: "Custom", country: "CN", region: "asia" }];
+    const mockDbSuppliers = [
+      { id: "sup-db-72", nameZh: "深圳安博深科技有限公司", nameEn: "深圳安博深科技有限公司", type: "domestic" },
+      { id: "sup-db-71", nameZh: "杭州绿能装备股份有限公司", nameEn: "杭州绿能装备股份有限公司", type: "domestic" },
+    ];
 
     server.use(
       http.get("/api/leads", () => HttpResponse.json(mockLeads)),
-      http.get("/api/suppliers/custom", () => HttpResponse.json(mockCustomSuppliers))
+      http.get("/api/suppliers", () => HttpResponse.json(mockDbSuppliers))
     );
 
     const { result } = renderHook(() => useCrmData());
@@ -74,13 +74,14 @@ describe("useCrmData", () => {
     });
 
     expect(result.current.leads).toEqual(mockLeads);
-    expect(result.current.totalSuppliersList.length).toBe(2); // 1 custom + 1 from SUPPLIERS
+    // 列表 = 纯 DB 拉取结果（不再拼接静态数据）
+    expect(result.current.totalSuppliersList.length).toBe(2);
   });
 
   it("handles fetch failure gracefully", async () => {
     server.use(
       http.get("/api/leads", () => new HttpResponse(null, { status: 500 })),
-      http.get("/api/suppliers/custom", () => new HttpResponse(null, { status: 500 }))
+      http.get("/api/suppliers", () => new HttpResponse(null, { status: 500 }))
     );
 
     const { result } = renderHook(() => useCrmData());
@@ -90,17 +91,35 @@ describe("useCrmData", () => {
     });
 
     expect(result.current.leads).toEqual([]);
-    expect(result.current.totalSuppliersList.length).toBe(1); // Only from SUPPLIERS
+    expect(result.current.totalSuppliersList.length).toBe(0); // 无静态兜底
   });
 
-  it("sets default AI selections from @/data on mount", async () => {
+  it("sets default AI selections (first fetched supplier + first opportunity)", async () => {
+    const mockDbSuppliers = [
+      { id: "sup-db-72", nameZh: "深圳安博深科技有限公司", nameEn: "深圳安博深科技有限公司", type: "domestic" },
+    ];
+    server.use(http.get("/api/suppliers", () => HttpResponse.json(mockDbSuppliers)));
+
     renderHook(() => useCrmData());
 
     await waitFor(() => {
-      expect(mockSetSelectedSupplier).toHaveBeenCalled();
+      expect(mockSetSelectedSupplier).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "sup-db-72" })
+      );
       expect(mockSetSelectedOpportunity).toHaveBeenCalled();
     });
     expect(mockTriggerMatch).not.toHaveBeenCalled();
+  });
+
+  it("does not preselect a supplier when the fetched list is empty", async () => {
+    server.use(http.get("/api/suppliers", () => HttpResponse.json([])));
+
+    const { result } = renderHook(() => useCrmData());
+
+    await waitFor(() => {
+      expect(result.current.isLoadingLeads).toBe(false);
+    });
+    expect(mockSetSelectedSupplier).not.toHaveBeenCalled();
   });
 
   it("selects incoming supplier and auto-triggers match when autoMatchSupplier provided", async () => {

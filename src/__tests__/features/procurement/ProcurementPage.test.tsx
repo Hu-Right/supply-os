@@ -127,6 +127,17 @@ describe("ProcurementPage", () => {
     expect(screen.getByText("procurement_poolTitle")).toBeInTheDocument();
   });
 
+  // ── 1b. 级联选项文案：只显示标题，编码不进入文案 ──
+  it("renders UNSPSC options with title only, without the code prefix", async () => {
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Fuel" })).toBeInTheDocument();
+    });
+    // 选项文案精确等于标题，不再是 "10000000 - Fuel"
+    expect(screen.queryByRole("option", { name: /10000000/ })).toBeNull();
+  });
+
   // ── 2. Notice list renders ──
   it("renders notice cards from API data", async () => {
     render(<ProcurementPage />);
@@ -476,6 +487,33 @@ describe("ProcurementPage", () => {
     });
   });
 
+it("preselects three-level industry prefs and filters by the deepest code_id", async () => {
+    // 三级级联数据按父级区分：1→Diesel(11)→Biodiesel(111)
+    mockFetchUnspscChildren.mockImplementation((id: string) =>
+      Promise.resolve(
+        id === "1"
+          ? [{ id: 11, code: "10100000", title: "Diesel" }]
+          : id === "11"
+            ? [{ id: 111, code: "10101500", title: "Biodiesel" }]
+            : []
+      )
+    );
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: 111 });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+    // 三级路径全预选，公告请求带第三级 code_id
+    await waitFor(() => {
+      const selects = document.querySelectorAll("select");
+      expect((selects[0] as HTMLSelectElement).value).toBe("1");
+      expect((selects[1] as HTMLSelectElement).value).toBe("11");
+      expect((selects[2] as HTMLSelectElement).value).toBe("111");
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: "111" }));
+    });
+  });
+
   it("falls back to recommended notices when no prefs but interests exist", async () => {
     mockFetchRecommendedNotices.mockResolvedValue({
       items: [{ id: 9, title: "Reco Notice", agency: "A", country: "US", reference: "R-9", match_score: 3 }],
@@ -516,6 +554,44 @@ describe("ProcurementPage", () => {
     expect(mockFetchRecommendedNotices).not.toHaveBeenCalled();
   });
 
+  // ── 偏好变更事件响应（AuthModal 保存/清除后广播 supply-os:industry-prefs-updated）──
+
+  it("re-probes and filters by new prefs when industry-prefs-updated fires", async () => {
+    // 初始无偏好：全量列表
+    render(<ProcurementPage />);
+    await waitFor(() => {
+      expect(screen.getByText("Notice A")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+
+    // 用户在账号弹窗保存了新偏好 → 广播事件后本页应重新探测并按新偏好筛选
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+    fireEvent(window, new CustomEvent("supply-os:industry-prefs-updated"));
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: "11" }));
+    });
+  });
+
+  it("returns to the full list when prefs are cleared elsewhere", async () => {
+    // 初始有偏好：按偏好筛选中
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+    render(<ProcurementPage />);
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+
+    // 用户在账号弹窗清除偏好 → 广播事件后应退出偏好筛选，回全量列表
+    mockFetchIndustryPrefs.mockResolvedValue(null);
+    fireEvent(window, new CustomEvent("supply-os:industry-prefs-updated"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
+    });
+  });
+
   it("exits auto prefs mode via the view-all button", async () => {
     mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: null });
     render(<ProcurementPage />);
@@ -543,6 +619,26 @@ describe("ProcurementPage", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+    });
+  });
+
+  it("clears prefs preselection and banner after logout", async () => {
+    mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11 });
+    const { rerender } = render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
+    });
+
+    // 登出：上一账号的自动筛选残留（预选 + 提示条）应全部清除，回未登录全量现状
+    mockAuth.authUser = null;
+    rerender(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
+      const selects = document.querySelectorAll("select");
+      expect((selects[0] as HTMLSelectElement).value).toBe("");
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
     });
   });
 });

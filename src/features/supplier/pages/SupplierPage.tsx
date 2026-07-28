@@ -10,32 +10,44 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { SUPPLIERS } from "@/data";
+import { useAuth } from "@/core/auth";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
+import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
-import { fetchCustomSuppliers } from "../api";
+import { ProcurementPagination } from "@/features/procurement/components/ProcurementPagination";
+import { fetchSuppliers, fetchSupplierContact } from "../api";
+
+// 与公采页保持一致的每页条数（3 列网格 × 3 行）
+const PAGE_SIZE = 9;
 
 export default function SupplierPage() {
   const { t, locale } = useLocale();
+  const { authUser, isVip } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState("");
   const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState("");
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [customSuppliers, setCustomSuppliers] = useState<Supplier[]>([]);
+  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
+  // 首次挂载即处于加载中：渲染骨架屏而非空状态
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
-  // 拉取用户自助入驻的自定义供应商（失败静默回退到仅静态列表）
-  const loadCustomSuppliers = useCallback(() => {
-    fetchCustomSuppliers()
-      .then((list) => setCustomSuppliers(Array.isArray(list) ? list : []))
-      .catch(() => setCustomSuppliers([]));
-  }, []);
+  // 拉取 DB 供应商目录（按界面语言返回译文，失败显示空状态）
+  const loadSuppliers = useCallback(() => {
+    setLoading(true);
+    setPage(1);
+    fetchSuppliers(locale)
+      .then((list) => setAllSuppliers(Array.isArray(list) ? list : []))
+      .catch(() => setAllSuppliers([]))
+      .finally(() => setLoading(false));
+  }, [locale]);
 
   useEffect(() => {
-    loadCustomSuppliers();
-  }, [loadCustomSuppliers]);
+    loadSuppliers();
+  }, [loadSuppliers]);
 
   // 监听页头横幅"注册成为认证供应商"事件，打开入驻表单
   useEffect(() => {
@@ -43,12 +55,6 @@ export default function SupplierPage() {
     window.addEventListener("supply-os:open-supplier-register", onOpenRegister);
     return () => window.removeEventListener("supply-os:open-supplier-register", onOpenRegister);
   }, []);
-
-  // 展示列表：自定义（pending）供应商排在静态目录之前
-  const allSuppliers = useMemo(
-    () => [...customSuppliers, ...SUPPLIERS],
-    [customSuppliers]
-  );
 
   // 计算可用行业
   const availableSupplierIndustries = useMemo(() => {
@@ -78,15 +84,32 @@ export default function SupplierPage() {
     });
   }, [allSuppliers, locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
 
+  // 前端分页（数据一次拉全量，与公采页控件同款交互）
+  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
+  const pagedSuppliers = useMemo(
+    () => filteredSuppliers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredSuppliers, page]
+  );
+
   const handleAiMatch = (supplier: Supplier) => {
     // 对齐原版：带上目标供应商跳转 CRM，由 CRM 页自动执行 AI 撮合
     navigate("/crm", { state: { aiMatchSupplier: supplier } });
   };
 
-  const handleContact = (supplier: Supplier) => {
-    alert(
-      `联络人: ${supplier.contactPerson}\n邮箱: ${supplier.contactEmail}\n电话: ${supplier.contactPhone}`
-    );
+  // 联系方式为 VIP 专属：命中门槛后向后端请求明文（列表数据为掩码）
+  const handleContact = async (supplier: Supplier) => {
+    if (!authUser?.user_key || !isVip) {
+      alert(t("supplierContactVipOnly"));
+      return;
+    }
+    try {
+      const contact = await fetchSupplierContact(supplier.id, authUser.user_key);
+      alert(
+        `联络人: ${contact.contactPerson}\n邮箱: ${contact.contactEmail}\n电话: ${contact.contactPhone}`
+      );
+    } catch {
+      alert(t("supplierContactFailed"));
+    }
   };
 
   return (
@@ -101,7 +124,10 @@ export default function SupplierPage() {
           ].map((s) => (
             <button
               key={s.id}
-              onClick={() => setSupplierSubTab(s.id as "all" | "domestic" | "international")}
+              onClick={() => {
+                setSupplierSubTab(s.id as "all" | "domestic" | "international");
+                setPage(1);
+              }}
               className={`cursor-pointer rounded-md px-4 py-1.5 text-xs font-semibold ${supplierSubTab === s.id
                   ? "bg-white text-slate-900 shadow-xs"
                   : "text-slate-500 hover:text-slate-800"
@@ -117,13 +143,19 @@ export default function SupplierPage() {
             type="text"
             placeholder={t("searchSupplierPlaceholder")}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
           />
 
           <select
             value={supplierIndustry}
-            onChange={(e) => setSupplierIndustry(e.target.value)}
+            onChange={(e) => {
+              setSupplierIndustry(e.target.value);
+              setPage(1);
+            }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
           >
             <option value="">{t("allIndustries")}</option>
@@ -138,7 +170,10 @@ export default function SupplierPage() {
             type="text"
             placeholder={t("searchUnspscPlaceholder")}
             value={supplierUngmCodeSearch}
-            onChange={(e) => setSupplierUngmCodeSearch(e.target.value)}
+            onChange={(e) => {
+              setSupplierUngmCodeSearch(e.target.value);
+              setPage(1);
+            }}
             className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
             title="仅适用于国外供应商8位分类码匹配"
           />
@@ -147,26 +182,42 @@ export default function SupplierPage() {
 
       {/* Suppliers Grid cards view */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {filteredSuppliers.map((sup) => (
-          <SupplierCard
-            key={sup.id}
-            supplier={sup}
-            onAiMatch={handleAiMatch}
-            onContact={handleContact}
-          />
-        ))}
+        {loading &&
+          Array.from({ length: PAGE_SIZE }, (_, idx) => <SupplierCardSkeleton key={idx} />)}
 
-        {filteredSuppliers.length === 0 && (
+        {!loading &&
+          pagedSuppliers.map((sup) => (
+            <SupplierCard
+              key={sup.id}
+              supplier={sup}
+              onAiMatch={handleAiMatch}
+              onContact={handleContact}
+            />
+          ))}
+
+        {!loading && filteredSuppliers.length === 0 && (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center text-slate-400">
             <p>{t("noData")}</p>
           </div>
         )}
       </div>
 
+      {/* 分页控件：复用公采页同款（每页 9 条） */}
+      {!loading && filteredSuppliers.length > 0 && (
+        <ProcurementPagination
+          page={page}
+          totalPages={totalPages}
+          serverPageSize={PAGE_SIZE}
+          total={filteredSuppliers.length}
+          loading={loading}
+          onPageChange={setPage}
+        />
+      )}
+
       {showRegisterModal && (
         <SupplierRegisterModal
           onClose={() => setShowRegisterModal(false)}
-          onRegistered={loadCustomSuppliers}
+          onRegistered={loadSuppliers}
         />
       )}
     </div>

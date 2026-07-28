@@ -15,9 +15,3 @@ import type { Lead } from "@/types";
  * Fetch leads list
  */
 export const fetchLeads = () => api<Lead[]>("/api/leads");
-
-/**
- * 获取自定义供应商列表
- * Fetch custom suppliers list
- */
-export const fetchCustomSuppliers = () => api<import("@/types").Supplier[]>("/api/suppliers/custom");

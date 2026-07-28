@@ -1,21 +1,12 @@
 import { useLocale } from "@/core/i18n";
-import type { Locale } from "@/core/i18n";
 import type { UnspscOption } from "../types";
+import { getUnspscOptionLabel } from "../unspsc-label";
 
 interface UnspcsSelectorProps {
   levels: UnspscOption[][];
   selectedIds: string[];
   onChange: (levelIndex: number, value: string) => void;
 }
-
-// 非中文（含新增 fr/ru/es/ar）统一回退英文标题，与 fallbackLng: "en" 策略一致。
-const getOptionLabel = (item: UnspscOption, locale: Locale) => {
-  const title =
-    locale === "zh"
-      ? item.title_zh || item.title || item.name
-      : item.title_en || item.title || item.name || item.title_zh;
-  return `${item.code || ""}${item.code ? " - " : ""}${title || "Unnamed category"}`;
-};
 
 export function UnspcsSelector({ levels, selectedIds, onChange }: UnspcsSelectorProps) {
   const { t, locale } = useLocale();
@@ -36,7 +27,7 @@ export function UnspcsSelector({ levels, selectedIds, onChange }: UnspcsSelector
           </option>
           {levels[level].map((item) => (
             <option key={item.id} value={item.id}>
-              {getOptionLabel(item, locale)}
+              {getUnspscOptionLabel(item, locale)}
             </option>
           ))}
         </select>

@@ -45,8 +45,6 @@ export const handlers = [
   // ── Leads / CRM ───────────────────────────────────────
   http.get("/api/leads", () => HttpResponse.json([])),
 
-  http.get("/api/suppliers/custom", () => HttpResponse.json([])),
-
   // ── Suppliers ─────────────────────────────────────────
   http.get("/api/suppliers", () => HttpResponse.json([])),
 

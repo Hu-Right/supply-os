@@ -84,11 +84,30 @@ export async function registerSupplier(input: SupplierRegisterInput): Promise<Su
 }
 
 /**
- * 查询用户自助入驻的自定义供应商列表
- * Fetch user self-registered custom suppliers
+ * 查询供应商目录（DB 真实数据，按界面语言返回译文，缺失回退中文）
+ * Fetch DB-backed supplier directory localized for the given language
  */
-export async function fetchCustomSuppliers(): Promise<Supplier[]> {
-  const res = await fetch("/api/suppliers/custom", { cache: "no-store" });
-  if (!res.ok) throw new Error("查询自定义供应商失败");
+export async function fetchSuppliers(lang: string): Promise<Supplier[]> {
+  const res = await fetch(`/api/suppliers?lang=${encodeURIComponent(lang)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error("查询供应商列表失败");
+  return res.json();
+}
+
+/**
+ * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
+ * Fetch plaintext supplier contact (VIP only)
+ */
+export async function fetchSupplierContact(
+  id: string,
+  userKey: string
+): Promise<{ contactPerson: string; contactPhone: string; contactEmail: string }> {
+  const res = await fetch(
+    `/api/suppliers/${encodeURIComponent(id)}/contact?user_key=${encodeURIComponent(userKey)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "查询联系方式失败");
+  }
   return res.json();
 }

@@ -10,7 +10,8 @@
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
-import { SUPPLIERS, OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "@/data";
+import { fetchSuppliers } from "@/features/supplier/api";
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
 
@@ -45,7 +46,7 @@ export type UseCrmDataReturn = {
  */
 export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
   const { autoMatchSupplier } = options;
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { authUser } = useAuth();
 
   // Compose AI matching hook (single responsibility)
@@ -53,14 +54,14 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
 
   // Data fetching state
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [customSuppliers, setCustomSuppliers] = useState<Supplier[]>([]);
+  const [dbSuppliers, setDbSuppliers] = useState<Supplier[]>([]);
   const [isLoadingLeads, setIsLoadingLeads] = useState(false);
 
   // Subscribe opportunity message
   const [subscribingOppMessage, setSubscribingOppMessage] = useState<string | null>(null);
 
-  // Fetch leads and custom suppliers
-  const fetchData = async () => {
+  // Fetch leads and DB-backed suppliers
+  const fetchData = async (preselectFirstSupplier = false) => {
     setIsLoadingLeads(true);
     try {
       const leadsRes = await fetch("/api/leads");
@@ -68,10 +69,11 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
         const data = await leadsRes.json();
         setLeads(data);
       }
-      const supsRes = await fetch("/api/suppliers/custom");
-      if (supsRes.ok) {
-        const data = await supsRes.json();
-        setCustomSuppliers(data);
+      const suppliers = await fetchSuppliers(locale).catch(() => [] as Supplier[]);
+      setDbSuppliers(suppliers);
+      // 首次加载：无跨页带入时默认选中拉取列表首条（列表为空则不预选）
+      if (preselectFirstSupplier && !autoMatchSupplier && suppliers.length > 0) {
+        aiMatch.setSelectedSupplier(suppliers[0]);
       }
     } catch (e) {
       console.error("Error reading CRM data:", e);
@@ -82,12 +84,10 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
 
   // Initial data load + default AI match selections
   useEffect(() => {
-    fetchData();
-    // 跨页带入的供应商优先于默认首个静态供应商
+    fetchData(true);
+    // 跨页带入的供应商优先于默认列表首条
     if (autoMatchSupplier) {
       aiMatch.setSelectedSupplier(autoMatchSupplier);
-    } else if (SUPPLIERS.length > 0) {
-      aiMatch.setSelectedSupplier(SUPPLIERS[0]);
     }
     if (OPPORTUNITIES.length > 0) {
       aiMatch.setSelectedOpportunity(OPPORTUNITIES[0]);
@@ -151,7 +151,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
     }
   };
 
-  const totalSuppliersList = [...customSuppliers, ...SUPPLIERS];
+  const totalSuppliersList = dbSuppliers;
 
   return {
     leads,
