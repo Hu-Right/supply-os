@@ -123,7 +123,8 @@ export default function SupplierPage() {
     <div className="space-y-6">
       {/* Inline Toggle Filter tabs for Suppliers */}
       <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs md:flex-row">
-        <div className="flex rounded-lg bg-slate-100 p-1">
+        {/* shrink-0：筛选标签不因右侧搜索区变宽被挤压变形 */}
+        <div className="flex shrink-0 rounded-lg bg-slate-100 p-1">
           {[
             { id: "all", label: t("supplierFilterAll") },
             { id: "domestic", label: t("supplierFilterDomestic") },
@@ -145,7 +146,9 @@ export default function SupplierPage() {
           ))}
         </div>
 
-        <div className="grid w-full grid-cols-2 gap-2 md:w-auto md:grid-cols-3">
+        {/* md:max-w-xl 取代 md:w-auto：容器宽度受限三列等分，
+            不再被 UNSPSC 长 placeholder 的固有宽度撑开 */}
+        <div className="grid w-full grid-cols-2 gap-2 md:max-w-xl md:grid-cols-3">
           <input
             type="text"
             placeholder={t("searchSupplierPlaceholder")}
@@ -154,7 +157,7 @@ export default function SupplierPage() {
               setSearchTerm(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
           />
 
           <select
@@ -163,7 +166,7 @@ export default function SupplierPage() {
               setSupplierIndustry(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
+            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
           >
             <option value="">{t("allIndustries")}</option>
             {availableSupplierIndustries.map((ind) => (
@@ -181,7 +184,7 @@ export default function SupplierPage() {
               setSupplierUngmCodeSearch(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
+            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
             title="仅适用于国外供应商8位分类码匹配"
           />
         </div>

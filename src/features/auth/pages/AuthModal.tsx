@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { useScrollLock } from "@/shared/ui";
 import { MyRecordsPanel } from "@/features/payment";
 import {
   fetchUnspscIndustries,
@@ -31,6 +32,8 @@ export function AuthModal({ onClose }: AuthModalProps) {
   const { t, locale } = useLocale();
   const { authUser, isVip, login, register, logout, claimMessage } = useAuth();
   const navigate = useNavigate();
+  // 弹窗打开期间锁定背景滚动
+  useScrollLock();
 
   // 打开关联公告：先关闭账户弹窗再跳转到公采页
   const openNotice = (noticeId: number) => {

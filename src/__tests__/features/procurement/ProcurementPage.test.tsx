@@ -107,6 +107,14 @@ describe("ProcurementPage", () => {
       pageSize: 9,
     });
     mockFetchNoticeDetail.mockRejectedValue(new Error("NOTICE_DETAIL_403"));
+    // 用例 16/20/21b 会改写 membership（VIP/配额耗尽）：显式复位，clearAllMocks 不还原 implementation
+    mockFetchMembershipStatus.mockResolvedValue({
+      membership_tier: "free",
+      free_quota: 2,
+      free_used: 0,
+      free_remaining: 2,
+      paid_unlocks: 0,
+    });
     mockFetchUnlockedNoticeIds.mockResolvedValue([]);
     mockUnlockNotice.mockResolvedValue({ ok: true });
     mockFetchNoticeTranslation.mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
@@ -384,6 +392,37 @@ describe("ProcurementPage", () => {
       expect(screen.getByText("procurement_products")).toBeInTheDocument();
       expect(screen.getByText("procurement_freeLimit")).toBeInTheDocument();
       expect(screen.getByText("Single Unlock")).toBeInTheDocument();
+    });
+
+    getItemSpy.mockRestore();
+  });
+
+  // ── 21b. 免费门槛跟随后端 free_quota 动态值（非硬编码 3）──
+  it("uses membership.free_quota as the paywall threshold instead of a hardcoded limit", async () => {
+    mockAuth.isVip = false;
+    // 后端配额 2：已看 2 次即达上限（若门槛仍硬编码 3，2 >= 3 不成立，本用例即红）
+    mockFetchMembershipStatus.mockResolvedValue({
+      membership_tier: "free",
+      free_quota: 2,
+      free_used: 2,
+      free_remaining: 0,
+      paid_unlocks: 0,
+    });
+    const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockReturnValue("2");
+
+    render(<ProcurementPage />);
+
+    // 等 membership 真正加载进状态（徽标显示剩余 0 条）且公告卡片渲染完成
+    await waitFor(() => {
+      expect(screen.getByText(/procurement_freeTrial 0/)).toBeInTheDocument();
+      expect(screen.getAllByText("procurement_detail").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getAllByText("procurement_detail")[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("procurement_freeLimit")).toBeInTheDocument();
+      expect(screen.getByText("procurement_products")).toBeInTheDocument();
     });
 
     getItemSpy.mockRestore();

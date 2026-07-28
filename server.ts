@@ -835,7 +835,7 @@ async function ensureProcurementSchema(dbPool: any) {
     INSERT INTO crm_membership_plans
       (plan_code, name, description, price, duration_days, unlock_quota, free_quota, plan_type, sort_order)
     VALUES
-      ('free', '基础体验版', '免费注册供应商，浏览目录并免费解锁 2 条完整订单。', 0, NULL, 2, 2, 'free', 0),
+      ('free', '基础体验版', '免费注册供应商，浏览目录并免费解锁 3 条完整订单。', 0, NULL, 3, 3, 'free', 0),
       ('single_89', '单点解锁', '单条查看完整采购详情与机构信息。', 89, NULL, 1, 0, 'single', 10),
       ('trial_99_3', '尝鲜特惠包', '适合初步测试转化率，3 条订单额度。', 99, NULL, 3, 0, 'bundle', 20),
       ('week_299_21', '抢单周卡', '7 天内 21 条订单额度，适合集中筛单。', 299, 7, 21, 0, 'subscription', 30),
@@ -866,7 +866,7 @@ async function ensureProcurementSchema(dbPool: any) {
         ELSE name
       END,
       description = CASE plan_code
-        WHEN 'free' THEN '免费注册供应商，浏览目录并免费解锁 2 条完整订单。'
+        WHEN 'free' THEN '免费注册供应商，浏览目录并免费解锁 3 条完整订单。'
         WHEN 'single_89' THEN '单条查看完整采购详情与机构信息。'
         WHEN 'trial_99_3' THEN '适合初步测试转化率，3 条订单额度。'
         WHEN 'week_299_21' THEN '7 天内 21 条订单额度，适合集中筛单。'
@@ -2625,7 +2625,7 @@ async function startServer() {
       const [freePlanRows] = await dbPool.query(
         "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1"
       );
-      const freeQuota = Number((freePlanRows as any[])[0]?.free_quota || 2);
+      const freeQuota = Number((freePlanRows as any[])[0]?.free_quota || 3);
       const [freeRows] = await dbPool.query(
         "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
         [userKey]
@@ -3059,7 +3059,7 @@ async function startServer() {
         const [freePlanRows] = await dbPool.query(
           "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1"
         );
-        const freeQuota = Number((freePlanRows as any[])[0]?.free_quota || 2);
+        const freeQuota = Number((freePlanRows as any[])[0]?.free_quota || 3);
         const [freeRows] = await dbPool.query(
           "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
           [userKey]
@@ -3191,11 +3191,16 @@ async function startServer() {
       }
 
       if (unlockType === "free") {
+        // 免费配额统一读 crm_membership_plans（与 /api/notices/:id/unlock 同源），不再硬编码
+        const [freePlanRows] = await dbPool.query(
+          "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1"
+        );
+        const freeQuota = Number((freePlanRows as any[])[0]?.free_quota || 3);
         const [freeRows] = await dbPool.query(
           "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
           [userKey]
         );
-        if (Number((freeRows as any[])[0]?.total || 0) >= 2) {
+        if (Number((freeRows as any[])[0]?.total || 0) >= freeQuota) {
           return res.status(402).json({ error: "FREE_LIMIT_REACHED" });
         }
       }

@@ -36,7 +36,9 @@ import { ProcurementPagination } from "../components/ProcurementPagination";
 import { useNoticePayment } from "../hooks/useNoticePayment";
 
 const PAGE_SIZE = 9;
-const FREE_DETAIL_VIEW_LIMIT = 3;
+// 免费详情查看配额的兜底值（membership 未加载时使用）；
+// 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表）
+const FREE_QUOTA_FALLBACK = 3;
 
 // 进入公采页的初始化状态机（本地差异 #5）：
 // loading = 登录态判定中；prefs = 按账号默认行业筛选；recommended = 按行为兴趣推荐；default = 现状全量
@@ -185,8 +187,8 @@ export default function ProcurementPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
-  const freeRemaining = Number(membership?.free_remaining ?? 2);
-  const freeQuota = Number(membership?.free_quota ?? 2);
+  const freeRemaining = Number(membership?.free_remaining ?? FREE_QUOTA_FALLBACK);
+  const freeQuota = Number(membership?.free_quota ?? FREE_QUOTA_FALLBACK);
   const canUsePaidQuota = isVip || paidRemaining > 0;
 
   const getDetailViewCountKey = () => `procurement_detail_views_${userKey || "guest"}`;
@@ -380,9 +382,10 @@ export default function ProcurementPage() {
 
     const currentViews = getDetailViewCount();
     const alreadyUnlocked = unlockedIds.has(notice.id);
-    if (!isVip && !alreadyUnlocked && currentViews >= FREE_DETAIL_VIEW_LIMIT) {
+    // 门槛与后端配额同源：freeQuota 来自 membership.free_quota（DB 单一数据源）
+    if (!isVip && !alreadyUnlocked && currentViews >= freeQuota) {
       setSelectedNotice(notice);
-      setActionMessage(t("procurement_freeLimit"));
+      setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
       openPaywall(notice);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -481,7 +484,7 @@ export default function ProcurementPage() {
     }
 
     if (!unlockType && !canUsePaidQuota && freeRemaining <= 0) {
-      setActionMessage(t("procurement_freeLimit"));
+      setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
       openPaywall(notice);
       return false;
     }
@@ -502,7 +505,7 @@ export default function ProcurementPage() {
       // 解锁失败：复位加载态，恢复锁定面板
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (res.status === 402) {
-        setActionMessage(t("procurement_freeLimit"));
+        setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
         openPaywall(notice);
       } else {
         setActionMessage(t("procurement_unlockFail"));
@@ -589,7 +592,7 @@ export default function ProcurementPage() {
               <Crown className="w-5 h-5 text-amber-500" />
               {t("procurement_poolTitle")}
             </h3>
-            <p className="text-xs text-slate-500 mt-1">{t("procurement_poolDesc")}</p>
+            <p className="text-xs text-slate-500 mt-1">{t("procurement_poolDesc", { count: freeQuota })}</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">
@@ -598,7 +601,7 @@ export default function ProcurementPage() {
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
               {canUsePaidQuota
                 ? t("procurement_vipActive")
-                : `${t("procurement_freeTrial")} ${membership?.free_remaining ?? 2} ${t("procurement_items")}`}
+                : `${t("procurement_freeTrial")} ${freeRemaining} ${t("procurement_items")}`}
             </span>
           </div>
         </div>

@@ -10,6 +10,7 @@
 import { X, CheckCircle2, Loader2, ExternalLink, AlertCircle } from "lucide-react";
 import { getPaymentTips, isMobile } from "@/core/payment";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { useScrollLock } from "@/shared/ui";
 import { usePayment } from "../hooks/usePayment";
 
 type PaymentModalProps = {
@@ -36,6 +37,8 @@ export default function PaymentModal({
   onPaymentSuccess,
 }: PaymentModalProps) {
   const { t, locale } = useLocale();
+  // 弹窗打开期间锁定背景滚动
+  useScrollLock();
   const mobile = isMobile();
   const currencySymbol = currency === "CNY" ? "¥" : "$";
 

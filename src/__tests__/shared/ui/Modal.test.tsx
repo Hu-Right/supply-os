@@ -71,4 +71,44 @@ describe("Modal", () => {
     );
     expect(screen.queryByLabelText("关闭")).toBeNull();
   });
+
+  it("locks body scroll while open and restores on unmount", () => {
+    const { unmount } = render(
+      <Modal open={true} onClose={() => {}}>
+        <p>Content</p>
+      </Modal>
+    );
+    expect(document.body.style.overflow).toBe("hidden");
+    unmount();
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("does not lock body scroll when open=false", () => {
+    render(
+      <Modal open={false} onClose={() => {}}>
+        <p>Content</p>
+      </Modal>
+    );
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("moves focus into the dialog panel when opened and returns it on close", () => {
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    const { unmount } = render(
+      <Modal open={true} onClose={() => {}}>
+        <p>Content</p>
+      </Modal>
+    );
+    // 打开：焦点进入弹窗面板（dialog 内部）
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+
+    // 关闭（卸载）：焦点归还触发元素
+    unmount();
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
 });

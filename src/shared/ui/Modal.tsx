@@ -9,6 +9,7 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { useScrollLock } from "./useScrollLock";
 
 export interface ModalProps {
   /** 是否打开 */
@@ -34,6 +35,18 @@ export function Modal({
   className = "",
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // 打开期间锁定背景滚动（关闭/卸载自动恢复）
+  useScrollLock(open);
+
+  // 焦点管理：打开时聚焦弹窗面板（ESC/Tab 立即可用），关闭时归还触发元素
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, [open]);
 
   // Escape 关闭
   useEffect(() => {
@@ -64,13 +77,18 @@ export function Modal({
       ref={dialogRef}
       open={open}
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop:bg-black/50"
+      // 显式 w/h/m/max 覆盖 <dialog> 的 UA 默认样式（width/height: fit-content、margin: auto），
+      // 否则容器收缩为内容大小贴靠左上角，flex 居中与全屏遮罩全部失效；
+      // 遮罩底色与项目其他弹窗（AuthModal/PaymentModal/ConsultForm 等）对齐
+      className="fixed inset-0 z-50 m-0 h-full w-full max-h-none max-w-none flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
       <div
-        className={`relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl ${className}`}
+        ref={panelRef}
+        tabIndex={-1}
+        className={`relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl focus:outline-none ${className}`}
       >
         {showClose && (
           <button

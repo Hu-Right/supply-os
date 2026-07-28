@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileText, X } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { useScrollLock } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
 
@@ -34,6 +35,8 @@ const INITIAL_FORM = {
 
 export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterFormProps) {
   const { t, locale } = useLocale();
+  // 弹窗打开期间锁定背景滚动
+  useScrollLock();
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);

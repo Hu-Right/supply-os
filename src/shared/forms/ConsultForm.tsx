@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { X, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useScrollLock } from "@/shared/ui";
 import { api } from "@/core/http";
 
 export interface ConsultFormProps {
@@ -20,6 +21,8 @@ export interface ConsultFormProps {
 
 export function ConsultForm({ onClose }: ConsultFormProps) {
   const { t } = useLocale();
+  // 弹窗打开期间锁定背景滚动
+  useScrollLock();
   const [form, setForm] = useState({ companyName: "", contactPerson: "", phone: "", notes: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);

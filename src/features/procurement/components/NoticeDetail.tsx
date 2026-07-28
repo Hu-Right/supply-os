@@ -329,7 +329,7 @@ export function NoticeDetail({
                 <p className="text-[11px] text-amber-800">{t("procurement_paidServiceManualNote")}</p>
               </div>
 
-              <p className="text-[11px] leading-5 text-slate-500">{t("procurement_actionTip")}</p>
+              <p className="text-[11px] leading-5 text-slate-500">{t("procurement_actionTip", { count: freeQuota })}</p>
             </div>
 
             {payment?.paywallNotice && (

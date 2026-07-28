@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useScrollLock } from "@/shared/ui";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
 
 type SupplierRegisterModalProps = {
@@ -43,6 +44,8 @@ const selectClass = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 roun
 
 export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegisterModalProps) {
   const { t } = useLocale();
+  // 弹窗打开期间锁定背景滚动
+  useScrollLock();
   const [form, setForm] = useState<SupplierRegisterInput>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
