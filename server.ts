@@ -1526,6 +1526,45 @@ async function ensureProcurementSchema(dbPool: any) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // 本地差异 #11：T-B2 推荐反馈流水表（B.3.1）。建表即落两项裁决：
+  // D.5——action ENUM 直接含隐式信号（dwell/scroll_end/quick_exit/revisit）+ dwell_ms 列，避免后续 ALTER；
+  // D.7——impression 去重采用"前端 Set 预去重 + 服务端唯一约束 uk_dedup 兜底"双层方案（INSERT IGNORE 写入，
+  //       session_id 为 NULL 时唯一约束不生效，故前端必须传 session_id）
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_user_reco_feedback (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT UNSIGNED NULL,
+      user_key VARCHAR(190) NOT NULL,
+      notice_id BIGINT UNSIGNED NOT NULL,
+      action ENUM('impression','click','unlock','dismiss','favorite','dwell','scroll_end','quick_exit','revisit') NOT NULL,
+      reco_score DECIMAL(8,4) NULL,
+      position INT NULL,
+      variant VARCHAR(20) NULL,
+      session_id VARCHAR(64) NULL,
+      dwell_ms INT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_dedup (user_key, notice_id, session_id, action),
+      KEY idx_user_time (user_key, created_at),
+      KEY idx_notice_action (notice_id, action),
+      KEY idx_variant (variant, action)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 本地差异 #11：T-B2 每用户维度权重档案（反馈微调结果，缺失走全局默认——B.3.1）
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_reco_weight_profile (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_key VARCHAR(190) NOT NULL,
+      w_unspsc DECIMAL(5,3) NOT NULL DEFAULT 0.500,
+      w_agency DECIMAL(5,3) NOT NULL DEFAULT 0.150,
+      w_amount DECIMAL(5,3) NOT NULL DEFAULT 0.100,
+      w_geo DECIMAL(5,3) NOT NULL DEFAULT 0.100,
+      w_urgency DECIMAL(5,3) NOT NULL DEFAULT 0.150,
+      updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_user (user_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_notice_translations (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -3537,7 +3576,10 @@ async function startServer() {
         "crm_user_search_log",
         "crm_data_quality_snapshot",
         // 本地差异 #10：T-B3 金额解析缓存表
-        "crm_notice_amount_cache"
+        "crm_notice_amount_cache",
+        // 本地差异 #11：T-B2 推荐反馈流水表 + 权重档案表
+        "crm_user_reco_feedback",
+        "crm_reco_weight_profile"
       ];
       const [rows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name
@@ -3565,6 +3607,9 @@ async function startServer() {
         crm_data_quality_snapshot: ["snapshot_date", "total_notices", "missing_value", "missing_country", "missing_deadline", "unlinked_unspsc", "expired_but_active", "dup_notice_cnt"],
         // 本地差异 #10
         crm_notice_amount_cache: ["notice_id", "amount", "currency", "amount_usd", "inferred", "parse_version", "parsed_at"],
+        // 本地差异 #11
+        crm_user_reco_feedback: ["user_key", "notice_id", "action", "reco_score", "position", "variant", "session_id", "dwell_ms"],
+        crm_reco_weight_profile: ["user_key", "w_unspsc", "w_agency", "w_amount", "w_geo", "w_urgency"],
       };
       const [columnRows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
