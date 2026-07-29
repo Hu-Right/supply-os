@@ -134,6 +134,9 @@ export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]>
 /**
  * 获取公告标题/说明的按需译文（服务端缓存，同 URL 前端也只请求一次）
  * Fetch on-demand translation of a notice (server-side cached; deduped by URL)
+ *
+ * @remarks 标题与说明均为公开内容（列表端点对所有人返回完整 description），
+ *          付费内容不经过本端点，故无需携带用户身份。
  */
 export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
   fetchJsonCached<NoticeTranslation>(
