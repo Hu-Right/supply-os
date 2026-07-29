@@ -364,6 +364,23 @@ async function recomputeRecoWeightProfile(dbPool: any, userKey: string) {
   }
 }
 
+// ── T-B10 A/B 分桶（本地差异 #15：B.5）──
+// FNV-1a 32 位稳定哈希 % 100：同一 user_key 桶恒定（纯函数，跨请求/重启/进程一致）。
+// RECO_AB_TREATMENT_PCT 环境变量控放量（0~100 整数，默认 0 = 全 control = 实验默认关闭；
+// 改回 0 即一键回退）。treatment 桶当前实验特性 = T-B7 per-user 权重档案生效。
+// A/B 放量属线上动作，调整环境变量须经用户明确确认。
+const AB_TREATMENT_PCT = Math.min(100, Math.max(0, Math.floor(Number(process.env.RECO_AB_TREATMENT_PCT || 0)) || 0));
+const fnv1a32 = (input: string): number => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+};
+const recoVariant = (userKey: string): "control" | "treatment" =>
+  AB_TREATMENT_PCT > 0 && fnv1a32(userKey) % 100 < AB_TREATMENT_PCT ? "treatment" : "control";
+
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
 // 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
 // findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
@@ -3629,12 +3646,17 @@ async function startServer() {
       // fire-and-forget 异步重算，绝不阻塞本次推荐响应（无定时器，约束 6）。
       // 本地差异 #10：s_amount 从常数拆出（D.3.2 落地）——
       // JOIN 自有缓存表 crm_notice_amount_cache，对数距离衰减，inferred 向中性收缩 ×0.7，缺失 0.5
+      // 本地差异 #15：T-B10——A/B 分桶门控：treatment 桶才启用 per-user 档案权重，
+      // control 桶恒走全局默认（放量 0 时全员 control，行为与 T-B7 上线前恒等）；
+      // 档案懒刷新两桶都做（数据积累不受门控影响，放量时 treatment 立即有档案可用）
+      const variant = recoVariant(userKey);
       const [profileRows] = await dbPool.query(
         `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at
          FROM crm_reco_weight_profile WHERE user_key = ? LIMIT 1`,
         [userKey]
       );
-      const profile = (profileRows as any[])[0] || null;
+      const profileRow = (profileRows as any[])[0] || null;
+      const profile = variant === "treatment" ? profileRow : null;
       const pickWeight = (value: any, fallback: number) => {
         const n = Number(value);
         return Number.isFinite(n) && n > 0 && n < 1 ? n : fallback;
@@ -3645,8 +3667,8 @@ async function startServer() {
       // s_agency/s_geo 未接入前恒中性 0.5，两档权重折成常数项（默认 0.15·0.5 + 0.10·0.5 = 0.125）
       const wNeutral = (pickWeight(profile?.w_agency, 0.15) + pickWeight(profile?.w_geo, 0.1)) * 0.5;
       const profileStale =
-        !profile || !profile.updated_at ||
-        Date.now() - new Date(profile.updated_at).getTime() > 24 * 3600 * 1000;
+        !profileRow || !profileRow.updated_at ||
+        Date.now() - new Date(profileRow.updated_at).getTime() > 24 * 3600 * 1000;
       if (profileStale) void recomputeRecoWeightProfile(dbPool, userKey).catch(() => undefined);
       const scoreParams: any[] = [];
       const matchWeightExpr = scoredCodes.length
@@ -3799,6 +3821,7 @@ async function startServer() {
         total: Number((countRows as any[])[0]?.total || 0),
         page,
         pageSize,
+        variant, // T-B10：前端反馈埋点原样回传，指标 SQL 按 variant 聚合
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -4066,6 +4089,42 @@ async function startServer() {
     } catch (err: any) {
       console.warn("[ViewRollup] 汇总失败:", err.message);
       res.status(500).json({ success: false, message: "浏览量汇总失败" });
+    }
+  });
+
+  // ── 本地差异 #15：T-B10 A/B 指标端点（B.5）──
+  // 按 variant 聚合反馈流水四指标（只读，admin 手动查询，无定时器）：
+  // ctr = click 用户次数 / impression 次数；unlock_rate = unlock / impression；
+  // dismiss_rate（忽略率）= dismiss / impression；avg_unlock_position = unlock 平均位次。
+  // variant 为 NULL 的历史行（T-B10 前埋点）归入 'control' 口径统计
+  app.get("/api/admin/reco-ab-metrics", async (req, res) => {
+    try {
+      const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 30, 1), 365);
+      const [rows] = await dbPool.query(
+        `SELECT
+           COALESCE(variant, 'control') AS variant,
+           COUNT(DISTINCT user_key) AS users,
+           SUM(action = 'impression') AS impressions,
+           SUM(action = 'click') AS clicks,
+           SUM(action = 'unlock') AS unlocks,
+           SUM(action = 'dismiss') AS dismisses,
+           ROUND(SUM(action = 'click') / NULLIF(SUM(action = 'impression'), 0), 4) AS ctr,
+           ROUND(SUM(action = 'unlock') / NULLIF(SUM(action = 'impression'), 0), 4) AS unlock_rate,
+           ROUND(SUM(action = 'dismiss') / NULLIF(SUM(action = 'impression'), 0), 4) AS dismiss_rate,
+           ROUND(AVG(CASE WHEN action = 'unlock' THEN position END), 2) AS avg_unlock_position
+         FROM crm_user_reco_feedback
+         WHERE created_at >= NOW() - INTERVAL ? DAY
+         GROUP BY COALESCE(variant, 'control')
+         ORDER BY variant`,
+        [sinceDays]
+      );
+      res.json({
+        since_days: sinceDays,
+        treatment_pct: AB_TREATMENT_PCT, // 当前放量（0 = 实验关闭全员 control）
+        variants: rows,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

@@ -68,6 +68,8 @@ export default function ProcurementPage() {
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const noticesRequestSeq = useRef(0);
+  // T-B10（本地差异 #15）：推荐响应回传的 A/B 桶标记，反馈埋点原样携带供指标按桶聚合
+  const variantRef = useRef<string | undefined>(undefined);
 
   // ── 公采搜索栏（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
   // 生效条件从 URL 读取（卡片旁可直接附结果页链接直达）；表单输入为待提交草稿
@@ -455,6 +457,7 @@ export default function ProcurementPage() {
       .then((json) => {
         if (requestSeq !== noticesRequestSeq.current) return;
         const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
+        variantRef.current = typeof json.variant === "string" ? json.variant : undefined; // T-B10
         setItems(Array.isArray(json.items) ? json.items : []);
         setTotal(Number(json.total || 0));
         setServerPageSize(nextPageSize);
@@ -488,7 +491,7 @@ export default function ProcurementPage() {
     const key = userKeyRef.current;
     const batch = impressionPendingRef.current.splice(0, 50);
     if (key && batch.length) {
-      void sendNoticeFeedback(key, batch.map((id) => ({ notice_id: id, action: "impression" as const })));
+      void sendNoticeFeedback(key, batch.map((id) => ({ notice_id: id, action: "impression" as const, variant: variantRef.current })));
     }
   };
 
@@ -547,12 +550,13 @@ export default function ProcurementPage() {
   const handleDismissNotice = async (notice: NoticeItem) => {
     if (!userKey) return;
     setItems((prev) => prev.filter((it) => it.id !== notice.id));
-    await sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "dismiss" }]);
+    await sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "dismiss", variant: variantRef.current }]);
     const requestSeq = noticesRequestSeq.current + 1;
     noticesRequestSeq.current = requestSeq;
     try {
       const json = await fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true });
       if (requestSeq !== noticesRequestSeq.current) return;
+      variantRef.current = typeof json.variant === "string" ? json.variant : undefined; // T-B10
       setItems(Array.isArray(json.items) ? json.items : []);
       setTotal(Number(json.total || 0));
     } catch {
@@ -568,7 +572,7 @@ export default function ProcurementPage() {
       next.add(notice.id);
       return next;
     });
-    void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "favorite" }]);
+    void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "favorite", variant: variantRef.current }]);
   };
 
   const handleLevelChange = async (levelIndex: number, value: string) => {
@@ -599,7 +603,7 @@ export default function ProcurementPage() {
     }
 
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
-    if (feedbackEnabled) void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "click" }]);
+    if (feedbackEnabled) void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "click", variant: variantRef.current }]);
 
     const currentViews = getDetailViewCount();
     const alreadyUnlocked = unlockedIds.has(notice.id);

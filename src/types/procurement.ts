@@ -72,4 +72,6 @@ export interface NoticeResponse {
   total?: number;
   pageSize?: number;
   page_size?: number;
+  /** T-B10（本地差异 #15）：A/B 分桶标记（仅推荐端点返回），反馈埋点原样回传 */
+  variant?: string;
 }
