@@ -3077,17 +3077,34 @@ async function startServer() {
       const deadlineTo = String(req.query.deadline_to || "").trim();
       const sort = String(req.query.sort || "deadline");
       const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      // ── 本地差异 #13：T-B8 多维过滤缺口参数（B.3.3）──
+      // value_min/value_max 单位 USD（走 T-B3 自有缓存表 amount_usd，跨币种可比）；
+      // deadline_within_days 1~365；notice_type 自由文本 LIKE 宽匹配（与 country 同口径）
+      const valueMin = Number.isFinite(Number(req.query.value_min)) && Number(req.query.value_min) > 0
+        ? Number(req.query.value_min) : 0;
+      const valueMax = Number.isFinite(Number(req.query.value_max)) && Number(req.query.value_max) > 0
+        ? Number(req.query.value_max) : 0;
+      const deadlineWithinDays = Number.isInteger(Number(req.query.deadline_within_days))
+        ? Math.min(365, Math.max(0, Number(req.query.deadline_within_days))) : 0;
+      const noticeType = String(req.query.notice_type || "").trim().slice(0, 100);
 
       // ── 搜索行为落库（本地差异 #6：G.4）──
       // 仅带搜索/筛选条件时记录；user_key 经 normalizeUserKey（F.1），游客落 NULL；
       // country 供 D.2 显式地区偏好，result_cnt=0 即"搜而无果"供运营反哺；异步不阻塞响应
-      const hasSearch = Boolean(q || country || dateRe.test(deadlineFrom) || dateRe.test(deadlineTo));
+      const hasSearch = Boolean(
+        q || country || dateRe.test(deadlineFrom) || dateRe.test(deadlineTo) ||
+        valueMin || valueMax || deadlineWithinDays || noticeType // T-B8：新参数同样计入搜索条件
+      );
       const logSearch = (total: number) => {
         if (!hasSearch) return;
         const filters = JSON.stringify({
           code_id: codeId || undefined,
           deadline_from: dateRe.test(deadlineFrom) ? deadlineFrom : undefined,
           deadline_to: dateRe.test(deadlineTo) ? deadlineTo : undefined,
+          value_min: valueMin || undefined,
+          value_max: valueMax || undefined,
+          deadline_within_days: deadlineWithinDays || undefined,
+          notice_type: noticeType || undefined,
           sort,
         });
         void dbPool
@@ -3100,7 +3117,8 @@ async function startServer() {
 
       // F.4 缓存命中（本地差异 #7）：仅带搜索条件的查询走缓存（慢路径），命中仍落库
       const cacheKey = hasSearch
-        ? JSON.stringify([page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort])
+        ? JSON.stringify([page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
+            valueMin, valueMax, deadlineWithinDays, noticeType]) // T-B8：缓存 key 覆盖新参数
         : "";
       if (cacheKey) {
         const cached = noticeSearchCache.get(cacheKey);
@@ -3152,6 +3170,30 @@ async function startServer() {
       if (dateRe.test(deadlineTo)) {
         where.push(`${deadlineSecExpr} <= UNIX_TIMESTAMP(?)`);
         params.push(`${deadlineTo} 23:59:59`);
+      }
+      // ── T-B8 新增过滤（本地差异 #13）──
+      // deadline_within_days：截止在 N 天内（不含无截止；折算表达式，约束 9）
+      if (deadlineWithinDays > 0) {
+        where.push(`n.deadline_ts IS NOT NULL AND ${deadlineSecExpr} <= UNIX_TIMESTAMP(NOW()) + ? * 86400`);
+        params.push(deadlineWithinDays);
+      }
+      if (noticeType) {
+        // notice_type 为自由文本（英文枚举/中文/混排），LIKE 宽匹配与前端 noticeTypeKey 归一互补
+        where.push("n.notice_type LIKE ?");
+        params.push(`%${noticeType}%`);
+      }
+      // value_min/value_max：JOIN T-B3 金额缓存表按 amount_usd 过滤（区间过滤=显式意图，
+      // 未解析出金额的公告不进结果；缓存表覆盖率由懒填充+admin 回填保障）
+      if (valueMin || valueMax) {
+        join += " INNER JOIN crm_notice_amount_cache vamc ON vamc.notice_id = n.id AND vamc.amount_usd IS NOT NULL";
+        if (valueMin) {
+          where.push("vamc.amount_usd >= ?");
+          params.push(valueMin);
+        }
+        if (valueMax) {
+          where.push("vamc.amount_usd <= ?");
+          params.push(valueMax);
+        }
       }
 
       // 排序：latest=最新收录优先（id 逆序；published_date 为自由文本不可靠）；
