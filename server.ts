@@ -3493,6 +3493,7 @@ async function startServer() {
            n.description,
            ${l4HitExpr} AS l4_hit,
            MAX(amc.amount_usd) AS amount_usd_cached,
+           GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
            COUNT(DISTINCT b.code) AS match_score,
            ${recoScoreExpr} AS reco_score
          FROM crm_bid_notices n
@@ -3530,9 +3531,48 @@ async function startServer() {
         return reasons.slice(0, 2);
       };
 
+      // 本地差异 #12：T-C4 MMR 当页多样性重排（C.3.2）。仅对当页 pageSize 条重排（不破 SQL 分页
+      // 语义）；相似度 = 命中 UNSPSC 码集合的 Jaccard 重合度（codes_concat 顺带取自主查询，零额外
+      // SQL）；λ=0.7 偏相关性。贪心确定性选取：分数并列取原序靠前者 → 同输入同输出
+      const MMR_LAMBDA = 0.7;
+      const mmrRerankPage = (pageRows: any[]): any[] => {
+        if (pageRows.length <= 2) return pageRows;
+        const codeSets = pageRows.map((row) =>
+          new Set(String(row.codes_concat || "").split(",").filter(Boolean))
+        );
+        const jaccard = (a: Set<string>, b: Set<string>) => {
+          if (a.size === 0 || b.size === 0) return 0;
+          let inter = 0;
+          for (const code of a) if (b.has(code)) inter++;
+          return inter / (a.size + b.size - inter);
+        };
+        const remaining = pageRows.map((_, index) => index);
+        const picked: number[] = [];
+        while (remaining.length) {
+          let bestPos = 0;
+          let bestScore = -Infinity;
+          for (let pos = 0; pos < remaining.length; pos++) {
+            const index = remaining[pos];
+            let maxSim = 0;
+            for (const chosen of picked) {
+              const sim = jaccard(codeSets[index], codeSets[chosen]);
+              if (sim > maxSim) maxSim = sim;
+            }
+            const score = MMR_LAMBDA * Number(pageRows[index].reco_score || 0) - (1 - MMR_LAMBDA) * maxSim;
+            if (score > bestScore) { // 严格大于：并列保持原序（确定性）
+              bestScore = score;
+              bestPos = pos;
+            }
+          }
+          picked.push(remaining[bestPos]);
+          remaining.splice(bestPos, 1);
+        }
+        return picked.map((index) => pageRows[index]);
+      };
+
       res.json({
-        items: (rows as any[]).map((row) => {
-          const { l4_hit, amount_usd_cached, ...rest } = row; // 剥离标签推导用的中间信号列
+        items: mmrRerankPage(rows as any[]).map((row) => {
+          const { l4_hit, amount_usd_cached, codes_concat, ...rest } = row; // 剥离标签/MMR 推导用的中间信号列
           return {
             ...rest,
             match_score: Number(row.match_score || 0),
