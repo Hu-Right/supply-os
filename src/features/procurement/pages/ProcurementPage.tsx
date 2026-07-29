@@ -19,6 +19,7 @@ import {
   fetchUnspscIndustries,
   fetchUnspscChildren,
   fetchNotices,
+  fetchNoticeCountries,
   fetchMembershipPlans,
   fetchMembershipStatus,
   viewNotice,
@@ -62,11 +63,65 @@ export default function ProcurementPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
-  const [query, setQuery] = useState("");
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const noticesRequestSeq = useRef(0);
+
+  // ── 公采搜索栏（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
+  // 生效条件从 URL 读取（卡片旁可直接附结果页链接直达）；表单输入为待提交草稿
+  const activeQ = searchParams.get("q") || "";
+  const activeCountry = searchParams.get("country") || "";
+  const activeFrom = searchParams.get("deadline_from") || "";
+  const activeTo = searchParams.get("deadline_to") || "";
+  const activeSort: "deadline" | "latest" = searchParams.get("sort") === "latest" ? "latest" : "deadline";
+  const hasSearch = Boolean(activeQ || activeCountry || activeFrom || activeTo);
+  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}`;
+
+  const [qInput, setQInput] = useState(activeQ);
+  const [countryInput, setCountryInput] = useState(activeCountry);
+  const [fromInput, setFromInput] = useState(activeFrom);
+  const [toInput, setToInput] = useState(activeTo);
+  const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
+
+  // URL 外部变化（支付回跳清参等）时同步表单草稿，避免输入框残留失效条件
+  useEffect(() => {
+    setQInput(activeQ);
+    setCountryInput(activeCountry);
+    setFromInput(activeFrom);
+    setToInput(activeTo);
+  }, [activeQ, activeCountry, activeFrom, activeTo]);
+
+  // 国家下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
+  useEffect(() => {
+    fetchNoticeCountries()
+      .then((data) => setCountries(Array.isArray(data) ? data : []))
+      .catch(() => setCountries([]));
+  }, []);
+
+  // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
+  const applySearch = (sortOverride?: "deadline" | "latest") => {
+    const next: Record<string, string> = {};
+    if (qInput.trim()) next.q = qInput.trim();
+    if (countryInput) next.country = countryInput;
+    if (fromInput) next.deadline_from = fromInput;
+    if (toInput) next.deadline_to = toInput;
+    const sortValue = sortOverride ?? activeSort;
+    if (sortValue !== "deadline") next.sort = sortValue;
+    if (prefsMode !== "default") setPrefsMode("default");
+    setPage(1);
+    setSelectedNotice(null);
+    setSearchParams(next);
+  };
+
+  const clearSearch = () => {
+    setQInput("");
+    setCountryInput("");
+    setFromInput("");
+    setToInput("");
+    setPage(1);
+    setSearchParams({});
+  };
 
   // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
   // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
@@ -324,18 +379,31 @@ export default function ProcurementPage() {
   }, [userKey, isVip]);
 
   useEffect(() => {
-    // 初始化判定中不发全量请求，避免「全量→偏好」双闪；判定完成后本 effect 重新触发
-    if (prefsMode === "loading") return;
+    // 初始化判定中不发全量请求，避免「全量→偏好」双闪；判定完成后本 effect 重新触发。
+    // 带搜索条件（URL 直达链接）时不等判定：搜索数据源与偏好/推荐无关（本地差异 #6）
+    if (prefsMode === "loading" && !hasSearch) return;
     const requestSeq = noticesRequestSeq.current + 1;
     noticesRequestSeq.current = requestSeq;
     setLoading(true);
     setError("");
 
-    // 推荐模式切换数据源（match_score 排序），其余模式沿用现有 code_id 筛选链路
+    // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
     const request =
-      prefsMode === "recommended" && userKey
-        ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
-        : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
+      hasSearch || activeSort !== "deadline"
+        ? fetchNotices({
+            page,
+            pageSize: PAGE_SIZE,
+            codeId: deepestCodeId || undefined,
+            q: activeQ || undefined,
+            country: activeCountry || undefined,
+            deadlineFrom: activeFrom || undefined,
+            deadlineTo: activeTo || undefined,
+            sort: activeSort,
+            userKey: userKey || undefined,
+          })
+        : prefsMode === "recommended" && userKey
+          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
+          : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
 
     request
       .then((json) => {
@@ -351,7 +419,8 @@ export default function ProcurementPage() {
       .finally(() => {
         if (requestSeq === noticesRequestSeq.current) setLoading(false);
       });
-  }, [deepestCodeId, page, prefsMode]);
+    // searchKey 覆盖 q/country/日期区间/排序五个 URL 参数（本地差异 #6）
+  }, [deepestCodeId, page, prefsMode, searchKey]);
 
   const handleLevelChange = async (levelIndex: number, value: string) => {
     // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
@@ -540,11 +609,7 @@ export default function ProcurementPage() {
     openPaywall(notice);
   };
 
-  const visibleItems = items.filter((item) => {
-    if (!query.trim()) return true;
-    const haystack = `${item.title} ${item.agency || ""} ${item.country || ""} ${item.reference || ""}`.toLowerCase();
-    return haystack.includes(query.trim().toLowerCase());
-  });
+  // 列表数据即服务端命中结果（本地差异 #6：客户端"当页九条内过滤"已由服务端全库搜索取代）
 
   // 详情页
   if (selectedNotice) {
@@ -607,19 +672,81 @@ export default function ProcurementPage() {
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
-            <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
+          <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
+          {/* 公采搜索栏（本地差异 #6：G.3）——关键词 + 国家 + 截止日期区间 + 排序，服务端全库搜索 */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              applySearch();
+            }}
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3"
+          >
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("procurement_search")}
+                value={qInput}
+                onChange={(e) => setQInput(e.target.value)}
+                placeholder={t("procurement_searchPlaceholder")}
                 dir="auto"
                 className="w-full ps-9 pe-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </div>
-          </div>
+            <select
+              value={countryInput}
+              onChange={(e) => setCountryInput(e.target.value)}
+              aria-label={t("procurement_countryAll")}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="">{t("procurement_countryAll")}</option>
+              {countries.map((item) => (
+                <option key={item.country} value={item.country}>
+                  {item.country} ({item.count})
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={fromInput}
+              onChange={(e) => setFromInput(e.target.value)}
+              title={t("procurement_deadlineFrom")}
+              aria-label={t("procurement_deadlineFrom")}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+            <input
+              type="date"
+              value={toInput}
+              onChange={(e) => setToInput(e.target.value)}
+              title={t("procurement_deadlineTo")}
+              aria-label={t("procurement_deadlineTo")}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+            <select
+              value={activeSort}
+              onChange={(e) => applySearch(e.target.value === "latest" ? "latest" : "deadline")}
+              aria-label={t("procurement_sortByDeadline")}
+              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="deadline">{t("procurement_sortByDeadline")}</option>
+              <option value="latest">{t("procurement_sortByLatest")}</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700 whitespace-nowrap"
+              >
+                {t("procurement_searchBtn")}
+              </button>
+              {hasSearch && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 whitespace-nowrap"
+                >
+                  {t("procurement_clearSearch")}
+                </button>
+              )}
+            </div>
+          </form>
         </div>
       </section>
 
@@ -656,12 +783,12 @@ export default function ProcurementPage() {
         {error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{error}</div>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visibleItems.map((item) => (
+          {items.map((item) => (
             <NoticeCard key={item.id} item={item} onClick={openNotice} />
           ))}
         </div>
 
-        {!loading && visibleItems.length === 0 && (
+        {!loading && items.length === 0 && (
           <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
             {t("procurement_noMatch")}
           </div>

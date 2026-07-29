@@ -96,6 +96,8 @@ export type OrderNoticeBrief = {
   agency_full?: string | null;
   country?: string | null;
   deadline?: string | null;
+  /** 公采搜索功能（本地差异 #6 配套）：服务端按 deadline_ts 算好的过期标志（无时间戳为 null） */
+  deadline_expired?: boolean | null;
   urgency?: string | null;
   url?: string | null;
   industry?: string | null;

@@ -3,12 +3,16 @@
  * Notice unlocked extended details
  *
  * @module features/procurement/components/NoticeUnlockedDetails
- * @description 解锁后展示联系人、招标/采购文件、外部链接与补充元信息
- *              After unlock, shows contacts, tender/procurement files,
- *              external links and supplementary meta info.
+ * @description 解锁后展示采购方/机构信息卡（机构全称/国家地区/发布日期/原始链接）、
+ *              联系人、采购文件/拆解材料模块（文件+外链合并清单，空态提示）与投标拆解建议。
+ *              After unlock, shows the buyer/agency info card (full name, country,
+ *              published date, original link), contacts, the procurement files /
+ *              breakdown materials module (merged file+link list with empty state)
+ *              and bid breakdown suggestions.
  */
 
-import { ExternalLink, FileText, Link2, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import type { ReactNode } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 
@@ -49,22 +53,52 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   const allContacts = [...keyContacts, ...contacts];
 
-  const metaRows: Array<[string, string]> = [];
-  if (notice.published_date) metaRows.push([t("procurement_publishedDate"), notice.published_date]);
-  if (notice.difficulty) metaRows.push([t("procurement_difficulty"), notice.difficulty]);
-  if (notice.registration_level)
-    metaRows.push([t("procurement_registrationLevel"), notice.registration_level]);
+  // 采购文件清单：原版口径 documents + procurement_files 合并（服务端已归一为 documents
+  // 单一事实源，procurement_files 仅兼容旧缓存 payload），按 url|name 去重防重复渲染
+  const seenFiles = new Set<string>();
+  const files = [...documents, ...procurementFiles].filter((item) => {
+    if (!attachmentUrl(item) && attachmentName(item) === "-") return false;
+    const key = `${attachmentUrl(item) || ""}|${attachmentName(item)}`.toLowerCase();
+    if (seenFiles.has(key)) return false;
+    seenFiles.add(key);
+    return true;
+  });
+
+  // 采购方/机构信息：完整机构名优先，逐级回退
+  const agencyInfo = notice.agency_full || notice.agency || notice.organization || "";
 
   const hasContent =
     allContacts.length > 0 ||
-    documents.length > 0 ||
-    procurementFiles.length > 0 ||
+    files.length > 0 ||
     externalLinks.length > 0 ||
-    metaRows.length > 0 ||
+    !!agencyInfo ||
+    !!notice.published_date ||
     !!keyContactsText ||
     !!notice.url;
 
   if (!hasContent) return null;
+
+  // 机构信息卡四行（原版布局），缺失值以 "-" 兜底
+  const agencyRows: Array<[string, ReactNode]> = [
+    [t("procurement_agencyFullName"), agencyInfo || "-"],
+    [t("procurement_country"), notice.country || "-"],
+    [t("procurement_publishedDate"), notice.published_date || "-"],
+    [
+      t("procurement_originalLink"),
+      notice.url ? (
+        <a
+          href={notice.url}
+          target="_blank"
+          rel="noreferrer"
+          className="font-black text-blue-700 hover:text-blue-900 hover:underline"
+        >
+          {t("procurement_openNotice")}
+        </a>
+      ) : (
+        "-"
+      ),
+    ],
+  ];
 
   const bidDifficulty = notice.difficulty || t("procurement_bidPendingEval");
   const bidRegistration = notice.registration_level || t("procurement_bidPendingConfirm");
@@ -84,31 +118,17 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
         {t("procurement_unlockedDetailsTitle")}
       </h4>
 
-      {metaRows.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          {metaRows.map(([label, value]) => (
-            <div key={label} className="bg-white border border-slate-100 rounded-lg p-3">
-              <p className="font-black text-slate-400 uppercase">{label}</p>
-              <p className="font-bold text-slate-800 mt-1 break-words">{value}</p>
-            </div>
+      <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
+        <p className="font-black text-slate-900 mb-2">{t("procurement_buyerInfo")}</p>
+        <div className="space-y-1.5 text-slate-600 leading-5">
+          {agencyRows.map(([label, value]) => (
+            <p key={label} dir="auto" className="break-words">
+              <span className="font-bold text-slate-500">{label}：</span>
+              {value}
+            </p>
           ))}
         </div>
-      )}
-
-      {notice.url && (
-        <div>
-          <p className="text-xs font-black text-slate-500 uppercase mb-2">{t("procurement_originalLink")}</p>
-          <a
-            href={notice.url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:underline break-all"
-          >
-            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-            {t("procurement_openNotice")}
-          </a>
-        </div>
-      )}
+      </div>
 
       {keyContactsText && (
         <div>
@@ -159,22 +179,42 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
         </div>
       )}
 
-      <AttachmentGroup
-        title={t("procurement_documents")}
-        items={documents}
-        actionLabel={t("procurement_viewFile")}
-      />
-      <AttachmentGroup
-        title={t("procurement_procurementFiles")}
-        items={procurementFiles}
-        actionLabel={t("procurement_viewFile")}
-      />
-      <AttachmentGroup
-        title={t("procurement_externalLinks")}
-        items={externalLinks}
-        actionLabel={t("procurement_openLink")}
-        icon="link"
-      />
+      <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
+        <p className="font-black text-slate-900 mb-2">{t("procurement_breakdownModuleTitle")}</p>
+        <div className="space-y-2">
+          {files.length === 0 && <p className="text-slate-400">{t("procurement_noFiles")}</p>}
+          {[...files, ...externalLinks].map((item, index) => {
+            const url = attachmentUrl(item);
+            const name = attachmentName(item);
+            const row = (
+              <>
+                <span dir="auto" className="font-bold text-slate-700 truncate">
+                  {name}
+                </span>
+                <ExternalLink className="w-4 h-4 shrink-0 text-blue-600" />
+              </>
+            );
+            return url ? (
+              <a
+                key={`${name}-${index}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200"
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {row}
+              </a>
+            ) : (
+              <span
+                key={`${name}-${index}`}
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2"
+              >
+                {row}
+              </span>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
         <p className="font-black text-slate-900 mb-2 flex items-center gap-1.5">
@@ -194,50 +234,6 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
           <li>{t("procurement_bidNextStep")}</li>
         </ul>
       </div>
-    </div>
-  );
-}
-
-interface AttachmentGroupProps {
-  title: string;
-  items: RawAttachment[];
-  actionLabel: string;
-  icon?: "file" | "link";
-}
-
-function AttachmentGroup({ title, items, actionLabel, icon = "file" }: AttachmentGroupProps) {
-  if (items.length === 0) return null;
-  const Icon = icon === "link" ? Link2 : FileText;
-  return (
-    <div>
-      <p className="text-xs font-black text-slate-500 uppercase mb-2">{title}</p>
-      <ul className="space-y-1.5">
-        {items.map((item, index) => {
-          const url = attachmentUrl(item);
-          const name = attachmentName(item);
-          return (
-            <li key={`${name}-${index}`} className="text-xs">
-              {url ? (
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 font-bold text-blue-700 hover:underline break-all"
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  {name}
-                  <span className="text-slate-400 font-medium">({actionLabel})</span>
-                </a>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 font-bold text-slate-600 break-all">
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  {name}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }

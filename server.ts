@@ -154,9 +154,11 @@ function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: a
     source_url: opportunity?.source_url || notice.url || "",
     contacts: mergedContacts,
     contact_methods: mergedContacts,
+    // 文件清单单一事实源：notice.documents/procurement_files 与 opportunity.documents 合并去重后
+    // 统一走 documents；procurement_files 显式置空，防 ...notice 把 DB 原始 JSON 串透传给前端，
+    // 也避免前端把同一份清单渲染两遍（原 tender_documents 别名无消费方，一并移除）
     documents,
-    procurement_files: documents,
-    tender_documents: documents,
+    procurement_files: [],
     external_links: externalLinks,
     unspsc_codes: unspscCodes,
     core_info: {
@@ -983,6 +985,15 @@ function translateNoticeViaChain(
   });
 }
 
+// ── 公采搜索功能（本地差异 #6：G.2 四参数搜索 + G.4 搜索落库 + F.1/F.3 防御）──
+// F.1：user_key 落库前统一归一化（trim + 小写），与读侧 /api/notices/recommended 口径一致；
+// 游客/空值返回 null（拒写 "guest" 占位，避免污染行为统计）
+function normalizeUserKey(raw: unknown): string | null {
+  const key = String(raw || "").trim().toLowerCase().slice(0, 190);
+  if (!key || key === "guest") return null;
+  return key;
+}
+
 async function ensureProcurementSchema(dbPool: any) {
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
@@ -1311,6 +1322,41 @@ async function ensureProcurementSchema(dbPool: any) {
   `);
   await ensureColumn(dbPool, "crm_notice_interests", "user_id", "user_id BIGINT UNSIGNED NULL AFTER id");
 
+  // ── 公采搜索功能（本地差异 #6：G.4 搜索行为流水表）──
+  // supply-os 自有表：记录搜索关键词/国家筛选/命中数。country 记录供 D.2 显式地区偏好，
+  // result_cnt=0 即"搜而无果"供运营反哺拆解选题；user_key 可 NULL（游客不落身份）
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_user_search_log (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_key VARCHAR(190) NULL,
+      q VARCHAR(200) NULL,
+      country VARCHAR(100) NULL,
+      filters JSON NULL,
+      result_cnt INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      KEY idx_user_time (user_key, created_at),
+      KEY idx_zero_result (result_cnt, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 本地差异 #8：C.3.5 数据质量快照表（supply-os 自有表，只读扫描外部表后落此）。
+  // dup_notice_cnt 为 F.5 重复检测指标：notice_id 非空行数 - 去重数（NULL 不计入重复）
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_data_quality_snapshot (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      snapshot_date DATE NOT NULL,
+      total_notices INT NOT NULL,
+      missing_value INT NOT NULL DEFAULT 0,
+      missing_country INT NOT NULL DEFAULT 0,
+      missing_deadline INT NOT NULL DEFAULT 0,
+      unlinked_unspsc INT NOT NULL DEFAULT 0,
+      expired_but_active INT NOT NULL DEFAULT 0,
+      dup_notice_cnt INT NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_date (snapshot_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_notice_translations (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1552,6 +1598,70 @@ async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | "notice
 
   console.log(`[BridgeSync] ${source} 全量回填完成: 共处理 ${processed} 条，跳过 ${skipped} 条`);
   return { processed, skipped };
+}
+
+// 本地差异 #8：C.3.5 数据质量快照采集——对外部表 crm_bid_notices/桥接表只读扫描，
+// 结果 UPSERT 进自有表 crm_data_quality_snapshot（同日重跑覆盖）。无定时器，仅 admin 端点手动触发。
+// 实施注记：初版单条巨型 SQL（逐行相关 NOT EXISTS）在 10.8 万 × 58 万行上实测 20 分钟不返回，
+// 已拆为三条简单查询：主表单遍聚合 + 派生表 LEFT JOIN（走桥接 uk_notice_code 索引）+ 独立去重统计
+async function captureDataQualitySnapshot(dbPool: any) {
+  // deadline_ts 秒/毫秒混存（G.8 勘误 1），比较前统一折算成秒
+  const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+  // ① 主表单遍聚合（无子查询）
+  const [baseRows] = await dbPool.query(
+    `SELECT
+       COUNT(*) AS total_notices,
+       SUM(n.estimated_value IS NULL OR TRIM(n.estimated_value) = '') AS missing_value,
+       SUM(n.country IS NULL OR TRIM(n.country) = '') AS missing_country,
+       SUM(n.deadline_ts IS NULL) AS missing_deadline,
+       SUM((n.is_expired = 0 OR n.is_expired IS NULL)
+         AND n.deadline_ts IS NOT NULL
+         AND ${deadlineSecExpr} < UNIX_TIMESTAMP(NOW())) AS expired_but_active
+     FROM crm_bid_notices n`
+  );
+  // ② 未桥接数：DISTINCT 派生表走索引，再与主表 hash join，避免逐行探测
+  const [unlinkedRows] = await dbPool.query(
+    `SELECT COUNT(*) AS unlinked_unspsc
+     FROM crm_bid_notices n
+     LEFT JOIN (SELECT DISTINCT notice_id FROM crm_bid_notice_unspsc_codes) b ON b.notice_id = n.id
+     WHERE b.notice_id IS NULL`
+  );
+  // ③ F.5 重复检测：external notice_id 非空行的重复数（NULL/空串不计入）
+  const [dupRows] = await dbPool.query(
+    `SELECT COUNT(*) - COUNT(DISTINCT d.notice_id) AS dup_notice_cnt
+     FROM crm_bid_notices d
+     WHERE d.notice_id IS NOT NULL AND TRIM(d.notice_id) <> ''`
+  );
+  const base = (baseRows as any[])[0] || {};
+  const metrics = {
+    total_notices: Number(base.total_notices || 0),
+    missing_value: Number(base.missing_value || 0),
+    missing_country: Number(base.missing_country || 0),
+    missing_deadline: Number(base.missing_deadline || 0),
+    unlinked_unspsc: Number((unlinkedRows as any[])[0]?.unlinked_unspsc || 0),
+    expired_but_active: Number(base.expired_but_active || 0),
+    dup_notice_cnt: Number((dupRows as any[])[0]?.dup_notice_cnt || 0),
+  };
+  await dbPool.execute(
+    `INSERT INTO crm_data_quality_snapshot
+       (snapshot_date, total_notices, missing_value, missing_country, missing_deadline, unlinked_unspsc, expired_but_active, dup_notice_cnt)
+     VALUES (CURDATE(), ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       total_notices = VALUES(total_notices), missing_value = VALUES(missing_value),
+       missing_country = VALUES(missing_country), missing_deadline = VALUES(missing_deadline),
+       unlinked_unspsc = VALUES(unlinked_unspsc), expired_but_active = VALUES(expired_but_active),
+       dup_notice_cnt = VALUES(dup_notice_cnt)`,
+    [
+      metrics.total_notices,
+      metrics.missing_value,
+      metrics.missing_country,
+      metrics.missing_deadline,
+      metrics.unlinked_unspsc,
+      metrics.expired_but_active,
+      metrics.dup_notice_cnt,
+    ]
+  );
+  return metrics;
 }
 
 // In-memory persistent database for the live session
@@ -1900,7 +2010,7 @@ async function startServer() {
     try {
       const supplierId = Number(String(req.params.id).replace(/^sup-db-/, ""));
       if (!supplierId) return res.status(400).json({ error: "INVALID_SUPPLIER" });
-      const userKey = String(req.query.user_key || "").trim().toLowerCase();
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       if (!userKey) return res.status(403).json({ error: "VIP_REQUIRED" });
 
       // VIP 判定与登录接口同款：active 订阅未过期 或 membership_tier = 'vip'
@@ -2117,7 +2227,7 @@ async function startServer() {
 
   app.get("/api/auth/user", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").trim().toLowerCase();
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
       const [rows] = await dbPool.query(
@@ -2161,7 +2271,7 @@ async function startServer() {
 
   app.post("/api/supplier-claims", async (req, res) => {
     try {
-      const userKey = String(req.body.user_key || "").trim().toLowerCase();
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const companyName = String(req.body.company_name || "").trim();
       if (!userKey || !companyName) {
         return res.status(400).json({ error: "请先登录并填写公司名称" });
@@ -2193,7 +2303,7 @@ async function startServer() {
 
   app.post("/api/billing/subscribe", async (req, res) => {
     try {
-      const userKey = String(req.body.user_key || "").trim().toLowerCase();
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const planCode = String(req.body.plan_code || "single");
       if (!userKey) return res.status(400).json({ error: "\u8bf7\u5148\u767b\u5f55" });
 
@@ -2227,7 +2337,7 @@ async function startServer() {
   app.post("/api/payment/orders", async (req, res) => {
     try {
       const result = await paymentService.createOrder(dbPool, {
-        user_key: String(req.body.user_key || "").trim().toLowerCase(),
+        user_key: normalizeUserKey(req.body.user_key) || "", // 本地差异 #7：F.1 归一化收敛
         plan_code: String(req.body.plan_code || ""),
         notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
         provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as any,
@@ -2249,7 +2359,7 @@ async function startServer() {
 
   app.get("/api/payment/orders", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const status = String(req.query.status || "").trim();
       const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
       const page = Math.max(1, Number(req.query.page || 1));
@@ -2328,7 +2438,7 @@ async function startServer() {
 
   app.get("/api/payment/unlocks", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
       const page = Math.max(1, Number(req.query.page || 1));
       const offset = (page - 1) * limit;
@@ -2351,7 +2461,7 @@ async function startServer() {
           ? `SELECT
                u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
                n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry,
+               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry,
                n.description, tr.title_tr AS title_i18n
              FROM crm_opportunity_unlocks u
              LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
@@ -2362,7 +2472,7 @@ async function startServer() {
           : `SELECT
                u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
                n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
+               n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry
              FROM crm_opportunity_unlocks u
              LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
              WHERE u.user_key = ? AND u.notice_id IS NOT NULL
@@ -2393,6 +2503,14 @@ async function startServer() {
             agency_full: row.agency_full,
             country: row.country,
             deadline: row.deadline,
+            // 公采搜索功能（本地差异 #6：需求 2 解锁页过期标记）——
+            // deadline 为自由文本前端无法判过期，服务端按 deadline_ts 算好
+            // （秒/毫秒混存，先折算成毫秒再与 Date.now() 比较）
+            deadline_expired: row.deadline_ts
+              ? (Number(row.deadline_ts) > 100000000000
+                  ? Number(row.deadline_ts)
+                  : Number(row.deadline_ts) * 1000) < Date.now()
+              : null,
             urgency: row.urgency,
             url: row.url,
             industry: row.industry,
@@ -2658,7 +2776,7 @@ async function startServer() {
 
   app.get("/api/opportunities/unlocks", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "guest").slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（读侧保留 guest 兜底）
       const [rows] = await dbPool.query(
         "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? ORDER BY unlocked_at DESC",
         [userKey]
@@ -2669,17 +2787,72 @@ async function startServer() {
     }
   });
 
+  // ── F.4 搜索性能预案第一档（本地差异 #7）──
+  // 搜索实测 1.2~1.9 秒/次（10.8 万行五列 LIKE 全扫，G.8 勘误 3），对同条件重复搜索
+  // 做 60 秒进程内缓存：卡片群发后多客户抄同一编号来搜属高频场景，命中即毫秒级返回。
+  // 缓存命中仍照常异步落库（G.4），运营统计不失真
+  const noticeSearchCache = new Map<string, { payload: any; total: number; expires: number }>();
+  const NOTICE_SEARCH_CACHE_TTL = 60 * 1000;
+  const NOTICE_SEARCH_CACHE_MAX = 200;
+
   app.get("/api/notices", async (req, res) => {
     try {
       const page = Math.max(1, Number(req.query.page || 1));
       const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
       const offset = (page - 1) * pageSize;
       const codeId = Number(req.query.code_id || req.query.industry_id || 0);
+      // ── 公采搜索功能（本地差异 #6：G.2 四参数 q/country/deadline_from/deadline_to/sort）──
+      const q = String(req.query.q || "").trim().slice(0, 200);
+      const country = String(req.query.country || "").trim().slice(0, 100);
+      const deadlineFrom = String(req.query.deadline_from || "").trim();
+      const deadlineTo = String(req.query.deadline_to || "").trim();
+      const sort = String(req.query.sort || "deadline");
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+
+      // ── 搜索行为落库（本地差异 #6：G.4）──
+      // 仅带搜索/筛选条件时记录；user_key 经 normalizeUserKey（F.1），游客落 NULL；
+      // country 供 D.2 显式地区偏好，result_cnt=0 即"搜而无果"供运营反哺；异步不阻塞响应
+      const hasSearch = Boolean(q || country || dateRe.test(deadlineFrom) || dateRe.test(deadlineTo));
+      const logSearch = (total: number) => {
+        if (!hasSearch) return;
+        const filters = JSON.stringify({
+          code_id: codeId || undefined,
+          deadline_from: dateRe.test(deadlineFrom) ? deadlineFrom : undefined,
+          deadline_to: dateRe.test(deadlineTo) ? deadlineTo : undefined,
+          sort,
+        });
+        void dbPool
+          .execute(
+            "INSERT INTO crm_user_search_log (user_key, q, country, filters, result_cnt) VALUES (?, ?, ?, ?, ?)",
+            [normalizeUserKey(req.query.user_key), q || null, country || null, filters, total]
+          )
+          .catch(() => undefined);
+      };
+
+      // F.4 缓存命中（本地差异 #7）：仅带搜索条件的查询走缓存（慢路径），命中仍落库
+      const cacheKey = hasSearch
+        ? JSON.stringify([page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort])
+        : "";
+      if (cacheKey) {
+        const cached = noticeSearchCache.get(cacheKey);
+        if (cached && cached.expires > Date.now()) {
+          res.json(cached.payload);
+          logSearch(cached.total);
+          return;
+        }
+      }
+
       const where: string[] = ["(n.is_expired = 0 OR n.is_expired IS NULL)"];
       const params: any[] = [];
       let join = "";
       let idFilterSql = "";
       const idFilterParams: any[] = [];
+
+      // F.3 deadline 查询兜底（本地差异 #6）：is_expired 有滞后（实测 542 行已过期未标），
+      // 按 deadline_ts 再挡一道。deadline_ts 秒/毫秒混存（实测 4.3 万秒级 + 4.9 万毫秒级），
+      // 比较/排序前统一折算成秒
+      const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+      where.push(`(n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`);
 
       if (codeId) {
         const filter = await buildNoticeUnspscFilter(dbPool, codeId);
@@ -2687,9 +2860,49 @@ async function startServer() {
         idFilterParams.push(...filter.params);
       }
 
+      // q 三级匹配（G.2）：①编号精确（去空格忽略大小写，卡片招标编号↔reference，命中置顶）
+      // ②原文模糊（title/reference/description）③中文译文缓存命中（客户抄卡片中文标题也能搜到）
+      const compactQ = q.replace(/\s+/g, "").toUpperCase();
+      if (q) {
+        join += " LEFT JOIN crm_notice_translations qtr ON qtr.notice_id = n.id AND qtr.lang = 'zh'";
+        const likeQ = `%${q}%`;
+        where.push(
+          "(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = ? OR n.title LIKE ? OR n.reference LIKE ? OR n.description LIKE ? OR qtr.title_tr LIKE ?)"
+        );
+        params.push(compactQ, likeQ, likeQ, likeQ, likeQ);
+      }
+      if (country) {
+        // country 列为自由文本（varchar(500)，可能含多国名），用 LIKE 宽匹配
+        where.push("n.country LIKE ?");
+        params.push(`%${country}%`);
+      }
+      if (dateRe.test(deadlineFrom)) {
+        where.push(`${deadlineSecExpr} >= UNIX_TIMESTAMP(?)`);
+        params.push(`${deadlineFrom} 00:00:00`);
+      }
+      if (dateRe.test(deadlineTo)) {
+        where.push(`${deadlineSecExpr} <= UNIX_TIMESTAMP(?)`);
+        params.push(`${deadlineTo} 23:59:59`);
+      }
+
+      // 排序：latest=最新收录优先（id 逆序；published_date 为自由文本不可靠）；
+      // 默认 deadline=截止最近优先（折算秒后排序，修复秒/毫秒混存下的乱序）
+      const orderParts: string[] = [];
+      const orderParams: any[] = [];
+      if (q) {
+        orderParts.push("(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = ?) DESC");
+        orderParams.push(compactQ);
+      }
+      if (sort === "latest") {
+        orderParts.push("n.id DESC");
+      } else {
+        orderParts.push("(n.deadline_ts IS NULL)", deadlineSecExpr, "n.id DESC");
+      }
+      const orderSql = orderParts.join(", ");
+
       const whereSql = where.join(" AND ");
       const [countRows] = await dbPool.query(
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n ${idFilterSql} WHERE ${whereSql}`,
+        `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}`,
         [...idFilterParams, ...params]
       );
       const total = Number((countRows as any[])[0]?.total || 0);
@@ -2706,14 +2919,14 @@ async function startServer() {
            n.estimated_value,
            n.description
          FROM crm_bid_notices n
-         ${idFilterSql}
+         ${idFilterSql}${join}
          WHERE ${whereSql}
-         ORDER BY (n.deadline_ts IS NULL), n.deadline_ts, n.id DESC
+         ORDER BY ${orderSql}
          LIMIT ? OFFSET ?`,
-        [...idFilterParams, ...params, pageSize, offset]
+        [...idFilterParams, ...params, ...orderParams, pageSize, offset]
       );
 
-      res.json({
+      const payload = {
         items: (rows as any[]).map((row) => ({
           ...row,
           agency: null,
@@ -2725,7 +2938,47 @@ async function startServer() {
         total,
         page,
         pageSize,
-      });
+      };
+      res.json(payload);
+
+      // F.4 写缓存（本地差异 #7）：60 秒 TTL；超上限先清过期项、仍超则整体清空防内存膨胀
+      if (cacheKey) {
+        if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {
+          const now = Date.now();
+          for (const [key, entry] of noticeSearchCache) {
+            if (entry.expires <= now) noticeSearchCache.delete(key);
+          }
+          if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) noticeSearchCache.clear();
+        }
+        noticeSearchCache.set(cacheKey, { payload, total, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+      }
+
+      logSearch(total);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── 公采搜索功能（本地差异 #6：G.3 国家下拉数据源）──
+  // 在库有效公告的国家清单（按公告数降序）；10.8 万行扫描结果进程内缓存 10 分钟
+  let noticeCountriesCache: { data: any[]; expires: number } | null = null;
+  app.get("/api/notices/countries", async (_req, res) => {
+    try {
+      if (noticeCountriesCache && noticeCountriesCache.expires > Date.now()) {
+        return res.json(noticeCountriesCache.data);
+      }
+      const [rows] = await dbPool.query(
+        `SELECT n.country, COUNT(*) AS cnt
+         FROM crm_bid_notices n
+         WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
+           AND n.country IS NOT NULL AND n.country <> ''
+         GROUP BY n.country
+         ORDER BY cnt DESC
+         LIMIT 100`
+      );
+      const data = (rows as any[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
+      noticeCountriesCache = { data, expires: Date.now() + 10 * 60 * 1000 };
+      res.json(data);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -2733,7 +2986,7 @@ async function startServer() {
 
   app.get("/api/notices/unlocks", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "guest").slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（读侧保留 guest 兜底）
       const [rows] = await dbPool.query(
         "SELECT notice_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id IS NOT NULL ORDER BY unlocked_at DESC",
         [userKey]
@@ -2746,14 +2999,14 @@ async function startServer() {
 
   app.get("/api/notices/recommended", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").trim().toLowerCase().slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const page = Math.max(1, Number(req.query.page || 1));
       const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
       const offset = (page - 1) * pageSize;
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
       const [interestRows] = await dbPool.query(
-        `SELECT code, level, SUM(weight) AS weight, MAX(updated_at) AS last_update
+        `SELECT code, level, MAX(code_id) AS code_id, SUM(weight) AS weight, MAX(COALESCE(updated_at, created_at)) AS last_update
          FROM crm_user_interest_codes
          WHERE user_key = ?
          GROUP BY code, level
@@ -2761,38 +3014,93 @@ async function startServer() {
          LIMIT 80`,
         [userKey]
       );
-      const interestByLevel: Record<number, string[]> = { 1: [], 2: [], 3: [], 4: [] };
+      // ── B.2.2 UNSPSC 加权评分首期（本地差异 #9）──
+      // depth_factor：层级越精确分越高（D.1 路线 2：分母取用户 top 兴趣理论满分，单遍 SQL 分页保留）；
+      // 时间衰减：半衰期 90 天，查询期计算不改写库中 weight（B.2.3）。
+      // 命中判定用"显著前缀撞 b.code"（去尾零对：'80101500'→'801015'），MAX(LIKE) 保证每码每公告只计一次
+      const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
+      const HALF_LIFE_DAYS = 90;
+      const now = Date.now();
+      const scoredCodes: Array<{ prefix: string; weighted: number }> = [];
+      let interestTotal = 0; // 路线 2 分母：Σ 衰减后权重（depth_factor 上界 1.0 时的理论满分）
+      const significantPrefix = (code: string) => {
+        let s = code;
+        while (s.length > 2 && s.length % 2 === 0 && s.endsWith("00")) s = s.slice(0, -2);
+        return s;
+      };
+      // 召回：兴趣表 code_id 撞桥接表 levelN_id（两者同为 crm_unspsc_codes.id，有 idx_levelN 索引）。
+      // 勘误（第四批实测）：旧逻辑把兴趣"码串"（如 '8010'）塞进 levelN_id IN(...)，而 levelN_id 存的是
+      // crm_unspsc_codes.id（10 万段数字），仅靠数值巧合命中 40 个公告；改用 code_id 后同一用户命中 2625 个
+      const recallIdsByLevel: Record<number, number[]> = { 2: [], 3: [], 4: [], 5: [] };
+      const recallLikePrefixes = new Set<string>(); // code_id 缺失的兜底：前缀撞 b.code
       for (const row of interestRows as any[]) {
-        const level = Math.min(4, Math.max(1, Number(row.level || 1)));
+        const level = Math.min(5, Math.max(1, Number(row.level || 1)));
         const code = String(row.code || "").trim();
-        if (code) interestByLevel[level].push(code);
+        if (!code) continue;
+        const prefix = significantPrefix(code);
+        // ── F.2 召回最低层级门槛（本地差异 #7）：仅 level2+ 参与召回，level1 只作评分加权 ──
+        if (level >= 2) {
+          const codeId = Number(row.code_id || 0);
+          if (codeId > 0) recallIdsByLevel[level].push(codeId);
+          else if (prefix.length >= 4) recallLikePrefixes.add(prefix);
+        }
+        const lastMs = row.last_update ? new Date(row.last_update).getTime() : now;
+        const ageDays = Math.max(0, (now - lastMs) / 86400000);
+        const decayed = Number(row.weight || 0) * Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+        if (decayed <= 0) continue;
+        interestTotal += decayed;
+        const depth = Math.min(4, Math.max(1, prefix.length / 2)); // 显著前缀长度定深度，8 位全码=1.0
+        scoredCodes.push({ prefix, weighted: decayed * (DEPTH_FACTOR[depth] ?? 1.0) });
       }
 
       const clauses: string[] = [];
       const params: any[] = [];
-      const addClause = (level: number, column: string) => {
-        const codes = Array.from(new Set(interestByLevel[level] || []));
-        if (codes.length === 0) return;
-        clauses.push(`b.${column} IN (${codes.map(() => "?").join(",")})`);
-        params.push(...codes);
-      };
-      addClause(1, "level1_id");
-      addClause(2, "level2_id");
-      addClause(3, "level3_id");
-      addClause(4, "level4_id");
+      for (const level of [2, 3, 4, 5]) {
+        const ids = Array.from(new Set(recallIdsByLevel[level]));
+        if (ids.length === 0) continue;
+        clauses.push(`b.level${level}_id IN (${ids.map(() => "?").join(",")})`);
+        params.push(...ids);
+      }
+      for (const prefix of recallLikePrefixes) {
+        clauses.push(`b.code LIKE ?`);
+        params.push(`${prefix}%`);
+      }
 
       if (clauses.length === 0) {
         return res.json({ items: [], total: 0, page, pageSize });
       }
+
+      // F.3 deadline 兜底（本地差异 #7：补齐 recommended 两处 WHERE，与 /api/notices 同口径）
+      // deadline_ts 秒/毫秒混存（G.8 勘误 1），比较/排序前统一折算成秒
+      const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+      const activeWhere = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`;
 
       const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
       const [countRows] = await dbPool.query(
         `SELECT COUNT(DISTINCT n.id) AS total
          FROM crm_bid_notices n
          INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
-         WHERE (${bridgeWhere}) AND (n.is_expired = 0 OR n.is_expired IS NULL)`,
+         WHERE (${bridgeWhere}) AND ${activeWhere}`,
         params
       );
+
+      // reco_score = 0.5·s_unspsc + 0.15·s_urgency + 0.175（s_agency/s_geo/s_amount 首期中性 0.5：
+      // 金额 50.8% 缺失暂不启用（D.3 兜底路径）、地域/机构数据未积累，B 章后续批次补齐）
+      const scoreParams: any[] = [];
+      const matchWeightExpr = scoredCodes.length
+        ? `(${scoredCodes.map(() => "MAX(b.code LIKE ?) * ?").join(" + ")})`
+        : "0";
+      for (const item of scoredCodes) scoreParams.push(`${item.prefix}%`, item.weighted);
+      const denominator = interestTotal > 0 ? interestTotal : 1;
+      const urgencyExpr = `CASE
+           WHEN n.deadline_ts IS NULL THEN 0.5
+           WHEN ${deadlineSecExpr} < UNIX_TIMESTAMP(NOW()) + 7 * 86400 THEN 0.6
+           WHEN ${deadlineSecExpr} <= UNIX_TIMESTAMP(NOW()) + 30 * 86400 THEN 1.0
+           WHEN ${deadlineSecExpr} <= UNIX_TIMESTAMP(NOW()) + 90 * 86400 THEN 0.8
+           ELSE 0.6
+         END`;
+      const recoScoreExpr = `ROUND(0.5 * LEAST(1, ${matchWeightExpr} / ?) + 0.15 * (${urgencyExpr}) + 0.175, 6)`;
+
       const [rows] = await dbPool.query(
         `SELECT
            n.id,
@@ -2805,20 +3113,22 @@ async function startServer() {
            n.deadline_ts,
            n.estimated_value,
            n.description,
-           COUNT(DISTINCT b.code) AS match_score
+           COUNT(DISTINCT b.code) AS match_score,
+           ${recoScoreExpr} AS reco_score
          FROM crm_bid_notices n
          INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
-         WHERE (${bridgeWhere}) AND (n.is_expired = 0 OR n.is_expired IS NULL)
+         WHERE (${bridgeWhere}) AND ${activeWhere}
          GROUP BY n.id
-         ORDER BY match_score DESC, (n.deadline_ts IS NULL), n.deadline_ts, n.id DESC
+         ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${deadlineSecExpr}, n.id DESC
          LIMIT ? OFFSET ?`,
-        [...params, pageSize, offset]
+        [...scoreParams, denominator, ...params, pageSize, offset]
       );
 
       res.json({
         items: (rows as any[]).map((row) => ({
           ...row,
           match_score: Number(row.match_score || 0),
+          reco_score: Number(row.reco_score || 0),
           agency: null,
           organization: null,
           source_url: null,
@@ -2837,7 +3147,7 @@ async function startServer() {
   // ── 账号默认行业偏好（本地差异 #5：偏好表 + 读写接口）──
   app.get("/api/user/industry-prefs", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").trim().slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原仅 trim 不 lower）
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
       const [rows] = await dbPool.query(
         "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, updated_at FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1",
@@ -2851,7 +3161,7 @@ async function startServer() {
 
   app.post("/api/user/industry-prefs", async (req, res) => {
     try {
-      const userKey = String(req.body.user_key || "").trim().slice(0, 190);
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原仅 trim 不 lower）
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
       // 逐级取数字 id，非法值一律置 NULL；level1 为空视为清除偏好
       const levels = [1, 2, 3, 4, 5].map((n) => {
@@ -2892,7 +3202,7 @@ async function startServer() {
 
   app.get("/api/membership/status", async (req, res) => {
     try {
-      const userKey = String(req.query.user_key || "").slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
       const [freePlanRows] = await dbPool.query(
@@ -2958,6 +3268,36 @@ async function startServer() {
     });
   });
 
+  // 本地差异 #8：C.3.5 质量快照运维接口（无定时器，手动触发；同日重跑覆盖当日快照）
+  app.post("/api/admin/quality-snapshot", async (_req, res) => {
+    try {
+      const metrics = await captureDataQualitySnapshot(dbPool);
+      res.json({ success: true, metrics });
+    } catch (err: any) {
+      console.warn("[QualitySnapshot] 采集失败:", err.message);
+      res.status(500).json({ success: false, message: "质量快照采集失败" });
+    }
+  });
+
+  // 本地差异 #8：查询近 N 天快照（观测趋势用，默认 30 天）
+  app.get("/api/admin/quality-snapshot", async (req, res) => {
+    try {
+      const days = Math.min(Math.max(parseInt(String(req.query.days), 10) || 30, 1), 365);
+      const [rows] = await dbPool.query(
+        `SELECT snapshot_date, total_notices, missing_value, missing_country, missing_deadline,
+                unlinked_unspsc, expired_but_active, dup_notice_cnt, created_at
+         FROM crm_data_quality_snapshot
+         ORDER BY snapshot_date DESC
+         LIMIT ?`,
+        [days]
+      );
+      res.json({ success: true, snapshots: rows });
+    } catch (err: any) {
+      console.warn("[QualitySnapshot] 查询失败:", err.message);
+      res.status(500).json({ success: false, message: "质量快照查询失败" });
+    }
+  });
+
   app.get("/api/procurement/schema-status", async (_req, res) => {
     try {
       const tables = [
@@ -2974,7 +3314,10 @@ async function startServer() {
         "crm_user_interest_codes",
         "crm_supplier_claims",
         "crm_supplier_translations",
-        "crm_bid_notice_unspsc_codes"
+        "crm_bid_notice_unspsc_codes",
+        // 本地差异 #8：补入 G.4 搜索日志表（第一批漏登记）与 C.3.5 质量快照表
+        "crm_user_search_log",
+        "crm_data_quality_snapshot"
       ];
       const [rows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name
@@ -2997,6 +3340,9 @@ async function startServer() {
         crm_user_interest_codes: ["user_key", "code_id", "code", "level", "source", "weight"],
         crm_supplier_claims: ["user_id", "user_key", "supplier_id", "company_name", "supplier_type", "status"],
         crm_bid_notice_unspsc_codes: ["notice_id", "code_id", "code", "level", "level1_id", "level2_id", "level3_id", "level4_id", "level5_id"],
+        // 本地差异 #8
+        crm_user_search_log: ["user_key", "q", "country", "filters", "result_cnt"],
+        crm_data_quality_snapshot: ["snapshot_date", "total_notices", "missing_value", "missing_country", "missing_deadline", "unlinked_unspsc", "expired_but_active", "dup_notice_cnt"],
       };
       const [columnRows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
@@ -3086,7 +3432,7 @@ async function startServer() {
 
   app.post("/api/payments/create", async (req, res) => {
     try {
-      const userKey = String(req.body.user_key || "").slice(0, 190);
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
       const provider = req.body.provider === "wechat" ? "wechat" : "alipay";
       const planCode = String(req.body.plan_code || "single_89");
       const noticeId = req.body.notice_id ? Number(req.body.notice_id) : null;
@@ -3185,7 +3531,7 @@ async function startServer() {
   app.post("/api/notices/:id/view", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
-      const userKey = String(req.body.user_key || "guest").slice(0, 190);
+      const userKey = normalizeUserKey(req.body.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（浏览流水保留 guest）
       await dbPool.execute(
         `INSERT INTO crm_user_notice_views (user_id, user_key, notice_id, viewed_at, ip)
          VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, NOW(), ?)`,
@@ -3200,7 +3546,7 @@ async function startServer() {
   app.get("/api/notices/:id/detail", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
-      const userKey = String(req.query.user_key || "").slice(0, 190);
+      const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
       if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
       const [unlockRows] = await dbPool.query(
@@ -3317,7 +3663,9 @@ async function startServer() {
   app.post("/api/notices/:id/unlock", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
-      const userKey = String(req.body.user_key || "guest").slice(0, 190);
+      // 本地差异 #7：F.1——无有效 user_key 的解锁流水仍记 guest，但不落兴趣码（防共享伪用户脏画像）
+      const normalizedUserKey = normalizeUserKey(req.body.user_key);
+      const userKey = normalizedUserKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type
         : "free";
@@ -3384,7 +3732,10 @@ async function startServer() {
         );
       }
 
-      await persistUserInterestCodes(dbPool, userKey, snapshot, "unlock_order", 2.50);
+      // 本地差异 #7：F.1——guest 拒写兴趣码，解锁流水已在上方保留
+      if (normalizedUserKey) {
+        await persistUserInterestCodes(dbPool, userKey, snapshot, "unlock_order", 2.50);
+      }
 
       res.status(201).json({ success: true, unlock_type: unlockType });
     } catch (err: any) {
@@ -3395,7 +3746,7 @@ async function startServer() {
   app.post("/api/notices/:id/interest", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
-      const userKey = String(req.body.user_key || "").slice(0, 190);
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
       const interestType = req.body.interest_type === "subscribed" ? "subscribed" : "interested";
       const note = String(req.body.note || "").slice(0, 500);
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
@@ -3432,7 +3783,7 @@ async function startServer() {
   app.post("/api/opportunities/:id/view", async (req, res) => {
     try {
       const opportunityId = Number(req.params.id);
-      const userKey = String(req.body.user_key || "guest").slice(0, 190);
+      const userKey = normalizeUserKey(req.body.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（浏览流水保留 guest）
       await dbPool.execute(
         `INSERT INTO crm_user_notice_views (user_id, user_key, opportunity_id, viewed_at, ip)
          VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, NOW(), ?)`,
@@ -3451,7 +3802,9 @@ async function startServer() {
   app.post("/api/opportunities/:id/unlock", async (req, res) => {
     try {
       const opportunityId = Number(req.params.id);
-      const userKey = String(req.body.user_key || "guest").slice(0, 190);
+      // 本地差异 #7：F.1——同 notices unlock：流水保留 guest，兴趣码仅实名写入
+      const normalizedUserKey = normalizeUserKey(req.body.user_key);
+      const userKey = normalizedUserKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type
         : "free";
@@ -3499,20 +3852,23 @@ async function startServer() {
         [opportunityId]
       );
 
-      for (const item of snapshot) {
-        const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
-        if (!rawCode) continue;
-        const [codeRows] = await dbPool.query(
-          "SELECT id, level FROM crm_unspsc_codes WHERE code = ? LIMIT 1",
-          [rawCode]
-        );
-        const codeRow = (codeRows as UnspscCodeRow[])[0];
-        await dbPool.execute(
-          `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 'unlock_order', 2.50)
-           ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
-          [userKey, userKey, codeRow?.id || null, rawCode, codeRow?.level || 1]
-        );
+      // 本地差异 #7：F.1——guest 拒写兴趣码（解锁流水已保留）
+      if (normalizedUserKey) {
+        for (const item of snapshot) {
+          const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
+          if (!rawCode) continue;
+          const [codeRows] = await dbPool.query(
+            "SELECT id, level FROM crm_unspsc_codes WHERE code = ? LIMIT 1",
+            [rawCode]
+          );
+          const codeRow = (codeRows as UnspscCodeRow[])[0];
+          await dbPool.execute(
+            `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
+             VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 'unlock_order', 2.50)
+             ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
+            [userKey, userKey, codeRow?.id || null, rawCode, codeRow?.level || 1]
+          );
+        }
       }
 
       res.status(201).json({ success: true, unlock_type: unlockType });

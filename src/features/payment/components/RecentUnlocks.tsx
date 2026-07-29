@@ -81,6 +81,12 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
               <span dir="auto" className="text-sm font-bold text-slate-700 truncate min-w-0">
                 {title}
               </span>
+              {/* 公采搜索功能（本地差异 #6 配套：需求 2）——已过期解锁醒目标记，防客户误投已截止公告 */}
+              {record.notice?.deadline_expired === true && (
+                <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700">
+                  {t("myRecordsExpired")}
+                </span>
+              )}
               <button
                 onClick={() => onOpenNotice(record.notice_id)}
                 className="inline-flex items-center gap-1 text-xs font-black text-teal-700 hover:text-teal-800 shrink-0 cursor-pointer"

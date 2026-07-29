@@ -37,14 +37,38 @@ export const fetchUnspscChildren = (parentId: string, locale?: string) => {
   return fetchJsonCached<UnspscOption[]>(`/api/unspsc/children?${searchParams.toString()}`);
 };
 
-export const fetchNotices = (params: { page: number; pageSize: number; codeId?: string }) => {
+// ── 公采搜索功能（本地差异 #6 配套前端）──
+
+/** 公采列表搜索/筛选参数（G.2 四参数；userKey 仅用于搜索行为落库，可缺省） */
+export interface NoticeSearchFilters {
+  q?: string;
+  country?: string;
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  sort?: "deadline" | "latest";
+  userKey?: string;
+}
+
+export const fetchNotices = (
+  params: { page: number; pageSize: number; codeId?: string } & NoticeSearchFilters
+) => {
   const searchParams = new URLSearchParams({
     page: String(params.page),
     page_size: String(params.pageSize),
   });
   if (params.codeId) searchParams.set("code_id", params.codeId);
+  if (params.q) searchParams.set("q", params.q);
+  if (params.country) searchParams.set("country", params.country);
+  if (params.deadlineFrom) searchParams.set("deadline_from", params.deadlineFrom);
+  if (params.deadlineTo) searchParams.set("deadline_to", params.deadlineTo);
+  if (params.sort && params.sort !== "deadline") searchParams.set("sort", params.sort);
+  if (params.userKey) searchParams.set("user_key", params.userKey);
   return fetchJsonCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
+
+/** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
+export const fetchNoticeCountries = () =>
+  fetchJsonCached<Array<{ country: string; count: number }>>("/api/notices/countries");
 
 export const fetchMembershipPlans = () =>
   fetchJsonCached<MembershipPlan[]>("/api/membership/plans");

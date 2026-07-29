@@ -211,6 +211,20 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                   </button>
                 )}
               </div>
+              {/* 公采搜索功能（本地差异 #6 配套：需求 2 客诉止血）——
+                  解锁行补公告截止日期，已过期（服务端按 deadline_ts 判定）加醒目标记 */}
+              {!isOrder && row.notice?.deadline && (
+                <div className="mt-1.5 flex items-center gap-2 text-slate-500">
+                  <span className="truncate">
+                    {t("myRecordsDeadline")}: {row.notice.deadline}
+                  </span>
+                  {row.notice.deadline_expired === true && (
+                    <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 font-black text-rose-700">
+                      {t("myRecordsExpired")}
+                    </span>
+                  )}
+                </div>
+              )}
             </article>
           );
         })}
