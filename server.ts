@@ -381,6 +381,68 @@ const fnv1a32 = (input: string): number => {
 const recoVariant = (userKey: string): "control" | "treatment" =>
   AB_TREATMENT_PCT > 0 && fnv1a32(userKey) % 100 < AB_TREATMENT_PCT ? "treatment" : "control";
 
+// ── T-C6 JS 层 s_text 文本相似度（本地差异 #16：C.2 校正二方案 1）──
+// 用户历史解锁公告标题分词 → 关键词集合（进程内 10 分钟缓存，复用 F.4 模式）；
+// 候选集内（当页 pageSize 条）纯内存 Jaccard 计算，禁止 FULLTEXT（外部表只读，约束 1）。
+// 零解锁历史用户 keywords=null → 加分恒 0，排序与上线前恒等（验收口径）
+const TEXT_STOPWORDS = new Set([
+  "the", "and", "for", "with", "from", "this", "that", "are", "was", "were", "will",
+  "supply", "provision", "procurement", "services", "service", "tender", "bid", "rfq", "rfp", "itb",
+]);
+const tokenizeNoticeText = (text: string): Set<string> => {
+  const tokens = new Set<string>();
+  const lower = String(text || "").toLowerCase();
+  // 拉丁/数字词长度 ≥3 进集合；CJK 连续段拆双字 bigram（多语言标题兼容）
+  for (const match of lower.matchAll(/[a-z0-9]+/g)) {
+    const word = match[0];
+    if (word.length >= 3 && !TEXT_STOPWORDS.has(word)) tokens.add(word);
+  }
+  for (const match of lower.matchAll(/[\u4e00-\u9fff]+/g)) {
+    const seg = match[0];
+    if (seg.length === 1) tokens.add(seg);
+    for (let i = 0; i + 1 < seg.length; i++) tokens.add(seg.slice(i, i + 2));
+  }
+  return tokens;
+};
+// Jaccard = |A∩B| / |A∪B|：交并运算天然对称 jaccard(a,b)===jaccard(b,a)
+// （对称性断言留档 scripts/verify-text-similarity.mjs，与本实现同构复制）
+const jaccardTokenSim = (a: Set<string>, b: Set<string>): number => {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const token of a) if (b.has(token)) inter++;
+  return inter / (a.size + b.size - inter);
+};
+// s_text 独立加分维度系数（当页内微调排序，不破 SQL 分页语义；满分加成 0.05 与 T-B7 权重档不冲突）
+const S_TEXT_BONUS = 0.05;
+const userUnlockKeywordsCache = new Map<string, { keywords: Set<string> | null; expires: number }>();
+const USER_KEYWORDS_TTL_MS = 10 * 60 * 1000;
+async function getUserUnlockKeywords(dbPool: any, userKey: string): Promise<Set<string> | null> {
+  const cached = userUnlockKeywordsCache.get(userKey);
+  if (cached && cached.expires > Date.now()) return cached.keywords;
+  if (userUnlockKeywordsCache.size > 2000) userUnlockKeywordsCache.clear(); // 简易防膨胀
+  let keywords: Set<string> | null = null;
+  try {
+    const [rows] = await dbPool.query(
+      `SELECT n.title
+       FROM crm_opportunity_unlocks u
+       INNER JOIN crm_bid_notices n ON n.id = u.notice_id
+       WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+       ORDER BY u.unlocked_at DESC
+       LIMIT 50`,
+      [userKey]
+    );
+    const merged = new Set<string>();
+    for (const row of rows as any[]) {
+      for (const token of tokenizeNoticeText(row.title)) merged.add(token);
+    }
+    keywords = merged.size > 0 ? merged : null;
+  } catch {
+    keywords = null; // 查询异常降级为无文本信号，不阻断推荐主链
+  }
+  userUnlockKeywordsCache.set(userKey, { keywords, expires: Date.now() + USER_KEYWORDS_TTL_MS });
+  return keywords;
+}
+
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
 // 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
 // findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
@@ -3763,6 +3825,23 @@ async function startServer() {
         if (reasons.length === 0) reasons.push("industry_match"); // 兜底：进推荐即行业相关（召回门槛 level2+）
         return reasons.slice(0, 2);
       };
+
+      // 本地差异 #16：T-C6 s_text——用户解锁标题关键词 vs 候选标题+描述的 Jaccard 作独立加分维度。
+      // 仅当页 JS 纯内存计算（每卡 O(词数)，零候选级 SQL；关键词集合走 10 分钟进程内缓存），
+      // 加分并入 reco_score 供 MMR 相关性使用（当页内微调，不破 SQL 分页语义）。
+      // 零解锁历史 keywords=null → 全部加分 0，排序与上线前恒等
+      const unlockKeywords = await getUserUnlockKeywords(dbPool, userKey);
+      if (unlockKeywords) {
+        for (const row of rows as any[]) {
+          const sText = jaccardTokenSim(
+            unlockKeywords,
+            tokenizeNoticeText(`${row.title || ""} ${row.description || ""}`)
+          );
+          if (sText > 0) {
+            row.reco_score = Math.round((Number(row.reco_score || 0) + S_TEXT_BONUS * sText) * 1e6) / 1e6;
+          }
+        }
+      }
 
       // 本地差异 #12：T-C4 MMR 当页多样性重排（C.3.2）。仅对当页 pageSize 条重排（不破 SQL 分页
       // 语义）；相似度 = 命中 UNSPSC 码集合的 Jaccard 重合度（codes_concat 顺带取自主查询，零额外
