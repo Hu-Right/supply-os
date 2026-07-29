@@ -3330,6 +3330,7 @@ async function startServer() {
             match_score: 0,
             reco_score: 0,
             hot_score: Number(row.hot_score || 0),
+            reco_reasons: ["trending"], // T-C3：热度兜底路径统一打"热门"标签（C.3.4）
             agency: null,
             organization: null,
             source_url: null,
@@ -3470,6 +3471,14 @@ async function startServer() {
       const recoScoreExpr = `ROUND(0.5 * LEAST(1, ${matchWeightExpr} / ?) + 0.15 * (${urgencyExpr}) + 0.10 * ${amountExpr} + 0.125, 6)`;
       const amountScoreParams = amountActive ? [amountCenterLog] : [];
 
+      // 本地差异 #12：T-C3 推荐理由标签（C.3.4）——只在评分 SQL 已有信号上顺带产出，零额外查询。
+      // l4_hit：L4 全码兴趣命中（显著前缀长度 8 = 深度 4，与 matchWeightExpr 同款 LIKE 判定）
+      const l4Prefixes = scoredCodes.filter((item) => item.prefix.length >= 8).map((item) => item.prefix);
+      const l4HitExpr = l4Prefixes.length
+        ? `MAX(${l4Prefixes.map(() => "(b.code LIKE ?)").join(" OR ")})`
+        : "0";
+      const l4Params = l4Prefixes.map((prefix) => `${prefix}%`);
+
       const [rows] = await dbPool.query(
         `SELECT
            n.id,
@@ -3482,6 +3491,8 @@ async function startServer() {
            n.deadline_ts,
            n.estimated_value,
            n.description,
+           ${l4HitExpr} AS l4_hit,
+           MAX(amc.amount_usd) AS amount_usd_cached,
            COUNT(DISTINCT b.code) AS match_score,
            ${recoScoreExpr} AS reco_score
          FROM crm_bid_notices n
@@ -3491,24 +3502,49 @@ async function startServer() {
          GROUP BY n.id
          ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${deadlineSecExpr}, n.id DESC
          LIMIT ? OFFSET ?`,
-        [...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
+        [...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
       );
 
       // 本地差异 #10：懒填充——当页公告金额缓存缺失/过版时后台补算（fire-and-forget，不阻塞响应）
       const pageNoticeIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
       if (pageNoticeIds.length) void backfillNoticeAmountCache(dbPool, pageNoticeIds).catch(() => undefined);
 
+      // T-C3 标签推导（C.3.4）：具体 > 模糊，每卡至多 2 个；只用行内已算信号（l4_hit /
+      // deadline_ts / amount_usd_cached），不泄露 agency/UNSPSC 明文等锁定字段。
+      // preferred_region / similar_unlocked 键已在 i18n 预留，待 s_geo / 解锁来源信号积累后启用
+      const HIGH_VALUE_USD = 1_000_000;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const buildRecoReasons = (row: any): string[] => {
+        const reasons: string[] = [];
+        const deadlineSec = row.deadline_ts == null
+          ? null
+          : Number(row.deadline_ts) > 100000000000
+            ? Math.floor(Number(row.deadline_ts) / 1000)
+            : Number(row.deadline_ts);
+        if (Number(row.l4_hit || 0) > 0) reasons.push("industry_match_l4");
+        if (deadlineSec !== null && deadlineSec >= nowSec && deadlineSec <= nowSec + 30 * 86400) {
+          reasons.push("recent_deadline");
+        }
+        if (Number(row.amount_usd_cached || 0) >= HIGH_VALUE_USD) reasons.push("high_value");
+        if (reasons.length === 0) reasons.push("industry_match"); // 兜底：进推荐即行业相关（召回门槛 level2+）
+        return reasons.slice(0, 2);
+      };
+
       res.json({
-        items: (rows as any[]).map((row) => ({
-          ...row,
-          match_score: Number(row.match_score || 0),
-          reco_score: Number(row.reco_score || 0),
-          agency: null,
-          organization: null,
-          source_url: null,
-          unspsc_codes: [],
-          core_locked: true,
-        })),
+        items: (rows as any[]).map((row) => {
+          const { l4_hit, amount_usd_cached, ...rest } = row; // 剥离标签推导用的中间信号列
+          return {
+            ...rest,
+            match_score: Number(row.match_score || 0),
+            reco_score: Number(row.reco_score || 0),
+            reco_reasons: buildRecoReasons(row),
+            agency: null,
+            organization: null,
+            source_url: null,
+            unspsc_codes: [],
+            core_locked: true,
+          };
+        }),
         total: Number((countRows as any[])[0]?.total || 0),
         page,
         pageSize,

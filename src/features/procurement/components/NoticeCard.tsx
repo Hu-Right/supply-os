@@ -1,7 +1,19 @@
 import { Crown } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
+
+// T-C3 推荐理由标签（C.3.4）：服务端标签键 → i18n 键白名单映射，未知键静默丢弃
+const RECO_REASON_KEYS: Record<string, LocaleKey> = {
+  industry_match_l4: "procurement_reason_industry_match_l4",
+  industry_match: "procurement_reason_industry_match",
+  recent_deadline: "procurement_reason_recent_deadline",
+  high_value: "procurement_reason_high_value",
+  preferred_region: "procurement_reason_preferred_region",
+  trending: "procurement_reason_trending",
+  similar_unlocked: "procurement_reason_similar_unlocked",
+};
 
 interface NoticeCardProps {
   item: NoticeItem;
@@ -12,6 +24,11 @@ export function NoticeCard({ item, onClick }: NoticeCardProps) {
   const { t } = useLocale();
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.notice_type);
+  // 推荐理由标签：仅推荐/热度兜底响应携带；至多 2 个（服务端已截断，前端再兜底）
+  const reasonKeys = (item.reco_reasons || [])
+    .map((reason) => RECO_REASON_KEYS[reason])
+    .filter((key): key is LocaleKey => Boolean(key))
+    .slice(0, 2);
 
   return (
     <article
@@ -23,6 +40,18 @@ export function NoticeCard({ item, onClick }: NoticeCardProps) {
         </span>
         <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">{item.deadline}</span>
       </div>
+      {reasonKeys.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {reasonKeys.map((key) => (
+            <span
+              key={key}
+              className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black"
+            >
+              {t(key)}
+            </span>
+          ))}
+        </div>
+      )}
       <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
       <p dir="auto" className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || t("procurement_noDesc")}</p>
       <div className="flex flex-wrap gap-1.5 mt-3">
