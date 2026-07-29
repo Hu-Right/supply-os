@@ -3316,6 +3316,51 @@ async function startServer() {
     }
   });
 
+  // ── 公采池统计端点（T-A2，本地差异 #14：A.2）──
+  // raw/active/bridged/featured/bridge_gap 五指标；各自独立简单查询（禁止合并巨型 SQL），
+  // 结果进程内缓存 10 分钟（冷查询约 4s，缓存命中 <10ms）
+  let noticeStatsCache: { data: any; expires: number } | null = null;
+  app.get("/api/notices/stats", async (_req, res) => {
+    try {
+      if (noticeStatsCache && noticeStatsCache.expires > Date.now()) {
+        return res.json(noticeStatsCache.data);
+      }
+      const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+      const activeWhere = `(n.is_expired = 0 OR n.is_expired IS NULL)
+        AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`;
+
+      const [rawRows] = await dbPool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
+      const [activeRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeWhere}`
+      );
+      // 已桥接 = 有效公告中在桥接表有 UNSPSC 码的（单路 EXISTS 可半连接优化，无 OR 退化问题）
+      const [bridgedRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+         WHERE ${activeWhere}
+           AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.id)`
+      );
+      // 精选 = 有效公告中命中三路合格机会判定的（T-A1 单一事实源）
+      const [featuredRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+         WHERE ${activeWhere} AND ${FEATURED_NOTICE_EXISTS}`
+      );
+
+      const active = Number((activeRows as any[])[0]?.total || 0);
+      const bridged = Number((bridgedRows as any[])[0]?.total || 0);
+      const data = {
+        raw: Number((rawRows as any[])[0]?.total || 0),
+        active,
+        bridged,
+        featured: Number((featuredRows as any[])[0]?.total || 0),
+        bridge_gap: active - bridged,
+      };
+      noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/notices/unlocks", async (req, res) => {
     try {
       const userKey = normalizeUserKey(req.query.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（读侧保留 guest 兜底）
