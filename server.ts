@@ -262,7 +262,19 @@ function padUnspscPrefix(prefix: string) {
   return String(prefix || "").padEnd(8, "0").slice(0, 8);
 }
 
+// 本地差异 #11：T-E3 source 枚举白名单（固化写入端合法来源，未知来源拒写防脏数据）
+const INTEREST_SOURCE_WHITELIST = new Set([
+  "unlock_order",      // 解锁订单（+2.5）
+  "subscribe_notice",  // 订阅公告（+2.0）
+  "express_interest",  // 表达兴趣（+1.0）
+  "feedback_click",    // T-B6 反馈：点击（+0.3）
+  "feedback_favorite", // T-B6 反馈：收藏（+0.8）
+]);
+// 本地差异 #11：T-E3 单码 weight 软上限——写入端 LEAST 封顶，现有超上限存量不回改（只封新增）
+const INTEREST_WEIGHT_CAP = 500;
+
 async function persistUserInterestCodes(dbPool: any, userKey: string, snapshot: any[], source: string, weight: number) {
+  if (!INTEREST_SOURCE_WHITELIST.has(source)) return; // T-E3：白名单外来源拒写
   const prefixes = new Set<string>();
   for (const item of snapshot) {
     const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
@@ -278,10 +290,29 @@ async function persistUserInterestCodes(dbPool: any, userKey: string, snapshot: 
     await dbPool.execute(
       `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
        VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE weight = weight + VALUES(weight), updated_at = NOW()`,
+       ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
       [userKey, userKey, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
     );
   }
+}
+
+// 本地差异 #11：T-E3 负反馈强化（E.3）——dismiss 用相对强衰减 ×0.5（乘法在权重通胀下仍有效，
+// 绝对扣减会失效）；GREATEST(0.01) 下限保护，weight 永不降为 ≤0（画像可转向但不清零）。
+// 对该用户展开前缀命中的所有 source 行统一衰减（跨来源同码一并降权）
+async function decayUserInterestCodes(dbPool: any, userKey: string, snapshot: any[], factor = 0.5) {
+  const prefixes = new Set<string>();
+  for (const item of snapshot) {
+    const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
+    expandUnspscInterestPrefixes(rawCode).forEach((prefix) => prefixes.add(prefix));
+  }
+  if (prefixes.size === 0) return;
+  const list = Array.from(prefixes);
+  await dbPool.execute(
+    `UPDATE crm_user_interest_codes
+     SET weight = GREATEST(0.01, weight * ?), updated_at = NOW()
+     WHERE user_key = ? AND code IN (${list.map(() => "?").join(",")})`,
+    [factor, userKey, ...list]
+  );
 }
 
 async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
@@ -3282,7 +3313,16 @@ async function startServer() {
       // F.3 deadline 兜底（本地差异 #7：补齐 recommended 两处 WHERE，与 /api/notices 同口径）
       // deadline_ts 秒/毫秒混存（G.8 勘误 1），比较/排序前统一折算成秒
       const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
-      const activeWhere = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`;
+      let activeWhere = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`;
+      const extraParams: any[] = [];
+      // 本地差异 #11：T-B6/D.6——exclude_dismissed=1 时排除本用户近 30 天 dismiss 的公告
+      // （非相关子查询，单次执行；前端配合 dismiss 本地移除 + 补拉，避免分页错位）
+      if (String(req.query.exclude_dismissed || "") === "1") {
+        activeWhere += ` AND n.id NOT IN (
+           SELECT notice_id FROM crm_user_reco_feedback
+           WHERE user_key = ? AND action = 'dismiss' AND created_at >= NOW() - INTERVAL 30 DAY)`;
+        extraParams.push(userKey);
+      }
 
       const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
       const [countRows] = await dbPool.query(
@@ -3290,7 +3330,7 @@ async function startServer() {
          FROM crm_bid_notices n
          INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
          WHERE (${bridgeWhere}) AND ${activeWhere}`,
-        params
+        [...params, ...extraParams]
       );
 
       // reco_score = 0.5·s_unspsc + 0.15·s_urgency + 0.10·s_amount + 0.125（s_agency/s_geo 中性 0.5：
@@ -3351,7 +3391,7 @@ async function startServer() {
          GROUP BY n.id
          ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${deadlineSecExpr}, n.id DESC
          LIMIT ? OFFSET ?`,
-        [...scoreParams, denominator, ...amountScoreParams, ...params, pageSize, offset]
+        [...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
       );
 
       // 本地差异 #10：懒填充——当页公告金额缓存缺失/过版时后台补算（fire-and-forget，不阻塞响应）
@@ -3373,6 +3413,77 @@ async function startServer() {
         page,
         pageSize,
       });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── 本地差异 #11：T-B6 推荐反馈端点（B.3.2.2）──
+  // 支持批量：body.actions = [{notice_id, action, reco_score?, position?, variant?, dwell_ms?}]，
+  // 单条可直接平铺在 body。写入 INSERT IGNORE（uk_dedup 兜底 D.7 前端 Set 预去重）。
+  // 兴趣码联动：click +0.3 / favorite +0.8（persistUserInterestCodes，source 白名单）；
+  // dismiss ×0.5 相对强衰减（E.3 负反馈，decayUserInterestCodes 带 0.01 下限）
+  app.post("/api/notices/feedback", async (req, res) => {
+    try {
+      const userKey = normalizeUserKey(req.body.user_key) || ""; // F.1：guest/空一律拒收
+      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      const sessionId = String(req.body.session_id || "").trim().slice(0, 64);
+      if (!sessionId) return res.status(400).json({ error: "SESSION_REQUIRED" }); // D.7：无 session 唯一约束失效
+      const VALID_ACTIONS = new Set([
+        "impression", "click", "unlock", "dismiss", "favorite",
+        "dwell", "scroll_end", "quick_exit", "revisit",
+      ]);
+      const rawActions: any[] = Array.isArray(req.body.actions)
+        ? req.body.actions
+        : req.body.notice_id
+          ? [req.body]
+          : [];
+      if (rawActions.length === 0) return res.status(400).json({ error: "ACTIONS_REQUIRED" });
+      if (rawActions.length > 50) return res.status(400).json({ error: "TOO_MANY_ACTIONS", max: 50 }); // 批量曝光上限
+      const items = rawActions
+        .map((item) => ({
+          noticeId: Number(item?.notice_id || 0),
+          action: String(item?.action || "").trim(),
+          recoScore: Number.isFinite(Number(item?.reco_score)) ? Number(item.reco_score) : null,
+          position: Number.isInteger(Number(item?.position)) && Number(item.position) >= 0 ? Number(item.position) : null,
+          variant: String(item?.variant || "").trim().slice(0, 20) || null,
+          dwellMs: Number.isInteger(Number(item?.dwell_ms)) && Number(item.dwell_ms) > 0 ? Number(item.dwell_ms) : null,
+        }))
+        .filter((item) => item.noticeId > 0 && VALID_ACTIONS.has(item.action));
+      if (items.length === 0) return res.status(400).json({ error: "NO_VALID_ACTIONS" });
+
+      // 批量写入流水（INSERT IGNORE：uk_dedup 命中即静默去重，affectedRows 反映实际新增）
+      const [insertResult] = await dbPool.query(
+        `INSERT IGNORE INTO crm_user_reco_feedback
+           (user_id, user_key, notice_id, action, reco_score, position, variant, session_id, dwell_ms)
+         VALUES ${items.map(() => "((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
+        items.flatMap((item) => [
+          userKey, userKey, item.noticeId, item.action,
+          item.recoScore, item.position, item.variant, sessionId, item.dwellMs,
+        ])
+      );
+      const inserted = Number((insertResult as any)?.affectedRows || 0);
+
+      // 兴趣码联动（click/favorite 正反馈、dismiss 负反馈）：一次查齐涉及公告的 unspsc_codes
+      const linkedActions = items.filter((item) => ["click", "favorite", "dismiss"].includes(item.action));
+      if (linkedActions.length) {
+        const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
+        const [noticeRows] = await dbPool.query(
+          `SELECT id, unspsc_codes FROM crm_bid_notices WHERE id IN (${noticeIds.map(() => "?").join(",")})`,
+          noticeIds
+        );
+        const snapshotById = new Map<number, any[]>();
+        for (const row of noticeRows as any[]) snapshotById.set(Number(row.id), normalizeUnspscCodes(row.unspsc_codes));
+        for (const item of linkedActions) {
+          const snapshot = snapshotById.get(item.noticeId);
+          if (!snapshot || snapshot.length === 0) continue;
+          if (item.action === "click") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_click", 0.3);
+          else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_favorite", 0.8);
+          else await decayUserInterestCodes(dbPool, userKey, snapshot, 0.5); // dismiss：E.3 相对强衰减
+        }
+      }
+
+      res.status(201).json({ success: true, received: items.length, inserted, deduped: items.length - inserted });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
