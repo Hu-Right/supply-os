@@ -3174,22 +3174,24 @@ async function startServer() {
       const offset = (page - 1) * pageSize;
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
+      // 本地差异 #10：T-E1 时间衰减进选码 SQL（E.1）。第四批的衰减发生在 LIMIT 80 之后（JS 层），
+      // 选码环节仍被陈旧高权重码霸占——改为 SQL 内先衰减再排序取 top 80，JS 直接用 decayed_weight，
+      // 不再二次衰减（避免双重衰减）。半衰期 90 天与原口径一致：0.5^(age/90) = EXP(-LN(2)*age/90)
       const [interestRows] = await dbPool.query(
-        `SELECT code, level, MAX(code_id) AS code_id, SUM(weight) AS weight, MAX(COALESCE(updated_at, created_at)) AS last_update
+        `SELECT code, level, MAX(code_id) AS code_id,
+                SUM(weight * EXP(-LN(2) * GREATEST(0, DATEDIFF(NOW(), COALESCE(updated_at, created_at))) / 90)) AS decayed_weight,
+                MAX(COALESCE(updated_at, created_at)) AS last_update
          FROM crm_user_interest_codes
          WHERE user_key = ?
          GROUP BY code, level
-         ORDER BY weight DESC, last_update DESC
+         ORDER BY decayed_weight DESC, last_update DESC
          LIMIT 80`,
         [userKey]
       );
       // ── B.2.2 UNSPSC 加权评分首期（本地差异 #9）──
-      // depth_factor：层级越精确分越高（D.1 路线 2：分母取用户 top 兴趣理论满分，单遍 SQL 分页保留）；
-      // 时间衰减：半衰期 90 天，查询期计算不改写库中 weight（B.2.3）。
+      // depth_factor：层级越精确分越高（D.1 路线 2：分母取用户 top 兴趣理论满分，单遍 SQL 分页保留）
       // 命中判定用"显著前缀撞 b.code"（去尾零对：'80101500'→'801015'），MAX(LIKE) 保证每码每公告只计一次
       const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
-      const HALF_LIFE_DAYS = 90;
-      const now = Date.now();
       const scoredCodes: Array<{ prefix: string; weighted: number }> = [];
       let interestTotal = 0; // 路线 2 分母：Σ 衰减后权重（depth_factor 上界 1.0 时的理论满分）
       const significantPrefix = (code: string) => {
@@ -3213,9 +3215,8 @@ async function startServer() {
           if (codeId > 0) recallIdsByLevel[level].push(codeId);
           else if (prefix.length >= 4) recallLikePrefixes.add(prefix);
         }
-        const lastMs = row.last_update ? new Date(row.last_update).getTime() : now;
-        const ageDays = Math.max(0, (now - lastMs) / 86400000);
-        const decayed = Number(row.weight || 0) * Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+        // T-E1：直接用 SQL 已算好的衰减权重（选码/分母/评分同源，只衰减一次）
+        const decayed = Number(row.decayed_weight || 0);
         if (decayed <= 0) continue;
         interestTotal += decayed;
         const depth = Math.min(4, Math.max(1, prefix.length / 2)); // 显著前缀长度定深度，8 位全码=1.0
