@@ -29,6 +29,7 @@ import {
   fetchUnlockedNoticeIds,
   fetchIndustryPrefs,
   fetchRecommendedNotices,
+  sendNoticeFeedback,
 } from "../api";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
@@ -75,13 +76,25 @@ export default function ProcurementPage() {
   const activeFrom = searchParams.get("deadline_from") || "";
   const activeTo = searchParams.get("deadline_to") || "";
   const activeSort: "deadline" | "latest" = searchParams.get("sort") === "latest" ? "latest" : "deadline";
-  const hasSearch = Boolean(activeQ || activeCountry || activeFrom || activeTo);
-  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}`;
+  // T-B9（本地差异 #13）：多维过滤参数同样以 URL 为唯一事实源（对接 T-B8 服务端参数）
+  const activeValueMin = searchParams.get("value_min") || "";
+  const activeValueMax = searchParams.get("value_max") || "";
+  const activeWindow = searchParams.get("deadline_within_days") || "";
+  const activeNoticeType = searchParams.get("notice_type") || "";
+  const hasSearch = Boolean(
+    activeQ || activeCountry || activeFrom || activeTo ||
+    activeValueMin || activeValueMax || activeWindow || activeNoticeType
+  );
+  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeValueMin}|${activeValueMax}|${activeWindow}|${activeNoticeType}`;
 
   const [qInput, setQInput] = useState(activeQ);
   const [countryInput, setCountryInput] = useState(activeCountry);
   const [fromInput, setFromInput] = useState(activeFrom);
   const [toInput, setToInput] = useState(activeTo);
+  const [valueMinInput, setValueMinInput] = useState(activeValueMin);
+  const [valueMaxInput, setValueMaxInput] = useState(activeValueMax);
+  const [windowInput, setWindowInput] = useState(activeWindow);
+  const [typeInput, setTypeInput] = useState(activeNoticeType);
   const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
 
   // URL 外部变化（支付回跳清参等）时同步表单草稿，避免输入框残留失效条件
@@ -90,7 +103,11 @@ export default function ProcurementPage() {
     setCountryInput(activeCountry);
     setFromInput(activeFrom);
     setToInput(activeTo);
-  }, [activeQ, activeCountry, activeFrom, activeTo]);
+    setValueMinInput(activeValueMin);
+    setValueMaxInput(activeValueMax);
+    setWindowInput(activeWindow);
+    setTypeInput(activeNoticeType);
+  }, [activeQ, activeCountry, activeFrom, activeTo, activeValueMin, activeValueMax, activeWindow, activeNoticeType]);
 
   // 国家下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
   useEffect(() => {
@@ -106,6 +123,11 @@ export default function ProcurementPage() {
     if (countryInput) next.country = countryInput;
     if (fromInput) next.deadline_from = fromInput;
     if (toInput) next.deadline_to = toInput;
+    // T-B9：金额区间/截止窗口/采购类型（对接 T-B8 服务端过滤）
+    if (valueMinInput && Number(valueMinInput) > 0) next.value_min = valueMinInput;
+    if (valueMaxInput && Number(valueMaxInput) > 0) next.value_max = valueMaxInput;
+    if (windowInput) next.deadline_within_days = windowInput;
+    if (typeInput.trim()) next.notice_type = typeInput.trim();
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline") next.sort = sortValue;
     if (prefsMode !== "default") setPrefsMode("default");
@@ -119,6 +141,10 @@ export default function ProcurementPage() {
     setCountryInput("");
     setFromInput("");
     setToInput("");
+    setValueMinInput("");
+    setValueMaxInput("");
+    setWindowInput("");
+    setTypeInput("");
     setPage(1);
     setSearchParams({});
   };
@@ -400,9 +426,13 @@ export default function ProcurementPage() {
             deadlineTo: activeTo || undefined,
             sort: activeSort,
             userKey: userKey || undefined,
+            valueMin: activeValueMin ? Number(activeValueMin) : undefined,
+            valueMax: activeValueMax ? Number(activeValueMax) : undefined,
+            deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
+            noticeType: activeNoticeType || undefined,
           })
         : prefsMode === "recommended" && userKey
-          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
+          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true })
           : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
 
     request
@@ -419,8 +449,111 @@ export default function ProcurementPage() {
       .finally(() => {
         if (requestSeq === noticesRequestSeq.current) setLoading(false);
       });
-    // searchKey 覆盖 q/country/日期区间/排序五个 URL 参数（本地差异 #6）
+    // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
   }, [deepestCodeId, page, prefsMode, searchKey]);
+
+  // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
+  // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
+  const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline";
+  const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
+  // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
+  const impressionReportedRef = useRef<Set<number>>(new Set());
+  const impressionPendingRef = useRef<number[]>([]);
+  const impressionTimerRef = useRef<number | null>(null);
+  const cardElsRef = useRef<Map<number, Element>>(new Map());
+  const observedIdsRef = useRef<Map<Element, number>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const userKeyRef = useRef(userKey);
+  userKeyRef.current = userKey;
+
+  // 待上报曝光短暂聚合后批量发送（≤50 条与服务端一致）
+  const flushImpressions = () => {
+    impressionTimerRef.current = null;
+    const key = userKeyRef.current;
+    const batch = impressionPendingRef.current.splice(0, 50);
+    if (key && batch.length) {
+      void sendNoticeFeedback(key, batch.map((id) => ({ notice_id: id, action: "impression" as const })));
+    }
+  };
+
+  const getImpressionObserver = () => {
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const id = observedIdsRef.current.get(entry.target);
+            if (!id || impressionReportedRef.current.has(id)) return;
+            impressionReportedRef.current.add(id);
+            impressionPendingRef.current.push(id);
+            observerRef.current?.unobserve(entry.target);
+          });
+          if (impressionPendingRef.current.length && impressionTimerRef.current === null) {
+            impressionTimerRef.current = window.setTimeout(flushImpressions, 500);
+          }
+        },
+        { threshold: 0.5 }
+      );
+    }
+    return observerRef.current;
+  };
+
+  // NoticeCard 根节点挂载/卸载回调：挂载即观察，卸载解除观察
+  const observeCard = (el: HTMLElement | null, noticeId: number) => {
+    const prev = cardElsRef.current.get(noticeId);
+    if (prev && prev !== el) {
+      observerRef.current?.unobserve(prev);
+      observedIdsRef.current.delete(prev);
+    }
+    if (el) {
+      cardElsRef.current.set(noticeId, el);
+      observedIdsRef.current.set(el, noticeId);
+      if (!impressionReportedRef.current.has(noticeId)) getImpressionObserver().observe(el);
+    } else {
+      cardElsRef.current.delete(noticeId);
+    }
+  };
+
+  // 卸载清理：断开观察器、冲掉未上报的曝光批次
+  useEffect(
+    () => () => {
+      observerRef.current?.disconnect();
+      if (impressionTimerRef.current !== null) {
+        window.clearTimeout(impressionTimerRef.current);
+        flushImpressions();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  // dismiss：本地立即移除 → 上报落库 → exclude_dismissed 补拉当页补足 pageSize（D.6 前端侧）
+  const handleDismissNotice = async (notice: NoticeItem) => {
+    if (!userKey) return;
+    setItems((prev) => prev.filter((it) => it.id !== notice.id));
+    await sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "dismiss" }]);
+    const requestSeq = noticesRequestSeq.current + 1;
+    noticesRequestSeq.current = requestSeq;
+    try {
+      const json = await fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true });
+      if (requestSeq !== noticesRequestSeq.current) return;
+      setItems(Array.isArray(json.items) ? json.items : []);
+      setTotal(Number(json.total || 0));
+    } catch {
+      // 补拉失败保持本地移除结果，不阻断页面
+    }
+  };
+
+  // 收藏：本地置亮 + 一次性上报（服务端幂等，重复点击不再发送）
+  const handleFavoriteNotice = (notice: NoticeItem) => {
+    if (!userKey || favoritedIds.has(notice.id)) return;
+    setFavoritedIds((prev) => {
+      const next = new Set(prev);
+      next.add(notice.id);
+      return next;
+    });
+    void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "favorite" }]);
+  };
 
   const handleLevelChange = async (levelIndex: number, value: string) => {
     // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
@@ -448,6 +581,9 @@ export default function ProcurementPage() {
       onRequireLogin();
       return;
     }
+
+    // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
+    if (feedbackEnabled) void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "click" }]);
 
     const currentViews = getDetailViewCount();
     const alreadyUnlocked = unlockedIds.has(notice.id);
@@ -673,14 +809,15 @@ export default function ProcurementPage() {
 
         <div className="p-5 space-y-4">
           <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
-          {/* 公采搜索栏（本地差异 #6：G.3）——关键词 + 国家 + 截止日期区间 + 排序，服务端全库搜索 */}
+          {/* 公采搜索栏（本地差异 #6：G.3 + #13：T-B9 多维过滤）——服务端全库搜索 */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               applySearch();
             }}
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3"
+            className="space-y-3"
           >
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input
@@ -746,6 +883,49 @@ export default function ProcurementPage() {
                 </button>
               )}
             </div>
+            </div>
+            {/* T-B9 第二行：截止窗口 / 金额区间（USD）/ 采购类型（对接 T-B8 服务端过滤） */}
+            <div className="grid grid-cols-2 lg:grid-cols-[180px_160px_160px_minmax(0,1fr)] gap-3">
+              <select
+                value={windowInput}
+                onChange={(e) => setWindowInput(e.target.value)}
+                aria-label={t("procurement_deadlineWindowAny")}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="">{t("procurement_deadlineWindowAny")}</option>
+                <option value="7">{t("procurement_deadlineWindow7")}</option>
+                <option value="30">{t("procurement_deadlineWindow30")}</option>
+                <option value="90">{t("procurement_deadlineWindow90")}</option>
+              </select>
+              <input
+                type="number"
+                min={0}
+                dir="ltr"
+                value={valueMinInput}
+                onChange={(e) => setValueMinInput(e.target.value)}
+                placeholder={t("procurement_valueMinPlaceholder")}
+                aria-label={t("procurement_valueMinPlaceholder")}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+              <input
+                type="number"
+                min={0}
+                dir="ltr"
+                value={valueMaxInput}
+                onChange={(e) => setValueMaxInput(e.target.value)}
+                placeholder={t("procurement_valueMaxPlaceholder")}
+                aria-label={t("procurement_valueMaxPlaceholder")}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+              <input
+                value={typeInput}
+                onChange={(e) => setTypeInput(e.target.value)}
+                placeholder={t("procurement_noticeTypePlaceholder")}
+                aria-label={t("procurement_noticeTypePlaceholder")}
+                dir="auto"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
           </form>
         </div>
       </section>
@@ -784,7 +964,16 @@ export default function ProcurementPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {items.map((item) => (
-            <NoticeCard key={item.id} item={item} onClick={openNotice} />
+            <NoticeCard
+              key={item.id}
+              item={item}
+              onClick={openNotice}
+              // T-B9：仅推荐模式启用反馈交互与曝光采集（避免污染搜索/筛选场景数据）
+              onDismiss={feedbackEnabled ? handleDismissNotice : undefined}
+              onFavorite={feedbackEnabled ? handleFavoriteNotice : undefined}
+              favorited={favoritedIds.has(item.id)}
+              observe={feedbackEnabled ? observeCard : undefined}
+            />
           ))}
         </div>
 

@@ -39,7 +39,7 @@ export const fetchUnspscChildren = (parentId: string, locale?: string) => {
 
 // ── 公采搜索功能（本地差异 #6 配套前端）──
 
-/** 公采列表搜索/筛选参数（G.2 四参数；userKey 仅用于搜索行为落库，可缺省） */
+/** 公采列表搜索/筛选参数（G.2 四参数 + T-B8 多维过滤；userKey 仅用于搜索行为落库，可缺省） */
 export interface NoticeSearchFilters {
   q?: string;
   country?: string;
@@ -47,6 +47,11 @@ export interface NoticeSearchFilters {
   deadlineTo?: string;
   sort?: "deadline" | "latest";
   userKey?: string;
+  /** T-B8（本地差异 #13）：金额区间（USD）/ 截止窗口天数 / 采购类型关键词 */
+  valueMin?: number;
+  valueMax?: number;
+  deadlineWithinDays?: number;
+  noticeType?: string;
 }
 
 export const fetchNotices = (
@@ -63,6 +68,10 @@ export const fetchNotices = (
   if (params.deadlineTo) searchParams.set("deadline_to", params.deadlineTo);
   if (params.sort && params.sort !== "deadline") searchParams.set("sort", params.sort);
   if (params.userKey) searchParams.set("user_key", params.userKey);
+  if (params.valueMin) searchParams.set("value_min", String(params.valueMin));
+  if (params.valueMax) searchParams.set("value_max", String(params.valueMax));
+  if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
+  if (params.noticeType) searchParams.set("notice_type", params.noticeType);
   return fetchJsonCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
 
@@ -217,14 +226,70 @@ export const fetchRecommendedNotices = (params: {
   userKey: string;
   page: number;
   pageSize: number;
+  /** T-B9（本地差异 #13）：置 1 过滤最近 30 天被 dismiss 的公告（D.6 前端侧） */
+  excludeDismissed?: boolean;
 }): Promise<NoticeResponse> => {
   const searchParams = new URLSearchParams({
     user_key: params.userKey,
     page: String(params.page),
     page_size: String(params.pageSize),
   });
+  if (params.excludeDismissed) searchParams.set("exclude_dismissed", "1");
   return fetch(`/api/notices/recommended?${searchParams.toString()}`).then((res) => {
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json();
   });
+};
+
+// ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──
+
+/** 反馈动作类型（与 server.ts VALID_ACTIONS 对齐，前端当前只用其中四种） */
+export type NoticeFeedbackAction = "impression" | "click" | "dismiss" | "favorite";
+
+/** 单条反馈（notice_id + action，批量上报时逐条给出） */
+export interface NoticeFeedbackItem {
+  notice_id: number;
+  action: NoticeFeedbackAction;
+}
+
+// 会话级 session_id：同一浏览器标签页会话内稳定，服务端按 (user, notice, action, session) 去重
+const SESSION_ID_KEY = "supply-os:feedback-session-id";
+export const getFeedbackSessionId = (): string => {
+  try {
+    let sid = sessionStorage.getItem(SESSION_ID_KEY);
+    if (!sid) {
+      sid = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      sessionStorage.setItem(SESSION_ID_KEY, sid);
+    }
+    return sid;
+  } catch {
+    // 隐私模式等 sessionStorage 不可用时退化为进程内常量（刷新即新会话）
+    return fallbackSessionId;
+  }
+};
+const fallbackSessionId = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+/**
+ * 批量上报推荐反馈（曝光/点击/不感兴趣/收藏）
+ * Report notice feedback actions in batch (impression/click/dismiss/favorite)
+ *
+ * @remarks 失败静默（埋点绝不阻断页面）；服务端幂等去重（INSERT IGNORE + 唯一键），
+ *          同 session 同卡同动作重复上报无副作用。单批上限 50 条与服务端一致。
+ */
+export const sendNoticeFeedback = (
+  userKey: string,
+  actions: NoticeFeedbackItem[]
+): Promise<void> => {
+  if (!userKey || actions.length === 0) return Promise.resolve();
+  return fetch("/api/notices/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_key: userKey,
+      session_id: getFeedbackSessionId(),
+      actions: actions.slice(0, 50),
+    }),
+  })
+    .then(() => undefined)
+    .catch(() => undefined);
 };
