@@ -3085,6 +3085,24 @@ async function startServer() {
   const NOTICE_SEARCH_CACHE_TTL = 60 * 1000;
   const NOTICE_SEARCH_CACHE_MAX = 200;
 
+  // ── 精选池标注缓存（T-A3，本地差异 #14：A.2）──
+  // active 精选 id 全集（约 3.2k）10 分钟进程内缓存：当页 is_featured 批量标注 O(1)，
+  // 避免每次列表请求都跑三路物化子查询（冷加载约 2s，10 分钟一次）
+  let featuredIdsCache: { ids: Set<number>; expires: number } | null = null;
+  const getFeaturedIdSet = async (): Promise<Set<number>> => {
+    if (featuredIdsCache && featuredIdsCache.expires > Date.now()) return featuredIdsCache.ids;
+    const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+    const [rows] = await dbPool.query(
+      `SELECT n.id FROM crm_bid_notices n
+       WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
+         AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
+         AND ${FEATURED_NOTICE_EXISTS}`
+    );
+    const ids = new Set<number>((rows as any[]).map((row) => Number(row.id)));
+    featuredIdsCache = { ids, expires: Date.now() + 10 * 60 * 1000 };
+    return ids;
+  };
+
   app.get("/api/notices", async (req, res) => {
     try {
       const page = Math.max(1, Number(req.query.page || 1));
@@ -3108,13 +3126,16 @@ async function startServer() {
       const deadlineWithinDays = Number.isInteger(Number(req.query.deadline_within_days))
         ? Math.min(365, Math.max(0, Number(req.query.deadline_within_days))) : 0;
       const noticeType = String(req.query.notice_type || "").trim().slice(0, 100);
+      // T-A3（本地差异 #14）：只看精选开关（三路合格机会判定，T-A1 单一事实源）
+      const featuredOnly = String(req.query.featured || "") === "1";
 
       // ── 搜索行为落库（本地差异 #6：G.4）──
       // 仅带搜索/筛选条件时记录；user_key 经 normalizeUserKey（F.1），游客落 NULL；
       // country 供 D.2 显式地区偏好，result_cnt=0 即"搜而无果"供运营反哺；异步不阻塞响应
       const hasSearch = Boolean(
         q || country || dateRe.test(deadlineFrom) || dateRe.test(deadlineTo) ||
-        valueMin || valueMax || deadlineWithinDays || noticeType // T-B8：新参数同样计入搜索条件
+        valueMin || valueMax || deadlineWithinDays || noticeType || // T-B8：新参数同样计入搜索条件
+        featuredOnly // T-A3：只看精选走慢路径缓存
       );
       const logSearch = (total: number) => {
         if (!hasSearch) return;
@@ -3126,6 +3147,7 @@ async function startServer() {
           value_max: valueMax || undefined,
           deadline_within_days: deadlineWithinDays || undefined,
           notice_type: noticeType || undefined,
+          featured: featuredOnly || undefined,
           sort,
         });
         void dbPool
@@ -3139,7 +3161,7 @@ async function startServer() {
       // F.4 缓存命中（本地差异 #7）：仅带搜索条件的查询走缓存（慢路径），命中仍落库
       const cacheKey = hasSearch
         ? JSON.stringify([page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
-            valueMin, valueMax, deadlineWithinDays, noticeType]) // T-B8：缓存 key 覆盖新参数
+            valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly]) // T-B8/T-A3：缓存 key 覆盖新参数
         : "";
       if (cacheKey) {
         const cached = noticeSearchCache.get(cacheKey);
@@ -3216,6 +3238,10 @@ async function startServer() {
           params.push(valueMax);
         }
       }
+      // T-A3（本地差异 #14）：只看精选——三路非相关 IN 物化（T-A1 常量，无逐行相关子查询）
+      if (featuredOnly) {
+        where.push(FEATURED_NOTICE_EXISTS);
+      }
 
       // 排序：latest=最新收录优先（id 逆序；published_date 为自由文本不可靠）；
       // 默认 deadline=截止最近优先（折算秒后排序，修复秒/毫秒混存下的乱序）
@@ -3258,9 +3284,14 @@ async function startServer() {
         [...idFilterParams, ...params, ...orderParams, pageSize, offset]
       );
 
+      // T-A3：当页 is_featured 批量标注（10 分钟 id 集合缓存，纯内存判定不逐行查库；
+      // 标注失败不阻断列表——精选徽标缺失可接受，公告数据不能缺）
+      const featuredIds = await getFeaturedIdSet().catch(() => new Set<number>());
+
       const payload = {
         items: (rows as any[]).map((row) => ({
           ...row,
+          is_featured: featuredOnly || featuredIds.has(Number(row.id)),
           agency: null,
           organization: null,
           source_url: null,
