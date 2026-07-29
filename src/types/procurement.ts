@@ -31,6 +31,8 @@ export interface NoticeItem {
   match_score?: number;
   /** 推荐理由标签键（C.3.4，每卡至多 2 个；前端映射 procurement_reason_* i18n 键渲染） */
   reco_reasons?: string[];
+  /** 精选公告（T-A4，本地差异 #14）：对应合格机会三路判定，列表端点批量标注 */
+  is_featured?: boolean;
   // 解锁后由 /api/notices/:id/detail 补充的拓展字段
   // Extended fields provided by /api/notices/:id/detail once unlocked
   url?: string;

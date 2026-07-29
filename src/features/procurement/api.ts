@@ -52,6 +52,8 @@ export interface NoticeSearchFilters {
   valueMax?: number;
   deadlineWithinDays?: number;
   noticeType?: string;
+  /** T-A4（本地差异 #14）：只看精选（三路合格机会判定，服务端 featured=1） */
+  featured?: boolean;
 }
 
 export const fetchNotices = (
@@ -72,6 +74,7 @@ export const fetchNotices = (
   if (params.valueMax) searchParams.set("value_max", String(params.valueMax));
   if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
   if (params.noticeType) searchParams.set("notice_type", params.noticeType);
+  if (params.featured) searchParams.set("featured", "1");
   return fetchJsonCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
 

@@ -207,6 +207,8 @@
   "procurement_valueMinPlaceholder": "Мин. сумма (USD)",
   "procurement_valueMaxPlaceholder": "Макс. сумма (USD)",
   "procurement_noticeTypePlaceholder": "Тип закупки (напр. RFQ)",
+  "procurement_featuredOnly": "Только избранные",
+  "procurement_featuredBadge": "Избранное",
   "procurement_global": "Глобально",
   "procurement_noDeadline": "Без срока",
   "procurement_interested": "Выразить интерес",

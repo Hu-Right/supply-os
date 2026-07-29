@@ -81,11 +81,13 @@ export default function ProcurementPage() {
   const activeValueMax = searchParams.get("value_max") || "";
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
+  // T-A4（本地差异 #14）：只看精选开关，URL 为唯一事实源（刷新/直达链接均保持）
+  const activeFeatured = searchParams.get("featured") === "1";
   const hasSearch = Boolean(
     activeQ || activeCountry || activeFrom || activeTo ||
-    activeValueMin || activeValueMax || activeWindow || activeNoticeType
+    activeValueMin || activeValueMax || activeWindow || activeNoticeType || activeFeatured
   );
-  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeValueMin}|${activeValueMax}|${activeWindow}|${activeNoticeType}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeValueMin}|${activeValueMax}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
 
   const [qInput, setQInput] = useState(activeQ);
   const [countryInput, setCountryInput] = useState(activeCountry);
@@ -128,8 +130,21 @@ export default function ProcurementPage() {
     if (valueMaxInput && Number(valueMaxInput) > 0) next.value_max = valueMaxInput;
     if (windowInput) next.deadline_within_days = windowInput;
     if (typeInput.trim()) next.notice_type = typeInput.trim();
+    // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
+    if (activeFeatured) next.featured = "1";
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline") next.sort = sortValue;
+    if (prefsMode !== "default") setPrefsMode("default");
+    setPage(1);
+    setSelectedNotice(null);
+    setSearchParams(next);
+  };
+
+  // T-A4（本地差异 #14）：只看精选开关——立即生效写 URL，保留其余全部现有条件
+  const toggleFeatured = () => {
+    const next = new URLSearchParams(searchParams);
+    if (activeFeatured) next.delete("featured");
+    else next.set("featured", "1");
     if (prefsMode !== "default") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
@@ -430,6 +445,7 @@ export default function ProcurementPage() {
             valueMax: activeValueMax ? Number(activeValueMax) : undefined,
             deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
             noticeType: activeNoticeType || undefined,
+            featured: activeFeatured || undefined,
           })
         : prefsMode === "recommended" && userKey
           ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true })
@@ -885,7 +901,7 @@ export default function ProcurementPage() {
             </div>
             </div>
             {/* T-B9 第二行：截止窗口 / 金额区间（USD）/ 采购类型（对接 T-B8 服务端过滤） */}
-            <div className="grid grid-cols-2 lg:grid-cols-[180px_160px_160px_minmax(0,1fr)] gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-[180px_160px_160px_minmax(0,1fr)_auto] gap-3">
               <select
                 value={windowInput}
                 onChange={(e) => setWindowInput(e.target.value)}
@@ -925,6 +941,20 @@ export default function ProcurementPage() {
                 dir="auto"
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
+              {/* T-A4（本地差异 #14）：只看精选开关——点击即生效，不依赖搜索提交 */}
+              <button
+                type="button"
+                onClick={toggleFeatured}
+                aria-pressed={activeFeatured}
+                className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
+                  activeFeatured
+                    ? "border-amber-300 bg-amber-50 text-amber-700"
+                    : "border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-600"
+                }`}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                {t("procurement_featuredOnly")}
+              </button>
             </div>
           </form>
         </div>

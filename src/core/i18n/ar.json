@@ -207,6 +207,8 @@
   "procurement_valueMinPlaceholder": "الحد الأدنى للقيمة (USD)",
   "procurement_valueMaxPlaceholder": "الحد الأقصى للقيمة (USD)",
   "procurement_noticeTypePlaceholder": "نوع الإشعار (مثل RFQ)",
+  "procurement_featuredOnly": "المميزة فقط",
+  "procurement_featuredBadge": "مميز",
   "procurement_global": "عالمي",
   "procurement_noDeadline": "لا يوجد موعد نهائي",
   "procurement_interested": "أبدِ اهتمامك",

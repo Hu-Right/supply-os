@@ -207,6 +207,8 @@
   "procurement_valueMinPlaceholder": "Min value (USD)",
   "procurement_valueMaxPlaceholder": "Max value (USD)",
   "procurement_noticeTypePlaceholder": "Notice type (e.g. RFQ)",
+  "procurement_featuredOnly": "Featured only",
+  "procurement_featuredBadge": "Featured",
   "procurement_global": "Global",
   "procurement_noDeadline": "No deadline",
   "procurement_interested": "Express interest",

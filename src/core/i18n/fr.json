@@ -207,6 +207,8 @@
   "procurement_valueMinPlaceholder": "Montant min (USD)",
   "procurement_valueMaxPlaceholder": "Montant max (USD)",
   "procurement_noticeTypePlaceholder": "Type d'avis (ex. RFQ)",
+  "procurement_featuredOnly": "Sélection uniquement",
+  "procurement_featuredBadge": "Sélection",
   "procurement_global": "Mondial",
   "procurement_noDeadline": "Aucune échéance",
   "procurement_interested": "Manifester son intérêt",

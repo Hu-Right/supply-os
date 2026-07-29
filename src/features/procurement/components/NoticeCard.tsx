@@ -42,9 +42,18 @@ export function NoticeCard({ item, onClick, onDismiss, onFavorite, favorited, ob
       className="border border-slate-200 rounded-xl p-4 min-h-64 flex flex-col hover:border-teal-300 hover:shadow-sm transition-all"
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black">
-          {typeKey ? t(typeKey) : item.notice_type || "Notice"}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black">
+            {typeKey ? t(typeKey) : item.notice_type || "Notice"}
+          </span>
+          {/* T-A4（本地差异 #14）：精选徽标——三路合格机会判定命中，服务端批量标注 */}
+          {item.is_featured && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black">
+              <Crown className="w-3 h-3" />
+              {t("procurement_featuredBadge")}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">{item.deadline}</span>
           {onFavorite && (
