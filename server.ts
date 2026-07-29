@@ -315,6 +315,27 @@ async function decayUserInterestCodes(dbPool: any, userKey: string, snapshot: an
   );
 }
 
+// ── 精选池判定（T-A1，本地差异 #14：A.2）──
+// 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
+// findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
+const qualifiedOppWhere = (alias = "") => {
+  const p = alias ? `${alias}.` : "";
+  return `(${p}is_qualified = 1 OR ${p}status = 'won' OR ${p}audit_status = 1)`;
+};
+
+// 精选公告判定：三路独立子查询（converted_opp_id / source_notice_id / reference）。
+// 用非相关 IN 子查询（MySQL 物化一次 + 逐行 hash 查找）而非相关 EXISTS：
+// 生产库实测 OR 连接三路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
+// IN 物化 1.9s 且语义等价（scripts/verify-featured-exists.mjs 3/3 PASS）。
+// 依赖外层查询别名 n = crm_bid_notices
+const FEATURED_NOTICE_EXISTS = `(
+  n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
+  OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
+    WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
+  OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
+    WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
+)`;
+
 async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
   const fields = `
     id, source_notice_id, source_url, title, reference, notice_type, registration_level,
@@ -324,7 +345,7 @@ async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
     contacts, documents, external_links, ai_products, ai_analysis, status, priority,
     audit_status, review_status, is_qualified, product_code
   `;
-  const qualifiedWhere = "(is_qualified = 1 OR status = 'won' OR audit_status = 1)";
+  const qualifiedWhere = qualifiedOppWhere();
 
   if (Number(notice.converted_opp_id || 0) > 0) {
     const [rows] = await dbPool.query(
