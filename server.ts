@@ -269,6 +269,10 @@ const INTEREST_SOURCE_WHITELIST = new Set([
   "express_interest",  // 表达兴趣（+1.0）
   "feedback_click",    // T-B6 反馈：点击（+0.3）
   "feedback_favorite", // T-B6 反馈：收藏（+0.8）
+  // T-C7 隐式信号（本地差异 #16：C.3.6）——正向三档；quick_exit 走 decay 不占来源
+  "feedback_dwell",      // 详情停留 >30s（+0.2）
+  "feedback_scroll_end", // 详情滚动到底（+0.1）
+  "feedback_revisit",    // 会话内回看（+0.5）
 ]);
 // 本地差异 #11：T-E3 单码 weight 软上限——写入端 LEAST 封顶，现有超上限存量不回改（只封新增）
 const INTEREST_WEIGHT_CAP = 500;
@@ -3954,7 +3958,12 @@ async function startServer() {
       const inserted = Number((insertResult as any)?.affectedRows || 0);
 
       // 兴趣码联动（click/favorite 正反馈、dismiss 负反馈）：一次查齐涉及公告的 unspsc_codes
-      const linkedActions = items.filter((item) => ["click", "favorite", "dismiss"].includes(item.action));
+      // T-C7（本地差异 #16：C.3.6）：隐式信号并入联动——dwell>30s +0.2 / scroll_end +0.1 /
+      // revisit +0.5 / quick_exit ×0.95（轻于 dismiss ×0.5；decay 自带 GREATEST(0.01) 下限保护）。
+      // 隐式与显式共表共 ENUM，action 枚举天然区分，互不混淆（验收口径）
+      const linkedActions = items.filter((item) =>
+        ["click", "favorite", "dismiss", "dwell", "scroll_end", "quick_exit", "revisit"].includes(item.action)
+      );
       if (linkedActions.length) {
         const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
         const [noticeRows] = await dbPool.query(
@@ -3968,7 +3977,13 @@ async function startServer() {
           if (!snapshot || snapshot.length === 0) continue;
           if (item.action === "click") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_click", 0.3);
           else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_favorite", 0.8);
-          else await decayUserInterestCodes(dbPool, userKey, snapshot, 0.5); // dismiss：E.3 相对强衰减
+          else if (item.action === "dismiss") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.5); // E.3 相对强衰减
+          // T-C7 隐式：dwell 服务端复核 dwell_ms ≥ 30s（前端已判，双保险防灌权重）
+          else if (item.action === "dwell" && (item.dwellMs || 0) >= 30000)
+            await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_dwell", 0.2);
+          else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_scroll_end", 0.1);
+          else if (item.action === "revisit") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_revisit", 0.5);
+          else if (item.action === "quick_exit") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.95); // 秒退轻衰减，0.01 下限
         }
       }
 

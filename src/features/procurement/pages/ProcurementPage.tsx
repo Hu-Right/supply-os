@@ -485,6 +485,13 @@ export default function ProcurementPage() {
   const userKeyRef = useRef(userKey);
   userKeyRef.current = userKey;
 
+  // ── T-C7 隐式偏好信号（本地差异 #16：C.3.6）──
+  // 详情停留（dwell>30s）/ 滚动到底（scroll_end）/ 秒退（quick_exit）/ 会话内回看（revisit）。
+  // 与显式反馈同门控 feedbackEnabled（仅推荐模式），同表同 ENUM 由 action 区分
+  const detailEnterRef = useRef<{ id: number; ts: number } | null>(null);
+  const visitedDetailIdsRef = useRef<Set<number>>(new Set());
+  const scrollEndReportedRef = useRef<Set<number>>(new Set());
+
   // 待上报曝光短暂聚合后批量发送（≤50 条与服务端一致）
   const flushImpressions = () => {
     impressionTimerRef.current = null;
@@ -575,6 +582,34 @@ export default function ProcurementPage() {
     void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "favorite", variant: variantRef.current }]);
   };
 
+  // T-C7：详情退出结算——停留 >30s 上报 dwell（携带 dwell_ms）；<3s 上报 quick_exit（轻负反馈，
+  // 服务端 ×0.95 衰减带 0.01 下限保护）；中间区间不产生信号
+  const reportDetailExit = () => {
+    const enter = detailEnterRef.current;
+    detailEnterRef.current = null;
+    if (!enter || !feedbackEnabled || !userKey) return;
+    const dwellMs = Date.now() - enter.ts;
+    if (dwellMs > 30000) {
+      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "dwell", dwell_ms: dwellMs, variant: variantRef.current }]);
+    } else if (dwellMs < 3000) {
+      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "quick_exit", dwell_ms: dwellMs, variant: variantRef.current }]);
+    }
+  };
+
+  // T-C7：详情滚动到底 +0.1（NoticeDetail 为整页布局，监听 window 滚动；每卡每会话只报一次）
+  useEffect(() => {
+    if (!selectedNotice || !feedbackEnabled || !userKey) return;
+    const noticeId = selectedNotice.id;
+    const onScroll = () => {
+      if (scrollEndReportedRef.current.has(noticeId)) return;
+      if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 60) return;
+      scrollEndReportedRef.current.add(noticeId);
+      void sendNoticeFeedback(userKey, [{ notice_id: noticeId, action: "scroll_end", variant: variantRef.current }]);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [selectedNotice, feedbackEnabled, userKey]);
+
   const handleLevelChange = async (levelIndex: number, value: string) => {
     // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
     if (prefsMode !== "default") setPrefsMode("default");
@@ -614,6 +649,16 @@ export default function ProcurementPage() {
       openPaywall(notice);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
+    }
+
+    // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
+    if (feedbackEnabled) {
+      if (visitedDetailIdsRef.current.has(notice.id)) {
+        void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "revisit", variant: variantRef.current }]);
+      } else {
+        visitedDetailIdsRef.current.add(notice.id);
+      }
+      detailEnterRef.current = { id: notice.id, ts: Date.now() };
     }
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
@@ -780,6 +825,7 @@ export default function ProcurementPage() {
         isVip={isVip}
         detailLoading={detailLoadingId === selectedNotice.id}
         onBack={() => {
+          reportDetailExit(); // T-C7：返回列表时结算 dwell / quick_exit
           closePaywall();
           setDetailLoadingId(null);
           setSelectedNotice(null);

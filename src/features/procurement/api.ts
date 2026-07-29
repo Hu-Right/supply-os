@@ -246,14 +246,23 @@ export const fetchRecommendedNotices = (params: {
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──
 
-/** 反馈动作类型（与 server.ts VALID_ACTIONS 对齐，前端当前只用其中四种） */
-export type NoticeFeedbackAction = "impression" | "click" | "dismiss" | "favorite";
+/** 反馈动作类型（与 server.ts VALID_ACTIONS 对齐；T-C7 隐式信号：dwell/scroll_end/quick_exit/revisit） */
+export type NoticeFeedbackAction =
+  | "impression"
+  | "click"
+  | "dismiss"
+  | "favorite"
+  | "dwell"
+  | "scroll_end"
+  | "quick_exit"
+  | "revisit";
 
-/** 单条反馈（notice_id + action，批量上报时逐条给出；variant 为推荐响应回传的 A/B 桶标记） */
+/** 单条反馈（notice_id + action，批量上报时逐条给出；variant 为推荐响应回传的 A/B 桶标记；dwell_ms 停留毫秒数，dwell/quick_exit 携带） */
 export interface NoticeFeedbackItem {
   notice_id: number;
   action: NoticeFeedbackAction;
   variant?: string;
+  dwell_ms?: number;
 }
 
 // 会话级 session_id：同一浏览器标签页会话内稳定，服务端按 (user, notice, action, session) 去重
