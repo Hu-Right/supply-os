@@ -3236,13 +3236,71 @@ async function startServer() {
     }
   });
 
+  // ── 本地差异 #12：T-C1 冷启动热度兜底（C.3.1 + E.2 去重口径）──
+  // 无兴趣码/游客不再返回空列表，降级为全局热度榜。热度 = unlock 去重用户数×3 + view 去重用户数
+  // （COUNT(DISTINCT user_key) 防浏览灌水，E.2 修正），近 30 天窗口。
+  // 探针实测（2026-07-29）：全表 HAVING 扫描写法 1275ms → 改小表驱动（行为表先聚合再 JOIN notices）；
+  // 10 分钟进程内缓存整榜 top 90（复用 F.4 模式），分页在 JS 层切片
+  let hotFallbackCache: { rows: any[]; expires: number } | null = null;
+  const HOT_FALLBACK_TTL = 10 * 60 * 1000;
+  async function loadHotFallbackRows() {
+    if (hotFallbackCache && hotFallbackCache.expires > Date.now()) return hotFallbackCache.rows;
+    const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+    const [rows] = await dbPool.query(
+      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+              n.deadline, n.deadline_ts, n.estimated_value, n.description,
+              hs.hot_score
+       FROM (
+         SELECT notice_id, SUM(score) AS hot_score FROM (
+           SELECT notice_id, COUNT(DISTINCT user_key) AS score
+           FROM crm_user_notice_views
+           WHERE notice_id IS NOT NULL AND viewed_at >= NOW() - INTERVAL 30 DAY
+           GROUP BY notice_id
+           UNION ALL
+           SELECT notice_id, COUNT(DISTINCT user_key) * 3
+           FROM crm_opportunity_unlocks
+           WHERE notice_id IS NOT NULL AND unlocked_at >= NOW() - INTERVAL 30 DAY
+           GROUP BY notice_id
+         ) s GROUP BY notice_id
+       ) hs
+       INNER JOIN crm_bid_notices n ON n.id = hs.notice_id
+       WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
+         AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
+       ORDER BY hs.hot_score DESC, n.id DESC
+       LIMIT 90`
+    );
+    hotFallbackCache = { rows: rows as any[], expires: Date.now() + HOT_FALLBACK_TTL };
+    return rows as any[];
+  }
+
   app.get("/api/notices/recommended", async (req, res) => {
     try {
       const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
       const page = Math.max(1, Number(req.query.page || 1));
       const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
       const offset = (page - 1) * pageSize;
-      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      // T-C1：热度兜底响应（guest / 零兴趣码共用）；付费墙字段抹除口径与正常推荐一致
+      const respondHotFallback = async () => {
+        const hotRows = await loadHotFallbackRows();
+        return res.json({
+          items: hotRows.slice(offset, offset + pageSize).map((row) => ({
+            ...row,
+            match_score: 0,
+            reco_score: 0,
+            hot_score: Number(row.hot_score || 0),
+            agency: null,
+            organization: null,
+            source_url: null,
+            unspsc_codes: [],
+            core_locked: true,
+          })),
+          total: hotRows.length,
+          page,
+          pageSize,
+          fallback: "hot",
+        });
+      };
+      if (!userKey) return respondHotFallback(); // T-C1：游客不再 400，走热度兜底
 
       // 本地差异 #10：T-E1 时间衰减进选码 SQL（E.1）。第四批的衰减发生在 LIMIT 80 之后（JS 层），
       // 选码环节仍被陈旧高权重码霸占——改为 SQL 内先衰减再排序取 top 80，JS 直接用 decayed_weight，
@@ -3307,7 +3365,7 @@ async function startServer() {
       }
 
       if (clauses.length === 0) {
-        return res.json({ items: [], total: 0, page, pageSize });
+        return respondHotFallback(); // T-C1：零兴趣码不再返回空列表，降级热度榜（#12）
       }
 
       // F.3 deadline 兜底（本地差异 #7：补齐 recommended 两处 WHERE，与 /api/notices 同口径）
