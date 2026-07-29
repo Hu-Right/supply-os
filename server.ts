@@ -1175,6 +1175,24 @@ async function backfillNoticeAmountCache(dbPool: any, noticeIds?: number[], batc
   return { processed: pending.length };
 }
 
+// 本地差异 #12：T-E2 浏览量日汇总聚合（E.2）。覆盖式写入（ON DUPLICATE KEY UPDATE 取 VALUES）
+// 保证幂等——重跑同日不翻倍。默认全量重算（当前 views 表仅数百行）；量大后传 sinceDays 增量：
+// 注意增量窗口必须覆盖整天（DATE(viewed_at) 粒度），否则边界日会被窗口内的部分计数覆盖
+async function rollupNoticeViewDaily(dbPool: any, sinceDays = 0): Promise<{ affected: number }> {
+  const windowWhere = sinceDays > 0 ? "AND viewed_at >= CURDATE() - INTERVAL ? DAY" : "";
+  const params = sinceDays > 0 ? [sinceDays] : [];
+  const [result] = await dbPool.query(
+    `INSERT INTO crm_notice_view_daily (notice_id, stat_day, view_cnt, uniq_user_cnt)
+     SELECT notice_id, DATE(viewed_at), COUNT(*), COUNT(DISTINCT user_key)
+     FROM crm_user_notice_views
+     WHERE notice_id IS NOT NULL ${windowWhere}
+     GROUP BY notice_id, DATE(viewed_at)
+     ON DUPLICATE KEY UPDATE view_cnt = VALUES(view_cnt), uniq_user_cnt = VALUES(uniq_user_cnt)`,
+    params
+  );
+  return { affected: Number((result as any)?.affectedRows || 0) };
+}
+
 async function ensureProcurementSchema(dbPool: any) {
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
@@ -1593,6 +1611,18 @@ async function ensureProcurementSchema(dbPool: any) {
       w_urgency DECIMAL(5,3) NOT NULL DEFAULT 0.150,
       updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
       UNIQUE KEY uk_user (user_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 本地差异 #12：T-E2 浏览量日汇总 rollup 表（原文档 E.2 DDL）。聚合触发为懒计算/admin 手动
+  // （无定时器，约束 6）；冷启动热度优先读本表，空则回落直查原始 views 表
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_notice_view_daily (
+      notice_id BIGINT UNSIGNED NOT NULL,
+      stat_day DATE NOT NULL,
+      view_cnt INT NOT NULL DEFAULT 0,
+      uniq_user_cnt INT NOT NULL DEFAULT 0,
+      PRIMARY KEY (notice_id, stat_day)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -3245,17 +3275,29 @@ async function startServer() {
   const HOT_FALLBACK_TTL = 10 * 60 * 1000;
   async function loadHotFallbackRows() {
     if (hotFallbackCache && hotFallbackCache.expires > Date.now()) return hotFallbackCache.rows;
+    // T-E2：懒计算触发——缓存 miss 时后台刷新 rollup（fire-and-forget，本次查询仍立即返回）
+    void rollupNoticeViewDaily(dbPool).catch(() => undefined);
     const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+    // T-E2：views 侧优先读 rollup（stat_day 30 天窗，SUM 同日去重计数）；rollup 尚无数据时回落直查原始表
+    const [[rollupReady]] = await dbPool.query(
+      `SELECT 1 AS ok FROM crm_notice_view_daily WHERE stat_day >= CURDATE() - INTERVAL 30 DAY LIMIT 1`
+    ) as any[];
+    const viewSubquery = rollupReady
+      ? `SELECT notice_id, SUM(uniq_user_cnt) AS score
+           FROM crm_notice_view_daily
+           WHERE stat_day >= CURDATE() - INTERVAL 30 DAY
+           GROUP BY notice_id`
+      : `SELECT notice_id, COUNT(DISTINCT user_key) AS score
+           FROM crm_user_notice_views
+           WHERE notice_id IS NOT NULL AND viewed_at >= NOW() - INTERVAL 30 DAY
+           GROUP BY notice_id`;
     const [rows] = await dbPool.query(
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
               n.deadline, n.deadline_ts, n.estimated_value, n.description,
               hs.hot_score
        FROM (
          SELECT notice_id, SUM(score) AS hot_score FROM (
-           SELECT notice_id, COUNT(DISTINCT user_key) AS score
-           FROM crm_user_notice_views
-           WHERE notice_id IS NOT NULL AND viewed_at >= NOW() - INTERVAL 30 DAY
-           GROUP BY notice_id
+           ${viewSubquery}
            UNION ALL
            SELECT notice_id, COUNT(DISTINCT user_key) * 3
            FROM crm_opportunity_unlocks
@@ -3724,6 +3766,22 @@ async function startServer() {
     }
   });
 
+  // 本地差异 #12：T-E2 手动触发浏览量日汇总（懒计算之外的运维入口，无定时器）
+  app.post("/api/admin/rollup-views", async (req, res) => {
+    try {
+      const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 0, 0), 365);
+      const result = await rollupNoticeViewDaily(dbPool, sinceDays);
+      hotFallbackCache = null; // rollup 更新后失效热度缓存，下次请求即读新数据
+      const [[stat]] = await dbPool.query(
+        `SELECT COUNT(*) AS rows_total, MAX(stat_day) AS latest_day FROM crm_notice_view_daily`
+      ) as any[];
+      res.json({ success: true, affected: result.affected, rows_total: Number(stat?.rows_total || 0), latest_day: stat?.latest_day || null });
+    } catch (err: any) {
+      console.warn("[ViewRollup] 汇总失败:", err.message);
+      res.status(500).json({ success: false, message: "浏览量汇总失败" });
+    }
+  });
+
   app.get("/api/procurement/schema-status", async (_req, res) => {
     try {
       const tables = [
@@ -3748,7 +3806,9 @@ async function startServer() {
         "crm_notice_amount_cache",
         // 本地差异 #11：T-B2 推荐反馈流水表 + 权重档案表
         "crm_user_reco_feedback",
-        "crm_reco_weight_profile"
+        "crm_reco_weight_profile",
+        // 本地差异 #12：T-E2 浏览量日汇总 rollup 表
+        "crm_notice_view_daily"
       ];
       const [rows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name
@@ -3779,6 +3839,8 @@ async function startServer() {
         // 本地差异 #11
         crm_user_reco_feedback: ["user_key", "notice_id", "action", "reco_score", "position", "variant", "session_id", "dwell_ms"],
         crm_reco_weight_profile: ["user_key", "w_unspsc", "w_agency", "w_amount", "w_geo", "w_urgency"],
+        // 本地差异 #12
+        crm_notice_view_daily: ["notice_id", "stat_day", "view_cnt", "uniq_user_cnt"],
       };
       const [columnRows] = await dbPool.query(
         `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
