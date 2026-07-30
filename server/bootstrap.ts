@@ -10,7 +10,7 @@ import { createDbPool } from "./db/pool";
 import { ensureProcurementSchema } from "./db/schema";
 import { backfillUserIds, hydratePaymentEnvFromDb } from "./db/backfills";
 import { createLeadsStore } from "./services/leads";
-import { PaymentService } from "../src/payment/PaymentService";
+import { PaymentService } from "./payment/PaymentService";
 import { createApp } from "./app";
 import type { AppContext } from "./context";
 

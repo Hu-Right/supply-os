@@ -4,7 +4,7 @@ import type {
   OrderStatusResult,
   PaymentProviderName,
   PaymentStrategy,
-} from "@/types/payment";
+} from "../../src/types/payment";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";

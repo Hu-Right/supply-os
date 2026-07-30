@@ -15,7 +15,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/**/*.{ts,tsx}", "server/**/*.{ts,tsx}"],
       exclude: [
         "src/__tests__/**",
         "src/**/*.d.ts",
@@ -23,7 +23,6 @@ export default defineConfig({
         "src/**/index.ts",        // barrel 导出（无逻辑）
         "src/types/**",           // 纯类型定义
         "src/data/**",            // 纯静态数据
-        "src/payment/**",         // 后端支付提供者（后端冻结）
         "src/main.tsx",           // 入口挂载点
         // 各 feature 内的纯类型/纯数据文件
         "src/core/auth/types.ts",

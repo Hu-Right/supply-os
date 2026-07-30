@@ -5,7 +5,7 @@
 
 import type { Pool } from "mysql2/promise";
 import type { Lead } from "../src/types";
-import type { PaymentService } from "../src/payment/PaymentService";
+import type { PaymentService } from "./payment/PaymentService";
 
 export type AppContext = {
   dbPool: Pool;
