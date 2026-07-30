@@ -12,6 +12,11 @@ import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import { Lead, Supplier } from "./src/types";
+import { safeJson, preferValue } from "./server/utils/json";
+import { maskPhone, maskEmail, splitListField } from "./server/utils/mask";
+import { normalizeContactRows, extractContactsFromText, normalizeDocumentRows, normalizeUserKey } from "./server/utils/normalize";
+import { getPaymentRuntimeConfig, channelConfigured } from "./server/config/env";
+import { translateNoticeText, translateSupplierFields, translateUnspscTitles } from "./server/services/translation/gemini";
 
 type UnspscCodeRow = {
   id: number;
@@ -21,16 +26,6 @@ type UnspscCodeRow = {
   parent_id?: number | null;
   level: number;
 };
-
-function safeJson(value: any) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return [];
-  }
-}
 
 function normalizeUnspscCodes(value: any) {
   const source = safeJson(value);
@@ -59,66 +54,6 @@ function normalizeUnspscCodes(value: any) {
 
   visit(source);
   return Array.from(found.values());
-}
-
-function normalizeContactRows(...sources: any[]) {
-  const rows: Array<{ name: string; title: string; email: string; phone: string }> = [];
-  const seen = new Set<string>();
-  const add = (contact: any) => {
-    if (!contact || typeof contact !== "object") return;
-    const email = String(contact.email || contact.mail || "").trim();
-    const phone = String(contact.phone || contact.tel || contact.telephone || "").trim();
-    const name = String(contact.name || contact.person || contact.contact || [contact.firstName, contact.lastName].filter(Boolean).join(" ")).trim();
-    const title = String(contact.title || contact.role || "").trim();
-    const key = `${email.toLowerCase()}|${phone}|${name.toLowerCase()}`;
-    if (key === "||" || seen.has(key)) return;
-    seen.add(key);
-    rows.push({ name, title, email, phone });
-  };
-
-  for (const source of sources) {
-    const list = Array.isArray(source) ? source : safeJson(source);
-    if (Array.isArray(list)) list.forEach(add);
-  }
-  return rows;
-}
-
-function extractContactsFromText(text: string) {
-  const emails = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi) || [];
-  const phones = text.match(/(?:\+?\d[\d\s().\-]{7,}\d)/g) || [];
-  const count = Math.max(emails.length, phones.length);
-  return Array.from({ length: count }).map((_, index) => ({
-    name: "",
-    title: "",
-    email: emails[index] || "",
-    phone: phones[index] || "",
-  }));
-}
-
-function normalizeDocumentRows(...sources: any[]) {
-  const rows: any[] = [];
-  const seen = new Set<string>();
-  const add = (doc: any) => {
-    if (!doc || typeof doc !== "object") return;
-    const url = String(doc.url || doc.href || doc.link || doc.downloadUrl || "").trim();
-    const name = String(doc.name || doc.title || doc.fileName || doc.filename || "").trim() || (url ? path.basename(url.split("?")[0]) : "");
-    const key = `${url.toLowerCase()}|${name.toLowerCase()}`;
-    if (key === "|" || seen.has(key)) return;
-    seen.add(key);
-    rows.push({ ...doc, url, name });
-  };
-
-  for (const source of sources) {
-    const list = Array.isArray(source) ? source : safeJson(source);
-    if (Array.isArray(list)) list.forEach(add);
-  }
-  return rows;
-}
-
-function preferValue(primary: any, fallback: any) {
-  if (primary === null || primary === undefined || primary === "") return fallback;
-  if (Array.isArray(primary) && primary.length === 0) return fallback;
-  return primary;
 }
 
 function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: any) {
@@ -590,47 +525,6 @@ async function backfillUnspscCodeIds(dbPool: any) {
   }
 }
 
-function getPaymentRuntimeConfig() {
-  const mode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
-  const alipayRequired = ["ALIPAY_APP_ID", "ALIPAY_PRIVATE_KEY", "ALIPAY_PUBLIC_KEY", "ALIPAY_NOTIFY_URL"];
-  const wechatRequired = ["WECHAT_APP_ID", "WECHAT_MCH_ID", "WECHAT_API_V3_KEY", "WECHAT_PRIVATE_KEY", "WECHAT_NOTIFY_URL"];
-  const hasEnv = (name: string) => Boolean(process.env[name] && String(process.env[name]).trim());
-  const missing = (names: string[]) => names.filter((name) => !hasEnv(name));
-  const wechatMchConfigured = hasEnv("WECHAT_MCH_ID") || hasEnv("WECHAT_MERCHANT_ID");
-  const wechatMissing = wechatRequired.filter((name) => name === "WECHAT_MCH_ID" ? !wechatMchConfigured : !hasEnv(name));
-
-  return {
-    mode,
-    live_enabled: mode === "live",
-    providers: {
-      alipay: {
-        configured: missing(alipayRequired).length === 0,
-        missing_env: missing(alipayRequired),
-        support: {
-          pc: "alipay.trade.page.pay",
-          h5: "planned: alipay.trade.wap.pay, current provider uses page.pay skeleton",
-        },
-      },
-      wechat: {
-        configured: wechatMissing.length === 0,
-        missing_env: wechatMissing,
-        accepted_mch_env: ["WECHAT_MCH_ID", "WECHAT_MERCHANT_ID"],
-        support: {
-          h5: "WeChat Pay H5 outside WeChat browser, provider skeleton",
-          pc: "Native QR planned, current provider returns placeholder qr_code_url",
-        },
-      },
-      mock: {
-        configured: true,
-        support: {
-          pc: "auto-paid polling demo",
-          h5: "auto-paid polling demo",
-        },
-      },
-    },
-  };
-}
-
 async function hydratePaymentEnvFromDb(dbPool: any) {
   const [rows] = await dbPool.query(
     `SELECT provider, mode, app_id, notify_url, return_url, public_key, private_key_ref, is_active
@@ -774,46 +668,6 @@ function detectDominantScript(text: string): ContentScript {
 // 同一 (notice, lang) 的并发首次请求只触发一次翻译链调用
 const pendingNoticeTranslations = new Map<string, Promise<ChainResult>>();
 
-async function translateNoticeText(
-  title: string,
-  description: string,
-  langName: string
-): Promise<{ title: string; description: string }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-    throw new Error("TRANSLATION_UNAVAILABLE");
-  }
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-  });
-  const prompt = `You are a professional procurement document translator. Translate the tender notice fields below into ${langName}.
-Rules:
-- Keep organization names, reference numbers, UNSPSC codes, URLs, emails and abbreviations (e.g. UNGM, RFQ, ITB, EOI) unchanged.
-- Preserve line breaks inside the description.
-- Return ONLY valid JSON in exactly this shape: {"title": "...", "description": "..."}
-
-TITLE:
-${title}
-
-DESCRIPTION:
-${description}`;
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: prompt,
-  });
-  const raw = (response.text || "")
-    .trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/, "")
-    .trim();
-  const parsed = JSON.parse(raw);
-  if (typeof parsed?.title !== "string" || typeof parsed?.description !== "string") {
-    throw new Error("TRANSLATION_MALFORMED");
-  }
-  return { title: parsed.title, description: parsed.description };
-}
-
 // ── 供应商字段按需翻译（对齐公告翻译：缓存表 + Gemini + 并发去重）──
 // 原文为中文，仅需翻译非中文界面语言；公司名保留原文不翻译
 const SUPPLIER_TRANSLATION_LANGS: Record<string, string> = {
@@ -824,71 +678,8 @@ const SUPPLIER_TRANSLATION_LANGS: Record<string, string> = {
   ar: "Arabic",
 };
 
-type SupplierTranslatableFields = {
-  industry: string;
-  mainProducts: string;
-  certification: string;
-  enterpriseNature: string;
-};
-
 // 同一 (supplier, lang) 的并发首次翻译只触发一次翻译链调用
 const pendingSupplierTranslations = new Map<string, Promise<ChainResult>>();
-
-async function translateSupplierFields(
-  fields: SupplierTranslatableFields,
-  langName: string
-): Promise<SupplierTranslatableFields> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-    throw new Error("TRANSLATION_UNAVAILABLE");
-  }
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-  });
-  const prompt = `You are a professional B2B trade-directory translator. Translate the Chinese supplier profile fields below into ${langName}.
-Rules:
-- Keep certification abbreviations (e.g. ISO, FDA, CE, 3C, GMP, RoHS) and brand names unchanged.
-- Keep list separators (commas) unchanged so each field stays a comma-separated list.
-- If a field is empty, return an empty string for it.
-- Return ONLY valid JSON in exactly this shape: {"industry": "...", "mainProducts": "...", "certification": "...", "enterpriseNature": "..."}
-
-INDUSTRY:
-${fields.industry}
-
-MAIN PRODUCTS:
-${fields.mainProducts}
-
-CERTIFICATION:
-${fields.certification}
-
-ENTERPRISE NATURE:
-${fields.enterpriseNature}`;
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: prompt,
-  });
-  const raw = (response.text || "")
-    .trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/, "")
-    .trim();
-  const parsed = JSON.parse(raw);
-  if (
-    typeof parsed?.industry !== "string" ||
-    typeof parsed?.mainProducts !== "string" ||
-    typeof parsed?.certification !== "string" ||
-    typeof parsed?.enterpriseNature !== "string"
-  ) {
-    throw new Error("TRANSLATION_MALFORMED");
-  }
-  return {
-    industry: parsed.industry,
-    mainProducts: parsed.mainProducts,
-    certification: parsed.certification,
-    enterpriseNature: parsed.enterpriseNature,
-  };
-}
 
 // ── UNSPSC 类目标题按需翻译（对齐供应商翻译：缓存表 + Gemini + 并发去重）──
 // 源文本为类目英文标题；zh/en 界面直接用类目表原列，仅 fr/ru/es/ar 需要译文
@@ -902,60 +693,12 @@ const UNSPSC_TRANSLATION_LANGS: Record<string, string> = {
 // 同一 (父级列表, lang) 的并发首次翻译只触发一次翻译链调用
 const pendingUnspscTranslations = new Map<string, Promise<ChainResult>>();
 
-// 整批列表一次调用：children 列表 ≤ 60 条，逐条调用会打爆配额
-async function translateUnspscTitles(titles: string[], langName: string): Promise<string[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-    throw new Error("TRANSLATION_UNAVAILABLE");
-  }
-  const ai = new GoogleGenAI({
-    apiKey,
-    httpOptions: { headers: { "User-Agent": "aistudio-build" } },
-  });
-  const prompt = `You are a professional translator of the UNSPSC procurement classification. Translate each category title in the JSON array below into ${langName}.
-Rules:
-- Keep abbreviations, acronyms and proper nouns unchanged.
-- Return ONLY a valid JSON array of strings with exactly ${titles.length} items, in the same order as the input.
-
-INPUT:
-${JSON.stringify(titles)}`;
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: prompt,
-  });
-  const raw = (response.text || "")
-    .trim()
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/, "")
-    .trim();
-  const parsed = JSON.parse(raw);
-  if (
-    !Array.isArray(parsed) ||
-    parsed.length !== titles.length ||
-    parsed.some((item) => typeof item !== "string")
-  ) {
-    throw new Error("TRANSLATION_MALFORMED");
-  }
-  return parsed;
-}
-
 // ── 翻译通道链（本地差异 #4 扩展：有道智云 → DeepSeek V4-Pro → Gemini 兜底）──
 // 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时由 Gemini
 // 兜底函数抛 TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
 // 缓存表 model 列写入真实提供方（youdao / deepseek-v4-pro / gemini-3.5-flash）。
 
 type ChainResult = { translations: string[]; provider: string };
-
-// 占位符值与空值均视为"未配置该通道"（与 GEMINI_API_KEY 占位符检查同款语义）
-const CHANNEL_PLACEHOLDERS = new Set([
-  "MY_GEMINI_API_KEY",
-  "MY_YOUDAO_APP_KEY",
-  "MY_YOUDAO_APP_SECRET",
-  "MY_DEEPSEEK_API_KEY",
-]);
-function channelConfigured(value: string | undefined): boolean {
-  return !!value && value.trim() !== "" && !CHANNEL_PLACEHOLDERS.has(value.trim());
-}
 
 // 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言仅 en/zh，目标含六语言）
 const CHAIN_LANG_NAMES: Record<string, string> = {
@@ -1235,12 +978,6 @@ function translateNoticeViaChain(
 // ── 公采搜索功能（本地差异 #6：G.2 四参数搜索 + G.4 搜索落库 + F.1/F.3 防御）──
 // F.1：user_key 落库前统一归一化（trim + 小写），与读侧 /api/notices/recommended 口径一致；
 // 游客/空值返回 null（拒写 "guest" 占位，避免污染行为统计）
-function normalizeUserKey(raw: unknown): string | null {
-  const key = String(raw || "").trim().toLowerCase().slice(0, 190);
-  if (!key || key === "guest") return null;
-  return key;
-}
-
 // ── 本地差异 #10：T-B3 金额解析（D.3.2 四步规则：垃圾过滤 → 币种识别 → 数字提取/区间取中位 → country 推断）──
 // estimated_value 实测形态（2026-07-29 只读探针）：notices 侧 56% 纯数字 + 43% "BRL 173,841.36" 式；
 // opportunities 侧含"未提及/Not specified"类垃圾文本、"6666.67 php" 小写后缀、"菲律宾比索"中文名、区间。
@@ -2209,29 +1946,6 @@ let leadsDb: Lead[] = [
 ];
 
 // ── crm_suppliers 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
-function maskPhone(raw: unknown): string {
-  const p = String(raw || "").trim();
-  if (!p) return "";
-  if (p.length < 8) return p.slice(0, 2) + "****";
-  return p.slice(0, 3) + "****" + p.slice(-4);
-}
-
-function maskEmail(raw: unknown): string {
-  const e = String(raw || "").trim();
-  if (!e) return "";
-  const at = e.indexOf("@");
-  if (at <= 0) return "***";
-  return e.slice(0, Math.min(2, at)) + "***" + e.slice(at);
-}
-
-// 逗号/顿号等分隔的原始字符串切分为去空数组
-function splitListField(raw: unknown): string[] {
-  return String(raw || "")
-    .split(/[,，、;；]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 // 把「当前请求语言的译文」填进 *En 槽位：前端 pickLocale 对非 zh 语言取第二槽，组件零改动
 function mapSupplierRow(row: any, tr: any | null): Supplier {
   const industryZh =
