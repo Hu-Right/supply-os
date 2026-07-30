@@ -35,7 +35,7 @@ const defaultProps = {
   onPayUnlock: vi.fn(),
 };
 
-// fetchJsonCached 按 URL 缓存：每个用例使用独立 notice id
+// apiCached 按 URL 缓存：每个用例使用独立 notice id
 
 describe("NoticeDetail translation integration", () => {
   it("shows translated title/description and disclaimer after load", async () => {

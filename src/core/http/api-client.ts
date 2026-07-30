@@ -31,12 +31,12 @@ const cache = new Map<string, { data: unknown; timestamp: number }>();
  * Base request function
  *
  * @param endpoint - API 端点（相对路径或完整 URL）
- * @param options - 请求配置（支持 body 自动 JSON 序列化）
+ * @param options - 请求配置（支持 body 自动 JSON 序列化，可直接传对象）
  * @returns 响应数据
  */
 export async function api<T>(
   endpoint: string,
-  options: RequestInit & { body?: unknown } = {},
+  options: Omit<RequestInit, "body"> & { body?: unknown } = {},
 ): Promise<T> {
   const { body, ...init } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;

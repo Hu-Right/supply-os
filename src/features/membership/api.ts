@@ -3,9 +3,11 @@
  * Membership Plan API Calls
  *
  * @module features/membership/api
- * @description 封装会员套餐列表拉取，用于以数据库价格校准前端展示
+ * @description 封装会员套餐列表拉取，用于以数据库价格校准前端展示（统一走 core/http）
  *              Encapsulates membership plan fetching to calibrate display price against DB
  */
+
+import { api } from "@/core/http";
 
 /**
  * 会员套餐（对应 crm_membership_plans）
@@ -28,7 +30,5 @@ export type MembershipPlan = {
  * Fetch active membership plans
  */
 export async function fetchPlans(): Promise<MembershipPlan[]> {
-  const res = await fetch("/api/membership/plans", { cache: "no-store" });
-  if (!res.ok) throw new Error("查询会员套餐失败");
-  return res.json();
+  return api<MembershipPlan[]>("/api/membership/plans", { cache: "no-store" });
 }

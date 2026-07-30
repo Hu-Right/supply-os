@@ -36,12 +36,6 @@ export default defineConfig({
         "src/features/learning/data.ts",
         "src/features/membership/data.ts",
         "src/features/services/types.ts",
-        // API 层（MSW 测试，覆盖率统计不准确）
-        "src/features/payment/api.ts",
-        "src/features/showroom/api.ts",
-        "src/features/crm/api.ts",
-        "src/features/procurement/api.ts",
-        "src/features/training/api.ts",
         // React 19 use() API 难以单元测试
         "src/core/http/useFetch.ts",
       ],

@@ -5,7 +5,7 @@ import { act } from "react";
 import { server } from "../../mocks/server";
 import { useNoticeTranslation } from "@/features/procurement/hooks/useNoticeTranslation";
 
-// 注意：fetchJsonCached 按 URL 做模块级缓存，各用例必须使用不同 noticeId
+// 注意：apiCached 按 URL 做模块级缓存，各用例必须使用不同 noticeId
 // hook 第三参 sourceText 用于内容语言检测：缺省空串→unknown→不请求，
 // 因此需要发起翻译的用例必须传与目标 locale 不同文字系统的原文（如英文原文 + zh）
 const EN_SOURCE = "Supply of diesel generators for field operations";

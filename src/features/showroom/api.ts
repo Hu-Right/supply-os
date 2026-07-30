@@ -49,5 +49,5 @@ export const submitShowroomRegister = (data: ShowroomRegisterForm) =>
       has国际公共采购Participation: data.has国际公共采购Participation,
       notes: data.notes,
       type: "exhibition_register",
-    } as unknown as BodyInit,
+    },
   });

@@ -8,6 +8,7 @@
  *              list fetching requests.
  */
 
+import { api } from "@/core/http";
 import type { Supplier } from "@/types";
 
 /**
@@ -51,10 +52,9 @@ export async function registerSupplier(input: SupplierRegisterInput): Promise<Su
   const mainProducts = splitList(input.mainProductsZh);
   const compliance = splitList(input.complianceLabelsZh);
 
-  const res = await fetch("/api/suppliers", {
+  return api<Supplier>("/api/suppliers", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       nameZh: input.nameZh.trim(),
       nameEn: input.nameEn.trim() || input.nameZh.trim(),
       type: input.type,
@@ -72,15 +72,8 @@ export async function registerSupplier(input: SupplierRegisterInput): Promise<Su
       contactPerson: input.contactPerson.trim(),
       contactEmail: input.contactEmail.trim(),
       contactPhone: input.contactPhone.trim(),
-    }),
+    },
   });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "供应商入驻提交失败");
-  }
-
-  return res.json();
 }
 
 /**
@@ -88,9 +81,7 @@ export async function registerSupplier(input: SupplierRegisterInput): Promise<Su
  * Fetch DB-backed supplier directory localized for the given language
  */
 export async function fetchSuppliers(lang: string): Promise<Supplier[]> {
-  const res = await fetch(`/api/suppliers?lang=${encodeURIComponent(lang)}`, { cache: "no-store" });
-  if (!res.ok) throw new Error("查询供应商列表失败");
-  return res.json();
+  return api<Supplier[]>(`/api/suppliers?lang=${encodeURIComponent(lang)}`, { cache: "no-store" });
 }
 
 /**
@@ -111,13 +102,8 @@ export async function fetchSupplierContact(
   id: string,
   userKey: string
 ): Promise<SupplierContact> {
-  const res = await fetch(
+  return api<SupplierContact>(
     `/api/suppliers/${encodeURIComponent(id)}/contact?user_key=${encodeURIComponent(userKey)}`,
     { cache: "no-store" }
   );
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "查询联系方式失败");
-  }
-  return res.json();
 }

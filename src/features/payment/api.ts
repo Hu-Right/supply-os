@@ -3,9 +3,11 @@
  * Payment API Calls
  *
  * @module features/payment/api
- * @description 封装支付订单创建和状态查询的网络请求
+ * @description 封装支付订单创建和状态查询的网络请求（统一走 core/http）
  *              Encapsulates payment order creation and status polling requests
  */
+
+import { api } from "@/core/http";
 
 export type OrderInfo = {
   order_no: string;
@@ -35,24 +37,16 @@ export type CreateOrderParams = {
  * Create payment order
  */
 export async function createOrder(params: CreateOrderParams): Promise<OrderInfo> {
-  const res = await fetch("/api/payment/orders", {
+  return api<OrderInfo>("/api/payment/orders", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       user_key: params.userKey,
       plan_code: params.planCode,
       provider: params.provider,
       notice_id: params.noticeId ?? null,
       return_url: params.returnUrl || window.location.origin + window.location.pathname,
-    }),
+    },
   });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || "创建订单失败");
-  }
-
-  return res.json();
 }
 
 /**
@@ -63,9 +57,7 @@ export async function getOrderStatus(orderNo: string, tradeNo?: string): Promise
   const url = tradeNo
     ? `/api/payment/orders/${orderNo}?trade_no=${encodeURIComponent(tradeNo)}`
     : `/api/payment/orders/${orderNo}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("查询订单失败");
-  return res.json();
+  return api<OrderInfo>(url);
 }
 
 /**
@@ -73,10 +65,9 @@ export async function getOrderStatus(orderNo: string, tradeNo?: string): Promise
  * Mock payment confirmation (manually complete payment under mock mode)
  */
 export async function mockPaid(orderNo: string): Promise<void> {
-  const res = await fetch(`/api/payments/${encodeURIComponent(orderNo)}/mock-paid`, {
+  await api<unknown>(`/api/payments/${encodeURIComponent(orderNo)}/mock-paid`, {
     method: "POST",
   });
-  if (!res.ok) throw new Error("确认支付失败");
 }
 
 /**
@@ -161,9 +152,7 @@ export async function fetchOrders(params: {
   if (params.status) search.set("status", params.status);
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
-  const res = await fetch(`/api/payment/orders?${search.toString()}`);
-  if (!res.ok) throw new Error("查询订单记录失败");
-  return res.json();
+  return api<PagedResult<OrderRecord>>(`/api/payment/orders?${search.toString()}`);
 }
 
 // 本地差异 #18：库内存在中文原文公告，en 也需请求译文（英文原文由服务端内容检测直通返回，不耗 API）
@@ -186,7 +175,5 @@ export async function fetchUnlocks(params: {
   if (params.page) search.set("page", String(params.page));
   if (params.limit) search.set("limit", String(params.limit));
   if (params.locale && NOTICE_API_LANGS.has(params.locale)) search.set("lang", params.locale);
-  const res = await fetch(`/api/payment/unlocks?${search.toString()}`);
-  if (!res.ok) throw new Error("查询解锁记录失败");
-  return res.json();
+  return api<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${search.toString()}`);
 }

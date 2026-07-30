@@ -101,7 +101,7 @@ describe("fetchRecommendedNotices", () => {
     );
     await expect(
       fetchRecommendedNotices({ userKey: "", page: 1, pageSize: 9 })
-    ).rejects.toThrow("Request failed: 400");
+    ).rejects.toThrow("USER_REQUIRED");
   });
 
   it("is not cached: each call hits the server (interest codes evolve)", async () => {

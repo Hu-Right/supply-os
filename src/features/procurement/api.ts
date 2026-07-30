@@ -1,4 +1,5 @@
 // 采购模块 API
+import { api, apiCached, ApiError } from "@/core/http";
 import type {
   NoticeResponse,
   NoticeItem,
@@ -9,21 +10,6 @@ import type {
 
 // UNSPSC 类目获取已上移 core/unspsc（跨模块领域服务），此处 re-export 保持内部兼容
 export { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc";
-
-const apiCache = new Map<string, Promise<any>>();
-
-export const fetchJsonCached = <T,>(url: string): Promise<T> => {
-  const cached = apiCache.get(url);
-  if (cached) return cached;
-
-  const request = fetch(url).then((res) => {
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    return res.json();
-  });
-  apiCache.set(url, request);
-  request.catch(() => apiCache.delete(url));
-  return request;
-};
 
 // ── 公采搜索功能（本地差异 #6 配套前端）──
 
@@ -64,20 +50,20 @@ export const fetchNotices = (
   if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
   if (params.noticeType) searchParams.set("notice_type", params.noticeType);
   // if (params.featured) searchParams.set("featured", "1"); // [精选功能临时禁用 2026-07-29]
-  return fetchJsonCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
+  return apiCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
 
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
 export const fetchNoticeCountries = () =>
-  fetchJsonCached<Array<{ country: string; count: number }>>("/api/notices/countries");
+  apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
 
 export const fetchMembershipPlans = () =>
-  fetchJsonCached<MembershipPlan[]>("/api/membership/plans");
+  apiCached<MembershipPlan[]>("/api/membership/plans");
 
 export const fetchMembershipStatus = (userKey: string, useCache = false) => {
   const url = `/api/membership/status?user_key=${encodeURIComponent(userKey)}`;
   return useCache
-    ? fetchJsonCached<MembershipStatus>(url)
+    ? apiCached<MembershipStatus>(url)
     : fetch(url).then((res) => res.json());
 };
 
@@ -128,9 +114,9 @@ export const fetchNoticeDetail = (noticeId: number, userKey: string): Promise<No
   const cached = noticeDetailCache.get(url);
   if (cached) return cached;
 
-  const request = fetch(url).then((res) => {
-    if (!res.ok) throw new Error(`NOTICE_DETAIL_${res.status}`);
-    return res.json() as Promise<NoticeItem>;
+  const request = api<NoticeItem>(url).catch((err) => {
+    // 保留原错误文案格式（调用方/测试按 NOTICE_DETAIL_<status> 匹配）
+    throw new Error(`NOTICE_DETAIL_${err instanceof ApiError ? err.status : 0}`);
   });
   noticeDetailCache.set(url, request);
   request.catch(() => noticeDetailCache.delete(url));
@@ -145,9 +131,7 @@ export const fetchNoticeDetail = (noticeId: number, userKey: string): Promise<No
  */
 export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]> => {
   try {
-    const res = await fetch(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`);
-    if (!res.ok) return [];
-    const rows = await res.json();
+    const rows = await api<unknown>(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`);
     return Array.isArray(rows)
       ? rows.map((row) => Number(row?.notice_id)).filter((id) => Number.isFinite(id) && id > 0)
       : [];
@@ -164,7 +148,7 @@ export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]>
  *          付费内容不经过本端点，故无需携带用户身份。
  */
 export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
-  fetchJsonCached<NoticeTranslation>(
+  apiCached<NoticeTranslation>(
     `/api/notices/${noticeId}/translation?lang=${encodeURIComponent(lang)}`
   );
 
@@ -188,9 +172,9 @@ export interface IndustryPrefs {
  */
 export const fetchIndustryPrefs = async (userKey: string): Promise<IndustryPrefs | null> => {
   try {
-    const res = await fetch(`/api/user/industry-prefs?user_key=${encodeURIComponent(userKey)}`);
-    if (!res.ok) return null;
-    const data = await res.json();
+    const data = await api<{ prefs?: IndustryPrefs | null }>(
+      `/api/user/industry-prefs?user_key=${encodeURIComponent(userKey)}`
+    );
     return data?.prefs || null;
   } catch {
     return null;
@@ -228,10 +212,7 @@ export const fetchRecommendedNotices = (params: {
   });
   // [dismiss 功能临时禁用 2026-07-30]
   // if (params.excludeDismissed) searchParams.set("exclude_dismissed", "1");
-  return fetch(`/api/notices/recommended?${searchParams.toString()}`).then((res) => {
-    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-    return res.json();
-  });
+  return api<NoticeResponse>(`/api/notices/recommended?${searchParams.toString()}`);
 };
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──
@@ -284,14 +265,13 @@ export const sendNoticeFeedback = (
   actions: NoticeFeedbackItem[]
 ): Promise<void> => {
   if (!userKey || actions.length === 0) return Promise.resolve();
-  return fetch("/api/notices/feedback", {
+  return api<unknown>("/api/notices/feedback", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       user_key: userKey,
       session_id: getFeedbackSessionId(),
       actions: actions.slice(0, 50),
-    }),
+    },
   })
     .then(() => undefined)
     .catch(() => undefined);

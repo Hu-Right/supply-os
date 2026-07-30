@@ -64,5 +64,5 @@ export const fetchSubIndustries = (parentId: string | number) =>
 export const submitTrainingRegister = (data: TrainingRegisterForm) =>
   api<{ success: boolean }>("/api/training/register", {
     method: "POST",
-    body: data as unknown as BodyInit,
+    body: data,
   });
