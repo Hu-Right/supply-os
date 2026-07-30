@@ -7,53 +7,9 @@ export type { NoticeItem, NoticeContact, NoticeAttachment, NoticeResponse } from
 // UNSPSC 类目选项类型已上移 core/unspsc，此处 re-export 保持 feature 内部兼容
 export type { UnspscOption } from "@/core/unspsc";
 
-export interface MembershipPlan {
-  plan_code: string;
-  name: string;
-  description?: string;
-  price: number;
-  currency: string;
-  duration_days?: number | null;
-  unlock_quota: number;
-  free_quota: number;
-  plan_type: string;
-}
-
-export interface MembershipStatus {
-  membership_tier: string;
-  free_quota: number;
-  free_used: number;
-  free_remaining: number;
-  paid_unlocks: number;
-  paid_quota_total?: number;
-  paid_quota_used?: number;
-  paid_quota_remaining?: number;
-  active_subscriptions?: Array<{
-    plan_code: string;
-    status: string;
-    expires_at?: string | null;
-  }>;
-  entitlements?: Array<{
-    id: number;
-    plan_code: string;
-    quota_total: number;
-    quota_used: number;
-    quota_remaining: number;
-    expires_at?: string | null;
-  }>;
-}
-
-export interface PaymentOrder {
-  order_no: string;
-  provider: "alipay" | "wechat" | "mock";
-  plan_code: string;
-  amount: number;
-  currency?: string;
-  status: string;
-  payment_mode?: "configured" | "mock";
-  pay_url?: string;
-  qr_code_url?: string;
-}
+// 会员领域类型以全局 `@/types` 为单一事实源，此处 re-export 供 feature 内部复用。
+// Membership domain types share the single source of truth in `@/types`; re-exported here for feature-local use.
+export type { MembershipPlan, MembershipStatus } from "@/types";
 
 /** 公告标题/说明的按需 AI 译文 On-demand AI translation of a notice */
 export interface NoticeTranslation {

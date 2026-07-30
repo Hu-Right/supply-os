@@ -8,22 +8,11 @@
  */
 
 import { api } from "@/core/http";
+import type { MembershipPlan } from "@/types";
 
-/**
- * 会员套餐（对应 crm_membership_plans）
- * Membership plan (maps to crm_membership_plans)
- */
-export type MembershipPlan = {
-  plan_code: string;
-  name: string;
-  description?: string | null;
-  price: number;
-  currency: string;
-  duration_days?: number | null;
-  unlock_quota?: number | null;
-  free_quota?: number | null;
-  plan_type?: string | null;
-};
+// 会员套餐类型以全局 `@/types` 为单一事实源，此处 re-export 保持 barrel 兼容。
+// Membership plan type shares the single source of truth in `@/types`; re-exported for barrel compatibility.
+export type { MembershipPlan };
 
 /**
  * 拉取启用中的会员套餐列表

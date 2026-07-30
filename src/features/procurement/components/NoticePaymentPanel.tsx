@@ -11,12 +11,13 @@
 
 import { CheckCircle2, CreditCard, ExternalLink, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import type { MembershipPlan, PaymentOrder } from "../types";
+import type { MembershipPlan } from "../types";
+import type { OrderInfo } from "@/features/payment";
 
 interface NoticePaymentPanelProps {
   plans: MembershipPlan[];
   provider: "alipay" | "wechat";
-  order: PaymentOrder | null;
+  order: OrderInfo | null;
   busyPlanCode: string;
   message: string;
   onProviderChange: (provider: "alipay" | "wechat") => void;

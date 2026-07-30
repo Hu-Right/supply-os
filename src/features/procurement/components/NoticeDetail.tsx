@@ -11,7 +11,8 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import type { NoticeItem, MembershipStatus, MembershipPlan, PaymentOrder } from "../types";
+import type { NoticeItem, MembershipStatus, MembershipPlan } from "../types";
+import type { OrderInfo } from "@/features/payment";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
 import { NoticeUnlockedDetails, collectBreakdownFiles } from "./NoticeUnlockedDetails";
@@ -35,7 +36,7 @@ interface NoticeDetailProps {
   payment?: {
     plans: MembershipPlan[];
     paywallNotice: NoticeItem | null;
-    order: PaymentOrder | null;
+    order: OrderInfo | null;
     provider: "alipay" | "wechat";
     busyPlanCode: string;
     message: string;

@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/features/payment";
-import type { NoticeItem, PaymentOrder } from "../types";
+import type { NoticeItem } from "../types";
 
 /** 面板支持的支付方式（微信暂未开通，仅支付宝可用） */
 type PanelProvider = "alipay" | "wechat";
@@ -32,7 +32,7 @@ export type UseNoticePaymentOptions = {
 
 export type UseNoticePaymentReturn = {
   paywallNotice: NoticeItem | null;
-  paymentOrder: PaymentOrder | null;
+  paymentOrder: OrderInfo | null;
   paymentProvider: PanelProvider;
   busyPlanCode: string;
   paymentMessage: string;
@@ -50,7 +50,7 @@ export function useNoticePayment({
 }: UseNoticePaymentOptions): UseNoticePaymentReturn {
   const { t } = useLocale();
   const [paywallNotice, setPaywallNotice] = useState<NoticeItem | null>(null);
-  const [paymentOrder, setPaymentOrder] = useState<PaymentOrder | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<OrderInfo | null>(null);
   const [paymentProvider, setPaymentProvider] = useState<PanelProvider>("alipay");
   const [busyPlanCode, setBusyPlanCode] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
@@ -163,7 +163,7 @@ export function useNoticePayment({
     }
     stopPolling();
     setPaymentMessage(t("procurement_paidOk"));
-    await onPaid(paywallNotice.id, paymentOrder.plan_code);
+    await onPaid(paywallNotice.id, paymentOrder.plan_code!);
     setPaymentOrder(null);
   }, [paymentOrder, paywallNotice, onPaid, stopPolling, t]);
 
