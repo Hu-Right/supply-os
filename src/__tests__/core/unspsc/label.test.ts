@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getUnspscOptionLabel } from "@/features/procurement/unspsc-label";
+import { getUnspscOptionLabel } from "@/core/unspsc";
 
 // UNSPSC 级联选项文案策略：只展示按语言选择的标题，编码不进入选项文案
 describe("getUnspscOptionLabel", () => {

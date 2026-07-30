@@ -1,6 +1,5 @@
 import { useLocale } from "@/core/i18n";
-import type { UnspscOption } from "../types";
-import { getUnspscOptionLabel } from "../unspsc-label";
+import { getUnspscOptionLabel, type UnspscOption } from "@/core/unspsc";
 
 interface UnspcsSelectorProps {
   levels: UnspscOption[][];

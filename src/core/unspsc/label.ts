@@ -1,3 +1,9 @@
+/**
+ * UNSPSC 级联选项文案
+ * UNSPSC cascading option label
+ *
+ * @module core/unspsc/label
+ */
 import type { Locale } from "@/core/i18n";
 import type { UnspscOption } from "./types";
 

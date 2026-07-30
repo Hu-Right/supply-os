@@ -17,13 +17,15 @@ import { emitAppEvent } from "@/core/events";
 import { useScrollLock } from "@/shared/ui";
 import { MyRecordsPanel } from "@/features/payment";
 import {
-  fetchUnspscIndustries,
-  fetchUnspscChildren,
   fetchIndustryPrefs,
   saveIndustryPrefs,
 } from "@/features/procurement/api";
-import type { UnspscOption } from "@/features/procurement/types";
-import { getUnspscOptionLabel } from "@/features/procurement/unspsc-label";
+import {
+  fetchUnspscIndustries,
+  fetchUnspscChildren,
+  getUnspscOptionLabel,
+  type UnspscOption,
+} from "@/core/unspsc";
 
 type AuthModalProps = {
   onClose: () => void;

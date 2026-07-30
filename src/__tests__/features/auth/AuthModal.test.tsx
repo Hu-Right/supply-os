@@ -39,16 +39,19 @@ vi.mock("@/features/payment", () => ({
   ),
 }));
 
-// ── Mock procurement api（UNSPSC 级联 + 行业偏好，本地差异 #5 配套）──
+// ── Mock procurement api（行业偏好，本地差异 #5 配套）+ core/unspsc（UNSPSC 级联，已上移领域服务）──
 const mockFetchUnspscIndustries = vi.fn();
 const mockFetchUnspscChildren = vi.fn();
 const mockFetchIndustryPrefs = vi.fn();
 const mockSaveIndustryPrefs = vi.fn();
 vi.mock("@/features/procurement/api", () => ({
-  fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
-  fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
   fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
   saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
+}));
+vi.mock("@/core/unspsc", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/core/unspsc")>()),
+  fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
+  fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
 }));
 
 describe("AuthModal", () => {

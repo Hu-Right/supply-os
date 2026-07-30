@@ -1,12 +1,14 @@
 // 采购模块 API
 import type {
-  UnspscOption,
   NoticeResponse,
   NoticeItem,
   MembershipPlan,
   MembershipStatus,
   NoticeTranslation,
 } from "./types";
+
+// UNSPSC 类目获取已上移 core/unspsc（跨模块领域服务），此处 re-export 保持内部兼容
+export { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc";
 
 const apiCache = new Map<string, Promise<any>>();
 
@@ -21,20 +23,6 @@ export const fetchJsonCached = <T,>(url: string): Promise<T> => {
   apiCache.set(url, request);
   request.catch(() => apiCache.delete(url));
   return request;
-};
-
-// 需要向后端请求译文的界面语言（zh/en 直接用类目表原列，不传 lang）
-const UNSPSC_API_LANGS = new Set(["fr", "ru", "es", "ar"]);
-
-export const fetchUnspscIndustries = (locale?: string) => {
-  const lang = locale && UNSPSC_API_LANGS.has(locale) ? `?lang=${encodeURIComponent(locale)}` : "";
-  return fetchJsonCached<UnspscOption[]>(`/api/unspsc/industries${lang}`);
-};
-
-export const fetchUnspscChildren = (parentId: string, locale?: string) => {
-  const searchParams = new URLSearchParams({ parent_id: parentId });
-  if (locale && UNSPSC_API_LANGS.has(locale)) searchParams.set("lang", locale);
-  return fetchJsonCached<UnspscOption[]>(`/api/unspsc/children?${searchParams.toString()}`);
 };
 
 // ── 公采搜索功能（本地差异 #6 配套前端）──
