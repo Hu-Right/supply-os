@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Crown,
@@ -10,14 +10,12 @@ import { useAuth } from "@/core/auth";
 import { onAppEvent, emitAppEvent } from "@/core/events";
 import { getOrderStatus, RecentUnlocks } from "@/features/payment";
 import type {
-  UnspscOption,
   NoticeItem,
   MembershipPlan,
   MembershipStatus,
 } from "../types";
 import {
   fetchUnspscIndustries,
-  fetchUnspscChildren,
   fetchMembershipPlans,
   fetchMembershipStatus,
   viewNotice,
@@ -25,8 +23,6 @@ import {
   expressInterest,
   fetchNoticeDetail,
   fetchUnlockedNoticeIds,
-  fetchIndustryPrefs,
-  fetchRecommendedNotices,
   sendNoticeFeedback,
 } from "../api";
 import { NoticeCard } from "../components/NoticeCard";
@@ -34,15 +30,12 @@ import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { Pagination } from "@/shared/ui";
 import { useNoticePayment } from "../hooks/useNoticePayment";
-import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
+import { useNoticeSearch } from "../hooks/useNoticeSearch";
+import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 
 // 免费详情查看配额的兜底值（membership 未加载时使用）；
 // 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表）
 const FREE_QUOTA_FALLBACK = 3;
-
-// 进入公采页的初始化状态机（本地差异 #5）：
-// loading = 登录态判定中；prefs = 按账号默认行业筛选；recommended = 按行为兴趣推荐；default = 现状全量
-type PrefsMode = "loading" | "prefs" | "recommended" | "default";
 
 export default function ProcurementPage() {
   const { t, locale } = useLocale();
@@ -53,8 +46,6 @@ export default function ProcurementPage() {
   const onRequireLogin = () => {
     emitAppEvent("supply-os:require-login");
   };
-  const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
-  const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
@@ -63,110 +54,18 @@ export default function ProcurementPage() {
   // T-B10（本地差异 #15）：推荐响应回传的 A/B 桶标记，反馈埋点原样携带供指标按桶聚合
   const variantRef = useRef<string | undefined>(undefined);
 
-  // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
-  // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
-  const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (authUser?.user_key ? "loading" : "default"));
-  // 记录已探测过的账号：布尔锁会漏掉"登出→换号"场景，按 userKey 判重才能给新账号重新探测
-  const prefsInitKeyRef = useRef<string | null>(null);
-  // 偏好变更事件的重探测信号量：prefsMode 可能已是 loading（setState 同值不触发 effect），
-  // 递增 tick 才能保证探测 effect 必定重跑，不会卡死在 loading
-  const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
-
-  useEffect(() => {
-    if (!userKey) {
-      // 登出：清掉上一账号的自动筛选残留（预选 + 提示条），回未登录全量现状
-      prefsInitKeyRef.current = null;
-      if (prefsMode !== "default") {
-        setPrefsMode("default");
-        setSelectedIds(["", "", "", "", ""]);
-        setLevels((prev) => [prev[0], [], [], [], []]);
-        setPage(1);
-      }
-      return;
-    }
-    if (prefsInitKeyRef.current === userKey) return;
-    prefsInitKeyRef.current = userKey;
-    // 过期判定用 ref 而非 cleanup 标志：StrictMode 双执行下 cleanup 会把首轮探测
-    // 全部作废、次轮又被判重拦截，导致 prefsMode 永远卡在 loading（公告不加载）
-    const stale = () => prefsInitKeyRef.current !== userKey;
-    (async () => {
-      const prefs = await fetchIndustryPrefs(userKey);
-      if (stale()) return;
-      if (prefs?.level1_id) {
-        // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
-        const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, prefs.level4_id, prefs.level5_id]
-          .map((id) => (id ? String(id) : ""));
-        const nextChildren: UnspscOption[][] = [[], [], [], []];
-        for (let i = 0; i < 4 && path[i]; i += 1) {
-          try {
-            const children = await fetchUnspscChildren(path[i], locale);
-            nextChildren[i] = Array.isArray(children) ? children : [];
-          } catch {
-            nextChildren[i] = [];
-          }
-        }
-        if (stale()) return;
-        setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
-        setSelectedIds(path);
-        setPrefsMode("prefs");
-        return;
-      }
-      // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
-      try {
-        const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
-        if (stale()) return;
-        if (Number(probe.total || 0) > 0) {
-          setPrefsMode("recommended");
-          return;
-        }
-      } catch {
-        // 推荐接口异常同样回退全量
-      }
-      // S2 双空：现状全量列表
-      if (!stale()) setPrefsMode("default");
-    })();
-    // prefsMode 入依赖仅服务登出清理分支；已登录路径有 prefsInitKeyRef 判重，不会重复探测；
-    // prefsRefreshTick 由偏好变更事件递增，强制清锁后重新探测
-  }, [userKey, prefsMode, prefsRefreshTick]);
-
-  // 账号弹窗中保存/清除默认行业后广播 supply-os:industry-prefs-updated：
-  // 同页打开弹窗时组件不卸载、userKey 不变，判重锁会拦住重新探测，
-  // 故收到事件后清锁 + 清残留预选 + 回 loading + 递增 tick，让上方探测 effect 按新偏好重跑
-  useEffect(() => {
-    const onPrefsUpdated = () => {
-      prefsInitKeyRef.current = null;
-      setSelectedIds(["", "", "", "", ""]);
-      setLevels((prev) => [prev[0], [], [], [], []]);
-      setPage(1);
-      setPrefsMode(userKey ? "loading" : "default");
-      setPrefsRefreshTick((tick) => tick + 1);
-    };
-    return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
-  }, [userKey]);
-
-  // 提示条中展示的偏好类目名（一级/二级名按 locale 取词，多级用 / 连接）
-  const prefsBannerName = useMemo(() => {
-    const names: string[] = [];
-    selectedIds.forEach((id, index) => {
-      if (!id) return;
-      const opt = levels[index]?.find((item) => String(item.id) === id);
-      if (!opt) return;
-      const title =
-        locale === "zh"
-          ? opt.title_zh || opt.title || opt.name
-          : opt.title_i18n || opt.title_en || opt.title || opt.name || opt.title_zh;
-      if (title) names.push(title);
-    });
-    return names.join(" / ");
-  }, [levels, selectedIds, locale]);
-
-  // 「查看全部」/手动改筛选：退出自动模式，回到现状全量列表
-  const exitAutoMode = () => {
-    setPrefsMode("default");
-    setSelectedIds(["", "", "", "", ""]);
-    setLevels((prev) => [prev[0], [], [], [], []]);
-    setPage(1);
-  };
+  // ── 账号默认行业偏好三级降级 + UNSPSC 级联（本地差异 #5 配套前端）──
+  const {
+    levels,
+    setLevels,
+    selectedIds,
+    prefsMode,
+    setPrefsMode,
+    prefsBannerName,
+    deepestCodeId,
+    exitAutoMode,
+    handleLevelChange,
+  } = useIndustryPrefs({ userKey, locale, setPage, setSelectedNotice });
 
   // 已解锁公告 id 集合 + 详情拓展加载态（闪烁修复）
   // detailLoadingId 记录"正在为哪条公告加载"：快速连续点击时 A 的 finally 不会误清 B 的加载态
@@ -193,13 +92,6 @@ export default function ProcurementPage() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(getDetailViewCountKey(), String(count));
   };
-
-  const deepestCodeId = useMemo(() => {
-    for (let i = selectedIds.length - 1; i >= 0; i -= 1) {
-      if (selectedIds[i]) return selectedIds[i];
-    }
-    return "";
-  }, [selectedIds]);
 
   // ── 公采搜索栏 + 列表数据（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
   const {
@@ -327,32 +219,6 @@ export default function ProcurementPage() {
       .catch(() => {});
   }, []);
 
-  // 切语言后按当前选择路径重拉各级选项：fr/ru/es/ar 的选项译文由后端按 lang 返回，
-  // 必须重新请求才能刷新文案。localeRef 守卫保证仅语言变化时触发（挂载与选级联不重拉）
-  const localeRef = useRef(locale);
-  useEffect(() => {
-    if (localeRef.current === locale) return;
-    localeRef.current = locale;
-    (async () => {
-      const nextLevels: UnspscOption[][] = [[], [], [], [], []];
-      try {
-        const industries = await fetchUnspscIndustries(locale);
-        nextLevels[0] = Array.isArray(industries) ? industries : [];
-      } catch {
-        nextLevels[0] = [];
-      }
-      for (let i = 0; i < 4 && selectedIds[i]; i += 1) {
-        try {
-          const children = await fetchUnspscChildren(selectedIds[i], locale);
-          nextLevels[i + 1] = Array.isArray(children) ? children : [];
-        } catch {
-          nextLevels[i + 1] = [];
-        }
-      }
-      setLevels(nextLevels);
-    })();
-  }, [locale, selectedIds]);
-
   useEffect(() => {
     refreshMembership(true);
   }, [userKey, isVip]);
@@ -473,27 +339,6 @@ export default function ProcurementPage() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [selectedNotice, feedbackEnabled, userKey]);
-
-  const handleLevelChange = async (levelIndex: number, value: string) => {
-    // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
-    if (prefsMode !== "default") setPrefsMode("default");
-    const nextSelected = selectedIds.map((id, index) => (index < levelIndex ? id : ""));
-    nextSelected[levelIndex] = value;
-    setSelectedIds(nextSelected);
-    setPage(1);
-    setSelectedNotice(null);
-
-    const nextLevels = levels.map((list, index) => (index <= levelIndex ? list : []));
-    if (value && levelIndex < 4) {
-      try {
-        const children = await fetchUnspscChildren(value, locale);
-        nextLevels[levelIndex + 1] = Array.isArray(children) ? children : [];
-      } catch {
-        nextLevels[levelIndex + 1] = [];
-      }
-    }
-    setLevels(nextLevels);
-  };
 
   const openNotice = async (notice: NoticeItem) => {
     if (!userKey) {
