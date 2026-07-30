@@ -1,5 +1,6 @@
-// [精选功能临时禁用 2026-07-29] Crown 仅精选徽标使用，随徽标一并注释（避免未使用导入告警）
-import { /* Crown, */ Star, X } from "lucide-react";
+// [収藏/dismiss 功能临时禁用 2026-07-30] Star, X 不再使用
+// [精选功能临时禁用 2026-07-29] Crown 仅精选徽标使用，随徽标一并注释
+import { /* Crown, Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
@@ -12,22 +13,23 @@ const RECO_REASON_KEYS: Record<string, LocaleKey> = {
   recent_deadline: "procurement_reason_recent_deadline",
   high_value: "procurement_reason_high_value",
   preferred_region: "procurement_reason_preferred_region",
-  trending: "procurement_reason_trending",
+  // [热门标签临时禁用 2026-07-30]
+  // trending: "procurement_reason_trending",
   similar_unlocked: "procurement_reason_similar_unlocked",
 };
 
 interface NoticeCardProps {
   item: NoticeItem;
   onClick: (item: NoticeItem) => void;
-  /** T-B9（本地差异 #13）：反馈交互，仅推荐/登录场景由父级传入，缺省不渲染按钮 */
-  onDismiss?: (item: NoticeItem) => void;
-  onFavorite?: (item: NoticeItem) => void;
-  favorited?: boolean;
+  // [収藏/dismiss 功能临时禁用 2026-07-30]
+  // onDismiss?: (item: NoticeItem) => void;
+  // onFavorite?: (item: NoticeItem) => void;
+  // favorited?: boolean;
   /** T-B9：曝光采集挂点——父级用 IntersectionObserver 观察卡片根节点 */
   observe?: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-export function NoticeCard({ item, onClick, onDismiss, onFavorite, favorited, observe }: NoticeCardProps) {
+export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
   const { t } = useLocale();
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.notice_type);
@@ -59,30 +61,7 @@ export function NoticeCard({ item, onClick, onDismiss, onFavorite, favorited, ob
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">{item.deadline}</span>
-          {onFavorite && (
-            <button
-              type="button"
-              onClick={() => onFavorite(item)}
-              title={t("procurement_favoriteLabel")}
-              aria-label={t("procurement_favoriteLabel")}
-              className={`p-1 rounded-md transition-colors ${
-                favorited ? "text-amber-500 bg-amber-50" : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
-              }`}
-            >
-              <Star className="w-3.5 h-3.5" fill={favorited ? "currentColor" : "none"} />
-            </button>
-          )}
-          {onDismiss && (
-            <button
-              type="button"
-              onClick={() => onDismiss(item)}
-              title={t("procurement_dismissLabel")}
-              aria-label={t("procurement_dismissLabel")}
-              className="p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+          {/* [収藏/dismiss 功能临时禁用 2026-07-30] Star/X 按钮已移除 */}
         </div>
       </div>
       {reasonKeys.length > 0 && (

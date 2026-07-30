@@ -1002,11 +1002,12 @@ function restoreTerms(text: string, tokens: string[]): string {
   return restored;
 }
 
-// 通道1：有道智云 文本翻译（signType v3）
+// 通道1：有道智云 大模型翻译（子曰 Pro 14B，SSE 流式响应）
 // 认证需同时配置 YOUDAO_APP_KEY(应用ID) 与 YOUDAO_APP_SECRET(应用密钥)，缺一即跳过本通道；
 // sign = SHA256(appKey + input + salt + curtime + appSecret)，input 规则见 youdaoInput()。
 // 单次上限 5000 字符：超长文本预检即跳过（省去必败的 API 调用），直接降级 DeepSeek；
-// 不设每日软额度限制，超量由有道 API 自身报错（errorCode≠0）后降级。
+// 不设每日软额度限制，超量由有道 API 自身报错（code≠"0"）后降级。
+// QPS 限制 10——高并发时可能频繁降级 DeepSeek，属正常设计。
 const YOUDAO_CODES: Record<string, string> = {
   zh: "zh-CHS",
   en: "en",
@@ -1016,6 +1017,8 @@ const YOUDAO_CODES: Record<string, string> = {
   ar: "ar",
 };
 const YOUDAO_MAX_CHARS = 5000;
+const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
+const YOUDAO_LLM_MODEL = "0"; // handleOption: 0=子曰Pro(14B), 3=子曰Lite(1.5B)
 
 // 官方签名输入规则：q 长度 >20 时取 前10 + 长度 + 后10
 function youdaoInput(q: string): string {
@@ -1037,40 +1040,61 @@ async function translateViaYoudao(
   }
   // 超长预检：有道必拒的请求不发起，立即降级 DeepSeek，省 API 调用与等待
   if (text.length > YOUDAO_MAX_CHARS) throw new Error("CHANNEL_SKIPPED");
-  // 有道会吞掉 ⟦Tn⟧ 数学括号占位符（实测直接删除），发送前局部换成其可保留的 §Tn§，
-  // 返回后再换回，不影响链上其它通道的占位符约定
-  const sendText = text.replace(/\u27E6\s*T\s*(\d+)\s*\u27E7/g, "\u00A7T$1\u00A7");
+  // 大模型通道通过 prompt 指示模型原样保留 ⟦Tn⟧ 占位符，无需旧 API 的 §Tn§ 变体转换
   const salt = crypto.randomUUID();
   const curtime = String(Math.round(Date.now() / 1000));
   const sign = crypto
     .createHash("sha256")
-    .update(String(appKey) + youdaoInput(sendText) + salt + curtime + String(appSecret))
+    .update(String(appKey) + youdaoInput(text) + salt + curtime + String(appSecret))
     .digest("hex");
+  const prompt = "Keep every placeholder like ⟦T0⟧ ⟦T1⟧ exactly as-is in the translation, do not modify, translate, or remove them.";
   const body = new URLSearchParams({
-    q: sendText,
-    from,
-    to,
     appKey: String(appKey),
     salt,
+    curtime,
     sign,
     signType: "v3",
-    curtime,
+    i: text,
+    from,
+    to,
+    streamType: "full",
+    handleOption: YOUDAO_LLM_MODEL,
+    prompt,
   });
-  const res = await fetch("https://openapi.youdao.com/api", {
+  const res = await fetch(YOUDAO_LLM_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-  if (!res.ok) throw new Error(`YOUDAO_HTTP_${res.status}`);
-  const data: any = await res.json();
-  // errorCode "0" 为成功；其余（如 108 无效 appKey、202 签名错、411 限流）落下一通道
-  if (String(data?.errorCode) !== "0") throw new Error(`YOUDAO_ERROR_${data?.errorCode}`);
-  // 换回链上统一的 ⟦Tn⟧ 占位符（宽松匹配译文中可能被插入的空格）
-  const translated = String((data?.translation || [])[0] ?? "")
-    .replace(/\u00A7\s*T\s*(\d+)\s*\u00A7/g, "\u27E6T$1\u27E7")
-    .trim();
-  if (!translated) throw new Error("YOUDAO_EMPTY");
-  return translated;
+  if (!res.ok) throw new Error(`YOUDAO_LLM_HTTP_${res.status}`);
+  // SSE 流式响应（streamType=full）：每行可能带 "data: " 前缀（标准 SSE）或裸 JSON，取最后一条的 data.transFull 为完整译文
+  const responseText = await res.text();
+  const lines = responseText.split("\n").filter((line) => line.trim());
+  let finalTranslation = "";
+  let lastErrorCode = "";
+  for (const rawLine of lines) {
+    // 标准 SSE 格式可能带 "data: " 前缀，剥离后再解析
+    const line = rawLine.startsWith("data:") ? rawLine.slice(5).trim() : rawLine.trim();
+    if (!line || line === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(line);
+      if (String(parsed.code) !== "0" || !parsed.successful) {
+        lastErrorCode = String(parsed.code || parsed.errorCode || "unknown");
+        const errMsg = parsed.message || "";
+        console.warn(`[translate] youdao-llm error: code=${lastErrorCode}, message=${errMsg}`);
+        throw new Error(`YOUDAO_LLM_ERROR_${lastErrorCode}`);
+      }
+      if (parsed.data?.transFull) finalTranslation = parsed.data.transFull;
+    } catch (e: any) {
+      if (e.message?.startsWith("YOUDAO_LLM_ERROR")) throw e;
+      // JSON 解析失败的行跳过（SSE 注释行、空行、event: 前缀等）
+    }
+  }
+  if (!finalTranslation.trim()) {
+    console.warn(`[translate] youdao-llm empty response. Raw (first 500 chars): ${responseText.slice(0, 500)}`);
+    throw new Error("YOUDAO_LLM_EMPTY");
+  }
+  return finalTranslation.trim();
 }
 
 // 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=max）
@@ -1159,7 +1183,7 @@ async function translateViaChain(
       const { masked, tokens } = protectTerms(job.text);
       translated.set(job.index, restoreTerms(await translateViaYoudao(masked, sourceLang, targetLang), tokens));
     }
-    return { translations: assemble(translated), provider: "youdao" };
+    return { translations: assemble(translated), provider: "youdao-llm" };
   } catch (err: any) {
     // 未配置/超长/失败：落下一通道
     console.warn(`[translate] youdao -> next: ${err?.message}`);
@@ -1984,13 +2008,12 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
       [rawCode]
     );
     const codeRow = (codeRows as UnspscCodeRow[])[0];
-    const path = {
-      level1_id: rawCode.length >= 2 ? rawCode.slice(0, 2) : null,
-      level2_id: rawCode.length >= 4 ? rawCode.slice(0, 4) : null,
-      level3_id: rawCode.length >= 6 ? rawCode.slice(0, 6) : null,
-      level4_id: rawCode.length >= 8 ? rawCode.slice(0, 8) : null,
-      level5_id: rawCode.length >= 10 ? rawCode.slice(0, 10) : null,
-    };
+    // 勘误（线 B）：桥接表 level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），
+    // 不是码串前缀。此前用 rawCode.slice(0,N) 写码前缀，与读侧 buildNoticeUnspscFilter
+    // 的 id 等值口径不一致，是脏数据的产生源。改为复用 getUnspscPath 沿 parent_id
+    // 回溯填祖先类目 id，并用类目自身 level（不再靠 ceil(len/2) 猜）。
+    if (!codeRow) continue; // 类目树查不到该码：跳过，不再制造 code_id=null 的脏行
+    const path = await getUnspscPath(dbPool, codeRow.id);
 
     await dbPool.execute(
       `INSERT IGNORE INTO ${bridgeTable}
@@ -1998,9 +2021,9 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         row.id,
-        codeRow?.id || null,
+        codeRow.id,
         rawCode,
-        codeRow?.level || Math.max(1, Math.ceil(rawCode.length / 2)),
+        codeRow.level,
         path.level1_id,
         path.level2_id,
         path.level3_id,
@@ -3610,54 +3633,12 @@ async function startServer() {
     }
   });
 
-  // ── 本地差异 #12：T-C1 冷启动热度兜底（C.3.1 + E.2 去重口径）──
-  // 无兴趣码/游客不再返回空列表，降级为全局热度榜。热度 = unlock 去重用户数×3 + view 去重用户数
-  // （COUNT(DISTINCT user_key) 防浏览灌水，E.2 修正），近 30 天窗口。
-  // 探针实测（2026-07-29）：全表 HAVING 扫描写法 1275ms → 改小表驱动（行为表先聚合再 JOIN notices）；
-  // 10 分钟进程内缓存整榜 top 90（复用 F.4 模式），分页在 JS 层切片
-  let hotFallbackCache: { rows: any[]; expires: number } | null = null;
-  const HOT_FALLBACK_TTL = 10 * 60 * 1000;
-  async function loadHotFallbackRows() {
-    if (hotFallbackCache && hotFallbackCache.expires > Date.now()) return hotFallbackCache.rows;
-    // T-E2：懒计算触发——缓存 miss 时后台刷新 rollup（fire-and-forget，本次查询仍立即返回）
-    void rollupNoticeViewDaily(dbPool).catch(() => undefined);
-    const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
-    // T-E2：views 侧优先读 rollup（stat_day 30 天窗，SUM 同日去重计数）；rollup 尚无数据时回落直查原始表
-    const [[rollupReady]] = await dbPool.query(
-      `SELECT 1 AS ok FROM crm_notice_view_daily WHERE stat_day >= CURDATE() - INTERVAL 30 DAY LIMIT 1`
-    ) as any[];
-    const viewSubquery = rollupReady
-      ? `SELECT notice_id, SUM(uniq_user_cnt) AS score
-           FROM crm_notice_view_daily
-           WHERE stat_day >= CURDATE() - INTERVAL 30 DAY
-           GROUP BY notice_id`
-      : `SELECT notice_id, COUNT(DISTINCT user_key) AS score
-           FROM crm_user_notice_views
-           WHERE notice_id IS NOT NULL AND viewed_at >= NOW() - INTERVAL 30 DAY
-           GROUP BY notice_id`;
-    const [rows] = await dbPool.query(
-      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-              n.deadline, n.deadline_ts, n.estimated_value, n.description,
-              hs.hot_score
-       FROM (
-         SELECT notice_id, SUM(score) AS hot_score FROM (
-           ${viewSubquery}
-           UNION ALL
-           SELECT notice_id, COUNT(DISTINCT user_key) * 3
-           FROM crm_opportunity_unlocks
-           WHERE notice_id IS NOT NULL AND unlocked_at >= NOW() - INTERVAL 30 DAY
-           GROUP BY notice_id
-         ) s GROUP BY notice_id
-       ) hs
-       INNER JOIN crm_bid_notices n ON n.id = hs.notice_id
-       WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
-         AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
-       ORDER BY hs.hot_score DESC, n.id DESC
-       LIMIT 90`
-    );
-    hotFallbackCache = { rows: rows as any[], expires: Date.now() + HOT_FALLBACK_TTL };
-    return rows as any[];
-  }
+  // ── [热度兜底临时禁用 2026-07-30] ──
+  // 原 T-C1 热度兜底（hotFallbackCache + loadHotFallbackRows）已注释，
+  // 游客/零兴趣码用户改为按 deadline 降序展示有效公告。
+  // let hotFallbackCache: { rows: any[]; expires: number } | null = null;
+  // const HOT_FALLBACK_TTL = 10 * 60 * 1000;
+  // async function loadHotFallbackRows() { ... }
 
   app.get("/api/notices/recommended", async (req, res) => {
     try {
@@ -3665,29 +3646,38 @@ async function startServer() {
       const page = Math.max(1, Number(req.query.page || 1));
       const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
       const offset = (page - 1) * pageSize;
-      // T-C1：热度兜底响应（guest / 零兴趣码共用）；付费墙字段抹除口径与正常推荐一致
-      const respondHotFallback = async () => {
-        const hotRows = await loadHotFallbackRows();
+      // [热度兜底临时禁用 2026-07-30] 游客/零兴趣码走按截止日期降序的有效公告
+      const respondDeadlineFallback = async () => {
+        const dlSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+        const activeW = "(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR " + dlSecExpr + " >= UNIX_TIMESTAMP(NOW()))";
+        const [[cntRow]] = await dbPool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeW}`) as any[];
+        const [fallbackRows] = await dbPool.query(
+          `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+                  n.deadline, n.deadline_ts, n.estimated_value, n.description,
+                  n.documents, n.procurement_files
+           FROM crm_bid_notices n WHERE ${activeW}
+           ORDER BY ${dlSecExpr} DESC LIMIT ? OFFSET ?`, [pageSize, offset]);
         return res.json({
-          items: hotRows.slice(offset, offset + pageSize).map((row) => ({
+          items: (fallbackRows as any[]).map(row => ({
             ...row,
             match_score: 0,
             reco_score: 0,
-            hot_score: Number(row.hot_score || 0),
-            reco_reasons: ["trending"], // T-C3：热度兜底路径统一打"热门"标签（C.3.4）
             agency: null,
             organization: null,
             source_url: null,
             unspsc_codes: [],
             core_locked: true,
+            breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
+            documents: undefined,
+            procurement_files: undefined,
           })),
-          total: hotRows.length,
+          total: Number((cntRow as any).total),
           page,
           pageSize,
-          fallback: "hot",
+          fallback: "deadline",
         });
       };
-      if (!userKey) return respondHotFallback(); // T-C1：游客不再 400，走热度兜底
+      if (!userKey) return respondDeadlineFallback(); // [热度兜底临时禁用] 游客走 deadline 降序
 
       // 本地差异 #10：T-E1 时间衰减进选码 SQL（E.1）。第四批的衰减发生在 LIMIT 80 之后（JS 层），
       // 选码环节仍被陈旧高权重码霸占——改为 SQL 内先衰减再排序取 top 80，JS 直接用 decayed_weight，
@@ -3752,7 +3742,7 @@ async function startServer() {
       }
 
       if (clauses.length === 0) {
-        return respondHotFallback(); // T-C1：零兴趣码不再返回空列表，降级热度榜（#12）
+        return respondDeadlineFallback(); // [热度兜底临时禁用 2026-07-30] 零兴趣码走 deadline 降序
       }
 
       // F.3 deadline 兜底（本地差异 #7：补齐 recommended 两处 WHERE，与 /api/notices 同口径）
@@ -3760,14 +3750,13 @@ async function startServer() {
       const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
       let activeWhere = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))`;
       const extraParams: any[] = [];
-      // 本地差异 #11：T-B6/D.6——exclude_dismissed=1 时排除本用户近 30 天 dismiss 的公告
-      // （非相关子查询，单次执行；前端配合 dismiss 本地移除 + 补拉，避免分页错位）
-      if (String(req.query.exclude_dismissed || "") === "1") {
-        activeWhere += ` AND n.id NOT IN (
-           SELECT notice_id FROM crm_user_reco_feedback
-           WHERE user_key = ? AND action = 'dismiss' AND created_at >= NOW() - INTERVAL 30 DAY)`;
-        extraParams.push(userKey);
-      }
+      // [dismiss 功能临时禁用 2026-07-30] 前端已移除 dismiss 按钮，此过滤条件暂不启用
+      // if (String(req.query.exclude_dismissed || "") === "1") {
+      //   activeWhere += ` AND n.id NOT IN (
+      //      SELECT notice_id FROM crm_user_reco_feedback
+      //      WHERE user_key = ? AND action = 'dismiss' AND created_at >= NOW() - INTERVAL 30 DAY)`;
+      //   extraParams.push(userKey);
+      // }
 
       const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
       const [countRows] = await dbPool.query(
@@ -3863,6 +3852,8 @@ async function startServer() {
            n.deadline_ts,
            n.estimated_value,
            n.description,
+           n.documents,
+           n.procurement_files,
            ${l4HitExpr} AS l4_hit,
            MAX(amc.amount_usd) AS amount_usd_cached,
            GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
@@ -3961,7 +3952,7 @@ async function startServer() {
 
       res.json({
         items: mmrRerankPage(rows as any[]).map((row) => {
-          const { l4_hit, amount_usd_cached, codes_concat, ...rest } = row; // 剥离标签/MMR 推导用的中间信号列
+          const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row; // 剥离标签/MMR 推导用的中间信号列
           return {
             ...rest,
             match_score: Number(row.match_score || 0),
@@ -3972,6 +3963,7 @@ async function startServer() {
             source_url: null,
             unspsc_codes: [],
             core_locked: true,
+            breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
           };
         }),
         total: Number((countRows as any[])[0]?.total || 0),
@@ -4248,7 +4240,7 @@ async function startServer() {
     try {
       const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 0, 0), 365);
       const result = await rollupNoticeViewDaily(dbPool, sinceDays);
-      hotFallbackCache = null; // rollup 更新后失效热度缓存，下次请求即读新数据
+      // hotFallbackCache = null; // [热度兜底临时禁用 2026-07-30] 缓存已弃用
       const [[stat]] = await dbPool.query(
         `SELECT COUNT(*) AS rows_total, MAX(stat_day) AS latest_day FROM crm_notice_view_daily`
       ) as any[];

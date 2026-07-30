@@ -454,7 +454,7 @@ export default function ProcurementPage() {
             // featured: activeFeatured || undefined, // [精选功能临时禁用 2026-07-29] 参数不再下发
           })
         : prefsMode === "recommended" && userKey
-          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true })
+          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
           : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
 
     request
@@ -478,7 +478,8 @@ export default function ProcurementPage() {
   // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
   // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
   const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline";
-  const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
+  // [dismiss/収藏功能临时禁用 2026-07-30] favoritedIds 已移除
+  // const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
   // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
   const impressionReportedRef = useRef<Set<number>>(new Set());
   const impressionPendingRef = useRef<number[]>([]);
@@ -557,34 +558,11 @@ export default function ProcurementPage() {
     []
   );
 
-  // dismiss：本地立即移除 → 上报落库 → exclude_dismissed 补拉当页补足 pageSize（D.6 前端侧）
-  const handleDismissNotice = async (notice: NoticeItem) => {
-    if (!userKey) return;
-    setItems((prev) => prev.filter((it) => it.id !== notice.id));
-    await sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "dismiss", variant: variantRef.current }]);
-    const requestSeq = noticesRequestSeq.current + 1;
-    noticesRequestSeq.current = requestSeq;
-    try {
-      const json = await fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true });
-      if (requestSeq !== noticesRequestSeq.current) return;
-      variantRef.current = typeof json.variant === "string" ? json.variant : undefined; // T-B10
-      setItems(Array.isArray(json.items) ? json.items : []);
-      setTotal(Number(json.total || 0));
-    } catch {
-      // 补拉失败保持本地移除结果，不阻断页面
-    }
-  };
+  // [dismiss 功能临时禁用 2026-07-30] handleDismissNotice 已移除
+  // const handleDismissNotice = async (notice: NoticeItem) => { ... };
 
-  // 收藏：本地置亮 + 一次性上报（服务端幂等，重复点击不再发送）
-  const handleFavoriteNotice = (notice: NoticeItem) => {
-    if (!userKey || favoritedIds.has(notice.id)) return;
-    setFavoritedIds((prev) => {
-      const next = new Set(prev);
-      next.add(notice.id);
-      return next;
-    });
-    void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "favorite", variant: variantRef.current }]);
-  };
+  // [収藏功能临时禁用 2026-07-30] handleFavoriteNotice 已移除
+  // const handleFavoriteNotice = (notice: NoticeItem) => { ... };
 
   // T-C7：详情退出结算——停留 >30s 上报 dwell（携带 dwell_ms）；<3s 上报 quick_exit（轻负反馈，
   // 服务端 ×0.95 衰减带 0.01 下限保护）；中间区间不产生信号
@@ -913,8 +891,8 @@ export default function ProcurementPage() {
               ))}
             </select>
             {/* 起止日期框加可见标签（label 包裹自动关联，点标签即聚焦），区分起始/截止输入框 */}
-            <label className="block">
-              <span className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
                 {t("procurement_deadlineFrom")}
               </span>
               <input
@@ -922,11 +900,11 @@ export default function ProcurementPage() {
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
                 title={t("procurement_deadlineFrom")}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </label>
-            <label className="block">
-              <span className="block text-[11px] font-bold text-slate-500 mb-1">
+            <label className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
                 {t("procurement_deadlineTo")}
               </span>
               <input
@@ -934,7 +912,7 @@ export default function ProcurementPage() {
                 value={toInput}
                 onChange={(e) => setToInput(e.target.value)}
                 title={t("procurement_deadlineTo")}
-                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
             </label>
             <select
@@ -953,15 +931,13 @@ export default function ProcurementPage() {
               >
                 {t("procurement_searchBtn")}
               </button>
-              {hasSearch && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 whitespace-nowrap"
-                >
-                  {t("procurement_clearSearch")}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={clearSearch}
+                className="px-3 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-500 hover:bg-slate-50 whitespace-nowrap"
+              >
+                {t("procurement_clearSearch")}
+              </button>
             </div>
             </div>
             {/* T-B9 第二行：截止窗口 / 金额区间（USD）/ 采购类型（对接 T-B8 服务端过滤） */}
@@ -1064,10 +1040,7 @@ export default function ProcurementPage() {
               key={item.id}
               item={item}
               onClick={openNotice}
-              // T-B9：仅推荐模式启用反馈交互与曝光采集（避免污染搜索/筛选场景数据）
-              onDismiss={feedbackEnabled ? handleDismissNotice : undefined}
-              onFavorite={feedbackEnabled ? handleFavoriteNotice : undefined}
-              favorited={favoritedIds.has(item.id)}
+              // [dismiss/収藏功能临时禁用 2026-07-30] 反馈按钮 props 已移除
               observe={feedbackEnabled ? observeCard : undefined}
             />
           ))}

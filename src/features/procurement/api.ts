@@ -230,15 +230,16 @@ export const fetchRecommendedNotices = (params: {
   userKey: string;
   page: number;
   pageSize: number;
-  /** T-B9（本地差异 #13）：置 1 过滤最近 30 天被 dismiss 的公告（D.6 前端侧） */
-  excludeDismissed?: boolean;
+  // [dismiss 功能临时禁用 2026-07-30] excludeDismissed 参数已移除
+  // excludeDismissed?: boolean;
 }): Promise<NoticeResponse> => {
   const searchParams = new URLSearchParams({
     user_key: params.userKey,
     page: String(params.page),
     page_size: String(params.pageSize),
   });
-  if (params.excludeDismissed) searchParams.set("exclude_dismissed", "1");
+  // [dismiss 功能临时禁用 2026-07-30]
+  // if (params.excludeDismissed) searchParams.set("exclude_dismissed", "1");
   return fetch(`/api/notices/recommended?${searchParams.toString()}`).then((res) => {
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json();
