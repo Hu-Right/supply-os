@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NoticeCard } from "@/features/procurement/components/NoticeCard";
-import { ProcurementPagination } from "@/features/procurement/components/ProcurementPagination";
+import { Pagination as ProcurementPagination } from "@/shared/ui";
 import type { NoticeItem } from "@/types";
 
 // ── Mock useLocale ──

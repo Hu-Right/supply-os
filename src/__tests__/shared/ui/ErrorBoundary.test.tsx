@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 // Mock i18next to avoid initialization issues in test environment
+// isInitialized: true 让 LocaleContext 模块加载时跳过 .use().init()（barrel 引入 Pagination → @/core/i18n 后需要）
 vi.mock("i18next", () => ({
   default: {
+    isInitialized: true,
     getFixedT: () => (key: string) => key,
   },
   getFixedT: () => (key: string) => key,

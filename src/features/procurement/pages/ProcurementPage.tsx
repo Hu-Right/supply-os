@@ -35,7 +35,7 @@ import {
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
-import { ProcurementPagination } from "../components/ProcurementPagination";
+import { Pagination } from "@/shared/ui";
 import { useNoticePayment } from "../hooks/useNoticePayment";
 
 const PAGE_SIZE = 9;
@@ -1048,7 +1048,7 @@ export default function ProcurementPage() {
           </div>
         )}
 
-        <ProcurementPagination
+        <Pagination
           page={page}
           totalPages={totalPages}
           serverPageSize={serverPageSize}

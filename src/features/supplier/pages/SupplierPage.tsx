@@ -17,7 +17,7 @@ import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
-import { ProcurementPagination } from "@/features/procurement/components/ProcurementPagination";
+import { Pagination } from "@/shared/ui";
 import { fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 
 // 与公采页保持一致的每页条数（3 列网格 × 3 行）
@@ -214,7 +214,7 @@ export default function SupplierPage() {
 
       {/* 分页控件：复用公采页同款（每页 9 条） */}
       {!loading && filteredSuppliers.length > 0 && (
-        <ProcurementPagination
+        <Pagination
           page={page}
           totalPages={totalPages}
           serverPageSize={PAGE_SIZE}

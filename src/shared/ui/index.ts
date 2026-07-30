@@ -38,3 +38,6 @@ export type { SearchInputProps } from "./SearchInput";
 
 export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
+
+export { Pagination } from "./Pagination";
+export type { PaginationProps } from "./Pagination";

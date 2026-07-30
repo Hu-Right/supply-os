@@ -1,7 +1,15 @@
+/**
+ * 通用翻页组件
+ * Shared pagination component
+ *
+ * @module shared/ui/Pagination
+ * @description 服务端分页的通用翻页条（由 procurement 模块下沉而来）。
+ *              Generic pagination bar for server-side paging (promoted from procurement).
+ */
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 
-interface ProcurementPaginationProps {
+export interface PaginationProps {
   page: number;
   totalPages: number;
   serverPageSize: number;
@@ -10,14 +18,14 @@ interface ProcurementPaginationProps {
   onPageChange: (page: number) => void;
 }
 
-export function ProcurementPagination({
+export function Pagination({
   page,
   totalPages,
   serverPageSize,
   total,
   loading,
   onPageChange,
-}: ProcurementPaginationProps) {
+}: PaginationProps) {
   const { t } = useLocale();
 
   return (
