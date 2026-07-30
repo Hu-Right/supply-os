@@ -11,3 +11,5 @@ export { ProtectedRoute } from "./ProtectedRoute";
 export type { ProtectedRouteProps } from "./ProtectedRoute";
 export { LanguageSwitcher } from "./LanguageSwitcher";
 export { SessionBanner } from "./SessionBanner";
+export { NAV_TABS } from "./nav-tabs";
+export type { NavTab } from "./nav-tabs";

@@ -226,10 +226,10 @@ describe("App.tsx — Tab Navigation & Layout", () => {
   // ── 13. Mobile bottom nav renders ──
   it("renders mobile bottom navigation", () => {
     renderAt("/showroom");
-    // Mobile bottom nav contains "展厅", "公采", "供应商", "CRM", "学习"
-    expect(screen.getByText("展厅")).toBeInTheDocument();
-    expect(screen.getByText("公采")).toBeInTheDocument();
-    expect(screen.getByText("供应商")).toBeInTheDocument();
+    // 底栏短标签走 i18n（navShort*），mock t 返回 key 本身
+    expect(screen.getByText("navShortShowrooms")).toBeInTheDocument();
+    expect(screen.getByText("navShortProcure")).toBeInTheDocument();
+    expect(screen.getByText("navShortSuppliers")).toBeInTheDocument();
   });
 
   // ── 14. Training route sets activeTab to 0 ──

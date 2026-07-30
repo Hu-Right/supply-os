@@ -53,7 +53,7 @@ export default [
   {
     files: ["src/features/**/*.{ts,tsx}"],
     rules: {
-      "no-restricted-imports": ["warn", {
+      "no-restricted-imports": ["error", {
         patterns: [{
           group: ["@/features/*/*"],
           message: "跨 feature 只能引用对方 index.ts（@/features/<name>）；深路径视为私有实现。",

@@ -2,16 +2,13 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * App.tsx — 轻量布局入口 (~80 行)
- * 业务内容全部委托给 routes.tsx 和各 feature 模块
+ * App.tsx — 应用外壳：布局（头部 / 导航 / 底栏） + 全局 Modal 编排
+ * （认证 / 支付 / 咨询）与全局事件订阅；业务内容全部委托给 routes.tsx 和各 feature 模块
  */
 
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Globe, Building2, Users, Briefcase, BookOpen, Crown,
-  LayoutGrid, MessageSquare, Menu
-} from "lucide-react";
+import { Globe, Crown, MessageSquare, Menu } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { onAppEvent, emitAppEvent, type PayEventDetail } from "@/core/events";
@@ -19,7 +16,7 @@ import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
 import { ConsultForm } from "@/shared/forms";
-import { LanguageSwitcher, SessionBanner } from "@/shared/layout";
+import { LanguageSwitcher, SessionBanner, NAV_TABS } from "@/shared/layout";
 import { preloadRoute } from "@/routes";
 
 export default function App() {
@@ -35,26 +32,9 @@ export default function App() {
   const [showConsultForm, setShowConsultForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Derive activeTab from URL
+  // 依据 URL 高亮当前 tab（根路径视作 showroom；training 页不高亮任何 tab）
   const isTrainingRoute = location.pathname === "/training";
-  const activeTab = (() => {
-    if (isTrainingRoute) return 0;
-    const p = location.pathname;
-    if (p === "/showroom" || p === "/") return 1;
-    if (p === "/procurement") return 2;
-    if (p === "/supplier") return 3;
-    if (p === "/crm") return 4;
-    if (p === "/services") return 5;
-    if (p === "/learning") return 6;
-    if (p === "/membership") return 7;
-    return 1;
-  })();
-
-  const tabRoutes: Record<number, string> = { 1: "/showroom", 2: "/procurement", 3: "/supplier", 4: "/crm", 5: "/services", 6: "/learning", 7: "/membership" };
-
-  const switchMainTab = (tabId: number) => {
-    navigate(tabRoutes[tabId] || "/showroom");
-  };
+  const activePath = location.pathname === "/" ? "/showroom" : location.pathname;
 
   // Global event listeners (see docs 3.5.4 TODO checklist)
   useEffect(() => {
@@ -73,16 +53,6 @@ export default function App() {
     ];
     return () => offs.forEach((off) => off());
   }, []);
-
-  const tabs = [
-    { id: 1, label: t("navShowrooms"), icon: Building2 },
-    { id: 2, label: t("navJointProcure"), icon: Globe },
-    { id: 3, label: t("navSuppliers"), icon: Users },
-    { id: 4, label: t("navCRM"), icon: Briefcase, alert: true },
-    { id: 5, label: t("navServices"), icon: LayoutGrid },
-    { id: 6, label: t("navLearning"), icon: BookOpen },
-    { id: 7, label: t("navMembership"), icon: Crown, highlight: true },
-  ];
 
   // 桌面导航横向滚动容器 + 滚轮纵向→横向转换
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -134,10 +104,10 @@ export default function App() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 z-30 shadow-md">
           <div className="grid grid-cols-2 gap-2 text-center">
-            {tabs.slice(0, 6).map((tab) => (
-              <button key={tab.id} onClick={() => { switchMainTab(tab.id); setMobileMenuOpen(false); }}
-                className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}>
-                {tab.label}
+            {NAV_TABS.slice(0, 6).map((tab) => (
+              <button key={tab.path} onClick={() => { navigate(tab.path); setMobileMenuOpen(false); }}
+                className={`p-2 rounded-lg ${!isTrainingRoute && activePath === tab.path ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}>
+                {t(tab.labelKey)}
               </button>
             ))}
           </div>
@@ -148,14 +118,14 @@ export default function App() {
       <nav className="hidden md:block bg-slate-900 text-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
-            {tabs.map((tab) => {
+            {NAV_TABS.map((tab) => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => switchMainTab(tab.id)}
-                  onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && !isTrainingRoute && activeTab !== tab.id ? "text-amber-400 animate-pulse" : ""}`} />
-                  <span>{tab.label}</span>
+                <button key={tab.path} onClick={() => navigate(tab.path)}
+                  onMouseEnter={() => preloadRoute(tab.path)}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activePath === tab.path ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
+                  <Icon className={`w-4 h-4 ${tab.highlight && !isTrainingRoute && activePath !== tab.path ? "text-amber-400 animate-pulse" : ""}`} />
+                  <span>{t(tab.labelKey)}</span>
                   {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
                 </button>
               );
@@ -200,13 +170,13 @@ export default function App() {
 
       {/* MOBILE BOTTOM NAV */}
       <footer className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/80 shadow-lg py-1 flex justify-around">
-        {[{ id: 1, label: "展厅", icon: Building2 }, { id: 2, label: "公采", icon: Globe }, { id: 3, label: "供应商", icon: Users }, { id: 4, label: "CRM", icon: Briefcase }, { id: 6, label: "学习", icon: BookOpen }].map((tab) => {
+        {NAV_TABS.filter((tab) => tab.mobile).map((tab) => {
           const Icon = tab.icon;
           return (
-            <button key={tab.id} onClick={() => switchMainTab(tab.id)}
-              className={`flex flex-col items-center justify-center w-14 py-1 text-[10px] font-semibold ${activeTab === tab.id ? "text-teal-600 font-bold" : "text-slate-400"}`}>
+            <button key={tab.path} onClick={() => navigate(tab.path)}
+              className={`flex flex-col items-center justify-center w-14 py-1 text-[10px] font-semibold ${activePath === tab.path ? "text-teal-600 font-bold" : "text-slate-400"}`}>
               <Icon className="w-5 h-5 mb-0.5" />
-              <span>{tab.label}</span>
+              <span>{t(tab.shortLabelKey ?? tab.labelKey)}</span>
             </button>
           );
         })}
