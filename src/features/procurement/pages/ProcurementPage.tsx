@@ -23,7 +23,6 @@ import {
   expressInterest,
   fetchNoticeDetail,
   fetchUnlockedNoticeIds,
-  sendNoticeFeedback,
 } from "../api";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";
@@ -32,6 +31,7 @@ import { Pagination } from "@/shared/ui";
 import { useNoticePayment } from "../hooks/useNoticePayment";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
+import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 
 // 免费详情查看配额的兜底值（membership 未加载时使用）；
 // 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表）
@@ -223,122 +223,21 @@ export default function ProcurementPage() {
     refreshMembership(true);
   }, [userKey, isVip]);
 
-  // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
-  // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
-  const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline";
-  // [dismiss/収藏功能临时禁用 2026-07-30] favoritedIds 已移除
-  // const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
-  // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
-  const impressionReportedRef = useRef<Set<number>>(new Set());
-  const impressionPendingRef = useRef<number[]>([]);
-  const impressionTimerRef = useRef<number | null>(null);
-  const cardElsRef = useRef<Map<number, Element>>(new Map());
-  const observedIdsRef = useRef<Map<Element, number>>(new Map());
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const userKeyRef = useRef(userKey);
-  userKeyRef.current = userKey;
-
-  // ── T-C7 隐式偏好信号（本地差异 #16：C.3.6）──
-  // 详情停留（dwell>30s）/ 滚动到底（scroll_end）/ 秒退（quick_exit）/ 会话内回看（revisit）。
-  // 与显式反馈同门控 feedbackEnabled（仅推荐模式），同表同 ENUM 由 action 区分
-  const detailEnterRef = useRef<{ id: number; ts: number } | null>(null);
-  const visitedDetailIdsRef = useRef<Set<number>>(new Set());
-  const scrollEndReportedRef = useRef<Set<number>>(new Set());
-
-  // 待上报曝光短暂聚合后批量发送（≤50 条与服务端一致）
-  const flushImpressions = () => {
-    impressionTimerRef.current = null;
-    const key = userKeyRef.current;
-    const batch = impressionPendingRef.current.splice(0, 50);
-    if (key && batch.length) {
-      void sendNoticeFeedback(key, batch.map((id) => ({ notice_id: id, action: "impression" as const, variant: variantRef.current })));
-    }
-  };
-
-  const getImpressionObserver = () => {
-    if (!observerRef.current) {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) return;
-            const id = observedIdsRef.current.get(entry.target);
-            if (!id || impressionReportedRef.current.has(id)) return;
-            impressionReportedRef.current.add(id);
-            impressionPendingRef.current.push(id);
-            observerRef.current?.unobserve(entry.target);
-          });
-          if (impressionPendingRef.current.length && impressionTimerRef.current === null) {
-            impressionTimerRef.current = window.setTimeout(flushImpressions, 500);
-          }
-        },
-        { threshold: 0.5 }
-      );
-    }
-    return observerRef.current;
-  };
-
-  // NoticeCard 根节点挂载/卸载回调：挂载即观察，卸载解除观察
-  const observeCard = (el: HTMLElement | null, noticeId: number) => {
-    const prev = cardElsRef.current.get(noticeId);
-    if (prev && prev !== el) {
-      observerRef.current?.unobserve(prev);
-      observedIdsRef.current.delete(prev);
-    }
-    if (el) {
-      cardElsRef.current.set(noticeId, el);
-      observedIdsRef.current.set(el, noticeId);
-      if (!impressionReportedRef.current.has(noticeId)) getImpressionObserver().observe(el);
-    } else {
-      cardElsRef.current.delete(noticeId);
-    }
-  };
-
-  // 卸载清理：断开观察器、冲掉未上报的曝光批次
-  useEffect(
-    () => () => {
-      observerRef.current?.disconnect();
-      if (impressionTimerRef.current !== null) {
-        window.clearTimeout(impressionTimerRef.current);
-        flushImpressions();
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  // [dismiss 功能临时禁用 2026-07-30] handleDismissNotice 已移除
-  // const handleDismissNotice = async (notice: NoticeItem) => { ... };
-
-  // [収藏功能临时禁用 2026-07-30] handleFavoriteNotice 已移除
-  // const handleFavoriteNotice = (notice: NoticeItem) => { ... };
-
-  // T-C7：详情退出结算——停留 >30s 上报 dwell（携带 dwell_ms）；<3s 上报 quick_exit（轻负反馈，
-  // 服务端 ×0.95 衰减带 0.01 下限保护）；中间区间不产生信号
-  const reportDetailExit = () => {
-    const enter = detailEnterRef.current;
-    detailEnterRef.current = null;
-    if (!enter || !feedbackEnabled || !userKey) return;
-    const dwellMs = Date.now() - enter.ts;
-    if (dwellMs > 30000) {
-      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "dwell", dwell_ms: dwellMs, variant: variantRef.current }]);
-    } else if (dwellMs < 3000) {
-      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "quick_exit", dwell_ms: dwellMs, variant: variantRef.current }]);
-    }
-  };
-
-  // T-C7：详情滚动到底 +0.1（NoticeDetail 为整页布局，监听 window 滚动；每卡每会话只报一次）
-  useEffect(() => {
-    if (!selectedNotice || !feedbackEnabled || !userKey) return;
-    const noticeId = selectedNotice.id;
-    const onScroll = () => {
-      if (scrollEndReportedRef.current.has(noticeId)) return;
-      if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 60) return;
-      scrollEndReportedRef.current.add(noticeId);
-      void sendNoticeFeedback(userKey, [{ notice_id: noticeId, action: "scroll_end", variant: variantRef.current }]);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [selectedNotice, feedbackEnabled, userKey]);
+  // ── T-B9 推荐反馈采集 + T-C7 隐式偏好信号（本地差异 #13：D.7 + #16：C.3.6）──
+  const {
+    feedbackEnabled,
+    observeCard,
+    reportDetailExit,
+    trackClick,
+    trackDetailOpen,
+  } = useNoticeFeedback({
+    userKey,
+    prefsMode,
+    hasSearch,
+    activeSort,
+    selectedNotice,
+    variantRef,
+  });
 
   const openNotice = async (notice: NoticeItem) => {
     if (!userKey) {
@@ -347,7 +246,7 @@ export default function ProcurementPage() {
     }
 
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
-    if (feedbackEnabled) void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "click", variant: variantRef.current }]);
+    trackClick(notice.id);
 
     const currentViews = getDetailViewCount();
     const alreadyUnlocked = unlockedIds.has(notice.id);
@@ -361,14 +260,7 @@ export default function ProcurementPage() {
     }
 
     // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
-    if (feedbackEnabled) {
-      if (visitedDetailIdsRef.current.has(notice.id)) {
-        void sendNoticeFeedback(userKey, [{ notice_id: notice.id, action: "revisit", variant: variantRef.current }]);
-      } else {
-        visitedDetailIdsRef.current.add(notice.id);
-      }
-      detailEnterRef.current = { id: notice.id, ts: Date.now() };
-    }
+    trackDetailOpen(notice.id);
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
     void viewNotice(notice.id, userKey);
