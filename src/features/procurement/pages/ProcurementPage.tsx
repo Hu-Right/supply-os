@@ -18,8 +18,6 @@ import type {
 import {
   fetchUnspscIndustries,
   fetchUnspscChildren,
-  fetchNotices,
-  fetchNoticeCountries,
   fetchMembershipPlans,
   fetchMembershipStatus,
   viewNotice,
@@ -36,8 +34,8 @@ import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { Pagination } from "@/shared/ui";
 import { useNoticePayment } from "../hooks/useNoticePayment";
+import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
 
-const PAGE_SIZE = 9;
 // 免费详情查看配额的兜底值（membership 未加载时使用）；
 // 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表）
 const FREE_QUOTA_FALLBACK = 3;
@@ -58,117 +56,12 @@ export default function ProcurementPage() {
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState<NoticeItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [serverPageSize, setServerPageSize] = useState(PAGE_SIZE);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
   const [actionMessage, setActionMessage] = useState("");
-  const noticesRequestSeq = useRef(0);
   // T-B10（本地差异 #15）：推荐响应回传的 A/B 桶标记，反馈埋点原样携带供指标按桶聚合
   const variantRef = useRef<string | undefined>(undefined);
-
-  // ── 公采搜索栏（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
-  // 生效条件从 URL 读取（卡片旁可直接附结果页链接直达）；表单输入为待提交草稿
-  const activeQ = searchParams.get("q") || "";
-  const activeCountry = searchParams.get("country") || "";
-  const activeFrom = searchParams.get("deadline_from") || "";
-  const activeTo = searchParams.get("deadline_to") || "";
-  const activeSort: "deadline" | "latest" = searchParams.get("sort") === "latest" ? "latest" : "deadline";
-  // T-B9（本地差异 #13）：多维过滤参数同样以 URL 为唯一事实源（对接 T-B8 服务端参数）
-  const activeValueMin = searchParams.get("value_min") || "";
-  const activeValueMax = searchParams.get("value_max") || "";
-  const activeWindow = searchParams.get("deadline_within_days") || "";
-  const activeNoticeType = searchParams.get("notice_type") || "";
-  // T-A4（本地差异 #14）：只看精选开关，URL 为唯一事实源（刷新/直达链接均保持）
-  // [精选功能临时禁用 2026-07-29] 原解析注释停用，URL featured 参数被忽略；恢复时还原下行并删除 stub
-  // const activeFeatured = searchParams.get("featured") === "1";
-  const activeFeatured = false; // 禁用期间恒 false，保持 hasSearch/searchKey 等下游引用编译通过
-  const hasSearch = Boolean(
-    activeQ || activeCountry || activeFrom || activeTo ||
-    activeValueMin || activeValueMax || activeWindow || activeNoticeType || activeFeatured
-  );
-  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeValueMin}|${activeValueMax}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
-
-  const [qInput, setQInput] = useState(activeQ);
-  const [countryInput, setCountryInput] = useState(activeCountry);
-  const [fromInput, setFromInput] = useState(activeFrom);
-  const [toInput, setToInput] = useState(activeTo);
-  const [valueMinInput, setValueMinInput] = useState(activeValueMin);
-  const [valueMaxInput, setValueMaxInput] = useState(activeValueMax);
-  const [windowInput, setWindowInput] = useState(activeWindow);
-  const [typeInput, setTypeInput] = useState(activeNoticeType);
-  const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
-
-  // URL 外部变化（支付回跳清参等）时同步表单草稿，避免输入框残留失效条件
-  useEffect(() => {
-    setQInput(activeQ);
-    setCountryInput(activeCountry);
-    setFromInput(activeFrom);
-    setToInput(activeTo);
-    setValueMinInput(activeValueMin);
-    setValueMaxInput(activeValueMax);
-    setWindowInput(activeWindow);
-    setTypeInput(activeNoticeType);
-  }, [activeQ, activeCountry, activeFrom, activeTo, activeValueMin, activeValueMax, activeWindow, activeNoticeType]);
-
-  // 国家下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
-  useEffect(() => {
-    fetchNoticeCountries()
-      .then((data) => setCountries(Array.isArray(data) ? data : []))
-      .catch(() => setCountries([]));
-  }, []);
-
-  // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
-  const applySearch = (sortOverride?: "deadline" | "latest") => {
-    const next: Record<string, string> = {};
-    if (qInput.trim()) next.q = qInput.trim();
-    if (countryInput) next.country = countryInput;
-    if (fromInput) next.deadline_from = fromInput;
-    if (toInput) next.deadline_to = toInput;
-    // T-B9：金额区间/截止窗口/采购类型（对接 T-B8 服务端过滤）
-    if (valueMinInput && Number(valueMinInput) > 0) next.value_min = valueMinInput;
-    if (valueMaxInput && Number(valueMaxInput) > 0) next.value_max = valueMaxInput;
-    if (windowInput) next.deadline_within_days = windowInput;
-    if (typeInput.trim()) next.notice_type = typeInput.trim();
-    // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
-    // [精选功能临时禁用 2026-07-29] featured 参数不再写回 URL
-    // if (activeFeatured) next.featured = "1";
-    const sortValue = sortOverride ?? activeSort;
-    if (sortValue !== "deadline") next.sort = sortValue;
-    if (prefsMode !== "default") setPrefsMode("default");
-    setPage(1);
-    setSelectedNotice(null);
-    setSearchParams(next);
-  };
-
-  // T-A4（本地差异 #14）：只看精选开关——立即生效写 URL，保留其余全部现有条件
-  // [精选功能临时禁用 2026-07-29] 开关处理函数整体注释停用（对应按钮 UI 已同步注释）
-  // const toggleFeatured = () => {
-  //   const next = new URLSearchParams(searchParams);
-  //   if (activeFeatured) next.delete("featured");
-  //   else next.set("featured", "1");
-  //   if (prefsMode !== "default") setPrefsMode("default");
-  //   setPage(1);
-  //   setSelectedNotice(null);
-  //   setSearchParams(next);
-  // };
-
-  const clearSearch = () => {
-    setQInput("");
-    setCountryInput("");
-    setFromInput("");
-    setToInput("");
-    setValueMinInput("");
-    setValueMaxInput("");
-    setWindowInput("");
-    setTypeInput("");
-    setPage(1);
-    setSearchParams({});
-  };
 
   // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
   // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
@@ -286,7 +179,6 @@ export default function ProcurementPage() {
       return next;
     });
 
-  const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
   const freeRemaining = Number(membership?.free_remaining ?? FREE_QUOTA_FALLBACK);
   const freeQuota = Number(membership?.free_quota ?? FREE_QUOTA_FALLBACK);
@@ -308,6 +200,47 @@ export default function ProcurementPage() {
     }
     return "";
   }, [selectedIds]);
+
+  // ── 公采搜索栏 + 列表数据（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
+  const {
+    activeSort,
+    hasSearch,
+    qInput,
+    setQInput,
+    countryInput,
+    setCountryInput,
+    fromInput,
+    setFromInput,
+    toInput,
+    setToInput,
+    valueMinInput,
+    setValueMinInput,
+    valueMaxInput,
+    setValueMaxInput,
+    windowInput,
+    setWindowInput,
+    typeInput,
+    setTypeInput,
+    countries,
+    applySearch,
+    clearSearch,
+    items,
+    total,
+    serverPageSize,
+    totalPages,
+    loading,
+    error,
+    setError,
+  } = useNoticeSearch({
+    userKey,
+    page,
+    setPage,
+    deepestCodeId,
+    prefsMode,
+    setPrefsMode,
+    setSelectedNotice,
+    variantRef,
+  });
 
   const refreshMembership = async (useCache = false) => {
     if (!userKey) {
@@ -423,56 +356,6 @@ export default function ProcurementPage() {
   useEffect(() => {
     refreshMembership(true);
   }, [userKey, isVip]);
-
-  useEffect(() => {
-    // 初始化判定中不发全量请求，避免「全量→偏好」双闪；判定完成后本 effect 重新触发。
-    // 带搜索条件（URL 直达链接）时不等判定：搜索数据源与偏好/推荐无关（本地差异 #6）
-    if (prefsMode === "loading" && !hasSearch) return;
-    const requestSeq = noticesRequestSeq.current + 1;
-    noticesRequestSeq.current = requestSeq;
-    setLoading(true);
-    setError("");
-
-    // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
-    const request =
-      hasSearch || activeSort !== "deadline"
-        ? fetchNotices({
-            page,
-            pageSize: PAGE_SIZE,
-            codeId: deepestCodeId || undefined,
-            q: activeQ || undefined,
-            country: activeCountry || undefined,
-            deadlineFrom: activeFrom || undefined,
-            deadlineTo: activeTo || undefined,
-            sort: activeSort,
-            userKey: userKey || undefined,
-            valueMin: activeValueMin ? Number(activeValueMin) : undefined,
-            valueMax: activeValueMax ? Number(activeValueMax) : undefined,
-            deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
-            noticeType: activeNoticeType || undefined,
-            // featured: activeFeatured || undefined, // [精选功能临时禁用 2026-07-29] 参数不再下发
-          })
-        : prefsMode === "recommended" && userKey
-          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
-          : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
-
-    request
-      .then((json) => {
-        if (requestSeq !== noticesRequestSeq.current) return;
-        const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
-        variantRef.current = typeof json.variant === "string" ? json.variant : undefined; // T-B10
-        setItems(Array.isArray(json.items) ? json.items : []);
-        setTotal(Number(json.total || 0));
-        setServerPageSize(nextPageSize);
-      })
-      .catch(() => {
-        if (requestSeq === noticesRequestSeq.current) setError("Failed to load procurement notices.");
-      })
-      .finally(() => {
-        if (requestSeq === noticesRequestSeq.current) setLoading(false);
-      });
-    // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
-  }, [deepestCodeId, page, prefsMode, searchKey]);
 
   // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
   // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
