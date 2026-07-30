@@ -6,15 +6,18 @@
  * - 分批查询（每批 2000 条），避免一次加载全量到内存
  * - 5 并发 + 200ms 间隔控速（有道 QPS=10，留余量）
  * - 失败自动重试 1 次（间隔 2 秒）
+ * - 账户级错误（有道 401 欠费）立即熔断并输出断点，不白跑剩余队列
  * - 实时进度输出 + 每 100 条打印进度百分比
  * - 超长标题（>5000字符）自动跳过
  */
+import "dotenv/config";
 import mysql from "mysql2/promise";
 import crypto from "crypto";
 
 // ─── 配置 ───────────────────────────────────────────────────────
-const YOUDAO_APP_KEY = "428095eca7dd3186";
-const YOUDAO_APP_SECRET = "aBE1v3eUR6g2su3GtEEiZesFq1xrOWpC";
+// 凭证一律从 .env 读取（本文件受 Git 跟踪，不得硬编码密钥）
+const YOUDAO_APP_KEY = process.env.YOUDAO_APP_KEY;
+const YOUDAO_APP_SECRET = process.env.YOUDAO_APP_SECRET;
 const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
 const YOUDAO_LLM_MODEL = "0"; // 0=子曰Pro(14B)
 const PAGE_SIZE = 2000;   // 每批查询数量
@@ -22,6 +25,11 @@ const CONCURRENCY = 5;    // 并发数（有道 QPS=10，留余量）
 const DELAY_MS = 200;     // 每次请求间隔（控速）
 const RETRY_COUNT = 1;    // 失败重试次数
 const RETRY_DELAY = 2000; // 重试间隔(ms)
+const MAX_CONSECUTIVE_FAILS = 30; // 连续失败上限，超过即判账户/网络级故障并熔断
+
+// 账户级错误码：重试无效，出现即立刻停机（401=账户欠费）
+const FATAL_YOUDAO_CODES = ["401"];
+let abortReason = null; // 非空表示需要熔断，所有 worker 与外层分批循环都会退出
 
 const DB_CONFIG = {
   host: "192.168.1.2",
@@ -107,7 +115,9 @@ async function translateTitleWithRetry(text) {
     try {
       return await translateTitle(text);
     } catch (err) {
-      if (attempt < RETRY_COUNT) {
+      // 账户级错误重试也必败，直接抛出交由主流程熔断
+      const fatal = FATAL_YOUDAO_CODES.some((code) => err.message?.includes(`YOUDAO_ERROR_${code}`));
+      if (attempt < RETRY_COUNT && !fatal) {
         await sleep(RETRY_DELAY);
         continue;
       }
@@ -118,6 +128,11 @@ async function translateTitleWithRetry(text) {
 
 // ─── 主流程 ─────────────────────────────────────────────────────
 async function main() {
+  if (!YOUDAO_APP_KEY || !YOUDAO_APP_SECRET) {
+    console.error("[batch] 缺少 YOUDAO_APP_KEY / YOUDAO_APP_SECRET，请先在 .env 中配置");
+    process.exit(1);
+  }
+  console.log(`[batch] 有道账号 appKey: ${YOUDAO_APP_KEY.slice(0, 4)}****${YOUDAO_APP_KEY.slice(-4)}`);
   const pool = mysql.createPool(DB_CONFIG);
   const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
   const startTime = Date.now();
@@ -144,6 +159,7 @@ async function main() {
   let failed = 0;
   let skipped = 0;
   let processed = 0;
+  let consecutiveFails = 0;
   let lastMaxId = 2147483647; // 从最大开始，逐批向下
 
   // 2. 分批查询 + 翻译
@@ -169,6 +185,7 @@ async function main() {
     const queue = [...rows];
     const workers = Array.from({ length: CONCURRENCY }, async () => {
       while (queue.length > 0) {
+        if (abortReason) break;
         const row = queue.shift();
         if (!row) break;
 
@@ -186,9 +203,18 @@ async function main() {
             [row.id, translated]
           );
           success++;
+          consecutiveFails = 0;
         } catch (err) {
           failed++;
+          consecutiveFails++;
           console.error(`  FAIL id=${row.id}: ${err.message}`);
+          // 账户级错误或连续失败超阀：立即熔断，剩余队列不再白跑
+          const fatal = FATAL_YOUDAO_CODES.some((code) => err.message?.includes(`YOUDAO_ERROR_${code}`));
+          if (fatal) {
+            abortReason = `有道返回账户级错误（${err.message}），已停机`;
+          } else if (consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+            abortReason = `连续失败 ${consecutiveFails} 条（最后错误：${err.message}），已停机`;
+          }
         }
 
         processed++;
@@ -206,10 +232,16 @@ async function main() {
     });
 
     await Promise.all(workers);
+    if (abortReason) break;
   }
 
   const totalTime = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-  console.log(`\n[batch] ✅ 全部完成！`);
+  if (abortReason) {
+    console.error(`\n[batch] ⚠ 中途熔断：${abortReason}`);
+    console.error(`  处理到 id 附近：${lastMaxId}（修复后直接重跑本脚本即可，已译条目不会重复翻译）`);
+  } else {
+    console.log(`\n[batch] ✅ 全部完成！`);
+  }
   console.log(`  成功: ${success}, 失败: ${failed}, 跳过: ${skipped}, 总处理: ${processed}`);
   console.log(`  总耗时: ${totalTime} 分钟`);
 
