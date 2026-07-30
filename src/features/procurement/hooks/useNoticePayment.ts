@@ -16,7 +16,7 @@ import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/feature
 import type { NoticeItem } from "../types";
 
 /** 面板支持的支付方式（微信暂未开通，仅支付宝可用） */
-type PanelProvider = "alipay" | "wechat";
+export type PanelProvider = "alipay" | "wechat";
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_MAX_ATTEMPTS = 80;
