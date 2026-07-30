@@ -96,7 +96,7 @@ describe("Payment history API", () => {
     await expect(fetchUnlocks({ userKey: "uk_test" })).rejects.toThrow();
   });
 
-  it("fetchUnlocks appends lang for non-en locales and omits it for en/unknown", async () => {
+  it("fetchUnlocks appends lang for known locales and omits it for unknown", async () => {
     let capturedUrl = "";
     server.use(
       http.get("/api/payment/unlocks", ({ request }) => {
@@ -108,9 +108,9 @@ describe("Payment history API", () => {
     await fetchUnlocks({ userKey: "uk", limit: 3, locale: "ar" });
     expect(capturedUrl).toContain("lang=ar");
 
-    // en 为原文语言不传 lang；未传 locale 同样不带
+    // 本地差异 #18：库内存在中文原文公告，en 也传 lang（英文原文由服务端内容检测直通）；未传 locale 不带
     await fetchUnlocks({ userKey: "uk", limit: 3, locale: "en" });
-    expect(capturedUrl).not.toContain("lang=");
+    expect(capturedUrl).toContain("lang=en");
 
     await fetchUnlocks({ userKey: "uk", limit: 3 });
     expect(capturedUrl).not.toContain("lang=");

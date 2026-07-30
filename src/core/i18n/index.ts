@@ -10,6 +10,8 @@
 
 export { LocaleProvider, useLocale } from "./LocaleContext";
 export { pickLocale } from "./pickLocale";
+export { detectDominantScript, needsContentTranslation } from "./detectScript";
+export type { ContentScript } from "./detectScript";
 export { SUPPORTED_LOCALES, SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
 export type { Locale, LocaleKey } from "./types";
 export type { LocaleMeta } from "./locales";

@@ -84,7 +84,9 @@ export default function ProcurementPage() {
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   // T-A4（本地差异 #14）：只看精选开关，URL 为唯一事实源（刷新/直达链接均保持）
-  const activeFeatured = searchParams.get("featured") === "1";
+  // [精选功能临时禁用 2026-07-29] 原解析注释停用，URL featured 参数被忽略；恢复时还原下行并删除 stub
+  // const activeFeatured = searchParams.get("featured") === "1";
+  const activeFeatured = false; // 禁用期间恒 false，保持 hasSearch/searchKey 等下游引用编译通过
   const hasSearch = Boolean(
     activeQ || activeCountry || activeFrom || activeTo ||
     activeValueMin || activeValueMax || activeWindow || activeNoticeType || activeFeatured
@@ -133,7 +135,8 @@ export default function ProcurementPage() {
     if (windowInput) next.deadline_within_days = windowInput;
     if (typeInput.trim()) next.notice_type = typeInput.trim();
     // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
-    if (activeFeatured) next.featured = "1";
+    // [精选功能临时禁用 2026-07-29] featured 参数不再写回 URL
+    // if (activeFeatured) next.featured = "1";
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline") next.sort = sortValue;
     if (prefsMode !== "default") setPrefsMode("default");
@@ -143,15 +146,16 @@ export default function ProcurementPage() {
   };
 
   // T-A4（本地差异 #14）：只看精选开关——立即生效写 URL，保留其余全部现有条件
-  const toggleFeatured = () => {
-    const next = new URLSearchParams(searchParams);
-    if (activeFeatured) next.delete("featured");
-    else next.set("featured", "1");
-    if (prefsMode !== "default") setPrefsMode("default");
-    setPage(1);
-    setSelectedNotice(null);
-    setSearchParams(next);
-  };
+  // [精选功能临时禁用 2026-07-29] 开关处理函数整体注释停用（对应按钮 UI 已同步注释）
+  // const toggleFeatured = () => {
+  //   const next = new URLSearchParams(searchParams);
+  //   if (activeFeatured) next.delete("featured");
+  //   else next.set("featured", "1");
+  //   if (prefsMode !== "default") setPrefsMode("default");
+  //   setPage(1);
+  //   setSelectedNotice(null);
+  //   setSearchParams(next);
+  // };
 
   const clearSearch = () => {
     setQInput("");
@@ -447,7 +451,7 @@ export default function ProcurementPage() {
             valueMax: activeValueMax ? Number(activeValueMax) : undefined,
             deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
             noticeType: activeNoticeType || undefined,
-            featured: activeFeatured || undefined,
+            // featured: activeFeatured || undefined, // [精选功能临时禁用 2026-07-29] 参数不再下发
           })
         : prefsMode === "recommended" && userKey
           ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, excludeDismissed: true })
@@ -883,7 +887,8 @@ export default function ProcurementPage() {
             }}
             className="space-y-3"
           >
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3">
+            {/* lg:items-end：日期框带可见标签后比其他控件高，底部对齐保持整行控件齐平 */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3 lg:items-end">
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
               <input
@@ -907,22 +912,31 @@ export default function ProcurementPage() {
                 </option>
               ))}
             </select>
-            <input
-              type="date"
-              value={fromInput}
-              onChange={(e) => setFromInput(e.target.value)}
-              title={t("procurement_deadlineFrom")}
-              aria-label={t("procurement_deadlineFrom")}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
-            <input
-              type="date"
-              value={toInput}
-              onChange={(e) => setToInput(e.target.value)}
-              title={t("procurement_deadlineTo")}
-              aria-label={t("procurement_deadlineTo")}
-              className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
+            {/* 起止日期框加可见标签（label 包裹自动关联，点标签即聚焦），区分起始/截止输入框 */}
+            <label className="block">
+              <span className="block text-[11px] font-bold text-slate-500 mb-1">
+                {t("procurement_deadlineFrom")}
+              </span>
+              <input
+                type="date"
+                value={fromInput}
+                onChange={(e) => setFromInput(e.target.value)}
+                title={t("procurement_deadlineFrom")}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] font-bold text-slate-500 mb-1">
+                {t("procurement_deadlineTo")}
+              </span>
+              <input
+                type="date"
+                value={toInput}
+                onChange={(e) => setToInput(e.target.value)}
+                title={t("procurement_deadlineTo")}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </label>
             <select
               value={activeSort}
               onChange={(e) => applySearch(e.target.value === "latest" ? "latest" : "deadline")}
@@ -992,6 +1006,7 @@ export default function ProcurementPage() {
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
               />
               {/* T-A4（本地差异 #14）：只看精选开关——点击即生效，不依赖搜索提交 */}
+              {/* [精选功能临时禁用 2026-07-29] 开关按钮整体注释停用（非删除，保留以便重新启用）
               <button
                 type="button"
                 onClick={toggleFeatured}
@@ -1005,6 +1020,7 @@ export default function ProcurementPage() {
                 <Crown className="w-3.5 h-3.5" />
                 {t("procurement_featuredOnly")}
               </button>
+              */}
             </div>
           </form>
         </div>

@@ -3,8 +3,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { NoticeDetail } from "@/features/procurement/components/NoticeDetail";
 
 // ── Mock useLocale ──（en：翻译 hook 零请求，用例与译文解耦）
+// needsContentTranslation 复刻旧口径（用例原文均为英文：en 不请求、其余请求）
 vi.mock("@/core/i18n", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "en" }),
+  needsContentTranslation: (_text: string, locale: string) => locale !== "en",
 }));
 
 const mockNotice = {

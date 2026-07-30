@@ -5,8 +5,10 @@ import { server } from "../../mocks/server";
 import { NoticeDetail } from "@/features/procurement/components/NoticeDetail";
 
 // zh 环境：验证译文替换、原文切换与免责声明
+// needsContentTranslation 复刻旧口径（用例原文均为英文：zh 环境请求翻译）
 vi.mock("@/core/i18n", () => ({
   useLocale: () => ({ t: (key: string) => key, locale: "zh" }),
+  needsContentTranslation: (_text: string, locale: string) => locale !== "en",
 }));
 
 const baseNotice = {

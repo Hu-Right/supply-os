@@ -34,6 +34,24 @@ function contactName(item: RawContact): string {
   return item.name || item.organization || "-";
 }
 
+/**
+ * 拆解文件清单：原版口径 documents + procurement_files 合并（服务端已归一为 documents
+ * 单一事实源，procurement_files 仅兼容旧缓存 payload），按 url|name 去重。
+ * 导出供详情页拆解文件指示器共用同一判断口径。
+ */
+export function collectBreakdownFiles(notice: NoticeItem): RawAttachment[] {
+  const documents = (notice.documents as RawAttachment[] | undefined) || [];
+  const procurementFiles = (notice.procurement_files as RawAttachment[] | undefined) || [];
+  const seenFiles = new Set<string>();
+  return [...documents, ...procurementFiles].filter((item) => {
+    if (!attachmentUrl(item) && attachmentName(item) === "-") return false;
+    const key = `${attachmentUrl(item) || ""}|${attachmentName(item)}`.toLowerCase();
+    if (seenFiles.has(key)) return false;
+    seenFiles.add(key);
+    return true;
+  });
+}
+
 interface NoticeUnlockedDetailsProps {
   notice: NoticeItem;
 }
@@ -47,22 +65,12 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   const keyContactsText = typeof rawKeyContacts === "string" ? rawKeyContacts : "";
   const keyContacts: RawContact[] =
     typeof rawKeyContacts === "string" ? [] : (rawKeyContacts as RawContact[] | undefined) || [];
-  const documents = (notice.documents as RawAttachment[] | undefined) || [];
-  const procurementFiles = (notice.procurement_files as RawAttachment[] | undefined) || [];
   const externalLinks = (notice.external_links as RawAttachment[] | undefined) || [];
 
   const allContacts = [...keyContacts, ...contacts];
 
-  // 采购文件清单：原版口径 documents + procurement_files 合并（服务端已归一为 documents
-  // 单一事实源，procurement_files 仅兼容旧缓存 payload），按 url|name 去重防重复渲染
-  const seenFiles = new Set<string>();
-  const files = [...documents, ...procurementFiles].filter((item) => {
-    if (!attachmentUrl(item) && attachmentName(item) === "-") return false;
-    const key = `${attachmentUrl(item) || ""}|${attachmentName(item)}`.toLowerCase();
-    if (seenFiles.has(key)) return false;
-    seenFiles.add(key);
-    return true;
-  });
+  // 采购文件清单：提取为 collectBreakdownFiles 共用口径（详情页指示器同源）
+  const files = collectBreakdownFiles(notice);
 
   // 采购方/机构信息：完整机构名优先，逐级回退
   const agencyInfo = notice.agency_full || notice.agency || notice.organization || "";

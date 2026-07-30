@@ -197,14 +197,6 @@ function unspscPrefixFromCode(code: string) {
   return digits.slice(0, 2);
 }
 
-function unspscLevelColumnByPrefix(prefix: string) {
-  const length = String(prefix || "").length;
-  if (length <= 2) return "level1_id";
-  if (length <= 4) return "level2_id";
-  if (length <= 6) return "level3_id";
-  return "level4_id";
-}
-
 async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
   if (!codeId) return { sql: "", params: [] as any[] };
 
@@ -215,36 +207,30 @@ async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
   const code = (codeRows as UnspscCodeRow[])[0];
   if (!code) return { sql: "", params: [] as any[] };
 
-  const codeText = String(code.code || "");
-  if (/^[A-J]$/.test(codeText)) {
-    const [children] = await dbPool.query(
-      "SELECT code FROM crm_unspsc_codes WHERE parent_id = ? ORDER BY code",
-      [code.id]
-    );
-    const prefixes = (children as any[])
-      .map((row) => unspscPrefixFromCode(row.code))
-      .filter(Boolean);
-    if (prefixes.length === 0) return { sql: "", params: [] as any[] };
+  // 勘误（与 /api/notices/recommended 口径一致）：crm_bid_notice_unspsc_codes 的
+  // level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），不是码串前缀。
+  // 因此按类目自身 level 定位对应列做等值匹配；一告多码由 DISTINCT 去重，
+  // 跨大类公告在其挂到的每个类目下均可命中（OR 语义）。
+  const level = Number(code.level) || 0;
+  if (level >= 1 && level <= 5) {
     return {
       sql: `INNER JOIN (
         SELECT DISTINCT notice_id
         FROM crm_bid_notice_unspsc_codes
-        WHERE level1_id IN (${prefixes.map(() => "?").join(",")})
+        WHERE level${level}_id = ?
       ) filtered_notices ON filtered_notices.notice_id = n.id`,
-      params: prefixes,
+      params: [String(code.id)],
     };
   }
 
-  const prefix = unspscPrefixFromCode(codeText);
-  if (!prefix) return { sql: "", params: [] as any[] };
-  const levelColumn = unspscLevelColumnByPrefix(prefix);
+  // level 6/7 的异常深层节点（全树仅数条）：无对应 levelN_id 列，用 code_id 兜底
   return {
     sql: `INNER JOIN (
       SELECT DISTINCT notice_id
       FROM crm_bid_notice_unspsc_codes
-      WHERE ${levelColumn} = ?
+      WHERE code_id = ?
     ) filtered_notices ON filtered_notices.notice_id = n.id`,
-    params: [prefix],
+    params: [code.id],
   };
 }
 
@@ -455,18 +441,23 @@ const qualifiedOppWhere = (alias = "") => {
   return `(${p}is_qualified = 1 OR ${p}status = 'won' OR ${p}audit_status = 1)`;
 };
 
+// ── [精选功能临时禁用 2026-07-29] ──
+// FEATURED_NOTICE_EXISTS 判定常量整体注释停用（非删除，保留以便将来重新启用）。
+// 同批注释的消费点：featuredIdsCache/getFeaturedIdSet、/api/notices 的 featured=1 过滤与
+// is_featured 标注、/api/notices/stats 的 featured 指标；前端开关/徽标/参数同步注释。
+// 注意：qualifiedOppWhere 被付费解锁详情（findQualifiedOpportunityForNotice）共用，保持启用。
 // 精选公告判定：三路独立子查询（converted_opp_id / source_notice_id / reference）。
 // 用非相关 IN 子查询（MySQL 物化一次 + 逐行 hash 查找）而非相关 EXISTS：
 // 生产库实测 OR 连接三路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
 // IN 物化 1.9s 且语义等价（scripts/verify-featured-exists.mjs 3/3 PASS）。
 // 依赖外层查询别名 n = crm_bid_notices
-const FEATURED_NOTICE_EXISTS = `(
-  n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
-  OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
-    WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
-  OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
-    WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
-)`;
+// const FEATURED_NOTICE_EXISTS = `(
+//   n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
+//   OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
+//     WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
+//   OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
+//     WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
+// )`;
 
 async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
   const fields = `
@@ -736,13 +727,49 @@ async function getUnspscPath(dbPool: any, codeId: number) {
 }
 
 // ── 公告按需翻译（本地差异 #4：缓存表 + 翻译接口）──
+// 本地差异 #18：新增 en 目标语言——库内存在中文原文公告（country 为英语国家但内容为中文），
+// 英文环境下需反向翻译成英文；原"选英文=看原文"的假设不再成立
 const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
   zh: "Simplified Chinese",
+  en: "English",
   fr: "French",
   ru: "Russian",
   es: "Spanish",
   ar: "Arabic",
 };
+
+// ── 内容主导文字系统检测（本地差异 #18）──
+// 按 Unicode 区间统计原文主导文字系统，修复翻译链"原文必为英文"的硬编码假设：
+// 原文已是目标语言时直通返回（杜绝"中文翻译为中文"的无效 API 调用），
+// 中文原文走链时源语言标 zh（有道通道方向正确）。与前端 src/core/i18n/detectScript.ts 同构。
+type ContentScript = "cjk" | "cyrillic" | "arabic" | "latin" | "unknown";
+const NOTICE_LANG_SCRIPT: Record<string, ContentScript> = {
+  zh: "cjk",
+  ru: "cyrillic",
+  ar: "arabic",
+  en: "latin",
+  fr: "latin",
+  es: "latin",
+};
+function detectDominantScript(text: string): ContentScript {
+  let cjk = 0;
+  let cyrillic = 0;
+  let arabic = 0;
+  let latin = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    if ((code >= 0x4e00 && code <= 0x9fff) || (code >= 0x3400 && code <= 0x4dbf)) cjk += 1;
+    else if (code >= 0x0400 && code <= 0x04ff) cyrillic += 1;
+    else if ((code >= 0x0600 && code <= 0x06ff) || (code >= 0x0750 && code <= 0x077f)) arabic += 1;
+    else if ((code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a)) latin += 1;
+  }
+  const max = Math.max(cjk, cyrillic, arabic, latin);
+  if (max === 0) return "unknown";
+  if (max === cjk) return "cjk";
+  if (max === cyrillic) return "cyrillic";
+  if (max === arabic) return "arabic";
+  return "latin";
+}
 
 // 同一 (notice, lang) 的并发首次请求只触发一次翻译链调用
 const pendingNoticeTranslations = new Map<string, Promise<ChainResult>>();
@@ -1163,7 +1190,19 @@ function translateNoticeViaChain(
   description: string,
   lang: string
 ): Promise<ChainResult> {
-  return translateViaChain([title, description], "en", lang, async () => {
+  // 本地差异 #18：内容语言检测——原文已是目标语言时直通返回不进翻译链：
+  // cjk/cyrillic/arabic 与语言一一对应；latin 仅 en 视为已达标（fr/es 字符级无法与英文区分，仍过链）
+  const sourceScript = detectDominantScript(`${title}\n${description}`);
+  const targetScript = NOTICE_LANG_SCRIPT[lang] || "latin";
+  const alreadyTargetLang = sourceScript !== "unknown" && sourceScript === targetScript &&
+    (targetScript !== "latin" || lang === "en");
+  if (alreadyTargetLang) {
+    return Promise.resolve({ translations: [title, description], provider: "same-lang-passthrough" });
+  }
+  // 源语言动态化（原硬编码 "en"）：中文原文标 zh 保证有道通道方向正确；
+  // 其余文字系统仍标 en（罕见场景，有道不匹配时自然落 DeepSeek/Gemini 兜底，二者不依赖源语言声明）
+  const sourceLang = sourceScript === "cjk" ? "zh" as const : "en" as const;
+  return translateViaChain([title, description], sourceLang, lang, async () => {
     const result = await translateNoticeText(title, description, NOTICE_TRANSLATION_LANGS[lang]);
     return [result.title, result.description];
   });
@@ -2866,7 +2905,8 @@ async function startServer() {
       const offset = (page - 1) * limit;
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
-      // 可选 lang：附带公告标题译文（与详情翻译共用缓存表；en 为原文语言无需翻译）
+      // 可选 lang：附带公告标题译文（与详情翻译共用缓存表；本地差异 #18：en 也可翻——
+      // 中文原文公告在英文环境需反向英译，英文原文由链层直通返回不耗 API）
       const lang = String(req.query.lang || "").toLowerCase();
       const translatable = !!NOTICE_TRANSLATION_LANGS[lang];
 
@@ -3218,22 +3258,23 @@ async function startServer() {
   const NOTICE_SEARCH_CACHE_MAX = 200;
 
   // ── 精选池标注缓存（T-A3，本地差异 #14：A.2）──
+  // [精选功能临时禁用 2026-07-29] id 集合缓存与加载函数整体注释停用（非删除，保留以便重新启用）
   // active 精选 id 全集（约 3.2k）10 分钟进程内缓存：当页 is_featured 批量标注 O(1)，
   // 避免每次列表请求都跑三路物化子查询（冷加载约 2s，10 分钟一次）
-  let featuredIdsCache: { ids: Set<number>; expires: number } | null = null;
-  const getFeaturedIdSet = async (): Promise<Set<number>> => {
-    if (featuredIdsCache && featuredIdsCache.expires > Date.now()) return featuredIdsCache.ids;
-    const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
-    const [rows] = await dbPool.query(
-      `SELECT n.id FROM crm_bid_notices n
-       WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
-         AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
-         AND ${FEATURED_NOTICE_EXISTS}`
-    );
-    const ids = new Set<number>((rows as any[]).map((row) => Number(row.id)));
-    featuredIdsCache = { ids, expires: Date.now() + 10 * 60 * 1000 };
-    return ids;
-  };
+  // let featuredIdsCache: { ids: Set<number>; expires: number } | null = null;
+  // const getFeaturedIdSet = async (): Promise<Set<number>> => {
+  //   if (featuredIdsCache && featuredIdsCache.expires > Date.now()) return featuredIdsCache.ids;
+  //   const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+  //   const [rows] = await dbPool.query(
+  //     `SELECT n.id FROM crm_bid_notices n
+  //      WHERE (n.is_expired = 0 OR n.is_expired IS NULL)
+  //        AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
+  //        AND ${FEATURED_NOTICE_EXISTS}`
+  //   );
+  //   const ids = new Set<number>((rows as any[]).map((row) => Number(row.id)));
+  //   featuredIdsCache = { ids, expires: Date.now() + 10 * 60 * 1000 };
+  //   return ids;
+  // };
 
   app.get("/api/notices", async (req, res) => {
     try {
@@ -3259,7 +3300,9 @@ async function startServer() {
         ? Math.min(365, Math.max(0, Number(req.query.deadline_within_days))) : 0;
       const noticeType = String(req.query.notice_type || "").trim().slice(0, 100);
       // T-A3（本地差异 #14）：只看精选开关（三路合格机会判定，T-A1 单一事实源）
-      const featuredOnly = String(req.query.featured || "") === "1";
+      // [精选功能临时禁用 2026-07-29] 原解析注释停用，featured 参数被忽略；恢复时还原下行并删除 stub
+      // const featuredOnly = String(req.query.featured || "") === "1";
+      const featuredOnly = false; // 禁用期间恒 false，保持下游 hasSearch/cacheKey/filters 引用编译通过
 
       // ── 搜索行为落库（本地差异 #6：G.4）──
       // 仅带搜索/筛选条件时记录；user_key 经 normalizeUserKey（F.1），游客落 NULL；
@@ -3371,9 +3414,10 @@ async function startServer() {
         }
       }
       // T-A3（本地差异 #14）：只看精选——三路非相关 IN 物化（T-A1 常量，无逐行相关子查询）
-      if (featuredOnly) {
-        where.push(FEATURED_NOTICE_EXISTS);
-      }
+      // [精选功能临时禁用 2026-07-29] featuredOnly 恒 false，过滤分支连同常量引用一并注释
+      // if (featuredOnly) {
+      //   where.push(FEATURED_NOTICE_EXISTS);
+      // }
 
       // 排序：latest=最新收录优先（id 逆序；published_date 为自由文本不可靠）；
       // 默认 deadline=截止最近优先（折算秒后排序，修复秒/毫秒混存下的乱序）
@@ -3418,17 +3462,44 @@ async function startServer() {
 
       // T-A3：当页 is_featured 批量标注（10 分钟 id 集合缓存，纯内存判定不逐行查库；
       // 标注失败不阻断列表——精选徽标缺失可接受，公告数据不能缺）
-      const featuredIds = await getFeaturedIdSet().catch(() => new Set<number>());
+      // [精选功能临时禁用 2026-07-29] 标注停用，响应不再返回 is_featured（前端徽标已同步注释）
+      // const featuredIds = await getFeaturedIdSet().catch(() => new Set<number>());
+
+      // 本地差异 #19：锁定态拆解文件计数预览——按当页 id 批量取 documents/procurement_files，
+      // 用 normalizeDocumentRows 归一去重后仅下发计数（不泄露文件名/链接，清单仍需解锁），
+      // 供前端解锁前展示"包含拆解文件"指示器；计数失败不阻断列表（前端缺字段时回退中性提示）
+      const pageIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
+      const breakdownCounts = new Map<number, number>();
+      if (pageIds.length > 0) {
+        try {
+          const [docRows] = await dbPool.query(
+            `SELECT id, documents, procurement_files FROM crm_bid_notices WHERE id IN (${pageIds.map(() => "?").join(",")})`,
+            pageIds
+          );
+          for (const docRow of docRows as any[]) {
+            breakdownCounts.set(
+              Number(docRow.id),
+              normalizeDocumentRows(docRow.documents, docRow.procurement_files).length
+            );
+          }
+        } catch {
+          // 计数查询失败：静默降级，响应省略 breakdown_file_count 字段
+        }
+      }
 
       const payload = {
         items: (rows as any[]).map((row) => ({
           ...row,
-          is_featured: featuredOnly || featuredIds.has(Number(row.id)),
+          // is_featured: featuredOnly || featuredIds.has(Number(row.id)), // [精选功能临时禁用 2026-07-29]
           agency: null,
           organization: null,
           source_url: null,
           unspsc_codes: [],
           core_locked: true,
+          // 本地差异 #19：仅计数；查询失败时 undefined 被 res.json 省略，前端回退中性提示
+          breakdown_file_count: breakdownCounts.has(Number(row.id))
+            ? breakdownCounts.get(Number(row.id))
+            : undefined,
         })),
         total,
         page,
@@ -3503,10 +3574,11 @@ async function startServer() {
            AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.id)`
       );
       // 精选 = 有效公告中命中三路合格机会判定的（T-A1 单一事实源）
-      const [featuredRows] = await dbPool.query(
-        `SELECT COUNT(*) AS total FROM crm_bid_notices n
-         WHERE ${activeWhere} AND ${FEATURED_NOTICE_EXISTS}`
-      );
+      // [精选功能临时禁用 2026-07-29] featured 指标查询注释停用，下方以 0 占位保持 API 响应形状
+      // const [featuredRows] = await dbPool.query(
+      //   `SELECT COUNT(*) AS total FROM crm_bid_notices n
+      //    WHERE ${activeWhere} AND ${FEATURED_NOTICE_EXISTS}`
+      // );
 
       const active = Number((activeRows as any[])[0]?.total || 0);
       const bridged = Number((bridgedRows as any[])[0]?.total || 0);
@@ -3514,7 +3586,8 @@ async function startServer() {
         raw: Number((rawRows as any[])[0]?.total || 0),
         active,
         bridged,
-        featured: Number((featuredRows as any[])[0]?.total || 0),
+        // featured: Number((featuredRows as any[])[0]?.total || 0), // [精选功能临时禁用 2026-07-29]
+        featured: 0, // 禁用期间返回 0 占位
         bridge_gap: active - bridged,
       };
       noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };

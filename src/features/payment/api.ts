@@ -166,8 +166,8 @@ export async function fetchOrders(params: {
   return res.json();
 }
 
-// 公告原文为英文：除 en 外的界面语言都请求译文（与后端 NOTICE_TRANSLATION_LANGS 对齐）
-const NOTICE_API_LANGS = new Set(["zh", "fr", "ru", "es", "ar"]);
+// 本地差异 #18：库内存在中文原文公告，en 也需请求译文（英文原文由服务端内容检测直通返回，不耗 API）
+const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
 
 /**
  * 查询用户解锁记录（分页）

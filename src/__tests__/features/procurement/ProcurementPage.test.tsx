@@ -55,12 +55,14 @@ vi.mock("@/features/procurement/api", () => ({
 }));
 
 // ── Mock useLocale（locale 可变：切语言重拉级联用例需要）──
+// needsContentTranslation 复刻旧口径（用例原文均为英文：en 不请求、其余请求）
 const localeState = { locale: "zh" };
 vi.mock("@/core/i18n", () => ({
   useLocale: () => ({
     t: (key: string) => key,
     locale: localeState.locale,
   }),
+  needsContentTranslation: (_text: string, locale: string) => locale !== "en",
 }));
 
 // ── Mock useAuth ──

@@ -2,19 +2,28 @@
  * Notice on-demand translation hook
  *
  * @module features/procurement/hooks/useNoticeTranslation
- * @description 非英文环境下按需拉取公告标题/说明的 AI 译文：
- *              首次由后端调 Gemini 翻译并缓存，之后走数据库缓存；
- *              失败时静默回退英文原文，并提供"查看原文"切换。
- *              Fetches AI translation of a notice for non-en locales with
+ * @description 按需拉取公告标题/说明的 AI 译文：
+ *              基于原文内容检测（needsContentTranslation）而非"原文必为英文"假设——
+ *              中文原文在英文环境会请求英译；中文原文在中文环境跳过无效翻译。
+ *              首次由后端调翻译链并缓存，之后走数据库缓存；
+ *              失败时静默回退原文，并提供"查看原文"切换。
+ *              Fetches AI translation of a notice based on content-script detection
+ *              (not the legacy "source is always English" assumption) with
  *              server-side caching; falls back to the original silently.
  */
 import { useEffect, useState } from "react";
+import { needsContentTranslation } from "@/core/i18n";
 import { fetchNoticeTranslation } from "../api";
 import type { NoticeTranslation } from "../types";
 
 type TranslationResult = { noticeId: number; lang: string; data: NoticeTranslation };
 
-export function useNoticeTranslation(noticeId: number | undefined, locale: string) {
+export function useNoticeTranslation(
+  noticeId: number | undefined,
+  locale: string,
+  /** 公告原文（标题+描述），用于内容语言检测；缺省空串时按无法判断处理（不请求） */
+  sourceText = ""
+) {
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -26,7 +35,9 @@ export function useNoticeTranslation(noticeId: number | undefined, locale: strin
 
   useEffect(() => {
     setShowOriginal(false);
-    if (!noticeId || locale === "en") return;
+    // 内容语言检测代替原 `locale === "en"` 短路：原文已是目标语言时不请求，
+    // 非英文原文（如中文）在英文环境下同样发起翻译（服务端 lang=en 已支持）
+    if (!noticeId || !needsContentTranslation(sourceText, locale)) return;
 
     let cancelled = false;
     setTranslating(true);
@@ -41,7 +52,7 @@ export function useNoticeTranslation(noticeId: number | undefined, locale: strin
     return () => {
       cancelled = true;
     };
-  }, [noticeId, locale]);
+  }, [noticeId, locale, sourceText]);
 
   return {
     translation,

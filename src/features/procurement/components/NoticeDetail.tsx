@@ -3,6 +3,9 @@ import {
   Bell,
   Crown,
   ExternalLink,
+  FileCheck,
+  FileQuestion,
+  FileX,
   Heart,
   Lock,
   WalletCards,
@@ -11,7 +14,7 @@ import { useLocale } from "@/core/i18n";
 import type { NoticeItem, MembershipStatus, MembershipPlan, PaymentOrder } from "../types";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
-import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
+import { NoticeUnlockedDetails, collectBreakdownFiles } from "./NoticeUnlockedDetails";
 import { NoticePaymentPanel } from "./NoticePaymentPanel";
 
 interface NoticeDetailProps {
@@ -59,15 +62,24 @@ export function NoticeDetail({
   payment,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
+  // 原文（标题+描述）供内容语言检测：修复"中文原文在英文环境直接展示/在中文环境被无效翻译"
   const { translation, translating, showOriginal, toggleOriginal } = useNoticeTranslation(
     (notice as { id?: number }).id,
-    locale
+    locale,
+    `${notice.title || ""}\n${notice.description || ""}`
   );
   const showTranslated = !showOriginal && !!translation;
   const displayTitle = showTranslated && translation?.title ? translation.title : notice.title;
   const displayDescription =
     showTranslated && translation?.description ? translation.description : notice.description;
   const coreUnlocked = notice.core_locked === false;
+  // 拆解文件预览指示：解锁后与 NoticeUnlockedDetails 文件清单同源口径（documents+procurement_files 去重）；
+  // 锁定态用服务端计数预览字段（本地差异 #19，仅数量不泄清单），缺失时 undefined 回退中性提示
+  const breakdownFileCount = coreUnlocked
+    ? collectBreakdownFiles(notice).length
+    : typeof notice.breakdown_file_count === "number"
+      ? notice.breakdown_file_count
+      : undefined;
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(notice.notice_type);
   const showSkeleton = !coreUnlocked && !!detailLoading;
@@ -123,6 +135,28 @@ export function NoticeDetail({
                 </div>
               ))}
             </div>
+
+            {/* 拆解文件指示器：辅助预览，不影响核心信息展示逻辑；解锁前即可基于服务端
+                计数预览展示有/无，计数缺失（旧缓存/推荐兑底载荷）回退中性提示；骨架屏期间隐藏防闪变 */}
+            {!showSkeleton &&
+              (typeof breakdownFileCount === "number" ? (
+                breakdownFileCount > 0 ? (
+                  <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-200 bg-teal-50 text-xs font-bold text-teal-700">
+                    <FileCheck className="w-3.5 h-3.5 shrink-0" />
+                    {t("procurement_hasBreakdownFiles", { count: breakdownFileCount })}
+                  </p>
+                ) : (
+                  <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">
+                    <FileX className="w-3.5 h-3.5 shrink-0" />
+                    {t("procurement_noBreakdownFiles")}
+                  </p>
+                )
+              ) : (
+                <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-amber-200 bg-amber-50 text-xs font-bold text-amber-700">
+                  <FileQuestion className="w-3.5 h-3.5 shrink-0" />
+                  {t("procurement_breakdownAfterUnlock")}
+                </p>
+              ))}
 
             <div>
               <div className="flex items-center gap-3 mb-2">
