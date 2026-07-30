@@ -4619,13 +4619,44 @@ async function startServer() {
         [noticeId, lang]
       );
       const cachedRow = (cachedRows as any[])[0];
-      if (cachedRow) {
+      // 标题和描述都已缓存 → 直接返回
+      if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
         return res.json({
           lang,
           title: cachedRow.title_tr,
           description: cachedRow.description_tr,
           cached: true,
         });
+      }
+      // 仅有标题缓存（批量预翻译场景）→ 补翻描述，标题沿用已有缓存
+      if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
+        const [noticeRowsForDesc] = await dbPool.query(
+          "SELECT description FROM crm_bid_notices WHERE id = ? LIMIT 1",
+          [noticeId]
+        );
+        const noticeForDesc = (noticeRowsForDesc as any[])[0];
+        if (!noticeForDesc || !String(noticeForDesc.description || "").trim()) {
+          // 原文描述本身为空，直接返回已有标题
+          return res.json({ lang, title: cachedRow.title_tr, description: null, cached: true });
+        }
+        const pendingKeyDesc = `${noticeId}:${lang}:desc`;
+        let pendingDesc = pendingNoticeTranslations.get(pendingKeyDesc);
+        if (!pendingDesc) {
+          pendingDesc = translateNoticeViaChain(
+            "", // 标题无需再翻译，传空串（translateNoticeViaChain 会返回空串占位）
+            String(noticeForDesc.description),
+            lang
+          );
+          pendingNoticeTranslations.set(pendingKeyDesc, pendingDesc);
+          pendingDesc.finally(() => pendingNoticeTranslations.delete(pendingKeyDesc)).catch(() => undefined);
+        }
+        const { translations: descTranslations, provider: descProvider } = await pendingDesc;
+        const descTr = descTranslations[1]; // [1] = description 译文
+        await dbPool.query(
+          `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
+          [descTr, descProvider, noticeId, lang]
+        );
+        return res.json({ lang, title: cachedRow.title_tr, description: descTr, cached: false });
       }
 
       const [noticeRows] = await dbPool.query(

@@ -1,12 +1,45 @@
+# ===== 依赖与构建产物 =====
 node_modules/
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+*.tsbuildinfo
+.vite/
+.cache/
+
+# ===== 敏感配置(保留 .env.example)=====
 .env*
 !.env.example
+
+# ===== 日志与临时文件 =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+~$*
+*.swp
+*.swo
+scripts/backfill-log-*.jsonl
+
+# ===== IDE 与编辑器 =====
 .qoder/
+.vscode/
+.idea/
+*.suo
+*.njsproj
+*.sln
+
+# ===== 操作系统生成文件 =====
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ===== 开发过程文档 =====
 docs/
 要求.md
-~$*
