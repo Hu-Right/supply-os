@@ -12,7 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { OPPORTUNITIES } from "@/data";
-import { fetchSuppliers } from "@/features/supplier/api";
+import { fetchSuppliers } from "@/features/supplier";
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
 

@@ -8,8 +8,7 @@ import {
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { onAppEvent, emitAppEvent } from "@/core/events";
-import { getOrderStatus } from "@/features/payment/api";
-import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
+import { getOrderStatus, RecentUnlocks } from "@/features/payment";
 import type {
   UnspscOption,
   NoticeItem,

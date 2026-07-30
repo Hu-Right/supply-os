@@ -8,3 +8,4 @@
  */
 
 export { default as SupplierPage } from "./pages/SupplierPage";
+export { fetchSuppliers } from "./api";

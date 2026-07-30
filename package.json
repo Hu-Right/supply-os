@@ -16,7 +16,9 @@
     "check:encoding": "node scripts/check-mojibake.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "patrol": "node scripts/cron-patrol-and-clean.mjs",
+    "patrol:check": "node scripts/cron-patrol-and-clean.mjs --patrol-only"
   },
   "dependencies": {
     "@csstools/css-calc": "^3.2.1",
@@ -44,10 +46,12 @@
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/parser": "^8.65.0",
     "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
     "prettier": "^3.9.6",

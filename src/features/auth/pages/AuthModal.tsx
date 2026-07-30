@@ -19,7 +19,7 @@ import { MyRecordsPanel } from "@/features/payment";
 import {
   fetchIndustryPrefs,
   saveIndustryPrefs,
-} from "@/features/procurement/api";
+} from "@/features/procurement";
 import {
   fetchUnspscIndustries,
   fetchUnspscChildren,
