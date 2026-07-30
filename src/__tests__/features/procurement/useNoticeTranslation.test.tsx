@@ -6,6 +6,9 @@ import { server } from "../../mocks/server";
 import { useNoticeTranslation } from "@/features/procurement/hooks/useNoticeTranslation";
 
 // 注意：fetchJsonCached 按 URL 做模块级缓存，各用例必须使用不同 noticeId
+// hook 第三参 sourceText 用于内容语言检测：缺省空串→unknown→不请求，
+// 因此需要发起翻译的用例必须传与目标 locale 不同文字系统的原文（如英文原文 + zh）
+const EN_SOURCE = "Supply of diesel generators for field operations";
 
 describe("useNoticeTranslation", () => {
   it("fetches translation for non-en locale", async () => {
@@ -14,7 +17,7 @@ describe("useNoticeTranslation", () => {
         HttpResponse.json({ lang: "zh", title: "标题", description: "说明", cached: true })
       )
     );
-    const { result } = renderHook(() => useNoticeTranslation(501, "zh"));
+    const { result } = renderHook(() => useNoticeTranslation(501, "zh", EN_SOURCE));
     await waitFor(() => expect(result.current.translation).not.toBeNull());
     expect(result.current.translation?.title).toBe("标题");
     expect(result.current.translating).toBe(false);
@@ -28,7 +31,7 @@ describe("useNoticeTranslation", () => {
         return HttpResponse.json({ lang: "en", title: "x", description: "y", cached: true });
       })
     );
-    const { result } = renderHook(() => useNoticeTranslation(502, "en"));
+    const { result } = renderHook(() => useNoticeTranslation(502, "en", EN_SOURCE));
     expect(result.current.translating).toBe(false);
     await new Promise((r) => setTimeout(r, 50));
     expect(called).toBe(false);
@@ -41,7 +44,7 @@ describe("useNoticeTranslation", () => {
         HttpResponse.json({ error: "TRANSLATION_UNAVAILABLE" }, { status: 503 })
       )
     );
-    const { result } = renderHook(() => useNoticeTranslation(503, "ru"));
+    const { result } = renderHook(() => useNoticeTranslation(503, "ru", EN_SOURCE));
     await waitFor(() => expect(result.current.translating).toBe(false));
     expect(result.current.translation).toBeNull();
   });
@@ -52,7 +55,7 @@ describe("useNoticeTranslation", () => {
         HttpResponse.json({ lang: "fr", title: "t", description: "d", cached: true })
       )
     );
-    const { result } = renderHook(() => useNoticeTranslation(504, "fr"));
+    const { result } = renderHook(() => useNoticeTranslation(504, "fr", "中文原文公告内容"));
     await waitFor(() => expect(result.current.translation).not.toBeNull());
     expect(result.current.showOriginal).toBe(false);
     act(() => result.current.toggleOriginal());
@@ -69,7 +72,7 @@ describe("useNoticeTranslation", () => {
         return HttpResponse.json({ lang: "zh", title: "新公告", description: "新说明", cached: true });
       })
     );
-    const { result, rerender } = renderHook(({ id }) => useNoticeTranslation(id, "zh"), {
+    const { result, rerender } = renderHook(({ id }) => useNoticeTranslation(id, "zh", EN_SOURCE), {
       initialProps: { id: 505 },
     });
     await waitFor(() => expect(result.current.translation?.title).toBe("旧公告"));

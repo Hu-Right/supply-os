@@ -23,6 +23,7 @@ pnpm-debug.log*
 *.swp
 *.swo
 scripts/backfill-log-*.jsonl
+scripts/cron-logs/
 
 # ===== IDE 与编辑器 =====
 .qoder/

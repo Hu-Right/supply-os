@@ -43,7 +43,8 @@ describe("NoticeDetail", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getByText("Test Notice")).toBeInTheDocument();
     expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
-    expect(screen.getByText("US")).toBeInTheDocument();
+    // 国家在概览栏与机构信息卡各渲染一次，断言至少存在
+    expect(screen.getAllByText("US").length).toBeGreaterThan(0);
   });
 
   it("calls onBack when back button clicked", () => {
@@ -93,7 +94,8 @@ describe("NoticeDetail", () => {
 
   it("renders UNSPSC tags when unlocked", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
-    expect(screen.getByText("1000")).toBeInTheDocument();
+    // UNSPSC 码在标签区与拆解卡各渲染一次
+    expect(screen.getAllByText("1000").length).toBeGreaterThan(0);
   });
 
   // ── P1-B: core-locked mask gating ──
@@ -111,7 +113,7 @@ describe("NoticeDetail", () => {
   it("reveals real agency, tags and source when core is unlocked", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
-    expect(screen.getByText("1000")).toBeInTheDocument();
+    expect(screen.getAllByText("1000").length).toBeGreaterThan(0);
     expect(screen.getByText("procurement_source")).toBeInTheDocument();
     // Mask description should not be shown
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();

@@ -36,11 +36,15 @@ const mockFetchNoticeTranslation = vi.fn().mockRejectedValue(new Error("TRANSLAT
 const mockFetchIndustryPrefs = vi.fn().mockResolvedValue(null);
 const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
 const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
+// 国家下拉数据源与反馈接口：页面新增 import，mock 同步补齐（默认空/成功，不影响既有用例断言）
+const mockFetchNoticeCountries = vi.fn().mockResolvedValue([]);
+const mockSendNoticeFeedback = vi.fn().mockResolvedValue({ ok: true });
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
   fetchUnspscChildren: (id: string, locale?: string) => mockFetchUnspscChildren(id, locale),
   fetchNotices: (params: any) => mockFetchNotices(params),
+  fetchNoticeCountries: () => mockFetchNoticeCountries(),
   fetchMembershipPlans: () => mockFetchMembershipPlans(),
   fetchMembershipStatus: (key: string, cache?: boolean) => mockFetchMembershipStatus(key, cache),
   viewNotice: vi.fn().mockResolvedValue({ ok: true }),
@@ -52,6 +56,7 @@ vi.mock("@/features/procurement/api", () => ({
   fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
   saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
   fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
+  sendNoticeFeedback: (...args: any[]) => mockSendNoticeFeedback(...args),
 }));
 
 // ── Mock useLocale（locale 可变：切语言重拉级联用例需要）──
@@ -91,6 +96,7 @@ describe("ProcurementPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localeState.locale = "zh";
+    mockSearchParams = new URLSearchParams();
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
     mockAuth.isVip = false;
     // 用例 18 会把 industries 改为 rejected：此处复位，避免污染后续依赖级联数据的用例
@@ -173,20 +179,38 @@ describe("ProcurementPage", () => {
     });
   });
 
-  // ── 4. Search filter ──
+  // ── 4. Search filter（服务端搜索：URL q 参数为唯一事实源，结果由后端过滤返回）──
   it("filters notices by search query", async () => {
+    mockSearchParams = new URLSearchParams("q=Notice+A");
+    mockFetchNotices.mockImplementation((params: any) =>
+      Promise.resolve(
+        params?.q === "Notice A"
+          ? {
+              items: [{ id: 1, title: "Notice A", agency: "Agency A", country: "US", reference: "REF-001" }],
+              total: 1,
+              pageSize: 9,
+            }
+          : {
+              items: [
+                { id: 1, title: "Notice A", agency: "Agency A", country: "US", reference: "REF-001" },
+                { id: 2, title: "Notice B", agency: "Agency B", country: "CN", reference: "REF-002" },
+                { id: 3, title: "Notice C", agency: "Agency C", country: "DE", reference: "REF-003" },
+              ],
+              total: 3,
+              pageSize: 9,
+            }
+      )
+    );
     render(<ProcurementPage />);
 
+    // 搜索请求携带 q 参数下发服务端
+    await waitFor(() => {
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ q: "Notice A" }));
+    });
+    // 仅服务端过滤后的结果可见
     await waitFor(() => {
       expect(screen.getByText("Notice A")).toBeInTheDocument();
     });
-
-    // Type search query
-    const searchInput = screen.getByPlaceholderText("procurement_search");
-    fireEvent.change(searchInput, { target: { value: "Notice A" } });
-
-    // Only Notice A should remain visible
-    expect(screen.getByText("Notice A")).toBeInTheDocument();
     expect(screen.queryByText("Notice B")).toBeNull();
     expect(screen.queryByText("Notice C")).toBeNull();
   });
@@ -214,17 +238,17 @@ describe("ProcurementPage", () => {
     });
   });
 
-  // ── 8. Empty state when no match ──
+  // ── 8. Empty state when no match（服务端搜索无结果）──
   it("shows empty state when search has no results", async () => {
+    mockSearchParams = new URLSearchParams("q=nonexistent_query_xyz");
+    mockFetchNotices.mockResolvedValue({ items: [], total: 0, pageSize: 9 });
     render(<ProcurementPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Notice A")).toBeInTheDocument();
+      expect(mockFetchNotices).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "nonexistent_query_xyz" })
+      );
     });
-
-    const searchInput = screen.getByPlaceholderText("procurement_search");
-    fireEvent.change(searchInput, { target: { value: "nonexistent_query_xyz" } });
-
     await waitFor(() => {
       expect(screen.getByText("procurement_noMatch")).toBeInTheDocument();
     });
@@ -451,7 +475,7 @@ describe("ProcurementPage", () => {
 
     // 锁定面板自始至终不出现，完整数据直接呈现
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
-    await waitFor(() => expect(screen.getByText("UNDP Kenya")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("UNDP Kenya").length).toBeGreaterThan(0));
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
   });
 
@@ -489,7 +513,7 @@ describe("ProcurementPage", () => {
 
     // 详情返回后骨架屏让位于完整内容
     resolveDetail({ id: 2, title: "Notice B", core_locked: false, agency_full: "WHO Geneva" });
-    await waitFor(() => expect(screen.getByText("WHO Geneva")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("WHO Geneva").length).toBeGreaterThan(0));
     expect(screen.queryByTestId("detail-skeleton")).toBeNull();
   });
 

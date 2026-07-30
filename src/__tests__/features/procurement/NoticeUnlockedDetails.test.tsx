@@ -129,6 +129,8 @@ describe("NoticeUnlockedDetails", () => {
     const notice = {
       id: 1,
       title: "t",
+      // hasContent 门禁不计投标字段，需机构名等基础信息才渲染整个组件（与真实解锁数据形态一致）
+      agency: "UNDP",
       difficulty: "High",
       registration_level: "Level 3",
       estimated_value: "$1M",
