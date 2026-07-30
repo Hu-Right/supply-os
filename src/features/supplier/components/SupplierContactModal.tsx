@@ -9,6 +9,7 @@
 
 import { Crown, User, Mail, Phone, AlertCircle } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { emitAppEvent } from "@/core/events";
 import { Modal, Spinner } from "@/shared/ui";
 import type { Supplier } from "@/types";
 import type { SupplierContact } from "../api";
@@ -34,7 +35,7 @@ export function SupplierContactModal({
   // VIP 门槛：关闭弹窗并复用全局事件打开登录/升级入口（与 ProtectedRoute 同款门槛模式）
   const handleUpgrade = () => {
     onClose();
-    window.dispatchEvent(new CustomEvent("supply-os:require-vip"));
+    emitAppEvent("supply-os:require-vip");
   };
 
   return (

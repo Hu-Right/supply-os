@@ -10,6 +10,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { onAppEvent, emitAppEvent } from "@/core/events";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
 import { ShowroomCard } from "../components/ShowroomCard";
@@ -29,8 +30,7 @@ export default function ShowroomPage() {
       setSelectedShowroom(null);
       setShowRegisterForm(true);
     };
-    window.addEventListener("supply-os:open-showroom-register", onOpenRegister);
-    return () => window.removeEventListener("supply-os:open-showroom-register", onOpenRegister);
+    return onAppEvent("supply-os:open-showroom-register", onOpenRegister);
   }, []);
 
   // 计算可用地区和国家
@@ -82,7 +82,7 @@ export default function ShowroomPage() {
   };
 
   const handleConsult = (_showroom: ExhibitionHall | null) => {
-    window.dispatchEvent(new CustomEvent("supply-os:consult"));
+    emitAppEvent("supply-os:consult");
   };
 
   return (

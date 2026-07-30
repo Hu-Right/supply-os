@@ -14,6 +14,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
+import { emitAppEvent } from "@/core/events";
 
 type BannerConfig = {
   /** 标题翻译键 */
@@ -66,7 +67,7 @@ export function SessionBanner() {
         )}
         {(pathname === "/showroom" || pathname === "/") && (
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent("supply-os:open-showroom-register"))}
+            onClick={() => emitAppEvent("supply-os:open-showroom-register")}
             className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -75,7 +76,7 @@ export function SessionBanner() {
         )}
         {pathname === "/supplier" && (
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent("supply-os:open-supplier-register"))}
+            onClick={() => emitAppEvent("supply-os:open-supplier-register")}
             className="inline-flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -92,7 +93,7 @@ export function SessionBanner() {
           </button>
         )}
         <button
-          onClick={() => window.dispatchEvent(new CustomEvent("supply-os:consult"))}
+          onClick={() => emitAppEvent("supply-os:consult")}
           className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
         >
           <MessageSquare className="w-4 h-4 text-teal-400" />

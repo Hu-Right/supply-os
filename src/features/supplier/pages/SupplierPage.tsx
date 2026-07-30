@@ -11,6 +11,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { onAppEvent } from "@/core/events";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
@@ -59,8 +60,7 @@ export default function SupplierPage() {
   // 监听页头横幅"注册成为认证供应商"事件，打开入驻表单
   useEffect(() => {
     const onOpenRegister = () => setShowRegisterModal(true);
-    window.addEventListener("supply-os:open-supplier-register", onOpenRegister);
-    return () => window.removeEventListener("supply-os:open-supplier-register", onOpenRegister);
+    return onAppEvent("supply-os:open-supplier-register", onOpenRegister);
   }, []);
 
   // 计算可用行业

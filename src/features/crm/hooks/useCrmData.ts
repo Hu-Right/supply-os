@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { onAppEvent } from "@/core/events";
 import { OPPORTUNITIES } from "@/data";
 import { fetchSuppliers } from "@/features/supplier/api";
 import type { Lead, Supplier, Opportunity } from "@/types";
@@ -103,8 +104,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
     const onCrmRefresh = () => {
       fetchData();
     };
-    window.addEventListener("supply-os:crm-refresh", onCrmRefresh);
-    return () => window.removeEventListener("supply-os:crm-refresh", onCrmRefresh);
+    return onAppEvent("supply-os:crm-refresh", onCrmRefresh);
   }, []);
 
   // Trigger AI matching (delegates to useAiMatch)

@@ -13,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { emitAppEvent } from "@/core/events";
 import { useScrollLock } from "@/shared/ui";
 import { MyRecordsPanel } from "@/features/payment";
 import {
@@ -134,7 +135,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefSaved"));
       // 广播偏好已变更：公采页监听后按新偏好重新探测筛选（失败路径不广播）
-      window.dispatchEvent(new CustomEvent("supply-os:industry-prefs-updated"));
+      emitAppEvent("supply-os:industry-prefs-updated");
     } catch (err) {
       console.error("Failed to save industry prefs", err);
       setPrefMessageIsError(true);
@@ -155,7 +156,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefCleared"));
       // 广播偏好已清除：公采页监听后退出偏好筛选回全量
-      window.dispatchEvent(new CustomEvent("supply-os:industry-prefs-updated"));
+      emitAppEvent("supply-os:industry-prefs-updated");
     } catch (err) {
       console.error("Failed to clear industry prefs", err);
       setPrefMessageIsError(true);

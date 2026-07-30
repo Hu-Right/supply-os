@@ -8,6 +8,8 @@
  *              Unified request layer with TTL cache, 401 interception, and API base URL.
  */
 
+import { emitAppEvent } from "@/core/events";
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 /**
@@ -50,9 +52,7 @@ export async function api<T>(
 
   // 401 未授权：触发全局事件，由 App 层监听并弹出登录框
   if (res.status === 401) {
-    window.dispatchEvent(
-      new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
-    );
+    emitAppEvent("supply-os:unauthorized", { endpoint });
     throw new ApiError(401, "Unauthorized");
   }
 

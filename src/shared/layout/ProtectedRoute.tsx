@@ -10,6 +10,7 @@
 import { type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
+import { emitAppEvent } from "@/core/events";
 
 export interface ProtectedRouteProps {
   children: ReactNode;
@@ -25,13 +26,13 @@ export function ProtectedRoute({
 
   if (!authUser) {
     // 触发登录弹窗
-    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+    emitAppEvent("supply-os:require-login");
     return <Navigate to="/showroom" replace />;
   }
 
   if (requireVip && !isVip) {
     // 触发 VIP 升级提示
-    window.dispatchEvent(new CustomEvent("supply-os:require-vip"));
+    emitAppEvent("supply-os:require-vip");
     return <Navigate to="/showroom" replace />;
   }
 

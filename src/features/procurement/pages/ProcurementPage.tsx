@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { onAppEvent, emitAppEvent } from "@/core/events";
 import { getOrderStatus } from "@/features/payment/api";
 import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
 import type {
@@ -53,7 +54,7 @@ export default function ProcurementPage() {
   const userKey = authUser?.user_key;
 
   const onRequireLogin = () => {
-    window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+    emitAppEvent("supply-os:require-login");
   };
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
@@ -248,8 +249,7 @@ export default function ProcurementPage() {
       setPrefsMode(userKey ? "loading" : "default");
       setPrefsRefreshTick((tick) => tick + 1);
     };
-    window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
-    return () => window.removeEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
+    return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
   }, [userKey]);
 
   // 提示条中展示的偏好类目名（一级/二级名按 locale 取词，多级用 / 连接）
@@ -670,16 +670,14 @@ export default function ProcurementPage() {
       onRequireLogin();
       return;
     }
-    window.dispatchEvent(new CustomEvent("supply-os:pay", {
-      detail: {
-        code: "single_89",
-        name: t("procurement_singleUnlockName"),
-        price: 89,
-        currency: "CNY",
-        noticeId: notice.id,
-        returnUrl: `${window.location.origin}/procurement`,
-      },
-    }));
+    emitAppEvent("supply-os:pay", {
+      code: "single_89",
+      name: t("procurement_singleUnlockName"),
+      price: 89,
+      currency: "CNY",
+      noticeId: notice.id,
+      returnUrl: `${window.location.origin}/procurement`,
+    });
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
@@ -718,14 +716,12 @@ export default function ProcurementPage() {
 
   // 同页支付成功（mock/弹窗轮询）：刷新配额并展开已解锁详情
   useEffect(() => {
-    const onNoticePaid = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const onNoticePaid = (detail: { noticeId: number }) => {
       if (detail?.noticeId) {
         void refreshMembership().then(() => openNoticeById(Number(detail.noticeId)));
       }
     };
-    window.addEventListener("supply-os:notice-paid", onNoticePaid);
-    return () => window.removeEventListener("supply-os:notice-paid", onNoticePaid);
+    return onAppEvent("supply-os:notice-paid", onNoticePaid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, userKey]);
 

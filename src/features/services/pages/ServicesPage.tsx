@@ -8,6 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
+import { emitAppEvent } from "@/core/events";
 import { ServiceCard } from "../components/ServiceCard";
 import { SuccessStories } from "../components/SuccessStories";
 import { SERVICES, SUCCESS_STORIES } from "../data";
@@ -16,7 +17,7 @@ export default function ServicesPage() {
   const { t } = useLocale();
 
   const handleBookService = () => {
-    window.dispatchEvent(new CustomEvent("supply-os:consult"));
+    emitAppEvent("supply-os:consult");
   };
 
   return (

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { onAppEvent, emitAppEvent, type PayEventDetail } from "@/core/events";
 import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
@@ -30,7 +31,7 @@ export default function App() {
   // UI state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentPlan, setPaymentPlan] = useState<{ code: string; name: string; price: number; currency: string; noticeId?: number | null; returnUrl?: string } | null>(null);
+  const [paymentPlan, setPaymentPlan] = useState<PayEventDetail | null>(null);
   const [showConsultForm, setShowConsultForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -57,29 +58,20 @@ export default function App() {
 
   // Global event listeners (see docs 3.5.4 TODO checklist)
   useEffect(() => {
-    const onRequireLogin = () => setShowAuthModal(true);
-    const onUnauthorized = () => setShowAuthModal(true);
-    const onRequireVip = () => setShowAuthModal(true);
-    const onOpenAccount = () => setShowAuthModal(true);
-    const onConsult = () => setShowConsultForm(true);
-    const onPay = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail) { setPaymentPlan(detail); setShowPaymentModal(true); }
-    };
-    window.addEventListener("supply-os:require-login", onRequireLogin);
-    window.addEventListener("supply-os:unauthorized", onUnauthorized);
-    window.addEventListener("supply-os:require-vip", onRequireVip);
-    window.addEventListener("supply-os:open-account", onOpenAccount);
-    window.addEventListener("supply-os:consult", onConsult);
-    window.addEventListener("supply-os:pay", onPay);
-    return () => {
-      window.removeEventListener("supply-os:require-login", onRequireLogin);
-      window.removeEventListener("supply-os:unauthorized", onUnauthorized);
-      window.removeEventListener("supply-os:require-vip", onRequireVip);
-      window.removeEventListener("supply-os:open-account", onOpenAccount);
-      window.removeEventListener("supply-os:consult", onConsult);
-      window.removeEventListener("supply-os:pay", onPay);
-    };
+    const offs = [
+      onAppEvent("supply-os:require-login", () => setShowAuthModal(true)),
+      onAppEvent("supply-os:unauthorized", () => setShowAuthModal(true)),
+      onAppEvent("supply-os:require-vip", () => setShowAuthModal(true)),
+      onAppEvent("supply-os:open-account", () => setShowAuthModal(true)),
+      onAppEvent("supply-os:consult", () => setShowConsultForm(true)),
+      onAppEvent("supply-os:pay", (detail) => {
+        if (detail) {
+          setPaymentPlan(detail);
+          setShowPaymentModal(true);
+        }
+      }),
+    ];
+    return () => offs.forEach((off) => off());
   }, []);
 
   const tabs = [
@@ -191,7 +183,7 @@ export default function App() {
           onClose={() => setShowPaymentModal(false)}
           onPaymentSuccess={() => {
             if (paymentPlan.noticeId) {
-              window.dispatchEvent(new CustomEvent("supply-os:notice-paid", { detail: { noticeId: paymentPlan.noticeId } }));
+              emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
             }
             setShowPaymentModal(false);
             setPaymentPlan(null);
