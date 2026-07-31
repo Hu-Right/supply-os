@@ -11,6 +11,9 @@ import { ensureProcurementSchema } from "./db/schema";
 import { backfillUserIds, hydratePaymentEnvFromDb } from "./db/backfills";
 import { createLeadsStore } from "./services/leads";
 import { PaymentService } from "./payment/PaymentService";
+import { UsersRepo } from "./repos/users.repo";
+import { MembershipRepo } from "./repos/membership.repo";
+import { PaymentsRepo } from "./repos/payments.repo";
 import { createApp } from "./app";
 import type { AppContext } from "./context";
 
@@ -37,7 +40,12 @@ export async function startServer() {
   const paymentMode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
   const paymentService = PaymentService.initDefault(paymentMode);
 
-  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb };
+  // Repository 层初始化
+  const usersRepo = new UsersRepo(dbPool);
+  const membershipRepo = new MembershipRepo(dbPool);
+  const paymentsRepo = new PaymentsRepo(dbPool);
+
+  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo };
   const app = createApp(ctx);
 
   // Vite Integration for high performance SPA support
