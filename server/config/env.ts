@@ -43,9 +43,8 @@ export function getPaymentRuntimeConfig() {
   };
 }
 
-// 占位符值与空值均视为"未配置该通道"（与 GEMINI_API_KEY 占位符检查同款语义）
+// 占位符值与空值均视为"未配置该通道"（.env.example 的示例值不触发真实调用）
 const CHANNEL_PLACEHOLDERS = new Set([
-  "MY_GEMINI_API_KEY",
   "MY_YOUDAO_APP_KEY",
   "MY_YOUDAO_APP_SECRET",
   "MY_DEEPSEEK_API_KEY",

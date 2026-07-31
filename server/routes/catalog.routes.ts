@@ -6,9 +6,8 @@
 import { Router } from "express";
 import type { AppContext } from "../context";
 import { translateViaChain, type ChainResult } from "../services/translation/chain";
-import { translateUnspscTitles } from "../services/translation/gemini";
 
-// ── UNSPSC 类目标题按需翻译（对齐供应商翻译：缓存表 + Gemini + 并发去重）──
+// ── UNSPSC 类目标题按需翻译（对齐供应商翻译：缓存表 + 有道→DeepSeek 链 + 并发去重）──
 // 源文本为类目英文标题；zh/en 界面直接用类目表原列，仅 fr/ru/es/ar 需要译文
 const UNSPSC_TRANSLATION_LANGS: Record<string, string> = {
   fr: "French",
@@ -56,8 +55,8 @@ export function createCatalogRouter(ctx: AppContext): Router {
     return rows as any[];
   }
 
-  // 缺译行后台整批补翻：一次 Gemini 调用翻译整个列表，入库后下次请求命中缓存；
-  // 无 Key 或翻译失败静默放弃（响应已按英文回退，不影响可用性）
+  // 缺译行后台整批补翻：一次翻译链调用翻译整个列表，入库后下次请求命中缓存；
+  // 通道未配置或翻译失败静默放弃（响应已按英文回退，不影响可用性）
   async function backfillUnspscTranslations(rows: any[], lang: string, scopeKey: string) {
     const missing = rows.filter(
       (row) => !row.title_i18n && String(row.title || row.title_zh || "").trim()
@@ -66,9 +65,7 @@ export function createCatalogRouter(ctx: AppContext): Router {
     const pendingKey = `${scopeKey}:${lang}`;
     if (pendingUnspscTranslations.has(pendingKey)) return;
     const titles = missing.map((row) => String(row.title || row.title_zh || "").trim());
-    const pending = translateViaChain(titles, "en", lang, () =>
-      translateUnspscTitles(titles, UNSPSC_TRANSLATION_LANGS[lang])
-    );
+    const pending = translateViaChain(titles, "en", lang);
     pendingUnspscTranslations.set(pendingKey, pending);
     try {
       const { translations, provider } = await pending;

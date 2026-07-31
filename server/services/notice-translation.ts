@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { detect as detectLangTinyld } from "tinyld";
-import { translateNoticeText } from "./translation/gemini";
 import { translateViaChain, type ChainResult, type ChainSourceLang } from "./translation/chain";
 
 export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
@@ -100,9 +99,6 @@ export function translateNoticeViaChain(
   if (alreadyTargetLang) {
     return Promise.resolve({ translations: [title, description], provider: "same-lang-passthrough" });
   }
-  return translateViaChain([title, description], sourceLang, lang, async () => {
-    const result = await translateNoticeText(title, description, NOTICE_TRANSLATION_LANGS[lang]);
-    return [result.title, result.description];
-  });
+  return translateViaChain([title, description], sourceLang, lang);
 }
 

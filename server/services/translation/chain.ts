@@ -6,10 +6,11 @@ import crypto from "crypto";
 import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
 
-// ── 翻译通道链（本地差异 #4 扩展：有道智云 → DeepSeek V4-Pro → Gemini 兜底）──
-// 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时由 Gemini
-// 兜底函数抛 TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
-// 缓存表 model 列写入真实提供方（youdao / deepseek-v4-pro / gemini-3.5-flash）。
+// ── 翻译通道链（本地差异 #4 扩展：有道智云 → DeepSeek V4-Pro 双层链）──
+// 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时抛
+// TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
+// 缓存表 model 列写入真实提供方（youdao-llm / deepseek-v4-pro）。
+// [2026-07-31] Gemini 兜底层已按需求移除，链固定为有道→DeepSeek 两层。
 
 export type ChainResult = { translations: string[]; provider: string };
 
@@ -44,7 +45,7 @@ const CHAIN_LANG_NAMES: Record<string, string> = {
 
 
 // MT 通道的术语保护：URL/邮箱/参考号/常见缩写抽出为占位符，译后回填；
-// 任一占位符在译文中丢失即判本通道失败落下一层（Gemini 通道靠 prompt 规则，不套占位符）
+// 任一占位符在译文中丢失即判本通道失败落下一层
 const PROTECT_PATTERNS: RegExp[] = [
   /https?:\/\/[^\s)]+/g,
   /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,
@@ -212,14 +213,14 @@ async function translateViaYoudao(
 }
 
 // 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=high）
-// 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 通道插在有道之后、
-// Gemini 之前：有道对结构化短句快而稳，DeepSeek 对长描述/上下文语义更准，Gemini 末位兜底。
+// 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 通道插在有道之后：
+// 有道对结构化短句快而稳，DeepSeek 对长描述/上下文语义更准，同时担任链尾。
 // 思考模式下 temperature 等参数不生效；思维链走 reasoning_content（此处忽略），译文取 content。
 // 占位符沿用链上统一的 ⟦Tn⟧，由 prompt 明确要求原样保留，返回后经 restoreTerms 回填。
 // 合并请求模式：标题+正文等多段以 JSON 数组一次进出——一次思考翻完全部字段，
 // 段间共享上下文、术语一致，且省去多次深度思考的延迟与 token 开销；
-// 返回数组长度/形状不符即判失败降级。不设单次长度与每日软额度限制，
-// 超长/超量由 API 自身报错（HTTP 400/402/429 等）后降级到 Gemini。
+// 返回数组长度/形状不符即判失败。不设单次长度与每日软额度限制，
+// 超长/超量由 API 自身报错（HTTP 400/402/429 等）后抛 TRANSLATION_UNAVAILABLE。
 
 async function translateViaDeepSeek(
   texts: string[],
@@ -277,10 +278,10 @@ ${JSON.stringify(texts)}`;
 }
 
 // 通道链入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
-// 统一走有道→DeepSeek→Gemini 三层。有道 llm-trans 官方支持 40 语种（已全部纳入 YOUDAO_CODES 映射），
+// 统一走有道→DeepSeek 两层。有道 llm-trans 官方支持 40 语种（已全部纳入 YOUDAO_CODES 映射），
 // 且官方支持 from=auto：本地检测不确定的源语言标 "auto"，由有道服务端自行检测方向；
-// DeepSeek 通道对未知源语言省略语言名（LLM 自行识别），仅 Gemini 兜底 prompt 与源语言无关。
-// geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
+// DeepSeek 通道对未知源语言省略语言名（LLM 自行识别）。
+// 两通道均失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
 export type ChainSourceLang =
   | "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it"
   | "nl" | "pl" | "ro" | "sv" | "da" | "fi" | "no" | "hu" | "tr" | "et"
@@ -290,8 +291,7 @@ export type ChainSourceLang =
 export async function translateViaChain(
   texts: string[],
   sourceLang: ChainSourceLang,
-  targetLang: string,
-  geminiFallback: () => Promise<string[]>
+  targetLang: string
 ): Promise<ChainResult> {
   const jobs = texts
     .map((text, index) => ({ text, index }))
@@ -329,8 +329,9 @@ export async function translateViaChain(
     });
     return { translations: assemble(translated), provider: "deepseek-v4-pro" };
   } catch (err: any) {
-    // 未配置/失败/形状不符：落下一通道
-    console.warn(`[translate] deepseek -> next: ${err?.message}`);
+    // 未配置/失败/形状不符：链尾无后续通道
+    console.warn(`[translate] deepseek -> unavailable: ${err?.message}`);
   }
-  return { translations: await geminiFallback(), provider: "gemini-3.5-flash" };
+  // 两通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
+  throw new Error("TRANSLATION_UNAVAILABLE");
 }

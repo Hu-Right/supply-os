@@ -4,6 +4,35 @@ import { hashPassword } from "../../../server/services/auth";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../../server/services/notices";
 import { mapSupplierRow } from "../../../server/services/suppliers";
 import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
+import { translateViaChain } from "../../../server/services/translation/chain";
+
+// ─── translateViaChain（有道→DeepSeek 双层链）────────────────────────
+describe("translateViaChain", () => {
+  it("throws TRANSLATION_UNAVAILABLE when both channels fail", async () => {
+    const saved = {
+      YOUDAO_APP_KEY: process.env.YOUDAO_APP_KEY,
+      YOUDAO_APP_SECRET: process.env.YOUDAO_APP_SECRET,
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    };
+    // 占位符值视为未配置：两通道均跳过 → 链尾抛统一错误码
+    process.env.YOUDAO_APP_KEY = "MY_YOUDAO_APP_KEY";
+    process.env.YOUDAO_APP_SECRET = "MY_YOUDAO_APP_SECRET";
+    process.env.DEEPSEEK_API_KEY = "MY_DEEPSEEK_API_KEY";
+    try {
+      await expect(translateViaChain(["hello"], "en", "zh"))
+        .rejects.toThrow("TRANSLATION_UNAVAILABLE");
+    } finally {
+      process.env.YOUDAO_APP_KEY = saved.YOUDAO_APP_KEY;
+      process.env.YOUDAO_APP_SECRET = saved.YOUDAO_APP_SECRET;
+      process.env.DEEPSEEK_API_KEY = saved.DEEPSEEK_API_KEY;
+    }
+  });
+
+  it("passes empty texts through without calling any channel", async () => {
+    const result = await translateViaChain(["", "  "], "en", "zh");
+    expect(result).toEqual({ translations: ["", "  "], provider: "none" });
+  });
+});
 
 // ─── fetchWithTimeout ────────────────────────────────────────────────────
 describe("fetchWithTimeout", () => {

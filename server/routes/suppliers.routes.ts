@@ -7,11 +7,10 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { Lead } from "../../src/types";
 import { normalizeUserKey } from "../utils/normalize";
-import { translateSupplierFields } from "../services/translation/gemini";
 import { translateViaChain, type ChainResult } from "../services/translation/chain";
 import { mapSupplierRow } from "../services/suppliers";
 
-// ── 供应商字段按需翻译（对齐公告翻译：缓存表 + Gemini + 并发去重）──
+// ── 供应商字段按需翻译（对齐公告翻译：缓存表 + 有道→DeepSeek 链 + 并发去重）──
 // 原文为中文，仅需翻译非中文界面语言；公司名保留原文不翻译
 const SUPPLIER_TRANSLATION_LANGS: Record<string, string> = {
   en: "English",
@@ -79,18 +78,7 @@ export function createSuppliersRouter(ctx: AppContext): Router {
         String(row.industry || "").trim(),
         String(row.products || "").trim(),
       ];
-      const pending = translateViaChain(fields, "zh", lang, async () => {
-        const translated = await translateSupplierFields(
-          {
-            industry: fields[0],
-            mainProducts: fields[1],
-            certification: "",
-            enterpriseNature: "",
-          },
-          SUPPLIER_TRANSLATION_LANGS[lang]
-        );
-        return [translated.industry, translated.mainProducts];
-      });
+      const pending = translateViaChain(fields, "zh", lang);
       pendingSupplierTranslations.set(pendingKey, pending);
       try {
         const { translations, provider } = await pending;
