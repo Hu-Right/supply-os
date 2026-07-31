@@ -3,12 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createNoticesRouter } from "../../../server/routes/notices.routes";
+import { translateNoticeViaChain } from "../../../server/services/notice-translation";
 
 // Mock heavy dependencies to isolate route logic
 vi.mock("../../../server/services/notice-translation", () => ({
   NOTICE_TRANSLATION_LANGS: { zh: true, en: true },
   pendingNoticeTranslations: new Map(),
   translateNoticeViaChain: vi.fn(),
+  detectSourceLang: vi.fn(() => null),
 }));
 
 function createMockCtx() {
@@ -279,6 +281,81 @@ describe("GET /api/notices/:id/detail", () => {
   });
 });
 
+// ─── GET /api/notices/:id/translation ──────────────────────────────────────
+describe("GET /api/notices/:id/translation", () => {
+  beforeEach(() => {
+    vi.mocked(translateNoticeViaChain).mockReset();
+  });
+
+  it("caches real translations into crm_notice_translations", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[]]) // no cached row
+      .mockResolvedValueOnce([[{ title: "Pump supply", description: "Supply of pumps" }]]) // notice
+      .mockResolvedValue([[]]); // INSERT + 后续英文中枢查询
+    vi.mocked(translateNoticeViaChain).mockResolvedValue({
+      translations: ["水泵供应", "供应水泵"], provider: "youdao-llm",
+    });
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/1001/translation?lang=zh");
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ lang: "zh", title: "水泵供应", description: "供应水泵", cached: false });
+    const insertCalls = ctx.dbPool.query.mock.calls.filter(
+      ([sql]) => String(sql).includes("INSERT INTO crm_notice_translations")
+    );
+    expect(insertCalls).toHaveLength(1);
+  });
+
+  it("does not cache same-lang-passthrough results", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[]]) // no cached row
+      .mockResolvedValueOnce([[{ title: "采购水泵", description: "采购水泵及配件" }]]); // notice
+    vi.mocked(translateNoticeViaChain).mockResolvedValue({
+      translations: ["采购水泵", "采购水泵及配件"], provider: "same-lang-passthrough",
+    });
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/1002/translation?lang=zh");
+    expect(res.status).toBe(200);
+    expect(res.body.passthrough).toBe(true);
+    expect(res.body.cached).toBe(false);
+    const insertCalls = ctx.dbPool.query.mock.calls.filter(
+      ([sql]) => String(sql).includes("INSERT INTO crm_notice_translations")
+    );
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it("does not persist passthrough description on the desc-backfill branch", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[{ title_tr: "已有标题", description_tr: null }]]) // 缓存行缺 desc
+      .mockResolvedValueOnce([[{ description: "原文描述" }]]); // notice desc
+    vi.mocked(translateNoticeViaChain).mockResolvedValue({
+      translations: ["", "原文描述"], provider: "same-lang-passthrough",
+    });
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/1003/translation?lang=zh");
+    expect(res.status).toBe(200);
+    expect(res.body.passthrough).toBe(true);
+    const updateCalls = ctx.dbPool.query.mock.calls.filter(
+      ([sql]) => String(sql).includes("UPDATE crm_notice_translations")
+    );
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it("returns 503 JSON when translation chain unavailable", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[]]) // no cached row
+      .mockResolvedValueOnce([[{ title: "T", description: "D" }]]);
+    vi.mocked(translateNoticeViaChain).mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/1004/translation?lang=zh");
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: "TRANSLATION_UNAVAILABLE" });
+  });
+});
+
 // ─── POST /api/notices/:id/unlock ───────────────────────────────────────────
 describe("POST /api/notices/:id/unlock", () => {
   it("returns alreadyUnlocked for duplicate unlock", async () => {
@@ -354,5 +431,68 @@ describe("POST /api/notices/:id/interest", () => {
       interest_type: "interested",
     });
     expect(res.status).toBe(404);
+  });
+});
+
+// ─── GET /api/notices/:id/report（中文版订单拆解报告）─────────────────
+describe("GET /api/notices/:id/report", () => {
+  /** 二进制响应收集器：supertest 对 docx MIME 默认不缓冲 body */
+  const binaryParser = (res: any, cb: (err: Error | null, body: Buffer) => void) => {
+    const chunks: Buffer[] = [];
+    res.on("data", (c: Buffer) => chunks.push(c));
+    res.on("end", () => cb(null, Buffer.concat(chunks)));
+  };
+
+  it("returns 400 when user_key missing", async () => {
+    const app = buildApp(createMockCtx());
+    const res = await request(app).get("/api/notices/1/report");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("USER_AND_NOTICE_REQUIRED");
+  });
+
+  it("returns 403 when notice not unlocked", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query.mockResolvedValueOnce([[]]); // no unlock record
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/1/report?user_key=user@test.com");
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe("NOTICE_LOCKED");
+  });
+
+  it("returns 404 when no qualified opportunity exists", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[{ id: 1 }]]) // unlock exists
+      // notice 无 converted_opp_id/notice_id/reference → 三路匹配直接落空
+      .mockResolvedValueOnce([[{ id: 43, title: "No opp notice" }]]);
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices/43/report?user_key=user@test.com");
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe("REPORT_NOT_AVAILABLE");
+  });
+
+  it("streams a docx attachment for qualified opportunity", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[{ id: 1 }]]) // unlock exists
+      .mockResolvedValueOnce([[{ id: 42, title: "Handball", reference: "REF-1", converted_opp_id: 7 }]]) // notice
+      .mockResolvedValueOnce([[{ id: 7, is_qualified: 1, title: "Handball Opp", reference: "REF-1" }]]) // 合格 opp（converted_opp_id 路）
+      .mockResolvedValueOnce([[{ // SELECT * 全列回查
+        id: 7, update_time: "2026-01-01 00:00:00", title: "Handball Opp", reference: "REF-1",
+        description_cn: "中文拆解内容", bid_overview: "概览", incoterms: "DDP",
+      }]]);
+    const app = buildApp(ctx);
+    const res = await request(app)
+      .get("/api/notices/42/report?user_key=user@test.com")
+      .buffer(true)
+      .parse(binaryParser);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toContain("wordprocessingml");
+    expect(res.headers["content-disposition"]).toContain("attachment");
+    expect(res.headers["content-disposition"]).toContain("filename*=UTF-8''");
+    // docx 本质是 zip：魔数 PK
+    const body = res.body as Buffer;
+    expect(body.length).toBeGreaterThan(1000);
+    expect(body.subarray(0, 2).toString("ascii")).toBe("PK");
   });
 });

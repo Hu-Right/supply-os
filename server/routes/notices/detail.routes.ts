@@ -78,6 +78,11 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         }
         const { translations: descTranslations, provider: descProvider } = await pendingDesc;
         const descTr = descTranslations[1];
+        if (descProvider === "same-lang-passthrough") {
+          // 源语言即目标语言（或误检为同语言）：原文透传但绝不落缓存，
+          // 保留下次重检机会，杜绝"原文被固化为译文"（诊断 B1）
+          return res.json({ lang, title: cachedRow.title_tr, description: descTr, cached: false, passthrough: true });
+        }
         await dbPool.query(
           `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
           [descTr, descProvider, noticeId, lang]
@@ -99,6 +104,11 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
       const { translations, provider } = await pending;
+
+      if (provider === "same-lang-passthrough") {
+        // 同上：passthrough 结果不入 crm_notice_translations，直接透传原文
+        return res.json({ lang, title: translations[0], description: translations[1], cached: false, passthrough: true });
+      }
 
       await dbPool.query(
         `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
