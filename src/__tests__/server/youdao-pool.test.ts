@@ -3,15 +3,15 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// 每次测试前重置模块缓存，让 pool 重新读 env
-let pool: typeof import("../../../server/services/translation/youdaoPool");
-
-beforeEach(async () => {
+beforeEach(() => {
   vi.resetModules();
   // 清理所有有道相关 env
   for (const key of Object.keys(process.env)) {
     if (key.startsWith("YOUDAO_")) delete process.env[key];
   }
+  // 抑制池的 console.log/warn 噪音
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -19,8 +19,8 @@ afterEach(() => {
 });
 
 async function loadPool() {
-  pool = await import("../../../server/services/translation/youdaoPool");
-  return pool.youdaoPool;
+  const mod = await import("../../../server/services/translation/youdaoPool");
+  return mod.youdaoPool;
 }
 
 describe("youdaoPool", () => {
@@ -101,5 +101,57 @@ describe("youdaoPool", () => {
     // 模拟冷却到期：将 exhaustedUntil 回拨
     p.overrideCooldownForTest(acct!.index, Date.now() - 1000);
     expect(p.getActive()?.appKey).toBe("key-1");
+  });
+
+  it("wraps around correctly with 3 accounts", async () => {
+    process.env.YOUDAO_APP_KEY_1 = "key-1";
+    process.env.YOUDAO_APP_SECRET_1 = "secret-1";
+    process.env.YOUDAO_APP_KEY_2 = "key-2";
+    process.env.YOUDAO_APP_SECRET_2 = "secret-2";
+    process.env.YOUDAO_APP_KEY_3 = "key-3";
+    process.env.YOUDAO_APP_SECRET_3 = "secret-3";
+    const p = await loadPool();
+    expect(p.size).toBe(3);
+
+    // 顺序轮转：1 → 2 → 3
+    const a1 = p.getActive();
+    expect(a1?.appKey).toBe("key-1");
+    p.markExhausted(a1!.index);
+
+    const a2 = p.getActive();
+    expect(a2?.appKey).toBe("key-2");
+    p.markExhausted(a2!.index);
+
+    const a3 = p.getActive();
+    expect(a3?.appKey).toBe("key-3");
+    p.markExhausted(a3!.index);
+
+    // 全部耗尽
+    expect(p.getActive()).toBeNull();
+
+    // 恢复 #1 后重新可用
+    p.overrideCooldownForTest(a1!.index, Date.now() - 1000);
+    expect(p.getActive()?.appKey).toBe("key-1");
+  });
+
+  it("resetForTest clears all state and reloads from env", async () => {
+    process.env.YOUDAO_APP_KEY_1 = "key-1";
+    process.env.YOUDAO_APP_SECRET_1 = "secret-1";
+    const p = await loadPool();
+    expect(p.size).toBe(1);
+
+    // 耗尽后 reset
+    const acct = p.getActive();
+    p.markExhausted(acct!.index);
+    expect(p.getActive()).toBeNull();
+
+    // 更换 env 后 reset 应重新加载
+    delete process.env.YOUDAO_APP_KEY_1;
+    delete process.env.YOUDAO_APP_SECRET_1;
+    process.env.YOUDAO_APP_KEY = "new-legacy";
+    process.env.YOUDAO_APP_SECRET = "new-secret";
+    p.resetForTest();
+    expect(p.size).toBe(1);
+    expect(p.getActive()?.appKey).toBe("new-legacy");
   });
 });
