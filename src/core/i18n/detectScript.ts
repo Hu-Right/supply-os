@@ -50,18 +50,17 @@ export function detectDominantScript(text: string): ContentScript {
 /**
  * 判断业务原文在目标 locale 下是否需要请求内容翻译。
  *
- * 规则：
- * - 源文字系统与目标不同 → 需要翻译（含"中文原文 + 英文环境"的反向翻译场景）
- * - 同为 cjk/cyrillic/arabic（与语言一一对应）→ 原文已是目标语言，跳过
- * - 同为 latin：en 视为已达标（库存原文以英文为主的既有口径）；
- *   fr/es 字符级无法与英文区分，仍交由翻译链判定
- * - 源 unknown（纯数字/符号等）→ 不翻译，保持原文
+ * 规则（判定收敛到后端）：
+ * - 仅 cjk/cyrillic/arabic 与语言一一对应，同 script 可确定无需翻译；
+ * - latin 语种（en/fr/es/pl...）与 unknown（希腊/泰文等区间盲区）字符级不可判，
+ *   一律交后端 tinyld 全文检测：同语言由后端 passthrough 透传，零 API 成本；
+ * - 纯数字/符号（无任何字母）→ 不翻译，保持原文。
  */
 export function needsContentTranslation(sourceText: string, targetLocale: string): boolean {
   const target = LOCALE_SCRIPT[targetLocale];
   if (!target) return false;
   const source = detectDominantScript(sourceText);
-  if (source === "unknown") return false;
-  if (source !== target) return true;
-  return target === "latin" && targetLocale !== "en";
+  if (source === target && target !== "latin") return false;
+  if (source === "unknown" && !/\p{L}/u.test(sourceText)) return false; // 纯数字/符号
+  return true;
 }
