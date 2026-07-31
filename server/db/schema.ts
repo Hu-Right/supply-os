@@ -528,6 +528,28 @@ export async function ensureProcurementSchema(dbPool: any) {
       FROM crm_bid_notices
   `);
 
+  // 精选数据（crm_bid_opportunities）独立翻译缓存表，与 crm_notice_translations 同构；
+  // 定时任务双表扫描与按需正文翻译端点共用
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_opportunity_translations (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      opportunity_id BIGINT UNSIGNED NOT NULL,
+      lang VARCHAR(10) NOT NULL,
+      title_tr TEXT NULL,
+      description_tr MEDIUMTEXT NULL,
+      model VARCHAR(60) NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_opp_lang (opportunity_id, lang),
+      KEY idx_opp_tr_lang (lang)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  // 精选表水位定格：语义同 notice_id_cutoff，仅首次建表时以 MAX(id) 写入一次
+  await dbPool.query(`
+    INSERT IGNORE INTO crm_translation_state (state_key, state_value)
+    SELECT 'opportunity_id_cutoff', CAST(COALESCE(MAX(id), 0) AS CHAR)
+      FROM crm_bid_opportunities
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_supplier_translations (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

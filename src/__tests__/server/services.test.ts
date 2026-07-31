@@ -66,6 +66,7 @@ describe("runIncrementalTranslation", () => {
     const dbPool = {
       query: vi.fn(async (sql: string, params?: any[]) => {
         if (String(sql).includes("FROM crm_translation_state")) return [[]];
+        if (String(sql).includes("FROM crm_bid_opportunities")) return [[]];
         if (String(sql).includes("FROM crm_bid_notices")) {
           return params?.[0] === "zh" ? [[{ id: 5, title: "采购水泵" }]] : [[]];
         }
@@ -83,6 +84,37 @@ describe("runIncrementalTranslation", () => {
     expect(markerCalls).toHaveLength(1);
     expect(String(markerCalls[0][0])).toContain("skip-same-lang");
     expect(translateNoticeViaChain).not.toHaveBeenCalled();
+  });
+
+  it("scans crm_bid_opportunities and writes into crm_opportunity_translations", async () => {
+    // 精选数据表同轮扫描：法语标题 → zh 目标语言翻译入独立缓存表
+    vi.mocked(detectSourceLang).mockReturnValue("fr");
+    vi.mocked(translateNoticeViaChain).mockReset();
+    vi.mocked(translateNoticeViaChain).mockResolvedValue({
+      translations: ["水泵供应"], provider: "youdao-llm",
+    });
+    const dbPool = {
+      query: vi.fn(async (sql: string, params?: any[]) => {
+        if (String(sql).includes("FROM crm_translation_state")) return [[]];
+        if (String(sql).includes("FROM crm_bid_notices")) return [[]];
+        if (String(sql).includes("FROM crm_bid_opportunities")) {
+          return params?.[0] === "zh" ? [[{ id: 9, title: "Fourniture de pompes" }]] : [[]];
+        }
+        return [{}];
+      }),
+    };
+    await runIncrementalTranslation(dbPool as any, {
+      maxPerRun: 10,
+      descMaxChars: 8000,
+      dailyCharBudget: 100000,
+    });
+    const inserts = dbPool.query.mock.calls.filter(
+      ([sql]) => String(sql).includes("INSERT INTO crm_opportunity_translations"),
+    );
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0][1][0]).toBe(9);
+    expect(inserts[0][1][1]).toBe("zh");
+    expect(inserts[0][1][2]).toBe("水泵供应");
   });
 });
 
