@@ -1,0 +1,39 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import express from "express";
+import type { Express } from "express";
+import type { AppContext } from "./context";
+import { createLeadsRouter } from "./routes/leads.routes";
+import { createSuppliersRouter } from "./routes/suppliers.routes";
+import { createAuthRouter } from "./routes/auth.routes";
+import { createPaymentRouter } from "./routes/payment.routes";
+import { createCatalogRouter } from "./routes/catalog.routes";
+import { createOpportunitiesRouter } from "./routes/opportunities.routes";
+import { createNoticesRouter } from "./routes/notices.routes";
+import { createUserPrefsRouter } from "./routes/user-prefs.routes";
+import { createMembershipRouter } from "./routes/membership.routes";
+import { createAdminRouter } from "./routes/admin.routes";
+import { createTrainingRouter } from "./routes/training.routes";
+import { createAiRouter } from "./routes/ai.routes";
+
+export function createApp(ctx: AppContext): Express {
+  const app = express();
+  app.use(express.json());
+  // 挂载顺序 = 原 server.ts 注册顺序，禁止调整：
+  app.use(createLeadsRouter(ctx));            // 1. /api/leads*
+  app.use(createSuppliersRouter(ctx));        // 2. /api/suppliers*, /api/supplier-claims
+  app.use(createAuthRouter(ctx));             // 3. /api/auth/*
+  app.use(createPaymentRouter(ctx));          // 4. /api/billing/*, /api/payment*, /api/payments*
+  app.use(createCatalogRouter(ctx));           // 5. /api/certifications, /api/unspsc/*
+  app.use(createOpportunitiesRouter(ctx));    // 6. /api/opportunities*
+  app.use(createNoticesRouter(ctx));          // 7. /api/notices*（静态路径先于 /:id）
+  app.use(createUserPrefsRouter(ctx));         // 8. /api/user/industry-prefs
+  app.use(createMembershipRouter(ctx));        // 9. /api/membership/*
+  app.use(createAdminRouter(ctx));             // 10. /api/admin/*, /api/procurement/schema-status
+  app.use(createTrainingRouter(ctx));          // 11. /api/training/*
+  app.use(createAiRouter(ctx));               // 12. /api/ai/matchmake
+  return app;
+}
