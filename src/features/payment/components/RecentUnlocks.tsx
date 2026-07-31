@@ -78,22 +78,24 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
               key={`${record.notice_id}-${record.unlocked_at || ""}`}
               className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3 py-2"
             >
-              <span dir="auto" className="text-sm font-bold text-slate-700 truncate min-w-0">
+              <span dir="auto" className="text-sm font-bold text-slate-700 truncate min-w-0 flex-1">
                 {title}
               </span>
-              {/* 公采搜索功能（本地差异 #6 配套：需求 2）——已过期解锁醒目标记，防客户误投已截止公告 */}
-              {record.notice?.deadline_expired === true && (
-                <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700">
-                  {t("myRecordsExpired")}
-                </span>
-              )}
-              <button
-                onClick={() => onOpenNotice(record.notice_id)}
-                className="inline-flex items-center gap-1 text-xs font-black text-teal-700 hover:text-teal-800 shrink-0 cursor-pointer"
-              >
-                {t("myPurchasesOpenDetail")}
-                <ArrowRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
-              </button>
+              {/* 已过期标签紧贴"查看详情"按钮前方，保证所有列表项视觉对齐 */}
+              <span className="shrink-0 flex items-center gap-1.5">
+                {record.notice?.deadline_expired === true && (
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700">
+                    {t("myRecordsExpired")}
+                  </span>
+                )}
+                <button
+                  onClick={() => onOpenNotice(record.notice_id)}
+                  className="inline-flex items-center gap-1 text-xs font-black text-teal-700 hover:text-teal-800 cursor-pointer"
+                >
+                  {t("myPurchasesOpenDetail")}
+                  <ArrowRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
+                </button>
+              </span>
             </li>
           );
         })}

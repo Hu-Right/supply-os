@@ -67,8 +67,8 @@ export function NoticeSearchBar({
       }}
       className="space-y-3"
     >
-      {/* lg:items-end：日期框带可见标签后比其他控件高，底部对齐保持整行控件齐平 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_150px_150px_170px_auto] gap-3 lg:items-end">
+      {/* 第一行：搜索 / 国家 / 排序 / 按钮 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_170px_auto] gap-3 lg:items-end">
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
         <input
@@ -92,31 +92,6 @@ export function NoticeSearchBar({
           </option>
         ))}
       </select>
-      {/* 起止日期框加可见标签（label 包裹自动关联，点标签即聚焦），区分起始/截止输入框 */}
-      <label className="flex items-center gap-2">
-        <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-          {t("procurement_deadlineFrom")}
-        </span>
-        <input
-          type="date"
-          value={fromInput}
-          onChange={(e) => setFromInput(e.target.value)}
-          title={t("procurement_deadlineFrom")}
-          className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-        />
-      </label>
-      <label className="flex items-center gap-2">
-        <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-          {t("procurement_deadlineTo")}
-        </span>
-        <input
-          type="date"
-          value={toInput}
-          onChange={(e) => setToInput(e.target.value)}
-          title={t("procurement_deadlineTo")}
-          className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-        />
-      </label>
       <select
         value={activeSort}
         onChange={(e) => applySearch(e.target.value === "latest" ? "latest" : "deadline")}
@@ -141,6 +116,33 @@ export function NoticeSearchBar({
           {t("procurement_clearSearch")}
         </button>
       </div>
+      </div>
+      {/* 第二行：截止日期起止（独立一行，标签在前、输入框在后） */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-3">
+        <label className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap shrink-0">
+            {t("procurement_deadlineFrom")}
+          </span>
+          <input
+            type="date"
+            value={fromInput}
+            onChange={(e) => setFromInput(e.target.value)}
+            title={t("procurement_deadlineFrom")}
+            className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap shrink-0">
+            {t("procurement_deadlineTo")}
+          </span>
+          <input
+            type="date"
+            value={toInput}
+            onChange={(e) => setToInput(e.target.value)}
+            title={t("procurement_deadlineTo")}
+            className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
       </div>
       {/* T-B9 第二行：截止窗口 / 金额区间（USD）/ 采购类型（对接 T-B8 服务端过滤） */}
       <div className="grid grid-cols-2 lg:grid-cols-[180px_160px_160px_minmax(0,1fr)_auto] gap-3">
