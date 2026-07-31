@@ -5,6 +5,7 @@ import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from 
 import { mapSupplierRow } from "../../../server/services/suppliers";
 import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
 import { translateViaChain, protectTerms } from "../../../server/services/translation/chain";
+import { youdaoPool } from "../../../server/services/translation/youdaoPool";
 import { runIncrementalTranslation } from "../../../server/services/autoTranslate";
 import { detectSourceLang, translateNoticeViaChain } from "../../../server/services/notice-translation";
 
@@ -48,6 +49,8 @@ describe("translateViaChain", () => {
       YOUDAO_APP_SECRET: process.env.YOUDAO_APP_SECRET,
       DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     };
+    // 重置池懒加载状态，确保读到下面新设的 env
+    youdaoPool.resetForTest();
     process.env.YOUDAO_APP_KEY = "test-app-key";
     process.env.YOUDAO_APP_SECRET = "test-app-secret";
     process.env.DEEPSEEK_API_KEY = "test-deepseek-key";
@@ -68,6 +71,7 @@ describe("translateViaChain", () => {
       process.env.YOUDAO_APP_KEY = saved.YOUDAO_APP_KEY;
       process.env.YOUDAO_APP_SECRET = saved.YOUDAO_APP_SECRET;
       process.env.DEEPSEEK_API_KEY = saved.DEEPSEEK_API_KEY;
+      youdaoPool.resetForTest(); // 恢复池状态，避免污染后续测试
       vi.unstubAllGlobals();
     }
   });

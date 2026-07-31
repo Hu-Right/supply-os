@@ -5,6 +5,7 @@
 import crypto from "crypto";
 import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
+import { youdaoPool } from "./youdaoPool";
 
 // ── 翻译通道链（本地差异 #4 扩展：有道智云 → DeepSeek V4-Pro 双层链）──
 // 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时抛
@@ -142,31 +143,23 @@ function youdaoInput(q: string): string {
   return q.slice(0, 10) + q.length + q.slice(q.length - 10);
 }
 
-async function translateViaYoudao(
+// 单次 HTTP 请求 + SSE 解析（纯 I/O，不含账号选择逻辑）
+async function youdaoRequest(
   text: string,
-  sourceLang: string,
-  targetLang: string
+  from: string,
+  to: string,
+  appKey: string,
+  appSecret: string
 ): Promise<string> {
-  const appKey = process.env.YOUDAO_APP_KEY;
-  const appSecret = process.env.YOUDAO_APP_SECRET;
-  // 官方支持 from=auto（服务端自动检测源语言）：映射外/本地检测不确定的源语言不再跳过本通道
-  const from = YOUDAO_CODES[sourceLang] ?? "auto";
-  const to = YOUDAO_CODES[targetLang];
-  if (!channelConfigured(appKey) || !channelConfigured(appSecret) || !to) {
-    throw new Error("CHANNEL_SKIPPED");
-  }
-  // 超长预检：有道必拒的请求不发起，立即降级 DeepSeek，省 API 调用与等待
-  if (text.length > YOUDAO_MAX_CHARS) throw new Error("CHANNEL_SKIPPED");
-  // 大模型通道通过 prompt 指示模型原样保留 ⟦Tn⟧ 占位符，无需旧 API 的 §Tn§ 变体转换
   const salt = crypto.randomUUID();
   const curtime = String(Math.round(Date.now() / 1000));
   const sign = crypto
     .createHash("sha256")
-    .update(String(appKey) + youdaoInput(text) + salt + curtime + String(appSecret))
+    .update(appKey + youdaoInput(text) + salt + curtime + appSecret)
     .digest("hex");
   const prompt = "Keep every placeholder like ⟦T0⟧ ⟦T1⟧ exactly as-is in the translation, do not modify, translate, or remove them.";
   const body = new URLSearchParams({
-    appKey: String(appKey),
+    appKey,
     salt,
     curtime,
     sign,
@@ -215,6 +208,41 @@ async function translateViaYoudao(
     throw new Error("YOUDAO_LLM_EMPTY");
   }
   return finalTranslation.trim();
+}
+
+// 通道1 入口：账号池轮转 + 配额自动切换
+// 遍历池中可用账号；某账号返回配额错误码（108/109/110/111）时标记冷却并尝试下一个；
+// 全部耗尽或无账号时抛 CHANNEL_SKIPPED，由上层链路降级 DeepSeek。
+async function translateViaYoudao(
+  text: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<string> {
+  const from = YOUDAO_CODES[sourceLang] ?? "auto";
+  const to = YOUDAO_CODES[targetLang];
+  if (!to) throw new Error("CHANNEL_SKIPPED");
+  // 超长预检：有道必拒的请求不发起，立即降级 DeepSeek，省 API 调用与等待
+  if (text.length > YOUDAO_MAX_CHARS) throw new Error("CHANNEL_SKIPPED");
+
+  const maxAttempts = youdaoPool.size;
+  if (maxAttempts === 0) throw new Error("CHANNEL_SKIPPED");
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const account = youdaoPool.getActive();
+    if (!account) throw new Error("CHANNEL_SKIPPED"); // 全部冷却中
+    try {
+      return await youdaoRequest(text, from, to, account.appKey, account.appSecret);
+    } catch (err: any) {
+      const code = String(err?.message || "").match(/^YOUDAO_LLM_ERROR_(.+)$/)?.[1] ?? "";
+      if (youdaoPool.isQuotaError(code)) {
+        // 配额耗尽：标记冷却并轮转到下一个账号
+        youdaoPool.markExhausted(account.index);
+        continue;
+      }
+      throw err; // 非配额错误（902000/超时/HTTP 等）直接上抛
+    }
+  }
+  throw new Error("CHANNEL_SKIPPED");
 }
 
 // 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=high）
