@@ -106,6 +106,24 @@ describe("GET /api/notices", () => {
     expect(countSql).toContain("86400");
   });
 
+  // [精选功能重新启用 2026-07-31] featured=1 三路合格机会过滤 + 页级 is_featured 标注
+  it("applies featured filter and marks items as featured", async () => {
+    const ctx = createMockCtx();
+    ctx.dbPool.query
+      .mockResolvedValueOnce([[{ total: 1 }]]) // COUNT
+      .mockResolvedValueOnce([[{ id: 7, title: "Qualified Notice", notice_type: "Tender" }]]) // rows
+      .mockResolvedValueOnce([[]]); // documents query（featuredOnly 时跳过标注回查）
+    const app = buildApp(ctx);
+    const res = await request(app).get("/api/notices?featured=1");
+    expect(res.status).toBe(200);
+    // WHERE 包含三路合格机会 IN 子查询（converted_opp_id / source_notice_id / reference）
+    const countSql = ctx.dbPool.query.mock.calls[0][0];
+    expect(countSql).toContain("crm_bid_opportunities");
+    expect(countSql).toContain("is_qualified = 1");
+    // featuredOnly 命中的当页项全部标注 is_featured
+    expect(res.body.items[0].is_featured).toBe(true);
+  });
+
   it("returns 500 on database error", async () => {
     const ctx = createMockCtx();
     ctx.dbPool.query.mockRejectedValue(new Error("DB connection lost"));
@@ -139,14 +157,15 @@ describe("GET /api/notices/stats", () => {
     ctx.dbPool.query
       .mockResolvedValueOnce([[{ total: 100000 }]]) // raw
       .mockResolvedValueOnce([[{ total: 50000 }]])  // active
-      .mockResolvedValueOnce([[{ total: 30000 }]]); // bridged
+      .mockResolvedValueOnce([[{ total: 30000 }]])  // bridged
+      .mockResolvedValueOnce([[{ total: 5000 }]]);  // featured（[精选功能重新启用 2026-07-31] 真实计数）
     const app = buildApp(ctx);
     const res = await request(app).get("/api/notices/stats");
     expect(res.status).toBe(200);
     expect(res.body.raw).toBe(100000);
     expect(res.body.active).toBe(50000);
     expect(res.body.bridged).toBe(30000);
-    expect(res.body.featured).toBe(0); // disabled
+    expect(res.body.featured).toBe(5000);
     expect(res.body.bridge_gap).toBe(20000);
   });
 });

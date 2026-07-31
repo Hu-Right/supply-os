@@ -33,9 +33,9 @@ export function createSuppliersRouter(ctx: AppContext): Router {
     try {
       const lang = String(req.query.lang || "zh").toLowerCase();
       const [rows] = await dbPool.query(
-        `SELECT id, company_name, contact_name, telephone, email, main_product, industry, certification, enterprise_nature
-         FROM crm_suppliers
-         WHERE company_name <> '测试'
+        `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
+         FROM supplier
+         WHERE company <> '测试'
          ORDER BY id DESC
          LIMIT 500`
       );
@@ -74,47 +74,32 @@ export function createSuppliersRouter(ctx: AppContext): Router {
     for (const row of rows) {
       const pendingKey = `${row.id}:${lang}`;
       if (pendingSupplierTranslations.has(pendingKey)) continue;
-      // 4 字段按固定顺序过链：industry / mainProducts / certification / enterpriseNature
+      // supplier 表只有行业/主营产品两个可译字段，认证/企业性质槽位置空
       const fields = [
         String(row.industry || "").trim(),
-        String(row.main_product || "").trim(),
-        String(row.certification || "").trim(),
-        String(row.enterprise_nature || "").trim(),
+        String(row.products || "").trim(),
       ];
       const pending = translateViaChain(fields, "zh", lang, async () => {
         const translated = await translateSupplierFields(
           {
             industry: fields[0],
             mainProducts: fields[1],
-            certification: fields[2],
-            enterpriseNature: fields[3],
+            certification: "",
+            enterpriseNature: "",
           },
           SUPPLIER_TRANSLATION_LANGS[lang]
         );
-        return [
-          translated.industry,
-          translated.mainProducts,
-          translated.certification,
-          translated.enterpriseNature,
-        ];
+        return [translated.industry, translated.mainProducts];
       });
       pendingSupplierTranslations.set(pendingKey, pending);
       try {
         const { translations, provider } = await pending;
         await dbPool.query(
-          `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, certification_tr, enterprise_nature_tr, model)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, model)
+           VALUES (?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE industry_tr = VALUES(industry_tr), main_products_tr = VALUES(main_products_tr),
-             certification_tr = VALUES(certification_tr), enterprise_nature_tr = VALUES(enterprise_nature_tr), model = VALUES(model)`,
-          [
-            row.id,
-            lang,
-            translations[0],
-            translations[1],
-            translations[2],
-            translations[3],
-            provider,
-          ]
+             model = VALUES(model)`,
+          [row.id, lang, translations[0], translations[1], provider]
         );
       } catch (err: any) {
         if (err?.message === "TRANSLATION_UNAVAILABLE") return; // 全链不可用：整批放弃
@@ -148,15 +133,15 @@ export function createSuppliersRouter(ctx: AppContext): Router {
       if (!isVip) return res.status(403).json({ error: "VIP_REQUIRED" });
 
       const [supplierRows] = await dbPool.query(
-        "SELECT contact_name, telephone, email FROM crm_suppliers WHERE id = ? LIMIT 1",
+        "SELECT contact, phone, email FROM supplier WHERE id = ? LIMIT 1",
         [supplierId]
       );
       const supplier = (supplierRows as any[])[0];
       if (!supplier) return res.status(404).json({ error: "SUPPLIER_NOT_FOUND" });
 
       res.json({
-        contactPerson: supplier.contact_name || "",
-        contactPhone: supplier.telephone || "",
+        contactPerson: supplier.contact || "",
+        contactPhone: supplier.phone || "",
         contactEmail: supplier.email || "",
       });
     } catch (err: any) {

@@ -34,8 +34,8 @@ export interface NoticeItem {
   /** 推荐理由标签键（C.3.4，每卡至多 2 个；前端映射 procurement_reason_* i18n 键渲染） */
   reco_reasons?: string[];
   /** 精选公告（T-A4，本地差异 #14）：对应合格机会三路判定，列表端点批量标注 */
-  // [精选功能临时禁用 2026-07-29] 字段注释停用（服务端标注与前端徽标已同步注释）
-  // is_featured?: boolean;
+  // [精选功能重新启用 2026-07-31] 字段恢复（服务端标注与前端徽标已同步恢复）
+  is_featured?: boolean;
   // 解锁后由 /api/notices/:id/detail 补充的拓展字段
   // Extended fields provided by /api/notices/:id/detail once unlocked
   url?: string;

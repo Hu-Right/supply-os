@@ -39,8 +39,8 @@ export interface NoticeSearchFilters {
   deadlineWithinDays?: number;
   noticeType?: string;
   /** T-A4（本地差异 #14）：只看精选（三路合格机会判定，服务端 featured=1） */
-  // [精选功能临时禁用 2026-07-29] 参数字段注释停用（调用侧 ProcurementPage 已同步注释）
-  // featured?: boolean;
+  // [精选功能重新启用 2026-07-31] 参数字段恢复（调用侧 useNoticeSearch 已同步恢复）
+  featured?: boolean;
 }
 
 export const fetchNotices = (
@@ -61,7 +61,7 @@ export const fetchNotices = (
   if (params.valueMax) searchParams.set("value_max", String(params.valueMax));
   if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
   if (params.noticeType) searchParams.set("notice_type", params.noticeType);
-  // if (params.featured) searchParams.set("featured", "1"); // [精选功能临时禁用 2026-07-29]
+  if (params.featured) searchParams.set("featured", "1"); // [精选功能重新启用 2026-07-31]
   return apiCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
 

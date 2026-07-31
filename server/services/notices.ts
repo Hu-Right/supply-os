@@ -81,23 +81,23 @@ const qualifiedOppWhere = (alias = "") => {
   return `(${p}is_qualified = 1 OR ${p}status = 'won' OR ${p}audit_status = 1)`;
 };
 
-// ── [精选功能临时禁用 2026-07-29] ──
-// FEATURED_NOTICE_EXISTS 判定常量整体注释停用（非删除，保留以便将来重新启用）。
-// 同批注释的消费点：featuredIdsCache/getFeaturedIdSet、/api/notices 的 featured=1 过滤与
-// is_featured 标注、/api/notices/stats 的 featured 指标；前端开关/徽标/参数同步注释。
-// 注意：qualifiedOppWhere 被付费解锁详情（findQualifiedOpportunityForNotice）共用，保持启用。
+// ── [精选功能重新启用 2026-07-31] ──
+// FEATURED_NOTICE_EXISTS 判定常量恢复启用（原 2026-07-29 临时注释停用）。
+// 同批恢复的消费点：/api/notices 的 featured=1 过滤与 is_featured 页级标注、
+// /api/notices/stats 的 featured 指标；前端开关/徽标/参数同步恢复。
+// 注意：qualifiedOppWhere 被付费解锁详情（findQualifiedOpportunityForNotice）共用。
 // 精选公告判定：三路独立子查询（converted_opp_id / source_notice_id / reference）。
 // 用非相关 IN 子查询（MySQL 物化一次 + 逐行 hash 查找）而非相关 EXISTS：
 // 生产库实测 OR 连接三路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
 // IN 物化 1.9s 且语义等价（scripts/verify-featured-exists.mjs 3/3 PASS）。
-// 依赖外层查询别名 n = crm_bid_notices
-// const FEATURED_NOTICE_EXISTS = `(
-//   n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
-//   OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
-//     WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
-//   OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
-//     WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
-// )`;
+// 依赖外层查询别名 n = crm_bid_notices；可投标期限由列表既有 is_expired/deadline_ts 条件保障
+export const FEATURED_NOTICE_EXISTS = `(
+  n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
+  OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
+    WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
+  OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
+    WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
+)`;
 
 export async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
   const fields = `

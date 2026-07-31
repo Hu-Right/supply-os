@@ -73,7 +73,11 @@ export function detectSourceLang(title: string, description: string): ChainSourc
     return detectLangTinyld(text) === "uk" ? "uk" : "ru";
   }
   if (script === "arabic") return "ar";
-  if (script === "unknown") return null;
+  if (script === "unknown") {
+    // 检测盲区（希腊/希伯来/泰文等未统计的字符区间）：含字母则标 "auto" 进链，
+    // 有道 from=auto 不支持时自动降级 DeepSeek/Gemini；纯数字/符号才判无翻译价值
+    return /\p{L}/u.test(text) ? "auto" : null;
+  }
   // latin 分支：tinyld 离线检测。置信度过低或落在支持列表外 → "auto" 交有道服务端检测
   const detected = detectLangTinyld(text);
   if (detected && TINYLD_SUPPORTED.has(detected)) {

@@ -11,6 +11,7 @@ import {
   tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords,
 } from "../../services/recommend";
 import { backfillNoticeAmountCache } from "../../services/amount";
+import { FEATURED_NOTICE_EXISTS } from "../../services/notices";
 
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
@@ -40,7 +41,8 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       const deadlineWithinDays = Number.isInteger(Number(req.query.deadline_within_days))
         ? Math.min(365, Math.max(0, Number(req.query.deadline_within_days))) : 0;
       const noticeType = String(req.query.notice_type || "").trim().slice(0, 100);
-      const featuredOnly = false;
+      // [精选功能重新启用 2026-07-31] featured=1 只看精选（三路合格机会判定，T-A4）
+      const featuredOnly = String(req.query.featured || "") === "1";
 
       const hasSearch = Boolean(
         q || country || dateRe.test(deadlineFrom) || dateRe.test(deadlineTo) ||
@@ -130,6 +132,11 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
         if (valueMin) { where.push("vamc.amount_usd >= ?"); params.push(valueMin); }
         if (valueMax) { where.push("vamc.amount_usd <= ?"); params.push(valueMax); }
       }
+      // 精选过滤：只保留能三路关联到合格机会（crm_bid_opportunities）的公告；
+      // 可投标期限由上方既有 is_expired/deadline_ts 条件保障，与其他筛选条件 AND 叠加
+      if (featuredOnly) {
+        where.push(FEATURED_NOTICE_EXISTS);
+      }
 
       const orderParts: string[] = [];
       const orderParams: any[] = [];
@@ -160,6 +167,19 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
 
       const pageIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
       const breakdownCounts = new Map<number, number>();
+      // 页级 is_featured 标注：featuredOnly 时全部命中，否则仅对当页 ≤30 条回查三路判定
+      const featuredIds = new Set<number>();
+      if (pageIds.length > 0 && featuredOnly) {
+        for (const id of pageIds) featuredIds.add(id);
+      } else if (pageIds.length > 0) {
+        try {
+          const [featRows] = await dbPool.query(
+            `SELECT n.id FROM crm_bid_notices n WHERE n.id IN (${pageIds.map(() => "?").join(",")}) AND ${FEATURED_NOTICE_EXISTS}`,
+            pageIds
+          );
+          for (const featRow of featRows as any[]) featuredIds.add(Number(featRow.id));
+        } catch { /* 标注查询失败：静默降级，不影响列表主体 */ }
+      }
       if (pageIds.length > 0) {
         try {
           const [docRows] = await dbPool.query(
@@ -175,6 +195,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       const payload = {
         items: (rows as any[]).map((row) => ({
           ...row, agency: null, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
+          is_featured: featuredIds.has(Number(row.id)),
           breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
         })),
         total, page, pageSize,
@@ -224,11 +245,15 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
         `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeWhere}
          AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
       );
+      // [精选功能重新启用 2026-07-31] 恢复真实精选计数（结果随 stats 缓存 10 分钟）
+      const [featuredRows] = await dbPool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeWhere} AND ${FEATURED_NOTICE_EXISTS}`
+      );
       const active = Number((activeRows as any[])[0]?.total || 0);
       const bridged = Number((bridgedRows as any[])[0]?.total || 0);
       const data = {
         raw: Number((rawRows as any[])[0]?.total || 0), active, bridged,
-        featured: 0, bridge_gap: active - bridged,
+        featured: Number((featuredRows as any[])[0]?.total || 0), bridge_gap: active - bridged,
       };
       noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
       res.json(data);

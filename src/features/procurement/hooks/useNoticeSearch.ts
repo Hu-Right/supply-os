@@ -70,6 +70,8 @@ export interface UseNoticeSearchReturn {
   // 动作
   applySearch: (sortOverride?: "deadline" | "latest") => void;
   clearSearch: () => void;
+  /** T-A4：只看精选开关（立即生效写 URL，保留其余现有条件） */
+  toggleFeatured: () => void;
   // 列表��据
   items: NoticeItem[];
   total: number;
@@ -106,9 +108,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   // T-A4（本地差异 #14）：只看精选开关，URL 为唯一事实源（刷新/直达链接均保持）
-  // [精选功能临时禁用 2026-07-29] 原解析注释停用，URL featured 参数被忽略；恢复时还原下行并删除 stub
-  // const activeFeatured = searchParams.get("featured") === "1";
-  const activeFeatured = false; // 禁用期间恒 false，保持 hasSearch/searchKey 等下游引用编译通过
+  // [精选功能重新启用 2026-07-31] 恢复 URL featured 参数解析（删除禁用期 stub）
+  const activeFeatured = searchParams.get("featured") === "1";
   const hasSearch = Boolean(
     activeQ || activeCountry || activeFrom || activeTo ||
     activeValueMin || activeValueMax || activeWindow || activeNoticeType || activeFeatured
@@ -157,8 +158,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     if (windowInput) next.deadline_within_days = windowInput;
     if (typeInput.trim()) next.notice_type = typeInput.trim();
     // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
-    // [精选功能临时禁用 2026-07-29] featured 参数不再写回 URL
-    // if (activeFeatured) next.featured = "1";
+    if (activeFeatured) next.featured = "1";
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline") next.sort = sortValue;
     if (prefsMode !== "default") setPrefsMode("default");
@@ -168,16 +168,15 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   };
 
   // T-A4（本地差异 #14）：只看精选开关——立即生效写 URL，保留其余全部现有条件
-  // [精选功能临时禁用 2026-07-29] 开关处理函数整体注释停用（对应按钮 UI 已同步注释）
-  // const toggleFeatured = () => {
-  //   const next = new URLSearchParams(searchParams);
-  //   if (activeFeatured) next.delete("featured");
-  //   else next.set("featured", "1");
-  //   if (prefsMode !== "default") setPrefsMode("default");
-  //   setPage(1);
-  //   setSelectedNotice(null);
-  //   setSearchParams(next);
-  // };
+  const toggleFeatured = () => {
+    const next = new URLSearchParams(searchParams);
+    if (activeFeatured) next.delete("featured");
+    else next.set("featured", "1");
+    if (prefsMode !== "default") setPrefsMode("default");
+    setPage(1);
+    setSelectedNotice(null);
+    setSearchParams(next);
+  };
 
   const clearSearch = () => {
     setQInput("");
@@ -228,7 +227,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             valueMax: activeValueMax ? Number(activeValueMax) : undefined,
             deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
             noticeType: activeNoticeType || undefined,
-            // featured: activeFeatured || undefined, // [精选功能临时禁用 2026-07-29] 参数不再下发
+            featured: activeFeatured || undefined, // [精选功能重新启用 2026-07-31]
           })
         : prefsMode === "recommended" && userKey
           ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
@@ -284,6 +283,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     countries,
     applySearch,
     clearSearch,
+    toggleFeatured,
     items,
     total,
     serverPageSize,

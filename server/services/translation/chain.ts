@@ -188,8 +188,11 @@ async function translateViaYoudao(
       const parsed = JSON.parse(line);
       if (String(parsed.code) !== "0" || !parsed.successful) {
         lastErrorCode = String(parsed.code || parsed.errorCode || "unknown");
-        const errMsg = parsed.message || "";
-        console.warn(`[translate] youdao-llm error: code=${lastErrorCode}, message=${errMsg}`);
+        // 902000（不支持的语言方向）属预期内跨语种拒绝，不打警告；其余错误码保留告警
+        if (lastErrorCode !== "902000") {
+          const errMsg = parsed.message || "";
+          console.warn(`[translate] youdao-llm error: code=${lastErrorCode}, message=${errMsg}`);
+        }
         throw new Error(`YOUDAO_LLM_ERROR_${lastErrorCode}`);
       }
       if (parsed.data?.transFull) finalTranslation = parsed.data.transFull;
@@ -303,8 +306,11 @@ export async function translateViaChain(
     }
     return { translations: assemble(translated), provider: "youdao-llm" };
   } catch (err: any) {
-    // 未配置/超长/失败：落下一通道
-    console.warn(`[translate] youdao -> next: ${err?.message}`);
+    // 未配置/超长/失败/不支持的语种：落下一通道；
+    // 902000（不支持的语言方向）属预期内降级，静默不打日志，其余保留告警
+    if (err?.message !== "YOUDAO_LLM_ERROR_902000") {
+      console.warn(`[translate] youdao -> next: ${err?.message}`);
+    }
   }
   try {
     // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）

@@ -139,6 +139,8 @@ export default function ProcurementPage() {
             countries={search.countries}
             applySearch={search.applySearch}
             clearSearch={search.clearSearch}
+            activeFeatured={search.activeFeatured}
+            toggleFeatured={search.toggleFeatured}
           />
         </div>
       </section>

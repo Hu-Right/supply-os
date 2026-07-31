@@ -8,7 +8,7 @@
  *              Search input + country/deadline/sort/window/value/type filter
  *              controls; all props come from useNoticeSearch, stateless.
  */
-import { Search } from "lucide-react";
+import { Crown, Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 
 export interface NoticeSearchBarProps {
@@ -32,6 +32,9 @@ export interface NoticeSearchBarProps {
   countries: Array<{ country: string; count: number }>;
   applySearch: (sortOverride?: "deadline" | "latest") => void;
   clearSearch: () => void;
+  /** T-A4：只看精选开关状态（URL 为唯一事实源）与切换动作 */
+  activeFeatured: boolean;
+  toggleFeatured: () => void;
 }
 
 export function NoticeSearchBar({
@@ -55,6 +58,8 @@ export function NoticeSearchBar({
   countries,
   applySearch,
   clearSearch,
+  activeFeatured,
+  toggleFeatured,
 }: NoticeSearchBarProps) {
   const { t } = useLocale();
 
@@ -186,7 +191,7 @@ export function NoticeSearchBar({
           className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
         {/* T-A4（本地差异 #14）：只看精选开关——点击即生效，不依赖搜索提交 */}
-        {/* [精选功能临时禁用 2026-07-29] 开关按钮整体注释停用（非删除，保留以便重新启用）
+        {/* [精选功能重新启用 2026-07-31] 开关按钮恢复（原 2026-07-29 临时注释停用） */}
         <button
           type="button"
           onClick={toggleFeatured}
@@ -200,7 +205,6 @@ export function NoticeSearchBar({
           <Crown className="w-3.5 h-3.5" />
           {t("procurement_featuredOnly")}
         </button>
-        */}
       </div>
     </form>
   );

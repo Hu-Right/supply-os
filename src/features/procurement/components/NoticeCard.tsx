@@ -1,6 +1,6 @@
 // [収藏/dismiss 功能临时禁用 2026-07-30] Star, X 不再使用
-// [精选功能临时禁用 2026-07-29] Crown 仅精选徽标使用，随徽标一并注释
-import { /* Crown, Star, X */ } from "lucide-react";
+// [精选功能重新启用 2026-07-31] Crown 随精选徽标一并恢复
+import { Crown /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
@@ -50,14 +50,13 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </span>
           {/* T-A4（本地差异 #14）：精选徽标——三路合格机会判定命中，服务端批量标注 */}
-          {/* [精选功能临时禁用 2026-07-29] 徽标整体注释停用（服务端 is_featured 标注已同步注释）
+          {/* [精选功能重新启用 2026-07-31] 徽标恢复（服务端 is_featured 标注已同步恢复） */}
           {item.is_featured && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
             </span>
           )}
-          */}
         </div>
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
