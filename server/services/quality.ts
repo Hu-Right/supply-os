@@ -132,7 +132,7 @@ export async function captureDataQualitySnapshot(dbPool: any) {
   const [unlinkedRows] = await dbPool.query(
     `SELECT COUNT(*) AS unlinked_unspsc
      FROM crm_bid_notices n
-     LEFT JOIN (SELECT DISTINCT notice_id FROM crm_bid_notice_unspsc_codes) b ON b.notice_id = n.id
+     LEFT JOIN (SELECT DISTINCT notice_id FROM crm_bid_notice_unspsc_codes) b ON b.notice_id = n.notice_id
      WHERE b.notice_id IS NULL`
   );
   // ③ F.5 重复检测：external notice_id 非空行的重复数（NULL/空串不计入）

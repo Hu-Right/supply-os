@@ -222,7 +222,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       const [activeRows] = await dbPool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeWhere}`);
       const [bridgedRows] = await dbPool.query(
         `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${activeWhere}
-         AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.id)`
+         AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
       );
       const active = Number((activeRows as any[])[0]?.total || 0);
       const bridged = Number((bridgedRows as any[])[0]?.total || 0);
@@ -321,7 +321,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
       const [countRows] = await dbPool.query(
         `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n
-         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
+         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
          WHERE (${bridgeWhere}) AND ${activeWhere}`,
         [...params, ...extraParams]
       );
@@ -384,7 +384,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
            GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
            COUNT(DISTINCT b.code) AS match_score, ${recoScoreExpr} AS reco_score
          FROM crm_bid_notices n
-         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.id
+         INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
          LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
          WHERE (${bridgeWhere}) AND ${activeWhere}
          GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${deadlineSecExpr}, n.id DESC
