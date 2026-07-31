@@ -53,24 +53,33 @@ export const pendingNoticeTranslations = new Map<string, Promise<ChainResult>>()
 
 // ── 源语言检测（本地差异 #19：小语种支持）──
 // 分层策略：字符级可靠的先用 detectDominantScript（CJK/西里尔/阿拉伯），
-// 只有 latin 分支（英/法/西/葡/德/意 字符级无法区分）才动用 tinyld 离线检测。
+// 西里尔分支再用 tinyld 区分俄语/乌克兰语；latin 分支用 tinyld 离线检测。
 // 返回 null 表示纯数字/符号/空文本，无翻译价值，调用方应跳过。
-// 支持的语言集合与 ChainSourceLang 对齐（en/zh/ru/ar/fr/es/pt/de/it）。
-const TINYLD_SUPPORTED = new Set(["en", "fr", "es", "pt", "de", "it"]);
+// latin 检测置信度不足/落在支持列表外 → 返回 "auto"（有道官方 from=auto 由服务端检测），
+// 不再回退 "en"：旧逻辑会把荷兰/波兰/拉脱维亚语等误标英文，目标为英文时被误判直通跳过翻译。
+// 支持的语言集合与 ChainSourceLang 对齐（latin 语种取 tinyld 与有道官方 40 语种的交集）。
+const TINYLD_SUPPORTED = new Set([
+  "en", "fr", "es", "pt", "de", "it",
+  "nl", "pl", "ro", "sv", "da", "fi", "no", "hu", "tr", "et",
+  "ca", "id", "ms", "vi", "tl",
+]);
 
 export function detectSourceLang(title: string, description: string): ChainSourceLang | null {
   const text = `${title}\n${description}`;
   const script = detectDominantScript(text);
   if (script === "cjk") return "zh";
-  if (script === "cyrillic") return "ru";
+  if (script === "cyrillic") {
+    // 西里尔字符级无法区分俄/乌：tinyld 检为 uk 才标乌克兰语，其余保持既有 ru 行为
+    return detectLangTinyld(text) === "uk" ? "uk" : "ru";
+  }
   if (script === "arabic") return "ar";
   if (script === "unknown") return null;
-  // latin 分支：tinyld 离线检测。置信度过低或落在支持列表外 → 回退 "en"
+  // latin 分支：tinyld 离线检测。置信度过低或落在支持列表外 → "auto" 交有道服务端检测
   const detected = detectLangTinyld(text);
   if (detected && TINYLD_SUPPORTED.has(detected)) {
     return detected as ChainSourceLang;
   }
-  return "en";
+  return "auto";
 }
 
 // 公告标题+描述过链的适配器（详情端点与解锁补翻共用，与 pendingNoticeTranslations 键配套）
