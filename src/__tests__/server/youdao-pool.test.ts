@@ -2,13 +2,15 @@
  * youdaoPool 账号池单元测试
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { youdaoPool } from "../../../server/services/translation/youdaoPool";
 
 beforeEach(() => {
-  vi.resetModules();
   // 清理所有有道相关 env
   for (const key of Object.keys(process.env)) {
     if (key.startsWith("YOUDAO_")) delete process.env[key];
   }
+  // 单例重置：懒加载标记归零，下次访问时按本用例设置的 env 重新加载
+  youdaoPool.resetForTest();
   // 抑制池的 console.log/warn 噪音
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -18,46 +20,41 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function loadPool() {
-  const mod = await import("../../../server/services/translation/youdaoPool");
-  return mod.youdaoPool;
-}
-
 describe("youdaoPool", () => {
-  it("loads legacy single account from YOUDAO_APP_KEY/SECRET", async () => {
+  it("loads legacy single account from YOUDAO_APP_KEY/SECRET", () => {
     process.env.YOUDAO_APP_KEY = "legacy-key";
     process.env.YOUDAO_APP_SECRET = "legacy-secret";
-    const p = await loadPool();
+    const p = youdaoPool;
     expect(p.size).toBe(1);
     const acct = p.getActive();
     expect(acct?.appKey).toBe("legacy-key");
   });
 
-  it("loads numbered accounts and combines with legacy", async () => {
+  it("loads numbered accounts and combines with legacy", () => {
     process.env.YOUDAO_APP_KEY = "legacy-key";
     process.env.YOUDAO_APP_SECRET = "legacy-secret";
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
     process.env.YOUDAO_APP_KEY_2 = "key-2";
     process.env.YOUDAO_APP_SECRET_2 = "secret-2";
-    const p = await loadPool();
+    const p = youdaoPool;
     expect(p.size).toBe(3); // legacy + 2 numbered
   });
 
-  it("skips placeholder values", async () => {
+  it("skips placeholder values", () => {
     process.env.YOUDAO_APP_KEY = "MY_YOUDAO_APP_KEY"; // placeholder
     process.env.YOUDAO_APP_SECRET = "MY_YOUDAO_APP_SECRET";
-    const p = await loadPool();
+    const p = youdaoPool;
     expect(p.size).toBe(0);
     expect(p.getActive()).toBeNull();
   });
 
-  it("rotates to next account on markExhausted", async () => {
+  it("rotates to next account on markExhausted", () => {
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
     process.env.YOUDAO_APP_KEY_2 = "key-2";
     process.env.YOUDAO_APP_SECRET_2 = "secret-2";
-    const p = await loadPool();
+    const p = youdaoPool;
 
     const first = p.getActive();
     expect(first?.appKey).toBe("key-1");
@@ -67,10 +64,10 @@ describe("youdaoPool", () => {
     expect(second?.appKey).toBe("key-2");
   });
 
-  it("returns null when all accounts exhausted", async () => {
+  it("returns null when all accounts exhausted", () => {
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
-    const p = await loadPool();
+    const p = youdaoPool;
 
     const acct = p.getActive();
     expect(acct).not.toBeNull();
@@ -78,8 +75,8 @@ describe("youdaoPool", () => {
     expect(p.getActive()).toBeNull();
   });
 
-  it("identifies quota error codes correctly", async () => {
-    const p = await loadPool();
+  it("identifies quota error codes correctly", () => {
+    const p = youdaoPool;
     expect(p.isQuotaError("108")).toBe(true);
     expect(p.isQuotaError("109")).toBe(true);
     expect(p.isQuotaError("110")).toBe(true);
@@ -89,10 +86,10 @@ describe("youdaoPool", () => {
     expect(p.isQuotaError("")).toBe(false);
   });
 
-  it("exhausted account recovers after cooldown expires", async () => {
+  it("exhausted account recovers after cooldown expires", () => {
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
-    const p = await loadPool();
+    const p = youdaoPool;
 
     const acct = p.getActive();
     p.markExhausted(acct!.index);
@@ -103,14 +100,14 @@ describe("youdaoPool", () => {
     expect(p.getActive()?.appKey).toBe("key-1");
   });
 
-  it("wraps around correctly with 3 accounts", async () => {
+  it("wraps around correctly with 3 accounts", () => {
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
     process.env.YOUDAO_APP_KEY_2 = "key-2";
     process.env.YOUDAO_APP_SECRET_2 = "secret-2";
     process.env.YOUDAO_APP_KEY_3 = "key-3";
     process.env.YOUDAO_APP_SECRET_3 = "secret-3";
-    const p = await loadPool();
+    const p = youdaoPool;
     expect(p.size).toBe(3);
 
     // 顺序轮转：1 → 2 → 3
@@ -134,10 +131,10 @@ describe("youdaoPool", () => {
     expect(p.getActive()?.appKey).toBe("key-1");
   });
 
-  it("resetForTest clears all state and reloads from env", async () => {
+  it("resetForTest clears all state and reloads from env", () => {
     process.env.YOUDAO_APP_KEY_1 = "key-1";
     process.env.YOUDAO_APP_SECRET_1 = "secret-1";
-    const p = await loadPool();
+    const p = youdaoPool;
     expect(p.size).toBe(1);
 
     // 耗尽后 reset

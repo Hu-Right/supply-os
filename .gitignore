@@ -44,3 +44,5 @@ Desktop.ini
 # ===== 开发过程文档 =====
 docs/
 要求.md
+.superpowers/
+生成报告.txt
