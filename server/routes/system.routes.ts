@@ -15,7 +15,7 @@ export function createSystemRouter(ctx: AppContext): Router {
   router.get("/api/system/icp", async (_req, res) => {
     try {
       const [rows] = await dbPool.query(
-        `SELECT bah FROM system LIMIT 1`
+        `SELECT bah FROM \`system\` LIMIT 1`
       );
       const bah = (rows as any[])?.[0]?.bah || "";
       res.json({ bah });

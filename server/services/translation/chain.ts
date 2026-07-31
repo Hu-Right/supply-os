@@ -12,7 +12,7 @@ import { channelConfigured } from "../../config/env";
 
 export type ChainResult = { translations: string[]; provider: string };
 
-// 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言覆盖中/英/俄/阿/法/西/葡/德/意，目标含六语言）
+// 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言覆盖本地可检测的语种，目标含六语言）
 const CHAIN_LANG_NAMES: Record<string, string> = {
   zh: "Simplified Chinese",
   en: "English",
@@ -23,6 +23,22 @@ const CHAIN_LANG_NAMES: Record<string, string> = {
   pt: "Portuguese",
   de: "German",
   it: "Italian",
+  nl: "Dutch",
+  pl: "Polish",
+  ro: "Romanian",
+  sv: "Swedish",
+  da: "Danish",
+  fi: "Finnish",
+  no: "Norwegian",
+  hu: "Hungarian",
+  tr: "Turkish",
+  et: "Estonian",
+  ca: "Catalan",
+  id: "Indonesian",
+  ms: "Malay",
+  vi: "Vietnamese",
+  tl: "Filipino",
+  uk: "Ukrainian",
 };
 
 
@@ -66,16 +82,46 @@ function restoreTerms(text: string, tokens: string[]): string {
 // 单次上限 5000 字符：超长文本预检即跳过（省去必败的 API 调用），直接降级 DeepSeek；
 // 不设每日软额度限制，超量由有道 API 自身报错（code≠"0"）后降级。
 // QPS 限制 10——高并发时可能频繁降级 DeepSeek，属正常设计。
+// 官方语种映射（大模型翻译 llm-trans 支持 40 语种，见 ai.youdao.com/DOCSIRMA/html/trans/api/dmxfy）；
+// 映射表覆盖官方全部 ISO 639-1 语种，映射外的源语言按官方 from=auto 由有道服务端自动检测
 const YOUDAO_CODES: Record<string, string> = {
   zh: "zh-CHS",
   en: "en",
+  ko: "ko",
+  ja: "ja",
   fr: "fr",
   ru: "ru",
   es: "es",
-  ar: "ar",
   pt: "pt",
+  hi: "hi",
+  ar: "ar",
+  da: "da",
   de: "de",
+  fi: "fi",
   it: "it",
+  ms: "ms",
+  nl: "nl",
+  sv: "sv",
+  th: "th",
+  uk: "uk",
+  vi: "vi",
+  bs: "bs",
+  ca: "ca",
+  et: "et",
+  hu: "hu",
+  id: "id",
+  no: "no",
+  pl: "pl",
+  ro: "ro",
+  tr: "tr",
+  eo: "eo",
+  tl: "tl",
+  kk: "kk",
+  km: "km",
+  my: "my",
+  ne: "ne",
+  bo: "bo",
+  ug: "ug",
 };
 const YOUDAO_MAX_CHARS = 5000;
 const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
@@ -94,9 +140,10 @@ async function translateViaYoudao(
 ): Promise<string> {
   const appKey = process.env.YOUDAO_APP_KEY;
   const appSecret = process.env.YOUDAO_APP_SECRET;
-  const from = YOUDAO_CODES[sourceLang];
+  // 官方支持 from=auto（服务端自动检测源语言）：映射外/本地检测不确定的源语言不再跳过本通道
+  const from = YOUDAO_CODES[sourceLang] ?? "auto";
   const to = YOUDAO_CODES[targetLang];
-  if (!channelConfigured(appKey) || !channelConfigured(appSecret) || !from || !to) {
+  if (!channelConfigured(appKey) || !channelConfigured(appSecret) || !to) {
     throw new Error("CHANNEL_SKIPPED");
   }
   // 超长预检：有道必拒的请求不发起，立即降级 DeepSeek，省 API 调用与等待
@@ -174,11 +221,12 @@ async function translateViaDeepSeek(
   targetLang: string
 ): Promise<string[]> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
+  // 源语言映射缺失不再跳过：LLM 通道无需显式源语言（prompt 省略源语言名即可自行识别）
   const sourceName = CHAIN_LANG_NAMES[sourceLang];
   const targetName = CHAIN_LANG_NAMES[targetLang];
-  if (!channelConfigured(apiKey) || !sourceName || !targetName) throw new Error("CHANNEL_SKIPPED");
+  if (!channelConfigured(apiKey) || !targetName) throw new Error("CHANNEL_SKIPPED");
   const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
-  const prompt = `Translate each ${sourceName} procurement text in the JSON array below into ${targetName}.
+  const prompt = `Translate each ${sourceName ? `${sourceName} ` : ""}procurement text in the JSON array below into ${targetName}.
 Rules:
 - Keep every ⟦Tn⟧ placeholder (e.g. ⟦T0⟧, ⟦T1⟧) exactly as-is, unchanged and in place.
 - Preserve line breaks inside each string.
@@ -222,12 +270,16 @@ ${JSON.stringify(texts)}`;
   return (parsed as string[]).map((item) => item.trim());
 }
 
-// 通道链入口：空文本原样透传（供应商空字段等）；源语言覆盖中/英/俄/阿/法/西/葡/德/意，
-// 目标含六语言（zh/en/fr/ru/es/ar）统一走有道→DeepSeek→Gemini 三层；
-// 有道 llm-trans 官方支持 40 语种（含 pt/de/it，已全部纳入 YOUDAO_CODES 映射），
-// 映射外源语言才会抛 CHANNEL_SKIPPED 自动降级 DeepSeek（DeepSeek 靠 prompt 拼语言名，不依赖映射表）；
+// 通道链入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
+// 统一走有道→DeepSeek→Gemini 三层。有道 llm-trans 官方支持 40 语种（已全部纳入 YOUDAO_CODES 映射），
+// 且官方支持 from=auto：本地检测不确定的源语言标 "auto"，由有道服务端自行检测方向；
+// DeepSeek 通道对未知源语言省略语言名（LLM 自行识别），仅 Gemini 兜底 prompt 与源语言无关。
 // geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
-export type ChainSourceLang = "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it";
+export type ChainSourceLang =
+  | "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it"
+  | "nl" | "pl" | "ro" | "sv" | "da" | "fi" | "no" | "hu" | "tr" | "et"
+  | "ca" | "id" | "ms" | "vi" | "tl" | "uk"
+  | "auto";
 
 export async function translateViaChain(
   texts: string[],
