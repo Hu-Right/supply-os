@@ -71,7 +71,7 @@ export async function runIncrementalTranslation(
   for (const targetLang of ["zh", "en"] as const) {
     if (charsUsed >= cfg.dailyCharBudget) break;
     const [rows] = await dbPool.query(
-      `SELECT n.id, n.title
+      `SELECT n.id, n.title, n.description
          FROM crm_bid_notices n
          LEFT JOIN crm_notice_translations t ON t.notice_id = n.id AND t.lang = ?
         WHERE n.id > ?
@@ -95,8 +95,9 @@ export async function runIncrementalTranslation(
           const row = queue.shift();
           if (!row) break;
           const title = String(row.title || "").trim();
+          const description = String(row.description || "").trim();
           try {
-            const sourceLang = detectSourceLang(title, "");
+            const sourceLang = detectSourceLang(title, description);
             if (!sourceLang) continue;
             if (sourceLang === targetLang) continue;
             if (charsUsed >= cfg.dailyCharBudget) break;
@@ -104,16 +105,25 @@ export async function runIncrementalTranslation(
             const titleResult = await translateNoticeViaChain(title, "", targetLang);
             const titleTr = String(titleResult.translations[0] || "").trim();
 
+            let descTr: string | null = null;
+            let descProvider: string | null = null;
+            if (description && description.length <= cfg.descMaxChars) {
+              const descResult = await translateNoticeViaChain("", description, targetLang);
+              descTr = String(descResult.translations[1] || "").trim() || null;
+              descProvider = descResult.provider;
+            }
+
             if (titleResult.provider === "same-lang-passthrough") continue;
-            charsUsed += title.length;
+            charsUsed += title.length + description.length;
 
             await dbPool.query(
-              `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, model)
-               VALUES (?, ?, ?, ?)
+              `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+               VALUES (?, ?, ?, ?, ?)
                ON DUPLICATE KEY UPDATE
                  title_tr = VALUES(title_tr),
+                 description_tr = COALESCE(VALUES(description_tr), description_tr),
                  model = VALUES(model)`,
-              [row.id, targetLang, titleTr || null, titleResult.provider]
+              [row.id, targetLang, titleTr || null, descTr, titleResult.provider]
             );
             ok += 1;
           } catch {

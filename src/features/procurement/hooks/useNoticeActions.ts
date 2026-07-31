@@ -307,7 +307,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
       return false;
     }
 
-    const nextUnlockType = unlockType || (freeRemaining > 0 ? "free" : canUsePaidQuota ? "subscription" : "free");
+    const nextUnlockType = unlockType || (canUsePaidQuota ? "subscription" : "free");
     // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
     setDetailLoadingId(notice.id);
     try {
