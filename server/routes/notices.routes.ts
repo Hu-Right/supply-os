@@ -10,6 +10,7 @@ import type { AppContext } from "../context";
 import { createNoticeSearchRouter } from "./notices/search.routes";
 import { createNoticeActionsRouter } from "./notices/actions.routes";
 import { createNoticeDetailRouter } from "./notices/detail.routes";
+import { createNoticeReportRouter } from "./notices/report.routes";
 
 export function createNoticesRouter(ctx: AppContext): Router {
   const router = Router();
@@ -17,5 +18,6 @@ export function createNoticesRouter(ctx: AppContext): Router {
   router.use(createNoticeSearchRouter(ctx));    // /api/notices, /countries, /stats, /recommended
   router.use(createNoticeActionsRouter(ctx));   // /unlocks, /feedback, /:id/view, /:id/unlock, /:id/interest
   router.use(createNoticeDetailRouter(ctx));    // /:id/detail, /:id/translation
+  router.use(createNoticeReportRouter(ctx));    // /:id/report（中文版订单拆解报告下载）
   return router;
 }

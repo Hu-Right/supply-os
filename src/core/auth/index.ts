@@ -7,5 +7,5 @@
  *              Unified exports for auth context and types
  */
 
-export { AuthProvider, useAuth } from "./AuthContext";
+export { AuthProvider, useAuth, useOptionalAuth } from "./AuthContext";
 export type { AuthUser, AuthContextValue, SupplierClaimForm } from "./types";

@@ -216,3 +216,11 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
+
+/**
+ * 可选认证上下文：无 Provider 时返回 null（供可独立渲染的展示组件使用）
+ * Optional auth context: returns null when no provider is present
+ */
+export function useOptionalAuth(): AuthContextValue | null {
+  return useContext(AuthContext);
+}

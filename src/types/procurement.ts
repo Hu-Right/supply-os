@@ -48,6 +48,10 @@ export interface NoticeItem {
   documents?: NoticeAttachment[];
   procurement_files?: NoticeAttachment[];
   external_links?: NoticeAttachment[];
+  /** 中文版订单拆解报告可用（合格商机存在；仅解锁详情返回） */
+  report_available?: boolean;
+  /** 报告下载路径（/api/notices/:id/report，需拼 user_key；仅解锁详情返回） */
+  report_url?: string;
 }
 
 /** 公告联系人（解锁详情） */

@@ -98,7 +98,8 @@ describe("NoticeUnlockedDetails", () => {
     expect(screen.getAllByText(/RFP.pdf/)).toHaveLength(1);
     expect(screen.getByText(/BoQ.xlsx/)).toBeInTheDocument();
     expect(screen.getByText(/Portal/)).toBeInTheDocument();
-    expect(screen.queryByText("procurement_noFiles")).toBeNull();
+    // 有附件时展示原始招标附件小标题
+    expect(screen.getByText("procurement_originalAttachments")).toBeInTheDocument();
   });
 
   it("shows the empty-state hint when no files are available", () => {
@@ -110,7 +111,8 @@ describe("NoticeUnlockedDetails", () => {
     render(<NoticeUnlockedDetails notice={notice} />);
 
     expect(screen.getByText("procurement_breakdownModuleTitle")).toBeInTheDocument();
-    expect(screen.getByText("procurement_noFiles")).toBeInTheDocument();
+    // 无报告且无附件时展示报告整理中降级提示（取代原 procurement_noFiles 空态）
+    expect(screen.getByText("procurement_reportPending")).toBeInTheDocument();
   });
 
   it("renders attachment name without link when url missing", () => {

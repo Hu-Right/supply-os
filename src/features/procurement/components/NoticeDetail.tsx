@@ -5,6 +5,7 @@ import {
   ExternalLink,
   FileCheck,
   FileQuestion,
+  FileText,
   FileX,
   Heart,
   Lock,
@@ -81,6 +82,11 @@ export function NoticeDetail({
     : typeof notice.breakdown_file_count === "number"
       ? notice.breakdown_file_count
       : undefined;
+  // 中文版订单拆解报告可用性：解锁后以详情载荷 report_available 为准；
+  // 锁定态复用列表页 is_featured（三路合格商机判定与报告可生成为同一口径，零额外查询）；
+  // 推荐/兑底载荷无 is_featured 时 reportKnown=false，回退中性提示
+  const hasReport = coreUnlocked ? notice.report_available === true : notice.is_featured === true;
+  const reportKnown = coreUnlocked || typeof notice.is_featured === "boolean";
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(notice.notice_type);
   const showSkeleton = !coreUnlocked && !!detailLoading;
@@ -137,14 +143,19 @@ export function NoticeDetail({
               ))}
             </div>
 
-            {/* 拆解文件指示器：辅助预览，不影响核心信息展示逻辑；解锁前即可基于服务端
-                计数预览展示有/无，计数缺失（旧缓存/推荐兑底载荷）回退中性提示；骨架屏期间隐藏防闪变 */}
+            {/* 拆解文件指示器：中文版报告 > 原始附件计数 > 无拆解文件；可用性未知
+                （旧缓存/推荐兑底载荷）回退中性提示；骨架屏期间隐藏防闪变 */}
             {!showSkeleton &&
-              (typeof breakdownFileCount === "number" ? (
-                breakdownFileCount > 0 ? (
-                  <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-200 bg-teal-50 text-xs font-bold text-teal-700">
-                    <FileCheck className="w-3.5 h-3.5 shrink-0" />
-                    {t("procurement_hasBreakdownFiles", { count: breakdownFileCount })}
+              (hasReport ? (
+                <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-teal-200 bg-teal-50 text-xs font-bold text-teal-700">
+                  <FileCheck className="w-3.5 h-3.5 shrink-0" />
+                  {t("procurement_hasBreakdownFiles", { count: 1 })}
+                </p>
+              ) : reportKnown ? (
+                typeof breakdownFileCount === "number" && breakdownFileCount > 0 ? (
+                  <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600">
+                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                    {t("procurement_hasRawAttachments", { count: breakdownFileCount })}
                   </p>
                 ) : (
                   <p className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-bold text-slate-500">

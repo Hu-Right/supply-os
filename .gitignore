@@ -23,6 +23,7 @@ pnpm-debug.log*
 *.swp
 *.swo
 scripts/
+runtime/
 
 # ===== IDE 与编辑器 =====
 .qoder/

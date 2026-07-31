@@ -11,8 +11,9 @@
  *              and bid breakdown suggestions.
  */
 
-import { ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { Download, ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
 import type { ReactNode } from "react";
+import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 
@@ -58,6 +59,7 @@ interface NoticeUnlockedDetailsProps {
 
 export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   const { t } = useLocale();
+  const authUser = useOptionalAuth()?.authUser ?? null;
 
   const contacts = (notice.contacts as RawContact[] | undefined) || [];
   // key_contacts 兼容字符串（整体文本）与对象数组两种形态
@@ -71,6 +73,13 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   // 采购文件清单：提取为 collectBreakdownFiles 共用口径（详情页指示器同源）
   const files = collectBreakdownFiles(notice);
+
+  // 中文版订单拆解报告下载地址：需后端 report_available + 登录态 user_key
+  // （端点自身仍校验解锁记录，此处仅决定是否展示下载项）
+  const reportHref =
+    notice.report_available && notice.report_url && authUser?.user_key
+      ? `${notice.report_url}?user_key=${encodeURIComponent(authUser.user_key)}`
+      : "";
 
   // 采购方/机构信息：完整机构名优先，逐级回退
   const agencyInfo = notice.agency_full || notice.agency || notice.organization || "";
@@ -190,7 +199,27 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
       <div className="rounded-lg border border-teal-100 bg-white p-3 text-xs">
         <p className="font-black text-slate-900 mb-2">{t("procurement_breakdownModuleTitle")}</p>
         <div className="space-y-2">
-          {files.length === 0 && <p className="text-slate-400">{t("procurement_noFiles")}</p>}
+          {/* 中文版订单拆解报告：置顶下载项；无合格商机时降级为整理中提示 */}
+          {reportHref ? (
+            <a
+              className="flex items-center justify-between gap-3 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 hover:border-teal-400"
+              href={reportHref}
+            >
+              <span dir="auto" className="font-black text-teal-800 truncate">
+                {t("procurement_reportFileLabel")}
+              </span>
+              <Download className="w-4 h-4 shrink-0 text-teal-700" />
+            </a>
+          ) : (
+            <p className="text-slate-400">{t("procurement_reportPending")}</p>
+          )}
+
+          {/* 原始招标附件（外文原件）：投标仍需原件，降级为次级小标题展示 */}
+          {[...files, ...externalLinks].length > 0 && (
+            <p className="text-[11px] font-black text-slate-500 uppercase pt-1">
+              {t("procurement_originalAttachments")}
+            </p>
+          )}
           {[...files, ...externalLinks].map((item, index) => {
             const url = attachmentUrl(item);
             const name = attachmentName(item);

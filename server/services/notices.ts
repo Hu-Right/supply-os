@@ -70,6 +70,9 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
     core_locked: false,
     unlock_type: unlock?.unlock_type,
     unlocked_at: unlock?.unlocked_at,
+    // 中文版订单拆解报告：合格 opportunity 存在即可生成（/:id/report 同口径）
+    report_available: !!opportunity,
+    report_url: opportunity ? `/api/notices/${notice.id}/report` : "",
   };
 }
 
