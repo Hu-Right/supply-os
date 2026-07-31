@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { fetchNoticeDetail, fetchUnlockedNoticeIds } from "@/features/procurement/api";
 import { server } from "@/__tests__/mocks/server";
 
-// 注意：fetchNoticeDetail 现按 URL 缓存成功结果，各用例必须使用不同 noticeId
+// 注意：fetchNoticeDetail 现通过 apiCached 按 URL 缓存成功结果，各用例必须使用不同 noticeId
 
 describe("fetchNoticeDetail", () => {
   beforeEach(() => {
@@ -37,7 +37,7 @@ describe("fetchNoticeDetail", () => {
         HttpResponse.json({ error: "NOTICE_LOCKED", core_locked: true }, { status: 403 })
       )
     );
-    await expect(fetchNoticeDetail(43, "uk_test")).rejects.toThrow("NOTICE_DETAIL_403");
+    await expect(fetchNoticeDetail(43, "uk_test")).rejects.toThrow("NOTICE_LOCKED");
   });
 
   it("caches successful results per notice/user (single request)", async () => {
@@ -59,7 +59,7 @@ describe("fetchNoticeDetail", () => {
         HttpResponse.json({ error: "NOTICE_LOCKED" }, { status: 403 })
       )
     );
-    await expect(fetchNoticeDetail(45, "uk_retry")).rejects.toThrow("NOTICE_DETAIL_403");
+    await expect(fetchNoticeDetail(45, "uk_retry")).rejects.toThrow("NOTICE_LOCKED");
 
     server.use(
       http.get("/api/notices/:id/detail", () =>

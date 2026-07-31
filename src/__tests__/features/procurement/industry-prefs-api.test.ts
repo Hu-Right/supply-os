@@ -50,7 +50,8 @@ describe("saveIndustryPrefs", () => {
       })
     );
     const res = await saveIndustryPrefs("vip@qq.com", { level1_id: 102, level2_id: 1548 });
-    expect(res.ok).toBe(true);
+    // api() 成功时返回解析后的 JSON，失败抛 ApiError
+    expect(res).toBeDefined();
     expect(capturedBody).toMatchObject({
       user_key: "vip@qq.com",
       level1_id: 102,
@@ -101,7 +102,7 @@ describe("fetchRecommendedNotices", () => {
     );
     await expect(
       fetchRecommendedNotices({ userKey: "", page: 1, pageSize: 9 })
-    ).rejects.toThrow("Request failed: 400");
+    ).rejects.toThrow("USER_REQUIRED");
   });
 
   it("is not cached: each call hits the server (interest codes evolve)", async () => {

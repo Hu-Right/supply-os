@@ -73,13 +73,12 @@ export function IndustryPrefsForm() {
   const savePrefs = async () => {
     if (!authUser?.user_key || !prefLevel1 || !prefLevel2) return;
     try {
-      const res = await saveIndustryPrefs(authUser.user_key, {
+      await saveIndustryPrefs(authUser.user_key, {
         level1_id: Number(prefLevel1),
         level2_id: Number(prefLevel2),
         level3_id: prefLevel3 ? Number(prefLevel3) : null,
       });
-      // 必须校验 res.ok：旧 dev 服务/路由缺失时 POST 返回非 2xx，不能提示假成功
-      if (!res.ok) throw new Error(`SAVE_PREFS_${res.status}`);
+      // api() 在非 2xx 时抛出 ApiError，成功即代表保存 OK
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefSaved"));
       // 广播偏好已变更：公采页监听后按新偏好重新探测筛选（失败路径不广播）
@@ -95,8 +94,7 @@ export function IndustryPrefsForm() {
   const clearPrefs = async () => {
     if (!authUser?.user_key) return;
     try {
-      const res = await saveIndustryPrefs(authUser.user_key, { level1_id: null });
-      if (!res.ok) throw new Error(`CLEAR_PREFS_${res.status}`);
+      await saveIndustryPrefs(authUser.user_key, { level1_id: null });
       // 仅在后端确认清除后才复位本地选择，失败时保留原偏好显示
       setPrefLevel1("");
       setPrefLevel2("");

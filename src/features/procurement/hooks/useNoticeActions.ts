@@ -16,6 +16,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
+import { ApiError } from "@/core/http";
 import { getOrderStatus, type OrderInfo } from "@/features/payment";
 import type { NoticeItem, MembershipPlan, MembershipStatus } from "../types";
 import {
@@ -309,19 +310,11 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     const nextUnlockType = unlockType || (canUsePaidQuota ? "subscription" : "free");
     // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
     setDetailLoadingId(notice.id);
-    let res: Awaited<ReturnType<typeof unlockNotice>>;
     try {
-      res = await unlockNotice(notice.id, userKey, nextUnlockType, nextUnlockType === "single" ? 89 : 0);
-    } catch {
+      await unlockNotice(notice.id, userKey, nextUnlockType, nextUnlockType === "single" ? 89 : 0);
+    } catch (err) {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
-      setActionMessage(t("procurement_unlockFail"));
-      return false;
-    }
-
-    if (!res.ok) {
-      // 解锁失败：复位加载态，恢复锁定面板
-      setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
-      if (res.status === 402) {
+      if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
         openPaywall(notice);
       } else {
@@ -345,9 +338,9 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
       return;
     }
 
-    const res = await expressInterest(notice.id, userKey, interestType);
-
-    if (!res.ok) {
+    try {
+      await expressInterest(notice.id, userKey, interestType);
+    } catch {
       setActionMessage("Action failed. Please try again later.");
       return;
     }

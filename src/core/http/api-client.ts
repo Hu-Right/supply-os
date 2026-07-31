@@ -34,7 +34,7 @@ const cache = new Map<string, { data: unknown; timestamp: number }>();
  */
 export async function api<T>(
   endpoint: string,
-  options: RequestInit & { body?: unknown } = {},
+  options: Omit<RequestInit, "body"> & { body?: unknown } = {},
 ): Promise<T> {
   const { body, ...init } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;

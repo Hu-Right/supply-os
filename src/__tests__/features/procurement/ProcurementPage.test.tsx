@@ -36,6 +36,8 @@ const mockFetchNoticeTranslation = vi.fn().mockRejectedValue(new Error("TRANSLAT
 const mockFetchIndustryPrefs = vi.fn().mockResolvedValue(null);
 const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
 const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
+const mockFetchNoticeCountries = vi.fn().mockResolvedValue([]);
+const mockSendNoticeFeedback = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
@@ -43,15 +45,17 @@ vi.mock("@/features/procurement/api", () => ({
   fetchNotices: (params: any) => mockFetchNotices(params),
   fetchMembershipPlans: () => mockFetchMembershipPlans(),
   fetchMembershipStatus: (key: string, cache?: boolean) => mockFetchMembershipStatus(key, cache),
-  viewNotice: vi.fn().mockResolvedValue({ ok: true }),
+  viewNotice: vi.fn().mockResolvedValue(undefined),
   unlockNotice: (...args: any[]) => mockUnlockNotice(...args),
-  expressInterest: vi.fn().mockResolvedValue({ ok: true }),
+  expressInterest: vi.fn().mockResolvedValue(undefined),
   fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
   fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
   fetchNoticeTranslation: (id: number, lang: string) => mockFetchNoticeTranslation(id, lang),
   fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
   saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
   fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
+  fetchNoticeCountries: () => mockFetchNoticeCountries(),
+  sendNoticeFeedback: (key: string, actions: any[]) => mockSendNoticeFeedback(key, actions),
 }));
 
 // ── Mock useLocale（locale 可变：切语言重拉级联用例需要）──
@@ -503,7 +507,7 @@ describe("ProcurementPage", () => {
     );
 
     // 解锁失败：骨架屏不得残留，锁定面板恢复
-    mockUnlockNotice.mockResolvedValue({ ok: false, status: 500 });
+    mockUnlockNotice.mockRejectedValue(new Error("UNLOCK_FAILED"));
     fireEvent.click(screen.getByText(/procurement_freeUnlock/));
 
     await waitFor(() => expect(screen.getByText("procurement_unlockFail")).toBeInTheDocument());
