@@ -73,6 +73,9 @@ const YOUDAO_CODES: Record<string, string> = {
   ru: "ru",
   es: "es",
   ar: "ar",
+  pt: "pt",
+  de: "de",
+  it: "it",
 };
 const YOUDAO_MAX_CHARS = 5000;
 const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
@@ -221,8 +224,8 @@ ${JSON.stringify(texts)}`;
 
 // 通道链入口：空文本原样透传（供应商空字段等）；源语言覆盖中/英/俄/阿/法/西/葡/德/意，
 // 目标含六语言（zh/en/fr/ru/es/ar）统一走有道→DeepSeek→Gemini 三层；
-// 有道通道仅支持 YOUDAO_CODES 内的 6 语言，映射外源语言（pt/de/it 等）会抛 CHANNEL_SKIPPED
-// 自动降级 DeepSeek（DeepSeek 靠 prompt 拼语言名，不依赖映射表）；
+// 有道 llm-trans 官方支持 40 语种（含 pt/de/it，已全部纳入 YOUDAO_CODES 映射），
+// 映射外源语言才会抛 CHANNEL_SKIPPED 自动降级 DeepSeek（DeepSeek 靠 prompt 拼语言名，不依赖映射表）；
 // geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
 export type ChainSourceLang = "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it";
 

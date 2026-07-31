@@ -18,6 +18,7 @@ import { createMembershipRouter } from "./routes/membership.routes";
 import { createAdminRouter } from "./routes/admin.routes";
 import { createTrainingRouter } from "./routes/training.routes";
 import { createAiRouter } from "./routes/ai.routes";
+import { createSystemRouter } from "./routes/system.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { extractUserKey } from "./middleware/auth";
 
@@ -39,6 +40,7 @@ export function createApp(ctx: AppContext): Express {
   app.use(createAdminRouter(ctx));             // 10. /api/admin/*, /api/procurement/schema-status
   app.use(createTrainingRouter(ctx));          // 11. /api/training/*
   app.use(createAiRouter(ctx));               // 12. /api/ai/matchmake
+  app.use(createSystemRouter(ctx));            // 13. /api/system/*
 
   // ── 全局兜底（必须在所有路由之后）──
   app.use(notFoundHandler);                    // 13. 404

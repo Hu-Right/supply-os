@@ -51,6 +51,15 @@ export async function ensureIndexIfTableExists(dbPool: any, table: string, index
 }
 
 export async function ensureProcurementSchema(dbPool: any) {
+  // ── 系统配置表（备案号等站点级配置）──
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS system (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      bah VARCHAR(120) NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

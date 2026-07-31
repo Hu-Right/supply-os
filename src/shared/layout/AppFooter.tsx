@@ -4,8 +4,10 @@
  *
  * @module shared/layout/AppFooter
  */
+import { useEffect, useState } from "react";
 import { Globe, Building2, Users, Briefcase, BookOpen, MessageSquare } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { apiCached } from "@/core/http/api-client";
 
 export interface AppFooterProps {
   activeTab: number;
@@ -15,6 +17,13 @@ export interface AppFooterProps {
 
 export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterProps) {
   const { t } = useLocale();
+  const [icp, setIcp] = useState("");
+
+  useEffect(() => {
+    apiCached<{ bah: string }>("/api/system/icp", 60 * 60 * 1000)
+      .then((data) => { if (data.bah) setIcp(data.bah); })
+      .catch(() => undefined);
+  }, []);
 
   return (
     <>
@@ -43,7 +52,17 @@ export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterPr
       {/* DESKTOP FOOTER */}
       <footer className="hidden md:block bg-slate-100 border-t border-slate-200 py-6 text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <p>{t("footerCopyright")}</p>
+          <p className="flex items-center gap-2">
+            <span>{t("footerCopyright")}</span>
+            {icp && (
+              <>
+                <span className="text-slate-300">|</span>
+                <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="hover:underline hover:text-slate-500 transition-colors">
+                  {icp}
+                </a>
+              </>
+            )}
+          </p>
           <div className="flex space-x-4">
             <span className="hover:underline cursor-pointer">{t("footerTerms")}</span>
             <span className="hover:underline cursor-pointer">{t("footerPrivacy")}</span>
