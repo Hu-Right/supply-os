@@ -6,6 +6,9 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { type UnspscCodeRow, normalizeUnspscCodes } from "../services/unspsc";
+import {
+  NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain,
+} from "../services/notice-translation";
 
 export function createOpportunitiesRouter(ctx: AppContext): Router {
   const router = Router();
@@ -77,6 +80,61 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
       );
       res.json(rows);
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── 精选数据按需翻译：镜像 /api/notices/:id/translation，读写 crm_opportunity_translations；
+  // 无英文中枢兜底（标题双语已由定时任务双表扫描覆盖）
+  router.get("/api/opportunities/:id/translation", async (req, res) => {
+    try {
+      const opportunityId = Number(req.params.id);
+      const lang = String(req.query.lang || "").toLowerCase();
+      if (!opportunityId || !NOTICE_TRANSLATION_LANGS[lang]) {
+        return res.status(400).json({ error: "INVALID_OPPORTUNITY_OR_LANG" });
+      }
+
+      const [cachedRows] = await dbPool.query(
+        "SELECT title_tr, description_tr FROM crm_opportunity_translations WHERE opportunity_id = ? AND lang = ? LIMIT 1",
+        [opportunityId, lang]
+      );
+      const cachedRow = (cachedRows as any[])[0];
+      if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
+        return res.json({ lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true });
+      }
+
+      const [oppRows] = await dbPool.query(
+        "SELECT title, description FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+        [opportunityId]
+      );
+      const opp = (oppRows as any[])[0];
+      if (!opp) return res.status(404).json({ error: "OPPORTUNITY_NOT_FOUND" });
+
+      const pendingKey = `opp:${opportunityId}:${lang}`;
+      let pending = pendingNoticeTranslations.get(pendingKey);
+      if (!pending) {
+        pending = translateNoticeViaChain(String(opp.title || ""), String(opp.description || ""), lang);
+        pendingNoticeTranslations.set(pendingKey, pending);
+        pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
+      }
+      const { translations, provider } = await pending;
+
+      if (provider === "same-lang-passthrough") {
+        // passthrough 结果不入 crm_opportunity_translations，直接透传原文（同公告端点守卫）
+        return res.json({ lang, title: translations[0], description: translations[1], cached: false, passthrough: true });
+      }
+
+      await dbPool.query(
+        `INSERT INTO crm_opportunity_translations (opportunity_id, lang, title_tr, description_tr, model)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
+        [opportunityId, lang, translations[0], translations[1], provider]
+      );
+      res.json({ lang, title: translations[0], description: translations[1], cached: false });
+    } catch (err: any) {
+      if (err?.message === "TRANSLATION_UNAVAILABLE") {
+        return res.status(503).json({ error: "TRANSLATION_UNAVAILABLE" });
+      }
       res.status(500).json({ error: err.message });
     }
   });
