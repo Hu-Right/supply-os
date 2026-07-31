@@ -22,7 +22,7 @@ import {
   saveIndustryPrefs,
 } from "@/features/procurement/api";
 import type { UnspscOption } from "@/features/procurement/types";
-import { getUnspscOptionLabel } from "@/features/procurement/unspsc-label";
+import { getUnspscOptionLabel } from "@/core/unspsc";
 
 type AuthModalProps = {
   onClose: () => void;
