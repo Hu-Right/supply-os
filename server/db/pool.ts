@@ -5,14 +5,15 @@
 import mysql2 from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
 
-// MySQL2 connection pool for crm database
+// MySQL2 connection pool — 凭据从环境变量读取，缺失时使用安全默认值
 export function createDbPool(): Pool {
   return mysql2.createPool({
-    host: "192.168.1.2",
-    user: "root",
-    password: "123456",
-    database: "crm",
+    host: process.env.DB_HOST || "127.0.0.1",
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "crm",
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: Number(process.env.DB_POOL_LIMIT || 10),
   });
 }
