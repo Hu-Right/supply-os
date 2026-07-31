@@ -19,10 +19,13 @@ import { createAdminRouter } from "./routes/admin.routes";
 import { createTrainingRouter } from "./routes/training.routes";
 import { createAiRouter } from "./routes/ai.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
+import { extractUserKey } from "./middleware/auth";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
   app.use(express.json());
+  // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）
+  app.use(extractUserKey);
   // 挂载顺序 = 原 server.ts 注册顺序，禁止调整：
   app.use(createLeadsRouter(ctx));            // 1. /api/leads*
   app.use(createSuppliersRouter(ctx));        // 2. /api/suppliers*, /api/supplier-claims
