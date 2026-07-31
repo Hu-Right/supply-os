@@ -67,9 +67,10 @@ export async function startServer() {
     dailyCharBudget: Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000),
   });
 
-  // ── 报告缓存月度清理（每月 1 号 08:00 清空 runtime/bid_reports/，防过期堆积）──
+  // ── 月度清理（每月 1 号 08:00：报告缓存 + 过期 90 天译文）──
   const stopReportCacheCleanup = startReportCacheCleanup({
     enabled: String(process.env.REPORT_CACHE_CLEANUP ?? "on").toLowerCase() !== "off",
+    dbPool,
   });
 
   app.listen(PORT, "0.0.0.0", () => {

@@ -1,16 +1,17 @@
 /**
- * 报告缓存月度清理定时任务
- * Monthly bid report cache cleanup scheduler
+ * 月度清理定时任务（报告缓存 + 过期译文）
+ * Monthly cleanup scheduler (report cache + expired translations)
  *
- * @description 每月 1 号 08:00（服务器本地时区）清空 runtime/bid_reports/ 下的
- *              全部缓存 docx，作为指纹失效机制之外的兜底，防止绕过 CRM 直改库
- *              等场景产生的过期文件长期堆积。缓存为纯加速层，清除后下次下载
- *              自动重建，不影响功能。
+ * @description 每月 1 号 08:00（服务器本地时区）执行两项清理：
+ *              1. 清空 runtime/bid_reports/ 下全部缓存 docx；
+ *              2. 删除已过期 90 天以上的公告/精选数据译文缓存行（源数据不动）。
+ *              缓存为纯加速层，清除后下次访问自动重建，不影响功能。
  *              注意：setTimeout 延时上限约 24.8 天，跨月等待必须分段调度，
  *              这里以 CHECK_CAP_MS 为步长链式逼近目标时刻。
  */
 import { promises as fs } from "fs";
 import path from "path";
+import type { Pool } from "mysql2/promise";
 
 /** 与 report.routes.ts 同一目录约定 */
 const reportCacheDir = () => path.join(process.cwd(), "runtime", "bid_reports");
@@ -40,8 +41,37 @@ export async function clearReportCache(dir = reportCacheDir()): Promise<number> 
   return results.reduce<number>((sum, n) => sum + n, 0);
 }
 
+/** 过期判定：deadline_ts 已过去 90 天以上（兼容毫秒/秒级时间戳） */
+const EXPIRED_90D_SQL =
+  "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts) < UNIX_TIMESTAMP(NOW()) - 90 * 86400";
+
+/**
+ * 删除已过期 90 天以上的公告/精选译文缓存行（源数据不动）。
+ * 返回 { notices, opportunities } 各删除行数。
+ */
+export async function clearExpiredTranslations(
+  dbPool: Pool
+): Promise<{ notices: number; opportunities: number }> {
+  const [noticeResult] = await dbPool.query(
+    `DELETE t FROM crm_notice_translations t
+     JOIN crm_bid_notices n ON n.id = t.notice_id
+     WHERE n.deadline_ts IS NOT NULL AND ${EXPIRED_90D_SQL}`
+  );
+  const [oppResult] = await dbPool.query(
+    `DELETE t FROM crm_opportunity_translations t
+     JOIN crm_bid_opportunities n ON n.id = t.opportunity_id
+     WHERE n.deadline_ts IS NOT NULL AND ${EXPIRED_90D_SQL}`
+  );
+  return {
+    notices: (noticeResult as any).affectedRows ?? 0,
+    opportunities: (oppResult as any).affectedRows ?? 0,
+  };
+}
+
 export interface ReportCacheCleanupConfig {
   enabled: boolean;
+  /** 传入 dbPool 后月度清理同时删除过期 90 天的译文缓存行 */
+  dbPool?: Pool;
 }
 
 /**
@@ -69,6 +99,17 @@ export function startReportCacheCleanup(cfg: ReportCacheCleanupConfig): () => vo
           console.log(`[report-cache] monthly cleanup done, removed ${removed} file(s)`);
         } catch (err: any) {
           console.warn(`[report-cache] monthly cleanup failed: ${err?.message || err}`);
+        }
+        // 过期译文清理（源数据不动，仅删缓存行）
+        if (cfg.dbPool) {
+          try {
+            const { notices, opportunities } = await clearExpiredTranslations(cfg.dbPool);
+            console.log(
+              `[translation-cleanup] monthly done, removed notices=${notices} opportunities=${opportunities}`
+            );
+          } catch (err: any) {
+            console.warn(`[translation-cleanup] monthly failed: ${err?.message || err}`);
+          }
         }
       }
       schedule();

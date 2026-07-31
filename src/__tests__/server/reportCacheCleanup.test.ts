@@ -5,6 +5,7 @@ import path from "path";
 import {
   nextMonthlyRunAt,
   clearReportCache,
+  clearExpiredTranslations,
   startReportCacheCleanup,
 } from "../../../server/services/reportCacheCleanup";
 
@@ -91,5 +92,26 @@ describe("startReportCacheCleanup", () => {
     stop();
     vi.advanceTimersByTime(365 * 24 * 60 * 60 * 1000);
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+// ─── clearExpiredTranslations ───────────────────────────────────────────────
+describe("clearExpiredTranslations", () => {
+  it("deletes expired notice and opportunity translations via dbPool", async () => {
+    const queries: string[] = [];
+    const mockPool = {
+      query: vi.fn(async (sql: string) => {
+        queries.push(sql);
+        const affectedRows = queries.length === 1 ? 5 : 3;
+        return [{ affectedRows }];
+      }),
+    } as any;
+
+    const result = await clearExpiredTranslations(mockPool);
+    expect(result).toEqual({ notices: 5, opportunities: 3 });
+    expect(mockPool.query).toHaveBeenCalledTimes(2);
+    expect(queries[0]).toContain("crm_notice_translations");
+    expect(queries[0]).toContain("90 * 86400");
+    expect(queries[1]).toContain("crm_opportunity_translations");
   });
 });
