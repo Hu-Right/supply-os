@@ -497,6 +497,28 @@ export async function ensureProcurementSchema(dbPool: any) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  // ── 增量翻译状态表（本地差异 #19：多语言搜索与翻译机制完善）──
+  // 三个 state_key：
+  //   notice_id_cutoff  存量/新增分界线，首次建表时以 MAX(id) 定格，永不推进；
+  //                     定时任务扫描条件加 n.id > cutoff，历史存量不主动翻译，
+  //                     仅在用户按对应语言查看时走按需翻译。
+  //   budget_day        预算统计所属日期（YYYY-MM-DD），跨天时重置。
+  //   budget_chars_used 当日已消耗源字符数，每轮累加；达日上限时停到次日。
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_translation_state (
+      state_key VARCHAR(64) NOT NULL PRIMARY KEY,
+      state_value VARCHAR(255) NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  // 水位定格：INSERT IGNORE 保证只在键不存在时写入一次，重启不会重复定格。
+  // SELECT MAX(id) 取执行瞬间的真实值，避免硬编码漂移。
+  await dbPool.query(`
+    INSERT IGNORE INTO crm_translation_state (state_key, state_value)
+    SELECT 'notice_id_cutoff', CAST(COALESCE(MAX(id), 0) AS CHAR)
+      FROM crm_bid_notices
+  `);
+
   await dbPool.query(`
     CREATE TABLE IF NOT EXISTS crm_supplier_translations (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -586,25 +608,29 @@ export async function ensureProcurementSchema(dbPool: any) {
       KEY idx_level4 (level4_id),
       KEY idx_level5 (level5_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+    // 注意：实际 CRM 侧建立的桥接表 notice_id 为 varchar(100)（存外部编号），
+    // 此处 DDL 仅作桥接表不存在时的兆底。生产环境以 CRM 侧建表为准。
     `CREATE TABLE IF NOT EXISTS crm_bid_notice_unspsc_codes (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      notice_id BIGINT UNSIGNED NOT NULL,
-      code_id INT NULL,
-      code VARCHAR(8) NOT NULL,
-      level TINYINT NOT NULL,
-      level1_id INT NULL,
-      level2_id INT NULL,
-      level3_id INT NULL,
-      level4_id INT NULL,
-      level5_id INT NULL,
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      notice_id VARCHAR(100) NOT NULL,
+      code_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      code VARCHAR(32) NOT NULL,
+      name VARCHAR(255) NOT NULL DEFAULT '',
+      level TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      level1_id VARCHAR(32) NOT NULL DEFAULT '',
+      level2_id VARCHAR(32) NOT NULL DEFAULT '',
+      level3_id VARCHAR(32) NOT NULL DEFAULT '',
+      level4_id VARCHAR(32) NOT NULL DEFAULT '',
+      level5_id VARCHAR(32) NOT NULL DEFAULT '',
+      created_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uk_notice_code (notice_id, code),
-      KEY idx_code_id (code_id),
-      KEY idx_level1 (level1_id),
-      KEY idx_level2 (level2_id),
-      KEY idx_level3 (level3_id),
-      KEY idx_level4 (level4_id),
-      KEY idx_level5 (level5_id)
+      KEY idx_code (code),
+      KEY idx_notice_level1_notice (level1_id, notice_id),
+      KEY idx_notice_level2_notice (level2_id, notice_id),
+      KEY idx_notice_level3_notice (level3_id, notice_id),
+      KEY idx_notice_level4_notice (level4_id, notice_id),
+      KEY idx_notice_level5_notice (level5_id, notice_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
   ]) {
     await dbPool.query(tableSql);

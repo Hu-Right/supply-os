@@ -9,10 +9,10 @@ export async function syncUnspscBridge(dbPool: any, source: "opportunity" | "not
   const sourceTable = source === "opportunity" ? "crm_bid_opportunities" : "crm_bid_notices";
   const bridgeTable = source === "opportunity" ? "crm_bid_opportunity_unspsc_codes" : "crm_bid_notice_unspsc_codes";
   const fk = source === "opportunity" ? "opportunity_id" : "notice_id";
-
-  // 启动时只同步最近 500 条，快速完成不阻塞服务启动
+  // 口径说明：桥接表 notice_id 关联的是主表 notice_id（外部编号），非 id（自增主键）。
+  // 因此源查询需同时取 notice_id，写入桥接表时用 row.notice_id。
   const [rows] = await dbPool.query(
-    `SELECT id, unspsc_codes FROM ${sourceTable} WHERE unspsc_codes IS NOT NULL ORDER BY id DESC LIMIT 500`
+    `SELECT id, notice_id, unspsc_codes FROM ${sourceTable} WHERE unspsc_codes IS NOT NULL ORDER BY id DESC LIMIT 500`
   );
 
   for (const row of rows as any[]) {
@@ -45,7 +45,7 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
         (${fk}, code_id, code, level, level1_id, level2_id, level3_id, level4_id, level5_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        row.id,
+        row.notice_id ?? row.id,
         codeRow.id,
         rawCode,
         codeRow.level,
@@ -77,9 +77,9 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
   while (true) {
     // 只取尚未写入 bridge 表的记录，减少重复处理
     const [rows] = await dbPool.query(
-      `SELECT s.id, s.unspsc_codes
+      `SELECT s.id, s.notice_id, s.unspsc_codes
        FROM ${sourceTable} s
-       LEFT JOIN ${bridgeTable} b ON b.${fk} = s.id
+       LEFT JOIN ${bridgeTable} b ON b.${fk} = s.notice_id
        WHERE s.unspsc_codes IS NOT NULL AND b.id IS NULL
        ORDER BY s.id ASC
        LIMIT ${BATCH}`

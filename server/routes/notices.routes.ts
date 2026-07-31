@@ -9,7 +9,7 @@ import { normalizeUnspscCodes, buildNoticeUnspscFilter, persistUserInterestCodes
 import { decayUserInterestCodes, recomputeRecoWeightProfile, recoVariant, tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords } from "../services/recommend";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../services/notices";
 import { backfillNoticeAmountCache } from "../services/amount";
-import { NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain } from "../services/notice-translation";
+import { NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain, detectSourceLang } from "../services/notice-translation";
 
 export function createNoticesRouter(ctx: AppContext): Router {
   const router = Router();
@@ -135,12 +135,13 @@ export function createNoticesRouter(ctx: AppContext): Router {
       // ②原文模糊（title/reference/description）③中文译文缓存命中（客户抄卡片中文标题也能搜到）
       const compactQ = q.replace(/\s+/g, "").toUpperCase();
       if (q) {
-        join += " LEFT JOIN crm_notice_translations qtr ON qtr.notice_id = n.id AND qtr.lang = 'zh'";
+        join += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
+        join += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
         const likeQ = `%${q}%`;
         where.push(
-          "(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = ? OR n.title LIKE ? OR n.reference LIKE ? OR n.description LIKE ? OR qtr.title_tr LIKE ?)"
+          "(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = ? OR n.title LIKE ? OR n.reference LIKE ? OR n.description LIKE ? OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
         );
-        params.push(compactQ, likeQ, likeQ, likeQ, likeQ);
+        params.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
       }
       if (country) {
         // country 列为自由文本（varchar(500)，可能含多国名），用 LIKE 宽匹配
@@ -956,6 +957,49 @@ export function createNoticesRouter(ctx: AppContext): Router {
         [noticeId, lang, translations[0], translations[1], provider]
       );
       res.json({ lang, title: translations[0], description: translations[1], cached: false });
+
+      // ── 英文中枢兆底（本地差异 #19）──
+      // 非中英互译时，异步补一份英文译文入库，保证任何小语种公告至少存在一份英文译文。
+      // 异步执行、失败静默，不影响当前响应；复用 pendingNoticeTranslations 去重。
+      if (lang !== "en") {
+        const sourceLang = detectSourceLang(
+          String(notice.title || ""),
+          String(notice.description || "")
+        );
+        if (sourceLang && sourceLang !== "en") {
+          void (async () => {
+            try {
+              const [enCheck] = await dbPool.query(
+                "SELECT id FROM crm_notice_translations WHERE notice_id = ? AND lang = 'en' LIMIT 1",
+                [noticeId]
+              );
+              if ((enCheck as any[]).length > 0) return;
+              const enPendingKey = `${noticeId}:en`;
+              if (pendingNoticeTranslations.has(enPendingKey)) return;
+              const enPromise = translateNoticeViaChain(
+                String(notice.title || ""),
+                String(notice.description || ""),
+                "en"
+              );
+              pendingNoticeTranslations.set(enPendingKey, enPromise);
+              enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
+              const enResult = await enPromise;
+              if (enResult.provider !== "same-lang-passthrough") {
+                await dbPool.query(
+                  `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+                   VALUES (?, 'en', ?, ?, ?)
+                   ON DUPLICATE KEY UPDATE
+                     title_tr = COALESCE(VALUES(title_tr), title_tr),
+                     description_tr = COALESCE(VALUES(description_tr), description_tr)`,
+                  [noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider]
+                );
+              }
+            } catch {
+              // 英文中枢失败静默，不重试
+            }
+          })();
+        }
+      }
     } catch (err: any) {
       if (err?.message === "TRANSLATION_UNAVAILABLE") {
         return res.status(503).json({ error: "TRANSLATION_UNAVAILABLE" });

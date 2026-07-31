@@ -65,6 +65,8 @@ export async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
   // level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），不是码串前缀。
   // 因此按类目自身 level 定位对应列做等值匹配；一告多码由 DISTINCT 去重，
   // 跨大类公告在其挂到的每个类目下均可命中（OR 语义）。
+  // 注意：桥接表 notice_id 实际存储的是主表 crm_bid_notices.id（自增主键），
+  // 而非 notice_id（外部编号），JOIN 口径必须用 n.id（经数据库实测验证）。
   const level = Number(code.level) || 0;
   if (level >= 1 && level <= 5) {
     return {

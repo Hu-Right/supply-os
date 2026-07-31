@@ -12,7 +12,7 @@ import { channelConfigured } from "../../config/env";
 
 export type ChainResult = { translations: string[]; provider: string };
 
-// 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言仅 en/zh，目标含六语言）
+// 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言覆盖中/英/俄/阿/法/西/葡/德/意，目标含六语言）
 const CHAIN_LANG_NAMES: Record<string, string> = {
   zh: "Simplified Chinese",
   en: "English",
@@ -20,6 +20,9 @@ const CHAIN_LANG_NAMES: Record<string, string> = {
   ru: "Russian",
   es: "Spanish",
   ar: "Arabic",
+  pt: "Portuguese",
+  de: "German",
+  it: "Italian",
 };
 
 
@@ -216,11 +219,16 @@ ${JSON.stringify(texts)}`;
   return (parsed as string[]).map((item) => item.trim());
 }
 
-// 通道链入口：空文本原样透传（供应商空字段等）；六种语言（zh/en/fr/ru/es/ar）统一走
-// 有道→DeepSeek→Gemini 三层；geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
+// 通道链入口：空文本原样透传（供应商空字段等）；源语言覆盖中/英/俄/阿/法/西/葡/德/意，
+// 目标含六语言（zh/en/fr/ru/es/ar）统一走有道→DeepSeek→Gemini 三层；
+// 有道通道仅支持 YOUDAO_CODES 内的 6 语言，映射外源语言（pt/de/it 等）会抛 CHANNEL_SKIPPED
+// 自动降级 DeepSeek（DeepSeek 靠 prompt 拼语言名，不依赖映射表）；
+// geminiFallback 由各场景传入既有 prompt 实现（保留其术语规则与 JSON 校验）
+export type ChainSourceLang = "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it";
+
 export async function translateViaChain(
   texts: string[],
-  sourceLang: "en" | "zh",
+  sourceLang: ChainSourceLang,
   targetLang: string,
   geminiFallback: () => Promise<string[]>
 ): Promise<ChainResult> {
