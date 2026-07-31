@@ -4,7 +4,16 @@ import { hashPassword } from "../../../server/services/auth";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../../server/services/notices";
 import { mapSupplierRow } from "../../../server/services/suppliers";
 import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
-import { translateViaChain } from "../../../server/services/translation/chain";
+import { translateViaChain, protectTerms } from "../../../server/services/translation/chain";
+import { runIncrementalTranslation } from "../../../server/services/autoTranslate";
+import { detectSourceLang, translateNoticeViaChain } from "../../../server/services/notice-translation";
+
+// autoTranslate 依赖的翻译入口整体 mock，隔离定时任务扫描逻辑
+vi.mock("../../../server/services/notice-translation", () => ({
+  pendingNoticeTranslations: new Map(),
+  translateNoticeViaChain: vi.fn(),
+  detectSourceLang: vi.fn(() => null),
+}));
 
 // ─── translateViaChain（有道→DeepSeek 双层链）────────────────────────
 describe("translateViaChain", () => {
@@ -31,6 +40,49 @@ describe("translateViaChain", () => {
   it("passes empty texts through without calling any channel", async () => {
     const result = await translateViaChain(["", "  "], "en", "zh");
     expect(result).toEqual({ translations: ["", "  "], provider: "none" });
+  });
+});
+
+// ─── protectTerms（术语占位符掩码）───────────────────────────────────
+describe("protectTerms", () => {
+  it("does not mask all-letter hyphenated words", () => {
+    // 纯字母连字符词（如 NON-GMO）不是参考号，掩码会导致语义丢失
+    const { masked } = protectTerms("Certified NON-GMO soybean supply");
+    expect(masked).toContain("NON-GMO");
+  });
+
+  it("still masks reference numbers", () => {
+    const { tokens } = protectTerms("Tender RFQ-2026-0042 open");
+    expect(tokens).toContain("RFQ-2026-0042");
+  });
+});
+
+// ─── runIncrementalTranslation（定时扫描）───────────────────────
+describe("runIncrementalTranslation", () => {
+  it("writes skip-same-lang marker instead of rescanning", async () => {
+    // 源语言=目标语言（zh→zh）：写标记行让 t.id IS NULL 扫描条件跳过，不调翻译链
+    vi.mocked(detectSourceLang).mockReturnValue("zh");
+    vi.mocked(translateNoticeViaChain).mockReset();
+    const dbPool = {
+      query: vi.fn(async (sql: string, params?: any[]) => {
+        if (String(sql).includes("FROM crm_translation_state")) return [[]];
+        if (String(sql).includes("FROM crm_bid_notices")) {
+          return params?.[0] === "zh" ? [[{ id: 5, title: "采购水泵" }]] : [[]];
+        }
+        return [{}];
+      }),
+    };
+    await runIncrementalTranslation(dbPool as any, {
+      maxPerRun: 10,
+      descMaxChars: 8000,
+      dailyCharBudget: 100000,
+    });
+    const markerCalls = dbPool.query.mock.calls.filter(
+      ([, params]) => Array.isArray(params) && params[0] === 5 && params[1] === "zh",
+    );
+    expect(markerCalls).toHaveLength(1);
+    expect(String(markerCalls[0][0])).toContain("skip-same-lang");
+    expect(translateNoticeViaChain).not.toHaveBeenCalled();
   });
 });
 

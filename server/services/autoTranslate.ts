@@ -6,7 +6,7 @@
  * @description 公告由 CRM 侧爬虫写入 crm_bid_notices，本项目无插入钩子可挂，
  *   故用准实时轮询补齐：每轮扫描「未过期 + 水位以上 + 缺译文行」的最新公告，
  *   标题+描述分别翻译，目标语言由源语言动态决定（zh→en / en→zh / 小语种→zh+en），
- *   复用 translateNoticeViaChain（有道→DeepSeek→Gemini 三层降级 + 术语占位符保护）。
+ *   复用 translateNoticeViaChain（有道→DeepSeek 双层降级 + 术语占位符保护）。
  */
 import type { Pool } from "mysql2/promise";
 import {
@@ -35,8 +35,8 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 3; // 有道 QPS=10，留余量给前台按需翻译
-const DELAY_MS = 200;
+const CONCURRENCY = 2; // 2 worker × 4 req/s = 8 QPS < 有道 10，为前台按需翻译留余量
+const DELAY_MS = 250;
 
 export async function runIncrementalTranslation(
   dbPool: Pool,
@@ -46,6 +46,16 @@ export async function runIncrementalTranslation(
   let ok = 0;
   let failed = 0;
   let charsUsed = 0;
+
+  // same-lang 标记行：title_tr/description_tr 均 NULL，仅阻断定时扫描重复命中
+  async function writeSkipMarker(noticeId: number, lang: string) {
+    await dbPool.query(
+      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+       VALUES (?, ?, NULL, NULL, 'skip-same-lang')
+       ON DUPLICATE KEY UPDATE model = VALUES(model)`,
+      [noticeId, lang]
+    );
+  }
 
   // ── 预算检查：同日已耗尽则跳过本轮 ──
   const today = new Date().toISOString().slice(0, 10);
@@ -97,14 +107,21 @@ export async function runIncrementalTranslation(
           const title = String(row.title || "").trim();
           try {
             const sourceLang = detectSourceLang(title, "");
-            if (!sourceLang) continue;
-            if (sourceLang === targetLang) continue;
+            // 源语言未知/同语言：写标记行让 t.id IS NULL 扫描条件跳过，杜绝逐轮重扫；
+            // title_tr 置 NULL，用户按需查看时详情端点仍会全量重译
+            if (!sourceLang || sourceLang === targetLang) {
+              await writeSkipMarker(row.id, targetLang);
+              continue;
+            }
             if (charsUsed >= cfg.dailyCharBudget) break;
 
             const titleResult = await translateNoticeViaChain(title, "", targetLang);
             const titleTr = String(titleResult.translations[0] || "").trim();
 
-            if (titleResult.provider === "same-lang-passthrough") continue;
+            if (titleResult.provider === "same-lang-passthrough") {
+              await writeSkipMarker(row.id, targetLang);
+              continue;
+            }
             charsUsed += title.length;
 
             await dbPool.query(
