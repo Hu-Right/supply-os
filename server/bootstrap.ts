@@ -15,6 +15,7 @@ import { MembershipRepo } from "./repos/membership.repo";
 import { PaymentsRepo } from "./repos/payments.repo";
 import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
+import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -66,10 +67,18 @@ export async function startServer() {
     dailyCharBudget: Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000),
   });
 
+  // ── 报告缓存月度清理（每月 1 号 08:00 清空 runtime/bid_reports/，防过期堆积）──
+  const stopReportCacheCleanup = startReportCacheCleanup({
+    enabled: String(process.env.REPORT_CACHE_CLEANUP ?? "on").toLowerCase() !== "off",
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server fully functional on http://0.0.0.0:${PORT}`);
   });
 
   // 返回 stop 函数供优雅关闭使用
-  return stopAutoTranslate;
+  return () => {
+    stopAutoTranslate();
+    stopReportCacheCleanup();
+  };
 }
