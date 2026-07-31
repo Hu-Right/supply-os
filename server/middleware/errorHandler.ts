@@ -36,9 +36,13 @@ export function errorHandler(
   res.status(status).json({ error: message });
 }
 
-/** 404 兜底：所有未匹配路由进入此中间件 */
-export function notFoundHandler(_req: Request, res: Response): void {
-  res.status(404).json({ error: "NOT_FOUND" });
+/** 404 兜底：仅拦截 /api/* 未匹配请求，非 API 路径放行给 SPA fallback */
+export function notFoundHandler(req: Request, res: Response, next: NextFunction): void {
+  if (req.path.startsWith("/api/")) {
+    res.status(404).json({ error: "NOT_FOUND" });
+    return;
+  }
+  next();
 }
 
 /**
