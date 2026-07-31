@@ -65,7 +65,7 @@ export function NoticeDetail({
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
   // 原文（标题+描述）供内容语言检测：修复"中文原文在英文环境直接展示/在中文环境被无效翻译"
-  const { translation, translating, showOriginal, toggleOriginal } = useNoticeTranslation(
+  const { translation, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
     (notice as { id?: number }).id,
     locale,
     `${notice.title || ""}\n${notice.description || ""}`
@@ -176,6 +176,11 @@ export function NoticeDetail({
                 {translating && (
                   <span className="text-xs font-bold text-blue-600 animate-pulse">
                     {t("procurement_translating")}
+                  </span>
+                )}
+                {failed && !translating && (
+                  <span className="text-xs font-bold text-amber-600">
+                    {t("procurement_translateFailed")}
                   </span>
                 )}
                 {translation && (

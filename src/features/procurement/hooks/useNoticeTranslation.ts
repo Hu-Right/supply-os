@@ -27,6 +27,8 @@ export function useNoticeTranslation(
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+  // 翻译请求失败（如链路全挂 503）：供 UI 提示“已显示原文”，不阻断阅读
+  const [failed, setFailed] = useState(false);
 
   // 渲染期键匹配：公告或语言切换的当帧旧译文立即失效，
   // 杜绝"B 公告闪现 A 公告译文"的单帧串台（effect 晚于渲染执行）
@@ -35,6 +37,7 @@ export function useNoticeTranslation(
 
   useEffect(() => {
     setShowOriginal(false);
+    setFailed(false);
     // 内容语言检测代替原 `locale === "en"` 短路：原文已是目标语言时不请求，
     // 非英文原文（如中文）在英文环境下同样发起翻译（服务端 lang=en 已支持）
     if (!noticeId || !needsContentTranslation(sourceText, locale)) return;
@@ -45,7 +48,9 @@ export function useNoticeTranslation(
       .then((data) => {
         if (!cancelled) setResult({ noticeId, lang: locale, data });
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
       .finally(() => {
         if (!cancelled) setTranslating(false);
       });
@@ -57,6 +62,7 @@ export function useNoticeTranslation(
   return {
     translation,
     translating,
+    failed,
     showOriginal,
     toggleOriginal: () => setShowOriginal((v) => !v),
   };

@@ -41,6 +41,36 @@ describe("translateViaChain", () => {
     const result = await translateViaChain(["", "  "], "en", "zh");
     expect(result).toEqual({ translations: ["", "  "], provider: "none" });
   });
+
+  it("records degradation trail when youdao fails and deepseek succeeds", async () => {
+    const saved = {
+      YOUDAO_APP_KEY: process.env.YOUDAO_APP_KEY,
+      YOUDAO_APP_SECRET: process.env.YOUDAO_APP_SECRET,
+      DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    };
+    process.env.YOUDAO_APP_KEY = "test-app-key";
+    process.env.YOUDAO_APP_SECRET = "test-app-secret";
+    process.env.DEEPSEEK_API_KEY = "test-deepseek-key";
+    // 有道 HTTP 500 → 降级 DeepSeek 成功 → degradedFrom 记录被跳过通道及原因
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: JSON.stringify(["你好"]) } }] }),
+      } as any));
+    try {
+      const result = await translateViaChain(["hello"], "en", "zh");
+      expect(result.provider).toBe("deepseek-v4-pro");
+      expect(result.translations).toEqual(["你好"]);
+      expect(result.degradedFrom).toHaveLength(1);
+      expect(result.degradedFrom?.[0]).toContain("youdao-llm");
+    } finally {
+      process.env.YOUDAO_APP_KEY = saved.YOUDAO_APP_KEY;
+      process.env.YOUDAO_APP_SECRET = saved.YOUDAO_APP_SECRET;
+      process.env.DEEPSEEK_API_KEY = saved.DEEPSEEK_API_KEY;
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 // ─── protectTerms（术语占位符掩码）───────────────────────────────────

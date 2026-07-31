@@ -117,7 +117,12 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
         pendingNoticeTranslations.set(pendingKey, pending);
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
-      const { translations, provider } = await pending;
+      const started = Date.now();
+      const { translations, provider, degradedFrom } = await pending;
+      // 结构化日志：与公告详情端点同款，含降级轨迹
+      console.log(
+        `[translate] target=opp:${opportunityId} lang=${lang} provider=${provider} ms=${Date.now() - started} degraded=${degradedFrom?.join(",") || "-"}`
+      );
 
       if (provider === "same-lang-passthrough") {
         // passthrough 结果不入 crm_opportunity_translations，直接透传原文（同公告端点守卫）

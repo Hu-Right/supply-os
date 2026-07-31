@@ -244,6 +244,7 @@
   "procurement_budget": "预算",
   "procurement_description": "采购说明",
   "procurement_translating": "AI 翻译中…",
+  "procurement_translateFailed": "翻译暂不可用，已显示原文",
   "procurement_viewOriginal": "查看原文",
   "procurement_viewTranslation": "查看译文",
   "procurement_translateNote": "译文由 AI 自动生成，仅供参考，请以原文为准。",

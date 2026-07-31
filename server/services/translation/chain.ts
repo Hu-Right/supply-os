@@ -12,7 +12,12 @@ import { fetchWithTimeout } from "./fetchWithTimeout";
 // 缓存表 model 列写入真实提供方（youdao-llm / deepseek-v4-pro）。
 // [2026-07-31] Gemini 兜底层已按需求移除，链固定为有道→DeepSeek 两层。
 
-export type ChainResult = { translations: string[]; provider: string };
+export type ChainResult = {
+  translations: string[];
+  provider: string;
+  /** 降级轨迹：上游通道失败时记录 `<provider>:<原因>`，链首成功时缺省 */
+  degradedFrom?: string[];
+};
 
 // 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言覆盖本地可检测的语种，目标含六语言）
 const CHAIN_LANG_NAMES: Record<string, string> = {
@@ -301,6 +306,9 @@ export async function translateViaChain(
   const assemble = (translated: Map<number, string>): string[] =>
     texts.map((text, index) => translated.get(index) ?? text);
 
+  // 降级轨迹：记录被跳过的上游通道及原因，供调用方打结构化日志
+  const degraded: string[] = [];
+
   try {
     const translated = new Map<number, string>();
     for (const job of jobs) {
@@ -311,6 +319,7 @@ export async function translateViaChain(
   } catch (err: any) {
     // 未配置/超长/失败/不支持的语种：落下一通道；
     // 902000（不支持的语言方向）属预期内降级，静默不打日志，其余保留告警
+    degraded.push(`youdao-llm:${err?.message}`);
     if (err?.message !== "YOUDAO_LLM_ERROR_902000") {
       console.warn(`[translate] youdao -> next: ${err?.message}`);
     }
@@ -327,9 +336,14 @@ export async function translateViaChain(
     jobs.forEach((job, i) => {
       translated.set(job.index, restoreTerms(outputs[i], masks[i].tokens));
     });
-    return { translations: assemble(translated), provider: "deepseek-v4-pro" };
+    return {
+      translations: assemble(translated),
+      provider: "deepseek-v4-pro",
+      ...(degraded.length ? { degradedFrom: degraded } : {}),
+    };
   } catch (err: any) {
     // 未配置/失败/形状不符：链尾无后续通道
+    degraded.push(`deepseek-v4-pro:${err?.message}`);
     console.warn(`[translate] deepseek -> unavailable: ${err?.message}`);
   }
   // 两通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）

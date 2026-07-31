@@ -103,7 +103,12 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         pendingNoticeTranslations.set(pendingKey, pending);
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
-      const { translations, provider } = await pending;
+      const started = Date.now();
+      const { translations, provider, degradedFrom } = await pending;
+      // 结构化日志：含降级轨迹，便于监控通道健康度
+      console.log(
+        `[translate] target=notice:${noticeId} lang=${lang} provider=${provider} ms=${Date.now() - started} degraded=${degradedFrom?.join(",") || "-"}`
+      );
 
       if (provider === "same-lang-passthrough") {
         // 同上：passthrough 结果不入 crm_notice_translations，直接透传原文
@@ -144,7 +149,10 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
                   [noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider]
                 );
               }
-            } catch { /* 英文中枢失败静默 */ }
+            } catch (err: any) {
+              // 英文中枢失败不影响主响应，但留告警便于排查补翻缺口
+              console.warn(`[translate] en-pivot failed target=notice:${noticeId}: ${err?.message}`);
+            }
           })();
         }
       }

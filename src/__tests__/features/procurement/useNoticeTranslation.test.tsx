@@ -46,6 +46,20 @@ describe("useNoticeTranslation", () => {
     expect(result.current.translation).toBeNull();
   });
 
+  it("exposes failed=true when translation request fails", async () => {
+    server.use(
+      http.get("/api/notices/507/translation", () =>
+        HttpResponse.json({ error: "TRANSLATION_UNAVAILABLE" }, { status: 503 })
+      )
+    );
+    const { result } = renderHook(() =>
+      useNoticeTranslation(507, "ru", "Supply of laptops for regional office")
+    );
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    expect(result.current.translation).toBeNull();
+    expect(result.current.translating).toBe(false);
+  });
+
   it("toggleOriginal flips showOriginal", async () => {
     server.use(
       http.get("/api/notices/504/translation", () =>

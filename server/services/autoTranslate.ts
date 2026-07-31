@@ -142,8 +142,12 @@ export async function runIncrementalTranslation(
                 [row.id, targetLang, titleTr || null, titleResult.provider]
               );
               ok += 1;
-            } catch {
+            } catch (err: any) {
               failed += 1;
+              // 单条失败不阻断本轮，但留告警定位具体记录与语言
+              console.warn(
+                `[translate] auto-translate failed table=${target.table} id=${row.id} lang=${targetLang}: ${err?.message}`
+              );
             }
             await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
           }

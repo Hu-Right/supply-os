@@ -239,6 +239,7 @@
   "procurement_budget": "Бюджет",
   "procurement_description": "Описание",
   "procurement_translating": "Идёт перевод…",
+  "procurement_translateFailed": "Перевод временно недоступен; показан оригинал",
   "procurement_viewOriginal": "Показать оригинал",
   "procurement_viewTranslation": "Показать перевод",
   "procurement_translateNote": "Перевод создан ИИ и приведён только для справки; приоритет имеет оригинальный текст.",

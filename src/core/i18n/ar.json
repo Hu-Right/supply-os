@@ -239,6 +239,7 @@
   "procurement_budget": "الميزانية",
   "procurement_description": "الوصف",
   "procurement_translating": "جارٍ الترجمة…",
+  "procurement_translateFailed": "الترجمة غير متاحة مؤقتًا؛ يتم عرض النص الأصلي",
   "procurement_viewOriginal": "عرض النص الأصلي",
   "procurement_viewTranslation": "عرض الترجمة",
   "procurement_translateNote": "الترجمة مولّدة بالذكاء الاصطناعي للاسترشاد فقط؛ والنص الأصلي هو المعتمد.",

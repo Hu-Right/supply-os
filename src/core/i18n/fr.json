@@ -239,6 +239,7 @@
   "procurement_budget": "Budget",
   "procurement_description": "Description",
   "procurement_translating": "Traduction en cours…",
+  "procurement_translateFailed": "Traduction temporairement indisponible ; texte original affiché",
   "procurement_viewOriginal": "Voir l'original",
   "procurement_viewTranslation": "Voir la traduction",
   "procurement_translateNote": "Traduction générée par IA à titre indicatif ; le texte original fait foi.",
