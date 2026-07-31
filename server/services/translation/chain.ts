@@ -4,6 +4,7 @@
  */
 import crypto from "crypto";
 import { channelConfigured } from "../../config/env";
+import { fetchWithTimeout } from "./fetchWithTimeout";
 
 // ── 翻译通道链（本地差异 #4 扩展：有道智云 → DeepSeek V4-Pro → Gemini 兜底）──
 // 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时由 Gemini
@@ -126,6 +127,8 @@ const YOUDAO_CODES: Record<string, string> = {
 const YOUDAO_MAX_CHARS = 5000;
 const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
 const YOUDAO_LLM_MODEL = "0"; // handleOption: 0=子曰Pro(14B), 3=子曰Lite(1.5B)
+const YOUDAO_TIMEOUT_MS = 10_000; // 流式短句翻译，10s 不回即超时降级
+const DEEPSEEK_TIMEOUT_MS = 60_000; // high 思考模式 + 合并长文，留足余量
 
 // 官方签名输入规则：q 长度 >20 时取 前10 + 长度 + 后10
 function youdaoInput(q: string): string {
@@ -169,11 +172,11 @@ async function translateViaYoudao(
     handleOption: YOUDAO_LLM_MODEL,
     prompt,
   });
-  const res = await fetch(YOUDAO_LLM_ENDPOINT, {
+  const res = await fetchWithTimeout(YOUDAO_LLM_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
-  });
+  }, YOUDAO_TIMEOUT_MS);
   if (!res.ok) throw new Error(`YOUDAO_LLM_HTTP_${res.status}`);
   // SSE 流式响应（streamType=full）：每行可能带 "data: " 前缀（标准 SSE）或裸 JSON，取最后一条的 data.transFull 为完整译文
   const responseText = await res.text();
@@ -208,7 +211,7 @@ async function translateViaYoudao(
   return finalTranslation.trim();
 }
 
-// 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=max）
+// 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=high）
 // 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 通道插在有道之后、
 // Gemini 之前：有道对结构化短句快而稳，DeepSeek 对长描述/上下文语义更准，Gemini 末位兜底。
 // 思考模式下 temperature 等参数不生效；思维链走 reasoning_content（此处忽略），译文取 content。
@@ -237,7 +240,7 @@ Rules:
 - Return ONLY a JSON array of ${texts.length} translated strings in the same order, with no explanations and no markdown fences.
 
 ${JSON.stringify(texts)}`;
-  const res = await fetch(`${baseUrl}/chat/completions`, {
+  const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -246,11 +249,11 @@ ${JSON.stringify(texts)}`;
     body: JSON.stringify({
       model: "deepseek-v4-pro",
       messages: [{ role: "user", content: prompt }],
-      reasoning_effort: "max",
+      reasoning_effort: "high",
       thinking: { type: "enabled" },
       stream: false,
     }),
-  });
+  }, DEEPSEEK_TIMEOUT_MS);
   if (!res.ok) throw new Error(`DEEPSEEK_HTTP_${res.status}`);
   const data: any = await res.json();
   const content = String(data?.choices?.[0]?.message?.content ?? "").trim();

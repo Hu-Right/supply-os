@@ -3,6 +3,35 @@ import { describe, it, expect, vi } from "vitest";
 import { hashPassword } from "../../../server/services/auth";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../../server/services/notices";
 import { mapSupplierRow } from "../../../server/services/suppliers";
+import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
+
+// ─── fetchWithTimeout ────────────────────────────────────────────────────
+describe("fetchWithTimeout", () => {
+  it("aborts after the deadline with CHANNEL_TIMEOUT", async () => {
+    vi.useFakeTimers();
+    const never = new Promise<Response>(() => {});
+    vi.stubGlobal("fetch", vi.fn(() => never));
+    const p = fetchWithTimeout("https://x", {}, 5000);
+    const assertion = expect(p).rejects.toThrow("CHANNEL_TIMEOUT");
+    vi.advanceTimersByTime(5001);
+    await assertion;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("resolves normally before the deadline", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true } as Response)));
+    const res = await fetchWithTimeout("https://x", {}, 5000);
+    expect(res.ok).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("passes through non-timeout fetch errors", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("ECONNRESET"))));
+    await expect(fetchWithTimeout("https://x", {}, 5000)).rejects.toThrow("ECONNRESET");
+    vi.unstubAllGlobals();
+  });
+});
 
 // ─── hashPassword ───────────────────────────────────────────────────────────
 describe("hashPassword", () => {
