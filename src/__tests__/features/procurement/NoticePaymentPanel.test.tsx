@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NoticePaymentPanel } from "@/features/procurement/components/NoticePaymentPanel";
-import type { MembershipPlan, PaymentOrder } from "@/features/procurement/types";
+import type { MembershipPlan } from "@/features/procurement/types";
+import type { OrderInfo } from "@/features/payment/api";
 
 // ── Mock useLocale（key 透传） ──
 vi.mock("@/core/i18n", () => ({
@@ -34,7 +35,7 @@ const plans: MembershipPlan[] = [
 const baseProps = {
   plans,
   provider: "alipay" as const,
-  order: null as PaymentOrder | null,
+  order: null as OrderInfo | null,
   busyPlanCode: "",
   message: "",
   onProviderChange: vi.fn(),
@@ -75,7 +76,7 @@ describe("NoticePaymentPanel", () => {
   });
 
   it("shows the mock-paid button for a mock order and triggers onMockPaid", () => {
-    const order: PaymentOrder = {
+    const order: OrderInfo = {
       order_no: "PO-MOCK-1",
       provider: "mock",
       plan_code: "single_89",
@@ -83,6 +84,7 @@ describe("NoticePaymentPanel", () => {
       currency: "CNY",
       status: "pending",
       payment_mode: "mock",
+      pay_url: "",
     };
     render(<NoticePaymentPanel {...baseProps} order={order} />);
     expect(screen.getByText(/PO-MOCK-1/)).toBeInTheDocument();
@@ -92,7 +94,7 @@ describe("NoticePaymentPanel", () => {
   });
 
   it("shows a real payment button for a configured order with pay_url", () => {
-    const order: PaymentOrder = {
+    const order: OrderInfo = {
       order_no: "PO-REAL-1",
       provider: "alipay",
       plan_code: "single_89",

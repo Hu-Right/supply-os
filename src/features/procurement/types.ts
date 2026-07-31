@@ -15,6 +15,12 @@ export interface UnspscOption {
   name?: string;
 }
 
+/**
+ * 进入公采页的初始化状态机（本地差异 #5）：
+ * loading = 登录态判定中；prefs = 按账号默认行业筛选；recommended = 按行为兴趣推荐；default = 现状全量
+ */
+export type PrefsMode = "loading" | "prefs" | "recommended" | "default";
+
 export interface MembershipPlan {
   plan_code: string;
   name: string;
