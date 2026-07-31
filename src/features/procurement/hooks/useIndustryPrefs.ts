@@ -162,6 +162,29 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     return "";
   }, [selectedIds]);
 
+  // 首次挂载时加载一级类目（industries）：语言切换 effect 的 localeRef 守卫会跳过首次挂载，
+  // 因此需要独立的初始加载 effect 保证 levels[0] 有数据，用户才能看到一级分类下拉选项。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const industries = await fetchUnspscIndustries(locale);
+        if (!cancelled) {
+          setLevels((prev) => {
+            // 仅当 levels[0] 为空时才填充，避免覆盖偏好级联已设的值
+            if (prev[0].length === 0) {
+              return [Array.isArray(industries) ? industries : [], ...prev.slice(1)];
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // 加载失败静默降级：一级下拉为空，用户仍可搜索/浏览
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 切语言后按当前选择路径重拉各级选项：fr/ru/es/ar 的选项译文由后端按 lang 返回，
   // 必须重新请求才能刷新文案。localeRef 守卫保证仅语言变化时触发（挂载与选级联不重拉）
   const localeRef = useRef(locale);
