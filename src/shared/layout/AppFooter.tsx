@@ -42,13 +42,20 @@ export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterPr
 
       {/* DESKTOP FOOTER */}
       <footer className="hidden md:block bg-slate-100 border-t border-slate-200 py-6 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
-          <p>{t("footerCopyright")}</p>
-          <div className="flex space-x-4">
-            <span className="hover:underline cursor-pointer">{t("footerTerms")}</span>
-            <span className="hover:underline cursor-pointer">{t("footerPrivacy")}</span>
-            <span className="hover:underline cursor-pointer">{t("footerUnspsc")}</span>
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-2">
+          <div className="flex justify-between items-center w-full">
+            <p>{t("footerCopyright")}</p>
+            <div className="flex space-x-4">
+              <span className="hover:underline cursor-pointer">{t("footerTerms")}</span>
+              <span className="hover:underline cursor-pointer">{t("footerPrivacy")}</span>
+              <span className="hover:underline cursor-pointer">{t("footerUnspsc")}</span>
+            </div>
           </div>
+          <p>
+            <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer" className="hover:underline">
+              {t("footerIcp")}
+            </a>
+          </p>
         </div>
       </footer>
     </>
