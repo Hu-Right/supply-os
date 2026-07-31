@@ -1,7 +1,7 @@
 /**
  * 桥接表脏行巡检 + 自动清脏 · 定时任务编排器（线 D / Step 9 运维化）
  *
- * 职责（每日一跑）：
+ * 职责（每日一跑，由 Windows 计划任务自动触发）：
  *   1. 跑 patrol-dirty-bridge.mjs --since 1 --json 巡检（只读）；
  *   2. 若检出新增脏行（退出码 1=WARN / 2=CRITICAL），自动跑
  *      backfill-notice-unspsc-bridge.mjs --execute --only-a 清脏（幂等 UPDATE，
@@ -13,17 +13,19 @@
  *      （.env 支持），同时 POST 一条 JSON 通知（企业微信/钉钉/Slack 通用格式可自行适配）。
  *
  * 用法：
- *   node scripts/cron-patrol-and-clean.mjs               标准巡检+按需清脏
- *   node scripts/cron-patrol-and-clean.mjs --patrol-only 只巡检不清脏（演练/排障）
+ *   常规运行由 Windows 计划任务 SupplyOS-DirtyBridgePatrol 每日 08:30 自动触发；
+ *   也可随时手动跑：
+ *   npm run patrol         标准巡检+按需清脏（等价 node scripts/cron-patrol-and-clean.mjs）
+ *   npm run patrol:check   只巡检不清脏（演练/排障，等价 --patrol-only）
  *
- * 退出码：0=正常（含"检出并已清理收敛"）；1=告警（CRITICAL 或清后未收敛，需人工关注）；
+ * 退出码：0=正常（含“检出并已清理收敛”）；1=告警（CRITICAL 或清后未收敛，需人工关注）；
  *         2=执行异常（连库失败/子进程崩溃）。
  *
- * 定时挂载（Windows 计划任务，已由部署时注册）：
- *   schtasks /Create /TN "SupplyOS-DirtyBridgePatrol" /SC DAILY /ST 08:30 ^
- *     /TR "\"C:\Program Files\nodejs\node.exe\" <仓库根>\scripts\cron-patrol-and-clean.mjs"
- * Linux 服务器 cron 等价写法：
- *   30 8 * * * cd /path/to/supply-os && node scripts/cron-patrol-and-clean.mjs >> /dev/null 2>&1
+ * 定时挂载（Windows 计划任务，已注册；PowerShell 下 /TR 需单引号包裹内嵌双引号）：
+ *   schtasks /Create /F /TN "SupplyOS-DirtyBridgePatrol" /SC DAILY /ST 08:30 `
+ *     /TR '"C:\nvm4w\nodejs\node.exe" "<仓库根>\scripts\cron-patrol-and-clean.mjs"'
+ * 将来若部署到 Linux 服务器，等价 cron 写法：
+ *   30 8 * * * cd /path/to/supply-os && /usr/bin/env node scripts/cron-patrol-and-clean.mjs >> .../cron-stdout.log 2>&1
  */
 import "dotenv/config";
 import { spawnSync } from "node:child_process";
@@ -36,7 +38,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LOG_DIR = path.join(ROOT, "scripts", "cron-logs");
 const LOCK_FILE = path.join(LOG_DIR, ".patrol.lock");
 const PATROL_ONLY = process.argv.includes("--patrol-only");
-const SINCE_DAYS = 1; // 与"每日一跑"节奏对齐：只看近 1 天增量
+const SINCE_DAYS = 1; // 与“每日一跑”节奏对齐：只看近 1 天增量
 
 fs.mkdirSync(LOG_DIR, { recursive: true });
 const logFile = path.join(LOG_DIR, `patrol-${new Date().toISOString().slice(0, 7)}.log`);

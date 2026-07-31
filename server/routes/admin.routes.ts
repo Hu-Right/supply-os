@@ -3,18 +3,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import type { AppContext } from "../context";
 import { syncUnspscBridgeFull, captureDataQualitySnapshot } from "../services/quality";
 import { backfillUnspscCodeIds } from "../db/backfills";
 import { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache, rollupNoticeViewDaily } from "../services/amount";
 import { AB_TREATMENT_PCT } from "../services/recommend";
 
+// 管理员鉴权：校验 ADMIN_API_TOKEN（.env 配置）。支持两种携带方式：
+//   x-admin-token: <token>  或  Authorization: Bearer <token>
+// fail-closed：未配置令牌时拒绝所有请求（503），避免“忘配置 = 裸奔”；
+// 比对用 timingSafeEqual 防时序侧信道猜解。
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const expected = String(process.env.ADMIN_API_TOKEN || "").trim();
+  if (!expected) {
+    res.status(503).json({ success: false, message: "管理接口未启用：服务端未配置 ADMIN_API_TOKEN" });
+    return;
+  }
+  const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const provided = String(req.headers["x-admin-token"] || bearer || "").trim();
+  const expectedBuf = crypto.createHash("sha256").update(expected).digest();
+  const providedBuf = crypto.createHash("sha256").update(provided).digest();
+  if (!provided || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+    res.status(401).json({ success: false, message: "管理接口鉴权失败：令牌缺失或无效" });
+    return;
+  }
+  next();
+}
+
 export function createAdminRouter(ctx: AppContext): Router {
   const router = Router();
   const { dbPool } = ctx;
 
-  // 手动触发全量 bridge 回填（运维接口，幂等安全）
-  router.post("/api/admin/sync-bridge", async (_req, res) => {
+  // 手动触发全量 bridge 回填（运维接口，幂等安全；需 ADMIN_API_TOKEN 鉴权，见 requireAdmin）
+  router.post("/api/admin/sync-bridge", requireAdmin, async (_req, res) => {
     res.json({ success: true, message: "全量 bridge 回填已在后台启动，请查看服务日志获取进度" });
     // 响应先返回，回填在后台执行
     Promise.all([
