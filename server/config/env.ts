@@ -48,6 +48,7 @@ const CHANNEL_PLACEHOLDERS = new Set([
   "MY_YOUDAO_APP_KEY",
   "MY_YOUDAO_APP_SECRET",
   "MY_DEEPSEEK_API_KEY",
+  "MY_GEMINI_API_KEY",
 ]);
 export function channelConfigured(value: string | undefined): boolean {
   return !!value && value.trim() !== "" && !CHANNEL_PLACEHOLDERS.has(value.trim());

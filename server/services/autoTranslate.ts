@@ -5,9 +5,9 @@
  * @module server/services/autoTranslate
  * @description 公告由 CRM 侧爬虫写入 crm_bid_notices，本项目无插入钩子可挂，
  *   故用准实时轮询补齐：每轮对公告表与精选数据表（SCAN_TARGETS）分别扫描
- *   「未过期 + 水位以上 + 缺译文行」的最新数据，仅翻译标题（正文按需），
+ *   「未过期 + 水位以上 + 缺译文行」的最新数据，翻译标题+描述，
  *   目标语言由源语言动态决定（zh→en / en→zh / 小语种→zh+en），
- *   复用 translateNoticeViaChain（有道→DeepSeek 双层降级 + 术语占位符保护）。
+ *   复用 translateNoticeViaChain（有道→DeepSeek→Gemini 三层降级 + 术语占位符保护）。
  */
 import type { Pool } from "mysql2/promise";
 import {
@@ -90,7 +90,7 @@ export async function runIncrementalTranslation(
     for (const targetLang of ["zh", "en"] as const) {
       if (charsUsed >= cfg.dailyCharBudget) break;
       const [rows] = await dbPool.query(
-        `SELECT n.id, n.title
+        `SELECT n.id, n.title, n.description
          FROM ${target.table} n
          LEFT JOIN ${target.trTable} t ON t.${target.idCol} = n.id AND t.lang = ?
         WHERE n.id > ?
@@ -114,8 +114,9 @@ export async function runIncrementalTranslation(
             const row = queue.shift();
             if (!row) break;
             const title = String(row.title || "").trim();
+            const description = String(row.description || "").trim();
             try {
-              const sourceLang = detectSourceLang(title, "");
+              const sourceLang = detectSourceLang(title, description);
               // 源语言未知/同语言：写标记行让 t.id IS NULL 扫描条件跳过，杜绝逐轮重扫；
               // title_tr 置 NULL，用户按需查看时详情端点仍会全量重译
               if (!sourceLang || sourceLang === targetLang) {
@@ -124,22 +125,25 @@ export async function runIncrementalTranslation(
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
 
-              const titleResult = await translateNoticeViaChain(title, "", targetLang);
-              const titleTr = String(titleResult.translations[0] || "").trim();
+              // 标题+描述一起翻译（一次调用，术语一致性更好）
+              const result = await translateNoticeViaChain(title, description, targetLang);
+              const titleTr = String(result.translations[0] || "").trim();
+              const descTr = String(result.translations[1] || "").trim();
 
-              if (titleResult.provider === "same-lang-passthrough") {
+              if (result.provider === "same-lang-passthrough") {
                 await writeSkipMarker(target, row.id, targetLang);
                 continue;
               }
-              charsUsed += title.length;
+              charsUsed += title.length + description.length;
 
               await dbPool.query(
-                `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, model)
-                 VALUES (?, ?, ?, ?)
+                `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
+                 VALUES (?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE
                    title_tr = VALUES(title_tr),
+                   description_tr = VALUES(description_tr),
                    model = VALUES(model)`,
-                [row.id, targetLang, titleTr || null, titleResult.provider]
+                [row.id, targetLang, titleTr || null, descTr || null, result.provider]
               );
               ok += 1;
             } catch (err: any) {
