@@ -60,24 +60,50 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       );
       const cachedRow = (cachedRows as any[])[0];
       if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
-        // 中文环境：若机会表有现成 description_cn，优先直出（零 API 成本、人工精修质量更高）
-        // 精选公告解锁后详情页显示的是机会表 description，与公告表描述可能不一致；
-        // description_cn 与详情页展示同源，避免"翻译的是公告表、屏幕上显示的是机会表"的错位
-        if (lang === "zh") {
-          const [noticeRows] = await dbPool.query(
-            `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
-             FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
-          );
-          const n = (noticeRows as any[])[0];
-          if (n) {
-            const opp = await findQualifiedOpportunityForNotice(dbPool, n);
-            if (opp && String(opp.description_cn || "").trim()) {
-              return res.json({
-                lang, title: cachedRow.title_tr, description: opp.description_cn,
-                cached: true, source: "description_cn",
-              });
+        // 统一规则：有机会表数据就用机会表的，不管公告表的
+        // 检测机会表是否覆盖了公告表描述（决定翻译源和中文直出）
+        const [noticeRowsForCache] = await dbPool.query(
+          `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
+           FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
+        );
+        const nForCache = (noticeRowsForCache as any[])[0];
+        let oppForCache: any = null;
+        let hasOppOverride = false;
+        let cacheDescSource = nForCache?.notice_desc || "";
+        if (nForCache) {
+          oppForCache = await findQualifiedOpportunityForNotice(dbPool, nForCache);
+          if (oppForCache) {
+            const oppDesc = String(oppForCache.description || "");
+            if (oppDesc && oppDesc !== cacheDescSource) {
+              cacheDescSource = oppDesc;
+              hasOppOverride = true;
             }
           }
+        }
+        // 中文环境：机会表有 description_cn 时直出（机会表数据优先，零 API 成本）
+        if (lang === "zh" && oppForCache && String(oppForCache.description_cn || "").trim()) {
+          return res.json({
+            lang, title: cachedRow.title_tr, description: oppForCache.description_cn,
+            cached: true, source: "description_cn",
+          });
+        }
+        // 机会表描述覆盖了公告表描述时，翻译源已变化，需从机会表描述重新翻译
+        if (hasOppOverride && cacheDescSource.trim()) {
+          const pendingKeyStale = `${noticeId}:${lang}`;
+          let pendingStale = pendingNoticeTranslations.get(pendingKeyStale);
+          if (!pendingStale) {
+            pendingStale = translateNoticeViaChain(String(nForCache?.title || ""), cacheDescSource, lang);
+            pendingNoticeTranslations.set(pendingKeyStale, pendingStale);
+            pendingStale.finally(() => pendingNoticeTranslations.delete(pendingKeyStale)).catch(() => undefined);
+          }
+          const { translations: staleTr, provider: staleProvider } = await pendingStale;
+          if (staleProvider !== "same-lang-passthrough") {
+            await dbPool.query(
+              `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
+              [staleTr[1], staleProvider, noticeId, lang]
+            );
+          }
+          return res.json({ lang, title: cachedRow.title_tr, description: staleTr[1], cached: false, source: "opp_retranslate" });
         }
         return res.json({ lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true });
       }

@@ -75,9 +75,10 @@ export function NoticeDetail({
   );
   const showTranslated = !showOriginal && !!translation;
   const displayTitle = showTranslated && translation?.title ? translation.title : notice.title;
-  // 内容展示优先级：中文环境优先用机会表现成 description_cn（人工/AI 精修，零翻译 API 成本）；
-  // 其他语言或无 description_cn 时按"译文 → 原文"回退；"查看原文"开关统一切回 notice.description
-  // 精选公告解锁后 notice.description 已是机会表英文描述，与翻译链同源（detail.routes.ts 已对齐）
+  // 内容展示优先级：统一规则——有机会表数据就用机会表的，不管公告表的
+  // 中文环境：description_cn（机会表预生成）→ 翻译链译文 → 原文
+  // 其他语言：翻译链译文 → 原文
+  // “查看原文”开关统一切回 notice.description
   const displayDescription = showOriginal
     ? notice.description
     : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
