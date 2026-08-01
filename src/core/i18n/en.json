@@ -568,5 +568,13 @@
   "procurement_paymentReturnPending": "Payment is processing, please check My Purchases later",
   "procurement_paymentReturnFailed": "Failed to query payment status, please try again later",
   "myPurchasesOpenDetail": "Open details",
-  "procurement_recentUnlocksTitle": "Recently unlocked"
+  "procurement_recentUnlocksTitle": "Recently unlocked",
+  "procurement_reportUnavailable": "No Chinese breakdown report available for this notice",
+  "procurement_reportGuideVip": "As a VIP member, you can contact WeChat customer service for priority manual processing.",
+  "procurement_reportGuideUser": "Contact WeChat customer service to request manual processing of this notice.",
+  "procurement_reportGuideGuest": "Log in to contact WeChat customer service for manual processing.",
+  "procurement_contactWechatService": "Contact WeChat support",
+  "procurement_wechatServiceTitle": "WeChat Customer Service",
+  "procurement_wechatServiceHint": "Scan the QR code to add our WeChat support. Send the notice ID to request targeted processing.",
+  "procurement_dismiss": "Got it"
 }

@@ -12,12 +12,14 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useOptionalAuth } from "@/core/auth";
 import type { NoticeItem, MembershipStatus, MembershipPlan } from "../types";
 import type { OrderInfo } from "@/features/payment/api";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
 import { NoticeUnlockedDetails, collectBreakdownFiles } from "./NoticeUnlockedDetails";
 import { NoticePaymentPanel } from "./NoticePaymentPanel";
+import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
 
 interface NoticeDetailProps {
   notice: NoticeItem;
@@ -64,6 +66,7 @@ export function NoticeDetail({
   payment,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
+  const authContext = useOptionalAuth();
   // 原文（标题+描述）供内容语言检测：修复"中文原文在英文环境直接展示/在中文环境被无效翻译"
   const { translation, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
     (notice as { id?: number }).id,
@@ -72,8 +75,12 @@ export function NoticeDetail({
   );
   const showTranslated = !showOriginal && !!translation;
   const displayTitle = showTranslated && translation?.title ? translation.title : notice.title;
-  const displayDescription =
-    showTranslated && translation?.description ? translation.description : notice.description;
+  // 内容展示优先级：中文环境优先用机会表现成 description_cn（人工/AI 精修，零翻译 API 成本）；
+  // 其他语言或无 description_cn 时按"译文 → 原文"回退；"查看原文"开关统一切回 notice.description
+  // 精选公告解锁后 notice.description 已是机会表英文描述，与翻译链同源（detail.routes.ts 已对齐）
+  const displayDescription = showOriginal
+    ? notice.description
+    : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
   const coreUnlocked = notice.core_locked === false;
   // 拆解文件预览指示：解锁后与 NoticeUnlockedDetails 文件清单同源口径（documents+procurement_files 去重）；
   // 锁定态用服务端计数预览字段（本地差异 #19，仅数量不泄清单），缺失时 undefined 回退中性提示
@@ -90,6 +97,8 @@ export function NoticeDetail({
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(notice.notice_type);
   const showSkeleton = !coreUnlocked && !!detailLoading;
+  // 中文拆解报告不可用引导：已知无报告 + 非骨架屏时展示微信客服引导横幅
+  const showReportGuide = !showSkeleton && reportKnown && !hasReport;
   const visibleAgency = coreUnlocked
     ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
     : showSkeleton
@@ -169,6 +178,15 @@ export function NoticeDetail({
                   {t("procurement_breakdownAfterUnlock")}
                 </p>
               ))}
+
+            {/* 中文拆解报告不可用时：引导用户通过微信客服获得人工定向处理 */}
+            {showReportGuide && notice.id != null && (
+              <ReportUnavailableBanner
+                noticeId={notice.id}
+                isVip={isVip}
+                isLoggedIn={!!authContext?.authUser}
+              />
+            )}
 
             <div>
               <div className="flex items-center gap-3 mb-2">

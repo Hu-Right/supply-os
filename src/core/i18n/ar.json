@@ -568,5 +568,13 @@
   "procurement_paymentReturnPending": "جارٍ معالجة الدفع، يرجى التحقق من مشترياتي لاحقًا",
   "procurement_paymentReturnFailed": "فشل الاستعلام عن حالة الدفع، يرجى المحاولة لاحقًا",
   "myPurchasesOpenDetail": "فتح التفاصيل",
-  "procurement_recentUnlocksTitle": "أحدث ما تم فتحه"
+  "procurement_recentUnlocksTitle": "أحدث ما تم فتحه",
+  "procurement_reportUnavailable": "لا يتوفر تقرير تحليل بالصينية لهذا الإعلان",
+  "procurement_reportGuideVip": "بصفتك عضو VIP، يمكنك التواصل مع خدمة عملاء WeChat للمعالجة اليدوية ذات الأولوية.",
+  "procurement_reportGuideUser": "تواصل مع خدمة عملاء WeChat لطلب المعالجة اليدوية لهذا الإعلان.",
+  "procurement_reportGuideGuest": "سجّل الدخول للتواصل مع خدمة عملاء WeChat للمعالجة اليدوية.",
+  "procurement_contactWechatService": "التواصل مع دعم WeChat",
+  "procurement_wechatServiceTitle": "خدمة عملاء WeChat",
+  "procurement_wechatServiceHint": "امسح رمز QR لإضافة دعم WeChat الخاص بنا. أرسل رقم الإعلان لطلب معالجة موجهة.",
+  "procurement_dismiss": "مفهوم"
 }

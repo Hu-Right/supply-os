@@ -50,6 +50,8 @@ export interface NoticeItem {
   external_links?: NoticeAttachment[];
   /** 中文版订单拆解报告可用（合格商机存在；仅解锁详情返回） */
   report_available?: boolean;
+  /** 精选公告人工/AI 精加工的中文描述（仅解锁详情返回；中文环境优先展示，零翻译 API 成本） */
+  description_cn?: string;
   /** 报告下载路径（/api/notices/:id/report，需拼 user_key；仅解锁详情返回） */
   report_url?: string;
 }

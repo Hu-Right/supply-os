@@ -573,5 +573,13 @@
   "procurement_paymentReturnPending": "支付处理中，请稍后在我的采购记录中查看",
   "procurement_paymentReturnFailed": "支付状态查询失败，请稍后重试",
   "myPurchasesOpenDetail": "打开详情",
-  "procurement_recentUnlocksTitle": "最近解锁"
+  "procurement_recentUnlocksTitle": "最近解锁",
+  "procurement_reportUnavailable": "该公告暂无中文版拆解报告",
+  "procurement_reportGuideVip": "作为 VIP 会员，您可联系微信客服优先安排人工定向处理。",
+  "procurement_reportGuideUser": "联系微信客服，可申请人工定向处理此公告。",
+  "procurement_reportGuideGuest": "登录后即可联系微信客服申请人工定向处理。",
+  "procurement_contactWechatService": "扫码联系微信客服",
+  "procurement_wechatServiceTitle": "微信客服",
+  "procurement_wechatServiceHint": "扫描二维码添加客服微信，发送公告编号即可申请定向处理",
+  "procurement_dismiss": "我知道了"
 }

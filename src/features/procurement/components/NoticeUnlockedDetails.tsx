@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
+import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
 
 type RawAttachment = NoticeAttachment | string;
 type RawContact = NoticeContact | string;
@@ -59,7 +60,9 @@ interface NoticeUnlockedDetailsProps {
 
 export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   const { t } = useLocale();
-  const authUser = useOptionalAuth()?.authUser ?? null;
+  const authContext = useOptionalAuth();
+  const authUser = authContext?.authUser ?? null;
+  const isVip = authContext?.isVip ?? false;
 
   const contacts = (notice.contacts as RawContact[] | undefined) || [];
   // key_contacts 兼容字符串（整体文本）与对象数组两种形态
@@ -211,7 +214,17 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
               <Download className="w-4 h-4 shrink-0 text-teal-700" />
             </a>
           ) : (
-            <p className="text-slate-400">{t("procurement_reportPending")}</p>
+            <div className="space-y-2">
+              <p className="text-slate-400">{t("procurement_reportPending")}</p>
+              {/* 解锁后确认无报告：展示微信客服引导横幅（已按 notice_id 会话去重） */}
+              {!notice.report_available && notice.id != null && (
+                <ReportUnavailableBanner
+                  noticeId={notice.id}
+                  isVip={isVip}
+                  isLoggedIn={!!authUser}
+                />
+              )}
+            </div>
           )}
 
           {/* 原始招标附件（外文原件）：投标仍需原件，降级为次级小标题展示 */}

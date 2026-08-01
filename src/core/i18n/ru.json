@@ -568,5 +568,13 @@
   "procurement_paymentReturnPending": "Платёж обрабатывается, проверьте «Мои покупки» позже",
   "procurement_paymentReturnFailed": "Не удалось проверить статус платежа, повторите позже",
   "myPurchasesOpenDetail": "Открыть детали",
-  "procurement_recentUnlocksTitle": "Недавно разблокированные"
+  "procurement_recentUnlocksTitle": "Недавно разблокированные",
+  "procurement_reportUnavailable": "Для этого объявления нет отчёта-разбора на китайском языке",
+  "procurement_reportGuideVip": "Как VIP-участник, вы можете связаться со службой поддержки WeChat для приоритетной ручной обработки.",
+  "procurement_reportGuideUser": "Свяжитесь со службой поддержки WeChat, чтобы запросить ручную обработку этого объявления.",
+  "procurement_reportGuideGuest": "Войдите, чтобы связаться со службой поддержки WeChat для ручной обработки.",
+  "procurement_contactWechatService": "Связаться с поддержкой WeChat",
+  "procurement_wechatServiceTitle": "Служба поддержки WeChat",
+  "procurement_wechatServiceHint": "Отсканируйте QR-код, чтобы добавить нашу поддержку WeChat. Отправьте ID объявления для запроса целевой обработки.",
+  "procurement_dismiss": "Понятно"
 }

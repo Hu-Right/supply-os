@@ -5,6 +5,7 @@
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
+import { preferValue } from "../../utils/json";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../services/notices";
 import {
   NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations,
@@ -59,20 +60,47 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       );
       const cachedRow = (cachedRows as any[])[0];
       if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
+        // 中文环境：若机会表有现成 description_cn，优先直出（零 API 成本、人工精修质量更高）
+        // 精选公告解锁后详情页显示的是机会表 description，与公告表描述可能不一致；
+        // description_cn 与详情页展示同源，避免"翻译的是公告表、屏幕上显示的是机会表"的错位
+        if (lang === "zh") {
+          const [noticeRows] = await dbPool.query(
+            `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
+             FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
+          );
+          const n = (noticeRows as any[])[0];
+          if (n) {
+            const opp = await findQualifiedOpportunityForNotice(dbPool, n);
+            if (opp && String(opp.description_cn || "").trim()) {
+              return res.json({
+                lang, title: cachedRow.title_tr, description: opp.description_cn,
+                cached: true, source: "description_cn",
+              });
+            }
+          }
+        }
         return res.json({ lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true });
       }
       if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
+        // 与详情页共用取文逻辑：优先机会表 description，回退公告表 description
+        // 保证"翻的 = 看的"（精选公告解锁后内容被机会表覆盖，翻译链必须跟机会表对齐）
         const [noticeRowsForDesc] = await dbPool.query(
-          "SELECT description FROM crm_bid_notices WHERE id = ? LIMIT 1", [noticeId]
+          `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
+           FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
         );
-        const noticeForDesc = (noticeRowsForDesc as any[])[0];
-        if (!noticeForDesc || !String(noticeForDesc.description || "").trim()) {
+        const n = (noticeRowsForDesc as any[])[0];
+        let descSource = n?.notice_desc || "";
+        if (n) {
+          const opp = await findQualifiedOpportunityForNotice(dbPool, n);
+          if (opp) descSource = String(preferValue(opp.description, descSource));
+        }
+        if (!String(descSource || "").trim()) {
           return res.json({ lang, title: cachedRow.title_tr, description: null, cached: true });
         }
         const pendingKeyDesc = `${noticeId}:${lang}:desc`;
         let pendingDesc = pendingNoticeTranslations.get(pendingKeyDesc);
         if (!pendingDesc) {
-          pendingDesc = translateNoticeViaChain("", String(noticeForDesc.description), lang);
+          pendingDesc = translateNoticeViaChain("", String(descSource), lang);
           pendingNoticeTranslations.set(pendingKeyDesc, pendingDesc);
           pendingDesc.finally(() => pendingNoticeTranslations.delete(pendingKeyDesc)).catch(() => undefined);
         }
@@ -91,15 +119,20 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       }
 
       const [noticeRows] = await dbPool.query(
-        "SELECT title, description FROM crm_bid_notices WHERE id = ? LIMIT 1", [noticeId]
+        "SELECT id, notice_id, reference, title, description, converted_opp_id FROM crm_bid_notices WHERE id = ? LIMIT 1", [noticeId]
       );
       const notice = (noticeRows as any[])[0];
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
+      // 与详情页共用取文逻辑：优先机会表 description，回退公告表 description
+      // 保证"翻的 = 看的"；普通公告查不到合格机会，行为与旧逻辑完全一致
+      const opp = await findQualifiedOpportunityForNotice(dbPool, notice);
+      const mergedDescription = opp ? String(preferValue(opp.description, notice.description || "")) : String(notice.description || "");
+
       const pendingKey = `${noticeId}:${lang}`;
       let pending = pendingNoticeTranslations.get(pendingKey);
       if (!pending) {
-        pending = translateNoticeViaChain(String(notice.title || ""), String(notice.description || ""), lang);
+        pending = translateNoticeViaChain(String(notice.title || ""), mergedDescription, lang);
         pendingNoticeTranslations.set(pendingKey, pending);
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
@@ -125,7 +158,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
       // ── 英文中枢兜底 ──
       if (lang !== "en") {
-        const sourceLang = detectSourceLang(String(notice.title || ""), String(notice.description || ""));
+        const sourceLang = detectSourceLang(String(notice.title || ""), mergedDescription);
         if (sourceLang && sourceLang !== "en") {
           void (async () => {
             try {
@@ -135,7 +168,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
               if ((enCheck as any[]).length > 0) return;
               const enPendingKey = `${noticeId}:en`;
               if (pendingNoticeTranslations.has(enPendingKey)) return;
-              const enPromise = translateNoticeViaChain(String(notice.title || ""), String(notice.description || ""), "en");
+              const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en");
               pendingNoticeTranslations.set(enPendingKey, enPromise);
               enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
               const enResult = await enPromise;

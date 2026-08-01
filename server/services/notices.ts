@@ -89,18 +89,47 @@ const qualifiedOppWhere = (alias = "") => {
 // 同批恢复的消费点：/api/notices 的 featured=1 过滤与 is_featured 页级标注、
 // /api/notices/stats 的 featured 指标；前端开关/徽标/参数同步恢复。
 // 注意：qualifiedOppWhere 被付费解锁详情（findQualifiedOpportunityForNotice）共用。
-// 精选公告判定：三路独立子查询（converted_opp_id / source_notice_id / reference）。
+// 精选公告判定：两路精确子查询（converted_opp_id / source_notice_id）。
+// [2026-08-01] 移除 reference 路径：全球招标编号体系不统一，同一 reference 可被多个
+// 无关项目复用（如菲律宾 DA/DPWH 独立编号撞号），reference 路径无法校验标题相似度，
+// 导致未精细化处理的公告被错误标为精选、详情页无拆解报告。仅保留精确关联路径，
+// 确保精选徽标与报告可用性完全一致。
 // 用非相关 IN 子查询（MySQL 物化一次 + 逐行 hash 查找）而非相关 EXISTS：
-// 生产库实测 OR 连接三路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
-// IN 物化 1.9s 且语义等价（scripts/verify-featured-exists.mjs 3/3 PASS）。
+// 生产库实测 OR 连接两路相关 EXISTS 会阻止半连接转换、5.5 万行基线上超时，
+// IN 物化且语义等价。
 // 依赖外层查询别名 n = crm_bid_notices；可投标期限由列表既有 is_expired/deadline_ts 条件保障
 export const FEATURED_NOTICE_EXISTS = `(
   n.converted_opp_id IN (SELECT o1.id FROM crm_bid_opportunities o1 WHERE ${qualifiedOppWhere("o1")})
   OR n.notice_id IN (SELECT o2.source_notice_id FROM crm_bid_opportunities o2
     WHERE ${qualifiedOppWhere("o2")} AND o2.source_notice_id IS NOT NULL AND o2.source_notice_id <> '')
-  OR n.reference IN (SELECT o3.reference FROM crm_bid_opportunities o3
-    WHERE ${qualifiedOppWhere("o3")} AND o3.reference IS NOT NULL AND o3.reference <> '')
 )`;
+
+// ── 标题相似度校验（reference 撞号防御）──
+// 全球招标编号体系不统一，同一 reference 可能被多个不相关项目复用（如菲律宾农业部/公共工程部
+// 各自独立编号恰好相同）。reference 路径匹配到机会后，必须比对标题关键词重合度，
+// 相似度低于阈值则视为撞号污染，跳过该匹配避免详情页内容错位。
+// Jaccard 相似度：词集合交集 / 并集，阈值 0.3 经验值（同项目标题通常 ≥0.6，不相关项目通常 <0.1）
+const STOP_WORDS = new Set([
+  "the", "a", "an", "of", "for", "in", "on", "at", "to", "and", "or", "with", "under",
+]);
+function tokenizeTitle(title: string): Set<string> {
+  return new Set(
+    String(title || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s\u00C0-\u024F\u4E00-\u9FFF]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
+  );
+}
+function titleSimilarity(a: string, b: string): number {
+  const tokensA = tokenizeTitle(a);
+  const tokensB = tokenizeTitle(b);
+  if (tokensA.size === 0 || tokensB.size === 0) return 0;
+  let intersection = 0;
+  for (const w of tokensA) if (tokensB.has(w)) intersection++;
+  const union = tokensA.size + tokensB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
 
 export async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
   const fields = `
@@ -137,15 +166,19 @@ export async function findQualifiedOpportunityForNotice(dbPool: any, notice: any
   }
 
   if (notice.reference) {
+    // [reference 撞号防御 2026-07-31] 全球招标编号体系不统一，同一 reference 可能对应多个不相关项目。
+    // 取消 LIMIT 1，遍历所有候选机会，用标题相似度过滤撞号污染。
+    // 相似度低于阈值（Jaccard < 0.3）则跳过，避免详情页被不相关机会数据覆盖。
     const [rows] = await dbPool.query(
       `SELECT ${fields}
        FROM crm_bid_opportunities
        WHERE reference = ? AND ${qualifiedWhere}
-       ORDER BY is_qualified DESC, id DESC
-       LIMIT 1`,
+       ORDER BY is_qualified DESC, id DESC`,
       [String(notice.reference)]
     );
-    if ((rows as any[])[0]) return (rows as any[])[0];
+    for (const opp of rows as any[]) {
+      if (titleSimilarity(notice.title, opp.title) >= 0.3) return opp;
+    }
   }
 
   return null;

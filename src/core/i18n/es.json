@@ -568,5 +568,13 @@
   "procurement_paymentReturnPending": "Pago en proceso, revise Mis compras más tarde",
   "procurement_paymentReturnFailed": "Error al consultar el estado del pago, inténtelo más tarde",
   "myPurchasesOpenDetail": "Abrir detalles",
-  "procurement_recentUnlocksTitle": "Desbloqueados recientemente"
+  "procurement_recentUnlocksTitle": "Desbloqueados recientemente",
+  "procurement_reportUnavailable": "No hay informe de desglose en chino disponible para este anuncio",
+  "procurement_reportGuideVip": "Como miembro VIP, puede contactar al servicio de atención WeChat para procesamiento manual prioritario.",
+  "procurement_reportGuideUser": "Contacte al servicio de atención WeChat para solicitar el procesamiento manual de este anuncio.",
+  "procurement_reportGuideGuest": "Inicie sesión para contactar al servicio de atención WeChat para procesamiento manual.",
+  "procurement_contactWechatService": "Contactar soporte WeChat",
+  "procurement_wechatServiceTitle": "Servicio de atención WeChat",
+  "procurement_wechatServiceHint": "Escanee el código QR para agregar nuestro soporte WeChat. Envíe el ID del anuncio para solicitar procesamiento dirigido.",
+  "procurement_dismiss": "Entendido"
 }
