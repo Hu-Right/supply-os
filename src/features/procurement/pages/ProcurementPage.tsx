@@ -95,7 +95,7 @@ export default function ProcurementPage() {
   // 列表页
   return (
     <div className="space-y-5">
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">

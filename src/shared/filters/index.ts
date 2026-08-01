@@ -12,3 +12,6 @@ export type { RegionFilterProps } from "./RegionFilter";
 
 export { IndustryFilter } from "./IndustryFilter";
 export type { IndustryFilterProps } from "./IndustryFilter";
+
+export { CountryFilter } from "./CountryFilter";
+export type { CountryFilterProps, CountryFilterItem } from "./CountryFilter";

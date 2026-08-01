@@ -92,7 +92,8 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
           const pendingKeyStale = `${noticeId}:${lang}`;
           let pendingStale = pendingNoticeTranslations.get(pendingKeyStale);
           if (!pendingStale) {
-            pendingStale = translateNoticeViaChain(String(nForCache?.title || ""), cacheDescSource, lang);
+            const staleSourceLang = detectSourceLang(String(nForCache?.title || ""), cacheDescSource) ?? undefined;
+            pendingStale = translateNoticeViaChain(String(nForCache?.title || ""), cacheDescSource, lang, staleSourceLang);
             pendingNoticeTranslations.set(pendingKeyStale, pendingStale);
             pendingStale.finally(() => pendingNoticeTranslations.delete(pendingKeyStale)).catch(() => undefined);
           }
@@ -108,17 +109,34 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         return res.json({ lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true });
       }
       if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
-        // 与详情页共用取文逻辑：优先机会表 description，回退公告表 description
-        // 保证"翻的 = 看的"（精选公告解锁后内容被机会表覆盖，翻译链必须跟机会表对齐）
+        // 标题已有缓存，描述缺失——单独补翻描述，标题立即返回不阻塞
         const [noticeRowsForDesc] = await dbPool.query(
           `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
            FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
         );
         const n = (noticeRowsForDesc as any[])[0];
         let descSource = n?.notice_desc || "";
+        let oppForDesc: any = null;
         if (n) {
-          const opp = await findQualifiedOpportunityForNotice(dbPool, n);
-          if (opp) descSource = String(preferValue(opp.description, descSource));
+          oppForDesc = await findQualifiedOpportunityForNotice(dbPool, n);
+          if (oppForDesc) descSource = String(preferValue(oppForDesc.description, descSource));
+        }
+        // 中文环境：机会表有 description_cn 时直出（零 API 成本，无需走翻译链）
+        if (lang === "zh" && oppForDesc && String(oppForDesc.description_cn || "").trim()) {
+          // 异步补翻 description_tr 缓存（不阻塞当前响应）
+          void (async () => {
+            try {
+              const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
+              const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang);
+              if (descOnlyResult.provider !== "same-lang-passthrough" && descOnlyResult.translations[1]) {
+                await dbPool.query(
+                  `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
+                  [descOnlyResult.translations[1], descOnlyResult.provider, noticeId, lang]
+                );
+              }
+            } catch { /* 异步补翻失败不影响用户 */ }
+          })();
+          return res.json({ lang, title: cachedRow.title_tr, description: oppForDesc.description_cn, cached: true, source: "description_cn" });
         }
         if (!String(descSource || "").trim()) {
           return res.json({ lang, title: cachedRow.title_tr, description: null, cached: true });
@@ -126,15 +144,14 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         const pendingKeyDesc = `${noticeId}:${lang}:desc`;
         let pendingDesc = pendingNoticeTranslations.get(pendingKeyDesc);
         if (!pendingDesc) {
-          pendingDesc = translateNoticeViaChain("", String(descSource), lang);
+          const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
+          pendingDesc = translateNoticeViaChain("", String(descSource), lang, descSourceLang);
           pendingNoticeTranslations.set(pendingKeyDesc, pendingDesc);
           pendingDesc.finally(() => pendingNoticeTranslations.delete(pendingKeyDesc)).catch(() => undefined);
         }
         const { translations: descTranslations, provider: descProvider } = await pendingDesc;
         const descTr = descTranslations[1];
         if (descProvider === "same-lang-passthrough") {
-          // 源语言即目标语言（或误检为同语言）：原文透传但绝不落缓存，
-          // 保留下次重检机会，杜绝"原文被固化为译文"（诊断 B1）
           return res.json({ lang, title: cachedRow.title_tr, description: descTr, cached: false, passthrough: true });
         }
         await dbPool.query(
@@ -155,10 +172,18 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       const opp = await findQualifiedOpportunityForNotice(dbPool, notice);
       const mergedDescription = opp ? String(preferValue(opp.description, notice.description || "")) : String(notice.description || "");
 
+      // 中文环境 + 机会表有 description_cn：描述直出，仅翻译标题（大幅减少等待）
+      const zhDescCn = lang === "zh" && opp && String(opp.description_cn || "").trim() ? opp.description_cn : null;
+
+      // 统一检测源语言一次，后续主翻译 + 英文中枢兜底复用，避免重复检测导致小语种误判为英文
+      const detectedSourceLang = detectSourceLang(String(notice.title || ""), mergedDescription) ?? undefined;
+
       const pendingKey = `${noticeId}:${lang}`;
       let pending = pendingNoticeTranslations.get(pendingKey);
       if (!pending) {
-        pending = translateNoticeViaChain(String(notice.title || ""), mergedDescription, lang);
+        // 有 description_cn 时只需翻译标题（description 传空，省 token + 提速）
+        const descForChain = zhDescCn ? "" : mergedDescription;
+        pending = translateNoticeViaChain(String(notice.title || ""), descForChain, lang, detectedSourceLang);
         pendingNoticeTranslations.set(pendingKey, pending);
         pending.finally(() => pendingNoticeTranslations.delete(pendingKey)).catch(() => undefined);
       }
@@ -170,22 +195,22 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       );
 
       if (provider === "same-lang-passthrough") {
-        // 同上：passthrough 结果不入 crm_notice_translations，直接透传原文
-        return res.json({ lang, title: translations[0], description: translations[1], cached: false, passthrough: true });
+        return res.json({ lang, title: translations[0], description: zhDescCn || translations[1], cached: false, passthrough: true });
       }
 
+      // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出
+      const descToCache = zhDescCn ? null : translations[1];
       await dbPool.query(
         `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
          VALUES (?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
-        [noticeId, lang, translations[0], translations[1], provider]
+        [noticeId, lang, translations[0], descToCache, provider]
       );
-      res.json({ lang, title: translations[0], description: translations[1], cached: false });
+      res.json({ lang, title: translations[0], description: zhDescCn || translations[1], cached: false, source: zhDescCn ? "description_cn" : "chain" });
 
       // ── 英文中枢兜底 ──
-      if (lang !== "en") {
-        const sourceLang = detectSourceLang(String(notice.title || ""), mergedDescription);
-        if (sourceLang && sourceLang !== "en") {
+      // 小语种公告必须同时拥有中英文两套译文；非 en/zh 原文在请求任一语言时自动补齐另一语言
+      if (lang !== "en" && detectedSourceLang && detectedSourceLang !== "en" && detectedSourceLang !== "zh") {
           void (async () => {
             try {
               const [enCheck] = await dbPool.query(
@@ -194,7 +219,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
               if ((enCheck as any[]).length > 0) return;
               const enPendingKey = `${noticeId}:en`;
               if (pendingNoticeTranslations.has(enPendingKey)) return;
-              const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en");
+              const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang);
               pendingNoticeTranslations.set(enPendingKey, enPromise);
               enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
               const enResult = await enPromise;
@@ -209,11 +234,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
                 );
               }
             } catch (err: any) {
-              // 英文中枢失败不影响主响应，但留告警便于排查补翻缺口
               console.warn(`[translate] en-pivot failed target=notice:${noticeId}: ${err?.message}`);
             }
           })();
-        }
       }
     } catch (err: any) {
       if (err?.message === "TRANSLATION_UNAVAILABLE") {

@@ -15,6 +15,9 @@ import {
   translateNoticeViaChain,
   detectSourceLang,
 } from "./notice-translation";
+import { createLogger } from "../utils/fileLogger";
+
+const logger = createLogger("auto-translate");
 
 export interface AutoTranslateConfig {
   dbPool: Pool;
@@ -77,7 +80,6 @@ export async function runIncrementalTranslation(
   if (budgetDay === today) {
     const used = Number(stateMap.get("budget_chars_used") || "0");
     if (used >= cfg.dailyCharBudget) {
-      console.warn(`[auto-translate] 日预算已耗尽 (${used}/${cfg.dailyCharBudget})，本轮跳过`);
       return { ok: 0, failed: 0, charsUsed: used };
     }
     charsUsed = used;
@@ -90,13 +92,22 @@ export async function runIncrementalTranslation(
     for (const targetLang of ["zh", "en"] as const) {
       if (charsUsed >= cfg.dailyCharBudget) break;
       const [rows] = await dbPool.query(
-        `SELECT n.id, n.title, n.description
+        `SELECT n.id, n.title, n.description, n.reference,
+                t.title_tr AS cached_title_tr,
+                t.description_tr AS cached_desc_tr,
+                t.model AS cached_model
          FROM ${target.table} n
          LEFT JOIN ${target.trTable} t ON t.${target.idCol} = n.id AND t.lang = ?
         WHERE n.id > ?
           AND (n.is_expired = 0 OR n.is_expired IS NULL)
           AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
-          AND t.id IS NULL
+          AND (
+            t.id IS NULL
+            OR (
+              (t.description_tr IS NULL OR t.description_tr = '')
+              AND (t.model IS NULL OR t.model NOT IN ('skip-same-lang', 'skip-no-desc'))
+            )
+          )
           AND n.title IS NOT NULL AND TRIM(n.title) <> ''
         ORDER BY n.id DESC
         LIMIT ?`,
@@ -115,23 +126,42 @@ export async function runIncrementalTranslation(
             if (!row) break;
             const title = String(row.title || "").trim();
             const description = String(row.description || "").trim();
+            const reference = String(row.reference || "").trim();
+            const cachedTitleTr = String(row.cached_title_tr || "").trim();
+            const cachedDescTr = String(row.cached_desc_tr || "").trim();
+            const hasExistingCache = !!cachedTitleTr || !!cachedDescTr;
+            const titlePreview = title.length > 80 ? title.slice(0, 80) + "..." : title;
+            const descPreview = description.length > 80 ? description.slice(0, 80) + "..." : description;
+            const logPrefix = `table=${target.table} id=${row.id}${reference ? ` ref=${reference}` : ""} lang=${targetLang}`;
+            let sourceLang: string | null = null;
             try {
-              const sourceLang = detectSourceLang(title, description);
-              // 源语言未知/同语言：写标记行让 t.id IS NULL 扫描条件跳过，杜绝逐轮重扫；
-              // title_tr 置 NULL，用户按需查看时详情端点仍会全量重译
-              if (!sourceLang || sourceLang === targetLang) {
-                await writeSkipMarker(target, row.id, targetLang);
+              sourceLang = detectSourceLang(title, description);
+              // 源语言未知/同语言：写标记行让扫描条件跳过，杜绝逐轮重扫；
+              // 仅对无缓存行的写 skip 标记，避免覆盖已有译文
+              if (!sourceLang) {
+                if (!hasExistingCache) {
+                  await writeSkipMarker(target, row.id, targetLang);
+                }
+                continue;
+              }
+              if (sourceLang === targetLang) {
+                if (!hasExistingCache) {
+                  await writeSkipMarker(target, row.id, targetLang);
+                }
                 continue;
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
 
-              // 标题+描述一起翻译（一次调用，术语一致性更好）
-              const result = await translateNoticeViaChain(title, description, targetLang);
-              const titleTr = String(result.translations[0] || "").trim();
+              // 标题已有缓存时仅翻译描述（节省 API 配额）
+              const titleForChain = cachedTitleTr ? "" : title;
+              const result = await translateNoticeViaChain(titleForChain, description, targetLang, sourceLang as any);
+              const titleTr = cachedTitleTr || String(result.translations[0] || "").trim();
               const descTr = String(result.translations[1] || "").trim();
 
               if (result.provider === "same-lang-passthrough") {
-                await writeSkipMarker(target, row.id, targetLang);
+                if (!hasExistingCache) {
+                  await writeSkipMarker(target, row.id, targetLang);
+                }
                 continue;
               }
               charsUsed += title.length + description.length;
@@ -140,7 +170,7 @@ export async function runIncrementalTranslation(
                 `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
                  VALUES (?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE
-                   title_tr = VALUES(title_tr),
+                   title_tr = COALESCE(VALUES(title_tr), title_tr),
                    description_tr = VALUES(description_tr),
                    model = VALUES(model)`,
                 [row.id, targetLang, titleTr || null, descTr || null, result.provider]
@@ -148,9 +178,9 @@ export async function runIncrementalTranslation(
               ok += 1;
             } catch (err: any) {
               failed += 1;
-              // 单条失败不阻断本轮，但留告警定位具体记录与语言
-              console.warn(
-                `[translate] auto-translate failed table=${target.table} id=${row.id} lang=${targetLang}: ${err?.message}`
+              const errMsg = err?.message || String(err);
+              logger.warn(
+                `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" title="${titlePreview}" desc="${descPreview}"`
               );
             }
             await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
@@ -166,9 +196,6 @@ export async function runIncrementalTranslation(
      ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
     ["budget_day", today, "budget_chars_used", String(charsUsed)]
   );
-  console.log(
-    `[auto-translate] 增量双语翻译: 成功 ${ok} 失败 ${failed} 字符 ${charsUsed}/${cfg.dailyCharBudget} 耗时 ${Math.round((Date.now() - startedAt) / 1000)}s`
-  );
   return { ok, failed, charsUsed };
 }
 
@@ -181,7 +208,6 @@ export function startAutoTranslate(
   cfg: { enabled: boolean; intervalMs: number; maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
 ): () => void {
   if (!cfg.enabled) {
-    console.log("[auto-translate] 已禁用（NOTICE_AUTO_TRANSLATE=off）");
     return () => {};
   }
 
@@ -192,7 +218,7 @@ export function startAutoTranslate(
     try {
       await runIncrementalTranslation(dbPool, cfg);
     } catch (err: any) {
-      console.warn("[auto-translate] 本轮扫描失败:", err?.message || err);
+      logger.warn(`SCAN_FAIL error="${err?.message || err}"`);
     } finally {
       running = false;
     }
@@ -200,9 +226,6 @@ export function startAutoTranslate(
 
   const timer1 = setTimeout(() => void tick(), 30_000);
   const timer2 = setInterval(() => void tick(), cfg.intervalMs);
-  console.log(
-    `[auto-translate] 已启用: 每 ${Math.round(cfg.intervalMs / 60000)} 分钟扫描新增公告（水位以上），单轮上限 ${cfg.maxPerRun} 条/语言，双语（zh+en），日预算 ${cfg.dailyCharBudget} 字符`
-  );
 
   return () => {
     clearTimeout(timer1);

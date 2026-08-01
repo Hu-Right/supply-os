@@ -52,8 +52,42 @@ export async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+
+    // ── 分层缓存策略 ──
+    // 1) 带哈希的静态资源（JS/CSS/图片/字体）→ 强缓存 1 年
+    //    内容变化 → 哈希变化 → 文件名变化 → 浏览器必须重新下载
+    app.use(
+      "/assets",
+      express.static(path.join(distPath, "assets"), {
+        maxAge: "1y",
+        immutable: true,
+        etag: true,
+        lastModified: false,
+      })
+    );
+
+    // 2) public 目录静态资源（下载文件、图片等）→ 缓存 1 天 + 每次验证
+    app.use(
+      express.static(distPath, {
+        maxAge: "1d",
+        etag: true,
+        lastModified: true,
+        // 对 HTML 文件不缓存，确保用户始终获取最新版本
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith(".html")) {
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
+          }
+        },
+      })
+    );
+
+    // 3) SPA 回退：所有未匹配路由返回 index.html，并设置 no-cache 头
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

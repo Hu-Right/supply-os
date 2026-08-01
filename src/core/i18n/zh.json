@@ -175,6 +175,9 @@
   "procurement_search": "搜索标题/机构/国家",
   "procurement_searchPlaceholder": "输入招标编号或关键词",
   "procurement_countryAll": "全部国家",
+    "countryFilter_searchPlaceholder": "搜索国家...",
+    "countryFilter_noResults": "未找到匹配国家",
+    "countryFilter_moreResults": "条更多结果 — 请缩小搜索范围",
   "procurement_deadlineFrom": "截止日期从",
   "procurement_deadlineTo": "截止日期至",
   "procurement_sortByDeadline": "截止最近优先",
@@ -581,5 +584,7 @@
   "procurement_contactWechatService": "扫码联系微信客服",
   "procurement_wechatServiceTitle": "微信客服",
   "procurement_wechatServiceHint": "扫描二维码添加客服微信，发送公告编号即可申请定向处理",
-  "procurement_dismiss": "我知道了"
+  "procurement_dismiss": "我知道了",
+  "updateAvailable_message": "检测到新版本已发布，刷新页面即可体验最新功能",
+  "updateAvailable_refresh": "立即刷新"
 }

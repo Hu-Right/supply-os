@@ -86,19 +86,19 @@ export function detectSourceLang(title: string, description: string): ChainSourc
 }
 
 // 公告标题+描述过链的适配器（详情端点与解锁补翻共用，与 pendingNoticeTranslations 键配套）
+// sourceLang 可选传入：调用方已检测时直接复用，避免内部重复检测导致小语种误判为英文而跳过翻译。
+// 未传入时内部自行检测（向后兼容）。
 export function translateNoticeViaChain(
   title: string,
   description: string,
-  lang: string
+  lang: string,
+  sourceLang?: ChainSourceLang
 ): Promise<ChainResult> {
-  // 本地差异 #19：源语言动态化——引入 tinyld 后 latin 分支也能区分英/法/西/葡/德/意，
-  // 不再把所有非中文原文一律标 en（法语/西语/葡语原文被误标 en 导致有道方向错误）。
-  // 检测为 null 时（纯数字/符号）直通无意义，但仍返回原文避免崩链路；调用方应预先过滤。
-  const sourceLang = detectSourceLang(title, description) ?? "en";
-  const alreadyTargetLang = sourceLang === lang;
+  const detected = sourceLang ?? detectSourceLang(title, description) ?? "en";
+  const alreadyTargetLang = detected === lang;
   if (alreadyTargetLang) {
     return Promise.resolve({ translations: [title, description], provider: "same-lang-passthrough" });
   }
-  return translateViaChain([title, description], sourceLang, lang);
+  return translateViaChain([title, description], detected, lang);
 }
 

@@ -170,6 +170,9 @@
   "procurement_search": "Search title / agency / country",
   "procurement_searchPlaceholder": "Enter tender reference or keyword",
   "procurement_countryAll": "All countries",
+    "countryFilter_searchPlaceholder": "Search country...",
+    "countryFilter_noResults": "No matching countries",
+    "countryFilter_moreResults": "more results — refine your search",
   "procurement_deadlineFrom": "Deadline from",
   "procurement_deadlineTo": "Deadline to",
   "procurement_sortByDeadline": "Closest deadline first",
@@ -576,5 +579,7 @@
   "procurement_contactWechatService": "Contact WeChat support",
   "procurement_wechatServiceTitle": "WeChat Customer Service",
   "procurement_wechatServiceHint": "Scan the QR code to add our WeChat support. Send the notice ID to request targeted processing.",
-  "procurement_dismiss": "Got it"
+  "procurement_dismiss": "Got it",
+  "updateAvailable_message": "A new version is available. Refresh to get the latest features.",
+  "updateAvailable_refresh": "Refresh now"
 }

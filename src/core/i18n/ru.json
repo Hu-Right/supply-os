@@ -170,6 +170,9 @@
   "procurement_search": "Поиск по названию / агентству / стране",
   "procurement_searchPlaceholder": "Введите номер тендера или ключевое слово",
   "procurement_countryAll": "Все страны",
+    "countryFilter_searchPlaceholder": "Поиск страны...",
+    "countryFilter_noResults": "Страны не найдены",
+    "countryFilter_moreResults": "результатов — уточните поиск",
   "procurement_deadlineFrom": "Крайний срок с",
   "procurement_deadlineTo": "Крайний срок по",
   "procurement_sortByDeadline": "Сначала ближайший срок",
@@ -576,5 +579,7 @@
   "procurement_contactWechatService": "Связаться с поддержкой WeChat",
   "procurement_wechatServiceTitle": "Служба поддержки WeChat",
   "procurement_wechatServiceHint": "Отсканируйте QR-код, чтобы добавить нашу поддержку WeChat. Отправьте ID объявления для запроса целевой обработки.",
-  "procurement_dismiss": "Понятно"
+  "procurement_dismiss": "Понятно",
+  "updateAvailable_message": "Доступна новая версия. Обновите страницу, чтобы получить последние функции.",
+  "updateAvailable_refresh": "Обновить"
 }

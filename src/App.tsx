@@ -13,7 +13,7 @@ import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
 import { ConsultForm } from "@/shared/forms";
-import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents } from "@/shared/layout";
+import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useVersionCheck } from "@/shared/layout";
 
 export default function App() {
   const { t } = useLocale();
@@ -36,6 +36,9 @@ export default function App() {
     if (detail) { setPaymentPlan(detail); setShowPaymentModal(true); }
   }, []);
   useAppEvents({ onRequireLogin, onConsult, onPay });
+
+  // 版本检测：部署更新后自动静默刷新
+  useVersionCheck();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">

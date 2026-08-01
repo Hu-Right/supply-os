@@ -170,6 +170,9 @@
   "procurement_search": "Rechercher titre / agence / pays",
   "procurement_searchPlaceholder": "Saisir la référence d'appel d'offres ou un mot-clé",
   "procurement_countryAll": "Tous les pays",
+    "countryFilter_searchPlaceholder": "Rechercher un pays...",
+    "countryFilter_noResults": "Aucun pays correspondant",
+    "countryFilter_moreResults": "résultats supplémentaires — affinez votre recherche",
   "procurement_deadlineFrom": "Date limite du",
   "procurement_deadlineTo": "Date limite au",
   "procurement_sortByDeadline": "Échéance la plus proche d'abord",
@@ -576,5 +579,7 @@
   "procurement_contactWechatService": "Contacter le service client WeChat",
   "procurement_wechatServiceTitle": "Service client WeChat",
   "procurement_wechatServiceHint": "Scannez le QR code pour ajouter notre support WeChat. Envoyez l'ID de l'annonce pour demander un traitement ciblé.",
-  "procurement_dismiss": "Compris"
+  "procurement_dismiss": "Compris",
+  "updateAvailable_message": "Une nouvelle version est disponible. Actualisez pour profiter des dernières fonctionnalités.",
+  "updateAvailable_refresh": "Actualiser"
 }

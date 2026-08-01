@@ -216,7 +216,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     }
   });
 
-  // ── G.3 国家下拉数据源 ──
+  // ── G.3 国家下拉数据源（增强版：移除 LIMIT 100，返回全量国家供前端搜索过滤）──
   let noticeCountriesCache: { data: any[]; expires: number } | null = null;
   router.get("/api/notices/countries", async (_req, res) => {
     try {
@@ -224,7 +224,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       const [rows] = await dbPool.query(
         `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
          WHERE (n.is_expired = 0 OR n.is_expired IS NULL) AND n.country IS NOT NULL AND n.country <> ''
-         GROUP BY n.country ORDER BY cnt DESC LIMIT 100`
+         GROUP BY n.country ORDER BY cnt DESC`
       );
       const data = (rows as any[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
       noticeCountriesCache = { data, expires: Date.now() + 10 * 60 * 1000 };

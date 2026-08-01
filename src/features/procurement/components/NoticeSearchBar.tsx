@@ -10,6 +10,7 @@
  */
 import { Crown, Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { CountryFilter } from "@/shared/filters/CountryFilter";
 
 export interface NoticeSearchBarProps {
   qInput: string;
@@ -61,7 +62,7 @@ export function NoticeSearchBar({
   activeFeatured,
   toggleFeatured,
 }: NoticeSearchBarProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
 
   // 公采搜索栏（本地差异 #6：G.3 + #13：T-B9 多维过滤）——服务端全库搜索
   return (
@@ -73,7 +74,7 @@ export function NoticeSearchBar({
       className="space-y-3"
     >
       {/* 第一行：搜索 / 国家 / 排序 / 按钮 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_170px_auto] gap-3 lg:items-end">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px_170px_auto] gap-3 lg:items-end">
       <div className="relative">
         <Search className="w-4 h-4 text-slate-400 absolute start-3 top-1/2 -translate-y-1/2" />
         <input
@@ -84,19 +85,16 @@ export function NoticeSearchBar({
           className="w-full ps-9 pe-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
       </div>
-      <select
+      <CountryFilter
+        countries={countries}
         value={countryInput}
-        onChange={(e) => setCountryInput(e.target.value)}
-        aria-label={t("procurement_countryAll")}
-        className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500"
-      >
-        <option value="">{t("procurement_countryAll")}</option>
-        {countries.map((item) => (
-          <option key={item.country} value={item.country}>
-            {item.country} ({item.count})
-          </option>
-        ))}
-      </select>
+        onChange={setCountryInput}
+        locale={locale}
+        placeholder={t("procurement_countryAll")}
+        noResultsText={t("countryFilter_noResults")}
+        moreResultsText={t("countryFilter_moreResults")}
+        className="w-full"
+      />
       <select
         value={activeSort}
         onChange={(e) => applySearch(e.target.value === "latest" ? "latest" : "deadline")}
