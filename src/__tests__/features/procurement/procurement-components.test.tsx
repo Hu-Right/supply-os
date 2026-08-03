@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NoticeCard } from "@/features/procurement/components/NoticeCard";
-import { ProcurementPagination } from "@/features/procurement/components/ProcurementPagination";
 import type { NoticeItem } from "@/types";
 
 // ── Mock useLocale ──
@@ -65,101 +64,5 @@ describe("NoticeCard", () => {
     const locked = { ...mockNotice, core_locked: true };
     render(<NoticeCard item={locked} onClick={onClick} />);
     expect(screen.queryByText("10000000")).toBeNull();
-  });
-});
-
-describe("ProcurementPagination", () => {
-  const onPageChange = vi.fn();
-
-  it("renders page info", () => {
-    render(
-      <ProcurementPagination
-        page={1}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={false}
-        onPageChange={onPageChange}
-      />
-    );
-    expect(screen.getByText("procurement_prev")).toBeInTheDocument();
-    expect(screen.getByText("procurement_next")).toBeInTheDocument();
-  });
-
-  it("disables prev button on first page", () => {
-    render(
-      <ProcurementPagination
-        page={1}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={false}
-        onPageChange={onPageChange}
-      />
-    );
-    const prevBtn = screen.getByText("procurement_prev").closest("button");
-    expect(prevBtn).toBeDisabled();
-  });
-
-  it("disables next button on last page", () => {
-    render(
-      <ProcurementPagination
-        page={5}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={false}
-        onPageChange={onPageChange}
-      />
-    );
-    const nextBtn = screen.getByText("procurement_next").closest("button");
-    expect(nextBtn).toBeDisabled();
-  });
-
-  it("calls onPageChange when next button clicked", () => {
-    render(
-      <ProcurementPagination
-        page={1}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={false}
-        onPageChange={onPageChange}
-      />
-    );
-    fireEvent.click(screen.getByText("procurement_next"));
-    expect(onPageChange).toHaveBeenCalledWith(2);
-  });
-
-  it("calls onPageChange when prev button clicked", () => {
-    render(
-      <ProcurementPagination
-        page={3}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={false}
-        onPageChange={onPageChange}
-      />
-    );
-    fireEvent.click(screen.getByText("procurement_prev"));
-    expect(onPageChange).toHaveBeenCalledWith(2);
-  });
-
-  it("disables buttons when loading", () => {
-    render(
-      <ProcurementPagination
-        page={2}
-        totalPages={5}
-        serverPageSize={9}
-        total={45}
-        loading={true}
-        onPageChange={onPageChange}
-      />
-    );
-    const prevBtn = screen.getByText("procurement_prev").closest("button");
-    const nextBtn = screen.getByText("procurement_next").closest("button");
-    expect(prevBtn).toBeDisabled();
-    expect(nextBtn).toBeDisabled();
   });
 });

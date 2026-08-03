@@ -36,50 +36,58 @@ export interface UseNoticeSearchOptions {
 }
 
 export interface UseNoticeSearchReturn {
-  // URL 生效条件（唯一事实源）
-  activeQ: string;
-  activeCountry: string;
-  activeFrom: string;
-  activeTo: string;
-  activeSort: "deadline" | "latest";
-  activeValueMin: string;
-  activeValueMax: string;
-  activeWindow: string;
-  activeNoticeType: string;
-  activeFeatured: boolean;
-  hasSearch: boolean;
-  searchKey: string;
-  // 表单草稿
-  qInput: string;
-  setQInput: (value: string) => void;
-  countryInput: string;
-  setCountryInput: (value: string) => void;
-  fromInput: string;
-  setFromInput: (value: string) => void;
-  toInput: string;
-  setToInput: (value: string) => void;
-  valueMinInput: string;
-  setValueMinInput: (value: string) => void;
-  valueMaxInput: string;
-  setValueMaxInput: (value: string) => void;
-  windowInput: string;
-  setWindowInput: (value: string) => void;
-  typeInput: string;
-  setTypeInput: (value: string) => void;
-  countries: Array<{ country: string; count: number }>;
-  // 动作
-  applySearch: (sortOverride?: "deadline" | "latest") => void;
-  clearSearch: () => void;
-  /** T-A4：只看精选开关（立即生效写 URL，保留其余现有条件） */
-  toggleFeatured: () => void;
-  // 列表��据
-  items: NoticeItem[];
-  total: number;
-  serverPageSize: number;
-  totalPages: number;
-  loading: boolean;
-  error: string;
-  setError: (message: string) => void;
+  /** URL 生效条件（唯一事实源） */
+  query: {
+    activeQ: string;
+    activeCountry: string;
+    activeFrom: string;
+    activeTo: string;
+    activeSort: "deadline" | "latest";
+    activeValueMin: string;
+    activeValueMax: string;
+    activeWindow: string;
+    activeNoticeType: string;
+    activeFeatured: boolean;
+    hasSearch: boolean;
+    searchKey: string;
+  };
+  /** 表单草稿（待提交） */
+  form: {
+    qInput: string;
+    setQInput: (value: string) => void;
+    countryInput: string;
+    setCountryInput: (value: string) => void;
+    fromInput: string;
+    setFromInput: (value: string) => void;
+    toInput: string;
+    setToInput: (value: string) => void;
+    valueMinInput: string;
+    setValueMinInput: (value: string) => void;
+    valueMaxInput: string;
+    setValueMaxInput: (value: string) => void;
+    windowInput: string;
+    setWindowInput: (value: string) => void;
+    typeInput: string;
+    setTypeInput: (value: string) => void;
+  };
+  /** 列表数据 */
+  result: {
+    countries: Array<{ country: string; count: number }>;
+    items: NoticeItem[];
+    total: number;
+    serverPageSize: number;
+    totalPages: number;
+    loading: boolean;
+    error: string;
+    setError: (message: string) => void;
+  };
+  /** 动作 */
+  actions: {
+    applySearch: (sortOverride?: "deadline" | "latest") => void;
+    clearSearch: () => void;
+    /** T-A4：只看精选开关（立即生效写 URL，保留其余现有条件） */
+    toggleFeatured: () => void;
+  };
 }
 
 export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearchReturn {
@@ -252,44 +260,52 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   }, [deepestCodeId, page, prefsMode, searchKey]);
 
   return {
-    activeQ,
-    activeCountry,
-    activeFrom,
-    activeTo,
-    activeSort,
-    activeValueMin,
-    activeValueMax,
-    activeWindow,
-    activeNoticeType,
-    activeFeatured,
-    hasSearch,
-    searchKey,
-    qInput,
-    setQInput,
-    countryInput,
-    setCountryInput,
-    fromInput,
-    setFromInput,
-    toInput,
-    setToInput,
-    valueMinInput,
-    setValueMinInput,
-    valueMaxInput,
-    setValueMaxInput,
-    windowInput,
-    setWindowInput,
-    typeInput,
-    setTypeInput,
-    countries,
-    applySearch,
-    clearSearch,
-    toggleFeatured,
-    items,
-    total,
-    serverPageSize,
-    totalPages,
-    loading,
-    error,
-    setError,
+    query: {
+      activeQ,
+      activeCountry,
+      activeFrom,
+      activeTo,
+      activeSort,
+      activeValueMin,
+      activeValueMax,
+      activeWindow,
+      activeNoticeType,
+      activeFeatured,
+      hasSearch,
+      searchKey,
+    },
+    form: {
+      qInput,
+      setQInput,
+      countryInput,
+      setCountryInput,
+      fromInput,
+      setFromInput,
+      toInput,
+      setToInput,
+      valueMinInput,
+      setValueMinInput,
+      valueMaxInput,
+      setValueMaxInput,
+      windowInput,
+      setWindowInput,
+      typeInput,
+      setTypeInput,
+    },
+    result: {
+      countries,
+      items,
+      total,
+      serverPageSize,
+      totalPages,
+      loading,
+      error,
+      setError,
+    },
+    actions: {
+      applySearch,
+      clearSearch,
+      toggleFeatured,
+    },
   };
 }

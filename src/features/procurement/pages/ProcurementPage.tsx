@@ -41,15 +41,15 @@ export default function ProcurementPage() {
   // ── 推荐反馈采集（曝光/点击/dwell/scroll_end/quick_exit/revisit）──
   const feedback = useNoticeFeedback({
     userKey, prefsMode,
-    hasSearch: search.hasSearch,
-    activeSort: search.activeSort,
+    hasSearch: search.query.hasSearch,
+    activeSort: search.query.activeSort,
     selectedNotice, variantRef,
   });
 
   // ── 详情与支付动作 ──
   const actions = useNoticeActions({
     userKey, isVip,
-    items: search.items,
+    items: search.result.items,
     setSelectedNotice,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
@@ -106,7 +106,7 @@ export default function ProcurementPage() {
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">
-              {t("procurement_total")} {search.total} {t("procurement_items")}
+              {t("procurement_total")} {search.result.total} {t("procurement_items")}
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
               {actions.canUsePaidQuota
@@ -119,28 +119,12 @@ export default function ProcurementPage() {
         <div className="p-5 space-y-4">
           <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
           <NoticeSearchBar
-            qInput={search.qInput}
-            setQInput={search.setQInput}
-            countryInput={search.countryInput}
-            setCountryInput={search.setCountryInput}
-            fromInput={search.fromInput}
-            setFromInput={search.setFromInput}
-            toInput={search.toInput}
-            setToInput={search.setToInput}
-            valueMinInput={search.valueMinInput}
-            setValueMinInput={search.setValueMinInput}
-            valueMaxInput={search.valueMaxInput}
-            setValueMaxInput={search.setValueMaxInput}
-            windowInput={search.windowInput}
-            setWindowInput={search.setWindowInput}
-            typeInput={search.typeInput}
-            setTypeInput={search.setTypeInput}
-            activeSort={search.activeSort}
-            countries={search.countries}
-            applySearch={search.applySearch}
-            clearSearch={search.clearSearch}
-            activeFeatured={search.activeFeatured}
-            toggleFeatured={search.toggleFeatured}
+            form={search.form}
+            query={search.query}
+            countries={search.result.countries}
+            applySearch={search.actions.applySearch}
+            clearSearch={search.actions.clearSearch}
+            toggleFeatured={search.actions.toggleFeatured}
           />
         </div>
       </section>
@@ -149,10 +133,10 @@ export default function ProcurementPage() {
         <div className="flex items-center justify-between mb-4 text-xs text-slate-500">
           <span className="inline-flex items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-            {t("procurement_currentPage")} {page} / {search.totalPages} {t("procurement_page")},{" "}
-            {t("procurement_eachPage")} {search.serverPageSize} {t("procurement_items")}
+            {t("procurement_currentPage")} {page} / {search.result.totalPages} {t("procurement_page")},{" "}
+            {t("procurement_eachPage")} {search.result.serverPageSize} {t("procurement_items")}
           </span>
-          {search.loading && <span className="font-bold text-teal-600">{t("procurement_loading")}</span>}
+          {search.result.loading && <span className="font-bold text-teal-600">{t("procurement_loading")}</span>}
         </div>
 
         {/* 自动筛选提示条：偏好/推荐模式可一键退出回全量 */}
@@ -175,15 +159,15 @@ export default function ProcurementPage() {
 
         {userKey && <RecentUnlocks userKey={userKey} onOpenNotice={actions.openNoticeById} />}
 
-        {search.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.error}</div>}
+        {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
         <NoticeList
-          items={search.items}
-          loading={search.loading}
+          items={search.result.items}
+          loading={search.result.loading}
           page={page}
-          totalPages={search.totalPages}
-          serverPageSize={search.serverPageSize}
-          total={search.total}
+          totalPages={search.result.totalPages}
+          serverPageSize={search.result.serverPageSize}
+          total={search.result.total}
           setPage={setPage}
           openNotice={actions.openNotice}
           feedbackEnabled={feedback.feedbackEnabled}

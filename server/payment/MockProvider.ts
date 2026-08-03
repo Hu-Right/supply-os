@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import type { PaymentStrategy, PaymentOrderStatus } from "../../src/types/payment";
+import type { PaymentOrderStatus } from "../../src/types/payment";
+import type { PaymentStrategy } from "./types";
 
 /**
  * Mock 支付策略 —— 开发环境模拟支付，无需真实支付宝/微信账号

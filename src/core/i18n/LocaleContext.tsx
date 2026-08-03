@@ -4,12 +4,7 @@ const i18nInstance = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
 import type { Locale, LocaleKey } from "./types";
 import { SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
-import zh from "./zh.json";
-import en from "./en.json";
-import fr from "./fr.json";
-import ru from "./ru.json";
-import es from "./es.json";
-import ar from "./ar.json";
+import { zh, en, fr, ru, es, ar } from "./resources";
 
 const STORAGE_KEY = "supply_os_locale";
 

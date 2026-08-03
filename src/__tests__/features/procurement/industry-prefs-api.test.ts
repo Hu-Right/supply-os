@@ -1,10 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
-import {
-  fetchIndustryPrefs,
-  saveIndustryPrefs,
-  fetchRecommendedNotices,
-} from "@/features/procurement/api";
+import { fetchIndustryPrefs, saveIndustryPrefs } from "@/core/api/industry-prefs";
+import { fetchRecommendedNotices } from "@/features/procurement/api";
 import { server } from "@/__tests__/mocks/server";
 
 describe("fetchIndustryPrefs", () => {

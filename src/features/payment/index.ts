@@ -14,7 +14,7 @@ export type { UsePaymentOptions, UsePaymentReturn, PaymentStep } from "./hooks/u
 export { useOrderHistory } from "./hooks/useOrderHistory";
 export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
-export { fetchOrders, fetchUnlocks, getOrderStatus } from "./api";
+export { fetchOrders, fetchUnlocks, getOrderStatus, createOrder, mockPaid } from "./api";
 export type {
   OrderInfo,
   CreateOrderParams,

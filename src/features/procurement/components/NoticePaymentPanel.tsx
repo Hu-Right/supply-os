@@ -12,7 +12,7 @@
 import { CheckCircle2, CreditCard, ExternalLink, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { MembershipPlan } from "../types";
-import type { OrderInfo } from "@/features/payment/api";
+import type { OrderInfo } from "@/features/payment";
 
 interface NoticePaymentPanelProps {
   plans: MembershipPlan[];

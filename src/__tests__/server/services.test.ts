@@ -63,7 +63,7 @@ describe("translateViaChain", () => {
       } as any));
     try {
       const result = await translateViaChain(["hello"], "en", "zh");
-      expect(result.provider).toBe("deepseek-v4-pro");
+      expect(result.provider).toBe("deepseek-v4-flash");
       expect(result.translations).toEqual(["你好"]);
       expect(result.degradedFrom).toHaveLength(1);
       expect(result.degradedFrom?.[0]).toContain("youdao-llm");

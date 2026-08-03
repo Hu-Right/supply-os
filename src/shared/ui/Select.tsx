@@ -16,8 +16,9 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ error = false, className = "", children, ...props }, ref) => {
+    // 样式与业务代码手写下拉框保持一致（更柔和的表单风格）
     const baseClasses =
-      "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:bg-slate-50 disabled:text-slate-500";
+      "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:bg-slate-100 disabled:text-slate-500";
 
     const errorClasses = error ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500/20" : "";
 

@@ -278,7 +278,7 @@ describe("SupplierPage", () => {
     expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
   });
 
-  // ── 分页（每页 9 条，控件复用公采 ProcurementPagination）──
+  // ── 分页（每页 9 条，控件复用 shared/ui/Pagination）──
 
   it("paginates 9 per page and navigates with next/prev controls", async () => {
     mockFetchSuppliers.mockResolvedValue(makeSuppliers(12));

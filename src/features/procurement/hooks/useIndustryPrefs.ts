@@ -13,8 +13,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAppEvent } from "@/core/events";
 import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
+import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import {
-  fetchIndustryPrefs,
   fetchUnspscIndustries,
   fetchUnspscChildren,
   fetchRecommendedNotices,

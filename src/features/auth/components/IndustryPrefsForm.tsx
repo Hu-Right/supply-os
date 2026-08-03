@@ -14,10 +14,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
-import {
-  fetchIndustryPrefs,
-  saveIndustryPrefs,
-} from "@/features/procurement";
+import { fetchIndustryPrefs, saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 

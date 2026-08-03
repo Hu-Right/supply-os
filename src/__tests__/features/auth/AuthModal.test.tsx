@@ -39,14 +39,20 @@ vi.mock("@/features/payment", () => ({
   ),
 }));
 
-// ── Mock procurement api（UNSPSC 级联 + 行业偏好，本地差异 #5 配套）──
+// ── Mock UNSPSC 级联 + 行业偏好（core 层，本地差异 #5 配套）──
 const mockFetchUnspscIndustries = vi.fn();
 const mockFetchUnspscChildren = vi.fn();
 const mockFetchIndustryPrefs = vi.fn();
 const mockSaveIndustryPrefs = vi.fn();
-vi.mock("@/features/procurement/api", () => ({
-  fetchUnspscIndustries: () => mockFetchUnspscIndustries(),
-  fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
+vi.mock("@/core/unspsc", async () => {
+  const actual = await vi.importActual<typeof import("@/core/unspsc")>("@/core/unspsc");
+  return {
+    ...actual,
+    fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
+    fetchUnspscChildren: (id: string) => mockFetchUnspscChildren(id),
+  };
+});
+vi.mock("@/core/api/industry-prefs", () => ({
   fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
   saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
 }));
@@ -490,8 +496,8 @@ describe("AuthModal", () => {
 
   it("shows failure message when saving prefs fails (no fake success)", async () => {
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
-    // 模拟后端路由缺失/旧服务：POST 返回非 2xx
-    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 404 });
+    // 模拟后端路由缺失/旧服务：api() 非 2xx 时抛错
+    mockSaveIndustryPrefs.mockRejectedValue(new Error("404"));
     render(<AuthModal onClose={onClose} />);
 
     await waitFor(() => {
@@ -517,7 +523,7 @@ describe("AuthModal", () => {
   it("shows failure message when clearing prefs fails", async () => {
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
     mockFetchIndustryPrefs.mockResolvedValue({ level1_id: 1, level2_id: 11, level3_id: null });
-    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 500 });
+    mockSaveIndustryPrefs.mockRejectedValue(new Error("500"));
     render(<AuthModal onClose={onClose} />);
 
     await waitFor(() => {
@@ -585,7 +591,7 @@ describe("AuthModal", () => {
 
   it("does not dispatch industry-prefs-updated event when saving fails", async () => {
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
-    mockSaveIndustryPrefs.mockResolvedValue({ ok: false, status: 404 });
+    mockSaveIndustryPrefs.mockRejectedValue(new Error("404"));
     const onPrefsUpdated = vi.fn();
     window.addEventListener("supply-os:industry-prefs-updated", onPrefsUpdated);
     render(<AuthModal onClose={onClose} />);

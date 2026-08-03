@@ -14,7 +14,7 @@ import { useState } from "react";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { saveIndustryPrefs } from "@/features/procurement";
+import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 

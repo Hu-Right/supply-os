@@ -3,8 +3,8 @@ import type {
   CreateOrderResult,
   OrderStatusResult,
   PaymentProviderName,
-  PaymentStrategy,
 } from "../../src/types/payment";
+import type { PaymentStrategy } from "./types";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
