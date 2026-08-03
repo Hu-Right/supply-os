@@ -151,6 +151,7 @@ export class NoticesRepo {
   async findPreview(noticeId: number): Promise<any | null> {
     const [rows] = await this.pool.query(
       `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
+         difficulty, registration_level, contacts, key_contacts, description,
          unspsc_codes, converted_opp_id
        FROM crm_bid_notices WHERE id = ? LIMIT 1`,
       [noticeId],
