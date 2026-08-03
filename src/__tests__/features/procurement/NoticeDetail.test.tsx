@@ -43,7 +43,8 @@ describe("NoticeDetail", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getByText("Test Notice")).toBeInTheDocument();
     expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
-    expect(screen.getByText("US")).toBeInTheDocument();
+    // 国家同时出现在元信息格与解锁详情机构信息卡，取 getAllByText
+    expect(screen.getAllByText("US").length).toBeGreaterThan(0);
   });
 
   it("calls onBack when back button clicked", () => {
@@ -71,7 +72,8 @@ describe("NoticeDetail", () => {
   });
 
   it("calls onPayUnlock when the single paid-unlock button is clicked", () => {
-    render(<NoticeDetail {...defaultProps} />);
+    // 当前行为：付费买断按钮仅在免费配额耗尽（freeRemaining<=0）且锁定/非 VIP 时出现
+    render(<NoticeDetail {...defaultProps} freeRemaining={0} />);
     fireEvent.click(screen.getByText("procurement_singleUnlock"));
     expect(defaultProps.onPayUnlock).toHaveBeenCalledWith(mockNotice);
   });
@@ -93,7 +95,8 @@ describe("NoticeDetail", () => {
 
   it("renders UNSPSC tags when unlocked", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
-    expect(screen.getByText("1000")).toBeInTheDocument();
+    // 编码同时出现在标签区与投标拆解卡（bidCodes），取 getAllByText
+    expect(screen.getAllByText("1000").length).toBeGreaterThan(0);
   });
 
   // ── P1-B: core-locked mask gating ──
@@ -111,7 +114,7 @@ describe("NoticeDetail", () => {
   it("reveals real agency, tags and source when core is unlocked", () => {
     render(<NoticeDetail {...defaultProps} notice={unlockedNotice as any} />);
     expect(screen.getAllByText("Test Agency").length).toBeGreaterThan(0);
-    expect(screen.getByText("1000")).toBeInTheDocument();
+    expect(screen.getAllByText("1000").length).toBeGreaterThan(0);
     expect(screen.getByText("procurement_source")).toBeInTheDocument();
     // Mask description should not be shown
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();

@@ -2,6 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import ProcurementPage from "@/features/procurement/pages/ProcurementPage";
 
+// jsdom 无 IntersectionObserver：T-B9 曝光采集（useNoticeFeedback.observeCard）依赖它
+class MockIntersectionObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+
 // ── Mock API module ──
 const mockFetchUnspscIndustries = vi.fn().mockResolvedValue([
   { id: 1, code: "10000000", title: "Fuel" },
@@ -33,11 +41,17 @@ const mockUnlockNotice = vi.fn().mockResolvedValue({ ok: true });
 // 翻译默认不可用：hook 静默回退原文，与旧行为等价
 const mockFetchNoticeTranslation = vi.fn().mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
 // 行业偏好/推荐默认为空：走全量列表，与旧行为等价
+// [模块迁移] fetchIndustryPrefs/saveIndustryPrefs 已迁至 @/core/api/industry-prefs（auth/procurement 共用）
 const mockFetchIndustryPrefs = vi.fn().mockResolvedValue(null);
 const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
 const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
 const mockFetchNoticeCountries = vi.fn().mockResolvedValue([]);
 const mockSendNoticeFeedback = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/core/api/industry-prefs", () => ({
+  fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
+  saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
+}));
 
 vi.mock("@/features/procurement/api", () => ({
   fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
@@ -51,8 +65,6 @@ vi.mock("@/features/procurement/api", () => ({
   fetchNoticeDetail: (id: number, key: string) => mockFetchNoticeDetail(id, key),
   fetchUnlockedNoticeIds: (key: string) => mockFetchUnlockedNoticeIds(key),
   fetchNoticeTranslation: (id: number, lang: string) => mockFetchNoticeTranslation(id, lang),
-  fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
-  saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
   fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
   fetchNoticeCountries: () => mockFetchNoticeCountries(),
   sendNoticeFeedback: (key: string, actions: any[]) => mockSendNoticeFeedback(key, actions),
@@ -76,11 +88,17 @@ const mockAuth = {
 };
 vi.mock("@/core/auth", () => ({
   useAuth: () => mockAuth,
+  // NoticeDetail 经 useOptionalAuth 读取登录态（详情页报告引导横幅判定）
+  useOptionalAuth: () => mockAuth,
 }));
 
 // ── Mock useNavigate / useSearchParams ──
 const mockNavigate = vi.fn();
-const mockSetSearchParams = vi.fn();
+// URL 为搜索生效条件唯一事实源：setSearchParams 实现同步更新 mockSearchParams，
+// 测试侧随后 rerender 使组件读到新参数（模拟路由导航）
+const mockSetSearchParams = vi.fn((next: any) => {
+  mockSearchParams = new URLSearchParams(next);
+});
 let mockSearchParams = new URLSearchParams();
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -95,6 +113,11 @@ describe("ProcurementPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localeState.locale = "zh";
+    mockSearchParams = new URLSearchParams();
+    // clearAllMocks 会清空实现：重设 URL 同步更新逻辑（服务端搜索用例依赖）
+    mockSetSearchParams.mockImplementation((next: any) => {
+      mockSearchParams = new URLSearchParams(next);
+    });
     mockAuth.authUser = { user_key: "u1", email: "test@test.com", display_name: "Test" };
     mockAuth.isVip = false;
     // 用例 18 会把 industries 改为 rejected：此处复位，避免污染后续依赖级联数据的用例
@@ -178,19 +201,40 @@ describe("ProcurementPage", () => {
   });
 
   // ── 4. Search filter ──
-  it("filters notices by search query", async () => {
+  // [本地差异 #6] 服务端搜索：URL 为生效条件唯一事实源。
+  // 写入侧：提交表单把草稿写入 URL 参数
+  it("writes the search draft into URL params on submit", async () => {
     render(<ProcurementPage />);
-
     await waitFor(() => {
       expect(screen.getByText("Notice A")).toBeInTheDocument();
     });
 
-    // Type search query
-    const searchInput = screen.getByPlaceholderText("procurement_search");
+    const searchInput = screen.getByPlaceholderText("procurement_searchPlaceholder");
     fireEvent.change(searchInput, { target: { value: "Notice A" } });
+    fireEvent.submit(searchInput.closest("form") as HTMLFormElement);
 
-    // Only Notice A should remain visible
-    expect(screen.getByText("Notice A")).toBeInTheDocument();
+    expect(mockSetSearchParams).toHaveBeenCalledWith(expect.objectContaining({ q: "Notice A" }));
+  });
+
+  // 读取侧：带 q 的 URL 直达链接按服务端搜索结果渲染（前端不再本地过滤）
+  it("filters notices by the q URL param via server search", async () => {
+    const allItems = [
+      { id: 1, title: "Notice A", agency: "Agency A", country: "US", reference: "REF-001" },
+      { id: 2, title: "Notice B", agency: "Agency B", country: "CN", reference: "REF-002" },
+      { id: 3, title: "Notice C", agency: "Agency C", country: "DE", reference: "REF-003" },
+    ];
+    mockFetchNotices.mockImplementation((params: any) => {
+      const items = params?.q ? allItems.filter((it) => it.title.includes(params.q)) : allItems;
+      return Promise.resolve({ items, total: items.length, pageSize: 9 });
+    });
+    // 直达链接场景：URL 已带 q=Notice A
+    mockSearchParams = new URLSearchParams({ q: "Notice A" });
+    render(<ProcurementPage />);
+
+    await waitFor(() => {
+      expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ q: "Notice A" }));
+      expect(screen.getByText("Notice A")).toBeInTheDocument();
+    });
     expect(screen.queryByText("Notice B")).toBeNull();
     expect(screen.queryByText("Notice C")).toBeNull();
   });
@@ -220,16 +264,15 @@ describe("ProcurementPage", () => {
 
   // ── 8. Empty state when no match ──
   it("shows empty state when search has no results", async () => {
+    // 服务端搜索无命中：URL 带 q 直达，后端返回空 items 即展示空态
+    mockFetchNotices.mockResolvedValue({ items: [], total: 0, pageSize: 9 });
+    mockSearchParams = new URLSearchParams({ q: "nonexistent_query_xyz" });
     render(<ProcurementPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Notice A")).toBeInTheDocument();
-    });
-
-    const searchInput = screen.getByPlaceholderText("procurement_search");
-    fireEvent.change(searchInput, { target: { value: "nonexistent_query_xyz" } });
-
-    await waitFor(() => {
+      expect(mockFetchNotices).toHaveBeenCalledWith(
+        expect.objectContaining({ q: "nonexistent_query_xyz" })
+      );
       expect(screen.getByText("procurement_noMatch")).toBeInTheDocument();
     });
   });
@@ -334,13 +377,18 @@ describe("ProcurementPage", () => {
   });
 
   // ── 18. UNSPSC fetch error handling ──
-  it("shows error when UNSPSC industries fetch fails", async () => {
+  // 当前行为：一级类目加载失败静默降级（下拉为空），公告列表照常加载，不再展示错误文案
+  it("degrades silently when UNSPSC industries fetch fails", async () => {
     mockFetchUnspscIndustries.mockRejectedValue(new Error("Failed"));
     render(<ProcurementPage />);
 
+    // 公告列表不受影响
     await waitFor(() => {
-      expect(screen.getByText("Failed to load UNSPSC categories.")).toBeInTheDocument();
+      expect(screen.getByText("Notice A")).toBeInTheDocument();
     });
+    // 一级下拉仅占位项（无 Fuel/Lubricants），页面无错误文案残留
+    expect(screen.queryByRole("option", { name: "Fuel" })).toBeNull();
+    expect(screen.queryByText("Failed to load UNSPSC categories.")).toBeNull();
   });
 
   // ── 19. Empty notices state ──
@@ -453,9 +501,9 @@ describe("ProcurementPage", () => {
     // 点击 Notice A（首张卡）的"查看详情"按钮触发 openNotice
     fireEvent.click(screen.getAllByText("procurement_detail")[0]);
 
-    // 锁定面板自始至终不出现，完整数据直接呈现
+    // 锁定面板自始至终不出现，完整数据直接呈现（agency_full 在元信息格与解锁详情各出现一次）
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
-    await waitFor(() => expect(screen.getByText("UNDP Kenya")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("UNDP Kenya").length).toBeGreaterThan(0));
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
   });
 
@@ -491,9 +539,9 @@ describe("ProcurementPage", () => {
     await waitFor(() => expect(screen.getByTestId("detail-skeleton")).toBeInTheDocument());
     expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
 
-    // 详情返回后骨架屏让位于完整内容
+    // 详情返回后骨架屏让位于完整内容（agency_full 在元信息格与解锁详情各出现一次）
     resolveDetail({ id: 2, title: "Notice B", core_locked: false, agency_full: "WHO Geneva" });
-    await waitFor(() => expect(screen.getByText("WHO Geneva")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("WHO Geneva").length).toBeGreaterThan(0));
     expect(screen.queryByTestId("detail-skeleton")).toBeNull();
   });
 

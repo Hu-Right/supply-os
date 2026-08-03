@@ -9,7 +9,9 @@ vi.mock("i18next", () => ({
   getFixedT: () => (key: string) => key,
 }));
 
-import { ErrorBoundary, setErrorReporter } from "@/shared/ui";
+// 直接导入组件文件：shared/ui barrel 会连带加载 Pagination → core/i18n，
+// 触发 i18next 初始化（.use），与上方精简 mock 冲突导致套件收集失败
+import { ErrorBoundary, setErrorReporter } from "@/shared/ui/ErrorBoundary";
 
 describe("ErrorBoundary", () => {
   it("should render children when no error", () => {

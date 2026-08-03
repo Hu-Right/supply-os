@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
+import { GoogleGenAI } from "@google/genai";
 import { hashPassword } from "../../../server/services/auth";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../../server/services/notices";
 import { mapSupplierRow } from "../../../server/services/suppliers";
 import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
 import { translateViaChain, protectTerms } from "../../../server/services/translation/chain";
-import { youdaoPool } from "../../../server/services/translation/youdaoPool";
 import { runIncrementalTranslation } from "../../../server/services/autoTranslate";
 import { detectSourceLang, translateNoticeViaChain } from "../../../server/services/notice-translation";
 
@@ -16,25 +16,27 @@ vi.mock("../../../server/services/notice-translation", () => ({
   detectSourceLang: vi.fn(() => null),
 }));
 
-// ─── translateViaChain（有道→DeepSeek 双层链）────────────────────────
+// Gemini SDK 整体 mock，避免链尾兜底通道产生真实网络调用
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: vi.fn(),
+}));
+
+// ─── translateViaChain（DeepSeek→Gemini 双层链）────────────────────────
 describe("translateViaChain", () => {
-  it("throws TRANSLATION_UNAVAILABLE when both channels fail", async () => {
+  it("throws TRANSLATION_UNAVAILABLE when all channels unconfigured", async () => {
     const saved = {
-      YOUDAO_APP_KEY: process.env.YOUDAO_APP_KEY,
-      YOUDAO_APP_SECRET: process.env.YOUDAO_APP_SECRET,
       DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     };
     // 占位符值视为未配置：两通道均跳过 → 链尾抛统一错误码
-    process.env.YOUDAO_APP_KEY = "MY_YOUDAO_APP_KEY";
-    process.env.YOUDAO_APP_SECRET = "MY_YOUDAO_APP_SECRET";
     process.env.DEEPSEEK_API_KEY = "MY_DEEPSEEK_API_KEY";
+    process.env.GEMINI_API_KEY = "MY_GEMINI_API_KEY";
     try {
       await expect(translateViaChain(["hello"], "en", "zh"))
         .rejects.toThrow("TRANSLATION_UNAVAILABLE");
     } finally {
-      process.env.YOUDAO_APP_KEY = saved.YOUDAO_APP_KEY;
-      process.env.YOUDAO_APP_SECRET = saved.YOUDAO_APP_SECRET;
       process.env.DEEPSEEK_API_KEY = saved.DEEPSEEK_API_KEY;
+      process.env.GEMINI_API_KEY = saved.GEMINI_API_KEY;
     }
   });
 
@@ -43,35 +45,27 @@ describe("translateViaChain", () => {
     expect(result).toEqual({ translations: ["", "  "], provider: "none" });
   });
 
-  it("records degradation trail when youdao fails and deepseek succeeds", async () => {
+  it("records degradation trail when deepseek fails and gemini succeeds", async () => {
     const saved = {
-      YOUDAO_APP_KEY: process.env.YOUDAO_APP_KEY,
-      YOUDAO_APP_SECRET: process.env.YOUDAO_APP_SECRET,
       DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     };
-    // 重置池懒加载状态，确保读到下面新设的 env
-    youdaoPool.resetForTest();
-    process.env.YOUDAO_APP_KEY = "test-app-key";
-    process.env.YOUDAO_APP_SECRET = "test-app-secret";
     process.env.DEEPSEEK_API_KEY = "test-deepseek-key";
-    // 有道 HTTP 500 → 降级 DeepSeek 成功 → degradedFrom 记录被跳过通道及原因
-    vi.stubGlobal("fetch", vi.fn()
-      .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: JSON.stringify(["你好"]) } }] }),
-      } as any));
+    process.env.GEMINI_API_KEY = "test-gemini-key";
+    // DeepSeek HTTP 500 → 降级 Gemini 成功 → degradedFrom 记录失败通道及原因
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response));
+    vi.mocked(GoogleGenAI).mockImplementation(function () {
+      return { models: { generateContent: vi.fn().mockResolvedValue({ text: '["你好"]' }) } };
+    } as any);
     try {
       const result = await translateViaChain(["hello"], "en", "zh");
-      expect(result.provider).toBe("deepseek-v4-flash");
+      expect(result.provider).toBe("gemini-3.5-flash");
       expect(result.translations).toEqual(["你好"]);
       expect(result.degradedFrom).toHaveLength(1);
-      expect(result.degradedFrom?.[0]).toContain("youdao-llm");
+      expect(result.degradedFrom?.[0]).toContain("deepseek-v4-flash");
     } finally {
-      process.env.YOUDAO_APP_KEY = saved.YOUDAO_APP_KEY;
-      process.env.YOUDAO_APP_SECRET = saved.YOUDAO_APP_SECRET;
       process.env.DEEPSEEK_API_KEY = saved.DEEPSEEK_API_KEY;
-      youdaoPool.resetForTest(); // 恢复池状态，避免污染后续测试
+      process.env.GEMINI_API_KEY = saved.GEMINI_API_KEY;
       vi.unstubAllGlobals();
     }
   });
@@ -314,31 +308,48 @@ describe("findQualifiedOpportunityForNotice", () => {
     expect(dbPool.query).toHaveBeenCalledTimes(2);
   });
 
-  it("falls back to reference search", async () => {
-    const opp = { id: 12, title: "By Reference" };
+  it("falls back to reference search when title is similar", async () => {
+    const opp = { id: 12, title: "Water Pump Procurement Project" };
     const dbPool = {
       query: vi.fn().mockResolvedValueOnce([[opp]]), // reference hit
     };
     // converted_opp_id=0 skips first check, notice_id=null skips second, only reference queried
-    const notice = { converted_opp_id: 0, notice_id: null, reference: "REF-XYZ" };
+    // [撞号防御 2026-07-31] reference 分支需标题相似度 >= 0.3 才命中
+    const notice = { converted_opp_id: 0, notice_id: null, reference: "REF-XYZ", title: "Water Pump Procurement Project" };
     const result = await findQualifiedOpportunityForNotice(dbPool, notice);
     expect(result).toEqual(opp);
     expect(dbPool.query).toHaveBeenCalledTimes(1);
     expect(dbPool.query.mock.calls[0][0]).toContain("WHERE reference = ?");
   });
+
+  it("skips reference candidate when title similarity too low", async () => {
+    const opp = { id: 13, title: "Solar Panel Installation Tender" };
+    const dbPool = {
+      query: vi.fn().mockResolvedValueOnce([[opp]]),
+    };
+    // 同 reference 但标题完全不相似 → 撞号防御过滤，返回 null
+    const notice = { converted_opp_id: 0, notice_id: null, reference: "REF-XYZ", title: "Water Pump Procurement Project" };
+    const result = await findQualifiedOpportunityForNotice(dbPool, notice);
+    expect(result).toBeNull();
+  });
 });
 
 // ─── mapSupplierRow ─────────────────────────────────────────────────────────
 describe("mapSupplierRow", () => {
+  // supplier 表行形状（字段与 crm 旧表不同：company/products/contact/phone/...）
   const baseRow = {
     id: 1,
-    company_name: "测试公司",
-    industry: "制造业",
-    main_product: "产品A,产品B",
-    certification: "ISO9001,ISO14001",
-    contact_name: "张三",
+    company: "测试公司",
+    country: "中国",
+    country_code: "CN",
+    province: "江苏",
+    city: "苏州",
+    contact: "张三",
+    phone: "13812345678",
     email: "zhangsan@test.com",
-    telephone: "13812345678",
+    products: "产品A,产品B",
+    industry: "制造业",
+    type: "domestic",
   };
 
   it("maps DB row to Supplier DTO", () => {
@@ -347,8 +358,11 @@ describe("mapSupplierRow", () => {
     expect(result.nameZh).toBe("测试公司");
     expect(result.industryZh).toBe("制造业");
     expect(result.mainProductsZh).toEqual(["产品A", "产品B"]);
-    expect(result.complianceLabelsZh).toEqual(["ISO9001", "ISO14001"]);
+    // 源码不再映射 certification 字段，合规标签恒为空数组
+    expect(result.complianceLabelsZh).toEqual([]);
     expect(result.contactPerson).toBe("张三");
+    expect(result.cityZh).toBe("苏州");
+    expect(result.countryEn).toBe("China");
   });
 
   it("masks email and phone", () => {
@@ -362,22 +376,21 @@ describe("mapSupplierRow", () => {
     const tr = {
       industry_tr: "Manufacturing",
       main_products_tr: "Product A,Product B",
-      certification_tr: "ISO9001",
     };
     const result = mapSupplierRow(baseRow, tr);
     expect(result.industryEn).toBe("Manufacturing");
     expect(result.mainProductsEn).toEqual(["Product A", "Product B"]);
-    expect(result.complianceLabelsEn).toEqual(["ISO9001"]);
+    expect(result.complianceLabelsEn).toEqual([]);
   });
 
   it("falls back to zh values when translation empty", () => {
-    const tr = { industry_tr: "", main_products_tr: "", certification_tr: "" };
+    const tr = { industry_tr: "", main_products_tr: "" };
     const result = mapSupplierRow(baseRow, tr);
     expect(result.industryEn).toBe("制造业");
     expect(result.mainProductsEn).toEqual(["产品A", "产品B"]);
   });
 
-  it("uses main_product first item as industry fallback", () => {
+  it("uses products first item as industry fallback", () => {
     const row = { ...baseRow, industry: "" };
     const result = mapSupplierRow(row, null);
     expect(result.industryZh).toBe("产品A");

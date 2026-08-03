@@ -131,6 +131,8 @@ describe("NoticeUnlockedDetails", () => {
     const notice = {
       id: 1,
       title: "t",
+      // hasContent 门控：无任何机构/文件/联系人/链接内容时组件整体返回 null
+      url: "https://example.com/notice",
       difficulty: "High",
       registration_level: "Level 3",
       estimated_value: "$1M",

@@ -130,7 +130,8 @@ describe("GET /api/notices", () => {
     const ctx = createMockCtx();
     ctx.dbPool.query.mockRejectedValue(new Error("DB connection lost"));
     const app = buildApp(ctx);
-    const res = await request(app).get("/api/notices");
+    // 带唯一 q 参数避开 searchNotices 60s TTL 缓存（与前面用例默认参数同键会命中缓存）
+    const res = await request(app).get("/api/notices?q=DB_ERROR_PROBE");
     expect(res.status).toBe(500);
     expect(res.body.error).toBe("DB connection lost");
   });
@@ -329,7 +330,9 @@ describe("GET /api/notices/:id/translation", () => {
     const ctx = createMockCtx();
     ctx.dbPool.query
       .mockResolvedValueOnce([[{ title_tr: "已有标题", description_tr: null }]]) // 缓存行缺 desc
-      .mockResolvedValueOnce([[{ description: "原文描述" }]]); // notice desc
+      // 源码 SQL 用 `SELECT n.description AS notice_desc`，mock 须返回别名形状；
+      // converted_opp_id/notice_id/reference 置空使 findQualifiedOpportunityForNotice 不发起查询
+      .mockResolvedValueOnce([[{ notice_desc: "原文描述", converted_opp_id: null, notice_id: null, reference: null }]]);
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
       translations: ["", "原文描述"], provider: "same-lang-passthrough",
     });
