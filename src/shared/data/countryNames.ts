@@ -325,6 +325,58 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   // ── 大小写变体 ──
   "america": "美国",
   "America": "美国",
+  // ── 英文变体 / 拼写错误 / HTML 实体 ──
+  "Turkiye": "土耳其",
+  "T&#252;rkiye": "土耳其",
+  "Cote d'Ivoire": "科特迪瓦",
+  "Cote d’Ivoire": "科特迪瓦",
+  "C&#244;te d'Ivoire": "科特迪瓦",
+  "Côte d’Ivoire": "科特迪瓦",
+  "Kyrgyz Republic": "吉尔吉斯斯坦",
+  "Kosovo": "科索沃",
+  "Dem. Rep. Congo": "刚果（金）",
+  "RDC": "刚果（金）",
+  "DRC - Angola": "刚果（金）-安哥拉",
+  "Cape Verde": "佛得角",
+  "The Gambia": "冈比亚",
+  "Lybia": "利比亚",
+  "Bolivia (Plurinational State of)": "玻利维亚",
+  "St. Lucia": "圣卢西亚",
+  "St Maarten": "圣马丁",
+  "Sint Maarten": "圣马丁",
+  "Palestine / West Bank & Gaza": "巴勒斯坦",
+  "Greenland": "格陵兰",
+  "Jersey": "泽西岛",
+  "Niue": "纽埃",
+  "Bermuda": "百慕大",
+  "Cook Islands": "库克群岛",
+  "Saint Pierre and Miquelon": "圣皮埃尔和密克隆",
+  "Netherlands Antilles": "荷属安的列斯",
+  "RCA": "中非共和国",
+  "Sultanate": "阿曼",
+  // ── 法语名（联合国数据源常见） ──
+  "Mauritanie": "毛里塔尼亚",
+  "Tchad": "乍得",
+  "Cameroun": "喀麦隆",
+  "Comores": "科摩罗",
+  "Guinée": "几内亚",
+  "Guinée Equatoriale": "赤道几内亚",
+  // ── 区域分组 / 特殊标记（补充） ──
+  "Multiple destinations": "多个目的地",
+  "Central Asia": "中亚",
+  "Central Africa": "中部非洲",
+  "Southern Africa": "南部非洲",
+  "Horn of Africa": "非洲之角",
+  "Africa": "非洲",
+  "Asia": "亚洲",
+  "Caribbean": "加勒比地区",
+  "East Asia and Pacific": "东亚和太平洋",
+  "Pacific 1": "太平洋地区",
+  "Western Balkans": "西巴尔干",
+  "OECS Countries": "东加勒比国家组织",
+  "Global": "全球",
+  "Multinational": "多国",
+  "International": "国际",
   // ── 数据库已有中文名（反向映射）──
   "英国": "英国",
   "美国": "美国",
@@ -439,6 +491,44 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "中国香港": "中国香港",
   "中国澳门": "中国澳门",
   "中国台湾": "中国台湾",
+};
+
+/**
+ * 常见国家次级区域中文名映射表
+ * Chinese Name Mapping for Common Sub-national Regions
+ *
+ * @description 数据库 country 字段存在 "Canada, British Columbia" 这类"国家, 区域"值，
+ *              此表覆盖高频区域；未收录的区域在显示时保留英文并置于括号内。
+ */
+export const REGION_NAME_ZH: Record<string, string> = {
+  // ── 加拿大省份/地区 ──
+  "British Columbia": "不列颠哥伦比亚",
+  "Alberta": "艾伯塔",
+  "Ontario": "安大略",
+  "Quebec": "魁北克",
+  "Québec": "魁北克",
+  "Manitoba": "曼尼托巴",
+  "Saskatchewan": "萨斯喀彻温",
+  "Nova Scotia": "新斯科舍",
+  "New Brunswick": "新不伦瑞克",
+  "Newfoundland and Labrador": "纽芬兰与拉布拉多",
+  "Prince Edward Island": "爱德华王子岛",
+  "Northwest Territories": "西北地区",
+  "Yukon": "育空",
+  "Nunavut": "努纳武特",
+  // ── 澳大利亚州/领地 ──
+  "New South Wales": "新南威尔士",
+  "Victoria": "维多利亚",
+  "Queensland": "昆士兰",
+  "South Australia": "南澳大利亚",
+  "Western Australia": "西澳大利亚",
+  "Tasmania": "塔斯马尼亚",
+  "Australian Capital Territory": "首都领地",
+  "Northern Territory": "北领地",
+  // ── 英国构成国/地区 ──
+  "Scotland": "苏格兰",
+  "Wales": "威尔士",
+  "Northern Ireland": "北爱尔兰",
 };
 
 /**
@@ -565,24 +655,65 @@ const ZH_TO_EN: Record<string, string> = {
   "区域": "Regional",
 };
 
+/** 按国家名查中文（先精确、后大小写不敏感），未命中返回 null */
+function matchCountryZh(name: string): string | null {
+  if (COUNTRY_NAME_ZH[name]) return COUNTRY_NAME_ZH[name];
+  const lower = name.toLowerCase();
+  for (const [key, val] of Object.entries(COUNTRY_NAME_ZH)) {
+    if (key.toLowerCase() === lower) return val;
+  }
+  return null;
+}
+
+/** 按区域名查中文（大小写不敏感），未命中返回 null */
+function matchRegionZh(region: string): string | null {
+  if (REGION_NAME_ZH[region]) return REGION_NAME_ZH[region];
+  const lower = region.toLowerCase();
+  for (const [key, val] of Object.entries(REGION_NAME_ZH)) {
+    if (key.toLowerCase() === lower) return val;
+  }
+  return null;
+}
+
+/**
+ * 解析 "国家, 区域" 形式的区域值（如 "Canada, British Columbia"）。
+ * 兼容国家在前与区域在前后两种顺序；国家部分必须可译，否则返回 null 回退原文。
+ * 区域未收录时保留英文置于括号内，保证不再整条纯英文展示。
+ */
+function resolveRegionDisplayName(value: string): string | null {
+  const parts = value.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  // 国家在前："Canada, British Columbia"
+  const countryFirst = matchCountryZh(parts[0]);
+  if (countryFirst) {
+    const region = parts.slice(1).join(", ");
+    return `${countryFirst}（${matchRegionZh(region) ?? region}）`;
+  }
+  // 区域在前："British Columbia, Canada"
+  const last = parts[parts.length - 1];
+  const countryLast = matchCountryZh(last);
+  if (countryLast) {
+    const region = parts.slice(0, -1).join(", ");
+    return `${countryLast}（${matchRegionZh(region) ?? region}）`;
+  }
+  return null;
+}
+
 /**
  * 获取国家的显示名
  * @param englishName 英文国家名（数据库原始值）
  * @param locale 当前语言环境
- * @returns 中文环境下返回中文名，其他语言回退英文原名
+ * @returns 中文环境下返回中文名（含区域值解析），其他语言回退英文原名
  */
 export function getCountryDisplayName(englishName: string, locale: string): string {
-  if (locale === "zh") {
-    // 先精确匹配
-    if (COUNTRY_NAME_ZH[englishName]) return COUNTRY_NAME_ZH[englishName];
-    // 大小写不敏感匹配（处理 "america" → "美国" 等）
-    const lower = englishName.toLowerCase();
-    for (const [key, val] of Object.entries(COUNTRY_NAME_ZH)) {
-      if (key.toLowerCase() === lower) return val;
-    }
-    return englishName;
-  }
-  return englishName;
+  if (locale !== "zh") return englishName;
+  // 先精确匹配
+  if (COUNTRY_NAME_ZH[englishName]) return COUNTRY_NAME_ZH[englishName];
+  // 大小写不敏感匹配（处理 "america" → "美国" 等）
+  const matched = matchCountryZh(englishName);
+  if (matched) return matched;
+  // "国家, 区域" 值拆分解析（如 "Canada, British Columbia" → "加拿大（不列颠哥伦比亚）"）
+  return resolveRegionDisplayName(englishName) ?? englishName;
 }
 
 /**

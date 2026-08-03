@@ -58,6 +58,14 @@ export function CountryFilter({
   const [hasSelected, setHasSelected] = useState(false); // 用户是否主动选中过（区分 URL 初始值 vs 用户选择）
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // onBlur 延迟关闭的定时器；清除时须先行取消，避免其延迟回调在清除后再次重置状态造成显示闪烁
+  const blurTimerRef = useRef<number | null>(null);
+  // hasSelected/value 的最新快照：onFocus 读此 ref 而非闭包，
+  // 避免 handleClear 中 focus() 触发 onFocus 时读到清除前的旧状态、把国家名重新填回输入框
+  const selectedStateRef = useRef({ hasSelected: false, value: "" });
+  useEffect(() => {
+    selectedStateRef.current = { hasSelected, value };
+  });
 
   // 下拉是否可见：聚焦时显示
   const showDropdown = focused;
@@ -121,6 +129,13 @@ export function CountryFilter({
   };
 
   const handleClear = () => {
+    // 取消 onBlur 遗留的延迟关闭定时器，防止清除后下拉被意外收起、query 被二次重置
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+    // 同步刷新状态快照：下方 focus() 触发的 onFocus 将读到"已清除"，不会回填国家名
+    selectedStateRef.current = { hasSelected: false, value: "" };
     onChange("");
     setQuery("");
     setHasSelected(false); // 清除选中，回到初始态
@@ -142,14 +157,16 @@ export function CountryFilter({
           }}
           onFocus={() => {
             setFocused(true);
-            // 聚焦时若已选中，将选中值填入 query 供编辑
-            if (hasSelected && value && !query) {
+            // 聚焦时若已选中，将选中值填入 query 供编辑（读 ref 避免清除后立即聚焦时回填旧值）
+            const latest = selectedStateRef.current;
+            if (latest.hasSelected && latest.value && !query) {
               setQuery(displayCountryName);
             }
           }}
           onBlur={() => {
             // 延迟关闭，让 click 事件先触发
-            setTimeout(() => {
+            blurTimerRef.current = window.setTimeout(() => {
+              blurTimerRef.current = null;
               setFocused(false);
               setQuery(""); // 失焦清空，下次聚焦重新填入
             }, 150);
@@ -164,6 +181,9 @@ export function CountryFilter({
         {(value || query) && (
           <button
             type="button"
+            // 阻止 mousedown 默认行为：点击清除按钮不触发输入框失焦，
+            // 清除得以立即生效（否则会走 onBlur 的 150ms 延迟，表现为"失焦后才清空"）
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
             className="absolute end-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
             aria-label="Clear country filter"
