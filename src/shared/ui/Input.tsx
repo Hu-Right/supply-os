@@ -8,6 +8,7 @@
  */
 
 import { type InputHTMLAttributes, type ReactNode, forwardRef } from "react";
+import { twMerge } from "tailwind-merge";
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   /** 是否错误状态 */
@@ -41,7 +42,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {suffix && <div className="absolute inset-y-0 end-0 flex items-center pe-3">{suffix}</div>}
           <input
             ref={ref}
-            className={`${baseClasses} ${errorClasses} ${effectivePrefix ? "ps-9" : ""} ${suffix ? "pe-9" : ""} ${className}`}
+            className={twMerge(baseClasses, errorClasses, effectivePrefix ? "ps-9" : "", suffix ? "pe-9" : "", className)}
             {...props}
           />
         </div>
@@ -51,7 +52,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <input
         ref={ref}
-        className={`${baseClasses} ${errorClasses} ${className}`}
+        className={twMerge(baseClasses, errorClasses, className)}
         {...props}
       />
     );

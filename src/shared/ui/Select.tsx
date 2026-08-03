@@ -8,6 +8,7 @@
  */
 
 import { type SelectHTMLAttributes, forwardRef } from "react";
+import { twMerge } from "tailwind-merge";
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   /** 是否错误状态 */
@@ -25,7 +26,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <select
         ref={ref}
-        className={`${baseClasses} ${errorClasses} ${className}`}
+        className={twMerge(baseClasses, errorClasses, className)}
         {...props}
       >
         {children}

@@ -8,6 +8,7 @@
  */
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
+import { twMerge } from "tailwind-merge";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** 按钮变体 */
@@ -49,7 +50,7 @@ export function Button({
 
   return (
     <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      className={twMerge(baseClasses, variantClasses[variant], sizeClasses[size], className)}
       disabled={disabled || loading}
       {...props}
     >
