@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Crown, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
-import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
+import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
 import { NoticeCard } from "../components/NoticeCard";
 import { NoticeDetail } from "../components/NoticeDetail";

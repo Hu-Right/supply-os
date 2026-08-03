@@ -36,6 +36,18 @@ export class MembershipRepo {
     return (rows as MembershipPlanRow[])[0] ?? null;
   }
 
+  /** 履约时查套餐（含已下架），与真实支付回调 activatePaidOrder 及历史 mock-paid 口径一致 */
+  async findPlanByCodeForFulfillment(planCode: string): Promise<MembershipPlanRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT plan_code, name, price, currency, unlock_quota, duration_days, plan_type
+       FROM crm_membership_plans
+       WHERE plan_code = ?
+       LIMIT 1`,
+      [planCode],
+    );
+    return (rows as MembershipPlanRow[])[0] ?? null;
+  }
+
   /** 获取免费套餐的 free_quota */
   async getFreeQuota(): Promise<number> {
     const [rows] = await this.pool.query(
