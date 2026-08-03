@@ -121,6 +121,19 @@ export const fetchNoticeDetail = (noticeId: number, userKey: string): Promise<No
 };
 
 /**
+ * 获取锁定态公告的有限预览（渐进式信息展示）
+ * Fetch the limited preview of a locked notice (progressive disclosure)
+ *
+ * @remarks 列表/推荐载荷出于商业保护将机构与分类置空；本端点为详情页锁定态
+ *          补充机构名与前 4 个 UNSPSC 分类（VIP 额外获得机构全称与发布日期）。
+ *          不含联系人/文件/报告等敏感字段；成功结果按 URL 缓存，失败不缓存。
+ */
+export const fetchNoticePreview = (noticeId: number, userKey: string): Promise<Partial<NoticeItem>> => {
+  const url = `/api/notices/${noticeId}/preview?user_key=${encodeURIComponent(userKey)}`;
+  return apiCached<Partial<NoticeItem>>(url, 10 * 60 * 1000); // 10 min TTL
+};
+
+/**
  * 拉取当前用户已解锁的公告 id 集合（详情首帧免闪烁判定用）
  * Fetch ids of notices already unlocked by the user (first-frame gating)
  *

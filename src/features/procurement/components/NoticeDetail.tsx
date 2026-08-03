@@ -83,7 +83,8 @@ export function NoticeDetail({
     ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
     : showSkeleton
       ? t("procurement_loading")
-      : t("procurement_lockedCoreTitle");
+      // 锁定态渐进式预览：展示预览端点下发的机构名（返回前回退"未知机构"）
+      : notice.agency || notice.organization || t("procurement_unknownAgency");
 
   return (
     <div className="space-y-5">
@@ -161,7 +162,13 @@ export function NoticeDetail({
               displayDescription={displayDescription}
             />
 
-            <NoticeCoreContent notice={notice} coreUnlocked={coreUnlocked} showSkeleton={showSkeleton} />
+            <NoticeCoreContent
+              notice={notice}
+              coreUnlocked={coreUnlocked}
+              showSkeleton={showSkeleton}
+              isVip={isVip}
+              breakdownFileCount={breakdownFileCount}
+            />
           </main>
 
           <NoticeDetailSidebar

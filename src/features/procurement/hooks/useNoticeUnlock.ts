@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { NoticeItem } from "../types";
-import { fetchNoticeDetail, fetchUnlockedNoticeIds } from "../api";
+import { fetchNoticeDetail, fetchNoticePreview, fetchUnlockedNoticeIds } from "../api";
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
@@ -30,6 +30,8 @@ export interface UseNoticeUnlockReturn {
   markUnlocked: (id: number) => void;
   /** 拉取已解锁公告的拓展详情并合并进当前选中项 */
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
+  /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
+  loadNoticePreview: (notice: NoticeItem) => Promise<void>;
   /** 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情） */
   openNoticeById: (id: number) => Promise<void>;
 }
@@ -81,12 +83,25 @@ export function useNoticeUnlock({
     }
   };
 
+  // 锁定态有限预览：机构名/分类标签（VIP 另含机构全称与发布日期），
+  // 仅增强展示不含敏感字段，失败静默不阻断详情页
+  const loadNoticePreview = async (notice: NoticeItem) => {
+    if (!userKey) return;
+    try {
+      const preview = await fetchNoticePreview(notice.id, userKey);
+      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...preview } : prev));
+    } catch {
+      // 预览为增强项：失败保留列表数据
+    }
+  };
+
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = async (id: number) => {
     const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
     setDetailLoadingId(id);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!unlockedIds.has(id)) void loadNoticePreview(base);
     await loadNoticeDetail(base);
   };
 
@@ -96,6 +111,7 @@ export function useNoticeUnlock({
     isUnlocked: (id: number) => unlockedIds.has(id),
     markUnlocked,
     loadNoticeDetail,
+    loadNoticePreview,
     openNoticeById,
   };
 }

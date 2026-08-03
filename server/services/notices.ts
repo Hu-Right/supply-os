@@ -131,7 +131,47 @@ function titleSimilarity(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union;
 }
 
+// ── 合格机会查询进程内缓存 ──
+// 详情端点与翻译端点对同一公告反复调用 findQualifiedOpportunityForNotice（每次 1-3 次顺序 DB
+// 查询）。合格机会结果短期内不变，10 分钟 TTL 缓存消除重复查询；未命中（null）同样缓存，
+// 避免无合格机会的公告反复走三路回退查询。
+const OPP_CACHE_TTL = 10 * 60 * 1000;
+const OPP_CACHE_MAX = 500;
+const oppCache = new Map<string, { data: any; expires: number }>();
+
+function setOppCache(key: string, data: any) {
+  if (oppCache.size >= OPP_CACHE_MAX) {
+    let oldestKey = "";
+    let oldestExpires = Infinity;
+    for (const [k, entry] of oppCache) {
+      if (entry.expires < oldestExpires) {
+        oldestExpires = entry.expires;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) oppCache.delete(oldestKey);
+  }
+  oppCache.set(key, { data, expires: Date.now() + OPP_CACHE_TTL });
+}
+
 export async function findQualifiedOpportunityForNotice(dbPool: any, notice: any) {
+  // 无 id 的载荷（如测试夹具/最小占位对象）无法稳定标识公告：跳过缓存直查
+  const cacheKey = notice?.id != null
+    ? `${notice.id}:${notice.converted_opp_id || 0}:${notice.notice_id || ""}`
+    : "";
+  if (cacheKey) {
+    const cached = oppCache.get(cacheKey);
+    if (cached) {
+      if (cached.expires > Date.now()) return cached.data;
+      oppCache.delete(cacheKey);
+    }
+  }
+  const result = await queryQualifiedOpportunity(dbPool, notice);
+  if (cacheKey) setOppCache(cacheKey, result);
+  return result;
+}
+
+async function queryQualifiedOpportunity(dbPool: any, notice: any) {
   const fields = `
     id, source_notice_id, source_url, title, reference, notice_type, registration_level,
     agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,

@@ -95,6 +95,8 @@ export function useNoticeHandlers({
     window.scrollTo({ top: 0, behavior: "smooth" });
     void refreshMembership();
     void loadNoticeDetail(notice);
+    // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
+    if (!alreadyUnlocked) void unlock.loadNoticePreview(notice);
   };
 
   // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
