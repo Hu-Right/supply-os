@@ -8,6 +8,7 @@
  */
 
 import type { ServiceItem } from "../types";
+import { Button } from "@/shared/ui";
 
 export interface ServiceCardProps {
   service: ServiceItem;
@@ -48,12 +49,13 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
         </div>
       </div>
 
-      <button
+      <Button
+        variant="primary"
         onClick={onBook}
-        className="mt-5 w-full cursor-pointer rounded-lg bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-850"
+        className="mt-5 w-full bg-slate-900 hover:bg-slate-850 py-2 text-xs font-semibold"
       >
         {bookLabel}
-      </button>
+      </Button>
     </div>
   );
 }

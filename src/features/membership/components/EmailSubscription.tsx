@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { Input } from "@/shared/ui";
+import { Input, Button } from "@/shared/ui";
 
 export interface EmailSubscriptionProps {
   initialEmail: string;
@@ -35,12 +35,13 @@ export function EmailSubscription({ initialEmail, onSend }: EmailSubscriptionPro
           placeholder="name@company.com"
           className="flex-1 py-2 text-xs"
         />
-        <button
+        <Button
+          variant="primary"
           onClick={() => onSend(email)}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="bg-slate-900 hover:bg-slate-800 px-4 py-2 text-xs font-semibold"
         >
           {t("membershipSendFree")}
-        </button>
+        </Button>
       </div>
     </div>
   );
