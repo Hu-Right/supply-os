@@ -9,6 +9,7 @@ import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { OPPORTUNITIES } from "@/data";
 import type { Supplier, Opportunity } from "@/types";
+import { Select } from "@/shared/ui";
 
 type AiMatchmakerProps = {
   suppliers: Supplier[];
@@ -61,38 +62,38 @@ export function AiMatchmaker({
       <div className="space-y-3 bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 text-xs">
         <div className="flex justify-between items-center">
           <span className="text-slate-400">1. {labels.selectSupplier}</span>
-          <select
+          <Select
             value={selectedSupplier ? selectedSupplier.id : ""}
             onChange={(e) => {
               const found = suppliers.find((x) => x.id === e.target.value);
               if (found) onSelectSupplier(found);
             }}
-            className="bg-slate-700 text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="bg-slate-700 text-white rounded px-2 py-1"
           >
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
                 {pickLocale(locale, s.nameZh, s.nameEn)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div className="flex justify-between items-center">
           <span className="text-slate-400">2. {labels.selectOpportunity}</span>
-          <select
+          <Select
             value={selectedOpportunity ? selectedOpportunity.id : ""}
             onChange={(e) => {
               const found = OPPORTUNITIES.find((x) => x.id === e.target.value);
               if (found) onSelectOpportunity(found);
             }}
-            className="bg-slate-700 text-white rounded px-2 py-1 max-w-[200px] truncate focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="bg-slate-700 text-white rounded px-2 py-1"
           >
             {OPPORTUNITIES.map((o) => (
               <option key={o.id} value={o.id}>
                 {pickLocale(locale, o.titleZh, o.titleEn)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <button

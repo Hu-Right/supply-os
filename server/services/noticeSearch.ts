@@ -14,8 +14,9 @@ import { buildNoticeUnspscFilter } from "./unspsc";
 import { FEATURED_NOTICE_EXISTS } from "./notices";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DEADLINE_SEC_EXPR = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
-const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(NOW()))`;
+// 性能优化：使用生成列 deadline_sec 替代表达式（阶段 3）
+const DEADLINE_SEC_EXPR = "n.deadline_sec";
+const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 
 export interface NoticeSearchParams {
   page: number;
@@ -142,44 +143,57 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
 
-  const [countRows] = await pool.query(
-    `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}`,
-    [...idFilterParams, ...params]
-  );
+  // 性能优化：并行执行 COUNT 和 SELECT 查询（阶段 1）
+  const [countResult, rowsResult] = await Promise.all([
+    pool.query(
+      `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}`,
+      [...idFilterParams, ...params]
+    ),
+    pool.query(
+      `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description
+       FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}
+       ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+      [...idFilterParams, ...params, ...orderParams, pageSize, offset]
+    ),
+  ]);
+  
+  const [countRows] = countResult;
+  const [rows] = rowsResult;
   const total = Number((countRows as any[])[0]?.total || 0);
-  const [rows] = await pool.query(
-    `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-       n.deadline, n.deadline_ts, n.estimated_value, n.description
-     FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}
-     ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-    [...idFilterParams, ...params, ...orderParams, pageSize, offset]
-  );
 
   const pageIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
   const breakdownCounts = new Map<number, number>();
   // 页级 is_featured 标注：featuredOnly 时全部命中，否则仅对当页 ≤30 条回查三路判定
   const featuredIds = new Set<number>();
-  if (pageIds.length > 0 && featuredOnly) {
-    for (const id of pageIds) featuredIds.add(id);
-  } else if (pageIds.length > 0) {
-    try {
-      const [featRows] = await pool.query(
-        `SELECT n.id FROM crm_bid_notices n WHERE n.id IN (${pageIds.map(() => "?").join(",")}) AND ${FEATURED_NOTICE_EXISTS}`,
-        pageIds
-      );
-      for (const featRow of featRows as any[]) featuredIds.add(Number(featRow.id));
-    } catch { /* 标注查询失败：静默降级，不影响列表主体 */ }
-  }
+  
   if (pageIds.length > 0) {
-    try {
-      const [docRows] = await pool.query(
-        `SELECT id, documents, procurement_files FROM crm_bid_notices WHERE id IN (${pageIds.map(() => "?").join(",")})`,
-        pageIds
-      );
-      for (const docRow of docRows as any[]) {
-        breakdownCounts.set(Number(docRow.id), normalizeDocumentRows(docRow.documents, docRow.procurement_files).length);
-      }
-    } catch { /* 计数查询失败：静默降级 */ }
+    if (featuredOnly) {
+      for (const id of pageIds) featuredIds.add(id);
+    } else {
+      // 性能优化：并行执行精选标注和文件计数查询（阶段 1）
+      try {
+        const [featResult, docResult] = await Promise.all([
+          pool.query(
+            `SELECT n.id FROM crm_bid_notices n WHERE n.id IN (${pageIds.map(() => "?").join(",")}) AND ${FEATURED_NOTICE_EXISTS}`,
+            pageIds
+          ),
+          pool.query(
+            `SELECT id, documents, procurement_files FROM crm_bid_notices WHERE id IN (${pageIds.map(() => "?").join(",")})`,
+            pageIds
+          ),
+        ]);
+        
+        const [featRows] = featResult;
+        const [docRows] = docResult;
+        
+        for (const featRow of featRows as any[]) featuredIds.add(Number(featRow.id));
+        
+        for (const docRow of docRows as any[]) {
+          breakdownCounts.set(Number(docRow.id), normalizeDocumentRows(docRow.documents, docRow.procurement_files).length);
+        }
+      } catch { /* 丰富查询失败：静默降级，不影响列表主体 */ }
+    }
   }
 
   const payload: NoticeSearchResult = {

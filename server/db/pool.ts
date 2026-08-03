@@ -14,6 +14,7 @@ export function createDbPool(): Pool {
     password: process.env.DB_PASSWORD || "",
     database: process.env.DB_NAME || "crm",
     waitForConnections: true,
-    connectionLimit: Number(process.env.DB_POOL_LIMIT || 10),
+    // 性能优化：连接池从 10 扩大到 20（阶段 1）
+    connectionLimit: Number(process.env.DB_POOL_LIMIT || 20),
   });
 }
