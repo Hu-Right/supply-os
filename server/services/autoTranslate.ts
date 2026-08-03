@@ -39,8 +39,8 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 2; // 2 worker × 4 req/s = 8 QPS < 有道 10，为前台按需翻译留余量
-const DELAY_MS = 250;
+const CONCURRENCY = 20; // 20 并发 worker，加速批量翻译
+const DELAY_MS = 100;  // 每条间隔 100ms
 
 // 扫描目标白名单：公告表 + 精选数据表（两表 is_expired/deadline_ts 列名一致）；
 // 表名/列名均来自常量，无注入面
@@ -57,6 +57,7 @@ export async function runIncrementalTranslation(
   let ok = 0;
   let failed = 0;
   let charsUsed = 0;
+  console.log(`[auto-translate] ── 开始扫描 ──`);
 
   // same-lang 标记行：title_tr/description_tr 均 NULL，仅阻断定时扫描重复命中
   async function writeSkipMarker(target: (typeof SCAN_TARGETS)[number], rowId: number, lang: string) {
@@ -92,6 +93,9 @@ export async function runIncrementalTranslation(
     const cutoffId = Number(stateMap.get(target.cutoffKey) || "0");
     for (const targetLang of ["zh", "en"] as const) {
       if (charsUsed >= cfg.dailyCharBudget) break;
+      // en 扫描时多取：英文原文会被预过滤（写 skip 标记），需要更大的采样
+      // 才能找到足够多的小语种记录来翻译
+      const sqlLimit = targetLang === "en" ? cfg.maxPerRun * 5 : cfg.maxPerRun;
       const [rows] = await dbPool.query(
         `SELECT n.id, n.title, n.description, n.reference,
                 t.title_tr AS cached_title_tr,
@@ -112,12 +116,40 @@ export async function runIncrementalTranslation(
           AND n.title IS NOT NULL AND TRIM(n.title) <> ''
         ORDER BY n.id DESC
         LIMIT ?`,
-        [targetLang, cutoffId, cfg.maxPerRun]
+        [targetLang, cutoffId, sqlLimit]
       );
-      const queue = (rows as any[]).filter(
+      let queue = (rows as any[]).filter(
         (row) => !pendingNoticeTranslations.has(`${target.idCol}:${row.id}:${targetLang}`)
       );
+
+      // ── 同语言预过滤（仅 en 扫描生效）──
+      // 英文原文记录不需要翻译为英文，立即写 skip-same-lang 标记，
+      // 避免它们反复占据 LIMIT 配额、挤掉真正需要翻译的小语种记录。
+      if (targetLang === "en" && queue.length > 0) {
+        const needTranslate: any[] = [];
+        let skipCount = 0;
+        for (const row of queue) {
+          const title = String(row.title || "").trim();
+          const description = String(row.description || "").trim();
+          const hasCache = !!String(row.cached_title_tr || "").trim() || !!String(row.cached_desc_tr || "").trim();
+          const srcLang = detectSourceLang(title, description);
+          if (srcLang === "en") {
+            if (!hasCache) await writeSkipMarker(target, row.id, targetLang);
+            skipCount++;
+          } else {
+            needTranslate.push(row);
+          }
+        }
+        if (skipCount > 0) {
+          console.log(`[auto-translate] ${target.table} lang=en 预过滤 ${skipCount} 条英文原文（已写 skip 标记）`);
+        }
+        queue = needTranslate.slice(0, cfg.maxPerRun);
+      }
+
       if (queue.length === 0) continue;
+      const totalInQueue = queue.length;
+      let processedCount = 0;
+      console.log(`[auto-translate] 扫描 ${target.table} lang=${targetLang} 待处理 ${totalInQueue} 条`);
 
       await Promise.all(
         Array.from({ length: CONCURRENCY }, async () => {
@@ -125,6 +157,7 @@ export async function runIncrementalTranslation(
             if (charsUsed >= cfg.dailyCharBudget) break;
             const row = queue.shift();
             if (!row) break;
+            const mySeq = ++processedCount; // 捕获当前序号到局部变量，避免并发竞态
             const title = String(row.title || "").trim();
             const description = String(row.description || "").trim();
             const reference = String(row.reference || "").trim();
@@ -137,34 +170,27 @@ export async function runIncrementalTranslation(
             let sourceLang: string | null = null;
             try {
               sourceLang = detectSourceLang(title, description);
-              // 源语言未知/同语言：写标记行让扫描条件跳过，杜绝逐轮重扫；
-              // 仅对无缓存行的写 skip 标记，避免覆盖已有译文
               if (!sourceLang) {
-                if (!hasExistingCache) {
-                  await writeSkipMarker(target, row.id, targetLang);
-                }
+                if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
+                console.log(`  [${mySeq}/${totalInQueue}] SKIP 无源语言 id=${row.id}`);
                 continue;
               }
               if (sourceLang === targetLang) {
-                if (!hasExistingCache) {
-                  await writeSkipMarker(target, row.id, targetLang);
-                }
+                if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
+                console.log(`  [${mySeq}/${totalInQueue}] SKIP 同语言(${sourceLang}) id=${row.id}`);
                 continue;
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
 
-              // 仅翻译标题（内容翻译暂关闭以控制成本）
               const result = await translateNoticeViaChain(title, "", targetLang, sourceLang as any);
               const titleTr = String(result.translations[0] || "").trim();
-              // const descTr = ""; // 内容翻译暂关闭
 
               if (result.provider === "same-lang-passthrough") {
-                if (!hasExistingCache) {
-                  await writeSkipMarker(target, row.id, targetLang);
-                }
+                if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
+                console.log(`  [${mySeq}/${totalInQueue}] SKIP 直通(${sourceLang}) id=${row.id}`);
                 continue;
               }
-              charsUsed += title.length; // 仅计入标题字符
+              charsUsed += title.length;
 
               await dbPool.query(
                 `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
@@ -175,9 +201,11 @@ export async function runIncrementalTranslation(
                 [row.id, targetLang, titleTr || null, result.provider]
               );
               ok += 1;
+              console.log(`  [${mySeq}/${totalInQueue}] OK   ${result.provider} id=${row.id} src=${sourceLang}→${targetLang}`);
             } catch (err: any) {
               failed += 1;
               const errMsg = err?.message || String(err);
+              console.log(`  [${mySeq}/${totalInQueue}] FAIL error="${errMsg}" id=${row.id} src=${sourceLang ?? "unknown"}→${targetLang}`);
               logger.warn(
                 `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" title="${titlePreview}" desc="${descPreview}"`
               );
