@@ -2,16 +2,14 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import crypto from "crypto";
 import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
-import { youdaoPool } from "./youdaoPool";
 import { GoogleGenAI } from "@google/genai";
 
-// ── 翻译通道链（有道智云 → DeepSeek V4-Pro → Gemini 3.5-Flash 三层链）──
+// ── 翻译通道链（DeepSeek V4-Flash → Gemini 3.5-Flash 两层链）──
 // 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时抛
 // TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
-// 缓存表 model 列写入真实提供方（youdao-llm / deepseek-v4-pro / gemini-3.5-flash）。
+// 缓存表 model 列写入真实提供方（deepseek-v4-flash / gemini-3.5-flash）。
 
 export type ChainResult = {
   translations: string[];
@@ -84,176 +82,12 @@ function restoreTerms(text: string, tokens: string[]): string {
   return restored;
 }
 
-// 通道1：有道智云 大模型翻译（子曰 Pro 14B，SSE 流式响应）
-// 认证需同时配置 YOUDAO_APP_KEY(应用ID) 与 YOUDAO_APP_SECRET(应用密钥)，缺一即跳过本通道；
-// sign = SHA256(appKey + input + salt + curtime + appSecret)，input 规则见 youdaoInput()。
-// 单次上限 5000 字符：超长文本预检即跳过（省去必败的 API 调用），直接降级 DeepSeek；
-// 不设每日软额度限制，超量由有道 API 自身报错（code≠"0"）后降级。
-// QPS 限制 10——高并发时可能频繁降级 DeepSeek，属正常设计。
-// 官方语种映射（大模型翻译 llm-trans 支持 40 语种，见 ai.youdao.com/DOCSIRMA/html/trans/api/dmxfy）；
-// 映射表覆盖官方全部 ISO 639-1 语种，映射外的源语言按官方 from=auto 由有道服务端自动检测
-const YOUDAO_CODES: Record<string, string> = {
-  zh: "zh-CHS",
-  en: "en",
-  ko: "ko",
-  ja: "ja",
-  fr: "fr",
-  ru: "ru",
-  es: "es",
-  pt: "pt",
-  hi: "hi",
-  ar: "ar",
-  da: "da",
-  de: "de",
-  fi: "fi",
-  it: "it",
-  ms: "ms",
-  nl: "nl",
-  sv: "sv",
-  th: "th",
-  uk: "uk",
-  vi: "vi",
-  bs: "bs",
-  ca: "ca",
-  et: "et",
-  hu: "hu",
-  id: "id",
-  no: "no",
-  pl: "pl",
-  ro: "ro",
-  tr: "tr",
-  eo: "eo",
-  tl: "tl",
-  kk: "kk",
-  km: "km",
-  my: "my",
-  ne: "ne",
-  bo: "bo",
-  ug: "ug",
-};
-const YOUDAO_MAX_CHARS = 5000;
-const YOUDAO_LLM_ENDPOINT = "https://openapi.youdao.com/proxy/http/llm-trans";
-const YOUDAO_LLM_MODEL = "0"; // handleOption: 0=子曰Pro(14B), 3=子曰Lite(1.5B)
-const YOUDAO_TIMEOUT_MS = 10_000; // 流式短句翻译，10s 不回即超时降级
-const DEEPSEEK_TIMEOUT_MS = 60_000; // high 思考模式 + 合并长文，留足余量
+const DEEPSEEK_TIMEOUT_MS = 30_000; // flash 模型无思考模式，响应更快，30s 足矣
 
-// 官方签名输入规则：q 长度 >20 时取 前10 + 长度 + 后10
-function youdaoInput(q: string): string {
-  if (q.length <= 20) return q;
-  return q.slice(0, 10) + q.length + q.slice(q.length - 10);
-}
-
-// 单次 HTTP 请求 + SSE 解析（纯 I/O，不含账号选择逻辑）
-async function youdaoRequest(
-  text: string,
-  from: string,
-  to: string,
-  appKey: string,
-  appSecret: string
-): Promise<string> {
-  const salt = crypto.randomUUID();
-  const curtime = String(Math.round(Date.now() / 1000));
-  const sign = crypto
-    .createHash("sha256")
-    .update(appKey + youdaoInput(text) + salt + curtime + appSecret)
-    .digest("hex");
-  const prompt = `You are a professional translator. Translate the text COMPLETELY and FULLY.
-CRITICAL RULES:
-1. Translate EVERY sentence and EVERY detail - do NOT summarize, abbreviate, or omit any content.
-2. Keep every placeholder like ⟦T0⟧ ⟦T1⟧ exactly as-is, do not modify, translate, or remove them.
-3. Preserve all line breaks and formatting.
-4. The output length should be proportional to the input - if input is long, output must be equally long.`;
-  const body = new URLSearchParams({
-    appKey,
-    salt,
-    curtime,
-    sign,
-    signType: "v3",
-    i: text,
-    from,
-    to,
-    streamType: "full",
-    handleOption: YOUDAO_LLM_MODEL,
-    prompt,
-  });
-  const res = await fetchWithTimeout(YOUDAO_LLM_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  }, YOUDAO_TIMEOUT_MS);
-  if (!res.ok) throw new Error(`YOUDAO_LLM_HTTP_${res.status}`);
-  // SSE 流式响应（streamType=full）：每行可能带 "data: " 前缀（标准 SSE）或裸 JSON，取最后一条的 data.transFull 为完整译文
-  const responseText = await res.text();
-  const lines = responseText.split("\n").filter((line) => line.trim());
-  let finalTranslation = "";
-  let lastErrorCode = "";
-  for (const rawLine of lines) {
-    // 标准 SSE 格式可能带 "data: " 前缀，剥离后再解析
-    const line = rawLine.startsWith("data:") ? rawLine.slice(5).trim() : rawLine.trim();
-    if (!line || line === "[DONE]") continue;
-    try {
-      const parsed = JSON.parse(line);
-      if (String(parsed.code) !== "0" || !parsed.successful) {
-        lastErrorCode = String(parsed.code || parsed.errorCode || "unknown");
-        // 902000（不支持的语言方向）属预期内跨语种拒绝，不打警告；其余错误码保留告警
-        if (lastErrorCode !== "902000") {
-          const errMsg = parsed.message || "";
-          console.warn(`[translate] youdao-llm error: code=${lastErrorCode}, message=${errMsg}`);
-        }
-        throw new Error(`YOUDAO_LLM_ERROR_${lastErrorCode}`);
-      }
-      if (parsed.data?.transFull) finalTranslation = parsed.data.transFull;
-    } catch (e: any) {
-      if (e.message?.startsWith("YOUDAO_LLM_ERROR")) throw e;
-      // JSON 解析失败的行跳过（SSE 注释行、空行、event: 前缀等）
-    }
-  }
-  if (!finalTranslation.trim()) {
-    console.warn(`[translate] youdao-llm empty response. Raw (first 500 chars): ${responseText.slice(0, 500)}`);
-    throw new Error("YOUDAO_LLM_EMPTY");
-  }
-  return finalTranslation.trim();
-}
-
-// 通道1 入口：账号池轮转 + 配额自动切换
-// 遍历池中可用账号；某账号返回配额错误码（108/109/110/111）时标记冷却并尝试下一个；
-// 全部耗尽或无账号时抛 CHANNEL_SKIPPED，由上层链路降级 DeepSeek。
-async function translateViaYoudao(
-  text: string,
-  sourceLang: string,
-  targetLang: string
-): Promise<string> {
-  const from = YOUDAO_CODES[sourceLang] ?? "auto";
-  const to = YOUDAO_CODES[targetLang];
-  if (!to) throw new Error("CHANNEL_SKIPPED");
-  // 超长预检：有道必拒的请求不发起，立即降级 DeepSeek，省 API 调用与等待
-  if (text.length > YOUDAO_MAX_CHARS) throw new Error("CHANNEL_SKIPPED");
-
-  const maxAttempts = youdaoPool.size;
-  if (maxAttempts === 0) throw new Error("CHANNEL_SKIPPED");
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const account = youdaoPool.getActive();
-    if (!account) throw new Error("CHANNEL_SKIPPED"); // 全部冷却中
-    try {
-      return await youdaoRequest(text, from, to, account.appKey, account.appSecret);
-    } catch (err: any) {
-      const code = String(err?.message || "").match(/^YOUDAO_LLM_ERROR_(.+)$/)?.[1] ?? "";
-      if (youdaoPool.isQuotaError(code)) {
-        // 配额耗尽：标记冷却并轮转到下一个账号
-        youdaoPool.markExhausted(account.index);
-        continue;
-      }
-      throw err; // 非配额错误（902000/超时/HTTP 等）直接上抛
-    }
-  }
-  throw new Error("CHANNEL_SKIPPED");
-}
-
-// 通道2：DeepSeek V4-Pro（OpenAI 兼容 /chat/completions，思考模式 effort=high）
+// 通道1：DeepSeek V4-Flash（OpenAI 兼容 /chat/completions，flash 快速模型）
 // 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 通道插在有道之后：
-// 有道对结构化短句快而稳，DeepSeek 对长描述/上下文语义更准，担任中间层。
-// 思考模式下 temperature 等参数不生效；思维链走 reasoning_content（此处忽略），译文取 content。
+// 有道对结构化短句快而稳，DeepSeek Flash 对长描述/上下文语义更准，担任中间层。
+// flash 模型不支持 thinking/reasoning_effort 参数，译文直接取 content。
 // 占位符沿用链上统一的 ⟦Tn⟧，由 prompt 明确要求原样保留，返回后经 restoreTerms 回填。
 // 合并请求模式：标题+正文等多段以 JSON 数组一次进出——一次思考翻完全部字段，
 // 段间共享上下文、术语一致，且省去多次深度思考的延迟与 token 开销；
@@ -286,10 +120,8 @@ ${JSON.stringify(texts)}`;
       Authorization: `Bearer ${String(apiKey)}`,
     },
     body: JSON.stringify({
-      model: "deepseek-v4-pro",
+      model: "deepseek-v4-flash",
       messages: [{ role: "user", content: prompt }],
-      reasoning_effort: "high",
-      thinking: { type: "enabled" },
       stream: false,
     }),
   }, DEEPSEEK_TIMEOUT_MS);
@@ -399,21 +231,7 @@ export async function translateViaChain(
   // 降级轨迹：记录被跳过的上游通道及原因，供调用方打结构化日志
   const degraded: string[] = [];
 
-  try {
-    const translated = new Map<number, string>();
-    for (const job of jobs) {
-      const { masked, tokens } = protectTerms(job.text);
-      translated.set(job.index, restoreTerms(await translateViaYoudao(masked, sourceLang, targetLang), tokens));
-    }
-    return { translations: assemble(translated), provider: "youdao-llm" };
-  } catch (err: any) {
-    // 未配置/超长/失败/不支持的语种：落下一通道；
-    // 902000（不支持的语言方向）属预期内降级，静默不打日志，其余保留告警
-    degraded.push(`youdao-llm:${err?.message}`);
-    if (err?.message !== "YOUDAO_LLM_ERROR_902000") {
-      console.warn(`[translate] youdao -> next: ${err?.message}`);
-    }
-  }
+  // ── 通道1：DeepSeek V4-Flash ──
   try {
     // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）
     const masks = jobs.map((job) => protectTerms(job.text));
@@ -428,12 +246,12 @@ export async function translateViaChain(
     });
     return {
       translations: assemble(translated),
-      provider: "deepseek-v4-pro",
+      provider: "deepseek-v4-flash",
       ...(degraded.length ? { degradedFrom: degraded } : {}),
     };
   } catch (err: any) {
     // 未配置/失败/形状不符：落下一通道
-    degraded.push(`deepseek-v4-pro:${err?.message}`);
+    degraded.push(`deepseek-v4-flash:${err?.message}`);
     console.warn(`[translate] deepseek -> next: ${err?.message}`);
   }
   // 通道3：Gemini 2.5-Flash 兜底

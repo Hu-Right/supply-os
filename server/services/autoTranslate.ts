@@ -5,9 +5,9 @@
  * @module server/services/autoTranslate
  * @description 公告由 CRM 侧爬虫写入 crm_bid_notices，本项目无插入钩子可挂，
  *   故用准实时轮询补齐：每轮对公告表与精选数据表（SCAN_TARGETS）分别扫描
- *   「未过期 + 水位以上 + 缺译文行」的最新数据，翻译标题+描述，
+ *   「未过期 + 水位以上 + 缺译文行」的最新数据，仅翻译标题（内容翻译暂关闭以控制成本），
  *   目标语言由源语言动态决定（zh→en / en→zh / 小语种→zh+en），
- *   复用 translateNoticeViaChain（有道→DeepSeek→Gemini 三层降级 + 术语占位符保护）。
+ *   复用 translateNoticeViaChain（DeepSeek→Gemini 两层降级 + 术语占位符保护）。
  */
 import type { Pool } from "mysql2/promise";
 import {
@@ -80,6 +80,7 @@ export async function runIncrementalTranslation(
   if (budgetDay === today) {
     const used = Number(stateMap.get("budget_chars_used") || "0");
     if (used >= cfg.dailyCharBudget) {
+      console.log(`[auto-translate] 日预算已耗尽 (${used}/${cfg.dailyCharBudget})，本轮跳过`);
       return { ok: 0, failed: 0, charsUsed: used };
     }
     charsUsed = used;
@@ -104,8 +105,8 @@ export async function runIncrementalTranslation(
           AND (
             t.id IS NULL
             OR (
-              (t.description_tr IS NULL OR t.description_tr = '')
-              AND (t.model IS NULL OR t.model NOT IN ('skip-same-lang', 'skip-no-desc'))
+              (t.title_tr IS NULL OR t.title_tr = '')
+              AND (t.model IS NULL OR t.model NOT IN ('skip-same-lang'))
             )
           )
           AND n.title IS NOT NULL AND TRIM(n.title) <> ''
@@ -152,11 +153,10 @@ export async function runIncrementalTranslation(
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
 
-              // 标题已有缓存时仅翻译描述（节省 API 配额）
-              const titleForChain = cachedTitleTr ? "" : title;
-              const result = await translateNoticeViaChain(titleForChain, description, targetLang, sourceLang as any);
-              const titleTr = cachedTitleTr || String(result.translations[0] || "").trim();
-              const descTr = String(result.translations[1] || "").trim();
+              // 仅翻译标题（内容翻译暂关闭以控制成本）
+              const result = await translateNoticeViaChain(title, "", targetLang, sourceLang as any);
+              const titleTr = String(result.translations[0] || "").trim();
+              // const descTr = ""; // 内容翻译暂关闭
 
               if (result.provider === "same-lang-passthrough") {
                 if (!hasExistingCache) {
@@ -164,16 +164,15 @@ export async function runIncrementalTranslation(
                 }
                 continue;
               }
-              charsUsed += title.length + description.length;
+              charsUsed += title.length; // 仅计入标题字符
 
               await dbPool.query(
                 `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
-                 VALUES (?, ?, ?, ?, ?)
+                 VALUES (?, ?, ?, NULL, ?)
                  ON DUPLICATE KEY UPDATE
                    title_tr = COALESCE(VALUES(title_tr), title_tr),
-                   description_tr = VALUES(description_tr),
                    model = VALUES(model)`,
-                [row.id, targetLang, titleTr || null, descTr || null, result.provider]
+                [row.id, targetLang, titleTr || null, result.provider]
               );
               ok += 1;
             } catch (err: any) {
@@ -196,6 +195,9 @@ export async function runIncrementalTranslation(
      ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
     ["budget_day", today, "budget_chars_used", String(charsUsed)]
   );
+  console.log(
+    `[auto-translate] 增量双语翻译: 成功 ${ok} 失败 ${failed} 字符 ${charsUsed}/${cfg.dailyCharBudget} 耗时 ${Math.round((Date.now() - startedAt) / 1000)}s`
+  );
   return { ok, failed, charsUsed };
 }
 
@@ -208,6 +210,7 @@ export function startAutoTranslate(
   cfg: { enabled: boolean; intervalMs: number; maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
 ): () => void {
   if (!cfg.enabled) {
+    console.log("[auto-translate] 已禁用（NOTICE_AUTO_TRANSLATE=off）");
     return () => {};
   }
 
@@ -226,6 +229,9 @@ export function startAutoTranslate(
 
   const timer1 = setTimeout(() => void tick(), 30_000);
   const timer2 = setInterval(() => void tick(), cfg.intervalMs);
+  console.log(
+    `[auto-translate] 已启用: 每 ${Math.round(cfg.intervalMs / 60000)} 分钟扫描新增公告（水位以上），单轮上限 ${cfg.maxPerRun} 条/语言，仅标题翻译（内容暂关闭），双语（zh+en），日预算 ${cfg.dailyCharBudget} 字符`
+  );
 
   return () => {
     clearTimeout(timer1);
