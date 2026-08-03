@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { UsersRepo } from "../../../server/repos/users.repo";
 import { MembershipRepo } from "../../../server/repos/membership.repo";
 import { PaymentsRepo } from "../../../server/repos/payments.repo";
+import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
 
 /**
  * mock mysql2 pool：query/execute 均返回 [rows]（mysql2 解构约定）。
@@ -338,5 +339,42 @@ describe("PaymentsRepo", () => {
     const repo = new PaymentsRepo(pool);
     await expect(repo.listActiveProviderConfigs()).resolves.toEqual(configs);
     expect(pool.query.mock.calls[0][0]).toContain("is_active = 1");
+  });
+});
+
+// ─── OpportunitiesRepo ──────────────────────────────────────────────────────
+describe("OpportunitiesRepo", () => {
+  it("listOpportunities without codeId skips the unspsc join", async () => {
+    const pool = createPool([[{ id: 1, title: "t" }]]);
+    const repo = new OpportunitiesRepo(pool);
+    const rows = await repo.listOpportunities(0);
+    expect(rows).toHaveLength(1);
+    const sql: string = pool.query.mock.calls[0][0];
+    expect(sql).toContain("FROM crm_bid_opportunities o");
+    expect(sql).not.toContain("INNER JOIN");
+  });
+
+  it("listOpportunities with codeId filters by level column", async () => {
+    const pool = createPool([[{ id: 5, level: 2 }], [{ id: 9 }]]);
+    const repo = new OpportunitiesRepo(pool);
+    await repo.listOpportunities(5);
+    const sql: string = pool.query.mock.calls[1][0];
+    expect(sql).toContain("boc.level2_id = ?");
+    expect(pool.query.mock.calls[1][1]).toEqual([5]);
+  });
+
+  it("findExistingUnlock returns null when no rows", async () => {
+    const pool = createPool([[]]);
+    const repo = new OpportunitiesRepo(pool);
+    expect(await repo.findExistingUnlock("u", 1)).toBeNull();
+  });
+
+  it("upsertInterestCode writes unlock_order source with weight 2.50", async () => {
+    const pool = createPool();
+    const repo = new OpportunitiesRepo(pool);
+    await repo.upsertInterestCode({ userKey: "u", codeId: 3, code: "1010", level: 2 });
+    const [sql, params] = pool.execute.mock.calls[0];
+    expect(sql).toContain("'unlock_order', 2.50");
+    expect(params).toEqual(["u", "u", 3, "1010", 2]);
   });
 });
