@@ -13,10 +13,16 @@ import {
   NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations,
   translateNoticeViaChain, detectSourceLang,
 } from "../../services/notice-translation";
+import { NoticesRepo } from "../../repos/notices.repo";
+import { UsersRepo } from "../../repos/users.repo";
+import { MembershipRepo } from "../../repos/membership.repo";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool } = ctx;
+  const { dbPool } = ctx; // 仅供 findQualifiedOpportunityForNotice 服务层函数使用
+  const noticesRepo = ctx.noticesRepo ?? new NoticesRepo(ctx.dbPool);
+  const usersRepo = ctx.usersRepo ?? new UsersRepo(ctx.dbPool);
+  const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
 
   // ── 公告详情 ──
   router.get("/api/notices/:id/detail", async (req, res) => {
@@ -26,24 +32,12 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
       // 解锁校验与公告查询相互独立：并行执行减少一次顺序往返
-      const [[unlockRows], [noticeRows]] = await Promise.all([
-        dbPool.query(
-          "SELECT id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
-          [userKey, noticeId]
-        ),
-        dbPool.query(
-          `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
-           deadline, deadline_ts, estimated_value, description, industry, url, contacts,
-           documents, procurement_files, external_links, agency_full, published_date,
-           difficulty, registration_level, key_contacts, unspsc_codes, converted_opp_id, is_converted
-         FROM crm_bid_notices WHERE id = ? LIMIT 1`,
-          [noticeId]
-        ),
+      const [unlock, notice] = await Promise.all([
+        noticesRepo.findUnlock(userKey, noticeId),
+        noticesRepo.findDetail(noticeId),
       ]);
-      const unlock = (unlockRows as any[])[0];
       if (!unlock) return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
 
-      const notice = (noticeRows as any[])[0];
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
       const opportunity = await findQualifiedOpportunityForNotice(dbPool, notice);
       res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
@@ -61,26 +55,15 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       const userKey = normalizeUserKey(req.query.user_key) || "";
       if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
-      const [noticeRows] = await dbPool.query(
-        `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
-           difficulty, registration_level, contacts, key_contacts, description,
-           unspsc_codes, converted_opp_id
-         FROM crm_bid_notices WHERE id = ? LIMIT 1`,
-        [noticeId]
-      );
-      const notice = (noticeRows as any[])[0];
+      const notice = await noticesRepo.findPreview(noticeId);
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
       // VIP 判定与供应商联系人端点同款口径：active 订阅未过期 或 membership_tier = 'vip'
-      const [[userRows], [subRows]] = await Promise.all([
-        dbPool.query("SELECT membership_tier FROM crm_users WHERE user_key = ? LIMIT 1", [userKey]),
-        dbPool.query(
-          "SELECT id FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
-          [userKey]
-        ),
+      const [user, subs] = await Promise.all([
+        usersRepo.findByKey(userKey),
+        membershipRepo.findActiveSubscriptions(userKey),
       ]);
-      const user = (userRows as any[])[0];
-      const isVip = (subRows as any[]).length > 0 || user?.membership_tier === "vip";
+      const isVip = subs.length > 0 || user?.membership_tier === "vip";
 
       const opportunity = await findQualifiedOpportunityForNotice(dbPool, notice);
       const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes)).slice(0, 4);
@@ -115,19 +98,11 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         return res.status(400).json({ error: "INVALID_NOTICE_OR_LANG" });
       }
 
-      const [cachedRows] = await dbPool.query(
-        "SELECT title_tr, description_tr FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
-        [noticeId, lang]
-      );
-      const cachedRow = (cachedRows as any[])[0];
+      const cachedRow = await noticesRepo.findTranslationCache(noticeId, lang);
       if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
         // 统一规则：有机会表数据就用机会表的，不管公告表的
         // 检测机会表是否覆盖了公告表描述（决定翻译源和中文直出）
-        const [noticeRowsForCache] = await dbPool.query(
-          `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
-           FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
-        );
-        const nForCache = (noticeRowsForCache as any[])[0];
+        const nForCache = await noticesRepo.findDescMeta(noticeId);
         let oppForCache: any = null;
         let hasOppOverride = false;
         let cacheDescSource = nForCache?.notice_desc || "";
@@ -153,17 +128,14 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
           const pendingKeyStale = `${noticeId}:${lang}`;
           let pendingStale = pendingNoticeTranslations.get(pendingKeyStale);
           if (!pendingStale) {
-            const staleSourceLang = detectSourceLang(String(nForCache?.title || ""), cacheDescSource) ?? undefined;
-            pendingStale = translateNoticeViaChain(String(nForCache?.title || ""), cacheDescSource, lang, staleSourceLang);
+            const staleSourceLang = detectSourceLang("", cacheDescSource) ?? undefined;
+            pendingStale = translateNoticeViaChain("", cacheDescSource, lang, staleSourceLang);
             pendingNoticeTranslations.set(pendingKeyStale, pendingStale);
             pendingStale.finally(() => pendingNoticeTranslations.delete(pendingKeyStale)).catch(() => undefined);
           }
           const { translations: staleTr, provider: staleProvider } = await pendingStale;
           if (staleProvider !== "same-lang-passthrough") {
-            await dbPool.query(
-              `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
-              [staleTr[1], staleProvider, noticeId, lang]
-            );
+            await noticesRepo.updateTranslationDescription(noticeId, lang, staleTr[1], staleProvider);
           }
           return res.json({ lang, title: cachedRow.title_tr, description: staleTr[1], cached: false, source: "opp_retranslate" });
         }
@@ -171,11 +143,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       }
       if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
         // 标题已有缓存，描述缺失——单独补翻描述，标题立即返回不阻塞
-        const [noticeRowsForDesc] = await dbPool.query(
-          `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
-           FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`, [noticeId]
-        );
-        const n = (noticeRowsForDesc as any[])[0];
+        const n = await noticesRepo.findDescMeta(noticeId);
         let descSource = n?.notice_desc || "";
         let oppForDesc: any = null;
         if (n) {
@@ -190,10 +158,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
               const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
               const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang);
               if (descOnlyResult.provider !== "same-lang-passthrough" && descOnlyResult.translations[1]) {
-                await dbPool.query(
-                  `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
-                  [descOnlyResult.translations[1], descOnlyResult.provider, noticeId, lang]
-                );
+                await noticesRepo.updateTranslationDescription(noticeId, lang, descOnlyResult.translations[1], descOnlyResult.provider);
               }
             } catch { /* 异步补翻失败不影响用户 */ }
           })();
@@ -215,17 +180,11 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         if (descProvider === "same-lang-passthrough") {
           return res.json({ lang, title: cachedRow.title_tr, description: descTr, cached: false, passthrough: true });
         }
-        await dbPool.query(
-          `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
-          [descTr, descProvider, noticeId, lang]
-        );
+        await noticesRepo.updateTranslationDescription(noticeId, lang, descTr, descProvider);
         return res.json({ lang, title: cachedRow.title_tr, description: descTr, cached: false });
       }
 
-      const [noticeRows] = await dbPool.query(
-        "SELECT id, notice_id, reference, title, description, converted_opp_id FROM crm_bid_notices WHERE id = ? LIMIT 1", [noticeId]
-      );
-      const notice = (noticeRows as any[])[0];
+      const notice = await noticesRepo.findForTranslation(noticeId);
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
       // 与详情页共用取文逻辑：优先机会表 description，回退公告表 description
@@ -261,12 +220,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
       // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出
       const descToCache = zhDescCn ? null : translations[1];
-      await dbPool.query(
-        `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
-        [noticeId, lang, translations[0], descToCache, provider]
-      );
+      await noticesRepo.upsertTranslation(noticeId, lang, translations[0], descToCache, provider);
       res.json({ lang, title: translations[0], description: zhDescCn || translations[1], cached: false, source: zhDescCn ? "description_cn" : "chain" });
 
       // ── 英文中枢兜底 ──
@@ -274,10 +228,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       if (lang !== "en" && detectedSourceLang && detectedSourceLang !== "en" && detectedSourceLang !== "zh") {
           void (async () => {
             try {
-              const [enCheck] = await dbPool.query(
-                "SELECT id FROM crm_notice_translations WHERE notice_id = ? AND lang = 'en' LIMIT 1", [noticeId]
-              );
-              if ((enCheck as any[]).length > 0) return;
+              if (await noticesRepo.hasTranslation(noticeId, "en")) return;
               const enPendingKey = `${noticeId}:en`;
               if (pendingNoticeTranslations.has(enPendingKey)) return;
               const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang);
@@ -285,14 +236,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
               enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
               const enResult = await enPromise;
               if (enResult.provider !== "same-lang-passthrough") {
-                await dbPool.query(
-                  `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
-                   VALUES (?, 'en', ?, ?, ?)
-                   ON DUPLICATE KEY UPDATE
-                     title_tr = COALESCE(VALUES(title_tr), title_tr),
-                     description_tr = COALESCE(VALUES(description_tr), description_tr)`,
-                  [noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider]
-                );
+                await noticesRepo.upsertEnPivotTranslation(noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider);
               }
             } catch (err: any) {
               console.warn(`[translate] en-pivot failed target=notice:${noticeId}: ${err?.message}`);

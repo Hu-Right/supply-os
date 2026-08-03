@@ -119,4 +119,125 @@ export class NoticesRepo {
       [params.userKey, params.userKey, params.noticeId, params.interestType, params.note],
     );
   }
+
+  // ─── 详情/翻译方法（Task 3 追加） ───────────────────────────────────────────
+
+  /** 用户对公告的解锁记录（详情解锁校验） */
+  async findUnlock(
+    userKey: string,
+    noticeId: number,
+  ): Promise<{ id: number; unlock_type: string; unlocked_at: Date } | null> {
+    const [rows] = await this.pool.query(
+      "SELECT id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
+      [userKey, noticeId],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 公告详情全字段 */
+  async findDetail(noticeId: number): Promise<any | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
+       deadline, deadline_ts, estimated_value, description, industry, url, contacts,
+       documents, procurement_files, external_links, agency_full, published_date,
+       difficulty, registration_level, key_contacts, unspsc_codes, converted_opp_id, is_converted
+     FROM crm_bid_notices WHERE id = ? LIMIT 1`,
+      [noticeId],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 公告锁定态预览字段 */
+  async findPreview(noticeId: number): Promise<any | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
+         unspsc_codes, converted_opp_id
+       FROM crm_bid_notices WHERE id = ? LIMIT 1`,
+      [noticeId],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 公告译文缓存（无缓存返回 null；description_tr 可能为 null） */
+  async findTranslationCache(
+    noticeId: number,
+    lang: string,
+  ): Promise<{ title_tr: string | null; description_tr: string | null } | null> {
+    const [rows] = await this.pool.query(
+      "SELECT title_tr, description_tr FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
+      [noticeId, lang],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 翻译决策所需元信息（描述源与机会转换标记） */
+  async findDescMeta(
+    noticeId: number,
+  ): Promise<{ notice_desc: string | null; converted_opp_id: number | null; notice_id: string | null; reference: string | null } | null> {
+    const [rows] = await this.pool.query(
+      `SELECT n.description AS notice_desc, n.converted_opp_id, n.notice_id, n.reference
+       FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`,
+      [noticeId],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 仅更新译文描述（机会表覆盖重翻 / 描述补翻） */
+  async updateTranslationDescription(noticeId: number, lang: string, descriptionTr: string, model: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE crm_notice_translations SET description_tr = ?, model = ? WHERE notice_id = ? AND lang = ?`,
+      [descriptionTr, model, noticeId, lang],
+    );
+  }
+
+  /** 翻译源字段（标题 + 描述 + 机会转换标记） */
+  async findForTranslation(noticeId: number): Promise<any | null> {
+    const [rows] = await this.pool.query(
+      "SELECT id, notice_id, reference, title, description, converted_opp_id FROM crm_bid_notices WHERE id = ? LIMIT 1",
+      [noticeId],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 公告译文缓存 upsert（descriptionTr 传 null 时仅缓存标题） */
+  async upsertTranslation(
+    noticeId: number,
+    lang: string,
+    titleTr: string,
+    descriptionTr: string | null,
+    model: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
+      [noticeId, lang, titleTr, descriptionTr, model],
+    );
+  }
+
+  /** 指定语言译文是否已存在（英文中枢兜底前置检查） */
+  async hasTranslation(noticeId: number, lang: string): Promise<boolean> {
+    const [rows] = await this.pool.query(
+      "SELECT id FROM crm_notice_translations WHERE notice_id = ? AND lang = ? LIMIT 1",
+      [noticeId, lang],
+    );
+    return (rows as any[]).length > 0;
+  }
+
+  /** 英文中枢兜底 upsert（已有字段不被 null 覆盖） */
+  async upsertEnPivotTranslation(
+    noticeId: number,
+    titleTr: string | null,
+    descriptionTr: string | null,
+    model: string,
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
+       VALUES (?, 'en', ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         title_tr = COALESCE(VALUES(title_tr), title_tr),
+         description_tr = COALESCE(VALUES(description_tr), description_tr)`,
+      [noticeId, titleTr, descriptionTr, model],
+    );
+  }
 }

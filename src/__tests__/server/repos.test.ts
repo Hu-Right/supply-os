@@ -413,3 +413,27 @@ describe("NoticesRepo", () => {
     expect(params).toEqual([42]);
   });
 });
+
+describe("NoticesRepo (detail/translation)", () => {
+  it("findUnlock returns null when locked", async () => {
+    const pool = createPool([[]]);
+    const repo = new NoticesRepo(pool);
+    expect(await repo.findUnlock("u", 1)).toBeNull();
+  });
+
+  it("hasTranslation checks existence by notice and lang", async () => {
+    const pool = createPool([[{ id: 1 }], []]);
+    const repo = new NoticesRepo(pool);
+    expect(await repo.hasTranslation(1, "en")).toBe(true);
+    expect(await repo.hasTranslation(1, "fr")).toBe(false);
+  });
+
+  it("upsertEnPivotTranslation never overwrites with null (COALESCE)", async () => {
+    const pool = createPool();
+    const repo = new NoticesRepo(pool);
+    await repo.upsertEnPivotTranslation(1, null, "desc", "provider");
+    const [sql, params] = pool.query.mock.calls[0];
+    expect(sql).toContain("COALESCE(VALUES(title_tr), title_tr)");
+    expect(params).toEqual([1, null, "desc", "provider"]);
+  });
+});
