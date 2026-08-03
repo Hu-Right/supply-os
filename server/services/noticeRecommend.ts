@@ -11,7 +11,7 @@
  *              bonus and MMR rerank; deadline-ordered fallback when the user
  *              has no interest signal.
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import {
   recomputeRecoWeightProfile, recoVariant,
@@ -26,7 +26,7 @@ const HIGH_VALUE_USD = 1_000_000;
 const MMR_LAMBDA = 0.7;
 
 export interface NoticeRecommendResult {
-  items: any[];
+  items: Array<Record<string, unknown>>;
   total: number;
   page: number;
   pageSize: number;
@@ -35,19 +35,20 @@ export interface NoticeRecommendResult {
 }
 
 async function deadlineFallback(pool: Pool, page: number, pageSize: number, offset: number): Promise<NoticeRecommendResult> {
-  const [[cntRow]] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`) as any[];
+  const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
+  const cntRow = (cntRows as RowDataPacket[])[0];
   const [fallbackRows] = await pool.query(
     `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
             n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files
      FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [pageSize, offset]);
   return {
-    items: (fallbackRows as any[]).map(row => ({
+    items: (fallbackRows as RowDataPacket[]).map(row => ({
       ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
       unspsc_codes: [], core_locked: true,
       breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
       documents: undefined, procurement_files: undefined,
     })),
-    total: Number((cntRow as any).total), page, pageSize, fallback: "deadline",
+    total: Number((cntRow as RowDataPacket).total), page, pageSize, fallback: "deadline",
   };
 }
 
@@ -111,7 +112,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
   let interestTotal = 0;
   const recallIdsByLevel: Record<number, number[]> = { 2: [], 3: [], 4: [], 5: [] };
   const recallLikePrefixes = new Set<string>();
-  for (const row of interestRows as any[]) {
+  for (const row of interestRows as RowDataPacket[]) {
     const level = Math.min(5, Math.max(1, Number(row.level || 1)));
     const code = String(row.code || "").trim();
     if (!code) continue;
@@ -157,7 +158,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_key = ? LIMIT 1`,
     [userKey]
   );
-  const profileRow = (profileRows as any[])[0] || null;
+  const profileRow = (profileRows as RowDataPacket[])[0] || null;
   const profile = variant === "treatment" ? profileRow : null;
   const pickWeight = (value: any, fallback: number) => {
     const n = Number(value); return Number.isFinite(n) && n > 0 && n < 1 ? n : fallback;
@@ -189,8 +190,8 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
      WHERE u.user_key = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
     [userKey]
   );
-  const amountCenterLog = Number((amountPrefRows as any[])[0]?.center_log || 0);
-  const amountActive = Number((amountPrefRows as any[])[0]?.cnt || 0) >= 2;
+  const amountCenterLog = Number((amountPrefRows as RowDataPacket[])[0]?.center_log || 0);
+  const amountActive = Number((amountPrefRows as RowDataPacket[])[0]?.cnt || 0) >= 2;
   const amountExpr = amountActive
     ? `(CASE WHEN MAX(amc.amount_usd) IS NULL OR MAX(amc.amount_usd) <= 0 THEN 0.5
           ELSE 0.5 + (GREATEST(0, 1 - ABS(LOG10(MAX(amc.amount_usd) + 1) - ?) / 3) - 0.5) * IF(MAX(amc.inferred) = 1, 0.7, 1) END)`
@@ -218,13 +219,13 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     [...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
   );
 
-  const pageNoticeIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
+  const pageNoticeIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
   if (pageNoticeIds.length) void backfillNoticeAmountCache(pool, pageNoticeIds).catch(() => undefined);
 
   // 解锁关键词文本相似度加分（S_TEXT 项，服务端重算后仍走 MMR 重排）
   const unlockKeywords = await getUserUnlockKeywords(pool, userKey);
   if (unlockKeywords) {
-    for (const row of rows as any[]) {
+    for (const row of rows as RowDataPacket[]) {
       const sText = jaccardTokenSim(unlockKeywords, tokenizeNoticeText(`${row.title || ""} ${row.description || ""}`));
       if (sText > 0) row.reco_score = Math.round((Number(row.reco_score || 0) + S_TEXT_BONUS * sText) * 1e6) / 1e6;
     }
@@ -232,7 +233,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
 
   const nowSec = Math.floor(Date.now() / 1000);
   return {
-    items: mmrRerankPage(rows as any[]).map((row) => {
+    items: mmrRerankPage(rows as RowDataPacket[]).map((row) => {
       const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
       return {
         ...rest, match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
@@ -241,6 +242,6 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
         breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
       };
     }),
-    total: Number((countRows as any[])[0]?.total || 0), page, pageSize, variant,
+    total: Number((countRows as RowDataPacket[])[0]?.total || 0), page, pageSize, variant,
   };
 }

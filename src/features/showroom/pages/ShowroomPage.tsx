@@ -15,6 +15,7 @@ import type { ExhibitionHall } from "@/types";
 import { Input, Select } from "@/shared/ui";
 import { ShowroomCard } from "../components/ShowroomCard";
 import { RegisterForm } from "../components/RegisterForm";
+import { onAppEvent, emitAppEvent } from "@/core/events";
 
 export default function ShowroomPage() {
   const { t, locale } = useLocale();
@@ -26,12 +27,10 @@ export default function ShowroomPage() {
 
   // 监听页头横幅"入驻海外展厅"事件，打开注册表单
   useEffect(() => {
-    const onOpenRegister = () => {
+    return onAppEvent("supply-os:open-showroom-register", () => {
       setSelectedShowroom(null);
       setShowRegisterForm(true);
-    };
-    window.addEventListener("supply-os:open-showroom-register", onOpenRegister);
-    return () => window.removeEventListener("supply-os:open-showroom-register", onOpenRegister);
+    });
   }, []);
 
   // 计算可用地区和国家
@@ -83,7 +82,7 @@ export default function ShowroomPage() {
   };
 
   const handleConsult = (_showroom: ExhibitionHall | null) => {
-    window.dispatchEvent(new CustomEvent("supply-os:consult"));
+    emitAppEvent("supply-os:consult");
   };
 
   return (

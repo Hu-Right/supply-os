@@ -7,21 +7,10 @@
  *              Encapsulates payment order creation and status polling requests
  */
 
-import { api } from "@/core/http";
+import { api, buildQuery } from "@/core/http";
+import type { OrderInfo } from "@/types/payment";
 
-export type OrderInfo = {
-  order_no: string;
-  pay_url: string;
-  qr_code_url?: string;
-  provider: "alipay" | "wechat" | "mock";
-  status: "pending" | "paid" | "closed" | "failed";
-  notice_id?: number | null;
-  /** 支付模式：configured=真实网关，mock=本地模拟 */
-  payment_mode?: "configured" | "mock";
-  plan_code?: string;
-  amount?: number;
-  currency?: string;
-};
+export type { OrderInfo };
 
 export type CreateOrderParams = {
   userKey: string;
@@ -148,11 +137,13 @@ export async function fetchOrders(params: {
   page?: number;
   limit?: number;
 }): Promise<PagedResult<OrderRecord>> {
-  const search = new URLSearchParams({ user_key: params.userKey });
-  if (params.status) search.set("status", params.status);
-  if (params.page) search.set("page", String(params.page));
-  if (params.limit) search.set("limit", String(params.limit));
-  return api<PagedResult<OrderRecord>>(`/api/payment/orders?${search.toString()}`);
+  const qs = buildQuery({
+    user_key: params.userKey,
+    status: params.status,
+    page: params.page,
+    limit: params.limit,
+  });
+  return api<PagedResult<OrderRecord>>(`/api/payment/orders?${qs}`);
 }
 
 // 本地差异 #18：库内存在中文原文公告，en 也需请求译文（英文原文由服务端内容检测直通返回，不耗 API）
@@ -171,9 +162,11 @@ export async function fetchUnlocks(params: {
   limit?: number;
   locale?: string;
 }): Promise<PagedResult<UnlockRecord>> {
-  const search = new URLSearchParams({ user_key: params.userKey });
-  if (params.page) search.set("page", String(params.page));
-  if (params.limit) search.set("limit", String(params.limit));
-  if (params.locale && NOTICE_API_LANGS.has(params.locale)) search.set("lang", params.locale);
-  return api<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${search.toString()}`);
+  const qs = buildQuery({
+    user_key: params.userKey,
+    page: params.page,
+    limit: params.limit,
+    lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,
+  });
+  return api<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${qs}`);
 }

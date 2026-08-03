@@ -30,15 +30,11 @@ function readBuildVersion(): string {
 
 export function createSystemRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool } = ctx;
+  const { systemRepo } = ctx;
 
-  // 获取 ICP 备案号（公开接口，前端 Footer 展示用）
   router.get("/api/system/icp", async (_req, res) => {
     try {
-      const [rows] = await dbPool.query(
-        `SELECT bah FROM \`system\` LIMIT 1`
-      );
-      const bah = (rows as any[])?.[0]?.bah || "";
+      const bah = await systemRepo.getIcpBah();
       res.json({ bah });
     } catch {
       res.json({ bah: "" });

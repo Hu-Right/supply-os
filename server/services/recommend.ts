@@ -2,12 +2,13 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { expandUnspscInterestPrefixes } from "./unspsc";
 
 // 本地差异 #11：T-E3 负反馈强化（E.3）——dismiss 用相对强衰减 ×0.5（乘法在权重通胀下仍有效，
 // 绝对扣减会失效）；GREATEST(0.01) 下限保护，weight 永不降为 ≤0（画像可转向但不清零）。
 // 对该用户展开前缀命中的所有 source 行统一衰减（跨来源同码一并降权）
-export async function decayUserInterestCodes(dbPool: any, userKey: string, snapshot: any[], factor = 0.5) {
+export async function decayUserInterestCodes(dbPool: any, userKey: string, snapshot: Array<{ code?: unknown }>, factor = 0.5) {
   const prefixes = new Set<string>();
   for (const item of snapshot) {
     const rawCode = String(item?.code || "").replace(/\D/g, "").slice(0, 8);
@@ -30,9 +31,11 @@ export async function decayUserInterestCodes(dbPool: any, userKey: string, snaps
 // 五权重总和恒 1；无显式反馈用户不建档案行（推荐端点缺行走全局默认，行为恒等——验收口径）。
 // 触发：推荐请求发现档案缺失/超 24h 时 fire-and-forget 异步重算，无定时器（约束 6）
 const recoWeightRefreshing = new Set<string>();
+const RECO_REFRESH_TIMEOUT = 30_000; // 安全超时：30s 后自动解锁，防止 DB 挂起导致永久阻塞
 export async function recomputeRecoWeightProfile(dbPool: any, userKey: string) {
   if (recoWeightRefreshing.has(userKey)) return; // 并发请求下同一用户只跑一次
   recoWeightRefreshing.add(userKey);
+  const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userKey), RECO_REFRESH_TIMEOUT);
   try {
     const [rows] = await dbPool.query(
       `SELECT action FROM crm_user_reco_feedback
@@ -41,7 +44,7 @@ export async function recomputeRecoWeightProfile(dbPool: any, userKey: string) {
        LIMIT 200`,
       [userKey]
     );
-    const actions = (rows as any[]).reverse(); // 时间正序遍历，EMA 天然给最新反馈更高权重
+    const actions = (rows as RowDataPacket[]).reverse(); // 时间正序遍历，EMA 天然给最新反馈更高权重
     if (actions.length === 0) return; // 无显式反馈：不建档案，保持全局默认恒等
     let ema = 0.5; // 中性起点：正负信号各半时权重不动
     for (const row of actions) {
@@ -68,6 +71,7 @@ export async function recomputeRecoWeightProfile(dbPool: any, userKey: string) {
       ]
     );
   } finally {
+    clearTimeout(safetyTimer);
     recoWeightRefreshing.delete(userKey);
   }
 }
@@ -140,7 +144,7 @@ export async function getUserUnlockKeywords(dbPool: any, userKey: string): Promi
       [userKey]
     );
     const merged = new Set<string>();
-    for (const row of rows as any[]) {
+    for (const row of rows as RowDataPacket[]) {
       for (const token of tokenizeNoticeText(row.title)) merged.add(token);
     }
     keywords = merged.size > 0 ? merged : null;

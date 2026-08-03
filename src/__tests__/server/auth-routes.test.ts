@@ -3,18 +3,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createAuthRouter } from "../../../server/routes/auth.routes";
+import { UsersRepo } from "../../../server/repos/users.repo";
+import { MembershipRepo } from "../../../server/repos/membership.repo";
+import { SuppliersRepo } from "../../../server/repos/suppliers.repo";
 
 function createMockCtx(queryResults: any[] = []) {
   let callIndex = 0;
+  const dbPool = {
+    query: vi.fn().mockImplementation(() => {
+      const result = queryResults[callIndex] ?? [[]];
+      callIndex++;
+      return Promise.resolve([result]);
+    }),
+    execute: vi.fn().mockResolvedValue([]),
+  };
   return {
-    dbPool: {
-      query: vi.fn().mockImplementation(() => {
-        const result = queryResults[callIndex] ?? [[]];
-        callIndex++;
-        return Promise.resolve([result]);
-      }),
-      execute: vi.fn().mockResolvedValue([]),
-    },
+    dbPool,
+    usersRepo: new UsersRepo(dbPool as any),
+    membershipRepo: new MembershipRepo(dbPool as any),
+    suppliersRepo: new SuppliersRepo(dbPool as any),
   };
 }
 

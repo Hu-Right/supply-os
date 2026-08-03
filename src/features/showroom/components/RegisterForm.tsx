@@ -14,6 +14,7 @@ import { useScrollLock } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
+import { emitAppEvent } from "@/core/events";
 
 export interface RegisterFormProps {
   selectedShowroom: ExhibitionHall | null;
@@ -87,7 +88,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
       await submitShowroomRegister(submitData);
       setSubmitted(true);
       // 对齐原版 fetchData()：通知 CRM 模块刷新线索池
-      window.dispatchEvent(new CustomEvent("supply-os:crm-refresh"));
+      emitAppEvent("supply-os:crm-refresh");
       // 对齐远端：成功页停留 3 秒后自动关闭
       window.setTimeout(() => onSuccess(), 3000);
     } catch (err) {

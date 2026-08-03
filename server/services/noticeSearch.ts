@@ -8,7 +8,7 @@
  *              SQL assembly & execution for notice search, country list and
  *              pool stats, with TTL-bounded in-memory caches.
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { buildNoticeUnspscFilter } from "./unspsc";
 import { FEATURED_NOTICE_EXISTS } from "./notices";
@@ -160,9 +160,9 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
   
   const [countRows] = countResult;
   const [rows] = rowsResult;
-  const total = Number((countRows as any[])[0]?.total || 0);
+  const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
 
-  const pageIds = (rows as any[]).map((row) => Number(row.id)).filter(Boolean);
+  const pageIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
   const breakdownCounts = new Map<number, number>();
   // 页级 is_featured 标注：featuredOnly 时全部命中，否则仅对当页 ≤30 条回查三路判定
   const featuredIds = new Set<number>();
@@ -187,9 +187,9 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
         const [featRows] = featResult;
         const [docRows] = docResult;
         
-        for (const featRow of featRows as any[]) featuredIds.add(Number(featRow.id));
+        for (const featRow of featRows as RowDataPacket[]) featuredIds.add(Number(featRow.id));
         
-        for (const docRow of docRows as any[]) {
+        for (const docRow of docRows as RowDataPacket[]) {
           breakdownCounts.set(Number(docRow.id), normalizeDocumentRows(docRow.documents, docRow.procurement_files).length);
         }
       } catch { /* 丰富查询失败：静默降级，不影响列表主体 */ }
@@ -197,7 +197,7 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
   }
 
   const payload: NoticeSearchResult = {
-    items: (rows as any[]).map((row) => ({
+    items: (rows as RowDataPacket[]).map((row) => ({
       ...row, agency: null, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
       is_featured: featuredIds.has(Number(row.id)),
       breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
@@ -216,24 +216,32 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
 }
 
 // ── G.3 国家下拉数据源（增强版：移除 LIMIT 100，返回全量国家供前端搜索过滤）──
-let noticeCountriesCache: { data: any[]; expires: number } | null = null;
+let noticeCountriesCache: { data: Array<{ country: string; count: number }>; expires: number } | null = null;
 
-export async function getNoticeCountries(pool: Pool): Promise<any[]> {
+export async function getNoticeCountries(pool: Pool): Promise<Array<{ country: string; count: number }>> {
   if (noticeCountriesCache && noticeCountriesCache.expires > Date.now()) return noticeCountriesCache.data;
   const [rows] = await pool.query(
     `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
      WHERE (n.is_expired = 0 OR n.is_expired IS NULL) AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country ORDER BY cnt DESC`
   );
-  const data = (rows as any[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
+  const data = (rows as RowDataPacket[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
   noticeCountriesCache = { data, expires: Date.now() + 10 * 60 * 1000 };
   return data;
 }
 
 // ── 公采池统计 ──
-let noticeStatsCache: { data: any; expires: number } | null = null;
+let noticeStatsCache: { data: NoticeStatsResult; expires: number } | null = null;
 
-export async function getNoticeStats(pool: Pool): Promise<any> {
+export interface NoticeStatsResult {
+  raw: number;
+  active: number;
+  bridged: number;
+  featured: number;
+  bridge_gap: number;
+}
+
+export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
   if (noticeStatsCache && noticeStatsCache.expires > Date.now()) return noticeStatsCache.data;
   const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
   const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
@@ -245,11 +253,11 @@ export async function getNoticeStats(pool: Pool): Promise<any> {
   const [featuredRows] = await pool.query(
     `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND ${FEATURED_NOTICE_EXISTS}`
   );
-  const active = Number((activeRows as any[])[0]?.total || 0);
-  const bridged = Number((bridgedRows as any[])[0]?.total || 0);
+  const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
+  const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
   const data = {
-    raw: Number((rawRows as any[])[0]?.total || 0), active, bridged,
-    featured: Number((featuredRows as any[])[0]?.total || 0), bridge_gap: active - bridged,
+    raw: Number((rawRows as RowDataPacket[])[0]?.total || 0), active, bridged,
+    featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridge_gap: active - bridged,
   };
   noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
   return data;

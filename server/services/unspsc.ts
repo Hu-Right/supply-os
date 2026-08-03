@@ -52,14 +52,14 @@ export function unspscPrefixFromCode(code: string) {
 }
 
 export async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
-  if (!codeId) return { sql: "", params: [] as any[] };
+  if (!codeId) return { sql: "", params: [] as unknown[] };
 
   const [codeRows] = await dbPool.query(
     "SELECT id, code, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
     [codeId]
   );
   const code = (codeRows as UnspscCodeRow[])[0];
-  if (!code) return { sql: "", params: [] as any[] };
+  if (!code) return { sql: "", params: [] as unknown[] };
 
   // 勘误（与 /api/notices/recommended 口径一致）：crm_bid_notice_unspsc_codes 的
   // level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），不是码串前缀。

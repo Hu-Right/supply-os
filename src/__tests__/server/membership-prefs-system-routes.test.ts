@@ -6,6 +6,10 @@ import type { Router } from "express";
 import { createMembershipRouter } from "../../../server/routes/membership.routes";
 import { createUserPrefsRouter } from "../../../server/routes/user-prefs.routes";
 import { createSystemRouter } from "../../../server/routes/system.routes";
+import { errorHandler } from "../../../server/middleware/errorHandler";
+import { MembershipRepo } from "../../../server/repos/membership.repo";
+import { UserPrefsRepo } from "../../../server/repos/user-prefs.repo";
+import { SystemRepo } from "../../../server/repos/training.repo";
 
 function createPool(queryResults: any[] = []) {
   let callIndex = 0;
@@ -22,7 +26,14 @@ function createPool(queryResults: any[] = []) {
 function buildApp(createRouter: (ctx: any) => Router, dbPool: any) {
   const app = express();
   app.use(express.json());
-  app.use(createRouter({ dbPool } as any));
+  const ctx = {
+    dbPool,
+    membershipRepo: new MembershipRepo(dbPool),
+    userPrefsRepo: new UserPrefsRepo(dbPool),
+    systemRepo: new SystemRepo(dbPool),
+  };
+  app.use(createRouter(ctx as any));
+  app.use(errorHandler);
   return app;
 }
 

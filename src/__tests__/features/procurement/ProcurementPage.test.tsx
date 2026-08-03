@@ -53,9 +53,12 @@ vi.mock("@/core/api/industry-prefs", () => ({
   saveIndustryPrefs: (key: string, prefs: any) => mockSaveIndustryPrefs(key, prefs),
 }));
 
-vi.mock("@/features/procurement/api", () => ({
+vi.mock("@/core/unspsc/api", () => ({
   fetchUnspscIndustries: (locale?: string) => mockFetchUnspscIndustries(locale),
   fetchUnspscChildren: (id: string, locale?: string) => mockFetchUnspscChildren(id, locale),
+}));
+
+vi.mock("@/features/procurement/api", () => ({
   fetchNotices: (params: any) => mockFetchNotices(params),
   fetchMembershipPlans: () => mockFetchMembershipPlans(),
   fetchMembershipStatus: (key: string, cache?: boolean) => mockFetchMembershipStatus(key, cache),

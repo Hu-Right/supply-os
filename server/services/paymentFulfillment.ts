@@ -42,7 +42,8 @@ export async function fulfillMockPayment(
   const order = await payments.findByOrderNo(params.orderNo);
   if (!order) return { found: false };
   if (order.status !== "paid") {
-    const plan = (await membership.findPlanByCodeForFulfillment(order.plan_code)) || ({} as any);
+    const plan = (await membership.findPlanByCodeForFulfillment(order.plan_code))
+      ?? { unlock_quota: 1, duration_days: null as number | null, plan_type: "single" as string };
     await payments.markAsMockPaid(params.orderNo, params.rawNotify);
     await payments.insertEntitlement({
       userKey: order.user_key,

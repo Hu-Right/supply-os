@@ -6,6 +6,7 @@ import { createLeadsRouter } from "../../../server/routes/leads.routes";
 import { createSuppliersRouter } from "../../../server/routes/suppliers.routes";
 import { translateViaChain } from "../../../server/services/translation/chain";
 import type { Lead } from "../../types";
+import { LeadsRepo } from "../../../server/repos/leads.repo";
 
 vi.mock("../../../server/services/translation/chain", () => ({
   translateViaChain: vi.fn(),
@@ -22,7 +23,7 @@ function createRoutingPool(handler: (sql: string, params: any[]) => any) {
 function buildLeadsApp(dbPool: any, leadsDb: Lead[]) {
   const app = express();
   app.use(express.json());
-  app.use(createLeadsRouter({ dbPool, leadsDb } as any));
+  app.use(createLeadsRouter({ dbPool, leadsDb, leadsRepo: new LeadsRepo(dbPool) } as any));
   return app;
 }
 

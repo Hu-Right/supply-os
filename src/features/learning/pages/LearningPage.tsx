@@ -12,6 +12,7 @@ import { useAuth } from "@/core/auth";
 import { TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
+import { emitAppEvent } from "@/core/events";
 
 export default function LearningPage() {
   const { t } = useLocale();
@@ -33,13 +34,11 @@ export default function LearningPage() {
 
   const handleUpgradeClick = () => {
     if (!authUser) {
-      window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+      emitAppEvent("supply-os:require-login");
       return;
     }
     // 已登录但非 VIP → 触发支付
-    window.dispatchEvent(new CustomEvent("supply-os:pay", {
-      detail: { code: "annual_8800", name: "年度顾问服务", price: 8800, currency: "CNY" }
-    }));
+    emitAppEvent("supply-os:pay", { code: "annual_8800", name: "年度顾问服务", price: 8800, currency: "CNY" });
   };
 
   return (

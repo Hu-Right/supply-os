@@ -9,7 +9,8 @@
  *   目标语言由源语言动态决定（zh→en / en→zh / 小语种→zh+en），
  *   复用 translateNoticeViaChain（DeepSeek→Gemini 两层降级 + 术语占位符保护）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { ChainSourceLang } from "./translation/chain";
 import {
   pendingNoticeTranslations,
   translateNoticeViaChain,
@@ -76,7 +77,7 @@ export async function runIncrementalTranslation(
     ["notice_id_cutoff", "opportunity_id_cutoff", "budget_day", "budget_chars_used"]
   );
   const stateMap = new Map<string, string>();
-  for (const row of stateRows as any[]) stateMap.set(row.state_key, String(row.state_value || ""));
+  for (const row of stateRows as RowDataPacket[]) stateMap.set(row.state_key, String(row.state_value || ""));
   const budgetDay = stateMap.get("budget_day") || "";
   if (budgetDay === today) {
     const used = Number(stateMap.get("budget_chars_used") || "0");
@@ -118,7 +119,7 @@ export async function runIncrementalTranslation(
         LIMIT ?`,
         [targetLang, cutoffId, sqlLimit]
       );
-      let queue = (rows as any[]).filter(
+      let queue = (rows as RowDataPacket[]).filter(
         (row) => !pendingNoticeTranslations.has(`${target.idCol}:${row.id}:${targetLang}`)
       );
 
@@ -182,7 +183,7 @@ export async function runIncrementalTranslation(
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
 
-              const result = await translateNoticeViaChain(title, "", targetLang, sourceLang as any);
+              const result = await translateNoticeViaChain(title, "", targetLang, sourceLang as ChainSourceLang);
               const titleTr = String(result.translations[0] || "").trim();
 
               if (result.provider === "same-lang-passthrough") {

@@ -8,6 +8,8 @@ import { syncUnspscBridgeFull, captureDataQualitySnapshot } from "../../../serve
 import { backfillUnspscCodeIds } from "../../../server/db/backfills";
 import { backfillNoticeAmountCache, rollupNoticeViewDaily, AMOUNT_PARSE_VERSION } from "../../../server/services/amount";
 import { GoogleGenAI } from "@google/genai";
+import { errorHandler } from "../../../server/middleware/errorHandler";
+import { AdminRepo } from "../../../server/repos/admin.repo";
 
 vi.mock("../../../server/services/quality", () => ({
   syncUnspscBridgeFull: vi.fn().mockResolvedValue(undefined),
@@ -43,7 +45,8 @@ function createPool(queryResults: any[] = []) {
 function buildApp(createRouter: (ctx: any) => any, dbPool: any) {
   const app = express();
   app.use(express.json());
-  app.use(createRouter({ dbPool } as any));
+  app.use(createRouter({ dbPool, adminRepo: new AdminRepo(dbPool) } as any));
+  app.use(errorHandler);
   return app;
 }
 
@@ -107,13 +110,11 @@ describe("quality snapshot endpoints", () => {
   });
 
   it("POST returns 500 when capture fails", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.mocked(captureDataQualitySnapshot).mockRejectedValue(new Error("boom"));
     const app = buildApp(createAdminRouter, createPool());
     const res = await request(app).post("/api/admin/quality-snapshot");
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("质量快照采集失败");
-    warnSpy.mockRestore();
+    expect(res.body.error).toBe("boom");
   });
 
   it("GET clamps days range and returns snapshots", async () => {

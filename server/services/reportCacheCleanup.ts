@@ -11,7 +11,7 @@
  */
 import { promises as fs } from "fs";
 import path from "path";
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 /** 与 report.routes.ts 同一目录约定 */
 const reportCacheDir = () => path.join(process.cwd(), "runtime", "bid_reports");
@@ -63,8 +63,8 @@ export async function clearExpiredTranslations(
      WHERE n.deadline_ts IS NOT NULL AND ${EXPIRED_90D_SQL}`
   );
   return {
-    notices: (noticeResult as any).affectedRows ?? 0,
-    opportunities: (oppResult as any).affectedRows ?? 0,
+    notices: (noticeResult as RowDataPacket).affectedRows ?? 0,
+    opportunities: (oppResult as RowDataPacket).affectedRows ?? 0,
   };
 }
 

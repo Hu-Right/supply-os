@@ -119,7 +119,7 @@ describe("runIncrementalTranslation", () => {
     vi.mocked(detectSourceLang).mockReturnValue("fr");
     vi.mocked(translateNoticeViaChain).mockReset();
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["水泵供应"], provider: "youdao-llm",
+      translations: ["水泵供应"], provider: "deepseek-v4-flash",
     });
     const dbPool = {
       query: vi.fn(async (sql: string, params?: any[]) => {

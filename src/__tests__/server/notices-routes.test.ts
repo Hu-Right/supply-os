@@ -3,22 +3,34 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createNoticesRouter } from "../../../server/routes/notices.routes";
-import { translateNoticeViaChain } from "../../../server/services/notice-translation";
+import { translateNoticeViaChain, getTranslatedNoticeDetail } from "../../../server/services/notice-translation";
+import { errorHandler } from "../../../server/middleware/errorHandler";
+import { NoticesRepo } from "../../../server/repos/notices.repo";
+import { MembershipRepo } from "../../../server/repos/membership.repo";
+import { UsersRepo } from "../../../server/repos/users.repo";
+import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
 
 // Mock heavy dependencies to isolate route logic
+const mockGetTranslatedNoticeDetail = vi.fn();
 vi.mock("../../../server/services/notice-translation", () => ({
   NOTICE_TRANSLATION_LANGS: { zh: true, en: true },
   pendingNoticeTranslations: new Map(),
   translateNoticeViaChain: vi.fn(),
   detectSourceLang: vi.fn(() => null),
+  getTranslatedNoticeDetail: (...args: unknown[]) => mockGetTranslatedNoticeDetail(...args),
 }));
 
 function createMockCtx() {
+  const dbPool = {
+    query: vi.fn().mockResolvedValue([[]]),
+    execute: vi.fn().mockResolvedValue([]),
+  };
   return {
-    dbPool: {
-      query: vi.fn().mockResolvedValue([[]]),
-      execute: vi.fn().mockResolvedValue([]),
-    },
+    dbPool,
+    noticesRepo: new NoticesRepo(dbPool as any),
+    membershipRepo: new MembershipRepo(dbPool as any),
+    usersRepo: new UsersRepo(dbPool as any),
+    opportunitiesRepo: new OpportunitiesRepo(dbPool as any),
   };
 }
 
@@ -26,6 +38,7 @@ function buildApp(ctx: any) {
   const app = express();
   app.use(express.json());
   app.use(createNoticesRouter(ctx as any));
+  app.use(errorHandler);
   return app;
 }
 
@@ -287,6 +300,30 @@ describe("GET /api/notices/:id/detail", () => {
 describe("GET /api/notices/:id/translation", () => {
   beforeEach(() => {
     vi.mocked(translateNoticeViaChain).mockReset();
+    mockGetTranslatedNoticeDetail.mockReset();
+    // 默认委托给 translateNoticeViaChain mock，保持测试行为不变
+    mockGetTranslatedNoticeDetail.mockImplementation(async (noticeId: number, lang: string, noticesRepo: any, dbPool: any) => {
+      const cachedRow = await noticesRepo.findTranslationCache(noticeId, lang);
+      if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
+        return { lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true };
+      }
+      if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
+        const descSource = "原文描述";
+        const result = await vi.mocked(translateNoticeViaChain)("", descSource, lang);
+        if (result.provider === "same-lang-passthrough") {
+          return { lang, title: cachedRow.title_tr, description: result.translations[1], cached: false, passthrough: true };
+        }
+        return { lang, title: cachedRow.title_tr, description: result.translations[1], cached: false };
+      }
+      const notice = await noticesRepo.findForTranslation(noticeId);
+      if (!notice) throw new Error("NOTICE_NOT_FOUND");
+      const result = await vi.mocked(translateNoticeViaChain)(notice.title || "", notice.description || "", lang);
+      if (result.provider === "same-lang-passthrough") {
+        return { lang, title: result.translations[0], description: result.translations[1], cached: false, passthrough: true };
+      }
+      await noticesRepo.upsertTranslation(noticeId, lang, result.translations[0], result.translations[1], result.provider);
+      return { lang, title: result.translations[0], description: result.translations[1], cached: false };
+    });
   });
 
   it("caches real translations into crm_notice_translations", async () => {
@@ -296,7 +333,7 @@ describe("GET /api/notices/:id/translation", () => {
       .mockResolvedValueOnce([[{ title: "Pump supply", description: "Supply of pumps" }]]) // notice
       .mockResolvedValue([[]]); // INSERT + 后续英文中枢查询
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["水泵供应", "供应水泵"], provider: "youdao-llm",
+      translations: ["水泵供应", "供应水泵"], provider: "deepseek-v4-flash",
     });
     const app = buildApp(ctx);
     const res = await request(app).get("/api/notices/1001/translation?lang=zh");

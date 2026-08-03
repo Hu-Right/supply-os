@@ -6,6 +6,10 @@ import type { Router } from "express";
 import { createTrainingRouter } from "../../../server/routes/training.routes";
 import { createCatalogRouter } from "../../../server/routes/catalog.routes";
 import { translateViaChain } from "../../../server/services/translation/chain";
+import { errorHandler } from "../../../server/middleware/errorHandler";
+import { CatalogRepo } from "../../../server/repos/catalog.repo";
+import { TrainingRepo } from "../../../server/repos/training.repo";
+import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
 
 vi.mock("../../../server/services/translation/chain", () => ({
   translateViaChain: vi.fn(),
@@ -14,7 +18,13 @@ vi.mock("../../../server/services/translation/chain", () => ({
 function buildApp(createRouter: (ctx: any) => Router, dbPool: any) {
   const app = express();
   app.use(express.json());
-  app.use(createRouter({ dbPool } as any));
+  app.use(createRouter({
+    dbPool,
+    catalogRepo: new CatalogRepo(dbPool),
+    trainingRepo: new TrainingRepo(dbPool),
+    opportunitiesRepo: new OpportunitiesRepo(dbPool),
+  } as any));
+  app.use(errorHandler);
   return app;
 }
 
@@ -82,7 +92,6 @@ describe("POST /api/training/register", () => {
   });
 
   it("returns 500 when insert fails", async () => {
-    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const pool = { query: vi.fn(), execute: vi.fn().mockRejectedValue(new Error("db down")) } as any;
     const app = buildApp(createTrainingRouter, pool);
     const res = await request(app).post("/api/training/register").send({
@@ -91,8 +100,7 @@ describe("POST /api/training/register", () => {
       telephone: "138",
     });
     expect(res.status).toBe(500);
-    expect(res.body.error).toBe("提交失败，请稍后重试");
-    expect(errSpy).toHaveBeenCalled();
+    expect(res.body.error).toBe("db down");
   });
 });
 

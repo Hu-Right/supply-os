@@ -16,6 +16,7 @@ import { useLocale } from "@/core/i18n";
 import { useScrollLock } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
+import { emitAppEvent } from "@/core/events";
 
 type SupplierRegisterModalProps = {
   onClose: () => void;
@@ -75,7 +76,7 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
       setSubmitted(true);
       onRegistered?.();
       // 对齐原版 fetchData()：通知 CRM 模块刷新线索池与自定义供应商
-      window.dispatchEvent(new CustomEvent("supply-os:crm-refresh"));
+      emitAppEvent("supply-os:crm-refresh");
       // 成功态展示 3 秒后自动关闭
       setTimeout(() => {
         onClose();

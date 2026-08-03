@@ -34,16 +34,19 @@ export interface CreateOrderRequest {
   return_url?: string;
 }
 
-export interface CreateOrderResult {
+export interface OrderInfo {
   order_no: string;
-  provider: PaymentProviderName;
-  amount: number;
-  currency: string;
   pay_url: string;
   qr_code_url?: string;
+  provider: PaymentProviderName;
   status: PaymentOrderStatus;
   notice_id?: number | null;
-  created_at: string;
+  /** 支付模式：configured=真实网关，mock=本地模拟 */
+  payment_mode?: "configured" | "mock";
+  plan_code?: string;
+  amount?: number;
+  currency?: string;
+  created_at?: string;
 }
 
 export interface OrderStatusResult {

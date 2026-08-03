@@ -9,97 +9,76 @@
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
+import { parseOptionalInt, parseOptionalString } from "../../utils/params";
+import { asyncHandler } from "../../middleware/errorHandler";
 import { searchNotices, getNoticeCountries, getNoticeStats } from "../../services/noticeSearch";
 import { recommendNotices } from "../../services/noticeRecommend";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 安全整数解析：非数字/NaN 一律回退默认值，防止 ?page=abc 直达 SQL 造成 500 */
-const toInt = (value: unknown, fallback: number): number => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : fallback;
-};
-
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool } = ctx;
+  const noticesRepo = ctx.noticesRepo;
 
-  router.get("/api/notices", async (req, res) => {
-    try {
-      const page = Math.max(1, Math.floor(toInt(req.query.page, 1)));
-      const pageSize = Math.min(30, Math.max(6, toInt(req.query.page_size, 9)));
-      const codeId = Number(req.query.code_id || req.query.industry_id || 0);
-      const q = String(req.query.q || "").trim().slice(0, 200);
-      const country = String(req.query.country || "").trim().slice(0, 100);
-      const deadlineFrom = String(req.query.deadline_from || "").trim();
-      const deadlineTo = String(req.query.deadline_to || "").trim();
-      const sort = String(req.query.sort || "deadline");
-      const valueMin = Number.isFinite(Number(req.query.value_min)) && Number(req.query.value_min) > 0
-        ? Number(req.query.value_min) : 0;
-      const valueMax = Number.isFinite(Number(req.query.value_max)) && Number(req.query.value_max) > 0
-        ? Number(req.query.value_max) : 0;
-      const deadlineWithinDays = Number.isInteger(Number(req.query.deadline_within_days))
-        ? Math.min(365, Math.max(0, Number(req.query.deadline_within_days))) : 0;
-      const noticeType = String(req.query.notice_type || "").trim().slice(0, 100);
-      // [精选功能重新启用 2026-07-31] featured=1 只看精选（三路合格机会判定，T-A4）
-      const featuredOnly = String(req.query.featured || "") === "1";
+  router.get("/api/notices", asyncHandler(async (req, res) => {
+    const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
+    const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
+    const codeId = parseOptionalInt(req.query, "code_id", 0, 1e9, 0) || parseOptionalInt(req.query, "industry_id", 0, 1e9, 0);
+    const q = parseOptionalString(req.query, "q", 200);
+    const country = parseOptionalString(req.query, "country", 100);
+    const deadlineFrom = parseOptionalString(req.query, "deadline_from", 10);
+    const deadlineTo = parseOptionalString(req.query, "deadline_to", 10);
+    const sort = parseOptionalString(req.query, "sort", 20) || "deadline";
+    const valueMin = parseOptionalInt(req.query, "value_min", 0, 1e12, 0);
+    const valueMax = parseOptionalInt(req.query, "value_max", 0, 1e12, 0);
+    const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
+    const noticeType = parseOptionalString(req.query, "notice_type", 100);
+    const featuredOnly = String(req.query.featured || "") === "1";
 
-      const result = await searchNotices(dbPool, {
-        page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
-        valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly,
+    const result = await searchNotices(ctx.dbPool, {
+      page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
+      valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly,
+    });
+    res.json(result);
+
+    // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
+    const hasSearch = Boolean(
+      q || country || DATE_RE.test(deadlineFrom) || DATE_RE.test(deadlineTo) ||
+      valueMin || valueMax || deadlineWithinDays || noticeType || featuredOnly
+    );
+    if (hasSearch) {
+      const filters = JSON.stringify({
+        code_id: codeId || undefined,
+        deadline_from: DATE_RE.test(deadlineFrom) ? deadlineFrom : undefined,
+        deadline_to: DATE_RE.test(deadlineTo) ? deadlineTo : undefined,
+        value_min: valueMin || undefined,
+        value_max: valueMax || undefined,
+        deadline_within_days: deadlineWithinDays || undefined,
+        notice_type: noticeType || undefined,
+        featured: featuredOnly || undefined,
+        sort,
       });
-      res.json(result);
-
-      // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
-      const hasSearch = Boolean(
-        q || country || DATE_RE.test(deadlineFrom) || DATE_RE.test(deadlineTo) ||
-        valueMin || valueMax || deadlineWithinDays || noticeType || featuredOnly
-      );
-      if (hasSearch) {
-        const filters = JSON.stringify({
-          code_id: codeId || undefined,
-          deadline_from: DATE_RE.test(deadlineFrom) ? deadlineFrom : undefined,
-          deadline_to: DATE_RE.test(deadlineTo) ? deadlineTo : undefined,
-          value_min: valueMin || undefined,
-          value_max: valueMax || undefined,
-          deadline_within_days: deadlineWithinDays || undefined,
-          notice_type: noticeType || undefined,
-          featured: featuredOnly || undefined,
-          sort,
-        });
-        void dbPool
-          .execute(
-            "INSERT INTO crm_user_search_log (user_key, q, country, filters, result_cnt) VALUES (?, ?, ?, ?, ?)",
-            [normalizeUserKey(req.query.user_key), q || null, country || null, filters, result.total]
-          )
-          .catch(() => undefined);
-      }
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
+      void noticesRepo.logSearch(
+        normalizeUserKey(req.query.user_key), q || null, country || null, filters, result.total
+      ).catch(() => undefined);
     }
-  });
+  }));
 
-  router.get("/api/notices/countries", async (_req, res) => {
-    try {
-      res.json(await getNoticeCountries(dbPool));
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
+  router.get("/api/notices/countries", asyncHandler(async (_req, res) => {
+    res.json(await getNoticeCountries(ctx.dbPool));
+  }));
 
-  router.get("/api/notices/stats", async (_req, res) => {
-    try {
-      res.json(await getNoticeStats(dbPool));
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
+  router.get("/api/notices/stats", asyncHandler(async (_req, res) => {
+    res.json(await getNoticeStats(ctx.dbPool));
+  }));
 
   // ── 推荐端点 ──
-  router.get("/api/notices/recommended", async (req, res) => {
-    try {
-      const userKey = normalizeUserKey(req.query.user_key) || "";
-      const page = Math.max(1, Math.floor(toInt(req.query.page, 1)));
-      const pageSize = Math.min(30, Math.max(6, toInt(req.query.page_size, 9)));
-      res.json(await recommendNotices(dbPool, userKey, page, pageSize));
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
-  });
+  router.get("/api/notices/recommended", asyncHandler(async (req, res) => {
+    const userKey = normalizeUserKey(req.query.user_key) || "";
+    const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
+    const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
+    res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize));
+  }));
 
   return router;
 }

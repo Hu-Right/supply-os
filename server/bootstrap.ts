@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import path from "path";
+import os from "os";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
@@ -16,6 +17,11 @@ import { PaymentsRepo } from "./repos/payments.repo";
 import { OpportunitiesRepo } from "./repos/opportunities.repo";
 import { NoticesRepo } from "./repos/notices.repo";
 import { SuppliersRepo } from "./repos/suppliers.repo";
+import { CatalogRepo } from "./repos/catalog.repo";
+import { UserPrefsRepo } from "./repos/user-prefs.repo";
+import { LeadsRepo } from "./repos/leads.repo";
+import { TrainingRepo, SystemRepo } from "./repos/training.repo";
+import { AdminRepo } from "./repos/admin.repo";
 import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
@@ -45,8 +51,14 @@ export async function startServer() {
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
   const noticesRepo = new NoticesRepo(dbPool);
   const suppliersRepo = new SuppliersRepo(dbPool);
+  const catalogRepo = new CatalogRepo(dbPool);
+  const userPrefsRepo = new UserPrefsRepo(dbPool);
+  const leadsRepo = new LeadsRepo(dbPool);
+  const trainingRepo = new TrainingRepo(dbPool);
+  const systemRepo = new SystemRepo(dbPool);
+  const adminRepo = new AdminRepo(dbPool);
 
-  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo, noticesRepo, suppliersRepo };
+  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo, noticesRepo, suppliersRepo, catalogRepo, userPrefsRepo, leadsRepo, trainingRepo, systemRepo, adminRepo };
   const app = createApp(ctx);
 
   // Vite Integration for high performance SPA support
@@ -114,7 +126,11 @@ export async function startServer() {
   });
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server fully functional on http://0.0.0.0:${PORT}`);
+    const lanIp = Object.values(os.networkInterfaces())
+      .flat()
+      .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address
+      ?? "localhost";
+    console.log(`Server fully functional on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
   });
 
   // 返回 stop 函数供优雅关闭使用

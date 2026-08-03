@@ -17,4 +17,6 @@ export { AppFooter } from "./AppFooter";
 export type { AppFooterProps } from "./AppFooter";
 export { useAppEvents } from "./useAppEvents";
 export type { AppEventHandlers } from "./useAppEvents";
+export { useAppModals } from "./useAppModals";
+export type { UseAppModalsReturn } from "./useAppModals";
 export { useVersionCheck } from "./useVersionCheck";

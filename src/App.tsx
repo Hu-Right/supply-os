@@ -6,81 +6,51 @@
  * 业务内容全部委托给 routes.tsx 和各 feature 模块
  */
 
-import { useState, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import AppRoutes from "@/routes";
 import { AuthModal } from "@/features/auth";
 import { PaymentModal } from "@/features/payment";
 import { ConsultForm } from "@/shared/forms";
-import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useVersionCheck } from "@/shared/layout";
+import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useAppModals, useVersionCheck } from "@/shared/layout";
+import { emitAppEvent } from "@/core/events";
 
 export default function App() {
   const { t } = useLocale();
   const { authUser } = useAuth();
-
-  // UI state
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentPlan, setPaymentPlan] = useState<{ code: string; name: string; price: number; currency: string; noticeId?: number | null; returnUrl?: string } | null>(null);
-  const [showConsultForm, setShowConsultForm] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // 导航
+  const {
+    showAuthModal, setShowAuthModal, showPaymentModal, setShowPaymentModal,
+    paymentPlan, setPaymentPlan, showConsultForm, setShowConsultForm,
+    mobileMenuOpen, setMobileMenuOpen, onRequireLogin, onConsult, onPay,
+  } = useAppModals();
   const { tabs, tabRoutes, activeTab, isTrainingRoute, switchMainTab } = useNavTabs();
-
-  // 全局事件
-  const onRequireLogin = useCallback(() => setShowAuthModal(true), []);
-  const onConsult = useCallback(() => setShowConsultForm(true), []);
-  const onPay = useCallback((detail: typeof paymentPlan) => {
-    if (detail) { setPaymentPlan(detail); setShowPaymentModal(true); }
-  }, []);
   useAppEvents({ onRequireLogin, onConsult, onPay });
-
-  // 版本检测：部署更新后自动静默刷新
   useVersionCheck();
+
+  const handlePaymentSuccess = () => {
+    if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
+    setShowPaymentModal(false);
+    setPaymentPlan(null);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
-      <AppHeader
-        tabs={tabs}
-        tabRoutes={tabRoutes}
-        activeTab={activeTab}
-        isTrainingRoute={isTrainingRoute}
-        mobileMenuOpen={mobileMenuOpen}
-        setMobileMenuOpen={setMobileMenuOpen}
-        onSwitchTab={switchMainTab}
-        onOpenAuth={() => setShowAuthModal(true)}
-      />
-
-      {/* MAIN */}
+      <AppHeader tabs={tabs} tabRoutes={tabRoutes} activeTab={activeTab} isTrainingRoute={isTrainingRoute}
+        mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
+        onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <SessionBanner />
         <AppRoutes />
       </main>
-
-      {/* MODALS */}
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
       {showConsultForm && <ConsultForm onClose={() => setShowConsultForm(false)} />}
       {showPaymentModal && paymentPlan && authUser && (
         <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}
           currency={paymentPlan.currency} userKey={authUser.user_key} noticeId={paymentPlan.noticeId ?? null}
-          returnUrl={paymentPlan.returnUrl}
-          onClose={() => setShowPaymentModal(false)}
-          onPaymentSuccess={() => {
-            if (paymentPlan.noticeId) {
-              window.dispatchEvent(new CustomEvent("supply-os:notice-paid", { detail: { noticeId: paymentPlan.noticeId } }));
-            }
-            setShowPaymentModal(false);
-            setPaymentPlan(null);
-          }} />
+          returnUrl={paymentPlan.returnUrl} onClose={() => setShowPaymentModal(false)}
+          onPaymentSuccess={handlePaymentSuccess} />
       )}
-
-      <AppFooter
-        activeTab={activeTab}
-        onSwitchTab={switchMainTab}
-        onOpenConsult={() => setShowConsultForm(true)}
-      />
+      <AppFooter activeTab={activeTab} onSwitchTab={switchMainTab} onOpenConsult={() => setShowConsultForm(true)} />
     </div>
   );
 }

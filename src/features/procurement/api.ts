@@ -1,27 +1,12 @@
 // 采购模块 API
 import type {
-  UnspscOption,
   NoticeResponse,
   NoticeItem,
   MembershipPlan,
   MembershipStatus,
   NoticeTranslation,
 } from "./types";
-import { api, apiCached } from "@/core/http";
-
-// 需要向后端请求译文的界面语言（zh/en 直接用类目表原列，不传 lang）
-const UNSPSC_API_LANGS = new Set(["fr", "ru", "es", "ar"]);
-
-export const fetchUnspscIndustries = (locale?: string) => {
-  const lang = locale && UNSPSC_API_LANGS.has(locale) ? `?lang=${encodeURIComponent(locale)}` : "";
-  return apiCached<UnspscOption[]>(`/api/unspsc/industries${lang}`);
-};
-
-export const fetchUnspscChildren = (parentId: string, locale?: string) => {
-  const searchParams = new URLSearchParams({ parent_id: parentId });
-  if (locale && UNSPSC_API_LANGS.has(locale)) searchParams.set("lang", locale);
-  return apiCached<UnspscOption[]>(`/api/unspsc/children?${searchParams.toString()}`);
-};
+import { api, apiCached, buildQuery } from "@/core/http";
 
 // ── 公采搜索功能（本地差异 #6 配套前端）──
 
@@ -46,25 +31,25 @@ export interface NoticeSearchFilters {
 export const fetchNotices = (
   params: { page: number; pageSize: number; codeId?: string } & NoticeSearchFilters
 ) => {
-  const searchParams = new URLSearchParams({
-    page: String(params.page),
-    page_size: String(params.pageSize),
+  const qs = buildQuery({
+    page: params.page,
+    page_size: params.pageSize,
+    code_id: params.codeId,
+    q: params.q,
+    country: params.country,
+    deadline_from: params.deadlineFrom,
+    deadline_to: params.deadlineTo,
+    sort: params.sort && params.sort !== "deadline" ? params.sort : undefined,
+    user_key: params.userKey,
+    value_min: params.valueMin,
+    value_max: params.valueMax,
+    deadline_within_days: params.deadlineWithinDays,
+    notice_type: params.noticeType,
+    featured: params.featured ? "1" : undefined, // [精选功能重新启用 2026-07-31]
   });
-  if (params.codeId) searchParams.set("code_id", params.codeId);
-  if (params.q) searchParams.set("q", params.q);
-  if (params.country) searchParams.set("country", params.country);
-  if (params.deadlineFrom) searchParams.set("deadline_from", params.deadlineFrom);
-  if (params.deadlineTo) searchParams.set("deadline_to", params.deadlineTo);
-  if (params.sort && params.sort !== "deadline") searchParams.set("sort", params.sort);
-  if (params.userKey) searchParams.set("user_key", params.userKey);
-  if (params.valueMin) searchParams.set("value_min", String(params.valueMin));
-  if (params.valueMax) searchParams.set("value_max", String(params.valueMax));
-  if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
-  if (params.noticeType) searchParams.set("notice_type", params.noticeType);
-  if (params.featured) searchParams.set("featured", "1"); // [精选功能重新启用 2026-07-31]
   // 列表/搜索结果时效敏感（截止过滤与排序依赖服务端 NOW()），服务端已有 60s
   // TTL 缓存兜底性能；前端不走 5 分钟 apiCached，避免过期公告残留与条件回切旧结果
-  return api<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
+  return api<NoticeResponse>(`/api/notices?${qs}`);
 };
 
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
@@ -177,14 +162,13 @@ export const fetchRecommendedNotices = (params: {
   // [dismiss 功能临时禁用 2026-07-30] excludeDismissed 参数已移除
   // excludeDismissed?: boolean;
 }): Promise<NoticeResponse> => {
-  const searchParams = new URLSearchParams({
+  const qs = buildQuery({
     user_key: params.userKey,
-    page: String(params.page),
-    page_size: String(params.pageSize),
+    page: params.page,
+    page_size: params.pageSize,
   });
   // [dismiss 功能临时禁用 2026-07-30]
-  // if (params.excludeDismissed) searchParams.set("exclude_dismissed", "1");
-  return api<NoticeResponse>(`/api/notices/recommended?${searchParams.toString()}`);
+  return api<NoticeResponse>(`/api/notices/recommended?${qs}`);
 };
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──

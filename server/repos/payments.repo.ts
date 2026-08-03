@@ -7,7 +7,7 @@
  *
  * @module repos/payments.repo
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, PaymentOrderRow } from "./types";
 
 /** 订单历史查询行（订单 LEFT JOIN 公告，供列表映射） */
@@ -145,7 +145,7 @@ export class PaymentsRepo {
        ${where}`,
       params,
     );
-    return Number((rows as any[])[0]?.total || 0);
+    return Number((rows as RowDataPacket[])[0]?.total || 0);
   }
 
   /** 订单历史分页（订单 LEFT JOIN 公告摘要） */
@@ -181,7 +181,7 @@ export class PaymentsRepo {
        WHERE u.user_key = ? AND u.notice_id IS NOT NULL`,
       [userKey],
     );
-    return Number((rows as any[])[0]?.total || 0);
+    return Number((rows as RowDataPacket[])[0]?.total || 0);
   }
 
   /**
@@ -291,6 +291,6 @@ export class PaymentsRepo {
        WHERE is_active = 1
        ORDER BY provider, id DESC`,
     );
-    return rows as any[];
+    return rows as RowDataPacket[];
   }
 }

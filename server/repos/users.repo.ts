@@ -32,6 +32,16 @@ export class UsersRepo {
     return (rows as Partial<UserRow>[])[0] ?? null;
   }
 
+  /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
+  async findAuthByKey(userKey: string): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT user_key, email, display_name, password_hash, membership_tier, account_status, supplier_id, supplier_link_status
+       FROM crm_users WHERE user_key = ? LIMIT 1`,
+      [userKey],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
   /** 创建或更新用户（UPSERT） */
   async upsert(data: {
     user_key: string;

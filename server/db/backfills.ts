@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { RowDataPacket } from "mysql2/promise";
 
 export async function backfillUserIds(dbPool: any) {
   const tables = [
@@ -44,7 +45,7 @@ export async function hydratePaymentEnvFromDb(dbPool: any) {
      ORDER BY id DESC
      LIMIT 1`
   );
-  const alipay = (rows as any[])[0];
+  const alipay = (rows as RowDataPacket[])[0];
   if (!alipay) return false;
 
   process.env.PAYMENT_MODE = "live";

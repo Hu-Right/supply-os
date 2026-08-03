@@ -12,17 +12,28 @@ import type { PaymentsRepo } from "./repos/payments.repo";
 import type { OpportunitiesRepo } from "./repos/opportunities.repo";
 import type { NoticesRepo } from "./repos/notices.repo";
 import type { SuppliersRepo } from "./repos/suppliers.repo";
+import type { CatalogRepo } from "./repos/catalog.repo";
+import type { UserPrefsRepo } from "./repos/user-prefs.repo";
+import type { LeadsRepo } from "./repos/leads.repo";
+import type { TrainingRepo, SystemRepo } from "./repos/training.repo";
+import type { AdminRepo } from "./repos/admin.repo";
 
 export type AppContext = {
   dbPool: Pool;
   paymentService: PaymentService;
   paymentMode: "live" | "mock";
-  leadsDb: Lead[];            // 内存线索库（原 L1655），单实例引用共享
-  // Repository 层（Batch 1 新增，逐步替代路由中的裸 SQL）
+  leadsDb: Lead[];
+  // Repository 层
   usersRepo: UsersRepo;
   membershipRepo: MembershipRepo;
   paymentsRepo: PaymentsRepo;
   opportunitiesRepo: OpportunitiesRepo;
   noticesRepo: NoticesRepo;
   suppliersRepo: SuppliersRepo;
+  catalogRepo: CatalogRepo;
+  userPrefsRepo: UserPrefsRepo;
+  leadsRepo: LeadsRepo;
+  trainingRepo: TrainingRepo;
+  systemRepo: SystemRepo;
+  adminRepo: AdminRepo;
 };

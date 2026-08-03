@@ -181,7 +181,7 @@ describe("listUnlockHistory", () => {
   it("backfills missing translations in the background", async () => {
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
       translations: ["Pompes", "Description FR"],
-      provider: "youdao-llm",
+      provider: "deepseek-v4-flash",
     } as any);
     const repo = makeRepo([unlockRow({ title_i18n: null })]);
 
@@ -192,7 +192,7 @@ describe("listUnlockHistory", () => {
     // 后台补翻为 fire-and-forget，等待落库完成
     await vi.waitFor(() => {
       expect(repo.upsertNoticeTranslation).toHaveBeenCalledWith(
-        42, "fr", "Pompes", "Description FR", "youdao-llm"
+        42, "fr", "Pompes", "Description FR", "deepseek-v4-flash"
       );
     });
     expect(translateNoticeViaChain).toHaveBeenCalledWith("采购水泵", "水泵描述", "fr");

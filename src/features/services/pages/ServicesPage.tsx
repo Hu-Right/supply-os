@@ -11,12 +11,13 @@ import { useLocale } from "@/core/i18n";
 import { ServiceCard } from "../components/ServiceCard";
 import { SuccessStories } from "../components/SuccessStories";
 import { SERVICES, SUCCESS_STORIES } from "../data";
+import { emitAppEvent } from "@/core/events";
 
 export default function ServicesPage() {
   const { t } = useLocale();
 
   const handleBookService = () => {
-    window.dispatchEvent(new CustomEvent("supply-os:consult"));
+    emitAppEvent("supply-os:consult");
   };
 
   return (

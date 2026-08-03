@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createOpportunitiesRouter } from "../../../server/routes/opportunities.routes";
+import { errorHandler } from "../../../server/middleware/errorHandler";
 import { translateNoticeViaChain } from "../../../server/services/notice-translation";
 
 // 与 notices-routes 测试同款隔离：整体 mock 翻译入口
@@ -26,6 +27,7 @@ function buildApp(ctx: any) {
   const app = express();
   app.use(express.json());
   app.use(createOpportunitiesRouter(ctx as any));
+  app.use(errorHandler);
   return app;
 }
 
@@ -42,7 +44,7 @@ describe("GET /api/opportunities/:id/translation", () => {
       .mockResolvedValueOnce([[{ title: "Fourniture de pompes", description: "Fourniture de pompes hydrauliques" }]]) // opportunity
       .mockResolvedValue([[]]); // INSERT
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["水泵供应", "供应液压水泵"], provider: "youdao-llm",
+      translations: ["水泵供应", "供应液压水泵"], provider: "deepseek-v4-flash",
     });
     const app = buildApp(ctx);
     const res = await request(app).get("/api/opportunities/2001/translation?lang=zh");

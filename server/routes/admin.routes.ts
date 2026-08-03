@@ -6,6 +6,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import type { AppContext } from "../context";
+import { asyncHandler } from "../middleware/errorHandler";
 import { syncUnspscBridgeFull, captureDataQualitySnapshot } from "../services/quality";
 import { backfillUnspscCodeIds } from "../db/backfills";
 import { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache, rollupNoticeViewDaily } from "../services/amount";
@@ -34,127 +35,70 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
 export function createAdminRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool } = ctx;
+  const adminRepo = ctx.adminRepo;
 
   // 手动触发全量 bridge 回填（运维接口，幂等安全；需 ADMIN_API_TOKEN 鉴权，见 requireAdmin）
   router.post("/api/admin/sync-bridge", requireAdmin, async (_req, res) => {
     res.json({ success: true, message: "全量 bridge 回填已在后台启动，请查看服务日志获取进度" });
     // 响应先返回，回填在后台执行
     Promise.all([
-      syncUnspscBridgeFull(dbPool, "notice"),
-      syncUnspscBridgeFull(dbPool, "opportunity"),
-    ]).then(() => backfillUnspscCodeIds(dbPool)).catch((err) => {
+      syncUnspscBridgeFull(ctx.dbPool, "notice"),
+      syncUnspscBridgeFull(ctx.dbPool, "opportunity"),
+    ]).then(() => backfillUnspscCodeIds(ctx.dbPool)).catch((err) => {
       console.warn("[BridgeSync] 手动触发全量回填失败:", err.message);
     });
   });
 
   // 本地差异 #8：C.3.5 质量快照运维接口（无定时器，手动触发；同日重跑覆盖当日快照）
-  router.post("/api/admin/quality-snapshot", async (_req, res) => {
-    try {
-      const metrics = await captureDataQualitySnapshot(dbPool);
+  router.post("/api/admin/quality-snapshot", asyncHandler(async (_req, res) => {
+      const metrics = await captureDataQualitySnapshot(ctx.dbPool);
       res.json({ success: true, metrics });
-    } catch (err: any) {
-      console.warn("[QualitySnapshot] 采集失败:", err.message);
-      res.status(500).json({ success: false, message: "质量快照采集失败" });
-    }
-  });
+  }));
 
   // 本地差异 #8：查询近 N 天快照（观测趋势用，默认 30 天）
-  router.get("/api/admin/quality-snapshot", async (req, res) => {
-    try {
+  router.get("/api/admin/quality-snapshot", asyncHandler(async (req, res) => {
       const days = Math.min(Math.max(parseInt(String(req.query.days), 10) || 30, 1), 365);
-      const [rows] = await dbPool.query(
-        `SELECT snapshot_date, total_notices, missing_value, missing_country, missing_deadline,
-                unlinked_unspsc, expired_but_active, dup_notice_cnt, created_at
-         FROM crm_data_quality_snapshot
-         ORDER BY snapshot_date DESC
-         LIMIT ?`,
-        [days]
-      );
-      res.json({ success: true, snapshots: rows });
-    } catch (err: any) {
-      console.warn("[QualitySnapshot] 查询失败:", err.message);
-      res.status(500).json({ success: false, message: "质量快照查询失败" });
-    }
-  });
+      const snapshots = await adminRepo.listQualitySnapshots(days);
+      res.json({ success: true, snapshots });
+  }));
 
   // 本地差异 #10：T-B3 金额缓存批量回填（手动触发，无定时器；每批 ≤2000 行短事务，可中断续跑）
-  router.post("/api/admin/backfill-amounts", async (req, res) => {
-    try {
+  router.post("/api/admin/backfill-amounts", asyncHandler(async (req, res) => {
       const batches = Math.min(Math.max(parseInt(String(req.query.batches), 10) || 5, 1), 30);
       let processed = 0;
       for (let i = 0; i < batches; i++) {
-        const result = await backfillNoticeAmountCache(dbPool);
+        const result = await backfillNoticeAmountCache(ctx.dbPool);
         processed += result.processed;
-        if (result.processed < 2000) break; // 不足一批说明已扫尾
+        if (result.processed < 2000) break;
       }
-      const [remainRows] = await dbPool.query(
-        `SELECT COUNT(*) AS remaining FROM crm_bid_notices n
-         LEFT JOIN crm_notice_amount_cache c ON c.notice_id = n.id AND c.parse_version = ?
-         WHERE c.notice_id IS NULL`,
-        [AMOUNT_PARSE_VERSION]
-      );
-      res.json({ success: true, processed, remaining: Number((remainRows as any[])[0]?.remaining || 0) });
-    } catch (err: any) {
-      console.warn("[AmountBackfill] 回填失败:", err.message);
-      res.status(500).json({ success: false, message: "金额缓存回填失败" });
-    }
-  });
+      const remaining = await adminRepo.countAmountBackfillRemaining(AMOUNT_PARSE_VERSION);
+      res.json({ success: true, processed, remaining });
+  }));
 
   // 本地差异 #12：T-E2 手动触发浏览量日汇总（懒计算之外的运维入口，无定时器）
-  router.post("/api/admin/rollup-views", async (req, res) => {
-    try {
+  router.post("/api/admin/rollup-views", asyncHandler(async (req, res) => {
       const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 0, 0), 365);
-      const result = await rollupNoticeViewDaily(dbPool, sinceDays);
-      // hotFallbackCache = null; // [热度兜底临时禁用 2026-07-30] 缓存已弃用
-      const [[stat]] = await dbPool.query(
-        `SELECT COUNT(*) AS rows_total, MAX(stat_day) AS latest_day FROM crm_notice_view_daily`
-      ) as any[];
-      res.json({ success: true, affected: result.affected, rows_total: Number(stat?.rows_total || 0), latest_day: stat?.latest_day || null });
-    } catch (err: any) {
-      console.warn("[ViewRollup] 汇总失败:", err.message);
-      res.status(500).json({ success: false, message: "浏览量汇总失败" });
-    }
-  });
+      const result = await rollupNoticeViewDaily(ctx.dbPool, sinceDays);
+      const stats = await adminRepo.getViewRollupStats();
+      res.json({ success: true, affected: result.affected, rows_total: stats.rows_total, latest_day: stats.latest_day });
+  }));
 
   // ── 本地差异 #15：T-B10 A/B 指标端点（B.5）──
   // 按 variant 聚合反馈流水四指标（只读，admin 手动查询，无定时器）：
   // ctr = click 用户次数 / impression 次数；unlock_rate = unlock / impression；
   // dismiss_rate（忽略率）= dismiss / impression；avg_unlock_position = unlock 平均位次。
   // variant 为 NULL 的历史行（T-B10 前埋点）归入 'control' 口径统计
-  router.get("/api/admin/reco-ab-metrics", async (req, res) => {
-    try {
+  router.get("/api/admin/reco-ab-metrics", asyncHandler(async (req, res) => {
       const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 30, 1), 365);
-      const [rows] = await dbPool.query(
-        `SELECT
-           COALESCE(variant, 'control') AS variant,
-           COUNT(DISTINCT user_key) AS users,
-           SUM(action = 'impression') AS impressions,
-           SUM(action = 'click') AS clicks,
-           SUM(action = 'unlock') AS unlocks,
-           SUM(action = 'dismiss') AS dismisses,
-           ROUND(SUM(action = 'click') / NULLIF(SUM(action = 'impression'), 0), 4) AS ctr,
-           ROUND(SUM(action = 'unlock') / NULLIF(SUM(action = 'impression'), 0), 4) AS unlock_rate,
-           ROUND(SUM(action = 'dismiss') / NULLIF(SUM(action = 'impression'), 0), 4) AS dismiss_rate,
-           ROUND(AVG(CASE WHEN action = 'unlock' THEN position END), 2) AS avg_unlock_position
-         FROM crm_user_reco_feedback
-         WHERE created_at >= NOW() - INTERVAL ? DAY
-         GROUP BY COALESCE(variant, 'control')
-         ORDER BY variant`,
-        [sinceDays]
-      );
+      const rows = await adminRepo.listRecoAbMetrics(sinceDays);
       res.json({
         since_days: sinceDays,
-        treatment_pct: AB_TREATMENT_PCT, // 当前放量（0 = 实验关闭全员 control）
+        treatment_pct: AB_TREATMENT_PCT,
         variants: rows,
       });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  }));
 
-  router.get("/api/procurement/schema-status", async (_req, res) => {
-    try {
+  router.get("/api/procurement/schema-status", asyncHandler(async (_req, res) => {
       const tables = [
         "crm_users",
         "ungm_1v1_appointments",
@@ -181,13 +125,7 @@ export function createAdminRouter(ctx: AppContext): Router {
         // 本地差异 #12：T-E2 浏览量日汇总 rollup 表
         "crm_notice_view_daily"
       ];
-      const [rows] = await dbPool.query(
-        `SELECT TABLE_NAME AS table_name
-         FROM INFORMATION_SCHEMA.TABLES
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (${tables.map(() => "?").join(",")})`,
-        tables
-      );
-      const existing = new Set((rows as any[]).map((row) => row.table_name));
+      const existing = await adminRepo.listExistingTables(tables);
       const requiredColumns: Record<string, string[]> = {
         crm_users: ["user_key", "email", "display_name", "password_hash", "membership_tier", "supplier_id", "supplier_link_status"],
         ungm_1v1_appointments: ["appointment_key", "company_name", "contact_person", "contact_method", "consultation_needs", "status", "extra", "raw_payload"],
@@ -213,25 +151,15 @@ export function createAdminRouter(ctx: AppContext): Router {
         // 本地差异 #12
         crm_notice_view_daily: ["notice_id", "stat_day", "view_cnt", "uniq_user_cnt"],
       };
-      const [columnRows] = await dbPool.query(
-        `SELECT TABLE_NAME AS table_name, COLUMN_NAME AS column_name
-         FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (${tables.map(() => "?").join(",")})`,
-        tables
-      );
-      const columnsByTable = new Map<string, Set<string>>();
-      for (const row of columnRows as any[]) {
-        if (!columnsByTable.has(row.table_name)) columnsByTable.set(row.table_name, new Set());
-        columnsByTable.get(row.table_name)?.add(row.column_name);
-      }
+      const columnsByTable = await adminRepo.listTableColumns(tables);
       const rowCounts: Record<string, number | null> = {};
       for (const table of tables) {
         if (!existing.has(table)) {
           rowCounts[table] = null;
           continue;
         }
-        const [countRows] = await dbPool.query(`SELECT COUNT(*) AS total FROM ${table}`);
-        rowCounts[table] = Number((countRows as any[])[0]?.total || 0);
+        const rowCount = await adminRepo.countTableRows(table);
+        rowCounts[table] = rowCount;
       }
       res.json({
         success: true,
@@ -247,10 +175,7 @@ export function createAdminRouter(ctx: AppContext): Router {
           };
         }),
       });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  }));
 
   return router;
 }

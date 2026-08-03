@@ -8,4 +8,5 @@
  */
 
 export { api, apiCached, clearApiCache, ApiError } from "./api-client";
+export { buildQuery } from "./buildQuery";
 export { useFetch } from "./useFetch";

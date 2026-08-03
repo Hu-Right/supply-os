@@ -14,11 +14,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { onAppEvent } from "@/core/events";
 import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
-import {
-  fetchUnspscIndustries,
-  fetchUnspscChildren,
-  fetchRecommendedNotices,
-} from "../api";
+import { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
+import { fetchRecommendedNotices } from "../api";
 import { PAGE_SIZE } from "./useNoticeSearch";
 
 export interface UseIndustryPrefsOptions {

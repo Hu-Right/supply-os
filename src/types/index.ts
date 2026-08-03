@@ -23,7 +23,7 @@ export type {
   PlatformEnv,
   PaymentOrderPlan,
   CreateOrderRequest,
-  CreateOrderResult,
+  OrderInfo,
   OrderStatusResult,
   PaymentNotifyResult,
   PaymentProviderConfig,

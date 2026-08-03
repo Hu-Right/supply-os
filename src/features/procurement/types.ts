@@ -6,16 +6,8 @@ export type { NoticeItem, NoticeContact, NoticeAttachment, NoticeResponse } from
 // 会员类型同样以 `@/types` 为单一事实源
 export type { MembershipPlan, MembershipStatus } from "@/types";
 
-export interface UnspscOption {
-  id: number;
-  code: string;
-  title_zh?: string;
-  title_en?: string;
-  /** 界面语言译文（fr/ru/es/ar 请求时后端 JOIN 缓存附带；缺译为 null） */
-  title_i18n?: string | null;
-  title?: string;
-  name?: string;
-}
+// UNSPSC 类型以 @/core/unspsc 为单一事实源，此处 re-export 供 feature 内部复用
+export type { UnspscOption } from "@/core/unspsc";
 
 /**
  * 进入公采页的初始化状态机（本地差异 #5）：

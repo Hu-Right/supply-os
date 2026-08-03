@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { type UnspscCodeRow, normalizeUnspscCodes, getUnspscPath } from "./unspsc";
 
 export async function syncUnspscBridge(dbPool: any, source: "opportunity" | "notice") {
@@ -15,7 +16,7 @@ export async function syncUnspscBridge(dbPool: any, source: "opportunity" | "not
     `SELECT id, notice_id, unspsc_codes FROM ${sourceTable} WHERE unspsc_codes IS NOT NULL ORDER BY id DESC LIMIT 500`
   );
 
-  for (const row of rows as any[]) {
+  for (const row of rows as RowDataPacket[]) {
     await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
   }
 }
@@ -23,7 +24,7 @@ export async function syncUnspscBridge(dbPool: any, source: "opportunity" | "not
 /**
  * 单行写入 bridge 表的公共逻辑，供快速同步和全量回填复用
  */
-async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string, row: any) {
+async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string, row: RowDataPacket) {
   const codes = normalizeUnspscCodes(row.unspsc_codes);
   for (const item of codes) {
     const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
@@ -85,9 +86,9 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
        LIMIT ${BATCH}`
     );
 
-    if ((rows as any[]).length === 0) break;
+    if ((rows as RowDataPacket[]).length === 0) break;
 
-    for (const row of rows as any[]) {
+    for (const row of rows as RowDataPacket[]) {
       try {
         await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
         processed++;
@@ -98,7 +99,7 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
       }
     }
 
-    offset += (rows as any[]).length;
+    offset += (rows as RowDataPacket[]).length;
     console.log(`[BridgeSync] ${source} 进度: 已处理 ${processed} 条，跳过 ${skipped} 条`);
 
     // 每批次短暂让出事件循环，避免长时间占用连接池
@@ -141,15 +142,15 @@ export async function captureDataQualitySnapshot(dbPool: any) {
      FROM crm_bid_notices d
      WHERE d.notice_id IS NOT NULL AND TRIM(d.notice_id) <> ''`
   );
-  const base = (baseRows as any[])[0] || {};
+  const base = (baseRows as RowDataPacket[])[0] || ({} as RowDataPacket);
   const metrics = {
     total_notices: Number(base.total_notices || 0),
     missing_value: Number(base.missing_value || 0),
     missing_country: Number(base.missing_country || 0),
     missing_deadline: Number(base.missing_deadline || 0),
-    unlinked_unspsc: Number((unlinkedRows as any[])[0]?.unlinked_unspsc || 0),
+    unlinked_unspsc: Number((unlinkedRows as RowDataPacket[])[0]?.unlinked_unspsc || 0),
     expired_but_active: Number(base.expired_but_active || 0),
-    dup_notice_cnt: Number((dupRows as any[])[0]?.dup_notice_cnt || 0),
+    dup_notice_cnt: Number((dupRows as RowDataPacket[])[0]?.dup_notice_cnt || 0),
   };
   await dbPool.execute(
     `INSERT INTO crm_data_quality_snapshot

@@ -6,32 +6,23 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { Lead } from "../../src/types";
 import { mapUngmAppointmentRow, insertUngmAppointment } from "../services/leads";
+import { asyncHandler } from "../middleware/errorHandler";
 
 export function createLeadsRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool, leadsDb } = ctx;
+  const { leadsDb } = ctx;
+  const leadsRepo = ctx.leadsRepo;
 
   // 1. GET ALL LEADS
-  router.get("/api/leads", async (_req, res) => {
-    try {
-      const [appointmentRows] = await dbPool.query(
-        `SELECT appointment_key, company_name, country, city, contact_person, contact_method, email, industry,
-                consultation_needs, status, follow_up_logs, created_at
-         FROM ungm_1v1_appointments
-         ORDER BY created_at DESC, id DESC
-         LIMIT 200`
-      );
-      const appointments = (appointmentRows as any[]).map(mapUngmAppointmentRow);
-      const persistedIds = new Set(appointments.map((lead) => lead.id));
-      res.json([...appointments, ...leadsDb.filter((lead) => !persistedIds.has(lead.id))]);
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
+  router.get("/api/leads", asyncHandler(async (_req, res) => {
+      const appointments = await leadsRepo.listAppointments();
+      const mapped = appointments.map(mapUngmAppointmentRow);
+      const persistedIds = new Set(mapped.map((lead) => lead.id));
+      res.json([...mapped, ...leadsDb.filter((lead) => !persistedIds.has(lead.id))]);
+  }));
 
   // 2. CREATE NEW LEAD (Automatically synchronized with CRM intake)
-  router.post("/api/leads", async (req, res) => {
-    try {
+  router.post("/api/leads", asyncHandler(async (req, res) => {
       const {
         companyName,
         country,
@@ -75,14 +66,11 @@ export function createLeadsRouter(ctx: AppContext): Router {
       };
 
       if (newLead.type === "consulting_advisor") {
-        await insertUngmAppointment(dbPool, newLead, req.body, req.ip || req.socket?.remoteAddress || "");
+        await insertUngmAppointment(ctx.dbPool, newLead, req.body, req.ip || req.socket?.remoteAddress || "");
       }
       leadsDb.unshift(newLead);
       return res.status(201).json(newLead);
-    } catch (err: any) {
-      return res.status(500).json({ error: err.message });
-    }
-  });
+  }));
 
   // 3. EDIT LEAD STATUS OR ADD ACTIONS Tracker LOG
   router.post("/api/leads/log", async (req, res) => {
@@ -94,15 +82,8 @@ export function createLeadsRouter(ctx: AppContext): Router {
     const lead = leadsDb.find((l) => l.id === leadId);
     let persistedLead: Lead | null = null;
     if (!lead) {
-      const [appointmentRows] = await dbPool.query(
-        `SELECT appointment_key, company_name, country, city, contact_person, contact_method, email, industry,
-                consultation_needs, status, follow_up_logs, created_at
-         FROM ungm_1v1_appointments
-         WHERE appointment_key = ?
-         LIMIT 1`,
-        [leadId]
-      );
-      persistedLead = (appointmentRows as any[])[0] ? mapUngmAppointmentRow((appointmentRows as any[])[0]) : null;
+      const row = await leadsRepo.findByKey(leadId);
+      persistedLead = row ? mapUngmAppointmentRow(row) : null;
       if (!persistedLead) {
         return res.status(404).json({ error: "Lead not found" });
       }
@@ -124,10 +105,7 @@ export function createLeadsRouter(ctx: AppContext): Router {
     }
 
     if (targetLead.type === "consulting_advisor") {
-      await dbPool.execute(
-        "UPDATE ungm_1v1_appointments SET follow_up_logs = ?, status = ?, updated_at = NOW() WHERE appointment_key = ?",
-        [JSON.stringify(targetLead.followUpLogs), targetLead.status, leadId]
-      );
+      await leadsRepo.updateFollowUpLogs(leadId, JSON.stringify(targetLead.followUpLogs), targetLead.status);
     }
 
     return res.json(targetLead);

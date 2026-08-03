@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import { createPaymentRouter } from "../../../server/routes/payment.routes";
+import { errorHandler } from "../../../server/middleware/errorHandler";
 
 vi.mock("../../../server/services/notice-translation", () => ({
   NOTICE_TRANSLATION_LANGS: { zh: true, en: true },
@@ -47,6 +48,7 @@ function buildApp(ctx: any) {
   const app = express();
   app.use(express.json());
   app.use(createPaymentRouter(ctx as any));
+  app.use(errorHandler);
   return app;
 }
 

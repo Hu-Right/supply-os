@@ -33,7 +33,9 @@ export function errorHandler(
     console.error("[errorHandler]", err);
   }
 
-  res.status(status).json({ error: message });
+  // 生产环境 500 错误不暴露内部细节（数据库结构、文件路径等）
+  const isProduction = process.env.NODE_ENV === "production";
+  res.status(status).json({ error: status >= 500 && isProduction ? "INTERNAL_ERROR" : message });
 }
 
 /** 404 兜底：仅拦截 /api/* 未匹配请求，非 API 路径放行给 SPA fallback */

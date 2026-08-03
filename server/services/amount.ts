@@ -2,6 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { RowDataPacket } from "mysql2/promise";
 // ── 本地差异 #10：T-B3 金额解析（D.3.2 四步规则：垃圾过滤 → 币种识别 → 数字提取/区间取中位 → country 推断）──
 // estimated_value 实测形态（2026-07-29 只读探针）：notices 侧 56% 纯数字 + 43% "BRL 173,841.36" 式；
 // opportunities 侧含"未提及/Not specified"类垃圾文本、"6666.67 php" 小写后缀、"菲律宾比索"中文名、区间。
@@ -128,7 +129,7 @@ export async function backfillNoticeAmountCache(dbPool: any, noticeIds?: number[
      LIMIT ?`,
     [AMOUNT_PARSE_VERSION, ...(noticeIds || []), batchLimit]
   );
-  const pending = rows as any[];
+  const pending = rows as RowDataPacket[];
   if (!pending.length) return { processed: 0 };
   const values: any[] = [];
   for (const row of pending) {
@@ -167,6 +168,6 @@ export async function rollupNoticeViewDaily(dbPool: any, sinceDays = 0): Promise
      ON DUPLICATE KEY UPDATE view_cnt = VALUES(view_cnt), uniq_user_cnt = VALUES(uniq_user_cnt)`,
     params
   );
-  return { affected: Number((result as any)?.affectedRows || 0) };
+  return { affected: Number((result as RowDataPacket)?.affectedRows || 0) };
 }
 

@@ -14,6 +14,7 @@ import { OPPORTUNITIES } from "@/data";
 import { fetchSuppliers } from "@/features/supplier";
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
+import { onAppEvent } from "@/core/events";
 
 export type UseCrmDataOptions = {
   /** 跨页跳转带入的供应商：选中并自动触发一次 AI 撮合（对齐原版供应商卡"AI 撮合商机"） */
@@ -100,11 +101,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
 
   // 展厅/供应商入驻成功后刷新线索池（对齐原版提交成功即 fetchData 的行为）
   useEffect(() => {
-    const onCrmRefresh = () => {
-      fetchData();
-    };
-    window.addEventListener("supply-os:crm-refresh", onCrmRefresh);
-    return () => window.removeEventListener("supply-os:crm-refresh", onCrmRefresh);
+    return onAppEvent("supply-os:crm-refresh", () => fetchData());
   }, []);
 
   // Trigger AI matching (delegates to useAiMatch)

@@ -7,7 +7,7 @@
  *
  * @module repos/membership.repo
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, SubscriptionRow, EntitlementRow, CountRow } from "./types";
 
 export class MembershipRepo {
@@ -84,6 +84,15 @@ export class MembershipRepo {
       [userKey],
     );
     return Number((rows as CountRow[])[0]?.total || 0);
+  }
+
+  /** 查询用户是否有有效订阅（布尔值） */
+  async hasActiveSubscription(userKey: string): Promise<boolean> {
+    const [rows] = await this.pool.query(
+      "SELECT 1 FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
+      [userKey],
+    );
+    return (rows as RowDataPacket[]).length > 0;
   }
 
   /** 查询用户有效权益（有剩余配额且未过期） */

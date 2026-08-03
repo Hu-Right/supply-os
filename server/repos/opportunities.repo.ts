@@ -7,7 +7,7 @@
  *
  * @module repos/opportunities.repo
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnspscCodeRow } from "../services/unspsc";
 
 /** 商机列表行（未过期，最多 80 条） */
@@ -99,23 +99,23 @@ export class OpportunitiesRepo {
   async findTranslationCache(
     opportunityId: number,
     lang: string,
-  ): Promise<{ title_tr: string | null; description_tr: string | null } | null> {
+  ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT title_tr, description_tr FROM crm_opportunity_translations WHERE opportunity_id = ? AND lang = ? LIMIT 1",
       [opportunityId, lang],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 商机标题与描述（翻译源） */
   async findTextById(
     opportunityId: number,
-  ): Promise<{ title: string | null; description: string | null } | null> {
+  ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT title, description FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
       [opportunityId],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 商机译文缓存 upsert */
@@ -155,21 +155,30 @@ export class OpportunitiesRepo {
   async findExistingUnlock(
     userKey: string,
     opportunityId: number,
-  ): Promise<{ id: number; unlock_type: string } | null> {
+  ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT id, unlock_type FROM crm_opportunity_unlocks WHERE user_key = ? AND opportunity_id = ? LIMIT 1",
       [userKey, opportunityId],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
+
+  /** 按 id 查商机完整字段（报告生成用） */
+  async findFullById(opportunityId: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+      [opportunityId],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 按 id 查商机（解锁时取 UNSPSC 快照） */
-  async findById(opportunityId: number): Promise<{ id: number; unspsc_codes: string | null } | null> {
+  async findById(opportunityId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT id, unspsc_codes FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
       [opportunityId],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 写入解锁流水 */

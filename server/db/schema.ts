@@ -2,6 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import type { RowDataPacket } from "mysql2/promise";
+
 export async function ensureColumn(dbPool: any, table: string, column: string, ddl: string) {
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
@@ -9,7 +11,7 @@ export async function ensureColumn(dbPool: any, table: string, column: string, d
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
     [table, column]
   );
-  if (Number((rows as any[])[0]?.total || 0) === 0) {
+  if (Number((rows as RowDataPacket[])[0]?.total || 0) === 0) {
     await dbPool.query(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
   }
 }
@@ -22,7 +24,7 @@ export async function ensureColumnType(dbPool: any, table: string, column: strin
      LIMIT 1`,
     [table, column]
   );
-  if ((rows as any[]).length > 0) {
+  if ((rows as RowDataPacket[]).length > 0) {
     await dbPool.query(`ALTER TABLE ${table} MODIFY COLUMN ${ddl}`);
   }
 }
@@ -34,7 +36,7 @@ export async function ensureIndex(dbPool: any, table: string, indexName: string,
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
     [table, indexName]
   );
-  if (Number((rows as any[])[0]?.total || 0) === 0) {
+  if (Number((rows as RowDataPacket[])[0]?.total || 0) === 0) {
     await dbPool.query(ddl);
   }
 }
@@ -46,7 +48,7 @@ export async function ensureIndexIfTableExists(dbPool: any, table: string, index
      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
     [table]
   );
-  if (Number((tableRows as any[])[0]?.total || 0) === 0) return;
+  if (Number((tableRows as RowDataPacket[])[0]?.total || 0) === 0) return;
   await ensureIndex(dbPool, table, indexName, ddl);
 }
 

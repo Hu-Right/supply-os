@@ -1,6 +1,7 @@
+import type { RowDataPacket } from "mysql2/promise";
 import type {
   CreateOrderRequest,
-  CreateOrderResult,
+  OrderInfo,
   OrderStatusResult,
   PaymentProviderName,
 } from "../../src/types/payment";
@@ -22,7 +23,7 @@ export class PaymentService {
     return strategy;
   }
 
-  async createOrder(dbPool: any, request: CreateOrderRequest): Promise<CreateOrderResult> {
+  async createOrder(dbPool: any, request: CreateOrderRequest): Promise<OrderInfo> {
     const userKey = String(request.user_key || "").trim().toLowerCase().slice(0, 190);
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
@@ -37,7 +38,7 @@ export class PaymentService {
        LIMIT 1`,
       [planCode],
     );
-    const plan = (planRows as any[])[0];
+    const plan = (planRows as RowDataPacket[])[0];
     if (!plan) throw new Error("PLAN_NOT_FOUND");
     if (plan.plan_type === "single" && !noticeId) throw new Error("NOTICE_ID_REQUIRED");
 
@@ -56,7 +57,7 @@ export class PaymentService {
        LIMIT 1`,
       [userKey, planCode, provider, noticeId],
     );
-    const existingOrder = (existingRows as any[])[0];
+    const existingOrder = (existingRows as RowDataPacket[])[0];
 
     const strategy = this.getStrategy(provider);
     const orderNo = existingOrder?.order_no || this.makeOrderNo();
@@ -124,7 +125,7 @@ export class PaymentService {
       "SELECT order_no, provider, plan_code, amount, currency, status, notice_id, provider_trade_no, paid_at FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
       [orderNo],
     );
-    const dbOrder = (rows as any[])[0];
+    const dbOrder = (rows as RowDataPacket[])[0];
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
 
     if (dbOrder.status === "pending" && dbOrder.provider) {
@@ -203,14 +204,14 @@ export class PaymentService {
       "SELECT user_key, plan_code, notice_id, amount FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
       [orderNo],
     );
-    const order = (orderRows as any[])[0];
+    const order = (orderRows as RowDataPacket[])[0];
     if (!order) return;
 
     const [planRows] = await dbPool.query(
       "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
       [order.plan_code],
     );
-    const plan = (planRows as any[])[0];
+    const plan = (planRows as RowDataPacket[])[0];
     if (!plan) return;
 
     if (plan.plan_type === "single") {
@@ -222,7 +223,7 @@ export class PaymentService {
       "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
       [orderNo],
     );
-    if ((existingEntitlements as any[]).length > 0) return;
+    if ((existingEntitlements as RowDataPacket[]).length > 0) return;
 
     if (plan.plan_type !== "single") {
       await dbPool.execute(
@@ -255,13 +256,13 @@ export class PaymentService {
       "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
       [order.user_key, order.notice_id],
     );
-    if ((existingUnlockRows as any[]).length > 0) return;
+    if ((existingUnlockRows as RowDataPacket[]).length > 0) return;
 
     const [noticeRows] = await dbPool.query(
       "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
       [order.notice_id],
     );
-    const notice = (noticeRows as any[])[0];
+    const notice = (noticeRows as RowDataPacket[])[0];
     if (!notice) return;
 
     await dbPool.execute(

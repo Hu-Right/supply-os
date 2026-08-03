@@ -13,6 +13,7 @@ import { useLocale } from "@/core/i18n";
 import { VipCard } from "../components/VipCard";
 import { EmailSubscription } from "../components/EmailSubscription";
 import { fetchPlans } from "../api";
+import { emitAppEvent } from "@/core/events";
 
 /** 会员升级套餐编码（对应 crm_membership_plans） */
 const UPGRADE_PLAN_CODE = "annual_8800";
@@ -50,11 +51,11 @@ export default function MembershipPage() {
 
   const handleUpgradeClick = () => {
     if (!authUser) {
-      window.dispatchEvent(new CustomEvent("supply-os:require-login"));
+      emitAppEvent("supply-os:require-login");
       return;
     }
     // 已登录但非 VIP → 触发支付（价格以数据库校准结果为准）
-    window.dispatchEvent(new CustomEvent("supply-os:pay", { detail: payPlan }));
+    emitAppEvent("supply-os:pay", payPlan);
   };
 
   const handleSendEmail = (_email: string) => {

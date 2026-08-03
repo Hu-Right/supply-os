@@ -7,7 +7,7 @@
  *
  * @module repos/suppliers.repo
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 /** 供应商目录行（supplier 表） */
 export interface SupplierDirectoryRow {
@@ -35,6 +35,15 @@ export interface SupplierTranslationRow {
 
 export class SuppliersRepo {
   constructor(private pool: Pool) {}
+
+  /** 查供应商基本信息（auth 路由用） */
+  async findBasicInfo(id: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      "SELECT id, industry_id, industry FROM crm_suppliers WHERE id = ? LIMIT 1",
+      [id],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
 
   /** 供应商目录（排除测试数据，最新 500 家） */
   async listDirectory(): Promise<SupplierDirectoryRow[]> {
@@ -77,21 +86,21 @@ export class SuppliersRepo {
   }
 
   /** 供应商明文联系方式（VIP 端点） */
-  async findContact(supplierId: number): Promise<{ contact: string | null; phone: string | null; email: string | null } | null> {
+  async findContact(supplierId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT contact, phone, email FROM supplier WHERE id = ? LIMIT 1",
       [supplierId],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 按请求哈希查注册记录（防重） */
-  async findCrmByRequestHash(requestHash: string): Promise<any | null> {
+  async findCrmByRequestHash(requestHash: string): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       "SELECT * FROM crm_suppliers WHERE request_hash = ? LIMIT 1",
       [requestHash],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 新建注册记录，返回自增 id */
@@ -114,7 +123,7 @@ export class SuppliersRepo {
         data.mainProduct, data.industry, data.certification, data.requestHash,
       ],
     );
-    return Number((insertResult as any).insertId);
+    return Number((insertResult as RowDataPacket).insertId);
   }
 
   /** 按 id 查注册记录全字段 */
@@ -123,7 +132,7 @@ export class SuppliersRepo {
       "SELECT * FROM crm_suppliers WHERE id = ? LIMIT 1",
       [id],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /** 按公司名查注册记录 id（认领关联，取最新一条） */
@@ -132,7 +141,7 @@ export class SuppliersRepo {
       "SELECT id FROM crm_suppliers WHERE company_name = ? ORDER BY id DESC LIMIT 1",
       [companyName],
     );
-    const row = (rows as any[])[0];
+    const row = (rows as RowDataPacket[])[0];
     return row ? Number(row.id) : null;
   }
 
@@ -156,6 +165,6 @@ export class SuppliersRepo {
         params.contactName, params.contactPhone, params.contactEmail, params.businessLicenseNo,
       ],
     );
-    return Number((result as any).insertId);
+    return Number((result as RowDataPacket).insertId);
   }
 }

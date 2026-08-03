@@ -85,8 +85,8 @@ function restoreTerms(text: string, tokens: string[]): string {
 const DEEPSEEK_TIMEOUT_MS = 30_000; // flash 模型无思考模式，响应更快，30s 足矣
 
 // 通道1：DeepSeek V4-Flash（OpenAI 兼容 /chat/completions，flash 快速模型）
-// 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 通道插在有道之后：
-// 有道对结构化短句快而稳，DeepSeek Flash 对长描述/上下文语义更准，担任中间层。
+// 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 中间层：
+// DeepSeek Flash 对长描述/上下文语义更准，担任翻译链第一层。
 // flash 模型不支持 thinking/reasoning_effort 参数，译文直接取 content。
 // 占位符沿用链上统一的 ⟦Tn⟧，由 prompt 明确要求原样保留，返回后经 restoreTerms 回填。
 // 合并请求模式：标题+正文等多段以 JSON 数组一次进出——一次思考翻完全部字段，
@@ -148,7 +148,7 @@ ${JSON.stringify(texts)}`;
 }
 
 // ── Gemini 3.5-Flash 兜底层 ──────────────────────────────────────────
-// 作为第三层兜底，仅在有道 + DeepSeek 均失败时触发。
+// 作为第二层兜底，仅在 DeepSeek 失败时触发。
 // 使用 @google/genai SDK，模型 gemini-3.5-flash。
 const GEMINI_TIMEOUT_MS = 60_000;
 
@@ -205,10 +205,9 @@ ${JSON.stringify(texts)}`;
 }
 
 // 通道链入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
-// 统一走有道→DeepSeek→Gemini 三层。有道 llm-trans 官方支持 40 语种（已全部纳入 YOUDAO_CODES 映射），
-// 且官方支持 from=auto：本地检测不确定的源语言标 "auto"，由有道服务端自行检测方向；
-// DeepSeek 通道对未知源语言省略语言名（LLM 自行识别）；Gemini 作为最终兜底。
-// 三通道均失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
+// 统一走 DeepSeek→Gemini 两层。DeepSeek 通道对未知源语言省略语言名（LLM 自行识别）；
+// Gemini 作为最终兜底。
+// 两通道均失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
 export type ChainSourceLang =
   | "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it"
   | "nl" | "pl" | "ro" | "sv" | "da" | "fi" | "no" | "hu" | "tr" | "et"
@@ -254,7 +253,7 @@ export async function translateViaChain(
     degraded.push(`deepseek-v4-flash:${err?.message}`);
     console.warn(`[translate] deepseek -> next: ${err?.message}`);
   }
-  // 通道3：Gemini 2.5-Flash 兜底
+  // 通道2：Gemini 3.5-Flash 兜底
   try {
     const masks = jobs.map((job) => protectTerms(job.text));
     const outputs = await translateViaGemini(
@@ -276,6 +275,6 @@ export async function translateViaChain(
     degraded.push(`gemini-3.5-flash:${err?.message}`);
     console.warn(`[translate] gemini -> unavailable: ${err?.message}`);
   }
-  // 三通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
+  // 两通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
   throw new Error("TRANSLATION_UNAVAILABLE");
 }
