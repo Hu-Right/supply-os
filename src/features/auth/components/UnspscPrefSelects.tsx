@@ -10,6 +10,7 @@
  */
 import { useLocale } from "@/core/i18n";
 import { getUnspscOptionLabel, type UnspscOption } from "@/core/unspsc";
+import { Select } from "@/shared/ui";
 
 export interface UnspscPrefSelectsProps {
   industryOptions: UnspscOption[];
@@ -38,11 +39,11 @@ export function UnspscPrefSelects({
   const { t, locale } = useLocale();
   return (
     <>
-      <select
+      <Select
         aria-label={t("authIndustryPrefSelect")}
         value={prefLevel1}
         onChange={(e) => onLevel1Change(e.target.value)}
-        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="bg-white"
       >
         <option value="">{t("authIndustryPrefSelect")}</option>
         {industryOptions.map((item) => (
@@ -50,13 +51,13 @@ export function UnspscPrefSelects({
             {getUnspscOptionLabel(item, locale)}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label={t("authIndustryPrefSub")}
         value={prefLevel2}
         onChange={(e) => onLevel2Change(e.target.value)}
         disabled={!prefLevel1}
-        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="bg-white"
       >
         <option value="">{t("authIndustryPrefSub")}</option>
         {subOptions.map((item) => (
@@ -64,13 +65,13 @@ export function UnspscPrefSelects({
             {getUnspscOptionLabel(item, locale)}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label={t("authIndustryPrefSub3")}
         value={prefLevel3}
         onChange={(e) => onLevel3Change(e.target.value)}
         disabled={!prefLevel2}
-        className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-teal-500"
+        className="bg-white"
       >
         <option value="">{t("authIndustryPrefSub3")}</option>
         {subOptions2.map((item) => (
@@ -78,7 +79,7 @@ export function UnspscPrefSelects({
             {getUnspscOptionLabel(item, locale)}
           </option>
         ))}
-      </select>
+      </Select>
     </>
   );
 }

@@ -11,6 +11,7 @@ import { useState } from "react";
 import { CheckCircle2, FileText, X } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useScrollLock } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
 
@@ -131,12 +132,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <label className="mb-1 block text-xs font-extrabold text-slate-700">
                   {t("companyName")} *
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder={t("showroomCompanyPlaceholder")}
                   value={form.companyName}
                   onChange={(e) => handleChange("companyName", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                  className="text-xs"
                   required
                 />
               </div>
@@ -144,12 +145,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <label className="mb-1 block text-xs font-extrabold text-slate-700">
                   {t("contactPerson")} *
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder={t("showroomContactPlaceholder")}
                   value={form.contactPerson}
                   onChange={(e) => handleChange("contactPerson", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                  className="text-xs"
                   required
                 />
               </div>
@@ -157,12 +158,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <label className="mb-1 block text-xs font-extrabold text-slate-700">
                   {t("formContactMethod")}
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder={t("showroomPhonePlaceholder")}
                   value={form.contactMethod}
                   onChange={(e) => handleChange("contactMethod", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                  className="text-xs"
                   required
                 />
               </div>
@@ -170,12 +171,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <label className="mb-1 block text-xs font-extrabold text-slate-700">
                   {t("contactEmail")}
                 </label>
-                <input
+                <Input
                   type="email"
                   placeholder="e.g., manager@corp.com"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                  className="text-xs"
                 />
               </div>
               <div>
@@ -183,22 +184,22 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                   {t("location")} *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <select
+                  <Select
                     value={form.country}
                     onChange={(e) => handleChange("country", e.target.value)}
-                    className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs"
+                    className="px-2 py-1.5"
                   >
                     <option value="China">中国 (China)</option>
                     <option value="Germany">德国 (Germany)</option>
                     <option value="UAE">阿联酋 (UAE)</option>
                     <option value="Kenya">肯尼亚 (Kenya)</option>
-                  </select>
-                  <input
+                  </Select>
+                  <Input
                     type="text"
                     placeholder={t("showroomCityPlaceholder")}
                     value={form.city}
                     onChange={(e) => handleChange("city", e.target.value)}
-                    className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs"
+                    className="px-2 py-1.5 text-xs"
                   />
                 </div>
               </div>
@@ -206,16 +207,16 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                 <label className="mb-1 block text-xs font-extrabold text-slate-700">
                   主营行业 *
                 </label>
-                <select
+                <Select
                   value={form.industry}
                   onChange={(e) => handleChange("industry", e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+                  className="text-xs"
                 >
                   <option value="机械 (Machinery)">机械 (Machinery)</option>
                   <option value="医疗 (Medical)">医疗 (Medical)</option>
                   <option value="电子 (Electronics)">电子 (Electronics)</option>
                   <option value="建材 (Construction)">建材 (Construction)</option>
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -223,12 +224,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
               <label className="mb-1 block text-xs font-extrabold text-slate-700">
                 {t("formMainProductsGroup")}
               </label>
-              <input
+              <Input
                 type="text"
                 value={form.mainProducts}
                 onChange={(e) => handleChange("mainProducts", e.target.value)}
                 placeholder={t("mainProductsPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                className="text-xs"
                 required
               />
             </div>

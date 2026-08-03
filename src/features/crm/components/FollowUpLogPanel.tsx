@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { Lead } from "@/types";
+import { Select } from "@/shared/ui";
 
 type FollowUpLogPanelProps = {
   lead: Lead;
@@ -89,17 +90,17 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
         </div>
 
         <div className="flex gap-2 items-center">
-          <select
+          <Select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="px-2 py-1 bg-white border border-slate-200 rounded text-xs"
+            className="px-2 py-1"
           >
             <option value="">{labels.leadPhase}</option>
             <option value="new">🆕 new (未联系)</option>
             <option value="contacted">📞 contacted (已对接)</option>
             <option value="qualified">✅ qualified (高意向)</option>
             <option value="lost">❌ lost (已流失)</option>
-          </select>
+          </Select>
 
           <button
             type="submit"

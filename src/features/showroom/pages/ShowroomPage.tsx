@@ -12,6 +12,7 @@ import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
+import { Input, Select } from "@/shared/ui";
 import { ShowroomCard } from "../components/ShowroomCard";
 import { RegisterForm } from "../components/RegisterForm";
 
@@ -91,12 +92,12 @@ export default function ShowroomPage() {
       <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs md:flex-row">
         <div className="relative w-full md:w-1/3">
           <Search className="absolute start-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
-          <input
+          <Input
             type="text"
             placeholder={t("searchPlaceholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 py-2 ps-10 pe-4 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+            leftIcon={<Search className="h-4 w-4 text-slate-400" />}
           />
         </div>
 
@@ -106,13 +107,13 @@ export default function ShowroomPage() {
             <span>{t("regionFilter")}:</span>
           </div>
 
-          <select
+          <Select
             value={selectedRegion}
             onChange={(e) => {
               setSelectedRegion(e.target.value);
               setSelectedCountry("");
             }}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700"
+            className="px-3 py-1.5 text-xs"
           >
             <option value="">{t("allRegions")}</option>
             {availableRegions.map((r) => (
@@ -120,12 +121,12 @@ export default function ShowroomPage() {
                 {r}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <select
+          <Select
             value={selectedCountry}
             onChange={(e) => setSelectedCountry(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700"
+            className="px-3 py-1.5 text-xs"
             disabled={!selectedRegion}
           >
             <option value="">{t("allCountries")}</option>
@@ -134,7 +135,7 @@ export default function ShowroomPage() {
                 {c}
               </option>
             ))}
-          </select>
+          </Select>
 
           {(selectedRegion || selectedCountry || searchTerm) && (
             <button

@@ -15,6 +15,7 @@ import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { saveIndustryPrefs } from "@/core/api/industry-prefs";
+import { Input, Select } from "@/shared/ui";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 
@@ -151,16 +152,16 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input
+            <Input
               type="text"
               value={authForm.displayName}
               onChange={(e) =>
                 setAuthForm({ ...authForm, displayName: e.target.value })
               }
               placeholder={t("authContactNamePlaceholder")}
-              className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="bg-white"
             />
-            <select
+            <Select
               value={claimForm.supplierType}
               onChange={(e) =>
                 setClaimForm({
@@ -168,12 +169,12 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                   supplierType: e.target.value,
                 })
               }
-              className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="bg-white"
             >
               <option value="domestic">{t("authSupplierDomestic")}</option>
               <option value="international">{t("authSupplierInternational")}</option>
-            </select>
-            <input
+            </Select>
+            <Input
               type="text"
               value={claimForm.companyName}
               onChange={(e) =>
@@ -183,9 +184,9 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                 })
               }
               placeholder={t("authCompanyPlaceholder")}
-              className="sm:col-span-2 px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="sm:col-span-2 bg-white"
             />
-            <input
+            <Input
               type="text"
               value={claimForm.contactPhone}
               onChange={(e) =>
@@ -195,9 +196,9 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                 })
               }
               placeholder={t("authPhonePlaceholder")}
-              className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="bg-white"
             />
-            <input
+            <Input
               type="text"
               value={claimForm.businessLicenseNo}
               onChange={(e) =>
@@ -207,7 +208,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                 })
               }
               placeholder={t("authLicensePlaceholder")}
-              className="px-3 py-2.5 text-sm bg-white rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="bg-white"
             />
           </div>
           {/* 主营行业选取（前两级必选，注册成功后作为公采页默认筛选偏好） */}
@@ -238,23 +239,21 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
 
       {/* Email + Password */}
       <div className="space-y-3">
-        <input
+        <Input
           type="email"
           value={authForm.email}
           onChange={(e) =>
             setAuthForm({ ...authForm, email: e.target.value })
           }
           placeholder={t("authEmailPlaceholder")}
-          className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
         />
-        <input
+        <Input
           type="password"
           value={authForm.password}
           onChange={(e) =>
             setAuthForm({ ...authForm, password: e.target.value })
           }
           placeholder={t("authPasswordPlaceholder")}
-          className="w-full px-3 py-2.5 text-sm bg-slate-50 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-teal-500"
           minLength={6}
         />
       </div>

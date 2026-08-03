@@ -17,6 +17,7 @@ import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
 import { Pagination } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import { fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 
 // 与公采页保持一致的每页条数（3 列网格 × 3 行）
@@ -149,7 +150,7 @@ export default function SupplierPage() {
         {/* md:max-w-xl 取代 md:w-auto：容器宽度受限三列等分，
             不再被 UNSPSC 长 placeholder 的固有宽度撑开 */}
         <div className="grid w-full grid-cols-2 gap-2 md:max-w-xl md:grid-cols-3">
-          <input
+          <Input
             type="text"
             placeholder={t("searchSupplierPlaceholder")}
             value={searchTerm}
@@ -157,16 +158,16 @@ export default function SupplierPage() {
               setSearchTerm(e.target.value);
               setPage(1);
             }}
-            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            className="min-w-0 px-3 py-1.5 text-xs"
           />
 
-          <select
+          <Select
             value={supplierIndustry}
             onChange={(e) => {
               setSupplierIndustry(e.target.value);
               setPage(1);
             }}
-            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
+            className="min-w-0 px-3 py-1.5 text-xs"
           >
             <option value="">{t("allIndustries")}</option>
             {availableSupplierIndustries.map((ind) => (
@@ -174,9 +175,9 @@ export default function SupplierPage() {
                 {ind}
               </option>
             ))}
-          </select>
+          </Select>
 
-          <input
+          <Input
             type="text"
             placeholder={t("searchUnspscPlaceholder")}
             value={supplierUngmCodeSearch}
@@ -184,7 +185,7 @@ export default function SupplierPage() {
               setSupplierUngmCodeSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs"
+            className="min-w-0 px-3 py-1.5 text-xs"
             title="仅适用于国外供应商8位分类码匹配"
           />
         </div>

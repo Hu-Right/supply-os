@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { Input } from "@/shared/ui";
 
 export interface EmailSubscriptionProps {
   initialEmail: string;
@@ -27,12 +28,12 @@ export function EmailSubscription({ initialEmail, onSend }: EmailSubscriptionPro
       <p className="text-xs text-slate-500">{t("membershipQuestionDesc")}</p>
 
       <div className="flex gap-2">
-        <input
+        <Input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="name@company.com"
-          className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+          className="flex-1 py-2 text-xs"
         />
         <button
           onClick={() => onSend(email)}

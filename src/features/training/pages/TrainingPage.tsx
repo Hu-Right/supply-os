@@ -9,6 +9,7 @@
 
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Input, Select } from "@/shared/ui";
 import { useTrainingForm } from "../hooks/useTrainingForm";
 import type { DictionaryItem } from "../api";
 
@@ -69,12 +70,11 @@ export default function TrainingPage() {
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormCompanyName")}
             </span>
-            <input
+            <Input
               name="company_name"
               value={form.company_name}
               onChange={handleChange}
               placeholder={pickLocale(locale, "如：浙江某医疗器械有限公司", "e.g. Zhejiang Medical Devices Co.")}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
 
@@ -82,11 +82,10 @@ export default function TrainingPage() {
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormLevel1Industry")}
             </span>
-            <select
+            <Select
               name="industry_id"
               value={form.industry_id}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             >
               <option value="">{t("trainingFormSelectLevel1")}</option>
               {level1Industries.map((item) => (
@@ -94,19 +93,18 @@ export default function TrainingPage() {
                   {labelOf(item)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormLevel2Industry")}
             </span>
-            <select
+            <Select
               name="industry_level2_id"
               value={form.industry_level2_id}
               onChange={handleChange}
               disabled={!level2Industries.length}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none disabled:opacity-60"
             >
               <option value="">{t("trainingFormSelectLevel2")}</option>
               {level2Industries.map((item) => (
@@ -114,19 +112,18 @@ export default function TrainingPage() {
                   {labelOf(item)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormLevel3Industry")}
             </span>
-            <select
+            <Select
               name="industry_level3_id"
               value={form.industry_level3_id}
               onChange={handleChange}
               disabled={!level3Industries.length}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none disabled:opacity-60"
             >
               <option value="">{t("trainingFormSelectLevel3")}</option>
               {level3Industries.map((item) => (
@@ -134,19 +131,18 @@ export default function TrainingPage() {
                   {labelOf(item)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormMainProduct")}
             </span>
-            <input
+            <Input
               name="main_product"
               value={form.main_product}
               onChange={handleChange}
               placeholder={pickLocale(locale, "如：医用耗材与器械", "e.g. Medical consumables")}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
 
@@ -154,11 +150,10 @@ export default function TrainingPage() {
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormExportExperience")}
             </span>
-            <select
+            <Select
               name="export_experience"
               value={form.export_experience}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             >
               <option value="">{t("trainingFormSelectExport")}</option>
               {EXPORT_EXPERIENCE_OPTIONS.map((item) => (
@@ -166,7 +161,7 @@ export default function TrainingPage() {
                   {item}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         </div>
 
@@ -190,12 +185,12 @@ export default function TrainingPage() {
               );
             })}
           </div>
-          <input
+          <Input
             name="other_certification"
             value={form.other_certification}
             onChange={handleChange}
             placeholder={t("trainingFormOtherCertPlaceholder")}
-            className="mt-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            className="mt-3"
           />
         </section>
 
@@ -204,44 +199,40 @@ export default function TrainingPage() {
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormContactName")}
             </span>
-            <input
+            <Input
               name="contact_name"
               value={form.contact_name}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormPosition")}
             </span>
-            <input
+            <Input
               name="position"
               value={form.position}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormPhone")}
             </span>
-            <input
+            <Input
               name="telephone"
               value={form.telephone}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-extrabold text-slate-700">
               {t("trainingFormEmail")}
             </span>
-            <input
+            <Input
               name="email"
               value={form.email}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-1 focus:ring-teal-500 focus:outline-none"
             />
           </label>
         </div>

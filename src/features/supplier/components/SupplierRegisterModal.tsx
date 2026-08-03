@@ -14,6 +14,7 @@ import { useState } from "react";
 import { CheckCircle2, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useScrollLock } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
 
 type SupplierRegisterModalProps = {
@@ -39,8 +40,6 @@ const EMPTY_FORM: SupplierRegisterInput = {
 };
 
 const labelClass = "block text-xs font-extrabold text-slate-700 mb-1";
-const inputClass = "w-full px-3 py-2 text-xs bg-slate-50 rounded-lg border border-slate-200";
-const selectClass = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs";
 
 export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegisterModalProps) {
   const { t } = useLocale();
@@ -119,67 +118,67 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>{t("supplierRegNameZhLabel")}</label>
-                <input
+                <Input
                   type="text"
                   value={form.nameZh}
                   onChange={(e) => setField("nameZh", e.target.value)}
                   placeholder={t("supplierNameZhPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
                 <label className={labelClass}>{t("supplierRegNameEnLabel")}</label>
-                <input
+                <Input
                   type="text"
                   value={form.nameEn}
                   onChange={(e) => setField("nameEn", e.target.value)}
                   placeholder={t("supplierNameEnPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
                 <label className={labelClass}>{t("supplierRegTypeLabel")}</label>
-                <select
+                <Select
                   value={form.type}
                   onChange={(e) => setField("type", e.target.value as SupplierRegisterInput["type"])}
-                  className={selectClass}
+                  className="px-3 py-1.5 text-xs"
                 >
                   <option value="domestic">{t("supplierTypeDomestic")}</option>
                   <option value="international">{t("supplierTypeIntl")}</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className={labelClass}>{t("supplierRegUngmLabel")}</label>
-                <input
+                <Input
                   type="text"
                   value={form.ungmCode}
                   onChange={(e) => setField("ungmCode", e.target.value)}
                   placeholder={t("supplierUnspscPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
                 <label className={labelClass}>{t("supplierRegIndustryLabel")}</label>
-                <select
+                <Select
                   value={form.industryZh}
                   onChange={(e) => setField("industryZh", e.target.value)}
-                  className={selectClass}
+                  className="px-3 py-1.5 text-xs"
                 >
                   <option value="机械">{t("industryOptionMachinery")}</option>
                   <option value="电子">{t("industryOptionElectronics")}</option>
                   <option value="建材">{t("industryOptionConstruction")}</option>
                   <option value="医疗">{t("industryOptionMedical")}</option>
                   <option value="化工">{t("industryOptionChemical")}</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className={labelClass}>{t("supplierRegContactLabel")}</label>
-                <input
+                <Input
                   type="text"
                   value={form.contactPerson}
                   onChange={(e) =>
@@ -190,29 +189,29 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
                     }))
                   }
                   placeholder={t("supplierContactPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
 
               <div className="md:col-span-2">
                 <label className={labelClass}>{t("supplierRegEmailLabel")}</label>
-                <input
+                <Input
                   type="email"
                   value={form.contactEmail}
                   onChange={(e) => setField("contactEmail", e.target.value)}
                   placeholder={t("supplierRegEmailPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
 
               <div className="md:col-span-2">
                 <label className={labelClass}>{t("supplierRegProductsLabel")}</label>
-                <input
+                <Input
                   type="text"
                   value={form.mainProductsZh}
                   onChange={(e) => setField("mainProductsZh", e.target.value)}
                   placeholder={t("supplierProductsPlaceholder")}
-                  className={inputClass}
+                  className="px-3 py-2 text-xs"
                 />
               </div>
             </div>
