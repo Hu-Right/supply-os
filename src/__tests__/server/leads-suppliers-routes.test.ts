@@ -353,7 +353,7 @@ describe("POST /api/suppliers", () => {
     expect(res.status).toBe(201);
     expect(res.body.supplier.id).toBe("sup-db-3");
     expect(res.body.companionLead.type).toBe("supplier_register");
-    expect(leadsDb[0]).toBe(res.body.companionLead);
+    expect(leadsDb[0]).toStrictEqual(res.body.companionLead); // 响应经 JSON 序列化，按深相等断言
     const insertCalls = pool.query.mock.calls.filter(([sql]) => String(sql).startsWith("INSERT INTO crm_suppliers"));
     expect(insertCalls).toHaveLength(0); // 防重命中不重复插入
   });
@@ -387,8 +387,8 @@ describe("POST /api/suppliers", () => {
     expect(leadsDb).toHaveLength(1);
     const insertCall = pool.query.mock.calls.find(([sql]) => String(sql).startsWith("INSERT INTO crm_suppliers"));
     expect(insertCall).toBeTruthy();
-    // nameZh trim、数组 join、邮箱原样入库（hash 才做 lowercase）
-    expect(insertCall![1].slice(0, 5)).toEqual(["新供应商", "李四", "13900001111", "NEW@Test.com ", "数控机床, 加工中心"]);
+    // nameZh trim、数组 join、邮箱 trim 后原大小写入库（hash 才做 lowercase）
+    expect(insertCall![1].slice(0, 5)).toEqual(["新供应商", "李四", "13900001111", "NEW@Test.com", "数控机床, 加工中心"]);
   });
 });
 

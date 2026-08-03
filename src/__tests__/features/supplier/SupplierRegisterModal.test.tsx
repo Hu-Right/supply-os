@@ -17,13 +17,15 @@ const mockedRegisterSupplier = vi.mocked(registerSupplier);
 const fillRequiredFields = () => {
   // 表单 label 以 i18n key 渲染
   const inputs = screen.getAllByRole("textbox");
-  // 依次为：nameZh、nameEn、ungmCode、contactPerson、mainProductsZh（email 为 type=email）
+  // textbox 依次为：nameZh、nameEn、ungmCode、contactPerson、email（type=email 同为 textbox 角色）、mainProductsZh
   fireEvent.change(inputs[0], { target: { value: "测试机械有限公司" } });
   fireEvent.change(inputs[3], { target: { value: "张三" } });
   fireEvent.change(screen.getByPlaceholderText("supplierRegEmailPlaceholder"), {
     target: { value: "zhang@example.com" },
   });
-  fireEvent.change(inputs[4], { target: { value: "数控机床, 加工中心" } });
+  fireEvent.change(screen.getByPlaceholderText("supplierProductsPlaceholder"), {
+    target: { value: "数控机床, 加工中心" },
+  });
 };
 
 describe("SupplierRegisterModal", () => {

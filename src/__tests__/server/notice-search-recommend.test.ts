@@ -16,6 +16,16 @@ function makeSearchPool(overrides: Record<string, any[]> = {}) {
         if (s.includes(marker)) return [rows];
       }
       if (s.includes("COUNT(DISTINCT n.id)")) return [[{ total: 1 }]];
+      // recommendNotices 无兴趣信号时的 deadline 回退：总数 + 列表
+      if (s.startsWith("SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE")) return [[{ total: 1 }]];
+      if (s.includes("ORDER BY IF(n.deadline_ts")) {
+        return [[{
+          id: 11, notice_id: "EXT-1", reference: "UNGM-2026-001", title: "水泵采购公告",
+          notice_type: "tender", country: "中国", deadline: "2026-12-31",
+          deadline_ts: null, estimated_value: null, description: "采购工业水泵",
+          documents: '[{"url":"http://x/a.pdf","name":"a.pdf"}]', procurement_files: null,
+        }]];
+      }
       if (s.includes("SELECT DISTINCT n.id")) {
         return [[{
           id: 11, notice_id: "EXT-1", reference: "UNGM-2026-001", title: "水泵采购公告",

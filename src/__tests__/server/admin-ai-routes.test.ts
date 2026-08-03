@@ -271,8 +271,11 @@ describe("POST /api/ai/matchmake", () => {
 
   it("uses Gemini response when the call succeeds", async () => {
     vi.stubEnv("GEMINI_API_KEY", "real-key");
+    // 普通函数才能被 new（箭头函数不是构造器）
     vi.mocked(GoogleGenAI).mockImplementation(
-      () => ({ models: { generateContent: vi.fn().mockResolvedValue({ text: "AI 深度分析" }) } }) as any
+      function () {
+        return { models: { generateContent: vi.fn().mockResolvedValue({ text: "AI 深度分析" }) } };
+      } as any
     );
     const app = buildApp(createAiRouter, createPool());
     const res = await request(app).post("/api/ai/matchmake").send({ supplier, opportunity });
@@ -283,7 +286,9 @@ describe("POST /api/ai/matchmake", () => {
   it("falls back to local report when Gemini returns empty text", async () => {
     vi.stubEnv("GEMINI_API_KEY", "real-key");
     vi.mocked(GoogleGenAI).mockImplementation(
-      () => ({ models: { generateContent: vi.fn().mockResolvedValue({ text: "" }) } }) as any
+      function () {
+        return { models: { generateContent: vi.fn().mockResolvedValue({ text: "" }) } };
+      } as any
     );
     const app = buildApp(createAiRouter, createPool());
     const res = await request(app).post("/api/ai/matchmake").send({ supplier, opportunity });
@@ -295,7 +300,9 @@ describe("POST /api/ai/matchmake", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubEnv("GEMINI_API_KEY", "real-key");
     vi.mocked(GoogleGenAI).mockImplementation(
-      () => ({ models: { generateContent: vi.fn().mockRejectedValue(new Error("quota")) } }) as any
+      function () {
+        return { models: { generateContent: vi.fn().mockRejectedValue(new Error("quota")) } };
+      } as any
     );
     const app = buildApp(createAiRouter, createPool());
     const res = await request(app).post("/api/ai/matchmake").send({ supplier, opportunity });

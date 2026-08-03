@@ -82,8 +82,9 @@ describe("UNSPSC API", () => {
       expect(capturedUrls[1]).toContain("parent_id=10");
       expect(capturedUrls[1]).not.toContain("lang=");
 
-      await fetchUnspscChildren("10");
-      expect(capturedUrls[2]).toContain("parent_id=10");
+      // zh 与不传 locale 的缓存键相同，换 parent_id 验证无 lang 的请求
+      await fetchUnspscChildren("20");
+      expect(capturedUrls[2]).toContain("parent_id=20");
       expect(capturedUrls[2]).not.toContain("lang=");
     });
 
