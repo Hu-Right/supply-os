@@ -81,7 +81,8 @@ describe("GET /api/notices", () => {
     const app = buildApp(ctx);
     await request(app).get("/api/notices?country=Brazil");
     const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("n.country LIKE ?");
+    // 精确匹配（下拉值来自 GROUP BY 精确国家名），避免 LIKE 误命中包含关系国家
+    expect(countSql).toContain("n.country = ?");
   });
 
   it("applies value_min/value_max filters with JOIN", async () => {

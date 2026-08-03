@@ -27,6 +27,8 @@ export interface NoticeItem {
   core_locked?: boolean;
   /** 锁定态拆解文件计数预览（仅数量不含清单，服务端本地差异 #19；缺失时前端回退中性提示） */
   breakdown_file_count?: number;
+  /** 锁定态联系人数量预告（仅数量不含身份，预览端点下发；0 表示无可预告联系人） */
+  contact_count?: number;
   unlock_type?: string;
   unlocked_at?: string;
   /** 推荐模式命中的 UNSPSC 兴趣码数（仅 /api/notices/recommended 返回） */

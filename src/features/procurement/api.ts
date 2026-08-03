@@ -62,7 +62,9 @@ export const fetchNotices = (
   if (params.deadlineWithinDays) searchParams.set("deadline_within_days", String(params.deadlineWithinDays));
   if (params.noticeType) searchParams.set("notice_type", params.noticeType);
   if (params.featured) searchParams.set("featured", "1"); // [精选功能重新启用 2026-07-31]
-  return apiCached<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
+  // 列表/搜索结果时效敏感（截止过滤与排序依赖服务端 NOW()），服务端已有 60s
+  // TTL 缓存兜底性能；前端不走 5 分钟 apiCached，避免过期公告残留与条件回切旧结果
+  return api<NoticeResponse>(`/api/notices?${searchParams.toString()}`);
 };
 
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */

@@ -14,14 +14,20 @@ import { recommendNotices } from "../../services/noticeRecommend";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** 安全整数解析：非数字/NaN 一律回退默认值，防止 ?page=abc 直达 SQL 造成 500 */
+const toInt = (value: unknown, fallback: number): number => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
   const { dbPool } = ctx;
 
   router.get("/api/notices", async (req, res) => {
     try {
-      const page = Math.max(1, Number(req.query.page || 1));
-      const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
+      const page = Math.max(1, Math.floor(toInt(req.query.page, 1)));
+      const pageSize = Math.min(30, Math.max(6, toInt(req.query.page_size, 9)));
       const codeId = Number(req.query.code_id || req.query.industry_id || 0);
       const q = String(req.query.q || "").trim().slice(0, 200);
       const country = String(req.query.country || "").trim().slice(0, 100);
@@ -89,8 +95,8 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
   router.get("/api/notices/recommended", async (req, res) => {
     try {
       const userKey = normalizeUserKey(req.query.user_key) || "";
-      const page = Math.max(1, Number(req.query.page || 1));
-      const pageSize = Math.min(30, Math.max(6, Number(req.query.page_size || 9)));
+      const page = Math.max(1, Math.floor(toInt(req.query.page, 1)));
+      const pageSize = Math.min(30, Math.max(6, toInt(req.query.page_size, 9)));
       res.json(await recommendNotices(dbPool, userKey, page, pageSize));
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });

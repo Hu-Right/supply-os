@@ -95,7 +95,8 @@ describe("searchNotices", () => {
       String(call[0]).includes("COUNT(DISTINCT n.id)")
     )!;
     const params = countCall[1];
-    expect(params).toContain("%中国%");
+    // 国家精确匹配（不再是 LIKE %...% 包裹）
+    expect(params).toContain("中国");
     expect(params).toContain("2026-08-01 00:00:00");
     expect(params).toContain("2026-08-31 23:59:59");
     expect(params).toContain(30);

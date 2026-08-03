@@ -146,6 +146,16 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setTypeInput(activeNoticeType);
   }, [activeQ, activeCountry, activeFrom, activeTo, activeValueMin, activeValueMax, activeWindow, activeNoticeType]);
 
+  // 生效条件变化时重置分页：applySearch/toggleFeatured 之外的外部 URL 变化
+  // （支付回跳清参、前进/后退到搜索直达链接）不经过动作函数，旧页码会请求到
+  // 空页误显"无匹配结果"。applySearch 路径重复置 1 为幂等无副作用。
+  const prevSearchKeyRef = useRef(searchKey);
+  useEffect(() => {
+    if (prevSearchKeyRef.current === searchKey) return;
+    prevSearchKeyRef.current = searchKey;
+    setPage(1);
+  }, [searchKey, setPage]);
+
   // 国家下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
   useEffect(() => {
     fetchNoticeCountries()

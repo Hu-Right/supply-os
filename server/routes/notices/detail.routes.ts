@@ -5,6 +5,7 @@
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
+import { normalizeContactRows, extractContactsFromText } from "../../utils/normalize";
 import { preferValue } from "../../utils/json";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../services/notices";
 import { normalizeUnspscCodes } from "../../services/unspsc";
@@ -49,10 +50,11 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
-  // ── 公告锁定态预览（渐进式信息展示）──
-  // 列表/推荐端点出于商业保护将 agency/unspsc 置空；本端点为详情页提供有限预览：
-  // 所有登录用户可得机构名 + 前 4 个 UNSPSC 分类；VIP 额外获得机构全称与发布日期。
-  // 绝不返回联系人/文件/报告等敏感字段（仍需解锁，/:id/detail 403 口径不变）。
+  // ── 公告锁定态预览（渐进式信息展示·敏感度分级）──
+  // 列表/推荐端点出于商业保护将 agency/unspsc 置空；本端点按敏感度分级下发：
+  // 次要信息（发布日期/投标难度/注册门槛/行业分类/机构简称）真实下发给所有登录用户；
+  // 核心敏感信息（联系人身份/文件清单/报告/来源链接）绝不返回，仅下发联系人数量
+  // 作为数量预告（仍走解锁口径：/:id/detail 403 不变）。VIP 额外获得机构全称。
   router.get("/api/notices/:id/preview", async (req, res) => {
     try {
       const noticeId = Number(req.params.id);
@@ -61,6 +63,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
       const [noticeRows] = await dbPool.query(
         `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
+           difficulty, registration_level, contacts, key_contacts, description,
            unspsc_codes, converted_opp_id
          FROM crm_bid_notices WHERE id = ? LIMIT 1`,
         [noticeId]
@@ -82,14 +85,22 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       const opportunity = await findQualifiedOpportunityForNotice(dbPool, notice);
       const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes)).slice(0, 4);
 
+      // 联系人数量预告：与解锁后 normalizeNoticeDetailPayload 同款归一化口径
+      //（结构化联系人为空时回退正文提取），只下发数量、绝不下发身份内容
+      const structuredContacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
+      const contactCount = structuredContacts.length > 0
+        ? structuredContacts.length
+        : extractContactsFromText(String(notice.description || "")).length;
+
       res.json({
         agency: notice.agency || notice.organization || opportunity?.agency || "",
+        published_date: preferValue(opportunity?.published_date, notice.published_date) || "",
+        difficulty: preferValue(opportunity?.difficulty, notice.difficulty) || "",
+        registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",
         unspsc_codes: unspscCodes,
+        contact_count: contactCount,
         ...(isVip
-          ? {
-              agency_full: opportunity?.agency_full || notice.agency_full || "",
-              published_date: preferValue(opportunity?.published_date, notice.published_date) || "",
-            }
+          ? { agency_full: opportunity?.agency_full || notice.agency_full || "" }
           : {}),
       });
     } catch (err: any) { res.status(500).json({ error: err.message }); }

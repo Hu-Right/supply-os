@@ -96,8 +96,10 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
     params.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
   }
   if (country) {
-    where.push("n.country LIKE ?");
-    params.push(`%${country}%`);
+    // 精确匹配：国家值来自下拉（GROUP BY n.country 的精确值），LIKE 会误命中
+    // 包含关系的国家（Guinea→Equatorial Guinea/Guinea-Bissau、Sudan→South Sudan 等）
+    where.push("n.country = ?");
+    params.push(country);
   }
   if (DATE_RE.test(deadlineFrom)) {
     where.push(`${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(?)`);
