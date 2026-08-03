@@ -24,6 +24,7 @@ pnpm-debug.log*
 *.swo
 scripts/
 runtime/
+backups/
 
 # ===== IDE 与编辑器 =====
 .qoder/
