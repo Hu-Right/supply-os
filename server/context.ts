@@ -10,6 +10,7 @@ import type { UsersRepo } from "./repos/users.repo";
 import type { MembershipRepo } from "./repos/membership.repo";
 import type { PaymentsRepo } from "./repos/payments.repo";
 import type { OpportunitiesRepo } from "./repos/opportunities.repo";
+import type { NoticesRepo } from "./repos/notices.repo";
 
 export type AppContext = {
   dbPool: Pool;
@@ -21,4 +22,5 @@ export type AppContext = {
   membershipRepo: MembershipRepo;
   paymentsRepo: PaymentsRepo;
   opportunitiesRepo: OpportunitiesRepo;
+  noticesRepo: NoticesRepo;
 };

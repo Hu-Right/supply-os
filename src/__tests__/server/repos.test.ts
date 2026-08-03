@@ -4,6 +4,7 @@ import { UsersRepo } from "../../../server/repos/users.repo";
 import { MembershipRepo } from "../../../server/repos/membership.repo";
 import { PaymentsRepo } from "../../../server/repos/payments.repo";
 import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
+import { NoticesRepo } from "../../../server/repos/notices.repo";
 
 /**
  * mock mysql2 pool：query/execute 均返回 [rows]（mysql2 解构约定）。
@@ -376,5 +377,39 @@ describe("OpportunitiesRepo", () => {
     const [sql, params] = pool.execute.mock.calls[0];
     expect(sql).toContain("'unlock_order', 2.50");
     expect(params).toEqual(["u", "u", 3, "1010", 2]);
+  });
+});
+
+// ─── NoticesRepo ────────────────────────────────────────────────────────────
+describe("NoticesRepo", () => {
+  it("insertRecoFeedback returns affectedRows and batches values", async () => {
+    const pool = {
+      query: vi.fn().mockResolvedValue([{ affectedRows: 1 }]),
+      execute: vi.fn(),
+    } as any;
+    const repo = new NoticesRepo(pool);
+    const inserted = await repo.insertRecoFeedback("u", "s1", [
+      { noticeId: 7, action: "click", recoScore: 0.9, position: 0, variant: null, dwellMs: null },
+    ]);
+    expect(inserted).toBe(1);
+    const [sql, params] = pool.query.mock.calls[0];
+    expect(sql).toContain("INSERT IGNORE INTO crm_user_reco_feedback");
+    expect(params).toEqual(["u", "u", 7, "click", 0.9, 0, null, "s1", null]);
+  });
+
+  it("findUnspscSnapshots builds IN clause placeholders", async () => {
+    const pool = { query: vi.fn().mockResolvedValue([[{ id: 1, unspsc_codes: "x" }]]), execute: vi.fn() } as any;
+    const repo = new NoticesRepo(pool);
+    await repo.findUnspscSnapshots([1, 2]);
+    expect(pool.query.mock.calls[0][0]).toContain("WHERE id IN (?,?)");
+  });
+
+  it("consumeEntitlement guards quota_total > quota_used", async () => {
+    const pool = { query: vi.fn(), execute: vi.fn().mockResolvedValue([[]]) } as any;
+    const repo = new NoticesRepo(pool);
+    await repo.consumeEntitlement(42);
+    const [sql, params] = pool.execute.mock.calls[0];
+    expect(sql).toContain("quota_total > quota_used");
+    expect(params).toEqual([42]);
   });
 });

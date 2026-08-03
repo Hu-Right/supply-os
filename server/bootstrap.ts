@@ -14,6 +14,7 @@ import { UsersRepo } from "./repos/users.repo";
 import { MembershipRepo } from "./repos/membership.repo";
 import { PaymentsRepo } from "./repos/payments.repo";
 import { OpportunitiesRepo } from "./repos/opportunities.repo";
+import { NoticesRepo } from "./repos/notices.repo";
 import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
@@ -41,8 +42,9 @@ export async function startServer() {
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
+  const noticesRepo = new NoticesRepo(dbPool);
 
-  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo };
+  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo, noticesRepo };
   const app = createApp(ctx);
 
   // Vite Integration for high performance SPA support
