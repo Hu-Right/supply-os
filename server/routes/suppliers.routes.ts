@@ -9,6 +9,9 @@ import { Lead } from "../../src/types";
 import { normalizeUserKey } from "../utils/normalize";
 import { translateViaChain, type ChainResult } from "../services/translation/chain";
 import { mapSupplierRow } from "../services/suppliers";
+import { SuppliersRepo } from "../repos/suppliers.repo";
+import { UsersRepo } from "../repos/users.repo";
+import { MembershipRepo } from "../repos/membership.repo";
 
 // ── 供应商字段按需翻译（对齐公告翻译：缓存表 + 有道→DeepSeek 链 + 并发去重）──
 // 原文为中文，仅需翻译非中文界面语言；公司名保留原文不翻译
@@ -25,31 +28,22 @@ const pendingSupplierTranslations = new Map<string, Promise<ChainResult>>();
 
 export function createSuppliersRouter(ctx: AppContext): Router {
   const router = Router();
-  const { dbPool, leadsDb } = ctx;
+  const { leadsDb } = ctx;
+  const suppliersRepo = ctx.suppliersRepo ?? new SuppliersRepo(ctx.dbPool);
+  const usersRepo = ctx.usersRepo ?? new UsersRepo(ctx.dbPool);
+  const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
 
   // 4. GET SUPPLIERS (DB-backed directory with per-language translations)
   router.get("/api/suppliers", async (req, res) => {
     try {
       const lang = String(req.query.lang || "zh").toLowerCase();
-      const [rows] = await dbPool.query(
-        `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
-         FROM supplier
-         WHERE company <> '测试'
-         ORDER BY id DESC
-         LIMIT 500`
-      );
-      const supplierRows = rows as any[];
+      const supplierRows = await suppliersRepo.listDirectory();
 
       // 命中翻译缓存的直接返回译文，缺失的回退中文原文
       const trMap = new Map<number, any>();
       if (SUPPLIER_TRANSLATION_LANGS[lang] && supplierRows.length > 0) {
-        const [trRows] = await dbPool.query(
-          `SELECT supplier_id, industry_tr, main_products_tr, certification_tr
-           FROM crm_supplier_translations
-           WHERE lang = ? AND supplier_id IN (?)`,
-          [lang, supplierRows.map((row) => row.id)]
-        );
-        for (const tr of trRows as any[]) {
+        const trRows = await suppliersRepo.listTranslations(lang, supplierRows.map((row) => row.id));
+        for (const tr of trRows) {
           trMap.set(Number(tr.supplier_id), tr);
         }
       }
@@ -82,13 +76,7 @@ export function createSuppliersRouter(ctx: AppContext): Router {
       pendingSupplierTranslations.set(pendingKey, pending);
       try {
         const { translations, provider } = await pending;
-        await dbPool.query(
-          `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, model)
-           VALUES (?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE industry_tr = VALUES(industry_tr), main_products_tr = VALUES(main_products_tr),
-             model = VALUES(model)`,
-          [row.id, lang, translations[0], translations[1], provider]
-        );
+        await suppliersRepo.upsertTranslation(row.id, lang, translations[0], translations[1], provider);
       } catch (err: any) {
         if (err?.message === "TRANSLATION_UNAVAILABLE") return; // 全链不可用：整批放弃
         // 单家失败不阻塞后续供应商
@@ -107,24 +95,13 @@ export function createSuppliersRouter(ctx: AppContext): Router {
       if (!userKey) return res.status(403).json({ error: "VIP_REQUIRED" });
 
       // VIP 判定与登录接口同款：active 订阅未过期 或 membership_tier = 'vip'
-      const [userRows] = await dbPool.query(
-        "SELECT membership_tier FROM crm_users WHERE user_key = ? LIMIT 1",
-        [userKey]
-      );
-      const user = (userRows as any[])[0];
+      const user = await usersRepo.findByKey(userKey);
       if (!user) return res.status(403).json({ error: "VIP_REQUIRED" });
-      const [subs] = await dbPool.query(
-        "SELECT id FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
-        [userKey]
-      );
-      const isVip = (subs as any[]).length > 0 || user.membership_tier === "vip";
+      const subs = await membershipRepo.findActiveSubscriptions(userKey);
+      const isVip = subs.length > 0 || user.membership_tier === "vip";
       if (!isVip) return res.status(403).json({ error: "VIP_REQUIRED" });
 
-      const [supplierRows] = await dbPool.query(
-        "SELECT contact, phone, email FROM supplier WHERE id = ? LIMIT 1",
-        [supplierId]
-      );
-      const supplier = (supplierRows as any[])[0];
+      const supplier = await suppliersRepo.findContact(supplierId);
       if (!supplier) return res.status(404).json({ error: "SUPPLIER_NOT_FOUND" });
 
       res.json({
@@ -168,32 +145,19 @@ export function createSuppliersRouter(ctx: AppContext): Router {
         .digest("hex");
 
       // 防重：同公司同邮箱重复提交返回既有记录
-      const [dupRows] = await dbPool.query(
-        "SELECT * FROM crm_suppliers WHERE request_hash = ? LIMIT 1",
-        [requestHash]
-      );
-      let supplierRow = (dupRows as any[])[0];
+      let supplierRow = await suppliersRepo.findCrmByRequestHash(requestHash);
       if (!supplierRow) {
-        const [insertResult] = await dbPool.query(
-          `INSERT INTO crm_suppliers
-             (company_name, contact_name, telephone, email, main_product, industry, certification, created_at, request_hash)
-           VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
-          [
-            String(nameZh).trim(),
-            String(contactPerson).trim(),
-            String(contactPhone || "").trim(),
-            String(contactEmail).trim(),
-            mainProduct,
-            String(industryZh || "").trim(),
-            certification,
-            requestHash,
-          ]
-        );
-        const [newRows] = await dbPool.query(
-          "SELECT * FROM crm_suppliers WHERE id = ? LIMIT 1",
-          [(insertResult as any).insertId]
-        );
-        supplierRow = (newRows as any[])[0];
+        const insertId = await suppliersRepo.insertCrmSupplier({
+          companyName: String(nameZh).trim(),
+          contactName: String(contactPerson).trim(),
+          telephone: String(contactPhone || "").trim(),
+          email: String(contactEmail).trim(),
+          mainProduct,
+          industry: String(industryZh || "").trim(),
+          certification,
+          requestHash,
+        });
+        supplierRow = await suppliersRepo.findCrmById(insertId);
       }
 
       const newSupplier = mapSupplierRow(supplierRow, null);
@@ -243,20 +207,20 @@ export function createSuppliersRouter(ctx: AppContext): Router {
       const contactPhone = String(req.body.contact_phone || "");
       const contactEmail = String(req.body.contact_email || userKey);
       const businessLicenseNo = String(req.body.business_license_no || "");
-      const [supplierRows] = await dbPool.query(
-        "SELECT id FROM crm_suppliers WHERE company_name = ? ORDER BY id DESC LIMIT 1",
-        [companyName]
-      );
-      const supplier = (supplierRows as any[])[0] || null;
+      const supplierId = await suppliersRepo.findCrmIdByCompanyName(companyName);
 
-      const [result] = await dbPool.execute(
-        `INSERT INTO crm_supplier_claims
-          (user_id, user_key, supplier_id, company_name, supplier_type, contact_name, contact_phone, contact_email, business_license_no, status)
-         VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-        [userKey, userKey, supplier?.id || null, companyName, supplierType, contactName, contactPhone, contactEmail, businessLicenseNo]
-      );
+      const claimId = await suppliersRepo.insertClaim({
+        userKey,
+        supplierId,
+        companyName,
+        supplierType,
+        contactName,
+        contactPhone,
+        contactEmail,
+        businessLicenseNo,
+      });
 
-      res.status(201).json({ success: true, id: (result as any).insertId, status: "pending" });
+      res.status(201).json({ success: true, id: claimId, status: "pending" });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

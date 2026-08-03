@@ -5,6 +5,7 @@ import { MembershipRepo } from "../../../server/repos/membership.repo";
 import { PaymentsRepo } from "../../../server/repos/payments.repo";
 import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
 import { NoticesRepo } from "../../../server/repos/notices.repo";
+import { SuppliersRepo } from "../../../server/repos/suppliers.repo";
 
 /**
  * mock mysql2 pool：query/execute 均返回 [rows]（mysql2 解构约定）。
@@ -435,5 +436,43 @@ describe("NoticesRepo (detail/translation)", () => {
     const [sql, params] = pool.query.mock.calls[0];
     expect(sql).toContain("COALESCE(VALUES(title_tr), title_tr)");
     expect(params).toEqual([1, null, "desc", "provider"]);
+  });
+});
+
+// ─── SuppliersRepo ──────────────────────────────────────────────────────────
+describe("SuppliersRepo", () => {
+  it("listDirectory returns supplier rows excluding test data", async () => {
+    const pool = createPool([[{ id: 1, company: "Acme" }, { id: 2, company: "Beta" }]]);
+    const repo = new SuppliersRepo(pool);
+    const rows = await repo.listDirectory();
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ id: 1, company: "Acme" });
+  });
+
+  it("listTranslations returns translation rows for given lang and ids", async () => {
+    const pool = createPool([[{ supplier_id: 1, industry_tr: "IT", main_products_tr: "Widgets" }]]);
+    const repo = new SuppliersRepo(pool);
+    const rows = await repo.listTranslations("en", [1, 2]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].industry_tr).toBe("IT");
+  });
+
+  it("findCrmByRequestHash returns first match or null", async () => {
+    const pool = createPool([[{ id: 10, company_name: "Test" }], []]);
+    const repo = new SuppliersRepo(pool);
+    expect(await repo.findCrmByRequestHash("abc")).toMatchObject({ id: 10 });
+    expect(await repo.findCrmByRequestHash("def")).toBeNull();
+  });
+
+  it("insertClaim returns the auto-increment id", async () => {
+    const pool = createPool();
+    pool.execute = vi.fn().mockResolvedValue([{ insertId: 42 }]);
+    const repo = new SuppliersRepo(pool);
+    const id = await repo.insertClaim({
+      userKey: "u@b.com", supplierId: 5, companyName: "Acme",
+      supplierType: "domestic", contactName: "Li", contactPhone: "123",
+      contactEmail: "u@b.com", businessLicenseNo: "BL001",
+    });
+    expect(id).toBe(42);
   });
 });
