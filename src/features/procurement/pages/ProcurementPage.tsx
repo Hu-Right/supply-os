@@ -10,6 +10,7 @@ import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { NoticeList } from "../components/NoticeList";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
@@ -94,6 +95,8 @@ export default function ProcurementPage() {
 
   // 列表页
   return (
+    <>
+    <LoadingOverlay visible={search.result.loading} />
     <div className="space-y-5">
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -136,7 +139,6 @@ export default function ProcurementPage() {
             {t("procurement_currentPage")} {page} / {search.result.totalPages} {t("procurement_page")},{" "}
             {t("procurement_eachPage")} {search.result.serverPageSize} {t("procurement_items")}
           </span>
-          {search.result.loading && <span className="font-bold text-teal-600">{t("procurement_loading")}</span>}
         </div>
 
         {/* 自动筛选提示条：偏好/推荐模式可一键退出回全量 */}
@@ -175,5 +177,6 @@ export default function ProcurementPage() {
         />
       </section>
     </div>
+    </>
   );
 }
