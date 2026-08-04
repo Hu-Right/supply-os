@@ -82,7 +82,47 @@ function restoreTerms(text: string, tokens: string[]): string {
   return restored;
 }
 
-const DEEPSEEK_TIMEOUT_MS = 30_000; // flash 模型无思考模式，响应更快，30s 足矣
+const DEEPSEEK_TIMEOUT_MS = 10_000; // flash 模型正常 <1s 返回；10s 足以覆盖慢响应+CDN 挂死
+const DEEPSEEK_MAX_RETRIES = 3;       // 429/5xx 最多重试 3 次（共 4 次尝试）
+const DEEPSEEK_RETRY_BASE_MS = 1_500; // 重试基础间隔 1.5s，指数退避：1.5s → 3s → 6s
+
+// ── 熔断器：连续 N 次 503/超时后暂停 DeepSeek 通道，避免服务过载时无意义请求 ──
+const DEEPSEEK_CIRCUIT_THRESHOLD = 3;  // 连续 3 次失败触发熔断
+const DEEPSEEK_CIRCUIT_COOLDOWN_MS = 60_000; // 熔断冷却 60 秒
+let circuitBreakerTripped = false;
+let circuitBreakerTrippedAt = 0;
+let consecutiveFailures = 0;
+
+function circuitBreakerAllow(): boolean {
+  if (!circuitBreakerTripped) return true;
+  if (Date.now() - circuitBreakerTrippedAt >= DEEPSEEK_CIRCUIT_COOLDOWN_MS) {
+    // 冷却期结束，重置熔断器（半开状态允许一次请求试探恢复）
+    circuitBreakerTripped = false;
+    consecutiveFailures = 0;
+    console.warn("[translate] deepseek circuit breaker: cooldown elapsed, retrying");
+    return true;
+  }
+  return false;
+}
+
+function circuitBreakerRecordSuccess() {
+  consecutiveFailures = 0;
+  circuitBreakerTripped = false;
+}
+
+function circuitBreakerRecordFailure() {
+  consecutiveFailures++;
+  if (consecutiveFailures >= DEEPSEEK_CIRCUIT_THRESHOLD && !circuitBreakerTripped) {
+    circuitBreakerTripped = true;
+    circuitBreakerTrippedAt = Date.now();
+    console.warn(`[translate] deepseek circuit breaker: TRIIPPED after ${consecutiveFailures} consecutive failures, cooldown ${DEEPSEEK_CIRCUIT_COOLDOWN_MS / 1000}s`);
+  }
+}
+
+// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时）
+function isDeepSeekRetryable(errMsg: string): boolean {
+  return /DEEPSEEK_HTTP_(429|500|502|503|504)/.test(errMsg) || errMsg === "CHANNEL_TIMEOUT";
+}
 
 // 通道1：DeepSeek V4-Flash（OpenAI 兼容 /chat/completions，flash 快速模型）
 // 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 中间层：
@@ -94,7 +134,8 @@ const DEEPSEEK_TIMEOUT_MS = 30_000; // flash 模型无思考模式，响应更�
 // 返回数组长度/形状不符即判失败。不设单次长度与每日软额度限制，
 // 超长/超量由 API 自身报错（HTTP 400/402/429 等）后抛 TRANSLATION_UNAVAILABLE。
 
-async function translateViaDeepSeek(
+// DeepSeek 单次翻译（无重试）：被 translateViaDeepSeek 包装调用
+async function translateViaDeepSeekOnce(
   texts: string[],
   sourceLang: string,
   targetLang: string
@@ -145,6 +186,42 @@ ${JSON.stringify(texts)}`;
     throw new Error("DEEPSEEK_BAD_SHAPE");
   }
   return (parsed as string[]).map((item) => item.trim());
+}
+
+// DeepSeek 带重试 + 熔断的包装：429/5xx/超时自动指数退避重试，其余错误立即抛出
+// 熔断器：连续 N 次可重试失败后暂停通道，冷却期后自动恢复
+async function translateViaDeepSeek(
+  texts: string[],
+  sourceLang: string,
+  targetLang: string
+): Promise<string[]> {
+  // 熔断器激活时直接跳过，不浪费请求
+  if (!circuitBreakerAllow()) {
+    throw new Error("DEEPSEEK_CIRCUIT_BREAKER_OPEN");
+  }
+  let lastErr: any;
+  for (let attempt = 0; attempt <= DEEPSEEK_MAX_RETRIES; attempt++) {
+    try {
+      const result = await translateViaDeepSeekOnce(texts, sourceLang, targetLang);
+      circuitBreakerRecordSuccess();
+      return result;
+    } catch (err: any) {
+      lastErr = err;
+      const errMsg = err?.message || "";
+      if (attempt < DEEPSEEK_MAX_RETRIES && isDeepSeekRetryable(errMsg)) {
+        const delayMs = DEEPSEEK_RETRY_BASE_MS * Math.pow(2, attempt);
+        console.warn(`[translate] deepseek retry ${attempt + 1}/${DEEPSEEK_MAX_RETRIES} after ${delayMs}ms: ${errMsg}`);
+        await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+      // 不可重试或重试耗尽：记录熔断器
+      if (isDeepSeekRetryable(errMsg)) {
+        circuitBreakerRecordFailure();
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
 }
 
 // ── Gemini 3.5-Flash 兜底层 ──────────────────────────────────────────
@@ -276,5 +353,8 @@ export async function translateViaChain(
     console.warn(`[translate] gemini -> unavailable: ${err?.message}`);
   }
   // 两通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
-  throw new Error("TRANSLATION_UNAVAILABLE");
+  // 附带降级轨迹供调用方诊断（如 deepseek-v4-flash:DEEPSEEK_HTTP_429,gemini-3.5-flash:GEMINI_NOT_CONFIGURED）
+  const chainErr = new Error("TRANSLATION_UNAVAILABLE");
+  (chainErr as any).degradedFrom = degraded;
+  throw chainErr;
 }

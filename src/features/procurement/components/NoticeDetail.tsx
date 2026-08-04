@@ -10,6 +10,7 @@ import { NoticeDescriptionSection } from "./NoticeDescriptionSection";
 import { NoticeBreakdownIndicator } from "./NoticeBreakdownIndicator";
 import { NoticeCoreContent } from "./NoticeCoreContent";
 import { NoticeDetailSidebar, type NoticeDetailPaymentState } from "./NoticeDetailSidebar";
+import { ReportPreviewPanel } from "./ReportPreviewPanel";
 
 interface NoticeDetailProps {
   notice: NoticeItem;
@@ -162,11 +163,19 @@ export function NoticeDetail({
               displayDescription={displayDescription}
             />
 
+            {/* 中文版投标拆解报告预览：中文环境 + 登录即可见（未解锁展示约 10% + 升级引导） */}
+            {locale === "zh" && notice.id != null && authContext?.authUser?.user_key && (
+              <ReportPreviewPanel
+                noticeId={notice.id}
+                userKey={authContext.authUser.user_key}
+                reportUrl={`/api/notices/${notice.id}/report`}
+              />
+            )}
+
             <NoticeCoreContent
               notice={notice}
               coreUnlocked={coreUnlocked}
               showSkeleton={showSkeleton}
-              isVip={isVip}
               breakdownFileCount={breakdownFileCount}
             />
           </main>

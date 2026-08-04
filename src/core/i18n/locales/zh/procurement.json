@@ -189,5 +189,15 @@
   "procurement_contactWechatService": "扫码联系微信客服",
   "procurement_wechatServiceTitle": "微信客服",
   "procurement_wechatServiceHint": "扫描二维码添加客服微信，发送公告编号即可申请定向处理",
-  "procurement_dismiss": "我知道了"
+  "procurement_dismiss": "我知道了",
+  "procurement_reportPreviewTitle": "中文版投标拆解报告预览",
+  "procurement_reportPreviewDescCn": "采购描述",
+  "procurement_reportPreviewProducts": "核心采购清单",
+  "procurement_reportPreviewMore": "共 {count} 项",
+  "procurement_reportPreviewAiSummary": "AI 深度分析摘要",
+  "procurement_reportPreviewRisks": "主要风险点",
+  "procurement_reportPreviewDownload": "下载完整报告（Word）",
+  "procurement_previewPartial": "预览版（约 10%）",
+  "procurement_previewUpgrade": "注册会员查看完整报告",
+  "procurement_previewUnlockHint": "解锁后查看全部拆解内容"
 }

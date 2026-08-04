@@ -38,6 +38,14 @@ export interface NoticeItem {
   /** 精选公告（T-A4，本地差异 #14）：对应合格机会三路判定，列表端点批量标注 */
   // [精选功能重新启用 2026-07-31] 字段恢复（服务端标注与前端徽标已同步恢复）
   is_featured?: boolean;
+  /** 列表级国际化标题（来自 crm_notice_translations；缺失时回退 title） */
+  title_i18n?: string;
+  /** 列表级国际化描述（来自 crm_notice_translations；缺失时回退 description） */
+  description_i18n?: string;
+  /** 英文翻译回退（当前语言无译文时使用，来自 crm_notice_translations lang='en'） */
+  title_en?: string;
+  /** 英文翻译回退描述 */
+  description_en?: string;
   // 解锁后由 /api/notices/:id/detail 补充的拓展字段
   // Extended fields provided by /api/notices/:id/detail once unlocked
   url?: string;
@@ -52,7 +60,7 @@ export interface NoticeItem {
   external_links?: NoticeAttachment[];
   /** 中文版订单拆解报告可用（合格商机存在；仅解锁详情返回） */
   report_available?: boolean;
-  /** 精选公告人工/AI 精加工的中文描述（仅解锁详情返回；中文环境优先展示，零翻译 API 成本） */
+  /** 精选公告人工/AI 精加工的中文描述（列表级由 opp LEFT JOIN 返回；解锁详情同样返回） */
   description_cn?: string;
   /** 报告下载路径（/api/notices/:id/report，需拼 user_key；仅解锁详情返回） */
   report_url?: string;

@@ -34,11 +34,13 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
     const noticeType = parseOptionalString(req.query, "notice_type", 100);
     const featuredOnly = String(req.query.featured || "") === "1";
+    // 卡片国际化：透传当前 locale，服务端 LEFT JOIN 翻译表返回 title_i18n / description_i18n
+    const locale = parseOptionalString(req.query, "locale", 10);
 
     const result = await searchNotices(ctx.dbPool, {
       page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
-      valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly,
-    });
+      valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly, locale,
+    }, noticesRepo);
     res.json(result);
 
     // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
@@ -77,7 +79,9 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const userKey = normalizeUserKey(req.query.user_key) || "";
     const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
     const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
-    res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize));
+    // 卡片国际化：透传当前 locale
+    const locale = parseOptionalString(req.query, "locale", 10);
+    res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo));
   }));
 
   return router;

@@ -5,16 +5,15 @@
  * @module features/procurement/components/NoticeCoreContent
  * @description 主内容区核心块：已解锁时展示 UNSPSC 标签、来源链接与
  *              拓展详情；加载详情时展示骨架屏；锁定时按敏感度分级渐进展示
- *              （次要信息真实预览 → VIP 专属预览 → 核心敏感信息数量预告锁卡）。
+ *              （次要信息真实预览 → 核心敏感信息数量预告锁卡）。
  *              Core content block: unlocked view (tags, source link and
  *              extended details), skeleton while loading, locked progressive
- *              preview by sensitivity (secondary info → VIP preview →
- *              count-teaser lock cards for sensitive content).
+ *              preview by sensitivity (secondary info → count-teaser lock cards).
  *
  * 安全约束：核心敏感信息（联系人身份/文件清单/报告）服务端从不下发，
  * 锁定态锁卡仅渲染数量预告，DevTools 无法获取任何真实敏感内容。
  */
-import { Crown, ExternalLink, FileText, ListChecks, Lock, User } from "lucide-react";
+import { ExternalLink, FileText, ListChecks, Lock, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { NoticeUnlockedDetails } from "./NoticeUnlockedDetails";
@@ -26,8 +25,6 @@ export interface NoticeCoreContentProps {
   coreUnlocked: boolean;
   /** 拓展详情加载中（展示骨架屏） */
   showSkeleton: boolean;
-  /** 当前用户是否 VIP（锁定态决定是否渲染 VIP 专属预览层） */
-  isVip?: boolean;
   /** 锁定态拆解文件计数预览（决定占位文件行数，缺失时取默认值） */
   breakdownFileCount?: number;
 }
@@ -36,7 +33,6 @@ export function NoticeCoreContent({
   notice,
   coreUnlocked,
   showSkeleton,
-  isVip = false,
   breakdownFileCount,
 }: NoticeCoreContentProps) {
   const { t } = useLocale();
@@ -90,7 +86,6 @@ export function NoticeCoreContent({
     { label: t("procurement_bidRegBar"), value: notice.registration_level || "" },
   ].filter((metric) => Boolean(metric.value));
   const hasSecondaryPreview = secondaryMetrics.length > 0 || unspscPreview.length > 0;
-  const hasVipPreview = isVip && Boolean(notice.agency_full);
   const contactCount = Number(notice.contact_count || 0);
   const fileCount = Number(breakdownFileCount || 0);
   const showReportTeaser = notice.is_featured === true;
@@ -124,19 +119,6 @@ export function NoticeCoreContent({
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {hasVipPreview && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs space-y-1.5">
-          <p className="font-black text-amber-800 flex items-center gap-1.5">
-            <Crown className="w-3.5 h-3.5" />
-            {t("procurement_vipPreview")}
-          </p>
-          <p dir="auto" className="text-slate-700 break-words">
-            <span className="font-bold text-slate-500">{t("procurement_agencyFullName")}：</span>
-            {notice.agency_full || "-"}
-          </p>
         </div>
       )}
 

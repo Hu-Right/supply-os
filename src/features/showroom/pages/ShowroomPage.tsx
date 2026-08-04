@@ -88,8 +88,8 @@ export default function ShowroomPage() {
   return (
     <div className="space-y-6">
       {/* Active Filters */}
-      <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs md:flex-row">
-        <div className="relative w-full md:w-1/3">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
+        <div className="relative w-1/3 min-w-[280px]">
           <Search className="absolute start-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
           <Input
             type="text"
@@ -100,8 +100,8 @@ export default function ShowroomPage() {
           />
         </div>
 
-        <div className="flex w-full flex-wrap items-center justify-end gap-2.5 md:w-auto">
-          <div className="me-2 flex items-center space-x-1 text-xs text-slate-500">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center space-x-1 text-xs text-slate-500">
             <Filter className="h-3.5 w-3.5 text-teal-600" />
             <span>{t("regionFilter")}:</span>
           </div>
@@ -112,7 +112,7 @@ export default function ShowroomPage() {
               setSelectedRegion(e.target.value);
               setSelectedCountry("");
             }}
-            className="px-3 py-1.5 text-xs"
+            className="w-28 px-3 py-1.5 text-xs"
           >
             <option value="">{t("allRegions")}</option>
             {availableRegions.map((r) => (
@@ -125,7 +125,7 @@ export default function ShowroomPage() {
           <Select
             value={selectedCountry}
             onChange={(e) => setSelectedCountry(e.target.value)}
-            className="px-3 py-1.5 text-xs"
+            className="w-28 px-3 py-1.5 text-xs"
             disabled={!selectedRegion}
           >
             <option value="">{t("allCountries")}</option>

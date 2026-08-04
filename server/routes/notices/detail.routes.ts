@@ -10,6 +10,7 @@ import { preferValue } from "../../utils/json";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../services/notices";
 import { normalizeUnspscCodes } from "../../services/unspsc";
 import { NOTICE_TRANSLATION_LANGS, getTranslatedNoticeDetail } from "../../services/notice-translation";
+import { detectSourceLang, translateNoticeViaChain } from "../../services/notice-translation";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
@@ -38,9 +39,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
   // ── 公告锁定态预览（渐进式信息展示·敏感度分级）──
   // 列表/推荐端点出于商业保护将 agency/unspsc 置空；本端点按敏感度分级下发：
-  // 次要信息（发布日期/投标难度/注册门槛/行业分类/机构简称）真实下发给所有登录用户；
+  // 次要信息（发布日期/投标难度/注册门槛/行业分类/机构简称/机构全称）真实下发给所有登录用户；
   // 核心敏感信息（联系人身份/文件清单/报告/来源链接）绝不返回，仅下发联系人数量
-  // 作为数量预告（仍走解锁口径：/:id/detail 403 不变）。VIP 额外获得机构全称。
+  // 作为数量预告（仍走解锁口径：/:id/detail 403 不变）。
   router.get("/api/notices/:id/preview", asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const userKey = normalizeUserKey(req.query.user_key) || "";
@@ -48,13 +49,6 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
     const notice = await noticesRepo.findPreview(noticeId);
     if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
-
-    // VIP 判定与供应商联系人端点同款口径：active 订阅未过期 或 membership_tier = 'vip'
-    const [user, subs] = await Promise.all([
-      usersRepo.findByKey(userKey),
-      membershipRepo.findActiveSubscriptions(userKey),
-    ]);
-    const isVip = subs.length > 0 || user?.membership_tier === "vip";
 
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes)).slice(0, 4);
@@ -68,14 +62,12 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
     res.json({
       agency: notice.agency || notice.organization || opportunity?.agency || "",
+      agency_full: opportunity?.agency_full || notice.agency_full || "",
       published_date: preferValue(opportunity?.published_date, notice.published_date) || "",
       difficulty: preferValue(opportunity?.difficulty, notice.difficulty) || "",
       registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",
       unspsc_codes: unspscCodes,
       contact_count: contactCount,
-      ...(isVip
-        ? { agency_full: opportunity?.agency_full || notice.agency_full || "" }
-        : {}),
     });
   }));
 
@@ -86,6 +78,46 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     if (!noticeId || !NOTICE_TRANSLATION_LANGS[lang]) {
       return res.status(400).json({ error: "INVALID_NOTICE_OR_LANG" });
     }
+
+    // ── 中文快速路径：机会表 description_cn 直出（零翻译 API 调用）──
+    // 精选公告的中文描述已人工/AI 精加工存储在 crm_bid_opportunities.description_cn，
+    // 无需再走翻译链 API；仅需确认标题翻译已缓存即可完整返回。
+    if (lang === "zh") {
+      const notice = await noticesRepo.findDetail(noticeId);
+      if (notice) {
+        const opp = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+        const descCn = opp ? String(opp.description_cn || "").trim() : "";
+        if (descCn) {
+          const cached = await noticesRepo.findTranslationCache(noticeId, "zh");
+          if (cached?.title_tr) {
+            // 最快路径：标题缓存 + description_cn 直出（< 100ms，零 API 成本）
+            return res.json({
+              lang: "zh", title: cached.title_tr, description: descCn,
+              cached: true, source: "description_cn",
+            });
+          }
+          // 标题未缓存：仅翻译标题，描述走 description_cn
+          const title = String(notice.title || "").trim();
+          if (title) {
+            try {
+              const srcLang = detectSourceLang(title, "") ?? undefined;
+              const result = await translateNoticeViaChain(title, "", "zh", srcLang);
+              if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
+                await noticesRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
+              }
+              return res.json({
+                lang: "zh",
+                title: result.provider === "same-lang-passthrough" ? title : result.translations[0],
+                description: descCn,
+                cached: false, source: "description_cn",
+              });
+            } catch { /* 翻译失败回退通用路径 */ }
+          }
+        }
+      }
+    }
+
+    // ── 通用路径 ──
     try {
       const result = await getTranslatedNoticeDetail(noticeId, lang, noticesRepo, ctx.dbPool);
       res.json(result);

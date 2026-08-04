@@ -189,5 +189,15 @@
   "procurement_contactWechatService": "Contacter le service client WeChat",
   "procurement_wechatServiceTitle": "Service client WeChat",
   "procurement_wechatServiceHint": "Scannez le QR code pour ajouter notre support WeChat. Envoyez l'ID de l'annonce pour demander un traitement ciblé.",
-  "procurement_dismiss": "Compris"
+  "procurement_dismiss": "Compris",
+  "procurement_reportPreviewTitle": "Aperçu du rapport d'appel d'offres",
+  "procurement_reportPreviewDescCn": "Description des achats",
+  "procurement_reportPreviewProducts": "Produits clés",
+  "procurement_reportPreviewMore": "{count} articles au total",
+  "procurement_reportPreviewAiSummary": "Résumé de l'analyse IA",
+  "procurement_reportPreviewRisks": "Principaux risques",
+  "procurement_reportPreviewDownload": "Télécharger le rapport complet (Word)",
+  "procurement_previewPartial": "Aperçu (~10%)",
+  "procurement_previewUpgrade": "Inscrivez-vous pour voir le rapport complet",
+  "procurement_previewUnlockHint": "Débloquez pour voir tout le contenu"
 }

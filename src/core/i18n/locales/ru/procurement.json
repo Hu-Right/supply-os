@@ -189,5 +189,15 @@
   "procurement_contactWechatService": "Связаться с поддержкой WeChat",
   "procurement_wechatServiceTitle": "Служба поддержки WeChat",
   "procurement_wechatServiceHint": "Отсканируйте QR-код, чтобы добавить нашу поддержку WeChat. Отправьте ID объявления для запроса целевой обработки.",
-  "procurement_dismiss": "Понятно"
+  "procurement_dismiss": "Понятно",
+  "procurement_reportPreviewTitle": "Предварительный просмотр отчёта",
+  "procurement_reportPreviewDescCn": "Описание закупки",
+  "procurement_reportPreviewProducts": "Ключевые продукты",
+  "procurement_reportPreviewMore": "Всего {count} позиций",
+  "procurement_reportPreviewAiSummary": "Сводка AI-анализа",
+  "procurement_reportPreviewRisks": "Основные риски",
+  "procurement_reportPreviewDownload": "Скачать полный отчёт (Word)",
+  "procurement_previewPartial": "Предпросмотр (~10%)",
+  "procurement_previewUpgrade": "Зарегистрируйтесь для просмотра полного отчёта",
+  "procurement_previewUnlockHint": "Разблокируйте для просмотра всего содержимого"
 }

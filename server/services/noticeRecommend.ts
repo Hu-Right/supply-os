@@ -18,6 +18,8 @@ import {
   tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords,
 } from "./recommend";
 import { backfillNoticeAmountCache } from "./amount";
+import type { NoticesRepo } from "../repos/notices.repo";
+import { getTranslatedNoticeDetail } from "./notice-translation";
 
 const DEADLINE_SEC_EXPR = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
 const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(NOW()))`;
@@ -34,20 +36,48 @@ export interface NoticeRecommendResult {
   fallback?: string;
 }
 
-async function deadlineFallback(pool: Pool, page: number, pageSize: number, offset: number): Promise<NoticeRecommendResult> {
+async function deadlineFallback(pool: Pool, page: number, pageSize: number, offset: number, locale?: string, noticesRepo?: NoticesRepo): Promise<NoticeRecommendResult> {
   const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
   const cntRow = (cntRows as RowDataPacket[])[0];
+  // 卡片国际化：LEFT JOIN 翻译表（当前语言 + 英文回退）
+  const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
+  const trParams = locale ? [locale] : [];
+  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
+  const oppJoin2 = "LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
+  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
+  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
   const [fallbackRows] = await pool.query(
     `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files
-     FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [pageSize, offset]);
+            n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
+            ${trSelect} ${treSelect} COALESCE(opp_desc.description_cn, opp_desc2.description_cn) AS description_cn
+     FROM crm_bid_notices n ${trJoin} ${treJoin} ${oppJoin} ${oppJoin2} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
+  const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
+    ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
+    unspsc_codes: [], core_locked: true,
+    breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
+    documents: undefined, procurement_files: undefined,
+  }));
+
+  // ── 卡片国际化按需翻译：异步写入缓存，不阻塞当前响应 ──
+  if (locale && noticesRepo) {
+    const missingRows = (fallbackRows as RowDataPacket[]).filter((row) => !row.title_i18n);
+    const toTranslate = missingRows.slice(0, 9);
+    if (toTranslate.length > 0) {
+      void Promise.all(
+        toTranslate.map(async (row) => {
+          try {
+            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
+            row.title_i18n = tr.title || null;
+            row.description_i18n = tr.description || null;
+          } catch { /* 翻译失败不影响列表主体 */ }
+        }),
+      );
+    }
+  }
+
   return {
-    items: (fallbackRows as RowDataPacket[]).map(row => ({
-      ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
-      unspsc_codes: [], core_locked: true,
-      breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
-      documents: undefined, procurement_files: undefined,
-    })),
+    items: fallbackItems,
     total: Number((cntRow as RowDataPacket).total), page, pageSize, fallback: "deadline",
   };
 }
@@ -95,9 +125,9 @@ function mmrRerankPage(pageRows: any[]): any[] {
   return picked.map((index) => pageRows[index]);
 }
 
-export async function recommendNotices(pool: Pool, userKey: string, page: number, pageSize: number): Promise<NoticeRecommendResult> {
+export async function recommendNotices(pool: Pool, userKey: string, page: number, pageSize: number, locale?: string, noticesRepo?: NoticesRepo): Promise<NoticeRecommendResult> {
   const offset = (page - 1) * pageSize;
-  if (!userKey) return deadlineFallback(pool, page, pageSize, offset);
+  if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
 
   const [interestRows] = await pool.query(
     `SELECT code, level, MAX(code_id) AS code_id,
@@ -142,7 +172,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     params.push(`${prefix}%`);
   }
 
-  if (clauses.length === 0) return deadlineFallback(pool, page, pageSize, offset);
+  if (clauses.length === 0) return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
 
   const extraParams: any[] = [];
   const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
@@ -204,19 +234,32 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     ? `MAX(${l4Prefixes.map(() => "(b.code LIKE ?)").join(" OR ")})` : "0";
   const l4Params = l4Prefixes.map((prefix) => `${prefix}%`);
 
+  // 卡片国际化：LEFT JOIN 翻译表（当前语言 + 英文回退）
+  const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
+  const trParams = locale ? [locale] : [];
+  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
+  const oppJoin2 = "LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
+  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
+  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
   const [rows] = await pool.query(
     `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
        n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
+       ${trSelect} ${treSelect} MAX(COALESCE(opp_desc.description_cn, opp_desc2.description_cn)) AS description_cn,
        ${l4HitExpr} AS l4_hit, MAX(amc.amount_usd) AS amount_usd_cached,
        GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
        COUNT(DISTINCT b.code) AS match_score, ${recoScoreExpr} AS reco_score
      FROM crm_bid_notices n
      INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
      LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
+     ${trJoin}
+     ${treJoin}
+     ${oppJoin}
+     ${oppJoin2}
      WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
      GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${DEADLINE_SEC_EXPR}, n.id DESC
      LIMIT ? OFFSET ?`,
-    [...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
+    [...trParams, ...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
   );
 
   const pageNoticeIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
@@ -232,16 +275,36 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
   }
 
   const nowSec = Math.floor(Date.now() / 1000);
+  const resultItems = mmrRerankPage(rows as RowDataPacket[]).map((row) => {
+    const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
+    return {
+      ...rest, match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
+      reco_reasons: buildRecoReasons(row, nowSec), agency: null, organization: null, source_url: null,
+      unspsc_codes: [], core_locked: true,
+      breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
+    };
+  });
+
+  // ── 卡片国际化按需翻译：异步写入缓存，不阻塞当前响应 ──
+  if (locale && noticesRepo) {
+    const rawRows = rows as RowDataPacket[];
+    const missingRows = rawRows.filter((row) => !row.title_i18n);
+    const toTranslate = missingRows.slice(0, 9);
+    if (toTranslate.length > 0) {
+      void Promise.all(
+        toTranslate.map(async (row) => {
+          try {
+            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
+            row.title_i18n = tr.title || null;
+            row.description_i18n = tr.description || null;
+          } catch { /* 翻译失败不影响列表主体 */ }
+        }),
+      );
+    }
+  }
+
   return {
-    items: mmrRerankPage(rows as RowDataPacket[]).map((row) => {
-      const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
-      return {
-        ...rest, match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
-        reco_reasons: buildRecoReasons(row, nowSec), agency: null, organization: null, source_url: null,
-        unspsc_codes: [], core_locked: true,
-        breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
-      };
-    }),
+    items: resultItems,
     total: Number((countRows as RowDataPacket[])[0]?.total || 0), page, pageSize, variant,
   };
 }

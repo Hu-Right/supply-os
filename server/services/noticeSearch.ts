@@ -12,6 +12,8 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { buildNoticeUnspscFilter } from "./unspsc";
 import { FEATURED_NOTICE_EXISTS } from "./notices";
+import type { NoticesRepo } from "../repos/notices.repo";
+import { getTranslatedNoticeDetail } from "./notice-translation";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // 性能优化：使用生成列 deadline_sec 替代表达式（阶段 3）
@@ -32,6 +34,8 @@ export interface NoticeSearchParams {
   deadlineWithinDays?: number;
   noticeType?: string;
   featuredOnly?: boolean;
+  /** 当前用户 locale（用于 LEFT JOIN 翻译表返回 title_i18n/description_i18n） */
+  locale?: string;
 }
 
 export interface NoticeSearchResult {
@@ -50,11 +54,15 @@ function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
     p.deadlineTo || "", p.sort || "deadline", p.valueMin || 0, p.valueMax || 0,
-    p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly,
+    p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly, p.locale || "",
   ]);
 }
 
-export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<NoticeSearchResult> {
+export async function searchNotices(
+  pool: Pool,
+  p: NoticeSearchParams,
+  noticesRepo?: NoticesRepo,
+): Promise<NoticeSearchResult> {
   const { page, pageSize } = p;
   const offset = (page - 1) * pageSize;
   const q = p.q || "";
@@ -67,6 +75,7 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
   const deadlineWithinDays = p.deadlineWithinDays || 0;
   const noticeType = p.noticeType || "";
   const featuredOnly = !!p.featuredOnly;
+  const locale = p.locale || "";
 
   const cacheKey = searchCacheKey(p);
   const cached = noticeSearchCache.get(cacheKey);
@@ -129,6 +138,18 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
     where.push(FEATURED_NOTICE_EXISTS);
   }
 
+  // 卡片国际化：LEFT JOIN 翻译表，按当前 locale 返回 title_i18n / description_i18n；
+  // 使用独立别名 tr 避免与搜索关键词匹配用的 qzh/qen 冲突
+  if (locale) {
+    join += " LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?";
+    params.push(locale);
+  }
+  // 英文回退 JOIN：当前语言无译文时回退到英文缓存
+  join += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  // 精选公告中文描述：双路径 LEFT JOIN 机会表获取 description_cn（与 FEATURED_NOTICE_EXISTS 口径对齐）
+  join += " LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
+  join += " LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
+
   const orderParts: string[] = [];
   const orderParams: any[] = [];
   if (q) {
@@ -151,7 +172,10 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
     ),
     pool.query(
       `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description
+         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description,
+         tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
+         tre.title_tr AS title_en, tre.description_tr AS description_en,
+         COALESCE(opp_desc.description_cn, opp_desc2.description_cn) AS description_cn
        FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}
        ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idFilterParams, ...params, ...orderParams, pageSize, offset]
@@ -196,8 +220,26 @@ export async function searchNotices(pool: Pool, p: NoticeSearchParams): Promise<
     }
   }
 
+  // ── 卡片国际化按需翻译：异步写入缓存，不阻塞当前响应（英文回退已即时兜底）──
+  const rawRows = rows as RowDataPacket[];
+  if (locale && noticesRepo) {
+    const missingRows = rawRows.filter((row) => !row.title_i18n);
+    const toTranslate = missingRows.slice(0, 9);
+    if (toTranslate.length > 0) {
+      void Promise.all(
+        toTranslate.map(async (row) => {
+          try {
+            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
+            row.title_i18n = tr.title || null;
+            row.description_i18n = tr.description || null;
+          } catch { /* 翻译失败不影响列表主体 */ }
+        }),
+      );
+    }
+  }
+
   const payload: NoticeSearchResult = {
-    items: (rows as RowDataPacket[]).map((row) => ({
+    items: rawRows.map((row) => ({
       ...row, agency: null, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
       is_featured: featuredIds.has(Number(row.id)),
       breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,

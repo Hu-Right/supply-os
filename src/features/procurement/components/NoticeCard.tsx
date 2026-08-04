@@ -30,7 +30,16 @@ interface NoticeCardProps {
 }
 
 export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  // 卡片国际化回退链：
+  //   标题：当前语言缓存 → 英文缓存 → 原文
+  //   描述：当前语言缓存 → [仅中文环境] 精选中文描述 → 英文缓存 → 原文
+  //   description_cn 仅在中文环境下使用，避免非中文用户看到中文内容
+  const displayTitle = item.title_i18n || item.title_en || item.title;
+  const displayDescription = item.description_i18n
+    || (locale === "zh" ? item.description_cn : null)
+    || item.description_en
+    || item.description;
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.notice_type);
   // 推荐理由标签：仅推荐/热度兜底响应携带；至多 2 个（服务端已截断，前端再兜底）
@@ -76,8 +85,8 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
           ))}
         </div>
       )}
-      <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{item.title}</h4>
-      <p dir="auto" className="text-xs text-slate-500 mt-3 line-clamp-3">{item.description || t("procurement_noDesc")}</p>
+      <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{displayTitle}</h4>
+      <p dir="auto" className="text-xs text-slate-500 mt-3 line-clamp-3">{displayDescription || t("procurement_noDesc")}</p>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
           <span

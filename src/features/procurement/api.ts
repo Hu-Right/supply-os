@@ -26,6 +26,8 @@ export interface NoticeSearchFilters {
   /** T-A4（本地差异 #14）：只看精选（三路合格机会判定，服务端 featured=1） */
   // [精选功能重新启用 2026-07-31] 参数字段恢复（调用侧 useNoticeSearch 已同步恢复）
   featured?: boolean;
+  /** 卡片国际化：当前 locale，服务端 LEFT JOIN 翻译表返回 title_i18n / description_i18n */
+  locale?: string;
 }
 
 export const fetchNotices = (
@@ -46,6 +48,7 @@ export const fetchNotices = (
     deadline_within_days: params.deadlineWithinDays,
     notice_type: params.noticeType,
     featured: params.featured ? "1" : undefined, // [精选功能重新启用 2026-07-31]
+    locale: params.locale,
   });
   // 列表/搜索结果时效敏感（截止过滤与排序依赖服务端 NOW()），服务端已有 60s
   // TTL 缓存兜底性能；前端不走 5 分钟 apiCached，避免过期公告残留与条件回切旧结果
@@ -159,6 +162,8 @@ export const fetchRecommendedNotices = (params: {
   userKey: string;
   page: number;
   pageSize: number;
+  /** 卡片国际化：当前 locale */
+  locale?: string;
   // [dismiss 功能临时禁用 2026-07-30] excludeDismissed 参数已移除
   // excludeDismissed?: boolean;
 }): Promise<NoticeResponse> => {
@@ -166,6 +171,7 @@ export const fetchRecommendedNotices = (params: {
     user_key: params.userKey,
     page: params.page,
     page_size: params.pageSize,
+    locale: params.locale,
   });
   // [dismiss 功能临时禁用 2026-07-30]
   return api<NoticeResponse>(`/api/notices/recommended?${qs}`);

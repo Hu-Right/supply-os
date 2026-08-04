@@ -249,6 +249,13 @@ async function handleFullTranslation(
   // 统一检测源语言一次，后续主翻译 + 英文中枢兗底复用
   const detectedSourceLang = detectSourceLang(String(notice.title || ""), mergedDescription) ?? undefined;
 
+  // ── 快速路径：中文 + description_cn + 原文已是中文标题 → 零 API 调用 ──
+  if (zhDescCn && detectedSourceLang === "zh") {
+    // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
+    await noticesRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
+    return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
+  }
+
   const pendingKey = `${noticeId}:${lang}`;
   let pending = pendingNoticeTranslations.get(pendingKey);
   if (!pending) {

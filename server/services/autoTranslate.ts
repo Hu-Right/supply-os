@@ -11,11 +11,13 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { ChainSourceLang } from "./translation/chain";
+import { translateViaChain } from "./translation/chain";
 import {
   pendingNoticeTranslations,
   translateNoticeViaChain,
   detectSourceLang,
 } from "./notice-translation";
+import { channelConfigured } from "../config/env";
 import { createLogger } from "../utils/fileLogger";
 
 const logger = createLogger("auto-translate");
@@ -40,8 +42,8 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 20; // 20 并发 worker，加速批量翻译
-const DELAY_MS = 100;  // 每条间隔 100ms
+const CONCURRENCY = 5;  // 5 并发 worker（降低并发避免 DeepSeek 429 限流）
+const DELAY_MS = 200;   // 每条间隔 200ms（配合重试机制给 API 喘息时间）
 
 // 扫描目标白名单：公告表 + 精选数据表（两表 is_expired/deadline_ts 列名一致）；
 // 表名/列名均来自常量，无注入面
@@ -206,9 +208,10 @@ export async function runIncrementalTranslation(
             } catch (err: any) {
               failed += 1;
               const errMsg = err?.message || String(err);
-              console.log(`  [${mySeq}/${totalInQueue}] FAIL error="${errMsg}" id=${row.id} src=${sourceLang ?? "unknown"}→${targetLang}`);
+              const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
+              console.log(`  [${mySeq}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${row.id} src=${sourceLang ?? "unknown"}→${targetLang}`);
               logger.warn(
-                `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" title="${titlePreview}" desc="${descPreview}"`
+                `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" degraded="${degraded}" title="${titlePreview}" desc="${descPreview}"`
               );
             }
             await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
@@ -228,6 +231,25 @@ export async function runIncrementalTranslation(
     `[auto-translate] 增量双语翻译: 成功 ${ok} 失败 ${failed} 字符 ${charsUsed}/${cfg.dailyCharBudget} 耗时 ${Math.round((Date.now() - startedAt) / 1000)}s`
   );
   return { ok, failed, charsUsed };
+}
+
+/**
+ * DeepSeek 通道健康检查：启动时发送短文本探测，确认 API Key 有效且可达。
+ * 失败时输出醒目警告但不阻断调度（可能只是临时故障，后续轮次会重试）。
+ */
+async function probeDeepSeekHealth(): Promise<void> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!channelConfigured(apiKey)) {
+    console.warn("[auto-translate] ⚠ DeepSeek API Key 未配置，翻译链将仅依赖 Gemini 兜底（当前也未配置）");
+    return;
+  }
+  try {
+    const result = await translateViaChain(["Hello"], "en", "zh");
+    console.log(`[auto-translate] ✓ DeepSeek 健康检查通过 (provider=${result.provider})`);
+  } catch (err: any) {
+    const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || err?.message || String(err);
+    console.error(`[auto-translate] ✗ DeepSeek 健康检查失败: ${degraded}。翻译任务将继续尝试但可能持续失败，请检查 API Key 与网络。`);
+  }
 }
 
 /**
@@ -256,10 +278,12 @@ export function startAutoTranslate(
     }
   };
 
+  // 启动时先做健康检查，30s 后跑首轮
+  void probeDeepSeekHealth();
   const timer1 = setTimeout(() => void tick(), 30_000);
   const timer2 = setInterval(() => void tick(), cfg.intervalMs);
   console.log(
-    `[auto-translate] 已启用: 每 ${Math.round(cfg.intervalMs / 60000)} 分钟扫描新增公告（水位以上），单轮上限 ${cfg.maxPerRun} 条/语言，仅标题翻译（内容暂关闭），双语（zh+en），日预算 ${cfg.dailyCharBudget} 字符`
+    `[auto-translate] 已启用: 每 ${Math.round(cfg.intervalMs / 60000)} 分钟扫描新增公告（水位以上），单轮上限 ${cfg.maxPerRun} 条/语言，仅标题翻译（内容暂关闭），双语（zh+en），日预算 ${cfg.dailyCharBudget} 字符，并发 ${CONCURRENCY}`
   );
 
   return () => {

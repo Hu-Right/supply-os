@@ -189,5 +189,15 @@
   "procurement_contactWechatService": "التواصل مع دعم WeChat",
   "procurement_wechatServiceTitle": "خدمة عملاء WeChat",
   "procurement_wechatServiceHint": "امسح رمز QR لإضافة دعم WeChat الخاص بنا. أرسل رقم الإعلان لطلب معالجة موجهة.",
-  "procurement_dismiss": "مفهوم"
+  "procurement_dismiss": "مفهوم",
+  "procurement_reportPreviewTitle": "معاينة تقرير العطاء",
+  "procurement_reportPreviewDescCn": "وصف المشتريات",
+  "procurement_reportPreviewProducts": "المنتجات الرئيسية",
+  "procurement_reportPreviewMore": "{count} عنصر إجمالاً",
+  "procurement_reportPreviewAiSummary": "ملخص تحليل الذكاء الاصطناعي",
+  "procurement_reportPreviewRisks": "المخاطر الرئيسية",
+  "procurement_reportPreviewDownload": "تحميل التقرير الكامل (Word)",
+  "procurement_previewPartial": "معاينة (~10%)",
+  "procurement_previewUpgrade": "سجل لعرض التقرير الكامل",
+  "procurement_previewUnlockHint": "افتح لعرض كامل المحتوى"
 }

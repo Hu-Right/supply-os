@@ -1,0 +1,620 @@
+<?php
+/**
+ * 投标商机 Word 报告生成服务
+ * 按照参考文档格式（深度技术与商务分析报告）生成标准化 Word 文档
+ */
+
+namespace app\common\service;
+
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\Style\Font;
+use PhpOffice\PhpWord\IOFactory;
+
+class BidReportService
+{
+    // 平台标签映射
+    const PLATFORMS = [
+        'ungm'      => 'UNGM (ungm.org)',
+        'undp'      => 'UNDP Procurement',
+        'unops'     => 'UNOPS eSourcing',
+        'wfp'       => 'WFP eSourcing',
+        'unicef'    => 'UNICEF Supply Division',
+        'who'       => 'WHO eTendering',
+        'worldbank' => 'World Bank',
+        'dgmarket'  => 'DG Market',
+        'idb'       => 'IDB (Americas)',
+        'afdb'      => 'AfDB',
+        'adb'       => 'ADB',
+        'ted'       => 'TED (EU)',
+        'sam'       => 'SAM.gov (US Federal)',
+        'other'     => '其他',
+    ];
+
+    // 行业标签映射
+    const INDUSTRY_MAP = [
+        'agriculture'  => '农业/粮食',
+        'building'     => '建筑/基础设施',
+        'chemicals'    => '化工/材料',
+        'education'    => '教育/培训',
+        'electrical'   => '电气/电子',
+        'engineering'  => '工程/技术',
+        'food'         => '食品/营养',
+        'furniture'    => '家具/办公',
+        'it'           => '信息技术',
+        'laboratory'   => '实验室/检测',
+        'logistics'    => '物流/仓储',
+        'medical'      => '医疗/卫生',
+        'printing'     => '印刷/出版',
+        'safety'       => '安全/防护',
+        'shelter'      => '庇护所/住房',
+        'textile'      => '纺织/服装',
+        'vehicles'     => '车辆/运输',
+        'water'        => '水务/环境',
+        'other'        => '其他',
+    ];
+
+    /**
+     * 生成 Word 报告并返回文件路径
+     * @param array $row  已解码 JSON 字段的投标商机完整数据
+     * @return string     临时文件路径（.docx）
+     */
+    public function generate(array $row): string
+    {
+        $phpWord = new PhpWord();
+        $phpWord->getSettings()->setThemeFontLang(new \PhpOffice\PhpWord\Style\Language('zh-CN'));
+
+        // ──────────── 全局字体默认值 ────────────
+        $phpWord->setDefaultFontName('宋体');
+        $phpWord->setDefaultFontSize(11);
+
+        // ──────────── 样式定义 ────────────
+        // 封面标题
+        $phpWord->addTitleStyle(0, [
+            'name'      => '黑体',
+            'size'      => 18,
+            'bold'      => true,
+            'color'     => '1F3864',
+        ], [
+            'alignment'   => Jc::CENTER,
+            'spaceAfter'  => 160,
+        ]);
+        // 一级章节
+        $phpWord->addTitleStyle(1, [
+            'name'  => '黑体',
+            'size'  => 14,
+            'bold'  => true,
+            'color' => '1F3864',
+        ], [
+            'spaceBefore' => 240,
+            'spaceAfter'  => 80,
+        ]);
+        // 二级章节
+        $phpWord->addTitleStyle(2, [
+            'name'  => '黑体',
+            'size'  => 12,
+            'bold'  => true,
+            'color' => '2E74B5',
+        ], [
+            'spaceBefore' => 160,
+            'spaceAfter'  => 60,
+        ]);
+        // 三级章节
+        $phpWord->addTitleStyle(3, [
+            'name'  => '宋体',
+            'size'  => 11,
+            'bold'  => true,
+            'color' => '375623',
+        ], [
+            'spaceBefore' => 120,
+            'spaceAfter'  => 40,
+        ]);
+
+        $section = $phpWord->addSection([
+            'marginTop'    => 1440,
+            'marginBottom' => 1440,
+            'marginLeft'   => 1440,
+            'marginRight'  => 1440,
+        ]);
+
+        // ══════════════════════════════════════════
+        //  封面 / 标题区
+        // ══════════════════════════════════════════
+        $agencyFull  = $this->safe($row['agency_full'] ?: $row['agency']);
+        $platform    = self::PLATFORMS[$row['source_platform'] ?? ''] ?? strtoupper($row['source_platform'] ?? '');
+        $reference   = $this->safe($row['reference']);
+        $title       = $this->safe($row['title']);
+
+        // 主标题：机构 + 项目标题
+        $section->addTitle($agencyFull ?: $platform, 0);
+
+        // 副标题行
+        $section->addText(
+            $title,
+            ['name' => '黑体', 'size' => 14, 'bold' => true, 'color' => '1F3864'],
+            ['alignment' => Jc::CENTER, 'spaceBefore' => 40, 'spaceAfter' => 80]
+        );
+
+        // 标号 + 报告类型
+        $refLine = ($reference ? '招标编号：' . $reference . '  |  ' : '') . '深度技术与商务分析报告';
+        $section->addText(
+            $refLine,
+            ['name' => '宋体', 'size' => 11, 'color' => '595959'],
+            ['alignment' => Jc::CENTER, 'spaceAfter' => 200]
+        );
+
+        $section->addTextBreak(1);
+
+        // ══════════════════════════════════════════
+        //  一、项目基本信息与关键时间矩阵
+        // ══════════════════════════════════════════
+        $section->addTitle('一、 项目基本信息与关键时间矩阵 (Tender Overview & Key Timeline)', 1);
+
+        // 1.1 核心招投标身份信息
+        $section->addTitle('1.1 核心招投标身份信息', 2);
+
+        $infoRows = [
+            ['采购业主 (Buying Agency)',           $agencyFull ?: $platform],
+            ['平台来源',                            $platform],
+            ['标案项目名称 (Project Title)',         $title],
+            ['招标类型 (Notice Type)',              $this->safe($row['notice_type'])],
+            ['注册级别要求 (Registration Level)',    $this->safe($row['registration_level'])],
+            ['行业 (Industry)',                     $this->safe(self::INDUSTRY_MAP[$row['industry'] ?? ''] ?? $row['industry'] ?? '')],
+        ];
+
+        // UNSPSC 编码
+        $unspscStr = '';
+        if (!empty($row['unspsc_codes']) && is_array($row['unspsc_codes'])) {
+            $unspscStr = implode('；', array_map(function($c) {
+                return ($c['code'] ?? '') . ($c['name'] ? ' — ' . $c['name'] : '');
+            }, $row['unspsc_codes']));
+        }
+        if ($unspscStr) {
+            $infoRows[] = ['UNSPSC 编码分类', $unspscStr];
+        }
+        if (!empty($row['product_code'])) {
+            $infoRows[] = ['产品编码', $this->safe($row['product_code'])];
+        }
+
+        $section->addText(
+            '国际贸易条款 (Incoterms)：' . $this->safe($row['incoterms'] ?: '未注明'),
+            ['name' => '宋体', 'size' => 11],
+            ['spaceAfter' => 40]
+        );
+
+        $this->addKVTable($section, $infoRows);
+
+        // 1.2 时间节点与响应周期
+        $section->addTitle('1.2 时间节点与响应周期', 2);
+
+        $timeRows = [
+            ['标案发布日期 (Publication Date)',    $this->safe(($row['published_date'] ?? '') ?: ($row['publish_date'] ?? ''))],
+            ['标书截止递交时间 (Deadline)',          $this->safe(($row['deadline'] ?? '') ?: ($row['bid_deadline'] ?? ''))],
+            ['截止时区',                            $this->safe($row['deadline_timezone'])],
+            ['预估合同价值 (Estimated Value)',       $this->safe(($row['estimated_value'] ?? '') ?: ($row['budget'] ?? ''))],
+        ];
+        $this->addKVTable($section, $timeRows);
+
+        // 原始链接
+        if (!empty($row['source_url'])) {
+            $section->addText(
+                '原始招标链接：' . $row['source_url'],
+                ['name' => '宋体', 'size' => 10, 'color' => '1E9FFF'],
+                ['spaceAfter' => 60]
+            );
+        }
+
+        // ══════════════════════════════════════════
+        //  二、投标内容概览
+        // ══════════════════════════════════════════
+        $section->addTitle('二、 投标内容概览 (Bid Overview)', 1);
+
+        $bidOverview = $this->safe($row['bid_overview']);
+        if ($bidOverview && $bidOverview !== '-') {
+            $this->addBodyText($section, $bidOverview);
+        } else {
+            $this->addBodyText($section, $this->safe($row['description']));
+        }
+
+        // 中文描述
+        if (!empty($row['description_cn'])) {
+            $section->addTitle('2.1 采购描述（中文）', 2);
+            $this->addBodyText($section, $row['description_cn']);
+        }
+
+        // 其他语言描述
+        if (!empty($row['description_other'])) {
+            $section->addTitle('2.2 采购描述（其他语言）', 2);
+            $this->addBodyText($section, $row['description_other']);
+        }
+
+        // ══════════════════════════════════════════
+        //  三、采购清单与工程量表 (BoQ)
+        // ══════════════════════════════════════════
+        $section->addTitle('三、 采购清单与工程量表 (Bill of Quantities - BoQ)', 1);
+
+        $aiProducts = $row['ai_products'] ?? [];
+        if (!empty($aiProducts) && is_array($aiProducts)) {
+            // 有 AI 分析的产品列表
+            $this->addBoQTable($section, $aiProducts);
+        } else {
+            // 无结构化 BoQ，输出描述
+            $section->addText(
+                '本标案暂无结构化工程量清单数据，以下为采购描述内容：',
+                ['name' => '宋体', 'size' => 11, 'italic' => true, 'color' => '888888'],
+                ['spaceAfter' => 40]
+            );
+            $this->addBodyText($section, $this->safe($row['description']));
+        }
+
+        // ══════════════════════════════════════════
+        //  四、严格技术规格深度解构
+        // ══════════════════════════════════════════
+        $section->addTitle('四、 严格技术规格深度解构 (Strict Technical Specifications)', 1);
+
+        $techHurdles = $this->safe($row['technical_hurdles']);
+        if ($techHurdles && $techHurdles !== '-') {
+            $this->addBodyText($section, $techHurdles);
+        }
+
+        // AI 深度分析
+        $aiAnalysis = $row['ai_analysis'] ?? [];
+        if (!empty($aiAnalysis) && is_array($aiAnalysis)) {
+            $this->addAiAnalysisSection($section, $aiAnalysis);
+        }
+
+        // 附件文件列表
+        $documents = $row['documents'] ?? [];
+        if (!empty($documents) && is_array($documents)) {
+            $section->addTitle('4.1 招标附件文件清单', 2);
+            foreach ($documents as $doc) {
+                $docName = $doc['name'] ?? $doc['title'] ?? '文件';
+                $docUrl  = $doc['url'] ?? $doc['href'] ?? '';
+                $line = '◆ ' . $docName;
+                if ($docUrl) $line .= '  (' . $docUrl . ')';
+                $this->addBulletText($section, $line);
+            }
+        }
+
+        // 外部链接
+        $externalLinks = $row['external_links'] ?? [];
+        if (!empty($externalLinks) && is_array($externalLinks)) {
+            $section->addTitle('4.2 外部参考链接', 2);
+            foreach ($externalLinks as $link) {
+                $linkName = $link['name'] ?? $link['title'] ?? $link['url'] ?? '链接';
+                $linkUrl  = $link['url'] ?? $link['href'] ?? '';
+                $line = '◆ ' . $linkName;
+                if ($linkUrl) $line .= '  (' . $linkUrl . ')';
+                $this->addBulletText($section, $line);
+            }
+        }
+
+        // ══════════════════════════════════════════
+        //  五、强制性资格审查与标书文件清单
+        // ══════════════════════════════════════════
+        $section->addTitle('五、 强制性资格审查与标书文件清单 (Mandatory Documentation Checklist)', 1);
+
+        $section->addText(
+            '根据联合国采购准入规则，任何文件缺失或清晰度不合规均触发一票否决。所有文件须以英文提交（中文原件须附加盖投标公司公章的英文翻译件，并与原件合并为单一 PDF）。',
+            ['name' => '宋体', 'size' => 11],
+            ['spaceBefore' => 40, 'spaceAfter' => 80]
+        );
+
+        // 供应商投标条件
+        $supplierCond = $this->safe($row['supplier_conditions']);
+        if ($supplierCond && $supplierCond !== '-') {
+            $section->addTitle('5.1 供应商投标条件', 2);
+            $this->addBodyText($section, $supplierCond);
+        }
+
+        // 资格要求
+        $eligibility = $this->safe($row['eligibility']);
+        if ($eligibility && $eligibility !== '-') {
+            $section->addTitle('5.2 资格要求（Eligibility Requirements）', 2);
+            $this->addBodyText($section, $eligibility);
+        }
+
+        // 通用必备文件清单
+        $section->addTitle('5.3 第一类：技术资质与制造商实力档案', 2);
+        $techDocs = [
+            '制造商综合评述报告 (Manufacturer Profile)：工厂占地面积、日/月标准产能、技术团队架构及生产线全流程 QA/QC 管理体系；须附高清晰度实景车间照片。',
+            'IMS 管理体系三标一体认证 (ISO Certifications)：ISO 9001（质量管理体系）/ ISO 14001（环境管理体系）/ ISO 45001（职业健康安全管理体系）。',
+            '高清技术彩页与产品说明书 (Product Brochures)：所有物理、电气、软件及逻辑参数须与原始技术招标书条款进行"一对一 (One-to-One)"格式化矩阵对应。',
+            '质量验证与测试报告 (Test Reports)：各系统对应的产品合规证书（COC）或质量证书（COQ）；出厂验收测试（FAT）记录或独立第三方实验室检测报告。',
+            '官方全英文版操作与维护（O&M）技术手册。',
+        ];
+        foreach ($techDocs as $item) {
+            $this->addBulletText($section, '□ ' . $item);
+        }
+
+        $section->addTitle('5.4 第二类：商务合规与资信证明', 2);
+        $bizDocs = [
+            '企业法定营业执照 (Business License)：附最新国家工商企业登记证明文件（需加盖翻译章）。',
+            '企业最高管理层身份证明 (Executive Identification)：公司常务董事（MD）或首席执行官（CEO）护照高清扫描件。',
+            '过往履约历史与类似项目业绩 (Track Record)：提供过去连续5年内成功交付的类似项目综合清单，须注明客户名称、合同金额、联系方式，并附采购订单（PO）或完工验收证书。',
+            '官方制造商授权书 (MAF)：若非直接制造工厂，须提交原厂针对本标案编号签发的官方授权书。',
+        ];
+        foreach ($bizDocs as $item) {
+            $this->addBulletText($section, '□ ' . $item);
+        }
+
+        // ══════════════════════════════════════════
+        //  六、电子投递规范与标书递交要求
+        // ══════════════════════════════════════════
+        $section->addTitle('六、 电子投递规范与标书递交要求 (Submission Logistics & Rules)', 1);
+
+        $submissionRules = [
+            [
+                '唯一合规递交入口',
+                '标书须通过官方采购门户（UNOPS Quantum Supplier Portal 或对应平台）在线提交，不接受邮件递交。'
+            ],
+            [
+                'Incoterms 与计价货币',
+                ($row['incoterms'] ?: '请参考原始标书') . '，价格须包含运输、卸货、安装、调试与培训全部费用，以美元（USD）计价。'
+            ],
+            [
+                '单次递交完整性要求',
+                '技术标与商务标须作为完整方案一并提交，不可分拆递交；附件须直接上传至系统，严禁附带百度网盘、Google Drive 等外部链接。'
+            ],
+            [
+                '邮件/平台主题命名规范',
+                '须严格按照招标文件规定的参考编号格式标注，不得有任何多余字符。格式：' . ($reference ?: '[标案编号]')
+            ],
+        ];
+
+        $this->addKVTable($section, $submissionRules);
+
+        // 联系方式
+        $contacts = $row['contacts'] ?? [];
+        if (!empty($contacts) && is_array($contacts)) {
+            $section->addTitle('6.1 发标方联系方式', 2);
+            foreach ($contacts as $c) {
+                $line = '';
+                if (!empty($c['name']))  $line .= $c['name'] . ' ';
+                if (!empty($c['title'])) $line .= '(' . $c['title'] . ') ';
+                if (!empty($c['email'])) $line .= '邮箱: ' . $c['email'] . ' ';
+                if (!empty($c['phone'])) $line .= '电话: ' . $c['phone'];
+                if ($line) {
+                    $this->addBulletText($section, '◆ ' . trim($line));
+                }
+            }
+        }
+
+        // 研修班/培训关联
+        if (!empty($row['training_link'])) {
+            $section->addTitle('6.2 研修班关联点', 2);
+            $this->addBodyText($section, $row['training_link']);
+        }
+
+        // ══════════════════════════════════════════
+        //  七、针对当前阶段的推进建议
+        // ══════════════════════════════════════════
+        $section->addTitle('七、 针对当前阶段的推进建议', 1);
+
+        $suggestions = [
+            '立即下载原始招标文件：通过招标页面链接下载完整标书，核实报价有效期天数、验收标准细节及付款条款。',
+            '供应商注册核查：确认贵司在对应采购门户的注册状态与资质等级是否满足本标案要求，若未注册须立即完成注册流程。',
+            '设备工厂对接：迅速向国内集成商/制造商调取相关技术彩页、IP防护等级认证文件，并逐条与技术要求比对。',
+            '报价核算：商务团队按 ' . ($row['incoterms'] ?: 'DAP') . ' 条款（含运输、安装、调试）核算完整报价，剔除一切增值税。',
+            '截止时间跟踪：密切关注截止日期 ' . $this->safe(($row['deadline'] ?? '') ?: ($row['bid_deadline'] ?? '')) . '，提前72小时完成文件准备并完成系统上传。',
+        ];
+
+        foreach ($suggestions as $i => $suggestion) {
+            $this->addBulletText($section, ($i + 1) . '. ' . $suggestion);
+        }
+
+        // 备注
+        if (!empty($row['remark'])) {
+            $section->addTitle('内部备注', 2);
+            $this->addBodyText($section, $row['remark']);
+        }
+
+        // ══════════════════════════════════════════
+        //  页脚：生成时间 + 声明
+        //  ══════════════════════════════════════════
+        $section->addTextBreak(2);
+        $footLine = '本报告由系统自动生成  |  生成时间：' . date('Y年m月d日 H:i') . '  |  仅供内部参考使用，请勿对外传播';
+        $section->addText(
+            $footLine,
+            ['name' => '宋体', 'size' => 9, 'color' => 'AAAAAA', 'italic' => true],
+            ['alignment' => Jc::CENTER]
+        );
+
+        // ──────────── 保存到临时文件 ────────────
+        $tmpDir  = dirname(__DIR__, 2) . '/runtime/bid_reports/';
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0755, true);
+        }
+        $fileName = 'bid_report_' . ($row['id'] ?? 0) . '_' . date('YmdHis') . '.docx';
+        $filePath = $tmpDir . $fileName;
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($filePath);
+
+        return $filePath;
+    }
+
+    // ──────────────────────────────────────────────────
+    //  辅助方法
+    // ──────────────────────────────────────────────────
+
+    /** 安全获取字符串，null/false 返回空字符串 */
+    private function safe($v): string
+    {
+        if ($v === null || $v === false || $v === '') return '';
+        return (string) $v;
+    }
+
+    /** 添加正文段落（支持换行） */
+    private function addBodyText($section, string $text): void
+    {
+        if ($text === '' || $text === '-') {
+            $section->addText(
+                '（无）',
+                ['name' => '宋体', 'size' => 11, 'color' => 'AAAAAA', 'italic' => true],
+                ['spaceAfter' => 60]
+            );
+            return;
+        }
+        // 按换行分段
+        $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $text));
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+            $section->addText(
+                $line,
+                ['name' => '宋体', 'size' => 11],
+                ['spaceBefore' => 20, 'spaceAfter' => 40, 'indentation' => ['left' => 360]]
+            );
+        }
+    }
+
+    /** 添加带缩进的条目 */
+    private function addBulletText($section, string $text): void
+    {
+        $section->addText(
+            $text,
+            ['name' => '宋体', 'size' => 11],
+            ['spaceBefore' => 20, 'spaceAfter' => 40, 'indentation' => ['left' => 360, 'hanging' => 180]]
+        );
+    }
+
+    /**
+     * 添加两列 KV 表格（左列标签，右列内容）
+     * @param \PhpOffice\PhpWord\Element\Section $section
+     * @param array $rows  [[label, value], ...]
+     */
+    private function addKVTable($section, array $rows): void
+    {
+        if (empty($rows)) return;
+
+        $tableStyle = [
+            'borderSize'  => 6,
+            'borderColor' => 'D8D8D8',
+            'cellMargin'  => 80,
+            'width'       => 9000,
+            'unit'        => 'dxa',
+        ];
+        $table = $section->addTable($tableStyle);
+
+        $labelFont = ['name' => '宋体', 'size' => 10, 'bold' => true, 'color' => '2E4099'];
+        $valueFont = ['name' => '宋体', 'size' => 11];
+        $labelCell = ['bgColor' => 'EEF3FC', 'valign' => 'center'];
+        $valueCell = ['valign' => 'center'];
+        $cellPara  = ['spaceBefore' => 20, 'spaceAfter' => 20];
+
+        foreach ($rows as $r) {
+            [$label, $value] = [$r[0], $r[1]];
+            if ($value === '' || $value === null) $value = '—';
+            $table->addRow();
+            $table->addCell(2600, $labelCell)->addText($label, $labelFont, $cellPara);
+            $table->addCell(6400, $valueCell)->addText((string)$value, $valueFont, $cellPara);
+        }
+        $section->addTextBreak(1);
+    }
+
+    /**
+     * 添加 BoQ 工程量表（结构化产品列表）
+     * @param \PhpOffice\PhpWord\Element\Section $section
+     * @param array $products  AI 分析产品数组
+     */
+    private function addBoQTable($section, array $products): void
+    {
+        $section->addText(
+            '业主本次招标要求采购的核心组件，所有标项必须作为一个完整的技术方案整体响应。',
+            ['name' => '宋体', 'size' => 11],
+            ['spaceAfter' => 80]
+        );
+
+        $tableStyle = [
+            'borderSize'  => 6,
+            'borderColor' => 'D8D8D8',
+            'cellMargin'  => 80,
+            'width'       => 9000,
+            'unit'        => 'dxa',
+        ];
+        $table = $section->addTable($tableStyle);
+
+        // 表头
+        $headerFont = ['name' => '黑体', 'size' => 10, 'bold' => true, 'color' => 'FFFFFF'];
+        $headerCell = ['bgColor' => '2E4099', 'valign' => 'center'];
+        $headerPara = ['spaceBefore' => 20, 'spaceAfter' => 20, 'alignment' => Jc::CENTER];
+
+        $table->addRow();
+        $table->addCell(400,  $headerCell)->addText('序号',   $headerFont, $headerPara);
+        $table->addCell(2000, $headerCell)->addText('产品/服务名称', $headerFont, $headerPara);
+        $table->addCell(4500, $headerCell)->addText('核心技术范围 (Scope of Supply)', $headerFont, $headerPara);
+        $table->addCell(800,  $headerCell)->addText('数量', $headerFont, $headerPara);
+        $table->addCell(1300, $headerCell)->addText('单位', $headerFont, $headerPara);
+
+        $rowFont = ['name' => '宋体', 'size' => 10];
+        $rowPara = ['spaceBefore' => 20, 'spaceAfter' => 20];
+        $altCell = ['bgColor' => 'F5F8FF', 'valign' => 'top'];
+        $norCell = ['bgColor' => 'FFFFFF', 'valign' => 'top'];
+
+        foreach ($products as $idx => $product) {
+            $isAlt = ($idx % 2 === 1);
+            $cellStyle = $isAlt ? $altCell : $norCell;
+
+            $name    = is_string($product) ? $product : ($product['name'] ?? $product['product'] ?? '');
+            $scope   = is_array($product) ? ($product['scope'] ?? $product['description'] ?? $product['spec'] ?? '') : '';
+            $qty     = is_array($product) ? ($product['quantity'] ?? $product['qty'] ?? '1') : '1';
+            $unit    = is_array($product) ? ($product['unit'] ?? '套') : '套';
+
+            $table->addRow();
+            $table->addCell(400,  $cellStyle)->addText((string)($idx + 1), $rowFont, $rowPara);
+            $table->addCell(2000, $cellStyle)->addText($name, $rowFont, $rowPara);
+            $table->addCell(4500, $cellStyle)->addText($scope, $rowFont, $rowPara);
+            $table->addCell(800,  $cellStyle)->addText((string)$qty, $rowFont, $rowPara);
+            $table->addCell(1300, $cellStyle)->addText((string)$unit, $rowFont, $rowPara);
+        }
+
+        $section->addTextBreak(1);
+    }
+
+    /**
+     * 渲染 AI 分析数据
+     * @param \PhpOffice\PhpWord\Element\Section $section
+     * @param array $aiAnalysis
+     */
+    private function addAiAnalysisSection($section, array $aiAnalysis): void
+    {
+        // AI 分析可能是数组或 KV 对象
+        if (isset($aiAnalysis['summary'])) {
+            $section->addTitle('AI 深度分析摘要', 2);
+            $this->addBodyText($section, $aiAnalysis['summary']);
+        }
+        if (isset($aiAnalysis['tech_specs'])) {
+            $section->addTitle('技术规格解析', 2);
+            $this->addBodyText($section, is_array($aiAnalysis['tech_specs']) ? implode("\n", $aiAnalysis['tech_specs']) : $aiAnalysis['tech_specs']);
+        }
+        if (isset($aiAnalysis['risks'])) {
+            $section->addTitle('主要风险点', 2);
+            $risks = is_array($aiAnalysis['risks']) ? $aiAnalysis['risks'] : [$aiAnalysis['risks']];
+            foreach ($risks as $risk) {
+                $this->addBulletText($section, '▲ ' . (is_string($risk) ? $risk : json_encode($risk, JSON_UNESCAPED_UNICODE)));
+            }
+        }
+        if (isset($aiAnalysis['advantages'])) {
+            $section->addTitle('竞争优势建议', 2);
+            $adv = is_array($aiAnalysis['advantages']) ? $aiAnalysis['advantages'] : [$aiAnalysis['advantages']];
+            foreach ($adv as $item) {
+                $this->addBulletText($section, '✓ ' . (is_string($item) ? $item : json_encode($item, JSON_UNESCAPED_UNICODE)));
+            }
+        }
+        // 其余未知字段，遍历输出
+        $knownKeys = ['summary', 'tech_specs', 'risks', 'advantages'];
+        foreach ($aiAnalysis as $k => $v) {
+            if (in_array($k, $knownKeys)) continue;
+            if (is_string($v) && $v !== '') {
+                $section->addTitle($k, 3);
+                $this->addBodyText($section, $v);
+            } elseif (is_array($v)) {
+                $section->addTitle($k, 3);
+                foreach ($v as $item) {
+                    $this->addBulletText($section, '• ' . (is_string($item) ? $item : json_encode($item, JSON_UNESCAPED_UNICODE)));
+                }
+            }
+        }
+    }
+}

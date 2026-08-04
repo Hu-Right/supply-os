@@ -624,3 +624,139 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
 
   return Packer.toBuffer(doc);
 }
+
+// ── 纯文本预览生成（与 buildBidReportDocx 同构，确保预览 = Word 文件内容）──
+
+/** 报告预览段落 */
+export interface ReportPreviewSection {
+  heading: string;
+  body: string;
+}
+
+/**
+ * 生成与 Word 报告同构的纯文本预览内容。
+ * 章节顺序、文案、数据源与 buildBidReportDocx 完全一致。
+ */
+export function buildBidReportPreviewText(row: Row): ReportPreviewSection[] {
+  const sections: ReportPreviewSection[] = [];
+  const agencyFull = safe(row.agency_full || row.agency);
+  const platformKey = safe(row.source_platform);
+  const platform = PLATFORMS[platformKey] || platformKey.toUpperCase();
+  const reference = safe(row.reference);
+  const title = safe(row.title);
+  const unspscCodes = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
+  const unspscStr = unspscCodes.map((c: any) => safe(c?.code) + (c?.name ? ` — ${c.name}` : "")).filter(Boolean).join("；");
+  const aiProducts = Array.isArray(row.ai_products) ? row.ai_products : [];
+  const aiAnalysis = row.ai_analysis && typeof row.ai_analysis === "object" ? row.ai_analysis : {};
+  const documents = Array.isArray(row.documents) ? row.documents : [];
+  const externalLinks = Array.isArray(row.external_links) ? row.external_links : [];
+  const contacts = Array.isArray(row.contacts) ? row.contacts : [];
+  const asText = (v: any) => (Array.isArray(v) ? v.join("\n") : String(v ?? ""));
+
+  // 一、项目基本信息
+  const infoLines: string[] = [];
+  infoLines.push(`采购业主：${agencyFull || platform}`);
+  infoLines.push(`平台来源：${platform}`);
+  infoLines.push(`标案项目名称：${title}`);
+  infoLines.push(`招标类型：${safe(row.notice_type)}`);
+  infoLines.push(`注册级别要求：${safe(row.registration_level)}`);
+  infoLines.push(`行业：${safe(INDUSTRY_MAP[safe(row.industry)] ?? row.industry)}`);
+  if (unspscStr) infoLines.push(`UNSPSC 编码分类：${unspscStr}`);
+  if (safe(row.product_code)) infoLines.push(`产品编码：${safe(row.product_code)}`);
+  infoLines.push(`国际贸易条款：${safe(row.incoterms) || "未注明"}`);
+  infoLines.push(`标案发布日期：${safe(row.published_date)}`);
+  infoLines.push(`标书截止递交时间：${safe(row.deadline)}`);
+  infoLines.push(`截止时区：${safe(row.deadline_timezone)}`);
+  infoLines.push(`预估合同价值：${safe(row.estimated_value)}`);
+  if (safe(row.source_url)) infoLines.push(`原始招标链接：${row.source_url}`);
+  sections.push({ heading: "一、项目基本信息与关键时间矩阵", body: infoLines.join("\n") });
+
+  // 二、投标内容概览
+  const bidOverview = safe(row.bid_overview);
+  const descBody = bidOverview && bidOverview !== "-" ? bidOverview : safe(row.description);
+  const descParts: string[] = [descBody];
+  if (safe(row.description_cn)) descParts.push(`【采购描述（中文）】\n${row.description_cn}`);
+  if (safe(row.description_other)) descParts.push(`【采购描述（其他语言）】\n${row.description_other}`);
+  sections.push({ heading: "二、投标内容概览", body: descParts.join("\n\n") });
+
+  // 三、采购清单与工程量表
+  if (aiProducts.length > 0) {
+    const boqLines = aiProducts.map((p: any, idx: number) => {
+      const name = typeof p === "string" ? p : safe(p?.name || p?.product);
+      const scope = typeof p === "object" && p !== null ? safe(p.scope || p.description || p.spec) : "";
+      const qty = typeof p === "object" && p !== null ? safe(p.quantity ?? p.qty ?? "1") : "1";
+      const unit = typeof p === "object" && p !== null ? safe(p.unit || "套") : "套";
+      return `${idx + 1}. ${name} | 数量: ${qty} ${unit}${scope ? ` | 范围: ${scope}` : ""}`;
+    });
+    sections.push({ heading: "三、采购清单与工程量表 (BoQ)", body: boqLines.join("\n") });
+  } else {
+    sections.push({ heading: "三、采购清单与工程量表 (BoQ)", body: "本标案暂无结构化工程量清单数据。" });
+  }
+
+  // 四、严格技术规格深度解构
+  const techParts: string[] = [];
+  const techHurdles = safe(row.technical_hurdles);
+  if (techHurdles && techHurdles !== "-") techParts.push(techHurdles);
+  if (aiAnalysis.summary) techParts.push(`【AI 深度分析摘要】\n${asText(aiAnalysis.summary)}`);
+  if (aiAnalysis.tech_specs) techParts.push(`【技术规格解析】\n${asText(aiAnalysis.tech_specs)}`);
+  if (aiAnalysis.risks) {
+    const risks = Array.isArray(aiAnalysis.risks) ? aiAnalysis.risks : [aiAnalysis.risks];
+    techParts.push(`【主要风险点】\n${risks.map((r: any) => `▲ ${typeof r === "string" ? r : JSON.stringify(r)}`).join("\n")}`);
+  }
+  if (aiAnalysis.advantages) {
+    const adv = Array.isArray(aiAnalysis.advantages) ? aiAnalysis.advantages : [aiAnalysis.advantages];
+    techParts.push(`【竞争优势建议】\n${adv.map((a: any) => `✓ ${typeof a === "string" ? a : JSON.stringify(a)}`).join("\n")}`);
+  }
+  if (documents.length > 0) {
+    techParts.push(`【招标附件文件清单】\n${documents.map((d: any) => `◆ ${safe(d?.name || d?.title)}${safe(d?.url || d?.href) ? ` (${d.url || d.href})` : ""}`).join("\n")}`);
+  }
+  if (externalLinks.length > 0) {
+    techParts.push(`【外部参考链接】\n${externalLinks.map((l: any) => `◆ ${safe(l?.name || l?.title || l?.url)}${safe(l?.url || l?.href) ? ` (${l.url || l.href})` : ""}`).join("\n")}`);
+  }
+  sections.push({ heading: "四、严格技术规格深度解构", body: techParts.join("\n\n") || "暂无技术规格数据。" });
+
+  // 五、强制性资格审查
+  const qualParts: string[] = [];
+  qualParts.push("根据联合国采购准入规则，任何文件缺失或清晰度不合规均触发一票否决。所有文件须以英文提交。");
+  const supplierCond = safe(row.supplier_conditions);
+  if (supplierCond && supplierCond !== "-") qualParts.push(`【供应商投标条件】\n${supplierCond}`);
+  const eligibility = safe(row.eligibility);
+  if (eligibility && eligibility !== "-") qualParts.push(`【资格要求】\n${eligibility}`);
+  qualParts.push("【技术资质与制造商实力档案】\n" + ["□ 制造商综合评述报告", "□ IMS 管理体系三标一体认证 (ISO 9001/14001/45001)", "□ 高清技术彩页与产品说明书", "□ 质量验证与测试报告", "□ 官方全英文版 O&M 技术手册"].join("\n"));
+  qualParts.push("【商务合规与资信证明】\n" + ["□ 企业法定营业执照", "□ 企业最高管理层身份证明", "□ 过往履约历史与类似项目业绩", "□ 官方制造商授权书 (MAF)"].join("\n"));
+  sections.push({ heading: "五、强制性资格审查与标书文件清单", body: qualParts.join("\n\n") });
+
+  // 六、电子投递规范
+  const submitLines: string[] = [];
+  submitLines.push("唯一合规递交入口：标书须通过官方采购门户在线提交，不接受邮件递交。");
+  submitLines.push(`Incoterms：${safe(row.incoterms) || "请参考原始标书"}，以美元（USD）计价。`);
+  submitLines.push("单次递交完整性要求：技术标与商务标须作为完整方案一并提交。");
+  submitLines.push(`主题命名规范：格式 ${reference || "[标案编号]"}`);
+  if (contacts.length > 0) {
+    const ct = contacts.map((c: any) => {
+      let t = "";
+      if (safe(c?.name)) t += c.name + " ";
+      if (safe(c?.title)) t += `(${c.title}) `;
+      if (safe(c?.email)) t += `邮箱: ${c.email} `;
+      if (safe(c?.phone)) t += `电话: ${c.phone}`;
+      return `◆ ${t.trim()}`;
+    });
+    submitLines.push(`【发标方联系方式】\n${ct.join("\n")}`);
+  }
+  if (safe(row.training_link)) submitLines.push(`【研修班关联点】\n${row.training_link}`);
+  sections.push({ heading: "六、电子投递规范与标书递交要求", body: submitLines.join("\n") });
+
+  // 七、推进建议
+  const suggestions = [
+    "1. 立即下载原始招标文件，核实报价有效期、验收标准及付款条款。",
+    "2. 供应商注册核查：确认注册状态与资质等级是否满足要求。",
+    "3. 设备工厂对接：调取技术彩页、认证文件，逐条比对技术要求。",
+    `4. 报价核算：按 ${safe(row.incoterms) || "DAP"} 条款核算完整报价。`,
+    `5. 截止时间跟踪：截止日期 ${safe(row.deadline)}，提前72小时完成上传。`,
+  ];
+  const suggestParts: string[] = [suggestions.join("\n")];
+  if (safe(row.remark)) suggestParts.push(`【内部备注】\n${row.remark}`);
+  sections.push({ heading: "七、针对当前阶段的推进建议", body: suggestParts.join("\n\n") });
+
+  return sections;
+}

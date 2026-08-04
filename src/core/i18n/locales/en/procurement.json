@@ -189,5 +189,15 @@
   "procurement_contactWechatService": "Contact WeChat support",
   "procurement_wechatServiceTitle": "WeChat Customer Service",
   "procurement_wechatServiceHint": "Scan the QR code to add our WeChat support. Send the notice ID to request targeted processing.",
-  "procurement_dismiss": "Got it"
+  "procurement_dismiss": "Got it",
+  "procurement_reportPreviewTitle": "Chinese Bid Report Preview",
+  "procurement_reportPreviewDescCn": "Procurement Description",
+  "procurement_reportPreviewProducts": "Key Products",
+  "procurement_reportPreviewMore": "{count} items total",
+  "procurement_reportPreviewAiSummary": "AI Analysis Summary",
+  "procurement_reportPreviewRisks": "Key Risks",
+  "procurement_reportPreviewDownload": "Download Full Report (Word)",
+  "procurement_previewPartial": "Preview (~10%)",
+  "procurement_previewUpgrade": "Register to view full report",
+  "procurement_previewUnlockHint": "Unlock to see all breakdown content"
 }

@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useRef, useReducer, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useLocale } from "@/core/i18n";
 import type { NoticeItem, PrefsMode } from "../types";
 import { fetchNotices, fetchNoticeCountries, fetchRecommendedNotices } from "../api";
 
@@ -134,6 +135,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setSelectedNotice,
     variantRef,
   } = options;
+  const { locale } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── 表单草稿状态（useReducer 集中管理 8 个字段）──
@@ -278,10 +280,11 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
             noticeType: activeNoticeType || undefined,
             featured: activeFeatured || undefined, // [精选功能重新启用 2026-07-31]
+            locale,
           })
         : prefsMode === "recommended" && userKey
-          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE })
-          : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined });
+          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale })
+          : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined, locale });
 
     request
       .then((json) => {
@@ -299,7 +302,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
         if (requestSeq === noticesRequestSeq.current) setLoading(false);
       });
     // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
-  }, [deepestCodeId, page, prefsMode, searchKey]);
+    // locale 纳入依赖：用户切换语言时需重新请求以获取对应译文
+  }, [deepestCodeId, page, prefsMode, searchKey, locale]);
 
   return {
     query: {
