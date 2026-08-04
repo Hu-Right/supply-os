@@ -5,6 +5,7 @@ import { useLocale } from "@/core/i18n";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
+import { formatDeadlineZh } from "../utils/formatDeadlineZh";
 
 // T-C3 推荐理由标签（C.3.4）：服务端标签键 → i18n 键白名单映射，未知键静默丢弃
 const RECO_REASON_KEYS: Record<string, LocaleKey> = {
@@ -69,7 +70,9 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
         </div>
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
-          <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">{item.deadline}</span>
+          <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">
+            {locale === "zh" ? formatDeadlineZh(item.deadline) : item.deadline}
+          </span>
           {/* [収藏/dismiss 功能临时禁用 2026-07-30] Star/X 按钮已移除 */}
         </div>
       </div>

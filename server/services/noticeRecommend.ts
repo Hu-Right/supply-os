@@ -44,14 +44,14 @@ async function deadlineFallback(pool: Pool, page: number, pageSize: number, offs
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
-  const oppJoin2 = "LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
+  // 路径2（source_notice_id）改用标量子查询，避免多行 JOIN 导致 DISTINCT 失效、分页溢出
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
             n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
-            ${trSelect} ${treSelect} COALESCE(opp_desc.description_cn, opp_desc2.description_cn) AS description_cn
-     FROM crm_bid_notices n ${trJoin} ${treJoin} ${oppJoin} ${oppJoin2} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
+            ${trSelect} ${treSelect} COALESCE(opp_desc.description_cn, (SELECT opp2.description_cn FROM crm_bid_opportunities opp2 WHERE opp2.source_notice_id = n.notice_id AND (opp2.is_qualified = 1 OR opp2.status = 'won' OR opp2.audit_status = 1) AND opp2.source_notice_id IS NOT NULL AND opp2.source_notice_id <> '' LIMIT 1)) AS description_cn
+     FROM crm_bid_notices n ${trJoin} ${treJoin} ${oppJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
     ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
     unspsc_codes: [], core_locked: true,

@@ -146,9 +146,9 @@ export async function searchNotices(
   }
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
   join += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // 精选公告中文描述：双路径 LEFT JOIN 机会表获取 description_cn（与 FEATURED_NOTICE_EXISTS 口径对齐）
+  // 精选公告中文描述：路径1 LEFT JOIN（converted_opp_id，PK 关联，至多 1 行）；
+  // 路径2（source_notice_id）改用标量子查询，避免多行 JOIN 导致 DISTINCT 失效、分页溢出
   join += " LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
-  join += " LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
 
   const orderParts: string[] = [];
   const orderParams: any[] = [];
@@ -175,7 +175,7 @@ export async function searchNotices(
          n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description,
          tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
          tre.title_tr AS title_en, tre.description_tr AS description_en,
-         COALESCE(opp_desc.description_cn, opp_desc2.description_cn) AS description_cn
+         COALESCE(opp_desc.description_cn, (SELECT opp2.description_cn FROM crm_bid_opportunities opp2 WHERE opp2.source_notice_id = n.notice_id AND (opp2.is_qualified = 1 OR opp2.status = 'won' OR opp2.audit_status = 1) AND opp2.source_notice_id IS NOT NULL AND opp2.source_notice_id <> '' LIMIT 1)) AS description_cn
        FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}
        ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idFilterParams, ...params, ...orderParams, pageSize, offset]
