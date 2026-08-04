@@ -41,9 +41,9 @@ export async function clearReportCache(dir = reportCacheDir()): Promise<number> 
   return results.reduce<number>((sum, n) => sum + n, 0);
 }
 
-/** 过期判定：deadline_ts 已过去 90 天以上（兼容毫秒/秒级时间戳） */
+/** 过期判定：deadline_sec 生成列已过去 90 天以上 */
 const EXPIRED_90D_SQL =
-  "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts) < UNIX_TIMESTAMP(NOW()) - 90 * 86400";
+  "n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400";
 
 /**
  * 删除已过期 90 天以上的公告/精选译文缓存行（源数据不动）。

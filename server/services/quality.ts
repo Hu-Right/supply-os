@@ -115,8 +115,8 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
 // 实施注记：初版单条巨型 SQL（逐行相关 NOT EXISTS）在 10.8 万 × 58 万行上实测 20 分钟不返回，
 // 已拆为三条简单查询：主表单遍聚合 + 派生表 LEFT JOIN（走桥接 uk_notice_code 索引）+ 独立去重统计
 export async function captureDataQualitySnapshot(dbPool: any) {
-  // deadline_ts 秒/毫秒混存（G.8 勘误 1），比较前统一折算成秒
-  const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+  // P1 性能优化：使用生成列 deadline_sec 替代表达式
+  const deadlineSecExpr = "n.deadline_sec";
   // ① 主表单遍聚合（无子查询）
   const [baseRows] = await dbPool.query(
     `SELECT

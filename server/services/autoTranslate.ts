@@ -90,7 +90,8 @@ export async function runIncrementalTranslation(
     charsUsed = used;
   }
 
-  const deadlineSecExpr = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+  // P1 性能优化：使用生成列 deadline_sec 替代表达式，使 WHERE 可走索引
+  const deadlineSecExpr = "n.deadline_sec";
 
   for (const target of SCAN_TARGETS) {
     const cutoffId = Number(stateMap.get(target.cutoffKey) || "0");

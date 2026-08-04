@@ -21,11 +21,24 @@ import { backfillNoticeAmountCache } from "./amount";
 import type { NoticesRepo } from "../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "./notice-translation";
 
-const DEADLINE_SEC_EXPR = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+// P1 性能优化：使用生成列 deadline_sec 替代表达式，使 ORDER BY/WHERE 可走索引
+// 回滚：将下行替换为 const DEADLINE_SEC_EXPR = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
+const DEADLINE_SEC_EXPR = "n.deadline_sec";
 const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(NOW()))`;
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 const HIGH_VALUE_USD = 1_000_000;
 const MMR_LAMBDA = 0.7;
+
+// P3 性能优化：推荐结果缓存——同用户短时间内的重复请求直接命中
+// 回滚：删除 recoResultCache 相关代码，恢复直接查询即可
+const recoResultCache = new Map<string, { data: NoticeRecommendResult; expires: number }>();
+const RECO_RESULT_CACHE_TTL = 2 * 60 * 1000; // 2 分钟
+const RECO_RESULT_CACHE_MAX = 200;
+
+// P3 性能优化：金额偏好查询缓存——结果短期内稳定，10 分钟 TTL
+// 回滚：删除 amountPrefCache 相关代码，恢复每次查询即可
+const amountPrefCache = new Map<string, { centerLog: number; active: boolean; expires: number }>();
+const AMOUNT_PREF_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 
 export interface NoticeRecommendResult {
   items: Array<Record<string, unknown>>;
@@ -129,6 +142,11 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
   const offset = (page - 1) * pageSize;
   if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
 
+  // P3：推荐结果缓存命中检查
+  const recoCacheKey = `${userKey}:${page}:${pageSize}:${locale || ""}`;
+  const cachedReco = recoResultCache.get(recoCacheKey);
+  if (cachedReco && cachedReco.expires > Date.now()) return cachedReco.data;
+
   const [interestRows] = await pool.query(
     `SELECT code, level, MAX(code_id) AS code_id,
             SUM(weight * EXP(-LN(2) * GREATEST(0, DATEDIFF(NOW(), COALESCE(updated_at, created_at))) / 90)) AS decayed_weight,
@@ -176,18 +194,24 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
 
   const extraParams: any[] = [];
   const bridgeWhere = clauses.map((clause) => `(${clause})`).join(" OR ");
-  const [countRows] = await pool.query(
-    `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n
-     INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
-     WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}`,
-    [...params, ...extraParams]
-  );
 
+  // P2 性能优化：COUNT 与权重画像查询并行执行（原为串行）
+  // 回滚：将 Promise.all 拆回两个独立 await 即可
   const variant = recoVariant(userKey);
-  const [profileRows] = await pool.query(
-    `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_key = ? LIMIT 1`,
-    [userKey]
-  );
+  const [countResult, profileResult] = await Promise.all([
+    pool.query(
+      `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n
+       INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
+       WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}`,
+      [...params, ...extraParams]
+    ),
+    pool.query(
+      `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_key = ? LIMIT 1`,
+      [userKey]
+    ),
+  ]);
+  const [countRows] = countResult;
+  const [profileRows] = profileResult;
   const profileRow = (profileRows as RowDataPacket[])[0] || null;
   const profile = variant === "treatment" ? profileRow : null;
   const pickWeight = (value: any, fallback: number) => {
@@ -213,15 +237,26 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
        WHEN ${DEADLINE_SEC_EXPR} <= UNIX_TIMESTAMP(NOW()) + 90 * 86400 THEN 0.8
        ELSE 0.6 END`;
 
-  const [amountPrefRows] = await pool.query(
-    `SELECT AVG(LOG10(c.amount_usd + 1)) AS center_log, COUNT(*) AS cnt
-     FROM crm_opportunity_unlocks u
-     INNER JOIN crm_notice_amount_cache c ON c.notice_id = u.notice_id
-     WHERE u.user_key = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
-    [userKey]
-  );
-  const amountCenterLog = Number((amountPrefRows as RowDataPacket[])[0]?.center_log || 0);
-  const amountActive = Number((amountPrefRows as RowDataPacket[])[0]?.cnt || 0) >= 2;
+  // P3：金额偏好查询缓存
+  const amountCacheKey = userKey;
+  const cachedAmountPref = amountPrefCache.get(amountCacheKey);
+  let amountCenterLog: number;
+  let amountActive: boolean;
+  if (cachedAmountPref && cachedAmountPref.expires > Date.now()) {
+    amountCenterLog = cachedAmountPref.centerLog;
+    amountActive = cachedAmountPref.active;
+  } else {
+    const [amountPrefRows] = await pool.query(
+      `SELECT AVG(LOG10(c.amount_usd + 1)) AS center_log, COUNT(*) AS cnt
+       FROM crm_opportunity_unlocks u
+       INNER JOIN crm_notice_amount_cache c ON c.notice_id = u.notice_id
+       WHERE u.user_key = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
+      [userKey]
+    );
+    amountCenterLog = Number((amountPrefRows as RowDataPacket[])[0]?.center_log || 0);
+    amountActive = Number((amountPrefRows as RowDataPacket[])[0]?.cnt || 0) >= 2;
+    amountPrefCache.set(amountCacheKey, { centerLog: amountCenterLog, active: amountActive, expires: Date.now() + AMOUNT_PREF_CACHE_TTL });
+  }
   const amountExpr = amountActive
     ? `(CASE WHEN MAX(amc.amount_usd) IS NULL OR MAX(amc.amount_usd) <= 0 THEN 0.5
           ELSE 0.5 + (GREATEST(0, 1 - ABS(LOG10(MAX(amc.amount_usd) + 1) - ?) / 3) - 0.5) * IF(MAX(amc.inferred) = 1, 0.7, 1) END)`
@@ -303,8 +338,18 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     }
   }
 
-  return {
+  const result: NoticeRecommendResult = {
     items: resultItems,
     total: Number((countRows as RowDataPacket[])[0]?.total || 0), page, pageSize, variant,
   };
+
+  // P3：写入推荐结果缓存
+  if (recoResultCache.size >= RECO_RESULT_CACHE_MAX) {
+    const now = Date.now();
+    for (const [key, entry] of recoResultCache) { if (entry.expires <= now) recoResultCache.delete(key); }
+    if (recoResultCache.size >= RECO_RESULT_CACHE_MAX) recoResultCache.clear();
+  }
+  recoResultCache.set(recoCacheKey, { data: result, expires: Date.now() + RECO_RESULT_CACHE_TTL });
+
+  return result;
 }

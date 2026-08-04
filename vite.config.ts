@@ -18,6 +18,12 @@ export default defineConfig(() => {
         output: {
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
+          // P0 性能优化：vendor chunk 分割——第三方依赖独立缓存，内容不变则文件名不变
+          // 回滚：删除 manualChunks 块即可恢复原始行为
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-i18n': ['i18next', 'react-i18next'],
+          },
           assetFileNames: (assetInfo) => {
             const ext = path.extname(assetInfo.name ?? '').replace(/^\./, '');
             if (/\.(png|jpe?g|gif|svg|webp|ico)$/i.test(assetInfo.name ?? '')) {

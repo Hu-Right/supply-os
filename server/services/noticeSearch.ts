@@ -50,11 +50,26 @@ const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires
 const NOTICE_SEARCH_CACHE_TTL = 180 * 1000;
 const NOTICE_SEARCH_CACHE_MAX = 200;
 
+// P0 性能优化：COUNT 结果独立缓存——翻页时复用，避免每次重新全量计数
+// 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
+const noticeCountCache = new Map<string, { total: number; expires: number }>();
+const NOTICE_COUNT_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（与搜索条件稳定性匹配）
+const NOTICE_COUNT_CACHE_MAX = 200;
+
 function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
     p.deadlineTo || "", p.sort || "deadline", p.valueMin || 0, p.valueMax || 0,
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly, p.locale || "",
+  ]);
+}
+
+/** COUNT 缓存 key：与 searchCacheKey 相同但不含 page/pageSize（翻页不影响总数） */
+function countCacheKey(p: NoticeSearchParams): string {
+  return JSON.stringify([
+    "count", p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
+    p.deadlineTo || "", p.sort || "deadline", p.valueMin || 0, p.valueMax || 0,
+    p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly,
   ]);
 }
 
@@ -164,12 +179,25 @@ export async function searchNotices(
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
 
-  // 性能优化：并行执行 COUNT 和 SELECT 查询（阶段 1）
-  const [countResult, rowsResult] = await Promise.all([
-    pool.query(
+  // P0 性能优化：COUNT 结果缓存——翻页时跳过昂贵的全量计数
+  const cKey = countCacheKey(p);
+  const cachedCount = noticeCountCache.get(cKey);
+  const useCachedCount = page > 1 && cachedCount && cachedCount.expires > Date.now();
+
+  let countPromise: Promise<any>;
+  if (useCachedCount) {
+    // 翻页命中 COUNT 缓存：用已缓存的 total 构造伪结果，不发 SQL
+    countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
+  } else {
+    countPromise = pool.query(
       `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}`,
       [...idFilterParams, ...params]
-    ),
+    );
+  }
+
+  // 性能优化：并行执行 COUNT 和 SELECT 查询（阶段 1）
+  const [countResult, rowsResult] = await Promise.all([
+    countPromise,
     pool.query(
       `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
          n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description,
@@ -185,6 +213,16 @@ export async function searchNotices(
   const [countRows] = countResult;
   const [rows] = rowsResult;
   const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
+
+  // P0：首页写入 COUNT 缓存（非首页不写，避免翻页时 stale 条件覆盖）
+  if (page === 1 && total > 0) {
+    if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) {
+      const now = Date.now();
+      for (const [key, entry] of noticeCountCache) { if (entry.expires <= now) noticeCountCache.delete(key); }
+      if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) noticeCountCache.clear();
+    }
+    noticeCountCache.set(cKey, { total, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+  }
 
   const pageIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
   const breakdownCounts = new Map<number, number>();

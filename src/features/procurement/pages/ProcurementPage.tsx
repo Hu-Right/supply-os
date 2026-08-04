@@ -1,16 +1,19 @@
-import { useRef, useState } from "react";
+import { useRef, useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Crown, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
-import { NoticeCard } from "../components/NoticeCard";
-import { NoticeDetail } from "../components/NoticeDetail";
+// P2 性能优化：详情页懒加载——仅在用户点击卡片时加载，减少列表 chunk 体积
+// 回滚：将 lazy(...) 替换回 import { NoticeDetail } from "../components/NoticeDetail";
+const NoticeDetail = lazy(() => import("../components/NoticeDetail").then(m => ({ default: m.NoticeDetail })));
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { NoticeList } from "../components/NoticeList";
-import { LoadingOverlay } from "../components/LoadingOverlay";
+// P1 性能优化：骨架屏替代全屏 LoadingOverlay，提升感知加载速度
+// 回滚：将 NoticeListSkeleton 替换回 LoadingOverlay，恢复 <LoadingOverlay visible={...} />
+import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
@@ -59,7 +62,8 @@ export default function ProcurementPage() {
   // 详情页
   if (selectedNotice) {
     return (
-      <NoticeDetail
+      <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-teal-500" /></div>}>
+        <NoticeDetail
         notice={selectedNotice}
         actionMessage={actions.actionMessage}
         membership={actions.membership}
@@ -90,13 +94,13 @@ export default function ProcurementPage() {
           onClose: actions.closePaywall,
         }}
       />
+      </Suspense>
     );
   }
 
   // 列表页
   return (
     <>
-    <LoadingOverlay visible={search.result.loading} />
     <div className="space-y-5">
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -163,18 +167,22 @@ export default function ProcurementPage() {
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
-        <NoticeList
-          items={search.result.items}
-          loading={search.result.loading}
-          page={page}
-          totalPages={search.result.totalPages}
-          serverPageSize={search.result.serverPageSize}
-          total={search.result.total}
-          setPage={setPage}
-          openNotice={actions.openNotice}
-          feedbackEnabled={feedback.feedbackEnabled}
-          observeCard={feedback.observeCard}
-        />
+        {/* P1：骨架屏替代全屏蒙层——仅首次加载/搜索无数据时显示 */}
+        {search.result.loading && search.result.items.length === 0
+          ? <NoticeListSkeleton />
+          : <NoticeList
+              items={search.result.items}
+              loading={search.result.loading}
+              page={page}
+              totalPages={search.result.totalPages}
+              serverPageSize={search.result.serverPageSize}
+              total={search.result.total}
+              setPage={setPage}
+              openNotice={actions.openNotice}
+              feedbackEnabled={feedback.feedbackEnabled}
+              observeCard={feedback.observeCard}
+            />
+        }
       </section>
     </div>
     </>
