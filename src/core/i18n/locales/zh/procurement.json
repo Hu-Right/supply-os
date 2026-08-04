@@ -81,6 +81,7 @@
   "procurement_metaNo": "编号",
   "procurement_agency": "机构",
   "procurement_country": "国家/地区",
+  "procurement_beneficiaryCountry": "受援助国",
   "procurement_budget": "预算",
   "procurement_description": "采购说明",
   "procurement_translating": "AI 翻译中…",

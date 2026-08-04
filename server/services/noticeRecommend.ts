@@ -56,19 +56,22 @@ async function deadlineFallback(pool: Pool, page: number, pageSize: number, offs
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // P2 优化：移除 oppJoin（description_cn 已不在列表使用，JOIN 为死代码）
-  // 回滚：恢复 oppJoin 定义，在 SELECT 中恢复 COALESCE(opp_desc.description_cn, ...) 标量子查询
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
-  // P2+P3：移除 description_cn 标量子查询 + description 截断 300 字符
-  // 回滚：恢复 description_cn COALESCE 子查询，恢复 n.description 全量返回
+  // 标量子查询获取 description_cn / bid_overview / beneficiary_countries（关联键 source_notice_id）
+  const oppSubPrefix = "(SELECT opp.";
+  const oppSubWhere = " FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
+  const descCnSub = `${oppSubPrefix}description_cn${oppSubWhere} AS description_cn`;
+  const bidOverviewSub = `${oppSubPrefix}bid_overview${oppSubWhere} AS bid_overview`;
+  const beneficiarySub = `${oppSubPrefix}beneficiary_countries${oppSubWhere} AS beneficiary_countries`;
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
-            ${trSelect} ${treSelect} '' AS description_cn
+            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+            LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+            ${trSelect} ${treSelect} ${descCnSub}, ${bidOverviewSub}, ${beneficiarySub}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
-    ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
+    ...row, match_score: 0, reco_score: 0, organization: null, source_url: null,
     unspsc_codes: [], core_locked: true,
     breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
     documents: undefined, procurement_files: undefined,
@@ -275,18 +278,19 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // P2 优化：移除 oppJoin/oppJoin2（description_cn 已不在列表使用，两个 JOIN 为死代码）
-  // 回滚：恢复 oppJoin + oppJoin2 定义，在 SELECT 中恢复 MAX(COALESCE(opp_desc.description_cn, opp_desc2.description_cn))
+  // 精选公告中文描述：LEFT JOIN 合格机会表获取 description_cn
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.source_notice_id = n.notice_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 1 OR opp_desc.audit_status = 1)";
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
-  // P2+P3：移除 description_cn 聚合 + description 截断 300 字符
-  // 回滚：恢复 MAX(COALESCE(...)) AS description_cn，恢复 n.description 全量返回
   let rows: any;
   try {
     [rows] = await pool.query(
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
-         ${trSelect} ${treSelect} '' AS description_cn,
+         n.deadline, n.deadline_ts, n.estimated_value, n.agency,
+         LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+         ${trSelect} ${treSelect} MAX(opp_desc.description_cn) AS description_cn,
+         LEFT(MAX(opp_desc.bid_overview), 200) AS bid_overview,
+         MAX(opp_desc.beneficiary_countries) AS beneficiary_countries,
          ${l4HitExpr} AS l4_hit, MAX(amc.amount_usd) AS amount_usd_cached,
          GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
          COUNT(DISTINCT b.code) AS match_score, ${recoScoreExpr} AS reco_score
@@ -295,6 +299,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
        LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
        ${trJoin}
        ${treJoin}
+       ${oppJoin}
        WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
        GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${DEADLINE_SEC_EXPR}, n.id DESC
        LIMIT ? OFFSET ?`,
@@ -323,7 +328,7 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
     const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
     return {
       ...rest, match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
-      reco_reasons: buildRecoReasons(row, nowSec), agency: null, organization: null, source_url: null,
+      reco_reasons: buildRecoReasons(row, nowSec), organization: null, source_url: null,
       unspsc_codes: [], core_locked: true,
       breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,
     };

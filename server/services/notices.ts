@@ -36,6 +36,7 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
     ai_products: safeJson(opportunity?.ai_products),
     ai_analysis: safeJson(opportunity?.ai_analysis),
     product_code: opportunity?.product_code || "",
+    beneficiary_countries: opportunity?.beneficiary_countries || "",
     agency,
     agency_full: opportunity?.agency_full || notice.agency_full,
     source_url: opportunity?.source_url || notice.url || "",

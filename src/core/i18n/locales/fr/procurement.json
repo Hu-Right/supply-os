@@ -81,6 +81,7 @@
   "procurement_metaNo": "Référence",
   "procurement_agency": "Agence",
   "procurement_country": "Pays",
+  "procurement_beneficiaryCountry": "Pays bénéficiaire",
   "procurement_budget": "Budget",
   "procurement_description": "Description",
   "procurement_translating": "Traduction en cours…",

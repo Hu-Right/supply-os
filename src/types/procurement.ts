@@ -64,6 +64,10 @@ export interface NoticeItem {
   report_available?: boolean;
   /** 精选公告人工/AI 精加工的中文描述（列表级由 opp LEFT JOIN 返回；解锁详情同样返回） */
   description_cn?: string;
+  /** 招标内容 / 投标内容概览（crm_bid_opportunities.bid_overview，列表级截断 200 字符） */
+  bid_overview?: string;
+  /** 受援助国（crm_bid_opportunities.beneficiary_countries，逗号分隔字符串） */
+  beneficiary_countries?: string;
   /** 报告下载路径（/api/notices/:id/report，需拼 user_key；仅解锁详情返回） */
   report_url?: string;
 }

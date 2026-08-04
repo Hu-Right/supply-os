@@ -169,8 +169,6 @@ export async function searchNotices(
   localeParams.push(locale || null);
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
   displayJoin += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // P2 优化：移除 opp_desc JOIN（description_cn 已不在列表使用，JOIN 为死代码）
-  // 回滚：恢复 join += " LEFT JOIN crm_bid_opportunities opp_desc ON ..."
   // COUNT 专用 JOIN：仅包含影响 WHERE 条件的 JOIN（翻译/描述对计数无贡献）
   let countJoin = idFilterSql;
   if (q) {
@@ -256,9 +254,13 @@ export async function searchNotices(
   if (pageIds.length > 0) {
     const [dRows] = await pool.query(
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, LEFT(n.description, 300) AS description,
+         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+         LEFT(n.description, 300) AS description,
          tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
-         tre.title_tr AS title_en, tre.description_tr AS description_en
+         tre.title_tr AS title_en, tre.description_tr AS description_en,
+         (SELECT opp.description_cn FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1) AS description_cn,
+         (SELECT LEFT(opp.bid_overview, 200) FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1) AS bid_overview,
+         (SELECT opp.beneficiary_countries FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1) AS beneficiary_countries
        FROM crm_bid_notices n ${countJoin}${displayJoin}
        WHERE n.id IN (${pageIds.map(() => "?").join(",")})
        ORDER BY FIELD(n.id, ${pageIds.map(() => "?").join(",")})`,
@@ -331,7 +333,7 @@ export async function searchNotices(
 
   const payload: NoticeSearchResult = {
     items: rawRows.map((row) => ({
-      ...row, agency: null, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
+      ...row, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
       is_featured: featuredIds.has(Number(row.id)),
       breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
     })),

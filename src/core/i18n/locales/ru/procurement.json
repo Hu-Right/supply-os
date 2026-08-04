@@ -81,6 +81,7 @@
   "procurement_metaNo": "Ссылка",
   "procurement_agency": "Агентство",
   "procurement_country": "Страна",
+  "procurement_beneficiaryCountry": "Страна-бенефициар",
   "procurement_budget": "Бюджет",
   "procurement_description": "Описание",
   "procurement_translating": "Идёт перевод…",

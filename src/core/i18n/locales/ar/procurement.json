@@ -81,6 +81,7 @@
   "procurement_metaNo": "المرجع",
   "procurement_agency": "الوكالة",
   "procurement_country": "الدولة",
+    "procurement_beneficiaryCountry": "الدولة المستفيدة",
   "procurement_budget": "الميزانية",
   "procurement_description": "الوصف",
   "procurement_translating": "جارٍ الترجمة…",

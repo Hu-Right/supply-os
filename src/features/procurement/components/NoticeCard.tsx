@@ -89,7 +89,10 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
         </div>
       )}
       <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{displayTitle}</h4>
-      <p dir="auto" className="text-xs text-slate-500 mt-3 line-clamp-3">{displayDescription || t("procurement_noDesc")}</p>
+      {/* 招标内容：bid_overview > description_cn > description 回退链 */}
+      <p dir="auto" className="text-xs text-slate-500 mt-2 line-clamp-2">
+        {item.bid_overview || displayDescription || t("procurement_noDesc")}
+      </p>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
           <span
@@ -108,9 +111,15 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
             {item.agency || item.organization || t("procurement_unknownAgency")}
           </p>
         </div>
+        {item.beneficiary_countries && (
+          <div className="text-[11px] text-slate-500 min-w-0 text-center">
+            <span className="font-bold text-slate-400">{t("procurement_beneficiaryCountry")}</span>
+            <p className="truncate">{item.beneficiary_countries.split(",").map((s) => s.trim()).filter(Boolean).join(", ")}</p>
+          </div>
+        )}
         <button
           onClick={() => onClick(item)}
-          className="px-3 py-2 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200"
+          className="shrink-0 px-3 py-2 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200"
         >
           {t("procurement_detail")}
         </button>

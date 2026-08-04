@@ -128,27 +128,27 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
                 </div>
               ))}
             </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-transparent pt-8">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-transparent pt-8 px-4">
               <Lock className="w-5 h-5 text-slate-400 mb-1" />
-              <p className="text-[11px] text-slate-500 mb-2">
+              <p className="text-[11px] text-slate-500 mb-2 text-center">
                 {t("procurement_previewUnlockHint")}
                 {totalCharCount > 0 && `（已展示 ${(((totalCharCount - hiddenCharCount) / totalCharCount) * 100).toFixed(1)}%）`}
               </p>
               {isVip ? (
                 <button
                   onClick={() => onUnlock({ id: noticeId } as NoticeItem)}
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700 transition-colors shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-black hover:bg-teal-700 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
                 >
-                  <Unlock className="w-4 h-4" />
-                  {t("procurement_previewUnlockNow")}
+                  <Unlock className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("procurement_previewUnlockNow")}</span>
                 </button>
               ) : (
                 <a
                   href="/membership"
-                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-black hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs sm:text-sm font-black hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
                 >
-                  <Crown className="w-4 h-4" />
-                  {t("procurement_previewUpgrade")}
+                  <Crown className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("procurement_previewUpgrade")}</span>
                 </a>
               )}
             </div>
