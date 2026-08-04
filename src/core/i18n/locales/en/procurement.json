@@ -197,7 +197,8 @@
   "procurement_reportPreviewAiSummary": "AI Analysis Summary",
   "procurement_reportPreviewRisks": "Key Risks",
   "procurement_reportPreviewDownload": "Download Full Report (Word)",
-  "procurement_previewPartial": "Preview (~10%)",
+  "procurement_previewPartial": "Preview",
   "procurement_previewUpgrade": "Register to view full report",
-  "procurement_previewUnlockHint": "Unlock to see all breakdown content"
+  "procurement_previewUnlockHint": "Unlock to see all breakdown content",
+  "procurement_previewUnlockNow": "Unlock Now"
 }

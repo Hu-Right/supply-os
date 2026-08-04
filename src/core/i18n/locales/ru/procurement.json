@@ -197,7 +197,8 @@
   "procurement_reportPreviewAiSummary": "Сводка AI-анализа",
   "procurement_reportPreviewRisks": "Основные риски",
   "procurement_reportPreviewDownload": "Скачать полный отчёт (Word)",
-  "procurement_previewPartial": "Предпросмотр (~10%)",
+  "procurement_previewPartial": "Предпросмотр",
   "procurement_previewUpgrade": "Зарегистрируйтесь для просмотра полного отчёта",
-  "procurement_previewUnlockHint": "Разблокируйте для просмотра всего содержимого"
+  "procurement_previewUnlockHint": "Разблокируйте для просмотра всего содержимого",
+  "procurement_previewUnlockNow": "Разблокировать сейчас"
 }

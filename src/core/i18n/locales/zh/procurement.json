@@ -197,7 +197,8 @@
   "procurement_reportPreviewAiSummary": "AI 深度分析摘要",
   "procurement_reportPreviewRisks": "主要风险点",
   "procurement_reportPreviewDownload": "下载完整报告（Word）",
-  "procurement_previewPartial": "预览版（约 10%）",
+  "procurement_previewPartial": "预览版",
   "procurement_previewUpgrade": "注册会员查看完整报告",
-  "procurement_previewUnlockHint": "解锁后查看全部拆解内容"
+  "procurement_previewUnlockHint": "解锁后查看全部拆解内容",
+  "procurement_previewUnlockNow": "立即解锁"
 }

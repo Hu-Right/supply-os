@@ -48,7 +48,7 @@ async function deadlineFallback(pool: Pool, page: number, pageSize: number, offs
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
   const [fallbackRows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+    `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
             n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
             ${trSelect} ${treSelect} COALESCE(opp_desc.description_cn, opp_desc2.description_cn) AS description_cn
      FROM crm_bid_notices n ${trJoin} ${treJoin} ${oppJoin} ${oppJoin2} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);

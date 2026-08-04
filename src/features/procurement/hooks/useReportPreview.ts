@@ -29,6 +29,8 @@ export interface ReportPreviewData {
 export function useReportPreview(
   noticeId: number | undefined,
   userKey: string,
+  /** 解锁状态变化触发重新请求（core_locked 从 true → false 时触发） */
+  coreLocked?: boolean,
 ) {
   const [preview, setPreview] = useState<ReportPreviewData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,7 +63,7 @@ export function useReportPreview(
     return () => {
       cancelled = true;
     };
-  }, [noticeId, userKey]);
+  }, [noticeId, userKey, coreLocked]);
 
   return { preview, loading, error };
 }

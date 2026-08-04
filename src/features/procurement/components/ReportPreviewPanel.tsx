@@ -3,24 +3,28 @@
  * Chinese Bid Breakdown Report Preview Panel
  *
  * @module features/procurement/components/ReportPreviewPanel
- * @description 登录用户即可看到报告的部分预览（约 10%）：
- *              展示与 Word 文件同构的章节内容，未解锁用户仅看到前 10% 字符，
- *              其余模糊锁定 + 会员升级引导；已解锁用户看到全部内容 + 下载按钮。
+ * @description 未解锁用户看到约 10% 预览内容 + 模糊锁定 + 会员升级引导；
+ *              已解锁用户下载链接已在 NoticeUnlockedDetails 中提供，本组件直接返回 null。
  */
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, Download, FileText, Lock, Crown } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useReportPreview } from "../hooks/useReportPreview";
+import type { NoticeItem } from "@/types/procurement";
 
 interface ReportPreviewPanelProps {
   noticeId: number;
   userKey: string;
   reportUrl: string;
+  isVip: boolean;
+  onUnlock: (notice: NoticeItem) => void;
+  /** 公告锁定状态，解锁后变化触发预览数据重新请求 */
+  coreLocked?: boolean;
 }
 
-export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPreviewPanelProps) {
+export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
   const { t } = useLocale();
-  const { preview, loading, error } = useReportPreview(noticeId, userKey);
+  const { preview, loading, error } = useReportPreview(noticeId, userKey, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
   const downloadHref = preview ? `${reportUrl}?user_key=${encodeURIComponent(userKey)}` : "";
@@ -47,6 +51,7 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPrevi
         const remaining = threshold - accumulated;
         if (remaining > 20) {
           visible.push({ ...s, body: s.body.slice(0, remaining) + "…" });
+          accumulated += remaining; // 加上部分展示的字符数
         }
         break;
       }
@@ -74,6 +79,10 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPrevi
   // 失败态或无报告数据：静默不渲染
   if (error || !preview || sections.length === 0) return null;
 
+  // 已解锁：下载链接已在 NoticeUnlockedDetails 中提供，无需预览卡片
+  if (isUnlocked) return null;
+
+  // 未解锁：预览模式（10% 内容 + 模糊锁定 + 升级引导）
   return (
     <div className="rounded-xl border border-teal-200 bg-teal-50/40 overflow-hidden">
       {/* 标题栏 */}
@@ -84,16 +93,20 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPrevi
         <p className="text-sm font-extrabold text-teal-800 flex items-center gap-2">
           <FileText className="w-4 h-4 shrink-0 text-teal-600" />
           {t("procurement_reportPreviewTitle")}
-          {!isUnlocked && (
-            <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
-              {t("procurement_previewPartial")}
-            </span>
-          )}
+          <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
+            {t("procurement_previewPartial")}
+          </span>
         </p>
         {collapsed ? <ChevronDown className="w-4 h-4 text-teal-500 shrink-0" /> : <ChevronUp className="w-4 h-4 text-teal-500 shrink-0" />}
       </button>
 
-      {!collapsed && (
+      {/* 展开/收缩内容：grid-rows 过渡动画 */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+          collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
         <div className="px-4 pb-4 space-y-3">
           {/* 章节内容 */}
           {visibleSections.map((section, idx) => (
@@ -105,23 +118,31 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPrevi
             </div>
           ))}
 
-          {!isUnlocked ? (
-            /* 未解锁：模糊锁定剩余内容 + 升级引导 */
-            <div className="relative">
-              <div className="blur-sm select-none pointer-events-none max-h-20 overflow-hidden space-y-3">
-                {sections.slice(visibleSections.length, visibleSections.length + 2).map((section, idx) => (
-                  <div key={idx}>
-                    <p className="text-xs font-black text-teal-700 mb-1">{section.heading}</p>
-                    <div className="h-16 w-full rounded-lg bg-slate-100" />
-                  </div>
-                ))}
-              </div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-transparent pt-8">
-                <Lock className="w-5 h-5 text-slate-400 mb-1" />
-                <p className="text-[11px] text-slate-500 mb-2">
-                  {t("procurement_previewUnlockHint")}
-                  {totalCharCount > 0 && `（已展示 ${Math.round(((totalCharCount - hiddenCharCount) / totalCharCount) * 100)}%）`}
-                </p>
+          {/* 模糊锁定剩余内容 + 升级引导 */}
+          <div className="relative">
+            <div className="blur-sm select-none pointer-events-none max-h-20 overflow-hidden space-y-3">
+              {sections.slice(visibleSections.length, visibleSections.length + 2).map((section, idx) => (
+                <div key={idx}>
+                  <p className="text-xs font-black text-teal-700 mb-1">{section.heading}</p>
+                  <div className="h-16 w-full rounded-lg bg-slate-100" />
+                </div>
+              ))}
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-transparent pt-8">
+              <Lock className="w-5 h-5 text-slate-400 mb-1" />
+              <p className="text-[11px] text-slate-500 mb-2">
+                {t("procurement_previewUnlockHint")}
+                {totalCharCount > 0 && `（已展示 ${(((totalCharCount - hiddenCharCount) / totalCharCount) * 100).toFixed(1)}%）`}
+              </p>
+              {isVip ? (
+                <button
+                  onClick={() => onUnlock({ id: noticeId } as NoticeItem)}
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700 transition-colors shadow-sm"
+                >
+                  <Unlock className="w-4 h-4" />
+                  {t("procurement_previewUnlockNow")}
+                </button>
+              ) : (
                 <a
                   href="/membership"
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-black hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm"
@@ -129,22 +150,12 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl }: ReportPrevi
                   <Crown className="w-4 h-4" />
                   {t("procurement_previewUpgrade")}
                 </a>
-              </div>
+              )}
             </div>
-          ) : (
-            /* 已解锁：下载按钮 */
-            downloadHref && (
-              <a
-                href={downloadHref}
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                {t("procurement_reportPreviewDownload")}
-              </a>
-            )
-          )}
+          </div>
         </div>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -197,7 +197,8 @@
   "procurement_reportPreviewAiSummary": "Resumen del análisis IA",
   "procurement_reportPreviewRisks": "Riesgos principales",
   "procurement_reportPreviewDownload": "Descargar informe completo (Word)",
-  "procurement_previewPartial": "Vista previa (~10%)",
+  "procurement_previewPartial": "Vista previa",
   "procurement_previewUpgrade": "Regístrese para ver el informe completo",
-  "procurement_previewUnlockHint": "Desbloquee para ver todo el contenido"
+  "procurement_previewUnlockHint": "Desbloquee para ver todo el contenido",
+  "procurement_previewUnlockNow": "Desbloquear ahora"
 }

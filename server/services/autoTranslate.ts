@@ -42,7 +42,7 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 5;  // 5 并发 worker（降低并发避免 DeepSeek 429 限流）
+const CONCURRENCY = 20;  // 20 并发 worker（降低并发避免 DeepSeek 429 限流）
 const DELAY_MS = 200;   // 每条间隔 200ms（配合重试机制给 API 喘息时间）
 
 // 扫描目标白名单：公告表 + 精选数据表（两表 is_expired/deadline_ts 列名一致）；

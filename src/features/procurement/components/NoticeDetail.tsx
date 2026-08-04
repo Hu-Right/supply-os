@@ -169,6 +169,9 @@ export function NoticeDetail({
                 noticeId={notice.id}
                 userKey={authContext.authUser.user_key}
                 reportUrl={`/api/notices/${notice.id}/report`}
+                isVip={isVip}
+                onUnlock={onUnlock}
+                coreLocked={!coreUnlocked}
               />
             )}
 

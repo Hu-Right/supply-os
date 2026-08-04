@@ -47,7 +47,7 @@ export interface NoticeSearchResult {
 
 // ── F.4 搜索性能预案第一档（本地差异 #7）──
 const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires: number }>();
-const NOTICE_SEARCH_CACHE_TTL = 60 * 1000;
+const NOTICE_SEARCH_CACHE_TTL = 180 * 1000;
 const NOTICE_SEARCH_CACHE_MAX = 200;
 
 function searchCacheKey(p: NoticeSearchParams): string {
