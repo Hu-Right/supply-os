@@ -688,5 +688,15 @@ export async function ensureProcurementSchema(dbPool: any) {
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_deadline_sec", "CREATE INDEX idx_bid_notices_deadline_sec ON crm_bid_notices (deadline_sec)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_level_id", "CREATE INDEX idx_unspsc_level_id ON crm_unspsc_codes (level, id)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_parent_code", "CREATE INDEX idx_unspsc_parent_code ON crm_unspsc_codes (parent_id, code)");
+
+  // P5 性能优化：crm_bid_opportunities 索引补建——为 FEATURED_NOTICE_EXISTS 两路 IN 子查询建立覆盖索引
+  // 诊断结果：表 6411 行，source_notice_id 已有 idx_source_notice（单列），is_qualified/audit_status 无索引
+  // 回滚：DROP INDEX idx_opp_qualified_id ON crm_bid_opportunities; DROP INDEX idx_opp_source_covering ON crm_bid_opportunities;
+  // 路径 1：SELECT id WHERE is_qualified=1 OR status='won' OR audit_status=1 → 覆盖索引避免回表
+  await ensureIndexIfTableExists(dbPool, "crm_bid_opportunities", "idx_opp_qualified_id",
+    "CREATE INDEX idx_opp_qualified_id ON crm_bid_opportunities (is_qualified, status, audit_status, id)");
+  // 路径 2：SELECT source_notice_id WHERE ... AND source_notice_id IS NOT NULL → 覆盖索引（增强已有 idx_source_notice）
+  await ensureIndexIfTableExists(dbPool, "crm_bid_opportunities", "idx_opp_source_covering",
+    "CREATE INDEX idx_opp_source_covering ON crm_bid_opportunities (source_notice_id, is_qualified, status, audit_status)");
 }
 
