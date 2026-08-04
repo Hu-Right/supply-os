@@ -22,6 +22,7 @@ const CODE_MAP: Record<string, LocaleKey> = {
   IC: "procurement_type_consultant",
   RFI: "procurement_type_rfi",
   GPN: "procurement_type_gpn",
+  OTHER: "procurement_type_other",
 };
 
 // 子串规则按优先级排列：EOI 先于资格预审（"意向表达…预审阶段"归 EOI），
@@ -30,12 +31,14 @@ const CODE_MAP: Record<string, LocaleKey> = {
 const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
   ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b/],
   ["procurement_type_rfq", /quotation|报价|询价/],
-  ["procurement_type_rfp", /proposal|提案|建议书/],
+  ["procurement_type_rfp", /\brfp\b|proposal|提案|建议书/],
   ["procurement_type_prequalification", /pre[\s-]?qualif|qualification|资格预审/],
   ["procurement_type_consultant", /consultant|顾问/],
   ["procurement_type_rfi", /request for information|信息征询/],
   ["procurement_type_gpn", /general procurement notice/],
+  ["procurement_type_contract_award", /contract award|award notice|授标|中标/],
   ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],
+  ["procurement_type_other", /\bother\b|其他/],
 ];
 
 export function noticeTypeKey(raw: string | undefined | null): LocaleKey | null {

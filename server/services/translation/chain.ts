@@ -119,9 +119,14 @@ function circuitBreakerRecordFailure() {
   }
 }
 
-// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时）
+// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时 / 空响应 / 占位符丢失）
+// DEEPSEEK_EMPTY：模型偶发返回空内容，通常为瞬时异常，重试成功率高
+// MT_PLACEHOLDER_LOST：模型偶发破坏占位符，重试通常可恢复
 function isDeepSeekRetryable(errMsg: string): boolean {
-  return /DEEPSEEK_HTTP_(429|500|502|503|504)/.test(errMsg) || errMsg === "CHANNEL_TIMEOUT";
+  return /DEEPSEEK_HTTP_(429|500|502|503|504)/.test(errMsg) ||
+    errMsg === "CHANNEL_TIMEOUT" ||
+    errMsg === "DEEPSEEK_EMPTY" ||
+    errMsg === "MT_PLACEHOLDER_LOST";
 }
 
 // 通道1：DeepSeek V4-Flash（OpenAI 兼容 /chat/completions，flash 快速模型）

@@ -33,6 +33,7 @@ describe("noticeTypeKey", () => {
     "RFP",
     "提案征集 (RFP) / Request for Proposal",
     "Negotiated Request for Proposal (BPS)",
+    "RFP against Supply Arrangement",
   ])("maps %s to rfp", (raw) => {
     expect(noticeTypeKey(raw)).toBe("procurement_type_rfp");
   });
@@ -72,6 +73,17 @@ describe("noticeTypeKey", () => {
 
   it.each(["General Procurement Notice", "GPN"])("maps %s to gpn", (raw) => {
     expect(noticeTypeKey(raw)).toBe("procurement_type_gpn");
+  });
+
+  it.each(["Advance Contract Award Notice", "Contract Award Notice", "Award Notice", "授标公告", "中标公告"])(
+    "maps %s to contract_award",
+    (raw) => {
+      expect(noticeTypeKey(raw)).toBe("procurement_type_contract_award");
+    }
+  );
+
+  it.each(["Other", "OTHER", "其他", "other"])("maps %s to other", (raw) => {
+    expect(noticeTypeKey(raw)).toBe("procurement_type_other");
   });
 
   // 长尾脏值/空值：返回 null，由调用方回退显示原始值

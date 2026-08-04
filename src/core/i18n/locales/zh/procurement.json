@@ -96,6 +96,8 @@
   "procurement_type_consultant": "个人顾问征聘",
   "procurement_type_rfi": "信息征询（RFI）",
   "procurement_type_gpn": "总采购公告（GPN）",
+  "procurement_type_contract_award": "合同授予公告",
+  "procurement_type_other": "其他",
   "procurement_tags": "分类标签",
   "procurement_source": "查看原始公告",
   "procurement_lockedCoreTitle": "核心信息已隐藏",

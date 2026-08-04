@@ -96,6 +96,8 @@
   "procurement_type_consultant": "Consultant individuel",
   "procurement_type_rfi": "Demande d'informations (RFI)",
   "procurement_type_gpn": "Avis général de passation de marchés (GPN)",
+  "procurement_type_contract_award": "Avis d'attribution de contrat",
+  "procurement_type_other": "Autre",
   "procurement_tags": "Étiquettes UNSPSC",
   "procurement_source": "Avis en source ouverte",
   "procurement_lockedCoreTitle": "Informations clés masquées",

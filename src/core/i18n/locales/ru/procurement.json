@@ -96,6 +96,8 @@
   "procurement_type_consultant": "Индивидуальный консультант",
   "procurement_type_rfi": "Запрос информации (RFI)",
   "procurement_type_gpn": "Общее уведомление о закупках (GPN)",
+  "procurement_type_contract_award": "Уведомление о заключении контракта",
+  "procurement_type_other": "Прочее",
   "procurement_tags": "Теги UNSPSC",
   "procurement_source": "Объявление из открытых источников",
   "procurement_lockedCoreTitle": "Ключевые данные скрыты",
