@@ -81,9 +81,10 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
 // 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
 // findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
+// 注意：status 列为 tinyint(1=won)，不可用字符串 'won' 比较（UPDATE 严格模式会报截断错误）
 const qualifiedOppWhere = (alias = "") => {
   const p = alias ? `${alias}.` : "";
-  return `(${p}is_qualified = 1 OR ${p}status = 'won' OR ${p}audit_status = 1)`;
+  return `(${p}is_qualified = 1 OR ${p}status = 1 OR ${p}audit_status = 1)`;
 };
 
 // ── [精选功能重新启用 2026-07-31] ──
@@ -208,5 +209,28 @@ async function queryQualifiedOpportunity(dbPool: any, notice: any) {
   }
 
   return null;
+}
+
+// ── P6 性能优化：is_featured 预计算列刷新 ──
+// 用 FEATURED_NOTICE_EXISTS 实时计算结果同步到 crm_bid_notices.is_featured 列
+// 启动时执行一次初始回填，之后每 30 分钟增量刷新
+// 回滚：删除 refreshFeaturedColumn 函数，移除 bootstrap.ts 中的调用
+export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: number; unmarked: number }> {
+  // 步骤 1：将符合条件的公告标记为 featured（包括已经是和新增的）
+  const [markResult] = await dbPool.query(
+    `UPDATE crm_bid_notices n SET n.is_featured = 1 WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
+  );
+  const marked = (markResult as any)?.affectedRows ?? 0;
+
+  // 步骤 2：将不再符合条件的公告取消标记
+  const [unmarkResult] = await dbPool.query(
+    `UPDATE crm_bid_notices n SET n.is_featured = 0 WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
+  );
+  const unmarked = (unmarkResult as any)?.affectedRows ?? 0;
+
+  if (marked > 0 || unmarked > 0) {
+    console.log(`[featured-refresh] marked=${marked} unmarked=${unmarked}`);
+  }
+  return { marked, unmarked };
 }
 

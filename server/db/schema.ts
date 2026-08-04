@@ -698,5 +698,17 @@ export async function ensureProcurementSchema(dbPool: any) {
   // 路径 2：SELECT source_notice_id WHERE ... AND source_notice_id IS NOT NULL → 覆盖索引（增强已有 idx_source_notice）
   await ensureIndexIfTableExists(dbPool, "crm_bid_opportunities", "idx_opp_source_covering",
     "CREATE INDEX idx_opp_source_covering ON crm_bid_opportunities (source_notice_id, is_qualified, status, audit_status)");
+
+  // P6 性能优化：is_featured 预计算列——消除每次查询的 FEATURED_NOTICE_EXISTS 实时计算
+  // 精选判定依赖 CRM 机会表，更新频率低（天级），预计算后查询从 IN 子查询变为直接读列
+  // 回滚：ALTER TABLE crm_bid_notices DROP COLUMN is_featured;
+  await ensureColumn(
+    dbPool,
+    "crm_bid_notices",
+    "is_featured",
+    "is_featured TINYINT(1) NOT NULL DEFAULT 0"
+  );
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_featured",
+    "CREATE INDEX idx_bid_notices_featured ON crm_bid_notices (is_featured)");
 }
 

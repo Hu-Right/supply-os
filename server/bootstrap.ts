@@ -25,6 +25,7 @@ import { AdminRepo } from "./repos/admin.repo";
 import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
+import { refreshFeaturedColumn } from "./services/notices";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -38,6 +39,18 @@ export async function startServer() {
 
   await ensureProcurementSchema(dbPool);
   await backfillUserIds(dbPool);
+
+  // P6 性能优化：启动时回填 is_featured 预计算列，之后每 30 分钟增量刷新
+  // 回滚：删除以下 refreshFeaturedColumn 调用和 setInterval
+  try {
+    const { marked, unmarked } = await refreshFeaturedColumn(dbPool);
+    console.log(`[featured-init] 初始回填完成: marked=${marked} unmarked=${unmarked}`);
+  } catch (e) {
+    console.error("[featured-init] 初始回填失败:", (e as Error).message);
+  }
+  const featuredRefreshTimer = setInterval(async () => {
+    try { await refreshFeaturedColumn(dbPool); } catch { /* 静默降级 */ }
+  }, 30 * 60 * 1000); // 30 分钟
   await hydratePaymentEnvFromDb(dbPool);
 
   // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
@@ -137,5 +150,6 @@ export async function startServer() {
   return () => {
     stopAutoTranslate();
     stopReportCacheCleanup();
+    clearInterval(featuredRefreshTimer);
   };
 }

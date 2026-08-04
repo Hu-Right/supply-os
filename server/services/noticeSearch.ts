@@ -11,7 +11,6 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { buildNoticeUnspscFilter } from "./unspsc";
-import { FEATURED_NOTICE_EXISTS } from "./notices";
 import type { NoticesRepo } from "../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "./notice-translation";
 
@@ -152,10 +151,10 @@ export async function searchNotices(
     if (valueMin) { where.push("vamc.amount_usd >= ?"); params.push(valueMin); }
     if (valueMax) { where.push("vamc.amount_usd <= ?"); params.push(valueMax); }
   }
-  // 精选过滤：只保留能三路关联到合格机会（crm_bid_opportunities）的公告；
-  // 可投标期限由上方既有 is_expired/deadline_ts 条件保障，与其他筛选条件 AND 叠加
+  // P6 性能优化：精选过滤改用预计算列 is_featured，消除 FEATURED_NOTICE_EXISTS 双路 IN 子查询
+  // 回滚：恢复 where.push(FEATURED_NOTICE_EXISTS)
   if (featuredOnly) {
-    where.push(FEATURED_NOTICE_EXISTS);
+    where.push("n.is_featured = 1");
   }
 
   // P0 性能优化：COUNT 查询瘦身——分离仅影响 SELECT 展示的 JOIN
@@ -165,10 +164,9 @@ export async function searchNotices(
   // 回滚：将 displayJoin 的两行 LEFT JOIN 移回 join 变量，恢复单查询模式
   const localeParams: any[] = [];
   let displayJoin = "";
-  if (locale) {
-    displayJoin += " LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?";
-    localeParams.push(locale);
-  }
+  // P6 修复：tr JOIN 必须始终存在（SELECT 无条件引用 tr.title_tr），无 locale 时 lang=NULL 不匹配任何行，等效于纯 NULL 列
+  displayJoin += " LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?";
+  localeParams.push(locale || null);
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
   displayJoin += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   // P2 优化：移除 opp_desc JOIN（description_cn 已不在列表使用，JOIN 为死代码）
@@ -287,11 +285,12 @@ export async function searchNotices(
     if (featuredOnly) {
       for (const id of pageIds) featuredIds.add(id);
     } else {
-      // 性能优化：并行执行精选标注和文件计数查询（阶段 1）
+      // P6 性能优化：精选标注改用预计算列，消除回查子查询
+      // 回滚：恢复 AND ${FEATURED_NOTICE_EXISTS}
       try {
         const [featResult, docResult] = await Promise.all([
           pool.query(
-            `SELECT n.id FROM crm_bid_notices n WHERE n.id IN (${pageIds.map(() => "?").join(",")}) AND ${FEATURED_NOTICE_EXISTS}`,
+            `SELECT id FROM crm_bid_notices WHERE id IN (${pageIds.map(() => "?").join(",")}) AND is_featured = 1`,
             pageIds
           ),
           pool.query(
@@ -383,9 +382,10 @@ export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
     `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}
      AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
   );
-  // [精选功能重新启用 2026-07-31] 恢复真实精选计数（结果随 stats 缓存 10 分钟）
+  // P6 性能优化：精选计数改用预计算列
+  // 回滚：恢复 AND ${FEATURED_NOTICE_EXISTS}
   const [featuredRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND ${FEATURED_NOTICE_EXISTS}`
+    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND n.is_featured = 1`
   );
   const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
   const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
