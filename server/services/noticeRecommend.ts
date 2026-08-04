@@ -64,7 +64,7 @@ async function deadlineFallback(pool: Pool, page: number, pageSize: number, offs
   // 回滚：恢复 description_cn COALESCE 子查询，恢复 n.description 全量返回
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
             ${trSelect} ${treSelect} '' AS description_cn
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({

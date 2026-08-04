@@ -686,6 +686,15 @@ export async function ensureProcurementSchema(dbPool: any) {
     "deadline_sec INT UNSIGNED AS (IF(deadline_ts > 100000000000, FLOOR(deadline_ts / 1000), deadline_ts)) STORED"
   );
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_deadline_sec", "CREATE INDEX idx_bid_notices_deadline_sec ON crm_bid_notices (deadline_sec)");
+
+  // P1 性能优化：crm_bid_opportunities 也需要 deadline_sec 生成列（autoTranslate 双表扫描共用同一表达式）
+  await ensureColumn(
+    dbPool,
+    "crm_bid_opportunities",
+    "deadline_sec",
+    "deadline_sec INT UNSIGNED AS (IF(deadline_ts > 100000000000, FLOOR(deadline_ts / 1000), deadline_ts)) STORED"
+  );
+  await ensureIndexIfTableExists(dbPool, "crm_bid_opportunities", "idx_opp_deadline_sec", "CREATE INDEX idx_opp_deadline_sec ON crm_bid_opportunities (deadline_sec)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_level_id", "CREATE INDEX idx_unspsc_level_id ON crm_unspsc_codes (level, id)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_parent_code", "CREATE INDEX idx_unspsc_parent_code ON crm_unspsc_codes (parent_id, code)");
 
