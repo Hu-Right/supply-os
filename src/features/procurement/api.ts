@@ -14,13 +14,12 @@ import { api, apiCached, buildQuery } from "@/core/http";
 export interface NoticeSearchFilters {
   q?: string;
   country?: string;
+  agency?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
   sort?: "deadline" | "latest";
   userKey?: string;
-  /** T-B8（本地差异 #13）：金额区间（USD）/ 截止窗口天数 / 采购类型关键词 */
-  valueMin?: number;
-  valueMax?: number;
+  /** T-B8（本地差异 #13）：截止窗口天数 / 采购类型关键词 */
   deadlineWithinDays?: number;
   noticeType?: string;
   /** T-A4（本地差异 #14）：只看精选（三路合格机会判定，服务端 featured=1） */
@@ -39,12 +38,11 @@ export const fetchNotices = (
     code_id: params.codeId,
     q: params.q,
     country: params.country,
+    agency: params.agency,
     deadline_from: params.deadlineFrom,
     deadline_to: params.deadlineTo,
     sort: params.sort && params.sort !== "deadline" ? params.sort : undefined,
     user_key: params.userKey,
-    value_min: params.valueMin,
-    value_max: params.valueMax,
     deadline_within_days: params.deadlineWithinDays,
     notice_type: params.noticeType,
     featured: params.featured ? "1" : undefined, // [精选功能重新启用 2026-07-31]
@@ -60,6 +58,10 @@ export const fetchNotices = (
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
 export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
+
+/** 在库有效公告的采购机构清单（按公告数降序，服务端缓存 10 分钟），搜索栏机构下拉数据源 */
+export const fetchNoticeAgencies = () =>
+  apiCached<Array<{ agency: string; count: number }>>("/api/notices/agencies");
 
 export const fetchMembershipPlans = () =>
   apiCached<MembershipPlan[]>("/api/membership/plans");

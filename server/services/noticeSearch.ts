@@ -25,11 +25,10 @@ export interface NoticeSearchParams {
   codeId?: number;
   q?: string;
   country?: string;
+  agency?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
   sort?: string;
-  valueMin?: number;
-  valueMax?: number;
   deadlineWithinDays?: number;
   noticeType?: string;
   featuredOnly?: boolean;
@@ -62,8 +61,8 @@ const FEATURED_COUNT_CACHE_TTL = 30 * 60 * 1000; // 30 分钟
 
 function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
-    p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
-    p.deadlineTo || "", p.sort || "deadline", p.valueMin || 0, p.valueMax || 0,
+    p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.agency || "",
+    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly, p.locale || "",
   ]);
 }
@@ -71,8 +70,8 @@ function searchCacheKey(p: NoticeSearchParams): string {
 /** COUNT 缓存 key：与 searchCacheKey 相同但不含 page/pageSize（翻页不影响总数） */
 function countCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
-    "count", p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
-    p.deadlineTo || "", p.sort || "deadline", p.valueMin || 0, p.valueMax || 0,
+    "count", p.codeId || 0, p.q || "", p.country || "", p.agency || "",
+    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly,
   ]);
 }
@@ -86,11 +85,10 @@ export async function searchNotices(
   const offset = (page - 1) * pageSize;
   const q = p.q || "";
   const country = p.country || "";
+  const agency = p.agency || "";
   const deadlineFrom = p.deadlineFrom || "";
   const deadlineTo = p.deadlineTo || "";
   const sort = p.sort || "deadline";
-  const valueMin = p.valueMin || 0;
-  const valueMax = p.valueMax || 0;
   const deadlineWithinDays = p.deadlineWithinDays || 0;
   const noticeType = p.noticeType || "";
   const featuredOnly = !!p.featuredOnly;
@@ -130,6 +128,11 @@ export async function searchNotices(
     where.push("n.country = ?");
     params.push(country);
   }
+  if (agency) {
+    // 精确匹配：机构值来自下拉（GROUP BY n.agency 的精确值）
+    where.push("n.agency = ?");
+    params.push(agency);
+  }
   if (DATE_RE.test(deadlineFrom)) {
     where.push(`${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(?)`);
     params.push(`${deadlineFrom} 00:00:00`);
@@ -145,11 +148,6 @@ export async function searchNotices(
   if (noticeType) {
     where.push("n.notice_type LIKE ?");
     params.push(`%${noticeType}%`);
-  }
-  if (valueMin || valueMax) {
-    join += " INNER JOIN crm_notice_amount_cache vamc ON vamc.notice_id = n.id AND vamc.amount_usd IS NOT NULL";
-    if (valueMin) { where.push("vamc.amount_usd >= ?"); params.push(valueMin); }
-    if (valueMax) { where.push("vamc.amount_usd <= ?"); params.push(valueMax); }
   }
   // P6 性能优化：精选过滤改用预计算列 is_featured，消除 FEATURED_NOTICE_EXISTS 双路 IN 子查询
   // 回滚：恢复 where.push(FEATURED_NOTICE_EXISTS)
@@ -174,9 +172,6 @@ export async function searchNotices(
   if (q) {
     countJoin += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
     countJoin += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
-  }
-  if (valueMin || valueMax) {
-    countJoin += " INNER JOIN crm_notice_amount_cache vamc ON vamc.notice_id = n.id AND vamc.amount_usd IS NOT NULL";
   }
 
   const orderParts: string[] = [];
@@ -362,6 +357,21 @@ export async function getNoticeCountries(pool: Pool): Promise<Array<{ country: s
   );
   const data = (rows as RowDataPacket[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
   noticeCountriesCache = { data, expires: Date.now() + 10 * 60 * 1000 };
+  return data;
+}
+
+// ── 采购机构下拉数据源（按公告数降序，服务端缓存 10 分钟）──
+let noticeAgenciesCache: { data: Array<{ agency: string; count: number }>; expires: number } | null = null;
+
+export async function getNoticeAgencies(pool: Pool): Promise<Array<{ agency: string; count: number }>> {
+  if (noticeAgenciesCache && noticeAgenciesCache.expires > Date.now()) return noticeAgenciesCache.data;
+  const [rows] = await pool.query(
+    `SELECT n.agency, COUNT(*) AS cnt FROM crm_bid_notices n
+     WHERE (n.is_expired = 0 OR n.is_expired IS NULL) AND n.agency IS NOT NULL AND n.agency <> ''
+     GROUP BY n.agency ORDER BY cnt DESC`
+  );
+  const data = (rows as RowDataPacket[]).map((row) => ({ agency: row.agency, count: Number(row.cnt) }));
+  noticeAgenciesCache = { data, expires: Date.now() + 10 * 60 * 1000 };
   return data;
 }
 

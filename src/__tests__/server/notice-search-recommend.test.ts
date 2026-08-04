@@ -110,16 +110,15 @@ describe("searchNotices", () => {
     expect(listCall[1].slice(-2)).toEqual([10, 10]);
   });
 
-  it("joins amount cache when value range is provided", async () => {
+  it("filters by agency when provided", async () => {
     const pool = makeSearchPool();
-    await searchNotices(pool, { page: 1, pageSize: 20, valueMin: 1000, valueMax: 5000 });
+    await searchNotices(pool, { page: 1, pageSize: 20, agency: "UNDP" });
 
     const countCall = pool.query.mock.calls.find((call: any[]) =>
-      String(call[0]).includes("COUNT(DISTINCT n.id)")
+      String(call[0]).includes("COUNT")
     )!;
-    expect(String(countCall[0])).toContain("crm_notice_amount_cache");
-    expect(countCall[1]).toContain(1000);
-    expect(countCall[1]).toContain(5000);
+    expect(String(countCall[0])).toContain("n.agency = ?");
+    expect(countCall[1]).toContain("UNDP");
   });
 
   it("serves identical params from the TTL cache", async () => {

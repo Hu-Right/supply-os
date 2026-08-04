@@ -1,6 +1,6 @@
 import { useRef, useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Crown, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, Crown, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { RecentUnlocks } from "@/features/payment";
@@ -27,6 +27,7 @@ export default function ProcurementPage() {
   const variantRef = useRef<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
+  const [unspscExpanded, setUnspscExpanded] = useState(false);
 
   // ── 行业偏好三级降级 ──
   const {
@@ -124,15 +125,32 @@ export default function ProcurementPage() {
         </div>
 
         <div className="p-5 space-y-4">
-          <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
           <NoticeSearchBar
             form={search.form}
             query={search.query}
             countries={search.result.countries}
+            agencies={search.result.agencies}
             applySearch={search.actions.applySearch}
             clearSearch={search.actions.clearSearch}
             toggleFeatured={search.actions.toggleFeatured}
           />
+
+          {/* 行业分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
+          <div className="border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={() => setUnspscExpanded(!unspscExpanded)}
+              className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-teal-700 transition-colors"
+            >
+              {unspscExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {t("procurement_industryCategory")}
+            </button>
+            {unspscExpanded && (
+              <div className="mt-3">
+                <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

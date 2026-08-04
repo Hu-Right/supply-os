@@ -98,17 +98,15 @@ describe("GET /api/notices", () => {
     expect(countSql).toContain("n.country = ?");
   });
 
-  it("applies value_min/value_max filters with JOIN", async () => {
+  it("applies agency filter with exact match", async () => {
     const ctx = createMockCtx();
     ctx.dbPool.query
       .mockResolvedValueOnce([[{ total: 0 }]])
       .mockResolvedValueOnce([[]]);
     const app = buildApp(ctx);
-    await request(app).get("/api/notices?value_min=1000&value_max=50000");
+    await request(app).get("/api/notices?agency=UNDP");
     const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("crm_notice_amount_cache");
-    expect(countSql).toContain("amount_usd >= ?");
-    expect(countSql).toContain("amount_usd <= ?");
+    expect(countSql).toContain("n.agency = ?");
   });
 
   it("applies deadline_within_days filter", async () => {

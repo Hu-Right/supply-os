@@ -11,7 +11,7 @@ import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { searchNotices, getNoticeCountries, getNoticeStats } from "../../services/noticeSearch";
+import { searchNotices, getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/noticeSearch";
 import { recommendNotices } from "../../services/noticeRecommend";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -26,11 +26,10 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const codeId = parseOptionalInt(req.query, "code_id", 0, 1e9, 0) || parseOptionalInt(req.query, "industry_id", 0, 1e9, 0);
     const q = parseOptionalString(req.query, "q", 200);
     const country = parseOptionalString(req.query, "country", 100);
+    const agency = parseOptionalString(req.query, "agency", 100);
     const deadlineFrom = parseOptionalString(req.query, "deadline_from", 10);
     const deadlineTo = parseOptionalString(req.query, "deadline_to", 10);
     const sort = parseOptionalString(req.query, "sort", 20) || "deadline";
-    const valueMin = parseOptionalInt(req.query, "value_min", 0, 1e12, 0);
-    const valueMax = parseOptionalInt(req.query, "value_max", 0, 1e12, 0);
     const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
     const noticeType = parseOptionalString(req.query, "notice_type", 100);
     const featuredOnly = String(req.query.featured || "") === "1";
@@ -38,23 +37,21 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const locale = parseOptionalString(req.query, "locale", 10);
 
     const result = await searchNotices(ctx.dbPool, {
-      page, pageSize, codeId, q, country, deadlineFrom, deadlineTo, sort,
-      valueMin, valueMax, deadlineWithinDays, noticeType, featuredOnly, locale,
+      page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
+      deadlineWithinDays, noticeType, featuredOnly, locale,
     }, noticesRepo);
     res.json(result);
 
     // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
     const hasSearch = Boolean(
-      q || country || DATE_RE.test(deadlineFrom) || DATE_RE.test(deadlineTo) ||
-      valueMin || valueMax || deadlineWithinDays || noticeType || featuredOnly
+      q || country || agency || DATE_RE.test(deadlineFrom) || DATE_RE.test(deadlineTo) ||
+      deadlineWithinDays || noticeType || featuredOnly
     );
     if (hasSearch) {
       const filters = JSON.stringify({
         code_id: codeId || undefined,
         deadline_from: DATE_RE.test(deadlineFrom) ? deadlineFrom : undefined,
         deadline_to: DATE_RE.test(deadlineTo) ? deadlineTo : undefined,
-        value_min: valueMin || undefined,
-        value_max: valueMax || undefined,
         deadline_within_days: deadlineWithinDays || undefined,
         notice_type: noticeType || undefined,
         featured: featuredOnly || undefined,
@@ -68,6 +65,10 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
 
   router.get("/api/notices/countries", asyncHandler(async (_req, res) => {
     res.json(await getNoticeCountries(ctx.dbPool));
+  }));
+
+  router.get("/api/notices/agencies", asyncHandler(async (_req, res) => {
+    res.json(await getNoticeAgencies(ctx.dbPool));
   }));
 
   router.get("/api/notices/stats", asyncHandler(async (_req, res) => {

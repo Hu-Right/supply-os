@@ -13,24 +13,23 @@ import { useCallback, useEffect, useRef, useReducer, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, PrefsMode } from "../types";
-import { fetchNotices, fetchNoticeCountries, fetchRecommendedNotices } from "../api";
+import { fetchNotices, fetchNoticeCountries, fetchNoticeAgencies, fetchRecommendedNotices } from "../api";
 
 export const PAGE_SIZE = 9;
 
-// ── 表单草稿 reducer（8 个字段集中管理，消除 useState 碎片化）──
+// ── 表单草稿 reducer（7 个字段集中管理，消除 useState 碎片化）──
 interface SearchFormState {
   q: string;
   country: string;
+  agency: string;
   from: string;
   to: string;
-  valueMin: string;
-  valueMax: string;
   window: string;
   type: string;
 }
 
 type SearchFormAction =
-  | { type: "set_q" | "set_country" | "set_from" | "set_to" | "set_valueMin" | "set_valueMax" | "set_window" | "set_type"; payload: string }
+  | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_type"; payload: string }
   | { type: "sync"; payload: SearchFormState }
   | { type: "clear" };
 
@@ -38,14 +37,13 @@ function searchFormReducer(state: SearchFormState, action: SearchFormAction): Se
   switch (action.type) {
     case "set_q": return { ...state, q: action.payload };
     case "set_country": return { ...state, country: action.payload };
+    case "set_agency": return { ...state, agency: action.payload };
     case "set_from": return { ...state, from: action.payload };
     case "set_to": return { ...state, to: action.payload };
-    case "set_valueMin": return { ...state, valueMin: action.payload };
-    case "set_valueMax": return { ...state, valueMax: action.payload };
     case "set_window": return { ...state, window: action.payload };
     case "set_type": return { ...state, type: action.payload };
     case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", from: "", to: "", valueMin: "", valueMax: "", window: "", type: "" };
+    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", type: "" };
     default: return state;
   }
 }
@@ -74,11 +72,10 @@ export interface UseNoticeSearchReturn {
   query: {
     activeQ: string;
     activeCountry: string;
+    activeAgency: string;
     activeFrom: string;
     activeTo: string;
     activeSort: "deadline" | "latest";
-    activeValueMin: string;
-    activeValueMax: string;
     activeWindow: string;
     activeNoticeType: string;
     activeFeatured: boolean;
@@ -91,14 +88,12 @@ export interface UseNoticeSearchReturn {
     setQInput: (value: string) => void;
     countryInput: string;
     setCountryInput: (value: string) => void;
+    agencyInput: string;
+    setAgencyInput: (value: string) => void;
     fromInput: string;
     setFromInput: (value: string) => void;
     toInput: string;
     setToInput: (value: string) => void;
-    valueMinInput: string;
-    setValueMinInput: (value: string) => void;
-    valueMaxInput: string;
-    setValueMaxInput: (value: string) => void;
     windowInput: string;
     setWindowInput: (value: string) => void;
     typeInput: string;
@@ -107,6 +102,7 @@ export interface UseNoticeSearchReturn {
   /** 列表数据 */
   result: {
     countries: Array<{ country: string; count: number }>;
+    agencies: Array<{ agency: string; count: number }>;
     items: NoticeItem[];
     total: number;
     serverPageSize: number;
@@ -138,54 +134,52 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const { locale } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ── 表单草稿状态（useReducer 集中管理 8 个字段）──
+  // ── 表单草稿状态（useReducer 集中管理 7 个字段）──
   const [formState, dispatchForm] = useReducer(searchFormReducer, {
     q: searchParams.get("q") || "",
     country: searchParams.get("country") || "",
+    agency: searchParams.get("agency") || "",
     from: searchParams.get("deadline_from") || "",
     to: searchParams.get("deadline_to") || "",
-    valueMin: searchParams.get("value_min") || "",
-    valueMax: searchParams.get("value_max") || "",
     window: searchParams.get("deadline_within_days") || "",
     type: searchParams.get("notice_type") || "",
   });
   const setQInput = useCallback((v: string) => dispatchForm({ type: "set_q", payload: v }), []);
   const setCountryInput = useCallback((v: string) => dispatchForm({ type: "set_country", payload: v }), []);
+  const setAgencyInput = useCallback((v: string) => dispatchForm({ type: "set_agency", payload: v }), []);
   const setFromInput = useCallback((v: string) => dispatchForm({ type: "set_from", payload: v }), []);
   const setToInput = useCallback((v: string) => dispatchForm({ type: "set_to", payload: v }), []);
-  const setValueMinInput = useCallback((v: string) => dispatchForm({ type: "set_valueMin", payload: v }), []);
-  const setValueMaxInput = useCallback((v: string) => dispatchForm({ type: "set_valueMax", payload: v }), []);
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
   const setTypeInput = useCallback((v: string) => dispatchForm({ type: "set_type", payload: v }), []);
-  const { q: qInput, country: countryInput, from: fromInput, to: toInput,
-    valueMin: valueMinInput, valueMax: valueMaxInput, window: windowInput, type: typeInput } = formState;
+  const { q: qInput, country: countryInput, agency: agencyInput, from: fromInput, to: toInput,
+    window: windowInput, type: typeInput } = formState;
   // ── 公采搜索栏（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
   const activeQ = searchParams.get("q") || "";
   const activeCountry = searchParams.get("country") || "";
+  const activeAgency = searchParams.get("agency") || "";
   const activeFrom = searchParams.get("deadline_from") || "";
   const activeTo = searchParams.get("deadline_to") || "";
   const activeSort: "deadline" | "latest" = searchParams.get("sort") === "latest" ? "latest" : "deadline";
-  const activeValueMin = searchParams.get("value_min") || "";
-  const activeValueMax = searchParams.get("value_max") || "";
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   const activeFeatured = searchParams.get("featured") === "1";
   const hasSearch = Boolean(
-    activeQ || activeCountry || activeFrom || activeTo ||
-    activeValueMin || activeValueMax || activeWindow || activeNoticeType || activeFeatured
+    activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
+    activeWindow || activeNoticeType || activeFeatured
   );
-  const searchKey = `${activeQ}|${activeCountry}|${activeFrom}|${activeTo}|${activeSort}|${activeValueMin}|${activeValueMax}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
 
   const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
+  const [agencies, setAgencies] = useState<Array<{ agency: string; count: number }>>([]);
 
   // URL 外部变化（支付回跳清参等）时同步表单草稿
   useEffect(() => {
     dispatchForm({
       type: "sync",
-      payload: { q: activeQ, country: activeCountry, from: activeFrom, to: activeTo,
-        valueMin: activeValueMin, valueMax: activeValueMax, window: activeWindow, type: activeNoticeType },
+      payload: { q: activeQ, country: activeCountry, agency: activeAgency, from: activeFrom, to: activeTo,
+        window: activeWindow, type: activeNoticeType },
     });
-  }, [activeQ, activeCountry, activeFrom, activeTo, activeValueMin, activeValueMax, activeWindow, activeNoticeType]);
+  }, [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeWindow, activeNoticeType]);
 
   // 生效条件变化时重置分页：applySearch/toggleFeatured 之外的外部 URL 变化
   // （支付回跳清参、前进/后退到搜索直达链接）不经过动作函数，旧页码会请求到
@@ -204,16 +198,22 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       .catch(() => setCountries([]));
   }, []);
 
+  // 采购机构下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
+  useEffect(() => {
+    fetchNoticeAgencies()
+      .then((data) => setAgencies(Array.isArray(data) ? data : []))
+      .catch(() => setAgencies([]));
+  }, []);
+
   // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
   const applySearch = (sortOverride?: "deadline" | "latest") => {
     const next: Record<string, string> = {};
     if (qInput.trim()) next.q = qInput.trim();
     if (countryInput) next.country = countryInput;
+    if (agencyInput) next.agency = agencyInput;
     if (fromInput) next.deadline_from = fromInput;
     if (toInput) next.deadline_to = toInput;
-    // T-B9：金额区间/截止窗口/采购类型（对接 T-B8 服务端过滤）
-    if (valueMinInput && Number(valueMinInput) > 0) next.value_min = valueMinInput;
-    if (valueMaxInput && Number(valueMaxInput) > 0) next.value_max = valueMaxInput;
+    // T-B9：截止窗口/采购类型（对接 T-B8 服务端过滤）
     if (windowInput) next.deadline_within_days = windowInput;
     if (typeInput.trim()) next.notice_type = typeInput.trim();
     // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
@@ -271,12 +271,11 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             codeId: deepestCodeId || undefined,
             q: activeQ || undefined,
             country: activeCountry || undefined,
+            agency: activeAgency || undefined,
             deadlineFrom: activeFrom || undefined,
             deadlineTo: activeTo || undefined,
             sort: activeSort,
             userKey: userKey || undefined,
-            valueMin: activeValueMin ? Number(activeValueMin) : undefined,
-            valueMax: activeValueMax ? Number(activeValueMax) : undefined,
             deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
             noticeType: activeNoticeType || undefined,
             featured: activeFeatured || undefined, // [精选功能重新启用 2026-07-31]
@@ -309,11 +308,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     query: {
       activeQ,
       activeCountry,
+      activeAgency,
       activeFrom,
       activeTo,
       activeSort,
-      activeValueMin,
-      activeValueMax,
       activeWindow,
       activeNoticeType,
       activeFeatured,
@@ -325,14 +323,12 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       setQInput,
       countryInput,
       setCountryInput,
+      agencyInput,
+      setAgencyInput,
       fromInput,
       setFromInput,
       toInput,
       setToInput,
-      valueMinInput,
-      setValueMinInput,
-      valueMaxInput,
-      setValueMaxInput,
       windowInput,
       setWindowInput,
       typeInput,
@@ -340,6 +336,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     },
     result: {
       countries,
+      agencies,
       items,
       total,
       serverPageSize,

@@ -6,6 +6,7 @@ import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
 import { formatDeadlineZh } from "../utils/formatDeadlineZh";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 // T-C3 推荐理由标签（C.3.4）：服务端标签键 → i18n 键白名单映射，未知键静默丢弃
 const RECO_REASON_KEYS: Record<string, LocaleKey> = {
@@ -43,6 +44,11 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
     || item.description;
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(item.notice_type);
+  // 招标内容区域：中文环境优先 description_cn（原生中文字段），回退通用描述链；
+  //               非中文环境优先 bid_overview（英文投标概览）
+  const bidContent = locale === "zh"
+    ? (item.description_cn || item.description_i18n || item.bid_overview || displayDescription)
+    : (item.bid_overview || displayDescription);
   // 推荐理由标签：仅推荐/热度兜底响应携带；至多 2 个（服务端已截断，前端再兜底）
   const reasonKeys = (item.reco_reasons || [])
     .map((reason) => RECO_REASON_KEYS[reason])
@@ -89,9 +95,9 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
         </div>
       )}
       <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{displayTitle}</h4>
-      {/* 招标内容：bid_overview > description_cn > description 回退链 */}
-      <p dir="auto" className="text-xs text-slate-500 mt-2 line-clamp-2">
-        {item.bid_overview || displayDescription || t("procurement_noDesc")}
+      {/* 招标内容 */}
+      <p dir="auto" className="text-xs text-slate-500 mt-2 line-clamp-3">
+        {bidContent || t("procurement_noDesc")}
       </p>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
@@ -114,7 +120,7 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
         {item.beneficiary_countries && (
           <div className="text-[11px] text-slate-500 min-w-0 text-center">
             <span className="font-bold text-slate-400">{t("procurement_beneficiaryCountry")}</span>
-            <p className="truncate">{item.beneficiary_countries.split(",").map((s) => s.trim()).filter(Boolean).join(", ")}</p>
+            <p className="truncate">{item.beneficiary_countries.split(",").map((s) => s.trim()).filter(Boolean).map((name) => getCountryDisplayName(name, locale)).join(", ")}</p>
           </div>
         )}
         <button
