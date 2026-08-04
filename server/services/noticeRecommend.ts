@@ -56,15 +56,17 @@ async function deadlineFallback(pool: Pool, page: number, pageSize: number, offs
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
-  // 路径2（source_notice_id）改用标量子查询，避免多行 JOIN 导致 DISTINCT 失效、分页溢出
+  // P2 优化：移除 oppJoin（description_cn 已不在列表使用，JOIN 为死代码）
+  // 回滚：恢复 oppJoin 定义，在 SELECT 中恢复 COALESCE(opp_desc.description_cn, ...) 标量子查询
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
+  // P2+P3：移除 description_cn 标量子查询 + description 截断 300 字符
+  // 回滚：恢复 description_cn COALESCE 子查询，恢复 n.description 全量返回
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
-            ${trSelect} ${treSelect} COALESCE(opp_desc.description_cn, (SELECT opp2.description_cn FROM crm_bid_opportunities opp2 WHERE opp2.source_notice_id = n.notice_id AND (opp2.is_qualified = 1 OR opp2.status = 'won' OR opp2.audit_status = 1) AND opp2.source_notice_id IS NOT NULL AND opp2.source_notice_id <> '' LIMIT 1)) AS description_cn
-     FROM crm_bid_notices n ${trJoin} ${treJoin} ${oppJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
+            n.deadline, n.deadline_ts, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+            ${trSelect} ${treSelect} '' AS description_cn
+     FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
     ...row, match_score: 0, reco_score: 0, agency: null, organization: null, source_url: null,
     unspsc_codes: [], core_locked: true,
@@ -273,29 +275,36 @@ export async function recommendNotices(pool: Pool, userKey: string, page: number
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  const oppJoin = "LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
-  const oppJoin2 = "LEFT JOIN crm_bid_opportunities opp_desc2 ON opp_desc2.source_notice_id = n.notice_id AND (opp_desc2.is_qualified = 1 OR opp_desc2.status = 'won' OR opp_desc2.audit_status = 1) AND opp_desc2.source_notice_id IS NOT NULL AND opp_desc2.source_notice_id <> ''";
+  // P2 优化：移除 oppJoin/oppJoin2（description_cn 已不在列表使用，两个 JOIN 为死代码）
+  // 回滚：恢复 oppJoin + oppJoin2 定义，在 SELECT 中恢复 MAX(COALESCE(opp_desc.description_cn, opp_desc2.description_cn))
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
-  const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-       n.deadline, n.deadline_ts, n.estimated_value, n.description, n.documents, n.procurement_files,
-       ${trSelect} ${treSelect} MAX(COALESCE(opp_desc.description_cn, opp_desc2.description_cn)) AS description_cn,
-       ${l4HitExpr} AS l4_hit, MAX(amc.amount_usd) AS amount_usd_cached,
-       GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
-       COUNT(DISTINCT b.code) AS match_score, ${recoScoreExpr} AS reco_score
-     FROM crm_bid_notices n
-     INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
-     LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
-     ${trJoin}
-     ${treJoin}
-     ${oppJoin}
-     ${oppJoin2}
-     WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
-     GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${DEADLINE_SEC_EXPR}, n.id DESC
-     LIMIT ? OFFSET ?`,
-    [...trParams, ...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
-  );
+  // P2+P3：移除 description_cn 聚合 + description 截断 300 字符
+  // 回滚：恢复 MAX(COALESCE(...)) AS description_cn，恢复 n.description 全量返回
+  let rows: any;
+  try {
+    [rows] = await pool.query(
+      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+         n.deadline, n.deadline_ts, n.estimated_value, LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+         ${trSelect} ${treSelect} '' AS description_cn,
+         ${l4HitExpr} AS l4_hit, MAX(amc.amount_usd) AS amount_usd_cached,
+         GROUP_CONCAT(DISTINCT b.code) AS codes_concat,
+         COUNT(DISTINCT b.code) AS match_score, ${recoScoreExpr} AS reco_score
+       FROM crm_bid_notices n
+       INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
+       LEFT JOIN crm_notice_amount_cache amc ON amc.notice_id = n.id
+       ${trJoin}
+       ${treJoin}
+       WHERE (${bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
+       GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${DEADLINE_SEC_EXPR}, n.id DESC
+       LIMIT ? OFFSET ?`,
+      [...trParams, ...l4Params, ...scoreParams, denominator, ...amountScoreParams, ...params, ...extraParams, pageSize, offset]
+    );
+  } catch (err) {
+    // 推荐主查询异常时降级到截止时间排序，保证用户看到数据而非 500
+    console.error("[recommendNotices] main query failed, falling back to deadline:", err);
+    return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
+  }
 
   const pageNoticeIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
   if (pageNoticeIds.length) void backfillNoticeAmountCache(pool, pageNoticeIds).catch(() => undefined);

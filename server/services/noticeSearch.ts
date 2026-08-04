@@ -56,6 +56,11 @@ const noticeCountCache = new Map<string, { total: number; expires: number }>();
 const NOTICE_COUNT_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（与搜索条件稳定性匹配）
 const NOTICE_COUNT_CACHE_MAX = 200;
 
+// P1 性能优化：精选计数独立缓存——精选总数变化极低频，30 分钟 TTL 避免重复计算
+// 回滚：删除 featuredCountCache 相关代码，恢复走通用 COUNT 缓存逻辑
+const featuredCountCache = { total: 0, expires: 0 };
+const FEATURED_COUNT_CACHE_TTL = 30 * 60 * 1000; // 30 分钟
+
 function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.deadlineFrom || "",
@@ -153,17 +158,30 @@ export async function searchNotices(
     where.push(FEATURED_NOTICE_EXISTS);
   }
 
-  // 卡片国际化：LEFT JOIN 翻译表，按当前 locale 返回 title_i18n / description_i18n；
-  // 使用独立别名 tr 避免与搜索关键词匹配用的 qzh/qen 冲突
+  // P0 性能优化：COUNT 查询瘦身——分离仅影响 SELECT 展示的 JOIN
+  // 回滚：将 locale/英文回退/opp_desc JOIN 恢复合并到 join 变量，COUNT 使用 join + params
+  // 卡片国际化：locale 参数独立于 WHERE params，不纳入 COUNT 查询
+  // P4 两阶段查询：展示用 JOIN 独立于过滤 JOIN，阶段 2 按 ID 获取详情时使用
+  // 回滚：将 displayJoin 的两行 LEFT JOIN 移回 join 变量，恢复单查询模式
+  const localeParams: any[] = [];
+  let displayJoin = "";
   if (locale) {
-    join += " LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?";
-    params.push(locale);
+    displayJoin += " LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?";
+    localeParams.push(locale);
   }
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
-  join += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // 精选公告中文描述：路径1 LEFT JOIN（converted_opp_id，PK 关联，至多 1 行）；
-  // 路径2（source_notice_id）改用标量子查询，避免多行 JOIN 导致 DISTINCT 失效、分页溢出
-  join += " LEFT JOIN crm_bid_opportunities opp_desc ON opp_desc.id = n.converted_opp_id AND (opp_desc.is_qualified = 1 OR opp_desc.status = 'won' OR opp_desc.audit_status = 1)";
+  displayJoin += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  // P2 优化：移除 opp_desc JOIN（description_cn 已不在列表使用，JOIN 为死代码）
+  // 回滚：恢复 join += " LEFT JOIN crm_bid_opportunities opp_desc ON ..."
+  // COUNT 专用 JOIN：仅包含影响 WHERE 条件的 JOIN（翻译/描述对计数无贡献）
+  let countJoin = idFilterSql;
+  if (q) {
+    countJoin += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
+    countJoin += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
+  }
+  if (valueMin || valueMax) {
+    countJoin += " INNER JOIN crm_notice_amount_cache vamc ON vamc.notice_id = n.id AND vamc.amount_usd IS NOT NULL";
+  }
 
   const orderParts: string[] = [];
   const orderParams: any[] = [];
@@ -179,40 +197,77 @@ export async function searchNotices(
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
 
-  // P0 性能优化：COUNT 结果缓存——翻页时跳过昂贵的全量计数
+  // P0 性能优化：COUNT 结果缓存——翻页及首次加载时复用，避免每次重新全量计数
+  // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
   const cKey = countCacheKey(p);
   const cachedCount = noticeCountCache.get(cKey);
-  const useCachedCount = page > 1 && cachedCount && cachedCount.expires > Date.now();
+  // 首次加载（page=1）也读缓存：countCacheKey 不含 locale，不同语言共享同一 total
+  const useCachedCount = cachedCount && cachedCount.expires > Date.now();
+
+  // P1 性能优化：精选计数独立缓存——精选总数变化极低频，跳过昂贵的双路 IN 子查询
+  // 回滚：删除 featuredCountCache 分支，统一走通用 COUNT 缓存
+  const useFeaturedCache = featuredOnly && featuredCountCache.expires > Date.now();
 
   let countPromise: Promise<any>;
-  if (useCachedCount) {
-    // 翻页命中 COUNT 缓存：用已缓存的 total 构造伪结果，不发 SQL
+  if (useFeaturedCache) {
+    // 精选计数缓存命中：跳过 SQL
+    countPromise = Promise.resolve([[{ total: featuredCountCache.total }]]);
+  } else if (useCachedCount) {
+    // 通用 COUNT 缓存命中：用已缓存的 total 构造伪结果，不发 SQL
     countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
-  } else {
+  } else if (featuredOnly) {
+    // P0 COUNT 瘦身：精选计数仅用 WHERE 条件，不携带展示用 LEFT JOIN
     countPromise = pool.query(
-      `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}`,
+      `SELECT COUNT(*) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
+      [...idFilterParams, ...params]
+    ).then((result: any) => {
+      const t = Number((result[0] as any[])[0]?.total || 0);
+      featuredCountCache.total = t;
+      featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
+      return result;
+    });
+  } else {
+    // P0 COUNT 瘦身：使用 countJoin（不含翻译/描述 JOIN），无展示 JOIN 时不需 DISTINCT
+    countPromise = pool.query(
+      `SELECT COUNT(*) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
       [...idFilterParams, ...params]
     );
   }
 
-  // 性能优化：并行执行 COUNT 和 SELECT 查询（阶段 1）
-  const [countResult, rowsResult] = await Promise.all([
+  // P4 性能优化：两阶段查询——阶段 1 轻量 ID 分页，阶段 2 按 ID 批量获取详情
+  // 消除 DISTINCT 开销（翻译 JOIN 不再参与分页），减少阶段 1 的 JOIN 数量
+  // 回滚：恢复单查询模式 SELECT DISTINCT n.id, ... FROM crm_bid_notices n ${join} WHERE ...
+  const [countResult, idResult] = await Promise.all([
     countPromise,
+    // 阶段 1：轻量 ID 查询（无翻译 JOIN，无 DISTINCT，复用 countJoin）
+    // 注意：countJoin 已包含 idFilterSql，不再额外拼接
     pool.query(
-      `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.description,
-         tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
-         tre.title_tr AS title_en, tre.description_tr AS description_en,
-         COALESCE(opp_desc.description_cn, (SELECT opp2.description_cn FROM crm_bid_opportunities opp2 WHERE opp2.source_notice_id = n.notice_id AND (opp2.is_qualified = 1 OR opp2.status = 'won' OR opp2.audit_status = 1) AND opp2.source_notice_id IS NOT NULL AND opp2.source_notice_id <> '' LIMIT 1)) AS description_cn
-       FROM crm_bid_notices n ${idFilterSql}${join} WHERE ${whereSql}
+      `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
        ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idFilterParams, ...params, ...orderParams, pageSize, offset]
     ),
   ]);
-  
+
   const [countRows] = countResult;
-  const [rows] = rowsResult;
+  const [idRows] = idResult;
   const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
+  const pageIds = (idRows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
+
+  // 阶段 2：按 ID 批量获取详情（含翻译 JOIN，无 DISTINCT 风险，仅查 ≤pageSize 条）
+  let detailRows: RowDataPacket[] = [];
+  if (pageIds.length > 0) {
+    const [dRows] = await pool.query(
+      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, LEFT(n.description, 300) AS description,
+         tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
+         tre.title_tr AS title_en, tre.description_tr AS description_en
+       FROM crm_bid_notices n ${countJoin}${displayJoin}
+       WHERE n.id IN (${pageIds.map(() => "?").join(",")})
+       ORDER BY FIELD(n.id, ${pageIds.map(() => "?").join(",")})`,
+      [...idFilterParams, ...params, ...localeParams, ...pageIds, ...pageIds]
+    );
+    detailRows = dRows as RowDataPacket[];
+  }
 
   // P0：首页写入 COUNT 缓存（非首页不写，避免翻页时 stale 条件覆盖）
   if (page === 1 && total > 0) {
@@ -224,7 +279,6 @@ export async function searchNotices(
     noticeCountCache.set(cKey, { total, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
   }
 
-  const pageIds = (rows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
   const breakdownCounts = new Map<number, number>();
   // 页级 is_featured 标注：featuredOnly 时全部命中，否则仅对当页 ≤30 条回查三路判定
   const featuredIds = new Set<number>();
@@ -259,7 +313,7 @@ export async function searchNotices(
   }
 
   // ── 卡片国际化按需翻译：异步写入缓存，不阻塞当前响应（英文回退已即时兜底）──
-  const rawRows = rows as RowDataPacket[];
+  const rawRows = detailRows;
   if (locale && noticesRepo) {
     const missingRows = rawRows.filter((row) => !row.title_i18n);
     const toTranslate = missingRows.slice(0, 9);

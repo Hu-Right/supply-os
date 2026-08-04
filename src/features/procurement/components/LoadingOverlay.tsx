@@ -3,10 +3,10 @@
  * Loading Overlay
  *
  * @description 搜索/语言切换期间的半透明蒙层 + 旋转指示器。
- *              覆盖父容器区域，不阻断页面其他交互。
- *              Semi-transparent overlay with spinner for search/locale switching.
- *              Covers the parent container, does not block other page interactions.
+ *              覆盖全屏、阻断所有交互（点击 + 滚动）。
+ *              Full-screen overlay that blocks all interactions (click + scroll).
  */
+import { useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 
 export interface LoadingOverlayProps {
@@ -15,6 +15,16 @@ export interface LoadingOverlayProps {
 
 export function LoadingOverlay({ visible }: LoadingOverlayProps) {
   const { t } = useLocale();
+
+  // 加载期间锁定 body 滚动，防止用户滑动页面
+  useEffect(() => {
+    if (visible) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [visible]);
 
   return (
     <div

@@ -11,9 +11,7 @@ const NoticeDetail = lazy(() => import("../components/NoticeDetail").then(m => (
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { NoticeList } from "../components/NoticeList";
-// P1 性能优化：骨架屏替代全屏 LoadingOverlay，提升感知加载速度
-// 回滚：将 NoticeListSkeleton 替换回 LoadingOverlay，恢复 <LoadingOverlay visible={...} />
-import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
@@ -101,6 +99,8 @@ export default function ProcurementPage() {
   // 列表页
   return (
     <>
+    {/* 加载中全屏蒙层：阻断所有交互，加载完成后自动消失 */}
+    <LoadingOverlay visible={search.result.loading} />
     <div className="space-y-5">
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -167,22 +167,18 @@ export default function ProcurementPage() {
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
-        {/* P1：骨架屏替代全屏蒙层——仅首次加载/搜索无数据时显示 */}
-        {search.result.loading && search.result.items.length === 0
-          ? <NoticeListSkeleton />
-          : <NoticeList
-              items={search.result.items}
-              loading={search.result.loading}
-              page={page}
-              totalPages={search.result.totalPages}
-              serverPageSize={search.result.serverPageSize}
-              total={search.result.total}
-              setPage={setPage}
-              openNotice={actions.openNotice}
-              feedbackEnabled={feedback.feedbackEnabled}
-              observeCard={feedback.observeCard}
-            />
-        }
+        <NoticeList
+          items={search.result.items}
+          loading={search.result.loading}
+          page={page}
+          totalPages={search.result.totalPages}
+          serverPageSize={search.result.serverPageSize}
+          total={search.result.total}
+          setPage={setPage}
+          openNotice={actions.openNotice}
+          feedbackEnabled={feedback.feedbackEnabled}
+          observeCard={feedback.observeCard}
+        />
       </section>
     </div>
     </>

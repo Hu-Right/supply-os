@@ -676,6 +676,16 @@ export async function ensureProcurementSchema(dbPool: any) {
   await ensureIndex(dbPool, "crm_bid_notice_unspsc_codes", "idx_notice_level5_notice", "CREATE INDEX idx_notice_level5_notice ON crm_bid_notice_unspsc_codes (level5_id, notice_id)");
   await ensureIndex(dbPool, "crm_bid_notice_unspsc_codes", "idx_notice_code_notice", "CREATE INDEX idx_notice_code_notice ON crm_bid_notice_unspsc_codes (code, notice_id)");
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_active_deadline_id", "CREATE INDEX idx_bid_notices_active_deadline_id ON crm_bid_notices (is_expired, deadline_ts, id)");
+
+  // P1 性能优化：deadline_sec 生成列——将 deadline_ts（可能为毫秒级）统一转为秒级，
+  // 使 ORDER BY/WHERE 可走索引，避免每行计算 IF(...FLOOR(...)/1000...)
+  await ensureColumn(
+    dbPool,
+    "crm_bid_notices",
+    "deadline_sec",
+    "deadline_sec INT UNSIGNED AS (IF(deadline_ts > 100000000000, FLOOR(deadline_ts / 1000), deadline_ts)) STORED"
+  );
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_deadline_sec", "CREATE INDEX idx_bid_notices_deadline_sec ON crm_bid_notices (deadline_sec)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_level_id", "CREATE INDEX idx_unspsc_level_id ON crm_unspsc_codes (level, id)");
   await ensureIndexIfTableExists(dbPool, "crm_unspsc_codes", "idx_unspsc_parent_code", "CREATE INDEX idx_unspsc_parent_code ON crm_unspsc_codes (parent_id, code)");
 }
