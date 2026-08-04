@@ -20,6 +20,8 @@ export interface NoticeItem {
   organization?: string;
   country?: string;
   deadline?: string;
+  /** Unix 时间戳（秒或毫秒），供前端时区转换使用 */
+  deadline_ts?: number | string;
   estimated_value?: string;
   description?: string;
   source_url?: string;

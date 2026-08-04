@@ -71,7 +71,7 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
         <div className="flex flex-col items-end gap-0.5">
           <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
           <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">
-            {locale === "zh" ? formatDeadlineZh(item.deadline) : item.deadline}
+            {locale === "zh" ? formatDeadlineZh(item.deadline, item.deadline_ts) : item.deadline}
           </span>
           {/* [収藏/dismiss 功能临时禁用 2026-07-30] Star/X 按钮已移除 */}
         </div>
