@@ -6,8 +6,15 @@
  */
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const LOG_DIR = path.resolve(path.dirname(typeof __filename !== "undefined" ? __filename : __dirname), "..", "logs");
+/** 兼容 ESM (tsx dev) 和 CJS (esbuild 生产构建) 两种模块系统 */
+function getCurrentDir(): string {
+  if (typeof __dirname !== "undefined") return __dirname;          // CJS
+  return path.dirname(fileURLToPath(import.meta.url));             // ESM
+}
+
+const LOG_DIR = path.resolve(getCurrentDir(), "..", "logs");
 const LOG_TO_CONSOLE = process.env.LOG_TO_CONSOLE !== "false";
 
 function ensureLogDir() {
