@@ -719,5 +719,10 @@ export async function ensureProcurementSchema(dbPool: any) {
   );
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_featured",
     "CREATE INDEX idx_bid_notices_featured ON crm_bid_notices (is_featured)");
+
+  // P1 性能优化：复合筛选索引——加速 country/agency/notice_type 多条件组合查询
+  // 回滚：DROP INDEX idx_notices_filter ON crm_bid_notices;
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_filter",
+    "CREATE INDEX idx_notices_filter ON crm_bid_notices (country(100), agency(100), notice_type(50))");
 }
 
