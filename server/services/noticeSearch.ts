@@ -264,13 +264,13 @@ export async function searchNotices(
     join += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
     join += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
     // 关键词搜索：基础条件不再纳入外层 WHERE——由 IN(子查询) 统一处理全部关键字匹配（基础+翻译 OR）
-    // 方案B：主表使用 FULLTEXT 全文索引（MATCH AGAINST）替代 LIKE '%keyword%' 全表扫描
-    // 翻译表保持 LIKE（数据量较小，且已通过主表 FULLTEXT 预筛选）
-    // 回滚：将 MATCH(sn.title, sn.reference, sn.description) AGAINST(? IN BOOLEAN MODE) 恢复为 sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ?
+    // 方案B 诊断结论：FULLTEXT(ngram) 对英文关键词比 LIKE 慢 3.8x（ngram 令牌爆炸），仅对中文有效（4ms）
+    // 因此主表保持 LIKE（配合 Buffer Pool + is_active 索引已足够快），不采用 FULLTEXT
+    // 回滚：无需回滚，保留 FULLTEXT 索引备用（未来可仅用于中文搜索路径）
     translationWhere.push(
-      "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR MATCH(sn.title, sn.reference, sn.description) AGAINST(? IN BOOLEAN MODE) OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
+      "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ? OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
     );
-    translationWhereParams.push(compactQ, q, likeQ, likeQ, likeQ, likeQ);
+    translationWhereParams.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
   }
   if (country) {
     // 精确匹配：国家值来自下拉（GROUP BY n.country 的精确值），LIKE 会误命中
