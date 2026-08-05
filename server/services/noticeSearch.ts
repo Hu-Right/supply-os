@@ -261,30 +261,24 @@ export async function searchNotices(
   const compactQ = q.replace(/\s+/g, "").toUpperCase();
   const likeQ = `%${q}%`;
   // ── 关键词搜索条件构建 ──
-  // 方案E：中文关键词使用 FULLTEXT(ngram) 主表路径（18ms vs LIKE 6764ms = 375x 提升）
-  // 英文关键词保持 LIKE（FULLTEXT 对英文 ngram 令牌爆炸，比 LIKE 慢 30%）
+  // 方案E：中文 FULLTEXT(ngram) 主表路径（18ms vs LIKE 6764ms = 375x 提升）
+  // 方案F3：英文 FULLTEXT(非ngram) 主表路径（ft_notices_en 索引，330-687ms vs LIKE 7-9s = 10-27x 提升）
   const isChinese = /[\u4e00-\u9fff]/.test(q);
 
-  // 中文路径：主表 FULLTEXT 条件 + 翻译表 INNER JOIN 条件
+  // 中英文均走主表 FULLTEXT，零 JOIN 翻译表（同语言匹配）
   let mainMatchSql = "";
   const mainMatchParams: any[] = [];
-  let transMatchSql = "";
-  const transMatchParams: any[] = [];
 
   if (q) {
     if (isChinese) {
-      // 中文快速路径：主表 FULLTEXT(ngram) + 翻译表 INNER JOIN LIKE
+      // 中文路径：FULLTEXT(ngram) 索引 ft_notices_search (title, reference, description)
       mainMatchSql = "MATCH(n.title, n.reference, n.description) AGAINST(? IN BOOLEAN MODE)";
       mainMatchParams.push(q);
-      transMatchSql = "(qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)";
-      transMatchParams.push(likeQ, likeQ, likeQ, likeQ);
     } else {
-      // 英文路径：保持 LIKE（FULLTEXT 对英文性能回退）
-      // 方案B 诊断结论：FULLTEXT(ngram) 对英文关键词比 LIKE 慢 3.8x（ngram 令牌爆炸）
-      translationWhere.push(
-        "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ? OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
-      );
-      translationWhereParams.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
+      // 英文路径：FULLTEXT(非ngram) 索引 ft_notices_en (title, reference)
+      // 回滚：恢复 LIKE 路径——where.push("(UPPER(REPLACE(...)) = ? OR n.title LIKE ? ...)")
+      mainMatchSql = "MATCH(n.title, n.reference) AGAINST(? IN BOOLEAN MODE)";
+      mainMatchParams.push(q);
     }
   }
   if (country) {
@@ -334,14 +328,9 @@ export async function searchNotices(
   localeParams.push(locale || null);
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
   displayJoin += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
-  // COUNT 专用 JOIN：仅包含影响 WHERE 条件的 JOIN（翻译/描述对计数无贡献）
-  // 修复：关键词搜索时 countJoin 不含 idFilterSql（已在 IN(子查询) 内），避免外层重复过滤
-  let countJoin = (q && !isChinese) ? "" : idFilterSql;
-  if (q && !isChinese) {
-    countJoin += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
-    countJoin += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
-  }
-  // 中文路径：UNION 子查询不需要外层 JOIN
+  // COUNT 专用 JOIN：仅 UNSPSC 行业筛选 JOIN（英文路径不再需要翻译表 JOIN）
+  // 回滚：恢复英文路径的 LEFT JOIN crm_notice_translations qzh/qen
+  const countJoin = idFilterSql;
 
   const orderParts: string[] = [];
   const orderParams: any[] = [];
@@ -362,16 +351,10 @@ export async function searchNotices(
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
   const translationWhereSql = translationWhere.join(" AND ");
-  // COUNT 查询 WHERE：中文仅使用 FULLTEXT 主表；英文保持 IN(subquery)
-  let countWhereSql: string;
-  if (q && isChinese) {
-    // 中文路径：仅 FULLTEXT 主表（跳过翻译表，避免 UNION 性能问题）
-    countWhereSql = `${whereSql} AND MATCH(n.title, n.reference, n.description) AGAINST(? IN BOOLEAN MODE)`;
-  } else if (q && translationWhereSql) {
-    countWhereSql = `${whereSql} AND n.id IN (SELECT sn.id FROM crm_bid_notices sn ${idFilterSql} LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh' LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en' WHERE ${whereSql} AND ${translationWhereSql})`;
-  } else {
-    countWhereSql = whereSql;
-  }
+  // COUNT 查询 WHERE：中英文均使用 FULLTEXT 主表（mainMatchSql 统一）
+  const countWhereSql = q
+    ? `${whereSql} AND ${mainMatchSql}`
+    : whereSql;
 
   // P0 性能优化：COUNT 结果缓存——翻页及首次加载时复用，避免每次重新全量计数
   // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
@@ -420,20 +403,12 @@ export async function searchNotices(
     countPromise = runCountQuery();
   }
 
-  /** 执行 COUNT(DISTINCT) 查询并写入缓存 */
+  /** 执行 COUNT 查询并写入缓存 */
   function runCountQuery(): Promise<any> {
-    // 中文 UNION 路径：使用 COUNT(DISTINCT) 避免重复计数；英文 IN(subquery) 路径：同样使用 COUNT(DISTINCT)
     const countExpr = "COUNT(DISTINCT n.id)";
-    let countParams: any[];
-    if (q && isChinese) {
-      // 中文路径：外层 WHERE params + FULLTEXT ?
-      countParams = [...params, q];
-    } else if (q && translationWhereSql) {
-      // 英文路径：外层 WHERE params + 子查询(UNSPSC + 基础 + 翻译)
-      countParams = [...params, ...idFilterParams, ...params, ...translationWhereParams];
-    } else {
-      countParams = [...idFilterParams, ...params, ...translationWhereParams];
-    }
+    const countParams = q
+      ? [...idFilterParams, ...params, ...mainMatchParams]
+      : [...idFilterParams, ...params];
     return pool.query(
       `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
       countParams
@@ -452,48 +427,19 @@ export async function searchNotices(
   // ── 性能监控：分阶段计时 ─
   const t0 = Date.now();
 
-  // P4 性能优化：两阶段查询——阶段 1 轻量 ID 分页，阶段 2 按 ID 批量获取详情
-  // 修复：关键词搜索时使用 IN(子查询) 替代 DISTINCT——
-  // MySQL ONLY_FULL_GROUP_BY 要求 SELECT DISTINCT 时 ORDER BY 列必须在 SELECT 列表中，
-  // 而排序列 n.reference / n.deadline_sec 不在 SELECT DISTINCT n.id 中，导致报错。
-  // IN(子查询) 方案：翻译 JOIN 下推到子查询内，外层无 DISTINCT，ORDER BY 不受限制。
+  // P4 两阶段查询：阶段 1 轻量 ID 分页，阶段 2 按 ID 批量获取详情
+  // 方案F3：中英文关键词均走主表 FULLTEXT，查询结构统一
   let countMs = 0;
   const countTimed = countPromise.then((r: any) => { countMs = Date.now() - t0; return r; });
   let idMs = 0;
   const idQueryStart = Date.now();
-  const idTimed = (q && isChinese
-    ? // 方案E 中文路径：仅 FULLTEXT 主表（跳过翻译表，避免 UNION 性能问题）
-      pool.query(
-        `SELECT n.id FROM crm_bid_notices n
-         WHERE ${whereSql} AND MATCH(n.title, n.reference, n.description) AGAINST(? IN BOOLEAN MODE)
-         ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-        [...params, q, ...orderParams, pageSize, offset]
-      )
-    : q
-    ? // 英文路径：IN(subquery) + LEFT JOIN 翻译表
-      pool.query(
-        `SELECT n.id FROM crm_bid_notices n
-         WHERE ${whereSql}
-           AND n.id IN (
-             SELECT sn.id FROM crm_bid_notices sn ${idFilterSql}
-             LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh'
-             LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en'
-             WHERE ${whereSql}
-               AND (${translationWhereSql})
-           )
-         ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-        [
-          ...params,
-          ...idFilterParams, ...params, ...translationWhereParams,
-          ...orderParams, pageSize, offset,
-        ]
-      )
-    : // 无关键词搜索：无翻译 JOIN，无重复行，直接查询
-      pool.query(
-        `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
-         ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-        [...idFilterParams, ...params, ...orderParams, pageSize, offset]
-      )
+  const idWhere = q ? `${whereSql} AND ${mainMatchSql}` : whereSql;
+  const idParams = q
+    ? [...idFilterParams, ...params, ...mainMatchParams, ...orderParams, pageSize, offset]
+    : [...idFilterParams, ...params, ...orderParams, pageSize, offset];
+  const idTimed = pool.query(
+    `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${idWhere} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+    idParams
   ).then((r: any) => { idMs = Date.now() - idQueryStart; return r; });
 
   const [countResult, idResult] = await Promise.all([countTimed, idTimed]);
@@ -600,7 +546,8 @@ export async function searchNotices(
   };
 
   // ── 性能监控日志 ──
-  console.log(`[search-perf] page=${page} q="${q}" country="${country}" featured=${featuredOnly}` +
+  const searchMode = !q ? "none" : isChinese ? "zh-FULLTEXT" : "en-FULLTEXT";
+  console.log(`[search-perf] mode=${searchMode} page=${page} q="${q}" country="${country}" codeId=${p.codeId || "-"} featured=${featuredOnly}` +
     ` | COUNT=${countMs}ms | IDs=${idMs}ms | Phase1=${t1 - t0}ms | Phase2=${t2 - t1}ms | Phase3=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
 
   if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {
