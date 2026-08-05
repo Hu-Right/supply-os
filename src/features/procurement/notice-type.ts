@@ -37,6 +37,11 @@ const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
   ["procurement_type_rfi", /request for information|信息征询/],
   ["procurement_type_gpn", /general procurement notice/],
   ["procurement_type_contract_award", /contract award|award notice|授标|中标/],
+  // 长尾采购类型：多供应商清单 / 框架协议 / 直接 contracting / 供应商名单
+  ["procurement_type_multi_use_list", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/],
+  ["procurement_type_framework", /framework agreement|framework|standing offer|框架协议/],
+  ["procurement_type_direct_contracting", /direct contract|direct procurement|直接合同|直接采购/],
+  ["procurement_type_request", /request for(?! information)|征询请求|采购请求/],
   ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],
   ["procurement_type_other", /\bother\b|其他/],
 ];
