@@ -87,7 +87,8 @@ function statsKeyFor(p: NoticeSearchParams): string | null {
   if (p.codeId) return null; // UNSPSC 筛选无法预计算
   if (p.deadlineFrom || p.deadlineTo || p.deadlineWithinDays) return null; // 日期筛选无法预计算
   if (p.noticeType) return null; // 采购类型筛选无法预计算
-  if (p.sort) return null; // 排序不影响总数，但为简化不纳入
+  // BUG4 修复：默认排序 deadline_farthest 不影响总数，应允许使用统计表
+  if (p.sort && p.sort !== "deadline_farthest") return null; // 非默认排序无法预计算
   if (p.country && p.agency) return null; // 双条件组合暂不预计算
   if (p.country) return `country:${p.country}`;
   if (p.agency) return `agency:${p.agency}`;
@@ -263,11 +264,13 @@ export async function searchNotices(
     join += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
     join += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
     // 关键词搜索：基础条件不再纳入外层 WHERE——由 IN(子查询) 统一处理全部关键字匹配（基础+翻译 OR）
-    // 翻译搜索条件独立存放——IN(子查询) 时下推到子查询内
+    // 方案B：主表使用 FULLTEXT 全文索引（MATCH AGAINST）替代 LIKE '%keyword%' 全表扫描
+    // 翻译表保持 LIKE（数据量较小，且已通过主表 FULLTEXT 预筛选）
+    // 回滚：将 MATCH(sn.title, sn.reference, sn.description) AGAINST(? IN BOOLEAN MODE) 恢复为 sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ?
     translationWhere.push(
-      "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ? OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
+      "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR MATCH(sn.title, sn.reference, sn.description) AGAINST(? IN BOOLEAN MODE) OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
     );
-    translationWhereParams.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
+    translationWhereParams.push(compactQ, q, likeQ, likeQ, likeQ, likeQ);
   }
   if (country) {
     // 精确匹配：国家值来自下拉（GROUP BY n.country 的精确值），LIKE 会误命中
@@ -293,8 +296,10 @@ export async function searchNotices(
     params.push(deadlineWithinDays);
   }
   if (noticeType) {
-    where.push("n.notice_type LIKE ?");
-    params.push(`%${noticeType}%`);
+    // BUG3 修复：转义 SQL LIKE 通配符，防止用户输入 %/_ 导致非预期模糊匹配
+    const escapedType = noticeType.replace(/[%_\\]/g, "\\$&");
+    where.push("n.notice_type LIKE ? ESCAPE '\\'");
+    params.push(`%${escapedType}%`);
   }
   // P6 性能优化：精选过滤改用预计算列 is_featured，消除 FEATURED_NOTICE_EXISTS 双路 IN 子查询
   // 回滚：恢复 where.push(FEATURED_NOTICE_EXISTS)

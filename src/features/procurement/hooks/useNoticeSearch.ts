@@ -65,6 +65,8 @@ export interface UseNoticeSearchOptions {
   setSelectedNotice: (notice: NoticeItem | null) => void;
   /** 推荐响应 A/B 桶标记 ref（列表加载时写入，反馈埋点读取，T-B10） */
   variantRef: { current: string | undefined };
+  /** BUG1 修复：clearSearch 时额外回调——用于重置 UNSPSC 行业筛选等跨 hook 状态 */
+  onClear?: () => void;
 }
 
 export interface UseNoticeSearchReturn {
@@ -130,6 +132,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setPrefsMode,
     setSelectedNotice,
     variantRef,
+    onClear,
   } = options;
   const { locale } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -169,7 +172,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured
   );
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
+  // BUG6 修复：searchKey 纳入 deepestCodeId，行业筛选变化时触发分页重置与数据重载
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}`;
 
   const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
   const [agencies, setAgencies] = useState<Array<{ agency: string; count: number }>>([]);
@@ -220,6 +224,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     if (typeInput.trim()) next.notice_type = typeInput.trim();
     // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
     if (activeFeatured) next.featured = "1";
+    // BUG5/7 修复：UNSPSC 行业筛选持久化到 URL，刷新页面后不丢失
+    if (deepestCodeId) next.code_id = deepestCodeId;
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline_farthest") next.sort = sortValue;
     if (prefsMode !== "default") setPrefsMode("default");
@@ -243,6 +249,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     dispatchForm({ type: "clear" });
     setPage(1);
     setSearchParams({});
+    // BUG1 修复：同步清除 UNSPSC 行业筛选等跨 hook 状态
+    onClear?.();
   };
 
   // ── 列表数据与加载编排 ──

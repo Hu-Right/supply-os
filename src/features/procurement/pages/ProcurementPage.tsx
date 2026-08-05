@@ -40,7 +40,7 @@ export default function ProcurementPage() {
 
   // ── 行业偏好三级降级 ──
   const {
-    levels, selectedIds, prefsMode, setPrefsMode,
+    levels, selectedIds, setLevels, setSelectedIds, prefsMode, setPrefsMode,
     prefsBannerName, deepestCodeId, exitAutoMode, handleLevelChange,
   } = useIndustryPrefs({ userKey, locale: useLocale().locale, setPage, setSelectedNotice });
 
@@ -48,6 +48,11 @@ export default function ProcurementPage() {
   const search = useNoticeSearch({
     userKey, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
+    // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
+    onClear: () => {
+      setSelectedIds(["", "", "", "", ""]);
+      setLevels((prev) => [prev[0], [], [], [], []]);
+    },
   });
 
   // ── 性能监控：首屏完成检测 + 渲染计时 ──

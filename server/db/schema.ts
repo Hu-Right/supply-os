@@ -747,5 +747,11 @@ export async function ensureProcurementSchema(dbPool: any) {
   );
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_active_deadline",
     "CREATE INDEX idx_notices_active_deadline ON crm_bid_notices (is_active, deadline_sec)");
+
+  // 方案B 性能优化：FULLTEXT 全文索引——加速关键词搜索，替代 LIKE '%keyword%' 全表扫描
+  // ngram 解析器支持中文分词（MySQL 5.7+ 内置），BOOLEAN MODE 支持多词搜索
+  // 回滚：DROP INDEX ft_notices_search ON crm_bid_notices;
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "ft_notices_search",
+    "CREATE FULLTEXT INDEX ft_notices_search ON crm_bid_notices (title, reference, description) WITH PARSER ngram");
 }
 

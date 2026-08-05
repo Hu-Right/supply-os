@@ -33,6 +33,7 @@ export interface UseIndustryPrefsReturn {
   levels: UnspscOption[][];
   setLevels: Dispatch<SetStateAction<UnspscOption[][]>>;
   selectedIds: string[];
+  setSelectedIds: Dispatch<SetStateAction<string[]>>;
   prefsMode: PrefsMode;
   setPrefsMode: Dispatch<SetStateAction<PrefsMode>>;
   prefsBannerName: string;
@@ -211,28 +212,42 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   const handleLevelChange = async (levelIndex: number, value: string) => {
     // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
     if (prefsMode !== "default") setPrefsMode("default");
-    const nextSelected = selectedIds.map((id, index) => (index < levelIndex ? id : ""));
-    nextSelected[levelIndex] = value;
-    setSelectedIds(nextSelected);
+    // BUG2 修复：使用函数式更新确保基于最新状态，避免快速连击竞态
+    setSelectedIds((prev) => {
+      const next = prev.map((id, index) => (index < levelIndex ? id : ""));
+      next[levelIndex] = value;
+      return next;
+    });
     setPage(1);
     setSelectedNotice(null);
 
-    const nextLevels = levels.map((list, index) => (index <= levelIndex ? list : []));
     if (value && levelIndex < 4) {
       try {
         const children = await fetchUnspscChildren(value, locale);
-        nextLevels[levelIndex + 1] = Array.isArray(children) ? children : [];
+        // BUG2 修复：函数式更新 levels，基于最新状态截断下级并填充子级
+        setLevels((prev) => {
+          const next = prev.map((list, index) => (index <= levelIndex ? list : []));
+          next[levelIndex + 1] = Array.isArray(children) ? children : [];
+          return next;
+        });
       } catch {
-        nextLevels[levelIndex + 1] = [];
+        setLevels((prev) => {
+          const next = prev.map((list, index) => (index <= levelIndex ? list : []));
+          next[levelIndex + 1] = [];
+          return next;
+        });
       }
+    } else {
+      // 无值或已到最深层：截断下级
+      setLevels((prev) => prev.map((list, index) => (index <= levelIndex ? list : [])));
     }
-    setLevels(nextLevels);
   };
 
   return {
     levels,
     setLevels,
     selectedIds,
+    setSelectedIds,
     prefsMode,
     setPrefsMode,
     prefsBannerName,
