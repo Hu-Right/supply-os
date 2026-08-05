@@ -76,6 +76,124 @@ function countCacheKey(p: NoticeSearchParams): string {
   ]);
 }
 
+// ── 方案C：预计算总数表 ──
+// 将常用筛选组合的总数预存入 crm_notice_stats 表，消除 COUNT(DISTINCT) 全表扫描
+// 回滚：删除 statsKeyFor / refreshNoticeStats / getStatsCount 函数，恢复原始 COUNT 逻辑
+
+/** 根据搜索参数生成统计表 key；无法映射时返回 null（回退到 COUNT 查询） */
+function statsKeyFor(p: NoticeSearchParams): string | null {
+  // 仅支持无关键词 + 无复杂筛选的场景
+  if (p.q) return null; // 关键词搜索无法预计算
+  if (p.codeId) return null; // UNSPSC 筛选无法预计算
+  if (p.deadlineFrom || p.deadlineTo || p.deadlineWithinDays) return null; // 日期筛选无法预计算
+  if (p.noticeType) return null; // 采购类型筛选无法预计算
+  if (p.sort) return null; // 排序不影响总数，但为简化不纳入
+  if (p.country && p.agency) return null; // 双条件组合暂不预计算
+  if (p.country) return `country:${p.country}`;
+  if (p.agency) return `agency:${p.agency}`;
+  if (p.featuredOnly) return "featured";
+  return "active_total";
+}
+
+/** 从统计表读取预计算总数；未命中返回 null */
+async function getStatsCount(pool: Pool, key: string): Promise<number | null> {
+  try {
+    const [rows] = await pool.query(
+      "SELECT stat_value FROM crm_notice_stats WHERE stat_key = ?",
+      [key]
+    );
+    const arr = rows as any[];
+    return arr.length > 0 ? Number(arr[0].stat_value) : null;
+  } catch {
+    return null; // 表不存在或查询失败，静默回退
+  }
+}
+
+/** 刷新预计算统计表——在数据导入后调用 */
+export async function refreshNoticeStats(pool: Pool): Promise<void> {
+  try {
+    const t0 = Date.now();
+    // 活跃公告总数
+    const [totalRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices
+       WHERE (is_expired = 0 OR is_expired IS NULL)
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+    );
+    const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
+
+    // 精选公告总数
+    const [featuredRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices
+       WHERE is_featured = 1
+         AND (is_expired = 0 OR is_expired IS NULL)
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+    );
+    const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
+
+    // 各国公告数（TOP 50）
+    const [countryRows] = await pool.query(
+      `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
+       WHERE (is_expired = 0 OR is_expired IS NULL)
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
+         AND country IS NOT NULL AND country != ''
+       GROUP BY country ORDER BY cnt DESC LIMIT 50`
+    );
+
+    // 各机构公告数（TOP 50）
+    const [agencyRows] = await pool.query(
+      `SELECT agency, COUNT(*) AS cnt FROM crm_bid_notices
+       WHERE (is_expired = 0 OR is_expired IS NULL)
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
+         AND agency IS NOT NULL AND agency != ''
+       GROUP BY agency ORDER BY cnt DESC LIMIT 50`
+    );
+
+    // 批量写入统计表
+    const entries: [string, number][] = [
+      ["active_total", activeTotal],
+      ["featured", featuredTotal],
+      ...(countryRows as any[]).map((r: any) => [`country:${r.country}` as string, Number(r.cnt)] as [string, number]),
+      ...(agencyRows as any[]).map((r: any) => [`agency:${r.agency}` as string, Number(r.cnt)] as [string, number]),
+    ];
+
+    for (const [key, value] of entries) {
+      await pool.query(
+        `INSERT INTO crm_notice_stats (stat_key, stat_value) VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE stat_value = VALUES(stat_value)`,
+        [key, value]
+      );
+    }
+
+    // 预填充内存缓存：后续请求直接命中内存缓存（<0.1ms），无需再查统计表
+    // active_total
+    noticeCountCache.set(
+      JSON.stringify(["count", 0, "", "", "", "", "", "deadline_farthest", 0, "", false]),
+      { total: activeTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
+    );
+    // featured
+    featuredCountCache.total = featuredTotal;
+    featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
+    // country:{name}
+    for (const row of countryRows as any[]) {
+      noticeCountCache.set(
+        JSON.stringify(["count", 0, "", row.country, "", "", "", "deadline_farthest", 0, "", false]),
+        { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
+      );
+    }
+    // agency:{name}
+    for (const row of agencyRows as any[]) {
+      noticeCountCache.set(
+        JSON.stringify(["count", 0, "", "", row.agency, "", "", "deadline_farthest", 0, "", false]),
+        { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
+      );
+    }
+
+    console.log(`[notice-stats] 统计表刷新完成: ${entries.length} 条, ${Date.now() - t0}ms (active=${activeTotal}, featured=${featuredTotal}, 内存缓存已预填充)`);
+  } catch (e) {
+    console.error("[notice-stats] 统计表刷新失败（静默降级）:", (e as Error).message);
+  }
+}
+
 export async function searchNotices(
   pool: Pool,
   p: NoticeSearchParams,
@@ -173,7 +291,8 @@ export async function searchNotices(
   // 英文回退 JOIN：当前语言无译文时回退到英文缓存
   displayJoin += " LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   // COUNT 专用 JOIN：仅包含影响 WHERE 条件的 JOIN（翻译/描述对计数无贡献）
-  let countJoin = idFilterSql;
+  // 修复：关键词搜索时 countJoin 不含 idFilterSql（已在 IN(子查询) 内），避免外层重复过滤
+  let countJoin = q ? "" : idFilterSql;
   if (q) {
     countJoin += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
     countJoin += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
@@ -198,9 +317,9 @@ export async function searchNotices(
   const whereSql = where.join(" AND ");
   const translationWhereSql = translationWhere.join(" AND ");
   // COUNT 查询：关键词匹配已移入 IN(子查询)，COUNT 也需使用 IN(子查询) 保持一致
-  // 回滚：恢复 countWhereSql = q && translationWhereSql ? `${whereSql} AND ${translationWhereSql}` : whereSql
+  // 修复：UNSPSC 行业过滤(idFilterSql)移至子查询内，与关键词搜索保持一致
   const countWhereSql = q && translationWhereSql
-    ? `${whereSql} AND n.id IN (SELECT sn.id FROM crm_bid_notices sn LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh' LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en' WHERE ${whereSql} AND ${translationWhereSql})`
+    ? `${whereSql} AND n.id IN (SELECT sn.id FROM crm_bid_notices sn ${idFilterSql} LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh' LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en' WHERE ${whereSql} AND ${translationWhereSql})`
     : whereSql;
 
   // P0 性能优化：COUNT 结果缓存——翻页及首次加载时复用，避免每次重新全量计数
@@ -215,39 +334,61 @@ export async function searchNotices(
   const useFeaturedCache = featuredOnly && featuredCountCache.expires > Date.now();
 
   let countPromise: Promise<any>;
+  // 方案C：优先级链——精选内存缓存 > 统计表(<1ms) > 通用COUNT缓存 > COUNT查询
+  // 统计表优先于通用COUNT缓存：冷启动时统计表直接返回（<1ms），无需等待warmup填充缓存
+  const statsKey = statsKeyFor(p);
   if (useFeaturedCache) {
     // 精选计数缓存命中：跳过 SQL
     countPromise = Promise.resolve([[{ total: featuredCountCache.total }]]);
-  } else if (useCachedCount) {
-    // 通用 COUNT 缓存命中：用已缓存的 total 构造伪结果，不发 SQL
-    countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
-  } else if (featuredOnly) {
-    // P0 COUNT 瘦身：精选计数仅用 WHERE 条件，不携带展示用 LEFT JOIN
-    // 始终使用 DISTINCT 去重——防御性措施，无论是否有翻译 JOIN 都保证唯一 ID
-    const countExpr = "COUNT(DISTINCT n.id)";
-    const featuredCountParams = q && translationWhereSql
-      ? [...idFilterParams, ...params, ...idFilterParams, ...params, ...translationWhereParams]
-      : [...idFilterParams, ...params, ...translationWhereParams];
-    countPromise = pool.query(
-      `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
-      featuredCountParams
-    ).then((result: any) => {
-      const t = Number((result[0] as any[])[0]?.total || 0);
-      featuredCountCache.total = t;
-      featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
-      return result;
+  } else if (statsKey) {
+    // 方案C：查统计表（<1ms）→ 命中则写入内存缓存 → 未命中回退 COUNT 缓存/查询
+    countPromise = getStatsCount(pool, statsKey).then((statsTotal) => {
+      if (statsTotal !== null) {
+        // 统计表命中：写入内存缓存避免下次重复查表
+        if (featuredOnly) {
+          featuredCountCache.total = statsTotal;
+          featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
+        } else {
+          noticeCountCache.set(cKey, { total: statsTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+        }
+        console.log(`[notice-stats] 统计表命中: key=${statsKey} total=${statsTotal}`);
+        return [[{ total: statsTotal }]];
+      }
+      // 统计表未命中：检查通用 COUNT 缓存
+      if (useCachedCount) {
+        return [[{ total: cachedCount!.total }]];
+      }
+      // 缓存也未命中：回退到 COUNT 查询
+      return runCountQuery();
     });
+  } else if (useCachedCount) {
+    // 通用 COUNT 缓存命中（statsKey=null 的复杂筛选场景）
+    countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
   } else {
-    // 始终使用 DISTINCT 去重——防御性措施，无论是否有翻译 JOIN 都保证正确计数
+    // 无缓存可用：执行 COUNT 查询
+    countPromise = runCountQuery();
+  }
+
+  /** 执行 COUNT(DISTINCT) 查询并写入缓存 */
+  function runCountQuery(): Promise<any> {
     const countExpr = "COUNT(DISTINCT n.id)";
-    // 关键词搜索时 countWhereSql 包含 IN(子查询)，需要两组参数（外层 + 子查询）
+    // 修复：关键词搜索时外层 WHERE 不含 idFilterParams（idFilterSql 已在子查询内）
     const countParams = q && translationWhereSql
-      ? [...idFilterParams, ...params, ...idFilterParams, ...params, ...translationWhereParams]
+      ? [...params, ...idFilterParams, ...params, ...translationWhereParams]
       : [...idFilterParams, ...params, ...translationWhereParams];
-    countPromise = pool.query(
+    return pool.query(
       `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
       countParams
-    );
+    ).then((result: any) => {
+      const t = Number((result[0] as any[])[0]?.total || 0);
+      if (featuredOnly) {
+        featuredCountCache.total = t;
+        featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
+      } else {
+        noticeCountCache.set(cKey, { total: t, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+      }
+      return result;
+    });
   }
 
   // ── 性能监控：分阶段计时 ─
@@ -258,34 +399,38 @@ export async function searchNotices(
   // MySQL ONLY_FULL_GROUP_BY 要求 SELECT DISTINCT 时 ORDER BY 列必须在 SELECT 列表中，
   // 而排序列 n.reference / n.deadline_sec 不在 SELECT DISTINCT n.id 中，导致报错。
   // IN(子查询) 方案：翻译 JOIN 下推到子查询内，外层无 DISTINCT，ORDER BY 不受限制。
-  const [countResult, idResult] = await Promise.all([
-    countPromise,
-    q
-      ? // 关键词搜索：全部匹配条件（基础+翻译 OR）在子查询内完成，外层仅按 ID 过滤
-        pool.query(
-          `SELECT n.id FROM crm_bid_notices n ${idFilterSql}
-           WHERE ${whereSql}
-             AND n.id IN (
-               SELECT sn.id FROM crm_bid_notices sn
-               LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh'
-               LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en'
-               WHERE ${whereSql}
-                 AND (${translationWhereSql})
-             )
-           ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-          [
-            ...idFilterParams, ...params,                                 // 外层 WHERE（基础条件，无关键字）
-            ...idFilterParams, ...params, ...translationWhereParams,       // 子查询 WHERE + 关键字(基础+翻译 OR)
-            ...orderParams, pageSize, offset,
-          ]
-        )
-      : // 无关键词搜索：无翻译 JOIN，无重复行，直接查询
-        pool.query(
-          `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
-           ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-          [...idFilterParams, ...params, ...orderParams, pageSize, offset]
-        ),
-  ]);
+  let countMs = 0;
+  const countTimed = countPromise.then((r: any) => { countMs = Date.now() - t0; return r; });
+  let idMs = 0;
+  const idQueryStart = Date.now();
+  const idTimed = (q
+    ? // 关键词搜索：全部匹配条件（基础+翻译 OR + UNSPSC 行业过滤）在子查询内完成，外层仅按 ID 过滤
+      pool.query(
+        `SELECT n.id FROM crm_bid_notices n
+         WHERE ${whereSql}
+           AND n.id IN (
+             SELECT sn.id FROM crm_bid_notices sn ${idFilterSql}
+             LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh'
+             LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en'
+             WHERE ${whereSql}
+               AND (${translationWhereSql})
+           )
+         ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+        [
+          ...params,                                                        // 外层 WHERE（基础条件，无关键字）
+          ...idFilterParams, ...params, ...translationWhereParams,           // 子查询 WHERE + 关键字(基础+翻译 OR) + UNSPSC 行业过滤
+          ...orderParams, pageSize, offset,
+        ]
+      )
+    : // 无关键词搜索：无翻译 JOIN，无重复行，直接查询
+      pool.query(
+        `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
+         ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+        [...idFilterParams, ...params, ...orderParams, pageSize, offset]
+      )
+  ).then((r: any) => { idMs = Date.now() - idQueryStart; return r; });
+
+  const [countResult, idResult] = await Promise.all([countTimed, idTimed]);
 
   const t1 = Date.now();
   const [countRows] = countResult;
@@ -390,7 +535,7 @@ export async function searchNotices(
 
   // ── 性能监控日志 ──
   console.log(`[search-perf] page=${page} q="${q}" country="${country}" featured=${featuredOnly}` +
-    ` | Phase1(COUNT+IDs)=${t1 - t0}ms | Phase2(details)=${t2 - t1}ms | Phase3(featured+docs)=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
+    ` | COUNT=${countMs}ms | IDs=${idMs}ms | Phase1=${t1 - t0}ms | Phase2=${t2 - t1}ms | Phase3=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
 
   if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {
     const now = Date.now();

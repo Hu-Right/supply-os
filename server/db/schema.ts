@@ -724,5 +724,15 @@ export async function ensureProcurementSchema(dbPool: any) {
   // 回滚：DROP INDEX idx_notices_filter ON crm_bid_notices;
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_filter",
     "CREATE INDEX idx_notices_filter ON crm_bid_notices (country(100), agency(100), notice_type(50))");
+
+  // 方案C 性能优化：预计算常用总数表——消除无筛选/单条件场景的 COUNT(DISTINCT) 全表扫描
+  // 回滚：DROP TABLE IF EXISTS crm_notice_stats;
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_notice_stats (
+      stat_key VARCHAR(100) NOT NULL PRIMARY KEY,
+      stat_value INT UNSIGNED NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 

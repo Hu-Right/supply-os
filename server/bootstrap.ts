@@ -26,7 +26,7 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
-import { searchNotices } from "./services/noticeSearch";
+import { searchNotices, refreshNoticeStats } from "./services/noticeSearch";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -143,6 +143,8 @@ export async function startServer() {
   // 消除首次用户请求的 ~3000ms 冷启动延迟
   try {
     const warmupStart = performance.now();
+    // 方案C：刷新预计算统计表（在搜索预热前执行，确保首次搜索命中统计表）
+    await refreshNoticeStats(dbPool);
     // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo);
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo);
