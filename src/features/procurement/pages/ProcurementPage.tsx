@@ -1,8 +1,9 @@
-import { useRef, useState, lazy, Suspense } from "react";
+import { useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronDown, ChevronUp, Crown, Search, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
 // P2 性能优化：详情页懒加载——仅在用户点击卡片时加载，减少列表 chunk 体积
@@ -12,6 +13,7 @@ import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { Button } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
+import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
@@ -23,6 +25,12 @@ export default function ProcurementPage() {
   const { authUser, isVip } = useAuth();
   const [, setSearchParams] = useSearchParams();
   const userKey = authUser?.user_key;
+
+  // ── 性能监控：首屏计时 ──
+  const firstLoadDoneRef = useRef(false);
+  useEffect(() => {
+    markPageStart("procurement");
+  }, []);
 
   // T-B10：推荐响应回传的 A/B 桶标记，跨 hook 共享
   const variantRef = useRef<string | undefined>(undefined);
@@ -41,6 +49,15 @@ export default function ProcurementPage() {
     userKey, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
   });
+
+  // ── 性能监控：首屏完成检测 + 渲染计时 ──
+  useEffect(() => {
+    if (!firstLoadDoneRef.current && !search.result.loading && search.result.items.length > 0) {
+      firstLoadDoneRef.current = true;
+      markPageEnd("procurement", search.result.items.length);
+    }
+  }, [search.result.loading, search.result.items]);
+  useRenderTimer("ProcurementPage", [search.result.loading, search.result.items.length]);
 
   // ── 推荐反馈采集（曝光/点击/dwell/scroll_end/quick_exit/revisit）──
   const feedback = useNoticeFeedback({
@@ -101,8 +118,8 @@ export default function ProcurementPage() {
   // 列表页
   return (
     <>
-    {/* 加载中全屏蒙层：阻断所有交互，加载完成后自动消失 */}
-    <LoadingOverlay visible={search.result.loading} />
+    {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
+    <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-5">
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -220,18 +237,22 @@ export default function ProcurementPage() {
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
-        <NoticeList
-          items={search.result.items}
-          loading={search.result.loading}
-          page={page}
-          totalPages={search.result.totalPages}
-          serverPageSize={search.result.serverPageSize}
-          total={search.result.total}
-          setPage={setPage}
-          openNotice={actions.openNotice}
-          feedbackEnabled={feedback.feedbackEnabled}
-          observeCard={feedback.observeCard}
-        />
+        {/* 首次加载显示骨架屏（数量对齐 PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
+        {search.result.loading && search.result.items.length === 0
+          ? <NoticeListSkeleton count={PAGE_SIZE} />
+          : <NoticeList
+              items={search.result.items}
+              loading={search.result.loading}
+              page={page}
+              totalPages={search.result.totalPages}
+              serverPageSize={search.result.serverPageSize}
+              total={search.result.total}
+              setPage={setPage}
+              openNotice={actions.openNotice}
+              feedbackEnabled={feedback.feedbackEnabled}
+              observeCard={feedback.observeCard}
+            />
+        }
       </section>
     </div>
     </>

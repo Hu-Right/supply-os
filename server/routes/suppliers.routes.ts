@@ -34,9 +34,83 @@ export function createSuppliersRouter(ctx: AppContext): Router {
   const usersRepo = ctx.usersRepo ?? new UsersRepo(ctx.dbPool);
   const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
 
+  // ── P1 性能优化：供应商列表服务端 TTL 缓存 ──
+  // 供应商数据极少变化（仅新注册时变化），缓存 5 分钟避免每次全量查询+映射+序列化
+  const supplierResponseCache = new Map<string, { data: any; expires: number }>();
+  const SUPPLIER_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+
+  function invalidateSupplierCache() {
+    supplierResponseCache.clear();
+  }
+
   // 4. GET SUPPLIERS (DB-backed directory with per-language translations)
+  // 支持两种模式：
+  //   - 无 page 参数 → 返回全量数组（向后兼容）
+  //   - 有 page/pageSize 参数 → 返回 { items, total, page, pageSize } 分页结构
   router.get("/api/suppliers", asyncHandler(async (req, res) => {
     const lang = String(req.query.lang || "zh").toLowerCase();
+    const pageParam = req.query.page ? Number(req.query.page) : undefined;
+    const pageSizeParam = req.query.pageSize ? Number(req.query.pageSize) : undefined;
+
+    // ── 分页模式 ──
+    if (pageParam && pageParam >= 1) {
+      const pageSize = Math.min(Math.max(pageSizeParam || 9, 1), 50);
+      const page = pageParam;
+      const search = req.query.q ? String(req.query.q).trim() : undefined;
+      const type = req.query.type ? String(req.query.type) : undefined;
+      const industry = req.query.industry ? String(req.query.industry) : undefined;
+
+      // 分页缓存 key 包含筛选参数
+      const cacheKey = `p:${lang}:${page}:${pageSize}:${search || ""}:${type || ""}:${industry || ""}`;
+      const cached = supplierResponseCache.get(cacheKey);
+      if (cached && cached.expires > Date.now()) {
+        res.json(cached.data);
+        return;
+      }
+
+      const { items: supplierRows, total } = await suppliersRepo.listDirectoryPaginated({
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        lang,
+        search,
+        type,
+        industry,
+      });
+
+      // 译文映射
+      const trMap = new Map<number, any>();
+      if (SUPPLIER_TRANSLATION_LANGS[lang] && supplierRows.length > 0) {
+        const trRows = await suppliersRepo.listTranslations(lang, supplierRows.map((row) => row.id));
+        for (const tr of trRows) {
+          trMap.set(Number(tr.supplier_id), tr);
+        }
+      }
+
+      const items = supplierRows.map((row) => mapSupplierRow(row, trMap.get(Number(row.id)) || null));
+      const result = { items, total, page, pageSize };
+
+      // 缓存分页响应（TTL 较短，2 分钟）
+      supplierResponseCache.set(cacheKey, { data: result, expires: Date.now() + 2 * 60 * 1000 });
+      res.json(result);
+
+      // fire-and-forget 补翻
+      if (SUPPLIER_TRANSLATION_LANGS[lang]) {
+        const missing = supplierRows.filter((row) => !trMap.has(Number(row.id)));
+        if (missing.length > 0) {
+          void backfillSupplierTranslations(missing, lang);
+        }
+      }
+      return;
+    }
+
+    // ── 全量模式（向后兼容） ──
+    const cacheKey = lang;
+    const cached = supplierResponseCache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      res.json(cached.data);
+      return;
+    }
+
     const supplierRows = await suppliersRepo.listDirectory();
 
     // 命中翻译缓存的直接返回译文，缺失的回退中文原文
@@ -48,7 +122,10 @@ export function createSuppliersRouter(ctx: AppContext): Router {
       }
     }
 
-    res.json(supplierRows.map((row) => mapSupplierRow(row, trMap.get(Number(row.id)) || null)));
+    const result = supplierRows.map((row) => mapSupplierRow(row, trMap.get(Number(row.id)) || null));
+    // 缓存完整响应（含翻译映射结果）
+    supplierResponseCache.set(cacheKey, { data: result, expires: Date.now() + SUPPLIER_CACHE_TTL });
+    res.json(result);
 
     // fire-and-forget：缺失译文的供应商后台逐家补翻（下次请求即命中缓存）
     if (SUPPLIER_TRANSLATION_LANGS[lang]) {
@@ -179,6 +256,9 @@ export function createSuppliersRouter(ctx: AppContext): Router {
         ]
       };
       leadsDb.unshift(companionLead);
+
+      // 新供应商注册→使缓存失效，下次请求重新加载
+      invalidateSupplierCache();
 
     return res.status(201).json({ supplier: newSupplier, companionLead });
   }));

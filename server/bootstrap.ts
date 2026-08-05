@@ -26,6 +26,7 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
+import { searchNotices } from "./services/noticeSearch";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -137,6 +138,25 @@ export async function startServer() {
     enabled: String(process.env.REPORT_CACHE_CLEANUP ?? "on").toLowerCase() !== "off",
     dbPool,
   });
+
+  // ── P0 性能优化：启动时预热 MySQL Buffer Pool + 填充搜索缓存 ──
+  // 消除首次用户请求的 ~3000ms 冷启动延迟
+  try {
+    const warmupStart = performance.now();
+    // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo);
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo);
+    // 3) 常用搜索模式预热——消除关键词/国家/翻页的首次冷查询
+    await searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo);
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo);
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo);
+    // 2) 供应商列表——触发 suppliers 表预热
+    await suppliersRepo.listDirectory();
+    const warmupMs = Math.round(performance.now() - warmupStart);
+    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (公告 zh/en + 供应商)`);
+  } catch (e) {
+    console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
+  }
 
   app.listen(PORT, "0.0.0.0", () => {
     const lanIp = Object.values(os.networkInterfaces())

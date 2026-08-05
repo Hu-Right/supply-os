@@ -7,10 +7,11 @@
  *              Supplier page entry, displays supplier list and filters
  */
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
@@ -18,7 +19,8 @@ import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
 import { Pagination } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
-import { fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
+import { LoadingOverlay } from "@/features/procurement/components/LoadingOverlay";
+import { fetchSuppliersPaginated, fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 import { onAppEvent } from "@/core/events";
 
 // 与公采页保持一致的每页条数（3 列网格 × 3 行）
@@ -31,28 +33,71 @@ export default function SupplierPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState("");
-  const [supplierUngmCodeSearch, setSupplierUngmCodeSearch] = useState("");
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  // 联络弹窗状态：null 表示关闭（替代原生 alert 的自定义弹窗）
+  // 联络弹窗状态
   const [contactModal, setContactModal] = useState<{
     supplier: Supplier;
     status: SupplierContactStatus;
     contact: SupplierContact | null;
   } | null>(null);
-  const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
-  // 首次挂载即处于加载中：渲染骨架屏而非空状态
+  // ── 服务端分页状态 ──
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  // 行业下拉选项（独立加载，不阻塞首屏骨架屏）
+  const [industries, setIndustries] = useState<string[]>([]);
 
-  // 拉取 DB 供应商目录（按界面语言返回译文，失败显示空状态）
+  // ── 性能监控：首屏计时 ──
+  const firstLoadDoneRef = useRef(false);
+  useEffect(() => {
+    markPageStart("supplier");
+  }, []);
+  useEffect(() => {
+    if (!firstLoadDoneRef.current && !loading && suppliers.length > 0) {
+      firstLoadDoneRef.current = true;
+      markPageEnd("supplier", suppliers.length);
+    }
+  }, [loading, suppliers.length]);
+  useRenderTimer("SupplierPage", [loading, suppliers.length]);
+
+  // ── 加载行业列表（用于筛选下拉，独立于分页数据，不阻塞骨架屏） ──
+  useEffect(() => {
+    let cancelled = false;
+    fetchSuppliers(locale)
+      .then((list) => {
+        if (cancelled) return;
+        const set = new Set<string>();
+        (Array.isArray(list) ? list : []).forEach((s) => {
+          const ind = pickLocale(locale, s.industryZh, s.industryEn);
+          if (ind) set.add(ind);
+        });
+        setIndustries(Array.from(set));
+      })
+      .catch(() => { /* 静默：下拉保持空 */ });
+    return () => { cancelled = true; };
+  }, [locale]);
+
+  // ── 服务端分页加载 ──
   const loadSuppliers = useCallback(() => {
     setLoading(true);
-    setPage(1);
-    fetchSuppliers(locale)
-      .then((list) => setAllSuppliers(Array.isArray(list) ? list : []))
-      .catch(() => setAllSuppliers([]))
+    fetchSuppliersPaginated(locale, {
+      page,
+      pageSize: PAGE_SIZE,
+      q: searchTerm || undefined,
+      type: supplierSubTab !== "all" ? supplierSubTab : undefined,
+      industry: supplierIndustry || undefined,
+    })
+      .then((result) => {
+        setSuppliers(result.items);
+        setTotal(result.total);
+      })
+      .catch(() => {
+        setSuppliers([]);
+        setTotal(0);
+      })
       .finally(() => setLoading(false));
-  }, [locale]);
+  }, [locale, page, searchTerm, supplierSubTab, supplierIndustry]);
 
   useEffect(() => {
     loadSuppliers();
@@ -63,40 +108,8 @@ export default function SupplierPage() {
     return onAppEvent("supply-os:open-supplier-register", () => setShowRegisterModal(true));
   }, []);
 
-  // 计算可用行业
-  const availableSupplierIndustries = useMemo(() => {
-    const industries = new Set<string>();
-    allSuppliers.forEach((s) => {
-      const ind = pickLocale(locale, s.industryZh, s.industryEn);
-      if (ind) industries.add(ind);
-    });
-    return Array.from(industries);
-  }, [locale, allSuppliers]);
-
-  // 筛选供应商
-  const filteredSuppliers = useMemo(() => {
-    return allSuppliers.filter((sup) => {
-      const name = pickLocale(locale, sup.nameZh, sup.nameEn);
-      const matchesSearch =
-        !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesSubTab = supplierSubTab === "all" || sup.type === supplierSubTab;
-      const matchesIndustry =
-        !supplierIndustry ||
-        pickLocale(locale, sup.industryZh, sup.industryEn) === supplierIndustry;
-      const matchesUngmCode =
-        !supplierUngmCodeSearch ||
-        (sup.ungmCode && sup.ungmCode.includes(supplierUngmCodeSearch));
-
-      return matchesSearch && matchesSubTab && matchesIndustry && matchesUngmCode;
-    });
-  }, [allSuppliers, locale, searchTerm, supplierSubTab, supplierIndustry, supplierUngmCodeSearch]);
-
-  // 前端分页（数据一次拉全量，与公采页控件同款交互）
-  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / PAGE_SIZE));
-  const pagedSuppliers = useMemo(
-    () => filteredSuppliers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [filteredSuppliers, page]
-  );
+  // 服务端分页：total 即筛选后总数
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handleAiMatch = (supplier: Supplier) => {
     // 对齐原版：带上目标供应商跳转 CRM，由 CRM 页自动执行 AI 撮合
@@ -169,34 +182,26 @@ export default function SupplierPage() {
             className="min-w-0 px-3 py-1.5 text-xs"
           >
             <option value="">{t("allIndustries")}</option>
-            {availableSupplierIndustries.map((ind) => (
+            {industries.map((ind) => (
               <option key={ind} value={ind}>
                 {ind}
               </option>
             ))}
           </Select>
-
-          <Input
-            type="text"
-            placeholder={t("searchUnspscPlaceholder")}
-            value={supplierUngmCodeSearch}
-            onChange={(e) => {
-              setSupplierUngmCodeSearch(e.target.value);
-              setPage(1);
-            }}
-            className="min-w-0 px-3 py-1.5 text-xs"
-            title="仅适用于国外供应商8位分类码匹配"
-          />
         </div>
       </div>
 
+      {/* 语言切换等后续操作：全屏蒙层阻断交互；首次加载用骨架屏 */}
+      <LoadingOverlay visible={loading && firstLoadDoneRef.current} />
+
       {/* Suppliers Grid cards view */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {loading &&
+        {/* 首次加载：骨架屏数量对齐 PAGE_SIZE */}
+        {loading && !firstLoadDoneRef.current &&
           Array.from({ length: PAGE_SIZE }, (_, idx) => <SupplierCardSkeleton key={idx} />)}
 
         {!loading &&
-          pagedSuppliers.map((sup) => (
+          suppliers.map((sup) => (
             <SupplierCard
               key={sup.id}
               supplier={sup}
@@ -205,7 +210,7 @@ export default function SupplierPage() {
             />
           ))}
 
-        {!loading && filteredSuppliers.length === 0 && (
+        {!loading && total === 0 && (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center text-slate-400">
             <p>{t("noData")}</p>
           </div>
@@ -213,12 +218,12 @@ export default function SupplierPage() {
       </div>
 
       {/* 分页控件：复用公采页同款（每页 9 条） */}
-      {!loading && filteredSuppliers.length > 0 && (
+      {!loading && total > 0 && (
         <Pagination
           page={page}
           totalPages={totalPages}
           serverPageSize={PAGE_SIZE}
-          total={filteredSuppliers.length}
+          total={total}
           loading={loading}
           onPageChange={setPage}
         />

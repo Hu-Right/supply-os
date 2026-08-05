@@ -8,6 +8,8 @@
  *              Unified request layer with TTL cache, 401 interception, and API base URL.
  */
 
+import { recordApiMetric } from "@/core/perf";
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 /**
@@ -38,6 +40,8 @@ export async function api<T>(
 ): Promise<T> {
   const { body, ...init } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
+  const method = init.method || "GET";
+  const startTime = performance.now();
 
   const res = await fetch(url, {
     ...init,
@@ -46,6 +50,18 @@ export async function api<T>(
       ...(init.headers as Record<string, string>),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  const durationMs = Math.round(performance.now() - startTime);
+
+  // 记录 API 指标
+  recordApiMetric({
+    endpoint,
+    method,
+    durationMs,
+    cached: false,
+    status: res.status,
+    timestamp: Date.now(),
   });
 
   // 401 未授权：触发全局事件，由 App 层监听并弹出登录框
@@ -79,6 +95,15 @@ export async function apiCached<T>(
 ): Promise<T> {
   const cached = cache.get(endpoint);
   if (cached && Date.now() - cached.timestamp < ttl) {
+    // 记录缓存命中
+    recordApiMetric({
+      endpoint,
+      method: "GET",
+      durationMs: 0,
+      cached: true,
+      status: 200,
+      timestamp: Date.now(),
+    });
     return cached.data as T;
   }
 

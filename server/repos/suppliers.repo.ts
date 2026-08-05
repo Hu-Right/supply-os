@@ -57,6 +57,69 @@ export class SuppliersRepo {
     return rows as SupplierDirectoryRow[];
   }
 
+  /** 供应商目录分页查询（支持搜索、类型、行业筛选） */
+  async listDirectoryPaginated(params: {
+    limit: number;
+    offset: number;
+    lang: string;
+    search?: string;
+    type?: string;
+    industry?: string;
+  }): Promise<{ items: SupplierDirectoryRow[]; total: number }> {
+    const { limit, offset, lang, search, type, industry } = params;
+
+    // ── WHERE 条件构建 ──
+    const conditions: string[] = ["company <> '测试'"];
+    const values: any[] = [];
+
+    if (search) {
+      conditions.push("company LIKE ?");
+      values.push(`%${search}%`);
+    }
+
+    if (type && (type === "domestic" || type === "international")) {
+      conditions.push("type = ?");
+      values.push(type);
+    }
+
+    if (industry) {
+      // 非中文语言：优先匹配译文表，回退到原文列
+      const translationLangs: Record<string, string> = {
+        en: "English", fr: "French", ru: "Russian", es: "Spanish", ar: "Arabic",
+      };
+      if (lang !== "zh" && translationLangs[lang]) {
+        conditions.push(
+          `(COALESCE((SELECT industry_tr FROM crm_supplier_translations WHERE supplier_id = supplier.id AND lang = ? LIMIT 1), industry) = ?)`,
+        );
+        values.push(translationLangs[lang], industry);
+      } else {
+        conditions.push("industry = ?");
+        values.push(industry);
+      }
+    }
+
+    const whereSql = conditions.join(" AND ");
+
+    // 总数查询
+    const [countRows] = await this.pool.query(
+      `SELECT COUNT(*) as total FROM supplier WHERE ${whereSql}`,
+      values,
+    );
+    const total = (countRows as any[])[0]?.total ?? 0;
+
+    // 分页数据查询
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
+       FROM supplier
+       WHERE ${whereSql}
+       ORDER BY id DESC
+       LIMIT ? OFFSET ?`,
+      [...values, limit, offset],
+    );
+
+    return { items: rows as SupplierDirectoryRow[], total };
+  }
+
   /** 批量取指定语言译文 */
   async listTranslations(lang: string, supplierIds: number[]): Promise<SupplierTranslationRow[]> {
     const [rows] = await this.pool.query(

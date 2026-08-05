@@ -4,8 +4,12 @@ import { BrowserRouter } from 'react-router-dom';
 import { LocaleProvider } from '@/core/i18n';
 import { AuthProvider } from '@/core/auth';
 import { ErrorBoundary } from '@/shared/ui';
+import { initPerfMonitor } from '@/core/perf';
 import App from './App.tsx';
 import './index.css';
+
+// ── 性能监控初始化 ──
+initPerfMonitor();
 
 // ── 部署更新兑底：动态 chunk 加载失败时自动重载 ──
 // 部署后旧哈希文件名已不存在，用户导航到新页面时 import() 会报 ChunkLoadError。
