@@ -51,7 +51,7 @@ const NOTICE_SEARCH_CACHE_MAX = 200;
 // P0 性能优化：COUNT 结果独立缓存——翻页时复用，避免每次重新全量计数
 // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
 const noticeCountCache = new Map<string, { total: number; expires: number }>();
-const NOTICE_COUNT_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（与搜索条件稳定性匹配）
+const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟（总数变化低频，延长缓存提升命中率）
 const NOTICE_COUNT_CACHE_MAX = 200;
 
 // P1 性能优化：精选计数独立缓存——精选总数变化极低频，30 分钟 TTL 避免重复计算
@@ -244,6 +244,9 @@ export async function searchNotices(
     );
   }
 
+  // ── 性能监控：分阶段计时 ─
+  const t0 = Date.now();
+
   // P4 性能优化：两阶段查询——阶段 1 轻量 ID 分页，阶段 2 按 ID 批量获取详情
   // 修复：关键词搜索时使用 IN(子查询) 替代 DISTINCT——
   // MySQL ONLY_FULL_GROUP_BY 要求 SELECT DISTINCT 时 ORDER BY 列必须在 SELECT 列表中，
@@ -278,6 +281,7 @@ export async function searchNotices(
         ),
   ]);
 
+  const t1 = Date.now();
   const [countRows] = countResult;
   const [idRows] = idResult;
   const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
@@ -302,6 +306,8 @@ export async function searchNotices(
     );
     detailRows = dRows as RowDataPacket[];
   }
+
+  const t2 = Date.now();
 
   // P0：首页写入 COUNT 缓存（非首页不写，避免翻页时 stale 条件覆盖）
   if (page === 1 && total > 0) {
@@ -365,6 +371,8 @@ export async function searchNotices(
     }
   }
 
+  const t3 = Date.now();
+
   const payload: NoticeSearchResult = {
     items: rawRows.map((row) => ({
       ...row, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
@@ -373,6 +381,10 @@ export async function searchNotices(
     })),
     total, page, pageSize,
   };
+
+  // ── 性能监控日志 ──
+  console.log(`[search-perf] page=${page} q="${q}" country="${country}" featured=${featuredOnly}` +
+    ` | Phase1(COUNT+IDs)=${t1 - t0}ms | Phase2(details)=${t2 - t1}ms | Phase3(featured+docs)=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
 
   if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {
     const now = Date.now();
