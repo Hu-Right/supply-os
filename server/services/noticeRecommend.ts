@@ -24,7 +24,7 @@ import { getTranslatedNoticeDetail } from "./notice-translation";
 // P1 性能优化：使用生成列 deadline_sec 替代表达式，使 ORDER BY/WHERE 可走索引
 // 回滚：将下行替换为 const DEADLINE_SEC_EXPR = "IF(n.deadline_ts > 100000000000, FLOOR(n.deadline_ts / 1000), n.deadline_ts)";
 const DEADLINE_SEC_EXPR = "n.deadline_sec";
-const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR ${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(NOW()))`;
+const ACTIVE_NOTICE_WHERE = `n.is_active = 1`;
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 const HIGH_VALUE_USD = 1_000_000;
 const MMR_LAMBDA = 0.7;

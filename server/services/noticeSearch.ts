@@ -17,7 +17,7 @@ import { getTranslatedNoticeDetail } from "./notice-translation";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // 性能优化：使用生成列 deadline_sec 替代表达式（阶段 3）
 const DEADLINE_SEC_EXPR = "n.deadline_sec";
-const ACTIVE_NOTICE_WHERE = `(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+const ACTIVE_NOTICE_WHERE = `n.is_active = 1`;
 
 export interface NoticeSearchParams {
   page: number;
@@ -109,42 +109,68 @@ async function getStatsCount(pool: Pool, key: string): Promise<number | null> {
   }
 }
 
+// ── 方案D：is_active 预计算列回填 + 定期刷新 ──
+// 将复杂的 OR 条件预计算为单列等值查询，配合索引实现高效扫描
+// 回滚：删除 refreshIsActive 函数，恢复原始 WHERE 条件
+
+/** 回填/刷新 is_active 列——将过期或已过截止日期的公告标记为 inactive */
+export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unmarked: number }> {
+  try {
+    const t0 = Date.now();
+    // 将已过期或已过截止日期的公告标记为 inactive
+    const [deactivateResult] = await pool.query(
+      `UPDATE crm_bid_notices SET is_active = 0
+       WHERE is_active = 1
+         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))`
+    );
+    const marked = (deactivateResult as any)?.affectedRows || 0;
+
+    // 将重新变为活跃的公告恢复（极少发生，仅当 is_expired 被重置或 deadline 被延长时）
+    const [reactivateResult] = await pool.query(
+      `UPDATE crm_bid_notices SET is_active = 1
+       WHERE is_active = 0
+         AND (is_expired = 0 OR is_expired IS NULL)
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+    );
+    const unmarked = (reactivateResult as any)?.affectedRows || 0;
+
+    console.log(`[is-active] is_active 刷新完成: ${Date.now() - t0}ms (deactivated=${marked}, reactivated=${unmarked})`);
+    return { marked, unmarked };
+  } catch (e) {
+    console.error("[is-active] is_active 刷新失败（静默降级）:", (e as Error).message);
+    return { marked: 0, unmarked: 0 };
+  }
+}
+
 /** 刷新预计算统计表——在数据导入后调用 */
 export async function refreshNoticeStats(pool: Pool): Promise<void> {
   try {
     const t0 = Date.now();
+    // 方案D：统计表查询使用 is_active=1，与搜索查询保持一致
     // 活跃公告总数
     const [totalRows] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1`
     );
     const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
 
     // 精选公告总数
     const [featuredRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_featured = 1
-         AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+       WHERE is_featured = 1 AND is_active = 1`
     );
     const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
 
     // 各国公告数（TOP 50）
     const [countryRows] = await pool.query(
       `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
-         AND country IS NOT NULL AND country != ''
+       WHERE is_active = 1 AND country IS NOT NULL AND country != ''
        GROUP BY country ORDER BY cnt DESC LIMIT 50`
     );
 
     // 各机构公告数（TOP 50）
     const [agencyRows] = await pool.query(
       `SELECT agency, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
-         AND agency IS NOT NULL AND agency != ''
+       WHERE is_active = 1 AND agency IS NOT NULL AND agency != ''
        GROUP BY agency ORDER BY cnt DESC LIMIT 50`
     );
 
@@ -216,7 +242,7 @@ export async function searchNotices(
   const cached = noticeSearchCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.payload;
 
-  const where: string[] = ["(n.is_expired = 0 OR n.is_expired IS NULL)"];
+  const where: string[] = ["n.is_active = 1"];
   const params: any[] = [];
   // 翻译搜索条件独立构建——IN(子查询) 方案下仅子查询引用翻译表别名
   const translationWhere: string[] = [];
@@ -224,8 +250,6 @@ export async function searchNotices(
   let join = "";
   let idFilterSql = "";
   const idFilterParams: any[] = [];
-
-  where.push(`(n.deadline_ts IS NULL OR ${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(NOW()))`);
 
   if (p.codeId) {
     const filter = await buildNoticeUnspscFilter(pool, p.codeId);
@@ -307,11 +331,12 @@ export async function searchNotices(
   if (sort === "latest") {
     orderParts.push("n.id DESC");
   } else if (sort === "deadline_farthest") {
-    // 截至最远优先：deadline_sec DESC（距截止日期最远的优先显示）
-    orderParts.push("(n.deadline_ts IS NULL)", `${DEADLINE_SEC_EXPR} DESC`, "n.id DESC");
+    // 截至最远优先：deadline_sec DESC（NULL 无截止日期排最前，MySQL DESC 排序 NULL 默认在前）
+    // 方案D：is_active=1 保证 deadline_sec 要么为 NULL 要么 >= NOW()，可安全走索引排序
+    orderParts.push(`${DEADLINE_SEC_EXPR} DESC`, "n.id DESC");
   } else {
-    // deadline = 截止最近优先（deadline_sec ASC）
-    orderParts.push("(n.deadline_ts IS NULL)", DEADLINE_SEC_EXPR, "n.id DESC");
+    // deadline = 截止最近优先（deadline_sec ASC，NULL 无截止日期排最后）
+    orderParts.push(`${DEADLINE_SEC_EXPR} IS NULL`, DEADLINE_SEC_EXPR, "n.id DESC");
   }
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
@@ -554,7 +579,7 @@ export async function getNoticeCountries(pool: Pool): Promise<Array<{ country: s
   if (noticeCountriesCache && noticeCountriesCache.expires > Date.now()) return noticeCountriesCache.data;
   const [rows] = await pool.query(
     `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE (n.is_expired = 0 OR n.is_expired IS NULL) AND n.country IS NOT NULL AND n.country <> ''
+     WHERE n.is_active = 1 AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country ORDER BY cnt DESC`
   );
   const data = (rows as RowDataPacket[]).map((row) => ({ country: row.country, count: Number(row.cnt) }));
@@ -569,7 +594,7 @@ export async function getNoticeAgencies(pool: Pool): Promise<Array<{ agency: str
   if (noticeAgenciesCache && noticeAgenciesCache.expires > Date.now()) return noticeAgenciesCache.data;
   const [rows] = await pool.query(
     `SELECT n.agency, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE (n.is_expired = 0 OR n.is_expired IS NULL) AND n.agency IS NOT NULL AND n.agency <> ''
+     WHERE n.is_active = 1 AND n.agency IS NOT NULL AND n.agency <> ''
      GROUP BY n.agency ORDER BY cnt DESC`
   );
   const data = (rows as RowDataPacket[]).map((row) => ({ agency: row.agency, count: Number(row.cnt) }));

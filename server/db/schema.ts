@@ -734,5 +734,18 @@ export async function ensureProcurementSchema(dbPool: any) {
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
+
+  // 方案D 性能优化：is_active 预计算列——消除 OR 条件阻止索引利用的问题
+  // 将 (is_expired=0 OR IS NULL) AND (deadline_ts IS NULL OR deadline_sec>=NOW()) 简化为 is_active=1
+  // 配合复合索引 (is_active, deadline_sec) 实现索引扫描 + 索引排序，消除 filesort
+  // 回滚：ALTER TABLE crm_bid_notices DROP COLUMN is_active;
+  await ensureColumn(
+    dbPool,
+    "crm_bid_notices",
+    "is_active",
+    "is_active TINYINT(1) NOT NULL DEFAULT 1"
+  );
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_active_deadline",
+    "CREATE INDEX idx_notices_active_deadline ON crm_bid_notices (is_active, deadline_sec)");
 }
 

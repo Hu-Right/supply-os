@@ -26,7 +26,7 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
-import { searchNotices, refreshNoticeStats } from "./services/noticeSearch";
+import { searchNotices, refreshNoticeStats, refreshIsActive } from "./services/noticeSearch";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -52,6 +52,14 @@ export async function startServer() {
   const featuredRefreshTimer = setInterval(async () => {
     try { await refreshFeaturedColumn(dbPool); } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000); // 30 分钟
+  // 方案D：is_active 每 10 分钟增量刷新（过期公告标记为 inactive）
+  // 回滚：删除 isActiveRefreshTimer 和 clearInterval
+  const isActiveRefreshTimer = setInterval(async () => {
+    try {
+      await refreshIsActive(dbPool);
+      await refreshNoticeStats(dbPool); // is_active 变化后同步刷新统计表
+    } catch { /* 静默降级 */ }
+  }, 10 * 60 * 1000); // 10 分钟
   await hydratePaymentEnvFromDb(dbPool);
 
   // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
@@ -143,7 +151,9 @@ export async function startServer() {
   // 消除首次用户请求的 ~3000ms 冷启动延迟
   try {
     const warmupStart = performance.now();
-    // 方案C：刷新预计算统计表（在搜索预热前执行，确保首次搜索命中统计表）
+    // 方案D：先回填 is_active 列（确保搜索查询可走索引）
+    await refreshIsActive(dbPool);
+    // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
     await refreshNoticeStats(dbPool);
     // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo);
@@ -173,5 +183,6 @@ export async function startServer() {
     stopAutoTranslate();
     stopReportCacheCleanup();
     clearInterval(featuredRefreshTimer);
+    clearInterval(isActiveRefreshTimer);
   };
 }
