@@ -4,7 +4,6 @@
  */
 
 import express from "express";
-import compression from "compression";
 import type { Express } from "express";
 import type { AppContext } from "./context";
 import { createLeadsRouter } from "./routes/leads.routes";
@@ -25,8 +24,15 @@ import { extractUserKey } from "./middleware/auth";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
-  // ── Gzip 压缩：所有响应自动压缩，首屏 JS 从 ~700KB 降至 ~215KB ──
-  app.use(compression());
+  // ── Gzip 压缩（可选依赖：未安装时静默降级，不影响服务启动）──
+  try {
+    // CJS 模式下 require 可用；ESM (tsx dev) 下 require 不存在，跳过压缩
+    if (typeof require !== "undefined") {
+      app.use(require("compression")());
+    }
+  } catch {
+    // compression 未安装，跳过压缩（功能降级，不影响核心服务）
+  }
   app.use(express.json());
   // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）
   app.use(extractUserKey);
