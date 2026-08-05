@@ -212,8 +212,10 @@ export async function searchNotices(
     countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
   } else if (featuredOnly) {
     // P0 COUNT 瘦身：精选计数仅用 WHERE 条件，不携带展示用 LEFT JOIN
+    // 关键词搜索时翻译 JOIN 产生重复行，需 DISTINCT 去重
+    const countExpr = q ? "COUNT(DISTINCT n.id)" : "COUNT(*)";
     countPromise = pool.query(
-      `SELECT COUNT(*) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
+      `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
       [...idFilterParams, ...params]
     ).then((result: any) => {
       const t = Number((result[0] as any[])[0]?.total || 0);
@@ -223,8 +225,10 @@ export async function searchNotices(
     });
   } else {
     // P0 COUNT 瘦身：使用 countJoin（不含翻译/描述 JOIN），无展示 JOIN 时不需 DISTINCT
+    // 关键词搜索时翻译 JOIN 产生重复行，需 DISTINCT 去重
+    const countExpr = q ? "COUNT(DISTINCT n.id)" : "COUNT(*)";
     countPromise = pool.query(
-      `SELECT COUNT(*) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
+      `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`,
       [...idFilterParams, ...params]
     );
   }
@@ -236,8 +240,9 @@ export async function searchNotices(
     countPromise,
     // 阶段 1：轻量 ID 查询（无翻译 JOIN，无 DISTINCT，复用 countJoin）
     // 注意：countJoin 已包含 idFilterSql，不再额外拼接
+    // 关键词搜索时翻译 JOIN 产生重复行，需 DISTINCT 确保每页唯一 ID 数量完整
     pool.query(
-      `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
+      `SELECT ${q ? "DISTINCT" : ""} n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}
        ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
       [...idFilterParams, ...params, ...orderParams, pageSize, offset]
     ),
