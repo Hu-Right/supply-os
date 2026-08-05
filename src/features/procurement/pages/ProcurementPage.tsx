@@ -133,7 +133,6 @@ export default function ProcurementPage() {
               <Crown className="w-5 h-5 text-amber-500" />
               {t("procurement_poolTitle")}
             </h3>
-            <p className="text-xs text-slate-500 mt-1">{t("procurement_poolDesc", { count: actions.freeQuota })}</p>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">
@@ -173,6 +172,7 @@ export default function ProcurementPage() {
                 <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
               </div>
             )}
+            <p className="text-xs text-slate-500 mt-2">{t("procurement_poolDesc", { count: actions.freeQuota })}</p>
           </div>
 
           {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
