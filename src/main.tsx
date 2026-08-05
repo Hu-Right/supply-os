@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { LocaleProvider } from '@/core/i18n';
+import { LocaleProvider, initI18n } from '@/core/i18n';
 import { AuthProvider } from '@/core/auth';
 import { ErrorBoundary } from '@/shared/ui';
 import { initPerfMonitor } from '@/core/perf';
@@ -26,7 +26,9 @@ window.addEventListener('error', (event) => {
   }
 });
 
-createRoot(document.getElementById('root')!).render(
+// ── i18n 异步初始化：仅加载当前语言 + 英文兜底，其余语言按需下载 ──
+initI18n().then(() => {
+  createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <ErrorBoundary>
             <BrowserRouter>
@@ -38,4 +40,5 @@ createRoot(document.getElementById('root')!).render(
             </BrowserRouter>
         </ErrorBoundary>
     </StrictMode>,
-);
+  );
+});

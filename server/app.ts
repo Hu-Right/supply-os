@@ -4,6 +4,7 @@
  */
 
 import express from "express";
+import compression from "compression";
 import type { Express } from "express";
 import type { AppContext } from "./context";
 import { createLeadsRouter } from "./routes/leads.routes";
@@ -24,6 +25,8 @@ import { extractUserKey } from "./middleware/auth";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
+  // ── Gzip 压缩：所有响应自动压缩，首屏 JS 从 ~700KB 降至 ~215KB ──
+  app.use(compression());
   app.use(express.json());
   // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）
   app.use(extractUserKey);

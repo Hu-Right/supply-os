@@ -7,7 +7,7 @@
 import fs from "fs";
 import path from "path";
 
-const LOG_DIR = path.resolve(import.meta.dirname ?? new URL(".", import.meta.url).pathname, "..", "logs");
+const LOG_DIR = path.resolve(path.dirname(typeof __filename !== "undefined" ? __filename : __dirname), "..", "logs");
 const LOG_TO_CONSOLE = process.env.LOG_TO_CONSOLE !== "false";
 
 function ensureLogDir() {

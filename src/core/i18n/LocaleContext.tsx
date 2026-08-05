@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useCallback, type ReactNode } from "react";
 import * as i18nModule from "i18next";
-const i18nInstance = (i18nModule as any).default || i18nModule;
+const i18n = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
 import type { Locale, LocaleKey } from "./types";
 import { SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
-import { zh, en, fr, ru, es, ar } from "./resources";
+import { loadLanguage } from "./loader";
 
 const STORAGE_KEY = "supply_os_locale";
 
@@ -32,44 +32,55 @@ function detectLocale(): Locale {
     return "en";
 }
 
-// 初始化 react-i18next 引擎（模块级、仅一次；StrictMode 双调用由 isInitialized 守卫）。
-// 插值配置对齐现有单花括号 `{param}` 语法，escapeValue: false 交由 React 转义（与旧实现行为一致）。
-// fallbackLng 设为 "en"：缺 key 时回退英文（国际化通用做法，英文为兜底 lingua franca）。
-if (!i18nInstance.isInitialized) {
-    i18nInstance
-        .use(initReactI18next)
-        .init({
-            resources: {
-                zh: { translation: zh },
-                en: { translation: en },
-                fr: { translation: fr },
-                ru: { translation: ru },
-                es: { translation: es },
-                ar: { translation: ar },
-            },
-            lng: detectLocale(),
-            fallbackLng: "en",
-            interpolation: {
-                escapeValue: false,
-                prefix: "{",
-                suffix: "}",
-            },
-            returnNull: false,
-        });
-}
+/** 模块级初始化守卫，确保 initI18n 只执行一次 */
+let initialized = false;
 
-// 首屏同步文档语言标记与书写方向：阿语设全局 dir="rtl"，
-// 导航/弹窗等 main 外区域随 Tailwind v4 逻辑属性一并翻转（全页真 RTL）
-if (typeof document !== "undefined") {
-    const initial = i18nInstance.language as Locale;
+/**
+ * 异步初始化 i18n：仅加载当前语言 + 英文兜底
+ * 由 main.tsx 在首次渲染前 await 调用
+ */
+export async function initI18n(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
+
+  const initial = detectLocale();
+
+  // i18next 引擎配置（无静态资源——资源由 loader.ts 按需注入）
+  i18n
+    .use(initReactI18next)
+    .init({
+      resources: {},
+      lng: initial,
+      fallbackLng: "en",
+      interpolation: {
+        escapeValue: false,
+        prefix: "{",
+        suffix: "}",
+      },
+      returnNull: false,
+    });
+
+  // 并行加载当前语言 + 英文兜底（首屏仅需 ~36-55KB 而非 256KB）
+  const langsToLoad: Locale[] = [initial];
+  if (initial !== "en") langsToLoad.push("en");
+  await Promise.all(langsToLoad.map(async (lang) => {
+    const data = await loadLanguage(lang);
+    if (Object.keys(data).length > 0) {
+      i18n.addResourceBundle(lang, "translation", data, true, true);
+    }
+  }));
+
+  // 首屏同步文档语言标记与书写方向：阿语设全局 dir="rtl"
+  if (typeof document !== "undefined") {
     document.documentElement.lang = initial;
     document.documentElement.dir = getLocaleDir(initial);
+  }
 }
 
 type LocaleContextValue = {
     locale: Locale;
     localeDir: "ltr" | "rtl";
-    setLocale: (locale: Locale) => void;
+    setLocale: (next: Locale) => void;
     t: (key: LocaleKey, params?: Record<string, string | number>) => string;
 };
 
@@ -82,7 +93,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     const locale = (instance.language as Locale) || "en";
     const localeDir = getLocaleDir(locale);
 
-    const setLocale = useCallback((next: Locale) => {
+    const setLocale = useCallback(async (next: Locale) => {
+        // 先加载目标语言资源（首次切换时下载对应 chunk），再切换语言
+        const data = await loadLanguage(next);
+        if (Object.keys(data).length > 0) {
+          i18n.addResourceBundle(next, "translation", data, true, true);
+        }
+        // 确保英文兜底已加载（fallbackLng 依赖）
+        if (next !== "en") {
+          const enData = await loadLanguage("en");
+          if (Object.keys(enData).length > 0) {
+            i18n.addResourceBundle("en", "translation", enData, true, true);
+          }
+        }
         instance.changeLanguage(next);
         try {
             window.localStorage.setItem(STORAGE_KEY, next);
