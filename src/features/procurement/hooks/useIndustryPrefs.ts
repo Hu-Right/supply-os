@@ -71,44 +71,54 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     }
     if (prefsInitKeyRef.current === userKey) return;
     prefsInitKeyRef.current = userKey;
+    // 同步标记 loading：userKey 变化（登录/注册/换号）时立即将 prefsMode 置为 "loading"，
+    // 使 useNoticeSearch 的 loading 守卫生效（不发全量请求），避免 userKey 未入 deps 时
+    // effect 完全不重跑导致登录后卡片消失。
+    // 注意：若 prefsMode 已是 "loading"（如初始挂载），setState 同值不触发重渲染，无副作用。
+    if (prefsMode !== "loading") setPrefsMode("loading");
     // 过期判定用 ref 而非 cleanup 标志：StrictMode 双执行下 cleanup 会把首轮探测
     // 全部作废、次轮又被判重拦截，导致 prefsMode 永远卡在 loading（公告不加载）
     const stale = () => prefsInitKeyRef.current !== userKey;
     (async () => {
-      const prefs = await fetchIndustryPrefs(userKey);
-      if (stale()) return;
-      if (prefs?.level1_id) {
-        // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
-        const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, prefs.level4_id, prefs.level5_id]
-          .map((id) => (id ? String(id) : ""));
-        const nextChildren: UnspscOption[][] = [[], [], [], []];
-        for (let i = 0; i < 4 && path[i]; i += 1) {
-          try {
-            const children = await fetchUnspscChildren(path[i], locale);
-            nextChildren[i] = Array.isArray(children) ? children : [];
-          } catch {
-            nextChildren[i] = [];
-          }
-        }
-        if (stale()) return;
-        setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
-        setSelectedIds(path);
-        setPrefsMode("prefs");
-        return;
-      }
-      // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
       try {
-        const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
+        const prefs = await fetchIndustryPrefs(userKey);
         if (stale()) return;
-        if (Number(probe.total || 0) > 0) {
-          setPrefsMode("recommended");
+        if (prefs?.level1_id) {
+          // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
+          const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, prefs.level4_id, prefs.level5_id]
+            .map((id) => (id ? String(id) : ""));
+          const nextChildren: UnspscOption[][] = [[], [], [], []];
+          for (let i = 0; i < 4 && path[i]; i += 1) {
+            try {
+              const children = await fetchUnspscChildren(path[i], locale);
+              nextChildren[i] = Array.isArray(children) ? children : [];
+            } catch {
+              nextChildren[i] = [];
+            }
+          }
+          if (stale()) return;
+          setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
+          setSelectedIds(path);
+          setPrefsMode("prefs");
           return;
         }
+        // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
+        try {
+          const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
+          if (stale()) return;
+          if (Number(probe.total || 0) > 0) {
+            setPrefsMode("recommended");
+            return;
+          }
+        } catch {
+          // 推荐接口异常同样回退全量
+        }
+        // S2 双空：现状全量列表
+        if (!stale()) setPrefsMode("default");
       } catch {
-        // 推荐接口异常同样回退全量
+        // fetchIndustryPrefs 异常（网络/服务端错误）：回退全量，避免 prefsMode 永远卡在 loading
+        if (!stale()) setPrefsMode("default");
       }
-      // S2 双空：现状全量列表
-      if (!stale()) setPrefsMode("default");
     })();
     // prefsMode 入依赖仅服务登出清理分支；已登录路径有 prefsInitKeyRef 判重，不会重复探测；
     // prefsRefreshTick 由偏好变更事件递增，强制清锁后重新探测

@@ -90,6 +90,8 @@ function statsKeyFor(p: NoticeSearchParams): string | null {
   // BUG4 修复：默认排序 deadline_farthest 不影响总数，应允许使用统计表
   if (p.sort && p.sort !== "deadline_farthest") return null; // 非默认排序无法预计算
   if (p.country && p.agency) return null; // 双条件组合暂不预计算
+  // BUG-5 修复：精选+国家/机构组合必须返回 null，否则统计表 key 碰撞导致返回非精选总数
+  if (p.featuredOnly && (p.country || p.agency)) return null;
   if (p.country) return `country:${p.country}`;
   if (p.agency) return `agency:${p.agency}`;
   if (p.featuredOnly) return "featured";
@@ -200,6 +202,12 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     // featured
     featuredCountCache.total = featuredTotal;
     featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
+    // BUG-3 修复：同步预填充 noticeCountCache 的精选维度 key，
+    // 避免首次 featured=1 查询因 key 不匹配而回退到 COUNT 查询
+    noticeCountCache.set(
+      JSON.stringify(["count", 0, "", "", "", "", "", "deadline_farthest", 0, "", true]),
+      { total: featuredTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
+    );
     // country:{name}
     for (const row of countryRows as any[]) {
       noticeCountCache.set(
@@ -369,7 +377,11 @@ export async function searchNotices(
 
   // P1 性能优化：精选计数独立缓存——精选总数变化极低频，跳过昂贵的双路 IN 子查询
   // 回滚：删除 featuredCountCache 分支，统一走通用 COUNT 缓存
-  const useFeaturedCache = featuredOnly && featuredCountCache.expires > Date.now();
+  // BUG-2 修复：仅当无其他筛选条件时才使用精选计数缓存，避免关键字/国家/机构等组合筛选时
+  // 返回全部精选总数（如 50）而非实际匹配数（如 3），导致分页显示大量空页
+  const hasOtherFilters = !!(p.q || p.country || p.agency || p.codeId
+    || p.deadlineFrom || p.deadlineTo || p.deadlineWithinDays || p.noticeType);
+  const useFeaturedCache = featuredOnly && !hasOtherFilters && featuredCountCache.expires > Date.now();
 
   let countPromise: Promise<any>;
   // 方案C：优先级链——精选内存缓存 > 统计表(<1ms) > 通用COUNT缓存 > COUNT查询
@@ -412,9 +424,10 @@ export async function searchNotices(
     let countQuery: string;
     let countParams: any[];
     if (q) {
-      // 关键词搜索：UNION 派生表计数（UNION 已去重，无需 DISTINCT）
-      countQuery = `SELECT COUNT(*) AS total FROM (${kwUnionSql}) AS _kw`;
-      countParams = [...kwUnionParams];
+      // 关键词搜索：JOIN 回主表以应用 WHERE 条件（精选/国家/机构/日期等筛选）
+      // 回滚：恢复为 SELECT COUNT(*) FROM (UNION) AS _kw（仅当无需其他筛选时）
+      countQuery = `SELECT COUNT(*) AS total FROM (${kwUnionSql}) AS _kw INNER JOIN crm_bid_notices n ON n.id = _kw.id ${countJoin} WHERE ${whereSql}`;
+      countParams = [...kwUnionParams, ...idFilterParams, ...params];
     } else {
       countQuery = `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`;
       countParams = [...idFilterParams, ...params];

@@ -135,6 +135,23 @@ export async function getTranslatedNoticeDetail(
     return handleFullCacheHit(noticeId, lang, cachedRow, noticesRepo, dbPool);
   }
 
+  // ── 分支 1.5：标题缓存 + description_cn 可覆盖描述（zh 专属快速返回）──
+  // autoTranslate 仅翻译标题（description_tr 永远 NULL），
+  // 中文环境下 description_cn 可完整替代 description_tr，无需等待描述补翻。
+  if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr && lang === "zh") {
+    const nForZh = await noticesRepo.findDescMeta(noticeId);
+    let oppForZh: RowDataPacket | null = null;
+    if (nForZh) {
+      oppForZh = await findQualifiedOpportunityForNotice(dbPool, nForZh) as RowDataPacket | null;
+    }
+    const descCnFast = oppForZh ? String(oppForZh.description_cn || "").trim() : "";
+    if (descCnFast) {
+      return { lang, title: cachedRow.title_tr, description: descCnFast, cached: true, source: "description_cn" };
+    }
+    // description_cn 不可用：回退分支 2 原有补翻逻辑
+    return handleTitleOnlyCache(noticeId, lang, cachedRow, noticesRepo, dbPool);
+  }
+
   // ── 分支 2：缓存命中 + 仅标题（描述缺失补翻）──
   if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
     return handleTitleOnlyCache(noticeId, lang, cachedRow, noticesRepo, dbPool);
@@ -254,6 +271,20 @@ async function handleFullTranslation(
     // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
     await noticesRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
+  }
+
+  // ── 快速路径：中文 + description_cn + 原文非中文标题 → 原文标题立即返回 + 异步翻译标题 ──
+  // 描述走 description_cn 零成本，标题翻译不阻塞当前响应（下次访问命中缓存）
+  if (zhDescCn && detectedSourceLang && detectedSourceLang !== "zh") {
+    void (async () => {
+      try {
+        const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang);
+        if (titleResult.provider !== "same-lang-passthrough" && titleResult.translations[0]) {
+          await noticesRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
+        }
+      } catch { /* 异步标题翻译失败不影响当前响应 */ }
+    })();
+    return { lang, title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn" };
   }
 
   const pendingKey = `${noticeId}:${lang}`;

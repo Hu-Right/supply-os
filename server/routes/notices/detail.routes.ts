@@ -37,6 +37,30 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
   }));
 
+  // ── 公告全文内容（公开·不受锁定状态限制）──
+  // 搜索 SQL 为性能将 description 截断为 300 字符（LEFT(n.description, 300)），
+  // 详情页初始使用搜索结果数据导致原文被截断；本端点返回完整 description + title，
+  // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
+  // 同时返回 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
+  // 避免卡片与详情页语言显示不一致（卡片通过 description_cn/bid_overview 显示中文）。
+  router.get("/api/notices/:id/content", asyncHandler(async (req, res) => {
+    const noticeId = Number(req.params.id);
+    if (!noticeId) return res.status(400).json({ error: "INVALID_NOTICE_ID" });
+
+    const notice = await noticesRepo.findDetail(noticeId);
+    if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+
+    // 获取机会表 description_cn（中文环境立即显示，无需等待翻译 API）
+    const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    const descriptionCn = opportunity ? String(opportunity.description_cn || "").trim() : "";
+
+    res.json({
+      description: notice.description || "",
+      title: notice.title || "",
+      description_cn: descriptionCn,
+    });
+  }));
+
   // ── 公告锁定态预览（渐进式信息展示·敏感度分级）──
   // 列表/推荐端点出于商业保护将 agency/unspsc 置空；本端点按敏感度分级下发：
   // 次要信息（发布日期/投标难度/注册门槛/行业分类/机构简称/机构全称）真实下发给所有登录用户；
@@ -96,22 +120,28 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
               cached: true, source: "description_cn",
             });
           }
-          // 标题未缓存：仅翻译标题，描述走 description_cn
+          // 标题未缓存：立即返回原文标题 + description_cn，标题翻译异步执行
           const title = String(notice.title || "").trim();
           if (title) {
-            try {
-              const srcLang = detectSourceLang(title, "") ?? undefined;
-              const result = await translateNoticeViaChain(title, "", "zh", srcLang);
-              if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
-                await noticesRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
-              }
-              return res.json({
-                lang: "zh",
-                title: result.provider === "same-lang-passthrough" ? title : result.translations[0],
-                description: descCn,
-                cached: false, source: "description_cn",
-              });
-            } catch { /* 翻译失败回退通用路径 */ }
+            const srcLang = detectSourceLang(title, "") ?? undefined;
+            // 原文已是中文：直接缓存标题，零 API 成本
+            if (srcLang === "zh") {
+              await noticesRepo.upsertTranslation(noticeId, "zh", title, null, "same-lang-passthrough");
+            } else {
+              // 原文非中文：立即返回原文标题，标题翻译异步执行（下次访问命中缓存）
+              void (async () => {
+                try {
+                  const result = await translateNoticeViaChain(title, "", "zh", srcLang);
+                  if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
+                    await noticesRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
+                  }
+                } catch { /* 异步标题翻译失败不影响当前响应 */ }
+              })();
+            }
+            return res.json({
+              lang: "zh", title, description: descCn,
+              cached: false, source: "description_cn",
+            });
           }
         }
       }

@@ -97,6 +97,9 @@ export function useNoticeHandlers({
     void loadNoticeDetail(notice);
     // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
     if (!alreadyUnlocked) void unlock.loadNoticePreview(notice);
+    // 全文内容加载：搜索 SQL 截断 description 为 300 字符，本请求替换为完整原文，
+    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义
+    unlock.loadNoticeContent(notice);
   };
 
   // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）

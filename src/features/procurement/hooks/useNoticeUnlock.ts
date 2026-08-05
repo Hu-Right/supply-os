@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { NoticeItem } from "../types";
-import { fetchNoticeDetail, fetchNoticePreview, fetchUnlockedNoticeIds } from "../api";
+import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlockedNoticeIds } from "../api";
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
@@ -32,6 +32,8 @@ export interface UseNoticeUnlockReturn {
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
   /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
   loadNoticePreview: (notice: NoticeItem) => Promise<void>;
+  /** 拉取公告全文内容（公开·不受锁定状态限制）替换搜索结果截断的 description */
+  loadNoticeContent: (notice: NoticeItem) => void;
   /** 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情） */
   openNoticeById: (id: number) => Promise<void>;
 }
@@ -95,6 +97,31 @@ export function useNoticeUnlock({
     }
   };
 
+  // 公告全文内容加载：搜索 SQL 将 description 截断为 300 字符，
+  // 本函数拉取完整 description 替换截断版本，确保"查看原文"开关有意义；
+  // 同时获取 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
+  // 避免卡片与详情页语言显示不一致（卡片通过 description_cn 显示中文）；
+  // fire-and-forget 模式，失败静默不阻断详情页
+  const loadNoticeContent = (notice: NoticeItem) => {
+    fetchNoticeContent(notice.id)
+      .then((content) => {
+        setSelectedNotice((prev) =>
+          prev && prev.id === notice.id
+            ? {
+                ...prev,
+                description: content.description,
+                title: content.title,
+                // description_cn 确保中文环境下详情页立即显示中文，无需等待翻译 API
+                ...(content.description_cn ? { description_cn: content.description_cn } : {}),
+              }
+            : prev,
+        );
+      })
+      .catch(() => {
+        // 全文加载失败：保留截断版本，不阻断详情页
+      });
+  };
+
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
   const openNoticeById = async (id: number) => {
     const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
@@ -112,6 +139,7 @@ export function useNoticeUnlock({
     markUnlocked,
     loadNoticeDetail,
     loadNoticePreview,
+    loadNoticeContent,
     openNoticeById,
   };
 }

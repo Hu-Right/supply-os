@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useRef, useReducer, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
+import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
 import { fetchNotices, fetchNoticeCountries, fetchNoticeAgencies, fetchRecommendedNotices } from "../api";
 
@@ -187,6 +188,17 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     });
   }, [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeWindow, activeNoticeType]);
 
+  // BUG-1 修复：搜索条件变化时主动清除前端 apiCached 缓存，
+  // 避免 30s TTL 内来回切换筛选器时命中过期缓存返回错误数据
+  const prevSearchKeyForCacheRef = useRef(searchKey);
+  useEffect(() => {
+    if (prevSearchKeyForCacheRef.current !== searchKey) {
+      prevSearchKeyForCacheRef.current = searchKey;
+      // 清除搜索结果缓存（翻页不触发，因 page 不在 searchKey 中）
+      clearApiCache("/api/notices?");
+    }
+  }, [searchKey]);
+
   // 生效条件变化时重置分页：applySearch/toggleFeatured 之外的外部 URL 变化
   // （支付回跳清参、前进/后退到搜索直达链接）不经过动作函数，旧页码会请求到
   // 空页误显"无匹配结果"。applySearch 路径重复置 1 为幂等无副作用。
@@ -266,7 +278,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   useEffect(() => {
     // 初始化判定中不发全量请求，避免「全量→偏好」双闪；判定完成后本 effect 重新触发。
     // 带搜索条件（URL 直达链接）时不等判定：搜索数据源与偏好/推荐无关（本地差异 #6）
-    if (prefsMode === "loading" && !hasSearch) return;
+    // 登录/注册后 userKey 变化必须重跑：数据源可能从全量切到偏好/推荐，
+    // userKey 未入 deps 时 prefsMode 保持 "default" 不变化会导致 effect 完全不重跑（登录后卡片消失 BUG）
+    if (prefsMode === "loading" && !hasSearch && userKey) return;
     const requestSeq = noticesRequestSeq.current + 1;
     noticesRequestSeq.current = requestSeq;
     setLoading(true);
@@ -312,7 +326,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       });
     // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
     // locale 纳入依赖：用户切换语言时需重新请求以获取对应译文
-  }, [deepestCodeId, page, prefsMode, searchKey, locale]);
+    // userKey 纳入依赖：登录/注册后数据源需按身份重新获取（偏好/推荐/行为落库）
+    // BUG-5 修复：hasSearch 纳入依赖，确保数据源分支变更时 effect 正确重跑
+  }, [deepestCodeId, page, prefsMode, searchKey, locale, userKey, hasSearch]);
 
   return {
     query: {

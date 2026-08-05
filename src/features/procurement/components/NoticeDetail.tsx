@@ -47,14 +47,18 @@ export function NoticeDetail({
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
   const authContext = useOptionalAuth();
-  // 原文（标题+描述）供内容语言检测：修复"中文原文在英文环境直接展示/在中文环境被无效翻译"
-  const { translation, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
+  // 原文（标题+描述）供内容语言检测：修复“中文原文在英文环境直接展示/在中文环境被无效翻译”
+  // 传入 notice.title_i18n 作为预填充种子：API 返回前首帧即显示搜索结果已有的译文标题
+  // displayTitle：seed 预填充标题（首帧）→ API 译文标题 → 原文标题
+  // translation 仅在 API 完整返回后才非 null，避免 seed 误触发“查看原文”开关
+  const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
     (notice as { id?: number }).id,
     locale,
-    `${notice.title || ""}\n${notice.description || ""}`
+    `${notice.title || ""}\n${notice.description || ""}`,
+    locale === "zh" ? (notice.title_i18n || undefined) : undefined,
   );
   const showTranslated = !showOriginal && !!translation;
-  const displayTitle = showTranslated && translation?.title ? translation.title : notice.title;
+  const displayTitle = hookDisplayTitle || notice.title;
   // 内容展示优先级：统一规则——有机会表数据就用机会表的，不管公告表的
   // 中文环境：description_cn（机会表预生成）→ 翻译链译文 → 原文
   // 其他语言：翻译链译文 → 原文
@@ -62,6 +66,10 @@ export function NoticeDetail({
   const displayDescription = showOriginal
     ? notice.description
     : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
+  // 翻译中指示器智能抑制：中文环境 + description_cn 可用时，描述已秒显无需等待翻译 API，
+  // 隐藏“AI翻译中…”避免用户困惑（标题由 seed 预填充兜底，也有 title_i18n 即时显示）
+  const descResolved = locale === "zh" && !!notice.description_cn;
+  const showTranslating = translating && !descResolved;
   const coreUnlocked = notice.core_locked === false;
   // 拆解文件预览指示：解锁后与 NoticeUnlockedDetails 文件清单同源口径（documents+procurement_files 去重）；
   // 锁定态用服务端计数预览字段（本地差异 #19，仅数量不泄清单），缺失时 undefined 回退中性提示
@@ -154,7 +162,7 @@ export function NoticeDetail({
             )}
 
             <NoticeDescriptionSection
-              translating={translating}
+              translating={showTranslating}
               failed={failed}
               hasTranslation={!!translation}
               showOriginal={showOriginal}

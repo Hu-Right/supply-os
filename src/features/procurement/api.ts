@@ -128,6 +128,19 @@ export const fetchNoticePreview = (noticeId: number, userKey: string): Promise<P
 };
 
 /**
+ * 获取公告全文内容（公开·不受锁定状态限制）
+ * Fetch the full description and title of a notice (public, no lock check)
+ *
+ * @remarks 搜索 SQL 为性能将 description 截断为 300 字符，本端点返回完整原文，
+ *          确保详情页原文与译文（翻译 API 使用全文）长度一致。
+ *          仅需 noticeId，无需 userKey；结果按 URL 缓存 10 分钟。
+ */
+export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string }> => {
+  const url = `/api/notices/${noticeId}/content`;
+  return apiCached<{ description: string; title: string; description_cn: string }>(url, 10 * 60 * 1000);
+};
+
+/**
  * 拉取当前用户已解锁的公告 id 集合（详情首帧免闪烁判定用）
  * Fetch ids of notices already unlocked by the user (first-frame gating)
  *

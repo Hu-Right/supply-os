@@ -11,7 +11,7 @@
  *              (not the legacy "source is always English" assumption) with
  *              server-side caching; falls back to the original silently.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { needsContentTranslation } from "@/core/i18n";
 import { fetchNoticeTranslation } from "../api";
 import type { NoticeTranslation } from "../types";
@@ -22,7 +22,9 @@ export function useNoticeTranslation(
   noticeId: number | undefined,
   locale: string,
   /** 公告原文（标题+描述），用于内容语言检测；缺省空串时按无法判断处理（不请求） */
-  sourceText = ""
+  sourceText = "",
+  /** 来自搜索卡片的已有标题译文（title_i18n），用于首帧预填充消除闪烁 */
+  initialTitle?: string,
 ) {
   const [result, setResult] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
@@ -30,10 +32,24 @@ export function useNoticeTranslation(
   // 翻译请求失败（如链路全挂 503）：供 UI 提示“已显示原文”，不阻断阅读
   const [failed, setFailed] = useState(false);
 
+  // 预填充种子：利用搜索结果已有的 title_i18n，API 返回前首帧即显示译文标题
+  const seed = useMemo(
+    () => initialTitle && noticeId ? { noticeId, lang: locale, data: { title: initialTitle, description: null } } : null,
+    [noticeId, locale, initialTitle],
+  );
+
   // 渲染期键匹配：公告或语言切换的当帧旧译文立即失效，
-  // 杜绝"B 公告闪现 A 公告译文"的单帧串台（effect 晚于渲染执行）
+  // 杜绝“B 公告闪现 A 公告译文”的单帧串台（effect 晚于渲染执行）
+  // translation 仅反映 API 完整译文（控制“查看原文”开关与译文声明）
   const translation =
-    result && result.noticeId === noticeId && result.lang === locale ? result.data : null;
+    result && result.noticeId === noticeId && result.lang === locale
+      ? result.data
+      : null;
+
+  // displayTitle：API 译文标题 > 种子预填充标题 > 原文标题
+  // seed 仅参与标题显示，不触发 hasTranslation / showTranslated 等翻译状态
+  const displayTitle =
+    translation?.title ?? seed?.data.title ?? null;
 
   useEffect(() => {
     setShowOriginal(false);
@@ -61,6 +77,8 @@ export function useNoticeTranslation(
 
   return {
     translation,
+    /** 标题显示值：API 译文标题 > seed 预填充标题 > null（调用方回退 notice.title） */
+    displayTitle,
     translating,
     failed,
     showOriginal,
