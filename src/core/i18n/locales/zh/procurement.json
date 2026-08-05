@@ -25,6 +25,7 @@
   "procurement_deadlineTo": "截止日期至",
   "procurement_sortByDeadline": "截止最近优先",
   "procurement_sortByLatest": "最新收录优先",
+  "procurement_sortByDeadlineFarthest": "截至最远优先",
   "procurement_searchBtn": "搜索",
   "procurement_clearSearch": "清除筛选",
   "procurement_loading": "正在加载...",

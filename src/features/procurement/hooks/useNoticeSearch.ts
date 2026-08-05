@@ -75,7 +75,7 @@ export interface UseNoticeSearchReturn {
     activeAgency: string;
     activeFrom: string;
     activeTo: string;
-    activeSort: "deadline" | "latest";
+    activeSort: "deadline" | "latest" | "deadline_farthest";
     activeWindow: string;
     activeNoticeType: string;
     activeFeatured: boolean;
@@ -113,7 +113,7 @@ export interface UseNoticeSearchReturn {
   };
   /** 动作 */
   actions: {
-    applySearch: (sortOverride?: "deadline" | "latest") => void;
+    applySearch: (sortOverride?: "deadline" | "latest" | "deadline_farthest") => void;
     clearSearch: () => void;
     /** T-A4：只看精选开关（立即生效写 URL，保留其余现有条件） */
     toggleFeatured: () => void;
@@ -159,7 +159,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const activeAgency = searchParams.get("agency") || "";
   const activeFrom = searchParams.get("deadline_from") || "";
   const activeTo = searchParams.get("deadline_to") || "";
-  const activeSort: "deadline" | "latest" = searchParams.get("sort") === "latest" ? "latest" : "deadline";
+  const rawSort = searchParams.get("sort");
+  const activeSort: "deadline" | "latest" | "deadline_farthest" =
+    rawSort === "latest" ? "latest" : rawSort === "deadline" ? "deadline" : "deadline_farthest";
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   const activeFeatured = searchParams.get("featured") === "1";
@@ -206,7 +208,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   }, []);
 
   // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
-  const applySearch = (sortOverride?: "deadline" | "latest") => {
+  const applySearch = (sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
     const next: Record<string, string> = {};
     if (qInput.trim()) next.q = qInput.trim();
     if (countryInput) next.country = countryInput;
@@ -219,7 +221,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
     if (activeFeatured) next.featured = "1";
     const sortValue = sortOverride ?? activeSort;
-    if (sortValue !== "deadline") next.sort = sortValue;
+    if (sortValue !== "deadline_farthest") next.sort = sortValue;
     if (prefsMode !== "default") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
@@ -264,7 +266,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
     // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
     const request =
-      hasSearch || activeSort !== "deadline"
+      hasSearch || activeSort !== "deadline_farthest"
         ? fetchNotices({
             page,
             pageSize: PAGE_SIZE,

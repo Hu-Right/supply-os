@@ -25,6 +25,7 @@
   "procurement_deadlineTo": "الموعد النهائي إلى",
   "procurement_sortByDeadline": "الأقرب موعدًا أولاً",
   "procurement_sortByLatest": "الأحدث أولاً",
+  "procurement_sortByDeadlineFarthest": "الأبعد موعدًا أولاً",
   "procurement_searchBtn": "بحث",
   "procurement_clearSearch": "مسح عوامل التصفية",
   "procurement_loading": "جارٍ التحميل...",

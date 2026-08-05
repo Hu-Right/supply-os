@@ -63,8 +63,9 @@ export function formatDeadlineZh(
   if (diffDays === -1) return `昨天 ${timeStr}`;
   if (diffDays === -2) return `前天 ${timeStr}`;
 
-  // 其他日期：X月X日 HH时MM分
+  // 其他日期：YYYY年X月X日 HH时MM分（含年份，避免跨年歧义）
+  const year = cstDate.getUTCFullYear();
   const month = cstDate.getUTCMonth() + 1;
   const day = cstDate.getUTCDate();
-  return `${month}月${day}日 ${timeStr}`;
+  return `${year}年${month}月${day}日 ${timeStr}`;
 }

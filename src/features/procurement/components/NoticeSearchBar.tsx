@@ -3,18 +3,18 @@
  * Notice Search Bar
  *
  * @module features/procurement/components/NoticeSearchBar
- * @description 搜索输入 + 机构/国家/截止/窗口/类型/精选筛选控件 JSX。
+ * @description 搜索输入 + 机构/国家/截止/窗口/类型筛选控件 JSX。
  *              全部 props 来自 useNoticeSearch 返回值，自身无内部状态。
- *              3 行紧凑布局：关键词→日期→属性，金额筛选已移除。
- *              Search input + agency/country/deadline/window/type/featured
- *              filter controls; all props come from useNoticeSearch, stateless.
- *              Compact 3-row layout: keyword → date → attributes; amount removed.
+ *              3 行紧凑布局：关键词→日期→属性，操作按钮已移至父组件卡片底部。
+ *              Search input + agency/country/deadline/window/type filter controls;
+ *              all props come from useNoticeSearch, stateless.
+ *              Compact 3-row layout; action buttons moved to parent card bottom.
  */
-import { Crown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
-import { Button, Input, Select } from "@/shared/ui";
+import { Input, Select } from "@/shared/ui";
 import type { UseNoticeSearchReturn } from "../hooks/useNoticeSearch";
 
 export interface NoticeSearchBarProps {
@@ -24,7 +24,7 @@ export interface NoticeSearchBarProps {
   query: UseNoticeSearchReturn["query"];
   countries: Array<{ country: string; count: number }>;
   agencies: Array<{ agency: string; count: number }>;
-  applySearch: (sortOverride?: "deadline" | "latest") => void;
+  applySearch: (sortOverride?: "deadline" | "latest" | "deadline_farthest") => void;
   clearSearch: () => void;
   toggleFeatured: () => void;
 }
@@ -42,14 +42,15 @@ export function NoticeSearchBar({
 
   return (
     <form
+      id="procurement-search-form"
       onSubmit={(e) => {
         e.preventDefault();
         applySearch();
       }}
       className="space-y-3"
     >
-      {/* 第 1 行：关键词搜索 + 排序 + 按钮 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_170px_auto] gap-3 lg:items-end">
+      {/* 第 1 行：关键词搜索 + 排序 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_170px] gap-3 lg:items-end">
         <Input
           value={form.qInput}
           onChange={(e) => form.setQInput(e.target.value)}
@@ -59,20 +60,16 @@ export function NoticeSearchBar({
         />
         <Select
           value={query.activeSort}
-          onChange={(e) => applySearch(e.target.value === "latest" ? "latest" : "deadline")}
-          aria-label={t("procurement_sortByDeadline")}
+          onChange={(e) => {
+            const v = e.target.value;
+            applySearch(v === "latest" ? "latest" : v === "deadline" ? "deadline" : "deadline_farthest");
+          }}
+          aria-label={t("procurement_sortByDeadlineFarthest")}
         >
+          <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
           <option value="deadline">{t("procurement_sortByDeadline")}</option>
           <option value="latest">{t("procurement_sortByLatest")}</option>
         </Select>
-        <div className="flex items-center gap-2">
-          <Button type="submit" variant="primary" className="font-black whitespace-nowrap">
-            {t("procurement_searchBtn")}
-          </Button>
-          <Button type="button" variant="outline" onClick={clearSearch} className="px-3 whitespace-nowrap">
-            {t("procurement_clearSearch")}
-          </Button>
-        </div>
       </div>
 
       {/* 第 2 行：截止日期起止 + 截止窗口 */}
@@ -113,8 +110,8 @@ export function NoticeSearchBar({
         </Select>
       </div>
 
-      {/* 第 3 行：采购机构 + 国家 + 采购类型 + 精选 */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)_auto] gap-3 lg:items-end">
+      {/* 第 3 行：采购机构 + 国家 + 采购类型 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px_minmax(0,1fr)] gap-3 lg:items-end">
         <AgencyFilter
           agencies={agencies}
           value={form.agencyInput}
@@ -141,21 +138,6 @@ export function NoticeSearchBar({
           aria-label={t("procurement_noticeTypePlaceholder")}
           dir="auto"
         />
-        {/* T-A4（本地差异 #14）：只看精选开关——点击即生效，不依赖搜索提交 */}
-        {/* [精选功能重新启用 2026-07-31] 开关按钮恢复（原 2026-07-29 临时注释停用） */}
-        <button
-          type="button"
-          onClick={toggleFeatured}
-          aria-pressed={query.activeFeatured}
-          className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
-            query.activeFeatured
-              ? "border-amber-300 bg-amber-50 text-amber-700"
-              : "border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-600"
-          }`}
-        >
-          <Crown className="w-3.5 h-3.5" />
-          {t("procurement_featuredOnly")}
-        </button>
       </div>
     </form>
   );

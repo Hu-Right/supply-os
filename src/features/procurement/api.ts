@@ -17,7 +17,7 @@ export interface NoticeSearchFilters {
   agency?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
-  sort?: "deadline" | "latest";
+  sort?: "deadline" | "latest" | "deadline_farthest";
   userKey?: string;
   /** T-B8（本地差异 #13）：截止窗口天数 / 采购类型关键词 */
   deadlineWithinDays?: number;
@@ -41,7 +41,7 @@ export const fetchNotices = (
     agency: params.agency,
     deadline_from: params.deadlineFrom,
     deadline_to: params.deadlineTo,
-    sort: params.sort && params.sort !== "deadline" ? params.sort : undefined,
+    sort: params.sort && params.sort !== "deadline_farthest" ? params.sort : undefined,
     user_key: params.userKey,
     deadline_within_days: params.deadlineWithinDays,
     notice_type: params.noticeType,

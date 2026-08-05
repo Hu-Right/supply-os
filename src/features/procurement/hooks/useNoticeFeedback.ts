@@ -22,7 +22,7 @@ export interface UseNoticeFeedbackOptions {
   /** 是否有生效搜索条件（搜索场景不采集） */
   hasSearch: boolean;
   /** 当前排序（仅默认 deadline 排序采集） */
-  activeSort: "deadline" | "latest";
+  activeSort: "deadline" | "latest" | "deadline_farthest";
   /** 当前选中的详情公告（scroll_end 信号依赖详情页打开） */
   selectedNotice: NoticeItem | null;
   /** 推荐响应 A/B 桶标记 ref（列表加载时写入，反馈埋点读取，T-B10） */
@@ -47,7 +47,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
 
   // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
   // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
-  const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline";
+  const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline_farthest";
   // [dismiss/収藏功能临时禁用 2026-07-30] favoritedIds 已移除
   // const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
   // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）

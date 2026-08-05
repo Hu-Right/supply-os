@@ -25,6 +25,7 @@
   "procurement_deadlineTo": "Date limite au",
   "procurement_sortByDeadline": "Échéance la plus proche d'abord",
   "procurement_sortByLatest": "Les plus récents d'abord",
+  "procurement_sortByDeadlineFarthest": "Échéance la plus éloignée d'abord",
   "procurement_searchBtn": "Rechercher",
   "procurement_clearSearch": "Effacer les filtres",
   "procurement_loading": "Chargement...",

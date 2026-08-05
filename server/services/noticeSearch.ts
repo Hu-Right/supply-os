@@ -62,7 +62,7 @@ const FEATURED_COUNT_CACHE_TTL = 30 * 60 * 1000; // 30 分钟
 function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.agency || "",
-    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline",
+    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline_farthest",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly, p.locale || "",
   ]);
 }
@@ -71,7 +71,7 @@ function searchCacheKey(p: NoticeSearchParams): string {
 function countCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     "count", p.codeId || 0, p.q || "", p.country || "", p.agency || "",
-    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline",
+    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline_farthest",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly,
   ]);
 }
@@ -88,7 +88,7 @@ export async function searchNotices(
   const agency = p.agency || "";
   const deadlineFrom = p.deadlineFrom || "";
   const deadlineTo = p.deadlineTo || "";
-  const sort = p.sort || "deadline";
+  const sort = p.sort || "deadline_farthest";
   const deadlineWithinDays = p.deadlineWithinDays || 0;
   const noticeType = p.noticeType || "";
   const featuredOnly = !!p.featuredOnly;
@@ -182,7 +182,11 @@ export async function searchNotices(
   }
   if (sort === "latest") {
     orderParts.push("n.id DESC");
+  } else if (sort === "deadline_farthest") {
+    // 截至最远优先：deadline_sec DESC（距截止日期最远的优先显示）
+    orderParts.push("(n.deadline_ts IS NULL)", `${DEADLINE_SEC_EXPR} DESC`, "n.id DESC");
   } else {
+    // deadline = 截止最近优先（deadline_sec ASC）
     orderParts.push("(n.deadline_ts IS NULL)", DEADLINE_SEC_EXPR, "n.id DESC");
   }
   const orderSql = orderParts.join(", ");

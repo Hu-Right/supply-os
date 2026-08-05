@@ -1,6 +1,6 @@
 import { useRef, useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronUp, Crown, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, Crown, Search, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { RecentUnlocks } from "@/features/payment";
@@ -10,6 +10,7 @@ import type { NoticeItem } from "../types";
 const NoticeDetail = lazy(() => import("../components/NoticeDetail").then(m => ({ default: m.NoticeDetail })));
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
+import { Button } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { useNoticeSearch, PAGE_SIZE } from "../hooks/useNoticeSearch";
@@ -150,6 +151,40 @@ export default function ProcurementPage() {
                 <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
               </div>
             )}
+          </div>
+
+          {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
+          <div className="border-t border-slate-100 pt-4 flex items-center gap-2">
+            <Button
+              type="submit"
+              form="procurement-search-form"
+              variant="primary"
+              className="font-black whitespace-nowrap"
+            >
+              <Search className="w-4 h-4 mr-1" />
+              {t("procurement_searchBtn")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={search.actions.clearSearch}
+              className="px-3 whitespace-nowrap"
+            >
+              {t("procurement_clearSearch")}
+            </Button>
+            <button
+              type="button"
+              onClick={search.actions.toggleFeatured}
+              aria-pressed={search.query.activeFeatured}
+              className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
+                search.query.activeFeatured
+                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-600"
+              }`}
+            >
+              <Crown className="w-3.5 h-3.5" />
+              {t("procurement_featuredOnly")}
+            </button>
           </div>
         </div>
       </section>

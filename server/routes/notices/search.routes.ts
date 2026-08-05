@@ -29,7 +29,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const agency = parseOptionalString(req.query, "agency", 100);
     const deadlineFrom = parseOptionalString(req.query, "deadline_from", 10);
     const deadlineTo = parseOptionalString(req.query, "deadline_to", 10);
-    const sort = parseOptionalString(req.query, "sort", 20) || "deadline";
+    const sort = parseOptionalString(req.query, "sort", 20) || "deadline_farthest";
     const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
     const noticeType = parseOptionalString(req.query, "notice_type", 100);
     const featuredOnly = String(req.query.featured || "") === "1";

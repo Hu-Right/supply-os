@@ -25,6 +25,7 @@
   "procurement_deadlineTo": "Крайний срок по",
   "procurement_sortByDeadline": "Сначала ближайший срок",
   "procurement_sortByLatest": "Сначала новые",
+  "procurement_sortByDeadlineFarthest": "Сначала самый дальний срок",
   "procurement_searchBtn": "Поиск",
   "procurement_clearSearch": "Сбросить фильтры",
   "procurement_loading": "Загрузка...",
