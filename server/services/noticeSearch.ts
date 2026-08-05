@@ -45,7 +45,7 @@ export interface NoticeSearchResult {
 
 // ── F.4 搜索性能预案第一档（本地差异 #7）──
 const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires: number }>();
-const NOTICE_SEARCH_CACHE_TTL = 180 * 1000;
+const NOTICE_SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（搜索结果变化低频，延长缓存减少重复查询）
 const NOTICE_SEARCH_CACHE_MAX = 200;
 
 // P0 性能优化：COUNT 结果独立缓存——翻页时复用，避免每次重新全量计数
