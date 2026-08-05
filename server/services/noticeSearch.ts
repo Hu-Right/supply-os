@@ -245,9 +245,6 @@ export async function searchNotices(
 
   const where: string[] = ["n.is_active = 1"];
   const params: any[] = [];
-  // 翻译搜索条件独立构建——IN(子查询) 方案下仅子查询引用翻译表别名
-  const translationWhere: string[] = [];
-  const translationWhereParams: any[] = [];
   let join = "";
   let idFilterSql = "";
   const idFilterParams: any[] = [];
@@ -263,22 +260,34 @@ export async function searchNotices(
   // ── 关键词搜索条件构建 ──
   // 方案E：中文 FULLTEXT(ngram) 主表路径（18ms vs LIKE 6764ms = 375x 提升）
   // 方案F3：英文 FULLTEXT(非ngram) 主表路径（ft_notices_en 索引，330-687ms vs LIKE 7-9s = 10-27x 提升）
+  // 关键词搜索：使用 UNION 派生表模式（避免 OR IN(subquery) 的 MySQL 优化器性能陷阱）
+  // 性能：UNION derived 2204ms vs OR IN(subquery) 13423ms（英文），548ms vs 13883ms（中文）
   const isChinese = /[\u4e00-\u9fff]/.test(q);
 
-  // 中英文均走主表 FULLTEXT，零 JOIN 翻译表（同语言匹配）
-  let mainMatchSql = "";
-  const mainMatchParams: any[] = [];
+  // 关键词匹配 UNION 分支（不含外层 n.id IN(...)，由 COUNT/ID 查询统一包裹）
+  let kwUnionSql = "";
+  const kwUnionParams: any[] = [];
 
   if (q) {
     if (isChinese) {
-      // 中文路径：FULLTEXT(ngram) 索引 ft_notices_search (title, reference, description)
-      mainMatchSql = "MATCH(n.title, n.reference, n.description) AGAINST(? IN BOOLEAN MODE)";
-      mainMatchParams.push(q);
+      // 中文路径：FULLTEXT(ngram) 主表 + 翻译表 LIKE 补充
+      // 翻译表 FULLTEXT 对中文跨语言匹配无效（返回 0 结果），改用 LIKE
+      kwUnionSql =
+        "SELECT n2.id FROM crm_bid_notices n2 WHERE n2.is_active = 1 AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+        " UNION " +
+        "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)" +
+        " UNION " +
+        "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND (qen.title_tr LIKE ? OR qen.description_tr LIKE ?)";
+      kwUnionParams.push(q, likeQ, likeQ, likeQ, likeQ);
     } else {
-      // 英文路径：FULLTEXT(非ngram) 索引 ft_notices_en (title, reference)
-      // 回滚：恢复 LIKE 路径——where.push("(UPPER(REPLACE(...)) = ? OR n.title LIKE ? ...)")
-      mainMatchSql = "MATCH(n.title, n.reference) AGAINST(? IN BOOLEAN MODE)";
-      mainMatchParams.push(q);
+      // 英文路径：FULLTEXT(非ngram) title+reference + FULLTEXT description + 翻译表 FULLTEXT
+      kwUnionSql =
+        "SELECT n2.id FROM crm_bid_notices n2 WHERE n2.is_active = 1 AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
+        " UNION " +
+        "SELECT sn.id FROM crm_bid_notices sn WHERE sn.is_active = 1 AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
+        " UNION " +
+        "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)";
+      kwUnionParams.push(q, q, q);
     }
   }
   if (country) {
@@ -350,11 +359,6 @@ export async function searchNotices(
   }
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
-  const translationWhereSql = translationWhere.join(" AND ");
-  // COUNT 查询 WHERE：中英文均使用 FULLTEXT 主表（mainMatchSql 统一）
-  const countWhereSql = q
-    ? `${whereSql} AND ${mainMatchSql}`
-    : whereSql;
 
   // P0 性能优化：COUNT 结果缓存——翻页及首次加载时复用，避免每次重新全量计数
   // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
@@ -405,14 +409,17 @@ export async function searchNotices(
 
   /** 执行 COUNT 查询并写入缓存 */
   function runCountQuery(): Promise<any> {
-    const countExpr = "COUNT(DISTINCT n.id)";
-    const countParams = q
-      ? [...idFilterParams, ...params, ...mainMatchParams]
-      : [...idFilterParams, ...params];
-    return pool.query(
-      `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
-      countParams
-    ).then((result: any) => {
+    let countQuery: string;
+    let countParams: any[];
+    if (q) {
+      // 关键词搜索：UNION 派生表计数（UNION 已去重，无需 DISTINCT）
+      countQuery = `SELECT COUNT(*) AS total FROM (${kwUnionSql}) AS _kw`;
+      countParams = [...kwUnionParams];
+    } else {
+      countQuery = `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`;
+      countParams = [...idFilterParams, ...params];
+    }
+    return pool.query(countQuery, countParams).then((result: any) => {
       const t = Number((result[0] as any[])[0]?.total || 0);
       if (featuredOnly) {
         featuredCountCache.total = t;
@@ -433,14 +440,18 @@ export async function searchNotices(
   const countTimed = countPromise.then((r: any) => { countMs = Date.now() - t0; return r; });
   let idMs = 0;
   const idQueryStart = Date.now();
-  const idWhere = q ? `${whereSql} AND ${mainMatchSql}` : whereSql;
-  const idParams = q
-    ? [...idFilterParams, ...params, ...mainMatchParams, ...orderParams, pageSize, offset]
-    : [...idFilterParams, ...params, ...orderParams, pageSize, offset];
-  const idTimed = pool.query(
-    `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${idWhere} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
-    idParams
-  ).then((r: any) => { idMs = Date.now() - idQueryStart; return r; });
+  let idQuery: string;
+  let idQueryParams: any[];
+  if (q) {
+    // 关键词搜索：n.id IN (UNION derived table) 过滤 + 排序分页
+    idQuery = `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql} AND n.id IN (SELECT id FROM (${kwUnionSql}) AS _u) ORDER BY ${orderSql} LIMIT ? OFFSET ?`;
+    idQueryParams = [...idFilterParams, ...params, ...kwUnionParams, ...orderParams, pageSize, offset];
+  } else {
+    idQuery = `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`;
+    idQueryParams = [...idFilterParams, ...params, ...orderParams, pageSize, offset];
+  }
+  const idTimed = pool.query(idQuery, idQueryParams)
+    .then((r: any) => { idMs = Date.now() - idQueryStart; return r; });
 
   const [countResult, idResult] = await Promise.all([countTimed, idTimed]);
 
