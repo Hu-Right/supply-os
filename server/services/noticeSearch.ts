@@ -120,16 +120,12 @@ export async function searchNotices(
   if (q) {
     join += " LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = n.id AND qzh.lang = 'zh'";
     join += " LEFT JOIN crm_notice_translations qen ON qen.notice_id = n.id AND qen.lang = 'en'";
-    // 关键词搜索：基础条件（标题/参考号/描述原文）纳入外层 WHERE
-    where.push(
-      "(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = ? OR n.title LIKE ? OR n.reference LIKE ? OR n.description LIKE ?)"
-    );
-    params.push(compactQ, likeQ, likeQ, likeQ);
-    // 翻译搜索条件独立存放——IN(子查询) 时下推到子查询内，避免外层引用不存在的别名
+    // 关键词搜索：基础条件不再纳入外层 WHERE——由 IN(子查询) 统一处理全部关键字匹配（基础+翻译 OR）
+    // 翻译搜索条件独立存放——IN(子查询) 时下推到子查询内
     translationWhere.push(
-      "(qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
+      "(UPPER(REPLACE(COALESCE(sn.reference,''),' ','')) = ? OR sn.title LIKE ? OR sn.reference LIKE ? OR sn.description LIKE ? OR qzh.title_tr LIKE ? OR qzh.description_tr LIKE ? OR qen.title_tr LIKE ? OR qen.description_tr LIKE ?)"
     );
-    translationWhereParams.push(likeQ, likeQ, likeQ, likeQ);
+    translationWhereParams.push(compactQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ, likeQ);
   }
   if (country) {
     // 精确匹配：国家值来自下拉（GROUP BY n.country 的精确值），LIKE 会误命中
@@ -201,8 +197,11 @@ export async function searchNotices(
   const orderSql = orderParts.join(", ");
   const whereSql = where.join(" AND ");
   const translationWhereSql = translationWhere.join(" AND ");
-  // COUNT 查询需要完整 WHERE（基础条件 + 翻译搜索条件），因为 countJoin 包含翻译 JOIN
-  const countWhereSql = q && translationWhereSql ? `${whereSql} AND ${translationWhereSql}` : whereSql;
+  // COUNT 查询：关键词匹配已移入 IN(子查询)，COUNT 也需使用 IN(子查询) 保持一致
+  // 回滚：恢复 countWhereSql = q && translationWhereSql ? `${whereSql} AND ${translationWhereSql}` : whereSql
+  const countWhereSql = q && translationWhereSql
+    ? `${whereSql} AND n.id IN (SELECT sn.id FROM crm_bid_notices sn LEFT JOIN crm_notice_translations qzh ON qzh.notice_id = sn.id AND qzh.lang = 'zh' LEFT JOIN crm_notice_translations qen ON qen.notice_id = sn.id AND qen.lang = 'en' WHERE ${whereSql} AND ${translationWhereSql})`
+    : whereSql;
 
   // P0 性能优化：COUNT 结果缓存——翻页及首次加载时复用，避免每次重新全量计数
   // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
@@ -226,9 +225,12 @@ export async function searchNotices(
     // P0 COUNT 瘦身：精选计数仅用 WHERE 条件，不携带展示用 LEFT JOIN
     // 始终使用 DISTINCT 去重——防御性措施，无论是否有翻译 JOIN 都保证唯一 ID
     const countExpr = "COUNT(DISTINCT n.id)";
+    const featuredCountParams = q && translationWhereSql
+      ? [...idFilterParams, ...params, ...idFilterParams, ...params, ...translationWhereParams]
+      : [...idFilterParams, ...params, ...translationWhereParams];
     countPromise = pool.query(
       `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
-      [...idFilterParams, ...params, ...translationWhereParams]
+      featuredCountParams
     ).then((result: any) => {
       const t = Number((result[0] as any[])[0]?.total || 0);
       featuredCountCache.total = t;
@@ -238,9 +240,13 @@ export async function searchNotices(
   } else {
     // 始终使用 DISTINCT 去重——防御性措施，无论是否有翻译 JOIN 都保证正确计数
     const countExpr = "COUNT(DISTINCT n.id)";
+    // 关键词搜索时 countWhereSql 包含 IN(子查询)，需要两组参数（外层 + 子查询）
+    const countParams = q && translationWhereSql
+      ? [...idFilterParams, ...params, ...idFilterParams, ...params, ...translationWhereParams]
+      : [...idFilterParams, ...params, ...translationWhereParams];
     countPromise = pool.query(
       `SELECT ${countExpr} AS total FROM crm_bid_notices n ${countJoin} WHERE ${countWhereSql}`,
-      [...idFilterParams, ...params, ...translationWhereParams]
+      countParams
     );
   }
 
@@ -255,7 +261,7 @@ export async function searchNotices(
   const [countResult, idResult] = await Promise.all([
     countPromise,
     q
-      ? // 关键词搜索：翻译匹配条件下推到子查询，外层无重复行，无需 DISTINCT
+      ? // 关键词搜索：全部匹配条件（基础+翻译 OR）在子查询内完成，外层仅按 ID 过滤
         pool.query(
           `SELECT n.id FROM crm_bid_notices n ${idFilterSql}
            WHERE ${whereSql}
@@ -268,8 +274,8 @@ export async function searchNotices(
              )
            ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
           [
-            ...idFilterParams, ...params,                                 // 外层 WHERE
-            ...idFilterParams, ...params, ...translationWhereParams,       // 子查询 WHERE + 翻译 LIKE
+            ...idFilterParams, ...params,                                 // 外层 WHERE（基础条件，无关键字）
+            ...idFilterParams, ...params, ...translationWhereParams,       // 子查询 WHERE + 关键字(基础+翻译 OR)
             ...orderParams, pageSize, offset,
           ]
         )

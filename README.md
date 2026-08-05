@@ -20,4 +20,4 @@ View your app in AI Studio: https://ai.studio/apps/83b6b4ba-d5a5-44e7-92be-83775
    `npm run dev`
 
  /**重启命令 */
-  $p = (Get-NetTCPConnection -LocalPort 3039).OwningProcess; Stop-Process -Id $p -Force; npm run dev
+  $p = (Get-NetTCPConnection -LocalPort 3039).OwningProcess; Stop-Process -Id $p -Force; npm run build; npm start
