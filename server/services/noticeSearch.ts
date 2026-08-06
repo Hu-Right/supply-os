@@ -11,7 +11,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { buildNoticeUnspscFilter } from "./unspsc";
-import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy } from "./meilisearch";
+import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normalizeNoticeType } from "./meilisearch";
 import type { NoticesRepo } from "../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "./notice-translation";
 import { translateByPattern, classifyAgencyType } from "./agencyI18n";
@@ -91,6 +91,23 @@ function countCacheKey(p: NoticeSearchParams): string {
 // ── 方案C：预计算总数表 ──
 // 将常用筛选组合的总数预存入 crm_notice_stats 表，消除 COUNT(DISTINCT) 全表扫描
 // 回滚：删除 statsKeyFor / refreshNoticeStats / getStatsCount 函数，恢复原始 COUNT 逻辑
+
+// ── 采购类型映射缓存：避免每次 DISTINCT 查询冷启动 5s ──
+// DISTINCT notice_type 仅 ~15 种值，变化极低频，10 分钟 TTL 足够
+let _noticeTypeCache: { types: string[]; expires: number } | null = null;
+const NOTICE_TYPE_CACHE_TTL = 10 * 60 * 1000; // 10 min
+
+async function getCachedNoticeTypes(pool: Pool): Promise<string[]> {
+  if (_noticeTypeCache && _noticeTypeCache.expires > Date.now()) {
+    return _noticeTypeCache.types;
+  }
+  const [rows] = await pool.query(
+    "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE is_active = 1 AND notice_type IS NOT NULL"
+  );
+  const types = (rows as any[]).map((r) => r.notice_type);
+  _noticeTypeCache = { types, expires: Date.now() + NOTICE_TYPE_CACHE_TTL };
+  return types;
+}
 
 /** 根据搜索参数生成统计表 key；无法映射时返回 null（回退到 COUNT 查询） */
 function statsKeyFor(p: NoticeSearchParams): string | null {
@@ -527,10 +544,32 @@ export async function searchNotices(
     params.push(deadlineWithinDays);
   }
   if (noticeType) {
-    // BUG3 修复：转义 SQL LIKE 通配符，防止用户输入 %/_ 导致非预期模糊匹配
-    const escapedType = noticeType.replace(/[%_\\]/g, "\\$&");
-    where.push("n.notice_type LIKE ? ESCAPE '\\'");
-    params.push(`%${escapedType}%`);
+    if (meiliFilteredIds) {
+      // 混合搜索：Meilisearch 已通过 normalizeNoticeType 处理 noticeType 筛选
+      // meiliFilteredIds 仅包含匹配规范化类型的公告，无需再在 MySQL 中重复筛选
+      // 跳过 LIKE 避免：1) 结果不一致（LIKE 只匹配原始值，丢失别名匹配）2) 全表扫描 6000ms+
+    } else {
+      // MySQL 降级路径：预解析匹配的 notice_type 值 → IN() 精确匹配替代 LIKE '%type%'
+      // 性能：缓存命中时 0ms + IN() 走索引；缓存未命中时首次 ~5s，后续 0ms
+      // 正确性：通过 normalizeNoticeType 匹配所有别名（如 "RFQ" 匹配 "Request for quotation"）
+      try {
+        const allTypes = await getCachedNoticeTypes(pool);
+        const normalizedInput = normalizeNoticeType(noticeType);
+        const matchingTypes = allTypes.filter((t) => normalizeNoticeType(t) === normalizedInput);
+        if (matchingTypes.length > 0) {
+          where.push(`n.notice_type IN (${matchingTypes.map(() => "?").join(",")})`);
+          params.push(...matchingTypes);
+        } else {
+          // 无匹配类型 → 强制空结果
+          where.push("1 = 0");
+        }
+      } catch {
+        // 预解析失败时回退到 LIKE
+        const escapedType = noticeType.replace(/[%_\\]/g, "\\$&");
+        where.push("n.notice_type LIKE ? ESCAPE '\\'");
+        params.push(`%${escapedType}%`);
+      }
+    }
   }
   // P6 性能优化：精选过滤改用预计算列 is_featured，消除 FEATURED_NOTICE_EXISTS 双路 IN 子查询
   // 回滚：恢复 where.push(FEATURED_NOTICE_EXISTS)

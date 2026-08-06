@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, ChevronUp, Crown, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Crown, Search, SlidersHorizontal } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
@@ -164,14 +164,12 @@ export default function ProcurementPage() {
               onClick={() => setUnspscExpanded(!unspscExpanded)}
               className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-teal-700 transition-colors"
             >
-              {unspscExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${unspscExpanded ? "rotate-180" : ""}`} />
               {t("procurement_industryCategory")}
             </button>
-            {unspscExpanded && (
-              <div className="mt-3">
-                <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
-              </div>
-            )}
+            <div className={`overflow-hidden transition-all duration-200 ease-in-out ${unspscExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
+              <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
+            </div>
             <p className="text-xs text-slate-500 mt-2">{t("procurement_poolDesc", { count: actions.freeQuota })}</p>
           </div>
 
