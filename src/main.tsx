@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { LocaleProvider, setupI18nSync, loadInitialLanguages } from '@/core/i18n';
+import { LocaleProvider, setupI18nSync } from '@/core/i18n';
 import { AuthProvider } from '@/core/auth';
 import { ErrorBoundary } from '@/shared/ui';
 import { initPerfMonitor } from '@/core/perf';
@@ -26,7 +26,7 @@ window.addEventListener('error', (event) => {
   }
 });
 
-// ── i18n 非阻塞渲染优化：同步初始化引擎 → 立即挂载 React → 异步加载语言包 ──
+// ── i18n 非阻塞渲染优化：同步初始化引擎 → 立即挂载 React → LocaleProvider 内部异步加载语言包 ──
 // P0 性能优化：消除 initI18n() 对首屏渲染的阻塞（预计快 200-500ms）
 // 回滚：恢复为 initI18n().then(() => { createRoot(...) })
 setupI18nSync();
@@ -44,6 +44,3 @@ createRoot(document.getElementById('root')!).render(
       </ErrorBoundary>
   </StrictMode>,
 );
-
-// 语言包异步加载——React 树已挂载，下载完成后 i18next 自动触发 re-render
-loadInitialLanguages();

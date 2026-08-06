@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, type ReactNode } from "react";
+import React, { createContext, useContext, useCallback, useState, useEffect, type ReactNode } from "react";
 import * as i18nModule from "i18next";
 const i18n = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
@@ -112,6 +112,19 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     // useTranslation 订阅语言变化，changeLanguage 时自动触发重渲染。
     const { t: translate, i18n: instance } = useTranslation();
 
+    // P0 修复：语言包异步加载完成后触发 re-render
+    // addResourceBundle 不会自动通知 react-i18next，需主动调用 changeLanguage
+    // 回滚：删除 ready state + useEffect，恢复直接 {children}
+    const [ready, setReady] = useState(false);
+
+    useEffect(() => {
+        loadInitialLanguages().then(() => {
+            // 触发 react-i18next 重新渲染：changeLanguage 发射 languageChanged 事件
+            instance.changeLanguage(instance.language);
+            setReady(true);
+        });
+    }, [instance]);
+
     const locale = (instance.language as Locale) || "en";
     const localeDir = getLocaleDir(locale);
 
@@ -143,6 +156,9 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
             translate(key, params) as string,
         [translate],
     );
+
+    // 语言包未就绪时不渲染子树，避免闪烁翻译 key 占位符
+    if (!ready) return null;
 
     return (
         <LocaleContext.Provider value={{ locale, localeDir, setLocale, t }}>
