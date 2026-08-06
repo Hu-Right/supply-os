@@ -188,6 +188,26 @@ export class PaymentService {
       return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
     }
 
+    // BUG-PAY-1 修复：校验回调金额与订单金额一致，防止金额篡改
+    if (verifyResult.amount > 0) {
+      const [orderRows] = await dbPool.query(
+        "SELECT amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
+        [verifyResult.order_no],
+      );
+      const dbOrder = (orderRows as RowDataPacket[])[0];
+      if (dbOrder) {
+        const orderAmount = Number(dbOrder.amount || 0);
+        const callbackAmount = Number(verifyResult.amount || 0);
+        // 允许 0.01 精度误差（分→元转换可能产生浮点偏差）
+        if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
+          console.warn(
+            `[PaymentService] 金额不匹配: order=${orderAmount}, callback=${callbackAmount}, order_no=${verifyResult.order_no}`,
+          );
+          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
+        }
+      }
+    }
+
     await this.activatePaidOrder(dbPool, verifyResult.order_no, verifyResult.provider_trade_no);
     return { success: true, order_no: verifyResult.order_no };
   }

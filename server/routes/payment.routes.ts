@@ -160,15 +160,14 @@ export function createPaymentRouter(ctx: AppContext): Router {
 
   router.post("/api/payments/create", asyncHandler(async (req, res) => {
     const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
-    const provider = req.body.provider === "wechat" ? "wechat" : "alipay";
+    // BUG-PAY-3 修复：provider 选择对齐策略引擎（白名单校验，非法值安全回退 mock）
+    const provider = (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider))
+      ? req.body.provider : "mock";
     const planCode = String(req.body.plan_code || "single_89");
     const noticeId = req.body.notice_id ? Number(req.body.notice_id) : null;
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
-    const providerConfigured = provider === "alipay"
-      ? Boolean(process.env.ALIPAY_APP_ID && process.env.ALIPAY_PRIVATE_KEY && process.env.ALIPAY_NOTIFY_URL)
-      : Boolean(process.env.WECHAT_MCH_ID && process.env.WECHAT_APP_ID && process.env.WECHAT_API_V3_KEY && process.env.WECHAT_NOTIFY_URL);
-    const mode = providerConfigured ? "configured" : "mock";
+    const mode = paymentMode === "live" ? "configured" : "mock";
 
     const orderNo = `PAY${Date.now()}${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
     const fakePayUrl = `/api/payments/${orderNo}/mock-paid`;
