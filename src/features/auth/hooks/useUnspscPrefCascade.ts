@@ -15,6 +15,7 @@ import {
   fetchUnspscIndustries,
   fetchUnspscChildren,
   type UnspscOption,
+  type SmartInferResult,
 } from "@/core/unspsc";
 
 export interface UseUnspscPrefCascadeReturn {
@@ -29,6 +30,8 @@ export interface UseUnspscPrefCascadeReturn {
   setPrefLevel3: (value: string) => void;
   handlePrefLevel1Change: (value: string) => void;
   handlePrefLevel2Change: (value: string) => void;
+  /** 根据智能推断结果自动填充级联选择器（L1→L2→L3） */
+  autoFillFromInference: (path: SmartInferResult) => void;
 }
 
 export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
@@ -81,6 +84,25 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel3("");
   };
 
+  /** 根据智能推断结果自动填充级联选择器。
+   *  由于 L2 选项依赖 L1 的 useEffect 加载，L3 依赖 L2，
+   *  用 setTimeout 确保每级子类目已加载后再设置下一级。
+   */
+  const autoFillFromInference = (path: SmartInferResult) => {
+    if (!path.level1_id) return;
+    setPrefLevel1(String(path.level1_id));
+    if (path.level2_id) {
+      setTimeout(() => {
+        setPrefLevel2(String(path.level2_id));
+        if (path.level3_id) {
+          setTimeout(() => {
+            setPrefLevel3(String(path.level3_id));
+          }, 150);
+        }
+      }, 150);
+    }
+  };
+
   return {
     industryOptions,
     subOptions,
@@ -93,5 +115,6 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
+    autoFillFromInference,
   };
 }

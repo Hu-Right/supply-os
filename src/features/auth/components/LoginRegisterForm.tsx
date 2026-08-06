@@ -10,7 +10,7 @@
  *              claim info with industry cascade on register, silent pref save
  *              and onSuccess close.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -18,6 +18,7 @@ import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { Input, Select } from "@/shared/ui";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
+import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
@@ -54,7 +55,35 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
+    autoFillFromInference,
   } = useUnspscPrefCascade();
+
+  // 主营业务智能推断状态
+  const [mainBusiness, setMainBusiness] = useState("");
+  const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
+  const [inferLoading, setInferLoading] = useState(false);
+
+  // 防抖推断（300ms）：用户输入主营业务关键词后自动匹配 UNSPSC 类目路径
+  useEffect(() => {
+    if (mainBusiness.trim().length < 1) { setInferResult(null); return; }
+    const timer = setTimeout(async () => {
+      setInferLoading(true);
+      try {
+        const data = await fetchSmartInferUnspsc(mainBusiness.trim());
+        if (data?.result) {
+          setInferResult(data.result);
+          autoFillFromInference(data.result);
+        } else {
+          setInferResult(null);
+        }
+      } catch {
+        // 推断失败不影响注册流程
+      } finally {
+        setInferLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mainBusiness, autoFillFromInference]);
 
   /**
    * 提交认证（登录或注册）
@@ -104,6 +133,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           level1_id: Number(prefLevel1),
           level2_id: Number(prefLevel2),
           level3_id: prefLevel3 ? Number(prefLevel3) : null,
+          level4_id: inferResult?.level4_id ?? null,
+          level5_id: inferResult?.level5_id ?? null,
         }).catch((err) => console.error("Failed to save industry prefs", err));
         onSuccess();
       }
@@ -210,6 +241,30 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               placeholder={t("authLicensePlaceholder")}
               className="bg-white"
             />
+          </div>
+          {/* 主营业务智能推断 */}
+          <div>
+            <p className="text-xs font-black text-slate-500">
+              {t("authMainBusinessLabel")}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {t("authMainBusinessInferHint")}
+            </p>
+            <Input
+              type="text"
+              value={mainBusiness}
+              onChange={(e) => setMainBusiness(e.target.value)}
+              placeholder={t("authMainBusinessPlaceholder")}
+              className="mt-2 bg-white"
+            />
+            {inferLoading && (
+              <p className="mt-1 text-[11px] text-slate-400">匹配中...</p>
+            )}
+            {inferResult && !inferLoading && (
+              <p className="mt-1 text-[11px] text-teal-600">
+                {t("authMainBusinessInferred")}: {inferResult.matched_title}
+              </p>
+            )}
           </div>
           {/* 主营行业选取（前两级必选，注册成功后作为公采页默认筛选偏好） */}
           <div>

@@ -8,6 +8,7 @@
  * @module repos/catalog.repo
  */
 import type { Pool } from "mysql2/promise";
+import { getUnspscPath } from "../services/unspsc";
 
 export interface CertificationRow {
   id: number;
@@ -22,6 +23,15 @@ export interface UnspscRow {
   parent_id: number | null;
   level: number;
   title_i18n?: string | null;
+}
+
+export interface SmartInferResult {
+  level1_id: number | null;
+  level2_id: number | null;
+  level3_id: number | null;
+  level4_id: number | null;
+  level5_id: number | null;
+  matched_title: string | null;
 }
 
 export class CatalogRepo {
@@ -66,5 +76,30 @@ export class CatalogRepo {
       [`${q}%`, `%${q}%`, `%${q}%`],
     );
     return rows as UnspscRow[];
+  }
+
+  /** 智能推断 UNSPSC 类目：输入关键词，返回最佳匹配的完整路径（L1→L5）。
+   *  搜索策略：优先匹配 L4/L5 精确类目（更具体），回退到 L3/L2/L1。
+   */
+  async smartInferUnspsc(q: string): Promise<SmartInferResult | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, title_zh, title, code, parent_id, level
+       FROM crm_unspsc_codes
+       WHERE title_zh LIKE ? OR title LIKE ?
+       ORDER BY FIELD(level, 4, 5, 3, 2, 1), CHAR_LENGTH(code) DESC
+       LIMIT 5`,
+      [`%${q}%`, `%${q}%`],
+    );
+    const matched = (rows as UnspscRow[])[0];
+    if (!matched) return null;
+    const path = await getUnspscPath(this.pool, matched.id);
+    return {
+      level1_id: path.level1_id,
+      level2_id: path.level2_id,
+      level3_id: path.level3_id,
+      level4_id: path.level4_id,
+      level5_id: path.level5_id,
+      matched_title: matched.title_zh || matched.title || null,
+    };
   }
 }
