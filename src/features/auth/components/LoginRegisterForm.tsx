@@ -10,7 +10,7 @@
  *              claim info with industry cascade on register, silent pref save
  *              and onSuccess close.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -56,18 +56,27 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     handlePrefLevel1Change,
     handlePrefLevel2Change,
     autoFillFromInference,
+    searchAndAutoFillL3,
   } = useUnspscPrefCascade();
 
   // 主营业务智能推断状态
   const [mainBusiness, setMainBusiness] = useState("");
   const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
+  const [inferSearched, setInferSearched] = useState(false);
+  // 关键词 ref：供 L2 变更时自动搜索 L3 使用
+  const keywordRef = useRef("");
 
   // 防抖推断（300ms）：用户输入主营业务关键词后自动匹配 UNSPSC 类目路径
   useEffect(() => {
-    if (mainBusiness.trim().length < 1) { setInferResult(null); return; }
+    if (mainBusiness.trim().length < 1) {
+      setInferResult(null);
+      setInferSearched(false);
+      return;
+    }
     const timer = setTimeout(async () => {
       setInferLoading(true);
+      setInferSearched(false);
       try {
         const data = await fetchSmartInferUnspsc(mainBusiness.trim());
         if (data?.result) {
@@ -76,6 +85,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
         } else {
           setInferResult(null);
         }
+        setInferSearched(true);
       } catch {
         // 推断失败不影响注册流程
       } finally {
@@ -84,6 +94,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     }, 300);
     return () => clearTimeout(timer);
   }, [mainBusiness, autoFillFromInference]);
+
+  // 关键词或 L2 变更时，自动在三级子类中搜索匹配项
+  useEffect(() => {
+    keywordRef.current = mainBusiness.trim();
+    if (keywordRef.current && prefLevel2) {
+      searchAndAutoFillL3(keywordRef.current);
+    }
+  }, [mainBusiness, prefLevel2, searchAndAutoFillL3]);
 
   /**
    * 提交认证（登录或注册）
@@ -263,6 +281,11 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             {inferResult && !inferLoading && (
               <p className="mt-1 text-[11px] text-teal-600">
                 {t("authMainBusinessInferred")}: {inferResult.matched_title}
+              </p>
+            )}
+            {!inferResult && inferSearched && !inferLoading && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                {t("authMainBusinessNoMatch")}
               </p>
             )}
           </div>

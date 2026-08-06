@@ -9,7 +9,7 @@
  *              account panel: option loading (reload on locale switch) and
  *              level-change handlers (level-1 change clears levels 2/3, etc.).
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import {
   fetchUnspscIndustries,
@@ -30,8 +30,10 @@ export interface UseUnspscPrefCascadeReturn {
   setPrefLevel3: (value: string) => void;
   handlePrefLevel1Change: (value: string) => void;
   handlePrefLevel2Change: (value: string) => void;
-  /** 根据智能推断结果自动填充级联选择器（L1→L2→L3） */
+  /** 根据智能推断结果自动填充级联选择器（L1→L2） */
   autoFillFromInference: (path: SmartInferResult) => void;
+  /** 基于关键词在当前二级分类的三级子类中搜索并自动选中最佳匹配 */
+  searchAndAutoFillL3: (keyword: string) => void;
 }
 
 export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
@@ -43,6 +45,9 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   const [prefLevel1, setPrefLevel1] = useState("");
   const [prefLevel2, setPrefLevel2] = useState("");
   const [prefLevel3, setPrefLevel3] = useState("");
+
+  // 主营业务搜索关键词（供 L2 变更时自动匹配 L3 使用）
+  const keywordRef = useRef("");
 
   // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
@@ -84,9 +89,63 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel3("");
   };
 
+  /** 根据关键词在当前二级分类的三级子类中搜索最佳匹配并自动选中。
+   *  匹配策略：完整子串 > 单字符匹配 > 最短标题优先。
+   */
+  const searchAndAutoFillL3 = useCallback(
+    (keyword: string) => {
+      keywordRef.current = keyword;
+      if (!prefLevel2 || !keyword.trim() || subOptions.length === 0) return;
+      const kw = keyword.trim();
+      const kwLower = kw.toLowerCase();
+      // 完整子串匹配（中文直接包含，英文忽略大小写）
+      const exact = subOptions.filter(
+        (o) =>
+          o.title_zh.includes(kw) ||
+          o.title.toLowerCase().includes(kwLower),
+      );
+      if (exact.length > 0) {
+        exact.sort((a, b) => {
+          const ai = a.title_zh.includes(kw)
+            ? a.title_zh.indexOf(kw)
+            : a.title.toLowerCase().indexOf(kwLower);
+          const bi = b.title_zh.includes(kw)
+            ? b.title_zh.indexOf(kw)
+            : b.title.toLowerCase().indexOf(kwLower);
+          if (ai !== bi) return ai - bi;
+          return a.title_zh.length - b.title_zh.length;
+        });
+        setPrefLevel3(String(exact[0].id));
+        return;
+      }
+      // 拆字匹配：所有中文字符都出现在标题中
+      const chars = [...new Set(kw.replace(/[\s\x00-\x7f]/g, ""))].filter(Boolean);
+      if (chars.length >= 2) {
+        const matches = subOptions.filter((o) =>
+          chars.every((c) => o.title_zh.includes(c)),
+        );
+        if (matches.length > 0) {
+          matches.sort((a, b) => a.title_zh.length - b.title_zh.length);
+          setPrefLevel3(String(matches[0].id));
+          return;
+        }
+      }
+      // 无匹配：不清除已有的 L3 选择，保留用户手动选择
+    },
+    [prefLevel2, subOptions],
+  );
+
+  // 当二级子类目加载完成且有关键词时，自动搜索并填充三级分类
+  useEffect(() => {
+    if (keywordRef.current && prefLevel2 && subOptions.length > 0) {
+      searchAndAutoFillL3(keywordRef.current);
+    }
+  }, [prefLevel2, subOptions, searchAndAutoFillL3]);
+
   /** 根据智能推断结果自动填充级联选择器。
-   *  由于 L2 选项依赖 L1 的 useEffect 加载，L3 依赖 L2，
-   *  用 setTimeout 确保每级子类目已加载后再设置下一级。
+   *  仅填充 L1→L2；L3 由 searchAndAutoFillL3 基于关键词自动匹配。
+   *  由于 L2 选项依赖 L1 的 useEffect 加载，
+   *  用 setTimeout 确保子类目加载后再设置下一级。
    */
   const autoFillFromInference = (path: SmartInferResult) => {
     if (!path.level1_id) return;
@@ -94,11 +153,6 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     if (path.level2_id) {
       setTimeout(() => {
         setPrefLevel2(String(path.level2_id));
-        if (path.level3_id) {
-          setTimeout(() => {
-            setPrefLevel3(String(path.level3_id));
-          }, 150);
-        }
       }, 150);
     }
   };
@@ -116,5 +170,6 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel1Change,
     handlePrefLevel2Change,
     autoFillFromInference,
+    searchAndAutoFillL3,
   };
 }
