@@ -25,11 +25,13 @@ const CODE_MAP: Record<string, LocaleKey> = {
   OTHER: "procurement_type_other",
 };
 
-// 子串规则按优先级排列：EOI 先于资格预审（"意向表达…预审阶段"归 EOI），
-// RFQ/RFP/资格预审先于 ITB（"报价请求…重新招标"归 RFQ，
-// "invitation_for_prequalification"归资格预审）
+// 子串规则按优先级排列：
+// ITB 先于 EOI（"投标邀请书(ITB)-框架协议"含"意向表达"但应归 ITB），
+// ITB 先于 request（"Request for Bid(Open-Tender)"应归 ITB 而非 request），
+// framework 先于 EOI（含"框架协议"的 ITB 文本不被"意向表达"误匹配），
+// EOI 先于资格预审（"意向表达…预审阶段"归 EOI），
+// RFQ/RFP/资格预审先于 ITB（"报价请求…重新招标"归 RFQ）
 const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
-  ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b/],
   ["procurement_type_rfq", /quotation|报价|询价/],
   ["procurement_type_rfp", /\brfp\b|proposal|提案|建议书/],
   ["procurement_type_prequalification", /pre[\s-]?qualif|qualification|资格预审/],
@@ -39,10 +41,13 @@ const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
   ["procurement_type_contract_award", /contract award|award notice|授标|中标/],
   // 长尾采购类型：多供应商清单 / 框架协议 / 直接 contracting / 供应商名单
   ["procurement_type_multi_use_list", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/],
+  // ITB 提前至 framework/EOI/request 之前：避免 "Request for Bid" 被 request 误匹配、
+  // "投标邀请书(ITB)-框架协议" 被 framework("框架协议") 或 EOI("意向表达") 误匹配
+  ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],
   ["procurement_type_framework", /framework agreement|framework|standing offer|框架协议/],
   ["procurement_type_direct_contracting", /direct contract|direct procurement|直接合同|直接采购/],
+  ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b/],
   ["procurement_type_request", /request for(?! information)|征询请求|采购请求/],
-  ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],
   ["procurement_type_other", /\bother\b|其他/],
 ];
 

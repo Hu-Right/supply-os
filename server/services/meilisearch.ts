@@ -329,12 +329,13 @@ export async function searchWithFilters(params: {
         filter.push(`(${orParts})`);
       }
     }
+    // BUG-SRC-2 修复：日期字符串按北京时间（UTC+8）解析，与 MySQL UNIX_TIMESTAMP() 语义一致
     if (deadlineFrom && /^\d{4}-\d{2}-\d{2}$/.test(deadlineFrom)) {
-      const ts = Math.floor(new Date(deadlineFrom + "T00:00:00Z").getTime() / 1000);
+      const ts = toBeijingUnixTs(deadlineFrom, "00:00:00");
       filter.push(`deadline_sec >= ${ts}`);
     }
     if (deadlineTo && /^\d{4}-\d{2}-\d{2}$/.test(deadlineTo)) {
-      const ts = Math.floor(new Date(deadlineTo + "T23:59:59Z").getTime() / 1000);
+      const ts = toBeijingUnixTs(deadlineTo, "23:59:59");
       filter.push(`deadline_sec <= ${ts}`);
     }
     if (deadlineWithinDays && deadlineWithinDays > 0) {
@@ -382,6 +383,16 @@ export async function searchWithFilters(params: {
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
 function escapeFilter(value: string): string {
   return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+/**
+ * BUG-SRC-2 修复：将日期字符串按北京时间（UTC+8）解析为 Unix 时间戳
+ * 与 MySQL UNIX_TIMESTAMP() 在中国服务器（UTC+8）上的行为保持一致
+ */
+function toBeijingUnixTs(dateStr: string, time: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm, ss] = time.split(":").map(Number);
+  return Math.floor(new Date(Date.UTC(y, m - 1, d, hh - 8, mm, ss)).getTime() / 1000);
 }
 
 /** 获取索引中的文档总数（用于诊断） */

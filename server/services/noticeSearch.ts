@@ -1005,3 +1005,18 @@ export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
   noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
   return data;
 }
+
+/**
+ * 测试辅助：清除所有模块级缓存（搜索结果/计数/精选/国家/机构/统计/类型）
+ * 仅在测试环境中使用，避免跨用例缓存污染
+ */
+export function __testClearAllCaches(): void {
+  noticeSearchCache.clear();
+  noticeCountCache.clear();
+  featuredCountCache.total = 0;
+  featuredCountCache.expires = 0;
+  noticeCountriesCache = null;
+  noticeAgenciesCache = null;
+  noticeStatsCache = null;
+  _noticeTypeCache = null;
+}
