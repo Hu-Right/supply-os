@@ -179,6 +179,25 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
   const [agencies, setAgencies] = useState<Array<{ agency: string; count: number }>>([]);
 
+  // P1 性能优化：国家/机构列表 sessionStorage 缓存（10 分钟 TTL），避免每次进入页面重复请求
+  // 回滚：删除 COUNTRIES_CACHE_KEY/AGENCIES_CACHE_KEY 及 sessionStorage 逻辑，恢复原始 fetch
+  const COUNTRIES_CACHE_KEY = "supply-os:notice-countries";
+  const AGENCIES_CACHE_KEY = "supply-os:notice-agencies";
+  const CACHE_TTL = 10 * 60 * 1000; // 10 分钟
+
+  function readSessionCache<T>(key: string): T | null {
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return null;
+      const { data, ts } = JSON.parse(raw);
+      if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(key); return null; }
+      return data as T;
+    } catch { return null; }
+  }
+  function writeSessionCache(key: string, data: unknown): void {
+    try { sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch { /* quota */ }
+  }
+
   // URL 外部变化（支付回跳清参等）时同步表单草稿
   useEffect(() => {
     dispatchForm({
@@ -209,17 +228,30 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setPage(1);
   }, [searchKey, setPage]);
 
-  // 国家下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
+  // 国家下拉数据源（sessionStorage 缓存优先，服务端缓存 10 分钟兆底）
   useEffect(() => {
+    const cached = readSessionCache<Array<{ country: string; count: number }>>(COUNTRIES_CACHE_KEY);
+    if (cached) { setCountries(cached); return; }
     fetchNoticeCountries()
-      .then((data) => setCountries(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : [];
+        setCountries(arr);
+        if (arr.length > 0) writeSessionCache(COUNTRIES_CACHE_KEY, arr);
+      })
       .catch(() => setCountries([]));
   }, []);
 
-  // 采购机构下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
+  // 采购机构下拉数据源（sessionStorage 缓存优先，按 locale 分键）
   useEffect(() => {
+    const cacheKey = `${AGENCIES_CACHE_KEY}:${locale}`;
+    const cached = readSessionCache<Array<{ agency: string; count: number }>>(cacheKey);
+    if (cached) { setAgencies(cached); return; }
     fetchNoticeAgencies(locale)
-      .then((data) => setAgencies(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : [];
+        setAgencies(arr);
+        if (arr.length > 0) writeSessionCache(cacheKey, arr);
+      })
       .catch(() => setAgencies([]));
   }, [locale]);
 
@@ -273,6 +305,11 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const [error, setError] = useState("");
   const noticesRequestSeq = useRef(0);
 
+  // P0 性能优化：搜索防抖 + AbortController——减少无效请求、取消过期请求
+  // 回滚：删除 debounceTimerRef/abortControllerRef，恢复原始 effect 逻辑
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
 
   useEffect(() => {
@@ -281,49 +318,69 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // 登录/注册后 userKey 变化必须重跑：数据源可能从全量切到偏好/推荐，
     // userKey 未入 deps 时 prefsMode 保持 "default" 不变化会导致 effect 完全不重跑（登录后卡片消失 BUG）
     if (prefsMode === "loading" && !hasSearch && userKey) return;
+
+    // 取消前一次未完成的请求（AbortController）
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const requestSeq = noticesRequestSeq.current + 1;
     noticesRequestSeq.current = requestSeq;
     setLoading(true);
     setError("");
 
-    // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
-    const request =
-      hasSearch || activeSort !== "deadline_farthest"
-        ? fetchNotices({
-            page,
-            pageSize: PAGE_SIZE,
-            codeId: deepestCodeId || undefined,
-            q: activeQ || undefined,
-            country: activeCountry || undefined,
-            agency: activeAgency || undefined,
-            deadlineFrom: activeFrom || undefined,
-            deadlineTo: activeTo || undefined,
-            sort: activeSort,
-            userKey: userKey || undefined,
-            deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
-            noticeType: activeNoticeType || undefined,
-            featured: activeFeatured || undefined, // [精选功能重新启用 2026-07-31]
-            locale,
-          })
-        : prefsMode === "recommended" && userKey
-          ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale })
-          : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined, locale });
+    // 防抖 300ms：快速切换筛选器时只发最后一次请求
+    debounceTimerRef.current = setTimeout(() => {
+      // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
+      const request =
+        hasSearch || activeSort !== "deadline_farthest"
+          ? fetchNotices({
+              page,
+              pageSize: PAGE_SIZE,
+              codeId: deepestCodeId || undefined,
+              q: activeQ || undefined,
+              country: activeCountry || undefined,
+              agency: activeAgency || undefined,
+              deadlineFrom: activeFrom || undefined,
+              deadlineTo: activeTo || undefined,
+              sort: activeSort,
+              userKey: userKey || undefined,
+              deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
+              noticeType: activeNoticeType || undefined,
+              featured: activeFeatured || undefined,
+              locale,
+            }, controller.signal)
+          : prefsMode === "recommended" && userKey
+            ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale }, controller.signal)
+            : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined, locale }, controller.signal);
 
-    request
-      .then((json) => {
-        if (requestSeq !== noticesRequestSeq.current) return;
-        const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
-        variantRef.current = typeof json.variant === "string" ? json.variant : undefined; // T-B10
-        setItems(Array.isArray(json.items) ? json.items : []);
-        setTotal(Number(json.total || 0));
-        setServerPageSize(nextPageSize);
-      })
-      .catch(() => {
-        if (requestSeq === noticesRequestSeq.current) setError("Failed to load procurement notices.");
-      })
-      .finally(() => {
-        if (requestSeq === noticesRequestSeq.current) setLoading(false);
-      });
+      request
+        .then((json) => {
+          if (requestSeq !== noticesRequestSeq.current) return;
+          const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
+          variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
+          setItems(Array.isArray(json.items) ? json.items : []);
+          setTotal(Number(json.total || 0));
+          setServerPageSize(nextPageSize);
+        })
+        .catch((err) => {
+          if (requestSeq !== noticesRequestSeq.current) return;
+          // AbortError 是主动取消，不视为错误
+          if (err?.name === "AbortError" || controller.signal.aborted) return;
+          setError("Failed to load procurement notices.");
+        })
+        .finally(() => {
+          if (requestSeq === noticesRequestSeq.current && !controller.signal.aborted) {
+            setLoading(false);
+          }
+        });
+    }, 300);
+
+    // 清理：依赖变化时清除定时器 + 取消请求
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      controller.abort();
+    };
     // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
     // locale 纳入依赖：用户切换语言时需重新请求以获取对应译文
     // userKey 纳入依赖：登录/注册后数据源需按身份重新获取（偏好/推荐/行为落库）

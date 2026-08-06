@@ -64,6 +64,8 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
   }));
 
   router.get("/api/notices/countries", asyncHandler(async (_req, res) => {
+    // P1 性能优化：浏览器缓存 10 分钟（与服务端缓存 TTL 对齐），减少重复请求
+    res.setHeader("Cache-Control", "public, max-age=600");
     res.json(await getNoticeCountries(ctx.dbPool));
   }));
 

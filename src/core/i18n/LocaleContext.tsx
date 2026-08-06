@@ -32,20 +32,23 @@ function detectLocale(): Locale {
     return "en";
 }
 
-/** 模块级初始化守卫，确保 initI18n 只执行一次 */
-let initialized = false;
+/** 模块级初始化守卫，确保 setupI18nSync 只执行一次 */
+let engineReady = false;
 
 /**
- * 异步初始化 i18n：仅加载当前语言 + 英文兜底
- * 由 main.tsx 在首次渲染前 await 调用
+ * 同步初始化 i18n 引擎（不加载语言资源）
+ * Synchronous i18n engine setup — no language resources loaded.
+ *
+ * @description 配置 i18next 引擎并设置文档 lang/dir，但不 await 语言包下载。
+ *              调用后 t() 即可返回 key 本身（不阻塞 React 渲染树挂载）。
+ *              语言资源由 loadInitialLanguages() 异步加载完成后触发 re-render。
  */
-export async function initI18n(): Promise<void> {
-  if (initialized) return;
-  initialized = true;
+export function setupI18nSync(): void {
+  if (engineReady) return;
+  engineReady = true;
 
   const initial = detectLocale();
 
-  // i18next 引擎配置（无静态资源——资源由 loader.ts 按需注入）
   i18n
     .use(initReactI18next)
     .init({
@@ -60,7 +63,23 @@ export async function initI18n(): Promise<void> {
       returnNull: false,
     });
 
-  // 并行加载当前语言 + 英文兜底（首屏仅需 ~36-55KB 而非 256KB）
+  // 同步设置文档语言标记与书写方向
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = initial;
+    document.documentElement.dir = getLocaleDir(initial);
+  }
+}
+
+/**
+ * 异步加载初始语言包（当前语言 + 英文兜底）
+ * Async load initial language bundles (current locale + English fallback).
+ *
+ * @description 在 React 树已挂载后调用，语言包下载完成后 i18next 自动触发
+ *              组件 re-render，翻译文本替换 key 占位符。
+ *              回滚：将此函数体合并回 initI18n() 并恢复 main.tsx 的 await 模式。
+ */
+export async function loadInitialLanguages(): Promise<void> {
+  const initial = i18n.language as Locale || detectLocale();
   const langsToLoad: Locale[] = [initial];
   if (initial !== "en") langsToLoad.push("en");
   await Promise.all(langsToLoad.map(async (lang) => {
@@ -69,12 +88,15 @@ export async function initI18n(): Promise<void> {
       i18n.addResourceBundle(lang, "translation", data, true, true);
     }
   }));
+}
 
-  // 首屏同步文档语言标记与书写方向：阿语设全局 dir="rtl"
-  if (typeof document !== "undefined") {
-    document.documentElement.lang = initial;
-    document.documentElement.dir = getLocaleDir(initial);
-  }
+/**
+ * @deprecated 使用 setupI18nSync() + loadInitialLanguages() 替代
+ * 保留向后兼容：功能等同于两步合一
+ */
+export async function initI18n(): Promise<void> {
+  setupI18nSync();
+  await loadInitialLanguages();
 }
 
 type LocaleContextValue = {

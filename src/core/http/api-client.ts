@@ -48,15 +48,16 @@ const pendingRequests = new Map<string, PendingEntry>();
  */
 export async function api<T>(
   endpoint: string,
-  options: Omit<RequestInit, "body"> & { body?: unknown } = {},
+  options: Omit<RequestInit, "body"> & { body?: unknown; signal?: AbortSignal } = {},
 ): Promise<T> {
-  const { body, ...init } = options;
+  const { body, signal, ...init } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
   const method = init.method || "GET";
   const startTime = performance.now();
 
   const res = await fetch(url, {
     ...init,
+    signal,
     headers: {
       "Content-Type": "application/json",
       ...(init.headers as Record<string, string>),
@@ -104,6 +105,7 @@ export async function api<T>(
 export async function apiCached<T>(
   endpoint: string,
   ttl = DEFAULT_TTL,
+  signal?: AbortSignal,
 ): Promise<T> {
   const cached = cache.get(endpoint);
   if (cached && Date.now() - cached.timestamp < ttl) {
@@ -126,7 +128,7 @@ export async function apiCached<T>(
   }
 
   // 发起请求并缓存 Promise，防止并发穿透
-  const promise = api<T>(endpoint).then((data) => {
+  const promise = api<T>(endpoint, { signal }).then((data) => {
     cache.set(endpoint, { data, timestamp: Date.now() });
     pendingRequests.delete(endpoint);
     return data;

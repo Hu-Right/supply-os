@@ -23,6 +23,10 @@ export default defineConfig(() => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-i18n': ['i18next', 'react-i18next'],
+            // P1 性能优化：图标库 + 动画库独立分割——按需加载、缓存隔离
+            // 回滚：删除以下两行即可
+            'vendor-icons': ['lucide-react'],
+            'vendor-motion': ['motion'],
           },
           assetFileNames: (assetInfo) => {
             const ext = path.extname(assetInfo.name ?? '').replace(/^\./, '');
@@ -38,7 +42,9 @@ export default defineConfig(() => {
       },
       // 生成 manifest.json 供服务端版本比对
       manifest: true,
-      sourcemap: true,
+      // P1 性能优化：生产环境关闭 sourcemap 减少部署体积（开发模式由 Vite 内联提供）
+      // 回滚：将 false 改回 true
+      sourcemap: false,
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

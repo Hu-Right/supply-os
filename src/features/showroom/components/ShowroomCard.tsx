@@ -27,6 +27,8 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
         <img
           src={showroom.bannerUrl}
           alt={pickLocale(locale, showroom.nameZh, showroom.nameEn)}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition-transform duration-550 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />

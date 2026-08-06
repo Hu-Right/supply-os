@@ -8,7 +8,7 @@
  *              Public facade for i18n. Consumers import from `@/core/i18n` only.
  */
 
-export { LocaleProvider, useLocale, initI18n } from "./LocaleContext";
+export { LocaleProvider, useLocale, initI18n, setupI18nSync, loadInitialLanguages } from "./LocaleContext";
 export { pickLocale } from "./pickLocale";
 export { detectDominantScript, needsContentTranslation } from "./detectScript";
 export type { ContentScript } from "./detectScript";

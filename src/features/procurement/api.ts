@@ -30,7 +30,8 @@ export interface NoticeSearchFilters {
 }
 
 export const fetchNotices = (
-  params: { page: number; pageSize: number; codeId?: string } & NoticeSearchFilters
+  params: { page: number; pageSize: number; codeId?: string } & NoticeSearchFilters,
+  signal?: AbortSignal,
 ) => {
   const qs = buildQuery({
     page: params.page,
@@ -52,7 +53,7 @@ export const fetchNotices = (
   // 回滚：将 apiCached 替换回 api，删除第二个参数
   // 原注释：列表/搜索结果时效敏感（截止过滤与排序依赖服务端 NOW()），服务端已有 180s
   // TTL 缓存兜底性能；前端短缓存 30s 平衡时效性与重复请求消除
-  return apiCached<NoticeResponse>(`/api/notices?${qs}`, 30 * 1000);
+  return apiCached<NoticeResponse>(`/api/notices?${qs}`, 30 * 1000, signal);
 };
 
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
@@ -185,7 +186,7 @@ export const fetchRecommendedNotices = (params: {
   locale?: string;
   // [dismiss 功能临时禁用 2026-07-30] excludeDismissed 参数已移除
   // excludeDismissed?: boolean;
-}): Promise<NoticeResponse> => {
+}, signal?: AbortSignal): Promise<NoticeResponse> => {
   const qs = buildQuery({
     user_key: params.userKey,
     page: params.page,
@@ -193,7 +194,7 @@ export const fetchRecommendedNotices = (params: {
     locale: params.locale,
   });
   // [dismiss 功能临时禁用 2026-07-30]
-  return api<NoticeResponse>(`/api/notices/recommended?${qs}`);
+  return api<NoticeResponse>(`/api/notices/recommended?${qs}`, { signal });
 };
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──

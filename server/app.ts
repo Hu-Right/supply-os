@@ -6,6 +6,9 @@
 import express from "express";
 import type { Express } from "express";
 import type { AppContext } from "./context";
+// P1 性能优化：ESM 兼容压缩中间件导入（替代原 CJS require 模式）
+// 回滚：删除此行，恢复原 try { require("compression") } 块
+import compression from "compression";
 import { createLeadsRouter } from "./routes/leads.routes";
 import { createSuppliersRouter } from "./routes/suppliers.routes";
 import { createAuthRouter } from "./routes/auth.routes";
@@ -24,15 +27,10 @@ import { extractUserKey } from "./middleware/auth";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
-  // ── Gzip 压缩（可选依赖：未安装时静默降级，不影响服务启动）──
-  try {
-    // CJS 模式下 require 可用；ESM (tsx dev) 下 require 不存在，跳过压缩
-    if (typeof require !== "undefined") {
-      app.use(require("compression")());
-    }
-  } catch {
-    // compression 未安装，跳过压缩（功能降级，不影响核心服务）
-  }
+  // ── Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
+  // P1 性能优化：修复原 CJS require 在 ESM 模式下不生效的问题
+  // 回滚：恢复为 try { if (typeof require !== 'undefined') app.use(require('compression')()) } catch {}
+  app.use(compression());
   app.use(express.json());
   app.use(express.urlencoded({ extended: false })); // 支付宝异步通知为 form-urlencoded
   // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）

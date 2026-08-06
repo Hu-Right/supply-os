@@ -133,6 +133,8 @@ export function ReportUnavailableBanner({
             <img
               src="/wechat-service-qr.png"
               alt="WeChat QR"
+              loading="lazy"
+              decoding="async"
               className="w-48 h-48 mx-auto rounded-lg"
             />
             <p className="text-xs text-slate-500 text-center mt-3 leading-5">
