@@ -753,5 +753,20 @@ export async function ensureProcurementSchema(dbPool: any) {
   // 回滚：DROP INDEX ft_notices_search ON crm_bid_notices;
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "ft_notices_search",
     "CREATE FULLTEXT INDEX ft_notices_search ON crm_bid_notices (title, reference, description) WITH PARSER ngram");
+
+  // ── 机构别名映射表（归一化去重增强：将缩写/别名映射到标准名称）──
+  // 例：UNDP / UNITED NATIONS DEVELOPMENT PROGRAMME → 同一 canonical 名
+  await dbPool.query(`
+    CREATE TABLE IF NOT EXISTS crm_agency_aliases (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      canonical VARCHAR(255) NOT NULL COMMENT '标准机构名（展示用）',
+      alias VARCHAR(255) NOT NULL COMMENT '别名（匹配用，大写存储）',
+      name_i18n JSON NULL COMMENT '机构名多语言翻译 {zh, fr, ru, es, ar}',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_alias (alias),
+      KEY idx_canonical (canonical)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+  await ensureColumn(dbPool, "crm_agency_aliases", "name_i18n", "name_i18n JSON NULL COMMENT '机构名多语言翻译 {zh, fr, ru, es, ar}'");
 }
 

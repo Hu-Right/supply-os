@@ -60,8 +60,10 @@ export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
 
 /** 在库有效公告的采购机构清单（按公告数降序，服务端缓存 10 分钟），搜索栏机构下拉数据源 */
-export const fetchNoticeAgencies = () =>
-  apiCached<Array<{ agency: string; count: number }>>("/api/notices/agencies");
+export const fetchNoticeAgencies = (locale?: string) => {
+  const qs = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return apiCached<Array<{ agency: string; count: number; agency_i18n?: string }>>(`/api/notices/agencies${qs}`);
+};
 
 export const fetchMembershipPlans = () =>
   apiCached<MembershipPlan[]>("/api/membership/plans");

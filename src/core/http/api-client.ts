@@ -24,7 +24,19 @@ export class ApiError extends Error {
 }
 
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 分钟
-const cache = new Map<string, { data: unknown; timestamp: number }>();
+
+interface CacheEntry<T = unknown> {
+  data: T;
+  timestamp: number;
+}
+
+interface PendingEntry {
+  promise: Promise<unknown>;
+}
+
+const cache = new Map<string, CacheEntry>();
+// 飞行中请求缓存：防止同一端点的并发请求穿透缓存（竞态条件）
+const pendingRequests = new Map<string, PendingEntry>();
 
 /**
  * 基础请求函数
@@ -107,9 +119,23 @@ export async function apiCached<T>(
     return cached.data as T;
   }
 
-  const data = await api<T>(endpoint);
-  cache.set(endpoint, { data, timestamp: Date.now() });
-  return data;
+  // 飞行中请求去重：同一端点已有未完成的请求，复用其 Promise
+  const pending = pendingRequests.get(endpoint);
+  if (pending) {
+    return pending.promise as Promise<T>;
+  }
+
+  // 发起请求并缓存 Promise，防止并发穿透
+  const promise = api<T>(endpoint).then((data) => {
+    cache.set(endpoint, { data, timestamp: Date.now() });
+    pendingRequests.delete(endpoint);
+    return data;
+  }).catch((err) => {
+    pendingRequests.delete(endpoint);
+    throw err;
+  });
+  pendingRequests.set(endpoint, { promise });
+  return promise;
 }
 
 // ============ 缓存受控接口 ============

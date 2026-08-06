@@ -26,11 +26,34 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
-import { searchNotices, refreshNoticeStats, refreshIsActive } from "./services/noticeSearch";
+import { searchNotices, refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "./services/noticeSearch";
+import { seedAgencyAliases } from "./services/agencyAliasSeed";
+import { initMeilisearch, ensureIndex, syncNoticeIds, isHealthy as isMeiliHealthy } from "./services/meilisearch";
+import { startSearchSync } from "./services/searchSync";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
 const leadsDb = createLeadsStore();
+
+/**
+ * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
+ * 内部用 setTimeout 链式调度：每次计算到目标时刻的毫秒数，执行后重新调度。
+ */
+function scheduleDailyAt(hour: number, cb: () => Promise<void>): NodeJS.Timeout {
+  let timer: NodeJS.Timeout;
+  const schedule = () => {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 0);
+    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
+    const delay = next.getTime() - now.getTime();
+    timer = setTimeout(async () => {
+      await cb();
+      schedule(); // 执行后调度次日
+    }, delay);
+  };
+  schedule();
+  return timer!;
+}
 
 export async function startServer() {
   const PORT = 3039;
@@ -39,25 +62,59 @@ export async function startServer() {
   const dbPool = createDbPool();
 
   await ensureProcurementSchema(dbPool);
+
+  // 机构别名映射种子数据（启动时自动写入，已存在则跳过）
+  try {
+    const seedCount = await seedAgencyAliases(dbPool);
+    if (seedCount > 0) {
+      console.log(`[agency-alias] 种子数据写入: ${seedCount} 条别名映射`);
+    }
+  } catch (e) {
+    console.error("[agency-alias] 种子数据写入失败（静默降级）:", (e as Error).message);
+  }
+
   await backfillUserIds(dbPool);
 
   // P6 性能优化：启动时回填 is_featured 预计算列，之后每 30 分钟增量刷新
   // 回滚：删除以下 refreshFeaturedColumn 调用和 setInterval
   try {
-    const { marked, unmarked } = await refreshFeaturedColumn(dbPool);
-    console.log(`[featured-init] 初始回填完成: marked=${marked} unmarked=${unmarked}`);
+    const result = await refreshFeaturedColumn(dbPool);
+    console.log(`[featured-init] 初始回填完成: marked=${result.marked} unmarked=${result.unmarked}`);
+    // 将初始回填的 is_featured 变更同步到 Meilisearch
+    if (result.changedIds.length > 0 && isMeiliHealthy()) {
+      const syncResult = await syncNoticeIds(dbPool, result.changedIds);
+      if (syncResult.synced > 0) {
+        console.log(`[meilisearch] is_featured 初始同步: ${syncResult.synced} 条`);
+      }
+    }
   } catch (e) {
     console.error("[featured-init] 初始回填失败:", (e as Error).message);
   }
   const featuredRefreshTimer = setInterval(async () => {
-    try { await refreshFeaturedColumn(dbPool); } catch { /* 静默降级 */ }
+    try {
+      const result = await refreshFeaturedColumn(dbPool);
+      // 将 is_featured 状态变更同步到 Meilisearch
+      if (result.changedIds.length > 0 && isMeiliHealthy()) {
+        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
+        if (syncResult.synced > 0) {
+          console.log(`[meilisearch] is_featured 状态同步: ${syncResult.synced} 条`);
+        }
+      }
+    } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000); // 30 分钟
   // 方案D：is_active 每 10 分钟增量刷新（过期公告标记为 inactive）
   // 回滚：删除 isActiveRefreshTimer 和 clearInterval
   const isActiveRefreshTimer = setInterval(async () => {
     try {
-      await refreshIsActive(dbPool);
+      const result = await refreshIsActive(dbPool);
       await refreshNoticeStats(dbPool); // is_active 变化后同步刷新统计表
+      // 将 is_active 状态变更同步到 Meilisearch
+      if (result.changedIds.length > 0 && isMeiliHealthy()) {
+        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
+        if (syncResult.synced > 0) {
+          console.log(`[meilisearch] is_active 状态同步: ${syncResult.synced} 条`);
+        }
+      }
     } catch { /* 静默降级 */ }
   }, 10 * 60 * 1000); // 10 分钟
   await hydratePaymentEnvFromDb(dbPool);
@@ -147,12 +204,37 @@ export async function startServer() {
     dbPool,
   });
 
+  // ── Meilisearch 搜索引擎初始化（异步全量同步 + 1 分钟增量同步）──
+  // MEILI_ENABLED=on 时激活；不可用时搜索自动降级到 MySQL FULLTEXT
+  let stopSearchSync: (() => void) | undefined;
+  if (String(process.env.MEILI_ENABLED ?? "off").toLowerCase() === "on") {
+    try {
+      const meiliClient = initMeilisearch();
+      if (meiliClient) {
+        const indexReady = await ensureIndex();
+        if (indexReady) {
+          stopSearchSync = startSearchSync(dbPool, { intervalMs: 1 * 60 * 1000 });
+          console.log("[meilisearch] 初始化完成: 索引已就绪, 增量同步已启动 (间隔 1 分钟)");
+        } else {
+          console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
+        }
+      }
+    } catch (e) {
+      console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
+    }
+  }
+
   // ── P0 性能优化：启动时预热 MySQL Buffer Pool + 填充搜索缓存 ──
   // 消除首次用户请求的 ~3000ms 冷启动延迟
   try {
     const warmupStart = performance.now();
     // 方案D：先回填 is_active 列（确保搜索查询可走索引）
-    await refreshIsActive(dbPool);
+    const isActiveResult = await refreshIsActive(dbPool);
+    // 将 is_active 状态变更同步到 Meilisearch（确保索引与 MySQL 一致）
+    if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
+      const syncResult = await syncNoticeIds(dbPool, isActiveResult.changedIds);
+      console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
+    }
     // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
     await refreshNoticeStats(dbPool);
     // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
@@ -162,10 +244,13 @@ export async function startServer() {
     await searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo);
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo);
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo);
-    // 2) 供应商列表——触发 suppliers 表预热
+    // 4) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
+    await refreshNoticeCountries(dbPool);
+    await refreshNoticeAgencies(dbPool);
+    // 5) 供应商列表——触发 suppliers 表预热
     await suppliersRepo.listDirectory();
     const warmupMs = Math.round(performance.now() - warmupStart);
-    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (公告 zh/en + 供应商)`);
+    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (公告 zh/en + 国家/机构 + 供应商)`);
   } catch (e) {
     console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
   }
@@ -178,11 +263,24 @@ export async function startServer() {
     console.log(`Server fully functional on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
   });
 
+  // ── 国家/机构缓存每日凌晨 5 点定时刷新 ──
+  const dailyRefreshTimer = scheduleDailyAt(5, async () => {
+    try {
+      await refreshNoticeCountries(dbPool);
+      await refreshNoticeAgencies(dbPool);
+      console.log("[daily-refresh] 国家/机构缓存已刷新");
+    } catch (e) {
+      console.error("[daily-refresh] 刷新失败（静默降级）:", (e as Error).message);
+    }
+  });
+
   // 返回 stop 函数供优雅关闭使用
   return () => {
     stopAutoTranslate();
     stopReportCacheCleanup();
+    stopSearchSync?.();
     clearInterval(featuredRefreshTimer);
     clearInterval(isActiveRefreshTimer);
+    clearTimeout(dailyRefreshTimer);
   };
 }

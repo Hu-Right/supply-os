@@ -218,10 +218,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   // 采购机构下拉数据源（服务端缓存 10 分钟，前端按 URL 会话级缓存）
   useEffect(() => {
-    fetchNoticeAgencies()
+    fetchNoticeAgencies(locale)
       .then((data) => setAgencies(Array.isArray(data) ? data : []))
       .catch(() => setAgencies([]));
-  }, []);
+  }, [locale]);
 
   // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
   const applySearch = (sortOverride?: "deadline" | "latest" | "deadline_farthest") => {

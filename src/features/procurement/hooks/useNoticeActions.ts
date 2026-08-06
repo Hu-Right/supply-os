@@ -66,6 +66,12 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     },
   });
 
+  // 包装 openPaywall：打开付费墙时懒加载套餐列表，避免初始页面加载时多发请求
+  const openPaywallWithPlans = (notice: import("../types").NoticeItem) => {
+    void membership.loadPaidPlans();
+    openPaywall(notice);
+  };
+
   const handlers = useNoticeHandlers({
     userKey,
     isVip,
@@ -74,7 +80,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     trackDetailOpen,
     membership,
     unlock,
-    openPaywall,
+    openPaywall: openPaywallWithPlans,
     onRequireLogin,
     setActionMessage,
   });

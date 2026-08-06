@@ -30,6 +30,7 @@ export interface UseNoticeMembershipReturn {
   freeQuota: number;
   canUsePaidQuota: boolean;
   refreshMembership: (useCache?: boolean) => Promise<void>;
+  loadPaidPlans: () => Promise<void>;
 }
 
 export function useNoticeMembership({
@@ -57,11 +58,13 @@ export function useNoticeMembership({
     }
   };
 
-  useEffect(() => {
-    fetchMembershipPlans()
+  // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求
+  const loadPaidPlans = () => {
+    if (paidPlans.length > 0) return Promise.resolve();
+    return fetchMembershipPlans()
       .then((plans) => setPaidPlans(Array.isArray(plans) ? plans : []))
       .catch(() => {});
-  }, []);
+  };
 
   useEffect(() => {
     refreshMembership(true);
@@ -76,5 +79,6 @@ export function useNoticeMembership({
     freeQuota,
     canUsePaidQuota,
     refreshMembership,
+    loadPaidPlans,
   };
 }

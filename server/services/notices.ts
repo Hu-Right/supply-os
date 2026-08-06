@@ -216,22 +216,42 @@ async function queryQualifiedOpportunity(dbPool: any, notice: any) {
 // 用 FEATURED_NOTICE_EXISTS 实时计算结果同步到 crm_bid_notices.is_featured 列
 // 启动时执行一次初始回填，之后每 30 分钟增量刷新
 // 回滚：删除 refreshFeaturedColumn 函数，移除 bootstrap.ts 中的调用
-export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: number; unmarked: number }> {
-  // 步骤 1：将符合条件的公告标记为 featured（包括已经是和新增的）
-  const [markResult] = await dbPool.query(
-    `UPDATE crm_bid_notices n SET n.is_featured = 1 WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
+export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: number; unmarked: number; changedIds: number[] }> {
+  // 步骤 1：查询即将被标记为 featured 的 ID（当前 is_featured=0 但符合条件）
+  const [toMarkRows] = await dbPool.query(
+    `SELECT n.id FROM crm_bid_notices n WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
   );
-  const marked = (markResult as any)?.affectedRows ?? 0;
+  const toMarkIds = (toMarkRows as any[]).map(r => r.id);
 
-  // 步骤 2：将不再符合条件的公告取消标记
-  const [unmarkResult] = await dbPool.query(
-    `UPDATE crm_bid_notices n SET n.is_featured = 0 WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
+  // 步骤 2：查询即将被取消 featured 的 ID（当前 is_featured=1 但不再符合条件）
+  const [toUnmarkRows] = await dbPool.query(
+    `SELECT n.id FROM crm_bid_notices n WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
   );
-  const unmarked = (unmarkResult as any)?.affectedRows ?? 0;
+  const toUnmarkIds = (toUnmarkRows as any[]).map(r => r.id);
+
+  // 步骤 3：执行 UPDATE
+  if (toMarkIds.length > 0) {
+    const placeholders = toMarkIds.map(() => "?").join(",");
+    await dbPool.query(
+      `UPDATE crm_bid_notices SET is_featured = 1 WHERE id IN (${placeholders})`,
+      toMarkIds
+    );
+  }
+  if (toUnmarkIds.length > 0) {
+    const placeholders = toUnmarkIds.map(() => "?").join(",");
+    await dbPool.query(
+      `UPDATE crm_bid_notices SET is_featured = 0 WHERE id IN (${placeholders})`,
+      toUnmarkIds
+    );
+  }
+
+  const marked = toMarkIds.length;
+  const unmarked = toUnmarkIds.length;
+  const changedIds = [...toMarkIds, ...toUnmarkIds];
 
   if (marked > 0 || unmarked > 0) {
     console.log(`[featured-refresh] marked=${marked} unmarked=${unmarked}`);
   }
-  return { marked, unmarked };
+  return { marked, unmarked, changedIds };
 }
 

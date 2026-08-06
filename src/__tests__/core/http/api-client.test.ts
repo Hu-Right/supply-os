@@ -149,6 +149,30 @@ describe("api-client", () => {
       expect(result2).toEqual(mockData2);
       expect(global.fetch).toHaveBeenCalledTimes(2);
     });
+
+    it("should deduplicate concurrent requests to the same endpoint", async () => {
+      const mockData = { id: 1, name: "Test" };
+      // 模拟慢请求（50ms 延迟）
+      global.fetch = vi.fn().mockImplementation(
+        () => new Promise((resolve) => setTimeout(() => resolve({
+          ok: true,
+          json: () => Promise.resolve(mockData),
+        }), 50))
+      );
+
+      // 并发发起 3 个相同端点的请求
+      const [r1, r2, r3] = await Promise.all([
+        apiCached("/api/test"),
+        apiCached("/api/test"),
+        apiCached("/api/test"),
+      ]);
+
+      expect(r1).toEqual(mockData);
+      expect(r2).toEqual(mockData);
+      expect(r3).toEqual(mockData);
+      // 3 个并发请求只应发出 1 次实际 fetch
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("manual cache controls", () => {

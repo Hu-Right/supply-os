@@ -32,10 +32,21 @@ export function createSystemRouter(ctx: AppContext): Router {
   const router = Router();
   const { systemRepo } = ctx;
 
+  // ICP 备案号准静态，服务端内存缓存 10 分钟，避免每次穿透 DB
+  let icpCache: { bah: string; ts: number } | null = null;
+  const ICP_CACHE_TTL = 10 * 60 * 1000;
+
   router.get("/api/system/icp", async (_req, res) => {
     try {
+      const now = Date.now();
+      if (icpCache && now - icpCache.ts < ICP_CACHE_TTL) {
+        res.setHeader("Cache-Control", "public, max-age=600");
+        return res.json(icpCache);
+      }
       const bah = await systemRepo.getIcpBah();
-      res.json({ bah });
+      icpCache = { bah, ts: now };
+      res.setHeader("Cache-Control", "public, max-age=600");
+      res.json(icpCache);
     } catch {
       res.json({ bah: "" });
     }

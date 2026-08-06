@@ -67,8 +67,10 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     res.json(await getNoticeCountries(ctx.dbPool));
   }));
 
-  router.get("/api/notices/agencies", asyncHandler(async (_req, res) => {
-    res.json(await getNoticeAgencies(ctx.dbPool));
+  router.get("/api/notices/agencies", asyncHandler(async (req, res) => {
+    const locale = String(req.query.locale || "").toLowerCase();
+    res.setHeader("Cache-Control", "public, max-age=600");
+    res.json(await getNoticeAgencies(ctx.dbPool, locale || undefined));
   }));
 
   router.get("/api/notices/stats", asyncHandler(async (_req, res) => {

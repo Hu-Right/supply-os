@@ -1,0 +1,348 @@
+/**
+ * Meilisearch 搜索引擎客户端
+ * Meilisearch search engine client singleton
+ *
+ * @module server/services/meilisearch
+ * @description 封装 Meilisearch SDK，提供索引管理、文档同步与健康检查。
+ *              搜索场景：Meilisearch 负责筛选/排序/分页 → 返回 ID 列表 → MySQL 按 ID 取详情。
+ *              降级策略：Meilisearch 不可用时，调用方回退到 MySQL FULLTEXT 查询。
+ */
+import { Meilisearch } from "meilisearch";
+import type { Pool } from "mysql2/promise";
+
+const INDEX_NAME = "notices";
+
+let client: Meilisearch | null = null;
+let healthy = false;
+
+/** 初始化 Meilisearch 客户端（幂等） */
+export function initMeilisearch(): Meilisearch | null {
+  const host = process.env.MEILI_HOST || "http://127.0.0.1:7700";
+  const key = process.env.MEILI_MASTER_KEY || "";
+  try {
+    client = new Meilisearch({ host, apiKey: key || undefined, timeout: 5000 });
+    return client;
+  } catch (err) {
+    console.warn("[meilisearch] init failed:", (err as Error).message);
+    client = null;
+    return null;
+  }
+}
+
+export function getClient(): Meilisearch | null {
+  return client;
+}
+
+export function isHealthy(): boolean {
+  return healthy;
+}
+
+/** 启动时健康检查 + 索引初始化 */
+export async function ensureIndex(): Promise<boolean> {
+  if (!client) return false;
+  try {
+    const health = await client.health();
+    healthy = health.status === "available";
+  } catch {
+    healthy = false;
+    console.warn("[meilisearch] health check failed — search will fallback to MySQL LIKE");
+    return false;
+  }
+  if (!healthy) return false;
+
+  try {
+    // 创建或更新索引配置
+    const index = client.index(INDEX_NAME);
+    await index.updateSettings({
+      searchableAttributes: [
+        "reference",
+        "title",
+        "title_zh",
+        "title_en",
+        "description",
+        "description_zh",
+        "description_en",
+      ],
+      filterableAttributes: [
+        "country",
+        "agency",
+        "notice_type_normalized",
+        "deadline_sec",
+        "is_active",
+        "is_featured",
+      ],
+      sortableAttributes: ["deadline_sec", "id"],
+      rankingRules: [
+        "words",
+        "typo",
+        "proximity",
+        "attribute",
+        "sort",
+        "exactness",
+      ],
+      // ngram 分词对中文的支持：Meilisearch 内置中文分词（charabia）
+      nonSeparatorTokens: ["zh"],
+    });
+    return true;
+  } catch (err) {
+    console.warn("[meilisearch] ensureIndex failed:", (err as Error).message);
+    return false;
+  }
+}
+
+/**
+ * notice_type 归一化：将混合存储的原始值映射为标准短代码
+ * 基于 src/features/procurement/notice-type.ts 的映射规则
+ */
+export function normalizeNoticeType(raw: string | null | undefined): string {
+  if (!raw) return "OTHER";
+  const upper = raw.toUpperCase().trim();
+
+  // 短代码精确匹配
+  const SHORT_CODES: Record<string, string> = {
+    ITB: "ITB", ITT: "ITB",
+    RFQ: "RFQ", RFP: "RFP",
+    EOI: "EOI", PQ: "PQ", PRE: "PQ",
+    IC: "IC", RFI: "RFI", GPN: "GPN",
+  };
+  if (SHORT_CODES[upper]) return SHORT_CODES[upper];
+
+  // 长文本模式匹配（按优先级排列）
+  if (/expression of interest|意向表达|意向征集|\beoi\b/i.test(raw)) return "EOI";
+  if (/quotation|报价|询价/i.test(raw)) return "RFQ";
+  if (/\brfp\b|proposal|提案|建议书/i.test(raw)) return "RFP";
+  if (/pre[\s-]?qualif|资格预审/i.test(raw)) return "PQ";
+  if (/consultant|顾问/i.test(raw)) return "IC";
+  if (/request for information|信息征询|\brfi\b/i.test(raw)) return "RFI";
+  if (/general procurement notice|\bgpn\b/i.test(raw)) return "GPN";
+  if (/contract award|award notice|授标|中标/i.test(raw)) return "AWARD";
+  if (/\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/i.test(raw)) return "ITB";
+
+  return "OTHER";
+}
+
+/** 构建同步文档：从 MySQL 行映射为 Meilisearch 文档 */
+function buildSyncDoc(r: any) {
+  return {
+    id: r.id,
+    notice_id: r.notice_id,
+    reference: r.reference || "",
+    title: r.title || "",
+    description: r.description || "",
+    country: r.country || "",
+    agency: r.agency || "",
+    notice_type: r.notice_type || "",
+    notice_type_normalized: normalizeNoticeType(r.notice_type),
+    deadline_sec: r.deadline_sec || 0,
+    is_active: r.is_active ? 1 : 0,
+    is_expired: r.is_expired ? 1 : 0,
+    is_featured: r.is_featured ? 1 : 0,
+    title_zh: r.title_zh || "",
+    description_zh: r.description_zh || "",
+    title_en: r.title_en || "",
+    description_en: r.description_en || "",
+  };
+}
+
+/** 同步 SQL：包含 agency、is_active 字段 */
+const SYNC_SQL_SELECT = `
+  SELECT n.id, n.notice_id, n.reference, n.title,
+         LEFT(n.description, 2000) AS description,
+         n.country, n.agency, n.notice_type, n.deadline_sec,
+         n.is_active, n.is_expired, n.is_featured,
+         tzh.title_tr AS title_zh, tzh.description_tr AS description_zh,
+         ten.title_tr AS title_en, ten.description_tr AS description_en
+`;
+const SYNC_SQL_JOIN = `
+  FROM crm_bid_notices n
+  LEFT JOIN crm_notice_translations tzh ON tzh.notice_id = n.id AND tzh.lang = 'zh'
+  LEFT JOIN crm_notice_translations ten ON ten.notice_id = n.id AND ten.lang = 'en'
+`;
+
+/**
+ * 全量同步：从 MySQL 拉取全量公告数据写入 Meilisearch
+ * 首次启动或手动触发时调用
+ */
+export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
+  if (!client || !healthy) return { synced: 0, elapsed: 0, lastId: 0 };
+  const start = Date.now();
+
+  try {
+    const BATCH = 2000;
+    let offset = 0;
+    let totalSynced = 0;
+    let lastId = 0;
+
+    while (true) {
+      const [rows] = await pool.query(
+        SYNC_SQL_SELECT + SYNC_SQL_JOIN + " ORDER BY n.id ASC LIMIT ? OFFSET ?",
+        [BATCH, offset]
+      );
+
+      const docs = (rows as any[]).map(buildSyncDoc);
+      if (docs.length === 0) break;
+
+      await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
+      totalSynced += docs.length;
+      lastId = docs[docs.length - 1].id;
+      offset += BATCH;
+
+      if (docs.length < BATCH) break;
+    }
+
+    const elapsed = Date.now() - start;
+    console.log(`[meilisearch] fullSync 完成: ${totalSynced} 条文档, ${elapsed}ms`);
+    return { synced: totalSynced, elapsed, lastId };
+  } catch (err) {
+    console.error("[meilisearch] fullSync failed:", (err as Error).message);
+    return { synced: 0, elapsed: Date.now() - start, lastId: 0 };
+  }
+}
+
+/**
+ * 增量同步：仅同步 id > watermark 的新增/更新记录
+ * 定时调用（每 1 分钟）
+ */
+export async function incrementalSync(
+  pool: Pool,
+  watermark: number
+): Promise<{ synced: number; newWatermark: number }> {
+  if (!client || !healthy) return { synced: 0, newWatermark: watermark };
+
+  try {
+    const [rows] = await pool.query(
+      SYNC_SQL_SELECT + SYNC_SQL_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT 5000",
+      [watermark]
+    );
+
+    const docs = (rows as any[]).map(buildSyncDoc);
+    if (docs.length === 0) return { synced: 0, newWatermark: watermark };
+
+    await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
+    const newWatermark = docs[docs.length - 1].id;
+    return { synced: docs.length, newWatermark };
+  } catch (err) {
+    console.error("[meilisearch] incrementalSync failed:", (err as Error).message);
+    return { synced: 0, newWatermark: watermark };
+  }
+}
+
+/**
+ * 条件搜索：通过 Meilisearch 执行多条件筛选 + 排序 + 分页，返回 ID 列表 + 总数
+ * 支持：关键词 + 国家 + 机构 + 日期范围 + 公告类型 + 精选 + 排序 + 分页
+ * 自动过滤过时数据（is_active = 1）
+ * 返回 null 表示搜索失败（调用方降级到 MySQL）
+ */
+export async function searchWithFilters(params: {
+  q?: string;
+  country?: string;
+  /** 已解析的数据库原始机构名列表（调用方负责 canonical → originals 转换） */
+  agencies?: string[];
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  deadlineWithinDays?: number;
+  noticeType?: string;
+  featuredOnly?: boolean;
+  sort?: string;
+  page: number;
+  pageSize: number;
+}): Promise<{ ids: number[]; total: number } | null> {
+  if (!client || !healthy) return null;
+
+  try {
+    const {
+      q, country, agencies, deadlineFrom, deadlineTo,
+      deadlineWithinDays, noticeType, featuredOnly,
+      sort, page, pageSize,
+    } = params;
+
+    // 构建 filter 数组（AND 组合）
+    const filter: string[] = ["is_active = 1"];
+    if (country) filter.push(`country = "${country}"`);
+    if (agencies && agencies.length > 0) {
+      if (agencies.length === 1) {
+        filter.push(`agency = "${agencies[0]}"`);
+      } else {
+        const orParts = agencies.map((o) => `agency = "${o}"`).join(" OR ");
+        filter.push(`(${orParts})`);
+      }
+    }
+    if (deadlineFrom && /^\d{4}-\d{2}-\d{2}$/.test(deadlineFrom)) {
+      const ts = Math.floor(new Date(deadlineFrom + "T00:00:00Z").getTime() / 1000);
+      filter.push(`deadline_sec >= ${ts}`);
+    }
+    if (deadlineTo && /^\d{4}-\d{2}-\d{2}$/.test(deadlineTo)) {
+      const ts = Math.floor(new Date(deadlineTo + "T23:59:59Z").getTime() / 1000);
+      filter.push(`deadline_sec <= ${ts}`);
+    }
+    if (deadlineWithinDays && deadlineWithinDays > 0) {
+      const futureTs = Math.floor(Date.now() / 1000) + deadlineWithinDays * 86400;
+      filter.push(`deadline_sec <= ${futureTs}`);
+    }
+    if (noticeType) {
+      const normalized = normalizeNoticeType(noticeType);
+      filter.push(`notice_type_normalized = "${normalized}"`);
+    }
+    if (featuredOnly) filter.push("is_featured = 1");
+
+    // 排序映射
+    const sortArr: string[] = [];
+    if (sort === "latest") {
+      sortArr.push("id:desc");
+    } else if (sort === "deadline") {
+      sortArr.push("deadline_sec:asc", "id:desc");
+    } else {
+      // deadline_farthest（默认）
+      sortArr.push("deadline_sec:desc", "id:desc");
+    }
+
+    const offset = (page - 1) * pageSize;
+    const result = await client.index(INDEX_NAME).search(q || "", {
+      filter,
+      sort: sortArr,
+      limit: pageSize,
+      offset,
+      attributesToRetrieve: ["id"],
+    });
+
+    const ids = result.hits.map((h: any) => Number(h.id)).filter(Boolean);
+    return { ids, total: result.estimatedTotalHits ?? ids.length };
+  } catch (err) {
+    console.warn("[meilisearch] searchWithFilters failed:", (err as Error).message);
+    return null;
+  }
+}
+
+/** 获取索引中的文档总数（用于诊断） */
+export async function getIndexStats(): Promise<{ numberOfDocuments: number } | null> {
+  if (!client || !healthy) return null;
+  try {
+    const stats = await client.index(INDEX_NAME).getStats();
+    return { numberOfDocuments: stats.numberOfDocuments };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 按 ID 重新同步指定公告到 Meilisearch
+ * 用于 refreshIsActive 变更后，将 is_active 状态同步到索引
+ */
+export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
+  if (!client || !healthy || ids.length === 0) return { synced: 0 };
+  try {
+    const placeholders = ids.map(() => "?").join(",");
+    const [rows] = await pool.query(
+      SYNC_SQL_SELECT + SYNC_SQL_JOIN +
+      ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
+      ids
+    );
+    const docs = (rows as any[]).map(buildSyncDoc);
+    if (docs.length === 0) return { synced: 0 };
+    await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
+    return { synced: docs.length };
+  } catch (err) {
+    console.warn("[meilisearch] syncNoticeIds failed:", (err as Error).message);
+    return { synced: 0 };
+  }
+}

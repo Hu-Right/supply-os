@@ -12,8 +12,19 @@ export function createMembershipRouter(ctx: AppContext): Router {
   const router = Router();
   const membershipRepo = ctx.membershipRepo;
 
+  // 会员套餐准静态（运营配置后极少变动），服务端内存缓存 10 分钟
+  let plansCache: { data: any[]; ts: number } | null = null;
+  const PLANS_CACHE_TTL = 10 * 60 * 1000;
+
   router.get("/api/membership/plans", asyncHandler(async (_req, res) => {
+    const now = Date.now();
+    if (plansCache && now - plansCache.ts < PLANS_CACHE_TTL) {
+      res.setHeader("Cache-Control", "public, max-age=600");
+      return res.json(plansCache.data);
+    }
     const rows = await membershipRepo.findActivePlans();
+    plansCache = { data: rows, ts: now };
+    res.setHeader("Cache-Control", "public, max-age=600");
     res.json(rows);
   }));
 

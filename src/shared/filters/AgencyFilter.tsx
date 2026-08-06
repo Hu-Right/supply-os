@@ -4,12 +4,12 @@
  *
  * @module shared/filters/AgencyFilter
  * @description 参考 CountryFilter 模式，用于采购机构名称的可搜索下拉筛选。
- *              机构名为纯文本（如 UNDP、UNICEF），无需双语映射。
+ *              支持 i18n：优先展示 agency_i18n（本地化翻译名），回退到 agency（英文原名）。
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 
-export interface AgencyFilterItem { agency: string; count: number; }
+export interface AgencyFilterItem { agency: string; count: number; agency_i18n?: string; }
 
 export interface AgencyFilterProps {
   agencies: AgencyFilterItem[];
@@ -18,19 +18,14 @@ export interface AgencyFilterProps {
   placeholder?: string;
   searchPlaceholder?: string;
   noResultsText?: string;
-  moreResultsText?: string;
   className?: string;
 }
-
-/** 下拉列表最大渲染条数 */
-const MAX_VISIBLE = 200;
 
 export function AgencyFilter({
   agencies, value, onChange,
   placeholder = "All agencies",
   searchPlaceholder = "Search agency...",
   noResultsText = "No matching agencies",
-  moreResultsText = "more results — refine your search",
   className = "",
 }: AgencyFilterProps) {
   const [focused, setFocused] = useState(false);
@@ -74,18 +69,21 @@ export function AgencyFilter({
     return () => document.removeEventListener("keydown", handler);
   }, [focused]);
 
-  // 前端过滤：按机构名搜索（不区分大小写）
+  // 前端过滤：按机构名搜索（不区分大小写，同时匹配翻译名）
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return agencies;
-    return agencies.filter((a) => a.agency.toLowerCase().includes(q));
+    return agencies.filter((a) =>
+      a.agency.toLowerCase().includes(q) ||
+      (a.agency_i18n && a.agency_i18n.toLowerCase().includes(q))
+    );
   }, [agencies, query]);
 
-  const visible = filtered.slice(0, MAX_VISIBLE);
-  const hasMore = filtered.length > MAX_VISIBLE;
-
   const selectedAgency = agencies.find((a) => a.agency === value);
-  const displayAgencyName = selectedAgency ? selectedAgency.agency : "";
+  // 优先展示翻译名，回退到英文原名
+  const displayAgencyName = selectedAgency
+    ? (selectedAgency.agency_i18n || selectedAgency.agency)
+    : "";
   const inputValue = focused ? query : (hasSelected && value ? displayAgencyName : "");
 
   const handleSelect = (agency: string) => {
@@ -168,7 +166,7 @@ export function AgencyFilter({
             >
               {placeholder}
             </li>
-            {visible.map((item) => (
+            {filtered.map((item) => (
               <li
                 key={item.agency}
                 role="option"
@@ -181,19 +179,13 @@ export function AgencyFilter({
                     : "text-slate-700 hover:bg-teal-50"
                 }`}
               >
-                <span className="truncate" dir="auto">{item.agency}</span>
+                <span className="truncate" dir="auto">{item.agency_i18n || item.agency}</span>
                 <span className="text-xs text-slate-400 shrink-0 tabular-nums">{item.count}</span>
               </li>
             ))}
           </ul>
 
-          {hasMore && (
-            <div className="px-4 py-2 text-xs text-slate-400 border-t border-slate-100 bg-slate-50 text-center">
-              {filtered.length - MAX_VISIBLE} {moreResultsText}
-            </div>
-          )}
-
-          {visible.length === 0 && (
+          {filtered.length === 0 && (
             <div className="px-4 py-5 text-sm text-slate-400 text-center">{noResultsText}</div>
           )}
         </div>

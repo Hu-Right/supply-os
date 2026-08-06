@@ -23,6 +23,10 @@ export function createCatalogRouter(ctx: AppContext): Router {
   const router = Router();
   const catalogRepo = ctx.catalogRepo;
 
+  // UNSPSC 一级行业分类准静态，服务端内存缓存 10 分钟（按 lang 分桶）
+  const industriesCache = new Map<string, { data: any[]; ts: number }>();
+  const INDUSTRIES_CACHE_TTL = 10 * 60 * 1000;
+
   router.get("/api/certifications", asyncHandler(async (req, res) => {
       const rows = await catalogRepo.listActiveCertifications();
       res.json(rows);
@@ -74,7 +78,16 @@ export function createCatalogRouter(ctx: AppContext): Router {
 
   router.get("/api/unspsc/industries", asyncHandler(async (req, res) => {
       const lang = String(req.query.lang || "").toLowerCase();
+      const cacheKey = lang || "_default";
+      const now = Date.now();
+      const cached = industriesCache.get(cacheKey);
+      if (cached && now - cached.ts < INDUSTRIES_CACHE_TTL) {
+        res.setHeader("Cache-Control", "public, max-age=600");
+        return res.json(cached.data);
+      }
       const rows = await queryUnspscRows("u.level = 1 ORDER BY u.id", [], lang);
+      industriesCache.set(cacheKey, { data: rows, ts: now });
+      res.setHeader("Cache-Control", "public, max-age=600");
       res.json(rows);
       if (UNSPSC_TRANSLATION_LANGS[lang]) {
         void backfillUnspscTranslations(rows, lang, "industries");

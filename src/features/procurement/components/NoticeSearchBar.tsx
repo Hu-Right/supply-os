@@ -118,7 +118,6 @@ export function NoticeSearchBar({
           onChange={form.setAgencyInput}
           placeholder={t("procurement_agencyAll")}
           noResultsText={t("agencyFilter_noResults")}
-          moreResultsText={t("agencyFilter_moreResults")}
           className="w-full"
         />
         <CountryFilter

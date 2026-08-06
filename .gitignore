@@ -25,6 +25,10 @@ pnpm-debug.log*
 scripts/
 runtime/
 backups/
+bin/
+data.ms/
+dumps/
+server/logs/
 
 # ===== IDE 与编辑器 =====
 .qoder/
@@ -47,3 +51,4 @@ docs/
 要求.md
 .superpowers/
 生成报告.txt
+2026年8月绩效评分表（张雪豪）.docx
