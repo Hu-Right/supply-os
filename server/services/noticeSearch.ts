@@ -563,11 +563,9 @@ export async function searchNotices(
           // 无匹配类型 → 强制空结果
           where.push("1 = 0");
         }
-      } catch {
-        // 预解析失败时回退到 LIKE
-        const escapedType = noticeType.replace(/[%_\\]/g, "\\$&");
-        where.push("n.notice_type LIKE ? ESCAPE '\\'");
-        params.push(`%${escapedType}%`);
+      } catch (err) {
+        // 缓存查询失败：记录警告并跳过 noticeType 筛选（避免 ESCAPE SQL 语法错误）
+        console.warn(`[noticeSearch] noticeType 预解析失败，跳过该筛选: ${(err as Error).message}`);
       }
     }
   }
