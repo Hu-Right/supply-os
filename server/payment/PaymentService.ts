@@ -193,62 +193,80 @@ export class PaymentService {
   }
 
   private async activatePaidOrder(dbPool: any, orderNo: string, providerTradeNo?: string): Promise<void> {
-    await dbPool.execute(
-      `UPDATE crm_payment_orders
-       SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ?`,
-      [providerTradeNo || null, orderNo],
-    );
+    // BUG-P1 修复：使用事务保证 UPDATE + INSERT 原子性，防止并发重复发放权益
+    const conn = await dbPool.getConnection();
+    try {
+      await conn.beginTransaction();
 
-    const [orderRows] = await dbPool.query(
-      "SELECT user_key, plan_code, notice_id, amount FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
-      [orderNo],
-    );
-    const order = (orderRows as RowDataPacket[])[0];
-    if (!order) return;
-
-    const [planRows] = await dbPool.query(
-      "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
-      [order.plan_code],
-    );
-    const plan = (planRows as RowDataPacket[])[0];
-    if (!plan) return;
-
-    if (plan.plan_type === "single") {
-      if (order.notice_id) await this.grantSingleNoticeUnlock(dbPool, order);
-      return;
-    }
-
-    const [existingEntitlements] = await dbPool.query(
-      "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
-      [orderNo],
-    );
-    if ((existingEntitlements as RowDataPacket[]).length > 0) return;
-
-    if (plan.plan_type !== "single") {
-      await dbPool.execute(
-        `INSERT INTO crm_user_subscriptions
-          (user_id, user_key, plan_code, status, started_at${plan.duration_days ? ", expires_at" : ""})
-         VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
-        plan.duration_days
-          ? [order.user_key, order.user_key, order.plan_code, plan.duration_days]
-          : [order.user_key, order.user_key, order.plan_code],
+      // 悲观锁：SELECT ... FOR UPDATE 防止并发激活同一订单
+      const [orderRows] = await conn.query(
+        "SELECT user_key, plan_code, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+        [orderNo],
       );
+      const order = (orderRows as RowDataPacket[])[0];
+      if (!order) { await conn.commit(); return; }
+
+      // 幂等保护：已支付的订单直接跳过
+      if (order.status === "paid") { await conn.commit(); return; }
+
+      await conn.execute(
+        `UPDATE crm_payment_orders
+         SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
+         WHERE order_no = ?`,
+        [providerTradeNo || null, orderNo],
+      );
+
+      const [planRows] = await conn.query(
+        "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
+        [order.plan_code],
+      );
+      const plan = (planRows as RowDataPacket[])[0];
+      if (!plan) { await conn.commit(); return; }
+
+      if (plan.plan_type === "single") {
+        if (order.notice_id) await this.grantSingleNoticeUnlock(conn, order);
+        await conn.commit();
+        return;
+      }
+
+      const [existingEntitlements] = await conn.query(
+        "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
+        [orderNo],
+      );
+      if ((existingEntitlements as RowDataPacket[]).length > 0) { await conn.commit(); return; }
+
+      if (plan.plan_type !== "single") {
+        await conn.execute(
+          `INSERT INTO crm_user_subscriptions
+            (user_id, user_key, plan_code, status, started_at${plan.duration_days ? ", expires_at" : ""})
+           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
+          plan.duration_days
+            ? [order.user_key, order.user_key, order.plan_code, plan.duration_days]
+            : [order.user_key, order.user_key, order.plan_code],
+        );
+      }
+
+      await conn.execute(
+        `INSERT INTO crm_user_entitlements
+          (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${plan.duration_days ? ", expires_at" : ""}, status)
+         VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
+        plan.duration_days
+          ? [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1), plan.duration_days]
+          : [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1)],
+      );
+
+      await conn.execute(
+        "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
+        [order.user_key],
+      );
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
     }
-
-    await dbPool.execute(
-      `INSERT INTO crm_user_entitlements
-        (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${plan.duration_days ? ", expires_at" : ""}, status)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
-      plan.duration_days
-        ? [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1), plan.duration_days]
-        : [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1)],
-    );
-
-    await dbPool.execute(
-      "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
-      [order.user_key],
-    );
   }
 
   private async grantSingleNoticeUnlock(dbPool: any, order: any): Promise<void> {
@@ -304,9 +322,12 @@ export class PaymentService {
       .join("&");
     if (!query) return url;
 
+    // BUG-P4 修复：查询参数必须插入在 hash (#) 之前，而非之后
     if (url.includes("#")) {
-      const [beforeHash, hash] = url.split("#", 2);
-      return `${beforeHash}#${hash}${hash.includes("?") ? "&" : "?"}${query}`;
+      const hashIdx = url.indexOf("#");
+      const beforeHash = url.slice(0, hashIdx);
+      const hash = url.slice(hashIdx + 1);
+      return `${beforeHash}${beforeHash.includes("?") ? "&" : "?"}${query}#${hash}`;
     }
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }

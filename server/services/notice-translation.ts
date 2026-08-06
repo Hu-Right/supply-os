@@ -186,7 +186,7 @@ async function handleFullCacheHit(
   }
   // 机会表描述覆盖了公告表描述时，翻译源已变化，需重新翻译
   if (hasOppOverride && cacheDescSource.trim()) {
-    const pendingKeyStale = `${noticeId}:${lang}`;
+    const pendingKeyStale = `notice:${noticeId}:${lang}`;
     let pendingStale = pendingNoticeTranslations.get(pendingKeyStale);
     if (!pendingStale) {
       const staleSourceLang = detectSourceLang("", cacheDescSource) ?? undefined;
@@ -231,7 +231,7 @@ async function handleTitleOnlyCache(
   if (!String(descSource || "").trim()) {
     return { lang, title: cachedRow.title_tr, description: null, cached: true };
   }
-  const pendingKeyDesc = `${noticeId}:${lang}:desc`;
+  const pendingKeyDesc = `notice:${noticeId}:${lang}:desc`;
   let pendingDesc = pendingNoticeTranslations.get(pendingKeyDesc);
   if (!pendingDesc) {
     const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
@@ -287,7 +287,7 @@ async function handleFullTranslation(
     return { lang, title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn" };
   }
 
-  const pendingKey = `${noticeId}:${lang}`;
+  const pendingKey = `notice:${noticeId}:${lang}`;
   let pending = pendingNoticeTranslations.get(pendingKey);
   if (!pending) {
     const descForChain = zhDescCn ? "" : mergedDescription;
@@ -313,7 +313,7 @@ async function handleFullTranslation(
     void (async () => {
       try {
         if (await noticesRepo.hasTranslation(noticeId, "en")) return;
-        const enPendingKey = `${noticeId}:en`;
+        const enPendingKey = `notice:${noticeId}:en`;
         if (pendingNoticeTranslations.has(enPendingKey)) return;
         const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang);
         pendingNoticeTranslations.set(enPendingKey, enPromise);

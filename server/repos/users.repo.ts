@@ -42,18 +42,26 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
-  /** 创建或更新用户（UPSERT） */
-  async upsert(data: {
+  /** 创建用户（INSERT ONLY，不覆盖已有记录） */
+  async create(data: {
     user_key: string;
     email: string;
     display_name: string;
     password_hash: string;
-  }): Promise<void> {
-    await this.pool.execute(
+  }): Promise<boolean> {
+    const [result] = await this.pool.execute(
       `INSERT INTO crm_users (user_key, email, display_name, password_hash, membership_tier, account_status)
-       VALUES (?, ?, ?, ?, 'free', 'pending')
-       ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), password_hash = VALUES(password_hash), updated_at = NOW()`,
+       VALUES (?, ?, ?, ?, 'free', 'pending')`,
       [data.user_key, data.email, data.display_name, data.password_hash],
+    );
+    return (result as any).affectedRows > 0;
+  }
+
+  /** 更新显示名（不触碰密码） */
+  async updateProfile(userKey: string, displayName: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET display_name = ?, updated_at = NOW() WHERE user_key = ?",
+      [displayName, userKey],
     );
   }
 

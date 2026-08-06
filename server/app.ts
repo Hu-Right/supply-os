@@ -34,6 +34,7 @@ export function createApp(ctx: AppContext): Express {
     // compression 未安装，跳过压缩（功能降级，不影响核心服务）
   }
   app.use(express.json());
+  app.use(express.urlencoded({ extended: false })); // 支付宝异步通知为 form-urlencoded
   // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）
   app.use(extractUserKey);
   // 挂载顺序 = 原 server.ts 注册顺序，禁止调整：

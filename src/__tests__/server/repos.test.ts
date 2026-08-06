@@ -43,17 +43,17 @@ describe("UsersRepo", () => {
     expect(sql).toContain("LIMIT 1");
   });
 
-  it("upsert inserts with free tier / pending status defaults", async () => {
+  it("create inserts with free tier / pending status defaults", async () => {
     const pool = createPool();
     const repo = new UsersRepo(pool);
-    await repo.upsert({
+    await repo.create({
       user_key: "a@b.com",
       email: "a@b.com",
       display_name: "A",
       password_hash: "hash",
     });
     const [sql, params] = pool.execute.mock.calls[0];
-    expect(sql).toContain("ON DUPLICATE KEY UPDATE");
+    expect(sql).toContain("INSERT INTO crm_users");
     expect(sql).toContain("'free', 'pending'");
     expect(params).toEqual(["a@b.com", "a@b.com", "A", "hash"]);
   });

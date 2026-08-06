@@ -1,9 +1,9 @@
-import crypto from "crypto";
+import { AlipaySdk } from "alipay-sdk";
 import type { PaymentOrderStatus } from "../../src/types/payment";
 import type { PaymentStrategy } from "./types";
 
 /**
- * 支付宝 H5 支付策略
+ * 支付宝 H5 支付策略（基于 alipay-sdk 官方 SDK）
  *
  * 使用 alipay.trade.page.pay (电脑网站支付) 或 alipay.trade.wap.pay (手机网站支付)
  * 返回支付跳转 URL，用户访问后完成支付。
@@ -12,17 +12,13 @@ import type { PaymentStrategy } from "./types";
  *   ALIPAY_APP_ID       - 支付宝应用 ID
  *   ALIPAY_PRIVATE_KEY  - 商户私钥 (PEM)
  *   ALIPAY_PUBLIC_KEY   - 支付宝公钥 (PEM)
- *
- * 当前实现为 stub + live 骨架，待安装 alipay-sdk 后替换为完整实现。
  */
 export class AlipayProvider implements PaymentStrategy {
   readonly name = "alipay" as const;
 
+  private sdk: AlipaySdk;
   private appId: string;
-  private privateKey: string;
-  private publicKey: string;
   private notifyUrl: string;
-  private gateway: string;
 
   constructor(config: {
     appId: string;
@@ -32,12 +28,21 @@ export class AlipayProvider implements PaymentStrategy {
     sandbox?: boolean;
   }) {
     this.appId = config.appId;
-    this.privateKey = this.normalizePem(config.privateKey, "PRIVATE KEY");
-    this.publicKey = this.normalizePem(config.publicKey, "PUBLIC KEY");
     this.notifyUrl = String(config.notifyUrl || "");
-    this.gateway = config.sandbox
+
+    const gateway = config.sandbox
       ? "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
       : "https://openapi.alipay.com/gateway.do";
+
+    this.sdk = new AlipaySdk({
+      appId: config.appId,
+      privateKey: this.normalizePem(config.privateKey, "PRIVATE KEY"),
+      alipayPublicKey: this.normalizePem(config.publicKey, "PUBLIC KEY"),
+      gateway,
+      signType: "RSA2",
+      keyType: "PKCS8",
+      camelcase: false, // 保持支付宝原始 snake_case 字段名
+    });
   }
 
   async createPaymentUrl(
@@ -46,45 +51,20 @@ export class AlipayProvider implements PaymentStrategy {
     description: string,
     returnUrl?: string,
   ): Promise<{ pay_url: string; qr_code_url?: string }> {
-    const bizContent = {
-      out_trade_no: orderNo,
-      product_code: "FAST_INSTANT_TRADE_PAY",
-      total_amount: amount.toFixed(2),
-      subject: description,
-      body: description,
-      timeout_express: "30m",
-    };
+    const payUrl = this.sdk.pageExecute("alipay.trade.page.pay", {
+      bizContent: {
+        out_trade_no: orderNo,
+        product_code: "FAST_INSTANT_TRADE_PAY",
+        total_amount: amount.toFixed(2),
+        subject: description,
+        body: description,
+        timeout_express: "30m",
+      },
+      return_url: returnUrl || undefined,
+      notify_url: this.notifyUrl || undefined,
+    });
 
-    // 待安装 alipay-sdk 后，这里改为:
-    // const AlipaySdk = require("alipay-sdk").default;
-    // const alipay = new AlipaySdk({ ... });
-    // const result = await alipay.exec("alipay.trade.page.pay", { bizContent, returnUrl });
-
-    // 当前: 手动构造签名字段 (简化版)
-    const params: Record<string, string> = {
-      app_id: this.appId,
-      method: "alipay.trade.page.pay",
-      format: "JSON",
-      charset: "utf-8",
-      sign_type: "RSA2",
-      timestamp: this.formatAlipayTimestamp(new Date()),
-      version: "1.0",
-      biz_content: JSON.stringify(bizContent),
-      return_url: returnUrl || "",
-      notify_url: this.notifyUrl,
-    };
-
-    const signStr = this.buildSignStr(params);
-    const sign = this.rsa256Sign(signStr);
-    params.sign = sign;
-
-    const queryStr = Object.entries(params)
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-      .join("&");
-
-    return {
-      pay_url: `${this.gateway}?${queryStr}`,
-    };
+    return { pay_url: payUrl };
   }
 
   async verifyCallback(rawBody: any, _signature: string): Promise<{
@@ -93,75 +73,67 @@ export class AlipayProvider implements PaymentStrategy {
     provider_trade_no: string;
     amount: number;
   }> {
-    // 待安装 alipay-sdk 后，使用 alipay.checkNotifySign(rawBody) 验签
-    // 当前 stub: 信任所有回调
-    return {
-      verified: true,
-      order_no: rawBody?.out_trade_no || "",
-      provider_trade_no: rawBody?.trade_no || "",
-      amount: parseFloat(rawBody?.total_amount || "0"),
-    };
+    const order_no = rawBody?.out_trade_no || "";
+    const provider_trade_no = rawBody?.trade_no || "";
+    const amount = parseFloat(rawBody?.total_amount || "0");
+
+    // 未配置公钥时无法验签（沙箱快速调试场景），降级为信任
+    if (!this.sdk.config.alipayPublicKey || !this.appId) {
+      console.warn("[AlipayProvider] 公钥或 APP_ID 未配置，跳过验签（仅适用于沙箱调试）");
+      return { verified: true, order_no, provider_trade_no, amount };
+    }
+
+    try {
+      // 使用 SDK 内置的回调验签（RSA-SHA256）
+      const verified = this.sdk.checkNotifySign(rawBody);
+
+      if (!verified) {
+        console.warn(`[AlipayProvider] 签名验证失败: order_no=${order_no}`);
+        return { verified: false, order_no, provider_trade_no, amount };
+      }
+
+      // 校验 app_id 是否与本应用一致（防止伪造通知）
+      const callbackAppId = String(rawBody?.app_id || "");
+      if (callbackAppId && callbackAppId !== this.appId) {
+        console.warn(`[AlipayProvider] app_id 不匹配: 期望 ${this.appId}, 实际 ${callbackAppId}`);
+        return { verified: false, order_no, provider_trade_no, amount };
+      }
+
+      return { verified: true, order_no, provider_trade_no, amount };
+    } catch (err) {
+      console.error("[AlipayProvider] verifyCallback 异常:", (err as Error).message);
+      return { verified: false, order_no, provider_trade_no, amount };
+    }
   }
 
   async queryOrderStatus(orderNo: string, providerTradeNo?: string): Promise<{
     status: PaymentOrderStatus;
     provider_trade_no?: string;
   }> {
-    if (!this.appId || !this.privateKey) return { status: "pending" };
+    try {
+      const result = await this.sdk.exec("alipay.trade.query", {
+        bizContent: {
+          out_trade_no: orderNo,
+          ...(providerTradeNo ? { trade_no: providerTradeNo } : {}),
+        },
+      });
 
-    const bizContent: Record<string, string> = { out_trade_no: orderNo };
-    if (providerTradeNo) bizContent.trade_no = providerTradeNo;
+      if (result.code !== "10000") return { status: "pending" };
 
-    const params: Record<string, string> = {
-      app_id: this.appId,
-      method: "alipay.trade.query",
-      format: "JSON",
-      charset: "utf-8",
-      sign_type: "RSA2",
-      timestamp: this.formatAlipayTimestamp(new Date()),
-      version: "1.0",
-      biz_content: JSON.stringify(bizContent),
-    };
+      const tradeStatus = String(result.trade_status || "");
+      const tradeNo = result.trade_no || providerTradeNo;
 
-    params.sign = this.rsa256Sign(this.buildSignStr(params));
-
-    const res = await fetch(this.gateway, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
-      body: new URLSearchParams(params).toString(),
-    });
-    if (!res.ok) return { status: "pending" };
-
-    const payload = await res.json().catch(() => null);
-    const result = payload?.alipay_trade_query_response;
-    if (!result || result.code !== "10000") return { status: "pending" };
-
-    const tradeStatus = String(result.trade_status || "");
-    if (tradeStatus === "TRADE_SUCCESS" || tradeStatus === "TRADE_FINISHED") {
-      return { status: "paid", provider_trade_no: result.trade_no || providerTradeNo };
+      if (tradeStatus === "TRADE_SUCCESS" || tradeStatus === "TRADE_FINISHED") {
+        return { status: "paid", provider_trade_no: tradeNo };
+      }
+      if (tradeStatus === "TRADE_CLOSED") {
+        return { status: "closed", provider_trade_no: tradeNo };
+      }
+      return { status: "pending", provider_trade_no: tradeNo };
+    } catch (err) {
+      console.error("[AlipayProvider] queryOrderStatus 异常:", (err as Error).message);
+      return { status: "pending" };
     }
-    if (tradeStatus === "TRADE_CLOSED") {
-      return { status: "closed", provider_trade_no: result.trade_no || providerTradeNo };
-    }
-    return { status: "pending", provider_trade_no: result.trade_no || providerTradeNo };
-  }
-
-  // 构建待签名字符串（支付宝 RSA2 签名规则）
-  private buildSignStr(params: Record<string, string>): string {
-    return Object.keys(params)
-      .filter((k) => k !== "sign" && params[k] !== "")
-      .sort()
-      .map((k) => `${k}=${params[k]}`)
-      .join("&");
-  }
-
-  private rsa256Sign(data: string): string {
-    // 待安装 alipay-sdk 后替换为 SDK 签名
-    // 当前 stub: 返回占位符
-    if (!this.privateKey) return "STUB_SIGN";
-    const sign = crypto.createSign("RSA-SHA256");
-    sign.update(data, "utf-8");
-    return sign.sign(this.privateKey, "base64");
   }
 
   private normalizePem(value: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
@@ -169,10 +141,5 @@ export class AlipayProvider implements PaymentStrategy {
     if (!text || text.includes("-----BEGIN")) return text;
     const body = text.replace(/\s+/g, "").match(/.{1,64}/g)?.join("\n") || text;
     return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
-  }
-
-  private formatAlipayTimestamp(date: Date): string {
-    const pad = (value: number) => String(value).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
   }
 }

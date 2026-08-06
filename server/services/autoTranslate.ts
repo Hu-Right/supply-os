@@ -122,8 +122,10 @@ export async function runIncrementalTranslation(
         LIMIT ?`,
         [targetLang, cutoffId, sqlLimit]
       );
+      // BUG-I1 修复：使用与 notice-translation.ts 一致的 key 格式，避免竞态重复翻译
+      const pendingPrefix = target.table === "crm_bid_notices" ? "notice" : "opportunity";
       let queue = (rows as RowDataPacket[]).filter(
-        (row) => !pendingNoticeTranslations.has(`${target.idCol}:${row.id}:${targetLang}`)
+        (row) => !pendingNoticeTranslations.has(`${pendingPrefix}:${row.id}:${targetLang}`)
       );
 
       // ── 同语言预过滤（仅 en 扫描生效）──

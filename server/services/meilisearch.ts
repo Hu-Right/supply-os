@@ -11,6 +11,8 @@ import { Meilisearch } from "meilisearch";
 import type { Pool } from "mysql2/promise";
 
 const INDEX_NAME = "notices";
+// NULL deadline 的哨兵值：远未来时间戳（年 2286），确保无截止日期数据在升序/降序排列中始终排在最后
+const NULL_DEADLINE_SENTINEL = 9999999999;
 
 let client: Meilisearch | null = null;
 let healthy = false;
@@ -138,7 +140,7 @@ function buildSyncDoc(r: any) {
     agency: r.agency || "",
     notice_type: r.notice_type || "",
     notice_type_normalized: normalizeNoticeType(r.notice_type),
-    deadline_sec: r.deadline_sec || 0,
+    deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     is_active: r.is_active ? 1 : 0,
     is_expired: r.is_expired ? 1 : 0,
     is_featured: r.is_featured ? 1 : 0,
@@ -317,12 +319,13 @@ export async function searchWithFilters(params: {
 
     // 构建 filter 数组（AND 组合）
     const filter: string[] = ["is_active = 1"];
-    if (country) filter.push(`country = "${country}"`);
+    // BUG-S1 修复：转义 filter 值中的双引号，防止 Meilisearch filter 注入
+    if (country) filter.push(`country = "${escapeFilter(country)}"`);
     if (agencies && agencies.length > 0) {
       if (agencies.length === 1) {
-        filter.push(`agency = "${agencies[0]}"`);
+        filter.push(`agency = "${escapeFilter(agencies[0])}"`);
       } else {
-        const orParts = agencies.map((o) => `agency = "${o}"`).join(" OR ");
+        const orParts = agencies.map((o) => `agency = "${escapeFilter(o)}"`).join(" OR ");
         filter.push(`(${orParts})`);
       }
     }
@@ -340,12 +343,12 @@ export async function searchWithFilters(params: {
     }
     if (noticeType) {
       const normalized = normalizeNoticeType(noticeType);
-      filter.push(`notice_type_normalized = "${normalized}"`);
+      filter.push(`notice_type_normalized = "${escapeFilter(normalized)}"`);
     }
     if (featuredOnly) filter.push("is_featured = 1");
     // UNSPSC 行业分类筛选（数组字段：任一元素匹配即可）
     if (unspscLevel && unspscLevel >= 1 && unspscLevel <= 5 && unspscLevelId) {
-      filter.push(`level${unspscLevel}_id = "${unspscLevelId}"`);
+      filter.push(`level${unspscLevel}_id = "${escapeFilter(unspscLevelId)}"`);
     }
 
     // 排序映射
@@ -374,6 +377,11 @@ export async function searchWithFilters(params: {
     console.warn("[meilisearch] searchWithFilters failed:", (err as Error).message);
     return null;
   }
+}
+
+/** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
+function escapeFilter(value: string): string {
+  return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
 /** 获取索引中的文档总数（用于诊断） */
