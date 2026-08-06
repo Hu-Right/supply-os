@@ -240,17 +240,24 @@ export async function startServer() {
     // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo);
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo);
-    // 3) 常用搜索模式预热——消除关键词/国家/翻页的首次冷查询
+    // 2) 翻页预热——消除 page=2 的首次冷查询
     await searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo);
+    // 3) 中文关键词 FULLTEXT 预热——加载 ft_notices_search (ngram) 索引页到 Buffer Pool
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo);
+    // 4) 英文关键词 FULLTEXT 预热——加载 ft_notices_en + ft_notices_desc 索引页到 Buffer Pool
+    //    这是冷启动最大瓶颈：137K 行的非 ngram FULLTEXT 索引页首次需全量从磁盘读取
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo);
+    // 5) 纯筛选预热——触发 Meilisearch 路径（如有）+ 翻译表 LIKE 补充路径
     await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo);
-    // 4) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
+    // 6) 关键词+筛选联合预热——触发混合搜索路径（Meilisearch 预筛选 + FULLTEXT 约束）
+    await searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo);
+    // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
     await refreshNoticeCountries(dbPool);
     await refreshNoticeAgencies(dbPool);
-    // 5) 供应商列表——触发 suppliers 表预热
+    // 8) 供应商列表——触发 suppliers 表预热
     await suppliersRepo.listDirectory();
     const warmupMs = Math.round(performance.now() - warmupStart);
-    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (公告 zh/en + 国家/机构 + 供应商)`);
+    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (zh/en 首页 + 中文/英文 FULLTEXT + 纯筛选 + 混合搜索 + 国家/机构 + 供应商)`);
   } catch (e) {
     console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
   }

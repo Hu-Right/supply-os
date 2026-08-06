@@ -70,6 +70,11 @@ export async function ensureIndex(): Promise<boolean> {
         "deadline_sec",
         "is_active",
         "is_featured",
+        "level1_id",
+        "level2_id",
+        "level3_id",
+        "level4_id",
+        "level5_id",
       ],
       sortableAttributes: ["deadline_sec", "id"],
       rankingRules: [
@@ -141,23 +146,72 @@ function buildSyncDoc(r: any) {
     description_zh: r.description_zh || "",
     title_en: r.title_en || "",
     description_en: r.description_en || "",
+    // UNSPSC 行业分类：逗号分隔字符串 → 数组（Meilisearch 多值筛选）
+    level1_id: r.level1_ids ? String(r.level1_ids).split(",").filter(Boolean) : [],
+    level2_id: r.level2_ids ? String(r.level2_ids).split(",").filter(Boolean) : [],
+    level3_id: r.level3_ids ? String(r.level3_ids).split(",").filter(Boolean) : [],
+    level4_id: r.level4_ids ? String(r.level4_ids).split(",").filter(Boolean) : [],
+    level5_id: r.level5_ids ? String(r.level5_ids).split(",").filter(Boolean) : [],
   };
 }
 
-/** 同步 SQL：包含 agency、is_active 字段 */
+/** 同步 SQL：包含 agency、is_active 字段 + UNSPSC 行业分类 */
 const SYNC_SQL_SELECT = `
   SELECT n.id, n.notice_id, n.reference, n.title,
          LEFT(n.description, 2000) AS description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_active, n.is_expired, n.is_featured,
          tzh.title_tr AS title_zh, tzh.description_tr AS description_zh,
-         ten.title_tr AS title_en, ten.description_tr AS description_en
+         ten.title_tr AS title_en, ten.description_tr AS description_en,
+         _u.level1_ids, _u.level2_ids, _u.level3_ids, _u.level4_ids, _u.level5_ids
 `;
 const SYNC_SQL_JOIN = `
   FROM crm_bid_notices n
   LEFT JOIN crm_notice_translations tzh ON tzh.notice_id = n.id AND tzh.lang = 'zh'
   LEFT JOIN crm_notice_translations ten ON ten.notice_id = n.id AND ten.lang = 'en'
+  LEFT JOIN (
+    SELECT notice_id,
+           GROUP_CONCAT(DISTINCT level1_id) AS level1_ids,
+           GROUP_CONCAT(DISTINCT level2_id) AS level2_ids,
+           GROUP_CONCAT(DISTINCT level3_id) AS level3_ids,
+           GROUP_CONCAT(DISTINCT level4_id) AS level4_ids,
+           GROUP_CONCAT(DISTINCT level5_id) AS level5_ids
+    FROM crm_bid_notice_unspsc_codes
+    GROUP BY notice_id
+  ) _u ON _u.notice_id = n.notice_id
 `;
+
+/**
+ * 获取 Meilisearch 索引中已同步的最大文档 ID
+ * 用于启动时恢复 watermark，避免重复全量同步
+ */
+export async function getLastSyncedId(): Promise<number> {
+  if (!client || !healthy) return 0;
+  try {
+    const result = await client.index(INDEX_NAME).search("", {
+      sort: ["id:desc"],
+      limit: 1,
+      attributesToRetrieve: ["id"],
+    });
+    if (result.hits.length > 0) return Number(result.hits[0].id) || 0;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 获取 Meilisearch 索引中的文档总数
+ */
+export async function getDocCount(): Promise<number> {
+  if (!client || !healthy) return 0;
+  try {
+    const stats = await client.index(INDEX_NAME).getStats();
+    return stats.numberOfDocuments || 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * 全量同步：从 MySQL 拉取全量公告数据写入 Meilisearch
@@ -243,6 +297,10 @@ export async function searchWithFilters(params: {
   deadlineWithinDays?: number;
   noticeType?: string;
   featuredOnly?: boolean;
+  /** UNSPSC 行业筛选：层级 (1-5) */
+  unspscLevel?: number;
+  /** UNSPSC 行业筛选：crm_unspsc_codes.id（字符串） */
+  unspscLevelId?: string;
   sort?: string;
   page: number;
   pageSize: number;
@@ -253,6 +311,7 @@ export async function searchWithFilters(params: {
     const {
       q, country, agencies, deadlineFrom, deadlineTo,
       deadlineWithinDays, noticeType, featuredOnly,
+      unspscLevel, unspscLevelId,
       sort, page, pageSize,
     } = params;
 
@@ -284,6 +343,10 @@ export async function searchWithFilters(params: {
       filter.push(`notice_type_normalized = "${normalized}"`);
     }
     if (featuredOnly) filter.push("is_featured = 1");
+    // UNSPSC 行业分类筛选（数组字段：任一元素匹配即可）
+    if (unspscLevel && unspscLevel >= 1 && unspscLevel <= 5 && unspscLevelId) {
+      filter.push(`level${unspscLevel}_id = "${unspscLevelId}"`);
+    }
 
     // 排序映射
     const sortArr: string[] = [];

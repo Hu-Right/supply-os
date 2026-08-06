@@ -675,6 +675,8 @@ export async function ensureProcurementSchema(dbPool: any) {
   await ensureIndex(dbPool, "crm_bid_notice_unspsc_codes", "idx_notice_level4_notice", "CREATE INDEX idx_notice_level4_notice ON crm_bid_notice_unspsc_codes (level4_id, notice_id)");
   await ensureIndex(dbPool, "crm_bid_notice_unspsc_codes", "idx_notice_level5_notice", "CREATE INDEX idx_notice_level5_notice ON crm_bid_notice_unspsc_codes (level5_id, notice_id)");
   await ensureIndex(dbPool, "crm_bid_notice_unspsc_codes", "idx_notice_code_notice", "CREATE INDEX idx_notice_code_notice ON crm_bid_notice_unspsc_codes (code, notice_id)");
+  // UNSPSC 行业筛选优化：主表 notice_id 索引（加速桥接表 JOIN 的 MySQL 降级路径）
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_notice_id", "CREATE INDEX idx_notices_notice_id ON crm_bid_notices (notice_id)");
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_bid_notices_active_deadline_id", "CREATE INDEX idx_bid_notices_active_deadline_id ON crm_bid_notices (is_expired, deadline_ts, id)");
 
   // P1 性能优化：deadline_sec 生成列——将 deadline_ts（可能为毫秒级）统一转为秒级，
@@ -753,6 +755,21 @@ export async function ensureProcurementSchema(dbPool: any) {
   // 回滚：DROP INDEX ft_notices_search ON crm_bid_notices;
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "ft_notices_search",
     "CREATE FULLTEXT INDEX ft_notices_search ON crm_bid_notices (title, reference, description) WITH PARSER ngram");
+
+  // 英文路径 FULLTEXT：title+reference（非 ngram，英文单词完整分词）
+  // 回滚：DROP INDEX ft_notices_en ON crm_bid_notices;
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "ft_notices_en",
+    "CREATE FULLTEXT INDEX ft_notices_en ON crm_bid_notices (title, reference)");
+
+  // 英文 description 补充 FULLTEXT（非 ngram）
+  // 回滚：DROP INDEX ft_notices_desc ON crm_bid_notices;
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "ft_notices_desc",
+    "CREATE FULLTEXT INDEX ft_notices_desc ON crm_bid_notices (description)");
+
+  // 翻译表 FULLTEXT（ngram，支持中英文跨语言搜索）
+  // 回滚：DROP INDEX ft_trans_search ON crm_notice_translations;
+  await ensureIndexIfTableExists(dbPool, "crm_notice_translations", "ft_trans_search",
+    "CREATE FULLTEXT INDEX ft_trans_search ON crm_notice_translations (title_tr, description_tr) WITH PARSER ngram");
 
   // ── 机构别名映射表（归一化去重增强：将缩写/别名映射到标准名称）──
   // 例：UNDP / UNITED NATIONS DEVELOPMENT PROGRAMME → 同一 canonical 名

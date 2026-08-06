@@ -298,6 +298,24 @@ export async function searchNotices(
   // 提前检测中文（用于搜索模式日志）
   const isChinese = /[\u4e00-\u9fff]/.test(q);
 
+  // ── UNSPSC 行业分类预解析：将 codeId 转换为 Meilisearch 可用的 level + levelId ──
+  let unspscLevel = 0;
+  let unspscLevelId = "";
+  if (p.codeId && isMeiliHealthy()) {
+    try {
+      const [codeRows] = await pool.query(
+        "SELECT id, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
+        [p.codeId]
+      );
+      const codeRow = (codeRows as any[])[0];
+      if (codeRow) {
+        unspscLevel = Number(codeRow.level) || 0;
+        unspscLevelId = String(codeRow.id);
+      }
+    } catch { /* Meilisearch 降级到 MySQL 桥接表 */ }
+  }
+  const meiliCanHandleUnspsc = unspscLevel >= 1 && unspscLevel <= 5 && !!unspscLevelId;
+
   // Meilisearch 仅用于纯筛选场景（无关键词）——关键词搜索由 MySQL FULLTEXT 负责（覆盖率更高）
   // Meilisearch 分词/排名语义与 MySQL FULLTEXT+LIKE 不同，关键词场景会丢失大量匹配
   if (!p.codeId && !q && isMeiliHealthy()) {
@@ -342,9 +360,11 @@ export async function searchNotices(
   }
 
   // ── 混合搜索路径：关键词 + 筛选条件 → Meilisearch 预筛选 + MySQL FULLTEXT 关键词匹配 ──
-  // Meilisearch 处理筛选条件（国家/机构/日期/精选）得到 ID 集合，MySQL FULLTEXT 仅在该集合内搜索关键词
+  // Meilisearch 处理筛选条件（国家/机构/日期/精选/UNSPSC）得到 ID 集合，MySQL FULLTEXT 仅在该集合内搜索关键词
   // 效果：FULLTEXT 搜索范围从 70K 行缩小到筛选后的几百/几千行，冷启动性能大幅提升
-  if (q && !p.codeId && isMeiliHealthy() && (country || agency || deadlineFrom || deadlineTo || deadlineWithinDays || noticeType || featuredOnly)) {
+  const hasHybridFilters = country || agency || deadlineFrom || deadlineTo || deadlineWithinDays || noticeType || featuredOnly;
+  const hasUnspscFilter = p.codeId && meiliCanHandleUnspsc;
+  if (q && isMeiliHealthy() && (hasHybridFilters || hasUnspscFilter)) {
     const hybridStart = Date.now();
     let hybridAgencies: string[] | undefined;
     if (agency) {
@@ -360,6 +380,8 @@ export async function searchNotices(
       deadlineWithinDays: deadlineWithinDays || undefined,
       noticeType: noticeType || undefined,
       featuredOnly: featuredOnly || undefined,
+      unspscLevel: hasUnspscFilter ? unspscLevel : undefined,
+      unspscLevelId: hasUnspscFilter ? unspscLevelId : undefined,
       sort, page: 1, pageSize: 10000,
     });
     if (hybridResult && hybridResult.total <= 10000) {
@@ -379,9 +401,50 @@ export async function searchNotices(
   const idFilterParams: any[] = [];
 
   if (p.codeId) {
-    const filter = await buildNoticeUnspscFilter(pool, p.codeId);
-    idFilterSql = filter.sql;
-    idFilterParams.push(...filter.params);
+    if (meiliCanHandleUnspsc && meiliFilteredIds) {
+      // Meilisearch 已处理 UNSPSC 筛选（纯筛选或混合搜索路径）
+      // idFilterSql 保持空，meiliFilteredIds 已在 WHERE/UNION 中约束
+      console.log(`[search-perf] UNSPSC: Meilisearch 已筛选 codeId=${p.codeId} → ${meiliFilteredIds.length} IDs`);
+    } else if (meiliCanHandleUnspsc && !meiliFilteredIds && !q) {
+      // 纯 UNSPSC 筛选（无关键词）：Meilisearch 处理行业 + 其他筛选 + 分页
+      // 解析机构名（与其他 Meilisearch 路径口径一致）
+      let unspscAgencies: string[] | undefined;
+      if (agency) {
+        const _items = noticeAgenciesCache?.data || [];
+        const _cached = _items.find((item) => item.agency === agency);
+        unspscAgencies = _cached?.originalAgencies?.length ? _cached.originalAgencies : [agency];
+      }
+      const unspscStart = Date.now();
+      const unspscResult = await meiliSearch({
+        country: country || undefined,
+        agencies: unspscAgencies,
+        deadlineFrom: deadlineFrom || undefined,
+        deadlineTo: deadlineTo || undefined,
+        deadlineWithinDays: deadlineWithinDays || undefined,
+        noticeType: noticeType || undefined,
+        featuredOnly: featuredOnly || undefined,
+        unspscLevel, unspscLevelId,
+        sort, page, pageSize,
+      });
+      if (unspscResult) {
+        meiliHit = true;
+        total = unspscResult.total;
+        pageIds = unspscResult.ids;
+        searchMode = "meili-unspsc";
+        const unspscMs = Date.now() - unspscStart;
+        console.log(`[search-perf] mode=meili-unspsc codeId=${p.codeId} | Meilisearch=${unspscMs}ms | total=${total}`);
+      } else {
+        // Meilisearch 失败，降级到 MySQL 桥接表
+        const filter = await buildNoticeUnspscFilter(pool, p.codeId);
+        idFilterSql = filter.sql;
+        idFilterParams.push(...filter.params);
+      }
+    } else {
+      // Meilisearch 不可用或 level 不支持，降级到 MySQL 桥接表
+      const filter = await buildNoticeUnspscFilter(pool, p.codeId);
+      idFilterSql = filter.sql;
+      idFilterParams.push(...filter.params);
+    }
   }
 
   const compactQ = q.replace(/\s+/g, "").toUpperCase();
@@ -389,6 +452,7 @@ export async function searchNotices(
 
   // 关键词匹配 UNION 分支（不含外层 n.id IN(...)，由 COUNT/ID 查询统一包裹）
   let kwUnionSql = "";
+  
   const kwUnionParams: any[] = [];
 
   if (q) {
@@ -407,14 +471,13 @@ export async function searchNotices(
 
     if (isChinese) {
       // 中文路径：FULLTEXT(ngram) 主表 + 翻译表 LIKE 补充
-      // 翻译表 FULLTEXT 对中文跨语言匹配无效（返回 0 结果），改用 LIKE
+      // FULLTEXT ngram 对中文翻译实测返回 0 结果，必须用 LIKE（同语言匹配）
+      // 性能优化：通过临时表物化，LIKE 仅执行一次（COUNT/ID 复用）
       kwUnionSql =
         "SELECT n2.id FROM crm_bid_notices n2 WHERE n2.is_active = 1" + idSqlMain + " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
-        "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)" +
-        " UNION " +
-        "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND (qen.title_tr LIKE ? OR qen.description_tr LIKE ?)";
-      kwUnionParams.push(q, ...idParamsPerBranch, likeQ, likeQ, likeQ, likeQ);
+        "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)";
+      kwUnionParams.push(q, ...idParamsPerBranch, likeQ, likeQ);
     } else {
       // 英文路径：FULLTEXT(非ngram) title+reference + FULLTEXT description + 翻译表 FULLTEXT
       kwUnionSql =
@@ -567,7 +630,6 @@ export async function searchNotices(
     let countParams: any[];
     if (q) {
       // 关键词搜索：JOIN 回主表以应用 WHERE 条件（精选/国家/机构/日期等筛选）
-      // 回滚：恢复为 SELECT COUNT(*) FROM (UNION) AS _kw（仅当无需其他筛选时）
       countQuery = `SELECT COUNT(*) AS total FROM (${kwUnionSql}) AS _kw INNER JOIN crm_bid_notices n ON n.id = _kw.id ${countJoin} WHERE ${whereSql}`;
       countParams = [...kwUnionParams, ...idFilterParams, ...params];
     } else {
