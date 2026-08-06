@@ -4,9 +4,11 @@ import SupplierPage from "@/features/supplier/pages/SupplierPage";
 
 // ── Mock supplier api (DB-backed list + contact + register) ──
 const mockFetchSuppliers = vi.fn();
+const mockFetchSuppliersPaginated = vi.fn();
 const mockFetchContact = vi.fn();
 vi.mock("@/features/supplier/api", () => ({
   fetchSuppliers: (lang: string) => mockFetchSuppliers(lang),
+  fetchSuppliersPaginated: (lang: string, params: any) => mockFetchSuppliersPaginated(lang, params),
   fetchSupplierContact: (id: string, userKey: string) => mockFetchContact(id, userKey),
   registerSupplier: vi.fn(),
 }));
@@ -93,6 +95,18 @@ const makeSuppliers = (count: number) =>
     status: "approved",
   }));
 
+// 智能分页 mock：按参数筛选/分页，测试可覆盖 mockResolvedValue 覆盖
+function smartPaginatedMock(lang: string, params: any) {
+  let items = [...DB_SUPPLIERS];
+  if (params.type) items = items.filter((s) => s.type === params.type);
+  if (params.q) items = items.filter((s) => s.nameZh.includes(params.q) || s.nameEn.includes(params.q));
+  if (params.industry) items = items.filter((s) => s.industryZh === params.industry || s.industryEn === params.industry);
+  const page = params.page || 1;
+  const pageSize = params.pageSize || 9;
+  const start = (page - 1) * pageSize;
+  return Promise.resolve({ items: items.slice(start, start + pageSize), total: items.length });
+}
+
 describe("SupplierPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -100,6 +114,7 @@ describe("SupplierPage", () => {
     mockAuth.authUser = null;
     mockAuth.isVip = false;
     mockFetchSuppliers.mockResolvedValue(DB_SUPPLIERS);
+    mockFetchSuppliersPaginated.mockImplementation(smartPaginatedMock);
   });
 
   it("renders type filter tabs (all/domestic/international)", async () => {
@@ -133,7 +148,9 @@ describe("SupplierPage", () => {
       expect(screen.getByTestId("supplier-card-sup-db-70")).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText("supplierFilterDomestic"));
-    expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
+    });
     expect(screen.queryByTestId("supplier-card-sup-db-70")).toBeNull();
   });
 
@@ -144,7 +161,9 @@ describe("SupplierPage", () => {
     });
     const input = screen.getByPlaceholderText("searchSupplierPlaceholder");
     fireEvent.change(input, { target: { value: "安博深" } });
-    expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("supplier-card-sup-db-72")).toBeInTheDocument();
+    });
     expect(screen.queryByTestId("supplier-card-sup-db-71")).toBeNull();
   });
 
@@ -161,7 +180,7 @@ describe("SupplierPage", () => {
   });
 
   it("shows empty state when the list fetch fails", async () => {
-    mockFetchSuppliers.mockRejectedValue(new Error("boom"));
+    mockFetchSuppliersPaginated.mockRejectedValueOnce(new Error("boom"));
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByText("noData")).toBeInTheDocument();
@@ -175,7 +194,9 @@ describe("SupplierPage", () => {
     });
     const input = screen.getByPlaceholderText("searchSupplierPlaceholder");
     fireEvent.change(input, { target: { value: "nonexistent_xyz" } });
-    expect(screen.getByText("noData")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("noData")).toBeInTheDocument();
+    });
   });
 
   it("does not render an inline register button (remote-aligned, entry lives in banner)", async () => {
@@ -198,12 +219,12 @@ describe("SupplierPage", () => {
 
   it("reloads suppliers after a successful registration", async () => {
     render(<SupplierPage />);
-    await waitFor(() => expect(mockFetchSuppliers).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockFetchSuppliersPaginated).toHaveBeenCalledTimes(1));
     act(() => {
       window.dispatchEvent(new CustomEvent("supply-os:open-supplier-register"));
     });
     fireEvent.click(screen.getByText("trigger-registered"));
-    await waitFor(() => expect(mockFetchSuppliers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockFetchSuppliersPaginated).toHaveBeenCalledTimes(2));
   });
 
   it("VIP user: contact button fetches plaintext contact and shows it", async () => {
@@ -281,7 +302,13 @@ describe("SupplierPage", () => {
   // ── 分页（每页 9 条，控件复用 shared/ui/Pagination）──
 
   it("paginates 9 per page and navigates with next/prev controls", async () => {
-    mockFetchSuppliers.mockResolvedValue(makeSuppliers(12));
+    mockFetchSuppliersPaginated.mockImplementation((_lang: string, params: any) => {
+      const all = makeSuppliers(12);
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 9;
+      const start = (page - 1) * pageSize;
+      return Promise.resolve({ items: all.slice(start, start + pageSize), total: all.length });
+    });
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
@@ -292,28 +319,43 @@ describe("SupplierPage", () => {
 
     fireEvent.click(screen.getByText("procurement_next"));
     // 第 2 页剩余 3 条
-    expect(screen.getAllByTestId(/^supplier-card-/)).toHaveLength(3);
+    await waitFor(() => {
+      expect(screen.getAllByTestId(/^supplier-card-/)).toHaveLength(3);
+    });
     expect(screen.getByTestId("supplier-card-sup-db-109")).toBeInTheDocument();
     expect(screen.queryByTestId("supplier-card-sup-db-100")).toBeNull();
 
     fireEvent.click(screen.getByText("procurement_prev"));
-    expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
+    });
   });
 
   it("resets to page 1 when a filter changes", async () => {
     const suppliers = makeSuppliers(12);
-    mockFetchSuppliers.mockResolvedValue(suppliers);
+    mockFetchSuppliersPaginated.mockImplementation((_lang: string, params: any) => {
+      let items = suppliers;
+      if (params.q) items = items.filter((s) => s.nameZh.includes(params.q));
+      const page = params.page || 1;
+      const pageSize = params.pageSize || 9;
+      const start = (page - 1) * pageSize;
+      return Promise.resolve({ items: items.slice(start, start + pageSize), total: items.length });
+    });
     render(<SupplierPage />);
     await waitFor(() => {
       expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
     });
     fireEvent.click(screen.getByText("procurement_next"));
-    expect(screen.queryByTestId("supplier-card-sup-db-100")).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByTestId("supplier-card-sup-db-100")).toBeNull();
+    });
 
     // 第 2 页上修改搜索词：应回第 1 页并展示匹配结果
     fireEvent.change(screen.getByPlaceholderText("searchSupplierPlaceholder"), {
       target: { value: "批量供应商100" },
     });
-    expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("supplier-card-sup-db-100")).toBeInTheDocument();
+    });
   });
 });

@@ -354,6 +354,8 @@ describe("AuthModal", () => {
         level1_id: 1,
         level2_id: 11,
         level3_id: 111,
+        level4_id: null,
+        level5_id: null,
       });
     });
     expect(onClose).toHaveBeenCalled();
@@ -389,6 +391,8 @@ describe("AuthModal", () => {
         level1_id: 1,
         level2_id: 11,
         level3_id: null,
+        level4_id: null,
+        level5_id: null,
       });
     });
     expect(onClose).toHaveBeenCalled();
@@ -467,7 +471,7 @@ describe("AuthModal", () => {
     fireEvent.click(screen.getByText("authIndustryPrefSave"));
 
     await waitFor(() => {
-      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: 1, level2_id: 11, level3_id: null });
+      expect(mockSaveIndustryPrefs).toHaveBeenCalledWith("u1", { level1_id: 1, level2_id: 11, level3_id: null, level4_id: null, level5_id: null });
       expect(screen.getByText("authIndustryPrefSaved")).toBeInTheDocument();
     });
   });

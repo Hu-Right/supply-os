@@ -9,6 +9,7 @@ import { NoticesRepo } from "../../../server/repos/notices.repo";
 import { MembershipRepo } from "../../../server/repos/membership.repo";
 import { UsersRepo } from "../../../server/repos/users.repo";
 import { OpportunitiesRepo } from "../../../server/repos/opportunities.repo";
+import { __testClearAllCaches } from "../../../server/services/noticeSearch";
 
 // Mock heavy dependencies to isolate route logic
 const mockGetTranslatedNoticeDetail = vi.fn();
@@ -21,12 +22,35 @@ vi.mock("../../../server/services/notice-translation", () => ({
 }));
 
 function createMockCtx() {
+  const queue: any[] = [];
+  const visibleCalls: any[][] = [];
+  const isInternalQuery = (sql: string) =>
+    sql.includes("crm_notice_stats") || sql.includes("DISTINCT notice_type") ||
+    sql.includes("crm_unspsc_codes WHERE id");
+  const rawQuery = vi.fn().mockResolvedValue([[]]);
   const dbPool = {
-    query: vi.fn().mockResolvedValue([[]]),
+    query: Object.assign(
+      (sql: string, ...args: any[]) => {
+        if (isInternalQuery(sql)) return Promise.resolve([[]]);
+        visibleCalls.push([sql, ...args]);
+        return queue.length > 0
+          ? Promise.resolve(queue.shift())
+          : rawQuery(sql, ...args);
+      },
+      {
+        mock: rawQuery.mock,
+        mockResolvedValueOnce: (val: any) => { queue.push(val); return dbPool.query; },
+        mockResolvedValue: (val: any) => { rawQuery.mockResolvedValue(val); return dbPool.query; },
+        mockRejectedValue: (val: any) => { rawQuery.mockRejectedValue(val); return dbPool.query; },
+        mockImplementation: (fn: any) => { rawQuery.mockImplementation(fn); return dbPool.query; },
+        mockClear: () => { queue.length = 0; visibleCalls.length = 0; rawQuery.mockClear(); return dbPool.query; },
+      },
+    ),
     execute: vi.fn().mockResolvedValue([]),
   };
   return {
     dbPool,
+    visibleCalls,
     noticesRepo: new NoticesRepo(dbPool as any),
     membershipRepo: new MembershipRepo(dbPool as any),
     usersRepo: new UsersRepo(dbPool as any),
@@ -41,6 +65,11 @@ function buildApp(ctx: any) {
   app.use(errorHandler);
   return app;
 }
+
+// 清除 noticeSearch 模块级缓存，避免跨用例缓存污染
+beforeEach(() => {
+  __testClearAllCaches();
+});
 
 // ─── GET /api/notices ───────────────────────────────────────────────────────
 describe("GET /api/notices", () => {
@@ -81,9 +110,9 @@ describe("GET /api/notices", () => {
     const app = buildApp(ctx);
     const res = await request(app).get("/api/notices?q=MED-001");
     expect(res.status).toBe(200);
-    // Verify the SQL included search conditions
-    const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("UPPER(REPLACE");
+    // Verify the SQL included search conditions (visibleCalls[1] = ID query with ORDER BY)
+    const idSql = ctx.visibleCalls[1]?.[0] || ctx.visibleCalls[0]?.[0];
+    expect(String(idSql)).toContain("UPPER(REPLACE");
   });
 
   it("applies country filter", async () => {
@@ -93,9 +122,9 @@ describe("GET /api/notices", () => {
       .mockResolvedValueOnce([[]]);
     const app = buildApp(ctx);
     await request(app).get("/api/notices?country=Brazil");
-    const countSql = ctx.dbPool.query.mock.calls[0][0];
-    // 精确匹配（下拉值来自 GROUP BY 精确国家名），避免 LIKE 误命中包含关系国家
-    expect(countSql).toContain("n.country = ?");
+    // n.country = ? 出现在 COUNT 和 ID 查询的 WHERE 子句中
+    const allSql = ctx.visibleCalls.map(c => String(c[0])).join(" ");
+    expect(allSql).toContain("n.country = ?");
   });
 
   it("applies agency filter with exact match", async () => {
@@ -105,8 +134,8 @@ describe("GET /api/notices", () => {
       .mockResolvedValueOnce([[]]);
     const app = buildApp(ctx);
     await request(app).get("/api/notices?agency=UNDP");
-    const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("n.agency = ?");
+    const allSql = ctx.visibleCalls.map(c => String(c[0])).join(" ");
+    expect(allSql).toContain("n.agency = ?");
   });
 
   it("applies deadline_within_days filter", async () => {
@@ -116,8 +145,8 @@ describe("GET /api/notices", () => {
       .mockResolvedValueOnce([[]]);
     const app = buildApp(ctx);
     await request(app).get("/api/notices?deadline_within_days=30");
-    const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("86400");
+    const allSql = ctx.visibleCalls.map(c => String(c[0])).join(" ");
+    expect(allSql).toContain("86400");
   });
 
   // [精选功能重新启用 2026-07-31] featured=1 三路合格机会过滤 + 页级 is_featured 标注
@@ -130,10 +159,9 @@ describe("GET /api/notices", () => {
     const app = buildApp(ctx);
     const res = await request(app).get("/api/notices?featured=1");
     expect(res.status).toBe(200);
-    // WHERE 包含三路合格机会 IN 子查询（converted_opp_id / source_notice_id / reference）
-    const countSql = ctx.dbPool.query.mock.calls[0][0];
-    expect(countSql).toContain("crm_bid_opportunities");
-    expect(countSql).toContain("is_qualified = 1");
+    // P6 性能优化：精选改用预计算列 is_featured，不再回查 crm_bid_opportunities
+    const allSql = ctx.visibleCalls.map(c => String(c[0])).join(" ");
+    expect(allSql).toContain("is_featured");
     // featuredOnly 命中的当页项全部标注 is_featured
     expect(res.body.items[0].is_featured).toBe(true);
   });
@@ -329,14 +357,15 @@ describe("GET /api/notices/:id/translation", () => {
     ctx.dbPool.query
       .mockResolvedValueOnce([[]]) // no cached row
       .mockResolvedValueOnce([[{ title: "Pump supply", description: "Supply of pumps" }]]) // notice
-      .mockResolvedValue([[]]); // INSERT + 后续英文中枢查询
+      .mockResolvedValue([[]]); // INSERT + 后续查询
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["水泵供应", "供应水泵"], provider: "deepseek-v4-flash",
+      translations: ["Pump supply FR", "Supply of pumps FR"], provider: "deepseek-v4-flash",
     });
     const app = buildApp(ctx);
-    const res = await request(app).get("/api/notices/1001/translation?lang=zh");
+    // 使用 lang=fr 避开中文快速路径，直接走通用翻译路径
+    const res = await request(app).get("/api/notices/1001/translation?lang=fr");
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ lang: "zh", title: "水泵供应", description: "供应水泵", cached: false });
+    expect(res.body).toMatchObject({ lang: "fr", title: "Pump supply FR", description: "Supply of pumps FR", cached: false });
     const insertCalls = ctx.dbPool.query.mock.calls.filter(
       ([sql]) => String(sql).includes("INSERT INTO crm_notice_translations")
     );
@@ -347,12 +376,12 @@ describe("GET /api/notices/:id/translation", () => {
     const ctx = createMockCtx();
     ctx.dbPool.query
       .mockResolvedValueOnce([[]]) // no cached row
-      .mockResolvedValueOnce([[{ title: "采购水泵", description: "采购水泵及配件" }]]); // notice
+      .mockResolvedValueOnce([[{ title: "Pump supply", description: "Pump supply full desc" }]]); // notice
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["采购水泵", "采购水泵及配件"], provider: "same-lang-passthrough",
+      translations: ["Pump supply", "Pump supply full desc"], provider: "same-lang-passthrough",
     });
     const app = buildApp(ctx);
-    const res = await request(app).get("/api/notices/1002/translation?lang=zh");
+    const res = await request(app).get("/api/notices/1002/translation?lang=fr");
     expect(res.status).toBe(200);
     expect(res.body.passthrough).toBe(true);
     expect(res.body.cached).toBe(false);
@@ -365,15 +394,13 @@ describe("GET /api/notices/:id/translation", () => {
   it("does not persist passthrough description on the desc-backfill branch", async () => {
     const ctx = createMockCtx();
     ctx.dbPool.query
-      .mockResolvedValueOnce([[{ title_tr: "已有标题", description_tr: null }]]) // 缓存行缺 desc
-      // 源码 SQL 用 `SELECT n.description AS notice_desc`，mock 须返回别名形状；
-      // converted_opp_id/notice_id/reference 置空使 findQualifiedOpportunityForNotice 不发起查询
-      .mockResolvedValueOnce([[{ notice_desc: "原文描述", converted_opp_id: null, notice_id: null, reference: null }]]);
+      .mockResolvedValueOnce([[{ title_tr: "Cached title", description_tr: null }]]) // 缓存行缺 desc
+      .mockResolvedValueOnce([[{ title: "Original title", description: "Original desc" }]]); // notice
     vi.mocked(translateNoticeViaChain).mockResolvedValue({
-      translations: ["", "原文描述"], provider: "same-lang-passthrough",
+      translations: ["", "Original desc"], provider: "same-lang-passthrough",
     });
     const app = buildApp(ctx);
-    const res = await request(app).get("/api/notices/1003/translation?lang=zh");
+    const res = await request(app).get("/api/notices/1003/translation?lang=fr");
     expect(res.status).toBe(200);
     expect(res.body.passthrough).toBe(true);
     const updateCalls = ctx.dbPool.query.mock.calls.filter(
@@ -389,7 +416,7 @@ describe("GET /api/notices/:id/translation", () => {
       .mockResolvedValueOnce([[{ title: "T", description: "D" }]]);
     vi.mocked(translateNoticeViaChain).mockRejectedValue(new Error("TRANSLATION_UNAVAILABLE"));
     const app = buildApp(ctx);
-    const res = await request(app).get("/api/notices/1004/translation?lang=zh");
+    const res = await request(app).get("/api/notices/1004/translation?lang=fr");
     expect(res.status).toBe(503);
     expect(res.body).toEqual({ error: "TRANSLATION_UNAVAILABLE" });
   });

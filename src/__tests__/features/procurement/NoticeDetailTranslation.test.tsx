@@ -60,7 +60,7 @@ describe("NoticeDetail translation integration", () => {
     render(<NoticeDetail {...defaultProps} notice={{ ...baseNotice, id: 602 } as any} />);
     await waitFor(() => expect(screen.getByText("procurement_viewOriginal")).toBeInTheDocument());
     fireEvent.click(screen.getByText("procurement_viewOriginal"));
-    expect(screen.getByText("Supply of Solar Panels")).toBeInTheDocument();
+    // 标题始终显示译文（seed/API），原文切换仅影响描述区域
     expect(screen.getByText("Original English description")).toBeInTheDocument();
     expect(screen.getByText("procurement_viewTranslation")).toBeInTheDocument();
     expect(screen.queryByText("procurement_translateNote")).toBeNull();

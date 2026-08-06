@@ -47,6 +47,7 @@ const mockSaveIndustryPrefs = vi.fn().mockResolvedValue({ ok: true });
 const mockFetchRecommendedNotices = vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 9 });
 const mockFetchNoticeCountries = vi.fn().mockResolvedValue([]);
 const mockSendNoticeFeedback = vi.fn().mockResolvedValue(undefined);
+const mockFetchNoticeAgencies = vi.fn().mockResolvedValue([]);
 
 vi.mock("@/core/api/industry-prefs", () => ({
   fetchIndustryPrefs: (key: string) => mockFetchIndustryPrefs(key),
@@ -70,7 +71,11 @@ vi.mock("@/features/procurement/api", () => ({
   fetchNoticeTranslation: (id: number, lang: string) => mockFetchNoticeTranslation(id, lang),
   fetchRecommendedNotices: (params: any) => mockFetchRecommendedNotices(params),
   fetchNoticeCountries: () => mockFetchNoticeCountries(),
+  fetchNoticeAgencies: (locale?: string) => mockFetchNoticeAgencies(locale),
+  fetchNoticePreview: vi.fn().mockResolvedValue({}),
+  fetchNoticeContent: vi.fn().mockResolvedValue({ description: "", title: "", description_cn: "" }),
   sendNoticeFeedback: (key: string, actions: any[]) => mockSendNoticeFeedback(key, actions),
+  getFeedbackSessionId: vi.fn().mockReturnValue("test-session"),
 }));
 
 // ── Mock useLocale（locale 可变：切语言重拉级联用例需要）──
@@ -505,9 +510,9 @@ describe("ProcurementPage", () => {
     fireEvent.click(screen.getAllByText("procurement_detail")[0]);
 
     // 锁定面板自始至终不出现，完整数据直接呈现（agency_full 在元信息格与解锁详情各出现一次）
-    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_lockedCoreTitle")).toBeNull();
     await waitFor(() => expect(screen.getAllByText("UNDP Kenya").length).toBeGreaterThan(0));
-    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_lockedCoreTitle")).toBeNull();
   });
 
   it("still shows the locked panel for a locked notice", async () => {
@@ -517,7 +522,7 @@ describe("ProcurementPage", () => {
     // Notice B 为第二张卡，未解锁：详情应照常渲染锁定面板
     fireEvent.click(screen.getAllByText("procurement_detail")[1]);
     await waitFor(() =>
-      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+      expect(screen.getByText("procurement_lockedCoreTitle")).toBeInTheDocument()
     );
   });
 
@@ -529,7 +534,7 @@ describe("ProcurementPage", () => {
     // 打开未解锁公告：锁定面板照常
     fireEvent.click(screen.getAllByText("procurement_detail")[1]);
     await waitFor(() =>
-      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+      expect(screen.getByText("procurement_lockedCoreTitle")).toBeInTheDocument()
     );
 
     // 解锁成功但详情响应挂起：期间应显示骨架屏、隐藏锁定面板
@@ -540,7 +545,7 @@ describe("ProcurementPage", () => {
     fireEvent.click(screen.getByText(/procurement_freeUnlock/));
 
     await waitFor(() => expect(screen.getByTestId("detail-skeleton")).toBeInTheDocument());
-    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_lockedCoreTitle")).toBeNull();
 
     // 详情返回后骨架屏让位于完整内容（agency_full 在元信息格与解锁详情各出现一次）
     resolveDetail({ id: 2, title: "Notice B", core_locked: false, agency_full: "WHO Geneva" });
@@ -554,7 +559,7 @@ describe("ProcurementPage", () => {
 
     fireEvent.click(screen.getAllByText("procurement_detail")[1]);
     await waitFor(() =>
-      expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument()
+      expect(screen.getByText("procurement_lockedCoreTitle")).toBeInTheDocument()
     );
 
     // 解锁失败：骨架屏不得残留，锁定面板恢复
@@ -563,7 +568,7 @@ describe("ProcurementPage", () => {
 
     await waitFor(() => expect(screen.getByText("procurement_unlockFail")).toBeInTheDocument());
     expect(screen.queryByTestId("detail-skeleton")).toBeNull();
-    expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument();
+    expect(screen.getByText("procurement_lockedCoreTitle")).toBeInTheDocument();
   });
 
   // ── 账号默认行业偏好三级降级（本地差异 #5）──
@@ -579,8 +584,9 @@ describe("ProcurementPage", () => {
     // 级联选择器按偏好路径预选，公告请求带最深层 code_id
     await waitFor(() => {
       const selects = document.querySelectorAll("select");
-      expect((selects[0] as HTMLSelectElement).value).toBe("1");
-      expect((selects[1] as HTMLSelectElement).value).toBe("11");
+      // selects[0]=排序, selects[1]=截止窗口, selects[2..6]=UNSPSC 五级联动
+      expect((selects[2] as HTMLSelectElement).value).toBe("1");
+      expect((selects[3] as HTMLSelectElement).value).toBe("11");
       expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: "11" }));
     });
   });
@@ -605,9 +611,10 @@ it("preselects three-level industry prefs and filters by the deepest code_id", a
     // 三级路径全预选，公告请求带第三级 code_id
     await waitFor(() => {
       const selects = document.querySelectorAll("select");
-      expect((selects[0] as HTMLSelectElement).value).toBe("1");
-      expect((selects[1] as HTMLSelectElement).value).toBe("11");
-      expect((selects[2] as HTMLSelectElement).value).toBe("111");
+      // selects[0]=排序, selects[1]=截止窗口, selects[2..6]=UNSPSC 五级联动
+      expect((selects[2] as HTMLSelectElement).value).toBe("1");
+      expect((selects[3] as HTMLSelectElement).value).toBe("11");
+      expect((selects[4] as HTMLSelectElement).value).toBe("111");
       expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: "111" }));
     });
   });
@@ -713,7 +720,8 @@ it("preselects three-level industry prefs and filters by the deepest code_id", a
       expect(screen.getByText("procurement_prefsBanner")).toBeInTheDocument();
     });
     const selects = document.querySelectorAll("select");
-    fireEvent.change(selects[0], { target: { value: "2" } });
+    // selects[0]=排序, selects[1]=截止窗口, selects[2]=UNSPSC level1
+    fireEvent.change(selects[2], { target: { value: "2" } });
 
     await waitFor(() => {
       expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
@@ -735,7 +743,8 @@ it("preselects three-level industry prefs and filters by the deepest code_id", a
     await waitFor(() => {
       expect(screen.queryByText("procurement_prefsBanner")).toBeNull();
       const selects = document.querySelectorAll("select");
-      expect((selects[0] as HTMLSelectElement).value).toBe("");
+      // selects[0]=排序, selects[1]=截止窗口, selects[2]=UNSPSC level1
+      expect((selects[2] as HTMLSelectElement).value).toBe("");
       expect(mockFetchNotices).toHaveBeenCalledWith(expect.objectContaining({ codeId: undefined }));
     });
   });
@@ -748,8 +757,9 @@ it("preselects three-level industry prefs and filters by the deepest code_id", a
       expect(screen.getByRole("option", { name: "Fuel" })).toBeInTheDocument();
     });
     // 选中一级（id=1）：children 以 ("1", "zh") 拉取
+    // selects[0]=排序, selects[1]=截止窗口, selects[2]=UNSPSC level1
     const selects = document.querySelectorAll("select");
-    fireEvent.change(selects[0], { target: { value: "1" } });
+    fireEvent.change(selects[2], { target: { value: "1" } });
     await waitFor(() => {
       expect(mockFetchUnspscChildren).toHaveBeenLastCalledWith("1", "zh");
     });

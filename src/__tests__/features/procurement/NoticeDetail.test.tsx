@@ -103,11 +103,8 @@ describe("NoticeDetail", () => {
   it("shows the locked-core mask and hides core details when core is locked", () => {
     render(<NoticeDetail {...defaultProps} />);
     // Mask box title + description
-    expect(screen.getByText("procurement_lockedCoreDesc")).toBeInTheDocument();
-    // Masked agency: title appears (subtitle + meta grid + mask heading), never real agency
-    expect(screen.queryByText("Test Agency")).toBeNull();
-    // UNSPSC tags and source link hidden
-    expect(screen.queryByText("1000")).toBeNull();
+    expect(screen.getByText("procurement_lockedCoreTitle")).toBeInTheDocument();
+    // 锁定态渐进式预览：机构名和 UNSPSC 前 4 码可见（非敏感），来源链接隐藏
     expect(screen.queryByText("procurement_source")).toBeNull();
   });
 
@@ -117,14 +114,14 @@ describe("NoticeDetail", () => {
     expect(screen.getAllByText("1000").length).toBeGreaterThan(0);
     expect(screen.getByText("procurement_source")).toBeInTheDocument();
     // Mask description should not be shown
-    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_lockedCoreTitle")).toBeNull();
   });
 
   // ── 闪烁修复：detailLoading 骨架屏 ──
   it("shows skeleton instead of locked panel while detailLoading", () => {
     render(<NoticeDetail {...defaultProps} detailLoading />);
     expect(screen.getByTestId("detail-skeleton")).toBeInTheDocument();
-    expect(screen.queryByText("procurement_lockedCoreDesc")).toBeNull();
+    expect(screen.queryByText("procurement_lockedCoreTitle")).toBeNull();
     expect(screen.queryByText("procurement_singleUnlock")).toBeNull();
     expect(screen.getAllByText("procurement_loading").length).toBeGreaterThan(0);
   });

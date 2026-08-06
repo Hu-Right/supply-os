@@ -29,7 +29,8 @@ describe("NoticeCard", () => {
     expect(screen.getByText("Test Notice")).toBeInTheDocument();
     // 已知类型归一化为 i18n 键（mock t 原样返回键名）
     expect(screen.getByText("procurement_type_rfq")).toBeInTheDocument();
-    expect(screen.getByText("2026-12-31")).toBeInTheDocument();
+    // zh 环境下截止日期经 formatDeadlineZh 格式化（"2026年12月31日 08时00分"）
+    expect(screen.getByText(/2026.*12.*31/)).toBeInTheDocument();
   });
 
   it("falls back to raw notice_type for unmapped values", () => {

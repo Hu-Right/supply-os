@@ -1,24 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import { LocaleProvider, useLocale } from "@/core/i18n/LocaleContext";
 
 // ── Mock i18next & react-i18next (inline to avoid hoisting issues) ──
-vi.mock("i18next", () => ({
-  default: {
+// vi.hoisted 确保 mockI18n 在 vi.mock 工厂函数执行前已初始化
+const { mockI18n } = vi.hoisted(() => {
+  const mockI18n = {
     isInitialized: true,
+    language: "zh",
     use: vi.fn().mockReturnThis(),
     init: vi.fn(),
-    language: "zh",
-    changeLanguage: vi.fn(),
-  },
+    changeLanguage: vi.fn(function (lang: string) {
+      mockI18n.language = lang;
+      return Promise.resolve();
+    }),
+    addResourceBundle: vi.fn(),
+  };
+  return { mockI18n };
+});
+
+vi.mock("i18next", () => ({
+  default: mockI18n,
 }));
 
 vi.mock("react-i18next", () => ({
   initReactI18next: { type: "3rdParty", init: vi.fn() },
   useTranslation: () => ({
     t: (key: string) => key,
-    i18n: { language: "zh", changeLanguage: vi.fn() },
+    i18n: mockI18n,
   }),
+}));
+
+// ── Mock loadLanguage：避免动态导入真实 JSON 文件 ──
+vi.mock("@/core/i18n/loader", () => ({
+  loadLanguage: vi.fn().mockResolvedValue({}),
 }));
 
 // ── Test consumer ──
@@ -37,6 +52,9 @@ function LocaleConsumer() {
 describe("LocaleContext", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    mockI18n.language = "zh";
+    document.documentElement.lang = "";
+    document.documentElement.dir = "";
   });
 
   it("provides default locale as 'zh'", () => {
@@ -49,12 +67,14 @@ describe("LocaleContext", () => {
     expect(screen.getByTestId("translated").textContent).toBe("brandName");
   });
 
-  it("setLocale calls i18n.changeLanguage and persists", () => {
+  it("setLocale calls i18n.changeLanguage and persists", async () => {
     render(<LocaleProvider><LocaleConsumer /></LocaleProvider>);
-    act(() => {
+    await act(async () => {
       screen.getByTestId("switch-en").click();
     });
-    expect(window.localStorage.getItem("supply_os_locale")).toBe("en");
+    await waitFor(() => {
+      expect(window.localStorage.getItem("supply_os_locale")).toBe("en");
+    });
   });
 
   it("useLocale throws outside Provider", () => {
@@ -70,43 +90,53 @@ describe("LocaleContext", () => {
     expect(window.localStorage.getItem("supply_os_locale")).toBe("en");
   });
 
-  it("setLocale persists to localStorage", () => {
+  it("setLocale persists to localStorage", async () => {
     render(<LocaleProvider><LocaleConsumer /></LocaleProvider>);
-    act(() => {
+    await act(async () => {
       screen.getByTestId("switch-en").click();
     });
-    expect(window.localStorage.getItem("supply_os_locale")).toBe("en");
+    await waitFor(() => {
+      expect(window.localStorage.getItem("supply_os_locale")).toBe("en");
+    });
   });
 
-  it("handles localStorage unavailable gracefully", () => {
+  it("handles localStorage unavailable gracefully", async () => {
     const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("localStorage unavailable");
     });
     render(<LocaleProvider><LocaleConsumer /></LocaleProvider>);
-    act(() => {
+    await act(async () => {
       screen.getByTestId("switch-en").click();
     });
     // Should not throw
     setItemSpy.mockRestore();
   });
 
-  it("sets document.documentElement.dir on mount and locale switch", () => {
+  it("sets document.documentElement.dir on mount and locale switch", async () => {
+    // initI18n 在 main.tsx 中设置初始 dir；测试中不调用 initI18n，手动模拟
+    document.documentElement.dir = "ltr";
+    document.documentElement.lang = "zh";
     render(<LocaleProvider><LocaleConsumer /></LocaleProvider>);
-    // 模块级初始化（mock language "zh"）→ ltr
-    expect(document.documentElement.dir).toBe("ltr");
+    await waitFor(() => {
+      expect(document.documentElement.dir).toBe("ltr");
+    });
 
     // 切阿语：全局方向翻转为 rtl，lang 同步
-    act(() => {
+    await act(async () => {
       screen.getByTestId("switch-ar").click();
     });
-    expect(document.documentElement.dir).toBe("rtl");
-    expect(document.documentElement.lang).toBe("ar");
+    await waitFor(() => {
+      expect(document.documentElement.dir).toBe("rtl");
+      expect(document.documentElement.lang).toBe("ar");
+    });
 
     // 切回英语：恢复 ltr
-    act(() => {
+    await act(async () => {
       screen.getByTestId("switch-en").click();
     });
-    expect(document.documentElement.dir).toBe("ltr");
-    expect(document.documentElement.lang).toBe("en");
+    await waitFor(() => {
+      expect(document.documentElement.dir).toBe("ltr");
+      expect(document.documentElement.lang).toBe("en");
+    });
   });
 });
