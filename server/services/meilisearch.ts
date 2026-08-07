@@ -453,10 +453,10 @@ export async function hasOldSentinel(): Promise<boolean> {
   }
 }
 
-/** 获取 MySQL 中活跃公告数量（用于 ghost ID 检测） */
+/** 获取 MySQL 中公告总数（用于 ghost ID 检测，与 Meilisearch 索引口径一致：包含所有公告） */
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {
-    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1");
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices");
     return Number((rows as any[])[0]?.cnt || 0);
   } catch {
     return 0;
