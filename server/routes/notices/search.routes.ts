@@ -7,6 +7,7 @@
  *              见 services/noticeSearch 与 services/noticeRecommend。
  */
 import { Router } from "express";
+import crypto from "crypto";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
@@ -63,20 +64,34 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     }
   }));
 
-  router.get("/api/notices/countries", asyncHandler(async (_req, res) => {
+  router.get("/api/notices/countries", asyncHandler(async (req, res) => {
     // P1 性能优化：浏览器缓存 10 分钟（与服务端缓存 TTL 对齐），减少重复请求
     res.setHeader("Cache-Control", "public, max-age=600");
-    res.json(await getNoticeCountries(ctx.dbPool));
+    const data = await getNoticeCountries(ctx.dbPool);
+    // P2 性能优化：ETag 条件请求——客户端 If-None-Match 命中时返回 304，零数据传输
+    // 回滚：删除 etag/If-None-Match/304 逻辑，恢复 res.json(data)
+    const etag = `"${crypto.createHash("md5").update(JSON.stringify(data)).digest("hex").slice(0, 16)}"`;
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    res.json(data);
   }));
 
   router.get("/api/notices/agencies", asyncHandler(async (req, res) => {
     const locale = String(req.query.locale || "").toLowerCase();
     res.setHeader("Cache-Control", "public, max-age=600");
-    res.json(await getNoticeAgencies(ctx.dbPool, locale || undefined));
+    const data = await getNoticeAgencies(ctx.dbPool, locale || undefined);
+    const etag = `"${crypto.createHash("md5").update(JSON.stringify(data)).digest("hex").slice(0, 16)}"`;
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    res.json(data);
   }));
 
-  router.get("/api/notices/stats", asyncHandler(async (_req, res) => {
-    res.json(await getNoticeStats(ctx.dbPool));
+  router.get("/api/notices/stats", asyncHandler(async (req, res) => {
+    const data = await getNoticeStats(ctx.dbPool);
+    const etag = `"${crypto.createHash("md5").update(JSON.stringify(data)).digest("hex").slice(0, 16)}"`;
+    res.setHeader("ETag", etag);
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    res.json(data);
   }));
 
   // ── 推荐端点 ──

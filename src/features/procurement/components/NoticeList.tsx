@@ -8,6 +8,7 @@
  *              Notice card grid + Pagination + empty state; all props come
  *              from hooks, stateless.
  */
+import { memo } from "react";
 import { useLocale } from "@/core/i18n";
 import { Pagination } from "@/shared/ui";
 import type { NoticeItem } from "../types";
@@ -26,7 +27,9 @@ export interface NoticeListProps {
   observeCard: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-export function NoticeList({
+// P0 性能优化：React.memo 避免翻页/筛选时列表组件不必要重渲染
+// 回滚：删除 memo() 包裹，恢复为 export function NoticeList(...)
+export const NoticeList = memo(function NoticeList({
   items,
   loading,
   page,
@@ -70,4 +73,4 @@ export function NoticeList({
       />
     </>
   );
-}
+});

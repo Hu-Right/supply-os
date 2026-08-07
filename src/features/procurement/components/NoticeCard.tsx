@@ -1,5 +1,6 @@
 // [収藏/dismiss 功能临时禁用 2026-07-30] Star, X 不再使用
 // [精选功能重新启用 2026-07-31] Crown 随精选徽标一并恢复
+import { memo } from "react";
 import { Crown /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { LocaleKey } from "@/core/i18n";
@@ -31,7 +32,9 @@ interface NoticeCardProps {
   observe?: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
+// P0 性能优化：React.memo 避免父组件 state 变化时 9 张卡片全部重渲染
+// 回滚：删除 memo() 包裹，恢复为 export function NoticeCard(...)
+export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
   const { t, locale } = useLocale();
   // 卡片国际化回退链：
   //   标题：当前语言缓存 → 英文缓存 → 原文
@@ -132,4 +135,4 @@ export function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
       </div>
     </article>
   );
-}
+});

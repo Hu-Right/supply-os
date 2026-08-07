@@ -10,6 +10,7 @@
  *              all props come from useNoticeSearch, stateless.
  *              Compact 3-row layout; action buttons moved to parent card bottom.
  */
+import { memo } from "react";
 import { Search } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
@@ -29,7 +30,9 @@ export interface NoticeSearchBarProps {
   toggleFeatured: () => void;
 }
 
-export function NoticeSearchBar({
+// P0 性能优化：React.memo 避免翻页/列表刷新时搜索栏重渲染
+// 回滚：删除 memo() 包裹，恢复为 export function NoticeSearchBar(...)
+export const NoticeSearchBar = memo(function NoticeSearchBar({
   form,
   query,
   countries,
@@ -140,4 +143,4 @@ export function NoticeSearchBar({
       </div>
     </form>
   );
-}
+});

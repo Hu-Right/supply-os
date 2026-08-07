@@ -387,6 +387,32 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // BUG-5 修复：hasSearch 纳入依赖，确保数据源分支变更时 effect 正确重跑
   }, [deepestCodeId, page, prefsMode, searchKey, locale, userKey, hasSearch]);
 
+  // P1 性能优化：分页预取——当前页加载完成后静默预取下一页到 apiCached 缓存
+  // 用户点击翻页时直接命中缓存，0ms 等待
+  // 回滚：删除下方 useEffect 即可
+  useEffect(() => {
+    // 仅当当前页有数据且不是最后一页时预取
+    if (loading || items.length === 0 || page >= totalPages) return;
+    const nextPage = page + 1;
+    // 静默预取：不更新 UI，仅填充 apiCached 缓存
+    fetchNotices({
+      page: nextPage,
+      pageSize: PAGE_SIZE,
+      codeId: deepestCodeId || undefined,
+      q: activeQ || undefined,
+      country: activeCountry || undefined,
+      agency: activeAgency || undefined,
+      deadlineFrom: activeFrom || undefined,
+      deadlineTo: activeTo || undefined,
+      sort: activeSort,
+      userKey: userKey || undefined,
+      deadlineWithinDays: activeWindow ? Number(activeWindow) : undefined,
+      noticeType: activeNoticeType || undefined,
+      featured: activeFeatured || undefined,
+      locale,
+    }).catch(() => { /* 预取失败静默，不影响当前页 */ });
+  }, [page, totalPages, items.length, loading]);
+
   return {
     query: {
       activeQ,
