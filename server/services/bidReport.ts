@@ -634,15 +634,17 @@ export interface ReportPreviewSection {
 }
 
 /**
- * 生成报告预览内容：仅保留 Word 报告中「2.1 采购描述（中文）」一章，
+ * 生成报告预览内容：仅保留 Word 报告中「2.1 采购描述」一章，
  * 其余章节（基本信息/BoQ/技术规格/资格清单/递交规范/推进建议）不再随预览接口下发。
- * description_cn 为空时以英文原文 description 兜底（标题改为「2.1 采购描述（原文）」）；
+ * 语言策略：zh 环境优先 description_cn（空则 description 兜底）；非 zh 环境直接 description。
  * 两者均为空时返回空数组，前端预览面板据此整体隐藏。
  */
-export function buildBidReportPreviewText(row: Row): ReportPreviewSection[] {
-  const descriptionCn = safe(row.description_cn);
-  if (descriptionCn) return [{ heading: "2.1 采购描述（中文）", body: descriptionCn }];
+export function buildBidReportPreviewText(row: Row, lang: string = "zh"): ReportPreviewSection[] {
+  if (lang === "zh") {
+    const descriptionCn = safe(row.description_cn);
+    if (descriptionCn) return [{ heading: "2.1 采购描述（中文）", body: descriptionCn }];
+  }
   const description = safe(row.description);
-  if (description) return [{ heading: "2.1 采购描述（原文）", body: description }];
+  if (description) return [{ heading: "2.1 Procurement Description", body: description }];
   return [];
 }

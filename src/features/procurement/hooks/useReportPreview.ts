@@ -3,9 +3,9 @@
  * Report Preview Data Fetching Hook
  *
  * @module features/procurement/hooks/useReportPreview
- * @description 解锁后拉取中文版订单拆解报告的结构化摘要（JSON，按最新需求仅含
- *              「2.1 采购描述（中文）」章节），供 ReportPreviewPanel 组件渲染预览内容。
- *              请求失败时静默回退（error 状态由组件决定是否降级展示）。
+ * @description 解锁后拉取中文版订单拆解报告的结构化摘要（JSON，按语言环境自适应：
+ *              zh 优先 description_cn，非 zh 直接 description），供 ReportPreviewPanel
+ *              组件渲染预览内容。请求失败时静默回退（error 状态由组件决定是否降级展示）。
  *              Fetches structured JSON summary (now only the Chinese procurement
  *              description section) for preview rendering. Silently falls back on error.
  */
@@ -29,6 +29,8 @@ export interface ReportPreviewData {
 export function useReportPreview(
   noticeId: number | undefined,
   userKey: string,
+  /** 当前语言环境，zh 优先 description_cn，非 zh 直接 description */
+  lang: string = "zh",
   /** 解锁状态变化触发重新请求（core_locked 从 true → false 时触发） */
   coreLocked?: boolean,
 ) {
@@ -48,7 +50,7 @@ export function useReportPreview(
     setError(false);
 
     api<ReportPreviewData>(
-      `/api/notices/${noticeId}/report/preview?user_key=${encodeURIComponent(userKey)}`
+      `/api/notices/${noticeId}/report/preview?user_key=${encodeURIComponent(userKey)}&lang=${encodeURIComponent(lang)}`
     )
       .then((data) => {
         if (!cancelled) setPreview(data);
@@ -63,7 +65,7 @@ export function useReportPreview(
     return () => {
       cancelled = true;
     };
-  }, [noticeId, userKey, coreLocked]);
+  }, [noticeId, userKey, lang, coreLocked]);
 
   return { preview, loading, error };
 }

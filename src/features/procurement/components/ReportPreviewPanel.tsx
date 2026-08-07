@@ -3,9 +3,9 @@
  * Chinese Bid Breakdown Report Preview Panel
  *
  * @module features/procurement/components/ReportPreviewPanel
- * @description 未解锁用户看到约 10% 预览内容（按最新需求仅「2.1 采购描述（中文）」章节）
- *              + 模糊锁定 + 会员升级引导；已解锁用户下载链接已在 NoticeUnlockedDetails
- *              中提供，本组件直接返回 null。
+ * @description 未解锁用户看到约 10% 预览内容（按语言环境自适应：zh 优先 description_cn，
+ *              非 zh 直接 description）+ 模糊锁定 + 会员升级引导；已解锁用户下载链接
+ *              已在 NoticeUnlockedDetails 中提供，本组件直接返回 null。
  */
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
@@ -24,8 +24,8 @@ interface ReportPreviewPanelProps {
 }
 
 export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
-  const { t } = useLocale();
-  const { preview, loading, error } = useReportPreview(noticeId, userKey, coreLocked);
+  const { t, locale } = useLocale();
+  const { preview, loading, error } = useReportPreview(noticeId, userKey, locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
   const downloadHref = preview ? `${reportUrl}?user_key=${encodeURIComponent(userKey)}` : "";
