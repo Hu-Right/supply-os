@@ -749,7 +749,7 @@ const INTL_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]> = [
     canonical: `${rest} Training College`,
     i18n: { zh: `${rest}师范学院`, fr: `Collège de formation ${rest}`, ru: `Педагогический колледж ${rest}`, es: `Colegio de formación ${rest}`, ar: `كلية تدريب ${rest}` },
   })],
-  // 肯尼亚/国际 Authority/Commission/Fund
+  // 肯尼亚/国际 Authority/Commission/Committee/Board/Council/Tribunal/Fund
   [/^(.+)\s+AUTHORITY$/i, (rest) => ({
     canonical: `${rest} Authority`,
     i18n: { zh: `${rest}管理局`, fr: `Autorité ${rest}`, ru: `Управление ${rest}`, es: `Autoridad ${rest}`, ar: `هيئة ${rest}` },
@@ -757,6 +757,66 @@ const INTL_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]> = [
   [/^(.+)\s+COMMISSION$/i, (rest) => ({
     canonical: `${rest} Commission`,
     i18n: { zh: `${rest}委员会`, fr: `Commission ${rest}`, ru: `Комиссия ${rest}`, es: `Comisión ${rest}`, ar: `مفوضية ${rest}` },
+  })],
+  [/^(.+)\s+COMMITTEE$/i, (rest) => ({
+    canonical: `${rest} Committee`,
+    i18n: { zh: `${rest}委员会`, fr: `Comité ${rest}`, ru: `Комитет ${rest}`, es: `Comité ${rest}`, ar: `لجنة ${rest}` },
+  })],
+  [/^(.+)\s+BOARD$/i, (rest) => ({
+    canonical: `${rest} Board`,
+    i18n: { zh: `${rest}理事会`, fr: `Conseil ${rest}`, ru: `Совет ${rest}`, es: `Junta ${rest}`, ar: `مجلس ${rest}` },
+  })],
+  [/^(.+)\s+COUNCIL$/i, (rest) => ({
+    canonical: `${rest} Council`,
+    i18n: { zh: `${rest}议会`, fr: `Conseil ${rest}`, ru: `Совет ${rest}`, es: `Consejo ${rest}`, ar: `مجلس ${rest}` },
+  })],
+  [/^(.+)\s+TRIBUNAL$/i, (rest) => ({
+    canonical: `${rest} Tribunal`,
+    i18n: { zh: `${rest}法庭`, fr: `Tribunal ${rest}`, ru: `Трибунал ${rest}`, es: `Tribunal ${rest}`, ar: `محكمة ${rest}` },
+  })],
+  [/^(.+)\s+FUND$/i, (rest) => ({
+    canonical: `${rest} Fund`,
+    i18n: { zh: `${rest}基金`, fr: `Fonds ${rest}`, ru: `Фонд ${rest}`, es: `Fondo ${rest}`, ar: `صندوق ${rest}` },
+  })],
+  [/^(.+)\s+TRUST$/i, (rest) => ({
+    canonical: `${rest} Trust`,
+    i18n: { zh: `${rest}信托`, fr: `Fiducie ${rest}`, ru: `Траст ${rest}`, es: `Fideicomiso ${rest}`, ar: `صندوق ائتماني ${rest}` },
+  })],
+  [/^(.+)\s+UNION$/i, (rest) => ({
+    canonical: `${rest} Union`,
+    i18n: { zh: `${rest}联盟`, fr: `Union ${rest}`, ru: `Союз ${rest}`, es: `Unión ${rest}`, ar: `اتحاد ${rest}` },
+  })],
+  [/^(.+)\s+SOCIETY$/i, (rest) => ({
+    canonical: `${rest} Society`,
+    i18n: { zh: `${rest}学会`, fr: `Société ${rest}`, ru: `Общество ${rest}`, es: `Sociedad ${rest}`, ar: `جمعية ${rest}` },
+  })],
+  [/^(.+)\s+COOPERATIVE$/i, (rest) => ({
+    canonical: `${rest} Cooperative`,
+    i18n: { zh: `${rest}合作社`, fr: `Coopérative ${rest}`, ru: `Кооператив ${rest}`, es: `Cooperativa ${rest}`, ar: `تعاونية ${rest}` },
+  })],
+  [/^(.+)\s+DIVISION$/i, (rest) => ({
+    canonical: `${rest} Division`,
+    i18n: { zh: `${rest}司`, fr: `Division ${rest}`, ru: `Отдел ${rest}`, es: `División ${rest}`, ar: `شعبة ${rest}` },
+  })],
+  [/^(.+)\s+OFFICE$/i, (rest) => ({
+    canonical: `${rest} Office`,
+    i18n: { zh: `${rest}办公室`, fr: `Bureau ${rest}`, ru: `Канцелярия ${rest}`, es: `Oficina ${rest}`, ar: `مكتب ${rest}` },
+  })],
+  [/^(.+)\s+PROGRAMME$/i, (rest) => ({
+    canonical: `${rest} Programme`,
+    i18n: { zh: `${rest}项目`, fr: `Programme ${rest}`, ru: `Программа ${rest}`, es: `Programa ${rest}`, ar: `برنامج ${rest}` },
+  })],
+  [/^(.+)\s+PROGRAM$/i, (rest) => ({
+    canonical: `${rest} Program`,
+    i18n: { zh: `${rest}项目`, fr: `Programme ${rest}`, ru: `Программа ${rest}`, es: `Programa ${rest}`, ar: `برنامج ${rest}` },
+  })],
+  [/^(.+)\s+NETWORK$/i, (rest) => ({
+    canonical: `${rest} Network`,
+    i18n: { zh: `${rest}网络`, fr: `Réseau ${rest}`, ru: `Сеть ${rest}`, es: `Red ${rest}`, ar: `شبكة ${rest}` },
+  })],
+  [/^(.+)\s+INSTITUTION$/i, (rest) => ({
+    canonical: `${rest} Institution`,
+    i18n: { zh: `${rest}机构`, fr: `Institution ${rest}`, ru: `Учреждение ${rest}`, es: `Institución ${rest}`, ar: `مؤسسة ${rest}` },
   })],
   // Water & Sewerage Company
   [/^(.+)\s+WATER\s*(?:&|AND)\s*SEWERAGE/i, (rest) => ({
@@ -806,15 +866,78 @@ export function translateByPattern(agencyName: string): PatternI18nResult | null
   }
 
   // 通用兜底：对任何未匹配的机构名
-  // BUG 修复：如果机构名是英文，不生成假翻译（会导致前端显示英文名而非中文）
-  // 返回 null 让前端回退到显示英文原名，避免误导用户
+  // 改进：提取机构类型关键词生成基础中文翻译，而非返回 null
+  // 这样中文用户可以看到基本的中文翻译，而不是纯英文原名
   if (trimmed.length > 0) {
     // 检测是否为英文（包含英文字母）
     const isEnglish = /[a-zA-Z]/.test(trimmed);
     if (isEnglish) {
-      // 英文机构名：不生成假翻译，返回 null
-      // 前端会回退到显示英文原名
-      return null;
+      // 英文机构名：尝试提取类型关键词生成基础翻译
+      const upperName = trimmed.toUpperCase();
+      // 机构类型关键词映射表（按优先级排列）
+      const TYPE_KEYWORDS: Array<[RegExp, string]> = [
+        [/\bCOMMITTEE\b/i, "委员会"],
+        [/\bCOMMISSION\b/i, "委员会"],
+        [/\bBOARD\b/i, "理事会"],
+        [/\bCOUNCIL\b/i, "议会"],
+        [/\bTRIBUNAL\b/i, "法庭"],
+        [/\bMINISTRY\b/i, "部"],
+        [/\bDEPARTMENT\b/i, "部门"],
+        [/\bAUTHORITY\b/i, "管理局"],
+        [/\bAGENCY\b/i, "机构"],
+        [/\bBUREAU\b/i, "局"],
+        [/\bOFFICE\b/i, "办公室"],
+        [/\bDIVISION\b/i, "司"],
+        [/\bUNIVERSITY\b/i, "大学"],
+        [/\bCOLLEGE\b/i, "学院"],
+        [/\bINSTITUTE\b/i, "研究所"],
+        [/\bINSTITUTION\b/i, "机构"],
+        [/\bHOSPITAL\b/i, "医院"],
+        [/\bFOUNDATION\b/i, "基金会"],
+        [/\bFUND\b/i, "基金"],
+        [/\bTRUST\b/i, "信托"],
+        [/\bASSOCIATION\b/i, "协会"],
+        [/\bFEDERATION\b/i, "联合会"],
+        [/\bUNION\b/i, "联盟"],
+        [/\bSOCIETY\b/i, "学会"],
+        [/\bCOOPERATIVE\b/i, "合作社"],
+        [/\bCORPORATION\b/i, "公司"],
+        [/\bCOMPANY\b/i, "公司"],
+        [/\bBANK\b/i, "银行"],
+        [/\bCENTER\b/i, "中心"],
+        [/\bCENTRE\b/i, "中心"],
+        [/\bCOURT\b/i, "法院"],
+        [/\bPARLIAMENT\b/i, "议会"],
+        [/\bCONGRESS\b/i, "国会"],
+        [/\bEMBASSY\b/i, "大使馆"],
+        [/\bCONSULATE\b/i, "领事馆"],
+        [/\bPROGRAMME\b/i, "项目"],
+        [/\bPROGRAM\b/i, "项目"],
+        [/\bNETWORK\b/i, "网络"],
+      ];
+      for (const [regex, typeZh] of TYPE_KEYWORDS) {
+        if (regex.test(trimmed)) {
+          // 提取机构名称部分（去掉类型关键词）
+          const namePart = trimmed.replace(regex, "").trim().replace(/\s+/g, " ");
+          if (namePart) {
+            return {
+              canonical: trimmed,
+              i18n: { zh: `${namePart}${typeZh}` },
+            };
+          } else {
+            return {
+              canonical: trimmed,
+              i18n: { zh: typeZh },
+            };
+          }
+        }
+      }
+      // 未匹配任何类型关键词：返回英文原名作为翻译（虽然不完美，但比 null 好）
+      // 前端会显示这个翻译，至少中文用户能看到一些内容
+      return {
+        canonical: trimmed,
+        i18n: { zh: trimmed },
+      };
     } else {
       // 非英文机构名（如中文、日文等）：直接使用原名作为中文翻译
       return {
@@ -900,12 +1023,22 @@ const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string,
   [/\b(?:City|Municipal)\s+Government\b/i, { typeKey: "CITY_COUNCIL_INTL", i18n: { zh: "各市政府", fr: "Gouvernements municipaux", ru: "Муниципальные правительства", es: "Gobiernos municipales", ar: "الحكومات البلدية" } }],
   // 省/州级政府
   [/\b(?:Provincial|State)\s+Government\b/i, { typeKey: "PROVINCIAL_GOVT_INTL", i18n: { zh: "各省/州政府", fr: "Gouvernements provinciaux/étatiques", ru: "Провинциальные/штатные правительства", es: "Gobiernos provinciales/estatales", ar: "الحكومات الإقليمية/الولائية" } }],
+  // 各类 Council（County/District/Regional/National/Local Council 等）
+  [/\b(?:County|District|Regional|National|Local|Provincial|State|Federal|Central|National)\s+Council\b/i, { typeKey: "COUNCIL_INTL", i18n: { zh: "各议会", fr: "Conseils", ru: "Советы", es: "Consejos", ar: "المجالس" } }],
+  // 其他 Council（后缀形式，如 "XX Council"）
+  [/\bCouncil\b/i, { typeKey: "COUNCIL_INTL", i18n: { zh: "各议会", fr: "Conseils", ru: "Советы", es: "Consejos", ar: "المجالس" } }],
   // 国家部委
   [/\bMinistry\s+of\b/i, { typeKey: "MINISTRY_INTL", i18n: { zh: "各国部委", fr: "Ministères", ru: "Министерства", es: "Ministerios", ar: "الوزارات" } }],
   [/\bDepartment\s+of\b/i, { typeKey: "DEPARTMENT_INTL", i18n: { zh: "各部门", fr: "Départements", ru: "Департаменты", es: "Departamentos", ar: "الإدارات" } }],
   // 管理局/委员会
   [/\bAuthority\b/i, { typeKey: "AUTHORITY_INTL", i18n: { zh: "各管理局", fr: "Autorités", ru: "Управления", es: "Autoridades", ar: "الهيئات" } }],
+  // Committee（委员会）- 最常见的政府机构类型之一
+  [/\bCommittee\b/i, { typeKey: "COMMITTEE_INTL", i18n: { zh: "各委员会", fr: "Comités", ru: "Комитеты", es: "Comités", ar: "اللجان" } }],
   [/\bCommission\b/i, { typeKey: "COMMISSION_INTL", i18n: { zh: "各委员会", fr: "Commissions", ru: "Комиссии", es: "Comisiones", ar: "اللجان" } }],
+  // Board（理事会/委员会）
+  [/\bBoard\b/i, { typeKey: "BOARD_INTL", i18n: { zh: "各理事会", fr: "Conseils", ru: "Советы", es: "Juntas", ar: "المجالس" } }],
+  // Tribunal（法庭/仲裁庭）
+  [/\bTribunal\b/i, { typeKey: "TRIBUNAL_INTL", i18n: { zh: "各法庭", fr: "Tribunaux", ru: "Трибуналы", es: "Tribunales", ar: "المحاكم" } }],
   // 大学/学院
   [/\bUniversity\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
   [/\bCollege\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
@@ -913,9 +1046,17 @@ const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string,
   [/\bHospital\b/i, { typeKey: "HOSPITAL_INTL", i18n: { zh: "各医院", fr: "Hôpitaux", ru: "Больницы", es: "Hospitales", ar: "المستشفيات" } }],
   // 基金会
   [/\bFoundation\b/i, { typeKey: "FOUNDATION_INTL", i18n: { zh: "各基金会", fr: "Fondations", ru: "Фонды", es: "Fundaciones", ar: "المؤسسات" } }],
+  // 基金
+  [/\bFund\b/i, { typeKey: "FUND_INTL", i18n: { zh: "各基金", fr: "Fonds", ru: "Фонды", es: "Fondos", ar: "الصناديق" } }],
   // 协会/联盟
   [/\bAssociation\b/i, { typeKey: "ASSOCIATION_INTL", i18n: { zh: "各协会", fr: "Associations", ru: "Ассоциации", es: "Asociaciones", ar: "الجمعيات" } }],
   [/\bFederation\b/i, { typeKey: "FEDERATION_INTL", i18n: { zh: "各联合会", fr: "Fédérations", ru: "Федерации", es: "Federaciones", ar: "الاتحادات" } }],
+  [/\bUnion\b/i, { typeKey: "UNION_INTL", i18n: { zh: "各联盟", fr: "Unions", ru: "Союзы", es: "Uniones", ar: "الاتحادات" } }],
+  [/\bSociety\b/i, { typeKey: "SOCIETY_INTL", i18n: { zh: "各学会", fr: "Sociétés", ru: "Общества", es: "Sociedades", ar: "الجمعيات" } }],
+  // 合作社
+  [/\bCooperative\b|\bCo-op\b/i, { typeKey: "COOPERATIVE_INTL", i18n: { zh: "各合作社", fr: "Coopératives", ru: "Кооперативы", es: "Cooperativas", ar: "التعاونيات" } }],
+  // 信托
+  [/\bTrust\b/i, { typeKey: "TRUST_INTL", i18n: { zh: "各信托", fr: "Fiducies", ru: "Трасты", es: "Fideicomisos", ar: "الصناديق الاستئمانية" } }],
   // 公司/企业
   [/\b(?:Corporation|Corp)\b/i, { typeKey: "CORPORATION_INTL", i18n: { zh: "各公司", fr: "Sociétés", ru: "Корпорации", es: "Corporaciones", ar: "الشركات" } }],
   [/\b(?:Ltd|Limited)\b/i, { typeKey: "COMPANY_INTL", i18n: { zh: "各有限公司", fr: "Sociétés limitées", ru: "ООО", es: "S.L.", ar: "شركة ذات مسؤولية محدودة" } }],
@@ -923,11 +1064,16 @@ const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string,
   [/\bBank\b/i, { typeKey: "BANK_INTL", i18n: { zh: "各银行", fr: "Banques", ru: "Банки", es: "Bancos", ar: "البنوك" } }],
   // 研究所/研究院
   [/\bInstitute\b/i, { typeKey: "INSTITUTE_INTL", i18n: { zh: "各研究所", fr: "Instituts", ru: "Институты", es: "Institutos", ar: "المعاهد" } }],
+  [/\bInstitution\b/i, { typeKey: "INSTITUTION_INTL", i18n: { zh: "各机构", fr: "Institutions", ru: "Учреждения", es: "Instituciones", ar: "المؤسسات" } }],
   // 中心
   [/\bCenter\b|\bCentre\b/i, { typeKey: "CENTER_INTL", i18n: { zh: "各中心", fr: "Centres", ru: "Центры", es: "Centros", ar: "المراكز" } }],
   // 局/署
   [/\bBureau\b/i, { typeKey: "BUREAU_INTL", i18n: { zh: "各局", fr: "Bureaux", ru: "Бюро", es: "Oficinas", ar: "المكاتب" } }],
   [/\bAgency\b/i, { typeKey: "AGENCY_INTL", i18n: { zh: "各机构", fr: "Agences", ru: "Агентства", es: "Agencias", ar: "الوكالات" } }],
+  // 办公室
+  [/\bOffice\b/i, { typeKey: "OFFICE_INTL", i18n: { zh: "各办公室", fr: "Bureaux", ru: "Канцелярии", es: "Oficinas", ar: "المكاتب" } }],
+  // 部门/司
+  [/\bDivision\b/i, { typeKey: "DIVISION_INTL", i18n: { zh: "各司", fr: "Divisions", ru: "Отделы", es: "Divisiones", ar: "الشعب" } }],
   // 法院/法庭
   [/\bCourt\b/i, { typeKey: "COURT_INTL", i18n: { zh: "各法院", fr: "Tribunaux", ru: "Суды", es: "Tribunales", ar: "المحاكم" } }],
   // 议会/国会
@@ -936,6 +1082,10 @@ const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string,
   // 大使馆/领事馆
   [/\bEmbassy\b/i, { typeKey: "EMBASSY_INTL", i18n: { zh: "各大使馆", fr: "Ambassades", ru: "Посольства", es: "Embajadas", ar: "السفارات" } }],
   [/\bConsulate\b/i, { typeKey: "CONSULATE_INTL", i18n: { zh: "各领事馆", fr: "Consulats", ru: "Консульства", es: "Consulados", ar: "القنصليات" } }],
+  // 项目/计划
+  [/\b(?:Programme|Program)\b/i, { typeKey: "PROGRAMME_INTL", i18n: { zh: "各项目", fr: "Programmes", ru: "Программы", es: "Programas", ar: "البرامج" } }],
+  // 网络
+  [/\bNetwork\b/i, { typeKey: "NETWORK_INTL", i18n: { zh: "各网络", fr: "Réseaux", ru: "Сети", es: "Redes", ar: "الشبكات" } }],
   // 非政府组织
   [/\bNGO\b/i, { typeKey: "NGO_INTL", i18n: { zh: "各非政府组织", fr: "ONG", ru: "НПО", es: "ONG", ar: "المنظمات غير الحكومية" } }],
   // 红十字会/红新月会
