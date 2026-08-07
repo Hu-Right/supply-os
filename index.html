@@ -8,10 +8,23 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <!-- P1 性能优化：资源预加载提示——提前建立外部域名连接、预解析支付/翻译服务域名 -->
+    <!-- 回滚：删除下方 link[rel=preconnect]/link[rel=dns-prefetch] 行即可 -->
+    <link rel="preconnect" href="https://osneosmart.com" crossorigin />
+    <link rel="dns-prefetch" href="https://openapi.alipay.com" />
+    <link rel="dns-prefetch" href="https://api.mch.weixin.qq.com" />
+    <link rel="dns-prefetch" href="https://api.deepseek.com" />
+    <!-- P2 性能优化：首屏骨架屏 CSS 内联——JS 加载期间即显示加载占位，消除白屏闪烁 -->
+    <!-- 回滚：删除 <style>...</style> 块即可 -->
+    <style>
+      .skeleton-root{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8fafc}
+      .skeleton-spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:#0d9488;border-radius:50%;animation:sk-spin .6s linear infinite}
+      @keyframes sk-spin{to{transform:rotate(360deg)}}
+    </style>
     <title>云境全球智能展厅与国际采购操作系统</title>
   </head>
   <body class="notranslate" translate="no">
-    <div id="root" class="notranslate" translate="no"></div>
+    <div id="root" class="notranslate" translate="no"><div class="skeleton-root"><div class="skeleton-spinner"></div></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
