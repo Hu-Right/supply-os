@@ -3,8 +3,9 @@
  * Chinese Bid Breakdown Report Preview Panel
  *
  * @module features/procurement/components/ReportPreviewPanel
- * @description 未解锁用户看到约 10% 预览内容 + 模糊锁定 + 会员升级引导；
- *              已解锁用户下载链接已在 NoticeUnlockedDetails 中提供，本组件直接返回 null。
+ * @description 未解锁用户看到约 10% 预览内容（按最新需求仅「2.1 采购描述（中文）」章节）
+ *              + 模糊锁定 + 会员升级引导；已解锁用户下载链接已在 NoticeUnlockedDetails
+ *              中提供，本组件直接返回 null。
  */
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
@@ -118,40 +119,30 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
             </div>
           ))}
 
-          {/* 模糊锁定剩余内容 + 升级引导 */}
-          <div className="relative">
-            <div className="blur-sm select-none pointer-events-none max-h-20 overflow-hidden space-y-3">
-              {sections.slice(visibleSections.length, visibleSections.length + 2).map((section, idx) => (
-                <div key={idx}>
-                  <p className="text-xs font-black text-teal-700 mb-1">{section.heading}</p>
-                  <div className="h-16 w-full rounded-lg bg-slate-100" />
-                </div>
-              ))}
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-transparent pt-8 px-4">
-              <Lock className="w-5 h-5 text-slate-400 mb-1" />
-              <p className="text-[11px] text-slate-500 mb-2 text-center">
-                {t("procurement_previewUnlockHint")}
-                {totalCharCount > 0 && `（已展示 ${(((totalCharCount - hiddenCharCount) / totalCharCount) * 100).toFixed(1)}%）`}
-              </p>
-              {isVip ? (
-                <button
-                  onClick={() => onUnlock({ id: noticeId } as NoticeItem)}
-                  className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-black hover:bg-teal-700 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
-                >
-                  <Unlock className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{t("procurement_previewUnlockNow")}</span>
-                </button>
-              ) : (
-                <a
-                  href="/membership"
-                  className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs sm:text-sm font-black hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
-                >
-                  <Crown className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{t("procurement_previewUpgrade")}</span>
-                </a>
-              )}
-            </div>
+          {/* 锁定提示 + 升级引导（预览仅含 2.1 采购描述（中文），无需其余章节模糊占位） */}
+          <div className="flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-teal-50/40 rounded-lg pt-6 pb-4 px-4">
+            <Lock className="w-5 h-5 text-slate-400 mb-1" />
+            <p className="text-[11px] text-slate-500 mb-2 text-center">
+              {t("procurement_previewUnlockHint")}
+              {totalCharCount > 0 && `（已展示 ${(((totalCharCount - hiddenCharCount) / totalCharCount) * 100).toFixed(1)}%）`}
+            </p>
+            {isVip ? (
+              <button
+                onClick={() => onUnlock({ id: noticeId } as NoticeItem)}
+                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-black hover:bg-teal-700 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
+              >
+                <Unlock className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("procurement_previewUnlockNow")}</span>
+              </button>
+            ) : (
+              <a
+                href="/membership"
+                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs sm:text-sm font-black hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
+              >
+                <Crown className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("procurement_previewUpgrade")}</span>
+              </a>
+            )}
           </div>
         </div>
         </div>
