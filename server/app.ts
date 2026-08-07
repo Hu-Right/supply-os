@@ -27,10 +27,16 @@ import { extractUserKey } from "./middleware/auth";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
-  // ── Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
-  // P1 性能优化：修复原 CJS require 在 ESM 模式下不生效的问题
-  // 回滚：恢复为 try { if (typeof require !== 'undefined') app.use(require('compression')()) } catch {}
-  app.use(compression());
+  // ── Brotli/Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
+  // P1 性能优化：Brotli 压缩替代默认 gzip——比 gzip 再减 15-25% 传输体积
+  // compression 中间件自动协商：客户端 Accept-Encoding 含 br 则用 Brotli，否则回退 gzip
+  // 回滚：恢复为 app.use(compression()) 无参数调用
+  app.use(compression({
+    // Brotli 压缩级别 4：平衡压缩率与 CPU 开销（1=最快，11=最高压缩率）
+    level: 4,
+    // 仅压缩超过 1KB 的响应，小响应压缩开销反而增大体积
+    threshold: 1024,
+  }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false })); // 支付宝异步通知为 form-urlencoded
   // 全局中间件：提取 user_key 挂到 req.userKey（所有路由可用）

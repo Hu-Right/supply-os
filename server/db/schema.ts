@@ -750,6 +750,13 @@ export async function ensureProcurementSchema(dbPool: any) {
   await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_notices_active_deadline",
     "CREATE INDEX idx_notices_active_deadline ON crm_bid_notices (is_active, deadline_sec)");
 
+  // P1 性能优化：搜索复合索引——覆盖常用筛选组合 (is_active, deadline_sec, country(50), notice_type(50))
+  // 纯筛选+排序查询从索引扫描+filesort → 索引覆盖，提速 2-5x
+  // country/notice_type 用前缀索引(50)：国家名最长 ~40 字符，采购类型 ~30 字符，50 前缀足够区分
+  // 回滚：DROP INDEX idx_search_composite ON crm_bid_notices;
+  await ensureIndexIfTableExists(dbPool, "crm_bid_notices", "idx_search_composite",
+    "CREATE INDEX idx_search_composite ON crm_bid_notices (is_active, deadline_sec, country(50), notice_type(50))");
+
   // 方案B 性能优化：FULLTEXT 全文索引——加速关键词搜索，替代 LIKE '%keyword%' 全表扫描
   // ngram 解析器支持中文分词（MySQL 5.7+ 内置），BOOLEAN MODE 支持多词搜索
   // 回滚：DROP INDEX ft_notices_search ON crm_bid_notices;

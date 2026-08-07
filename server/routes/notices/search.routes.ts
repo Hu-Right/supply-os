@@ -41,7 +41,24 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
       deadlineWithinDays, noticeType, featuredOnly, locale,
     }, noticesRepo);
-    res.json(result);
+
+    // P2 性能优化：流式响应——立即发送 HTTP headers，然后分块写入 JSON body
+    // 浏览器收到 headers 后即可开始解析，无需等待完整 JSON 序列化完成
+    // 回滚：恢复为 res.json(result)
+    const json = JSON.stringify(result);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Length", Buffer.byteLength(json));
+    res.flushHeaders(); // 立即发送 headers，消除 header 等待时间
+    // 大响应分块写入（16KB 块），小响应一次性发送
+    const CHUNK_SIZE = 16 * 1024;
+    if (json.length > CHUNK_SIZE) {
+      for (let i = 0; i < json.length; i += CHUNK_SIZE) {
+        res.write(json.slice(i, i + CHUNK_SIZE));
+      }
+      res.end();
+    } else {
+      res.end(json);
+    }
 
     // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
     const hasSearch = Boolean(

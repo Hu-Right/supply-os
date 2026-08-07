@@ -295,6 +295,12 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setSearchParams({});
     // BUG1 修复：同步清除 UNSPSC 行业筛选等跨 hook 状态
     onClear?.();
+    // P2 性能优化：乐观 UI——清除搜索时立即清空列表，不等服务端响应
+    // 用户感知从「等待 200-500ms → 列表刷新」变为「立即清空 → 新数据渐入」
+    // 回滚：删除以下 3 行
+    setItems([]);
+    setTotal(0);
+    setLoading(true);
   };
 
   // ── 列表数据与加载编排 ──

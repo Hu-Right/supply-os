@@ -58,13 +58,13 @@ let noticeAgenciesCache: { data: AgencyCacheItem[] } | null = null;
 // ── F.4 搜索性能预案第一档（本地差异 #7）──
 const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires: number }>();
 const NOTICE_SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（搜索结果变化低频，延长缓存减少重复查询）
-const NOTICE_SEARCH_CACHE_MAX = 200;
+const NOTICE_SEARCH_CACHE_MAX = 500;
 
 // P0 性能优化：COUNT 结果独立缓存——翻页时复用，避免每次重新全量计数
 // 回滚：删除 noticeCountCache 相关代码，恢复原始 Promise.all 中始终执行 COUNT 即可
 const noticeCountCache = new Map<string, { total: number; expires: number }>();
 const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟（总数变化低频，延长缓存提升命中率）
-const NOTICE_COUNT_CACHE_MAX = 200;
+const NOTICE_COUNT_CACHE_MAX = 500;
 
 // P1 性能优化：精选计数独立缓存——精选总数变化极低频，30 分钟 TTL 避免重复计算
 // 回滚：删除 featuredCountCache 相关代码，恢复走通用 COUNT 缓存逻辑
@@ -738,6 +738,15 @@ export async function searchNotices(
   }
 
   const t2 = Date.now();
+
+  // P1 性能优化：最后一页短路——当页结果不足一页时，精确推算 total 无需 COUNT
+  // 回滚：删除 lastPageShortCircuit 分支，恢复始终执行 COUNT
+  const lastPageShortCircuit = pageIds.length > 0 && pageIds.length < pageSize;
+  if (lastPageShortCircuit) {
+    total = offset + pageIds.length;
+    countMs = 0;
+    console.log(`[search-perf] COUNT 短路: page=${page} items=${pageIds.length} < pageSize=${pageSize} → total=${total} (0ms)`);
+  }
 
   // P0：首页写入 COUNT 缓存（非首页不写，避免翻页时 stale 条件覆盖）
   if (page === 1 && total > 0) {
