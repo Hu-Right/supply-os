@@ -32,33 +32,33 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
   const isUnlocked = preview?.is_unlocked ?? false;
   const sections = preview?.sections ?? [];
 
-  // 计算预览截止点（按字符数）：展示 30% 内容，最少 500 字符
+  // 按完整章节为单位展示，百分比 = 已展示字符数 / 总字符数
   const { visibleSections, hiddenCharCount, totalCharCount } = useMemo(() => {
     if (isUnlocked || sections.length === 0) {
       return { visibleSections: sections, hiddenCharCount: 0, totalCharCount: 0 };
     }
+    // 计算总字符数
     let totalChars = 0;
     for (const s of sections) totalChars += s.heading.length + s.body.length;
-    // 预览比例提高到 30%，最少展示 500 字符
+    
+    // 按完整章节为单位展示：遍历章节，累加字符数，直到超过阈值
+    // 阈值：总字符数的 30%，但至少展示第一个完整章节
     const threshold = Math.max(500, Math.floor(totalChars * 0.3));
     let accumulated = 0;
     const visible: typeof sections = [];
+    
     for (const s of sections) {
       const sectionChars = s.heading.length + s.body.length;
-      if (accumulated + sectionChars <= threshold) {
-        visible.push(s);
+      // 如果加入当前章节不超过阈值，或者还没展示任何章节（至少展示第一个）
+      if (accumulated + sectionChars <= threshold || visible.length === 0) {
+        visible.push(s);  // 完整展示该章节
         accumulated += sectionChars;
       } else {
-        // 当前章节部分展示：截取到阈值（考虑 heading 长度）
-        const remaining = threshold - accumulated;
-        const bodyToShow = Math.max(0, remaining - s.heading.length);
-        if (bodyToShow > 20) {
-          visible.push({ ...s, body: s.body.slice(0, bodyToShow) + "…" });
-          accumulated += s.heading.length + bodyToShow;
-        }
+        // 超过阈值，停止展示更多章节
         break;
       }
     }
+    
     return { visibleSections: visible, hiddenCharCount: totalChars - accumulated, totalCharCount: totalChars };
   }, [sections, isUnlocked]);
 
