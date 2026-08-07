@@ -194,7 +194,10 @@ export const fetchRecommendedNotices = (params: {
     locale: params.locale,
   });
   // [dismiss 功能临时禁用 2026-07-30]
-  return api<NoticeResponse>(`/api/notices/recommended?${qs}`, { signal });
+  // P1 性能优化：推荐结果前端缓存 30s——偏好探测与搜索 effect 共用同一缓存，
+  // 避免同一用户短时间内两次打到服务端推荐端点（冷查询可达 2s）
+  // 回滚：将 apiCached 替换回 api，删除第二个参数
+  return apiCached<NoticeResponse>(`/api/notices/recommended?${qs}`, 30 * 1000, signal);
 };
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──

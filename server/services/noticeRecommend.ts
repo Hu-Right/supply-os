@@ -32,7 +32,7 @@ const MMR_LAMBDA = 0.7;
 // P3 性能优化：推荐结果缓存——同用户短时间内的重复请求直接命中
 // 回滚：删除 recoResultCache 相关代码，恢复直接查询即可
 const recoResultCache = new Map<string, { data: NoticeRecommendResult; expires: number }>();
-const RECO_RESULT_CACHE_TTL = 2 * 60 * 1000; // 2 分钟
+const RECO_RESULT_CACHE_TTL = 5 * 60 * 1000; // 5 分钟（推荐结果变化低频，延长缓存减少冷查询）
 const RECO_RESULT_CACHE_MAX = 200;
 
 // P3 性能优化：金额偏好查询缓存——结果短期内稳定，10 分钟 TTL

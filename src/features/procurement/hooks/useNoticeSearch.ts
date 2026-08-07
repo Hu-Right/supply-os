@@ -337,12 +337,17 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
 
-  // BUG 修复：追踪上一轮数据源类型，避免 prefsMode 变化但数据源未变时
-  // 不必要的 effect 重跑 → requestSeq 递增 → 丢弃已到达的快速响应
+  // BUG 修复：当 prefsMode 变化但数据源和搜索条件均未变时，跳过 effect 避免取消进行中的请求
   // 根因：prefsMode 从 "loading"→"default" 不改变数据源（都是 fetchNotices 默认模式），
-  // 但 effect 重跑递增 requestSeq，导致第一次快速响应被丢弃，用户必须等待第二次请求
-  // 回滚：删除 dataSourceTypeRef 及相关守卫逻辑
-  const dataSourceTypeRef = useRef<string>("initial");
+  // 但 effect 重跑递增 requestSeq，导致第一次快速响应被丢弃
+  // 注意：searchKey/page/deepestCodeId 等变化时不受此守卫影响，仍会发新请求
+  // 回滚：删除 prevDataSourceForPrefsRef/prevSearchKeyForSkipRef 及相关守卫逻辑
+  const prevDataSourceForPrefsRef = useRef<string>("initial");
+  const prevSearchKeyForSkipRef = useRef<string>("");
+  // BUG 修复：用 ref 追踪是否已发过请求，替代依赖闭包中的 items（items 不在依赖数组中，
+  // 闭包永远看到 items=[]，导致 isFirstLoad 永远为 true，不断取消旧请求发新请求）
+  // 回滚：删除 hasFetchedRef，恢复 const isFirstLoad = items.length === 0 && page === 1;
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     // 计算当前数据源类型：search / recommended / default
@@ -353,16 +358,16 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
           ? "recommended"
           : "default";
 
-    const dataSourceChanged = dataSourceTypeRef.current !== currentDataSource;
-
-    if (!dataSourceChanged) {
-      // 数据源未变：保留进行中的请求，不发新请求
-      // 场景：prefsMode 从 "loading"→"default"，数据源都是 "default"
-      // 第一次请求还在进行中（items.length===0），不应取消它
+    // 精确守卫：仅当数据源 AND 搜索条件均未变时跳过
+    // 典型场景：prefsMode 从 "loading"→"default"，数据源和搜索条件都不变
+    // page/searchKey/deepestCodeId 等变化时，搜索条件变了，不会跳过
+    const searchKeyUnchanged = prevSearchKeyForSkipRef.current === searchKey;
+    if (prevDataSourceForPrefsRef.current === currentDataSource && searchKeyUnchanged && hasFetchedRef.current) {
+      // 数据源和搜索条件均未变且已发过请求 → 保留进行中的请求，不发新请求
       return;
     }
-    // 数据源变了：更新追踪值，取消旧请求，发起新请求
-    dataSourceTypeRef.current = currentDataSource;
+    prevDataSourceForPrefsRef.current = currentDataSource;
+    prevSearchKeyForSkipRef.current = searchKey;
 
     // 取消前一次未完成的请求（AbortController）
     abortControllerRef.current?.abort();
@@ -374,10 +379,11 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setLoading(true);
     setError("");
 
-    // P0 性能优化：首屏跳过防抖——items 为空且 page=1 时立即发请求，消除 300ms 无意义等待
+    // P0 性能优化：首屏跳过防抖——首次请求立即执行，消除 300ms 无意义等待
     // 后续筛选器切换仍保留 300ms 防抖，避免快速切换时产生大量无效请求
     // 回滚：将条件改为 setTimeout(() => { ... }, 300) 即可恢复始终防抖
-    const isFirstLoad = items.length === 0 && page === 1;
+    const isFirstLoad = !hasFetchedRef.current && page === 1;
+    hasFetchedRef.current = true;
     const executeRequest = () => {
       // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
       const request =

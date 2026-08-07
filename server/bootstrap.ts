@@ -250,9 +250,12 @@ export async function startServer() {
         console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
       }
       // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
-      await refreshNoticeStats(dbPool);
-      // P0 性能优化：搜索预热并行化——7 个独立查询同时执行，不再串行等待
+      // P1 性能优化：统计表刷新与搜索/国家/机构预热并行执行——消除串行等待
+      // refreshNoticeStats 与搜索预热无数据依赖（搜索查询有独立缓存逻辑）
+      // 回滚：将 refreshNoticeStats 从 Promise.all 中拆出，恢复 await refreshNoticeStats(dbPool);
       await Promise.all([
+        // 统计表刷新（依赖 is_active 列，已在 Phase 1 完成）
+        refreshNoticeStats(dbPool),
         // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
@@ -266,9 +269,7 @@ export async function startServer() {
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
         // 6) 关键词+筛选联合预热——触发混合搜索路径（Meilisearch 预筛选 + FULLTEXT 约束）
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
-      ]);
-      // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）——并行执行
-      await Promise.all([
+        // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
         refreshNoticeCountries(dbPool),
         refreshNoticeAgencies(dbPool),
         suppliersRepo.listDirectory(),
