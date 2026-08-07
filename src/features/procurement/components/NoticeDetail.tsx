@@ -171,8 +171,9 @@ export function NoticeDetail({
               displayDescription={displayDescription}
             />
 
-            {/* 中文版投标拆解报告预览：中文环境 + 登录即可见（未解锁展示约 10% + 升级引导） */}
-            {locale === "zh" && notice.id != null && authContext?.authUser?.user_key && (
+            {/* 中文版投标拆解报告预览：登录即可见（未解锁展示约 10% + 升级引导）；
+                内容按语言环境与数据可用性自适应：zh + description_cn → 中文，其余 → 英文原文兜底 */}
+            {notice.id != null && authContext?.authUser?.user_key && (
               <ReportPreviewPanel
                 noticeId={notice.id}
                 userKey={authContext.authUser.user_key}
