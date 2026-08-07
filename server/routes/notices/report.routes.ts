@@ -30,6 +30,7 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
 
   // ── 报告预览（结构化 JSON 摘要，前端 ReportPreviewPanel 消费）──
   // 任何登录用户均可访问（未解锁用户看到约 10% 预览 + 会员升级引导）；
+  // 预览内容按最新需求仅含「2.1 采购描述（中文）」章节（description_cn 为空时以英文原文兜底）；
   // 无合格机会的公告返回 404（无报告可预览）。
   router.get("/api/notices/:id/report/preview", asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
@@ -49,7 +50,7 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
     const opportunity = fullOpportunity || qualified;
     const row = mergeBidReportRow(notice, opportunity);
 
-    // 使用与 Word 文档同构的纯文本预览生成函数，确保预览内容 = Word 文件内容
+    // 预览仅返回「2.1 采购描述（中文）」段落（Word 完整报告仍由下载接口提供）
     const sections = buildBidReportPreviewText(row);
 
     res.json({
