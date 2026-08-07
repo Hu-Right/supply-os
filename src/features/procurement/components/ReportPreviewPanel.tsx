@@ -31,35 +31,33 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
   const downloadHref = preview ? `${reportUrl}?user_key=${encodeURIComponent(userKey)}` : "";
   const isUnlocked = preview?.is_unlocked ?? false;
   const sections = preview?.sections ?? [];
+  const totalReportChars = preview?.total_report_chars ?? 0;
 
-  // 按完整章节为单位展示，百分比 = 已展示字符数 / 总字符数
-  const { visibleSections, hiddenCharCount, totalCharCount } = useMemo(() => {
+  // 预览截断逻辑：每章节最多展示 500 字符，百分比基于完整报告总字符数
+  const { visibleSections, shownCharCount } = useMemo(() => {
     if (isUnlocked || sections.length === 0) {
-      return { visibleSections: sections, hiddenCharCount: 0, totalCharCount: 0 };
+      // 已解锁：完整展示所有章节
+      let total = 0;
+      for (const s of sections) total += s.heading.length + s.body.length;
+      return { visibleSections: sections, shownCharCount: total };
     }
-    // 计算总字符数
-    let totalChars = 0;
-    for (const s of sections) totalChars += s.heading.length + s.body.length;
-    
-    // 按完整章节为单位展示：遍历章节，累加字符数，直到超过阈值
-    // 阈值：总字符数的 30%，但至少展示第一个完整章节
-    const threshold = Math.max(500, Math.floor(totalChars * 0.3));
-    let accumulated = 0;
+    // 未解锁：每章节最多展示 500 字符
+    const MAX_CHARS_PER_SECTION = 500;
+    let shown = 0;
     const visible: typeof sections = [];
-    
     for (const s of sections) {
-      const sectionChars = s.heading.length + s.body.length;
-      // 如果加入当前章节不超过阈值，或者还没展示任何章节（至少展示第一个）
-      if (accumulated + sectionChars <= threshold || visible.length === 0) {
-        visible.push(s);  // 完整展示该章节
-        accumulated += sectionChars;
+      const bodyLen = s.body.length;
+      if (bodyLen <= MAX_CHARS_PER_SECTION) {
+        // 内容不足 500 字符，完整展示
+        visible.push(s);
+        shown += s.heading.length + bodyLen;
       } else {
-        // 超过阈值，停止展示更多章节
-        break;
+        // 超过 500 字符，截断并加省略号
+        visible.push({ ...s, body: s.body.slice(0, MAX_CHARS_PER_SECTION) + "…" });
+        shown += s.heading.length + MAX_CHARS_PER_SECTION + 1;
       }
     }
-    
-    return { visibleSections: visible, hiddenCharCount: totalChars - accumulated, totalCharCount: totalChars };
+    return { visibleSections: visible, shownCharCount: shown };
   }, [sections, isUnlocked]);
 
   // 加载态：骨架屏
@@ -126,7 +124,7 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
             <Lock className="w-5 h-5 text-slate-400 mb-1" />
             <p className="text-[11px] text-slate-500 mb-2 text-center">
               {t("procurement_previewUnlockHint")}
-              {totalCharCount > 0 && `（已展示 ${(((totalCharCount - hiddenCharCount) / totalCharCount) * 100).toFixed(1)}%）`}
+              {totalReportChars > 0 && `（已展示 ${((shownCharCount / totalReportChars) * 100).toFixed(1)}%）`}
             </p>
             {isVip ? (
               <button

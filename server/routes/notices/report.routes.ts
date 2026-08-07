@@ -15,7 +15,7 @@ import { Router } from "express";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
 import { findQualifiedOpportunityForNotice } from "../../services/notices";
-import { buildBidReportDocx, buildBidReportPreviewText, mergeBidReportRow, bidReportFileName } from "../../services/bidReport";
+import { buildBidReportDocx, buildBidReportPreviewText, estimateFullReportCharCount, mergeBidReportRow, bidReportFileName } from "../../services/bidReport";
 import { asyncHandler } from "../../middleware/errorHandler";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -53,11 +53,14 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
     const lang = typeof req.query.lang === "string" ? req.query.lang : "zh";
     // 预览按语言环境返回对应内容（Word 完整报告仍由下载接口提供）
     const sections = buildBidReportPreviewText(row, lang);
+    // 完整报告总字符数（用于前端预览百分比计算）
+    const total_report_chars = estimateFullReportCharCount(row);
 
     res.json({
       sections,
       is_unlocked: !!unlock,
       has_full_report: true,
+      total_report_chars,
     });
   }));
 
