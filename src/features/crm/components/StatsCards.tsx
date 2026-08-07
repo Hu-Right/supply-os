@@ -42,10 +42,10 @@ export function StatsCards({ leads, labels }: StatsCardsProps) {
       {metrics.map((m, idx) => {
         const Icon = m.icon;
         return (
-          <div key={idx} className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <div key={idx} className="bg-white rounded-xl border border-slate-200 p-3 md:p-4 shadow-xs">
             <p className="text-xs text-slate-400 font-semibold">{m.title}</p>
             <div className="flex items-center justify-between mt-1.5">
-              <span className="text-2xl font-black text-slate-800">{m.val}</span>
+              <span className="text-xl md:text-2xl font-black text-slate-800">{m.val}</span>
               <div className={`p-2 rounded-lg ${m.col}`}>
                 <Icon className="w-5 h-5" />
               </div>

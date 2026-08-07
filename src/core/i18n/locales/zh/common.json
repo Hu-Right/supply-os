@@ -41,5 +41,6 @@
   "uploadFileHint": "支持PDF、物料白皮书及多文案营业执照。最长限制30MB。",
   "uploadMockSuccess": "模拟上传成功✓",
   "updateAvailable_message": "检测到新版本已发布，刷新页面即可体验最新功能",
-  "updateAvailable_refresh": "立即刷新"
+  "updateAvailable_refresh": "立即刷新",
+  "networkOffline": "网络已断开，请检查网络连接"
 }

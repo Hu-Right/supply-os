@@ -1,0 +1,21 @@
+{
+  "name": "云境全球智能展厅与国际采购操作系统",
+  "short_name": "云境公采",
+  "description": "全球采购公告搜索、供应商管理与 CRM 协同平台",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/weixin-service-qr.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}

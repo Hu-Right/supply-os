@@ -7,7 +7,7 @@
  *              Generic modal, supports Escape close, role="dialog", aria-modal="true"
  */
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { X } from "lucide-react";
 import { useScrollLock } from "./useScrollLock";
 
@@ -47,6 +47,26 @@ export function Modal({
     panelRef.current?.focus();
     return () => previouslyFocused?.focus?.();
   }, [open]);
+
+  // P2-5 移动端修复：下拉拖拽关闭手势
+  const dragStartY = useRef(0);
+  const [dragOffset, setDragOffset] = useState(0);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const delta = e.touches[0].clientY - dragStartY.current;
+    if (delta > 0) setDragOffset(delta);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (dragOffset > 120) {
+      onClose();
+    }
+    setDragOffset(0);
+  }, [dragOffset, onClose]);
 
   // Escape 关闭
   useEffect(() => {
@@ -88,7 +108,11 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl focus:outline-none ${className}`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`relative w-full max-w-lg p-4 md:p-6 rounded-2xl border border-slate-200 bg-white shadow-xl focus:outline-none transition-transform ${className}`}
+        style={{ transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined }}
       >
         {showClose && (
           <button

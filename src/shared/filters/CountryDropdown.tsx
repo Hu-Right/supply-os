@@ -26,7 +26,7 @@ export function CountryDropdown({
   noResultsText, moreResultsText,
 }: CountryDropdownProps) {
   return (
-    <div className="absolute z-50 mt-1.5 w-[420px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+    <div className="absolute z-50 mt-1.5 w-full max-w-[420px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
       <ul className="max-h-[420px] overflow-y-auto py-2" role="listbox">
         <li
           role="option"

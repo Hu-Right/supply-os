@@ -41,5 +41,6 @@
   "uploadFileHint": "Supports PDF, product brochures and multi-language business licenses. Max 30MB.",
   "uploadMockSuccess": "Mock upload OK ✓",
   "updateAvailable_message": "A new version is available. Refresh to get the latest features.",
-  "updateAvailable_refresh": "Refresh now"
+  "updateAvailable_refresh": "Refresh Now",
+  "networkOffline": "Network disconnected. Please check your connection."
 }

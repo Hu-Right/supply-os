@@ -153,7 +153,7 @@ export function AgencyFilter({
       </div>
 
       {showDropdown && (
-        <div className="absolute z-50 mt-1.5 w-full min-w-[320px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <div className="absolute z-50 mt-1.5 w-full rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
           <ul className="max-h-[360px] overflow-y-auto py-2" role="listbox">
             <li
               role="option"

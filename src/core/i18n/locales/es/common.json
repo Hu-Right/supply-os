@@ -41,5 +41,6 @@
   "uploadFileHint": "Admite PDF, folletos de productos y licencias comerciales multilingües. Máx. 30 MB.",
   "uploadMockSuccess": "Carga simulada correcta ✓",
   "updateAvailable_message": "Hay una nueva versión disponible. Actualice para obtener las últimas funciones.",
-  "updateAvailable_refresh": "Actualizar"
+  "updateAvailable_refresh": "Actualizar",
+  "networkOffline": "Red desconectada. Por favor, revise su conexión."
 }

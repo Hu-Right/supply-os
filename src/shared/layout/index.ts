@@ -20,3 +20,4 @@ export type { AppEventHandlers } from "./useAppEvents";
 export { useAppModals } from "./useAppModals";
 export type { UseAppModalsReturn } from "./useAppModals";
 export { useVersionCheck } from "./useVersionCheck";
+export { NetworkBanner, useNetworkStatus } from "./NetworkBanner";

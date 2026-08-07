@@ -70,8 +70,7 @@ export function LanguageSwitcher() {
         <ul
           role="listbox"
           aria-label="Language options"
-          className="absolute mt-1.5 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50"
-          style={{ right: 0 }}
+          className="absolute mt-1.5 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50 right-0 max-w-[calc(100vw-1rem)]"
         >
           {SUPPORTED_LOCALES.map((l) => {
             const selected = l.code === locale;

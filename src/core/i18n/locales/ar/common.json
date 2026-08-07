@@ -41,5 +41,6 @@
   "uploadFileHint": "يدعم PDF وكتيّبات المنتجات والرخص التجارية متعددة اللغات. بحد أقصى 30 ميغابايت.",
   "uploadMockSuccess": "نجح الرفع التجريبي ✓",
   "updateAvailable_message": "يتوفر إصدار جديد. قم بالتحديث للحصول على أحدث الميزات.",
-  "updateAvailable_refresh": "تحديث"
+  "updateAvailable_refresh": "تحديث",
+  "networkOffline": "انقطع الاتصال بالشبكة. يرجى التحقق من اتصالك."
 }

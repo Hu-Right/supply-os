@@ -55,7 +55,7 @@ export function SessionBanner() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2.5 shrink-0">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 shrink-0 w-full md:w-auto">
         {pathname === "/training" && (
           <button
             onClick={() => navigate("/procurement")}

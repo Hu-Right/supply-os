@@ -23,7 +23,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-all duration-300 hover:border-teal-500/55 hover:shadow-md">
       {/* Banner Image with Badge */}
-      <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+      <div className="relative h-36 md:h-48 w-full overflow-hidden bg-slate-100">
         <img
           src={showroom.bannerUrl}
           alt={pickLocale(locale, showroom.nameZh, showroom.nameEn)}

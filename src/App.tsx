@@ -18,7 +18,7 @@ import AppRoutes from "@/routes";
 const AuthModal = lazy(() => import("@/features/auth").then(m => ({ default: m.AuthModal })));
 const PaymentModal = lazy(() => import("@/features/payment").then(m => ({ default: m.PaymentModal })));
 const ConsultForm = lazy(() => import("@/shared/forms").then(m => ({ default: m.ConsultForm })));
-import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useAppModals, useVersionCheck } from "@/shared/layout";
+import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useAppModals, useVersionCheck, NetworkBanner } from "@/shared/layout";
 import { emitAppEvent } from "@/core/events";
 
 export default function App() {
@@ -41,10 +41,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
+      <NetworkBanner />
       <AppHeader tabs={tabs} tabRoutes={tabRoutes} activeTab={activeTab} isTrainingRoute={isTrainingRoute}
         mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
         onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <SessionBanner />
         <AppRoutes />
       </main>

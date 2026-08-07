@@ -9,6 +9,22 @@
   display: none;               /* Chrome / Safari */
 }
 
+/* P2-6 移动端修复：iOS Safari 输入框聚焦时禁止自动缩放（font-size < 16px 触发） */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* 抽屉菜单滑入动画 */
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-in.slide-in-from-left {
+  animation: slide-in-from-left 0.2s ease-out;
+}
+
 @theme {
   --color-primary-50: #f0fdfa;
   --color-primary-100: #ccfbf1;

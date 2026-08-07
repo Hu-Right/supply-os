@@ -65,21 +65,21 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-black">
+          <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-black">
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </span>
           {/* T-A4（本地差异 #14）：精选徽标——三路合格机会判定命中，服务端批量标注 */}
           {/* [精选功能重新启用 2026-07-31] 徽标恢复（服务端 is_featured 标注已同步恢复） */}
           {item.is_featured && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
             </span>
           )}
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[9px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
-          <span className="text-[10px] text-slate-500 font-mono text-end" dir="ltr">
+          <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
+          <span className="text-[11px] text-slate-500 font-mono text-end" dir="ltr">
             {locale === "zh" ? formatDeadlineZh(item.deadline, item.deadline_ts) : item.deadline}
           </span>
           {/* [収藏/dismiss 功能临时禁用 2026-07-30] Star/X 按钮已移除 */}
@@ -90,7 +90,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           {reasonKeys.map((key) => (
             <span
               key={key}
-              className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-[10px] font-black"
+              className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-[11px] font-black"
             >
               {t(key)}
             </span>
@@ -107,7 +107,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           <span
             key={`${code.code || index}`}
             dir="ltr"
-            className="px-1.5 py-0.5 rounded border border-slate-200 text-[10px] font-mono text-slate-600"
+            className="px-1.5 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-600"
           >
             {code.code || code.name || code.description}
           </span>
@@ -128,7 +128,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
         )}
         <button
           onClick={() => onClick(item)}
-          className="shrink-0 px-3 py-2 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200"
+          className="shrink-0 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200 min-h-[40px]"
         >
           {t("procurement_detail")}
         </button>

@@ -41,5 +41,6 @@
   "uploadFileHint": "Prend en charge PDF, brochures produit et licences commerciales multilingues. Max 30 Mo.",
   "uploadMockSuccess": "Téléversement simulé réussi ✓",
   "updateAvailable_message": "Une nouvelle version est disponible. Actualisez pour profiter des dernières fonctionnalités.",
-  "updateAvailable_refresh": "Actualiser"
+  "updateAvailable_refresh": "Actualiser",
+  "networkOffline": "Réseau déconnecté. Vérifiez votre connexion."
 }
