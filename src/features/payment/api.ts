@@ -7,7 +7,7 @@
  *              Encapsulates payment order creation and status polling requests
  */
 
-import { api, buildQuery } from "@/core/http";
+import { api, apiCached, buildQuery } from "@/core/http";
 import type { OrderInfo } from "@/types/payment";
 
 export type { OrderInfo };
@@ -168,5 +168,7 @@ export async function fetchUnlocks(params: {
     limit: params.limit,
     lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,
   });
-  return api<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${qs}`);
+  // P0 性能优化：使用 apiCached 去重并发请求（StrictMode 下 effect 双重执行）
+  // 回滚：将 apiCached 替换回 api，删除第二个参数
+  return apiCached<PagedResult<UnlockRecord>>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
 }

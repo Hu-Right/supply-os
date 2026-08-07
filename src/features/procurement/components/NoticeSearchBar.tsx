@@ -63,7 +63,7 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           dir="auto"
           leftIcon={<Search className="w-4 h-4" />}
         />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Select
             value={query.activeSort}
             onChange={(e) => {
@@ -80,9 +80,9 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className={`lg:hidden shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-colors ${
+            className={`lg:hidden shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all ${
               showAdvanced
-                ? "border-teal-300 bg-teal-50 text-teal-700"
+                ? "border-teal-300 bg-teal-50 text-teal-700 shadow-sm ring-1 ring-teal-200"
                 : "border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-300 hover:text-teal-600"
             }`}
           >
@@ -93,8 +93,8 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
       </div>
 
       {/* 第 2-3 行：高级筛选——移动端折叠，桌面端始终可见 */}
-      <div className={`space-y-3 overflow-hidden transition-all duration-200 ease-in-out ${
-        showAdvanced ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0 lg:max-h-[600px] lg:opacity-100"
+      <div className={`space-y-3 transition-all duration-200 ease-in-out ${
+        showAdvanced ? "max-h-[600px] opacity-100 py-1" : "max-h-0 opacity-0 overflow-hidden lg:max-h-[600px] lg:opacity-100 lg:overflow-visible lg:py-0"
       }`}>
         {/* 第 2 行：截止日期起止 + 截止窗口 */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_180px] gap-3">

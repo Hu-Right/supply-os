@@ -53,7 +53,10 @@ interface AgencyCacheItem {
   /** 该 canonical 对应的数据库原始机构名列表（用于筛选时 IN 匹配） */
   originalAgencies?: string[];
 }
-let noticeAgenciesCache: { data: AgencyCacheItem[] } | null = null;
+let noticeAgenciesCache: { data: AgencyCacheItem[]; timestamp: number } | null = null;
+// BUG 修复：机构缓存增加 TTL 机制（10 分钟），避免代码修复后旧数据永久滞留
+// 原问题：noticeAgenciesCache 无过期时间，服务启动后永不刷新（除非凌晨 5 点定时或重启）
+const AGENCIES_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 
 // ── F.4 搜索性能预案第一档（本地差异 #7）──
 const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires: number }>();
@@ -924,10 +927,23 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     if (!item.i18n) {
       const patternResult = translateByPattern(item.agency);
       if (patternResult) {
-        item.i18n = patternResult.i18n;
         // 如果模式翻译给出了更规范的标准名，且原名无别名映射，则替换
         if (patternResult.canonical !== item.agency && !aliasMap.has(item.agency.toUpperCase())) {
+          // 同步更新 canonicalToOriginals：将旧 mergeKey 的原始名列表迁移到新 key
+          // BUG 修复：不迁移时步骤 3.6 用新 canonical 查旧 mergeKey 找不到原始机构名列表，
+          // 导致 originalAgencies 为空，搜索筛选无法展开匹配所有 DB 原始机构名
+          const oldMergeKey = item.agency.toUpperCase();
+          const oldOriginals = canonicalToOriginals.get(oldMergeKey);
           item.agency = patternResult.canonical;
+          const newMergeKey = item.agency.toUpperCase();
+          if (oldOriginals && !canonicalToOriginals.has(newMergeKey)) {
+            canonicalToOriginals.set(newMergeKey, oldOriginals);
+          }
+        }
+        // BUG 修复：过滤无效翻译——中文翻译与机构英文名完全相同时说明是兜底结果而非真正翻译，
+        // 不设置 i18n 以避免前端 agency_i18n 显示英文原名而非中文翻译
+        if (patternResult.i18n.zh !== item.agency) {
+          item.i18n = patternResult.i18n;
         }
       }
     }
@@ -958,7 +974,8 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     } else {
       // 不聚合，保留独立条目（仍需记录原始机构名，canonical 可能与 DB 原始值不同）
       const key = item.agency.toUpperCase();
-      const originals = canonicalToOriginals.get(mergeKey) || [];
+      // BUG 修复：始终从 canonicalToOriginals 获取最新原始名列表（step 3.5 可能已迁移 key）
+      const originals = canonicalToOriginals.get(mergeKey) || canonicalToOriginals.get(key) || [];
       typeAggregated.set(key, { ...item, originalAgencies: originals });
     }
   }
@@ -966,7 +983,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   // 4) 按合并后计数降序排列，返回全量数据（不再截断）
   const data = Array.from(typeAggregated.values())
     .sort((a, b) => b.count - a.count);
-  noticeAgenciesCache = { data };
+  noticeAgenciesCache = { data, timestamp: Date.now() };
   return data;
 }
 
@@ -975,7 +992,9 @@ export async function getNoticeAgencies(
   pool: Pool,
   locale?: string,
 ): Promise<Array<{ agency: string; count: number; agency_i18n?: string }>> {
-  const items = noticeAgenciesCache ? noticeAgenciesCache.data : await refreshNoticeAgencies(pool);
+  // BUG 修复：检查 TTL 过期——缓存超过 10 分钟视为过期，重新计算
+  const cacheValid = noticeAgenciesCache && Date.now() - noticeAgenciesCache.timestamp < AGENCIES_CACHE_TTL;
+  const items = cacheValid ? noticeAgenciesCache!.data : await refreshNoticeAgencies(pool);
   // en 直接用 canonical（即英文），其余语言附加翻译（含 zh）
   const lang = locale?.toLowerCase();
   if (!lang || lang === "en") {
@@ -983,7 +1002,10 @@ export async function getNoticeAgencies(
   }
   return items.map(({ agency, count, i18n }) => {
     const translated = i18n?.[lang];
-    return translated ? { agency, count, agency_i18n: translated } : { agency, count };
+    // BUG 修复：过滤无效翻译——翻译结果与英文机构名完全相同时不返回（说明是兜底而非真正翻译）
+    // 典型场景：translateByPattern 兜底 { zh: "SOME AGENCY" } === agency "SOME AGENCY"
+    const isValidTranslation = translated && translated !== agency;
+    return isValidTranslation ? { agency, count, agency_i18n: translated } : { agency, count };
   });
 }
 

@@ -41,6 +41,34 @@ const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
   ["procurement_type_contract_award", /contract award|award notice|授标|中标/],
   // 长尾采购类型：多供应商清单 / 框架协议 / 直接 contracting / 供应商名单
   ["procurement_type_multi_use_list", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/],
+  // 竞争性对话（EU Competitive Dialogue）- 必须在 competitive 之前，避免 "competitive dialogue" 被误匹配
+  ["procurement_type_dialogue", /competitive dialogue|dialogue|竞争性对话/],
+  // 竞争性公开招标（EU/国际公共采购常见类型）
+  ["procurement_type_competitive", /competitive|open bidding|竞争性|公开招标/],
+  // EU/National 门槛程序（EU public procurement threshold procedures）
+  ["procurement_type_threshold", /threshold procedures|threshold procedure|门槛程序|阈值程序/],
+  // 初步市场咨询（Preliminary Market Consultation / PMC）
+  ["procurement_type_pmc", /preliminary market consultation|\bpmc\b|初步市场咨询|事前市场咨询/],
+  // 限制性程序（EU Restricted Procedure）
+  ["procurement_type_restricted", /restricted procedure|restricted|限制性程序|限制程序/],
+  // 谈判程序（EU Negotiated Procedure）
+  ["procurement_type_negotiated", /negotiated procedure|negotiated|谈判程序/],
+  // 创新合作伙伴关系（EU Innovation Partnership）
+  ["procurement_type_innovation", /innovation partnership|innovation|创新合作伙伴|创新伙伴关系/],
+  // 动态采购系统（EU Dynamic Purchasing System / DPS）
+  ["procurement_type_dps", /dynamic purchasing system|\bdps\b|动态采购系统/],
+  // 设计竞赛（EU Design Contest）
+  ["procurement_type_design_contest", /design contest|design competition|设计竞赛|设计比赛/],
+  // 事前信息通知（Prior Information Notice / PIN）
+  ["procurement_type_pin", /prior information notice|\bpin\b|事前信息通知|预先信息通知/],
+  // 分包通知（Subcontract Notice）- 必须在 contract_notice 之前，避免 "subcontract notice" 被误匹配
+  ["procurement_type_subcontract", /subcontract|sub-contract|分包通知|分包公告/],
+  // 合同通知（Contract Notice）
+  ["procurement_type_contract_notice", /contract notice|合同通知|合同公告/],
+  // 资格系统（Qualification System）
+  ["procurement_type_qualification_system", /qualification system|资格系统/],
+  // 短名单（Shortlist）
+  ["procurement_type_shortlist", /shortlist|short list|短名单/],
   // ITB 提前至 framework/EOI/request 之前：避免 "Request for Bid" 被 request 误匹配、
   // "投标邀请书(ITB)-框架协议" 被 framework("框架协议") 或 EOI("意向表达") 误匹配
   ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],

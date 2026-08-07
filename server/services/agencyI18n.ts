@@ -805,13 +805,23 @@ export function translateByPattern(agencyName: string): PatternI18nResult | null
     }
   }
 
-  // 通用兜底：对任何未匹配的机构名，生成基础翻译
-  // 规则：英文名保留，中文标注"(机构)"后缀，确保 100% 覆盖
+  // 通用兜底：对任何未匹配的机构名
+  // BUG 修复：如果机构名是英文，不生成假翻译（会导致前端显示英文名而非中文）
+  // 返回 null 让前端回退到显示英文原名，避免误导用户
   if (trimmed.length > 0) {
-    return {
-      canonical: trimmed,
-      i18n: { zh: trimmed },
-    };
+    // 检测是否为英文（包含英文字母）
+    const isEnglish = /[a-zA-Z]/.test(trimmed);
+    if (isEnglish) {
+      // 英文机构名：不生成假翻译，返回 null
+      // 前端会回退到显示英文原名
+      return null;
+    } else {
+      // 非英文机构名（如中文、日文等）：直接使用原名作为中文翻译
+      return {
+        canonical: trimmed,
+        i18n: { zh: trimmed },
+      };
+    }
   }
 
   return null;
@@ -883,6 +893,56 @@ const TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string, stri
 
 ];
 
+// ── 国际通用机构类型聚合（补充巴西/肯尼亚之外的全球常见机构类型）──
+const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string, string> }]> = [
+  // 市议会/市政委员会（全球通用）
+  [/\b(?:City|Municipal|Town)\s+Council\b/i, { typeKey: "CITY_COUNCIL_INTL", i18n: { zh: "各市议会", fr: "Conseils municipaux", ru: "Городские советы", es: "Concejos municipales", ar: "المجالس البلدية" } }],
+  [/\b(?:City|Municipal)\s+Government\b/i, { typeKey: "CITY_COUNCIL_INTL", i18n: { zh: "各市政府", fr: "Gouvernements municipaux", ru: "Муниципальные правительства", es: "Gobiernos municipales", ar: "الحكومات البلدية" } }],
+  // 省/州级政府
+  [/\b(?:Provincial|State)\s+Government\b/i, { typeKey: "PROVINCIAL_GOVT_INTL", i18n: { zh: "各省/州政府", fr: "Gouvernements provinciaux/étatiques", ru: "Провинциальные/штатные правительства", es: "Gobiernos provinciales/estatales", ar: "الحكومات الإقليمية/الولائية" } }],
+  // 国家部委
+  [/\bMinistry\s+of\b/i, { typeKey: "MINISTRY_INTL", i18n: { zh: "各国部委", fr: "Ministères", ru: "Министерства", es: "Ministerios", ar: "الوزارات" } }],
+  [/\bDepartment\s+of\b/i, { typeKey: "DEPARTMENT_INTL", i18n: { zh: "各部门", fr: "Départements", ru: "Департаменты", es: "Departamentos", ar: "الإدارات" } }],
+  // 管理局/委员会
+  [/\bAuthority\b/i, { typeKey: "AUTHORITY_INTL", i18n: { zh: "各管理局", fr: "Autorités", ru: "Управления", es: "Autoridades", ar: "الهيئات" } }],
+  [/\bCommission\b/i, { typeKey: "COMMISSION_INTL", i18n: { zh: "各委员会", fr: "Commissions", ru: "Комиссии", es: "Comisiones", ar: "اللجان" } }],
+  // 大学/学院
+  [/\bUniversity\b/i, { typeKey: "UNIVERSITY_INTL", i18n: { zh: "各大学", fr: "Universités", ru: "Университеты", es: "Universidades", ar: "الجامعات" } }],
+  [/\bCollege\b/i, { typeKey: "COLLEGE_INTL", i18n: { zh: "各学院", fr: "Collèges", ru: "Колледжи", es: "Colegios", ar: "الكليات" } }],
+  // 医院
+  [/\bHospital\b/i, { typeKey: "HOSPITAL_INTL", i18n: { zh: "各医院", fr: "Hôpitaux", ru: "Больницы", es: "Hospitales", ar: "المستشفيات" } }],
+  // 基金会
+  [/\bFoundation\b/i, { typeKey: "FOUNDATION_INTL", i18n: { zh: "各基金会", fr: "Fondations", ru: "Фонды", es: "Fundaciones", ar: "المؤسسات" } }],
+  // 协会/联盟
+  [/\bAssociation\b/i, { typeKey: "ASSOCIATION_INTL", i18n: { zh: "各协会", fr: "Associations", ru: "Ассоциации", es: "Asociaciones", ar: "الجمعيات" } }],
+  [/\bFederation\b/i, { typeKey: "FEDERATION_INTL", i18n: { zh: "各联合会", fr: "Fédérations", ru: "Федерации", es: "Federaciones", ar: "الاتحادات" } }],
+  // 公司/企业
+  [/\b(?:Corporation|Corp)\b/i, { typeKey: "CORPORATION_INTL", i18n: { zh: "各公司", fr: "Sociétés", ru: "Корпорации", es: "Corporaciones", ar: "الشركات" } }],
+  [/\b(?:Ltd|Limited)\b/i, { typeKey: "COMPANY_INTL", i18n: { zh: "各有限公司", fr: "Sociétés limitées", ru: "ООО", es: "S.L.", ar: "شركة ذات مسؤولية محدودة" } }],
+  // 银行
+  [/\bBank\b/i, { typeKey: "BANK_INTL", i18n: { zh: "各银行", fr: "Banques", ru: "Банки", es: "Bancos", ar: "البنوك" } }],
+  // 研究所/研究院
+  [/\bInstitute\b/i, { typeKey: "INSTITUTE_INTL", i18n: { zh: "各研究所", fr: "Instituts", ru: "Институты", es: "Institutos", ar: "المعاهد" } }],
+  // 中心
+  [/\bCenter\b|\bCentre\b/i, { typeKey: "CENTER_INTL", i18n: { zh: "各中心", fr: "Centres", ru: "Центры", es: "Centros", ar: "المراكز" } }],
+  // 局/署
+  [/\bBureau\b/i, { typeKey: "BUREAU_INTL", i18n: { zh: "各局", fr: "Bureaux", ru: "Бюро", es: "Oficinas", ar: "المكاتب" } }],
+  [/\bAgency\b/i, { typeKey: "AGENCY_INTL", i18n: { zh: "各机构", fr: "Agences", ru: "Агентства", es: "Agencias", ar: "الوكالات" } }],
+  // 法院/法庭
+  [/\bCourt\b/i, { typeKey: "COURT_INTL", i18n: { zh: "各法院", fr: "Tribunaux", ru: "Суды", es: "Tribunales", ar: "المحاكم" } }],
+  // 议会/国会
+  [/\bParliament\b/i, { typeKey: "PARLIAMENT_INTL", i18n: { zh: "各国议会", fr: "Parlements", ru: "Парламенты", es: "Parlamentos", ar: "البرلمانات" } }],
+  [/\bCongress\b/i, { typeKey: "CONGRESS_INTL", i18n: { zh: "各国国会", fr: "Congrès", ru: "Конгрессы", es: "Congresos", ar: "المجالس النيابية" } }],
+  // 大使馆/领事馆
+  [/\bEmbassy\b/i, { typeKey: "EMBASSY_INTL", i18n: { zh: "各大使馆", fr: "Ambassades", ru: "Посольства", es: "Embajadas", ar: "السفارات" } }],
+  [/\bConsulate\b/i, { typeKey: "CONSULATE_INTL", i18n: { zh: "各领事馆", fr: "Consulats", ru: "Консульства", es: "Consulados", ar: "القنصليات" } }],
+  // 非政府组织
+  [/\bNGO\b/i, { typeKey: "NGO_INTL", i18n: { zh: "各非政府组织", fr: "ONG", ru: "НПО", es: "ONG", ar: "المنظمات غير الحكومية" } }],
+  // 红十字会/红新月会
+  [/\bRed\s+Cross\b/i, { typeKey: "RED_CROSS_INTL", i18n: { zh: "各红十字会", fr: "Croix-Rouge", ru: "Красный Крест", es: "Cruz Roja", ar: "الصليب الأحمر" } }],
+  [/\bRed\s+Crescent\b/i, { typeKey: "RED_CROSS_INTL", i18n: { zh: "各红新月会", fr: "Croissant-Rouge", ru: "Красный Полумесяц", es: "Media Luna Roja", ar: "الهلال الأحمر" } }],
+];
+
 /**
  * 判断机构是否应按类型聚合
  * @param agencyName 机构名（已归一化后的 canonical）
@@ -896,8 +956,11 @@ export function classifyAgencyType(agencyName: string): { typeKey: string; i18n:
   const upper = trimmed.toUpperCase();
   if (KNOWN_ACRONYMS.has(upper)) return null;
 
-  // 按模式匹配分类
+  // 按模式匹配分类：先检查巴西/肯尼亚特定模式，再检查国际通用模式
   for (const [regex, typeInfo] of TYPE_PATTERNS) {
+    if (regex.test(trimmed)) return typeInfo;
+  }
+  for (const [regex, typeInfo] of INTL_TYPE_PATTERNS) {
     if (regex.test(trimmed)) return typeInfo;
   }
 

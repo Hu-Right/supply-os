@@ -13,24 +13,25 @@ export function UnspcsSelector({ levels, selectedIds, onChange }: UnspcsSelector
   const { t, locale } = useLocale();
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-4">
       {[0, 1, 2, 3, 4].map((level) => (
-        <Select
-          key={level}
-          value={selectedIds[level]}
-          onChange={(e) => onChange(level, e.target.value)}
-          disabled={level > 0 && levels[level].length === 0}
-        >
-          <option value="">
-            {level + 1}
-            {t("procurement_level")}
-          </option>
-          {levels[level].map((item) => (
-            <option key={item.id} value={item.id}>
-              {getUnspscOptionLabel(item, locale)}
+        <div key={level} className="min-w-0">
+          <Select
+            value={selectedIds[level]}
+            onChange={(e) => onChange(level, e.target.value)}
+            disabled={level > 0 && levels[level].length === 0}
+          >
+            <option value="">
+              {level + 1}
+              {t("procurement_level")}
             </option>
-          ))}
-        </Select>
+            {levels[level].map((item) => (
+              <option key={item.id} value={item.id}>
+                {getUnspscOptionLabel(item, locale)}
+              </option>
+            ))}
+          </Select>
+        </div>
       ))}
     </div>
   );

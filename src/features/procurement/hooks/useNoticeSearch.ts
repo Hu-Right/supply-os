@@ -348,10 +348,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   // 回滚：删除 prevDataSourceForPrefsRef/prevSearchKeyForSkipRef 及相关守卫逻辑
   const prevDataSourceForPrefsRef = useRef<string>("initial");
   const prevSearchKeyForSkipRef = useRef<string>("");
-  // BUG 修复：用 ref 追踪是否已发过请求，替代依赖闭包中的 items（items 不在依赖数组中，
-  // 闭包永远看到 items=[]，导致 isFirstLoad 永远为 true，不断取消旧请求发新请求）
-  // 回滚：删除 hasFetchedRef，恢复 const isFirstLoad = items.length === 0 && page === 1;
-  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     // 计算当前数据源类型：search / recommended / default
@@ -367,8 +363,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // page/searchKey/deepestCodeId 等变化时，搜索条件变了，不会跳过
     // BUG 修复：使用 searchKeyForSkip（排除 deepestCodeId）进行比较，避免 UNSPSC 行业数据加载完成后取消请求
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === searchKeyForSkip;
-    if (prevDataSourceForPrefsRef.current === currentDataSource && searchKeyUnchanged && hasFetchedRef.current) {
-      // 数据源和搜索条件均未变且已发过请求 → 保留进行中的请求，不发新请求
+    if (prevDataSourceForPrefsRef.current === currentDataSource && searchKeyUnchanged) {
+      // 数据源和搜索条件均未变 → 保留进行中的请求，不发新请求
       return;
     }
     prevDataSourceForPrefsRef.current = currentDataSource;
@@ -384,12 +380,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setLoading(true);
     setError("");
 
-    // P0 性能优化：首屏跳过防抖——首次请求立即执行，消除 300ms 无意义等待
-    // 后续筛选器切换仍保留 300ms 防抖，避免快速切换时产生大量无效请求
-    // 回滚：将条件改为 setTimeout(() => { ... }, 300) 即可恢复始终防抖
-    const isFirstLoad = !hasFetchedRef.current && page === 1;
-    hasFetchedRef.current = true;
-    const executeRequest = () => {
+    // 防抖 300ms：快速切换筛选器时只发最后一次请求
+    // 注：移除 isFirstLoad 逻辑以兼容 React StrictMode（开发模式 effect 双重执行）
+    // 回滚：恢复 isFirstLoad 逻辑，但需处理 StrictMode 下 ref 不重置的问题
+    debounceTimerRef.current = setTimeout(() => {
       // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
       const request =
         currentDataSource === "search"
@@ -433,20 +427,18 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             setLoading(false);
           }
         });
-    };
-
-    if (isFirstLoad) {
-      // 首屏：立即执行，跳过防抖
-      executeRequest();
-    } else {
-      // 非首屏：防抖 300ms
-      debounceTimerRef.current = setTimeout(executeRequest, 300);
-    }
+    }, 300);
 
     // 清理：依赖变化时清除定时器 + 取消请求
+    // BUG 修复：重置 refs 以兼容 React StrictMode（开发模式 effect 双重执行）
+    // 不重置 refs 时，第二次执行会误判为"数据源未变"而跳过请求
+    // 回滚：删除 refs 重置逻辑
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       controller.abort();
+      // StrictMode 兼容：重置 refs，确保第二次执行不被守卫拦截
+      prevDataSourceForPrefsRef.current = "initial";
+      prevSearchKeyForSkipRef.current = "";
     };
     // searchKey 覆盖 q/country/日期区间/排序/多维过滤等 URL 参数（本地差异 #6 + #13）
     // locale 纳入依赖：用户切换语言时需重新请求以获取对应译文

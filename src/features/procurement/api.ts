@@ -151,7 +151,9 @@ export const fetchNoticeContent = (noticeId: number): Promise<{ description: str
  */
 export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]> => {
   try {
-    const rows = await api<unknown[]>(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`);
+    // P0 性能优化：使用 apiCached 去重并发请求（StrictMode 下 effect 双重执行）
+    // 回滚：将 apiCached 替换回 api，删除第二个参数
+    const rows = await apiCached<unknown[]>(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`, 5 * 60 * 1000);
     return Array.isArray(rows)
       ? rows.map((row) => Number((row as Record<string, unknown>)?.notice_id)).filter((id) => Number.isFinite(id) && id > 0)
       : [];
