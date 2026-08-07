@@ -23,10 +23,14 @@ export default defineConfig(() => {
           manualChunks: {
             'vendor-react': ['react', 'react-dom', 'react-router-dom'],
             'vendor-i18n': ['i18next', 'react-i18next'],
-            // P1 性能优化：图标库 + 动画库独立分割——按需加载、缓存隔离
-            // 回滚：删除以下两行即可
+            // P1 性能优化：图标库独立分割——lucide-react 已使用命名导入，Vite 自动 tree-shaking
+            // 仅打包实际使用的图标（Crown/Search/ChevronDown 等），未使用图标零体积
+            // 回滚：删除以下行即可
             'vendor-icons': ['lucide-react'],
-            'vendor-motion': ['motion'],
+            // [2026-08-07] motion 库已从 manualChunks 移除——项目零导入 motion，
+            // 所有动画均由 Tailwind CSS 类（animate-spin/pulse/ping）实现。
+            // 原配置生成空 chunk "vendor-motion" (0.00 kB)，属无效配置。
+            // 如需恢复：添加 'vendor-motion': ['motion'] 并确保 motion 已安装
           },
           assetFileNames: (assetInfo) => {
             const ext = path.extname(assetInfo.name ?? '').replace(/^\./, '');
