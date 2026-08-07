@@ -204,78 +204,81 @@ export async function startServer() {
     dbPool,
   });
 
-  // ── Meilisearch 搜索引擎初始化（异步全量同步 + 1 分钟增量同步）──
+  // ── Meilisearch 搜索引擎初始化（非阻塞：后台异步完成）──
   // MEILI_ENABLED=on 时激活；不可用时搜索自动降级到 MySQL FULLTEXT
   let stopSearchSync: (() => void) | undefined;
   if (String(process.env.MEILI_ENABLED ?? "off").toLowerCase() === "on") {
-    try {
-      const meiliClient = initMeilisearch();
-      if (meiliClient) {
-        const indexReady = await ensureIndex();
-        if (indexReady) {
-          stopSearchSync = startSearchSync(dbPool, { intervalMs: 1 * 60 * 1000 });
-          console.log("[meilisearch] 初始化完成: 索引已就绪, 增量同步已启动 (间隔 1 分钟)");
-        } else {
-          console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
+    // 异步初始化，不阻塞服务启动
+    void (async () => {
+      try {
+        const meiliClient = initMeilisearch();
+        if (meiliClient) {
+          const indexReady = await ensureIndex();
+          if (indexReady) {
+            stopSearchSync = startSearchSync(dbPool, { intervalMs: 1 * 60 * 1000 });
+            console.log("[meilisearch] 初始化完成: 索引已就绪, 增量同步已启动 (间隔 1 分钟)");
+          } else {
+            console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
+          }
         }
+      } catch (e) {
+        console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
       }
-    } catch (e) {
-      console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
-    }
+    })();
   }
 
-  // ── P0 性能优化：启动时预热 MySQL Buffer Pool + 填充搜索缓存 ──
-  // 消除首次用户请求的 ~3000ms 冷启动延迟
-  try {
-    const warmupStart = performance.now();
-    // 方案D：先回填 is_active 列（确保搜索查询可走索引）
-    const isActiveResult = await refreshIsActive(dbPool);
-    // 将 is_active 状态变更同步到 Meilisearch（确保索引与 MySQL 一致）
-    if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
-      const syncResult = await syncNoticeIds(dbPool, isActiveResult.changedIds);
-      console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
-    }
-    // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
-    await refreshNoticeStats(dbPool);
-    // P0 性能优化：搜索预热并行化——7 个独立查询同时执行，不再串行等待
-    // 回滚：将 Promise.all 拆回 7 个独立 await searchNotices(...)
-    const [
-      /* zh 首页 */, /* en 首页 */, /* 翻页 */, /* zh FULLTEXT */, /* en FULLTEXT */, /* 纯筛选 */, /* 混合搜索 */
-    ] = await Promise.all([
-      // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
-      // 2) 翻页预热——消除 page=2 的首次冷查询
-      searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo),
-      // 3) 中文关键词 FULLTEXT 预热——加载 ft_notices_search (ngram) 索引页到 Buffer Pool
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo),
-      // 4) 英文关键词 FULLTEXT 预热——加载 ft_notices_en + ft_notices_desc 索引页到 Buffer Pool
-      //    这是冷启动最大瓶颈：137K 行的非 ngram FULLTEXT 索引页首次需全量从磁盘读取
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
-      // 5) 纯筛选预热——触发 Meilisearch 路径（如有）+ 翻译表 LIKE 补充路径
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
-      // 6) 关键词+筛选联合预热——触发混合搜索路径（Meilisearch 预筛选 + FULLTEXT 约束）
-      searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
-    ]);
-    // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）——并行执行
-    await Promise.all([
-      refreshNoticeCountries(dbPool),
-      refreshNoticeAgencies(dbPool),
-      suppliersRepo.listDirectory(),
-    ]);
-    const warmupMs = Math.round(performance.now() - warmupStart);
-    console.log(`[warmup] 查询预热完成: ${warmupMs}ms (zh/en 首页 + 中文/英文 FULLTEXT + 纯筛选 + 混合搜索 + 国家/机构 + 供应商)`);
-  } catch (e) {
-    console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
-  }
-
+  // ── 服务先监听，预热在后台异步完成（非阻塞启动）──
   app.listen(PORT, "0.0.0.0", () => {
     const lanIp = Object.values(os.networkInterfaces())
       .flat()
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address
       ?? "localhost";
-    console.log(`Server fully functional on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
+    console.log(`Server listening on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
+    console.log(`[warmup] 后台预热进行中…（服务已可用，首次请求可能略慢）`);
   });
+
+  // ── P0 性能优化：启动时预热 MySQL Buffer Pool + 填充搜索缓存（后台异步，不阻塞启动）──
+  // 消除首次用户请求的 ~3000ms 冷启动延迟
+  void (async () => {
+    try {
+      const warmupStart = performance.now();
+      // 方案D：先回填 is_active 列（确保搜索查询可走索引）
+      const isActiveResult = await refreshIsActive(dbPool);
+      // 将 is_active 状态变更同步到 Meilisearch（确保索引与 MySQL 一致）
+      if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
+        const syncResult = await syncNoticeIds(dbPool, isActiveResult.changedIds);
+        console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
+      }
+      // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
+      await refreshNoticeStats(dbPool);
+      // P0 性能优化：搜索预热并行化——7 个独立查询同时执行，不再串行等待
+      await Promise.all([
+        // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
+        // 2) 翻页预热——消除 page=2 的首次冷查询
+        searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo),
+        // 3) 中文关键词 FULLTEXT 预热——加载 ft_notices_search (ngram) 索引页到 Buffer Pool
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo),
+        // 4) 英文关键词 FULLTEXT 预热——加载 ft_notices_en + ft_notices_desc 索引页到 Buffer Pool
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
+        // 5) 纯筛选预热——触发 Meilisearch 路径（如有）+ 翻译表 LIKE 补充路径
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
+        // 6) 关键词+筛选联合预热——触发混合搜索路径（Meilisearch 预筛选 + FULLTEXT 约束）
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
+      ]);
+      // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）——并行执行
+      await Promise.all([
+        refreshNoticeCountries(dbPool),
+        refreshNoticeAgencies(dbPool),
+        suppliersRepo.listDirectory(),
+      ]);
+      const warmupMs = Math.round(performance.now() - warmupStart);
+      console.log(`[warmup] 后台预热完成: ${warmupMs}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 混合搜索 + 国家/机构 + 供应商)`);
+    } catch (e) {
+      console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
+    }
+  })();
 
   // ── 国家/机构缓存每日凌晨 5 点定时刷新 ──
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {
