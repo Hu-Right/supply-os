@@ -210,5 +210,6 @@
   "procurement_previewPartial": "Aperçu",
   "procurement_previewUpgrade": "Inscrivez-vous pour voir le rapport complet",
   "procurement_previewUnlockHint": "Débloquez pour voir tout le contenu",
-  "procurement_previewUnlockNow": "Débloquer maintenant"
+  "procurement_previewUnlockNow": "Débloquer maintenant",
+  "procurement_advancedFilter": "Filtres"
 }

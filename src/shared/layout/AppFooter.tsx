@@ -5,9 +5,11 @@
  * @module shared/layout/AppFooter
  */
 import { useEffect, useState } from "react";
-import { Globe, Building2, Users, Briefcase, BookOpen, MessageSquare } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { MessageSquare } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { apiCached } from "@/core/http/api-client";
+import { NAV_TABS } from "./nav-tabs";
 
 export interface AppFooterProps {
   activeTab: number;
@@ -15,8 +17,10 @@ export interface AppFooterProps {
   onOpenConsult: () => void;
 }
 
-export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterProps) {
+export function AppFooter({ activeTab: _activeTab, onSwitchTab: _onSwitchTab, onOpenConsult }: AppFooterProps) {
   const { t } = useLocale();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [icp, setIcp] = useState("");
 
   useEffect(() => {
@@ -24,6 +28,9 @@ export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterPr
       .then((data) => { if (data.bah) setIcp(data.bah); })
       .catch(() => undefined);
   }, []);
+
+  // P0-4 修复：底部导航消费 NAV_TABS 配置，消除硬编码，确保与桌面端功能一致
+  const mobileTabs = NAV_TABS.filter((tab) => tab.mobile);
 
   return (
     <>
@@ -35,18 +42,22 @@ export function AppFooter({ activeTab, onSwitchTab, onOpenConsult }: AppFooterPr
         </button>
       </div>
 
-      {/* MOBILE BOTTOM NAV */}
-      <footer className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/80 shadow-lg py-1 flex justify-around">
-        {[{ id: 1, label: "展厅", icon: Building2 }, { id: 2, label: "公采", icon: Globe }, { id: 3, label: "供应商", icon: Users }, { id: 4, label: "CRM", icon: Briefcase }, { id: 6, label: "学习", icon: BookOpen }].map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button key={tab.id} onClick={() => onSwitchTab(tab.id)}
-              className={`flex flex-col items-center justify-center w-14 py-1 text-[10px] font-semibold ${activeTab === tab.id ? "text-teal-600 font-bold" : "text-slate-400"}`}>
-              <Icon className="w-5 h-5 mb-0.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* MOBILE BOTTOM NAV — 3x2 网格容纳 6 个 Tab */}
+      <footer className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/80 shadow-lg py-1 px-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))]">
+        <div className="grid grid-cols-3 gap-0.5">
+          {mobileTabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = location.pathname === tab.path;
+            const label = t(tab.shortLabelKey || tab.labelKey);
+            return (
+              <button key={tab.path} onClick={() => navigate(tab.path)}
+                className={`flex flex-col items-center justify-center py-1 text-[10px] font-semibold ${isActive ? "text-teal-600 font-bold" : "text-slate-400"}`}>
+                <Icon className="w-5 h-5 mb-0.5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </footer>
 
       {/* DESKTOP FOOTER */}

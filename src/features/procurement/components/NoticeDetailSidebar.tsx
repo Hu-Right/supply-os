@@ -57,44 +57,58 @@ export function NoticeDetailSidebar({
   payment,
 }: NoticeDetailSidebarProps) {
   const { t } = useLocale();
+
+  /** 操作按钮组（移动端固定底栏 / 桌面端侧边栏共用） */
+  const actionButtons = (
+    <>
+      <button
+        onClick={() => onExpressInterest(notice, "interested")}
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-black hover:bg-blue-700"
+      >
+        <Heart className="w-4 h-4" />
+        {t("procurement_interested")}
+      </button>
+      <button
+        onClick={() => onExpressInterest(notice, "subscribed")}
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-black hover:bg-slate-800"
+      >
+        <Bell className="w-4 h-4 text-amber-300" />
+        {t("procurement_subscribeNotice")}
+      </button>
+      <button
+        onClick={() => onUnlock(notice)}
+        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm font-black hover:bg-teal-200"
+      >
+        <Lock className="w-4 h-4" />
+        {canUsePaidQuota
+          ? t("procurement_memberUnlock")
+          : freeRemaining > 0
+            ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
+            : t("procurement_freeUsedUp")}
+      </button>
+
+      {notice.core_locked !== false && !showSkeleton && !isVip && freeRemaining <= 0 && (
+        <button
+          onClick={() => onPayUnlock(notice)}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700"
+        >
+          <WalletCards className="w-4 h-4" />
+          {t("procurement_singleUnlock")}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
-      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
-        <button
-          onClick={() => onExpressInterest(notice, "interested")}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-black hover:bg-blue-700"
-        >
-          <Heart className="w-4 h-4" />
-          {t("procurement_interested")}
-        </button>
-        <button
-          onClick={() => onExpressInterest(notice, "subscribed")}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-black hover:bg-slate-800"
-        >
-          <Bell className="w-4 h-4 text-amber-300" />
-          {t("procurement_subscribeNotice")}
-        </button>
-        <button
-          onClick={() => onUnlock(notice)}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm font-black hover:bg-teal-200"
-        >
-          <Lock className="w-4 h-4" />
-          {canUsePaidQuota
-            ? t("procurement_memberUnlock")
-            : freeRemaining > 0
-              ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
-              : t("procurement_freeUsedUp")}
-        </button>
+      {/* P0-2 移动端修复：操作按钮固定于视口底部，无需滚动即可触达核心转化操作 */}
+      <div className="hidden max-[900px]:fixed max-[900px]:bottom-0 max-[900px]:left-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:flex max-[900px]:gap-2 max-[900px]:bg-white/95 max-[900px]:backdrop-blur-md max-[900px]:border-t max-[900px]:border-slate-200 max-[900px]:p-3 max-[900px]:shadow-lg max-[900px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        {actionButtons}
+      </div>
 
-        {notice.core_locked !== false && !showSkeleton && !isVip && freeRemaining <= 0 && (
-          <button
-            onClick={() => onPayUnlock(notice)}
-            className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700"
-          >
-            <WalletCards className="w-4 h-4" />
-            {t("procurement_singleUnlock")}
-          </button>
-        )}
+      {/* 桌面端侧边栏：操作按钮 + 配额/服务信息 */}
+      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3 max-[900px]:hidden">
+        {actionButtons}
 
         <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 space-y-2">
           <p className="font-black text-slate-800 flex items-center gap-2">

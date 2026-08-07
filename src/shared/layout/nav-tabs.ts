@@ -35,5 +35,5 @@ export const NAV_TABS: NavTab[] = [
   { path: "/crm", labelKey: "navCRM", shortLabelKey: "navShortCRM", icon: Briefcase, alert: true, mobile: true },
   { path: "/services", labelKey: "navServices", icon: LayoutGrid },
   { path: "/learning", labelKey: "navLearning", shortLabelKey: "navShortLearning", icon: BookOpen, mobile: true },
-  { path: "/membership", labelKey: "navMembership", icon: Crown, highlight: true },
+  { path: "/membership", labelKey: "navMembership", shortLabelKey: "navShortMembership", icon: Crown, highlight: true, mobile: true },
 ];

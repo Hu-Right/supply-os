@@ -210,5 +210,6 @@
   "procurement_previewPartial": "معاينة",
   "procurement_previewUpgrade": "سجل لعرض التقرير الكامل",
   "procurement_previewUnlockHint": "افتح لعرض كامل المحتوى",
-  "procurement_previewUnlockNow": "فتح الآن"
+  "procurement_previewUnlockNow": "فتح الآن",
+  "procurement_advancedFilter": "التصفية"
 }

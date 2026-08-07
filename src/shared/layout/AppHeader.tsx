@@ -87,7 +87,7 @@ export function AppHeader({
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 z-30 shadow-md">
           <div className="grid grid-cols-2 gap-2 text-center">
-            {tabs.slice(0, 6).map((tab) => (
+            {tabs.map((tab) => (
               <button key={tab.id} onClick={() => { onSwitchTab(tab.id); setMobileMenuOpen(false); }}
                 className={`p-2 rounded-lg ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-50 text-teal-700 font-semibold" : "bg-slate-50"}`}>
                 {tab.label}
