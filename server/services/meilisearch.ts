@@ -11,8 +11,9 @@ import { Meilisearch } from "meilisearch";
 import type { Pool } from "mysql2/promise";
 
 const INDEX_NAME = "notices";
-// NULL deadline 的哨兵值：远未来时间戳（年 2286），确保无截止日期数据在升序/降序排列中始终排在最后
-const NULL_DEADLINE_SENTINEL = 9999999999;
+// NULL deadline 的哨兵值：0（纪元起点），确保无截止日期数据在降序排列中排在最后
+// ASC 时 0 排最前（无截止日期最先展示）；DESC 时 0 排最后（符合「截止最远优先」语义）
+const NULL_DEADLINE_SENTINEL = 0;
 
 let client: Meilisearch | null = null;
 let healthy = false;
@@ -216,14 +217,18 @@ export async function getDocCount(): Promise<number> {
 }
 
 /**
- * 全量同步：从 MySQL 拉取全量公告数据写入 Meilisearch
- * 首次启动或手动触发时调用
+ * 全量同步：先清空索引，再从 MySQL 拉取全量公告数据写入
+ * 首次启动或手动触发时调用。清空索引可消除 ghost IDs（MySQL 已删除但索引中仍存在的文档）
  */
 export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
   if (!client || !healthy) return { synced: 0, elapsed: 0, lastId: 0 };
   const start = Date.now();
 
   try {
+    // 先清空索引，消除 ghost IDs
+    await client.index(INDEX_NAME).deleteAllDocuments();
+    console.log("[meilisearch] fullSync: 已清空旧索引，开始重建...");
+
     const BATCH = 2000;
     let offset = 0;
     let totalSynced = 0;
@@ -358,6 +363,10 @@ export async function searchWithFilters(params: {
       sortArr.push("id:desc");
     } else if (sort === "deadline") {
       sortArr.push("deadline_sec:asc", "id:desc");
+      // "最近截止优先"排序：排除无截止日期（deadline_sec=0 哨兵值）的记录
+      // 哨兵值 0 在 ASC 排序中排最前，导致 NULL deadline 记录占据首页
+      // 语义上"最近截止"只对有截止日期的记录有意义
+      filter.push("deadline_sec > 0");
     } else {
       // deadline_farthest（默认）
       sortArr.push("deadline_sec:desc", "id:desc");
@@ -426,5 +435,30 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
   } catch (err) {
     console.warn("[meilisearch] syncNoticeIds failed:", (err as Error).message);
     return { synced: 0 };
+  }
+}
+
+/** 检测索引中是否存在旧哨兵值(9999999999)的文档——用于一次性迁移检测 */
+export async function hasOldSentinel(): Promise<boolean> {
+  if (!client || !healthy) return false;
+  try {
+    const result = await client.index(INDEX_NAME).search("", {
+      filter: "deadline_sec >= 9999999999",
+      limit: 1,
+      attributesToRetrieve: ["id"],
+    });
+    return result.estimatedTotalHits > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** 获取 MySQL 中活跃公告数量（用于 ghost ID 检测） */
+export async function getMysqlActiveCount(pool: Pool): Promise<number> {
+  try {
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1");
+    return Number((rows as any[])[0]?.cnt || 0);
+  } catch {
+    return 0;
   }
 }

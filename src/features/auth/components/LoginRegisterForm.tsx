@@ -59,8 +59,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     searchAndAutoFillL3,
   } = useUnspscPrefCascade();
 
-  // 主营业务智能推断状态
-  const [mainBusiness, setMainBusiness] = useState("");
+  // 主营业务智能推断状态（从 localStorage 恢复上次输入的关键词）
+  const [mainBusiness, setMainBusinessRaw] = useState(
+    () => localStorage.getItem("supply-os:main-business") || "",
+  );
+  const setMainBusiness = (v: string) => {
+    setMainBusinessRaw(v);
+    localStorage.setItem("supply-os:main-business", v);
+  };
   const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
   const [inferSearched, setInferSearched] = useState(false);

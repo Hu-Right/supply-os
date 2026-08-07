@@ -417,6 +417,12 @@ export async function searchNotices(
   let idFilterSql = "";
   const idFilterParams: any[] = [];
 
+  // "最近截止优先"排序：排除无截止日期的记录（与 Meilisearch 路径一致）
+  // 语义上"最近截止"只对有截止日期的记录有意义
+  if (sort === "deadline") {
+    where.push(`${DEADLINE_SEC_EXPR} IS NOT NULL`);
+  }
+
   if (p.codeId) {
     if (meiliCanHandleUnspsc && meiliFilteredIds) {
       // Meilisearch 已处理 UNSPSC 筛选（纯筛选或混合搜索路径）
@@ -600,9 +606,9 @@ export async function searchNotices(
   if (sort === "latest") {
     orderParts.push("n.id DESC");
   } else if (sort === "deadline_farthest") {
-    // 截至最远优先：deadline_sec DESC（NULL 无截止日期排最前，MySQL DESC 排序 NULL 默认在前）
-    // 方案D：is_active=1 保证 deadline_sec 要么为 NULL 要么 >= NOW()，可安全走索引排序
-    orderParts.push(`${DEADLINE_SEC_EXPR} DESC`, "n.id DESC");
+    // 截至最远优先：deadline_sec DESC（NULL 无截止日期排最后，与 Meilisearch 哨兵值 0 口径一致）
+    // IS NULL 升序排前（0=非NULL 在前），再按 deadline_sec 降序，确保无截止日期公告始终在末尾
+    orderParts.push(`${DEADLINE_SEC_EXPR} IS NULL`, `${DEADLINE_SEC_EXPR} DESC`, "n.id DESC");
   } else {
     // deadline = 截止最近优先（deadline_sec ASC，NULL 无截止日期排最后）
     orderParts.push(`${DEADLINE_SEC_EXPR} IS NULL`, DEADLINE_SEC_EXPR, "n.id DESC");

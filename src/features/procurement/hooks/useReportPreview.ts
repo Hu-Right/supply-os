@@ -3,11 +3,11 @@
  * Report Preview Data Fetching Hook
  *
  * @module features/procurement/hooks/useReportPreview
- * @description 解锁后拉取中文版订单拆解报告的结构化摘要（JSON），
- *              供 ReportPreviewPanel 组件渲染预览内容。
+ * @description 解锁后拉取中文版订单拆解报告的结构化摘要（JSON，按最新需求仅含
+ *              「2.1 采购描述（中文）」章节），供 ReportPreviewPanel 组件渲染预览内容。
  *              请求失败时静默回退（error 状态由组件决定是否降级展示）。
- *              Fetches structured JSON summary of the Chinese bid breakdown
- *              report for preview rendering. Silently falls back on error.
+ *              Fetches structured JSON summary (now only the Chinese procurement
+ *              description section) for preview rendering. Silently falls back on error.
  */
 import { useEffect, useState } from "react";
 import { api } from "@/core/http";
