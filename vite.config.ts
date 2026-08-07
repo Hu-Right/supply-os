@@ -27,6 +27,10 @@ export default defineConfig(() => {
             // 仅打包实际使用的图标（Crown/Search/ChevronDown 等），未使用图标零体积
             // 回滚：删除以下行即可
             'vendor-icons': ['lucide-react'],
+            // P0 性能优化：UI 工具库独立分割——tailwind-merge 被 Button/Input/Select 使用
+            // 独立后可被多个页面共享缓存，减少重复加载
+            // 回滚：删除以下行即可
+            'vendor-utils': ['tailwind-merge'],
             // [2026-08-07] motion 库已从 manualChunks 移除——项目零导入 motion，
             // 所有动画均由 Tailwind CSS 类（animate-spin/pulse/ping）实现。
             // 原配置生成空 chunk "vendor-motion" (0.00 kB)，属无效配置。

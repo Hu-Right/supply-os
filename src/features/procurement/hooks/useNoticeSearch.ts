@@ -218,6 +218,18 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     }
   }, [searchKey]);
 
+  // BUG 修复：账号切换（登录/登出/换号）时主动清除搜索缓存
+  // searchKey 不含 userKey，账号切换时 searchKey 不变，上方 effect 不会触发清缓存，
+  // 导致旧用户 apiCached 数据（30s TTL）泄漏给新用户
+  // 回滚：删除下方 useEffect 即可
+  const prevUserKeyForCacheRef = useRef(userKey);
+  useEffect(() => {
+    if (prevUserKeyForCacheRef.current !== userKey) {
+      prevUserKeyForCacheRef.current = userKey;
+      clearApiCache("/api/notices?");
+    }
+  }, [userKey]);
+
   // 生效条件变化时重置分页：applySearch/toggleFeatured 之外的外部 URL 变化
   // （支付回跳清参、前进/后退到搜索直达链接）不经过动作函数，旧页码会请求到
   // 空页误显"无匹配结果"。applySearch 路径重复置 1 为幂等无副作用。
@@ -257,6 +269,13 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
   const applySearch = (sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
+    // P0 性能优化：乐观更新——提交搜索时立即显示加载态，不等服务端响应
+    // 用户感知从「等待 200-500ms → 列表刷新」变为「立即加载 → 新数据渐入」
+    // 回滚：删除以下 3 行
+    setItems([]);
+    setTotal(0);
+    setLoading(true);
+
     const next: Record<string, string> = {};
     if (qInput.trim()) next.q = qInput.trim();
     if (countryInput) next.country = countryInput;
@@ -318,12 +337,32 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
 
+  // BUG 修复：追踪上一轮数据源类型，避免 prefsMode 变化但数据源未变时
+  // 不必要的 effect 重跑 → requestSeq 递增 → 丢弃已到达的快速响应
+  // 根因：prefsMode 从 "loading"→"default" 不改变数据源（都是 fetchNotices 默认模式），
+  // 但 effect 重跑递增 requestSeq，导致第一次快速响应被丢弃，用户必须等待第二次请求
+  // 回滚：删除 dataSourceTypeRef 及相关守卫逻辑
+  const dataSourceTypeRef = useRef<string>("initial");
+
   useEffect(() => {
-    // 初始化判定中不发全量请求，避免「全量→偏好」双闪；判定完成后本 effect 重新触发。
-    // 带搜索条件（URL 直达链接）时不等判定：搜索数据源与偏好/推荐无关（本地差异 #6）
-    // 登录/注册后 userKey 变化必须重跑：数据源可能从全量切到偏好/推荐，
-    // userKey 未入 deps 时 prefsMode 保持 "default" 不变化会导致 effect 完全不重跑（登录后卡片消失 BUG）
-    if (prefsMode === "loading" && !hasSearch && userKey) return;
+    // 计算当前数据源类型：search / recommended / default
+    const currentDataSource =
+      hasSearch || activeSort !== "deadline_farthest"
+        ? "search"
+        : prefsMode === "recommended" && userKey
+          ? "recommended"
+          : "default";
+
+    const dataSourceChanged = dataSourceTypeRef.current !== currentDataSource;
+
+    if (!dataSourceChanged) {
+      // 数据源未变：保留进行中的请求，不发新请求
+      // 场景：prefsMode 从 "loading"→"default"，数据源都是 "default"
+      // 第一次请求还在进行中（items.length===0），不应取消它
+      return;
+    }
+    // 数据源变了：更新追踪值，取消旧请求，发起新请求
+    dataSourceTypeRef.current = currentDataSource;
 
     // 取消前一次未完成的请求（AbortController）
     abortControllerRef.current?.abort();
@@ -335,11 +374,14 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setLoading(true);
     setError("");
 
-    // 防抖 300ms：快速切换筛选器时只发最后一次请求
-    debounceTimerRef.current = setTimeout(() => {
+    // P0 性能优化：首屏跳过防抖——items 为空且 page=1 时立即发请求，消除 300ms 无意义等待
+    // 后续筛选器切换仍保留 300ms 防抖，避免快速切换时产生大量无效请求
+    // 回滚：将条件改为 setTimeout(() => { ... }, 300) 即可恢复始终防抖
+    const isFirstLoad = items.length === 0 && page === 1;
+    const executeRequest = () => {
       // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
       const request =
-        hasSearch || activeSort !== "deadline_farthest"
+        currentDataSource === "search"
           ? fetchNotices({
               page,
               pageSize: PAGE_SIZE,
@@ -356,7 +398,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
               featured: activeFeatured || undefined,
               locale,
             }, controller.signal)
-          : prefsMode === "recommended" && userKey
+          : currentDataSource === "recommended"
             ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale }, controller.signal)
             : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined, locale }, controller.signal);
 
@@ -380,7 +422,15 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             setLoading(false);
           }
         });
-    }, 300);
+    };
+
+    if (isFirstLoad) {
+      // 首屏：立即执行，跳过防抖
+      executeRequest();
+    } else {
+      // 非首屏：防抖 300ms
+      debounceTimerRef.current = setTimeout(executeRequest, 300);
+    }
 
     // 清理：依赖变化时清除定时器 + 取消请求
     return () => {

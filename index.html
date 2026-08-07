@@ -14,6 +14,11 @@
     <link rel="dns-prefetch" href="https://openapi.alipay.com" />
     <link rel="dns-prefetch" href="https://api.mch.weixin.qq.com" />
     <link rel="dns-prefetch" href="https://api.deepseek.com" />
+    <!-- P0 性能优化：关键 API 端点预加载——国家/机构列表在页面加载时提前获取 -->
+    <!-- 预期收益：下拉列表加载时间减少 100-200ms -->
+    <!-- 回滚：删除下方 link[rel=preload] 行即可 -->
+    <link rel="preload" href="/api/notices/countries" as="fetch" crossorigin />
+    <link rel="preload" href="/api/notices/agencies" as="fetch" crossorigin />
     <!-- P2 性能优化：首屏骨架屏 CSS 内联——JS 加载期间即显示加载占位，消除白屏闪烁 -->
     <!-- 回滚：删除 <style>...</style> 块即可 -->
     <style>
