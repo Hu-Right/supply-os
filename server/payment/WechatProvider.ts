@@ -48,8 +48,12 @@ export class WechatProvider implements PaymentStrategy {
     amount: number,
     description: string,
     returnUrl?: string,
+    clientIp?: string,
   ): Promise<{ pay_url: string; qr_code_url?: string }> {
     const total = Math.round(amount * 100); // 微信金额单位：分
+
+    // P3-3 修复：payer_client_ip 从调用方传入，回退到 127.0.0.1
+    const payerIp = clientIp || "127.0.0.1";
 
     const body = {
       appid: this.appId,
@@ -62,7 +66,7 @@ export class WechatProvider implements PaymentStrategy {
         currency: "CNY",
       },
       scene_info: {
-        payer_client_ip: "0.0.0.0", // 生产环境应从 req.ip 获取
+        payer_client_ip: payerIp,
         h5_info: {
           type: "Wap", // 或 iOS / Android
         },

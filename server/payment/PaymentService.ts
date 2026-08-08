@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import type { RowDataPacket } from "mysql2/promise";
 import type {
   CreateOrderRequest,
@@ -70,6 +71,7 @@ export class PaymentService {
       amount,
       String(plan.name || planCode),
       returnUrl,
+      request.client_ip,
     );
 
     if (existingOrder) {
@@ -329,9 +331,11 @@ export class PaymentService {
     }
   }
 
+  // P0-4 修复：订单号使用 16 位随机十六进制（2^64 空间），消除可预测性和并发碰撞
   private makeOrderNo(): string {
     const now = new Date();
-    return `SO${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}${String(Math.floor(Math.random() * 9000 + 1000))}`;
+    const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    return `SO${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
   }
 
   private appendUrlParams(url: string, params: Record<string, string | number>): string {

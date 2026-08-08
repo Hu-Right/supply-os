@@ -21,6 +21,7 @@ export class MockProvider implements PaymentStrategy {
     amount: number,
     description: string,
     _returnUrl?: string,
+    _clientIp?: string,
   ): Promise<{ pay_url: string; qr_code_url?: string }> {
     const tradeNo = `MOCK_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 

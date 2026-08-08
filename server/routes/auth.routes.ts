@@ -2,17 +2,46 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+import fs from "fs";
+import path from "path";
 import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { hashPassword, buildUserResponse } from "../services/auth";
 
-// ── 简易内存速率限制器（登录防暴力破解）──
-// 以 IP 为 key，滑动窗口 15 分钟内最多 10 次失败
+// ── 速率限制器（登录防暴力破解）──
+// P2-3 修复：内存 + 文件持久化，重启不丢失；以 IP 为 key，滑动窗口 15 分钟内最多 10 次失败
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const LOGIN_WINDOW_MS = 15 * 60 * 1000; // 15 分钟
 const LOGIN_MAX_FAILS = 10;
+const RATE_LIMIT_FILE = path.resolve(process.cwd(), "server/logs/.login-rate-limit.json");
+
+// 启动时从文件恢复速率限制状态
+try {
+  if (fs.existsSync(RATE_LIMIT_FILE)) {
+    const data = JSON.parse(fs.readFileSync(RATE_LIMIT_FILE, "utf-8"));
+    const now = Date.now();
+    for (const [ip, entry] of Object.entries(data as Record<string, { count: number; resetAt: number }>)) {
+      if (entry.resetAt > now) loginAttempts.set(ip, entry);
+    }
+  }
+} catch { /* 文件损坏或不存在，从空状态开始 */ }
+
+/** 将当前速率限制状态持久化到文件（防抖：仅在有活跃条目时写入） */
+function persistRateLimit(): void {
+  try {
+    if (loginAttempts.size === 0) {
+      if (fs.existsSync(RATE_LIMIT_FILE)) fs.unlinkSync(RATE_LIMIT_FILE);
+      return;
+    }
+    const dir = path.dirname(RATE_LIMIT_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const obj: Record<string, { count: number; resetAt: number }> = {};
+    for (const [ip, entry] of loginAttempts) obj[ip] = entry;
+    fs.writeFileSync(RATE_LIMIT_FILE, JSON.stringify(obj), "utf-8");
+  } catch { /* 写入失败不影响主服务 */ }
+}
 
 function checkLoginRateLimit(ip: string): { blocked: boolean; retryAfterSec: number } {
   const now = Date.now();
@@ -35,18 +64,22 @@ function recordLoginFailure(ip: string): void {
   } else {
     entry.count += 1;
   }
+  // P2-3: 登录失败时持久化，确保重启后限制不丢失
+  persistRateLimit();
 }
 
 function clearLoginFailures(ip: string): void {
   loginAttempts.delete(ip);
 }
 
-// 定期清理过期条目（防止内存泄漏）
+// 定期清理过期条目（防止内存泄漏）+ 持久化
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
   for (const [ip, entry] of loginAttempts) {
-    if (now > entry.resetAt) loginAttempts.delete(ip);
+    if (now > entry.resetAt) { loginAttempts.delete(ip); changed = true; }
   }
+  if (changed) persistRateLimit();
 }, 5 * 60 * 1000).unref();
 
 export function createAuthRouter(ctx: AppContext): Router {

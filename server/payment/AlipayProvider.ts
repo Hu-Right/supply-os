@@ -50,6 +50,7 @@ export class AlipayProvider implements PaymentStrategy {
     amount: number,
     description: string,
     returnUrl?: string,
+    _clientIp?: string,
   ): Promise<{ pay_url: string; qr_code_url?: string }> {
     const payUrl = this.sdk.pageExecute("alipay.trade.page.pay", {
       bizContent: {

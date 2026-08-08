@@ -21,6 +21,8 @@ export interface SyncOptions {
 export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => void {
   const intervalMs = options.intervalMs ?? 1 * 60 * 1000; // 默认 1 分钟
   let stopped = false;
+  // P2-8 修复：stopFns 移入闭包内部，多次调用 startSearchSync 不会累积
+  const stopFns: Array<() => void> = [];
 
   // 启动初始化：从 Meilisearch 恢复 watermark，避免重复全量同步
   void initWatermark().then(({ watermark, docCount }) => {
@@ -78,8 +80,6 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
     stopFns.length = 0;
   };
 }
-
-const stopFns: Array<() => void> = [];
 
 /**
  * 从 Meilisearch 恢复 watermark（已同步的最大 ID）

@@ -18,8 +18,11 @@ export class HttpError extends Error {
   }
 }
 
+/** P3-6 修复：扩展 Error 类型以包含 statusCode，避免类型断言 */
+type AppError = Error & { statusCode?: number };
+
 export function errorHandler(
-  err: Error & { statusCode?: number },
+  err: AppError,
   _req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

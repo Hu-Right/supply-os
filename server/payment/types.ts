@@ -14,6 +14,7 @@ export interface PaymentStrategy {
     amount: number,
     description: string,
     returnUrl?: string,
+    clientIp?: string,
   ): Promise<{
     pay_url: string;
     qr_code_url?: string;

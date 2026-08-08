@@ -32,6 +32,8 @@ export interface CreateOrderRequest {
   provider: PaymentProviderName;
   notice_id?: number | null;
   return_url?: string;
+  /** 客户端 IP（微信支付 payer_client_ip 需要） */
+  client_ip?: string;
 }
 
 export interface OrderInfo {

@@ -219,6 +219,7 @@ export async function getDocCount(): Promise<number> {
 /**
  * 全量同步：先清空索引，再从 MySQL 拉取全量公告数据写入
  * 首次启动或手动触发时调用。清空索引可消除 ghost IDs（MySQL 已删除但索引中仍存在的文档）
+ * P2-1 修复：使用 keyset 分页替代 OFFSET，避免大数据集性能退化
  */
 export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
   if (!client || !healthy) return { synced: 0, elapsed: 0, lastId: 0 };
@@ -230,14 +231,14 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     console.log("[meilisearch] fullSync: 已清空旧索引，开始重建...");
 
     const BATCH = 2000;
-    let offset = 0;
-    let totalSynced = 0;
     let lastId = 0;
+    let totalSynced = 0;
 
     while (true) {
+      // P2-1: keyset 分页——WHERE id > lastId 替代表 OFFSET，始终走主键索引
       const [rows] = await pool.query(
-        SYNC_SQL_SELECT + SYNC_SQL_JOIN + " ORDER BY n.id ASC LIMIT ? OFFSET ?",
-        [BATCH, offset]
+        SYNC_SQL_SELECT + SYNC_SQL_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT ?",
+        [lastId, BATCH]
       );
 
       const docs = (rows as any[]).map(buildSyncDoc);
@@ -246,7 +247,6 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
       totalSynced += docs.length;
       lastId = docs[docs.length - 1].id;
-      offset += BATCH;
 
       if (docs.length < BATCH) break;
     }
@@ -261,8 +261,10 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 }
 
 /**
- * 增量同步：仅同步 id > watermark 的新增/更新记录
+ * 增量同步：同步 id > watermark 的新增记录 + 最近 10 分钟内更新的记录
  * 定时调用（每 1 分钟）
+ * P1-3 修复：原实现仅基于 ID 递增，无法捕获翻译/状态等字段更新。
+ *           现增加时间窗口回扫，确保近期修改的记录同步到索引。
  */
 export async function incrementalSync(
   pool: Pool,
@@ -271,17 +273,37 @@ export async function incrementalSync(
   if (!client || !healthy) return { synced: 0, newWatermark: watermark };
 
   try {
-    const [rows] = await pool.query(
+    // 查询 1: 新增记录（ID > watermark）
+    const [newRows] = await pool.query(
       SYNC_SQL_SELECT + SYNC_SQL_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT 5000",
       [watermark]
     );
 
-    const docs = (rows as any[]).map(buildSyncDoc);
-    if (docs.length === 0) return { synced: 0, newWatermark: watermark };
+    // P1-3: 查询 2——最近 10 分钟内更新的记录（捕获翻译/状态等字段变更）
+    let updatedDocs: any[] = [];
+    try {
+      const [updatedRows] = await pool.query(
+        SYNC_SQL_SELECT + SYNC_SQL_JOIN +
+        " WHERE n.updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY n.id ASC LIMIT 2000",
+        []
+      );
+      updatedDocs = (updatedRows as any[]).map(buildSyncDoc);
+    } catch {
+      // updated_at 列可能不存在（外部 CRM 表），静默跳过
+    }
 
-    await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
-    const newWatermark = docs[docs.length - 1].id;
-    return { synced: docs.length, newWatermark };
+    const newDocs = (newRows as any[]).map(buildSyncDoc);
+    // 合并去重（以 id 为 key，updatedDocs 覆盖 newDocs 中的同名记录）
+    const docMap = new Map<number, any>();
+    for (const doc of newDocs) docMap.set(doc.id, doc);
+    for (const doc of updatedDocs) docMap.set(doc.id, doc);
+
+    const allDocs = Array.from(docMap.values()).sort((a, b) => a.id - b.id);
+    if (allDocs.length === 0) return { synced: 0, newWatermark: watermark };
+
+    await client.index(INDEX_NAME).addDocuments(allDocs, { primaryKey: "id" });
+    const newWatermark = allDocs[allDocs.length - 1].id;
+    return { synced: allDocs.length, newWatermark };
   } catch (err) {
     console.error("[meilisearch] incrementalSync failed:", (err as Error).message);
     return { synced: 0, newWatermark: watermark };
@@ -363,10 +385,8 @@ export async function searchWithFilters(params: {
       sortArr.push("id:desc");
     } else if (sort === "deadline") {
       sortArr.push("deadline_sec:asc", "id:desc");
-      // "最近截止优先"排序：排除无截止日期（deadline_sec=0 哨兵值）的记录
-      // 哨兵值 0 在 ASC 排序中排最前，导致 NULL deadline 记录占据首页
-      // 语义上"最近截止"只对有截止日期的记录有意义
-      filter.push("deadline_sec > 0");
+      // 注：不再过滤无截止日期的记录（deadline_sec=0 哨兵值）
+      // MySQL 路径会在最终排序时将 NULL/0 值排在最后
     } else {
       // deadline_farthest（默认）
       sortArr.push("deadline_sec:desc", "id:desc");
@@ -453,7 +473,7 @@ export async function hasOldSentinel(): Promise<boolean> {
   }
 }
 
-/** 获取 MySQL 中公告总数（用于 ghost ID 检测，与 Meilisearch 索引口径一致：包含所有公告） */
+/** 获取 MySQL 中公告总数（用于 ghost ID 检测，与 Meilisearch 索引口径一致：包含所有公告，无论 is_active） */
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices");

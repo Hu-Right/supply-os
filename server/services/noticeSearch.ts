@@ -14,7 +14,7 @@ import { buildNoticeUnspscFilter } from "./unspsc";
 import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normalizeNoticeType } from "./meilisearch";
 import type { NoticesRepo } from "../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "./notice-translation";
-import { translateByPattern, classifyAgencyType } from "./agencyI18n";
+import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "./agencyI18n";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // 性能优化：使用生成列 deadline_sec 替代表达式（阶段 3）
@@ -245,32 +245,36 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
       );
     }
 
-    // 预填充内存缓存：后续请求直接命中内存缓存（<0.1ms），无需再查统计表
+    // P3-5 修复：预填充复用 countCacheKey 生成逻辑，避免硬编码数组与 key 函数脱节
+    const defaultParams: NoticeSearchParams = {
+      page: 1, pageSize: 9, q: "", country: "", agency: "",
+      deadlineFrom: "", deadlineTo: "", sort: "deadline_farthest",
+      deadlineWithinDays: 0, noticeType: "", featuredOnly: false,
+    };
     // active_total
     noticeCountCache.set(
-      JSON.stringify(["count", 0, "", "", "", "", "", "deadline_farthest", 0, "", false]),
+      countCacheKey({ ...defaultParams }),
       { total: activeTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
     );
     // featured
     featuredCountCache.total = featuredTotal;
     featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
-    // BUG-3 修复：同步预填充 noticeCountCache 的精选维度 key，
-    // 避免首次 featured=1 查询因 key 不匹配而回退到 COUNT 查询
+    // BUG-3 修复：同步预填充 noticeCountCache 的精选维度 key
     noticeCountCache.set(
-      JSON.stringify(["count", 0, "", "", "", "", "", "deadline_farthest", 0, "", true]),
+      countCacheKey({ ...defaultParams, featuredOnly: true }),
       { total: featuredTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
     );
     // country:{name}
     for (const row of countryRows as any[]) {
       noticeCountCache.set(
-        JSON.stringify(["count", 0, "", row.country, "", "", "", "deadline_farthest", 0, "", false]),
+        countCacheKey({ ...defaultParams, country: row.country }),
         { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
       );
     }
     // agency:{name}
     for (const row of agencyRows as any[]) {
       noticeCountCache.set(
-        JSON.stringify(["count", 0, "", "", row.agency, "", "", "deadline_farthest", 0, "", false]),
+        countCacheKey({ ...defaultParams, agency: row.agency }),
         { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
       );
     }
@@ -420,11 +424,8 @@ export async function searchNotices(
   let idFilterSql = "";
   const idFilterParams: any[] = [];
 
-  // "最近截止优先"排序：排除无截止日期的记录（与 Meilisearch 路径一致）
-  // 语义上"最近截止"只对有截止日期的记录有意义
-  if (sort === "deadline") {
-    where.push(`${DEADLINE_SEC_EXPR} IS NOT NULL`);
-  }
+  // 注：不再过滤无截止日期的记录，改为在排序时将其排在最后
+  // 原逻辑：if (sort === "deadline") { where.push(`${DEADLINE_SEC_EXPR} IS NOT NULL`); }
 
   if (p.codeId) {
     if (meiliCanHandleUnspsc && meiliFilteredIds) {
@@ -821,6 +822,17 @@ export async function searchNotices(
 
   const t3 = Date.now();
 
+  // P2-2 修复：缓存中剥离翻译字段——翻译随 locale 变化，不应跨用户共享
+  // 缓存版本仅保留稳定数据，翻译字段每次从 DB 实时获取
+  const cachePayload: NoticeSearchResult = {
+    items: rawRows.map((row) => ({
+      ...row, title_i18n: null, description_i18n: null,
+      organization: null, source_url: null, unspsc_codes: [], core_locked: true,
+      is_featured: featuredIds.has(Number(row.id)),
+      breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
+    })),
+    total, page, pageSize,
+  };
   const payload: NoticeSearchResult = {
     items: rawRows.map((row) => ({
       ...row, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
@@ -839,7 +851,7 @@ export async function searchNotices(
     for (const [key, entry] of noticeSearchCache) { if (entry.expires <= now) noticeSearchCache.delete(key); }
     if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) noticeSearchCache.clear();
   }
-  noticeSearchCache.set(cacheKey, { payload, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+  noticeSearchCache.set(cacheKey, { payload: cachePayload, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
 
   return payload;
 }
@@ -889,9 +901,9 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     // 表不存在或查询失败：静默降级，仅走大小写归一化
   }
 
-  // 2) 查询原始机构数据
+  // 2) 查询原始机构数据（含国家字段，用于按国家级聚合 INTL 类型机构）
   const [rows] = await pool.query(
-    `SELECT n.agency, COUNT(*) AS cnt FROM crm_bid_notices n
+    `SELECT n.agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
      WHERE n.is_active = 1 AND n.agency IS NOT NULL AND n.agency <> ''
      GROUP BY n.agency ORDER BY cnt DESC`
   );
@@ -900,8 +912,11 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   const merged = new Map<string, AgencyCacheItem>();
   // 记录每个 canonical 对应的原始机构名列表（用于筛选展开）
   const canonicalToOriginals = new Map<string, string[]>();
+  // 记录每个 canonical 对应的国家（用于按国家级聚合 INTL 类型机构）
+  const canonicalToCountry = new Map<string, string>();
   for (const row of rows as RowDataPacket[]) {
     const raw = String(row.agency || "").trim();
+    const country = String(row.country || "").trim();
     if (!raw) continue;
     const upperKey = raw.toUpperCase();
     const aliasEntry = aliasMap.get(upperKey);
@@ -920,6 +935,10 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     const originals = canonicalToOriginals.get(mergeKey) || [];
     originals.push(raw);
     canonicalToOriginals.set(mergeKey, originals);
+    // 记录国家（第一个非空值优先，因为结果已按 cnt DESC 排序）
+    if (country && !canonicalToCountry.has(mergeKey)) {
+      canonicalToCountry.set(mergeKey, country);
+    }
   }
 
   // 3.5) 对无 i18n 的条目，尝试模式化翻译兜底
@@ -934,10 +953,15 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
           // 导致 originalAgencies 为空，搜索筛选无法展开匹配所有 DB 原始机构名
           const oldMergeKey = item.agency.toUpperCase();
           const oldOriginals = canonicalToOriginals.get(oldMergeKey);
+          const oldCountry = canonicalToCountry.get(oldMergeKey);
           item.agency = patternResult.canonical;
           const newMergeKey = item.agency.toUpperCase();
           if (oldOriginals && !canonicalToOriginals.has(newMergeKey)) {
             canonicalToOriginals.set(newMergeKey, oldOriginals);
+          }
+          // 同步迁移国家信息
+          if (oldCountry && !canonicalToCountry.has(newMergeKey)) {
+            canonicalToCountry.set(newMergeKey, oldCountry);
           }
         }
         // BUG 修复：过滤无效翻译——中文翻译与机构英文名完全相同时说明是兜底结果而非真正翻译，
@@ -950,9 +974,11 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   }
 
   // 3.6) 类型聚合：将同类型机构合并（如 1922 个巴西市政府 → 1 个「巴西各市政府」）
+  // INTL 类型按国家+类型聚合（如「乌干达各委员会」而非全球「各委员会」）
   const typeAggregated = new Map<string, AgencyCacheItem>();
   for (const [mergeKey, item] of merged) {
-    const typeInfo = classifyAgencyType(item.agency);
+    const country = canonicalToCountry.get(mergeKey) || undefined;
+    const typeInfo = classifyAgencyType(item.agency, country);
     if (typeInfo) {
       // 应聚合到类型
       const existing = typeAggregated.get(typeInfo.typeKey);
@@ -980,12 +1006,304 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     }
   }
 
+  // 3.7) 兜底聚合：将公告数极少的零散机构按国家归并为"XX国各机构"
+  // 阈值：公告数 <= 5 的独立机构
+  const AGENCY_MIN_COUNT = 5;
+  const finalAggregated = new Map<string, AgencyCacheItem>();
+  const orphanByCountry = new Map<string, AgencyCacheItem>();
+
+  for (const [key, item] of typeAggregated) {
+    // 公告数较多的条目直接保留（包括类型聚合后的大类）
+    if (item.count > AGENCY_MIN_COUNT) {
+      finalAggregated.set(key, item);
+      continue;
+    }
+    // 公告数 <= 阈值的零散机构，按国家归并
+    const country = canonicalToCountry.get(key.toUpperCase()) || "";
+    const countryZh = COUNTRY_ZH[country];
+    if (countryZh) {
+      // 有中文国家名 → 归入"XX国各机构"
+      const bucketKey = `ORPHAN_${country}`;
+      const existing = orphanByCountry.get(bucketKey);
+      if (existing) {
+        existing.count += item.count;
+        if (existing.originalAgencies && item.originalAgencies) {
+          existing.originalAgencies.push(...item.originalAgencies);
+        }
+      } else {
+        orphanByCountry.set(bucketKey, {
+          agency: bucketKey,
+          count: item.count,
+          i18n: { zh: `${countryZh}各机构` },
+          originalAgencies: item.originalAgencies ? [...item.originalAgencies] : [],
+        });
+      }
+    } else {
+      // 无国家信息或国家不在映射中 → 归入"其他机构"
+      const existing = orphanByCountry.get("ORPHAN_OTHER");
+      if (existing) {
+        existing.count += item.count;
+        if (existing.originalAgencies && item.originalAgencies) {
+          existing.originalAgencies.push(...item.originalAgencies);
+        }
+      } else {
+        orphanByCountry.set("ORPHAN_OTHER", {
+          agency: "ORPHAN_OTHER",
+          count: item.count,
+          i18n: { zh: "其他机构" },
+          originalAgencies: item.originalAgencies ? [...item.originalAgencies] : [],
+        });
+      }
+    }
+  }
+
+  // 将兜底聚合的条目加入最终结果
+  for (const [key, item] of orphanByCountry) {
+    finalAggregated.set(key, item);
+  }
+
+  // 3.8) 汉化补全：确保所有条目都有真正的中文翻译
+  // 检测翻译是否包含大量英文（需要修复）
+  const needsTranslationFix = (s: string | undefined, agency: string): boolean => {
+    if (!s) return true; // 无翻译
+    if (s === agency) return true; // 翻译等于原名
+    
+    // 统计英文字母和中文字符数量
+    const englishLetters = (s.match(/[a-zA-Z]/g) || []).length;
+    const chineseChars = (s.match(/[\u4e00-\u9fa5]/g) || []).length;
+    
+    // 如果英文字母数量 > 中文字符数量，说明主要是英文
+    if (englishLetters > chineseChars) return true;
+    
+    // 如果包含连续的英文单词（超过 3 个字母），认为有英文残留
+    if (/[a-zA-Z]{4,}/.test(s)) return true;
+    
+    return false;
+  };
+  // 英文机构类型关键词 → 中文（用于对无法归类的机构生成基础中文翻译）
+  const TYPE_ZH_KW: Array<[RegExp, string]> = [
+    [/\bCommittee\b/i, "委员会"], [/\bCommission\b/i, "委员会"],
+    [/\bBoard\b/i, "理事会"], [/\bCouncil\b/i, "议会"],
+    [/\bTribunal\b/i, "法庭"], [/\bMinistry\b/i, "部"],
+    [/\bDepartment\b/i, "部门"], [/\bAuthority\b/i, "管理局"],
+    [/\bAgency\b/i, "机构"], [/\bBureau\b/i, "局"],
+    [/\bOffice\b/i, "办公室"], [/\bDivision\b/i, "司"],
+    [/\bUniversity\b/i, "大学"], [/\bCollege\b/i, "学院"],
+    [/\bInstitute\b/i, "研究所"], [/\bInstitution\b/i, "机构"],
+    [/\bHospital\b/i, "医院"], [/\bFoundation\b/i, "基金会"],
+    [/\bFund\b/i, "基金"], [/\bTrust\b/i, "信托"],
+    [/\bAssociation\b/i, "协会"], [/\bFederation\b/i, "联合会"],
+    [/\bUnion\b/i, "联盟"], [/\bSociety\b/i, "学会"],
+    [/\bCooperative\b/i, "合作社"], [/\bCorporation\b/i, "公司"],
+    [/\bCompany\b/i, "公司"], [/\bBank\b/i, "银行"],
+    [/\bCenter\b/i, "中心"], [/\bCentre\b/i, "中心"],
+    [/\bCourt\b/i, "法院"], [/\bParliament\b/i, "议会"],
+    [/\bCongress\b/i, "国会"], [/\bEmbassy\b/i, "大使馆"],
+    [/\bConsulate\b/i, "领事馆"], [/\bPolice\b/i, "警察"],
+    [/\bInspectorate\b/i, "监察"], [/\bRegulatory\b/i, "监管"],
+    [/\bElectoral\b/i, "选举"], [/\bWater\b/i, "水务"],
+    [/\bElectricity\b/i, "电力"], [/\bEnergy\b/i, "能源"],
+    [/\bRoads\b/i, "道路"], [/\bHighway\b/i, "公路"],
+    [/\bNGO\b/i, "非政府组织"], [/\bNetwork\b/i, "网络"],
+    [/\bProgramme\b/i, "项目"], [/\bProgram\b/i, "项目"],
+  ];
+  /** 从英文机构名提取类型关键词生成基础中文翻译 */
+  const buildZhFromKeywords = (name: string): string | null => {
+    for (const [re, zh] of TYPE_ZH_KW) {
+      if (re.test(name)) return zh;
+    }
+    return null;
+  };
+
+  // 国家名关键词（大写）→ 中文名（用于从机构名中提取国家信息）
+  // 覆盖常见国家名在机构名中的出现形式
+  const COUNTRY_NAME_KW: Record<string, string> = {
+    "AFGHANISTAN": "阿富汗", "ALBANIA": "阿尔巴尼亚", "ALGERIA": "阿尔及利亚",
+    "ANGOLA": "安哥拉", "ARGENTINA": "阿根廷", "ARMENIA": "亚美尼亚",
+    "AUSTRALIA": "澳大利亚", "AUSTRIA": "奥地利", "AZERBAIJAN": "阿塞拜疆",
+    "BANGLADESH": "孟加拉国", "BELARUS": "白俄罗斯", "BELGIUM": "比利时",
+    "BENIN": "贝宁", "BOLIVIA": "玻利维亚", "BOTSWANA": "博茨瓦纳",
+    "BRAZIL": "巴西", "BRASIL": "巴西",
+    "BURKINA FASO": "布基纳法索", "BURUNDI": "布隆迪", "CAMBODIA": "柬埔寨",
+    "CAMEROON": "喀麦隆", "CANADA": "加拿大", "CHAD": "乍得",
+    "CHILE": "智利", "CHINA": "中国", "COLOMBIA": "哥伦比亚",
+    "CONGO": "刚果", "CROATIA": "克罗地亚", "CUBA": "古巴",
+    "CYPRUS": "塞浦路斯", "CZECH": "捷克", "DENMARK": "丹麦",
+    "DJIBOUTI": "吉布提", "ECUADOR": "厄瓜多尔", "EGYPT": "埃及",
+    "ETHIOPIA": "埃塞俄比亚", "FIJI": "斐济", "FINLAND": "芬兰",
+    "FRANCE": "法国", "GABON": "加蓬", "GEORGIA": "格鲁吉亚",
+    "GERMANY": "德国", "DEUTSCH": "德国",
+    "GHANA": "加纳", "GREECE": "希腊", "GUATEMALA": "危地马拉",
+    "GUINEA": "几内亚", "GUYANA": "圭亚那", "HAITI": "海地",
+    "HONDURAS": "洪都拉斯", "HUNGARY": "匈牙利", "INDIA": "印度",
+    "INDONESIA": "印度尼西亚", "IRAN": "伊朗", "IRAQ": "伊拉克",
+    "ISRAEL": "以色列", "ITALY": "意大利", "JAMAICA": "牙买加",
+    "JAPAN": "日本", "JORDAN": "约旦", "KAZAKHSTAN": "哈萨克斯坦",
+    "KENYA": "肯尼亚", "KOREA": "韩国", "KUWAIT": "科威特",
+    "KYRGYZSTAN": "吉尔吉斯斯坦", "LAOS": "老挝", "LATVIA": "拉脱维亚",
+    "LEBANON": "黎巴嫩", "LESOTHO": "莱索托", "LIBERIA": "利比里亚",
+    "LIBYA": "利比亚", "LITHUANIA": "立陶宛", "MADAGASCAR": "马达加斯加",
+    "MALAWI": "马拉维", "MALAYSIA": "马来西亚", "MALI": "马里",
+    "MAURITANIA": "毛里塔尼亚", "MAURITIUS": "毛里求斯", "MEXICO": "墨西哥",
+    "MOLDOVA": "摩尔多瓦", "MONGOLIA": "蒙古", "MONTENEGRO": "黑山",
+    "MOROCCO": "摩洛哥", "MOZAMBIQUE": "莫桑比克", "MYANMAR": "缅甸",
+    "BURMA": "缅甸",
+    "NAMIBIA": "纳米比亚", "NEPAL": "尼泊尔", "NETHERLANDS": "荷兰",
+    "HOLLAND": "荷兰",
+    "NEW ZEALAND": "新西兰", "NICARAGUA": "尼加拉瓜", "NIGER": "尼日尔",
+    "NIGERIA": "尼日利亚", "NORWAY": "挪威", "OMAN": "阿曼",
+    "PAKISTAN": "巴基斯坦", "PANAMA": "巴拿马", "PARAGUAY": "巴拉圭",
+    "PERU": "秘鲁", "PHILIPPINES": "菲律宾", "POLAND": "波兰",
+    "PORTUGAL": "葡萄牙", "QATAR": "卡塔尔", "ROMANIA": "罗马尼亚",
+    "RUSSIA": "俄罗斯", "RUSSIAN": "俄罗斯",
+    "RWANDA": "卢旺达", "SAUDI": "沙特", "SENEGAL": "塞内加尔",
+    "SERBIA": "塞尔维亚", "SIERRA LEONE": "塞拉利昂", "SINGAPORE": "新加坡",
+    "SLOVAKIA": "斯洛伐克", "SLOVENIA": "斯洛文尼亚", "SOMALIA": "索马里",
+    "SOUTH AFRICA": "南非", "SPAIN": "西班牙", "SRI LANKA": "斯里兰卡",
+    "SUDAN": "苏丹", "SURINAME": "苏里南", "SWEDEN": "瑞典",
+    "SWITZERLAND": "瑞士", "SYRIA": "叙利亚", "TAJIKISTAN": "塔吉克斯坦",
+    "TANZANIA": "坦桑尼亚", "THAILAND": "泰国", "TOGO": "多哥",
+    "TUNISIA": "突尼斯", "TURKEY": "土耳其", "TURKIYE": "土耳其",
+    "TURKMENISTAN": "土库曼斯坦", "UGANDA": "乌干达", "UKRAINE": "乌克兰",
+    "URUGUAY": "乌拉圭", "UZBEKISTAN": "乌兹别克斯坦", "VENEZUELA": "委内瑞拉",
+    "VIETNAM": "越南", "YEMEN": "也门", "ZAMBIA": "赞比亚",
+    "ZIMBABWE": "津巴布韦",
+    // 地区性关键词
+    "AFRICAN": "非洲", "EUROPEAN": "欧洲", "ASIAN": "亚洲",
+  };
+
+  /** 从机构名中提取国家中文名（尝试多种策略） */
+  const extractCountryFromName = (name: string): string | null => {
+    const upper = name.toUpperCase();
+    // 策略 1: 匹配国家名关键词（按长度降序，避免短词误匹配）
+    const sortedKeywords = Object.entries(COUNTRY_NAME_KW)
+      .sort((a, b) => b[0].length - a[0].length);
+    for (const [kw, zh] of sortedKeywords) {
+      // 使用词边界匹配，避免部分匹配（如 "INDIA" 不应匹配 "INDIANA"）
+      const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      if (re.test(upper)) return zh;
+    }
+    // 策略 2: 匹配 ISO 代码后缀（如 _pk, _tr, _hu, _nz）
+    // 支持多种格式：xxx_NZ, xxx_NZ_, xxx.gov.nz
+    const isoMatch = upper.match(/[_\.]([A-Z]{2})(?:[_\.]|$)/);
+    if (isoMatch) {
+      const isoCode = isoMatch[1];
+      const countryZh = COUNTRY_ZH[isoCode];
+      if (countryZh) return countryZh;
+    }
+    // 策略 3: 匹配 gov.xx 形式的域名后缀（如 gov.pk, gov.tr, gov.qa）
+    const govMatch = upper.match(/GOV[._]([A-Z]{2})(?:[._]|$)/);
+    if (govMatch) {
+      const tld = govMatch[1];
+      const countryZh = COUNTRY_ZH[tld];
+      if (countryZh) return countryZh;
+    }
+    return null;
+  };
+
+  /** 综合解析国家中文名（多策略尝试） */
+  const resolveCountryZh = (key: string, item: AgencyCacheItem): string | null => {
+    // 策略 1: 从 canonicalToCountry 获取
+    let country = canonicalToCountry.get(key.toUpperCase()) || "";
+    if (country) {
+      const zh = COUNTRY_ZH[country];
+      if (zh) return zh;
+    }
+    // 策略 2: 从 ORPHAN_ 前缀提取
+    if (key.startsWith("ORPHAN_")) {
+      const extracted = key.slice(7);
+      if (extracted !== "OTHER") {
+        const zh = COUNTRY_ZH[extracted];
+        if (zh) return zh;
+      }
+    }
+    // 策略 3: 从 originalAgencies 反查
+    if (item.originalAgencies?.length) {
+      for (const orig of item.originalAgencies) {
+        const c = canonicalToCountry.get(orig.toUpperCase());
+        if (c) {
+          const zh = COUNTRY_ZH[c];
+          if (zh) return zh;
+        }
+      }
+    }
+    // 策略 4: 从机构名中提取国家关键词
+    const nameZh = extractCountryFromName(item.agency);
+    if (nameZh) return nameZh;
+    // 策略 5: 从 originalAgencies 的名称中提取
+    if (item.originalAgencies?.length) {
+      for (const orig of item.originalAgencies) {
+        const zh = extractCountryFromName(orig);
+        if (zh) return zh;
+      }
+    }
+    return null;
+  };
+
+  for (const [key, item] of finalAggregated) {
+    const zh = item.i18n?.zh;
+    const needsFix = needsTranslationFix(zh, item.agency);
+    if (!needsFix) continue;
+
+    const countryZh = resolveCountryZh(key, item);
+    if (countryZh) {
+      // 有国家名 → 优先用类型关键词，否则用"各机构"
+      const typeZh = buildZhFromKeywords(item.agency);
+      item.i18n = { ...item.i18n, zh: typeZh ? `${countryZh}${typeZh}` : `${countryZh}各机构` };
+    } else {
+      // 无国家信息 → 尝试从英文关键词生成基础中文
+      const typeZh = buildZhFromKeywords(item.agency);
+      if (typeZh) {
+        item.i18n = { ...item.i18n, zh: typeZh };
+      } else {
+        // 最终兜底：尝试生成更有意义的中文翻译
+        const agencyName = item.agency;
+        
+        // 检测是否为系统代码（包含 _ 或 .，如 ppra_gov_pk, ashghal_gov_qa）
+        if (/[_\.]/.test(agencyName)) {
+          // 提取代码的第一部分作为标识
+          const codePart = agencyName.split(/[_\.]/)[0];
+          // 尝试翻译代码部分
+          const codeTypeZh = buildZhFromKeywords(codePart);
+          if (codeTypeZh) {
+            item.i18n = { ...item.i18n, zh: `${codeTypeZh}（采购系统）` };
+          } else {
+            // 无法识别类型，使用通用翻译
+            item.i18n = { ...item.i18n, zh: "政府采购系统" };
+          }
+        } 
+        // 检测是否为非英文语言（如葡萄牙语、西班牙语等）
+        else if (/\b(DE|DA|DO|DOS|DAS|LA|EL|LES|DES|DU|ET|AL|Y|E)\b/i.test(agencyName)) {
+          // 包含罗曼语系介词，可能是葡萄牙语/西班牙语/法语等
+          const typeZh = buildZhFromKeywords(agencyName);
+          if (typeZh) {
+            item.i18n = { ...item.i18n, zh: typeZh };
+          } else {
+            // 检测是否为法院/司法机构
+            if (/\b(FEDERAL|JUDICIAL|COURT|TRIBUNAL|JUSTIÇA|JUSTICIA)\b/i.test(agencyName)) {
+              item.i18n = { ...item.i18n, zh: "司法机构" };
+            } else {
+              item.i18n = { ...item.i18n, zh: "政府机构" };
+            }
+          }
+        } 
+        else {
+          // 纯英文机构名，使用通用翻译
+          item.i18n = { ...item.i18n, zh: "政府机构" };
+        }
+      }
+    }
+  }
+
   // 4) 按合并后计数降序排列，返回全量数据（不再截断）
-  const data = Array.from(typeAggregated.values())
+  const data = Array.from(finalAggregated.values())
     .sort((a, b) => b.count - a.count);
   noticeAgenciesCache = { data, timestamp: Date.now() };
   return data;
 }
+
+// P2-5 修复：机构缓存刷新 Promise 去重——并发请求共享同一个刷新 Promise，避免重复查询
+let _pendingAgenciesRefresh: Promise<AgencyCacheItem[]> | null = null;
 
 /** 读取机构缓存，按 locale 解析翻译名（启动预热后始终有数据，未预热时惰性加载兜底） */
 export async function getNoticeAgencies(
@@ -994,7 +1312,18 @@ export async function getNoticeAgencies(
 ): Promise<Array<{ agency: string; count: number; agency_i18n?: string }>> {
   // BUG 修复：检查 TTL 过期——缓存超过 10 分钟视为过期，重新计算
   const cacheValid = noticeAgenciesCache && Date.now() - noticeAgenciesCache.timestamp < AGENCIES_CACHE_TTL;
-  const items = cacheValid ? noticeAgenciesCache!.data : await refreshNoticeAgencies(pool);
+  let items: AgencyCacheItem[];
+  if (cacheValid) {
+    items = noticeAgenciesCache!.data;
+  } else {
+    // P2-5: 复用已有的刷新 Promise，避免并发重复执行
+    if (!_pendingAgenciesRefresh) {
+      _pendingAgenciesRefresh = refreshNoticeAgencies(pool).finally(() => {
+        _pendingAgenciesRefresh = null;
+      });
+    }
+    items = await _pendingAgenciesRefresh;
+  }
   // en 直接用 canonical（即英文），其余语言附加翻译（含 zh）
   const lang = locale?.toLowerCase();
   if (!lang || lang === "en") {

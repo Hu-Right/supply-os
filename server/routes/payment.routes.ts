@@ -24,8 +24,14 @@ export function createPaymentRouter(ctx: AppContext): Router {
   const paymentsRepo = ctx.paymentsRepo ?? new PaymentsRepo(ctx.dbPool);
   const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
 
+  // P1-4 修复：billing/subscribe 需要管理员密钥，防止免费开通 VIP
   router.post("/api/billing/subscribe", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
+    const adminKey = String(req.body.admin_key || req.headers["x-admin-key"] || "");
+    const expectedAdminKey = process.env.ADMIN_SECRET_KEY || "";
+    if (!expectedAdminKey || adminKey !== expectedAdminKey) {
+      return res.status(403).json({ error: "ADMIN_AUTH_REQUIRED", message: "此端点需要管理员密钥" });
+    }
+    const userKey = normalizeUserKey(req.body.user_key) || "";
     const planCode = String(req.body.plan_code || "single");
     if (!userKey) return res.status(400).json({ error: "\u8bf7\u5148\u767b\u5f55" });
 
@@ -36,24 +42,27 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // =========== Payment API ===========
 
   // POST /api/payment/orders - 创建支付订单
+  // P3-2 修复：try-catch 缩进对齐
   router.post("/api/payment/orders", asyncHandler(async (req, res) => {
     try {
-    const result = await paymentService.createOrder(ctx.dbPool, {
-      user_key: normalizeUserKey(req.body.user_key) || "", // 本地差异 #7：F.1 归一化收敛
-      plan_code: String(req.body.plan_code || ""),
-      notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
-      provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as import("../../src/types").PaymentProviderName,
-      return_url: String(req.body.return_url || ""),
-    });
-    const clientPayUrl = result.provider === "alipay"
-      ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
-      : result.pay_url;
-    res.status(201).json({
-      ...result,
-      pay_url: clientPayUrl,
-      qr_code_url: result.provider === "alipay" ? clientPayUrl : result.qr_code_url,
-      payment_mode: paymentMode === "live" ? "configured" : "mock",
-    });
+      const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+      const result = await paymentService.createOrder(ctx.dbPool, {
+        user_key: normalizeUserKey(req.body.user_key) || "",
+        plan_code: String(req.body.plan_code || ""),
+        notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
+        provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as import("../../src/types").PaymentProviderName,
+        return_url: String(req.body.return_url || ""),
+        client_ip: clientIp,
+      });
+      const clientPayUrl = result.provider === "alipay"
+        ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
+        : result.pay_url;
+      res.status(201).json({
+        ...result,
+        pay_url: clientPayUrl,
+        qr_code_url: result.provider === "alipay" ? clientPayUrl : result.qr_code_url,
+        payment_mode: paymentMode === "live" ? "configured" : "mock",
+      });
     } catch (err: any) {
       throw new HttpError(400, err.message);
     }
@@ -93,15 +102,24 @@ export function createPaymentRouter(ctx: AppContext): Router {
   }));
 
   // GET /api/payment/orders/:orderNo - 查询订单状态
+  // P1-2 修复：添加用户鉴权，只能查询自己的订单
   router.get("/api/payment/orders/:orderNo", asyncHandler(async (req, res) => {
+    const userKey = normalizeUserKey(req.query.user_key) || "";
+    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    // 先查询订单归属
+    const order = await paymentsRepo.findByOrderNo(req.params.orderNo);
+    if (!order) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
+    if (order.user_key !== userKey) return res.status(403).json({ error: "FORBIDDEN" });
     const result = await paymentService.queryOrder(ctx.dbPool, req.params.orderNo, String(req.query.trade_no || ""));
     res.json(result);
   }));
 
   // POST /api/payment/notify/alipay - 支付宝异步通知
+  // P1-1 修复：从 req.body.sign 提取签名，不再硬编码空串
   router.post("/api/payment/notify/alipay", async (req, res) => {
     try {
-      const result = await paymentService.handleNotify(ctx.dbPool, "alipay", req.body, "");
+      const signature = String(req.body?.sign || "");
+      const result = await paymentService.handleNotify(ctx.dbPool, "alipay", req.body, signature);
       res.send(result.success ? "success" : "fail");
     } catch (err: any) {
       console.error("[Alipay Notify Error]", err);
