@@ -7,7 +7,7 @@
  *
  * @module repos/payments.repo
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, PaymentOrderRow } from "./types";
 
 /** 订单历史查询行（订单 LEFT JOIN 公告，供列表映射） */
@@ -52,6 +52,11 @@ export interface UnlockHistoryRow {
 
 export class PaymentsRepo {
   constructor(private pool: Pool) {}
+
+  /** 获取数据库连接（事务场景使用） */
+  getConnection(): Promise<PoolConnection> {
+    return this.pool.getConnection();
+  }
 
   /** 按订单号查询订单 */
   async findByOrderNo(orderNo: string): Promise<PaymentOrderRow | null> {
@@ -292,5 +297,146 @@ export class PaymentsRepo {
        ORDER BY provider, id DESC`,
     );
     return rows as RowDataPacket[];
+  }
+
+  // ── 事务支持方法（接受 PoolConnection 用于 activatePaidOrder 事务）──
+
+  /** 查询活跃计划详情 */
+  async findActivePlan(planCode: string): Promise<MembershipPlanRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT plan_code, name, price, currency, unlock_quota, duration_days, plan_type
+       FROM crm_membership_plans WHERE plan_code = ? AND is_active = 1 LIMIT 1`,
+      [planCode],
+    );
+    return (rows as MembershipPlanRow[])[0] ?? null;
+  }
+
+  /** 悲观锁查询订单（事务内使用） */
+  async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {
+    const [rows] = await conn.query(
+      "SELECT user_key, plan_code, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      [orderNo],
+    );
+    return (rows as PaymentOrderRow[])[0] ?? null;
+  }
+
+  /** 事务内标记订单已支付 */
+  async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, providerTradeNo: string | null): Promise<void> {
+    await conn.execute(
+      `UPDATE crm_payment_orders
+       SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
+       WHERE order_no = ?`,
+      [providerTradeNo, orderNo],
+    );
+  }
+
+  /** 事务内查询计划详情 */
+  async findPlanInTransaction(conn: PoolConnection, planCode: string): Promise<MembershipPlanRow | null> {
+    const [rows] = await conn.query(
+      "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
+      [planCode],
+    );
+    return (rows as MembershipPlanRow[])[0] ?? null;
+  }
+
+  /** 检查是否已有来自该订单的权益（事务内） */
+  async hasEntitlementForOrder(conn: PoolConnection, orderNo: string): Promise<boolean> {
+    const [rows] = await conn.query(
+      "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
+      [orderNo],
+    );
+    return (rows as RowDataPacket[]).length > 0;
+  }
+
+  /** 事务内创建订阅 */
+  async createSubscriptionInTransaction(conn: PoolConnection, userKey: string, planCode: string, days: number | null): Promise<void> {
+    await conn.execute(
+      `INSERT INTO crm_user_subscriptions
+        (user_id, user_key, plan_code, status, started_at${days ? ", expires_at" : ""})
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
+      days ? [userKey, userKey, planCode, days] : [userKey, userKey, planCode],
+    );
+  }
+
+  /** 事务内发放权益 */
+  async insertEntitlementInTransaction(conn: PoolConnection, params: {
+    userKey: string; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
+  }): Promise<void> {
+    await conn.execute(
+      `INSERT INTO crm_user_entitlements
+        (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${params.durationDays ? ", expires_at" : ""}, status)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
+      params.durationDays
+        ? [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
+        : [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
+    );
+  }
+
+  /** 事务内提升 VIP */
+  async promoteToVipInTransaction(conn: PoolConnection, userKey: string): Promise<void> {
+    await conn.execute(
+      "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
+      [userKey],
+    );
+  }
+
+  /** 查询订单金额（回调金额校验用） */
+  async findOrderAmount(orderNo: string): Promise<{ amount: number; status: string } | null> {
+    const [rows] = await this.pool.query(
+      "SELECT amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
+      [orderNo],
+    );
+    const row = (rows as RowDataPacket[])[0];
+    return row ? { amount: Number(row.amount || 0), status: row.status } : null;
+  }
+
+  /** 授予单条公告解锁（含幂等检查 + UNSPSC 快照 + 兴趣记录） */
+  async grantSingleNoticeUnlock(conn: PoolConnection, params: {
+    userKey: string; noticeId: number; amount: number;
+  }): Promise<void> {
+    // 幂等检查
+    const [existingRows] = await conn.query(
+      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
+      [params.userKey, params.noticeId],
+    );
+    if ((existingRows as RowDataPacket[]).length > 0) return;
+
+    // 查询公告 UNSPSC 快照
+    const [noticeRows] = await conn.query(
+      "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
+      [params.noticeId],
+    );
+    const notice = (noticeRows as RowDataPacket[])[0];
+    if (!notice) return;
+
+    const unspscSnapshot = normalizeJsonArray(notice.unspsc_codes);
+
+    // 写入解锁记录
+    await conn.execute(
+      `INSERT INTO crm_opportunity_unlocks
+        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'single', ?, NOW(), ?)`,
+      [params.userKey, params.userKey, params.noticeId, params.amount, JSON.stringify(unspscSnapshot)],
+    );
+
+    // 写入兴趣记录
+    await conn.execute(
+      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
+       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
+      [params.userKey, params.userKey, params.noticeId],
+    );
+  }
+}
+
+/** 将值安全转为 JSON 数组 */
+function normalizeJsonArray(value: any): any[] {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
 }

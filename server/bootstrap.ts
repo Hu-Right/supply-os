@@ -8,6 +8,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
 import { ensureProcurementSchema } from "./db/schema";
+import { runSeeds } from "./db/seeds";
 import { backfillUserIds, hydratePaymentEnvFromDb } from "./db/backfills";
 import { createLeadsStore } from "./services/leads";
 import { PaymentService } from "./payment/PaymentService";
@@ -26,10 +27,12 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
-import { searchNotices, refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "./services/noticeSearch";
+import { refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "./services/noticeSearch";
+// 注：searchNotices 已随预热逻辑外抽至 lifecycle/warmup.ts
 import { seedAgencyAliases } from "./services/agencyAliasSeed";
 import { initMeilisearch, ensureIndex, syncNoticeIds, isHealthy as isMeiliHealthy } from "./services/meilisearch";
 import { startSearchSync } from "./services/searchSync";
+import { runWarmup } from "./lifecycle/warmup";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -62,6 +65,11 @@ export async function startServer() {
   const dbPool = createDbPool();
 
   await ensureProcurementSchema(dbPool);
+
+  // 种子数据（会员计划等）：与 DDL 分离，可通过 SEED_ENABLED=off 禁用
+  await runSeeds(dbPool, {
+    enabled: String(process.env.SEED_ENABLED ?? "on").toLowerCase() !== "off",
+  });
 
   // 机构别名映射种子数据（启动时自动写入，已存在则跳过）
   try {
@@ -119,10 +127,6 @@ export async function startServer() {
   }, 10 * 60 * 1000); // 10 分钟
   await hydratePaymentEnvFromDb(dbPool);
 
-  // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
-  const paymentMode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
-  const paymentService = PaymentService.initDefault(paymentMode);
-
   // Repository 层初始化
   const usersRepo = new UsersRepo(dbPool);
   const membershipRepo = new MembershipRepo(dbPool);
@@ -136,6 +140,10 @@ export async function startServer() {
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
+
+  // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
+  const paymentMode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode);
 
   const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo, noticesRepo, suppliersRepo, catalogRepo, userPrefsRepo, leadsRepo, trainingRepo, systemRepo, adminRepo };
   const app = createApp(ctx);
@@ -237,61 +245,10 @@ export async function startServer() {
     console.log(`[warmup] 后台预热进行中…（服务已可用，首次请求可能略慢）`);
   });
 
-  // ── P0 性能优化：启动时预热 MySQL Buffer Pool + 填充搜索缓存（后台异步，不阻塞启动）──
-  // 消除首次用户请求的 ~3000ms 冷启动延迟
-  void (async () => {
-    try {
-      const warmupStart = performance.now();
-      // 方案D：先回填 is_active 列（确保搜索查询可走索引）
-      const isActiveResult = await refreshIsActive(dbPool);
-      // 将 is_active 状态变更同步到 Meilisearch（确保索引与 MySQL 一致）
-      if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
-        const syncResult = await syncNoticeIds(dbPool, isActiveResult.changedIds);
-        console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
-      }
-      // 方案C：刷新预计算统计表（在搜索预热前执行，依赖 is_active 列）
-      // P1 性能优化：统计表刷新与搜索/国家/机构预热并行执行——消除串行等待
-      // refreshNoticeStats 与搜索预热无数据依赖（搜索查询有独立缓存逻辑）
-      // 回滚：将 refreshNoticeStats 从 Promise.all 中拆出，恢复 await refreshNoticeStats(dbPool);
-      await Promise.all([
-        // 统计表刷新（依赖 is_active 列，已在 Phase 1 完成）
-        refreshNoticeStats(dbPool),
-        // 1) 公告首页（中文 + 英文）——触发 notices 表 + 翻译表全量加载到 Buffer Pool
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
-        // 2) 翻页预热——消除 page=2 的首次冷查询
-        searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo),
-        // 3) 中文关键词 FULLTEXT 预热——加载 ft_notices_search (ngram) 索引页到 Buffer Pool
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo),
-        // 4) 英文关键词 FULLTEXT 预热——加载 ft_notices_en + ft_notices_desc 索引页到 Buffer Pool
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
-        // 5) 纯筛选预热——触发 Meilisearch 路径（如有）+ 翻译表 LIKE 补充路径
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
-        // 6) 关键词+国家联合预热——触发 Meilisearch 关键词+筛选一步完成路径
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
-        // 7) 关键词+机构联合预热——高频搜索组合，消除首次搜索冷启动
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations" }, noticesRepo),
-        // 8) 关键词+机构+国家联合预热——用户反馈的 4s 慢查询场景
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations", country: "France" }, noticesRepo),
-        // 9) notice_type 单独筛选预热——解决 8s+ 慢查询问题
-        // 根因：notice_type_normalized 字段筛选+排序组合冷启动慢，预热后 < 500ms
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ" }, noticesRepo),
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "ITB" }, noticesRepo),
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFP" }, noticesRepo),
-        // 10) notice_type + 其他条件组合预热
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", country: "Brazil" }, noticesRepo),
-        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", q: "construction" }, noticesRepo),
-        // 11) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
-        refreshNoticeCountries(dbPool),
-        refreshNoticeAgencies(dbPool),
-        suppliersRepo.listDirectory(),
-      ]);
-      const warmupMs = Math.round(performance.now() - warmupStart);
-      console.log(`[warmup] 后台预热完成: ${warmupMs}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 高频组合搜索 + 国家/机构 + 供应商)`);
-    } catch (e) {
-      console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
-    }
-  })();
+  // ── P0 性能优化：启动时预热（后台异步，不阻塞启动）──
+  void runWarmup({ dbPool, noticesRepo, suppliersRepo })
+    .then((ms) => console.log(`[warmup] 后台预热完成: ${ms}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 高频组合搜索 + 国家/机构 + 供应商)`))
+    .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
 
   // ── 国家/机构缓存每日凌晨 5 点定时刷新 ──
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {

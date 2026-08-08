@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import type { RowDataPacket } from "mysql2/promise";
 import type {
   CreateOrderRequest,
   OrderInfo,
@@ -7,12 +6,15 @@ import type {
   PaymentProviderName,
 } from "../../src/types/payment";
 import type { PaymentStrategy } from "./types";
+import type { PaymentsRepo } from "../repos/payments.repo";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
 
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
+
+  constructor(private paymentsRepo?: PaymentsRepo) {}
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
@@ -24,7 +26,7 @@ export class PaymentService {
     return strategy;
   }
 
-  async createOrder(dbPool: any, request: CreateOrderRequest): Promise<OrderInfo> {
+  async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
     const userKey = String(request.user_key || "").trim().toLowerCase().slice(0, 190);
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
@@ -32,33 +34,16 @@ export class PaymentService {
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
-    const [planRows] = await dbPool.query(
-      `SELECT plan_code, name, price, currency, unlock_quota, duration_days, plan_type
-       FROM crm_membership_plans
-       WHERE plan_code = ? AND is_active = 1
-       LIMIT 1`,
-      [planCode],
-    );
-    const plan = (planRows as RowDataPacket[])[0];
+    const plan = await this.paymentsRepo.findActivePlan(planCode);
     if (!plan) throw new Error("PLAN_NOT_FOUND");
     if (plan.plan_type === "single" && !noticeId) throw new Error("NOTICE_ID_REQUIRED");
 
     const amount = Number(plan.price);
     if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
 
-    const [existingRows] = await dbPool.query(
-      `SELECT order_no
-       FROM crm_payment_orders
-       WHERE user_key = ?
-         AND plan_code = ?
-         AND provider = ?
-         AND status = 'pending'
-         AND (notice_id <=> ?)
-       ORDER BY id DESC
-       LIMIT 1`,
-      [userKey, planCode, provider, noticeId],
-    );
-    const existingOrder = (existingRows as RowDataPacket[])[0];
+    const existingOrder = await this.paymentsRepo.findPendingOrder({
+      userKey, planCode, provider, noticeId,
+    });
 
     const strategy = this.getStrategy(provider);
     const orderNo = existingOrder?.order_no || this.makeOrderNo();
@@ -75,38 +60,26 @@ export class PaymentService {
     );
 
     if (existingOrder) {
-      await dbPool.execute(
-        `UPDATE crm_payment_orders
-         SET amount = ?, currency = ?, pay_url = ?, qr_code_url = ?, raw_request = ?, updated_at = NOW()
-         WHERE order_no = ? AND status = 'pending'`,
-        [
-          amount,
-          plan.currency || "CNY",
-          pay_url,
-          qr_code_url || null,
-          JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
-          orderNo,
-        ],
-      );
+      await this.paymentsRepo.updatePendingOrder(orderNo, {
+        amount,
+        currency: plan.currency || "CNY",
+        payUrl: pay_url,
+        qrCodeUrl: qr_code_url || null,
+        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+      });
     } else {
-      await dbPool.execute(
-        `INSERT INTO crm_payment_orders
-          (user_id, order_no, user_key, provider, plan_code, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-         VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
-        [
-          userKey,
-          orderNo,
-          userKey,
-          provider,
-          planCode,
-          noticeId,
-          amount,
-          plan.currency || "CNY",
-          pay_url,
-          qr_code_url || null,
-          JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
-        ],
-      );
+      await this.paymentsRepo.createOrder({
+        userKey,
+        orderNo,
+        provider,
+        planCode,
+        noticeId,
+        amount,
+        currency: plan.currency || "CNY",
+        payUrl: pay_url,
+        qrCodeUrl: qr_code_url || null,
+        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+      });
     }
 
     return {
@@ -122,12 +95,8 @@ export class PaymentService {
     };
   }
 
-  async queryOrder(dbPool: any, orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
-    const [rows] = await dbPool.query(
-      "SELECT order_no, provider, plan_code, amount, currency, status, notice_id, provider_trade_no, paid_at FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
-      [orderNo],
-    );
-    const dbOrder = (rows as RowDataPacket[])[0];
+  async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
+    const dbOrder = await this.paymentsRepo.findByOrderNo(orderNo);
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
 
     if (dbOrder.status === "pending" && dbOrder.provider) {
@@ -135,11 +104,11 @@ export class PaymentService {
         const strategy = this.getStrategy(dbOrder.provider as PaymentProviderName);
         const result = await strategy.queryOrderStatus(orderNo, providerTradeNo);
         if (result.status === "paid") {
-          await this.activatePaidOrder(dbPool, orderNo, result.provider_trade_no);
+          await this.activatePaidOrder(orderNo, result.provider_trade_no);
           return {
             ...result,
             order_no: orderNo,
-            provider: dbOrder.provider,
+            provider: dbOrder.provider as PaymentProviderName,
             plan_code: dbOrder.plan_code,
             amount: Number(dbOrder.amount || 0),
             currency: dbOrder.currency || "CNY",
@@ -150,7 +119,7 @@ export class PaymentService {
           return {
             ...result,
             order_no: orderNo,
-            provider: dbOrder.provider,
+            provider: dbOrder.provider as PaymentProviderName,
             plan_code: dbOrder.plan_code,
             amount: Number(dbOrder.amount || 0),
             currency: dbOrder.currency || "CNY",
@@ -164,19 +133,18 @@ export class PaymentService {
 
     return {
       order_no: dbOrder.order_no,
-      status: dbOrder.status,
+      status: dbOrder.status as import("../../src/types/payment").PaymentOrderStatus,
       notice_id: dbOrder.notice_id || null,
-      provider: dbOrder.provider,
+      provider: dbOrder.provider as PaymentProviderName,
       plan_code: dbOrder.plan_code,
       amount: Number(dbOrder.amount || 0),
       currency: dbOrder.currency || "CNY",
       provider_trade_no: dbOrder.provider_trade_no || undefined,
-      paid_at: dbOrder.paid_at || undefined,
+      paid_at: dbOrder.paid_at ? new Date(dbOrder.paid_at).toISOString() : undefined,
     };
   }
 
   async handleNotify(
-    dbPool: any,
     provider: PaymentProviderName,
     rawBody: any,
     signature: string,
@@ -192,13 +160,9 @@ export class PaymentService {
 
     // BUG-PAY-1 修复：校验回调金额与订单金额一致，防止金额篡改
     if (verifyResult.amount > 0) {
-      const [orderRows] = await dbPool.query(
-        "SELECT amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
-        [verifyResult.order_no],
-      );
-      const dbOrder = (orderRows as RowDataPacket[])[0];
+      const dbOrder = await this.paymentsRepo.findOrderAmount(verifyResult.order_no);
       if (dbOrder) {
-        const orderAmount = Number(dbOrder.amount || 0);
+        const orderAmount = dbOrder.amount;
         const callbackAmount = Number(verifyResult.amount || 0);
         // 允许 0.01 精度误差（分→元转换可能产生浮点偏差）
         if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
@@ -210,77 +174,59 @@ export class PaymentService {
       }
     }
 
-    await this.activatePaidOrder(dbPool, verifyResult.order_no, verifyResult.provider_trade_no);
+    await this.activatePaidOrder(verifyResult.order_no, verifyResult.provider_trade_no);
     return { success: true, order_no: verifyResult.order_no };
   }
 
-  private async activatePaidOrder(dbPool: any, orderNo: string, providerTradeNo?: string): Promise<void> {
-    // BUG-P1 修复：使用事务保证 UPDATE + INSERT 原子性，防止并发重复发放权益
-    const conn = await dbPool.getConnection();
+  /** 激活已支付订单（事务封装：悲观锁 + 幂等 + 权益发放） */
+  private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
+    const conn = await this.paymentsRepo.getConnection();
     try {
       await conn.beginTransaction();
 
-      // 悲观锁：SELECT ... FOR UPDATE 防止并发激活同一订单
-      const [orderRows] = await conn.query(
-        "SELECT user_key, plan_code, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
-        [orderNo],
-      );
-      const order = (orderRows as RowDataPacket[])[0];
+      // 悲观锁：SELECT ... FOR UPDATE 防止并发重复发放权益
+      const order = await this.paymentsRepo.findOrderForUpdate(conn, orderNo);
       if (!order) { await conn.commit(); return; }
 
       // 幂等保护：已支付的订单直接跳过
       if (order.status === "paid") { await conn.commit(); return; }
 
-      await conn.execute(
-        `UPDATE crm_payment_orders
-         SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-         WHERE order_no = ?`,
-        [providerTradeNo || null, orderNo],
-      );
+      await this.paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
 
-      const [planRows] = await conn.query(
-        "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
-        [order.plan_code],
-      );
-      const plan = (planRows as RowDataPacket[])[0];
+      const plan = await this.paymentsRepo.findPlanInTransaction(conn, order.plan_code);
       if (!plan) { await conn.commit(); return; }
 
       if (plan.plan_type === "single") {
-        if (order.notice_id) await this.grantSingleNoticeUnlock(conn, order);
+        if (order.notice_id) {
+          await this.paymentsRepo.grantSingleNoticeUnlock(conn, {
+            userKey: order.user_key,
+            noticeId: order.notice_id,
+            amount: Number(order.amount || 0),
+          });
+        }
         await conn.commit();
         return;
       }
 
-      const [existingEntitlements] = await conn.query(
-        "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
-        [orderNo],
-      );
-      if ((existingEntitlements as RowDataPacket[]).length > 0) { await conn.commit(); return; }
-
-      if (plan.plan_type !== "single") {
-        await conn.execute(
-          `INSERT INTO crm_user_subscriptions
-            (user_id, user_key, plan_code, status, started_at${plan.duration_days ? ", expires_at" : ""})
-           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
-          plan.duration_days
-            ? [order.user_key, order.user_key, order.plan_code, plan.duration_days]
-            : [order.user_key, order.user_key, order.plan_code],
-        );
+      // 订阅计划：检查是否已发放权益
+      if (await this.paymentsRepo.hasEntitlementForOrder(conn, orderNo)) {
+        await conn.commit();
+        return;
       }
 
-      await conn.execute(
-        `INSERT INTO crm_user_entitlements
-          (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${plan.duration_days ? ", expires_at" : ""}, status)
-         VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW()${plan.duration_days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
-        plan.duration_days
-          ? [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1), plan.duration_days]
-          : [order.user_key, order.user_key, orderNo, order.plan_code, Number(plan.unlock_quota || 1)],
+      await this.paymentsRepo.createSubscriptionInTransaction(
+        conn, order.user_key, order.plan_code, plan.duration_days,
       );
 
-      await conn.execute(
-        "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
-        [order.user_key],
-      );
+      await this.paymentsRepo.insertEntitlementInTransaction(conn, {
+        userKey: order.user_key,
+        orderNo,
+        planCode: order.plan_code,
+        quotaTotal: Number(plan.unlock_quota || 1),
+        durationDays: plan.duration_days,
+      });
+
+      await this.paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
 
       await conn.commit();
     } catch (err) {
@@ -288,46 +234,6 @@ export class PaymentService {
       throw err;
     } finally {
       conn.release();
-    }
-  }
-
-  private async grantSingleNoticeUnlock(dbPool: any, order: any): Promise<void> {
-    const [existingUnlockRows] = await dbPool.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
-      [order.user_key, order.notice_id],
-    );
-    if ((existingUnlockRows as RowDataPacket[]).length > 0) return;
-
-    const [noticeRows] = await dbPool.query(
-      "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
-      [order.notice_id],
-    );
-    const notice = (noticeRows as RowDataPacket[])[0];
-    if (!notice) return;
-
-    await dbPool.execute(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'single', ?, NOW(), ?)`,
-      [order.user_key, order.user_key, order.notice_id, Number(order.amount || 0), JSON.stringify(this.normalizeJsonArray(notice.unspsc_codes))],
-    );
-
-    await dbPool.execute(
-      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
-      [order.user_key, order.user_key, order.notice_id],
-    );
-  }
-
-  private normalizeJsonArray(value: any): any[] {
-    if (Array.isArray(value)) return value;
-    if (!value) return [];
-    try {
-      const parsed = JSON.parse(String(value));
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
     }
   }
 
@@ -356,8 +262,8 @@ export class PaymentService {
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }
 
-  static initDefault(paymentMode: "mock" | "live" = "mock"): PaymentService {
-    const service = new PaymentService();
+  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock"): PaymentService {
+    const service = new PaymentService(paymentsRepo);
     service.registerStrategy("mock", new MockProvider());
 
     if (paymentMode === "live") {

@@ -153,7 +153,7 @@ describe("BUG-P1: activatePaidOrder 事务保护", () => {
 
     const service = new PaymentService();
     // 直接调用私有方法（通过 any 转型）
-    await (service as any).activatePaidOrder(pool, "SO202601010001", "TRADE_123");
+    await (service as any).activatePaidOrder("SO202601010001", "TRADE_123");
 
     // 验证事务生命周期
     expect(pool.getConnection).toHaveBeenCalledTimes(1);
@@ -172,7 +172,7 @@ describe("BUG-P1: activatePaidOrder 事务保护", () => {
     ]);
 
     const service = new PaymentService();
-    await (service as any).activatePaidOrder(pool, "SO202601010002");
+    await (service as any).activatePaidOrder("SO202601010002");
 
     // 验证第一条查询包含 FOR UPDATE
     const firstQuery = pool._conn.query.mock.calls[0][0] as string;
@@ -185,7 +185,7 @@ describe("BUG-P1: activatePaidOrder 事务保护", () => {
     ]);
 
     const service = new PaymentService();
-    await (service as any).activatePaidOrder(pool, "SO202601010003");
+    await (service as any).activatePaidOrder("SO202601010003");
 
     // 只查询了一次（SELECT FOR UPDATE 发现已支付），没有 INSERT
     expect(pool._conn.query).toHaveBeenCalledTimes(1);
@@ -200,7 +200,7 @@ describe("BUG-P1: activatePaidOrder 事务保护", () => {
 
     const service = new PaymentService();
     await expect(
-      (service as any).activatePaidOrder(pool, "SO202601010004"),
+      (service as any).activatePaidOrder("SO202601010004"),
     ).rejects.toThrow("DB deadlock");
 
     expect(pool._conn.rollback).toHaveBeenCalledTimes(1);

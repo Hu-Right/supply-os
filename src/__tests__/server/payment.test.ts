@@ -100,10 +100,10 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService();
     const pool = createPool();
     await expect(
-      service.createOrder(pool, { user_key: "", plan_code: "annual", provider: "mock" } as any)
+      service.createOrder({ user_key: "", plan_code: "annual", provider: "mock" } as any)
     ).rejects.toThrow("USER_AND_PLAN_REQUIRED");
     await expect(
-      service.createOrder(pool, { user_key: "a@b.com", plan_code: "", provider: "mock" } as any)
+      service.createOrder({ user_key: "a@b.com", plan_code: "", provider: "mock" } as any)
     ).rejects.toThrow("USER_AND_PLAN_REQUIRED");
   });
 
@@ -111,7 +111,7 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService();
     const pool = createPool([[]]);
     await expect(
-      service.createOrder(pool, { user_key: "a@b.com", plan_code: "ghost", provider: "mock" } as any)
+      service.createOrder({ user_key: "a@b.com", plan_code: "ghost", provider: "mock" } as any)
     ).rejects.toThrow("PLAN_NOT_FOUND");
   });
 
@@ -119,7 +119,7 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService();
     const pool = createPool([[{ ...annualPlan, plan_code: "single", plan_type: "single" }]]);
     await expect(
-      service.createOrder(pool, { user_key: "a@b.com", plan_code: "single", provider: "mock" } as any)
+      service.createOrder({ user_key: "a@b.com", plan_code: "single", provider: "mock" } as any)
     ).rejects.toThrow("NOTICE_ID_REQUIRED");
   });
 
@@ -127,7 +127,7 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService();
     const pool = createPool([[{ ...annualPlan, plan_code: "free", price: 0 }]]);
     await expect(
-      service.createOrder(pool, { user_key: "a@b.com", plan_code: "free", provider: "mock" } as any)
+      service.createOrder({ user_key: "a@b.com", plan_code: "free", provider: "mock" } as any)
     ).rejects.toThrow("FREE_PLAN_NO_PAYMENT_REQUIRED");
   });
 
@@ -137,7 +137,7 @@ describe("PaymentService.createOrder", () => {
     // 套餐查询 + 无 pending 订单
     const pool = createPool([[annualPlan], []]);
 
-    const result = await service.createOrder(pool, {
+    const result = await service.createOrder({
       user_key: " A@B.com ",
       plan_code: "annual",
       provider: "mock",
@@ -164,7 +164,7 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService(strategy);
     const pool = createPool([[annualPlan], []]);
 
-    await service.createOrder(pool, {
+    await service.createOrder({
       user_key: "a@b.com",
       plan_code: "annual",
       provider: "mock",
@@ -179,7 +179,7 @@ describe("PaymentService.createOrder", () => {
     const { service } = buildService();
     const pool = createPool([[annualPlan], [{ order_no: "SO_EXISTING" }]]);
 
-    const result = await service.createOrder(pool, {
+    const result = await service.createOrder({
       user_key: "a@b.com",
       plan_code: "annual",
       provider: "mock",
@@ -197,7 +197,7 @@ describe("PaymentService.queryOrder", () => {
   it("returns closed when order not found", async () => {
     const service = new PaymentService();
     const pool = createPool([[]]);
-    await expect(service.queryOrder(pool, "NOPE")).resolves.toEqual({
+    await expect(service.queryOrder("NOPE")).resolves.toEqual({
       order_no: "NOPE",
       status: "closed",
     });
@@ -215,7 +215,7 @@ describe("PaymentService.queryOrder", () => {
       }],
     ]);
 
-    const result = await service.queryOrder(pool, "SO1");
+    const result = await service.queryOrder("SO1");
     expect(result.status).toBe("paid");
     expect(result.amount).toBe(5600);
     expect(strategy.queryOrderStatus).not.toHaveBeenCalled();
@@ -242,7 +242,7 @@ describe("PaymentService.queryOrder", () => {
       [],
     ]);
 
-    const result = await service.queryOrder(pool, "SO1");
+    const result = await service.queryOrder("SO1");
     expect(result.status).toBe("paid");
     expect(result.plan_code).toBe("annual");
 
@@ -274,7 +274,7 @@ describe("PaymentService.queryOrder", () => {
       [{ id: 42, unspsc_codes: '["23000000"]' }],
     ]);
 
-    await service.queryOrder(pool, "SO1");
+    await service.queryOrder("SO1");
 
     const unlockInsert = pool.execute.mock.calls.find((call: any[]) =>
       String(call[0]).includes("crm_opportunity_unlocks")
@@ -308,7 +308,7 @@ describe("PaymentService.queryOrder", () => {
       [{ id: 1 }],
     ]);
 
-    const result = await service.queryOrder(pool, "SO1");
+    const result = await service.queryOrder("SO1");
     expect(result.status).toBe("paid");
     // 仅标记已付一次 execute，不再写订阅/权益/VIP
     expect(pool.execute).toHaveBeenCalledTimes(1);
@@ -328,7 +328,7 @@ describe("PaymentService.queryOrder", () => {
       }],
     ]);
 
-    const result = await service.queryOrder(pool, "SO1");
+    const result = await service.queryOrder("SO1");
     expect(result.status).toBe("pending");
   });
 
@@ -346,7 +346,7 @@ describe("PaymentService.queryOrder", () => {
       }],
     ]);
 
-    const result = await service.queryOrder(pool, "SO1");
+    const result = await service.queryOrder("SO1");
     expect(result.status).toBe("closed");
     expect(pool.execute).not.toHaveBeenCalled();
   });
@@ -363,7 +363,7 @@ describe("PaymentService.handleNotify & registry", () => {
     const service = new PaymentService();
     service.registerStrategy("mock", strategy as any);
 
-    const result = await service.handleNotify(createPool(), "mock", {}, "bad-sign");
+    const result = await service.handleNotify("mock", {}, "bad-sign");
     expect(result).toMatchObject({ success: false, message: "SIGN_VERIFY_FAILED" });
   });
 
@@ -376,7 +376,7 @@ describe("PaymentService.handleNotify & registry", () => {
     const service = new PaymentService();
     service.registerStrategy("mock", strategy as any);
 
-    const result = await service.handleNotify(createPool(), "mock", {}, "sign");
+    const result = await service.handleNotify("mock", {}, "sign");
     expect(result).toMatchObject({ success: false, message: "ORDER_NO_MISSING" });
   });
 
@@ -395,7 +395,7 @@ describe("PaymentService.handleNotify & registry", () => {
       [],
     ]);
 
-    const result = await service.handleNotify(pool, "mock", {}, "sign");
+    const result = await service.handleNotify("mock", {}, "sign");
     expect(result).toEqual({ success: true, order_no: "SO1" });
     expect(pool.execute.mock.calls[0][1]).toEqual(["TRADE-1", "SO1"]);
   });
@@ -406,7 +406,7 @@ describe("PaymentService.handleNotify & registry", () => {
   });
 
   it("initDefault('mock') registers only the mock strategy", () => {
-    const service = PaymentService.initDefault("mock");
+    const service = PaymentService.initDefault(undefined as any, "mock");
     expect(service.getStrategy("mock")).toBeTruthy();
     expect(() => service.getStrategy("wechat")).toThrow();
   });

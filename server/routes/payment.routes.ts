@@ -46,7 +46,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.post("/api/payment/orders", asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
-      const result = await paymentService.createOrder(ctx.dbPool, {
+      const result = await paymentService.createOrder({
         user_key: normalizeUserKey(req.body.user_key) || "",
         plan_code: String(req.body.plan_code || ""),
         notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
@@ -110,7 +110,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
     const order = await paymentsRepo.findByOrderNo(req.params.orderNo);
     if (!order) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
     if (order.user_key !== userKey) return res.status(403).json({ error: "FORBIDDEN" });
-    const result = await paymentService.queryOrder(ctx.dbPool, req.params.orderNo, String(req.query.trade_no || ""));
+    const result = await paymentService.queryOrder(req.params.orderNo, String(req.query.trade_no || ""));
     res.json(result);
   }));
 
@@ -119,7 +119,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.post("/api/payment/notify/alipay", async (req, res) => {
     try {
       const signature = String(req.body?.sign || "");
-      const result = await paymentService.handleNotify(ctx.dbPool, "alipay", req.body, signature);
+      const result = await paymentService.handleNotify("alipay", req.body, signature);
       res.send(result.success ? "success" : "fail");
     } catch (err: any) {
       console.error("[Alipay Notify Error]", err);
@@ -131,7 +131,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.post("/api/payment/notify/wechat", async (req, res) => {
     try {
       const signature = String(req.headers["wechatpay-signature"] || "");
-      const result = await paymentService.handleNotify(ctx.dbPool, "wechat", req.body, signature);
+      const result = await paymentService.handleNotify("wechat", req.body, signature);
       res.json({ code: result.success ? "SUCCESS" : "FAIL", message: result.message || "" });
     } catch (err) {
       console.error("[Wechat Notify Error]", err);
