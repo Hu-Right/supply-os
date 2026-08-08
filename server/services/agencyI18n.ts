@@ -118,6 +118,128 @@ const KNOWN_ACRONYMS = new Map<string, PatternI18nResult>([
   ["BRB BANCO DE BRASILIA SA", { canonical: "BRB", i18n: { zh: "巴西利亚银行", fr: "BRB", ru: "БРБ Банк", es: "BRB", ar: "بنك برازيليا" } }],
 ]);
 
+// ── 国家名称中文映射（用于按国家聚合机构时的 i18n 生成）──
+// 覆盖国际公共采购数据库中常见的 80+ 个国家
+export const COUNTRY_ZH: Record<string, string> = {
+  // ── 非洲 ──
+  "Uganda": "乌干达", "Kenya": "肯尼亚", "Nigeria": "尼日利亚", "Ghana": "加纳",
+  "Tanzania": "坦桑尼亚", "United Republic of Tanzania": "坦桑尼亚",
+  "Ethiopia": "埃塞俄比亚", "Rwanda": "卢旺达", "Mozambique": "莫桑比克",
+  "Senegal": "塞内加尔", "Cameroon": "喀麦隆", "Côte d'Ivoire": "科特迪瓦",
+  "Ivory Coast": "科特迪瓦",
+  "Burkina Faso": "布基纳法索", "Mali": "马里", "Malawi": "马拉维",
+  "Zambia": "赞比亚", "Zimbabwe": "津巴布韦", "Madagascar": "马达加斯加",
+  "Angola": "安哥拉", "Botswana": "博茨瓦纳", "Namibia": "纳米比亚",
+  "South Africa": "南非", "Egypt": "埃及", "Morocco": "摩洛哥",
+  "Tunisia": "突尼斯", "Algeria": "阿尔及利亚", "Sudan": "苏丹",
+  "Democratic Republic of the Congo": "刚果（金）",
+  "Congo, Democratic Republic of the": "刚果（金）",
+  "Republic of the Congo": "刚果（布）", "Congo": "刚果（布）",
+  "Guinea": "几内亚", "Sierra Leone": "塞拉利昂", "Niger": "尼日尔",
+  "Chad": "乍得", "Mauritius": "毛里求斯", "Eswatini": "斯威士兰",
+  "Swaziland": "斯威士兰",
+  "Lesotho": "莱索托", "Gambia": "冈比亚", "Liberia": "利比里亚",
+  "Mauritania": "毛里塔尼亚", "Burundi": "布隆迪", "Djibouti": "吉布提",
+  "Somalia": "索马里", "Cabo Verde": "佛得角", "Cape Verde": "佛得角",
+  "Togo": "多哥", "Benin": "贝宁", "Gabon": "加蓬",
+  "Equatorial Guinea": "赤道几内亚", "Eritrea": "厄立特里亚",
+  "South Sudan": "南苏丹", "Seychelles": "塞舌尔",
+  "Central African Republic": "中非共和国",
+  // ── 亚洲 ──
+  "Philippines": "菲律宾", "India": "印度", "Nepal": "尼泊尔",
+  "Bangladesh": "孟加拉国", "Sri Lanka": "斯里兰卡", "Indonesia": "印度尼西亚",
+  "Vietnam": "越南", "Viet Nam": "越南",
+  "Cambodia": "柬埔寨", "Myanmar": "缅甸", "Pakistan": "巴基斯坦",
+  "Mongolia": "蒙古", "Laos": "老挝",
+  "Lao People's Democratic Republic": "老挝",
+  "Thailand": "泰国", "Malaysia": "马来西亚", "China": "中国",
+  "Afghanistan": "阿富汗", "Bhutan": "不丹", "Maldives": "马尔代夫",
+  "Timor-Leste": "东帝汶",
+  // ── 拉丁美洲 ──
+  "Brazil": "巴西", "Colombia": "哥伦比亚", "Peru": "秘鲁",
+  "Bolivia": "玻利维亚",
+  "Plurinational State of Bolivia": "玻利维亚",
+  "Ecuador": "厄瓜多尔", "Paraguay": "巴拉圭", "Honduras": "洪都拉斯",
+  "Guatemala": "危地马拉", "Mexico": "墨西哥", "Argentina": "阿根廷",
+  "Chile": "智利", "Panama": "巴拿马", "Dominican Republic": "多米尼加",
+  "Jamaica": "牙买加", "Guyana": "圭亚那", "Suriname": "苏里南",
+  "Belize": "伯利兹", "El Salvador": "萨尔瓦多", "Nicaragua": "尼加拉瓜",
+  "Uruguay": "乌拉圭", "Trinidad and Tobago": "特立尼达和多巴哥",
+  "Barbados": "巴巴多斯", "Haiti": "海地",
+  "Saint Lucia": "圣卢西亚",
+  // ── 中东 ──
+  "Jordan": "约旦", "Iraq": "伊拉克", "Yemen": "也门",
+  "Lebanon": "黎巴嫩", "West Bank and Gaza": "西岸和加沙",
+  "Syria": "叙利亚",
+  // ── 欧洲 ──
+  "Ukraine": "乌克兰", "Moldova": "摩尔多瓦", "Georgia": "格鲁吉亚",
+  "Armenia": "亚美尼亚", "Azerbaijan": "阿塞拜疆", "Turkey": "土耳其",
+  "Türkiye": "土耳其",
+  "Serbia": "塞尔维亚", "Kosovo": "科索沃",
+  "North Macedonia": "北马其顿",
+  "Albania": "阿尔巴尼亚", "Montenegro": "黑山",
+  "Bosnia and Herzegovina": "波黑",
+  "Belarus": "白俄罗斯", "Kyrgyzstan": "吉尔吉斯斯坦",
+  "Tajikistan": "塔吉克斯坦", "Uzbekistan": "乌兹别克斯坦",
+  "Turkmenistan": "土库曼斯坦", "Kazakhstan": "哈萨克斯坦",
+  // ── 大洋洲 ──
+  "Papua New Guinea": "巴布亚新几内亚", "Fiji": "斐济",
+  "Samoa": "萨摩亚", "Vanuatu": "瓦努阿图", "Tonga": "汤加",
+  "Solomon Islands": "所罗门群岛",
+  // ── 其他 ──
+  "Russia": "俄罗斯", "Russian Federation": "俄罗斯",
+  "United States": "美国", "United Kingdom": "英国",
+  "France": "法国", "Germany": "德国", "Japan": "日本",
+  "Australia": "澳大利亚", "Canada": "加拿大",
+  "Italy": "意大利", "Spain": "西班牙", "Portugal": "葡萄牙",
+  "Netherlands": "荷兰", "Belgium": "比利时", "Switzerland": "瑞士",
+  "Austria": "奥地利", "Sweden": "瑞典", "Norway": "挪威",
+  "Denmark": "丹麦", "Finland": "芬兰", "Poland": "波兰",
+  "Czech Republic": "捷克", "Czechia": "捷克",
+  "Hungary": "匈牙利", "Romania": "罗马尼亚", "Greece": "希腊",
+  "Israel": "以色列", "Saudi Arabia": "沙特阿拉伯",
+  "United Arab Emirates": "阿联酋",
+  "Iran": "伊朗",
+  // ── ISO 3166-1 alpha-2 代码（数据库可能存储 ISO 代码而非英文全名）──
+  "AF": "阿富汗", "AL": "阿尔巴尼亚", "DZ": "阿尔及利亚", "AO": "安哥拉",
+  "AR": "阿根廷", "AM": "亚美尼亚", "AU": "澳大利亚", "AT": "奥地利",
+  "AZ": "阿塞拜疆", "BD": "孟加拉国", "BY": "白俄罗斯", "BE": "比利时",
+  "BJ": "贝宁", "BO": "玻利维亚", "BA": "波黑", "BW": "博茨瓦纳",
+  "BR": "巴西", "BF": "布基纳法索", "BI": "布隆迪", "KH": "柬埔寨",
+  "CM": "喀麦隆", "CA": "加拿大", "CF": "中非共和国", "TD": "乍得",
+  "CL": "智利", "CN": "中国", "CO": "哥伦比亚", "CR": "哥斯达黎加",
+  "HR": "克罗地亚", "CU": "古巴", "CY": "塞浦路斯", "CZ": "捷克",
+  "DK": "丹麦", "DJ": "吉布提", "DO": "多米尼加", "EC": "厄瓜多尔",
+  "EG": "埃及", "SV": "萨尔瓦多", "GQ": "赤道几内亚", "ER": "厄立特里亚",
+  "EE": "爱沙尼亚", "ET": "埃塞俄比亚", "FJ": "斐济", "FI": "芬兰",
+  "FR": "法国", "GA": "加蓬", "GM": "冈比亚", "GE": "格鲁吉亚",
+  "DE": "德国", "GH": "加纳", "GR": "希腊", "GT": "危地马拉",
+  "GN": "几内亚", "GY": "圭亚那", "HT": "海地", "HN": "洪都拉斯",
+  "HU": "匈牙利", "IN": "印度", "ID": "印度尼西亚", "IR": "伊朗",
+  "IQ": "伊拉克", "IL": "以色列", "IT": "意大利", "JM": "牙买加",
+  "JP": "日本", "JO": "约旦", "KZ": "哈萨克斯坦", "KE": "肯尼亚",
+  "KW": "科威特", "KG": "吉尔吉斯斯坦", "LA": "老挝", "LV": "拉脱维亚",
+  "LB": "黎巴嫩", "LS": "莱索托", "LR": "利比里亚", "LY": "利比亚",
+  "LT": "立陶宛", "MK": "北马其顿", "MG": "马达加斯加", "MW": "马拉维",
+  "MY": "马来西亚", "ML": "马里", "MR": "毛里塔尼亚", "MU": "毛里求斯",
+  "MX": "墨西哥", "MD": "摩尔多瓦", "MN": "蒙古", "ME": "黑山",
+  "MA": "摩洛哥", "MZ": "莫桑比克", "MM": "缅甸", "NA": "纳米比亚",
+  "NP": "尼泊尔", "NL": "荷兰", "NZ": "新西兰", "NI": "尼加拉瓜",
+  "NE": "尼日尔", "NG": "尼日利亚", "NO": "挪威", "OM": "阿曼",
+  "PK": "巴基斯坦", "PA": "巴拿马", "PY": "巴拉圭", "PE": "秘鲁",
+  "PH": "菲律宾", "PL": "波兰", "PT": "葡萄牙", "QA": "卡塔尔",
+  "RO": "罗马尼亚", "RU": "俄罗斯", "RW": "卢旺达", "SA": "沙特阿拉伯",
+  "SN": "塞内加尔", "RS": "塞尔维亚", "SL": "塞拉利昂", "SG": "新加坡",
+  "SK": "斯洛伐克", "SI": "斯洛文尼亚", "SO": "索马里", "ZA": "南非",
+  "ES": "西班牙", "LK": "斯里兰卡", "SD": "苏丹", "SR": "苏里南",
+  "SZ": "斯威士兰", "SE": "瑞典", "CH": "瑞士", "SY": "叙利亚",
+  "TW": "台湾", "TJ": "塔吉克斯坦", "TZ": "坦桑尼亚", "TH": "泰国",
+  "TG": "多哥", "TT": "特立尼达和多巴哥", "TN": "突尼斯", "TR": "土耳其",
+  "UG": "乌干达", "UA": "乌克兰", "AE": "阿联酋", "GB": "英国",
+  "US": "美国", "UY": "乌拉圭", "UZ": "乌兹别克斯坦", "VE": "委内瑞拉",
+  "VN": "越南", "YE": "也门", "ZM": "赞比亚", "ZW": "津巴布韦",
+};
+
 // ── 巴西葡萄牙语机构类型前缀映射 ──
 const BR_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]> = [
   // 市级政府
@@ -1099,14 +1221,82 @@ const INTL_TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string,
   // 红十字会/红新月会
   [/\bRed\s+Cross\b/i, { typeKey: "RED_CROSS_INTL", i18n: { zh: "各红十字会", fr: "Croix-Rouge", ru: "Красный Крест", es: "Cruz Roja", ar: "الصليب الأحمر" } }],
   [/\bRed\s+Crescent\b/i, { typeKey: "RED_CROSS_INTL", i18n: { zh: "各红新月会", fr: "Croissant-Rouge", ru: "Красный Полумесяц", es: "Media Luna Roja", ar: "الهلال الأحمر" } }],
+  // 警察/警务（常见小型政府机构）
+  [/\bPolice\b/i, { typeKey: "POLICE_INTL", i18n: { zh: "各警察机构", fr: "Police", ru: "Полиция", es: "Policía", ar: "الشرطة" } }],
+  // 监察/监管机构
+  [/\bInspectorate\b/i, { typeKey: "INSPECTORATE_INTL", i18n: { zh: "各监察机构", fr: "Inspection", ru: "Инспекция", es: "Inspección", ar: "التفتيش" } }],
+  [/\bRegulatory\b/i, { typeKey: "REGULATORY_INTL", i18n: { zh: "各监管机构", fr: "Régulateurs", ru: "Регуляторы", es: "Reguladores", ar: "الهيئات التنظيمية" } }],
+  // 选举委员会
+  [/\bElectoral\b/i, { typeKey: "ELECTORAL_INTL", i18n: { zh: "各选举机构", fr: "Élections", ru: "Избирательные", es: "Electoral", ar: "الانتخابات" } }],
+  // 水务局
+  [/\bWater\b/i, { typeKey: "WATER_INTL", i18n: { zh: "各水务机构", fr: "Eau", ru: "Водоснабжение", es: "Agua", ar: "المياه" } }],
+  // 电力/能源
+  [/\b(?:Electricity|Power|Energy)\b/i, { typeKey: "ENERGY_INTL", i18n: { zh: "各电力能源机构", fr: "Énergie", ru: "Энергетика", es: "Energía", ar: "الطاقة" } }],
+  // 道路/公路
+  [/\b(?:Roads|Highway|Highways)\b/i, { typeKey: "ROADS_INTL", i18n: { zh: "各道路机构", fr: "Routes", ru: "Дороги", es: "Carreteras", ar: "الطرق" } }],
 ];
 
+// ── INTL 类型英文标签（用于国家级聚合时的可读 display name）──
+const INTL_TYPE_EN: Record<string, string> = {
+  "CITY_COUNCIL_INTL": "City Councils",
+  "PROVINCIAL_GOVT_INTL": "Provincial Governments",
+  "COUNCIL_INTL": "Councils",
+  "MINISTRY_INTL": "Ministries",
+  "DEPARTMENT_INTL": "Departments",
+  "AUTHORITY_INTL": "Authorities",
+  "COMMITTEE_INTL": "Committees",
+  "COMMISSION_INTL": "Commissions",
+  "BOARD_INTL": "Boards",
+  "TRIBUNAL_INTL": "Tribunals",
+  "UNIVERSITY_INTL": "Universities",
+  "COLLEGE_INTL": "Colleges",
+  "HOSPITAL_INTL": "Hospitals",
+  "FOUNDATION_INTL": "Foundations",
+  "FUND_INTL": "Funds",
+  "ASSOCIATION_INTL": "Associations",
+  "FEDERATION_INTL": "Federations",
+  "UNION_INTL": "Unions",
+  "SOCIETY_INTL": "Societies",
+  "COOPERATIVE_INTL": "Cooperatives",
+  "TRUST_INTL": "Trusts",
+  "CORPORATION_INTL": "Corporations",
+  "COMPANY_INTL": "Companies",
+  "BANK_INTL": "Banks",
+  "INSTITUTE_INTL": "Institutes",
+  "INSTITUTION_INTL": "Institutions",
+  "CENTER_INTL": "Centers",
+  "BUREAU_INTL": "Bureaus",
+  "AGENCY_INTL": "Agencies",
+  "OFFICE_INTL": "Offices",
+  "DIVISION_INTL": "Divisions",
+  "COURT_INTL": "Courts",
+  "PARLIAMENT_INTL": "Parliaments",
+  "CONGRESS_INTL": "Congresses",
+  "EMBASSY_INTL": "Embassies",
+  "CONSULATE_INTL": "Consulates",
+  "PROGRAMME_INTL": "Programmes",
+  "NETWORK_INTL": "Networks",
+  "NGO_INTL": "NGOs",
+  "RED_CROSS_INTL": "Red Cross/Red Crescent",
+  "POLICE_INTL": "Police",
+  "INSPECTORATE_INTL": "Inspectorates",
+  "REGULATORY_INTL": "Regulatory Authorities",
+  "ELECTORAL_INTL": "Electoral Bodies",
+  "WATER_INTL": "Water Authorities",
+  "ENERGY_INTL": "Energy Authorities",
+  "ROADS_INTL": "Roads Authorities",
+};
+
 /**
- * 判断机构是否应按类型聚合
+ * 判断机构是否应按类型聚合（支持按国家维度细分）
  * @param agencyName 机构名（已归一化后的 canonical）
+ * @param country 机构所属国家英文名（可选，用于 INTL 模式国家级聚合）
  * @returns null 表示不聚合（保留独立条目），否则返回聚合类型信息
  */
-export function classifyAgencyType(agencyName: string): { typeKey: string; i18n: Record<string, string> } | null {
+export function classifyAgencyType(
+  agencyName: string,
+  country?: string,
+): { typeKey: string; i18n: Record<string, string> } | null {
   const trimmed = agencyName.trim();
   if (!trimmed) return null;
 
@@ -1114,12 +1304,34 @@ export function classifyAgencyType(agencyName: string): { typeKey: string; i18n:
   const upper = trimmed.toUpperCase();
   if (KNOWN_ACRONYMS.has(upper)) return null;
 
-  // 按模式匹配分类：先检查巴西/肯尼亚特定模式，再检查国际通用模式
+  // 按模式匹配分类：先检查巴西/肯尼亚特定模式（已按国家聚合），直接返回
   for (const [regex, typeInfo] of TYPE_PATTERNS) {
     if (regex.test(trimmed)) return typeInfo;
   }
+
+  // 国际通用模式：如果知道国家，按国家+类型聚合（如「乌干达各委员会」）
   for (const [regex, typeInfo] of INTL_TYPE_PATTERNS) {
-    if (regex.test(trimmed)) return typeInfo;
+    if (regex.test(trimmed)) {
+      if (country) {
+        const countryZh = COUNTRY_ZH[country];
+        if (countryZh) {
+          // 有中文名 → 生成国家级聚合条目
+          const enLabel = INTL_TYPE_EN[typeInfo.typeKey] || typeInfo.typeKey;
+          return {
+            typeKey: `${country} ${enLabel}`,
+            i18n: {
+              zh: `${countryZh}${typeInfo.i18n.zh}`,
+              fr: `${typeInfo.i18n.fr} (${country})`,
+              ru: `${typeInfo.i18n.ru} (${country})`,
+              es: `${typeInfo.i18n.es} (${country})`,
+              ar: `${typeInfo.i18n.ar} (${country})`,
+            },
+          };
+        }
+      }
+      // 无国家或无中文名 → 回退到全球聚合
+      return typeInfo;
+    }
   }
 
   // 未匹配任何模式 → 不聚合

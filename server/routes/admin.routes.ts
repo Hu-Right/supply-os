@@ -11,6 +11,7 @@ import { syncUnspscBridgeFull, captureDataQualitySnapshot } from "../services/qu
 import { backfillUnspscCodeIds } from "../db/backfills";
 import { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache, rollupNoticeViewDaily } from "../services/amount";
 import { AB_TREATMENT_PCT } from "../services/recommend";
+import { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "../services/retryTranslation";
 
 // 管理员鉴权：校验 ADMIN_API_TOKEN（.env 配置）。支持两种携带方式：
 //   x-admin-token: <token>  或  Authorization: Bearer <token>
@@ -175,6 +176,44 @@ export function createAdminRouter(ctx: AppContext): Router {
           };
         }),
       });
+  }));
+
+  // ── 批量翻译重试（运维接口：重新翻译历史失败记录）──
+  // POST 触发重试，GET 查询状态/诊断
+  router.post("/api/admin/retry-translation", requireAdmin, asyncHandler(async (req, res) => {
+    if (isRetryRunning()) {
+      res.status(409).json({ success: false, message: "批量重试已在运行中，请等待完成" });
+      return;
+    }
+    const maxPerScan = Math.min(Math.max(parseInt(String(req.query.max_per_scan), 10) || 500, 1), 5000);
+    const includeExpired = String(req.query.include_expired ?? "true").toLowerCase() !== "false";
+    const concurrency = Math.min(Math.max(parseInt(String(req.query.concurrency), 10) || 10, 1), 30);
+
+    // 响应先返回（长时间运行），实际重试在后台执行
+    res.json({
+      success: true,
+      message: "批量翻译重试已在后台启动，请通过 GET /api/admin/retry-translation 查看进度",
+      options: { maxPerScan, includeExpired, concurrency },
+    });
+
+    try {
+      await runRetryTranslation(ctx.dbPool, { maxPerScan, includeExpired, concurrency });
+    } catch (err: any) {
+      console.error("[retry-translate] 后台执行失败:", err?.message || err);
+    }
+  }));
+
+  router.get("/api/admin/retry-translation", requireAdmin, asyncHandler(async (_req, res) => {
+    const running = isRetryRunning();
+    const lastResult = getLastRetryResult();
+    // 诊断：统计各表/语言待重试数量
+    const diagnosis = await countPendingRetries(ctx.dbPool);
+    res.json({
+      success: true,
+      running,
+      last_result: lastResult,
+      diagnosis,
+    });
   }));
 
   return router;
