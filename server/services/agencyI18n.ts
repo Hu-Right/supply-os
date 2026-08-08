@@ -963,9 +963,17 @@ const TYPE_PATTERNS: Array<[RegExp, { typeKey: string; i18n: Record<string, stri
   [/SECRETARIA\s+(?:DE|DA|DO)\s+/i, { typeKey: "SECRETARIA_BR", i18n: { zh: "巴西各市厅局", fr: "Secrétariats du Brésil", ru: "Секретариаты Бразилии", es: "Secretarías de Brasil", ar: "أمانات البرازيل" } }],
   // 巴西各市议会 (77 个 → 聚合为 1 个)
   [/CAMARA\s+(?:DE\s+)?(?:VEREADORES|MUNICIPAL)/i, { typeKey: "CAMARA_BR", i18n: { zh: "巴西各市议会", fr: "Conseils municipaux du Brésil", ru: "Городские советы Бразилии", es: "Concejos municipales de Brasil", ar: "المجالس البلدية البرازيلية" } }],
+  // BUG 修复：翻译后 canonical 变为 "CAMARA DE XXX" 或 "CÂMARA XXX"，原规则无法匹配
+  // 例："CAMARA MUNICIPAL DE PATROCINIO" → 翻译为 "CAMARA DE PATROCINIO" → 原规则不匹配
+  // 注意：必须用 (?:CAMARA|CÂMARA) 而非 [CÂA]MARA（Â 是独立 Unicode 字符，字符类无法匹配）
+  [/(?:CAMARA|CÂMARA)\s+(?:DE|DA|DO|DOS|DAS)\s+/i, { typeKey: "CAMARA_BR", i18n: { zh: "巴西各市议会", fr: "Conseils municipaux du Brésil", ru: "Городские советы Бразилии", es: "Concejos municipales de Brasil", ar: "المجالس البلدية البرازيلية" } }],
+  // BUG 修复：翻译后 "CAMARA DE VEREADORES DE XXX" → "CÂMARA XXX"（无介词），需要兜底匹配
+  [/(?:CAMARA|CÂMARA)\s+\S/i, { typeKey: "CAMARA_BR", i18n: { zh: "巴西各市议会", fr: "Conseils municipaux du Brésil", ru: "Городские советы Бразилии", es: "Concejos municipales de Brasil", ar: "المجالس البلدية البرازيلية" } }],
   [/CAMARA$/i, { typeKey: "CAMARA_BR", i18n: { zh: "巴西各市议会", fr: "Conseils municipaux du Brésil", ru: "Городские советы Бразилии", es: "Concejos municipales de Brasil", ar: "المجالس البلدية البرازيلية" } }],
   // 巴西各市基金会 (70 个 → 聚合为 1 个)
   [/^FUNDACAO|^FUND\s/i, { typeKey: "FUNDACAO_BR", i18n: { zh: "巴西各市基金会", fr: "Fondations du Brésil", ru: "Фонды Бразилии", es: "Fundaciones de Brasil", ar: "مؤسسات البرازيل" } }],
+  // BUG 修复：翻译后 "FUNDO MUNICIPAL DE XXX" → "FUNDO XXX"，原规则 /^FUNDO\s+(?:MUNICIPAL|ESTADUAL)/ 无法匹配
+  [/^FUNDO\s+(?!MUNICIPAL|ESTADUAL)\S/i, { typeKey: "FUNDO_BR", i18n: { zh: "巴西各市基金", fr: "Fonds municipaux du Brésil", ru: "Муниципальные фонды Бразилии", es: "Fondos municipales de Brasil", ar: "الصناديق البلدية البرازيلية" } }],
   // 巴西各市研究所 (55 个 → 聚合为 1 个)
   [/^INSTITUTO\s/i, { typeKey: "INSTITUTO_BR", i18n: { zh: "巴西各市研究所", fr: "Instituts du Brésil", ru: "Институты Бразилии", es: "Institutos de Brasil", ar: "معاهد البرازيل" } }],
   // 巴西各市联合体 (49 个 → 聚合为 1 个)
