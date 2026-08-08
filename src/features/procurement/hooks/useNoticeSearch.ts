@@ -213,12 +213,18 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   // BUG-1 修复：搜索条件变化时主动清除前端 apiCached 缓存，
   // 避免 30s TTL 内来回切换筛选器时命中过期缓存返回错误数据
+  // PERF 优化：仅在用户主动提交搜索时清除（applySearch/clearSearch），
+  // URL 参数被动变化（如翻页、支付回跳）不清除，保留服务端缓存命中
   const prevSearchKeyForCacheRef = useRef(searchKey);
+  const userSubmittedRef = useRef(false);
   useEffect(() => {
     if (prevSearchKeyForCacheRef.current !== searchKey) {
       prevSearchKeyForCacheRef.current = searchKey;
-      // 清除搜索结果缓存（翻页不触发，因 page 不在 searchKey 中）
-      clearApiCache("/api/notices?");
+      if (userSubmittedRef.current) {
+        // 用户主动提交搜索时才清除缓存
+        clearApiCache("/api/notices?");
+        userSubmittedRef.current = false;
+      }
     }
   }, [searchKey]);
 
@@ -273,12 +279,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
   // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
   const applySearch = (sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
-    // P0 性能优化：乐观更新——提交搜索时立即显示加载态，不等服务端响应
-    // 用户感知从「等待 200-500ms → 列表刷新」变为「立即加载 → 新数据渐入」
-    // 回滚：删除以下 3 行
-    setItems([]);
-    setTotal(0);
-    setLoading(true);
+    // PERF 优化：不再立即设置 loading——由 effect 在防抖后统一处理
+    // 避免「loading=true 但请求尚未发出」的视觉闪烁
+    userSubmittedRef.current = true;
 
     const next: Record<string, string> = {};
     if (qInput.trim()) next.q = qInput.trim();
@@ -318,12 +321,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setSearchParams({});
     // BUG1 修复：同步清除 UNSPSC 行业筛选等跨 hook 状态
     onClear?.();
-    // P2 性能优化：乐观 UI——清除搜索时立即清空列表，不等服务端响应
-    // 用户感知从「等待 200-500ms → 列表刷新」变为「立即清空 → 新数据渐入」
-    // 回滚：删除以下 3 行
-    setItems([]);
-    setTotal(0);
-    setLoading(true);
+    // PERF 优化：不再立即清空列表和设置 loading——由 effect 统一处理
+    userSubmittedRef.current = true;
   };
 
   // ── 列表数据与加载编排 ──
@@ -338,6 +337,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   // 回滚：删除 debounceTimerRef/abortControllerRef，恢复原始 effect 逻辑
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // PERF 优化：搜索超时控制——15 秒无响应自动取消，防止蒙层永久显示
+  const SEARCH_TIMEOUT_MS = 15_000;
+  const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
 
@@ -372,6 +374,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
 
     // 取消前一次未完成的请求（AbortController）
     abortControllerRef.current?.abort();
+    // PERF 优化：清除之前的超时定时器
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -380,10 +384,18 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setLoading(true);
     setError("");
 
-    // 防抖 300ms：快速切换筛选器时只发最后一次请求
-    // 注：移除 isFirstLoad 逻辑以兼容 React StrictMode（开发模式 effect 双重执行）
-    // 回滚：恢复 isFirstLoad 逻辑，但需处理 StrictMode 下 ref 不重置的问题
+    // PERF 优化：防抖缩短到 300ms，减少用户感知延迟
+    // AbortController 已保证旧请求被取消，不会造成服务端压力
     debounceTimerRef.current = setTimeout(() => {
+      // PERF 优化：设置搜索超时——防止服务端慢导致蒙层永久显示
+      timeoutTimerRef.current = setTimeout(() => {
+        if (requestSeq === noticesRequestSeq.current && !controller.signal.aborted) {
+          controller.abort();
+          setLoading(false);
+          setError("搜索超时，请稍后重试");
+        }
+      }, SEARCH_TIMEOUT_MS);
+
       // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
       const request =
         currentDataSource === "search"
@@ -410,6 +422,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       request
         .then((json) => {
           if (requestSeq !== noticesRequestSeq.current) return;
+          // PERF 优化：请求成功，清除超时定时器
+          if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
           const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
@@ -418,12 +432,15 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
         })
         .catch((err) => {
           if (requestSeq !== noticesRequestSeq.current) return;
-          // AbortError 是主动取消，不视为错误
+          if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+          // AbortError 是主动取消或超时，不视为错误（超时时已设置错误信息）
           if (err?.name === "AbortError" || controller.signal.aborted) return;
           setError("Failed to load procurement notices.");
         })
         .finally(() => {
-          if (requestSeq === noticesRequestSeq.current && !controller.signal.aborted) {
+          // BUG 修复：无论请求是否被取消，都要重置 loading 状态
+          // 原逻辑在 abort 时跳过 setLoading(false)，导致蒙层永久显示
+          if (requestSeq === noticesRequestSeq.current) {
             setLoading(false);
           }
         });
@@ -435,6 +452,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // 回滚：删除 refs 重置逻辑
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
       controller.abort();
       // StrictMode 兼容：重置 refs，确保第二次执行不被守卫拦截
       prevDataSourceForPrefsRef.current = "initial";

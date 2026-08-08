@@ -9,6 +9,7 @@
  */
 import { Meilisearch } from "meilisearch";
 import type { Pool } from "mysql2/promise";
+import { classifyAgencyType } from "./agencyI18n";
 
 const INDEX_NAME = "notices";
 // NULL deadline 的哨兵值：0（纪元起点），确保无截止日期数据在降序排列中排在最后
@@ -69,6 +70,8 @@ export async function ensureIndex(): Promise<boolean> {
       filterableAttributes: [
         "country",
         "agency",
+        // PERF 优化：聚合组标识，用于筛选时替代数百个 OR 条件
+        "agency_group",
         "notice_type_normalized",
         "deadline_sec",
         "is_active",
@@ -131,6 +134,15 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
 
 /** 构建同步文档：从 MySQL 行映射为 Meilisearch 文档 */
 function buildSyncDoc(r: any) {
+  // PERF 优化：计算 agency_group，用于筛选时替代数百个 OR 条件
+  // 例如："Prefeitura de São Paulo" + "Brazil" → "BR_municipality"
+  let agencyGroup: string | undefined;
+  if (r.agency && r.country) {
+    const typeInfo = classifyAgencyType(r.agency, r.country);
+    if (typeInfo) {
+      agencyGroup = typeInfo.typeKey;
+    }
+  }
   return {
     id: r.id,
     notice_id: r.notice_id,
@@ -139,6 +151,8 @@ function buildSyncDoc(r: any) {
     description: r.description || "",
     country: r.country || "",
     agency: r.agency || "",
+    // PERF 优化：聚合组标识，用于 Meilisearch 筛选时替代数百个 OR 条件
+    agency_group: agencyGroup || "",
     notice_type: r.notice_type || "",
     notice_type_normalized: normalizeNoticeType(r.notice_type),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
@@ -321,6 +335,8 @@ export async function searchWithFilters(params: {
   country?: string;
   /** 已解析的数据库原始机构名列表（调用方负责 canonical → originals 转换） */
   agencies?: string[];
+  /** PERF 优化：聚合组标识（如 "BR_municipality"），用于替代数百个 OR 条件 */
+  agencyGroup?: string;
   deadlineFrom?: string;
   deadlineTo?: string;
   deadlineWithinDays?: number;
@@ -338,7 +354,7 @@ export async function searchWithFilters(params: {
 
   try {
     const {
-      q, country, agencies, deadlineFrom, deadlineTo,
+      q, country, agencies, agencyGroup, deadlineFrom, deadlineTo,
       deadlineWithinDays, noticeType, featuredOnly,
       unspscLevel, unspscLevelId,
       sort, page, pageSize,
@@ -348,7 +364,12 @@ export async function searchWithFilters(params: {
     const filter: string[] = ["is_active = 1"];
     // BUG-S1 修复：转义 filter 值中的双引号，防止 Meilisearch filter 注入
     if (country) filter.push(`country = "${escapeFilter(country)}"`);
-    if (agencies && agencies.length > 0) {
+    // PERF 优化：优先使用 agencyGroup 替代数百个 OR 条件
+    // 例如："巴西各市政府" → agency_group = "BR_municipality"（1 个等值筛选）
+    // 而非 agency = "Prefeitura de A" OR agency = "Prefeitura de B" OR ...（数百个 OR）
+    if (agencyGroup) {
+      filter.push(`agency_group = "${escapeFilter(agencyGroup)}"`);
+    } else if (agencies && agencies.length > 0) {
       if (agencies.length === 1) {
         filter.push(`agency = "${escapeFilter(agencies[0])}"`);
       } else {
@@ -393,13 +414,21 @@ export async function searchWithFilters(params: {
     }
 
     const offset = (page - 1) * pageSize;
-    const result = await client.index(INDEX_NAME).search(q || "", {
+    // PERF 优化：搜索超时控制——3 秒无响应返回 null 降级到 MySQL
+    // 防止 Meilisearch 引擎卡住时阻塞整个搜索请求
+    const SEARCH_TIMEOUT_MS = 3000;
+    const searchPromise = client.index(INDEX_NAME).search(q || "", {
       filter,
       sort: sortArr,
       limit: pageSize,
       offset,
       attributesToRetrieve: ["id"],
     });
+    const timeoutPromise = new Promise<null>((_, reject) =>
+      setTimeout(() => reject(new Error(`Meilisearch search timeout after ${SEARCH_TIMEOUT_MS}ms`)), SEARCH_TIMEOUT_MS)
+    );
+    const result = await Promise.race([searchPromise, timeoutPromise]) as any;
+    if (result === null) return null;
 
     const ids = result.hits.map((h: any) => Number(h.id)).filter(Boolean);
     return { ids, total: result.estimatedTotalHits ?? ids.length };

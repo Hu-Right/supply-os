@@ -49,11 +49,9 @@ export const fetchNotices = (
     featured: params.featured ? "1" : undefined, // [精选功能重新启用 2026-07-31]
     locale: params.locale,
   });
-  // P2 性能优化：搜索结果 30s 短 TTL 前端缓存——用户回退/条件回切时即时显示
-  // 回滚：将 apiCached 替换回 api，删除第二个参数
-  // 原注释：列表/搜索结果时效敏感（截止过滤与排序依赖服务端 NOW()），服务端已有 180s
-  // TTL 缓存兜底性能；前端短缓存 30s 平衡时效性与重复请求消除
-  return apiCached<NoticeResponse>(`/api/notices?${qs}`, 30 * 1000, signal);
+  // PERF 优化：搜索结果前端缓存延长到 60s（原 30s），覆盖更多"回退/前进"场景
+  // 服务端已有 5min 缓存兜底，前端 60s 平衡时效性与重复请求消除
+  return apiCached<NoticeResponse>(`/api/notices?${qs}`, 60 * 1000, signal);
 };
 
 /** 在库有效公告的国家清单（按公告数降序，服务端缓存 10 分钟），搜索栏国家下拉数据源 */
@@ -195,11 +193,9 @@ export const fetchRecommendedNotices = (params: {
     page_size: params.pageSize,
     locale: params.locale,
   });
-  // [dismiss 功能临时禁用 2026-07-30]
-  // P1 性能优化：推荐结果前端缓存 30s——偏好探测与搜索 effect 共用同一缓存，
-  // 避免同一用户短时间内两次打到服务端推荐端点（冷查询可达 2s）
-  // 回滚：将 apiCached 替换回 api，删除第二个参数
-  return apiCached<NoticeResponse>(`/api/notices/recommended?${qs}`, 30 * 1000, signal);
+  // PERF 优化：推荐结果前端缓存延长到 60s（原 30s），减少重复请求
+  // 推荐结果变化低频，60s 缓存覆盖用户切换页面再返回的场景
+  return apiCached<NoticeResponse>(`/api/notices/recommended?${qs}`, 60 * 1000, signal);
 };
 
 // ── 推荐反馈采集（T-B9，本地差异 #13：D.7 前端侧）──

@@ -267,15 +267,27 @@ export async function startServer() {
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
         // 5) 纯筛选预热——触发 Meilisearch 路径（如有）+ 翻译表 LIKE 补充路径
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
-        // 6) 关键词+筛选联合预热——触发混合搜索路径（Meilisearch 预筛选 + FULLTEXT 约束）
+        // 6) 关键词+国家联合预热——触发 Meilisearch 关键词+筛选一步完成路径
         searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
-        // 7) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
+        // 7) 关键词+机构联合预热——高频搜索组合，消除首次搜索冷启动
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations" }, noticesRepo),
+        // 8) 关键词+机构+国家联合预热——用户反馈的 4s 慢查询场景
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations", country: "France" }, noticesRepo),
+        // 9) notice_type 单独筛选预热——解决 8s+ 慢查询问题
+        // 根因：notice_type_normalized 字段筛选+排序组合冷启动慢，预热后 < 500ms
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ" }, noticesRepo),
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "ITB" }, noticesRepo),
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFP" }, noticesRepo),
+        // 10) notice_type + 其他条件组合预热
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", country: "Brazil" }, noticesRepo),
+        searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", q: "construction" }, noticesRepo),
+        // 11) 国家 + 机构下拉数据预热（大表 GROUP BY，冷查询最慢可达数秒）
         refreshNoticeCountries(dbPool),
         refreshNoticeAgencies(dbPool),
         suppliersRepo.listDirectory(),
       ]);
       const warmupMs = Math.round(performance.now() - warmupStart);
-      console.log(`[warmup] 后台预热完成: ${warmupMs}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 混合搜索 + 国家/机构 + 供应商)`);
+      console.log(`[warmup] 后台预热完成: ${warmupMs}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 高频组合搜索 + 国家/机构 + 供应商)`);
     } catch (e) {
       console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message);
     }
