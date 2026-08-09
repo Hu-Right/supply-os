@@ -15,7 +15,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.{ts,tsx}"],
+      include: ["src/**/*.{ts,tsx}", "server/**/*.ts"],
       exclude: [
         "src/__tests__/**",
         "src/**/*.d.ts",
@@ -44,6 +44,9 @@ export default defineConfig({
         "src/features/training/api.ts",
         // React 19 use() API 难以单元测试
         "src/core/http/useFetch.ts",
+        // 服务端排除项
+        "server/**/*.test.ts",
+        "server/db/schema.ts",    // 数据库 schema 定义
       ],
     },
   },

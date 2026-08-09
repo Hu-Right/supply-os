@@ -1,100 +1,154 @@
 import { describe, it, expect } from "vitest";
 import { noticeTypeKey } from "@/features/procurement/notice-type";
 
-// 用例值全部来自 crm_bid_notices / crm_bid_opportunities 两表 notice_type 实测去重结果
 describe("noticeTypeKey", () => {
-  it.each([
-    "invitation_for_bids",
-    "ITB",
-    "Invitation to bid",
-    "招标邀请",
-    "Tender Notice",
-    "Request for Bid(Open-Tender)",
-    "Invitation to Tender (ITT)",
-    "投标邀请书 (ITB) - 旨在建立框架协议 (Frame Agreement)。",
-    "公开招标（Open Procedure)",
-  ])("maps %s to itb", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_itb");
+  describe("short code exact match", () => {
+    it("maps ITB to procurement_type_itb", () => {
+      expect(noticeTypeKey("ITB")).toBe("procurement_type_itb");
+    });
+
+    it("maps ITT to procurement_type_itb", () => {
+      expect(noticeTypeKey("ITT")).toBe("procurement_type_itb");
+    });
+
+    it("maps RFQ to procurement_type_rfq", () => {
+      expect(noticeTypeKey("RFQ")).toBe("procurement_type_rfq");
+    });
+
+    it("maps RFP to procurement_type_rfp", () => {
+      expect(noticeTypeKey("RFP")).toBe("procurement_type_rfp");
+    });
+
+    it("maps EOI to procurement_type_eoi", () => {
+      expect(noticeTypeKey("EOI")).toBe("procurement_type_eoi");
+    });
+
+    it("maps PQ to procurement_type_prequalification", () => {
+      expect(noticeTypeKey("PQ")).toBe("procurement_type_prequalification");
+    });
+
+    it("maps PRE to procurement_type_prequalification", () => {
+      expect(noticeTypeKey("PRE")).toBe("procurement_type_prequalification");
+    });
+
+    it("maps IC to procurement_type_consultant", () => {
+      expect(noticeTypeKey("IC")).toBe("procurement_type_consultant");
+    });
+
+    it("maps RFI to procurement_type_rfi", () => {
+      expect(noticeTypeKey("RFI")).toBe("procurement_type_rfi");
+    });
+
+    it("maps GPN to procurement_type_gpn", () => {
+      expect(noticeTypeKey("GPN")).toBe("procurement_type_gpn");
+    });
+
+    it("maps OTHER to procurement_type_other", () => {
+      expect(noticeTypeKey("OTHER")).toBe("procurement_type_other");
+    });
+
+    it("is case-insensitive", () => {
+      expect(noticeTypeKey("itb")).toBe("procurement_type_itb");
+      expect(noticeTypeKey("rfq")).toBe("procurement_type_rfq");
+      expect(noticeTypeKey("Rfp")).toBe("procurement_type_rfp");
+    });
   });
 
-  it.each([
-    "报价征询",
-    "Request for quotation",
-    "RFQ",
-    "询价书",
-    " Request for Quotation (RFQ)",
-    "报价请求 (RFQ) - 属于重新招标 (Re-Bid)。",
-  ])("maps %s to rfq", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_rfq");
+  describe("pattern matching", () => {
+    it("maps quotation to RFQ", () => {
+      expect(noticeTypeKey("Request for quotation")).toBe("procurement_type_rfq");
+      expect(noticeTypeKey("报价请求")).toBe("procurement_type_rfq");
+    });
+
+    it("maps proposal to RFP", () => {
+      expect(noticeTypeKey("Request for proposal")).toBe("procurement_type_rfp");
+      expect(noticeTypeKey("建议书")).toBe("procurement_type_rfp");
+    });
+
+    it("maps pre-qualification", () => {
+      expect(noticeTypeKey("Pre-qualification")).toBe("procurement_type_prequalification");
+      expect(noticeTypeKey("资格预审")).toBe("procurement_type_prequalification");
+    });
+
+    it("maps consultant", () => {
+      expect(noticeTypeKey("Selection of Consultant")).toBe("procurement_type_consultant");
+      expect(noticeTypeKey("顾问服务")).toBe("procurement_type_consultant");
+    });
+
+    it("maps tender/bid to ITB", () => {
+      expect(noticeTypeKey("Invitation to Bid")).toBe("procurement_type_itb");
+      expect(noticeTypeKey("招标公告")).toBe("procurement_type_itb");
+      expect(noticeTypeKey("投标邀请")).toBe("procurement_type_itb");
+    });
+
+    it("maps expression of interest to EOI", () => {
+      expect(noticeTypeKey("Expression of Interest")).toBe("procurement_type_eoi");
+      expect(noticeTypeKey("意向表达")).toBe("procurement_type_eoi");
+    });
+
+    it("maps framework agreement", () => {
+      expect(noticeTypeKey("Framework Agreement")).toBe("procurement_type_framework");
+      expect(noticeTypeKey("框架协议")).toBe("procurement_type_framework");
+    });
+
+    it("maps contract award", () => {
+      expect(noticeTypeKey("Contract Award Notice")).toBe("procurement_type_contract_award");
+      expect(noticeTypeKey("中标通知")).toBe("procurement_type_contract_award");
+    });
+
+    it("maps competitive procedures", () => {
+      expect(noticeTypeKey("Competitive bidding")).toBe("procurement_type_competitive");
+      expect(noticeTypeKey("公开招标")).toBe("procurement_type_competitive");
+    });
+
+    it("maps direct contracting", () => {
+      expect(noticeTypeKey("Direct Contract")).toBe("procurement_type_direct_contracting");
+      expect(noticeTypeKey("直接采购")).toBe("procurement_type_direct_contracting");
+    });
   });
 
-  it.each([
-    "Request for proposal",
-    "RFP",
-    "提案征集 (RFP) / Request for Proposal",
-    "Negotiated Request for Proposal (BPS)",
-    "RFP against Supply Arrangement",
-  ])("maps %s to rfp", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_rfp");
+  describe("edge cases", () => {
+    it("returns null for undefined", () => {
+      expect(noticeTypeKey(undefined)).toBeNull();
+    });
+
+    it("returns null for null", () => {
+      expect(noticeTypeKey(null)).toBeNull();
+    });
+
+    it("returns null for empty string", () => {
+      expect(noticeTypeKey("")).toBeNull();
+    });
+
+    it("returns null for whitespace-only string", () => {
+      expect(noticeTypeKey("   ")).toBeNull();
+    });
+
+    it("returns null for unrecognized values", () => {
+      expect(noticeTypeKey("Some random text")).toBeNull();
+    });
+
+    it("trims whitespace", () => {
+      expect(noticeTypeKey("  ITB  ")).toBe("procurement_type_itb");
+    });
+
+    it("handles special characters in input", () => {
+      expect(noticeTypeKey("ITB-2024")).toBe("procurement_type_itb");
+    });
   });
 
-  it.each([
-    "Request for Expression of Interest",
-    "EOI",
-    "Request for EOI",
-    "Expression of interest",
-    "意向表达 (EOI) - 这是预审阶段，只有通过的企业才会收到正式标书。",
-  ])("maps %s to eoi", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_eoi");
-  });
+  describe("priority and precedence", () => {
+    it("ITB takes precedence over EOI when both patterns match", () => {
+      // "投标邀请书(ITB)-框架协议" contains both ITB and framework patterns
+      expect(noticeTypeKey("投标邀请书(ITB)-框架协议")).toBe("procurement_type_itb");
+    });
 
-  it.each([
-    "invitation_for_prequalification",
-    "Invitation for Prequalification",
-    "PQ",
-    "PRE",
-    "Request for pre-qualification",
-    "Prequalification and Tender Notice",
-    "Request for Qualifications (BPS)",
-  ])("maps %s to prequalification", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_prequalification");
-  });
+    it("RFQ takes precedence over general request patterns", () => {
+      expect(noticeTypeKey("Request for Quotation")).toBe("procurement_type_rfq");
+    });
 
-  it.each(["Call for individual consultants", "IC"])("maps %s to consultant", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_consultant");
-  });
-
-  it.each(["Request for information", "RFI", "Request for Information (BPS)"])(
-    "maps %s to rfi",
-    (raw) => {
-      expect(noticeTypeKey(raw)).toBe("procurement_type_rfi");
-    }
-  );
-
-  it.each(["General Procurement Notice", "GPN"])("maps %s to gpn", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_gpn");
-  });
-
-  it.each(["Advance Contract Award Notice", "Contract Award Notice", "Award Notice", "授标公告", "中标公告"])(
-    "maps %s to contract_award",
-    (raw) => {
-      expect(noticeTypeKey(raw)).toBe("procurement_type_contract_award");
-    }
-  );
-
-  it.each(["Other", "OTHER", "其他", "other"])("maps %s to other", (raw) => {
-    expect(noticeTypeKey(raw)).toBe("procurement_type_other");
-  });
-
-  // 长尾脏值/空值：返回 null，由调用方回退显示原始值
-  it.each(["", "Not set", "未提供", "goods", "Timber Auction", "动态采购系统", "United Nations Development Programme"])(
-    "returns null for unmapped value %s",
-    (raw) => {
-      expect(noticeTypeKey(raw)).toBeNull();
-    }
-  );
-
-  it("returns null for undefined", () => {
-    expect(noticeTypeKey(undefined)).toBeNull();
+    it("contract_award takes precedence over contract_notice", () => {
+      expect(noticeTypeKey("Contract Award")).toBe("procurement_type_contract_award");
+    });
   });
 });

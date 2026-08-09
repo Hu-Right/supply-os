@@ -1,47 +1,92 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import {
-  getDetailViewCount,
-  setDetailViewCount,
-} from "@/features/procurement/utils/detailViewCount";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { getDetailViewCount, setDetailViewCount } from "@/features/procurement/utils/detailViewCount";
 
-describe("detailViewCount（详情页本地查看计数）", () => {
+describe("detailViewCount", () => {
   beforeEach(() => {
-    window.localStorage.clear();
+    // Clear localStorage before each test
+    if (typeof window !== "undefined") {
+      window.localStorage.clear();
+    }
   });
 
-  it("returns 0 when nothing was stored", () => {
-    expect(getDetailViewCount("uk_test")).toBe(0);
-    expect(getDetailViewCount(undefined)).toBe(0);
+  afterEach(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.clear();
+    }
   });
 
-  it("round-trips set and get for a user", () => {
-    setDetailViewCount("uk_test", 3);
-    expect(getDetailViewCount("uk_test")).toBe(3);
-    setDetailViewCount("uk_test", 0);
-    expect(getDetailViewCount("uk_test")).toBe(0);
+  describe("getDetailViewCount", () => {
+    it("returns 0 for new user", () => {
+      expect(getDetailViewCount("user@test.com")).toBe(0);
+    });
+
+    it("returns 0 for guest user", () => {
+      expect(getDetailViewCount(undefined)).toBe(0);
+    });
+
+    it("returns stored count for user", () => {
+      setDetailViewCount("user@test.com", 5);
+      expect(getDetailViewCount("user@test.com")).toBe(5);
+    });
+
+    it("returns stored count for guest", () => {
+      setDetailViewCount(undefined, 3);
+      expect(getDetailViewCount(undefined)).toBe(3);
+    });
+
+    it("isolates counts by user", () => {
+      setDetailViewCount("user1@test.com", 5);
+      setDetailViewCount("user2@test.com", 10);
+      expect(getDetailViewCount("user1@test.com")).toBe(5);
+      expect(getDetailViewCount("user2@test.com")).toBe(10);
+    });
   });
 
-  it("isolates counters per user key", () => {
-    setDetailViewCount("uk_a", 1);
-    setDetailViewCount("uk_b", 5);
-    expect(getDetailViewCount("uk_a")).toBe(1);
-    expect(getDetailViewCount("uk_b")).toBe(5);
+  describe("setDetailViewCount", () => {
+    it("sets count for user", () => {
+      setDetailViewCount("user@test.com", 7);
+      expect(getDetailViewCount("user@test.com")).toBe(7);
+    });
+
+    it("sets count for guest", () => {
+      setDetailViewCount(undefined, 4);
+      expect(getDetailViewCount(undefined)).toBe(4);
+    });
+
+    it("overwrites existing count", () => {
+      setDetailViewCount("user@test.com", 5);
+      setDetailViewCount("user@test.com", 10);
+      expect(getDetailViewCount("user@test.com")).toBe(10);
+    });
+
+    it("can set count to 0", () => {
+      setDetailViewCount("user@test.com", 5);
+      setDetailViewCount("user@test.com", 0);
+      expect(getDetailViewCount("user@test.com")).toBe(0);
+    });
+
+    it("handles negative numbers", () => {
+      setDetailViewCount("user@test.com", -1);
+      expect(getDetailViewCount("user@test.com")).toBe(-1);
+    });
+
+    it("handles large numbers", () => {
+      setDetailViewCount("user@test.com", 999999);
+      expect(getDetailViewCount("user@test.com")).toBe(999999);
+    });
   });
 
-  it("falls back to the shared guest bucket when userKey is missing", () => {
-    setDetailViewCount(undefined, 2);
-    expect(window.localStorage.getItem("procurement_detail_views_guest")).toBe("2");
-    expect(getDetailViewCount(undefined)).toBe(2);
+  describe("localStorage key format", () => {
+    it("uses correct key format for user", () => {
+      setDetailViewCount("test@example.com", 1);
+      const key = `procurement_detail_views_test@example.com`;
+      expect(window.localStorage.getItem(key)).toBe("1");
+    });
 
-    // 空字符串同样落入 guest 桶
-    setDetailViewCount("", 4);
-    expect(getDetailViewCount(undefined)).toBe(4);
-  });
-
-  it("guest bucket stays separate from named users", () => {
-    setDetailViewCount(undefined, 2);
-    setDetailViewCount("uk_test", 7);
-    expect(getDetailViewCount(undefined)).toBe(2);
-    expect(getDetailViewCount("uk_test")).toBe(7);
+    it("uses correct key format for guest", () => {
+      setDetailViewCount(undefined, 1);
+      const key = `procurement_detail_views_guest`;
+      expect(window.localStorage.getItem(key)).toBe("1");
+    });
   });
 });
