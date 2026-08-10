@@ -1,0 +1,148 @@
+/**
+ * Meilisearch 客户端初始化与健康检查
+ * Meilisearch client singleton + health check
+ *
+ * @module server/services/meilisearch/client
+ */
+import { Meilisearch } from "meilisearch";
+
+const INDEX_NAME = "notices";
+
+let client: Meilisearch | null = null;
+let healthy = false;
+
+/** 初始化 Meilisearch 客户端（幂等） */
+export function initMeilisearch(): Meilisearch | null {
+  const host = process.env.MEILI_HOST || "http://127.0.0.1:7700";
+  const key = process.env.MEILI_MASTER_KEY || "";
+  try {
+    client = new Meilisearch({ host, apiKey: key || undefined, timeout: 5000 });
+    return client;
+  } catch (err) {
+    console.warn("[meilisearch] init failed:", (err as Error).message);
+    client = null;
+    return null;
+  }
+}
+
+export function getClient(): Meilisearch | null {
+  return client;
+}
+
+export function isHealthy(): boolean {
+  return healthy;
+}
+
+export function getIndexName(): string {
+  return INDEX_NAME;
+}
+
+/** 启动时健康检查 + 索引初始化 */
+export async function ensureIndex(): Promise<boolean> {
+  if (!client) return false;
+  try {
+    const health = await client.health();
+    healthy = health.status === "available";
+  } catch {
+    healthy = false;
+    console.warn("[meilisearch] health check failed — search will fallback to MySQL LIKE");
+    return false;
+  }
+  if (!healthy) return false;
+
+  try {
+    const index = client.index(INDEX_NAME);
+    await index.updateSettings({
+      searchableAttributes: [
+        "reference",
+        "title",
+        "title_zh",
+        "title_en",
+        "description",
+        "description_zh",
+        "description_en",
+      ],
+      filterableAttributes: [
+        "country",
+        "agency",
+        "agency_group",
+        "notice_type_normalized",
+        "deadline_sec",
+        "is_active",
+        "is_featured",
+        "level1_id",
+        "level2_id",
+        "level3_id",
+        "level4_id",
+        "level5_id",
+      ],
+      sortableAttributes: ["deadline_sec", "id"],
+      rankingRules: [
+        "words",
+        "typo",
+        "proximity",
+        "attribute",
+        "sort",
+        "exactness",
+      ],
+      nonSeparatorTokens: ["zh"],
+    });
+    return true;
+  } catch (err) {
+    console.warn("[meilisearch] ensureIndex failed:", (err as Error).message);
+    return false;
+  }
+}
+
+/** 获取索引中的文档总数（用于诊断） */
+export async function getIndexStats(): Promise<{ numberOfDocuments: number } | null> {
+  if (!client || !healthy) return null;
+  try {
+    const stats = await client.index(INDEX_NAME).getStats();
+    return { numberOfDocuments: stats.numberOfDocuments };
+  } catch {
+    return null;
+  }
+}
+
+/** 获取 Meilisearch 索引中已同步的最大文档 ID */
+export async function getLastSyncedId(): Promise<number> {
+  if (!client || !healthy) return 0;
+  try {
+    const result = await client.index(INDEX_NAME).search("", {
+      sort: ["id:desc"],
+      limit: 1,
+      attributesToRetrieve: ["id"],
+    });
+    if (result.hits.length > 0) return Number(result.hits[0].id) || 0;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** 获取 Meilisearch 索引中的文档总数 */
+export async function getDocCount(): Promise<number> {
+  if (!client || !healthy) return 0;
+  try {
+    const stats = await client.index(INDEX_NAME).getStats();
+    return stats.numberOfDocuments || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** 检测索引中是否存在旧哨兵值(9999999999)的文档 */
+export async function hasOldSentinel(): Promise<boolean> {
+  if (!client || !healthy) return false;
+  try {
+    const result = await client.index(INDEX_NAME).search("", {
+      filter: "deadline_sec >= 9999999999",
+      limit: 1,
+      attributesToRetrieve: ["id"],
+    });
+    return result.estimatedTotalHits > 0;
+  } catch {
+    return false;
+  }
+}

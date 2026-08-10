@@ -14,8 +14,9 @@ import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
-import { fetchNotices, fetchNoticeCountries, fetchNoticeAgencies, fetchRecommendedNotices } from "../api";
+import { fetchNotices, fetchRecommendedNotices } from "../api";
 import { searchFormReducer, PAGE_SIZE, type SearchFormState, type SearchFormAction } from "./searchFormReducer";
+import { useSearchDropdowns } from "./useSearchDropdowns";
 
 export { PAGE_SIZE } from "./searchFormReducer";
 
@@ -105,10 +106,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     variantRef,
     onClear,
   } = options;
-  const { locale } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { locale } = useLocale();
+  const { countries, agencies } = useSearchDropdowns();
 
-  // ── 表单草稿状态（useReducer 集中管理 7 个字段）──
   const [formState, dispatchForm] = useReducer(searchFormReducer, {
     q: searchParams.get("q") || "",
     country: searchParams.get("country") || "",
@@ -127,7 +128,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const setTypeInput = useCallback((v: string) => dispatchForm({ type: "set_type", payload: v }), []);
   const { q: qInput, country: countryInput, agency: agencyInput, from: fromInput, to: toInput,
     window: windowInput, type: typeInput } = formState;
-  // ── 公采搜索栏（本地差异 #6：G.3 服务端搜索，URL 参数为唯一事实源）──
+
+  // ── URL 参数事实源 ──
   const activeQ = searchParams.get("q") || "";
   const activeCountry = searchParams.get("country") || "";
   const activeAgency = searchParams.get("agency") || "";
@@ -150,29 +152,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   // 回滚：删除 searchKeyForSkip，恢复使用 searchKey 进行守卫比较
   const searchKeyForSkip = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
 
-  const [countries, setCountries] = useState<Array<{ country: string; count: number }>>([]);
-  const [agencies, setAgencies] = useState<Array<{ agency: string; count: number }>>([]);
-
-  // P1 性能优化：国家/机构列表 sessionStorage 缓存（10 分钟 TTL），避免每次进入页面重复请求
-  // 回滚：删除 COUNTRIES_CACHE_KEY/AGENCIES_CACHE_KEY 及 sessionStorage 逻辑，恢复原始 fetch
-  const COUNTRIES_CACHE_KEY = "supply-os:notice-countries";
-  const AGENCIES_CACHE_KEY = "supply-os:notice-agencies";
-  const CACHE_TTL = 10 * 60 * 1000; // 10 分钟
-
-  function readSessionCache<T>(key: string): T | null {
-    try {
-      const raw = sessionStorage.getItem(key);
-      if (!raw) return null;
-      const { data, ts } = JSON.parse(raw);
-      if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(key); return null; }
-      return data as T;
-    } catch { return null; }
-  }
-  function writeSessionCache(key: string, data: unknown): void {
-    try { sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch { /* quota */ }
-  }
-
-  // URL 外部变化（支付回跳清参等）时同步表单草稿
+  // URL 外部变化时同步表单草稿
   useEffect(() => {
     dispatchForm({
       type: "sync",
@@ -181,7 +161,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     });
   }, [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeWindow, activeNoticeType]);
 
-  // BUG-1 修复：搜索条件变化时主动清除前端 apiCached 缓存，
+  // BUG-1: 搜索条件变化时主动清除缓存
   // 避免 30s TTL 内来回切换筛选器时命中过期缓存返回错误数据
   // PERF 优化：仅在用户主动提交搜索时清除（applySearch/clearSearch），
   // URL 参数被动变化（如翻页、支付回跳）不清除，保留服务端缓存命中
@@ -198,7 +178,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     }
   }, [searchKey]);
 
-  // BUG 修复：账号切换（登录/登出/换号）时主动清除搜索缓存
+  // BUG: 账号切换时主动清除缓存
   // searchKey 不含 userKey，账号切换时 searchKey 不变，上方 effect 不会触发清缓存，
   // 导致旧用户 apiCached 数据（30s TTL）泄漏给新用户
   // 回滚：删除下方 useEffect 即可
@@ -210,7 +190,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     }
   }, [userKey]);
 
-  // 生效条件变化时重置分页：applySearch/toggleFeatured 之外的外部 URL 变化
+  // 生效条件变化时重置分页
   // （支付回跳清参、前进/后退到搜索直达链接）不经过动作函数，旧页码会请求到
   // 空页误显"无匹配结果"。applySearch 路径重复置 1 为幂等无副作用。
   const prevSearchKeyRef = useRef(searchKey);
@@ -220,37 +200,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setPage(1);
   }, [searchKey, setPage]);
 
-  // 国家下拉数据源（sessionStorage 缓存优先，服务端缓存 10 分钟兆底）
-  useEffect(() => {
-    const cached = readSessionCache<Array<{ country: string; count: number }>>(COUNTRIES_CACHE_KEY);
-    if (cached) { setCountries(cached); return; }
-    fetchNoticeCountries()
-      .then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        setCountries(arr);
-        if (arr.length > 0) writeSessionCache(COUNTRIES_CACHE_KEY, arr);
-      })
-      .catch(() => setCountries([]));
-  }, []);
-
-  // 采购机构下拉数据源（sessionStorage 缓存优先，按 locale 分键）
-  useEffect(() => {
-    const cacheKey = `${AGENCIES_CACHE_KEY}:${locale}`;
-    const cached = readSessionCache<Array<{ agency: string; count: number }>>(cacheKey);
-    if (cached) { setAgencies(cached); return; }
-    fetchNoticeAgencies(locale)
-      .then((data) => {
-        const arr = Array.isArray(data) ? data : [];
-        setAgencies(arr);
-        if (arr.length > 0) writeSessionCache(cacheKey, arr);
-      })
-      .catch(() => setAgencies([]));
-  }, [locale]);
-
-  // 提交搜索：写 URL 参数并重置分页；手动搜索即退出 prefs/recommended 自动模式
+  // 提交搜索
   const applySearch = (sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
-    // PERF 优化：不再立即设置 loading——由 effect 在防抖后统一处理
-    // 避免「loading=true 但请求尚未发出」的视觉闪烁
     userSubmittedRef.current = true;
 
     const next: Record<string, string> = {};
@@ -259,12 +210,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     if (agencyInput) next.agency = agencyInput;
     if (fromInput) next.deadline_from = fromInput;
     if (toInput) next.deadline_to = toInput;
-    // T-B9：截止窗口/采购类型（对接 T-B8 服务端过滤）
     if (windowInput) next.deadline_within_days = windowInput;
     if (typeInput.trim()) next.notice_type = typeInput.trim();
-    // T-A4：手动搜索不重置精选开关（开关独立于表单草稿，状态延续）
     if (activeFeatured) next.featured = "1";
-    // BUG5/7 修复：UNSPSC 行业筛选持久化到 URL，刷新页面后不丢失
     if (deepestCodeId) next.code_id = deepestCodeId;
     const sortValue = sortOverride ?? activeSort;
     if (sortValue !== "deadline_farthest") next.sort = sortValue;
@@ -274,7 +222,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setSearchParams(next);
   };
 
-  // T-A4（本地差异 #14）：只看精选开关——立即生效写 URL，保留其余全部现有条件
   const toggleFeatured = () => {
     const next = new URLSearchParams(searchParams);
     if (activeFeatured) next.delete("featured");
