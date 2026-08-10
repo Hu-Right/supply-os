@@ -84,7 +84,9 @@ export async function searchNotices(
   const cached = noticeSearchCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.payload;
 
-  // ── Meilisearch 优先路径 ──
+  // ── Meilisearch 统一优先路径 ──
+  // 所有搜索（包括中文关键词、UNSPSC、多条件组合）都首先尝试 Meilisearch
+  // 只有 Meilisearch 不可用/超时/失败时才降级到 MySQL
   let meiliHit = false;
   let total = 0;
   let pageIds: number[] = [];
@@ -112,9 +114,12 @@ export async function searchNotices(
   }
   const meiliCanHandleUnspsc = unspscLevel >= 1 && unspscLevel <= 5 && !!unspscLevelId;
 
-  // PERF 优化：Meilisearch 统一处理关键词 + 筛选 + 排序 + 分页（包括中文关键词）
-  if (!p.codeId && isMeiliHealthy()) {
-    const meiliStart = Date.now();
+  // ── 统一 Meilisearch 入口：所有搜索优先走 Meilisearch ──
+  // 条件：Meilisearch 健康 + (无 codeId 或 Meilisearch 能处理该 UNSPSC level)
+  // 当 codeId 存在但 Meilisearch 无法处理时（level 6/7 或 code 不存在），跳过 Meilisearch 走 MySQL
+  const skipMeiliForUnspsc = p.codeId && !meiliCanHandleUnspsc;
+  if (isMeiliHealthy() && !skipMeiliForUnspsc) {
+    // 解析机构名（供 Meilisearch 筛选）
     let meiliAgencies: string[] | undefined;
     let meiliAgencyGroup: string | undefined;
     if (agency) {
@@ -128,6 +133,8 @@ export async function searchNotices(
         meiliAgencies = [agency];
       }
     }
+
+    const meiliStart = Date.now();
     const meiliResult = await meiliSearch({
       q: q || undefined,
       country: country || undefined,
@@ -138,23 +145,40 @@ export async function searchNotices(
       deadlineWithinDays: deadlineWithinDays || undefined,
       noticeType: noticeType || undefined,
       featuredOnly: featuredOnly || undefined,
+      // UNSPSC：仅当 Meilisearch 能处理时传入（level 1-5）
+      unspscLevel: meiliCanHandleUnspsc ? unspscLevel : undefined,
+      unspscLevelId: meiliCanHandleUnspsc ? unspscLevelId : undefined,
       sort,
       page,
       pageSize,
     });
+
     if (meiliResult) {
       meiliHit = true;
       total = meiliResult.total;
       pageIds = meiliResult.ids;
       const meiliMs = Date.now() - meiliStart;
-      searchMode = q ? (isChinese ? "meili-zh" : "meili-en") : "meili-filter";
+
+      // 搜索模式标记（便于日志分析）
+      if (p.codeId) {
+        searchMode = meiliCanHandleUnspsc
+          ? (q ? (isChinese ? "meili-unspsc-zh" : "meili-unspsc-en") : "meili-unspsc")
+          : "meili-no-unspsc"; // codeId 存在但 Meilisearch 无法处理 UNSPSC level
+      } else {
+        searchMode = q ? (isChinese ? "meili-zh" : "meili-en") : "meili-filter";
+      }
+
       console.log(`[search-perf] mode=${searchMode} page=${p.page} q="${q}" country="${country}" agency="${agency}"` +
         (meiliAgencyGroup ? ` agencyGroup="${meiliAgencyGroup}"` : "") +
+        (p.codeId ? ` codeId=${p.codeId}` : "") +
         ` | Meilisearch=${meiliMs}ms | total=${total} | ids=${pageIds.length}`);
+    } else {
+      // Meilisearch 返回 null（超时或内部错误）→ 降级到 MySQL
+      console.warn(`[search-perf] Meilisearch 返回 null，降级到 MySQL | q="${q}" country="${country}" codeId=${p.codeId || "-"}`);
     }
   }
 
-  // ── MySQL FULLTEXT 降级路径 ──
+  // ── MySQL 降级路径（仅当 Meilisearch 不可用/失败时执行）──
   if (!meiliHit) {
     searchMode = q ? (isChinese ? "mysql-zh-FULLTEXT" : "mysql-en-FULLTEXT") : "mysql-none";
     console.log(`[search-perf] fallback MySQL mode=${searchMode} q="${q}" country="${country}"`);
@@ -166,55 +190,11 @@ export async function searchNotices(
   let idFilterSql = "";
   const idFilterParams: any[] = [];
 
-  if (p.codeId) {
-    // PERF 优化：当 Meilisearch 能处理 UNSPSC 时，无论是否有关键词，都走 Meilisearch
-    // 原逻辑：只有 !q 时才走 Meilisearch，导致关键词+UNSPSC 组合走 MySQL 桥接表（慢）
-    // 修复后：Meilisearch 同时处理关键词 + UNSPSC 筛选，避免 MySQL 桥接表查询
-    if (meiliCanHandleUnspsc) {
-      let unspscAgencies: string[] | undefined;
-      let unspscAgencyGroup: string | undefined;
-      if (agency) {
-        const _items = getAgencyCacheData() || [];
-        const _cached = _items.find((item) => item.agency === agency);
-        if (_cached?.agencyGroup) {
-          unspscAgencyGroup = _cached.agencyGroup;
-        } else if (_cached?.originalAgencies?.length) {
-          unspscAgencies = _cached.originalAgencies;
-        } else {
-          unspscAgencies = [agency];
-        }
-      }
-      const unspscStart = Date.now();
-      const unspscResult = await meiliSearch({
-        q: q || undefined,
-        country: country || undefined,
-        agencies: unspscAgencies,
-        agencyGroup: unspscAgencyGroup,
-        deadlineFrom: deadlineFrom || undefined,
-        deadlineTo: deadlineTo || undefined,
-        deadlineWithinDays: deadlineWithinDays || undefined,
-        noticeType: noticeType || undefined,
-        featuredOnly: featuredOnly || undefined,
-        unspscLevel, unspscLevelId,
-        sort, page, pageSize,
-      });
-      if (unspscResult) {
-        meiliHit = true;
-        total = unspscResult.total;
-        pageIds = unspscResult.ids;
-        searchMode = q ? (isChinese ? "meili-unspsc-zh" : "meili-unspsc-en") : "meili-unspsc";
-        const unspscMs = Date.now() - unspscStart;
-        console.log(`[search-perf] mode=${searchMode} codeId=${p.codeId} q="${q}" | Meilisearch=${unspscMs}ms | total=${total}`);
-      } else {
-        const filter = await buildNoticeUnspscFilter(pool, p.codeId);
-        idFilterSql = filter.sql;
-        idFilterParams.push(...filter.params);
-      }
-    } else {
-      const filter = await buildNoticeUnspscFilter(pool, p.codeId);
-      idFilterSql = filter.sql;
-      idFilterParams.push(...filter.params);
-    }
+  // UNSPSC：仅当 Meilisearch 未能处理时才走 MySQL 桥接表
+  if (p.codeId && !meiliHit) {
+    const filter = await buildNoticeUnspscFilter(pool, p.codeId);
+    idFilterSql = filter.sql;
+    idFilterParams.push(...filter.params);
   }
 
   const compactQ = q.replace(/\s+/g, "").toUpperCase();
