@@ -112,10 +112,8 @@ export async function searchNotices(
   }
   const meiliCanHandleUnspsc = unspscLevel >= 1 && unspscLevel <= 5 && !!unspscLevelId;
 
-  // PERF 优化：Meilisearch 统一处理关键词 + 筛选 + 排序 + 分页
-  // BUG 修复：中文关键词不走 Meilisearch（Meilisearch 中文分词不准确，会返回所有文档）
-  // 中文关键词走 MySQL FULLTEXT + ngram 路径，确保正确匹配
-  if (!p.codeId && isMeiliHealthy() && !isChinese) {
+  // PERF 优化：Meilisearch 统一处理关键词 + 筛选 + 排序 + 分页（包括中文关键词）
+  if (!p.codeId && isMeiliHealthy()) {
     const meiliStart = Date.now();
     let meiliAgencies: string[] | undefined;
     let meiliAgencyGroup: string | undefined;
@@ -172,7 +170,7 @@ export async function searchNotices(
     // PERF 优化：当 Meilisearch 能处理 UNSPSC 时，无论是否有关键词，都走 Meilisearch
     // 原逻辑：只有 !q 时才走 Meilisearch，导致关键词+UNSPSC 组合走 MySQL 桥接表（慢）
     // 修复后：Meilisearch 同时处理关键词 + UNSPSC 筛选，避免 MySQL 桥接表查询
-    if (meiliCanHandleUnspsc && !isChinese) {
+    if (meiliCanHandleUnspsc) {
       let unspscAgencies: string[] | undefined;
       let unspscAgencyGroup: string | undefined;
       if (agency) {
@@ -248,21 +246,15 @@ export async function searchNotices(
   if (agency) {
     const _agencyItems = getAgencyCacheData() || [];
     const cachedItem = _agencyItems.find((item) => item.agency === agency);
-    if (cachedItem?.originalAgencies && cachedItem.originalAgencies.length > 1) {
-      const AGENCY_IN_LIMIT = 100;
-      if (cachedItem.originalAgencies.length > AGENCY_IN_LIMIT && country) {
-        console.log(`[noticeSearch] agency 聚合优化: ${cachedItem.originalAgencies.length} 个原始机构名 + country="${country}" → 跳过机构 IN`);
-      } else if (cachedItem.originalAgencies.length > AGENCY_IN_LIMIT) {
-        const truncated = cachedItem.originalAgencies.slice(0, AGENCY_IN_LIMIT);
-        const placeholders = truncated.map(() => "?").join(",");
-        where.push(`n.agency IN (${placeholders})`);
-        params.push(...truncated);
-        console.log(`[noticeSearch] agency 截断优化: ${cachedItem.originalAgencies.length} → ${AGENCY_IN_LIMIT} 个`);
-      } else {
-        const placeholders = cachedItem.originalAgencies.map(() => "?").join(",");
-        where.push(`n.agency IN (${placeholders})`);
-        params.push(...cachedItem.originalAgencies);
-      }
+    if (cachedItem?.sqlPattern) {
+      // PERF 优化：大型聚合组使用 SQL LIKE 模式匹配，替代数千个 OR 条件
+      // 例如 MUNICIPIO_BR → "MUNICIPIO %" 匹配所有巴西市政府
+      where.push(`UPPER(n.agency) LIKE ?`);
+      params.push(cachedItem.sqlPattern);
+    } else if (cachedItem?.originalAgencies && cachedItem.originalAgencies.length > 1) {
+      const placeholders = cachedItem.originalAgencies.map(() => "?").join(",");
+      where.push(`n.agency IN (${placeholders})`);
+      params.push(...cachedItem.originalAgencies);
     } else if (cachedItem?.originalAgencies && cachedItem.originalAgencies.length === 1) {
       where.push("n.agency = ?");
       params.push(cachedItem.originalAgencies[0]);
