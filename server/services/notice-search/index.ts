@@ -113,7 +113,9 @@ export async function searchNotices(
   const meiliCanHandleUnspsc = unspscLevel >= 1 && unspscLevel <= 5 && !!unspscLevelId;
 
   // PERF 优化：Meilisearch 统一处理关键词 + 筛选 + 排序 + 分页
-  if (!p.codeId && isMeiliHealthy()) {
+  // BUG 修复：中文关键词不走 Meilisearch（Meilisearch 中文分词不准确，会返回所有文档）
+  // 中文关键词走 MySQL FULLTEXT + ngram 路径，确保正确匹配
+  if (!p.codeId && isMeiliHealthy() && !isChinese) {
     const meiliStart = Date.now();
     let meiliAgencies: string[] | undefined;
     let meiliAgencyGroup: string | undefined;
@@ -167,17 +169,29 @@ export async function searchNotices(
   const idFilterParams: any[] = [];
 
   if (p.codeId) {
-    if (meiliCanHandleUnspsc && !q) {
+    // PERF 优化：当 Meilisearch 能处理 UNSPSC 时，无论是否有关键词，都走 Meilisearch
+    // 原逻辑：只有 !q 时才走 Meilisearch，导致关键词+UNSPSC 组合走 MySQL 桥接表（慢）
+    // 修复后：Meilisearch 同时处理关键词 + UNSPSC 筛选，避免 MySQL 桥接表查询
+    if (meiliCanHandleUnspsc && !isChinese) {
       let unspscAgencies: string[] | undefined;
+      let unspscAgencyGroup: string | undefined;
       if (agency) {
         const _items = getAgencyCacheData() || [];
         const _cached = _items.find((item) => item.agency === agency);
-        unspscAgencies = _cached?.originalAgencies?.length ? _cached.originalAgencies : [agency];
+        if (_cached?.agencyGroup) {
+          unspscAgencyGroup = _cached.agencyGroup;
+        } else if (_cached?.originalAgencies?.length) {
+          unspscAgencies = _cached.originalAgencies;
+        } else {
+          unspscAgencies = [agency];
+        }
       }
       const unspscStart = Date.now();
       const unspscResult = await meiliSearch({
+        q: q || undefined,
         country: country || undefined,
         agencies: unspscAgencies,
+        agencyGroup: unspscAgencyGroup,
         deadlineFrom: deadlineFrom || undefined,
         deadlineTo: deadlineTo || undefined,
         deadlineWithinDays: deadlineWithinDays || undefined,
@@ -190,9 +204,9 @@ export async function searchNotices(
         meiliHit = true;
         total = unspscResult.total;
         pageIds = unspscResult.ids;
-        searchMode = "meili-unspsc";
+        searchMode = q ? (isChinese ? "meili-unspsc-zh" : "meili-unspsc-en") : "meili-unspsc";
         const unspscMs = Date.now() - unspscStart;
-        console.log(`[search-perf] mode=meili-unspsc codeId=${p.codeId} | Meilisearch=${unspscMs}ms | total=${total}`);
+        console.log(`[search-perf] mode=${searchMode} codeId=${p.codeId} q="${q}" | Meilisearch=${unspscMs}ms | total=${total}`);
       } else {
         const filter = await buildNoticeUnspscFilter(pool, p.codeId);
         idFilterSql = filter.sql;

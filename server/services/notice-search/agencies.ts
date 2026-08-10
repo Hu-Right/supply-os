@@ -97,9 +97,38 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
     }
   }
 
+  // 3.5.1) 去重：步骤 3.5 可能使多个条目拥有相同的 agency 值，需要合并
+  // 同时重建 canonicalToCountry 映射，确保后续步骤能正确获取国家信息
+  const deduped = new Map<string, AgencyCacheItem>();
+  const dedupedOriginals = new Map<string, string[]>();
+  const dedupedCountry = new Map<string, string>();
+  for (const [mergeKey, item] of merged) {
+    const newKey = item.agency.toUpperCase();
+    const existing = deduped.get(newKey);
+    if (existing) {
+      // 合并到已存在的条目
+      existing.count += item.count;
+      if (!existing.i18n && item.i18n) existing.i18n = item.i18n;
+      const existingOriginals = dedupedOriginals.get(newKey) || [];
+      const newOriginals = canonicalToOriginals.get(mergeKey) || [];
+      dedupedOriginals.set(newKey, [...existingOriginals, ...newOriginals]);
+      // 国家：优先保留已有的
+    } else {
+      deduped.set(newKey, item);
+      dedupedOriginals.set(newKey, canonicalToOriginals.get(mergeKey) || []);
+      const country = canonicalToCountry.get(mergeKey);
+      if (country) dedupedCountry.set(newKey, country);
+    }
+  }
+  // 用去重后的数据替换
+  canonicalToOriginals.clear();
+  for (const [k, v] of dedupedOriginals) canonicalToOriginals.set(k, v);
+  canonicalToCountry.clear();
+  for (const [k, v] of dedupedCountry) canonicalToCountry.set(k, v);
+
   // 3.6) 类型聚合：将同类型机构合并（如 1922 个巴西市政府 → 1 个「巴西各市政府」）
   const typeAggregated = new Map<string, AgencyCacheItem>();
-  for (const [mergeKey, item] of merged) {
+  for (const [mergeKey, item] of deduped) {
     const country = canonicalToCountry.get(mergeKey) || undefined;
     const typeInfo = classifyAgencyType(item.agency, country);
     if (typeInfo) {
@@ -131,12 +160,36 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   const finalAggregated = new Map<string, AgencyCacheItem>();
   const orphanByCountry = new Map<string, AgencyCacheItem>();
 
+  // 辅助函数：从 typeKey 中提取国家名（如 "Uganda Committees" → "Uganda"）
+  const extractCountryFromTypeKey = (typeKey: string): string | null => {
+    const parts = typeKey.split(' ');
+    if (parts.length >= 2) {
+      const countryName = parts[0];
+      if (COUNTRY_ZH[countryName]) return countryName;
+    }
+    return null;
+  };
+
   for (const [key, item] of typeAggregated) {
     if (item.count > AGENCY_MIN_COUNT) {
       finalAggregated.set(key, item);
       continue;
     }
-    const country = canonicalToCountry.get(key.toUpperCase()) || "";
+    let country = canonicalToCountry.get(key.toUpperCase()) || "";
+    if (!country) {
+      // 尝试从 typeKey 中提取国家（如 "Uganda Committees" → "Uganda"）
+      country = extractCountryFromTypeKey(key) || "";
+    }
+    if (!country && item.originalAgencies?.length) {
+      // 尝试从原始机构名中获取国家
+      for (const orig of item.originalAgencies) {
+        const c = canonicalToCountry.get(orig.toUpperCase());
+        if (c) {
+          country = c;
+          break;
+        }
+      }
+    }
     const countryZh = COUNTRY_ZH[country];
     if (countryZh) {
       const bucketKey = `ORPHAN_${country}`;
