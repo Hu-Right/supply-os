@@ -27,36 +27,15 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/autoTranslate";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { refreshFeaturedColumn } from "./services/notices";
-import { refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "./services/noticeSearch";
-// 注：searchNotices 已随预热逻辑外抽至 lifecycle/warmup.ts
 import { seedAgencyAliases } from "./services/agencyAliasSeed";
 import { initMeilisearch, ensureIndex, syncNoticeIds, isHealthy as isMeiliHealthy } from "./services/meilisearch";
 import { startSearchSync } from "./services/searchSync";
 import { runWarmup } from "./lifecycle/warmup";
+import { startAllTimers } from "./lifecycle/timers";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
 const leadsDb = createLeadsStore();
-
-/**
- * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
- * 内部用 setTimeout 链式调度：每次计算到目标时刻的毫秒数，执行后重新调度。
- */
-function scheduleDailyAt(hour: number, cb: () => Promise<void>): NodeJS.Timeout {
-  let timer: NodeJS.Timeout;
-  const schedule = () => {
-    const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, 0, 0, 0);
-    if (next.getTime() <= now.getTime()) next.setDate(next.getDate() + 1);
-    const delay = next.getTime() - now.getTime();
-    timer = setTimeout(async () => {
-      await cb();
-      schedule(); // 执行后调度次日
-    }, delay);
-  };
-  schedule();
-  return timer!;
-}
 
 export async function startServer() {
   const PORT = 3039;
@@ -98,33 +77,6 @@ export async function startServer() {
   } catch (e) {
     console.error("[featured-init] 初始回填失败:", (e as Error).message);
   }
-  const featuredRefreshTimer = setInterval(async () => {
-    try {
-      const result = await refreshFeaturedColumn(dbPool);
-      // 将 is_featured 状态变更同步到 Meilisearch
-      if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
-        if (syncResult.synced > 0) {
-          console.log(`[meilisearch] is_featured 状态同步: ${syncResult.synced} 条`);
-        }
-      }
-    } catch { /* 静默降级 */ }
-  }, 30 * 60 * 1000); // 30 分钟
-  // 方案D：is_active 每 10 分钟增量刷新（过期公告标记为 inactive）
-  // 回滚：删除 isActiveRefreshTimer 和 clearInterval
-  const isActiveRefreshTimer = setInterval(async () => {
-    try {
-      const result = await refreshIsActive(dbPool);
-      await refreshNoticeStats(dbPool); // is_active 变化后同步刷新统计表
-      // 将 is_active 状态变更同步到 Meilisearch
-      if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
-        if (syncResult.synced > 0) {
-          console.log(`[meilisearch] is_active 状态同步: ${syncResult.synced} 条`);
-        }
-      }
-    } catch { /* 静默降级 */ }
-  }, 10 * 60 * 1000); // 10 分钟
   await hydratePaymentEnvFromDb(dbPool);
 
   // Repository 层初始化
@@ -235,6 +187,9 @@ export async function startServer() {
     })();
   }
 
+  // ── 定时任务统一管理（外抽至 lifecycle/timers.ts）──
+  const timersHandle = startAllTimers({ dbPool });
+
   // ── 服务先监听，预热在后台异步完成（非阻塞启动）──
   app.listen(PORT, "0.0.0.0", () => {
     const lanIp = Object.values(os.networkInterfaces())
@@ -250,24 +205,11 @@ export async function startServer() {
     .then((ms) => console.log(`[warmup] 后台预热完成: ${ms}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 高频组合搜索 + 国家/机构 + 供应商)`))
     .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
 
-  // ── 国家/机构缓存每日凌晨 5 点定时刷新 ──
-  const dailyRefreshTimer = scheduleDailyAt(5, async () => {
-    try {
-      await refreshNoticeCountries(dbPool);
-      await refreshNoticeAgencies(dbPool);
-      console.log("[daily-refresh] 国家/机构缓存已刷新");
-    } catch (e) {
-      console.error("[daily-refresh] 刷新失败（静默降级）:", (e as Error).message);
-    }
-  });
-
   // 返回 stop 函数供优雅关闭使用
   return () => {
     stopAutoTranslate();
     stopReportCacheCleanup();
     stopSearchSync?.();
-    clearInterval(featuredRefreshTimer);
-    clearInterval(isActiveRefreshTimer);
-    clearTimeout(dailyRefreshTimer);
+    timersHandle.stop();
   };
 }

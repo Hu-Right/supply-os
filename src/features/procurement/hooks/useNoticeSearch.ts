@@ -15,39 +15,9 @@ import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
 import { fetchNotices, fetchNoticeCountries, fetchNoticeAgencies, fetchRecommendedNotices } from "../api";
+import { searchFormReducer, PAGE_SIZE, type SearchFormState, type SearchFormAction } from "./searchFormReducer";
 
-export const PAGE_SIZE = 9;
-
-// ── 表单草稿 reducer（7 个字段集中管理，消除 useState 碎片化）──
-interface SearchFormState {
-  q: string;
-  country: string;
-  agency: string;
-  from: string;
-  to: string;
-  window: string;
-  type: string;
-}
-
-type SearchFormAction =
-  | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_type"; payload: string }
-  | { type: "sync"; payload: SearchFormState }
-  | { type: "clear" };
-
-function searchFormReducer(state: SearchFormState, action: SearchFormAction): SearchFormState {
-  switch (action.type) {
-    case "set_q": return { ...state, q: action.payload };
-    case "set_country": return { ...state, country: action.payload };
-    case "set_agency": return { ...state, agency: action.payload };
-    case "set_from": return { ...state, from: action.payload };
-    case "set_to": return { ...state, to: action.payload };
-    case "set_window": return { ...state, window: action.payload };
-    case "set_type": return { ...state, type: action.payload };
-    case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", type: "" };
-    default: return state;
-  }
-}
+export { PAGE_SIZE } from "./searchFormReducer";
 
 export interface UseNoticeSearchOptions {
   /** 当前登录用户 key（用于搜索行为落库与推荐数据源门控） */
