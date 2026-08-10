@@ -10,6 +10,7 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
+import { activatePaidOrder } from "./fulfillment";
 
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
@@ -34,14 +35,14 @@ export class PaymentService {
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
-    const plan = await this.paymentsRepo.findActivePlan(planCode);
+    const plan = await this.paymentsRepo!.findActivePlan(planCode);
     if (!plan) throw new Error("PLAN_NOT_FOUND");
     if (plan.plan_type === "single" && !noticeId) throw new Error("NOTICE_ID_REQUIRED");
 
     const amount = Number(plan.price);
     if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
 
-    const existingOrder = await this.paymentsRepo.findPendingOrder({
+    const existingOrder = await this.paymentsRepo!.findPendingOrder({
       userKey, planCode, provider, noticeId,
     });
 
@@ -60,7 +61,7 @@ export class PaymentService {
     );
 
     if (existingOrder) {
-      await this.paymentsRepo.updatePendingOrder(orderNo, {
+      await this.paymentsRepo!.updatePendingOrder(orderNo, {
         amount,
         currency: plan.currency || "CNY",
         payUrl: pay_url,
@@ -68,7 +69,7 @@ export class PaymentService {
         rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
       });
     } else {
-      await this.paymentsRepo.createOrder({
+      await this.paymentsRepo!.createOrder({
         userKey,
         orderNo,
         provider,
@@ -96,7 +97,7 @@ export class PaymentService {
   }
 
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
-    const dbOrder = await this.paymentsRepo.findByOrderNo(orderNo);
+    const dbOrder = await this.paymentsRepo!.findByOrderNo(orderNo);
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
 
     if (dbOrder.status === "pending" && dbOrder.provider) {
@@ -160,11 +161,10 @@ export class PaymentService {
 
     // BUG-PAY-1 修复：校验回调金额与订单金额一致，防止金额篡改
     if (verifyResult.amount > 0) {
-      const dbOrder = await this.paymentsRepo.findOrderAmount(verifyResult.order_no);
+      const dbOrder = await this.paymentsRepo!.findOrderAmount(verifyResult.order_no);
       if (dbOrder) {
         const orderAmount = dbOrder.amount;
         const callbackAmount = Number(verifyResult.amount || 0);
-        // 允许 0.01 精度误差（分→元转换可能产生浮点偏差）
         if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
           console.warn(
             `[PaymentService] 金额不匹配: order=${orderAmount}, callback=${callbackAmount}, order_no=${verifyResult.order_no}`,
@@ -178,66 +178,11 @@ export class PaymentService {
     return { success: true, order_no: verifyResult.order_no };
   }
 
-  /** 激活已支付订单（事务封装：悲观锁 + 幂等 + 权益发放） */
+  /** 激活已支付订单（委托至 fulfillment 模块） */
   private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
-    const conn = await this.paymentsRepo.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      // 悲观锁：SELECT ... FOR UPDATE 防止并发重复发放权益
-      const order = await this.paymentsRepo.findOrderForUpdate(conn, orderNo);
-      if (!order) { await conn.commit(); return; }
-
-      // 幂等保护：已支付的订单直接跳过
-      if (order.status === "paid") { await conn.commit(); return; }
-
-      await this.paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
-
-      const plan = await this.paymentsRepo.findPlanInTransaction(conn, order.plan_code);
-      if (!plan) { await conn.commit(); return; }
-
-      if (plan.plan_type === "single") {
-        if (order.notice_id) {
-          await this.paymentsRepo.grantSingleNoticeUnlock(conn, {
-            userKey: order.user_key,
-            noticeId: order.notice_id,
-            amount: Number(order.amount || 0),
-          });
-        }
-        await conn.commit();
-        return;
-      }
-
-      // 订阅计划：检查是否已发放权益
-      if (await this.paymentsRepo.hasEntitlementForOrder(conn, orderNo)) {
-        await conn.commit();
-        return;
-      }
-
-      await this.paymentsRepo.createSubscriptionInTransaction(
-        conn, order.user_key, order.plan_code, plan.duration_days,
-      );
-
-      await this.paymentsRepo.insertEntitlementInTransaction(conn, {
-        userKey: order.user_key,
-        orderNo,
-        planCode: order.plan_code,
-        quotaTotal: Number(plan.unlock_quota || 1),
-        durationDays: plan.duration_days,
-      });
-
-      await this.paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
-
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
-    }
+    return activatePaidOrder(this.paymentsRepo!, orderNo, providerTradeNo);
   }
 
-  // P0-4 修复：订单号使用 16 位随机十六进制（2^64 空间），消除可预测性和并发碰撞
   private makeOrderNo(): string {
     const now = new Date();
     const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
@@ -252,7 +197,6 @@ export class PaymentService {
       .join("&");
     if (!query) return url;
 
-    // BUG-P4 修复：查询参数必须插入在 hash (#) 之前，而非之后
     if (url.includes("#")) {
       const hashIdx = url.indexOf("#");
       const beforeHash = url.slice(0, hashIdx);
