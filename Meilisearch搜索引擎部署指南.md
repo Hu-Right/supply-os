@@ -119,7 +119,7 @@ npm install
 ```powershell
 # 1. 下载 Meilisearch
 # 访问 https://github.com/meilisearch/meilisearch/releases/tag/v1.52.0
-# 下载 meilisearch-windows-amd64
+# 下载 meilisearch-windows-amd64.exe
 
 # 2. 放到项目 bin/ 目录
 mkdir bin
@@ -439,7 +439,7 @@ Meilisearch 启动时的 `--master-key` 参数必须与 `.env` 中的 `MEILI_MAS
 **解决方案**：
 1. 在本地电脑下载：访问 https://github.com/meilisearch/meilisearch/releases/tag/v1.52.0
 2. 根据服务器系统选择对应版本：
-   - Windows：`meilisearch-windows-amd64` → 重命名为 `meilisearch.exe`
+   - Windows：`meilisearch-windows-amd64.exe` → 重命名为 `meilisearch.exe`
    - Linux：`meilisearch-linux-amd64` → 重命名为 `meilisearch`
    - macOS (Apple Silicon)：`meilisearch-macos-amd64-arm64`
 3. 通过 SCP / SFTP 等方式上传到服务器 `bin/` 目录
@@ -512,3 +512,5 @@ npm run start
 # 7. 验证
 # 浏览器打开应用，搜索关键词，确认响应速度 < 500ms
 ```
+$k=(Get-Content .\.env -Encoding UTF8 | Where-Object {$_ -like 'MEILI_MASTER_KEY=*'} | Select-Object -Last 1).Split('=')[1].Trim('"')
+.\bin\meilisearch.exe --master-key $k --db-path .\bin\data.ms

@@ -12,6 +12,7 @@ import type { Pool } from "mysql2/promise";
 import { classifyAgencyType } from "./agencyI18n";
 
 const INDEX_NAME = "notices";
+const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
 // NULL deadline 的哨兵值：0（纪元起点），确保无截止日期数据在降序排列中排在最后
 // ASC 时 0 排最前（无截止日期最先展示）；DESC 时 0 排最后（符合「截止最远优先」语义）
 const NULL_DEADLINE_SENTINEL = 0;
@@ -91,6 +92,9 @@ export async function ensureIndex(): Promise<boolean> {
         "sort",
         "exactness",
       ],
+      pagination: {
+        maxTotalHits: MAX_TOTAL_HITS,
+      },
       // ngram 分词对中文的支持：Meilisearch 内置中文分词（charabia）
       nonSeparatorTokens: ["zh"],
     });

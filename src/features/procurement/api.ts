@@ -65,7 +65,7 @@ export const fetchNoticeAgencies = (locale?: string) => {
 };
 
 export const fetchMembershipPlans = () =>
-  apiCached<MembershipPlan[]>("/api/membership/plans");
+  api<MembershipPlan[]>("/api/membership/plans");
 
 export const fetchMembershipStatus = (userKey: string, useCache = false) => {
   const url = `/api/membership/status?user_key=${encodeURIComponent(userKey)}`;

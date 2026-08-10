@@ -147,10 +147,11 @@ async function getStatsCount(pool: Pool, key: string): Promise<number | null> {
 }
 
 // ── 方案D：is_active 预计算列回填 + 定期刷新 ──
-// 将复杂的 OR 条件预计算为单列等值查询，配合索引实现高效扫描
+// 与 PHP 后台 bid_intel 口径保持一致：未过期仅以 is_expired=0 判断。
+// deadline_ts/deadline_sec 只用于日期筛选和排序，不再参与默认展示过滤。
 // 回滚：删除 refreshIsActive 函数，恢复原始 WHERE 条件
 
-/** 回填/刷新 is_active 列——将过期或已过截止日期的公告标记为 inactive，返回变更的 ID 列表 */
+/** 回填/刷新 is_active 列——将 PHP 口径的未过期公告标记为 active，返回变更的 ID 列表 */
 export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unmarked: number; changedIds: number[] }> {
   try {
     const t0 = Date.now();
@@ -158,16 +159,15 @@ export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unm
     const [toDeactivate] = await pool.query(
       `SELECT id FROM crm_bid_notices
        WHERE is_active = 1
-         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))
-       LIMIT 10000`
+         AND is_expired = 1`
     );
     const deactivateIds = (toDeactivate as any[]).map(r => r.id);
 
-    // 将已过期或已过截止日期的公告标记为 inactive
+    // 将 PHP 口径已过期公告标记为 inactive
     const [deactivateResult] = await pool.query(
       `UPDATE crm_bid_notices SET is_active = 0
        WHERE is_active = 1
-         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))`
+         AND is_expired = 1`
     );
     const marked = (deactivateResult as any)?.affectedRows || 0;
 
@@ -175,18 +175,15 @@ export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unm
     const [toReactivate] = await pool.query(
       `SELECT id FROM crm_bid_notices
        WHERE is_active = 0
-         AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
-       LIMIT 10000`
+         AND (is_expired = 0 OR is_expired IS NULL)`
     );
     const reactivateIds = (toReactivate as any[]).map(r => r.id);
 
-    // 将重新变为活跃的公告恢复
+    // 将 PHP 口径未过期公告恢复为 active
     const [reactivateResult] = await pool.query(
       `UPDATE crm_bid_notices SET is_active = 1
        WHERE is_active = 0
-         AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
+         AND (is_expired = 0 OR is_expired IS NULL)`
     );
     const unmarked = (reactivateResult as any)?.affectedRows || 0;
 
