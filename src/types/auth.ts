@@ -15,4 +15,8 @@ export interface AuthUser {
   supplier_id?: number | null;
   supplier_industry_id?: number | null;
   supplier_industry?: string | null;
+  /** 已绑定手机号（脱敏显示，如 138****8000） */
+  phone?: string | null;
+  /** 手机号是否已验证 */
+  phone_verified?: number;
 }

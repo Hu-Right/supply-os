@@ -25,7 +25,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（仅返回登录/展示所需字段） */
   async findProfileByKey(userKey: string): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, display_name, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT user_key, email, phone, phone_verified, display_name, membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
     );
@@ -35,7 +35,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, display_name, password_hash, password_hash_type, email_verified,
+      `SELECT user_key, email, phone, phone_verified, display_name, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
@@ -89,6 +89,39 @@ export class UsersRepo {
     await this.pool.execute(
       "UPDATE crm_users SET membership_tier = ?, updated_at = NOW() WHERE user_key = ?",
       [tier, userKey],
+    );
+  }
+
+  /** 绑定手机号（同时标记已验证） */
+  async bindPhone(userKey: string, phone: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE user_key = ?",
+      [phone, userKey],
+    );
+  }
+
+  /** 解绑手机号 */
+  async unbindPhone(userKey: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET phone = NULL, phone_verified = 0, updated_at = NOW() WHERE user_key = ?",
+      [userKey],
+    );
+  }
+
+  /** 按手机号查找用户（换绑冲突检测） */
+  async findByPhone(phone: string): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_users WHERE phone = ? LIMIT 1",
+      [phone],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
+  /** 标记手机已验证 */
+  async markPhoneVerified(userKey: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET phone_verified = 1, updated_at = NOW() WHERE user_key = ?",
+      [userKey],
     );
   }
 }

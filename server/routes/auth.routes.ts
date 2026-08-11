@@ -11,7 +11,9 @@ import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { hashPassword, verifyPassword, needsUpgrade, buildUserResponse } from "../services/auth";
 import { sendPasswordResetEmail, sendRegistrationVerifyEmail, isEmailConfigured } from "../services/email";
+import { sendSmsVerificationCode, isSmsConfigured } from "../services/sms";
 import { validatePassword } from "../../src/shared/auth/passwordPolicy";
+import { maskPhone } from "../utils/mask";
 
 // ── 速率限制器（登录防暴力破解）──
 // P2-3 修复：内存 + 文件持久化，重启不丢失；以 IP 为 key，滑动窗口 15 分钟内最多 10 次失败
@@ -312,6 +314,7 @@ export function createAuthRouter(ctx: AppContext): Router {
 
   router.post("/api/auth/forgot-password", asyncHandler(async (req, res) => {
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+    const channel = String(req.body.channel || "email").trim();
 
     // IP 限流
     const rl = checkForgotRateLimit(ip);
@@ -328,6 +331,61 @@ export function createAuthRouter(ctx: AppContext): Router {
       return res.status(400).json({ error: "请输入有效的邮箱地址" });
     }
 
+    // ── 手机验证渠道 ──
+    if (channel === "sms") {
+      const user = await usersRepo.findByKey(email);
+      if (!user || !user.phone || !user.phone_verified) {
+        return res.status(400).json({ error: "未绑定手机号，请使用邮箱验证" });
+      }
+
+      if (!isSmsConfigured()) {
+        return res.status(503).json({ error: "短信服务暂未配置，请使用邮箱验证" });
+      }
+
+      // 手机号限流
+      const phoneRl = checkPhoneRateLimit(user.phone);
+      if (phoneRl.blocked) {
+        return res.status(429).json({ error: "验证码发送过于频繁，请稍后重试", retry_after_seconds: phoneRl.retryAfterSec });
+      }
+
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 分钟有效
+
+      // 发送短信（阿里云生成验证码并发送，返回验证码明文）
+      let smsSent = false;
+      let code = "";
+      try {
+        code = await sendSmsVerificationCode(user.phone);
+        smsSent = true;
+      } catch (err) {
+        const errorMsg = (err as Error).message;
+        console.error(`[forgot-password/sms] ✗ 短信发送失败: ${maskPhone(user.phone)} - ${errorMsg}`);
+        return res.status(500).json({ error: "短信发送失败，请稍后重试" });
+      }
+
+      // 写入验证码表
+      const [insertResult] = await ctx.dbPool.execute(
+        `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
+         VALUES (?, ?, ?, 'phone_reset', ?, ?)`,
+        [email, user.phone, code, expiresAt, ip],
+      );
+      const resetId = (insertResult as any).insertId;
+      await ctx.dbPool.execute(
+        "UPDATE crm_password_resets SET sms_sent = 1 WHERE id = ?",
+        [resetId],
+      );
+
+      recordPhoneSms(user.phone);
+      recordForgotPasswordSend(ip);
+
+      return res.json({
+        success: true,
+        message: "验证码已发送到您的手机",
+        sms_sent: smsSent,
+        support_hint: smsSent ? null : "短信发送失败，请使用邮箱验证或联系客服",
+      });
+    }
+
+    // ── 邮箱验证渠道（默认） ──
     // 检查邮件服务是否已配置
     if (!isEmailConfigured()) {
       return res.status(503).json({ error: "邮件服务暂未配置，请联系客服重置密码" });
@@ -386,6 +444,7 @@ export function createAuthRouter(ctx: AppContext): Router {
     const email = String(req.body.email || "").trim().toLowerCase();
     const code = String(req.body.code || "").trim();
     const newPassword = String(req.body.new_password || "");
+    const channel = String(req.body.channel || "email").trim();
 
     if (!email || !code || !newPassword) {
       return res.status(400).json({ error: "请填写完整信息" });
@@ -395,15 +454,29 @@ export function createAuthRouter(ctx: AppContext): Router {
       return res.status(400).json({ error: pwCheck.message });
     }
 
-    // 查询该邮箱最新的未使用、未过期验证码记录
-    const [rows] = await ctx.dbPool.query(
-      `SELECT id, code, expires_at, attempts
-       FROM crm_password_resets
-       WHERE user_key = ? AND used = 0 AND expires_at > NOW()
-       ORDER BY created_at DESC LIMIT 1`,
-      [email],
-    );
-    const record = (rows as any[])[0];
+    // ── 手机验证渠道 ──
+    let record: any;
+    if (channel === "sms") {
+      // 查询该用户最新的未使用、未过期的手机验证码记录
+      const [rows] = await ctx.dbPool.query(
+        `SELECT id, code, expires_at, attempts
+         FROM crm_password_resets
+         WHERE user_key = ? AND code_type = 'phone_reset' AND used = 0 AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
+        [email],
+      );
+      record = (rows as any[])[0];
+    } else {
+      // ── 邮箱验证渠道（默认） ──
+      const [rows] = await ctx.dbPool.query(
+        `SELECT id, code, expires_at, attempts
+         FROM crm_password_resets
+         WHERE user_key = ? AND used = 0 AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
+        [email],
+      );
+      record = (rows as any[])[0];
+    }
 
     if (!record) {
       return res.status(400).json({ error: "验证码错误或已过期" });
@@ -440,6 +513,256 @@ export function createAuthRouter(ctx: AppContext): Router {
     }
     const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
     res.json({ success: true, user: payload });
+  }));
+
+  // ── 手机号管理：发送验证码 ──────────────────────────────────────────
+  // 手机号限流：同一号码 60 秒内仅 1 次，每小时 5 次
+  const phoneSmsAttempts = new Map<string, { count: number; resetAt: number; lastSentAt: number }>();
+
+  function checkPhoneRateLimit(phone: string): { blocked: boolean; retryAfterSec: number } {
+    const now = Date.now();
+    const entry = phoneSmsAttempts.get(phone);
+    if (!entry || now > entry.resetAt) {
+      return { blocked: false, retryAfterSec: 0 };
+    }
+    if (now - entry.lastSentAt < 60_000) {
+      return { blocked: true, retryAfterSec: Math.ceil((60_000 - (now - entry.lastSentAt)) / 1000) };
+    }
+    if (entry.count >= 5) {
+      return { blocked: true, retryAfterSec: Math.ceil((entry.resetAt - now) / 1000) };
+    }
+    return { blocked: false, retryAfterSec: 0 };
+  }
+
+  function recordPhoneSms(phone: string): void {
+    const now = Date.now();
+    const entry = phoneSmsAttempts.get(phone);
+    if (!entry || now > entry.resetAt) {
+      phoneSmsAttempts.set(phone, { count: 1, resetAt: now + 3600_000, lastSentAt: now });
+    } else {
+      entry.count += 1;
+      entry.lastSentAt = now;
+    }
+  }
+
+  // 定期清理过期条目
+  setInterval(() => {
+    const now = Date.now();
+    for (const [phone, entry] of phoneSmsAttempts) {
+      if (now > entry.resetAt) phoneSmsAttempts.delete(phone);
+    }
+  }, 10 * 60_000).unref();
+
+  /** 中国大陆手机号正则（11 位数字，1 开头） */
+  const PHONE_REGEX = /^1[3-9]\d{9}$/;
+
+  router.post("/api/auth/send-phone-code", asyncHandler(async (req, res) => {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+    const phone = String(req.body.phone || "").trim();
+    const scene = String(req.body.scene || "bind");
+
+    if (!userKey) return res.status(400).json({ error: "请先登录" });
+    if (!phone || !PHONE_REGEX.test(phone)) {
+      return res.status(400).json({ error: "请输入有效的手机号" });
+    }
+    if (!["bind", "rebind", "unbind", "reset"].includes(scene)) {
+      return res.status(400).json({ error: "无效的操作类型" });
+    }
+
+    // IP 限流
+    const rl = checkForgotRateLimit(ip);
+    if (rl.blocked) {
+      return res.status(429).json({ error: "发送过于频繁，请稍后重试", retry_after_seconds: rl.retryAfterSec });
+    }
+
+    // 手机号限流
+    const phoneRl = checkPhoneRateLimit(phone);
+    if (phoneRl.blocked) {
+      return res.status(429).json({ error: "验证码发送过于频繁，请稍后重试", retry_after_seconds: phoneRl.retryAfterSec });
+    }
+
+    // 短信服务检查
+    if (!isSmsConfigured()) {
+      return res.status(503).json({ error: "短信服务暂未配置，请稍后重试" });
+    }
+
+    const user = await usersRepo.findByKey(userKey);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+
+    // 场景校验
+    if (scene === "bind" && user.phone) {
+      return res.status(409).json({ error: "已绑定手机号，请先解绑或换绑" });
+    }
+    if ((scene === "rebind" || scene === "unbind") && !user.phone) {
+      return res.status(400).json({ error: "尚未绑定手机号" });
+    }
+    if (scene === "reset" && (!user.phone || !user.phone_verified)) {
+      return res.status(400).json({ error: "未绑定手机号，请使用邮箱验证" });
+    }
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 分钟有效
+    const codeType = `phone_${scene}`;
+
+    // 发送短信（阿里云生成验证码并发送，返回验证码明文）
+    let code = "";
+    try {
+      code = await sendSmsVerificationCode(phone);
+    } catch (err) {
+      const errorMsg = (err as Error).message;
+      console.error(`[send-phone-code] ✗ 短信发送失败: ${phone} - ${errorMsg}`);
+      return res.status(500).json({ error: "短信发送失败，请稍后重试" });
+    }
+
+    // 写入验证码表
+    const [insertResult] = await ctx.dbPool.execute(
+      `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userKey, phone, code, codeType, expiresAt, ip],
+    );
+    const resetId = (insertResult as any).insertId;
+    await ctx.dbPool.execute(
+      "UPDATE crm_password_resets SET sms_sent = 1 WHERE id = ?",
+      [resetId],
+    );
+
+    recordPhoneSms(phone);
+    recordForgotPasswordSend(ip);
+
+    res.json({ success: true, sms_sent: true });
+  }));
+
+  // ── 手机号管理：绑定 ──────────────────────────────────────────
+  router.post("/api/auth/bind-phone", asyncHandler(async (req, res) => {
+    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+    const phone = String(req.body.phone || "").trim();
+    const code = String(req.body.code || "").trim();
+
+    if (!userKey) return res.status(400).json({ error: "请先登录" });
+    if (!phone || !PHONE_REGEX.test(phone)) {
+      return res.status(400).json({ error: "请输入有效的手机号" });
+    }
+    if (!code) return res.status(400).json({ error: "请输入验证码" });
+
+    // 检查用户是否已绑定
+    const user = await usersRepo.findByKey(userKey);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+    if (user.phone) return res.status(409).json({ error: "已绑定手机号，请先解绑或换绑" });
+
+    // 验证手机号验证码
+    const [codeRows] = await ctx.dbPool.query(
+      `SELECT id, code, expires_at, attempts
+       FROM crm_password_resets
+       WHERE user_key = ? AND phone = ? AND code_type = 'phone_bind' AND used = 0 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [userKey, phone],
+    );
+    const codeRecord = (codeRows as any[])[0];
+
+    if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
+    if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    if (codeRecord.code !== code) {
+      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      return res.status(400).json({ error: "验证码错误" });
+    }
+
+    // 检查手机号是否被其他用户绑定
+    const existingByPhone = await usersRepo.findByPhone(phone);
+    if (existingByPhone) return res.status(409).json({ error: "该手机号已被其他用户绑定" });
+
+    // 绑定手机号
+    await usersRepo.bindPhone(userKey, phone);
+
+    // 标记验证码已使用
+    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+
+    res.json({ success: true, phone: maskPhone(phone) });
+  }));
+
+  // ── 手机号管理：换绑 ──────────────────────────────────────────
+  router.post("/api/auth/rebind-phone", asyncHandler(async (req, res) => {
+    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+    const newPhone = String(req.body.new_phone || "").trim();
+    const code = String(req.body.code || "").trim();
+
+    if (!userKey) return res.status(400).json({ error: "请先登录" });
+    if (!newPhone || !PHONE_REGEX.test(newPhone)) {
+      return res.status(400).json({ error: "请输入有效的手机号" });
+    }
+    if (!code) return res.status(400).json({ error: "请输入验证码" });
+
+    const user = await usersRepo.findByKey(userKey);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+    if (!user.phone) return res.status(400).json({ error: "尚未绑定手机号" });
+
+    // 验证新手机号验证码
+    const [codeRows] = await ctx.dbPool.query(
+      `SELECT id, code, expires_at, attempts
+       FROM crm_password_resets
+       WHERE user_key = ? AND phone = ? AND code_type = 'phone_rebind' AND used = 0 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [userKey, newPhone],
+    );
+    const codeRecord = (codeRows as any[])[0];
+
+    if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
+    if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    if (codeRecord.code !== code) {
+      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      return res.status(400).json({ error: "验证码错误" });
+    }
+
+    // 检查新手机号是否被其他用户绑定
+    const existingByPhone = await usersRepo.findByPhone(newPhone);
+    if (existingByPhone && existingByPhone.user_key !== userKey) {
+      return res.status(409).json({ error: "该手机号已被其他用户绑定" });
+    }
+
+    // 换绑（覆盖更新）
+    await usersRepo.bindPhone(userKey, newPhone);
+
+    // 标记验证码已使用
+    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+
+    res.json({ success: true, phone: maskPhone(newPhone) });
+  }));
+
+  // ── 手机号管理：解绑 ──────────────────────────────────────────
+  router.post("/api/auth/unbind-phone", asyncHandler(async (req, res) => {
+    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+    const code = String(req.body.code || "").trim();
+
+    if (!userKey) return res.status(400).json({ error: "请先登录" });
+    if (!code) return res.status(400).json({ error: "请输入验证码" });
+
+    const user = await usersRepo.findByKey(userKey);
+    if (!user) return res.status(404).json({ error: "用户不存在" });
+    if (!user.phone) return res.status(400).json({ error: "尚未绑定手机号" });
+
+    // 验证当前手机号的验证码
+    const [codeRows] = await ctx.dbPool.query(
+      `SELECT id, code, expires_at, attempts
+       FROM crm_password_resets
+       WHERE user_key = ? AND phone = ? AND code_type = 'phone_unbind' AND used = 0 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [userKey, user.phone],
+    );
+    const codeRecord = (codeRows as any[])[0];
+
+    if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
+    if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    if (codeRecord.code !== code) {
+      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      return res.status(400).json({ error: "验证码错误" });
+    }
+
+    // 解绑
+    await usersRepo.unbindPhone(userKey);
+
+    // 标记验证码已使用
+    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+
+    res.json({ success: true });
   }));
 
   return router;

@@ -4,9 +4,9 @@
  *
  * @module features/auth/components/AccountPanel
  * @description 账号弹窗已登录态面板：账号信息卡（VIP 状态 / 供应商认证 /
- *              线索配额）+ 默认行业偏好管理（IndustryPrefsForm）+
+ *              线索配额）+ 手机号绑定管理 + 默认行业偏好管理（IndustryPrefsForm）+
  *              MyRecordsPanel + 退出登录。
- *              Logged-in panel of the auth modal: account info card,
+ *              Logged-in panel of the auth modal: account info card, phone binding,
  *              industry preference form, records panel and logout.
  */
 import { useNavigate } from "react-router-dom";
@@ -14,6 +14,7 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
+import { PhoneBinding } from "./PhoneBinding";
 
 export interface AccountPanelProps {
   onClose: () => void;
@@ -74,6 +75,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
           </div>
         </div>
       </div>
+      <PhoneBinding />
       <IndustryPrefsForm />
       <MyRecordsPanel onOpenNotice={openNotice} />
       {claimMessage && (

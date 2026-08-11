@@ -68,7 +68,9 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (result.changedIds.length > 0 && isMeiliHealthy()) {
         await syncNoticeIds(dbPool, result.changedIds);
       }
-    } catch { /* 静默降级 */ }
+    } catch (e) {
+      console.error("[is-active-timer] 刷新失败:", (e as Error).message);
+    }
   }, 10 * 60 * 1000);
 
   // 3. 国家/机构缓存每日凌晨 5 点刷新

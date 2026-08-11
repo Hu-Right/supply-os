@@ -60,6 +60,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const [forgotView, setForgotView] = useState(false);
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
   const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotChannel, setForgotChannel] = useState<"email" | "sms">("email");
   const [forgotCode, setForgotCode] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -276,16 +277,33 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
 
     setForgotLoading(true);
     try {
-      const result = await sendResetCode(email);
-      // 检查邮件发送状态
-      if (result.email_sent === false) {
-        // 邮件发送失败，显示客服提示
-        setShowSupportHint(true);
-        setForgotError(t("authForgotEmailSendFailed") || "验证码邮件发送失败，请检查邮箱地址是否正确");
+      if (forgotChannel === "sms") {
+        // 手机验证渠道：直接调用 API
+        const res = await fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, channel: "sms" }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setForgotError(data.error || "发送验证码失败");
+        } else if (data.sms_sent === false) {
+          setShowSupportHint(true);
+          setForgotError(data.support_hint || "短信发送失败");
+        } else {
+          setForgotStep(2);
+          setForgotSuccess(t("authForgotCodeSent"));
+        }
       } else {
-        // 邮件发送成功，进入下一步
-        setForgotStep(2);
-        setForgotSuccess(t("authForgotCodeSent"));
+        // 邮箱验证渠道
+        const result = await sendResetCode(email);
+        if (result.email_sent === false) {
+          setShowSupportHint(true);
+          setForgotError(t("authForgotEmailSendFailed") || "验证码邮件发送失败，请检查邮箱地址是否正确");
+        } else {
+          setForgotStep(2);
+          setForgotSuccess(t("authForgotCodeSent"));
+        }
       }
     } catch (err: any) {
       setForgotError(err.message || t("authForgotSendFailed"));
@@ -314,9 +332,27 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
 
     setForgotLoading(true);
     try {
-      await resetPassword(forgotEmail.trim(), forgotCode.trim(), forgotNewPassword);
-      // 重置成功，自动登录后关闭弹窗
-      onSuccess();
+      if (forgotChannel === "sms") {
+        // 手机验证渠道：直接调用 API
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: forgotEmail.trim(),
+            channel: "sms",
+            code: forgotCode.trim(),
+            new_password: forgotNewPassword,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "重置密码失败");
+        // 重置成功，自动登录后关闭弹窗
+        onSuccess();
+      } else {
+        await resetPassword(forgotEmail.trim(), forgotCode.trim(), forgotNewPassword);
+        // 重置成功，自动登录后关闭弹窗
+        onSuccess();
+      }
     } catch (err: any) {
       setForgotError(err.message || t("authForgotResetFailed"));
     } finally {
@@ -362,7 +398,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           </h4>
 
           {forgotStep === 1 ? (
-            /* 步骤 1：输入邮箱 */
+            /* 步骤 1：输入邮箱 + 选择验证方式 */
             <div className="space-y-3">
               <Input
                 type="email"
@@ -370,6 +406,31 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                 onChange={(e) => setForgotEmail(e.target.value)}
                 placeholder={t("authEmailPlaceholder")}
               />
+              {/* 验证渠道选择 */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForgotChannel("email")}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    forgotChannel === "email"
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {t("authForgotChannelEmail")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForgotChannel("sms")}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                    forgotChannel === "sms"
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {t("authForgotChannelSms")}
+                </button>
+              </div>
               <button
                 type="submit"
                 disabled={forgotLoading}
@@ -467,6 +528,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               setForgotView(false);
               setForgotStep(1);
               setForgotEmail("");
+              setForgotChannel("email");
               setForgotCode("");
               setForgotNewPassword("");
               setForgotError("");

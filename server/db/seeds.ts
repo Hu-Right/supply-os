@@ -46,7 +46,6 @@ async function seedMembershipPlans(pool: Pool): Promise<void> {
       free_quota = VALUES(free_quota),
       plan_type = VALUES(plan_type),
       sort_order = VALUES(sort_order),
-      is_active = 1,
       updated_at = NOW()
   `);
   await pool.execute(`

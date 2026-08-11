@@ -14,6 +14,8 @@ export interface UserRow {
   id: number;
   user_key: string;
   email: string | null;
+  phone: string | null;
+  phone_verified: number;
   display_name: string | null;
   password_hash: string | null;
   password_hash_type: string;

@@ -8,6 +8,7 @@ import bcrypt from "bcrypt";
 import type { MembershipRepo } from "../repos/membership.repo";
 import type { SuppliersRepo } from "../repos/suppliers.repo";
 import type { UserRow } from "../repos/types";
+import { maskPhone } from "../utils/mask";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -61,6 +62,10 @@ export interface AuthUserResponse {
   supplier_id: number | null;
   supplier_industry_id: number | null;
   supplier_industry: string | null;
+  /** 已绑定手机号（脱敏显示） */
+  phone: string | null;
+  /** 手机号是否已验证 */
+  phone_verified: number;
 }
 
 /**
@@ -88,6 +93,8 @@ export async function buildUserResponse(
     supplier_id: (supplier?.id as number) || null,
     supplier_industry_id: (supplier?.industry_id as number) || null,
     supplier_industry: (supplier?.industry as string) || null,
+    phone: user.phone ? maskPhone(user.phone) : null,
+    phone_verified: user.phone_verified ?? 0,
   };
 }
 
