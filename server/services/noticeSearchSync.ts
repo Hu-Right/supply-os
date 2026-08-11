@@ -37,9 +37,22 @@ const UPPER_TO_CANONICAL = new Map<string, string>();
 function normalizeCountry(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
+  // 1. 精确匹配整个字符串
   if (COUNTRY_NAME_ZH[trimmed]) return UPPER_TO_CANONICAL.get(trimmed.toUpperCase()) || trimmed;
   const canonical = UPPER_TO_CANONICAL.get(trimmed.toUpperCase());
   if (canonical) return canonical;
+  // 2. 含逗号时拆分，提取第一部分作为国家名（处理 "Canada, British Columbia" 等格式）
+  if (trimmed.includes(",")) {
+    const parts = trimmed.split(",").map(p => p.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      const firstPart = parts[0];
+      // 尝试匹配第一部分
+      if (COUNTRY_NAME_ZH[firstPart]) return UPPER_TO_CANONICAL.get(firstPart.toUpperCase()) || firstPart;
+      const firstCanonical = UPPER_TO_CANONICAL.get(firstPart.toUpperCase());
+      if (firstCanonical) return firstCanonical;
+    }
+  }
+  // 3. 未知 → 原样返回
   return trimmed;
 }
 
@@ -216,6 +229,49 @@ async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
   return aliasMap;
 }
 
+/**
+ * is_active 对账：检测主表与宽表之间的 is_active 不一致并修复
+ *
+ * 解决问题：主表 crm_bid_notices 无 updated_at 列，宽表增量同步无法通过时间戳
+ * 检测 is_active 变更。当 refreshIsActive 直接更新宽表失败（静默降级）时，
+ * 宽表 is_active 会保持陈旧值，进而导致 Meilisearch 增量同步回读错误状态。
+ *
+ * 对账逻辑：LEFT JOIN 双向检测不一致（宽表=1/主表=0 + 宽表=0/主表=1），
+ * 批量修正宽表，返回变更 ID 供上层同步到 Meilisearch。
+ */
+async function reconcileIsActive(pool: Pool): Promise<number[]> {
+  try {
+    const [mismatchRows] = await pool.query(
+      `SELECT n.id, n.is_active
+       FROM crm_bid_notices n
+       LEFT JOIN crm_notice_search ns ON ns.id = n.id
+       WHERE ns.id IS NOT NULL
+         AND ns.is_active != n.is_active
+       LIMIT 5000`,
+    );
+    const mismatches = mismatchRows as RowDataPacket[];
+    if (mismatches.length === 0) return [];
+
+    const ids = mismatches.map(r => Number(r.id));
+    const BATCH = 1000;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const batch = ids.slice(i, i + BATCH);
+      const ph = batch.map(() => "?").join(",");
+      await pool.query(
+        `UPDATE crm_notice_search ns
+         INNER JOIN crm_bid_notices n ON n.id = ns.id
+         SET ns.is_active = n.is_active
+         WHERE ns.id IN (${ph})`,
+        batch,
+      );
+    }
+    return ids;
+  } catch (e) {
+    console.warn(`[wide-table] is_active 对账失败（静默降级）:`, (e as Error).message);
+    return [];
+  }
+}
+
 // ── 确保 UNSPSC 列宽足够 ──
 async function ensureUnspscColumns(pool: Pool): Promise<void> {
   try {
@@ -324,7 +380,6 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
     }
 
     const elapsed = Date.now() - start;
-    console.log(`[wide-table] 全量回填完成: ${totalSynced} 条, ${elapsed}ms`);
     return { synced: totalSynced, elapsed };
   } catch (err) {
     console.error("[wide-table] 全量回填失败:", (err as Error).message);
@@ -348,14 +403,20 @@ export async function incrementalWideSync(
     );
 
     let updatedRaw: any[] = [];
-    try {
-      const [updatedRows] = await pool.query(
+
+    // 对账：检测主表与宽表之间 is_active 不一致
+    // 主表 crm_bid_notices 无 updated_at 列，无法通过时间戳检测 is_active 变更，
+    // 改为直接 JOIN 比较两表值，修复 refreshIsActive 宽表 UPDATE 失败导致的陈旧状态
+    const reconciledIds = await reconcileIsActive(pool);
+    if (reconciledIds.length > 0) {
+      const placeholders = reconciledIds.map(() => "?").join(",");
+      const [reconciledRows] = await pool.query(
         WIDE_SYNC_SELECT + WIDE_SYNC_JOIN +
-        " WHERE n.updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY n.id ASC LIMIT 2000",
-        [],
+        ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
+        reconciledIds,
       );
-      updatedRaw = updatedRows as any[];
-    } catch { /* updated_at 列可能不存在 */ }
+      updatedRaw = reconciledRows as any[];
+    }
 
     const docMap = new Map<number, any>();
     for (const r of newRows as any[]) docMap.set(r.id, r);
@@ -456,26 +517,20 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number } 
     try {
       const ready = await isWideTableReady(pool);
       if (!ready) {
-        console.log("[wide-table] 宽表为空，启动全量回填…");
         const result = await fullBackfill(pool);
         if (result.synced > 0) {
           const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
           watermark = Number((maxRows as any[])[0]?.max_id || 0);
-          console.log(`[wide-table] 全量回填完成: ${result.synced} 条, watermark=${watermark}`);
         }
       } else {
         const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
         watermark = Number((maxRows as any[])[0]?.max_id || 0);
-        console.log(`[wide-table] 宽表已就绪: watermark=${watermark}, 增量同步已启动 (间隔 ${intervalMs / 1000}s)`);
       }
 
       const timer = setInterval(async () => {
         if (stopped) return;
         try {
-          const { synced, newWatermark } = await incrementalWideSync(pool, watermark);
-          if (synced > 0) {
-            console.log(`[wide-table] 增量同步: ${synced} 条 (watermark ${watermark} → ${newWatermark})`);
-          }
+          const { newWatermark } = await incrementalWideSync(pool, watermark);
           watermark = newWatermark;
         } catch (err) {
           console.warn("[wide-table] 增量同步异常:", (err as Error).message);

@@ -55,10 +55,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     try {
       const result = await refreshFeaturedColumn(dbPool);
       if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
-        if (syncResult.synced > 0) {
-          console.log(`[meilisearch] is_featured 状态同步: ${syncResult.synced} 条`);
-        }
+        await syncNoticeIds(dbPool, result.changedIds);
       }
     } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000);
@@ -69,10 +66,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       const result = await refreshIsActive(dbPool);
       await refreshNoticeStats(dbPool);
       if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        const syncResult = await syncNoticeIds(dbPool, result.changedIds);
-        if (syncResult.synced > 0) {
-          console.log(`[meilisearch] is_active 状态同步: ${syncResult.synced} 条`);
-        }
+        await syncNoticeIds(dbPool, result.changedIds);
       }
     } catch { /* 静默降级 */ }
   }, 10 * 60 * 1000);
@@ -82,7 +76,6 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     try {
       await refreshNoticeCountries(dbPool);
       await refreshNoticeAgencies(dbPool);
-      console.log("[daily-refresh] 国家/机构缓存已刷新");
     } catch (e) {
       console.error("[daily-refresh] 刷新失败（静默降级）:", (e as Error).message);
     }

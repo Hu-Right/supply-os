@@ -29,8 +29,7 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   // Phase 1：回填 is_active 列（确保搜索查询可走索引）
   const isActiveResult = await refreshIsActive(dbPool);
   if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
-    const syncResult = await syncNoticeIds(dbPool, isActiveResult.changedIds);
-    console.log(`[meilisearch] 启动时 is_active 同步: ${syncResult.synced} 条`);
+    await syncNoticeIds(dbPool, isActiveResult.changedIds);
   }
 
   // Phase 2：统计表 + 搜索 + 国家/机构 + 供应商 并行预热

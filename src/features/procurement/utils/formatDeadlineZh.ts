@@ -27,7 +27,7 @@ export function formatDeadlineZh(
 
   if (deadlineTs != null && deadlineTs !== "") {
     let ts = typeof deadlineTs === "string" ? Number(deadlineTs) : deadlineTs;
-    if (isNaN(ts)) return deadline || "";
+    if (isNaN(ts) || ts === 0) return deadline || ""; // 0 = 无截止日期（NULL 哨兵值），不显示为 1970 年
     // 秒级时间戳转毫秒（大于 10^12 视为毫秒级）
     if (ts < 1e12) ts = ts * 1000;
     date = new Date(ts);

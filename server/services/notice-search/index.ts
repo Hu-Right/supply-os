@@ -86,6 +86,30 @@ export async function searchNotices(
   const cached = noticeSearchCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.payload;
 
+  // ── FORCE_COUNTRY 冲突检测 ──
+  // 当机构为"XX各机构"（FORCE_COUNTRY 聚合）且用户同时选择了不同国家时，
+  // 两个筛选条件互斥（不可能既是巴西机构又发生在法国），应直接返回空结果。
+  // 修复前：Meilisearch 路径静默用 FORCE_COUNTRY 覆盖用户选择的国家（忽略国家筛选），
+  //         MySQL 路径生成矛盾 WHERE 条件（行为不一致）。
+  if (country && agency) {
+    const _checkItems = getAgencyCacheData() || [];
+    const _checkCached = _checkItems.find((item) => item.agency === agency);
+    if (_checkCached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
+      const forceCountry = _checkCached.agencyGroup.slice(14); // e.g. "Brazil"
+      const countryUpperForms = expandCountryAllForms(country).map(f => f.toUpperCase());
+      if (!countryUpperForms.includes(forceCountry.toUpperCase())) {
+        // 冲突：用户选择的国家与 FORCE_COUNTRY 指定的国家不同
+        console.log(`[search] FORCE_COUNTRY 矛盾: agency="${agency}" 要求 country="${forceCountry}"，` +
+          `用户选择 country="${country}" → 返回空结果`);
+        const emptyResult: NoticeSearchResult = {
+          items: [], total: 0, page, pageSize,
+        };
+        noticeSearchCache.set(cacheKey, { payload: emptyResult, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+        return emptyResult;
+      }
+    }
+  }
+
   // ── Meilisearch 统一优先路径 ──
   // 所有搜索（包括中文关键词、UNSPSC、多条件组合）都首先尝试 Meilisearch
   // 只有 Meilisearch 不可用/超时/失败时才降级到 MySQL
@@ -473,7 +497,7 @@ export async function searchNotices(
       const [dRows] = await pool.query(
         `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
            country_std AS country, agency_std AS agency,
-           deadline_sec, deadline_sec AS deadline_ts,
+           NULLIF(deadline_sec, 0) AS deadline_sec, NULLIF(deadline_sec, 0) AS deadline_ts,
            estimated_value, is_featured,
            LEFT(description, 300) AS description,
            ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, 500) AS description_i18n,

@@ -81,7 +81,17 @@ function normalizeCountry(raw: string): string {
   // 2. 大写匹配（覆盖数据库中的各种大小写变体）
   const canonical = UPPER_TO_CANONICAL.get(trimmed.toUpperCase());
   if (canonical) return canonical;
-  // 3. 未知国家名，保持原样
+  // 3. 含逗号时拆分，提取第一部分作为国家名（处理 "Canada, British Columbia" 等格式）
+  if (trimmed.includes(",")) {
+    const parts = trimmed.split(",").map(p => p.trim()).filter(Boolean);
+    if (parts.length > 0) {
+      const firstPart = parts[0];
+      if (COUNTRY_NAME_ZH[firstPart]) return UPPER_TO_CANONICAL.get(firstPart.toUpperCase()) || firstPart;
+      const firstCanonical = UPPER_TO_CANONICAL.get(firstPart.toUpperCase());
+      if (firstCanonical) return firstCanonical;
+    }
+  }
+  // 4. 未知国家名，保持原样
   return trimmed;
 }
 

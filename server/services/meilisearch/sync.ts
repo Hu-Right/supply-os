@@ -228,6 +228,38 @@ export async function incrementalSync(
     const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
+    // 权威值覆盖：is_active/is_featured 从主表 crm_bid_notices 读取
+    // 宽表 is_active 可能因 refreshIsActive 直接 UPDATE 失败而保持陈旧值，
+    // 此处从主表读取权威值，确保 Meilisearch 索引状态一致
+    const allIds = allRaw.map((r) => Number(r.id));
+    try {
+      const BATCH = 1000;
+      const statusMap = new Map<number, { is_active: number; is_featured: number }>();
+      for (let i = 0; i < allIds.length; i += BATCH) {
+        const batch = allIds.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        const [statusRows] = await pool.query(
+          `SELECT id, is_active, is_featured FROM crm_bid_notices WHERE id IN (${ph})`,
+          batch,
+        );
+        for (const row of statusRows as RowDataPacket[]) {
+          statusMap.set(Number(row.id), {
+            is_active: row.is_active ? 1 : 0,
+            is_featured: row.is_featured ? 1 : 0,
+          });
+        }
+      }
+      for (const r of allRaw) {
+        const status = statusMap.get(Number(r.id));
+        if (status) {
+          r.is_active = status.is_active;
+          r.is_featured = status.is_featured;
+        }
+      }
+    } catch (e) {
+      console.warn("[meilisearch] 权威值覆盖失败（静默降级）:", (e as Error).message);
+    }
+
     const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
     const newWatermark = allRaw[allRaw.length - 1].id;
@@ -241,6 +273,9 @@ export async function incrementalSync(
 /**
  * 按 ID 重新同步指定公告到 Meilisearch（从宽表）
  * 内部分批处理，支持大批量 ID（如 is_active 刷新产生的数万条变更）
+ *
+ * 修复：is_active/is_featured 从 crm_bid_notices 主表读取（权威数据源），
+ *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
  */
 export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
   const client = getClient();
@@ -254,12 +289,33 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
     for (let i = 0; i < ids.length; i += SQL_BATCH_SIZE) {
       const batch = ids.slice(i, i + SQL_BATCH_SIZE);
       const placeholders = batch.map(() => "?").join(",");
-      const [rows] = await pool.query(
-        WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`,
-        batch
-      );
 
-      const docs = (rows as any[]).map((r) => buildSyncDocFromWideTable(r));
+      // 并行查询：宽表（主要字段）+ 主表（is_active/is_featured 权威值）
+      const [wideRows, statusRows] = await Promise.all([
+        pool.query(WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`, batch),
+        pool.query(`SELECT id, is_active, is_featured FROM crm_bid_notices WHERE id IN (${placeholders})`, batch),
+      ]);
+
+      // 构建主表状态映射
+      const statusMap = new Map<number, { is_active: number; is_featured: number }>();
+      for (const row of (statusRows[0] as any[])) {
+        statusMap.set(Number(row.id), {
+          is_active: row.is_active ? 1 : 0,
+          is_featured: row.is_featured ? 1 : 0,
+        });
+      }
+
+      const docs = (wideRows[0] as any[]).map((r) => {
+        const doc = buildSyncDocFromWideTable(r);
+        // 用主表的权威值覆盖宽表值（修复宽表 is_active 不一致问题）
+        const status = statusMap.get(doc.id);
+        if (status) {
+          doc.is_active = status.is_active;
+          doc.is_featured = status.is_featured;
+        }
+        return doc;
+      });
+
       if (docs.length > 0) {
         await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
         totalSynced += docs.length;

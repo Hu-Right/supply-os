@@ -22,8 +22,7 @@ pnpm-debug.log*
 ~$*
 *.swp
 *.swo
-scripts/*
-!scripts/setup-meilisearch.ps1
+scripts/
 runtime/
 backups/
 bin/

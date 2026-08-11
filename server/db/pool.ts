@@ -41,9 +41,5 @@ export function createDbPool(): Pool {
       console.log("[db-pool] 连接已释放");
     }
   });
-  emitter.on("connection", () => {
-    console.log("[db-pool] 新连接已建立");
-  });
-
   return pool;
 }

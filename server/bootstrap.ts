@@ -53,10 +53,7 @@ export async function startServer() {
 
   // 机构别名映射种子数据（启动时自动写入，已存在则跳过）
   try {
-    const seedCount = await seedAgencyAliases(dbPool);
-    if (seedCount > 0) {
-      console.log(`[agency-alias] 种子数据写入: ${seedCount} 条别名映射`);
-    }
+    await seedAgencyAliases(dbPool);
   } catch (e) {
     console.error("[agency-alias] 种子数据写入失败（静默降级）:", (e as Error).message);
   }
@@ -67,13 +64,9 @@ export async function startServer() {
   // 回滚：删除以下 refreshFeaturedColumn 调用和 setInterval
   try {
     const result = await refreshFeaturedColumn(dbPool);
-    console.log(`[featured-init] 初始回填完成: marked=${result.marked} unmarked=${result.unmarked}`);
     // 将初始回填的 is_featured 变更同步到 Meilisearch
     if (result.changedIds.length > 0 && isMeiliHealthy()) {
-      const syncResult = await syncNoticeIds(dbPool, result.changedIds);
-      if (syncResult.synced > 0) {
-        console.log(`[meilisearch] is_featured 初始同步: ${syncResult.synced} 条`);
-      }
+      await syncNoticeIds(dbPool, result.changedIds);
     }
   } catch (e) {
     console.error("[featured-init] 初始回填失败:", (e as Error).message);
@@ -177,7 +170,6 @@ export async function startServer() {
           const indexReady = await ensureIndex();
           if (indexReady) {
             stopSearchSync = startSearchSync(dbPool, { intervalMs: 30 * 1000 });
-            console.log("[meilisearch] 初始化完成: 索引已就绪, 增量同步已启动 (间隔 30 秒)");
           } else {
             console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
           }
@@ -202,12 +194,10 @@ export async function startServer() {
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address
       ?? "localhost";
     console.log(`Server listening on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
-    console.log(`[warmup] 后台预热进行中…（服务已可用，首次请求可能略慢）`);
   });
 
   // ── P0 性能优化：启动时预热（后台异步，不阻塞启动）──
   void runWarmup({ dbPool, noticesRepo, suppliersRepo })
-    .then((ms) => console.log(`[warmup] 后台预热完成: ${ms}ms (zh/en 首页 + FULLTEXT + 纯筛选 + 高频组合搜索 + 国家/机构 + 供应商)`))
     .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
 
   // 返回 stop 函数供优雅关闭使用

@@ -53,12 +53,14 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "PRC": "中国",
   "P.R.C": "中国",
   "People's Republic of China": "中国",
+  "China, People's Republic of": "中国", // 反向格式
   "Colombia": "哥伦比亚",
   "Comoros": "科摩罗",
   "Congo": "刚果（布）",
   "Republic of the Congo": "刚果（布）",
   "Congo, Republic of": "刚果（布）",
   "Congo, Democratic Republic of the": "刚果（金）",
+  "Congo, The Democratic Republic of the": "刚果（金）", // ISO 3166 标准格式
   "Democratic Republic of the Congo": "刚果（金）",
   "DRC": "刚果（金）",
   "COD": "刚果（金）",
@@ -228,6 +230,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "SAU": "沙特阿拉伯",
   "Senegal": "塞内加尔",
   "Serbia": "塞尔维亚",
+  "Serbia, Republic of": "塞尔维亚", // 官方全称
   "Seychelles": "塞舌尔",
   "Sierra Leone": "塞拉利昂",
   "Singapore": "新加坡",

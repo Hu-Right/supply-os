@@ -56,11 +56,9 @@ export async function runIncrementalTranslation(
   dbPool: Pool,
   cfg: { maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
 ): Promise<{ ok: number; failed: number; charsUsed: number }> {
-  const startedAt = Date.now();
   let ok = 0;
   let failed = 0;
   let charsUsed = 0;
-  console.log(`[auto-translate] ── 开始扫描 ──`);
 
   // same-lang 标记行：title_tr/description_tr 均 NULL，仅阻断定时扫描重复命中
   async function writeSkipMarker(target: (typeof SCAN_TARGETS)[number], rowId: number, lang: string) {
@@ -84,7 +82,7 @@ export async function runIncrementalTranslation(
   if (budgetDay === today) {
     const used = Number(stateMap.get("budget_chars_used") || "0");
     if (used >= cfg.dailyCharBudget) {
-      console.log(`[auto-translate] 日预算已耗尽 (${used}/${cfg.dailyCharBudget})，本轮跳过`);
+      console.warn(`[auto-translate] 日预算已耗尽 (${used}/${cfg.dailyCharBudget})，本轮跳过`);
       return { ok: 0, failed: 0, charsUsed: used };
     }
     charsUsed = used;
@@ -133,7 +131,6 @@ export async function runIncrementalTranslation(
       // 避免它们反复占据 LIMIT 配额、挤掉真正需要翻译的小语种记录。
       if (targetLang === "en" && queue.length > 0) {
         const needTranslate: any[] = [];
-        let skipCount = 0;
         for (const row of queue) {
           const title = String(row.title || "").trim();
           const description = String(row.description || "").trim();
@@ -141,21 +138,14 @@ export async function runIncrementalTranslation(
           const srcLang = detectSourceLang(title, description);
           if (srcLang === "en") {
             if (!hasCache) await writeSkipMarker(target, row.id, targetLang);
-            skipCount++;
           } else {
             needTranslate.push(row);
           }
-        }
-        if (skipCount > 0) {
-          console.log(`[auto-translate] ${target.table} lang=en 预过滤 ${skipCount} 条英文原文（已写 skip 标记）`);
         }
         queue = needTranslate.slice(0, cfg.maxPerRun);
       }
 
       if (queue.length === 0) continue;
-      const totalInQueue = queue.length;
-      let processedCount = 0;
-      console.log(`[auto-translate] 扫描 ${target.table} lang=${targetLang} 待处理 ${totalInQueue} 条`);
 
       await Promise.all(
         Array.from({ length: CONCURRENCY }, async () => {
@@ -163,7 +153,6 @@ export async function runIncrementalTranslation(
             if (charsUsed >= cfg.dailyCharBudget) break;
             const row = queue.shift();
             if (!row) break;
-            const mySeq = ++processedCount; // 捕获当前序号到局部变量，避免并发竞态
             const title = String(row.title || "").trim();
             const description = String(row.description || "").trim();
             const reference = String(row.reference || "").trim();
@@ -178,12 +167,10 @@ export async function runIncrementalTranslation(
               sourceLang = detectSourceLang(title, description);
               if (!sourceLang) {
                 if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
-                console.log(`  [${mySeq}/${totalInQueue}] SKIP 无源语言 id=${row.id}`);
                 continue;
               }
               if (sourceLang === targetLang) {
                 if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
-                console.log(`  [${mySeq}/${totalInQueue}] SKIP 同语言(${sourceLang}) id=${row.id}`);
                 continue;
               }
               if (charsUsed >= cfg.dailyCharBudget) break;
@@ -193,7 +180,6 @@ export async function runIncrementalTranslation(
 
               if (result.provider === "same-lang-passthrough") {
                 if (!hasExistingCache) await writeSkipMarker(target, row.id, targetLang);
-                console.log(`  [${mySeq}/${totalInQueue}] SKIP 直通(${sourceLang}) id=${row.id}`);
                 continue;
               }
               charsUsed += title.length;
@@ -218,12 +204,10 @@ export async function runIncrementalTranslation(
               }
               
               ok += 1;
-              console.log(`  [${mySeq}/${totalInQueue}] OK   ${result.provider} id=${row.id} src=${sourceLang}→${targetLang}`);
             } catch (err: any) {
               failed += 1;
               const errMsg = err?.message || String(err);
               const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
-              console.log(`  [${mySeq}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${row.id} src=${sourceLang ?? "unknown"}→${targetLang}`);
               logger.warn(
                 `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" degraded="${degraded}" title="${titlePreview}" desc="${descPreview}"`
               );
@@ -241,9 +225,6 @@ export async function runIncrementalTranslation(
      ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
     ["budget_day", today, "budget_chars_used", String(charsUsed)]
   );
-  console.log(
-    `[auto-translate] 增量双语翻译: 成功 ${ok} 失败 ${failed} 字符 ${charsUsed}/${cfg.dailyCharBudget} 耗时 ${Math.round((Date.now() - startedAt) / 1000)}s`
-  );
   return { ok, failed, charsUsed };
 }
 
@@ -258,8 +239,7 @@ async function probeDeepSeekHealth(): Promise<void> {
     return;
   }
   try {
-    const result = await translateViaChain(["Hello"], "en", "zh");
-    console.log(`[auto-translate] ✓ DeepSeek 健康检查通过 (provider=${result.provider})`);
+    await translateViaChain(["Hello"], "en", "zh");
   } catch (err: any) {
     const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || err?.message || String(err);
     console.error(`[auto-translate] ✗ DeepSeek 健康检查失败: ${degraded}。翻译任务将继续尝试但可能持续失败，请检查 API Key 与网络。`);
@@ -275,7 +255,6 @@ export function startAutoTranslate(
   cfg: { enabled: boolean; intervalMs: number; maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
 ): () => void {
   if (!cfg.enabled) {
-    console.log("[auto-translate] 已禁用（NOTICE_AUTO_TRANSLATE=off）");
     return () => {};
   }
 
@@ -296,9 +275,6 @@ export function startAutoTranslate(
   void probeDeepSeekHealth();
   const timer1 = setTimeout(() => void tick(), 30_000);
   const timer2 = setInterval(() => void tick(), cfg.intervalMs);
-  console.log(
-    `[auto-translate] 已启用: 每 ${Math.round(cfg.intervalMs / 60000)} 分钟扫描新增公告（水位以上），单轮上限 ${cfg.maxPerRun} 条/语言，仅标题翻译（内容暂关闭），双语（zh+en），日预算 ${cfg.dailyCharBudget} 字符，并发 ${CONCURRENCY}`
-  );
 
   return () => {
     clearTimeout(timer1);
