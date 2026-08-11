@@ -568,8 +568,28 @@ export async function searchNotices(
 
   const t2 = Date.now();
 
-  // 移除 MySQL COUNT 校准等待（太慢）
-  // 直接使用 Meilisearch 返回的 total
+  // ── Meilisearch total 精度校准 ──
+  // Meilisearch 只返回 estimatedTotalHits（估算值），可能导致数字波动
+  // 当 total 不精确时，尝试用数据库 COUNT 查询校准（带超时保护）
+  if (meiliHit && !meiliTotalIsPrecise && !referenceHit) {
+    const CALIBRATE_TIMEOUT_MS = 2000;
+    try {
+      const countResult = await Promise.race([
+        countPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), CALIBRATE_TIMEOUT_MS)),
+      ]) as any;
+      if (countResult) {
+        const dbTotal = Number((countResult[0] as any[])[0]?.total || 0);
+        if (dbTotal > 0) {
+          console.log(`[search-perf] COUNT 校准: Meilisearch估算=${total} → 数据库精确=${dbTotal} (差值=${total - dbTotal})`);
+          total = dbTotal;
+          meiliTotalIsPrecise = true;
+        }
+      }
+    } catch {
+      // 校准失败，继续使用 Meilisearch 估算值
+    }
+  }
 
   // P1 修复：最后一页短路——对 Meilisearch 和 MySQL 两条路径都生效
   const lastPageShortCircuit = pageIds.length > 0 && pageIds.length < pageSize;
