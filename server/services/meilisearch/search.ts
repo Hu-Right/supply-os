@@ -4,7 +4,7 @@
  *
  * @module server/services/meilisearch/search
  */
-import { getClient, isHealthy, getIndexName } from "./client";
+import { getClient, isHealthy, getIndexName, markUnhealthy, tryRecover } from "./client";
 import { normalizeNoticeType } from "./sync";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
@@ -45,7 +45,12 @@ export async function searchWithFilters(params: {
   pageSize: number;
 }): Promise<{ ids: number[]; total: number; totalIsPrecise: boolean } | null> {
   const client = getClient();
-  if (!client || !isHealthy()) return null;
+  if (!client) return null;
+  // 运行时健康探测：如果不健康，尝试恢复（冷却期内自动跳过）
+  if (!isHealthy()) {
+    const recovered = await tryRecover();
+    if (!recovered) return null;
+  }
   const INDEX_NAME = getIndexName();
 
   try {
@@ -138,6 +143,8 @@ export async function searchWithFilters(params: {
     return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
   } catch (err) {
     console.warn("[meilisearch] searchWithFilters failed:", (err as Error).message);
+    // 搜索失败/超时：标记为不健康，后续请求将自动降级到 MySQL 并尝试恢复
+    markUnhealthy();
     return null;
   }
 }

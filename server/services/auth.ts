@@ -52,6 +52,15 @@ export function needsUpgrade(hashType: string): boolean {
   return hashType !== "bcrypt";
 }
 
+// ── 验证码哈希 ──
+// 验证码存储安全：数据库中只存哈希值，明文仅用于发送短信/邮件
+// SHA-256 即可（验证码一次性、6 位数字、短生命周期，无需 bcrypt）
+
+/** 对验证码明文计算哈希（用于入库存储） */
+export function hashVerificationCode(code: string): string {
+  return crypto.createHash("sha256").update(`verify_code:${code}`).digest("hex");
+}
+
 /** 登录/用户信息公共响应体 */
 export interface AuthUserResponse {
   user_key: string;

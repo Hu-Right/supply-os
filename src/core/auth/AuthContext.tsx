@@ -12,6 +12,7 @@
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
+import { setAuthTokens, clearAuthTokens, getAuthToken } from "@/core/http";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -53,7 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsAuthLoading(true);
     try {
-      const res = await fetch(`/api/auth/user?user_key=${encodeURIComponent(userKey)}`, { cache: "no-store" });
+      // 优先使用 JWT Token，回退到 query param
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const url = token
+        ? "/api/auth/user"
+        : `/api/auth/user?user_key=${encodeURIComponent(userKey)}`;
+      const res = await fetch(url, { cache: "no-store", headers });
       const data = await res.json();
       if (!res.ok || !data.user) throw new Error(data.error || "刷新账号状态失败");
       persistAuthUser(data.user);
@@ -78,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
+      // 存储 JWT Token 对
+      if (data.token && data.refresh_token) {
+        setAuthTokens(data.token, data.refresh_token);
+      }
       persistAuthUser(data.user);
     } finally {
       setIsAuthLoading(false);
@@ -99,6 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
 
+      // 存储 JWT Token 对（注册即登录）
+      if (data.token && data.refresh_token) {
+        setAuthTokens(data.token, data.refresh_token);
+      }
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
 
@@ -135,7 +151,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authUserRef.current = null;
     setAuthUser(null);
     setIsVip(false);
+    setClaimMessage("");
     window.localStorage.removeItem(AUTH_USER_KEY);
+    clearAuthTokens();
   };
 
   /**
@@ -203,6 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "重置密码失败");
+      // 存储 JWT Token 对（重置后自动登录）
+      if (data.token && data.refresh_token) {
+        setAuthTokens(data.token, data.refresh_token);
+      }
       persistAuthUser(data.user);
     } finally {
       setIsAuthLoading(false);

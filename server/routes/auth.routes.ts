@@ -9,11 +9,16 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
-import { hashPassword, verifyPassword, needsUpgrade, buildUserResponse } from "../services/auth";
+import { hashPassword, verifyPassword, needsUpgrade, buildUserResponse, hashVerificationCode } from "../services/auth";
 import { sendPasswordResetEmail, sendRegistrationVerifyEmail, isEmailConfigured } from "../services/email";
 import { sendSmsVerificationCode, isSmsConfigured } from "../services/sms";
 import { validatePassword } from "../../src/shared/auth/passwordPolicy";
 import { maskPhone } from "../utils/mask";
+import {
+  signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken,
+  getRefreshTokenExpiresAt, extractBearerToken,
+} from "../services/jwt";
+import { requireAuth } from "../middleware/auth";
 
 // ── 速率限制器（登录防暴力破解）──
 // P2-3 修复：内存 + 文件持久化，重启不丢失；以 IP 为 key，滑动窗口 15 分钟内最多 10 次失败
@@ -77,6 +82,28 @@ function clearLoginFailures(ip: string): void {
   loginAttempts.delete(ip);
 }
 
+/**
+ * 签发 JWT Token 对（Access + Refresh）并存入 Refresh Token 到数据库
+ * 返回 { token, refresh_token } 供响应体使用
+ */
+async function issueTokenPair(
+  dbPool: import("mysql2/promise").Pool,
+  userKey: string,
+  email: string,
+): Promise<{ token: string; refresh_token: string }> {
+  const accessToken = signAccessToken({ user_key: userKey, email });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
+  const expiresAt = getRefreshTokenExpiresAt();
+
+  // 存入数据库（fire-and-forget，失败不影响登录）
+  void dbPool.execute(
+    "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
+    [userKey, tokenHash, expiresAt],
+  ).catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
+
+  return { token: accessToken, refresh_token: refreshToken };
+}
+
 // 定期清理过期条目（防止内存泄漏）+ 持久化
 setInterval(() => {
   const now = Date.now();
@@ -130,7 +157,7 @@ export function createAuthRouter(ctx: AppContext): Router {
     const [insertResult] = await ctx.dbPool.execute(
       `INSERT INTO crm_password_resets (user_key, code, code_type, expires_at, ip)
        VALUES (?, ?, 'registration', ?, ?)`,
-      [email, code, expiresAt, ip],
+      [email, hashVerificationCode(code), expiresAt, ip],
     );
     const resetId = (insertResult as any).insertId;
 
@@ -187,7 +214,7 @@ export function createAuthRouter(ctx: AppContext): Router {
     if (codeRecord.attempts >= 5) {
       return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
     }
-    if (codeRecord.code !== verifyCode) {
+    if (codeRecord.code !== hashVerificationCode(verifyCode)) {
       await ctx.dbPool.execute(
         "UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?",
         [codeRecord.id],
@@ -221,9 +248,16 @@ export function createAuthRouter(ctx: AppContext): Router {
     // 标记邮箱已验证（注册时已通过验证码验证邮箱所有权）
     await usersRepo.markEmailVerified(email);
 
+    // 签发 JWT Token 对（注册即登录）
+    let tokens: { token: string; refresh_token: string } | null = null;
+    try {
+      tokens = await issueTokenPair(ctx.dbPool, email, email);
+    } catch { /* JWT_SECRET 未配置，静默降级 */ }
+
     res.status(201).json({
       success: true,
       user: { user_key: email, email, display_name: displayName, membership_tier: "free" },
+      ...tokens,
     });
   }));
 
@@ -261,7 +295,12 @@ export function createAuthRouter(ctx: AppContext): Router {
     }
 
     const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
-    res.json({ success: true, user: payload });
+    // 签发 JWT Token 对（JWT_SECRET 未配置时静默跳过）
+    let tokens: { token: string; refresh_token: string } | null = null;
+    try {
+      tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || "");
+    } catch { /* JWT_SECRET 未配置，静默降级 */ }
+    res.json({ success: true, user: payload, ...tokens });
   }));
 
   router.get("/api/auth/user", asyncHandler(async (req, res) => {
@@ -366,7 +405,7 @@ export function createAuthRouter(ctx: AppContext): Router {
       const [insertResult] = await ctx.dbPool.execute(
         `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
          VALUES (?, ?, ?, 'phone_reset', ?, ?)`,
-        [email, user.phone, code, expiresAt, ip],
+        [email, user.phone, hashVerificationCode(code), expiresAt, ip],
       );
       const resetId = (insertResult as any).insertId;
       await ctx.dbPool.execute(
@@ -404,7 +443,7 @@ export function createAuthRouter(ctx: AppContext): Router {
       const [insertResult] = await ctx.dbPool.execute(
         `INSERT INTO crm_password_resets (user_key, code, expires_at, ip)
          VALUES (?, ?, ?, ?)`,
-        [email, code, expiresAt, ip],
+        [email, hashVerificationCode(code), expiresAt, ip],
       );
       const resetId = (insertResult as any).insertId;
 
@@ -486,7 +525,7 @@ export function createAuthRouter(ctx: AppContext): Router {
     }
 
     // 验证码匹配校验
-    if (record.code !== code) {
+    if (record.code !== hashVerificationCode(code)) {
       // 尝试次数 +1
       await ctx.dbPool.execute(
         "UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?",
@@ -512,7 +551,12 @@ export function createAuthRouter(ctx: AppContext): Router {
       return res.status(500).json({ error: "重置成功，但获取用户信息失败，请重新登录" });
     }
     const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
-    res.json({ success: true, user: payload });
+    // 重置成功后签发新 Token（旧 Token 自然过期）
+    let tokens: { token: string; refresh_token: string } | null = null;
+    try {
+      tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || "");
+    } catch { /* JWT_SECRET 未配置，静默降级 */ }
+    res.json({ success: true, user: payload, ...tokens });
   }));
 
   // ── 手机号管理：发送验证码 ──────────────────────────────────────────
@@ -556,9 +600,9 @@ export function createAuthRouter(ctx: AppContext): Router {
   /** 中国大陆手机号正则（11 位数字，1 开头） */
   const PHONE_REGEX = /^1[3-9]\d{9}$/;
 
-  router.post("/api/auth/send-phone-code", asyncHandler(async (req, res) => {
+  router.post("/api/auth/send-phone-code", requireAuth, asyncHandler(async (req, res) => {
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
-    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+    const userKey = req.userKey || "";
     const phone = String(req.body.phone || "").trim();
     const scene = String(req.body.scene || "bind");
 
@@ -618,7 +662,7 @@ export function createAuthRouter(ctx: AppContext): Router {
     const [insertResult] = await ctx.dbPool.execute(
       `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [userKey, phone, code, codeType, expiresAt, ip],
+      [userKey, phone, hashVerificationCode(code), codeType, expiresAt, ip],
     );
     const resetId = (insertResult as any).insertId;
     await ctx.dbPool.execute(
@@ -633,8 +677,8 @@ export function createAuthRouter(ctx: AppContext): Router {
   }));
 
   // ── 手机号管理：绑定 ──────────────────────────────────────────
-  router.post("/api/auth/bind-phone", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+  router.post("/api/auth/bind-phone", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     const phone = String(req.body.phone || "").trim();
     const code = String(req.body.code || "").trim();
 
@@ -661,7 +705,7 @@ export function createAuthRouter(ctx: AppContext): Router {
 
     if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
-    if (codeRecord.code !== code) {
+    if (codeRecord.code !== hashVerificationCode(code)) {
       await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
       return res.status(400).json({ error: "验证码错误" });
     }
@@ -680,8 +724,8 @@ export function createAuthRouter(ctx: AppContext): Router {
   }));
 
   // ── 手机号管理：换绑 ──────────────────────────────────────────
-  router.post("/api/auth/rebind-phone", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+  router.post("/api/auth/rebind-phone", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     const newPhone = String(req.body.new_phone || "").trim();
     const code = String(req.body.code || "").trim();
 
@@ -707,7 +751,7 @@ export function createAuthRouter(ctx: AppContext): Router {
 
     if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
-    if (codeRecord.code !== code) {
+    if (codeRecord.code !== hashVerificationCode(code)) {
       await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
       return res.status(400).json({ error: "验证码错误" });
     }
@@ -728,8 +772,8 @@ export function createAuthRouter(ctx: AppContext): Router {
   }));
 
   // ── 手机号管理：解绑 ──────────────────────────────────────────
-  router.post("/api/auth/unbind-phone", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(String(req.body.user_key || "")) || "";
+  router.post("/api/auth/unbind-phone", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     const code = String(req.body.code || "").trim();
 
     if (!userKey) return res.status(400).json({ error: "请先登录" });
@@ -751,7 +795,7 @@ export function createAuthRouter(ctx: AppContext): Router {
 
     if (!codeRecord) return res.status(400).json({ error: "验证码已过期，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
-    if (codeRecord.code !== code) {
+    if (codeRecord.code !== hashVerificationCode(code)) {
       await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
       return res.status(400).json({ error: "验证码错误" });
     }
@@ -764,6 +808,72 @@ export function createAuthRouter(ctx: AppContext): Router {
 
     res.json({ success: true });
   }));
+
+  // ── Token 刷新 ──────────────────────────────────────────
+  // 用 Refresh Token 换取新的 Access Token（无感续期）
+  router.post("/api/auth/refresh", asyncHandler(async (req, res) => {
+    const refreshToken = String(req.body.refresh_token || "").trim();
+    if (!refreshToken) {
+      return res.status(400).json({ error: "REFRESH_TOKEN_REQUIRED" });
+    }
+
+    // 验证 Refresh Token 签名
+    let payload: { user_key: string };
+    try {
+      payload = verifyRefreshToken(refreshToken);
+    } catch {
+      return res.status(401).json({ error: "INVALID_REFRESH_TOKEN" });
+    }
+
+    // 检查数据库中是否存在该 Refresh Token（哈希比对）
+    const tokenHash = hashRefreshToken(refreshToken);
+    const [rows] = await ctx.dbPool.query(
+      "SELECT id, user_key FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
+      [tokenHash],
+    );
+    const stored = (rows as any[])[0];
+    if (!stored) {
+      return res.status(401).json({ error: "REFRESH_TOKEN_REVOKED" });
+    }
+
+    // 签发新 Access Token（Refresh Token 不变，继续复用）
+    const user = await usersRepo.findProfileByKey(payload.user_key);
+    if (!user) {
+      return res.status(404).json({ error: "USER_NOT_FOUND" });
+    }
+    const newAccessToken = signAccessToken({
+      user_key: payload.user_key,
+      email: (user as any).email || "",
+    });
+    res.json({ success: true, token: newAccessToken });
+  }));
+
+  // ── 登出（撤销 Refresh Token）──────────────────────────────
+  router.post("/api/auth/logout", asyncHandler(async (req, res) => {
+    const refreshToken = String(req.body.refresh_token || "").trim();
+    if (refreshToken) {
+      // 撤销指定 Refresh Token
+      const tokenHash = hashRefreshToken(refreshToken);
+      await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
+    }
+
+    // 如果携带 JWT，也可撤销该用户的所有 Refresh Token（全设备登出）
+    const bearerToken = extractBearerToken(req.headers.authorization);
+    if (bearerToken) {
+      try {
+        const { user_key } = verifyRefreshToken(bearerToken);
+        // 仅当 JWT 有效且为 refresh 类型时撤销
+        await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [user_key]);
+      } catch { /* JWT 无效或已过期，忽略 */ }
+    }
+
+    res.json({ success: true });
+  }));
+
+  // 定期清理过期 Refresh Token（每小时一次）
+  setInterval(() => {
+    void ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE expires_at < NOW()").catch(() => {});
+  }, 60 * 60 * 1000).unref();
 
   return router;
 }

@@ -41,6 +41,7 @@ export function createSuppliersRouter(ctx: AppContext): Router {
 
   router.use(createSupplierRegisterRouter({
     suppliersRepo,
+    usersRepo,
     leadsDb: ctx.leadsDb,
     invalidateCache: invalidateSupplierCache,
   }));

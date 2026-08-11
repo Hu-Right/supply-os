@@ -86,12 +86,52 @@ export async function searchNotices(
   const cached = noticeSearchCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.payload;
 
+  // ── 搜索状态变量（提前声明，供快速路径和主搜索路径共用）──
+  let meiliHit = false;
+  let total = 0;
+  let pageIds: number[] = [];
+  let countMs = 0;
+  let idMs = 0;
+  let searchMode = "mysql";
+  let meiliTotalIsPrecise = false; // P0 修复：标记 Meilisearch total 是否为精确值
+  let meiliForceCountryUsed = "";  // P0 修复：记录是否使用了国家级强制聚合
+
+  // ── 参考号精确匹配快速路径 ──
+  // 当搜索词非空且无其他复杂筛选条件时，先尝试宽表 reference 列精确匹配。
+  // 走 B-tree 索引（< 1ms），命中则直接返回，跳过 Meilisearch/FULLTEXT，
+  // 消除双路径分词差异和同步延迟导致的搜索结果不一致。
+  let referenceHit = false;
+  if (q && !p.codeId && !p.noticeType && !p.featuredOnly && !p.deadlineFrom && !p.deadlineTo && !p.deadlineWithinDays) {
+    const trimmedQ = q.trim();
+    try {
+      const wideReady = await isWideTableReady(pool);
+      if (wideReady) {
+        const [refRows] = await pool.query(
+          `SELECT id FROM crm_notice_search
+           WHERE reference = ? AND is_active = 1
+             AND (deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
+           LIMIT 1`,
+          [trimmedQ]
+        );
+        if ((refRows as any[]).length > 0) {
+          referenceHit = true;
+          total = 1;
+          pageIds = [Number((refRows as any[])[0].id)];
+          searchMode = "ref-exact";
+          console.log(`[search-perf] mode=ref-exact page=1 q="${q}" | 参考号精确匹配命中 id=${pageIds[0]} (<1ms)`);
+        }
+      }
+    } catch {
+      // 快速路径失败，静默降级到正常搜索流程
+    }
+  }
+
   // ── FORCE_COUNTRY 冲突检测 ──
   // 当机构为"XX各机构"（FORCE_COUNTRY 聚合）且用户同时选择了不同国家时，
   // 两个筛选条件互斥（不可能既是巴西机构又发生在法国），应直接返回空结果。
   // 修复前：Meilisearch 路径静默用 FORCE_COUNTRY 覆盖用户选择的国家（忽略国家筛选），
   //         MySQL 路径生成矛盾 WHERE 条件（行为不一致）。
-  if (country && agency) {
+  if (!referenceHit && country && agency) {
     const _checkItems = getAgencyCacheData() || [];
     const _checkCached = _checkItems.find((item) => item.agency === agency);
     if (_checkCached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
@@ -113,16 +153,9 @@ export async function searchNotices(
   // ── Meilisearch 统一优先路径 ──
   // 所有搜索（包括中文关键词、UNSPSC、多条件组合）都首先尝试 Meilisearch
   // 只有 Meilisearch 不可用/超时/失败时才降级到 MySQL
-  let meiliHit = false;
-  let total = 0;
-  let pageIds: number[] = [];
-  let countMs = 0;
-  let idMs = 0;
-  let searchMode = "mysql";
-  let meiliTotalIsPrecise = false; // P0 修复：标记 Meilisearch total 是否为精确值
-  let meiliForceCountryUsed = "";  // P0 修复：记录是否使用了国家级强制聚合
+  // 参考号精确匹配命中时跳过此阶段
 
-  const isChinese = /[\u4e00-\u9fff]/.test(q);
+  const isChinese = /[一-鿿]/.test(q);
 
   // ── UNSPSC 行业分类预解析 ──
   let unspscLevel = 0;
@@ -146,7 +179,7 @@ export async function searchNotices(
   // 条件：Meilisearch 健康 + (无 codeId 或 Meilisearch 能处理该 UNSPSC level)
   // 当 codeId 存在但 Meilisearch 无法处理时（level 6/7 或 code 不存在），跳过 Meilisearch 走 MySQL
   const skipMeiliForUnspsc = p.codeId && !meiliCanHandleUnspsc;
-  if (isMeiliHealthy() && !skipMeiliForUnspsc) {
+  if (!referenceHit && isMeiliHealthy() && !skipMeiliForUnspsc) {
     // 解析机构名（供 Meilisearch 筛选）
     let meiliAgencies: string[] | undefined;
     let meiliAgencyGroup: string | undefined;
@@ -222,7 +255,7 @@ export async function searchNotices(
   }
 
   // ── MySQL 降级路径（仅当 Meilisearch 不可用/失败时执行）──
-  if (!meiliHit) {
+  if (!meiliHit && !referenceHit) {
     searchMode = q ? (isChinese ? "mysql-zh-FULLTEXT" : "mysql-en-FULLTEXT") : "mysql-none";
     console.log(`[search-perf] fallback MySQL mode=${searchMode} q="${q}" country="${country}"`);
   }
@@ -439,7 +472,7 @@ export async function searchNotices(
   // 直接使用 Meilisearch 返回的 total，或者使用统计表
   let meiliCalibratePromise: Promise<number | null> | null = null;
 
-  if (!meiliHit) {
+  if (!meiliHit && !referenceHit) {
     // P2 修复：MySQL 降级路径增加超时保护（15 秒），避免极端慢查询无限阻塞
     const MYSQL_TIMEOUT_MS = 15000;
     const timeoutPromise = new Promise<never>((_, reject) =>

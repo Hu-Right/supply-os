@@ -25,6 +25,8 @@
  *              015-registration-email-verification 注册邮箱验证(code_type字段)
  *              016-user-phone                 用户手机号绑定
  *              017-phone-verification         验证码表扩展支持手机
+ *              018-jwt-auth                   JWT认证 refresh_tokens 表
+ *              019-reference-index            参考号精确匹配索引
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -45,12 +47,14 @@ import { migration as m014 } from "./migrations/014-password-reset-email-columns
 import { migration as m015 } from "./migrations/015-registration-email-verification";
 import { migration as m016 } from "./migrations/016-user-phone";
 import { migration as m017 } from "./migrations/017-phone-verification";
+import { migration as m018 } from "./migrations/018-jwt-auth";
+import { migration as m019 } from "./migrations/019-reference-index";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
-  m012, m013, m014, m015, m016, m017,
+  m012, m013, m014, m015, m016, m017, m018, m019,
 ];
 
 /**

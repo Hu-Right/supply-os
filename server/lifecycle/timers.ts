@@ -10,6 +10,7 @@ import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices";
 import { refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
+import { syncWideIds } from "../services/noticeSearchSync";
 
 /**
  * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
@@ -60,7 +61,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000);
 
-  // 2. is_active 每 10 分钟刷新
+  // 2. is_active 每 3 分钟刷新（缩短间隔以减少数据延迟）
   const isActiveRefreshTimer = setInterval(async () => {
     try {
       const result = await refreshIsActive(dbPool);
@@ -68,10 +69,16 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (result.changedIds.length > 0 && isMeiliHealthy()) {
         await syncNoticeIds(dbPool, result.changedIds);
       }
+      // 修复：宽表同步失败的 ID，通过 syncWideIds 从主表直接补偿
+      // syncWideIds 会重新从主表读取权威值并写入宽表，确保 is_active 一致
+      if (result.wideSyncFailedIds.length > 0) {
+        console.log(`[is-active-timer] 宽表补偿同步 ${result.wideSyncFailedIds.length} 条失败 ID`);
+        await syncWideIds(dbPool, result.wideSyncFailedIds);
+      }
     } catch (e) {
       console.error("[is-active-timer] 刷新失败:", (e as Error).message);
     }
-  }, 10 * 60 * 1000);
+  }, 3 * 60 * 1000);
 
   // 3. 国家/机构缓存每日凌晨 5 点刷新
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {

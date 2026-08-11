@@ -24,22 +24,21 @@ export function isSmsConfigured(): boolean {
 }
 
 /** 获取或创建阿里云 SMS 客户端 */
-function getAliyunClient(): any {
+async function getAliyunClient(): Promise<any> {
   if (_aliyunClient) return _aliyunClient;
 
-  // 动态导入，避免 mock 模式下加载 SDK
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const China_Dypnsapi = require("@alicloud/dypnsapi20170525");
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const OpenApi = require("@alicloud/openapi-client");
+    const China_Dypnsapi = await import("@alicloud/dypnsapi20170525");
+    const OpenApi = await import("@alicloud/openapi-client");
 
     const config = new OpenApi.Config({
       accessKeyId: SMS_ACCESS_KEY_ID,
       accessKeySecret: SMS_ACCESS_KEY_SECRET,
       endpoint: "dypnsapi.aliyuncs.com",
     });
-    _aliyunClient = new China_Dypnsapi.default(config);
+    // ESM import: .default 即为 Client 构造函数（CJS module.exports 的映射）
+    const Client = China_Dypnsapi.default;
+    _aliyunClient = new Client(config);
     return _aliyunClient;
   } catch (err) {
     throw new Error(`SMS_SDK_INIT_FAILED: ${(err as Error).message}`);
@@ -66,11 +65,10 @@ export async function sendSmsVerificationCode(phone: string): Promise<string> {
   }
 
   // 阿里云 SMS 发送
-  const client = getAliyunClient();
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const Models = require("@alicloud/dypnsapi20170525");
+  const client = await getAliyunClient();
+  const Dypnsapi = await import("@alicloud/dypnsapi20170525");
 
-  const request = new Models.SendSmsVerifyCodeRequest({
+  const request = new Dypnsapi.SendSmsVerifyCodeRequest({
     phoneNumber: phone,
     signName: SMS_SIGN_NAME,
     templateCode: SMS_TEMPLATE_CODE,

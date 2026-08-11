@@ -11,16 +11,18 @@ import { asyncHandler } from "../../middleware/errorHandler";
 import { normalizeUserKey } from "../../utils/normalize";
 import { mapSupplierRow } from "../../services/suppliers";
 import { SuppliersRepo } from "../../repos/suppliers.repo";
+import { UsersRepo } from "../../repos/users.repo";
 
 export interface RegisterDeps {
   suppliersRepo: SuppliersRepo;
+  usersRepo: UsersRepo;
   leadsDb: AppContext["leadsDb"];
   invalidateCache: () => void;
 }
 
 export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   const router = Router();
-  const { suppliersRepo, leadsDb, invalidateCache } = deps;
+  const { suppliersRepo, usersRepo, leadsDb, invalidateCache } = deps;
 
   // POST /api/suppliers — 注册新供应商
   router.post("/api/suppliers", asyncHandler(async (req, res) => {
@@ -123,6 +125,14 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
       contactEmail,
       businessLicenseNo,
     });
+
+    // 如果用户尚未绑定手机号，且表单中提供了有效手机号，则自动绑定
+    if (contactPhone && /^1[3-9]\d{9}$/.test(contactPhone)) {
+      const user = await usersRepo.findByKey(userKey);
+      if (user && !user.phone) {
+        await usersRepo.bindPhone(userKey, contactPhone);
+      }
+    }
 
     res.status(201).json({ success: true, id: claimId, status: "pending" });
   }));

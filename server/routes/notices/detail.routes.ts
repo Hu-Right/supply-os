@@ -12,6 +12,7 @@ import { normalizeUnspscCodes } from "../../services/unspsc";
 import { NOTICE_TRANSLATION_LANGS, getTranslatedNoticeDetail } from "../../services/notice-translation";
 import { detectSourceLang, translateNoticeViaChain } from "../../services/notice-translation";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
+import { requireAuth } from "../../middleware/auth";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
   const router = Router();
@@ -20,9 +21,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   const membershipRepo = ctx.membershipRepo;
 
   // ── 公告详情 ──
-  router.get("/api/notices/:id/detail", asyncHandler(async (req, res) => {
+  router.get("/api/notices/:id/detail", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+    const userKey = req.userKey || "";
     if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
     // 解锁校验与公告查询相互独立：并行执行减少一次顺序往返
@@ -66,9 +67,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   // 次要信息（发布日期/投标难度/注册门槛/行业分类/机构简称/机构全称）真实下发给所有登录用户；
   // 核心敏感信息（联系人身份/文件清单/报告/来源链接）绝不返回，仅下发联系人数量
   // 作为数量预告（仍走解锁口径：/:id/detail 403 不变）。
-  router.get("/api/notices/:id/preview", asyncHandler(async (req, res) => {
+  router.get("/api/notices/:id/preview", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+    const userKey = req.userKey || "";
     if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
     const notice = await noticesRepo.findPreview(noticeId);

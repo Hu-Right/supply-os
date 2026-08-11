@@ -7,6 +7,7 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
+import { requireAuth } from "../middleware/auth";
 
 export function createMembershipRouter(ctx: AppContext): Router {
   const router = Router();
@@ -18,8 +19,8 @@ export function createMembershipRouter(ctx: AppContext): Router {
     res.json(rows);
   }));
 
-  router.get("/api/membership/status", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+  router.get("/api/membership/status", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
     const freeQuota = await membershipRepo.getFreeQuota();

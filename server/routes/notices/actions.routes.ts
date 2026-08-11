@@ -10,6 +10,7 @@ import { decayUserInterestCodes } from "../../services/recommend";
 import type { RecoFeedbackItem } from "../../repos/notices.repo";
 
 import { asyncHandler } from "../../middleware/errorHandler";
+import { requireAuth } from "../../middleware/auth";
 
 export function createNoticeActionsRouter(ctx: AppContext): Router {
   const router = Router();
@@ -24,8 +25,8 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   }));
 
   // ── 推荐反馈 ──
-  router.post("/api/notices/feedback", asyncHandler(async (req, res) => {
-      const userKey = normalizeUserKey(req.body.user_key) || "";
+  router.post("/api/notices/feedback", requireAuth, asyncHandler(async (req, res) => {
+      const userKey = req.userKey || "";
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
       const sessionId = String(req.body.session_id || "").trim().slice(0, 64);
       if (!sessionId) return res.status(400).json({ error: "SESSION_REQUIRED" });
@@ -88,10 +89,9 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   }));
 
   // ── 解锁 ──
-  router.post("/api/notices/:id/unlock", asyncHandler(async (req, res) => {
+  router.post("/api/notices/:id/unlock", requireAuth, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
-      const normalizedUserKey = normalizeUserKey(req.body.user_key);
-      const userKey = normalizedUserKey || "guest";
+      const userKey = req.userKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type : "free";
       const price = unlockType === "single" ? Number(req.body.price || 19) : 0;
@@ -120,16 +120,16 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
       if (consumedEntitlementId) {
         await noticesRepo.consumeEntitlement(consumedEntitlementId);
       }
-      if (normalizedUserKey) {
+      if (userKey !== "guest") {
         await persistUserInterestCodes(ctx.dbPool, userKey, snapshot, "unlock_order", 2.50);
       }
       res.status(201).json({ success: true, unlock_type: unlockType });
   }));
 
   // ── 意向 ──
-  router.post("/api/notices/:id/interest", asyncHandler(async (req, res) => {
+  router.post("/api/notices/:id/interest", requireAuth, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
-      const userKey = normalizeUserKey(req.body.user_key) || "";
+      const userKey = req.userKey || "";
       const interestType = req.body.interest_type === "subscribed" ? "subscribed" : "interested";
       const note = String(req.body.note || "").slice(0, 500);
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });

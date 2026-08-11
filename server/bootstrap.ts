@@ -169,7 +169,7 @@ export async function startServer() {
         if (meiliClient) {
           const indexReady = await ensureIndex();
           if (indexReady) {
-            stopSearchSync = startSearchSync(dbPool, { intervalMs: 30 * 1000 });
+            stopSearchSync = startSearchSync(dbPool, { intervalMs: 10 * 1000 });
           } else {
             console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
           }
@@ -182,7 +182,7 @@ export async function startServer() {
 
   // ── 搜索宽表同步（非阻塞：后台异步回填 + 增量同步）──
   // 宽表就绪后，搜索 Phase 2 直接从宽表读取（零 JOIN），大幅提升性能
-  const stopWideTableSync = startWideTableSync(dbPool, { intervalMs: 30 * 1000 });
+  const stopWideTableSync = startWideTableSync(dbPool, { intervalMs: 10 * 1000 });
 
   // ── 定时任务统一管理（外抽至 lifecycle/timers.ts）──
   const timersHandle = startAllTimers({ dbPool });

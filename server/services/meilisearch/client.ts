@@ -13,6 +13,9 @@ const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "30000");
 
 let client: Meilisearch | null = null;
 let healthy = false;
+// 运行时健康探测：记录上次失败时间，避免每次请求都探测
+let lastFailureTs = 0;
+const RECOVER_COOLDOWN_MS = 10_000; // 探测冷却期：10 秒内不重复探测
 
 /** 初始化 Meilisearch 客户端（幂等） */
 export function initMeilisearch(): Meilisearch | null {
@@ -34,6 +37,38 @@ export function getClient(): Meilisearch | null {
 
 export function isHealthy(): boolean {
   return healthy;
+}
+
+/** 标记 Meilisearch 不健康（搜索超时/失败时调用） */
+export function markUnhealthy(): void {
+  if (healthy) {
+    console.warn("[meilisearch] 运行时探测失败，标记为不健康，搜索将降级到 MySQL");
+  }
+  healthy = false;
+  lastFailureTs = Date.now();
+}
+
+/**
+ * 尝试恢复健康状态（搜索前调用）
+ * 冷却期内不重复探测，避免对故障中的 Meilisearch 造成额外压力
+ * @returns true 表示健康（可继续使用），false 表示仍不健康
+ */
+export async function tryRecover(): Promise<boolean> {
+  if (healthy) return true;
+  if (!client) return false;
+  // 冷却期内不探测
+  if (Date.now() - lastFailureTs < RECOVER_COOLDOWN_MS) return false;
+  try {
+    const health = await client.health();
+    healthy = health.status === "available";
+    if (healthy) {
+      console.log("[meilisearch] 运行时探测恢复成功，重新启用 Meilisearch 搜索");
+    }
+    return healthy;
+  } catch {
+    lastFailureTs = Date.now(); // 刷新冷却计时
+    return false;
+  }
 }
 
 export function getIndexName(): string {

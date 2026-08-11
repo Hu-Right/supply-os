@@ -12,6 +12,37 @@ import { recordApiMetric } from "@/core/perf";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
+// ── JWT Token 管理 ──
+const AUTH_TOKEN_KEY = "supply_os_auth_token";
+const REFRESH_TOKEN_KEY = "supply_os_refresh_token";
+
+/** 获取当前 Access Token */
+export function getAuthToken(): string | null {
+  return window.localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+/** 存储 Token 对 */
+export function setAuthTokens(token: string, refreshToken: string): void {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+/** 清除所有 Token */
+export function clearAuthTokens(): void {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+/** 获取 Refresh Token */
+export function getRefreshToken(): string | null {
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+/** 更新 Access Token（刷新后调用） */
+export function updateAuthToken(token: string): void {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
 /**
  * API 错误类
  * API Error Class
@@ -38,6 +69,42 @@ const cache = new Map<string, CacheEntry>();
 // 飞行中请求缓存：防止同一端点的并发请求穿透缓存（竞态条件）
 const pendingRequests = new Map<string, PendingEntry>();
 
+// ── Token 刷新状态管理 ──
+let isRefreshing = false;
+let refreshPromise: Promise<string | null> | null = null;
+
+/** 尝试刷新 Access Token */
+async function tryRefreshToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  // 避免并发刷新
+  if (isRefreshing && refreshPromise) return refreshPromise;
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.token) {
+        updateAuthToken(data.token);
+        return data.token as string;
+      }
+      return null;
+    } catch {
+      return null;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
 /**
  * 基础请求函数
  * Base request function
@@ -55,11 +122,19 @@ export async function api<T>(
   const method = init.method || "GET";
   const startTime = performance.now();
 
+  // 自动附加 JWT Access Token
+  const authToken = getAuthToken();
+  const authHeaders: Record<string, string> = {};
+  if (authToken) {
+    authHeaders["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const res = await fetch(url, {
     ...init,
     signal,
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders,
       ...(init.headers as Record<string, string>),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -77,8 +152,35 @@ export async function api<T>(
     timestamp: Date.now(),
   });
 
-  // 401 未授权：触发全局事件，由 App 层监听并弹出登录框
+  // 401 未授权：尝试刷新 Token 并重试
   if (res.status === 401) {
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      // 用新 Token 重试原请求
+      const retryRes = await fetch(url, {
+        ...init,
+        signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${newToken}`,
+          ...(init.headers as Record<string, string>),
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+      if (retryRes.ok) return retryRes.json();
+      // 刷新后仍然 401，Token 已失效，清除并触发登录
+      if (retryRes.status === 401) {
+        clearAuthTokens();
+        window.dispatchEvent(
+          new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
+        );
+        throw new ApiError(401, "Unauthorized");
+      }
+      const err = await retryRes.json().catch(() => ({}));
+      throw new ApiError(retryRes.status, err.error || `Request failed: ${retryRes.status}`);
+    }
+    // 刷新失败，清除 Token 并触发全局事件
+    clearAuthTokens();
     window.dispatchEvent(
       new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
     );

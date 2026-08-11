@@ -15,6 +15,8 @@ export {
   initMeilisearch,
   getClient,
   isHealthy,
+  markUnhealthy,
+  tryRecover,
   getIndexName,
   ensureIndex,
   getIndexStats,
