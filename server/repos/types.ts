@@ -16,6 +16,8 @@ export interface UserRow {
   email: string | null;
   display_name: string | null;
   password_hash: string | null;
+  password_hash_type: string;
+  email_verified: number;
   membership_tier: string;
   account_status: string;
   supplier_id: number | null;

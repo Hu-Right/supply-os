@@ -174,6 +174,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * 发送找回密码验证码
+   * Send password reset verification code
+   */
+  const sendResetCode = async (email: string) => {
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "发送验证码失败");
+  };
+
+  /**
+   * 重置密码（验证码+新密码），成功后自动登录
+   * Reset password (code + new password), auto-login on success
+   */
+  const resetPassword = async (email: string, code: string, newPassword: string) => {
+    setIsAuthLoading(true);
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code, new_password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "重置密码失败");
+      persistAuthUser(data.user);
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
   // 初始化：从 localStorage 恢复用户
   useEffect(() => {
     const savedUser = window.localStorage.getItem(AUTH_USER_KEY);
@@ -200,6 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     submitSupplierClaim,
     claimMessage,
     setClaimMessage,
+    sendResetCode,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

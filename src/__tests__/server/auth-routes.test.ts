@@ -11,11 +11,11 @@ function createMockCtx(queryResults: any[] = []) {
   let callIndex = 0;
   const dbPool = {
     query: vi.fn().mockImplementation(() => {
-      const result = queryResults[callIndex] ?? [[]];
+      const result = queryResults[callIndex] ?? [];
       callIndex++;
       return Promise.resolve([result]);
     }),
-    execute: vi.fn().mockResolvedValue([]),
+    execute: vi.fn().mockResolvedValue([{ affectedRows: 1 }]),
   };
   return {
     dbPool,
@@ -45,7 +45,21 @@ describe("POST /api/auth/register", () => {
     const app = buildApp(createMockCtx());
     const res = await request(app).post("/api/auth/register").send({ email: "a@b.com", password: "123" });
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain("密码至少 6 位");
+    expect(res.body.error).toContain("密码至少 8 位");
+  });
+
+  it("returns 400 when password lacks letters", async () => {
+    const app = buildApp(createMockCtx());
+    const res = await request(app).post("/api/auth/register").send({ email: "a@b.com", password: "12345678" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("英文字母");
+  });
+
+  it("returns 400 when password lacks digits", async () => {
+    const app = buildApp(createMockCtx());
+    const res = await request(app).post("/api/auth/register").send({ email: "a@b.com", password: "password" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("数字");
   });
 
   it("registers successfully with valid data", async () => {
@@ -68,7 +82,7 @@ describe("POST /api/auth/register", () => {
     const app = buildApp(ctx);
     const res = await request(app).post("/api/auth/register").send({
       email: "john@test.com",
-      password: "123456",
+      password: "john1234",
     });
     expect(res.body.user.display_name).toBe("john");
   });

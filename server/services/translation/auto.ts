@@ -206,6 +206,17 @@ export async function runIncrementalTranslation(
                    model = VALUES(model)`,
                 [row.id, targetLang, titleTr || null, result.provider]
               );
+              
+              // 同步更新宽表对应语言列（仅公告表）
+              if (target.table === "crm_bid_notices" && titleTr) {
+                try {
+                  await dbPool.query(
+                    `UPDATE crm_notice_search SET title_${targetLang} = ? WHERE id = ?`,
+                    [titleTr, row.id]
+                  );
+                } catch { /* 宽表可能不存在，静默跳过 */ }
+              }
+              
               ok += 1;
               console.log(`  [${mySeq}/${totalInQueue}] OK   ${result.provider} id=${row.id} src=${sourceLang}→${targetLang}`);
             } catch (err: any) {

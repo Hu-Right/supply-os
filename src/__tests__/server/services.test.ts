@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi } from "vitest";
 import { GoogleGenAI } from "@google/genai";
-import { hashPassword } from "../../../server/services/auth";
+import { hashPassword, hashPasswordLegacy, verifyPassword } from "../../../server/services/auth";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "../../../server/services/notices";
 import { mapSupplierRow } from "../../../server/services/suppliers";
 import { fetchWithTimeout } from "../../../server/services/translation/fetchWithTimeout";
@@ -174,21 +174,38 @@ describe("fetchWithTimeout", () => {
   });
 });
 
-// ─── hashPassword ───────────────────────────────────────────────────────────
-describe("hashPassword", () => {
+// ─── hashPassword (bcrypt) ───────────────────────────────────────────────────
+describe("hashPassword (bcrypt)", () => {
+  it("produces a bcrypt hash that verifies correctly", async () => {
+    const hash = await hashPassword("test123");
+    expect(hash).toHaveLength(60); // bcrypt hash = 60 chars
+    expect(await verifyPassword("test123", hash, "bcrypt")).toBe(true);
+    expect(await verifyPassword("wrong", hash, "bcrypt")).toBe(false);
+  });
+
+  it("produces different hashes each time (salt)", async () => {
+    const hash1 = await hashPassword("test123");
+    const hash2 = await hashPassword("test123");
+    expect(hash1).not.toBe(hash2); // bcrypt uses random salt
+    // But both should verify
+    expect(await verifyPassword("test123", hash1, "bcrypt")).toBe(true);
+    expect(await verifyPassword("test123", hash2, "bcrypt")).toBe(true);
+  });
+});
+
+// ─── hashPasswordLegacy (SHA-256) ───────────────────────────────────────────
+describe("hashPasswordLegacy (SHA-256)", () => {
   it("produces consistent SHA-256 hex hash", () => {
-    const hash1 = hashPassword("test123");
-    const hash2 = hashPassword("test123");
+    const hash1 = hashPasswordLegacy("test123");
+    const hash2 = hashPasswordLegacy("test123");
     expect(hash1).toBe(hash2);
     expect(hash1).toHaveLength(64); // SHA-256 hex = 64 chars
   });
 
-  it("produces different hashes for different passwords", () => {
-    expect(hashPassword("abc")).not.toBe(hashPassword("def"));
-  });
-
-  it("is not plaintext", () => {
-    expect(hashPassword("mypassword")).not.toBe("mypassword");
+  it("verifies via verifyPassword with sha256 type", async () => {
+    const hash = hashPasswordLegacy("mypassword");
+    expect(await verifyPassword("mypassword", hash, "sha256")).toBe(true);
+    expect(await verifyPassword("wrong", hash, "sha256")).toBe(false);
   });
 });
 

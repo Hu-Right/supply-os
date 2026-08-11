@@ -35,8 +35,10 @@ export interface AgencyCacheItem {
   i18n: Record<string, string> | null;
   /** 该 canonical 对应的数据库原始机构名列表（用于筛选时 IN 匹配） */
   originalAgencies?: string[];
-  /** PERF 优化：聚合组标识（如 "BR_municipality"），用于 Meilisearch 筛选时替代数百个 OR 条件 */
+  /** PERF 优化：聚合组标识（如 "MUNICIPIO_BR"），用于 Meilisearch 筛选时替代数百个 OR 条件 */
   agencyGroup?: string;
+  /** PERF 优化：SQL LIKE 模式（如 "MUNICIPIO %"），用于 MySQL 路径高效匹配大型聚合组 */
+  sqlPattern?: string;
 }
 
 export interface NoticeStatsResult {

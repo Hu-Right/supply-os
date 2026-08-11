@@ -38,11 +38,11 @@ export function searchCacheKey(p: NoticeSearchParams): string {
   ]);
 }
 
-/** COUNT 缓存 key：与 searchCacheKey 相同但不含 page/pageSize（翻页不影响总数） */
+/** COUNT 缓存 key：与 searchCacheKey 相同但不含 page/pageSize/sort（翻页和排序不影响总数） */
 export function countCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     "count", p.codeId || 0, p.q || "", p.country || "", p.agency || "",
-    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline_farthest",
+    p.deadlineFrom || "", p.deadlineTo || "",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly,
   ]);
 }

@@ -21,6 +21,7 @@ export {
   getLastSyncedId,
   getDocCount,
   hasOldSentinel,
+  hasHasDeadlineField,
 } from "./client";
 
 // sync.ts
@@ -33,4 +34,4 @@ export {
 } from "./sync";
 
 // search.ts
-export { searchWithFilters } from "./search";
+export { searchWithFilters, toBeijingUnixTs } from "./search";

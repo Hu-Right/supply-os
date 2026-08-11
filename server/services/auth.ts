@@ -4,12 +4,51 @@
  */
 
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import type { MembershipRepo } from "../repos/membership.repo";
 import type { SuppliersRepo } from "../repos/suppliers.repo";
 import type { UserRow } from "../repos/types";
 
-export function hashPassword(password: string) {
+const BCRYPT_ROUNDS = 12;
+
+/**
+ * 旧 SHA-256 哈希（仅用于兼容验证存量用户密码）
+ * Legacy SHA-256 hash — only for verifying existing user passwords during migration
+ */
+export function hashPasswordLegacy(password: string): string {
   return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+/**
+ * 新 bcrypt 哈希（所有新密码统一使用）
+ * bcrypt hash — used for all new passwords (registration, reset, upgrade)
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+/**
+ * 双算法验证：根据 hashType 选择对应算法
+ * Dual-algorithm verification: selects algorithm based on hashType
+ */
+export async function verifyPassword(
+  password: string,
+  storedHash: string,
+  hashType: string,
+): Promise<boolean> {
+  if (hashType === "bcrypt") {
+    return bcrypt.compare(password, storedHash);
+  }
+  // sha256 兼容验证
+  return hashPasswordLegacy(password) === storedHash;
+}
+
+/**
+ * 判断是否需要从旧算法升级到 bcrypt
+ * Check if the password hash needs to be upgraded from legacy algorithm
+ */
+export function needsUpgrade(hashType: string): boolean {
+  return hashType !== "bcrypt";
 }
 
 /** 登录/用户信息公共响应体 */

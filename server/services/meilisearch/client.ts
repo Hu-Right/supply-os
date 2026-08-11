@@ -7,6 +7,9 @@
 import { Meilisearch } from "meilisearch";
 
 const INDEX_NAME = "notices";
+const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
+// 超时：批量写入大量多语言文档时需要更长，默认 30 秒（可通过 MEILI_TIMEOUT_MS 覆盖）
+const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "30000");
 
 let client: Meilisearch | null = null;
 let healthy = false;
@@ -16,7 +19,7 @@ export function initMeilisearch(): Meilisearch | null {
   const host = process.env.MEILI_HOST || "http://127.0.0.1:7700";
   const key = process.env.MEILI_MASTER_KEY || "";
   try {
-    client = new Meilisearch({ host, apiKey: key || undefined, timeout: 5000 });
+    client = new Meilisearch({ host, apiKey: key || undefined, timeout: REQUEST_TIMEOUT });
     return client;
   } catch (err) {
     console.warn("[meilisearch] init failed:", (err as Error).message);
@@ -52,15 +55,16 @@ export async function ensureIndex(): Promise<boolean> {
 
   try {
     const index = client.index(INDEX_NAME);
+    // 支持的语言列表（扩展语言只需在此添加）
+    const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+    const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
+    
     await index.updateSettings({
       searchableAttributes: [
         "reference",
         "title",
-        "title_zh",
-        "title_en",
         "description",
-        "description_zh",
-        "description_en",
+        ...langFields,
       ],
       filterableAttributes: [
         "country",
@@ -76,16 +80,18 @@ export async function ensureIndex(): Promise<boolean> {
         "level4_id",
         "level5_id",
       ],
-      sortableAttributes: ["deadline_sec", "id"],
+      sortableAttributes: ["deadline_sec", "id", "has_deadline"],
       rankingRules: [
         "words",
         "typo",
         "proximity",
         "attribute",
-        "sort",
         "exactness",
+        "sort",
       ],
-      nonSeparatorTokens: ["zh"],
+      pagination: {
+        maxTotalHits: MAX_TOTAL_HITS,
+      },
     });
     return true;
   } catch (err) {
@@ -142,6 +148,17 @@ export async function hasOldSentinel(): Promise<boolean> {
       attributesToRetrieve: ["id"],
     });
     return result.estimatedTotalHits > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** 检测索引是否已包含 has_deadline 字段（用于判断是否需要全量重建） */
+export async function hasHasDeadlineField(): Promise<boolean> {
+  if (!client || !healthy) return false;
+  try {
+    const stats = await client.index(INDEX_NAME).getStats();
+    return !!(stats as any).fieldDistribution?.has_deadline;
   } catch {
     return false;
   }

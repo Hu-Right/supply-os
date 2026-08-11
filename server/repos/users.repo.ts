@@ -35,7 +35,8 @@ export class UsersRepo {
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, display_name, password_hash, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT user_key, email, display_name, password_hash, password_hash_type, email_verified,
+              membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
     );
@@ -48,13 +49,31 @@ export class UsersRepo {
     email: string;
     display_name: string;
     password_hash: string;
+    password_hash_type?: string;
   }): Promise<boolean> {
+    const hashType = data.password_hash_type ?? "bcrypt";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (user_key, email, display_name, password_hash, membership_tier, account_status)
-       VALUES (?, ?, ?, ?, 'free', 'pending')`,
-      [data.user_key, data.email, data.display_name, data.password_hash],
+      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status)
+       VALUES (?, ?, ?, ?, ?, 'free', 'pending')`,
+      [data.user_key, data.email, data.display_name, data.password_hash, hashType],
     );
     return (result as any).affectedRows > 0;
+  }
+
+  /** 更新密码及哈希类型（找回密码 / 透明升级） */
+  async updatePassword(userKey: string, hash: string, hashType: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET password_hash = ?, password_hash_type = ?, updated_at = NOW() WHERE user_key = ?",
+      [hash, hashType, userKey],
+    );
+  }
+
+  /** 标记邮箱已验证 */
+  async markEmailVerified(userKey: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email_verified = 1, updated_at = NOW() WHERE user_key = ?",
+      [userKey],
+    );
   }
 
   /** 更新显示名（不触碰密码） */

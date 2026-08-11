@@ -19,6 +19,7 @@ import { Input, Select } from "@/shared/ui";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
+import { validatePassword, PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
@@ -26,7 +27,7 @@ export interface LoginRegisterFormProps {
 
 export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const { t } = useLocale();
-  const { login, register, claimMessage } = useAuth();
+  const { login, register, claimMessage, sendResetCode, resetPassword } = useAuth();
 
   // Local UI state
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -43,6 +44,16 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     contactPhone: "",
     businessLicenseNo: "",
   });
+
+  // ── 找回密码状态 ──
+  const [forgotView, setForgotView] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotCode, setForgotCode] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
 
   // 主营行业偏好：注册时前两级必选（三级联动，第三级可选）
   const {
@@ -128,6 +139,15 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
       return;
     }
 
+    // 注册时前端预校验密码强度（登录不校验，只验证密码是否匹配）
+    if (authMode === "register") {
+      const pwCheck = validatePassword(password);
+      if (!pwCheck.valid) {
+        setAuthError(pwCheck.message);
+        return;
+      }
+    }
+
     if (authMode === "register" && !claimForm.companyName.trim()) {
       setAuthError(t("authCompanyNameRequired"));
       return;
@@ -167,200 +187,364 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     }
   };
 
-  return (
-    <form onSubmit={submitAuth} className="space-y-4">
-      {/* Login / Register toggle */}
-      <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
-        <button
-          type="button"
-          onClick={() => setAuthMode("login")}
-          className={`py-2.5 rounded-lg text-sm font-black ${
-            authMode === "login"
-              ? "bg-white shadow-xs text-slate-900"
-              : "text-slate-500"
-          }`}
-        >
-          {t("authLoginTab")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setAuthMode("register")}
-          className={`py-2.5 rounded-lg text-sm font-black ${
-            authMode === "register"
-              ? "bg-white shadow-xs text-slate-900"
-              : "text-slate-500"
-          }`}
-        >
-          {t("authRegisterTab")}
-        </button>
-      </div>
+  /**
+   * 找回密码 — 步骤 1：发送验证码
+   * Forgot password — Step 1: Send verification code
+   */
+  const handleSendResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
 
-      {/* Register: claim form */}
-      {authMode === "register" && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-extrabold text-slate-900">
-              {t("authCompanyClaimInfo")}
-            </h4>
-            <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
-              {t("authPendingReview")}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              type="text"
-              value={authForm.displayName}
-              onChange={(e) =>
-                setAuthForm({ ...authForm, displayName: e.target.value })
-              }
-              placeholder={t("authContactNamePlaceholder")}
-              className="bg-white"
-            />
-            <Select
-              value={claimForm.supplierType}
-              onChange={(e) =>
-                setClaimForm({
-                  ...claimForm,
-                  supplierType: e.target.value,
-                })
-              }
-              className="bg-white"
-            >
-              <option value="domestic">{t("authSupplierDomestic")}</option>
-              <option value="international">{t("authSupplierInternational")}</option>
-            </Select>
-            <Input
-              type="text"
-              value={claimForm.companyName}
-              onChange={(e) =>
-                setClaimForm({
-                  ...claimForm,
-                  companyName: e.target.value,
-                })
-              }
-              placeholder={t("authCompanyPlaceholder")}
-              className="sm:col-span-2 bg-white"
-            />
-            <Input
-              type="text"
-              value={claimForm.contactPhone}
-              onChange={(e) =>
-                setClaimForm({
-                  ...claimForm,
-                  contactPhone: e.target.value,
-                })
-              }
-              placeholder={t("authPhonePlaceholder")}
-              className="bg-white"
-            />
-            <Input
-              type="text"
-              value={claimForm.businessLicenseNo}
-              onChange={(e) =>
-                setClaimForm({
-                  ...claimForm,
-                  businessLicenseNo: e.target.value,
-                })
-              }
-              placeholder={t("authLicensePlaceholder")}
-              className="bg-white"
-            />
-          </div>
-          {/* 主营业务智能推断 */}
-          <div>
-            <p className="text-xs font-black text-slate-500">
-              {t("authMainBusinessLabel")}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-400">
-              {t("authMainBusinessInferHint")}
-            </p>
-            <Input
-              type="text"
-              value={mainBusiness}
-              onChange={(e) => setMainBusiness(e.target.value)}
-              placeholder={t("authMainBusinessPlaceholder")}
-              className="mt-2 bg-white"
-            />
-            {inferLoading && (
-              <p className="mt-1 text-[11px] text-slate-400">匹配中...</p>
-            )}
-            {inferResult && !inferLoading && (
-              <p className="mt-1 text-[11px] text-teal-600">
-                {t("authMainBusinessInferred")}: {inferResult.matched_title}
-              </p>
-            )}
-            {!inferResult && inferSearched && !inferLoading && (
-              <p className="mt-1 text-[11px] text-amber-600">
-                {t("authMainBusinessNoMatch")}
-              </p>
-            )}
-          </div>
-          {/* 主营行业选取（前两级必选，注册成功后作为公采页默认筛选偏好） */}
-          <div>
-            <p className="text-xs font-black text-slate-500">
-              {t("authIndustryPrefLabel")}
-            </p>
-            {/* 进入即说明必选规则，避免提交时才报错 */}
-            <p className="mt-1 text-[11px] text-slate-400">
-              {t("authIndustryPrefRequiredHint")}
-            </p>
-            <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <UnspscPrefSelects
-                industryOptions={industryOptions}
-                subOptions={subOptions}
-                subOptions2={subOptions2}
-                prefLevel1={prefLevel1}
-                prefLevel2={prefLevel2}
-                prefLevel3={prefLevel3}
-                onLevel1Change={handlePrefLevel1Change}
-                onLevel2Change={handlePrefLevel2Change}
-                onLevel3Change={setPrefLevel3}
-              />
-            </div>
-          </div>
+    const email = forgotEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setForgotError(t("authForgotEmailInvalid"));
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      await sendResetCode(email);
+      setForgotStep(2);
+      setForgotSuccess(t("authForgotCodeSent"));
+    } catch (err: any) {
+      setForgotError(err.message || t("authForgotSendFailed"));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  /**
+   * 找回密码 — 步骤 2：重置密码
+   * Forgot password — Step 2: Reset password
+   */
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+
+    if (forgotCode.trim().length !== 6) {
+      setForgotError(t("authForgotCodeInvalid"));
+      return;
+    }
+    const pwCheck = validatePassword(forgotNewPassword);
+    if (!pwCheck.valid) {
+      setForgotError(pwCheck.message);
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      await resetPassword(forgotEmail.trim(), forgotCode.trim(), forgotNewPassword);
+      // 重置成功，自动登录后关闭弹窗
+      onSuccess();
+    } catch (err: any) {
+      setForgotError(err.message || t("authForgotResetFailed"));
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={forgotView ? (forgotStep === 1 ? handleSendResetCode : handleResetPassword) : submitAuth} className="space-y-4">
+      {/* Login / Register toggle */}
+      {!forgotView && (
+        <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setAuthMode("login")}
+            className={`py-2.5 rounded-lg text-sm font-black ${
+              authMode === "login"
+                ? "bg-white shadow-xs text-slate-900"
+                : "text-slate-500"
+            }`}
+          >
+            {t("authLoginTab")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAuthMode("register")}
+            className={`py-2.5 rounded-lg text-sm font-black ${
+              authMode === "register"
+                ? "bg-white shadow-xs text-slate-900"
+                : "text-slate-500"
+            }`}
+          >
+            {t("authRegisterTab")}
+          </button>
         </div>
       )}
 
-      {/* Email + Password */}
-      <div className="space-y-3">
-        <Input
-          type="email"
-          value={authForm.email}
-          onChange={(e) =>
-            setAuthForm({ ...authForm, email: e.target.value })
-          }
-          placeholder={t("authEmailPlaceholder")}
-        />
-        <Input
-          type="password"
-          value={authForm.password}
-          onChange={(e) =>
-            setAuthForm({ ...authForm, password: e.target.value })
-          }
-          placeholder={t("authPasswordPlaceholder")}
-          minLength={6}
-        />
-      </div>
+      {/* ── 找回密码视图 ── */}
+      {forgotView && (
+        <div className="space-y-4">
+          <h4 className="text-sm font-extrabold text-slate-900 text-center">
+            {t("authForgotTitle")}
+          </h4>
 
-      {/* Error / Success messages */}
-      {authError && (
-        <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
-          {authError}
-        </p>
+          {forgotStep === 1 ? (
+            /* 步骤 1：输入邮箱 */
+            <div className="space-y-3">
+              <Input
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder={t("authEmailPlaceholder")}
+              />
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-50"
+              >
+                {forgotLoading ? t("authForgotSending") : t("authForgotSendCode")}
+              </button>
+            </div>
+          ) : (
+            /* 步骤 2：输入验证码 + 新密码 */
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 text-center">
+                {t("authForgotCodeHint")} {forgotEmail}
+              </p>
+              <Input
+                type="text"
+                value={forgotCode}
+                onChange={(e) => setForgotCode(e.target.value)}
+                placeholder={t("authForgotCodePlaceholder")}
+                maxLength={6}
+                className="text-center text-lg tracking-widest"
+              />
+              <Input
+                type="password"
+                value={forgotNewPassword}
+                onChange={(e) => setForgotNewPassword(e.target.value)}
+                placeholder={t("authForgotNewPasswordPlaceholder")}
+                minLength={PASSWORD_MIN_LENGTH}
+              />
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-50"
+              >
+                {forgotLoading ? t("authForgotResetting") : t("authForgotResetSubmit")}
+              </button>
+            </div>
+          )}
+
+          {/* 错误 / 成功提示 */}
+          {forgotError && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+              {forgotError}
+            </p>
+          )}
+          {forgotSuccess && (
+            <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
+              {forgotSuccess}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setForgotView(false);
+              setForgotStep(1);
+              setForgotEmail("");
+              setForgotCode("");
+              setForgotNewPassword("");
+              setForgotError("");
+              setForgotSuccess("");
+            }}
+            className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+          >
+            ← {t("authForgotBackToLogin")}
+          </button>
+        </div>
       )}
-      {claimMessage && (
-        <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
-          {claimMessage}
-        </p>
+
+      {/* ── 登录 / 注册表单（非找回密码时显示） ── */}
+      {!forgotView && (
+        <>
+          {/* Register: claim form */}
+          {authMode === "register" && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-extrabold text-slate-900">
+                  {t("authCompanyClaimInfo")}
+                </h4>
+                <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
+                  {t("authPendingReview")}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  type="text"
+                  value={authForm.displayName}
+                  onChange={(e) =>
+                    setAuthForm({ ...authForm, displayName: e.target.value })
+                  }
+                  placeholder={t("authContactNamePlaceholder")}
+                  className="bg-white"
+                />
+                <Select
+                  value={claimForm.supplierType}
+                  onChange={(e) =>
+                    setClaimForm({
+                      ...claimForm,
+                      supplierType: e.target.value,
+                    })
+                  }
+                  className="bg-white"
+                >
+                  <option value="domestic">{t("authSupplierDomestic")}</option>
+                  <option value="international">{t("authSupplierInternational")}</option>
+                </Select>
+                <Input
+                  type="text"
+                  value={claimForm.companyName}
+                  onChange={(e) =>
+                    setClaimForm({
+                      ...claimForm,
+                      companyName: e.target.value,
+                    })
+                  }
+                  placeholder={t("authCompanyPlaceholder")}
+                  className="sm:col-span-2 bg-white"
+                />
+                <Input
+                  type="text"
+                  value={claimForm.contactPhone}
+                  onChange={(e) =>
+                    setClaimForm({
+                      ...claimForm,
+                      contactPhone: e.target.value,
+                    })
+                  }
+                  placeholder={t("authPhonePlaceholder")}
+                  className="bg-white"
+                />
+                <Input
+                  type="text"
+                  value={claimForm.businessLicenseNo}
+                  onChange={(e) =>
+                    setClaimForm({
+                      ...claimForm,
+                      businessLicenseNo: e.target.value,
+                    })
+                  }
+                  placeholder={t("authLicensePlaceholder")}
+                  className="bg-white"
+                />
+              </div>
+              {/* 主营业务智能推断 */}
+              <div>
+                <p className="text-xs font-black text-slate-500">
+                  {t("authMainBusinessLabel")}
+                </p>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {t("authMainBusinessInferHint")}
+                </p>
+                <Input
+                  type="text"
+                  value={mainBusiness}
+                  onChange={(e) => setMainBusiness(e.target.value)}
+                  placeholder={t("authMainBusinessPlaceholder")}
+                  className="mt-2 bg-white"
+                />
+                {inferLoading && (
+                  <p className="mt-1 text-[11px] text-slate-400">匹配中...</p>
+                )}
+                {inferResult && !inferLoading && (
+                  <p className="mt-1 text-[11px] text-teal-600">
+                    {t("authMainBusinessInferred")}: {inferResult.matched_title}
+                  </p>
+                )}
+                {!inferResult && inferSearched && !inferLoading && (
+                  <p className="mt-1 text-[11px] text-amber-600">
+                    {t("authMainBusinessNoMatch")}
+                  </p>
+                )}
+              </div>
+              {/* 主营行业选取（前两级必选，注册成功后作为公采页默认筛选偏好） */}
+              <div>
+                <p className="text-xs font-black text-slate-500">
+                  {t("authIndustryPrefLabel")}
+                </p>
+                {/* 进入即说明必选规则，避免提交时才报错 */}
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {t("authIndustryPrefRequiredHint")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <UnspscPrefSelects
+                    industryOptions={industryOptions}
+                    subOptions={subOptions}
+                    subOptions2={subOptions2}
+                    prefLevel1={prefLevel1}
+                    prefLevel2={prefLevel2}
+                    prefLevel3={prefLevel3}
+                    onLevel1Change={handlePrefLevel1Change}
+                    onLevel2Change={handlePrefLevel2Change}
+                    onLevel3Change={setPrefLevel3}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Email + Password */}
+          <div className="space-y-3">
+            <Input
+              type="email"
+              value={authForm.email}
+              onChange={(e) =>
+                setAuthForm({ ...authForm, email: e.target.value })
+              }
+              placeholder={t("authEmailPlaceholder")}
+            />
+            <Input
+              type="password"
+              value={authForm.password}
+              onChange={(e) =>
+                setAuthForm({ ...authForm, password: e.target.value })
+              }
+              placeholder={t("authPasswordPlaceholder")}
+              minLength={PASSWORD_MIN_LENGTH}
+            />
+          </div>
+
+          {/* 忘记密码链接（仅登录模式显示） */}
+          {authMode === "login" && (
+            <button
+              type="button"
+              onClick={() => {
+                setForgotView(true);
+                setForgotEmail(authForm.email.trim());
+                setAuthError("");
+              }}
+              className="text-xs text-slate-500 hover:text-slate-700 underline"
+            >
+              {t("authForgotLink")}
+            </button>
+          )}
+
+          {/* Error / Success messages */}
+          {authError && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+              {authError}
+            </p>
+          )}
+          {claimMessage && (
+            <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
+              {claimMessage}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
+          >
+            {authMode === "login"
+              ? t("authLoginSubmit")
+              : t("authRegisterSubmit")}
+          </button>
+        </>
       )}
-      <button
-        type="submit"
-        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
-      >
-        {authMode === "login"
-          ? t("authLoginSubmit")
-          : t("authRegisterSubmit")}
-      </button>
     </form>
   );
 }

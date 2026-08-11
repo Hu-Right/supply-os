@@ -7,7 +7,7 @@
  *              之后每 1 分钟增量同步。同步失败时静默降级，不影响主服务运行。
  */
 import type { Pool } from "mysql2/promise";
-import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasOldSentinel, getMysqlActiveCount } from "./meilisearch";
+import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasOldSentinel, hasHasDeadlineField, getMysqlActiveCount } from "./meilisearch";
 
 export interface SyncOptions {
   /** 增量同步间隔（毫秒），默认 1 分钟 */
@@ -19,7 +19,7 @@ export interface SyncOptions {
  * @returns 停止函数（调用后清除定时器）
  */
 export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => void {
-  const intervalMs = options.intervalMs ?? 1 * 60 * 1000; // 默认 1 分钟
+  const intervalMs = options.intervalMs ?? 30 * 1000; // 默认 30 秒
   let stopped = false;
   // P2-8 修复：stopFns 移入闭包内部，多次调用 startSearchSync 不会累积
   const stopFns: Array<() => void> = [];
@@ -37,6 +37,8 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
           console.log(`[meilisearch] 全量同步完成: ${result.synced} 条, watermark=${result.lastId}`);
           watermark = result.lastId;
         }
+      }).catch((err) => {
+        console.error("[meilisearch] 全量同步异常（静默降级）:", (err as Error).message);
       });
     } else {
       // 索引健康检测：检查旧哨兵值 + ghost IDs（MySQL 已删除但索引中仍存在的文档）
@@ -49,8 +51,12 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
               console.log(`[meilisearch] 索引重建完成: ${result.synced} 条, watermark=${result.lastId}`);
               watermark = result.lastId;
             }
+          }).catch((err) => {
+            console.error("[meilisearch] 索引重建异常（静默降级）:", (err as Error).message);
           });
         }
+      }).catch((err) => {
+        console.warn("[meilisearch] 索引健康检测失败（静默降级）:", (err as Error).message);
       });
     }
     // else: Meilisearch 已有数据，watermark 已恢复，仅靠增量同步保持最新
@@ -72,6 +78,8 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
 
     // 将 timer 挂到 stop 回调上（通过闭包捕获）
     stopFns.push(() => clearInterval(timer));
+  }).catch((err) => {
+    console.warn("[meilisearch] 启动同步初始化失败（静默降级）:", (err as Error).message);
   });
 
   return () => {
@@ -89,13 +97,17 @@ async function initWatermark(): Promise<{ watermark: number; docCount: number }>
   return { watermark: lastId, docCount };
 }
 
-/** 检测 Meilisearch 索引中的问题：旧哨兵值 + ghost IDs */
+/** 检测 Meilisearch 索引中的问题：旧哨兵值 + ghost IDs + 缺少 has_deadline 字段 */
 async function detectIndexIssues(pool: Pool): Promise<string[]> {
   const issues: string[] = [];
 
   // 检测旧哨兵值
   const hasOld = await hasOldSentinel();
   if (hasOld) issues.push("旧哨兵值(9999999999)");
+
+  // 检测 has_deadline 字段缺失（排序修复后新增的字段，旧索引需要全量重建）
+  const hasDeadlineField = await hasHasDeadlineField();
+  if (!hasDeadlineField) issues.push("缺少 has_deadline 字段");
 
   // 检测 ghost IDs：Meilisearch 文档数 > MySQL 活跃公告数
   const [meiliCount, mysqlCount] = await Promise.all([getDocCount(), getMysqlActiveCount(pool)]);

@@ -13,7 +13,8 @@ import {
   countCacheKey,
 } from "./cache";
 
-const ACTIVE_NOTICE_WHERE = `n.is_active = 1`;
+const ACTIVE_NOTICE_WHERE = `n.is_active = 1 AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+const DEADLINE_FILTER = `(deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 
 // ── 统计缓存 ──
 let noticeStatsCache: { data: NoticeStatsResult; expires: number } | null = null;
@@ -27,8 +28,18 @@ export function statsKeyFor(p: NoticeSearchParams): string | null {
   if (p.sort && p.sort !== "deadline_farthest") return null;
   if (p.country && p.agency) return null;
   if (p.featuredOnly && (p.country || p.agency)) return null;
+  // P1 修复：聚合机构名（如 MUNICIPIO_BR、FORCE_COUNTRY_*、ORPHAN_*）在统计表中不存在
+  // 直接返回 null 跳过无效查表，走 COUNT 查询/缓存路径
+  if (p.agency) {
+    const a = p.agency;
+    if (a.includes("_BR") || a.includes("_KE") || a.startsWith("FORCE_COUNTRY_")
+        || a.startsWith("ORPHAN_") || a === "ORPHAN_OTHER"
+        || a.endsWith("_INTL") || a === "DEV_BANKS") {
+      return null; // 聚合机构名，统计表无对应条目
+    }
+    return `agency:${p.agency}`;
+  }
   if (p.country) return `country:${p.country}`;
-  if (p.agency) return `agency:${p.agency}`;
   if (p.featuredOnly) return "featured";
   return "active_total";
 }
@@ -54,8 +65,7 @@ export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unm
     const [toDeactivate] = await pool.query(
       `SELECT id FROM crm_bid_notices
        WHERE is_active = 1
-         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))
-       LIMIT 10000`
+         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))`
     );
     const deactivateIds = (toDeactivate as any[]).map(r => r.id);
 
@@ -70,8 +80,7 @@ export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unm
       `SELECT id FROM crm_bid_notices
        WHERE is_active = 0
          AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))
-       LIMIT 10000`
+         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
     );
     const reactivateIds = (toReactivate as any[]).map(r => r.id);
 
@@ -84,6 +93,28 @@ export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unm
     const unmarked = (reactivateResult as any)?.affectedRows || 0;
 
     const changedIds = [...deactivateIds, ...reactivateIds];
+
+    // 同步更新宽表的 is_active 字段
+    if (changedIds.length > 0) {
+      try {
+        // 批量更新宽表
+        const batchSize = 1000;
+        for (let i = 0; i < changedIds.length; i += batchSize) {
+          const batch = changedIds.slice(i, i + batchSize);
+          const placeholders = batch.map(() => '?').join(',');
+          await pool.query(
+            `UPDATE crm_notice_search ns
+             INNER JOIN crm_bid_notices n ON n.id = ns.id
+             SET ns.is_active = n.is_active
+             WHERE ns.id IN (${placeholders})`,
+            batch
+          );
+        }
+      } catch (e) {
+        console.warn(`[is-active] 宽表同步失败（静默降级）:`, (e as Error).message);
+      }
+    }
+
     console.log(`[is-active] is_active 刷新完成: ${Date.now() - t0}ms (deactivated=${marked}, reactivated=${unmarked}, changedIds=${changedIds.length})`);
     return { marked, unmarked, changedIds };
   } catch (e) {
@@ -97,25 +128,25 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
   try {
     const t0 = Date.now();
     const [totalRows] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1`
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1 AND ${DEADLINE_FILTER}`
     );
     const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
 
     const [featuredRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_featured = 1 AND is_active = 1`
+       WHERE is_featured = 1 AND is_active = 1 AND ${DEADLINE_FILTER}`
     );
     const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
 
     const [countryRows] = await pool.query(
       `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_active = 1 AND country IS NOT NULL AND country != ''
+       WHERE is_active = 1 AND ${DEADLINE_FILTER} AND country IS NOT NULL AND country != ''
        GROUP BY country ORDER BY cnt DESC LIMIT 50`
     );
 
     const [agencyRows] = await pool.query(
       `SELECT agency, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_active = 1 AND agency IS NOT NULL AND agency != ''
+       WHERE is_active = 1 AND ${DEADLINE_FILTER} AND agency IS NOT NULL AND agency != ''
        GROUP BY agency ORDER BY cnt DESC LIMIT 50`
     );
 

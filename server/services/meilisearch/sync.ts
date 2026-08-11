@@ -4,12 +4,61 @@
  *
  * @module server/services/meilisearch/sync
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { classifyAgencyType } from "../agencyI18n";
 import { getClient, isHealthy, getIndexName } from "./client";
+import { COUNTRY_NAME_ZH } from "../../../src/shared/data/countryNames";
+import { segmentZh } from "./segmentZh";
 
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
+
+// ── 国家标准化映射（与宽表同步逻辑一致）──
+const UPPER_TO_CANONICAL = new Map<string, string>();
+{
+  const zhGroups = new Map<string, string[]>();
+  for (const [en, zh] of Object.entries(COUNTRY_NAME_ZH)) {
+    if (!zhGroups.has(zh)) zhGroups.set(zh, []);
+    zhGroups.get(zh)!.push(en);
+  }
+  for (const [, forms] of Array.from(zhGroups.entries())) {
+    if (["东部和南部非洲", "西部和中部非洲", "西南印度洋", "多国", "区域"].includes(forms[0])) continue;
+    const canonical = forms.find((f) => /[a-z]/.test(f)) || forms[0];
+    for (const form of forms) {
+      UPPER_TO_CANONICAL.set(form.toUpperCase(), canonical);
+    }
+    UPPER_TO_CANONICAL.set(canonical.toUpperCase(), canonical);
+  }
+}
+
+function normalizeCountry(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (COUNTRY_NAME_ZH[trimmed]) return UPPER_TO_CANONICAL.get(trimmed.toUpperCase()) || trimmed;
+  const canonical = UPPER_TO_CANONICAL.get(trimmed.toUpperCase());
+  if (canonical) return canonical;
+  return trimmed;
+}
+
+// ── 机构别名映射缓存 ──
+let _aliasMapCache: Map<string, string> | null = null;
+let _aliasMapExpires = 0;
+
+async function getAliasMap(pool: Pool): Promise<Map<string, string>> {
+  if (_aliasMapCache && Date.now() < _aliasMapExpires) return _aliasMapCache;
+  const aliasMap = new Map<string, string>();
+  try {
+    const [rows] = await pool.query("SELECT canonical, alias FROM crm_agency_aliases");
+    for (const row of rows as RowDataPacket[]) {
+      aliasMap.set(String(row.alias || "").trim().toUpperCase(), String(row.canonical || "").trim());
+    }
+    _aliasMapCache = aliasMap;
+    _aliasMapExpires = Date.now() + 10 * 60 * 1000; // 10 分钟缓存
+  } catch {
+    // 表不存在或查询失败：静默降级
+  }
+  return aliasMap;
+}
 
 /**
  * notice_type 归一化：将混合存储的原始值映射为标准短代码
@@ -39,70 +88,67 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
   return "OTHER";
 }
 
-/** 构建同步文档：从 MySQL 行映射为 Meilisearch 文档 */
-function buildSyncDoc(r: any) {
-  let agencyGroup: string | undefined;
-  if (r.agency && r.country) {
-    const typeInfo = classifyAgencyType(r.agency, r.country);
-    if (typeInfo) {
-      agencyGroup = typeInfo.typeKey;
-    }
+// ── 支持的语言列表 ──
+const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+
+/** 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理 */
+function buildSyncDocFromWideTable(r: any) {
+  // 构建多语言翻译字段
+  // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
+  // 中文 zh 字段在写入前执行 jieba 分词，解决 Meilisearch 中文分词缺失问题
+  const langFields: Record<string, string> = {};
+  for (const lang of SUPPORTED_LANGS) {
+    langFields[`title_${lang}`] = String(r[`title_${lang}`] || "");
+    const rawDesc = (String(r[`description_${lang}`] || "")).slice(0, 2000);
+    // 仅中文字段需要 jieba 分词预处理
+    langFields[`description_${lang}`] = lang === "zh" ? segmentZh(rawDesc) : rawDesc;
   }
+  // 中文标题同样需要分词（标题中的关键词需被正确切分）
+  langFields["title_zh"] = segmentZh(langFields["title_zh"]);
+
+  // UNSPSC：宽表存储为逗号分隔字符串，转为数组
+  const parseUnspsc = (val: any): string[] => val ? String(val).split(",").filter(Boolean) : [];
+
   return {
-    id: r.id,
-    notice_id: r.notice_id,
-    reference: r.reference || "",
-    title: r.title || "",
-    description: r.description || "",
-    country: r.country || "",
-    agency: r.agency || "",
-    agency_group: agencyGroup || "",
-    notice_type: r.notice_type || "",
-    notice_type_normalized: normalizeNoticeType(r.notice_type),
+    id: Number(r.id),
+    notice_id: String(r.notice_id || ""),
+    reference: String(r.reference || ""),
+    title: String(r.title || ""),
+    description: (String(r.description || "")).slice(0, 2000),
+    // 宽表已存储标准化后的值
+    country: String(r.country_std || ""),
+    agency: String(r.agency_std || ""),
+    agency_group: String(r.agency_group || ""),
+    notice_type: String(r.notice_type_std || ""),
+    notice_type_normalized: String(r.notice_type_std || ""),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
+    has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
     is_active: r.is_active ? 1 : 0,
-    is_expired: r.is_expired ? 1 : 0,
+    is_expired: 0, // 宽表无此字段，搜索用 deadline_sec 判断过期
     is_featured: r.is_featured ? 1 : 0,
-    title_zh: r.title_zh || "",
-    description_zh: r.description_zh || "",
-    title_en: r.title_en || "",
-    description_en: r.description_en || "",
-    level1_id: r.level1_ids ? String(r.level1_ids).split(",").filter(Boolean) : [],
-    level2_id: r.level2_ids ? String(r.level2_ids).split(",").filter(Boolean) : [],
-    level3_id: r.level3_ids ? String(r.level3_ids).split(",").filter(Boolean) : [],
-    level4_id: r.level4_ids ? String(r.level4_ids).split(",").filter(Boolean) : [],
-    level5_id: r.level5_ids ? String(r.level5_ids).split(",").filter(Boolean) : [],
+    ...langFields,
+    level1_id: parseUnspsc(r.unspsc_level1),
+    level2_id: parseUnspsc(r.unspsc_level2),
+    level3_id: parseUnspsc(r.unspsc_level3),
+    level4_id: parseUnspsc(r.unspsc_level4),
+    level5_id: parseUnspsc(r.unspsc_level5),
   };
 }
 
-/** 同步 SQL */
-const SYNC_SQL_SELECT = `
-  SELECT n.id, n.notice_id, n.reference, n.title,
-         LEFT(n.description, 2000) AS description,
-         n.country, n.agency, n.notice_type, n.deadline_sec,
-         n.is_active, n.is_expired, n.is_featured,
-         tzh.title_tr AS title_zh, tzh.description_tr AS description_zh,
-         ten.title_tr AS title_en, ten.description_tr AS description_en,
-         _u.level1_ids, _u.level2_ids, _u.level3_ids, _u.level4_ids, _u.level5_ids
-`;
-const SYNC_SQL_JOIN = `
-  FROM crm_bid_notices n
-  LEFT JOIN crm_notice_translations tzh ON tzh.notice_id = n.id AND tzh.lang = 'zh'
-  LEFT JOIN crm_notice_translations ten ON ten.notice_id = n.id AND ten.lang = 'en'
-  LEFT JOIN (
-    SELECT notice_id,
-           GROUP_CONCAT(DISTINCT level1_id) AS level1_ids,
-           GROUP_CONCAT(DISTINCT level2_id) AS level2_ids,
-           GROUP_CONCAT(DISTINCT level3_id) AS level3_ids,
-           GROUP_CONCAT(DISTINCT level4_id) AS level4_ids,
-           GROUP_CONCAT(DISTINCT level5_id) AS level5_ids
-    FROM crm_bid_notice_unspsc_codes
-    GROUP BY notice_id
-  ) _u ON _u.notice_id = n.notice_id
+/** 从宽表同步的 SQL（单表查询，零 JOIN） */
+const WIDE_TABLE_SYNC_SQL = `
+  SELECT id, notice_id, reference, title, description,
+         country_std, agency_std, agency_group, notice_type_std,
+         deadline_sec, is_active, is_featured,
+         unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
+         title_zh, description_zh, title_en, description_en,
+         title_fr, description_fr, title_ru, description_ru,
+         title_es, description_es, title_ar, description_ar
+  FROM crm_notice_search
 `;
 
 /**
- * 全量同步：先清空索引，再从 MySQL 拉取全量公告数据写入
+ * 全量同步：先清空索引，再从宽表拉取全量数据写入
  */
 export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
   const client = getClient();
@@ -112,22 +158,24 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 
   try {
     await client.index(INDEX_NAME).deleteAllDocuments();
-    console.log("[meilisearch] fullSync: 已清空旧索引，开始重建...");
+    console.log("[meilisearch] fullSync: 已清空旧索引，从宽表重建索引...");
 
     const BATCH = 2000;
+    const MEILI_BATCH = 200; // Meilisearch 分批写入大小，避免单次 HTTP 请求体过大
     let lastId = 0;
     let totalSynced = 0;
 
     while (true) {
       const [rows] = await pool.query(
-        SYNC_SQL_SELECT + SYNC_SQL_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT ?",
+        WIDE_TABLE_SYNC_SQL + " WHERE id > ? ORDER BY id ASC LIMIT ?",
         [lastId, BATCH]
       );
 
-      const docs = (rows as any[]).map(buildSyncDoc);
+      const docs = (rows as any[]).map((r) => buildSyncDocFromWideTable(r));
       if (docs.length === 0) break;
 
-      await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
+      // addDocumentsInBatches 返回 Promise 数组，需 Promise.all 正确等待全部完成
+      await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, MEILI_BATCH, { primaryKey: "id" }));
       totalSynced += docs.length;
       lastId = docs[docs.length - 1].id;
 
@@ -144,7 +192,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
 }
 
 /**
- * 增量同步：同步 id > watermark 的新增记录 + 最近 10 分钟内更新的记录
+ * 增量同步：从宽表同步 id > watermark 的新增记录
  */
 export async function incrementalSync(
   pool: Pool,
@@ -156,33 +204,34 @@ export async function incrementalSync(
 
   try {
     const [newRows] = await pool.query(
-      SYNC_SQL_SELECT + SYNC_SQL_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT 5000",
+      WIDE_TABLE_SYNC_SQL + " WHERE id > ? ORDER BY id ASC LIMIT 5000",
       [watermark]
     );
 
-    let updatedDocs: any[] = [];
+    let updatedRaw: any[] = [];
     try {
       const [updatedRows] = await pool.query(
-        SYNC_SQL_SELECT + SYNC_SQL_JOIN +
-        " WHERE n.updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY n.id ASC LIMIT 2000",
+        WIDE_TABLE_SYNC_SQL +
+        " WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id ASC LIMIT 2000",
         []
       );
-      updatedDocs = (updatedRows as any[]).map(buildSyncDoc);
+      updatedRaw = updatedRows as any[];
     } catch {
       // updated_at 列可能不存在
     }
 
-    const newDocs = (newRows as any[]).map(buildSyncDoc);
-    const docMap = new Map<number, any>();
-    for (const doc of newDocs) docMap.set(doc.id, doc);
-    for (const doc of updatedDocs) docMap.set(doc.id, doc);
+    // 合并去重
+    const rawMap = new Map<number, any>();
+    for (const r of newRows as any[]) rawMap.set(r.id, r);
+    for (const r of updatedRaw) rawMap.set(r.id, r);
 
-    const allDocs = Array.from(docMap.values()).sort((a, b) => a.id - b.id);
-    if (allDocs.length === 0) return { synced: 0, newWatermark: watermark };
+    const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
+    if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
-    await client.index(INDEX_NAME).addDocuments(allDocs, { primaryKey: "id" });
-    const newWatermark = allDocs[allDocs.length - 1].id;
-    return { synced: allDocs.length, newWatermark };
+    const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
+    await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
+    const newWatermark = allRaw[allRaw.length - 1].id;
+    return { synced: docs.length, newWatermark };
   } catch (err) {
     console.error("[meilisearch] incrementalSync failed:", (err as Error).message);
     return { synced: 0, newWatermark: watermark };
@@ -190,7 +239,8 @@ export async function incrementalSync(
 }
 
 /**
- * 按 ID 重新同步指定公告到 Meilisearch
+ * 按 ID 重新同步指定公告到 Meilisearch（从宽表）
+ * 内部分批处理，支持大批量 ID（如 is_active 刷新产生的数万条变更）
  */
 export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
   const client = getClient();
@@ -198,16 +248,25 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
   const INDEX_NAME = getIndexName();
 
   try {
-    const placeholders = ids.map(() => "?").join(",");
-    const [rows] = await pool.query(
-      SYNC_SQL_SELECT + SYNC_SQL_JOIN +
-      ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
-      ids
-    );
-    const docs = (rows as any[]).map(buildSyncDoc);
-    if (docs.length === 0) return { synced: 0 };
-    await client.index(INDEX_NAME).addDocuments(docs, { primaryKey: "id" });
-    return { synced: docs.length };
+    const SQL_BATCH_SIZE = 1000; // MySQL IN(...) 查询分批，避免占位符过多
+    let totalSynced = 0;
+
+    for (let i = 0; i < ids.length; i += SQL_BATCH_SIZE) {
+      const batch = ids.slice(i, i + SQL_BATCH_SIZE);
+      const placeholders = batch.map(() => "?").join(",");
+      const [rows] = await pool.query(
+        WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`,
+        batch
+      );
+
+      const docs = (rows as any[]).map((r) => buildSyncDocFromWideTable(r));
+      if (docs.length > 0) {
+        await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
+        totalSynced += docs.length;
+      }
+    }
+
+    return { synced: totalSynced };
   } catch (err) {
     console.warn("[meilisearch] syncNoticeIds failed:", (err as Error).message);
     return { synced: 0 };

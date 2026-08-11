@@ -59,7 +59,7 @@ export async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
     [codeId]
   );
   const code = (codeRows as UnspscCodeRow[])[0];
-  if (!code) return { sql: "", params: [] as unknown[] };
+  if (!code) return { sql: "INNER JOIN (SELECT NULL AS notice_id) filtered_notices ON 1=0", params: [] as unknown[] };
 
   // 勘误（与 /api/notices/recommended 口径一致）：crm_bid_notice_unspsc_codes 的
   // level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），不是码串前缀。

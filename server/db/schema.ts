@@ -18,6 +18,10 @@
  *              008-agency-aliases.ts        机构别名映射
  *              009-external-table-indexes   CRM外部表索引
  *              010-fulltext-indexes.ts      全文搜索索引
+ *              011-notice-search-wide-table 搜索宽表
+ *              012-password-reset-security  找回密码/密码安全升级
+ *              013-wide-table-varchar       宽表description列LONGTEXT→VARCHAR(2000)
+ *              014-password-reset-email-columns  补齐crm_password_resets缺失列(email_sent/email_error)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -31,11 +35,16 @@ import { migration as m007 } from "./migrations/007-unspsc-bridge";
 import { migration as m008 } from "./migrations/008-agency-aliases";
 import { migration as m009 } from "./migrations/009-external-table-indexes";
 import { migration as m010 } from "./migrations/010-fulltext-indexes";
+import { migration as m011 } from "./migrations/011-notice-search-wide-table";
+import { migration as m012 } from "./migrations/012-password-reset-security";
+import { migration as m013 } from "./migrations/013-wide-table-varchar";
+import { migration as m014 } from "./migrations/014-password-reset-email-columns";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
-  m006, m007, m008, m009, m010,
+  m006, m007, m008, m009, m010, m011,
+  m012, m013, m014,
 ];
 
 /**

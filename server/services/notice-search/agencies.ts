@@ -17,6 +17,86 @@ const AGENCIES_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 // P2-5 修复：机构缓存刷新 Promise 去重——并发请求共享同一个刷新 Promise
 let _pendingAgenciesRefresh: Promise<AgencyCacheItem[]> | null = null;
 
+// ── typeKey → SQL LIKE 模式映射（用于 MySQL 路径高效匹配大型聚合组）──
+const TYPE_KEY_SQL_PATTERNS: Record<string, string> = {
+  // 巴西
+  "MUNICIPIO_BR": "MUNICIPIO %",
+  "FUNDO_BR": "FUNDO %",
+  "SECRETARIA_BR": "SECRETARIA %",
+  "CAMARA_BR": "CAMARA %",
+  "FUNDACAO_BR": "FUNDACAO %",
+  "INSTITUTO_BR": "INSTITUTO %",
+  "CONSORCIO_BR": "CONSORCIO %",
+  "TRIBUNAL_BR": "%TRIBUNAL%",
+  "SERVICO_BR": "SERVICO %",
+  "DEPARTAMENTO_BR": "%DEPARTAMENTO%",
+  "COMPANHIA_BR": "COMPANHIA %",
+  "ASSOC_BR": "ASSOC%",
+  "EMPRESA_BR": "EMPRESA %",
+  "MINISTERIO_BR": "MINISTERIO %",
+  "HOSPITAL_BR": "HOSPITAL %",
+  "ESTADO_BR": "ESTADO %",
+  "AGENCIA_BR": "AGENCIA %",
+  "BOMBEIROS_BR": "%BOMBEIROS%",
+  "SANEAMENTO_BR": "%SANEAMENTO%",
+  "MILITARY_BR": "COMANDO %",
+  "UNIVERSITY_BR": "UNIVERSIDADE %",
+  // 肯尼亚
+  "COUNTY_KE": "%COUNTY%",
+  "NGCDF_KE": "%NG%CDF%",
+  "SCHOOL_KE": "%SCHOOL%",
+  // 国际
+  "UN_SYSTEM": "UN%",
+  "MINISTRY_INTL": "%MINISTRY OF%",
+  "CITY_COUNCIL_INTL": "%COUNCIL%",
+  "COUNCIL_INTL": "%COUNCIL%",
+  "PROVINCIAL_GOVT_INTL": "%PROVINCIAL%GOVERNMENT%",
+  "DEPARTMENT_INTL": "%DEPARTMENT OF%",
+  "AUTHORITY_INTL": "%AUTHORITY%",
+  "COMMITTEE_INTL": "%COMMITTEE%",
+  "COMMISSION_INTL": "%COMMISSION%",
+  "BOARD_INTL": "%BOARD%",
+  "TRIBUNAL_INTL": "%TRIBUNAL%",
+  "UNIVERSITY_INTL": "%UNIVERSITY%",
+  "COLLEGE_INTL": "%COLLEGE%",
+  "HOSPITAL_INTL": "%HOSPITAL%",
+  "FOUNDATION_INTL": "%FOUNDATION%",
+  "FUND_INTL": "%FUND%",
+  "ASSOCIATION_INTL": "%ASSOCIATION%",
+  "FEDERATION_INTL": "%FEDERATION%",
+  "UNION_INTL": "%UNION%",
+  "SOCIETY_INTL": "%SOCIETY%",
+  "COOPERATIVE_INTL": "%COOPERATIVE%",
+  "TRUST_INTL": "%TRUST%",
+  "CORPORATION_INTL": "%CORPORATION%",
+  "COMPANY_INTL": "%LIMITED%",
+  "BANK_INTL": "%BANK%",
+  "INSTITUTE_INTL": "%INSTITUTE%",
+  "INSTITUTION_INTL": "%INSTITUTION%",
+  "CENTER_INTL": "%CENTER%",
+  "BUREAU_INTL": "%BUREAU%",
+  "AGENCY_INTL": "%AGENCY%",
+  "OFFICE_INTL": "%OFFICE%",
+  "DIVISION_INTL": "%DIVISION%",
+  "COURT_INTL": "%COURT%",
+  "PARLIAMENT_INTL": "%PARLIAMENT%",
+  "CONGRESS_INTL": "%CONGRESS%",
+  "EMBASSY_INTL": "%EMBASSY%",
+  "CONSULATE_INTL": "%CONSULATE%",
+  "PROGRAMME_INTL": "%PROGRAM%",
+  "NETWORK_INTL": "%NETWORK%",
+  "NGO_INTL": "%NGO%",
+  "RED_CROSS_INTL": "%RED CROSS%",
+  "POLICE_INTL": "%POLICE%",
+  "INSPECTORATE_INTL": "%INSPECTORATE%",
+  "REGULATORY_INTL": "%REGULATORY%",
+  "ELECTORAL_INTL": "%ELECTORAL%",
+  "WATER_INTL": "%WATER%",
+  "ENERGY_INTL": "%ELECTRICITY%",
+  "ROADS_INTL": "%ROADS%",
+  "DEV_BANKS": "%",
+};
+
 /** 从数据库重新查询并刷新机构缓存（归一化去重 + 别名映射 + i18n，返回全量数据） */
 export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem[]> {
   // 1) 加载机构别名映射表（alias → canonical + name_i18n）
@@ -38,9 +118,11 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   }
 
   // 2) 查询原始机构数据（含国家字段，用于按国家级聚合 INTL 类型机构）
+  // 修复：与搜索路径一致，排除已过期但 is_active 尚未刷新的记录
   const [rows] = await pool.query(
     `SELECT n.agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE n.is_active = 1 AND n.agency IS NOT NULL AND n.agency <> ''
+     WHERE n.is_active = 1 AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+       AND n.agency IS NOT NULL AND n.agency <> ''
      GROUP BY n.agency ORDER BY cnt DESC`
   );
 
@@ -146,6 +228,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
           i18n: typeInfo.i18n,
           originalAgencies: [...originals],
           agencyGroup: typeInfo.typeKey,
+          sqlPattern: TYPE_KEY_SQL_PATTERNS[typeInfo.typeKey],
         });
       }
     } else {
@@ -153,6 +236,86 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
       const originals = canonicalToOriginals.get(mergeKey) || canonicalToOriginals.get(key) || [];
       typeAggregated.set(key, { ...item, originalAgencies: originals });
     }
+  }
+
+  // 3.6.1) 强制国家级聚合：巴西/肯尼亚的所有子类型组合并为单一"XX各机构"
+  // 解决问题：TYPE_PATTERNS 为巴西创建 20+ 个细分类型组（市政府/基金/厅局/议会/法院...），
+  // 每个都是独立条目，导致下拉列表中仍然出现大量巴西相关选项
+  const FORCE_COUNTRY_COUNTRIES = new Set(["Brazil", "Kenya"]);
+  const FORCE_COUNTRY_ZH: Record<string, string> = { "Brazil": "巴西", "Kenya": "肯尼亚" };
+  const FORCE_COUNTRY_SQL: Record<string, string> = {
+    "Brazil": "%", // 匹配所有巴西机构（LIKE '%' 等于不过滤，但配合 is_active=1 使用）
+    "Kenya": "%",
+  };
+
+  const forceCountryBuckets = new Map<string, AgencyCacheItem>();
+  for (const [key, item] of typeAggregated) {
+    // 判断是否属于需要强制合并的国家
+    let forceCountry: string | null = null;
+
+    // 策略 1: typeKey 以 _BR / _KE 结尾（TYPE_PATTERNS 产生的子类型组）
+    if (key.endsWith("_BR")) forceCountry = "Brazil";
+    else if (key.endsWith("_KE")) forceCountry = "Kenya";
+
+    // 策略 2: 从 canonicalToCountry 查找（独立条目）
+    if (!forceCountry) {
+      const country = canonicalToCountry.get(key) || canonicalToCountry.get(key.toUpperCase());
+      if (country && FORCE_COUNTRY_COUNTRIES.has(country)) forceCountry = country;
+    }
+
+    // 策略 3: 从 originalAgencies 反查国家
+    if (!forceCountry && item.originalAgencies?.length) {
+      for (const orig of item.originalAgencies) {
+        const c = canonicalToCountry.get(orig.toUpperCase());
+        if (c && FORCE_COUNTRY_COUNTRIES.has(c)) {
+          forceCountry = c;
+          break;
+        }
+      }
+    }
+
+    if (forceCountry) {
+      const bucketKey = `FORCE_COUNTRY_${forceCountry}`;
+      const existing = forceCountryBuckets.get(bucketKey);
+      if (existing) {
+        existing.count += item.count;
+        if (existing.originalAgencies && item.originalAgencies) {
+          existing.originalAgencies.push(...item.originalAgencies);
+        }
+      } else {
+        forceCountryBuckets.set(bucketKey, {
+          agency: bucketKey,
+          count: item.count,
+          i18n: { zh: `${FORCE_COUNTRY_ZH[forceCountry]}各机构` },
+          originalAgencies: item.originalAgencies ? [...item.originalAgencies] : [],
+          agencyGroup: bucketKey,
+          sqlPattern: FORCE_COUNTRY_SQL[forceCountry],
+        });
+      }
+    }
+  }
+
+  // 用国家级桶替换原始条目
+  for (const [key] of typeAggregated) {
+    let isForceCountry = false;
+    if (key.endsWith("_BR") || key.endsWith("_KE")) isForceCountry = true;
+    if (!isForceCountry) {
+      const country = canonicalToCountry.get(key) || canonicalToCountry.get(key.toUpperCase());
+      if (country && FORCE_COUNTRY_COUNTRIES.has(country)) isForceCountry = true;
+    }
+    if (!isForceCountry) {
+      const item = typeAggregated.get(key)!;
+      if (item.originalAgencies?.length) {
+        for (const orig of item.originalAgencies) {
+          const c = canonicalToCountry.get(orig.toUpperCase());
+          if (c && FORCE_COUNTRY_COUNTRIES.has(c)) { isForceCountry = true; break; }
+        }
+      }
+    }
+    if (isForceCountry) typeAggregated.delete(key);
+  }
+  for (const [key, item] of forceCountryBuckets) {
+    typeAggregated.set(key, item);
   }
 
   // 3.7) 兜底聚合：将公告数极少的零散机构按国家归并为"XX国各机构"

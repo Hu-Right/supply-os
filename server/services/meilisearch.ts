@@ -12,10 +12,12 @@ export {
   getLastSyncedId,
   getDocCount,
   hasOldSentinel,
+  hasHasDeadlineField,
   normalizeNoticeType,
   fullSync,
   incrementalSync,
   syncNoticeIds,
   getMysqlActiveCount,
   searchWithFilters,
+  toBeijingUnixTs,
 } from "./meilisearch/index";

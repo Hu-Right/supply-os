@@ -36,6 +36,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Bosnia and Herzegovina": "波黑",
   "Botswana": "博茨瓦纳",
   "Brazil": "巴西",
+  "Brasil": "巴西",
   "Brunei": "文莱",
   "Bulgaria": "保加利亚",
   "Burkina Faso": "布基纳法索",

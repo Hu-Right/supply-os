@@ -12,6 +12,8 @@ import { backfillUnspscCodeIds } from "../db/backfills";
 import { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache, rollupNoticeViewDaily } from "../services/amount";
 import { AB_TREATMENT_PCT } from "../services/recommend";
 import { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "../services/retryTranslation";
+import { hashPassword } from "../services/auth";
+import { validatePassword } from "../../src/shared/auth/passwordPolicy";
 
 // 管理员鉴权：校验 ADMIN_API_TOKEN（.env 配置）。支持两种携带方式：
 //   x-admin-token: <token>  或  Authorization: Bearer <token>
@@ -213,6 +215,107 @@ export function createAdminRouter(ctx: AppContext): Router {
       running,
       last_result: lastResult,
       diagnosis,
+    });
+  }));
+
+  // ── 管理员人工通道：帮用户重置密码 ──────────────────────────────────────────
+  // 用于邮箱虚假/不可达的老用户无法收到验证码时，管理员手动重置密码
+  router.post("/api/admin/users/:userKey/reset-password", requireAdmin, asyncHandler(async (req, res) => {
+    const userKey = String(req.params.userKey || "").trim().toLowerCase();
+    const newPassword = String(req.body.new_password || "");
+
+    if (!userKey) {
+      res.status(400).json({ success: false, message: "缺少 userKey 参数" });
+      return;
+    }
+    const pwCheck = validatePassword(newPassword);
+    if (!pwCheck.valid) {
+      res.status(400).json({ success: false, message: pwCheck.message });
+      return;
+    }
+
+    // 检查用户是否存在
+    const user = await ctx.usersRepo.findByKey(userKey);
+    if (!user) {
+      res.status(404).json({ success: false, message: "用户不存在" });
+      return;
+    }
+
+    // 重置密码（使用 bcrypt）
+    const newHash = await hashPassword(newPassword);
+    await ctx.usersRepo.updatePassword(userKey, newHash, "bcrypt");
+
+    res.json({
+      success: true,
+      message: `用户 ${userKey} 的密码已重置`,
+      user_key: userKey,
+    });
+  }));
+
+  // ── 管理员人工通道：帮用户更换邮箱 ──────────────────────────────────────────
+  // 用于邮箱虚假/不可达的老用户，管理员手动更换为真实邮箱
+  router.post("/api/admin/users/:userKey/reset-email", requireAdmin, asyncHandler(async (req, res) => {
+    const userKey = String(req.params.userKey || "").trim().toLowerCase();
+    const newEmail = String(req.body.new_email || "").trim().toLowerCase();
+
+    if (!userKey) {
+      res.status(400).json({ success: false, message: "缺少 userKey 参数" });
+      return;
+    }
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      res.status(400).json({ success: false, message: "请输入有效的邮箱地址" });
+      return;
+    }
+
+    // 检查用户是否存在
+    const user = await ctx.usersRepo.findByKey(userKey);
+    if (!user) {
+      res.status(404).json({ success: false, message: "用户不存在" });
+      return;
+    }
+
+    // 检查新邮箱是否已被占用
+    const existingUser = await ctx.usersRepo.findByKey(newEmail);
+    if (existingUser) {
+      res.status(409).json({ success: false, message: "该邮箱已被其他用户使用" });
+      return;
+    }
+
+    // 更新邮箱（同时更新 user_key，因为 user_key 就是小写邮箱）
+    await ctx.dbPool.execute(
+      "UPDATE crm_users SET user_key = ?, email = ?, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
+      [newEmail, newEmail, userKey],
+    );
+
+    res.json({
+      success: true,
+      message: `用户邮箱已从 ${userKey} 更换为 ${newEmail}`,
+      old_email: userKey,
+      new_email: newEmail,
+    });
+  }));
+
+  // ── 管理员查询：邮件发送记录 ──────────────────────────────────────────
+  // 用于排查邮件发送失败问题
+  router.get("/api/admin/email-logs", requireAdmin, asyncHandler(async (req, res) => {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 50, 1), 200);
+    const failedOnly = String(req.query.failed_only ?? "false").toLowerCase() === "true";
+
+    let sql = `
+      SELECT id, user_key, code, expires_at, used, attempts, email_sent, email_error, ip, created_at
+      FROM crm_password_resets
+    `;
+    if (failedOnly) {
+      sql += " WHERE email_sent = 0 AND email_error IS NOT NULL";
+    }
+    sql += " ORDER BY created_at DESC LIMIT ?";
+
+    const [rows] = await ctx.dbPool.query(sql, [limit]);
+
+    res.json({
+      success: true,
+      count: (rows as any[]).length,
+      logs: rows,
     });
   }));
 

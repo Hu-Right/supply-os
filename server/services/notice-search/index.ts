@@ -10,16 +10,17 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { buildNoticeUnspscFilter } from "../unspsc";
-import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normalizeNoticeType } from "../meilisearch";
+import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normalizeNoticeType, toBeijingUnixTs } from "../meilisearch";
 import type { NoticesRepo } from "../../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "../notice-translation";
+import { isWideTableReady } from "../noticeSearchSync";
 
 // ── 子模块 re-export（保持对外 API 不变）──
 export type { NoticeSearchParams, NoticeSearchResult, AgencyCacheItem, NoticeStatsResult } from "./types";
 export {
   refreshNoticeStats, refreshIsActive, getNoticeStats, statsKeyFor, getStatsCount,
 } from "./stats";
-export { refreshNoticeCountries, getNoticeCountries } from "./countries";
+export { refreshNoticeCountries, getNoticeCountries, expandCountryAliases, expandCountryAllForms } from "./countries";
 export { refreshNoticeAgencies, getNoticeAgencies, getAgencyCacheData } from "./agencies";
 export {
   noticeSearchCache, noticeCountCache, featuredCountCache,
@@ -40,6 +41,7 @@ import {
 } from "./cache";
 import { statsKeyFor, getStatsCount } from "./stats";
 import { getAgencyCacheData } from "./agencies";
+import { expandCountryAliases, expandCountryAllForms } from "./countries";
 import type { NoticeSearchParams, NoticeSearchResult } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,7 +53,7 @@ async function getCachedNoticeTypes(pool: Pool): Promise<string[]> {
     return _noticeTypeCache.types;
   }
   const [rows] = await pool.query(
-    "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE is_active = 1 AND notice_type IS NOT NULL"
+    "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE is_active = 1 AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW())) AND notice_type IS NOT NULL"
   );
   const types = (rows as any[]).map((r) => r.notice_type);
   setNoticeTypeCache({ types, expires: Date.now() + NOTICE_TYPE_CACHE_TTL });
@@ -93,6 +95,8 @@ export async function searchNotices(
   let countMs = 0;
   let idMs = 0;
   let searchMode = "mysql";
+  let meiliTotalIsPrecise = false; // P0 修复：标记 Meilisearch total 是否为精确值
+  let meiliForceCountryUsed = "";  // P0 修复：记录是否使用了国家级强制聚合
 
   const isChinese = /[\u4e00-\u9fff]/.test(q);
 
@@ -122,10 +126,21 @@ export async function searchNotices(
     // 解析机构名（供 Meilisearch 筛选）
     let meiliAgencies: string[] | undefined;
     let meiliAgencyGroup: string | undefined;
+    let meiliForceCountry: string | undefined; // 国家级强制聚合（如"巴西各机构"）
     if (agency) {
       const _items = getAgencyCacheData() || [];
       const _cached = _items.find((item) => item.agency === agency);
-      if (_cached?.agencyGroup) {
+      if (_cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
+        // 国家级强制聚合：提取国家名作为 country 过滤条件
+        meiliForceCountry = _cached.agencyGroup.slice(14); // "FORCE_COUNTRY_Brazil" → "Brazil"
+        // P0 修复：检测 agency + country 冲突——强制聚合会覆盖用户选择的 country
+        if (country && country !== meiliForceCountry) {
+          console.log(`[search] FORCE_COUNTRY 冲突: agency="${agency}" 覆盖 country="${country}" → "${meiliForceCountry}"`);
+        }
+        meiliForceCountryUsed = meiliForceCountry;
+      } else if (_cached?.agencyGroup && !_cached.agencyGroup.startsWith("ORPHAN_")) {
+        // agencyGroup 仅对 Meilisearch 索引中实际存在的聚合组有效（如 MUNICIPIO_BR）
+        // ORPHAN_ 兜底聚合是下拉列表动态生成的，Meilisearch 索引中不存在对应的 agency_group 值
         meiliAgencyGroup = _cached.agencyGroup;
       } else if (_cached?.originalAgencies && _cached.originalAgencies.length > 0) {
         meiliAgencies = _cached.originalAgencies;
@@ -135,9 +150,12 @@ export async function searchNotices(
     }
 
     const meiliStart = Date.now();
+    const effectiveCountry = meiliForceCountry || country || undefined;
     const meiliResult = await meiliSearch({
       q: q || undefined,
-      country: country || undefined,
+      country: effectiveCountry,
+      // 传入国家名所有已知形式（原始大小写 + 大写），让 Meilisearch 用 OR 匹配索引中的不同存储形式
+      countryVariants: effectiveCountry ? expandCountryAllForms(effectiveCountry) : undefined,
       agencies: meiliAgencies,
       agencyGroup: meiliAgencyGroup,
       deadlineFrom: deadlineFrom || undefined,
@@ -157,6 +175,7 @@ export async function searchNotices(
       meiliHit = true;
       total = meiliResult.total;
       pageIds = meiliResult.ids;
+      meiliTotalIsPrecise = meiliResult.totalIsPrecise; // P0 修复：记录 total 精度
       const meiliMs = Date.now() - meiliStart;
 
       // 搜索模式标记（便于日志分析）
@@ -184,7 +203,11 @@ export async function searchNotices(
     console.log(`[search-perf] fallback MySQL mode=${searchMode} q="${q}" country="${country}"`);
   }
 
-  const where: string[] = ["n.is_active = 1"];
+  // 修复：搜索条件同时检查 is_active 和实时过期判断，避免显示已过期但未标记的记录
+  const where: string[] = [
+    "n.is_active = 1",
+    "(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))"  // 实时过期判断
+  ];
   const params: any[] = [];
   let join = "";
   let idFilterSql = "";
@@ -220,13 +243,38 @@ export async function searchNotices(
     }
   }
   if (country) {
-    where.push("n.country = ?");
-    params.push(country);
+    // 修复：展开国家别名 + UPPER() 大小写不敏感匹配，覆盖数据库中所有变体
+    // 如 "Philippines" / "The Philippines" / "PHL" 等都能被匹配到
+    const countryVariants = expandCountryAliases(country);
+    if (countryVariants.length > 1) {
+      where.push(`UPPER(n.country) IN (${countryVariants.map(() => "?").join(",")})`);
+      params.push(...countryVariants);
+    } else {
+      where.push("UPPER(n.country) = ?");
+      params.push(country.toUpperCase());
+    }
   }
   if (agency) {
     const _agencyItems = getAgencyCacheData() || [];
     const cachedItem = _agencyItems.find((item) => item.agency === agency);
-    if (cachedItem?.sqlPattern) {
+    if (cachedItem?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
+      // 国家级强制聚合：使用 country 过滤（如"巴西各机构" → country = 'Brazil'）
+      const forceCountry = cachedItem.agencyGroup.slice(14);
+      meiliForceCountryUsed = forceCountry; // 记录强制聚合（供日志和缓存判断）
+      // P0 修复：检测 agency + country 冲突
+      if (country && country !== forceCountry) {
+        console.log(`[search] FORCE_COUNTRY 冲突(MySQL): agency="${agency}" 覆盖 country="${country}" → "${forceCountry}"`);
+      }
+      // 修复：展开国家别名，UPPER() 大小写不敏感匹配数据库中的变体名称
+      const forceCountryVariants = expandCountryAliases(forceCountry);
+      if (forceCountryVariants.length > 1) {
+        where.push(`UPPER(n.country) IN (${forceCountryVariants.map(() => "?").join(",")})`);
+        params.push(...forceCountryVariants);
+      } else {
+        where.push("UPPER(n.country) = ?");
+        params.push(forceCountry.toUpperCase());
+      }
+    } else if (cachedItem?.sqlPattern) {
       // PERF 优化：大型聚合组使用 SQL LIKE 模式匹配，替代数千个 OR 条件
       // 例如 MUNICIPIO_BR → "MUNICIPIO %" 匹配所有巴西市政府
       where.push(`UPPER(n.agency) LIKE ?`);
@@ -244,16 +292,21 @@ export async function searchNotices(
     }
   }
   if (DATE_RE.test(deadlineFrom)) {
-    where.push(`${DEADLINE_SEC_EXPR} >= UNIX_TIMESTAMP(?)`);
-    params.push(`${deadlineFrom} 00:00:00`);
+    // 修复：统一使用北京时间（UTC+8）解析，与 Meilisearch 路径保持一致
+    const ts = toBeijingUnixTs(deadlineFrom, "00:00:00");
+    where.push(`${DEADLINE_SEC_EXPR} >= ?`);
+    params.push(ts);
   }
   if (DATE_RE.test(deadlineTo)) {
-    where.push(`${DEADLINE_SEC_EXPR} <= UNIX_TIMESTAMP(?)`);
-    params.push(`${deadlineTo} 23:59:59`);
+    const ts = toBeijingUnixTs(deadlineTo, "23:59:59");
+    where.push(`${DEADLINE_SEC_EXPR} <= ?`);
+    params.push(ts);
   }
   if (deadlineWithinDays > 0) {
-    where.push(`n.deadline_ts IS NOT NULL AND ${DEADLINE_SEC_EXPR} <= UNIX_TIMESTAMP(NOW()) + ? * 86400`);
-    params.push(deadlineWithinDays);
+    // P2 修复：统一使用应用服务器时间（与 Meilisearch 路径一致），避免 MySQL NOW() 时钟偏差
+    const futureTs = Math.floor(Date.now() / 1000) + deadlineWithinDays * 86400;
+    where.push(`n.deadline_ts IS NOT NULL AND ${DEADLINE_SEC_EXPR} <= ?`);
+    params.push(futureTs);
   }
   if (noticeType) {
     try {
@@ -358,7 +411,17 @@ export async function searchNotices(
   const t0 = Date.now();
   let t1 = t0;
 
+  // 移除 MySQL COUNT 校准（太慢，17-20秒）
+  // 直接使用 Meilisearch 返回的 total，或者使用统计表
+  let meiliCalibratePromise: Promise<number | null> | null = null;
+
   if (!meiliHit) {
+    // P2 修复：MySQL 降级路径增加超时保护（15 秒），避免极端慢查询无限阻塞
+    const MYSQL_TIMEOUT_MS = 15000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`MySQL search timeout after ${MYSQL_TIMEOUT_MS}ms`)), MYSQL_TIMEOUT_MS)
+    );
+
     const countTimed = countPromise.then((r: any) => { countMs = Date.now() - t0; return r; });
     const idQueryStart = Date.now();
     let idQuery: string;
@@ -373,49 +436,95 @@ export async function searchNotices(
     const idTimed = pool.query(idQuery, idQueryParams)
       .then((r: any) => { idMs = Date.now() - idQueryStart; return r; });
 
-    const [countResult, idResult] = await Promise.all([countTimed, idTimed]);
-    t1 = Date.now();
-    const [countRows] = countResult;
-    const [idRows] = idResult;
-    total = Number((countRows as RowDataPacket[])[0]?.total || 0);
-    pageIds = (idRows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
+    try {
+      const [countResult, idResult] = await Promise.race([
+        Promise.all([countTimed, idTimed]),
+        timeoutPromise,
+      ]) as [any, any];
+      t1 = Date.now();
+      const [countRows] = countResult;
+      const [idRows] = idResult;
+      total = Number((countRows as RowDataPacket[])[0]?.total || 0);
+      pageIds = (idRows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
+    } catch (timeoutErr) {
+      console.warn(`[search-perf] MySQL 超时(${MYSQL_TIMEOUT_MS}ms)，返回空结果: q="${q}" country="${country}" agency="${agency}"`);
+      total = 0;
+      pageIds = [];
+      t1 = Date.now();
+    }
   }
 
   // 阶段 2：按 ID 批量获取详情
+  // 宽表就绪时直接从宽表读取（零 JOIN），否则回退到原始多表 JOIN
   let detailRows: RowDataPacket[] = [];
+  const useWideTable = await isWideTableReady(pool);
   if (pageIds.length > 0) {
-    const [dRows] = await pool.query(
-      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-         n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
-         n.is_featured, n.documents, n.procurement_files,
-         LEFT(n.description, 300) AS description,
-         tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
-         tre.title_tr AS title_en, tre.description_tr AS description_en,
-         opp.description_cn,
-         LEFT(opp.bid_overview, 200) AS bid_overview,
-         opp.beneficiary_countries
-       FROM crm_bid_notices n ${displayJoin}
-       LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
-         AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
-       WHERE n.id IN (${pageIds.map(() => "?").join(",")})
-       ORDER BY FIELD(n.id, ${pageIds.map(() => "?").join(",")})`,
-      [...localeParams, ...pageIds, ...pageIds]
-    );
-    detailRows = dRows as RowDataPacket[];
+    if (useWideTable) {
+      // ── 宽表路径：单表查询，零 JOIN ──
+      // i18n：根据 locale 动态选择对应语言的翻译字段
+      // 支持的语言：zh, en, fr, ru, es, ar
+      //
+      // PERF: description_* 列已改为 VARCHAR(2000)，数据存储在行内，
+      // 无 InnoDB 溢出页开销，零 JOIN 单表查询性能最优。
+      const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+      const lang = locale && SUPPORTED_LANGS.includes(locale) ? locale : "en";
+      const i18nTitleExpr = `title_${lang}`;
+      const i18nDescExpr = `description_${lang}`;
+      const [dRows] = await pool.query(
+        `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
+           country_std AS country, agency_std AS agency,
+           deadline_sec, deadline_sec AS deadline_ts,
+           estimated_value, is_featured,
+           LEFT(description, 300) AS description,
+           ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, 500) AS description_i18n,
+           title_en, LEFT(description_en, 500) AS description_en,
+           description_cn, bid_overview, beneficiary_countries,
+           documents_count AS breakdown_file_count
+         FROM crm_notice_search
+         WHERE id IN (${pageIds.map(() => "?").join(",")})
+         ORDER BY FIELD(id, ${pageIds.map(() => "?").join(",")})`,
+        [...pageIds, ...pageIds]
+      );
+      detailRows = dRows as RowDataPacket[];
+    } else {
+      // ── 回退路径：原始多表 JOIN（向后兼容）──
+      const [dRows] = await pool.query(
+        `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+           n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+           n.is_featured, n.documents, n.procurement_files,
+           LEFT(n.description, 300) AS description,
+           tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
+           tre.title_tr AS title_en, tre.description_tr AS description_en,
+           opp.description_cn,
+           LEFT(opp.bid_overview, 200) AS bid_overview,
+           opp.beneficiary_countries
+         FROM crm_bid_notices n ${displayJoin}
+         LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
+           AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+         WHERE n.id IN (${pageIds.map(() => "?").join(",")})
+         ORDER BY FIELD(n.id, ${pageIds.map(() => "?").join(",")})`,
+        [...localeParams, ...pageIds, ...pageIds]
+      );
+      detailRows = dRows as RowDataPacket[];
+    }
   }
 
   const t2 = Date.now();
 
-  // P1 性能优化：最后一页短路
+  // 移除 MySQL COUNT 校准等待（太慢）
+  // 直接使用 Meilisearch 返回的 total
+
+  // P1 修复：最后一页短路——对 Meilisearch 和 MySQL 两条路径都生效
   const lastPageShortCircuit = pageIds.length > 0 && pageIds.length < pageSize;
   if (lastPageShortCircuit) {
     total = offset + pageIds.length;
+    meiliTotalIsPrecise = true; // 短路得到的 total 是精确值
     countMs = 0;
     console.log(`[search-perf] COUNT 短路: page=${page} items=${pageIds.length} < pageSize=${pageSize} → total=${total} (0ms)`);
   }
 
-  // P0：首页写入 COUNT 缓存
-  if (page === 1 && total > 0) {
+  // P1 修复：首页写入 COUNT 缓存——仅当 total 为精确值时才写入
+  if (page === 1 && total > 0 && (!meiliHit || meiliTotalIsPrecise)) {
     if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) {
       const now = Date.now();
       for (const [key, entry] of noticeCountCache) { if (entry.expires <= now) noticeCountCache.delete(key); }
@@ -432,8 +541,14 @@ export async function searchNotices(
     } else {
       for (const row of detailRows) {
         if (row.is_featured) featuredIds.add(Number(row.id));
-        const docCount = normalizeDocumentRows(row.documents, row.procurement_files).length;
-        if (docCount > 0) breakdownCounts.set(Number(row.id), docCount);
+        // 宽表路径直接返回 breakdown_file_count；回退路径需运行时计算
+        if (useWideTable) {
+          const docCount = Number(row.breakdown_file_count) || 0;
+          if (docCount > 0) breakdownCounts.set(Number(row.id), docCount);
+        } else {
+          const docCount = normalizeDocumentRows(row.documents, row.procurement_files).length;
+          if (docCount > 0) breakdownCounts.set(Number(row.id), docCount);
+        }
       }
     }
   }
