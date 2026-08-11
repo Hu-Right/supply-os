@@ -88,13 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（含供应商绑定申请）
    * Register (with supplier claim application)
    */
-  const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm) => {
+  const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => {
     setIsAuthLoading(true);
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0] }),
+        body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
@@ -186,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "发送验证码失败");
+    return { email_sent: data.email_sent ?? true, support_hint: data.support_hint ?? null };
   };
 
   /**

@@ -20,6 +20,17 @@ import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
 import { validatePassword, PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
+import { Mail } from "lucide-react";
+
+/** 邮箱脱敏：显示首尾字符，中间用 ** 替代 */
+function maskEmail(email: string): string {
+  if (!email || !email.includes("@")) return email;
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) {
+    return `${local[0]}**@${domain}`;
+  }
+  return `${local[0]}**${local[local.length - 1]}@${domain}`;
+}
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
@@ -54,6 +65,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState("");
+  const [showSupportHint, setShowSupportHint] = useState(false);
+
+  // ── 注册验证码状态 ──
+  const [registerVerifyCode, setRegisterVerifyCode] = useState("");
+  const [registerCodeSent, setRegisterCodeSent] = useState(false);
+  const [registerCodeLoading, setRegisterCodeLoading] = useState(false);
+  const [registerCodeError, setRegisterCodeError] = useState("");
+  const [registerCodeCountdown, setRegisterCodeCountdown] = useState(0);
 
   // 主营行业偏好：注册时前两级必选（三级联动，第三级可选）
   const {
@@ -120,6 +139,48 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     }
   }, [mainBusiness, prefLevel2, searchAndAutoFillL3]);
 
+  // 注册验证码倒计时
+  useEffect(() => {
+    if (registerCodeCountdown <= 0) return;
+    const timer = setTimeout(() => setRegisterCodeCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [registerCodeCountdown]);
+
+  /**
+   * 发送注册验证码
+   * Send registration verification code
+   */
+  const handleSendRegisterCode = async () => {
+    const email = authForm.email.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setRegisterCodeError(t("authForgotEmailInvalid"));
+      return;
+    }
+
+    setRegisterCodeLoading(true);
+    setRegisterCodeError("");
+    try {
+      const res = await fetch("/api/auth/send-register-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRegisterCodeError(data.error || "发送失败");
+      } else if (!data.email_sent) {
+        setRegisterCodeError(t("authForgotEmailSendFailed") || "邮件发送失败");
+      } else {
+        setRegisterCodeSent(true);
+        setRegisterCodeCountdown(60); // 60秒倒计时
+      }
+    } catch {
+      setRegisterCodeError("发送失败，请稍后重试");
+    } finally {
+      setRegisterCodeLoading(false);
+    }
+  };
+
   /**
    * 提交认证（登录或注册）
    * Submit authentication (login or register)
@@ -146,6 +207,15 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
         setAuthError(pwCheck.message);
         return;
       }
+      // 注册时需要验证码
+      if (!registerCodeSent) {
+        setAuthError("请先获取邮箱验证码");
+        return;
+      }
+      if (registerVerifyCode.length !== 6) {
+        setAuthError("请输入6位验证码");
+        return;
+      }
     }
 
     if (authMode === "register" && !claimForm.companyName.trim()) {
@@ -170,7 +240,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           email,
           password,
           authForm.displayName,
-          claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined
+          claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
+          registerVerifyCode
         );
         // 注册成功后静默保存偏好（user_key 即小写邮箱），保存失败不阻断注册流程
         saveIndustryPrefs(email.toLowerCase(), {
@@ -195,6 +266,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     e.preventDefault();
     setForgotError("");
     setForgotSuccess("");
+    setShowSupportHint(false);
 
     const email = forgotEmail.trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -204,9 +276,17 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
 
     setForgotLoading(true);
     try {
-      await sendResetCode(email);
-      setForgotStep(2);
-      setForgotSuccess(t("authForgotCodeSent"));
+      const result = await sendResetCode(email);
+      // 检查邮件发送状态
+      if (result.email_sent === false) {
+        // 邮件发送失败，显示客服提示
+        setShowSupportHint(true);
+        setForgotError(t("authForgotEmailSendFailed") || "验证码邮件发送失败，请检查邮箱地址是否正确");
+      } else {
+        // 邮件发送成功，进入下一步
+        setForgotStep(2);
+        setForgotSuccess(t("authForgotCodeSent"));
+      }
     } catch (err: any) {
       setForgotError(err.message || t("authForgotSendFailed"));
     } finally {
@@ -302,8 +382,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             /* 步骤 2：输入验证码 + 新密码 */
             <div className="space-y-3">
               <p className="text-xs text-slate-500 text-center">
-                {t("authForgotCodeHint")} {forgotEmail}
+                {t("authForgotCodeHint")} {maskEmail(forgotEmail)}
               </p>
+              {/* 重要提示：确认邮箱所有权 */}
+              <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-xs text-blue-700">
+                  {t("authForgotConfirmEmail") || "请确认这是您的邮箱。如果验证码发送到了他人邮箱，您将无法收到验证码。"}
+                </p>
+              </div>
               <Input
                 type="text"
                 value={forgotCode}
@@ -326,6 +412,21 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               >
                 {forgotLoading ? t("authForgotResetting") : t("authForgotResetSubmit")}
               </button>
+              {/* 返回修改邮箱 */}
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotStep(1);
+                  setForgotCode("");
+                  setForgotNewPassword("");
+                  setForgotError("");
+                  setForgotSuccess("");
+                  setShowSupportHint(false);
+                }}
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+              >
+                {t("authForgotChangeEmail") || "邮箱有误？返回修改"}
+              </button>
             </div>
           )}
 
@@ -341,6 +442,25 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             </p>
           )}
 
+          {/* 客服申诉入口：邮件发送失败时显示 */}
+          {showSupportHint && (
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <p className="text-xs font-bold text-amber-700 mb-1.5">
+                {t("authForgotCantReceive") || "无法收到验证码？"}
+              </p>
+              <p className="text-xs text-amber-600 mb-2">
+                {t("authForgotContactSupport") || "如注册时使用了非真实邮箱，请联系客服协助重置密码"}
+              </p>
+              <a
+                href="mailto:support@supply-os.com"
+                className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                {t("authForgotEmailSupport") || "发送邮件至客服"}
+              </a>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => {
@@ -351,6 +471,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               setForgotNewPassword("");
               setForgotError("");
               setForgotSuccess("");
+              setShowSupportHint(false);
             }}
             className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
           >
@@ -498,6 +619,39 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               }
               placeholder={t("authEmailPlaceholder")}
             />
+            {/* 注册验证码（仅注册模式显示） */}
+            {authMode === "register" && (
+              <div className="space-y-1">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={registerVerifyCode}
+                    onChange={(e) => setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
+                    maxLength={6}
+                    className="flex-1 text-center tracking-widest"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendRegisterCode}
+                    disabled={registerCodeLoading || registerCodeCountdown > 0}
+                    className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {registerCodeCountdown > 0
+                      ? `${registerCodeCountdown}s`
+                      : registerCodeLoading
+                        ? t("authForgotSending")
+                        : t("authRegisterSendCode") || "获取验证码"}
+                  </button>
+                </div>
+                {registerCodeError && (
+                  <p className="text-xs font-bold text-rose-600">{registerCodeError}</p>
+                )}
+                {registerCodeSent && registerCodeCountdown <= 0 && (
+                  <p className="text-xs text-teal-600">{t("authRegisterCodeSent") || "验证码已发送，请查收邮箱"}</p>
+                )}
+              </div>
+            )}
             <Input
               type="password"
               value={authForm.password}

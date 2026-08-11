@@ -597,10 +597,12 @@ export async function searchNotices(
 
   const t3 = Date.now();
 
-  // P2-2 修复：缓存中剥离翻译字段
+  // 构建缓存和响应 payload
+  // 修复：保留翻译字段（title_i18n/description_i18n），避免缓存命中时丢失译文
+  // 缓存 key 已包含 locale，不同语言的缓存完全隔离，不存在跨语言污染风险
   const cachePayload: NoticeSearchResult = {
     items: rawRows.map((row) => ({
-      ...row, title_i18n: null, description_i18n: null,
+      ...row,
       organization: null, source_url: null, unspsc_codes: [], core_locked: true,
       is_featured: featuredIds.has(Number(row.id)),
       breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,

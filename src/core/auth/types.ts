@@ -36,8 +36,8 @@ export interface AuthContextValue {
   isAuthLoading: boolean;
   /** 登录 */
   login: (email: string, password: string) => Promise<void>;
-  /** 注册（含供应商绑定申请） */
-  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm) => Promise<void>;
+  /** 注册（含供应商绑定申请，需邮箱验证码） */
+  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => Promise<void>;
   /** 登出 */
   logout: () => void;
   /** 刷新认证状态 */
@@ -48,8 +48,8 @@ export interface AuthContextValue {
   claimMessage: string;
   /** 设置供应商绑定申请消息 */
   setClaimMessage: (msg: string) => void;
-  /** 发送找回密码验证码 */
-  sendResetCode: (email: string) => Promise<void>;
+  /** 发送找回密码验证码，返回邮件发送状态 */
+  sendResetCode: (email: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
   /** 重置密码（验证码+新密码），成功后自动登录 */
   resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
 }

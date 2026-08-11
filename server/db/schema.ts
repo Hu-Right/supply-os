@@ -22,6 +22,7 @@
  *              012-password-reset-security  找回密码/密码安全升级
  *              013-wide-table-varchar       宽表description列LONGTEXT→VARCHAR(2000)
  *              014-password-reset-email-columns  补齐crm_password_resets缺失列(email_sent/email_error)
+ *              015-registration-email-verification 注册邮箱验证(code_type字段)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -39,12 +40,13 @@ import { migration as m011 } from "./migrations/011-notice-search-wide-table";
 import { migration as m012 } from "./migrations/012-password-reset-security";
 import { migration as m013 } from "./migrations/013-wide-table-varchar";
 import { migration as m014 } from "./migrations/014-password-reset-email-columns";
+import { migration as m015 } from "./migrations/015-registration-email-verification";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
-  m012, m013, m014,
+  m012, m013, m014, m015,
 ];
 
 /**

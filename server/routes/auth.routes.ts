@@ -10,7 +10,7 @@ import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { hashPassword, verifyPassword, needsUpgrade, buildUserResponse } from "../services/auth";
-import { sendPasswordResetEmail, isEmailConfigured } from "../services/email";
+import { sendPasswordResetEmail, sendRegistrationVerifyEmail, isEmailConfigured } from "../services/email";
 import { validatePassword } from "../../src/shared/auth/passwordPolicy";
 
 // ── 速率限制器（登录防暴力破解）──
@@ -91,15 +91,109 @@ export function createAuthRouter(ctx: AppContext): Router {
   const membershipRepo = ctx.membershipRepo;
   const suppliersRepo = ctx.suppliersRepo;
 
+  // ── 注册：发送邮箱验证码 ──────────────────────────────────────────
+  // 注册前必须先验证邮箱所有权，防止虚假邮箱占用
+  router.post("/api/auth/send-register-code", asyncHandler(async (req, res) => {
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+
+    // IP 限流（复用找回密码的限流逻辑）
+    const rl = checkForgotRateLimit(ip);
+    if (rl.blocked) {
+      return res.status(429).json({
+        error: "发送过于频繁，请稍后重试",
+        retry_after_seconds: rl.retryAfterSec,
+      });
+    }
+
+    const email = String(req.body.email || "").trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "请输入有效的邮箱地址" });
+    }
+
+    if (!isEmailConfigured()) {
+      return res.status(503).json({ error: "邮件服务暂未配置，请稍后重试" });
+    }
+
+    // 检查邮箱是否已注册
+    const existing = await usersRepo.findByKey(email);
+    if (existing) {
+      return res.status(409).json({ error: "该邮箱已注册，请直接登录" });
+    }
+
+    // 生成 6 位验证码
+    const code = String(crypto.randomInt(100000, 999999));
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 分钟有效
+
+    // 写入验证码表（code_type = 'registration'）
+    const [insertResult] = await ctx.dbPool.execute(
+      `INSERT INTO crm_password_resets (user_key, code, code_type, expires_at, ip)
+       VALUES (?, ?, 'registration', ?, ?)`,
+      [email, code, expiresAt, ip],
+    );
+    const resetId = (insertResult as any).insertId;
+
+    // 发送验证邮件
+    let emailSent = false;
+    try {
+      await sendRegistrationVerifyEmail(email, code);
+      await ctx.dbPool.execute(
+        "UPDATE crm_password_resets SET email_sent = 1 WHERE id = ?",
+        [resetId],
+      );
+      emailSent = true;
+    } catch (err) {
+      const errorMsg = (err as Error).message;
+      await ctx.dbPool.execute(
+        "UPDATE crm_password_resets SET email_sent = 0, email_error = ? WHERE id = ?",
+        [errorMsg, resetId],
+      );
+      console.error(`[register-code] ✗ 注册验证码邮件发送失败: ${email} - ${errorMsg}`);
+    }
+
+    recordForgotPasswordSend(ip);
+
+    res.json({
+      success: true,
+      email_sent: emailSent,
+      support_hint: emailSent ? null : "邮件发送失败，请检查邮箱地址或稍后重试",
+    });
+  }));
+
   router.post("/api/auth/register", asyncHandler(async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
+    const verifyCode = String(req.body.verify_code || "");
     const displayName = String(req.body.display_name || email.split("@")[0] || "会员");
     if (!email || !password) return res.status(400).json({ error: "邮箱和密码不能为空" });
+    if (!verifyCode) return res.status(400).json({ error: "请输入邮箱验证码" });
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.message });
 
-    // BUG-A1 修复：先检查用户是否已存在，避免覆盖密码
+    // 验证邮箱验证码（code_type = 'registration'）
+    const [codeRows] = await ctx.dbPool.query(
+      `SELECT id, code, expires_at, attempts
+       FROM crm_password_resets
+       WHERE user_key = ? AND code_type = 'registration' AND used = 0 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [email],
+    );
+    const codeRecord = (codeRows as any[])[0];
+
+    if (!codeRecord) {
+      return res.status(400).json({ error: "验证码已过期，请重新获取" });
+    }
+    if (codeRecord.attempts >= 5) {
+      return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    }
+    if (codeRecord.code !== verifyCode) {
+      await ctx.dbPool.execute(
+        "UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?",
+        [codeRecord.id],
+      );
+      return res.status(400).json({ error: "验证码错误" });
+    }
+
+    // 检查用户是否已存在
     const existing = await usersRepo.findByKey(email);
     if (existing) {
       return res.status(409).json({ error: "该邮箱已注册" });
@@ -115,6 +209,15 @@ export function createAuthRouter(ctx: AppContext): Router {
     if (!created) {
       return res.status(409).json({ error: "该邮箱已注册" });
     }
+
+    // 标记验证码已使用
+    await ctx.dbPool.execute(
+      "UPDATE crm_password_resets SET used = 1 WHERE id = ?",
+      [codeRecord.id],
+    );
+
+    // 标记邮箱已验证（注册时已通过验证码验证邮箱所有权）
+    await usersRepo.markEmailVerified(email);
 
     res.status(201).json({
       success: true,
@@ -231,7 +334,9 @@ export function createAuthRouter(ctx: AppContext): Router {
     }
 
     // 无论邮箱是否注册，都返回相同提示（防邮箱枚举攻击）
+    // 但区分邮件发送状态，以便前端提示用户联系客服
     const user = await usersRepo.findByKey(email);
+    let emailSent = true; // 默认 true（用户不存在时也返回 true，防枚举）
     if (user) {
       // 生成 6 位验证码
       const code = String(crypto.randomInt(100000, 999999));
@@ -253,6 +358,7 @@ export function createAuthRouter(ctx: AppContext): Router {
           [resetId],
         );
         console.log(`[forgot-password] ✓ 验证码邮件发送成功: ${email}`);
+        emailSent = true;
       } catch (err) {
         const errorMsg = (err as Error).message;
         await ctx.dbPool.execute(
@@ -260,13 +366,19 @@ export function createAuthRouter(ctx: AppContext): Router {
           [errorMsg, resetId],
         );
         console.error(`[forgot-password] ✗ 验证码邮件发送失败: ${email} - ${errorMsg}`);
+        emailSent = false;
       }
 
       recordForgotPasswordSend(ip);
     }
 
-    // 统一响应（防枚举）
-    res.json({ success: true, message: "验证码已发送到您的邮箱" });
+    // 统一响应（防枚举），但返回邮件发送状态供前端提示用户
+    res.json({
+      success: true,
+      message: "验证码已发送到您的邮箱",
+      email_sent: emailSent,
+      support_hint: emailSent ? null : "邮件发送失败，请联系客服协助重置密码",
+    });
   }));
 
   // ── 找回密码：重置密码 ──────────────────────────────────────────

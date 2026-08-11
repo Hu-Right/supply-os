@@ -61,3 +61,30 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
     `,
   });
 }
+
+/**
+ * 发送注册验证码邮件
+ * Send registration verification code email
+ */
+export async function sendRegistrationVerifyEmail(email: string, code: string): Promise<void> {
+  const transporter = getTransporter();
+  await transporter.sendMail({
+    from: SMTP_FROM,
+    to: email,
+    subject: "注册验证 - 验证码",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>欢迎注册国际采购供应链平台</h2>
+        <p>您的注册验证码为：</p>
+        <div style="font-size: 32px; font-weight: bold; letter-spacing: 4px;
+                    padding: 16px; background: #f0fdfa; border-radius: 8px;
+                    text-align: center; margin: 16px 0; color: #0d9488;">
+          ${code}
+        </div>
+        <p style="color: #64748b; font-size: 14px;">
+          验证码 10 分钟内有效。如非本人操作，请忽略此邮件。
+        </p>
+      </div>
+    `,
+  });
+}

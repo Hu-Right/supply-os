@@ -25,7 +25,8 @@ export function statsKeyFor(p: NoticeSearchParams): string | null {
   if (p.codeId) return null;
   if (p.deadlineFrom || p.deadlineTo || p.deadlineWithinDays) return null;
   if (p.noticeType) return null;
-  if (p.sort && p.sort !== "deadline_farthest") return null;
+  // 修复：移除 sort 检查——排序不影响总数，所有排序方式应使用同一 count 源
+  // 原逻辑：sort !== "deadline_farthest" 时返回 null 走 COUNT 查询，导致不同排序显示不同 total
   if (p.country && p.agency) return null;
   if (p.featuredOnly && (p.country || p.agency)) return null;
   // P1 修复：聚合机构名（如 MUNICIPIO_BR、FORCE_COUNTRY_*、ORPHAN_*）在统计表中不存在

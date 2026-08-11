@@ -58,19 +58,13 @@ export function useNoticeMembership({
     }
   };
 
-  /** 普通账号仅展示以下三种解锁产品 */
-  const VISIBLE_PLAN_CODES = new Set(["single_89", "week_299_21", "annual_8800"]);
-
-  // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求
+  // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求；
+  // 套餐展示由后端 is_active 控制，前端不再硬编码过滤
   const loadPaidPlans = () => {
     if (paidPlans.length > 0) return Promise.resolve();
     return fetchMembershipPlans()
       .then((plans) =>
-        setPaidPlans(
-          Array.isArray(plans)
-            ? plans.filter((p) => VISIBLE_PLAN_CODES.has(p.plan_code))
-            : [],
-        ),
+        setPaidPlans(Array.isArray(plans) ? plans : []),
       )
       .catch(() => {});
   };
