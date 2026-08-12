@@ -270,8 +270,10 @@ export async function searchNotices(
   let idFilterSql = "";
   const idFilterParams: any[] = [];
 
-  // UNSPSC：仅当 Meilisearch 未能处理时才走 MySQL 桥接表
-  if (p.codeId && !meiliHit) {
+  // UNSPSC：始终构建 SQL 过滤条件
+  // - 当 Meilisearch 命中时：用于 COUNT 校准，确保总数准确
+  // - 当 Meilisearch 未命中时：用于 MySQL 降级路径的 ID 过滤
+  if (p.codeId) {
     const filter = await buildNoticeUnspscFilter(pool, p.codeId);
     idFilterSql = filter.sql;
     idFilterParams.push(...filter.params);
