@@ -32,6 +32,14 @@ function maskEmail(email: string): string {
   return `${local[0]}**${local[local.length - 1]}@${domain}`;
 }
 
+/** 手机号脱敏：显示前3后4，中间用 **** 替代 */
+function maskPhone(phone: string): string {
+  const p = phone.trim();
+  if (!p) return p;
+  if (p.length < 8) return p.slice(0, 2) + "****";
+  return p.slice(0, 3) + "****" + p.slice(-4);
+}
+
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
 }
@@ -245,12 +253,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           registerVerifyCode
         );
         // 注册成功后静默保存偏好（user_key 即小写邮箱），保存失败不阻断注册流程
+        // 修复：仅持久化表单可见的 1~3 级，不写入智能推断的隐藏 L4/L5，
+        // 避免刷新自动筛选深度（level4/5_id）与手动选择（level2_id）口径不一致
         saveIndustryPrefs(email.toLowerCase(), {
           level1_id: Number(prefLevel1),
           level2_id: Number(prefLevel2),
           level3_id: prefLevel3 ? Number(prefLevel3) : null,
-          level4_id: inferResult?.level4_id ?? null,
-          level5_id: inferResult?.level5_id ?? null,
+          level4_id: null,
+          level5_id: null,
         }).catch((err) => console.error("Failed to save industry prefs", err));
         onSuccess();
       }
@@ -269,10 +279,17 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     setForgotSuccess("");
     setShowSupportHint(false);
 
-    const email = forgotEmail.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setForgotError(t("authForgotEmailInvalid"));
-      return;
+    const identifier = forgotEmail.trim();
+    if (forgotChannel === "sms") {
+      if (!identifier || !/^1[3-9]\d{9}$/.test(identifier)) {
+        setForgotError(t("authPhoneInvalid") || "请输入有效的手机号");
+        return;
+      }
+    } else {
+      if (!identifier || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+        setForgotError(t("authForgotEmailInvalid"));
+        return;
+      }
     }
 
     setForgotLoading(true);
@@ -282,7 +299,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
         const res = await fetch("/api/auth/forgot-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, channel: "sms" }),
+          body: JSON.stringify({ email: identifier, channel: "sms" }),
         });
         const data = await res.json();
         if (!res.ok) {
@@ -292,11 +309,11 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           setForgotError(data.support_hint || "短信发送失败");
         } else {
           setForgotStep(2);
-          setForgotSuccess(t("authForgotCodeSent"));
+          setForgotSuccess(t("authForgotSmsCodeSent") || "验证码已发送到您的手机，请查收");
         }
       } else {
         // 邮箱验证渠道
-        const result = await sendResetCode(email);
+        const result = await sendResetCode(identifier);
         if (result.email_sent === false) {
           setShowSupportHint(true);
           setForgotError(t("authForgotEmailSendFailed") || "验证码邮件发送失败，请检查邮箱地址是否正确");
@@ -401,10 +418,10 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             /* 步骤 1：输入邮箱 + 选择验证方式 */
             <div className="space-y-3">
               <Input
-                type="email"
+                type={forgotChannel === "sms" ? "tel" : "email"}
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder={t("authEmailPlaceholder")}
+                placeholder={forgotChannel === "sms" ? (t("authPhonePlaceholder") || "请输入手机号") : t("authEmailPlaceholder")}
               />
               {/* 验证渠道选择 */}
               <div className="flex gap-2">
@@ -443,12 +460,14 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             /* 步骤 2：输入验证码 + 新密码 */
             <div className="space-y-3">
               <p className="text-xs text-slate-500 text-center">
-                {t("authForgotCodeHint")} {maskEmail(forgotEmail)}
+                {t("authForgotCodeHint")} {forgotChannel === "sms" ? maskPhone(forgotEmail) : maskEmail(forgotEmail)}
               </p>
-              {/* 重要提示：确认邮箱所有权 */}
+              {/* 重要提示 */}
               <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
                 <p className="text-xs text-blue-700">
-                  {t("authForgotConfirmEmail") || "请确认这是您的邮箱。如果验证码发送到了他人邮箱，您将无法收到验证码。"}
+                  {forgotChannel === "sms"
+                    ? (t("authForgotConfirmPhone") || "请确认这是您的手机号。如果验证码发送到了他人的手机，您将无法收到验证码。")
+                    : (t("authForgotConfirmEmail") || "请确认这是您的邮箱。如果验证码发送到了他人邮箱，您将无法收到验证码。")}
                 </p>
               </div>
               <Input
@@ -691,7 +710,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                     onChange={(e) => setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
                     maxLength={6}
-                    className="flex-1 text-center tracking-widest"
+                    className="flex-1 tracking-widest"
                   />
                   <button
                     type="button"

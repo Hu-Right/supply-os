@@ -189,9 +189,14 @@ export async function searchNotices(
       if (_cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
         // 国家级强制聚合：提取国家名作为 country 过滤条件
         meiliForceCountry = _cached.agencyGroup.slice(14); // "FORCE_COUNTRY_Brazil" → "Brazil"
-        // P0 修复：检测 agency + country 冲突——强制聚合会覆盖用户选择的 country
+        // P2-2 修复：检测 agency + country 冲突——与前置检查保持一致，返回空结果
         if (country && country !== meiliForceCountry) {
-          console.log(`[search] FORCE_COUNTRY 冲突: agency="${agency}" 覆盖 country="${country}" → "${meiliForceCountry}"`);
+          console.log(`[search] FORCE_COUNTRY 冲突: agency="${agency}" 要求 country="${meiliForceCountry}"，用户选择 country="${country}" → 返回空结果`);
+          const emptyResult: NoticeSearchResult = {
+            items: [], total: 0, page, pageSize,
+          };
+          noticeSearchCache.set(cacheKey, { payload: emptyResult, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+          return emptyResult;
         }
         meiliForceCountryUsed = meiliForceCountry;
       } else if (_cached?.agencyGroup && !_cached.agencyGroup.startsWith("ORPHAN_")) {
@@ -508,6 +513,44 @@ export async function searchNotices(
       total = 0;
       pageIds = [];
       t1 = Date.now();
+    }
+  }
+
+  // ── Meilisearch 空命中校准 ──
+  // Meilisearch 未返回任何本页 ID，但 MySQL COUNT 表明存在命中（索引口径分歧：
+  // 宽表 unspsc_levelN 尚未同步、文档 deadline_sec 陈旧、增量同步水位未覆盖等）。
+  // 此时降级用 MySQL ID 查询取本页 ID，保证列表与 total 一致。
+  // 典型症状：total=N 但列表为空（头部显示"共 N 条"却无卡片展示），
+  // 在深层类目（level4/5）小口径筛选下尤为明显。
+  if (meiliHit && pageIds.length === 0 && !referenceHit) {
+    try {
+      const CALIBRATE_TIMEOUT_MS = p.codeId ? 15000 : 5000;
+      const calibrateCount = await Promise.race([
+        countPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), CALIBRATE_TIMEOUT_MS)),
+      ]) as any;
+      const calibrateTotal = calibrateCount ? Number((calibrateCount[0] as any[])[0]?.total || 0) : 0;
+      // 仅当请求页在总数范围内时才降级取 ID（超出范围的页合法地返回空）
+      if (calibrateTotal > offset) {
+        let fallbackQuery: string;
+        let fallbackParams: any[];
+        if (q) {
+          fallbackQuery = `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql} AND n.id IN (SELECT id FROM (${kwUnionSql}) AS _u) ORDER BY ${orderSql} LIMIT ? OFFSET ?`;
+          fallbackParams = [...idFilterParams, ...params, ...kwUnionParams, ...orderParams, pageSize, offset];
+        } else {
+          fallbackQuery = `SELECT n.id FROM crm_bid_notices n ${countJoin} WHERE ${whereSql} ORDER BY ${orderSql} LIMIT ? OFFSET ?`;
+          fallbackParams = [...idFilterParams, ...params, ...orderParams, pageSize, offset];
+        }
+        const [fallbackRows] = await pool.query(fallbackQuery, fallbackParams);
+        const fallbackIds = (fallbackRows as RowDataPacket[]).map((row) => Number(row.id)).filter(Boolean);
+        if (fallbackIds.length > 0) {
+          pageIds = fallbackIds;
+          searchMode = `${searchMode}-id-fallback`;
+          console.log(`[search-perf] Meilisearch 空命中校准: COUNT=${calibrateTotal} → MySQL 取 ${fallbackIds.length} 条 ID (codeId=${p.codeId || "-"})`);
+        }
+      }
+    } catch (err) {
+      console.warn(`[search-perf] Meilisearch 空命中校准失败（保持空列表）: ${(err as Error).message}`);
     }
   }
 

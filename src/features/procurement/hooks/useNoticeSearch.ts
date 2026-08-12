@@ -141,9 +141,17 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   const activeFeatured = searchParams.get("featured") === "1";
+  // 修复：hasSearch 纳入 deepestCodeId——UNSPSC 行业筛选也是有效筛选条件，
+  // 必须参与数据源三选一判定。否则仅激活行业偏好（无文本/国家/日期等条件）时
+  // hasSearch=false，导致：
+  //   - 最近/最新 → activeSort !== "deadline_farthest" → "search"（带 codeId 筛选）
+  //   - 最远优先 → 回退到 "default"/"recommended"（无 codeId 筛选）
+  // 三种排序走不同数据源，total 差异巨大（如 6.8 万 vs 12.1 万）。
+  // 纳入 deepestCodeId 后，只要行业筛选激活，三种排序统一走 "search" 数据源，
+  // 服务端 COUNT 查询不含 ORDER BY，total 必然一致。
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
-    activeWindow || activeNoticeType || activeFeatured
+    activeWindow || activeNoticeType || activeFeatured || deepestCodeId
   );
   // BUG6 修复：searchKey 纳入 deepestCodeId，行业筛选变化时触发分页重置与数据重载
   const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}`;
@@ -268,13 +276,20 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const prevSearchKeyForSkipRef = useRef<string>("");
 
   useEffect(() => {
-    // 计算当前数据源类型：search / recommended / default
+    // 统一数据源判定逻辑（方案B）：
+    // - 有筛选条件 → "search"（标准搜索 API）
+    // - 无筛选 + 推荐模式 → "recommended"（推荐 API）
+    // - 无筛选 + 非推荐模式 → "search"（标准搜索 API，全量）
+    // 关键改进：移除 activeSort 条件，排序方式不影响数据源判定
+    // 原逻辑：hasSearch || activeSort !== "deadline_farthest" → 排序方式影响数据源
+    // 导致：三种排序走不同数据源，total 不一致（6.8万 vs 12.1万）
+    // 修复后：三种排序统一走相同数据源，total 必然一致
     const currentDataSource =
-      hasSearch || activeSort !== "deadline_farthest"
+      hasSearch
         ? "search"
         : prefsMode === "recommended" && userKey
           ? "recommended"
-          : "default";
+          : "search";
 
     // 精确守卫：仅当数据源 AND 搜索条件均未变时跳过
     // 典型场景：prefsMode 从 "loading"→"default"，数据源和搜索条件都不变
@@ -312,7 +327,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
         }
       }, SEARCH_TIMEOUT_MS);
 
-      // 数据源三选一：搜索条件优先（服务端三级匹配）> 推荐模式 > 现有 code_id 筛选链路
+      // 统一数据源：search（标准搜索）或 recommended（推荐）
+      // 原逻辑有三个分支（search/recommended/default），现在合并为两个
+      // "search" 和 "default" 本质相同，都调用 fetchNotices，只是参数不同
+      // 统一后：无筛选条件时，fetchNotices 的所有筛选参数都是 undefined，等效于原 "default"
       const request =
         currentDataSource === "search"
           ? fetchNotices({
@@ -331,9 +349,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
               featured: activeFeatured || undefined,
               locale,
             }, controller.signal)
-          : currentDataSource === "recommended"
-            ? fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale }, controller.signal)
-            : fetchNotices({ page, pageSize: PAGE_SIZE, codeId: deepestCodeId || undefined, locale }, controller.signal);
+          : fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale }, controller.signal);
 
       request
         .then((json) => {

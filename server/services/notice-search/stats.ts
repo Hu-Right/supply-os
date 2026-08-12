@@ -63,6 +63,11 @@ export async function getStatsCount(pool: Pool, key: string): Promise<number | n
 /** 刷新预计算统计表——在数据导入后调用 */
 export async function refreshNoticeStats(pool: Pool): Promise<void> {
   try {
+    // 修复：刷新前先清除内存缓存，避免旧值在统计表更新后仍被使用
+    // 原问题：搜索请求在 refreshNoticeStats 之前到达时，旧值被 noticeCountCache
+    // 缓存 10 分钟。即使统计表随后被刷新为正确值，缓存中的旧值仍被返回，
+    // 导致 total 显示为过时数据（如 121,528 而非 68,390）。
+    noticeCountCache.clear();
     const t0 = Date.now();
     const [totalRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${DEADLINE_FILTER}`

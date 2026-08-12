@@ -124,12 +124,17 @@ export function IndustryPrefsForm() {
   const savePrefs = async () => {
     if (!authUser?.user_key || !prefLevel1 || !prefLevel2) return;
     try {
+      // 修复：仅持久化表单可见的 1~3 级。level4/5_id 来自主营业务智能推断的
+      // 隐藏深层类目（表单不可见、不可编辑），持久化后会导致页面刷新按
+      // level4/5_id 筛选（极窄），与手动选择 1~2 级（level2_id 宽口径）
+      // 的搜索结果不一致；且用户手动改选 L1/L2 后 inferResult 为陈旧状态，
+      // 会写入跨分支的混合路径。
       await saveIndustryPrefs(authUser.user_key, {
         level1_id: Number(prefLevel1),
         level2_id: Number(prefLevel2),
         level3_id: prefLevel3 ? Number(prefLevel3) : null,
-        level4_id: inferResult?.level4_id ?? null,
-        level5_id: inferResult?.level5_id ?? null,
+        level4_id: null,
+        level5_id: null,
       });
       // api() 在非 2xx 时抛出 ApiError，成功即代表保存 OK
       setPrefMessageIsError(false);

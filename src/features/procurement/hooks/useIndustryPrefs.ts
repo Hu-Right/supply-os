@@ -113,7 +113,13 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         if (stale()) return;
         if (prefs?.level1_id) {
           // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
-          const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, prefs.level4_id, prefs.level5_id]
+          // 修复（统一）：偏好加载时包含 L1+L2+L3（UI 可见层级），与手动选择
+          // 的深度对齐。原逻辑截断到 L2，导致用户在偏好表单选的 L3 被忽略，
+          // 与 deepestCodeId 计算逻辑（考虑 L1-L3）不一致。
+          // 修复后：path 包含 L3，deepestCodeId = L3_id（如果有）或 L2_id。
+          // L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，
+          // 用于搜索筛选会导致结果过于精确，因此忽略（path[3]/path[4] = null）。
+          const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
             .map((id) => (id ? String(id) : ""));
           // P0 性能优化：偏好级联并行化——4 级子类目请求同时发出，不再串行等待
           // 回滚：将 Promise.all 改回 for 循环内逐个 await fetchUnspscChildren(...)
@@ -204,7 +210,10 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   };
 
   const deepestCodeId = useMemo(() => {
-    for (let i = selectedIds.length - 1; i >= 0; i -= 1) {
+    // 只考虑前 3 级（UI 可选层级），忽略智能推断的 L4/L5
+    // L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，
+    // 用于搜索筛选会导致结果过于精确（如 1 条 vs 871 条）
+    for (let i = 2; i >= 0; i -= 1) {
       if (selectedIds[i]) return selectedIds[i];
     }
     return "";
