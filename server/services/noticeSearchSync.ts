@@ -272,6 +272,53 @@ async function reconcileIsActive(pool: Pool): Promise<number[]> {
   }
 }
 
+/**
+ * deadline_sec 对账：检测主表与宽表之间的 deadline_sec 不一致并修复
+ *
+ * 解决问题：主表 deadline_sec 是 STORED 生成列（自动跟随 deadline_ts 计算），
+ * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline_ts 变更时，
+ * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
+ *
+ * 对账逻辑：比较两表 deadline_sec 值，修复不一致的记录，返回变更 ID 供上层同步。
+ */
+async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
+  try {
+    // 检测宽表 deadline_sec 与主表不一致的记录
+    // 主表 deadline_sec 是生成列（NULL 表示无截止日期），宽表用 0 表示 NULL
+    // 比较时用 COALESCE 统一 NULL→0 语义
+    const [mismatchRows] = await pool.query(
+      `SELECT n.id, COALESCE(n.deadline_sec, 0) AS deadline_sec
+       FROM crm_bid_notices n
+       INNER JOIN crm_notice_search ns ON ns.id = n.id
+       WHERE ns.deadline_sec != COALESCE(n.deadline_sec, 0)
+       LIMIT 5000`,
+    );
+    const mismatches = mismatchRows as RowDataPacket[];
+    if (mismatches.length === 0) return [];
+
+    const ids = mismatches.map(r => Number(r.id));
+    const BATCH = 1000;
+    for (let i = 0; i < ids.length; i += BATCH) {
+      const batch = ids.slice(i, i + BATCH);
+      const ph = batch.map(() => "?").join(",");
+      await pool.query(
+        `UPDATE crm_notice_search ns
+         INNER JOIN crm_bid_notices n ON n.id = ns.id
+         SET ns.deadline_sec = COALESCE(n.deadline_sec, 0)
+         WHERE ns.id IN (${ph})`,
+        batch,
+      );
+    }
+    if (ids.length > 0) {
+      console.log(`[wide-table] deadline_sec 对账修复 ${ids.length} 条不一致记录`);
+    }
+    return ids;
+  } catch (e) {
+    console.warn(`[wide-table] deadline_sec 对账失败（静默降级）:`, (e as Error).message);
+    return [];
+  }
+}
+
 // ── 确保 UNSPSC 列宽足够 ──
 async function ensureUnspscColumns(pool: Pool): Promise<void> {
   try {
@@ -407,13 +454,20 @@ export async function incrementalWideSync(
     // 对账：检测主表与宽表之间 is_active 不一致
     // 主表 crm_bid_notices 无 updated_at 列，无法通过时间戳检测 is_active 变更，
     // 改为直接 JOIN 比较两表值，修复 refreshIsActive 宽表 UPDATE 失败导致的陈旧状态
-    const reconciledIds = await reconcileIsActive(pool);
-    if (reconciledIds.length > 0) {
-      const placeholders = reconciledIds.map(() => "?").join(",");
+    const reconciledIsActiveIds = await reconcileIsActive(pool);
+
+    // 对账：检测主表与宽表之间 deadline_sec 不一致
+    // 主表 deadline_sec 是 STORED 生成列，宽表是静态拷贝，可能因 deadline_ts 变更而陈旧
+    const reconciledDeadlineIds = await reconcileDeadlineSec(pool);
+
+    // 合并所有对账结果
+    const allReconciledIds = Array.from(new Set([...reconciledIsActiveIds, ...reconciledDeadlineIds]));
+    if (allReconciledIds.length > 0) {
+      const placeholders = allReconciledIds.map(() => "?").join(",");
       const [reconciledRows] = await pool.query(
         WIDE_SYNC_SELECT + WIDE_SYNC_JOIN +
         ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
-        reconciledIds,
+        allReconciledIds,
       );
       updatedRaw = reconciledRows as any[];
     }
