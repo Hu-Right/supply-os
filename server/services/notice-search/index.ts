@@ -572,9 +572,12 @@ export async function searchNotices(
 
   // ── Meilisearch total 精度校准 ──
   // Meilisearch 只返回 estimatedTotalHits（估算值），可能导致数字波动
-  // 当 total 不精确时，尝试用数据库 COUNT 查询校准（带超时保护）
+  // 当 total 不精确时，尝试用数据库 COUNT 查询校准
+  // 注意：当有 codeId（UNSPSC 筛选）时，Meilisearch 的 total 不包含 UNSPSC 过滤，
+  // 必须使用数据库 COUNT 查询的精确值，且不使用超时（确保一定等到结果）
   if (meiliHit && !meiliTotalIsPrecise && !referenceHit) {
-    const CALIBRATE_TIMEOUT_MS = 2000;
+    const hasUnspscFilter = !!p.codeId;
+    const CALIBRATE_TIMEOUT_MS = hasUnspscFilter ? 10000 : 2000;  // UNSPSC 查询可能较慢，给更长时间
     try {
       const countResult = await Promise.race([
         countPromise,
@@ -587,6 +590,9 @@ export async function searchNotices(
           total = dbTotal;
           meiliTotalIsPrecise = true;
         }
+      } else if (hasUnspscFilter) {
+        // UNSPSC 筛选时校准超时，记录警告
+        console.warn(`[search-perf] COUNT 校准超时(${CALIBRATE_TIMEOUT_MS}ms)，Meilisearch估算值可能不准确: codeId=${p.codeId}`);
       }
     } catch {
       // 校准失败，继续使用 Meilisearch 估算值
