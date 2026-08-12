@@ -93,7 +93,6 @@ export async function searchNotices(
   let countMs = 0;
   let idMs = 0;
   let searchMode = "mysql";
-  let meiliTotalIsPrecise = false; // P0 修复：标记 Meilisearch total 是否为精确值
   let meiliForceCountryUsed = "";  // P0 修复：记录是否使用了国家级强制聚合
 
   // ── 参考号精确匹配快速路径 ──
@@ -230,9 +229,8 @@ export async function searchNotices(
 
     if (meiliResult) {
       meiliHit = true;
-      total = meiliResult.total;
+      // Meilisearch 只用于获取 pageIds，total 始终来自数据库 COUNT 查询
       pageIds = meiliResult.ids;
-      meiliTotalIsPrecise = meiliResult.totalIsPrecise; // P0 修复：记录 total 精度
       const meiliMs = Date.now() - meiliStart;
 
       // 搜索模式标记（便于日志分析）
@@ -570,32 +568,27 @@ export async function searchNotices(
 
   const t2 = Date.now();
 
-  // ── Meilisearch total 精度校准 ──
-  // Meilisearch 只返回 estimatedTotalHits（估算值），可能导致数字波动
-  // 当 total 不精确时，尝试用数据库 COUNT 查询校准
-  // 注意：当有 codeId（UNSPSC 筛选）时，Meilisearch 的 total 不包含 UNSPSC 过滤，
-  // 必须使用数据库 COUNT 查询的精确值，且不使用超时（确保一定等到结果）
-  if (meiliHit && !meiliTotalIsPrecise && !referenceHit) {
-    const hasUnspscFilter = !!p.codeId;
-    const CALIBRATE_TIMEOUT_MS = hasUnspscFilter ? 10000 : 2000;  // UNSPSC 查询可能较慢，给更长时间
+  // ── 始终使用数据库 COUNT 查询的精确值 ──
+  // Meilisearch 的 estimatedTotalHits 是估算值，可能导致数字波动
+  // 因此 total 始终来自数据库 COUNT 查询（通过 countPromise）
+  if (!referenceHit) {
+    const COUNT_TIMEOUT_MS = p.codeId ? 15000 : 5000;  // UNSPSC 查询可能较慢，给更长时间
     try {
       const countResult = await Promise.race([
         countPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), CALIBRATE_TIMEOUT_MS)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), COUNT_TIMEOUT_MS)),
       ]) as any;
       if (countResult) {
-        const dbTotal = Number((countResult[0] as any[])[0]?.total || 0);
-        if (dbTotal > 0) {
-          console.log(`[search-perf] COUNT 校准: Meilisearch估算=${total} → 数据库精确=${dbTotal} (差值=${total - dbTotal})`);
-          total = dbTotal;
-          meiliTotalIsPrecise = true;
-        }
-      } else if (hasUnspscFilter) {
-        // UNSPSC 筛选时校准超时，记录警告
-        console.warn(`[search-perf] COUNT 校准超时(${CALIBRATE_TIMEOUT_MS}ms)，Meilisearch估算值可能不准确: codeId=${p.codeId}`);
+        total = Number((countResult[0] as any[])[0]?.total || 0);
+        countMs = Date.now() - t2;
+      } else {
+        // COUNT 查询超时，记录警告并使用 0
+        console.warn(`[search-perf] COUNT 查询超时(${COUNT_TIMEOUT_MS}ms): codeId=${p.codeId || '-'}`);
+        total = 0;
       }
     } catch {
-      // 校准失败，继续使用 Meilisearch 估算值
+      // COUNT 查询失败，使用 0
+      total = 0;
     }
   }
 
@@ -603,13 +596,12 @@ export async function searchNotices(
   const lastPageShortCircuit = pageIds.length > 0 && pageIds.length < pageSize;
   if (lastPageShortCircuit) {
     total = offset + pageIds.length;
-    meiliTotalIsPrecise = true; // 短路得到的 total 是精确值
     countMs = 0;
     console.log(`[search-perf] COUNT 短路: page=${page} items=${pageIds.length} < pageSize=${pageSize} → total=${total} (0ms)`);
   }
 
-  // P1 修复：首页写入 COUNT 缓存——仅当 total 为精确值时才写入
-  if (page === 1 && total > 0 && (!meiliHit || meiliTotalIsPrecise)) {
+  // 首页写入 COUNT 缓存
+  if (page === 1 && total > 0) {
     if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) {
       const now = Date.now();
       for (const [key, entry] of noticeCountCache) { if (entry.expires <= now) noticeCountCache.delete(key); }
