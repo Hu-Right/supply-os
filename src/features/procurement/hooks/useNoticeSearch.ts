@@ -168,6 +168,16 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     });
   }, [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeWindow, activeNoticeType]);
 
+  // 组件挂载时立即从 URL 同步表单状态（确保刷新后输入框与 URL 参数一致）
+  // 这是对上方 sync effect 的补充，确保首次渲染时表单状态与 URL 参数完全同步
+  useEffect(() => {
+    dispatchForm({
+      type: "sync",
+      payload: { q: activeQ, country: activeCountry, agency: activeAgency, from: activeFrom, to: activeTo,
+        window: activeWindow, type: activeNoticeType },
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // BUG-1: 搜索条件变化时主动清除缓存
   // 避免 30s TTL 内来回切换筛选器时命中过期缓存返回错误数据
   // PERF 优化：仅在用户主动提交搜索时清除（applySearch/clearSearch），

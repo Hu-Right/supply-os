@@ -18,8 +18,9 @@ export const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 export const NOTICE_COUNT_CACHE_MAX = 500;
 
 // ── 精选计数缓存 ──
+// 修复：TTL 从 30 分钟缩短为 10 分钟，与统计表刷新周期对齐，避免精选总数延迟更新
 export const featuredCountCache = { total: 0, expires: 0 };
-export const FEATURED_COUNT_CACHE_TTL = 30 * 60 * 1000; // 30 分钟
+export const FEATURED_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
 
 // ── 采购类型映射缓存 ──
 export let _noticeTypeCache: { types: string[]; expires: number } | null = null;

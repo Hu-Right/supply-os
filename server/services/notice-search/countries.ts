@@ -115,10 +115,10 @@ export function expandCountryAllForms(country: string): string[] {
 
 /** 从数据库重新查询并刷新国家缓存（含归一化合并） */
 export async function refreshNoticeCountries(pool: Pool): Promise<Array<{ country: string; count: number }>> {
-  // 修复：与搜索路径一致，排除已过期但 is_active 尚未刷新的记录
+  // 修复：与搜索路径口径统一，只用 deadline_sec 实时判断，移除 is_active 依赖
   const [rows] = await pool.query(
     `SELECT n.country, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE n.is_active = 1 AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+     WHERE (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
        AND n.country IS NOT NULL AND n.country <> ''
      GROUP BY n.country ORDER BY cnt DESC`
   );

@@ -27,6 +27,9 @@
  *              017-phone-verification         验证码表扩展支持手机
  *              018-jwt-auth                   JWT认证 refresh_tokens 表
  *              019-reference-index            参考号精确匹配索引
+ *              020-unlock-unique-notice       解锁唯一约束(防并发超额)
+ *              021-verification-code-hash-column 验证码哈希列扩容
+ *              022-verification-code-composite-index 验证码表复合索引
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -49,12 +52,15 @@ import { migration as m016 } from "./migrations/016-user-phone";
 import { migration as m017 } from "./migrations/017-phone-verification";
 import { migration as m018 } from "./migrations/018-jwt-auth";
 import { migration as m019 } from "./migrations/019-reference-index";
+import { migration as m020 } from "./migrations/020-unlock-unique-notice";
+import { migration as m021 } from "./migrations/021-verification-code-hash-column";
+import { migration as m022 } from "./migrations/022-verification-code-composite-index";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
-  m012, m013, m014, m015, m016, m017, m018, m019,
+  m012, m013, m014, m015, m016, m017, m018, m019, m020, m021, m022,
 ];
 
 /**

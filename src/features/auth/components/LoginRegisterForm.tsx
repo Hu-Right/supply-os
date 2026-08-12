@@ -75,6 +75,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const [forgotError, setForgotError] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState("");
   const [showSupportHint, setShowSupportHint] = useState(false);
+  // 自动检测到的绑定手机号（用于找回密码时自动切换）
+  const [forgotDetectedPhone, setForgotDetectedPhone] = useState("");
 
   // ── 注册验证码状态 ──
   const [registerVerifyCode, setRegisterVerifyCode] = useState("");
@@ -154,6 +156,46 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     const timer = setTimeout(() => setRegisterCodeCountdown(c => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [registerCodeCountdown]);
+
+  // ── 找回密码：邮箱输入防抖检测绑定手机号 ──
+  // 用户输入邮箱后，自动检测是否绑定了手机号，若是则切换到 SMS 渠道
+  useEffect(() => {
+    if (!forgotView || forgotStep !== 1) return;
+
+    const email = forgotEmail.trim().toLowerCase();
+    // 仅在邮箱渠道、输入有效邮箱时检测
+    if (forgotChannel !== "email" || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setForgotDetectedPhone("");
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/auth/check-email-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+        if (data.has_phone && data.phone) {
+          // 自动切换到 SMS 渠道
+          setForgotChannel("sms");
+          // 显示脱敏手机号作为视觉反馈
+          setForgotDetectedPhone(data.phone);
+          setForgotSuccess(`检测到该邮箱已绑定手机 ${data.phone}，已自动切换为手机验证`);
+          // 延迟清空输入框，让用户看到切换反馈
+          setTimeout(() => {
+            setForgotEmail("");
+            setForgotDetectedPhone("");
+          }, 1500);
+        }
+      } catch {
+        // 检测失败不影响用户手动操作
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [forgotEmail, forgotChannel, forgotView, forgotStep]);
 
   /**
    * 发送注册验证码
@@ -419,9 +461,19 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             <div className="space-y-3">
               <Input
                 type={forgotChannel === "sms" ? "tel" : "email"}
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder={forgotChannel === "sms" ? (t("authPhonePlaceholder") || "请输入手机号") : t("authEmailPlaceholder")}
+                value={forgotDetectedPhone || forgotEmail}
+                onChange={(e) => {
+                  setForgotDetectedPhone("");
+                  setForgotEmail(e.target.value);
+                }}
+                placeholder={
+                  forgotDetectedPhone
+                    ? "请输入您的手机号"
+                    : forgotChannel === "sms"
+                      ? (t("authPhoneBindPlaceholder") || "请输入手机号")
+                      : t("authEmailPlaceholder")
+                }
+                className={forgotDetectedPhone ? "text-teal-700 font-bold" : ""}
               />
               {/* 验证渠道选择 */}
               <div className="flex gap-2">
@@ -473,7 +525,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               <Input
                 type="text"
                 value={forgotCode}
-                onChange={(e) => setForgotCode(e.target.value)}
+                onChange={(e) => setForgotCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder={t("authForgotCodePlaceholder")}
                 maxLength={6}
                 className="text-center text-lg tracking-widest"
@@ -501,6 +553,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
                   setForgotNewPassword("");
                   setForgotError("");
                   setForgotSuccess("");
+                  setForgotDetectedPhone("");
                   setShowSupportHint(false);
                 }}
                 className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
@@ -552,6 +605,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
               setForgotNewPassword("");
               setForgotError("");
               setForgotSuccess("");
+              setForgotDetectedPhone("");
               setShowSupportHint(false);
             }}
             className="w-full text-center text-xs text-slate-500 hover:text-slate-700"

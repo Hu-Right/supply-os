@@ -10,7 +10,8 @@ import { getTranslatedNoticeDetail } from "../notice-translation";
 import type { NoticesRepo } from "../../repos/notices.repo";
 
 const DEADLINE_SEC_EXPR = "n.deadline_sec";
-const ACTIVE_NOTICE_WHERE = `n.is_active = 1`;
+// 修复：与搜索路径口径统一，使用 deadline_sec 实时判断，不再依赖 is_active 预计算列
+const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 
 export interface RecallResult {
   prefix: string;

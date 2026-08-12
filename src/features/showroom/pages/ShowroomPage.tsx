@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
@@ -19,9 +20,12 @@ import { onAppEvent, emitAppEvent } from "@/core/events";
 
 export default function ShowroomPage() {
   const { t, locale } = useLocale();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("");
-  const [selectedCountry, setSelectedCountry] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // 从 URL 参数初始化搜索状态（页面刷新后保持搜索条件）
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") || "");
+  const [selectedRegion, setSelectedRegion] = useState(() => searchParams.get("region") || "");
+  const [selectedCountry, setSelectedCountry] = useState(() => searchParams.get("country") || "");
   const [showRegisterForm, setShowRegisterForm] = useState(false);
   const [selectedShowroom, setSelectedShowroom] = useState<ExhibitionHall | null>(null);
 
@@ -32,6 +36,22 @@ export default function ShowroomPage() {
       setShowRegisterForm(true);
     });
   }, []);
+
+  // 搜索条件变化时同步到 URL 参数
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set("q", searchTerm);
+    if (selectedRegion) params.set("region", selectedRegion);
+    if (selectedCountry) params.set("country", selectedCountry);
+    
+    // 只有在有搜索条件时才更新 URL，避免无意义的 URL 变化
+    if (searchTerm || selectedRegion || selectedCountry) {
+      setSearchParams(params, { replace: true });
+    } else if (searchParams.toString()) {
+      // 如果当前 URL 有参数但搜索条件为空，清空 URL 参数
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchTerm, selectedRegion, selectedCountry]);
 
   // 计算可用地区和国家
   const availableRegions = useMemo(() => {
@@ -74,6 +94,8 @@ export default function ShowroomPage() {
     setSelectedRegion("");
     setSelectedCountry("");
     setSearchTerm("");
+    // 清空 URL 参数
+    setSearchParams({}, { replace: true });
   };
 
   const handleRegister = (showroom: ExhibitionHall | null) => {

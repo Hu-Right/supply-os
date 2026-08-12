@@ -114,6 +114,7 @@ export default function ProcurementPage() {
           onCreateOrder: actions.createNoticeOrder,
           onMockPaid: actions.markPaid,
           onClose: actions.closePaywall,
+          loadPaidPlans: actions.loadPaidPlans,
         }}
       />
       </Suspense>

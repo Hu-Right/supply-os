@@ -6,7 +6,7 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
-import { normalizeUnspscCodes } from "../services/unspsc";
+import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import {
@@ -125,13 +125,9 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     await opportunitiesRepo.incrementUnlockCount(opportunityId);
 
     // 本地差异 #7：F.1——guest 拒写兴趣码（解锁流水已保留）
+    // 修复：统一使用 persistUserInterestCodes，与公告解锁路径保持一致（白名单校验 + 权重上限 + 前缀展开）
     if (normalizedUserKey) {
-      for (const item of snapshot) {
-        const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
-        if (!rawCode) continue;
-        const codeRow = await opportunitiesRepo.findUnspscCodeByCode(rawCode);
-        await opportunitiesRepo.upsertInterestCode({ userKey, codeId: codeRow?.id || null, code: rawCode, level: codeRow?.level || 1 });
-      }
+      await persistUserInterestCodes(ctx.dbPool, normalizedUserKey, snapshot, "unlock_order", 2.50).catch(() => {});
     }
 
     res.status(201).json({ success: true, unlock_type: unlockType });

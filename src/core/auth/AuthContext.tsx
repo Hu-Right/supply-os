@@ -12,7 +12,7 @@
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
-import { setAuthTokens, clearAuthTokens, getAuthToken } from "@/core/http";
+import { setAuthTokens, clearAuthTokens, getAuthToken, getRefreshToken } from "@/core/http";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -147,7 +147,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 登出
    * Logout
    */
-  const logout = () => {
+  const logout = async () => {
+    // L-2 安全加固：调用后端登出 API 撤销 Refresh Token，防止被盗用的 Token 继续续期
+    try {
+      const refreshToken = getRefreshToken();
+      const token = getAuthToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ refresh_token: refreshToken || "" }),
+      }).catch(() => {});
+    } catch { /* 网络异常不阻断登出 */ }
+
     authUserRef.current = null;
     setAuthUser(null);
     setIsVip(false);

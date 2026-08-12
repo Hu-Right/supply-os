@@ -89,41 +89,107 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   }));
 
   // ── 解锁 ──
+  // P1-1 修复：使用事务 + 唯一约束防止并发超额解锁（TOCTOU 竞态条件）
   router.post("/api/notices/:id/unlock", requireAuth, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
       const userKey = req.userKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type : "free";
       const price = unlockType === "single" ? Number(req.body.price || 19) : 0;
-      let consumedEntitlementId: number | null = null;
 
-      if (await noticesRepo.findExistingUnlock(userKey, noticeId)) return res.json({ success: true, alreadyUnlocked: true });
-
-      if (unlockType === "free") {
-        const freeQuota = await membershipRepo.getFreeQuota();
-        if (await membershipRepo.countFreeUnlocks(userKey) >= freeQuota) {
-          return res.status(402).json({ error: "FREE_LIMIT_REACHED" });
-        }
+      // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
+      if (await noticesRepo.findExistingUnlock(userKey, noticeId)) {
+        return res.json({ success: true, alreadyUnlocked: true });
       }
 
-      if (unlockType === "subscription" || unlockType === "single") {
-        const entitlement = (await membershipRepo.findActiveEntitlements(userKey))[0];
-        if (!entitlement) return res.status(402).json({ error: "PAID_QUOTA_REQUIRED" });
-        consumedEntitlementId = Number(entitlement.id);
-      }
-
+      // 获取公告信息（事务外，只读）
       const notice = await noticesRepo.findById(noticeId);
       if (!notice) return res.status(404).json({ error: "Notice not found" });
       const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
 
-      await noticesRepo.insertUnlock({ userKey, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot) });
-      if (consumedEntitlementId) {
-        await noticesRepo.consumeEntitlement(consumedEntitlementId);
+      // 使用事务保证配额检查 + 插入的原子性
+      const conn = await ctx.dbPool.getConnection();
+      let consumedEntitlementId: number | null = null;
+      try {
+        await conn.beginTransaction();
+
+        // 事务内再次检查（可能并发请求已通过快速路径）
+        const [existingRows] = await conn.query(
+          "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
+          [userKey, noticeId],
+        );
+        if ((existingRows as any[]).length > 0) {
+          await conn.commit();
+          return res.json({ success: true, alreadyUnlocked: true });
+        }
+
+        // 配额检查（事务内）
+        if (unlockType === "free") {
+          const [quotaRows] = await conn.query(
+            "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1",
+          );
+          const freeQuota = Number((quotaRows as any[])[0]?.free_quota || 3);
+          const [countRows] = await conn.query(
+            "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
+            [userKey],
+          );
+          const freeUsed = Number((countRows as any[])[0]?.total || 0);
+          if (freeUsed >= freeQuota) {
+            await conn.rollback();
+            return res.status(402).json({ error: "FREE_LIMIT_REACHED" });
+          }
+        }
+
+        if (unlockType === "subscription" || unlockType === "single") {
+          const [entRows] = await conn.query(
+            `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
+             FROM crm_user_entitlements
+             WHERE user_key = ? AND status = 'active' AND quota_total > quota_used
+               AND (expires_at IS NULL OR expires_at > NOW())
+             ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1`,
+            [userKey],
+          );
+          const ent = (entRows as any[])[0];
+          if (!ent) {
+            await conn.rollback();
+            return res.status(402).json({ error: "PAID_QUOTA_REQUIRED" });
+          }
+          consumedEntitlementId = Number(ent.id);
+        }
+
+        // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
+        await conn.query(
+          `INSERT INTO crm_opportunity_unlocks
+            (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
+           VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
+          [userKey, userKey, noticeId, unlockType, price, JSON.stringify(snapshot)],
+        );
+
+        // 消耗配额
+        if (consumedEntitlementId) {
+          await conn.query(
+            "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
+            [consumedEntitlementId],
+          );
+        }
+
+        await conn.commit();
+
+        // 事务外：更新兴趣码（非关键路径，失败不影响解锁）
+        if (userKey !== "guest") {
+          await persistUserInterestCodes(ctx.dbPool, userKey, snapshot, "unlock_order", 2.50).catch(() => {});
+        }
+        res.status(201).json({ success: true, unlock_type: unlockType });
+      } catch (err: any) {
+        await conn.rollback();
+        // 唯一约束冲突 = 并发请求已解锁
+        if (err?.code === "ER_DUP_ENTRY") {
+          return res.json({ success: true, alreadyUnlocked: true });
+        }
+        throw err;
+      } finally {
+        conn.release();
       }
-      if (userKey !== "guest") {
-        await persistUserInterestCodes(ctx.dbPool, userKey, snapshot, "unlock_order", 2.50);
-      }
-      res.status(201).json({ success: true, unlock_type: unlockType });
   }));
 
   // ── 意向 ──

@@ -78,8 +78,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return next();
   }
 
-  // JWT_SECRET 未配置时降级到 legacy 模式（开发环境友好）
-  if (!process.env.JWT_SECRET) {
+  // H-2 安全加固：仅开发环境允许 legacy 降级，生产环境必须配置 JWT_SECRET
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV !== "production") {
     const legacyKey = parseUserKeyFromRequest(req);
     if (legacyKey) {
       req.userKey = legacyKey;

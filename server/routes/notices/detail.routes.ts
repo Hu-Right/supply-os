@@ -38,13 +38,14 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
   }));
 
-  // ── 公告全文内容（公开·不受锁定状态限制）──
+  // ── 公告全文内容（需登录·不受锁定状态限制）──
+  // P2-3 安全加固：添加 requireAuth，未登录用户无法获取完整描述
   // 搜索 SQL 为性能将 description 截断为 300 字符（LEFT(n.description, 300)），
   // 详情页初始使用搜索结果数据导致原文被截断；本端点返回完整 description + title，
   // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
   // 同时返回 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
   // 避免卡片与详情页语言显示不一致（卡片通过 description_cn/bid_overview 显示中文）。
-  router.get("/api/notices/:id/content", asyncHandler(async (req, res) => {
+  router.get("/api/notices/:id/content", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     if (!noticeId) return res.status(400).json({ error: "INVALID_NOTICE_ID" });
 

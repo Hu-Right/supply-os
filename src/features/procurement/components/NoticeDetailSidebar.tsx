@@ -3,18 +3,19 @@
  * Notice Detail Sidebar
  *
  * @module features/procurement/components/NoticeDetailSidebar
- * @description 详情页右侧操作栏：感兴趣/订阅/解锁/付费按钮、配额信息、
- *              付费服务说明与内嵌多套餐付费面板（付费墙）。
- *              Detail page action rail: interest/subscribe/unlock/pay buttons,
- *              quota info, paid service notes and the embedded paywall panel.
+ * @description 详情页右侧操作栏：感兴趣/订阅/解锁按钮、
+ *              非VIP用户永久展示会员套餐面板。
+ *              Detail page action rail: interest/subscribe/unlock buttons,
+ *              membership plan panel permanently shown for non-VIP users.
  */
-import { Bell, Crown, Heart, Lock, WalletCards } from "lucide-react";
+import { Bell, Heart, Lock } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, MembershipStatus, MembershipPlan } from "../types";
 import type { OrderInfo } from "@/features/payment";
 import { NoticePaymentPanel } from "./NoticePaymentPanel";
 
-/** 内嵌多套餐付费面板（付费墙）状态与回调；paywallNotice 存在时渲染面板 */
+/** 内嵌多套餐付费面板（付费墙）状态与回调 */
 export interface NoticeDetailPaymentState {
   plans: MembershipPlan[];
   paywallNotice: NoticeItem | null;
@@ -26,6 +27,8 @@ export interface NoticeDetailPaymentState {
   onCreateOrder: (planCode: string) => void;
   onMockPaid: () => void;
   onClose: () => void;
+  /** 加载付费套餐列表（来自 useNoticeMembership） */
+  loadPaidPlans?: () => Promise<void>;
 }
 
 export interface NoticeDetailSidebarProps {
@@ -57,6 +60,19 @@ export function NoticeDetailSidebar({
   payment,
 }: NoticeDetailSidebarProps) {
   const { t } = useLocale();
+  const [paywallDismissed, setPaywallDismissed] = useState(false);
+
+  // 切换公告时重置关闭状态，确保新公告重新展示套餐面板
+  useEffect(() => {
+    setPaywallDismissed(false);
+  }, [notice.id]);
+
+  // 非VIP用户进入详情页时自动加载付费套餐列表
+  useEffect(() => {
+    if (!isVip && payment?.loadPaidPlans) {
+      void payment.loadPaidPlans();
+    }
+  }, [isVip, payment?.loadPaidPlans]);
 
   /** 操作按钮组（移动端固定底栏 / 桌面端侧边栏共用） */
   const actionButtons = (
@@ -86,16 +102,6 @@ export function NoticeDetailSidebar({
             ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
             : t("procurement_freeUsedUp")}
       </button>
-
-      {notice.core_locked !== false && !showSkeleton && !isVip && freeRemaining <= 0 && (
-        <button
-          onClick={() => onPayUnlock(notice)}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-600 text-white text-sm font-black hover:bg-teal-700"
-        >
-          <WalletCards className="w-4 h-4" />
-          {t("procurement_singleUnlock")}
-        </button>
-      )}
     </>
   );
 
@@ -106,43 +112,13 @@ export function NoticeDetailSidebar({
         {actionButtons}
       </div>
 
-      {/* 桌面端侧边栏：操作按钮 + 配额/服务信息 */}
+      {/* 桌面端侧边栏：操作按钮 */}
       <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3 max-[900px]:hidden">
         {actionButtons}
-
-        <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600 space-y-2">
-          <p className="font-black text-slate-800 flex items-center gap-2">
-            <WalletCards className="w-4 h-4 text-teal-600" />
-            {t("procurement_quotaTitle")}
-          </p>
-          <p>
-            {t("procurement_freeQuota")}: {t("procurement_used")} {membership?.free_used ?? 0}/{freeQuota},{" "}
-            {t("procurement_remaining")} {freeRemaining}
-          </p>
-          <p>
-            {t("procurement_paidQuota")}: {t("procurement_used")} {membership?.paid_quota_used ?? 0}/
-            {membership?.paid_quota_total ?? 0}, {t("procurement_remaining")}{" "}
-            {membership?.paid_quota_remaining ?? 0}
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
-          <p className="font-black text-slate-900 flex items-center gap-2">
-            <Crown className="w-4 h-4 text-amber-600" />
-            {t("procurement_paidServiceTitle")}
-          </p>
-          <ul className="space-y-1 leading-5 list-disc ps-4">
-            <li>{t("procurement_paidServiceContact")}</li>
-            <li>{t("procurement_paidServiceAnalysis")}</li>
-            <li>{t("procurement_paidServiceProcess")}</li>
-          </ul>
-          <p className="text-[11px] text-amber-800">{t("procurement_paidServiceManualNote")}</p>
-        </div>
-
-        <p className="text-[11px] leading-5 text-slate-500">{t("procurement_actionTip", { count: freeQuota })}</p>
       </div>
 
-      {payment?.paywallNotice && (
+      {/* 非VIP用户永久展示会员套餐面板（可通过 X 按钮关闭） */}
+      {!isVip && payment && !paywallDismissed && (
         <NoticePaymentPanel
           plans={payment.plans}
           provider={payment.provider}
@@ -152,7 +128,7 @@ export function NoticeDetailSidebar({
           onProviderChange={payment.onProviderChange}
           onCreateOrder={payment.onCreateOrder}
           onMockPaid={payment.onMockPaid}
-          onClose={payment.onClose}
+          onClose={() => setPaywallDismissed(true)}
         />
       )}
     </aside>

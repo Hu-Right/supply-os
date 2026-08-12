@@ -17,6 +17,11 @@ import {
 const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 const DEADLINE_FILTER = `(deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 
+// 统计表键版本后缀：多实例共享库环境下，旧代码实例仍会按 is_active 口径写入无后缀 key
+// （如 active_total ≈ 12.6 万），与 deadline 口径（≈ 6.8 万）轮流覆盖导致总数波动。
+// 新代码统一读写带 _v2 后缀的键，旧实例的写入被自然隔离（无人读取），无需停服、无需强制全员同步升级。
+const STATS_KEY_VER = "_v2";
+
 // ── 统计缓存 ──
 let noticeStatsCache: { data: NoticeStatsResult; expires: number } | null = null;
 
@@ -39,11 +44,11 @@ export function statsKeyFor(p: NoticeSearchParams): string | null {
         || a.endsWith("_INTL") || a === "DEV_BANKS") {
       return null; // 聚合机构名，统计表无对应条目
     }
-    return `agency:${p.agency}`;
+    return `agency:${p.agency}${STATS_KEY_VER}`;
   }
-  if (p.country) return `country:${p.country}`;
-  if (p.featuredOnly) return "featured";
-  return "active_total";
+  if (p.country) return `country:${p.country}${STATS_KEY_VER}`;
+  if (p.featuredOnly) return `featured${STATS_KEY_VER}`;
+  return `active_total${STATS_KEY_VER}`;
 }
 
 /** 从统计表读取预计算总数；未命中返回 null */
@@ -93,10 +98,10 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     );
 
     const entries: [string, number][] = [
-      ["active_total", activeTotal],
-      ["featured", featuredTotal],
-      ...(countryRows as any[]).map((r: any) => [`country:${r.country}` as string, Number(r.cnt)] as [string, number]),
-      ...(agencyRows as any[]).map((r: any) => [`agency:${r.agency}` as string, Number(r.cnt)] as [string, number]),
+      [`active_total${STATS_KEY_VER}`, activeTotal],
+      [`featured${STATS_KEY_VER}`, featuredTotal],
+      ...(countryRows as any[]).map((r: any) => [`country:${r.country}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
+      ...(agencyRows as any[]).map((r: any) => [`agency:${r.agency}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
     ];
 
     for (const [key, value] of entries) {

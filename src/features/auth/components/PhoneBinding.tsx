@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { api, ApiError } from "@/core/http";
 import { Input } from "@/shared/ui";
 import { Smartphone, ShieldCheck, Unlink } from "lucide-react";
 
@@ -58,21 +59,16 @@ export function PhoneBinding() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/auth/send-phone-code", {
+      const data = await api<{ sms_sent: boolean; error?: string }>("/api/auth/send-phone-code", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           user_key: authUser.user_key,
           phone: scene === "unbind" ? "" : phone,
           scene,
-        }),
+        },
       });
-      const data = await res.json();
-      if (!res.ok) {
+      if (!data.sms_sent) {
         setMessage(data.error || t("authPhoneSendFailed"));
-        setIsError(true);
-      } else if (!data.sms_sent) {
-        setMessage(t("authPhoneSendFailed"));
         setIsError(true);
       } else {
         setCodeSent(true);
@@ -80,8 +76,9 @@ export function PhoneBinding() {
         setMessage("");
         setIsError(false);
       }
-    } catch {
-      setMessage(t("authPhoneSendFailed"));
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : t("authPhoneSendFailed");
+      setMessage(msg || t("authPhoneSendFailed"));
       setIsError(true);
     } finally {
       setLoading(false);
@@ -94,28 +91,18 @@ export function PhoneBinding() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/auth/bind-phone", {
+      await api("/api/auth/bind-phone", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_key: authUser.user_key,
-          phone,
-          code,
-        }),
+        body: { user_key: authUser.user_key, phone, code },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error || t("authPhoneBindFailed"));
-        setIsError(true);
-      } else {
-        setMessage(t("authPhoneBindSuccess"));
-        setIsError(false);
-        setView("idle");
-        resetState();
-        await refreshAuth();
-      }
-    } catch {
-      setMessage(t("authPhoneBindFailed"));
+      setMessage(t("authPhoneBindSuccess"));
+      setIsError(false);
+      setView("idle");
+      resetState();
+      await refreshAuth();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : t("authPhoneBindFailed");
+      setMessage(msg || t("authPhoneBindFailed"));
       setIsError(true);
     } finally {
       setLoading(false);
@@ -128,28 +115,18 @@ export function PhoneBinding() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/auth/rebind-phone", {
+      await api("/api/auth/rebind-phone", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_key: authUser.user_key,
-          new_phone: phone,
-          code,
-        }),
+        body: { user_key: authUser.user_key, new_phone: phone, code },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error || t("authPhoneRebindFailed"));
-        setIsError(true);
-      } else {
-        setMessage(t("authPhoneRebindSuccess"));
-        setIsError(false);
-        setView("idle");
-        resetState();
-        await refreshAuth();
-      }
-    } catch {
-      setMessage(t("authPhoneRebindFailed"));
+      setMessage(t("authPhoneRebindSuccess"));
+      setIsError(false);
+      setView("idle");
+      resetState();
+      await refreshAuth();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : t("authPhoneRebindFailed");
+      setMessage(msg || t("authPhoneRebindFailed"));
       setIsError(true);
     } finally {
       setLoading(false);
@@ -162,27 +139,18 @@ export function PhoneBinding() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await fetch("/api/auth/unbind-phone", {
+      await api("/api/auth/unbind-phone", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_key: authUser.user_key,
-          code,
-        }),
+        body: { user_key: authUser.user_key, code },
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error || t("authPhoneUnbindFailed"));
-        setIsError(true);
-      } else {
-        setMessage(t("authPhoneUnbindSuccess"));
-        setIsError(false);
-        setView("idle");
-        resetState();
-        await refreshAuth();
-      }
-    } catch {
-      setMessage(t("authPhoneUnbindFailed"));
+      setMessage(t("authPhoneUnbindSuccess"));
+      setIsError(false);
+      setView("idle");
+      resetState();
+      await refreshAuth();
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : t("authPhoneUnbindFailed");
+      setMessage(msg || t("authPhoneUnbindFailed"));
       setIsError(true);
     } finally {
       setLoading(false);
@@ -249,7 +217,7 @@ export function PhoneBinding() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-            placeholder={t("authPhonePlaceholder")}
+            placeholder={t("authPhoneBindPlaceholder")}
             className="bg-white"
           />
           <div className="flex gap-2">
@@ -259,7 +227,7 @@ export function PhoneBinding() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder={t("authPhoneCodePlaceholder")}
               maxLength={6}
-              className="flex-1 bg-white text-center tracking-widest"
+              className="flex-1 bg-white tracking-widest"
             />
             <button
               type="button"
@@ -307,7 +275,7 @@ export function PhoneBinding() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder={t("authPhoneCodePlaceholder")}
               maxLength={6}
-              className="flex-1 bg-white text-center tracking-widest"
+              className="flex-1 bg-white tracking-widest"
             />
             <button
               type="button"
@@ -351,7 +319,7 @@ export function PhoneBinding() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               placeholder={t("authPhoneCodePlaceholder")}
               maxLength={6}
-              className="flex-1 bg-white text-center tracking-widest"
+              className="flex-1 bg-white tracking-widest"
             />
             <button
               type="button"

@@ -19,12 +19,16 @@ export function isEmailConfigured(): boolean {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 }
 
+/** transporter 懒初始化单例（避免每次发送都创建新连接） */
+let _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
 /** 获取 transporter（懒初始化单例） */
 function getTransporter() {
   if (!isEmailConfigured()) {
     throw new Error("SMTP_NOT_CONFIGURED");
   }
-  return nodemailer.createTransport({
+  if (_transporter) return _transporter;
+  _transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
     secure: SMTP_PORT === 465,
@@ -33,6 +37,7 @@ function getTransporter() {
       pass: SMTP_PASS,
     },
   });
+  return _transporter;
 }
 
 /**

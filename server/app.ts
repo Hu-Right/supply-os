@@ -28,6 +28,9 @@ import { csrfProtection } from "./middleware/csrf";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
+  // P1-3 安全加固：信任反向代理，正确解析 X-Forwarded-For
+  // H-4 修复：仅信任最近一层代理（防止攻击者伪造 X-Forwarded-For 绕过 IP 限流）
+  app.set("trust proxy", 1);
   // ── Brotli/Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
   // P1 性能优化：Brotli 压缩替代默认 gzip——比 gzip 再减 15-25% 传输体积
   // compression 中间件自动协商：客户端 Accept-Encoding 含 br 则用 Brotli，否则回退 gzip

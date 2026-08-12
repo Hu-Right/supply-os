@@ -118,10 +118,10 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   }
 
   // 2) 查询原始机构数据（含国家字段，用于按国家级聚合 INTL 类型机构）
-  // 修复：与搜索路径一致，排除已过期但 is_active 尚未刷新的记录
+  // 修复：与搜索路径口径统一，只用 deadline_sec 实时判断，移除 is_active 依赖
   const [rows] = await pool.query(
     `SELECT n.agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE n.is_active = 1 AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+     WHERE (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
        AND n.agency IS NOT NULL AND n.agency <> ''
      GROUP BY n.agency ORDER BY cnt DESC`
   );

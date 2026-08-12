@@ -41,10 +41,15 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
     if (!codeRow) continue; // 类目树查不到该码：跳过，不再制造 code_id=null 的脏行
     const path = await getUnspscPath(dbPool, codeRow.id);
 
+    // 修复：使用 ON DUPLICATE KEY UPDATE 替代 INSERT IGNORE，确保数据源修正后桥接表同步更新
     await dbPool.execute(
-      `INSERT IGNORE INTO ${bridgeTable}
+      `INSERT INTO ${bridgeTable}
         (${fk}, code_id, code, level, level1_id, level2_id, level3_id, level4_id, level5_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         code_id = VALUES(code_id), code = VALUES(code), level = VALUES(level),
+         level1_id = VALUES(level1_id), level2_id = VALUES(level2_id),
+         level3_id = VALUES(level3_id), level4_id = VALUES(level4_id), level5_id = VALUES(level5_id)`,
       [
         row.notice_id ?? row.id,
         codeRow.id,
