@@ -60,11 +60,12 @@ function normalizeCountry(raw: string): string {
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 // ── 同步 SQL（含所有语言翻译，不含 UNSPSC）──
+// 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 const WIDE_SYNC_SELECT = `
   SELECT n.id, n.notice_id, n.reference, n.title,
          n.description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
-         n.is_active, n.is_featured,
+         n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
          opp.description_cn, LEFT(opp.bid_overview, 200) AS bid_overview,
          opp.beneficiary_countries
@@ -201,7 +202,6 @@ function buildWideRow(
     notice_type_std: noticeTypeStd,
     deadline_sec: isNaN(deadlineSec) ? 0 : deadlineSec,
     estimated_value: parseDecimalValue(r.estimated_value),
-    is_active: r.is_active ? 1 : 0,
     is_featured: r.is_featured ? 1 : 0,
     unspsc_level1: (unspsc?.level1 || "").slice(0, 2000),
     unspsc_level2: (unspsc?.level2 || "").slice(0, 2000),
@@ -227,49 +227,6 @@ async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
     // 表不存在或查询失败：静默降级
   }
   return aliasMap;
-}
-
-/**
- * is_active 对账：检测主表与宽表之间的 is_active 不一致并修复
- *
- * 解决问题：主表 crm_bid_notices 无 updated_at 列，宽表增量同步无法通过时间戳
- * 检测 is_active 变更。当 refreshIsActive 直接更新宽表失败（静默降级）时，
- * 宽表 is_active 会保持陈旧值，进而导致 Meilisearch 增量同步回读错误状态。
- *
- * 对账逻辑：LEFT JOIN 双向检测不一致（宽表=1/主表=0 + 宽表=0/主表=1），
- * 批量修正宽表，返回变更 ID 供上层同步到 Meilisearch。
- */
-async function reconcileIsActive(pool: Pool): Promise<number[]> {
-  try {
-    const [mismatchRows] = await pool.query(
-      `SELECT n.id, n.is_active
-       FROM crm_bid_notices n
-       LEFT JOIN crm_notice_search ns ON ns.id = n.id
-       WHERE ns.id IS NOT NULL
-         AND ns.is_active != n.is_active
-       LIMIT 5000`,
-    );
-    const mismatches = mismatchRows as RowDataPacket[];
-    if (mismatches.length === 0) return [];
-
-    const ids = mismatches.map(r => Number(r.id));
-    const BATCH = 1000;
-    for (let i = 0; i < ids.length; i += BATCH) {
-      const batch = ids.slice(i, i + BATCH);
-      const ph = batch.map(() => "?").join(",");
-      await pool.query(
-        `UPDATE crm_notice_search ns
-         INNER JOIN crm_bid_notices n ON n.id = ns.id
-         SET ns.is_active = n.is_active
-         WHERE ns.id IN (${ph})`,
-        batch,
-      );
-    }
-    return ids;
-  } catch (e) {
-    console.warn(`[wide-table] is_active 对账失败（静默降级）:`, (e as Error).message);
-    return [];
-  }
 }
 
 /**
@@ -344,7 +301,7 @@ async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): Promise<
     "id", "notice_id", "title", "reference", "description",
     ...langColumns,
     "country_std", "agency_std", "agency_group", "notice_type_std",
-    "deadline_sec", "estimated_value", "is_active", "is_featured",
+    "deadline_sec", "estimated_value", "is_featured",
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
   ];
@@ -361,7 +318,7 @@ async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): Promise<
         row.id, row.notice_id, row.title, row.reference, row.description,
         ...SUPPORTED_LANGS.flatMap(lang => [row[`title_${lang}`], row[`description_${lang}`]]),
         row.country_std, row.agency_std, row.agency_group, row.notice_type_std,
-        row.deadline_sec, row.estimated_value, row.is_active, row.is_featured,
+        row.deadline_sec, row.estimated_value, row.is_featured,
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
       );
@@ -451,23 +408,16 @@ export async function incrementalWideSync(
 
     let updatedRaw: any[] = [];
 
-    // 对账：检测主表与宽表之间 is_active 不一致
-    // 主表 crm_bid_notices 无 updated_at 列，无法通过时间戳检测 is_active 变更，
-    // 改为直接 JOIN 比较两表值，修复 refreshIsActive 宽表 UPDATE 失败导致的陈旧状态
-    const reconciledIsActiveIds = await reconcileIsActive(pool);
-
     // 对账：检测主表与宽表之间 deadline_sec 不一致
     // 主表 deadline_sec 是 STORED 生成列，宽表是静态拷贝，可能因 deadline_ts 变更而陈旧
     const reconciledDeadlineIds = await reconcileDeadlineSec(pool);
 
-    // 合并所有对账结果
-    const allReconciledIds = Array.from(new Set([...reconciledIsActiveIds, ...reconciledDeadlineIds]));
-    if (allReconciledIds.length > 0) {
-      const placeholders = allReconciledIds.map(() => "?").join(",");
+    if (reconciledDeadlineIds.length > 0) {
+      const placeholders = reconciledDeadlineIds.map(() => "?").join(",");
       const [reconciledRows] = await pool.query(
         WIDE_SYNC_SELECT + WIDE_SYNC_JOIN +
         ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
-        allReconciledIds,
+        reconciledDeadlineIds,
       );
       updatedRaw = reconciledRows as any[];
     }

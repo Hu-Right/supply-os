@@ -3,14 +3,13 @@
  * Centralized timer management for periodic background tasks
  *
  * @module server/lifecycle/timers
- * @description 将所有定时任务（is_active 刷新、is_featured 刷新、国家/机构缓存刷新）
+ * @description 将所有定时任务（is_featured 刷新、国家/机构缓存刷新）
  *              集中管理，返回统一的 stop 函数。
  */
 import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices";
-import { refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
+import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
-import { syncWideIds } from "../services/noticeSearchSync";
 
 /**
  * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
@@ -45,7 +44,7 @@ export interface TimersHandle {
  * 启动所有定时任务并返回 stop 句柄。
  * 包含：
  * 1. is_featured 每 30 分钟增量刷新
- * 2. is_active 每 10 分钟增量刷新
+ * 2. 统计表每 10 分钟刷新
  * 3. 国家/机构缓存每日凌晨 5 点定时刷新
  */
 export function startAllTimers(deps: TimersDeps): TimersHandle {
@@ -61,24 +60,14 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000);
 
-  // 2. is_active 每 3 分钟刷新（缩短间隔以减少数据延迟）
-  const isActiveRefreshTimer = setInterval(async () => {
+  // 2. 统计表每 10 分钟刷新（替代原 is_active 刷新，只更新统计数字）
+  const statsRefreshTimer = setInterval(async () => {
     try {
-      const result = await refreshIsActive(dbPool);
       await refreshNoticeStats(dbPool);
-      if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        await syncNoticeIds(dbPool, result.changedIds);
-      }
-      // 修复：宽表同步失败的 ID，通过 syncWideIds 从主表直接补偿
-      // syncWideIds 会重新从主表读取权威值并写入宽表，确保 is_active 一致
-      if (result.wideSyncFailedIds.length > 0) {
-        console.log(`[is-active-timer] 宽表补偿同步 ${result.wideSyncFailedIds.length} 条失败 ID`);
-        await syncWideIds(dbPool, result.wideSyncFailedIds);
-      }
     } catch (e) {
-      console.error("[is-active-timer] 刷新失败:", (e as Error).message);
+      console.error("[stats-timer] 刷新失败:", (e as Error).message);
     }
-  }, 3 * 60 * 1000);
+  }, 10 * 60 * 1000);
 
   // 3. 国家/机构缓存每日凌晨 5 点刷新
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {
@@ -93,7 +82,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
-      clearInterval(isActiveRefreshTimer);
+      clearInterval(statsRefreshTimer);
       clearTimeout(dailyRefreshTimer);
     },
   };

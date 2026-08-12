@@ -9,7 +9,7 @@
 import type { Pool } from "mysql2/promise";
 import type { NoticesRepo } from "../repos/notices.repo";
 import type { SuppliersRepo } from "../repos/suppliers.repo";
-import { searchNotices, refreshNoticeStats, refreshIsActive, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
+import { searchNotices, refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
 
 export interface WarmupDeps {
@@ -26,15 +26,9 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   const { dbPool, noticesRepo, suppliersRepo } = deps;
   const warmupStart = performance.now();
 
-  // Phase 1：回填 is_active 列（确保搜索查询可走索引）
-  const isActiveResult = await refreshIsActive(dbPool);
-  if (isActiveResult.changedIds.length > 0 && isMeiliHealthy()) {
-    await syncNoticeIds(dbPool, isActiveResult.changedIds);
-  }
-
-  // Phase 2：统计表 + 搜索 + 国家/机构 + 供应商 并行预热
+  // Phase 1：统计表 + 搜索 + 国家/机构 + 供应商 并行预热
   await Promise.all([
-    // 统计表刷新（依赖 is_active 列）
+    // 统计表刷新
     refreshNoticeStats(dbPool),
     // 首页（中文 + 英文）
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),

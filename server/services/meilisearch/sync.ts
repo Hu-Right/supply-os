@@ -123,8 +123,6 @@ function buildSyncDocFromWideTable(r: any) {
     notice_type_normalized: String(r.notice_type_std || ""),
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
-    is_active: r.is_active ? 1 : 0,
-    is_expired: 0, // 宽表无此字段，搜索用 deadline_sec 判断过期
     is_featured: r.is_featured ? 1 : 0,
     ...langFields,
     level1_id: parseUnspsc(r.unspsc_level1),
@@ -136,10 +134,11 @@ function buildSyncDocFromWideTable(r: any) {
 }
 
 /** 从宽表同步的 SQL（单表查询，零 JOIN） */
+// 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_std, agency_std, agency_group, notice_type_std,
-         deadline_sec, is_active, is_featured,
+         deadline_sec, is_featured,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
@@ -228,24 +227,22 @@ export async function incrementalSync(
     const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
-    // 权威值覆盖：is_active/is_featured/deadline_sec 从主表 crm_bid_notices 读取
-    // 宽表 is_active 可能因 refreshIsActive 直接 UPDATE 失败而保持陈旧值，
+    // 权威值覆盖：is_featured/deadline_sec 从主表 crm_bid_notices 读取
     // 宽表 deadline_sec 是普通列（非生成列），可能因 deadline_ts 变更而陈旧，
     // 此处从主表读取权威值，确保 Meilisearch 索引状态一致
     const allIds = allRaw.map((r) => Number(r.id));
     try {
       const BATCH = 1000;
-      const statusMap = new Map<number, { is_active: number; is_featured: number; deadline_sec: number }>();
+      const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
       for (let i = 0; i < allIds.length; i += BATCH) {
         const batch = allIds.slice(i, i + BATCH);
         const ph = batch.map(() => "?").join(",");
         const [statusRows] = await pool.query(
-          `SELECT id, is_active, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${ph})`,
+          `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${ph})`,
           batch,
         );
         for (const row of statusRows as RowDataPacket[]) {
           statusMap.set(Number(row.id), {
-            is_active: row.is_active ? 1 : 0,
             is_featured: row.is_featured ? 1 : 0,
             deadline_sec: Number(row.deadline_sec) || 0,
           });
@@ -254,7 +251,6 @@ export async function incrementalSync(
       for (const r of allRaw) {
         const status = statusMap.get(Number(r.id));
         if (status) {
-          r.is_active = status.is_active;
           r.is_featured = status.is_featured;
           r.deadline_sec = status.deadline_sec;
         }
@@ -293,17 +289,16 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       const batch = ids.slice(i, i + SQL_BATCH_SIZE);
       const placeholders = batch.map(() => "?").join(",");
 
-      // 并行查询：宽表（主要字段）+ 主表（is_active/is_featured/deadline_sec 权威值）
+      // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值）
       const [wideRows, statusRows] = await Promise.all([
         pool.query(WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`, batch),
-        pool.query(`SELECT id, is_active, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${placeholders})`, batch),
+        pool.query(`SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${placeholders})`, batch),
       ]);
 
       // 构建主表状态映射
-      const statusMap = new Map<number, { is_active: number; is_featured: number; deadline_sec: number }>();
+      const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
       for (const row of (statusRows[0] as any[])) {
         statusMap.set(Number(row.id), {
-          is_active: row.is_active ? 1 : 0,
           is_featured: row.is_featured ? 1 : 0,
           deadline_sec: Number(row.deadline_sec) || 0,
         });
@@ -311,10 +306,9 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 
       const docs = (wideRows[0] as any[]).map((r) => {
         const doc = buildSyncDocFromWideTable(r);
-        // 用主表的权威值覆盖宽表值（修复宽表 is_active/deadline_sec 不一致问题）
+        // 用主表的权威值覆盖宽表值（修复宽表 deadline_sec 不一致问题）
         const status = statusMap.get(doc.id);
         if (status) {
-          doc.is_active = status.is_active;
           doc.is_featured = status.is_featured;
           doc.deadline_sec = status.deadline_sec;
           doc.has_deadline = status.deadline_sec > 0 ? 1 : 0;

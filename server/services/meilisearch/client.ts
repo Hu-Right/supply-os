@@ -107,7 +107,6 @@ export async function ensureIndex(): Promise<boolean> {
         "agency_group",
         "notice_type_normalized",
         "deadline_sec",
-        "is_active",
         "is_featured",
         "level1_id",
         "level2_id",

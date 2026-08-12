@@ -13,7 +13,8 @@ import {
   countCacheKey,
 } from "./cache";
 
-const ACTIVE_NOTICE_WHERE = `n.is_active = 1 AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+// 只用 deadline_sec 实时判断，不再依赖 is_active 缓存
+const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 const DEADLINE_FILTER = `(deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
 
 // ── 统计缓存 ──
@@ -59,119 +60,30 @@ export async function getStatsCount(pool: Pool, key: string): Promise<number | n
   }
 }
 
-/** 回填/刷新 is_active 列——将过期或已过截止日期的公告标记为 inactive，返回变更的 ID 列表 */
-export async function refreshIsActive(pool: Pool): Promise<{ marked: number; unmarked: number; changedIds: number[]; wideSyncFailedIds: number[] }> {
-  try {
-    const t0 = Date.now();
-    const [toDeactivate] = await pool.query(
-      `SELECT id FROM crm_bid_notices
-       WHERE is_active = 1
-         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))`
-    );
-    const deactivateIds = (toDeactivate as any[]).map(r => r.id);
-
-    const [deactivateResult] = await pool.query(
-      `UPDATE crm_bid_notices SET is_active = 0
-       WHERE is_active = 1
-         AND (is_expired = 1 OR (deadline_ts IS NOT NULL AND deadline_sec < UNIX_TIMESTAMP(NOW())))`
-    );
-    const marked = (deactivateResult as any)?.affectedRows || 0;
-
-    const [toReactivate] = await pool.query(
-      `SELECT id FROM crm_bid_notices
-       WHERE is_active = 0
-         AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
-    );
-    const reactivateIds = (toReactivate as any[]).map(r => r.id);
-
-    const [reactivateResult] = await pool.query(
-      `UPDATE crm_bid_notices SET is_active = 1
-       WHERE is_active = 0
-         AND (is_expired = 0 OR is_expired IS NULL)
-         AND (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`
-    );
-    const unmarked = (reactivateResult as any)?.affectedRows || 0;
-
-    const changedIds = [...deactivateIds, ...reactivateIds];
-
-    // 同步更新宽表的 is_active 字段
-    // 修复：批量更新失败时逐行重试，收集仍然失败的 ID 供上层从主表直接补偿
-    const wideSyncFailedIds: number[] = [];
-    if (changedIds.length > 0) {
-      try {
-        // 批量更新宽表
-        const batchSize = 1000;
-        for (let i = 0; i < changedIds.length; i += batchSize) {
-          const batch = changedIds.slice(i, i + batchSize);
-          const placeholders = batch.map(() => '?').join(',');
-          try {
-            await pool.query(
-              `UPDATE crm_notice_search ns
-               INNER JOIN crm_bid_notices n ON n.id = ns.id
-               SET ns.is_active = n.is_active
-               WHERE ns.id IN (${placeholders})`,
-              batch
-            );
-          } catch (batchErr) {
-            // 批量失败，逐行重试以最大化成功数量
-            console.warn(`[is-active] 宽表批量同步失败，逐行重试 (${batch.length} rows):`, (batchErr as Error).message);
-            for (const id of batch) {
-              try {
-                await pool.query(
-                  `UPDATE crm_notice_search ns
-                   INNER JOIN crm_bid_notices n ON n.id = ns.id
-                   SET ns.is_active = n.is_active
-                   WHERE ns.id = ?`,
-                  [id]
-                );
-              } catch {
-                wideSyncFailedIds.push(id);
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.warn(`[is-active] 宽表同步异常（已收集失败 ID）:`, (e as Error).message);
-        wideSyncFailedIds.push(...changedIds);
-      }
-      if (wideSyncFailedIds.length > 0) {
-        console.warn(`[is-active] 宽表同步失败 ${wideSyncFailedIds.length} 条，将由 timers 从主表直接补偿`);
-      }
-    }
-
-    console.log(`[is-active] is_active 刷新完成: ${Date.now() - t0}ms (deactivated=${marked}, reactivated=${unmarked}, changedIds=${changedIds.length}, wideSyncFailed=${wideSyncFailedIds.length})`);
-    return { marked, unmarked, changedIds, wideSyncFailedIds };
-  } catch (e) {
-    console.error("[is-active] is_active 刷新失败（静默降级）:", (e as Error).message);
-    return { marked: 0, unmarked: 0, changedIds: [], wideSyncFailedIds: [] };
-  }
-}
-
 /** 刷新预计算统计表——在数据导入后调用 */
 export async function refreshNoticeStats(pool: Pool): Promise<void> {
   try {
     const t0 = Date.now();
     const [totalRows] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE is_active = 1 AND ${DEADLINE_FILTER}`
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${DEADLINE_FILTER}`
     );
     const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
 
     const [featuredRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_featured = 1 AND is_active = 1 AND ${DEADLINE_FILTER}`
+       WHERE is_featured = 1 AND ${DEADLINE_FILTER}`
     );
     const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
 
     const [countryRows] = await pool.query(
       `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_active = 1 AND ${DEADLINE_FILTER} AND country IS NOT NULL AND country != ''
+       WHERE ${DEADLINE_FILTER} AND country IS NOT NULL AND country != ''
        GROUP BY country ORDER BY cnt DESC LIMIT 50`
     );
 
     const [agencyRows] = await pool.query(
       `SELECT agency, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_active = 1 AND ${DEADLINE_FILTER} AND agency IS NOT NULL AND agency != ''
+       WHERE ${DEADLINE_FILTER} AND agency IS NOT NULL AND agency != ''
        GROUP BY agency ORDER BY cnt DESC LIMIT 50`
     );
 

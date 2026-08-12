@@ -21,9 +21,8 @@ export {
   // 机构
   refreshNoticeAgencies,
   getNoticeAgencies,
-  // 统计 + is_active
+  // 统计
   refreshNoticeStats,
-  refreshIsActive,
   getNoticeStats,
   // 缓存（供内部/测试使用）
   noticeSearchCache,

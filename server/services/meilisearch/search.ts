@@ -62,9 +62,8 @@ export async function searchWithFilters(params: {
     } = params;
 
     const filter: string[] = [
-      "is_active = 1",
-      // 修复：实时过期判断，避免显示已过期但未标记的记录
-      // deadline_sec = 0 表示 NULL（无截止日期），应保留
+      // 只用 deadline_sec 实时判断，不再依赖 is_active 缓存
+      // deadline_sec = 0 表示无截止日期（永不过期），deadline_sec >= NOW() 表示未过期
       "(deadline_sec = 0 OR deadline_sec >= " + Math.floor(Date.now() / 1000) + ")"
     ];
     // 国家筛选：使用所有已知形式（原始大小写 + 大写）做 OR 匹配
