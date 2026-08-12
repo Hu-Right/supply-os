@@ -147,10 +147,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   );
   // BUG6 修复：searchKey 纳入 deepestCodeId，行业筛选变化时触发分页重置与数据重载
   const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}`;
-  // BUG 修复：用于守卫比较的 searchKey，排除 deepestCodeId（UNSPSC 行业数据加载完成后 deepestCodeId 会变化，
-  // 但不应因此取消进行中的请求）
-  // 回滚：删除 searchKeyForSkip，恢复使用 searchKey 进行守卫比较
-  const searchKeyForSkip = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}`;
+  // 修复：searchKeyForSkip 纳入 deepestCodeId，确保行业偏好加载完成后触发新请求
+  // 原逻辑排除 deepestCodeId 导致页面刷新时行业偏好加载后不触发搜索
+  const searchKeyForSkip = searchKey;
 
   // URL 外部变化时同步表单草稿
   useEffect(() => {
@@ -280,7 +279,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     // 精确守卫：仅当数据源 AND 搜索条件均未变时跳过
     // 典型场景：prefsMode 从 "loading"→"default"，数据源和搜索条件都不变
     // page/searchKey/deepestCodeId 等变化时，搜索条件变了，不会跳过
-    // BUG 修复：使用 searchKeyForSkip（排除 deepestCodeId）进行比较，避免 UNSPSC 行业数据加载完成后取消请求
+    // 修复：searchKeyForSkip 现在包含 deepestCodeId，确保行业偏好加载后触发新请求
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === searchKeyForSkip;
     if (prevDataSourceForPrefsRef.current === currentDataSource && searchKeyUnchanged) {
       // 数据源和搜索条件均未变 → 保留进行中的请求，不发新请求
