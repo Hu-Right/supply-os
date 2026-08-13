@@ -16,7 +16,7 @@ import { validatePassword } from "../../src/shared/auth/passwordPolicy";
 import { maskPhone } from "../utils/mask";
 import { extractClientIp } from "../utils/ip";
 import {
-  signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken,
+  signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken, hashRefreshToken,
   getRefreshTokenExpiresAt, extractBearerToken,
 } from "../services/jwt";
 import { requireAuth } from "../middleware/auth";
@@ -88,6 +88,34 @@ function clearLoginFailures(ip: string): void {
 const accountLoginAttempts = new Map<string, { count: number; resetAt: number }>();
 const ACCOUNT_WINDOW_MS = 30 * 60 * 1000; // 30 分钟
 const ACCOUNT_MAX_FAILS = 5;
+// L-RATE-1 修复：账号维度限流持久化到文件，重启后不丢失
+const ACCOUNT_RATE_LIMIT_FILE = path.resolve(process.cwd(), "server/logs/.account-rate-limit.json");
+
+// 启动时从文件恢复账号维度速率限制状态
+try {
+  if (fs.existsSync(ACCOUNT_RATE_LIMIT_FILE)) {
+    const data = JSON.parse(fs.readFileSync(ACCOUNT_RATE_LIMIT_FILE, "utf-8"));
+    const now = Date.now();
+    for (const [email, entry] of Object.entries(data as Record<string, { count: number; resetAt: number }>)) {
+      if (entry.resetAt > now) accountLoginAttempts.set(email, entry);
+    }
+  }
+} catch { /* 文件损坏或不存在，从空状态开始 */ }
+
+/** 将账号维度速率限制状态持久化到文件 */
+function persistAccountRateLimit(): void {
+  try {
+    if (accountLoginAttempts.size === 0) {
+      if (fs.existsSync(ACCOUNT_RATE_LIMIT_FILE)) fs.unlinkSync(ACCOUNT_RATE_LIMIT_FILE);
+      return;
+    }
+    const dir = path.dirname(ACCOUNT_RATE_LIMIT_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const obj: Record<string, { count: number; resetAt: number }> = {};
+    for (const [email, entry] of accountLoginAttempts) obj[email] = entry;
+    fs.writeFileSync(ACCOUNT_RATE_LIMIT_FILE, JSON.stringify(obj), "utf-8");
+  } catch { /* 写入失败不影响主服务 */ }
+}
 
 function checkAccountRateLimit(email: string): { blocked: boolean; retryAfterSec: number } {
   const now = Date.now();
@@ -109,18 +137,24 @@ function recordAccountLoginFailure(email: string): void {
   } else {
     entry.count += 1;
   }
+  // L-RATE-1 修复：登录失败时持久化，确保重启后限制不丢失
+  persistAccountRateLimit();
 }
 
 function clearAccountLoginFailures(email: string): void {
   accountLoginAttempts.delete(email);
+  // L-RATE-1 修复：登录成功后清除计数并持久化
+  persistAccountRateLimit();
 }
 
-// 定期清理账号维度过期条目
+// 定期清理账号维度过期条目 + 持久化
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
   for (const [email, entry] of accountLoginAttempts) {
-    if (now > entry.resetAt) accountLoginAttempts.delete(email);
+    if (now > entry.resetAt) { accountLoginAttempts.delete(email); changed = true; }
   }
+  if (changed) persistAccountRateLimit();
 }, 10 * 60 * 1000).unref();
 
 /**
@@ -332,10 +366,24 @@ export function createAuthRouter(ctx: AppContext): Router {
       });
     }
 
-    const email = String(req.body.email || "").trim().toLowerCase();
+    const identifier = String(req.body.email || "").trim();
+    const isPhoneLogin = /^1[3-9]\d{9}$/.test(identifier);
+
+    // ── 解析用户：支持邮箱或手机号登录 ──
+    let user: import("../repos/types").UserRow | null = null;
+    let accountKey = identifier.toLowerCase(); // 用于账号维度限流的 key（统一为 email）
+
+    if (isPhoneLogin) {
+      // 手机号登录：通过手机号查找用户（仅查找已验证手机号的用户）
+      user = await usersRepo.findByPhone(identifier);
+      if (user) accountKey = (user.user_key || "").toLowerCase();
+    } else {
+      // 邮箱登录（原有逻辑）
+      user = await usersRepo.findAuthByKey(identifier.toLowerCase());
+    }
 
     // P2-5 修复：账号维度登录频率限制（防分布式暴力破解）
-    const accountLimit = checkAccountRateLimit(email);
+    const accountLimit = checkAccountRateLimit(accountKey);
     if (accountLimit.blocked) {
       return res.status(429).json({
         error: "该账号登录尝试过于频繁，请稍后重试",
@@ -344,18 +392,17 @@ export function createAuthRouter(ctx: AppContext): Router {
     }
 
     const password = String(req.body.password || "");
-    const user = await usersRepo.findAuthByKey(email);
     const hashType = user?.password_hash_type ?? "sha256";
     if (!user || !user.password_hash) {
-      // C-2 安全加固：用户不存在时执行 dummy bcrypt 比较，消除时序差异防止邮箱枚举
+      // C-2 安全加固：用户不存在时执行 dummy bcrypt 比较，消除时序差异防止枚举
       await verifyPassword(password, "$2b$12$AAAAAAAAAAAAAAAAAAAAAAOqGHn2kLJ3xQ4y5m6n7p8r9s0t1u2v3w", "bcrypt");
       recordLoginFailure(ip);
-      recordAccountLoginFailure(email);
+      recordAccountLoginFailure(accountKey);
       return res.status(401).json({ error: "账号或密码错误" });
     }
     if (!(await verifyPassword(password, user.password_hash, hashType))) {
       recordLoginFailure(ip);
-      recordAccountLoginFailure(email);
+      recordAccountLoginFailure(accountKey);
       return res.status(401).json({ error: "账号或密码错误" });
     }
     if (user.account_status === "disabled" || user.account_status === "rejected") {
@@ -364,7 +411,7 @@ export function createAuthRouter(ctx: AppContext): Router {
 
     // 登录成功，清除 IP 和账号维度的失败计数
     clearLoginFailures(ip);
-    clearAccountLoginFailures(email);
+    clearAccountLoginFailures(accountKey);
 
     // 透明升级：旧 SHA-256 用户登录成功后自动升级为 bcrypt
     if (needsUpgrade(hashType)) {
@@ -1156,14 +1203,14 @@ export function createAuthRouter(ctx: AppContext): Router {
       await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
     }
 
-    // 如果携带 JWT，也可撤销该用户的所有 Refresh Token（全设备登出）
+    // 如果携带 Access Token，撤销该用户的所有 Refresh Token（全设备登出）
+    // H-1 修复：使用 verifyAccessToken（原 verifyRefreshToken 类型检查不匹配，全设备登出从未生效）
     const bearerToken = extractBearerToken(req.headers.authorization);
     if (bearerToken) {
       try {
-        const { user_key } = verifyRefreshToken(bearerToken);
-        // 仅当 JWT 有效且为 refresh 类型时撤销
+        const { user_key } = verifyAccessToken(bearerToken);
         await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [user_key]);
-      } catch { /* JWT 无效或已过期，忽略 */ }
+      } catch { /* Access Token 无效或已过期，忽略 */ }
     }
 
     res.json({ success: true });

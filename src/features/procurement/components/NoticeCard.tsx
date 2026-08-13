@@ -119,7 +119,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
         <div className="text-xs min-w-0">
           <p className="font-black text-slate-800">{item.estimated_value || t("procurement_budgetPending")}</p>
           <p className="text-slate-500 truncate">
-            {item.agency || item.organization || t("procurement_unknownAgency")}
+            {item.agency_i18n || item.agency || item.organization || t("procurement_unknownAgency")}
           </p>
         </div>
         {item.beneficiary_countries && (

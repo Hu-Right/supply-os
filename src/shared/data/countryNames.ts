@@ -358,7 +358,42 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Netherlands Antilles": "荷属安的列斯",
   "RCA": "中非共和国",
   "Sultanate": "阿曼",
-  // ── 法语名（联合国数据源常见） ──
+  // ── 斜杠变体 / 数据源非标准格式 ──
+  "Myanmar/Burma": "缅甸",
+  "Burma/Myanmar": "缅甸",
+  // ── 子国家/地区误作国家名（数据库中高频出现的非标准值）──
+  // 菲律宾省份
+  "/，Basilan": "菲律宾",
+  "Basilan": "菲律宾",
+  "La Union": "菲律宾",
+  "Ilocos Norte": "菲律宾",
+  "Ilocos Sur": "菲律宾",
+  "Cagayan": "菲律宾",
+  "Isabela": "菲律宾",
+  // 斯里兰卡城市
+  "Colombo": "斯里兰卡",
+  // 肯尼亚郡
+  "Mombasa": "肯尼亚",
+  "Nairobi": "肯尼亚",
+  // 巴西州/市
+  "Rio de Janeiro": "巴西",
+  "Sao Paulo": "巴西",
+  "São Paulo": "巴西",
+  "Minas Gerais": "巴西",
+  "Bahia": "巴西",
+  "Parana": "巴西",
+  "Paraná": "巴西",
+  // 印度邦/城市
+  "Mumbai": "印度",
+  "Delhi": "印度",
+  "Kolkata": "印度",
+  "Maharashtra": "印度",
+  // 哥伦比亚城市/省
+  "Bogota": "哥伦比亚",
+  "Bogotá": "哥伦比亚",
+  // 秘鲁城市
+  "Lima": "秘鲁",
+  // 法语名（联合国数据源常见） ──
   "Mauritanie": "毛里塔尼亚",
   "Tchad": "乍得",
   "Cameroun": "喀麦隆",
@@ -496,6 +531,137 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "中国澳门": "中国澳门",
   "中国台湾": "中国台湾",
 };
+
+/**
+ * 子国家/地区 → 所属国家中文名映射
+ * Sub-national Region → Parent Country Chinese Name
+ *
+ * @description 数据库 country 字段存在将省/州/城市名误存为国家名的情况，
+ *              此表覆盖高频出现的非标准值，将其归并到所属国家的中文名。
+ */
+export const SUB_COUNTRY_ZH: Record<string, string> = {
+  // ── 菲律宾省份 ──
+  "Basilan": "菲律宾",
+  "La Union": "菲律宾",
+  "Ilocos Norte": "菲律宾",
+  "Ilocos Sur": "菲律宾",
+  "Cagayan": "菲律宾",
+  "Isabela": "菲律宾",
+  "Pangasinan": "菲律宾",
+  "Zamboanga": "菲律宾",
+  "Davao": "菲律宾",
+  "Cebu": "菲律宾",
+  "Batangas": "菲律宾",
+  "Laguna": "菲律宾",
+  "Cavite": "菲律宾",
+  "Bulacan": "菲律宾",
+  "Rizal": "菲律宾",
+  "Quezon": "菲律宾",
+  "Palawan": "菲律宾",
+  "Antique": "菲律宾",
+  "Bohol": "菲律宾",
+  "Leyte": "菲律宾",
+  "Samar": "菲律宾",
+  "Misamis": "菲律宾",
+  "Bukidnon": "菲律宾",
+  "Agusan": "菲律宾",
+  "Surigao": "菲律宾",
+  "Negros": "菲律宾",
+  "Mindoro": "菲律宾",
+  // ── 斯里兰卡城市 ──
+  "Colombo": "斯里兰卡",
+  "Kandy": "斯里兰卡",
+  "Galle": "斯里兰卡",
+  // ── 肯尼亚郡/城市 ──
+  "Mombasa": "肯尼亚",
+  "Nairobi": "肯尼亚",
+  "Kisumu": "肯尼亚",
+  "Nakuru": "肯尼亚",
+  // ── 巴西州/市 ──
+  "Rio de Janeiro": "巴西",
+  "Sao Paulo": "巴西",
+  "São Paulo": "巴西",
+  "Minas Gerais": "巴西",
+  "Bahia": "巴西",
+  "Parana": "巴西",
+  "Paraná": "巴西",
+  "Rio Grande do Sul": "巴西",
+  "Santa Catarina": "巴西",
+  "Pernambuco": "巴西",
+  "Ceara": "巴西",
+  "Ceará": "巴西",
+  "Goias": "巴西",
+  "Goiás": "巴西",
+  "Distrito Federal": "巴西",
+  // ── 印度邦/城市 ──
+  "Mumbai": "印度",
+  "Delhi": "印度",
+  "Kolkata": "印度",
+  "Chennai": "印度",
+  "Maharashtra": "印度",
+  "Karnataka": "印度",
+  "Tamil Nadu": "印度",
+  "Gujarat": "印度",
+  "Rajasthan": "印度",
+  "Kerala": "印度",
+  // ── 哥伦比亚城市 ──
+  "Bogota": "哥伦比亚",
+  "Bogotá": "哥伦比亚",
+  "Medellin": "哥伦比亚",
+  "Medellín": "哥伦比亚",
+  "Cali": "哥伦比亚",
+  "Barranquilla": "哥伦比亚",
+  // ── 秘鲁城市 ──
+  "Lima": "秘鲁",
+  "Arequipa": "秘鲁",
+  "Cusco": "秘鲁",
+  // ── 墨西哥州/城市 ──
+  "Mexico City": "墨西哥",
+  "Ciudad de Mexico": "墨西哥",
+  "Jalisco": "墨西哥",
+  "Nuevo Leon": "墨西哥",
+  "Nuevo León": "墨西哥",
+  // ── 印尼城市 ──
+  "Jakarta": "印度尼西亚",
+  "Surabaya": "印度尼西亚",
+  "Bali": "印度尼西亚",
+  // ── 尼日利亚州/城市 ──
+  "Lagos": "尼日利亚",
+  "Abuja": "尼日利亚",
+  // ── 坦桑尼亚城市 ──
+  "Dar es Salaam": "坦桑尼亚",
+  "Dodoma": "坦桑尼亚",
+  // ── 越南城市 ──
+  "Ho Chi Minh": "越南",
+  "Hanoi": "越南",
+  "Hà Nội": "越南",
+  // ── 泰国城市 ──
+  "Bangkok": "泰国",
+  "Chiang Mai": "泰国",
+  // ── 马来西亚州/城市 ──
+  "Penang": "马来西亚",
+  "Johor": "马来西亚",
+  "Selangor": "马来西亚",
+  "Kuala Lumpur": "马来西亚",
+  // ── 孟加拉国城市 ──
+  "Dhaka": "孟加拉国",
+  "Chittagong": "孟加拉国",
+};
+
+/**
+ * 清理国家名原始值中的常见脏数据前缀
+ *
+ * @description 数据库中存在 "/，Basilan" 等含非法前缀的值，
+ *              此函数在归一化之前调用，剥离非国家名垃圾字符。
+ */
+export function cleanCountryRaw(raw: string): string {
+  let cleaned = raw.trim();
+  // 剥离 "/"、"/，"、"/, " 等前缀（数据源格式错误）
+  cleaned = cleaned.replace(/^[\/]+\s*[，,]?\s*/, "");
+  // 剥离前导标点（逗号、分号、冒号、竖线等）
+  cleaned = cleaned.replace(/^[,;:|]+\s*/, "");
+  return cleaned.trim();
+}
 
 /**
  * 常见国家次级区域中文名映射表

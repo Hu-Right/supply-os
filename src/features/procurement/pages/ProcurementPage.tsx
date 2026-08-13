@@ -22,7 +22,7 @@ import { useNoticeActions } from "../hooks/useNoticeActions";
 
 export default function ProcurementPage() {
   const { t } = useLocale();
-  const { authUser, isVip } = useAuth();
+  const { authUser, isVip, refreshAuth } = useAuth();
   const [, setSearchParams] = useSearchParams();
   const userKey = authUser?.user_key;
 
@@ -79,7 +79,13 @@ export default function ProcurementPage() {
     setSelectedNotice,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
+    refreshAuth,
   });
+
+  // 同步当前详情页公告 ID 到支付 hook：非 VIP 侧边栏常驻面板需要此 ID 创建订单
+  useEffect(() => {
+    actions.setCurrentNoticeId(selectedNotice?.id ?? null);
+  }, [selectedNotice?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 详情页
   if (selectedNotice) {

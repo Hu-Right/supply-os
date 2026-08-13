@@ -98,13 +98,18 @@ export function createPaymentRouter(ctx: AppContext): Router {
     if (order.provider !== "alipay") return res.status(400).send("Not an Alipay order");
     if (order.status !== "pending") return res.status(400).send("Order is not pending");
 
-    res.redirect(302, order.pay_url!);
+    // Alipay SDK pageExecute 返回的是自动提交的 HTML 表单（含 <form> + <script>auto-submit</script>），
+    // 必须用 res.send() 渲染此 HTML，浏览器加载后自动 POST 到支付宝网关完成跳转。
+    // 不可用 res.redirect()——那会把 HTML 字符串当作 URL 导致跳转失败。
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(order.pay_url!);
   }));
 
   // GET /api/payment/orders/:orderNo - 查询订单状态
   // P1-2 修复：添加用户鉴权，只能查询自己的订单
   router.get("/api/payment/orders/:orderNo", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+    // JWT 中间件已解析 req.userKey，回退到 query param（兼容 legacy 调用）
+    const userKey = normalizeUserKey(req.query.user_key) || req.userKey || "";
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
     // 先查询订单归属
     const order = await paymentsRepo.findByOrderNo(req.params.orderNo);

@@ -12,9 +12,10 @@ export const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; 
 export const NOTICE_SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
 export const NOTICE_SEARCH_CACHE_MAX = 500;
 
-// ── COUNT 缓存 ──
+// ── COUNT 缓存（TTL 分级：含关键词的组合缓存更久，避免 FULLTEXT 慢查询重复执行）──
 export const noticeCountCache = new Map<string, { total: number; expires: number }>();
-export const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
+export const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 基础 10 分钟
+export const NOTICE_COUNT_CACHE_TTL_KEYWORD = 30 * 60 * 1000; // 含关键词组合 30 分钟（FULLTEXT COUNT 代价高）
 export const NOTICE_COUNT_CACHE_MAX = 500;
 
 // ── 精选计数缓存 ──

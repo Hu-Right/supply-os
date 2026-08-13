@@ -268,7 +268,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const noticesRequestSeq = useRef(0);
 
   // P0 性能优化：搜索防抖 + AbortController——减少无效请求、取消过期请求
-  // 回滚：删除 debounceTimerRef/abortControllerRef，恢复原始 effect 逻辑
+  // PERF 优化：防抖 150ms——Meilisearch 响应时间 <10ms，300ms 防抖过度增加用户感知延迟
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   // PERF 优化：搜索超时控制——15 秒无响应自动取消，防止蒙层永久显示
@@ -325,7 +325,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setLoading(true);
     setError("");
 
-    // PERF 优化：防抖缩短到 300ms，减少用户感知延迟
+    // PERF 优化：防抖 150ms，减少用户感知延迟（Meilisearch 响应 <10ms，无需 300ms 保守值）
     // AbortController 已保证旧请求被取消，不会造成服务端压力
     debounceTimerRef.current = setTimeout(() => {
       // PERF 优化：设置搜索超时——防止服务端慢导致蒙层永久显示
@@ -386,7 +386,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
             setLoading(false);
           }
         });
-    }, 300);
+    }, 150);
 
     // 清理：依赖变化时清除定时器 + 取消请求
     // BUG 修复：重置 refs 以兼容 React StrictMode（开发模式 effect 双重执行）

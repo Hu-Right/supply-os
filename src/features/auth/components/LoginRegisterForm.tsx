@@ -744,15 +744,21 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
             </div>
           )}
 
-          {/* Email + Password */}
+          {/* Email/Phone + Password */}
           <div className="space-y-3">
             <Input
-              type="email"
+              type={authMode === "register" ? "email" : "text"}
+              inputMode={authMode === "register" ? "email" : "text"}
               value={authForm.email}
               onChange={(e) =>
                 setAuthForm({ ...authForm, email: e.target.value })
               }
-              placeholder={t("authEmailPlaceholder")}
+              placeholder={
+                authMode === "register"
+                  ? t("authEmailPlaceholder")
+                  : t("authEmailOrPhonePlaceholder")
+              }
+              autoComplete={authMode === "register" ? "email" : "username"}
             />
             {/* 注册验证码（仅注册模式显示） */}
             {authMode === "register" && (

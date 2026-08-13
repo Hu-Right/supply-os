@@ -16,6 +16,9 @@ let healthy = false;
 // 运行时健康探测：记录上次失败时间，避免每次请求都探测
 let lastFailureTs = 0;
 const RECOVER_COOLDOWN_MS = 10_000; // 探测冷却期：10 秒内不重复探测
+// M-DEG-1 修复：健康探测独立超时（2 秒），不复用客户端 30s 请求超时
+// 健康端点极轻量，正常响应 < 50ms；30s 超时会阻塞搜索降级路径
+const HEALTH_PROBE_TIMEOUT_MS = 2_000;
 
 /** 初始化 Meilisearch 客户端（幂等） */
 export function initMeilisearch(): Meilisearch | null {
@@ -59,7 +62,13 @@ export async function tryRecover(): Promise<boolean> {
   // 冷却期内不探测
   if (Date.now() - lastFailureTs < RECOVER_COOLDOWN_MS) return false;
   try {
-    const health = await client.health();
+    // M-DEG-1 修复：健康探测增加独立短超时，避免 Meilisearch 进程崩溃时
+    // TCP 连接等待 30s 才超时，阻塞搜索降级路径
+    const healthPromise = client.health();
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`health probe timeout after ${HEALTH_PROBE_TIMEOUT_MS}ms`)), HEALTH_PROBE_TIMEOUT_MS)
+    );
+    const health = await Promise.race([healthPromise, timeoutPromise]);
     healthy = health.status === "available";
     if (healthy) {
       console.log("[meilisearch] 运行时探测恢复成功，重新启用 Meilisearch 搜索");

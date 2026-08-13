@@ -35,21 +35,29 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
     // 翻页预热
     searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo),
-    // 关键词 FULLTEXT 预热
+    // 关键词 FULLTEXT 预热（中英文）
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "招标" }, noticesRepo),
     // 纯筛选预热
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Brazil" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Germany" }, noticesRepo),
     // 高频组合搜索预热
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations", country: "France" }, noticesRepo),
-    // notice_type 筛选预热（解决 8s+ 慢查询）
+    // PERF 优化：关键词+采购类型组合预热（COUNT 冷启动可达 4s+，预热后缓存 30min）
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "ITB" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFP" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "EOI" }, noticesRepo),
     searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", country: "Brazil" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", q: "construction" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", noticeType: "ITB" }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "supply", noticeType: "RFQ" }, noticesRepo),
+    // PERF 优化：关键词+截止日期组合预热（COUNT 冷启动可达 300ms+）
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "road", deadlineWithinDays: 90 }, noticesRepo),
+    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "bridge", deadlineWithinDays: 90, noticeType: "ITB" }, noticesRepo),
     // 国家/机构下拉 + 供应商目录
     refreshNoticeCountries(dbPool),
     refreshNoticeAgencies(dbPool),

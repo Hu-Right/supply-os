@@ -17,6 +17,22 @@ import { recommendNotices } from "../../services/noticeRecommend";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// 采购类型白名单：仅允许已知类型通过，无效值直接忽略（避免静默映射到 OTHER）
+// 与 normalizeNoticeType 的 SHORT_CODES + 正则规则保持一致
+const VALID_NOTICE_TYPES = new Set([
+  "ITB", "ITT", "RFQ", "RFP", "EOI", "PQ", "PRE", "IC", "RFI", "GPN",
+]);
+
+function isValidNoticeType(val: string): boolean {
+  if (!val) return false;
+  // 精确匹配短代码（大小写不敏感）
+  if (VALID_NOTICE_TYPES.has(val.toUpperCase().trim())) return true;
+  // 允许包含关键词的长文本（如 "Expression of Interest"、"招标" 等，由 normalizeNoticeType 解析）
+  // 但纯 ASCII 且长度>10 的未知值视为无效（含下划线、连字符等）
+  if (/^[A-Za-z\s_-]+$/.test(val) && val.length > 10) return false;
+  return true;
+}
+
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
   const noticesRepo = ctx.noticesRepo;
@@ -33,13 +49,18 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const sort = parseOptionalString(req.query, "sort", 20) || "deadline_farthest";
     const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
     const noticeType = parseOptionalString(req.query, "notice_type", 100);
+    // PERF 优化：无效 noticeType 直接忽略，避免静默映射到 OTHER 返回大量无关结果
+    const effectiveNoticeType = noticeType && isValidNoticeType(noticeType) ? noticeType : "";
+    if (noticeType && !effectiveNoticeType) {
+      console.log(`[search] 忽略无效 noticeType: "${noticeType}"`);
+    }
     const featuredOnly = String(req.query.featured || "") === "1";
     // 卡片国际化：透传当前 locale，服务端 LEFT JOIN 翻译表返回 title_i18n / description_i18n
     const locale = parseOptionalString(req.query, "locale", 10);
 
     const result = await searchNotices(ctx.dbPool, {
       page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
-      deadlineWithinDays, noticeType, featuredOnly, locale,
+      deadlineWithinDays, noticeType: effectiveNoticeType, featuredOnly, locale,
     }, noticesRepo);
 
     // P2 性能优化：流式响应——立即发送 HTTP headers，然后分块写入 JSON body

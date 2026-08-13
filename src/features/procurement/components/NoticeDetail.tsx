@@ -11,6 +11,7 @@ import { NoticeBreakdownIndicator } from "./NoticeBreakdownIndicator";
 import { NoticeCoreContent } from "./NoticeCoreContent";
 import { NoticeDetailSidebar, type NoticeDetailPaymentState } from "./NoticeDetailSidebar";
 import { ReportPreviewPanel } from "./ReportPreviewPanel";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface NoticeDetailProps {
   notice: NoticeItem;
@@ -89,11 +90,11 @@ export function NoticeDetail({
   // 中文拆解报告不可用引导：已知无报告 + 非骨架屏时展示微信客服引导横幅
   const showReportGuide = !showSkeleton && reportKnown && !hasReport;
   const visibleAgency = coreUnlocked
-    ? notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
+    ? notice.agency_i18n || notice.agency_full || notice.agency || notice.organization || t("procurement_unknownAgency")
     : showSkeleton
       ? t("procurement_loading")
       // 锁定态渐进式预览：展示预览端点下发的机构名（返回前回退"未知机构"）
-      : notice.agency || notice.organization || t("procurement_unknownAgency");
+      : notice.agency_i18n || notice.agency || notice.organization || t("procurement_unknownAgency");
 
   return (
     <div className="space-y-5">
@@ -117,7 +118,7 @@ export function NoticeDetail({
               </h3>
               <p className="text-sm text-slate-500 mt-3">
                 {visibleAgency} ·{" "}
-                {notice.country || t("procurement_global")} ·{" "}
+                {getCountryDisplayName(notice.country || "", locale) || t("procurement_global")} ·{" "}
                 {notice.deadline || t("procurement_noDeadline")}
               </p>
             </div>
@@ -132,7 +133,7 @@ export function NoticeDetail({
               {[
                 [t("procurement_metaNo"), notice.reference || notice.notice_id || "-"],
                 [t("procurement_agency"), visibleAgency],
-                [t("procurement_country"), notice.country || "-"],
+                [t("procurement_country"), getCountryDisplayName(notice.country || "", locale) || "-"],
                 [t("procurement_budget"), notice.estimated_value || t("procurement_budgetPending")],
               ].map(([label, value]) => (
                 <div key={label} className="bg-slate-50 border border-slate-100 rounded-xl p-3">

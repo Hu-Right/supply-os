@@ -64,3 +64,12 @@ export function normalizeUserKey(raw: unknown): string | null {
   if (!key || key === "guest") return null;
   return key;
 }
+
+/**
+ * 转义 SQL LIKE 通配符（% 和 _），防止用户输入中的通配符导致意外匹配
+ * L-BIZ-1 修复：用于构建 LIKE 模式时先转义用户输入中的特殊字符
+ * @example escapeLikeWildcard("100%") // → "100\\%"
+ */
+export function escapeLikeWildcard(value: string): string {
+  return value.replace(/%/g, "\\%").replace(/_/g, "\\_");
+}

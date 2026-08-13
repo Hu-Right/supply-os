@@ -7,6 +7,10 @@
 
 export const PAGE_SIZE = 9;
 
+// PERF 优化：关键词最大长度——与服务端 parseOptionalString(q, 200) 对齐，
+// 前端截断避免发送超长字符串导致 Meilisearch/MySQL FULLTEXT 解析开销激增
+const MAX_Q_LENGTH = 200;
+
 export interface SearchFormState {
   q: string;
   country: string;
@@ -24,7 +28,7 @@ export type SearchFormAction =
 
 export function searchFormReducer(state: SearchFormState, action: SearchFormAction): SearchFormState {
   switch (action.type) {
-    case "set_q": return { ...state, q: action.payload };
+    case "set_q": return { ...state, q: action.payload.slice(0, MAX_Q_LENGTH) };
     case "set_country": return { ...state, country: action.payload };
     case "set_agency": return { ...state, agency: action.payload };
     case "set_from": return { ...state, from: action.payload };

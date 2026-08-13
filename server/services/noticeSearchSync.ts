@@ -14,7 +14,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { normalizeNoticeType } from "./meilisearch/sync";
 import { classifyAgencyType } from "./agencyI18n";
-import { COUNTRY_NAME_ZH } from "../../src/shared/data/countryNames";
+import { COUNTRY_NAME_ZH, SUB_COUNTRY_ZH, cleanCountryRaw } from "../../src/shared/data/countryNames";
 
 // ── 国家标准化映射（复用 countries.ts 的逻辑）──
 const UPPER_TO_CANONICAL = new Map<string, string>();
@@ -37,10 +37,28 @@ const UPPER_TO_CANONICAL = new Map<string, string>();
 function normalizeCountry(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
+  // 0. 斜杠分隔符：尝试每个部分（处理 "Myanmar/Burma" 等）
+  if (trimmed.includes("/")) {
+    const slashParts = trimmed.split("/").map(p => p.trim()).filter(Boolean);
+    for (const part of slashParts) {
+      if (COUNTRY_NAME_ZH[part]) return UPPER_TO_CANONICAL.get(part.toUpperCase()) || part;
+      const sp = UPPER_TO_CANONICAL.get(part.toUpperCase());
+      if (sp) return sp;
+    }
+  }
   // 1. 精确匹配整个字符串
   if (COUNTRY_NAME_ZH[trimmed]) return UPPER_TO_CANONICAL.get(trimmed.toUpperCase()) || trimmed;
   const canonical = UPPER_TO_CANONICAL.get(trimmed.toUpperCase());
   if (canonical) return canonical;
+  // 1.5 子国家/地区 → 所属国家（处理省/州/城市误存为国家名的情况）
+  const subZh = SUB_COUNTRY_ZH[trimmed];
+  if (subZh) {
+    // 返回子国家名（中文），后续由 buildWideRow 转为所属国家英文标准名
+    return subZh;
+  }
+  // 大小写不敏感匹配子国家表
+  const subUpper = UPPER_SUB_COUNTRY.get(trimmed.toUpperCase());
+  if (subUpper) return subUpper;
   // 2. 含逗号时拆分，提取第一部分作为国家名（处理 "Canada, British Columbia" 等格式）
   if (trimmed.includes(",")) {
     const parts = trimmed.split(",").map(p => p.trim()).filter(Boolean);
@@ -50,10 +68,33 @@ function normalizeCountry(raw: string): string {
       if (COUNTRY_NAME_ZH[firstPart]) return UPPER_TO_CANONICAL.get(firstPart.toUpperCase()) || firstPart;
       const firstCanonical = UPPER_TO_CANONICAL.get(firstPart.toUpperCase());
       if (firstCanonical) return firstCanonical;
+      // 子国家匹配
+      const firstSubZh = SUB_COUNTRY_ZH[firstPart];
+      if (firstSubZh) return firstSubZh;
     }
   }
   // 3. 未知 → 原样返回
   return trimmed;
+}
+
+// ── 子国家大写映射（大小写不敏感兜底）──
+const UPPER_SUB_COUNTRY = new Map<string, string>();
+for (const [region, zh] of Object.entries(SUB_COUNTRY_ZH)) {
+  UPPER_SUB_COUNTRY.set(region.toUpperCase(), zh);
+}
+
+// ── 中文国家名 → 英文标准名反向查找（用于 country_std 统一存储英文名）──
+const ZH_TO_CANONICAL_EN = new Map<string, string>();
+{
+  const zhGroups = new Map<string, string[]>();
+  for (const [en, zh] of Object.entries(COUNTRY_NAME_ZH)) {
+    if (!zhGroups.has(zh)) zhGroups.set(zh, []);
+    zhGroups.get(zh)!.push(en);
+  }
+  for (const [zh, forms] of zhGroups) {
+    const canonical = forms.find((f) => /^[A-Z]/.test(f) && !/^[A-Z]{2,}$/.test(f)) || forms[0];
+    ZH_TO_CANONICAL_EN.set(zh, canonical);
+  }
 }
 
 // ── 支持的语言列表 ──
@@ -155,6 +196,35 @@ async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Promise<M
   return final;
 }
 
+// ── 受援助国标准化：逐个翻译为中文 ──
+function normalizeBeneficiaryCountries(raw: string): string {
+  if (!raw) return "";
+  const parts = raw.split(",").map(s => s.trim()).filter(Boolean);
+  const translated = parts.map(name => {
+    const cleaned = cleanCountryRaw(name);
+    if (!cleaned) return "";
+    // 先尝试 COUNTRY_NAME_ZH 精确匹配
+    if (COUNTRY_NAME_ZH[cleaned]) return COUNTRY_NAME_ZH[cleaned];
+    // 大小写不敏感匹配
+    const canonical = UPPER_TO_CANONICAL.get(cleaned.toUpperCase());
+    if (canonical && COUNTRY_NAME_ZH[canonical]) return COUNTRY_NAME_ZH[canonical];
+    // 子国家归并
+    const subZh = SUB_COUNTRY_ZH[cleaned] || UPPER_SUB_COUNTRY.get(cleaned.toUpperCase());
+    if (subZh) return subZh;
+    // 斜杠分隔（如 "Myanmar/Burma"）
+    if (cleaned.includes("/")) {
+      for (const part of cleaned.split("/").map(p => p.trim()).filter(Boolean)) {
+        if (COUNTRY_NAME_ZH[part]) return COUNTRY_NAME_ZH[part];
+        const pCanonical = UPPER_TO_CANONICAL.get(part.toUpperCase());
+        if (pCanonical && COUNTRY_NAME_ZH[pCanonical]) return COUNTRY_NAME_ZH[pCanonical];
+      }
+    }
+    // 未知 → 原样保留
+    return cleaned;
+  }).filter(Boolean);
+  return translated.join(", ").slice(0, 300);
+}
+
 // ── 宽表行构建 ──
 function buildWideRow(
   r: any,
@@ -162,9 +232,12 @@ function buildWideRow(
   unspsc?: Record<string, string>,
   translations?: Record<string, { title: string; description: string }>,
 ): Record<string, any> {
-  const country = String(r.country || "").trim();
+  const rawCountry = cleanCountryRaw(String(r.country || ""));
+  const country = rawCountry;
   const agency = String(r.agency || "").trim();
-  const countryStd = normalizeCountry(country).slice(0, 100);
+  // normalizeCountry 可能返回中文名（子国家归并），需转为英文标准名存储
+  const normalizedRaw = normalizeCountry(country);
+  const countryStd = (ZH_TO_CANONICAL_EN.get(normalizedRaw) || normalizedRaw).slice(0, 100);
 
   const agencyStd = (agency ? (aliasMap.get(agency.toUpperCase()) || agency) : "").slice(0, 200);
   const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
@@ -210,7 +283,7 @@ function buildWideRow(
     unspsc_level5: (unspsc?.level5 || "").slice(0, 2000),
     description_cn: String(r.description_cn || "").slice(0, 500),
     bid_overview: String(r.bid_overview || "").slice(0, 200),
-    beneficiary_countries: String(r.beneficiary_countries || "").slice(0, 300),
+    beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
     documents_count: docs.length,
   };
 }

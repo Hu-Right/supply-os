@@ -17,6 +17,8 @@ export interface NoticeItem {
   title: string;
   notice_type?: string;
   agency?: string;
+  /** 当前 locale 的机构翻译名（服务端按 locale 从聚合缓存下发） */
+  agency_i18n?: string;
   organization?: string;
   country?: string;
   deadline?: string;

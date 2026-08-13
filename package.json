@@ -45,10 +45,8 @@
     "react-dom": "^19.0.1",
     "react-i18next": "^17.0.10",
     "react-router-dom": "^7.18.1",
-    "socks": "^2.8.9",
     "tailwind-merge": "^3.6.0",
-    "tinyld": "^1.3.4",
-    "vite": "^6.2.3"
+    "tinyld": "^1.3.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

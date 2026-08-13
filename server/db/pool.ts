@@ -8,11 +8,24 @@ import { EventEmitter } from "events";
 
 // MySQL2 connection pool — 凭据从环境变量读取，缺失时使用安全默认值
 export function createDbPool(): Pool {
+  // M-CFG-1 安全警告：生产环境使用默认凭据（root 无密码）时输出醒目警告
+  // 防止运维人员忘记配置 .env 导致裸奔
+  const dbUser = process.env.DB_USER || "root";
+  const dbPassword = process.env.DB_PASSWORD || "";
+  if (process.env.NODE_ENV === "production" && (!dbPassword || dbUser === "root")) {
+    console.warn(
+      "\n╔══════════════════════════════════════════════════════════════╗\n" +
+      "║  [db-pool] ✗ 安全警告：生产环境数据库使用默认凭据！          ║\n" +
+      "║  请在 .env 中配置 DB_USER 和 DB_PASSWORD，避免 root 无密码  ║\n" +
+      "╚══════════════════════════════════════════════════════════════╝\n"
+    );
+  }
+
   const pool = mysql2.createPool({
     host: process.env.DB_HOST || "127.0.0.1",
     port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || "root",
-    password: process.env.DB_PASSWORD || "",
+    user: dbUser,
+    password: dbPassword,
     database: process.env.DB_NAME || "crm",
     waitForConnections: true,
     // 性能优化：连接池从 10 扩大到 20（阶段 1）

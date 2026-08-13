@@ -73,16 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * 登录
-   * Login
+   * 登录（支持邮箱或手机号）
+   * Login (email or phone)
    */
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setIsAuthLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: identifier, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");

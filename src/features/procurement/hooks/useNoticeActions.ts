@@ -27,6 +27,8 @@ export interface UseNoticeActionsOptions {
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
   trackClick: (noticeId: number) => void; // T-B9 点击埋点（useNoticeFeedback）
   trackDetailOpen: (noticeId: number) => void; // T-C7 详情打开埋点（useNoticeFeedback）
+  /** 支付成功后刷新 AuthContext 的 isVip 状态（由 Page 从 useAuth 注入） */
+  refreshAuth?: () => Promise<void>;
 }
 
 export interface UseNoticeActionsReturn
@@ -38,7 +40,7 @@ export interface UseNoticeActionsReturn
 }
 
 export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeActionsReturn {
-  const { userKey, isVip, items, setSelectedNotice, trackClick, trackDetailOpen } = options;
+  const { userKey, isVip, items, setSelectedNotice, trackClick, trackDetailOpen, refreshAuth } = options;
   const { t } = useLocale();
   const [actionMessage, setActionMessage] = useState("");
 
@@ -61,6 +63,8 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
         // 支付回调可能已在服务端完成解锁，忽略此处失败
       }
       await membership.refreshMembership();
+      // 刷新 AuthContext 的 isVip 状态，确保 VIP 用户隐藏套餐卡片
+      if (refreshAuth) await refreshAuth();
       await unlock.loadNoticeDetail({ id: noticeId } as NoticeItem);
       setActionMessage(t("procurement_paidUnlockOk"));
     },

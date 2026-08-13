@@ -7,7 +7,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { classifyAgencyType } from "../agencyI18n";
 import { getClient, isHealthy, getIndexName } from "./client";
-import { COUNTRY_NAME_ZH } from "../../../src/shared/data/countryNames";
+import { COUNTRY_NAME_ZH, SUB_COUNTRY_ZH, cleanCountryRaw } from "../../../src/shared/data/countryNames";
 import { segmentZh } from "./segmentZh";
 
 // NULL deadline 的哨兵值：0（纪元起点）
@@ -31,12 +31,30 @@ const UPPER_TO_CANONICAL = new Map<string, string>();
   }
 }
 
+// ── 子国家大写映射（大小写不敏感兜底）──
+const UPPER_SUB_COUNTRY = new Map<string, string>();
+for (const [region, zh] of Object.entries(SUB_COUNTRY_ZH)) {
+  UPPER_SUB_COUNTRY.set(region.toUpperCase(), zh);
+}
+
 function normalizeCountry(raw: string): string {
-  const trimmed = raw.trim();
+  const trimmed = cleanCountryRaw(raw);
   if (!trimmed) return "";
+  // 斜杠分隔符：尝试每个部分（处理 "Myanmar/Burma" 等）
+  if (trimmed.includes("/")) {
+    const slashParts = trimmed.split("/").map(p => p.trim()).filter(Boolean);
+    for (const part of slashParts) {
+      if (COUNTRY_NAME_ZH[part]) return UPPER_TO_CANONICAL.get(part.toUpperCase()) || part;
+      const sp = UPPER_TO_CANONICAL.get(part.toUpperCase());
+      if (sp) return sp;
+    }
+  }
   if (COUNTRY_NAME_ZH[trimmed]) return UPPER_TO_CANONICAL.get(trimmed.toUpperCase()) || trimmed;
   const canonical = UPPER_TO_CANONICAL.get(trimmed.toUpperCase());
   if (canonical) return canonical;
+  // 子国家/地区 → 所属国家
+  const subZh = SUB_COUNTRY_ZH[trimmed] || UPPER_SUB_COUNTRY.get(trimmed.toUpperCase());
+  if (subZh) return subZh;
   return trimmed;
 }
 

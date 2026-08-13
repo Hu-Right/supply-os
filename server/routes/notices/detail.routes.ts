@@ -13,6 +13,7 @@ import { NOTICE_TRANSLATION_LANGS, getTranslatedNoticeDetail } from "../../servi
 import { detectSourceLang, translateNoticeViaChain } from "../../services/notice-translation";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
+import { getAgencyCacheData } from "../../services/notice-search/agencies";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
   const router = Router();
@@ -86,9 +87,22 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       ? structuredContacts.length
       : extractContactsFromText(String(notice.description || "")).length;
 
+    // ── 机构 i18n：按当前 locale 查找聚合后的翻译名 ──
+    const locale = String(req.query.locale || "").toLowerCase();
+    const rawAgency = notice.agency || notice.organization || opportunity?.agency || "";
+    let agency_i18n: string | undefined;
+    if (locale && rawAgency) {
+      const agencyCache = getAgencyCacheData();
+      if (agencyCache) {
+        const cached = agencyCache.find(a => a.agency === rawAgency);
+        if (cached?.i18n?.[locale]) agency_i18n = cached.i18n[locale];
+      }
+    }
+
     res.json({
-      agency: notice.agency || notice.organization || opportunity?.agency || "",
+      agency: rawAgency,
       agency_full: opportunity?.agency_full || notice.agency_full || "",
+      agency_i18n,
       published_date: preferValue(opportunity?.published_date, notice.published_date) || "",
       difficulty: preferValue(opportunity?.difficulty, notice.difficulty) || "",
       registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",

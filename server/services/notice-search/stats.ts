@@ -8,7 +8,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { NoticeSearchParams, NoticeStatsResult } from "./types";
 import {
-  noticeCountCache, NOTICE_COUNT_CACHE_TTL,
+  noticeCountCache, NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD,
   featuredCountCache, FEATURED_COUNT_CACHE_TTL,
   countCacheKey,
 } from "./cache";

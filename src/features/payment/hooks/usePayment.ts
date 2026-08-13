@@ -133,6 +133,7 @@ export function usePayment({
       setStep("waiting");
 
       if (order.provider === "mock") {
+        // mock 模式：pay_url 为无效地址（/mock-payment?...），不打开；直接轮询等待自动完成
         startPolling(order.order_no);
       } else {
         const payWindow = window.open(order.pay_url, "_blank");
@@ -162,7 +163,10 @@ export function usePayment({
    * Open payment URL
    */
   const handleOpenPayUrl = () => {
-    if (orderInfo?.pay_url) window.open(orderInfo.pay_url, "_blank");
+    // mock 模式下 pay_url 为无效地址，不打开
+    if (orderInfo?.pay_url && orderInfo.provider !== "mock") {
+      window.open(orderInfo.pay_url, "_blank");
+    }
   };
 
   /**

@@ -23,7 +23,7 @@ import { emitAppEvent } from "@/core/events";
 
 export default function App() {
   const { t } = useLocale();
-  const { authUser } = useAuth();
+  const { authUser, refreshAuth } = useAuth();
   const {
     showAuthModal, setShowAuthModal, showPaymentModal, setShowPaymentModal,
     paymentPlan, setPaymentPlan, showConsultForm, setShowConsultForm,
@@ -37,6 +37,8 @@ export default function App() {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
     setShowPaymentModal(false);
     setPaymentPlan(null);
+    // 支付成功后刷新认证状态，更新 isVip 以隐藏套餐卡片
+    refreshAuth();
   };
 
   return (

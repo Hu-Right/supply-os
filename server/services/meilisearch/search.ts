@@ -119,6 +119,13 @@ export async function searchWithFilters(params: {
       sortArr.push("has_deadline:desc", "deadline_sec:desc", "id:desc");
     }
 
+    // PERF 优化：deadline_nearest 排序时，在 filter 中排除 deadline_sec=0 的文档，
+    // 避免 Meilisearch 在升序排序时需要跳过大量零值文档（性能测试显示慢 2.2x）。
+    // deadline_sec=0 表示无截止日期（永不过期），对“最近截止”排序无意义。
+    if (sort === "deadline") {
+      filter.push("deadline_sec > 0");
+    }
+
     const offset = (page - 1) * pageSize;
     const SEARCH_TIMEOUT_MS = 5000;
     const searchPromise = client.index(INDEX_NAME).search(q || "", {
@@ -129,17 +136,23 @@ export async function searchWithFilters(params: {
       attributesToRetrieve: ["id"],
       matchingStrategy: "all",
     });
-    const timeoutPromise = new Promise<null>((_, reject) =>
-      setTimeout(() => reject(new Error(`Meilisearch search timeout after ${SEARCH_TIMEOUT_MS}ms`)), SEARCH_TIMEOUT_MS)
-    );
-    const result = await Promise.race([searchPromise, timeoutPromise]) as any;
-    if (result === null) return null;
+    // M-PERF-1 修复：保存定时器 ID，搜索完成后立即清理，避免高频搜索场景下悬挂定时器堆积
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`Meilisearch search timeout after ${SEARCH_TIMEOUT_MS}ms`)), SEARCH_TIMEOUT_MS);
+    });
+    try {
+      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
+      if (result === null) return null;
 
-    const ids = result.hits.map((h: any) => Number(h.id)).filter(Boolean);
-    // P0 修复：优先使用 totalHits（精确值，Meilisearch v1.7+），降级到 estimatedTotalHits
-    const preciseTotal = result.totalHits ?? null;
-    const estimatedTotal = result.estimatedTotalHits ?? ids.length;
-    return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
+      const ids = result.hits.map((h: any) => Number(h.id)).filter(Boolean);
+      // P0 修复：优先使用 totalHits（精确值，Meilisearch v1.7+），降级到 estimatedTotalHits
+      const preciseTotal = result.totalHits ?? null;
+      const estimatedTotal = result.estimatedTotalHits ?? ids.length;
+      return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
   } catch (err) {
     console.warn("[meilisearch] searchWithFilters failed:", (err as Error).message);
     // 搜索失败/超时：标记为不健康，后续请求将自动降级到 MySQL 并尝试恢复

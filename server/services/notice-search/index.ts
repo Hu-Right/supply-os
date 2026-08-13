@@ -8,7 +8,7 @@
  *              agencies（机构）、stats（统计/is_active）。本文件仅负责搜索编排。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { normalizeDocumentRows } from "../../utils/normalize";
+import { normalizeDocumentRows, escapeLikeWildcard } from "../../utils/normalize";
 import { buildNoticeUnspscFilter } from "../unspsc";
 import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normalizeNoticeType, toBeijingUnixTs } from "../meilisearch";
 import type { NoticesRepo } from "../../repos/notices.repo";
@@ -26,7 +26,7 @@ export {
   noticeSearchCache, noticeCountCache, featuredCountCache,
   searchCacheKey, countCacheKey,
   NOTICE_SEARCH_CACHE_TTL, NOTICE_SEARCH_CACHE_MAX,
-  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_MAX,
+  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD, NOTICE_COUNT_CACHE_MAX,
   FEATURED_COUNT_CACHE_TTL,
 } from "./cache";
 
@@ -35,7 +35,7 @@ import {
   noticeSearchCache, noticeCountCache, featuredCountCache,
   searchCacheKey, countCacheKey,
   NOTICE_SEARCH_CACHE_TTL, NOTICE_SEARCH_CACHE_MAX,
-  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_MAX,
+  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD, NOTICE_COUNT_CACHE_MAX,
   FEATURED_COUNT_CACHE_TTL,
   _noticeTypeCache, setNoticeTypeCache, NOTICE_TYPE_CACHE_TTL,
 } from "./cache";
@@ -247,10 +247,20 @@ export async function searchNotices(
         searchMode = q ? (isChinese ? "meili-zh" : "meili-en") : "meili-filter";
       }
 
+      // PERF 优化：Meilisearch v1.7+ 返回精确 totalHits 时，可直接用作 total，
+      // 跳过等待 MySQL COUNT 查询（关键词组合的 COUNT 冷启动可达 4s+）。
+      // COUNT 查询仍然异步执行（countPromise），结果写入缓存供后续请求使用。
+      if (meiliResult.totalIsPrecise && meiliResult.total > 0) {
+        total = meiliResult.total;
+        countMs = 0; // 未执行 COUNT 查询
+      }
+
       console.log(`[search-perf] mode=${searchMode} page=${p.page} q="${q}" country="${country}" agency="${agency}"` +
         (meiliAgencyGroup ? ` agencyGroup="${meiliAgencyGroup}"` : "") +
         (p.codeId ? ` codeId=${p.codeId}` : "") +
-        ` | Meilisearch=${meiliMs}ms | total=${total} | ids=${pageIds.length}`);
+        (noticeType ? ` noticeType="${noticeType}"` : "") +
+        ` sort=${sort}` +
+        ` | Meilisearch=${meiliMs}ms | total=${total} precise=${meiliResult.totalIsPrecise} | ids=${pageIds.length}`);
     } else {
       // Meilisearch 返回 null（超时或内部错误）→ 降级到 MySQL
       console.warn(`[search-perf] Meilisearch 返回 null，降级到 MySQL | q="${q}" country="${country}" codeId=${p.codeId || "-"}`);
@@ -283,7 +293,8 @@ export async function searchNotices(
   }
 
   const compactQ = q.replace(/\s+/g, "").toUpperCase();
-  const likeQ = `%${q}%`;
+  // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符（% 和 _），避免意外匹配
+  const likeQ = `%${escapeLikeWildcard(q)}%`;
   let kwUnionSql = "";
   const kwUnionParams: any[] = [];
 
@@ -457,13 +468,15 @@ export async function searchNotices(
       countQuery = `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`;
       countParams = [...idFilterParams, ...params];
     }
+    // PERF: 含关键词的 COUNT 结果缓存更久（30min），避免 FULLTEXT 慢查询重复执行
+    const countCacheTtl = q ? NOTICE_COUNT_CACHE_TTL_KEYWORD : NOTICE_COUNT_CACHE_TTL;
     return pool.query(countQuery, countParams).then((result: any) => {
       const t = Number((result[0] as any[])[0]?.total || 0);
       if (featuredOnly) {
         featuredCountCache.total = t;
         featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
       } else {
-        noticeCountCache.set(cKey, { total: t, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+        noticeCountCache.set(cKey, { total: t, expires: Date.now() + countCacheTtl });
       }
       return result;
     });
@@ -612,9 +625,9 @@ export async function searchNotices(
   const t2 = Date.now();
 
   // ── 始终使用数据库 COUNT 查询的精确值 ──
-  // Meilisearch 的 estimatedTotalHits 是估算值，可能导致数字波动
-  // 因此 total 始终来自数据库 COUNT 查询（通过 countPromise）
-  if (!referenceHit) {
+  // 当 Meilisearch 已返回精确 total 时，跳过等待（已在上方赋值）。
+  // COUNT 查询仍然异步执行，结果写入缓存供后续请求使用。
+  if (!referenceHit && !(meiliHit && total > 0 && countMs === 0)) {
     const COUNT_TIMEOUT_MS = p.codeId ? 15000 : 5000;  // UNSPSC 查询可能较慢，给更长时间
     try {
       const countResult = await Promise.race([
@@ -625,9 +638,13 @@ export async function searchNotices(
         total = Number((countResult[0] as any[])[0]?.total || 0);
         countMs = Date.now() - t2;
       } else {
-        // COUNT 查询超时，记录警告并使用 0
-        console.warn(`[search-perf] COUNT 查询超时(${COUNT_TIMEOUT_MS}ms): codeId=${p.codeId || '-'}`);
-        total = 0;
+        // COUNT 查询超时：如果 Meilisearch 有估算值，用作降级显示
+        if (meiliHit && total === 0) {
+          console.warn(`[search-perf] COUNT 查询超时(${COUNT_TIMEOUT_MS}ms)，使用 Meilisearch 估算值: codeId=${p.codeId || '-'}`);
+        } else {
+          console.warn(`[search-perf] COUNT 查询超时(${COUNT_TIMEOUT_MS}ms): codeId=${p.codeId || '-'}`);
+          total = 0;
+        }
       }
     } catch {
       // COUNT 查询失败，使用 0
@@ -643,6 +660,10 @@ export async function searchNotices(
     console.log(`[search-perf] COUNT 短路: page=${page} items=${pageIds.length} < pageSize=${pageSize} → total=${total} (0ms)`);
   }
 
+  // PERF 优化：COUNT 缓存 TTL 分级——含关键词的组合缓存更久（30min），
+  // 因为 FULLTEXT UNION COUNT 查询代价高（冷启动可达 4s+）。
+  const countCacheTtl = q ? NOTICE_COUNT_CACHE_TTL_KEYWORD : NOTICE_COUNT_CACHE_TTL;
+
   // 首页写入 COUNT 缓存
   if (page === 1 && total > 0) {
     if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) {
@@ -650,7 +671,7 @@ export async function searchNotices(
       for (const [key, entry] of noticeCountCache) { if (entry.expires <= now) noticeCountCache.delete(key); }
       if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) noticeCountCache.clear();
     }
-    noticeCountCache.set(cKey, { total, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+    noticeCountCache.set(cKey, { total, expires: Date.now() + countCacheTtl });
   }
 
   const breakdownCounts = new Map<number, number>();
@@ -693,28 +714,48 @@ export async function searchNotices(
 
   const t3 = Date.now();
 
+  // ── 机构 i18n：按当前 locale 查找聚合后的翻译名 ──
+  const agencyCache = getAgencyCacheData();
+  const agencyI18nMap = new Map<string, Record<string, string>>();
+  if (agencyCache) {
+    for (const item of agencyCache) {
+      if (item.i18n) agencyI18nMap.set(item.agency, item.i18n);
+    }
+  }
+
   // 构建缓存和响应 payload
   // 修复：保留翻译字段（title_i18n/description_i18n），避免缓存命中时丢失译文
   // 缓存 key 已包含 locale，不同语言的缓存完全隔离，不存在跨语言污染风险
   const cachePayload: NoticeSearchResult = {
-    items: rawRows.map((row) => ({
-      ...row,
-      organization: null, source_url: null, unspsc_codes: [], core_locked: true,
-      is_featured: featuredIds.has(Number(row.id)),
-      breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
-    })),
+    items: rawRows.map((row) => {
+      const i18n = agencyI18nMap.get(row.agency);
+      return {
+        ...row,
+        agency_i18n: i18n?.[locale] || undefined,
+        organization: null, source_url: null, unspsc_codes: [], core_locked: true,
+        is_featured: featuredIds.has(Number(row.id)),
+        breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
+      };
+    }),
     total, page, pageSize,
   };
   const payload: NoticeSearchResult = {
-    items: rawRows.map((row) => ({
-      ...row, organization: null, source_url: null, unspsc_codes: [], core_locked: true,
-      is_featured: featuredIds.has(Number(row.id)),
-      breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
-    })),
+    items: rawRows.map((row) => {
+      const i18n = agencyI18nMap.get(row.agency);
+      return {
+        ...row,
+        agency_i18n: i18n?.[locale] || undefined,
+        organization: null, source_url: null, unspsc_codes: [], core_locked: true,
+        is_featured: featuredIds.has(Number(row.id)),
+        breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
+      };
+    }),
     total, page, pageSize,
   };
 
   console.log(`[search-perf] mode=${searchMode} page=${page} q="${q}" country="${country}" codeId=${p.codeId || "-"} featured=${featuredOnly}` +
+    (noticeType ? ` noticeType="${noticeType}"` : "") +
+    ` sort=${sort}` +
     ` | COUNT=${countMs}ms | IDs=${idMs}ms | Phase1=${t1 - t0}ms | Phase2=${t2 - t1}ms | Phase3=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
 
   if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {

@@ -8,6 +8,7 @@
  * @module repos/suppliers.repo
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { escapeLikeWildcard } from "../utils/normalize";
 
 /** 供应商目录行（supplier 表） */
 export interface SupplierDirectoryRow {
@@ -74,7 +75,8 @@ export class SuppliersRepo {
 
     if (search) {
       conditions.push("company LIKE ?");
-      values.push(`%${search}%`);
+      // L-BIZ-1 修复：转义用户输入中的 LIKE 通配符
+      values.push(`%${escapeLikeWildcard(search)}%`);
     }
 
     if (type && (type === "domestic" || type === "international")) {

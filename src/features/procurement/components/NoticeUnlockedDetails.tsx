@@ -17,6 +17,7 @@ import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 type RawAttachment = NoticeAttachment | string;
 type RawContact = NoticeContact | string;
@@ -59,7 +60,7 @@ interface NoticeUnlockedDetailsProps {
 }
 
 export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const authContext = useOptionalAuth();
   const authUser = authContext?.authUser ?? null;
   const isVip = authContext?.isVip ?? false;
@@ -85,7 +86,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
       : "";
 
   // 采购方/机构信息：完整机构名优先，逐级回退
-  const agencyInfo = notice.agency_full || notice.agency || notice.organization || "";
+  const agencyInfo = notice.agency_i18n || notice.agency_full || notice.agency || notice.organization || "";
 
   const hasContent =
     allContacts.length > 0 ||
@@ -98,10 +99,10 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   if (!hasContent) return null;
 
-  // 机构信息卡四行（原版布局），缺失值以 "-" 兜底
+  // 机构信息卡四行（原版布局），缺失值以 "-" 兖底
   const agencyRows: Array<[string, ReactNode]> = [
     [t("procurement_agencyFullName"), agencyInfo || "-"],
-    [t("procurement_country"), notice.country || "-"],
+    [t("procurement_country"), getCountryDisplayName(notice.country || "", locale) || "-"],
     [t("procurement_publishedDate"), notice.published_date || "-"],
     [
       t("procurement_originalLink"),

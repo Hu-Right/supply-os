@@ -41,6 +41,8 @@ export type UseNoticePaymentReturn = {
   closePaywall: () => void;
   createNoticeOrder: (planCode: string) => Promise<void>;
   markPaid: () => Promise<void>;
+  /** 同步当前详情页公告 ID（非 VIP 侧边栏常驻面板场景） */
+  setCurrentNoticeId: (id: number | null) => void;
 };
 
 export function useNoticePayment({
@@ -54,6 +56,8 @@ export function useNoticePayment({
   const [paymentProvider, setPaymentProvider] = useState<PanelProvider>("alipay");
   const [busyPlanCode, setBusyPlanCode] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
+  // 当前详情页公告 ID：非 VIP 侧边栏常驻面板场景，paywallNotice 为 null 时的回退来源
+  const [currentNoticeId, setCurrentNoticeId] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -111,10 +115,13 @@ export function useNoticePayment({
   const createNoticeOrder = useCallback(
     async (planCode: string) => {
       if (busyPlanCode) return;
-      if (!userKey || !paywallNotice) {
+      // 认证检查：仅需 userKey；paywallNotice 为 null 时回退到 currentNoticeId（侧边栏常驻面板场景）
+      if (!userKey) {
         onRequireLogin();
         return;
       }
+      const effectiveNoticeId = paywallNotice?.id ?? currentNoticeId;
+      if (planCode === "single_89" && !effectiveNoticeId) return;
 
       setBusyPlanCode(planCode);
       setPaymentMessage("");
@@ -124,8 +131,10 @@ export function useNoticePayment({
           userKey,
           planCode,
           provider: paymentProvider,
-          noticeId: paywallNotice.id,
-          returnUrl: `${window.location.origin}/procurement?notice_id=${paywallNotice.id}`,
+          noticeId: effectiveNoticeId,
+          returnUrl: effectiveNoticeId
+            ? `${window.location.origin}/procurement?notice_id=${effectiveNoticeId}`
+            : `${window.location.origin}/procurement`,
         });
         setPaymentOrder({ ...order, plan_code: planCode });
         setPaymentMessage(t("procurement_orderCreated"));
@@ -133,18 +142,21 @@ export function useNoticePayment({
           const payWindow = window.open(order.pay_url, "_blank");
           if (!payWindow) window.location.href = order.pay_url;
         }
-        startPolling(order.order_no, planCode, paywallNotice.id);
+        if (effectiveNoticeId) {
+          startPolling(order.order_no, planCode, effectiveNoticeId);
+        }
       } catch (err) {
         setPaymentMessage((err as Error)?.message || t("procurement_orderFail"));
       } finally {
         setBusyPlanCode("");
       }
     },
-    [busyPlanCode, userKey, paywallNotice, paymentProvider, startPolling, onRequireLogin, t],
+    [busyPlanCode, userKey, paywallNotice, currentNoticeId, paymentProvider, startPolling, onRequireLogin, t],
   );
 
   const markPaid = useCallback(async () => {
-    if (!paymentOrder || !paywallNotice) return;
+    const effectiveNoticeId = paywallNotice?.id ?? currentNoticeId;
+    if (!paymentOrder || !effectiveNoticeId) return;
     try {
       await mockPaid(paymentOrder.order_no);
     } catch {
@@ -153,9 +165,9 @@ export function useNoticePayment({
     }
     stopPolling();
     setPaymentMessage(t("procurement_paidOk"));
-    await onPaid(paywallNotice.id, paymentOrder.plan_code || "");
+    await onPaid(effectiveNoticeId, paymentOrder.plan_code || "");
     setPaymentOrder(null);
-  }, [paymentOrder, paywallNotice, onPaid, stopPolling, t]);
+  }, [paymentOrder, paywallNotice, currentNoticeId, onPaid, stopPolling, t]);
 
   return {
     paywallNotice,
@@ -168,5 +180,6 @@ export function useNoticePayment({
     closePaywall,
     createNoticeOrder,
     markPaid,
+    setCurrentNoticeId,
   };
 }
