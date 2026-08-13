@@ -121,7 +121,8 @@ export function useNoticePayment({
         return;
       }
       const effectiveNoticeId = paywallNotice?.id ?? currentNoticeId;
-      if (planCode === "single_89" && !effectiveNoticeId) return;
+      // 单次解锁类套餐必须关联具体公告（plan_code 以 'single' 前缀标识）
+      if (planCode.startsWith("single") && !effectiveNoticeId) return;
 
       setBusyPlanCode(planCode);
       setPaymentMessage("");

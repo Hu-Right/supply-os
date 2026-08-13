@@ -60,11 +60,17 @@ export function useNoticeMembership({
 
   // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求；
   // 套餐展示由后端 is_active 控制，前端不再硬编码过滤
+  // 过滤 plan_type === 'manual' 的套餐（人工顾问服务），此类套餐仅在会员专区展示，
+  // 不出现在采购详情页的自助支付面板中
   const loadPaidPlans = () => {
     if (paidPlans.length > 0) return Promise.resolve();
     return fetchMembershipPlans()
       .then((plans) =>
-        setPaidPlans(Array.isArray(plans) ? plans : []),
+        setPaidPlans(
+          Array.isArray(plans)
+            ? plans.filter((p) => p.plan_type !== "manual")
+            : [],
+        ),
       )
       .catch(() => {});
   };
