@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+/* iconfont 字体图标（底部社交媒体链接） */
+@font-face {
+  font-family: "iconfont";
+  src: url('/fonts/iconfont.woff2') format('woff2'),
+       url('/fonts/iconfont.woff') format('woff'),
+       url('/fonts/iconfont.ttf') format('truetype');
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-instagram:before { content: "\e74d"; }
+.icon-pinterest:before { content: "\e697"; }
+.icon-facebook:before { content: "\e685"; }
+.icon-Youtube:before { content: "\e880"; }
+.icon-whatsapp:before { content: "\e8ea"; }
+.icon-tuite:before { content: "\e61d"; }
+.icon-tiktok:before { content: "\ecdc"; }
+
 /* 隐藏滚动条但保留滚动功能（鼠标滚轮 / 触控板仍可用） */
 .scrollbar-none {
   -ms-overflow-style: none;   /* IE / Edge */

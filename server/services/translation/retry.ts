@@ -17,6 +17,7 @@ import {
   detectSourceLang,
 } from "./notice";
 import { createLogger } from "../../utils/fileLogger";
+import { markTranslationSuccess, flushCleanedLogs } from "./logCleanup";
 
 const logger = createLogger("retry-translate");
 
@@ -35,6 +36,8 @@ export interface RetryOptions {
   concurrency?: number;
   /** 每条间隔毫秒，默认 300（给 API 更多喘息时间） */
   delayMs?: number;
+  /** 日字符预算上限（与 autoTranslate 共享 crm_translation_state 预算）；不传则不检查预算 */
+  dailyCharBudget?: number;
 }
 
 export interface RetryResult {
@@ -87,6 +90,7 @@ export async function runRetryTranslation(
   const includeExpired = opts.includeExpired ?? true;
   const concurrency = opts.concurrency ?? 10;
   const delayMs = opts.delayMs ?? 300;
+  const dailyCharBudget = opts.dailyCharBudget ?? 0; // 0 = 不限制
 
   const result: RetryResult = {
     scanned: 0,
@@ -98,12 +102,46 @@ export async function runRetryTranslation(
     details: [],
   };
 
-  console.log(`[retry-translate] ── 开始批量重试扫描 ── (includeExpired=${includeExpired}, maxPerScan=${maxPerScan}, concurrency=${concurrency})`);
-  logger.info(`START includeExpired=${includeExpired} maxPerScan=${maxPerScan} concurrency=${concurrency}`);
+  // ── 日预算检查：与 autoTranslate 共享 crm_translation_state 预算 ──
+  // 重试场景可能消耗大量 API 配额，若调用方传入了 dailyCharBudget 则尊重全局预算
+  let charsUsedToday = 0;
+  if (dailyCharBudget > 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const [stateRows] = await dbPool.query(
+        "SELECT state_key, state_value FROM crm_translation_state WHERE state_key IN (?, ?)",
+        ["budget_day", "budget_chars_used"]
+      );
+      const stateMap = new Map<string, string>();
+      for (const row of stateRows as RowDataPacket[]) stateMap.set(row.state_key, String(row.state_value || ""));
+      const budgetDay = stateMap.get("budget_day") || "";
+      if (budgetDay === today) {
+        charsUsedToday = Number(stateMap.get("budget_chars_used") || "0");
+        if (charsUsedToday >= dailyCharBudget) {
+          console.warn(`[retry-translate] 日预算已耗尽 (${charsUsedToday}/${dailyCharBudget})，本轮跳过`);
+          logger.warn(`BUDGET_EXHAUSTED used=${charsUsedToday} budget=${dailyCharBudget}`);
+          result.charsUsed = charsUsedToday;
+          isRunning = false;
+          lastResult = result;
+          return result;
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[retry-translate] 预算状态读取失败（静默跳过预算检查）: ${err?.message || err}`);
+    }
+  }
+
+  console.log(`[retry-translate] ── 开始批量重试扫描 ── (includeExpired=${includeExpired}, maxPerScan=${maxPerScan}, concurrency=${concurrency}${dailyCharBudget > 0 ? `, dailyCharBudget=${dailyCharBudget}, charsUsedToday=${charsUsedToday}` : ""})`);
+  logger.info(`START includeExpired=${includeExpired} maxPerScan=${maxPerScan} concurrency=${concurrency}${dailyCharBudget > 0 ? ` dailyCharBudget=${dailyCharBudget} charsUsedToday=${charsUsedToday}` : ""}`);
 
   try {
     for (const target of SCAN_TARGETS) {
       for (const targetLang of ["zh", "en"] as const) {
+        // 日预算耗尽时跳过后续表/语言
+        if (dailyCharBudget > 0 && result.charsUsed + charsUsedToday >= dailyCharBudget) {
+          console.log(`[retry-translate] 日预算耗尽，跳过 ${target.table} lang=${targetLang}`);
+          continue;
+        }
         const detail = { table: target.table, lang: targetLang, scanned: 0, ok: 0, failed: 0, skipped: 0 };
 
         // ── 查询缺失译文的记录 ──
@@ -159,6 +197,11 @@ export async function runRetryTranslation(
         await Promise.all(
           Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
             while (queue.length) {
+              // 日预算检查：与 autoTranslate 共享预算池
+              if (dailyCharBudget > 0 && result.charsUsed + charsUsedToday >= dailyCharBudget) {
+                console.log(`[retry-translate] 日预算已达上限 (${result.charsUsed + charsUsedToday}/${dailyCharBudget})，停止处理`);
+                break;
+              }
               const row = queue.shift();
               if (!row) break;
               const mySeq = ++processedCount;
@@ -207,11 +250,23 @@ export async function runRetryTranslation(
                   [row.id, targetLang, titleTr || null, translationResult.provider]
                 );
 
+                // 同步更新宽表对应语言列（仅公告表，与 autoTranslate 保持一致）
+                if (target.table === "crm_bid_notices" && titleTr) {
+                  try {
+                    await dbPool.query(
+                      `UPDATE crm_notice_search SET title_${targetLang} = ? WHERE id = ?`,
+                      [titleTr, row.id]
+                    );
+                  } catch { /* 宽表可能不存在，静默跳过 */ }
+                }
+
                 detail.ok++;
                 result.ok++;
                 const degraded = translationResult.degradedFrom?.join(" → ") || "-";
                 console.log(`  [retry ${mySeq}/${totalInQueue}] OK   ${translationResult.provider} id=${row.id} src=${sourceLang}→${targetLang} degraded=${degraded}`);
                 logger.info(`${logPrefix} OK provider=${translationResult.provider} src=${sourceLang} degraded=${degraded}`);
+                // 标记日志清理：若该记录之前有失败日志，成功翻译后自动移除
+                markTranslationSuccess(target.table, row.id, targetLang);
               } catch (err: any) {
                 detail.failed++;
                 result.failed++;
@@ -234,12 +289,32 @@ export async function runRetryTranslation(
     isRunning = false;
     lastResult = result;
 
+    // ── 更新日预算状态（与 autoTranslate 共享预算池）──
+    if (dailyCharBudget > 0 && result.charsUsed > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        await dbPool.query(
+          `INSERT INTO crm_translation_state (state_key, state_value)
+           VALUES (?, ?), (?, ?)
+           ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
+          ["budget_day", today, "budget_chars_used", String(charsUsedToday + result.charsUsed)]
+        );
+      } catch (err: any) {
+        console.warn(`[retry-translate] 预算状态更新失败: ${err?.message || err}`);
+      }
+    }
+
     console.log(
       `[retry-translate] ── 批量重试完成 ── 扫描 ${result.scanned} 成功 ${result.ok} 失败 ${result.failed} 跳过 ${result.skipped} 字符 ${result.charsUsed} 耗时 ${Math.round(result.durationMs / 1000)}s`
     );
     logger.info(
       `DONE scanned=${result.scanned} ok=${result.ok} failed=${result.failed} skipped=${result.skipped} chars=${result.charsUsed} duration=${Math.round(result.durationMs / 1000)}s`
     );
+
+    // 异步刷盘：将本轮成功翻译的失败日志行从文件中移除（非阻塞）
+    void flushCleanedLogs().catch((err) => {
+      console.warn(`[retry-translate] 日志清理失败（静默忽略）: ${err?.message || err}`);
+    });
   }
 
   return result;

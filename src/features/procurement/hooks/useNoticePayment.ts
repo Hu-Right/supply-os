@@ -85,7 +85,7 @@ export function useNoticePayment({
   }, [stopPolling]);
 
   const startPolling = useCallback(
-    (orderNo: string, planCode: string, noticeId: number) => {
+    (orderNo: string, planCode: string, noticeId?: number) => {
       stopPolling();
       let attempts = 0;
       pollingRef.current = setInterval(async () => {
@@ -95,7 +95,7 @@ export function useNoticePayment({
           if (status.status === "paid") {
             stopPolling();
             setPaymentMessage(t("procurement_paidOk"));
-            await onPaid(noticeId, planCode);
+            if (noticeId) await onPaid(noticeId, planCode);
           } else if (status.status === "closed" || status.status === "failed") {
             stopPolling();
             setPaymentMessage(t("procurement_paidFail"));
@@ -121,8 +121,6 @@ export function useNoticePayment({
         return;
       }
       const effectiveNoticeId = paywallNotice?.id ?? currentNoticeId;
-      // 单次解锁类套餐必须关联具体公告（plan_code 以 'single' 前缀标识）
-      if (planCode.startsWith("single") && !effectiveNoticeId) return;
 
       setBusyPlanCode(planCode);
       setPaymentMessage("");
@@ -143,9 +141,7 @@ export function useNoticePayment({
           const payWindow = window.open(order.pay_url, "_blank");
           if (!payWindow) window.location.href = order.pay_url;
         }
-        if (effectiveNoticeId) {
-          startPolling(order.order_no, planCode, effectiveNoticeId);
-        }
+        startPolling(order.order_no, planCode, effectiveNoticeId || undefined);
       } catch (err) {
         setPaymentMessage((err as Error)?.message || t("procurement_orderFail"));
       } finally {
@@ -157,7 +153,7 @@ export function useNoticePayment({
 
   const markPaid = useCallback(async () => {
     const effectiveNoticeId = paywallNotice?.id ?? currentNoticeId;
-    if (!paymentOrder || !effectiveNoticeId) return;
+    if (!paymentOrder) return;
     try {
       await mockPaid(paymentOrder.order_no);
     } catch {
@@ -166,7 +162,9 @@ export function useNoticePayment({
     }
     stopPolling();
     setPaymentMessage(t("procurement_paidOk"));
-    await onPaid(effectiveNoticeId, paymentOrder.plan_code || "");
+    if (effectiveNoticeId) {
+      await onPaid(effectiveNoticeId, paymentOrder.plan_code || "");
+    }
     setPaymentOrder(null);
   }, [paymentOrder, paywallNotice, currentNoticeId, onPaid, stopPolling, t]);
 

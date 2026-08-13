@@ -31,13 +31,19 @@ export async function activatePaidOrder(
     if (!plan) { await conn.commit(); return; }
 
     if (plan.plan_type === "single") {
-      if (order.notice_id) {
-        await paymentsRepo.grantSingleNoticeUnlock(conn, {
-          userKey: order.user_key,
-          noticeId: order.notice_id,
-          amount: Number(order.amount || 0),
-        });
+      // 单次解锁卡：创建 entitlement 额度（用户后续浏览公告时再消耗）
+      if (await paymentsRepo.hasEntitlementForOrder(conn, orderNo)) {
+        await conn.commit();
+        return;
       }
+      await paymentsRepo.insertEntitlementInTransaction(conn, {
+        userKey: order.user_key,
+        orderNo,
+        planCode: order.plan_code,
+        quotaTotal: Number(plan.unlock_quota || 1),
+        durationDays: plan.duration_days,
+      });
+      await paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
       await conn.commit();
       return;
     }

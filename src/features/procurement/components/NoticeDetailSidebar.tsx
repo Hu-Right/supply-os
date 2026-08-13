@@ -4,32 +4,14 @@
  *
  * @module features/procurement/components/NoticeDetailSidebar
  * @description 详情页右侧操作栏：感兴趣/订阅/解锁按钮、
- *              非VIP用户永久展示会员套餐面板。
+ *              非VIP用户显示"查看套餐"按钮跳转到独立套餐页面。
  *              Detail page action rail: interest/subscribe/unlock buttons,
- *              membership plan panel permanently shown for non-VIP users.
+ *              non-VIP users see "View Plans" button to navigate to plans page.
  */
-import { Bell, Heart, Lock } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
-import type { NoticeItem, MembershipStatus, MembershipPlan } from "../types";
-import type { OrderInfo } from "@/features/payment";
-import { NoticePaymentPanel } from "./NoticePaymentPanel";
-
-/** 内嵌多套餐付费面板（付费墙）状态与回调 */
-export interface NoticeDetailPaymentState {
-  plans: MembershipPlan[];
-  paywallNotice: NoticeItem | null;
-  order: OrderInfo | null;
-  provider: "alipay" | "wechat";
-  busyPlanCode: string;
-  message: string;
-  onProviderChange: (provider: "alipay" | "wechat") => void;
-  onCreateOrder: (planCode: string) => void;
-  onMockPaid: () => void;
-  onClose: () => void;
-  /** 加载付费套餐列表（来自 useNoticeMembership） */
-  loadPaidPlans?: () => Promise<void>;
-}
+import type { NoticeItem, MembershipStatus } from "../types";
 
 export interface NoticeDetailSidebarProps {
   notice: NoticeItem;
@@ -43,7 +25,6 @@ export interface NoticeDetailSidebarProps {
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
   onPayUnlock: (notice: NoticeItem) => void;
-  payment?: NoticeDetailPaymentState;
 }
 
 export function NoticeDetailSidebar({
@@ -57,22 +38,9 @@ export function NoticeDetailSidebar({
   onExpressInterest,
   onUnlock,
   onPayUnlock,
-  payment,
 }: NoticeDetailSidebarProps) {
+  const navigate = useNavigate();
   const { t } = useLocale();
-  const [paywallDismissed, setPaywallDismissed] = useState(false);
-
-  // 切换公告时重置关闭状态，确保新公告重新展示套餐面板
-  useEffect(() => {
-    setPaywallDismissed(false);
-  }, [notice.id]);
-
-  // 非VIP用户进入详情页时自动加载付费套餐列表
-  useEffect(() => {
-    if (!isVip && payment?.loadPaidPlans) {
-      void payment.loadPaidPlans();
-    }
-  }, [isVip, payment?.loadPaidPlans]);
 
   /** 操作按钮组（移动端固定底栏 / 桌面端侧边栏共用） */
   const actionButtons = (
@@ -117,19 +85,15 @@ export function NoticeDetailSidebar({
         {actionButtons}
       </div>
 
-      {/* 非VIP用户永久展示会员套餐面板（可通过 X 按钮关闭） */}
-      {!isVip && payment && !paywallDismissed && (
-        <NoticePaymentPanel
-          plans={payment.plans}
-          provider={payment.provider}
-          order={payment.order}
-          busyPlanCode={payment.busyPlanCode}
-          message={payment.message}
-          onProviderChange={payment.onProviderChange}
-          onCreateOrder={payment.onCreateOrder}
-          onMockPaid={payment.onMockPaid}
-          onClose={() => setPaywallDismissed(true)}
-        />
+      {/* 非VIP用户显示"查看套餐"按钮，跳转到会员套餐详情页面 */}
+      {!isVip && (
+        <button
+          onClick={() => navigate(`/membership?notice_id=${notice.id}`)}
+          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 text-sm font-black hover:bg-amber-100 transition-colors"
+        >
+          <ExternalLink className="w-4 h-4" />
+          {t("procurement_viewPlans")}
+        </button>
       )}
     </aside>
   );

@@ -109,19 +109,6 @@ export default function ProcurementPage() {
         onExpressInterest={actions.handleExpressInterest}
         onUnlock={(n) => actions.handleUnlockNotice(n)}
         onPayUnlock={actions.handlePayUnlock}
-        payment={{
-          plans: actions.paidPlans,
-          paywallNotice: actions.paywallNotice,
-          order: actions.paymentOrder,
-          provider: actions.paymentProvider,
-          busyPlanCode: actions.busyPlanCode,
-          message: actions.paymentMessage,
-          onProviderChange: actions.setPaymentProvider,
-          onCreateOrder: actions.createNoticeOrder,
-          onMockPaid: actions.markPaid,
-          onClose: actions.closePaywall,
-          loadPaidPlans: actions.loadPaidPlans,
-        }}
       />
       </Suspense>
     );

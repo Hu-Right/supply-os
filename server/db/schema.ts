@@ -30,6 +30,7 @@
  *              020-unlock-unique-notice       解锁唯一约束(防并发超额)
  *              021-verification-code-hash-column 验证码哈希列扩容
  *              022-verification-code-composite-index 验证码表复合索引
+ *              023-footer-social-links 底部社交媒体链接表
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -55,12 +56,13 @@ import { migration as m019 } from "./migrations/019-reference-index";
 import { migration as m020 } from "./migrations/020-unlock-unique-notice";
 import { migration as m021 } from "./migrations/021-verification-code-hash-column";
 import { migration as m022 } from "./migrations/022-verification-code-composite-index";
+import { migration as m023 } from "./migrations/023-footer-social-links";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
-  m012, m013, m014, m015, m016, m017, m018, m019, m020, m021, m022,
+  m012, m013, m014, m015, m016, m017, m018, m019, m020, m021, m022, m023,
 ];
 
 /**

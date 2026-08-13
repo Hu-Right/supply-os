@@ -12,6 +12,7 @@ import { backfillUnspscCodeIds } from "../db/backfills";
 import { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache, rollupNoticeViewDaily } from "../services/amount";
 import { AB_TREATMENT_PCT } from "../services/recommend";
 import { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "../services/retryTranslation";
+import type { RetryResult } from "../services/retryTranslation";
 import { hashPassword } from "../services/auth";
 import { validatePassword } from "../../src/shared/auth/passwordPolicy";
 
@@ -190,18 +191,23 @@ export function createAdminRouter(ctx: AppContext): Router {
     const maxPerScan = Math.min(Math.max(parseInt(String(req.query.max_per_scan), 10) || 500, 1), 5000);
     const includeExpired = String(req.query.include_expired ?? "true").toLowerCase() !== "false";
     const concurrency = Math.min(Math.max(parseInt(String(req.query.concurrency), 10) || 10, 1), 30);
+    const dailyCharBudget = Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000);
 
     // 响应先返回（长时间运行），实际重试在后台执行
     res.json({
       success: true,
       message: "批量翻译重试已在后台启动，请通过 GET /api/admin/retry-translation 查看进度",
-      options: { maxPerScan, includeExpired, concurrency },
+      options: { maxPerScan, includeExpired, concurrency, dailyCharBudget },
     });
 
     try {
-      await runRetryTranslation(ctx.dbPool, { maxPerScan, includeExpired, concurrency });
+      const retryResult: RetryResult = await runRetryTranslation(ctx.dbPool, { maxPerScan, includeExpired, concurrency, dailyCharBudget });
+      // 后台完成后记录结果统计
+      console.log(
+        `[admin-retry] 批量重试完成: 扫描=${retryResult.scanned} 成功=${retryResult.ok} 失败=${retryResult.failed} 跳过=${retryResult.skipped} 字符=${retryResult.charsUsed} 耗时=${Math.round(retryResult.durationMs / 1000)}s`
+      );
     } catch (err: any) {
-      console.error("[retry-translate] 后台执行失败:", err?.message || err);
+      console.error("[admin-retry] 后台执行失败:", err?.message || err);
     }
   }));
 

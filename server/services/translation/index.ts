@@ -8,6 +8,7 @@
  *              - auto.ts    增量双语翻译定时任务
  *              - retry.ts   批量翻译重试
  *              - notice.ts  公告翻译（含文字系统检测）
+ *              - logCleanup.ts  翻译失败日志自动清理
  *              - fetchWithTimeout.ts  HTTP 超时封装
  */
 
@@ -18,7 +19,7 @@ export { startAutoTranslate, runIncrementalTranslation } from "./auto";
 export type { AutoTranslateConfig } from "./auto";
 
 export { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "./retry";
-export type { RetryOptions } from "./retry";
+export type { RetryOptions, RetryResult } from "./retry";
 
 export {
   NOTICE_TRANSLATION_LANGS,
@@ -27,3 +28,5 @@ export {
   detectSourceLang,
   getTranslatedNoticeDetail,
 } from "./notice";
+
+export { markTranslationSuccess, flushCleanedLogs, getCleanedLogCount } from "./logCleanup";

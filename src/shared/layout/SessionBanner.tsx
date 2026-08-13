@@ -31,7 +31,6 @@ const BANNER_BY_PATH: Record<string, BannerConfig> = {
   "/crm": { titleKey: "crmDashboard", descKey: "tabCrmDesc" },
   "/services": { titleKey: "serviceEcoTitle", descKey: "ecosystemsSummary" },
   "/learning": { titleKey: "learningTitle", descKey: "tabLearningDesc" },
-  "/membership": { titleKey: "membershipTitle", descKey: "tabMembershipDesc" },
   "/training": { titleKey: "trainingBannerTitle", descKey: "trainingBannerDesc" },
 };
 

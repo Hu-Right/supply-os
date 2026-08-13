@@ -4,4 +4,4 @@
  * @see translation/retry.ts
  */
 export { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "./translation/retry";
-export type { RetryOptions } from "./translation/retry";
+export type { RetryOptions, RetryResult } from "./translation/retry";

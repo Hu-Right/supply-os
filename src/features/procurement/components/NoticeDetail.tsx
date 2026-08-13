@@ -9,7 +9,7 @@ import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
 import { NoticeDescriptionSection } from "./NoticeDescriptionSection";
 import { NoticeBreakdownIndicator } from "./NoticeBreakdownIndicator";
 import { NoticeCoreContent } from "./NoticeCoreContent";
-import { NoticeDetailSidebar, type NoticeDetailPaymentState } from "./NoticeDetailSidebar";
+import { NoticeDetailSidebar } from "./NoticeDetailSidebar";
 import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
@@ -27,8 +27,6 @@ interface NoticeDetailProps {
   onPayUnlock: (notice: NoticeItem) => void;
   /** 已解锁公告的拓展详情加载中：以骨架屏替代锁定面板，避免闪烁 */
   detailLoading?: boolean;
-  /** 内嵌多套餐付费面板（付费墙）状态与回调；paywallNotice 存在时在 aside 渲染面板 */
-  payment?: NoticeDetailPaymentState;
 }
 
 export function NoticeDetail({
@@ -44,7 +42,6 @@ export function NoticeDetail({
   onUnlock,
   onPayUnlock,
   detailLoading,
-  payment,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
   const authContext = useOptionalAuth();
@@ -204,7 +201,6 @@ export function NoticeDetail({
             onExpressInterest={onExpressInterest}
             onUnlock={onUnlock}
             onPayUnlock={onPayUnlock}
-            payment={payment}
           />
         </div>
       </article>

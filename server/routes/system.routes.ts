@@ -8,6 +8,7 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import type { AppContext } from "../context";
+import type { RowDataPacket } from "mysql2/promise";
 
 /** 构建时生成的版本号文件（dist/version.json） */
 function readBuildVersion(): string {
@@ -49,6 +50,42 @@ export function createSystemRouter(ctx: AppContext): Router {
       res.json(icpCache);
     } catch {
       res.json({ bah: "" });
+    }
+  });
+
+  // ── 底部社交媒体链接（crm.link 表，iconfont 字体图标渲染）──
+  // 服务端内存缓存 30 分钟，链接数据变更频率极低
+  let linksCache: { items: FooterLink[]; ts: number } | null = null;
+  const LINKS_CACHE_TTL = 30 * 60 * 1000;
+
+  interface FooterLink {
+    id: number;
+    name: string;
+    url: string;
+    icon: string;
+  }
+
+  router.get("/api/system/links", async (_req, res) => {
+    try {
+      const now = Date.now();
+      if (linksCache && now - linksCache.ts < LINKS_CACHE_TTL) {
+        res.setHeader("Cache-Control", "public, max-age=1800");
+        return res.json(linksCache.items);
+      }
+      const [rows] = await ctx.dbPool.query<RowDataPacket[]>(
+        `SELECT id, name, url, icon FROM crm.link WHERE status = 1 ORDER BY sort_order ASC, id ASC LIMIT 100`,
+      );
+      const items: FooterLink[] = (rows || []).map((r) => ({
+        id: Number(r.id),
+        name: String(r.name || ""),
+        url: String(r.url || ""),
+        icon: String(r.icon || ""),
+      }));
+      linksCache = { items, ts: now };
+      res.setHeader("Cache-Control", "public, max-age=1800");
+      res.json(items);
+    } catch {
+      res.json([]);
     }
   });
 

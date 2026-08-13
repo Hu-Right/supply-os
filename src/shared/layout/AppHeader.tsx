@@ -146,7 +146,7 @@ export function useNavTabs() {
     if (p === "/crm") return 4;
     if (p === "/services") return 5;
     if (p === "/learning") return 6;
-    if (p === "/membership") return 7;
+    if (p === "/membership" || p.startsWith("/membership/")) return 7;
     return 1;
   })();
 

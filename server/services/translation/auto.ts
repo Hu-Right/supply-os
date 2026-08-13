@@ -19,6 +19,7 @@ import {
 } from "./notice";
 import { channelConfigured } from "../../config/env";
 import { createLogger } from "../../utils/fileLogger";
+import { markTranslationSuccess, flushCleanedLogs } from "./logCleanup";
 
 const logger = createLogger("auto-translate");
 
@@ -204,6 +205,8 @@ export async function runIncrementalTranslation(
               }
               
               ok += 1;
+              // 标记日志清理：若该记录之前有失败日志，成功翻译后自动移除
+              markTranslationSuccess(target.table, row.id, targetLang);
             } catch (err: any) {
               failed += 1;
               const errMsg = err?.message || String(err);
@@ -225,6 +228,12 @@ export async function runIncrementalTranslation(
      ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
     ["budget_day", today, "budget_chars_used", String(charsUsed)]
   );
+
+  // 异步刷盘：将本轮成功翻译的失败日志行从文件中移除（非阻塞）
+  void flushCleanedLogs().catch((err) => {
+    console.warn(`[auto-translate] 日志清理失败（静默忽略）: ${err?.message || err}`);
+  });
+
   return { ok, failed, charsUsed };
 }
 

@@ -37,7 +37,6 @@ export class PaymentService {
 
     const plan = await this.paymentsRepo!.findActivePlan(planCode);
     if (!plan) throw new Error("PLAN_NOT_FOUND");
-    if (plan.plan_type === "single" && !noticeId) throw new Error("NOTICE_ID_REQUIRED");
 
     const amount = Number(plan.price);
     if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
