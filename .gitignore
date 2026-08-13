@@ -49,6 +49,7 @@ Desktop.ini
 
 # ===== 开发过程文档 =====
 docs/
+!docs/*部署指南.md
 要求.md
 .superpowers/
 生成报告.txt
