@@ -13,4 +13,8 @@ export {
   isDesktop,
   getAvailableProviders,
   getPaymentTips,
+  fetchPaymentConfigStatus,
+  isProviderConfigured,
+  mapPaymentError,
 } from "./env-detector";
+export type { PaymentConfigStatus } from "./env-detector";

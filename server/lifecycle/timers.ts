@@ -10,6 +10,8 @@ import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices";
 import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
+import { cleanupStaleNoticeBridge } from "../services/noticeBridgeSync";
+import { cleanupStaleNoticeData } from "../services/noticeDataCleanup";
 
 /**
  * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
@@ -46,6 +48,8 @@ export interface TimersHandle {
  * 1. is_featured 每 30 分钟增量刷新
  * 2. 统计表每 10 分钟刷新
  * 3. 国家/机构缓存每日凌晨 5 点定时刷新
+ * 4. 桥接表脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
+ * 5. 附属数据（翻译表 + 宽表）脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
  */
 export function startAllTimers(deps: TimersDeps): TimersHandle {
   const { dbPool } = deps;
@@ -79,11 +83,55 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }
   });
 
+  // 4. 桥接表脏数据定时清理（BRIDGE_CLEANUP_INTERVAL_HOURS 控制间隔，默认 24 小时；
+  //    BRIDGE_CLEANUP_ENABLED=off 关闭；单次失败仅记日志，不影响下一次扫描）
+  let bridgeCleanupTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.BRIDGE_CLEANUP_ENABLED ?? "on").toLowerCase() !== "off") {
+    const bridgeCleanupIntervalHours = Math.max(1, Number(process.env.BRIDGE_CLEANUP_INTERVAL_HOURS || 24));
+    const runBridgeCleanup = async () => {
+      try {
+        await cleanupStaleNoticeBridge(dbPool);
+      } catch (e) {
+        console.error("[bridge-cleanup-timer] 扫描失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    // 启动时立即异步清理一次存量脏数据（不阻塞启动）
+    void runBridgeCleanup();
+    bridgeCleanupTimer = setInterval(() => {
+      void runBridgeCleanup();
+    }, bridgeCleanupIntervalHours * 3600 * 1000);
+  }
+
+  // 5. 附属数据（翻译表 + 宽表）定时清理（DATA_CLEANUP_INTERVAL_HOURS 控制间隔，默认 24 小时；
+  //    DATA_CLEANUP_ENABLED=off 关闭；单次失败仅记日志，不影响下一次扫描；
+  //    DATA_CLEANUP_INCLUDE_EXPIRED=on 时同时清理过期公告（is_expired=1）的附属数据，
+  //    默认关闭仅清"主表不存在"的死数据，与桥接表清理口径一致）
+  let dataCleanupTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.DATA_CLEANUP_ENABLED ?? "on").toLowerCase() !== "off") {
+    const dataCleanupIntervalHours = Math.max(1, Number(process.env.DATA_CLEANUP_INTERVAL_HOURS || 24));
+    const includeExpired = String(process.env.DATA_CLEANUP_INCLUDE_EXPIRED ?? "off").toLowerCase() === "on";
+    const runDataCleanup = async () => {
+      try {
+        await cleanupStaleNoticeData(dbPool, "translations", { includeExpired });
+        await cleanupStaleNoticeData(dbPool, "wide", { includeExpired });
+      } catch (e) {
+        console.error("[data-cleanup-timer] 扫描失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    // 启动时立即异步清理一次存量脏数据（不阻塞启动）
+    void runDataCleanup();
+    dataCleanupTimer = setInterval(() => {
+      void runDataCleanup();
+    }, dataCleanupIntervalHours * 3600 * 1000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
       clearInterval(statsRefreshTimer);
       clearTimeout(dailyRefreshTimer);
+      if (bridgeCleanupTimer) clearInterval(bridgeCleanupTimer);
+      if (dataCleanupTimer) clearInterval(dataCleanupTimer);
     },
   };
 }

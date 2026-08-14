@@ -13,6 +13,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../utils/normalize";
 import { normalizeNoticeType } from "./meilisearch/sync";
+import { syncNoticeIds, isHealthy as isMeiliHealthy } from "./meilisearch";
 import { classifyAgencyType } from "./agencyI18n";
 import { COUNTRY_NAME_ZH, SUB_COUNTRY_ZH, cleanCountryRaw } from "../../src/shared/data/countryNames";
 
@@ -288,16 +289,24 @@ function buildWideRow(
   };
 }
 
-// ── 机构别名映射加载 ──
+// ── 机构别名映射加载（带 10 分钟缓存，避免每 10 秒增量同步都查全表）──
+let _aliasMapCache: Map<string, string> | null = null;
+let _aliasMapExpires = 0;
+const ALIAS_MAP_TTL = 10 * 60 * 1000; // 10 分钟
+
 async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
+  if (_aliasMapCache && Date.now() < _aliasMapExpires) return _aliasMapCache;
   const aliasMap = new Map<string, string>();
   try {
     const [rows] = await pool.query("SELECT canonical, alias FROM crm_agency_aliases");
     for (const row of rows as RowDataPacket[]) {
       aliasMap.set(String(row.alias || "").trim().toUpperCase(), String(row.canonical || "").trim());
     }
+    _aliasMapCache = aliasMap;
+    _aliasMapExpires = Date.now() + ALIAS_MAP_TTL;
   } catch {
-    // 表不存在或查询失败：静默降级
+    // 表不存在或查询失败：静默降级，返回旧缓存（如果有）
+    if (_aliasMapCache) return _aliasMapCache;
   }
   return aliasMap;
 }
@@ -309,56 +318,51 @@ async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
  * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline_ts 变更时，
  * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
  *
- * 对账逻辑：比较两表 deadline_sec 值，修复不一致的记录，返回变更 ID 供上层同步。
+ * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
+ * 返回所有变更 ID 供上层同步到 Meilisearch。
  */
 async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
+  const allIds: number[] = [];
+  const MAX_ROUNDS = 10;
   try {
-    // 检测宽表 deadline_sec 与主表不一致的记录
-    // 主表 deadline_sec 是生成列（NULL 表示无截止日期），宽表用 0 表示 NULL
-    // 比较时用 COALESCE 统一 NULL→0 语义
-    const [mismatchRows] = await pool.query(
-      `SELECT n.id, COALESCE(n.deadline_sec, 0) AS deadline_sec
-       FROM crm_bid_notices n
-       INNER JOIN crm_notice_search ns ON ns.id = n.id
-       WHERE ns.deadline_sec != COALESCE(n.deadline_sec, 0)
-       LIMIT 5000`,
-    );
-    const mismatches = mismatchRows as RowDataPacket[];
-    if (mismatches.length === 0) return [];
-
-    const ids = mismatches.map(r => Number(r.id));
-    const BATCH = 1000;
-    for (let i = 0; i < ids.length; i += BATCH) {
-      const batch = ids.slice(i, i + BATCH);
-      const ph = batch.map(() => "?").join(",");
-      await pool.query(
-        `UPDATE crm_notice_search ns
-         INNER JOIN crm_bid_notices n ON n.id = ns.id
-         SET ns.deadline_sec = COALESCE(n.deadline_sec, 0)
-         WHERE ns.id IN (${ph})`,
-        batch,
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      // 检测宽表 deadline_sec 与主表不一致的记录
+      // 主表 deadline_sec 是生成列（NULL 表示无截止日期），宽表用 0 表示 NULL
+      // 比较时用 COALESCE 统一 NULL→0 语义
+      const [mismatchRows] = await pool.query(
+        `SELECT n.id, COALESCE(n.deadline_sec, 0) AS deadline_sec
+         FROM crm_bid_notices n
+         INNER JOIN crm_notice_search ns ON ns.id = n.id
+         WHERE ns.deadline_sec != COALESCE(n.deadline_sec, 0)
+         LIMIT 5000`,
       );
+      const mismatches = mismatchRows as RowDataPacket[];
+      if (mismatches.length === 0) break;
+
+      const ids = mismatches.map(r => Number(r.id));
+      allIds.push(...ids);
+      const BATCH = 1000;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        await pool.query(
+          `UPDATE crm_notice_search ns
+           INNER JOIN crm_bid_notices n ON n.id = ns.id
+           SET ns.deadline_sec = COALESCE(n.deadline_sec, 0)
+           WHERE ns.id IN (${ph})`,
+          batch,
+        );
+      }
+      // 本轮不足 5000 条说明已全部修复，提前退出
+      if (mismatches.length < 5000) break;
     }
-    if (ids.length > 0) {
-      console.log(`[wide-table] deadline_sec 对账修复 ${ids.length} 条不一致记录`);
+    if (allIds.length > 0) {
+      console.log(`[wide-table] deadline_sec 对账修复 ${allIds.length} 条不一致记录`);
     }
-    return ids;
+    return allIds;
   } catch (e) {
     console.warn(`[wide-table] deadline_sec 对账失败（静默降级）:`, (e as Error).message);
-    return [];
-  }
-}
-
-// ── 确保 UNSPSC 列宽足够 ──
-async function ensureUnspscColumns(pool: Pool): Promise<void> {
-  try {
-    for (let level = 1; level <= 5; level++) {
-      await pool.query(
-        `ALTER TABLE crm_notice_search MODIFY COLUMN unspsc_level${level} TEXT NOT NULL`
-      );
-    }
-  } catch {
-    // 列不存在或已是目标类型，静默跳过
+    return allIds;
   }
 }
 
@@ -417,9 +421,6 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
   const start = Date.now();
   const aliasMap = await loadAliasMap(pool);
   
-  // 确保列宽足够
-  await ensureUnspscColumns(pool);
-
   let lastId = 0;
   let totalSynced = 0;
   const BATCH = 500;
@@ -465,7 +466,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
 }
 
 /**
- * 增量同步
+ * 增量同步（仅拉取新行，不含 deadline 对账）
  */
 export async function incrementalWideSync(
   pool: Pool,
@@ -479,27 +480,7 @@ export async function incrementalWideSync(
       [watermark],
     );
 
-    let updatedRaw: any[] = [];
-
-    // 对账：检测主表与宽表之间 deadline_sec 不一致
-    // 主表 deadline_sec 是 STORED 生成列，宽表是静态拷贝，可能因 deadline_ts 变更而陈旧
-    const reconciledDeadlineIds = await reconcileDeadlineSec(pool);
-
-    if (reconciledDeadlineIds.length > 0) {
-      const placeholders = reconciledDeadlineIds.map(() => "?").join(",");
-      const [reconciledRows] = await pool.query(
-        WIDE_SYNC_SELECT + WIDE_SYNC_JOIN +
-        ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
-        reconciledDeadlineIds,
-      );
-      updatedRaw = reconciledRows as any[];
-    }
-
-    const docMap = new Map<number, any>();
-    for (const r of newRows as any[]) docMap.set(r.id, r);
-    for (const r of updatedRaw) docMap.set(r.id, r);
-
-    const allRaw = Array.from(docMap.values()).sort((a, b) => a.id - b.id);
+    const allRaw = newRows as any[];
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
     // 批量查询 UNSPSC 和翻译
@@ -583,9 +564,17 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
 
 /**
  * 启动宽表增量同步定时器
+ *
+ * 两个独立定时器：
+ * - 增量同步（10 秒）：拉取新行写入宽表
+ * - deadline 对账（60 秒）：检测旧行 deadline_sec 陈旧并修复
+ *
+ * 分离原因：deadline_ts 变更来自外部数据管道（批量导入），日常极少发生。
+ * 对账需要 108K×108K JOIN，每 10 秒执行一次浪费资源；60 秒足够。
  */
-export function startWideTableSync(pool: Pool, options: { intervalMs?: number } = {}): () => void {
+export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number } = {}): () => void {
   const intervalMs = options.intervalMs ?? 30 * 1000;
+  const reconcileIntervalMs = options.reconcileIntervalMs ?? 60 * 1000;
   let stopped = false;
   let watermark = 0;
   const stopFns: Array<() => void> = [];
@@ -604,7 +593,8 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number } 
         watermark = Number((maxRows as any[])[0]?.max_id || 0);
       }
 
-      const timer = setInterval(async () => {
+      // 定时器 1：增量同步（拉取新行）
+      const syncTimer = setInterval(async () => {
         if (stopped) return;
         try {
           const { newWatermark } = await incrementalWideSync(pool, watermark);
@@ -613,7 +603,23 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number } 
           console.warn("[wide-table] 增量同步异常:", (err as Error).message);
         }
       }, intervalMs);
-      stopFns.push(() => clearInterval(timer));
+      stopFns.push(() => clearInterval(syncTimer));
+
+      // 定时器 2：deadline_sec 对账（独立于增量同步，降频执行）
+      const reconcileTimer = setInterval(async () => {
+        if (stopped) return;
+        try {
+          const reconciledIds = await reconcileDeadlineSec(pool);
+          if (reconciledIds.length > 0 && isMeiliHealthy()) {
+            void syncNoticeIds(pool, reconciledIds).catch((err) => {
+              console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+            });
+          }
+        } catch (err) {
+          console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
+        }
+      }, reconcileIntervalMs);
+      stopFns.push(() => clearInterval(reconcileTimer));
     } catch (err) {
       console.error("[wide-table] 初始化失败（静默降级）:", (err as Error).message);
     }

@@ -270,6 +270,8 @@ async function handleFullTranslation(
   if (zhDescCn && detectedSourceLang === "zh") {
     // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
     await noticesRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
+    // 同步更新宽表（列表页 title_i18n 字段依赖此列）
+    void dbPool.query(`UPDATE crm_notice_search SET title_zh = ? WHERE id = ?`, [String(notice.title || ""), noticeId]).catch(() => {});
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
   }
 
@@ -281,6 +283,8 @@ async function handleFullTranslation(
         const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang);
         if (titleResult.provider !== "same-lang-passthrough" && titleResult.translations[0]) {
           await noticesRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
+          // 同步更新宽表（列表页 title_i18n 字段依赖此列）
+          await dbPool.query(`UPDATE crm_notice_search SET title_${lang} = ? WHERE id = ?`, [titleResult.translations[0], noticeId]);
         }
       } catch { /* 异步标题翻译失败不影响当前响应 */ }
     })();

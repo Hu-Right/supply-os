@@ -21,6 +21,7 @@ export {
   fetchUnlockedNoticeIds,
   fetchNoticeTranslation,
   fetchRecommendedNotices,
+  fetchIndustryMatchedNotices,
 } from "./notices";
 export type { NoticeSearchFilters } from "./notices";
 

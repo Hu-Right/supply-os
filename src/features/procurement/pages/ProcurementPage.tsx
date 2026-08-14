@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronDown, Crown, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
@@ -42,16 +42,34 @@ export default function ProcurementPage() {
   const {
     levels, selectedIds, setLevels, setSelectedIds, prefsMode, setPrefsMode,
     prefsBannerName, deepestCodeId, exitAutoMode, handleLevelChange,
+    hasIndustryPrefs, restorePrefsMode,
   } = useIndustryPrefs({ userKey, locale: useLocale().locale, setPage, setSelectedNotice });
+
+  // ── 恢复行业匹配：清除手动搜索条件并切回行业精准匹配模式 ──
+  const handleRestoreIndustryMatch = () => {
+    setPage(1);
+    setSelectedNotice(null);
+    // 清空 URL 搜索条件（表单由 sync effect 自动同步清空）
+    setSearchParams({});
+    // 乐观切回 prefs 模式并重新预选行业路径
+    void restorePrefsMode();
+  };
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
     userKey, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
     // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
+    // BUG2 修复：同时退出行业精准匹配/推荐模式，切回全量搜索
+    // 原因：仅清空 selectedIds 不够，prefsMode 仍是 "prefs" 会导致：
+    // 1. useNoticeSearch 数据源判定仍选 "industry-matched"，显示空结果
+    // 2. "恢复行业匹配"按钮显示条件不满足（prefsMode !== "prefs"），按钮不出现
     onClear: () => {
       setSelectedIds(["", "", "", "", ""]);
       setLevels((prev) => [prev[0], [], [], [], []]);
+      if (prefsMode === "prefs" || prefsMode === "recommended") {
+        setPrefsMode("default");
+      }
     },
   });
 
@@ -199,6 +217,17 @@ export default function ProcurementPage() {
               <Crown className="w-3.5 h-3.5" />
               {t("procurement_featuredOnly")}
             </button>
+            {/* 恢复行业匹配（方案 A 增强）：账号已设置默认行业且当前处于手动搜索/全量模式时显示 */}
+            {hasIndustryPrefs && prefsMode !== "prefs" && prefsMode !== "loading" && (
+              <button
+                type="button"
+                onClick={handleRestoreIndustryMatch}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-sm font-black whitespace-nowrap transition-colors hover:border-teal-300 hover:text-teal-800"
+              >
+                <Target className="w-3.5 h-3.5" />
+                {t("procurement_restoreIndustryMatch")}
+              </button>
+            )}
           </div>
         </div>
       </section>

@@ -14,7 +14,7 @@ import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
-import { fetchNotices, fetchRecommendedNotices } from "../api";
+import { fetchNotices, fetchRecommendedNotices, fetchIndustryMatchedNotices } from "../api";
 import { searchFormReducer, PAGE_SIZE, type SearchFormState, type SearchFormAction } from "./searchFormReducer";
 import { useSearchDropdowns } from "./useSearchDropdowns";
 
@@ -153,6 +153,13 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured || deepestCodeId
   );
+  // 行业精准匹配（方案 A）：区分"仅行业偏好筛选"与"存在其他搜索条件"——
+  // 仅行业偏好激活且无其他条件时走 /api/notices/industry-matched（分层匹配+精细排序）；
+  // 有其他搜索条件（含手动行业筛选）仍走标准搜索接口（确定性 code_id 过滤）。
+  const hasOtherSearch = Boolean(
+    activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
+    activeWindow || activeNoticeType || activeFeatured
+  );
   // BUG6 修复：searchKey 纳入 deepestCodeId，行业筛选变化时触发分页重置与数据重载
   const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}`;
   // 修复：searchKeyForSkip 纳入 deepestCodeId，确保行业偏好加载完成后触发新请求
@@ -286,20 +293,23 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   const prevSearchKeyForSkipRef = useRef<string>("");
 
   useEffect(() => {
-    // 统一数据源判定逻辑（方案B）：
-    // - 有筛选条件 → "search"（标准搜索 API）
-    // - 无筛选 + 推荐模式 → "recommended"（推荐 API）
-    // - 无筛选 + 非推荐模式 → "search"（标准搜索 API，全量）
+    // 统一数据源判定逻辑（方案B + 行业精准匹配扩展）：
+    // - 有其他筛选条件 → "search"（标准搜索 API）
+    // - 无其他筛选 + 行业偏好模式 → "industry-matched"（行业精准匹配 API，分层匹配+精细排序）
+    // - 无其他筛选 + 推荐模式 → "recommended"（推荐 API）
+    // - 无其他筛选 + 非自动模式 → "search"（标准搜索 API，全量）
     // 关键改进：移除 activeSort 条件，排序方式不影响数据源判定
     // 原逻辑：hasSearch || activeSort !== "deadline_farthest" → 排序方式影响数据源
     // 导致：三种排序走不同数据源，total 不一致（6.8万 vs 12.1万）
     // 修复后：三种排序统一走相同数据源，total 必然一致
     const currentDataSource =
-      hasSearch
+      hasOtherSearch
         ? "search"
-        : prefsMode === "recommended" && userKey
-          ? "recommended"
-          : "search";
+        : prefsMode === "prefs" && userKey
+          ? "industry-matched"
+          : prefsMode === "recommended" && userKey
+            ? "recommended"
+            : "search";
 
     // 精确守卫：仅当数据源 AND 搜索条件均未变时跳过
     // 典型场景：prefsMode 从 "loading"→"default"，数据源和搜索条件都不变
@@ -337,8 +347,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
         }
       }, SEARCH_TIMEOUT_MS);
 
-      // 统一数据源：search（标准搜索）或 recommended（推荐）
-      // 原逻辑有三个分支（search/recommended/default），现在合并为两个
+      // 统一数据源：search（标准搜索）/ industry-matched（行业精准匹配）/ recommended（推荐）
+      // 原逻辑有三个分支（search/recommended/default），现在按 currentDataSource 三选一
       // "search" 和 "default" 本质相同，都调用 fetchNotices，只是参数不同
       // 统一后：无筛选条件时，fetchNotices 的所有筛选参数都是 undefined，等效于原 "default"
       const request =
@@ -359,7 +369,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
               featured: activeFeatured || undefined,
               locale,
             }, controller.signal)
-          : fetchRecommendedNotices({ userKey, page, pageSize: PAGE_SIZE, locale }, controller.signal);
+          : currentDataSource === "industry-matched"
+            ? fetchIndustryMatchedNotices({ userKey: userKey || "", page, pageSize: PAGE_SIZE, locale }, controller.signal)
+            : fetchRecommendedNotices({ userKey: userKey || "", page, pageSize: PAGE_SIZE, locale }, controller.signal);
 
       request
         .then((json) => {
@@ -409,7 +421,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   // P1 性能优化：分页预取——当前页加载完成后静默预取下一页到 apiCached 缓存
   // 用户点击翻页时直接命中缓存，0ms 等待
   // 回滚：删除下方 useEffect 即可
+  // 行业精准匹配（方案 A）：prefs 模式走 /industry-matched 数据源（服务端自带 5 分钟
+  // 结果缓存），跳过此处的 search 预取，避免用错数据源填充无关缓存
   useEffect(() => {
+    if (prefsMode === "prefs") return;
     // 仅当当前页有数据且不是最后一页时预取
     if (loading || items.length === 0 || page >= totalPages) return;
     const nextPage = page + 1;
@@ -430,7 +445,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       featured: activeFeatured || undefined,
       locale,
     }).catch(() => { /* 预取失败静默，不影响当前页 */ });
-  }, [page, totalPages, items.length, loading]);
+  }, [page, totalPages, items.length, loading, prefsMode]);
 
   return {
     query: {

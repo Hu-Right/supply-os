@@ -4,12 +4,10 @@
  */
 import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
-import { GoogleGenAI } from "@google/genai";
 
-// ── 翻译通道链（DeepSeek V4-Flash → Gemini 3.5-Flash 两层链）──
-// 各通道均可缺省：未配置或失败的通道自动跳到下一层；全链失败时抛
-// TRANSLATION_UNAVAILABLE，复用既有降级路径（详情 503 / 补翻静默）。
-// 缓存表 model 列写入真实提供方（deepseek-v4-flash / gemini-3.5-flash）。
+// ── 翻译通道（DeepSeek V4-Flash 单通道）──
+// DeepSeek 未配置或失败时抛 TRANSLATION_UNAVAILABLE，复用既有降级路径
+// （详情 503 / 补翻静默）。缓存表 model 列写入真实提供方（deepseek-v4-flash）。
 
 export type ChainResult = {
   translations: string[];
@@ -229,67 +227,11 @@ async function translateViaDeepSeek(
   throw lastErr;
 }
 
-// ── Gemini 3.5-Flash 兜底层 ──────────────────────────────────────────
-// 作为第二层兜底，仅在 DeepSeek 失败时触发。
-// 使用 @google/genai SDK，模型 gemini-3.5-flash。
-const GEMINI_TIMEOUT_MS = 60_000;
 
-async function translateViaGemini(
-  texts: string[],
-  sourceLang: ChainSourceLang,
-  targetLang: string
-): Promise<string[]> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!channelConfigured(apiKey)) throw new Error("GEMINI_NOT_CONFIGURED");
 
-  const sourceName = CHAIN_LANG_NAMES[sourceLang];
-  const targetName = CHAIN_LANG_NAMES[targetLang] || targetLang;
-  if (!targetName) throw new Error("GEMINI_UNSUPPORTED_TARGET");
-  const direction = sourceName ? `from ${sourceName} to ${targetName}` : `to ${targetName}`;
-
-  const prompt = `You are a professional translator. Translate the following JSON array of strings ${direction}.
-Rules:
-- Return ONLY a JSON array of ${texts.length} translated strings in the same order, with no explanations and no markdown fences.
-- Preserve line breaks inside each string.
-- Keep terminology consistent across all strings.
-
-${JSON.stringify(texts)}`;
-
-  const ai = new GoogleGenAI({
-    apiKey: apiKey!,
-    httpOptions: { timeout: GEMINI_TIMEOUT_MS },
-  });
-
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: prompt,
-  });
-
-  const content = String(response.text || "").trim();
-  if (!content) throw new Error("GEMINI_EMPTY");
-
-  // 容错剥掉模型偶发包裹的 ```json 围栏后按 JSON 数组解析
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error("GEMINI_BAD_JSON");
-  }
-  if (
-    !Array.isArray(parsed) ||
-    parsed.length !== texts.length ||
-    !parsed.every((item) => typeof item === "string" && item.trim() !== "")
-  ) {
-    throw new Error("GEMINI_BAD_SHAPE");
-  }
-  return (parsed as string[]).map((item) => item.trim());
-}
-
-// 通道链入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
-// 统一走 DeepSeek→Gemini 两层。DeepSeek 通道对未知源语言省略语言名（LLM 自行识别）；
-// Gemini 作为最终兜底。
-// 两通道均失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
+// 通道入口：空文本原样透传（供应商空字段等）；目标含六语言（zh/en/fr/ru/es/ar）
+// 仅使用 DeepSeek V4-Flash 单通道。DeepSeek 对未知源语言省略语言名（LLM 自行识别）。
+// DeepSeek 失败/未配置时抛 TRANSLATION_UNAVAILABLE，由各调用方既有降级路径处理。
 export type ChainSourceLang =
   | "en" | "zh" | "ru" | "ar" | "fr" | "es" | "pt" | "de" | "it"
   | "nl" | "pl" | "ro" | "sv" | "da" | "fi" | "no" | "hu" | "tr" | "et"
@@ -312,7 +254,7 @@ export async function translateViaChain(
   // 降级轨迹：记录被跳过的上游通道及原因，供调用方打结构化日志
   const degraded: string[] = [];
 
-  // ── 通道1：DeepSeek V4-Flash ──
+  // ── DeepSeek V4-Flash 单通道 ──
   try {
     // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）
     const masks = jobs.map((job) => protectTerms(job.text));
@@ -328,38 +270,12 @@ export async function translateViaChain(
     return {
       translations: assemble(translated),
       provider: "deepseek-v4-flash",
-      ...(degraded.length ? { degradedFrom: degraded } : {}),
     };
   } catch (err: any) {
-    // 未配置/失败/形状不符：落下一通道
-    degraded.push(`deepseek-v4-flash:${err?.message}`);
-    console.warn(`[translate] deepseek -> next: ${err?.message}`);
+    // DeepSeek 失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
+    const chainErr = new Error("TRANSLATION_UNAVAILABLE");
+    (chainErr as any).degradedFrom = [`deepseek-v4-flash:${err?.message}`];
+    console.warn(`[translate] deepseek unavailable: ${err?.message}`);
+    throw chainErr;
   }
-  // 通道2：Gemini 3.5-Flash 兜底
-  try {
-    const masks = jobs.map((job) => protectTerms(job.text));
-    const outputs = await translateViaGemini(
-      masks.map((m) => m.masked),
-      sourceLang,
-      targetLang
-    );
-    const translated = new Map<number, string>();
-    jobs.forEach((job, i) => {
-      translated.set(job.index, restoreTerms(outputs[i], masks[i].tokens));
-    });
-    return {
-      translations: assemble(translated),
-      provider: "gemini-3.5-flash",
-      ...(degraded.length ? { degradedFrom: degraded } : {}),
-    };
-  } catch (err: any) {
-    // 链尾无后续通道
-    degraded.push(`gemini-3.5-flash:${err?.message}`);
-    console.warn(`[translate] gemini -> unavailable: ${err?.message}`);
-  }
-  // 两通道均失败/未配置：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
-  // 附带降级轨迹供调用方诊断（如 deepseek-v4-flash:DEEPSEEK_HTTP_429,gemini-3.5-flash:GEMINI_NOT_CONFIGURED）
-  const chainErr = new Error("TRANSLATION_UNAVAILABLE");
-  (chainErr as any).degradedFrom = degraded;
-  throw chainErr;
 }

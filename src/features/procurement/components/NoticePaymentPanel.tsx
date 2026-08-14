@@ -9,8 +9,9 @@
  *              per-plan pricing and purchase, mock/real payment entry after order.
  */
 
-import { CheckCircle2, CreditCard, ExternalLink, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import type { PaymentConfigStatus } from "@/core/payment";
 import type { MembershipPlan } from "../types";
 import type { OrderInfo } from "@/features/payment";
 
@@ -20,6 +21,8 @@ interface NoticePaymentPanelProps {
   order: OrderInfo | null;
   busyPlanCode: string;
   message: string;
+  /** 支付通道配置状态（来自后端 /api/payment/config-status） */
+  paymentConfig?: PaymentConfigStatus;
   onProviderChange: (provider: "alipay" | "wechat") => void;
   onCreateOrder: (planCode: string) => void;
   onMockPaid: () => void;
@@ -38,6 +41,7 @@ export function NoticePaymentPanel({
   order,
   busyPlanCode,
   message,
+  paymentConfig,
   onProviderChange,
   onCreateOrder,
   onMockPaid,
@@ -101,7 +105,9 @@ export function NoticePaymentPanel({
 
       <div className="grid grid-cols-2 gap-2">
         {(["alipay", "wechat"] as const).map((item) => {
-          const disabled = item === "wechat";
+          // 基于后端配置判断是否禁用，而非硬编码
+          const configured = paymentConfig ? paymentConfig[item] : item === "alipay";
+          const disabled = !configured;
           return (
             <button
               key={item}
@@ -110,6 +116,7 @@ export function NoticePaymentPanel({
               onClick={() => {
                 if (!disabled) onProviderChange(item);
               }}
+              title={disabled ? t("procurement_wechatUnavailableTip") : undefined}
               className={`px-3 py-2 rounded-lg border text-xs font-black ${
                 disabled
                   ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
@@ -123,6 +130,14 @@ export function NoticePaymentPanel({
           );
         })}
       </div>
+
+      {/* 微信支付未配置时的友好提示横幅 */}
+      {paymentConfig && !paymentConfig.wechat && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{t("procurement_wechatUnavailableTip")}</span>
+        </div>
+      )}
 
       <div className="space-y-2.5">
         {plans.map((plan) => (

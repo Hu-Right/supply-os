@@ -1,7 +1,7 @@
 // [収藏/dismiss 功能临时禁用 2026-07-30] Star, X 不再使用
 // [精选功能重新启用 2026-07-31] Crown 随精选徽标一并恢复
 import { memo } from "react";
-import { Crown /* , Star, X */ } from "lucide-react";
+import { Crown, Target /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
@@ -19,6 +19,15 @@ const RECO_REASON_KEYS: Record<string, LocaleKey> = {
   // [热门标签临时禁用 2026-07-30]
   // trending: "procurement_reason_trending",
   similar_unlocked: "procurement_reason_similar_unlocked",
+};
+
+// 行业精准匹配档次徽章（方案 A）：服务端 match_tier → i18n 键白名单映射
+const MATCH_TIER_KEYS: Record<string, LocaleKey> = {
+  exact_code: "procurement_tier_exact_code",
+  same_level: "procurement_tier_same_level",
+  upper_level: "procurement_tier_upper_level",
+  prefix: "procurement_tier_prefix",
+  inferred_category: "procurement_tier_inferred_category",
 };
 
 interface NoticeCardProps {
@@ -74,6 +83,13 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
+            </span>
+          )}
+          {/* 行业精准匹配档次徽章（方案 A）：仅 industry-matched 数据源携带 match_tier */}
+          {item.match_tier && MATCH_TIER_KEYS[item.match_tier] && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-black">
+              <Target className="w-3 h-3" />
+              {t(MATCH_TIER_KEYS[item.match_tier])}
             </span>
           )}
         </div>

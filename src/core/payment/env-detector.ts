@@ -9,6 +9,44 @@
 
 import type { PlatformEnv } from "@/types/payment";
 
+/** 支付提供商配置状态（精简，仅前端 UI 决策所需字段） */
+export interface PaymentConfigStatus {
+  wechat: boolean;
+  alipay: boolean;
+}
+
+let _configCache: PaymentConfigStatus | null = null;
+
+/**
+ * 从后端获取支付通道配置状态（带 60s 内存缓存）
+ * Fetch payment channel config status from backend (60s in-memory cache)
+ */
+export async function fetchPaymentConfigStatus(): Promise<PaymentConfigStatus> {
+  if (_configCache) return _configCache;
+  try {
+    const res = await fetch("/api/payment/config-status");
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    _configCache = {
+      wechat: Boolean(data?.providers?.wechat?.configured),
+      alipay: Boolean(data?.providers?.alipay?.configured),
+    };
+    return _configCache;
+  } catch {
+    // 网络异常时回退：微信不可用、支付宝可用（保守策略）
+    return { wechat: false, alipay: true };
+  }
+}
+
+/**
+ * 同步判断支付提供商是否可用（缓存命中时立即返回，否则返回保守默认值）
+ * Synchronously check if a payment provider is available (uses cache if present)
+ */
+export function isProviderConfigured(provider: "alipay" | "wechat"): boolean {
+  if (!_configCache) return provider === "alipay";
+  return _configCache[provider];
+}
+
 /**
  * 检测当前运行平台环境
  * Detect current platform environment
@@ -121,4 +159,25 @@ export function getPaymentTips(provider: "alipay" | "wechat"): string {
     return "将跳转至微信完成支付";
   }
   return "请使用微信 App 扫描二维码完成支付";
+}
+
+/**
+ * 将技术性支付错误映射为用户友好的中文提示
+ * Map technical payment errors to user-friendly Chinese messages
+ */
+export function mapPaymentError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {
+    return "当前支付方式暂未开通，请选择支付宝或联系管理员";
+  }
+  if (message.includes("PLAN_NOT_FOUND")) {
+    return "未找到对应的套餐方案，请刷新后重试";
+  }
+  if (message.includes("USER_AND_PLAN_REQUIRED")) {
+    return "请先登录后再尝试支付";
+  }
+  if (message.includes("FREE_PLAN_NO_PAYMENT_REQUIRED")) {
+    return "免费套餐无需支付";
+  }
+  return "支付创建失败，请稍后重试或更换支付方式";
 }

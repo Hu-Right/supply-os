@@ -8,7 +8,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { NoticeSearchParams, NoticeStatsResult } from "./types";
 import {
-  noticeCountCache, NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD,
+  clearCountCaches, setCountCache,
   featuredCountCache, FEATURED_COUNT_CACHE_TTL,
   countCacheKey,
 } from "./cache";
@@ -69,10 +69,10 @@ export async function getStatsCount(pool: Pool, key: string): Promise<number | n
 export async function refreshNoticeStats(pool: Pool): Promise<void> {
   try {
     // 修复：刷新前先清除内存缓存，避免旧值在统计表更新后仍被使用
-    // 原问题：搜索请求在 refreshNoticeStats 之前到达时，旧值被 noticeCountCache
-    // 缓存 10 分钟。即使统计表随后被刷新为正确值，缓存中的旧值仍被返回，
+    // 原问题：搜索请求在 refreshNoticeStats 之前到达时，旧值被缓存
+    // 10 分钟。即使统计表随后被刷新为正确值，缓存中的旧值仍被返回，
     // 导致 total 显示为过时数据（如 121,528 而非 68,390）。
-    noticeCountCache.clear();
+    clearCountCaches();
     const t0 = Date.now();
     const [totalRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${DEADLINE_FILTER}`
@@ -118,27 +118,30 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
       deadlineFrom: "", deadlineTo: "", sort: "deadline_farthest",
       deadlineWithinDays: 0, noticeType: "", featuredOnly: false,
     };
-    noticeCountCache.set(
-      countCacheKey({ ...defaultParams }),
-      { total: activeTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
-    );
+    setCountCache(countCacheKey({ ...defaultParams }), false, activeTotal);
     featuredCountCache.total = featuredTotal;
     featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
-    noticeCountCache.set(
-      countCacheKey({ ...defaultParams, featuredOnly: true }),
-      { total: featuredTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
-    );
+    setCountCache(countCacheKey({ ...defaultParams, featuredOnly: true }), false, featuredTotal);
     for (const row of countryRows as any[]) {
-      noticeCountCache.set(
-        countCacheKey({ ...defaultParams, country: row.country }),
-        { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
-      );
+      setCountCache(countCacheKey({ ...defaultParams, country: row.country }), false, Number(row.cnt));
     }
     for (const row of agencyRows as any[]) {
-      noticeCountCache.set(
-        countCacheKey({ ...defaultParams, agency: row.agency }),
-        { total: Number(row.cnt), expires: Date.now() + NOTICE_COUNT_CACHE_TTL }
+      setCountCache(countCacheKey({ ...defaultParams, agency: row.agency }), false, Number(row.cnt));
+    }
+
+    // 清理旧版本 key：删除不带当前版本后缀的残留条目
+    // 旧代码实例（多实例部署未升级节点）写入的 key 无人读取，永久残留
+    try {
+      const [delResult] = await pool.query(
+        `DELETE FROM crm_notice_stats WHERE stat_key NOT LIKE ?`,
+        [`%${STATS_KEY_VER}`]
       );
+      const deleted = (delResult as any).affectedRows || 0;
+      if (deleted > 0) {
+        console.log(`[notice-stats] 清理旧版本 key: ${deleted} 条`);
+      }
+    } catch {
+      // 清理失败不影响主流程
     }
 
     console.log(`[notice-stats] 统计表刷新完成: ${entries.length} 条, ${Date.now() - t0}ms (active=${activeTotal}, featured=${featuredTotal}, 内存缓存已预填充)`);

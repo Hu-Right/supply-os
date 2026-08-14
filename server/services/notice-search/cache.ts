@@ -3,29 +3,58 @@
  * Search result cache management
  *
  * @module server/services/notice-search/cache
- * @description 集中管理搜索/计数/精选三类内存缓存，提供统一的 TTL + LRU 淘汰策略。
+ * @description 集中管理搜索/计数/精选三类内存缓存。
+ *              搜索缓存和计数缓存均使用 LRUCache（O(1) 淘汰 + 自动过期），
+ *              替代旧版 Map + 手动 O(n) 遍历清理。
  */
+import { LRUCache } from "lru-cache";
 import type { NoticeSearchParams, NoticeSearchResult } from "./types";
 
-// ── 搜索结果缓存 ──
-export const noticeSearchCache = new Map<string, { payload: NoticeSearchResult; expires: number }>();
-export const NOTICE_SEARCH_CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+// ── 搜索结果缓存（LRUCache：5 分钟 TTL，最多 500 条）──
+export const NOTICE_SEARCH_CACHE_TTL = 5 * 60 * 1000;
 export const NOTICE_SEARCH_CACHE_MAX = 500;
+export const noticeSearchCache = new LRUCache<string, NoticeSearchResult>({
+  max: NOTICE_SEARCH_CACHE_MAX,
+  ttl: NOTICE_SEARCH_CACHE_TTL,
+});
 
-// ── COUNT 缓存（TTL 分级：含关键词的组合缓存更久，避免 FULLTEXT 慢查询重复执行）──
-export const noticeCountCache = new Map<string, { total: number; expires: number }>();
-export const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000; // 基础 10 分钟
-export const NOTICE_COUNT_CACHE_TTL_KEYWORD = 30 * 60 * 1000; // 含关键词组合 30 分钟（FULLTEXT COUNT 代价高）
+// ── COUNT 缓存（双 TTL：关键词 30min / 非关键词 10min）──
+export const NOTICE_COUNT_CACHE_TTL = 10 * 60 * 1000;
+export const NOTICE_COUNT_CACHE_TTL_KEYWORD = 30 * 60 * 1000;
 export const NOTICE_COUNT_CACHE_MAX = 500;
 
+const _countCacheRegular = new LRUCache<string, number>({
+  max: NOTICE_COUNT_CACHE_MAX,
+  ttl: NOTICE_COUNT_CACHE_TTL,
+});
+const _countCacheKeyword = new LRUCache<string, number>({
+  max: NOTICE_COUNT_CACHE_MAX,
+  ttl: NOTICE_COUNT_CACHE_TTL_KEYWORD,
+});
+
+/** 读取 COUNT 缓存；未命中返回 undefined */
+export function getCountCache(key: string, isKeyword: boolean): number | undefined {
+  return isKeyword ? _countCacheKeyword.get(key) : _countCacheRegular.get(key);
+}
+
+/** 写入 COUNT 缓存（根据是否含关键词选择 TTL） */
+export function setCountCache(key: string, isKeyword: boolean, total: number): void {
+  (isKeyword ? _countCacheKeyword : _countCacheRegular).set(key, total);
+}
+
+/** 清除所有 COUNT 缓存（统计表刷新时调用） */
+export function clearCountCaches(): void {
+  _countCacheRegular.clear();
+  _countCacheKeyword.clear();
+}
+
 // ── 精选计数缓存 ──
-// 修复：TTL 从 30 分钟缩短为 10 分钟，与统计表刷新周期对齐，避免精选总数延迟更新
 export const featuredCountCache = { total: 0, expires: 0 };
-export const FEATURED_COUNT_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
+export const FEATURED_COUNT_CACHE_TTL = 10 * 60 * 1000;
 
 // ── 采购类型映射缓存 ──
 export let _noticeTypeCache: { types: string[]; expires: number } | null = null;
-export const NOTICE_TYPE_CACHE_TTL = 10 * 60 * 1000; // 10 min
+export const NOTICE_TYPE_CACHE_TTL = 10 * 60 * 1000;
 
 export function setNoticeTypeCache(value: { types: string[]; expires: number }): void {
   _noticeTypeCache = value;
@@ -52,7 +81,8 @@ export function countCacheKey(p: NoticeSearchParams): string {
 /** 清除所有搜索/计数/精选/类型缓存（测试辅助） */
 export function clearAllCaches(): void {
   noticeSearchCache.clear();
-  noticeCountCache.clear();
+  _countCacheRegular.clear();
+  _countCacheKeyword.clear();
   featuredCountCache.total = 0;
   featuredCountCache.expires = 0;
   _noticeTypeCache = null;

@@ -26,7 +26,6 @@ export {
   getNoticeStats,
   // 缓存（供内部/测试使用）
   noticeSearchCache,
-  noticeCountCache,
   featuredCountCache,
   searchCacheKey,
   countCacheKey,

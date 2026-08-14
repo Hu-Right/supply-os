@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { fetchPaymentConfigStatus, mapPaymentError, type PaymentConfigStatus } from "@/core/payment";
 import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/features/payment";
 import type { NoticeItem } from "../types";
 
@@ -36,6 +37,8 @@ export type UseNoticePaymentReturn = {
   paymentProvider: PanelProvider;
   busyPlanCode: string;
   paymentMessage: string;
+  /** 支付通道配置状态（微信/支付宝是否已开通） */
+  paymentConfig: PaymentConfigStatus | null;
   setPaymentProvider: (provider: PanelProvider) => void;
   openPaywall: (notice: NoticeItem) => void;
   closePaywall: () => void;
@@ -56,6 +59,7 @@ export function useNoticePayment({
   const [paymentProvider, setPaymentProvider] = useState<PanelProvider>("alipay");
   const [busyPlanCode, setBusyPlanCode] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfigStatus | null>(null);
   // 当前详情页公告 ID：非 VIP 侧边栏常驻面板场景，paywallNotice 为 null 时的回退来源
   const [currentNoticeId, setCurrentNoticeId] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -69,6 +73,11 @@ export function useNoticePayment({
 
   // 组件卸载时清理轮询
   useEffect(() => stopPolling, [stopPolling]);
+
+  // 启动时获取支付通道配置状态（微信/支付宝是否已开通）
+  useEffect(() => {
+    void fetchPaymentConfigStatus().then(setPaymentConfig);
+  }, []);
 
   const openPaywall = useCallback((notice: NoticeItem) => {
     setPaywallNotice(notice);
@@ -126,6 +135,12 @@ export function useNoticePayment({
       setPaymentMessage("");
 
       try {
+        // 前端拦截：若所选支付方式未配置，提前阻止并给出友好提示
+        if (paymentConfig && !paymentConfig[paymentProvider]) {
+          setPaymentMessage(t("procurement_wechatUnavailableTip"));
+          return;
+        }
+
         const order: OrderInfo = await createOrder({
           userKey,
           planCode,
@@ -143,12 +158,14 @@ export function useNoticePayment({
         }
         startPolling(order.order_no, planCode, effectiveNoticeId || undefined);
       } catch (err) {
-        setPaymentMessage((err as Error)?.message || t("procurement_orderFail"));
+        // 将技术性错误（如 "Unsupported payment provider: wechat"）映射为友好提示
+        console.warn("[useNoticePayment] create order failed:", err);
+        setPaymentMessage(mapPaymentError(err));
       } finally {
         setBusyPlanCode("");
       }
     },
-    [busyPlanCode, userKey, paywallNotice, currentNoticeId, paymentProvider, startPolling, onRequireLogin, t],
+    [busyPlanCode, userKey, paywallNotice, currentNoticeId, paymentProvider, paymentConfig, startPolling, onRequireLogin, t],
   );
 
   const markPaid = useCallback(async () => {
@@ -174,6 +191,7 @@ export function useNoticePayment({
     paymentProvider,
     busyPlanCode,
     paymentMessage,
+    paymentConfig,
     setPaymentProvider,
     openPaywall,
     closePaywall,

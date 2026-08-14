@@ -7,6 +7,7 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
+import { invalidateIndustryMatchCache } from "../services/industry-match";
 
 export function createUserPrefsRouter(ctx: AppContext): Router {
   const router = Router();
@@ -28,9 +29,11 @@ export function createUserPrefsRouter(ctx: AppContext): Router {
       });
       if (!levels[0]) {
         await userPrefsRepo.deleteIndustryPrefs(userKey);
+        invalidateIndustryMatchCache(userKey); // 行业已清除：失效匹配缓存
         return res.json({ success: true, cleared: true });
       }
       await userPrefsRepo.upsertIndustryPrefs(userKey, levels);
+      invalidateIndustryMatchCache(userKey); // 行业已变更：失效匹配缓存，下次立即按新行业匹配
       res.status(201).json({ success: true });
   }));
 

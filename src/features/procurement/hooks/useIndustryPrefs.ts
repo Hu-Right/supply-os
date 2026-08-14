@@ -63,8 +63,12 @@ export interface UseIndustryPrefsReturn {
   setPrefsMode: Dispatch<SetStateAction<PrefsMode>>;
   prefsBannerName: string;
   deepestCodeId: string;
+  /** 账号是否已设置默认行业偏好（决定"恢复行业匹配"按钮显示） */
+  hasIndustryPrefs: boolean;
   exitAutoMode: () => void;
   handleLevelChange: (levelIndex: number, value: string) => Promise<void>;
+  /** 清除手动搜索条件并切回行业精准匹配模式（无偏好时回退 default） */
+  restorePrefsMode: () => Promise<void>;
 }
 
 export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryPrefsReturn {
@@ -76,16 +80,66 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
   // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
   const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userKey ? "loading" : "default"));
+  // 账号是否已设置默认行业偏好（"恢复行业匹配"按钮显示条件；探测后确认）
+  const [hasIndustryPrefs, setHasIndustryPrefs] = useState(false);
   // 记录已探测过的账号：布尔锁会漏掉"登出→换号"场景，按 userKey 判重才能给新账号重新探测
   const prefsInitKeyRef = useRef<string | null>(null);
   // 偏好变更事件的重探测信号量：prefsMode 可能已是 loading（setState 同值不触发 effect），
   // 递增 tick 才能保证探测 effect 必定重跑，不会卡死在 loading
   const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
 
+  /**
+   * 按偏好路径预选级联并切 prefs 模式（探测与"恢复行业匹配"共用）。
+   * 偏好加载时包含 L1+L2+L3（UI 可见层级），与手动选择的深度对齐。
+   * L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，忽略（path[3]/path[4] = null）。
+   */
+  const applyPrefsPath = async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
+    const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
+      .map((id) => (id ? String(id) : ""));
+    // P0 性能优化：偏好级联并行化——4 级子类目请求同时发出，不再串行等待
+    // 回滚：将 Promise.all 改回 for 循环内逐个 await fetchUnspscChildren(...)
+    const childRequests: Promise<UnspscOption[]>[] = [];
+    for (let i = 0; i < 4 && path[i]; i += 1) {
+      childRequests.push(fetchUnspscChildren(path[i], locale).catch(() => []));
+    }
+    const childResults = await Promise.all(childRequests);
+    const nextChildren: UnspscOption[][] = [[], [], [], []];
+    for (let i = 0; i < childResults.length; i += 1) {
+      nextChildren[i] = Array.isArray(childResults[i]) ? childResults[i] : [];
+    }
+    setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
+    setSelectedIds(path);
+    setPrefsMode("prefs");
+  };
+
+  /**
+   * 恢复行业匹配：清除手动搜索条件后切回行业精准匹配模式。
+   * 乐观切换 prefs（立即回到行业匹配数据源），随后拉取偏好填充级联；
+   * 无偏好/请求失败时回退 default（按钮仅在 hasIndustryPrefs 时显示，属防御分支）。
+   */
+  const restorePrefsMode = async () => {
+    if (!userKey) return;
+    setPage(1);
+    setPrefsMode("prefs");
+    try {
+      const prefs = await fetchIndustryPrefs(userKey);
+      if (prefs?.level1_id) {
+        setHasIndustryPrefs(true);
+        await applyPrefsPath(prefs);
+      } else {
+        setHasIndustryPrefs(false);
+        setPrefsMode("default");
+      }
+    } catch {
+      setPrefsMode("default");
+    }
+  };
+
   useEffect(() => {
     if (!userKey) {
       // 登出：清掉上一账号的自动筛选残留（预选 + 提示条），回未登录全量现状
       prefsInitKeyRef.current = null;
+      setHasIndustryPrefs(false);
       if (prefsMode !== "default") {
         setPrefsMode("default");
         setSelectedIds(["", "", "", "", ""]);
@@ -112,32 +166,14 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         const prefs = await fetchIndustryPrefs(userKey);
         if (stale()) return;
         if (prefs?.level1_id) {
-          // S0 有账号偏好：预选级联路径，走现有 code_id 确定性筛选链路
-          // 修复（统一）：偏好加载时包含 L1+L2+L3（UI 可见层级），与手动选择
-          // 的深度对齐。原逻辑截断到 L2，导致用户在偏好表单选的 L3 被忽略，
-          // 与 deepestCodeId 计算逻辑（考虑 L1-L3）不一致。
-          // 修复后：path 包含 L3，deepestCodeId = L3_id（如果有）或 L2_id。
-          // L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，
-          // 用于搜索筛选会导致结果过于精确，因此忽略（path[3]/path[4] = null）。
-          const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
-            .map((id) => (id ? String(id) : ""));
-          // P0 性能优化：偏好级联并行化——4 级子类目请求同时发出，不再串行等待
-          // 回滚：将 Promise.all 改回 for 循环内逐个 await fetchUnspscChildren(...)
-          const childRequests: Promise<UnspscOption[]>[] = [];
-          for (let i = 0; i < 4 && path[i]; i += 1) {
-            childRequests.push(fetchUnspscChildren(path[i], locale).catch(() => []));
-          }
-          const childResults = await Promise.all(childRequests);
-          if (stale()) return;
-          const nextChildren: UnspscOption[][] = [[], [], [], []];
-          for (let i = 0; i < childResults.length; i += 1) {
-            nextChildren[i] = Array.isArray(childResults[i]) ? childResults[i] : [];
-          }
-          setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
-          setSelectedIds(path);
-          setPrefsMode("prefs");
+          // S0 有账号偏好：预选级联路径，切行业精准匹配数据源（方案 A）
+          // applyPrefsPath 包含 L1+L2+L3（UI 可见层级），与手动选择的深度对齐。
+          // L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，因此忽略。
+          setHasIndustryPrefs(true);
+          await applyPrefsPath(prefs);
           return;
         }
+        setHasIndustryPrefs(false);
         // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
         try {
           const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
@@ -329,7 +365,9 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     setPrefsMode,
     prefsBannerName,
     deepestCodeId,
+    hasIndustryPrefs,
     exitAutoMode,
     handleLevelChange,
+    restorePrefsMode,
   };
 }

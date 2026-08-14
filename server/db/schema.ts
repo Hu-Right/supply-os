@@ -31,6 +31,10 @@
  *              021-verification-code-hash-column 验证码哈希列扩容
  *              022-verification-code-composite-index 验证码表复合索引
  *              023-footer-social-links 底部社交媒体链接表
+ *              024-bridge-int-and-index-cleanup 桥接表类型统一+冗余索引清理
+ *              025-wide-table-reference-index 宽表reference列索引
+ *              026-wide-table-cleanup         宽表清理:删除FULLTEXT索引+is_active死列+重建索引
+ *              027-bridge-column-cleanup      桥接表冗余列清理:删除name列
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -57,12 +61,15 @@ import { migration as m020 } from "./migrations/020-unlock-unique-notice";
 import { migration as m021 } from "./migrations/021-verification-code-hash-column";
 import { migration as m022 } from "./migrations/022-verification-code-composite-index";
 import { migration as m023 } from "./migrations/023-footer-social-links";
+import { migration as m024 } from "./migrations/024-bridge-int-and-index-cleanup";
+import { migration as m025 } from "./migrations/025-wide-table-reference-index";
+import { migration as m026 } from "./migrations/026-wide-table-cleanup";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
-  m012, m013, m014, m015, m016, m017, m018, m019, m020, m021, m022, m023,
+  m012, m013, m014, m015, m016, m017, m018, m019, m020, m021, m022, m023, m024, m025, m026,
 ];
 
 /**

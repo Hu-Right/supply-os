@@ -104,8 +104,10 @@ export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]>
   }
 };
 
+// 翻译 API 不使用 apiCached：后端已有数据库缓存（crm_notice_translations），
+// 前端二次缓存会导致原文响应被缓存 5 分钟，即使后端翻译完成仍返回原文。
 export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
-  apiCached<NoticeTranslation>(
+  api<NoticeTranslation>(
     `/api/notices/${noticeId}/translation?lang=${encodeURIComponent(lang)}`
   );
 
@@ -122,4 +124,20 @@ export const fetchRecommendedNotices = (params: {
     locale: params.locale,
   });
   return apiCached<NoticeResponse>(`/api/notices/recommended?${qs}`, 60 * 1000, signal);
+};
+
+/** 行业精准匹配列表（五级行业分层匹配，items 附带 match_score/match_tier） */
+export const fetchIndustryMatchedNotices = (params: {
+  userKey: string;
+  page: number;
+  pageSize: number;
+  locale?: string;
+}, signal?: AbortSignal): Promise<NoticeResponse> => {
+  const qs = buildQuery({
+    user_key: params.userKey,
+    page: params.page,
+    page_size: params.pageSize,
+    locale: params.locale,
+  });
+  return apiCached<NoticeResponse>(`/api/notices/industry-matched?${qs}`, 60 * 1000, signal);
 };

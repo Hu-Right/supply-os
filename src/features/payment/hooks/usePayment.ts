@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { getAvailableProviders } from "@/core/payment";
+import { getAvailableProviders, mapPaymentError } from "@/core/payment";
 import { useLocale } from "@/core/i18n";
 import { createOrder, getOrderStatus, type OrderInfo } from "../api";
 
@@ -140,9 +140,10 @@ export function usePayment({
         if (!payWindow) window.location.href = order.pay_url;
         startPolling(order.order_no);
       }
-    } catch (err: any) {
-      console.error("[usePayment] create order failed:", err);
-      setError(err.message || t("paymentCreateError"));
+    } catch (err: unknown) {
+      // 将技术性错误（如 "Unsupported payment provider: wechat"）映射为友好提示，不暴露原始日志
+      console.warn("[usePayment] create order failed:", err);
+      setError(mapPaymentError(err));
     } finally {
       setIsCreating(false);
     }

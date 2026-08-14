@@ -23,8 +23,9 @@ export {
 export { refreshNoticeCountries, getNoticeCountries, expandCountryAliases, expandCountryAllForms } from "./countries";
 export { refreshNoticeAgencies, getNoticeAgencies, getAgencyCacheData } from "./agencies";
 export {
-  noticeSearchCache, noticeCountCache, featuredCountCache,
+  noticeSearchCache, featuredCountCache,
   searchCacheKey, countCacheKey,
+  getCountCache, setCountCache,
   NOTICE_SEARCH_CACHE_TTL, NOTICE_SEARCH_CACHE_MAX,
   NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD, NOTICE_COUNT_CACHE_MAX,
   FEATURED_COUNT_CACHE_TTL,
@@ -32,10 +33,11 @@ export {
 
 // ── 内部引用 ──
 import {
-  noticeSearchCache, noticeCountCache, featuredCountCache,
+  noticeSearchCache, featuredCountCache,
   searchCacheKey, countCacheKey,
-  NOTICE_SEARCH_CACHE_TTL, NOTICE_SEARCH_CACHE_MAX,
-  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD, NOTICE_COUNT_CACHE_MAX,
+  getCountCache, setCountCache,
+  NOTICE_SEARCH_CACHE_TTL,
+  NOTICE_COUNT_CACHE_TTL, NOTICE_COUNT_CACHE_TTL_KEYWORD,
   FEATURED_COUNT_CACHE_TTL,
   _noticeTypeCache, setNoticeTypeCache, NOTICE_TYPE_CACHE_TTL,
 } from "./cache";
@@ -84,7 +86,7 @@ export async function searchNotices(
 
   const cacheKey = searchCacheKey(p);
   const cached = noticeSearchCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.payload;
+  if (cached) return cached;
 
   // ── 搜索状态变量（提前声明，供快速路径和主搜索路径共用）──
   let meiliHit = false;
@@ -96,11 +98,12 @@ export async function searchNotices(
   let meiliForceCountryUsed = "";  // P0 修复：记录是否使用了国家级强制聚合
 
   // ── 参考号精确匹配快速路径 ──
-  // 当搜索词非空且无其他复杂筛选条件时，先尝试宽表 reference 列精确匹配。
+  // 当搜索词非空时，先尝试宽表 reference 列精确匹配。
   // 走 B-tree 索引（< 1ms），命中则直接返回，跳过 Meilisearch/FULLTEXT，
   // 消除双路径分词差异和同步延迟导致的搜索结果不一致。
+  // 参考号唯一标识一条公告，即使用户选了其他筛选条件，命中结果仍是用户目标。
   let referenceHit = false;
-  if (q && !p.codeId && !p.noticeType && !p.featuredOnly && !p.deadlineFrom && !p.deadlineTo && !p.deadlineWithinDays) {
+  if (q) {
     const trimmedQ = q.trim();
     try {
       const wideReady = await isWideTableReady(pool);
@@ -143,7 +146,7 @@ export async function searchNotices(
         const emptyResult: NoticeSearchResult = {
           items: [], total: 0, page, pageSize,
         };
-        noticeSearchCache.set(cacheKey, { payload: emptyResult, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+        noticeSearchCache.set(cacheKey, emptyResult);
         return emptyResult;
       }
     }
@@ -195,7 +198,7 @@ export async function searchNotices(
           const emptyResult: NoticeSearchResult = {
             items: [], total: 0, page, pageSize,
           };
-          noticeSearchCache.set(cacheKey, { payload: emptyResult, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+          noticeSearchCache.set(cacheKey, emptyResult);
           return emptyResult;
         }
         meiliForceCountryUsed = meiliForceCountry;
@@ -425,8 +428,9 @@ export async function searchNotices(
 
   // ── COUNT 查询（优先级链：精选缓存 → 统计表 → COUNT缓存 → COUNT查询）──
   const cKey = countCacheKey(p);
-  const cachedCount = noticeCountCache.get(cKey);
-  const useCachedCount = cachedCount && cachedCount.expires > Date.now();
+  const isKeyword = !!q;
+  const cachedCount = getCountCache(cKey, isKeyword);
+  const useCachedCount = cachedCount !== undefined;
   const hasOtherFilters = !!(p.q || p.country || p.agency || p.codeId
     || p.deadlineFrom || p.deadlineTo || p.deadlineWithinDays || p.noticeType);
   const useFeaturedCache = featuredOnly && !hasOtherFilters && featuredCountCache.expires > Date.now();
@@ -442,18 +446,18 @@ export async function searchNotices(
           featuredCountCache.total = statsTotal;
           featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
         } else {
-          noticeCountCache.set(cKey, { total: statsTotal, expires: Date.now() + NOTICE_COUNT_CACHE_TTL });
+          setCountCache(cKey, isKeyword, statsTotal);
         }
         console.log(`[notice-stats] 统计表命中: key=${statsKey} total=${statsTotal}`);
         return [[{ total: statsTotal }]];
       }
       if (useCachedCount) {
-        return [[{ total: cachedCount!.total }]];
+        return [[{ total: cachedCount }]];
       }
       return runCountQuery();
     });
   } else if (useCachedCount) {
-    countPromise = Promise.resolve([[{ total: cachedCount.total }]]);
+    countPromise = Promise.resolve([[{ total: cachedCount }]]);
   } else {
     countPromise = runCountQuery();
   }
@@ -468,15 +472,13 @@ export async function searchNotices(
       countQuery = `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n ${countJoin} WHERE ${whereSql}`;
       countParams = [...idFilterParams, ...params];
     }
-    // PERF: 含关键词的 COUNT 结果缓存更久（30min），避免 FULLTEXT 慢查询重复执行
-    const countCacheTtl = q ? NOTICE_COUNT_CACHE_TTL_KEYWORD : NOTICE_COUNT_CACHE_TTL;
     return pool.query(countQuery, countParams).then((result: any) => {
       const t = Number((result[0] as any[])[0]?.total || 0);
       if (featuredOnly) {
         featuredCountCache.total = t;
         featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
       } else {
-        noticeCountCache.set(cKey, { total: t, expires: Date.now() + countCacheTtl });
+        setCountCache(cKey, isKeyword, t);
       }
       return result;
     });
@@ -485,10 +487,6 @@ export async function searchNotices(
   // ── 性能监控 ──
   const t0 = Date.now();
   let t1 = t0;
-
-  // 移除 MySQL COUNT 校准（太慢，17-20秒）
-  // 直接使用 Meilisearch 返回的 total，或者使用统计表
-  let meiliCalibratePromise: Promise<number | null> | null = null;
 
   if (!meiliHit && !referenceHit) {
     // P2 修复：MySQL 降级路径增加超时保护（15 秒），避免极端慢查询无限阻塞
@@ -660,18 +658,9 @@ export async function searchNotices(
     console.log(`[search-perf] COUNT 短路: page=${page} items=${pageIds.length} < pageSize=${pageSize} → total=${total} (0ms)`);
   }
 
-  // PERF 优化：COUNT 缓存 TTL 分级——含关键词的组合缓存更久（30min），
-  // 因为 FULLTEXT UNION COUNT 查询代价高（冷启动可达 4s+）。
-  const countCacheTtl = q ? NOTICE_COUNT_CACHE_TTL_KEYWORD : NOTICE_COUNT_CACHE_TTL;
-
-  // 首页写入 COUNT 缓存
+  // 首页写入 COUNT 缓存（LRUCache 自动管理 TTL 和淘汰）
   if (page === 1 && total > 0) {
-    if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) {
-      const now = Date.now();
-      for (const [key, entry] of noticeCountCache) { if (entry.expires <= now) noticeCountCache.delete(key); }
-      if (noticeCountCache.size >= NOTICE_COUNT_CACHE_MAX) noticeCountCache.clear();
-    }
-    noticeCountCache.set(cKey, { total, expires: Date.now() + countCacheTtl });
+    setCountCache(cKey, isKeyword, total);
   }
 
   const breakdownCounts = new Map<number, number>();
@@ -723,22 +712,9 @@ export async function searchNotices(
     }
   }
 
-  // 构建缓存和响应 payload
-  // 修复：保留翻译字段（title_i18n/description_i18n），避免缓存命中时丢失译文
+  // 构建响应 payload（构建一次，缓存和返回值共用）
+  // 保留翻译字段（title_i18n/description_i18n），避免缓存命中时丢失译文
   // 缓存 key 已包含 locale，不同语言的缓存完全隔离，不存在跨语言污染风险
-  const cachePayload: NoticeSearchResult = {
-    items: rawRows.map((row) => {
-      const i18n = agencyI18nMap.get(row.agency);
-      return {
-        ...row,
-        agency_i18n: i18n?.[locale] || undefined,
-        organization: null, source_url: null, unspsc_codes: [], core_locked: true,
-        is_featured: featuredIds.has(Number(row.id)),
-        breakdown_file_count: breakdownCounts.has(Number(row.id)) ? breakdownCounts.get(Number(row.id)) : undefined,
-      };
-    }),
-    total, page, pageSize,
-  };
   const payload: NoticeSearchResult = {
     items: rawRows.map((row) => {
       const i18n = agencyI18nMap.get(row.agency);
@@ -758,12 +734,8 @@ export async function searchNotices(
     ` sort=${sort}` +
     ` | COUNT=${countMs}ms | IDs=${idMs}ms | Phase1=${t1 - t0}ms | Phase2=${t2 - t1}ms | Phase3=${t3 - t2}ms | TOTAL=${t3 - t0}ms`);
 
-  if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) {
-    const now = Date.now();
-    for (const [key, entry] of noticeSearchCache) { if (entry.expires <= now) noticeSearchCache.delete(key); }
-    if (noticeSearchCache.size >= NOTICE_SEARCH_CACHE_MAX) noticeSearchCache.clear();
-  }
-  noticeSearchCache.set(cacheKey, { payload: cachePayload, expires: Date.now() + NOTICE_SEARCH_CACHE_TTL });
+  // LRUCache 自动管理 TTL 和淘汰，无需手动遍历清理
+  noticeSearchCache.set(cacheKey, payload);
 
   return payload;
 }

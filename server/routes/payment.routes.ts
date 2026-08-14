@@ -64,7 +64,12 @@ export function createPaymentRouter(ctx: AppContext): Router {
         payment_mode: paymentMode === "live" ? "configured" : "mock",
       });
     } catch (err: any) {
-      throw new HttpError(400, err.message);
+      // 屏蔽技术性错误信息（如 "Unsupported payment provider: wechat"），返回用户友好提示
+      const raw = String(err.message || "");
+      const friendly = raw.includes("Unsupported payment provider")
+        ? "PAYMENT_PROVIDER_UNAVAILABLE"
+        : raw;
+      throw new HttpError(400, friendly);
     }
   }));
 

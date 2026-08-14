@@ -4,25 +4,75 @@
  */
 
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { type UnspscCodeRow, normalizeUnspscCodes, getUnspscPath } from "./unspsc";
+import { type UnspscCodeRow, normalizeUnspscCodes, getUnspscPath, loadUnspscCache, getPathFromCache, getCodeIdFromCache, getUnspscLevelFromCache } from "./unspsc";
 
-export async function syncUnspscBridge(dbPool: any, source: "opportunity" | "notice") {
-  const sourceTable = source === "opportunity" ? "crm_bid_opportunities" : "crm_bid_notices";
-  const bridgeTable = source === "opportunity" ? "crm_bid_opportunity_unspsc_codes" : "crm_bid_notice_unspsc_codes";
-  const fk = source === "opportunity" ? "opportunity_id" : "notice_id";
-  // 口径说明：桥接表 notice_id 关联的是主表 notice_id（外部编号），非 id（自增主键）。
-  // 因此源查询需同时取 notice_id，写入桥接表时用 row.notice_id。
-  const [rows] = await dbPool.query(
-    `SELECT id, notice_id, unspsc_codes FROM ${sourceTable} WHERE unspsc_codes IS NOT NULL ORDER BY id DESC LIMIT 500`
-  );
+// ── 桥接表批量写入类型（消除 N+1 查询）──
+interface BridgeRowToInsert {
+  fkValue: string;
+  codeId: number;
+  code: string;
+  level: number;
+  level1_id: number | null;
+  level2_id: number | null;
+  level3_id: number | null;
+  level4_id: number | null;
+  level5_id: number | null;
+}
 
-  for (const row of rows as RowDataPacket[]) {
-    await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
+/** 从内存缓存准备单条源记录的桥接行（0 次 SQL） */
+function prepareBridgeRowsFromCache(row: RowDataPacket, fk: string): BridgeRowToInsert[] {
+  const codes = normalizeUnspscCodes(row.unspsc_codes);
+  const result: BridgeRowToInsert[] = [];
+  for (const item of codes) {
+    const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
+    if (!rawCode) continue;
+    const codeId = getCodeIdFromCache(rawCode);
+    if (codeId === undefined) continue;
+    const level = getUnspscLevelFromCache(codeId);
+    if (level === undefined) continue;
+    const path = getPathFromCache(codeId);
+    result.push({
+      fkValue: String(row.notice_id ?? row.id),
+      codeId, code: rawCode, level,
+      ...path,
+    });
   }
+  return result;
+}
+
+/** 批量 upsert 桥接表（单条 SQL 替代 N 次逐行 INSERT） */
+async function batchUpsertBridgeRows(
+  dbPool: any, bridgeTable: string, fk: string, rows: BridgeRowToInsert[],
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  const BATCH = 500;
+  let total = 0;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+    const placeholders = batch.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(",");
+    const params: any[] = [];
+    for (const row of batch) {
+      params.push(row.fkValue, row.codeId, row.code, row.level,
+        row.level1_id, row.level2_id, row.level3_id, row.level4_id, row.level5_id);
+    }
+    await dbPool.query(
+      `INSERT INTO ${bridgeTable}
+        (${fk}, code_id, code, level, level1_id, level2_id, level3_id, level4_id, level5_id)
+       VALUES ${placeholders}
+       ON DUPLICATE KEY UPDATE
+         code_id = VALUES(code_id), code = VALUES(code), level = VALUES(level),
+         level1_id = VALUES(level1_id), level2_id = VALUES(level2_id),
+         level3_id = VALUES(level3_id), level4_id = VALUES(level4_id), level5_id = VALUES(level5_id)`,
+      params,
+    );
+    total += batch.length;
+  }
+  return total;
 }
 
 /**
- * 单行写入 bridge 表的公共逻辑，供快速同步和全量回填复用
+ * 单行写入 bridge 表（降级路径：缓存不可用时逐行查询）
+ * 每码需 7 次 SQL（1 次码查找 + 6 次路径回溯 + 1 次写入），已被批量路径替代
  */
 async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string, row: RowDataPacket) {
   const codes = normalizeUnspscCodes(row.unspsc_codes);
@@ -34,14 +84,8 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
       [rawCode]
     );
     const codeRow = (codeRows as UnspscCodeRow[])[0];
-    // 勘误（线 B）：桥接表 level1_id~level5_id 存的是 crm_unspsc_codes.id（varchar），
-    // 不是码串前缀。此前用 rawCode.slice(0,N) 写码前缀，与读侧 buildNoticeUnspscFilter
-    // 的 id 等值口径不一致，是脏数据的产生源。改为复用 getUnspscPath 沿 parent_id
-    // 回溯填祖先类目 id，并用类目自身 level（不再靠 ceil(len/2) 猜）。
-    if (!codeRow) continue; // 类目树查不到该码：跳过，不再制造 code_id=null 的脏行
+    if (!codeRow) continue;
     const path = await getUnspscPath(dbPool, codeRow.id);
-
-    // 修复：使用 ON DUPLICATE KEY UPDATE 替代 INSERT IGNORE，确保数据源修正后桥接表同步更新
     await dbPool.execute(
       `INSERT INTO ${bridgeTable}
         (${fk}, code_id, code, level, level1_id, level2_id, level3_id, level4_id, level5_id)
@@ -52,14 +96,8 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
          level3_id = VALUES(level3_id), level4_id = VALUES(level4_id), level5_id = VALUES(level5_id)`,
       [
         row.notice_id ?? row.id,
-        codeRow.id,
-        rawCode,
-        codeRow.level,
-        path.level1_id,
-        path.level2_id,
-        path.level3_id,
-        path.level4_id,
-        path.level5_id,
+        codeRow.id, rawCode, codeRow.level,
+        path.level1_id, path.level2_id, path.level3_id, path.level4_id, path.level5_id,
       ]
     );
   }
@@ -68,17 +106,27 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
 /**
  * 全量回填 bridge 表：跳过已有记录，分批处理所有数据，避免内存溢出
  * 专为后台异步调用设计，不阻塞服务启动
+ *
+ * 性能优化：启动时加载 UNSPSC 类目树到内存缓存，消除逐行 N+1 查询。
+ * 缓存加载失败时自动降级到逐行查询模式（getUnspscPath + syncUnspscBridgeRow）。
  */
 export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | "notice"): Promise<{ processed: number; skipped: number }> {
   const sourceTable = source === "opportunity" ? "crm_bid_opportunities" : "crm_bid_notices";
   const bridgeTable = source === "opportunity" ? "crm_bid_opportunity_unspsc_codes" : "crm_bid_notice_unspsc_codes";
   const fk = source === "opportunity" ? "opportunity_id" : "notice_id";
   const BATCH = 200;
-  let offset = 0;
   let processed = 0;
   let skipped = 0;
 
   console.log(`[BridgeSync] 开始全量回填 ${source} bridge 表...`);
+
+  // 加载 UNSPSC 类目树到内存（消除 N+1：每码 7 次 SQL → 0 次 SQL）
+  const cacheLoaded = await loadUnspscCache(dbPool);
+  if (cacheLoaded) {
+    console.log(`[BridgeSync] ${source}: 使用内存缓存模式（批量写入）`);
+  } else {
+    console.log(`[BridgeSync] ${source}: 缓存不可用，降级到逐行查询模式`);
+  }
 
   while (true) {
     // 只取尚未写入 bridge 表的记录，减少重复处理
@@ -93,25 +141,47 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
 
     if ((rows as RowDataPacket[]).length === 0) break;
 
-    for (const row of rows as RowDataPacket[]) {
-      try {
-        await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
-        processed++;
-      } catch (err: any) {
-        // 单条失败不中断批次，记录跳过
-        skipped++;
-        console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${err.message}`);
+    if (cacheLoaded) {
+      // ── 快速路径：缓存 + 批量写入 ──
+      const allBridgeRows: BridgeRowToInsert[] = [];
+      for (const row of rows as RowDataPacket[]) {
+        try {
+          const bridgeRows = prepareBridgeRowsFromCache(row, fk);
+          allBridgeRows.push(...bridgeRows);
+          processed++;
+        } catch (err: any) {
+          skipped++;
+          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${err.message}`);
+        }
+      }
+      if (allBridgeRows.length > 0) {
+        try {
+          await batchUpsertBridgeRows(dbPool, bridgeTable, fk, allBridgeRows);
+        } catch (err: any) {
+          console.warn(`[BridgeSync] 批量写入失败，跳过本批 ${allBridgeRows.length} 行: ${err.message}`);
+        }
+      }
+    } else {
+      // ── 降级路径：逐行查询（缓存不可用时） ──
+      for (const row of rows as RowDataPacket[]) {
+        try {
+          await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
+          processed++;
+        } catch (err: any) {
+          skipped++;
+          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${err.message}`);
+        }
       }
     }
 
-    offset += (rows as RowDataPacket[]).length;
     console.log(`[BridgeSync] ${source} 进度: 已处理 ${processed} 条，跳过 ${skipped} 条`);
 
     // 每批次短暂让出事件循环，避免长时间占用连接池
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
-  console.log(`[BridgeSync] ${source} 全量回填完成: 共处理 ${processed} 条，跳过 ${skipped} 条`);
+  console.log(`[BridgeSync] ${source} 全量回填完成: 共处理 ${processed} 条，跳过 ${skipped} 条` +
+    (cacheLoaded ? "（缓存模式）" : "（逐行模式）"));
   return { processed, skipped };
 }
 
