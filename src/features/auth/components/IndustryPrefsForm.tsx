@@ -40,15 +40,17 @@ export function IndustryPrefsForm() {
     handlePrefLevel2Change,
     autoFillFromInference,
     searchAndAutoFillL3,
+    resetCascade,
   } = useUnspscPrefCascade();
 
-  // 主营业务智能推断状态（从 localStorage 恢复上次输入的关键词）
+  // 主营业务智能推断状态（按用户隔离 localStorage key）
+  const mbKey = authUser?.user_key ? `supply-os:main-business:${authUser.user_key}` : "";
   const [mainBusiness, setMainBusinessRaw] = useState(
-    () => localStorage.getItem("supply-os:main-business") || "",
+    () => (mbKey ? localStorage.getItem(mbKey) || "" : ""),
   );
   const setMainBusiness = (v: string) => {
     setMainBusinessRaw(v);
-    localStorage.setItem("supply-os:main-business", v);
+    if (mbKey) localStorage.setItem(mbKey, v);
   };
   const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
@@ -59,15 +61,30 @@ export function IndustryPrefsForm() {
   const [prefMessage, setPrefMessage] = useState("");
   const [prefMessageIsError, setPrefMessageIsError] = useState(false);
 
-  // 已登录时回填已保存的偏好（fetchIndustryPrefs 异常时内部返回 null，不会抛出）
+  // 切换账号时：先重置全部状态，再回填新用户偏好
   useEffect(() => {
-    if (!authUser?.user_key) return;
-    fetchIndustryPrefs(authUser.user_key).then((prefs) => {
+    // 重置级联选择器、推断状态、主营业务关键词
+    resetCascade();
+    setMainBusinessRaw("");
+    setInferResult(null);
+    setInferSearched(false);
+    keywordRef.current = "";
+    setPrefMessage("");
+
+    const userKey = authUser?.user_key;
+    if (!userKey) return;
+
+    // 回填当前用户的 localStorage 关键词
+    const savedMb = localStorage.getItem(`supply-os:main-business:${userKey}`);
+    if (savedMb) setMainBusinessRaw(savedMb);
+
+    // 从后端加载已保存的行业偏好
+    fetchIndustryPrefs(userKey).then((prefs) => {
       setPrefLevel1(prefs?.level1_id ? String(prefs.level1_id) : "");
       setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
       setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
     });
-  }, [authUser?.user_key]);
+  }, [authUser?.user_key, resetCascade]);
 
   // 防抖推断（300ms）：用户输入主营业务关键词后自动匹配 UNSPSC 类目路径
   useEffect(() => {
@@ -158,7 +175,7 @@ export function IndustryPrefsForm() {
       setPrefLevel2("");
       setPrefLevel3("");
       setMainBusiness("");
-      localStorage.removeItem("supply-os:main-business");
+      if (mbKey) localStorage.removeItem(mbKey);
       setInferResult(null);
       setInferSearched(false);
       setPrefMessageIsError(false);
@@ -175,30 +192,25 @@ export function IndustryPrefsForm() {
   return (
     /* 我的默认行业 — 公采页进入时按此偏好默认筛选（本地差异 #5 配套 UI） */
     <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
-      <h4 className="text-sm font-extrabold text-slate-900">
-        {t("authIndustryPrefLabel")}
-      </h4>
-      {/* 进入即说明必选规则，避免用户点保存时才发现按钮不可用 */}
-      <p className="mt-1 text-xs text-slate-400">
-        {t("authIndustryPrefRequiredHint")}
-      </p>
-      {/* 主营业务智能推断 */}
+      <div className="flex items-baseline justify-between">
+        <h4 className="text-sm font-extrabold text-slate-900">
+          {t("authIndustryPrefLabel")}
+        </h4>
+        <p className="text-[11px] text-slate-400">
+          {t("authIndustryPrefRequiredHint")}
+        </p>
+      </div>
+      {/* 主营业务智能推断 + 三级分类选择 */}
       <div className="mt-3">
-        <p className="text-xs font-black text-slate-500">
-          {t("authMainBusinessLabel")}
-        </p>
-        <p className="mt-1 text-[11px] text-slate-400">
-          {t("authMainBusinessInferHint")}
-        </p>
         <Input
           type="text"
           value={mainBusiness}
           onChange={(e) => setMainBusiness(e.target.value)}
           placeholder={t("authMainBusinessPlaceholder")}
-          className="mt-2 bg-white"
+          className="bg-white"
         />
         {inferLoading && (
-          <p className="mt-1 text-[11px] text-slate-400">匹配中...</p>
+          <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
         )}
         {inferResult && !inferLoading && (
           <p className="mt-1 text-[11px] text-teal-600">

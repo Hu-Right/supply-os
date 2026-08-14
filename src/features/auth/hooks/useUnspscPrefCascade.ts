@@ -34,6 +34,8 @@ export interface UseUnspscPrefCascadeReturn {
   autoFillFromInference: (path: SmartInferResult) => void;
   /** 基于关键词在当前二级分类的三级子类中搜索并自动选中最佳匹配 */
   searchAndAutoFillL3: (keyword: string) => void;
+  /** 重置所有级联状态（切换账号时调用） */
+  resetCascade: () => void;
 }
 
 export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
@@ -157,6 +159,16 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     }
   };
 
+  /** 重置所有级联状态（切换账号时调用） */
+  const resetCascade = useCallback(() => {
+    setPrefLevel1("");
+    setPrefLevel2("");
+    setPrefLevel3("");
+    setSubOptions([]);
+    setSubOptions2([]);
+    keywordRef.current = "";
+  }, []);
+
   return {
     industryOptions,
     subOptions,
@@ -171,5 +183,6 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel2Change,
     autoFillFromInference,
     searchAndAutoFillL3,
+    resetCascade,
   };
 }
