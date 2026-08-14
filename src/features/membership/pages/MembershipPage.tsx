@@ -252,53 +252,64 @@ export default function MembershipPage() {
                     </div>
 
                     <div className="mb-4">
-                      <div className="flex items-baseline gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-3xl font-extrabold text-slate-900 tracking-tight">
                           {plan.currency === "CNY" ? "¥" : "$"}
                           {plan.price.toLocaleString()}
                         </span>
+                        {plan.duration_days ? (
+                          <span className="text-sm text-slate-500 font-medium">/{t("membershipYear")}</span>
+                        ) : null}
                         {ORIGINAL_PRICES[plan.plan_code] && (
-                          <>
-                            <span className="text-sm text-slate-400 line-through">
-                              {plan.currency === "CNY" ? "¥" : "$"}
-                              {ORIGINAL_PRICES[plan.plan_code].toLocaleString()}
-                            </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-bold">
-                              {t("firstOrderDiscount")}
-                            </span>
-                          </>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+                            {t("firstOrderDiscount")}
+                          </span>
                         )}
                       </div>
-                      {plan.duration_days ? (
-                        <span className="text-xs text-slate-500 font-medium">
-                          {plan.duration_days}{t("membershipDays")} · {formatQuota(plan, t)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-slate-500 font-medium">
-                          {t("membershipValidityPermanent")} · {formatQuota(plan, t)}
-                        </span>
+                      {ORIGINAL_PRICES[plan.plan_code] && (
+                        <div className="mt-1">
+                          <span className="text-sm text-slate-400 line-through">
+                            {plan.currency === "CNY" ? "¥" : "$"}
+                            {ORIGINAL_PRICES[plan.plan_code].toLocaleString()}
+                            {plan.duration_days ? `/${t("membershipYear")}` : ""}
+                          </span>
+                        </div>
                       )}
+                      <div className="mt-1">
+                        {plan.duration_days ? (
+                          <span className="text-xs text-slate-500 font-medium">
+                            {plan.duration_days}{t("membershipDays")} · {formatQuota(plan, t)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-medium">
+                            {t("membershipValidityPermanent")} · {formatQuota(plan, t)}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="text-xs text-slate-600 leading-relaxed mb-5 flex-1 space-y-1.5">
+                    <div className="text-xs text-slate-600 leading-relaxed mb-4 flex-1">
                       {splitDescription(plan.description).map((line, idx) => (
                         <p key={idx}>{line}</p>
                       ))}
                     </div>
 
-                    <ul className="space-y-2 mb-6">
-                      {getPlanFeatures(plan.plan_code).map((feat, idx) => {
-                        const FeatIcon = feat.icon;
-                        return (
-                          <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
-                            <div className={`w-4 h-4 rounded-full ${feat.bg} flex items-center justify-center flex-shrink-0`}>
-                              <FeatIcon className={`w-2.5 h-2.5 ${feat.color}`} />
-                            </div>
-                            {t(feat.label as any)}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                    {/* 权益项独立容器 — 固定最小高度，确保所有卡片权益列表顶部对齐 */}
+                    <div className="pt-4 border-t border-slate-100 min-h-[130px]">
+                      <ul className="space-y-2">
+                        {getPlanFeatures(plan.plan_code).map((feat, idx) => {
+                          const FeatIcon = feat.icon;
+                          return (
+                            <li key={idx} className="flex items-center gap-2 text-xs text-slate-700">
+                              <div className={`w-5 h-5 rounded-full ${feat.bg} flex items-center justify-center flex-shrink-0`}>
+                                <FeatIcon className={`w-3 h-3 ${feat.color}`} />
+                              </div>
+                              <span>{t(feat.label as any)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   </div>
 
                   <div className="px-6 pb-6 pt-0">
@@ -313,7 +324,7 @@ export default function MembershipPage() {
                       <button
                         type="button"
                         onClick={() => handleBuyPlan(plan)}
-                        className="w-full rounded-xl py-3 text-xs font-bold bg-slate-900 text-white hover:bg-teal-600 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full rounded-xl py-3 text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:from-teal-600 hover:to-emerald-600 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         {t("membershipBuyNow")}
                         <ArrowRight className="w-3.5 h-3.5" />
