@@ -6,8 +6,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { RecallResult } from "./recall";
-
-const DEADLINE_SEC_EXPR = "n.deadline_sec";
+import { DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 
 // 金额偏好查询缓存
 const amountPrefCache = new Map<string, { centerLog: number; active: boolean; expires: number }>();

@@ -20,6 +20,8 @@ import {
 import { channelConfigured } from "../../config/env";
 import { createLogger } from "../../utils/fileLogger";
 import { markTranslationSuccess, flushCleanedLogs } from "./logCleanup";
+import { syncWideIds } from "../noticeSearchSync";
+import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 const logger = createLogger("auto-translate");
 
@@ -90,7 +92,8 @@ export async function runIncrementalTranslation(
   }
 
   // P1 性能优化：使用生成列 deadline_sec 替代表达式，使 WHERE 可走索引
-  const deadlineSecExpr = "n.deadline_sec";
+  // 统一过期口径：仅依赖 deadline_sec 实时判断，不再使用 is_expired 字段
+  const activeCondition = ACTIVE_NOTICE_WHERE;
 
   for (const target of SCAN_TARGETS) {
     const cutoffId = Number(stateMap.get(target.cutoffKey) || "0");
@@ -107,8 +110,7 @@ export async function runIncrementalTranslation(
          FROM ${target.table} n
          LEFT JOIN ${target.trTable} t ON t.${target.idCol} = n.id AND t.lang = ?
         WHERE n.id > ?
-          AND (n.is_expired = 0 OR n.is_expired IS NULL)
-          AND (n.deadline_ts IS NULL OR ${deadlineSecExpr} >= UNIX_TIMESTAMP(NOW()))
+          AND ${activeCondition}
           AND (
             t.id IS NULL
             OR (
@@ -194,14 +196,9 @@ export async function runIncrementalTranslation(
                 [row.id, targetLang, titleTr || null, result.provider]
               );
               
-              // 同步更新宽表对应语言列（仅公告表）
+              // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
               if (target.table === "crm_bid_notices" && titleTr) {
-                try {
-                  await dbPool.query(
-                    `UPDATE crm_notice_search SET title_${targetLang} = ? WHERE id = ?`,
-                    [titleTr, row.id]
-                  );
-                } catch { /* 宽表可能不存在，静默跳过 */ }
+                void syncWideIds(dbPool, [row.id]).catch(() => {});
               }
               
               ok += 1;

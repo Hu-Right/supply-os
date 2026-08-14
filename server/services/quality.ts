@@ -191,7 +191,6 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
 // 已拆为三条简单查询：主表单遍聚合 + 派生表 LEFT JOIN（走桥接 uk_notice_code 索引）+ 独立去重统计
 export async function captureDataQualitySnapshot(dbPool: any) {
   // P1 性能优化：使用生成列 deadline_sec 替代表达式
-  const deadlineSecExpr = "n.deadline_sec";
   // ① 主表单遍聚合（无子查询）
   const [baseRows] = await dbPool.query(
     `SELECT
@@ -201,7 +200,7 @@ export async function captureDataQualitySnapshot(dbPool: any) {
        SUM(n.deadline_ts IS NULL) AS missing_deadline,
        SUM((n.is_expired = 0 OR n.is_expired IS NULL)
          AND n.deadline_ts IS NOT NULL
-         AND ${deadlineSecExpr} < UNIX_TIMESTAMP(NOW())) AS expired_but_active
+         AND n.deadline_sec < UNIX_TIMESTAMP(NOW())) AS expired_but_active
      FROM crm_bid_notices n`
   );
   // ② 未桥接数：DISTINCT 派生表走索引，再与主表 hash join，避免逐行探测

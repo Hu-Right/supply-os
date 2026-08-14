@@ -153,7 +153,7 @@ export const PLAN_COMPARISON: ComparisonCategory[] = [
           enterprise_basic_8800: true,
           enterprise_flagship_16800: true,
           enterprise_premium_26800: true,
-          annual_8800: false,
+          annual_8800: true,
         },
       },
       {

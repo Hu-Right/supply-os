@@ -8,10 +8,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getTranslatedNoticeDetail } from "../notice-translation";
 import type { NoticesRepo } from "../../repos/notices.repo";
-
-const DEADLINE_SEC_EXPR = "n.deadline_sec";
-// 修复：与搜索路径口径统一，使用 deadline_sec 实时判断，不再依赖 is_active 预计算列
-const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 
 export interface RecallResult {
   prefix: string;

@@ -10,6 +10,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "./types";
 import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../agencyI18n";
+import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 let noticeAgenciesCache: { data: AgencyCacheItem[]; timestamp: number } | null = null;
 const AGENCIES_CACHE_TTL = 10 * 60 * 1000; // 10 分钟
@@ -121,7 +122,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   // 修复：与搜索路径口径统一，只用 deadline_sec 实时判断，移除 is_active 依赖
   const [rows] = await pool.query(
     `SELECT n.agency, ANY_VALUE(n.country) AS country, COUNT(*) AS cnt FROM crm_bid_notices n
-     WHERE (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+     WHERE ${ACTIVE_NOTICE_WHERE}
        AND n.agency IS NOT NULL AND n.agency <> ''
      GROUP BY n.agency ORDER BY cnt DESC`
   );

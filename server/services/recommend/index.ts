@@ -19,10 +19,7 @@ import { getTranslatedNoticeDetail } from "../notice-translation";
 import { deadlineFallback, processInterestCodes } from "./recall";
 import { buildScoringContext, getAmountPreference, resolveWeights } from "./scoring";
 import { mmrRerankPage, buildRecoReasons } from "./rerank";
-
-const DEADLINE_SEC_EXPR = "n.deadline_sec";
-// 修复：与搜索路径口径统一，使用 deadline_sec 实时判断，不再依赖 is_active 预计算列
-const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
 // 推荐结果缓存

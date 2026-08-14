@@ -14,6 +14,7 @@ import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy, normaliz
 import type { NoticesRepo } from "../../repos/notices.repo";
 import { getTranslatedNoticeDetail } from "../notice-translation";
 import { isWideTableReady } from "../noticeSearchSync";
+import { DEADLINE_SEC_EXPR, ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 
 // ── 子模块 re-export（保持对外 API 不变）──
 export type { NoticeSearchParams, NoticeSearchResult, AgencyCacheItem, NoticeStatsResult } from "./types";
@@ -47,7 +48,6 @@ import { expandCountryAliases, expandCountryAllForms } from "./countries";
 import type { NoticeSearchParams, NoticeSearchResult } from "./types";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DEADLINE_SEC_EXPR = "n.deadline_sec";
 
 // ── 采购类型映射缓存：避免每次 DISTINCT 查询冷启动 5s ──
 async function getCachedNoticeTypes(pool: Pool): Promise<string[]> {
@@ -55,7 +55,7 @@ async function getCachedNoticeTypes(pool: Pool): Promise<string[]> {
     return _noticeTypeCache.types;
   }
   const [rows] = await pool.query(
-    "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE (deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW())) AND notice_type IS NOT NULL"
+    "SELECT DISTINCT notice_type FROM crm_bid_notices WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS + " AND notice_type IS NOT NULL"
   );
   const types = (rows as any[]).map((r) => r.notice_type);
   setNoticeTypeCache({ types, expires: Date.now() + NOTICE_TYPE_CACHE_TTL });
@@ -277,10 +277,7 @@ export async function searchNotices(
   }
 
   // 修复：只用 deadline_sec 实时判断，不再依赖 is_active 缓存
-  // deadline_sec = 0 表示无截止日期（永不过期），deadline_sec >= NOW() 表示未过期
-  const where: string[] = [
-    "(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))"
-  ];
+  const where: string[] = [ACTIVE_NOTICE_WHERE_NO_ALIAS];
   const params: any[] = [];
   let join = "";
   let idFilterSql = "";
@@ -304,15 +301,15 @@ export async function searchNotices(
   if (q) {
     if (isChinese) {
       kwUnionSql =
-        "SELECT n2.id FROM crm_bid_notices n2 WHERE (n2.deadline_ts IS NULL OR n2.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+        "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS + " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
         "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)";
       kwUnionParams.push(q, likeQ, likeQ);
     } else {
       kwUnionSql =
-        "SELECT n2.id FROM crm_bid_notices n2 WHERE (n2.deadline_ts IS NULL OR n2.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
+        "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS + " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
-        "SELECT sn.id FROM crm_bid_notices sn WHERE (sn.deadline_ts IS NULL OR sn.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
+        "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS + " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
         "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)";
       kwUnionParams.push(q, q, q);

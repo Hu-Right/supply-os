@@ -11,6 +11,7 @@ import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from 
 import { normalizeUnspscCodes } from "../../services/unspsc";
 import { NOTICE_TRANSLATION_LANGS, getTranslatedNoticeDetail } from "../../services/notice-translation";
 import { detectSourceLang, translateNoticeViaChain } from "../../services/notice-translation";
+import { syncWideIds } from "../../services/noticeSearchSync";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
 import { getAgencyCacheData } from "../../services/notice-search/agencies";
@@ -143,8 +144,8 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
             // 原文已是中文：直接缓存标题，零 API 成本
             if (srcLang === "zh") {
               await noticesRepo.upsertTranslation(noticeId, "zh", title, null, "same-lang-passthrough");
-              // 同步更新宽表
-              void ctx.dbPool.query(`UPDATE crm_notice_search SET title_zh = ? WHERE id = ?`, [title, noticeId]).catch(() => {});
+              // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
+              void syncWideIds(ctx.dbPool, [noticeId]).catch(() => {});
             } else {
               // 原文非中文：立即返回原文标题，标题翻译异步执行（下次访问命中缓存）
               void (async () => {
@@ -152,8 +153,8 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
                   const result = await translateNoticeViaChain(title, "", "zh", srcLang);
                   if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
                     await noticesRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
-                    // 同步更新宽表
-                    await ctx.dbPool.query(`UPDATE crm_notice_search SET title_zh = ? WHERE id = ?`, [result.translations[0], noticeId]);
+                    // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
+                    void syncWideIds(ctx.dbPool, [noticeId]).catch(() => {});
                   }
                 } catch { /* 异步标题翻译失败不影响当前响应 */ }
               })();
@@ -171,9 +172,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     try {
       const result = await getTranslatedNoticeDetail(noticeId, lang, noticesRepo, ctx.dbPool);
       
-      // 同步更新宽表（如果有新翻译）
+      // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
       if (result.title && !result.cached) {
-        void ctx.dbPool.query(`UPDATE crm_notice_search SET title_${lang} = ? WHERE id = ?`, [result.title, noticeId]).catch(() => {});
+        void syncWideIds(ctx.dbPool, [noticeId]).catch(() => {});
       }
       
       res.json(result);

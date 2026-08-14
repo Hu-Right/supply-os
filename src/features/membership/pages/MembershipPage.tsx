@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Crown, Check, Zap, Star,
-  ArrowRight, Globe, Users, Briefcase, AlertCircle,
+  ArrowRight, Globe, Users, Briefcase, AlertCircle, Building2,
 } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -106,6 +106,7 @@ function getPlanFeatures(planCode: string): { icon: typeof Check; color: string;
     annual_basic: [
       { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
       { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
+      { icon: Building2, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonSupplierLibrary" },
       { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonDedicatedSupport" },
     ],
     annual: [

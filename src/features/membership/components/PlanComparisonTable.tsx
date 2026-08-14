@@ -62,7 +62,7 @@ const ADDITIONAL_SERVICES: { key: string; labelKey: string; tiers: Record<string
   {
     key: "supplier_library",
     labelKey: "comparisonSupplierLibrary",
-    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true },
+    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true },
   },
   {
     key: "dedicated_support",

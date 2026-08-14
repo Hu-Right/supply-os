@@ -19,10 +19,9 @@
  *              - 桥接行携带完整祖先路径，等值条件天然覆盖该分支下全部深层公告。
  */
 import { MATCH_SCORE, type UserIndustryProfile } from "./types";
+import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 
-/** 有效公告口径（与搜索/推荐路径一致：截止时间未过） */
-export const ACTIVE_NOTICE_WHERE =
-  "(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+export { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR };
 
 /** 公告卡片基础字段 SQL 片段（分层查询与模糊兜底共用） */
 export const NOTICE_SELECT_FIELDS = `n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,

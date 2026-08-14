@@ -6,6 +6,7 @@
  */
 import { getClient, isHealthy, getIndexName, markUnhealthy, tryRecover } from "./client";
 import { normalizeNoticeType } from "./sync";
+import { MEILI_ACTIVE_FILTER } from "../../utils/notice-expired";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
 function escapeFilter(value: string): string {
@@ -62,9 +63,8 @@ export async function searchWithFilters(params: {
     } = params;
 
     const filter: string[] = [
-      // 只用 deadline_sec 实时判断，不再依赖 is_active 缓存
-      // deadline_sec = 0 表示无截止日期（永不过期），deadline_sec >= NOW() 表示未过期
-      "(deadline_sec = 0 OR deadline_sec >= " + Math.floor(Date.now() / 1000) + ")"
+      // 与 MySQL 侧 ACTIVE_NOTICE_WHERE 语义一致：deadline_sec = 0 表示无截止日期（永不过期）
+      MEILI_ACTIVE_FILTER.replace("{now}", String(Math.floor(Date.now() / 1000)))
     ];
     // 国家筛选：使用所有已知形式（原始大小写 + 大写）做 OR 匹配
     // 覆盖索引中可能存储的不同大小写变体（如 "Brazil" / "BRAZIL"）

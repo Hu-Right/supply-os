@@ -12,10 +12,7 @@ import {
   featuredCountCache, FEATURED_COUNT_CACHE_TTL,
   countCacheKey,
 } from "./cache";
-
-// 只用 deadline_sec 实时判断，不再依赖 is_active 缓存
-const ACTIVE_NOTICE_WHERE = `(n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
-const DEADLINE_FILTER = `(deadline_ts IS NULL OR deadline_sec >= UNIX_TIMESTAMP(NOW()))`;
+import { ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 
 // 统计表键版本后缀：多实例共享库环境下，旧代码实例仍会按 is_active 口径写入无后缀 key
 // （如 active_total ≈ 12.6 万），与 deadline 口径（≈ 6.8 万）轮流覆盖导致总数波动。
@@ -75,25 +72,25 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     clearCountCaches();
     const t0 = Date.now();
     const [totalRows] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${DEADLINE_FILTER}`
+      `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`
     );
     const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
 
     const [featuredRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE is_featured = 1 AND ${DEADLINE_FILTER}`
+       WHERE is_featured = 1 AND ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`
     );
     const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
 
     const [countryRows] = await pool.query(
       `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE ${DEADLINE_FILTER} AND country IS NOT NULL AND country != ''
+       WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND country IS NOT NULL AND country != ''
        GROUP BY country ORDER BY cnt DESC LIMIT 50`
     );
 
     const [agencyRows] = await pool.query(
       `SELECT agency, COUNT(*) AS cnt FROM crm_bid_notices
-       WHERE ${DEADLINE_FILTER} AND agency IS NOT NULL AND agency != ''
+       WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND agency IS NOT NULL AND agency != ''
        GROUP BY agency ORDER BY cnt DESC LIMIT 50`
     );
 
@@ -154,13 +151,13 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
 export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
   if (noticeStatsCache && noticeStatsCache.expires > Date.now()) return noticeStatsCache.data;
   const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
-  const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
+  const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
   const [bridgedRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}
+    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
      AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
   );
   const [featuredRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE} AND n.is_featured = 1`
+    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
   );
   const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
   const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);

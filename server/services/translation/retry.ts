@@ -18,6 +18,8 @@ import {
 } from "./notice";
 import { createLogger } from "../../utils/fileLogger";
 import { markTranslationSuccess, flushCleanedLogs } from "./logCleanup";
+import { syncWideIds } from "../noticeSearchSync";
+import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 const logger = createLogger("retry-translate");
 
@@ -149,7 +151,7 @@ export async function runRetryTranslation(
         // 与 autoTranslate 的区别：不加 cutoffId 限制，不加过期限制（可选）
         const expiredCondition = includeExpired
           ? "1=1" // 不过滤过期
-          : "(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+          : ACTIVE_NOTICE_WHERE;
 
         const [rows] = await dbPool.query(
           `SELECT n.id, n.title, n.description, n.reference
@@ -250,14 +252,9 @@ export async function runRetryTranslation(
                   [row.id, targetLang, titleTr || null, translationResult.provider]
                 );
 
-                // 同步更新宽表对应语言列（仅公告表，与 autoTranslate 保持一致）
+                // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
                 if (target.table === "crm_bid_notices" && titleTr) {
-                  try {
-                    await dbPool.query(
-                      `UPDATE crm_notice_search SET title_${targetLang} = ? WHERE id = ?`,
-                      [titleTr, row.id]
-                    );
-                  } catch { /* 宽表可能不存在，静默跳过 */ }
+                  void syncWideIds(dbPool, [row.id]).catch(() => {});
                 }
 
                 detail.ok++;
@@ -334,7 +331,7 @@ export async function countPendingRetries(
     for (const targetLang of ["zh", "en"] as const) {
       const expiredCondition = includeExpired
         ? "1=1"
-        : "(n.is_expired = 0 OR n.is_expired IS NULL) AND (n.deadline_ts IS NULL OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+        : ACTIVE_NOTICE_WHERE;
 
       const [rows] = await dbPool.query(
         `SELECT COUNT(*) AS cnt

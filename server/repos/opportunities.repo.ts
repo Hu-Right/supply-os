@@ -9,6 +9,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnspscCodeRow } from "../services/unspsc";
+import { ACTIVE_OPP_WHERE } from "../utils/notice-expired";
 
 /** 商机列表行（未过期，最多 80 条） */
 export interface OpportunityListItemRow {
@@ -60,7 +61,7 @@ export class OpportunitiesRepo {
 
   /** 未过期商机列表；codeId > 0 时按对应 UNSPSC 级别过滤 */
   async listOpportunities(codeId: number): Promise<OpportunityListItemRow[]> {
-    const where: string[] = ["(o.is_expired = 0 OR o.is_expired IS NULL)"];
+    const where: string[] = [ACTIVE_OPP_WHERE];
     const params: any[] = [];
     let join = "";
     if (codeId) {

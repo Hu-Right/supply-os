@@ -10,6 +10,7 @@ import type { Pool } from "mysql2/promise";
 import { refreshFeaturedColumn } from "../services/notices";
 import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
+import { syncWideIds } from "../services/noticeSearchSync";
 import { cleanupStaleNoticeBridge } from "../services/noticeBridgeSync";
 import { cleanupStaleNoticeData } from "../services/noticeDataCleanup";
 
@@ -58,8 +59,13 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   const featuredRefreshTimer = setInterval(async () => {
     try {
       const result = await refreshFeaturedColumn(dbPool);
-      if (result.changedIds.length > 0 && isMeiliHealthy()) {
-        await syncNoticeIds(dbPool, result.changedIds);
+      if (result.changedIds.length > 0) {
+        // 同步宽表（is_featured 列）
+        void syncWideIds(dbPool, result.changedIds).catch(() => {});
+        // 同步 Meilisearch 索引
+        if (isMeiliHealthy()) {
+          await syncNoticeIds(dbPool, result.changedIds);
+        }
       }
     } catch { /* 静默降级 */ }
   }, 30 * 60 * 1000);
