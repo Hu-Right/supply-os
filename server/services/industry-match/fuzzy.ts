@@ -85,30 +85,31 @@ export async function inferNoticesByCategory(
   }
 
   // Step 4: 按推断 code 前缀精确匹配公告标签
-  // 中文环境：从机会表获取 description_cn；其他语言：从翻译表获取译文
-  const isZh = locale === "zh";
-  const oppJoin = isZh
-    ? "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)"
-    : "";
-  const trJoin = locale && !isZh
+  // 统一语言回退方案（与 queryTierRows / 推荐模块一致）：
+  // JOIN 翻译表（所有语言含 zh）+ 英文回退表 + 机会表
+  const trJoin = locale
     ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?"
     : "";
-  const i18nSelect = isZh
-    ? "MAX(opp.description_cn) AS description_cn,"
-    : (locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "");
-  const i18nParams = locale && !isZh ? [locale] : [];
+  const trParams = locale ? [locale] : [];
+  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)";
+  // 统一选取：当前语言译文 + 英文回退 + 中文拆解描述 + 投标概览
+  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
+  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
+  const oppSelect = "MAX(opp.description_cn) AS description_cn, LEFT(MAX(opp.bid_overview), 200) AS bid_overview,";
 
   const [result] = await pool.query(
-    `SELECT ${NOTICE_SELECT_FIELDS}, ${i18nSelect} ${INFERRED_SCORE} AS match_score
+    `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} ${INFERRED_SCORE} AS match_score
      FROM crm_bid_notices n
      INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
      ${oppJoin}
      ${trJoin}
+     ${treJoin}
      WHERE b.code LIKE ? AND ${ACTIVE_NOTICE_WHERE}
      GROUP BY n.id
      ORDER BY ${DEADLINE_ORDER}
      LIMIT ?`,
-    [...i18nParams, `${inferredPrefix}%`, limit],
+    [...trParams, `${inferredPrefix}%`, limit],
   );
   return result as RowDataPacket[];
 }

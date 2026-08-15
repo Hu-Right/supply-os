@@ -21,8 +21,8 @@ export interface NoticeDetailSidebarProps {
   freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
-  /** 当前最优权益类型 */
-  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 总可用解锁次数 */
+  totalRemaining: number;
   /** 是否已登录 */
   isLoggedIn: boolean;
   /** 骨架屏期间隐藏付费解锁按钮，防闪变 */
@@ -39,7 +39,7 @@ export function NoticeDetailSidebar({
   freeQuota,
   canUsePaidQuota,
   isVip,
-  bestBenefitType,
+  totalRemaining,
   isLoggedIn,
   showSkeleton,
   onExpressInterest,
@@ -82,10 +82,10 @@ export function NoticeDetailSidebar({
 
   return (
     <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
-      {/* 会员权益状态面板：展示当前最优权益 */}
+      {/* 会员权益状态面板：展示总可用次数与分层明细 */}
       <MembershipStatusPanel
         membership={membership}
-        bestBenefitType={bestBenefitType}
+        totalRemaining={totalRemaining}
         freeQuota={freeQuota}
         freeRemaining={freeRemaining}
         isLoggedIn={isLoggedIn}

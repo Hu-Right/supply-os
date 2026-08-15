@@ -28,7 +28,7 @@ export interface MembershipStatus {
   paid_quota_total?: number;
   paid_quota_used?: number;
   paid_quota_remaining?: number;
-  active_subscriptions?: Array<{ plan_code: string; status: string; expires_at?: string | null }>;
+  active_subscriptions?: Array<{ plan_code: string; plan_name?: string; status: string; expires_at?: string | null }>;
   entitlements?: Array<{
     id: number;
     plan_code: string;

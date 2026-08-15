@@ -76,6 +76,9 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
   const [levels, setLevels] = useState<Array<UnspscOption[]>>([[], [], [], [], []]);
   const [selectedIds, setSelectedIds] = useState<string[]>(["", "", "", "", ""]);
+  // 行业精准匹配模式下的偏好路径（仅用于提示条展示行业名称，不影响 UNSPSC 选择器选中状态）
+  // 行业精准匹配基于用户账号主营行业，与 UNSPSC 选择器选中值无关，因此选择器应保持空选中
+  const [prefsPath, setPrefsPath] = useState<string[]>(["", "", "", "", ""]);
 
   // ── 账号默认行业偏好三级降级（本地差异 #5 配套前端）──
   // 未登录直接 default（行为零变化）；已登录先探测偏好 → 推荐 → 全量
@@ -90,7 +93,8 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
   /**
    * 按偏好路径预选级联并切 prefs 模式（探测与"恢复行业匹配"共用）。
-   * 偏好加载时包含 L1+L2+L3（UI 可见层级），与手动选择的深度对齐。
+   * 偏好路径仅写入 prefsPath（供提示条展示行业名称），不写入 selectedIds——
+   * 行业精准匹配基于用户账号主营行业，UNSPSC 选择器选中值对结果无影响，应保持空选中。
    * L4/L5 由 AI 推断自动填入，不是用户在 UI 中选择的，忽略（path[3]/path[4] = null）。
    */
   const applyPrefsPath = async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
@@ -108,7 +112,9 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       nextChildren[i] = Array.isArray(childResults[i]) ? childResults[i] : [];
     }
     setLevels((prev) => [prev[0], nextChildren[0], nextChildren[1], nextChildren[2], nextChildren[3]]);
-    setSelectedIds(path);
+    // 偏好路径写入 prefsPath（提示条展示用），selectedIds 保持空（UNSPSC 选择器不显示选中）
+    setPrefsPath(path);
+    setSelectedIds(["", "", "", "", ""]);
     setPrefsMode("prefs");
   };
 
@@ -143,6 +149,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       if (prefsMode !== "default") {
         setPrefsMode("default");
         setSelectedIds(["", "", "", "", ""]);
+        setPrefsPath(["", "", "", "", ""]);
         setLevels((prev) => [prev[0], [], [], [], []]);
         setPage(1);
       }
@@ -213,6 +220,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     const onPrefsUpdated = () => {
       prefsInitKeyRef.current = null;
       setSelectedIds(["", "", "", "", ""]);
+      setPrefsPath(["", "", "", "", ""]);
       setLevels((prev) => [prev[0], [], [], [], []]);
       setPage(1);
       setPrefsMode(userKey ? "loading" : "default");
@@ -221,10 +229,11 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
   }, [userKey]);
 
-  // 提示条中展示的偏好类目名（一级/二级名按 locale 取词，多级用 / 连接）
+  // 提示条中展示的偏好类目名（基于 prefsPath 而非 selectedIds，
+  // 因为行业精准匹配模式下 selectedIds 已清空，但提示条仍需展示用户偏好行业名称）
   const prefsBannerName = useMemo(() => {
     const names: string[] = [];
-    selectedIds.forEach((id, index) => {
+    prefsPath.forEach((id, index) => {
       if (!id) return;
       const opt = levels[index]?.find((item) => String(item.id) === id);
       if (!opt) return;
@@ -235,12 +244,13 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       if (title) names.push(title);
     });
     return names.join(" / ");
-  }, [levels, selectedIds, locale]);
+  }, [levels, prefsPath, locale]);
 
   // 「查看全部」/手动改筛选：退出自动模式，回到现状全量列表
   const exitAutoMode = () => {
     setPrefsMode("default");
     setSelectedIds(["", "", "", "", ""]);
+    setPrefsPath(["", "", "", "", ""]);
     setLevels((prev) => [prev[0], [], [], [], []]);
     setPage(1);
   };

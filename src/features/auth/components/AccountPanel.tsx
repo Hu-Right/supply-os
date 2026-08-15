@@ -15,6 +15,7 @@ import { useLocale } from "@/core/i18n";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
+import { AccountBenefitsCard } from "./AccountBenefitsCard";
 
 export interface AccountPanelProps {
   onClose: () => void;
@@ -67,12 +68,8 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
                 : t("authSupplierPending")}
             </p>
           </div>
-          <div className="bg-white border border-slate-200 rounded-lg p-3">
-            <p className="font-black text-slate-400">{t("authLeadQuota")}</p>
-            <p className="font-bold text-slate-800 mt-1">
-              {isVip ? t("authVipQuota") : t("authFreeQuota")}
-            </p>
-          </div>
+          {/* 权益卡片：根据用户最佳权益类型动态展示 */}
+          <AccountBenefitsCard />
         </div>
       </div>
       <PhoneBinding />

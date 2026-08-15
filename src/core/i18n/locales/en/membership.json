@@ -78,5 +78,8 @@
   "statusPanelFreeQuota": "Free Quota",
   "statusPanelTimes": "times",
   "statusPanelNoEntitlement": "No paid benefits yet. Upgrade to unlock more",
-  "statusPanelUpgradeBtn": "View Plans"
+  "statusPanelUpgradeBtn": "View Plans",
+  "statusPanelTotalUnlocks": "Total Unlocks Available",
+  "statusPanelBreakdown": "Benefits Breakdown",
+  "statusPanelEntitlementCards": "{count} Single Cards"
 }

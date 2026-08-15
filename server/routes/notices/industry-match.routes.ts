@@ -17,18 +17,19 @@ import { matchNoticesByIndustry } from "../../services/industry-match";
 
 export function createIndustryMatchRouter(ctx: AppContext): Router {
   const router = Router();
+  const noticesRepo = ctx.noticesRepo;
 
-  // GET /api/notices/industry-matched?user_key=...&page=1&page_size=10&locale=fr
+  // GET /api/notices/industry-matched?user_key=...&page=1&page_size=10&locale=zh
   router.get("/api/notices/industry-matched", asyncHandler(async (req, res) => {
       const userKey = normalizeUserKey(req.query.user_key) || "";
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
       const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
       const pageSize = parseOptionalInt(req.query, "page_size", 1, 30, 10);
-      // 界面语言（fr/ru/es/ar 时返回对应译文；zh/en 用原文列，无需传）
+      // 界面语言（所有语言含 zh 均走统一翻译回退链）
       const locale = parseOptionalString(req.query, "locale", 10) || undefined;
 
-      const result = await matchNoticesByIndustry(ctx.dbPool, userKey, page, pageSize, locale);
+      const result = await matchNoticesByIndustry(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo);
       res.json({ ...result, page_size: pageSize });
   }));
 

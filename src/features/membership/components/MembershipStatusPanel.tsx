@@ -3,10 +3,9 @@
  * Membership Status Panel
  *
  * @module features/membership/components/MembershipStatusPanel
- * @description 综合展示用户当前最优权益：订阅 > 单次卡 > 免费额度。
- *              用于会员中心页面顶部和公告详情页侧边栏。
- *              Displays the user's best available benefit: subscription > single card > free quota.
- *              Used in membership page top and notice detail sidebar.
+ * @description 综合展示用户所有权益的汇总与分层明细。
+ *              顶部显示总可用解锁次数，下方按优先级分层展示各权益来源。
+ *              Displays total unlock count and layered breakdown by benefit source.
  */
 
 import { Crown, Zap, Gift, Clock, Infinity } from "lucide-react";
@@ -16,8 +15,8 @@ import type { MembershipStatus } from "@/types";
 
 export interface MembershipStatusPanelProps {
   membership: MembershipStatus | null;
-  /** 当前最优权益类型（由 Hook 计算） */
-  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 总可用解锁次数（由 Hook 计算） */
+  totalRemaining: number;
   /** 免费额度 */
   freeQuota: number;
   /** 免费剩余 */
@@ -30,7 +29,7 @@ export interface MembershipStatusPanelProps {
   compact?: boolean;
 }
 
-/** 格式化日期为本地化短格式 */
+/** 格式化日期为本地化短格式（含年份） */
 function formatDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
@@ -42,7 +41,7 @@ function formatDate(dateStr: string): string {
 
 export function MembershipStatusPanel({
   membership,
-  bestBenefitType,
+  totalRemaining,
   freeQuota,
   freeRemaining,
   isLoggedIn,
@@ -59,222 +58,147 @@ export function MembershipStatusPanel({
     navigate(noticeId ? `/membership?notice_id=${noticeId}` : "/membership");
   };
 
-  // ── 订阅制会员展示 ──
-  if (bestBenefitType === "subscription" && membership.active_subscriptions?.length) {
-    const sub = membership.active_subscriptions[0];
-    const isExpired = sub.expires_at ? new Date(sub.expires_at) < new Date() : false;
+  const entitlements = membership.entitlements ?? [];
+  const subscriptions = membership.active_subscriptions ?? [];
+  const hasSubscription = subscriptions.length > 0;
+  // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
+  const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
+  const hasSingleCard = singleCards.length > 0;
 
-    return (
-      <div className={`rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-50 to-orange-50 ${compact ? "p-3" : "p-4"}`}>
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100">
-            <Crown className="w-5 h-5 text-amber-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className={`font-bold text-slate-900 ${compact ? "text-sm" : "text-base"}`}>
-                {t("statusPanelSubscriptionTitle")}
-              </h4>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${isExpired ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
-                {isExpired ? t("statusPanelExpired") : t("statusPanelActive")}
-              </span>
-            </div>
-            {!compact && (
-              <p className="text-xs text-slate-500 mb-2">{t("statusPanelSubscriptionDesc")}</p>
-            )}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500">{t("statusPanelPlanCode")}:</span>
-                <span className="font-mono font-bold text-slate-800">{sub.plan_code}</span>
-              </div>
-              {sub.expires_at && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  <span className="text-slate-500">{t("statusPanelExpiresAt")}:</span>
-                  <span className="font-bold text-slate-800">{formatDate(sub.expires_at)}</span>
-                </div>
-              )}
-              {!sub.expires_at && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Infinity className="w-3 h-3 text-slate-400" />
-                  <span className="font-bold text-emerald-600">{t("statusPanelPermanent")}</span>
-                </div>
-              )}
-            </div>
-            {/* 付费配额展示（如果有） */}
-            {membership.paid_quota_total != null && membership.paid_quota_total > 0 && (
-              <div className="mt-2 pt-2 border-t border-amber-200/40">
-                <QuotaBar
-                  total={membership.paid_quota_total}
-                  used={membership.paid_quota_used ?? 0}
-                  remaining={membership.paid_quota_remaining ?? 0}
-                  t={t}
-                  compact={compact}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 根据最佳权益类型决定主色调
+  const themeColor = hasSubscription
+    ? "amber"
+    : hasSingleCard
+      ? "blue"
+      : "teal";
 
-  // ── 单次解锁卡展示 ──
-  if (bestBenefitType === "entitlement" && membership.entitlements?.length) {
-    const ent = membership.entitlements[0];
-    const isExpired = ent.expires_at ? new Date(ent.expires_at) < new Date() : false;
-    const isPermanent = !ent.expires_at;
+  const bgGradient = hasSubscription
+    ? "from-amber-50 to-orange-50"
+    : hasSingleCard
+      ? "from-blue-50 to-cyan-50"
+      : "from-slate-50 to-teal-50/30";
 
-    return (
-      <div className={`rounded-xl border border-blue-200/60 bg-gradient-to-r from-blue-50 to-cyan-50 ${compact ? "p-3" : "p-4"}`}>
-        <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-blue-100">
-            <Zap className="w-5 h-5 text-blue-600" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className={`font-bold text-slate-900 ${compact ? "text-sm" : "text-base"}`}>
-                {t("statusPanelEntitlementTitle")}
-              </h4>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${isExpired ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
-                {isExpired ? t("statusPanelExpired") : t("statusPanelActive")}
-              </span>
-            </div>
-            {!compact && (
-              <p className="text-xs text-slate-500 mb-2">{t("statusPanelEntitlementDesc")}</p>
-            )}
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-500">{t("statusPanelPlanCode")}:</span>
-                <span className="font-mono font-bold text-slate-800">{ent.plan_code}</span>
-              </div>
-              {ent.expires_at && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  <span className="text-slate-500">{t("statusPanelExpiresAt")}:</span>
-                  <span className="font-bold text-slate-800">{formatDate(ent.expires_at)}</span>
-                </div>
-              )}
-              {isPermanent && (
-                <div className="flex items-center gap-2 text-xs">
-                  <Infinity className="w-3 h-3 text-slate-400" />
-                  <span className="font-bold text-emerald-600">{t("statusPanelPermanent")}</span>
-                </div>
-              )}
-            </div>
-            {/* 配额进度条 */}
-            <div className="mt-2 pt-2 border-t border-blue-200/40">
-              <QuotaBar
-                total={ent.quota_total}
-                used={ent.quota_used}
-                remaining={ent.quota_remaining}
-                t={t}
-                compact={compact}
-              />
-            </div>
-            {/* 如果有多张卡，展示汇总 */}
-            {membership.entitlements.length > 1 && (
-              <div className="mt-2 text-xs text-slate-500">
-                +{membership.entitlements.length - 1} {t("statusPanelEntitlementTitle")}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const borderColor = hasSubscription
+    ? "border-amber-200/60"
+    : hasSingleCard
+      ? "border-blue-200/60"
+      : "border-slate-200/60";
 
-  // ── 免费额度展示 ──
+  const iconBg = hasSubscription
+    ? "bg-amber-100"
+    : hasSingleCard
+      ? "bg-blue-100"
+      : "bg-teal-100";
+
+  const iconColor = hasSubscription
+    ? "text-amber-600"
+    : hasSingleCard
+      ? "text-blue-600"
+      : "text-teal-600";
+
+  const Icon = hasSubscription ? Crown : hasSingleCard ? Zap : Gift;
+
   return (
-    <div className={`rounded-xl border border-slate-200/60 bg-gradient-to-r from-slate-50 to-teal-50/30 ${compact ? "p-3" : "p-4"}`}>
+    <div className={`rounded-xl border ${borderColor} bg-gradient-to-r ${bgGradient} ${compact ? "p-3" : "p-4"}`}>
+      {/* 顶部：总可用解锁次数 */}
       <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg bg-teal-100">
-          <Gift className="w-5 h-5 text-teal-600" />
+        <div className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg ${iconBg}`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className={`font-bold text-slate-900 ${compact ? "text-sm" : "text-base"}`}>
-              {t("statusPanelFreeTitle")}
-            </h4>
+          <div className="flex items-baseline gap-2">
+            <span className={`text-2xl font-extrabold ${totalRemaining > 0 ? "text-slate-900" : "text-red-600"}`}>
+              {totalRemaining}
+            </span>
+            <span className="text-xs text-slate-500">{t("statusPanelTotalUnlocks")}</span>
           </div>
-          {!compact && (
-            <p className="text-xs text-slate-500 mb-2">{t("statusPanelFreeDesc")}</p>
+          {!compact && totalRemaining === 0 && (
+            <button
+              onClick={handleGoToPlans}
+              className="mt-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+            >
+              {t("statusPanelUpgradeBtn")} →
+            </button>
           )}
-          <div className="flex items-center gap-3">
-            <div className="text-xs text-slate-500">
-              {t("statusPanelQuotaRemaining")}:{" "}
-              <span className={`font-bold ${freeRemaining > 0 ? "text-teal-700" : "text-red-600"}`}>
-                {freeRemaining}
-              </span>
-              {" / "}
-              <span className="font-bold text-slate-700">{freeQuota}</span>
-              {" "}{t("statusPanelTimes")}
-            </div>
-          </div>
-          {/* 免费额度进度条 */}
-          {freeQuota > 0 && (
-            <div className="mt-2">
-              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${freeRemaining > 0 ? "bg-teal-500" : "bg-red-400"}`}
-                  style={{ width: `${Math.max(0, (freeRemaining / freeQuota) * 100)}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {/* 升级引导 */}
-          <button
-            onClick={handleGoToPlans}
-            className="mt-2 text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors"
-          >
-            {t("statusPanelUpgradeBtn")} →
-          </button>
         </div>
       </div>
-    </div>
-  );
-}
 
-/** 配额进度条子组件 */
-function QuotaBar({
-  total,
-  used,
-  remaining,
-  t,
-  compact,
-}: {
-  total: number;
-  used: number;
-  remaining: number;
-  t: (key: string) => string;
-  compact?: boolean;
-}) {
-  const percent = total > 0 ? Math.max(0, (remaining / total) * 100) : 0;
-  const isLow = percent < 20;
+      {/* 分层明细 */}
+      <div className="mt-3 pt-3 border-t border-slate-200/40 space-y-1.5">
+        {/* 订阅会员 */}
+        {hasSubscription && subscriptions.map((sub, idx) => {
+          const isExpired = sub.expires_at ? new Date(sub.expires_at) < new Date() : false;
+          const displayName = sub.plan_name || sub.plan_code;
+          return (
+            <div key={`sub-${idx}`} className="flex items-center gap-2 text-xs">
+              <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
+              <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
+              <span className="text-slate-600">{displayName}</span>
+              {sub.expires_at ? (
+                <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+                  <Clock className="w-3 h-3" />
+                  {formatDate(sub.expires_at)}
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+                  <Infinity className="w-3 h-3" />
+                  {t("statusPanelPermanent")}
+                </span>
+              )}
+              {isExpired && (
+                <span className="px-1 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                  {t("statusPanelExpired")}
+                </span>
+              )}
+            </div>
+          );
+        })}
 
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs mb-1">
-        <span className="text-slate-500">
-          {t("statusPanelQuotaRemaining")}:{" "}
-          <span className={`font-bold ${isLow ? "text-red-600" : "text-emerald-700"}`}>
-            {remaining}
-          </span>
-          {" / "}
-          <span className="font-bold text-slate-700">{total}</span>
-          {" "}{t("statusPanelTimes")}
-        </span>
-        {!compact && (
-          <span className="text-slate-400">
-            {t("statusPanelQuotaUsed")}: {used}
-          </span>
+        {/* 单次解锁卡（汇总显示） */}
+        {hasSingleCard && (
+          <div className="flex items-center gap-2 text-xs">
+            <Zap className="w-3 h-3 text-blue-500 flex-shrink-0" />
+            <span className="font-bold text-slate-700">
+              {t("statusPanelEntitlementCards", { count: singleCards.length })}
+            </span>
+            <span className="text-slate-600">
+              {singleCards.reduce((sum, e) => sum + Number(e.quota_remaining || 0), 0)} {t("statusPanelTimes")}
+            </span>
+            {/* 显示有效期范围 */}
+            {(() => {
+              const permanentCount = singleCards.filter(e => !e.expires_at).length;
+              const datedCards = singleCards.filter(e => e.expires_at);
+              if (permanentCount > 0) {
+                return (
+                  <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+                    <Infinity className="w-3 h-3" />
+                    {permanentCount > 1 ? `${permanentCount} ${t("statusPanelPermanent")}` : t("statusPanelPermanent")}
+                  </span>
+                );
+              }
+              if (datedCards.length > 0) {
+                const earliest = datedCards.reduce((min, e) =>
+                  e.expires_at && (!min || e.expires_at < min) ? e.expires_at : min, null as string | null);
+                return (
+                  <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+                    <Clock className="w-3 h-3" />
+                    {formatDate(earliest!)}
+                  </span>
+                );
+              }
+              return null;
+            })()}
+          </div>
         )}
-      </div>
-      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${isLow ? "bg-red-400" : "bg-emerald-500"}`}
-          style={{ width: `${percent}%` }}
-        />
+
+        {/* 免费额度 */}
+        <div className="flex items-center gap-2 text-xs">
+          <Gift className="w-3 h-3 text-teal-500 flex-shrink-0" />
+          <span className="font-bold text-slate-700">{t("statusPanelFreeTitle")}</span>
+          <span className={freeRemaining > 0 ? "text-slate-600" : "text-red-600"}>
+            {freeRemaining} / {freeQuota} {t("statusPanelTimes")}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -22,6 +22,8 @@ export interface UseMembershipDataReturn {
   entitlements: MembershipStatus["entitlements"];
   /** 活跃订阅列表 */
   activeSubscriptions: MembershipStatus["active_subscriptions"];
+  /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
+  totalRemaining: number;
 }
 
 export function useMembershipData(): UseMembershipDataReturn {
@@ -71,15 +73,23 @@ export function useMembershipData(): UseMembershipDataReturn {
         ? "entitlement"
         : "free";
 
+  const freeRemaining = membership?.free_remaining ?? 3;
+  const freeQuota = membership?.free_quota ?? 3;
+  const paidRemaining = Number(membership?.paid_quota_remaining || 0);
+  // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
+  // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
+  const totalRemaining = freeRemaining + paidRemaining;
+
   return {
     plans,
     membership,
     loading,
     error,
-    freeRemaining: membership?.free_remaining ?? 3,
-    freeQuota: membership?.free_quota ?? 3,
+    freeRemaining,
+    freeQuota,
     bestBenefitType,
     entitlements,
     activeSubscriptions,
+    totalRemaining,
   };
 }

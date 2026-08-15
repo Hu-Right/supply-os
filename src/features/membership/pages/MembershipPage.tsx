@@ -14,7 +14,6 @@ import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
-import { MembershipStatusPanel } from "../components/MembershipStatusPanel";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { getGridCols } from "../utils";
 import type { MembershipPlan } from "@/types";
@@ -25,7 +24,7 @@ export default function MembershipPage() {
   const { authUser, isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, loading, error, membership, bestBenefitType, freeRemaining, freeQuota } = useMembershipData();
+  const { plans, loading, error } = useMembershipData();
 
   const handleBuyPlan = (plan: MembershipPlan) => {
     if (!authUser) {
@@ -49,25 +48,6 @@ export default function MembershipPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
-      {/* 当前权益状态面板：登录用户可见 */}
-      {authUser && !loading && (
-        <section className="bg-gradient-to-b from-white to-slate-50/60 py-8">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-3">
-              {t("statusPanelTitle")}
-            </h3>
-            <MembershipStatusPanel
-              membership={membership}
-              bestBenefitType={bestBenefitType}
-              freeQuota={freeQuota}
-              freeRemaining={freeRemaining}
-              isLoggedIn={!!authUser}
-              noticeId={noticeId ? Number(noticeId) : undefined}
-            />
-          </div>
-        </section>
-      )}
-
       {/* 套餐卡片区域 */}
       <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

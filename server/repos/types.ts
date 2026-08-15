@@ -33,6 +33,7 @@ export interface SubscriptionRow {
   user_id: number | null;
   user_key: string;
   plan_code: string;
+  plan_name?: string;
   status: string;
   started_at: Date;
   expires_at: Date | null;

@@ -35,6 +35,8 @@ export interface UseNoticeMembershipReturn {
   entitlements: MembershipStatus["entitlements"];
   /** 活跃订阅列表 */
   activeSubscriptions: MembershipStatus["active_subscriptions"];
+  /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
+  totalRemaining: number;
   refreshMembership: (useCache?: boolean) => Promise<void>;
   loadPaidPlans: () => Promise<void>;
 }
@@ -62,6 +64,11 @@ export function useNoticeMembership({
       : entitlements.length > 0
         ? "entitlement"
         : "free";
+
+  // 总可用解锁次数 = 免费剩余 + 付费剩余
+  // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
+  // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
+  const totalRemaining = freeRemaining + paidRemaining;
 
   const refreshMembership = async (useCache = false) => {
     if (!userKey) {
@@ -108,6 +115,7 @@ export function useNoticeMembership({
     bestBenefitType,
     entitlements,
     activeSubscriptions,
+    totalRemaining,
     refreshMembership,
     loadPaidPlans,
   };

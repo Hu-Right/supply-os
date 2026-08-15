@@ -50,6 +50,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const prevDataSourceForPrefsRef = useRef<string>("initial");
   const prevSearchKeyForSkipRef = useRef<string>("");
+  const prevDeepestCodeIdForSkipRef = useRef<string>("");
 
   useEffect(() => {
     const currentDataSource =
@@ -62,11 +63,14 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
             : "search";
 
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
-    if (prevDataSourceForPrefsRef.current === currentDataSource && searchKeyUnchanged) {
+    const dataSourceUnchanged = prevDataSourceForPrefsRef.current === currentDataSource;
+    const deepestCodeIdUnchanged = prevDeepestCodeIdForSkipRef.current === deepestCodeId;
+    if (dataSourceUnchanged && searchKeyUnchanged && deepestCodeIdUnchanged) {
       return;
     }
     prevDataSourceForPrefsRef.current = currentDataSource;
     prevSearchKeyForSkipRef.current = query.searchKey;
+    prevDeepestCodeIdForSkipRef.current = deepestCodeId;
 
     abortControllerRef.current?.abort();
     if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
@@ -138,6 +142,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       controller.abort();
       prevDataSourceForPrefsRef.current = "initial";
       prevSearchKeyForSkipRef.current = "";
+      prevDeepestCodeIdForSkipRef.current = "";
     };
   }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userKey, query.hasSearch]);
 

@@ -117,7 +117,7 @@ export default function ProcurementPage() {
         freeQuota={actions.freeQuota}
         canUsePaidQuota={actions.canUsePaidQuota}
         isVip={isVip}
-        bestBenefitType={actions.bestBenefitType}
+        totalRemaining={actions.totalRemaining}
         isLoggedIn={!!authUser}
         detailLoading={actions.detailLoadingId === selectedNotice.id}
         onBack={() => {
@@ -153,12 +153,8 @@ export default function ProcurementPage() {
               {t("procurement_total")} {search.result.total} {t("procurement_items")}
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
-              {actions.canUsePaidQuota
-                ? actions.bestBenefitType === "subscription"
-                  ? t("statusPanelSubscriptionTitle")
-                  : actions.bestBenefitType === "entitlement"
-                    ? t("statusPanelEntitlementTitle")
-                    : t("procurement_vipActive")
+              {actions.totalRemaining > 0
+                ? `${t("statusPanelTotalUnlocks")} ${actions.totalRemaining} ${t("procurement_items")}`
                 : `${t("procurement_freeTrial")} ${actions.freeRemaining} ${t("procurement_items")}`}
             </span>
           </div>
@@ -223,15 +219,19 @@ export default function ProcurementPage() {
               <Crown className="w-3.5 h-3.5" />
               {t("procurement_featuredOnly")}
             </button>
-            {/* 恢复行业匹配（方案 A 增强）：账号已设置默认行业且当前处于手动搜索/全量模式时显示 */}
-            {hasIndustryPrefs && prefsMode !== "prefs" && prefsMode !== "loading" && (
+            {/* 行业匹配按钮：账号已设置默认行业时始终显示，根据当前模式切换文案和行为 */}
+            {hasIndustryPrefs && prefsMode !== "loading" && (
               <button
                 type="button"
-                onClick={handleRestoreIndustryMatch}
-                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-teal-200 bg-teal-50 text-teal-700 text-sm font-black whitespace-nowrap transition-colors hover:border-teal-300 hover:text-teal-800"
+                onClick={prefsMode === "prefs" ? exitAutoMode : handleRestoreIndustryMatch}
+                className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
+                  prefsMode === "prefs"
+                    ? "border-teal-500 bg-teal-500 text-white hover:border-teal-600 hover:bg-teal-600"
+                    : "border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300 hover:text-teal-800"
+                }`}
               >
                 <Target className="w-3.5 h-3.5" />
-                {t("procurement_restoreIndustryMatch")}
+                {prefsMode === "prefs" ? t("procurement_cancelIndustryMatch") : t("procurement_restoreIndustryMatch")}
               </button>
             )}
           </div>

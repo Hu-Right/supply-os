@@ -78,5 +78,8 @@
   "statusPanelFreeQuota": "免费额度",
   "statusPanelTimes": "次",
   "statusPanelNoEntitlement": "暂无付费权益，升级套餐解锁更多",
-  "statusPanelUpgradeBtn": "查看套餐"
+  "statusPanelUpgradeBtn": "查看套餐",
+  "statusPanelTotalUnlocks": "总可用解锁",
+  "statusPanelBreakdown": "权益明细",
+  "statusPanelEntitlementCards": "{count} 张单次解锁卡"
 }

@@ -24,6 +24,8 @@ import {
 } from "./filter";
 import { inferNoticesByCategory } from "./fuzzy";
 import type { IndustryMatchResult, MatchTierLabel } from "./types";
+import type { NoticesRepo } from "../../repos/notices.repo";
+import { getTranslatedNoticeDetail } from "../translation/notice";
 
 // ── 结果缓存（5 分钟 TTL，参照 recommend 模块模式）──
 const resultCache = new Map<string, { data: IndustryMatchResult; expires: number }>();
@@ -99,7 +101,15 @@ async function loadTierTotals(pool: Pool, userKey: string, tiers: TierQuery[]): 
   return totals;
 }
 
-/** 查询单层公告数据（懒执行：仅在前层结果不足时调用；locale 传 zh 时附带 description_cn，其他语言附带 title_i18n/description_i18n） */
+/**
+ * 查询单层公告数据（懒执行：仅在前层结果不足时调用）
+ *
+ * 统一语言回退方案（与推荐模块一致）：
+ * - 标题回退链：title_i18n（当前语言译文）→ title_en（英文译文）→ title（原文）
+ * - 描述回退链：description_i18n → description_cn（仅 zh）→ description_en → description
+ * - 招标内容：zh 环境优先 description_cn → description_i18n → bid_overview
+ *             非 zh 环境优先 bid_overview → description
+ */
 async function queryTierRows(
   pool: Pool,
   tier: TierQuery,
@@ -107,38 +117,37 @@ async function queryTierRows(
   offset: number,
   locale?: string,
 ): Promise<RowDataPacket[]> {
-  // 中文环境特殊处理：description_tr 通常为 NULL，需从机会表获取 description_cn
-  // 其他语言：从翻译表获取 title_i18n/description_i18n
-  const isZh = locale === "zh";
-  const oppJoin = isZh
-    ? "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)"
-    : "";
-  const trJoin = locale && !isZh
+  // 统一 JOIN 翻译表（所有语言包括 zh）+ 英文回退表 + 机会表
+  const trJoin = locale
     ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?"
     : "";
-  // 中文环境返回 description_cn（需 MAX 聚合，因 GROUP BY n.id）；其他语言返回翻译字段
-  const i18nSelect = isZh
-    ? "MAX(opp.description_cn) AS description_cn,"
-    : (locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "");
-  const i18nParams = locale && !isZh ? [locale] : [];
+  const trParams = locale ? [locale] : [];
+  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)";
+  // 统一选取：当前语言译文 + 英文回退 + 中文拆解描述 + 投标概览
+  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
+  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
+  const oppSelect = "MAX(opp.description_cn) AS description_cn, LEFT(MAX(opp.bid_overview), 200) AS bid_overview,";
   const [result] = await pool.query(
-    `SELECT ${NOTICE_SELECT_FIELDS}, ${i18nSelect} ${tier.score} AS match_score
+    `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} ${tier.score} AS match_score
      FROM crm_bid_notices n
      INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
      ${oppJoin}
      ${trJoin}
+     ${treJoin}
      WHERE (${tier.clause}) AND ${ACTIVE_NOTICE_WHERE}
      GROUP BY n.id
      ORDER BY match_score DESC, ${DEADLINE_ORDER}
      LIMIT ? OFFSET ?`,
-    [...tier.params, ...i18nParams, limit, offset],
+    [...trParams, ...tier.params, limit, offset],
   );
   return result as RowDataPacket[];
 }
 
 /**
  * 行业精准匹配主入口。
- * @param locale fr/ru/es/ar 时返回对应界面语言译文（title_i18n/description_i18n）
+ * @param locale 当前界面语言，所有语言（含 zh）均走统一翻译回退链
+ * @param noticesRepo 可选，用于按需补翻缺失译文的公告（与推荐模块一致）
  * @returns 无行业偏好 fallback=no_prefs；无匹配 fallback=no_match；正常 none
  */
 export async function matchNoticesByIndustry(
@@ -147,6 +156,7 @@ export async function matchNoticesByIndustry(
   page: number,
   pageSize: number,
   locale?: string,
+  noticesRepo?: NoticesRepo,
 ): Promise<IndustryMatchResult> {
   const offset = (page - 1) * pageSize;
 
@@ -155,8 +165,8 @@ export async function matchNoticesByIndustry(
     return { items: [], total: 0, page, pageSize, fallback: "no_prefs" };
   }
 
-  // 缓存命中
-  const cacheKey = `${userKey}:${page}:${pageSize}`;
+  // 缓存命中（locale 纳入缓存键，不同语言结果独立缓存）
+  const cacheKey = `${userKey}:${locale || "_"}:${page}:${pageSize}`;
   const cached = resultCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.data;
 
@@ -218,6 +228,24 @@ export async function matchNoticesByIndustry(
     const existingIds = new Set(rows.map((r) => Number(r.id)));
     for (const inferredRow of inferredRows) {
       if (!existingIds.has(Number(inferredRow.id))) rows.push(inferredRow);
+    }
+  }
+
+  // 卡片国际化按需补翻：与推荐模块一致，缺失译文的公告异步触发翻译链
+  // 写入缓存，不阻塞当前响应（下次访问即可命中）
+  if (locale && noticesRepo) {
+    const missingRows = rows.filter((row) => !row.title_i18n);
+    const toTranslate = missingRows.slice(0, 9);
+    if (toTranslate.length > 0) {
+      void Promise.all(
+        toTranslate.map(async (row) => {
+          try {
+            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
+            row.title_i18n = tr.title || null;
+            row.description_i18n = tr.description || null;
+          } catch { /* 翻译失败不影响列表主体 */ }
+        }),
+      );
     }
   }
 
