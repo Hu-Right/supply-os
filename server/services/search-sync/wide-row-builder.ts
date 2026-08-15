@@ -9,7 +9,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { normalizeNoticeType } from "../meilisearch/sync";
-import { classifyAgencyType } from "../agencyI18n";
+import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
 

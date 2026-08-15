@@ -8,7 +8,7 @@ import { translateViaChain, type ChainResult, type ChainSourceLang } from "./cha
 import type { NoticesRepo } from "../../repos/notices.repo";
 import { preferValue } from "../../utils/json";
 import { findQualifiedOpportunityForNotice } from "../notices";
-import { syncWideIds } from "../noticeSearchSync";
+import { syncWideIds } from "../search-sync/index";
 
 export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
   zh: "Simplified Chinese",

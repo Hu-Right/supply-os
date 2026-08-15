@@ -8,7 +8,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { NoticesRepo } from "../../repos/notices.repo";
-import { getTranslatedNoticeDetail } from "../notice-translation";
+import { getTranslatedNoticeDetail } from "../translation/notice";
 
 /**
  * 异步触发缺失翻译的补翻（不阻塞当前响应）

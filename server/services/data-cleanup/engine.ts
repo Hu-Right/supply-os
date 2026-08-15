@@ -1,34 +1,18 @@
 /**
- * 公告附属数据脏数据清理服务（翻译表 + 搜索宽表）
- * Notice dependent-data stale cleanup service (translations + wide table)
+ * 通用脏数据清理引擎
+ * Stale Data Cleanup Engine
  *
- * @module server/services/noticeDataCleanup
- * @description 比对 crm_bid_notices（主表）与两个附属数据源，清理"主表已不存在
- *              （或已失效）"的记录，与桥接表清理（noticeBridgeSync.ts）模式一致：
- *              统计 → 备份 → 分批删除 → 日志报告，供一次性清理脚本
- *              （scripts/cleanup-notice-data.ts）与后台定时任务
- *              （server/lifecycle/timers.ts）复用。
- *
- *              关联口径（已按 INFORMATION_SCHEMA 实际结构核实）：
- *              - crm_notice_translations.notice_id（BIGINT）→ crm_bid_notices.id
- *              - crm_notice_search.notice_id（VARCHAR）→ crm_bid_notices.notice_id（外部编号）
- *
- *              过期口径与桥接表一致：主表 is_expired = 1 视为已失效；
- *              默认仅清理"主表完全不存在"的硬死数据，过期数据通过
- *              includeExpired 显式开启（公告未来若被同步任务回填时仍可恢复，
- *              保守默认不删）。
+ * @module server/services/data-cleanup/engine
+ * @description 提取自 noticeBridgeSync.ts 和 noticeDataCleanup.ts 的通用清理逻辑：
+ *              统计 → 备份 → 分批删除 → 日志报告。
+ *              具体清理目标通过 CleanupTarget 配置声明。
  */
 import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { createLogger } from "../utils/fileLogger";
-
-const logger = createLogger("data-cleanup");
 
 const DEFAULT_BATCH_SIZE = 5000;
 
-export type CleanupTargetKey = "translations" | "wide";
-
 /** 单个清理目标的表结构与关联配置 */
-interface CleanupTarget {
+export interface CleanupTarget {
   /** 目标表名 */
   table: string;
   /** 目标表主键列（分批删除按主键 IN） */
@@ -41,26 +25,8 @@ interface CleanupTarget {
   backupPrefix: string;
 }
 
-export const CLEANUP_TARGETS: Record<CleanupTargetKey, CleanupTarget> = {
-  // 翻译表 notice_id 是 BIGINT，存的是主表自增 id
-  translations: {
-    table: "crm_notice_translations",
-    idColumn: "id",
-    joinColumn: "notice_id",
-    mainJoinColumn: "id",
-    backupPrefix: "crm_notice_translations_backup",
-  },
-  // 宽表 notice_id 是外部公告编号（与主表 notice_id 同源，与桥接表一致）
-  wide: {
-    table: "crm_notice_search",
-    idColumn: "id",
-    joinColumn: "notice_id",
-    mainJoinColumn: "notice_id",
-    backupPrefix: "crm_notice_search_backup",
-  },
-};
-
-export interface NoticeDataCleanupOptions {
+/** 清理选项 */
+export interface CleanupOptions {
   /** 是否同时清理已过期公告（is_expired=1）的附属数据，默认 false */
   includeExpired?: boolean;
   /** 删除批次大小，默认 5000 */
@@ -69,7 +35,8 @@ export interface NoticeDataCleanupOptions {
   backup?: boolean;
 }
 
-export interface NoticeDataCleanupStats {
+/** 清理统计 */
+export interface CleanupStats {
   /** 目标表名 */
   table: string;
   /** 清理前目标表总行数 */
@@ -107,15 +74,14 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 统计附属数据源脏数据（只读，不修改任何数据）
+ * 统计脏数据（只读，不修改任何数据）
  * 供 CLI 脚本 dry-run 模式使用
  */
-export async function countStaleNoticeData(
+export async function countStaleData(
   pool: Pool,
-  targetKey: CleanupTargetKey,
+  target: CleanupTarget,
   includeExpired = false,
 ): Promise<{ tableTotal: number; orphanRows: number; expiredRows: number }> {
-  const target = CLEANUP_TARGETS[targetKey];
   const [totalRows] = await pool.query(`SELECT COUNT(*) AS cnt FROM ${target.table}`);
   const tableTotal = Number((totalRows as RowDataPacket[])[0].cnt);
 
@@ -135,17 +101,22 @@ export async function countStaleNoticeData(
 }
 
 /**
- * 清理附属数据源脏数据：一次 LEFT JOIN 取 ID + 统计 → 备份 → 分批删除 → 报告。
- * 与 cleanupStaleNoticeBridge 同一模式：备份和删除复用已提取的 ID 列表，
- * 避免重复全表关联；分批删除走主键索引，防止大事务锁表。
+ * 清理脏数据：一次 LEFT JOIN 取 ID + 统计 → 备份 → 分批删除 → 报告。
+ * 备份和删除复用已提取的 ID 列表，避免重复全表关联；
+ * 分批删除走主键索引，防止大事务锁表。
+ *
+ * @param pool - 数据库连接池
+ * @param target - 清理目标配置
+ * @param options - 清理选项
+ * @param logger - 日志记录器（可选）
  */
-export async function cleanupStaleNoticeData(
+export async function runStaleDataCleanup(
   pool: Pool,
-  targetKey: CleanupTargetKey,
-  options: NoticeDataCleanupOptions = {},
-): Promise<NoticeDataCleanupStats> {
+  target: CleanupTarget,
+  options: CleanupOptions = {},
+  logger?: { info: (msg: string) => void },
+): Promise<CleanupStats> {
   const startedAt = Date.now();
-  const target = CLEANUP_TARGETS[targetKey];
   const batchSize = Math.max(1, Math.floor(Number(options.batchSize || DEFAULT_BATCH_SIZE)));
   const includeExpired = Boolean(options.includeExpired);
   const withBackup = options.backup !== false;
@@ -169,8 +140,8 @@ export async function cleanupStaleNoticeData(
   const toDelete = orphanRows + (includeExpired ? expiredRows : 0);
   const staleIds = staleData.map((r) => Number(r.target_id));
 
-  logger.info(
-    `[${targetKey}] 扫描完成: ${target.table} ${tableTotal} 行，死数据 ${orphanRows} 行，已过期 ${expiredRows} 行，待删除 ${toDelete} 行`,
+  logger?.info(
+    `扫描完成: ${target.table} ${tableTotal} 行，死数据 ${orphanRows} 行，已过期 ${expiredRows} 行，待删除 ${toDelete} 行`,
   );
 
   // ── Step 2: 备份（复用已提取的 ID，走主键索引而非 LEFT JOIN）──
@@ -194,7 +165,7 @@ export async function cleanupStaleNoticeData(
         staleIds,
       );
     }
-    logger.info(`[${targetKey}] 已备份 ${staleIds.length} 行到 ${backupTable}`);
+    logger?.info(`已备份 ${staleIds.length} 行到 ${backupTable}`);
   }
 
   // ── Step 3: 分批删除（复用同一份 ID 列表）──
@@ -210,8 +181,8 @@ export async function cleanupStaleNoticeData(
   }
 
   const durationMs = Date.now() - startedAt;
-  logger.info(
-    `[${targetKey}] 清理完成: 删除 ${deleted} 行，耗时 ${durationMs}ms${backupTable ? `，备份表 ${backupTable}` : ""}`,
+  logger?.info(
+    `清理完成: 删除 ${deleted} 行，耗时 ${durationMs}ms${backupTable ? `，备份表 ${backupTable}` : ""}`,
   );
 
   return {

@@ -6,7 +6,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
-import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../../agencyI18n";
+import { translateByPattern, classifyAgencyType, COUNTRY_ZH } from "../../agency/index";
 import { ACTIVE_NOTICE_WHERE } from "../../../utils/notice-expired";
 import { setAgencyCacheData } from "./cache";
 import { needsTranslationFix, buildZhFromKeywords, extractCountryFromName } from "./translate";

@@ -8,9 +8,9 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows, escapeLikeWildcard } from "../../utils/normalize";
-import { buildNoticeUnspscFilter } from "../unspsc";
-import { normalizeNoticeType, toBeijingUnixTs } from "../meilisearch";
-import { isWideTableReady } from "../noticeSearchSync";
+import { buildNoticeUnspscFilter } from "../unspsc/index";
+import { normalizeNoticeType, toBeijingUnixTs } from "../meilisearch/index";
+import { isWideTableReady } from "../search-sync/index";
 import { DEADLINE_SEC_EXPR, ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 import {
   noticeSearchCache, featuredCountCache,

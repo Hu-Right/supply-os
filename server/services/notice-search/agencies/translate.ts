@@ -4,7 +4,7 @@
  *
  * @module server/services/notice-search/agencies/translate
  */
-import { COUNTRY_ZH } from "../../agencyI18n";
+import { COUNTRY_ZH } from "../../agency/index";
 
 /** 判断翻译是否需要修复 */
 export function needsTranslationFix(s: string | undefined, agency: string): boolean {

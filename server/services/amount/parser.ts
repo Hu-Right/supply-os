@@ -1,12 +1,16 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * 金额解析器
+ * Amount Parser
+ *
+ * @module server/services/amount/parser
+ * @description 本地差异 #10：T-B3 金额解析（D.3.2 四步规则：垃圾过滤 → 币种识别 → 数字提取/区间取中位 → country 推断）
+ *
+ *              estimated_value 实测形态（2026-07-29 只读探针）：notices 侧 56% 纯数字 + 43% "BRL 173,841.36" 式；
+ *              opportunities 侧含"未提及/Not specified"类垃圾文本、"6666.67 php" 小写后缀、"菲律宾比索"中文名、区间。
  */
-import type { RowDataPacket } from "mysql2/promise";
-// ── 本地差异 #10：T-B3 金额解析（D.3.2 四步规则：垃圾过滤 → 币种识别 → 数字提取/区间取中位 → country 推断）──
-// estimated_value 实测形态（2026-07-29 只读探针）：notices 侧 56% 纯数字 + 43% "BRL 173,841.36" 式；
-// opportunities 侧含"未提及/Not specified"类垃圾文本、"6666.67 php" 小写后缀、"菲律宾比索"中文名、区间。
+
 export const AMOUNT_PARSE_VERSION = 1;
+
 // 粗粒度静态汇率（→USD）：仅用于跨币种数量级可比，不追求精确；调整后须递增 AMOUNT_PARSE_VERSION 触发重算
 const USD_RATE: Record<string, number> = {
   USD: 1, EUR: 1.08, GBP: 1.27, CNY: 0.14, JPY: 0.0067, BRL: 0.18, PHP: 0.017, INR: 0.012,
@@ -27,6 +31,7 @@ const USD_RATE: Record<string, number> = {
   OMR: 2.6, BHD: 2.65, LYD: 0.21, ALL: 0.011, MKD: 0.0175, RSD: 0.0092, BAM: 0.55, BGN: 0.55,
   MDL: 0.056, BYN: 0.31, ISK: 0.0072, HRK: 0.143,
 };
+
 // 中文币种名 → ISO（三写法之一；"比索/卢比/第纳尔"等歧义词不收，靠 country 推断兜底）
 const CURRENCY_NAME_MAP: Record<string, string> = {
   "美元": "USD", "欧元": "EUR", "英镑": "GBP", "人民币": "CNY", "日元": "JPY",
@@ -36,6 +41,7 @@ const CURRENCY_NAME_MAP: Record<string, string> = {
   "埃及镑": "EGP", "土耳其里拉": "TRY", "沙特里亚尔": "SAR", "迪拉姆": "AED", "港元": "HKD",
   "新台币": "TWD", "新加坡元": "SGD", "瑞士法郎": "CHF", "加元": "CAD", "澳元": "AUD",
 };
+
 // 国家名（英文小写包含匹配）→ 法定货币：country 推断路径，打 inferred 标记（评分信心收缩 ×0.7）
 const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   brazil: "BRL", philippines: "PHP", india: "INR", indonesia: "IDR", "viet nam": "VND", vietnam: "VND",
@@ -62,6 +68,13 @@ const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   netherlands: "EUR", belgium: "EUR", austria: "EUR", greece: "EUR", finland: "EUR", ireland: "EUR",
 };
 
+/**
+ * 解析公告预估金额
+ *
+ * @param raw - 原始金额字符串
+ * @param country - 国家名（用于推断币种）
+ * @returns 解析结果，包含金额、币种、美元等值、是否推断
+ */
 export function parseEstimatedValue(
   raw: unknown,
   country?: unknown
@@ -116,58 +129,3 @@ export function parseEstimatedValue(
   const amountUsd = rate ? Math.round(amount * rate * 100) / 100 : null;
   return { amount, currency, amountUsd, inferred };
 }
-
-// 本地差异 #10：金额缓存回填。noticeIds 给定=懒填充（推荐当页缺失行，量小）；
-// 未给定=admin 批量回填一批（≤batchLimit 行，短事务、可中断续跑——按缓存缺失/过版续扫）
-export async function backfillNoticeAmountCache(dbPool: any, noticeIds?: number[], batchLimit = 2000): Promise<{ processed: number }> {
-  const idFilter = noticeIds && noticeIds.length ? `AND n.id IN (${noticeIds.map(() => "?").join(",")})` : "";
-  const [rows] = await dbPool.query(
-    `SELECT n.id, n.estimated_value, n.country
-     FROM crm_bid_notices n
-     LEFT JOIN crm_notice_amount_cache c ON c.notice_id = n.id AND c.parse_version = ?
-     WHERE c.notice_id IS NULL ${idFilter}
-     LIMIT ?`,
-    [AMOUNT_PARSE_VERSION, ...(noticeIds || []), batchLimit]
-  );
-  const pending = rows as RowDataPacket[];
-  if (!pending.length) return { processed: 0 };
-  const values: any[] = [];
-  for (const row of pending) {
-    const parsed = parseEstimatedValue(row.estimated_value, row.country);
-    values.push(
-      Number(row.id),
-      parsed?.amount ?? null,
-      parsed?.currency ?? null,
-      parsed?.amountUsd ?? null,
-      parsed?.inferred ? 1 : 0,
-      AMOUNT_PARSE_VERSION
-    );
-  }
-  await dbPool.query(
-    `INSERT INTO crm_notice_amount_cache (notice_id, amount, currency, amount_usd, inferred, parse_version)
-     VALUES ${pending.map(() => "(?,?,?,?,?,?)").join(",")}
-     ON DUPLICATE KEY UPDATE amount=VALUES(amount), currency=VALUES(currency), amount_usd=VALUES(amount_usd),
-       inferred=VALUES(inferred), parse_version=VALUES(parse_version), parsed_at=CURRENT_TIMESTAMP`,
-    values
-  );
-  return { processed: pending.length };
-}
-
-// 本地差异 #12：T-E2 浏览量日汇总聚合（E.2）。覆盖式写入（ON DUPLICATE KEY UPDATE 取 VALUES）
-// 保证幂等——重跑同日不翻倍。默认全量重算（当前 views 表仅数百行）；量大后传 sinceDays 增量：
-// 注意增量窗口必须覆盖整天（DATE(viewed_at) 粒度），否则边界日会被窗口内的部分计数覆盖
-export async function rollupNoticeViewDaily(dbPool: any, sinceDays = 0): Promise<{ affected: number }> {
-  const windowWhere = sinceDays > 0 ? "AND viewed_at >= CURDATE() - INTERVAL ? DAY" : "";
-  const params = sinceDays > 0 ? [sinceDays] : [];
-  const [result] = await dbPool.query(
-    `INSERT INTO crm_notice_view_daily (notice_id, stat_day, view_cnt, uniq_user_cnt)
-     SELECT notice_id, DATE(viewed_at), COUNT(*), COUNT(DISTINCT user_key)
-     FROM crm_user_notice_views
-     WHERE notice_id IS NOT NULL ${windowWhere}
-     GROUP BY notice_id, DATE(viewed_at)
-     ON DUPLICATE KEY UPDATE view_cnt = VALUES(view_cnt), uniq_user_cnt = VALUES(uniq_user_cnt)`,
-    params
-  );
-  return { affected: Number((result as RowDataPacket)?.affectedRows || 0) };
-}
-

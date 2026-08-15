@@ -6,12 +6,12 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
-import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc";
+import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc/index";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import {
   NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain,
-} from "../services/notice-translation";
+} from "../services/translation/notice";
 
 export function createOpportunitiesRouter(ctx: AppContext): Router {
   const router = Router();

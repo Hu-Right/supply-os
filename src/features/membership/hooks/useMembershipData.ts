@@ -16,6 +16,12 @@ export interface UseMembershipDataReturn {
   error: string | null;
   freeRemaining: number;
   freeQuota: number;
+  /** 当前最优权益类型：subscription > entitlement > free */
+  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 单次解锁卡权益列表 */
+  entitlements: MembershipStatus["entitlements"];
+  /** 活跃订阅列表 */
+  activeSubscriptions: MembershipStatus["active_subscriptions"];
 }
 
 export function useMembershipData(): UseMembershipDataReturn {
@@ -56,6 +62,15 @@ export function useMembershipData(): UseMembershipDataReturn {
     };
   }, [authUser]);
 
+  const entitlements = membership?.entitlements ?? [];
+  const activeSubscriptions = membership?.active_subscriptions ?? [];
+  const bestBenefitType: "subscription" | "entitlement" | "free" =
+    activeSubscriptions.length > 0
+      ? "subscription"
+      : entitlements.length > 0
+        ? "entitlement"
+        : "free";
+
   return {
     plans,
     membership,
@@ -63,5 +78,8 @@ export function useMembershipData(): UseMembershipDataReturn {
     error,
     freeRemaining: membership?.free_remaining ?? 3,
     freeQuota: membership?.free_quota ?? 3,
+    bestBenefitType,
+    entitlements,
+    activeSubscriptions,
   };
 }

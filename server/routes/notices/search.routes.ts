@@ -12,8 +12,8 @@ import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { searchNotices, getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/noticeSearch";
-import { recommendNotices } from "../../services/noticeRecommend";
+import { searchNotices, getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
+import { recommendNotices } from "../../services/recommend/index";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

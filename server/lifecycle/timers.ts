@@ -7,12 +7,12 @@
  *              集中管理，返回统一的 stop 函数。
  */
 import type { Pool } from "mysql2/promise";
-import { refreshFeaturedColumn } from "../services/notices";
-import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
-import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
-import { syncWideIds } from "../services/noticeSearchSync";
-import { cleanupStaleNoticeBridge } from "../services/noticeBridgeSync";
-import { cleanupStaleNoticeData } from "../services/noticeDataCleanup";
+import { refreshFeaturedColumn } from "../services/notices/index";
+import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
+import { syncWideIds } from "../services/search-sync/index";
+import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
+import { cleanupStaleNoticeData } from "../services/data-cleanup";
 
 /**
  * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。

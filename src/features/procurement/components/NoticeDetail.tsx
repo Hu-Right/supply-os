@@ -21,6 +21,10 @@ interface NoticeDetailProps {
   freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
+  /** 当前最优权益类型 */
+  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 是否已登录 */
+  isLoggedIn: boolean;
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
@@ -37,6 +41,8 @@ export function NoticeDetail({
   freeQuota,
   canUsePaidQuota,
   isVip,
+  bestBenefitType,
+  isLoggedIn,
   onBack,
   onExpressInterest,
   onUnlock,
@@ -197,6 +203,8 @@ export function NoticeDetail({
             freeQuota={freeQuota}
             canUsePaidQuota={canUsePaidQuota}
             isVip={isVip}
+            bestBenefitType={bestBenefitType}
+            isLoggedIn={isLoggedIn}
             showSkeleton={showSkeleton}
             onExpressInterest={onExpressInterest}
             onUnlock={onUnlock}

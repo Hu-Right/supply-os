@@ -5,7 +5,7 @@
  * @module server/services/meilisearch/sync
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { classifyAgencyType } from "../agencyI18n";
+import { classifyAgencyType } from "../agency/index";
 import { getClient, isHealthy, getIndexName } from "./client";
 import { segmentZh } from "./segmentZh";
 

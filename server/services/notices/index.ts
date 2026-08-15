@@ -4,7 +4,7 @@
  */
 import { safeJson, preferValue } from "../../utils/json";
 import { normalizeContactRows, extractContactsFromText, normalizeDocumentRows } from "../../utils/normalize";
-import { normalizeUnspscCodes } from "../unspsc";
+import { normalizeUnspscCodes } from "../unspsc/index";
 
 // Re-export 精选逻辑
 export {

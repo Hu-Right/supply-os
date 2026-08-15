@@ -10,12 +10,17 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import {
-  recomputeRecoWeightProfile, recoVariant,
+  recomputeRecoWeightProfile,
+} from "./weight-profile";
+import {
+  recoVariant,
+} from "./ab-testing";
+import {
   tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords,
-} from "../recommend";
-import { backfillNoticeAmountCache } from "../amount";
+} from "./text-similarity";
+import { backfillNoticeAmountCache } from "../amount/index";
 import type { NoticesRepo } from "../../repos/notices.repo";
-import { getTranslatedNoticeDetail } from "../notice-translation";
+import { getTranslatedNoticeDetail } from "../translation/notice";
 import { deadlineFallback, processInterestCodes } from "./recall";
 import { buildScoringContext, getAmountPreference, resolveWeights } from "./scoring";
 import { mmrRerankPage, buildRecoReasons } from "./rerank";
@@ -182,3 +187,9 @@ export async function recommendNotices(
 
   return result;
 }
+
+// ── 子模块导出（供外部直接导入） ──
+export { decayUserInterestCodes } from "./interest-decay";
+export { recomputeRecoWeightProfile } from "./weight-profile";
+export { AB_TREATMENT_PCT, recoVariant } from "./ab-testing";
+export { tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords } from "./text-similarity";

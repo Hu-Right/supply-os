@@ -15,7 +15,7 @@ import { getPaymentRuntimeConfig } from "../config/env";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
-import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../services/paymentFulfillment";
+import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../payment/fulfillment";
 
 export function createPaymentRouter(ctx: AppContext): Router {
   const router = Router();

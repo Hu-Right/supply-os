@@ -11,6 +11,7 @@
 import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
+import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
 import type { NoticeItem, MembershipStatus } from "../types";
 
 export interface NoticeDetailSidebarProps {
@@ -20,6 +21,10 @@ export interface NoticeDetailSidebarProps {
   freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
+  /** 当前最优权益类型 */
+  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 是否已登录 */
+  isLoggedIn: boolean;
   /** 骨架屏期间隐藏付费解锁按钮，防闪变 */
   showSkeleton: boolean;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
@@ -34,6 +39,8 @@ export function NoticeDetailSidebar({
   freeQuota,
   canUsePaidQuota,
   isVip,
+  bestBenefitType,
+  isLoggedIn,
   showSkeleton,
   onExpressInterest,
   onUnlock,
@@ -75,6 +82,17 @@ export function NoticeDetailSidebar({
 
   return (
     <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
+      {/* 会员权益状态面板：展示当前最优权益 */}
+      <MembershipStatusPanel
+        membership={membership}
+        bestBenefitType={bestBenefitType}
+        freeQuota={freeQuota}
+        freeRemaining={freeRemaining}
+        isLoggedIn={isLoggedIn}
+        noticeId={notice.id}
+        compact
+      />
+
       {/* P0-2 移动端修复：操作按钮固定于视口底部，无需滚动即可触达核心转化操作 */}
       <div className="hidden max-[900px]:fixed max-[900px]:bottom-0 max-[900px]:left-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:flex max-[900px]:gap-2 max-[900px]:bg-white/95 max-[900px]:backdrop-blur-md max-[900px]:border-t max-[900px]:border-slate-200 max-[900px]:p-3 max-[900px]:shadow-lg max-[900px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         {actionButtons}

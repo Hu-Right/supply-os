@@ -7,9 +7,6 @@ import os from "os";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
-import { ensureProcurementSchema } from "./db/schema";
-import { runSeeds } from "./db/seeds";
-import { backfillUserIds, hydratePaymentEnvFromDb } from "./db/backfills";
 import { createLeadsStore } from "./services/leads";
 import { PaymentService } from "./payment/PaymentService";
 import { UsersRepo } from "./repos/users.repo";
@@ -24,15 +21,14 @@ import { LeadsRepo } from "./repos/leads.repo";
 import { TrainingRepo, SystemRepo } from "./repos/training.repo";
 import { AdminRepo } from "./repos/admin.repo";
 import { createApp } from "./app";
-import { startAutoTranslate } from "./services/autoTranslate";
+import { startAutoTranslate } from "./services/translation/auto";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
-import { refreshFeaturedColumn } from "./services/notices";
-import { seedAgencyAliases } from "./services/agencyAliasSeed";
-import { initMeilisearch, ensureIndex, syncNoticeIds, isHealthy as isMeiliHealthy } from "./services/meilisearch";
+import { initMeilisearch, ensureIndex, isHealthy as isMeiliHealthy } from "./services/meilisearch/index";
 import { startSearchSync } from "./services/searchSync";
-import { startWideTableSync } from "./services/noticeSearchSync";
+import { startWideTableSync } from "./services/search-sync/index";
 import { runWarmup } from "./lifecycle/warmup";
 import { startAllTimers } from "./lifecycle/timers";
+import { schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase, executePhase } from "./lifecycle/phases";
 import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
@@ -43,35 +39,16 @@ export async function startServer() {
 
   // MySQL2 connection pool for crm database
   const dbPool = createDbPool();
+  const phaseCtx = { dbPool };
 
-  await ensureProcurementSchema(dbPool);
-
-  // 种子数据（会员计划等）：与 DDL 分离，可通过 SEED_ENABLED=off 禁用
-  await runSeeds(dbPool, {
-    enabled: String(process.env.SEED_ENABLED ?? "on").toLowerCase() !== "off",
-  });
-
-  // 机构别名映射种子数据（启动时自动写入，已存在则跳过）
-  try {
-    await seedAgencyAliases(dbPool);
-  } catch (e) {
-    console.error("[agency-alias] 种子数据写入失败（静默降级）:", (e as Error).message);
-  }
-
-  await backfillUserIds(dbPool);
-
-  // P6 性能优化：启动时回填 is_featured 预计算列，之后每 30 分钟增量刷新
-  // 回滚：删除以下 refreshFeaturedColumn 调用和 setInterval
-  try {
-    const result = await refreshFeaturedColumn(dbPool);
-    // 将初始回填的 is_featured 变更同步到 Meilisearch
-    if (result.changedIds.length > 0 && isMeiliHealthy()) {
-      await syncNoticeIds(dbPool, result.changedIds);
+  // 分阶段启动：Schema 迁移 → 种子数据 → 机构别名 → 用户回填 → 精选回填 → 支付环境
+  const phases = [schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase];
+  for (const phase of phases) {
+    const success = await executePhase(phase, phaseCtx);
+    if (!success && !phase.optional) {
+      throw new Error(`启动阶段 ${phase.name} 失败，服务终止`);
     }
-  } catch (e) {
-    console.error("[featured-init] 初始回填失败:", (e as Error).message);
   }
-  await hydratePaymentEnvFromDb(dbPool);
 
   // Repository 层初始化
   const usersRepo = new UsersRepo(dbPool);
@@ -88,10 +65,25 @@ export async function startServer() {
   const adminRepo = new AdminRepo(dbPool);
 
   // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
-  const paymentMode = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
+  const paymentMode: "live" | "mock" = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode);
 
-  const ctx: AppContext = { dbPool, paymentService, paymentMode, leadsDb, usersRepo, membershipRepo, paymentsRepo, opportunitiesRepo, noticesRepo, suppliersRepo, catalogRepo, userPrefsRepo, leadsRepo, trainingRepo, systemRepo, adminRepo };
+  // 领域上下文（新代码推荐）
+  const notice = { dbPool, noticesRepo };
+  const payment = { dbPool, paymentService, paymentMode, paymentsRepo, membershipRepo };
+  const user = { dbPool, usersRepo, membershipRepo, userPrefsRepo };
+  const supplier = { dbPool, suppliersRepo };
+  const admin = { dbPool, adminRepo, usersRepo };
+
+  const ctx: AppContext = {
+    dbPool, leadsDb,
+    // 领域上下文
+    notice, payment, user, supplier, admin,
+    // 其他领域 Repo
+    opportunitiesRepo, catalogRepo, leadsRepo, trainingRepo, systemRepo,
+    // 向后兼容顶层字段（@deprecated）
+    noticesRepo, usersRepo, paymentsRepo, membershipRepo, suppliersRepo, userPrefsRepo, adminRepo, paymentService, paymentMode,
+  };
   const app = createApp(ctx);
 
   // Vite Integration for high performance SPA support

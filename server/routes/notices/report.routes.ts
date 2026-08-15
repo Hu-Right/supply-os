@@ -15,7 +15,7 @@ import { Router } from "express";
 import type { AppContext } from "../../context";
 import { normalizeUserKey } from "../../utils/normalize";
 import { findQualifiedOpportunityForNotice } from "../../services/notices";
-import { buildBidReportDocx, buildBidReportPreviewText, estimateFullReportCharCount, mergeBidReportRow, bidReportFileName } from "../../services/bidReport";
+import { buildBidReportDocx, buildBidReportPreviewText, estimateFullReportCharCount, mergeBidReportRow, bidReportFileName } from "../../services/bid-report/index";
 import { asyncHandler } from "../../middleware/errorHandler";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

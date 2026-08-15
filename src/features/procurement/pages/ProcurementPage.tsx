@@ -117,6 +117,8 @@ export default function ProcurementPage() {
         freeQuota={actions.freeQuota}
         canUsePaidQuota={actions.canUsePaidQuota}
         isVip={isVip}
+        bestBenefitType={actions.bestBenefitType}
+        isLoggedIn={!!authUser}
         detailLoading={actions.detailLoadingId === selectedNotice.id}
         onBack={() => {
           feedback.reportDetailExit();
@@ -152,7 +154,11 @@ export default function ProcurementPage() {
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
               {actions.canUsePaidQuota
-                ? t("procurement_vipActive")
+                ? actions.bestBenefitType === "subscription"
+                  ? t("statusPanelSubscriptionTitle")
+                  : actions.bestBenefitType === "entitlement"
+                    ? t("statusPanelEntitlementTitle")
+                    : t("procurement_vipActive")
                 : `${t("procurement_freeTrial")} ${actions.freeRemaining} ${t("procurement_items")}`}
             </span>
           </div>

@@ -6,7 +6,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
-import { getTranslatedNoticeDetail } from "../notice-translation";
+import { getTranslatedNoticeDetail } from "../translation/notice";
 import type { NoticesRepo } from "../../repos/notices.repo";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 

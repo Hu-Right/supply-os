@@ -29,6 +29,12 @@ export interface UseNoticeMembershipReturn {
   freeRemaining: number;
   freeQuota: number;
   canUsePaidQuota: boolean;
+  /** 当前最优权益类型：subscription > entitlement > free */
+  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 单次解锁卡权益列表 */
+  entitlements: MembershipStatus["entitlements"];
+  /** 活跃订阅列表 */
+  activeSubscriptions: MembershipStatus["active_subscriptions"];
   refreshMembership: (useCache?: boolean) => Promise<void>;
   loadPaidPlans: () => Promise<void>;
 }
@@ -44,6 +50,18 @@ export function useNoticeMembership({
   const freeRemaining = Number(membership?.free_remaining ?? FREE_QUOTA_FALLBACK);
   const freeQuota = Number(membership?.free_quota ?? FREE_QUOTA_FALLBACK);
   const canUsePaidQuota = isVip || paidRemaining > 0;
+
+  // 权益列表（直接从 membership 透传，供 UI 组件消费）
+  const entitlements = membership?.entitlements ?? [];
+  const activeSubscriptions = membership?.active_subscriptions ?? [];
+
+  // 综合展示优先级：订阅 > 单次卡 > 免费
+  const bestBenefitType: "subscription" | "entitlement" | "free" =
+    activeSubscriptions.length > 0
+      ? "subscription"
+      : entitlements.length > 0
+        ? "entitlement"
+        : "free";
 
   const refreshMembership = async (useCache = false) => {
     if (!userKey) {
@@ -87,6 +105,9 @@ export function useNoticeMembership({
     freeRemaining,
     freeQuota,
     canUsePaidQuota,
+    bestBenefitType,
+    entitlements,
+    activeSubscriptions,
     refreshMembership,
     loadPaidPlans,
   };

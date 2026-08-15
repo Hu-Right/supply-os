@@ -9,8 +9,8 @@
 import type { Pool } from "mysql2/promise";
 import type { NoticesRepo } from "../repos/notices.repo";
 import type { SuppliersRepo } from "../repos/suppliers.repo";
-import { searchNotices, refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/noticeSearch";
-import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch";
+import { searchNotices, refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 
 export interface WarmupDeps {
   dbPool: Pool;

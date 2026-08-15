@@ -7,7 +7,7 @@
  *              解锁历史附带缺译标题的后台补翻（与详情端点共用缓存表）。
  */
 import type { PaymentsRepo, OrderHistoryRow, UnlockHistoryRow } from "../repos/payments.repo";
-import { NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain } from "./notice-translation";
+import { NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain } from "./translation/notice";
 
 export interface PagedHistory<T> {
   total: number;

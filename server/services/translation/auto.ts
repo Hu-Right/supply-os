@@ -20,7 +20,7 @@ import {
 import { channelConfigured } from "../../config/env";
 import { createLogger } from "../../utils/fileLogger";
 import { markTranslationSuccess, flushCleanedLogs } from "./logCleanup";
-import { syncWideIds } from "../noticeSearchSync";
+import { syncWideIds } from "../search-sync/index";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 const logger = createLogger("auto-translate");

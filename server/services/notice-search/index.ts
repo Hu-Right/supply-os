@@ -8,9 +8,9 @@
  *              agencies（机构）、stats（统计）、search-pipeline（SQL 管道）、translation-trigger（补翻）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy } from "../meilisearch";
+import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy } from "../meilisearch/index";
 import type { NoticesRepo } from "../../repos/notices.repo";
-import { isWideTableReady } from "../noticeSearchSync";
+import { isWideTableReady } from "../search-sync/index";
 
 // ── 子模块 re-export（保持对外 API 不变）──
 export type { NoticeSearchParams, NoticeSearchResult, AgencyCacheItem, NoticeStatsResult } from "./types";
