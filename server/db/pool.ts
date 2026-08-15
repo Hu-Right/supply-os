@@ -36,6 +36,9 @@ export function createDbPool(): Pool {
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000, // 10s 后开始发送 KeepAlive 探测包
     idleTimeout: 60000, // 60s 空闲超时，超过后关闭连接
+    // Tailscale 远程连接优化：增大连接超时，避免高延迟下连接失败
+    connectTimeout: 30000, // 30s 连接超时（默认 10s，远程中继场景下容易超时）
+    queueLimit: 0, // 无等待队列上限，避免突发请求直接拒绝
   });
 
   // P2-6 修复：连接池事件监控——记录连接错误和获取超时，便于运维诊断

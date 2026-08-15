@@ -1,0 +1,253 @@
+/**
+ * 注册表单
+ * Register Form
+ *
+ * @module features/auth/components/forms/RegisterForm
+ */
+import { useState, useEffect, useRef } from "react";
+import { Input, Select } from "@/shared/ui";
+import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
+import { useLocale } from "@/core/i18n";
+import { useUnspscPrefCascade } from "../../hooks/useUnspscPrefCascade";
+import { UnspscPrefSelects } from "../UnspscPrefSelects";
+import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
+import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
+import type { useRegisterCode } from "../../hooks/useRegisterCode";
+
+export interface RegisterFormProps {
+  authForm: AuthFormState;
+  setAuthForm: React.Dispatch<React.SetStateAction<AuthFormState>>;
+  claimForm: ClaimFormState;
+  setClaimForm: React.Dispatch<React.SetStateAction<ClaimFormState>>;
+  authError: string;
+  registerCode: ReturnType<typeof useRegisterCode>;
+}
+
+export function RegisterForm({
+  authForm,
+  setAuthForm,
+  claimForm,
+  setClaimForm,
+  authError,
+  registerCode,
+}: RegisterFormProps) {
+  const { t } = useLocale();
+
+  // 主营行业偏好
+  const {
+    industryOptions,
+    subOptions,
+    subOptions2,
+    prefLevel1,
+    prefLevel2,
+    prefLevel3,
+    setPrefLevel3,
+    handlePrefLevel1Change,
+    handlePrefLevel2Change,
+    autoFillFromInference,
+    searchAndAutoFillL3,
+  } = useUnspscPrefCascade();
+
+  // 主营业务智能推断
+  const [mainBusiness, setMainBusiness] = useState("");
+  const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
+  const [inferLoading, setInferLoading] = useState(false);
+  const [inferSearched, setInferSearched] = useState(false);
+  const keywordRef = useRef("");
+
+  // 防抖推断
+  useEffect(() => {
+    if (mainBusiness.trim().length < 1) {
+      setInferResult(null);
+      setInferSearched(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setInferLoading(true);
+      setInferSearched(false);
+      try {
+        const data = await fetchSmartInferUnspsc(mainBusiness.trim());
+        if (data?.result) {
+          setInferResult(data.result);
+          autoFillFromInference(data.result);
+        } else {
+          setInferResult(null);
+        }
+        setInferSearched(true);
+      } catch {
+        // 推断失败不影响注册流程
+      } finally {
+        setInferLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [mainBusiness, autoFillFromInference]);
+
+  // 关键词或 L2 变更时自动搜索 L3
+  useEffect(() => {
+    keywordRef.current = mainBusiness.trim();
+    if (keywordRef.current && prefLevel2) {
+      searchAndAutoFillL3(keywordRef.current);
+    }
+  }, [mainBusiness, prefLevel2, searchAndAutoFillL3]);
+
+  return (
+    <div className="space-y-3">
+      {/* 供应商绑定信息 */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-extrabold text-slate-900">
+            {t("authCompanyClaimInfo")}
+          </h4>
+          <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
+            {t("authPendingReview")}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            type="text"
+            value={authForm.displayName}
+            onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
+            placeholder={t("authContactNamePlaceholder")}
+            className="bg-white"
+          />
+          <Select
+            value={claimForm.supplierType}
+            onChange={(e) => setClaimForm({ ...claimForm, supplierType: e.target.value })}
+            className="bg-white"
+          >
+            <option value="domestic">{t("authSupplierDomestic")}</option>
+            <option value="international">{t("authSupplierInternational")}</option>
+          </Select>
+          <Input
+            type="text"
+            value={claimForm.companyName}
+            onChange={(e) => setClaimForm({ ...claimForm, companyName: e.target.value })}
+            placeholder={t("authCompanyPlaceholder")}
+            className="sm:col-span-2 bg-white"
+          />
+          <Input
+            type="text"
+            value={claimForm.contactPhone}
+            onChange={(e) => setClaimForm({ ...claimForm, contactPhone: e.target.value })}
+            placeholder={t("authPhonePlaceholder")}
+            className="bg-white"
+          />
+          <Input
+            type="text"
+            value={claimForm.businessLicenseNo}
+            onChange={(e) => setClaimForm({ ...claimForm, businessLicenseNo: e.target.value })}
+            placeholder={t("authLicensePlaceholder")}
+            className="bg-white"
+          />
+        </div>
+        {/* 主营行业 */}
+        <div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-black text-slate-500">
+              {t("authIndustryPrefLabel")}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {t("authIndustryPrefRequiredHint")}
+            </p>
+          </div>
+          <Input
+            type="text"
+            value={mainBusiness}
+            onChange={(e) => setMainBusiness(e.target.value)}
+            placeholder={t("authMainBusinessPlaceholder")}
+            className="mt-2 bg-white"
+          />
+          {inferLoading && (
+            <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
+          )}
+          {inferResult && !inferLoading && (
+            <p className="mt-1 text-[11px] text-teal-600">
+              {t("authMainBusinessInferred")}: {inferResult.matched_title}
+            </p>
+          )}
+          {!inferResult && inferSearched && !inferLoading && (
+            <p className="mt-1 text-[11px] text-amber-600">
+              {t("authMainBusinessNoMatch")}
+            </p>
+          )}
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <UnspscPrefSelects
+              industryOptions={industryOptions}
+              subOptions={subOptions}
+              subOptions2={subOptions2}
+              prefLevel1={prefLevel1}
+              prefLevel2={prefLevel2}
+              prefLevel3={prefLevel3}
+              onLevel1Change={handlePrefLevel1Change}
+              onLevel2Change={handlePrefLevel2Change}
+              onLevel3Change={setPrefLevel3}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 邮箱 + 验证码 + 密码 */}
+      <Input
+        type="email"
+        inputMode="email"
+        value={authForm.email}
+        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+        placeholder={t("authEmailPlaceholder")}
+        autoComplete="email"
+      />
+      <div className="space-y-1">
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            value={registerCode.registerVerifyCode}
+            onChange={(e) => registerCode.setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
+            maxLength={6}
+            className="flex-1 tracking-widest"
+          />
+          <button
+            type="button"
+            onClick={() => registerCode.handleSendRegisterCode(authForm.email.trim())}
+            disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
+            className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            {registerCode.registerCodeCountdown > 0
+              ? `${registerCode.registerCodeCountdown}s`
+              : registerCode.registerCodeLoading
+                ? t("authForgotSending")
+                : t("authRegisterSendCode") || "获取验证码"}
+          </button>
+        </div>
+        {registerCode.registerCodeError && (
+          <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>
+        )}
+        {registerCode.registerCodeSent && registerCode.registerCodeCountdown <= 0 && (
+          <p className="text-xs text-teal-600">{t("authRegisterCodeSent") || "验证码已发送，请查收邮箱"}</p>
+        )}
+      </div>
+      <Input
+        type="password"
+        value={authForm.password}
+        onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+        placeholder={t("authPasswordPlaceholder")}
+        minLength={PASSWORD_MIN_LENGTH}
+      />
+
+      {authError && (
+        <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+          {authError}
+        </p>
+      )}
+      <button
+        type="submit"
+        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
+      >
+        {t("authRegisterSubmit")}
+      </button>
+    </div>
+  );
+}
+
+// 导出供外部使用
+export { type SmartInferResult };

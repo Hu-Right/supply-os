@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Supplier } from "../../src/types";
+import { Supplier } from "../types/supplier";
 import { maskPhone, maskEmail, splitListField } from "../utils/mask";
 
 // ── supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──

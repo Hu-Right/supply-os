@@ -4,7 +4,7 @@ import type {
   OrderInfo,
   OrderStatusResult,
   PaymentProviderName,
-} from "../../src/types/payment";
+} from "../types/payment";
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import { MockProvider } from "./MockProvider";

@@ -6,7 +6,7 @@
 import crypto from "crypto";
 import { Router } from "express";
 import type { AppContext } from "../../context";
-import { Lead } from "../../../src/types";
+import { Lead } from "../../types/crm";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { normalizeUserKey } from "../../utils/normalize";
 import { mapSupplierRow } from "../../services/suppliers";

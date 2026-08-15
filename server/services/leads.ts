@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Lead } from "../../src/types";
+import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
 
 export function mapUngmAppointmentRow(row: any): Lead {

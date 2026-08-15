@@ -4,165 +4,26 @@
  *
  * @module features/auth/components/PhoneBinding
  * @description 用户手机号绑定 / 换绑 / 解绑管理面板。
- *              Phone number binding / rebinding / unbinding management panel.
+ *              逻辑已提取至 usePhoneBinding hook。
  */
-import { useState, useEffect } from "react";
-import { useLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
-import { api, ApiError } from "@/core/http";
-import { Input } from "@/shared/ui";
 import { Smartphone, ShieldCheck, Unlink } from "lucide-react";
-
-type PhoneView = "idle" | "binding" | "rebinding" | "unbinding";
+import { Input } from "@/shared/ui";
+import { usePhoneBinding } from "../hooks/usePhoneBinding";
 
 export function PhoneBinding() {
-  const { t } = useLocale();
-  const { authUser, refreshAuth } = useAuth();
-
-  const [view, setView] = useState<PhoneView>("idle");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [message, setMessage] = useState("");
-  const [isError, setIsError] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-
-  const hasPhone = !!authUser?.phone;
-
-  // 倒计时
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
-
-  const resetState = () => {
-    setPhone("");
-    setCode("");
-    setMessage("");
-    setIsError(false);
-    setCodeSent(false);
-    setCountdown(0);
-    setLoading(false);
-  };
-
-  /** 发送手机验证码 */
-  const handleSendCode = async (scene: "bind" | "rebind" | "unbind") => {
-    if (!authUser?.user_key) return;
-    if (scene !== "unbind" && (!phone || !/^1[3-9]\d{9}$/.test(phone))) {
-      setMessage(t("authPhoneInvalid"));
-      setIsError(true);
-      return;
-    }
-
-    setLoading(true);
-    setMessage("");
-    try {
-      const data = await api<{ sms_sent: boolean; error?: string }>("/api/auth/send-phone-code", {
-        method: "POST",
-        body: {
-          user_key: authUser.user_key,
-          phone: scene === "unbind" ? "" : phone,
-          scene,
-        },
-      });
-      if (!data.sms_sent) {
-        setMessage(data.error || t("authPhoneSendFailed"));
-        setIsError(true);
-      } else {
-        setCodeSent(true);
-        setCountdown(60);
-        setMessage("");
-        setIsError(false);
-      }
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : t("authPhoneSendFailed");
-      setMessage(msg || t("authPhoneSendFailed"));
-      setIsError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** 绑定手机号 */
-  const handleBind = async () => {
-    if (!authUser?.user_key || !phone || !code) return;
-    setLoading(true);
-    setMessage("");
-    try {
-      await api("/api/auth/bind-phone", {
-        method: "POST",
-        body: { user_key: authUser.user_key, phone, code },
-      });
-      setMessage(t("authPhoneBindSuccess"));
-      setIsError(false);
-      setView("idle");
-      resetState();
-      await refreshAuth();
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : t("authPhoneBindFailed");
-      setMessage(msg || t("authPhoneBindFailed"));
-      setIsError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** 换绑手机号 */
-  const handleRebind = async () => {
-    if (!authUser?.user_key || !phone || !code) return;
-    setLoading(true);
-    setMessage("");
-    try {
-      await api("/api/auth/rebind-phone", {
-        method: "POST",
-        body: { user_key: authUser.user_key, new_phone: phone, code },
-      });
-      setMessage(t("authPhoneRebindSuccess"));
-      setIsError(false);
-      setView("idle");
-      resetState();
-      await refreshAuth();
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : t("authPhoneRebindFailed");
-      setMessage(msg || t("authPhoneRebindFailed"));
-      setIsError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /** 解绑手机号 */
-  const handleUnbind = async () => {
-    if (!authUser?.user_key || !code) return;
-    setLoading(true);
-    setMessage("");
-    try {
-      await api("/api/auth/unbind-phone", {
-        method: "POST",
-        body: { user_key: authUser.user_key, code },
-      });
-      setMessage(t("authPhoneUnbindSuccess"));
-      setIsError(false);
-      setView("idle");
-      resetState();
-      await refreshAuth();
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : t("authPhoneUnbindFailed");
-      setMessage(msg || t("authPhoneUnbindFailed"));
-      setIsError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    t, view, setView, phone, setPhone, code, setCode,
+    message, isError, loading, countdown,
+    hasPhone, currentPhone, isVerified,
+    handleSendCode, handleBind, handleRebind, handleUnbind, resetState,
+  } = usePhoneBinding();
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <Smartphone className="w-4 h-4 text-teal-600" />
         <h4 className="text-sm font-extrabold text-slate-900">{t("authPhoneTitle")}</h4>
-        {hasPhone && authUser?.phone_verified === 1 && (
+        {hasPhone && isVerified && (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
             <ShieldCheck className="w-3 h-3" />
             {t("authPhoneVerified")}
@@ -174,7 +35,7 @@ export function PhoneBinding() {
       {hasPhone && view === "idle" && (
         <div className="space-y-3">
           <p className="text-xs text-slate-600">
-            {t("authPhoneBound")}: <span className="font-mono font-bold text-slate-900">{authUser?.phone}</span>
+            {t("authPhoneBound")}: <span className="font-mono font-bold text-slate-900">{currentPhone}</span>
           </p>
           <div className="flex gap-2">
             <button
@@ -310,7 +171,7 @@ export function PhoneBinding() {
       {view === "unbinding" && (
         <div className="space-y-3">
           <p className="text-xs text-slate-600">
-            {t("authPhoneUnbindHint")}: <span className="font-mono font-bold">{authUser?.phone}</span>
+            {t("authPhoneUnbindHint")}: <span className="font-mono font-bold">{currentPhone}</span>
           </p>
           <div className="flex gap-2">
             <Input

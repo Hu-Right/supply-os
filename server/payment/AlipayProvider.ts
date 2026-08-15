@@ -1,5 +1,5 @@
 import { AlipaySdk } from "alipay-sdk";
-import type { PaymentOrderStatus } from "../../src/types/payment";
+import type { PaymentOrderStatus } from "../types/payment";
 import type { PaymentStrategy } from "./types";
 
 /**

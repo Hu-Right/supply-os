@@ -10,7 +10,7 @@
  *              都显示为"菲律宾"）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { COUNTRY_NAME_ZH } from "../../../src/shared/data/countryNames";
+import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 

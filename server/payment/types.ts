@@ -5,7 +5,7 @@
  * @module server/payment/types
  * @description 支付渠道策略的统一接口定义，供 PaymentService 和各 Provider 实现
  */
-import type { PaymentProviderName, PaymentOrderStatus } from "../../src/types/payment";
+import type { PaymentProviderName, PaymentOrderStatus } from "../types/payment";
 
 export interface PaymentStrategy {
   readonly name: PaymentProviderName;

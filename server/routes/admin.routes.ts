@@ -14,7 +14,7 @@ import { AB_TREATMENT_PCT } from "../services/recommend";
 import { runRetryTranslation, countPendingRetries, isRetryRunning, getLastRetryResult } from "../services/retryTranslation";
 import type { RetryResult } from "../services/retryTranslation";
 import { hashPassword } from "../services/auth";
-import { validatePassword } from "../../src/shared/auth/passwordPolicy";
+import { validatePassword } from "../utils/passwordPolicy";
 
 // 管理员鉴权：校验 ADMIN_API_TOKEN（.env 配置）。支持两种携带方式：
 //   x-admin-token: <token>  或  Authorization: Bearer <token>

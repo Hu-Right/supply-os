@@ -21,7 +21,7 @@ import {
   COUNTRY_NAME_ZH,
   SUB_COUNTRY_ZH,
   cleanCountryRaw,
-} from "../../src/shared/data/countryNames";
+} from "../data/countryNames";
 
 // ── 大写英文名 → 标准英文名（原始大小写）──
 const UPPER_TO_CANONICAL = new Map<string, string>();

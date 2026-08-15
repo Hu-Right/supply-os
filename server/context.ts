@@ -4,7 +4,7 @@
  */
 
 import type { Pool } from "mysql2/promise";
-import type { Lead } from "../src/types";
+import type { Lead } from "./types/crm";
 import type { PaymentService } from "./payment/PaymentService";
 import type { UsersRepo } from "./repos/users.repo";
 import type { MembershipRepo } from "./repos/membership.repo";

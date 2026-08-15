@@ -4,7 +4,7 @@
  */
 import { Router } from "express";
 import type { AppContext } from "../context";
-import { Lead } from "../../src/types";
+import { Lead } from "../types/crm";
 import { mapUngmAppointmentRow, insertUngmAppointment } from "../services/leads";
 import { asyncHandler } from "../middleware/errorHandler";
 
