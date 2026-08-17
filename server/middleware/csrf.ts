@@ -48,10 +48,22 @@ function extractOrigin(req: Request): string | null {
  * 仅对 POST/PUT/DELETE 生效；携带有效 JWT 的请求跳过检查。
  */
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
-  // 未启用或白名单为空时跳过（开发环境友好）
+  // P3-5 安全修复：ALLOWED_ORIGINS 未配置时默认拒绝（而非放行）
+  // 仅当 CSRF_ENABLED=false 时才跳过检查
   if (!CSRF_ENABLED) return next();
   const allowedOrigins = parseAllowedOrigins();
-  if (allowedOrigins.size === 0) return next();
+  if (allowedOrigins.size === 0) {
+    // 白名单为空意味着未配置允许的来源，出于安全考虑拒绝所有状态变更请求
+    // 但允许无 Origin 的 GET/HEAD/OPTIONS（已在上方放行）
+    const method = req.method.toUpperCase();
+    if (method === "POST" || method === "PUT" || method === "DELETE") {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) return next(); // JWT 请求跳过
+      res.status(403).json({ error: "CSRF_NOT_CONFIGURED" });
+      return;
+    }
+    return next();
+  }
 
   // 仅检查状态变更方法
   const method = req.method.toUpperCase();

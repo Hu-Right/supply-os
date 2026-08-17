@@ -132,12 +132,31 @@ export const fetchIndustryMatchedNotices = (params: {
   page: number;
   pageSize: number;
   locale?: string;
+  // 新增：全部筛选参数（与 fetchNotices 对齐）
+  q?: string;
+  country?: string;
+  agency?: string;
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  deadlineWithinDays?: number;
+  noticeType?: string;
+  featured?: boolean;
+  sort?: string;
 }, signal?: AbortSignal): Promise<NoticeResponse> => {
   const qs = buildQuery({
     user_key: params.userKey,
     page: params.page,
     page_size: params.pageSize,
     locale: params.locale,
+    q: params.q,
+    country: params.country,
+    agency: params.agency,
+    deadline_from: params.deadlineFrom,
+    deadline_to: params.deadlineTo,
+    deadline_within_days: params.deadlineWithinDays,
+    notice_type: params.noticeType,
+    featured: params.featured ? "1" : undefined,
+    sort: params.sort,
   });
   return apiCached<NoticeResponse>(`/api/notices/industry-matched?${qs}`, 60 * 1000, signal);
 };
