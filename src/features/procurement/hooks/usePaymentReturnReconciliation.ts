@@ -13,17 +13,20 @@ import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { getOrderStatus } from "@/features/payment";
+import { unlockNotice } from "../api";
 
 export interface UsePaymentReturnReconciliationOptions {
   refreshMembership: () => Promise<void>;
   openNoticeById: (id: number) => Promise<void>;
   setActionMessage: (message: string) => void;
+  userKey?: string;
 }
 
 export function usePaymentReturnReconciliation({
   refreshMembership,
   openNoticeById,
   setActionMessage,
+  userKey,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +46,15 @@ export function usePaymentReturnReconciliation({
             setActionMessage(t("procurement_paymentReturnPaid"));
             await refreshMembership();
             const nid = status.notice_id ?? (noticeIdParam ? Number(noticeIdParam) : null);
+            // P0-9 安全修复：paid 分支先执行解锁，再打开详情（否则详情接口返回 403 NOTICE_LOCKED）
+            if (nid && userKey) {
+              try {
+                await unlockNotice(nid, userKey, "single", 0);
+              } catch {
+                // 解锁可能已在服务端完成，忽略失败
+              }
+              await refreshMembership();
+            }
             if (nid) await openNoticeById(nid);
           } else {
             setActionMessage(t("procurement_paymentReturnPending"));

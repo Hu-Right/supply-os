@@ -40,28 +40,28 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
   }));
 
-  // ── 公告全文内容（需登录·不受锁定状态限制）──
-  // P2-3 安全加固：添加 requireAuth，未登录用户无法获取完整描述
-  // 搜索 SQL 为性能将 description 截断为 300 字符（LEFT(n.description, 300)），
-  // 详情页初始使用搜索结果数据导致原文被截断；本端点返回完整 description + title，
-  // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
-  // 同时返回 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
-  // 避免卡片与详情页语言显示不一致（卡片通过 description_cn/bid_overview 显示中文）。
+  // ── 公告全文内容（需登录·P2-8 安全修复：与解锁状态联动）──
   router.get("/api/notices/:id/content", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
+    const userKey = req.userKey || "";
     if (!noticeId) return res.status(400).json({ error: "INVALID_NOTICE_ID" });
 
     const notice = await noticesRepo.findDetail(noticeId);
     if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
-    // 获取机会表 description_cn（中文环境立即显示，无需等待翻译 API）
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const descriptionCn = opportunity ? String(opportunity.description_cn || "").trim() : "";
 
+    // P2-8 安全修复：未解锁用户截断 description（与列表接口 LEFT(description,300) 对齐）
+    const unlock = userKey ? await noticesRepo.findUnlock(userKey, noticeId) : null;
+    const description = unlock
+      ? (notice.description || "")
+      : (notice.description || "").slice(0, 300);
+
     res.json({
-      description: notice.description || "",
+      description,
       title: notice.title || "",
-      description_cn: descriptionCn,
+      description_cn: unlock ? descriptionCn : "",
     });
   }));
 
@@ -113,7 +113,8 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   }));
 
   // ── 公告翻译 ──
-  router.get("/api/notices/:id/translation", asyncHandler(async (req, res) => {
+  // P2-9 安全修复：翻译端点必须认证，防止成本攻击
+  router.get("/api/notices/:id/translation", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const lang = String(req.query.lang || "").toLowerCase();
     if (!noticeId || !NOTICE_TRANSLATION_LANGS[lang]) {

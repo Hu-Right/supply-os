@@ -17,6 +17,7 @@ import { normalizeUserKey } from "../../utils/normalize";
 import { findQualifiedOpportunityForNotice } from "../../services/notices";
 import { buildBidReportDocx, buildBidReportPreviewText, estimateFullReportCharCount, mergeBidReportRow, bidReportFileName } from "../../services/bid-report/index";
 import { asyncHandler } from "../../middleware/errorHandler";
+import { requireAuth } from "../../middleware/auth";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -32,9 +33,10 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
   // 任何登录用户均可访问（未解锁用户看到约 10% 预览 + 会员升级引导）；
   // 预览内容按语言环境自适应：zh 优先 description_cn，非 zh 直接 description；
   // 无合格机会的公告返回 404（无报告可预览）。
-  router.get("/api/notices/:id/report/preview", asyncHandler(async (req, res) => {
+  // P0-12 安全修复：报告预览必须 JWT 认证，身份取自 req.userKey
+  router.get("/api/notices/:id/report/preview", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+    const userKey = req.userKey || "";
     if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
     const [unlock, notice] = await Promise.all([
@@ -51,23 +53,30 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
     const row = mergeBidReportRow(notice, opportunity);
 
     const lang = typeof req.query.lang === "string" ? req.query.lang : "zh";
-    // 预览按语言环境返回对应内容（Word 完整报告仍由下载接口提供）
     const sections = buildBidReportPreviewText(row, lang);
-    // 完整报告总字符数（用于前端预览百分比计算）
     const total_report_chars = estimateFullReportCharCount(row);
 
+    // P0-12 安全修复：未解锁用户服务端截断 sections 内容（而非仅前端截断）
+    const MAX_CHARS_PER_SECTION = 500;
+    const safeSections = unlock
+      ? sections
+      : sections.map((s: { heading: string; body: string }) => ({
+          ...s,
+          body: s.body.length > MAX_CHARS_PER_SECTION ? s.body.slice(0, MAX_CHARS_PER_SECTION) + "…" : s.body,
+        }));
+
     res.json({
-      sections,
+      sections: safeSections,
       is_unlocked: !!unlock,
       has_full_report: true,
       total_report_chars,
     });
   }));
 
-  // ── 报告下载（docx 流式附件）──
-  router.get("/api/notices/:id/report", asyncHandler(async (req, res) => {
+  // P0-12 安全修复：报告下载必须 JWT 认证
+  router.get("/api/notices/:id/report", requireAuth, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
-      const userKey = normalizeUserKey(req.query.user_key) || "";
+      const userKey = req.userKey || "";
       if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
   
       const unlock = await noticesRepo.findUnlock(userKey, noticeId);

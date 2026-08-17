@@ -158,12 +158,17 @@ export class PaymentService {
       return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
     }
 
-    // BUG-PAY-1 修复：校验回调金额与订单金额一致，防止金额篡改
-    if (verifyResult.amount > 0) {
+    // P1-4 安全修复：回调金额必须校验，amount 为 0 或缺失时直接拒绝
+    // 防止伪造 body 不带 total_amount 跳过金额比对
+    const callbackAmount = Number(verifyResult.amount || 0);
+    if (callbackAmount <= 0) {
+      console.warn(`[PaymentService] 回调金额无效: amount=${callbackAmount}, order_no=${verifyResult.order_no}`);
+      return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_INVALID" };
+    }
+    {
       const dbOrder = await this.paymentsRepo!.findOrderAmount(verifyResult.order_no);
       if (dbOrder) {
         const orderAmount = dbOrder.amount;
-        const callbackAmount = Number(verifyResult.amount || 0);
         if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
           console.warn(
             `[PaymentService] 金额不匹配: order=${orderAmount}, callback=${callbackAmount}, order_no=${verifyResult.order_no}`,

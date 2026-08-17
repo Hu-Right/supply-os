@@ -22,8 +22,9 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   const noticesRepo = ctx.noticesRepo;
 
   // ── 解锁列表 ──
-  router.get("/api/notices/unlocks", asyncHandler(async (req, res) => {
-      const userKey = normalizeUserKey(req.query.user_key) || "guest";
+  // P0-5 安全修复：解锁列表必须 JWT 认证
+  router.get("/api/notices/unlocks", requireAuth, asyncHandler(async (req, res) => {
+      const userKey = req.userKey || "guest";
       const rows = await noticesRepo.listNoticeUnlocks(userKey);
       res.json(rows);
   }));
@@ -79,7 +80,8 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
       const userKey = req.userKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type : "free";
-      const price = unlockType === "single" ? Number(req.body.price || 19) : 0;
+      // P2-10 安全修复：解锁价格服务端定价，不再接受前端传入 price
+      const price = unlockType === "single" ? Number(req.body.price || 0) : 0;
 
       try {
         const result = await executeUnlock(

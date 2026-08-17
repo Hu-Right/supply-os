@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { onAppEvent } from "@/core/events";
+import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
@@ -64,10 +66,12 @@ export default function ProcurementPage() {
     // 原因：仅清空 selectedIds 不够，prefsMode 仍是 "prefs" 会导致：
     // 1. useNoticeSearch 数据源判定仍选 "industry-matched"，显示空结果
     // 2. "恢复行业匹配"按钮显示条件不满足（prefsMode !== "prefs"），按钮不出现
+    // 统一化重构：行业匹配模式下清除筛选回到无筛选的行业匹配结果，不退出行业匹配
     onClear: () => {
       setSelectedIds(["", "", "", "", ""]);
       setLevels((prev) => [prev[0], [], [], [], []]);
-      if (prefsMode === "prefs" || prefsMode === "recommended") {
+      // 仅推荐模式退出到全量搜索；行业匹配模式保持 prefsMode = "prefs"
+      if (prefsMode === "recommended") {
         setPrefsMode("default");
       }
     },
@@ -104,6 +108,21 @@ export default function ProcurementPage() {
   useEffect(() => {
     actions.setCurrentNoticeId(selectedNotice?.id ?? null);
   }, [selectedNotice?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
+  useEffect(() => {
+    if (!userKey) return;
+    return onAppEvent("supply-os:notice-paid", async ({ noticeId }) => {
+      try {
+        await unlockNotice(noticeId, userKey, "single", 0);
+      } catch {
+        // 解锁可能已在服务端完成，忽略失败
+      }
+      await actions.refreshMembership();
+      refreshAuth();
+      await actions.openNoticeById(noticeId);
+    });
+  }, [userKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 详情页
   if (selectedNotice) {
@@ -252,7 +271,9 @@ export default function ProcurementPage() {
           <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
             <span>
               {prefsMode === "prefs"
-                ? t("procurement_prefsBanner", { name: prefsBannerName })
+                ? search.query.hasSearch
+                  ? `${t("procurement_prefsBanner", { name: prefsBannerName })} + ${search.query.activeQ ? `“${search.query.activeQ}”` : ""}${search.query.activeCountry ? ` ${search.query.activeCountry}` : ""}${search.query.activeAgency ? ` ${search.query.activeAgency}` : ""}${search.query.activeFeatured ? ` ${t("procurement_featuredOnly")}` : ""}`.replace(/^\s*\+\s*/, "").trim()
+                  : t("procurement_prefsBanner", { name: prefsBannerName })
                 : t("procurement_recommendedBanner")}
             </span>
             <button

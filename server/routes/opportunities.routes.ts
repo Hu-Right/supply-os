@@ -6,6 +6,7 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
+import { requireAuth } from "../middleware/auth";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc/index";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import { MembershipRepo } from "../repos/membership.repo";
@@ -29,15 +30,17 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     );
   }));
 
-  router.get("/api/opportunities/unlocks", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（读侧保留 guest 兆底）
+  // P0-5 安全修复：解锁列表必须 JWT 认证
+  router.get("/api/opportunities/unlocks", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "guest";
     const rows = await opportunitiesRepo.listUnlocks(userKey);
     res.json(rows);
   }));
 
   // ── 精选数据按需翻译：镜像 /api/notices/:id/translation，读写 crm_opportunity_translations；
   // 无英文中枢兜底（标题双语已由定时任务双表扫描覆盖）
-  router.get("/api/opportunities/:id/translation", asyncHandler(async (req, res) => {
+  // P2-9 安全修复：翻译端点必须认证，防止成本攻击
+  router.get("/api/opportunities/:id/translation", requireAuth, asyncHandler(async (req, res) => {
     try {
     const opportunityId = Number(req.params.id);
     const lang = String(req.query.lang || "").toLowerCase();
@@ -94,11 +97,10 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     res.json({ success: true });
   }));
 
-  router.post("/api/opportunities/:id/unlock", asyncHandler(async (req, res) => {
+  // P0-4 安全修复：商机解锁必须 JWT 认证 + entitlement 校验
+  router.post("/api/opportunities/:id/unlock", requireAuth, asyncHandler(async (req, res) => {
     const opportunityId = Number(req.params.id);
-    // 本地差异 #7：F.1——同 notices unlock：流水保留 guest，兴趣码仅实名写入
-    const normalizedUserKey = normalizeUserKey(req.body.user_key);
-    const userKey = normalizedUserKey || "guest";
+    const userKey = req.userKey || "guest";
     const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
       ? req.body.unlock_type
       : "free";
@@ -110,10 +112,23 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     }
 
     if (unlockType === "free") {
-      // 免费配额统一读 crm_membership_plans（与 /api/notices/:id/unlock 同源），不再硬编码
       const freeQuota = await membershipRepo.getFreeQuota();
       if (await membershipRepo.countFreeUnlocks(userKey) >= freeQuota) {
         return res.status(402).json({ error: "FREE_LIMIT_REACHED" });
+      }
+    }
+
+    // P0-4 安全修复：single/subscription 必须校验 entitlement 余量
+    if (unlockType === "subscription" || unlockType === "single") {
+      const [entRows] = await ctx.dbPool.query(
+        `SELECT id FROM crm_user_entitlements
+         WHERE user_key = ? AND status = 'active' AND quota_total > quota_used
+           AND (expires_at IS NULL OR expires_at > NOW())
+         LIMIT 1`,
+        [userKey],
+      );
+      if ((entRows as any[]).length === 0) {
+        return res.status(402).json({ error: "PAID_QUOTA_REQUIRED" });
       }
     }
 
@@ -124,10 +139,8 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     await opportunitiesRepo.insertUnlock({ userKey, opportunityId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot) });
     await opportunitiesRepo.incrementUnlockCount(opportunityId);
 
-    // 本地差异 #7：F.1——guest 拒写兴趣码（解锁流水已保留）
-    // 修复：统一使用 persistUserInterestCodes，与公告解锁路径保持一致（白名单校验 + 权重上限 + 前缀展开）
-    if (normalizedUserKey) {
-      await persistUserInterestCodes(ctx.dbPool, normalizedUserKey, snapshot, "unlock_order", 2.50).catch(() => {});
+    if (userKey !== "guest") {
+      await persistUserInterestCodes(ctx.dbPool, userKey, snapshot, "unlock_order", 2.50).catch(() => {});
     }
 
     res.status(201).json({ success: true, unlock_type: unlockType });

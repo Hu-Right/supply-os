@@ -78,10 +78,10 @@ export class AlipayProvider implements PaymentStrategy {
     const provider_trade_no = rawBody?.trade_no || "";
     const amount = parseFloat(rawBody?.total_amount || "0");
 
-    // 未配置公钥时无法验签（沙箱快速调试场景），降级为信任
+    // P0-2 安全修复：公钥缺失时 fail-closed，拒绝验签（防止伪造回调免费履约）
     if (!this.sdk.config.alipayPublicKey || !this.appId) {
-      console.warn("[AlipayProvider] 公钥或 APP_ID 未配置，跳过验签（仅适用于沙箱调试）");
-      return { verified: true, order_no, provider_trade_no, amount };
+      console.error("[AlipayProvider] 公钥或 APP_ID 未配置，拒绝验签（fail-closed）");
+      return { verified: false, order_no, provider_trade_no, amount };
     }
 
     try {
@@ -97,6 +97,14 @@ export class AlipayProvider implements PaymentStrategy {
       const callbackAppId = String(rawBody?.app_id || "");
       if (callbackAppId && callbackAppId !== this.appId) {
         console.warn(`[AlipayProvider] app_id 不匹配: 期望 ${this.appId}, 实际 ${callbackAppId}`);
+        return { verified: false, order_no, provider_trade_no, amount };
+      }
+
+      // P0-2 安全修复：校验 trade_status，仅接受 TRADE_SUCCESS / TRADE_FINISHED
+      // TRADE_CLOSED（退款/关闭）不应触发履约
+      const tradeStatus = String(rawBody?.trade_status || "");
+      if (tradeStatus && tradeStatus !== "TRADE_SUCCESS" && tradeStatus !== "TRADE_FINISHED") {
+        console.warn(`[AlipayProvider] 非法 trade_status=${tradeStatus}: order_no=${order_no}`);
         return { verified: false, order_no, provider_trade_no, amount };
       }
 

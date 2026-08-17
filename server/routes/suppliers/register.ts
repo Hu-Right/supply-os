@@ -126,13 +126,8 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
       businessLicenseNo,
     });
 
-    // 如果用户尚未绑定手机号，且表单中提供了有效手机号，则自动绑定
-    if (contactPhone && /^1[3-9]\d{9}$/.test(contactPhone)) {
-      const user = await usersRepo.findByKey(userKey);
-      if (user && !user.phone) {
-        await usersRepo.bindPhone(userKey, contactPhone);
-      }
-    }
+    // P0-6 安全修复：删除自动绑手机逻辑（原逻辑无短信验证码校验，可构成账号接管链）
+    // 如需绑手机，用户应通过独立的 phone_bind 验证码流程（send-phone-code + verify-phone-code）
 
     res.status(201).json({ success: true, id: claimId, status: "pending" });
   }));

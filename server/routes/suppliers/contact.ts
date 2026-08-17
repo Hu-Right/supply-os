@@ -4,6 +4,7 @@
  */
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/errorHandler";
+import { requireAuth } from "../../middleware/auth";
 import { normalizeUserKey } from "../../utils/normalize";
 import { SuppliersRepo } from "../../repos/suppliers.repo";
 import { UsersRepo } from "../../repos/users.repo";
@@ -19,10 +20,11 @@ export function createSupplierContactRouter(deps: ContactDeps): Router {
   const router = Router();
   const { suppliersRepo, usersRepo, membershipRepo } = deps;
 
-  router.get("/api/suppliers/:id/contact", asyncHandler(async (req, res) => {
+  // P0-5 安全修复：供应商联系方式必须 JWT 认证
+  router.get("/api/suppliers/:id/contact", requireAuth, asyncHandler(async (req, res) => {
     const supplierId = Number(String(req.params.id).replace(/^sup-db-/, ""));
     if (!supplierId) return res.status(400).json({ error: "INVALID_SUPPLIER" });
-    const userKey = normalizeUserKey(req.query.user_key) || "";
+    const userKey = req.userKey || "";
     if (!userKey) return res.status(403).json({ error: "VIP_REQUIRED" });
 
     const user = await usersRepo.findByKey(userKey);

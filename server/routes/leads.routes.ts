@@ -7,22 +7,24 @@ import type { AppContext } from "../context";
 import { Lead } from "../types/crm";
 import { mapUngmAppointmentRow, insertUngmAppointment } from "../services/leads";
 import { asyncHandler } from "../middleware/errorHandler";
+import { requireAuth } from "../middleware/auth";
+import { requireAdmin } from "./admin/middleware";
 
 export function createLeadsRouter(ctx: AppContext): Router {
   const router = Router();
   const { leadsDb } = ctx;
   const leadsRepo = ctx.leadsRepo;
 
-  // 1. GET ALL LEADS
-  router.get("/api/leads", asyncHandler(async (_req, res) => {
+  // P0-7 安全修复：线索接口必须管理员鉴权
+  router.get("/api/leads", requireAdmin, asyncHandler(async (_req, res) => {
       const appointments = await leadsRepo.listAppointments();
       const mapped = appointments.map(mapUngmAppointmentRow);
       const persistedIds = new Set(mapped.map((lead) => lead.id));
       res.json([...mapped, ...leadsDb.filter((lead) => !persistedIds.has(lead.id))]);
   }));
 
-  // 2. CREATE NEW LEAD (Automatically synchronized with CRM intake)
-  router.post("/api/leads", asyncHandler(async (req, res) => {
+  // P0-7 安全修复：创建线索必须认证
+  router.post("/api/leads", requireAuth, asyncHandler(async (req, res) => {
       const {
         companyName,
         country,
@@ -72,9 +74,10 @@ export function createLeadsRouter(ctx: AppContext): Router {
       return res.status(201).json(newLead);
   }));
 
-  // 3. EDIT LEAD STATUS OR ADD ACTIONS Tracker LOG
-  router.post("/api/leads/log", async (req, res) => {
-    const { leadId, content, author, nextStatus } = req.body;
+  // P0-7 安全修复：线索日志必须管理员鉴权，author 强制 JWT 身份
+  router.post("/api/leads/log", requireAdmin, async (req, res) => {
+    const { leadId, content, nextStatus } = req.body;
+    const author = req.userKey || "Admin";
     if (!leadId || !content) {
       return res.status(400).json({ error: "Missing leadId or content log parameter" });
     }

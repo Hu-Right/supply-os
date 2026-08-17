@@ -98,7 +98,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
-  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage });
+  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, userKey });
 
   return {
     ...membership,

@@ -16,6 +16,7 @@ import { PaymentsRepo } from "../repos/payments.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
 import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../payment/fulfillment";
+import { requireAuth } from "../middleware/auth";
 
 export function createPaymentRouter(ctx: AppContext): Router {
   const router = Router();
@@ -73,8 +74,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
     }
   }));
 
-  router.get("/api/payment/orders", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
+  // P0-5 安全修复：订单列表必须 JWT 认证，身份取自 req.userKey（禁止 query user_key 冒充）
+  router.get("/api/payment/orders", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
     res.json(await listOrderHistory(paymentsRepo, {
       userKey,
@@ -84,9 +86,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
     }));
   }));
 
-  router.get("/api/payment/unlocks", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || ""; // 本地差异 #7：F.1 归一化收敛
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+  // P0-5 安全修复：解锁历史必须 JWT 认证
+  router.get("/api/payment/unlocks", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     // 可选 lang：附带公告标题译文（与详情翻译共用缓存表；本地差异 #18：en 也可翻——
     // 中文原文公告在英文环境需反向英译，英文原文由链层直通返回不耗 API）
     res.json(await listUnlockHistory(paymentsRepo, {
@@ -111,10 +113,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
   }));
 
   // GET /api/payment/orders/:orderNo - 查询订单状态
-  // P1-2 修复：添加用户鉴权，只能查询自己的订单
-  router.get("/api/payment/orders/:orderNo", asyncHandler(async (req, res) => {
-    // JWT 中间件已解析 req.userKey，回退到 query param（兼容 legacy 调用）
-    const userKey = normalizeUserKey(req.query.user_key) || req.userKey || "";
+  // P0-5 安全修复：身份强制取自 req.userKey（JWT），不再允许 query user_key 优先于 JWT
+  router.get("/api/payment/orders/:orderNo", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
     // 先查询订单归属
     const order = await paymentsRepo.findByOrderNo(req.params.orderNo);
@@ -224,15 +225,18 @@ export function createPaymentRouter(ctx: AppContext): Router {
     });
   }));
 
-  router.post("/api/payments/:orderNo/mock-paid", asyncHandler(async (req, res) => {
-    const orderNo = String(req.params.orderNo || "");
-    const { found } = await fulfillMockPayment(paymentsRepo, membershipRepo, {
-      orderNo,
-      rawNotify: JSON.stringify(req.body || { mock: true }),
-    });
-    if (!found) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
-    res.json({ success: true, order_no: orderNo, status: "paid" });
-  }));
+  // P0-3 安全修复：mock-paid 仅在 mock 模式下注册，防止 live 模式下一键已支付真实订单
+  if (paymentMode !== "live") {
+    router.post("/api/payments/:orderNo/mock-paid", asyncHandler(async (req, res) => {
+      const orderNo = String(req.params.orderNo || "");
+      const { found } = await fulfillMockPayment(paymentsRepo, membershipRepo, {
+        orderNo,
+        rawNotify: JSON.stringify(req.body || { mock: true }),
+      });
+      if (!found) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
+      res.json({ success: true, order_no: orderNo, status: "paid" });
+    }));
+  }
 
   return router;
 }
