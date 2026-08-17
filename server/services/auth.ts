@@ -92,7 +92,8 @@ export async function buildUserResponse(
   if (user.supplier_id && user.supplier_link_status === "verified") {
     supplier = (await suppliersRepo.findBasicInfo(Number(user.supplier_id))) as Record<string, unknown> | null;
   }
-  const tier = hasSub ? "vip" : user.membership_tier || "free";
+  // P1-5 安全修复：统一 VIP 判定为动态计算（有效订阅），不再信任永久化字段 membership_tier
+  const tier = hasSub ? "vip" : "free";
   return {
     user_key: userKey,
     email: user.email ?? "",

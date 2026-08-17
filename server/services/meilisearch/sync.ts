@@ -233,7 +233,8 @@ export async function incrementalSync(
 
     const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
-    const newWatermark = allRaw[allRaw.length - 1].id;
+    // P1-24 安全修复：水位不可回退，取 Math.max 防止低 ID 更新导致周期性全量重灌
+    const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
     return { synced: docs.length, newWatermark };
   } catch (err) {
     console.error("[meilisearch] incrementalSync failed:", (err as Error).message);

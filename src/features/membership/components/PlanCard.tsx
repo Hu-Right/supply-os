@@ -41,7 +41,8 @@ export function PlanCard({ plan, isVip, onBuy }: PlanCardProps) {
               {plan.currency === "CNY" ? "¥" : "$"}
               {plan.price.toLocaleString()}
             </span>
-            {plan.duration_days ? (
+            {/* P1-11 安全修复：仅 duration_days >= 360 才显示"/年"，否则不显示周期后缀 */}
+            {plan.duration_days && plan.duration_days >= 360 ? (
               <span className="text-sm text-slate-500 font-medium">/{t("membershipYear")}</span>
             ) : null}
             {ORIGINAL_PRICES[plan.plan_code] && (
@@ -55,7 +56,7 @@ export function PlanCard({ plan, isVip, onBuy }: PlanCardProps) {
               <span className="text-sm text-slate-400 line-through">
                 {plan.currency === "CNY" ? "¥" : "$"}
                 {ORIGINAL_PRICES[plan.plan_code].toLocaleString()}
-                {plan.duration_days ? `/${t("membershipYear")}` : ""}
+                {plan.duration_days && plan.duration_days >= 360 ? `/${t("membershipYear")}` : ""}
               </span>
             </div>
           )}

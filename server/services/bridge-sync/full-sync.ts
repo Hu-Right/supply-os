@@ -128,6 +128,7 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
   const BATCH = 200;
   let processed = 0;
   let skipped = 0;
+  let cursorId = 0; // P1-20 安全修复：改用游标推进，防止写入失败时死循环
 
   console.log(`[BridgeSync] 开始全量回填 ${source} bridge 表...`);
 
@@ -140,17 +141,21 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
   }
 
   while (true) {
-    // 只取尚未写入 bridge 表的记录，减少重复处理
+    // P1-20 安全修复：用游标 `s.id > ?` 推进，而非 LEFT JOIN 无游标查询
+    // 确保即使某批写入失败，游标仍向前推进，不会死循环
     const [rows] = await dbPool.query(
       `SELECT s.id, s.notice_id, s.unspsc_codes
        FROM ${sourceTable} s
-       LEFT JOIN ${bridgeTable} b ON b.${fk} = s.notice_id
-       WHERE s.unspsc_codes IS NOT NULL AND b.id IS NULL
+       WHERE s.id > ? AND s.unspsc_codes IS NOT NULL
        ORDER BY s.id ASC
-       LIMIT ${BATCH}`
+       LIMIT ${BATCH}`,
+      [cursorId]
     );
 
     if ((rows as RowDataPacket[]).length === 0) break;
+
+    // 更新游标到本批最后一行
+    cursorId = (rows as RowDataPacket[])[(rows as RowDataPacket[]).length - 1].id;
 
     if (cacheLoaded) {
       // ── 快速路径：缓存 + 批量写入 ──

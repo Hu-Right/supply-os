@@ -81,20 +81,37 @@ export async function executeUnlock(
     }
 
     if (unlockType === "subscription" || unlockType === "single") {
+      // P1-7 安全修复：SELECT FOR UPDATE 防止并发配额超卖
       const [entRows] = await conn.query(
         `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
          FROM crm_user_entitlements
          WHERE user_key = ? AND status = 'active' AND quota_total > quota_used
            AND (expires_at IS NULL OR expires_at > NOW())
-         ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1`,
+         ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
+         FOR UPDATE`,
         [userKey],
       );
       const ent = (entRows as any[])[0];
-      if (!ent) {
+      if (ent) {
+        consumedEntitlementId = Number(ent.id);
+      } else if (unlockType === "subscription") {
+        // P1-6 安全修复：subscription 类型兼容活跃订阅——有有效订阅即放行，不强制要求 entitlement
+        const [subRows] = await conn.query(
+          `SELECT id FROM crm_user_subscriptions
+           WHERE user_key = ? AND status = 'active'
+             AND (expires_at IS NULL OR expires_at > NOW())
+           LIMIT 1`,
+          [userKey],
+        );
+        if ((subRows as any[]).length === 0) {
+          await conn.rollback();
+          throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+        }
+        // 有活跃订阅，无需消耗 entitlement
+      } else {
         await conn.rollback();
         throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
       }
-      consumedEntitlementId = Number(ent.id);
     }
 
     // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
@@ -107,10 +124,15 @@ export async function executeUnlock(
 
     // 消耗配额
     if (consumedEntitlementId) {
-      await conn.query(
+      const [updateResult] = await conn.query(
         "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
         [consumedEntitlementId],
       );
+      // P1-7 安全修复：检查 affectedRows，若为 0 说明配额已被并发消耗
+      if ((updateResult as any).affectedRows === 0) {
+        await conn.rollback();
+        throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+      }
     }
 
     await conn.commit();

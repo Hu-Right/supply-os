@@ -54,6 +54,8 @@ export function useNoticeTranslation(
   useEffect(() => {
     setShowOriginal(false);
     setFailed(false);
+    // P1-9 安全修复：effect 开头无条件复位 translating，防止切换公告后状态残留
+    setTranslating(false);
     // 内容语言检测代替原 `locale === "en"` 短路：原文已是目标语言时不请求，
     // 非英文原文（如中文）在英文环境下同样发起翻译（服务端 lang=en 已支持）
     if (!noticeId || !needsContentTranslation(sourceText, locale)) return;

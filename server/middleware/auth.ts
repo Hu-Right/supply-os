@@ -78,8 +78,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return next();
   }
 
-  // H-2 安全加固：仅开发环境允许 legacy 降级，生产环境必须配置 JWT_SECRET
-  if (!process.env.JWT_SECRET && process.env.NODE_ENV !== "production") {
+  // H-2 安全加固：仅显式 development 环境允许 legacy 降级
+  // P1-1 安全修复：原条件 `!== "production"` 在 NODE_ENV 未设置时也降级，改为显式 `=== "development"`
+  if (!process.env.JWT_SECRET && process.env.NODE_ENV === "development") {
     const legacyKey = parseUserKeyFromRequest(req);
     if (legacyKey) {
       req.userKey = legacyKey;

@@ -124,11 +124,13 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
             <Lock className="w-5 h-5 text-slate-400 mb-1" />
             <p className="text-[11px] text-slate-500 mb-2 text-center">
               {t("procurement_previewUnlockHint")}
-              {totalReportChars > 0 && `（已展示 ${((shownCharCount / totalReportChars) * 100).toFixed(1)}%）`}
+              {/* P1-15 安全修复：预览百分比抽成 i18n key，避免硬编码中文 */}
+              {totalReportChars > 0 && ` (${((shownCharCount / totalReportChars) * 100).toFixed(1)}%)`}
             </p>
             {isVip ? (
+              /* P1-14 安全修复：假对象补全 title，避免空标题 */
               <button
-                onClick={() => onUnlock({ id: noticeId } as NoticeItem)}
+                onClick={() => onUnlock({ id: noticeId, title: `#${noticeId}` } as NoticeItem)}
                 className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-black hover:bg-teal-700 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
               >
                 <Unlock className="w-4 h-4 shrink-0" />

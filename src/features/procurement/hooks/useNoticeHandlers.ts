@@ -11,7 +11,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
-import { ApiError } from "@/core/http";
+import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { viewNotice, unlockNotice, expressInterest } from "../api";
 import { getDetailViewCount, setDetailViewCount } from "../utils/detailViewCount";
@@ -108,10 +108,11 @@ export function useNoticeHandlers({
       onRequireLogin();
       return;
     }
+    // P1-10 安全修复：套餐码与价格对齐数据库在售套餐（single_199 为当前 active 的单次解锁卡）
     emitAppEvent("supply-os:pay", {
-      code: "single_89",
+      code: "single_199",
       name: t("procurement_singleUnlockName"),
-      price: 89,
+      price: 199,
       currency: "CNY",
       noticeId: notice.id,
       returnUrl: `${window.location.origin}/procurement`,
@@ -149,6 +150,8 @@ export function useNoticeHandlers({
 
     await refreshMembership();
     markUnlocked(notice.id);
+    // P2-5 安全修复：解锁成功后清除解锁历史缓存，确保 RecentUnlocks 立即刷新
+    clearApiCache("/api/payment/unlocks");
     setActionMessage(nextUnlockType === "free" ? t("procurement_freeUnlockOk") : t("procurement_paidUnlockOk"));
     // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
     await loadNoticeDetail(notice);

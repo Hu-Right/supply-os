@@ -202,30 +202,36 @@ export async function api<T>(
  *
  * @param endpoint - API 端点
  * @param ttl - 缓存有效期（毫秒），默认 5 分钟
+ * @param signal - AbortSignal
+ * @param force - P1-12 安全修复：强制跳过缓存读取，直接发请求
  * @returns 响应数据（可能来自缓存）
  */
 export async function apiCached<T>(
   endpoint: string,
   ttl = DEFAULT_TTL,
   signal?: AbortSignal,
+  force = false,
 ): Promise<T> {
-  const cached = cache.get(endpoint);
-  if (cached && Date.now() - cached.timestamp < ttl) {
-    // 记录缓存命中
-    recordApiMetric({
-      endpoint,
-      method: "GET",
-      durationMs: 0,
-      cached: true,
-      status: 200,
-      timestamp: Date.now(),
-    });
-    return cached.data as T;
+  // P1-12: force 模式跳过缓存读取
+  if (!force) {
+    const cached = cache.get(endpoint);
+    if (cached && Date.now() - cached.timestamp < ttl) {
+      recordApiMetric({
+        endpoint,
+        method: "GET",
+        durationMs: 0,
+        cached: true,
+        status: 200,
+        timestamp: Date.now(),
+      });
+      return cached.data as T;
+    }
   }
 
   // 飞行中请求去重：同一端点已有未完成的请求，复用其 Promise
+  // P1-13 安全修复：有 signal 的请求不复用，防止 AbortSignal 泄漏给其他调用方
   const pending = pendingRequests.get(endpoint);
-  if (pending) {
+  if (pending && !signal) {
     return pending.promise as Promise<T>;
   }
 
@@ -238,7 +244,10 @@ export async function apiCached<T>(
     pendingRequests.delete(endpoint);
     throw err;
   });
-  pendingRequests.set(endpoint, { promise });
+  // 只有无 signal 的请求才加入 pending 复用池
+  if (!signal) {
+    pendingRequests.set(endpoint, { promise });
+  }
   return promise;
 }
 

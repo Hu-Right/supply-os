@@ -29,8 +29,8 @@ export function createAdminDataOpsRouter(ctx: AppContext): Router {
     });
   });
 
-  // 金额缓存批量回填（手动触发，无定时器；每批 ≤2000 行短事务，可中断续跑）
-  router.post("/api/admin/backfill-amounts", asyncHandler(async (req, res) => {
+  // P1-2 安全修复：金额回填必须管理员鉴权
+  router.post("/api/admin/backfill-amounts", requireAdmin, asyncHandler(async (req, res) => {
       const batches = Math.min(Math.max(parseInt(String(req.query.batches), 10) || 5, 1), 30);
       let processed = 0;
       for (let i = 0; i < batches; i++) {
@@ -42,8 +42,8 @@ export function createAdminDataOpsRouter(ctx: AppContext): Router {
       res.json({ success: true, processed, remaining });
   }));
 
-  // 手动触发浏览量日汇总（懒计算之外的运维入口，无定时器）
-  router.post("/api/admin/rollup-views", asyncHandler(async (req, res) => {
+  // P1-2 安全修复：浏览量日汇总必须管理员鉴权
+  router.post("/api/admin/rollup-views", requireAdmin, asyncHandler(async (req, res) => {
       const sinceDays = Math.min(Math.max(parseInt(String(req.query.since_days), 10) || 0, 0), 365);
       const result = await rollupNoticeViewDaily(ctx.dbPool, sinceDays);
       const stats = await adminRepo.getViewRollupStats();

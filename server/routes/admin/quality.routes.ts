@@ -8,27 +8,28 @@
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
+import { requireAdmin } from "./middleware";
 import { captureDataQualitySnapshot } from "../../services/quality-monitor";
 
 export function createAdminQualityRouter(ctx: AppContext): Router {
   const router = Router();
   const adminRepo = ctx.adminRepo;
 
-  // 质量快照采集（手动触发；同日重跑覆盖当日快照）
-  router.post("/api/admin/quality-snapshot", asyncHandler(async (_req, res) => {
+  // P1-2 安全修复：质量快照采集必须管理员鉴权
+  router.post("/api/admin/quality-snapshot", requireAdmin, asyncHandler(async (_req, res) => {
       const metrics = await captureDataQualitySnapshot(ctx.dbPool);
       res.json({ success: true, metrics });
   }));
 
-  // 查询近 N 天快照（观测趋势用，默认 30 天）
-  router.get("/api/admin/quality-snapshot", asyncHandler(async (req, res) => {
+  // P1-2 安全修复：质量快照查询必须管理员鉴权
+  router.get("/api/admin/quality-snapshot", requireAdmin, asyncHandler(async (req, res) => {
       const days = Math.min(Math.max(parseInt(String(req.query.days), 10) || 30, 1), 365);
       const snapshots = await adminRepo.listQualitySnapshots(days);
       res.json({ success: true, snapshots });
   }));
 
-  // Schema 健康检查
-  router.get("/api/procurement/schema-status", asyncHandler(async (_req, res) => {
+  // P1-2 安全修复：Schema 健康检查必须管理员鉴权
+  router.get("/api/procurement/schema-status", requireAdmin, asyncHandler(async (_req, res) => {
       const tables = [
         "crm_users",
         "ungm_1v1_appointments",

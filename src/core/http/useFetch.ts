@@ -56,7 +56,8 @@ export function useFetch<T>(
       }
     }
     // refreshKey > 0 或缓存过期：强制重新请求
-    return apiCached<T>(endpoint, ttl);
+    // P1-12 安全修复：refresh 时传 force=true 跳过缓存读取
+    return apiCached<T>(endpoint, ttl, undefined, refreshKey > 0);
   }, [endpoint, ttl, refreshKey]);
 
   return {
