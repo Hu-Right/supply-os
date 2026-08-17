@@ -110,18 +110,29 @@ export async function inferNoticesByCategory(
     ? ` AND n.id IN (${keywordIds.join(",")})`
     : "";
 
-  const [result] = await pool.query(
-    `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} ${INFERRED_SCORE} AS match_score
-     FROM crm_bid_notices n
-     INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
-     ${oppJoin}
-     ${trJoin}
-     ${treJoin}
-     WHERE b.code LIKE ? AND ${ACTIVE_NOTICE_WHERE}${filterWhere}${keywordWhere}
-     GROUP BY n.id
-     ORDER BY ${DEADLINE_ORDER}
-     LIMIT ?`,
-    [...trParams, `${inferredPrefix}%`, ...filterParams, limit],
-  );
-  return result as RowDataPacket[];
+  // P2 修复：添加查询超时保护，避免极端场景下阻塞响应
+  const QUERY_TIMEOUT_MS = 5000;
+  try {
+    const queryPromise = pool.query(
+      `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} ${INFERRED_SCORE} AS match_score
+       FROM crm_bid_notices n
+       INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
+       ${oppJoin}
+       ${trJoin}
+       ${treJoin}
+       WHERE b.code LIKE ? AND ${ACTIVE_NOTICE_WHERE}${filterWhere}${keywordWhere}
+       GROUP BY n.id
+       ORDER BY ${DEADLINE_ORDER}
+       LIMIT ?`,
+      [...trParams, `${inferredPrefix}%`, ...filterParams, limit],
+    );
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Tier4 query timeout after ${QUERY_TIMEOUT_MS}ms`)), QUERY_TIMEOUT_MS)
+    );
+    const [result] = await Promise.race([queryPromise, timeoutPromise]) as [any, any];
+    return result as RowDataPacket[];
+  } catch (err) {
+    console.warn(`[industry-match] Tier4 兕底查询失败: ${(err as Error).message}`);
+    return [];
+  }
 }

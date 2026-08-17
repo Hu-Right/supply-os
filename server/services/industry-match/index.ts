@@ -31,7 +31,7 @@ import type { IndustryMatchResult, IndustryMatchFilters, MatchTierLabel } from "
 import type { NoticesRepo } from "../../repos/notices.repo";
 import { triggerBackTranslation } from "../notice-search/translation-trigger";
 import { getAgencyCacheData } from "../notice-search/agencies";
-import { expandCountryAliases } from "../notice-search/countries";
+import { expandCountryAliases, expandCountryAllForms } from "../notice-search/countries";
 import { searchWithFilters as meiliSearch, isHealthy as isMeiliHealthy } from "../meilisearch/index";
 
 // ── 结果缓存（5 分钟 TTL，参照 recommend 模块模式）──
@@ -139,32 +139,151 @@ function buildAgencyExpandedClauses(
 }
 
 /**
- * 关键词两阶段查询：获取匹配的公告 ID 列表。
- * 复用搜索模块的 Meilisearch 优先 → MySQL FULLTEXT 降级链路。
+ * Meilisearch 直接搜索：单次调用完成关键词 + 行业 UNSPSC + 全部筛选 + 分页。
+ * 消除两阶段架构（先查万级 ID → 再 IN 过滤），直接返回分页后的 ID 列表。
+ * @returns 匹配的公告 ID 列表 + 总数；Meilisearch 不可用或无结果时返回 null
+ */
+async function meilisearchDirectSearch(
+  pool: Pool,
+  q: string,
+  profile: { deepestLevel: number; deepestId: number | null },
+  filters: IndustryMatchFilters,
+  page: number,
+  pageSize: number,
+): Promise<{ ids: number[]; total: number } | null> {
+  if (!isMeiliHealthy()) return null;
+
+  // 机构扩展：解析 agencyGroup / originalAgencies
+  let meiliAgencies: string[] | undefined;
+  let meiliAgencyGroup: string | undefined;
+  if (filters.agency) {
+    const items = getAgencyCacheData() || [];
+    const cached = items.find((item) => item.agency === filters.agency);
+    if (cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
+      // FORCE_COUNTRY 由 country 参数处理
+    } else if (cached?.agencyGroup && !cached.agencyGroup.startsWith("ORPHAN_")) {
+      meiliAgencyGroup = cached.agencyGroup;
+    } else if (cached?.originalAgencies && cached.originalAgencies.length > 0) {
+      meiliAgencies = cached.originalAgencies;
+    } else {
+      meiliAgencies = [filters.agency];
+    }
+  }
+
+  // FORCE_COUNTRY 冲突检测
+  if (filters.agency) {
+    const items = getAgencyCacheData() || [];
+    const cached = items.find((item) => item.agency === filters.agency);
+    if (cached?.agencyGroup?.startsWith("FORCE_COUNTRY_")) {
+      const forceCountry = cached.agencyGroup.slice(14);
+      if (filters.country && filters.country !== forceCountry) {
+        return { ids: [], total: 0 }; // 矛盾 → 空结果
+      }
+    }
+  }
+
+  try {
+    const meiliResult = await meiliSearch({
+      q,
+      country: filters.country || undefined,
+      countryVariants: filters.country ? expandCountryAllForms(filters.country) : undefined,
+      agencies: meiliAgencies,
+      agencyGroup: meiliAgencyGroup,
+      deadlineFrom: filters.deadlineFrom || undefined,
+      deadlineTo: filters.deadlineTo || undefined,
+      deadlineWithinDays: filters.deadlineWithinDays || undefined,
+      noticeType: filters.noticeType || undefined,
+      featuredOnly: filters.featuredOnly || undefined,
+      // 核心修复：传入用户行业 UNSPSC 过滤，让 Meilisearch 直接返回行业内的关键词匹配
+      unspscLevel: profile.deepestLevel >= 1 && profile.deepestLevel <= 5 ? profile.deepestLevel : undefined,
+      unspscLevelId: profile.deepestId ? String(profile.deepestId) : undefined,
+      sort: filters.sort || "deadline_farthest",
+      page,
+      pageSize,
+    });
+
+    if (meiliResult) {
+      return { ids: meiliResult.ids, total: meiliResult.total };
+    }
+  } catch {
+    // Meilisearch 失败，返回 null 触发降级
+  }
+  return null;
+}
+
+/**
+ * 按 ID 列表获取公告详情行（用于 Meilisearch 直接搜索路径）。
+ * 仅取详情，不做筛选——筛选已由 Meilisearch 完成。
+ */
+async function fetchDetailsByIds(
+  pool: Pool,
+  ids: number[],
+  locale?: string,
+): Promise<RowDataPacket[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => "?").join(",");
+  const trJoin = locale
+    ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?"
+    : "";
+  const trParams = locale ? [locale] : [];
+  const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
+  const oppJoin = "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)";
+  const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
+  const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
+  const oppSelect = "MAX(opp.description_cn) AS description_cn, LEFT(MAX(opp.bid_overview), 200) AS bid_overview, MAX(opp.beneficiary_countries) AS beneficiary_countries,";
+
+  const [result] = await pool.query(
+    `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} 4 AS match_score
+     FROM crm_bid_notices n
+     INNER JOIN crm_bid_notice_unspsc_codes b ON b.notice_id = n.notice_id
+     ${oppJoin}
+     ${trJoin}
+     ${treJoin}
+     WHERE n.id IN (${placeholders}) AND ${ACTIVE_NOTICE_WHERE}
+     GROUP BY n.id
+     ORDER BY FIELD(n.id, ${placeholders})`,
+    [...trParams, ...ids, ...ids],
+  );
+  return result as RowDataPacket[];
+}
+
+/**
+ * 关键词两阶段查询（MySQL 降级路径）：获取匹配的公告 ID 列表。
+ * 仅在 Meilisearch 不可用时使用。已修复：叠加非关键词筛选条件。
  * @returns 匹配的公告 ID 数组；空数组表示关键词无匹配
  */
 async function resolveKeywordIds(
   pool: Pool,
   q: string,
   filters: IndustryMatchFilters,
+  profile: { deepestLevel: number; deepestId: number | null },
 ): Promise<{ ids: number[]; meiliReturnedEmpty: boolean }> {
   const isChinese = /[一-鿿]/.test(q);
   const likeQ = `%${escapeLikeWildcard(q)}%`;
+  // 限制 ID 数量上限，避免 IN 子句膨胀
+  const MAX_KEYWORD_IDS = 500;
+  // 短中文查询守卫：Meilisearch matchingStrategy="all" 要求所有词项命中，
+  // 短中文词在 jieba 分词口径不一致时极易返回空；此类查询直接走 MySQL LIKE 兜底更可靠
+  const zhCompactLength = q.replace(/[^一-鿿]/g, "").length;
+  const skipMeiliForZh = isChinese && zhCompactLength > 0 && zhCompactLength <= 4;
 
-  // 1a. Meilisearch 优先路径
-  if (isMeiliHealthy()) {
+  // 1a. Meilisearch 优先路径（传入完整参数）
+  if (isMeiliHealthy() && !skipMeiliForZh) {
     try {
       const meiliResult = await meiliSearch({
         q,
         country: filters.country || undefined,
+        countryVariants: filters.country ? expandCountryAllForms(filters.country) : undefined,
         agencies: filters.agency ? [filters.agency] : undefined,
         deadlineFrom: filters.deadlineFrom || undefined,
         deadlineTo: filters.deadlineTo || undefined,
         deadlineWithinDays: filters.deadlineWithinDays || undefined,
         noticeType: filters.noticeType || undefined,
         featuredOnly: filters.featuredOnly || undefined,
+        unspscLevel: profile.deepestLevel >= 1 && profile.deepestLevel <= 5 ? profile.deepestLevel : undefined,
+        unspscLevelId: profile.deepestId ? String(profile.deepestId) : undefined,
         page: 1,
-        pageSize: 10000,
+        pageSize: MAX_KEYWORD_IDS,
       });
       if (meiliResult) {
         return { ids: meiliResult.ids, meiliReturnedEmpty: meiliResult.ids.length === 0 };
@@ -175,26 +294,8 @@ async function resolveKeywordIds(
   // 1b. MySQL FULLTEXT 降级路径
   let kwSql: string;
   let kwParams: unknown[];
-  if (isChinese) {
-    kwSql =
-      "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE +
-      " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
-      " UNION " +
-      "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)";
-    kwParams = [q, likeQ, likeQ];
-  } else {
-    kwSql =
-      "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE +
-      " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
-      " UNION " +
-      "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE +
-      " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
-      " UNION " +
-      "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)";
-    kwParams = [q, q, q];
-  }
 
-  // 叠加非关键词筛选条件到 MySQL 降级查询
+  // 构建非关键词筛选条件
   const extraConditions: string[] = [];
   const extraParams: unknown[] = [];
   if (filters.country) {
@@ -208,15 +309,38 @@ async function resolveKeywordIds(
     extraConditions.push("n2.notice_type = ?");
     extraParams.push(filters.noticeType);
   }
+  if (filters.deadlineWithinDays && filters.deadlineWithinDays > 0) {
+    const futureTs = Math.floor(Date.now() / 1000) + filters.deadlineWithinDays * 86400;
+    extraConditions.push("n2.deadline_ts IS NOT NULL AND n2.deadline_sec <= ?");
+    extraParams.push(futureTs);
+  }
+  const extraWhere = extraConditions.length > 0 ? " AND " + extraConditions.join(" AND ") : "";
 
-  // 注意：MySQL 降级路径中 UNION 查询的额外筛选仅应用于第一个 SELECT
-  // 为简化实现，此处仅对 Meilisearch 路径做完整筛选；MySQL 路径仅做基础关键词匹配
+  if (isChinese) {
+    kwSql =
+      "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE + extraWhere +
+      " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+      " UNION " +
+      "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)";
+    kwParams = [...extraParams, q, likeQ, likeQ];
+  } else {
+    kwSql =
+      "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE + extraWhere +
+      " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
+      " UNION " +
+      "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE + extraWhere +
+      " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
+      " UNION " +
+      "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)";
+    kwParams = [...extraParams, q, ...extraParams, q, ...extraParams, q];
+  }
+
   const [kwRows] = await pool.query(kwSql, kwParams);
   const ids = (kwRows as RowDataPacket[]).map((r) => Number(r.id)).filter((id) => id > 0);
   // 截断保护
-  if (ids.length > 10000) {
-    console.warn(`[industry-match] keyword IDs truncated: ${ids.length} → 10000`);
-    ids.length = 10000;
+  if (ids.length > MAX_KEYWORD_IDS) {
+    console.warn(`[industry-match] keyword IDs truncated: ${ids.length} → ${MAX_KEYWORD_IDS}`);
+    ids.length = MAX_KEYWORD_IDS;
   }
   return { ids, meiliReturnedEmpty: ids.length === 0 };
 }
@@ -366,10 +490,44 @@ export async function matchNoticesByIndustry(
   );
   const filterWhere = filterConditions.length > 0 ? ` AND ${filterConditions.join(" AND ")}` : "";
 
-  // ── 关键词两阶段查询：阶段 1 获取匹配 ID ──
+  // ── Meilisearch 直接搜索路径（消除两阶段架构）──
+  // 当有关键词且 Meilisearch 健康时，单次调用完成关键词 + 行业 + 全部筛选 + 分页
+  // 短中文查询（≤4 个汉字）跳过：matchingStrategy="all" + jieba 分词口径差异易返回空，
+  // 直接走 MySQL 分层路径（含 title_tr LIKE 兜底）更可靠
+  const qZhLength = filters?.q ? filters.q.replace(/[^一-鿿]/g, "").length : 0;
+  const isShortZhQuery = !!filters?.q && /[一-鿿]/.test(filters.q) && qZhLength > 0 && qZhLength <= 4;
+  if (filters?.q && isMeiliHealthy() && !isShortZhQuery) {
+    const directResult = await meilisearchDirectSearch(
+      pool, filters.q, profile, filters || {}, page, pageSize,
+    );
+    if (directResult && directResult.ids.length > 0) {
+      // 获取详情行
+      const detailRows = await fetchDetailsByIds(pool, directResult.ids, locale);
+      // 按需补翻
+      if (locale && noticesRepo) {
+        triggerBackTranslation(detailRows, locale, noticesRepo, pool);
+      }
+      const items = mapResultItems(detailRows, locale);
+      const result: IndustryMatchResult = {
+        items,
+        total: directResult.total,
+        page,
+        pageSize,
+        fallback: "none",
+      };
+      resultCache.set(cacheKey, { data: result, expires: Date.now() + RESULT_CACHE_TTL });
+      console.log(`[industry-match] Meilisearch 直接搜索: q="${filters.q}" ids=${directResult.ids.length} total=${directResult.total}`);
+      return result;
+    }
+    // Meilisearch 失败或空结果：降级到 MySQL 分层查询。
+    // 空结果不直接返回 no_match——MySQL 中文路径有 title_tr LIKE 兜底，
+    // 能命中尚未同步到 Meilisearch 索引的新译文（索引滞后容错）
+  }
+
+  // ── MySQL 降级路径：关键词两阶段查询 ──
   let keywordIds: number[] | undefined;
   if (filters?.q) {
-    const kwResult = await resolveKeywordIds(pool, filters.q, filters || {});
+    const kwResult = await resolveKeywordIds(pool, filters.q, filters || {}, profile);
     if (kwResult.ids.length === 0) {
       // 关键词无匹配，直接返回空
       return { items: [], total: 0, page, pageSize, fallback: "no_match" };

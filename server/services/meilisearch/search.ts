@@ -97,7 +97,8 @@ export async function searchWithFilters(params: {
     }
     if (deadlineWithinDays && deadlineWithinDays > 0) {
       const futureTs = Math.floor(Date.now() / 1000) + deadlineWithinDays * 86400;
-      filter.push(`deadline_sec <= ${futureTs}`);
+      // 修复：排除无截止日期文档（deadline_sec = 0），与 MySQL 路径 deadline_ts IS NOT NULL 语义一致
+      filter.push(`deadline_sec > 0 AND deadline_sec <= ${futureTs}`);
     }
     if (noticeType) {
       const normalized = normalizeNoticeType(noticeType);
