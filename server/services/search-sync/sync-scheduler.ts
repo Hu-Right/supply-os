@@ -11,7 +11,7 @@ import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
-  buildWideRow, upsertWideRows, reconcileDeadlineSec,
+  buildWideRow, upsertWideRows, reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
 } from "./wide-row-builder";
 
 /**
@@ -156,16 +156,19 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
 /**
  * 启动宽表增量同步定时器
  *
- * 两个独立定时器：
+ * 三个独立定时器：
  * - 增量同步（30 秒）：拉取新行写入宽表
  * - deadline 对账（60 秒）：检测旧行 deadline_sec 陈旧并修复
+ * - 全量对账（5 分钟）：ghost 行清理 + is_featured 同步
  *
- * 分离原因：deadline_ts 变更来自外部数据管道（批量导入），日常极少发生。
- * 对账需要 108K×108K JOIN，每 10 秒执行一次浪费资源；60 秒足够。
+ * 分离原因：
+ * - deadline_ts 变更来自外部数据管道（批量导入），日常极少发生
+ * - ghost 行清理和 is_featured 对账需要 JOIN 查询，降频执行避免资源浪费
  */
-export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number } = {}): () => void {
+export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number; fullReconcileIntervalMs?: number } = {}): () => void {
   const intervalMs = options.intervalMs ?? 30 * 1000;
   const reconcileIntervalMs = options.reconcileIntervalMs ?? 60 * 1000;
+  const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 5 * 60 * 1000; // 5 分钟
   let stopped = false;
   let watermark = 0;
   const stopFns: Array<() => void> = [];
@@ -211,6 +214,28 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
         }
       }, reconcileIntervalMs);
       stopFns.push(() => clearInterval(reconcileTimer));
+
+      // 定时器 3：全量对账（ghost 行清理 + is_featured 同步）
+      const fullReconcileTimer = setInterval(async () => {
+        if (stopped) return;
+        try {
+          // Ghost 行清理
+          const ghostIds = await reconcileGhostRows(pool);
+          // is_featured 对账
+          const featuredIds = await reconcileIsFeatured(pool);
+          
+          // 合并变更 ID 并同步到 Meilisearch
+          const allChangedIds = [...new Set([...ghostIds, ...featuredIds])];
+          if (allChangedIds.length > 0 && isMeiliHealthy()) {
+            void syncNoticeIds(pool, allChangedIds).catch((err) => {
+              console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+            });
+          }
+        } catch (err) {
+          console.warn("[wide-table] 全量对账异常:", (err as Error).message);
+        }
+      }, fullReconcileIntervalMs);
+      stopFns.push(() => clearInterval(fullReconcileTimer));
     } catch (err) {
       console.error("[wide-table] 初始化失败（静默降级）:", (err as Error).message);
     }

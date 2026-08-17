@@ -54,13 +54,11 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   useEffect(() => {
     const currentDataSource =
-      query.hasOtherSearch
-        ? "search"
-        : prefsMode === "prefs" && userKey
-          ? "industry-matched"
-          : prefsMode === "recommended" && userKey
-            ? "recommended"
-            : "search";
+      prefsMode === "prefs" && userKey
+        ? "industry-matched"       // 行业匹配模式：始终走行业匹配 API（携带筛选参数）
+        : prefsMode === "recommended" && userKey && !query.hasOtherSearch
+          ? "recommended"          // 推荐模式：无筛选时走推荐
+          : "search";              // 其他：全量搜索
 
     const searchKeyUnchanged = prevSearchKeyForSkipRef.current === query.searchKey;
     const dataSourceUnchanged = prevDataSourceForPrefsRef.current === currentDataSource;
@@ -110,7 +108,19 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
               locale,
             }, controller.signal)
           : currentDataSource === "industry-matched"
-            ? fetchIndustryMatchedNotices({ userKey: userKey || "", page, pageSize: PAGE_SIZE, locale }, controller.signal)
+            ? fetchIndustryMatchedNotices({
+                userKey: userKey || "", page, pageSize: PAGE_SIZE, locale,
+                // 透传全部筛选参数到行业匹配 API
+                q: query.activeQ || undefined,
+                country: query.activeCountry || undefined,
+                agency: query.activeAgency || undefined,
+                deadlineFrom: query.activeFrom || undefined,
+                deadlineTo: query.activeTo || undefined,
+                deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
+                noticeType: query.activeNoticeType || undefined,
+                featured: query.activeFeatured || undefined,
+                sort: query.activeSort,
+              }, controller.signal)
             : fetchRecommendedNotices({ userKey: userKey || "", page, pageSize: PAGE_SIZE, locale }, controller.signal);
 
       request

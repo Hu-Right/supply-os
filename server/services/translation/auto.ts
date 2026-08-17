@@ -4,8 +4,10 @@
  *
  * @module server/services/translation/auto
  * @description 公告由 CRM 侧爬虫写入 crm_bid_notices，本项目无插入钩子可挂，
- *   故用准实时轮询补齐：每轮对公告表与精选数据表（SCAN_TARGETS）分别扫描
- *   「未过期 + 水位以上 + 缺译文行」的最新数据，仅翻译标题（内容翻译暂关闭以控制成本），
+ *   故用每日两次定时触发（北京时间 06:00 / 13:00）补齐新增公告译文。
+ *   采用水位线断点续传机制：每次从 crm_translation_state 读取上次成功翻译的
+ *   最大公告 ID（cutoff），仅扫描该水位线之后、尚未生成译文的新增记录，
+ *   翻译完成后立即更新水位线，避免重复计算 Token 成本。
  *   目标语言由源语言动态决定（zh→en / en→zh / 小语种→zh+en），
  *   复用 translateNoticeViaChain（DeepSeek→Gemini 两层降级 + 术语占位符保护）。
  */
@@ -28,7 +30,7 @@ const logger = createLogger("auto-translate");
 export interface AutoTranslateConfig {
   dbPool: Pool;
   enabled: boolean;
-  intervalMs: number;
+  intervalMs?: number; // @deprecated 调度已改为每日两次定时触发，保留仅为向后兼容
   maxPerRun: number;
   descMaxChars: number;
   dailyCharBudget: number;
@@ -38,7 +40,6 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   return {
     dbPool: null as unknown as Pool, // 由 startAutoTranslate 注入
     enabled: String(process.env.NOTICE_AUTO_TRANSLATE ?? "on").toLowerCase() !== "off",
-    intervalMs: Number(process.env.NOTICE_AUTO_TRANSLATE_INTERVAL_MS || 10 * 60 * 1000),
     maxPerRun: Number(process.env.NOTICE_AUTO_TRANSLATE_MAX || 300),
     descMaxChars: Number(process.env.NOTICE_AUTO_TRANSLATE_DESC_MAX_CHARS || 8000),
     dailyCharBudget: Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000),
@@ -54,6 +55,67 @@ const SCAN_TARGETS = [
   { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id", cutoffKey: "notice_id_cutoff" },
   { table: "crm_bid_opportunities", trTable: "crm_opportunity_translations", idCol: "opportunity_id", cutoffKey: "opportunity_id_cutoff" },
 ] as const;
+
+// ── 北京时间辅助函数 & 定时调度 ──
+// 北京时间 = UTC+8，调度时刻：每天 06:00 和 13:00（对应 UTC 22:00 和 05:00）
+
+/** 获取当前北京时间的小时和分钟 */
+function getBeijingHM(): { h: number; m: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(new Date());
+  return {
+    h: Number(parts.find((p) => p.type === "hour")!.value),
+    m: Number(parts.find((p) => p.type === "minute")!.value),
+  };
+}
+
+/**
+ * 计算下一个触发时刻（北京时间 06:00 或 13:00）
+ * 规则：
+ *   - 当前 < 06:00 → 今天 06:00
+ *   - 06:00 ≤ 当前 < 13:00 → 今天 13:00
+ *   - 当前 ≥ 13:00 → 明天 06:00
+ */
+function nextBeijingTrigger(): Date {
+  const now = new Date();
+  const { h, m } = getBeijingHM();
+  const curMin = h * 60 + m;
+
+  let targetMin: number;
+  let dayOffset: number;
+  if (curMin < 6 * 60) {
+    targetMin = 6 * 60;    // 06:00
+    dayOffset = 0;
+  } else if (curMin < 13 * 60) {
+    targetMin = 13 * 60;   // 13:00
+    dayOffset = 0;
+  } else {
+    targetMin = 6 * 60;    // 次日 06:00
+    dayOffset = 1;
+  }
+
+  // 构造北京时间的目标时刻，再转回 UTC Date
+  const bjStr = new Date(now.getTime() + dayOffset * 86400000)
+    .toISOString().slice(0, 10);  // 目标日 UTC 日期字符串
+  const targetUtc = new Date(`${bjStr}T${String(Math.floor(targetMin / 60)).padStart(2, "0")}:${String(targetMin % 60).padStart(2, "0")}:00Z`);
+  // 调整到正确的 UTC 时间（北京时间 = UTC + 8h）
+  targetUtc.setTime(targetUtc.getTime() - 8 * 3600000);
+  return targetUtc;
+}
+
+/** 格式化北京时间用于日志输出 */
+function formatBJTime(d: Date): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
 
 export async function runIncrementalTranslation(
   dbPool: Pool,
@@ -97,6 +159,7 @@ export async function runIncrementalTranslation(
 
   for (const target of SCAN_TARGETS) {
     const cutoffId = Number(stateMap.get(target.cutoffKey) || "0");
+    let maxIdProcessed = 0; // 水位线追踪：本轮处理的最大 ID
     for (const targetLang of ["zh", "en"] as const) {
       if (charsUsed >= cfg.dailyCharBudget) break;
       // en 扫描时多取：英文原文会被预过滤（写 skip 标记），需要更大的采样
@@ -119,7 +182,7 @@ export async function runIncrementalTranslation(
             )
           )
           AND n.title IS NOT NULL AND TRIM(n.title) <> ''
-        ORDER BY n.id DESC
+        ORDER BY n.id ASC
         LIMIT ?`,
         [targetLang, cutoffId, sqlLimit]
       );
@@ -211,11 +274,26 @@ export async function runIncrementalTranslation(
               logger.warn(
                 `${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" degraded="${degraded}" title="${titlePreview}" desc="${descPreview}"`
               );
+            } finally {
+              // 无论成功/失败/跳过，均推进水位线（避免下次重复扫描已处理记录）
+              if (row.id > maxIdProcessed) maxIdProcessed = row.id;
             }
             await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
           }
         })
       );
+    }
+
+    // ── 水位线更新：本轮处理过的记录推进 cutoff ──
+    // 仅当实际处理了行时才更新，避免空轮次将 cutoff 错误推进
+    if (maxIdProcessed > 0) {
+      await dbPool.query(
+        `INSERT INTO crm_translation_state (state_key, state_value)
+         VALUES (?, ?)
+         ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
+        [target.cutoffKey, String(maxIdProcessed)]
+      );
+      logger.info(`${target.table} 水位线更新 → ${maxIdProcessed}`);
     }
   }
 
@@ -253,37 +331,49 @@ async function probeDeepSeekHealth(): Promise<void> {
 }
 
 /**
- * 启动定时调度：30s 后跑首轮，随后每 intervalMs 一轮。
+ * 启动定时调度：每日北京时间 06:00 和 13:00 各触发一次。
+ * 启动时先做健康检查，再计算最近一个触发时刻。
  * 返回 stop 函数供优雅关闭使用。
  */
 export function startAutoTranslate(
   dbPool: Pool,
-  cfg: { enabled: boolean; intervalMs: number; maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
+  cfg: { enabled: boolean; intervalMs?: number; maxPerRun: number; descMaxChars: number; dailyCharBudget: number },
 ): () => void {
   if (!cfg.enabled) {
     return () => {};
   }
 
   let running = false;
+  let nextTimer: ReturnType<typeof setTimeout> | null = null;
+
   const tick = async () => {
     if (running) return;
     running = true;
     try {
-      await runIncrementalTranslation(dbPool, cfg);
+      const result = await runIncrementalTranslation(dbPool, cfg);
+      logger.info(`翻译完成 ok=${result.ok} failed=${result.failed} charsUsed=${result.charsUsed}`);
     } catch (err: any) {
       logger.warn(`SCAN_FAIL error="${err?.message || err}"`);
     } finally {
       running = false;
+      scheduleNext();
     }
   };
 
-  // 启动时先做健康检查，30s 后跑首轮
+  /** 递归调度：计算下一个触发时刻并设置单次 setTimeout */
+  function scheduleNext() {
+    const next = nextBeijingTrigger();
+    const delayMs = Math.max(0, next.getTime() - Date.now());
+    logger.info(`下次翻译调度: ${formatBJTime(next)} (${Math.round(delayMs / 3600000)}h 后)`);
+    nextTimer = setTimeout(() => void tick(), delayMs);
+  }
+
+  // 启动时先做健康检查，再调度首次运行
   void probeDeepSeekHealth();
-  const timer1 = setTimeout(() => void tick(), 30_000);
-  const timer2 = setInterval(() => void tick(), cfg.intervalMs);
+  console.log("[auto-translate] 定时翻译已启用: 每日北京时间 06:00 / 13:00");
+  scheduleNext();
 
   return () => {
-    clearTimeout(timer1);
-    clearInterval(timer2);
+    if (nextTimer) clearTimeout(nextTimer);
   };
 }

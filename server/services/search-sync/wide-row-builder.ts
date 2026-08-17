@@ -139,7 +139,9 @@ export function buildWideRow(
   const agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
   const noticeTypeStd = normalizeNoticeType(r.notice_type).slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
-  const deadlineSec = r.deadline_sec ? Number(r.deadline_sec) : 0;
+  const rawDeadline = r.deadline_sec ? Number(r.deadline_sec) : 0;
+  // INT UNSIGNED 范围: 0 ~ 4294967295；防止主表生成列溢出回绕导致宽表 INSERT 报 "Out of range"
+  const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline > 4294967295 ? 4294967295 : rawDeadline;
 
   // 构建多语言翻译字段
   // PERF: 所有 description_* 截断到 2000 字符，与 VARCHAR(2000) 列类型对齐
@@ -168,7 +170,7 @@ export function buildWideRow(
     agency_std: agencyStd,
     agency_group: agencyGroup,
     notice_type_std: noticeTypeStd,
-    deadline_sec: isNaN(deadlineSec) ? 0 : deadlineSec,
+    deadline_sec: deadlineSec,
     estimated_value: parseDecimalValue(r.estimated_value),
     is_featured: r.is_featured ? 1 : 0,
     unspsc_level1: (unspsc?.level1 || "").slice(0, 2000),
@@ -240,7 +242,7 @@ export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
         await pool.query(
           `UPDATE crm_notice_search ns
            INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.deadline_sec = COALESCE(n.deadline_sec, 0)
+           SET ns.deadline_sec = LEAST(GREATEST(COALESCE(n.deadline_sec, 0), 0), 4294967295)
            WHERE ns.id IN (${ph})`,
           batch,
         );
@@ -253,6 +255,101 @@ export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
     return allIds;
   } catch (e) {
     console.warn(`[wide-table] deadline_sec 对账失败（静默降级）:`, (e as Error).message);
+    return allIds;
+  }
+}
+
+/**
+ * Ghost 行清理：删除宽表中主表已不存在的记录
+ *
+ * 解决问题：增量同步只处理 id > watermark 的新记录，不会处理删除操作。
+ * 当主表删除记录时，宽表不会同步删除，导致 ghost 行残留。
+ *
+ * 对账逻辑：每轮删除最多 5000 条 ghost 行，最多 10 轮，
+ * 返回所有删除的 ID 供上层同步到 Meilisearch。
+ */
+export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
+  const allDeletedIds: number[] = [];
+  const MAX_ROUNDS = 10;
+  try {
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      // 查找宽表中主表已不存在的记录（ghost 行）
+      const [ghostRows] = await pool.query(
+        `SELECT ns.id FROM crm_notice_search ns
+         LEFT JOIN crm_bid_notices n ON n.id = ns.id
+         WHERE n.id IS NULL
+         LIMIT 5000`,
+      );
+      const ghosts = ghostRows as RowDataPacket[];
+      if (ghosts.length === 0) break;
+
+      const ids = ghosts.map(r => Number(r.id));
+      allDeletedIds.push(...ids);
+      const BATCH = 1000;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        await pool.query(`DELETE FROM crm_notice_search WHERE id IN (${ph})`, batch);
+      }
+      if (ghosts.length < 5000) break;
+    }
+    if (allDeletedIds.length > 0) {
+      console.log(`[wide-table] ghost 行清理: 删除 ${allDeletedIds.length} 条主表已不存在的记录`);
+    }
+    return allDeletedIds;
+  } catch (e) {
+    console.warn(`[wide-table] ghost 行清理失败（静默降级）:`, (e as Error).message);
+    return allDeletedIds;
+  }
+}
+
+/**
+ * is_featured 对账：同步主表的 is_featured 状态到宽表
+ *
+ * 解决问题：主表 is_featured 由精选标注任务更新，宽表 is_featured 是静态拷贝。
+ * 当主表 is_featured 变更时，宽表不会自动更新。
+ *
+ * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
+ * 返回所有变更 ID 供上层同步到 Meilisearch。
+ */
+export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
+  const allIds: number[] = [];
+  const MAX_ROUNDS = 10;
+  try {
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      // 检测宽表 is_featured 与主表不一致的记录
+      const [mismatchRows] = await pool.query(
+        `SELECT n.id, n.is_featured
+         FROM crm_bid_notices n
+         INNER JOIN crm_notice_search ns ON ns.id = n.id
+         WHERE ns.is_featured != n.is_featured
+         LIMIT 5000`,
+      );
+      const mismatches = mismatchRows as RowDataPacket[];
+      if (mismatches.length === 0) break;
+
+      const ids = mismatches.map(r => Number(r.id));
+      allIds.push(...ids);
+      const BATCH = 1000;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        await pool.query(
+          `UPDATE crm_notice_search ns
+           INNER JOIN crm_bid_notices n ON n.id = ns.id
+           SET ns.is_featured = n.is_featured
+           WHERE ns.id IN (${ph})`,
+          batch,
+        );
+      }
+      if (mismatches.length < 5000) break;
+    }
+    if (allIds.length > 0) {
+      console.log(`[wide-table] is_featured 对账修复 ${allIds.length} 条不一致记录`);
+    }
+    return allIds;
+  } catch (e) {
+    console.warn(`[wide-table] is_featured 对账失败（静默降级）:`, (e as Error).message);
     return allIds;
   }
 }

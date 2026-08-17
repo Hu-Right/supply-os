@@ -65,7 +65,15 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (deepestCodeId) next.code_id = deepestCodeId;
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "deadline_farthest") next.sort = sortValue;
-    if (prefsMode !== "default") setPrefsMode("default");
+    // 统一化重构：不再强制退出行业匹配模式，仅在全量搜索模式下更新 URL 参数
+    // 行业匹配模式下同样更新 URL 参数，后端会叠加筛选
+    if (prefsMode === "default") {
+      // 全量搜索模式：行为不变
+    } else if (prefsMode === "recommended") {
+      // 推荐模式：有筛选时退出推荐，进入全量搜索
+      setPrefsMode("default");
+    }
+    // prefsMode === "prefs" 时保持行业匹配模式，不强制退出
     setPage(1);
     setSelectedNotice(null);
     setSearchParams(next);
@@ -75,7 +83,9 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     const next = new URLSearchParams(searchParams);
     if (query.activeFeatured) next.delete("featured");
     else next.set("featured", "1");
-    if (prefsMode !== "default") setPrefsMode("default");
+    // 统一化重构：不再强制退出行业匹配模式
+    // 推荐模式下切换精选则退出推荐
+    if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
     setSearchParams(next);

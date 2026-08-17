@@ -7,6 +7,9 @@
  *              路由层仅做参数解析与校验；匹配逻辑见 services/industry-match。
  *              响应 items 附带 match_score（匹配分）与 match_tier（命中档次），
  *              供前端展示推荐理由；fallback 区分 no_prefs / no_match / none。
+ *
+ *              统一化重构后：支持全部筛选参数（与 /api/notices 对齐），
+ *              行业匹配模式下可叠加关键词/国家/机构/日期/采购类型/精选等筛选。
  */
 import { Router } from "express";
 import type { AppContext } from "../../context";
@@ -19,7 +22,7 @@ export function createIndustryMatchRouter(ctx: AppContext): Router {
   const router = Router();
   const noticesRepo = ctx.noticesRepo;
 
-  // GET /api/notices/industry-matched?user_key=...&page=1&page_size=10&locale=zh
+  // GET /api/notices/industry-matched?user_key=...&page=1&page_size=10&locale=zh&q=...&country=...
   router.get("/api/notices/industry-matched", asyncHandler(async (req, res) => {
       const userKey = normalizeUserKey(req.query.user_key) || "";
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
@@ -29,7 +32,28 @@ export function createIndustryMatchRouter(ctx: AppContext): Router {
       // 界面语言（所有语言含 zh 均走统一翻译回退链）
       const locale = parseOptionalString(req.query, "locale", 10) || undefined;
 
-      const result = await matchNoticesByIndustry(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo);
+      // 解析全部筛选参数（与 search.routes.ts 对齐）
+      const q = parseOptionalString(req.query, "q", 200);
+      const country = parseOptionalString(req.query, "country", 100);
+      const agency = parseOptionalString(req.query, "agency", 100);
+      const deadlineFrom = parseOptionalString(req.query, "deadline_from", 10);
+      const deadlineTo = parseOptionalString(req.query, "deadline_to", 10);
+      const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
+      const noticeType = parseOptionalString(req.query, "notice_type", 100);
+      const featuredOnly = String(req.query.featured || "") === "1";
+      const sort = parseOptionalString(req.query, "sort", 20) || "deadline_farthest";
+
+      const result = await matchNoticesByIndustry(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo, {
+        q: q || undefined,
+        country: country || undefined,
+        agency: agency || undefined,
+        deadlineFrom: deadlineFrom || undefined,
+        deadlineTo: deadlineTo || undefined,
+        deadlineWithinDays: deadlineWithinDays || undefined,
+        noticeType: noticeType || undefined,
+        featuredOnly: featuredOnly || undefined,
+        sort,
+      });
       res.json({ ...result, page_size: pageSize });
   }));
 

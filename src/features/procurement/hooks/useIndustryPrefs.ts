@@ -246,9 +246,27 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     return names.join(" / ");
   }, [levels, prefsPath, locale]);
 
-  // 「查看全部」/手动改筛选：退出自动模式，回到现状全量列表
+  // 「查看全部」/手动改筛选：退出自动模式（带降级链）
+  // 统一化重构：行业匹配 → 推荐（如果有推荐数据）→ 全量搜索
   const exitAutoMode = () => {
-    setPrefsMode("default");
+    if (prefsMode === "prefs" && userKey) {
+      // 取消行业匹配：尝试降级到推荐
+      fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE })
+        .then((probe) => {
+          if (Number(probe.total || 0) > 0) {
+            setPrefsMode("recommended");
+          } else {
+            setPrefsMode("default");
+          }
+        })
+        .catch(() => setPrefsMode("default"));
+    } else if (prefsMode === "recommended" && userKey && hasIndustryPrefs) {
+      // 取消推荐：有行业偏好则降级到行业匹配
+      setPrefsMode("prefs");
+      void restorePrefsMode();
+    } else {
+      setPrefsMode("default");
+    }
     setSelectedIds(["", "", "", "", ""]);
     setPrefsPath(["", "", "", "", ""]);
     setLevels((prev) => [prev[0], [], [], [], []]);

@@ -45,6 +45,19 @@ export type MatchTierLabel =
   | "inferred_category"
   | "unmatched";
 
+/** 行业匹配叠加筛选参数（与 /api/notices 对齐） */
+export interface IndustryMatchFilters {
+  q?: string;
+  country?: string;
+  agency?: string;
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  deadlineWithinDays?: number;
+  noticeType?: string;
+  featuredOnly?: boolean;
+  sort?: string;
+}
+
 /** 行业匹配查询结果 */
 export interface IndustryMatchResult {
   items: Array<Record<string, unknown>>;

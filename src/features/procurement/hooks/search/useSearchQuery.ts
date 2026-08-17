@@ -42,6 +42,8 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeWindow || activeNoticeType || activeFeatured || deepestCodeId
   );
 
+  // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
+  // 不再影响行业匹配模式（行业匹配模式下筛选条件直接透传给后端）
   const hasOtherSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
     activeWindow || activeNoticeType || activeFeatured

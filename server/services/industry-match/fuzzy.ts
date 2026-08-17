@@ -16,8 +16,8 @@
  *              更精确的 levelN_id 等值），则跳过，避免重复查询。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import type { UserIndustryProfile } from "./types";
-import { ACTIVE_NOTICE_WHERE, NOTICE_SELECT_FIELDS, DEADLINE_ORDER } from "./filter";
+import type { UserIndustryProfile, IndustryMatchFilters } from "./types";
+import { ACTIVE_NOTICE_WHERE, NOTICE_SELECT_FIELDS, DEADLINE_ORDER, buildIndustryFilterConditions } from "./filter";
 import { CatalogRepo } from "../../repos/catalog.repo";
 import { unspscPrefixFromCode } from "../../services/unspsc";
 
@@ -41,6 +41,9 @@ export async function inferNoticesByCategory(
   limit: number,
   locale?: string,
   existingTierPrefixes?: string[],
+  filters?: IndustryMatchFilters,
+  agencyExpandedClauses?: { clause: string; params: unknown[] } | null,
+  keywordIds?: number[],
 ): Promise<RowDataPacket[]> {
   const title = String(profile.industryTitleZh || "").trim();
   if (!title || limit < 1) return [];
@@ -93,10 +96,19 @@ export async function inferNoticesByCategory(
   const trParams = locale ? [locale] : [];
   const treJoin = "LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'";
   const oppJoin = "LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)";
-  // 统一选取：当前语言译文 + 英文回退 + 中文拆解描述 + 投标概览
+  // 统一选取：当前语言译文 + 英文回退 + 中文拆解描述 + 投标概览 + 受益国
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
-  const oppSelect = "MAX(opp.description_cn) AS description_cn, LEFT(MAX(opp.bid_overview), 200) AS bid_overview,";
+  const oppSelect = "MAX(opp.description_cn) AS description_cn, LEFT(MAX(opp.bid_overview), 200) AS bid_overview, MAX(opp.beneficiary_countries) AS beneficiary_countries,";
+
+  // 叠加筛选条件
+  const { conditions: filterConditions, params: filterParams } = buildIndustryFilterConditions(filters, agencyExpandedClauses || null);
+  const filterWhere = filterConditions.length > 0 ? ` AND ${filterConditions.join(" AND ")}` : "";
+
+  // 关键词 ID 过滤（两阶段查询）
+  const keywordWhere = keywordIds && keywordIds.length > 0
+    ? ` AND n.id IN (${keywordIds.join(",")})`
+    : "";
 
   const [result] = await pool.query(
     `SELECT ${NOTICE_SELECT_FIELDS}, ${trSelect} ${treSelect} ${oppSelect} ${INFERRED_SCORE} AS match_score
@@ -105,11 +117,11 @@ export async function inferNoticesByCategory(
      ${oppJoin}
      ${trJoin}
      ${treJoin}
-     WHERE b.code LIKE ? AND ${ACTIVE_NOTICE_WHERE}
+     WHERE b.code LIKE ? AND ${ACTIVE_NOTICE_WHERE}${filterWhere}${keywordWhere}
      GROUP BY n.id
      ORDER BY ${DEADLINE_ORDER}
      LIMIT ?`,
-    [...trParams, `${inferredPrefix}%`, limit],
+    [...trParams, `${inferredPrefix}%`, ...filterParams, limit],
   );
   return result as RowDataPacket[];
 }
