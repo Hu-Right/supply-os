@@ -83,10 +83,17 @@ export function NoticeDetail({
       ? notice.breakdown_file_count
       : undefined;
   // 中文版订单拆解报告可用性：解锁后以详情载荷 report_available 为准；
-  // 锁定态复用列表页 is_featured（三路合格商机判定与报告可生成为同一口径，零额外查询）；
-  // 推荐/兑底载荷无 is_featured 时 reportKnown=false，回退中性提示
-  const hasReport = coreUnlocked ? notice.report_available === true : notice.is_featured === true;
-  const reportKnown = coreUnlocked || typeof notice.is_featured === "boolean";
+  // 锁定态以预览端点返回的 report_available 为准（与解锁后同源口径 !!opportunity）；
+  // 预览尚未到达时回退列表页 is_featured（搜索端点已标注，推荐端点未标注）；
+  // 三者均不可用时 reportKnown=false，回退中性提示
+  const hasReport = coreUnlocked
+    ? notice.report_available === true
+    : typeof notice.report_available === "boolean"
+      ? notice.report_available
+      : notice.is_featured === true;
+  const reportKnown = coreUnlocked
+    || typeof notice.report_available === "boolean"
+    || typeof notice.is_featured === "boolean";
   // 已知采购类型走 i18n 本地化，未识别的长尾值原样回退
   const typeKey = noticeTypeKey(notice.notice_type);
   const showSkeleton = !coreUnlocked && !!detailLoading;

@@ -109,6 +109,9 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
       registration_level: preferValue(opportunity?.registration_level, notice.registration_level) || "",
       unspsc_codes: unspscCodes,
       contact_count: contactCount,
+      // 报告可用性精确判定：与解锁后 normalizeNoticeDetailPayload 同源口径（!!opportunity）
+      // 前端锁定态直接使用本字段，不再依赖 is_featured 代理
+      report_available: !!opportunity,
     });
   }));
 

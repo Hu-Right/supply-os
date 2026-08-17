@@ -31,8 +31,19 @@ function todayStr(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// 时间戳统一输出北京时间（Asia/Shanghai），与业务调度时区（06:00/13:00 北京时间）保持一致；
+// toISOString 输出的是 UTC，比北京时间慢 8 小时，会造成日志时间与调度时间对不上的困惑
 function timestamp(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const get = (t: string) => parts.find((p) => p.type === t)!.value;
+  // hour12: false 时午夜可能输出 "24"，归一到 "00"
+  const hour = get("hour") === "24" ? "00" : get("hour");
+  return `${get("year")}-${get("month")}-${get("day")} ${hour}:${get("minute")}:${get("second")}`;
 }
 
 function logToFile(filename: string, line: string) {

@@ -94,7 +94,7 @@ export async function deadlineFallback(
   const beneficiarySub = `${oppSubPrefix}beneficiary_countries${oppSubWhere} AS beneficiary_countries`;
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
-            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
+            n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency, n.is_featured,
             LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
             ${trSelect} ${treSelect} ${descCnSub}, ${bidOverviewSub}, ${beneficiarySub}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
