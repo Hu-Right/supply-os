@@ -9,7 +9,6 @@
  */
 
 export {
-  fetchNotices,
   fetchNoticeCountries,
   fetchNoticeAgencies,
   viewNotice,
@@ -20,10 +19,8 @@ export {
   fetchNoticeContent,
   fetchUnlockedNoticeIds,
   fetchNoticeTranslation,
-  fetchRecommendedNotices,
-  fetchIndustryMatchedNotices,
+  fetchUnifiedSearch,
 } from "./notices";
-export type { NoticeSearchFilters } from "./notices";
 
 export {
   sendNoticeFeedback,

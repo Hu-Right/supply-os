@@ -17,6 +17,13 @@ import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { matchNoticesByIndustry } from "../../services/industry-match";
+import { searchUnified } from "../../services/search-orchestrator/index";
+
+/**
+ * 回滚开关：USE_LEGACY_IMPL=1 时走旧版两阶段实现（matchNoticesByIndustry），
+ * 默认走统一编排器 mode=prefs（消除两阶段 IN 子句架构）。重构验收后移除。
+ */
+const USE_LEGACY_IMPL = process.env.USE_LEGACY_IMPL === "1";
 
 export function createIndustryMatchRouter(ctx: AppContext): Router {
   const router = Router();
@@ -43,6 +50,28 @@ export function createIndustryMatchRouter(ctx: AppContext): Router {
       const featuredOnly = String(req.query.featured || "") === "1";
       const sort = parseOptionalString(req.query, "sort", 20) || "deadline_farthest";
 
+      // 默认：统一编排器 mode=prefs（Meilisearch 单路检索 + 渐进放宽）
+      if (!USE_LEGACY_IMPL) {
+        const result = await searchUnified(ctx.dbPool, {
+          mode: "prefs",
+          userKey,
+          page,
+          pageSize,
+          locale: locale || "",
+          q: q || "",
+          country: country || "",
+          agency: agency || "",
+          deadlineFrom: deadlineFrom || "",
+          deadlineTo: deadlineTo || "",
+          deadlineWithinDays,
+          noticeType: noticeType || "",
+          featuredOnly,
+          sort,
+        }, noticesRepo);
+        return res.json({ ...result, page_size: pageSize });
+      }
+
+      // 回滚分支：旧版两阶段实现
       const result = await matchNoticesByIndustry(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo, {
         q: q || undefined,
         country: country || undefined,

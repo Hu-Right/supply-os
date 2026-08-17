@@ -4,7 +4,7 @@
  *
  * @module features/procurement/hooks/useNoticeSearch
  * @description 采购公告列表的搜索栏 + URL 参数事实源 + 分页 + 多维过滤状态，
- *              以及 fetchNotices 数据源编排。子模块职责：
+ *              以及 fetchUnifiedSearch 数据源编排。子模块职责：
  *              - useSearchFormState（表单草稿）
  *              - useSearchQuery（URL 参数事实源）
  *              - useSearchActions（搜索动作）
@@ -155,12 +155,12 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     setPage(1);
   }, [query.searchKey, setPage]);
 
-  // 账号切换时主动清除缓存
+  // 账号切换时主动清除缓存（前缀覆盖旧端点与 unified-search 两类缓存键）
   const prevUserKeyForCacheRef = useRef(userKey);
   useEffect(() => {
     if (prevUserKeyForCacheRef.current !== userKey) {
       prevUserKeyForCacheRef.current = userKey;
-      clearApiCache("/api/notices?");
+      clearApiCache("/api/notices");
     }
   }, [userKey]);
 

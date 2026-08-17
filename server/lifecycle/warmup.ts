@@ -9,7 +9,8 @@
 import type { Pool } from "mysql2/promise";
 import type { NoticesRepo } from "../repos/notices.repo";
 import type { SuppliersRepo } from "../repos/suppliers.repo";
-import { searchNotices, refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
+import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 
 export interface WarmupDeps {
@@ -27,37 +28,40 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   const warmupStart = performance.now();
 
   // Phase 1：统计表 + 搜索 + 国家/机构 + 供应商 并行预热
+  // 重构后：统一编排器 searchUnified（mode=default）接管全部搜索预热
+  const warm = (extra: Partial<RawSearchParams>) =>
+    searchUnified(dbPool, { mode: "default", page: 1, pageSize: 9, locale: "zh", ...extra }, noticesRepo);
   await Promise.all([
     // 统计表刷新
     refreshNoticeStats(dbPool),
     // 首页（中文 + 英文）
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en" }, noticesRepo),
+    warm({ locale: "zh" }),
+    warm({ locale: "en" }),
     // 翻页预热
-    searchNotices(dbPool, { page: 2, pageSize: 9, locale: "zh" }, noticesRepo),
-    // 关键词 FULLTEXT 预热（中英文）
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "en", q: "construction" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "招标" }, noticesRepo),
+    warm({ page: 2 }),
+    // 关键词全文检索预热（中英文）
+    warm({ q: "construction" }),
+    warm({ locale: "en", q: "construction" }),
+    warm({ q: "招标" }),
     // 纯筛选预热
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Canada" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Brazil" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", country: "Germany" }, noticesRepo),
+    warm({ country: "Canada" }),
+    warm({ country: "Brazil" }),
+    warm({ country: "Germany" }),
     // 高频组合搜索预热
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", country: "Canada" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", agency: "United Nations", country: "France" }, noticesRepo),
-    // PERF 优化：关键词+采购类型组合预热（COUNT 冷启动可达 4s+，预热后缓存 30min）
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "ITB" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFP" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "EOI" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", noticeType: "RFQ", country: "Brazil" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "construction", noticeType: "ITB" }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "supply", noticeType: "RFQ" }, noticesRepo),
-    // PERF 优化：关键词+截止日期组合预热（COUNT 冷启动可达 300ms+）
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "road", deadlineWithinDays: 90 }, noticesRepo),
-    searchNotices(dbPool, { page: 1, pageSize: 9, locale: "zh", q: "bridge", deadlineWithinDays: 90, noticeType: "ITB" }, noticesRepo),
+    warm({ q: "construction", country: "Canada" }),
+    warm({ q: "construction", agency: "United Nations" }),
+    warm({ q: "construction", agency: "United Nations", country: "France" }),
+    // PERF 优化：关键词+采购类型组合预热
+    warm({ noticeType: "RFQ" }),
+    warm({ noticeType: "ITB" }),
+    warm({ noticeType: "RFP" }),
+    warm({ noticeType: "EOI" }),
+    warm({ noticeType: "RFQ", country: "Brazil" }),
+    warm({ q: "construction", noticeType: "ITB" }),
+    warm({ q: "supply", noticeType: "RFQ" }),
+    // PERF 优化：关键词+截止日期组合预热
+    warm({ q: "road", deadlineWithinDays: 90 }),
+    warm({ q: "bridge", deadlineWithinDays: 90, noticeType: "ITB" }),
     // 国家/机构下拉 + 供应商目录
     refreshNoticeCountries(dbPool),
     refreshNoticeAgencies(dbPool),

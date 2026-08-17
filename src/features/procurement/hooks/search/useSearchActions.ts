@@ -51,7 +51,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
 
   const applySearch = useCallback((sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
     userSubmittedRef.current = true;
-    clearApiCache("/api/notices?");
+    clearApiCache("/api/notices");
 
     const next: Record<string, string> = {};
     if (inputs.qInput.trim()) next.q = inputs.qInput.trim();
@@ -93,11 +93,13 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
 
   const clearSearch = useCallback(() => {
     clearForm();
+    // P1 修复：先同步更新所有状态（包括 prefsMode/selectedIds），再清空 URL 参数
+    // 避免 setSearchParams 触发 useSearchQuery 重算时其他状态还未就绪，导致冗余请求
+    onClear?.();
     setPage(1);
     setSearchParams({});
-    onClear?.();
     userSubmittedRef.current = true;
-    clearApiCache("/api/notices?");
+    clearApiCache("/api/notices");
   }, [clearForm, setPage, setSearchParams, onClear]);
 
   return {

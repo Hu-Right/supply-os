@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, PrefsMode } from "../../types";
-import { fetchNotices, fetchRecommendedNotices, fetchIndustryMatchedNotices } from "../../api";
+import { fetchUnifiedSearch } from "../../api";
 import { PAGE_SIZE } from "../searchFormReducer";
 import type { SearchQuery } from "./useSearchQuery";
 
@@ -89,39 +89,29 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         }
       }, SEARCH_TIMEOUT_MS);
 
-      const request =
-        currentDataSource === "search"
-          ? fetchNotices({
-              page,
-              pageSize: PAGE_SIZE,
-              codeId: deepestCodeId || undefined,
-              q: query.activeQ || undefined,
-              country: query.activeCountry || undefined,
-              agency: query.activeAgency || undefined,
-              deadlineFrom: query.activeFrom || undefined,
-              deadlineTo: query.activeTo || undefined,
-              sort: query.activeSort,
-              userKey: userKey || undefined,
-              deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
-              noticeType: query.activeNoticeType || undefined,
-              featured: query.activeFeatured || undefined,
-              locale,
-            }, controller.signal)
-          : currentDataSource === "industry-matched"
-            ? fetchIndustryMatchedNotices({
-                userKey: userKey || "", page, pageSize: PAGE_SIZE, locale,
-                // 透传全部筛选参数到行业匹配 API
-                q: query.activeQ || undefined,
-                country: query.activeCountry || undefined,
-                agency: query.activeAgency || undefined,
-                deadlineFrom: query.activeFrom || undefined,
-                deadlineTo: query.activeTo || undefined,
-                deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
-                noticeType: query.activeNoticeType || undefined,
-                featured: query.activeFeatured || undefined,
-                sort: query.activeSort,
-              }, controller.signal)
-            : fetchRecommendedNotices({ userKey: userKey || "", page, pageSize: PAGE_SIZE, locale }, controller.signal);
+      // 重构方案 §4：单一端点统一调用，数据源差异由 mode 参数表达
+      // search→default / industry-matched→prefs / recommended→recommended
+      const unifiedMode =
+        currentDataSource === "industry-matched" ? "prefs"
+        : currentDataSource === "recommended" ? "recommended"
+        : "default";
+      const request = fetchUnifiedSearch({
+        mode: unifiedMode,
+        userKey: userKey || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+        codeId: deepestCodeId || undefined,
+        q: query.activeQ || undefined,
+        country: query.activeCountry || undefined,
+        agency: query.activeAgency || undefined,
+        deadlineFrom: query.activeFrom || undefined,
+        deadlineTo: query.activeTo || undefined,
+        deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
+        noticeType: query.activeNoticeType || undefined,
+        featured: query.activeFeatured || undefined,
+        sort: query.activeSort,
+        locale,
+      }, controller.signal);
 
       request
         .then((json) => {
@@ -156,12 +146,15 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     };
   }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userKey, query.hasSearch]);
 
-  // 分页预取
+  // 分页预取（统一端点）
   useEffect(() => {
     if (prefsMode === "prefs") return;
     if (loading || items.length === 0 || page >= totalPages) return;
     const nextPage = page + 1;
-    fetchNotices({
+    const prefetchMode = prefsMode === "recommended" && !query.hasOtherSearch ? "recommended" : "default";
+    fetchUnifiedSearch({
+      mode: prefetchMode,
+      userKey: userKey || undefined,
       page: nextPage,
       pageSize: PAGE_SIZE,
       codeId: deepestCodeId || undefined,
@@ -170,11 +163,10 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       agency: query.activeAgency || undefined,
       deadlineFrom: query.activeFrom || undefined,
       deadlineTo: query.activeTo || undefined,
-      sort: query.activeSort,
-      userKey: userKey || undefined,
       deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
       noticeType: query.activeNoticeType || undefined,
       featured: query.activeFeatured || undefined,
+      sort: query.activeSort,
       locale,
     }).catch(() => { /* 预取失败静默 */ });
   }, [page, totalPages, items.length, loading, prefsMode]);

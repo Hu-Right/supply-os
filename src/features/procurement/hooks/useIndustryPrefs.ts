@@ -15,7 +15,7 @@ import { onAppEvent } from "@/core/events";
 import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
-import { fetchRecommendedNotices } from "../api";
+import { fetchUnifiedSearch } from "../api";
 import { PAGE_SIZE } from "./useNoticeSearch";
 
 // P1 性能优化：UNSPSC 一级类目 sessionStorage 缓存（10 分钟 TTL，按 locale 分键）
@@ -183,7 +183,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setHasIndustryPrefs(false);
         // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
         try {
-          const probe = await fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE });
+          const probe = await fetchUnifiedSearch({ mode: "recommended", userKey, page: 1, pageSize: PAGE_SIZE });
           if (stale()) return;
           if (Number(probe.total || 0) > 0) {
             setPrefsMode("recommended");
@@ -251,7 +251,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   const exitAutoMode = () => {
     if (prefsMode === "prefs" && userKey) {
       // 取消行业匹配：尝试降级到推荐
-      fetchRecommendedNotices({ userKey, page: 1, pageSize: PAGE_SIZE })
+      fetchUnifiedSearch({ mode: "recommended", userKey, page: 1, pageSize: PAGE_SIZE })
         .then((probe) => {
           if (Number(probe.total || 0) > 0) {
             setPrefsMode("recommended");

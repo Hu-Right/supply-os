@@ -9,13 +9,42 @@
 import { Router } from "express";
 import crypto from "crypto";
 import type { AppContext } from "../../context";
+import type { Request } from "express";
 import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { searchNotices, getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
 import { recommendNotices } from "../../services/recommend/index";
+import { searchUnified, type RawSearchParams } from "../../services/search-orchestrator/index";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * 回滚开关：USE_LEGACY_IMPL=1 时旧端点走原始实现（searchNotices/matchNoticesByIndustry），
+ * 默认走统一编排器。重构验收完成后移除（阶段 4）。
+ */
+const USE_LEGACY_IMPL = process.env.USE_LEGACY_IMPL === "1";
+
+/** 从请求提取统一搜索参数（unified-search 与旧端点适配器共用） */
+function parseUnifiedParams(req: Request, mode: string): RawSearchParams {
+  return {
+    mode,
+    userKey: normalizeUserKey(req.query.user_key) || "",
+    page: parseOptionalInt(req.query, "page", 1, 1000, 1),
+    pageSize: parseOptionalInt(req.query, "page_size", 6, 30, 9),
+    locale: parseOptionalString(req.query, "locale", 10) || "",
+    q: parseOptionalString(req.query, "q", 200) || "",
+    country: parseOptionalString(req.query, "country", 100) || "",
+    agency: parseOptionalString(req.query, "agency", 100) || "",
+    deadlineFrom: parseOptionalString(req.query, "deadline_from", 10) || "",
+    deadlineTo: parseOptionalString(req.query, "deadline_to", 10) || "",
+    deadlineWithinDays: parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0),
+    noticeType: parseOptionalString(req.query, "notice_type", 100) || "",
+    featuredOnly: String(req.query.featured || "") === "1",
+    sort: parseOptionalString(req.query, "sort", 20) || "deadline_farthest",
+    codeId: parseOptionalInt(req.query, "code_id", 0, 1e9, 0) || parseOptionalInt(req.query, "industry_id", 0, 1e9, 0),
+  };
+}
 
 // 采购类型白名单：仅允许已知类型通过，无效值直接忽略（避免静默映射到 OTHER）
 // 与 normalizeNoticeType 的 SHORT_CODES + 正则规则保持一致
@@ -36,6 +65,14 @@ function isValidNoticeType(val: string): boolean {
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
   const noticesRepo = ctx.noticesRepo;
+
+  // ── 统一搜索端点（重构方案 §4.1）：mode=default|prefs|recommended ──
+  router.get("/api/notices/unified-search", asyncHandler(async (req, res) => {
+    const rawMode = String(req.query.mode || "default");
+    const mode = rawMode === "prefs" || rawMode === "recommended" ? rawMode : "default";
+    const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, mode), noticesRepo);
+    res.json({ ...result, page_size: result.pageSize });
+  }));
 
   router.get("/api/notices", asyncHandler(async (req, res) => {
     const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
@@ -58,10 +95,16 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     // 卡片国际化：透传当前 locale，服务端 LEFT JOIN 翻译表返回 title_i18n / description_i18n
     const locale = parseOptionalString(req.query, "locale", 10);
 
-    const result = await searchNotices(ctx.dbPool, {
-      page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
-      deadlineWithinDays, noticeType: effectiveNoticeType, featuredOnly, locale,
-    }, noticesRepo);
+    // 重构方案 §1.7 委托适配器：默认走统一编排器，USE_LEGACY_IMPL=1 回退旧实现
+    let result: { items: Array<Record<string, unknown>>; total: number; page: number; pageSize: number; fallback?: string };
+    if (USE_LEGACY_IMPL) {
+      result = await searchNotices(ctx.dbPool, {
+        page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
+        deadlineWithinDays, noticeType: effectiveNoticeType, featuredOnly, locale,
+      }, noticesRepo);
+    } else {
+      result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "default"), noticesRepo);
+    }
 
     // P2 性能优化：流式响应——立即发送 HTTP headers，然后分块写入 JSON body
     // 浏览器收到 headers 后即可开始解析，无需等待完整 JSON 序列化完成
@@ -132,14 +175,19 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     res.json(data);
   }));
 
-  // ── 推荐端点 ──
+  // ── 推荐端点（委托适配器：默认走统一编排器 mode=recommended）──
   router.get("/api/notices/recommended", asyncHandler(async (req, res) => {
     const userKey = normalizeUserKey(req.query.user_key) || "";
     const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
     const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
     // 卡片国际化：透传当前 locale
     const locale = parseOptionalString(req.query, "locale", 10);
-    res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo));
+    if (USE_LEGACY_IMPL) {
+      res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo));
+    } else {
+      const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "recommended"), noticesRepo);
+      res.json({ ...result, page_size: result.pageSize });
+    }
   }));
 
   return router;
