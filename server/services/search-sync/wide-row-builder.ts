@@ -223,8 +223,8 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
 export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
   const allIds: number[] = [];
   const MAX_ROUNDS = 10;
-  // 溢出阈值：INT UNSIGNED 最大值 4294967295，远超正常截止日期的值视为溢出
-  const OVERFLOW_THRESHOLD = 4000000000;
+  // 溢出阈值：INT UNSIGNED 最大值 4294967295，仅此值视为溢出
+  const OVERFLOW_THRESHOLD = 4294967295;
   // 安全值表达式：溢出值视为 0
   const SAFE_EXPR = `IF(COALESCE(n.deadline_sec, 0) > ${OVERFLOW_THRESHOLD}, 0, COALESCE(n.deadline_sec, 0))`;
   try {
@@ -358,6 +358,32 @@ export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
   } catch (e) {
     console.warn(`[wide-table] is_featured 对账失败（静默降级）:`, (e as Error).message);
     return allIds;
+  }
+}
+
+/**
+ * 译文对账：检测宽表 title_zh 与翻译表 title_tr（lang='zh'）不一致的行。
+ * 修复“译文已入 crm_notice_translations 但宽表/索引滞后”的断链场景。
+ * 每轮抽样上限 200 条，返回需重新同步的公告 ID。
+ */
+export async function reconcileTranslations(pool: Pool): Promise<number[]> {
+  try {
+    const [mismatchRows] = await pool.query(
+      `SELECT ns.id
+       FROM crm_notice_search ns
+       INNER JOIN crm_notice_translations t
+         ON t.notice_id = ns.id AND t.lang = 'zh'
+       WHERE NOT (COALESCE(ns.title_zh, '') = COALESCE(t.title_tr, ''))
+       LIMIT 200`,
+    );
+    const ids = (mismatchRows as any[]).map((r) => Number(r.id)).filter(Boolean);
+    if (ids.length > 0) {
+      console.log(`[wide-table] 译文对账发现 ${ids.length} 条 title_zh 滞后记录，将重新同步`);
+    }
+    return ids;
+  } catch (e) {
+    console.warn(`[wide-table] 译文对账失败（静默降级）:`, (e as Error).message);
+    return [];
   }
 }
 

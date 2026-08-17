@@ -26,6 +26,7 @@ import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { initMeilisearch, ensureIndex, isHealthy as isMeiliHealthy } from "./services/meilisearch/index";
 import { startSearchSync } from "./services/searchSync";
 import { startWideTableSync } from "./services/search-sync/index";
+import { startSyncRetryQueue } from "./services/search-sync/sync-retry-queue";
 import { runWarmup } from "./lifecycle/warmup";
 import { startAllTimers } from "./lifecycle/timers";
 import { schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase, executePhase } from "./lifecycle/phases";
@@ -153,6 +154,7 @@ export async function startServer() {
   // ── Meilisearch 搜索引擎初始化（非阻塞：后台异步完成）──
   // MEILI_ENABLED=on 时激活；不可用时搜索自动降级到 MySQL FULLTEXT
   let stopSearchSync: (() => void) | undefined;
+  let stopSyncRetryQueue: (() => void) | undefined;
   if (String(process.env.MEILI_ENABLED ?? "off").toLowerCase() === "on") {
     // 异步初始化，不阻塞服务启动
     void (async () => {
@@ -162,6 +164,8 @@ export async function startServer() {
           const indexReady = await ensureIndex();
           if (indexReady) {
             stopSearchSync = startSearchSync(dbPool, { intervalMs: 10 * 1000 });
+            // 阶段 3 加固：级联同步失败重试队列
+            stopSyncRetryQueue = startSyncRetryQueue(dbPool);
           } else {
             console.warn("[meilisearch] 索引未就绪（健康检查失败）: 搜索将降级到 MySQL FULLTEXT");
           }
@@ -197,6 +201,7 @@ export async function startServer() {
     stopAutoTranslate();
     stopReportCacheCleanup();
     stopSearchSync?.();
+    stopSyncRetryQueue?.();
     stopWideTableSync();
     timersHandle.stop();
   };

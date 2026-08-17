@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-08-17T06:55:37.228Z",
+  "phase": "cold",
+  "samples": {
+    "country": "Brazil",
+    "agency": "TED",
+    "noticeType": "OTHER",
+    "unspsc": {
+      "1": "109",
+      "2": "103631",
+      "3": "103632",
+      "4": "108783",
+      "5": "109501"
+    },
+    "reference": "SADC/3/5/1/137."
+  },
+  "categories": [
+    {
+      "category": "L1 单层(9)",
+      "budget": 50,
+      "stats": {
+        "count": 9,
+        "okCount": 9,
+        "failCount": 0,
+        "min": 22.134299999999712,
+        "avg": 39.199522222222136,
+        "p50": 36.79710000000068,
+        "p95": 58.92000000000007,
+        "max": 58.92000000000007
+      },
+      "overBudget": 1
+    },
+    {
+      "category": "L2 双条件(36)",
+      "budget": 100,
+      "stats": {
+        "count": 36,
+        "okCount": 36,
+        "failCount": 0,
+        "min": 3.9965999999994892,
+        "avg": 40.17597777777784,
+        "p50": 45.317700000000514,
+        "p95": 57.301400000000285,
+        "max": 65.42709999999988
+      },
+      "overBudget": 0
+    },
+    {
+      "category": "L3 三条件(84)",
+      "budget": 200,
+      "stats": {
+        "count": 84,
+        "okCount": 84,
+        "failCount": 0,
+        "min": 6.741799999999785,
+        "avg": 41.91192261904766,
+        "p50": 42.53949999999986,
+        "p95": 70.08139999999912,
+        "max": 90.77390000000014
+      },
+      "overBudget": 0
+    },
+    {
+      "category": "L4+ 四条件及以上",
+      "budget": 500,
+      "stats": {
+        "count": 382,
+        "okCount": 382,
+        "failCount": 0,
+        "min": 1.0214000000014494,
+        "avg": 29.673121204188476,
+        "p50": 20.742299999999886,
+        "p95": 67.79459999999926,
+        "max": 91.55030000000079
+      },
+      "overBudget": 0
+    }
+  ],
+  "consistency": {
+    "determinism": {
+      "pass": true,
+      "total": 18706,
+      "cacheHitMs": "15"
+    },
+    "prefs": {
+      "pass": true,
+      "prefsTotal": 126,
+      "defaultTotal": 94749,
+      "inIndustry": "9/9",
+      "matchTiers": [
+        "same_level"
+      ],
+      "matchScores": [
+        4
+      ]
+    },
+    "noPrefs": {
+      "pass": true,
+      "fallback": "no_prefs"
+    },
+    "recommended": {
+      "pass": true,
+      "total": 0,
+      "idsCount": 0,
+      "filterIgnored": true
+    },
+    "refFastPath": {
+      "pass": true,
+      "total": 1,
+      "ms": "16"
+    }
+  },
+  "failures": []
+}

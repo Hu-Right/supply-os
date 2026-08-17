@@ -119,11 +119,26 @@ const WIDE_TABLE_SYNC_SQL = `
 `;
 
 /**
- * 全量同步：先清空索引，再从宽表拉取全量数据写入
+ * 全量同步：先清空索引，再从宽表拉取全量数据写入。
+ * 降级演练修复：多调用方（启动初始化/重建触发器/索引体检）可能并发调用，
+ * 并发 deleteAllDocuments 会互相清空对方刚写入的批次，导致索引长期为空；
+ * 加全局并发锁，重复调用直接跳过。
  */
+let _fullSyncRunning = false;
+
+/** 是否有 fullSync 正在执行（编排器可据此路由降级） */
+export function isFullSyncRunning(): boolean {
+  return _fullSyncRunning;
+}
+
 export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: number; lastId: number }> {
   const client = getClient();
   if (!client || !isHealthy()) return { synced: 0, elapsed: 0, lastId: 0 };
+  if (_fullSyncRunning) {
+    console.warn("[meilisearch] fullSync 已在执行中，跳过重复调用");
+    return { synced: 0, elapsed: 0, lastId: 0 };
+  }
+  _fullSyncRunning = true;
   const INDEX_NAME = getIndexName();
   const start = Date.now();
 
@@ -153,12 +168,33 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       if (docs.length < BATCH) break;
     }
 
+    // 降级演练修复：addDocumentsInBatches 只保证任务入队，Meilisearch 内部索引
+    // 仍在后台进行；若立即返回，查询会命中部分索引（回归实测 total 从 8.8 万
+    // 降到 3.3 万）。等待索引文档数达到目标再返回，期间 _fullSyncRunning 保持
+    // 置位，编排器自动路由 MySQL 降级。
+    const indexStart = Date.now();
+    while (true) {
+      try {
+        const stats = await client.index(INDEX_NAME).getStats();
+        if (stats.numberOfDocuments >= totalSynced) break;
+      } catch {
+        // 统计失败（瞬时）忽略，继续等待
+      }
+      if (Date.now() - indexStart > 10 * 60 * 1000) {
+        console.warn("[meilisearch] fullSync: 等待索引就绪超时（10 分钟），继续返回");
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+
     const elapsed = Date.now() - start;
     console.log(`[meilisearch] fullSync 完成: ${totalSynced} 条文档, ${elapsed}ms`);
     return { synced: totalSynced, elapsed, lastId };
   } catch (err) {
     console.error("[meilisearch] fullSync failed:", (err as Error).message);
     return { synced: 0, elapsed: Date.now() - start, lastId: 0 };
+  } finally {
+    _fullSyncRunning = false;
   }
 }
 
@@ -306,6 +342,16 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices");
+    return Number((rows as any[])[0]?.cnt || 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** 获取宽表行数（索引同步的事实源） */
+export async function getWideTableCount(pool: Pool): Promise<number> {
+  try {
+    const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_notice_search");
     return Number((rows as any[])[0]?.cnt || 0);
   } catch {
     return 0;

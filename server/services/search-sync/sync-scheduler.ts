@@ -8,10 +8,12 @@
  */
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
+import { enqueueRetry } from "./sync-retry-queue";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
   buildWideRow, upsertWideRows, reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
+  reconcileTranslations,
 } from "./wide-row-builder";
 
 /**
@@ -125,6 +127,17 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       translationsMap.get(Number(r.id)),
     ));
     const synced = await upsertWideRows(pool, wideRows);
+    // 根因修复：宽表更新后级联同步 Meilisearch，避免新译文只入宽表不入索引，
+    // 导致“列表能看到中文标题，但关键词搜索搜不到”的索引滞后问题；
+    // 失败 ID 进入重试队列（阶段 3 加固）
+    if (synced > 0 && isMeiliHealthy()) {
+      void syncNoticeIds(pool, ids).then((r) => {
+        if (r.synced < ids.length) enqueueRetry(ids);
+      }).catch((err) => {
+        console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+        enqueueRetry(ids);
+      });
+    }
     return { synced };
   } catch (err) {
     console.warn("[wide-table] 按ID同步失败:", (err as Error).message);
@@ -215,7 +228,7 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
       }, reconcileIntervalMs);
       stopFns.push(() => clearInterval(reconcileTimer));
 
-      // 定时器 3：全量对账（ghost 行清理 + is_featured 同步）
+      // 定时器 3：全量对账（ghost 行清理 + is_featured 同步 + 译文对账）
       const fullReconcileTimer = setInterval(async () => {
         if (stopped) return;
         try {
@@ -223,12 +236,17 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
           const ghostIds = await reconcileGhostRows(pool);
           // is_featured 对账
           const featuredIds = await reconcileIsFeatured(pool);
-          
+          // 译文对账：宽表 title_zh 与翻译表 title_tr 不一致的行重新同步
+          const translationIds = await reconcileTranslations(pool);
+
           // 合并变更 ID 并同步到 Meilisearch
-          const allChangedIds = [...new Set([...ghostIds, ...featuredIds])];
+          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds])];
           if (allChangedIds.length > 0 && isMeiliHealthy()) {
-            void syncNoticeIds(pool, allChangedIds).catch((err) => {
+            void syncNoticeIds(pool, allChangedIds).then((r) => {
+              if (r.synced < allChangedIds.length) enqueueRetry(allChangedIds);
+            }).catch((err) => {
               console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+              enqueueRetry(allChangedIds);
             });
           }
         } catch (err) {
