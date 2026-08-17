@@ -34,6 +34,7 @@ export interface SubscriptionRow {
   user_key: string;
   plan_code: string;
   plan_name?: string;
+  unlock_quota?: number;
   status: string;
   started_at: Date;
   expires_at: Date | null;

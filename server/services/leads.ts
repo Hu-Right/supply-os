@@ -4,16 +4,9 @@
  */
 
 import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
+import { join } from "path";
 import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
-
-/** 兼容 ESM (tsx dev) 和 CJS (esbuild 生产构建) 两种模块系统 */
-function getCurrentDir(): string {
-  if (typeof __dirname !== "undefined") return __dirname;
-  return dirname(fileURLToPath(import.meta.url));
-}
 
 export function mapUngmAppointmentRow(row: any): Lead {
   return {
@@ -65,7 +58,7 @@ export async function insertUngmAppointment(dbPool: any, lead: Lead, rawPayload:
  * In-memory persistent database for the live session
  */
 export function createLeadsStore(): Lead[] {
-  const seedPath = join(getCurrentDir(), "../data/leads-seed.json");
+  const seedPath = join(process.cwd(), "server/data/leads-seed.json");
   try {
     const data = readFileSync(seedPath, "utf-8");
     return JSON.parse(data);

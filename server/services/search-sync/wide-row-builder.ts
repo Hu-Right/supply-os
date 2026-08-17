@@ -214,20 +214,27 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
  * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline_ts 变更时，
  * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
  *
+ * 溢出保护：主表 deadline_ts 为负值时，INT UNSIGNED 生成列溢出回绕为 ~4294967295。
+ * 对账时将 > 4000000000 的值视为 0（无效截止日期），避免无限循环对账。
+ *
  * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
  * 返回所有变更 ID 供上层同步到 Meilisearch。
  */
 export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
   const allIds: number[] = [];
   const MAX_ROUNDS = 10;
+  // 溢出阈值：INT UNSIGNED 最大值 4294967295，远超正常截止日期的值视为溢出
+  const OVERFLOW_THRESHOLD = 4000000000;
+  // 安全值表达式：溢出值视为 0
+  const SAFE_EXPR = `IF(COALESCE(n.deadline_sec, 0) > ${OVERFLOW_THRESHOLD}, 0, COALESCE(n.deadline_sec, 0))`;
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      // 检测宽表 deadline_sec 与主表不一致的记录
+      // 检测宽表 deadline_sec 与主表不一致的记录（溢出值视为 0）
       const [mismatchRows] = await pool.query(
-        `SELECT n.id, COALESCE(n.deadline_sec, 0) AS deadline_sec
+        `SELECT n.id, ${SAFE_EXPR} AS deadline_sec
          FROM crm_bid_notices n
          INNER JOIN crm_notice_search ns ON ns.id = n.id
-         WHERE ns.deadline_sec != COALESCE(n.deadline_sec, 0)
+         WHERE ns.deadline_sec != ${SAFE_EXPR}
          LIMIT 5000`,
       );
       const mismatches = mismatchRows as RowDataPacket[];
@@ -242,7 +249,7 @@ export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
         await pool.query(
           `UPDATE crm_notice_search ns
            INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.deadline_sec = LEAST(GREATEST(COALESCE(n.deadline_sec, 0), 0), 4294967295)
+           SET ns.deadline_sec = ${SAFE_EXPR}
            WHERE ns.id IN (${ph})`,
           batch,
         );

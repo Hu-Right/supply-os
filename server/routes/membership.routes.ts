@@ -30,7 +30,12 @@ export function createMembershipRouter(ctx: AppContext): Router {
     const entitlements = await membershipRepo.findActiveEntitlements(userKey);
     const paidQuotaTotal = entitlements.reduce((sum, item) => sum + Number(item.quota_total || 0), 0);
     const paidQuotaUsed = entitlements.reduce((sum, item) => sum + Number(item.quota_used || 0), 0);
-    const paidQuotaRemaining = entitlements.reduce((sum, item) => sum + Number(item.quota_remaining || 0), 0);
+    const entitlementRemaining = entitlements.reduce((sum, item) => sum + Number(item.quota_remaining || 0), 0);
+    // 订阅配额：从活跃订阅的 plan unlock_quota 汇总，减去已使用的付费解锁次数
+    const subscriptionQuota = subs.reduce((sum, sub) => sum + (Number(sub.unlock_quota) || 0), 0);
+    const subscriptionRemaining = Math.max(0, subscriptionQuota - paidUnlocks);
+    // 总付费剩余 = 单次卡剩余 + 订阅剩余
+    const paidQuotaRemaining = entitlementRemaining + subscriptionRemaining;
     res.json({
       user_key: userKey,
       membership_tier: subs.length > 0 || paidQuotaRemaining > 0 ? "vip" : "free",
@@ -38,7 +43,7 @@ export function createMembershipRouter(ctx: AppContext): Router {
       free_used: freeUsed,
       free_remaining: Math.max(0, freeQuota - freeUsed),
       paid_unlocks: paidUnlocks,
-      paid_quota_total: paidQuotaTotal,
+      paid_quota_total: paidQuotaTotal + subscriptionQuota,
       paid_quota_used: paidQuotaUsed,
       paid_quota_remaining: paidQuotaRemaining,
       active_subscriptions: subs,

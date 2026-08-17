@@ -56,10 +56,10 @@ export class MembershipRepo {
     return Number((rows as MembershipPlanRow[])[0]?.free_quota || 3);
   }
 
-  /** 查询用户的有效订阅（含套餐名称） */
+  /** 查询用户的有效订阅（含套餐名称和解锁配额） */
   async findActiveSubscriptions(userKey: string): Promise<SubscriptionRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT s.id, s.user_id, s.user_key, s.plan_code, p.name AS plan_name, s.status, s.started_at, s.expires_at, s.created_at
+      `SELECT s.id, s.user_id, s.user_key, s.plan_code, p.name AS plan_name, p.unlock_quota, s.status, s.started_at, s.expires_at, s.created_at
        FROM crm_user_subscriptions s
        LEFT JOIN crm_membership_plans p ON s.plan_code = p.plan_code
        WHERE s.user_key = ? AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
