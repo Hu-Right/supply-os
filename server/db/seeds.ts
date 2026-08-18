@@ -35,13 +35,10 @@ export async function runSeeds(pool: Pool, options: { enabled: boolean }): Promi
  * 会员计划的增删改由数据库运维直接管理，种子文件不作为配置源。
  */
 async function seedMembershipPlans(pool: Pool): Promise<void> {
-  // 先检查表是否已有数据，有则完全跳过写入
+  // 先检查表是否已有数据，有则静默跳过（以数据库实际配置为准，不产生启动日志噪音）
   const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_membership_plans");
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
-  if (total > 0) {
-    console.log(`[seeds] crm_membership_plans 已有 ${total} 条记录，跳过种子初始化（以数据库实际配置为准）`);
-    return;
-  }
+  if (total > 0) return;
 
   // 表为空时才执行初始化写入
   // 注意：以下数据与生产数据库 crm_membership_plans 表保持一致
@@ -71,13 +68,10 @@ async function seedMembershipPlans(pool: Pool): Promise<void> {
  * icon 字段对应 iconfont 的 class 名（iconfont.json 中的 font_class）。
  */
 async function seedFooterLinks(pool: Pool): Promise<void> {
-  // 先检查表是否已有数据，有则完全跳过写入
+  // 先检查表是否已有数据，有则静默跳过（不产生启动日志噪音）
   const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm.link");
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
-  if (total > 0) {
-    console.log(`[seeds] crm.link 已有 ${total} 条记录，跳过种子初始化`);
-    return;
-  }
+  if (total > 0) return;
 
   // 表为空时才执行初始化写入
   await pool.execute(`

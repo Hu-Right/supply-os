@@ -7,7 +7,6 @@ import os from "os";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
-import { createLeadsStore } from "./services/leads";
 import { PaymentService } from "./payment/PaymentService";
 import { UsersRepo } from "./repos/users.repo";
 import { MembershipRepo } from "./repos/membership.repo";
@@ -34,8 +33,8 @@ import { startAllTimers } from "./lifecycle/timers";
 import { schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase, executePhase } from "./lifecycle/phases";
 import type { AppContext } from "./context";
 
-// In-memory persistent database for the live session
-const leadsDb = createLeadsStore();
+// 双轨制退役（轨道D）：leadsDb 内存数组已删除——线索全量持久化至 MySQL
+// （ungm_1v1_appointments），消除进程重启数据丢失与多实例不一致问题。
 
 /**
  * 服务句柄（C1【P0】优雅关闭改造）
@@ -89,7 +88,7 @@ export async function startServer() {
   const admin = { dbPool, adminRepo, usersRepo };
 
   const ctx: AppContext = {
-    dbPool, leadsDb,
+    dbPool,
     // 领域上下文（唯一访问入口；双轨制退役轨道A：顶层 @deprecated 字段已删除）
     notice, payment, user, supplier, admin,
     // 其他领域 Repo

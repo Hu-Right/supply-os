@@ -40,7 +40,8 @@ export function createSuppliersRouter(ctx: AppContext): Router {
   router.use(createSupplierRegisterRouter({
     suppliersRepo,
     usersRepo,
-    leadsDb: ctx.leadsDb,
+    // 双轨制退役（轨道D）：注册伴生线索直接落库，不再经过内存数组
+    dbPool: ctx.dbPool,
     invalidateCache: invalidateSupplierCache,
   }));
 

@@ -42,12 +42,14 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // =========== Payment API ===========
 
   // POST /api/payment/orders - 创建支付订单
-  // P3-2 修复：try-catch 缩进对齐
-  router.post("/api/payment/orders", asyncHandler(async (req, res) => {
+  // B1 退役准备（高危端点升级）：requireAuth 强制 JWT 身份，订单归属取自 req.userKey，
+  // 杜绝 body.user_key 为任意用户创建订单的伪造风险（见《legacy 通道清点报告》§2.2）。
+  // 前端 api() 已自动携带 JWT，行为向后兼容。
+  router.post("/api/payment/orders", requireAuth, asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
       const result = await paymentService.createOrder({
-        user_key: normalizeUserKey(req.body.user_key) || "",
+        user_key: req.userKey,
         plan_code: String(req.body.plan_code || ""),
         notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
         provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as import("../../src/types").PaymentProviderName,
@@ -189,8 +191,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.get("/api/payment/config-status", paymentConfigStatusHandler);
   router.get("/api/payments/config-status", paymentConfigStatusHandler);
 
-  router.post("/api/payments/create", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.body.user_key) || ""; // 本地差异 #7：F.1 归一化收敛（原不做 trim/lower）
+  // B1 退役准备（高危端点升级）：requireAuth 强制 JWT 身份，禁止 body.user_key 指定下单人
+  router.post("/api/payments/create", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     // BUG-PAY-3 修复：provider 选择对齐策略引擎（白名单校验，非法值安全回退 mock）
     const provider = (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider))
       ? req.body.provider : "mock";

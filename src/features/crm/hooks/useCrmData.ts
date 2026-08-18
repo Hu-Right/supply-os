@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { api } from "@/core/http";
 import { OPPORTUNITIES } from "@/data";
 import { fetchSuppliers } from "@/features/supplier";
 import type { Lead, Supplier, Opportunity } from "@/types";
@@ -65,10 +66,13 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
   const fetchData = async (preselectFirstSupplier = false) => {
     setIsLoadingLeads(true);
     try {
-      const leadsRes = await fetch("/api/leads");
-      if (leadsRes.ok) {
-        const data = await leadsRes.json();
+      // 双轨制退役（轨道C）：统一走 api()（自动携带 JWT；/api/leads 需管理员身份，
+      // 非管理员访问返回 401 时静默置空，与原 !ok 分支行为一致）
+      try {
+        const data = await api<Lead[]>("/api/leads");
         setLeads(data);
+      } catch {
+        setLeads([]);
       }
       const suppliers = await fetchSuppliers(locale).catch(() => [] as Supplier[]);
       setDbSuppliers(suppliers);
@@ -129,18 +133,16 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
   ): Promise<Lead | null> => {
     if (!content.trim()) return null;
     try {
-      const res = await fetch("/api/leads/log", {
+      // 双轨制退役（轨道C）：统一走 api()；author 由服务端强制取 JWT 身份（见 leads 路由）
+      const updatedLead = await api<Lead>("/api/leads/log", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           leadId,
           content,
           author: authUser?.email ? `运营经理 (${authUser.email})` : "Operator",
           nextStatus,
-        }),
+        },
       });
-      if (!res.ok) return null;
-      const updatedLead: Lead = await res.json();
       setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
       return updatedLead;
     } catch {

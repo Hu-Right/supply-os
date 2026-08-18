@@ -12,7 +12,17 @@
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
-import { setAuthTokens, clearAuthTokens, getAuthToken, getRefreshToken } from "@/core/http";
+// 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
+// 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
+import { setAuthTokens, clearAuthTokens, getRefreshToken, api } from "@/core/http";
+
+/** 认证接口响应（登录/注册/重置密码共用：JWT Token 对 + 用户信息） */
+interface AuthResponse {
+  token?: string;
+  refresh_token?: string;
+  user: AuthUser;
+  [key: string]: unknown;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -54,16 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsAuthLoading(true);
     try {
-      // 优先使用 JWT Token，回退到 query param
-      const token = getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const url = token
-        ? "/api/auth/user"
-        : `/api/auth/user?user_key=${encodeURIComponent(userKey)}`;
-      const res = await fetch(url, { cache: "no-store", headers });
-      const data = await res.json();
-      if (!res.ok || !data.user) throw new Error(data.error || "刷新账号状态失败");
+      // api() 自动附加 JWT；未登录时返回 401 由下方 catch 静默降级（与原行为一致）
+      const data = await api<{ user: AuthUser }>("/api/auth/user", { cache: "no-store" });
+      if (!data.user) throw new Error("刷新账号状态失败");
       persistAuthUser(data.user);
     } catch (err) {
       console.error("Error refreshing auth user:", err);
@@ -79,13 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (identifier: string, password: string) => {
     setIsAuthLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
+      const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: identifier, password }),
+        body: { email: identifier, password },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "登录失败，请稍后重试");
       // 存储 JWT Token 对
       if (data.token && data.refresh_token) {
         setAuthTokens(data.token, data.refresh_token);
@@ -103,13 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => {
     setIsAuthLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
+      const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode }),
+        body: { email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "注册失败，请稍后重试");
 
       // 存储 JWT Token 对（注册即登录）
       if (data.token && data.refresh_token) {
@@ -118,12 +116,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
 
-      // 提交供应商绑定申请
+      // 提交供应商绑定申请（注册成功后携带新签发的 JWT，api() 自动附加）
       if (claim) {
-        const claimRes = await fetch("/api/supplier-claims", {
+        await api("/api/supplier-claims", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          body: {
             user_key: data.user.user_key,
             company_name: claim.companyName,
             supplier_type: claim.supplierType,
@@ -131,10 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             contact_phone: claim.contactPhone,
             contact_email: data.user.email,
             business_license_no: claim.businessLicenseNo,
-          }),
+          },
         });
-        const claimData = await claimRes.json().catch(() => ({}));
-        if (!claimRes.ok) throw new Error(claimData.error || "账号已注册，但供应商申请提交失败");
         // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
         setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
       }
@@ -151,13 +146,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // L-2 安全加固：调用后端登出 API 撤销 Refresh Token，防止被盗用的 Token 继续续期
     try {
       const refreshToken = getRefreshToken();
-      const token = getAuthToken();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      await fetch("/api/auth/logout", {
+      // api() 自动附加 Authorization；失败不阻断登出（原 .catch(() => {}) 语义保留）
+      await api("/api/auth/logout", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ refresh_token: refreshToken || "" }),
+        body: { refresh_token: refreshToken || "" },
       }).catch(() => {});
     } catch { /* 网络异常不阻断登出 */ }
 
@@ -182,10 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClaimMessage("");
     setIsAuthLoading(true);
     try {
-      const res = await fetch("/api/supplier-claims", {
+      const data = await api<{ status?: string }>("/api/supplier-claims", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           user_key: authUserRef.current.user_key,
           company_name: claim.companyName,
           supplier_type: claim.supplierType,
@@ -193,13 +184,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           contact_phone: claim.contactPhone,
           contact_email: authUserRef.current.email,
           business_license_no: claim.businessLicenseNo,
-        }),
+        },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "绑定申请提交失败");
       setClaimMessage(`绑定申请已提交，状态：${data.status}`);
-    } catch (err: any) {
-      setClaimMessage(err.message || "绑定申请提交失败");
+    } catch (err: unknown) {
+      setClaimMessage((err as Error).message || "绑定申请提交失败");
     } finally {
       setIsAuthLoading(false);
     }
@@ -210,13 +199,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Send password reset verification code
    */
   const sendResetCode = async (email: string) => {
-    const res = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "发送验证码失败");
+    const data = await api<{ email_sent?: boolean; support_hint?: string | null }>(
+      "/api/auth/forgot-password",
+      { method: "POST", body: { email } },
+    );
     return { email_sent: data.email_sent ?? true, support_hint: data.support_hint ?? null };
   };
 
@@ -227,13 +213,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resetPassword = async (email: string, code: string, newPassword: string) => {
     setIsAuthLoading(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const data = await api<AuthResponse>("/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code, new_password: newPassword }),
+        body: { email, code, new_password: newPassword },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "重置密码失败");
       // 存储 JWT Token 对（重置后自动登录）
       if (data.token && data.refresh_token) {
         setAuthTokens(data.token, data.refresh_token);

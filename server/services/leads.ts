@@ -1,10 +1,12 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * 双轨制退役（轨道D）：createLeadsStore（JSON 种子内存数组）已删除，
+ * 线索全量持久化至 MySQL（ungm_1v1_appointments）。
  */
 
-import { readFileSync } from "fs";
-import { join } from "path";
+import type { Pool } from "mysql2/promise";
 import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
 
@@ -28,7 +30,7 @@ export function mapUngmAppointmentRow(row: any): Lead {
   };
 }
 
-export async function insertUngmAppointment(dbPool: any, lead: Lead, rawPayload: any, ip: string) {
+export async function insertUngmAppointment(dbPool: Pool, lead: Lead, rawPayload: any, ip: string) {
   await dbPool.execute(
     `INSERT INTO ungm_1v1_appointments
       (appointment_key, company_name, country, city, contact_person, contact_method, email, industry, consultation_needs, status, follow_up_logs, extra, raw_payload, ip, created_at)
@@ -51,19 +53,4 @@ export async function insertUngmAppointment(dbPool: any, lead: Lead, rawPayload:
       new Date(lead.createdAt),
     ]
   );
-}
-
-/**
- * 从 JSON 文件加载种子数据
- * In-memory persistent database for the live session
- */
-export function createLeadsStore(): Lead[] {
-  const seedPath = join(process.cwd(), "server/data/leads-seed.json");
-  try {
-    const data = readFileSync(seedPath, "utf-8");
-    return JSON.parse(data);
-  } catch (err) {
-    console.warn("[leads] 无法加载种子数据文件，使用空数组:", err);
-    return [];
-  }
 }

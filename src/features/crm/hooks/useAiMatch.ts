@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import type { Supplier, Opportunity } from "@/types";
 
 export type UseAiMatchReturn = {
@@ -51,22 +52,18 @@ export function useAiMatch(): UseAiMatchReturn {
     setIsMatching(true);
     setReport("");
     try {
-      const response = await fetch("/api/ai/matchmake", {
+      // 双轨制退役（轨道C）：统一走 api() 请求层（指标采集 + 统一错误语义）
+      const resJson = await api<{ analysis?: string }>("/api/ai/matchmake", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           supplier,
           opportunity,
           language: locale,
-        }),
+        },
       });
-      if (response.ok) {
-        const resJson = await response.json();
-        setReport(resJson.analysis);
-      } else {
-        setReport(t("aiMatchHttpError"));
-      }
+      setReport(resJson.analysis ?? "");
     } catch {
+      // 非 2xx 与网络异常统一降级提示（原实现区分两种错误，此处合并为网络错误文案）
       setReport(t("aiMatchNetworkError"));
     } finally {
       setIsMatching(false);

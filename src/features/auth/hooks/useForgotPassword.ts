@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
 
 /** 邮箱脱敏：显示首尾字符，中间用 ** 替代 */
@@ -81,15 +82,12 @@ export function useForgotPassword(onSuccess: () => void) {
 
     setForgotLoading(true);
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: identifier, channel }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setForgotError(data.error || "发送验证码失败");
-      } else if (channel === "sms") {
+      // 双轨制退役（轨道C）：统一走 api()；非 2xx 抛 ApiError（message = 服务端 error 字段）
+      const data = await api<{ sms_sent?: boolean; email_sent?: boolean; support_hint?: string | null }>(
+        "/api/auth/forgot-password",
+        { method: "POST", body: { email: identifier, channel } },
+      );
+      if (channel === "sms") {
         if (data.sms_sent === false) {
           setShowSupportHint(true);
           setForgotError(data.support_hint || "短信发送失败");
@@ -106,8 +104,8 @@ export function useForgotPassword(onSuccess: () => void) {
           setForgotSuccess(t("authForgotCodeSent"));
         }
       }
-    } catch (err: any) {
-      setForgotError(err.message || t("authForgotSendFailed"));
+    } catch (err: unknown) {
+      setForgotError((err as Error).message || t("authForgotSendFailed"));
     } finally {
       setForgotLoading(false);
     }
@@ -132,21 +130,19 @@ export function useForgotPassword(onSuccess: () => void) {
 
     setForgotLoading(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      // 双轨制退役（轨道C）：统一走 api()；成功后由 onSuccess 回调处理登录态
+      await api("/api/auth/reset-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           email: identifier,
           channel,
           code: forgotCode.trim(),
           new_password: forgotNewPassword,
-        }),
+        },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "重置密码失败");
       onSuccess();
-    } catch (err: any) {
-      setForgotError(err.message || t("authForgotResetFailed"));
+    } catch (err: unknown) {
+      setForgotError((err as Error).message || t("authForgotResetFailed"));
     } finally {
       setForgotLoading(false);
     }

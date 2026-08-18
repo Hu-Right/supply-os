@@ -5,24 +5,26 @@
  */
 import crypto from "crypto";
 import { Router } from "express";
-import type { AppContext } from "../../context";
+import type { Pool } from "mysql2/promise";
 import { Lead } from "../../types/crm";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { normalizeUserKey } from "../../utils/normalize";
+import { requireAuth } from "../../middleware/auth";
 import { mapSupplierRow } from "../../services/suppliers";
+import { insertUngmAppointment } from "../../services/leads";
 import { SuppliersRepo } from "../../repos/suppliers.repo";
 import { UsersRepo } from "../../repos/users.repo";
 
 export interface RegisterDeps {
   suppliersRepo: SuppliersRepo;
   usersRepo: UsersRepo;
-  leadsDb: AppContext["leadsDb"];
+  // 双轨制退役（轨道D）：leadsDb 内存数组已删除，伴生线索直接落库
+  dbPool: Pool;
   invalidateCache: () => void;
 }
 
 export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   const router = Router();
-  const { suppliersRepo, usersRepo, leadsDb, invalidateCache } = deps;
+  const { suppliersRepo, usersRepo, dbPool, invalidateCache } = deps;
 
   // POST /api/suppliers — 注册新供应商
   router.post("/api/suppliers", asyncHandler(async (req, res) => {
@@ -93,7 +95,9 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
           }
         ]
       };
-      leadsDb.unshift(companionLead);
+      // 双轨制退役（轨道D）：伴生线索全量落库（原 leadsDb 内存数组已删除，
+      // 进程重启不再丢失；lead_type 由 extra JSON 区分）
+      await insertUngmAppointment(dbPool, companionLead, req.body, req.ip || req.socket?.remoteAddress || "");
 
       invalidateCache();
 
@@ -101,8 +105,11 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   }));
 
   // POST /api/supplier-claims — 供应商认领
-  router.post("/api/supplier-claims", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.body.user_key) || "";
+  // B1 退役准备（高危端点升级）：requireAuth 强制 JWT 身份，认领归属取自 req.userKey，
+  // 杜绝 body.user_key 伪造他人认领（见《legacy 通道清点报告》§2.2）。
+  // 前端注册流程在拿到 JWT 后才调用本端点（api() 自动携带），行为向后兼容。
+  router.post("/api/supplier-claims", requireAuth, asyncHandler(async (req, res) => {
+    const userKey = req.userKey || "";
     const companyName = String(req.body.company_name || "").trim();
     if (!userKey || !companyName) {
       return res.status(400).json({ error: "请先登录并填写公司名称" });

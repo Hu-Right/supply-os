@@ -10,7 +10,6 @@
  */
 
 import type { Pool } from "mysql2/promise";
-import type { Lead } from "./types/crm";
 import type { PaymentService } from "./payment/PaymentService";
 import type { UsersRepo } from "./repos/users.repo";
 import type { MembershipRepo } from "./repos/membership.repo";
@@ -67,8 +66,6 @@ export type AdminContext = {
 export type AppContext = {
   /** 全局数据库连接池 */
   dbPool: Pool;
-  /** 内存线索数据（leads 模块） */
-  leadsDb: Lead[];
 
   // ── 领域上下文（新代码推荐） ──
   notice: NoticeContext;
