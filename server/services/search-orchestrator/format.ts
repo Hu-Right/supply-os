@@ -10,7 +10,8 @@ import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies";
 
-/** 匹配分 → 档次标签（SSOT 重构后 2 档，与 industry-match 口径一致） */
+/** 匹配分 → 档次标签（2 档分色；分数由 mode-resolver 按绝对层级给出：
+ *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
 export function matchScoreToTierLabel(score: number): string {
   if (score >= 5) return "precise";   // L5/L4 精确匹配 → 绿色徽章
   if (score >= 2) return "relevant";  // L3/L2 行业相关 → 蓝色徽章

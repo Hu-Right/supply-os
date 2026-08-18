@@ -37,6 +37,23 @@ export async function backfillUnspscCodeIds(dbPool: any) {
   }
 }
 
+/**
+ * 清洗行业偏好存量脏数据：置空曾被前端静默持久化的推断层级 L4/L5。
+ * 现行策略只持久化用户在 UI 中确认过的 L1~L3；残留的 L4/L5 会让
+ * resolveUserIndustryProfile 解析出 deepestLevel=5，把行业匹配锁定在
+ * 可能错误的推断分支上（且按最深级起探）。
+ * 幂等：仅更新非 NULL 行，清洗完成后后续执行零影响行。
+ * @returns 受影响行数（>0 时调用方应失效统一搜索缓存）
+ */
+export async function backfillIndustryPrefsL45Null(dbPool: any): Promise<number> {
+  const [result] = await dbPool.execute(
+    `UPDATE crm_user_industry_prefs
+     SET level4_id = NULL, level5_id = NULL
+     WHERE level4_id IS NOT NULL OR level5_id IS NOT NULL`
+  );
+  return Number((result as { affectedRows?: number })?.affectedRows || 0);
+}
+
 export async function hydratePaymentEnvFromDb(dbPool: any) {
   const [rows] = await dbPool.query(
     `SELECT provider, mode, app_id, notify_url, return_url, public_key, private_key_ref, is_active

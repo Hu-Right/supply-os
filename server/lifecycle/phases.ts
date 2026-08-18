@@ -8,7 +8,7 @@
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";
 import { runSeeds } from "../db/seeds";
-import { backfillUserIds, hydratePaymentEnvFromDb } from "../db/backfills";
+import { backfillUserIds, backfillIndustryPrefsL45Null, hydratePaymentEnvFromDb } from "../db/backfills";
 import { seedAgencyAliases } from "../services/agencyAliasSeed";
 import { refreshFeaturedColumn } from "../services/notices/index";
 import { isHealthy as isMeiliHealthy, syncNoticeIds } from "../services/meilisearch/index";
@@ -63,6 +63,11 @@ export const backfillPhase: Phase = {
   name: "backfill",
   async run(ctx) {
     await backfillUserIds(ctx.dbPool);
+    // 清洗行业偏好中被静默持久化的推断层级 L4/L5（幂等；启动期缓存尚空，无需失效）
+    const prefsNulled = await backfillIndustryPrefsL45Null(ctx.dbPool);
+    if (prefsNulled > 0) {
+      console.log(`[backfill] 行业偏好存量 L4/L5 推断数据已清洗：${prefsNulled} 条`);
+    }
   },
 };
 

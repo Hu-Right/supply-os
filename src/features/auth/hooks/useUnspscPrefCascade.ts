@@ -48,9 +48,10 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   const [prefLevel2, setPrefLevel2] = useState("");
   const [prefLevel3, setPrefLevel3] = useState("");
 
-  // 推断路径待填队列：L1 立即写入；L2/L3 等各自选项加载完成后再消费，
-  // 避免旧版 setTimeout 固定延时与异步加载的时序竞态（选项未就绪时选中丢失）
-  const pendingRef = useRef<{ l2: string | null; l3: string | null }>({ l2: null, l3: null });
+  // 推断路径待填队列（按目标 L1 隔离）：
+  // applyInferredPath 将 L2/L3 待填值存入 Map，键为推断路径的 L1 id。
+  // 消费在 fetch 回调中直接完成（而非额外 effect），消除 effect 调度链的时序不确定性。
+  const pendingMapRef = useRef<Map<string, { l2: string | null; l3: string | null }>>(new Map());
 
   // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
@@ -59,82 +60,93 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
       .catch(() => setIndustryOptions([]));
   }, [locale]);
 
-  // 选定一级后加载二级细分类目
+  // 选定一级后加载二级细分类目；选项就绪后立即消费待填 L2
   useEffect(() => {
     if (!prefLevel1) {
       setSubOptions([]);
       return;
     }
-    fetchUnspscChildren(prefLevel1, locale)
-      .then(setSubOptions)
-      .catch(() => setSubOptions([]));
+    const l1Key = prefLevel1;
+    fetchUnspscChildren(l1Key, locale)
+      .then((opts) => {
+        setSubOptions(opts);
+        // 选项就绪 → 立即查找并消费当前 L1 的待填 L2
+        const entry = pendingMapRef.current.get(l1Key);
+        if (!entry?.l2) return;
+        if (opts.some((o) => String(o.id) === entry.l2)) {
+          setPrefLevel2(entry.l2);
+        } else {
+          entry.l3 = null; // L2 不在此子树中 → L3 也失效
+        }
+        entry.l2 = null;
+      })
+      .catch(() => {
+        pendingMapRef.current.delete(l1Key);
+        setSubOptions([]);
+      });
   }, [prefLevel1, locale]);
 
-  // 选定二级后加载三级类目（可选级，与 UnspscSelector 的逐级下钻一致）
+  // 选定二级后加载三级类目（可选级）；选项就绪后立即消费待填 L3
   useEffect(() => {
     if (!prefLevel2) {
       setSubOptions2([]);
       return;
     }
-    fetchUnspscChildren(prefLevel2, locale)
-      .then(setSubOptions2)
-      .catch(() => setSubOptions2([]));
+    const l1Key = prefLevel1;
+    const l2Key = prefLevel2;
+    fetchUnspscChildren(l2Key, locale)
+      .then((opts) => {
+        setSubOptions2(opts);
+        // 选项就绪 → 立即查找并消费待填 L3
+        const entry = pendingMapRef.current.get(l1Key);
+        if (!entry?.l3) return;
+        if (opts.some((o) => String(o.id) === entry.l3)) {
+          setPrefLevel3(entry.l3);
+        }
+        entry.l3 = null;
+      })
+      .catch(() => {
+        const entry = pendingMapRef.current.get(l1Key);
+        if (entry) entry.l3 = null;
+        setSubOptions2([]);
+      });
   }, [prefLevel2, locale]);
 
-  // 二级选项就绪后消费待填 L2：仅当选项列表包含目标 id 才写入；
-  // 加载完成但找不到（推断路径与类目树不一致）则丢弃待填，避免写入脏 id
-  useEffect(() => {
-    const pendingL2 = pendingRef.current.l2;
-    if (!pendingL2 || subOptions.length === 0) return;
-    if (subOptions.some((o) => String(o.id) === pendingL2)) {
-      setPrefLevel2(pendingL2);
-    } else {
-      pendingRef.current.l3 = null; // L2 失效则 L3 必然失效
-    }
-    pendingRef.current.l2 = null;
-  }, [subOptions]);
-
-  // 三级选项就绪后消费待填 L3（同上，含存在性校验）
-  useEffect(() => {
-    const pendingL3 = pendingRef.current.l3;
-    if (!pendingL3 || subOptions2.length === 0) return;
-    if (subOptions2.some((o) => String(o.id) === pendingL3)) {
-      setPrefLevel3(pendingL3);
-    }
-    pendingRef.current.l3 = null;
-  }, [subOptions2]);
-
   const handlePrefLevel1Change = (value: string) => {
-    // 手动改选优先于推断：丢弃未消费的待填项
-    pendingRef.current = { l2: null, l3: null };
+    // 手动改选优先于推断：清除所有待填项
+    pendingMapRef.current.clear();
     setPrefLevel1(value);
     setPrefLevel2("");
     setPrefLevel3("");
   };
 
   const handlePrefLevel2Change = (value: string) => {
-    pendingRef.current.l3 = null;
+    // 清除当前 L1 的 L3 待填
+    const entry = pendingMapRef.current.get(prefLevel1);
+    if (entry) entry.l3 = null;
     setPrefLevel2(value);
     setPrefLevel3("");
   };
 
-  /** 按推断路径确定性回填级联：L1 立即写入，L2/L3 入待填队列由上方 effect 消费。
+  /** 按推断路径确定性回填级联：L1 立即写入，L2/L3 按 L1 键存入待填 Map，
+   *  由上方 fetch 回调在选项就绪后直接消费。
    *  仅回填用户在 UI 可见的 L1~L3；推断出的 L4/L5 不进入级联也不持久化。
    */
   const applyInferredPath = useCallback((path: SmartInferResult) => {
     if (!path.level1_id) return;
-    pendingRef.current = {
+    const l1Key = String(path.level1_id);
+    pendingMapRef.current.set(l1Key, {
       l2: path.level2_id ? String(path.level2_id) : null,
       l3: path.level3_id ? String(path.level3_id) : null,
-    };
-    setPrefLevel1(String(path.level1_id));
+    });
+    setPrefLevel1(l1Key);
     setPrefLevel2("");
     setPrefLevel3("");
   }, []);
 
   /** 重置所有级联状态（切换账号时调用） */
   const resetCascade = useCallback(() => {
-    pendingRef.current = { l2: null, l3: null };
+    pendingMapRef.current.clear();
     setPrefLevel1("");
     setPrefLevel2("");
     setPrefLevel3("");

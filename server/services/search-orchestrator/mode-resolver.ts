@@ -46,14 +46,16 @@ export async function resolveMode(
     const profile = await resolveUserIndustryProfile(pool, p.userKey);
     if (!profile) return { kind: "no-prefs", codeUnspsc: null, profileLevels: null };
 
-    // 从最深层向上构建放宽序列；分数随层级递减（与旧 T1-T2 分值口径对齐）
+    // 从最深层向上构建放宽序列，底线 L2（L1 大类过于宽泛，放宽到 L1 会引入跨行业误报）。
+    // 分数按绝对层级取值，与 format.matchScoreToTierLabel 阈值对齐：
+    // L4/L5 命中 → 5（precise 绿徽章）；L2/L3 命中 → 2（relevant 蓝徽章）。
+    // 注意不能用"相对最深级的偏移"计分：用户只选到 L2 时其最深级也应有 relevant 档，
+    // 否则浅偏好会被误标为 precise。
     const levels: Array<{ level: number; id: string; score: number }> = [];
-    for (let lvl = profile.deepestLevel; lvl >= 1; lvl -= 1) {
+    for (let lvl = Math.min(profile.deepestLevel, 5); lvl >= 2; lvl -= 1) {
       const id = profile.levelIds[lvl - 1];
       if (!id) continue;
-      const score = lvl === profile.deepestLevel ? 4
-        : lvl === profile.deepestLevel - 1 ? 3
-        : 2;
+      const score = lvl >= 4 ? 5 : 2;
       levels.push({ level: lvl, id: String(id), score });
     }
     if (levels.length === 0) return { kind: "no-prefs", codeUnspsc: null, profileLevels: null };

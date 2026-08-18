@@ -8,6 +8,7 @@
  *              避免低置信推断把用户行业偏好锁定到错误分支。
  */
 import type { SmartInferCandidate } from "@/core/unspsc";
+import { useLocale } from "@/core/i18n";
 
 export interface UnspscInferCandidatesProps {
   candidates: SmartInferCandidate[];
@@ -19,20 +20,21 @@ export interface UnspscInferCandidatesProps {
 }
 
 /** 置信度徽章：>= 0.8 高 / >= 0.6 中 / 其余低（低置信后端不会给出自动填充解） */
-function scoreBadge(score: number): { label: string; cls: string } {
-  if (score >= 0.8) return { label: "高匹配", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
-  if (score >= 0.6) return { label: "中匹配", cls: "text-teal-700 bg-teal-50 border-teal-200" };
-  return { label: "低匹配", cls: "text-amber-700 bg-amber-50 border-amber-200" };
+function scoreBadgeKey(score: number): { key: "authInferScoreHigh" | "authInferScoreMedium" | "authInferScoreLow"; cls: string } {
+  if (score >= 0.8) return { key: "authInferScoreHigh", cls: "text-emerald-700 bg-emerald-50 border-emerald-200" };
+  if (score >= 0.6) return { key: "authInferScoreMedium", cls: "text-teal-700 bg-teal-50 border-teal-200" };
+  return { key: "authInferScoreLow", cls: "text-amber-700 bg-amber-50 border-amber-200" };
 }
 
 export function UnspscInferCandidates({ candidates, appliedNodeId, hint, onPick }: UnspscInferCandidatesProps) {
+  const { t } = useLocale();
   if (candidates.length === 0) return null;
   return (
     <div className="mt-2">
       <p className="text-[11px] text-slate-500 mb-1.5">{hint}</p>
       <div className="flex flex-col gap-1.5">
         {candidates.map((c) => {
-          const badge = scoreBadge(c.score);
+          const badge = scoreBadgeKey(c.score);
           const applied = c.node_id === appliedNodeId;
           return (
             <button
@@ -49,7 +51,7 @@ export function UnspscInferCandidates({ candidates, appliedNodeId, hint, onPick 
                 {c.matched_title}
               </span>
               <span className={`shrink-0 px-1.5 py-0.5 rounded-full border text-[10px] font-black ${badge.cls}`}>
-                {badge.label}
+                {t(badge.key)}
               </span>
             </button>
           );
