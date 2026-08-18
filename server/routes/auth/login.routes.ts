@@ -37,9 +37,9 @@ export function createLoginRouter(
   accountRateLimiter: RateLimiter,
 ): Router {
   const router = Router();
-  const usersRepo = ctx.usersRepo;
-  const membershipRepo = ctx.membershipRepo;
-  const suppliersRepo = ctx.suppliersRepo;
+  const usersRepo = ctx.user.usersRepo;
+  const membershipRepo = ctx.user.membershipRepo;
+  const suppliersRepo = ctx.supplier.suppliersRepo;
 
   // ── 登录 ──────────────────────────────────────────
   router.post("/api/auth/login", asyncHandler(async (req, res) => {

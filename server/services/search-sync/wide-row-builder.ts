@@ -16,6 +16,17 @@ import { normalizeCountry } from "../../utils/countryNormalize";
 // ── 支持的语言列表 ──
 export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
+// ── 对账日志节流（同一类型 30 分钟内不重复输出，避免高频刷屏）──
+const RECONCILE_LOG_TTL = 30 * 60 * 1000;
+const _reconcileLogLast: Map<string, { ts: number; count: number }> = new Map();
+function reconcileLog(type: string, count: number, msg: string): void {
+  const now = Date.now();
+  const prev = _reconcileLogLast.get(type);
+  if (prev && now - prev.ts < RECONCILE_LOG_TTL) return;
+  _reconcileLogLast.set(type, { ts: now, count });
+  console.log(msg);
+}
+
 // ── 同步 SQL（含所有语言翻译，不含 UNSPSC）──
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 export const WIDE_SYNC_SELECT = `
@@ -112,6 +123,117 @@ export async function loadUnspscByNoticeIds(pool: Pool, noticeIds: string[]): Pr
   return final;
 }
 
+// ── 精准分类（approved 候选码）批量加载 ──
+export interface PreciseLevels {
+  level1: string;
+  level2: string;
+  level3: string;
+  level4: string;
+  level5: string;
+}
+
+/** 候选码 → 五级 id 映射（纯函数）：rows 为字典 level=5 链式查询结果（列 code/l1..l5） */
+export function buildCodeLevelMap(rows: RowDataPacket[]): Map<string, PreciseLevels> {
+  const map = new Map<string, PreciseLevels>();
+  for (const row of rows) {
+    const code = String(row.code || "").trim();
+    if (!code) continue;
+    map.set(code, {
+      level1: String(row.l1 || ""),
+      level2: String(row.l2 || ""),
+      level3: String(row.l3 || ""),
+      level4: String(row.l4 || ""),
+      level5: String(row.l5 || ""),
+    });
+  }
+  return map;
+}
+
+// 候选码→五级 id 解析缓存（候选码总量小：543 个；TTL 10 分钟，仿 loadAliasMap）
+let _preciseCodeMapCache: Map<string, PreciseLevels> | null = null;
+let _preciseCodeMapExpires = 0;
+const PRECISE_CODE_MAP_TTL = 10 * 60 * 1000;
+
+async function getPreciseCodeMap(pool: Pool): Promise<Map<string, PreciseLevels>> {
+  if (_preciseCodeMapCache && Date.now() < _preciseCodeMapExpires) return _preciseCodeMapCache;
+  try {
+    const [rows] = await pool.query(`
+      SELECT u5.code, u5.id AS l5, u4.id AS l4, u3.id AS l3, u2.id AS l2, u1.id AS l1
+      FROM crm_unspsc_codes u5
+      LEFT JOIN crm_unspsc_codes u4 ON u4.id = u5.parent_id
+      LEFT JOIN crm_unspsc_codes u3 ON u3.id = u4.parent_id
+      LEFT JOIN crm_unspsc_codes u2 ON u2.id = u3.parent_id
+      LEFT JOIN crm_unspsc_codes u1 ON u1.id = u2.parent_id
+      WHERE u5.level = 5
+    `);
+    _preciseCodeMapCache = buildCodeLevelMap(rows as RowDataPacket[]);
+    _preciseCodeMapExpires = Date.now() + PRECISE_CODE_MAP_TTL;
+  } catch {
+    // 查询失败：使用旧缓存；无旧缓存则用空映射（调用方回退 legacy）
+    if (_preciseCodeMapCache) return _preciseCodeMapCache;
+    _preciseCodeMapCache = new Map();
+    _preciseCodeMapExpires = Date.now() + PRECISE_CODE_MAP_TTL;
+  }
+  return _preciseCodeMapCache;
+}
+
+/**
+ * 按 notice_id 批量加载 approved 精准码并解析为五级 id。
+ * 返回结构与 loadUnspscByNoticeIds 一致；无精准码的公告不在结果中。
+ */
+export async function loadPreciseByNoticeIds(
+  pool: Pool,
+  noticeIds: string[],
+): Promise<Map<string, Record<string, string>>> {
+  if (noticeIds.length === 0) return new Map();
+
+  const placeholders = noticeIds.map(() => "?").join(",");
+  const [rows] = await pool.query(
+    `SELECT opp.source_notice_id AS notice_id, c.candidate_code
+     FROM crm_bid_opportunities opp
+     JOIN crm_bid_opportunity_unspsc_candidates c
+       ON c.opportunity_id = opp.id AND c.status = 'approved'
+     WHERE opp.source_notice_id IN (${placeholders})`,
+    noticeIds,
+  );
+
+  const codeMap = await getPreciseCodeMap(pool);
+  const merged = new Map<string, {
+    level1: Set<string>; level2: Set<string>; level3: Set<string>;
+    level4: Set<string>; level5: Set<string>;
+  }>();
+
+  for (const row of rows as RowDataPacket[]) {
+    const nid = String(row.notice_id);
+    const levels = codeMap.get(String(row.candidate_code || "").trim());
+    if (!levels) continue; // 码不在字典：跳过（该公告回退 legacy）
+    if (!merged.has(nid)) {
+      merged.set(nid, {
+        level1: new Set(), level2: new Set(), level3: new Set(),
+        level4: new Set(), level5: new Set(),
+      });
+    }
+    const entry = merged.get(nid)!;
+    if (levels.level1) entry.level1.add(levels.level1);
+    if (levels.level2) entry.level2.add(levels.level2);
+    if (levels.level3) entry.level3.add(levels.level3);
+    if (levels.level4) entry.level4.add(levels.level4);
+    if (levels.level5) entry.level5.add(levels.level5);
+  }
+
+  const final = new Map<string, Record<string, string>>();
+  for (const [nid, entry] of merged) {
+    final.set(nid, {
+      level1: Array.from(entry.level1).join(","),
+      level2: Array.from(entry.level2).join(","),
+      level3: Array.from(entry.level3).join(","),
+      level4: Array.from(entry.level4).join(","),
+      level5: Array.from(entry.level5).join(","),
+    });
+  }
+  return final;
+}
+
 // ── 受援助国标准化：逐个翻译为中文 ──
 function normalizeBeneficiaryCountries(raw: string): string {
   if (!raw) return "";
@@ -129,6 +251,7 @@ export function buildWideRow(
   aliasMap: Map<string, string>,
   unspsc?: Record<string, string>,
   translations?: Record<string, { title: string; description: string }>,
+  precise?: Record<string, string>,
 ): Record<string, any> {
   const agency = String(r.agency || "").trim();
   // 共享 normalizeCountry 始终返回英文标准名（含子国家归并、脏数据清理）
@@ -139,9 +262,10 @@ export function buildWideRow(
   const agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
   const noticeTypeStd = normalizeNoticeType(r.notice_type).slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
+  // 修复 030：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED 截断。
+  // 仅保留 NaN / 负值保护（防御主表生成列异常值）。
   const rawDeadline = r.deadline_sec ? Number(r.deadline_sec) : 0;
-  // INT UNSIGNED 范围: 0 ~ 4294967295；防止主表生成列溢出回绕导致宽表 INSERT 报 "Out of range"
-  const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline > 4294967295 ? 4294967295 : rawDeadline;
+  const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline;
 
   // 构建多语言翻译字段
   // PERF: 所有 description_* 截断到 2000 字符，与 VARCHAR(2000) 列类型对齐
@@ -178,6 +302,12 @@ export function buildWideRow(
     unspsc_level3: (unspsc?.level3 || "").slice(0, 2000),
     unspsc_level4: (unspsc?.level4 || "").slice(0, 2000),
     unspsc_level5: (unspsc?.level5 || "").slice(0, 2000),
+    // 精准码列：仅存 approved 精准码，不回填原标签（mode=prefs 专用，无精准码则不匹配）
+    precise_level1: (precise?.level1 || "").slice(0, 2000),
+    precise_level2: (precise?.level2 || "").slice(0, 2000),
+    precise_level3: (precise?.level3 || "").slice(0, 2000),
+    precise_level4: (precise?.level4 || "").slice(0, 2000),
+    precise_level5: (precise?.level5 || "").slice(0, 2000),
     description_cn: String(r.description_cn || "").slice(0, 500),
     bid_overview: String(r.bid_overview || "").slice(0, 200),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
@@ -214,8 +344,8 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
  * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline_ts 变更时，
  * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
  *
- * 溢出保护：主表 deadline_ts 为负值时，INT UNSIGNED 生成列溢出回绕为 ~4294967295。
- * 对账时将 > 4000000000 的值视为 0（无效截止日期），避免无限循环对账。
+ * [修复 030]：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED
+ * 溢出截断。仅保留负值保护（GREATEST(..., 0)），防止主表生成列异常负值传入。
  *
  * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
  * 返回所有变更 ID 供上层同步到 Meilisearch。
@@ -223,13 +353,12 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
 export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
   const allIds: number[] = [];
   const MAX_ROUNDS = 10;
-  // 溢出阈值：INT UNSIGNED 最大值 4294967295，仅此值视为溢出
-  const OVERFLOW_THRESHOLD = 4294967295;
-  // 安全值表达式：溢出值视为 0
-  const SAFE_EXPR = `IF(COALESCE(n.deadline_sec, 0) > ${OVERFLOW_THRESHOLD}, 0, COALESCE(n.deadline_sec, 0))`;
+  // [修复 030]：宽表已扩容为 BIGINT UNSIGNED，直接使用主表值，
+  // 仅用 GREATEST 保护负值（防御主表生成列异常）。
+  const SAFE_EXPR = `GREATEST(COALESCE(n.deadline_sec, 0), 0)`;
   try {
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      // 检测宽表 deadline_sec 与主表不一致的记录（溢出值视为 0）
+      // 检测宽表 deadline_sec 与主表不一致的记录
       const [mismatchRows] = await pool.query(
         `SELECT n.id, ${SAFE_EXPR} AS deadline_sec
          FROM crm_bid_notices n
@@ -257,7 +386,7 @@ export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
       if (mismatches.length < 5000) break;
     }
     if (allIds.length > 0) {
-      console.log(`[wide-table] deadline_sec 对账修复 ${allIds.length} 条不一致记录`);
+      reconcileLog("deadline", allIds.length, `[wide-table] deadline_sec 对账修复 ${allIds.length} 条不一致记录`);
     }
     return allIds;
   } catch (e) {
@@ -352,7 +481,7 @@ export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
       if (mismatches.length < 5000) break;
     }
     if (allIds.length > 0) {
-      console.log(`[wide-table] is_featured 对账修复 ${allIds.length} 条不一致记录`);
+      reconcileLog("featured", allIds.length, `[wide-table] is_featured 对账修复 ${allIds.length} 条不一致记录`);
     }
     return allIds;
   } catch (e) {
@@ -363,7 +492,7 @@ export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
 
 /**
  * 译文对账：检测宽表 title_zh 与翻译表 title_tr（lang='zh'）不一致的行。
- * 修复“译文已入 crm_notice_translations 但宽表/索引滞后”的断链场景。
+ * 修复"译文已入 crm_notice_translations 但宽表/索引滞后"的断链场景。
  * 每轮抽样上限 200 条，返回需重新同步的公告 ID。
  */
 export async function reconcileTranslations(pool: Pool): Promise<number[]> {
@@ -378,11 +507,59 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
     );
     const ids = (mismatchRows as any[]).map((r) => Number(r.id)).filter(Boolean);
     if (ids.length > 0) {
-      console.log(`[wide-table] 译文对账发现 ${ids.length} 条 title_zh 滞后记录，将重新同步`);
+      reconcileLog("translation", ids.length, `[wide-table] 译文对账发现 ${ids.length} 条 title_zh 滞后记录，将重新同步`);
     }
     return ids;
   } catch (e) {
     console.warn(`[wide-table] 译文对账失败（静默降级）:`, (e as Error).message);
+    return [];
+  }
+}
+
+/**
+ * precise 对账：检测宽表精准码与 candidates 表实际状态之间的差异。
+ *
+ * [修复] 原实现每次返回全部"有 approved 候选码的公告"ID（上限 2000），
+ * 导致每 5 分钟触发 ~2000 条无效级联同步（宽表重写 + Meilisearch 更新），
+ * 即使精准码未发生任何变化。
+ *
+ * 改为变更感知：比较宽表 precise_level1 与当前 approved 候选码的聚合值，
+ * 仅返回实际存在差异的记录 ID。无变化时返回空数组，不触发级联同步。
+ */
+export async function reconcilePreciseCodes(pool: Pool): Promise<number[]> {
+  try {
+    // 比较宽表 precise_level1 与当前 approved 候选码的聚合值
+    // 候选码以逗号分隔存储，GROUP_CONCAT 聚合后与宽表值对比
+    const [rows] = await pool.query(`
+      SELECT n.id,
+             ns.precise_level1 AS wide_val,
+             (SELECT GROUP_CONCAT(DISTINCT c2.candidate_code ORDER BY c2.candidate_code SEPARATOR ',')
+              FROM crm_bid_opportunities o2
+              JOIN crm_bid_opportunity_unspsc_candidates c2
+                ON c2.opportunity_id = o2.id AND c2.status = 'approved'
+              WHERE o2.source_notice_id = n.notice_id
+             ) AS expected_val
+      FROM crm_bid_notices n
+      INNER JOIN crm_notice_search ns ON ns.id = n.id
+      WHERE EXISTS (
+        SELECT 1 FROM crm_bid_opportunities o
+        JOIN crm_bid_opportunity_unspsc_candidates c
+          ON c.opportunity_id = o.id AND c.status = 'approved'
+        WHERE o.source_notice_id = n.notice_id
+      )
+      HAVING NOT (
+        (wide_val IS NULL AND expected_val IS NULL)
+        OR (wide_val IS NOT NULL AND expected_val IS NOT NULL AND wide_val = expected_val)
+      )
+      LIMIT 2000
+    `);
+    const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
+    if (ids.length > 0) {
+      reconcileLog("precise", ids.length, `[wide-table] precise 对账发现 ${ids.length} 条精准码实际变更，将重新同步`);
+    }
+    return ids;
+  } catch (e) {
+    console.warn(`[wide-table] precise 对账失败（静默降级）:`, (e as Error).message);
     return [];
   }
 }
@@ -401,6 +578,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
     "country_std", "agency_std", "agency_group", "notice_type_std",
     "deadline_sec", "estimated_value", "is_featured",
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
+    "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
   ];
   
@@ -418,6 +596,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
         row.country_std, row.agency_std, row.agency_group, row.notice_type_std,
         row.deadline_sec, row.estimated_value, row.is_featured,
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
+        row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
       );
     }

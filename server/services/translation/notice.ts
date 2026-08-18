@@ -302,11 +302,20 @@ async function handleFullTranslation(
   }
   const started = Date.now();
   const { translations, provider, degradedFrom } = await pending;
-  console.log(
-    `[translate] target=notice:${noticeId} lang=${lang} provider=${provider} ms=${Date.now() - started} degraded=${degradedFrom?.join(",") || "-"}`
-  );
+  // [优化] passthrough（同语言直通）不输出 info 级日志，避免搜索补翻场景频繁刷日志。
+  // 仅在实际调用翻译链时输出日志（有调试价值）。
+  if (provider !== "same-lang-passthrough") {
+    console.log(
+      `[translate] target=notice:${noticeId} lang=${lang} provider=${provider} ms=${Date.now() - started} degraded=${degradedFrom?.join(",") || "-"}`
+    );
+  }
 
   if (provider === "same-lang-passthrough") {
+    // [修复] 缓存直通结果，打破"搜索→补翻→直通→不缓存→下次搜索再补翻"的死循环。
+    // 原文已是目标语言，缓存后下次搜索直接命中分支 1（缓存命中），不再进入翻译链。
+    const descToCachePass = zhDescCn ? null : (translations[1] || null);
+    await noticesRepo.upsertTranslation(noticeId, lang, translations[0], descToCachePass, provider);
+    void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang, title: translations[0], description: zhDescCn || translations[1], cached: false, passthrough: true };
   }
   // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出

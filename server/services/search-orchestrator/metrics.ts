@@ -22,14 +22,16 @@ export interface PerfLogEntry {
   cache: "hit" | "miss";
 }
 
-/** 输出 [search-perf] 结构化日志 */
-export function logPerf(entry: PerfLogEntry): void {
-  console.log(
-    `[search-perf] mode=${entry.mode} path=${entry.path}` +
-    ` q="${entry.q}" filters="${entry.filterDigest}"` +
-    ` meili_ms=${entry.meiliMs} detail_ms=${entry.detailMs} total_ms=${entry.totalMs}` +
-    ` total=${entry.total} ids=${entry.ids} page=${entry.page} cache=${entry.cache}`,
-  );
+/** 输出 [search-perf] 结构化日志（当前已静默，不打印到终端） */
+export function logPerf(_entry: PerfLogEntry): void {
+  // 结构化日志已关闭终端输出，避免大量搜索请求刷屏。
+  // 如需重新启用，取消下方注释即可。
+  // console.log(
+  //   `[search-perf] mode=${_entry.mode} path=${_entry.path}` +
+  //   ` q="${_entry.q}" filters="${_entry.filterDigest}"` +
+  //   ` meili_ms=${_entry.meiliMs} detail_ms=${_entry.detailMs} total_ms=${_entry.totalMs}` +
+  //   ` total=${_entry.total} ids=${_entry.ids} page=${_entry.page} cache=${_entry.cache}`,
+  // );
 }
 
 // ── 降级计数器（1 分钟滑动窗口，熔断阈值 10 次）──

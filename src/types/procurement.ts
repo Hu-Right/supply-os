@@ -37,8 +37,7 @@ export interface NoticeItem {
   unlocked_at?: string;
   /** 推荐模式命中的 UNSPSC 兴趣码数（仅 /api/notices/recommended 返回） */
   match_score?: number;
-  /** 行业精准匹配命中档次（仅 /api/notices/industry-matched 返回：
-   *  exact_code/same_level/upper_level/prefix/inferred_category） */
+  /** 行业精准匹配命中档次（仅行业匹配频道返回：precise=精确匹配/relevant=行业相关） */
   match_tier?: string;
   /** 推荐理由标签键（C.3.4，每卡至多 2 个；前端映射 procurement_reason_* i18n 键渲染） */
   reco_reasons?: string[];

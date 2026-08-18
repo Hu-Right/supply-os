@@ -85,7 +85,7 @@ export async function executeUnlock(
       const [entRows] = await conn.query(
         `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
          FROM crm_user_entitlements
-         WHERE user_key = ? AND status = 'active' AND quota_total > quota_used
+         WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
            AND (expires_at IS NULL OR expires_at > NOW())
          ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
          FOR UPDATE`,

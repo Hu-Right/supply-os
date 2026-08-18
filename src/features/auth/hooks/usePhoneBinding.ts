@@ -12,7 +12,10 @@ import { api, ApiError } from "@/core/http";
 export type PhoneView = "idle" | "binding" | "rebinding" | "unbinding";
 
 export interface UsePhoneBindingReturn {
-  t: (key: string) => string;
+  // A2 strict 修复：t 的类型与 useLocale 返回值严格对齐（原 (key: string) => string
+  // 与带键联合类型的翻译函数在 strictFunctionTypes 下不兼容）；
+  // 用 ReturnType 派生可随 i18n 键类型演进自动保持一致。
+  t: ReturnType<typeof useLocale>["t"];
   view: PhoneView;
   setView: (view: PhoneView) => void;
   phone: string;
@@ -25,7 +28,9 @@ export interface UsePhoneBindingReturn {
   codeSent: boolean;
   countdown: number;
   hasPhone: boolean;
-  currentPhone: string | undefined;
+  // A2 strict 修复：AuthUser.phone 为 string | null，optional 链后可能为
+  // string | null | undefined，接口类型如实放宽（消费方均以 truthy 判断使用）。
+  currentPhone: string | null | undefined;
   isVerified: boolean;
   handleSendCode: (scene: "bind" | "rebind" | "unbind") => Promise<void>;
   handleBind: () => Promise<void>;

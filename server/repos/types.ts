@@ -60,6 +60,8 @@ export interface EntitlementRow {
   user_id: number | null;
   user_key: string;
   source_order_no: string | null;
+  /** 升级来源权益 ID（仅升级产生的新权益有值） */
+  upgraded_from_entitlement_id?: number | null;
   plan_code: string;
   quota_total: number;
   quota_used: number;
@@ -67,6 +69,8 @@ export interface EntitlementRow {
   started_at: Date;
   expires_at: Date | null;
   status: string;
+  /** 旧权益是否已被升级替代（0=正常, 1=已升级） */
+  is_upgraded?: number;
 }
 
 export interface PaymentOrderRow {
@@ -76,6 +80,10 @@ export interface PaymentOrderRow {
   user_key: string;
   provider: string;
   plan_code: string;
+  /** 订单类型：'new'（新购）/ 'upgrade'（升级补差） */
+  order_type?: string;
+  /** 升级订单关联的原订单号 */
+  original_order_no?: string | null;
   notice_id: number | null;
   amount: number;
   currency: string;

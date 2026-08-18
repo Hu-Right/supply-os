@@ -7,6 +7,7 @@ import type {
 } from "../types/payment";
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
+import type { MembershipRepo } from "../repos/membership.repo";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
@@ -15,7 +16,7 @@ import { activatePaidOrder } from "./fulfillment";
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
 
-  constructor(private paymentsRepo?: PaymentsRepo) {}
+  constructor(private paymentsRepo?: PaymentsRepo, private membershipRepo?: MembershipRepo) {}
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
@@ -32,18 +33,35 @@ export class PaymentService {
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
     const noticeId = request.notice_id ? Number(request.notice_id) : null;
+    const orderType = request.order_type === "upgrade" ? "upgrade" : "new";
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
     const plan = await this.paymentsRepo!.findActivePlan(planCode);
     if (!plan) throw new Error("PLAN_NOT_FOUND");
 
-    const amount = Number(plan.price);
-    if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+    // ── 升级订单：校验升级资格并计算差价 ──
+    let amount = Number(plan.price);
+    let originalOrderNo: string | null = null;
+    if (orderType === "upgrade") {
+      if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
+      const current = await this.membershipRepo.findCurrentBestPlan(userKey);
+      if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
+      if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
+      if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
+      amount = Math.max(0, Number(plan.price) - Number(current.price));
+      originalOrderNo = current.source_order_no;
+      if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+    } else if (amount <= 0) {
+      throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+    }
 
-    const existingOrder = await this.paymentsRepo!.findPendingOrder({
-      userKey, planCode, provider, noticeId,
-    });
+    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
+    const existingOrder = orderType === "upgrade"
+      ? null
+      : await this.paymentsRepo!.findPendingOrder({
+          userKey, planCode, provider, noticeId,
+        });
 
     const strategy = this.getStrategy(provider);
     const orderNo = existingOrder?.order_no || this.makeOrderNo();
@@ -79,6 +97,8 @@ export class PaymentService {
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
         rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+        orderType,
+        originalOrderNo,
       });
     }
 
@@ -210,8 +230,8 @@ export class PaymentService {
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }
 
-  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock"): PaymentService {
-    const service = new PaymentService(paymentsRepo);
+  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
+    const service = new PaymentService(paymentsRepo, membershipRepo);
     service.registerStrategy("mock", new MockProvider());
 
     if (paymentMode === "live") {

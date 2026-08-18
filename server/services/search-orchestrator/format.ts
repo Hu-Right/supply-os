@@ -10,13 +10,10 @@ import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies";
 
-/** 匹配分 → 档次标签（与 industry-match 口径一致） */
+/** 匹配分 → 档次标签（SSOT 重构后 2 档，与 industry-match 口径一致） */
 export function matchScoreToTierLabel(score: number): string {
-  if (score >= 5) return "exact_code";
-  if (score >= 4) return "same_level";
-  if (score >= 2) return "upper_level";
-  if (score >= 1) return "prefix";
-  if (score > 0) return "inferred_category";
+  if (score >= 5) return "precise";   // L5/L4 精确匹配 → 绿色徽章
+  if (score >= 2) return "relevant";  // L3/L2 行业相关 → 蓝色徽章
   return "unmatched";
 }
 

@@ -42,5 +42,19 @@
   "statusPanelFreeQuota": "Quota gratuit",
   "statusPanelTimes": "fois",
   "statusPanelNoEntitlement": "Pas encore d'avantages payants. Mettez à niveau pour en débloquer plus",
-  "statusPanelUpgradeBtn": "Voir les plans"
+  "statusPanelUpgradeBtn": "Voir les plans",
+  "upgradeBtn": "Mettre à niveau",
+  "upgradeConfirmTitle": "Confirmer la mise à niveau",
+  "upgradeLoading": "Envoi de la mise à niveau…",
+  "upgradeNotAvailable": "Mise à niveau indisponible pour le moment",
+  "upgradeCurrentPlan": "Plan actuel",
+  "upgradeUsed": "Utilisé",
+  "upgradeTargetPlan": "Passer à",
+  "upgradeTargetQuota": "Quota cible",
+  "upgradeRemaining": "Quota restant",
+  "upgradeValidity": "Validité",
+  "upgradeValidityUnchanged": "Validité inchangée",
+  "upgradePriceDiff": "Différence de prix",
+  "upgradeCancelBtn": "Annuler",
+  "upgradeConfirmBtn": "Confirmer la mise à niveau"
 }

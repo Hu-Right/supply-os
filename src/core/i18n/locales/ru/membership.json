@@ -42,5 +42,19 @@
   "statusPanelFreeQuota": "Бесплатная квота",
   "statusPanelTimes": "раз",
   "statusPanelNoEntitlement": "Пока нет платных преимуществ. Обновите, чтобы разблокировать больше",
-  "statusPanelUpgradeBtn": "Посмотреть планы"
+  "statusPanelUpgradeBtn": "Посмотреть планы",
+  "upgradeBtn": "Улучшить план",
+  "upgradeConfirmTitle": "Подтвердить улучшение плана",
+  "upgradeLoading": "Отправка улучшения…",
+  "upgradeNotAvailable": "Улучшение сейчас недоступно",
+  "upgradeCurrentPlan": "Текущий план",
+  "upgradeUsed": "Использовано",
+  "upgradeTargetPlan": "Улучшить до",
+  "upgradeTargetQuota": "Целевая квота",
+  "upgradeRemaining": "Оставшаяся квота",
+  "upgradeValidity": "Срок действия",
+  "upgradeValidityUnchanged": "Срок действия не меняется",
+  "upgradePriceDiff": "Доплата",
+  "upgradeCancelBtn": "Отмена",
+  "upgradeConfirmBtn": "Подтвердить улучшение"
 }

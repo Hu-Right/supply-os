@@ -46,8 +46,8 @@ export async function meiliQuery(
       ...meiliFilters,
     ];
     const sortArr = buildSortArr(sort);
-    // PERF 优化：最近截止排序排除 deadline_sec=0（与 search.ts 一致）
-    if (sort === "deadline") filter.push("deadline_sec > 0");
+    // [修复 030-b] 移除 deadline_nearest 的 deadline_sec>0 额外过滤（与 search.ts 对齐）。
+    // has_deadline:desc 排序已将 deadline_sec=0 记录推至末尾，无需额外过滤。
 
     const offset = (page - 1) * pageSize;
     const searchPromise = client.index(INDEX_NAME).search(q || "", {
@@ -75,7 +75,10 @@ export async function meiliQuery(
     }
   } catch (err) {
     console.warn("[search-orchestrator] meiliQuery failed:", (err as Error).message);
-    markUnhealthy();
+    // 超时不标记不健康：机器高负载下的慢查询不代表服务不可用，
+    // 否则“超时→标记→重建→重建后首查又超时”会形成死循环；
+    // 连接类错误才标记，由编排器健康探测决定是否触发索引重建
+    if (!/timeout/i.test((err as Error).message)) markUnhealthy();
     return null;
   }
 }

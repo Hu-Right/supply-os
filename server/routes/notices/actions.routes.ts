@@ -19,7 +19,7 @@ import {
 
 export function createNoticeActionsRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.noticesRepo;
+  const noticesRepo = ctx.notice.noticesRepo;
 
   // ── 解锁列表 ──
   // P0-5 安全修复：解锁列表必须 JWT 认证

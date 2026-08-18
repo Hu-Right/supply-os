@@ -21,8 +21,10 @@ export interface NoticeDescriptionSectionProps {
   /** 当前显示译文（决定是否展示译文声明） */
   showTranslated: boolean;
   toggleOriginal: () => void;
-  /** 依据内容优先级规则计算后的展示描述 */
-  displayDescription: string;
+  /** 依据内容优先级规则计算后的展示描述
+   * A2 strict 修复：上游计算结果可能为 undefined（无描述数据），放宽类型；
+   * JSX 渲染 undefined 为空白，与原运行时行为一致。 */
+  displayDescription: string | undefined;
 }
 
 export function NoticeDescriptionSection({

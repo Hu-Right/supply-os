@@ -30,14 +30,14 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
       return;
     }
 
-    const user = await ctx.usersRepo.findByKey(userKey);
+    const user = await ctx.admin.usersRepo.findByKey(userKey);
     if (!user) {
       res.status(404).json({ success: false, message: "用户不存在" });
       return;
     }
 
     const newHash = await hashPassword(newPassword);
-    await ctx.usersRepo.updatePassword(userKey, newHash, "bcrypt");
+    await ctx.admin.usersRepo.updatePassword(userKey, newHash, "bcrypt");
 
     res.json({
       success: true,
@@ -60,13 +60,13 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
       return;
     }
 
-    const user = await ctx.usersRepo.findByKey(userKey);
+    const user = await ctx.admin.usersRepo.findByKey(userKey);
     if (!user) {
       res.status(404).json({ success: false, message: "用户不存在" });
       return;
     }
 
-    const existingUser = await ctx.usersRepo.findByKey(newEmail);
+    const existingUser = await ctx.admin.usersRepo.findByKey(newEmail);
     if (existingUser) {
       res.status(409).json({ success: false, message: "该邮箱已被其他用户使用" });
       return;

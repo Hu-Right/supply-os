@@ -4,7 +4,7 @@
  *
  * @module features/membership/components/PlanCard
  */
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, ArrowUpCircle, Check } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { MembershipPlan } from "@/types";
 import { PLAN_CONFIG, ORIGINAL_PRICES, formatQuota, splitDescription, getPlanFeatures } from "../utils";
@@ -12,13 +12,26 @@ import { PLAN_CONFIG, ORIGINAL_PRICES, formatQuota, splitDescription, getPlanFea
 export interface PlanCardProps {
   plan: MembershipPlan;
   isVip: boolean;
+  /** 用户当前最优周期性套餐价格（null 表示无可升级套餐） */
+  currentPlanPrice?: number | null;
+  /** 用户当前最优周期性套餐 code */
+  currentPlanCode?: string | null;
   onBuy: (plan: MembershipPlan) => void;
+  /** 升级回调（卡片套餐价格高于当前套餐时触发） */
+  onUpgrade?: (plan: MembershipPlan) => void;
 }
 
-export function PlanCard({ plan, isVip, onBuy }: PlanCardProps) {
+export function PlanCard({
+  plan, isVip, currentPlanPrice, currentPlanCode, onBuy, onUpgrade,
+}: PlanCardProps) {
   const { t } = useLocale();
   const config = PLAN_CONFIG[plan.plan_type] || PLAN_CONFIG.single;
   const Icon = config.icon;
+
+  // 升级判断：存在可升级的周期性套餐，且卡片价格高于当前套餐（基于数据库价格，不硬编码）
+  const hasUpgradeablePlan = Boolean(currentPlanCode) && Number(currentPlanPrice || 0) > 0;
+  const priceDiff = Number(plan.price) - Number(currentPlanPrice || 0);
+  const isUpgradeTarget = hasUpgradeablePlan && priceDiff > 0;
 
   return (
     <div
@@ -97,7 +110,16 @@ export function PlanCard({ plan, isVip, onBuy }: PlanCardProps) {
       </div>
 
       <div className="px-6 pb-6 pt-0">
-        {isVip ? (
+        {isUpgradeTarget ? (
+          <button
+            type="button"
+            onClick={() => onUpgrade?.(plan)}
+            className="w-full rounded-xl py-3 text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <ArrowUpCircle className="w-3.5 h-3.5" />
+            {t("upgradeBtn")} {plan.currency === "CNY" ? "¥" : "$"}{priceDiff.toLocaleString()}
+          </button>
+        ) : hasUpgradeablePlan ? (
           <div className="w-full rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/60 py-3 text-center">
             <span className="text-xs font-bold text-emerald-700 inline-flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />

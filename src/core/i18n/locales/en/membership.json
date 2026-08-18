@@ -81,5 +81,19 @@
   "statusPanelUpgradeBtn": "View Plans",
   "statusPanelTotalUnlocks": "Total Unlocks Available",
   "statusPanelBreakdown": "Benefits Breakdown",
-  "statusPanelEntitlementCards": "{count} Single Cards"
+  "statusPanelEntitlementCards": "{count} Single Cards",
+  "upgradeBtn": "Upgrade",
+  "upgradeConfirmTitle": "Confirm Plan Upgrade",
+  "upgradeLoading": "Submitting upgrade…",
+  "upgradeNotAvailable": "Upgrade is not available at this time",
+  "upgradeCurrentPlan": "Current plan",
+  "upgradeUsed": "Used",
+  "upgradeTargetPlan": "Upgrade to",
+  "upgradeTargetQuota": "Target quota",
+  "upgradeRemaining": "Remaining quota",
+  "upgradeValidity": "Validity",
+  "upgradeValidityUnchanged": "Validity unchanged",
+  "upgradePriceDiff": "Price difference",
+  "upgradeCancelBtn": "Cancel",
+  "upgradeConfirmBtn": "Confirm Upgrade"
 }

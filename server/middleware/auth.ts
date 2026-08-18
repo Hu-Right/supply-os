@@ -12,10 +12,16 @@
  *   敏感路由使用 `requireAuth` 守卫。
  *
  *   当 JWT_SECRET 未配置时，所有中间件自动降级到 legacy 模式（信任 query/body user_key）。
+ *
+ *   B1【P0】退役准备（2026-08-18）：legacy 回退路径已接入观测埋点
+ *   （authLegacyMetrics），统计回退流量与命中端点，为灰度退役提供数据。
+ *   注意：观测阶段不改变任何认证行为——legacy 通道保持原样，
+ *   退役动作须在观测数据评审后按《深度技术分析报告》§B1 路线图另行实施。
  */
 import type { Request, Response, NextFunction } from "express";
 import { normalizeUserKey } from "../utils/normalize";
 import { verifyAccessToken, extractBearerToken, type AccessTokenPayload } from "../services/jwt";
+import { recordJwtAuth, recordLegacyFallback, recordDevFallback } from "./authLegacyMetrics";
 
 /** 扩展 Express Request 类型，下游路由可直接访问 req.userKey */
 declare global {
@@ -57,10 +63,15 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   if (jwtResult.valid && jwtResult.userKey) {
     req.userKey = jwtResult.userKey;
     req.authViaJwt = true;
+    // B1 观测：JWT 成功计数（退役评估的对照基数）
+    recordJwtAuth();
   } else {
     // Legacy 回退：从 query/body 提取（向后兼容）
     req.userKey = parseUserKeyFromRequest(req);
     req.authViaJwt = false;
+    // B1 观测：记录 legacy 回退命中（携带有效 key 时按端点聚合），
+    // 仅计数不改变行为——退役评估依赖这份流量清点数据。
+    recordLegacyFallback(req, req.userKey !== "");
   }
   next();
 }
@@ -85,6 +96,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     if (legacyKey) {
       req.userKey = legacyKey;
       req.authViaJwt = false;
+      // B1 观测：开发环境降级命中计数（确认生产不存在此路径）
+      recordDevFallback();
       return next();
     }
   }

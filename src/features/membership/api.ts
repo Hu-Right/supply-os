@@ -8,9 +8,9 @@
  */
 
 import { api } from "@/core/http";
-import type { MembershipPlan, MembershipStatus } from "@/types";
+import type { MembershipPlan, MembershipStatus, UpgradePreview } from "@/types";
 
-export type { MembershipPlan, MembershipStatus };
+export type { MembershipPlan, MembershipStatus, UpgradePreview };
 
 /**
  * 拉取启用中的会员套餐列表
@@ -26,4 +26,14 @@ export async function fetchPlans(): Promise<MembershipPlan[]> {
  */
 export async function fetchMembershipStatus(userKey: string): Promise<MembershipStatus> {
   return api<MembershipStatus>(`/api/membership/status?user_key=${encodeURIComponent(userKey)}`);
+}
+
+/**
+ * 预览会员升级（差价/次数保留/有效期追溯）
+ * Preview membership upgrade (price difference / usage retention / expiry tracing)
+ */
+export async function fetchUpgradePreview(targetPlanCode: string): Promise<UpgradePreview> {
+  return api<UpgradePreview>(
+    `/api/membership/upgrade/preview?target_plan_code=${encodeURIComponent(targetPlanCode)}`,
+  );
 }

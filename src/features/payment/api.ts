@@ -19,6 +19,10 @@ export type CreateOrderParams = {
   noticeId?: number | null;
   /** 支付完成后的回跳地址（缺省为当前页 origin+pathname） */
   returnUrl?: string;
+  /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
+  orderType?: "new" | "upgrade";
+  /** 升级时的当前套餐 code（服务端校验用） */
+  originalPlanCode?: string;
 };
 
 /**
@@ -34,6 +38,8 @@ export async function createOrder(params: CreateOrderParams): Promise<OrderInfo>
       provider: params.provider,
       notice_id: params.noticeId ?? null,
       return_url: params.returnUrl || window.location.origin + window.location.pathname,
+      order_type: params.orderType || "new",
+      original_plan_code: params.originalPlanCode || "",
     },
   });
 }

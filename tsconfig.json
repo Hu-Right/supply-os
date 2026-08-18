@@ -1,4 +1,10 @@
 {
+  // ── A2【P0】修复：开启 TypeScript 严格模式（详见《深度技术分析报告》§A2）──
+  // 实证结论（2026-08-18）：存量代码在 strict 下仅 11 处错误，已全部以纯类型修正
+  // 方式修复（不改变任何运行时行为），因此无需"仅新文件生效"的豁免期，
+  // 直接启用完整 strict，使 CI 的 typecheck 步骤立即获得全量严格校验。
+  // 新增代码一律必须通过严格检查；严禁在业务代码中使用 `any`（确需绕过时用
+  // `unknown` + 类型收窄，并附注释说明原因）。
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -19,6 +25,24 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+
+    // ── 严格模式（A2 开启）──
+    // strict 已涵盖 noImplicitAny / strictNullChecks / strictFunctionTypes /
+    // strictBindCallApply / noImplicitThis / alwaysStrict 等全部子项；
+    // 下面两项显式列出仅为提高可读性与审查可见性，取值与 strict 一致。
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+
+    // 附带零错误加固（已实证验证对存量代码无新增报错）：
+    // switch 语句 case 穿透检测、模块导入路径大小写一致性检测
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true
+
+    // ── 第二阶段候选项（存量错误较多，待收敛后评估开启，勿直接取消注释）──
+    // "noUncheckedIndexedAccess": true,   // 索引访问结果强制包含 undefined
+    // "exactOptionalPropertyTypes": true, // 可选属性不允许显式赋 undefined
+    // "noImplicitReturns": true           // 所有分支必须显式返回
   }
 }

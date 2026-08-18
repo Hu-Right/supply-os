@@ -12,18 +12,17 @@ import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { getPaymentRuntimeConfig } from "../config/env";
-import { PaymentsRepo } from "../repos/payments.repo";
-import { MembershipRepo } from "../repos/membership.repo";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
 import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../payment/fulfillment";
 import { requireAuth } from "../middleware/auth";
 
 export function createPaymentRouter(ctx: AppContext): Router {
   const router = Router();
-  const { paymentService, paymentMode } = ctx;
-  // 测试 ctx 可能未注入 repo，此处兜底构造（repo 只是 pool 的薄封装）
-  const paymentsRepo = ctx.paymentsRepo ?? new PaymentsRepo(ctx.dbPool);
-  const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
+  // 双轨制退役（轨道A）：统一走领域上下文 ctx.payment；原顶层字段与 ?? 兜底构造已移除
+  // （bootstrap 保证领域上下文完整注入，兜底不再必要）
+  const { paymentService, paymentMode } = ctx.payment;
+  const paymentsRepo = ctx.payment.paymentsRepo;
+  const membershipRepo = ctx.payment.membershipRepo;
 
   // P1-4 修复：billing/subscribe 需要管理员密钥，防止免费开通 VIP
   router.post("/api/billing/subscribe", asyncHandler(async (req, res) => {
@@ -54,6 +53,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
         provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as import("../../src/types").PaymentProviderName,
         return_url: String(req.body.return_url || ""),
         client_ip: clientIp,
+        // 升级订单：服务端据此校验升级资格并按差价计费
+        order_type: req.body.order_type === "upgrade" ? "upgrade" : "new",
+        original_plan_code: String(req.body.original_plan_code || ""),
       });
       const clientPayUrl = result.provider === "alipay"
         ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`

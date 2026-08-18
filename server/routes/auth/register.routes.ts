@@ -38,7 +38,7 @@ export function createRegisterRouter(
   forgotRateLimiter: RateLimiter,
 ): Router {
   const router = Router();
-  const usersRepo = ctx.usersRepo;
+  const usersRepo = ctx.user.usersRepo;
 
   // ── 注册：发送邮箱验证码 ──────────────────────────────────────────
   router.post("/api/auth/send-register-code", asyncHandler(async (req, res) => {

@@ -4,18 +4,16 @@
  */
 import { Router } from "express";
 import type { AppContext } from "../../context";
-import { SuppliersRepo } from "../../repos/suppliers.repo";
-import { UsersRepo } from "../../repos/users.repo";
-import { MembershipRepo } from "../../repos/membership.repo";
 import { createSupplierListRouter } from "./list";
 import { createSupplierContactRouter } from "./contact";
 import { createSupplierRegisterRouter } from "./register";
 
 export function createSuppliersRouter(ctx: AppContext): Router {
   const router = Router();
-  const suppliersRepo = ctx.suppliersRepo ?? new SuppliersRepo(ctx.dbPool);
-  const usersRepo = ctx.usersRepo ?? new UsersRepo(ctx.dbPool);
-  const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
+  // 双轨制退役（轨道A）：统一走领域上下文（bootstrap 保证注入，移除 ?? 兜底构造）
+  const suppliersRepo = ctx.supplier.suppliersRepo;
+  const usersRepo = ctx.user.usersRepo;
+  const membershipRepo = ctx.user.membershipRepo;
 
   // 供应商列表服务端 TTL 缓存（5 分钟）
   const supplierResponseCache = new Map<string, { data: any; expires: number }>();

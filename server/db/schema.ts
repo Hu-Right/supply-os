@@ -36,6 +36,9 @@
  *              026-wide-table-cleanup         宽表清理:删除FULLTEXT索引+is_active死列+重建索引
  *              027-bridge-column-cleanup      桥接表冗余列清理:删除name列
  *              028-deadline-sec-overflow      deadline_sec生成列溢出修复:GREATEST下界保护+存量数据修复
+ *              029-precise-unspsc             宽表精准分类列(precise_level1~5,商机approved精准码)
+ *              030-wide-table-deadline-bigint  宽表deadline_sec扩容INT→BIGINT+修复溢出归零数据
+ *              031-membership-upgrade           会员套餐平滑升级(权益升级标记列+订单类型列)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -67,13 +70,16 @@ import { migration as m025 } from "./migrations/025-wide-table-reference-index";
 import { migration as m026 } from "./migrations/026-wide-table-cleanup";
 import { migration as m027 } from "./migrations/027-bridge-column-cleanup";
 import { migration as m028 } from "./migrations/028-deadline-sec-overflow";
+import { migration as m029 } from "./migrations/029-precise-unspsc";
+import { migration as m030 } from "./migrations/030-wide-table-deadline-bigint";
+import { migration as m031 } from "./migrations/031-membership-upgrade";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
   m001, m002, m003, m004, m005,
   m006, m007, m008, m009, m010, m011,
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
-  m022, m023, m024, m025, m026, m027, m028,
+  m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
 ];
 
 /**

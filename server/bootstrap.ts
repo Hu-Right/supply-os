@@ -27,6 +27,8 @@ import { initMeilisearch, ensureIndex, isHealthy as isMeiliHealthy } from "./ser
 import { startSearchSync } from "./services/searchSync";
 import { startWideTableSync } from "./services/search-sync/index";
 import { startSyncRetryQueue } from "./services/search-sync/sync-retry-queue";
+import { enqueue } from "./services/search-sync/sync-queue";
+import { registerFeaturedSyncCallback } from "./services/notices/featured";
 import { runWarmup } from "./lifecycle/warmup";
 import { startAllTimers } from "./lifecycle/timers";
 import { schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase, executePhase } from "./lifecycle/phases";
@@ -34,6 +36,16 @@ import type { AppContext } from "./context";
 
 // In-memory persistent database for the live session
 const leadsDb = createLeadsStore();
+
+/**
+ * 服务句柄（C1【P0】优雅关闭改造）
+ * @property stop     仅停止后台定时器与同步任务（原返回语义，保留兼容）
+ * @property shutdown 完整优雅关闭：停后台任务 → 停止接收新请求并排空在途请求 → 关闭数据库连接池
+ */
+export interface ServerHandle {
+  stop: () => void;
+  shutdown: () => Promise<void>;
+}
 
 export async function startServer() {
   const PORT = 3039;
@@ -67,7 +79,7 @@ export async function startServer() {
 
   // 初始化 PaymentService：配置表或环境变量启用 live 时走真实支付网关，否则使用 mock 闭环。
   const paymentMode: "live" | "mock" = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode, membershipRepo);
 
   // 领域上下文（新代码推荐）
   const notice = { dbPool, noticesRepo };
@@ -78,12 +90,10 @@ export async function startServer() {
 
   const ctx: AppContext = {
     dbPool, leadsDb,
-    // 领域上下文
+    // 领域上下文（唯一访问入口；双轨制退役轨道A：顶层 @deprecated 字段已删除）
     notice, payment, user, supplier, admin,
     // 其他领域 Repo
     opportunitiesRepo, catalogRepo, leadsRepo, trainingRepo, systemRepo,
-    // 向后兼容顶层字段（@deprecated）
-    noticesRepo, usersRepo, paymentsRepo, membershipRepo, suppliersRepo, userPrefsRepo, adminRepo, paymentService, paymentMode,
   };
   const app = createApp(ctx);
 
@@ -180,11 +190,19 @@ export async function startServer() {
   // 宽表就绪后，搜索 Phase 2 直接从宽表读取（零 JOIN），大幅提升性能
   const stopWideTableSync = startWideTableSync(dbPool, { intervalMs: 10 * 1000 });
 
+  // ── 精选状态变更联动同步（修复 G3）──
+  // refreshFeaturedColumn 更新 is_featured 后，将变更 ID 入同步队列，
+  // 触发宽表更新 → Meilisearch 级联，确保精选状态及时入索引
+  registerFeaturedSyncCallback((ids: number[]) => {
+    enqueue(dbPool, ids);
+  });
+
   // ── 定时任务统一管理（外抽至 lifecycle/timers.ts）──
   const timersHandle = startAllTimers({ dbPool });
 
   // ── 服务先监听，预热在后台异步完成（非阻塞启动）──
-  app.listen(PORT, "0.0.0.0", () => {
+  // C1：保留 httpServer 引用，供优雅关闭时停止接收新请求并排空在途连接
+  const httpServer = app.listen(PORT, "0.0.0.0", () => {
     const lanIp = Object.values(os.networkInterfaces())
       .flat()
       .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address
@@ -196,8 +214,10 @@ export async function startServer() {
   void runWarmup({ dbPool, noticesRepo, suppliersRepo })
     .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
 
-  // 返回 stop 函数供优雅关闭使用
-  return () => {
+  // C1【P0】优雅关闭：返回 stop/shutdown 句柄，由入口（server.ts）接线 SIGTERM/SIGINT。
+  // 关闭顺序依据：先停后台任务（不再产生新的 DB 写入/同步工作），
+  // 再停止接收新请求并等待在途请求处理完毕，最后关闭连接池确保无半开连接。
+  const stop = () => {
     stopAutoTranslate();
     stopReportCacheCleanup();
     stopSearchSync?.();
@@ -205,4 +225,32 @@ export async function startServer() {
     stopWideTableSync();
     timersHandle.stop();
   };
+
+  const shutdown = async () => {
+    console.log("[shutdown] 停止后台定时器与同步任务…");
+    stop();
+
+    console.log("[shutdown] 停止接收新请求，等待在途请求完成…");
+    await new Promise<void>((resolve) => {
+      // close() 在所有现存连接处理完毕后回调；不再接受新连接
+      httpServer.close(() => resolve());
+      // Node ≥18.2 可用：立即关闭空闲 keep-alive 连接，避免 close() 挂等到对端超时。
+      // 类型断言原因：@types/node 与运行时 Node 版本差异，做存在性检查保证低版本安全。
+      const srv = httpServer as typeof httpServer & { closeIdleConnections?: () => void };
+      if (typeof srv.closeIdleConnections === "function") {
+        srv.closeIdleConnections();
+      }
+    });
+
+    console.log("[shutdown] 关闭 MySQL 连接池…");
+    try {
+      await dbPool.end();
+    } catch (e) {
+      // 连接池关闭失败不阻断退出流程（进程即将终止），仅记录便于事后诊断
+      console.error("[shutdown] 连接池关闭异常:", (e as Error).message);
+    }
+    console.log("[shutdown] 优雅关闭完成");
+  };
+
+  return { stop, shutdown };
 }

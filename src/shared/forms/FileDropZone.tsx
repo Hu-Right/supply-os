@@ -55,7 +55,9 @@ export function FileDropZone({
   const handleClick = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = accept;
+    // A2 strict 修复：accept 为可选属性（string | undefined），
+    // 未配置时不赋值（input 默认接受所有类型），行为不变。
+    if (accept) input.accept = accept;
     input.multiple = multiple;
     input.onchange = () => {
       const files = Array.from(input.files || []);

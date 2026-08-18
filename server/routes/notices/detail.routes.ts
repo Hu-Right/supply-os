@@ -18,9 +18,9 @@ import { getAgencyCacheData } from "../../services/notice-search/agencies";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.noticesRepo;
-  const usersRepo = ctx.usersRepo;
-  const membershipRepo = ctx.membershipRepo;
+  const noticesRepo = ctx.notice.noticesRepo;
+  const usersRepo = ctx.user.usersRepo;
+  const membershipRepo = ctx.user.membershipRepo;
 
   // ── 公告详情 ──
   router.get("/api/notices/:id/detail", requireAuth, asyncHandler(async (req, res) => {

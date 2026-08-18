@@ -5,6 +5,8 @@
  * @module features/auth/hooks/useUnspscPrefCascade
  * @description 注册表单与已登录面板共用的三级级联状态：选项加载（locale 切换
  *              重拉译文）与级变更处理（改一级清二/三级、改二级清三级）。
+ *              推断路径回填采用"待填队列 + 选项加载后消费"的确定性方案，
+ *              替代旧版 setTimeout(150ms) 赌加载时序的竞态写法。
  *              Shared three-level cascade state for the register form and the
  *              account panel: option loading (reload on locale switch) and
  *              level-change handlers (level-1 change clears levels 2/3, etc.).
@@ -30,10 +32,8 @@ export interface UseUnspscPrefCascadeReturn {
   setPrefLevel3: (value: string) => void;
   handlePrefLevel1Change: (value: string) => void;
   handlePrefLevel2Change: (value: string) => void;
-  /** 根据智能推断结果自动填充级联选择器（L1→L2） */
-  autoFillFromInference: (path: SmartInferResult) => void;
-  /** 基于关键词在当前二级分类的三级子类中搜索并自动选中最佳匹配 */
-  searchAndAutoFillL3: (keyword: string) => void;
+  /** 按推断路径确定性回填级联（L1→L2→L3）：各级在对应选项加载完成且包含目标 id 后才写入 */
+  applyInferredPath: (path: SmartInferResult) => void;
   /** 重置所有级联状态（切换账号时调用） */
   resetCascade: () => void;
 }
@@ -48,8 +48,9 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   const [prefLevel2, setPrefLevel2] = useState("");
   const [prefLevel3, setPrefLevel3] = useState("");
 
-  // 主营业务搜索关键词（供 L2 变更时自动匹配 L3 使用）
-  const keywordRef = useRef("");
+  // 推断路径待填队列：L1 立即写入；L2/L3 等各自选项加载完成后再消费，
+  // 避免旧版 setTimeout 固定延时与异步加载的时序竞态（选项未就绪时选中丢失）
+  const pendingRef = useRef<{ l2: string | null; l3: string | null }>({ l2: null, l3: null });
 
   // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
@@ -80,93 +81,65 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
       .catch(() => setSubOptions2([]));
   }, [prefLevel2, locale]);
 
+  // 二级选项就绪后消费待填 L2：仅当选项列表包含目标 id 才写入；
+  // 加载完成但找不到（推断路径与类目树不一致）则丢弃待填，避免写入脏 id
+  useEffect(() => {
+    const pendingL2 = pendingRef.current.l2;
+    if (!pendingL2 || subOptions.length === 0) return;
+    if (subOptions.some((o) => String(o.id) === pendingL2)) {
+      setPrefLevel2(pendingL2);
+    } else {
+      pendingRef.current.l3 = null; // L2 失效则 L3 必然失效
+    }
+    pendingRef.current.l2 = null;
+  }, [subOptions]);
+
+  // 三级选项就绪后消费待填 L3（同上，含存在性校验）
+  useEffect(() => {
+    const pendingL3 = pendingRef.current.l3;
+    if (!pendingL3 || subOptions2.length === 0) return;
+    if (subOptions2.some((o) => String(o.id) === pendingL3)) {
+      setPrefLevel3(pendingL3);
+    }
+    pendingRef.current.l3 = null;
+  }, [subOptions2]);
+
   const handlePrefLevel1Change = (value: string) => {
+    // 手动改选优先于推断：丢弃未消费的待填项
+    pendingRef.current = { l2: null, l3: null };
     setPrefLevel1(value);
     setPrefLevel2("");
     setPrefLevel3("");
   };
 
   const handlePrefLevel2Change = (value: string) => {
+    pendingRef.current.l3 = null;
     setPrefLevel2(value);
     setPrefLevel3("");
   };
 
-  /** 根据关键词在当前二级分类的三级子类中搜索最佳匹配并自动选中。
-   *  匹配策略：完整子串 > 单字符匹配 > 最短标题优先。
+  /** 按推断路径确定性回填级联：L1 立即写入，L2/L3 入待填队列由上方 effect 消费。
+   *  仅回填用户在 UI 可见的 L1~L3；推断出的 L4/L5 不进入级联也不持久化。
    */
-  const searchAndAutoFillL3 = useCallback(
-    (keyword: string) => {
-      keywordRef.current = keyword;
-      if (!prefLevel2 || !keyword.trim() || subOptions.length === 0) return;
-      const kw = keyword.trim();
-      const kwLower = kw.toLowerCase();
-      // 完整子串匹配（中文直接包含，英文忽略大小写）
-      const exact = subOptions.filter(
-        (o) =>
-          o.title_zh.includes(kw) ||
-          o.title.toLowerCase().includes(kwLower),
-      );
-      if (exact.length > 0) {
-        exact.sort((a, b) => {
-          const ai = a.title_zh.includes(kw)
-            ? a.title_zh.indexOf(kw)
-            : a.title.toLowerCase().indexOf(kwLower);
-          const bi = b.title_zh.includes(kw)
-            ? b.title_zh.indexOf(kw)
-            : b.title.toLowerCase().indexOf(kwLower);
-          if (ai !== bi) return ai - bi;
-          return a.title_zh.length - b.title_zh.length;
-        });
-        setPrefLevel3(String(exact[0].id));
-        return;
-      }
-      // 拆字匹配：所有中文字符都出现在标题中
-      const chars = [...new Set(kw.replace(/[\s\x00-\x7f]/g, ""))].filter(Boolean);
-      if (chars.length >= 2) {
-        const matches = subOptions.filter((o) =>
-          chars.every((c) => o.title_zh.includes(c)),
-        );
-        if (matches.length > 0) {
-          matches.sort((a, b) => a.title_zh.length - b.title_zh.length);
-          setPrefLevel3(String(matches[0].id));
-          return;
-        }
-      }
-      // 无匹配：不清除已有的 L3 选择，保留用户手动选择
-    },
-    [prefLevel2, subOptions],
-  );
-
-  // 当二级子类目加载完成且有关键词时，自动搜索并填充三级分类
-  useEffect(() => {
-    if (keywordRef.current && prefLevel2 && subOptions.length > 0) {
-      searchAndAutoFillL3(keywordRef.current);
-    }
-  }, [prefLevel2, subOptions, searchAndAutoFillL3]);
-
-  /** 根据智能推断结果自动填充级联选择器。
-   *  仅填充 L1→L2；L3 由 searchAndAutoFillL3 基于关键词自动匹配。
-   *  由于 L2 选项依赖 L1 的 useEffect 加载，
-   *  用 setTimeout 确保子类目加载后再设置下一级。
-   */
-  const autoFillFromInference = (path: SmartInferResult) => {
+  const applyInferredPath = useCallback((path: SmartInferResult) => {
     if (!path.level1_id) return;
+    pendingRef.current = {
+      l2: path.level2_id ? String(path.level2_id) : null,
+      l3: path.level3_id ? String(path.level3_id) : null,
+    };
     setPrefLevel1(String(path.level1_id));
-    if (path.level2_id) {
-      setTimeout(() => {
-        setPrefLevel2(String(path.level2_id));
-      }, 150);
-    }
-  };
+    setPrefLevel2("");
+    setPrefLevel3("");
+  }, []);
 
   /** 重置所有级联状态（切换账号时调用） */
   const resetCascade = useCallback(() => {
+    pendingRef.current = { l2: null, l3: null };
     setPrefLevel1("");
     setPrefLevel2("");
     setPrefLevel3("");
     setSubOptions([]);
     setSubOptions2([]);
-    keywordRef.current = "";
   }, []);
 
   return {
@@ -181,8 +154,7 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
-    autoFillFromInference,
-    searchAndAutoFillL3,
+    applyInferredPath,
     resetCascade,
   };
 }

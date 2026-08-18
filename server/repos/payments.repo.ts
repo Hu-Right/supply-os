@@ -61,7 +61,7 @@ export class PaymentsRepo {
   /** 按订单号查询订单 */
   async findByOrderNo(orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT order_no, user_key, provider, plan_code, amount, currency, status, notice_id,
+      `SELECT order_no, user_key, provider, plan_code, order_type, original_order_no, amount, currency, status, notice_id,
               provider_trade_no, pay_url, paid_at, created_at, updated_at, raw_request, raw_notify
        FROM crm_payment_orders WHERE order_no = ? LIMIT 1`,
       [orderNo],
@@ -98,13 +98,18 @@ export class PaymentsRepo {
     payUrl: string | null;
     qrCodeUrl: string | null;
     rawRequest: string;
+    /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
+    orderType?: string;
+    /** 升级订单关联的原订单号 */
+    originalOrderNo?: string | null;
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_payment_orders
-        (user_id, order_no, user_key, provider, plan_code, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (user_id, order_no, user_key, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
         data.userKey, data.orderNo, data.userKey, data.provider, data.planCode,
+        data.orderType || "new", data.originalOrderNo ?? null,
         data.noticeId, data.amount, data.currency, data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],
     );
@@ -314,7 +319,7 @@ export class PaymentsRepo {
   /** 悲观锁查询订单（事务内使用） */
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await conn.query(
-      "SELECT user_key, plan_code, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      "SELECT user_key, plan_code, order_type, original_order_no, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
       [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
@@ -378,6 +383,93 @@ export class PaymentsRepo {
       "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
       [userKey],
     );
+  }
+
+  // ── 套餐升级事务方法（供 fulfillUpgradeOrder 使用）──
+
+  /** 事务内标记旧权益已被升级替代（保留 quota_used 供审计追溯） */
+  async markEntitlementUpgradedInTransaction(conn: PoolConnection, entitlementId: number): Promise<void> {
+    await conn.execute(
+      "UPDATE crm_user_entitlements SET is_upgraded = 1, updated_at = NOW() WHERE id = ?",
+      [entitlementId],
+    );
+  }
+
+  /**
+   * 事务内发放升级后的新权益
+   * 继承原权益的 quota_used（次数保留）与 started_at/expires_at（有效期追溯）
+   */
+  async insertUpgradedEntitlementInTransaction(conn: PoolConnection, params: {
+    userKey: string;
+    orderNo: string;
+    planCode: string;
+    quotaTotal: number;
+    quotaUsed: number;
+    upgradedFromEntitlementId: number | null;
+    startedAt: Date | null;
+    expiresAt: Date | null;
+  }): Promise<void> {
+    await conn.execute(
+      `INSERT INTO crm_user_entitlements
+        (user_id, user_key, source_order_no, upgraded_from_entitlement_id, plan_code,
+         quota_total, quota_used, started_at, expires_at, status)
+       VALUES (
+         (SELECT id FROM crm_users WHERE user_key = ? LIMIT 1),
+         ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [
+        params.userKey, params.userKey, params.orderNo, params.upgradedFromEntitlementId,
+        params.planCode, params.quotaTotal, params.quotaUsed,
+        params.startedAt || new Date(), params.expiresAt,
+      ],
+    );
+  }
+
+  /** 事务内变更订阅的套餐（升级后 plan_code 指向新套餐，有效期不变） */
+  async updateSubscriptionPlanInTransaction(conn: PoolConnection, subscriptionId: number, newPlanCode: string): Promise<void> {
+    await conn.execute(
+      "UPDATE crm_user_subscriptions SET plan_code = ? WHERE id = ?",
+      [newPlanCode, subscriptionId],
+    );
+  }
+
+  /**
+   * 事务内悲观锁查询待升级的原权益
+   * 取用户当前最高价、非目标套餐、未被升级的活跃权益（锁定防并发重复升级）
+   */
+  async findBestEntitlementForUpgradeInTransaction(
+    conn: PoolConnection,
+    userKey: string,
+    targetPlanCode: string,
+  ): Promise<{ id: number; plan_code: string; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
+    const [rows] = await conn.query(
+      `SELECT e.id, e.plan_code, e.quota_used, e.started_at, e.expires_at
+       FROM crm_user_entitlements e
+       INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
+       WHERE e.user_key = ? AND e.status = 'active' AND e.is_upgraded = 0
+         AND e.plan_code <> ?
+         AND (e.expires_at IS NULL OR e.expires_at > NOW())
+       ORDER BY p.price DESC, e.id DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [userKey, targetPlanCode],
+    );
+    return (rows as any[])[0] ?? null;
+  }
+
+  /** 事务内查询用户可升级的活跃订阅（最新一条非目标套餐的活跃订阅） */
+  async findUpgradeableSubscriptionInTransaction(
+    conn: PoolConnection,
+    userKey: string,
+    targetPlanCode: string,
+  ): Promise<{ id: number } | null> {
+    const [rows] = await conn.query(
+      `SELECT id FROM crm_user_subscriptions
+       WHERE user_key = ? AND status = 'active' AND plan_code <> ?
+         AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY id DESC LIMIT 1`,
+      [userKey, targetPlanCode],
+    );
+    return (rows as any[])[0] ?? null;
   }
 
   /** 查询订单金额（回调金额校验用） */

@@ -8,6 +8,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Globe, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { preloadRoute } from "@/routes";
 import { NAV_TABS } from "./nav-tabs";
 
@@ -20,8 +21,13 @@ export interface MobileDrawerProps {
 export function MobileDrawer({ open, onClose, isTrainingRoute }: MobileDrawerProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
+  const { tierLabel } = useMembershipTier();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // VIP 等级标签：按已解锁套餐显示，兜底 VIP
+  const vipDisplayLabel = tierLabel || "VIP";
+  const userTierLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
 
   if (!open) return null;
 
@@ -85,7 +91,7 @@ export function MobileDrawer({ open, onClose, isTrainingRoute }: MobileDrawerPro
                   <span className="w-2 h-2 rounded-full bg-rose-500" />
                 )}
                 {tab.highlight && !isActive && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">VIP</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{vipDisplayLabel}</span>
                 )}
               </button>
             );
@@ -103,7 +109,7 @@ export function MobileDrawer({ open, onClose, isTrainingRoute }: MobileDrawerPro
                 {authUser ? authUser.display_name || authUser.email : t("guestLevel")}
               </p>
               <p className={`text-xs ${isVip ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
-                {isVip ? t("vipLabel") : t("freeLabel")}
+                {userTierLabel}
               </p>
             </div>
           </div>

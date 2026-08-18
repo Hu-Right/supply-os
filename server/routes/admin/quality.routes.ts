@@ -13,7 +13,7 @@ import { captureDataQualitySnapshot } from "../../services/quality-monitor";
 
 export function createAdminQualityRouter(ctx: AppContext): Router {
   const router = Router();
-  const adminRepo = ctx.adminRepo;
+  const adminRepo = ctx.admin.adminRepo;
 
   // P1-2 安全修复：质量快照采集必须管理员鉴权
   router.post("/api/admin/quality-snapshot", requireAdmin, asyncHandler(async (_req, res) => {

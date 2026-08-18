@@ -13,7 +13,7 @@ import { AB_TREATMENT_PCT } from "../../services/recommend/index";
 
 export function createAdminMetricsRouter(ctx: AppContext): Router {
   const router = Router();
-  const adminRepo = ctx.adminRepo;
+  const adminRepo = ctx.admin.adminRepo;
 
   // P1-2 安全修复：A/B 指标查询必须管理员鉴权
   router.get("/api/admin/reco-ab-metrics", requireAdmin, asyncHandler(async (req, res) => {

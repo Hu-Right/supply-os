@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { preloadRoute } from "@/routes";
 import { NAV_TABS } from "./nav-tabs";
@@ -48,9 +49,13 @@ export function AppHeader({
 }: AppHeaderProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
+  const { tierLabel } = useMembershipTier();
   const navScrollRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // VIP 等级标签：按已解锁套餐显示（个人版/基础版/旗舰版/至尊版），兜底 VIP
+  const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
 
   // 鼠标在导航栏上时：滚轮纵向→横向转换
   useEffect(() => {
@@ -85,7 +90,7 @@ export function AppHeader({
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"}`}>
               <Crown className="w-3.5 h-3.5" />
-              <span>{authUser ? `${authUser.display_name || authUser.email} · ${isVip ? t("vipLabel") : t("freeLabel")}` : t("guestLevel")}</span>
+              <span>{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
             </button>
             <LanguageSwitcher />
             {/* 移动端汉堡菜单按钮 */}

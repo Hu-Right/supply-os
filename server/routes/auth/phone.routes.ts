@@ -24,7 +24,7 @@ export function createPhoneRouter(
   phoneSmsRateLimiter: RateLimiter,
 ): Router {
   const router = Router();
-  const usersRepo = ctx.usersRepo;
+  const usersRepo = ctx.user.usersRepo;
 
   // ── 发送手机验证码 ──────────────────────────────────────────
   router.post("/api/auth/send-phone-code", requireAuth, asyncHandler(async (req, res) => {

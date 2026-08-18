@@ -23,14 +23,13 @@ import { resolveMode, type UnspscFilter } from "./mode-resolver";
 import { meiliQuery } from "./meili-query";
 import { mysqlFallback } from "./mysql-fallback";
 import { isFullSyncRunning } from "../meilisearch/sync";
+import { tryRecover } from "../meilisearch/client";
 import { referenceFastPath } from "./reference-fast-path";
 import { fetchDetailsByIds } from "./detail-fetch";
 import { formatItems } from "./format";
 import { logPerf, recordFallback } from "./metrics";
 import { requestIndexRebuild } from "./rebuild-trigger";
 import { recommendNotices } from "../recommend/index";
-import { triggerBackTranslation } from "../notice-search/translation-trigger";
-import type { NoticesRepo } from "../../repos/notices.repo";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
@@ -64,12 +63,14 @@ export function invalidateUnifiedSearchCache(userKey?: string): void {
 /**
  * 统一搜索主入口。
  * @param raw 路由层解析的原始参数
- * @param noticesRepo 可选（用于按需补翻）
+ *
+ * 架构约束：搜索链路只读宽表已缓存译文，绝不触发翻译请求。
+ * 译文生产统一收敛到两条路径：定时任务（translation/auto.ts）与
+ * 详情页按需翻译（/api/notices/:id/translation）。
  */
 export async function searchUnified(
   pool: Pool,
   raw: RawSearchParams,
-  noticesRepo?: NoticesRepo,
 ): Promise<UnifiedSearchResult> {
   const t0 = Date.now();
   const p = validateParams(raw);
@@ -81,7 +82,7 @@ export async function searchUnified(
 
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
-    const reco = await recommendNotices(pool, p.userKey, p.page, p.pageSize, p.locale || undefined, noticesRepo);
+    const reco = await recommendNotices(pool, p.userKey, p.page, p.pageSize, p.locale || undefined);
     logPerf({
       mode: "recommended", path: "reco-delegate", q: "", filterDigest: "reco",
       meiliMs: 0, detailMs: 0, totalMs: Date.now() - t0,
@@ -126,7 +127,7 @@ export async function searchUnified(
     const offset = (p.page - 1) * p.pageSize;
     let chosen: { level: number; id: string; score: number } | null = null;
     for (const entry of resolution.profileLevels) {
-      const probePlan = await buildFilterPlan(pool, p, { level: entry.level, id: entry.id });
+      const probePlan = await buildFilterPlan(pool, p, { level: entry.level, id: entry.id, precise: true });
       if (probePlan.conflictEmpty) {
         const empty: UnifiedSearchResult = { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_match" };
         cacheSet(cacheKey, empty);
@@ -138,7 +139,7 @@ export async function searchUnified(
       if (probe.total >= offset + p.pageSize) break; // 该层级足以覆盖当前页
     }
     if (chosen) {
-      unspsc = { level: chosen.level, id: chosen.id };
+      unspsc = { level: chosen.level, id: chosen.id, precise: true };
       prefsScore = chosen.score;
     }
   }
@@ -165,10 +166,16 @@ export async function searchUnified(
   } else {
     // ── MySQL 应急降级（Meilisearch 不可用或索引重建中）──
     // 注意：重建窗口内的降级（fullsync-running）不重复标记重建，
-    // 否则形成“重建中降级 → 再标记 → 重建完又重建”的反馈环
+    // 否则形成“重建中降级 → 再标记 → 重建完又重建”的反馈环；
+    // 搜索超时 ≠ 服务不可用：标记前先做健康探测，探测通过则视为
+    // 机器高负载下的瞬时慢查询，不标记重建（重建后首次搜索 facet
+    // 预热较慢，否则会进入“超时→标记→重建→再超时”的死循环）
     const fullsyncActive = isFullSyncRunning();
     recordFallback(fullsyncActive ? "fullsync-running" : "meili-unhealthy");
-    if (!fullsyncActive) requestIndexRebuild("fallback-triggered");
+    if (!fullsyncActive) {
+      const recovered = await tryRecover().catch(() => false);
+      if (!recovered) requestIndexRebuild("fallback-triggered");
+    }
     const fb = await mysqlFallback(pool, p, plan);
     ids = fb.ids;
     total = fb.total;
@@ -190,14 +197,12 @@ export async function searchUnified(
   }
 
   // ── 详情获取（MySQL 唯一职责：按 ID 取完整字段）──
+  // 列表译文仅从宽表读取（title_{lang}/description_{lang}），不触发任何翻译请求。
+  // 译文生产统一收敛到两条路径：定时任务（auto.ts 每日 06:00/13:00）与
+  // 详情页按需翻译（/api/notices/:id/translation），均经 syncWideIds 级联回写宽表。
   const detailStart = Date.now();
   const details = await fetchDetailsByIds(pool, ids, p.locale);
   const detailMs = Date.now() - detailStart;
-
-  // ── 按需补翻（异步，不阻塞响应）──
-  if (p.locale && noticesRepo) {
-    triggerBackTranslation(details, p.locale, noticesRepo, pool);
-  }
 
   // ── 格式化（prefs 模式附加层级匹配分）──
   const matchScores = prefsScore > 0

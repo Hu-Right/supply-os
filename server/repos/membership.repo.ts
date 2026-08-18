@@ -10,6 +10,28 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, SubscriptionRow, EntitlementRow, CountRow } from "./types";
 
+/**
+ * 用户当前最优周期性套餐（升级判断依据）
+ * 来源优先级：未升级的活跃权益（entitlement）> 活跃订阅（subscription）
+ */
+export interface CurrentBestPlanRow {
+  /** 权益 ID（subscription-only 场景为 null） */
+  entitlement_id: number | null;
+  /** 订阅 ID（无关联订阅时为 null） */
+  subscription_id: number | null;
+  /** 权益来源订单号（升级订单 original_order_no 审计依据） */
+  source_order_no: string | null;
+  plan_code: string;
+  plan_name: string;
+  price: number;
+  unlock_quota: number;
+  /** 该权益已使用次数（subscription-only 场景为 0，由调用方按解锁流水补算） */
+  quota_used: number;
+  quota_total: number | null;
+  started_at: Date | null;
+  expires_at: Date | null;
+}
+
 export class MembershipRepo {
   constructor(private pool: Pool) {}
 
@@ -96,18 +118,97 @@ export class MembershipRepo {
     return (rows as RowDataPacket[]).length > 0;
   }
 
-  /** 查询用户有效权益（有剩余配额且未过期） */
+  /** 查询用户有效权益（有剩余配额且未过期，排除已被升级替代的权益） */
   async findActiveEntitlements(userKey: string): Promise<EntitlementRow[]> {
     const [rows] = await this.pool.query(
       `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
        FROM crm_user_entitlements
        WHERE user_key = ?
          AND status = 'active'
+         AND is_upgraded = 0
          AND quota_total > quota_used
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC`,
       [userKey],
     );
     return rows as EntitlementRow[];
+  }
+
+  /**
+   * 查询用户当前最优周期性套餐（升级场景）
+   * 仅统计有配额、非单次卡的活跃权益；无权益时回退至活跃订阅。
+   * 按套餐价格倒序取最高者，价格相同取最新。
+   */
+  async findCurrentBestPlan(userKey: string): Promise<CurrentBestPlanRow | null> {
+    // 优先：未升级的活跃权益（配额型套餐）
+    const [entRows] = await this.pool.query(
+      `SELECT e.id AS entitlement_id, e.source_order_no, e.plan_code, e.quota_total, e.quota_used, e.started_at, e.expires_at,
+              p.name AS plan_name, p.price, p.unlock_quota,
+              (SELECT s.id FROM crm_user_subscriptions s
+                WHERE s.user_key = ? AND s.status = 'active' AND s.plan_code = e.plan_code
+                  AND (s.expires_at IS NULL OR s.expires_at > NOW())
+                ORDER BY s.id DESC LIMIT 1) AS subscription_id
+       FROM crm_user_entitlements e
+       INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
+       WHERE e.user_key = ?
+         AND e.status = 'active'
+         AND e.is_upgraded = 0
+         AND e.quota_total > 0
+         AND (e.expires_at IS NULL OR e.expires_at > NOW())
+         AND p.price > 0
+         AND p.plan_type <> 'single'
+       ORDER BY p.price DESC, e.id DESC
+       LIMIT 1`,
+      [userKey, userKey],
+    );
+    const ent = (entRows as any[])[0];
+    if (ent) {
+      return {
+        entitlement_id: Number(ent.entitlement_id),
+        subscription_id: ent.subscription_id ? Number(ent.subscription_id) : null,
+        source_order_no: ent.source_order_no ?? null,
+        plan_code: String(ent.plan_code),
+        plan_name: String(ent.plan_name),
+        price: Number(ent.price || 0),
+        unlock_quota: Number(ent.unlock_quota || 0),
+        quota_used: Number(ent.quota_used || 0),
+        quota_total: ent.quota_total != null ? Number(ent.quota_total) : null,
+        started_at: ent.started_at ?? null,
+        expires_at: ent.expires_at ?? null,
+      };
+    }
+
+    // 回退：活跃订阅（如 billing/subscribe 仅写订阅不发权益）
+    const [subRows] = await this.pool.query(
+      `SELECT s.id AS subscription_id, s.plan_code, s.started_at, s.expires_at,
+              p.name AS plan_name, p.price, p.unlock_quota
+       FROM crm_user_subscriptions s
+       INNER JOIN crm_membership_plans p ON p.plan_code = s.plan_code
+       WHERE s.user_key = ?
+         AND s.status = 'active'
+         AND (s.expires_at IS NULL OR s.expires_at > NOW())
+         AND p.price > 0
+         AND p.plan_type <> 'single'
+       ORDER BY p.price DESC, s.id DESC
+       LIMIT 1`,
+      [userKey],
+    );
+    const sub = (subRows as any[])[0];
+    if (sub) {
+      return {
+        entitlement_id: null,
+        subscription_id: Number(sub.subscription_id),
+        source_order_no: null,
+        plan_code: String(sub.plan_code),
+        plan_name: String(sub.plan_name),
+        price: Number(sub.price || 0),
+        unlock_quota: Number(sub.unlock_quota || 0),
+        quota_used: 0,
+        quota_total: null,
+        started_at: sub.started_at ?? null,
+        expires_at: sub.expires_at ?? null,
+      };
+    }
+    return null;
   }
 }

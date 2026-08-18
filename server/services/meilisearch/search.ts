@@ -41,6 +41,8 @@ export async function searchWithFilters(params: {
   featuredOnly?: boolean;
   unspscLevel?: number;
   unspscLevelId?: string;
+  /** 行业匹配模式（mode=prefs）：使用 precise_level{N}_id 而非 TED 标签 level{N}_id */
+  unspscPrecise?: boolean;
   sort?: string;
   page: number;
   pageSize: number;
@@ -58,7 +60,7 @@ export async function searchWithFilters(params: {
     const {
       q, country, countryVariants, agencies, agencyGroup, deadlineFrom, deadlineTo,
       deadlineWithinDays, noticeType, featuredOnly,
-      unspscLevel, unspscLevelId,
+      unspscLevel, unspscLevelId, unspscPrecise,
       sort, page, pageSize,
     } = params;
 
@@ -106,7 +108,9 @@ export async function searchWithFilters(params: {
     }
     if (featuredOnly) filter.push("is_featured = 1");
     if (unspscLevel && unspscLevel >= 1 && unspscLevel <= 5 && unspscLevelId) {
-      filter.push(`level${unspscLevel}_id = "${escapeFilter(unspscLevelId)}"`);
+      // 行业匹配模式使用 precise_level{N}_id（approved 候选码），普通搜索使用 level{N}_id（TED 标签）
+      const prefix = unspscPrecise ? "precise_" : "";
+      filter.push(`${prefix}level${unspscLevel}_id = "${escapeFilter(unspscLevelId)}"`);
     }
 
     const sortArr: string[] = [];
@@ -120,12 +124,10 @@ export async function searchWithFilters(params: {
       sortArr.push("has_deadline:desc", "deadline_sec:desc", "id:desc");
     }
 
-    // PERF 优化：deadline_nearest 排序时，在 filter 中排除 deadline_sec=0 的文档，
-    // 避免 Meilisearch 在升序排序时需要跳过大量零值文档（性能测试显示慢 2.2x）。
-    // deadline_sec=0 表示无截止日期（永不过期），对“最近截止”排序无意义。
-    if (sort === "deadline") {
-      filter.push("deadline_sec > 0");
-    }
+    // [修复 030-b] 移除 deadline_nearest 的 deadline_sec>0 额外过滤。
+    // 原 PERF 优化为避免升序排序跳过大量零值文档，但 has_deadline:desc 排序已
+    // 将 deadline_sec=0 记录推至末尾，功能等价。额外过滤导致 total 与其他排序
+    // 不一致（差 ~10,849 条"无截止日期"记录），违反"排序不影响总数"预期。
 
     const offset = (page - 1) * pageSize;
     const SEARCH_TIMEOUT_MS = 5000;

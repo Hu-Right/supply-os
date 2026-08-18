@@ -13,17 +13,10 @@ import type { Request } from "express";
 import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { searchNotices, getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
-import { recommendNotices } from "../../services/recommend/index";
+import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../../services/search-orchestrator/index";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * 回滚开关：USE_LEGACY_IMPL=1 时旧端点走原始实现（searchNotices/matchNoticesByIndustry），
- * 默认走统一编排器。重构验收完成后移除（阶段 4）。
- */
-const USE_LEGACY_IMPL = process.env.USE_LEGACY_IMPL === "1";
 
 /** 从请求提取统一搜索参数（unified-search 与旧端点适配器共用） */
 function parseUnifiedParams(req: Request, mode: string): RawSearchParams {
@@ -64,19 +57,17 @@ function isValidNoticeType(val: string): boolean {
 
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.noticesRepo;
+  const noticesRepo = ctx.notice.noticesRepo;
 
   // ── 统一搜索端点（重构方案 §4.1）：mode=default|prefs|recommended ──
   router.get("/api/notices/unified-search", asyncHandler(async (req, res) => {
     const rawMode = String(req.query.mode || "default");
     const mode = rawMode === "prefs" || rawMode === "recommended" ? rawMode : "default";
-    const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, mode), noticesRepo);
+    const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, mode));
     res.json({ ...result, page_size: result.pageSize });
   }));
 
   router.get("/api/notices", asyncHandler(async (req, res) => {
-    const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
-    const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
     const codeId = parseOptionalInt(req.query, "code_id", 0, 1e9, 0) || parseOptionalInt(req.query, "industry_id", 0, 1e9, 0);
     const q = parseOptionalString(req.query, "q", 200);
     const country = parseOptionalString(req.query, "country", 100);
@@ -92,19 +83,12 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
       console.log(`[search] 忽略无效 noticeType: "${noticeType}"`);
     }
     const featuredOnly = String(req.query.featured || "") === "1";
-    // 卡片国际化：透传当前 locale，服务端 LEFT JOIN 翻译表返回 title_i18n / description_i18n
-    const locale = parseOptionalString(req.query, "locale", 10);
 
-    // 重构方案 §1.7 委托适配器：默认走统一编排器，USE_LEGACY_IMPL=1 回退旧实现
-    let result: { items: Array<Record<string, unknown>>; total: number; page: number; pageSize: number; fallback?: string };
-    if (USE_LEGACY_IMPL) {
-      result = await searchNotices(ctx.dbPool, {
-        page, pageSize, codeId, q, country, agency, deadlineFrom, deadlineTo, sort,
-        deadlineWithinDays, noticeType: effectiveNoticeType, featuredOnly, locale,
-      }, noticesRepo);
-    } else {
-      result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "default"), noticesRepo);
-    }
+    // 委托适配器：统一编排器 mode=default（唯一检索链路）
+    // noticeType 白名单校验后覆盖，避免无效值进入 filter 归一化返回大量无关结果
+    const params = parseUnifiedParams(req, "default");
+    params.noticeType = effectiveNoticeType;
+    const result = await searchUnified(ctx.dbPool, params);
 
     // P2 性能优化：流式响应——立即发送 HTTP headers，然后分块写入 JSON body
     // 浏览器收到 headers 后即可开始解析，无需等待完整 JSON 序列化完成
@@ -140,7 +124,9 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
         sort,
       });
       void noticesRepo.logSearch(
-        normalizeUserKey(req.query.user_key), q || null, country || null, filters, result.total
+        // A2 strict 修复：normalizeUserKey 可能返回 null，logSearch 形参为 string，
+        // 用 "" 兜底（未登录搜索归属匿名，语义与原行为一致）
+        normalizeUserKey(req.query.user_key) || "", q || null, country || null, filters, result.total
       ).catch(() => undefined);
     }
   }));
@@ -175,19 +161,10 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     res.json(data);
   }));
 
-  // ── 推荐端点（委托适配器：默认走统一编排器 mode=recommended）──
+  // ── 推荐端点（委托适配器：统一编排器 mode=recommended）──
   router.get("/api/notices/recommended", asyncHandler(async (req, res) => {
-    const userKey = normalizeUserKey(req.query.user_key) || "";
-    const page = parseOptionalInt(req.query, "page", 1, 1000, 1);
-    const pageSize = parseOptionalInt(req.query, "page_size", 6, 30, 9);
-    // 卡片国际化：透传当前 locale
-    const locale = parseOptionalString(req.query, "locale", 10);
-    if (USE_LEGACY_IMPL) {
-      res.json(await recommendNotices(ctx.dbPool, userKey, page, pageSize, locale, noticesRepo));
-    } else {
-      const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "recommended"), noticesRepo);
-      res.json({ ...result, page_size: result.pageSize });
-    }
+    const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "recommended"));
+    res.json({ ...result, page_size: result.pageSize });
   }));
 
   return router;

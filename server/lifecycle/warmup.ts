@@ -30,7 +30,7 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
   // Phase 1：统计表 + 搜索 + 国家/机构 + 供应商 并行预热
   // 重构后：统一编排器 searchUnified（mode=default）接管全部搜索预热
   const warm = (extra: Partial<RawSearchParams>) =>
-    searchUnified(dbPool, { mode: "default", page: 1, pageSize: 9, locale: "zh", ...extra }, noticesRepo);
+    searchUnified(dbPool, { mode: "default", page: 1, pageSize: 9, locale: "zh", ...extra });
   await Promise.all([
     // 统计表刷新
     refreshNoticeStats(dbPool),

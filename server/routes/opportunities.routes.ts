@@ -17,7 +17,8 @@ import {
 export function createOpportunitiesRouter(ctx: AppContext): Router {
   const router = Router();
   const opportunitiesRepo = ctx.opportunitiesRepo ?? new OpportunitiesRepo(ctx.dbPool);
-  const membershipRepo = ctx.membershipRepo ?? new MembershipRepo(ctx.dbPool);
+  // 双轨制退役（轨道A）：membershipRepo 统一走领域上下文（bootstrap 保证注入，移除 ?? 兜底）
+  const membershipRepo = ctx.payment.membershipRepo;
 
   router.get("/api/opportunities", asyncHandler(async (req, res) => {
     const codeId = Number(req.query.code_id || req.query.industry_id || 0);
@@ -122,7 +123,7 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     if (unlockType === "subscription" || unlockType === "single") {
       const [entRows] = await ctx.dbPool.query(
         `SELECT id FROM crm_user_entitlements
-         WHERE user_key = ? AND status = 'active' AND quota_total > quota_used
+         WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
            AND (expires_at IS NULL OR expires_at > NOW())
          LIMIT 1`,
         [userKey],

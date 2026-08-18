@@ -118,12 +118,14 @@ function expandAgency(agency: string): AgencyExpansion {
 
 /**
  * 构建双方言 filter 计划。
- * @param unspsc 可选 UNSPSC 过滤（level 1-5 + id）；prefs 渐进放宽由编排器逐层注入
+ * @param unspsc 可选 UNSPSC 过滤（level 1-5 + id + precise）；
+ *               precise=true 用 precise_level{N}_id（prefs 模式，approved 候选码）
+ *               precise=false 用 level{N}_id（default 模式，TED 标签，覆盖全量公告）
  */
 export async function buildFilterPlan(
   pool: Pool,
   p: UnifiedSearchParams,
-  unspsc?: { level: number; id: string } | null,
+  unspsc?: { level: number; id: string; precise: boolean } | null,
 ): Promise<FilterPlan> {
   const meiliFilters: string[] = [];
   const mysqlWhere: string[] = [];
@@ -224,11 +226,18 @@ export async function buildFilterPlan(
   }
 
   // ── UNSPSC 行业分类（level1~5 任意层级）──
+  // precise=true（prefs 模式）：使用 approved 精准码（precise_levelN_id），仅覆盖有人工审核候选码的公告
+  // precise=false（default 模式）：使用 TED 标签（levelN_id），覆盖所有有行业标签的公告（~60%）
   if (unspsc && unspsc.level >= 1 && unspsc.level <= 5 && unspsc.id) {
-    meiliFilters.push(`level${unspsc.level}_id = "${escapeFilter(unspsc.id)}"`);
-    mysqlWhere.push(`EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes ub WHERE ub.notice_id = n.notice_id AND ub.level${unspsc.level}_id = ?)`);
+    const col = unspsc.precise ? "precise_level" : "level";
+    meiliFilters.push(`${col}${unspsc.level}_id = "${escapeFilter(unspsc.id)}"`);
+    // 类型兼容：unspsc.id 为 string（resolveUserIndustryProfile 归一化），
+    // FIND_IN_SET 对参数隐式转字符串
+    mysqlWhere.push(
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.${col}_level${unspsc.level}))`,
+    );
     mysqlParams.push(unspsc.id);
-    digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}`);
+    digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);
   }
 
   return {

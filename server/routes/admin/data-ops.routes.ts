@@ -15,7 +15,7 @@ import { requireAdmin } from "./middleware";
 
 export function createAdminDataOpsRouter(ctx: AppContext): Router {
   const router = Router();
-  const adminRepo = ctx.adminRepo;
+  const adminRepo = ctx.admin.adminRepo;
 
   // 手动触发全量 bridge 回填（运维接口，幂等安全）
   router.post("/api/admin/sync-bridge", requireAdmin, async (_req, res) => {

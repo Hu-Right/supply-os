@@ -57,7 +57,8 @@ export default function App() {
         <Suspense fallback={null}>
           <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}
             currency={paymentPlan.currency} userKey={authUser.user_key} noticeId={paymentPlan.noticeId ?? null}
-            returnUrl={paymentPlan.returnUrl} onClose={() => setShowPaymentModal(false)}
+            returnUrl={paymentPlan.returnUrl} orderType={paymentPlan.orderType} originalPlanCode={paymentPlan.originalPlanCode}
+            onClose={() => setShowPaymentModal(false)}
             onPaymentSuccess={handlePaymentSuccess} />
         </Suspense>
       )}

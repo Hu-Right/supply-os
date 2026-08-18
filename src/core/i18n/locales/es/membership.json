@@ -42,5 +42,19 @@
   "statusPanelFreeQuota": "Cuota gratuita",
   "statusPanelTimes": "veces",
   "statusPanelNoEntitlement": "Sin beneficios pagos aún. Actualice para desbloquear más",
-  "statusPanelUpgradeBtn": "Ver planes"
+  "statusPanelUpgradeBtn": "Ver planes",
+  "upgradeBtn": "Mejorar plan",
+  "upgradeConfirmTitle": "Confirmar mejora de plan",
+  "upgradeLoading": "Enviando la mejora…",
+  "upgradeNotAvailable": "La mejora no está disponible en este momento",
+  "upgradeCurrentPlan": "Plan actual",
+  "upgradeUsed": "Utilizado",
+  "upgradeTargetPlan": "Mejorar a",
+  "upgradeTargetQuota": "Cuota objetivo",
+  "upgradeRemaining": "Cuota restante",
+  "upgradeValidity": "Validez",
+  "upgradeValidityUnchanged": "Validez sin cambios",
+  "upgradePriceDiff": "Diferencia de precio",
+  "upgradeCancelBtn": "Cancelar",
+  "upgradeConfirmBtn": "Confirmar mejora"
 }

@@ -8,6 +8,12 @@ import {
   Crown, Zap, Star, Briefcase, Check, Users, Globe, Building2,
 } from "lucide-react";
 import type { MembershipPlan } from "@/types";
+// A2 strict 修复：翻译函数类型统一从 useLocale 派生（带键联合类型），
+// 原 (key: string) => string 在 strictFunctionTypes 下与真实 t 函数不兼容。
+import type { useLocale } from "@/core/i18n";
+
+/** i18n 翻译函数类型（与 useLocale 返回值中的 t 保持一致） */
+type TranslateFn = ReturnType<typeof useLocale>["t"];
 
 /** 套餐特性配置 — 覆盖所有 plan_type */
 export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }> = {
@@ -22,6 +28,22 @@ export const ORIGINAL_PRICES: Record<string, number> = {
   annual_799: 1999,
 };
 
+/**
+ * 从套餐名称提取等级标签（个人版/基础版/旗舰版/至尊版），不匹配时兜底 VIP。
+ * - 含连字符：取末段（如 "标讯企业会员-旗舰版" → "旗舰版"）
+ * - 不含连字符：去 "标讯" 前缀与 "会员" 后缀再加 "版"（如 "标讯个人会员" → "个人版"）
+ */
+export function extractTierLabel(planName: string | null | undefined): string {
+  if (!planName) return "VIP";
+  if (planName.includes("-")) {
+    const suffix = planName.split("-").pop()?.trim();
+    if (suffix) return suffix;
+  }
+  const core = planName.replace(/^标讯/, "").replace(/会员$/, "").trim();
+  if (core) return `${core}版`;
+  return "VIP";
+}
+
 /** 根据套餐数量计算响应式网格列数 */
 export function getGridCols(count: number): string {
   if (count <= 1) return "grid-cols-1 max-w-md mx-auto";
@@ -32,15 +54,17 @@ export function getGridCols(count: number): string {
 }
 
 /** 格式化配额显示 */
-export function formatQuota(plan: MembershipPlan, t: (key: string) => string): string {
+export function formatQuota(plan: MembershipPlan, t: TranslateFn): string {
   if (plan.unlock_quota >= 9999) return t("membershipUnlimited");
   return `${plan.unlock_quota}${t("membershipUnlocks")}`;
 }
 
 /**
  * 将描述文本按 ②③④⑤ 编号分割为多行
+ * A2 strict 修复：MembershipPlan.description 可能为 undefined，形参如实放宽；
+ * 下方 !desc 守卫已覆盖空值路径，行为不变。
  */
-export function splitDescription(desc: string): string[] {
+export function splitDescription(desc: string | undefined): string[] {
   if (!desc) return [];
   const parts = desc.split(/\n|①|②|③|④|⑤|⑥|⑦|⑧|⑨/).map((s) => s.trim()).filter(Boolean);
   return parts.length > 0 ? parts : [desc];

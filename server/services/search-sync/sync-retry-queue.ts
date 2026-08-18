@@ -9,6 +9,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds, isHealthy } from "../meilisearch/index";
+import { tryRecover } from "../meilisearch/client";
 import { logSyncCascade } from "../search-orchestrator/metrics";
 
 interface RetryEntry {
@@ -36,21 +37,33 @@ export function enqueueRetry(ids: number[]): void {
 
 /** 处理一轮重试 */
 async function processRetries(pool: Pool): Promise<void> {
-  if (_processing || _queue.size === 0 || !isHealthy()) return;
+  // 修复 G2：不再在 Meilisearch 不健康时直接返回（丢弃队列条目），
+  // 改为尝试 tryRecover 自愈，恢复失败则保留条目等待下轮重试。
+  if (_processing || _queue.size === 0) return;
   _processing = true;
   try {
+    // 不健康时尝试恢复
+    if (!isHealthy()) {
+      const recovered = await tryRecover().catch(() => false);
+      if (!recovered) {
+        // 保留队列条目，下轮重试
+        logSyncCascade("meili", _queue.size, "retry");
+        return;
+      }
+    }
     const entries = Array.from(_queue.values()).slice(0, BATCH_SIZE);
     const ids = entries.map((e) => e.id);
     for (const id of ids) _queue.delete(id);
 
     try {
-      const { synced } = await syncNoticeIds(pool, ids);
-      if (synced > 0) logSyncCascade("meili", synced, "ok");
-      // 未同步成功的 ID（宽表缺行等）重新入队
+      const { synced, deleted } = await syncNoticeIds(pool, ids);
+      const processed = synced + deleted;
+      if (processed > 0) logSyncCascade("meili", processed, "ok");
+      // 未同步成功的 ID（宽表缺行等）重新入队；已从索引删除的 ghost ID 视为已处理
       const remaining = entries.filter((e) => e.attempts + 1 < MAX_ATTEMPTS);
       for (const e of remaining) {
-        // syncNoticeIds 无法区分单条成败，保守按批次结果处理：synced < ids.length 时全部重试
-        if (synced < ids.length) _queue.set(e.id, { id: e.id, attempts: e.attempts + 1 });
+        // syncNoticeIds 无法区分单条成败，保守按批次结果处理：processed < ids.length 时全部重试
+        if (processed < ids.length) _queue.set(e.id, { id: e.id, attempts: e.attempts + 1 });
       }
     } catch (err) {
       // 本批失败：未超次数的重新入队

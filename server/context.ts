@@ -3,9 +3,10 @@
  * Application Context
  *
  * @module server/context
- * @description 按业务域拆分的领域上下文 + 向后兼容的顶层字段。
- *              新代码应使用领域上下文（如 ctx.notice.noticesRepo），
- *              旧代码仍可通过顶层字段（如 ctx.noticesRepo）访问（@deprecated）。
+ * @description 按业务域拆分的领域上下文。
+ *              统一使用领域上下文（如 ctx.notice.noticesRepo）。
+ *              双轨制退役（轨道A，2026-08-18）：原 @deprecated 顶层字段已全部删除，
+ *              所有调用方已迁移至领域上下文。
  */
 
 import type { Pool } from "mysql2/promise";
@@ -82,24 +83,4 @@ export type AppContext = {
   leadsRepo: LeadsRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
-
-  // ── 向后兼容顶层字段（@deprecated，新代码请使用领域上下文） ──
-  /** @deprecated 请使用 ctx.notice.noticesRepo */
-  noticesRepo: NoticesRepo;
-  /** @deprecated 请使用 ctx.user.usersRepo */
-  usersRepo: UsersRepo;
-  /** @deprecated 请使用 ctx.payment.paymentsRepo */
-  paymentsRepo: PaymentsRepo;
-  /** @deprecated 请使用 ctx.payment.membershipRepo 或 ctx.user.membershipRepo */
-  membershipRepo: MembershipRepo;
-  /** @deprecated 请使用 ctx.supplier.suppliersRepo */
-  suppliersRepo: SuppliersRepo;
-  /** @deprecated 请使用 ctx.user.userPrefsRepo */
-  userPrefsRepo: UserPrefsRepo;
-  /** @deprecated 请使用 ctx.admin.adminRepo */
-  adminRepo: AdminRepo;
-  /** @deprecated 请使用 ctx.payment.paymentService */
-  paymentService: PaymentService;
-  /** @deprecated 请使用 ctx.payment.paymentMode */
-  paymentMode: "live" | "mock";
 };

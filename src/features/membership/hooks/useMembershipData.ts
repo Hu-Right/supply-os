@@ -24,6 +24,14 @@ export interface UseMembershipDataReturn {
   activeSubscriptions: MembershipStatus["active_subscriptions"];
   /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
   totalRemaining: number;
+  /** 当前最优周期性套餐 code（升级判断依据） */
+  currentPlanCode: string | null;
+  /** 当前最优周期性套餐价格 */
+  currentPlanPrice: number | null;
+  /** 当前套餐名称 */
+  currentPlanName: string | null;
+  /** 当前套餐等级标签 */
+  currentPlanTierLabel: string | null;
 }
 
 export function useMembershipData(): UseMembershipDataReturn {
@@ -91,5 +99,9 @@ export function useMembershipData(): UseMembershipDataReturn {
     entitlements,
     activeSubscriptions,
     totalRemaining,
+    currentPlanCode: membership?.current_plan_code ?? null,
+    currentPlanPrice: membership?.current_plan_price ?? null,
+    currentPlanName: membership?.current_plan_name ?? null,
+    currentPlanTierLabel: membership?.current_plan_tier_label ?? null,
   };
 }

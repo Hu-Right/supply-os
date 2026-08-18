@@ -21,13 +21,11 @@ const RECO_REASON_KEYS: Record<string, LocaleKey> = {
   similar_unlocked: "procurement_reason_similar_unlocked",
 };
 
-// 行业精准匹配档次徽章（方案 A）：服务端 match_tier → i18n 键白名单映射
-const MATCH_TIER_KEYS: Record<string, LocaleKey> = {
-  exact_code: "procurement_tier_exact_code",
-  same_level: "procurement_tier_same_level",
-  upper_level: "procurement_tier_upper_level",
-  prefix: "procurement_tier_prefix",
-  inferred_category: "procurement_tier_inferred_category",
+// 行业精准匹配档次徽章（SSOT 重构后 2 档分色）：
+// precise → 绿色（L5/L4 精确匹配），relevant → 蓝色（L3/L2 行业相关）
+const MATCH_TIER_CONFIG: Record<string, { key: LocaleKey; color: string }> = {
+  precise: { key: "procurement_tier_precise", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  relevant: { key: "procurement_tier_relevant", color: "bg-sky-50 text-sky-700 border-sky-200" },
 };
 
 interface NoticeCardProps {
@@ -85,11 +83,11 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
               {t("procurement_featuredBadge")}
             </span>
           )}
-          {/* 行业精准匹配档次徽章（方案 A）：仅 industry-matched 数据源携带 match_tier */}
-          {item.match_tier && MATCH_TIER_KEYS[item.match_tier] && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-black">
+          {/* 行业精准匹配档次徽章（SSOT 2 档分色）：仅 industry-matched 数据源携带 match_tier */}
+          {item.match_tier && MATCH_TIER_CONFIG[item.match_tier] && (
+            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-black ${MATCH_TIER_CONFIG[item.match_tier].color}`}>
               <Target className="w-3 h-3" />
-              {t(MATCH_TIER_KEYS[item.match_tier])}
+              {t(MATCH_TIER_CONFIG[item.match_tier].key)}
             </span>
           )}
         </div>

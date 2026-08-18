@@ -8,12 +8,16 @@
  */
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
+import { tryRecover } from "../meilisearch/client";
 import { enqueueRetry } from "./sync-retry-queue";
+import { logSyncCascade } from "../search-orchestrator/metrics";
+import { requestIndexRebuild } from "../search-orchestrator/rebuild-trigger";
+import { invalidateUnifiedSearchCache } from "../search-orchestrator/index";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
-  loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
+  loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
   buildWideRow, upsertWideRows, reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
-  reconcileTranslations,
+  reconcileTranslations, reconcilePreciseCodes,
 } from "./wide-row-builder";
 
 /**
@@ -38,15 +42,17 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
 
       const noticeIds = rawRows.map((r) => String(r.notice_id));
       const ids = rawRows.map((r) => Number(r.id));
-      const [unspscMap, translationsMap] = await Promise.all([
+      const [unspscMap, translationsMap, preciseMap] = await Promise.all([
         loadUnspscByNoticeIds(pool, noticeIds),
         loadTranslationsByNoticeIds(pool, ids),
+        loadPreciseByNoticeIds(pool, noticeIds),
       ]);
 
       const wideRows = rawRows.map((r) => buildWideRow(
         r, aliasMap,
         unspscMap.get(String(r.notice_id)),
         translationsMap.get(Number(r.id)),
+        preciseMap.get(String(r.notice_id)),
       ));
       const synced = await upsertWideRows(pool, wideRows);
       totalSynced += synced;
@@ -83,15 +89,17 @@ export async function incrementalWideSync(
 
     const noticeIds = allRaw.map((r) => String(r.notice_id));
     const ids = allRaw.map((r) => Number(r.id));
-    const [unspscMap, translationsMap] = await Promise.all([
+    const [unspscMap, translationsMap, preciseMap] = await Promise.all([
       loadUnspscByNoticeIds(pool, noticeIds),
       loadTranslationsByNoticeIds(pool, ids),
+      loadPreciseByNoticeIds(pool, noticeIds),
     ]);
 
     const wideRows = allRaw.map((r) => buildWideRow(
       r, aliasMap,
       unspscMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
+      preciseMap.get(String(r.notice_id)),
     ));
     const synced = await upsertWideRows(pool, wideRows);
     const newWatermark = allRaw[allRaw.length - 1].id;
@@ -117,26 +125,43 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
     );
     const noticeIds = (rows as any[]).map((r) => String(r.notice_id));
     const rowIds = (rows as any[]).map((r) => Number(r.id));
-    const [unspscMap, translationsMap] = await Promise.all([
+    const [unspscMap, translationsMap, preciseMap] = await Promise.all([
       loadUnspscByNoticeIds(pool, noticeIds),
       loadTranslationsByNoticeIds(pool, rowIds),
+      loadPreciseByNoticeIds(pool, noticeIds),
     ]);
     const wideRows = (rows as any[]).map((r) => buildWideRow(
       r, aliasMap,
       unspscMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
+      preciseMap.get(String(r.notice_id)),
     ));
     const synced = await upsertWideRows(pool, wideRows);
-    // 根因修复：宽表更新后级联同步 Meilisearch，避免新译文只入宽表不入索引，
-    // 导致“列表能看到中文标题，但关键词搜索搜不到”的索引滞后问题；
-    // 失败 ID 进入重试队列（阶段 3 加固）
-    if (synced > 0 && isMeiliHealthy()) {
-      void syncNoticeIds(pool, ids).then((r) => {
-        if (r.synced < ids.length) enqueueRetry(ids);
-      }).catch((err) => {
-        console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+    // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文
+    if (synced > 0) invalidateUnifiedSearchCache();
+    // 级联同步 Meilisearch：宽表更新后必须同步到索引，避免数据断链。
+    // 修复 G1/G4/G5：不健康时先尝试 tryRecover 自愈，仍失败则标记重建 + 入重试队列，
+    // 不再静默丢弃——确保"宽表有数据但索引搜不到"的问题可自愈。
+    if (synced > 0) {
+      if (!isMeiliHealthy()) {
+        await tryRecover().catch(() => false);
+      }
+      if (isMeiliHealthy()) {
+        void syncNoticeIds(pool, ids).then((r) => {
+          const processed = r.synced + r.deleted;
+          logSyncCascade("meili", ids.length, processed > 0 ? "ok" : "fail");
+          if (processed < ids.length) enqueueRetry(ids);
+        }).catch((err) => {
+          console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+          logSyncCascade("meili", ids.length, "fail");
+          enqueueRetry(ids);
+        });
+      } else {
+        // 不健康且恢复失败：标记重建 + 入重试队列（不静默丢弃）
+        logSyncCascade("meili", ids.length, "retry");
+        requestIndexRebuild("cascade-skipped-unhealthy");
         enqueueRetry(ids);
-      });
+      }
     }
     return { synced };
   } catch (err) {
@@ -217,10 +242,23 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
         if (stopped) return;
         try {
           const reconciledIds = await reconcileDeadlineSec(pool);
-          if (reconciledIds.length > 0 && isMeiliHealthy()) {
-            void syncNoticeIds(pool, reconciledIds).catch((err) => {
-              console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
-            });
+          if (reconciledIds.length > 0) {
+            if (!isMeiliHealthy()) await tryRecover().catch(() => false);
+            if (isMeiliHealthy()) {
+              void syncNoticeIds(pool, reconciledIds).then((r) => {
+                const processed = r.synced + r.deleted;
+                logSyncCascade("meili", reconciledIds.length, processed > 0 ? "ok" : "fail");
+                if (processed < reconciledIds.length) enqueueRetry(reconciledIds);
+              }).catch((err) => {
+                console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+                logSyncCascade("meili", reconciledIds.length, "fail");
+                enqueueRetry(reconciledIds);
+              });
+            } else {
+              logSyncCascade("meili", reconciledIds.length, "retry");
+              requestIndexRebuild("cascade-skipped-unhealthy");
+              enqueueRetry(reconciledIds);
+            }
           }
         } catch (err) {
           console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
@@ -238,16 +276,28 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
           const featuredIds = await reconcileIsFeatured(pool);
           // 译文对账：宽表 title_zh 与翻译表 title_tr 不一致的行重新同步
           const translationIds = await reconcileTranslations(pool);
+          // precise 对账：专人更新 candidates 后跟随重算
+          const preciseIds = await reconcilePreciseCodes(pool);
 
           // 合并变更 ID 并同步到 Meilisearch
-          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds])];
-          if (allChangedIds.length > 0 && isMeiliHealthy()) {
-            void syncNoticeIds(pool, allChangedIds).then((r) => {
-              if (r.synced < allChangedIds.length) enqueueRetry(allChangedIds);
-            }).catch((err) => {
-              console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds])];
+          if (allChangedIds.length > 0) {
+            if (!isMeiliHealthy()) await tryRecover().catch(() => false);
+            if (isMeiliHealthy()) {
+              void syncNoticeIds(pool, allChangedIds).then((r) => {
+                const processed = r.synced + r.deleted;
+                logSyncCascade("meili", allChangedIds.length, processed > 0 ? "ok" : "fail");
+                if (processed < allChangedIds.length) enqueueRetry(allChangedIds);
+              }).catch((err) => {
+                console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+                logSyncCascade("meili", allChangedIds.length, "fail");
+                enqueueRetry(allChangedIds);
+              });
+            } else {
+              logSyncCascade("meili", allChangedIds.length, "retry");
+              requestIndexRebuild("cascade-skipped-unhealthy");
               enqueueRetry(allChangedIds);
-            });
+            }
           }
         } catch (err) {
           console.warn("[wide-table] 全量对账异常:", (err as Error).message);

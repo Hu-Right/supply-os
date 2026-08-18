@@ -19,6 +19,10 @@ export type UsePaymentOptions = {
   userKey: string;
   noticeId?: number | null;
   returnUrl?: string;
+  /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
+  orderType?: "new" | "upgrade";
+  /** 升级时的当前套餐 code（服务端校验用） */
+  originalPlanCode?: string;
   onPaymentSuccess: (orderNo: string) => void;
 };
 
@@ -59,6 +63,8 @@ export function usePayment({
   userKey,
   noticeId,
   returnUrl,
+  orderType,
+  originalPlanCode,
   onPaymentSuccess,
 }: UsePaymentOptions): UsePaymentReturn {
   const { t } = useLocale();
@@ -128,6 +134,8 @@ export function usePayment({
         provider: selectedProvider,
         noticeId,
         returnUrl,
+        orderType,
+        originalPlanCode,
       });
       setOrderInfo(order);
       setStep("waiting");

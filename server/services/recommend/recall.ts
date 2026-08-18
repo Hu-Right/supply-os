@@ -6,8 +6,6 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
-import { getTranslatedNoticeDetail } from "../translation/notice";
-import type { NoticesRepo } from "../../repos/notices.repo";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 
 export interface RecallResult {
@@ -74,11 +72,12 @@ export function processInterestCodes(
 }
 
 /**
- * 截止时间降级：无兴趣信号或召回为空时，按截止时间排序返回
+ * 截止时间降级：无兴趣信号或召回为空时，按截止时间排序返回。
+ * 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
  */
 export async function deadlineFallback(
   pool: Pool, page: number, pageSize: number, offset: number,
-  locale?: string, noticesRepo?: NoticesRepo,
+  locale?: string,
 ): Promise<{ items: any[]; total: number; page: number; pageSize: number; fallback: string }> {
   const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
   const cntRow = (cntRows as RowDataPacket[])[0];
@@ -105,22 +104,8 @@ export async function deadlineFallback(
     documents: undefined, procurement_files: undefined,
   }));
 
-  // 卡片国际化按需翻译：异步写入缓存，不阻塞当前响应
-  if (locale && noticesRepo) {
-    const missingRows = (fallbackRows as RowDataPacket[]).filter((row) => !row.title_i18n);
-    const toTranslate = missingRows.slice(0, 9);
-    if (toTranslate.length > 0) {
-      void Promise.all(
-        toTranslate.map(async (row) => {
-          try {
-            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
-            row.title_i18n = tr.title || null;
-            row.description_i18n = tr.description || null;
-          } catch { /* 翻译失败不影响列表主体 */ }
-        }),
-      );
-    }
-  }
+  // 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
+  // 译文生产统一收敛到定时任务（auto.ts）与详情页按需翻译两条路径。
 
   return {
     items: fallbackItems,

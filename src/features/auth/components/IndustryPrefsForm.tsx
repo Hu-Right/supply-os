@@ -6,18 +6,21 @@
  * @description 已登录面板的默认行业管理卡片：UNSPSC 三级级联（经
  *              useUnspscPrefCascade），进入回填已保存偏好，保存/清除成功后
  *              广播 supply-os:industry-prefs-updated 供公采页重新探测。
+ *              主营业务智能推断采用"候选确认"交互：高置信（>=0.6）自动回填，
+ *              其余展示候选列表由用户点选，杜绝低置信推断静默锁定错误分支。
  *              Industry preference card in the account panel: UNSPSC cascade,
  *              backfill saved prefs on mount, broadcast change event after
  *              save/clear so the procurement page re-probes.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { fetchIndustryPrefs, saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
-import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
+import { UnspscInferCandidates } from "./UnspscInferCandidates";
+import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import { Input } from "@/shared/ui";
 
 export interface IndustryPrefsFormProps {}
@@ -38,8 +41,7 @@ export function IndustryPrefsForm() {
     setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
-    autoFillFromInference,
-    searchAndAutoFillL3,
+    applyInferredPath,
     resetCascade,
   } = useUnspscPrefCascade();
 
@@ -52,11 +54,11 @@ export function IndustryPrefsForm() {
     setMainBusinessRaw(v);
     if (mbKey) localStorage.setItem(mbKey, v);
   };
-  const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
+  // 候选列表：置信度降序；高置信最优解（autoResult）由后端给出时才自动回填
+  const [inferCandidates, setInferCandidates] = useState<SmartInferCandidate[]>([]);
+  const [autoAppliedNodeId, setAutoAppliedNodeId] = useState<number | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
   const [inferSearched, setInferSearched] = useState(false);
-  // 关键词 ref：供 L2 变更时自动搜索 L3 使用
-  const keywordRef = useRef("");
 
   const [prefMessage, setPrefMessage] = useState("");
   const [prefMessageIsError, setPrefMessageIsError] = useState(false);
@@ -66,9 +68,9 @@ export function IndustryPrefsForm() {
     // 重置级联选择器、推断状态、主营业务关键词
     resetCascade();
     setMainBusinessRaw("");
-    setInferResult(null);
+    setInferCandidates([]);
+    setAutoAppliedNodeId(null);
     setInferSearched(false);
-    keywordRef.current = "";
     setPrefMessage("");
 
     const userKey = authUser?.user_key;
@@ -86,10 +88,11 @@ export function IndustryPrefsForm() {
     });
   }, [authUser?.user_key, resetCascade]);
 
-  // 防抖推断（300ms）：用户输入主营业务关键词后自动匹配 UNSPSC 类目路径
+  // 防抖推断（300ms）：用户输入主营业务关键词后匹配 UNSPSC 类目候选
   useEffect(() => {
     if (mainBusiness.trim().length < 1) {
-      setInferResult(null);
+      setInferCandidates([]);
+      setAutoAppliedNodeId(null);
       setInferSearched(false);
       return;
     }
@@ -98,11 +101,15 @@ export function IndustryPrefsForm() {
       setInferSearched(false);
       try {
         const data = await fetchSmartInferUnspsc(mainBusiness.trim());
+        const candidates = data?.candidates || [];
+        setInferCandidates(candidates);
         if (data?.result) {
-          setInferResult(data.result);
-          autoFillFromInference(data.result);
+          // 高置信（>=0.6）：自动回填级联并高亮对应候选，用户仍可改选
+          applyInferredPath(data.result);
+          setAutoAppliedNodeId(candidates[0]?.node_id ?? null);
         } else {
-          setInferResult(null);
+          // 低置信/多义：禁止自动填充，候选列表交由用户确认
+          setAutoAppliedNodeId(null);
         }
         setInferSearched(true);
       } catch {
@@ -112,23 +119,24 @@ export function IndustryPrefsForm() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [mainBusiness, autoFillFromInference]);
+  }, [mainBusiness, applyInferredPath]);
 
-  // 关键词或 L2 变更时，自动在三级子类中搜索匹配项
-  useEffect(() => {
-    keywordRef.current = mainBusiness.trim();
-    if (keywordRef.current && prefLevel2) {
-      searchAndAutoFillL3(keywordRef.current);
-    }
-  }, [mainBusiness, prefLevel2, searchAndAutoFillL3]);
+  // 用户从候选中点选：以该候选路径回填级联（L1~L3），L4/L5 不参与
+  const pickCandidate = (candidate: SmartInferCandidate) => {
+    applyInferredPath(candidate);
+    setAutoAppliedNodeId(candidate.node_id);
+    setPrefMessage("");
+  };
 
   const handleLevel1 = (value: string) => {
     handlePrefLevel1Change(value);
+    setAutoAppliedNodeId(null); // 手动改选：清除推断高亮
     setPrefMessage("");
   };
 
   const handleLevel2 = (value: string) => {
     handlePrefLevel2Change(value);
+    setAutoAppliedNodeId(null);
     setPrefMessage("");
   };
 
@@ -141,11 +149,8 @@ export function IndustryPrefsForm() {
   const savePrefs = async () => {
     if (!authUser?.user_key || !prefLevel1 || !prefLevel2) return;
     try {
-      // 修复：仅持久化表单可见的 1~3 级。level4/5_id 来自主营业务智能推断的
-      // 隐藏深层类目（表单不可见、不可编辑），持久化后会导致页面刷新按
-      // level4/5_id 筛选（极窄），与手动选择 1~2 级（level2_id 宽口径）
-      // 的搜索结果不一致；且用户手动改选 L1/L2 后 inferResult 为陈旧状态，
-      // 会写入跨分支的混合路径。
+      // 仅持久化用户在 UI 中确认过的 L1~L3；L4/L5 是推断产物，
+      // 静默保存会在推断出错时把匹配锁定到错误分支（最高分档），故恒置 null
       await saveIndustryPrefs(authUser.user_key, {
         level1_id: Number(prefLevel1),
         level2_id: Number(prefLevel2),
@@ -176,7 +181,8 @@ export function IndustryPrefsForm() {
       setPrefLevel3("");
       setMainBusiness("");
       if (mbKey) localStorage.removeItem(mbKey);
-      setInferResult(null);
+      setInferCandidates([]);
+      setAutoAppliedNodeId(null);
       setInferSearched(false);
       setPrefMessageIsError(false);
       setPrefMessage(t("authIndustryPrefCleared"));
@@ -189,6 +195,11 @@ export function IndustryPrefsForm() {
     }
   };
 
+  // 推断反馈文案：自动应用 → 确认可改；未自动应用 → 引导手动点选
+  const inferHint = autoAppliedNodeId
+    ? `${t("authMainBusinessInferred")}，${t("authMainBusinessCandidateChange")}`
+    : t("authMainBusinessCandidatePick");
+
   return (
     /* 我的默认行业 — 公采页进入时按此偏好默认筛选（本地差异 #5 配套 UI） */
     <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
@@ -200,7 +211,7 @@ export function IndustryPrefsForm() {
           {t("authIndustryPrefRequiredHint")}
         </p>
       </div>
-      {/* 主营业务智能推断 + 三级分类选择 */}
+      {/* 主营业务智能推断 + 候选确认 + 三级分类选择 */}
       <div className="mt-3">
         <Input
           type="text"
@@ -212,12 +223,15 @@ export function IndustryPrefsForm() {
         {inferLoading && (
           <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
         )}
-        {inferResult && !inferLoading && (
-          <p className="mt-1 text-[11px] text-teal-600">
-            {t("authMainBusinessInferred")}: {inferResult.matched_title}
-          </p>
+        {!inferLoading && inferCandidates.length > 0 && (
+          <UnspscInferCandidates
+            candidates={inferCandidates}
+            appliedNodeId={autoAppliedNodeId}
+            hint={inferHint}
+            onPick={pickCandidate}
+          />
         )}
-        {!inferResult && inferSearched && !inferLoading && (
+        {!inferLoading && inferCandidates.length === 0 && inferSearched && (
           <p className="mt-1 text-[11px] text-amber-600">
             {t("authMainBusinessNoMatch")}
           </p>

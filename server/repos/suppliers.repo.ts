@@ -4,7 +4,7 @@
  *
  * @module server/repos/suppliers.repo
  * @deprecated 已拆分至 suppliers/ 子目录。本文件保留 SuppliersRepo 聚合类
- *             以维持 ctx.suppliersRepo.xxx 调用方的向后兼容。
+ *             以维持 ctx.supplier.suppliersRepo.xxx 调用方的向后兼容。
  *             新代码请直接导入子 Repo（如 SupplierDirectoryRepo）。
  * @see suppliers/index.ts
  */

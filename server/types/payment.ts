@@ -33,6 +33,10 @@ export interface CreateOrderRequest {
   return_url?: string;
   /** 客户端 IP（微信支付 payer_client_ip 需要） */
   client_ip?: string;
+  /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
+  order_type?: "new" | "upgrade";
+  /** 升级时的当前套餐 code（服务端校验用） */
+  original_plan_code?: string;
 }
 
 export interface OrderInfo {

@@ -248,20 +248,32 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
   // 「查看全部」/手动改筛选：退出自动模式（带降级链）
   // 统一化重构：行业匹配 → 推荐（如果有推荐数据）→ 全量搜索
+  // BUG 修复：异步探测的 .then() 可在用户后续手动操作之后才执行，
+  // 覆盖 handleLevelChange 已设置的 "default" 模式。
+  // 修复方案：用 ref 记录退出时的快照序号，异步回调仅在序号未变时才设置模式。
+  const exitSeqRef = useRef(0);
+
   const exitAutoMode = () => {
+    // 递增序号：标记本次退出操作，后续异步回调通过比对序号判断是否过期
+    const mySeq = exitSeqRef.current + 1;
+    exitSeqRef.current = mySeq;
+
     if (prefsMode === "prefs" && userKey) {
       // 取消行业匹配：尝试降级到推荐
       fetchUnifiedSearch({ mode: "recommended", userKey, page: 1, pageSize: PAGE_SIZE })
         .then((probe) => {
+          // 序号过期说明用户已做后续操作，跳过模式覆盖
+          if (exitSeqRef.current !== mySeq) return;
           if (Number(probe.total || 0) > 0) {
             setPrefsMode("recommended");
           } else {
             setPrefsMode("default");
           }
         })
-        .catch(() => setPrefsMode("default"));
+        .catch(() => { if (exitSeqRef.current === mySeq) setPrefsMode("default"); });
     } else if (prefsMode === "recommended" && userKey && hasIndustryPrefs) {
       // 取消推荐：有行业偏好则降级到行业匹配
+      if (exitSeqRef.current !== mySeq) return;
       setPrefsMode("prefs");
       void restorePrefsMode();
     } else {
@@ -353,6 +365,8 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   const handleLevelChange = async (levelIndex: number, value: string) => {
     // 用户手动操作任一级筛选：立即退出 prefs/recommended 自动模式（提示条消失，会话内按手动为准）
     if (prefsMode !== "default") setPrefsMode("default");
+    // 递增退出序号：使 exitAutoMode 的待执行异步回调失效（防止竞态覆盖）
+    exitSeqRef.current += 1;
     // BUG2 修复：使用函数式更新确保基于最新状态，避免快速连击竞态
     setSelectedIds((prev) => {
       const next = prev.map((id, index) => (index < levelIndex ? id : ""));

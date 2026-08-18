@@ -7,10 +7,10 @@
  *              之后每 1 分钟增量同步。同步失败时静默降级，不影响主服务运行。
  */
 import type { Pool } from "mysql2/promise";
-import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasOldSentinel, hasHasDeadlineField } from "./meilisearch";
+import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasHasDeadlineField } from "./meilisearch";
 import { getWideTableCount } from "./meilisearch/sync";
 import { isHealthy, tryRecover } from "./meilisearch/client";
-import { tryRunPendingRebuild } from "./search-orchestrator/rebuild-trigger";
+import { tryRunPendingRebuild, requestIndexRebuild } from "./search-orchestrator/rebuild-trigger";
 
 export interface SyncOptions {
   /** 增量同步间隔（毫秒），默认 1 分钟 */
@@ -31,6 +31,8 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
   // 降级演练修复：setInterval 回调不串行，init() 长耗时（fullSync 数分钟）期间
   // 后续 tick 会重入初始化，导致多个 fullSync 并发互相清空索引；加重入守卫
   let initializing = false;
+  // 覆盖率对账计数器：每 10 轮增量同步后检查一次索引覆盖率
+  let syncCount = 0;
 
   /**
    * 启动初始化：从 Meilisearch 恢复 watermark，避免重复全量同步。
@@ -86,6 +88,21 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
       // 静默降级，不影响主服务
       console.warn("[meilisearch] 增量同步异常（静默降级）:", (err as Error).message);
     }
+    // 覆盖率对账：每 10 轮增量同步后检查 Meilisearch 文档数与宽表行数的比值，
+    // 差距超过 5% 时主动触发全量重建，防止索引长期不完整导致"数据库有但搜不到"
+    syncCount++;
+    if (initialized && syncCount % 10 === 0 && isHealthy()) {
+      try {
+        const [meiliCount, wideCount] = await Promise.all([getDocCount(), getWideTableCount(pool)]);
+        if (wideCount > 0 && meiliCount < wideCount * 0.95) {
+          const pct = (meiliCount / wideCount * 100).toFixed(1);
+          console.warn(`[meilisearch] 索引覆盖率不足: Meilisearch=${meiliCount} / 宽表=${wideCount} (${pct}%)，触发全量重建`);
+          requestIndexRebuild("coverage-gap");
+        }
+      } catch {
+        // 查询失败静默忽略，下轮再试
+      }
+    }
     // 重建触发器：仅当 Meilisearch 健康且有待处理重建时执行
     try {
       await tryRunPendingRebuild(pool);
@@ -116,13 +133,14 @@ async function initWatermark(): Promise<{ watermark: number; docCount: number }>
   return { watermark: lastId, docCount };
 }
 
-/** 检测 Meilisearch 索引中的问题：旧哨兵值 + ghost IDs + 缺少 has_deadline 字段 */
+/** 检测 Meilisearch 索引中的问题：ghost IDs + 缺少 has_deadline 字段 */
 async function detectIndexIssues(pool: Pool): Promise<string[]> {
   const issues: string[] = [];
 
-  // 检测旧哨兵值
-  const hasOld = await hasOldSentinel();
-  if (hasOld) issues.push("旧哨兵值(9999999999)");
+  // [修复 030-c] 移除旧哨兵值检测（hasOldSentinel）。
+  // 迁移 030 已将宽表 deadline_sec 扩容为 BIGINT UNSIGNED，
+  // 合法的远期截止日期（如 32503478400 ≈ 公元 3000 年）会超过旧阈值 9999999999，
+  // 导致每次重启都误判为"旧哨兵值"并触发不必要的全量重建。
 
   // 检测 has_deadline 字段缺失（排序修复后新增的字段，旧索引需要全量重建）
   const hasDeadlineField = await hasHasDeadlineField();

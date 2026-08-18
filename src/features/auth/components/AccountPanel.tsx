@@ -12,6 +12,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
@@ -24,7 +25,13 @@ export interface AccountPanelProps {
 export function AccountPanel({ onClose }: AccountPanelProps) {
   const { t } = useLocale();
   const { authUser, isVip, logout, claimMessage } = useAuth();
+  const { tierLabel } = useMembershipTier();
   const navigate = useNavigate();
+
+  // VIP 徽章文案：按已解锁套餐显示等级（如"基础版"），兜底"VIP 会员"/"免费会员"
+  const tierBadgeText = isVip
+    ? tierLabel || t("authVipMember")
+    : t("authFreeMember");
 
   // 打开关联公告：先关闭账户弹窗再跳转到公采页
   const openNotice = (noticeId: number) => {
@@ -56,7 +63,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
                 : "bg-white text-slate-600 border border-slate-200"
             }`}
           >
-            {isVip ? t("authVipMember") : t("authFreeMember")}
+            {tierBadgeText}
           </span>
         </div>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">

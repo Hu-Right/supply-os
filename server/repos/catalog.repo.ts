@@ -34,6 +34,82 @@ export interface SmartInferResult {
   matched_title: string | null;
 }
 
+/** 智能推断候选：完整路径 + 置信度（0~1，关键词词元在类目名中的命中率） */
+export interface SmartInferCandidate extends SmartInferResult {
+  /** 命中的类目节点 id */
+  node_id: number;
+  /** 命中的类目节点层级 */
+  node_level: number;
+  /** 置信度 0~1：越高表示关键词与类目名匹配越完整 */
+  score: number;
+}
+
+/** 智能推断输出：高置信最优解 + 候选列表（供前端让用户确认） */
+export interface SmartInferOutput {
+  /** 置信度 >= 0.6 的最优匹配；null 表示禁止自动填充，须由用户从候选中选择 */
+  best: SmartInferResult | null;
+  /** 按置信度降序的候选列表（score >= 0.4，最多 5 条） */
+  candidates: SmartInferCandidate[];
+}
+
+/** 置信度 >= 该值才允许前端自动填充级联 */
+const AUTO_FILL_THRESHOLD = 0.6;
+/** 置信度 >= 该值才进入候选列表 */
+const CANDIDATE_THRESHOLD = 0.4;
+
+/** 同分时的层级偏好：优先更具体的类目（L4/L5），但不再凌驾于语义得分之上 */
+const LEVEL_PREF_ORDER: Record<number, number> = { 4: 0, 5: 1, 3: 2, 2: 3, 1: 4 };
+
+/** 中文串切二元组（bigram，去重保序）："医疗器械" → ["医疗","疗器","器械"] */
+function extractBigrams(zh: string): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + 1 < zh.length; i += 1) {
+    const bg = zh.slice(i, i + 2);
+    if (!out.includes(bg)) out.push(bg);
+  }
+  return out;
+}
+
+/** 提取英文词元（长度 >= 2，小写去重） */
+function extractEnWords(kw: string): string[] {
+  const words = kw.toLowerCase().match(/[a-z0-9]{2,}/g) || [];
+  return [...new Set(words)];
+}
+
+/** 候选评分：中文整词包含 → 1，否则 bigram 覆盖率；英文按词覆盖率（整串包含 → 1） */
+function scoreUnspscCandidate(
+  row: UnspscRow,
+  zh: string,
+  bigrams: string[],
+  enWords: string[],
+  qLower: string,
+): number {
+  let score = 0;
+  const titleZh = row.title_zh || "";
+  const titleLower = (row.title || "").toLowerCase();
+
+  if (zh.length >= 2 && titleZh.includes(zh)) {
+    score = 1;
+  } else if (zh.length === 1 && titleZh.includes(zh)) {
+    // 单字输入过于宽泛：封顶 0.5，只作候选、禁止自动填充
+    score = 0.5;
+  } else if (bigrams.length > 0) {
+    const hit = bigrams.filter((bg) => titleZh.includes(bg)).length;
+    // ×0.95 与整词包含拉开差距，保证完整命中恒排第一
+    score = Math.max(score, (hit / bigrams.length) * 0.95);
+  }
+
+  if (enWords.length > 0) {
+    if (titleLower.includes(qLower)) {
+      score = Math.max(score, 1);
+    } else {
+      const hit = enWords.filter((w) => titleLower.includes(w)).length;
+      score = Math.max(score, (hit / enWords.length) * 0.95);
+    }
+  }
+  return Math.round(score * 100) / 100;
+}
+
 export class CatalogRepo {
   constructor(private pool: Pool) {}
 
@@ -78,88 +154,96 @@ export class CatalogRepo {
     return rows as UnspscRow[];
   }
 
-  /** 智能推断 UNSPSC 类目：输入关键词，返回最佳匹配的完整路径（L1→L5）。
-   *  多策略搜索回退：
-   *    策略1: 完整关键词 LIKE 匹配（title_zh + title）
-   *    策略2: 中文输入拆分为单字符，要求全部字符均出现在 title_zh（AND 语义）
-   *    策略3: 单字符 OR 匹配，按匹配字符数排序（降级模糊匹配）
-   *    策略4: 英文 title 小写关键词匹配
-   *  每级均优先 L4/L5 精确类目。
+  /** 智能推断 UNSPSC 类目：输入关键词，返回最优匹配路径与候选列表。
+   *
+   *  评分式召回（替代旧版单字符 LIKE 逐级回退）：
+   *    1. 召回：中文整词/bigram + 英文整串/词元，多组 LIKE OR 一次查出候选节点
+   *    2. 评分：中文整词包含 → 1.0，否则按 bigram 覆盖率；英文按词覆盖率
+   *       （旧版"任一单字命中即返回"的 OR 噪声被覆盖率阈值过滤）
+   *    3. 门槛：score < 0.4 不作候选；< 0.6 不自动填充（best=null），
+   *       由前端展示候选让用户确认，避免推断错误污染行业偏好
+   *  同分时优先更深层级（L4/L5）与更短类目名，仅作为次序 tiebreak。
    */
-  async smartInferUnspsc(q: string): Promise<SmartInferResult | null> {
-    const matched = await this.multiStrategySearch(q);
-    if (!matched) return null;
-    const path = await getUnspscPath(this.pool, matched.id);
-    return {
-      level1_id: path.level1_id,
-      level2_id: path.level2_id,
-      level3_id: path.level3_id,
-      level4_id: path.level4_id,
-      level5_id: path.level5_id,
-      matched_title: matched.title_zh || matched.title || null,
-    };
+  async smartInferUnspsc(q: string): Promise<SmartInferOutput> {
+    const kw = q.trim().replace(/\s+/g, " ");
+    if (!kw) return { best: null, candidates: [] };
+
+    const zh = kw.replace(/[^\u4e00-\u9fff]/g, "");
+    const bigrams = extractBigrams(zh);
+    const enWords = extractEnWords(kw);
+    const qLower = kw.toLowerCase();
+
+    const rows = await this.collectCandidates(kw, zh, bigrams, enWords);
+    if (rows.length === 0) return { best: null, candidates: [] };
+
+    const scored = rows
+      .map((row) => ({ row, score: scoreUnspscCandidate(row, zh, bigrams, enWords, qLower) }))
+      .filter((item) => item.score >= CANDIDATE_THRESHOLD);
+
+    scored.sort((a, b) =>
+      b.score - a.score
+      || (LEVEL_PREF_ORDER[a.row.level] ?? 9) - (LEVEL_PREF_ORDER[b.row.level] ?? 9)
+      || String(a.row.title_zh || a.row.title || "").length - String(b.row.title_zh || b.row.title || "").length,
+    );
+
+    const top = scored.slice(0, 5);
+    const paths = await Promise.all(top.map((item) => getUnspscPath(this.pool, item.row.id)));
+    const candidates: SmartInferCandidate[] = top.map((item, idx) => {
+      const path = paths[idx];
+      return {
+        level1_id: path.level1_id ?? null,
+        level2_id: path.level2_id ?? null,
+        level3_id: path.level3_id ?? null,
+        level4_id: path.level4_id ?? null,
+        level5_id: path.level5_id ?? null,
+        matched_title: item.row.title_zh || item.row.title || null,
+        node_id: item.row.id,
+        node_level: item.row.level,
+        score: item.score,
+      };
+    });
+
+    // 低置信 / 单字输入：不给自动填充解，强制用户从候选中确认
+    const best = candidates.length > 0 && candidates[0].score >= AUTO_FILL_THRESHOLD
+      ? candidates[0]
+      : null;
+    return { best, candidates };
   }
 
-  /** 多策略搜索：逐级回退直到找到匹配类目 */
-  private async multiStrategySearch(q: string): Promise<UnspscRow | null> {
-    const like = `%${q}%`;
+  /** 召回候选类目节点：中文整词 + bigram（中文）与整串 + 词元（英文）OR 组合，应用层再评分 */
+  private async collectCandidates(
+    kw: string,
+    zh: string,
+    bigrams: string[],
+    enWords: string[],
+  ): Promise<UnspscRow[]> {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
 
-    // 策略 1：完整关键词 LIKE 匹配（title_zh 或 title）
-    const [r1] = await this.pool.query(
+    if (zh.length >= 1) {
+      // 单字也召回（评分端封顶 0.5），避免输入单字时零反馈
+      clauses.push("title_zh LIKE ?");
+      params.push(`%${zh}%`);
+    }
+    for (const bg of bigrams.slice(0, 8)) {
+      clauses.push("title_zh LIKE ?");
+      params.push(`%${bg}%`);
+    }
+    clauses.push("LOWER(title) LIKE ?");
+    params.push(`%${kw.toLowerCase()}%`);
+    for (const w of enWords.slice(0, 4)) {
+      clauses.push("LOWER(title) LIKE ?");
+      params.push(`%${w}%`);
+    }
+    if (clauses.length === 0) return [];
+
+    const [rows] = await this.pool.query(
       `SELECT id, title_zh, title, code, parent_id, level
        FROM crm_unspsc_codes
-       WHERE title_zh LIKE ? OR title LIKE ?
-       ORDER BY FIELD(level, 4, 5, 3, 2, 1), CHAR_LENGTH(code) DESC
-       LIMIT 5`,
-      [like, like],
+       WHERE ${clauses.join(" OR ")}
+       LIMIT 60`,
+      params,
     );
-    if ((r1 as UnspscRow[]).length > 0) return (r1 as UnspscRow[])[0];
-
-    // 提取中文字符用于后续策略（排除空格、标点、ASCII）
-    const chars = [...new Set(q.replace(/[\s\x00-\x7F]/g, ""))].filter(Boolean);
-    if (chars.length === 0) return null;
-
-    // 策略 2：所有字符均出现在 title_zh（AND 语义）——适合"钢铁"→"不锈钢合金"类匹配
-    const allCharClauses = chars.map(() => "title_zh LIKE ?").join(" AND ");
-    const allCharParams = chars.map((c) => `%${c}%`);
-    const [r2] = await this.pool.query(
-      `SELECT id, title_zh, title, code, parent_id, level
-       FROM crm_unspsc_codes
-       WHERE ${allCharClauses}
-       ORDER BY FIELD(level, 4, 5, 3, 2, 1), CHAR_LENGTH(code) DESC
-       LIMIT 5`,
-      allCharParams,
-    );
-    if ((r2 as UnspscRow[]).length > 0) return (r2 as UnspscRow[])[0];
-
-    // 策略 3：至少一个字符匹配（OR 语义），按匹配字符数降序排列
-    const anyCharClauses = chars.map(() => "title_zh LIKE ?").join(" OR ");
-    const scoreExpr = chars.map(() => "(title_zh LIKE ?)").join(" + ");
-    const anyCharParams = chars.map((c) => `%${c}%`);
-    const scoreParams = chars.map((c) => `%${c}%`);
-    const [r3] = await this.pool.query(
-      `SELECT id, title_zh, title, code, parent_id, level,
-              (${scoreExpr}) AS matched_chars
-       FROM crm_unspsc_codes
-       WHERE ${anyCharClauses}
-       ORDER BY matched_chars DESC, FIELD(level, 4, 5, 3, 2, 1), CHAR_LENGTH(code) DESC
-       LIMIT 5`,
-      [...anyCharParams, ...scoreParams],
-    );
-    if ((r3 as UnspscRow[]).length > 0) return (r3 as UnspscRow[])[0];
-
-    // 策略 4：英文 title 小写匹配
-    const qLower = q.toLowerCase();
-    const [r4] = await this.pool.query(
-      `SELECT id, title_zh, title, code, parent_id, level
-       FROM crm_unspsc_codes
-       WHERE LOWER(title) LIKE ?
-       ORDER BY FIELD(level, 4, 5, 3, 2, 1), CHAR_LENGTH(code) DESC
-       LIMIT 5`,
-      [`%${qLower}%`],
-    );
-    if ((r4 as UnspscRow[]).length > 0) return (r4 as UnspscRow[])[0];
-
-    return null;
+    return rows as UnspscRow[];
   }
 }

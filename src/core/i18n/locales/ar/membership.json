@@ -42,5 +42,19 @@
   "statusPanelFreeQuota": "Free Quota",
   "statusPanelTimes": "times",
   "statusPanelNoEntitlement": "No paid benefits yet. Upgrade to unlock more",
-  "statusPanelUpgradeBtn": "View Plans"
+  "statusPanelUpgradeBtn": "View Plans",
+  "upgradeBtn": "ترقية الخطة",
+  "upgradeConfirmTitle": "تأكيد ترقية الخطة",
+  "upgradeLoading": "جارٍ إرسال الترقية…",
+  "upgradeNotAvailable": "الترقية غير متاحة حاليًا",
+  "upgradeCurrentPlan": "الخطة الحالية",
+  "upgradeUsed": "مستخدم",
+  "upgradeTargetPlan": "الترقية إلى",
+  "upgradeTargetQuota": "الحصة المستهدفة",
+  "upgradeRemaining": "الحصة المتبقية",
+  "upgradeValidity": "الصلاحية",
+  "upgradeValidityUnchanged": "الصلاحية دون تغيير",
+  "upgradePriceDiff": "فرق السعر",
+  "upgradeCancelBtn": "إلغاء",
+  "upgradeConfirmBtn": "تأكيد الترقية"
 }

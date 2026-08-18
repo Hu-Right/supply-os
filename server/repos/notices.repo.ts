@@ -4,7 +4,7 @@
  *
  * @module server/repos/notices.repo
  * @deprecated 已拆分至 notices/ 子目录。本文件保留 NoticesRepo 聚合类
- *             以维持 ctx.noticesRepo.xxx 调用方的向后兼容。
+ *             以维持 ctx.notice.noticesRepo.xxx 调用方的向后兼容。
  *             新代码请直接导入子 Repo（如 NoticeDetailRepo）。
  * @see notices/index.ts
  */

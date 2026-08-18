@@ -41,9 +41,9 @@ export function createPasswordRouter(
   phoneSmsRateLimiter: RateLimiter,
 ): Router {
   const router = Router();
-  const usersRepo = ctx.usersRepo;
-  const membershipRepo = ctx.membershipRepo;
-  const suppliersRepo = ctx.suppliersRepo;
+  const usersRepo = ctx.user.usersRepo;
+  const membershipRepo = ctx.user.membershipRepo;
+  const suppliersRepo = ctx.supplier.suppliersRepo;
 
   // ── 检查邮箱是否绑定手机号 ──────────────────────────────────────────
   router.post("/api/auth/check-email-phone", asyncHandler(async (req, res) => {

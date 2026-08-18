@@ -4,13 +4,14 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Input, Select } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import { useUnspscPrefCascade } from "../../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "../UnspscPrefSelects";
-import { fetchSmartInferUnspsc, type SmartInferResult } from "@/core/unspsc";
+import { UnspscInferCandidates } from "../UnspscInferCandidates";
+import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
 
@@ -44,21 +45,21 @@ export function RegisterForm({
     setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
-    autoFillFromInference,
-    searchAndAutoFillL3,
+    applyInferredPath,
   } = useUnspscPrefCascade();
 
-  // 主营业务智能推断
+  // 主营业务智能推断（候选确认式：高置信自动回填，其余由用户点选）
   const [mainBusiness, setMainBusiness] = useState("");
-  const [inferResult, setInferResult] = useState<SmartInferResult | null>(null);
+  const [inferCandidates, setInferCandidates] = useState<SmartInferCandidate[]>([]);
+  const [autoAppliedNodeId, setAutoAppliedNodeId] = useState<number | null>(null);
   const [inferLoading, setInferLoading] = useState(false);
   const [inferSearched, setInferSearched] = useState(false);
-  const keywordRef = useRef("");
 
   // 防抖推断
   useEffect(() => {
     if (mainBusiness.trim().length < 1) {
-      setInferResult(null);
+      setInferCandidates([]);
+      setAutoAppliedNodeId(null);
       setInferSearched(false);
       return;
     }
@@ -67,11 +68,14 @@ export function RegisterForm({
       setInferSearched(false);
       try {
         const data = await fetchSmartInferUnspsc(mainBusiness.trim());
+        const candidates = data?.candidates || [];
+        setInferCandidates(candidates);
         if (data?.result) {
-          setInferResult(data.result);
-          autoFillFromInference(data.result);
+          // 高置信（>=0.6）：自动回填级联并高亮对应候选，用户仍可改选
+          applyInferredPath(data.result);
+          setAutoAppliedNodeId(candidates[0]?.node_id ?? null);
         } else {
-          setInferResult(null);
+          setAutoAppliedNodeId(null);
         }
         setInferSearched(true);
       } catch {
@@ -81,15 +85,18 @@ export function RegisterForm({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [mainBusiness, autoFillFromInference]);
+  }, [mainBusiness, applyInferredPath]);
 
-  // 关键词或 L2 变更时自动搜索 L3
-  useEffect(() => {
-    keywordRef.current = mainBusiness.trim();
-    if (keywordRef.current && prefLevel2) {
-      searchAndAutoFillL3(keywordRef.current);
-    }
-  }, [mainBusiness, prefLevel2, searchAndAutoFillL3]);
+  // 用户从候选中点选：以该候选路径回填级联（L1~L3），L4/L5 不参与
+  const pickCandidate = (candidate: SmartInferCandidate) => {
+    applyInferredPath(candidate);
+    setAutoAppliedNodeId(candidate.node_id);
+  };
+
+  // 推断反馈文案：自动应用 → 确认可改；未自动应用 → 引导手动点选
+  const inferHint = autoAppliedNodeId
+    ? `${t("authMainBusinessInferred")}，${t("authMainBusinessCandidateChange")}`
+    : t("authMainBusinessCandidatePick");
 
   return (
     <div className="space-y-3">
@@ -161,12 +168,15 @@ export function RegisterForm({
           {inferLoading && (
             <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
           )}
-          {inferResult && !inferLoading && (
-            <p className="mt-1 text-[11px] text-teal-600">
-              {t("authMainBusinessInferred")}: {inferResult.matched_title}
-            </p>
+          {!inferLoading && inferCandidates.length > 0 && (
+            <UnspscInferCandidates
+              candidates={inferCandidates}
+              appliedNodeId={autoAppliedNodeId}
+              hint={inferHint}
+              onPick={pickCandidate}
+            />
           )}
-          {!inferResult && inferSearched && !inferLoading && (
+          {!inferLoading && inferCandidates.length === 0 && inferSearched && (
             <p className="mt-1 text-[11px] text-amber-600">
               {t("authMainBusinessNoMatch")}
             </p>
@@ -248,6 +258,3 @@ export function RegisterForm({
     </div>
   );
 }
-
-// 导出供外部使用
-export { type SmartInferResult };

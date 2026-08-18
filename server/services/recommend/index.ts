@@ -19,8 +19,6 @@ import {
   tokenizeNoticeText, jaccardTokenSim, S_TEXT_BONUS, getUserUnlockKeywords,
 } from "./text-similarity";
 import { backfillNoticeAmountCache } from "../amount/index";
-import type { NoticesRepo } from "../../repos/notices.repo";
-import { getTranslatedNoticeDetail } from "../translation/notice";
 import { deadlineFallback, processInterestCodes } from "./recall";
 import { buildScoringContext, getAmountPreference, resolveWeights } from "./scoring";
 import { mmrRerankPage, buildRecoReasons } from "./rerank";
@@ -41,12 +39,17 @@ export interface NoticeRecommendResult {
   fallback?: string;
 }
 
+/**
+ * 推荐主入口。
+ * 架构约束：推荐链路只读已有译文缓存，绝不触发翻译请求。
+ * 译文生产统一收敛到定时任务（translation/auto.ts）与详情页按需翻译。
+ */
 export async function recommendNotices(
   pool: Pool, userKey: string, page: number, pageSize: number,
-  locale?: string, noticesRepo?: NoticesRepo,
+  locale?: string,
 ): Promise<NoticeRecommendResult> {
   const offset = (page - 1) * pageSize;
-  if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
+  if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // 缓存命中检查
   const recoCacheKey = `${userKey}:${page}:${pageSize}:${locale || ""}`;
@@ -64,7 +67,7 @@ export async function recommendNotices(
   );
 
   const { scoredCodes, clauses, interestTotal } = processInterestCodes(interestRows as RowDataPacket[], DEPTH_FACTOR);
-  if (clauses.bridgeWhere === "") return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
+  if (clauses.bridgeWhere === "") return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // ── 评分上下文：COUNT + 权重画像并行 ──
   const variant = recoVariant(userKey);
@@ -126,7 +129,7 @@ export async function recommendNotices(
     );
   } catch (err) {
     console.error("[recommendNotices] main query failed, falling back to deadline:", err);
-    return deadlineFallback(pool, page, pageSize, offset, locale, noticesRepo);
+    return deadlineFallback(pool, page, pageSize, offset, locale);
   }
 
   // ── 后处理 ──
@@ -154,23 +157,8 @@ export async function recommendNotices(
     };
   });
 
-  // 卡片国际化按需翻译
-  if (locale && noticesRepo) {
-    const rawRows = rows as RowDataPacket[];
-    const missingRows = rawRows.filter((row) => !row.title_i18n);
-    const toTranslate = missingRows.slice(0, 9);
-    if (toTranslate.length > 0) {
-      void Promise.all(
-        toTranslate.map(async (row) => {
-          try {
-            const tr = await getTranslatedNoticeDetail(Number(row.id), locale, noticesRepo, pool);
-            row.title_i18n = tr.title || null;
-            row.description_i18n = tr.description || null;
-          } catch { /* 翻译失败不影响列表主体 */ }
-        }),
-      );
-    }
-  }
+  // 列表译文仅从已有缓存读取（trJoin），不触发任何翻译请求。
+  // 译文生产统一收敛到定时任务（auto.ts）与详情页按需翻译两条路径。
 
   const result: NoticeRecommendResult = {
     items: resultItems,

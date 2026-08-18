@@ -26,7 +26,7 @@ const reportCacheDir = () => path.join(process.cwd(), "runtime", "bid_reports");
 
 export function createNoticeReportRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.noticesRepo;
+  const noticesRepo = ctx.notice.noticesRepo;
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
   // ── 报告预览（结构化 JSON 摘要，前端 ReportPreviewPanel 消费）──

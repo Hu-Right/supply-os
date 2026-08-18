@@ -145,6 +145,17 @@ async function queryQualifiedOpportunity(dbPool: any, notice: any) {
 // 用 FEATURED_NOTICE_EXISTS 实时计算结果同步到 crm_bid_notices.is_featured 列
 // 启动时执行一次初始回填，之后每 30 分钟增量刷新
 // 回滚：删除 refreshFeaturedColumn 函数，移除 bootstrap.ts 中的调用
+
+// ── 精选状态变更联动回调（修复 G3）──
+// 当 refreshFeaturedColumn 更新了 is_featured 后，需通知同步模块将变更
+// 级联到宽表 → Meilisearch 索引。使用回调注册机制避免循环依赖。
+let _onFeaturedChanged: ((ids: number[]) => void) | null = null;
+
+/** 注册精选状态变更的同步回调（由 bootstrap 在启动时调用） */
+export function registerFeaturedSyncCallback(cb: (ids: number[]) => void): void {
+  _onFeaturedChanged = cb;
+}
+
 export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: number; unmarked: number; changedIds: number[] }> {
   // 步骤 1：查询即将被标记为 featured 的 ID（当前 is_featured=0 但符合条件）
   const [toMarkRows] = await dbPool.query(
@@ -180,6 +191,11 @@ export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: num
 
   if (marked > 0 || unmarked > 0) {
     console.log(`[featured-refresh] marked=${marked} unmarked=${unmarked}`);
+    // 修复 G3：精选状态变更后触发级联同步（宽表 → Meilisearch），
+    // 确保 is_featured 字段在搜索索引中及时更新
+    if (changedIds.length > 0 && _onFeaturedChanged) {
+      _onFeaturedChanged(changedIds);
+    }
   }
   return { marked, unmarked, changedIds };
 }

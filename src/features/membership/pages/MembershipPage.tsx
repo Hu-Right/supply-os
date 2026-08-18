@@ -7,6 +7,7 @@
  *              子模块：utils（工具函数）、hooks（数据加载）、components（卡片组件）。
  */
 
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/core/auth";
@@ -14,9 +15,11 @@ import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
+import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
+import { fetchUpgradePreview } from "../api";
 import { getGridCols } from "../utils";
-import type { MembershipPlan } from "@/types";
+import type { MembershipPlan, UpgradePreview } from "@/types";
 
 export default function MembershipPage() {
   const [searchParams] = useSearchParams();
@@ -24,7 +27,13 @@ export default function MembershipPage() {
   const { authUser, isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, loading, error } = useMembershipData();
+  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+
+  // ── 升级弹窗状态 ──
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<MembershipPlan | null>(null);
 
   const handleBuyPlan = (plan: MembershipPlan) => {
     if (!authUser) {
@@ -41,6 +50,49 @@ export default function MembershipPage() {
       returnUrl: noticeId
         ? `${window.location.origin}/procurement?notice_id=${noticeId}`
         : `${window.location.origin}/membership`,
+    });
+  };
+
+  /** 点击"升级"按钮：拉取升级预览并打开确认弹窗 */
+  const handleUpgradePlan = (plan: MembershipPlan) => {
+    if (!authUser) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
+    setUpgradeTargetPlan(plan);
+    setUpgradeModalOpen(true);
+    setUpgradeLoading(true);
+    setUpgradePreview(null);
+    fetchUpgradePreview(plan.plan_code)
+      .then(setUpgradePreview)
+      .catch(() => setUpgradePreview({
+        can_upgrade: false,
+        reason: "PREVIEW_LOAD_FAILED",
+        current_plan: null,
+        target_plan: null,
+        quota_used: 0,
+        price_difference: 0,
+        remaining_after_upgrade: 0,
+        expires_at_unchanged: true,
+      }))
+      .finally(() => setUpgradeLoading(false));
+  };
+
+  /** 确认升级：关闭预览弹窗，触发带 upgrade 标记的支付流程 */
+  const handleConfirmUpgrade = () => {
+    if (!upgradePreview?.can_upgrade || !upgradeTargetPlan) return;
+    setUpgradeModalOpen(false);
+    emitAppEvent("supply-os:pay", {
+      code: upgradeTargetPlan.plan_code,
+      name: upgradeTargetPlan.name,
+      price: upgradePreview.price_difference,
+      currency: upgradeTargetPlan.currency || "CNY",
+      noticeId: noticeId ? Number(noticeId) : undefined,
+      returnUrl: noticeId
+        ? `${window.location.origin}/procurement?notice_id=${noticeId}`
+        : `${window.location.origin}/membership`,
+      orderType: "upgrade",
+      originalPlanCode: currentPlanCode || "",
     });
   };
 
@@ -98,7 +150,10 @@ export default function MembershipPage() {
                   key={plan.plan_code}
                   plan={plan}
                   isVip={isVip}
+                  currentPlanPrice={currentPlanPrice}
+                  currentPlanCode={currentPlanCode}
                   onBuy={handleBuyPlan}
+                  onUpgrade={handleUpgradePlan}
                 />
               ))}
             </div>
@@ -120,6 +175,17 @@ export default function MembershipPage() {
           <PlanComparisonTable plans={plans} />
         </section>
       )}
+
+      {/* 升级确认弹窗 */}
+      <UpgradeConfirmModal
+        open={upgradeModalOpen}
+        preview={upgradePreview}
+        loading={upgradeLoading}
+        submitting={false}
+        currency={upgradeTargetPlan?.currency || "CNY"}
+        onClose={() => setUpgradeModalOpen(false)}
+        onConfirm={handleConfirmUpgrade}
+      />
     </div>
   );
 }

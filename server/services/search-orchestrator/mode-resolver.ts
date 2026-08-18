@@ -15,6 +15,8 @@ import { resolveUserIndustryProfile } from "../industry-match/resolve";
 export interface UnspscFilter {
   level: number;
   id: string;
+  /** true=prefs 模式用 precise_level{N}_id（approved 候选码）；false=default 模式用 level{N}_id（TED 标签） */
+  precise: boolean;
 }
 
 export interface ModeResolution {
@@ -71,7 +73,7 @@ export async function resolveMode(
         if (level >= 1 && level <= 5) {
           return {
             kind: "search",
-            codeUnspsc: { level, id: String(row.id) },
+            codeUnspsc: { level, id: String(row.id), precise: false },
             profileLevels: null,
           };
         }

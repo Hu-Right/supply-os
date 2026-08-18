@@ -68,11 +68,13 @@ export async function getUnspscPath(dbPool: any, codeId: number) {
 
   let currentId: number | null = codeId;
   for (let i = 0; i < 6 && currentId; i += 1) {
+    // A2 strict 修复：显式断言查询结果类型，消除 TS7022（rows/row 隐式 any
+    // 自引用推断），同时让行结构对下游可见。
     const [rows] = await dbPool.query(
       "SELECT id, parent_id, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
       [currentId]
-    );
-    const row = (rows as UnspscCodeRow[])[0];
+    ) as [UnspscCodeRow[], unknown];
+    const row: UnspscCodeRow | undefined = rows[0];
     if (!row) break;
     if (row.level >= 1 && row.level <= 5) {
       path[`level${row.level}_id`] = row.id;

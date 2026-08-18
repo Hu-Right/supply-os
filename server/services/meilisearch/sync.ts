@@ -102,6 +102,12 @@ function buildSyncDocFromWideTable(r: any) {
     level3_id: parseUnspsc(r.unspsc_level3),
     level4_id: parseUnspsc(r.unspsc_level4),
     level5_id: parseUnspsc(r.unspsc_level5),
+    // 精准分类字段（合并语义：精准码优先、原标签兜底，宽表已合并）
+    precise_level1_id: parseUnspsc(r.precise_level1),
+    precise_level2_id: parseUnspsc(r.precise_level2),
+    precise_level3_id: parseUnspsc(r.precise_level3),
+    precise_level4_id: parseUnspsc(r.precise_level4),
+    precise_level5_id: parseUnspsc(r.precise_level5),
   };
 }
 
@@ -112,6 +118,7 @@ const WIDE_TABLE_SYNC_SQL = `
          country_std, agency_std, agency_group, notice_type_std,
          deadline_sec, is_featured,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
+         precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
          title_zh, description_zh, title_en, description_en,
          title_fr, description_fr, title_ru, description_ru,
          title_es, description_es, title_ar, description_ar
@@ -284,15 +291,21 @@ export async function incrementalSync(
  *
  * 修复：is_active/is_featured 从 crm_bid_notices 主表读取（权威数据源），
  *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
+ *
+ * 索引残留清理：宽表与主表均不存在的 ID（主表已删除、ghost 行已清理），
+ *       从 Meilisearch 索引中删除对应文档，避免已删除公告仍可被搜到。
+ *       安全边界：仅当 ID 同时缺席宽表与主表才删除——主表存在但宽表缺行
+ *       属于同步不一致，交由对账修复，不误删索引文档。
  */
-export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
+export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number; deleted: number }> {
   const client = getClient();
-  if (!client || !isHealthy() || ids.length === 0) return { synced: 0 };
+  if (!client || !isHealthy() || ids.length === 0) return { synced: 0, deleted: 0 };
   const INDEX_NAME = getIndexName();
 
   try {
     const SQL_BATCH_SIZE = 1000; // MySQL IN(...) 查询分批，避免占位符过多
     let totalSynced = 0;
+    let totalDeleted = 0;
 
     for (let i = 0; i < ids.length; i += SQL_BATCH_SIZE) {
       const batch = ids.slice(i, i + SQL_BATCH_SIZE);
@@ -329,12 +342,21 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
         await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
         totalSynced += docs.length;
       }
+
+      // ── 索引残留清理：宽表与主表均不存在的 ID → 删除 Meilisearch 文档 ──
+      const wideIdSet = new Set((wideRows[0] as any[]).map((r) => Number(r.id)));
+      const ghostBatchIds = batch.filter((id) => !wideIdSet.has(id) && !statusMap.has(id));
+      if (ghostBatchIds.length > 0) {
+        await client.index(INDEX_NAME).deleteDocuments(ghostBatchIds);
+        totalDeleted += ghostBatchIds.length;
+        console.log(`[meilisearch] 索引残留清理: 删除 ${ghostBatchIds.length} 条已删除公告的索引文档`);
+      }
     }
 
-    return { synced: totalSynced };
+    return { synced: totalSynced, deleted: totalDeleted };
   } catch (err) {
     console.warn("[meilisearch] syncNoticeIds failed:", (err as Error).message);
-    return { synced: 0 };
+    return { synced: 0, deleted: 0 };
   }
 }
 

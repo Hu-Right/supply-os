@@ -22,7 +22,6 @@ export {
   getIndexStats,
   getLastSyncedId,
   getDocCount,
-  hasOldSentinel,
   hasHasDeadlineField,
 } from "./client";
 

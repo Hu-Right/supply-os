@@ -81,5 +81,19 @@
   "statusPanelUpgradeBtn": "查看套餐",
   "statusPanelTotalUnlocks": "总可用解锁",
   "statusPanelBreakdown": "权益明细",
-  "statusPanelEntitlementCards": "{count} 张单次解锁卡"
+  "statusPanelEntitlementCards": "{count} 张单次解锁卡",
+  "upgradeBtn": "升级套餐",
+  "upgradeConfirmTitle": "确认升级套餐",
+  "upgradeLoading": "正在提交升级…",
+  "upgradeNotAvailable": "当前不满足升级条件",
+  "upgradeCurrentPlan": "当前套餐",
+  "upgradeUsed": "已使用",
+  "upgradeTargetPlan": "升级至",
+  "upgradeTargetQuota": "目标额度",
+  "upgradeRemaining": "剩余额度",
+  "upgradeValidity": "有效期",
+  "upgradeValidityUnchanged": "有效期不变",
+  "upgradePriceDiff": "补差价",
+  "upgradeCancelBtn": "取消",
+  "upgradeConfirmBtn": "确认升级"
 }

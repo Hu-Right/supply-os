@@ -122,6 +122,11 @@ export async function ensureIndex(): Promise<boolean> {
         "level3_id",
         "level4_id",
         "level5_id",
+        "precise_level1_id",
+        "precise_level2_id",
+        "precise_level3_id",
+        "precise_level4_id",
+        "precise_level5_id",
       ],
       sortableAttributes: ["deadline_sec", "id", "has_deadline"],
       rankingRules: [

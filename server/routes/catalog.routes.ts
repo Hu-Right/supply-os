@@ -114,12 +114,13 @@ export function createCatalogRouter(ctx: AppContext): Router {
       res.json(rows);
   }));
 
-  // 智能推断 UNSPSC 类目：输入主营业务关键词，返回最佳匹配的完整路径（L1→L5）
+  // 智能推断 UNSPSC 类目：输入主营业务关键词，返回最优匹配路径（result，
+  // 置信度 >= 0.6 才有值）与候选列表（candidates，供前端让用户确认选择）
   router.get("/api/unspsc/smart-infer", asyncHandler(async (req, res) => {
       const q = String(req.query.q || "").trim();
-      if (q.length < 1) return res.json({ result: null });
-      const result = await catalogRepo.smartInferUnspsc(q);
-      res.json({ result });
+      if (q.length < 1) return res.json({ result: null, candidates: [] });
+      const { best, candidates } = await catalogRepo.smartInferUnspsc(q);
+      res.json({ result: best, candidates });
   }));
 
   return router;

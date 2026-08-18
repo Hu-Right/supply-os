@@ -53,10 +53,10 @@ export class NoticeUnlockRepo {
     );
   }
 
-  /** 消耗一份付费配额（配额不足时不更新） */
+  /** 消耗一份付费配额（配额不足或权益已升级时不更新） */
   async consumeEntitlement(entitlementId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
+      "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used AND is_upgraded = 0",
       [entitlementId],
     );
   }

@@ -8,12 +8,11 @@ import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
-import { invalidateIndustryMatchCache } from "../services/industry-match";
 import { invalidateUnifiedSearchCache } from "../services/search-orchestrator/index";
 
 export function createUserPrefsRouter(ctx: AppContext): Router {
   const router = Router();
-  const userPrefsRepo = ctx.userPrefsRepo;
+  const userPrefsRepo = ctx.user.userPrefsRepo;
 
   // P0-5 安全修复：行业偏好读写必须 JWT 认证
   router.get("/api/user/industry-prefs", requireAuth, asyncHandler(async (req, res) => {
@@ -32,13 +31,11 @@ export function createUserPrefsRouter(ctx: AppContext): Router {
       });
       if (!levels[0]) {
         await userPrefsRepo.deleteIndustryPrefs(userKey);
-        invalidateIndustryMatchCache(userKey); // 行业已清除：失效匹配缓存
-        invalidateUnifiedSearchCache(userKey); // 同步失效统一编排器缓存（重构方案 §5）
+        invalidateUnifiedSearchCache(userKey); // 行业已清除：失效编排器缓存，下次立即按新状态匹配
         return res.json({ success: true, cleared: true });
       }
       await userPrefsRepo.upsertIndustryPrefs(userKey, levels);
-      invalidateIndustryMatchCache(userKey); // 行业已变更：失效匹配缓存，下次立即按新行业匹配
-      invalidateUnifiedSearchCache(userKey); // 同步失效统一编排器缓存（重构方案 §5）
+      invalidateUnifiedSearchCache(userKey); // 行业已变更：失效编排器缓存，下次立即按新行业匹配
       res.status(201).json({ success: true });
   }));
 
