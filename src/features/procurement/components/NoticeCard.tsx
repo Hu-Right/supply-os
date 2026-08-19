@@ -77,7 +77,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           </span>
           {/* T-A4（本地差异 #14）：精选徽标——三路合格机会判定命中，服务端批量标注 */}
           {/* [精选功能重新启用 2026-07-31] 徽标恢复（服务端 is_featured 标注已同步恢复） */}
-          {item.is_featured && (
+          {/* BUG 修复：is_featured 为数据库数值 0/1，`0 && <jsx>` 会被 React 渲染为裸文本 "0"，
+              必须转布尔后再短路 */}
+          {Boolean(item.is_featured) && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}

@@ -46,10 +46,12 @@ export function useNoticeTranslation(
       ? result.data
       : null;
 
-  // displayTitle：API 译文标题 > 种子预填充标题 > 原文标题
+  // displayTitle：查看原文模式 → null（调用方回退 notice.title）；
+  //              正常模式 → API 译文标题 > seed 预填充标题 > null
   // seed 仅参与标题显示，不触发 hasTranslation / showTranslated 等翻译状态
-  const displayTitle =
-    translation?.title ?? seed?.data.title ?? null;
+  const displayTitle = showOriginal
+    ? null
+    : (translation?.title ?? seed?.data.title ?? null);
 
   useEffect(() => {
     setShowOriginal(false);

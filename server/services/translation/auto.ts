@@ -360,12 +360,20 @@ export function startAutoTranslate(
     }
   };
 
-  /** 递归调度：计算下一个触发时刻并设置单次 setTimeout */
+  /** 递归调度：计算下一个触发时刻并设置单次 setTimeout。
+   *  容错：若距离触发时刻不足 1 分钟（服务启动耗时跨过触发点），
+   *  立即执行翻译而非跳过，避免整轮调度被吞。 */
   function scheduleNext() {
     const next = nextBeijingTrigger();
     const delayMs = Math.max(0, next.getTime() - Date.now());
-    logger.info(`下次翻译调度: ${formatBJTime(next)} (${Math.round(delayMs / 3600000)}h 后)`);
-    nextTimer = setTimeout(() => void tick(), delayMs);
+    if (delayMs < 60_000) {
+      // 触发时刻已过或即将到来 → 立即执行，不冒 setTimeout 跨过的风险
+      logger.info(`触发时刻已过，立即执行翻译`);
+      nextTimer = setTimeout(() => void tick(), 0);
+    } else {
+      logger.info(`下次翻译调度: ${formatBJTime(next)} (${Math.round(delayMs / 3600000)}h 后)`);
+      nextTimer = setTimeout(() => void tick(), delayMs);
+    }
   }
 
   // 启动时先做健康检查，再调度首次运行
