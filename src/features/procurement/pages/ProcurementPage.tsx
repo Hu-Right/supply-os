@@ -62,18 +62,13 @@ export default function ProcurementPage() {
     userKey, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
     // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
-    // BUG2 修复：同时退出行业精准匹配/推荐模式，切回全量搜索
-    // 原因：仅清空 selectedIds 不够，prefsMode 仍是 "prefs" 会导致：
-    // 1. useNoticeSearch 数据源判定仍选 "industry-matched"，显示空结果
-    // 2. "恢复行业匹配"按钮显示条件不满足（prefsMode !== "prefs"），按钮不出现
-    // 统一化重构：行业匹配模式下清除筛选回到无筛选的行业匹配结果，不退出行业匹配
+    // BUG2 修复：清除筛选彻底退出行业匹配/推荐模式，回到全量检索
+    // 旧代码仅在 recommended 模式退出，prefs 模式保持 → L1 偏好仍参与过滤
     onClear: () => {
       setSelectedIds(["", "", "", "", ""]);
       setLevels((prev) => [prev[0], [], [], [], []]);
-      // 仅推荐模式退出到全量搜索；行业匹配模式保持 prefsMode = "prefs"
-      if (prefsMode === "recommended") {
-        setPrefsMode("default");
-      }
+      // 清除筛选 = 彻底退出行业匹配/推荐模式，回到全量检索
+      setPrefsMode("default");
     },
   });
 
