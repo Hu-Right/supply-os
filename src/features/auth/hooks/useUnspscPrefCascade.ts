@@ -53,6 +53,12 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   // 消费在 fetch 回调中直接完成（而非额外 effect），消除 effect 调度链的时序不确定性。
   const pendingMapRef = useRef<Map<string, { l2: string | null; l3: string | null }>>(new Map());
 
+  // 推断触发计数器：每次 applyInferredPath 递增，用作 L2 fetch effect 的额外依赖。
+  // 解决关键场景：用户清空输入后重新输入，若两次推断命中同一 L1，
+  // setPrefLevel1 是空操作（React bail out），L2 fetch effect 不会重新触发，
+  // 导致 L2/L3 永远无法填充。inferredTick 确保即使 L1 不变也强制重新 fetch。
+  const [inferredTick, setInferredTick] = useState(0);
+
   // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
     fetchUnspscIndustries(locale)
@@ -84,7 +90,7 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
         pendingMapRef.current.delete(l1Key);
         setSubOptions([]);
       });
-  }, [prefLevel1, locale]);
+  }, [prefLevel1, locale, inferredTick]);
 
   // 选定二级后加载三级类目（可选级）；选项就绪后立即消费待填 L3
   useEffect(() => {
@@ -142,6 +148,8 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel1(l1Key);
     setPrefLevel2("");
     setPrefLevel3("");
+    // 递增触发计数器：即使 L1 与当前值相同（React bail out），也强制 L2 fetch effect 重新执行
+    setInferredTick((t) => t + 1);
   }, []);
 
   /** 重置所有级联状态（切换账号时调用） */

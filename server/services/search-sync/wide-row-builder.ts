@@ -493,6 +493,7 @@ export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
 /**
  * 译文对账：检测宽表 title_zh 与翻译表 title_tr（lang='zh'）不一致的行。
  * 修复"译文已入 crm_notice_translations 但宽表/索引滞后"的断链场景。
+ * 检测后直接 UPDATE 宽表，避免下轮对账重复检测。
  * 每轮抽样上限 200 条，返回需重新同步的公告 ID。
  */
 export async function reconcileTranslations(pool: Pool): Promise<number[]> {
@@ -507,7 +508,22 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
     );
     const ids = (mismatchRows as any[]).map((r) => Number(r.id)).filter(Boolean);
     if (ids.length > 0) {
-      reconcileLog("translation", ids.length, `[wide-table] 译文对账发现 ${ids.length} 条 title_zh 滞后记录，将重新同步`);
+      // 修复宽表：将翻译表的 title_tr / description_tr 写回宽表
+      const BATCH = 100;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        await pool.query(
+          `UPDATE crm_notice_search ns
+           INNER JOIN crm_notice_translations t
+             ON t.notice_id = ns.id AND t.lang = 'zh'
+           SET ns.title_zh = t.title_tr,
+               ns.description_zh = t.description_tr
+           WHERE ns.id IN (${ph})`,
+          batch,
+        );
+      }
+      reconcileLog("translation", ids.length, `[wide-table] 译文对账修复 ${ids.length} 条 title_zh 滞后记录`);
     }
     return ids;
   } catch (e) {
@@ -524,14 +540,15 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
  * 即使精准码未发生任何变化。
  *
  * 改为变更感知：比较宽表 precise_level1 与当前 approved 候选码的聚合值，
- * 仅返回实际存在差异的记录 ID。无变化时返回空数组，不触发级联同步。
+ * 仅返回实际存在差异的记录 ID。检测后直接将聚合值写回宽表，
+ * 避免下轮对账重复检测。
  */
 export async function reconcilePreciseCodes(pool: Pool): Promise<number[]> {
   try {
     // 比较宽表 precise_level1 与当前 approved 候选码的聚合值
     // 候选码以逗号分隔存储，GROUP_CONCAT 聚合后与宽表值对比
     const [rows] = await pool.query(`
-      SELECT n.id,
+      SELECT n.id, n.notice_id,
              ns.precise_level1 AS wide_val,
              (SELECT GROUP_CONCAT(DISTINCT c2.candidate_code ORDER BY c2.candidate_code SEPARATOR ',')
               FROM crm_bid_opportunities o2
@@ -555,7 +572,26 @@ export async function reconcilePreciseCodes(pool: Pool): Promise<number[]> {
     `);
     const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
     if (ids.length > 0) {
-      reconcileLog("precise", ids.length, `[wide-table] precise 对账发现 ${ids.length} 条精准码实际变更，将重新同步`);
+      // 修复宽表：将聚合后的精准码写回 precise_level1
+      const BATCH = 100;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const batch = ids.slice(i, i + BATCH);
+        const ph = batch.map(() => "?").join(",");
+        await pool.query(
+          `UPDATE crm_notice_search ns
+           INNER JOIN crm_bid_notices n ON n.id = ns.id
+           SET ns.precise_level1 = (
+             SELECT GROUP_CONCAT(DISTINCT c2.candidate_code ORDER BY c2.candidate_code SEPARATOR ',')
+             FROM crm_bid_opportunities o2
+             JOIN crm_bid_opportunity_unspsc_candidates c2
+               ON c2.opportunity_id = o2.id AND c2.status = 'approved'
+             WHERE o2.source_notice_id = n.notice_id
+           )
+           WHERE ns.id IN (${ph})`,
+          batch,
+        );
+      }
+      reconcileLog("precise", ids.length, `[wide-table] precise 对账修复 ${ids.length} 条精准码实际变更`);
     }
     return ids;
   } catch (e) {

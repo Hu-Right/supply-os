@@ -6,6 +6,7 @@ coverage/
 *.tsbuildinfo
 .vite/
 .cache/
+.bin/
 
 # ===== 敏感配置(保留 .env.example)=====
 .env*
@@ -29,6 +30,7 @@ backups/
 bin/
 data.ms/
 dumps/
+logs/
 server/logs/
 
 # ===== IDE 与编辑器 =====
@@ -46,6 +48,32 @@ server/logs/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# ===== 二进制与办公文档 =====
+*.docx
+*.xlsx
+*.pptx
+*.pdf
+*.zip
+*.rar
+*.7z
+*.exe
+*.dll
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# —— 以上规则的例外：项目运行必需的静态资源 ——
+!public/fonts/**
+!public/wechat-service-qr.png
+!public/downloads/training/**
+!public/manifest.json
 
 # ===== 开发过程文档 =====
 docs/

@@ -56,10 +56,14 @@ export default defineConfig(() => {
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
+      // Do not modify—file watching is disabled to prevent agent edits from causing flickering.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        // 排除 bin/ 目录（Meilisearch 二进制 + 数据目录）
+        // 避免 EBUSY 错误：meilisearch.exe 被进程锁定，Vite watcher 尝试 watch 时崩溃
+        ignored: ['**/bin/**', '**/data.ms/**'],
+      },
       // 允许外部域名访问开发服务器
       allowedHosts: ['osneosmart.com'],
     },
