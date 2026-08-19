@@ -122,7 +122,6 @@ export async function searchUnified(
 
   // ── prefs 渐进放宽：确定有效层级（最深优先，不足时逐级放宽）──
   let unspsc: UnspscFilter | null = resolution.codeUnspsc;
-  let prefsScore = 0;
   if (resolution.profileLevels) {
     const offset = (p.page - 1) * p.pageSize;
     let chosen: { level: number; id: string; score: number } | null = null;
@@ -140,7 +139,6 @@ export async function searchUnified(
     }
     if (chosen) {
       unspsc = { level: chosen.level, id: chosen.id, precise: true };
-      prefsScore = chosen.score;
     }
   }
 
@@ -204,11 +202,9 @@ export async function searchUnified(
   const details = await fetchDetailsByIds(pool, ids, p.locale);
   const detailMs = Date.now() - detailStart;
 
-  // ── 格式化（prefs 模式附加层级匹配分）──
-  const matchScores = prefsScore > 0
-    ? new Map(details.map((row) => [Number(row.id), prefsScore]))
-    : undefined;
-  const items = formatItems(details, p.locale, matchScores);
+  // ── 格式化（prefs 模式逐文档计算匹配档次：公告自身 precise 层级与用户画像比对，
+  //    [阶段0 A2] 替代旧版整页统一赋分，放宽场景下深层精确命中不再被误标为宽泛相关）──
+  const items = formatItems(details, p.locale, resolution.profileLevels ?? undefined);
 
   const result: UnifiedSearchResult = {
     items,

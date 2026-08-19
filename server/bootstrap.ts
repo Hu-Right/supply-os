@@ -187,7 +187,8 @@ export async function startServer() {
 
   // ── 搜索宽表同步（非阻塞：后台异步回填 + 增量同步）──
   // 宽表就绪后，搜索 Phase 2 直接从宽表读取（零 JOIN），大幅提升性能
-  const stopWideTableSync = startWideTableSync(dbPool, { intervalMs: 10 * 1000 });
+  // [阶段0 S3] 增量同步周期 10s → 5s：外部 CRM 管道新数据可见延迟减半（主键水位轻扫描，负载可忽略）
+  const stopWideTableSync = startWideTableSync(dbPool, { intervalMs: 5 * 1000 });
 
   // ── 精选状态变更联动同步（修复 G3）──
   // refreshFeaturedColumn 更新 is_featured 后，将变更 ID 入同步队列，

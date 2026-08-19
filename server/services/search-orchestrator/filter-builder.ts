@@ -61,14 +61,16 @@ function expandAgency(agency: string): AgencyExpansion {
       return {
         forceCountry,
         hasSqlPattern: false,
-        mysqlClause: `UPPER(n.country) IN (${variants.map(() => "?").join(",")})`,
+        // [阶段0 T3] 去 UPPER() 包裹：utf8mb4_0900_ai_ci 本就大小写不敏感，
+        // 函数作用于列会使 country/agency 索引全部失效（降级路径退化为全表扫描）
+        mysqlClause: `n.country IN (${variants.map(() => "?").join(",")})`,
         mysqlParams: variants.map((c) => c.toUpperCase()),
       };
     }
     return {
       forceCountry,
       hasSqlPattern: false,
-      mysqlClause: "UPPER(n.country) = ?",
+      mysqlClause: "n.country = ?",
       mysqlParams: [forceCountry.toUpperCase()],
     };
   }
@@ -76,7 +78,7 @@ function expandAgency(agency: string): AgencyExpansion {
     return {
       hasSqlPattern: true,
       meiliAgencies: [agency], // Meilisearch 无法 LIKE：退化精确匹配（文档已记录限制）
-      mysqlClause: "UPPER(n.agency) LIKE ?",
+      mysqlClause: "n.agency LIKE ?",
       mysqlParams: [cached.sqlPattern],
     };
   }
@@ -153,11 +155,12 @@ export async function buildFilterPlan(
     if (variants.length > 1) {
       const orParts = variants.map((v) => `country = "${escapeFilter(v)}"`).join(" OR ");
       meiliFilters.push(`(${orParts})`);
-      mysqlWhere.push(`UPPER(n.country) IN (${variants.map(() => "?").join(",")})`);
+      // [阶段0 T3] 同 expandAgency：去 UPPER() 包裹，恢复索引可用性（collation 为 ai_ci）
+      mysqlWhere.push(`n.country IN (${variants.map(() => "?").join(",")})`);
       mysqlParams.push(...variants.map((v) => v.toUpperCase()));
     } else {
       meiliFilters.push(`country = "${escapeFilter(effectiveCountry)}"`);
-      mysqlWhere.push("UPPER(n.country) = ?");
+      mysqlWhere.push("n.country = ?");
       mysqlParams.push(effectiveCountry.toUpperCase());
     }
     digestParts.push(`country:${effectiveCountry}`);
@@ -231,10 +234,15 @@ export async function buildFilterPlan(
   if (unspsc && unspsc.level >= 1 && unspsc.level <= 5 && unspsc.id) {
     const col = unspsc.precise ? "precise_level" : "level";
     meiliFilters.push(`${col}${unspsc.level}_id = "${escapeFilter(unspsc.id)}"`);
+    // [阶段0 T4] MySQL 方言列名与 Meilisearch 字段名分开拼接：宽表实际列名为
+    // unspsc_level{N} / precise_level{N}（迁移 011/029，已对生产库核实），
+    // 旧实现拼出的 level_level{N} 不存在 → EXISTS 子查询报错被 catch 吞掉 →
+    // Meili 降级且带 UNSPSC 筛选时静默返回空结果
+    const mysqlCol = unspsc.precise ? "precise_level" : "unspsc_level";
     // 类型兼容：unspsc.id 为 string（resolveUserIndustryProfile 归一化），
     // FIND_IN_SET 对参数隐式转字符串
     mysqlWhere.push(
-      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.${col}_level${unspsc.level}))`,
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.${mysqlCol}${unspsc.level}))`,
     );
     mysqlParams.push(unspsc.id);
     digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);

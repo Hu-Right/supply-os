@@ -102,6 +102,9 @@ export async function incrementalWideSync(
       preciseMap.get(String(r.notice_id)),
     ));
     const synced = await upsertWideRows(pool, wideRows);
+    // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
+    // 此前仅在 syncWideIds 级联处失效缓存，导致新公告最长 5 分钟内不出现在带缓存的搜索结果中
+    if (synced > 0) invalidateUnifiedSearchCache();
     const newWatermark = allRaw[allRaw.length - 1].id;
     return { synced, newWatermark };
   } catch (err) {
@@ -195,7 +198,7 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
  * 启动宽表增量同步定时器
  *
  * 三个独立定时器：
- * - 增量同步（30 秒）：拉取新行写入宽表
+ * - 增量同步（5 秒）：拉取新行写入宽表（主键水位轻扫描，[阶段0 S3] 从 30 秒缩短至 5 秒）
  * - deadline 对账（60 秒）：检测旧行 deadline_sec 陈旧并修复
  * - 全量对账（5 分钟）：ghost 行清理 + is_featured 同步
  *
@@ -204,7 +207,7 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
  * - ghost 行清理和 is_featured 对账需要 JOIN 查询，降频执行避免资源浪费
  */
 export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number; fullReconcileIntervalMs?: number } = {}): () => void {
-  const intervalMs = options.intervalMs ?? 30 * 1000;
+  const intervalMs = options.intervalMs ?? 5 * 1000;
   const reconcileIntervalMs = options.reconcileIntervalMs ?? 60 * 1000;
   const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 5 * 60 * 1000; // 5 分钟
   let stopped = false;

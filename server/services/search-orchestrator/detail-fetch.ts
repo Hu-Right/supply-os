@@ -38,7 +38,8 @@ export async function fetchDetailsByIds(
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, 500) AS description_i18n,
          title_en, LEFT(description_en, 500) AS description_en,
          description_cn, bid_overview, beneficiary_countries,
-         documents_count AS breakdown_file_count
+         documents_count AS breakdown_file_count,
+         precise_level1, precise_level2, precise_level3, precise_level4, precise_level5
        FROM crm_notice_search
        WHERE id IN (${ids.map(() => "?").join(",")})
        ORDER BY FIELD(id, ${ids.map(() => "?").join(",")})`,
