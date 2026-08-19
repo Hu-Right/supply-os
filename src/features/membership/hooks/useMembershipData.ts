@@ -46,7 +46,7 @@ export function useMembershipData(): UseMembershipDataReturn {
 
     Promise.all([
       fetchPlans(),
-      authUser ? fetchMembershipStatus(authUser.user_key).catch(() => null) : Promise.resolve(null),
+      authUser ? fetchMembershipStatus().catch(() => null) : Promise.resolve(null),
     ])
       .then(([fetchedPlans, status]) => {
         if (!alive) return;

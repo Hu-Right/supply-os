@@ -33,7 +33,7 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
   useEffect(() => {
     let cancelled = false;
     setShowOriginal(false);
-    fetchUnlocks({ userKey, limit: 3, locale })
+    fetchUnlocks({ limit: 3, locale })
       .then((res) => {
         if (!cancelled) setRecords(res.list || []);
       })

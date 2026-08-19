@@ -53,8 +53,8 @@ export function useRecordsSummary(userKey: string | undefined): UseRecordsSummar
     setLoading(true);
 
     Promise.allSettled([
-      fetchOrders({ userKey, page: 1, limit: 1 }),
-      fetchUnlocks({ userKey, page: 1, limit: 1 }),
+      fetchOrders({ page: 1, limit: 1 }),
+      fetchUnlocks({ page: 1, limit: 1 }),
     ])
       .then(([ordersResult, unlocksResult]) => {
         if (seq !== requestSeq.current) return;

@@ -184,7 +184,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setHasIndustryPrefs(false);
         // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
         try {
-          const probe = await fetchUnifiedSearch({ mode: "recommended", userKey, page: 1, pageSize: PAGE_SIZE });
+          const probe = await fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: PAGE_SIZE });
           if (stale()) return;
           if (Number(probe.total || 0) > 0) {
             setPrefsMode("recommended");
@@ -263,7 +263,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
     if (prefsMode === "prefs" && userKey) {
       // 取消行业匹配：尝试降级到推荐
-      fetchUnifiedSearch({ mode: "recommended", userKey, page: 1, pageSize: PAGE_SIZE })
+      fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: PAGE_SIZE })
         .then((probe) => {
           // 序号过期说明用户已做后续操作，跳过模式覆盖
           if (exitSeqRef.current !== mySeq) return;

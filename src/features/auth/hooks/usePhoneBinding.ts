@@ -87,7 +87,6 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
       const data = await api<{ sms_sent: boolean; error?: string }>("/api/auth/send-phone-code", {
         method: "POST",
         body: {
-          user_key: authUser.user_key,
           phone: scene === "unbind" ? "" : phone,
           scene,
         },
@@ -117,7 +116,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
     try {
       await api("/api/auth/bind-phone", {
         method: "POST",
-        body: { user_key: authUser.user_key, phone, code },
+        body: { phone, code },
       });
       setMessage(t("authPhoneBindSuccess"));
       setIsError(false);

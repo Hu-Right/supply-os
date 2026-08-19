@@ -97,7 +97,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         : "default";
       const request = fetchUnifiedSearch({
         mode: unifiedMode,
-        userKey: userKey || undefined,
         page,
         pageSize: PAGE_SIZE,
         codeId: deepestCodeId || undefined,
@@ -154,7 +153,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     const prefetchMode = prefsMode === "recommended" && !query.hasOtherSearch ? "recommended" : "default";
     fetchUnifiedSearch({
       mode: prefetchMode,
-      userKey: userKey || undefined,
       page: nextPage,
       pageSize: PAGE_SIZE,
       codeId: deepestCodeId || undefined,

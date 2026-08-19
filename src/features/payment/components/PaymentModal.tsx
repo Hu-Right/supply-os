@@ -18,7 +18,6 @@ type PaymentModalProps = {
   planName: string;
   amount: number;
   currency: string;
-  userKey: string;
   noticeId?: number | null;
   returnUrl?: string;
   /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
@@ -34,7 +33,6 @@ export default function PaymentModal({
   planName,
   amount,
   currency,
-  userKey,
   noticeId,
   returnUrl,
   orderType,
@@ -60,7 +58,7 @@ export default function PaymentModal({
     handleRetry,
     handleOpenPayUrl,
     handleCopyPayUrl,
-  } = usePayment({ planCode, userKey, noticeId, returnUrl, orderType, originalPlanCode, onPaymentSuccess });
+  } = usePayment({ planCode, noticeId, returnUrl, orderType, originalPlanCode, onPaymentSuccess });
 
   const getProviderLabel = (provider: string) =>
     provider === "alipay" ? t("paymentAlipay") : t("paymentWechat");

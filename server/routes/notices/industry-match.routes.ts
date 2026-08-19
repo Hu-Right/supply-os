@@ -14,18 +14,21 @@
  */
 import { Router } from "express";
 import type { AppContext } from "../../context";
-import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
+import { requireAuth } from "../../middleware/auth";
 import { searchUnified } from "../../services/search-orchestrator/index";
 
 export function createIndustryMatchRouter(ctx: AppContext): Router {
   const router = Router();
   const noticesRepo = ctx.notice.noticesRepo;
 
-  // GET /api/notices/industry-matched?user_key=...&page=1&page_size=10&locale=zh&q=...&country=...
-  router.get("/api/notices/industry-matched", asyncHandler(async (req, res) => {
-      const userKey = normalizeUserKey(req.query.user_key) || "";
+  // GET /api/notices/industry-matched?page=1&page_size=10&locale=zh&q=...&country=...
+  // B1 legacy 退役（2026-08-19）：requireAuth 强制 JWT 身份——本端点返回个性化匹配结果，
+  // 旧版 query.user_key 可伪造读取他人匹配数据（清点报告 §2.2 中风险项）。
+  // 前端已全量切换到 unified-search mode=prefs，无调用方受影响。
+  router.get("/api/notices/industry-matched", requireAuth, asyncHandler(async (req, res) => {
+      const userKey = req.userKey || "";
       if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
       const page = parseOptionalInt(req.query, "page", 1, 1000, 1);

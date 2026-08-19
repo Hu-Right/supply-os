@@ -42,7 +42,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
       setLoading(false);
       return;
     }
-    fetchMembershipStatus(authUser.user_key)
+    fetchMembershipStatus()
       .then(setMembership)
       .catch(() => setMembership(null))
       .finally(() => setLoading(false));

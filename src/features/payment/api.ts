@@ -13,7 +13,6 @@ import type { OrderInfo } from "@/types/payment";
 export type { OrderInfo };
 
 export type CreateOrderParams = {
-  userKey: string;
   planCode: string;
   provider: "alipay" | "wechat" | "mock";
   noticeId?: number | null;
@@ -28,12 +27,12 @@ export type CreateOrderParams = {
 /**
  * 创建支付订单
  * Create payment order
+ * B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，订单归属由 JWT 身份决定
  */
 export async function createOrder(params: CreateOrderParams): Promise<OrderInfo> {
   return api<OrderInfo>("/api/payment/orders", {
     method: "POST",
     body: {
-      user_key: params.userKey,
       plan_code: params.planCode,
       provider: params.provider,
       notice_id: params.noticeId ?? null,
@@ -136,15 +135,14 @@ export type PagedResult<T> = {
 /**
  * 查询用户支付订单（分页）
  * Fetch user's payment orders (paged)
+ * B1 legacy 退役：user_key 兜底参数已删除，服务端按 JWT 身份查询
  */
 export async function fetchOrders(params: {
-  userKey: string;
   status?: string;
   page?: number;
   limit?: number;
 }): Promise<PagedResult<OrderRecord>> {
   const qs = buildQuery({
-    user_key: params.userKey,
     status: params.status,
     page: params.page,
     limit: params.limit,
@@ -163,13 +161,11 @@ const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
  *          与公告详情翻译共用缓存；en 为原文语言不传 lang。
  */
 export async function fetchUnlocks(params: {
-  userKey: string;
   page?: number;
   limit?: number;
   locale?: string;
 }): Promise<PagedResult<UnlockRecord>> {
   const qs = buildQuery({
-    user_key: params.userKey,
     page: params.page,
     limit: params.limit,
     lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,

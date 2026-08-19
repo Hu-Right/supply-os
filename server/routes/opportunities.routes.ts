@@ -4,7 +4,6 @@
  */
 import { Router } from "express";
 import type { AppContext } from "../context";
-import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc/index";
@@ -88,7 +87,9 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
 
   router.post("/api/opportunities/:id/view", asyncHandler(async (req, res) => {
     const opportunityId = Number(req.params.id);
-    const userKey = normalizeUserKey(req.body.user_key) || "guest"; // 本地差异 #7：F.1 归一化收敛（浏览流水保留 guest）
+    // B1 legacy 退役（2026-08-19）：浏览流水归属改用 req.userKey（JWT 优先、body 兜底）；
+    // 本地差异 #7：F.1 归一化已由 optionalAuth 收敛，未登录保留 guest
+    const userKey = req.userKey || "guest";
     await opportunitiesRepo.insertView({
       userKey,
       opportunityId,

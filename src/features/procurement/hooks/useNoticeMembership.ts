@@ -76,7 +76,8 @@ export function useNoticeMembership({
       return;
     }
     try {
-      const data = await fetchMembershipStatus(userKey, useCache);
+      // B1 legacy 退役：身份由 JWT 承载，user_key 兜底参数已删除
+      const data = await fetchMembershipStatus(useCache);
       setMembership(data);
     } catch {
       setMembership(null);

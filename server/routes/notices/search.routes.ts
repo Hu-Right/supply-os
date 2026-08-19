@@ -10,7 +10,6 @@ import { Router } from "express";
 import crypto from "crypto";
 import type { AppContext } from "../../context";
 import type { Request } from "express";
-import { normalizeUserKey } from "../../utils/normalize";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
@@ -18,11 +17,13 @@ import { searchUnified, type RawSearchParams } from "../../services/search-orche
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 从请求提取统一搜索参数（unified-search 与旧端点适配器共用） */
+/** 从请求提取统一搜索参数（unified-search 与旧端点适配器共用）
+ * B1 legacy 退役（2026-08-19）：身份唯一来源为 req.userKey（optionalAuth 仅 JWT），
+ * query.user_key 兜底已删除；匿名请求 userKey 为空串 */
 function parseUnifiedParams(req: Request, mode: string): RawSearchParams {
   return {
     mode,
-    userKey: normalizeUserKey(req.query.user_key) || "",
+    userKey: req.userKey || "",
     page: parseOptionalInt(req.query, "page", 1, 1000, 1),
     pageSize: parseOptionalInt(req.query, "page_size", 6, 30, 9),
     locale: parseOptionalString(req.query, "locale", 10) || "",
@@ -124,9 +125,8 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
         sort,
       });
       void noticesRepo.logSearch(
-        // A2 strict 修复：normalizeUserKey 可能返回 null，logSearch 形参为 string，
-        // 用 "" 兜底（未登录搜索归属匿名，语义与原行为一致）
-        normalizeUserKey(req.query.user_key) || "", q || null, country || null, filters, result.total
+        // B1 legacy 退役：归属与 searchUnified 同源（JWT 身份）；匿名搜索归属 ""
+        params.userKey || "", q || null, country || null, filters, result.total
       ).catch(() => undefined);
     }
   }));

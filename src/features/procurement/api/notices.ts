@@ -79,7 +79,6 @@ export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
  */
 export const fetchUnifiedSearch = (params: {
   mode: "default" | "prefs" | "recommended";
-  userKey?: string;
   page: number;
   pageSize: number;
   locale?: string;
@@ -94,9 +93,9 @@ export const fetchUnifiedSearch = (params: {
   featured?: boolean;
   sort?: string;
 }, signal?: AbortSignal): Promise<NoticeResponse> => {
+  // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
   const qs = buildQuery({
     mode: params.mode,
-    user_key: params.userKey,
     page: params.page,
     page_size: params.pageSize,
     locale: params.locale,

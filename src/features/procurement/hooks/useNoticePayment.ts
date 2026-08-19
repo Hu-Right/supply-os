@@ -142,7 +142,6 @@ export function useNoticePayment({
         }
 
         const order: OrderInfo = await createOrder({
-          userKey,
           planCode,
           provider: paymentProvider,
           noticeId: effectiveNoticeId,

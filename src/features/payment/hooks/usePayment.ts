@@ -16,7 +16,6 @@ export type PaymentStep = "choose" | "waiting" | "success" | "failed";
 
 export type UsePaymentOptions = {
   planCode: string;
-  userKey: string;
   noticeId?: number | null;
   returnUrl?: string;
   /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
@@ -60,7 +59,6 @@ export type UsePaymentReturn = {
  */
 export function usePayment({
   planCode,
-  userKey,
   noticeId,
   returnUrl,
   orderType,
@@ -129,7 +127,6 @@ export function usePayment({
 
     try {
       const order = await createOrder({
-        userKey,
         planCode,
         provider: selectedProvider,
         noticeId,

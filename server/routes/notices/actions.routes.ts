@@ -8,7 +8,6 @@
  */
 import { Router } from "express";
 import type { AppContext } from "../../context";
-import { normalizeUserKey } from "../../utils/normalize";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
 import type { RecoFeedbackItem } from "../../repos/notices.repo";
@@ -65,7 +64,9 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   // ── 浏览计数 ──
   router.post("/api/notices/:id/view", asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
-      const userKey = normalizeUserKey(req.body.user_key) || "guest";
+      // B1 legacy 退役（2026-08-19）：浏览流水归属改用 req.userKey（optionalAuth 已 JWT 优先、
+      // body.user_key 兜底），未登录保留 guest 语义
+      const userKey = req.userKey || "guest";
       await noticesRepo.insertView({
         userKey,
         noticeId,

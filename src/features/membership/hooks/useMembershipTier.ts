@@ -37,7 +37,8 @@ export function useMembershipTier(): UseMembershipTierReturn {
     }
     let alive = true;
     apiCached<MembershipStatus>(
-      `/api/membership/status?user_key=${encodeURIComponent(authUser.user_key)}`,
+      // B1 legacy 退役：user_key 兜底参数已删除，身份由 JWT 承载
+      "/api/membership/status",
       TIER_CACHE_TTL,
     )
       .then((data) => {

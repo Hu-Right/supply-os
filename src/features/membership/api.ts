@@ -23,9 +23,10 @@ export async function fetchPlans(): Promise<MembershipPlan[]> {
 /**
  * 查询用户会员状态（配额/订阅/到期）
  * Fetch user membership status (quota/subscription/expiry)
+ * B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
  */
-export async function fetchMembershipStatus(userKey: string): Promise<MembershipStatus> {
-  return api<MembershipStatus>(`/api/membership/status?user_key=${encodeURIComponent(userKey)}`);
+export async function fetchMembershipStatus(): Promise<MembershipStatus> {
+  return api<MembershipStatus>("/api/membership/status");
 }
 
 /**

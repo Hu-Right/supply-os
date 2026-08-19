@@ -81,10 +81,10 @@ export function useOrderHistory(userKey: string | undefined): UseOrderHistoryRet
 
     const request =
       tab === "orders"
-        ? fetchOrders({ userKey, page, limit: PAGE_LIMIT }).then((data) => {
+        ? fetchOrders({ page, limit: PAGE_LIMIT }).then((data) => {
             if (seq === requestSeq.current) setOrders(data);
           })
-        : fetchUnlocks({ userKey, page, limit: PAGE_LIMIT }).then((data) => {
+        : fetchUnlocks({ page, limit: PAGE_LIMIT }).then((data) => {
             if (seq === requestSeq.current) setUnlocks(data);
           });
 

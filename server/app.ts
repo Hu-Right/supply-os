@@ -23,7 +23,7 @@ import { createTrainingRouter } from "./routes/training.routes";
 import { createAiRouter } from "./routes/ai.routes";
 import { createSystemRouter } from "./routes/system.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
-import { extractUserKey, optionalAuth } from "./middleware/auth";
+import { optionalAuth } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
 
 export function createApp(ctx: AppContext): Express {
@@ -45,7 +45,7 @@ export function createApp(ctx: AppContext): Express {
   }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: false })); // 支付宝异步通知为 form-urlencoded
-  // 全局中间件：JWT 优先 → legacy query/body user_key 回退
+  // 全局中间件：仅从 JWT 提取身份（legacy user_key 回退已于 2026-08-19 退役）
   app.use(optionalAuth);
   // P0-3 安全加固：CSRF 防护（纵深防御，JWT Bearer 请求自动跳过）
   app.use(csrfProtection);
