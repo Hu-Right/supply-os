@@ -7,6 +7,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
+import { normalizeNoticeType } from "../meilisearch/index";
 
 export interface RecallResult {
   prefix: string;
@@ -98,7 +99,9 @@ export async function deadlineFallback(
             ${trSelect} ${treSelect} ${descCnSub}, ${bidOverviewSub}, ${beneficiarySub}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({
-    ...row, match_score: 0, reco_score: 0, organization: null, source_url: null,
+    // Suministros BUG 修复：同推荐主查询，notice_type 归一化对齐宽表口径
+    ...row, notice_type: normalizeNoticeType(row.notice_type),
+    match_score: 0, reco_score: 0, organization: null, source_url: null,
     unspsc_codes: [], core_locked: true,
     breakdown_file_count: normalizeDocumentRows(row.documents, row.procurement_files).length,
     documents: undefined, procurement_files: undefined,

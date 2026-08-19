@@ -23,6 +23,16 @@ const CODE_MAP: Record<string, LocaleKey> = {
   RFI: "procurement_type_rfi",
   GPN: "procurement_type_gpn",
   OTHER: "procurement_type_other",
+  // 服务端扩展标准代码（normalizeNoticeType 升级后输出的新 std 值）
+  CONTRACT_NOTICE: "procurement_type_contract_notice",
+  COMPETITIVE: "procurement_type_competitive",
+  THRESHOLD: "procurement_type_threshold",
+  PIN: "procurement_type_pin",
+  PMC: "procurement_type_pmc",
+  NEGOTIATED: "procurement_type_negotiated",
+  SERVICES: "procurement_type_services",
+  SUPPLIES: "procurement_type_supplies",
+  WORKS: "procurement_type_works",
 };
 
 // 子串规则按优先级排列：

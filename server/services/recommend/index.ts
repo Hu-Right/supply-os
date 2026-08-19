@@ -23,6 +23,7 @@ import { deadlineFallback, processInterestCodes } from "./recall";
 import { buildScoringContext, getAmountPreference, resolveWeights } from "./scoring";
 import { mmrRerankPage, buildRecoReasons } from "./rerank";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
+import { normalizeNoticeType } from "../meilisearch/index";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
 // 推荐结果缓存
@@ -150,7 +151,12 @@ export async function recommendNotices(
   const resultItems = mmrRerankPage(rows as RowDataPacket[]).map((row) => {
     const { l4_hit, amount_usd_cached, codes_concat, documents, procurement_files, ...rest } = row;
     return {
-      ...rest, match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
+      // Suministros BUG 修复：主表 notice_type 含西班牙语等源数据脏值（如
+      // "SuministrosAdquisición"），搜索路径读宽表 notice_type_std 已归一化，
+      // 推荐路径直取原始值导致前端徽章原样展示外语脏值——此处复用与宽表
+      // 同口径的 normalizeNoticeType 对齐（脏值归 OTHER，前端展示 i18n“其他”）
+      ...rest, notice_type: normalizeNoticeType(row.notice_type),
+      match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
       reco_reasons: buildRecoReasons(row, nowSec), organization: null, source_url: null,
       unspsc_codes: [], core_locked: true,
       breakdown_file_count: normalizeDocumentRows(documents, procurement_files).length,

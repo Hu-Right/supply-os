@@ -261,9 +261,12 @@ export default function ProcurementPage() {
           </span>
         </div>
 
-        {/* 自动筛选提示条：偏好/推荐模式可一键退出回全量 */}
+        {/* 自动筛选提示条：偏好/推荐模式的状态告知（纯信息展示，无操作入口）
+            “查看全部”按钮已全模式移除：推荐态由搜索栏“清除筛选”替代，
+            行业匹配态由工具栏“取消行业匹配”按钮替代（同一 exitAutoMode 降级链），
+            原文案与实际跳转行为不符，保留会误导用户 */}
         {(prefsMode === "prefs" || prefsMode === "recommended") && (
-          <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
+          <div className="mb-4 flex items-center gap-3 p-3 rounded-lg bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
             <span>
               {prefsMode === "prefs"
                 ? search.query.hasSearch
@@ -271,13 +274,6 @@ export default function ProcurementPage() {
                   : t("procurement_prefsBanner", { name: prefsBannerName })
                 : t("procurement_recommendedBanner")}
             </span>
-            <button
-              type="button"
-              onClick={exitAutoMode}
-              className="shrink-0 font-black underline hover:text-teal-900"
-            >
-              {t("procurement_viewAll")}
-            </button>
           </div>
         )}
 
