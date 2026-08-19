@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAppEvent } from "@/core/events";
+import { clearApiCache } from "@/core/http";
 import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
@@ -225,6 +226,8 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       setPage(1);
       setPrefsMode(userKey ? "loading" : "default");
       setPrefsRefreshTick((tick) => tick + 1);
+      // 清除前端搜索缓存（apiCached 60s TTL），否则新偏好请求命中旧缓存返回过期数据
+      clearApiCache("/api/notices");
     };
     return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
   }, [userKey]);
