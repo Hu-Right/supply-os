@@ -98,6 +98,12 @@ export async function ensureIndex(): Promise<boolean> {
   if (!healthy) return false;
 
   try {
+    // 索引不存在时先创建（已存在则 createIndex 会返回已取消的任务，不影响后续操作）
+    try {
+      await client.createIndex(INDEX_NAME, { primaryKey: "id" });
+    } catch {
+      // index_already_exists 或幂等冲突，忽略
+    }
     const index = client.index(INDEX_NAME);
     // 支持的语言列表（扩展语言只需在此添加）
     const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];

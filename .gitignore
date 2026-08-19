@@ -6,7 +6,6 @@ coverage/
 *.tsbuildinfo
 .vite/
 .cache/
-.bin/
 
 # ===== 敏感配置(保留 .env.example)=====
 .env*
@@ -28,7 +27,6 @@ scripts/
 runtime/
 backups/
 bin/
-data.ms/
 dumps/
 logs/
 server/logs/

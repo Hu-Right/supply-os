@@ -517,8 +517,8 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
           `UPDATE crm_notice_search ns
            INNER JOIN crm_notice_translations t
              ON t.notice_id = ns.id AND t.lang = 'zh'
-           SET ns.title_zh = t.title_tr,
-               ns.description_zh = t.description_tr
+           SET ns.title_zh = COALESCE(t.title_tr, ''),
+               ns.description_zh = COALESCE(t.description_tr, '')
            WHERE ns.id IN (${ph})`,
           batch,
         );
