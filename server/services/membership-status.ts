@@ -3,13 +3,18 @@
  * Membership state — Single Source of Truth
  *
  * @module server/services/membership-status
- * @description N1 收敛（2026-08-20）：原"用户是否 VIP / 配额余量"判定散落三处且口径不等价——
- *              ① auth.buildUserResponse 仅看订阅（hasActiveSubscription）
- *              ② membership.routes /status 看订阅 + 付费剩余配额
- *              ③ suppliers/contact.ts 看订阅 + 权益行
- *              导致仅购买单次解锁卡（entitlement）的用户在不同端点得到矛盾的 VIP 状态。
- *              现统一为 resolveMembershipState 单一端口：
- *              isVip = 有活跃订阅 OR 付费剩余配额 > 0（权益行已含 quota/有效期过滤，两式等价）。
+ * @description N1 收敛（2026-08-20）：原"用户是否 VIP / 配额余量"判定散落三处且口径不等价，
+ *              现统一为本模块唯一端口。
+ *
+ *              §2.0 产品语义裁决（Phase 0.1，2026-08-20；见《VIP判定SSOT系统性方案设计.md》）：
+ *              R1 身份与额度分离 —— VIP 是订阅身份，单次解锁卡只授予额度、不授予身份；
+ *              R2 期限基准 —— VIP 按会员期限判定（订阅 active 且未过期），
+ *                 配额耗尽不影响 VIP，到期自动失效；
+ *              R3 免费用户 —— 无订阅即 free，免费预览额度与 VIP 无关。
+ *
+ *              判定表达式：isVip = 存在期限内活跃订阅（findActiveSubscriptions 已内置
+ *              status='active' 与 expires_at 期限过滤，恰为 R2 的数据原语实现）。
+ *              语义固化测试：membership-status.test.ts（7 画像，画像 2/4 为反直觉断言）。
  *              所有 VIP/配额派生状态必须经本函数获取，禁止再各自拼装查询。
  */
 import type { MembershipRepo, CurrentBestPlanRow } from "../repos/membership.repo";
@@ -17,7 +22,7 @@ import type { SubscriptionRow, EntitlementRow } from "../repos/types";
 
 /** 用户会员状态快照（免费/付费配额、订阅、权益、VIP 判定一次算清） */
 export interface MembershipState {
-  /** 统一 VIP 判定：有活跃订阅 OR 付费剩余配额 > 0 */
+  /** 统一 VIP 判定：期限内活跃订阅（§2.0 R1/R2：单次卡不授予身份，配额耗尽不影响身份） */
   isVip: boolean;
   /** 与前端 membership_tier 契约对齐 */
   tier: "free" | "vip";
@@ -41,12 +46,11 @@ export interface MembershipState {
 
 /**
  * 解析用户会员状态（唯一权威端口）。
- * 语义口径（历史三口径的并集收敛）：
- * - 订阅判定：crm_user_subscriptions status=active 且未过期；
- * - 权益判定：crm_user_entitlements status=active、未被升级替代、有剩余配额且未过期
- *   （MembershipRepo.findActiveEntitlements 已内置全部过滤，
- *   故"权益行存在"与"单次卡剩余 > 0"等价，无口径漂移空间）；
- * - isVip = 订阅存在 OR 付费剩余 > 0。
+ *
+ * VIP 判定语义（§2.0 裁决，勿擅改；修订须先更新裁决文档与固化测试）：
+ * - isVip = findActiveSubscriptions 结果非空（期限内活跃订阅，期限基准 R2）；
+ * - 单次卡（entitlements）不参与 VIP 判定，仅计入配额字段（身份与额度分离 R1）；
+ * - 配额字段（paidQuotaRemaining 等）服务解锁消费与展示，与 VIP 判定无关。
  */
 export async function resolveMembershipState(
   membershipRepo: MembershipRepo,
@@ -73,7 +77,9 @@ export async function resolveMembershipState(
   // 当前最优周期性套餐（供升级判断与 VIP 等级标签展示）
   const currentBest = await membershipRepo.findCurrentBestPlan(userKey);
 
-  const isVip = subs.length > 0 || paidQuotaRemaining > 0;
+  // §2.0 裁决（Phase 0.1，2026-08-20）：期限基准，与额度解耦——
+  // R1 单次卡（entitlements）不授予 VIP；R2 配额耗尽不剥夺期限内订阅的 VIP。
+  const isVip = subs.length > 0;
 
   return {
     isVip,

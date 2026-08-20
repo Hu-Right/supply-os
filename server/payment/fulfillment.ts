@@ -60,7 +60,8 @@ export async function activatePaidOrder(
         quotaTotal: Number(plan.unlock_quota || 1),
         durationDays: plan.duration_days,
       });
-      await paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
+      // §2.0 R1（Phase 0.1，2026-08-20）：单次解锁卡只授予额度、不授予 VIP 身份，
+      // 原 promoteToVipInTransaction 调用已删除（该持久化字段无判定消费方，属死语义写入）。
       await conn.commit();
       return;
     }
