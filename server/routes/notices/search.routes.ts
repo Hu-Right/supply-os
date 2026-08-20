@@ -58,7 +58,7 @@ function isValidNoticeType(val: string): boolean {
 
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.notice.noticesRepo;
+  const feedbackRepo = ctx.notice.feedbackRepo;
 
   // ── 统一搜索端点（重构方案 §4.1）：mode=default|prefs|recommended ──
   router.get("/api/notices/unified-search", asyncHandler(async (req, res) => {
@@ -124,7 +124,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
         featured: featuredOnly || undefined,
         sort,
       });
-      void noticesRepo.logSearch(
+      void feedbackRepo.logSearch(
         // B1 legacy 退役：归属与 searchUnified 同源（JWT 身份）；匿名搜索归属 ""
         params.userKey || "", q || null, country || null, filters, result.total
       ).catch(() => undefined);

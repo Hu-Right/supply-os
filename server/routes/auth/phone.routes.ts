@@ -25,6 +25,7 @@ export function createPhoneRouter(
 ): Router {
   const router = Router();
   const usersRepo = ctx.user.usersRepo;
+  const authRepo = ctx.user.authRepo;
 
   // ── 发送手机验证码 ──────────────────────────────────────────
   router.post("/api/auth/send-phone-code", requireAuth, asyncHandler(async (req, res) => {
@@ -78,26 +79,25 @@ export function createPhoneRouter(
     const codeType = `phone_${scene}`;
 
     const code = String(crypto.randomInt(100000, 1000000));
-    const [insertResult] = await ctx.dbPool.execute(
-      `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [userKey, targetPhone, hashVerificationCode(code), codeType, expiresAt, ip],
-    );
-    const resetId = (insertResult as any).insertId;
+    const resetId = await authRepo.createResetCode({
+      userKey,
+      phone: targetPhone,
+      codeHash: hashVerificationCode(code),
+      codeType,
+      expiresAt,
+      ip,
+    });
 
     let smsSent = false;
     try {
       const tplCode = scene === "reset" ? getSmsResetTemplateCode() : undefined;
       await sendSmsVerificationCode(targetPhone, tplCode, code);
       smsSent = true;
-      await ctx.dbPool.execute("UPDATE crm_password_resets SET sms_sent = 1 WHERE id = ?", [resetId]);
+      await authRepo.markSmsSent(resetId, true);
     } catch (err) {
       const errorMsg = (err as Error).message;
       console.error(`[send-phone-code] ✗ 短信发送失败: ${maskPhone(targetPhone)} - ${errorMsg}`);
-      await ctx.dbPool.execute(
-        "UPDATE crm_password_resets SET sms_sent = 0, sms_error = ? WHERE id = ?",
-        [errorMsg, resetId],
-      );
+      await authRepo.markSmsSent(resetId, false, errorMsg);
     }
 
     phoneSmsRateLimiter.record(targetPhone);
@@ -130,34 +130,24 @@ export function createPhoneRouter(
     if (!user) return res.status(404).json({ error: "用户不存在" });
     if (user.phone) return res.status(409).json({ error: "已绑定手机号，请先解绑或换绑" });
 
-    const [codeRows] = await ctx.dbPool.query(
-      `SELECT id, code, expires_at, attempts
-       FROM crm_password_resets
-       WHERE user_key = ? AND phone = ? AND code_type = 'phone_bind' AND used = 0 AND expires_at > NOW()
-       ORDER BY created_at DESC LIMIT 1`,
-      [userKey, phone],
-    );
-    const codeRecord = (codeRows as any[])[0];
+    const codeRecord = await authRepo.findLatestActiveCode(userKey, "phone_bind", phone);
 
     if (!codeRecord) return res.status(400).json({ error: "验证码无效，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
     if (codeRecord.code !== hashVerificationCode(code)) {
-      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      await authRepo.incrementCodeAttempts(codeRecord.id);
       return res.status(400).json({ error: "验证码无效，请重新获取" });
     }
 
-    // H-3 安全加固：原子操作绑定手机号
-    const [bindResult] = await ctx.dbPool.execute(
-      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE user_key = ? AND phone IS NULL",
-      [phone, userKey],
-    );
-    if ((bindResult as any).affectedRows === 0) {
+    // H-3 安全加固：原子操作绑定手机号（仅未绑定时生效）
+    const bound = await usersRepo.bindPhoneIfUnbound(userKey, phone);
+    if (!bound) {
       const existingByPhone = await usersRepo.findByPhone(phone);
       if (existingByPhone) return res.status(409).json({ error: "该手机号已被其他用户绑定" });
       return res.status(409).json({ error: "已绑定手机号，请先解绑或换绑" });
     }
 
-    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+    await authRepo.markCodeUsed(codeRecord.id);
     res.json({ success: true, phone: maskPhone(phone) });
   }));
 
@@ -181,19 +171,12 @@ export function createPhoneRouter(
     if (!user) return res.status(404).json({ error: "用户不存在" });
     if (!user.phone) return res.status(400).json({ error: "尚未绑定手机号" });
 
-    const [codeRows] = await ctx.dbPool.query(
-      `SELECT id, code, expires_at, attempts
-       FROM crm_password_resets
-       WHERE user_key = ? AND phone = ? AND code_type = 'phone_rebind' AND used = 0 AND expires_at > NOW()
-       ORDER BY created_at DESC LIMIT 1`,
-      [userKey, newPhone],
-    );
-    const codeRecord = (codeRows as any[])[0];
+    const codeRecord = await authRepo.findLatestActiveCode(userKey, "phone_rebind", newPhone);
 
     if (!codeRecord) return res.status(400).json({ error: "验证码无效，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
     if (codeRecord.code !== hashVerificationCode(code)) {
-      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      await authRepo.incrementCodeAttempts(codeRecord.id);
       return res.status(400).json({ error: "验证码无效，请重新获取" });
     }
 
@@ -203,7 +186,7 @@ export function createPhoneRouter(
     }
 
     await usersRepo.bindPhone(userKey, newPhone);
-    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+    await authRepo.markCodeUsed(codeRecord.id);
     res.json({ success: true, phone: maskPhone(newPhone) });
   }));
 
@@ -225,24 +208,17 @@ export function createPhoneRouter(
     if (!user) return res.status(404).json({ error: "用户不存在" });
     if (!user.phone) return res.status(400).json({ error: "尚未绑定手机号" });
 
-    const [codeRows] = await ctx.dbPool.query(
-      `SELECT id, code, expires_at, attempts
-       FROM crm_password_resets
-       WHERE user_key = ? AND phone = ? AND code_type = 'phone_unbind' AND used = 0 AND expires_at > NOW()
-       ORDER BY created_at DESC LIMIT 1`,
-      [userKey, user.phone],
-    );
-    const codeRecord = (codeRows as any[])[0];
+    const codeRecord = await authRepo.findLatestActiveCode(userKey, "phone_unbind", user.phone);
 
     if (!codeRecord) return res.status(400).json({ error: "验证码无效，请重新获取" });
     if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
     if (codeRecord.code !== hashVerificationCode(code)) {
-      await ctx.dbPool.execute("UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?", [codeRecord.id]);
+      await authRepo.incrementCodeAttempts(codeRecord.id);
       return res.status(400).json({ error: "验证码无效，请重新获取" });
     }
 
     await usersRepo.unbindPhone(userKey);
-    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [codeRecord.id]);
+    await authRepo.markCodeUsed(codeRecord.id);
     res.json({ success: true });
   }));
 

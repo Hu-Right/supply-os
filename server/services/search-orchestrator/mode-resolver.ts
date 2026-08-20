@@ -10,7 +10,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams } from "./types";
-import { resolveUserIndustryProfile } from "../industry-match/resolve";
+import { resolveUserIndustryProfile } from "../industry-profile/resolve";
 
 export interface UnspscFilter {
   level: number;

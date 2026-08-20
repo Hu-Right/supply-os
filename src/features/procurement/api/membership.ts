@@ -1,6 +1,9 @@
 /**
- * 会员 API
- * Membership API functions
+ * 会员 API — 全站唯一封装（#12 双封装合并，2026-08-20）
+ * Membership API — single implementation for the whole app
+ *
+ * @description features/membership/api.ts 已改为委托至本文件，
+ *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
  */
 import type { MembershipPlan, MembershipStatus } from "../types";
 import { api, apiCached } from "@/core/http";

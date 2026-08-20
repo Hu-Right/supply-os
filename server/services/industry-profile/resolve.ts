@@ -2,10 +2,11 @@
  * 用户行业画像解析
  * User industry profile resolution
  *
- * @module server/services/industry-match/resolve
+ * @module server/services/industry-profile/resolve
  * @description 读取 crm_user_industry_prefs（用户五级行业）并解析为匹配画像：
  *              最深选了哪一级、各级类目 id、行业分支码前缀、行业中文名。
  *              防御脏数据：最深级类目在分类树中查不到时逐级上溯，避免"选了行业却匹配不到"。
+ *              （#11 清扫，2026-08-20：自 industry-match/ 更名迁入，内容零变更）
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { unspscPrefixFromCode } from "../unspsc";

@@ -6,11 +6,32 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import type { MembershipRepo } from "../repos/membership.repo";
-import type { SuppliersRepo } from "../repos/suppliers.repo";
+import type { SupplierRegistrationRepo } from "../repos/suppliers/supplier-registration.repo";
+import type { AuthRepo } from "../repos/auth.repo";
 import type { UserRow } from "../repos/types";
 import { maskPhone } from "../utils/mask";
+import {
+  signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
+} from "./jwt";
 
 const BCRYPT_ROUNDS = 12;
+
+/**
+ * 签发 JWT Token 对（登录/注册/重置密码共用，#6 自三个路由文件收口）
+ * Refresh Token 哈希异步入库（失败仅记日志，不阻断登录主流程，与原实现行为一致）
+ */
+export async function issueTokenPair(
+  authRepo: AuthRepo,
+  userKey: string,
+  email: string,
+): Promise<{ token: string; refresh_token: string }> {
+  const accessToken = signAccessToken({ user_key: userKey, email });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
+  const expiresAt = getRefreshTokenExpiresAt();
+  void authRepo.insertRefreshToken(userKey, tokenHash, expiresAt)
+    .catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
+  return { token: accessToken, refresh_token: refreshToken };
+}
 
 /**
  * 旧 SHA-256 哈希（仅用于兼容验证存量用户密码）
@@ -84,7 +105,7 @@ export interface AuthUserResponse {
 export async function buildUserResponse(
   user: UserRow | Partial<UserRow>,
   membershipRepo: MembershipRepo,
-  suppliersRepo: SuppliersRepo,
+  registrationRepo: SupplierRegistrationRepo,
 ): Promise<AuthUserResponse> {
   const userKey = user.user_key ?? "";
   // P3-10 性能修复：订阅查询与供应商信息查询并行化（原串行两次往返 → 一次）
@@ -92,7 +113,7 @@ export async function buildUserResponse(
   const [hasSub, supplierRow] = await Promise.all([
     membershipRepo.hasActiveSubscription(userKey),
     needSupplier
-      ? suppliersRepo.findBasicInfo(Number(user.supplier_id))
+      ? registrationRepo.findBasicInfo(Number(user.supplier_id))
       : Promise.resolve(null),
   ]);
   const supplier = supplierRow as Record<string, unknown> | null;

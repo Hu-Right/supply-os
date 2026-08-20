@@ -8,7 +8,10 @@
  *              路由层仅做参数解析与响应构造，业务逻辑集中于此。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import type { NoticesRepo, RecoFeedbackItem } from "../repos/notices.repo";
+import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
+import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
+import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
+import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
 import { decayUserInterestCodes } from "./recommend/index";
 
@@ -31,19 +34,19 @@ export interface UnlockResult {
  * 从 routes/notices/actions.routes.ts 下沉，路由层不再管理事务。
  */
 export async function executeUnlock(
-  ctx: { noticesRepo: NoticesRepo; dbPool: Pool },
+  ctx: { detailRepo: NoticeDetailRepo; unlockRepo: NoticeUnlockRepo; dbPool: Pool },
   params: UnlockParams,
 ): Promise<UnlockResult> {
-  const { noticesRepo, dbPool } = ctx;
+  const { detailRepo, unlockRepo, dbPool } = ctx;
   const { userKey, noticeId, unlockType, price } = params;
 
   // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
-  if (await noticesRepo.findExistingUnlock(userKey, noticeId)) {
+  if (await unlockRepo.findExistingUnlock(userKey, noticeId)) {
     return { alreadyUnlocked: true, unlockType };
   }
 
   // 获取公告信息（事务外，只读）
-  const notice = await noticesRepo.findById(noticeId);
+  const notice = await detailRepo.findById(noticeId);
   if (!notice) throw new NoticeNotFoundError();
   const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
 
@@ -167,20 +170,20 @@ export interface FeedbackResult {
  * 从 routes/notices/actions.routes.ts 下沉。
  */
 export async function processFeedback(
-  ctx: { noticesRepo: NoticesRepo; dbPool: Pool },
+  ctx: { detailRepo: NoticeDetailRepo; feedbackRepo: NoticeFeedbackRepo; dbPool: Pool },
   params: { userKey: string; sessionId: string; items: RecoFeedbackItem[] },
 ): Promise<FeedbackResult> {
-  const { noticesRepo, dbPool } = ctx;
+  const { detailRepo, feedbackRepo, dbPool } = ctx;
   const { userKey, sessionId, items } = params;
 
-  const inserted = await noticesRepo.insertRecoFeedback(userKey, sessionId, items);
+  const inserted = await feedbackRepo.insertRecoFeedback(userKey, sessionId, items);
 
   const linkedActions = items.filter((item) =>
     ["click", "favorite", "dismiss", "dwell", "scroll_end", "quick_exit", "revisit"].includes(item.action)
   );
   if (linkedActions.length) {
     const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
-    const noticeRows = await noticesRepo.findUnspscSnapshots(noticeIds);
+    const noticeRows = await detailRepo.findUnspscSnapshots(noticeIds);
     const snapshotById = new Map<number, any[]>();
     for (const row of noticeRows) snapshotById.set(Number(row.id), normalizeUnspscCodes(row.unspsc_codes));
     for (const item of linkedActions) {
@@ -214,16 +217,16 @@ export interface InterestParams {
  * 从 routes/notices/actions.routes.ts 下沉。
  */
 export async function submitInterest(
-  ctx: { noticesRepo: NoticesRepo; dbPool: Pool },
+  ctx: { detailRepo: NoticeDetailRepo; interactionRepo: NoticeInteractionRepo; dbPool: Pool },
   params: InterestParams,
 ): Promise<void> {
-  const { noticesRepo, dbPool } = ctx;
+  const { detailRepo, interactionRepo, dbPool } = ctx;
   const { userKey, noticeId, interestType, note } = params;
 
-  const notice = await noticesRepo.findById(noticeId);
+  const notice = await detailRepo.findById(noticeId);
   if (!notice) throw new NoticeNotFoundError();
 
-  await noticesRepo.upsertInterest({ userKey, noticeId, interestType, note });
+  await interactionRepo.upsertInterest({ userKey, noticeId, interestType, note });
   const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
   await persistUserInterestCodes(
     dbPool, userKey, snapshot,

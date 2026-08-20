@@ -14,11 +14,11 @@ import { detectSourceLang, translateNoticeViaChain } from "../../services/transl
 import { syncWideIds } from "../../services/search-sync/index";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
-import { getAgencyCacheData } from "../../services/notice-search/agencies";
+import { getAgencyCacheData } from "../../services/notice-search/agencies/index";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.notice.noticesRepo;
+  const { detailRepo, unlockRepo, translationRepo } = ctx.notice;
   const usersRepo = ctx.user.usersRepo;
   const membershipRepo = ctx.user.membershipRepo;
 
@@ -30,8 +30,8 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
     // 解锁校验与公告查询相互独立：并行执行减少一次顺序往返
     const [unlock, notice] = await Promise.all([
-      noticesRepo.findUnlock(userKey, noticeId),
-      noticesRepo.findDetail(noticeId),
+      unlockRepo.findUnlock(userKey, noticeId),
+      detailRepo.findDetail(noticeId),
     ]);
     if (!unlock) return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
 
@@ -46,14 +46,14 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     const userKey = req.userKey || "";
     if (!noticeId) return res.status(400).json({ error: "INVALID_NOTICE_ID" });
 
-    const notice = await noticesRepo.findDetail(noticeId);
+    const notice = await detailRepo.findDetail(noticeId);
     if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const descriptionCn = opportunity ? String(opportunity.description_cn || "").trim() : "";
 
     // P2-8 安全修复：未解锁用户截断 description（与列表接口 LEFT(description,300) 对齐）
-    const unlock = userKey ? await noticesRepo.findUnlock(userKey, noticeId) : null;
+    const unlock = userKey ? await unlockRepo.findUnlock(userKey, noticeId) : null;
     const description = unlock
       ? (notice.description || "")
       : (notice.description || "").slice(0, 300);
@@ -75,7 +75,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     const userKey = req.userKey || "";
     if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
-    const notice = await noticesRepo.findPreview(noticeId);
+    const notice = await detailRepo.findPreview(noticeId);
     if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
@@ -128,12 +128,12 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     // 精选公告的中文描述已人工/AI 精加工存储在 crm_bid_opportunities.description_cn，
     // 无需再走翻译链 API；仅需确认标题翻译已缓存即可完整返回。
     if (lang === "zh") {
-      const notice = await noticesRepo.findDetail(noticeId);
+      const notice = await detailRepo.findDetail(noticeId);
       if (notice) {
         const opp = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
         const descCn = opp ? String(opp.description_cn || "").trim() : "";
         if (descCn) {
-          const cached = await noticesRepo.findTranslationCache(noticeId, "zh");
+          const cached = await translationRepo.findTranslationCache(noticeId, "zh");
           if (cached?.title_tr) {
             // 最快路径：标题缓存 + description_cn 直出（< 100ms，零 API 成本）
             return res.json({
@@ -147,7 +147,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
             const srcLang = detectSourceLang(title, "") ?? undefined;
             // 原文已是中文：直接缓存标题，零 API 成本
             if (srcLang === "zh") {
-              await noticesRepo.upsertTranslation(noticeId, "zh", title, null, "same-lang-passthrough");
+              await translationRepo.upsertTranslation(noticeId, "zh", title, null, "same-lang-passthrough");
               // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
               void syncWideIds(ctx.dbPool, [noticeId]).catch(() => {});
             } else {
@@ -156,7 +156,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
                 try {
                   const result = await translateNoticeViaChain(title, "", "zh", srcLang);
                   if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
-                    await noticesRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
+                    await translationRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
                     // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
                     void syncWideIds(ctx.dbPool, [noticeId]).catch(() => {});
                   }
@@ -174,7 +174,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
 
     // ── 通用路径 ──
     try {
-      const result = await getTranslatedNoticeDetail(noticeId, lang, noticesRepo, ctx.dbPool);
+      const result = await getTranslatedNoticeDetail(noticeId, lang, { detailRepo, translationRepo }, ctx.dbPool);
       
       // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
       if (result.title && !result.cached) {

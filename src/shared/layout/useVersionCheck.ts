@@ -7,6 +7,7 @@
  *              无需用户任何操作，无弹窗提示。
  */
 import { useEffect, useRef } from "react";
+import { api } from "@/core/http";
 
 /** 轮询间隔（毫秒），默认 3 分钟 */
 const CHECK_INTERVAL_MS = 3 * 60 * 1000;
@@ -18,10 +19,9 @@ export function useVersionCheck() {
   const initialVersionRef = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // 页面加载时记录当前版本号
+  // 页面加载时记录当前版本号（#10 收口：统一请求层，no-store 语义透传）
   useEffect(() => {
-    fetch("/api/system/version", { cache: "no-store" })
-      .then((r) => r.json())
+    api<{ version?: string }>("/api/system/version", { cache: "no-store" })
       .then((data) => {
         initialVersionRef.current = data.version || "";
       })
@@ -31,8 +31,7 @@ export function useVersionCheck() {
   // 定时轮询：检测到新版本 → 立即静默刷新
   useEffect(() => {
     const check = () => {
-      fetch("/api/system/version", { cache: "no-store" })
-        .then((r) => r.json())
+      api<{ version?: string }>("/api/system/version", { cache: "no-store" })
         .then((data) => {
           const serverVersion = data.version || "";
           if (

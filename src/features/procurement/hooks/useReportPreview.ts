@@ -52,7 +52,7 @@ export function useReportPreview(
     setError(false);
 
     api<ReportPreviewData>(
-      `/api/notices/${noticeId}/report/preview?user_key=${encodeURIComponent(userKey)}&lang=${encodeURIComponent(lang)}`
+      `/api/notices/${noticeId}/report/preview?lang=${encodeURIComponent(lang)}`
     )
       .then((data) => {
         if (!cancelled) setPreview(data);

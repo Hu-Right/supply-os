@@ -14,12 +14,12 @@ import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
-import { setAuthTokens, clearAuthTokens, api } from "@/core/http";
+import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
 
-/** 认证接口响应（登录/注册/重置密码共用：JWT Token 对 + 用户信息） */
+/** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
+ * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
 interface AuthResponse {
   token?: string;
-  refresh_token?: string;
   user: AuthUser;
   [key: string]: unknown;
 }
@@ -89,9 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: { email: identifier, password },
       });
-      // 存储 JWT Token 对
-      if (data.token && data.refresh_token) {
-        setAuthTokens(data.token, data.refresh_token);
+      // 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发）
+      if (data.token) {
+        setAuthTokens(data.token);
       }
       persistAuthUser(data.user);
     } finally {
@@ -111,9 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: { email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode },
       });
 
-      // 存储 JWT Token 对（注册即登录）
-      if (data.token && data.refresh_token) {
-        setAuthTokens(data.token, data.refresh_token);
+      // 存储 Access Token（注册即登录）
+      if (data.token) {
+        setAuthTokens(data.token);
       }
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
@@ -160,6 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClaimMessage("");
     window.localStorage.removeItem(AUTH_USER_KEY);
     clearAuthTokens();
+    // B1 配套（2026-08-20）：解锁列表/详情等身份相关接口已不再携带 user_key 缓存隔离，
+    // 登出时统一清空 API 缓存，防止下一账号命中前账号的缓存数据
+    clearApiCache();
   }, []);
 
   /**
@@ -218,9 +221,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: { email, code, new_password: newPassword },
       });
-      // 存储 JWT Token 对（重置后自动登录）
-      if (data.token && data.refresh_token) {
-        setAuthTokens(data.token, data.refresh_token);
+      // 存储 Access Token（重置后自动登录）
+      if (data.token) {
+        setAuthTokens(data.token);
       }
       persistAuthUser(data.user);
     } finally {

@@ -12,11 +12,13 @@ import { requireAuth } from "../../middleware/auth";
 import { rateLimitMiddleware } from "../../middleware/rateLimiter";
 import { mapSupplierRow } from "../../services/suppliers";
 import { insertUngmAppointment } from "../../services/leads";
-import { SuppliersRepo } from "../../repos/suppliers.repo";
+import { SupplierRegistrationRepo } from "../../repos/suppliers/supplier-registration.repo";
+import { SupplierClaimRepo } from "../../repos/suppliers/supplier-claim.repo";
 import { UsersRepo } from "../../repos/users.repo";
 
 export interface RegisterDeps {
-  suppliersRepo: SuppliersRepo;
+  registrationRepo: SupplierRegistrationRepo;
+  claimRepo: SupplierClaimRepo;
   usersRepo: UsersRepo;
   // 双轨制退役（轨道D）：leadsDb 内存数组已删除，伴生线索直接落库
   dbPool: Pool;
@@ -25,7 +27,7 @@ export interface RegisterDeps {
 
 export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   const router = Router();
-  const { suppliersRepo, usersRepo, dbPool, invalidateCache } = deps;
+  const { registrationRepo, claimRepo, usersRepo, dbPool, invalidateCache } = deps;
   // P2-9 安全修复：供应商注册为写入型成本端点，必须认证 + 限流（防批量注入）
   const registerRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 10 });
 
@@ -58,9 +60,9 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
         .update(`${String(nameZh).trim()}|${String(contactEmail).trim().toLowerCase()}`)
         .digest("hex");
 
-      let supplierRow = await suppliersRepo.findCrmByRequestHash(requestHash);
+      let supplierRow = await registrationRepo.findCrmByRequestHash(requestHash);
       if (!supplierRow) {
-        const insertId = await suppliersRepo.insertCrmSupplier({
+        const insertId = await registrationRepo.insertCrmSupplier({
           companyName: String(nameZh).trim(),
           contactName: String(contactPerson).trim(),
           telephone: String(contactPhone || "").trim(),
@@ -70,7 +72,7 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
           certification,
           requestHash,
         });
-        supplierRow = await suppliersRepo.findCrmById(insertId);
+        supplierRow = await registrationRepo.findCrmById(insertId);
       }
 
       const newSupplier = mapSupplierRow(supplierRow, null);
@@ -123,9 +125,9 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
     const contactPhone = String(req.body.contact_phone || "");
     const contactEmail = String(req.body.contact_email || userKey);
     const businessLicenseNo = String(req.body.business_license_no || "");
-    const supplierId = await suppliersRepo.findCrmIdByCompanyName(companyName);
+    const supplierId = await registrationRepo.findCrmIdByCompanyName(companyName);
 
-    const claimId = await suppliersRepo.insertClaim({
+    const claimId = await claimRepo.insertClaim({
       userKey,
       supplierId,
       companyName,

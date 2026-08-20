@@ -61,7 +61,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
       try {
         // single 类型：后端已通过 entitlement 发放额度，此处调用 unlock API 消耗额度解锁公告
         // subscription 类型：后端已创建订阅和权益，此处直接解锁
-        await unlockNotice(noticeId, userKey || "", unlockType, 0);
+        await unlockNotice(noticeId, unlockType, 0);
       } catch {
         // 支付回调可能已在服务端完成解锁，忽略此处失败
       }

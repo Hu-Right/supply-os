@@ -6,7 +6,8 @@ import { Router } from "express";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { translateViaChain, type ChainResult } from "../../services/translation/chain";
 import { mapSupplierRow } from "../../services/suppliers";
-import { SuppliersRepo } from "../../repos/suppliers.repo";
+import { SupplierDirectoryRepo } from "../../repos/suppliers/supplier-directory.repo";
+import { SupplierRegistrationRepo } from "../../repos/suppliers/supplier-registration.repo";
 
 // 同一 (supplier, lang) 的并发首次翻译只触发一次翻译链调用
 const pendingSupplierTranslations = new Map<string, Promise<ChainResult>>();
@@ -21,7 +22,8 @@ const SUPPLIER_TRANSLATION_LANGS: Record<string, string> = {
 };
 
 export interface ListDeps {
-  suppliersRepo: SuppliersRepo;
+  directoryRepo: SupplierDirectoryRepo;
+  registrationRepo: SupplierRegistrationRepo;
   cache: Map<string, { data: any; expires: number }>;
   cacheTtl: number;
   invalidateCache: () => void;
@@ -29,7 +31,7 @@ export interface ListDeps {
 
 export function createSupplierListRouter(deps: ListDeps): Router {
   const router = Router();
-  const { suppliersRepo, cache, cacheTtl, invalidateCache } = deps;
+  const { directoryRepo, registrationRepo, cache, cacheTtl, invalidateCache } = deps;
 
   router.get("/api/suppliers", asyncHandler(async (req, res) => {
     const lang = String(req.query.lang || "zh").toLowerCase();
@@ -51,7 +53,7 @@ export function createSupplierListRouter(deps: ListDeps): Router {
         return;
       }
 
-      const { items: supplierRows, total } = await suppliersRepo.listDirectoryPaginated({
+      const { items: supplierRows, total } = await directoryRepo.listDirectoryPaginated({
         limit: pageSize,
         offset: (page - 1) * pageSize,
         lang,
@@ -62,7 +64,7 @@ export function createSupplierListRouter(deps: ListDeps): Router {
 
       const trMap = new Map<number, any>();
       if (SUPPLIER_TRANSLATION_LANGS[lang] && supplierRows.length > 0) {
-        const trRows = await suppliersRepo.listTranslations(lang, supplierRows.map((row) => row.id));
+        const trRows = await registrationRepo.listTranslations(lang, supplierRows.map((row) => row.id));
         for (const tr of trRows) {
           trMap.set(Number(tr.supplier_id), tr);
         }
@@ -91,11 +93,11 @@ export function createSupplierListRouter(deps: ListDeps): Router {
       return;
     }
 
-    const supplierRows = await suppliersRepo.listDirectory();
+    const supplierRows = await directoryRepo.listDirectory();
 
     const trMap = new Map<number, any>();
     if (SUPPLIER_TRANSLATION_LANGS[lang] && supplierRows.length > 0) {
-      const trRows = await suppliersRepo.listTranslations(lang, supplierRows.map((row) => row.id));
+      const trRows = await registrationRepo.listTranslations(lang, supplierRows.map((row) => row.id));
       for (const tr of trRows) {
         trMap.set(Number(tr.supplier_id), tr);
       }
@@ -126,7 +128,7 @@ export function createSupplierListRouter(deps: ListDeps): Router {
       pendingSupplierTranslations.set(pendingKey, pending);
       try {
         const { translations, provider } = await pending;
-        await suppliersRepo.upsertTranslation(row.id, lang, translations[0], translations[1], provider);
+        await registrationRepo.upsertTranslation(row.id, lang, translations[0], translations[1], provider);
       } catch (err: any) {
         if (err?.message === "TRANSLATION_UNAVAILABLE") return;
       } finally {

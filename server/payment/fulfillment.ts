@@ -6,23 +6,12 @@
  * @description 统一履约入口：
  *              - activatePaidOrder: 真实支付回调履约（事务版，悲观锁）
  *              - fulfillMockPayment: mock 支付履约（非事务）
- *              - activateSubscription: 订阅开通
- *              - createLegacyOrder: legacy 下单
+ *              - activateSubscription: 订阅开通（套餐以 crm_membership_plans 为唯一事实源）
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
 import type { PoolConnection } from "mysql2/promise";
 import type { PaymentOrderRow } from "../repos/types";
-
-// ── 固定套餐表（billing/subscribe 专用） ──────────────────────────────────────
-
-/** billing/subscribe 的固定套餐表（独立于 crm_membership_plans 表） */
-export const BILLING_PLANS: Record<string, { days: number | null; price: number; quota: number }> = {
-  single: { days: null, price: 89, quota: 1 },
-  trial_3: { days: null, price: 99, quota: 3 },
-  week_21: { days: 7, price: 299, quota: 21 },
-  annual: { days: 365, price: 5600, quota: 1095 },
-};
 
 // ── 真实支付回调履约（事务版） ────────────────────────────────────────────────
 
@@ -242,49 +231,23 @@ export async function fulfillMockPayment(
 
 // ── 订阅开通 ──────────────────────────────────────────────────────────────────
 
-/** 开通订阅（POST /api/billing/subscribe）：写订阅 + 升 VIP */
+/**
+ * 开通订阅（POST /api/billing/subscribe）：查在售套餐 + 写订阅 + 升 VIP。
+ * 套餐以 crm_membership_plans 为唯一事实源（与下单路径 findActivePlan 口径对齐）；
+ * 套餐不存在或已下架时返回 null（路由返回 404 PLAN_NOT_FOUND）。
+ */
 export async function activateSubscription(
   repo: PaymentsRepo,
-  params: { userKey: string; planCode: string },
-): Promise<{ planCode: string; price: number; quota: number }> {
-  const plan = BILLING_PLANS[params.planCode] || BILLING_PLANS.single;
-  await repo.createSubscription(params.userKey, params.planCode, plan.days);
-  await repo.promoteToVip(params.userKey);
-  return { planCode: params.planCode, price: plan.price, quota: plan.quota };
-}
-
-// ── Legacy 下单 ───────────────────────────────────────────────────────────────
-
-/**
- * legacy 下单（POST /api/payments/create）：查活跃套餐 + 落 pending 订单。
- * 返回 null 表示套餐不存在（路由返回 404 PLAN_NOT_FOUND）。
- */
-export async function createLegacyOrder(
-  payments: PaymentsRepo,
   membership: MembershipRepo,
-  params: {
-    userKey: string;
-    provider: string;
-    planCode: string;
-    noticeId: number | null;
-    orderNo: string;
-    payUrl: string;
-    rawRequest: string;
-  },
-): Promise<{ planName: string; amount: number; currency: string } | null> {
+  params: { userKey: string; planCode: string },
+): Promise<{ planCode: string; price: number; quota: number } | null> {
   const plan = await membership.findPlanByCode(params.planCode);
   if (!plan) return null;
-  await payments.createOrder({
-    userKey: params.userKey,
-    orderNo: params.orderNo,
-    provider: params.provider,
+  await repo.createSubscription(params.userKey, params.planCode, plan.duration_days ?? null);
+  await repo.promoteToVip(params.userKey);
+  return {
     planCode: params.planCode,
-    noticeId: params.noticeId,
-    amount: Number(plan.price),
-    currency: plan.currency || "CNY",
-    payUrl: params.payUrl,
-    qrCodeUrl: null,
-    rawRequest: params.rawRequest,
-  });
-  return { planName: plan.name, amount: Number(plan.price), currency: plan.currency || "CNY" };
+    price: Number(plan.price),
+    quota: Math.max(1, Number(plan.unlock_quota || 1)),
+  };
 }

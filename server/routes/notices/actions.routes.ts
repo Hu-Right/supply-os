@@ -11,7 +11,7 @@ import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
 import { rateLimitMiddleware } from "../../middleware/rateLimiter";
-import type { RecoFeedbackItem } from "../../repos/notices.repo";
+import type { RecoFeedbackItem } from "../../repos/notices/notice-feedback.repo";
 import {
   executeUnlock, processFeedback, submitInterest,
   NoticeNotFoundError, QuotaExceededError,
@@ -19,7 +19,7 @@ import {
 
 export function createNoticeActionsRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.notice.noticesRepo;
+  const { unlockRepo, interactionRepo } = ctx.notice;
   const membershipRepo = ctx.payment.membershipRepo;
   // P2-9 安全修复：成本型端点限流（浏览计数/解锁，防恶意刷量与配额探测）
   const viewRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 120 });
@@ -29,7 +29,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   // P0-5 安全修复：解锁列表必须 JWT 认证
   router.get("/api/notices/unlocks", requireAuth, asyncHandler(async (req, res) => {
       const userKey = req.userKey || "guest";
-      const rows = await noticesRepo.listNoticeUnlocks(userKey);
+      const rows = await unlockRepo.listNoticeUnlocks(userKey);
       res.json(rows);
   }));
 
@@ -60,7 +60,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
       if (items.length === 0) return res.status(400).json({ error: "NO_VALID_ACTIONS" });
 
       const result = await processFeedback(
-        { noticesRepo, dbPool: ctx.dbPool },
+        { detailRepo: ctx.notice.detailRepo, feedbackRepo: ctx.notice.feedbackRepo, dbPool: ctx.dbPool },
         { userKey, sessionId, items },
       );
       res.status(201).json({ success: true, ...result });
@@ -72,7 +72,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
       const noticeId = Number(req.params.id);
       // 身份一律取自 req.userKey（JWT）；前端 openNotice 已门控登录后才上报
       const userKey = req.userKey || "guest";
-      await noticesRepo.insertView({
+      await interactionRepo.insertView({
         userKey,
         noticeId,
         ip: req.ip || req.socket?.remoteAddress || "127.0.0.1",
@@ -97,7 +97,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
 
       try {
         const result = await executeUnlock(
-          { noticesRepo, dbPool: ctx.dbPool },
+          { detailRepo: ctx.notice.detailRepo, unlockRepo, dbPool: ctx.dbPool },
           { userKey, noticeId, unlockType, price },
         );
         if (result.alreadyUnlocked) {
@@ -125,7 +125,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
 
       try {
         await submitInterest(
-          { noticesRepo, dbPool: ctx.dbPool },
+          { detailRepo: ctx.notice.detailRepo, interactionRepo, dbPool: ctx.dbPool },
           { userKey, noticeId, interestType, note },
         );
         res.status(201).json({ success: true, interest_type: interestType });

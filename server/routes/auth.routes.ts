@@ -62,9 +62,9 @@ export function createAuthRouter(ctx: AppContext): Router {
   router.use(createPasswordRouter(ctx, forgotRateLimiter, phoneSmsRateLimiter));
   router.use(createPhoneRouter(ctx, forgotRateLimiter, phoneSmsRateLimiter));
 
-  // 定期清理过期 Refresh Token（每小时一次）
+  // 定期清理过期 Refresh Token（每小时一次；#6：SQL 下沉 AuthRepo）
   setInterval(() => {
-    void ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE expires_at < NOW()").catch(() => {});
+    void ctx.user.authRepo.deleteExpiredRefreshTokens().catch(() => {});
   }, 60 * 60 * 1000).unref();
 
   return router;

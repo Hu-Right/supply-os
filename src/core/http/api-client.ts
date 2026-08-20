@@ -33,11 +33,6 @@ export function clearAuthTokens(): void {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
-/** @deprecated B2 迁移后 Refresh Token 在 HttpOnly Cookie 中，JS 不可读 */
-export function getRefreshToken(): string | null {
-  return null; // Cookie 由浏览器自动携带，无需手动读取
-}
-
 /** 更新 Access Token（刷新后调用） */
 export function updateAuthToken(token: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
@@ -92,13 +87,9 @@ async function tryRefreshToken(): Promise<string | null> {
       if (!res.ok) return null;
       const data = await res.json();
       if (data.token) {
-        // P3-4：服务端 Refresh Token 轮换——新 refresh_token 由服务端自动写入 Cookie
-        // Access Token 更新到 localStorage
-        if (typeof data.refresh_token === "string" && data.refresh_token) {
-          setAuthTokens(data.token, data.refresh_token); // refreshToken 参数被忽略（Cookie 已设置）
-        } else {
-          updateAuthToken(data.token);
-        }
+        // P3-4：服务端 Refresh Token 轮换——新 refresh_token 由服务端自动写入 Cookie；
+        // #5：响应体已不再携带 refresh_token，仅需更新 Access Token
+        updateAuthToken(data.token);
         return data.token as string;
       }
       return null;

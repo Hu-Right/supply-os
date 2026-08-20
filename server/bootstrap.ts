@@ -9,11 +9,17 @@ import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
 import { PaymentService } from "./payment/PaymentService";
 import { UsersRepo } from "./repos/users.repo";
+import { AuthRepo } from "./repos/auth.repo";
 import { MembershipRepo } from "./repos/membership.repo";
 import { PaymentsRepo } from "./repos/payments.repo";
 import { OpportunitiesRepo } from "./repos/opportunities.repo";
-import { NoticesRepo } from "./repos/notices.repo";
-import { SuppliersRepo } from "./repos/suppliers.repo";
+import {
+  NoticeDetailRepo, NoticeUnlockRepo, NoticeTranslationRepo,
+  NoticeInteractionRepo, NoticeFeedbackRepo,
+} from "./repos/notices/index";
+import {
+  SupplierDirectoryRepo, SupplierRegistrationRepo, SupplierClaimRepo,
+} from "./repos/suppliers/index";
 import { CatalogRepo } from "./repos/catalog.repo";
 import { UserPrefsRepo } from "./repos/user-prefs.repo";
 import { LeadsRepo } from "./repos/leads.repo";
@@ -23,8 +29,7 @@ import { createApp } from "./app";
 import { startAutoTranslate } from "./services/translation/auto";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { initMeilisearch, ensureIndex, isHealthy as isMeiliHealthy } from "./services/meilisearch/index";
-import { startSearchSync } from "./services/searchSync";
-import { startWideTableSync } from "./services/search-sync/index";
+import { startSearchSync, startWideTableSync } from "./services/search-sync/index";
 import { startSyncRetryQueue } from "./services/search-sync/sync-retry-queue";
 import { enqueue } from "./services/search-sync/sync-queue";
 import { registerFeaturedSyncCallback } from "./services/notices/featured";
@@ -64,11 +69,19 @@ export async function startServer() {
 
   // Repository 层初始化
   const usersRepo = new UsersRepo(dbPool);
+  const authRepo = new AuthRepo(dbPool);
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
-  const noticesRepo = new NoticesRepo(dbPool);
-  const suppliersRepo = new SuppliersRepo(dbPool);
+  // #7：公告/供应商域直接实例化子 Repo（原聚合 Facade 已删除）
+  const noticeDetailRepo = new NoticeDetailRepo(dbPool);
+  const noticeUnlockRepo = new NoticeUnlockRepo(dbPool);
+  const noticeTranslationRepo = new NoticeTranslationRepo(dbPool);
+  const noticeInteractionRepo = new NoticeInteractionRepo(dbPool);
+  const noticeFeedbackRepo = new NoticeFeedbackRepo(dbPool);
+  const supplierDirectoryRepo = new SupplierDirectoryRepo(dbPool);
+  const supplierRegistrationRepo = new SupplierRegistrationRepo(dbPool);
+  const supplierClaimRepo = new SupplierClaimRepo(dbPool);
   const catalogRepo = new CatalogRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
@@ -80,11 +93,23 @@ export async function startServer() {
   const paymentMode: "live" | "mock" = process.env.PAYMENT_MODE === "live" ? "live" : "mock";
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode, membershipRepo);
 
-  // 领域上下文（新代码推荐）
-  const notice = { dbPool, noticesRepo };
+  // 领域上下文（唯一访问入口）
+  const notice = {
+    dbPool,
+    detailRepo: noticeDetailRepo,
+    unlockRepo: noticeUnlockRepo,
+    translationRepo: noticeTranslationRepo,
+    interactionRepo: noticeInteractionRepo,
+    feedbackRepo: noticeFeedbackRepo,
+  };
   const payment = { dbPool, paymentService, paymentMode, paymentsRepo, membershipRepo };
-  const user = { dbPool, usersRepo, membershipRepo, userPrefsRepo };
-  const supplier = { dbPool, suppliersRepo };
+  const user = { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo };
+  const supplier = {
+    dbPool,
+    directoryRepo: supplierDirectoryRepo,
+    registrationRepo: supplierRegistrationRepo,
+    claimRepo: supplierClaimRepo,
+  };
   const admin = { dbPool, adminRepo, usersRepo };
 
   const ctx: AppContext = {
@@ -211,7 +236,7 @@ export async function startServer() {
   });
 
   // ── P0 性能优化：启动时预热（后台异步，不阻塞启动）──
-  void runWarmup({ dbPool, noticesRepo, suppliersRepo })
+  void runWarmup({ dbPool, directoryRepo: supplierDirectoryRepo })
     .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
 
   // C1【P0】优雅关闭：返回 stop/shutdown 句柄，由入口（server.ts）接线 SIGTERM/SIGINT。

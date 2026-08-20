@@ -26,7 +26,7 @@ const reportCacheDir = () => path.join(process.cwd(), "runtime", "bid_reports");
 
 export function createNoticeReportRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.notice.noticesRepo;
+  const { detailRepo, unlockRepo } = ctx.notice;
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
   // ── 报告预览（结构化 JSON 摘要，前端 ReportPreviewPanel 消费）──
@@ -40,8 +40,8 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
     if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
 
     const [unlock, notice] = await Promise.all([
-      noticesRepo.findUnlock(userKey, noticeId),
-      noticesRepo.findDetail(noticeId),
+      unlockRepo.findUnlock(userKey, noticeId),
+      detailRepo.findDetail(noticeId),
     ]);
     if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
 
@@ -79,10 +79,10 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
       const userKey = req.userKey || "";
       if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
   
-      const unlock = await noticesRepo.findUnlock(userKey, noticeId);
+      const unlock = await unlockRepo.findUnlock(userKey, noticeId);
       if (!unlock) return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
 
-      const notice = await noticesRepo.findDetail(noticeId);
+      const notice = await detailRepo.findDetail(noticeId);
       if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
   
       const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);

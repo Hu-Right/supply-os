@@ -7,16 +7,14 @@
  *              消除首次用户请求的 ~3000ms 冷启动延迟。
  */
 import type { Pool } from "mysql2/promise";
-import type { NoticesRepo } from "../repos/notices.repo";
-import type { SuppliersRepo } from "../repos/suppliers.repo";
+import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
 import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 
 export interface WarmupDeps {
   dbPool: Pool;
-  noticesRepo: NoticesRepo;
-  suppliersRepo: SuppliersRepo;
+  directoryRepo: SupplierDirectoryRepo;
 }
 
 /**
@@ -24,7 +22,7 @@ export interface WarmupDeps {
  * @returns 预热耗时（ms），失败时返回 -1
  */
 export async function runWarmup(deps: WarmupDeps): Promise<number> {
-  const { dbPool, noticesRepo, suppliersRepo } = deps;
+  const { dbPool, directoryRepo } = deps;
   const warmupStart = performance.now();
 
   // Phase 1：统计表 + 搜索 + 国家/机构 + 供应商 并行预热
@@ -65,7 +63,7 @@ export async function runWarmup(deps: WarmupDeps): Promise<number> {
     // 国家/机构下拉 + 供应商目录
     refreshNoticeCountries(dbPool),
     refreshNoticeAgencies(dbPool),
-    suppliersRepo.listDirectory(),
+    directoryRepo.listDirectory(),
   ]);
 
   return Math.round(performance.now() - warmupStart);

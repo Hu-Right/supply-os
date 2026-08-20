@@ -8,6 +8,7 @@
  */
 
 import type { PlatformEnv } from "@/types/payment";
+import { api } from "@/core/http";
 
 /** 支付提供商配置状态（精简，仅前端 UI 决策所需字段） */
 export interface PaymentConfigStatus {
@@ -24,9 +25,10 @@ let _configCache: PaymentConfigStatus | null = null;
 export async function fetchPaymentConfigStatus(): Promise<PaymentConfigStatus> {
   if (_configCache) return _configCache;
   try {
-    const res = await fetch("/api/payment/config-status");
-    if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json();
+    // #10 收口：统一请求层（指标采集），错误由下方 catch 保守回退
+    const data = await api<{ providers?: { wechat?: { configured?: boolean }; alipay?: { configured?: boolean } } }>(
+      "/api/payment/config-status",
+    );
     _configCache = {
       wechat: Boolean(data?.providers?.wechat?.configured),
       alipay: Boolean(data?.providers?.alipay?.configured),

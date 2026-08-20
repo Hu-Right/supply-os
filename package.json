@@ -14,7 +14,6 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "check-i18n": "npx tsx scripts/check-i18n.ts",
     "check:encoding": "node scripts/check-mojibake.mjs",
-    "check:ui": "node scripts/check-ui-adoption.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

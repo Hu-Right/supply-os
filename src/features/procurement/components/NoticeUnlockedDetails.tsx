@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
+import { downloadNoticeReport } from "../api";
 import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
@@ -78,12 +79,17 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
   // 采购文件清单：提取为 collectBreakdownFiles 共用口径（详情页指示器同源）
   const files = collectBreakdownFiles(notice);
 
-  // 中文版订单拆解报告下载地址：需后端 report_available + 登录态 user_key
+  // 中文版订单拆解报告下载：需后端 report_available + 登录态
   // （端点自身仍校验解锁记录，此处仅决定是否展示下载项）
-  const reportHref =
-    notice.report_available && notice.report_url && authUser?.user_key
-      ? `${notice.report_url}?user_key=${encodeURIComponent(authUser.user_key)}`
-      : "";
+  // B1 配套：下载改为带 JWT 的 Blob 拉取（原 <a> 链接无法携带 Authorization 头）
+  const canDownloadReport = Boolean(notice.report_available && notice.report_url && authUser);
+
+  const handleDownloadReport = () => {
+    if (!notice.report_url) return;
+    void downloadNoticeReport(notice.report_url).catch(() => {
+      // 下载失败（如会话失效）静默降级：端点自身会做鉴权与解锁校验
+    });
+  };
 
   // 采购方/机构信息：完整机构名优先，逐级回退
   const agencyInfo = notice.agency_i18n || notice.agency_full || notice.agency || notice.organization || "";
@@ -204,16 +210,17 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
         <p className="font-black text-slate-900 mb-2">{t("procurement_breakdownModuleTitle")}</p>
         <div className="space-y-2">
           {/* 中文版订单拆解报告：置顶下载项；无合格商机时降级为整理中提示 */}
-          {reportHref ? (
-            <a
-              className="flex items-center justify-between gap-3 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 hover:border-teal-400"
-              href={reportHref}
+          {canDownloadReport ? (
+            <button
+              type="button"
+              onClick={handleDownloadReport}
+              className="w-full flex items-center justify-between gap-3 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 hover:border-teal-400"
             >
               <span dir="auto" className="font-black text-teal-800 truncate">
                 {t("procurement_reportFileLabel")}
               </span>
               <Download className="w-4 h-4 shrink-0 text-teal-700" />
-            </a>
+            </button>
           ) : (
             <div className="space-y-2">
               <p className="text-slate-400">{t("procurement_reportPending")}</p>

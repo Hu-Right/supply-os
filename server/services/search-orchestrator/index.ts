@@ -30,7 +30,7 @@ import { formatItems } from "./format";
 import { logPerf, recordFallback } from "./metrics";
 import { requestIndexRebuild } from "./rebuild-trigger";
 import { recommendNotices } from "../recommend/index";
-import { invalidateProfileCache } from "../industry-match/resolve";
+import { invalidateProfileCache } from "../industry-profile/resolve";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();

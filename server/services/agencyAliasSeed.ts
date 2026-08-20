@@ -3,12 +3,12 @@
  * Agency Alias Seed Service
  *
  * @description 将机构别名种子数据写入数据库。
- *              数据层已分离至 agency-alias-data.ts，本文件仅保留 seed 逻辑。
+ *              数据位于 data/agency-i18n/aliases.ts，本文件仅保留 seed 逻辑。
  */
 
-import { AGENCY_ALIAS_GROUPS, type AgencyAliasGroup } from "./agency-alias-data";
+import { AGENCY_ALIAS_GROUPS, type AgencyAliasGroup } from "../data/agency-i18n/aliases";
 
-export type { AgencyAliasGroup } from "./agency-alias-data";
+export type { AgencyAliasGroup } from "../data/agency-i18n/aliases";
 
 /**
  * 将种子数据写入数据库（INSERT IGNORE 跳过已存在的别名，ON DUPLICATE KEY UPDATE 更新 i18n）

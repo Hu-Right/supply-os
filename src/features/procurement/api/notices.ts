@@ -3,7 +3,7 @@
  * Notice search and detail API functions
  */
 import type { NoticeResponse, NoticeItem, NoticeTranslation } from "../types";
-import { api, apiCached, buildQuery } from "@/core/http";
+import { api, apiCached, buildQuery, getAuthToken, ApiError } from "@/core/http";
 
 export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
@@ -13,41 +13,39 @@ export const fetchNoticeAgencies = (locale?: string) => {
   return apiCached<Array<{ agency: string; count: number; agency_i18n?: string }>>(`/api/notices/agencies${qs}`);
 };
 
-export const viewNotice = (noticeId: number, userKey: string) =>
+// B1 legacy 清理（2026-08-20）：身份一律由 JWT 承载（api() 自动携带），
+// 不再拼装已废弃的 user_key 参数（服务端早已忽略该参数，且会污染 apiCached 的 URL 缓存 key）。
+export const viewNotice = (noticeId: number) =>
   api(`/api/notices/${noticeId}/view`, {
     method: "POST",
-    body: { user_key: userKey },
+    body: {},
   }).catch(() => undefined);
 
 export const unlockNotice = (
   noticeId: number,
-  userKey: string,
   unlockType: "free" | "single" | "subscription",
   price: number
 ) =>
   api(`/api/notices/${noticeId}/unlock`, {
     method: "POST",
-    body: { user_key: userKey, unlock_type: unlockType, price },
+    body: { unlock_type: unlockType, price },
   });
 
 export const expressInterest = (
   noticeId: number,
-  userKey: string,
   interestType: "interested" | "subscribed"
 ) =>
   api(`/api/notices/${noticeId}/interest`, {
     method: "POST",
-    body: { user_key: userKey, interest_type: interestType },
+    body: { interest_type: interestType },
   });
 
-export const fetchNoticeDetail = (noticeId: number, userKey: string): Promise<NoticeItem> => {
-  const url = `/api/notices/${noticeId}/detail?user_key=${encodeURIComponent(userKey)}`;
-  return apiCached<NoticeItem>(url, 10 * 60 * 1000);
+export const fetchNoticeDetail = (noticeId: number): Promise<NoticeItem> => {
+  return apiCached<NoticeItem>(`/api/notices/${noticeId}/detail`, 10 * 60 * 1000);
 };
 
-export const fetchNoticePreview = (noticeId: number, userKey: string): Promise<Partial<NoticeItem>> => {
-  const url = `/api/notices/${noticeId}/preview?user_key=${encodeURIComponent(userKey)}`;
-  return apiCached<Partial<NoticeItem>>(url, 10 * 60 * 1000);
+export const fetchNoticePreview = (noticeId: number): Promise<Partial<NoticeItem>> => {
+  return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview`, 10 * 60 * 1000);
 };
 
 export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string }> => {
@@ -55,9 +53,9 @@ export const fetchNoticeContent = (noticeId: number): Promise<{ description: str
   return apiCached<{ description: string; title: string; description_cn: string }>(url, 10 * 60 * 1000);
 };
 
-export const fetchUnlockedNoticeIds = async (userKey: string): Promise<number[]> => {
+export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {
   try {
-    const rows = await apiCached<unknown[]>(`/api/notices/unlocks?user_key=${encodeURIComponent(userKey)}`, 5 * 60 * 1000);
+    const rows = await apiCached<unknown[]>("/api/notices/unlocks", 5 * 60 * 1000);
     return Array.isArray(rows)
       ? rows.map((row) => Number((row as Record<string, unknown>)?.notice_id)).filter((id) => Number.isFinite(id) && id > 0)
       : [];
@@ -72,6 +70,32 @@ export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
   api<NoticeTranslation>(
     `/api/notices/${noticeId}/translation?lang=${encodeURIComponent(lang)}`
   );
+
+/**
+ * 下载中文版订单拆解报告（Word 文档）
+ * B1 配套修复（2026-08-20）：下载端点 requireAuth 仅认 JWT，纯 <a> 链接无法携带
+ * Authorization 头（退役前依赖已废弃的 query user_key），改为带 Token 拉取 Blob 后本地保存。
+ */
+export async function downloadNoticeReport(reportUrl: string): Promise<void> {
+  const token = getAuthToken();
+  const res = await fetch(reportUrl, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new ApiError(res.status, `Report download failed: ${res.status}`);
+  // 文件名优先取 Content-Disposition（后端 bidReportFileName 口径），缺失时兜底 report.docx
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  const fileName = matched ? decodeURIComponent(matched[1]) : "report.docx";
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
 
 /**
  * 统一搜索 API（重构方案 §4.1）：单一端点覆盖全量/行业匹配/推荐三种模式。

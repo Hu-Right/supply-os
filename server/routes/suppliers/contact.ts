@@ -5,19 +5,19 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
-import { SuppliersRepo } from "../../repos/suppliers.repo";
+import { SupplierDirectoryRepo } from "../../repos/suppliers/supplier-directory.repo";
 import { UsersRepo } from "../../repos/users.repo";
 import { MembershipRepo } from "../../repos/membership.repo";
 
 export interface ContactDeps {
-  suppliersRepo: SuppliersRepo;
+  directoryRepo: SupplierDirectoryRepo;
   usersRepo: UsersRepo;
   membershipRepo: MembershipRepo;
 }
 
 export function createSupplierContactRouter(deps: ContactDeps): Router {
   const router = Router();
-  const { suppliersRepo, usersRepo, membershipRepo } = deps;
+  const { directoryRepo, usersRepo, membershipRepo } = deps;
 
   // P0-5 安全修复：供应商联系方式必须 JWT 认证
   router.get("/api/suppliers/:id/contact", requireAuth, asyncHandler(async (req, res) => {
@@ -37,7 +37,7 @@ export function createSupplierContactRouter(deps: ContactDeps): Router {
     const isVip = subs.length > 0 || entitlements.length > 0;
     if (!isVip) return res.status(403).json({ error: "VIP_REQUIRED" });
 
-    const supplier = await suppliersRepo.findContact(supplierId);
+    const supplier = await directoryRepo.findContact(supplierId);
     if (!supplier) return res.status(404).json({ error: "SUPPLIER_NOT_FOUND" });
 
     res.json({

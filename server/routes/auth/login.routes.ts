@@ -7,7 +7,7 @@
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword } from "../../services/auth";
+import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "../../services/auth";
 import { extractClientIp } from "../../utils/ip";
 import {
   signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken,
@@ -17,22 +17,6 @@ import type { RateLimiter } from "../../middleware/rateLimiter";
 // B2【P1】安全加固：Refresh Token 从 localStorage 迁移到 HttpOnly Cookie
 import { setRefreshCookie, clearRefreshCookie, readRefreshCookie } from "../../utils/auth-cookies";
 
-/** 签发 JWT Token 对 */
-async function issueTokenPair(
-  dbPool: import("mysql2/promise").Pool,
-  userKey: string,
-  email: string,
-): Promise<{ token: string; refresh_token: string }> {
-  const accessToken = signAccessToken({ user_key: userKey, email });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
-  const expiresAt = getRefreshTokenExpiresAt();
-  void dbPool.execute(
-    "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
-    [userKey, tokenHash, expiresAt],
-  ).catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
-  return { token: accessToken, refresh_token: refreshToken };
-}
-
 export function createLoginRouter(
   ctx: AppContext,
   loginRateLimiter: RateLimiter,
@@ -40,8 +24,9 @@ export function createLoginRouter(
 ): Router {
   const router = Router();
   const usersRepo = ctx.user.usersRepo;
+  const authRepo = ctx.user.authRepo;
   const membershipRepo = ctx.user.membershipRepo;
-  const suppliersRepo = ctx.supplier.suppliersRepo;
+  const registrationRepo = ctx.supplier.registrationRepo;
 
   // ── 登录 ──────────────────────────────────────────
   router.post("/api/auth/login", asyncHandler(async (req, res) => {
@@ -101,14 +86,16 @@ export function createLoginRouter(
       await usersRepo.updatePassword(user.user_key, newHash, "bcrypt");
     }
 
-    const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
+    const payload = await buildUserResponse(user, membershipRepo, registrationRepo);
     let tokens: { token: string; refresh_token: string } | null = null;
     try {
-      tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || "");
+      tokens = await issueTokenPair(authRepo, user.user_key, user.email || "");
     } catch { /* JWT_SECRET 未配置，静默降级 */ }
-    // B2【P1】Refresh Token 同时写入 HttpOnly Cookie（前端不再存 localStorage）
+    // B2【P1】Refresh Token 写入 HttpOnly Cookie（前端不再存 localStorage）
     if (tokens) setRefreshCookie(res, tokens.refresh_token);
-    res.json({ success: true, user: payload, ...tokens });
+    // #5（2026-08-20）：响应体不再下发 refresh_token 明文（Cookie 已由服务端设置），
+    // 收敛日志/中间件捕获面；仅返回 Access Token
+    res.json({ success: true, user: payload, token: tokens?.token });
   }));
 
   // ── 获取用户信息 ──────────────────────────────────────────
@@ -119,14 +106,15 @@ export function createLoginRouter(
     }
     const user = await usersRepo.findProfileByKey(req.userKey);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-    const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
+    const payload = await buildUserResponse(user, membershipRepo, registrationRepo);
     res.json({ success: true, user: payload });
   }));
 
   // ── Token 刷新 ──────────────────────────────────────────
   router.post("/api/auth/refresh", asyncHandler(async (req, res) => {
-    // B2【P1】优先从 HttpOnly Cookie 读取 Refresh Token，回退兼容 body（过渡期）
-    const refreshToken = readRefreshCookie(req) || String(req.body.refresh_token || "").trim();
+    // #5（2026-08-20）：body 兜底通道已移除——前端已全量迁移 HttpOnly Cookie，
+    // Refresh Token 唯一来源为 Cookie（浏览器自动携带）
+    const refreshToken = readRefreshCookie(req) || "";
     if (!refreshToken) return res.status(400).json({ error: "REFRESH_TOKEN_REQUIRED" });
 
     let payload: { user_key: string };
@@ -137,11 +125,7 @@ export function createLoginRouter(
     }
 
     const tokenHash = hashRefreshToken(refreshToken);
-    const [rows] = await ctx.dbPool.query(
-      "SELECT id, user_key FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
-      [tokenHash],
-    );
-    const stored = (rows as any[])[0];
+    const stored = await authRepo.findRefreshTokenByHash(tokenHash);
     if (!stored) return res.status(401).json({ error: "REFRESH_TOKEN_REVOKED" });
 
     const user = await usersRepo.findProfileByKey(payload.user_key);
@@ -154,23 +138,21 @@ export function createLoginRouter(
       email: (user as any).email || "",
     });
     const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ user_key: payload.user_key });
-    await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
-    await ctx.dbPool.execute(
-      "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
-      [payload.user_key, newTokenHash, getRefreshTokenExpiresAt()],
-    );
+    await authRepo.deleteRefreshTokenByHash(tokenHash);
+    await authRepo.insertRefreshToken(payload.user_key, newTokenHash, getRefreshTokenExpiresAt());
     // B2【P1】新 Refresh Token 写入 HttpOnly Cookie（轮换）
     setRefreshCookie(res, newRefreshToken);
-    res.json({ success: true, token: newAccessToken, refresh_token: newRefreshToken });
+    // #5：响应体不再携带 refresh_token 明文，仅下发新 Access Token
+    res.json({ success: true, token: newAccessToken });
   }));
 
   // ── 登出 ──────────────────────────────────────────
   router.post("/api/auth/logout", asyncHandler(async (req, res) => {
-    // B2【P1】优先从 HttpOnly Cookie 读取 Refresh Token，回退兼容 body
-    const refreshToken = readRefreshCookie(req) || String(req.body.refresh_token || "").trim();
+    // #5（2026-08-20）：body 兜底通道已移除，Refresh Token 仅从 Cookie 读取
+    const refreshToken = readRefreshCookie(req) || "";
     if (refreshToken) {
       const tokenHash = hashRefreshToken(refreshToken);
-      await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
+      await authRepo.deleteRefreshTokenByHash(tokenHash);
     }
     // B2【P1】清除 Refresh Token Cookie
     clearRefreshCookie(res);

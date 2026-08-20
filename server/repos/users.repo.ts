@@ -100,6 +100,18 @@ export class UsersRepo {
     );
   }
 
+  /**
+   * 原子绑定手机号：仅当用户尚未绑定时生效（H-3 安全加固）。
+   * 返回 false 表示用户已有绑定（并发/重复请求），由路由层区分冲突原因。
+   */
+  async bindPhoneIfUnbound(userKey: string, phone: string): Promise<boolean> {
+    const [result] = await this.pool.execute(
+      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE user_key = ? AND phone IS NULL",
+      [phone, userKey],
+    );
+    return (result as any).affectedRows > 0;
+  }
+
   /** 解绑手机号 */
   async unbindPhone(userKey: string): Promise<void> {
     await this.pool.execute(

@@ -72,7 +72,7 @@ export interface NoticeItem {
   bid_overview?: string;
   /** 受援助国（crm_bid_opportunities.beneficiary_countries，逗号分隔字符串） */
   beneficiary_countries?: string;
-  /** 报告下载路径（/api/notices/:id/report，需拼 user_key；仅解锁详情返回） */
+  /** 报告下载路径（/api/notices/:id/report，需 JWT 认证；仅解锁详情返回） */
   report_url?: string;
 }
 

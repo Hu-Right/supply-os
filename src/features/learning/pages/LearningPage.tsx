@@ -9,6 +9,7 @@
 
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { api } from "@/core/http";
 import { TRAINING_DOWNLOAD_MATERIALS, FAQS } from "@/data";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
@@ -25,10 +26,10 @@ export default function LearningPage() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    fetch("/api/training/downloads/track", {
+    // #10 收口：下载打点走统一请求层（指标采集/统一错误语义），失败静默
+    void api("/api/training/downloads/track", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ material_id: materialId, file_name: fileName }),
+      body: { material_id: materialId, file_name: fileName },
     }).catch(() => {});
   };
 

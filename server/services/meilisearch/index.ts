@@ -27,12 +27,14 @@ export {
 
 // sync.ts
 export {
-  normalizeNoticeType,
   fullSync,
   incrementalSync,
   syncNoticeIds,
   getMysqlActiveCount,
 } from "./sync";
+
+// utils/notice-type.ts（#8：归一化函数上移至领域工具层，保留 barrel 导出兼容既有导入）
+export { normalizeNoticeType } from "../../utils/notice-type";
 
 // search.ts
 export { searchWithFilters, toBeijingUnixTs } from "./search";

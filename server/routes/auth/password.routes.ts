@@ -8,34 +8,15 @@ import crypto from "crypto";
 import { Router } from "express";
 import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { hashPassword, hashVerificationCode, buildUserResponse } from "../../services/auth";
+import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "../../services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "../../services/email";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "../../services/sms";
 import { validatePassword } from "../../utils/passwordPolicy";
 import { maskPhone } from "../../utils/mask";
 import { extractClientIp } from "../../utils/ip";
-import {
-  signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
-} from "../../services/jwt";
 import type { RateLimiter } from "../../middleware/rateLimiter";
 // B2【P1】Refresh Token 写入 HttpOnly Cookie
 import { setRefreshCookie } from "../../utils/auth-cookies";
-
-/** 签发 JWT Token 对 */
-async function issueTokenPair(
-  dbPool: import("mysql2/promise").Pool,
-  userKey: string,
-  email: string,
-): Promise<{ token: string; refresh_token: string }> {
-  const accessToken = signAccessToken({ user_key: userKey, email });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
-  const expiresAt = getRefreshTokenExpiresAt();
-  void dbPool.execute(
-    "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
-    [userKey, tokenHash, expiresAt],
-  ).catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
-  return { token: accessToken, refresh_token: refreshToken };
-}
 
 export function createPasswordRouter(
   ctx: AppContext,
@@ -44,8 +25,9 @@ export function createPasswordRouter(
 ): Router {
   const router = Router();
   const usersRepo = ctx.user.usersRepo;
+  const authRepo = ctx.user.authRepo;
   const membershipRepo = ctx.user.membershipRepo;
-  const suppliersRepo = ctx.supplier.suppliersRepo;
+  const registrationRepo = ctx.supplier.registrationRepo;
 
   // ── 检查邮箱是否绑定手机号 ──────────────────────────────────────────
   router.post("/api/auth/check-email-phone", asyncHandler(async (req, res) => {
@@ -109,25 +91,24 @@ export function createPasswordRouter(
 
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       const code = String(crypto.randomInt(100000, 1000000));
-      const [insertResult] = await ctx.dbPool.execute(
-        `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
-         VALUES (?, ?, ?, 'phone_reset', ?, ?)`,
-        [email, user.phone, hashVerificationCode(code), expiresAt, ip],
-      );
-      const resetId = (insertResult as any).insertId;
+      const resetId = await authRepo.createResetCode({
+        userKey: email,
+        phone: user.phone,
+        codeHash: hashVerificationCode(code),
+        codeType: "phone_reset",
+        expiresAt,
+        ip,
+      });
 
       let smsSent = false;
       try {
         await sendSmsVerificationCode(user.phone, getSmsResetTemplateCode(), code);
         smsSent = true;
-        await ctx.dbPool.execute("UPDATE crm_password_resets SET sms_sent = 1 WHERE id = ?", [resetId]);
+        await authRepo.markSmsSent(resetId, true);
       } catch (err) {
         const errorMsg = (err as Error).message;
         console.error(`[forgot-password/sms] ✗ 短信发送失败: ${maskPhone(user.phone)} - ${errorMsg}`);
-        await ctx.dbPool.execute(
-          "UPDATE crm_password_resets SET sms_sent = 0, sms_error = ? WHERE id = ?",
-          [errorMsg, resetId],
-        );
+        await authRepo.markSmsSent(resetId, false, errorMsg);
       }
 
       phoneSmsRateLimiter.record(user.phone);
@@ -152,32 +133,27 @@ export function createPasswordRouter(
     const user = await usersRepo.findByKey(email);
     let emailSent = true;
     if (user) {
-      await ctx.dbPool.execute(
-        "UPDATE crm_password_resets SET used = 1 WHERE user_key = ? AND code_type = 'email_reset' AND used = 0",
-        [email],
-      );
+      await authRepo.invalidateUnusedCodes(email, "email_reset");
 
       const code = String(crypto.randomInt(100000, 1000000));
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-      const [insertResult] = await ctx.dbPool.execute(
-        `INSERT INTO crm_password_resets (user_key, code, code_type, expires_at, ip)
-         VALUES (?, ?, 'email_reset', ?, ?)`,
-        [email, hashVerificationCode(code), expiresAt, ip],
-      );
-      const resetId = (insertResult as any).insertId;
+      const resetId = await authRepo.createResetCode({
+        userKey: email,
+        codeHash: hashVerificationCode(code),
+        codeType: "email_reset",
+        expiresAt,
+        ip,
+      });
 
       try {
         await sendPasswordResetEmail(email, code);
-        await ctx.dbPool.execute("UPDATE crm_password_resets SET email_sent = 1 WHERE id = ?", [resetId]);
+        await authRepo.markEmailSent(resetId, true);
         console.log(`[forgot-password] ✓ 验证码邮件发送成功: ${email}`);
         emailSent = true;
       } catch (err) {
         const errorMsg = (err as Error).message;
-        await ctx.dbPool.execute(
-          "UPDATE crm_password_resets SET email_sent = 0, email_error = ? WHERE id = ?",
-          [errorMsg, resetId],
-        );
+        await authRepo.markEmailSent(resetId, false, errorMsg);
         console.error(`[forgot-password] ✗ 验证码邮件发送失败: ${email} - ${errorMsg}`);
         emailSent = false;
       }
@@ -220,49 +196,28 @@ export function createPasswordRouter(
       email = byPhone.user_key;
     }
 
-    let record: any;
+    let record: import("../../repos/auth.repo").AuthCodeRow | null;
     if (channel === "sms") {
-      const [rows] = await ctx.dbPool.query(
-        `SELECT id, code, expires_at, attempts
-         FROM crm_password_resets
-         WHERE user_key = ? AND code_type = 'phone_reset' AND used = 0 AND expires_at > NOW()
-         ORDER BY created_at DESC LIMIT 1`,
-        [email],
-      );
-      const smsRecord = (rows as any[])[0];
+      const smsRecord = await authRepo.findLatestActiveCode(email, "phone_reset");
       if (smsRecord) {
-        const [phoneCheck] = await ctx.dbPool.query(
-          "SELECT phone FROM crm_password_resets WHERE id = ? AND phone IS NOT NULL LIMIT 1",
-          [smsRecord.id],
-        );
-        const phoneRow = (phoneCheck as any[])[0];
-        if (phoneRow && phoneRow.phone) {
+        const codePhone = await authRepo.findCodePhone(smsRecord.id);
+        if (codePhone) {
           const currentUser = await usersRepo.findByKey(email);
-          if (!currentUser || currentUser.phone !== phoneRow.phone) {
+          if (!currentUser || currentUser.phone !== codePhone) {
             return res.status(400).json({ error: "验证码无效，请重新获取" });
           }
         }
       }
       record = smsRecord;
     } else {
-      const [rows] = await ctx.dbPool.query(
-        `SELECT id, code, expires_at, attempts
-         FROM crm_password_resets
-         WHERE user_key = ? AND code_type = 'email_reset' AND used = 0 AND expires_at > NOW()
-         ORDER BY created_at DESC LIMIT 1`,
-        [email],
-      );
-      record = (rows as any[])[0];
+      record = await authRepo.findLatestActiveCode(email, "email_reset");
     }
 
     if (!record) return res.status(400).json({ error: "验证码无效，请重新获取" });
     if (record.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
 
     if (record.code !== hashVerificationCode(code)) {
-      await ctx.dbPool.execute(
-        "UPDATE crm_password_resets SET attempts = attempts + 1 WHERE id = ?",
-        [record.id],
-      );
+      await authRepo.incrementCodeAttempts(record.id);
       return res.status(400).json({ error: "验证码无效，请重新获取" });
     }
 
@@ -270,21 +225,22 @@ export function createPasswordRouter(
     await usersRepo.updatePassword(email, newHash, "bcrypt");
 
     // H-1 安全加固：密码重置后撤销所有现有 Refresh Token
-    await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [email]);
+    await authRepo.deleteRefreshTokensByUser(email);
 
     if (channel !== "sms") {
       await usersRepo.markEmailVerified(email);
     }
 
-    await ctx.dbPool.execute("UPDATE crm_password_resets SET used = 1 WHERE id = ?", [record.id]);
+    await authRepo.markCodeUsed(record.id);
 
     const user = await usersRepo.findAuthByKey(email);
     if (!user) return res.status(500).json({ error: "重置成功，但获取用户信息失败，请重新登录" });
-    const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
+    const payload = await buildUserResponse(user, membershipRepo, registrationRepo);
     let tokens: { token: string; refresh_token: string } | null = null;
-    try { tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || ""); } catch { /* JWT_SECRET 未配置 */ }
+    try { tokens = await issueTokenPair(authRepo, user.user_key, user.email || ""); } catch { /* JWT_SECRET 未配置 */ }
     if (tokens) setRefreshCookie(res, tokens.refresh_token);
-    res.json({ success: true, user: payload, ...tokens });
+    // #5：响应体不再下发 refresh_token 明文（Cookie 已由服务端设置）
+    res.json({ success: true, user: payload, token: tokens?.token });
   }));
 
   return router;

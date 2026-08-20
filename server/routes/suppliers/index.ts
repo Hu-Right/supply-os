@@ -10,8 +10,8 @@ import { createSupplierRegisterRouter } from "./register";
 
 export function createSuppliersRouter(ctx: AppContext): Router {
   const router = Router();
-  // 双轨制退役（轨道A）：统一走领域上下文（bootstrap 保证注入，移除 ?? 兜底构造）
-  const suppliersRepo = ctx.supplier.suppliersRepo;
+  // #7：领域上下文直接注入子 Repo（原聚合 Facade 已删除）
+  const { directoryRepo, registrationRepo, claimRepo } = ctx.supplier;
   const usersRepo = ctx.user.usersRepo;
   const membershipRepo = ctx.user.membershipRepo;
 
@@ -25,20 +25,22 @@ export function createSuppliersRouter(ctx: AppContext): Router {
 
   // 组合子路由
   router.use(createSupplierListRouter({
-    suppliersRepo,
+    directoryRepo,
+    registrationRepo,
     cache: supplierResponseCache,
     cacheTtl: SUPPLIER_CACHE_TTL,
     invalidateCache: invalidateSupplierCache,
   }));
 
   router.use(createSupplierContactRouter({
-    suppliersRepo,
+    directoryRepo,
     usersRepo,
     membershipRepo,
   }));
 
   router.use(createSupplierRegisterRouter({
-    suppliersRepo,
+    registrationRepo,
+    claimRepo,
     usersRepo,
     // 双轨制退役（轨道D）：注册伴生线索直接落库，不再经过内存数组
     dbPool: ctx.dbPool,

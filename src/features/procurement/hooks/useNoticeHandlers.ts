@@ -88,7 +88,7 @@ export function useNoticeHandlers({
     trackDetailOpen(notice.id);
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
-    void viewNotice(notice.id, userKey);
+    void viewNotice(notice.id);
     if (!isVip && !alreadyUnlocked) setDetailViewCount(userKey, currentViews + 1);
     setDetailLoadingId(alreadyUnlocked ? notice.id : null);
     setSelectedNotice(notice);
@@ -147,7 +147,7 @@ export function useNoticeHandlers({
     setDetailLoadingId(notice.id);
     try {
       // P2-10：价格由服务端按套餐定价，前端固定传 0
-      await unlockNotice(notice.id, userKey, nextUnlockType, 0);
+      await unlockNotice(notice.id, nextUnlockType, 0);
     } catch (err) {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
@@ -177,7 +177,7 @@ export function useNoticeHandlers({
     }
 
     try {
-      await expressInterest(notice.id, userKey, interestType);
+      await expressInterest(notice.id, interestType);
     } catch {
       setActionMessage(t("procurement_actionFailed"));
       return;

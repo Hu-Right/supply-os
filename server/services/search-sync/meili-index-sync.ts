@@ -2,15 +2,19 @@
  * Meilisearch 增量同步服务
  * Meilisearch incremental sync service
  *
- * @module server/services/searchSync
+ * @module server/services/search-sync/meili-index-sync
  * @description 启动时从 Meilisearch 恢复 watermark，仅在有数据缺口时执行全量同步。
  *              之后每 1 分钟增量同步。同步失败时静默降级，不影响主服务运行。
+ *              （#8 整理，2026-08-20：自顶层 searchSync.ts 迁入 search-sync 域，
+ *              消除 searchSync / search-sync 命名混淆；逻辑零变更。
+ *              本文件负责流水线第二段：宽表 → Meili 索引；
+ *              第一段 MySQL → 宽表由 sync-scheduler.ts 承担）
  */
 import type { Pool } from "mysql2/promise";
-import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasHasDeadlineField } from "./meilisearch";
-import { getWideTableCount } from "./meilisearch/sync";
-import { isHealthy, tryRecover } from "./meilisearch/client";
-import { tryRunPendingRebuild, requestIndexRebuild } from "./search-orchestrator/rebuild-trigger";
+import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasHasDeadlineField } from "../meilisearch";
+import { getWideTableCount } from "../meilisearch/sync";
+import { isHealthy, tryRecover } from "../meilisearch/client";
+import { tryRunPendingRebuild, requestIndexRebuild } from "../search-orchestrator/rebuild-trigger";
 
 export interface SyncOptions {
   /** 增量同步间隔（毫秒），默认 1 分钟 */

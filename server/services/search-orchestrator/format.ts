@@ -8,7 +8,7 @@
  */
 import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
-import { getAgencyCacheData } from "../notice-search/agencies";
+import { getAgencyCacheData } from "../notice-search/agencies/index";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */

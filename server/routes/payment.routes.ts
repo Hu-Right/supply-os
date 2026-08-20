@@ -6,14 +6,13 @@
  * @description 仅负责参数解析、校验与响应组装；数据访问走 PaymentsRepo，
  *              历史查询映射走 services/paymentHistory，履约编排走 services/paymentFulfillment。
  */
-import crypto from "crypto";
 import { Router } from "express";
 import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { getPaymentRuntimeConfig } from "../config/env";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
-import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../payment/fulfillment";
+import { activateSubscription, fulfillMockPayment } from "../payment/fulfillment";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "./admin/middleware";
 
@@ -36,8 +35,10 @@ export function createPaymentRouter(ctx: AppContext): Router {
     const planCode = String(req.body.plan_code || "single");
     if (!userKey) return res.status(400).json({ error: "\u8bf7\u5148\u767b\u5f55" });
 
-    const { price, quota } = await activateSubscription(paymentsRepo, { userKey, planCode });
-    res.status(201).json({ success: true, plan_code: planCode, price, quota, membership_tier: "vip" });
+    // 套餐以 crm_membership_plans 为唯一事实源：不存在/已下架时 404
+    const result = await activateSubscription(paymentsRepo, membershipRepo, { userKey, planCode });
+    if (!result) return res.status(404).json({ error: "PLAN_NOT_FOUND" });
+    res.status(201).json({ success: true, plan_code: planCode, price: result.price, quota: result.quota, membership_tier: "vip" });
   }));
 
   // =========== Payment API ===========
@@ -206,44 +207,9 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.get("/api/payment/config-status", publicConfigStatusHandler);
   router.get("/api/payments/config-status", requireAdmin, paymentConfigStatusHandler);
 
-  // B1 退役准备（高危端点升级）：requireAuth 强制 JWT 身份，禁止 body.user_key 指定下单人
-  router.post("/api/payments/create", requireAuth, asyncHandler(async (req, res) => {
-    const userKey = req.userKey || "";
-    // BUG-PAY-3 修复：provider 选择对齐策略引擎（白名单校验，非法值安全回退 mock）
-    const provider = (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider))
-      ? req.body.provider : "mock";
-    const planCode = String(req.body.plan_code || "single_89");
-    const noticeId = req.body.notice_id ? Number(req.body.notice_id) : null;
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
-
-    const mode = paymentMode === "live" ? "configured" : "mock";
-
-    const orderNo = `PAY${Date.now()}${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-    const fakePayUrl = `/api/payments/${orderNo}/mock-paid`;
-    const created = await createLegacyOrder(paymentsRepo, membershipRepo, {
-      userKey,
-      provider,
-      planCode,
-      noticeId,
-      orderNo,
-      payUrl: fakePayUrl,
-      rawRequest: JSON.stringify(req.body || {}),
-    });
-    if (!created) return res.status(404).json({ error: "PLAN_NOT_FOUND" });
-    res.status(201).json({
-      success: true,
-      order_no: orderNo,
-      provider,
-      plan_code: planCode,
-      plan_name: created.planName,
-      amount: created.amount,
-      currency: created.currency,
-      status: "pending",
-      payment_mode: mode,
-      pay_url: fakePayUrl,
-      qr_code_url: fakePayUrl,
-    });
-  }));
+  // 双轨制下线（2026-08-20）：legacy 下单端点 POST /api/payments/create 已删除。
+  // 下单唯一入口为 POST /api/payment/orders（PaymentService，支持升级订单/策略引擎/事务履约）；
+  // mock 闭环由下方 /api/payments/:orderNo/mock-paid 承担（新旧订单通用履约入口，保留）。
 
   // P0-3 安全修复：mock-paid 仅在 mock 模式下注册，防止 live 模式下一键已支付真实订单
   if (paymentMode !== "live") {

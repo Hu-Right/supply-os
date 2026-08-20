@@ -10,7 +10,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
-import { getAgencyCacheData } from "../notice-search/agencies";
+import { getAgencyCacheData } from "../notice-search/agencies/index";
 import { normalizeNoticeType, toBeijingUnixTs } from "../meilisearch/index";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */

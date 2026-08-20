@@ -62,7 +62,7 @@ export function useNoticeUnlock({
       return;
     }
     let cancelled = false;
-    fetchUnlockedNoticeIds(userKey).then((ids) => {
+    fetchUnlockedNoticeIds().then((ids) => {
       if (!cancelled) setUnlockedIds(new Set(ids));
     });
     return () => {
@@ -76,7 +76,7 @@ export function useNoticeUnlock({
       return;
     }
     try {
-      const detail = await fetchNoticeDetail(notice.id, userKey);
+      const detail = await fetchNoticeDetail(notice.id);
       setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
       markUnlocked(notice.id);
     } catch {
@@ -91,7 +91,7 @@ export function useNoticeUnlock({
   const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
     if (!userKey) return;
     try {
-      const preview = await fetchNoticePreview(notice.id, userKey);
+      const preview = await fetchNoticePreview(notice.id);
       setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...preview } : prev));
     } catch {
       // 预览为增强项：失败保留列表数据

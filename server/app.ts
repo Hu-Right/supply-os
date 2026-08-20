@@ -22,7 +22,7 @@ import { createOpportunitiesRouter } from "./routes/opportunities.routes";
 import { createNoticesRouter } from "./routes/notices.routes";
 import { createUserPrefsRouter } from "./routes/user-prefs.routes";
 import { createMembershipRouter } from "./routes/membership.routes";
-import { createAdminRouter } from "./routes/admin.routes";
+import { createAdminRouter } from "./routes/admin/index";
 import { createTrainingRouter } from "./routes/training.routes";
 import { createAiRouter } from "./routes/ai.routes";
 import { createSystemRouter } from "./routes/system.routes";

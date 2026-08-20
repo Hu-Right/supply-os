@@ -21,7 +21,6 @@ import { searchUnified } from "../../services/search-orchestrator/index";
 
 export function createIndustryMatchRouter(ctx: AppContext): Router {
   const router = Router();
-  const noticesRepo = ctx.notice.noticesRepo;
 
   // GET /api/notices/industry-matched?page=1&page_size=10&locale=zh&q=...&country=...
   // B1 legacy 退役（2026-08-19）：requireAuth 强制 JWT 身份——本端点返回个性化匹配结果，

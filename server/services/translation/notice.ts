@@ -5,7 +5,8 @@
 import { detect as detectLangTinyld } from "tinyld";
 import type { RowDataPacket } from "mysql2/promise";
 import { translateViaChain, type ChainResult, type ChainSourceLang } from "./chain";
-import type { NoticesRepo } from "../../repos/notices.repo";
+import type { NoticeDetailRepo } from "../../repos/notices/notice-detail.repo";
+import type { NoticeTranslationRepo } from "../../repos/notices/notice-translation.repo";
 import { preferValue } from "../../utils/json";
 import { findQualifiedOpportunityForNotice } from "../notices";
 import { syncWideIds } from "../search-sync/index";
@@ -124,23 +125,28 @@ export interface NoticeTranslationResult {
  * 原 detail.routes.ts 159 行翻译逻辑下沉至此，路由仅负责参数解析与 JSON 返回。
  * @throws {Error} message === "TRANSLATION_UNAVAILABLE" 时调用方应返回 503
  */
+/** 翻译链路子 Repo 依赖集（#7：替代旧 NoticesRepo 聚合 Facade） */
+type NoticeTranslationRepos = { detailRepo: NoticeDetailRepo; translationRepo: NoticeTranslationRepo };
+
 export async function getTranslatedNoticeDetail(
   noticeId: number,
   lang: string,
-  noticesRepo: NoticesRepo,
+  repos: NoticeTranslationRepos,
   dbPool: import("mysql2/promise").Pool,
 ): Promise<NoticeTranslationResult> {
+  // #7：拆解聚合 Facade，按需注入子 Repo
+  const { detailRepo, translationRepo } = repos;
   // ── 分支 1：缓存命中 + 描述完整 ──
-  const cachedRow = await noticesRepo.findTranslationCache(noticeId, lang);
+  const cachedRow = await translationRepo.findTranslationCache(noticeId, lang);
   if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
-    return handleFullCacheHit(noticeId, lang, cachedRow, noticesRepo, dbPool);
+    return handleFullCacheHit(noticeId, lang, cachedRow, repos, dbPool);
   }
 
   // ── 分支 1.5：标题缓存 + description_cn 可覆盖描述（zh 专属快速返回）──
   // autoTranslate 仅翻译标题（description_tr 永远 NULL），
   // 中文环境下 description_cn 可完整替代 description_tr，无需等待描述补翻。
   if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr && lang === "zh") {
-    const nForZh = await noticesRepo.findDescMeta(noticeId);
+    const nForZh = await detailRepo.findDescMeta(noticeId);
     let oppForZh: RowDataPacket | null = null;
     if (nForZh) {
       oppForZh = await findQualifiedOpportunityForNotice(dbPool, nForZh) as RowDataPacket | null;
@@ -150,24 +156,25 @@ export async function getTranslatedNoticeDetail(
       return { lang, title: cachedRow.title_tr, description: descCnFast, cached: true, source: "description_cn" };
     }
     // description_cn 不可用：回退分支 2 原有补翻逻辑
-    return handleTitleOnlyCache(noticeId, lang, cachedRow, noticesRepo, dbPool);
+    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool);
   }
 
   // ── 分支 2：缓存命中 + 仅标题（描述缺失补翻）──
   if (cachedRow && cachedRow.title_tr && !cachedRow.description_tr) {
-    return handleTitleOnlyCache(noticeId, lang, cachedRow, noticesRepo, dbPool);
+    return handleTitleOnlyCache(noticeId, lang, cachedRow, repos, dbPool);
   }
 
   // ── 分支 3：全新翻译 ──
-  return handleFullTranslation(noticeId, lang, noticesRepo, dbPool);
+  return handleFullTranslation(noticeId, lang, repos, dbPool);
 }
 
 /** 分支 1：缓存完整——检查机会表覆盖 + 中文直出 + 重译 */
 async function handleFullCacheHit(
   noticeId: number, lang: string, cachedRow: RowDataPacket,
-  noticesRepo: NoticesRepo, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
 ): Promise<NoticeTranslationResult> {
-  const nForCache = await noticesRepo.findDescMeta(noticeId);
+  const { detailRepo, translationRepo } = repos;
+  const nForCache = await detailRepo.findDescMeta(noticeId);
   let oppForCache: RowDataPacket | null = null;
   let hasOppOverride = false;
   let cacheDescSource = nForCache?.notice_desc || "";
@@ -197,7 +204,7 @@ async function handleFullCacheHit(
     }
     const { translations: staleTr, provider: staleProvider } = await pendingStale;
     if (staleProvider !== "same-lang-passthrough") {
-      await noticesRepo.updateTranslationDescription(noticeId, lang, staleTr[1], staleProvider);
+      await translationRepo.updateTranslationDescription(noticeId, lang, staleTr[1], staleProvider);
     }
     return { lang, title: cachedRow.title_tr, description: staleTr[1], cached: false, source: "opp_retranslate" };
   }
@@ -207,9 +214,10 @@ async function handleFullCacheHit(
 /** 分支 2：仅标题缓存——描述补翻 */
 async function handleTitleOnlyCache(
   noticeId: number, lang: string, cachedRow: RowDataPacket,
-  noticesRepo: NoticesRepo, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
 ): Promise<NoticeTranslationResult> {
-  const n = await noticesRepo.findDescMeta(noticeId);
+  const { detailRepo, translationRepo } = repos;
+  const n = await detailRepo.findDescMeta(noticeId);
   let descSource = n?.notice_desc || "";
   let oppForDesc: RowDataPacket | null = null;
   if (n) {
@@ -223,7 +231,7 @@ async function handleTitleOnlyCache(
         const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
         const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang);
         if (descOnlyResult.provider !== "same-lang-passthrough" && descOnlyResult.translations[1]) {
-          await noticesRepo.updateTranslationDescription(noticeId, lang, descOnlyResult.translations[1], descOnlyResult.provider);
+          await translationRepo.updateTranslationDescription(noticeId, lang, descOnlyResult.translations[1], descOnlyResult.provider);
         }
       } catch { /* 异步补翻失败不影响用户 */ }
     })();
@@ -245,16 +253,17 @@ async function handleTitleOnlyCache(
   if (descProvider === "same-lang-passthrough") {
     return { lang, title: cachedRow.title_tr, description: descTr, cached: false, passthrough: true };
   }
-  await noticesRepo.updateTranslationDescription(noticeId, lang, descTr, descProvider);
+  await translationRepo.updateTranslationDescription(noticeId, lang, descTr, descProvider);
   return { lang, title: cachedRow.title_tr, description: descTr, cached: false };
 }
 
 /** 分支 3：全新翻译——源语言检测 + 翻译链 + 缓存 + 英文中枢兗底 */
 async function handleFullTranslation(
   noticeId: number, lang: string,
-  noticesRepo: NoticesRepo, dbPool: import("mysql2/promise").Pool,
+  repos: NoticeTranslationRepos, dbPool: import("mysql2/promise").Pool,
 ): Promise<NoticeTranslationResult> {
-  const notice = await noticesRepo.findForTranslation(noticeId);
+  const { detailRepo, translationRepo } = repos;
+  const notice = await detailRepo.findForTranslation(noticeId);
   if (!notice) {
     throw new Error("NOTICE_NOT_FOUND");
   }
@@ -270,7 +279,7 @@ async function handleFullTranslation(
   // ── 快速路径：中文 + description_cn + 原文已是中文标题 → 零 API 调用 ──
   if (zhDescCn && detectedSourceLang === "zh") {
     // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
-    await noticesRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
+    await translationRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
     // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
     void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
@@ -283,7 +292,7 @@ async function handleFullTranslation(
       try {
         const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang);
         if (titleResult.provider !== "same-lang-passthrough" && titleResult.translations[0]) {
-          await noticesRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
+          await translationRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
           // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
           void syncWideIds(dbPool, [noticeId]).catch(() => {});
         }
@@ -314,19 +323,19 @@ async function handleFullTranslation(
     // [修复] 缓存直通结果，打破"搜索→补翻→直通→不缓存→下次搜索再补翻"的死循环。
     // 原文已是目标语言，缓存后下次搜索直接命中分支 1（缓存命中），不再进入翻译链。
     const descToCachePass = zhDescCn ? null : (translations[1] || null);
-    await noticesRepo.upsertTranslation(noticeId, lang, translations[0], descToCachePass, provider);
+    await translationRepo.upsertTranslation(noticeId, lang, translations[0], descToCachePass, provider);
     void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang, title: translations[0], description: zhDescCn || translations[1], cached: false, passthrough: true };
   }
   // 有 description_cn 时仅缓存标题翻译，描述走 description_cn 直出
   const descToCache = zhDescCn ? null : translations[1];
-  await noticesRepo.upsertTranslation(noticeId, lang, translations[0], descToCache, provider);
+  await translationRepo.upsertTranslation(noticeId, lang, translations[0], descToCache, provider);
 
   // 英文中枢兗底：小语种公告自动补齐英文译文
   if (lang !== "en" && detectedSourceLang && detectedSourceLang !== "en" && detectedSourceLang !== "zh") {
     void (async () => {
       try {
-        if (await noticesRepo.hasTranslation(noticeId, "en")) return;
+        if (await translationRepo.hasTranslation(noticeId, "en")) return;
         const enPendingKey = `notice:${noticeId}:en`;
         if (pendingNoticeTranslations.has(enPendingKey)) return;
         const enPromise = translateNoticeViaChain(String(notice.title || ""), mergedDescription, "en", detectedSourceLang);
@@ -334,7 +343,7 @@ async function handleFullTranslation(
         enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
         const enResult = await enPromise;
         if (enResult.provider !== "same-lang-passthrough") {
-          await noticesRepo.upsertEnPivotTranslation(noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider);
+          await translationRepo.upsertEnPivotTranslation(noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider);
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

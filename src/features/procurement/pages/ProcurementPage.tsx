@@ -110,7 +110,7 @@ export default function ProcurementPage() {
     if (!userKey) return;
     return onAppEvent("supply-os:notice-paid", async ({ noticeId }) => {
       try {
-        await unlockNotice(noticeId, userKey, "single", 0);
+        await unlockNotice(noticeId, "single", 0);
       } catch {
         // 解锁可能已在服务端完成，忽略失败
       }

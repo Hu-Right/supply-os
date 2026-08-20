@@ -5,7 +5,7 @@
  * @module server/services/meilisearch/search
  */
 import { getClient, isHealthy, getIndexName, markUnhealthy, tryRecover } from "./client";
-import { normalizeNoticeType } from "./sync";
+import { normalizeNoticeType } from "../../utils/notice-type";
 import { MEILI_ACTIVE_FILTER } from "../../utils/notice-expired";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */

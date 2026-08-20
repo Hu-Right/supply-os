@@ -19,6 +19,7 @@ export {
   fetchNoticeContent,
   fetchUnlockedNoticeIds,
   fetchNoticeTranslation,
+  downloadNoticeReport,
   fetchUnifiedSearch,
 } from "./notices";
 
