@@ -17,7 +17,7 @@ import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
   buildWideRow, upsertWideRows, reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
-  reconcileTranslations, reconcilePreciseCodes,
+  reconcileTranslations, reconcilePreciseCodes, reconcileContentDrift,
 } from "./wide-row-builder";
 
 /**
@@ -281,9 +281,11 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
           const translationIds = await reconcileTranslations(pool);
           // precise 对账：专人更新 candidates 后跟随重算
           const preciseIds = await reconcilePreciseCodes(pool);
+          // P1-18 内容漂移对账：主表 title/description 变更后宽表滞后修复
+          const contentDriftIds = await reconcileContentDrift(pool);
 
           // 合并变更 ID 并同步到 Meilisearch
-          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds])];
+          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds, ...contentDriftIds])];
           if (allChangedIds.length > 0) {
             if (!isMeiliHealthy()) await tryRecover().catch(() => false);
             if (isMeiliHealthy()) {
