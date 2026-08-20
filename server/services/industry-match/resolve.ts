@@ -11,6 +11,11 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { unspscPrefixFromCode } from "../unspsc";
 import type { UserIndustryProfile } from "./types";
 
+// ── B2 优化：用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
+const _profileCache = new Map<string, { profile: UserIndustryProfile | null; expires: number }>();
+const PROFILE_CACHE_TTL = 60 * 1000;
+const PROFILE_CACHE_MAX = 500;
+
 interface UnspscNodeRow {
   id: number;
   code: string | null;
@@ -38,21 +43,38 @@ function buildProfile(
   };
 }
 
+/** 失效用户行业画像缓存（用户修改行业偏好时调用） */
+export function invalidateProfileCache(userKey?: string): void {
+  if (!userKey) {
+    _profileCache.clear();
+    return;
+  }
+  _profileCache.delete(userKey);
+}
+
 /**
- * 解析用户行业画像。
+ * 解析用户行业画像（带 60s 内存缓存，避免每请求穿透 DB）。
  * @returns 无行业偏好或偏好全部失效时返回 null（调用方按 no_prefs 处理）
  */
 export async function resolveUserIndustryProfile(
   pool: Pool,
   userKey: string,
 ): Promise<UserIndustryProfile | null> {
+  // ── 缓存命中检查 ──
+  const cached = _profileCache.get(userKey);
+  if (cached && cached.expires > Date.now()) return cached.profile;
+
   const [rows] = await pool.query(
     `SELECT level1_id, level2_id, level3_id, level4_id, level5_id
      FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1`,
     [userKey],
   );
   const row = (rows as RowDataPacket[])[0];
-  if (!row) return null;
+  if (!row) {
+    _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+    if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+    return null;
+  }
 
   const levelIds = [1, 2, 3, 4, 5].map((n) => {
     const value = Number(row[`level${n}_id`] || 0);
@@ -79,9 +101,14 @@ export async function resolveUserIndustryProfile(
     );
     const node = (nodeRows as UnspscNodeRow[])[0];
     if (node) {
-      return buildProfile(userKey, levelIds, lvl, id, node);
+      const profile = buildProfile(userKey, levelIds, lvl, id, node);
+      _profileCache.set(userKey, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
+      if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
+      return profile;
     }
   }
 
+  _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+  if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
   return null;
 }

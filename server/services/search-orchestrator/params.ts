@@ -77,11 +77,15 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
   };
 }
 
-/** 缓存键：mode + 全部影响结果的参数 */
+/**
+ * 缓存键：mode + 全部影响结果的参数。
+ * B3 优化：归一化 q（trim+lowercase）和 country（uppercase），
+ * 避免 "Water"/"water"、"Kenya"/"KENYA" 生成不同键导致命中率稀释。
+ */
 export function searchCacheKey(p: UnifiedSearchParams): string {
   return [
     p.mode, p.userKey, p.page, p.pageSize, p.locale,
-    p.q, p.country, p.agency, p.deadlineFrom, p.deadlineTo,
+    p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.codeId,
   ].join("|");

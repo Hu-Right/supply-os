@@ -76,8 +76,67 @@ export async function meiliQuery(
   } catch (err) {
     console.warn("[search-orchestrator] meiliQuery failed:", (err as Error).message);
     // 超时不标记不健康：机器高负载下的慢查询不代表服务不可用，
-    // 否则“超时→标记→重建→重建后首查又超时”会形成死循环；
+    // 否则"超时→标记→重建→重建后首查又超时"会形成死循环；
     // 连接类错误才标记，由编排器健康探测决定是否触发索引重建
+    if (!/timeout/i.test((err as Error).message)) markUnhealthy();
+    return null;
+  }
+}
+
+/**
+ * [B1 优化] 并行多 filter 集探测：用于 prefs 模式渐进放宽。
+ * 一次 HTTP 请求完成最多 4 个子查询（每个 limit:1 仅取 totalHits），
+ * 替代旧版 for...of 串行探测（4 次往返 → 1 次往返）。
+ * 返回 null 表示 Meilisearch 不可用（调用方走 MySQL 降级）。
+ */
+export async function meiliMultiQuery(
+  q: string,
+  meiliFiltersArr: string[][],
+  sort: UnifiedSearchParams["sort"],
+): Promise<MeiliHitResult[] | null> {
+  const client = getClient();
+  if (!client) return null;
+  if (!isHealthy()) {
+    const recovered = await tryRecover();
+    if (!recovered) return null;
+  }
+  const INDEX_NAME = getIndexName();
+  const nowTs = String(Math.floor(Date.now() / 1000));
+  const sortArr = buildSortArr(sort);
+
+  try {
+    const queries = meiliFiltersArr.map((filters) => ({
+      indexUid: INDEX_NAME,
+      q: q || "",
+      filter: [MEILI_ACTIVE_FILTER.replace("{now}", nowTs), ...filters],
+      sort: sortArr,
+      limit: 1,
+      attributesToRetrieve: ["id"],
+      matchingStrategy: "all" as const,
+    }));
+
+    const searchPromise = client.multiSearch({ queries });
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error(`Meilisearch multiSearch timeout after ${SEARCH_TIMEOUT_MS}ms`)),
+        SEARCH_TIMEOUT_MS,
+      );
+    });
+    try {
+      const response = await Promise.race([searchPromise, timeoutPromise]) as any;
+      if (!response?.results) return null;
+      return (response.results as any[]).map((r) => {
+        const ids = r.hits?.map((h: any) => Number(h.id)).filter(Boolean) ?? [];
+        const preciseTotal = r.totalHits ?? null;
+        const estimatedTotal = r.estimatedTotalHits ?? ids.length;
+        return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
+      });
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
+  } catch (err) {
+    console.warn("[search-orchestrator] meiliMultiQuery failed:", (err as Error).message);
     if (!/timeout/i.test((err as Error).message)) markUnhealthy();
     return null;
   }

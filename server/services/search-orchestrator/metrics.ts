@@ -22,16 +22,22 @@ export interface PerfLogEntry {
   cache: "hit" | "miss";
 }
 
-/** 输出 [search-perf] 结构化日志（当前已静默，不打印到终端） */
-export function logPerf(_entry: PerfLogEntry): void {
-  // 结构化日志已关闭终端输出，避免大量搜索请求刷屏。
-  // 如需重新启用，取消下方注释即可。
-  // console.log(
-  //   `[search-perf] mode=${_entry.mode} path=${_entry.path}` +
-  //   ` q="${_entry.q}" filters="${_entry.filterDigest}"` +
-  //   ` meili_ms=${_entry.meiliMs} detail_ms=${_entry.detailMs} total_ms=${_entry.totalMs}` +
-  //   ` total=${_entry.total} ids=${_entry.ids} page=${_entry.page} cache=${_entry.cache}`,
-  // );
+/**
+ * B5 优化：输出 [search-perf] 结构化日志（1/10 采样，避免刷屏）。
+ * 缓存命中请求不输出（cache=hit 时直接 return），仅采样缓存未命中的真实请求。
+ */
+let _perfCounter = 0;
+export function logPerf(entry: PerfLogEntry): void {
+  // 缓存命中不输出（高频且无耗时信息价值）
+  if (entry.cache === "hit") return;
+  // 1/10 采样：每 10 次缓存未命中请求输出 1 次
+  if (++_perfCounter % 10 !== 0) return;
+  console.log(
+    `[search-perf] mode=${entry.mode} path=${entry.path}` +
+    ` q="${entry.q}" filters="${entry.filterDigest}"` +
+    ` meili_ms=${entry.meiliMs} detail_ms=${entry.detailMs} total_ms=${entry.totalMs}` +
+    ` total=${entry.total} ids=${entry.ids} page=${entry.page} cache=${entry.cache}`,
+  );
 }
 
 // ── 降级计数器（1 分钟滑动窗口，熔断阈值 10 次）──

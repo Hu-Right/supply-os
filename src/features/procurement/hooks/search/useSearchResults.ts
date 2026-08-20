@@ -51,8 +51,13 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const prevDataSourceForPrefsRef = useRef<string>("initial");
   const prevSearchKeyForSkipRef = useRef<string>("");
   const prevDeepestCodeIdForSkipRef = useRef<string>("");
+  // F2 优化：跟踪上一次 searchKey，用于判断是否为纯翻页操作
+  const prevSearchKeyForDebounceRef = useRef<string>("");
 
   useEffect(() => {
+    // F1 优化：模式未定时不发请求，避免登录首屏产生废弃请求
+    if (prefsMode === "loading") return;
+
     const currentDataSource =
       prefsMode === "prefs" && userKey
         ? "industry-matched"       // 行业匹配模式：始终走行业匹配 API（携带筛选参数）
@@ -66,8 +71,12 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     if (dataSourceUnchanged && searchKeyUnchanged && deepestCodeIdUnchanged) {
       return;
     }
+    // F2 优化：筛选条件未变 = 纯翻页/排序操作，跳过防抖立即发出
+    const isFilterChange = prevSearchKeyForDebounceRef.current !== query.searchKey;
+    const debounceMs = isFilterChange ? 150 : 0;
     prevDataSourceForPrefsRef.current = currentDataSource;
     prevSearchKeyForSkipRef.current = query.searchKey;
+    prevSearchKeyForDebounceRef.current = query.searchKey;
     prevDeepestCodeIdForSkipRef.current = deepestCodeId;
 
     abortControllerRef.current?.abort();
@@ -133,7 +142,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
             setLoading(false);
           }
         });
-    }, 150);
+    }, debounceMs);
 
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -141,6 +150,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       controller.abort();
       prevDataSourceForPrefsRef.current = "initial";
       prevSearchKeyForSkipRef.current = "";
+      prevSearchKeyForDebounceRef.current = "";
       prevDeepestCodeIdForSkipRef.current = "";
     };
   }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userKey, query.hasSearch]);

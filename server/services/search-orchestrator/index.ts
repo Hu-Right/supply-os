@@ -20,7 +20,7 @@ import type { UnifiedSearchParams, UnifiedSearchResult, SearchPath } from "./typ
 import { validateParams, searchCacheKey, type RawSearchParams } from "./params";
 import { buildFilterPlan } from "./filter-builder";
 import { resolveMode, type UnspscFilter } from "./mode-resolver";
-import { meiliQuery } from "./meili-query";
+import { meiliQuery, meiliMultiQuery } from "./meili-query";
 import { mysqlFallback } from "./mysql-fallback";
 import { isFullSyncRunning } from "../meilisearch/sync";
 import { tryRecover } from "../meilisearch/client";
@@ -30,6 +30,7 @@ import { formatItems } from "./format";
 import { logPerf, recordFallback } from "./metrics";
 import { requestIndexRebuild } from "./rebuild-trigger";
 import { recommendNotices } from "../recommend/index";
+import { invalidateProfileCache } from "../industry-match/resolve";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
@@ -49,6 +50,8 @@ function cacheSet(key: string, data: UnifiedSearchResult): void {
 
 /** 失效行业匹配相关缓存（用户修改行业偏好后调用） */
 export function invalidateUnifiedSearchCache(userKey?: string): void {
+  // B2 联动：偏好变更时同步失效画像缓存
+  invalidateProfileCache(userKey);
   if (!userKey) {
     resultCache.clear();
     return;
@@ -120,26 +123,47 @@ export async function searchUnified(
     }
   }
 
-  // ── prefs 渐进放宽：确定有效层级（最深优先，不足时逐级放宽）──
+  // ── prefs 渐进放宽：并行 multi-search 探测（B1 优化：串行 4 次 → 1 次 HTTP）──
   let unspsc: UnspscFilter | null = resolution.codeUnspsc;
-  if (resolution.profileLevels) {
+  if (resolution.profileLevels && resolution.profileLevels.length > 0) {
     const offset = (p.page - 1) * p.pageSize;
-    let chosen: { level: number; id: string; score: number } | null = null;
-    for (const entry of resolution.profileLevels) {
-      const probePlan = await buildFilterPlan(pool, p, { level: entry.level, id: entry.id, precise: true });
+
+    // 1. 并行构建所有层级的 filter 计划（纯内存操作 + 可能的缓存命中 DB 查询）
+    const probePlans = await Promise.all(
+      resolution.profileLevels.map((entry) =>
+        buildFilterPlan(pool, p, { level: entry.level, id: entry.id, precise: true }),
+      ),
+    );
+
+    // 2. 冲突检测：任一层级 FORCE_COUNTRY 矛盾 → 空结果
+    for (const probePlan of probePlans) {
       if (probePlan.conflictEmpty) {
         const empty: UnifiedSearchResult = { items: [], total: 0, page: p.page, pageSize: p.pageSize, fallback: "no_match" };
         cacheSet(cacheKey, empty);
         return empty;
       }
-      chosen = entry; // 记录当前最浅候选
-      const probe = await meiliQuery(p.q, probePlan.meiliFilters, p.sort, 1, 1);
-      if (!probe) break; // Meilisearch 不可用：终止探测，主流程走降级
-      if (probe.total >= offset + p.pageSize) break; // 该层级足以覆盖当前页
     }
-    if (chosen) {
+
+    // 3. 单次 multi-search 并行探测所有层级（每个 limit:1 仅取 totalHits）
+    const probeResults = await meiliMultiQuery(
+      p.q,
+      probePlans.map((plan) => plan.meiliFilters),
+      p.sort,
+    );
+
+    // 4. 选择能覆盖当前页的最深层级（profileLevels 已按深→浅排序）
+    if (probeResults) {
+      let chosenIdx = probeResults.length - 1; // 默认用最浅层级
+      for (let i = 0; i < probeResults.length; i++) {
+        if (probeResults[i].total >= offset + p.pageSize) {
+          chosenIdx = i; // 找到能覆盖的最深层级
+          break;
+        }
+      }
+      const chosen = resolution.profileLevels[chosenIdx];
       unspsc = { level: chosen.level, id: chosen.id, precise: true };
     }
+    // probeResults === null: Meilisearch 不可用，unspsc 保持 null，主流程走 MySQL 降级
   }
 
   // ── 构建 filter 计划（全系统唯一筛选语义）──
