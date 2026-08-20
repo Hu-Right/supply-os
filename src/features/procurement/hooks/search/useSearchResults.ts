@@ -156,8 +156,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userKey, query.hasSearch]);
 
   // 分页预取（统一端点）
+  // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
   useEffect(() => {
-    if (prefsMode === "prefs") return;
     if (loading || items.length === 0 || page >= totalPages) return;
     const nextPage = page + 1;
     const prefetchMode = prefsMode === "recommended" && !query.hasOtherSearch ? "recommended" : "default";

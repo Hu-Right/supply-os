@@ -35,15 +35,30 @@ import { invalidateProfileCache } from "../industry-match/resolve";
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
 const RESULT_CACHE_TTL = 5 * 60 * 1000;
-const RESULT_CACHE_MAX = 200;
+const RESULT_CACHE_MAX = 500;
 
+// ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──
+const _inflight = new Map<string, Promise<UnifiedSearchResult>>();
+
+/**
+ * B3 优化：缓存淘汰策略从「满额整表清空」改为 LRU（Map 按插入序淘汰最旧）。
+ * 先清理过期项，仍满额则从最旧条目开始逐条淘汰至 75%，避免缓存雪崩式 miss。
+ */
 function cacheSet(key: string, data: UnifiedSearchResult): void {
+  // 若已存在同键则先删，保证 Map 插入序反映最近访问
+  resultCache.delete(key);
+  // 清理过期项
+  const now = Date.now();
+  for (const [k, entry] of resultCache) {
+    if (entry.expires <= now) resultCache.delete(k);
+  }
+  // 仍满额：LRU 淘汰最旧条目至 75% 容量（Map 迭代按插入序）
   if (resultCache.size >= RESULT_CACHE_MAX) {
-    const now = Date.now();
-    for (const [k, entry] of resultCache) {
-      if (entry.expires <= now) resultCache.delete(k);
+    const targetSize = Math.floor(RESULT_CACHE_MAX * 0.75);
+    const keys = Array.from(resultCache.keys());
+    for (let i = 0; i < keys.length && resultCache.size > targetSize; i++) {
+      resultCache.delete(keys[i]);
     }
-    if (resultCache.size >= RESULT_CACHE_MAX) resultCache.clear();
   }
   resultCache.set(key, { data, expires: Date.now() + RESULT_CACHE_TTL });
 }
@@ -52,8 +67,10 @@ function cacheSet(key: string, data: UnifiedSearchResult): void {
 export function invalidateUnifiedSearchCache(userKey?: string): void {
   // B2 联动：偏好变更时同步失效画像缓存
   invalidateProfileCache(userKey);
+  // B6 联动：失效时也清理飞行中请求，防止偏好变更后复用旧 Promise
   if (!userKey) {
     resultCache.clear();
+    _inflight.clear();
     return;
   }
   for (const key of resultCache.keys()) {
@@ -61,10 +78,15 @@ export function invalidateUnifiedSearchCache(userKey?: string): void {
       resultCache.delete(key);
     }
   }
+  for (const key of _inflight.keys()) {
+    if (key.includes(`|${userKey}|`) || key.startsWith(`prefs|${userKey}`)) {
+      _inflight.delete(key);
+    }
+  }
 }
 
 /**
- * 统一搜索主入口。
+ * 统一搜索主入口（含 single-flight 并发去重 + 结果缓存）。
  * @param raw 路由层解析的原始参数
  *
  * 架构约束：搜索链路只读宽表已缓存译文，绝不触发翻译请求。
@@ -75,7 +97,6 @@ export async function searchUnified(
   pool: Pool,
   raw: RawSearchParams,
 ): Promise<UnifiedSearchResult> {
-  const t0 = Date.now();
   const p = validateParams(raw);
 
   // ── 缓存检查 ──
@@ -83,6 +104,28 @@ export async function searchUnified(
   const cached = resultCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.data;
 
+  // ── B6 优化：single-flight — 同参数并发请求共享同一 Promise ──
+  const pending = _inflight.get(cacheKey);
+  if (pending) return pending;
+
+  const promise = _searchCore(pool, p, cacheKey).finally(() => {
+    _inflight.delete(cacheKey);
+  });
+  _inflight.set(cacheKey, promise);
+  return promise;
+}
+
+/**
+ * 核心搜索执行逻辑（由 searchUnified 通过 single-flight 调用）。
+ * 包含：模式解析 → 参考号快速路径 → prefs 并行探测 → Meili 主检索
+ * → MySQL 降级 → 详情获取 → 格式化 → 缓存写入。
+ */
+async function _searchCore(
+  pool: Pool,
+  p: UnifiedSearchParams,
+  cacheKey: string,
+): Promise<UnifiedSearchResult> {
+  const t0 = Date.now();
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
     const reco = await recommendNotices(pool, p.userKey, p.page, p.pageSize, p.locale || undefined);
