@@ -65,3 +65,18 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
 
   return "OTHER";
 }
+
+/**
+ * 采购类型合法性唯一判定端口（SSOT）。
+ * N2 收敛（2026-08-20）：原 search.routes.ts 与 search-orchestrator/params.ts 各维护一份
+ * 手工白名单（VALID_NOTICE_TYPES），与归一化函数漂移后导致 COMPETITIVE/CONTRACT_NOTICE
+ * 等扩展类型筛选被 length>10 规则静默拦截。现类型合法性完全由 normalizeNoticeType 派生：
+ * 能归一化为非 OTHER 标准码的输入即合法；显式 "OTHER"（其他桶）作为合法筛选值保留。
+ * 新增/修改类型只需改 normalizeNoticeType 一处。
+ */
+export function isKnownNoticeType(raw: string | null | undefined): boolean {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return false;
+  if (trimmed.toUpperCase() === "OTHER") return true;
+  return normalizeNoticeType(trimmed) !== "OTHER";
+}

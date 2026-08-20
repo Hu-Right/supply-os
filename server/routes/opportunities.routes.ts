@@ -13,6 +13,7 @@ import { MembershipRepo } from "../repos/membership.repo";
 import {
   NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain,
 } from "../services/translation/notice";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 
 export function createOpportunitiesRouter(ctx: AppContext): Router {
   const router = Router();
@@ -49,7 +50,7 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     const opportunityId = Number(req.params.id);
     const lang = String(req.query.lang || "").toLowerCase();
     if (!opportunityId || !NOTICE_TRANSLATION_LANGS[lang]) {
-      return res.status(400).json({ error: "INVALID_OPPORTUNITY_OR_LANG" });
+      return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "无效的机会 id 或语言参数");
     }
 
     const cachedRow = await opportunitiesRepo.findTranslationCache(opportunityId, lang);
@@ -58,7 +59,7 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     }
 
     const opp = await opportunitiesRepo.findTextById(opportunityId);
-    if (!opp) return res.status(404).json({ error: "OPPORTUNITY_NOT_FOUND" });
+    if (!opp) return sendError(res, 404, ApiErrorCode.OPPORTUNITY_NOT_FOUND, "机会不存在");
 
     const pendingKey = `opp:${opportunityId}:${lang}`;
     let pending = pendingNoticeTranslations.get(pendingKey);
@@ -127,26 +128,22 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     if (unlockType === "free") {
       const freeQuota = await membershipRepo.getFreeQuota();
       if (await membershipRepo.countFreeUnlocks(userKey) >= freeQuota) {
-        return res.status(402).json({ error: "FREE_LIMIT_REACHED" });
+        return sendError(res, 402, ApiErrorCode.FREE_LIMIT_REACHED, "免费查看次数已用完");
       }
     }
 
     // P0-4 安全修复：single/subscription 必须校验 entitlement 余量
+    // N6 收敛（2026-08-20）：原路由内裸 SQL 改经 MembershipRepo.findActiveEntitlements 单一端口，
+    // 与 membership-status/履约链路同口径（status=active、未升级、有剩余配额且未过期）。
     if (unlockType === "subscription" || unlockType === "single") {
-      const [entRows] = await ctx.dbPool.query(
-        `SELECT id FROM crm_user_entitlements
-         WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
-           AND (expires_at IS NULL OR expires_at > NOW())
-         LIMIT 1`,
-        [userKey],
-      );
-      if ((entRows as any[]).length === 0) {
-        return res.status(402).json({ error: "PAID_QUOTA_REQUIRED" });
+      const activeEntitlements = await membershipRepo.findActiveEntitlements(userKey);
+      if (activeEntitlements.length === 0) {
+        return sendError(res, 402, ApiErrorCode.PAID_QUOTA_REQUIRED, "付费查看次数已用完，请开通会员");
       }
     }
 
     const opp = await opportunitiesRepo.findById(opportunityId);
-    if (!opp) return res.status(404).json({ error: "Opportunity not found" });
+    if (!opp) return sendError(res, 404, ApiErrorCode.OPPORTUNITY_NOT_FOUND, "机会不存在");
     const snapshot = normalizeUnspscCodes(opp.unspsc_codes);
 
     await opportunitiesRepo.insertUnlock({ userKey, opportunityId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot) });

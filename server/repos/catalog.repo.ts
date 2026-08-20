@@ -128,6 +128,15 @@ export class CatalogRepo {
     return rows as UnspscRow[];
   }
 
+  /** 按 id 查单个 UNSPSC 类目节点（N6 收敛：原 industry-profile/resolve.ts 内裸 SQL 下沉至此） */
+  async findUnspscNodeById(id: number): Promise<UnspscRow | null> {
+    const [rows] = await this.pool.query(
+      "SELECT id, code, title_zh, title, parent_id, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
+      [id],
+    );
+    return (rows as UnspscRow[])[0] ?? null;
+  }
+
   /** 批量写入 UNSPSC 译文缓存
    *  P3-10 性能修复：多行 VALUES 单语句批量 upsert，替代逐条 INSERT（N 次往返 → 1 次） */
   async upsertUnspscTranslations(

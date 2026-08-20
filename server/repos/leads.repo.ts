@@ -59,4 +59,46 @@ export class LeadsRepo {
       [logs, status, appointmentKey],
     );
   }
+
+  /** 创建预约/线索（N6 收敛：原 services/leads.ts 内裸 SQL 下沉至此，写入唯一端口） */
+  async insertAppointment(params: {
+    appointmentKey: string;
+    companyName: string;
+    country: string;
+    city: string;
+    contactPerson: string;
+    contactMethod: string;
+    email: string;
+    industry: string;
+    consultationNeeds: string;
+    status: string;
+    followUpLogs: string;
+    extra: string;
+    rawPayload: string;
+    ip: string;
+    createdAt: Date;
+  }): Promise<void> {
+    await this.pool.execute(
+      `INSERT INTO ungm_1v1_appointments
+        (appointment_key, company_name, country, city, contact_person, contact_method, email, industry, consultation_needs, status, follow_up_logs, extra, raw_payload, ip, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        params.appointmentKey,
+        params.companyName,
+        params.country,
+        params.city,
+        params.contactPerson,
+        params.contactMethod,
+        params.email,
+        params.industry,
+        params.consultationNeeds,
+        params.status,
+        params.followUpLogs,
+        params.extra,
+        params.rawPayload,
+        params.ip,
+        params.createdAt,
+      ],
+    );
+  }
 }

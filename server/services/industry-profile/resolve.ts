@@ -6,9 +6,12 @@
  * @description 读取 crm_user_industry_prefs（用户五级行业）并解析为匹配画像：
  *              最深选了哪一级、各级类目 id、行业分支码前缀、行业中文名。
  *              防御脏数据：最深级类目在分类树中查不到时逐级上溯，避免"选了行业却匹配不到"。
- *              （#11 清扫，2026-08-20：自 industry-match/ 更名迁入，内容零变更）
+ *              （#11 清扫，2026-08-20：自 industry-match/ 更名迁入；
+ *              N6 收敛，2026-08-20：裸 SQL 改经 UserPrefsRepo/CatalogRepo 单一数据访问端口）
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool } from "mysql2/promise";
+import { UserPrefsRepo } from "../../repos/user-prefs.repo";
+import { CatalogRepo, type UnspscRow } from "../../repos/catalog.repo";
 import { unspscPrefixFromCode } from "../unspsc";
 import type { UserIndustryProfile } from "./types";
 
@@ -24,7 +27,6 @@ interface UnspscNodeRow {
   title: string | null;
   level: number;
 }
-
 /** 类目树节点行转画像 */
 function buildProfile(
   userKey: string,
@@ -65,19 +67,19 @@ export async function resolveUserIndustryProfile(
   const cached = _profileCache.get(userKey);
   if (cached && cached.expires > Date.now()) return cached.profile;
 
-  const [rows] = await pool.query(
-    `SELECT level1_id, level2_id, level3_id, level4_id, level5_id
-     FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1`,
-    [userKey],
-  );
-  const row = (rows as RowDataPacket[])[0];
+  // N6 收敛：偏好读取经 UserPrefsRepo 单一端口（与 user-prefs.routes 同口径），
+  // 类目节点查询经 CatalogRepo；保持 pool 签名不变，避免上游编排器连锁改造。
+  const userPrefsRepo = new UserPrefsRepo(pool);
+  const catalogRepo = new CatalogRepo(pool);
+
+  const row = await userPrefsRepo.getIndustryPrefs(userKey);
   if (!row) {
     _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
     if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
     return null;
   }
 
-  const levelIds = [1, 2, 3, 4, 5].map((n) => {
+  const levelIds = ([1, 2, 3, 4, 5] as const).map((n) => {
     const value = Number(row[`level${n}_id`] || 0);
     return Number.isInteger(value) && value > 0 ? value : null;
   });
@@ -96,11 +98,7 @@ export async function resolveUserIndustryProfile(
   for (let lvl = deepestLevel; lvl >= 1; lvl -= 1) {
     const id = levelIds[lvl - 1];
     if (!id) continue;
-    const [nodeRows] = await pool.query(
-      "SELECT id, code, title_zh, title, level FROM crm_unspsc_codes WHERE id = ? LIMIT 1",
-      [id],
-    );
-    const node = (nodeRows as UnspscNodeRow[])[0];
+    const node = (await catalogRepo.findUnspscNodeById(id)) as UnspscRow | null;
     if (node) {
       const profile = buildProfile(userKey, levelIds, lvl, id, node);
       _profileCache.set(userKey, { profile, expires: Date.now() + PROFILE_CACHE_TTL });

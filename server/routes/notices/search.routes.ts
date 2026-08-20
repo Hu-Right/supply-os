@@ -12,6 +12,7 @@ import type { AppContext } from "../../context";
 import type { Request } from "express";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
+import { isKnownNoticeType } from "../../utils/notice-type";
 import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../../services/search-orchestrator/index";
 
@@ -40,21 +41,9 @@ function parseUnifiedParams(req: Request, mode: string): RawSearchParams {
   };
 }
 
-// 采购类型白名单：仅允许已知类型通过，无效值直接忽略（避免静默映射到 OTHER）
-// 与 normalizeNoticeType 的 SHORT_CODES + 正则规则保持一致
-const VALID_NOTICE_TYPES = new Set([
-  "ITB", "ITT", "RFQ", "RFP", "EOI", "PQ", "PRE", "IC", "RFI", "GPN",
-]);
-
-function isValidNoticeType(val: string): boolean {
-  if (!val) return false;
-  // 精确匹配短代码（大小写不敏感）
-  if (VALID_NOTICE_TYPES.has(val.toUpperCase().trim())) return true;
-  // 允许包含关键词的长文本（如 "Expression of Interest"、"招标" 等，由 normalizeNoticeType 解析）
-  // 但纯 ASCII 且长度>10 的未知值视为无效（含下划线、连字符等）
-  if (/^[A-Za-z\s_-]+$/.test(val) && val.length > 10) return false;
-  return true;
-}
+// N2 收敛（2026-08-20）：原手工白名单 VALID_NOTICE_TYPES/isValidNoticeType 已删除，
+// 类型合法性唯一端口为 utils/notice-type 的 isKnownNoticeType（由 normalizeNoticeType 派生，
+// 修复白名单与归一化函数漂移导致 COMPETITIVE/CONTRACT_NOTICE 筛选被静默拦截的问题）。
 
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
@@ -79,7 +68,7 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
     const noticeType = parseOptionalString(req.query, "notice_type", 100);
     // PERF 优化：无效 noticeType 直接忽略，避免静默映射到 OTHER 返回大量无关结果
-    const effectiveNoticeType = noticeType && isValidNoticeType(noticeType) ? noticeType : "";
+    const effectiveNoticeType = noticeType && isKnownNoticeType(noticeType) ? noticeType : "";
     if (noticeType && !effectiveNoticeType) {
       console.log(`[search] 忽略无效 noticeType: "${noticeType}"`);
     }

@@ -109,14 +109,9 @@ export class MembershipRepo {
     return Number((rows as CountRow[])[0]?.total || 0);
   }
 
-  /** 查询用户是否有有效订阅（布尔值） */
-  async hasActiveSubscription(userKey: string): Promise<boolean> {
-    const [rows] = await this.pool.query(
-      "SELECT 1 FROM crm_user_subscriptions WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1",
-      [userKey],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
+  // N1 收敛（2026-08-20）：原 hasActiveSubscription（仅看订阅的 VIP 判定）已删除。
+  // VIP/会员状态派生一律经 services/membership-status.ts 的 resolveMembershipState 单一端口，
+  // 避免"仅订阅"口径再次复活导致状态分叉。
 
   /** 查询用户有效权益（有剩余配额且未过期，排除已被升级替代的权益） */
   async findActiveEntitlements(userKey: string): Promise<EntitlementRow[]> {

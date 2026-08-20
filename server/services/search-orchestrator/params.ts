@@ -5,20 +5,9 @@
  * @module server/services/search-orchestrator/params
  */
 import type { UnifiedSearchParams, SearchMode } from "./types";
+import { isKnownNoticeType } from "../../utils/notice-type";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-// 采购类型白名单：与 search.routes.ts 的 isValidNoticeType 保持一致
-const VALID_NOTICE_TYPES = new Set([
-  "ITB", "ITT", "RFQ", "RFP", "EOI", "PQ", "PRE", "IC", "RFI", "GPN",
-]);
-
-function isValidNoticeType(val: string): boolean {
-  if (!val) return false;
-  if (VALID_NOTICE_TYPES.has(val.toUpperCase().trim())) return true;
-  if (/^[A-Za-z\s_-]+$/.test(val) && val.length > 10) return false;
-  return true;
-}
 
 /** 原始查询参数（路由层解析后传入） */
 export interface RawSearchParams {
@@ -56,7 +45,9 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
   const deadlineTo = raw.deadlineTo && DATE_RE.test(raw.deadlineTo) ? raw.deadlineTo : "";
 
   const noticeTypeRaw = String(raw.noticeType || "").slice(0, 100);
-  const noticeType = isValidNoticeType(noticeTypeRaw) ? noticeTypeRaw : "";
+  // N2 收敛（2026-08-20）：类型合法性唯一端口（utils/notice-type），删除手工白名单副本，
+  // 修复 COMPETITIVE/CONTRACT_NOTICE 等扩展类型被 length>10 规则静默拦截的漂移 BUG。
+  const noticeType = isKnownNoticeType(noticeTypeRaw) ? noticeTypeRaw : "";
 
   return {
     mode,

@@ -67,7 +67,8 @@ export function createLeadsRouter(ctx: AppContext): Router {
       };
 
       // 全类型线索一律落库（原仅 consulting_advisor 入库，其余类型只存内存）
-      await insertUngmAppointment(ctx.dbPool, newLead, req.body, req.ip || req.socket?.remoteAddress || "");
+      // N6 收敛（2026-08-20）：写入经 LeadsRepo 唯一端口
+      await insertUngmAppointment(leadsRepo, newLead, req.body, req.ip || req.socket?.remoteAddress || "");
       return res.status(201).json(newLead);
   }));
 

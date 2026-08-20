@@ -9,6 +9,7 @@ import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
 import { extractTierLabel, previewUpgrade } from "../services/membership-upgrade";
+import { resolveMembershipState } from "../services/membership-status";
 
 export function createMembershipRouter(ctx: AppContext): Router {
   const router = Router();
@@ -24,39 +25,26 @@ export function createMembershipRouter(ctx: AppContext): Router {
     const userKey = req.userKey || "";
     if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
 
-    const freeQuota = await membershipRepo.getFreeQuota();
-    const freeUsed = await membershipRepo.countFreeUnlocks(userKey);
-    const subs = await membershipRepo.findActiveSubscriptions(userKey);
-    const paidUnlocks = await membershipRepo.countPaidUnlocks(userKey);
-    const entitlements = await membershipRepo.findActiveEntitlements(userKey);
-    const paidQuotaTotal = entitlements.reduce((sum, item) => sum + Number(item.quota_total || 0), 0);
-    const paidQuotaUsed = entitlements.reduce((sum, item) => sum + Number(item.quota_used || 0), 0);
-    const entitlementRemaining = entitlements.reduce((sum, item) => sum + Number(item.quota_remaining || 0), 0);
-    // 订阅配额：从活跃订阅的 plan unlock_quota 汇总，减去已使用的付费解锁次数
-    const subscriptionQuota = subs.reduce((sum, sub) => sum + (Number(sub.unlock_quota) || 0), 0);
-    const subscriptionRemaining = Math.max(0, subscriptionQuota - paidUnlocks);
-    // 总付费剩余 = 单次卡剩余 + 订阅剩余
-    const paidQuotaRemaining = entitlementRemaining + subscriptionRemaining;
-
-    // 当前最优周期性套餐（供升级判断与 VIP 等级标签展示）
-    const currentBest = await membershipRepo.findCurrentBestPlan(userKey);
+    // N1 收敛（2026-08-20）：配额/VIP 派生状态一律经唯一端口 resolveMembershipState 计算，
+    // 路由层不再自行拼装查询（原三口径分叉见 services/membership-status.ts 头部注释）。
+    const state = await resolveMembershipState(membershipRepo, userKey);
 
     res.json({
       user_key: userKey,
-      membership_tier: subs.length > 0 || paidQuotaRemaining > 0 ? "vip" : "free",
-      free_quota: freeQuota,
-      free_used: freeUsed,
-      free_remaining: Math.max(0, freeQuota - freeUsed),
-      paid_unlocks: paidUnlocks,
-      paid_quota_total: paidQuotaTotal + subscriptionQuota,
-      paid_quota_used: paidQuotaUsed,
-      paid_quota_remaining: paidQuotaRemaining,
-      current_plan_code: currentBest?.plan_code ?? null,
-      current_plan_name: currentBest?.plan_name ?? null,
-      current_plan_tier_label: currentBest ? extractTierLabel(currentBest.plan_name) : null,
-      current_plan_price: currentBest ? Number(currentBest.price) : null,
-      active_subscriptions: subs,
-      entitlements,
+      membership_tier: state.tier,
+      free_quota: state.freeQuota,
+      free_used: state.freeUsed,
+      free_remaining: state.freeRemaining,
+      paid_unlocks: state.paidUnlocks,
+      paid_quota_total: state.paidQuotaTotal,
+      paid_quota_used: state.paidQuotaUsed,
+      paid_quota_remaining: state.paidQuotaRemaining,
+      current_plan_code: state.currentBest?.plan_code ?? null,
+      current_plan_name: state.currentBest?.plan_name ?? null,
+      current_plan_tier_label: state.currentBest ? extractTierLabel(state.currentBest.plan_name) : null,
+      current_plan_price: state.currentBest ? Number(state.currentBest.price) : null,
+      active_subscriptions: state.activeSubscriptions,
+      entitlements: state.entitlements,
     });
   }));
 

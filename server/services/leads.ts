@@ -13,7 +13,7 @@
  * 可提升为独立子表 crm_lead_follow_up_logs（见《深度技术分析报告》§D2）。
  */
 
-import type { Pool } from "mysql2/promise";
+import type { LeadsRepo } from "../repos/leads.repo";
 import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
 
@@ -37,27 +37,26 @@ export function mapUngmAppointmentRow(row: any): Lead {
   };
 }
 
-export async function insertUngmAppointment(dbPool: Pool, lead: Lead, rawPayload: any, ip: string) {
-  await dbPool.execute(
-    `INSERT INTO ungm_1v1_appointments
-      (appointment_key, company_name, country, city, contact_person, contact_method, email, industry, consultation_needs, status, follow_up_logs, extra, raw_payload, ip, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      lead.id,
-      lead.companyName,
-      lead.country || "China",
-      lead.city || "Unknown",
-      lead.contactPerson,
-      lead.contactMethod,
-      lead.email || "",
-      lead.industry || "Services",
-      lead.notes || "",
-      lead.status || "new",
-      JSON.stringify(lead.followUpLogs || []),
-      JSON.stringify({ source: "consult_form", lead_type: "consulting_advisor" }),
-      JSON.stringify(rawPayload || {}),
-      ip,
-      new Date(lead.createdAt),
-    ]
-  );
+/**
+ * 创建预约/线索（Lead 领域模型 → 表列映射 + 默认值；SQL 写入经 LeadsRepo 唯一端口）。
+ * N6 收敛（2026-08-20）：原函数内裸 SQL 已下沉 LeadsRepo.insertAppointment。
+ */
+export async function insertUngmAppointment(leadsRepo: LeadsRepo, lead: Lead, rawPayload: any, ip: string) {
+  await leadsRepo.insertAppointment({
+    appointmentKey: lead.id,
+    companyName: lead.companyName,
+    country: lead.country || "China",
+    city: lead.city || "Unknown",
+    contactPerson: lead.contactPerson,
+    contactMethod: lead.contactMethod,
+    email: lead.email || "",
+    industry: lead.industry || "Services",
+    consultationNeeds: lead.notes || "",
+    status: lead.status || "new",
+    followUpLogs: JSON.stringify(lead.followUpLogs || []),
+    extra: JSON.stringify({ source: "consult_form", lead_type: "consulting_advisor" }),
+    rawPayload: JSON.stringify(rawPayload || {}),
+    ip,
+    createdAt: new Date(lead.createdAt),
+  });
 }

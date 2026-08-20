@@ -10,6 +10,7 @@ import type { SupplierRegistrationRepo } from "../repos/suppliers/supplier-regis
 import type { AuthRepo } from "../repos/auth.repo";
 import type { UserRow } from "../repos/types";
 import { maskPhone } from "../utils/mask";
+import { resolveMembershipState } from "./membership-status";
 import {
   signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
 } from "./jwt";
@@ -99,7 +100,7 @@ export interface AuthUserResponse {
 }
 
 /**
- * 组装登录/用户信息响应：查订阅 → 查供应商 → 计算 tier → 拼装响应
+ * 组装登录/用户信息响应：查会员状态 → 查供应商 → 拼装响应
  * login 和 /api/auth/user 共用，消除重复逻辑。
  */
 export async function buildUserResponse(
@@ -108,17 +109,18 @@ export async function buildUserResponse(
   registrationRepo: SupplierRegistrationRepo,
 ): Promise<AuthUserResponse> {
   const userKey = user.user_key ?? "";
-  // P3-10 性能修复：订阅查询与供应商信息查询并行化（原串行两次往返 → 一次）
+  // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
   const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
-  const [hasSub, supplierRow] = await Promise.all([
-    membershipRepo.hasActiveSubscription(userKey),
+  const [memberState, supplierRow] = await Promise.all([
+    resolveMembershipState(membershipRepo, userKey),
     needSupplier
       ? registrationRepo.findBasicInfo(Number(user.supplier_id))
       : Promise.resolve(null),
   ]);
   const supplier = supplierRow as Record<string, unknown> | null;
-  // P1-5 安全修复：统一 VIP 判定为动态计算（有效订阅），不再信任永久化字段 membership_tier
-  const tier = hasSub ? "vip" : "free";
+  // N1 收敛（2026-08-20）：tier 取自唯一端口 resolveMembershipState（订阅 OR 付费剩余配额 > 0），
+  // 修复原"仅看订阅"口径下，仅购买单次解锁卡的用户登录态被误判为 free 的分叉问题。
+  const tier = memberState.tier;
   return {
     user_key: userKey,
     email: user.email ?? "",

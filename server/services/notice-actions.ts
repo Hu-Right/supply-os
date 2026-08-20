@@ -12,6 +12,7 @@ import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
 import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
 import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
+import type { MembershipRepo } from "../repos/membership.repo";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
 import { decayUserInterestCodes } from "./recommend/index";
 
@@ -34,10 +35,10 @@ export interface UnlockResult {
  * 从 routes/notices/actions.routes.ts 下沉，路由层不再管理事务。
  */
 export async function executeUnlock(
-  ctx: { detailRepo: NoticeDetailRepo; unlockRepo: NoticeUnlockRepo; dbPool: Pool },
+  ctx: { detailRepo: NoticeDetailRepo; unlockRepo: NoticeUnlockRepo; dbPool: Pool; membershipRepo: MembershipRepo },
   params: UnlockParams,
 ): Promise<UnlockResult> {
-  const { detailRepo, unlockRepo, dbPool } = ctx;
+  const { detailRepo, unlockRepo, dbPool, membershipRepo } = ctx;
   const { userKey, noticeId, unlockType, price } = params;
 
   // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
@@ -68,10 +69,9 @@ export async function executeUnlock(
 
     // 配额检查（事务内）
     if (unlockType === "free") {
-      const [quotaRows] = await conn.query(
-        "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1",
-      );
-      const freeQuota = Number((quotaRows as any[])[0]?.free_quota || 3);
+      // N6 收敛（2026-08-20）：免费配额唯一端口 MembershipRepo.getFreeQuota（读配置表，
+      // 事务外读取无并发风险），删除原事务内裸 SQL + 独立的兜底常量副本。
+      const freeQuota = await membershipRepo.getFreeQuota();
       const [countRows] = await conn.query(
         "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
         [userKey],

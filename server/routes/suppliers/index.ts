@@ -42,8 +42,9 @@ export function createSuppliersRouter(ctx: AppContext): Router {
     registrationRepo,
     claimRepo,
     usersRepo,
-    // 双轨制退役（轨道D）：注册伴生线索直接落库，不再经过内存数组
-    dbPool: ctx.dbPool,
+    // 双轨制退役（轨道D）：注册伴生线索直接落库，不再经过内存数组；
+    // N6 收敛：注入 LeadsRepo 替代 dbPool（写入唯一端口）
+    leadsRepo: ctx.leadsRepo,
     invalidateCache: invalidateSupplierCache,
   }));
 

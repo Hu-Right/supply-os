@@ -97,7 +97,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
 
       try {
         const result = await executeUnlock(
-          { detailRepo: ctx.notice.detailRepo, unlockRepo, dbPool: ctx.dbPool },
+          { detailRepo: ctx.notice.detailRepo, unlockRepo, dbPool: ctx.dbPool, membershipRepo: ctx.user.membershipRepo },
           { userKey, noticeId, unlockType, price },
         );
         if (result.alreadyUnlocked) {

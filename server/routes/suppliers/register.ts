@@ -5,7 +5,6 @@
  */
 import crypto from "crypto";
 import { Router } from "express";
-import type { Pool } from "mysql2/promise";
 import { Lead } from "../../types/crm";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
@@ -15,19 +14,22 @@ import { insertUngmAppointment } from "../../services/leads";
 import { SupplierRegistrationRepo } from "../../repos/suppliers/supplier-registration.repo";
 import { SupplierClaimRepo } from "../../repos/suppliers/supplier-claim.repo";
 import { UsersRepo } from "../../repos/users.repo";
+import type { LeadsRepo } from "../../repos/leads.repo";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 
 export interface RegisterDeps {
   registrationRepo: SupplierRegistrationRepo;
   claimRepo: SupplierClaimRepo;
   usersRepo: UsersRepo;
-  // 双轨制退役（轨道D）：leadsDb 内存数组已删除，伴生线索直接落库
-  dbPool: Pool;
+  // 双轨制退役（轨道D）：leadsDb 内存数组已删除，伴生线索直接落库；
+  // N6 收敛：写入经 LeadsRepo 唯一端口（原 dbPool 裸 SQL 已下沉）
+  leadsRepo: LeadsRepo;
   invalidateCache: () => void;
 }
 
 export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   const router = Router();
-  const { registrationRepo, claimRepo, usersRepo, dbPool, invalidateCache } = deps;
+  const { registrationRepo, claimRepo, usersRepo, leadsRepo, invalidateCache } = deps;
   // P2-9 安全修复：供应商注册为写入型成本端点，必须认证 + 限流（防批量注入）
   const registerRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 10 });
 
@@ -46,7 +48,7 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
       } = req.body;
 
       if (!nameZh || !contactPerson || !contactEmail) {
-        return res.status(400).json({ error: "Missing name or contact data" });
+        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "请填写公司名称与联系方式");
       }
 
       const mainProduct = Array.isArray(mainProductsZh)
@@ -102,7 +104,7 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
       };
       // 双轨制退役（轨道D）：伴生线索全量落库（原 leadsDb 内存数组已删除，
       // 进程重启不再丢失；lead_type 由 extra JSON 区分）
-      await insertUngmAppointment(dbPool, companionLead, req.body, req.ip || req.socket?.remoteAddress || "");
+      await insertUngmAppointment(leadsRepo, companionLead, req.body, req.ip || req.socket?.remoteAddress || "");
 
       invalidateCache();
 
@@ -117,7 +119,7 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
     const userKey = req.userKey || "";
     const companyName = String(req.body.company_name || "").trim();
     if (!userKey || !companyName) {
-      return res.status(400).json({ error: "请先登录并填写公司名称" });
+      return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "请先登录并填写公司名称");
     }
 
     const supplierType = req.body.supplier_type === "international" ? "international" : "domestic";
