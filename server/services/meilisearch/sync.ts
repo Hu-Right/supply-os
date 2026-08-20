@@ -6,7 +6,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { classifyAgencyType } from "../agency/index";
-import { getClient, isHealthy, getIndexName } from "./client";
+import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
 import { segmentZh } from "./segmentZh";
 
 // NULL deadline 的哨兵值：0（纪元起点）
@@ -161,10 +161,11 @@ const WIDE_TABLE_SYNC_SQL = `
 `;
 
 /**
- * 全量同步：先清空索引，再从宽表拉取全量数据写入。
- * 降级演练修复：多调用方（启动初始化/重建触发器/索引体检）可能并发调用，
- * 并发 deleteAllDocuments 会互相清空对方刚写入的批次，导致索引长期为空；
- * 加全局并发锁，重复调用直接跳过。
+ * 全量同步：构建临时索引 → swapIndexes 原子切换 → 清理旧索引。
+ * P2-13 安全修复：旧实现先 deleteAllDocuments 再写入，重建期间搜索命中空索引；
+ * 现改为在临时索引上全量构建完成后原子切换，切换前旧索引持续可查，零空白期。
+ * 失败时仅清理临时索引，旧索引毫发无损。
+ * 降级演练修复：多调用方并发调用时加全局并发锁，重复调用直接跳过。
  */
 let _fullSyncRunning = false;
 
@@ -182,12 +183,21 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
   }
   _fullSyncRunning = true;
   const INDEX_NAME = getIndexName();
+  // P2-13：临时索引名带时间戳，避免与上次残留同名冲突
+  const TMP_INDEX = `${INDEX_NAME}_tmp_${Date.now()}`;
   const start = Date.now();
 
   try {
-    await client.index(INDEX_NAME).deleteAllDocuments();
-    console.log("[meilisearch] fullSync: 已清空旧索引，从宽表重建索引...");
+    // ── Step 1：创建临时索引并应用与主索引同源的设置 ──
+    try {
+      await client.createIndex(TMP_INDEX, { primaryKey: "id" });
+    } catch {
+      // 幂等：已存在或任务冲突忽略
+    }
+    await client.index(TMP_INDEX).updateSettings(buildNoticeIndexSettings() as any);
+    console.log(`[meilisearch] fullSync: 构建临时索引 ${TMP_INDEX}（旧索引保持可查）...`);
 
+    // ── Step 2：从宽表分批写入临时索引 ──
     const BATCH = 2000;
     const MEILI_BATCH = 200; // Meilisearch 分批写入大小，避免单次 HTTP 请求体过大
     let lastId = 0;
@@ -202,31 +212,50 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       const docs = (rows as any[]).map((r) => buildSyncDocFromWideTable(r));
       if (docs.length === 0) break;
 
-      // addDocumentsInBatches 返回 Promise 数组，需 Promise.all 正确等待全部完成
-      await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, MEILI_BATCH, { primaryKey: "id" }));
+      // addDocumentsInBatches 返回 Promise 数组，需 Promise.all 正确等待全部入队
+      await Promise.all(client.index(TMP_INDEX).addDocumentsInBatches(docs, MEILI_BATCH, { primaryKey: "id" }));
       totalSynced += docs.length;
       lastId = docs[docs.length - 1].id;
 
       if (docs.length < BATCH) break;
     }
 
-    // 降级演练修复：addDocumentsInBatches 只保证任务入队，Meilisearch 内部索引
-    // 仍在后台进行；若立即返回，查询会命中部分索引（回归实测 total 从 8.8 万
-    // 降到 3.3 万）。等待索引文档数达到目标再返回，期间 _fullSyncRunning 保持
-    // 置位，编排器自动路由 MySQL 降级。
+    // ── Step 3：等待临时索引文档处理就绪（addDocuments 仅保证入队）──
     const indexStart = Date.now();
     while (true) {
       try {
-        const stats = await client.index(INDEX_NAME).getStats();
+        const stats = await client.index(TMP_INDEX).getStats();
         if (stats.numberOfDocuments >= totalSynced) break;
       } catch {
         // 统计失败（瞬时）忽略，继续等待
       }
       if (Date.now() - indexStart > 10 * 60 * 1000) {
-        console.warn("[meilisearch] fullSync: 等待索引就绪超时（10 分钟），继续返回");
-        break;
+        console.warn("[meilisearch] fullSync: 等待临时索引就绪超时（10 分钟），放弃切换");
+        throw new Error("TMP_INDEX_NOT_READY_TIMEOUT");
       }
       await new Promise((r) => setTimeout(r, 3000));
+    }
+
+    // ── Step 4：原子切换（切换前查询持续命中旧索引，零空白期）──
+    await client.swapIndexes([{ indexes: [INDEX_NAME, TMP_INDEX], rename: false }]);
+    // 等待 swap 任务生效：主索引文档数达到目标值（最多 60s）
+    const swapStart = Date.now();
+    while (Date.now() - swapStart < 60_000) {
+      try {
+        const stats = await client.index(INDEX_NAME).getStats();
+        if (stats.numberOfDocuments >= totalSynced) break;
+      } catch {
+        // 瞬时失败忽略
+      }
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    // ── Step 5：清理旧索引（swap 后临时索引名持有旧数据）──
+    try {
+      await client.deleteIndex(TMP_INDEX);
+    } catch {
+      // 清理失败不影响可用性，仅残留一个旧索引
+      console.warn(`[meilisearch] fullSync: 旧索引 ${TMP_INDEX} 清理失败，可手动删除`);
     }
 
     const elapsed = Date.now() - start;
@@ -234,6 +263,12 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     return { synced: totalSynced, elapsed, lastId };
   } catch (err) {
     console.error("[meilisearch] fullSync failed:", (err as Error).message);
+    // 失败路径：清理临时索引，旧索引保持原样（可用性零影响）
+    try {
+      await client.deleteIndex(TMP_INDEX);
+    } catch {
+      // 忽略清理失败
+    }
     return { synced: 0, elapsed: Date.now() - start, lastId: 0 };
   } finally {
     _fullSyncRunning = false;

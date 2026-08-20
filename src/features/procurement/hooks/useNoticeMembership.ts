@@ -7,7 +7,7 @@
  *              Membership status & paid plan loading, quota refresh and
  *              free/paid remaining derivation.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { MembershipPlan, MembershipStatus } from "../types";
 import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
 
@@ -38,7 +38,8 @@ export interface UseNoticeMembershipReturn {
   /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
   totalRemaining: number;
   refreshMembership: (useCache?: boolean) => Promise<void>;
-  loadPaidPlans: () => Promise<void>;
+  /** 懒加载付费套餐列表（P1-10：返回套餐数组供调用方动态取码/取价） */
+  loadPaidPlans: () => Promise<MembershipPlan[]>;
 }
 
 export function useNoticeMembership({
@@ -70,7 +71,8 @@ export function useNoticeMembership({
   // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
   const totalRemaining = freeRemaining + paidRemaining;
 
-  const refreshMembership = async (useCache = false) => {
+  // P2-2：useCallback 稳定引用，配合下游 openNotice 的 memo 化不击穿 NoticeCard
+  const refreshMembership = useCallback(async (useCache = false) => {
     if (!userKey) {
       setMembership(null);
       return;
@@ -82,24 +84,26 @@ export function useNoticeMembership({
     } catch {
       setMembership(null);
     }
-  };
+  }, [userKey]);
 
   // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求；
   // 套餐展示由后端 is_active 控制，前端不再硬编码过滤
   // 过滤 plan_type === 'manual' 的套餐（人工顾问服务），此类套餐仅在会员专区展示，
   // 不出现在采购详情页的自助支付面板中
-  const loadPaidPlans = () => {
-    if (paidPlans.length > 0) return Promise.resolve();
+  // P1-10 修复：返回套餐数组（而非 void），供 handlePayUnlock 动态取 single 套餐的 code/price
+  // P2-2：useCallback 稳定引用
+  const loadPaidPlans = useCallback((): Promise<MembershipPlan[]> => {
+    if (paidPlans.length > 0) return Promise.resolve(paidPlans);
     return fetchMembershipPlans()
-      .then((plans) =>
-        setPaidPlans(
-          Array.isArray(plans)
-            ? plans.filter((p) => p.plan_type !== "manual")
-            : [],
-        ),
-      )
-      .catch(() => {});
-  };
+      .then((plans) => {
+        const list = Array.isArray(plans)
+          ? plans.filter((p) => p.plan_type !== "manual")
+          : [];
+        setPaidPlans(list);
+        return list;
+      })
+      .catch(() => [] as MembershipPlan[]);
+  }, [paidPlans]);
 
   useEffect(() => {
     refreshMembership(true);

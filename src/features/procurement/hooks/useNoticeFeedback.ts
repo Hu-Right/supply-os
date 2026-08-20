@@ -10,7 +10,7 @@
  *              signals (dwell/scroll_end/quick_exit/revisit) gating, collection
  *              and batch reporting, recommended mode only.
  */
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { NoticeItem, PrefsMode } from "../types";
 import { sendNoticeFeedback } from "../api";
 
@@ -59,6 +59,10 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   const observerRef = useRef<IntersectionObserver | null>(null);
   const userKeyRef = useRef(userKey);
   userKeyRef.current = userKey;
+  // P2-2：feedbackEnabled 同步到 ref，供 useCallback([]) 的埋点函数读取最新值，
+  // 保证函数引用稳定不击穿 NoticeCard 的 React.memo
+  const feedbackEnabledRef = useRef(feedbackEnabled);
+  feedbackEnabledRef.current = feedbackEnabled;
 
   // ── T-C7 隐式偏好信号（本地差异 #16：C.3.6）──
   // 详情停留（dwell>30s）/ 滚动到底（scroll_end）/ 秒退（quick_exit）/ 会话内回看（revisit）。
@@ -100,7 +104,8 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   };
 
   // NoticeCard 根节点挂载/卸载回调：挂载即观察，卸载解除观察
-  const observeCard = (el: HTMLElement | null, noticeId: number) => {
+  // P2-2：useCallback([]) 稳定引用（内部全部操作 ref），不击穿 NoticeCard memo
+  const observeCard = useCallback((el: HTMLElement | null, noticeId: number) => {
     const prev = cardElsRef.current.get(noticeId);
     if (prev && prev !== el) {
       observerRef.current?.unobserve(prev);
@@ -113,7 +118,8 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
     } else {
       cardElsRef.current.delete(noticeId);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 卸载清理：断开观察器、冲掉未上报的曝光批次
   useEffect(
@@ -135,16 +141,17 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   // const handleFavoriteNotice = (notice: NoticeItem) => { ... };
 
   // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
-  const trackClick = (noticeId: number) => {
+  // P2-2：useCallback 稳定引用（经 ref 读取最新门控状态）
+  const trackClick = useCallback((noticeId: number) => {
     const key = userKeyRef.current;
-    if (feedbackEnabled && key) {
+    if (feedbackEnabledRef.current && key) {
       void sendNoticeFeedback(key, [{ notice_id: noticeId, action: "click", variant: variantRef.current }]);
     }
-  };
+  }, [variantRef]);
 
   // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
-  const trackDetailOpen = (noticeId: number) => {
-    if (!feedbackEnabled) return;
+  const trackDetailOpen = useCallback((noticeId: number) => {
+    if (!feedbackEnabledRef.current) return;
     const key = userKeyRef.current;
     if (visitedDetailIdsRef.current.has(noticeId)) {
       if (key) void sendNoticeFeedback(key, [{ notice_id: noticeId, action: "revisit", variant: variantRef.current }]);
@@ -152,21 +159,22 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
       visitedDetailIdsRef.current.add(noticeId);
     }
     detailEnterRef.current = { id: noticeId, ts: Date.now() };
-  };
+  }, [variantRef]);
 
   // T-C7：详情退出结算——停留 >30s 上报 dwell（携带 dwell_ms）；<3s 上报 quick_exit（轻负反馈，
   // 服务端 ×0.95 衰减带 0.01 下限保护）；中间区间不产生信号
-  const reportDetailExit = () => {
+  const reportDetailExit = useCallback(() => {
     const enter = detailEnterRef.current;
     detailEnterRef.current = null;
-    if (!enter || !feedbackEnabled || !userKey) return;
+    const key = userKeyRef.current;
+    if (!enter || !feedbackEnabledRef.current || !key) return;
     const dwellMs = Date.now() - enter.ts;
     if (dwellMs > 30000) {
-      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "dwell", dwell_ms: dwellMs, variant: variantRef.current }]);
+      void sendNoticeFeedback(key, [{ notice_id: enter.id, action: "dwell", dwell_ms: dwellMs, variant: variantRef.current }]);
     } else if (dwellMs < 3000) {
-      void sendNoticeFeedback(userKey, [{ notice_id: enter.id, action: "quick_exit", dwell_ms: dwellMs, variant: variantRef.current }]);
+      void sendNoticeFeedback(key, [{ notice_id: enter.id, action: "quick_exit", dwell_ms: dwellMs, variant: variantRef.current }]);
     }
-  };
+  }, [variantRef]);
 
   // T-C7：详情滚动到底 +0.1（NoticeDetail 为整页布局，监听 window 滚动；每卡每会话只报一次）
   useEffect(() => {

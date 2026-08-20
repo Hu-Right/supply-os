@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "Назад в мой раздел",
   "myRecordsRefresh": "Обновить",
   "myRecordsRefreshing": "Обновление",
+  "myRecordsLoadFailed": "Не удалось загрузить записи. Повторите попытку позже",
+  "myRecordsRetry": "Повторить",
   "myRecordsLoading": "Загрузка...",
   "myRecordsPagerInfo": "Всего {total} · Стр. {page}/{pages}",
   "myRecordsUntitled": "Закупка без названия",

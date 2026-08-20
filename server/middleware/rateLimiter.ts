@@ -8,6 +8,8 @@
  */
 import fs from "fs";
 import path from "path";
+import type { Request, Response, NextFunction } from "express";
+import { extractClientIp } from "../utils/ip";
 
 /** 速率限制器配置 */
 export interface RateLimiterConfig {
@@ -169,4 +171,25 @@ export function createRateLimiter(config: RateLimiterConfig): RateLimiter {
   }
 
   return { check, record, clear, persist };
+}
+
+/**
+ * Express 限流中间件工厂（P2-9：成本型接口限流复用）
+ * 限流键默认 JWT 身份优先、匿名回退 IP（与 extractClientIp 同源，防 XFF 伪造）
+ */
+export function rateLimitMiddleware(
+  config: RateLimiterConfig,
+  keyFn?: (req: Request) => string,
+): (req: Request, res: Response, next: NextFunction) => void {
+  const limiter = createRateLimiter(config);
+  return (req, res, next) => {
+    const key = keyFn ? keyFn(req) : (req.userKey || `ip:${extractClientIp(req)}`);
+    const rl = limiter.check(key);
+    if (rl.blocked) {
+      res.set("Retry-After", String(rl.retryAfterSec));
+      return res.status(429).json({ error: "RATE_LIMITED", retry_after_seconds: rl.retryAfterSec });
+    }
+    limiter.record(key);
+    next();
+  };
 }

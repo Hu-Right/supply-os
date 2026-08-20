@@ -45,33 +45,60 @@ async function recordMigration(dbPool: Pool, version: number, name: string): Pro
 
 /**
  * 运行所有待执行的迁移
+ *
+ * P1-19 安全修复：使用 MySQL 命名锁（GET_LOCK）串行化并发迁移：
+ * 多进程/多实例同时启动时，只有一个进程能拿到锁执行迁移，
+ * 其余等待（最多 30s）后重读已应用版本集合再执行剩余项。
+ * 锁持有在专用连接上：进程崩溃时连接断开，锁自动释放，不会死锁。
+ * 迁移执行失败时直接 throw（不吞错），阻止后续迁移在不一致 schema 上继续。
+ *
  * @returns 本次执行的迁移数量
  */
 export async function runMigrations(dbPool: Pool, migrations: Migration[]): Promise<number> {
-  await ensureMigrationsTable(dbPool);
-  const applied = await getAppliedVersions(dbPool);
-
-  // 按版本号排序
-  const pending = migrations
-    .filter((m) => !applied.has(m.version))
-    .sort((a, b) => a.version - b.version);
-
-  if (pending.length === 0) return 0;
-
-  for (const migration of pending) {
-    const tag = `[migration ${String(migration.version).padStart(3, "0")}: ${migration.name}]`;
-    try {
-      console.log(`${tag} 开始执行…`);
-      await migration.up(dbPool);
-      await recordMigration(dbPool, migration.version, migration.name);
-      console.log(`${tag} 完成`);
-    } catch (err) {
-      console.error(`${tag} 失败:`, (err as Error).message);
-      throw err;
+  // P1-19：命名锁必须与等待/释放在同一连接上，故取专用连接持有
+  const lockConn = await dbPool.getConnection();
+  let lockAcquired = false;
+  try {
+    const [lockRows] = await lockConn.query("SELECT GET_LOCK('schema_migrate', 30) AS got");
+    lockAcquired = Number((lockRows as RowDataPacket[])[0]?.got || 0) === 1;
+    if (!lockAcquired) {
+      throw new Error("SCHEMA_MIGRATE_LOCK_TIMEOUT: 30s 内未获取到迁移锁，可能有其他进程长时间占用");
     }
-  }
 
-  return pending.length;
+    await ensureMigrationsTable(dbPool);
+    const applied = await getAppliedVersions(dbPool);
+
+    // 按版本号排序
+    const pending = migrations
+      .filter((m) => !applied.has(m.version))
+      .sort((a, b) => a.version - b.version);
+
+    if (pending.length === 0) return 0;
+
+    for (const migration of pending) {
+      const tag = `[migration ${String(migration.version).padStart(3, "0")}: ${migration.name}]`;
+      try {
+        console.log(`${tag} 开始执行…`);
+        await migration.up(dbPool);
+        await recordMigration(dbPool, migration.version, migration.name);
+        console.log(`${tag} 完成`);
+      } catch (err) {
+        console.error(`${tag} 失败:`, (err as Error).message);
+        throw err;
+      }
+    }
+
+    return pending.length;
+  } finally {
+    if (lockAcquired) {
+      try {
+        await lockConn.query("SELECT RELEASE_LOCK('schema_migrate')");
+      } catch {
+        // 释放失败不影响主流程：连接归还/断开后锁会自动释放
+      }
+    }
+    lockConn.release();
+  }
 }
 
 // ── DDL 工具函数（供迁移文件使用）──

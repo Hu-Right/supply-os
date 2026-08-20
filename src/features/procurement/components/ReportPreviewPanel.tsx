@@ -124,8 +124,8 @@ export function ReportPreviewPanel({ noticeId, userKey, reportUrl, isVip, onUnlo
             <Lock className="w-5 h-5 text-slate-400 mb-1" />
             <p className="text-[11px] text-slate-500 mb-2 text-center">
               {t("procurement_previewUnlockHint")}
-              {/* P1-15 安全修复：预览百分比抽成 i18n key，避免硬编码中文 */}
-              {totalReportChars > 0 && ` (${((shownCharCount / totalReportChars) * 100).toFixed(1)}%)`}
+              {/* P1-15/P2-15 安全修复：预览百分比抽成 i18n key，避免硬编码中文 */}
+              {totalReportChars > 0 && " " + t("procurement_previewPercent", { percent: ((shownCharCount / totalReportChars) * 100).toFixed(1) })}
             </p>
             {isVip ? (
               /* P1-14 安全修复：假对象补全 title，避免空标题 */

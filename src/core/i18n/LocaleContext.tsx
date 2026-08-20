@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useState, useEffect, type ReactNode } from "react";
+import React, { createContext, useContext, useCallback, useMemo, useState, useEffect, type ReactNode } from "react";
 import * as i18nModule from "i18next";
 const i18n = (i18nModule as any).default || i18nModule;
 import { initReactI18next, useTranslation } from "react-i18next";
@@ -157,11 +157,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
         [translate],
     );
 
+    const value = useMemo<LocaleContextValue>(
+        () => ({ locale, localeDir, setLocale, t }),
+        [locale, localeDir, setLocale, t],
+    );
+
     // 语言包未就绪时不渲染子树，避免闪烁翻译 key 占位符
     if (!ready) return null;
 
+    // P2-1 性能修复：value useMemo（setLocale/t 已 useCallback，locale/localeDir 为原始值），
+    // 避免每次渲染重建对象击穿所有 useLocale 消费组件的 memo
     return (
-        <LocaleContext.Provider value={{ locale, localeDir, setLocale, t }}>
+        <LocaleContext.Provider value={value}>
             {children}
         </LocaleContext.Provider>
     );

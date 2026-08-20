@@ -232,6 +232,7 @@
   "procurement_previewPartial": "预览版",
   "procurement_previewUpgrade": "注册会员查看完整报告",
   "procurement_previewUnlockHint": "解锁后查看全部拆解内容",
+  "procurement_previewPercent": "（已展示 {percent}%）",
   "procurement_previewUnlockNow": "立即解锁",
   "procurement_advancedFilter": "高级筛选"
 }

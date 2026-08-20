@@ -8,6 +8,7 @@
  *              Open/paywall-gate, paid buyout, free/member unlock and
  *              interest/subscribe handlers built on the state hooks.
  */
+import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
@@ -61,9 +62,9 @@ export function useNoticeHandlers({
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
   const { t } = useLocale();
   const { freeQuota, freeRemaining, canUsePaidQuota, refreshMembership } = membership;
-  const { isUnlocked, markUnlocked, loadNoticeDetail, setDetailLoadingId } = unlock;
+  const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview, loadNoticeContent, setDetailLoadingId } = unlock;
 
-  const openNotice = async (notice: NoticeItem) => {
+  const openNotice = useCallback(async (notice: NoticeItem) => {
     if (!userKey) {
       onRequireLogin();
       return;
@@ -96,24 +97,34 @@ export function useNoticeHandlers({
     void refreshMembership();
     void loadNoticeDetail(notice);
     // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
-    if (!alreadyUnlocked) void unlock.loadNoticePreview(notice);
+    if (!alreadyUnlocked) void loadNoticePreview(notice);
     // 全文内容加载：搜索 SQL 截断 description 为 300 字符，本请求替换为完整原文，
     // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义
-    unlock.loadNoticeContent(notice);
-  };
+    loadNoticeContent(notice);
+    // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
+    // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
+  }, [
+    userKey, isVip, freeQuota, t,
+    onRequireLogin, trackClick, trackDetailOpen,
+    isUnlocked, setSelectedNotice, setActionMessage, openPaywall,
+    setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
+  ]);
 
   // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
-  const handlePayUnlock = (notice: NoticeItem) => {
+  const handlePayUnlock = async (notice: NoticeItem) => {
     if (!userKey) {
       onRequireLogin();
       return;
     }
-    // P1-10 安全修复：套餐码与价格对齐数据库在售套餐（single_199 为当前 active 的单次解锁卡）
+    // P1-10 安全修复：套餐码与价格从后端在售套餐动态获取，不再硬编码——
+    // 套餐上下架/调价时无需发版；拉取失败时回退默认码，服务端仍会校验套餐有效性
+    const plans = await membership.loadPaidPlans();
+    const singlePlan = plans.find((p) => p.plan_type === "single");
     emitAppEvent("supply-os:pay", {
-      code: "single_199",
+      code: singlePlan?.plan_code || "single_199",
       name: t("procurement_singleUnlockName"),
-      price: 199,
-      currency: "CNY",
+      price: Number(singlePlan?.price ?? 199),
+      currency: singlePlan?.currency || "CNY",
       noticeId: notice.id,
       returnUrl: `${window.location.origin}/procurement`,
     });
@@ -135,7 +146,8 @@ export function useNoticeHandlers({
     // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
     setDetailLoadingId(notice.id);
     try {
-      await unlockNotice(notice.id, userKey, nextUnlockType, nextUnlockType === "single" ? 89 : 0);
+      // P2-10：价格由服务端按套餐定价，前端固定传 0
+      await unlockNotice(notice.id, userKey, nextUnlockType, 0);
     } catch (err) {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (err instanceof ApiError && err.status === 402) {

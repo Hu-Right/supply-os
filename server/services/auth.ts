@@ -87,11 +87,15 @@ export async function buildUserResponse(
   suppliersRepo: SuppliersRepo,
 ): Promise<AuthUserResponse> {
   const userKey = user.user_key ?? "";
-  const hasSub = await membershipRepo.hasActiveSubscription(userKey);
-  let supplier: Record<string, unknown> | null = null;
-  if (user.supplier_id && user.supplier_link_status === "verified") {
-    supplier = (await suppliersRepo.findBasicInfo(Number(user.supplier_id))) as Record<string, unknown> | null;
-  }
+  // P3-10 性能修复：订阅查询与供应商信息查询并行化（原串行两次往返 → 一次）
+  const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
+  const [hasSub, supplierRow] = await Promise.all([
+    membershipRepo.hasActiveSubscription(userKey),
+    needSupplier
+      ? suppliersRepo.findBasicInfo(Number(user.supplier_id))
+      : Promise.resolve(null),
+  ]);
+  const supplier = supplierRow as Record<string, unknown> | null;
   // P1-5 安全修复：统一 VIP 判定为动态计算（有效订阅），不再信任永久化字段 membership_tier
   const tier = hasSub ? "vip" : "free";
   return {

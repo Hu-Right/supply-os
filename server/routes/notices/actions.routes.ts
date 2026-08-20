@@ -10,6 +10,7 @@ import { Router } from "express";
 import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
+import { rateLimitMiddleware } from "../../middleware/rateLimiter";
 import type { RecoFeedbackItem } from "../../repos/notices.repo";
 import {
   executeUnlock, processFeedback, submitInterest,
@@ -19,6 +20,10 @@ import {
 export function createNoticeActionsRouter(ctx: AppContext): Router {
   const router = Router();
   const noticesRepo = ctx.notice.noticesRepo;
+  const membershipRepo = ctx.payment.membershipRepo;
+  // P2-9 安全修复：成本型端点限流（浏览计数/解锁，防恶意刷量与配额探测）
+  const viewRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 120 });
+  const unlockRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 30 });
 
   // ── 解锁列表 ──
   // P0-5 安全修复：解锁列表必须 JWT 认证
@@ -62,10 +67,10 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   }));
 
   // ── 浏览计数 ──
-  router.post("/api/notices/:id/view", asyncHandler(async (req, res) => {
+  // P0-5/P2-9 安全修复：浏览计数必须 JWT 认证 + 限流（成本型端点，防匿名刷量）
+  router.post("/api/notices/:id/view", requireAuth, viewRateLimit, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
-      // B1 legacy 退役（2026-08-19）：浏览流水归属改用 req.userKey（optionalAuth 已 JWT 优先、
-      // body.user_key 兜底），未登录保留 guest 语义
+      // 身份一律取自 req.userKey（JWT）；前端 openNotice 已门控登录后才上报
       const userKey = req.userKey || "guest";
       await noticesRepo.insertView({
         userKey,
@@ -76,13 +81,19 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   }));
 
   // ── 解锁 ──
-  router.post("/api/notices/:id/unlock", requireAuth, asyncHandler(async (req, res) => {
+  router.post("/api/notices/:id/unlock", requireAuth, unlockRateLimit, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
       const userKey = req.userKey || "guest";
       const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
         ? req.body.unlock_type : "free";
-      // P2-10 安全修复：解锁价格服务端定价，不再接受前端传入 price
-      const price = unlockType === "single" ? Number(req.body.price || 0) : 0;
+      // P2-10 安全修复：解锁价格服务端定价——从 crm_membership_plans 取在售 single 套餐价，
+      // 完全忽略前端传入 price，阻断篡改
+      let price = 0;
+      if (unlockType === "single") {
+        const plans = await membershipRepo.findActivePlans();
+        const singlePlan = plans.find((p) => p.plan_type === "single");
+        price = Number(singlePlan?.price || 0);
+      }
 
       try {
         const result = await executeUnlock(

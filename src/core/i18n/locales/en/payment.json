@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "Back to My Account",
   "myRecordsRefresh": "Refresh",
   "myRecordsRefreshing": "Refreshing",
+  "myRecordsLoadFailed": "Failed to load records. Please try again later",
+  "myRecordsRetry": "Retry",
   "myRecordsLoading": "Loading...",
   "myRecordsPagerInfo": "{total} records · Page {page}/{pages}",
   "myRecordsUntitled": "Untitled procurement",

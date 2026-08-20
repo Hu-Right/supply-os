@@ -5,7 +5,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
-import { normalizeUserKey } from "../../utils/normalize";
 import { SuppliersRepo } from "../../repos/suppliers.repo";
 import { UsersRepo } from "../../repos/users.repo";
 import { MembershipRepo } from "../../repos/membership.repo";
@@ -29,8 +28,13 @@ export function createSupplierContactRouter(deps: ContactDeps): Router {
 
     const user = await usersRepo.findByKey(userKey);
     if (!user) return res.status(403).json({ error: "VIP_REQUIRED" });
-    const subs = await membershipRepo.findActiveSubscriptions(userKey);
-    const isVip = subs.length > 0 || user.membership_tier === "vip";
+    // P1-5 安全修复：VIP 判定统一为动态计算（有效订阅 OR 付费剩余额度 > 0），
+    // 与 membership.routes/auth.ts 同口径，不再信任永久化字段 membership_tier
+    const [subs, entitlements] = await Promise.all([
+      membershipRepo.findActiveSubscriptions(userKey),
+      membershipRepo.findActiveEntitlements(userKey),
+    ]);
+    const isVip = subs.length > 0 || entitlements.length > 0;
     if (!isVip) return res.status(403).json({ error: "VIP_REQUIRED" });
 
     const supplier = await suppliersRepo.findContact(supplierId);

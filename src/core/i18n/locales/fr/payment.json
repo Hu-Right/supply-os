@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "Retour à mon compte",
   "myRecordsRefresh": "Actualiser",
   "myRecordsRefreshing": "Actualisation",
+  "myRecordsLoadFailed": "Échec du chargement des enregistrements. Veuillez réessayer plus tard",
+  "myRecordsRetry": "Réessayer",
   "myRecordsLoading": "Chargement...",
   "myRecordsPagerInfo": "{total} enregistrements · Page {page}/{pages}",
   "myRecordsUntitled": "Marché sans titre",

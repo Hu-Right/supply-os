@@ -39,6 +39,7 @@
  *              029-precise-unspsc             宽表精准分类列(precise_level1~5,商机approved精准码)
  *              030-wide-table-deadline-bigint  宽表deadline_sec扩容INT→BIGINT+修复溢出归零数据
  *              031-membership-upgrade           会员套餐平滑升级(权益升级标记列+订单类型列)
+ *              032-wide-table-schema-converge   宽表description列前向收敛(P1-17:基线漂移修复)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -73,6 +74,7 @@ import { migration as m028 } from "./migrations/028-deadline-sec-overflow";
 import { migration as m029 } from "./migrations/029-precise-unspsc";
 import { migration as m030 } from "./migrations/030-wide-table-deadline-bigint";
 import { migration as m031 } from "./migrations/031-membership-upgrade";
+import { migration as m032 } from "./migrations/032-wide-table-schema-converge";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -80,6 +82,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m006, m007, m008, m009, m010, m011,
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
+  m032,
 ];
 
 /**

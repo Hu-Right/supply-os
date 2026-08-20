@@ -9,6 +9,7 @@ import type { Pool } from "mysql2/promise";
 import { Lead } from "../../types/crm";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
+import { rateLimitMiddleware } from "../../middleware/rateLimiter";
 import { mapSupplierRow } from "../../services/suppliers";
 import { insertUngmAppointment } from "../../services/leads";
 import { SuppliersRepo } from "../../repos/suppliers.repo";
@@ -25,9 +26,11 @@ export interface RegisterDeps {
 export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
   const router = Router();
   const { suppliersRepo, usersRepo, dbPool, invalidateCache } = deps;
+  // P2-9 安全修复：供应商注册为写入型成本端点，必须认证 + 限流（防批量注入）
+  const registerRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 10 });
 
   // POST /api/suppliers — 注册新供应商
-  router.post("/api/suppliers", asyncHandler(async (req, res) => {
+  router.post("/api/suppliers", requireAuth, registerRateLimit, asyncHandler(async (req, res) => {
     const {
         nameZh,
         type,

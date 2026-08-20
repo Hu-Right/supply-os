@@ -6,6 +6,7 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
+import { rateLimitMiddleware } from "../middleware/rateLimiter";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "../services/unspsc/index";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import { MembershipRepo } from "../repos/membership.repo";
@@ -18,6 +19,9 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
   const opportunitiesRepo = ctx.opportunitiesRepo ?? new OpportunitiesRepo(ctx.dbPool);
   // 双轨制退役（轨道A）：membershipRepo 统一走领域上下文（bootstrap 保证注入，移除 ?? 兜底）
   const membershipRepo = ctx.payment.membershipRepo;
+  // P2-9 安全修复：成本型端点限流（浏览计数/解锁）
+  const viewRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 120 });
+  const unlockRateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 30 });
 
   router.get("/api/opportunities", asyncHandler(async (req, res) => {
     const codeId = Number(req.query.code_id || req.query.industry_id || 0);
@@ -85,10 +89,10 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
     }
   }));
 
-  router.post("/api/opportunities/:id/view", asyncHandler(async (req, res) => {
+  // P0-5/P2-9 安全修复：商机浏览计数必须 JWT 认证 + 限流（成本型端点，防匿名刷量）
+  router.post("/api/opportunities/:id/view", requireAuth, viewRateLimit, asyncHandler(async (req, res) => {
     const opportunityId = Number(req.params.id);
-    // B1 legacy 退役（2026-08-19）：浏览流水归属改用 req.userKey（JWT 优先、body 兜底）；
-    // 本地差异 #7：F.1 归一化已由 optionalAuth 收敛，未登录保留 guest
+    // 身份一律取自 req.userKey（JWT）
     const userKey = req.userKey || "guest";
     await opportunitiesRepo.insertView({
       userKey,
@@ -100,13 +104,20 @@ export function createOpportunitiesRouter(ctx: AppContext): Router {
   }));
 
   // P0-4 安全修复：商机解锁必须 JWT 认证 + entitlement 校验
-  router.post("/api/opportunities/:id/unlock", requireAuth, asyncHandler(async (req, res) => {
+  router.post("/api/opportunities/:id/unlock", requireAuth, unlockRateLimit, asyncHandler(async (req, res) => {
     const opportunityId = Number(req.params.id);
     const userKey = req.userKey || "guest";
     const unlockType = req.body.unlock_type === "subscription" || req.body.unlock_type === "single"
       ? req.body.unlock_type
       : "free";
-    const price = unlockType === "single" ? Number(req.body.price || 19) : 0;
+    // P2-10 安全修复：解锁价格服务端定价——从 crm_membership_plans 取在售 single 套餐价，
+    // 完全忽略前端传入 price，阻断篡改
+    let price = 0;
+    if (unlockType === "single") {
+      const plans = await membershipRepo.findActivePlans();
+      const singlePlan = plans.find((p) => p.plan_type === "single");
+      price = Number(singlePlan?.price || 0);
+    }
 
     const existing = await opportunitiesRepo.findExistingUnlock(userKey, opportunityId);
     if (existing) {

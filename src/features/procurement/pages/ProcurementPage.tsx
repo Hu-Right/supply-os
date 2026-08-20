@@ -4,6 +4,7 @@ import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-re
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
+import { clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
@@ -113,6 +114,8 @@ export default function ProcurementPage() {
       } catch {
         // 解锁可能已在服务端完成，忽略失败
       }
+      // P2-5：解锁成功后清除解锁历史缓存，RecentUnlocks 立即刷新
+      clearApiCache("/api/payment/unlocks");
       await actions.refreshMembership();
       refreshAuth();
       await actions.openNoticeById(noticeId);

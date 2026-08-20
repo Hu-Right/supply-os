@@ -15,6 +15,7 @@ import { getPaymentRuntimeConfig } from "../config/env";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
 import { activateSubscription, fulfillMockPayment, createLegacyOrder } from "../payment/fulfillment";
 import { requireAuth } from "../middleware/auth";
+import { requireAdmin } from "./admin/middleware";
 
 export function createPaymentRouter(ctx: AppContext): Router {
   const router = Router();
@@ -188,8 +189,22 @@ export function createPaymentRouter(ctx: AppContext): Router {
     });
   });
 
-  router.get("/api/payment/config-status", paymentConfigStatusHandler);
-  router.get("/api/payments/config-status", paymentConfigStatusHandler);
+  // P3-2/P3-3 安全修复：config-status 分级——
+  // 公共端点仅下发前端 UI 决策所需的最小字段（provider 是否 configured），
+  // 不再暴露 app_id 片段/notify_url/mode/required_env 等内部配置；
+  // 完整诊断信息移至 requireAdmin 保护的管理端点
+  const publicConfigStatusHandler = asyncHandler(async (_req: any, res: any) => {
+    const runtime = getPaymentRuntimeConfig();
+    res.json({
+      providers: {
+        alipay: { configured: Boolean(runtime.providers?.alipay?.configured) },
+        wechat: { configured: Boolean(runtime.providers?.wechat?.configured) },
+      },
+    });
+  });
+
+  router.get("/api/payment/config-status", publicConfigStatusHandler);
+  router.get("/api/payments/config-status", requireAdmin, paymentConfigStatusHandler);
 
   // B1 退役准备（高危端点升级）：requireAuth 强制 JWT 身份，禁止 body.user_key 指定下单人
   router.post("/api/payments/create", requireAuth, asyncHandler(async (req, res) => {

@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "العودة إلى حسابي",
   "myRecordsRefresh": "تحديث",
   "myRecordsRefreshing": "جارٍ التحديث",
+  "myRecordsLoadFailed": "فشل تحميل السجلات. يرجى المحاولة لاحقًا",
+  "myRecordsRetry": "إعادة المحاولة",
   "myRecordsLoading": "جارٍ التحميل...",
   "myRecordsPagerInfo": "{total} سجل · الصفحة {page}/{pages}",
   "myRecordsUntitled": "مشتريات بدون عنوان",

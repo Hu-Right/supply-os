@@ -95,9 +95,15 @@ export class AdminRepo {
     return columnsByTable;
   }
 
+  /** P3-6 安全修复：表名插值白名单——仅允许字母/数字/下划线，阻断 SQL 注入 */
+  private static readonly TABLE_NAME_RE = /^[A-Za-z0-9_]+$/;
+
   /** 统计指定表的行数 */
   async countTableRows(table: string): Promise<number> {
-    const [rows] = await this.pool.query(`SELECT COUNT(*) AS total FROM ${table}`);
+    if (!AdminRepo.TABLE_NAME_RE.test(table)) {
+      throw new Error(`INVALID_TABLE_NAME: ${table}`);
+    }
+    const [rows] = await this.pool.query(`SELECT COUNT(*) AS total FROM \`${table}\``);
     return Number((rows as RowDataPacket[])[0]?.total || 0);
   }
 }

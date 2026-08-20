@@ -14,6 +14,9 @@ import { createOrder, getOrderStatus, type OrderInfo } from "../api";
 
 export type PaymentStep = "choose" | "waiting" | "success" | "failed";
 
+/** P2-11：轮询上限（80 次 × 3s ≈ 4 分钟），防止订单永不 paid 时无限轮询 */
+const MAX_POLL_ATTEMPTS = 200;
+
 export type UsePaymentOptions = {
   planCode: string;
   noticeId?: number | null;
@@ -72,6 +75,11 @@ export function usePayment({
   const [error, setError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollCountRef = useRef(0);
+  // P2-11：ref 持有最新 onPaymentSuccess，避免轮询闭包捕获 stale 回调，
+  // 同时使 startPolling 的 useCallback 依赖稳定
+  const onSuccessRef = useRef(onPaymentSuccess);
+  onSuccessRef.current = onPaymentSuccess;
 
   const availableProviders = getAvailableProviders();
 
@@ -96,14 +104,23 @@ export function usePayment({
   const startPolling = useCallback(
     (orderNo: string) => {
       if (pollingRef.current) clearInterval(pollingRef.current);
+      pollCountRef.current = 0;
       pollingRef.current = setInterval(async () => {
+        pollCountRef.current += 1;
+        // P2-11：超过轮询上限按超时失败处理，停止轮询
+        if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
+          if (pollingRef.current) clearInterval(pollingRef.current);
+          setStep("failed");
+          setError(t("paymentTimeoutError"));
+          return;
+        }
         try {
           const data = await getOrderStatus(orderNo);
           if (data.status === "paid") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setOrderInfo((prev) => (prev ? { ...prev, status: "paid" } : null));
             setStep("success");
-            onPaymentSuccess(orderNo);
+            onSuccessRef.current(orderNo);
           } else if (data.status === "closed" || data.status === "failed") {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setStep("failed");
@@ -114,7 +131,7 @@ export function usePayment({
         }
       }, 3000);
     },
-    [onPaymentSuccess, t],
+    [t],
   );
 
   /**

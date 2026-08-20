@@ -10,8 +10,8 @@ import { asyncHandler } from "../../middleware/errorHandler";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword } from "../../services/auth";
 import { extractClientIp } from "../../utils/ip";
 import {
-  signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken, hashRefreshToken,
-  getRefreshTokenExpiresAt, extractBearerToken,
+  signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken,
+  getRefreshTokenExpiresAt,
 } from "../../services/jwt";
 import type { RateLimiter } from "../../middleware/rateLimiter";
 
@@ -141,27 +141,33 @@ export function createLoginRouter(
 
     const user = await usersRepo.findProfileByKey(payload.user_key);
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    // P3-4 安全修复：Refresh Token 轮换——旧 token 立即失效，签发新 token 对；
+    // 被窃取后重放的旧 refresh token 将命中 REFRESH_TOKEN_REVOKED，暴露盗用
     const newAccessToken = signAccessToken({
       user_key: payload.user_key,
       email: (user as any).email || "",
     });
-    res.json({ success: true, token: newAccessToken });
+    const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ user_key: payload.user_key });
+    await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
+    await ctx.dbPool.execute(
+      "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
+      [payload.user_key, newTokenHash, getRefreshTokenExpiresAt()],
+    );
+    res.json({ success: true, token: newAccessToken, refresh_token: newRefreshToken });
   }));
 
   // ── 登出 ──────────────────────────────────────────
   router.post("/api/auth/logout", asyncHandler(async (req, res) => {
+    // P3-4 安全修复：登出仅吊销当前会话的 refresh token（按 token_hash 精确删除），
+    // 不再按 user_key 批量删除——避免用户在 A 设备登出时误杀 B/C 设备的会话
     const refreshToken = String(req.body.refresh_token || "").trim();
     if (refreshToken) {
       const tokenHash = hashRefreshToken(refreshToken);
       await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
     }
-    const bearerToken = extractBearerToken(req.headers.authorization);
-    if (bearerToken) {
-      try {
-        const { user_key } = verifyAccessToken(bearerToken);
-        await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [user_key]);
-      } catch { /* Access Token 无效或已过期，忽略 */ }
-    }
+    // Access Token 短生命周期（2h）自然过期，无需服务端吊销表；
+    // 不再执行 DELETE WHERE user_key 的批量吊销
     res.json({ success: true });
   }));
 

@@ -8,7 +8,7 @@
  *              Unlocked id set, detail loading state and extended detail
  *              fetch/merge; prefetches unlocked ids after login.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { NoticeItem } from "../types";
 import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlockedNoticeIds } from "../api";
@@ -47,12 +47,13 @@ export function useNoticeUnlock({
   const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set());
   const [detailLoadingId, setDetailLoadingId] = useState<number | null>(null);
 
-  const markUnlocked = (id: number) =>
+  // P2-2：全部导出函数 useCallback 稳定化，作为下游 openNotice memo 依赖链的稳定源头
+  const markUnlocked = useCallback((id: number) =>
     setUnlockedIds((prev) => {
       const next = new Set(prev);
       next.add(id);
       return next;
-    });
+    }), []);
 
   // 登录后预取已解锁集合：详情首帧据此决定骨架屏还是锁定面板
   useEffect(() => {
@@ -69,7 +70,7 @@ export function useNoticeUnlock({
     };
   }, [userKey]);
 
-  const loadNoticeDetail = async (notice: NoticeItem) => {
+  const loadNoticeDetail = useCallback(async (notice: NoticeItem) => {
     if (!userKey) {
       setDetailLoadingId(null);
       return;
@@ -83,11 +84,11 @@ export function useNoticeUnlock({
     } finally {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
     }
-  };
+  }, [userKey, setSelectedNotice, markUnlocked]);
 
   // 锁定态有限预览：机构名/分类标签（VIP 另含机构全称与发布日期），
   // 仅增强展示不含敏感字段，失败静默不阻断详情页
-  const loadNoticePreview = async (notice: NoticeItem) => {
+  const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
     if (!userKey) return;
     try {
       const preview = await fetchNoticePreview(notice.id, userKey);
@@ -95,14 +96,14 @@ export function useNoticeUnlock({
     } catch {
       // 预览为增强项：失败保留列表数据
     }
-  };
+  }, [userKey, setSelectedNotice]);
 
   // 公告全文内容加载：搜索 SQL 将 description 截断为 300 字符，
   // 本函数拉取完整 description 替换截断版本，确保"查看原文"开关有意义；
   // 同时获取 description_cn（来自机会表），确保中文环境下详情页可立即显示中文描述，
   // 避免卡片与详情页语言显示不一致（卡片通过 description_cn 显示中文）；
   // fire-and-forget 模式，失败静默不阻断详情页
-  const loadNoticeContent = (notice: NoticeItem) => {
+  const loadNoticeContent = useCallback((notice: NoticeItem) => {
     fetchNoticeContent(notice.id)
       .then((content) => {
         setSelectedNotice((prev) =>
@@ -120,22 +121,24 @@ export function useNoticeUnlock({
       .catch(() => {
         // 全文加载失败：保留截断版本，不阻断详情页
       });
-  };
+  }, [setSelectedNotice]);
 
   // 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情）
-  const openNoticeById = async (id: number) => {
+  const openNoticeById = useCallback(async (id: number) => {
     const base = items.find((it) => it.id === id) || ({ id } as NoticeItem);
     setDetailLoadingId(id);
     setSelectedNotice(base);
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (!unlockedIds.has(id)) void loadNoticePreview(base);
     await loadNoticeDetail(base);
-  };
+  }, [items, unlockedIds, setSelectedNotice, loadNoticePreview, loadNoticeDetail]);
+
+  const isUnlocked = useCallback((id: number) => unlockedIds.has(id), [unlockedIds]);
 
   return {
     detailLoadingId,
     setDetailLoadingId,
-    isUnlocked: (id: number) => unlockedIds.has(id),
+    isUnlocked,
     markUnlocked,
     loadNoticeDetail,
     loadNoticePreview,

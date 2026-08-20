@@ -159,13 +159,28 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
       </div>
 
       <div className="space-y-2">
+        {/* P2-3 修复：加载失败不再静默为空态，展示错误提示 + 重试按钮 */}
+        {history.error && !history.loading && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-center text-xs text-rose-700">
+            <p className="font-black">{t("myRecordsLoadFailed")}</p>
+            <button
+              type="button"
+              onClick={history.refresh}
+              className="mt-2 px-3 py-1.5 rounded-lg border border-rose-300 bg-white font-black text-rose-700 hover:bg-rose-100"
+            >
+              {t("myRecordsRetry")}
+            </button>
+          </div>
+        )}
         {rows.length === 0 && (
           <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
             {history.loading
               ? t("myRecordsLoading")
-              : view === "orders"
-                ? t("myPurchasesEmptyOrders")
-                : t("myPurchasesEmptyUnlocks")}
+              : history.error
+                ? t("myRecordsLoadFailed")
+                : view === "orders"
+                  ? t("myPurchasesEmptyOrders")
+                  : t("myPurchasesEmptyUnlocks")}
           </div>
         )}
         {rows.map((row) => {

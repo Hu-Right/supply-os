@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "返回我的",
   "myRecordsRefresh": "刷新",
   "myRecordsRefreshing": "刷新中",
+  "myRecordsLoadFailed": "记录加载失败，请稍后重试",
+  "myRecordsRetry": "重试",
   "myRecordsLoading": "正在加载...",
   "myRecordsPagerInfo": "共 {total} 条 · 第 {page}/{pages} 页",
   "myRecordsUntitled": "未命名采购",

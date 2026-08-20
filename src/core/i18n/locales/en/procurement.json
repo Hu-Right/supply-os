@@ -232,6 +232,7 @@
   "procurement_previewPartial": "Preview",
   "procurement_previewUpgrade": "Register to view full report",
   "procurement_previewUnlockHint": "Unlock to see all breakdown content",
+  "procurement_previewPercent": "({percent}% shown)",
   "procurement_previewUnlockNow": "Unlock Now",
   "procurement_advancedFilter": "Filters"
 }

@@ -84,6 +84,56 @@ export function getIndexName(): string {
   return INDEX_NAME;
 }
 
+/**
+ * 公告索引的完整设置（searchable/filterable/sortable/ranking/pagination）
+ * P2-13：抽出为共享函数，供 ensureIndex 与 fullSync 的临时索引共同使用，
+ * 保证 swapIndexes 切换后新索引设置与旧索引完全一致。
+ */
+export function buildNoticeIndexSettings(): Record<string, unknown> {
+  // 支持的语言列表（扩展语言只需在此添加）
+  const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
+  const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
+  return {
+    searchableAttributes: [
+      "reference",
+      "title",
+      "description",
+      ...langFields,
+    ],
+    filterableAttributes: [
+      "country",
+      "agency",
+      "agency_group",
+      "notice_type_normalized",
+      "deadline_sec",
+      "is_featured",
+      "reference",
+      "level1_id",
+      "level2_id",
+      "level3_id",
+      "level4_id",
+      "level5_id",
+      "precise_level1_id",
+      "precise_level2_id",
+      "precise_level3_id",
+      "precise_level4_id",
+      "precise_level5_id",
+    ],
+    sortableAttributes: ["deadline_sec", "id", "has_deadline"],
+    rankingRules: [
+      "words",
+      "typo",
+      "proximity",
+      "attribute",
+      "exactness",
+      "sort",
+    ],
+    pagination: {
+      maxTotalHits: MAX_TOTAL_HITS,
+    },
+  };
+}
+
 /** 启动时健康检查 + 索引初始化 */
 export async function ensureIndex(): Promise<boolean> {
   if (!client) return false;
@@ -105,48 +155,9 @@ export async function ensureIndex(): Promise<boolean> {
       // index_already_exists 或幂等冲突，忽略
     }
     const index = client.index(INDEX_NAME);
-    // 支持的语言列表（扩展语言只需在此添加）
-    const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
-    const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
-    
-    await index.updateSettings({
-      searchableAttributes: [
-        "reference",
-        "title",
-        "description",
-        ...langFields,
-      ],
-      filterableAttributes: [
-        "country",
-        "agency",
-        "agency_group",
-        "notice_type_normalized",
-        "deadline_sec",
-        "is_featured",
-        "level1_id",
-        "level2_id",
-        "level3_id",
-        "level4_id",
-        "level5_id",
-        "precise_level1_id",
-        "precise_level2_id",
-        "precise_level3_id",
-        "precise_level4_id",
-        "precise_level5_id",
-      ],
-      sortableAttributes: ["deadline_sec", "id", "has_deadline"],
-      rankingRules: [
-        "words",
-        "typo",
-        "proximity",
-        "attribute",
-        "exactness",
-        "sort",
-      ],
-      pagination: {
-        maxTotalHits: MAX_TOTAL_HITS,
-      },
-    });
+    // P2-13：设置与 fullSync 临时索引同源（buildNoticeIndexSettings），
+    // 保证 swapIndexes 切换后设置完全一致
+    await index.updateSettings(buildNoticeIndexSettings() as any);
     return true;
   } catch (err) {
     console.warn("[meilisearch] ensureIndex failed:", (err as Error).message);

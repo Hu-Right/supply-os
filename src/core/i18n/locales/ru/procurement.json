@@ -231,6 +231,7 @@
   "procurement_previewPartial": "Предпросмотр",
   "procurement_previewUpgrade": "Зарегистрируйтесь для просмотра полного отчёта",
   "procurement_previewUnlockHint": "Разблокируйте для просмотра всего содержимого",
+  "procurement_previewPercent": "(показано {percent}%)",
   "procurement_previewUnlockNow": "Разблокировать сейчас",
   "procurement_advancedFilter": "Фильтры"
 }

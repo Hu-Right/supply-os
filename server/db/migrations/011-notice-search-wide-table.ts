@@ -22,27 +22,30 @@ export const migration: Migration = {
         notice_id       VARCHAR(100) NOT NULL,
 
         -- 全文搜索字段（原文 + 六国语言翻译）
+        -- P1-17 修复：description 基线直接采用最终类型 VARCHAR(2000)，
+        -- 不再经 LONGTEXT 中转（历史基线漂移已交由 032 前向收敛），
+        -- 新建库与存量库（013/032 收敛后）类型完全一致
         title           VARCHAR(1000) NOT NULL DEFAULT '',
         reference       VARCHAR(200)  NOT NULL DEFAULT '',
-        description     LONGTEXT      NOT NULL,
+        description     VARCHAR(2000) NOT NULL DEFAULT '',
         -- 中文
         title_zh        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_zh  LONGTEXT      NOT NULL,
+        description_zh  VARCHAR(2000) NOT NULL DEFAULT '',
         -- 英文
         title_en        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_en  LONGTEXT      NOT NULL,
+        description_en  VARCHAR(2000) NOT NULL DEFAULT '',
         -- 法文
         title_fr        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_fr  LONGTEXT      NOT NULL,
+        description_fr  VARCHAR(2000) NOT NULL DEFAULT '',
         -- 俄文
         title_ru        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_ru  LONGTEXT      NOT NULL,
+        description_ru  VARCHAR(2000) NOT NULL DEFAULT '',
         -- 西班牙文
         title_es        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_es  LONGTEXT      NOT NULL,
+        description_es  VARCHAR(2000) NOT NULL DEFAULT '',
         -- 阿拉伯文
         title_ar        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_ar  LONGTEXT      NOT NULL,
+        description_ar  VARCHAR(2000) NOT NULL DEFAULT '',
 
         -- 预标准化筛选字段
         country_std     VARCHAR(100)  NOT NULL DEFAULT '',
@@ -104,6 +107,7 @@ export const migration: Migration = {
       "CREATE INDEX idx_ns_featured_active ON crm_notice_search (is_featured, is_active)");
 
     // 幂等添加六国语言列（表已存在时需要 ALTER TABLE）
+    // P1-17：基线即最终类型——历史列类型变更一律走前向迁移（013/032），不再回改本文件
     const langs = ["fr", "ru", "es", "ar"];
     for (const lang of langs) {
       try {

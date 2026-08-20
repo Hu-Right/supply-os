@@ -91,7 +91,13 @@ async function tryRefreshToken(): Promise<string | null> {
       if (!res.ok) return null;
       const data = await res.json();
       if (data.token) {
-        updateAuthToken(data.token);
+        // P3-4：服务端 Refresh Token 轮换——同步保存新 refresh_token，
+        // 旧值已失效，未更新将导致下次刷新被拒（REFRESH_TOKEN_REVOKED）
+        if (typeof data.refresh_token === "string" && data.refresh_token) {
+          setAuthTokens(data.token, data.refresh_token);
+        } else {
+          updateAuthToken(data.token);
+        }
         return data.token as string;
       }
       return null;

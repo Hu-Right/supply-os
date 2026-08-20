@@ -64,6 +64,8 @@
   "myRecordsBackTitle": "Volver a mi cuenta",
   "myRecordsRefresh": "Actualizar",
   "myRecordsRefreshing": "Actualizando",
+  "myRecordsLoadFailed": "Error al cargar los registros. Inténtelo de nuevo más tarde",
+  "myRecordsRetry": "Reintentar",
   "myRecordsLoading": "Cargando...",
   "myRecordsPagerInfo": "{total} registros · Página {page}/{pages}",
   "myRecordsUntitled": "Adquisición sin título",

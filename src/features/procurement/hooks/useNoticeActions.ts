@@ -8,7 +8,7 @@
  *              selectedNotice 由 Page 持有并经 setSelectedNotice 注入，
  *              避免与搜索/偏好 hook 循环依赖。
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
@@ -44,7 +44,8 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   const { t } = useLocale();
   const [actionMessage, setActionMessage] = useState("");
 
-  const onRequireLogin = () => emitAppEvent("supply-os:require-login");
+  // P2-2：useCallback 稳定引用，作为 openNotice memo 依赖链的一环
+  const onRequireLogin = useCallback(() => emitAppEvent("supply-os:require-login"), []);
 
   const membership = useNoticeMembership({ userKey, isVip });
   const unlock = useNoticeUnlock({ userKey, items, setSelectedNotice });
@@ -73,10 +74,11 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   });
 
   // 包装 openPaywall：打开付费墙时懒加载套餐列表，避免初始页面加载时多发请求
-  const openPaywallWithPlans = (notice: import("../types").NoticeItem) => {
+  // P2-2：useCallback 稳定引用（openPaywall 与 loadPaidPlans 上游已稳定化）
+  const openPaywallWithPlans = useCallback((notice: import("../types").NoticeItem) => {
     void membership.loadPaidPlans();
     openPaywall(notice);
-  };
+  }, [membership.loadPaidPlans, openPaywall]);
 
   const handlers = useNoticeHandlers({
     userKey,

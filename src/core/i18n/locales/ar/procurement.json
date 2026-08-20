@@ -231,6 +231,7 @@
   "procurement_previewPartial": "معاينة",
   "procurement_previewUpgrade": "سجل لعرض التقرير الكامل",
   "procurement_previewUnlockHint": "افتح لعرض كامل المحتوى",
+  "procurement_previewPercent": "(المعروض {percent}%)",
   "procurement_previewUnlockNow": "فتح الآن",
   "procurement_advancedFilter": "التصفية"
 }

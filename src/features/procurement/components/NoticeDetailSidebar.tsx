@@ -50,32 +50,36 @@ export function NoticeDetailSidebar({
   const { t } = useLocale();
 
   /** 操作按钮组（移动端固定底栏 / 桌面端侧边栏共用） */
+  // P3-13 修复：移动端 320px 窄屏下按钮文案溢出——flex-1 均分宽度 + min-w-0 允许
+  // truncate 生效 + 文案包裹 truncate span；桌面端保持原样（flex-1 在非 flex 容器无副作用）
   const actionButtons = (
     <>
       <button
         onClick={() => onExpressInterest(notice, "interested")}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-black hover:bg-blue-700"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-blue-600 text-white text-sm max-[900px]:text-xs font-black hover:bg-blue-700"
       >
-        <Heart className="w-4 h-4" />
-        {t("procurement_interested")}
+        <Heart className="w-4 h-4 shrink-0" />
+        <span className="truncate">{t("procurement_interested")}</span>
       </button>
       <button
         onClick={() => onExpressInterest(notice, "subscribed")}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-black hover:bg-slate-800"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-slate-900 text-white text-sm max-[900px]:text-xs font-black hover:bg-slate-800"
       >
-        <Bell className="w-4 h-4 text-amber-300" />
-        {t("procurement_subscribeNotice")}
+        <Bell className="w-4 h-4 shrink-0 text-amber-300" />
+        <span className="truncate">{t("procurement_subscribeNotice")}</span>
       </button>
       <button
         onClick={() => onUnlock(notice)}
-        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm font-black hover:bg-teal-200"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm max-[900px]:text-xs font-black hover:bg-teal-200"
       >
-        <Lock className="w-4 h-4" />
-        {canUsePaidQuota
-          ? t("procurement_memberUnlock")
-          : freeRemaining > 0
-            ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
-            : t("procurement_freeUsedUp")}
+        <Lock className="w-4 h-4 shrink-0" />
+        <span className="truncate">
+          {canUsePaidQuota
+            ? t("procurement_memberUnlock")
+            : freeRemaining > 0
+              ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
+              : t("procurement_freeUsedUp")}
+        </span>
       </button>
     </>
   );

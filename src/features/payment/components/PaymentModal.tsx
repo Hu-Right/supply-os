@@ -157,9 +157,11 @@ export default function PaymentModal({
                 <Loader2 className="w-8 h-8 animate-spin text-amber-600 mx-auto mb-2" />
                 <p className="font-bold text-amber-900 text-sm">{t("paymentWaitingTitle")}</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  {selectedProvider === "mock"
+                  {/* P2-6 修复：以订单实际 provider 为准（selectedProvider 可能在下单后被切换，
+                      mock 模式下服务端也会强制返回 provider=mock） */}
+                  {orderInfo.provider === "mock"
                     ? pickLocale(locale, "本地模拟支付会自动完成，用于测试支付闭环。", "Mock payment will auto-complete for testing.")
-                    : getPaymentTips(selectedProvider)}
+                    : getPaymentTips(orderInfo.provider as "alipay" | "wechat")}
                 </p>
               </div>
 

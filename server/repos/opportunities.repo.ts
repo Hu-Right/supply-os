@@ -66,7 +66,8 @@ export class OpportunitiesRepo {
     let join = "";
     if (codeId) {
       const code = await this.findUnspscCodeById(codeId);
-      if (code) {
+      // P3-12 安全修复：level 白名单校验（1-5）后才参与列名拼接，阻断非法级别值
+      if (code && Number.isInteger(code.level) && code.level >= 1 && code.level <= 5) {
         join = "INNER JOIN crm_bid_opportunity_unspsc_codes boc ON boc.opportunity_id = o.id";
         where.push(`boc.level${code.level}_id = ?`);
         params.push(code.id);
@@ -164,10 +165,18 @@ export class OpportunitiesRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 按 id 查商机完整字段（报告生成用） */
+  /** 按 id 查商机完整字段（报告生成用）
+   *  P3-12 安全修复：显式列清单替代 SELECT *，与 mergeBidReportRow 消费字段对齐，
+   *  避免表结构变更时意外泄露新增敏感列 */
   async findFullById(opportunityId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT * FROM crm_bid_opportunities WHERE id = ? LIMIT 1",
+      `SELECT id, reference, title, notice_type, registration_level, agency, agency_full,
+              source_platform, industry, incoterms, published_date, deadline, deadline_timezone,
+              estimated_value, description, description_cn, description_other, bid_overview,
+              supplier_conditions, eligibility, technical_hurdles, training_link, remark,
+              product_code, source_url, unspsc_codes, ai_products, ai_analysis,
+              documents, external_links, contacts, update_time
+       FROM crm_bid_opportunities WHERE id = ? LIMIT 1`,
       [opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

@@ -9,6 +9,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { getUnspscPath } from "../services/unspsc";
+import { escapeLikeWildcard } from "../utils/normalize";
 
 export interface CertificationRow {
   id: number;
@@ -127,29 +128,40 @@ export class CatalogRepo {
     return rows as UnspscRow[];
   }
 
-  /** 批量写入 UNSPSC 译文缓存 */
+  /** 批量写入 UNSPSC 译文缓存
+   *  P3-10 性能修复：多行 VALUES 单语句批量 upsert，替代逐条 INSERT（N 次往返 → 1 次） */
   async upsertUnspscTranslations(
     entries: { codeId: number; lang: string; titleTr: string; model: string }[],
   ): Promise<void> {
-    for (const entry of entries) {
+    if (entries.length === 0) return;
+    const BATCH = 200;
+    for (let i = 0; i < entries.length; i += BATCH) {
+      const batch = entries.slice(i, i + BATCH);
+      const valuesSql = batch.map(() => "(?, ?, ?, ?)").join(", ");
+      const params: unknown[] = [];
+      for (const entry of batch) {
+        params.push(entry.codeId, entry.lang, entry.titleTr, entry.model);
+      }
       await this.pool.query(
         `INSERT INTO crm_unspsc_translations (code_id, lang, title_tr, model)
-         VALUES (?, ?, ?, ?)
+         VALUES ${valuesSql}
          ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), model = VALUES(model)`,
-        [entry.codeId, entry.lang, entry.titleTr, entry.model],
+        params,
       );
     }
   }
 
   /** UNSPSC 关键词搜索 */
   async searchUnspsc(q: string): Promise<UnspscRow[]> {
+    // P3-7 安全修复：LIKE 通配符转义，防止用户输入的 %/_ 被当作通配符
+    const eq = escapeLikeWildcard(q);
     const [rows] = await this.pool.query(
       `SELECT id, title_zh, title, code, parent_id, level
        FROM crm_unspsc_codes
        WHERE code LIKE ? OR title_zh LIKE ? OR title LIKE ?
        ORDER BY level, code
        LIMIT 30`,
-      [`${q}%`, `%${q}%`, `%${q}%`],
+      [`${eq}%`, `%${eq}%`, `%${eq}%`],
     );
     return rows as UnspscRow[];
   }
@@ -219,21 +231,22 @@ export class CatalogRepo {
   ): Promise<UnspscRow[]> {
     const clauses: string[] = [];
     const params: unknown[] = [];
+    // P3-7 安全修复：全部 LIKE 参数先转义通配符（%/_），用户输入仅作为字面量匹配
 
     if (zh.length >= 1) {
       // 单字也召回（评分端封顶 0.5），避免输入单字时零反馈
       clauses.push("title_zh LIKE ?");
-      params.push(`%${zh}%`);
+      params.push(`%${escapeLikeWildcard(zh)}%`);
     }
     for (const bg of bigrams.slice(0, 8)) {
       clauses.push("title_zh LIKE ?");
-      params.push(`%${bg}%`);
+      params.push(`%${escapeLikeWildcard(bg)}%`);
     }
     clauses.push("LOWER(title) LIKE ?");
-    params.push(`%${kw.toLowerCase()}%`);
+    params.push(`%${escapeLikeWildcard(kw.toLowerCase())}%`);
     for (const w of enWords.slice(0, 4)) {
       clauses.push("LOWER(title) LIKE ?");
-      params.push(`%${w}%`);
+      params.push(`%${escapeLikeWildcard(w)}%`);
     }
     if (clauses.length === 0) return [];
 

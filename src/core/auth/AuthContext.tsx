@@ -9,7 +9,7 @@
  *              Modal UI state is NOT here, managed by App layer.
  */
 
-import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
@@ -47,18 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 持久化用户信息（同步更新 ref 和 state）
    * Persist user info (sync update ref and state)
    */
-  const persistAuthUser = (user: AuthUser) => {
+  // P2-1 性能修复：方法 useCallback 化 + value useMemo，避免每次渲染
+  // 重建 context value 导致所有消费组件级联重渲染
+  const persistAuthUser = useCallback((user: AuthUser) => {
     authUserRef.current = user;
     setAuthUser(user);
     setIsVip(user.membership_tier === "vip");
     window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  };
+  }, []);
 
   /**
    * 刷新认证状态
    * Refresh authentication state
    */
-  const refreshAuth = async () => {
+  const refreshAuth = useCallback(async () => {
     const userKey = authUserRef.current?.user_key;
     if (!userKey) return;
 
@@ -73,13 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  };
+  }, [persistAuthUser]);
 
   /**
    * 登录（支持邮箱或手机号）
    * Login (email or phone)
    */
-  const login = async (identifier: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     setIsAuthLoading(true);
     try {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
@@ -95,13 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  };
+  }, [persistAuthUser]);
 
   /**
    * 注册（含供应商绑定申请）
    * Register (with supplier claim application)
    */
-  const register = async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => {
+  const register = useCallback(async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
@@ -136,13 +138,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  };
+  }, [persistAuthUser]);
 
   /**
    * 登出
    * Logout
    */
-  const logout = async () => {
+  const logout = useCallback(async () => {
     // L-2 安全加固：调用后端登出 API 撤销 Refresh Token，防止被盗用的 Token 继续续期
     try {
       const refreshToken = getRefreshToken();
@@ -159,13 +161,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClaimMessage("");
     window.localStorage.removeItem(AUTH_USER_KEY);
     clearAuthTokens();
-  };
+  }, []);
 
   /**
    * 提交供应商绑定申请
    * Submit supplier claim application
    */
-  const submitSupplierClaim = async (claim: SupplierClaimForm) => {
+  const submitSupplierClaim = useCallback(async (claim: SupplierClaimForm) => {
     if (!authUserRef.current) {
       setClaimMessage("请先登录后再绑定公司");
       return;
@@ -192,25 +194,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  };
+  }, []);
 
   /**
    * 发送找回密码验证码
    * Send password reset verification code
    */
-  const sendResetCode = async (email: string) => {
+  const sendResetCode = useCallback(async (email: string) => {
     const data = await api<{ email_sent?: boolean; support_hint?: string | null }>(
       "/api/auth/forgot-password",
       { method: "POST", body: { email } },
     );
     return { email_sent: data.email_sent ?? true, support_hint: data.support_hint ?? null };
-  };
+  }, []);
 
   /**
    * 重置密码（验证码+新密码），成功后自动登录
    * Reset password (code + new password), auto-login on success
    */
-  const resetPassword = async (email: string, code: string, newPassword: string) => {
+  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/reset-password", {
@@ -225,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  };
+  }, [persistAuthUser]);
 
   // 初始化：从 localStorage 恢复用户
   useEffect(() => {
@@ -240,9 +242,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.localStorage.removeItem(AUTH_USER_KEY);
       }
     }
-  }, []);
+  }, [persistAuthUser, refreshAuth]);
 
-  const value: AuthContextValue = {
+  // P2-1：value useMemo——仅状态/方法真实变化时才重建，阻断消费组件级联重渲染
+  const value: AuthContextValue = useMemo(() => ({
     authUser,
     isVip,
     isAuthLoading,
@@ -255,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClaimMessage,
     sendResetCode,
     resetPassword,
-  };
+  }), [authUser, isVip, isAuthLoading, login, register, logout, refreshAuth, submitSupplierClaim, claimMessage, sendResetCode, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

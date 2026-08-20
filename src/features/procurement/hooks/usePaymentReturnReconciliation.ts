@@ -12,6 +12,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
+import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/features/payment";
 import { unlockNotice } from "../api";
 
@@ -53,6 +54,8 @@ export function usePaymentReturnReconciliation({
               } catch {
                 // 解锁可能已在服务端完成，忽略失败
               }
+              // P2-5：解锁成功后清除解锁历史缓存，RecentUnlocks 立即刷新
+              clearApiCache("/api/payment/unlocks");
               await refreshMembership();
             }
             if (nid) await openNoticeById(nid);
