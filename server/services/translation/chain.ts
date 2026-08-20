@@ -144,17 +144,11 @@ async function translateViaDeepSeekOnce(
   targetLang: string
 ): Promise<string[]> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
-  // 源语言映射缺失不再跳过：LLM 通道无需显式源语言（prompt 省略源语言名即可自行识别）
-  const sourceName = CHAIN_LANG_NAMES[sourceLang];
+  // 源语言映射缺失不再跳过：LLM 通道无需显式源语言（模型自行识别）
   const targetName = CHAIN_LANG_NAMES[targetLang];
   if (!channelConfigured(apiKey) || !targetName) throw new Error("CHANNEL_SKIPPED");
   const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
-  const prompt = `Translate each ${sourceName ? `${sourceName} ` : ""}procurement text in the JSON array below into ${targetName}.
-Rules:
-- Keep every ⟦Tn⟧ placeholder (e.g. ⟦T0⟧, ⟦T1⟧) exactly as-is, unchanged and in place.
-- Preserve line breaks inside each string.
-- Keep terminology consistent across all strings (they belong to the same tender notice).
-- Return ONLY a JSON array of ${texts.length} translated strings in the same order, with no explanations and no markdown fences.
+  const prompt = `Translate procurement texts below into ${targetName}. Preserve ⟦Tn⟧ placeholders unchanged. Consistent terminology. Keep line breaks. Output JSON array[${texts.length}] only, no markdown.
 
 ${JSON.stringify(texts)}`;
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
@@ -167,6 +161,7 @@ ${JSON.stringify(texts)}`;
       model: "deepseek-v4-flash",
       messages: [{ role: "user", content: prompt }],
       stream: false,
+      thinking: { type: "disabled" },
     }),
   }, DEEPSEEK_TIMEOUT_MS);
   if (!res.ok) throw new Error(`DEEPSEEK_HTTP_${res.status}`);

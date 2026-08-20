@@ -8,12 +8,15 @@
  *   - autoTranslate 仅扫描 id > cutoffId 且未过期的新增记录；
  *   - 本服务专门针对历史失败记录（id < cutoffId 或已过期），不受水位线限制。
  *   通过 admin API 手动触发，避免与定时任务争抢 API 配额。
+ *
+ *   [P0] 批量合并：与 auto.ts 同源，每次取 BATCH_SIZE 条标题按源语言分组后合并为一次 API 调用。
+ *   [P1] 标题去重：同一次 run 内跨 target/lang 共享去重缓存，相同标题仅翻译一次。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { ChainSourceLang } from "./chain";
+import { translateViaChain } from "./chain";
 import {
   pendingNoticeTranslations,
-  translateNoticeViaChain,
   detectSourceLang,
 } from "./notice";
 import { createLogger } from "../../utils/fileLogger";
@@ -22,6 +25,8 @@ import { syncWideIds } from "../search-sync/index";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 const logger = createLogger("retry-translate");
+
+const BATCH_SIZE = 15; // 每批合并翻译的标题数（与 auto.ts 保持一致）
 
 // ── 扫描目标：与 autoTranslate.ts 保持一致 ──
 const SCAN_TARGETS = [
@@ -195,82 +200,143 @@ export async function runRetryTranslation(
         let processedCount = 0;
         const totalInQueue = queue.length;
 
-        // ── 并发处理 ──
+        // ── 标题去重缓存：同一 run 内跨 target/lang 共享（与 auto.ts 归一化）──
+        const dedupCache = new Map<string, { titleTr: string; provider: string }>();
+
+        // ── 并发处理（批量合并 + 标题去重）──
         await Promise.all(
           Array.from({ length: Math.min(concurrency, queue.length) }, async () => {
             while (queue.length) {
-              // 日预算检查：与 autoTranslate 共享预算池
               if (dailyCharBudget > 0 && result.charsUsed + charsUsedToday >= dailyCharBudget) {
                 console.log(`[retry-translate] 日预算已达上限 (${result.charsUsed + charsUsedToday}/${dailyCharBudget})，停止处理`);
                 break;
               }
-              const row = queue.shift();
-              if (!row) break;
-              const mySeq = ++processedCount;
-              const title = String(row.title || "").trim();
-              const description = String(row.description || "").trim();
-              const logPrefix = `table=${target.table} id=${row.id} lang=${targetLang}`;
-              let sourceLang: string | null = null;
 
-              try {
-                sourceLang = detectSourceLang(title, description);
-                if (!sourceLang) {
+              // ── Phase 1: 收集一批条目，本地检测源语言（零 API 开销）──
+              const batchItems: {
+                row: RowDataPacket;
+                title: string;
+                description: string;
+                sourceLang: ChainSourceLang;
+              }[] = [];
+
+              while (batchItems.length < BATCH_SIZE && queue.length > 0) {
+                if (dailyCharBudget > 0 && result.charsUsed + charsUsedToday >= dailyCharBudget) break;
+                const row = queue.shift();
+                if (!row) break;
+                const title = String(row.title || "").trim();
+                const description = String(row.description || "").trim();
+                const srcLang = detectSourceLang(title, description);
+                if (!srcLang) {
                   detail.skipped++;
                   result.skipped++;
-                  console.log(`  [retry ${mySeq}/${totalInQueue}] SKIP 无源语言 id=${row.id}`);
+                  processedCount++;
+                  console.log(`  [retry ${processedCount}/${totalInQueue}] SKIP 无源语言 id=${row.id}`);
                   continue;
                 }
-                if (sourceLang === targetLang) {
-                  // 同语言：写 skip 标记，避免后续扫描重复命中
+                if (srcLang === targetLang) {
                   await writeSkipMarker(dbPool, target, row.id, targetLang);
                   detail.skipped++;
                   result.skipped++;
-                  console.log(`  [retry ${mySeq}/${totalInQueue}] SKIP 同语言(${sourceLang}) id=${row.id}`);
+                  processedCount++;
+                  console.log(`  [retry ${processedCount}/${totalInQueue}] SKIP 同语言(${srcLang}) id=${row.id}`);
                   continue;
                 }
+                batchItems.push({ row, title, description, sourceLang: srcLang as ChainSourceLang });
+              }
 
-                const translationResult = await translateNoticeViaChain(title, "", targetLang, sourceLang as ChainSourceLang);
-                const titleTr = String(translationResult.translations[0] || "").trim();
+              if (batchItems.length === 0) break;
 
-                if (translationResult.provider === "same-lang-passthrough") {
-                  await writeSkipMarker(dbPool, target, row.id, targetLang);
-                  detail.skipped++;
-                  result.skipped++;
-                  console.log(`  [retry ${mySeq}/${totalInQueue}] SKIP 直通(${sourceLang}) id=${row.id}`);
-                  continue;
+              // ── Phase 2: 按源语言分组 + 标题去重 ──
+              const groups = new Map<string, typeof batchItems>();
+              for (const item of batchItems) {
+                const key = item.sourceLang;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(item);
+              }
+
+              for (const [srcLang, items] of groups) {
+                if (dailyCharBudget > 0 && result.charsUsed + charsUsedToday >= dailyCharBudget) break;
+
+                // 标题去重：相同标题只翻译一次
+                const titleToItems = new Map<string, typeof items>();
+                for (const item of items) {
+                  if (!titleToItems.has(item.title)) titleToItems.set(item.title, []);
+                  titleToItems.get(item.title)!.push(item);
                 }
 
-                result.charsUsed += title.length;
-
-                // 写入翻译结果（UPSERT：覆盖可能存在的空行）
-                await dbPool.query(
-                  `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
-                   VALUES (?, ?, ?, NULL, ?)
-                   ON DUPLICATE KEY UPDATE
-                     title_tr = COALESCE(VALUES(title_tr), title_tr),
-                     model = VALUES(model)`,
-                  [row.id, targetLang, titleTr || null, translationResult.provider]
-                );
-
-                // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
-                if (target.table === "crm_bid_notices" && titleTr) {
-                  void syncWideIds(dbPool, [row.id]).catch(() => {});
+                const uniqueTitles: string[] = [];
+                const dedupEntries: { title: string; cached: { titleTr: string; provider: string } }[] = [];
+                for (const [title] of titleToItems) {
+                  const cached = dedupCache.get(title);
+                  if (cached) {
+                    dedupEntries.push({ title, cached });
+                  } else {
+                    uniqueTitles.push(title);
+                  }
                 }
 
-                detail.ok++;
-                result.ok++;
-                const degraded = translationResult.degradedFrom?.join(" → ") || "-";
-                console.log(`  [retry ${mySeq}/${totalInQueue}] OK   ${translationResult.provider} id=${row.id} src=${sourceLang}→${targetLang} degraded=${degraded}`);
-                logger.info(`${logPrefix} OK provider=${translationResult.provider} src=${sourceLang} degraded=${degraded}`);
-                // 标记日志清理：若该记录之前有失败日志，成功翻译后自动移除
-                markTranslationSuccess(target.table, row.id, targetLang);
-              } catch (err: any) {
-                detail.failed++;
-                result.failed++;
-                const errMsg = err?.message || String(err);
-                const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
-                console.log(`  [retry ${mySeq}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${row.id} src=${sourceLang ?? "unknown"}→${targetLang}`);
-                logger.warn(`${logPrefix} FAIL | sourceLang=${sourceLang ?? "unknown"} error="${errMsg}" degraded="${degraded}" title="${title.slice(0, 80)}"`);
+                // 批量翻译未命中的唯一标题
+                const translatedMap = new Map<string, { titleTr: string; provider: string }>();
+                if (uniqueTitles.length > 0) {
+                  try {
+                    const trResult = await translateViaChain(uniqueTitles, srcLang as ChainSourceLang, targetLang);
+                    for (let i = 0; i < uniqueTitles.length; i++) {
+                      const titleTr = String(trResult.translations[i] || "").trim();
+                      translatedMap.set(uniqueTitles[i], { titleTr, provider: trResult.provider });
+                      dedupCache.set(uniqueTitles[i], { titleTr, provider: trResult.provider });
+                      result.charsUsed += uniqueTitles[i].length;
+                    }
+                  } catch (err: any) {
+                    const errMsg = err?.message || String(err);
+                    const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
+                    for (const [, titleItems] of titleToItems) {
+                      for (const item of titleItems) {
+                        detail.failed++;
+                        result.failed++;
+                        processedCount++;
+                        console.log(`  [retry ${processedCount}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${item.row.id} src=${srcLang}→${targetLang}`);
+                        logger.warn(`table=${target.table} id=${item.row.id} lang=${targetLang} FAIL | sourceLang=${srcLang} error="${errMsg}" degraded="${degraded}" title="${item.title.slice(0, 80)}"`);
+                      }
+                    }
+                    continue;
+                  }
+                }
+
+                // ── Phase 3: 写库（翻译结果 + 去重缓存命中）──
+                const allResults = new Map<string, { titleTr: string; provider: string }>();
+                for (const [title, r] of translatedMap) allResults.set(title, r);
+                for (const { title, cached } of dedupEntries) allResults.set(title, cached);
+
+                for (const [title, { titleTr, provider }] of allResults) {
+                  const titleItems = titleToItems.get(title)!;
+                  for (const item of titleItems) {
+                    try {
+                      await dbPool.query(
+                        `INSERT INTO ${target.trTable} (${target.idCol}, lang, title_tr, description_tr, model)
+                         VALUES (?, ?, ?, NULL, ?)
+                         ON DUPLICATE KEY UPDATE
+                           title_tr = COALESCE(VALUES(title_tr), title_tr),
+                           model = VALUES(model)`,
+                        [item.row.id, targetLang, titleTr || null, provider]
+                      );
+                      if (target.table === "crm_bid_notices" && titleTr) {
+                        void syncWideIds(dbPool, [item.row.id]).catch(() => {});
+                      }
+                      detail.ok++;
+                      result.ok++;
+                      processedCount++;
+                      console.log(`  [retry ${processedCount}/${totalInQueue}] OK   ${provider} id=${item.row.id} src=${srcLang}→${targetLang}`);
+                      logger.info(`table=${target.table} id=${item.row.id} lang=${targetLang} OK provider=${provider} src=${srcLang}`);
+                      markTranslationSuccess(target.table, item.row.id, targetLang);
+                    } catch (writeErr: any) {
+                      detail.failed++;
+                      result.failed++;
+                      processedCount++;
+                      logger.warn(`table=${target.table} id=${item.row.id} WRITE_FAIL error="${writeErr?.message || writeErr}"`);
+                    }
+                  }
+                }
               }
 
               await new Promise((resolve) => setTimeout(resolve, delayMs));
