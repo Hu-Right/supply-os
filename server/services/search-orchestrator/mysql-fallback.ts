@@ -51,9 +51,9 @@ function buildOrderBy(p: UnifiedSearchParams): string {
     : "";
   if (p.sort === "latest") return `${refBoost}n.id DESC`;
   if (p.sort === "deadline") {
-    return `${refBoost}(n.deadline_ts IS NULL) DESC, n.deadline_sec ASC, n.id DESC`;
+    return `${refBoost}(n.deadline_sec = 0) DESC, n.deadline_sec ASC, n.id DESC`;
   }
-  return `${refBoost}(n.deadline_ts IS NULL) DESC, n.deadline_sec DESC, n.id DESC`;
+  return `${refBoost}(n.deadline_sec = 0) DESC, n.deadline_sec DESC, n.id DESC`;
 }
 
 /**

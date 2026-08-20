@@ -81,7 +81,7 @@ export class OpportunitiesRepo {
        FROM crm_bid_opportunities o
        ${join}
        WHERE ${where.join(" AND ")}
-       ORDER BY COALESCE(o.deadline_ts, 9999999999999), o.id DESC
+       ORDER BY (o.deadline_sec = 0), o.deadline_sec ASC, o.id DESC
        LIMIT 80`,
       params,
     );

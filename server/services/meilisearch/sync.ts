@@ -253,7 +253,7 @@ export async function incrementalSync(
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
     // 权威值覆盖：is_featured/deadline_sec 从主表 crm_bid_notices 读取
-    // 宽表 deadline_sec 是普通列（非生成列），可能因 deadline_ts 变更而陈旧，
+    // 宽表 deadline_sec 是普通列（非生成列），可能因主表 deadline 变更而陈旧，
     // 此处从主表读取权威值，确保 Meilisearch 索引状态一致
     const allIds = allRaw.map((r) => Number(r.id));
     try {

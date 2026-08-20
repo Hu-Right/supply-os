@@ -340,8 +340,8 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
 /**
  * deadline_sec 对账：检测主表与宽表之间的 deadline_sec 不一致并修复
  *
- * 解决问题：主表 deadline_sec 是 STORED 生成列（自动跟随 deadline_ts 计算），
- * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline_ts 变更时，
+ * 解决问题：主表 deadline_sec 是 VIRTUAL 生成列（自动跟随 deadline 计算），
+ * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline 变更时，
  * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
  *
  * [修复 030]：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED

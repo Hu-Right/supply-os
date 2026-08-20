@@ -203,7 +203,7 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
  * - 全量对账（5 分钟）：ghost 行清理 + is_featured 同步
  *
  * 分离原因：
- * - deadline_ts 变更来自外部数据管道（批量导入），日常极少发生
+ * - deadline_sec 变更来自外部数据管道（批量导入），日常极少发生
  * - ghost 行清理和 is_featured 对账需要 JOIN 查询，降频执行避免资源浪费
  */
 export function startWideTableSync(pool: Pool, options: { intervalMs?: number; reconcileIntervalMs?: number; fullReconcileIntervalMs?: number } = {}): () => void {

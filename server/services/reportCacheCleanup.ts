@@ -55,12 +55,12 @@ export async function clearExpiredTranslations(
   const [noticeResult] = await dbPool.query(
     `DELETE t FROM crm_notice_translations t
      JOIN crm_bid_notices n ON n.id = t.notice_id
-     WHERE n.deadline_ts IS NOT NULL AND ${EXPIRED_90D_SQL}`
+     WHERE n.deadline_sec > 0 AND ${EXPIRED_90D_SQL}`
   );
   const [oppResult] = await dbPool.query(
     `DELETE t FROM crm_opportunity_translations t
      JOIN crm_bid_opportunities n ON n.id = t.opportunity_id
-     WHERE n.deadline_ts IS NOT NULL AND ${EXPIRED_90D_SQL}`
+     WHERE n.deadline_sec > 0 AND ${EXPIRED_90D_SQL}`
   );
   return {
     notices: (noticeResult as RowDataPacket).affectedRows ?? 0,

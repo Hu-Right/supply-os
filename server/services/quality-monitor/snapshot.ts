@@ -25,9 +25,9 @@ export async function captureDataQualitySnapshot(dbPool: any) {
        COUNT(*) AS total_notices,
        SUM(n.estimated_value IS NULL OR TRIM(n.estimated_value) = '') AS missing_value,
        SUM(n.country IS NULL OR TRIM(n.country) = '') AS missing_country,
-       SUM(n.deadline_ts IS NULL) AS missing_deadline,
+       SUM(n.deadline_sec = 0) AS missing_deadline,
        SUM((n.is_expired = 0 OR n.is_expired IS NULL)
-         AND n.deadline_ts IS NOT NULL
+         AND n.deadline_sec > 0
          AND n.deadline_sec < UNIX_TIMESTAMP(NOW())) AS expired_but_active
      FROM crm_bid_notices n`
   );

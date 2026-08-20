@@ -54,7 +54,7 @@ const CONCURRENCY = 20;  // 20 并发 worker（降低并发避免 DeepSeek 429 �
 const DELAY_MS = 200;   // 每批次间隔 200ms（配合重试机制给 API 喘息时间）
 const BATCH_SIZE = 15;  // 每批合并翻译的标题数（摊薄 prompt 固定开销，提升缓存命中）
 
-// 扫描目标白名单：公告表 + 精选数据表（两表 is_expired/deadline_ts 列名一致）；
+// 扫描目标白名单：公告表 + 精选数据表（两表 deadline_sec 口径一致）；
 // 表名/列名均来自常量，无注入面
 const SCAN_TARGETS = [
   { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id", cutoffKey: "notice_id_cutoff" },

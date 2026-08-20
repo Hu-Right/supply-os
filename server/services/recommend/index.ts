@@ -125,7 +125,7 @@ export async function recommendNotices(
        ${treJoin}
        ${oppJoin}
        WHERE (${clauses.bridgeWhere}) AND ${ACTIVE_NOTICE_WHERE}
-       GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_ts IS NULL), ${DEADLINE_SEC_EXPR}, n.id DESC
+       GROUP BY n.id ORDER BY reco_score DESC, (n.deadline_sec = 0), ${DEADLINE_SEC_EXPR}, n.id DESC
        LIMIT ? OFFSET ?`,
       [...trParams, ...scoring.l4Params, ...scoring.scoreParams, scoring.denominator, ...scoring.amountScoreParams, ...clauses.params, pageSize, offset],
     );

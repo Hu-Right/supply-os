@@ -44,7 +44,7 @@ export function buildScoringContext(
   const denominator = interestTotal > 0 ? interestTotal : 1;
 
   const urgencyExpr = `CASE
-       WHEN n.deadline_ts IS NULL THEN 0.5
+       WHEN n.deadline_sec = 0 THEN 0.5
        WHEN ${DEADLINE_SEC_EXPR} < UNIX_TIMESTAMP(NOW()) + 7 * 86400 THEN 0.6
        WHEN ${DEADLINE_SEC_EXPR} <= UNIX_TIMESTAMP(NOW()) + 30 * 86400 THEN 1.0
        WHEN ${DEADLINE_SEC_EXPR} <= UNIX_TIMESTAMP(NOW()) + 90 * 86400 THEN 0.8

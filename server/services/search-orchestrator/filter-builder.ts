@@ -202,7 +202,7 @@ export async function buildFilterPlan(
   if (p.deadlineWithinDays > 0) {
     const futureTs = Math.floor(Date.now() / 1000) + p.deadlineWithinDays * 86400;
     meiliFilters.push(`deadline_sec > 0 AND deadline_sec <= ${futureTs}`);
-    mysqlWhere.push("n.deadline_ts IS NOT NULL AND n.deadline_sec <= ?");
+    mysqlWhere.push("n.deadline_sec > 0 AND n.deadline_sec <= ?");
     mysqlParams.push(futureTs);
     digestParts.push(`within:${p.deadlineWithinDays}d`);
   }
