@@ -7,6 +7,8 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { asyncHandler } from "../middleware/errorHandler";
 import { translateViaChain, type ChainResult } from "../services/translation/chain";
+// E3【P2】国家名映射单一事实来源：前端不再维护独立副本，通过此端点获取
+import { COUNTRY_NAME_ZH, REGION_NAME_ZH, ZH_TO_EN } from "../data/countryNames";
 // ── UNSPSC 类目标题按需翻译（对齐供应商翻译：缓存表 + DeepSeek→Gemini 链 + 并发去重）──
 // 源文本为类目英文标题；zh/en 界面直接用类目表原列，仅 fr/ru/es/ar 需要译文
 const UNSPSC_TRANSLATION_LANGS: Record<string, string> = {
@@ -121,6 +123,13 @@ export function createCatalogRouter(ctx: AppContext): Router {
       if (q.length < 1) return res.json({ result: null, candidates: [] });
       const { best, candidates } = await catalogRepo.smartInferUnspsc(q);
       res.json({ result: best, candidates });
+  }));
+
+  // E3【P2】国家名映射单一事实来源——前端通过此端点获取服务端权威数据，
+  // 消除前后端 countryNames.ts 数据漂移（详见《深度技术分析报告》§E3）
+  router.get("/api/catalog/country-name-map", asyncHandler(async (_req, res) => {
+    res.setHeader("Cache-Control", "public, max-age=86400"); // 准静态数据，客户端缓存 1 天
+    res.json({ countryNameZh: COUNTRY_NAME_ZH, regionNameZh: REGION_NAME_ZH, zhToEn: ZH_TO_EN });
   }));
 
   return router;

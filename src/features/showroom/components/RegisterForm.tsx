@@ -31,7 +31,7 @@ const INITIAL_FORM = {
   email: "",
   industry: "机械 (Machinery)",
   mainProducts: "",
-  has国际公共采购Participation: false,
+  hasIntlProcurement: false,
   notes: "",
 };
 
@@ -238,13 +238,13 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
             <div className="flex items-center space-x-2 rounded border border-slate-150 bg-slate-50 p-2.5">
               <input
                 type="checkbox"
-                id="has国际公共采购C"
-                checked={form.has国际公共采购Participation}
-                onChange={(e) => handleChange("has国际公共采购Participation", e.target.checked)}
+                id="hasIntlProcurement"
+                checked={form.hasIntlProcurement}
+                onChange={(e) => handleChange("hasIntlProcurement", e.target.checked)}
                 className="h-4 w-4 rounded text-teal-600"
               />
               <label
-                htmlFor="has国际公共采购C"
+                htmlFor="hasIntlProcurement"
                 className="cursor-pointer select-none text-xs font-bold text-slate-700"
               >
                 {t("showroomUngmCheckbox")}

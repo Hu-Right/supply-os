@@ -14,7 +14,7 @@ import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
-import { setAuthTokens, clearAuthTokens, getRefreshToken, api } from "@/core/http";
+import { setAuthTokens, clearAuthTokens, api } from "@/core/http";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Token 对 + 用户信息） */
 interface AuthResponse {
@@ -145,13 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Logout
    */
   const logout = useCallback(async () => {
-    // L-2 安全加固：调用后端登出 API 撤销 Refresh Token，防止被盗用的 Token 继续续期
+    // L-2 安全加固 + B2【P1】：调用后端登出 API 撤销 Refresh Token + 清除 HttpOnly Cookie
+    // Refresh Token 现在由 HttpOnly Cookie 自动携带，无需手动读取
     try {
-      const refreshToken = getRefreshToken();
-      // api() 自动附加 Authorization；失败不阻断登出（原 .catch(() => {}) 语义保留）
       await api("/api/auth/logout", {
         method: "POST",
-        body: { refresh_token: refreshToken || "" },
+        body: {}, // Cookie 由浏览器自动发送，服务端从 Cookie 读取 Refresh Token
       }).catch(() => {});
     } catch { /* 网络异常不阻断登出 */ }
 

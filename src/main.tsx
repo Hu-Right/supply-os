@@ -5,6 +5,7 @@ import { LocaleProvider, setupI18nSync } from '@/core/i18n';
 import { AuthProvider } from '@/core/auth';
 import { ErrorBoundary } from '@/shared/ui';
 import { initPerfMonitor } from '@/core/perf';
+import { initCountryNames } from '@/shared/data/countryNames';
 import App from './App.tsx';
 import './index.css';
 
@@ -30,6 +31,10 @@ window.addEventListener('error', (event) => {
 // P0 性能优化：消除 initI18n() 对首屏渲染的阻塞（预计快 200-500ms）
 // 回滚：恢复为 initI18n().then(() => { createRoot(...) })
 setupI18nSync();
+
+// E3【P2】国家名映射从服务端加载（fire-and-forget，不阻塞渲染）
+// 加载完成前 getCountryDisplayName 返回英文原文，加载后自动切换为中文名
+void initCountryNames();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

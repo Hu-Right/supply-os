@@ -9,6 +9,10 @@ import type { AppContext } from "./context";
 // P1 性能优化：ESM 兼容压缩中间件导入（替代原 CJS require 模式）
 // 回滚：删除此行，恢复原 try { require("compression") } 块
 import compression from "compression";
+// B4【P2】安全响应头：CSP / HSTS / X-Content-Type-Options / Referrer-Policy 等
+// 详见《深度技术分析报告》§B4。helmet 默认启用大部分安全头，
+// CSP 使用 report-only 模式避免阻断既有合法内联脚本（支付宝/微信 SDK 等）
+import helmet from "helmet";
 import { createLeadsRouter } from "./routes/leads.routes";
 import { createSuppliersRouter } from "./routes/suppliers.routes";
 import { createAuthRouter } from "./routes/auth.routes";
@@ -33,6 +37,26 @@ export function createApp(ctx: AppContext): Express {
   // 否则攻击者可伪造 XFF 最左值绕过 IP 限流。Express trust proxy=1 取 XFF 最左值，
   // 只有当反向代理覆盖 XFF 时才能保证安全。
   app.set("trust proxy", 1);
+  // B4【P2】安全响应头（详见《深度技术分析报告》§B4）
+  // helmet 默认设置：X-Content-Type-Options: nosniff / X-Frame-Options: SAMEORIGIN /
+  // Strict-Transport-Security / Referrer-Policy: no-referrer-when-downgrade 等；
+  // CSP 使用 reportOnly 模式——项目含支付宝/微信 SDK 等第三方内联脚本，
+  // 强制模式会阻断功能，report-only 先观测再收敛
+  app.use(helmet({
+    contentSecurityPolicy: {
+      reportOnly: true, // 观测模式：只上报违规，不阻断
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval"], // 兼容 Vite HMR + 第三方 SDK
+        styleSrc: ["'self'", "'unsafe-inline'"], //  Tailwind/CSS-in-JS 需要 inline style
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https:"],
+        fontSrc: ["'self'", "data:"],
+        frameSrc: ["'self'", "https://open.alipay.com", "https://wx.tenpay.com"],
+      },
+    },
+    crossOriginEmbedderPolicy: false, // 第三方资源（字体/图片）需要跨域加载
+  }));
   // ── Brotli/Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
   // P1 性能优化：Brotli 压缩替代默认 gzip——比 gzip 再减 15-25% 传输体积
   // compression 中间件自动协商：客户端 Accept-Encoding 含 br 则用 Brotli，否则回退 gzip
@@ -43,8 +67,10 @@ export function createApp(ctx: AppContext): Express {
     // 仅压缩超过 1KB 的响应，小响应压缩开销反而增大体积
     threshold: 1024,
   }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false })); // 支付宝异步通知为 form-urlencoded
+  // B4【P2】显式 body 上限 100kb（防止恶意大 payload 攻击）
+  // 支付宝异步通知为 form-urlencoded，富文本路由按需单独放宽
+  app.use(express.json({ limit: "100kb" }));
+  app.use(express.urlencoded({ extended: false, limit: "100kb" })); // 支付宝异步通知为 form-urlencoded
   // 全局中间件：仅从 JWT 提取身份（legacy user_key 回退已于 2026-08-19 退役）
   app.use(optionalAuth);
   // P0-3 安全加固：CSRF 防护（纵深防御，JWT Bearer 请求自动跳过）

@@ -13,29 +13,29 @@ import { recordApiMetric } from "@/core/perf";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // ── JWT Token 管理 ──
+// B2【P1】安全加固：Access Token 仍存 localStorage（短生命 2h，XSS 窗口有限），
+// Refresh Token 已迁移到 HttpOnly Cookie（服务端设置，JS 不可读，XSS 无法窃取）。
 const AUTH_TOKEN_KEY = "supply_os_auth_token";
-const REFRESH_TOKEN_KEY = "supply_os_refresh_token";
 
 /** 获取当前 Access Token */
 export function getAuthToken(): string | null {
   return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
-/** 存储 Token 对 */
-export function setAuthTokens(token: string, refreshToken: string): void {
+/** 存储 Access Token（Refresh Token 由服务端通过 HttpOnly Cookie 管理） */
+export function setAuthTokens(token: string, _refreshToken?: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-  window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  // _refreshToken 参数保留为向后兼容，但不再存储（Cookie 由服务端自动设置）
 }
 
-/** 清除所有 Token */
+/** 清除 Access Token（Refresh Token Cookie 由服务端登出接口自动清除） */
 export function clearAuthTokens(): void {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
-  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
-/** 获取 Refresh Token */
+/** @deprecated B2 迁移后 Refresh Token 在 HttpOnly Cookie 中，JS 不可读 */
 export function getRefreshToken(): string | null {
-  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+  return null; // Cookie 由浏览器自动携带，无需手动读取
 }
 
 /** 更新 Access Token（刷新后调用） */
@@ -73,10 +73,10 @@ const pendingRequests = new Map<string, PendingEntry>();
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
 
-/** 尝试刷新 Access Token */
+/** 尝试刷新 Access Token（Refresh Token 由 HttpOnly Cookie 自动携带） */
 async function tryRefreshToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return null;
+  // B2【P1】无需手动读取 refresh_token——HttpOnly Cookie 由浏览器自动发送
+  // credentials: "same-origin" 确保同域请求携带 Cookie
 
   // 避免并发刷新
   if (isRefreshing && refreshPromise) return refreshPromise;
@@ -86,15 +86,16 @@ async function tryRefreshToken(): Promise<string | null> {
       const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        credentials: "same-origin", // B2【P1】携带 HttpOnly Refresh Token Cookie
+        body: JSON.stringify({}),
       });
       if (!res.ok) return null;
       const data = await res.json();
       if (data.token) {
-        // P3-4：服务端 Refresh Token 轮换——同步保存新 refresh_token，
-        // 旧值已失效，未更新将导致下次刷新被拒（REFRESH_TOKEN_REVOKED）
+        // P3-4：服务端 Refresh Token 轮换——新 refresh_token 由服务端自动写入 Cookie
+        // Access Token 更新到 localStorage
         if (typeof data.refresh_token === "string" && data.refresh_token) {
-          setAuthTokens(data.token, data.refresh_token);
+          setAuthTokens(data.token, data.refresh_token); // refreshToken 参数被忽略（Cookie 已设置）
         } else {
           updateAuthToken(data.token);
         }
@@ -140,6 +141,7 @@ export async function api<T>(
   const res = await fetch(url, {
     ...init,
     signal,
+    credentials: "same-origin", // B2【P1】同域请求自动携带 HttpOnly Cookie（Refresh Token）
     headers: {
       ...(hasBody ? { "Content-Type": "application/json" } : {}),
       ...authHeaders,

@@ -23,7 +23,7 @@ export interface ShowroomRegisterForm {
   email: string;
   industry: string;
   mainProducts: string;
-  has国际公共采购Participation: boolean;
+  hasIntlProcurement: boolean;
   notes: string;
 }
 
@@ -46,7 +46,7 @@ export const submitShowroomRegister = (data: ShowroomRegisterForm) =>
       email: data.email,
       industry: data.industry,
       mainProducts: data.mainProducts,
-      has国际公共采购Participation: data.has国际公共采购Participation,
+      hasIntlProcurement: data.hasIntlProcurement,
       notes: data.notes,
       type: "exhibition_register",
     } as unknown as BodyInit,

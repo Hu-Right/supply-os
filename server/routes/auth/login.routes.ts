@@ -14,6 +14,8 @@ import {
   getRefreshTokenExpiresAt,
 } from "../../services/jwt";
 import type { RateLimiter } from "../../middleware/rateLimiter";
+// B2【P1】安全加固：Refresh Token 从 localStorage 迁移到 HttpOnly Cookie
+import { setRefreshCookie, clearRefreshCookie, readRefreshCookie } from "../../utils/auth-cookies";
 
 /** 签发 JWT Token 对 */
 async function issueTokenPair(
@@ -104,6 +106,8 @@ export function createLoginRouter(
     try {
       tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || "");
     } catch { /* JWT_SECRET 未配置，静默降级 */ }
+    // B2【P1】Refresh Token 同时写入 HttpOnly Cookie（前端不再存 localStorage）
+    if (tokens) setRefreshCookie(res, tokens.refresh_token);
     res.json({ success: true, user: payload, ...tokens });
   }));
 
@@ -121,7 +125,8 @@ export function createLoginRouter(
 
   // ── Token 刷新 ──────────────────────────────────────────
   router.post("/api/auth/refresh", asyncHandler(async (req, res) => {
-    const refreshToken = String(req.body.refresh_token || "").trim();
+    // B2【P1】优先从 HttpOnly Cookie 读取 Refresh Token，回退兼容 body（过渡期）
+    const refreshToken = readRefreshCookie(req) || String(req.body.refresh_token || "").trim();
     if (!refreshToken) return res.status(400).json({ error: "REFRESH_TOKEN_REQUIRED" });
 
     let payload: { user_key: string };
@@ -154,18 +159,21 @@ export function createLoginRouter(
       "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
       [payload.user_key, newTokenHash, getRefreshTokenExpiresAt()],
     );
+    // B2【P1】新 Refresh Token 写入 HttpOnly Cookie（轮换）
+    setRefreshCookie(res, newRefreshToken);
     res.json({ success: true, token: newAccessToken, refresh_token: newRefreshToken });
   }));
 
   // ── 登出 ──────────────────────────────────────────
   router.post("/api/auth/logout", asyncHandler(async (req, res) => {
-    // P3-4 安全修复：登出仅吊销当前会话的 refresh token（按 token_hash 精确删除），
-    // 不再按 user_key 批量删除——避免用户在 A 设备登出时误杀 B/C 设备的会话
-    const refreshToken = String(req.body.refresh_token || "").trim();
+    // B2【P1】优先从 HttpOnly Cookie 读取 Refresh Token，回退兼容 body
+    const refreshToken = readRefreshCookie(req) || String(req.body.refresh_token || "").trim();
     if (refreshToken) {
       const tokenHash = hashRefreshToken(refreshToken);
       await ctx.dbPool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
     }
+    // B2【P1】清除 Refresh Token Cookie
+    clearRefreshCookie(res);
     // Access Token 短生命周期（2h）自然过期，无需服务端吊销表；
     // 不再执行 DELETE WHERE user_key 的批量吊销
     res.json({ success: true });

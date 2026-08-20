@@ -703,8 +703,9 @@ export const REGION_NAME_ZH: Record<string, string> = {
 
 /**
  * 中文国家名 → 英文原名反向映射（用于数据库已存储中文名的情况）
+ * E3 优化：导出供 API 端点使用，前端不再维护独立副本
  */
-const ZH_TO_EN: Record<string, string> = {
+export const ZH_TO_EN: Record<string, string> = {
   "英国": "United Kingdom",
   "美国": "United States",
   "中国": "China",

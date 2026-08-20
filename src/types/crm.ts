@@ -17,7 +17,7 @@ export interface Lead {
   email: string;
   industry: string;
   mainProducts: string;
-  has国际公共采购Participation: boolean;
+  hasIntlProcurement: boolean;
   notes: string;
   type: "exhibition_register" | "supplier_register" | "consulting_advisor" | "requirement_submit" | "custom";
   status: "new" | "contacted" | "qualified" | "lost";

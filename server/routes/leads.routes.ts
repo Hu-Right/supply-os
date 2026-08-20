@@ -33,7 +33,7 @@ export function createLeadsRouter(ctx: AppContext): Router {
         email,
         industry,
         mainProducts,
-        has国际公共采购Participation,
+        hasIntlProcurement,
         notes,
         type
       } = req.body;
@@ -52,7 +52,7 @@ export function createLeadsRouter(ctx: AppContext): Router {
         email: email || "",
         industry: industry || "Other",
         mainProducts: mainProducts || "",
-        has国际公共采购Participation: !!has国际公共采购Participation,
+        hasIntlProcurement: !!hasIntlProcurement,
         notes: notes || "",
         type: type || "custom",
         status: "new",

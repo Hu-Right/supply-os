@@ -18,6 +18,8 @@ import {
   signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
 } from "../../services/jwt";
 import type { RateLimiter } from "../../middleware/rateLimiter";
+// B2【P1】Refresh Token 写入 HttpOnly Cookie
+import { setRefreshCookie } from "../../utils/auth-cookies";
 
 /** 签发 JWT Token 对 */
 async function issueTokenPair(
@@ -281,6 +283,7 @@ export function createPasswordRouter(
     const payload = await buildUserResponse(user, membershipRepo, suppliersRepo);
     let tokens: { token: string; refresh_token: string } | null = null;
     try { tokens = await issueTokenPair(ctx.dbPool, user.user_key, user.email || ""); } catch { /* JWT_SECRET 未配置 */ }
+    if (tokens) setRefreshCookie(res, tokens.refresh_token);
     res.json({ success: true, user: payload, ...tokens });
   }));
 

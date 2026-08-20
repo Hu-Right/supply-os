@@ -85,7 +85,7 @@ export function createSupplierRegisterRouter(deps: RegisterDeps): Router {
         email: contactEmail,
         industry: industryZh || "Other",
         mainProducts: mainProduct,
-        has国际公共采购Participation: !!ungmCode,
+        hasIntlProcurement: !!ungmCode,
         notes: `申请注册为供应商。类型: ${type}. 国际公共采购 Code: ${ungmCode || "None"}. 待运营专家进行出海合规资质审查。`,
         type: "supplier_register",
         status: "new",
