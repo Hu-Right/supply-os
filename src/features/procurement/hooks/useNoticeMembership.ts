@@ -11,9 +11,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { MembershipPlan, MembershipStatus } from "../types";
 import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
 
-// 免费详情查看配额的兜底值（membership 未加载时使用）；
-// 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表）
-const FREE_QUOTA_FALLBACK = 3;
+// P3-17 安全修复：免费配额兆底值为 0，防止后端接口异常时前端硬编码的 3 次免费额度被误用；
+// 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表），
+// 接口未返回时 freeRemaining/freeQuota 均为 0，不产生任何免费查看权限。
+const FREE_QUOTA_FALLBACK = 0;
 
 export interface UseNoticeMembershipOptions {
   /** 当前登录用户 key */
@@ -50,6 +51,7 @@ export function useNoticeMembership({
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
 
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
+  // P3-17：后端下发优先；membership 未加载时兆底为 0（接口异常时不产生免费权限）
   const freeRemaining = Number(membership?.free_remaining ?? FREE_QUOTA_FALLBACK);
   const freeQuota = Number(membership?.free_quota ?? FREE_QUOTA_FALLBACK);
   const canUsePaidQuota = isVip || paidRemaining > 0;

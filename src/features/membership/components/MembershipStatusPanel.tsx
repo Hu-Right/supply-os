@@ -127,11 +127,11 @@ export function MembershipStatusPanel({
       {/* 分层明细 */}
       <div className="mt-3 pt-3 border-t border-slate-200/40 space-y-1.5">
         {/* 订阅会员 */}
+        {/* P3-16 安全修复：active_subscriptions 后端已过滤过期项，isExpired 分支为死代码已清理 */}
         {hasSubscription && subscriptions.map((sub, idx) => {
-          const isExpired = sub.expires_at ? new Date(sub.expires_at) < new Date() : false;
           const displayName = sub.plan_name || sub.plan_code;
           return (
-            <div key={`sub-${idx}`} className="flex items-center gap-2 text-xs">
+            <div key={`sub-${sub.plan_code}-${idx}`} className="flex items-center gap-2 text-xs">
               <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
               <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
               <span className="text-slate-600">{displayName}</span>
@@ -144,11 +144,6 @@ export function MembershipStatusPanel({
                 <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
                   <InfinityIcon className="w-3 h-3" />
                   {t("statusPanelPermanent")}
-                </span>
-              )}
-              {isExpired && (
-                <span className="px-1 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
-                  {t("statusPanelExpired")}
                 </span>
               )}
             </div>

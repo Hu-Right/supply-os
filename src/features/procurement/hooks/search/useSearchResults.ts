@@ -32,7 +32,7 @@ export interface SearchResults {
 
 export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const { query, page, deepestCodeId, prefsMode, userKey, variantRef } = options;
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
 
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -94,7 +94,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         if (requestSeq === noticesRequestSeq.current && !controller.signal.aborted) {
           controller.abort();
           setLoading(false);
-          setError("搜索超时，请稍后重试");
+          setError(t("procurement_searchTimeout"));
         }
       }, SEARCH_TIMEOUT_MS);
 
@@ -135,7 +135,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
           if (requestSeq !== noticesRequestSeq.current) return;
           if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
           if (err?.name === "AbortError" || controller.signal.aborted) return;
-          setError("Failed to load procurement notices.");
+          setError(t("procurement_loadFailed"));
         })
         .finally(() => {
           if (requestSeq === noticesRequestSeq.current) {

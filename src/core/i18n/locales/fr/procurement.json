@@ -233,5 +233,8 @@
   "procurement_previewUnlockHint": "Débloquez pour voir tout le contenu",
   "procurement_previewPercent": "({percent}% affiché)",
   "procurement_previewUnlockNow": "Débloquer maintenant",
-  "procurement_advancedFilter": "Filtres"
+  "procurement_advancedFilter": "Filtres",
+  "procurement_searchTimeout": "Le délai de recherche est dépassé. Veuillez réessayer.",
+  "procurement_loadFailed": "Échec du chargement des avis de marché.",
+  "procurement_actionFailed": "Échec de l'opération. Veuillez réessayer."
 }

@@ -135,15 +135,17 @@ export async function api<T>(
     authHeaders["Authorization"] = `Bearer ${authToken}`;
   }
 
+  // P3-15 安全修复：仅在有 body 时才附加 Content-Type，GET/HEAD 请求不携带无意义的 Content-Type
+  const hasBody = body !== undefined;
   const res = await fetch(url, {
     ...init,
     signal,
     headers: {
-      "Content-Type": "application/json",
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
       ...authHeaders,
       ...(init.headers as Record<string, string>),
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: hasBody ? JSON.stringify(body) : undefined,
   });
 
   const durationMs = Math.round(performance.now() - startTime);
@@ -167,11 +169,11 @@ export async function api<T>(
         ...init,
         signal,
         headers: {
-          "Content-Type": "application/json",
+          ...(hasBody ? { "Content-Type": "application/json" } : {}),
           Authorization: `Bearer ${newToken}`,
           ...(init.headers as Record<string, string>),
         },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: hasBody ? JSON.stringify(body) : undefined,
       });
       if (retryRes.ok) return retryRes.json();
       // 刷新后仍然 401，Token 已失效，清除并触发登录

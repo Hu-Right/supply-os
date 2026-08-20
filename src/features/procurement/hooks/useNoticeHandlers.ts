@@ -179,7 +179,7 @@ export function useNoticeHandlers({
     try {
       await expressInterest(notice.id, userKey, interestType);
     } catch {
-      setActionMessage("Action failed. Please try again later.");
+      setActionMessage(t("procurement_actionFailed"));
       return;
     }
 

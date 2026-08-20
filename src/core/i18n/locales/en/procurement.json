@@ -234,5 +234,8 @@
   "procurement_previewUnlockHint": "Unlock to see all breakdown content",
   "procurement_previewPercent": "({percent}% shown)",
   "procurement_previewUnlockNow": "Unlock Now",
-  "procurement_advancedFilter": "Filters"
+  "procurement_advancedFilter": "Filters",
+  "procurement_searchTimeout": "Search timed out. Please try again later.",
+  "procurement_loadFailed": "Failed to load procurement notices.",
+  "procurement_actionFailed": "Action failed. Please try again later."
 }

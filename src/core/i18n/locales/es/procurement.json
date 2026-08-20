@@ -233,5 +233,8 @@
   "procurement_previewUnlockHint": "Desbloquee para ver todo el contenido",
   "procurement_previewPercent": "({percent}% mostrado)",
   "procurement_previewUnlockNow": "Desbloquear ahora",
-  "procurement_advancedFilter": "Filtros"
+  "procurement_advancedFilter": "Filtros",
+  "procurement_searchTimeout": "La búsqueda ha tardado demasiado. Inténtelo de nuevo.",
+  "procurement_loadFailed": "Error al cargar los anuncios de contratación.",
+  "procurement_actionFailed": "Error en la operación. Inténtelo de nuevo."
 }

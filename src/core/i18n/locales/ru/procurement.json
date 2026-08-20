@@ -233,5 +233,8 @@
   "procurement_previewUnlockHint": "Разблокируйте для просмотра всего содержимого",
   "procurement_previewPercent": "(показано {percent}%)",
   "procurement_previewUnlockNow": "Разблокировать сейчас",
-  "procurement_advancedFilter": "Фильтры"
+  "procurement_advancedFilter": "Фильтры",
+  "procurement_searchTimeout": "Превышено время поиска. Повторите попытку.",
+  "procurement_loadFailed": "Не удалось загрузить закупочные объявления.",
+  "procurement_actionFailed": "Ошибка операции. Повторите попытку."
 }

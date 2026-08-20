@@ -31,8 +31,10 @@ export function Pagination({
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5">
       <p className="text-xs text-slate-500">
-        {t("procurement_show")} {(page - 1) * serverPageSize + 1} - {Math.min(page * serverPageSize, total)}{" "}
-        {t("procurement_items")}
+        {total > 0
+          ? <>{t("procurement_show")} {(page - 1) * serverPageSize + 1} - {Math.min(page * serverPageSize, total)} {t("procurement_items")}</>
+          : <>{t("procurement_noMatch")}</>
+        }
       </p>
       <div className="flex gap-2">
         <button

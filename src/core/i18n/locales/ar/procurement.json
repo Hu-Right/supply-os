@@ -233,5 +233,8 @@
   "procurement_previewUnlockHint": "افتح لعرض كامل المحتوى",
   "procurement_previewPercent": "(المعروض {percent}%)",
   "procurement_previewUnlockNow": "فتح الآن",
-  "procurement_advancedFilter": "التصفية"
+  "procurement_advancedFilter": "التصفية",
+  "procurement_searchTimeout": "انتهت مهلة البحث، يرجى المحاولة لاحقاً",
+  "procurement_loadFailed": "فشل تحميل إعلانات المشتريات",
+  "procurement_actionFailed": "فشل الإجراء، يرجى المحاولة لاحقاً"
 }

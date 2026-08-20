@@ -234,5 +234,8 @@
   "procurement_previewUnlockHint": "解锁后查看全部拆解内容",
   "procurement_previewPercent": "（已展示 {percent}%）",
   "procurement_previewUnlockNow": "立即解锁",
-  "procurement_advancedFilter": "高级筛选"
+  "procurement_advancedFilter": "高级筛选",
+  "procurement_searchTimeout": "搜索超时，请稍后重试",
+  "procurement_loadFailed": "加载公告失败，请稍后重试",
+  "procurement_actionFailed": "操作失败，请稍后重试"
 }

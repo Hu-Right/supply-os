@@ -64,20 +64,20 @@ export function createTrainingRouter(ctx: AppContext): Router {
       });
   }));
 
-  // 6c. 研修班文件下载次数追踪。
-  const trainingDownloadCounts: Record<string, number> = {};
-  router.post("/api/training/downloads/track", (req, res) => {
+  // 6c. 研修班文件下载次数追踪
+  // P3-11 安全修复：下载计数持久化到数据库（原内存 Record 重启即丢失）
+  router.post("/api/training/downloads/track", asyncHandler(async (req, res) => {
     const materialId = String(req.body.material_id || "").slice(0, 60);
     const fileName = String(req.body.file_name || "").slice(0, 120);
     if (!materialId) return res.status(400).json({ error: "material_id required" });
-    trainingDownloadCounts[materialId] = (trainingDownloadCounts[materialId] || 0) + 1;
-    console.log(`[Download] ${materialId} | ${fileName} | total=${trainingDownloadCounts[materialId]}`);
-    return res.json({ success: true, material_id: materialId, total: trainingDownloadCounts[materialId] });
-  });
+    const total = await trainingRepo.incrementDownloadCount(materialId, fileName);
+    console.log(`[Download] ${materialId} | ${fileName} | total=${total}`);
+    return res.json({ success: true, material_id: materialId, total });
+  }));
 
-  router.get("/api/training/downloads/stats", (_req, res) => {
-    res.json(trainingDownloadCounts);
-  });
+  router.get("/api/training/downloads/stats", asyncHandler(async (_req, res) => {
+    res.json(await trainingRepo.listDownloadStats());
+  }));
 
   return router;
 }
