@@ -22,30 +22,29 @@ export const migration: Migration = {
         notice_id       VARCHAR(100) NOT NULL,
 
         -- 全文搜索字段（原文 + 六国语言翻译）
-        -- P1-17 修复：description 基线直接采用最终类型 VARCHAR(2000)，
-        -- 不再经 LONGTEXT 中转（历史基线漂移已交由 032 前向收敛），
-        -- 新建库与存量库（013/032 收敛后）类型完全一致
+        -- 使用 TEXT 而非 VARCHAR(2000)，因宽表列数多，VARCHAR 会超出 MySQL 行大小限制 65535 字节
+        -- TEXT 不计入行大小，且 description 实际存储内容通常 < 2000 字符
         title           VARCHAR(1000) NOT NULL DEFAULT '',
         reference       VARCHAR(200)  NOT NULL DEFAULT '',
-        description     VARCHAR(2000) NOT NULL DEFAULT '',
+        description     TEXT NOT NULL,
         -- 中文
         title_zh        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_zh  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_zh  TEXT NOT NULL,
         -- 英文
         title_en        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_en  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_en  TEXT NOT NULL,
         -- 法文
         title_fr        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_fr  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_fr  TEXT NOT NULL,
         -- 俄文
         title_ru        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_ru  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_ru  TEXT NOT NULL,
         -- 西班牙文
         title_es        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_es  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_es  TEXT NOT NULL,
         -- 阿拉伯文
         title_ar        VARCHAR(1000) NOT NULL DEFAULT '',
-        description_ar  VARCHAR(2000) NOT NULL DEFAULT '',
+        description_ar  TEXT NOT NULL,
 
         -- 预标准化筛选字段
         country_std     VARCHAR(100)  NOT NULL DEFAULT '',
@@ -60,11 +59,12 @@ export const migration: Migration = {
         is_featured     TINYINT(1)    NOT NULL DEFAULT 0,
 
         -- UNSPSC 分类（各层级 ID，逗号分隔；一条公告可能关联多个码，需足够宽度）
-        unspsc_level1   VARCHAR(2000) NOT NULL DEFAULT '',
-        unspsc_level2   VARCHAR(2000) NOT NULL DEFAULT '',
-        unspsc_level3   VARCHAR(2000) NOT NULL DEFAULT '',
-        unspsc_level4   VARCHAR(2000) NOT NULL DEFAULT '',
-        unspsc_level5   VARCHAR(2000) NOT NULL DEFAULT '',
+        -- 使用 TEXT 而非 VARCHAR(2000)，避免行大小溢出（与 precise_level 同理）
+        unspsc_level1   TEXT NOT NULL,
+        unspsc_level2   TEXT NOT NULL,
+        unspsc_level3   TEXT NOT NULL,
+        unspsc_level4   TEXT NOT NULL,
+        unspsc_level5   TEXT NOT NULL,
 
         -- 展示字段（来自 opportunities + 预计算）
         description_cn  VARCHAR(500)  NOT NULL DEFAULT '',
@@ -107,22 +107,22 @@ export const migration: Migration = {
       "CREATE INDEX idx_ns_featured_active ON crm_notice_search (is_featured, is_active)");
 
     // 幂等添加六国语言列（表已存在时需要 ALTER TABLE）
-    // P1-17：基线即最终类型——历史列类型变更一律走前向迁移（013/032），不再回改本文件
+    // description 列使用 TEXT 类型，避免行大小溢出
     const langs = ["fr", "ru", "es", "ar"];
     for (const lang of langs) {
       try {
         await dbPool.query(`ALTER TABLE crm_notice_search ADD COLUMN title_${lang} VARCHAR(1000) NOT NULL DEFAULT ''`);
       } catch { /* 列已存在 */ }
       try {
-        await dbPool.query(`ALTER TABLE crm_notice_search ADD COLUMN description_${lang} VARCHAR(2000) NOT NULL DEFAULT ''`);
+        await dbPool.query(`ALTER TABLE crm_notice_search ADD COLUMN description_${lang} TEXT NOT NULL`);
       } catch { /* 列已存在 */ }
     }
 
-    // 修复：UNSPSC 列扩容（一条公告可能关联大量 UNSPSC 码，GROUP_CONCAT 结果可能超 200 字符）
+    // 修复：UNSPSC 列改用 TEXT（一条公告可能关联大量 UNSPSC 码，GROUP_CONCAT 结果可能超 200 字符）
     for (let level = 1; level <= 5; level++) {
       try {
         await dbPool.query(
-          `ALTER TABLE crm_notice_search MODIFY COLUMN unspsc_level${level} VARCHAR(2000) NOT NULL DEFAULT ''`
+          `ALTER TABLE crm_notice_search MODIFY COLUMN unspsc_level${level} TEXT NOT NULL`
         );
       } catch {
         // 列不存在或已是目标类型，静默跳过

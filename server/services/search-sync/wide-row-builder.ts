@@ -268,8 +268,8 @@ export function buildWideRow(
   const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline;
 
   // 构建多语言翻译字段
-  // PERF: 所有 description_* 截断到 2000 字符，与 VARCHAR(2000) 列类型对齐
-  // 避免 InnoDB 溢出页存储，确保数据全部存储在行内
+  // PERF: 所有 description_* 截断到 2000 字符，与 TEXT 列类型的实际使用上限对齐
+  // 避免存储过长内容，确保查询性能
   const langFields: Record<string, string> = {};
   for (const lang of SUPPORTED_LANGS) {
     const tr = translations?.[lang];
@@ -517,8 +517,8 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
           `UPDATE crm_notice_search ns
            INNER JOIN crm_notice_translations t
              ON t.notice_id = ns.id AND t.lang = 'zh'
-           SET ns.title_zh = COALESCE(t.title_tr, ''),
-               ns.description_zh = COALESCE(t.description_tr, '')
+           SET ns.title_zh = LEFT(COALESCE(t.title_tr, ''), 1000),
+               ns.description_zh = LEFT(COALESCE(t.description_tr, ''), 2000)
            WHERE ns.id IN (${ph})`,
           batch,
         );

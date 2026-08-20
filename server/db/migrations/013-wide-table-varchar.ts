@@ -1,12 +1,13 @@
 /**
  * 013: 宽表 description 列类型优化
- * crm_notice_search description columns: LONGTEXT → VARCHAR(2000)
+ * crm_notice_search description columns: LONGTEXT → TEXT
  *
  * @module server/db/migrations/013-wide-table-varchar
- * @description 将宽表的 7 个 description LONGTEXT 列改为 VARCHAR(2000)，
+ * @description 将宽表的 7 个 description LONGTEXT 列改为 TEXT，
  *              消除 InnoDB 溢出页（overflow pages）存储，使数据全部存储在行内。
  *              列表展示只需前 300-500 字符，Meilisearch 索引同步也只取前 2000 字符，
  *              无需存储完整原文。
+ *              使用 TEXT 而非 VARCHAR(2000)，因宽表列数多，VARCHAR 会超出 MySQL 行大小限制 65535 字节。
  *              预期效果：Phase 2 查询从 7s+ 降至 <100ms。
  *
  *              执行流程：
@@ -80,16 +81,16 @@ export const migration: Migration = {
         const colInfo = (cols as any[])[0];
         if (!colInfo) continue;
 
-        // 已经是 VARCHAR(2000) 则跳过
-        if (colInfo.DATA_TYPE === "varchar" && colInfo.CHARACTER_MAXIMUM_LENGTH === 2000) {
-          console.log(`[migration-013]   ${col}: 已是 VARCHAR(2000)，跳过`);
+        // 已经是 TEXT 则跳过
+        if (colInfo.DATA_TYPE === "text") {
+          console.log(`[migration-013]   ${col}: 已是 TEXT，跳过`);
           continue;
         }
 
-        console.log(`[migration-013]   ${col}: ${colInfo.DATA_TYPE} → VARCHAR(${MAX_LEN})…`);
+        console.log(`[migration-013]   ${col}: ${colInfo.DATA_TYPE} → TEXT…`);
         const start = Date.now();
         await dbPool.query(
-          `ALTER TABLE crm_notice_search MODIFY COLUMN ${col} VARCHAR(${MAX_LEN}) NOT NULL DEFAULT ''`
+          `ALTER TABLE crm_notice_search MODIFY COLUMN ${col} TEXT NOT NULL`
         );
         console.log(`[migration-013]   ${col}: 完成 (${Date.now() - start}ms)`);
       } catch (err) {

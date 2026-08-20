@@ -20,7 +20,7 @@
  *              010-fulltext-indexes.ts      全文搜索索引
  *              011-notice-search-wide-table 搜索宽表
  *              012-password-reset-security  找回密码/密码安全升级
- *              013-wide-table-varchar       宽表description列LONGTEXT→VARCHAR(2000)
+ *              013-wide-table-varchar       宽表description列LONGTEXT→TEXT
  *              014-password-reset-email-columns  补齐crm_password_resets缺失列(email_sent/email_error)
  *              015-registration-email-verification 注册邮箱验证(code_type字段)
  *              016-user-phone                 用户手机号绑定
@@ -39,7 +39,7 @@
  *              029-precise-unspsc             宽表精准分类列(precise_level1~5,商机approved精准码)
  *              030-wide-table-deadline-bigint  宽表deadline_sec扩容INT→BIGINT+修复溢出归零数据
  *              031-membership-upgrade           会员套餐平滑升级(权益升级标记列+订单类型列)
- *              032-wide-table-schema-converge   宽表description列前向收敛(P1-17:基线漂移修复)
+ *              032-wide-table-schema-converge   宽表description列前向收敛(P1-17:基线漂移修复→TEXT)
  *              033-main-table-dead-index-cleanup 主表死索引清理(is_active/deadline_ts 相关)
  */
 import type { Pool } from "mysql2/promise";
