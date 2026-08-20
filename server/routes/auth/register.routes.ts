@@ -12,6 +12,7 @@ import { hashPassword, hashVerificationCode, issueTokenPair } from "../../servic
 import { sendRegistrationVerifyEmail, isEmailConfigured } from "../../services/email";
 import { validatePassword } from "../../utils/passwordPolicy";
 import { extractClientIp } from "../../utils/ip";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 import type { RateLimiter } from "../../middleware/rateLimiter";
 // B2【P1】Refresh Token 写入 HttpOnly Cookie
 import { setRefreshCookie } from "../../utils/auth-cookies";
@@ -29,18 +30,15 @@ export function createRegisterRouter(
     const ip = extractClientIp(req);
     const rl = forgotRateLimiter.check(ip);
     if (rl.blocked) {
-      return res.status(429).json({
-        error: "发送过于频繁，请稍后重试",
-        retry_after_seconds: rl.retryAfterSec,
-      });
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "发送过于频繁，请稍后重试", { retry_after_seconds: rl.retryAfterSec });
     }
 
     const email = String(req.body.email || "").trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "请输入有效的邮箱地址" });
+      return sendError(res, 400, ApiErrorCode.INVALID_EMAIL, "请输入有效的邮箱地址");
     }
     if (!isEmailConfigured()) {
-      return res.status(503).json({ error: "邮件服务暂未配置，请稍后重试" });
+      return sendError(res, 503, ApiErrorCode.EMAIL_NOT_CONFIGURED, "邮件服务暂未配置，请稍后重试");
     }
 
     // P1-4 安全加固：防邮箱枚举
@@ -92,28 +90,28 @@ export function createRegisterRouter(
     const password = String(req.body.password || "");
     const verifyCode = String(req.body.verify_code || "");
     const displayName = String(req.body.display_name || email.split("@")[0] || "会员");
-    if (!email || !password) return res.status(400).json({ error: "邮箱和密码不能为空" });
-    if (!verifyCode) return res.status(400).json({ error: "请输入邮箱验证码" });
+    if (!email || !password) return sendError(res, 400, ApiErrorCode.EMAIL_PASSWORD_REQUIRED, "邮箱和密码不能为空");
+    if (!verifyCode) return sendError(res, 400, ApiErrorCode.VERIFY_CODE_REQUIRED, "请输入邮箱验证码");
     const pwCheck = validatePassword(password);
-    if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.message });
+    if (!pwCheck.valid) return sendError(res, 400, ApiErrorCode.INVALID_PASSWORD, pwCheck.message);
 
     const codeRecord = await authRepo.findLatestActiveCode(email, "registration");
 
-    if (!codeRecord) return res.status(400).json({ error: "验证码无效，请重新获取" });
-    if (codeRecord.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    if (!codeRecord) return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
+    if (codeRecord.attempts >= 5) return sendError(res, 429, ApiErrorCode.TOO_MANY_ATTEMPTS, "尝试次数过多，请重新获取验证码");
     if (codeRecord.code !== hashVerificationCode(verifyCode)) {
       await authRepo.incrementCodeAttempts(codeRecord.id);
-      return res.status(400).json({ error: "验证码无效，请重新获取" });
+      return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
     }
 
     const existing = await usersRepo.findByKey(email);
-    if (existing) return res.status(400).json({ error: "注册失败，请检查邮箱或验证码后重试" });
+    if (existing) return sendError(res, 400, ApiErrorCode.REGISTRATION_FAILED, "注册失败，请检查邮箱或验证码后重试");
 
     const created = await usersRepo.create({
       user_key: email, email, display_name: displayName,
       password_hash: await hashPassword(password),
     });
-    if (!created) return res.status(400).json({ error: "注册失败，请检查邮箱或验证码后重试" });
+    if (!created) return sendError(res, 400, ApiErrorCode.REGISTRATION_FAILED, "注册失败，请检查邮箱或验证码后重试");
 
     await authRepo.markCodeUsed(codeRecord.id);
     await usersRepo.markEmailVerified(email);

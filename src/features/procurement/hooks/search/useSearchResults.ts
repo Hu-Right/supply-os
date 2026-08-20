@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, PrefsMode } from "../../types";
 import { fetchUnifiedSearch } from "../../api";
-import { PAGE_SIZE } from "../searchFormReducer";
+import { PAGE_SIZE } from "../../constants";
 import type { SearchQuery } from "./useSearchQuery";
 
 export interface SearchResultsOptions {

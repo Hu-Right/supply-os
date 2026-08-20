@@ -136,4 +136,12 @@ export class UsersRepo {
       [userKey],
     );
   }
+
+  /** N6 收敛（2026-08-20）：管理员通道更换邮箱（同时更新 user_key，因为 user_key 就是小写邮箱） */
+  async updateUserEmail(oldUserKey: string, newEmail: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET user_key = ?, email = ?, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
+      [newEmail, newEmail, oldUserKey],
+    );
+  }
 }

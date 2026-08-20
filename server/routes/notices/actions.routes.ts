@@ -16,6 +16,7 @@ import {
   executeUnlock, processFeedback, submitInterest,
   NoticeNotFoundError, QuotaExceededError,
 } from "../../services/notice-actions";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 
 export function createNoticeActionsRouter(ctx: AppContext): Router {
   const router = Router();
@@ -36,17 +37,17 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
   // ── 推荐反馈 ──
   router.post("/api/notices/feedback", requireAuth, asyncHandler(async (req, res) => {
       const userKey = req.userKey || "";
-      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
       const sessionId = String(req.body.session_id || "").trim().slice(0, 64);
-      if (!sessionId) return res.status(400).json({ error: "SESSION_REQUIRED" });
+      if (!sessionId) return sendError(res, 400, ApiErrorCode.SESSION_REQUIRED, "缺少会话标识");
       const VALID_ACTIONS = new Set([
         "impression", "click", "unlock", "dismiss", "favorite",
         "dwell", "scroll_end", "quick_exit", "revisit",
       ]);
       const rawActions: any[] = Array.isArray(req.body.actions)
         ? req.body.actions : req.body.notice_id ? [req.body] : [];
-      if (rawActions.length === 0) return res.status(400).json({ error: "ACTIONS_REQUIRED" });
-      if (rawActions.length > 50) return res.status(400).json({ error: "TOO_MANY_ACTIONS", max: 50 });
+      if (rawActions.length === 0) return sendError(res, 400, ApiErrorCode.ACTIONS_REQUIRED, "请提供操作列表");
+      if (rawActions.length > 50) return sendError(res, 400, ApiErrorCode.TOO_MANY_ACTIONS, "单次最多 50 条操作", { max: 50 });
       const items: RecoFeedbackItem[] = rawActions
         .map((item) => ({
           noticeId: Number(item?.notice_id || 0),
@@ -57,7 +58,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
           dwellMs: Number.isInteger(Number(item?.dwell_ms)) && Number(item.dwell_ms) > 0 ? Number(item.dwell_ms) : null,
         }))
         .filter((item) => item.noticeId > 0 && VALID_ACTIONS.has(item.action));
-      if (items.length === 0) return res.status(400).json({ error: "NO_VALID_ACTIONS" });
+      if (items.length === 0) return sendError(res, 400, ApiErrorCode.NO_VALID_ACTIONS, "无有效操作");
 
       const result = await processFeedback(
         { detailRepo: ctx.notice.detailRepo, feedbackRepo: ctx.notice.feedbackRepo, dbPool: ctx.dbPool },
@@ -106,10 +107,11 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
         res.status(201).json({ success: true, unlock_type: result.unlockType });
       } catch (err) {
         if (err instanceof NoticeNotFoundError) {
-          return res.status(404).json({ error: "Notice not found" });
+          return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
         }
         if (err instanceof QuotaExceededError) {
-          return res.status(402).json({ error: err.code });
+          const code = err.code === "FREE_LIMIT_REACHED" ? ApiErrorCode.FREE_LIMIT_REACHED : ApiErrorCode.PAID_QUOTA_REQUIRED;
+          return sendError(res, 402, code, err.code === "FREE_LIMIT_REACHED" ? "免费查看次数已用完" : "付费查看次数已用完");
         }
         throw err;
       }
@@ -121,7 +123,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
       const userKey = req.userKey || "";
       const interestType = req.body.interest_type === "subscribed" ? "subscribed" : "interested";
       const note = String(req.body.note || "").slice(0, 500);
-      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
 
       try {
         await submitInterest(
@@ -131,7 +133,7 @@ export function createNoticeActionsRouter(ctx: AppContext): Router {
         res.status(201).json({ success: true, interest_type: interestType });
       } catch (err) {
         if (err instanceof NoticeNotFoundError) {
-          return res.status(404).json({ error: "Notice not found" });
+          return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
         }
         throw err;
       }

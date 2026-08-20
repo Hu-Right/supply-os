@@ -9,6 +9,7 @@ import { mapUngmAppointmentRow, insertUngmAppointment } from "../services/leads"
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "./admin/middleware";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 
 export function createLeadsRouter(ctx: AppContext): Router {
   const router = Router();
@@ -39,7 +40,7 @@ export function createLeadsRouter(ctx: AppContext): Router {
       } = req.body;
 
       if (!companyName || !contactPerson || !contactMethod) {
-        return res.status(400).json({ error: "Missing required fields" });
+        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "请填写必填字段");
       }
 
       const newLead: Lead = {
@@ -77,12 +78,12 @@ export function createLeadsRouter(ctx: AppContext): Router {
     const { leadId, content, nextStatus } = req.body;
     const author = req.userKey || "Admin";
     if (!leadId || !content) {
-      return res.status(400).json({ error: "Missing leadId or content log parameter" });
+      return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "缺少线索 ID 或内容");
     }
 
     const row = await leadsRepo.findByKey(leadId);
     if (!row) {
-      return res.status(404).json({ error: "Lead not found" });
+      return sendError(res, 404, ApiErrorCode.INVALID_PARAMS, "线索不存在");
     }
     const targetLead = mapUngmAppointmentRow(row);
     if (!targetLead.followUpLogs) {

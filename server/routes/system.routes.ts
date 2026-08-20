@@ -8,7 +8,6 @@ import { Router } from "express";
 import fs from "fs";
 import path from "path";
 import type { AppContext } from "../context";
-import type { RowDataPacket } from "mysql2/promise";
 
 /** 构建时生成的版本号文件（dist/version.json） */
 function readBuildVersion(): string {
@@ -72,9 +71,7 @@ export function createSystemRouter(ctx: AppContext): Router {
         res.setHeader("Cache-Control", "public, max-age=1800");
         return res.json(linksCache.items);
       }
-      const [rows] = await ctx.dbPool.query<RowDataPacket[]>(
-        `SELECT id, name, url, icon FROM crm.link WHERE status = 1 ORDER BY sort_order ASC, id ASC LIMIT 100`,
-      );
+      const rows = await systemRepo.listFooterLinks();
       const items: FooterLink[] = (rows || []).map((r) => ({
         id: Number(r.id),
         name: String(r.name || ""),

@@ -10,6 +10,7 @@ import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
 import { extractTierLabel, previewUpgrade } from "../services/membership-upgrade";
 import { resolveMembershipState } from "../services/membership-status";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 
 export function createMembershipRouter(ctx: AppContext): Router {
   const router = Router();
@@ -23,7 +24,7 @@ export function createMembershipRouter(ctx: AppContext): Router {
 
   router.get("/api/membership/status", requireAuth, asyncHandler(async (req, res) => {
     const userKey = req.userKey || "";
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
 
     // N1 收敛（2026-08-20）：配额/VIP 派生状态一律经唯一端口 resolveMembershipState 计算，
     // 路由层不再自行拼装查询（原三口径分叉见 services/membership-status.ts 头部注释）。
@@ -51,9 +52,9 @@ export function createMembershipRouter(ctx: AppContext): Router {
   // 升级预览：补差价、次数保留、有效期追溯（基于数据库实际启用套餐）
   router.get("/api/membership/upgrade/preview", requireAuth, asyncHandler(async (req, res) => {
     const userKey = req.userKey || "";
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
     const targetPlanCode = String(req.query.target_plan_code || "").trim();
-    if (!targetPlanCode) return res.status(400).json({ error: "TARGET_PLAN_REQUIRED" });
+    if (!targetPlanCode) return sendError(res, 400, ApiErrorCode.TARGET_PLAN_REQUIRED, "请指定目标套餐");
     const result = await previewUpgrade(membershipRepo, userKey, targetPlanCode);
     res.setHeader("Cache-Control", "no-store");
     res.json(result);

@@ -7,7 +7,8 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
-import { normalizeNoticeType } from "../meilisearch/index";
+// N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
+import { normalizeNoticeType } from "../../utils/notice-type";
 
 export interface RecallResult {
   prefix: string;

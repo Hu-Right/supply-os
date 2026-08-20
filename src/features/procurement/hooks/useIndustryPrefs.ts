@@ -17,7 +17,7 @@ import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
 import { fetchUnifiedSearch } from "../api";
-import { PAGE_SIZE } from "./useNoticeSearch";
+import { PAGE_SIZE } from "../constants";
 
 // P1 性能优化：UNSPSC 一级类目 sessionStorage 缓存（10 分钟 TTL，按 locale 分键）
 // 与国家/机构下拉缓存策略一致，避免每次进入采购页重复请求

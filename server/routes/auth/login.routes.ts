@@ -9,6 +9,7 @@ import type { AppContext } from "../../context";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "../../services/auth";
 import { extractClientIp } from "../../utils/ip";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 import {
   signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken,
   getRefreshTokenExpiresAt,
@@ -34,10 +35,7 @@ export function createLoginRouter(
 
     const rateLimit = loginRateLimiter.check(ip);
     if (rateLimit.blocked) {
-      return res.status(429).json({
-        error: "登录尝试过于频繁，请稍后重试",
-        retry_after_seconds: rateLimit.retryAfterSec,
-      });
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "登录尝试过于频繁，请稍后重试", { retry_after_seconds: rateLimit.retryAfterSec });
     }
 
     const identifier = String(req.body.email || "").trim();
@@ -55,10 +53,7 @@ export function createLoginRouter(
 
     const accountLimit = accountRateLimiter.check(accountKey);
     if (accountLimit.blocked) {
-      return res.status(429).json({
-        error: "该账号登录尝试过于频繁，请稍后重试",
-        retry_after_seconds: accountLimit.retryAfterSec,
-      });
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "该账号登录尝试过于频繁，请稍后重试", { retry_after_seconds: accountLimit.retryAfterSec });
     }
 
     const password = String(req.body.password || "");
@@ -67,15 +62,15 @@ export function createLoginRouter(
       await verifyPassword(password, "$2b$12$AAAAAAAAAAAAAAAAAAAAAAOqGHn2kLJ3xQ4y5m6n7p8r9s0t1u2v3w", "bcrypt");
       loginRateLimiter.record(ip);
       accountRateLimiter.record(accountKey);
-      return res.status(401).json({ error: "账号或密码错误" });
+      return sendError(res, 401, ApiErrorCode.USER_REQUIRED, "账号或密码错误");
     }
     if (!(await verifyPassword(password, user.password_hash, hashType))) {
       loginRateLimiter.record(ip);
       accountRateLimiter.record(accountKey);
-      return res.status(401).json({ error: "账号或密码错误" });
+      return sendError(res, 401, ApiErrorCode.USER_REQUIRED, "账号或密码错误");
     }
     if (user.account_status === "disabled" || user.account_status === "rejected") {
-      return res.status(403).json({ error: "账号未通过审核或已停用" });
+      return sendError(res, 403, ApiErrorCode.ACCOUNT_DISABLED, "账号未通过审核或已停用");
     }
 
     loginRateLimiter.clear(ip);
@@ -100,12 +95,12 @@ export function createLoginRouter(
 
   // ── 获取用户信息 ──────────────────────────────────────────
   router.get("/api/auth/user", asyncHandler(async (req, res) => {
-    if (!req.userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    if (!req.userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
     if (!req.authViaJwt) {
-      return res.status(403).json({ error: "FORBIDDEN", message: "请通过有效凭证访问" });
+      return sendError(res, 403, ApiErrorCode.FORBIDDEN, "请通过有效凭证访问");
     }
     const user = await usersRepo.findProfileByKey(req.userKey);
-    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (!user) return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "用户不存在");
     const payload = await buildUserResponse(user, membershipRepo, registrationRepo);
     res.json({ success: true, user: payload });
   }));
@@ -115,21 +110,21 @@ export function createLoginRouter(
     // #5（2026-08-20）：body 兜底通道已移除——前端已全量迁移 HttpOnly Cookie，
     // Refresh Token 唯一来源为 Cookie（浏览器自动携带）
     const refreshToken = readRefreshCookie(req) || "";
-    if (!refreshToken) return res.status(400).json({ error: "REFRESH_TOKEN_REQUIRED" });
+    if (!refreshToken) return sendError(res, 400, ApiErrorCode.REFRESH_TOKEN_REQUIRED, "缺少刷新令牌");
 
     let payload: { user_key: string };
     try {
       payload = verifyRefreshToken(refreshToken);
     } catch {
-      return res.status(401).json({ error: "INVALID_REFRESH_TOKEN" });
+      return sendError(res, 401, ApiErrorCode.INVALID_REFRESH_TOKEN, "刷新令牌无效");
     }
 
     const tokenHash = hashRefreshToken(refreshToken);
     const stored = await authRepo.findRefreshTokenByHash(tokenHash);
-    if (!stored) return res.status(401).json({ error: "REFRESH_TOKEN_REVOKED" });
+    if (!stored) return sendError(res, 401, ApiErrorCode.REFRESH_TOKEN_REVOKED, "刷新令牌已失效");
 
     const user = await usersRepo.findProfileByKey(payload.user_key);
-    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (!user) return sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "用户不存在");
 
     // P3-4 安全修复：Refresh Token 轮换——旧 token 立即失效，签发新 token 对；
     // 被窃取后重放的旧 refresh token 将命中 REFRESH_TOKEN_REVOKED，暴露盗用

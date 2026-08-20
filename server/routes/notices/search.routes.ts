@@ -12,11 +12,8 @@ import type { AppContext } from "../../context";
 import type { Request } from "express";
 import { parseOptionalInt, parseOptionalString } from "../../utils/params";
 import { asyncHandler } from "../../middleware/errorHandler";
-import { isKnownNoticeType } from "../../utils/notice-type";
 import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "../../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../../services/search-orchestrator/index";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** 从请求提取统一搜索参数（unified-search 与旧端点适配器共用）
  * B1 legacy 退役（2026-08-19）：身份唯一来源为 req.userKey（optionalAuth 仅 JWT），
@@ -47,77 +44,15 @@ function parseUnifiedParams(req: Request, mode: string): RawSearchParams {
 
 export function createNoticeSearchRouter(ctx: AppContext): Router {
   const router = Router();
-  const feedbackRepo = ctx.notice.feedbackRepo;
 
   // ── 统一搜索端点（重构方案 §4.1）：mode=default|prefs|recommended ──
+  // N2 退役（2026-08-20）：原 /api/notices、/api/notices/recommended、/api/notices/industry-matched
+  // 三个委托适配器已删除——前端已全量切换到 unified-search（mode=prefs/recommended），零调用方。
   router.get("/api/notices/unified-search", asyncHandler(async (req, res) => {
     const rawMode = String(req.query.mode || "default");
     const mode = rawMode === "prefs" || rawMode === "recommended" ? rawMode : "default";
     const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, mode));
     res.json({ ...result, page_size: result.pageSize });
-  }));
-
-  router.get("/api/notices", asyncHandler(async (req, res) => {
-    const codeId = parseOptionalInt(req.query, "code_id", 0, 1e9, 0) || parseOptionalInt(req.query, "industry_id", 0, 1e9, 0);
-    const q = parseOptionalString(req.query, "q", 200);
-    const country = parseOptionalString(req.query, "country", 100);
-    const agency = parseOptionalString(req.query, "agency", 100);
-    const deadlineFrom = parseOptionalString(req.query, "deadline_from", 10);
-    const deadlineTo = parseOptionalString(req.query, "deadline_to", 10);
-    const sort = parseOptionalString(req.query, "sort", 20) || "deadline_farthest";
-    const deadlineWithinDays = parseOptionalInt(req.query, "deadline_within_days", 0, 365, 0);
-    const noticeType = parseOptionalString(req.query, "notice_type", 100);
-    // PERF 优化：无效 noticeType 直接忽略，避免静默映射到 OTHER 返回大量无关结果
-    const effectiveNoticeType = noticeType && isKnownNoticeType(noticeType) ? noticeType : "";
-    if (noticeType && !effectiveNoticeType) {
-      console.log(`[search] 忽略无效 noticeType: "${noticeType}"`);
-    }
-    const featuredOnly = String(req.query.featured || "") === "1";
-
-    // 委托适配器：统一编排器 mode=default（唯一检索链路）
-    // noticeType 白名单校验后覆盖，避免无效值进入 filter 归一化返回大量无关结果
-    const params = parseUnifiedParams(req, "default");
-    params.noticeType = effectiveNoticeType;
-    const result = await searchUnified(ctx.dbPool, params);
-
-    // P2 性能优化：流式响应——立即发送 HTTP headers，然后分块写入 JSON body
-    // 浏览器收到 headers 后即可开始解析，无需等待完整 JSON 序列化完成
-    // 回滚：恢复为 res.json(result)
-    const json = JSON.stringify(result);
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.setHeader("Content-Length", Buffer.byteLength(json));
-    res.flushHeaders(); // 立即发送 headers，消除 header 等待时间
-    // 大响应分块写入（16KB 块），小响应一次性发送
-    const CHUNK_SIZE = 16 * 1024;
-    if (json.length > CHUNK_SIZE) {
-      for (let i = 0; i < json.length; i += CHUNK_SIZE) {
-        res.write(json.slice(i, i + CHUNK_SIZE));
-      }
-      res.end();
-    } else {
-      res.end(json);
-    }
-
-    // 搜索行为日志：仅带筛选条件的检索入库（推荐/空载不计）
-    const hasSearch = Boolean(
-      q || country || agency || DATE_RE.test(deadlineFrom) || DATE_RE.test(deadlineTo) ||
-      deadlineWithinDays || noticeType || featuredOnly
-    );
-    if (hasSearch) {
-      const filters = JSON.stringify({
-        code_id: codeId || undefined,
-        deadline_from: DATE_RE.test(deadlineFrom) ? deadlineFrom : undefined,
-        deadline_to: DATE_RE.test(deadlineTo) ? deadlineTo : undefined,
-        deadline_within_days: deadlineWithinDays || undefined,
-        notice_type: noticeType || undefined,
-        featured: featuredOnly || undefined,
-        sort,
-      });
-      void feedbackRepo.logSearch(
-        // B1 legacy 退役：归属与 searchUnified 同源（JWT 身份）；匿名搜索归属 ""
-        params.userKey || "", q || null, country || null, filters, result.total
-      ).catch(() => undefined);
-    }
   }));
 
   router.get("/api/notices/countries", asyncHandler(async (req, res) => {
@@ -148,12 +83,6 @@ export function createNoticeSearchRouter(ctx: AppContext): Router {
     res.setHeader("ETag", etag);
     if (req.headers["if-none-match"] === etag) return res.status(304).end();
     res.json(data);
-  }));
-
-  // ── 推荐端点（委托适配器：统一编排器 mode=recommended）──
-  router.get("/api/notices/recommended", asyncHandler(async (req, res) => {
-    const result = await searchUnified(ctx.dbPool, parseUnifiedParams(req, "recommended"));
-    res.json({ ...result, page_size: result.pageSize });
   }));
 
   return router;

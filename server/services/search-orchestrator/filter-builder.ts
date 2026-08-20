@@ -11,7 +11,9 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { expandCountryAllForms, expandCountryAliases } from "../notice-search/countries";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
-import { normalizeNoticeType, toBeijingUnixTs } from "../meilisearch/index";
+// N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
+import { normalizeNoticeType } from "../../utils/notice-type";
+import { toBeijingUnixTs } from "../meilisearch/index";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
 function escapeFilter(value: string): string {

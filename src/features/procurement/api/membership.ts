@@ -1,19 +1,11 @@
 /**
- * 会员 API — 全站唯一封装（#12 双封装合并，2026-08-20）
- * Membership API — single implementation for the whole app
+ * 会员 API — re-export（N5 归属归正，2026-08-20）
+ * Membership API — re-export from canonical location
  *
- * @description features/membership/api.ts 已改为委托至本文件，
- *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
+ * @description N5 归属归正：权威实现已迁回 features/membership/api.ts，
+ *              本文件改为纯 re-export，维持 procurement/api/index.ts 的导出路径。
  */
-import type { MembershipPlan, MembershipStatus } from "../types";
-import { api, apiCached } from "@/core/http";
-
-export const fetchMembershipPlans = () =>
-  apiCached<MembershipPlan[]>("/api/membership/plans");
-
-// B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
-export const fetchMembershipStatus = (useCache = false) => {
-  return useCache
-    ? apiCached<MembershipStatus>("/api/membership/status")
-    : api<MembershipStatus>("/api/membership/status");
-};
+export {
+  fetchMembershipPlans,
+  fetchMembershipStatus,
+} from "@/features/membership/api";

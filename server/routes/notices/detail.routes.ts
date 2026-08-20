@@ -14,6 +14,7 @@ import { detectSourceLang, translateNoticeViaChain } from "../../services/transl
 import { syncWideIds } from "../../services/search-sync/index";
 import { asyncHandler, HttpError } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 import { getAgencyCacheData } from "../../services/notice-search/agencies/index";
 
 export function createNoticeDetailRouter(ctx: AppContext): Router {
@@ -26,16 +27,16 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   router.get("/api/notices/:id/detail", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const userKey = req.userKey || "";
-    if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
+    if (!noticeId || !userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录并指定公告");
 
     // 解锁校验与公告查询相互独立：并行执行减少一次顺序往返
     const [unlock, notice] = await Promise.all([
       unlockRepo.findUnlock(userKey, noticeId),
       detailRepo.findDetail(noticeId),
     ]);
-    if (!unlock) return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
+    if (!unlock) return sendError(res, 403, ApiErrorCode.NOTICE_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
 
-    if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+    if (!notice) return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     res.json(normalizeNoticeDetailPayload(notice, unlock, opportunity));
   }));
@@ -44,10 +45,10 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   router.get("/api/notices/:id/content", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const userKey = req.userKey || "";
-    if (!noticeId) return res.status(400).json({ error: "INVALID_NOTICE_ID" });
+    if (!noticeId) return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "无效的公告 ID");
 
     const notice = await detailRepo.findDetail(noticeId);
-    if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+    if (!notice) return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
 
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const descriptionCn = opportunity ? String(opportunity.description_cn || "").trim() : "";
@@ -73,10 +74,10 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
   router.get("/api/notices/:id/preview", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const userKey = req.userKey || "";
-    if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
+    if (!noticeId || !userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录并指定公告");
 
     const notice = await detailRepo.findPreview(noticeId);
-    if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+    if (!notice) return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
 
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes)).slice(0, 4);
@@ -121,7 +122,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
     const noticeId = Number(req.params.id);
     const lang = String(req.query.lang || "").toLowerCase();
     if (!noticeId || !NOTICE_TRANSLATION_LANGS[lang]) {
-      return res.status(400).json({ error: "INVALID_NOTICE_OR_LANG" });
+      return sendError(res, 400, ApiErrorCode.INVALID_NOTICE_OR_LANG, "无效的公告 ID 或语言参数");
     }
 
     // ── 中文快速路径：机会表 description_cn 直出（零翻译 API 调用）──
@@ -187,7 +188,7 @@ export function createNoticeDetailRouter(ctx: AppContext): Router {
         throw new HttpError(503, "TRANSLATION_UNAVAILABLE");
       }
       if (err instanceof Error && err.message === "NOTICE_NOT_FOUND") {
-        return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+        return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
       }
       throw err;
     }

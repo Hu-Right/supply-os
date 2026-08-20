@@ -18,6 +18,7 @@ import { findQualifiedOpportunityForNotice } from "../../services/notices";
 import { buildBidReportDocx, buildBidReportPreviewText, estimateFullReportCharCount, mergeBidReportRow, bidReportFileName } from "../../services/bid-report/index";
 import { asyncHandler } from "../../middleware/errorHandler";
 import { requireAuth } from "../../middleware/auth";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -37,16 +38,16 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
   router.get("/api/notices/:id/report/preview", requireAuth, asyncHandler(async (req, res) => {
     const noticeId = Number(req.params.id);
     const userKey = req.userKey || "";
-    if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
+    if (!noticeId || !userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录并指定公告");
 
     const [unlock, notice] = await Promise.all([
       unlockRepo.findUnlock(userKey, noticeId),
       detailRepo.findDetail(noticeId),
     ]);
-    if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+    if (!notice) return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
 
     const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-    if (!qualified) return res.status(404).json({ error: "REPORT_NOT_AVAILABLE" });
+    if (!qualified) return sendError(res, 404, ApiErrorCode.REPORT_NOT_AVAILABLE, "报告不可用");
 
     const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
     const opportunity = fullOpportunity || qualified;
@@ -77,16 +78,16 @@ export function createNoticeReportRouter(ctx: AppContext): Router {
   router.get("/api/notices/:id/report", requireAuth, asyncHandler(async (req, res) => {
       const noticeId = Number(req.params.id);
       const userKey = req.userKey || "";
-      if (!noticeId || !userKey) return res.status(400).json({ error: "USER_AND_NOTICE_REQUIRED" });
+      if (!noticeId || !userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录并指定公告");
   
       const unlock = await unlockRepo.findUnlock(userKey, noticeId);
-      if (!unlock) return res.status(403).json({ error: "NOTICE_LOCKED", core_locked: true });
+      if (!unlock) return sendError(res, 403, ApiErrorCode.NOTICE_LOCKED, "公告已锁定，请先解锁", { core_locked: true });
 
       const notice = await detailRepo.findDetail(noticeId);
-      if (!notice) return res.status(404).json({ error: "NOTICE_NOT_FOUND" });
+      if (!notice) return sendError(res, 404, ApiErrorCode.NOTICE_NOT_FOUND, "公告不存在");
   
       const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-      if (!qualified) return res.status(404).json({ error: "REPORT_NOT_AVAILABLE" });
+      if (!qualified) return sendError(res, 404, ApiErrorCode.REPORT_NOT_AVAILABLE, "报告不可用");
   
       const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
       const opportunity = fullOpportunity || qualified;

@@ -23,7 +23,8 @@ import { deadlineFallback, processInterestCodes } from "./recall";
 import { buildScoringContext, getAmountPreference, resolveWeights } from "./scoring";
 import { mmrRerankPage, buildRecoReasons } from "./rerank";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
-import { normalizeNoticeType } from "../meilisearch/index";
+// N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
+import { normalizeNoticeType } from "../../utils/notice-type";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
 // 推荐结果缓存

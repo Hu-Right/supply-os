@@ -20,11 +20,9 @@ import { SupplierContactModal, type SupplierContactStatus } from "../components/
 import { Pagination } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
 import { LoadingOverlay } from "@/features/procurement/components/LoadingOverlay";
+import { PAGE_SIZE } from "@/features/procurement/constants";
 import { fetchSuppliersPaginated, fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 import { onAppEvent } from "@/core/events";
-
-// 与公采页保持一致的每页条数（3 列网格 × 3 行）
-const PAGE_SIZE = 9;
 
 export default function SupplierPage() {
   const { t, locale } = useLocale();

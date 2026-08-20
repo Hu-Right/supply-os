@@ -9,7 +9,7 @@
  *              real NoticeCard structure, count matches actual data items.
  */
 
-import { PAGE_SIZE } from "../hooks/useNoticeSearch";
+import { PAGE_SIZE } from "../constants";
 
 export interface NoticeListSkeletonProps {
   /** 骨架卡片数量，默认 PAGE_SIZE（9） */

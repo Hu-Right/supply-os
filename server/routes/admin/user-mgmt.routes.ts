@@ -72,11 +72,8 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
       return;
     }
 
-    // 更新邮箱（同时更新 user_key，因为 user_key 就是小写邮箱）
-    await ctx.dbPool.execute(
-      "UPDATE crm_users SET user_key = ?, email = ?, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
-      [newEmail, newEmail, userKey],
-    );
+    // N6 收敛（2026-08-20）：邮箱更新经 UsersRepo 唯一端口
+    await ctx.admin.usersRepo.updateUserEmail(userKey, newEmail);
 
     res.json({
       success: true,
@@ -91,16 +88,8 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
     const limit = Math.min(Math.max(parseInt(String(req.query.limit), 10) || 50, 1), 200);
     const failedOnly = String(req.query.failed_only ?? "false").toLowerCase() === "true";
 
-    let sql = `
-      SELECT id, user_key, code, expires_at, used, attempts, email_sent, email_error, ip, created_at
-      FROM crm_password_resets
-    `;
-    if (failedOnly) {
-      sql += " WHERE email_sent = 0 AND email_error IS NOT NULL";
-    }
-    sql += " ORDER BY created_at DESC LIMIT ?";
-
-    const [rows] = await ctx.dbPool.query(sql, [limit]);
+    // N6 收敛（2026-08-20）：邮件日志查询经 AuthRepo 唯一端口
+    const rows = await ctx.user.authRepo.listPasswordResets({ failedOnly, limit });
 
     res.json({
       success: true,

@@ -5,7 +5,8 @@
  * @module features/procurement/hooks/searchFormReducer
  */
 
-export const PAGE_SIZE = 9;
+// N7 收敛（2026-08-20）：PAGE_SIZE 定义已迁至 ../constants.ts，此处 re-export 保持向后兼容
+export { PAGE_SIZE } from "../constants";
 
 // PERF 优化：关键词最大长度——与服务端 parseOptionalString(q, 200) 对齐，
 // 前端截断避免发送超长字符串导致 Meilisearch/MySQL FULLTEXT 解析开销激增

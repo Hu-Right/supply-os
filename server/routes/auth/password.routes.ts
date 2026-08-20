@@ -14,6 +14,7 @@ import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } fro
 import { validatePassword } from "../../utils/passwordPolicy";
 import { maskPhone } from "../../utils/mask";
 import { extractClientIp } from "../../utils/ip";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 import type { RateLimiter } from "../../middleware/rateLimiter";
 // B2【P1】Refresh Token 写入 HttpOnly Cookie
 import { setRefreshCookie } from "../../utils/auth-cookies";
@@ -33,7 +34,7 @@ export function createPasswordRouter(
   router.post("/api/auth/check-email-phone", asyncHandler(async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "请输入有效的邮箱地址" });
+      return sendError(res, 400, ApiErrorCode.INVALID_EMAIL, "请输入有效的邮箱地址");
     }
     const user = await usersRepo.findByKey(email);
     if (!user || !user.phone || !user.phone_verified) {
@@ -49,10 +50,7 @@ export function createPasswordRouter(
 
     const rl = forgotRateLimiter.check(ip);
     if (rl.blocked) {
-      return res.status(429).json({
-        error: "发送过于频繁，请稍后重试",
-        retry_after_seconds: rl.retryAfterSec,
-      });
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "发送过于频繁，请稍后重试", { retry_after_seconds: rl.retryAfterSec });
     }
 
     const identifier = String(req.body.email || "").trim().toLowerCase();
@@ -64,7 +62,7 @@ export function createPasswordRouter(
       }
       let email = identifier;
       if (!identifier || !/^1[3-9]\d{9}$/.test(identifier)) {
-        return res.status(400).json({ error: "请输入有效的手机号" });
+        return sendError(res, 400, ApiErrorCode.INVALID_PHONE, "请输入有效的手机号");
       }
       if (/^1[3-9]\d{9}$/.test(identifier)) {
         const byPhone = await usersRepo.findByPhone(identifier);
@@ -81,12 +79,12 @@ export function createPasswordRouter(
       }
 
       if (!isSmsConfigured()) {
-        return res.status(503).json({ error: "短信服务暂未配置，请使用邮箱验证" });
+        return sendError(res, 503, ApiErrorCode.SMS_NOT_CONFIGURED, "短信服务暂未配置，请使用邮箱验证");
       }
 
       const phoneRl = phoneSmsRateLimiter.check(user.phone);
       if (phoneRl.blocked) {
-        return res.status(429).json({ error: "验证码发送过于频繁，请稍后重试", retry_after_seconds: phoneRl.retryAfterSec });
+        return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "验证码发送过于频繁，请稍后重试", { retry_after_seconds: phoneRl.retryAfterSec });
       }
 
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -124,10 +122,10 @@ export function createPasswordRouter(
     // ── 邮箱验证渠道（默认） ──
     const email = identifier;
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "请输入有效的邮箱地址" });
+      return sendError(res, 400, ApiErrorCode.INVALID_EMAIL, "请输入有效的邮箱地址");
     }
     if (!isEmailConfigured()) {
-      return res.status(503).json({ error: "邮件服务暂未配置，请联系客服重置密码" });
+      return sendError(res, 503, ApiErrorCode.EMAIL_NOT_CONFIGURED, "邮件服务暂未配置，请联系客服重置密码");
     }
 
     const user = await usersRepo.findByKey(email);
@@ -173,7 +171,7 @@ export function createPasswordRouter(
     const ip = extractClientIp(req);
     const rl = forgotRateLimiter.check(ip);
     if (rl.blocked) {
-      return res.status(429).json({ error: "操作过于频繁，请稍后重试", retry_after_seconds: rl.retryAfterSec });
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "操作过于频繁，请稍后重试", { retry_after_seconds: rl.retryAfterSec });
     }
 
     const identifier = String(req.body.email || "").trim().toLowerCase();
@@ -182,16 +180,16 @@ export function createPasswordRouter(
     const channel = String(req.body.channel || "email").trim();
 
     if (!identifier || !code || !newPassword) {
-      return res.status(400).json({ error: "请填写完整信息" });
+      return sendError(res, 400, ApiErrorCode.INCOMPLETE_FIELDS, "请填写完整信息");
     }
     const pwCheck = validatePassword(newPassword);
-    if (!pwCheck.valid) return res.status(400).json({ error: pwCheck.message });
+    if (!pwCheck.valid) return sendError(res, 400, ApiErrorCode.INVALID_PASSWORD, pwCheck.message);
 
     let email = identifier;
     if (channel === "sms" && /^1[3-9]\d{9}$/.test(identifier)) {
       const byPhone = await usersRepo.findByPhone(identifier);
       if (!byPhone || !byPhone.user_key) {
-        return res.status(400).json({ error: "验证码无效，请重新获取" });
+        return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
       }
       email = byPhone.user_key;
     }
@@ -204,7 +202,7 @@ export function createPasswordRouter(
         if (codePhone) {
           const currentUser = await usersRepo.findByKey(email);
           if (!currentUser || currentUser.phone !== codePhone) {
-            return res.status(400).json({ error: "验证码无效，请重新获取" });
+            return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
           }
         }
       }
@@ -213,12 +211,12 @@ export function createPasswordRouter(
       record = await authRepo.findLatestActiveCode(email, "email_reset");
     }
 
-    if (!record) return res.status(400).json({ error: "验证码无效，请重新获取" });
-    if (record.attempts >= 5) return res.status(429).json({ error: "尝试次数过多，请重新获取验证码" });
+    if (!record) return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
+    if (record.attempts >= 5) return sendError(res, 429, ApiErrorCode.TOO_MANY_ATTEMPTS, "尝试次数过多，请重新获取验证码");
 
     if (record.code !== hashVerificationCode(code)) {
       await authRepo.incrementCodeAttempts(record.id);
-      return res.status(400).json({ error: "验证码无效，请重新获取" });
+      return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
     }
 
     const newHash = await hashPassword(newPassword);
@@ -234,7 +232,7 @@ export function createPasswordRouter(
     await authRepo.markCodeUsed(record.id);
 
     const user = await usersRepo.findAuthByKey(email);
-    if (!user) return res.status(500).json({ error: "重置成功，但获取用户信息失败，请重新登录" });
+    if (!user) return sendError(res, 500, ApiErrorCode.INTERNAL_ERROR, "重置成功，但获取用户信息失败，请重新登录");
     const payload = await buildUserResponse(user, membershipRepo, registrationRepo);
     let tokens: { token: string; refresh_token: string } | null = null;
     try { tokens = await issueTokenPair(authRepo, user.user_key, user.email || ""); } catch { /* JWT_SECRET 未配置 */ }

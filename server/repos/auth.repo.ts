@@ -142,4 +142,18 @@ export class AuthRepo {
   async deleteExpiredRefreshTokens(): Promise<void> {
     await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE expires_at < NOW()");
   }
+
+  /** N6 收敛（2026-08-20）：管理员查询邮件发送记录 */
+  async listPasswordResets(options: { failedOnly: boolean; limit: number }): Promise<RowDataPacket[]> {
+    let sql = `
+      SELECT id, user_key, code, expires_at, used, attempts, email_sent, email_error, ip, created_at
+      FROM crm_password_resets
+    `;
+    if (options.failedOnly) {
+      sql += " WHERE email_sent = 0 AND email_error IS NOT NULL";
+    }
+    sql += " ORDER BY created_at DESC LIMIT ?";
+    const [rows] = await this.pool.query(sql, [options.limit]);
+    return rows as RowDataPacket[];
+  }
 }

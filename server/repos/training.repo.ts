@@ -82,4 +82,12 @@ export class SystemRepo {
     );
     return (rows as RowDataPacket[])?.[0]?.bah || "";
   }
+
+  /** N6 收敛（2026-08-20）：查询底部社交媒体链接 */
+  async listFooterLinks(): Promise<RowDataPacket[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT id, name, url, icon FROM crm.link WHERE status = 1 ORDER BY sort_order ASC, id ASC LIMIT 100`,
+    );
+    return rows;
+  }
 }
