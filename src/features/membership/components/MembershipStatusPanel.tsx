@@ -8,7 +8,8 @@
  *              Displays total unlock count and layered breakdown by benefit source.
  */
 
-import { Crown, Zap, Gift, Clock, Infinity } from "lucide-react";
+// Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
+import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import type { MembershipStatus } from "@/types";
@@ -141,7 +142,7 @@ export function MembershipStatusPanel({
                 </span>
               ) : (
                 <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                  <Infinity className="w-3 h-3" />
+                  <InfinityIcon className="w-3 h-3" />
                   {t("statusPanelPermanent")}
                 </span>
               )}
@@ -171,7 +172,7 @@ export function MembershipStatusPanel({
               if (permanentCount > 0) {
                 return (
                   <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                    <Infinity className="w-3 h-3" />
+                    <InfinityIcon className="w-3 h-3" />
                     {permanentCount > 1 ? `${permanentCount} ${t("statusPanelPermanent")}` : t("statusPanelPermanent")}
                   </span>
                 );

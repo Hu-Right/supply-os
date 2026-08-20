@@ -657,7 +657,8 @@ export const SUB_COUNTRY_ZH: Record<string, string> = {
 export function cleanCountryRaw(raw: string): string {
   let cleaned = raw.trim();
   // 剥离 "/"、"/，"、"/, " 等前缀（数据源格式错误）
-  cleaned = cleaned.replace(/^[\/]+\s*[，,]?\s*/, "");
+  // no-useless-escape：字符类中 / 无需转义
+  cleaned = cleaned.replace(/^[/]+\s*[，,]?\s*/, "");
   // 剥离前导标点（逗号、分号、冒号、竖线等）
   cleaned = cleaned.replace(/^[,;:|]+\s*/, "");
   return cleaned.trim();

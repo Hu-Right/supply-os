@@ -216,7 +216,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
   // 账号弹窗中保存/清除默认行业后广播 supply-os:industry-prefs-updated：
   // 同页打开弹窗时组件不卸载、userKey 不变，判重锁会拦住重新探测，
-  // 故收到事件后清锁 + 清残留预选 + 回 loading + ��增 tick，让上方探测 effect 按新偏好重跑
+  // 故收到事件后清锁 + 清残留预选 + 回 loading + 递增 tick，让上方探测 effect 按新偏好重跑
   useEffect(() => {
     const onPrefsUpdated = () => {
       prefsInitKeyRef.current = null;

@@ -8,7 +8,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Crown, Zap, Gift, Clock, Infinity } from "lucide-react";
+// Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
+import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -138,7 +139,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
               </span>
             ) : (
               <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                <Infinity className="w-2.5 h-2.5" />
+                <InfinityIcon className="w-2.5 h-2.5" />
               </span>
             )}
           </div>
@@ -154,7 +155,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
             <span className="text-slate-600">{singleCardRemaining} {t("statusPanelTimes")}</span>
             {singleCards.some(e => !e.expires_at) ? (
               <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                <Infinity className="w-2.5 h-2.5" />
+                <InfinityIcon className="w-2.5 h-2.5" />
               </span>
             ) : (
               <span className="flex items-center gap-0.5 text-slate-400 ml-auto">

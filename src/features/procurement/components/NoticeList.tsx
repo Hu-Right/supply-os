@@ -51,7 +51,7 @@ export const NoticeList = memo(function NoticeList({
             key={item.id}
             item={item}
             onClick={openNotice}
-            // [dismiss/収藏功能临时禁用 2026-07-30] ���馈按钮 props 已移除
+            // [dismiss/收藏功能临时禁用 2026-07-30] 反馈按钮 props 已移除
             observe={feedbackEnabled ? observeCard : undefined}
           />
         ))}
