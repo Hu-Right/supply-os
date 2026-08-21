@@ -1,40 +1,40 @@
 /**
- * 讲师价值亮点区（懂规则 / 懂实操 / 懂转化）
- * Highlights Section
+ * 讲师价值亮点（设计图 1:1 三卡片）
+ * Highlights section
  *
  * @module features/training/components/HighlightsSection
  */
-
-import { Scale, Wrench, RefreshCcw } from "lucide-react";
-import { useLocale } from "@/core/i18n";
-import { SectionTitle } from "./SectionTitle";
+import { ScrollText, BadgeCheck, Network } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { useLocale, type LocaleKey } from "@/core/i18n";
+import { SectionTitle } from "./landing-ui";
 
 export function HighlightsSection() {
   const { t } = useLocale();
-  const items = [
-    { icon: Scale, title: t("tlHighlight1Title"), desc: t("tlHighlight1Desc") },
-    { icon: Wrench, title: t("tlHighlight2Title"), desc: t("tlHighlight2Desc") },
-    { icon: RefreshCcw, title: t("tlHighlight3Title"), desc: t("tlHighlight3Desc") },
+  const cards: { icon: LucideIcon; titleKey: LocaleKey; descKey: LocaleKey }[] = [
+    { icon: ScrollText, titleKey: "tlHl1Title", descKey: "tlHl1Desc" },
+    { icon: BadgeCheck, titleKey: "tlHl2Title", descKey: "tlHl2Desc" },
+    { icon: Network, titleKey: "tlHl3Title", descKey: "tlHl3Desc" },
   ];
 
   return (
-    <section className="py-4">
-      <SectionTitle title={t("tlHighlightsTitle")} />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {items.map((item) => (
-          <div key={item.title} className="flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white">
-              <item.icon className="h-6 w-6" />
+    <section className="bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <SectionTitle title={t("tlHlTitle")} />
+        <div className="grid md:grid-cols-3 gap-6">
+          {cards.map(({ icon: Icon, titleKey, descKey }) => (
+            <div key={titleKey} className="rounded-xl border border-slate-200/80 bg-white p-6 shadow-xs flex items-start gap-4">
+              <span className="w-12 h-12 shrink-0 rounded-full bg-[#12A171] flex items-center justify-center">
+                <Icon className="w-6 h-6 text-white" />
+              </span>
+              <div>
+                <h3 className="text-base font-black text-[#0B2447]">{t(titleKey)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(descKey)}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">{item.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-500">{item.desc}</p>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
 }
-
-HighlightsSection.displayName = "HighlightsSection";

@@ -12,7 +12,7 @@
  */
 
 import { useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, MessageSquare, Plus } from "lucide-react";
+import { BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 
@@ -31,7 +31,6 @@ const BANNER_BY_PATH: Record<string, BannerConfig> = {
   "/crm": { titleKey: "crmDashboard", descKey: "tabCrmDesc" },
   "/services": { titleKey: "serviceEcoTitle", descKey: "ecosystemsSummary" },
   "/learning": { titleKey: "learningTitle", descKey: "tabLearningDesc" },
-  "/training": { titleKey: "trainingBannerTitle", descKey: "trainingBannerDesc" },
 };
 
 export function SessionBanner() {
@@ -55,15 +54,6 @@ export function SessionBanner() {
       </div>
 
       <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 shrink-0 w-full md:w-auto">
-        {pathname === "/training" && (
-          <button
-            onClick={() => navigate("/procurement")}
-            className="inline-flex items-center space-x-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
-            <span>{t("backToProcurement")}</span>
-          </button>
-        )}
         {(pathname === "/showroom" || pathname === "/") && (
           <button
             onClick={() => emitAppEvent("supply-os:open-showroom-register")}

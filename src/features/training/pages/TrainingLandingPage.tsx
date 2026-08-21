@@ -1,11 +1,11 @@
 /**
- * 研修班招生落地页主组件
+ * 研修班招生落地页主组件（设计图 1:1 组合）
  * Training Landing Page
  *
  * @module features/training/pages/TrainingLandingPage
  * @description 一次性拉取落地页动态数据（课程/期次/讲师/团队/照片/反馈/FAQ），
- *              分发给各 Section 组件；管理三个弹窗（报名表单/动态支付/企微二维码）。
- *              全部可变内容 DB 驱动，无种子数据；空数据 Section 自动隐藏。
+ *              按设计图顺序组合各 Section；全出血布局突破外层容器；
+ *              管理三个弹窗（报名表单/动态支付/企微二维码）。
  */
 
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ import { useLocale } from "@/core/i18n";
 import { Spinner } from "@/shared/ui";
 import { fetchLandingData, type LandingDataResponse } from "../api";
 import { useTrainingModals } from "../hooks/useTrainingModals";
+import { LandingNav } from "../components/LandingNav";
 import { HeroSection } from "../components/HeroSection";
 import { StatsSection } from "../components/StatsSection";
 import { WhySection } from "../components/WhySection";
@@ -27,7 +28,7 @@ import { TestimonialsSection } from "../components/TestimonialsSection";
 import { FAQSection } from "../components/FAQSection";
 import { CTASection } from "../components/CTASection";
 import { MaterialsSection } from "../components/MaterialsSection";
-import TrainingRegisterForm from "../components/TrainingRegisterForm";
+import { LandingFooter } from "../components/LandingFooter";
 import TrainingPaymentModal from "../components/TrainingPaymentModal";
 import WechatQRModal from "../components/WechatQRModal";
 
@@ -37,10 +38,9 @@ export default function TrainingLandingPage() {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
 
   const {
-    showRegisterForm, openRegisterForm, closeRegisterForm,
     showPaymentModal, closePaymentModal,
     showWechatQR, openWechatQR, closeWechatQR,
-    registrationId, handleRegisterSuccess, handleDirectPay,
+    registrationId, handleDirectPay,
   } = useTrainingModals();
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function TrainingLandingPage() {
         <button
           type="button"
           onClick={() => { setLoadState("loading"); fetchLandingData().then(setData).then(() => setLoadState("ready")).catch(() => setLoadState("error")); }}
-          className="rounded-xl bg-teal-600 px-6 py-2.5 text-sm font-black text-white hover:bg-teal-700"
+          className="rounded-xl bg-[#12A171] px-6 py-2.5 text-sm font-black text-white hover:bg-[#0C8A5F]"
         >
           {t("tlPaymentRetry")}
         </button>
@@ -77,26 +77,42 @@ export default function TrainingLandingPage() {
   const { course, schedules, instructors, gallery, testimonials, faqs } = data;
 
   return (
-    <div className="space-y-12">
-      <HeroSection course={course} onEnroll={openRegisterForm} onConsult={openWechatQR} />
-      <StatsSection />
-      <WhySection />
-      <ValueSection />
-      <SyllabusSection />
-      <ParticipationSection course={course} onReserve={handleDirectPay} onConsult={openWechatQR} />
-      <InstructorsSection featured={instructors.featured} team={instructors.team} />
-      <GallerySection gallery={gallery} />
-      <HighlightsSection />
-      <ScheduleSection schedules={schedules} />
-      <TestimonialsSection testimonials={testimonials} />
-      <FAQSection faqs={faqs} />
-      <CTASection onEnroll={openRegisterForm} onConsult={openWechatQR} />
-      <MaterialsSection />
+    // 藏青导航条 / Hero / CTA 为通版；其余区块受 max-w-7xl 版心约束
+    <div className="bg-white">
+      <LandingNav onEnroll={handleDirectPay} onConsult={openWechatQR} />
+      <HeroSection course={course} onEnroll={handleDirectPay} onConsult={openWechatQR} />
 
-      {/* 三个弹窗 */}
-      {showRegisterForm && (
-        <TrainingRegisterForm onClose={closeRegisterForm} onSubmitSuccess={handleRegisterSuccess} />
-      )}
+      <div className="max-w-7xl mx-auto">
+        <StatsSection />
+        <WhySection />
+        <ValueSection />
+
+        {/* 课程大纲 + 三种参训方式（双栏带） */}
+        <section id="syllabus" className="bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid lg:grid-cols-2 gap-12 items-start">
+            <SyllabusSection />
+            <ParticipationSection course={course} onReserve={handleDirectPay} onConsult={openWechatQR} />
+          </div>
+        </section>
+
+        <InstructorsSection featured={instructors.featured} team={instructors.team} />
+        <GallerySection gallery={gallery} />
+        <HighlightsSection />
+        <ScheduleSection schedules={schedules} course={course} onReserve={handleDirectPay} />
+        <TestimonialsSection testimonials={testimonials} />
+        <FAQSection faqs={faqs} />
+      </div>
+
+      <CTASection onEnroll={handleDirectPay} onConsult={openWechatQR} />
+
+      <div className="max-w-7xl mx-auto">
+        <MaterialsSection />
+      </div>
+
+      {/* 藏青页脚通版 */}
+      <LandingFooter />
+
+      {/* 弹窗：动态支付（红框） + 企微二维码（黄框） */}
       {showPaymentModal && (
         <TrainingPaymentModal
           onClose={closePaymentModal}

@@ -7,6 +7,7 @@
  */
 
 import { lazy, Suspense } from "react";
+import { useLocation } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import AppRoutes from "@/routes";
@@ -32,6 +33,9 @@ export default function App() {
   const { tabs, activeTab, switchMainTab } = useNavTabs();
   useAppEvents({ onRequireLogin, onConsult, onPay });
   useVersionCheck();
+  // 研修班落地页：main 全宽，由页面内部决定通版/版心
+  // （藏青导航条/Hero/CTA 通版，其余区块受 max-w-7xl 版心约束）
+  const isTrainingPage = useLocation().pathname === "/training";
 
   const handlePaymentSuccess = () => {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
@@ -47,7 +51,7 @@ export default function App() {
       <AppHeader tabs={tabs} activeTab={activeTab}
         mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
         onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className={isTrainingPage ? "flex-1 w-full" : "flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6"}>
         <SessionBanner />
         <AppRoutes />
       </main>

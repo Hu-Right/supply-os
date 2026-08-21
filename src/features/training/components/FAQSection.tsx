@@ -1,55 +1,42 @@
 /**
- * 常见问题区（折叠面板，DB 驱动）
- * FAQ Section
+ * 常见问题（设计图 1:1 手风琴）
+ * FAQ section
  *
  * @module features/training/components/FAQSection
- * @description 无数据时不渲染。
  */
-
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { SectionTitle } from "./SectionTitle";
+import { SectionTitle } from "./landing-ui";
 import type { LandingFaq } from "../api";
 
-export interface FAQSectionProps {
-  faqs: LandingFaq[];
-}
-
-export function FAQSection({ faqs }: FAQSectionProps) {
+export function FAQSection({ faqs }: { faqs: LandingFaq[] }) {
   const { t, locale } = useLocale();
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [open, setOpen] = useState<number | null>(0);
   if (faqs.length === 0) return null;
 
   return (
-    <section className="py-4">
-      <SectionTitle title={t("tlFAQTitle")} />
-      <div className="space-y-3">
-        {faqs.map((f) => {
-          const open = openId === f.id;
-          return (
-            <div key={f.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+    <section id="faq" className="bg-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <SectionTitle title={t("tlFaqTitle")} />
+        <div className="divide-y divide-slate-200 border-y border-slate-200">
+          {faqs.map((f, i) => (
+            <div key={f.id}>
               <button
                 type="button"
-                onClick={() => setOpenId(open ? null : f.id)}
-                className="flex w-full items-center justify-between p-4 text-left"
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between gap-4 py-5 text-left cursor-pointer"
               >
-                <span className="text-sm font-black text-slate-900">
-                  {pickLocale(locale, f.question_zh, f.question_en ?? f.question_zh)}
-                </span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+                <span className="text-sm font-black text-[#0B2447]">{pickLocale(locale, f.question_zh, f.question_en)}</span>
+                <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${open === i ? "rotate-180" : ""}`} />
               </button>
-              {open && (
-                <div className="border-t border-slate-100 p-4 text-sm leading-relaxed text-slate-600">
-                  {pickLocale(locale, f.answer_zh, f.answer_en ?? f.answer_zh)}
-                </div>
+              {open === i && (
+                <p className="pb-5 text-sm leading-relaxed text-slate-600">{pickLocale(locale, f.answer_zh, f.answer_en)}</p>
               )}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </section>
   );
 }
-
-FAQSection.displayName = "FAQSection";

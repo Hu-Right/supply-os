@@ -1,14 +1,16 @@
 /**
- * 讲师阵容区（核心讲师大卡片 + 团队小头像网格，DB 驱动）
- * Instructors Section
+ * 课程讲师阵容（设计图 2 的 1:1 还原）
+ * Instructors section v2
  *
  * @module features/training/components/InstructorsSection
- * @description 无数据时整个 Section 不渲染。
+ * @description 4 张核心讲师大卡（角色徽章 + 圆环头像 + 姓名 + 头衔 + 简介）
+ *              + 「企业服务顾问 / 拆标老师 / 实战陪跑团队」三角色说明
+ *              + 11 人团队头像网格 + 深藏青价值横幅。
+ *              头像为空时渲染默认剪影占位。
  */
-
-import { UserRound, SearchCheck, Users } from "lucide-react";
-import { useLocale, pickLocale } from "@/core/i18n";
-import { SectionTitle } from "./SectionTitle";
+import { UserRound, Trophy, GraduationCap, BadgeCheck, HeartHandshake, Award } from "lucide-react";
+import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
+import { SectionTitle } from "./landing-ui";
 import type { LandingInstructor, LandingTeamMember } from "../api";
 
 export interface InstructorsSectionProps {
@@ -16,88 +18,121 @@ export interface InstructorsSectionProps {
   team: LandingTeamMember[];
 }
 
+/** 圆形头像（空路径 → 剪影占位） */
+function Avatar({ src, alt, className }: { src: string; alt: string; className: string }) {
+  if (!src) {
+    return (
+      <span className={`${className} bg-[#0B2447] flex items-center justify-center`}>
+        <UserRound className="w-1/2 h-1/2 text-white/80" />
+      </span>
+    );
+  }
+  return <img src={src} alt={alt} className={`${className} object-cover object-top bg-[#0B2447]`} loading="lazy" />;
+}
+
+const ROLE_COLS: { icon: typeof Award; titleKey: LocaleKey; descKey: LocaleKey }[] = [
+  { icon: Award, titleKey: "tlInsRole1", descKey: "tlInsRole1Desc" },
+  { icon: GraduationCap, titleKey: "tlInsRole2", descKey: "tlInsRole2Desc" },
+  { icon: HeartHandshake, titleKey: "tlInsRole3", descKey: "tlInsRole3Desc" },
+];
+
+const BANNER_VALUES: { icon: typeof Award; key: LocaleKey }[] = [
+  { icon: UserRound, key: "tlInsV1" },
+  { icon: BadgeCheck, key: "tlInsV2" },
+  { icon: HeartHandshake, key: "tlInsV3" },
+  { icon: Trophy, key: "tlInsV4" },
+];
+
 export function InstructorsSection({ featured, team }: InstructorsSectionProps) {
   const { t, locale } = useLocale();
   if (featured.length === 0 && team.length === 0) return null;
 
-  const teamRoles = [
-    { icon: UserRound, title: t("tlTeamRoleConsultant"), desc: t("tlTeamRoleConsultantDesc") },
-    { icon: SearchCheck, title: t("tlTeamRoleAnalyst"), desc: t("tlTeamRoleAnalystDesc") },
-    { icon: Users, title: t("tlTeamRoleCoach"), desc: t("tlTeamRoleCoachDesc") },
-  ];
-
   return (
-    <section className="py-4">
-      <SectionTitle title={t("tlInstructorsTitle")} subtitle={t("tlInstructorsSubtitle")} />
+    <section id="instructors" className="relative overflow-hidden bg-[#F4F7FA]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <SectionTitle title={t("tlInsTitle")} sub={t("tlInsSub")} />
 
-      {/* 核心讲师大卡片 */}
-      {featured.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((ins) => (
-            <div key={ins.id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-xs">
-              <div className="mb-3 flex flex-wrap justify-center gap-1.5">
-                {ins.roles.map((role) => (
-                  <span key={role} className="rounded-full bg-teal-600 px-2.5 py-0.5 text-[10px] font-bold text-white">
-                    {role}
-                  </span>
-                ))}
-              </div>
-              <div className="mx-auto mb-3 h-28 w-28 overflow-hidden rounded-full border-4 border-teal-600 bg-slate-100 shadow-md">
-                <img src={ins.avatar_path} alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)} className="h-full w-full object-cover" loading="lazy" />
-              </div>
-              <h3 className="text-lg font-black text-slate-900">{pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}</h3>
-              <p className="mt-1 text-xs font-bold text-teal-700">{pickLocale(locale, ins.title_zh, ins.title_en ?? ins.title_zh)}</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">{pickLocale(locale, ins.bio_zh, ins.bio_en ?? ins.bio_zh)}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* 团队区 */}
-      {team.length > 0 && (
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <SectionTitle title={t("tlTeamSectionTitle")} />
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {teamRoles.map((r) => (
-              <div key={r.title} className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-600 text-white">
-                  <r.icon className="h-5 w-5" />
+        {/* 4 张核心讲师大卡 */}
+        {featured.length > 0 && (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {featured.map((ins) => (
+              <div key={ins.id} className="rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-xs">
+                <span className="inline-block rounded-full bg-[#0E7C6B] px-4 py-1.5 text-xs font-bold text-white">
+                  {ins.roles.join(" ｜ ")}
+                </span>
+                <div className="mt-6 flex justify-center">
+                  <Avatar
+                    src={ins.avatar_path}
+                    alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
+                    className="w-36 h-36 rounded-full border-4 border-[#0E7C6B]/60"
+                  />
                 </div>
+                <h3 className="mt-6 text-xl font-black text-[#0B2447]">
+                  {pickLocale(locale, ins.name_zh, ins.name_en)}
+                </h3>
+                <p className="mt-3 text-sm font-bold leading-relaxed text-[#12A171]">
+                  {pickLocale(locale, ins.title_zh, ins.title_en)}
+                </p>
+                <p className="mt-4 text-xs leading-relaxed text-slate-600 text-left">
+                  {pickLocale(locale, ins.bio_zh, ins.bio_en)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 三角色 + 团队头像 + 横幅 */}
+        <div className="mt-10 rounded-2xl border border-slate-200/80 bg-[#F8FAFC] p-8 md:p-10">
+          <SectionTitle title={t("tlInsRolesTitle")} />
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {ROLE_COLS.map(({ icon: Icon, titleKey, descKey }) => (
+              <div key={titleKey} className="flex items-start gap-4">
+                <span className="w-12 h-12 shrink-0 rounded-full bg-[#0E7C6B] flex items-center justify-center">
+                  <Icon className="w-6 h-6 text-white" />
+                </span>
                 <div>
-                  <h4 className="text-sm font-black text-teal-700">{r.title}</h4>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-500">{r.desc}</p>
+                  <h4 className="text-sm font-black text-[#0B2447]">{t(titleKey)}</h4>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-600">{t(descKey)}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-6">
-            {team.map((m) => (
-              <div key={m.id} className="flex w-20 flex-col items-center gap-2">
-                <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-teal-500 bg-slate-100 shadow-sm">
-                  <img src={m.avatar_path} alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)} className="h-full w-full object-cover" loading="lazy" />
+          {team.length > 0 && (
+            <div className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-8">
+              {team.map((m) => (
+                <div key={m.id} className="flex flex-col items-center w-20">
+                  <Avatar
+                    src={m.avatar_path}
+                    alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
+                    className="w-20 h-20 rounded-full border-2 border-[#0E7C6B]/50"
+                  />
+                  <span className="mt-3 text-sm font-bold text-[#0B2447]">
+                    {pickLocale(locale, m.name_zh, m.name_en)}
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-slate-700">{pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* 底部团队标语条 */}
-          <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl bg-slate-900 p-6 text-white md:flex-row">
-            <p className="flex-1 text-center text-sm leading-relaxed md:text-left">{t("tlTeamFooterDesc")}</p>
-            <div className="flex items-center gap-6">
-              {[t("tlTeamValue1"), t("tlTeamValue2"), t("tlTeamValue3"), t("tlTeamValue4")].map((v) => (
-                <div key={v} className="flex flex-col items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
-                  <span className="text-xs font-bold text-slate-300">{v}</span>
+          {/* 深藏青价值横幅 */}
+          <div className="mt-10 rounded-xl bg-[#0B2447] px-6 py-5 flex flex-col lg:flex-row items-center gap-6">
+            <div className="flex items-center gap-4 flex-1">
+              <Trophy className="w-8 h-8 shrink-0 text-white" />
+              <p className="text-sm leading-relaxed text-slate-200">{t("tlInsBanner")}</p>
+            </div>
+            <div className="flex items-center gap-8">
+              {BANNER_VALUES.map(({ icon: Icon, key }) => (
+                <div key={key} className="flex flex-col items-center gap-2">
+                  <Icon className="w-6 h-6 text-white" />
+                  <span className="text-xs font-bold text-slate-200">{t(key)}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
-      )}
+      </div>
     </section>
   );
 }
-
-InstructorsSection.displayName = "InstructorsSection";

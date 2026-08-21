@@ -1,55 +1,41 @@
 /**
- * 课程大纲区（三模块时间线）
- * Syllabus Section
+ * 课程大纲（设计图 1:1 左侧三模块时间线）
+ * Syllabus section
  *
  * @module features/training/components/SyllabusSection
+ * @description 与 ParticipationSection 同处一个双栏带；编号圆点 + 竖向连接线。
  */
+import { useLocale, type LocaleKey } from "@/core/i18n";
 
-import { CheckCircle2 } from "lucide-react";
-import { useLocale } from "@/core/i18n";
-import { SectionTitle } from "./SectionTitle";
+const MODULES: { titleKey: LocaleKey; itemKeys: LocaleKey[] }[] = [
+  { titleKey: "tlSylM1", itemKeys: ["tlSylM1i1", "tlSylM1i2", "tlSylM1i3", "tlSylM1i4"] },
+  { titleKey: "tlSylM2", itemKeys: ["tlSylM2i1", "tlSylM2i2", "tlSylM2i3", "tlSylM2i4"] },
+  { titleKey: "tlSylM3", itemKeys: ["tlSylM3i1", "tlSylM3i2", "tlSylM3i3", "tlSylM3i4"] },
+];
 
 export function SyllabusSection() {
   const { t } = useLocale();
-  const modules = [
-    {
-      no: 1,
-      title: t("tlModule1Title"),
-      items: [t("tlModule1Item1"), t("tlModule1Item2"), t("tlModule1Item3"), t("tlModule1Item4")],
-    },
-    {
-      no: 2,
-      title: t("tlModule2Title"),
-      items: [t("tlModule2Item1"), t("tlModule2Item2"), t("tlModule2Item3"), t("tlModule2Item4")],
-    },
-    {
-      no: 3,
-      title: t("tlModule3Title"),
-      items: [t("tlModule3Item1"), t("tlModule3Item2"), t("tlModule3Item3"), t("tlModule3Item4")],
-    },
-  ];
 
   return (
-    <section className="py-4">
-      <SectionTitle title={t("tlSyllabusTitle")} />
-      <div className="relative space-y-6">
-        {/* 时间线竖线 */}
-        <div className="absolute top-2 bottom-2 left-5 hidden w-px bg-teal-200 md:block" />
-        {modules.map((m) => (
-          <div key={m.no} className="relative md:pl-14">
-            <div className="absolute top-0 left-0 hidden h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-base font-black text-white md:flex">
-              {m.no}
+    <div>
+      <h3 className="text-lg md:text-xl font-black text-[#0B2447]">{t("tlSylTitle")}</h3>
+      <div className="mt-6 space-y-6">
+        {MODULES.map((mod, idx) => (
+          <div key={mod.titleKey} className="relative flex gap-4">
+            {/* 编号圆点 + 连接线 */}
+            <div className="flex flex-col items-center">
+              <span className="w-8 h-8 shrink-0 rounded-full bg-[#12A171] text-white text-sm font-black flex items-center justify-center">
+                {idx + 1}
+              </span>
+              {idx < MODULES.length - 1 && <span className="w-px flex-1 bg-teal-600/40 mt-2" />}
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-              <h3 className="mb-4 flex items-center gap-2 text-base font-black text-slate-900">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-600 text-sm font-black text-white md:hidden">{m.no}</span>
-                {m.title}
-              </h3>
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {m.items.map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal-500" />
-                    {item}
+            <div className="flex-1 rounded-lg border border-slate-200/80 bg-[#F8FAFC] p-5">
+              <h4 className="text-sm font-black text-[#0B2447]">{t(mod.titleKey)}</h4>
+              <ul className="mt-3 space-y-2">
+                {mod.itemKeys.map((k) => (
+                  <li key={k} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="mt-1 w-1.5 h-1.5 shrink-0 rounded-full bg-[#12A171]" />
+                    {t(k)}
                   </li>
                 ))}
               </ul>
@@ -57,8 +43,6 @@ export function SyllabusSection() {
           </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
-
-SyllabusSection.displayName = "SyllabusSection";

@@ -1,12 +1,11 @@
 /**
- * 落地页 Hero 区（深蓝背景 + 标题 + 双 CTA 按钮）
- * Landing Page Hero Section
+ * 首屏 Hero（设计图 1:1 深藏青 + 点阵地球）
+ * Hero section
  *
  * @module features/training/components/HeroSection
- * @description 标题/描述从 DB 课程数据读取（无课程时显示默认文案），
- *              双 CTA 按钮触发报名与咨询弹窗。
+ * @description 标题/副标题/描述/四个信任标签/双按钮/适合人群行，
+ *              右侧点阵地球装饰。课程名称取自 DB。
  */
-
 import { CalendarDays, MapPin, FileText, Target, Users } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import type { LandingCourse } from "../api";
@@ -17,38 +16,51 @@ export interface HeroSectionProps {
   onConsult: () => void;
 }
 
+/** 点阵地球装饰 Dotted globe decoration */
+function GlobeDots() {
+  return (
+    <svg viewBox="0 0 200 200" className="absolute -right-10 top-1/2 -translate-y-1/2 w-[420px] h-[420px] opacity-70 hidden lg:block" aria-hidden>
+      <defs>
+        <pattern id="tl-dots" width="7" height="7" patternUnits="userSpaceOnUse">
+          <circle cx="1.6" cy="1.6" r="1.1" fill="#4C8DFF" opacity="0.55" />
+        </pattern>
+      </defs>
+      <circle cx="100" cy="100" r="92" fill="url(#tl-dots)" />
+      <circle cx="100" cy="100" r="92" fill="none" stroke="#4C8DFF" strokeOpacity="0.4" />
+      <ellipse cx="100" cy="100" rx="92" ry="36" fill="none" stroke="#4C8DFF" strokeOpacity="0.3" />
+      <ellipse cx="100" cy="100" rx="36" ry="92" fill="none" stroke="#4C8DFF" strokeOpacity="0.3" />
+    </svg>
+  );
+}
+
 export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
   const { t, locale } = useLocale();
-  const title = course ? pickLocale(locale, course.name_zh, course.name_en) : t("tlHeroTitle");
-  const desc = course ? pickLocale(locale, course.description_zh || "", course.description_en || "") : t("tlHeroDesc");
-
-  const tags = [
-    { icon: CalendarDays, label: t("tlHeroTag1") },
-    { icon: MapPin, label: t("tlHeroTag2") },
-    { icon: FileText, label: t("tlHeroTag3") },
-    { icon: Target, label: t("tlHeroTag4") },
-  ];
+  const chips = [
+    { icon: CalendarDays, key: "tlHeroChip1" },
+    { icon: MapPin, key: "tlHeroChip2" },
+    { icon: FileText, key: "tlHeroChip3" },
+    { icon: Target, key: "tlHeroChip4" },
+  ] as const;
 
   return (
-    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 text-white md:p-14">
-      {/* 装饰光斑 */}
-      <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-teal-500/20 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+    <section className="relative overflow-hidden bg-[#0B2447] text-white">
+      <GlobeDots />
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+        <h1 className="text-3xl md:text-5xl font-black tracking-wide">
+          {course ? pickLocale(locale, course.name_zh, course.name_en) : t("tlFootBrandCourse")}
+        </h1>
+        <p className="mt-5 text-lg md:text-2xl font-bold text-teal-300 tracking-wider">{t("tlHeroSubtitle")}</p>
+        <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-slate-300">
+          {course?.description_zh || course?.description_en
+            ? pickLocale(locale, course.description_zh || "", course.description_en)
+            : t("tlHeroDesc")}
+        </p>
 
-      <div className="relative">
-        <span className="inline-flex items-center rounded-full border border-teal-400/40 bg-teal-400/10 px-3 py-1 text-xs font-bold text-teal-300">
-          {t("tlHeroBadge")}
-        </span>
-
-        <h1 className="mt-4 text-3xl font-black leading-tight md:text-5xl">{title}</h1>
-        <p className="mt-3 text-lg font-bold text-teal-300 md:text-xl">{t("tlHeroSubtitle")}</p>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-300">{desc || t("tlHeroDesc")}</p>
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          {tags.map((tag) => (
-            <span key={tag.label} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">
-              <tag.icon className="h-3.5 w-3.5 text-teal-400" />
-              {tag.label}
+        <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+          {chips.map(({ icon: Icon, key }) => (
+            <span key={key} className="inline-flex items-center gap-2 text-sm text-slate-200">
+              <Icon className="w-4 h-4 text-teal-400" />
+              {t(key)}
             </span>
           ))}
         </div>
@@ -57,26 +69,25 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="rounded-xl bg-teal-500 px-8 py-3.5 text-sm font-black text-slate-900 shadow-lg shadow-teal-500/30 transition-all hover:bg-teal-400"
+            className="rounded-lg bg-[#12A171] px-8 py-3 text-base font-black text-white shadow-lg shadow-emerald-900/30 hover:bg-[#0C8A5F] cursor-pointer"
           >
-            {t("tlBtnEnroll")}
+            {t("tlHeroBtnEnroll")}
           </button>
           <button
             type="button"
             onClick={onConsult}
-            className="rounded-xl border border-white/30 bg-white/5 px-8 py-3.5 text-sm font-black text-white transition-all hover:bg-white/10"
+            className="rounded-lg border border-slate-400/70 px-8 py-3 text-base font-black text-slate-100 hover:bg-white/10 cursor-pointer"
           >
-            {t("tlBtnConsult")}
+            {t("tlHeroBtnConsult")}
           </button>
         </div>
 
-        <p className="mt-6 flex items-center gap-2 text-xs text-slate-400">
-          <Users className="h-4 w-4 text-teal-400" />
-          {t("tlHeroSuitable")}
+        <p className="mt-8 flex flex-wrap items-center gap-2 text-xs md:text-sm text-slate-300">
+          <Users className="w-4 h-4 text-teal-400" />
+          <span className="font-bold text-slate-200">{t("tlHeroAudience")}</span>
+          {t("tlHeroAudienceList")}
         </p>
       </div>
     </section>
   );
 }
-
-HeroSection.displayName = "HeroSection";

@@ -1,102 +1,68 @@
 /**
- * 往期课堂现场区（定时自动轮播 + 数量角标，DB 驱动）
- * Gallery Section (timed auto-carousel)
+ * 往期课堂现场（设计图 1:1 四卡片；多图分类保留 3 秒定时轮播）
+ * Gallery section v2
  *
  * @module features/training/components/GallerySection
- * @description 桌面端 4 列 flex-wrap 网格，每张卡片定时自动轮播该分类下的照片；
- *              右上角显示照片数量角标；移动端横向滚动。无数据时不渲染。
+ * @description 分类来自 DB；无图片时显示占位视觉。
  */
-
 import { useEffect, useState } from "react";
+import { Presentation } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { SectionTitle } from "./SectionTitle";
+import { SectionTitle } from "./landing-ui";
 import type { LandingGalleryCategory } from "../api";
 
-const ROTATE_INTERVAL = 3000; // 定时轮播间隔 3 秒
+const ROTATE_INTERVAL = 3000;
 
-export interface GallerySectionProps {
-  gallery: LandingGalleryCategory[];
-}
-
-/** 单个分类卡片：定时自动轮播照片 */
-function GalleryCard({ category }: { category: LandingGalleryCategory }) {
+function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   const { locale } = useLocale();
-  const images = category.images;
-  const [index, setIndex] = useState(0);
+  const [idx, setIdx] = useState(0);
+  const images = cat.images;
 
-  // 定时轮播：每 3 秒自动切换，循环播放
+  // 多于 1 张时定时轮播（沿用既定交互）
   useEffect(() => {
     if (images.length <= 1) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % images.length);
-    }, ROTATE_INTERVAL);
+    const timer = setInterval(() => setIdx((i) => (i + 1) % images.length), ROTATE_INTERVAL);
     return () => clearInterval(timer);
   }, [images.length]);
 
-  const title = pickLocale(locale, category.name_zh, category.name_en ?? category.name_zh);
-  const desc = pickLocale(locale, category.description_zh || "", category.description_en || "");
+  const current = images[idx];
 
   return (
-    <div className="group relative w-[calc(50%-16px)] min-w-[260px] max-w-[360px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xs md:w-[calc(25%-20px)] md:max-w-[320px]">
-      <div className="relative aspect-video overflow-hidden bg-slate-100">
-        <img
-          src={images[index]?.image_path}
-          alt={title}
-          loading="lazy"
-          className="h-full w-full object-cover transition-opacity duration-300"
-        />
-        {/* 数量角标 */}
-        {images.length > 1 && (
-          <span className="absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-white">
-            {images.length} 张
-          </span>
-        )}
-        {/* 圆点指示器 */}
-        {images.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-            {images.map((_, i) => (
-              <span key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i === index ? "bg-white" : "bg-white/50"}`} />
-            ))}
+    <div className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
+      <div className="relative h-40 bg-[#0B2447]">
+        {current ? (
+          <img src={current.image_path} alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)} className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0B2447] to-[#12365F]">
+            <Presentation className="w-10 h-10 text-white/40" />
           </div>
         )}
+        {images.length > 1 && (
+          <span className="absolute right-2 bottom-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+            {idx + 1} / {images.length}
+          </span>
+        )}
       </div>
-      <div className="p-3 text-center">
-        <h4 className="text-sm font-black text-slate-900">{title}</h4>
-        {desc && <p className="mt-1 text-xs leading-snug text-slate-500">{desc}</p>}
+      <div className="p-4 text-center">
+        <h3 className="text-sm font-black text-[#0B2447]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
+        <p className="mt-1.5 text-xs text-slate-500">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
       </div>
     </div>
   );
 }
 
-export function GallerySection({ gallery }: GallerySectionProps) {
+export function GallerySection({ gallery }: { gallery: LandingGalleryCategory[] }) {
   const { t } = useLocale();
-  const withImages = gallery.filter((g) => g.images.length > 0);
-  if (withImages.length === 0) return null;
+  if (gallery.length === 0) return null;
 
   return (
-    <section className="py-4">
-      <SectionTitle title={t("tlGalleryTitle")} />
-
-      {/* 桌面/平板：flex-wrap 网格（定时轮播） */}
-      <div className="hidden sm:flex sm:flex-wrap sm:justify-center gap-4 md:gap-5">
-        {withImages.map((cat) => (
-          <GalleryCard key={cat.id} category={cat} />
-        ))}
-      </div>
-
-      {/* 移动端：横向滚动 */}
-      <div className="relative sm:hidden">
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-slate-50 to-transparent" />
-        <div className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2">
-          {withImages.map((cat) => (
-            <div key={cat.id} className="w-[280px] shrink-0 snap-center">
-              <GalleryCard category={cat} />
-            </div>
-          ))}
+    <section className="bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <SectionTitle title={t("tlGalTitle")} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {gallery.map((cat) => <GalleryCard key={cat.id} cat={cat} />)}
         </div>
       </div>
     </section>
   );
 }
-
-GallerySection.displayName = "GallerySection";
