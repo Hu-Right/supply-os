@@ -8,7 +8,9 @@
  */
 
 export { default as TrainingPage } from "./pages/TrainingPage";
+export { default as TrainingLandingPage } from "./pages/TrainingLandingPage";
 export { useTrainingForm } from "./hooks/useTrainingForm";
+export { useTrainingModals } from "./hooks/useTrainingModals";
 
 // API 类型（供外部使用）
 export type { DictionaryItem, TrainingRegisterForm } from "./api";

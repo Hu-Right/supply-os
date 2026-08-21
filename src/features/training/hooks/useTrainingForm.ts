@@ -58,6 +58,8 @@ export function useTrainingForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // 报名成功后后端返回的自增 id，供落地页联动支付弹窗
+  const [registrationId, setRegistrationId] = useState<number | null>(null);
 
   const [certifications, setCertifications] = useState<DictionaryItem[]>([]);
   const [level1Industries, setLevel1Industries] = useState<DictionaryItem[]>([]);
@@ -151,7 +153,8 @@ export function useTrainingForm() {
 
       setLoading(true);
       try {
-        await submitTrainingRegister(submitData);
+        const result = await submitTrainingRegister(submitData);
+        setRegistrationId(result.id ?? null);
         setSubmitted(true);
         resetForm();
         setTimeout(() => setSubmitted(false), 4000);
@@ -170,6 +173,7 @@ export function useTrainingForm() {
     submitted,
     loading,
     error,
+    registrationId,
     certifications,
     level1Industries,
     level2Industries,

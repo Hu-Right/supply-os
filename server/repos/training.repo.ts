@@ -9,6 +9,126 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
+// ── 落地页行类型（034 迁移） ────────────────────────────────────────────────
+
+export interface CourseRow extends RowDataPacket {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  description_zh: string | null;
+  description_en: string | null;
+  unit_price: number | string;
+  currency: string;
+  includes: string | null;
+  status: string;
+  sort_order: number;
+}
+
+export interface ScheduleRow extends RowDataPacket {
+  id: number;
+  course_id: number;
+  period_number: number;
+  start_date: string | Date;
+  city: string;
+  format: string;
+  status: string;
+  capacity: number | null;
+  enrolled_count: number;
+}
+
+export interface TrainingOrderRow extends RowDataPacket {
+  id: number;
+  order_no: string;
+  course_id: number;
+  schedule_id: number | null;
+  registration_id: number | null;
+  participant_count: number;
+  unit_price: number | string;
+  total_amount: number | string;
+  currency: string;
+  provider: string;
+  status: string;
+  qr_code: string | null;
+  pay_url: string | null;
+  provider_trade_no: string | null;
+  paid_at: Date | null;
+  expires_at: Date;
+}
+
+export interface InstructorRow extends RowDataPacket {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  roles: string;
+  title_zh: string;
+  title_en: string | null;
+  bio_zh: string;
+  bio_en: string | null;
+  avatar_path: string;
+  is_featured: number;
+  sort_order: number;
+}
+
+export interface TeamMemberRow extends RowDataPacket {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  avatar_path: string;
+  sort_order: number;
+}
+
+export interface GalleryCategoryRow extends RowDataPacket {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  description_zh: string | null;
+  description_en: string | null;
+  cover_image: string | null;
+  sort_order: number;
+}
+
+export interface GalleryImageRow extends RowDataPacket {
+  id: number;
+  category_id: number;
+  image_path: string;
+  sort_order: number;
+}
+
+export interface TestimonialRow extends RowDataPacket {
+  id: number;
+  quote_zh: string;
+  quote_en: string | null;
+  author_name: string;
+  author_title: string | null;
+  sort_order: number;
+}
+
+export interface FaqRow extends RowDataPacket {
+  id: number;
+  question_zh: string;
+  question_en: string | null;
+  answer_zh: string;
+  answer_en: string | null;
+  sort_order: number;
+}
+
+export interface CreateTrainingOrderData {
+  orderNo: string;
+  courseId: number;
+  scheduleId: number | null;
+  registrationId: number | null;
+  participantCount: number;
+  unitPrice: number;
+  totalAmount: number;
+  currency: string;
+  provider: string;
+  qrCode: string | null;
+  payUrl: string | null;
+  expiresAt: Date;
+  contactName: string | null;
+  telephone: string | null;
+}
+
 export class TrainingRepo {
   constructor(private pool: Pool) {}
 
@@ -68,6 +188,131 @@ export class TrainingRepo {
       result[row.material_id] = Number(row.download_count || 0);
     }
     return result;
+  }
+
+  // ── 落地页内容（034 迁移，全部 DB 驱动，无种子数据） ──
+
+  /** 查询当前激活课程（按 sort_order 取第一条） */
+  async getActiveCourse(): Promise<CourseRow | null> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_courses WHERE status = 'active' ORDER BY sort_order ASC, id ASC LIMIT 1",
+    );
+    return (rows as CourseRow[])[0] || null;
+  }
+
+  /** 查询课程期次列表 */
+  async listSchedules(courseId: number): Promise<ScheduleRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_schedules WHERE course_id = ? ORDER BY start_date ASC, period_number ASC",
+      [courseId],
+    );
+    return rows as ScheduleRow[];
+  }
+
+  /** 支付成功后递增期次报名人数 */
+  async incrementEnrolledCount(scheduleId: number, delta = 1): Promise<void> {
+    await this.pool.execute(
+      "UPDATE training_schedules SET enrolled_count = enrolled_count + ? WHERE id = ?",
+      [delta, scheduleId],
+    );
+  }
+
+  /** 创建培训支付订单，返回自增 id */
+  async createOrder(data: CreateTrainingOrderData): Promise<number> {
+    const [result] = await this.pool.execute(
+      `INSERT INTO training_orders
+        (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
+         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+      [
+        data.orderNo, data.courseId, data.scheduleId, data.registrationId,
+        data.participantCount, data.unitPrice, data.totalAmount, data.currency,
+        data.provider, data.qrCode, data.payUrl, data.expiresAt,
+        data.contactName, data.telephone,
+      ],
+    );
+    return Number((result as RowDataPacket).insertId);
+  }
+
+  /** 按订单号查询培训订单 */
+  async findOrderByNo(orderNo: string): Promise<TrainingOrderRow | null> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_orders WHERE order_no = ? LIMIT 1",
+      [orderNo],
+    );
+    return (rows as TrainingOrderRow[])[0] || null;
+  }
+
+  /** 更新培训订单状态（支付成功时记录 trade_no 与 paid_at） */
+  async updateOrderStatus(orderNo: string, status: string, providerTradeNo?: string | null): Promise<void> {
+    if (status === "paid") {
+      await this.pool.execute(
+        "UPDATE training_orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ?",
+        [providerTradeNo || null, orderNo],
+      );
+    } else {
+      await this.pool.execute(
+        "UPDATE training_orders SET status = ? WHERE order_no = ?",
+        [status, orderNo],
+      );
+    }
+  }
+
+  /** 更新报名记录的支付状态与关联订单 */
+  async updateRegistrationPayment(registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      [paymentStatus, orderId, registrationId],
+    );
+  }
+
+  /** 查询核心讲师（featured 大卡片） */
+  async listFeaturedInstructors(): Promise<InstructorRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_instructors WHERE status = 'active' AND is_featured = 1 ORDER BY sort_order ASC, id ASC",
+    );
+    return rows as InstructorRow[];
+  }
+
+  /** 查询团队成员（小头像网格） */
+  async listTeamMembers(): Promise<TeamMemberRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_team_members WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
+    );
+    return rows as TeamMemberRow[];
+  }
+
+  /** 查询课堂照片分类 */
+  async listGalleryCategories(): Promise<GalleryCategoryRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_gallery_categories WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
+    );
+    return rows as GalleryCategoryRow[];
+  }
+
+  /** 查询某分类下的课堂照片 */
+  async listGalleryImagesByCategory(categoryId: number): Promise<GalleryImageRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_gallery_images WHERE category_id = ? ORDER BY sort_order ASC, id ASC",
+      [categoryId],
+    );
+    return rows as GalleryImageRow[];
+  }
+
+  /** 查询学员反馈 */
+  async listTestimonials(): Promise<TestimonialRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_testimonials WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
+    );
+    return rows as TestimonialRow[];
+  }
+
+  /** 查询常见问题 */
+  async listFaqs(): Promise<FaqRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_faqs WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
+    );
+    return rows as FaqRow[];
   }
 }
 

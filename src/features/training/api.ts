@@ -9,6 +9,112 @@
 
 import { api } from "@/core/http";
 
+// ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐） ──
+
+export interface LandingCourse {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  description_zh: string | null;
+  description_en: string | null;
+  unit_price: number;
+  currency: string;
+  includes: string[];
+}
+
+export interface LandingSchedule {
+  id: number;
+  period_number: number;
+  start_date: string | Date;
+  city: string;
+  format: string;
+  status: string;
+  capacity: number | null;
+  enrolled_count: number;
+}
+
+export interface LandingInstructor {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  roles: string[];
+  title_zh: string;
+  title_en: string | null;
+  bio_zh: string;
+  bio_en: string | null;
+  avatar_path: string;
+}
+
+export interface LandingTeamMember {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  avatar_path: string;
+}
+
+export interface LandingGalleryCategory {
+  id: number;
+  name_zh: string;
+  name_en: string | null;
+  description_zh: string | null;
+  description_en: string | null;
+  images: { image_path: string }[];
+}
+
+export interface LandingTestimonial {
+  id: number;
+  quote_zh: string;
+  quote_en: string | null;
+  author_name: string;
+  author_title: string | null;
+}
+
+export interface LandingFaq {
+  id: number;
+  question_zh: string;
+  question_en: string | null;
+  answer_zh: string;
+  answer_en: string | null;
+}
+
+export interface LandingDataResponse {
+  course: LandingCourse | null;
+  schedules: LandingSchedule[];
+  instructors: { featured: LandingInstructor[]; team: LandingTeamMember[] };
+  gallery: LandingGalleryCategory[];
+  testimonials: LandingTestimonial[];
+  faqs: LandingFaq[];
+}
+
+export interface CreateTrainingOrderRequest {
+  course_id: number;
+  schedule_id?: number | null;
+  registration_id?: number | null;
+  participant_count?: number;
+  provider: "alipay" | "wechat";
+  contact_name?: string;
+  telephone?: string;
+}
+
+export interface TrainingOrderResponse {
+  success: boolean;
+  order_no: string;
+  provider: string;
+  amount: number;
+  currency: string;
+  qr_code: string | null;
+  pay_url: string | null;
+  status: string;
+  expires_at: string;
+}
+
+export interface TrainingOrderStatusResponse {
+  order_no: string;
+  status: string;
+  total_amount: number;
+  paid_at: string | null;
+}
+
 /**
  * 字典项类型
  * Dictionary Item Type
@@ -62,7 +168,40 @@ export const fetchSubIndustries = (parentId: string | number) =>
  * Submit Training Registration
  */
 export const submitTrainingRegister = (data: TrainingRegisterForm) =>
-  api<{ success: boolean }>("/api/training/register", {
+  api<{ success: boolean; id?: number }>("/api/training/register", {
     method: "POST",
     body: data as unknown as BodyInit,
+  });
+
+/**
+ * 获取落地页动态数据（课程/期次/讲师/团队/照片/反馈/FAQ）
+ * Fetch landing page dynamic data
+ */
+export const fetchLandingData = () => api<LandingDataResponse>("/api/training/landing");
+
+/**
+ * 创建培训支付订单
+ * Create training payment order
+ */
+export const createTrainingOrder = (data: CreateTrainingOrderRequest) =>
+  api<TrainingOrderResponse>("/api/training/orders", {
+    method: "POST",
+    body: data as unknown as BodyInit,
+  });
+
+/**
+ * 查询培训订单状态
+ * Query training order status
+ */
+export const fetchTrainingOrderStatus = (orderNo: string) =>
+  api<TrainingOrderStatusResponse>(`/api/training/orders/${encodeURIComponent(orderNo)}`);
+
+/**
+ * 模拟培训订单支付成功（仅 mock 模式）
+ * Mock training order payment (mock mode only)
+ */
+export const mockPayTrainingOrder = (orderNo: string) =>
+  api<{ success: boolean; status: string }>(`/api/training/orders/${encodeURIComponent(orderNo)}/mock-paid`, {
+    method: "POST",
+    body: {},
   });

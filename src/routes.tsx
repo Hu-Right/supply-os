@@ -11,7 +11,7 @@ const CrmPage = lazy(() => import("@/features/crm").then(m => ({ default: m.CrmP
 const ServicesPage = lazy(() => import("@/features/services").then(m => ({ default: m.ServicesPage })));
 const LearningPage = lazy(() => import("@/features/learning").then(m => ({ default: m.LearningPage })));
 const MembershipPage = lazy(() => import("@/features/membership").then(m => ({ default: m.MembershipPage })));
-const TrainingPage = lazy(() => import("@/features/training").then(m => ({ default: m.TrainingPage })));
+const TrainingPage = lazy(() => import("@/features/training").then(m => ({ default: m.TrainingLandingPage })));
 
 /**
  * Root redirect component

@@ -41,6 +41,7 @@
  *              031-membership-upgrade           会员套餐平滑升级(权益升级标记列+订单类型列)
  *              032-wide-table-schema-converge   宽表description列前向收敛(P1-17:基线漂移修复→TEXT)
  *              033-main-table-dead-index-cleanup 主表死索引清理(is_active/deadline_ts 相关)
+ *              034-training-landing-page         研修班落地页(课程/期次/订单/讲师/团队/照片/反馈/FAQ)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -77,6 +78,7 @@ import { migration as m030 } from "./migrations/030-wide-table-deadline-bigint";
 import { migration as m031 } from "./migrations/031-membership-upgrade";
 import { migration as m032 } from "./migrations/032-wide-table-schema-converge";
 import { migration as m033 } from "./migrations/033-main-table-dead-index-cleanup";
+import { migration as m034 } from "./migrations/034-training-landing-page";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -84,7 +86,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m006, m007, m008, m009, m010, m011,
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
-  m032, m033,
+  m032, m033, m034,
 ];
 
 /**
