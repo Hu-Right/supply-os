@@ -29,7 +29,7 @@ export default function App() {
     paymentPlan, setPaymentPlan, showConsultForm, setShowConsultForm,
     mobileMenuOpen, setMobileMenuOpen, onRequireLogin, onConsult, onPay,
   } = useAppModals();
-  const { tabs, tabRoutes, activeTab, isTrainingRoute, switchMainTab } = useNavTabs();
+  const { tabs, activeTab, switchMainTab } = useNavTabs();
   useAppEvents({ onRequireLogin, onConsult, onPay });
   useVersionCheck();
 
@@ -44,7 +44,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
       <NetworkBanner />
-      <AppHeader tabs={tabs} tabRoutes={tabRoutes} activeTab={activeTab} isTrainingRoute={isTrainingRoute}
+      <AppHeader tabs={tabs} activeTab={activeTab}
         mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
         onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">

@@ -21,8 +21,8 @@ interface FooterLink {
 }
 
 export interface AppFooterProps {
-  activeTab: number;
-  onSwitchTab: (tabId: number) => void;
+  activeTab: string;
+  onSwitchTab: (path: string) => void;
   onOpenConsult: () => void;
 }
 

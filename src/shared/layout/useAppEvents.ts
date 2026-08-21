@@ -17,9 +17,11 @@ export interface AppEventHandlers {
 
 export function useAppEvents(handlers: AppEventHandlers) {
   useEffect(() => {
+    // 注意：不订阅 supply-os:unauthorized —— 被动 401（游客访问需登录接口、
+    // 会话过期后的后台请求）不应自动弹出登录框；登录弹窗仅由用户主动操作
+    // （require-login / open-account / require-vip）触发。
     const unsubs = [
       onAppEvent("supply-os:require-login", () => handlers.onRequireLogin()),
-      onAppEvent("supply-os:unauthorized", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:require-vip", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:open-account", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:consult", () => handlers.onConsult()),

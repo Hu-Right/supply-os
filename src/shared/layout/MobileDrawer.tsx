@@ -15,10 +15,9 @@ import { NAV_TABS } from "./nav-tabs";
 export interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
-  isTrainingRoute: boolean;
 }
 
-export function MobileDrawer({ open, onClose, isTrainingRoute }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
   const { tierLabel } = useMembershipTier();
@@ -70,7 +69,7 @@ export function MobileDrawer({ open, onClose, isTrainingRoute }: MobileDrawerPro
         <nav className="flex-1 overflow-y-auto py-2 px-3">
           {NAV_TABS.map((tab) => {
             const Icon = tab.icon;
-            const isActive = !isTrainingRoute && isTabActive(tab.path);
+            const isActive = isTabActive(tab.path);
             const label = t(tab.labelKey);
             return (
               <button

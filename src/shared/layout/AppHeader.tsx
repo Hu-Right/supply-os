@@ -12,10 +12,7 @@
  */
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Globe, Building2, Users, Briefcase, BookOpen, Crown,
-  LayoutGrid, Menu, X,
-} from "lucide-react";
+import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
@@ -25,7 +22,7 @@ import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
 
 export interface AppTab {
-  id: number;
+  path: string;
   label: string;
   icon: typeof Globe;
   alert?: boolean;
@@ -34,17 +31,15 @@ export interface AppTab {
 
 export interface AppHeaderProps {
   tabs: AppTab[];
-  tabRoutes: Record<number, string>;
-  activeTab: number;
-  isTrainingRoute: boolean;
+  activeTab: string;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
-  onSwitchTab: (tabId: number) => void;
+  onSwitchTab: (path: string) => void;
   onOpenAuth: () => void;
 }
 
 export function AppHeader({
-  tabs, tabRoutes, activeTab, isTrainingRoute,
+  tabs, activeTab,
   mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAuth,
 }: AppHeaderProps) {
   const { t } = useLocale();
@@ -109,7 +104,6 @@ export function AppHeader({
       <MobileDrawer
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        isTrainingRoute={isTrainingRoute}
       />
 
       {/* DESKTOP NAV */}
@@ -119,10 +113,10 @@ export function AppHeader({
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
-                <button key={tab.id} onClick={() => onSwitchTab(tab.id)}
-                  onMouseEnter={() => preloadRoute(tabRoutes[tab.id] || "/showroom")}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${!isTrainingRoute && activeTab === tab.id ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && !isTrainingRoute && activeTab !== tab.id ? "text-amber-400 animate-pulse" : ""}`} />
+                <button key={tab.path} onClick={() => onSwitchTab(tab.path)}
+                  onMouseEnter={() => preloadRoute(tab.path)}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${activeTab === tab.path ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
+                  <Icon className={`w-4 h-4 ${tab.highlight && activeTab !== tab.path ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
                   {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
                 </button>
@@ -135,41 +129,31 @@ export function AppHeader({
   );
 }
 
-/** 构建主导航 tabs 配置 */
+/** 构建主导航 tabs 配置（以 NAV_TABS 为单一数据源，路径作为 Tab 标识） */
 export function useNavTabs() {
   const { t } = useLocale();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isTrainingRoute = location.pathname === "/training";
+  const tabs: AppTab[] = NAV_TABS.map((tab) => ({
+    path: tab.path,
+    label: t(tab.labelKey),
+    icon: tab.icon,
+    alert: tab.alert,
+    highlight: tab.highlight,
+  }));
+
+  // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /membership/xxx）
   const activeTab = (() => {
-    if (isTrainingRoute) return 0;
     const p = location.pathname;
-    if (p === "/showroom" || p === "/") return 1;
-    if (p === "/procurement") return 2;
-    if (p === "/supplier") return 3;
-    if (p === "/crm") return 4;
-    if (p === "/services") return 5;
-    if (p === "/learning") return 6;
-    if (p === "/membership" || p.startsWith("/membership/")) return 7;
-    return 1;
+    const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
+    if (hit) return hit.path;
+    return "/showroom";
   })();
 
-  const tabRoutes: Record<number, string> = { 1: "/showroom", 2: "/procurement", 3: "/supplier", 4: "/crm", 5: "/services", 6: "/learning", 7: "/membership" };
-
-  const switchMainTab = (tabId: number) => {
-    navigate(tabRoutes[tabId] || "/showroom");
+  const switchMainTab = (path: string) => {
+    navigate(path);
   };
 
-  const tabs: AppTab[] = [
-    { id: 1, label: t("navShowrooms"), icon: Building2 },
-    { id: 2, label: t("navJointProcure"), icon: Globe },
-    { id: 3, label: t("navSuppliers"), icon: Users },
-    { id: 4, label: t("navCRM"), icon: Briefcase, alert: true },
-    { id: 5, label: t("navServices"), icon: LayoutGrid },
-    { id: 6, label: t("navLearning"), icon: BookOpen },
-    { id: 7, label: t("navMembership"), icon: Crown, highlight: true },
-  ];
-
-  return { tabs, tabRoutes, activeTab, isTrainingRoute, switchMainTab };
+  return { tabs, activeTab, switchMainTab };
 }
