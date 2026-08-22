@@ -4,9 +4,7 @@
  *
  * @module features/training/components/TrainingPaymentModal
  * @description 支付流程统一收敛至 PaymentModalCore（零跳转弹窗支付）：
- *              本组件仅注入培训业务的下单/查单/mock 确认适配器、课程摘要卡片、
- *              期次选择器与参训人数选择器；弹窗内扫码完成付款，无任何页面跳转。
- *              支付成功后自动弹出学员信息收集表单。
+ *              两阶段流程：先填写学员信息 → 再扫码支付 → 支付成功后自动保存学员信息。
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -51,11 +49,15 @@ export default function TrainingPaymentModal({
 }: TrainingPaymentModalProps) {
   const { t, locale } = useLocale();
 
+  // ── 两阶段流程 ──
+  // phase="participants" → 先填学员信息
+  // phase="payment" → 再支付
+  const [phase, setPhase] = useState<"participants" | "payment">("participants");
+  const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
+
   // ── 期次选择 ──
-  // 支付弹窗只展示"报名中"的期次
   const openSchedules = useMemo(() => schedules.filter((s) => s.status === "open"), [schedules]);
 
-  // 如果外部传了 defaultScheduleId 则用它；否则自动选中第一个 open 的期次
   const initialScheduleId = useMemo(() => {
     if (defaultScheduleId) return defaultScheduleId;
     if (openSchedules.length === 0) return null;
@@ -66,18 +68,20 @@ export default function TrainingPaymentModal({
 
   // ── 参训人数 ──
   const [participantCount, setParticipantCount] = useState(1);
-  const [showParticipantForm, setShowParticipantForm] = useState(false);
-  const [completedOrderNo, setCompletedOrderNo] = useState<string | null>(null);
-  const [completedParticipantCount, setCompletedParticipantCount] = useState(0);
 
   const unitPrice = course?.unit_price ?? 0;
   const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
 
-  // 多期时必须有选中期次才能下单（基于 open 期次数量）
   const hasMultipleSchedules = openSchedules.length > 1;
   const scheduleSelected = !hasMultipleSchedules || selectedScheduleId !== null;
 
-  // 培训下单适配器：qr_code 为服务端渲染的二维码图片（data URL），弹窗内直接扫码
+  // ── 阶段一：学员信息填写完成 → 进入支付阶段 ──
+  const handleParticipantsReady = useCallback((participants: TrainingParticipant[]) => {
+    setPendingParticipants(participants);
+    setPhase("payment");
+  }, []);
+
+  // ── 培训下单适配器 ──
   const handleCreateOrder = useCallback(
     async (provider: "alipay" | "wechat") => {
       if (!course) throw new Error("COURSE_NOT_FOUND");
@@ -104,76 +108,27 @@ export default function TrainingPaymentModal({
     await mockPayTrainingOrder(orderNo);
   }, []);
 
-  // 支付成功回调：打开学员信息收集表单
-  const handlePaymentSuccess = useCallback((orderNo: string) => {
-    setCompletedOrderNo(orderNo);
-    setCompletedParticipantCount(participantCount);
-    setShowParticipantForm(true);
-  }, [participantCount]);
-
-  // 提交学员信息
-  const handleSubmitParticipants = useCallback(async (participants: TrainingParticipant[]) => {
-    if (!completedOrderNo) throw new Error("订单号缺失");
-    await saveTrainingParticipants(completedOrderNo, participants);
-  }, [completedOrderNo]);
-
-  // 关闭学员信息表单
-  const handleCloseParticipantForm = useCallback(() => {
-    setShowParticipantForm(false);
+  // ── 支付成功回调：自动保存学员信息 ──
+  const handlePaymentSuccess = useCallback(async (orderNo: string) => {
+    if (pendingParticipants) {
+      await saveTrainingParticipants(orderNo, pendingParticipants);
+    }
     onClose();
-  }, [onClose]);
+  }, [pendingParticipants, onClose]);
 
-  // 找到当前选中期次的信息用于摘要
   const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
 
-  return (
-    <>
-      <PaymentModalCore
+  // ── 阶段一：学员信息填写 ──
+  if (phase === "participants") {
+    return (
+      <ParticipantForm
+        open
         onClose={onClose}
-        title={t("tlPaymentModalTitle")}
-        amount={totalAmount}
-        currency={course?.currency ?? "CNY"}
-        accent="red"
-        canSubmit={Boolean(course) && scheduleSelected}
-        onCreateOrder={handleCreateOrder}
-        onQueryStatus={handleQueryStatus}
-        onMockConfirm={handleMockConfirm}
-        onSuccess={handlePaymentSuccess}
-        texts={{
-          waitingTitle: t("tlPaymentWaiting"),
-          waitingDesc: t("tlPaymentWaitingDesc"),
-          successTitle: t("tlPaymentSuccess"),
-          successDesc: t("tlPaymentSuccessDesc"),
-          failedTitle: t("tlPaymentFailed"),
-          mockNote: t("tlPaymentMockNote"),
-        }}
-      summaryNode={
-        <>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-600">{course?.name_zh}</span>
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-xs text-white">
-              {t("tlPaymentParticipants")}: {participantCount}
-            </span>
-          </div>
-          {selectedSchedule && (
-            <p className="mt-1 text-xs text-slate-500">
-              {t("tlPaymentSchedulePeriod").replace("{n}", String(selectedSchedule.period_number))}
-              {" · "}
-              {fmtDate(selectedSchedule.start_date, locale)}
-              {" · "}
-              {selectedSchedule.city}
-            </p>
-          )}
-          <div className="mt-1 text-3xl font-black text-slate-900">
-            ¥{totalAmount.toFixed(2)}
-            <span className="ms-1 text-sm font-bold text-slate-400">{t("tlPricePerPerson")}</span>
-          </div>
-        </>
-      }
-      chooseExtra={
-        <div className="space-y-4">
-          {/* ── 期次选择器（多个报名中期次时展示） ── */}
-          {hasMultipleSchedules && (
+        orderNo=""
+        participantCount={participantCount}
+        onSubmit={handleParticipantsReady}
+        scheduleSelector={
+          hasMultipleSchedules ? (
             <div>
               <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentScheduleLabel")}</p>
               <div className="space-y-2">
@@ -206,9 +161,9 @@ export default function TrainingPaymentModal({
                 })}
               </div>
             </div>
-          )}
-
-          {/* ── 参训人数选择器 ── */}
+          ) : undefined
+        }
+        participantCountSelector={
           <div>
             <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentParticipants")}</p>
             <div className="flex items-center gap-3">
@@ -229,27 +184,69 @@ export default function TrainingPaymentModal({
               </button>
             </div>
           </div>
+        }
+        scheduleRequired={!scheduleSelected}
+        scheduleRequiredText={t("tlPaymentScheduleRequired")}
+      />
+    );
+  }
 
-          {/* ── 未选期次提示 ── */}
-          {hasMultipleSchedules && !scheduleSelected && (
-            <p className="text-xs font-bold text-rose-500">{t("tlPaymentScheduleRequired")}</p>
+  // ── 阶段二：支付 ──
+  return (
+    <PaymentModalCore
+      onClose={onClose}
+      title={t("tlPaymentModalTitle")}
+      amount={totalAmount}
+      currency={course?.currency ?? "CNY"}
+      accent="red"
+      canSubmit={Boolean(course) && scheduleSelected}
+      onCreateOrder={handleCreateOrder}
+      onQueryStatus={handleQueryStatus}
+      onMockConfirm={handleMockConfirm}
+      onSuccess={handlePaymentSuccess}
+      texts={{
+        waitingTitle: t("tlPaymentWaiting"),
+        waitingDesc: t("tlPaymentWaitingDesc"),
+        successTitle: t("tlPaymentSuccess"),
+        successDesc: t("tlPaymentSuccessDesc"),
+        failedTitle: t("tlPaymentFailed"),
+        mockNote: t("tlPaymentMockNote"),
+      }}
+      summaryNode={
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-slate-600">{course?.name_zh}</span>
+            <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-xs text-white">
+              {t("tlPaymentParticipants")}: {participantCount}
+            </span>
+          </div>
+          {selectedSchedule && (
+            <p className="mt-1 text-xs text-slate-500">
+              {t("tlPaymentSchedulePeriod").replace("{n}", String(selectedSchedule.period_number))}
+              {" · "}
+              {fmtDate(selectedSchedule.start_date, locale)}
+              {" · "}
+              {selectedSchedule.city}
+            </p>
           )}
+          <div className="mt-1 text-3xl font-black text-slate-900">
+            ¥{totalAmount.toFixed(2)}
+            <span className="ms-1 text-sm font-bold text-slate-400">{t("tlPricePerPerson")}</span>
+          </div>
+        </>
+      }
+      chooseExtra={
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+          <p className="text-sm font-bold text-emerald-800">
+            ✓ {pendingParticipants?.length ?? 0} {t("tlPaymentParticipants")}信息已填写完成
+          </p>
+          <p className="mt-1 text-xs text-emerald-600">
+            支付成功后系统将自动提交学员信息
+          </p>
         </div>
       }
     />
-
-    {/* 学员信息收集表单 */}
-    {showParticipantForm && completedOrderNo && (
-      <ParticipantForm
-        open={showParticipantForm}
-        onClose={handleCloseParticipantForm}
-        orderNo={completedOrderNo}
-        participantCount={completedParticipantCount}
-        onSubmit={handleSubmitParticipants}
-      />
-    )}
-  </>
-);
+  );
 }
 
 TrainingPaymentModal.displayName = "TrainingPaymentModal";
