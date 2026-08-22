@@ -44,21 +44,21 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   return {
     dbPool: null as unknown as Pool, // 由 startAutoTranslate 注入
     enabled: String(process.env.NOTICE_AUTO_TRANSLATE ?? "on").toLowerCase() !== "off",
-    maxPerRun: Number(process.env.NOTICE_AUTO_TRANSLATE_MAX || 300),
+    maxPerRun: Number(process.env.NOTICE_AUTO_TRANSLATE_MAX || 50000),
     descMaxChars: Number(process.env.NOTICE_AUTO_TRANSLATE_DESC_MAX_CHARS || 8000),
     dailyCharBudget: Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000),
   };
 }
 
-const CONCURRENCY = 20;  // 20 并发 worker（降低并发避免 DeepSeek 429 限流）
+const CONCURRENCY = 10;  // 10 并发 worker（降低并发避免 DeepSeek 429 限流）
 const DELAY_MS = 200;   // 每批次间隔 200ms（配合重试机制给 API 喘息时间）
-const BATCH_SIZE = 15;  // 每批合并翻译的标题数（摊薄 prompt 固定开销，提升缓存命中）
+const BATCH_SIZE = 8;   // 每批合并翻译的标题数（≤8 显著降低 BAD_SHAPE 概率）
 
 // 扫描目标白名单：公告表 + 精选数据表（两表 deadline_sec 口径一致）；
 // 表名/列名均来自常量，无注入面
 const SCAN_TARGETS = [
-  { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id", cutoffKey: "notice_id_cutoff" },
-  { table: "crm_bid_opportunities", trTable: "crm_opportunity_translations", idCol: "opportunity_id", cutoffKey: "opportunity_id_cutoff" },
+  { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id" },
+  { table: "crm_bid_opportunities", trTable: "crm_opportunity_translations", idCol: "opportunity_id" },
 ] as const;
 
 // ── 北京时间辅助函数 & 定时调度 ──
@@ -112,15 +112,6 @@ function nextBeijingTrigger(): Date {
   return targetUtc;
 }
 
-/** 格式化北京时间用于日志输出 */
-function formatBJTime(d: Date): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-    hour12: false,
-  }).format(d);
-}
 
 export async function runIncrementalTranslation(
   dbPool: Pool,
@@ -143,8 +134,8 @@ export async function runIncrementalTranslation(
   // ── 预算检查：同日已耗尽则跳过本轮 ──
   const today = new Date().toISOString().slice(0, 10);
   const [stateRows] = await dbPool.query(
-    "SELECT state_key, state_value FROM crm_translation_state WHERE state_key IN (?, ?, ?, ?)",
-    ["notice_id_cutoff", "opportunity_id_cutoff", "budget_day", "budget_chars_used"]
+    "SELECT state_key, state_value FROM crm_translation_state WHERE state_key IN (?, ?)",
+    ["budget_day", "budget_chars_used"]
   );
   const stateMap = new Map<string, string>();
   for (const row of stateRows as RowDataPacket[]) stateMap.set(row.state_key, String(row.state_value || ""));
@@ -166,12 +157,9 @@ export async function runIncrementalTranslation(
   const dedupCache = new Map<string, { titleTr: string; provider: string }>();
 
   for (const target of SCAN_TARGETS) {
-    const cutoffId = Number(stateMap.get(target.cutoffKey) || "0");
-    let maxIdProcessed = 0; // 水位线追踪：本轮处理的最大 ID
     for (const targetLang of ["zh", "en"] as const) {
       if (charsUsed >= cfg.dailyCharBudget) break;
-      // en 扫描时多取：英文原文会被预过滤（写 skip 标记），需要更大的采样
-      // 才能找到足够多的小语种记录来翻译（3x 平衡采样与浪费）
+      // 不再使用固定水位线，每次从最小未翻译 ID 开始扫描，自然覆盖所有空洞
       const sqlLimit = targetLang === "en" ? cfg.maxPerRun * 3 : cfg.maxPerRun;
       const [rows] = await dbPool.query(
         `SELECT n.id, n.title, n.description, n.reference,
@@ -180,8 +168,7 @@ export async function runIncrementalTranslation(
                 t.model AS cached_model
          FROM ${target.table} n
          LEFT JOIN ${target.trTable} t ON t.${target.idCol} = n.id AND t.lang = ?
-        WHERE n.id > ?
-          AND ${activeCondition}
+        WHERE ${activeCondition}
           AND (
             t.id IS NULL
             OR (
@@ -192,7 +179,7 @@ export async function runIncrementalTranslation(
           AND n.title IS NOT NULL AND TRIM(n.title) <> ''
         ORDER BY n.id ASC
         LIMIT ?`,
-        [targetLang, cutoffId, sqlLimit]
+        [targetLang, sqlLimit]
       );
       // BUG-I1 修复：使用与 notice-translation.ts 一致的 key 格式，避免竞态重复翻译
       const pendingPrefix = target.table === "crm_bid_notices" ? "notice" : "opportunity";
@@ -247,14 +234,12 @@ export async function runIncrementalTranslation(
                 const cachedTitleTr = String(row.cached_title_tr || "").trim();
                 const cachedDescTr = String(row.cached_desc_tr || "").trim();
                 if (!cachedTitleTr && !cachedDescTr) await writeSkipMarker(target, row.id, targetLang);
-                if (row.id > maxIdProcessed) maxIdProcessed = row.id;
                 continue;
               }
               if (srcLang === targetLang) {
                 const cachedTitleTr = String(row.cached_title_tr || "").trim();
                 const cachedDescTr = String(row.cached_desc_tr || "").trim();
                 if (!cachedTitleTr && !cachedDescTr) await writeSkipMarker(target, row.id, targetLang);
-                if (row.id > maxIdProcessed) maxIdProcessed = row.id;
                 continue;
               }
               batchItems.push({
@@ -313,18 +298,36 @@ export async function runIncrementalTranslation(
                     dedupCache.set(uniqueTitles[i], { titleTr, provider: result.provider });
                     charsUsed += uniqueTitles[i].length;
                   }
-                } catch (err: any) {
-                  const errMsg = err?.message || String(err);
-                  const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
-                  // 整批失败：所有同源语言的条目标记失败
-                  for (const [, titleItems] of titleToItems) {
-                    for (const item of titleItems) {
-                      failed += 1;
-                      const titlePreview = item.title.length > 80 ? item.title.slice(0, 80) + "..." : item.title;
-                      logger.warn(
-                        `table=${target.table} id=${item.row.id} lang=${targetLang} FAIL | sourceLang=${srcLang} error="${errMsg}" degraded="${degraded}" title="${titlePreview}"`
+                } catch (batchErr: any) {
+                  const errMsg = batchErr?.message || String(batchErr);
+                  const degraded = (batchErr?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
+
+                  // ── 批量失败降级：逐条单独重试（单条 API 调用格式稳定性远高于批量）──
+                  for (const [title, titleItems] of titleToItems) {
+                    let recovered = false;
+                    try {
+                      const singleResult = await translateViaChain(
+                        [title],
+                        srcLang as ChainSourceLang,
+                        targetLang,
                       );
-                      if (item.row.id > maxIdProcessed) maxIdProcessed = item.row.id;
+                      const titleTr = String(singleResult.translations[0] || "").trim();
+                      if (titleTr) {
+                        translatedMap.set(title, { titleTr, provider: singleResult.provider });
+                        dedupCache.set(title, { titleTr, provider: singleResult.provider });
+                        charsUsed += title.length;
+                        recovered = true;
+                      }
+                    } catch { /* 单条也失败，走下方 FAIL 日志 */ }
+
+                    if (!recovered) {
+                      for (const item of titleItems) {
+                        failed += 1;
+                        const titlePreview = item.title.length > 80 ? item.title.slice(0, 80) + "..." : item.title;
+                        logger.warn(
+                          `table=${target.table} id=${item.row.id} lang=${targetLang} FAIL | sourceLang=${srcLang} error="${errMsg}" degraded="${degraded}" title="${titlePreview}"`
+                        );
+                      }
                     }
                   }
                   continue;
@@ -358,7 +361,6 @@ export async function runIncrementalTranslation(
                     failed += 1;
                     logger.warn(`table=${target.table} id=${item.row.id} WRITE_FAIL error="${writeErr?.message || writeErr}"`);
                   }
-                  if (item.row.id > maxIdProcessed) maxIdProcessed = item.row.id;
                 }
               }
             }
@@ -367,18 +369,6 @@ export async function runIncrementalTranslation(
           }
         })
       );
-    }
-
-    // ── 水位线更新：本轮处理过的记录推进 cutoff ──
-    // 仅当实际处理了行时才更新，避免空轮次将 cutoff 错误推进
-    if (maxIdProcessed > 0) {
-      await dbPool.query(
-        `INSERT INTO crm_translation_state (state_key, state_value)
-         VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
-        [target.cutoffKey, String(maxIdProcessed)]
-      );
-      logger.info(`${target.table} 水位线更新 → ${maxIdProcessed}`);
     }
   }
 
@@ -435,8 +425,7 @@ export function startAutoTranslate(
     if (running) return;
     running = true;
     try {
-      const result = await runIncrementalTranslation(dbPool, cfg);
-      logger.info(`翻译完成 ok=${result.ok} failed=${result.failed} charsUsed=${result.charsUsed}`);
+      await runIncrementalTranslation(dbPool, cfg);
     } catch (err: any) {
       logger.warn(`SCAN_FAIL error="${err?.message || err}"`);
     } finally {
@@ -446,19 +435,11 @@ export function startAutoTranslate(
   };
 
   /** 递归调度：计算下一个触发时刻并设置单次 setTimeout。
-   *  容错：若距离触发时刻不足 1 分钟（服务启动耗时跨过触发点），
-   *  立即执行翻译而非跳过，避免整轮调度被吞。 */
+   *  仅在定时触发点执行，超过触发时刻则跳过等待下一轮。 */
   function scheduleNext() {
     const next = nextBeijingTrigger();
     const delayMs = Math.max(0, next.getTime() - Date.now());
-    if (delayMs < 60_000) {
-      // 触发时刻已过或即将到来 → 立即执行，不冒 setTimeout 跨过的风险
-      logger.info(`触发时刻已过，立即执行翻译`);
-      nextTimer = setTimeout(() => void tick(), 0);
-    } else {
-      logger.info(`下次翻译调度: ${formatBJTime(next)} (${Math.round(delayMs / 3600000)}h 后)`);
-      nextTimer = setTimeout(() => void tick(), delayMs);
-    }
+    nextTimer = setTimeout(() => void tick(), delayMs);
   }
 
   // 启动时先做健康检查，再调度首次运行

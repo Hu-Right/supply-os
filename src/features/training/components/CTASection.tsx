@@ -1,5 +1,5 @@
 /**
- * 底部行动区（设计图 1:1 深藏青横幅）
+ * 底部行动区（柔和内嵌卡片，与页面视觉连贯）
  * CTA band
  *
  * @module features/training/components/CTASection
@@ -15,27 +15,34 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
   const { t } = useLocale();
 
   return (
-    <section className="bg-[#022250]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-8">
-        <div className="text-center md:text-left">
-          <h3 className="text-2xl md:text-3xl font-black text-white tracking-wide">{t("tlCtaTitle")}</h3>
-          <p className="mt-3 text-sm text-slate-300">{t("tlCtaSub")}</p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-4">
-          <button
-            type="button"
-            onClick={onEnroll}
-            className="rounded-md bg-[#0CAF8C] px-8 py-3 text-sm font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
-          >
-            {t("tlCtaBtn1")}
-          </button>
-          <button
-            type="button"
-            onClick={onConsult}
-            className="rounded-md border border-slate-400/70 px-8 py-3 text-sm font-black text-slate-100 hover:bg-white/10 cursor-pointer"
-          >
-            {t("tlCtaBtn2")}
-          </button>
+    <section className="bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="rounded-2xl border border-[#E5EBF3] bg-gradient-to-r from-[#F5F8FB] to-white p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+          {/* 左侧文案 */}
+          <div className="flex-1 text-center md:text-left">
+            <h3 className="text-2xl md:text-3xl font-black text-[#0A245E] tracking-wide">
+              {t("tlCtaTitle")}
+            </h3>
+            <p className="mt-3 text-sm text-[#3E5070]">{t("tlCtaSub")}</p>
+          </div>
+
+          {/* 右侧按钮 */}
+          <div className="flex flex-wrap justify-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={onEnroll}
+              className="rounded-lg bg-[#0CAF8C] px-7 py-2.5 text-sm font-black text-white hover:bg-[#0A9B7C] transition-colors cursor-pointer"
+            >
+              {t("tlCtaBtn1")}
+            </button>
+            <button
+              type="button"
+              onClick={onConsult}
+              className="rounded-lg border border-[#287986]/40 px-7 py-2.5 text-sm font-black text-[#0B7F82] hover:bg-[#018B8B]/5 transition-colors cursor-pointer"
+            >
+              {t("tlCtaBtn2")}
+            </button>
+          </div>
         </div>
       </div>
     </section>

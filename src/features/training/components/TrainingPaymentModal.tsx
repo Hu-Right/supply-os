@@ -6,6 +6,7 @@
  * @description 支付流程统一收敛至 PaymentModalCore（零跳转弹窗支付）：
  *              本组件仅注入培训业务的下单/查单/mock 确认适配器、课程摘要卡片
  *              与参训人数选择器；弹窗内扫码完成付款，无任何页面跳转。
+ *              支付成功后自动弹出学员信息收集表单。
  */
 
 import { useCallback, useState } from "react";
@@ -15,8 +16,11 @@ import {
   createTrainingOrder,
   fetchTrainingOrderStatus,
   mockPayTrainingOrder,
+  saveTrainingParticipants,
   type LandingCourse,
+  type TrainingParticipant,
 } from "../api";
+import ParticipantForm from "./ParticipantForm";
 
 export interface TrainingPaymentModalProps {
   onClose: () => void;
@@ -33,6 +37,9 @@ export default function TrainingPaymentModal({
 }: TrainingPaymentModalProps) {
   const { t } = useLocale();
   const [participantCount, setParticipantCount] = useState(1);
+  const [showParticipantForm, setShowParticipantForm] = useState(false);
+  const [completedOrderNo, setCompletedOrderNo] = useState<string | null>(null);
+  const [completedParticipantCount, setCompletedParticipantCount] = useState(0);
 
   const unitPrice = course?.unit_price ?? 0;
   const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
@@ -64,25 +71,46 @@ export default function TrainingPaymentModal({
     await mockPayTrainingOrder(orderNo);
   }, []);
 
+  // 支付成功回调：打开学员信息收集表单
+  const handlePaymentSuccess = useCallback((orderNo: string) => {
+    setCompletedOrderNo(orderNo);
+    setCompletedParticipantCount(participantCount);
+    setShowParticipantForm(true);
+  }, [participantCount]);
+
+  // 提交学员信息
+  const handleSubmitParticipants = useCallback(async (participants: TrainingParticipant[]) => {
+    if (!completedOrderNo) throw new Error("订单号缺失");
+    await saveTrainingParticipants(completedOrderNo, participants);
+  }, [completedOrderNo]);
+
+  // 关闭学员信息表单
+  const handleCloseParticipantForm = useCallback(() => {
+    setShowParticipantForm(false);
+    onClose();
+  }, [onClose]);
+
   return (
-    <PaymentModalCore
-      onClose={onClose}
-      title={t("tlPaymentModalTitle")}
-      amount={totalAmount}
-      currency={course?.currency ?? "CNY"}
-      accent="red"
-      canSubmit={Boolean(course)}
-      onCreateOrder={handleCreateOrder}
-      onQueryStatus={handleQueryStatus}
-      onMockConfirm={handleMockConfirm}
-      texts={{
-        waitingTitle: t("tlPaymentWaiting"),
-        waitingDesc: t("tlPaymentWaitingDesc"),
-        successTitle: t("tlPaymentSuccess"),
-        successDesc: t("tlPaymentSuccessDesc"),
-        failedTitle: t("tlPaymentFailed"),
-        mockNote: t("tlPaymentMockNote"),
-      }}
+    <>
+      <PaymentModalCore
+        onClose={onClose}
+        title={t("tlPaymentModalTitle")}
+        amount={totalAmount}
+        currency={course?.currency ?? "CNY"}
+        accent="red"
+        canSubmit={Boolean(course)}
+        onCreateOrder={handleCreateOrder}
+        onQueryStatus={handleQueryStatus}
+        onMockConfirm={handleMockConfirm}
+        onSuccess={handlePaymentSuccess}
+        texts={{
+          waitingTitle: t("tlPaymentWaiting"),
+          waitingDesc: t("tlPaymentWaitingDesc"),
+          successTitle: t("tlPaymentSuccess"),
+          successDesc: t("tlPaymentSuccessDesc"),
+          failedTitle: t("tlPaymentFailed"),
+          mockNote: t("tlPaymentMockNote"),
+        }}
       summaryNode={
         <>
           <div className="flex items-center justify-between">
@@ -120,7 +148,19 @@ export default function TrainingPaymentModal({
         </div>
       }
     />
-  );
+
+    {/* 学员信息收集表单 */}
+    {showParticipantForm && completedOrderNo && (
+      <ParticipantForm
+        open={showParticipantForm}
+        onClose={handleCloseParticipantForm}
+        orderNo={completedOrderNo}
+        participantCount={completedParticipantCount}
+        onSubmit={handleSubmitParticipants}
+      />
+    )}
+  </>
+);
 }
 
 TrainingPaymentModal.displayName = "TrainingPaymentModal";

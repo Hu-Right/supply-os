@@ -118,6 +118,29 @@ export interface TrainingOrderStatusResponse {
   paid_at: string | null;
 }
 
+export interface TrainingParticipant {
+  participant_no: number;
+  full_name: string;
+  gender?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+  position?: string | null;
+}
+
+export interface SaveParticipantsResponse {
+  success: boolean;
+  message: string;
+  order_no: string;
+  participant_count: number;
+}
+
+export interface GetParticipantsResponse {
+  success: boolean;
+  order_no: string;
+  participants: TrainingParticipant[];
+  participant_count: number;
+}
+
 /**
  * 字典项类型
  * Dictionary Item Type
@@ -208,3 +231,20 @@ export const mockPayTrainingOrder = (orderNo: string) =>
     method: "POST",
     body: {},
   });
+
+/**
+ * 保存学员信息（支付完成后）
+ * Save participant information (after payment)
+ */
+export const saveTrainingParticipants = (orderNo: string, participants: TrainingParticipant[]) =>
+  api<SaveParticipantsResponse>(`/api/training/orders/${encodeURIComponent(orderNo)}/participants`, {
+    method: "POST",
+    body: JSON.stringify({ participants }) as unknown as BodyInit,
+  });
+
+/**
+ * 查询学员信息
+ * Get participant information
+ */
+export const fetchTrainingParticipants = (orderNo: string) =>
+  api<GetParticipantsResponse>(`/api/training/orders/${encodeURIComponent(orderNo)}/participants`);

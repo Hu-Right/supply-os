@@ -6,6 +6,7 @@
 import { Router } from "express";
 import type { AppContext } from "../context";
 import { asyncHandler } from "../middleware/errorHandler";
+import { requireAuth } from "../middleware/auth";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import { ApiErrorCode, sendError } from "../utils/http-error";
 import {
@@ -174,7 +175,8 @@ export function createTrainingRouter(ctx: AppContext): Router {
   }));
 
   // 6d. CREATE TRAINING ORDER：创建培训支付订单（金额从 DB 读取）
-  router.post("/api/training/orders", asyncHandler(async (req, res) => {
+  // P0-6 安全修复：支付订单必须 JWT 认证，身份取自 req.userKey（禁止未登录下单）
+  router.post("/api/training/orders", requireAuth, asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
       // 站点对外访问基址（反代优先），供服务端生成可扫码的绝对二维码链接
@@ -256,6 +258,83 @@ export function createTrainingRouter(ctx: AppContext): Router {
       res.json({ success: true, order_no: orderNo, status: "paid" });
     }));
   }
+
+  // 6g. SAVE PARTICIPANTS：保存学员信息（支付完成后）
+  router.post("/api/training/orders/:order_no/participants", requireAuth, asyncHandler(async (req, res) => {
+    const orderNo = String(req.params.order_no || "");
+    const order = await trainingRepo.findOrderByNo(orderNo);
+    
+    if (!order) {
+      return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+    }
+    
+    // 验证订单状态必须为 paid
+    if (order.status !== "paid") {
+      return sendError(res, 400, ApiErrorCode.TRAINING_ORDER_NOT_PAID, "订单尚未支付，无法保存学员信息");
+    }
+    
+    // 验证订单归属（防止越权）
+    if (order.user_key !== req.userKey) {
+      return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
+    }
+    
+    const participants = req.body.participants;
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return sendError(res, 400, ApiErrorCode.TRAINING_PARTICIPANTS_INVALID, "学员信息不能为空");
+    }
+    
+    // 验证学员数量与订单的 participant_count 一致
+    if (participants.length !== order.participant_count) {
+      return sendError(
+        res, 
+        400, 
+        ApiErrorCode.TRAINING_PARTICIPANTS_COUNT_MISMATCH, 
+        `学员数量不匹配：订单要求 ${order.participant_count} 人，实际提交 ${participants.length} 人`
+      );
+    }
+    
+    // 验证每个学员的必填字段
+    for (let i = 0; i < participants.length; i++) {
+      const p = participants[i];
+      if (!p.full_name || !p.full_name.trim()) {
+        return sendError(res, 400, ApiErrorCode.TRAINING_PARTICIPANTS_INVALID, `第 ${i + 1} 位学员姓名不能为空`);
+      }
+    }
+    
+    // 保存学员信息
+    await trainingRepo.saveParticipants(order.id, participants);
+    
+    res.json({ 
+      success: true, 
+      message: "学员信息保存成功",
+      order_no: orderNo,
+      participant_count: participants.length
+    });
+  }));
+
+  // 6h. GET PARTICIPANTS：查询学员信息
+  router.get("/api/training/orders/:order_no/participants", requireAuth, asyncHandler(async (req, res) => {
+    const orderNo = String(req.params.order_no || "");
+    const order = await trainingRepo.findOrderByNo(orderNo);
+    
+    if (!order) {
+      return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+    }
+    
+    // 验证订单归属（防止越权）
+    if (order.user_key !== req.userKey) {
+      return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权查看此订单");
+    }
+    
+    const participants = await trainingRepo.getParticipantsByOrderId(order.id);
+    
+    res.json({ 
+      success: true,
+      order_no: orderNo,
+      participants,
+      participant_count: participants.length
+    });
+  }));
 
   return router;
 }

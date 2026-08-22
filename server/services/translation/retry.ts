@@ -26,12 +26,12 @@ import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 const logger = createLogger("retry-translate");
 
-const BATCH_SIZE = 15; // 每批合并翻译的标题数（与 auto.ts 保持一致）
+const BATCH_SIZE = 8; // 每批合并翻译的标题数（与 auto.ts 保持一致）
 
 // ── 扫描目标：与 autoTranslate.ts 保持一致 ──
 const SCAN_TARGETS = [
-  { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id", cutoffKey: "notice_id_cutoff" },
-  { table: "crm_bid_opportunities", trTable: "crm_opportunity_translations", idCol: "opportunity_id", cutoffKey: "opportunity_id_cutoff" },
+  { table: "crm_bid_notices", trTable: "crm_notice_translations", idCol: "notice_id" },
+  { table: "crm_bid_opportunities", trTable: "crm_opportunity_translations", idCol: "opportunity_id" },
 ] as const;
 
 export interface RetryOptions {
@@ -287,16 +287,32 @@ export async function runRetryTranslation(
                       dedupCache.set(uniqueTitles[i], { titleTr, provider: trResult.provider });
                       result.charsUsed += uniqueTitles[i].length;
                     }
-                  } catch (err: any) {
-                    const errMsg = err?.message || String(err);
-                    const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
-                    for (const [, titleItems] of titleToItems) {
-                      for (const item of titleItems) {
-                        detail.failed++;
-                        result.failed++;
-                        processedCount++;
-                        console.log(`  [retry ${processedCount}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${item.row.id} src=${srcLang}→${targetLang}`);
-                        logger.warn(`table=${target.table} id=${item.row.id} lang=${targetLang} FAIL | sourceLang=${srcLang} error="${errMsg}" degraded="${degraded}" title="${item.title.slice(0, 80)}"`);
+                  } catch (batchErr: any) {
+                    const errMsg = batchErr?.message || String(batchErr);
+                    const degraded = (batchErr?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
+
+                    // ── 批量失败降级：逐条单独重试 ──
+                    for (const [title, titleItems] of titleToItems) {
+                      let recovered = false;
+                      try {
+                        const singleResult = await translateViaChain([title], srcLang as ChainSourceLang, targetLang);
+                        const titleTr = String(singleResult.translations[0] || "").trim();
+                        if (titleTr) {
+                          translatedMap.set(title, { titleTr, provider: singleResult.provider });
+                          dedupCache.set(title, { titleTr, provider: singleResult.provider });
+                          result.charsUsed += title.length;
+                          recovered = true;
+                        }
+                      } catch { /* 单条也失败，走下方 FAIL 日志 */ }
+
+                      if (!recovered) {
+                        for (const item of titleItems) {
+                          detail.failed++;
+                          result.failed++;
+                          processedCount++;
+                          console.log(`  [retry ${processedCount}/${totalInQueue}] FAIL error="${errMsg}" degraded="${degraded}" id=${item.row.id} src=${srcLang}→${targetLang}`);
+                          logger.warn(`table=${target.table} id=${item.row.id} lang=${targetLang} FAIL | sourceLang=${srcLang} error="${errMsg}" degraded="${degraded}" title="${item.title.slice(0, 80)}"`);
+                        }
                       }
                     }
                     continue;

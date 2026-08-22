@@ -148,9 +148,16 @@ async function translateViaDeepSeekOnce(
   const targetName = CHAIN_LANG_NAMES[targetLang];
   if (!channelConfigured(apiKey) || !targetName) throw new Error("CHANNEL_SKIPPED");
   const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
-  const prompt = `Translate procurement texts below into ${targetName}. Preserve ⟦Tn⟧ placeholders unchanged. Consistent terminology. Keep line breaks. Output JSON array[${texts.length}] only, no markdown.
+  const prompt = `You are a procurement text translator. Translate each text below into ${targetName}.
+Rules:
+- Preserve ⟦Tn⟧ placeholders exactly as-is
+- Use consistent procurement terminology
+- Output ONLY a JSON array of ${texts.length} strings, no explanation, no markdown
+- Each array element must be the translation of the corresponding input element
 
-${JSON.stringify(texts)}`;
+Input: ${JSON.stringify(texts)}
+
+Output (JSON array[${texts.length}]):`;
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
@@ -168,13 +175,23 @@ ${JSON.stringify(texts)}`;
   const data: any = await res.json();
   const content = String(data?.choices?.[0]?.message?.content ?? "").trim();
   if (!content) throw new Error("DEEPSEEK_EMPTY");
-  // 容错剥掉模型偶发包裹的 ```json 围栏后按 JSON 数组解析
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  // 容错提取 JSON 数组：先剥 markdown 围栏，再尝试从混合文本中定位 [...]
+  let cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error("DEEPSEEK_BAD_JSON");
+    // 模型可能在 JSON 前后附加解释文字，尝试提取第一个完整的 JSON 数组
+    const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrMatch) {
+      try {
+        parsed = JSON.parse(arrMatch[0]);
+      } catch {
+        throw new Error("DEEPSEEK_BAD_JSON");
+      }
+    } else {
+      throw new Error("DEEPSEEK_BAD_JSON");
+    }
   }
   if (
     !Array.isArray(parsed) ||

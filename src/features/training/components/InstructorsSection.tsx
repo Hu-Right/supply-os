@@ -19,7 +19,7 @@ export interface InstructorsSectionProps {
   team: LandingTeamMember[];
 }
 
-/** 圆形头像（空路径 → 藏青剪影占位） */
+/** 竖版矩形头像（空路径 → 藏青剪影占位） */
 function Avatar({ src, alt, className }: { src: string; alt: string; className: string }) {
   if (!src) {
     return (
@@ -28,7 +28,7 @@ function Avatar({ src, alt, className }: { src: string; alt: string; className: 
       </span>
     );
   }
-  return <img src={src} alt={alt} className={`${className} object-cover object-top bg-[#0A2A55]`} loading="lazy" />;
+  return <img src={src} alt={alt} className={`${className} object-cover object-center bg-[#0A2A55]`} loading="lazy" />;
 }
 
 const ROLE_COLS: { icon: typeof Award; titleKey: LocaleKey; descKey: LocaleKey }[] = [
@@ -74,11 +74,11 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
                   {ins.roles.join(" ｜ ")}
                 </span>
                 <div className="mt-6 flex justify-center">
-                  <span className="rounded-full border-2 border-[#287986] p-1">
+                  <span className="inline-block rounded-[50%] border-2 border-[#287986] p-1">
                     <Avatar
                       src={ins.avatar_path}
                       alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
-                      className="w-40 h-40 rounded-full"
+                      className="w-40 h-52 rounded-[50%]"
                     />
                   </span>
                 </div>

@@ -4,11 +4,13 @@
  *
  * @module features/training/components/GallerySection
  * @description 分类来自 DB；无图片时显示占位视觉。
+ *              交互增强：鼠标悬停暂停轮播，点击图片打开全屏预览。
  */
-import { useEffect, useState } from "react";
-import { Presentation } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Presentation, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
+import { Modal } from "@/shared/ui";
 import type { LandingGalleryCategory } from "../api";
 
 const ROTATE_INTERVAL = 3000;
@@ -16,38 +18,131 @@ const ROTATE_INTERVAL = 3000;
 function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   const { locale } = useLocale();
   const [idx, setIdx] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+  const [previewIdx, setPreviewIdx] = useState<number | null>(null);
   const images = cat.images;
 
-  // 多于 1 张时定时轮播（沿用既定交互）
+  // 多于 1 张时定时轮播，鼠标悬停时暂停
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || isHovered) return;
     const timer = setInterval(() => setIdx((i) => (i + 1) % images.length), ROTATE_INTERVAL);
     return () => clearInterval(timer);
-  }, [images.length]);
+  }, [images.length, isHovered]);
 
   const current = images[idx];
 
+  const handleImageClick = useCallback(() => {
+    setPreviewIdx(idx);
+  }, [idx]);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewIdx(null);
+  }, []);
+
+  const handlePrev = useCallback(() => {
+    setPreviewIdx((prev) => {
+      if (prev === null) return null;
+      return (prev - 1 + images.length) % images.length;
+    });
+  }, [images.length]);
+
+  const handleNext = useCallback(() => {
+    setPreviewIdx((prev) => {
+      if (prev === null) return null;
+      return (prev + 1) % images.length;
+    });
+  }, [images.length]);
+
   return (
-    <div className="rounded-lg border border-[#E5EBF3] bg-white overflow-hidden shadow-[0_4px_16px_rgba(10,42,85,0.06)]">
-      <div className="relative h-40 bg-[#0A2A55]">
-        {current ? (
-          <img src={current.image_path} alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
-            <Presentation className="w-10 h-10 text-white/40" />
+    <>
+      <div
+        className="rounded-lg border border-[#E5EBF3] bg-white overflow-hidden shadow-[0_4px_16px_rgba(10,42,85,0.06)]"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="relative h-40 bg-[#0A2A55] cursor-pointer" onClick={handleImageClick}>
+          {current ? (
+            <img
+              src={current.image_path}
+              alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
+              <Presentation className="w-10 h-10 text-white/40" />
+            </div>
+          )}
+          {images.length > 1 && (
+            <span className="absolute right-2 bottom-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+              {idx + 1} / {images.length}
+            </span>
+          )}
+        </div>
+        <div className="p-4 text-center">
+          <h3 className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
+          <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
+        </div>
+      </div>
+
+      {/* 全屏预览弹窗 */}
+      <Modal
+        open={previewIdx !== null}
+        onClose={handleClosePreview}
+        showClose={true}
+        closeOnBackdrop={true}
+        closeOnEsc={true}
+        closeOnDrag={false}
+        className="max-w-none w-[95vw] h-[90vh] p-2"
+      >
+        {previewIdx !== null && images[previewIdx] && (
+          <div className="relative h-full flex flex-col">
+            {/* 图片区域 */}
+            <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+              <img
+                src={images[previewIdx].image_path}
+                alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+                className="max-w-full max-h-full object-contain"
+              />
+
+              {/* 左右切换按钮 */}
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handlePrev}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
+                    aria-label="上一张"
+                  >
+                    <ChevronLeft className="w-8 h-8" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
+                    aria-label="下一张"
+                  >
+                    <ChevronRight className="w-8 h-8" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* 底部信息 */}
+            <div className="mt-2 flex items-center justify-between px-2">
+              <p className="text-base font-bold text-[#0A2A55]">
+                {pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+              </p>
+              {images.length > 1 && (
+                <span className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold text-slate-600">
+                  {previewIdx + 1} / {images.length}
+                </span>
+              )}
+            </div>
           </div>
         )}
-        {images.length > 1 && (
-          <span className="absolute right-2 bottom-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
-            {idx + 1} / {images.length}
-          </span>
-        )}
-      </div>
-      <div className="p-4 text-center">
-        <h3 className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
-        <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
-      </div>
-    </div>
+      </Modal>
+    </>
   );
 }
 

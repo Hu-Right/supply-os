@@ -13,7 +13,7 @@ import { useLocale } from "@/core/i18n";
 import { Spinner } from "@/shared/ui";
 import { fetchLandingData, type LandingDataResponse } from "../api";
 import { useTrainingModals } from "../hooks/useTrainingModals";
-import { LandingNav } from "../components/LandingNav";
+import FloatingNav from "../components/FloatingNav";
 import { HeroSection } from "../components/HeroSection";
 import { StatsSection } from "../components/StatsSection";
 import { WhySection } from "../components/WhySection";
@@ -28,7 +28,6 @@ import { TestimonialsSection } from "../components/TestimonialsSection";
 import { FAQSection } from "../components/FAQSection";
 import { CTASection } from "../components/CTASection";
 import { MaterialsSection } from "../components/MaterialsSection";
-import { LandingFooter } from "../components/LandingFooter";
 import TrainingPaymentModal from "../components/TrainingPaymentModal";
 import WechatQRModal from "../components/WechatQRModal";
 
@@ -77,9 +76,11 @@ export default function TrainingLandingPage() {
   const { course, schedules, instructors, gallery, testimonials, faqs } = data;
 
   return (
-    // 藏青导航条 / Hero / CTA 为通版；其余区块受 max-w-7xl 版心约束
+    // 浮动导航 + Hero + CTA 为通版；其余区块受 max-w-7xl 版心约束
     <div className="bg-white">
-      <LandingNav onEnroll={handleDirectPay} onConsult={openWechatQR} />
+      {/* 浮动导航：桌面端右侧垂直侧边栏 / 移动端底部水平导航栏 */}
+      <FloatingNav onEnroll={handleDirectPay} onConsult={openWechatQR} />
+
       <HeroSection course={course} onEnroll={handleDirectPay} onConsult={openWechatQR} />
 
       <div className="max-w-7xl mx-auto">
@@ -108,9 +109,6 @@ export default function TrainingLandingPage() {
       <div className="max-w-7xl mx-auto">
         <MaterialsSection />
       </div>
-
-      {/* 藏青页脚通版 */}
-      <LandingFooter />
 
       {/* 弹窗：动态支付（红框） + 企微二维码（黄框） */}
       {showPaymentModal && (

@@ -115,6 +115,19 @@ export interface FaqRow extends RowDataPacket {
   sort_order: number;
 }
 
+export interface ParticipantRow extends RowDataPacket {
+  id: number;
+  order_id: number;
+  participant_no: number;
+  full_name: string;
+  gender: string | null;
+  phone: string | null;
+  company_name: string | null;
+  position: string | null;
+  created_at: Date;
+  updated_at: Date | null;
+}
+
 export interface CreateTrainingOrderData {
   orderNo: string;
   courseId: number;
@@ -316,6 +329,66 @@ export class TrainingRepo {
       "SELECT * FROM training_faqs WHERE status = 'active' ORDER BY sort_order ASC, id ASC",
     );
     return rows as FaqRow[];
+  }
+
+  /** 保存学员信息（批量插入/更新） */
+  async saveParticipants(orderId: number, participants: Array<{
+    participant_no: number;
+    full_name: string;
+    gender?: string | null;
+    phone?: string | null;
+    company_name?: string | null;
+    position?: string | null;
+  }>): Promise<void> {
+    // 先删除该订单的旧学员记录（支持重新提交）
+    await this.pool.execute("DELETE FROM training_participants WHERE order_id = ?", [orderId]);
+    
+    // 批量插入新学员记录
+    if (participants.length === 0) return;
+    
+    const values = participants.map(p => [
+      orderId,
+      p.participant_no,
+      p.full_name,
+      p.gender || null,
+      p.phone || null,
+      p.company_name || null,
+      p.position || null,
+    ]);
+    
+    const placeholders = values.map(() => 
+      "(?, ?, ?, ?, ?, ?, ?)"
+    ).join(", ");
+    
+    const flatValues = values.flat();
+    
+    await this.pool.execute(
+      `INSERT INTO training_participants (
+        order_id, participant_no, full_name, gender, phone, company_name, position
+      ) VALUES ${placeholders}`,
+      flatValues
+    );
+  }
+
+  /** 查询订单的学员信息 */
+  async getParticipantsByOrderId(orderId: number): Promise<ParticipantRow[]> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_participants WHERE order_id = ? ORDER BY participant_no ASC",
+      [orderId]
+    );
+    return rows as ParticipantRow[];
+  }
+
+  /** 通过订单号查询学员信息 */
+  async getParticipantsByOrderNo(orderNo: string): Promise<ParticipantRow[]> {
+    const [rows] = await this.pool.execute(
+      `SELECT tp.* FROM training_participants tp
+       INNER JOIN training_orders to ON to.id = tp.order_id
+       WHERE to.order_no = ?
+       ORDER BY tp.participant_no ASC`,
+      [orderNo]
+    );
+    return rows as ParticipantRow[];
   }
 }
 
