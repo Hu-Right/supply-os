@@ -239,5 +239,11 @@
   "tlMat1": "Get this month's schedule",
   "tlMat2": "Get the course syllabus",
   "tlMat3": "Learn who should attend",
-  "tlMat4": "Consult enterprise group plans"
+  "tlMat4": "Consult enterprise group plans",
+  "tlPaymentScheduleLabel": "Select session",
+  "tlPaymentSchedulePeriod": "Session {n}",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "Please select a session first",
+  "tlPaymentScheduleStatusOpen": "Enrolling",
+  "tlPaymentScheduleStatusSoon": "Coming soon"
 }

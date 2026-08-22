@@ -76,12 +76,7 @@ export default function PaymentModal({
       onSuccess={onPaymentSuccess}
       summaryNode={
         <>
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-600">{planName}</span>
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 font-mono text-xs text-white">
-              {t("paymentPlanLabel")}: {planCode}
-            </span>
-          </div>
+          <div className="text-sm font-bold text-slate-600">{planName}</div>
           <div className="text-3xl font-black text-slate-900">
             {currencySymbol}
             {amount.toFixed(2)}

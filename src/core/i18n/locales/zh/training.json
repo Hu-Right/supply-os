@@ -239,5 +239,11 @@
   "tlMat1": "获取本月课程安排",
   "tlMat2": "领取课程大纲",
   "tlMat3": "了解适合参训人群",
-  "tlMat4": "咨询企业组团方案"
+  "tlMat4": "咨询企业组团方案",
+  "tlPaymentScheduleLabel": "选择开课期次",
+  "tlPaymentSchedulePeriod": "第{n}期",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "请先选择开课期次",
+  "tlPaymentScheduleStatusOpen": "报名中",
+  "tlPaymentScheduleStatusSoon": "即将开课"
 }

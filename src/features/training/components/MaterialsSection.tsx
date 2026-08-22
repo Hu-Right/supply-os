@@ -14,21 +14,21 @@ export function MaterialsSection() {
   const { t } = useLocale();
 
   return (
-    <section className="bg-[#FAFBFC]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+    <section className="bg-[#F5F8FB]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12">
         <SectionTitle title={t("tlMatTitle")} />
-        <div className="max-w-3xl mx-auto rounded-2xl bg-white p-8 md:p-10 shadow-[0_2px_16px_rgba(0,0,0,0.04)] flex flex-col sm:flex-row items-center gap-10">
+        <div className="max-w-3xl mx-auto rounded-lg border border-[#E5EBF3] bg-white p-6 md:p-8 shadow-[0_4px_16px_rgba(10,42,85,0.06)] flex flex-col sm:flex-row items-center gap-8">
           <img
             src="/wechat-service-qr.png"
             alt={t("tlMatScan")}
-            className="w-36 h-36 shrink-0 rounded-xl bg-slate-50"
+            className="w-36 h-36 shrink-0 rounded-lg border border-slate-200"
           />
           <div>
-            <h3 className="text-base font-bold text-slate-900">{t("tlMatScan")}</h3>
-            <ul className="mt-5 space-y-3">
+            <h3 className="text-base font-black text-[#0A2A55]">{t("tlMatScan")}</h3>
+            <ul className="mt-4 space-y-2.5">
               {BULLETS.map((k) => (
-                <li key={k} className="flex items-center gap-3 text-sm text-slate-500">
-                  <Play className="w-3.5 h-3.5 shrink-0 text-slate-400" fill="currentColor" />
+                <li key={k} className="flex items-center gap-2.5 text-sm text-slate-600">
+                  <Play className="w-3.5 h-3.5 shrink-0 text-[#0AA09B]" fill="currentColor" />
                   {t(k)}
                 </li>
               ))}

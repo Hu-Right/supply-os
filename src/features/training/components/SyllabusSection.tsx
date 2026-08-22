@@ -18,23 +18,23 @@ export function SyllabusSection() {
 
   return (
     <div className="flex h-full flex-col">
-      <h3 className="text-xl md:text-2xl font-extrabold text-slate-900">{t("tlSylTitle")}</h3>
-      <div className="mt-8 flex-1 flex flex-col gap-8">
+      <h3 className="text-lg md:text-xl font-black text-[#0A2A55]">{t("tlSylTitle")}</h3>
+      <div className="mt-6 flex-1 flex flex-col gap-6">
         {MODULES.map((mod, idx) => (
-          <div key={mod.titleKey} className="relative flex gap-5 flex-1">
+          <div key={mod.titleKey} className="relative flex gap-4 flex-1">
             {/* 编号圆点 + 连接线 */}
             <div className="flex flex-col items-center">
-              <span className="w-9 h-9 shrink-0 rounded-full bg-slate-200 text-slate-700 text-sm font-bold flex items-center justify-center">
+              <span className="w-8 h-8 shrink-0 rounded-full bg-[#0E86A8] text-white text-sm font-black flex items-center justify-center">
                 {idx + 1}
               </span>
-              {idx < MODULES.length - 1 && <span className="w-px flex-1 bg-slate-200 mt-2" />}
+              {idx < MODULES.length - 1 && <span className="w-px flex-1 bg-[#0E86A8]/30 mt-2" />}
             </div>
-            <div className="flex-1 rounded-2xl bg-[#FAFBFC] p-6">
-              <h4 className="text-base font-bold text-slate-900">{t(mod.titleKey)}</h4>
-              <ul className="mt-4 space-y-2.5">
+            <div className="flex-1 rounded-lg bg-[#F1F4F8] p-5">
+              <h4 className="text-sm font-black text-[#0A2A55]">{t(mod.titleKey)}</h4>
+              <ul className="mt-3 space-y-2">
                 {mod.itemKeys.map((k) => (
-                  <li key={k} className="flex items-start gap-2.5 text-sm text-slate-500">
-                    <span className="mt-1.5 w-1.5 h-1.5 shrink-0 rounded-full bg-slate-400" />
+                  <li key={k} className="flex items-start gap-2 text-xs text-slate-600">
+                    <span className="mt-1 w-1.5 h-1.5 shrink-0 rounded-full bg-[#0E86A8]" />
                     {t(k)}
                   </li>
                 ))}

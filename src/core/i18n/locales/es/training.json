@@ -239,5 +239,11 @@
   "tlMat1": "Recibir el calendario del mes",
   "tlMat2": "Recibir el programa del curso",
   "tlMat3": "Saber quién debe asistir",
-  "tlMat4": "Consultar planes de grupo empresarial"
+  "tlMat4": "Consultar planes de grupo empresarial",
+  "tlPaymentScheduleLabel": "Seleccionar sesión",
+  "tlPaymentSchedulePeriod": "Sesión {n}",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "Seleccione primero una sesión",
+  "tlPaymentScheduleStatusOpen": "Inscripción abierta",
+  "tlPaymentScheduleStatusSoon": "Próximamente"
 }

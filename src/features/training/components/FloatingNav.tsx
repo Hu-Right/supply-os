@@ -1,9 +1,9 @@
 /**
- * 浮动导航组件（Apple 风格 — 毛玻璃 + 柔和中性色）
- * Floating Navigation (Apple-inspired frosted glass + soft neutral palette)
+ * 浮动导航组件（固定定位，响应式布局）
+ * Floating Navigation (fixed position, responsive layout)
  *
  * @module features/training/components/FloatingNav
- * @description 桌面端：右侧垂直侧边栏（白色毛玻璃）；移动端：底部水平导航栏（白色毛玻璃）。
+ * @description 桌面端：右侧垂直侧边栏；移动端：底部水平导航栏。
  *              始终可见，不随页面滚动消失。保留所有锚点跳转和按钮功能。
  */
 import { useLocale } from "@/core/i18n";
@@ -38,9 +38,9 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
 
   return (
     <>
-      {/* ─ 桌面端：右侧垂直侧边栏 — Apple 风格毛玻璃 ── */}
+      {/* ── 桌面端：右侧垂直侧边栏 ── */}
       <nav
-        className="hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-0.5 rounded-2xl bg-white/80 backdrop-blur-xl px-2.5 py-3 shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-slate-200/50"
+        className="hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-1 rounded-2xl bg-[#001636]/95 backdrop-blur-sm px-2 py-3 shadow-[0_8px_32px_rgba(0,22,54,0.3)]"
         aria-label="页面导航"
       >
         {/* 锚点链接 */}
@@ -49,10 +49,10 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
             key={id}
             type="button"
             onClick={() => go(id)}
-            className="group flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors duration-150 cursor-pointer"
+            className="group flex items-center gap-2 rounded-xl px-2.5 py-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
             title={t(labelKey)}
           >
-            <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+            <Icon className="w-4 h-4 shrink-0" />
             <span className="text-xs font-medium whitespace-nowrap">
               {t(labelKey)}
             </span>
@@ -60,46 +60,46 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         ))}
 
         {/* 分割线 */}
-        <div className="my-1.5 border-t border-slate-200/60" />
+        <div className="my-1 border-t border-white/10" />
 
         {/* 立即报名 */}
         <button
           type="button"
           onClick={onEnroll}
-          className="flex items-center gap-2.5 rounded-xl bg-[#0CAF8C] px-2.5 py-2 text-white hover:bg-[#0A9B7C] transition-colors duration-150 cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-[#0CAF8C] px-2.5 py-2 text-white hover:bg-[#0A9B7C] transition-colors cursor-pointer"
           title={t("tlNavEnroll")}
         >
-          <PenLine className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-          <span className="text-xs font-semibold whitespace-nowrap">{t("tlNavEnroll")}</span>
+          <PenLine className="w-4 h-4 shrink-0" />
+          <span className="text-xs font-bold whitespace-nowrap">{t("tlNavEnroll")}</span>
         </button>
 
         {/* 咨询顾问 */}
         <button
           type="button"
           onClick={onConsult}
-          className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-2.5 py-2 text-slate-600 hover:bg-slate-50 transition-colors duration-150 cursor-pointer"
+          className="flex items-center gap-2 rounded-xl border border-white/20 px-2.5 py-2 text-slate-200 hover:bg-white/10 transition-colors cursor-pointer"
           title={t("tlNavConsult")}
         >
-          <Headphones className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-          <span className="text-xs font-semibold whitespace-nowrap">{t("tlNavConsult")}</span>
+          <Headphones className="w-4 h-4 shrink-0" />
+          <span className="text-xs font-bold whitespace-nowrap">{t("tlNavConsult")}</span>
         </button>
       </nav>
 
-      {/* ── 移动端：底部水平导航栏 — Apple 风格 ── */}
+      {/* ── 移动端：底部水平导航栏 ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-slate-200/60 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#001636]/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)]"
         aria-label="页面导航"
       >
-        <div className="flex items-center justify-around px-1 py-2">
+        <div className="flex items-center justify-around px-1 py-1.5">
           {/* 锚点链接 */}
           {ANCHORS.map(({ id, labelKey, icon: Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => go(id)}
-              className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-slate-400 hover:text-slate-900 active:bg-slate-100 transition-colors duration-150 cursor-pointer min-w-0"
+              className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-slate-400 hover:text-white active:bg-white/10 transition-colors cursor-pointer min-w-0"
             >
-              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+              <Icon className="w-4 h-4 shrink-0" />
               <span className="text-[10px] font-medium truncate max-w-full">{t(labelKey)}</span>
             </button>
           ))}
@@ -108,20 +108,20 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="flex flex-col items-center gap-0.5 rounded-lg bg-[#0CAF8C] px-2 py-1.5 text-white active:bg-[#0A9B7C] transition-colors duration-150 cursor-pointer min-w-0"
+            className="flex flex-col items-center gap-0.5 rounded-lg bg-[#0CAF8C] px-2 py-1 text-white active:bg-[#0A9B7C] transition-colors cursor-pointer min-w-0"
           >
-            <PenLine className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-            <span className="text-[10px] font-semibold truncate max-w-full">{t("tlNavEnroll")}</span>
+            <PenLine className="w-4 h-4 shrink-0" />
+            <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavEnroll")}</span>
           </button>
 
           {/* 咨询顾问 */}
           <button
             type="button"
             onClick={onConsult}
-            className="flex flex-col items-center gap-0.5 rounded-lg border border-slate-200 px-2 py-1.5 text-slate-600 active:bg-slate-50 transition-colors duration-150 cursor-pointer min-w-0"
+            className="flex flex-col items-center gap-0.5 rounded-lg border border-white/20 px-2 py-1 text-slate-300 active:bg-white/10 transition-colors cursor-pointer min-w-0"
           >
-            <Headphones className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-            <span className="text-[10px] font-semibold truncate max-w-full">{t("tlNavConsult")}</span>
+            <Headphones className="w-4 h-4 shrink-0" />
+            <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavConsult")}</span>
           </button>
         </div>
       </nav>

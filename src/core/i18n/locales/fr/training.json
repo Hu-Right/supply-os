@@ -239,5 +239,11 @@
   "tlMat1": "Recevoir le calendrier du mois",
   "tlMat2": "Recevoir le programme du cours",
   "tlMat3": "Savoir qui doit participer",
-  "tlMat4": "Consulter les formules groupe entreprise"
+  "tlMat4": "Consulter les formules groupe entreprise",
+  "tlPaymentScheduleLabel": "Sélectionner la session",
+  "tlPaymentSchedulePeriod": "Session {n}",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "Veuillez d'abord sélectionner une session",
+  "tlPaymentScheduleStatusOpen": "Inscriptions ouvertes",
+  "tlPaymentScheduleStatusSoon": "Bientôt disponible"
 }

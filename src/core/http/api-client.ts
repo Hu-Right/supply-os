@@ -153,8 +153,14 @@ export async function api<T>(
     timestamp: Date.now(),
   });
 
-  // 401 未授权：尝试刷新 Token 并重试
+  // 401 未授权：先解析响应体，区分业务错误（如登录凭证错误）与 Token 过期
   if (res.status === 401) {
+    const errBody = await res.json().catch(() => ({}));
+    // 含 code 字段 → 业务级错误（sendError 端口），直接透传服务端消息
+    if (errBody.code) {
+      throw new ApiError(401, errBody.message || errBody.error || "Unauthorized");
+    }
+    // 无 code 字段 → Token 过期，尝试刷新
     const newToken = await tryRefreshToken();
     if (newToken) {
       // 用新 Token 重试原请求

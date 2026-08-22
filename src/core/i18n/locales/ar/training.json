@@ -239,5 +239,11 @@
   "tlMat1": "الحصول على جدول الشهر",
   "tlMat2": "الحصول على منهج الدورة",
   "tlMat3": "معرفة من ينبغي أن يشارك",
-  "tlMat4": "استشارة خطط المجموعات للشركات"
+  "tlMat4": "استشارة خطط المجموعات للشركات",
+  "tlPaymentScheduleLabel": "اختر الدورة",
+  "tlPaymentSchedulePeriod": "الدورة {n}",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "يرجى اختيار دورة أولاً",
+  "tlPaymentScheduleStatusOpen": "التسجيل مفتوح",
+  "tlPaymentScheduleStatusSoon": "قريباً"
 }

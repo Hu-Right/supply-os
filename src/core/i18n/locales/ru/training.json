@@ -239,5 +239,11 @@
   "tlMat1": "Получить расписание месяца",
   "tlMat2": "Получить программу курса",
   "tlMat3": "Узнать, кому подходит",
-  "tlMat4": "Корпоративные форматы участия"
+  "tlMat4": "Корпоративные форматы участия",
+  "tlPaymentScheduleLabel": "Выберите сессию",
+  "tlPaymentSchedulePeriod": "Сессия {n}",
+  "tlPaymentScheduleInfo": "{date} · {city} · {format}",
+  "tlPaymentScheduleRequired": "Сначала выберите сессию",
+  "tlPaymentScheduleStatusOpen": "Набор открыт",
+  "tlPaymentScheduleStatusSoon": "Скоро"
 }

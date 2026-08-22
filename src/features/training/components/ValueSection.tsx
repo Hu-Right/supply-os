@@ -21,16 +21,16 @@ export function ValueSection() {
 
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlValueTitle")} />
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           {items.map(({ icon: Icon, titleKey, descKey }) => (
             <div key={titleKey} className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center">
-                <Icon className="w-7 h-7 text-slate-600" strokeWidth={1.5} />
+              <div className="w-16 h-16 rounded-full bg-[#0A2A55] flex items-center justify-center">
+                <Icon className="w-7 h-7 text-white" />
               </div>
-              <h3 className="mt-5 text-sm font-bold text-slate-900">{t(titleKey)}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-slate-500">{t(descKey)}</p>
+              <h3 className="mt-4 text-sm font-black text-[#0A2A55]">{t(titleKey)}</h3>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">{t(descKey)}</p>
             </div>
           ))}
         </div>

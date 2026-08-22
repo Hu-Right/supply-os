@@ -90,7 +90,7 @@ export default function TrainingLandingPage() {
 
         {/* 课程大纲 + 三种参训方式（双栏带） */}
         <section id="syllabus" className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24 grid lg:grid-cols-2 gap-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 grid lg:grid-cols-2 gap-12">
             <SyllabusSection />
             <ParticipationSection course={course} onReserve={handleDirectPay} onConsult={openWechatQR} />
           </div>
@@ -115,6 +115,7 @@ export default function TrainingLandingPage() {
         <TrainingPaymentModal
           onClose={closePaymentModal}
           course={course}
+          schedules={schedules}
           registrationId={registrationId}
         />
       )}

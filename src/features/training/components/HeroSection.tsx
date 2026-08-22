@@ -42,48 +42,48 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
   ] as const;
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-white text-slate-900">
+    <section className="relative overflow-hidden bg-[#022049] text-white">
       <GlobeDots />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
-        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight leading-tight">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+        <h1 className="text-3xl md:text-5xl font-black tracking-wide">
           {course ? pickLocale(locale, course.name_zh, course.name_en) : t("tlFootBrandCourse")}
         </h1>
-        <p className="mt-6 text-xl md:text-2xl font-semibold text-slate-700 tracking-tight">{t("tlHeroSubtitle")}</p>
-        <p className="mt-6 max-w-2xl text-base md:text-lg leading-relaxed text-slate-500">
+        <p className="mt-5 text-lg md:text-2xl font-bold text-white tracking-wider">{t("tlHeroSubtitle")}</p>
+        <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-slate-300">
           {course?.description_zh || course?.description_en
             ? pickLocale(locale, course.description_zh || "", course.description_en)
             : t("tlHeroDesc")}
         </p>
 
-        <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3">
+        <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
           {chips.map(({ icon: Icon, key }) => (
-            <span key={key} className="inline-flex items-center gap-2 text-sm text-slate-500">
-              <Icon className="w-4 h-4 text-slate-400" />
+            <span key={key} className="inline-flex items-center gap-2 text-sm text-slate-200">
+              <Icon className="w-4 h-4 text-slate-100" />
               {t(key)}
             </span>
           ))}
         </div>
 
-        <div className="mt-10 flex flex-wrap gap-4">
+        <div className="mt-8 flex flex-wrap gap-4">
           <button
             type="button"
             onClick={onEnroll}
-            className="rounded-full bg-[#0CAF8C] px-8 py-3.5 text-base font-semibold text-white hover:bg-[#0A9B7C] hover:scale-105 transition-all duration-200 cursor-pointer shadow-sm"
+            className="rounded-md bg-[#0CAF8C] px-8 py-3 text-base font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
           >
             {t("tlHeroBtnEnroll")}
           </button>
           <button
             type="button"
             onClick={onConsult}
-            className="rounded-full border border-slate-300 px-8 py-3.5 text-base font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-all duration-200 cursor-pointer"
+            className="rounded-md border border-slate-400/70 px-8 py-3 text-base font-black text-slate-100 hover:bg-white/10 cursor-pointer"
           >
             {t("tlHeroBtnConsult")}
           </button>
         </div>
 
-        <p className="mt-10 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-          <Users className="w-4 h-4 text-slate-400" />
-          <span className="font-semibold text-slate-600">{t("tlHeroAudience")}</span>
+        <p className="mt-8 flex flex-wrap items-center gap-2 text-xs md:text-sm text-slate-300">
+          <Users className="w-4 h-4 text-slate-200" />
+          <span className="font-bold text-slate-200">{t("tlHeroAudience")}</span>
           {t("tlHeroAudienceList")}
         </p>
       </div>
