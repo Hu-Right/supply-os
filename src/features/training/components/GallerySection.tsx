@@ -56,32 +56,32 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   return (
     <>
       <div
-        className="rounded-lg border border-[#E5EBF3] bg-white overflow-hidden shadow-[0_4px_16px_rgba(10,42,85,0.06)]"
+        className="rounded-2xl bg-white overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-shadow duration-300"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="relative h-40 bg-[#0A2A55] cursor-pointer" onClick={handleImageClick}>
+        <div className="relative h-44 bg-slate-100 cursor-pointer" onClick={handleImageClick}>
           {current ? (
             <img
               src={current.image_path}
               alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
-              <Presentation className="w-10 h-10 text-white/40" />
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+              <Presentation className="w-10 h-10 text-slate-300" />
             </div>
           )}
           {images.length > 1 && (
-            <span className="absolute right-2 bottom-2 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+            <span className="absolute right-2.5 bottom-2.5 rounded-full bg-black/40 backdrop-blur-sm px-2.5 py-0.5 text-[10px] font-medium text-white">
               {idx + 1} / {images.length}
             </span>
           )}
         </div>
-        <div className="p-4 text-center">
-          <h3 className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
-          <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
+        <div className="p-5 text-center">
+          <h3 className="text-sm font-bold text-slate-900">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
+          <p className="mt-2 text-xs text-slate-500">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
         </div>
       </div>
 
@@ -152,9 +152,9 @@ export function GallerySection({ gallery }: { gallery: LandingGalleryCategory[] 
 
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-24">
         <SectionTitle title={t("tlGalTitle")} />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
           {gallery.map((cat) => <GalleryCard key={cat.id} cat={cat} />)}
         </div>
       </div>

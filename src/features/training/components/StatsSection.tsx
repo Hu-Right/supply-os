@@ -18,14 +18,14 @@ export function StatsSection() {
   ];
 
   return (
-    <section className="bg-white border-b border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section className="bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 grid grid-cols-2 md:grid-cols-4 gap-10">
         {items.map(({ icon: Icon, numKey, labelKey }) => (
           <div key={numKey} className="flex items-center justify-center gap-4">
-            <Icon className="w-8 h-8 text-[#0A2A55]" strokeWidth={1.6} />
+            <Icon className="w-8 h-8 text-slate-400" strokeWidth={1.5} />
             <div>
-              <p className="text-2xl md:text-3xl font-black text-[#0A2A55]">{t(numKey)}</p>
-              <p className="mt-1 text-xs md:text-sm text-slate-600">{t(labelKey)}</p>
+              <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{t(numKey)}</p>
+              <p className="mt-1.5 text-xs md:text-sm text-slate-500">{t(labelKey)}</p>
             </div>
           </div>
         ))}
