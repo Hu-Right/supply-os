@@ -29,15 +29,15 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
 
   return (
     <section id="schedule" className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid lg:grid-cols-2 gap-12 items-start">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 grid lg:grid-cols-2 gap-12 items-start">
         {/* 左：开课安排表 */}
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0B2447]">{t("tlSchTitle")}</h3>
+          <h3 className="text-lg md:text-xl font-black text-[#0A2A55] text-center">{t("tlSchTitle")}</h3>
           {schedules.length > 0 && (
-            <div className="mt-6 overflow-hidden rounded-lg border border-slate-200">
+            <div className="mt-6 overflow-hidden rounded-lg border border-[#E5EBF3]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[#0B2447] text-white">
+                  <tr className="bg-[#183252] text-white">
                     <th className="px-4 py-3 text-left font-bold">{t("tlSchPeriod")}</th>
                     <th className="px-4 py-3 text-left font-bold">{t("tlSchDate")}</th>
                     <th className="px-4 py-3 text-left font-bold">{t("tlSchCity")}</th>
@@ -48,11 +48,11 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <tbody>
                   {schedules.map((s) => (
                     <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-bold text-[#0B2447]">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
+                      <td className="px-4 py-3 font-bold text-[#0A2A55]">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
                       <td className="px-4 py-3 text-slate-600">{fmtDate(s.start_date, locale)}</td>
                       <td className="px-4 py-3 text-slate-600">{s.city}</td>
                       <td className="px-4 py-3 text-slate-600">{s.format}</td>
-                      <td className={`px-4 py-3 font-bold ${s.status === "open" ? "text-[#12A171]" : "text-slate-400"}`}>
+                      <td className={`px-4 py-3 font-bold ${s.status === "open" ? "text-[#0CAF8C]" : "text-slate-400"}`}>
                         {s.status === "open" ? t("tlSchOpen") : t("tlSchSoon")}
                       </td>
                     </tr>
@@ -61,36 +61,42 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
               </table>
             </div>
           )}
-          <p className="mt-4 text-xs text-slate-500">{t("tlSchNote")}</p>
+          <p className="mt-4 text-xs text-slate-600">{t("tlSchNote")}</p>
         </div>
 
         {/* 右：费用卡 */}
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0B2447]">{t("tlFeeTitle")}</h3>
+          <h3 className="text-lg md:text-xl font-black text-[#0A2A55] text-center">{t("tlFeeTitle")}</h3>
           {course && (
-            <div className="mt-6 rounded-xl bg-[#0B2447] p-8 text-white shadow-lg">
-              <p className="text-center text-base font-black">{pickLocale(locale, course.name_zh, course.name_en)}</p>
-              <p className="mt-4 text-center text-4xl font-black">
-                <span className="align-top text-xl">¥</span>
-                {course.unit_price.toLocaleString("zh-CN")}
-                <span className="ml-1 text-base font-bold text-slate-300">{t("tlPricePerPerson")}</span>
-              </p>
-              <p className="mt-2 text-center text-xs text-slate-300">{t("tlFeeSub")}</p>
-              <ul className="mt-6 grid grid-cols-2 gap-x-6 gap-y-2.5">
-                {(course.includes || []).map((item) => (
-                  <li key={item} className="flex items-start gap-2 text-xs text-slate-200">
-                    <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-[#12A171]" strokeWidth={3} />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                onClick={onReserve}
-                className="mt-8 w-full rounded-lg bg-[#12A171] py-3 text-sm font-black text-white hover:bg-[#0C8A5F] cursor-pointer"
-              >
-                {t("tlFeeBtn")}
-              </button>
+            <div className="mt-6 overflow-hidden rounded-lg shadow-[0_4px_16px_rgba(10,42,85,0.10)]">
+              {/* 上部藏青：课程名 + 价格 + 副标题 */}
+              <div className="bg-[#11437E] p-6 text-white text-center">
+                <p className="text-base font-black">{pickLocale(locale, course.name_zh, course.name_en)}</p>
+                <p className="mt-3 text-4xl font-black">
+                  <span className="align-top text-xl">¥</span>
+                  {course.unit_price.toLocaleString("zh-CN")}
+                  <span className="ml-1 text-base font-bold text-slate-300">{t("tlPricePerPerson")}</span>
+                </p>
+                <p className="mt-2 text-center text-xs text-slate-300">{t("tlFeeSub")}</p>
+              </div>
+              {/* 下部白色：权益清单 + 按钮 */}
+              <div className="bg-white p-6">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                  {(course.includes || []).map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-[#0CAF8C]" strokeWidth={3} />
+                      <span className="text-xs font-bold text-[#3E5070]">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={onReserve}
+                  className="mt-6 w-full rounded-md bg-[#0CAF8C] py-3 text-sm font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
+                >
+                  {t("tlFeeBtn")}
+                </button>
+              </div>
             </div>
           )}
         </div>

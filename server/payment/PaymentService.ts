@@ -12,6 +12,7 @@ import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
 import { activatePaidOrder } from "./fulfillment";
+import { isParseablePrivateKey } from "./keys";
 
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
@@ -20,6 +21,11 @@ export class PaymentService {
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
+  }
+
+  /** 渠道是否已注册（config-status 等可用性判定的唯一依据） */
+  hasStrategy(provider: PaymentProviderName): boolean {
+    return this.strategies.has(provider);
   }
 
   getStrategy(provider: PaymentProviderName): PaymentStrategy {
@@ -236,17 +242,21 @@ export class PaymentService {
 
     if (paymentMode === "live") {
       const alipayAppId = process.env.ALIPAY_APP_ID || "";
-      if (alipayAppId) {
+      const alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || "";
+      // 密钥可解析才注册：占位符/示例值视为未开通，避免下单时才在签名环节失败
+      if (alipayAppId && isParseablePrivateKey(alipayPrivateKey)) {
         service.registerStrategy(
           "alipay",
           new AlipayProvider({
             appId: alipayAppId,
-            privateKey: process.env.ALIPAY_PRIVATE_KEY || "",
+            privateKey: alipayPrivateKey,
             publicKey: process.env.ALIPAY_PUBLIC_KEY || "",
             notifyUrl: process.env.ALIPAY_NOTIFY_URL || "",
             sandbox: process.env.ALIPAY_SANDBOX === "true",
           }),
         );
+      } else if (alipayAppId) {
+        console.warn("[PaymentService] 支付宝私钥无法解析（占位符或格式错误），alipay 渠道未注册");
       }
 
       const wechatAppId = process.env.WECHAT_APP_ID || "";

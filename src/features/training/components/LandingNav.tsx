@@ -26,8 +26,8 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   return (
-    <div className="bg-[#0B2447] text-slate-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+    <div className="bg-[#001636] text-slate-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
         <span className="text-sm font-bold text-white whitespace-nowrap">{t("tlFootBrand")}</span>
         <div className="flex items-center gap-0.5 md:gap-1.5 overflow-x-auto scrollbar-none">
           {ANCHORS.map(([id, key]) => (
@@ -43,14 +43,14 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="ml-2 rounded-md bg-[#12A171] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#0C8A5F] whitespace-nowrap cursor-pointer"
+            className="ml-2 rounded bg-[#0CAF8C] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#0A9B7C] whitespace-nowrap cursor-pointer"
           >
             {t("tlNavEnroll")}
           </button>
           <button
             type="button"
             onClick={onConsult}
-            className="ml-1 rounded-md border border-slate-400/60 px-4 py-1.5 text-xs font-bold text-slate-100 hover:bg-white/10 whitespace-nowrap cursor-pointer"
+            className="ml-1 rounded border border-slate-400/60 px-4 py-1.5 text-xs font-bold text-slate-100 hover:bg-white/10 whitespace-nowrap cursor-pointer"
           >
             {t("tlNavConsult")}
           </button>

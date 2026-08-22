@@ -13,6 +13,7 @@ import crypto from "crypto";
 import type { AppContext } from "../context";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
+import { toQrDataUrl } from "../payment/qr";
 
 export interface CreateTrainingOrderParams {
   courseId: number;
@@ -23,6 +24,8 @@ export interface CreateTrainingOrderParams {
   contactName?: string;
   telephone?: string;
   clientIp?: string;
+  /** 站点对外访问基址（如 https://host），用于生成可扫码的绝对二维码链接 */
+  baseUrl?: string;
 }
 
 export interface TrainingOrderResult {
@@ -43,16 +46,24 @@ function makeTrainingOrderNo(): string {
   return `TR${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
 }
 
-/** 解析实际可用的支付渠道（live 且渠道已注册才用真实网关，否则回退 mock） */
+/**
+ * 解析实际可用的支付渠道，与会员区行为对齐：
+ * - live 模式下渠道未注册（未配置密钥）→ 抛 PAYMENT_PROVIDER_UNAVAILABLE，
+ *   由前端给出“暂未开通”提示，不再静默回退 mock；
+ * - mock 模式（开发环境）下统一走 mock 闭环。
+ */
 function resolveProvider(ctx: AppContext, requested: string): PaymentProviderName {
   const { paymentMode, paymentService } = ctx.payment;
-  if (paymentMode === "live" && (requested === "alipay" || requested === "wechat")) {
-    try {
-      paymentService.getStrategy(requested as PaymentProviderName);
-      return requested as PaymentProviderName;
-    } catch {
-      // 渠道未注册（未配置密钥）→ 回退 mock
+  if (paymentMode === "live") {
+    if (requested === "alipay" || requested === "wechat") {
+      try {
+        paymentService.getStrategy(requested as PaymentProviderName);
+        return requested as PaymentProviderName;
+      } catch {
+        // 渠道未注册（未配置密钥）→ 明确拒绝，不回退 mock
+      }
     }
+    throw new Error("PAYMENT_PROVIDER_UNAVAILABLE");
   }
   return "mock";
 }
@@ -82,22 +93,36 @@ export async function createTrainingOrder(
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
   // 通过支付策略生成二维码 / 支付链接
+  // payUrl：存库值（alipay 为自动提交的 HTML 表单，由跳转端点渲染）
+  // clientPayUrl：下发前端的可访问地址（alipay 为跳转端点路径，与会员区一致）
+  // 网关失败时明确报错，不创建无二维码/无链接的空订单
   let qrCode: string | null = null;
   let payUrl: string | null = null;
+  let clientPayUrl: string | null = null;
+  let gatewayResult: { pay_url: string; qr_code_url?: string };
   try {
     const strategy = ctx.payment.paymentService.getStrategy(provider);
-    const result = await strategy.createPaymentUrl(
+    gatewayResult = await strategy.createPaymentUrl(
       orderNo,
       totalAmount,
       `${course.name_zh} ×${participantCount}`,
       undefined,
       params.clientIp,
     );
-    payUrl = result.pay_url || null;
-    qrCode = result.qr_code_url || null;
-  } catch {
-    // 策略不可用时二维码留空，前端展示"联系顾问"兜底
+  } catch (err) {
+    console.error(`[TrainingPayment] 支付网关创建链接失败 orderNo=${orderNo}:`, (err as Error).message);
+    throw new Error("PAYMENT_GATEWAY_ERROR");
   }
+  payUrl = gatewayResult.pay_url || null;
+  clientPayUrl = payUrl;
+  if (!payUrl) throw new Error("PAYMENT_GATEWAY_ERROR");
+  
+  // 必须使用支付渠道返回的原生二维码（如支付宝当面付 precreate）
+  // 如果没有原生二维码，直接报错，不回退到跳转端点二维码
+  if (!gatewayResult.qr_code_url) {
+    throw new Error("PAYMENT_QR_CODE_MISSING");
+  }
+  qrCode = await toQrDataUrl(gatewayResult.qr_code_url);
 
   await trainingRepo.createOrder({
     orderNo,
@@ -122,7 +147,7 @@ export async function createTrainingOrder(
     amount: totalAmount,
     currency: course.currency || "CNY",
     qr_code: qrCode,
-    pay_url: payUrl,
+    pay_url: clientPayUrl,
     status: "pending",
     expires_at: expiresAt.toISOString(),
   };

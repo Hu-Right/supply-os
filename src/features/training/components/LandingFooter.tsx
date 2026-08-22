@@ -21,7 +21,7 @@ export function LandingFooter() {
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   return (
-    <footer className="bg-[#0B2447] text-slate-300">
+    <footer className="bg-[#041F44] text-slate-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <span className="text-sm font-bold text-white">{t("tlFootBrand")}</span>

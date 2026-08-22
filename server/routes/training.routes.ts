@@ -7,7 +7,6 @@ import { Router } from "express";
 import type { AppContext } from "../context";
 import { asyncHandler } from "../middleware/errorHandler";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
-import { type UnspscCodeRow } from "../services/unspsc";
 import { ApiErrorCode, sendError } from "../utils/http-error";
 import {
   createTrainingOrder,
@@ -40,9 +39,8 @@ export function createTrainingRouter(ctx: AppContext): Router {
       }
 
       let industryName = "";
-      let industryCode: UnspscCodeRow | null = null;
       if (industry_id) {
-        industryCode = await opportunitiesRepo.findUnspscCodeById(industry_id);
+        const industryCode = await opportunitiesRepo.findUnspscCodeById(industry_id);
         if (industryCode) {
           industryName = industryCode.title_zh || industryCode.title || "";
         }
@@ -122,7 +120,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
             description_en: course.description_en,
             unit_price: Number(course.unit_price || 0),
             currency: course.currency || "CNY",
-            includes: safeParseJson(course.includes),
+            includes: Array.isArray(course.includes) ? course.includes : safeParseJson(course.includes),
           }
         : null,
       schedules: schedules.map((s) => ({
@@ -140,7 +138,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
           id: i.id,
           name_zh: i.name_zh,
           name_en: i.name_en,
-          roles: safeParseJson(i.roles, []),
+          roles: Array.isArray(i.roles) ? i.roles : safeParseJson(i.roles, []),
           title_zh: i.title_zh,
           title_en: i.title_en,
           bio_zh: i.bio_zh,
@@ -151,6 +149,9 @@ export function createTrainingRouter(ctx: AppContext): Router {
           id: m.id,
           name_zh: m.name_zh,
           name_en: m.name_en,
+          title_zh: m.title_zh,
+          title_en: m.title_en,
+          roles: Array.isArray(m.roles) ? m.roles : safeParseJson(m.roles, []),
           avatar_path: m.avatar_path,
         })),
       },
@@ -176,6 +177,10 @@ export function createTrainingRouter(ctx: AppContext): Router {
   router.post("/api/training/orders", asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+      // 站点对外访问基址（反代优先），供服务端生成可扫码的绝对二维码链接
+      const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
+      const host = String(req.headers["host"] || "");
+      const baseUrl = host ? `${proto}://${host}` : "";
       const result = await createTrainingOrder(ctx, trainingRepo, {
         courseId: Number(req.body.course_id || 0),
         scheduleId: req.body.schedule_id ? Number(req.body.schedule_id) : null,
@@ -185,6 +190,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
         contactName: String(req.body.contact_name || ""),
         telephone: String(req.body.telephone || ""),
         clientIp,
+        baseUrl,
       });
       res.status(201).json({ success: true, ...result });
     } catch (err: any) {
@@ -195,8 +201,36 @@ export function createTrainingRouter(ctx: AppContext): Router {
       if (raw === "COURSE_PRICE_INVALID") {
         return sendError(res, 400, ApiErrorCode.TRAINING_PRICE_INVALID, "课程价格配置无效");
       }
+      if (raw === "PAYMENT_PROVIDER_UNAVAILABLE") {
+        // 与会员区对齐：渠道未开通时明确拒绝（不回退 mock），前端展示友好提示
+        return sendError(res, 400, ApiErrorCode.TRAINING_PROVIDER_UNAVAILABLE, "当前支付方式暂未开通，请选择其他支付方式或联系我们");
+      }
+      if (raw === "PAYMENT_GATEWAY_ERROR") {
+        // 网关创建支付链接失败（密钥无效等）：不落空订单，前端展示友好提示
+        return sendError(res, 503, ApiErrorCode.TRAINING_GATEWAY_ERROR, "支付通道暂时不可用，请稍后重试或联系我们");
+      }
+      if (raw === "PAYMENT_QR_CODE_MISSING") {
+        // 二维码生成失败（未开通当面付等）：不落空订单，前端展示友好提示
+        return sendError(res, 503, ApiErrorCode.TRAINING_GATEWAY_ERROR, "支付宝二维码生成失败，请确认已开通“当面付”产品后重试");
+      }
       throw err;
     }
+  }));
+
+  // 6d-1. ALIPAY REDIRECT：支付宝 page.pay 表单渲染端点（同会员区 /api/payment/alipay/redirect）
+  // 二维码扫码/点击后访问此处，服务端返回自动提交的 HTML 表单跳转至支付宝收银台
+  router.get("/api/training/orders/:order_no/alipay-redirect", asyncHandler(async (req, res) => {
+    const order = await trainingRepo.findOrderByNo(String(req.params.order_no || ""));
+    if (!order) return res.status(404).send("Order not found");
+    if (order.provider !== "alipay") return res.status(400).send("Not an Alipay order");
+    if (order.status !== "pending") return res.status(400).send("Order is not pending");
+    if (!order.pay_url) return res.status(400).send("Payment url missing");
+
+    // Alipay SDK pageExecute 返回的是自动提交的 HTML 表单（含 <form> + <script>auto-submit</script>），
+    // 必须用 res.send() 渲染此 HTML，浏览器加载后自动 POST 到支付宝网关完成跳转。
+    // 不可用 res.redirect()——那会把 HTML 字符串当作 URL 导致跳转失败。
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(order.pay_url);
   }));
 
   // 6e. QUERY TRAINING ORDER：查询培训订单状态（pending 时主动轮询网关）

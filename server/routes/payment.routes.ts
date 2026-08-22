@@ -13,6 +13,7 @@ import { asyncHandler, HttpError } from "../middleware/errorHandler";
 import { getPaymentRuntimeConfig } from "../config/env";
 import { listOrderHistory, listUnlockHistory } from "../services/paymentHistory";
 import { activateSubscription, fulfillMockPayment } from "../payment/fulfillment";
+import { toQrDataUrl } from "../payment/qr";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "./admin/middleware";
 
@@ -50,11 +51,17 @@ export function createPaymentRouter(ctx: AppContext): Router {
   router.post("/api/payment/orders", requireAuth, asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+      // 与研修班 resolveProvider 对齐：live 模式下仅接受已开通渠道名，其余明确拒绝（不回退 mock）
+      const requestedProvider = String(req.body.provider || "");
+      if (paymentMode === "live" && requestedProvider !== "alipay" && requestedProvider !== "wechat") {
+        throw new HttpError(400, "PAYMENT_PROVIDER_UNAVAILABLE");
+      }
+      const provider = (paymentMode === "live" ? requestedProvider : "mock") as import("../../src/types").PaymentProviderName;
       const result = await paymentService.createOrder({
         user_key: req.userKey,
         plan_code: String(req.body.plan_code || ""),
         notice_id: req.body.notice_id ? Number(req.body.notice_id) : null,
-        provider: (paymentMode === "live" && ["alipay", "wechat"].includes(req.body.provider) ? req.body.provider : "mock") as import("../../src/types").PaymentProviderName,
+        provider,
         return_url: String(req.body.return_url || ""),
         client_ip: clientIp,
         // 升级订单：服务端据此校验升级资格并按差价计费
@@ -64,10 +71,16 @@ export function createPaymentRouter(ctx: AppContext): Router {
       const clientPayUrl = result.provider === "alipay"
         ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
         : result.pay_url;
+      // 零跳转弹窗支付：必须使用支付渠道返回的原生二维码（如支付宝当面付 precreate）
+      // 如果没有原生二维码，直接报错，不回退到跳转端点二维码
+      if (!result.qr_code_url) {
+        throw new HttpError(500, "PAYMENT_QR_CODE_MISSING");
+      }
+      const qrCodeUrl = await toQrDataUrl(result.qr_code_url);
       res.status(201).json({
         ...result,
         pay_url: clientPayUrl,
-        qr_code_url: result.provider === "alipay" ? clientPayUrl : result.qr_code_url,
+        qr_code_url: qrCodeUrl,
         payment_mode: paymentMode === "live" ? "configured" : "mock",
       });
     } catch (err: any) {
@@ -75,6 +88,8 @@ export function createPaymentRouter(ctx: AppContext): Router {
       const raw = String(err.message || "");
       const friendly = raw.includes("Unsupported payment provider")
         ? "PAYMENT_PROVIDER_UNAVAILABLE"
+        : raw.includes("PAYMENT_QR_CODE_MISSING")
+        ? "支付宝二维码生成失败，请确认已开通“当面付”产品后重试"
         : raw;
       throw new HttpError(400, friendly);
     }
@@ -194,12 +209,15 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // 公共端点仅下发前端 UI 决策所需的最小字段（provider 是否 configured），
   // 不再暴露 app_id 片段/notify_url/mode/required_env 等内部配置；
   // 完整诊断信息移至 requireAdmin 保护的管理端点
+  //
+  // configured 以“策略已注册”为准（密钥可解析才会注册），而非仅环境变量存在：
+  // 占位符密钥不会再被误报为已开通
   const publicConfigStatusHandler = asyncHandler(async (_req: any, res: any) => {
-    const runtime = getPaymentRuntimeConfig();
+    const live = paymentMode === "live";
     res.json({
       providers: {
-        alipay: { configured: Boolean(runtime.providers?.alipay?.configured) },
-        wechat: { configured: Boolean(runtime.providers?.wechat?.configured) },
+        alipay: { configured: live && paymentService.hasStrategy("alipay") },
+        wechat: { configured: live && paymentService.hasStrategy("wechat") },
       },
     });
   });

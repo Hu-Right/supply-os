@@ -56,6 +56,9 @@ export function createApp(ctx: AppContext): Express {
       },
     },
     crossOriginEmbedderPolicy: false, // 第三方资源（字体/图片）需要跨域加载
+    // 项目未使用跨源隔离能力；HTTP/LAN 源下 COOP 头会被浏览器忽略并产生控制台告警，
+    // 且会切断弹窗支付兜底链接新开页与 opener 的关联，故显式关闭
+    crossOriginOpenerPolicy: false,
   }));
   // ── Brotli/Gzip 压缩（ESM 兼容：直接 import，构建时 --packages=external 保留运行时依赖）──
   // P1 性能优化：Brotli 压缩替代默认 gzip——比 gzip 再减 15-25% 传输体积

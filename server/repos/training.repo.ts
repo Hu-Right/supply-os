@@ -73,6 +73,9 @@ export interface TeamMemberRow extends RowDataPacket {
   id: number;
   name_zh: string;
   name_en: string | null;
+  title_zh: string | null;
+  title_en: string | null;
+  roles: string | null;
   avatar_path: string;
   sort_order: number;
 }

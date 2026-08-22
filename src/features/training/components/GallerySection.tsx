@@ -28,12 +28,12 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   const current = images[idx];
 
   return (
-    <div className="rounded-xl border border-slate-200/80 bg-white overflow-hidden shadow-xs">
-      <div className="relative h-40 bg-[#0B2447]">
+    <div className="rounded-lg border border-[#E5EBF3] bg-white overflow-hidden shadow-[0_4px_16px_rgba(10,42,85,0.06)]">
+      <div className="relative h-40 bg-[#0A2A55]">
         {current ? (
           <img src={current.image_path} alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)} className="w-full h-full object-cover" loading="lazy" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0B2447] to-[#12365F]">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
             <Presentation className="w-10 h-10 text-white/40" />
           </div>
         )}
@@ -44,8 +44,8 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
         )}
       </div>
       <div className="p-4 text-center">
-        <h3 className="text-sm font-black text-[#0B2447]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
-        <p className="mt-1.5 text-xs text-slate-500">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
+        <h3 className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
+        <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
       </div>
     </div>
   );
@@ -57,7 +57,7 @@ export function GallerySection({ gallery }: { gallery: LandingGalleryCategory[] 
 
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlGalTitle")} />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           {gallery.map((cat) => <GalleryCard key={cat.id} cat={cat} />)}

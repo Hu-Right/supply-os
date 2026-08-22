@@ -19,16 +19,16 @@ export function HighlightsSection() {
 
   return (
     <section className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 md:pb-20">
         <SectionTitle title={t("tlHlTitle")} />
         <div className="grid md:grid-cols-3 gap-6">
           {cards.map(({ icon: Icon, titleKey, descKey }) => (
-            <div key={titleKey} className="rounded-xl border border-slate-200/80 bg-white p-6 shadow-xs flex items-start gap-4">
-              <span className="w-12 h-12 shrink-0 rounded-full bg-[#12A171] flex items-center justify-center">
+            <div key={titleKey} className="rounded-lg border border-[#E5EBF3] bg-white p-6 shadow-[0_4px_16px_rgba(10,42,85,0.06)] flex items-start gap-4">
+              <span className="w-12 h-12 shrink-0 rounded-full bg-[#1E96A5] flex items-center justify-center">
                 <Icon className="w-6 h-6 text-white" />
               </span>
               <div>
-                <h3 className="text-base font-black text-[#0B2447]">{t(titleKey)}</h3>
+                <h3 className="text-base font-black text-[#0A2A55]">{t(titleKey)}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{t(descKey)}</p>
               </div>
             </div>

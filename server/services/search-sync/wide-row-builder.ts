@@ -608,32 +608,56 @@ export async function reconcilePreciseCodes(pool: Pool): Promise<number[]> {
  * 与 deadline_sec/is_featured 等单字段对账不同，本函数覆盖 title + description
  * 两个核心搜索字段，确保搜索索引与主表内容一致。
  *
- * 检测策略：利用主表 updated_at（ON UPDATE CURRENT_TIMESTAMP 自动维护），
- * 扫描最近 10 分钟内更新且内容与宽表不一致的行，批量修复。
+ * 检测策略：由于 crm_bid_notices 是外部表，无 updated_at 列，
+ * 采用 ID 范围分批扫描（每批 1000 条），比较内容差异并修复。
  * 每轮上限 2000 条，返回变更 ID 供上层同步 Meilisearch。
  */
 export async function reconcileContentDrift(pool: Pool): Promise<number[]> {
   try {
-    // 利用主表 updated_at 快速定位近期变更行，再比较内容差异
-    const [rows] = await pool.query(`
-      SELECT n.id
-      FROM crm_bid_notices n
-      INNER JOIN crm_notice_search ns ON ns.id = n.id
-      WHERE n.updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
-        AND (
-          ns.title != LEFT(n.title, 1000)
-          OR ns.description != LEFT(n.description, 2000)
-          OR ns.reference != LEFT(n.reference, 200)
-        )
-      LIMIT 2000
+    // 获取宽表中最大的 ID，作为扫描范围上限
+    const [maxIdRows] = await pool.query(`
+      SELECT COALESCE(MAX(id), 0) as max_id FROM crm_notice_search
     `);
-    const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
-    if (ids.length > 0) {
+    const maxId = Number((maxIdRows as RowDataPacket[])[0]?.max_id || 0);
+    if (maxId === 0) return [];
+
+    // 分批扫描：从 ID 1 开始，每批 1000 条，最多扫描 2 批（2000 条）
+    const BATCH_SIZE = 1000;
+    const MAX_BATCHES = 2;
+    const allChangedIds: number[] = [];
+
+    for (let batch = 0; batch < MAX_BATCHES; batch++) {
+      const startId = batch * BATCH_SIZE + 1;
+      const endId = startId + BATCH_SIZE - 1;
+
+      const [rows] = await pool.query(`
+        SELECT n.id
+        FROM crm_bid_notices n
+        INNER JOIN crm_notice_search ns ON ns.id = n.id
+        WHERE n.id BETWEEN ? AND ?
+          AND (
+            ns.title != LEFT(n.title, 1000)
+            OR ns.description != LEFT(n.description, 2000)
+            OR ns.reference != LEFT(n.reference, 200)
+          )
+        LIMIT 2000
+      `, [startId, endId]);
+
+      const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
+      allChangedIds.push(...ids);
+
+      // 如果本批未找到变更记录且未达到最大 ID，继续下一批
+      if (ids.length === 0 && endId < maxId) continue;
+      // 如果已找到变更记录或已达到最大 ID，停止扫描
+      if (ids.length > 0 || endId >= maxId) break;
+    }
+
+    if (allChangedIds.length > 0) {
       // 批量修复：将主表 title/description/reference 同步到宽表
-      const BATCH = 500;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
+      const FIX_BATCH = 500;
+      for (let i = 0; i < allChangedIds.length; i += FIX_BATCH) {
+        const batchIds = allChangedIds.slice(i, i + FIX_BATCH);
+        const ph = batchIds.map(() => "?").join(",");
         await pool.query(
           `UPDATE crm_notice_search ns
            INNER JOIN crm_bid_notices n ON n.id = ns.id
@@ -641,12 +665,12 @@ export async function reconcileContentDrift(pool: Pool): Promise<number[]> {
                ns.description = LEFT(n.description, 2000),
                ns.reference = LEFT(n.reference, 200)
            WHERE ns.id IN (${ph})`,
-          batch,
+          batchIds,
         );
       }
-      reconcileLog("content_drift", ids.length, `[wide-table] 内容漂移对账修复 ${ids.length} 条 title/description 滞后记录`);
+      reconcileLog("content_drift", allChangedIds.length, `[wide-table] 内容漂移对账修复 ${allChangedIds.length} 条 title/description 滞后记录`);
     }
-    return ids;
+    return allChangedIds;
   } catch (e) {
     console.warn(`[wide-table] 内容漂移对账失败（静默降级）:`, (e as Error).message);
     return [];

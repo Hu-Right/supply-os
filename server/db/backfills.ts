@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import type { RowDataPacket } from "mysql2/promise";
+import { isParseablePrivateKey, normalizePem } from "../payment/keys";
 
 export async function backfillUserIds(dbPool: any) {
   const tables = [
@@ -65,10 +66,19 @@ export async function hydratePaymentEnvFromDb(dbPool: any) {
   const alipay = (rows as RowDataPacket[])[0];
   if (!alipay) return false;
 
+  // 私钥不可解析（占位符/示例值）时不注入 env、不切 live：
+  // 否则下单才在签名环节失败，订单已落库但二维码/支付链接为空
+  if (!isParseablePrivateKey(String(alipay.private_key_ref || ""))) {
+    console.warn("[hydratePaymentEnvFromDb] crm_payment_provider_configs 中支付宝私钥无法解析，渠道保持未开通；请在后台配置真实商户密钥");
+    return false;
+  }
+
+  // 配置表可能存裸 base64 密钥体（无 BEGIN/END）：注入前归一化为标准 PEM，
+  // alipay-sdk 内部要求 PEM 头存在，否则签名时报 DECODER unsupported
   process.env.PAYMENT_MODE = "live";
   process.env.ALIPAY_APP_ID = alipay.app_id || process.env.ALIPAY_APP_ID || "";
-  process.env.ALIPAY_PRIVATE_KEY = alipay.private_key_ref || process.env.ALIPAY_PRIVATE_KEY || "";
-  process.env.ALIPAY_PUBLIC_KEY = alipay.public_key || process.env.ALIPAY_PUBLIC_KEY || "";
+  process.env.ALIPAY_PRIVATE_KEY = normalizePem(String(alipay.private_key_ref || ""), "PRIVATE KEY") || process.env.ALIPAY_PRIVATE_KEY || "";
+  process.env.ALIPAY_PUBLIC_KEY = normalizePem(String(alipay.public_key || ""), "PUBLIC KEY") || process.env.ALIPAY_PUBLIC_KEY || "";
   process.env.ALIPAY_NOTIFY_URL = alipay.notify_url || process.env.ALIPAY_NOTIFY_URL || "";
   process.env.ALIPAY_RETURN_URL = alipay.return_url || process.env.ALIPAY_RETURN_URL || "";
   process.env.ALIPAY_SANDBOX = alipay.mode === "sandbox" ? "true" : "false";

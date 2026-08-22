@@ -1,6 +1,7 @@
 import { AlipaySdk } from "alipay-sdk";
 import type { PaymentOrderStatus } from "../types/payment";
 import type { PaymentStrategy } from "./types";
+import { normalizePem } from "./keys";
 
 /**
  * 支付宝 H5 支付策略（基于 alipay-sdk 官方 SDK）
@@ -36,8 +37,8 @@ export class AlipayProvider implements PaymentStrategy {
 
     this.sdk = new AlipaySdk({
       appId: config.appId,
-      privateKey: this.normalizePem(config.privateKey, "PRIVATE KEY"),
-      alipayPublicKey: this.normalizePem(config.publicKey, "PUBLIC KEY"),
+      privateKey: normalizePem(config.privateKey, "PRIVATE KEY"),
+      alipayPublicKey: normalizePem(config.publicKey, "PUBLIC KEY"),
       gateway,
       signType: "RSA2",
       keyType: "PKCS8",
@@ -52,7 +53,9 @@ export class AlipayProvider implements PaymentStrategy {
     returnUrl?: string,
     _clientIp?: string,
   ): Promise<{ pay_url: string; qr_code_url?: string }> {
-    const payUrl = this.sdk.pageExecute("alipay.trade.page.pay", {
+    // alipay-sdk v4 的 sign() 对值为 undefined 的参数会抛 TypeError（util.ts 对每个值调
+    // Array.prototype.toString.call）：无值的 return_url/notify_url 必须整体省略而非传 undefined
+    const options: { bizContent: Record<string, string>; return_url?: string; notify_url?: string } = {
       bizContent: {
         out_trade_no: orderNo,
         product_code: "FAST_INSTANT_TRADE_PAY",
@@ -61,11 +64,36 @@ export class AlipayProvider implements PaymentStrategy {
         body: description,
         timeout_express: "30m",
       },
-      return_url: returnUrl || undefined,
-      notify_url: this.notifyUrl || undefined,
-    });
+    };
+    if (returnUrl) options.return_url = returnUrl;
+    if (this.notifyUrl) options.notify_url = this.notifyUrl;
 
-    return { pay_url: payUrl };
+    const payUrl = this.sdk.pageExecute("alipay.trade.page.pay", options);
+
+    // 使用当面付（precreate）生成原生二维码，扫码后直接进入支付宝支付页面
+    // 如果商户未开通当面付或调用失败，直接抛出错误，不回退
+    const precreateOptions: { bizContent: Record<string, string>; notify_url?: string } = {
+      bizContent: {
+        out_trade_no: orderNo,
+        total_amount: amount.toFixed(2),
+        subject: description,
+      },
+    };
+    if (this.notifyUrl) precreateOptions.notify_url = this.notifyUrl;
+
+    console.log("[AlipayProvider] 调用 precreate 生成原生二维码...");
+    const precreateResult = await this.sdk.exec("alipay.trade.precreate", precreateOptions);
+    
+    if (precreateResult.code !== "10000" || !precreateResult.qr_code) {
+      const errorMsg = precreateResult.sub_msg || precreateResult.msg || "未知错误";
+      console.error("[AlipayProvider] ✗ precreate 失败:", precreateResult.code, errorMsg);
+      throw new Error(`支付宝二维码生成失败: ${errorMsg} (code: ${precreateResult.code})`);
+    }
+    
+    const qrCodeUrl = precreateResult.qr_code;
+    console.log("[AlipayProvider] ✓ precreate 成功，生成原生支付宝二维码:", qrCodeUrl.substring(0, 50) + "...");
+
+    return { pay_url: payUrl, qr_code_url: qrCodeUrl };
   }
 
   async verifyCallback(rawBody: any, _signature: string): Promise<{
@@ -143,12 +171,5 @@ export class AlipayProvider implements PaymentStrategy {
       console.error("[AlipayProvider] queryOrderStatus 异常:", (err as Error).message);
       return { status: "pending" };
     }
-  }
-
-  private normalizePem(value: string, label: "PRIVATE KEY" | "PUBLIC KEY"): string {
-    const text = String(value || "").trim();
-    if (!text || text.includes("-----BEGIN")) return text;
-    const body = text.replace(/\s+/g, "").match(/.{1,64}/g)?.join("\n") || text;
-    return `-----BEGIN ${label}-----\n${body}\n-----END ${label}-----`;
   }
 }

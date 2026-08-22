@@ -15,7 +15,7 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
   const { t } = useLocale();
 
   return (
-    <section className="bg-[#0B2447]">
+    <section className="bg-[#022250]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="text-center md:text-left">
           <h3 className="text-2xl md:text-3xl font-black text-white tracking-wide">{t("tlCtaTitle")}</h3>
@@ -25,14 +25,14 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="rounded-lg bg-[#12A171] px-8 py-3 text-sm font-black text-white hover:bg-[#0C8A5F] cursor-pointer"
+            className="rounded-md bg-[#0CAF8C] px-8 py-3 text-sm font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
           >
             {t("tlCtaBtn1")}
           </button>
           <button
             type="button"
             onClick={onConsult}
-            className="rounded-lg border border-slate-400/70 px-8 py-3 text-sm font-black text-slate-100 hover:bg-white/10 cursor-pointer"
+            className="rounded-md border border-slate-400/70 px-8 py-3 text-sm font-black text-slate-100 hover:bg-white/10 cursor-pointer"
           >
             {t("tlCtaBtn2")}
           </button>

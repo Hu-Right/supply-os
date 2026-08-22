@@ -172,6 +172,9 @@ export function mapPaymentError(err: unknown): string {
   if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {
     return "当前支付方式暂未开通，请选择支付宝或联系管理员";
   }
+  if (message.includes("支付通道")) {
+    return "支付通道暂时不可用，请稍后重试或联系我们";
+  }
   if (message.includes("PLAN_NOT_FOUND")) {
     return "未找到对应的套餐方案，请刷新后重试";
   }

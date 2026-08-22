@@ -24,6 +24,12 @@ export interface ModalProps {
   showClose?: boolean;
   /** 自定义类名 */
   className?: string;
+  /** 是否允许点击遮罩层关闭（默认 true） */
+  closeOnBackdrop?: boolean;
+  /** 是否允许 ESC 键关闭（默认 true） */
+  closeOnEsc?: boolean;
+  /** 是否允许拖拽关闭（默认 true） */
+  closeOnDrag?: boolean;
 }
 
 export function Modal({
@@ -33,6 +39,9 @@ export function Modal({
   children,
   showClose = true,
   className = "",
+  closeOnBackdrop = true,
+  closeOnEsc = true,
+  closeOnDrag = true,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -62,15 +71,15 @@ export function Modal({
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (dragOffset > 120) {
+    if (closeOnDrag && dragOffset > 120) {
       onClose();
     }
     setDragOffset(0);
-  }, [dragOffset, onClose]);
+  }, [dragOffset, onClose, closeOnDrag]);
 
   // Escape 关闭
   useEffect(() => {
-    if (!open) return;
+    if (!open || !closeOnEsc) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -81,11 +90,11 @@ export function Modal({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, closeOnEsc]);
 
   // 点击遮罩关闭
   const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
-    if (e.target === dialogRef.current) {
+    if (closeOnBackdrop && e.target === dialogRef.current) {
       onClose();
     }
   };

@@ -62,11 +62,11 @@ export default function TrainingLandingPage() {
   if (loadState === "error" || !data) {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
-        <p className="text-sm text-slate-500">{t("tlLoadFailed")}</p>
+        <p className="text-sm text-slate-600">{t("tlLoadFailed")}</p>
         <button
           type="button"
           onClick={() => { setLoadState("loading"); fetchLandingData().then(setData).then(() => setLoadState("ready")).catch(() => setLoadState("error")); }}
-          className="rounded-xl bg-[#12A171] px-6 py-2.5 text-sm font-black text-white hover:bg-[#0C8A5F]"
+          className="rounded-xl bg-[#0CAF8C] px-6 py-2.5 text-sm font-black text-white hover:bg-[#0A9B7C]"
         >
           {t("tlPaymentRetry")}
         </button>
@@ -89,7 +89,7 @@ export default function TrainingLandingPage() {
 
         {/* 课程大纲 + 三种参训方式（双栏带） */}
         <section id="syllabus" className="bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid lg:grid-cols-2 gap-12 items-start">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 grid lg:grid-cols-2 gap-12">
             <SyllabusSection />
             <ParticipationSection course={course} onReserve={handleDirectPay} onConsult={openWechatQR} />
           </div>

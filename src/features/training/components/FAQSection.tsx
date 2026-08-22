@@ -17,7 +17,7 @@ export function FAQSection({ faqs }: { faqs: LandingFaq[] }) {
 
   return (
     <section id="faq" className="bg-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlFaqTitle")} />
         <div className="divide-y divide-slate-200 border-y border-slate-200">
           {faqs.map((f, i) => (
@@ -27,7 +27,7 @@ export function FAQSection({ faqs }: { faqs: LandingFaq[] }) {
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between gap-4 py-5 text-left cursor-pointer"
               >
-                <span className="text-sm font-black text-[#0B2447]">{pickLocale(locale, f.question_zh, f.question_en)}</span>
+                <span className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, f.question_zh, f.question_en)}</span>
                 <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${open === i ? "rotate-180" : ""}`} />
               </button>
               {open === i && (

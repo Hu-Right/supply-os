@@ -16,20 +16,19 @@ export interface HeroSectionProps {
   onConsult: () => void;
 }
 
-/** 点阵地球装饰 Dotted globe decoration */
+/** 地球装饰（earth.png 透明底，右侧融入藏青背景） Earth decoration */
 function GlobeDots() {
   return (
-    <svg viewBox="0 0 200 200" className="absolute -right-10 top-1/2 -translate-y-1/2 w-[420px] h-[420px] opacity-70 hidden lg:block" aria-hidden>
-      <defs>
-        <pattern id="tl-dots" width="7" height="7" patternUnits="userSpaceOnUse">
-          <circle cx="1.6" cy="1.6" r="1.1" fill="#4C8DFF" opacity="0.55" />
-        </pattern>
-      </defs>
-      <circle cx="100" cy="100" r="92" fill="url(#tl-dots)" />
-      <circle cx="100" cy="100" r="92" fill="none" stroke="#4C8DFF" strokeOpacity="0.4" />
-      <ellipse cx="100" cy="100" rx="92" ry="36" fill="none" stroke="#4C8DFF" strokeOpacity="0.3" />
-      <ellipse cx="100" cy="100" rx="36" ry="92" fill="none" stroke="#4C8DFF" strokeOpacity="0.3" />
-    </svg>
+    <img
+      src="/earth.png"
+      alt=""
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 right-0 h-full w-auto object-contain opacity-95 hidden lg:block"
+      style={{
+        maskImage: "linear-gradient(to right, transparent 0%, black 45%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 45%)",
+      }}
+    />
   );
 }
 
@@ -43,13 +42,13 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
   ] as const;
 
   return (
-    <section className="relative overflow-hidden bg-[#0B2447] text-white">
+    <section className="relative overflow-hidden bg-[#022049] text-white">
       <GlobeDots />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         <h1 className="text-3xl md:text-5xl font-black tracking-wide">
           {course ? pickLocale(locale, course.name_zh, course.name_en) : t("tlFootBrandCourse")}
         </h1>
-        <p className="mt-5 text-lg md:text-2xl font-bold text-teal-300 tracking-wider">{t("tlHeroSubtitle")}</p>
+        <p className="mt-5 text-lg md:text-2xl font-bold text-white tracking-wider">{t("tlHeroSubtitle")}</p>
         <p className="mt-5 max-w-2xl text-sm md:text-base leading-relaxed text-slate-300">
           {course?.description_zh || course?.description_en
             ? pickLocale(locale, course.description_zh || "", course.description_en)
@@ -59,7 +58,7 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
         <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
           {chips.map(({ icon: Icon, key }) => (
             <span key={key} className="inline-flex items-center gap-2 text-sm text-slate-200">
-              <Icon className="w-4 h-4 text-teal-400" />
+              <Icon className="w-4 h-4 text-slate-100" />
               {t(key)}
             </span>
           ))}
@@ -69,21 +68,21 @@ export function HeroSection({ course, onEnroll, onConsult }: HeroSectionProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="rounded-lg bg-[#12A171] px-8 py-3 text-base font-black text-white shadow-lg shadow-emerald-900/30 hover:bg-[#0C8A5F] cursor-pointer"
+            className="rounded-md bg-[#0CAF8C] px-8 py-3 text-base font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
           >
             {t("tlHeroBtnEnroll")}
           </button>
           <button
             type="button"
             onClick={onConsult}
-            className="rounded-lg border border-slate-400/70 px-8 py-3 text-base font-black text-slate-100 hover:bg-white/10 cursor-pointer"
+            className="rounded-md border border-slate-400/70 px-8 py-3 text-base font-black text-slate-100 hover:bg-white/10 cursor-pointer"
           >
             {t("tlHeroBtnConsult")}
           </button>
         </div>
 
         <p className="mt-8 flex flex-wrap items-center gap-2 text-xs md:text-sm text-slate-300">
-          <Users className="w-4 h-4 text-teal-400" />
+          <Users className="w-4 h-4 text-slate-200" />
           <span className="font-bold text-slate-200">{t("tlHeroAudience")}</span>
           {t("tlHeroAudienceList")}
         </p>

@@ -14,19 +14,18 @@ export function TestimonialsSection({ testimonials }: { testimonials: LandingTes
   if (testimonials.length === 0) return null;
 
   return (
-    <section id="testimonials" className="bg-[#F4F7FA]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <section id="testimonials" className="bg-[#F5F8FB]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlTestTitle")} />
         <div className="grid md:grid-cols-3 gap-6">
           {testimonials.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200/80 bg-white p-7 shadow-xs flex flex-col">
-              <Quote className="w-8 h-8 text-[#12A171]" fill="currentColor" />
-              <p className="mt-4 flex-1 text-sm leading-relaxed text-[#0B2447]">
+            <div key={item.id} className="rounded-lg border border-[#E5EBF3] bg-white p-7 shadow-[0_4px_16px_rgba(10,42,85,0.06)] flex flex-col">
+              <Quote className="w-8 h-8 text-[#0CAF8C]" fill="currentColor" />
+              <p className="mt-4 flex-1 text-sm leading-relaxed text-[#0A2A55]">
                 {pickLocale(locale, item.quote_zh, item.quote_en)}
               </p>
-              <p className="mt-5 text-right text-xs font-black text-[#0E7C6B]">
-                {item.author_name}
-                {item.author_title && <span className="ml-1 font-bold text-slate-500">{item.author_title}</span>}
+              <p className="mt-5 text-right text-xs font-black text-[#069E78]">
+                {locale === "zh" ? item.author_name : item.author_title || item.author_name}
               </p>
             </div>
           ))}

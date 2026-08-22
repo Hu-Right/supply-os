@@ -9,8 +9,13 @@
 
 export { default as PaymentModal } from "./components/PaymentModal";
 export { default } from "./components/PaymentModal";
-export { usePayment } from "./hooks/usePayment";
-export type { UsePaymentOptions, UsePaymentReturn, PaymentStep } from "./hooks/usePayment";
+export { default as PaymentModalCore } from "./components/PaymentModalCore";
+export type {
+  PaymentModalCoreProps,
+  PaymentModalOrder,
+  PaymentModalTexts,
+  PaymentModalStep,
+} from "./components/PaymentModalCore";
 export { useOrderHistory } from "./hooks/useOrderHistory";
 export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
