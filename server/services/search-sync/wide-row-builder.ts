@@ -150,6 +150,12 @@ export function buildCodeLevelMap(rows: RowDataPacket[]): Map<string, PreciseLev
 }
 
 // 候选码→五级 id 解析缓存（候选码总量小：543 个；TTL 10 分钟，仿 loadAliasMap）
+//
+// 架构说明：此缓存与 unspsc/tree-cache.ts 的缓存是**有意分离**的两套实现：
+// - tree-cache：面向桥接同步（bridge-sync）和过滤器构建，缓存完整类目树（含路径回溯）；
+// - 本缓存：面向宽表构建的"候选码→五级 id"快速查询，仅缓存 level=5 的链式 JOIN 结果。
+// 两者查询模式不同（全树 vs. level-5 链式），TTL 策略独立，互不干扰。
+// 若未来查询模式趋同，可考虑统一至 tree-cache 模块。
 let _preciseCodeMapCache: Map<string, PreciseLevels> | null = null;
 let _preciseCodeMapExpires = 0;
 const PRECISE_CODE_MAP_TTL = 10 * 60 * 1000;
