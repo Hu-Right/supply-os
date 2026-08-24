@@ -36,7 +36,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
       } = req.body;
 
       if (!company_name || !contact_name || !telephone) {
-        return res.status(400).json({ error: "企业名称、参会人姓名、手机号码为必填项" });
+        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "企业名称、参会人姓名、手机号码为必填项");
       }
 
       let industryName = "";
@@ -74,7 +74,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
   router.post("/api/training/downloads/track", asyncHandler(async (req, res) => {
     const materialId = String(req.body.material_id || "").slice(0, 60);
     const fileName = String(req.body.file_name || "").slice(0, 120);
-    if (!materialId) return res.status(400).json({ error: "material_id required" });
+    if (!materialId) return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "material_id required");
     const total = await trainingRepo.incrementDownloadCount(materialId, fileName);
     console.log(`[Download] ${materialId} | ${fileName} | total=${total}`);
     return res.json({ success: true, material_id: materialId, total });
