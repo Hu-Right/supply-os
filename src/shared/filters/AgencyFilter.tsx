@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 
 export interface AgencyFilterItem { agency: string; count: number; agency_i18n?: string; }
 
@@ -25,9 +26,11 @@ export function AgencyFilter({
   agencies, value, onChange,
   placeholder = "All agencies",
   searchPlaceholder = "Search agency...",
-  noResultsText = "No matching agencies",
+  noResultsText,
   className = "",
 }: AgencyFilterProps) {
+  const { t } = useLocale();
+  const resolvedNoResults = noResultsText ?? t("filterNoMatchAgencies");
   const [focused, setFocused] = useState(false);
   const [query, setQuery] = useState("");
   const [hasSelected, setHasSelected] = useState(false);
@@ -145,7 +148,7 @@ export function AgencyFilter({
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
             className="absolute end-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-            aria-label="Clear agency filter"
+            aria-label={t("filterClearAgency")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -186,7 +189,7 @@ export function AgencyFilter({
           </ul>
 
           {filtered.length === 0 && (
-            <div className="px-4 py-5 text-sm text-slate-400 text-center">{noResultsText}</div>
+            <div className="px-4 py-5 text-sm text-slate-400 text-center">{resolvedNoResults}</div>
           )}
         </div>
       )}

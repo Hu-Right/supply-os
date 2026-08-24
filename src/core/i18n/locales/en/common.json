@@ -58,5 +58,13 @@
   "supplierUnspscCodeLabel": "Int'l Procurement Code:",
   "authRefreshFailed": "Failed to refresh account status",
   "authLoginRequiredForBind": "Please login first to bind your company",
-  "authBindFailed": "Binding request failed"
+  "authBindFailed": "Binding request failed",
+  "filterSelectRegion": "Select region",
+  "filterSelectCountry": "Select country",
+  "filterSelectIndustry": "Select industry",
+  "galleryPrev": "Previous",
+  "galleryNext": "Next",
+  "navPageNav": "Page navigation",
+  "uploadDropZoneLabel": "File upload area",
+  "uiLoadingDots": "Loading..."
 }

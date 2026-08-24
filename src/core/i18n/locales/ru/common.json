@@ -58,5 +58,13 @@
   "supplierUnspscCodeLabel": "Код междунар. закупок:",
   "authRefreshFailed": "Не удалось обновить статус аккаунта",
   "authLoginRequiredForBind": "Войдите, чтобы привязать компанию",
-  "authBindFailed": "Ошибка запроса привязки"
+  "authBindFailed": "Ошибка запроса привязки",
+  "filterSelectRegion": "Выбрать регион",
+  "filterSelectCountry": "Выбрать страну",
+  "filterSelectIndustry": "Выбрать отрасль",
+  "galleryPrev": "Предыдущая",
+  "galleryNext": "Следующая",
+  "navPageNav": "Навигация по странице",
+  "uploadDropZoneLabel": "Область загрузки файлов",
+  "uiLoadingDots": "Загрузка..."
 }

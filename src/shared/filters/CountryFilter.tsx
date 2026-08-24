@@ -3,6 +3,7 @@
  * @module shared/filters/CountryFilter
  */
 import { Search, X } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import { useCountryFilter } from "./useCountryFilter";
 import { CountryDropdown } from "./CountryDropdown";
 
@@ -26,10 +27,12 @@ const MAX_VISIBLE = 200;
 export function CountryFilter({
   countries, value, onChange,
   locale = "en", placeholder = "All countries",
-  noResultsText = "No matching countries",
+  noResultsText,
   moreResultsText = "more results — refine your search",
   className = "",
 }: CountryFilterProps) {
+  const { t } = useLocale();
+  const resolvedNoResults: string = noResultsText ?? t("filterNoMatchCountries");
   const {
     containerRef, inputRef, showDropdown,
     visible, hasMore, filteredCount,
@@ -61,7 +64,7 @@ export function CountryFilter({
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleClear}
             className="absolute end-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
-            aria-label="Clear country filter"
+            aria-label={t("filterClearCountry")}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -72,7 +75,7 @@ export function CountryFilter({
         <CountryDropdown
           visible={visible} placeholder={placeholder} value={value} locale={locale}
           onSelect={handleSelect} hasMore={hasMore} filteredCount={filteredCount}
-          maxVisible={MAX_VISIBLE} noResultsText={noResultsText} moreResultsText={moreResultsText}
+          maxVisible={MAX_VISIBLE} noResultsText={resolvedNoResults} moreResultsText={moreResultsText}
         />
       )}
     </div>

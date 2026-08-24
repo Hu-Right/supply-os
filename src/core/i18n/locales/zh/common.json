@@ -58,5 +58,13 @@
   "supplierUnspscCodeLabel": "国际公共采购 Code:",
   "authRefreshFailed": "刷新账号状态失败",
   "authLoginRequiredForBind": "请先登录后再绑定公司",
-  "authBindFailed": "绑定申请提交失败"
+  "authBindFailed": "绑定申请提交失败",
+  "filterSelectRegion": "选择地区",
+  "filterSelectCountry": "选择国家",
+  "filterSelectIndustry": "选择行业",
+  "galleryPrev": "上一张",
+  "galleryNext": "下一张",
+  "navPageNav": "页面导航",
+  "uploadDropZoneLabel": "文件上传区域",
+  "uiLoadingDots": "加载中..."
 }

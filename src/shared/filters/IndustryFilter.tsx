@@ -32,7 +32,7 @@ export function IndustryFilter({
     <Select
       value={selectedIndustry}
       onChange={(e) => onIndustryChange(e.target.value)}
-      aria-label="选择行业"
+      aria-label={t("filterSelectIndustry")}
       className={`w-40 ${className}`}
     >
       <option value="">{t("allIndustries")}</option>

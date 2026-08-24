@@ -16,7 +16,7 @@ import type { LandingGalleryCategory } from "../api";
 const ROTATE_INTERVAL = 3000;
 
 function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const [idx, setIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
@@ -112,7 +112,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
                     type="button"
                     onClick={handlePrev}
                     className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
-                    aria-label="上一张"
+                    aria-label={t("galleryPrev")}
                   >
                     <ChevronLeft className="w-8 h-8" />
                   </button>
@@ -120,7 +120,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
                     type="button"
                     onClick={handleNext}
                     className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
-                    aria-label="下一张"
+                    aria-label={t("galleryNext")}
                   >
                     <ChevronRight className="w-8 h-8" />
                   </button>

@@ -42,7 +42,7 @@ export function RegionFilter({
       <Select
         value={selectedRegion}
         onChange={(e) => onRegionChange(e.target.value)}
-        aria-label="选择地区"
+        aria-label={t("filterSelectRegion")}
         className="w-32"
       >
         <option value="">{t("allRegions")}</option>
@@ -57,7 +57,7 @@ export function RegionFilter({
         <Select
           value={selectedCountry}
           onChange={(e) => onCountryChange(e.target.value)}
-          aria-label="选择国家"
+          aria-label={t("filterSelectCountry")}
           className="w-32"
         >
           <option value="">{t("allCountries")}</option>

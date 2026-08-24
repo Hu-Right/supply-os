@@ -10,6 +10,7 @@
  */
 
 import { PAGE_SIZE } from "../constants";
+import { useLocale } from "@/core/i18n";
 
 export interface NoticeListSkeletonProps {
   /** 骨架卡片数量，默认 PAGE_SIZE（9） */
@@ -17,8 +18,9 @@ export interface NoticeListSkeletonProps {
 }
 
 export function NoticeListSkeleton({ count = PAGE_SIZE }: NoticeListSkeletonProps) {
+  const { t } = useLocale();
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label="Loading...">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label={t("uiLoadingDots")}>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="border border-slate-200 rounded-xl p-4 min-h-64 flex flex-col animate-pulse">
           {/* 第一行：左侧类型标签 + 右侧截止日（对齐 NoticeCard L63-83） */}

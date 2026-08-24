@@ -58,5 +58,13 @@
   "supplierUnspscCodeLabel": "رمز المشتريات الدولية:",
   "authRefreshFailed": "فشل تحديث حالة الحساب",
   "authLoginRequiredForBind": "يرجى تسجيل الدخول أولاً لربط شركتك",
-  "authBindFailed": "فشل طلب الربط"
+  "authBindFailed": "فشل طلب الربط",
+  "filterSelectRegion": "اختر المنطقة",
+  "filterSelectCountry": "اختر الدولة",
+  "filterSelectIndustry": "اختر القطاع",
+  "galleryPrev": "السابقة",
+  "galleryNext": "التالية",
+  "navPageNav": "التنقل في الصفحة",
+  "uploadDropZoneLabel": "منطقة تحميل الملفات",
+  "uiLoadingDots": "جارٍ التحميل..."
 }

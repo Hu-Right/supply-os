@@ -41,7 +41,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
       {/* ── 桌面端：右侧垂直侧边栏 ── */}
       <nav
         className="hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-1 rounded-2xl bg-[#001636]/95 backdrop-blur-sm px-2 py-3 shadow-[0_8px_32px_rgba(0,22,54,0.3)]"
-        aria-label="页面导航"
+        aria-label={t("navPageNav")}
       >
         {/* 锚点链接 */}
         {ANCHORS.map(({ id, labelKey, icon: Icon }) => (
@@ -88,7 +88,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
       {/* ── 移动端：底部水平导航栏 ── */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#001636]/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)]"
-        aria-label="页面导航"
+        aria-label={t("navPageNav")}
       >
         <div className="flex items-center justify-around px-1 py-1.5">
           {/* 锚点链接 */}

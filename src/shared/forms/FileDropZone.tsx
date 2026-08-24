@@ -9,6 +9,7 @@
 
 import { useCallback, useState, type DragEvent } from "react";
 import { Upload } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 
 export interface FileDropZoneProps {
   /** 文件变更回调 */
@@ -30,6 +31,7 @@ export function FileDropZone({
   placeholder = "拖拽文件到此处，或点击选择",
   className = "",
 }: FileDropZoneProps) {
+  const { t } = useLocale();
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -79,7 +81,7 @@ export function FileDropZone({
       } ${className}`}
       role="button"
       tabIndex={0}
-      aria-label="文件上传区域"
+      aria-label={t("uploadDropZoneLabel")}
     >
       <Upload
         className={`mb-2 h-8 w-8 ${isDragging ? "text-teal-600" : "text-slate-400"}`}
