@@ -213,9 +213,11 @@ export function createTrainingRouter(ctx: AppContext): Router {
       }
       if (raw === "PAYMENT_QR_CODE_MISSING") {
         // 二维码生成失败（未开通当面付等）：不落空订单，前端展示友好提示
-        return sendError(res, 503, ApiErrorCode.TRAINING_GATEWAY_ERROR, "支付宝二维码生成失败，请确认已开通“当面付”产品后重试");
+        return sendError(res, 503, ApiErrorCode.TRAINING_GATEWAY_ERROR, "支付宝二维码生成失败，请确认已开通「当面付」产品后重试");
       }
-      throw err;
+      // 未预料的错误（数据库瞬时故障等）：记录日志并返回友好提示，不暴露内部细节
+      console.error("[TrainingOrders] 未预料的错误:", err);
+      return sendError(res, 500, ApiErrorCode.INTERNAL_ERROR, "系统繁忙，请稍后重试");
     }
   }));
 

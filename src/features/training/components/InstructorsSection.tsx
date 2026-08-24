@@ -70,9 +70,6 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {featured.map((ins) => (
               <div key={ins.id} className="rounded-xl bg-white p-6 pt-7 text-center shadow-[0_2px_12px_rgba(10,42,85,0.06)]">
-                <span className="inline-block rounded-full bg-[#018B8B] px-4 py-1.5 text-xs font-bold text-white">
-                  {ins.roles.join(" ｜ ")}
-                </span>
                 <div className="mt-6 flex justify-center">
                   <span className="inline-block rounded-[50%]">
                     <Avatar
@@ -89,6 +86,9 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
                   {pickLocale(locale, ins.title_zh, ins.title_en)}
                 </p>
                 <p className="mt-4 text-xs leading-relaxed text-[#3E5070] text-left">
+                  {ins.roles.length > 0 && (
+                    <span className="font-bold text-[#0B7F82]">{ins.roles.join("、")}。</span>
+                  )}
                   {pickLocale(locale, ins.bio_zh, ins.bio_en)}
                 </p>
               </div>

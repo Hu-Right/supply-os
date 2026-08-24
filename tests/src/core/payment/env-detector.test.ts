@@ -121,6 +121,25 @@ describe("mapPaymentError", () => {
     expect(mapPaymentError(new Error("FREE_PLAN_NO_PAYMENT_REQUIRED"))).toContain("免费");
   });
 
+  it("课程不存在", () => {
+    expect(mapPaymentError(new Error("课程不存在或已下架"))).toContain("课程不存在");
+    expect(mapPaymentError(new Error("COURSE_NOT_FOUND"))).toContain("课程不存在");
+  });
+
+  it("课程价格无效", () => {
+    expect(mapPaymentError(new Error("课程价格配置无效"))).toContain("课程价格");
+    expect(mapPaymentError(new Error("COURSE_PRICE_INVALID"))).toContain("课程价格");
+  });
+
+  it("二维码生成失败", () => {
+    expect(mapPaymentError(new Error("支付宝二维码生成失败"))).toContain("当面付");
+    expect(mapPaymentError(new Error("PAYMENT_QR_CODE_MISSING"))).toContain("当面付");
+  });
+
+  it("支付方式暂未开通（中文消息）", () => {
+    expect(mapPaymentError(new Error("当前支付方式暂未开通，请选择其他支付方式或联系我们"))).toContain("暂未开通");
+  });
+
   it("未知错误兜底", () => {
     expect(mapPaymentError(new Error("something else"))).toContain("支付创建失败");
     expect(mapPaymentError("random string")).toContain("支付创建失败");

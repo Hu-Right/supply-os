@@ -175,6 +175,18 @@ export function mapPaymentError(err: unknown): string {
   if (message.includes("支付通道")) {
     return "支付通道暂时不可用，请稍后重试或联系我们";
   }
+  if (message.includes("课程不存在") || message.includes("COURSE_NOT_FOUND")) {
+    return "课程不存在或已下架，请刷新页面后重试";
+  }
+  if (message.includes("课程价格") || message.includes("COURSE_PRICE_INVALID")) {
+    return "课程价格配置异常，请联系管理员";
+  }
+  if (message.includes("二维码") || message.includes("当面付") || message.includes("PAYMENT_QR_CODE_MISSING")) {
+    return "支付二维码生成失败，请确认已开通「当面付」产品后重试";
+  }
+  if (message.includes("支付方式暂未开通") || message.includes("TRAINING_PROVIDER_UNAVAILABLE")) {
+    return "当前支付方式暂未开通，请选择其他支付方式或联系我们";
+  }
   if (message.includes("PLAN_NOT_FOUND")) {
     return "未找到对应的套餐方案，请刷新后重试";
   }
@@ -184,5 +196,7 @@ export function mapPaymentError(err: unknown): string {
   if (message.includes("FREE_PLAN_NO_PAYMENT_REQUIRED")) {
     return "免费套餐无需支付";
   }
+  // 兜底：打印原始错误便于排查
+  console.warn("[mapPaymentError] 未匹配的错误消息:", message);
   return "支付创建失败，请稍后重试或更换支付方式";
 }
