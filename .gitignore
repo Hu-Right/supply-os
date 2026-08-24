@@ -70,6 +70,7 @@ Desktop.ini
 # —— 以上规则的例外：项目运行必需的静态资源 ——
 !public/fonts/**
 !public/wechat-service-qr.png
+!public/earth.png
 !public/downloads/training/**
 !public/images/training/**
 !public/manifest.json
