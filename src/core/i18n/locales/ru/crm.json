@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "Не указано",
   "crmEditingLead": "» Редактирование и журналирование сопровождения: {company}",
   "aiMatchHttpError": "Ошибка API подбора, попробуйте снова.",
-  "aiMatchNetworkError": "Ошибка подключения к сервису Gemini."
+  "aiMatchNetworkError": "Ошибка подключения к сервису Gemini.",
+  "aiMatchSelectTarget": "Сначала выберите целевого поставщика и ориентир возможности!"
 }

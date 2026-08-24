@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "Unspecified",
   "crmEditingLead": "» Editing & logging follow-up: {company}",
   "aiMatchHttpError": "Matchmaker API error, please retry.",
-  "aiMatchNetworkError": "Connection error to Gemini service."
+  "aiMatchNetworkError": "Connection error to Gemini service.",
+  "aiMatchSelectTarget": "Please select a target supplier and opportunity benchmark first!"
 }

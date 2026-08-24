@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "未指定",
   "crmEditingLead": "» 正在编辑 & 录入跟进状态: {company}",
   "aiMatchHttpError": "匹配请求失败，请检查网络设置。",
-  "aiMatchNetworkError": "链接API服务出现故障。"
+  "aiMatchNetworkError": "链接API服务出现故障。",
+  "aiMatchSelectTarget": "请先选择目标供应商和商机基准！"
 }

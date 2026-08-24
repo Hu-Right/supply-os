@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "No especificado",
   "crmEditingLead": "» Editando y registrando seguimiento: {company}",
   "aiMatchHttpError": "Error de la API de emparejamiento, inténtelo de nuevo.",
-  "aiMatchNetworkError": "Error de conexión con el servicio Gemini."
+  "aiMatchNetworkError": "Error de conexión con el servicio Gemini.",
+  "aiMatchSelectTarget": "¡Seleccione primero un proveedor objetivo y un benchmark de oportunidad!"
 }

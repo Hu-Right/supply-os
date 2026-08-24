@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileText, X } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { useScrollLock } from "@/shared/ui";
+import { Modal } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
@@ -37,8 +37,6 @@ const INITIAL_FORM = {
 
 export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterFormProps) {
   const { t, locale } = useLocale();
-  // 弹窗打开期间锁定背景滚动
-  useScrollLock();
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -100,232 +98,231 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between bg-slate-900 bg-gradient-to-r from-slate-950 to-transparent p-4 text-white">
-          <div>
-            <h3 className="text-base font-extrabold">
-              {selectedShowroom
-                ? t("showroomApplyTitle", {
-                    name: pickLocale(locale, selectedShowroom.nameZh, selectedShowroom.nameEn),
-                  })
-                : t("showroomApplyDefault")}
-            </h3>
-            <p className="text-[10px] text-slate-400">{t("showroomFormSubtitle")}</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
+    <Modal open onClose={onClose} showClose={false} className="max-w-2xl">
+      {/* 深色 Header（保持原始视觉风格） */}
+      <div className="flex items-center justify-between bg-slate-900 bg-gradient-to-r from-slate-950 to-transparent p-4 text-white -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4 md:mb-6 rounded-t-2xl">
+        <div>
+          <h3 className="text-base font-extrabold">
+            {selectedShowroom
+              ? t("showroomApplyTitle", {
+                  name: pickLocale(locale, selectedShowroom.nameZh, selectedShowroom.nameEn),
+                })
+              : t("showroomApplyDefault")}
+          </h3>
+          <p className="text-[10px] text-slate-400">{t("showroomFormSubtitle")}</p>
         </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
 
-        {submitted ? (
-          <div className="space-y-4 p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-650">
-              <CheckCircle2 className="h-8 w-8 text-teal-600" />
-            </div>
-            <h4 className="text-base font-bold text-slate-800">{t("formSuccess")}</h4>
-            <p className="text-xs text-slate-500">{t("showroomFormDemoNote")}</p>
+      {submitted ? (
+        <div className="space-y-4 p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-650">
+            <CheckCircle2 className="h-8 w-8 text-teal-600" />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-4 overflow-y-auto p-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  {t("companyName")} *
-                </label>
-                <Input
-                  type="text"
-                  placeholder={t("showroomCompanyPlaceholder")}
-                  value={form.companyName}
-                  onChange={(e) => handleChange("companyName", e.target.value)}
-                  className="text-xs"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  {t("contactPerson")} *
-                </label>
-                <Input
-                  type="text"
-                  placeholder={t("showroomContactPlaceholder")}
-                  value={form.contactPerson}
-                  onChange={(e) => handleChange("contactPerson", e.target.value)}
-                  className="text-xs"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  {t("formContactMethod")}
-                </label>
-                <Input
-                  type="text"
-                  placeholder={t("showroomPhonePlaceholder")}
-                  value={form.contactMethod}
-                  onChange={(e) => handleChange("contactMethod", e.target.value)}
-                  className="text-xs"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  {t("contactEmail")}
-                </label>
-                <Input
-                  type="email"
-                  placeholder="e.g., manager@corp.com"
-                  value={form.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  className="text-xs"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  {t("location")} *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Select
-                    value={form.country}
-                    onChange={(e) => handleChange("country", e.target.value)}
-                    className="px-2 py-1.5"
-                  >
-                    <option value="China">中国 (China)</option>
-                    <option value="Germany">德国 (Germany)</option>
-                    <option value="UAE">阿联酋 (UAE)</option>
-                    <option value="Kenya">肯尼亚 (Kenya)</option>
-                  </Select>
-                  <Input
-                    type="text"
-                    placeholder={t("showroomCityPlaceholder")}
-                    value={form.city}
-                    onChange={(e) => handleChange("city", e.target.value)}
-                    className="px-2 py-1.5 text-xs"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                  主营行业 *
-                </label>
-                <Select
-                  value={form.industry}
-                  onChange={(e) => handleChange("industry", e.target.value)}
-                  className="text-xs"
-                >
-                  <option value="机械 (Machinery)">机械 (Machinery)</option>
-                  <option value="医疗 (Medical)">医疗 (Medical)</option>
-                  <option value="电子 (Electronics)">电子 (Electronics)</option>
-                  <option value="建材 (Construction)">建材 (Construction)</option>
-                </Select>
-              </div>
-            </div>
-
+          <h4 className="text-base font-bold text-slate-800">{t("formSuccess")}</h4>
+          <p className="text-xs text-slate-500">{t("showroomFormDemoNote")}</p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="max-h-[60vh] space-y-4 overflow-y-auto">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                {t("formMainProductsGroup")}
+                {t("companyName")} *
               </label>
               <Input
                 type="text"
-                value={form.mainProducts}
-                onChange={(e) => handleChange("mainProducts", e.target.value)}
-                placeholder={t("mainProductsPlaceholder")}
+                placeholder={t("showroomCompanyPlaceholder")}
+                value={form.companyName}
+                onChange={(e) => handleChange("companyName", e.target.value)}
                 className="text-xs"
                 required
               />
             </div>
-
-            <div className="flex items-center space-x-2 rounded border border-slate-150 bg-slate-50 p-2.5">
-              <input
-                type="checkbox"
-                id="hasIntlProcurement"
-                checked={form.hasIntlProcurement}
-                onChange={(e) => handleChange("hasIntlProcurement", e.target.checked)}
-                className="h-4 w-4 rounded text-teal-600"
-              />
-              <label
-                htmlFor="hasIntlProcurement"
-                className="cursor-pointer select-none text-xs font-bold text-slate-700"
-              >
-                {t("showroomUngmCheckbox")}
-              </label>
-            </div>
-
-            {/* 模拟附件上传区（拖拽 / 点击） */}
             <div>
               <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                {t("qualificationFile")}
+                {t("contactPerson")} *
               </label>
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={triggerInputFileClick}
-                className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-all ${
-                  isDragging
-                    ? "border-teal-500 bg-teal-50/50"
-                    : "border-slate-300 bg-slate-50/20 hover:border-slate-400"
-                }`}
-              >
-                <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400" />
-                <p className="text-xs font-semibold text-slate-600">{t("uploadPlaceholder")}</p>
-                <p className="mt-0.5 text-[10px] text-slate-400">{t("uploadFileHint")}</p>
-
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-3 max-h-24 space-y-1.5 overflow-y-auto border-t border-slate-200 pt-2.5 text-start">
-                    {uploadedFiles.map((fn, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded border border-slate-200 bg-white px-2.5 py-1 text-xs"
-                      >
-                        <span className="truncate font-mono text-[11px] text-slate-750">{fn}</span>
-                        <span className="text-[10px] font-bold text-emerald-650">
-                          {t("uploadMockSuccess")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <Input
+                type="text"
+                placeholder={t("showroomContactPlaceholder")}
+                value={form.contactPerson}
+                onChange={(e) => handleChange("contactPerson", e.target.value)}
+                className="text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-extrabold text-slate-700">
+                {t("formContactMethod")}
+              </label>
+              <Input
+                type="text"
+                placeholder={t("showroomPhonePlaceholder")}
+                value={form.contactMethod}
+                onChange={(e) => handleChange("contactMethod", e.target.value)}
+                className="text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-extrabold text-slate-700">
+                {t("contactEmail")}
+              </label>
+              <Input
+                type="email"
+                placeholder="e.g., manager@corp.com"
+                value={form.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                className="text-xs"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-extrabold text-slate-700">
+                {t("location")} *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  value={form.country}
+                  onChange={(e) => handleChange("country", e.target.value)}
+                  className="px-2 py-1.5"
+                >
+                  <option value="China">中国 (China)</option>
+                  <option value="Germany">德国 (Germany)</option>
+                  <option value="UAE">阿联酋 (UAE)</option>
+                  <option value="Kenya">肯尼亚 (Kenya)</option>
+                </Select>
+                <Input
+                  type="text"
+                  placeholder={t("showroomCityPlaceholder")}
+                  value={form.city}
+                  onChange={(e) => handleChange("city", e.target.value)}
+                  className="px-2 py-1.5 text-xs"
+                />
               </div>
             </div>
-
             <div>
               <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                {t("formSpecialRequests")}
+                主营行业 *
               </label>
-              <textarea
-                value={form.notes}
-                onChange={(e) => handleChange("notes", e.target.value)}
-                rows={2}
-                placeholder={t("showroomNotesPlaceholder")}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="text-[11px] text-slate-400">
-              {t("formSubmitAgreement")}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="cursor-pointer rounded-lg border border-slate-205 px-4 py-2 text-xs text-slate-550 hover:bg-slate-50"
+              <Select
+                value={form.industry}
+                onChange={(e) => handleChange("industry", e.target.value)}
+                className="text-xs"
               >
-                {t("cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-teal-650"
-              >
-                {t("submitRequestBtn")}
-              </button>
+                <option value="机械 (Machinery)">机械 (Machinery)</option>
+                <option value="医疗 (Medical)">医疗 (Medical)</option>
+                <option value="电子 (Electronics)">电子 (Electronics)</option>
+                <option value="建材 (Construction)">建材 (Construction)</option>
+              </Select>
             </div>
-          </form>
-        )}
-      </div>
-    </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-extrabold text-slate-700">
+              {t("formMainProductsGroup")}
+            </label>
+            <Input
+              type="text"
+              value={form.mainProducts}
+              onChange={(e) => handleChange("mainProducts", e.target.value)}
+              placeholder={t("mainProductsPlaceholder")}
+              className="text-xs"
+              required
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 rounded border border-slate-150 bg-slate-50 p-2.5">
+            <input
+              type="checkbox"
+              id="hasIntlProcurement"
+              checked={form.hasIntlProcurement}
+              onChange={(e) => handleChange("hasIntlProcurement", e.target.checked)}
+              className="h-4 w-4 rounded text-teal-600"
+            />
+            <label
+              htmlFor="hasIntlProcurement"
+              className="cursor-pointer select-none text-xs font-bold text-slate-700"
+            >
+              {t("showroomUngmCheckbox")}
+            </label>
+          </div>
+
+          {/* 模拟附件上传区（拖拽 / 点击） */}
+          <div>
+            <label className="mb-1 block text-xs font-extrabold text-slate-700">
+              {t("qualificationFile")}
+            </label>
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={triggerInputFileClick}
+              className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-all ${
+                isDragging
+                  ? "border-teal-500 bg-teal-50/50"
+                  : "border-slate-300 bg-slate-50/20 hover:border-slate-400"
+              }`}
+            >
+              <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+              <p className="text-xs font-semibold text-slate-600">{t("uploadPlaceholder")}</p>
+              <p className="mt-0.5 text-[10px] text-slate-400">{t("uploadFileHint")}</p>
+
+              {uploadedFiles.length > 0 && (
+                <div className="mt-3 max-h-24 space-y-1.5 overflow-y-auto border-t border-slate-200 pt-2.5 text-start">
+                  {uploadedFiles.map((fn, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between rounded border border-slate-200 bg-white px-2.5 py-1 text-xs"
+                    >
+                      <span className="truncate font-mono text-[11px] text-slate-750">{fn}</span>
+                      <span className="text-[10px] font-bold text-emerald-650">
+                        {t("uploadMockSuccess")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-extrabold text-slate-700">
+              {t("formSpecialRequests")}
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => handleChange("notes", e.target.value)}
+              rows={2}
+              placeholder={t("showroomNotesPlaceholder")}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="text-[11px] text-slate-400">
+            {t("formSubmitAgreement")}
+          </div>
+
+          <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="cursor-pointer rounded-lg border border-slate-205 px-4 py-2 text-xs text-slate-550 hover:bg-slate-50"
+            >
+              {t("cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-teal-650"
+            >
+              {t("submitRequestBtn")}
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   );
 }
 

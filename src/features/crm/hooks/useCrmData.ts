@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
@@ -111,7 +112,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
   // Trigger AI matching (delegates to useAiMatch)
   const triggerAiMatchmaking = async () => {
     if (!aiMatch.selectedSupplier || !aiMatch.selectedOpportunity) {
-      alert("Please select a target supplier and opportunity benchmark first!");
+      toast.error(t("aiMatchSelectTarget"));
       return;
     }
     await aiMatch.triggerMatch(aiMatch.selectedSupplier, aiMatch.selectedOpportunity);

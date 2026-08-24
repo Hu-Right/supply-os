@@ -2,6 +2,7 @@
  * 加载蒙层组件
  * Loading Overlay
  *
+ * @module shared/ui/LoadingOverlay
  * @description 搜索/语言切换期间的半透明蒙层 + 旋转指示器。
  *              覆盖全屏、阻断所有交互（点击 + 滚动）。
  *              Full-screen overlay that blocks all interactions (click + scroll).

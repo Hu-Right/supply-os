@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "Non spécifié",
   "crmEditingLead": "» Édition et journalisation du suivi : {company}",
   "aiMatchHttpError": "Erreur de l'API de mise en relation, veuillez réessayer.",
-  "aiMatchNetworkError": "Erreur de connexion au service Gemini."
+  "aiMatchNetworkError": "Erreur de connexion au service Gemini.",
+  "aiMatchSelectTarget": "Veuillez d'abord sélectionner un fournisseur cible et une référence d'opportunité !"
 }

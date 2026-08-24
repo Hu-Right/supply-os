@@ -7,6 +7,7 @@
  */
 
 import { lazy, Suspense } from "react";
+import { Toaster } from "sonner";
 import { useLocation } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -66,6 +67,7 @@ export default function App() {
             onPaymentSuccess={handlePaymentSuccess} />
         </Suspense>
       )}
+      <Toaster richColors position="top-center" closeButton />
       <AppFooter activeTab={activeTab} onSwitchTab={switchMainTab} onOpenConsult={() => setShowConsultForm(true)} />
     </div>
   );

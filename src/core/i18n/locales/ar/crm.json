@@ -33,5 +33,6 @@
   "crmIndustryUnknown": "غير محدّد",
   "crmEditingLead": "» تحرير وتسجيل المتابعة: {company}",
   "aiMatchHttpError": "خطأ في واجهة برمجة المطابقة، يرجى المحاولة مرة أخرى.",
-  "aiMatchNetworkError": "خطأ في الاتصال بخدمة Gemini."
+  "aiMatchNetworkError": "خطأ في الاتصال بخدمة Gemini.",
+  "aiMatchSelectTarget": "يرجى اختيار مورد مستهدف ومعيار فرصة أولاً!"
 }
