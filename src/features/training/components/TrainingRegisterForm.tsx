@@ -55,6 +55,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
 
   return (
     <Modal open onClose={onClose} title={t("tlRegisterModalTitle")}>
+      <div className="max-h-[70vh] overflow-y-auto pr-1">
       {submitted && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 p-4">
           <CheckCircle2 className="h-5 w-5 text-teal-600" />
@@ -203,6 +204,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
           </button>
         </div>
       </form>
+      </div>
     </Modal>
   );
 }
