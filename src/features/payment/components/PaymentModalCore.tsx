@@ -17,7 +17,6 @@ import {
   fetchPaymentConfigStatus,
   getAvailableProviders,
   detectPlatformEnv,
-  isMobile,
   mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
@@ -90,7 +89,6 @@ export default function PaymentModalCore({
   onSuccess,
 }: PaymentModalCoreProps) {
   const { t } = useLocale();
-  const mobile = isMobile();
   const currencySymbol = currency === "CNY" ? "¥" : "$";
 
   const [step, setStep] = useState<PaymentModalStep>("choose");
@@ -220,10 +218,6 @@ export default function PaymentModalCore({
     if (order?.pay_url && order.provider !== "mock") {
       window.open(order.pay_url, "_blank");
     }
-  }, [order]);
-
-  const handleCopyPayUrl = useCallback(() => {
-    if (order?.pay_url) navigator.clipboard.writeText(order.pay_url).catch(() => {});
   }, [order]);
 
   /** 支付方式提示文案（i18n，按平台区分；零跳转以扫码提示为主） */
@@ -371,16 +365,6 @@ export default function PaymentModalCore({
                   </>
                 )}
               </div>
-            )}
-
-            {qrImage && order.pay_url && order.provider !== "mock" && !mobile && (
-              <button
-                type="button"
-                onClick={handleCopyPayUrl}
-                className="w-full rounded-2xl border-2 border-slate-200 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-              >
-                {t("paymentCopyLink")}
-              </button>
             )}
 
             <p className="font-mono text-xs text-slate-400">

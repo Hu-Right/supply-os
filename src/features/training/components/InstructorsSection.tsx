@@ -74,7 +74,7 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
                   {ins.roles.join(" ｜ ")}
                 </span>
                 <div className="mt-6 flex justify-center">
-                  <span className="inline-block rounded-[50%] border-2 border-[#287986] p-1">
+                  <span className="inline-block rounded-[50%]">
                     <Avatar
                       src={ins.avatar_path}
                       alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
@@ -113,17 +113,17 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
           </div>
 
           {team.length > 0 && (
-            <div className="mt-10 flex flex-wrap justify-center gap-x-6 gap-y-8 max-w-[1000px] mx-auto">
+            <div className="mt-10 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 max-w-[1100px] mx-auto">
               {team.map((m) => (
                 <div key={m.id} className="flex flex-col items-center">
-                  <span className="inline-block rounded-[50%] border-2 border-[#287986]/60 p-0.5">
+                  <span className="inline-block rounded-[50%]">
                     <Avatar
                       src={m.avatar_path}
                       alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                      className="w-[132px] h-[168px] rounded-[50%]"
+                      className="w-20 h-[100px] rounded-[50%]"
                     />
                   </span>
-                  <span className="mt-3 text-sm font-bold text-[#0A245E]">
+                  <span className="mt-3 text-xs font-bold text-[#0A245E] text-center">
                     {pickLocale(locale, m.name_zh, m.name_en)}
                   </span>
                 </div>
