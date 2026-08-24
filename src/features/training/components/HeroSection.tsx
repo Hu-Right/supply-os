@@ -20,13 +20,13 @@ export interface HeroSectionProps {
 function GlobeDots() {
   return (
     <img
-      src="/earth.png"
+      src="/earth.png?v=2"
       alt=""
       aria-hidden
-      className="pointer-events-none absolute inset-y-0 right-0 h-full w-auto object-contain opacity-95 hidden lg:block"
+      className="pointer-events-none absolute inset-y-0 right-[26rem] h-[85%] w-auto self-center object-contain opacity-95 hidden lg:block"
       style={{
-        maskImage: "linear-gradient(to right, transparent 0%, black 45%)",
-        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 45%)",
+        maskImage: "linear-gradient(to right, transparent 0%, black 50%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 50%)",
       }}
     />
   );

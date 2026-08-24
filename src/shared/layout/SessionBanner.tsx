@@ -11,7 +11,7 @@
  *              register forms are triggered via global events to keep features self-contained.
  */
 
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
@@ -35,7 +35,6 @@ const BANNER_BY_PATH: Record<string, BannerConfig> = {
 
 export function SessionBanner() {
   const { t } = useLocale();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
 
   const config = BANNER_BY_PATH[pathname === "/" ? "/showroom" : pathname];
@@ -74,7 +73,7 @@ export function SessionBanner() {
         )}
         {pathname === "/procurement" && (
           <button
-            onClick={() => navigate("/training")}
+            onClick={() => emitAppEvent("supply-os:open-training-register")}
             className="inline-flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
           >
             <BookOpen className="w-4 h-4 text-orange-100" />

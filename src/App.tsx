@@ -20,6 +20,7 @@ import AppRoutes from "@/routes";
 const AuthModal = lazy(() => import("@/features/auth").then(m => ({ default: m.AuthModal })));
 const PaymentModal = lazy(() => import("@/features/payment").then(m => ({ default: m.PaymentModal })));
 const ConsultForm = lazy(() => import("@/shared/forms").then(m => ({ default: m.ConsultForm })));
+const TrainingRegisterForm = lazy(() => import("@/features/training/components/TrainingRegisterForm").then(m => ({ default: m.default })));
 import { SessionBanner, AppHeader, AppFooter, useNavTabs, useAppEvents, useAppModals, useVersionCheck, NetworkBanner } from "@/shared/layout";
 import { emitAppEvent } from "@/core/events";
 
@@ -29,10 +30,11 @@ export default function App() {
   const {
     showAuthModal, setShowAuthModal, showPaymentModal, setShowPaymentModal,
     paymentPlan, setPaymentPlan, showConsultForm, setShowConsultForm,
-    mobileMenuOpen, setMobileMenuOpen, onRequireLogin, onConsult, onPay,
+    showTrainingRegisterForm, setShowTrainingRegisterForm,
+    mobileMenuOpen, setMobileMenuOpen, onRequireLogin, onConsult, onPay, onOpenTrainingRegister,
   } = useAppModals();
   const { tabs, activeTab, switchMainTab } = useNavTabs();
-  useAppEvents({ onRequireLogin, onConsult, onPay });
+  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister });
   useVersionCheck();
   // 研修班落地页：main 全宽，由页面内部决定通版/版心
   // （藏青导航条/Hero/CTA 通版，其余区块受 max-w-7xl 版心约束）
@@ -58,6 +60,11 @@ export default function App() {
       </main>
       {showAuthModal && <Suspense fallback={null}><AuthModal onClose={() => setShowAuthModal(false)} /></Suspense>}
       {showConsultForm && <Suspense fallback={null}><ConsultForm onClose={() => setShowConsultForm(false)} /></Suspense>}
+      {showTrainingRegisterForm && (
+        <Suspense fallback={null}>
+          <TrainingRegisterForm onClose={() => setShowTrainingRegisterForm(false)} />
+        </Suspense>
+      )}
       {showPaymentModal && paymentPlan && authUser && (
         <Suspense fallback={null}>
           <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}
