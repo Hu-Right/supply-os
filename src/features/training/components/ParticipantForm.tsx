@@ -191,8 +191,8 @@ export default function ParticipantForm({
           </div>
         )}
 
-        {/* 学员信息表单（固定高度，不随人数变化） */}
-        <div className="h-[25vh] overflow-y-auto pr-1 space-y-3">
+        {/* 学员信息表单 */}
+        <div className="space-y-3">
           {participants.map((participant, index) => (
             <div
               key={index}
