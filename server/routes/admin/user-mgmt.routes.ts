@@ -11,6 +11,7 @@ import { asyncHandler } from "../../middleware/errorHandler";
 import { hashPassword } from "../../services/auth";
 import { validatePassword } from "../../utils/passwordPolicy";
 import { requireAdmin } from "./middleware";
+import { sendError, ApiErrorCode } from "../../utils/http-error";
 
 export function createAdminUserMgmtRouter(ctx: AppContext): Router {
   const router = Router();
@@ -21,18 +22,18 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
     const newPassword = String(req.body.new_password || "");
 
     if (!userKey) {
-      res.status(400).json({ success: false, message: "缺少 userKey 参数" });
+      sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "缺少 userKey 参数");
       return;
     }
     const pwCheck = validatePassword(newPassword);
     if (!pwCheck.valid) {
-      res.status(400).json({ success: false, message: pwCheck.message });
+      sendError(res, 400, ApiErrorCode.INVALID_PASSWORD, pwCheck.message);
       return;
     }
 
     const user = await ctx.admin.usersRepo.findByKey(userKey);
     if (!user) {
-      res.status(404).json({ success: false, message: "用户不存在" });
+      sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "用户不存在");
       return;
     }
 
@@ -52,23 +53,23 @@ export function createAdminUserMgmtRouter(ctx: AppContext): Router {
     const newEmail = String(req.body.new_email || "").trim().toLowerCase();
 
     if (!userKey) {
-      res.status(400).json({ success: false, message: "缺少 userKey 参数" });
+      sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "缺少 userKey 参数");
       return;
     }
     if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
-      res.status(400).json({ success: false, message: "请输入有效的邮箱地址" });
+      sendError(res, 400, ApiErrorCode.INVALID_EMAIL, "请输入有效的邮箱地址");
       return;
     }
 
     const user = await ctx.admin.usersRepo.findByKey(userKey);
     if (!user) {
-      res.status(404).json({ success: false, message: "用户不存在" });
+      sendError(res, 404, ApiErrorCode.USER_NOT_FOUND, "用户不存在");
       return;
     }
 
     const existingUser = await ctx.admin.usersRepo.findByKey(newEmail);
     if (existingUser) {
-      res.status(409).json({ success: false, message: "该邮箱已被其他用户使用" });
+      sendError(res, 409, ApiErrorCode.EMAIL_ALREADY_USED, "该邮箱已被其他用户使用");
       return;
     }
 
