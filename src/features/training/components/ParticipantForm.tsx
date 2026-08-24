@@ -100,7 +100,7 @@ export default function ParticipantForm({
   const handleSubmit = async () => {
     // 期次校验
     if (scheduleRequired) {
-      setError(scheduleRequiredText || "请先选择开课期次");
+      setError(scheduleRequiredText || t("tlParticipantScheduleRequired"));
       return;
     }
 
@@ -108,7 +108,7 @@ export default function ParticipantForm({
     for (let i = 0; i < participants.length; i++) {
       const p = participants[i];
       if (!p.full_name || !p.full_name.trim()) {
-        setError(`请填写第 ${i + 1} 位学员的姓名`);
+        setError(t("tlParticipantNameRequired", { index: String(i + 1) }));
         return;
       }
     }
@@ -119,7 +119,7 @@ export default function ParticipantForm({
     try {
       await onSubmit(participants);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "提交失败，请重试");
+      setError(err instanceof Error ? err.message : t("tlParticipantSubmitFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -131,7 +131,7 @@ export default function ParticipantForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={isPrePaymentMode ? "请填写参训学员信息" : "请填写学员信息"}
+      title={isPrePaymentMode ? t("tlParticipantTitlePrePay") : t("tlParticipantTitlePostPay")}
       closeOnBackdrop={false}
       closeOnEsc={false}
       className="max-w-3xl"
@@ -141,17 +141,17 @@ export default function ParticipantForm({
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
           {orderNo ? (
             <p className="text-sm text-blue-800">
-              订单号：{orderNo} | 共 {participantCount} 位学员
+              {t("tlParticipantOrderInfo", { orderNo, count: String(participantCount) })}
             </p>
           ) : (
             <p className="text-sm text-blue-800">
-              共 {participantCount} 位学员
+              {t("tlParticipantCountInfo", { count: String(participantCount) })}
             </p>
           )}
           <p className="text-xs text-blue-600 mt-1">
             {isPrePaymentMode
-              ? "填写完成后进入支付流程，支付成功后系统将自动提交学员信息"
-              : "请填写每位学员的详细信息，用于生成学员名单、签到表和证书"}
+              ? t("tlParticipantHintPrePay")
+              : t("tlParticipantHintPostPay")}
           </p>
         </div>
 
@@ -176,76 +176,76 @@ export default function ParticipantForm({
               className="border border-slate-200 rounded-lg p-3 space-y-2"
             >
               <h3 className="text-sm font-semibold text-slate-900 border-b border-slate-100 pb-1.5">
-                学员 {index + 1}
+                {t("tlParticipantHeader", { index: String(index + 1) })}
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    姓名 <span className="text-red-500">*</span>
+                    {t("tlParticipantNameLabel")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={participant.full_name}
                     onChange={(e) => handleFieldChange(index, "full_name", e.target.value)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    placeholder="请输入学员姓名"
+                    placeholder={t("tlParticipantNamePlaceholder")}
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    性别
+                    {t("tlParticipantGenderLabel")}
                   </label>
                   <select
                     value={participant.gender || ""}
                     onChange={(e) => handleFieldChange(index, "gender", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   >
-                    <option value="">请选择</option>
-                    <option value="male">男</option>
-                    <option value="female">女</option>
-                    <option value="other">其他</option>
+                    <option value="">{t("tlParticipantGenderSelect")}</option>
+                    <option value="male">{t("tlParticipantGenderMale")}</option>
+                    <option value="female">{t("tlParticipantGenderFemale")}</option>
+                    <option value="other">{t("tlParticipantGenderOther")}</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    电话
+                    {t("tlParticipantPhoneLabel")}
                   </label>
                   <input
                     type="tel"
                     value={participant.phone || ""}
                     onChange={(e) => handleFieldChange(index, "phone", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    placeholder="手机号码"
+                    placeholder={t("tlParticipantPhonePlaceholder")}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    公司名称
+                    {t("tlParticipantCompanyLabel")}
                   </label>
                   <input
                     type="text"
                     value={participant.company_name || ""}
                     onChange={(e) => handleFieldChange(index, "company_name", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    placeholder="所在公司"
+                    placeholder={t("tlParticipantCompanyPlaceholder")}
                   />
                 </div>
 
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    职位
+                    {t("tlParticipantPositionLabel")}
                   </label>
                   <input
                     type="text"
                     value={participant.position || ""}
                     onChange={(e) => handleFieldChange(index, "position", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    placeholder="如：采购经理"
+                    placeholder={t("tlParticipantPositionPlaceholder")}
                   />
                 </div>
               </div>
@@ -263,7 +263,7 @@ export default function ParticipantForm({
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-sm font-semibold"
               >
-                取消
+                {t("tlParticipantCancel")}
               </button>
               <button
                 type="button"
@@ -271,7 +271,7 @@ export default function ParticipantForm({
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2.5 bg-[#0CAF8C] text-white rounded-lg hover:bg-[#0A9B7C] disabled:opacity-50 text-sm font-bold"
               >
-                {isSubmitting ? "提交中..." : "填写完成，去支付"}
+                {isSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPrePay")}
               </button>
             </>
           ) : (
@@ -282,7 +282,7 @@ export default function ParticipantForm({
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
-                稍后填写
+                {t("tlParticipantLater")}
               </button>
               <button
                 type="button"
@@ -290,7 +290,7 @@ export default function ParticipantForm({
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
               >
-                {isSubmitting ? "提交中..." : "提交学员信息"}
+                {isSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPostPay")}
               </button>
             </>
           )}
