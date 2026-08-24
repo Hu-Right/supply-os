@@ -44,5 +44,19 @@
   "uploadMockSuccess": "模拟上传成功✓",
   "updateAvailable_message": "检测到新版本已发布，刷新页面即可体验最新功能",
   "updateAvailable_refresh": "立即刷新",
-  "networkOffline": "网络已断开，请检查网络连接"
+  "networkOffline": "网络已断开，请检查网络连接",
+  "uiClose": "关闭",
+  "uiLoading": "加载中",
+  "allRegions": "全部地区",
+  "filterNoMatchAgencies": "无匹配机构",
+  "filterClearAgency": "清除机构筛选",
+  "filterNoMatchCountries": "无匹配国家",
+  "filterClearCountry": "清除国家筛选",
+  "uiSelectLanguage": "选择语言",
+  "uiLanguageOptions": "语言选项",
+  "membershipNoPlans": "暂无可用套餐",
+  "supplierUnspscCodeLabel": "国际公共采购 Code:",
+  "authRefreshFailed": "刷新账号状态失败",
+  "authLoginRequiredForBind": "请先登录后再绑定公司",
+  "authBindFailed": "绑定申请提交失败"
 }

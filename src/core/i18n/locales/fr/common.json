@@ -44,5 +44,19 @@
   "uploadMockSuccess": "Téléversement simulé réussi ✓",
   "updateAvailable_message": "Une nouvelle version est disponible. Actualisez pour profiter des dernières fonctionnalités.",
   "updateAvailable_refresh": "Actualiser",
-  "networkOffline": "Réseau déconnecté. Vérifiez votre connexion."
+  "networkOffline": "Réseau déconnecté. Vérifiez votre connexion.",
+  "uiClose": "Fermer",
+  "uiLoading": "Chargement",
+  "allRegions": "Toutes les régions",
+  "filterNoMatchAgencies": "Aucune agence correspondante",
+  "filterClearAgency": "Effacer le filtre d'agence",
+  "filterNoMatchCountries": "Aucun pays correspondant",
+  "filterClearCountry": "Effacer le filtre de pays",
+  "uiSelectLanguage": "Choisir la langue",
+  "uiLanguageOptions": "Options de langue",
+  "membershipNoPlans": "Aucun forfait disponible",
+  "supplierUnspscCodeLabel": "Code d'achat int'l :",
+  "authRefreshFailed": "Échec de l'actualisation du statut du compte",
+  "authLoginRequiredForBind": "Veuillez vous connecter d'abord pour lier votre entreprise",
+  "authBindFailed": "Échec de la demande de liaison"
 }

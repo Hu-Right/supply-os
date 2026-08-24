@@ -141,7 +141,7 @@ export default function MembershipPage() {
             </div>
           ) : plans.length === 0 ? (
             <div className="text-center py-20">
-              <p className="text-slate-500 text-lg">暂无可用套餐</p>
+              <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
             </div>
           ) : (
             <div className={`grid ${gridCols} gap-5`}>

@@ -44,5 +44,19 @@
   "uploadMockSuccess": "Mock upload OK ✓",
   "updateAvailable_message": "A new version is available. Refresh to get the latest features.",
   "updateAvailable_refresh": "Refresh Now",
-  "networkOffline": "Network disconnected. Please check your connection."
+  "networkOffline": "Network disconnected. Please check your connection.",
+  "uiClose": "Close",
+  "uiLoading": "Loading",
+  "allRegions": "All Regions",
+  "filterNoMatchAgencies": "No matching agencies",
+  "filterClearAgency": "Clear agency filter",
+  "filterNoMatchCountries": "No matching countries",
+  "filterClearCountry": "Clear country filter",
+  "uiSelectLanguage": "Select language",
+  "uiLanguageOptions": "Language options",
+  "membershipNoPlans": "No plans available",
+  "supplierUnspscCodeLabel": "Int'l Procurement Code:",
+  "authRefreshFailed": "Failed to refresh account status",
+  "authLoginRequiredForBind": "Please login first to bind your company",
+  "authBindFailed": "Binding request failed"
 }

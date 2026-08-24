@@ -44,5 +44,19 @@
   "uploadMockSuccess": "نجح الرفع التجريبي ✓",
   "updateAvailable_message": "يتوفر إصدار جديد. قم بالتحديث للحصول على أحدث الميزات.",
   "updateAvailable_refresh": "تحديث",
-  "networkOffline": "انقطع الاتصال بالشبكة. يرجى التحقق من اتصالك."
+  "networkOffline": "انقطع الاتصال بالشبكة. يرجى التحقق من اتصالك.",
+  "uiClose": "إغلاق",
+  "uiLoading": "جارٍ التحميل",
+  "allRegions": "جميع المناطق",
+  "filterNoMatchAgencies": "لا توجد وكالات مطابقة",
+  "filterClearAgency": "مسح تصفية الوكالة",
+  "filterNoMatchCountries": "لا توجد دول مطابقة",
+  "filterClearCountry": "مسح تصفية الدولة",
+  "uiSelectLanguage": "اختر اللغة",
+  "uiLanguageOptions": "خيارات اللغة",
+  "membershipNoPlans": "لا توجد باقات متاحة",
+  "supplierUnspscCodeLabel": "رمز المشتريات الدولية:",
+  "authRefreshFailed": "فشل تحديث حالة الحساب",
+  "authLoginRequiredForBind": "يرجى تسجيل الدخول أولاً لربط شركتك",
+  "authBindFailed": "فشل طلب الربط"
 }

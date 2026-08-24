@@ -44,5 +44,19 @@
   "uploadMockSuccess": "Имитация загрузки успешна ✓",
   "updateAvailable_message": "Доступна новая версия. Обновите страницу, чтобы получить последние функции.",
   "updateAvailable_refresh": "Обновить",
-  "networkOffline": "Сеть отключена. Проверьте подключение."
+  "networkOffline": "Сеть отключена. Проверьте подключение.",
+  "uiClose": "Закрыть",
+  "uiLoading": "Загрузка",
+  "allRegions": "Все регионы",
+  "filterNoMatchAgencies": "Нет подходящих агентств",
+  "filterClearAgency": "Сбросить фильтр агентства",
+  "filterNoMatchCountries": "Нет подходящих стран",
+  "filterClearCountry": "Сбросить фильтр страны",
+  "uiSelectLanguage": "Выбрать язык",
+  "uiLanguageOptions": "Варианты языка",
+  "membershipNoPlans": "Нет доступных тарифов",
+  "supplierUnspscCodeLabel": "Код междунар. закупок:",
+  "authRefreshFailed": "Не удалось обновить статус аккаунта",
+  "authLoginRequiredForBind": "Войдите, чтобы привязать компанию",
+  "authBindFailed": "Ошибка запроса привязки"
 }

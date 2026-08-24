@@ -9,6 +9,7 @@
 
 import { type ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { X } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import { useScrollLock } from "./useScrollLock";
 
 export interface ModalProps {
@@ -43,6 +44,7 @@ export function Modal({
   closeOnEsc = true,
   closeOnDrag = true,
 }: ModalProps) {
+  const { t } = useLocale();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // 打开期间锁定背景滚动（关闭/卸载自动恢复）
@@ -128,7 +130,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="absolute end-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-            aria-label="关闭"
+            aria-label={t("uiClose")}
           >
             <X className="h-5 w-5" />
           </button>

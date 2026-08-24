@@ -15,6 +15,7 @@ import type { AuthContextValue, SupplierClaimForm } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
 import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
+import { useLocale } from "@/core/i18n";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
  * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
@@ -35,6 +36,7 @@ const AUTH_USER_KEY = "supply_os_auth_user";
  * @param children - 子组件
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isVip, setIsVip] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
@@ -68,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // api() 自动附加 JWT；未登录时返回 401 由下方 catch 静默降级（与原行为一致）
       const data = await api<{ user: AuthUser }>("/api/auth/user", { cache: "no-store" });
-      if (!data.user) throw new Error("刷新账号状态失败");
+      if (!data.user) throw new Error(t("authRefreshFailed"));
       persistAuthUser(data.user);
     } catch (err) {
       console.error("Error refreshing auth user:", err);
@@ -171,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const submitSupplierClaim = useCallback(async (claim: SupplierClaimForm) => {
     if (!authUserRef.current) {
-      setClaimMessage("请先登录后再绑定公司");
+      setClaimMessage(t("authLoginRequiredForBind"));
       return;
     }
 
@@ -192,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       setClaimMessage(`绑定申请已提交，状态：${data.status}`);
     } catch (err: unknown) {
-      setClaimMessage((err as Error).message || "绑定申请提交失败");
+      setClaimMessage((err as Error).message || t("authBindFailed"));
     } finally {
       setIsAuthLoading(false);
     }

@@ -8,6 +8,7 @@
  */
 
 import { Select } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 
 export interface RegionFilterProps {
   /** 地区列表 */
@@ -35,6 +36,7 @@ export function RegionFilter({
   onCountryChange,
   className = "",
 }: RegionFilterProps) {
+  const { t } = useLocale();
   return (
     <div className={`flex gap-2 ${className}`}>
       <Select
@@ -43,7 +45,7 @@ export function RegionFilter({
         aria-label="选择地区"
         className="w-32"
       >
-        <option value="">全部地区</option>
+        <option value="">{t("allRegions")}</option>
         {regions.map((region) => (
           <option key={region} value={region}>
             {region}
@@ -58,7 +60,7 @@ export function RegionFilter({
           aria-label="选择国家"
           className="w-32"
         >
-          <option value="">全部国家</option>
+          <option value="">{t("allCountries")}</option>
           {countries.map((country) => (
             <option key={country} value={country}>
               {country}

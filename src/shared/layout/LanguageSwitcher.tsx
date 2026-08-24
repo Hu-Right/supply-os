@@ -15,7 +15,7 @@ import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 
 export function LanguageSwitcher() {
-  const { locale, setLocale } = useLocale();
+  const { locale, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,7 @@ export function LanguageSwitcher() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Select language"
+        aria-label={t("uiSelectLanguage")}
         className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium cursor-pointer"
       >
         <Globe className="w-3.5 h-3.5 text-teal-600" />
@@ -69,7 +69,7 @@ export function LanguageSwitcher() {
       {open && (
         <ul
           role="listbox"
-          aria-label="Language options"
+          aria-label={t("uiLanguageOptions")}
           className="absolute mt-1.5 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg z-50 right-0 max-w-[calc(100vw-1rem)]"
         >
           {SUPPORTED_LOCALES.map((l) => {

@@ -44,5 +44,19 @@
   "uploadMockSuccess": "Carga simulada correcta ✓",
   "updateAvailable_message": "Hay una nueva versión disponible. Actualice para obtener las últimas funciones.",
   "updateAvailable_refresh": "Actualizar",
-  "networkOffline": "Red desconectada. Por favor, revise su conexión."
+  "networkOffline": "Red desconectada. Por favor, revise su conexión.",
+  "uiClose": "Cerrar",
+  "uiLoading": "Cargando",
+  "allRegions": "Todas las regiones",
+  "filterNoMatchAgencies": "Sin agencias coincidentes",
+  "filterClearAgency": "Limpiar filtro de agencia",
+  "filterNoMatchCountries": "Sin países coincidentes",
+  "filterClearCountry": "Limpiar filtro de país",
+  "uiSelectLanguage": "Seleccionar idioma",
+  "uiLanguageOptions": "Opciones de idioma",
+  "membershipNoPlans": "No hay planes disponibles",
+  "supplierUnspscCodeLabel": "Código de compras int'l:",
+  "authRefreshFailed": "Error al actualizar el estado de la cuenta",
+  "authLoginRequiredForBind": "Inicie sesión primero para vincular su empresa",
+  "authBindFailed": "Error en la solicitud de vinculación"
 }

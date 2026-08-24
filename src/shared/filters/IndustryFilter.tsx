@@ -8,6 +8,7 @@
  */
 
 import { Select } from "@/shared/ui";
+import { useLocale } from "@/core/i18n";
 
 export interface IndustryFilterProps {
   /** 行业列表 */
@@ -26,6 +27,7 @@ export function IndustryFilter({
   onIndustryChange,
   className = "",
 }: IndustryFilterProps) {
+  const { t } = useLocale();
   return (
     <Select
       value={selectedIndustry}
@@ -33,7 +35,7 @@ export function IndustryFilter({
       aria-label="选择行业"
       className={`w-40 ${className}`}
     >
-      <option value="">全部行业</option>
+      <option value="">{t("allIndustries")}</option>
       {industries.map((industry) => (
         <option key={industry} value={industry}>
           {industry}

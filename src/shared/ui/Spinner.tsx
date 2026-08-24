@@ -3,9 +3,10 @@
  * Spinner Component
  *
  * @module shared/ui/Spinner
- * @description 加载动画，role="status"，aria-label="加载中"
- *              Loading animation, role="status", aria-label="加载中"
+ * @description 加载动画，role="status"，aria-label 走 i18n
+ *              Loading animation, role="status", aria-label via i18n
  */
+import { useLocale } from "@/core/i18n";
 
 export interface SpinnerProps {
   /** 尺寸 */
@@ -21,10 +22,11 @@ const sizeClasses: Record<string, string> = {
 };
 
 export function Spinner({ size = "md", className = "" }: SpinnerProps) {
+  const { t } = useLocale();
   return (
     <div
       role="status"
-      aria-label="加载中"
+      aria-label={t("uiLoading")}
       className={`inline-flex items-center justify-center ${className}`}
     >
       <svg
@@ -48,7 +50,7 @@ export function Spinner({ size = "md", className = "" }: SpinnerProps) {
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
         />
       </svg>
-      <span className="sr-only">加载中</span>
+      <span className="sr-only">{t("uiLoading")}</span>
     </div>
   );
 }
