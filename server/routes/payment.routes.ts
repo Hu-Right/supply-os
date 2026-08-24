@@ -16,6 +16,7 @@ import { activateSubscription, fulfillMockPayment } from "../payment/fulfillment
 import { toQrDataUrl } from "../payment/qr";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "./admin/middleware";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 
 export function createPaymentRouter(ctx: AppContext): Router {
   const router = Router();
@@ -30,15 +31,15 @@ export function createPaymentRouter(ctx: AppContext): Router {
     const adminKey = String(req.body.admin_key || req.headers["x-admin-key"] || "");
     const expectedAdminKey = process.env.ADMIN_SECRET_KEY || "";
     if (!expectedAdminKey || adminKey !== expectedAdminKey) {
-      return res.status(403).json({ error: "ADMIN_AUTH_REQUIRED", message: "此端点需要管理员密钥" });
+      return sendError(res, 403, ApiErrorCode.ADMIN_AUTH_REQUIRED, "此端点需要管理员密钥");
     }
     const userKey = normalizeUserKey(req.body.user_key) || "";
     const planCode = String(req.body.plan_code || "single");
-    if (!userKey) return res.status(400).json({ error: "\u8bf7\u5148\u767b\u5f55" });
+    if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
 
     // 套餐以 crm_membership_plans 为唯一事实源：不存在/已下架时 404
     const result = await activateSubscription(paymentsRepo, membershipRepo, { userKey, planCode });
-    if (!result) return res.status(404).json({ error: "PLAN_NOT_FOUND" });
+    if (!result) return sendError(res, 404, ApiErrorCode.PLAN_NOT_FOUND, "套餐不存在");
     res.status(201).json({ success: true, plan_code: planCode, price: result.price, quota: result.quota, membership_tier: "vip" });
   }));
 
@@ -98,7 +99,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // P0-5 安全修复：订单列表必须 JWT 认证，身份取自 req.userKey（禁止 query user_key 冒充）
   router.get("/api/payment/orders", requireAuth, asyncHandler(async (req, res) => {
     const userKey = req.userKey || "";
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
     res.json(await listOrderHistory(paymentsRepo, {
       userKey,
       status: String(req.query.status || "").trim(),
@@ -137,11 +138,11 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // P0-5 安全修复：身份强制取自 req.userKey（JWT），不再允许 query user_key 优先于 JWT
   router.get("/api/payment/orders/:orderNo", requireAuth, asyncHandler(async (req, res) => {
     const userKey = req.userKey || "";
-    if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+    if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
     // 先查询订单归属
     const order = await paymentsRepo.findByOrderNo(req.params.orderNo);
-    if (!order) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
-    if (order.user_key !== userKey) return res.status(403).json({ error: "FORBIDDEN" });
+    if (!order) return sendError(res, 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND, "订单不存在");
+    if (order.user_key !== userKey) return sendError(res, 403, ApiErrorCode.FORBIDDEN, "无权操作");
     const result = await paymentService.queryOrder(req.params.orderNo, String(req.query.trade_no || ""));
     res.json(result);
   }));
@@ -237,7 +238,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
         orderNo,
         rawNotify: JSON.stringify(req.body || { mock: true }),
       });
-      if (!found) return res.status(404).json({ error: "ORDER_NOT_FOUND" });
+      if (!found) return sendError(res, 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND, "订单不存在");
       res.json({ success: true, order_no: orderNo, status: "paid" });
     }));
   }
