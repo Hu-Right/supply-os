@@ -71,6 +71,7 @@ Desktop.ini
 !public/fonts/**
 !public/wechat-service-qr.png
 !public/downloads/training/**
+!public/images/training/**
 !public/manifest.json
 
 # ===== 开发过程文档 =====
