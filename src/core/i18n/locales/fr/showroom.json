@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "Personne de contact pour ce showroom",
   "showroomPhonePlaceholder": "Pour le contact du représentant local",
   "showroomCityPlaceholder": "Ville principale",
-  "showroomNotesPlaceholder": "p. ex. Louer des emplacements de palettes dans l'entrepôt sous douane de Francfort..."
+  "showroomNotesPlaceholder": "p. ex. Louer des emplacements de palettes dans l'entrepôt sous douane de Francfort...",
+  "showroomEmailPlaceholder": "p. ex. manager@corp.com",
+  "showroomIndustryLabel": "Secteur principal",
+  "showroomCountryChina": "Chine",
+  "showroomCountryGermany": "Allemagne",
+  "showroomCountryUAE": "Émirats",
+  "showroomCountryKenya": "Kenya",
+  "showroomIndustryMachinery": "Machines",
+  "showroomIndustryMedical": "Médical",
+  "showroomIndustryElectronics": "Électronique",
+  "showroomIndustryConstruction": "Construction"
 }

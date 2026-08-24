@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "Контактное лицо для этого шоурума",
   "showroomPhonePlaceholder": "Для связи с местным представителем",
   "showroomCityPlaceholder": "Основной город",
-  "showroomNotesPlaceholder": "напр. Арендовать паллетные места на таможенном складе во Франкфурте..."
+  "showroomNotesPlaceholder": "напр. Арендовать паллетные места на таможенном складе во Франкфурте...",
+  "showroomEmailPlaceholder": "напр. manager@corp.com",
+  "showroomIndustryLabel": "Основная отрасль",
+  "showroomCountryChina": "Китай",
+  "showroomCountryGermany": "Германия",
+  "showroomCountryUAE": "ОАЭ",
+  "showroomCountryKenya": "Кения",
+  "showroomIndustryMachinery": "Машиностроение",
+  "showroomIndustryMedical": "Медицина",
+  "showroomIndustryElectronics": "Электроника",
+  "showroomIndustryConstruction": "Строительство"
 }

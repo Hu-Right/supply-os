@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "Persona de contacto para este showroom",
   "showroomPhonePlaceholder": "Para contactar al representante local",
   "showroomCityPlaceholder": "Ciudad principal",
-  "showroomNotesPlaceholder": "p. ej. Alquilar espacios de palés en el almacén aduanero de Frankfurt..."
+  "showroomNotesPlaceholder": "p. ej. Alquilar espacios de palés en el almacén aduanero de Frankfurt...",
+  "showroomEmailPlaceholder": "p. ej. manager@corp.com",
+  "showroomIndustryLabel": "Sector principal",
+  "showroomCountryChina": "China",
+  "showroomCountryGermany": "Alemania",
+  "showroomCountryUAE": "EAU",
+  "showroomCountryKenya": "Kenia",
+  "showroomIndustryMachinery": "Maquinaria",
+  "showroomIndustryMedical": "Médico",
+  "showroomIndustryElectronics": "Electrónica",
+  "showroomIndustryConstruction": "Construcción"
 }

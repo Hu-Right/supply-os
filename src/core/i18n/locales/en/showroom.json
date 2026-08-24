@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "Contact person for this showroom",
   "showroomPhonePlaceholder": "For local representative contact",
   "showroomCityPlaceholder": "Main city",
-  "showroomNotesPlaceholder": "e.g. Rent pallet spaces in Frankfurt bonded warehouse..."
+  "showroomNotesPlaceholder": "e.g. Rent pallet spaces in Frankfurt bonded warehouse...",
+  "showroomEmailPlaceholder": "e.g. manager@corp.com",
+  "showroomIndustryLabel": "Main industry",
+  "showroomCountryChina": "China",
+  "showroomCountryGermany": "Germany",
+  "showroomCountryUAE": "UAE",
+  "showroomCountryKenya": "Kenya",
+  "showroomIndustryMachinery": "Machinery",
+  "showroomIndustryMedical": "Medical",
+  "showroomIndustryElectronics": "Electronics",
+  "showroomIndustryConstruction": "Construction"
 }

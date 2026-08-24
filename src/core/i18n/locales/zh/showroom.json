@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "负责此展出的对接人姓名",
   "showroomPhonePlaceholder": "以便驻外代表联络",
   "showroomCityPlaceholder": "主要所在城市",
-  "showroomNotesPlaceholder": "如需在德国法兰克福保税备件库中租用3个托盘托位..."
+  "showroomNotesPlaceholder": "如需在德国法兰克福保税备件库中租用3个托盘托位...",
+  "showroomEmailPlaceholder": "例如 manager@corp.com",
+  "showroomIndustryLabel": "主营行业",
+  "showroomCountryChina": "中国 (China)",
+  "showroomCountryGermany": "德国 (Germany)",
+  "showroomCountryUAE": "阿联酋 (UAE)",
+  "showroomCountryKenya": "肯尼亚 (Kenya)",
+  "showroomIndustryMachinery": "机械 (Machinery)",
+  "showroomIndustryMedical": "医疗 (Medical)",
+  "showroomIndustryElectronics": "电子 (Electronics)",
+  "showroomIndustryConstruction": "建材 (Construction)"
 }

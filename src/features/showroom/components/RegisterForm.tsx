@@ -172,7 +172,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
               </label>
               <Input
                 type="email"
-                placeholder="e.g., manager@corp.com"
+                placeholder={t("showroomEmailPlaceholder")}
                 value={form.email}
                 onChange={(e) => handleChange("email", e.target.value)}
                 className="text-xs"
@@ -188,10 +188,10 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                   onChange={(e) => handleChange("country", e.target.value)}
                   className="px-2 py-1.5"
                 >
-                  <option value="China">中国 (China)</option>
-                  <option value="Germany">德国 (Germany)</option>
-                  <option value="UAE">阿联酋 (UAE)</option>
-                  <option value="Kenya">肯尼亚 (Kenya)</option>
+                  <option value="China">{t("showroomCountryChina")}</option>
+                  <option value="Germany">{t("showroomCountryGermany")}</option>
+                  <option value="UAE">{t("showroomCountryUAE")}</option>
+                  <option value="Kenya">{t("showroomCountryKenya")}</option>
                 </Select>
                 <Input
                   type="text"
@@ -204,17 +204,17 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
             </div>
             <div>
               <label className="mb-1 block text-xs font-extrabold text-slate-700">
-                主营行业 *
+                {t("showroomIndustryLabel")} *
               </label>
               <Select
                 value={form.industry}
                 onChange={(e) => handleChange("industry", e.target.value)}
                 className="text-xs"
               >
-                <option value="机械 (Machinery)">机械 (Machinery)</option>
-                <option value="医疗 (Medical)">医疗 (Medical)</option>
-                <option value="电子 (Electronics)">电子 (Electronics)</option>
-                <option value="建材 (Construction)">建材 (Construction)</option>
+                <option value="机械 (Machinery)">{t("showroomIndustryMachinery")}</option>
+                <option value="医疗 (Medical)">{t("showroomIndustryMedical")}</option>
+                <option value="电子 (Electronics)">{t("showroomIndustryElectronics")}</option>
+                <option value="建材 (Construction)">{t("showroomIndustryConstruction")}</option>
               </Select>
             </div>
           </div>

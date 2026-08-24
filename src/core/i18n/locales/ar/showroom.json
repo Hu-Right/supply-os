@@ -20,5 +20,15 @@
   "showroomContactPlaceholder": "جهة الاتصال لصالة العرض هذه",
   "showroomPhonePlaceholder": "للتواصل مع الممثل المحلي",
   "showroomCityPlaceholder": "المدينة الرئيسية",
-  "showroomNotesPlaceholder": "مثال: استئجار أماكن منصّات نقالة في مستودع فرانكفورت الجمركي..."
+  "showroomNotesPlaceholder": "مثال: استئجار أماكن منصّات نقالة في مستودع فرانكفورت الجمركي...",
+  "showroomEmailPlaceholder": "مثال manager@corp.com",
+  "showroomIndustryLabel": "القطاع الرئيسي",
+  "showroomCountryChina": "الصين (China)",
+  "showroomCountryGermany": "ألمانيا (Germany)",
+  "showroomCountryUAE": "الإمارات (UAE)",
+  "showroomCountryKenya": "كينيا (Kenya)",
+  "showroomIndustryMachinery": "الآلات (Machinery)",
+  "showroomIndustryMedical": "الطبي (Medical)",
+  "showroomIndustryElectronics": "الإلكترونيات (Electronics)",
+  "showroomIndustryConstruction": "البناء (Construction)"
 }
