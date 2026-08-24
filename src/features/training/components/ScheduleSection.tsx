@@ -6,7 +6,7 @@
  * @description 左侧期次表（DB）；右侧深藏青费用卡（单价/包含内容 DB 驱动）。
  */
 import { Check } from "lucide-react";
-import { useLocale, pickLocale } from "@/core/i18n";
+import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
 import type { LandingCourse, LandingSchedule } from "../api";
 
 export interface ScheduleSectionProps {
@@ -27,12 +27,20 @@ function fmtDate(d: string | Date, locale: string): string {
 export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectionProps) {
   const { t, locale } = useLocale();
 
-  // 从第一个“报名中”期次开始展示（含后续“即将开课”）
-  const visibleSchedules = (() => {
-    const firstOpenIdx = schedules.findIndex((s) => s.status === "open");
-    if (firstOpenIdx === -1) return [];
-    return schedules.slice(firstOpenIdx);
-  })();
+  // 展示所有期次（含已截止、报名中、即将开课）
+  const visibleSchedules = schedules;
+
+  const getStatusKey = (status: string): LocaleKey => {
+    if (status === "open") return "tlSchOpen";
+    if (status === "closed") return "tlSchClosed";
+    return "tlSchSoon";
+  };
+
+  const getStatusColor = (status: string): string => {
+    if (status === "open") return "text-[#0CAF8C]";
+    if (status === "closed") return "text-slate-400";
+    return "text-[#F59E0B]";
+  };
 
   return (
     <section id="schedule" className="bg-white">
@@ -59,8 +67,8 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                       <td className="px-4 py-3 text-slate-600">{fmtDate(s.start_date, locale)}</td>
                       <td className="px-4 py-3 text-slate-600">{s.city}</td>
                       <td className="px-4 py-3 text-slate-600">{s.format}</td>
-                      <td className={`px-4 py-3 font-bold ${s.status === "open" ? "text-[#0CAF8C]" : "text-slate-400"}`}>
-                        {s.status === "open" ? t("tlSchOpen") : t("tlSchSoon")}
+                      <td className={`px-4 py-3 font-bold ${getStatusColor(s.status)}`}>
+                        {t(getStatusKey(s.status))}
                       </td>
                     </tr>
                   ))}
