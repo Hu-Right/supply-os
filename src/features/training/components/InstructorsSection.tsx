@@ -28,7 +28,7 @@ function Avatar({ src, alt, className }: { src: string; alt: string; className: 
       </span>
     );
   }
-  return <img src={src} alt={alt} className={`${className} object-cover object-center bg-[#0A2A55]`} loading="lazy" />;
+  return <img src={src} alt={alt} className={`${className} object-cover object-center`} loading="lazy" />;
 }
 
 const ROLE_COLS: { icon: typeof Award; titleKey: LocaleKey; descKey: LocaleKey }[] = [

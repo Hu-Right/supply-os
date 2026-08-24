@@ -2,6 +2,7 @@
  * src/core/payment/env-detector.ts 测试
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { ApiError } from "../../../../src/core/http/api-client";
 import {
   detectPlatformEnv,
   isMobile,
@@ -138,6 +139,13 @@ describe("mapPaymentError", () => {
 
   it("支付方式暂未开通（中文消息）", () => {
     expect(mapPaymentError(new Error("当前支付方式暂未开通，请选择其他支付方式或联系我们"))).toContain("暂未开通");
+  });
+
+  it("ApiError 状态码映射", () => {
+    expect(mapPaymentError(new ApiError(500, "Internal Server Error"))).toBe("系统繁忙，请稍后重试");
+    expect(mapPaymentError(new ApiError(503, "Service Unavailable"))).toContain("支付通道");
+    expect(mapPaymentError(new ApiError(404, "Not Found"))).toContain("课程不存在");
+    expect(mapPaymentError(new ApiError(401, "Unauthorized"))).toContain("登录");
   });
 
   it("未知错误兜底", () => {

@@ -8,7 +8,7 @@
  */
 
 import type { PlatformEnv } from "@/types/payment";
-import { api } from "@/core/http";
+import { api, ApiError } from "@/core/http";
 
 /** 支付提供商配置状态（精简，仅前端 UI 决策所需字段） */
 export interface PaymentConfigStatus {
@@ -169,11 +169,18 @@ export function getPaymentTips(provider: "alipay" | "wechat"): string {
  */
 export function mapPaymentError(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
+  // 优先按 HTTP 状态码判断（后端已知错误均通过 sendError 返回结构化响应）
+  if (err instanceof ApiError) {
+    if (err.status === 500) return "系统繁忙，请稍后重试";
+    if (err.status === 503) return "支付通道暂时不可用，请稍后重试或联系我们";
+    if (err.status === 404) return "课程不存在或已下架，请刷新页面后重试";
+    if (err.status === 401) return "请先登录后再尝试支付";
+  }
   if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {
     return "当前支付方式暂未开通，请选择支付宝或联系管理员";
   }
-  if (message.includes("支付通道")) {
-    return "支付通道暂时不可用，请稍后重试或联系我们";
+  if (message.includes("支付通道") || message.includes("系统繁忙")) {
+    return message.includes("系统繁忙") ? "系统繁忙，请稍后重试" : "支付通道暂时不可用，请稍后重试或联系我们";
   }
   if (message.includes("课程不存在") || message.includes("COURSE_NOT_FOUND")) {
     return "课程不存在或已下架，请刷新页面后重试";
