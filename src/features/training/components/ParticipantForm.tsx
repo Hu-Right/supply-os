@@ -145,7 +145,7 @@ export default function ParticipantForm({
       closeOnEsc={false}
       className="max-w-3xl"
     >
-      <div className="space-y-6">
+      <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-6">
         {/* 提示信息 */}
         <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
           {orderNo ? (
