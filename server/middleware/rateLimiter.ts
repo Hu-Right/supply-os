@@ -187,7 +187,7 @@ export function rateLimitMiddleware(
     const rl = limiter.check(key);
     if (rl.blocked) {
       res.set("Retry-After", String(rl.retryAfterSec));
-      return res.status(429).json({ error: "RATE_LIMITED", retry_after_seconds: rl.retryAfterSec });
+      return res.status(429).json({ code: 42001, message: "请求过于频繁", error: "请求过于频繁", retry_after_seconds: rl.retryAfterSec });
     }
     limiter.record(key);
     next();

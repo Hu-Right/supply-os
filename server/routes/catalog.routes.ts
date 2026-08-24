@@ -6,6 +6,7 @@
 import { Router } from "express";
 import type { AppContext } from "../context";
 import { asyncHandler } from "../middleware/errorHandler";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 import { translateViaChain, type ChainResult } from "../services/translation/chain";
 // E3【P2】国家名映射单一事实来源：前端不再维护独立副本，通过此端点获取
 import { COUNTRY_NAME_ZH, REGION_NAME_ZH, ZH_TO_EN } from "../data/countryNames";
@@ -99,7 +100,7 @@ export function createCatalogRouter(ctx: AppContext): Router {
   router.get("/api/unspsc/children", asyncHandler(async (req, res) => {
       const parentId = Number(req.query.parent_id || 0);
       if (!parentId) {
-        return res.status(400).json({ error: "parent_id is required" });
+        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "parent_id is required");
       }
       const lang = String(req.query.lang || "").toLowerCase();
       const rows = await queryUnspscRows("u.parent_id = ? ORDER BY u.code", [parentId], lang);

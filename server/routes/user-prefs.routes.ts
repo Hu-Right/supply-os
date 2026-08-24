@@ -8,6 +8,7 @@ import type { AppContext } from "../context";
 import { normalizeUserKey } from "../utils/normalize";
 import { asyncHandler } from "../middleware/errorHandler";
 import { requireAuth } from "../middleware/auth";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 import { invalidateUnifiedSearchCache } from "../services/search-orchestrator/index";
 
 export function createUserPrefsRouter(ctx: AppContext): Router {
@@ -17,14 +18,14 @@ export function createUserPrefsRouter(ctx: AppContext): Router {
   // P0-5 安全修复：行业偏好读写必须 JWT 认证
   router.get("/api/user/industry-prefs", requireAuth, asyncHandler(async (req, res) => {
       const userKey = req.userKey || "";
-      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
       const prefs = await userPrefsRepo.getIndustryPrefs(userKey);
       res.json({ prefs: prefs || null });
   }));
 
   router.post("/api/user/industry-prefs", requireAuth, asyncHandler(async (req, res) => {
       const userKey = req.userKey || "";
-      if (!userKey) return res.status(400).json({ error: "USER_REQUIRED" });
+      if (!userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
       const levels = [1, 2, 3, 4, 5].map((n) => {
         const value = Number(req.body[`level${n}_id`] || 0);
         return Number.isInteger(value) && value > 0 ? value : null;

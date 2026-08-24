@@ -44,7 +44,7 @@ export function errorHandler(
 /** 404 兜底：仅拦截 /api/* 未匹配请求，非 API 路径放行给 SPA fallback */
 export function notFoundHandler(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith("/api/")) {
-    res.status(404).json({ error: "NOT_FOUND" });
+    res.status(404).json({ code: 40043, message: "Not found", error: "Not found" });
     return;
   }
   next();

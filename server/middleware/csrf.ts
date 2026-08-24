@@ -59,7 +59,7 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     if (method === "POST" || method === "PUT" || method === "DELETE") {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) return next(); // JWT 请求跳过
-      res.status(403).json({ error: "CSRF_NOT_CONFIGURED" });
+      res.status(403).json({ code: 41005, message: "CSRF not configured", error: "CSRF not configured" });
       return;
     }
     return next();
@@ -79,12 +79,12 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     // 无 Origin 且无 Referer：可能是非浏览器客户端或隐私设置清除
     // 出于安全考虑，拒绝无来源的状态变更请求
     // 但允许无 Origin 的 GET/HEAD/OPTIONS（已在上方放行）
-    res.status(403).json({ error: "CSRF_ORIGIN_MISSING" });
+    res.status(403).json({ code: 41006, message: "Origin header missing", error: "Origin header missing" });
     return;
   }
 
   if (!allowedOrigins.has(origin)) {
-    res.status(403).json({ error: "CSRF_ORIGIN_FORBIDDEN" });
+    res.status(403).json({ code: 41007, message: "Origin not allowed", error: "Origin not allowed" });
     return;
   }
 

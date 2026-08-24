@@ -8,6 +8,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { AppContext } from "../context";
 import { requireAuth } from "../middleware/auth";
 import { rateLimitMiddleware } from "../middleware/rateLimiter";
+import { sendError, ApiErrorCode } from "../utils/http-error";
 
 export function createAiRouter(_ctx: AppContext): Router {
   const router = Router();
@@ -23,7 +24,7 @@ export function createAiRouter(_ctx: AppContext): Router {
     const { supplier, opportunity, language } = req.body;
 
     if (!supplier || !opportunity) {
-      return res.status(400).json({ error: "Required supplier and opportunity object parameters!" });
+      return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "Required supplier and opportunity object parameters!");
     }
 
     const lang = language || "zh";

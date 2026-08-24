@@ -67,5 +67,5 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     req.authViaJwt = true;
     return next();
   }
-  res.status(401).json({ error: "UNAUTHORIZED", message: "请先登录" });
+  res.status(401).json({ code: 40042, message: "请先登录", error: "请先登录" });
 }
