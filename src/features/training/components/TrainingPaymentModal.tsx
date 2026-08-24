@@ -108,12 +108,16 @@ export default function TrainingPaymentModal({
     await mockPayTrainingOrder(orderNo);
   }, []);
 
-  // ── 支付成功回调：自动保存学员信息 ──
-  const handlePaymentSuccess = useCallback(async (orderNo: string) => {
+  // ── 支付成功回调：先展示成功 UI，再异步保存学员信息 ──
+  const handlePaymentSuccess = useCallback((orderNo: string) => {
     if (pendingParticipants) {
-      await saveTrainingParticipants(orderNo, pendingParticipants);
+      // 异步保存，不阻塞成功 UI 展示
+      saveTrainingParticipants(orderNo, pendingParticipants)
+        .then(() => console.log(`[TrainingPayment] 学员信息已保存 (order: ${orderNo})`))
+        .catch((err) => console.error(`[TrainingPayment] 学员信息保存失败 (order: ${orderNo}):`, err));
     }
-    onClose();
+    // 延迟关闭，让用户看到成功页
+    setTimeout(onClose, 2000);
   }, [pendingParticipants, onClose]);
 
   const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
