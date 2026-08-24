@@ -113,17 +113,17 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
           </div>
 
           {team.length > 0 && (
-            <div className="mt-10 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 max-w-[1100px] mx-auto">
+            <div className="mt-10 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
               {team.map((m) => (
                 <div key={m.id} className="flex flex-col items-center">
                   <span className="inline-block rounded-[50%]">
                     <Avatar
                       src={m.avatar_path}
                       alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                      className="w-20 h-[100px] rounded-[50%]"
+                      className="w-[100px] h-[126px] rounded-[50%]"
                     />
                   </span>
-                  <span className="mt-3 text-xs font-bold text-[#0A245E] text-center">
+                  <span className="mt-2 text-[11px] font-bold text-[#0A245E] text-center">
                     {pickLocale(locale, m.name_zh, m.name_en)}
                   </span>
                 </div>
