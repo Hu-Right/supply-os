@@ -96,9 +96,30 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
           </div>
         )}
 
-        {/* 三角色 + 团队头像面板 */}
+        {/* 团队头像 + 三角色介绍面板 */}
         <div className="mt-10 rounded-2xl bg-white p-8 md:p-10">
-          <SectionTitle title={t("tlInsRolesTitle")} />
+          {team.length > 0 && (
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
+              {team.map((m) => (
+                <div key={m.id} className="flex flex-col items-center">
+                  <span className="text-[11px] font-bold text-[#0A245E] text-center">
+                    {pickLocale(locale, m.name_zh, m.name_en)}
+                  </span>
+                  <span className="mt-2 inline-block rounded-[50%]">
+                    <Avatar
+                      src={m.avatar_path}
+                      alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
+                      className="w-[100px] h-[126px] rounded-[50%]"
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-10">
+            <SectionTitle title={t("tlInsRolesTitle")} />
+          </div>
 
           <div className="grid md:grid-cols-3 gap-8 md:gap-0 md:divide-x md:divide-[#DCE6F2]">
             {ROLE_COLS.map(({ icon: Icon, titleKey, descKey }) => (
@@ -111,25 +132,6 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
               </div>
             ))}
           </div>
-
-          {team.length > 0 && (
-            <div className="mt-10 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
-              {team.map((m) => (
-                <div key={m.id} className="flex flex-col items-center">
-                  <span className="inline-block rounded-[50%]">
-                    <Avatar
-                      src={m.avatar_path}
-                      alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                      className="w-[100px] h-[126px] rounded-[50%]"
-                    />
-                  </span>
-                  <span className="mt-2 text-[11px] font-bold text-[#0A245E] text-center">
-                    {pickLocale(locale, m.name_zh, m.name_en)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* 深藏青价值横幅 */}
