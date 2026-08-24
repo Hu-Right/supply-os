@@ -15,6 +15,7 @@
 import { useState, useCallback } from "react";
 import { Crown, MessageCircle, X, FileX } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import WechatQRModal from "@/features/training/components/WechatQRModal";
 
 // ── sessionStorage 去重工具 ──
 const DISMISSED_KEY = "report_unavailable_dismissed";
@@ -117,38 +118,8 @@ export function ReportUnavailableBanner({
         </div>
       </div>
 
-      {/* 微信二维码 Modal */}
-      {showQr && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={() => setShowQr(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h4 className="text-base font-extrabold text-slate-900 mb-3 text-center">
-              {t("procurement_wechatServiceTitle")}
-            </h4>
-            <img
-              src="/wechat-service-qr.png"
-              alt="WeChat QR"
-              loading="lazy"
-              decoding="async"
-              className="w-48 h-48 mx-auto rounded-lg"
-            />
-            <p className="text-xs text-slate-500 text-center mt-3 leading-5">
-              {t("procurement_wechatServiceHint")}
-            </p>
-            <button
-              onClick={() => setShowQr(false)}
-              className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50"
-            >
-              {t("procurement_dismiss")}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 微信二维码 Modal（复用共享组件） */}
+      {showQr && <WechatQRModal onClose={() => setShowQr(false)} />}
     </>
   );
 }
