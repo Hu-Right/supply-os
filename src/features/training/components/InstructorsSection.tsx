@@ -96,15 +96,16 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
           </div>
         )}
 
+        <div className="mt-10">
+          <SectionTitle title={t("tlInsRolesTitle")} />
+        </div>
+
         {/* 团队头像 + 三角色介绍面板 */}
         <div className="mt-10 rounded-2xl bg-white p-8 md:p-10">
           {team.length > 0 && (
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
               {team.map((m) => (
                 <div key={m.id} className="flex flex-col items-center">
-                  <span className="text-[11px] font-bold text-[#0A245E] text-center">
-                    {pickLocale(locale, m.name_zh, m.name_en)}
-                  </span>
                   <span className="mt-2 inline-block rounded-[50%]">
                     <Avatar
                       src={m.avatar_path}
@@ -112,16 +113,17 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
                       className="w-[100px] h-[126px] rounded-[50%]"
                     />
                   </span>
+                  <span className="text-[11px] font-bold text-[#0A245E] text-center mt-5">
+                    {pickLocale(locale, m.name_zh, m.name_en)}
+                  </span>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="mt-10">
-            <SectionTitle title={t("tlInsRolesTitle")} />
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8 md:gap-0 md:divide-x md:divide-[#DCE6F2]">
+
+          <div className="grid md:grid-cols-3 gap-8 md:gap-0 md:divide-x md:divide-[#DCE6F2] mt-10">
             {ROLE_COLS.map(({ icon: Icon, titleKey, descKey }) => (
               <div key={titleKey} className="flex flex-col items-center text-center md:px-10 md:first:pl-0 md:last:pr-0">
                 <span className="w-14 h-14 shrink-0 rounded-full bg-[#016E74] flex items-center justify-center">
