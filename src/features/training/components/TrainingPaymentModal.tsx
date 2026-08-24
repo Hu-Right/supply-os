@@ -19,6 +19,7 @@ import {
   type LandingSchedule,
   type TrainingParticipant,
 } from "../api";
+import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import ParticipantForm from "./ParticipantForm";
 
 export interface TrainingPaymentModalProps {
@@ -54,6 +55,23 @@ export default function TrainingPaymentModal({
   // phase="payment" → 再支付
   const [phase, setPhase] = useState<"participants" | "payment">("participants");
   const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
+    company_name: "",
+    industry_id: "",
+    industry_level2_id: "",
+    industry_level3_id: "",
+    main_product: "",
+    export_experience: "",
+    certification: [],
+    other_certification: "",
+    contact_name: "",
+    position: "",
+    telephone: "",
+    email: "",
+    remark: "",
+  });
+  const [submittingCompany, setSubmittingCompany] = useState(false);
+  const [companyError, setCompanyError] = useState("");
 
   // ── 期次选择 ──
   const openSchedules = useMemo(() => schedules.filter((s) => s.status === "open"), [schedules]);
@@ -75,11 +93,55 @@ export default function TrainingPaymentModal({
   const hasMultipleSchedules = openSchedules.length > 1;
   const scheduleSelected = !hasMultipleSchedules || selectedScheduleId !== null;
 
-  // ── 阶段一：学员信息填写完成 → 进入支付阶段 ──
-  const handleParticipantsReady = useCallback((participants: TrainingParticipant[]) => {
-    setPendingParticipants(participants);
-    setPhase("payment");
-  }, []);
+  // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
+  const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
+    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
+      setCompanyError(t("tlCompanyInfoRequired"));
+      return;
+    }
+
+    setSubmittingCompany(true);
+    setCompanyError("");
+
+    try {
+      let certificationStr = companyInfo.certification.join("\n");
+      if (companyInfo.other_certification.trim()) {
+        certificationStr += "\n" + companyInfo.other_certification.trim();
+      }
+
+      const res = await fetch("/api/training/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: companyInfo.company_name,
+          industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
+          main_product: companyInfo.main_product,
+          export_experience: companyInfo.export_experience,
+          certification: certificationStr,
+          contact_name: companyInfo.contact_name,
+          position: companyInfo.position,
+          telephone: companyInfo.telephone,
+          email: companyInfo.email,
+          remark: companyInfo.remark,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setCompanyError(data.error || t("formError"));
+        return;
+      }
+
+      const data = await res.json();
+
+      setPendingParticipants(participants);
+      setPhase("payment");
+    } catch (err) {
+      setCompanyError(t("formError"));
+    } finally {
+      setSubmittingCompany(false);
+    }
+  }, [companyInfo, t]);
 
   // ── 培训下单适配器 ──
   const handleCreateOrder = useCallback(
@@ -131,6 +193,11 @@ export default function TrainingPaymentModal({
         orderNo=""
         participantCount={participantCount}
         onSubmit={handleParticipantsReady}
+        preFormSection={
+          <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} />
+        }
+        preFormError={companyError}
+        preFormSubmitting={submittingCompany}
         scheduleSelector={
           hasMultipleSchedules ? (
             <div>

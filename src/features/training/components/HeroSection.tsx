@@ -23,7 +23,11 @@ function GlobeDots() {
       src="/earth.png?v=2"
       alt=""
       aria-hidden
-      className="pointer-events-none absolute -right-[15%] top-1/2 -translate-y-1/2 h-[110%] w-auto object-contain opacity-90 hidden lg:block"
+      className="pointer-events-none absolute -right-[3%] top-1/2 -translate-y-1/2 h-[140%] w-auto object-contain opacity-95 hidden lg:block"
+      style={{
+        maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 20%, black 45%)",
+        WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 20%, black 45%)",
+      }}
     />
   );
 }

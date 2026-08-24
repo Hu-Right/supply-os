@@ -27,6 +27,12 @@ export interface ParticipantFormProps {
   /** 期次未选择时的校验提示 */
   scheduleRequired?: boolean;
   scheduleRequiredText?: string;
+  /** 表单顶部额外区块（如公司信息） */
+  preFormSection?: ReactNode;
+  /** 顶部区块的错误提示 */
+  preFormError?: string;
+  /** 顶部区块的提交中状态 */
+  preFormSubmitting?: boolean;
 }
 
 export default function ParticipantForm({
@@ -39,6 +45,9 @@ export default function ParticipantForm({
   participantCountSelector,
   scheduleRequired,
   scheduleRequiredText,
+  preFormSection,
+  preFormError,
+  preFormSubmitting,
 }: ParticipantFormProps) {
   const { t } = useLocale();
   const [participants, setParticipants] = useState<TrainingParticipant[]>([]);
@@ -161,6 +170,18 @@ export default function ParticipantForm({
         {/* 参训人数选择器（支付前模式） */}
         {participantCountSelector}
 
+        {/* 顶部额外区块（如公司信息） */}
+        {preFormSection && (
+          <div className="border-t border-slate-200 pt-4">
+            {preFormSection}
+          </div>
+        )}
+        {preFormError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+            <p className="text-sm text-red-800">{preFormError}</p>
+          </div>
+        )}
+
         {/* 错误提示 */}
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-3">
@@ -260,7 +281,7 @@ export default function ParticipantForm({
               <button
                 type="button"
                 onClick={onClose}
-                disabled={isSubmitting}
+                disabled={isSubmitting || preFormSubmitting}
                 className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-sm font-semibold"
               >
                 {t("tlParticipantCancel")}
@@ -268,10 +289,10 @@ export default function ParticipantForm({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || preFormSubmitting}
                 className="flex-1 px-4 py-2.5 bg-[#0CAF8C] text-white rounded-lg hover:bg-[#0A9B7C] disabled:opacity-50 text-sm font-bold"
               >
-                {isSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPrePay")}
+                {isSubmitting || preFormSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPrePay")}
               </button>
             </>
           ) : (
