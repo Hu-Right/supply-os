@@ -143,7 +143,7 @@ export default function ParticipantForm({
       title={isPrePaymentMode ? t("tlParticipantTitlePrePay") : t("tlParticipantTitlePostPay")}
       closeOnBackdrop={false}
       closeOnEsc={false}
-      className="max-w-3xl"
+      className="max-w-5xl"
     >
       <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-6">
         {/* 提示信息 */}
