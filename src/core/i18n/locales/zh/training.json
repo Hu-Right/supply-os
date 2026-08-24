@@ -269,6 +269,8 @@
   "tlParticipantCompanyPlaceholder": "所在公司",
   "tlParticipantPositionLabel": "职位",
   "tlParticipantPositionPlaceholder": "如：采购经理",
+  "tlParticipantEmailLabel": "邮箱",
+  "tlParticipantEmailPlaceholder": "如：name@company.com",
   "tlParticipantCancel": "取消",
   "tlParticipantSubmitPrePay": "填写完成，去支付",
   "tlParticipantSubmitPostPay": "提交学员信息",

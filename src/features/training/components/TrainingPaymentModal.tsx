@@ -64,10 +64,6 @@ export default function TrainingPaymentModal({
     export_experience: "",
     certification: [],
     other_certification: "",
-    contact_name: "",
-    position: "",
-    telephone: "",
-    email: "",
     remark: "",
   });
   const [submittingCompany, setSubmittingCompany] = useState(false);
@@ -95,7 +91,7 @@ export default function TrainingPaymentModal({
 
   // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
   const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
-    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
+    if (!companyInfo.company_name) {
       setCompanyError(t("tlCompanyInfoRequired"));
       return;
     }
@@ -118,10 +114,6 @@ export default function TrainingPaymentModal({
           main_product: companyInfo.main_product,
           export_experience: companyInfo.export_experience,
           certification: certificationStr,
-          contact_name: companyInfo.contact_name,
-          position: companyInfo.position,
-          telephone: companyInfo.telephone,
-          email: companyInfo.email,
           remark: companyInfo.remark,
         }),
       });

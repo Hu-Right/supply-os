@@ -269,6 +269,8 @@
   "tlParticipantCompanyPlaceholder": "اسم الشركة",
   "tlParticipantPositionLabel": "المنصب",
   "tlParticipantPositionPlaceholder": "مثال: مدير المشتريات",
+  "tlParticipantEmailLabel": "البريد الإلكتروني",
+  "tlParticipantEmailPlaceholder": "مثال: name@company.com",
   "tlParticipantCancel": "إلغاء",
   "tlParticipantSubmitPrePay": "تم، الانتقال إلى الدفع",
   "tlParticipantSubmitPostPay": "إرسال المعلومات",

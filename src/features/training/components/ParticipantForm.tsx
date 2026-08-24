@@ -66,6 +66,7 @@ export default function ParticipantForm({
           phone: null,
           company_name: null,
           position: null,
+          email: null,
         })
       );
       setParticipants(initialParticipants);
@@ -89,6 +90,7 @@ export default function ParticipantForm({
             phone: null,
             company_name: null,
             position: null,
+            email: null,
           })
         );
         return [...prev, ...newEntries];
@@ -233,7 +235,7 @@ export default function ParticipantForm({
 
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-0.5">
-                    {t("tlParticipantPhoneLabel")}
+                    {t("tlParticipantPhoneLabel")} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
@@ -241,6 +243,7 @@ export default function ParticipantForm({
                     onChange={(e) => handleFieldChange(index, "phone", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder={t("tlParticipantPhonePlaceholder")}
+                    required
                   />
                 </div>
 
@@ -267,6 +270,19 @@ export default function ParticipantForm({
                     onChange={(e) => handleFieldChange(index, "position", e.target.value || null)}
                     className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     placeholder={t("tlParticipantPositionPlaceholder")}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-slate-600 mb-0.5">
+                    {t("tlParticipantEmailLabel")}
+                  </label>
+                  <input
+                    type="email"
+                    value={participant.email || ""}
+                    onChange={(e) => handleFieldChange(index, "email", e.target.value || null)}
+                    className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    placeholder={t("tlParticipantEmailPlaceholder")}
                   />
                 </div>
               </div>

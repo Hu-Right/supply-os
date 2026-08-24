@@ -125,6 +125,7 @@ export interface TrainingParticipant {
   phone?: string | null;
   company_name?: string | null;
   position?: string | null;
+  email?: string | null;
 }
 
 export interface SaveParticipantsResponse {

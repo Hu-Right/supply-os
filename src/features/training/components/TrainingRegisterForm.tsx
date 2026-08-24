@@ -30,10 +30,6 @@ const INITIAL_COMPANY_INFO: CompanyInfoData = {
   export_experience: "",
   certification: [],
   other_certification: "",
-  contact_name: "",
-  position: "",
-  telephone: "",
-  email: "",
   remark: "",
 };
 
@@ -59,7 +55,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
     e.preventDefault();
     setError("");
 
-    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
+    if (!companyInfo.company_name) {
       setError(t("trainingRegisterValidationError"));
       return;
     }
@@ -80,10 +76,6 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
           main_product: companyInfo.main_product,
           export_experience: companyInfo.export_experience,
           certification: certificationStr,
-          contact_name: companyInfo.contact_name,
-          position: companyInfo.position,
-          telephone: companyInfo.telephone,
-          email: companyInfo.email,
           remark: companyInfo.remark,
         }),
       });
