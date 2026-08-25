@@ -12,7 +12,7 @@ export default defineConfig({
     environment: "jsdom",
     pool: "forks",
     setupFiles: ["./src/__tests__/setup.ts"],
-    exclude: ["node_modules/**", "tests/e2e/**"],
+    exclude: ["node_modules/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/integration/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
