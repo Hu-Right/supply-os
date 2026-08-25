@@ -176,6 +176,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Namibia": "纳米比亚",
   "Nauru": "瑙鲁",
   "Nepal": "尼泊尔",
+  "New Caledonia": "新喀里多尼亚",
   "Netherlands": "荷兰",
   "The Netherlands": "荷兰",
   "Netherlands, The": "荷兰",
@@ -242,6 +243,9 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Somalia": "索马里",
   "South Africa": "南非",
   "ZAF": "南非",
+  "Africa do Sul": "南非",      // 葡萄牙语
+  "Afrique du Sud": "南非",     // 法语
+  "Suid-Afrika": "南非",        // 南非荷兰语
   "South Sudan": "南苏丹",
   "Spain": "西班牙",
   "Sri Lanka": "斯里兰卡",
@@ -412,13 +416,26 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Africa": "非洲",
   "Asia": "亚洲",
   "Caribbean": "加勒比地区",
+  "Latin America and the Carib": "多国",
+  "Latin America and the Caribbean": "多国",
+  "Latin America": "多国",
   "East Asia and Pacific": "东亚和太平洋",
+  "Europe Non EU 27": "多国",        // 欧洲非欧盟27国
+  "Europe": "多国",                   // 欧洲（区域名）
   "Pacific 1": "太平洋地区",
   "Western Balkans": "西巴尔干",
   "OECS Countries": "东加勒比国家组织",
   "Global": "全球",
+  "Worldwide": "全球",
   "Multinational": "多国",
   "International": "国际",
+  // ── 数据质量问题：非国家名被写入 country 字段（归一化为 Unknown）──
+  "Unknown": "未知",
+  "N/A": "未知",
+  "Not specified": "未知",
+  "Not Available": "未知",
+  "None": "未知",
+  "Other": "未知",
   // ── 数据库已有中文名（反向映射）──
   "英国": "英国",
   "美国": "美国",
@@ -583,6 +600,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
 export const SUB_COUNTRY_ZH: Record<string, string> = {
   // ── 菲律宾省份 ──
   "Basilan": "菲律宾",
+  "Kalinga": "菲律宾",
   "La Union": "菲律宾",
   "Ilocos Norte": "菲律宾",
   "Ilocos Sur": "菲律宾",
@@ -687,6 +705,17 @@ export const SUB_COUNTRY_ZH: Record<string, string> = {
   // ── 孟加拉国城市 ──
   "Dhaka": "孟加拉国",
   "Chittagong": "孟加拉国",
+  // ── 荷兰海外领土 ──
+  "Caribbean Netherlands": "荷兰",
+  "Bonaire": "荷兰",
+  "Sint Eustatius": "荷兰",
+  "Saba": "荷兰",
+  "Aruba": "荷兰",
+  "Curacao": "荷兰",
+  "Curaçao": "荷兰",
+  "Sint Maarten": "荷兰",
+  // ── 索马里兰（索马里北部自治地区）──
+  "Somaliland": "索马里",
 };
 
 /**

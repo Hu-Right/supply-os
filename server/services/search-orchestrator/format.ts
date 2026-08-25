@@ -9,7 +9,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
-import { translateByPattern } from "../agency/index";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
@@ -56,18 +55,15 @@ export function formatItems(
   }
 
   return rows.map((row) => {
-    // 机构 i18n 查找（三级回退）：
+    // 机构 i18n 查找（两级回退）：
     // 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
     // 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
-    // 3. 模式翻译兜底：translateByPattern 按命名模式实时生成翻译（不依赖缓存）
-    //    解决缓存未预热（getAgencyCacheData 返回 null）时全部 miss 的问题。
+    // 注意：不使用 translateByPattern 兜底——该函数对未翻译的葡语/英语前缀
+    // 会生成 "${rest}厅" 等混合文本（如 "PLANEJAMENTO E GESTAO厅"），质量不可控。
+    // 缓存未预热时直接显示 agency_std 原名，优于显示半翻译的混合文本。
     const agencyUpper = String(row.agency || "").toUpperCase();
-    let i18n = agencyI18nMap.get(agencyUpper)
+    const i18n = agencyI18nMap.get(agencyUpper)
       || (row.agency_group ? agencyI18nMap.get(row.agency_group) : undefined);
-    if (!i18n && row.agency) {
-      const patternResult = translateByPattern(String(row.agency));
-      if (patternResult?.i18n) i18n = patternResult.i18n;
-    }
     // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
     const breakdownCount = row.breakdown_file_count !== undefined
       ? (Number(row.breakdown_file_count) || undefined)
