@@ -1,0 +1,186 @@
+/**
+ * E2E 测试数据库种子脚本
+ * E2E test database seeding
+ *
+ * 在 CI 或本地 E2E 测试前执行：
+ * 1. 连接 MySQL 并创建测试数据库（若不存在）
+ * 2. 运行全量 schema 迁移
+ * 3. 写入种子数据（会员计划、底部链接等）
+ * 4. 创建 E2E 专用测试账号
+ *
+ * 环境变量:
+ *   MYSQL_HOST     (default: 127.0.0.1)
+ *   MYSQL_PORT     (default: 3306)
+ *   MYSQL_USER     (default: root)
+ *   MYSQL_PASSWORD (default: "")
+ *   MYSQL_DATABASE (default: supply_os_test)
+ */
+import mysql2 from "mysql2/promise";
+import { runMigrations, type Migration } from "../server/db/migrations/runner.js";
+import { migration as m001 } from "../server/db/migrations/001-core-tables.js";
+import { migration as m002 } from "../server/db/migrations/002-membership-payment.js";
+import { migration as m003 } from "../server/db/migrations/003-notice-interactions.js";
+import { migration as m004 } from "../server/db/migrations/004-search-quality-feedback.js";
+import { migration as m005 } from "../server/db/migrations/005-translations.js";
+import { migration as m006 } from "../server/db/migrations/006-suppliers.js";
+import { migration as m007 } from "../server/db/migrations/007-unspsc-bridge.js";
+import { migration as m008 } from "../server/db/migrations/008-agency-aliases.js";
+import { migration as m009 } from "../server/db/migrations/009-external-table-indexes.js";
+import { migration as m010 } from "../server/db/migrations/010-fulltext-indexes.js";
+import { migration as m011 } from "../server/db/migrations/011-notice-search-wide-table.js";
+import { migration as m012 } from "../server/db/migrations/012-password-reset-security.js";
+import { migration as m013 } from "../server/db/migrations/013-wide-table-varchar.js";
+import { migration as m014 } from "../server/db/migrations/014-password-reset-email-columns.js";
+import { migration as m015 } from "../server/db/migrations/015-registration-email-verification.js";
+import { migration as m016 } from "../server/db/migrations/016-user-phone.js";
+import { migration as m017 } from "../server/db/migrations/017-phone-verification.js";
+import { migration as m018 } from "../server/db/migrations/018-jwt-auth.js";
+import { migration as m019 } from "../server/db/migrations/019-reference-index.js";
+import { migration as m020 } from "../server/db/migrations/020-unlock-unique-notice.js";
+import { migration as m021 } from "../server/db/migrations/021-verification-code-hash-column.js";
+import { migration as m022 } from "../server/db/migrations/022-verification-code-composite-index.js";
+import { migration as m023 } from "../server/db/migrations/023-footer-social-links.js";
+import { migration as m024 } from "../server/db/migrations/024-bridge-int-and-index-cleanup.js";
+import { migration as m025 } from "../server/db/migrations/025-wide-table-reference-index.js";
+import { migration as m026 } from "../server/db/migrations/026-wide-table-cleanup.js";
+import { migration as m027 } from "../server/db/migrations/027-bridge-column-cleanup.js";
+import { migration as m028 } from "../server/db/migrations/028-deadline-sec-overflow.js";
+import { migration as m029 } from "../server/db/migrations/029-precise-unspsc.js";
+import { migration as m030 } from "../server/db/migrations/030-wide-table-deadline-bigint.js";
+import { migration as m031 } from "../server/db/migrations/031-membership-upgrade.js";
+import { migration as m032 } from "../server/db/migrations/032-wide-table-schema-converge.js";
+import { migration as m033 } from "../server/db/migrations/033-main-table-dead-index-cleanup.js";
+import { migration as m034 } from "../server/db/migrations/034-training-landing-page.js";
+import { migration as m035 } from "../server/db/migrations/035-training-team-titles.js";
+import { migration as m036 } from "../server/db/migrations/036-training-team-roles.js";
+import { migration as m037 } from "../server/db/migrations/037-training-order-payurl-text.js";
+import { migration as m038 } from "../server/db/migrations/038-training-participants.js";
+import { migration as m039 } from "../server/db/migrations/039-training-schedule-seed.js";
+import { migration as m040 } from "../server/db/migrations/040-training-participants-add-email.js";
+
+const DB_HOST = process.env.MYSQL_HOST || "127.0.0.1";
+const DB_PORT = Number(process.env.MYSQL_PORT || 3306);
+const DB_USER = process.env.MYSQL_USER || "root";
+const DB_PASSWORD = process.env.MYSQL_PASSWORD || "";
+const DB_NAME = process.env.MYSQL_DATABASE || "supply_os_test";
+
+async function main() {
+  console.log(`[seed-test-db] 连接 MySQL ${DB_HOST}:${DB_PORT} ...`);
+
+  // 1. 先不带 database 连接，创建测试库
+  const bootstrap = await mysql2.createConnection({
+    host: DB_HOST,
+    port: DB_PORT,
+    user: DB_USER,
+    password: DB_PASSWORD,
+    multipleStatements: true,
+  });
+
+  await bootstrap.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  console.log(`[seed-test-db] 数据库 ${DB_NAME} 就绪`);
+  await bootstrap.end();
+
+  // 2. 连接到测试库
+  const pool = mysql2.createPool({
+    host: DB_HOST,
+    port: DB_PORT,
+    user: DB_USER,
+    password: DB_PASSWORD,
+    database: DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 5,
+  });
+
+  // 3. 运行全量 schema 迁移
+  const migrations: Migration[] = [
+    m001, m002, m003, m004, m005, m006, m007, m008, m009, m010,
+    m011, m012, m013, m014, m015, m016, m017, m018, m019, m020,
+    m021, m022, m023, m024, m025, m026, m027, m028, m029, m030,
+    m031, m032, m033, m034, m035, m036, m037, m038, m039, m040,
+  ];
+
+  console.log("[seed-test-db] 运行 schema 迁移 ...");
+  await runMigrations(pool, migrations);
+  console.log("[seed-test-db] Schema 迁移完成");
+
+  // 4. 写入种子数据（会员计划）
+  console.log("[seed-test-db] 写入种子数据 ...");
+  await seedMembershipPlans(pool);
+  await seedFooterLinks(pool);
+
+  // 5. 创建 E2E 测试专用账号
+  await seedE2EUsers(pool);
+
+  await pool.end();
+  console.log("[seed-test-db] ✓ 测试数据库准备完成");
+}
+
+async function seedMembershipPlans(pool: mysql2.Pool) {
+  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_membership_plans");
+  const total = Number((countRows as { total: number }[])[0]?.total || 0);
+  if (total > 0) return;
+
+  await pool.execute(`
+    INSERT IGNORE INTO crm_membership_plans
+      (plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, sort_order, is_active)
+    VALUES
+      ('free', '基础体验版', '免费注册', 0, 'CNY', NULL, 3, 3, 'free', 1, 0),
+      ('single_199', '单次解锁卡', '单次解锁', 199, 'CNY', NULL, 1, 0, 'single', 101, 1),
+      ('annual_799', '标讯个人会员', '个人年度会员', 799, 'CNY', 365, 100, 0, 'bundle', 102, 0),
+      ('annual_8800', '标讯企业会员-基础版', '企业基础版', 8800, 'CNY', 365, 365, 0, 'subscription', 103, 0)
+  `);
+  console.log("[seed-test-db] 会员计划种子数据写入完成");
+}
+
+async function seedFooterLinks(pool: mysql2.Pool) {
+  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM link");
+  const total = Number((countRows as { total: number }[])[0]?.total || 0);
+  if (total > 0) return;
+
+  await pool.execute(`
+    INSERT IGNORE INTO link (name, url, icon, sort_order, status)
+    VALUES
+      ('Instagram', 'https://www.instagram.com', 'instagram', 1, 1),
+      ('Facebook', 'https://www.facebook.com', 'facebook', 2, 1),
+      ('WhatsApp', 'https://www.whatsapp.com', 'whatsapp', 3, 1)
+  `);
+  console.log("[seed-test-db] 底部链接种子数据写入完成");
+}
+
+async function seedE2EUsers(pool: mysql2.Pool) {
+  // 创建 E2E 测试用 VIP 用户（已付费，有解锁额度）
+  await pool.execute(`
+    INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, vip_expires_at, unlock_quota, unlock_used)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    "e2e-vip@test.com",
+    "e2e-vip@test.com",
+    "E2E VIP User",
+    "user",
+    1,
+    new Date(Date.now() + 365 * 86400000), // 1 年后过期
+    100,
+    5,
+  ]);
+
+  // 创建 E2E 测试用免费用户
+  await pool.execute(`
+    INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, unlock_quota, unlock_used)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `, [
+    "e2e-free@test.com",
+    "e2e-free@test.com",
+    "E2E Free User",
+    "user",
+    0,
+    3,
+    0,
+  ]);
+
+  console.log("[seed-test-db] E2E 测试账号创建完成");
+}
+
+main().catch((err) => {
+  console.error("[seed-test-db] ✗ 失败:", err);
+  process.exit(1);
+});

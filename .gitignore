@@ -22,8 +22,11 @@ pnpm-debug.log*
 ~$*
 *.swp
 *.swo
-scripts/
+scripts/*
 !scripts/setup-meilisearch.ps1
+!scripts/coverage-gate.mjs
+!scripts/seed-test-db.ts
+!scripts/perf-budget-check.ts
 runtime/
 backups/
 bin/

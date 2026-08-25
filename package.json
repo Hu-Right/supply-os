@@ -21,7 +21,13 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:frontend": "playwright test --config playwright.frontend.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:integration:coverage": "vitest run --config vitest.integration.config.ts --coverage"
+    "test:integration:coverage": "vitest run --config vitest.integration.config.ts --coverage",
+    "test:unit": "vitest run --coverage --coverage.reportsDirectory=coverage/unit",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test:merge-coverage": "npx istanbul-merge --out coverage/merged/coverage-final.json coverage/unit/coverage-final.json coverage/integration/coverage-final.json",
+    "test:coverage-gate": "node scripts/coverage-gate.mjs",
+    "perf:check": "npx tsx scripts/perf-budget-check.ts",
+    "seed:test-db": "npx tsx scripts/seed-test-db.ts"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",

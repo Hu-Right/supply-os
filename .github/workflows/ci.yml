@@ -1,0 +1,81 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 阶段 1: 静态检查 ──
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run check:encoding
+      - run: npm audit --audit-level=high
+
+  # ── 阶段 2: 单元测试 + 覆盖率门禁 ──
+  unit-test:
+    name: Unit Tests + Coverage
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - name: Run unit tests with coverage
+        run: npm run test:coverage -- --coverage.reportsDirectory=coverage/unit
+      - name: Upload unit coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-coverage
+          path: coverage/unit/
+          retention-days: 3
+
+  # ── 阶段 3: API 集成测试 + 覆盖率门禁 ──
+  integration-test:
+    name: Integration Tests + Coverage
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - name: Run integration tests
+        run: npx vitest run --config vitest.integration.config.ts --coverage
+      - name: Upload integration coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-coverage
+          path: coverage/integration/
+          retention-days: 3
+
+  # ── 阶段 4: 构建验证 ──
+  build:
+    name: Build Verification
+    needs: [unit-test, integration-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - run: npm run build
+      - name: Verify build output
+        run: |
+          test -f dist/server.mjs || exit 1
+          test -f dist/index.html || exit 1
+          echo "Build verification passed"
