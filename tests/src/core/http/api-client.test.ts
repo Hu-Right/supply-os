@@ -199,6 +199,116 @@ describe("api()", () => {
   });
 });
 
+// ── api() 401 重试 ──
+describe("api() 401 重试", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearApiCache();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("业务级 401（含 code）直接抛错不刷新", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false, status: 401,
+      json: async () => ({ code: "INVALID_CREDENTIALS", message: "Bad creds" }),
+    });
+
+    await expect(api("/api/login")).rejects.toThrow(ApiError);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // 无 refresh 调用
+  });
+
+  it("刷新成功 + 重试成功 → 返回数据", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: "new-tk" }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ data: "refreshed" }) });
+
+    const result = await api<{ data: string }>("/api/resource");
+    expect(result.data).toBe("refreshed");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(getAuthToken()).toBe("new-tk");
+  });
+
+  it("刷新成功但重试仍 401 → 清除 token + 抛错", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: "new-tk" }) })
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) });
+
+    await expect(api("/api/resource")).rejects.toThrow(ApiError);
+    expect(getAuthToken()).toBeNull();
+  });
+
+  it("刷新失败 → 清除 token + 抛 401", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: false, status: 403, json: async () => ({}) });
+
+    await expect(api("/api/resource")).rejects.toThrow(ApiError);
+    expect(getAuthToken()).toBeNull();
+  });
+
+  it("重试返回其他错误 → 抛出对应状态码", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: "new-tk" }) })
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: "Server Error" }) });
+
+    await expect(api("/api/resource")).rejects.toThrow("Server Error");
+  });
+});
+
+// ── apiCached() 去重与错误清理 ──
+describe("apiCached() 去重与错误清理", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearApiCache();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("并发请求去重：只发一次网络请求", async () => {
+    let resolveFetch: any;
+    fetchMock.mockReturnValue(new Promise(() => { resolveFetch = null; }));
+    fetchMock.mockReturnValueOnce(
+      new Promise<any>((resolve) => { resolveFetch = resolve; }),
+    );
+
+    const p1 = apiCached("/api/dedup");
+    const p2 = apiCached("/api/dedup");
+
+    resolveFetch({ ok: true, status: 200, json: async () => ({ v: 1 }) });
+    const [r1, r2] = await Promise.all([p1, p2]);
+    expect(r1).toEqual({ v: 1 });
+    expect(r2).toEqual({ v: 1 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("请求失败后清理 pending，下次重试", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error("network"))
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ v: 2 }) });
+
+    await expect(apiCached("/api/retry")).rejects.toThrow("network");
+    const result = await apiCached<{ v: number }>("/api/retry");
+    expect(result.v).toBe(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 // ── apiCached() ──
 describe("apiCached()", () => {
   const fetchMock = vi.fn();

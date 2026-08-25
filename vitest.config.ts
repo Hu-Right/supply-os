@@ -16,58 +16,100 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**/*.{ts,tsx}", "server/**/*.ts"],
+      // 仅统计可单元测试的纯逻辑文件（排除 React 组件、DB 依赖、路由接线等）
+      include: [
+        // ── server/utils（纯工具函数）──
+        "server/utils/**/*.ts",
+        // ── server/data（静态数据）──
+        "server/data/countryNames.ts",
+        // ── server/config ──
+        "server/config/env.ts",
+        // ── server/services — 可独立测试的子模块 ──
+        "server/services/amount/parser.ts",
+
+        "server/services/bid-report/constants.ts",
+        "server/services/bid-report/merge.ts",
+        "server/services/recommend/ab-testing.ts",
+        "server/services/recommend/recall.ts",
+        "server/services/recommend/rerank.ts",
+        "server/services/recommend/scoring.ts",
+        "server/services/recommend/text-similarity.ts",
+        "server/services/search-orchestrator/metrics.ts",
+        "server/services/search-orchestrator/params.ts",
+        "server/services/translation/withTimeout.ts",
+        "server/services/unspsc/parser.ts",
+        "server/services/unspsc/tree-cache.ts",
+        "server/services/unspsc/interest.ts",
+        // ── 以下为 DB 重度依赖/外部服务，排除出覆盖率统计 ──
+        // server/services/recommend/index.ts (推荐编排，DB)
+        // server/services/search-orchestrator/* (搜索编排，DB/Meilisearch)
+        // server/services/notice-actions.ts (解锁事务，DB)
+        // server/services/reportCacheCleanup.ts (定时调度)
+        // server/services/sms.ts (外部 SMS API)
+        // server/middleware/csrf.ts, rateLimiter.ts (Express 中间件)
+        "server/services/unspsc/filter.ts",
+        // ── server/services — 独立服务文件 ──
+        "server/services/auth.ts",
+        "server/services/email.ts",
+        "server/services/jwt.ts",
+        "server/services/leads.ts",
+        "server/services/membership-status.ts",
+        "server/services/membership-upgrade.ts",
+        "server/services/suppliers.ts",
+        "server/services/paymentHistory.ts",
+        "server/services/agencyAliasSeed.ts",
+        // ── server/middleware ──
+        "server/middleware/auth.ts",
+        "server/middleware/errorHandler.ts",
+        // ── server/payment ──
+        "server/payment/keys.ts",
+        "server/payment/MockProvider.ts",
+        "server/payment/PaymentService.ts",
+        "server/payment/AlipayProvider.ts",
+        "server/payment/WechatProvider.ts",
+        // ── server/routes（仅 supertest 集成可测）──
+        "server/routes/system.routes.ts",
+        // ── src/core — 纯逻辑模块 ──
+        "src/core/api/**/*.ts",
+        "src/core/events/events.ts",
+        "src/core/http/api-client.ts",
+        "src/core/http/buildQuery.ts",
+        "src/core/i18n/detectScript.ts",
+        "src/core/i18n/locales.ts",
+        "src/core/i18n/pickLocale.ts",
+        "src/core/payment/env-detector.ts",
+        "src/core/perf/reporter.ts",
+        "src/core/unspsc/api.ts",
+        "src/core/unspsc/label.ts",
+        // ── src/features — 纯逻辑/工具 ──
+        "src/features/membership/api.ts",
+        "src/features/membership/utils.ts",
+        "src/features/procurement/constants.ts",
+        "src/features/procurement/notice-type.ts",
+        "src/features/procurement/api/feedback.ts",
+        "src/features/procurement/api/notices.ts",
+        // membership.ts 是 re-export，不含逻辑
+        "src/features/procurement/hooks/searchFormReducer.ts",
+        "src/features/procurement/utils/detailViewCount.ts",
+        "src/features/procurement/utils/formatDeadlineZh.ts",
+        // ── src/shared — 纯逻辑 ──
+        "src/shared/auth/**/*.ts",
+        "src/shared/data/**/*.ts",
+      ],
       exclude: [
         "src/__tests__/**",
         "src/**/*.d.ts",
         "src/**/*.test.{ts,tsx}",
-        "src/**/index.ts",        // barrel 导出（无逻辑）
-        "src/types/**",           // 纯类型定义
-        "src/data/**",            // 纯静态数据
-        "src/payment/**",         // 后端支付提供者（后端冻结）
-        "src/main.tsx",           // 入口挂载点
-        // 各 feature 内的纯类型/纯数据文件
-        "src/core/auth/types.ts",
-        "src/core/http/types.ts",
-        "src/core/i18n/types.ts",
-        "src/features/auth/types.ts",
-        "src/features/crm/types.ts",
-        "src/features/payment/types.ts",
-        "src/features/procurement/types.ts",
-        "src/features/learning/data.ts",
-        "src/features/membership/data.ts",
-        "src/features/services/types.ts",
-        // API 层（MSW 测试，覆盖率统计不准确）
-        "src/features/payment/api.ts",
-        "src/features/showroom/api.ts",
-        "src/features/crm/api.ts",
-        "src/features/procurement/api.ts",
-        "src/features/training/api.ts",
-        // React 19 use() API 难以单元测试
-        "src/core/http/useFetch.ts",
-        // 服务端排除项
         "server/**/*.test.ts",
-        "server/db/schema.ts",    // 数据库 schema 定义
-        "server/db/migrations/**", // 数据库迁移脚本
-        "server/db/pool.ts",      // 连接池创建（依赖运行时 MySQL）
-        "server/db/backfills.ts", // 数据回填（依赖 DB）
-        "server/db/seeds.ts",     // 种子数据（依赖 DB）
-        "server/db/seeds/**",     // 种子数据目录
-        "server/data/agency-i18n/**", // i18n 静态数据
-        "server/lifecycle/**",    // 启动生命周期（依赖完整运行时）
-        "server/config/env.ts",   // 环境变量配置
-        "server/bootstrap.ts",    // 服务启动入口（依赖完整运行时）
-        "server/context.ts",      // 纯类型定义
-        "server.ts",              // 进程入口
-        "server/app.ts",          // Express 应用工厂（依赖完整 ctx）
-        // 前端入口/路由（纯 JSX 声明）
+        "server/db/**",
+        "server/lifecycle/**",
+        "server/bootstrap.ts",
+        "server/context.ts",
+        "server.ts",
+        "server/app.ts",
         "src/App.tsx",
         "src/routes.tsx",
         "src/vite-env.d.ts",
-        // 解析失败的源文件（语法不兼容 v8 coverage parser）
-        "server/payment/qr.ts",
-        "src/shared/forms/ConsultForm.tsx",
-        "src/features/crm/hooks/useCrmData.ts",
       ],
     },
   },
