@@ -194,7 +194,7 @@ export async function fulfillUpgradeOrder(
 /**
  * mock 支付履约（POST /api/payments/:orderNo/mock-paid）：
  * 已 paid 幂等返回；否则按套餐发放额度、非单次套餐写订阅并升 VIP、
- * 绑定公告时记录订阅兴趣。
+ * 绑定公告时记录订阅兴趣。事务封装保证原子性。
  */
 export async function fulfillMockPayment(
   payments: PaymentsRepo,
@@ -211,20 +211,32 @@ export async function fulfillMockPayment(
     }
     const plan = (await membership.findPlanByCodeForFulfillment(order.plan_code))
       ?? { unlock_quota: 1, duration_days: null as number | null, plan_type: "single" as string };
-    await payments.markAsMockPaid(params.orderNo, params.rawNotify);
-    await payments.insertEntitlement({
-      userKey: order.user_key,
-      orderNo: params.orderNo,
-      planCode: order.plan_code,
-      quotaTotal: Math.max(1, Number(plan.unlock_quota || 1)),
-      durationDays: plan.duration_days ?? null,
-    });
-    if (plan.plan_type !== "single") {
-      await payments.createSubscription(order.user_key, order.plan_code, plan.duration_days ?? null);
-      await payments.promoteToVip(order.user_key);
-    }
-    if (order.notice_id) {
-      await payments.upsertNoticeInterest(order.user_key, order.notice_id);
+
+    // 事务封装：markAsMockPaid + insertEntitlement + createSubscription + promoteToVip + upsertNoticeInterest
+    const conn = await payments.getConnection();
+    try {
+      await conn.beginTransaction();
+      await payments.markAsMockPaidInTransaction(conn, params.orderNo, params.rawNotify);
+      await payments.insertEntitlementInTransaction(conn, {
+        userKey: order.user_key,
+        orderNo: params.orderNo,
+        planCode: order.plan_code,
+        quotaTotal: Math.max(1, Number(plan.unlock_quota || 1)),
+        durationDays: plan.duration_days ?? null,
+      });
+      if (plan.plan_type !== "single") {
+        await payments.createSubscriptionInTransaction(conn, order.user_key, order.plan_code, plan.duration_days ?? null);
+        await payments.promoteToVipInTransaction(conn, order.user_key);
+      }
+      if (order.notice_id) {
+        await payments.upsertNoticeInterestInTransaction(conn, order.user_key, order.notice_id);
+      }
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
     }
   }
   return { found: true };
@@ -236,6 +248,7 @@ export async function fulfillMockPayment(
  * 开通订阅（POST /api/billing/subscribe）：查在售套餐 + 写订阅 + 升 VIP。
  * 套餐以 crm_membership_plans 为唯一事实源（与下单路径 findActivePlan 口径对齐）；
  * 套餐不存在或已下架时返回 null（路由返回 404 PLAN_NOT_FOUND）。
+ * 事务封装：createSubscription + promoteToVip 原子执行。
  */
 export async function activateSubscription(
   repo: PaymentsRepo,
@@ -244,8 +257,18 @@ export async function activateSubscription(
 ): Promise<{ planCode: string; price: number; quota: number } | null> {
   const plan = await membership.findPlanByCode(params.planCode);
   if (!plan) return null;
-  await repo.createSubscription(params.userKey, params.planCode, plan.duration_days ?? null);
-  await repo.promoteToVip(params.userKey);
+  const conn = await repo.getConnection();
+  try {
+    await conn.beginTransaction();
+    await repo.createSubscriptionInTransaction(conn, params.userKey, params.planCode, plan.duration_days ?? null);
+    await repo.promoteToVipInTransaction(conn, params.userKey);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
   return {
     planCode: params.planCode,
     price: Number(plan.price),

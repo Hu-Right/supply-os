@@ -385,6 +385,26 @@ export class PaymentsRepo {
     );
   }
 
+  /** 事务内 mock 支付落库 */
+  async markAsMockPaidInTransaction(conn: PoolConnection, orderNo: string, rawNotify: string): Promise<void> {
+    await conn.execute(
+      `UPDATE crm_payment_orders
+       SET status = 'paid', provider_trade_no = ?, raw_notify = ?, paid_at = NOW(), updated_at = NOW()
+       WHERE order_no = ?`,
+      [`MOCK-${orderNo}`, rawNotify, orderNo],
+    );
+  }
+
+  /** 事务内记录公告订阅兴趣 */
+  async upsertNoticeInterestInTransaction(conn: PoolConnection, userKey: string, noticeId: number): Promise<void> {
+    await conn.execute(
+      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
+       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
+      [userKey, userKey, noticeId],
+    );
+  }
+
   // ── 套餐升级事务方法（供 fulfillUpgradeOrder 使用）──
 
   /** 事务内标记旧权益已被升级替代（保留 quota_used 供审计追溯） */
