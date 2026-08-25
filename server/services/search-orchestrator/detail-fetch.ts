@@ -31,7 +31,7 @@ export async function fetchDetailsByIds(
     const i18nDescExpr = `description_${lang}`;
     const [rows] = await pool.query(
       `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
-         country_std AS country, agency_std AS agency,
+         country_std AS country, agency_std AS agency, agency_group,
          NULLIF(deadline_sec, 0) AS deadline_sec, NULLIF(deadline_sec, 0) AS deadline_ts,
          estimated_value, is_featured,
          LEFT(description, 300) AS description,

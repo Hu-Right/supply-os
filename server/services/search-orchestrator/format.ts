@@ -55,7 +55,13 @@ export function formatItems(
   }
 
   return rows.map((row) => {
-    const i18n = agencyI18nMap.get(row.agency);
+    // 机构 i18n 查找：先用 agency_std（别名映射后的规范名）精确匹配；
+    // 未命中时用 agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）回退查找。
+    // 原因：聚合机构在缓存中以 typeKey 为键（如 "MUNICIPIO_BR" → "巴西各市"），
+    // 而 row.agency 是 agency_std（如 "MUNICIPIO DE MORAUJO"），两者键空间不同。
+    // 回退路径（多表 JOIN）无 agency_group 列，row.agency_group 为 undefined，安全跳过。
+    const i18n = agencyI18nMap.get(row.agency)
+      || (row.agency_group ? agencyI18nMap.get(row.agency_group) : undefined);
     // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
     const breakdownCount = row.breakdown_file_count !== undefined
       ? (Number(row.breakdown_file_count) || undefined)
