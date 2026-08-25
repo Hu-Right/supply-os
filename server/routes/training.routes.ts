@@ -261,11 +261,13 @@ export function createTrainingRouter(ctx: AppContext): Router {
   }));
 
   // 6f. MOCK PAID（仅 mock 模式）：模拟培训订单支付成功
+  // P1 安全加固：必须 JWT 认证 + 归属校验
   if (ctx.payment.paymentMode !== "live") {
-    router.post("/api/training/orders/:order_no/mock-paid", asyncHandler(async (req, res) => {
+    router.post("/api/training/orders/:order_no/mock-paid", requireAuth, asyncHandler(async (req, res) => {
       const orderNo = String(req.params.order_no || "");
       const order = await trainingRepo.findOrderByNo(orderNo);
       if (!order) return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+      if (order.user_key !== req.userKey) return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
       await fulfillTrainingOrder(trainingRepo, orderNo, `MOCK-${orderNo}`);
       res.json({ success: true, order_no: orderNo, status: "paid" });
     }));

@@ -231,9 +231,14 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // mock 闭环由下方 /api/payments/:orderNo/mock-paid 承担（新旧订单通用履约入口，保留）。
 
   // P0-3 安全修复：mock-paid 仅在 mock 模式下注册，防止 live 模式下一键已支付真实订单
+  // P1 安全加固：必须 JWT 认证 + 归属校验，防止任意用户触发他人订单履约
   if (paymentMode !== "live") {
-    router.post("/api/payments/:orderNo/mock-paid", asyncHandler(async (req, res) => {
+    router.post("/api/payments/:orderNo/mock-paid", requireAuth, asyncHandler(async (req, res) => {
       const orderNo = String(req.params.orderNo || "");
+      // 归属校验
+      const dbOrder = await paymentsRepo.findByOrderNo(orderNo);
+      if (!dbOrder) return sendError(res, 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND, "订单不存在");
+      if (dbOrder.user_key !== req.userKey) return sendError(res, 403, ApiErrorCode.FORBIDDEN, "无权操作此订单");
       const { found } = await fulfillMockPayment(paymentsRepo, membershipRepo, {
         orderNo,
         rawNotify: JSON.stringify(req.body || { mock: true }),
