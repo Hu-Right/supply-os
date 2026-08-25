@@ -19,6 +19,11 @@ const JWT_REFRESH_EXPIRES_DAYS = 7;
 if (!JWT_SECRET) {
   // 启动时即报错，避免运行时才发现密钥缺失
   console.error("[jwt] ✗ JWT_SECRET 环境变量未配置，身份认证将不可用");
+  // P1 安全加固：生产环境 fail-fast——缺失 JWT_SECRET 时阻止启动，
+  // 避免"注册成功但无法登录"的诡异降级行为
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET 环境变量必须在生产环境中配置");
+  }
 }
 
 // ── Token Payload 类型 ──
