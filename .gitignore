@@ -10,6 +10,7 @@ coverage/
 # ===== 敏感配置(保留 .env.example)=====
 .env*
 !.env.example
+!.env.production.example
 
 # ===== 日志与临时文件 =====
 *.log

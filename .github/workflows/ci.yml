@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        with: { node-version: "24", cache: "npm" }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        with: { node-version: "24", cache: "npm" }
       - run: npm ci
       - name: Run unit tests with coverage
         run: npm run test:coverage -- --coverage.reportsDirectory=coverage/unit
@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        with: { node-version: "24", cache: "npm" }
       - run: npm ci
       - name: Run integration tests
         run: npx vitest run --config vitest.integration.config.ts --coverage
@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: "npm" }
+        with: { node-version: "24", cache: "npm" }
       - run: npm ci
       - run: npm run build
       - name: Verify build output

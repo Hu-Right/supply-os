@@ -1,0 +1,55 @@
+# ===== 版本控制 & IDE =====
+.git/
+.gitignore
+.qoder/
+.vscode/
+.idea/
+*.md
+*.suo
+*.sln
+
+# ===== 依赖 & 构建产物（容器内重新安装/构建）=====
+node_modules/
+dist/
+coverage/
+
+# ===== 敏感配置 =====
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# ===== 日志 & 临时文件 =====
+server/logs/
+*.log
+*.tmp
+*.temp
+
+# ===== 本地工具 & 二进制 =====
+bin/
+scripts/mysql-portable/
+
+# ===== 测试（容器内不运行测试）=====
+tests/
+e2e/
+vitest.config.ts
+vitest.integration.config.ts
+playwright*.config.ts
+playwright-report/
+test-results/
+
+# ===== Docker 自身 =====
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# ===== 其他 =====
+data/
+backups/
+dumps/
+runtime/
+~$*
+*.docx
+*.xlsx
+*.pptx
+*.pdf
