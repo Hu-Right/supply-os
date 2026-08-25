@@ -29,7 +29,7 @@ export function createPaymentRouter(ctx: AppContext): Router {
   // P1-4 修复：billing/subscribe 需要管理员密钥，防止免费开通 VIP
   router.post("/api/billing/subscribe", asyncHandler(async (req, res) => {
     const adminKey = String(req.body.admin_key || req.headers["x-admin-key"] || "");
-    const expectedAdminKey = process.env.ADMIN_SECRET_KEY || "";
+    const expectedAdminKey = process.env.ADMIN_API_TOKEN || "";
     if (!expectedAdminKey || adminKey !== expectedAdminKey) {
       return sendError(res, 403, ApiErrorCode.ADMIN_AUTH_REQUIRED, "此端点需要管理员密钥");
     }
