@@ -11,7 +11,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
-import { normalizeCountry } from "../../utils/countryNormalize";
+import { normalizeCountry, UPPER_TO_CANONICAL } from "../../utils/countryNormalize";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 let noticeCountriesCache: { data: Array<{ country: string; count: number }> } | null = null;
@@ -20,9 +20,6 @@ let noticeCountriesCache: { data: Array<{ country: string; count: number }> } | 
 
 /** 中文名 → 所有已知英文名变体（含原始大小写形式） */
 const ZH_TO_EN_FORMS = new Map<string, string[]>();
-
-/** 大写英文名 → 标准英文名（原始大小写） */
-const UPPER_TO_CANONICAL = new Map<string, string>();
 
 /** 标准英文名 → 所有已知大写形式（供 MySQL UPPER(n.country) IN (...) 使用） */
 const CANONICAL_TO_UPPER_FORMS = new Map<string, string[]>();
@@ -38,23 +35,15 @@ const CANONICAL_TO_ORIGINAL_FORMS = new Map<string, string[]>();
     zhGroups.get(zh)!.push(en);
   }
 
-  // Step 2: 为每组选择标准名（canonical）
+  // Step 2: 为每组选择标准名，建立 canonical → 形式列表
+  // 注意：UPPER_TO_CANONICAL 已从 countryNormalize.ts 导入（共享单一数据源）
   for (const [zh, forms] of zhGroups) {
     if (["东部和南部非洲", "西部和中部非洲", "西南印度洋", "多国", "区域"].includes(zh)) continue;
 
     ZH_TO_EN_FORMS.set(zh, [...forms]);
     const canonical = forms.find((f) => /[a-z]/.test(f)) || forms[0];
 
-    for (const form of forms) {
-      UPPER_TO_CANONICAL.set(form.toUpperCase(), canonical);
-    }
-    UPPER_TO_CANONICAL.set(canonical.toUpperCase(), canonical);
-  }
-
-  // Step 3: 建立 canonical → 形式列表
-  for (const [zh, forms] of ZH_TO_EN_FORMS) {
-    const canonical = UPPER_TO_CANONICAL.get(forms[0].toUpperCase());
-    if (!canonical) continue;
+    // canonical → 形式列表（供搜索过滤展开别名使用）
     const upperForms = [...new Set(forms.map((f) => f.toUpperCase()))];
     CANONICAL_TO_UPPER_FORMS.set(canonical, upperForms);
     const originalForms = [...new Set([...forms, ...upperForms])];

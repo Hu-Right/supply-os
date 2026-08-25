@@ -11,7 +11,7 @@
  */
 
 import { useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
@@ -94,6 +94,9 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
           <h3 className="text-base font-extrabold">{t("supplierRegTitle")}</h3>
           <p className="text-[10px] text-slate-400">{t("supplierRegDesc")}</p>
         </div>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {submitted ? (

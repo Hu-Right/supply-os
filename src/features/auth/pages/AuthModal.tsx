@@ -9,7 +9,7 @@
  *              delegating to AccountPanel or LoginRegisterForm.
  */
 
-import { Crown } from "lucide-react";
+import { Crown, X } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
@@ -38,6 +38,9 @@ export function AuthModal({ onClose }: AuthModalProps) {
             {t("authModalDesc")}
           </p>
         </div>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-white ml-2">
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Body */}

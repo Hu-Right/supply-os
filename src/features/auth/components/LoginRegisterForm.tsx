@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
 import { useRegisterCode } from "../hooks/useRegisterCode";
+import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { LoginForm } from "./forms/LoginForm";
 import { RegisterForm } from "./forms/RegisterForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
@@ -26,6 +27,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const auth = useAuthForm(onSuccess);
   const forgot = useForgotPassword(onSuccess);
   const registerCode = useRegisterCode();
+  const cascade = useUnspscPrefCascade();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,9 +41,9 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
       await auth.submitAuth(
         registerCode.registerVerifyCode,
         registerCode.registerCodeSent,
-        null, // prefLevel1 - 需要从 RegisterForm 获取
-        null, // prefLevel2
-        null, // prefLevel3
+        cascade.prefLevel1 || null,
+        cascade.prefLevel2 || null,
+        cascade.prefLevel3 || null,
       );
     }
   };
@@ -107,6 +109,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           setClaimForm={auth.setClaimForm}
           authError={auth.authError}
           registerCode={registerCode}
+          cascade={cascade}
         />
       )}
     </form>

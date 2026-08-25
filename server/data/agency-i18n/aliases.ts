@@ -126,6 +126,8 @@ export const AGENCY_ALIAS_GROUPS: AgencyAliasGroup[] = [
     aliases: [
       "UNITED NATIONS ENTITY FOR GENDER EQUALITY AND THE EMPOWERMENT OF WOMEN",
       "UNITED NATIONS ENTITY FOR GENDER EQUALITY",
+      "UN-WOMEN",
+      "UN WOMEN",
     ],
     i18n: { zh: "联合国妇女署", fr: "ONU Femmes", ru: "ООН-Женщины", es: "ONU Mujeres", ar: "هيئة الأمم المتحدة للمرأة" },
   },
@@ -424,11 +426,6 @@ export const AGENCY_ALIAS_GROUPS: AgencyAliasGroup[] = [
     i18n: { zh: "德国国际合作机构", fr: "GIZ", ru: "GIZ", es: "GIZ", ar: "GIZ" },
   },
   {
-    canonical: "IOM",
-    aliases: ["IOM", "INTERNATIONAL ORGANIZATION FOR MIGRATION"],
-    i18n: { zh: "国际移民组织", fr: "OIM", ru: "МОМ", es: "OIM", ar: "المنظمة الدولية للهجرة" },
-  },
-  {
     canonical: "rosatom",
     aliases: ["ROSATOM", "ROS ATOM", "STATE ATOMIC ENERGY CORPORATION ROSATOM"],
     i18n: { zh: "俄罗斯国家原子能公司", fr: "Rosatom", ru: "Росатом", es: "Rosatom", ar: "Rosatom" },
@@ -462,15 +459,5 @@ export const AGENCY_ALIAS_GROUPS: AgencyAliasGroup[] = [
     canonical: "UNIDO",
     aliases: ["UNIDO", "UNITED NATIONS INDUSTRIAL DEVELOPMENT ORGANIZATION"],
     i18n: { zh: "联合国工业发展组织", fr: "ONUDI", ru: "ЮНИДО", es: "ONUDI", ar: "اليونيدو" },
-  },
-  {
-    canonical: "UN-Women",
-    aliases: ["UN-WOMEN", "UN WOMEN", "UNITED NATIONS ENTITY FOR GENDER EQUALITY AND THE EMPOWERMENT OF WOMEN"],
-    i18n: { zh: "联合国妇女署", fr: "ONU Femmes", ru: "ООН-женщины", es: "ONU Mujeres", ar: "هيئة الأمم المتحدة للمرأة" },
-  },
-  {
-    canonical: "UNFPA",
-    aliases: ["UNFPA", "UNITED NATIONS POPULATION FUND", "UNITED NATIONS FUND FOR POPULATION ACTIVITIES"],
-    i18n: { zh: "联合国人口基金", fr: "FNUAP", ru: "ЮНФПА", es: "UNFPA", ar: "صندوق الأمم المتحدة للسكان" },
   },
 ];

@@ -24,13 +24,13 @@ import {
 } from "../data/countryNames";
 
 // ── 大写英文名 → 标准英文名（原始大小写）──
-const UPPER_TO_CANONICAL = new Map<string, string>();
+export const UPPER_TO_CANONICAL = new Map<string, string>();
 
 // ── 子国家大写映射（大小写不敏感兜底）──
 const UPPER_SUB_COUNTRY = new Map<string, string>();
 
 // ── 中文国家名 → 英文标准名反向查找 ──
-const ZH_TO_CANONICAL_EN = new Map<string, string>();
+export const ZH_TO_CANONICAL_EN = new Map<string, string>();
 
 // ── 模块初始化：构建所有映射表 ──
 {
@@ -110,10 +110,11 @@ export function normalizeCountry(raw: string): string {
     return ZH_TO_CANONICAL_EN.get(subZh) || subZh;
   }
 
-  // 3. 含逗号时拆分，提取第一部分作为国家名（处理 "Canada, British Columbia" 等格式）
+  // 3. 含逗号时拆分，提取国家名（处理 "Canada, British Columbia" 和 "British Columbia, Canada" 两种格式）
   if (trimmed.includes(",")) {
     const parts = trimmed.split(",").map(p => p.trim()).filter(Boolean);
     if (parts.length > 0) {
+      // 3a. 首部分作为国家（"Canada, British Columbia"）
       const firstPart = parts[0];
       if (COUNTRY_NAME_ZH[firstPart]) return UPPER_TO_CANONICAL.get(firstPart.toUpperCase()) || firstPart;
       const firstCanonical = UPPER_TO_CANONICAL.get(firstPart.toUpperCase());
@@ -121,6 +122,14 @@ export function normalizeCountry(raw: string): string {
       // 子国家匹配
       const firstSubZh = SUB_COUNTRY_ZH[firstPart] || UPPER_SUB_COUNTRY.get(firstPart.toUpperCase());
       if (firstSubZh) return ZH_TO_CANONICAL_EN.get(firstSubZh) || firstSubZh;
+
+      // 3b. 末部分作为国家（"British Columbia, Canada"）
+      if (parts.length >= 2) {
+        const lastPart = parts[parts.length - 1];
+        if (COUNTRY_NAME_ZH[lastPart]) return UPPER_TO_CANONICAL.get(lastPart.toUpperCase()) || lastPart;
+        const lastCanonical = UPPER_TO_CANONICAL.get(lastPart.toUpperCase());
+        if (lastCanonical) return lastCanonical;
+      }
     }
   }
 

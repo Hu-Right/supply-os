@@ -42,7 +42,7 @@ export function translateByPattern(agencyName: string): PatternI18nResult | null
     if (rest) {
       const inner = translateByPattern(rest);
       if (inner) return inner;
-      return { canonical: rest, i18n: { zh: rest } };
+      return { canonical: rest, i18n: { zh: rest, fr: rest, ru: rest, es: rest, ar: rest } };
     }
   }
 
@@ -74,13 +74,13 @@ export function translateByPattern(agencyName: string): PatternI18nResult | null
       for (const [regex, typeZh] of TYPE_KEYWORDS) {
         if (regex.test(trimmed)) {
           const namePart = trimmed.replace(regex, "").trim().replace(/\s+/g, " ");
-          if (namePart) return { canonical: trimmed, i18n: { zh: `${namePart}${typeZh}` } };
-          else return { canonical: trimmed, i18n: { zh: typeZh } };
+          if (namePart) return { canonical: trimmed, i18n: { zh: `${namePart}${typeZh}`, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
+          else return { canonical: trimmed, i18n: { zh: typeZh, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
         }
       }
-      return { canonical: trimmed, i18n: { zh: trimmed } };
+      return { canonical: trimmed, i18n: { zh: trimmed, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
     } else {
-      return { canonical: trimmed, i18n: { zh: trimmed } };
+      return { canonical: trimmed, i18n: { zh: trimmed, fr: trimmed, ru: trimmed, es: trimmed, ar: trimmed } };
     }
   }
 

@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
 import { api } from "@/core/http";
@@ -59,6 +59,9 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
       {/* 深色 Header（保持原始视觉风格） */}
       <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4 md:mb-6 rounded-t-2xl">
         <h3 className="text-sm font-extrabold">{t("consultTitle")}</h3>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {submitted ? (

@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { Input, Select } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
-import { useUnspscPrefCascade } from "../../hooks/useUnspscPrefCascade";
+import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "../UnspscPrefSelects";
 import { UnspscInferCandidates } from "../UnspscInferCandidates";
 import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
@@ -22,6 +22,7 @@ export interface RegisterFormProps {
   setClaimForm: React.Dispatch<React.SetStateAction<ClaimFormState>>;
   authError: string;
   registerCode: ReturnType<typeof useRegisterCode>;
+  cascade: UseUnspscPrefCascadeReturn;
 }
 
 export function RegisterForm({
@@ -31,10 +32,11 @@ export function RegisterForm({
   setClaimForm,
   authError,
   registerCode,
+  cascade,
 }: RegisterFormProps) {
   const { t } = useLocale();
 
-  // 主营行业偏好
+  // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
     industryOptions,
     subOptions,
@@ -46,7 +48,7 @@ export function RegisterForm({
     handlePrefLevel1Change,
     handlePrefLevel2Change,
     applyInferredPath,
-  } = useUnspscPrefCascade();
+  } = cascade;
 
   // 主营业务智能推断（候选确认式：高置信自动回填，其余由用户点选）
   const [mainBusiness, setMainBusiness] = useState("");
