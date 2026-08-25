@@ -66,4 +66,51 @@ describe("extractClientIp", () => {
     const req = makeReq({ socketIp: "8.8.8.8", ip: "8.8.8.8" });
     expect(extractClientIp(req)).toBe("8.8.8.8");
   });
+
+  it("可信代理 + XFF hops 超出数组长度回退", () => {
+    const orig = process.env.TRUSTED_PROXY_HOPS;
+    process.env.TRUSTED_PROXY_HOPS = "5";
+    const req = makeReq({
+      socketIp: "127.0.0.1",
+      xff: "1.1.1.1",
+    });
+    // hops=5 但只有 1 个条目，idx=max(0, 1-5)=0，返回 parts[0]
+    expect(extractClientIp(req)).toBe("1.1.1.1");
+    if (orig !== undefined) process.env.TRUSTED_PROXY_HOPS = orig;
+    else delete process.env.TRUSTED_PROXY_HOPS;
+  });
+
+  it("IPv6 ULA 地址识别为可信代理", () => {
+    const req = makeReq({
+      socketIp: "fd00::1",
+      xff: "203.0.113.50",
+    });
+    expect(extractClientIp(req)).toBe("203.0.113.50");
+  });
+
+  it("172.16-31 内网段识别为可信", () => {
+    const req = makeReq({
+      socketIp: "172.16.0.1",
+      xff: "8.8.4.4",
+    });
+    expect(extractClientIp(req)).toBe("8.8.4.4");
+  });
+
+  it("172.32 不在内网范围", () => {
+    const req = makeReq({
+      socketIp: "172.32.0.1",
+      ip: "172.32.0.1",
+      xff: "8.8.4.4",
+    });
+    // 不可信来源，忽略 XFF
+    expect(extractClientIp(req)).toBe("172.32.0.1");
+  });
+
+  it("XFF 含 IPv6 映射前缀自动剥离", () => {
+    const req = makeReq({
+      socketIp: "10.0.0.1",
+      xff: "::ffff:1.2.3.4",
+    });
+    expect(extractClientIp(req)).toBe("1.2.3.4");
+  });
 });
