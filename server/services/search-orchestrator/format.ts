@@ -9,6 +9,7 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
+import { translateByPattern } from "../agency/index";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
@@ -55,15 +56,18 @@ export function formatItems(
   }
 
   return rows.map((row) => {
-    // 机构 i18n 查找：
-    // 1. 用 agency_std 大写形式精确匹配（缓存键统一为大写：query.ts L224 toUpperCase()）
-    //    修复 "isdb_global" 等小写机构名因大小写不匹配导致查找 miss 的问题。
-    // 2. 未命中时用 agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）回退查找。
-    //    修复聚合机构 agency_std 与 typeKey 键空间不同的问题。
-    // 回退路径（多表 JOIN）无 agency_group 列，row.agency_group 为 undefined，安全跳过。
+    // 机构 i18n 查找（三级回退）：
+    // 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
+    // 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
+    // 3. 模式翻译兜底：translateByPattern 按命名模式实时生成翻译（不依赖缓存）
+    //    解决缓存未预热（getAgencyCacheData 返回 null）时全部 miss 的问题。
     const agencyUpper = String(row.agency || "").toUpperCase();
-    const i18n = agencyI18nMap.get(agencyUpper)
+    let i18n = agencyI18nMap.get(agencyUpper)
       || (row.agency_group ? agencyI18nMap.get(row.agency_group) : undefined);
+    if (!i18n && row.agency) {
+      const patternResult = translateByPattern(String(row.agency));
+      if (patternResult?.i18n) i18n = patternResult.i18n;
+    }
     // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
     const breakdownCount = row.breakdown_file_count !== undefined
       ? (Number(row.breakdown_file_count) || undefined)
