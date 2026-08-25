@@ -18,9 +18,11 @@ import { toQrDataUrl } from "../payment/qr";
 export interface CreateTrainingOrderParams {
   courseId: number;
   scheduleId?: number | null;
-  registrationId: number;
+  registrationId?: number | null;
   participantCount?: number;
   provider: string;
+  contactName?: string;
+  telephone?: string;
   clientIp?: string;
   /** 站点对外访问基址（如 https://host），用于生成可扫码的绝对二维码链接 */
   baseUrl?: string;
@@ -126,7 +128,7 @@ export async function createTrainingOrder(
     orderNo,
     courseId: course.id,
     scheduleId: params.scheduleId ?? null,
-    registrationId: params.registrationId,
+    registrationId: params.registrationId ?? null,
     participantCount,
     unitPrice,
     totalAmount,
@@ -135,6 +137,8 @@ export async function createTrainingOrder(
     qrCode,
     payUrl,
     expiresAt,
+    contactName: params.contactName || null,
+    telephone: params.telephone || null,
   });
 
   return {
@@ -172,6 +176,9 @@ export async function fulfillTrainingOrder(
 
     await trainingRepo.updateOrderStatusInTransaction(conn, orderNo, "paid", providerTradeNo || null);
 
+    if (order.registration_id) {
+      await trainingRepo.updateRegistrationPaymentInTransaction(conn, order.registration_id, order.id, "paid");
+    }
     if (order.schedule_id) {
       await trainingRepo.incrementEnrolledCountInTransaction(conn, order.schedule_id, order.participant_count);
     }

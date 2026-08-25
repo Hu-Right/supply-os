@@ -39,7 +39,7 @@ export default function TrainingLandingPage() {
   const {
     showPaymentModal, closePaymentModal,
     showWechatQR, openWechatQR, closeWechatQR,
-    handleDirectPay,
+    registrationId, handleDirectPay,
   } = useTrainingModals();
 
   useEffect(() => {
@@ -116,6 +116,7 @@ export default function TrainingLandingPage() {
           onClose={closePaymentModal}
           course={course}
           schedules={schedules}
+          registrationId={registrationId}
         />
       )}
       {showWechatQR && <WechatQRModal onClose={closeWechatQR} />}

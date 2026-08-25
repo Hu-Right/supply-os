@@ -17,7 +17,7 @@ export const BR_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResult]>
     i18n: { zh: `${rest}市`, fr: `Municipalité de ${rest}`, ru: `Муниципалитет ${rest}`, es: `Municipio de ${rest}`, ar: `بلدية ${rest}` },
   })],
   // 州/市级厅局
-  [/^SECRETARIA (?:DE|DA|DO|DE ESTADO DA|DE ESTADO DO)\s+(.+)/i, (rest) => ({
+  [/^SECRETARIA (?:DE|DA|DO|DE ESTADO (?:DE|DA|DO))\s+(.+)/i, (rest) => ({
     canonical: `SECRETARIA DE ${rest}`,
     i18n: { zh: `${rest}厅`, fr: `Secrétariat de ${rest}`, ru: `Секретариат ${rest}`, es: `Secretaría de ${rest}`, ar: `أمانة ${rest}` },
   })],

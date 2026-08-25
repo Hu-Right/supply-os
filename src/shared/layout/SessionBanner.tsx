@@ -12,7 +12,7 @@
  */
 
 import { useLocation } from "react-router-dom";
-import { MessageSquare, Plus } from "lucide-react";
+import { BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 
@@ -69,6 +69,15 @@ export function SessionBanner() {
           >
             <Plus className="w-4 h-4" />
             <span>{t("registerSupplierBtn")}</span>
+          </button>
+        )}
+        {pathname === "/procurement" && (
+          <button
+            onClick={() => emitAppEvent("supply-os:open-training-register")}
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
+          >
+            <BookOpen className="w-4 h-4 text-orange-100" />
+            <span>{t("procurementScreeningBtn")}</span>
           </button>
         )}
         <button

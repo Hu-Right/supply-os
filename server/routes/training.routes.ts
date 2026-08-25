@@ -20,7 +20,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
   const trainingRepo = ctx.trainingRepo;
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
-  // 6b. TRAINING SEMINAR REGISTRATION（报名 + 学员信息一次性提交）
+  // 6b. TRAINING SEMINAR REGISTRATION
   router.post("/api/training/register", asyncHandler(async (req, res) => {
       const {
         company_name,
@@ -33,13 +33,10 @@ export function createTrainingRouter(ctx: AppContext): Router {
         telephone,
         email,
         remark,
-        participants,
-        participant_count,
-        schedule_id,
       } = req.body;
 
       if (!company_name || !contact_name || !telephone) {
-        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "企业名称、联系人姓名、手机号码为必填项");
+        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "企业名称、参会人姓名、手机号码为必填项");
       }
 
       let industryName = "";
@@ -63,9 +60,6 @@ export function createTrainingRouter(ctx: AppContext): Router {
         email: email || "",
         remark: remark || "",
         ip: req.ip || req.socket?.remoteAddress || "127.0.0.1",
-        participants: Array.isArray(participants) ? participants : null,
-        participantCount: participant_count || 1,
-        scheduleId: schedule_id || null,
       });
 
       return res.status(201).json({
@@ -181,7 +175,7 @@ export function createTrainingRouter(ctx: AppContext): Router {
   }));
 
   // 6d. CREATE TRAINING ORDER：创建培训支付订单（金额从 DB 读取）
-  // P0-6 安全修复：支付订单必须 JWT 认证，registration_id 必填
+  // P0-6 安全修复：支付订单必须 JWT 认证，身份取自 req.userKey（禁止未登录下单）
   router.post("/api/training/orders", requireAuth, asyncHandler(async (req, res) => {
     try {
       const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
@@ -189,16 +183,14 @@ export function createTrainingRouter(ctx: AppContext): Router {
       const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "http").split(",")[0].trim();
       const host = String(req.headers["host"] || "");
       const baseUrl = host ? `${proto}://${host}` : "";
-      const registrationId = Number(req.body.registration_id || 0);
-      if (!registrationId) {
-        return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "registration_id 为必填项");
-      }
       const result = await createTrainingOrder(ctx, trainingRepo, {
         courseId: Number(req.body.course_id || 0),
         scheduleId: req.body.schedule_id ? Number(req.body.schedule_id) : null,
-        registrationId,
+        registrationId: req.body.registration_id ? Number(req.body.registration_id) : null,
         participantCount: Number(req.body.participant_count || 1),
         provider: String(req.body.provider || "alipay"),
+        contactName: String(req.body.contact_name || ""),
+        telephone: String(req.body.telephone || ""),
         clientIp,
         baseUrl,
       });
@@ -246,13 +238,17 @@ export function createTrainingRouter(ctx: AppContext): Router {
   }));
 
   // 6e. QUERY TRAINING ORDER：查询培训订单状态（pending 时主动轮询网关）
-  // P0-6 安全修复：必须 JWT 认证
+  // P0-6 安全修复：身份强制取自 req.userKey（JWT），并校验订单归属
   router.get("/api/training/orders/:order_no", requireAuth, asyncHandler(async (req, res) => {
     try {
       const orderNo = String(req.params.order_no || "");
+      // 归属校验：防止越权查询
       const order = await trainingRepo.findOrderByNo(orderNo);
       if (!order) {
         return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+      }
+      if (order.user_key !== req.userKey) {
+        return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
       }
       const result = await queryTrainingOrderStatus(ctx, trainingRepo, orderNo);
       res.json(result);
@@ -271,12 +267,13 @@ export function createTrainingRouter(ctx: AppContext): Router {
       const orderNo = String(req.params.order_no || "");
       const order = await trainingRepo.findOrderByNo(orderNo);
       if (!order) return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+      if (order.user_key !== req.userKey) return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
       await fulfillTrainingOrder(trainingRepo, orderNo, `MOCK-${orderNo}`);
       res.json({ success: true, order_no: orderNo, status: "paid" });
     }));
   }
 
-  // 6g. SAVE PARTICIPANTS：保存学员信息到报名记录的 JSON 字段（支付完成后）
+  // 6g. SAVE PARTICIPANTS：保存学员信息（支付完成后）
   router.post("/api/training/orders/:order_no/participants", requireAuth, asyncHandler(async (req, res) => {
     const orderNo = String(req.params.order_no || "");
     const order = await trainingRepo.findOrderByNo(orderNo);
@@ -290,8 +287,9 @@ export function createTrainingRouter(ctx: AppContext): Router {
       return sendError(res, 400, ApiErrorCode.TRAINING_ORDER_NOT_PAID, "订单尚未支付，无法保存学员信息");
     }
     
-    if (!order.registration_id) {
-      return sendError(res, 400, ApiErrorCode.INVALID_PARAMS, "订单未关联报名记录");
+    // 验证订单归属（防止越权）
+    if (order.user_key !== req.userKey) {
+      return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
     }
     
     const participants = req.body.participants;
@@ -317,8 +315,8 @@ export function createTrainingRouter(ctx: AppContext): Router {
       }
     }
     
-    // 保存学员信息到报名记录的 JSON 字段
-    await trainingRepo.saveParticipants(order.registration_id, participants);
+    // 保存学员信息
+    await trainingRepo.saveParticipants(order.id, participants);
     
     res.json({ 
       success: true, 
@@ -328,11 +326,21 @@ export function createTrainingRouter(ctx: AppContext): Router {
     });
   }));
 
-  // 6h. GET PARTICIPANTS：查询学员信息（从报名记录 JSON 字段读取）
+  // 6h. GET PARTICIPANTS：查询学员信息
   router.get("/api/training/orders/:order_no/participants", requireAuth, asyncHandler(async (req, res) => {
     const orderNo = String(req.params.order_no || "");
+    const order = await trainingRepo.findOrderByNo(orderNo);
     
-    const participants = await trainingRepo.getParticipantsByOrderNo(orderNo);
+    if (!order) {
+      return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+    }
+    
+    // 验证订单归属（防止越权）
+    if (order.user_key !== req.userKey) {
+      return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权查看此订单");
+    }
+    
+    const participants = await trainingRepo.getParticipantsByOrderId(order.id);
     
     res.json({ 
       success: true,

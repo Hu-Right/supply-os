@@ -44,7 +44,8 @@ export const ZH_TO_CANONICAL_EN = new Map<string, string>();
   // Step 2: 为每组选择标准名（canonical），建立大写 → canonical 映射
   for (const [zh, forms] of zhGroups) {
     // 跳过区域分组（"东部和南部非洲"等），这些不是真实国家
-    if (["东部和南部非洲", "西部和中部非洲", "西南印度洋", "多国", "区域"].includes(zh)) continue;
+    // 注意："多国" 已从跳过列表中移除，因为 Latin America 等区域名需要归一化为 Multi-Country
+    if (["东部和南部非洲", "西部和中部非洲", "西南印度洋", "区域"].includes(zh)) continue;
 
     // 选择 canonical：使用含小写字母的形式（排除纯缩写如 PHL/USA/IND）
     const canonical = forms.find((f) => /[a-z]/.test(f)) || forms[0];
@@ -87,7 +88,14 @@ export function normalizeCountry(raw: string): string {
   const trimmed = cleanCountryRaw(raw);
   if (!trimmed) return trimmed;
 
-  // 0. 斜杠分隔符：尝试每个部分（处理 "Myanmar/Burma" 等）
+  // 0. 数据质量问题：非国家名被写入 country 字段，直接返回 Unknown
+  const INVALID_COUNTRY_VALUES = new Set([
+    "consultancy services", "consulting", "services", "service",
+    "consultant", "consultants", "agency", "organization",
+  ]);
+  if (INVALID_COUNTRY_VALUES.has(trimmed.toLowerCase())) return "Unknown";
+
+  // 0.5 斜杠分隔符：尝试每个部分（处理 "Myanmar/Burma" 等）
   if (trimmed.includes("/")) {
     const slashParts = trimmed.split("/").map(p => p.trim()).filter(Boolean);
     for (const part of slashParts) {

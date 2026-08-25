@@ -92,9 +92,11 @@ export interface LandingDataResponse {
 export interface CreateTrainingOrderRequest {
   course_id: number;
   schedule_id?: number | null;
-  registration_id: number;
+  registration_id?: number | null;
   participant_count?: number;
   provider: "alipay" | "wechat";
+  contact_name?: string;
+  telephone?: string;
 }
 
 export interface TrainingOrderResponse {
@@ -167,9 +169,6 @@ export interface TrainingRegisterForm {
   telephone: string;
   email: string;
   remark: string;
-  participants?: TrainingParticipant[] | null;
-  participant_count?: number;
-  schedule_id?: number | null;
 }
 
 /**

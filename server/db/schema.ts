@@ -48,7 +48,6 @@
  *              038-training-participants          研修班学员信息表
  *              039-training-schedule-seed         研修班期次种子数据
  *              040-training-participants-add-email 学员表补全邮箱列
- *              041-training-registration-consolidation 研修班报名数据融合(报名表+学员合一)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -92,7 +91,6 @@ import { migration as m037 } from "./migrations/037-training-order-payurl-text";
 import { migration as m038 } from "./migrations/038-training-participants";
 import { migration as m039 } from "./migrations/039-training-schedule-seed";
 import { migration as m040 } from "./migrations/040-training-participants-add-email";
-import { migration as m041 } from "./migrations/041-training-registration-consolidation";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -101,7 +99,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041,
+  m037, m038, m039, m040,
 ];
 
 /**

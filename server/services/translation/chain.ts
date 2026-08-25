@@ -117,13 +117,17 @@ function circuitBreakerRecordFailure() {
   }
 }
 
-// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时 / 空响应 / 占位符丢失）
+// 判断 DeepSeek 错误是否可重试（429 限流 / 5xx 服务端错误 / 超时 / 空响应 / 占位符丢失 / 格式异常）
 // DEEPSEEK_EMPTY：模型偶发返回空内容，通常为瞬时异常，重试成功率高
+// DEEPSEEK_BAD_SHAPE / DEEPSEEK_BAD_JSON：模型偶发返回非预期数组结构或非法 JSON，
+//   通常为瞬时格式抖动，单独重试可恢复（批量失败时 auto.ts 已逐条 fallback）
 // MT_PLACEHOLDER_LOST：模型偶发破坏占位符，重试通常可恢复
 function isDeepSeekRetryable(errMsg: string): boolean {
   return /DEEPSEEK_HTTP_(429|500|502|503|504)/.test(errMsg) ||
     errMsg === "CHANNEL_TIMEOUT" ||
     errMsg === "DEEPSEEK_EMPTY" ||
+    errMsg === "DEEPSEEK_BAD_SHAPE" ||
+    errMsg === "DEEPSEEK_BAD_JSON" ||
     errMsg === "MT_PLACEHOLDER_LOST";
 }
 

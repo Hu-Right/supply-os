@@ -8,8 +8,8 @@ import { Meilisearch } from "meilisearch";
 
 const INDEX_NAME = "notices";
 const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
-// 超时：批量写入大量多语言文档时需要更长，默认 30 秒（可通过 MEILI_TIMEOUT_MS 覆盖）
-const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "30000");
+// 超时：批量写入大量多语言文档时需要更长，默认 60 秒（可通过 MEILI_TIMEOUT_MS 覆盖）
+const REQUEST_TIMEOUT = Number(process.env.MEILI_TIMEOUT_MS || "60000");
 
 let client: Meilisearch | null = null;
 let healthy = false;
