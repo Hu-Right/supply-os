@@ -72,13 +72,8 @@ export function RegisterForm({
         const data = await fetchSmartInferUnspsc(mainBusiness.trim());
         const candidates = data?.candidates || [];
         setInferCandidates(candidates);
-        if (data?.result) {
-          // 高置信（>=0.6）：自动回填级联并高亮对应候选，用户仍可改选
-          applyInferredPath(data.result);
-          setAutoAppliedNodeId(candidates[0]?.node_id ?? null);
-        } else {
-          setAutoAppliedNodeId(null);
-        }
+        // 不再自动回填：仅展示候选列表，由用户点选确认，防止推断覆盖手动选择
+        setAutoAppliedNodeId(null);
         setInferSearched(true);
       } catch {
         // 推断失败不影响注册流程
@@ -87,7 +82,7 @@ export function RegisterForm({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [mainBusiness, applyInferredPath]);
+  }, [mainBusiness]);
 
   // 用户从候选中点选：以该候选路径回填级联（L1~L3），L4/L5 不参与
   const pickCandidate = (candidate: SmartInferCandidate) => {

@@ -99,13 +99,13 @@ export function useAuthForm(onSuccess: () => void) {
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
           registerVerifyCode
         );
-        saveIndustryPrefs(email.toLowerCase(), {
+        await saveIndustryPrefs(email.toLowerCase(), {
           level1_id: Number(prefLevel1),
           level2_id: Number(prefLevel2),
           level3_id: prefLevel3 ? Number(prefLevel3) : null,
           level4_id: null,
           level5_id: null,
-        }).catch((err) => console.error("Failed to save industry prefs", err));
+        });
         onSuccess();
       }
     } catch (err: any) {

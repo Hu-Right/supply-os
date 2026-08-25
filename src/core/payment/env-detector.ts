@@ -175,6 +175,28 @@ export function mapPaymentError(err: unknown): string {
     if (err.status === 503) return "支付通道暂时不可用，请稍后重试或联系我们";
     if (err.status === 404) return "课程不存在或已下架，请刷新页面后重试";
     if (err.status === 401) return "请先登录后再尝试支付";
+    if (err.status === 400) {
+      // 认证/刷新令牌相关 → 引导重新登录
+      if (
+        message.includes("刷新令牌") || message.includes("REFRESH_TOKEN") ||
+        message.includes("请先登录") || message.includes("USER_REQUIRED") ||
+        message.includes("缺少刷新") || message.includes("令牌无效") ||
+        message.includes("令牌已失效")
+      ) {
+        return "请先登录后再尝试支付";
+      }
+      // 学员信息校验失败
+      if (message.includes("学员") || message.includes("participant")) {
+        return "学员信息校验失败，请检查后重试";
+      }
+      // 期次/排期异常
+      if (message.includes("期次") || message.includes("schedule") || message.includes("已不可用")) {
+        return "所选期次已不可用，请刷新页面后重试";
+      }
+      // 其他 400 业务错误：保留原始消息（便于排查），不再兜底为"支付创建失败"
+      console.warn("[mapPaymentError] 未匹配的 400 错误:", message);
+      return message || "请求参数有误，请检查后重试";
+    }
   }
   if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {
     return "当前支付方式暂未开通，请选择支付宝或联系管理员";

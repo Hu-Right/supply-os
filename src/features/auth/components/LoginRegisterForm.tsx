@@ -6,7 +6,7 @@
  * @description 账号弹窗的登录/注册表单区块：模式切换、找回密码视图切换。
  *              具体表单逻辑已拆分至 hooks/ 和 forms/ 子模块。
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
 import { useRegisterCode } from "../hooks/useRegisterCode";
@@ -28,6 +28,13 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const forgot = useForgotPassword(onSuccess);
   const registerCode = useRegisterCode();
   const cascade = useUnspscPrefCascade();
+
+  // ★ 修复：切换到注册模式时重置级联状态，防止上一个账号的行业偏好残留
+  useEffect(() => {
+    if (auth.authMode === "register") {
+      cascade.resetCascade();
+    }
+  }, [auth.authMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -148,6 +148,30 @@ describe("mapPaymentError", () => {
     expect(mapPaymentError(new ApiError(401, "Unauthorized"))).toContain("登录");
   });
 
+  it("ApiError 400 认证/令牌相关 → 请先登录", () => {
+    expect(mapPaymentError(new ApiError(400, "缺少刷新令牌"))).toContain("登录");
+    expect(mapPaymentError(new ApiError(400, "刷新令牌无效"))).toContain("登录");
+    expect(mapPaymentError(new ApiError(400, "刷新令牌已失效"))).toContain("登录");
+    expect(mapPaymentError(new ApiError(400, "REFRESH_TOKEN_REQUIRED"))).toContain("登录");
+    expect(mapPaymentError(new ApiError(400, "请先登录"))).toContain("登录");
+    expect(mapPaymentError(new ApiError(400, "USER_REQUIRED"))).toContain("登录");
+  });
+
+  it("ApiError 400 学员信息校验失败", () => {
+    expect(mapPaymentError(new ApiError(400, "学员信息不能为空"))).toContain("学员信息");
+    expect(mapPaymentError(new ApiError(400, "participant count mismatch"))).toContain("学员信息");
+  });
+
+  it("ApiError 400 期次异常", () => {
+    expect(mapPaymentError(new ApiError(400, "所选期次已不可用"))).toContain("期次");
+    expect(mapPaymentError(new ApiError(400, "schedule is closed"))).toContain("期次");
+  });
+
+  it("ApiError 400 未知业务错误 → 保留原始消息", () => {
+    expect(mapPaymentError(new ApiError(400, "库存不足"))).toBe("库存不足");
+    expect(mapPaymentError(new ApiError(400, ""))).toBe("请求参数有误，请检查后重试");
+  });
+
   it("未知错误兜底", () => {
     expect(mapPaymentError(new Error("something else"))).toContain("支付创建失败");
     expect(mapPaymentError("random string")).toContain("支付创建失败");
