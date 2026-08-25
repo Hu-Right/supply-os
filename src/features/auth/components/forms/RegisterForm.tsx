@@ -48,7 +48,6 @@ export function RegisterForm({
     handlePrefLevel1Change,
     handlePrefLevel2Change,
     applyInferredPath,
-    isL2Loading,
   } = cascade;
 
   // 主营业务智能推断（候选确认式：高置信自动回填，其余由用户点选）
@@ -249,10 +248,9 @@ export function RegisterForm({
       )}
       <button
         type="submit"
-        disabled={isL2Loading}
-        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
       >
-        {isL2Loading ? (t("authMainBusinessMatching") || "匹配中...") : t("authRegisterSubmit")}
+        {t("authRegisterSubmit")}
       </button>
     </div>
   );

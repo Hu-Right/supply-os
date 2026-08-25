@@ -82,6 +82,15 @@ export function useAuthForm(onSuccess: () => void) {
       return;
     }
 
+    if (authMode === "register") {
+      // 调试：打印提交瞬间实际收到的行业 ID，便于定位状态同步问题
+      console.info("[submitAuth] industry prefs at submit:", {
+        prefLevel1,
+        prefLevel2,
+        prefLevel3,
+      });
+    }
+
     if (authMode === "register" && (!prefLevel1 || !prefLevel2)) {
       setAuthError(t("authIndustryPrefRequired"));
       return;
