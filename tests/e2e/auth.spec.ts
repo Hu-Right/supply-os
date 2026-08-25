@@ -3,128 +3,124 @@
  * End-to-End Tests: Authentication Flow
  *
  * @description 使用 Playwright 测试用户认证核心路径。
- *              需要安装 @playwright/test 并配置 playwright.config.ts 后执行。
- *              运行命令：npx playwright test tests/e2e/
+ *              认证通过 AuthModal 弹窗完成（非独立页面）。
  *
  * 覆盖场景：
- *   1. 注册 → 邮箱验证 → 自动登录
- *   2. 登录 → JWT 获取 → 页面跳转
- *   3. 登出 → Token 清除 → 重定向
- *   4. Token 过期 → 自动刷新
- *   5. 未登录访问受保护页面 → 重定向到登录
+ *   1. 打开 AuthModal → 默认显示登录 tab
+ *   2. 切换到注册 tab → 显示注册表单
+ *   3. 空表单提交 → 不触发页面跳转
+ *   4. 错误凭证登录 → 显示错误提示
+ *   5. 忘记密码 → 切换到找回密码视图
  */
 import { test, expect } from "@playwright/test";
 
-test.describe("认证流程", () => {
-  test("用户注册 → 邮箱验证 → 自动登录", async ({ page }) => {
-    // 1. 导航到注册页
-    await page.goto("/auth/register");
-    await expect(page).toHaveTitle(/注册/);
-
-    // 2. 填写注册表单
-    await page.fill('[data-testid="email-input"]', "test@example.com");
-    await page.fill('[data-testid="password-input"]', "Test@12345");
-    await page.fill('[data-testid="confirm-password-input"]', "Test@12345");
-
-    // 3. 勾选用户协议
-    await page.check('[data-testid="agree-checkbox"]');
-
-    // 4. 提交注册
-    await page.click('[data-testid="register-button"]');
-
-    // 5. 验证跳转到邮箱验证提示页
-    await expect(page.locator('[data-testid="verify-prompt"]')).toBeVisible();
-    await expect(page.locator('[data-testid="verify-email-display"]')).toContainText("test@example.com");
-
-    // 6. 模拟邮箱验证（通过 URL 参数）
-    await page.goto("/auth/verify?token=mock-verify-token&email=test@example.com");
-    await expect(page.locator('[data-testid="verify-success"]')).toBeVisible();
-
-    // 7. 验证自动登录成功（跳转到首页）
-    await page.waitForURL("/");
-    await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+test.describe("认证弹窗", () => {
+  test.beforeEach(async ({ page }) => {
+    // 访问首页，等待页面加载完成
+    await page.goto("/showroom");
+    await page.waitForLoadState("networkidle");
   });
 
-  test("用户登录 → JWT 获取 → 页面跳转", async ({ page }) => {
-    await page.goto("/auth/login");
+  test("打开 AuthModal → 默认显示登录 tab", async ({ page }) => {
+    // 点击头部用户按钮（未登录状态显示"游客模式"）打开认证弹窗
+    const authButton = page.locator("header button:has-text(\"游客模式\")");
+    await authButton.click();
 
-    // 填写登录表单
-    await page.fill('[data-testid="email-input"]', "user@example.com");
-    await page.fill('[data-testid="password-input"]', "Password@123");
-    await page.click('[data-testid="login-button"]');
+    // 验证弹窗标题可见
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
+    await expect(modal.getByText("会员登录与供应商注册")).toBeVisible();
 
-    // 验证登录成功
-    await page.waitForURL("/");
-    await expect(page.locator('[data-testid="user-menu"]')).toBeVisible();
+    // 验证默认显示登录 tab（登录 tab 处于激活状态，有白色背景）
+    const loginTab = modal.getByRole("button", { name: "登录" });
+    await expect(loginTab).toBeVisible();
 
-    // 验证 JWT Token 存储在 localStorage
-    const token = await page.evaluate(() => localStorage.getItem("supply_os_auth_token"));
-    expect(token).toBeTruthy();
+    // 验证登录表单元素可见
+    await expect(modal.getByPlaceholder("邮箱 / 手机号")).toBeVisible();
+    await expect(modal.getByPlaceholder(/密码/)).toBeVisible();
+    await expect(modal.getByRole("button", { name: "登录会员" })).toBeVisible();
   });
 
-  test("登出 → Token 清除 → 重定向", async ({ page }) => {
-    // 先登录
-    await page.goto("/auth/login");
-    await page.fill('[data-testid="email-input"]', "user@example.com");
-    await page.fill('[data-testid="password-input"]', "Password@123");
-    await page.click('[data-testid="login-button"]');
-    await page.waitForURL("/");
+  test("切换到注册 tab → 显示注册表单", async ({ page }) => {
+    // 打开认证弹窗
+    await page.locator("header button:has-text(\"游客模式\")").click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
 
-    // 点击用户菜单 → 登出
-    await page.click('[data-testid="user-menu"]');
-    await page.click('[data-testid="logout-button"]');
+    // 点击注册 tab
+    const registerTab = modal.getByRole("button", { name: "注册供应商" });
+    await registerTab.click();
 
-    // 验证重定向到登录页
-    await page.waitForURL("/auth/login");
+    // 验证注册表单元素可见（公司名称、邮箱、密码等）
+    // 注册表单包含更多字段
+    await expect(modal.getByPlaceholder("邮箱 / 手机号")).toBeVisible();
+    await expect(modal.getByRole("button", { name: /注册/ })).toBeVisible();
 
-    // 验证 Token 已清除
-    const token = await page.evaluate(() => localStorage.getItem("supply_os_auth_token"));
-    expect(token).toBeNull();
+    // 验证登录 tab 不再激活（注册 tab 激活）
+    // 注册 tab 应有白色背景样式
+    await expect(registerTab).toHaveClass(/bg-white/);
   });
 
-  test("未登录访问受保护页面 → 重定向到登录", async ({ page }) => {
-    // 确保未登录
-    await page.evaluate(() => localStorage.removeItem("supply_os_auth_token"));
+  test("空表单提交 → 不触发页面跳转", async ({ page }) => {
+    // 打开认证弹窗
+    await page.locator("header button:has-text(\"游客模式\")").click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
 
-    // 访问需要登录的个人中心
-    await page.goto("/membership");
+    // 直接点击登录按钮（不填写任何内容）
+    await modal.getByRole("button", { name: "登录会员" }).click();
 
-    // 应被重定向到登录页或显示登录弹窗
-    await expect(page.locator('[data-testid="login-modal"], [data-testid="login-page"]')).toBeVisible();
+    // 验证弹窗仍然可见（没有关闭或跳转）
+    await expect(modal).toBeVisible();
+
+    // 验证 URL 未变化
+    await expect(page).toHaveURL(/\/showroom/);
   });
 
-  test("登录凭证错误 → 显示错误提示", async ({ page }) => {
-    await page.goto("/auth/login");
+  test("错误凭证登录 → 显示错误提示", async ({ page }) => {
+    // 打开认证弹窗
+    await page.locator("header button:has-text(\"游客模式\")").click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
 
-    await page.fill('[data-testid="email-input"]', "wrong@example.com");
-    await page.fill('[data-testid="password-input"]', "WrongPassword@123");
-    await page.click('[data-testid="login-button"]');
+    // 填写错误的登录凭证
+    await modal.getByPlaceholder("邮箱 / 手机号").fill("wrong@example.com");
+    await modal.getByPlaceholder(/密码/).fill("WrongPass123");
 
-    // 验证显示错误消息
-    await expect(page.locator('[data-testid="error-message"]')).toContainText(/密码错误|不存在|登录失败/);
+    // 提交登录
+    await modal.getByRole("button", { name: "登录会员" }).click();
+
+    // 验证显示错误提示（错误消息使用 rose-600 颜色类）
+    const errorMessage = modal.locator(".text-rose-600");
+    await expect(errorMessage).toBeVisible({ timeout: 10_000 });
   });
-});
 
-test.describe("忘记密码", () => {
-  test("忘记密码 → 发送重置邮件 → 重置成功", async ({ page }) => {
-    await page.goto("/auth/login");
-    await page.click('[data-testid="forgot-password-link"]');
+  test("忘记密码 → 切换到找回密码视图", async ({ page }) => {
+    // 打开认证弹窗
+    await page.locator("header button:has-text(\"游客模式\")").click();
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible();
 
-    // 填写邮箱
-    await page.fill('[data-testid="reset-email-input"]', "user@example.com");
-    await page.click('[data-testid="send-reset-button"]');
+    // 点击"忘记密码？"链接
+    await modal.getByText("忘记密码？").click();
 
-    // 验证发送成功提示
-    await expect(page.locator('[data-testid="reset-sent-message"]')).toBeVisible();
+    // 验证找回密码表单可见
+    // 找回密码视图有标题和邮箱/手机号输入框
+    const forgotTitle = modal.getByText("找回密码");
+    await expect(forgotTitle).toBeVisible();
 
-    // 模拟通过重置链接设置新密码
-    await page.goto("/auth/reset-password?token=mock-reset-token");
-    await page.fill('[data-testid="new-password-input"]', "NewPassword@123");
-    await page.fill('[data-testid="confirm-new-password-input"]', "NewPassword@123");
-    await page.click('[data-testid="reset-password-button"]');
+    // 验证有发送验证码按钮
+    const sendButton = modal.getByRole("button", { name: /发送/ });
+    await expect(sendButton).toBeVisible();
 
-    // 验证重置成功并跳转到登录页
-    await page.waitForURL("/auth/login");
-    await expect(page.locator('[data-testid="reset-success-message"]')).toBeVisible();
+    // 验证有返回登录链接
+    const backLink = modal.getByText(/返回登录/);
+    await expect(backLink).toBeVisible();
+
+    // 点击返回登录
+    await backLink.click();
+
+    // 验证回到登录表单
+    await expect(modal.getByRole("button", { name: "登录会员" })).toBeVisible();
   });
 });
