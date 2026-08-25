@@ -81,3 +81,8 @@ docs/
 .superpowers/
 生成报告.txt
 2026年8月绩效评分表（张雪豪）.docx
+
+# ===== Playwright E2E 测试产物 =====
+playwright-report/
+test-results/
+blob-report/

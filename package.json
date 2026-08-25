@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:frontend": "playwright test --config playwright.frontend.config.ts"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
