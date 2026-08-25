@@ -22,10 +22,14 @@ export function getAuthToken(): string | null {
   return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
-/** 存储 Access Token（Refresh Token 由服务端通过 HttpOnly Cookie 管理） */
+/** 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发） */
 export function setAuthTokens(token: string, _refreshToken?: string): void {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-  // _refreshToken 参数保留为向后兼容，但不再存储（Cookie 由服务端自动设置）
+  // P2 容错：localStorage 满或隐私模式下可能抛异常
+  try {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } catch (e) {
+    console.warn("[http] localStorage 写入 Access Token 失败:", (e as Error).message);
+  }
 }
 
 /** 清除 Access Token（Refresh Token Cookie 由服务端登出接口自动清除） */

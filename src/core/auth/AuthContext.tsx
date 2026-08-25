@@ -55,7 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authUserRef.current = user;
     setAuthUser(user);
     setIsVip(user.membership_tier === "vip");
-    window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    // P2 容错：localStorage 满或隐私模式下可能抛异常，不阻断登录主流程
+    try {
+      window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    } catch (e) {
+      console.warn("[auth] localStorage 写入失败（存储可能已满或隐私模式）:", (e as Error).message);
+    }
   }, []);
 
   /**
