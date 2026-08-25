@@ -154,26 +154,41 @@ export async function createTrainingOrder(
 }
 
 /**
- * 培训订单支付履约（幂等）
+ * 培训订单支付履约（事务封装：悲观锁 + 幂等）
  * 标记订单已支付 + 更新报名支付状态 + 递增期次报名人数
+ * 与会员履约 activatePaidOrder 对齐：SELECT ... FOR UPDATE 防并发重复发放
  */
 export async function fulfillTrainingOrder(
   trainingRepo: TrainingRepo,
   orderNo: string,
   providerTradeNo?: string | null,
 ): Promise<void> {
-  const order = await trainingRepo.findOrderByNo(orderNo);
-  if (!order) return;
-  // 幂等：已支付直接跳过
-  if (order.status === "paid") return;
+  const conn = await trainingRepo.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  await trainingRepo.updateOrderStatus(orderNo, "paid", providerTradeNo || null);
+    // 悲观锁：SELECT ... FOR UPDATE 防止并发重复发放
+    const order = await trainingRepo.findOrderByNoForUpdate(conn, orderNo);
+    if (!order) { await conn.commit(); return; }
 
-  if (order.registration_id) {
-    await trainingRepo.updateRegistrationPayment(order.registration_id, order.id, "paid");
-  }
-  if (order.schedule_id) {
-    await trainingRepo.incrementEnrolledCount(order.schedule_id, order.participant_count);
+    // 幂等保护：已支付的订单直接跳过
+    if (order.status === "paid") { await conn.commit(); return; }
+
+    await trainingRepo.updateOrderStatusInTransaction(conn, orderNo, "paid", providerTradeNo || null);
+
+    if (order.registration_id) {
+      await trainingRepo.updateRegistrationPaymentInTransaction(conn, order.registration_id, order.id, "paid");
+    }
+    if (order.schedule_id) {
+      await trainingRepo.incrementEnrolledCountInTransaction(conn, order.schedule_id, order.participant_count);
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
   }
 }
 

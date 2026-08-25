@@ -7,7 +7,7 @@
  *
  * @module repos/training.repo
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 
 // ── 落地页行类型（034 迁移） ────────────────────────────────────────────────
 
@@ -279,6 +279,53 @@ export class TrainingRepo {
     await this.pool.execute(
       "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
       [paymentStatus, orderId, registrationId],
+    );
+  }
+
+  // ── 事务感知方法（供履约等需要悲观锁的场景使用） ──
+
+  /** 获取数据库连接（供调用方自行管理事务） */
+  async getConnection(): Promise<PoolConnection> {
+    return this.pool.getConnection();
+  }
+
+  /** 悲观锁查询订单（SELECT ... FOR UPDATE） */
+  async findOrderByNoForUpdate(conn: PoolConnection, orderNo: string): Promise<TrainingOrderRow | null> {
+    const [rows] = await conn.execute(
+      "SELECT * FROM training_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      [orderNo],
+    );
+    return (rows as TrainingOrderRow[])[0] || null;
+  }
+
+  /** 事务内更新订单状态 */
+  async updateOrderStatusInTransaction(conn: PoolConnection, orderNo: string, status: string, providerTradeNo?: string | null): Promise<void> {
+    if (status === "paid") {
+      await conn.execute(
+        "UPDATE training_orders SET status = 'paid', provider_trade_no = ?, paid_at = NOW() WHERE order_no = ?",
+        [providerTradeNo || null, orderNo],
+      );
+    } else {
+      await conn.execute(
+        "UPDATE training_orders SET status = ? WHERE order_no = ?",
+        [status, orderNo],
+      );
+    }
+  }
+
+  /** 事务内更新报名记录支付状态 */
+  async updateRegistrationPaymentInTransaction(conn: PoolConnection, registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
+    await conn.execute(
+      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
+      [paymentStatus, orderId, registrationId],
+    );
+  }
+
+  /** 事务内递增期次报名人数 */
+  async incrementEnrolledCountInTransaction(conn: PoolConnection, scheduleId: number, delta = 1): Promise<void> {
+    await conn.execute(
+      "UPDATE training_schedules SET enrolled_count = enrolled_count + ? WHERE id = ?",
+      [delta, scheduleId],
     );
   }
 
