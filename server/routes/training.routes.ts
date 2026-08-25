@@ -238,9 +238,19 @@ export function createTrainingRouter(ctx: AppContext): Router {
   }));
 
   // 6e. QUERY TRAINING ORDER：查询培训订单状态（pending 时主动轮询网关）
-  router.get("/api/training/orders/:order_no", asyncHandler(async (req, res) => {
+  // P0-6 安全修复：身份强制取自 req.userKey（JWT），并校验订单归属
+  router.get("/api/training/orders/:order_no", requireAuth, asyncHandler(async (req, res) => {
     try {
-      const result = await queryTrainingOrderStatus(ctx, trainingRepo, String(req.params.order_no || ""));
+      const orderNo = String(req.params.order_no || "");
+      // 归属校验：防止越权查询
+      const order = await trainingRepo.findOrderByNo(orderNo);
+      if (!order) {
+        return sendError(res, 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND, "订单不存在");
+      }
+      if (order.user_key !== req.userKey) {
+        return sendError(res, 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN, "无权操作此订单");
+      }
+      const result = await queryTrainingOrderStatus(ctx, trainingRepo, orderNo);
       res.json(result);
     } catch (err: any) {
       if (String(err.message || "") === "ORDER_NOT_FOUND") {
