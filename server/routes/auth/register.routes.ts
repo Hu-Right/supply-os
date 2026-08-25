@@ -85,7 +85,14 @@ export function createRegisterRouter(
   }));
 
   // ── 注册 ──────────────────────────────────────────
+  // P3 安全加固：注册端点增加速率限制，防止验证码暴力枚举
   router.post("/api/auth/register", asyncHandler(async (req, res) => {
+    const ip = extractClientIp(req);
+    const rl = forgotRateLimiter.check(ip);
+    if (rl.blocked) {
+      return sendError(res, 429, ApiErrorCode.RATE_LIMITED, "注册过于频繁，请稍后重试", { retry_after_seconds: rl.retryAfterSec });
+    }
+
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const verifyCode = String(req.body.verify_code || "");
@@ -101,6 +108,7 @@ export function createRegisterRouter(
     if (codeRecord.attempts >= 5) return sendError(res, 429, ApiErrorCode.TOO_MANY_ATTEMPTS, "尝试次数过多，请重新获取验证码");
     if (codeRecord.code !== hashVerificationCode(verifyCode)) {
       await authRepo.incrementCodeAttempts(codeRecord.id);
+      forgotRateLimiter.record(ip);
       return sendError(res, 400, ApiErrorCode.INVALID_CODE, "验证码无效，请重新获取");
     }
 
