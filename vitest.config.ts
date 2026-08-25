@@ -92,9 +92,15 @@ export default defineConfig({
         "src/features/procurement/hooks/searchFormReducer.ts",
         "src/features/procurement/utils/detailViewCount.ts",
         "src/features/procurement/utils/formatDeadlineZh.ts",
-        // ── src/shared — 纯逻辑 ──
+        // ── src/shared — 纯逻辑 + 组件 ──
         "src/shared/auth/**/*.ts",
         "src/shared/data/**/*.ts",
+        // ── src/shared/ui — React 组件 ──
+        "src/shared/ui/**/*.{ts,tsx}",
+        // ── src/shared/layout — React 组件 ──
+        "src/shared/layout/**/*.{ts,tsx}",
+        // ── src/shared/filters — React 组件 ──
+        "src/shared/filters/**/*.{ts,tsx}",
       ],
       exclude: [
         "src/__tests__/**",
@@ -110,6 +116,15 @@ export default defineConfig({
         "src/App.tsx",
         "src/routes.tsx",
         "src/vite-env.d.ts",
+        // barrel re-export 入口（无逻辑）
+        "src/shared/layout/index.ts",
+        "src/shared/ui/index.ts",
+        "src/shared/filters/index.ts",
+        // 复杂全局状态 hooks（依赖 DOM/App 上下文，不适合单元测试）
+        "src/shared/layout/useAppEvents.ts",
+        "src/shared/layout/useAppModals.ts",
+        "src/shared/layout/useVersionCheck.ts",
+        "src/shared/ui/useInfiniteScroll.ts",
       ],
     },
   },
