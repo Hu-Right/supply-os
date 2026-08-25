@@ -36,6 +36,8 @@ export interface UseUnspscPrefCascadeReturn {
   applyInferredPath: (path: SmartInferResult) => void;
   /** 重置所有级联状态（切换账号时调用） */
   resetCascade: () => void;
+  /** L2 选项加载中：此时 prefLevel2 可能为空或为旧值，应阻止提交 */
+  isL2Loading: boolean;
 }
 
 export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
@@ -59,6 +61,10 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   // 导致 L2/L3 永远无法填充。inferredTick 确保即使 L1 不变也强制重新 fetch。
   const [inferredTick, setInferredTick] = useState(0);
 
+  // ★ L2 加载状态：applyInferredPath 设置新 L1 后，在 L2 fetch 完成前阻止提交，
+  //   防止 prefLevel2 为空或为旧值时用户提交表单触发校验失败。
+  const [isL2Loading, setIsL2Loading] = useState(false);
+
   // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
   useEffect(() => {
     fetchUnspscIndustries(locale)
@@ -70,25 +76,32 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   useEffect(() => {
     if (!prefLevel1) {
       setSubOptions([]);
+      setIsL2Loading(false);
       return;
     }
     const l1Key = prefLevel1;
+    // ★ 进入加载状态：清空旧 L2 并标记加载中，阻止提交
+    setIsL2Loading(true);
+    setPrefLevel2("");
+    setPrefLevel3("");
     fetchUnspscChildren(l1Key, locale)
       .then((opts) => {
         setSubOptions(opts);
         // 选项就绪 → 立即查找并消费当前 L1 的待填 L2
         const entry = pendingMapRef.current.get(l1Key);
-        if (!entry?.l2) return;
-        if (opts.some((o) => String(o.id) === entry.l2)) {
+        if (entry?.l2 && opts.some((o) => String(o.id) === entry.l2)) {
           setPrefLevel2(entry.l2);
-        } else {
-          entry.l3 = null; // L2 不在此子树中 → L3 也失效
         }
-        entry.l2 = null;
+        if (entry) {
+          entry.l2 = null;
+          entry.l3 = null;
+        }
+        setIsL2Loading(false);
       })
       .catch(() => {
         pendingMapRef.current.delete(l1Key);
         setSubOptions([]);
+        setIsL2Loading(false);
       });
   }, [prefLevel1, locale, inferredTick]);
 
@@ -119,8 +132,9 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   }, [prefLevel2, locale]);
 
   const handlePrefLevel1Change = (value: string) => {
-    // 手动改选优先于推断：清除所有待填项
+    // 手动改选优先于推断：清除所有待填项，标记 L2 加载中
     pendingMapRef.current.clear();
+    setIsL2Loading(true);
     setPrefLevel1(value);
     setPrefLevel2("");
     setPrefLevel3("");
@@ -146,9 +160,12 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
       l3: path.level3_id ? String(path.level3_id) : null,
     });
     setPrefLevel1(l1Key);
+    // ★ 同步清空 L2/L3 并标记加载中：L2 fetch effect 会在选项加载完成后
+    //   自动消费待填值并设置正确的 prefLevel2。isL2Loading 阻止用户在
+    //   fetch 完成前提交表单，避免 prefLevel2 为空触发校验失败。
     setPrefLevel2("");
     setPrefLevel3("");
-    // 递增触发计数器：即使 L1 与当前值相同（React bail out），也强制 L2 fetch effect 重新执行
+    setIsL2Loading(true);
     setInferredTick((t) => t + 1);
   }, []);
 
@@ -160,6 +177,7 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setPrefLevel3("");
     setSubOptions([]);
     setSubOptions2([]);
+    setIsL2Loading(false);
   }, []);
 
   return {
@@ -176,5 +194,6 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel2Change,
     applyInferredPath,
     resetCascade,
+    isL2Loading,
   };
 }
