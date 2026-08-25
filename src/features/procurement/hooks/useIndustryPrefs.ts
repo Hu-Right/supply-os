@@ -101,6 +101,10 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   const applyPrefsPath = async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
     const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
       .map((id) => (id ? String(id) : ""));
+    // 竞争防护：记录进入时的 exitSeqRef 快照，异步完成后比对，
+    // 若用户在等待期间点击了「取消行业匹配」（exitAutoMode 递增 exitSeqRef），
+    // 则跳过 setPrefsMode("prefs")，避免覆盖用户的手动退出操作。
+    const entrySeq = exitSeqRef.current;
     // P0 性能优化：偏好级联并行化——4 级子类目请求同时发出，不再串行等待
     // 回滚：将 Promise.all 改回 for 循环内逐个 await fetchUnspscChildren(...)
     const childRequests: Promise<UnspscOption[]>[] = [];
@@ -108,6 +112,8 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       childRequests.push(fetchUnspscChildren(path[i], locale).catch(() => []));
     }
     const childResults = await Promise.all(childRequests);
+    // 异步完成后检查 exitSeqRef 是否被外部递增（用户手动退出）
+    if (exitSeqRef.current !== entrySeq) return;
     const nextChildren: UnspscOption[][] = [[], [], [], []];
     for (let i = 0; i < childResults.length; i += 1) {
       nextChildren[i] = Array.isArray(childResults[i]) ? childResults[i] : [];
