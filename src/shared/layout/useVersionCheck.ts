@@ -3,57 +3,68 @@
  * Client-side Version Check Hook (Silent Auto-Refresh)
  *
  * @module shared/layout/useVersionCheck
- * @description 定时轮询 /api/system/version 接口，检测到新版本部署后立即自动刷新页面，
- *              无需用户任何操作，无弹窗提示。
+ * @description 定时轮询 /api/system/version 接口，检测到新版本部署后立即自动刷新页面。
+ *              三重检测策略：
+ *              1) 页面加载后 10s 首次检测
+ *              2) 每 2 分钟定时轮询
+ *              3) 用户切回标签页时立即检测（Page Visibility API）
  */
 import { useEffect, useRef } from "react";
 import { api } from "@/core/http";
 
-/** 轮询间隔（毫秒），默认 3 分钟 */
-const CHECK_INTERVAL_MS = 3 * 60 * 1000;
+/** 轮询间隔（毫秒） */
+const CHECK_INTERVAL_MS = 2 * 60 * 1000;
 
 /** 首次检测延迟（毫秒） */
-const INITIAL_DELAY_MS = 20 * 1000;
+const INITIAL_DELAY_MS = 10 * 1000;
 
 export function useVersionCheck() {
-  const initialVersionRef = useRef<string>("");
+  const serverVersionRef = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  // 页面加载时记录当前版本号（#10 收口：统一请求层，no-store 语义透传）
-  useEffect(() => {
+  /** 请求版本接口并比对，检测到新版本时自动刷新 */
+  const checkVersion = () => {
     api<{ version?: string }>("/api/system/version", { cache: "no-store" })
       .then((data) => {
-        initialVersionRef.current = data.version || "";
+        const version = data.version || "";
+        if (!version) return;
+
+        if (!serverVersionRef.current) {
+          // 首次检测：记录版本号作为基准
+          serverVersionRef.current = version;
+          return;
+        }
+
+        if (version !== serverVersionRef.current) {
+          // 新版本就绪，直接刷新，无需任何提示
+          window.location.reload();
+        }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        // 网络异常静默忽略，下次轮询再试
+      });
+  };
 
-  // 定时轮询：检测到新版本 → 立即静默刷新
   useEffect(() => {
-    const check = () => {
-      api<{ version?: string }>("/api/system/version", { cache: "no-store" })
-        .then((data) => {
-          const serverVersion = data.version || "";
-          if (
-            initialVersionRef.current &&
-            serverVersion &&
-            serverVersion !== initialVersionRef.current
-          ) {
-            // 新版本就绪，直接刷新，无需任何提示
-            window.location.reload();
-          }
-        })
-        .catch(() => {});
-    };
-
+    // 首次延迟检测
     const delayTimer = setTimeout(() => {
-      check();
-      timerRef.current = setInterval(check, CHECK_INTERVAL_MS);
+      checkVersion();
+      timerRef.current = setInterval(checkVersion, CHECK_INTERVAL_MS);
     }, INITIAL_DELAY_MS);
+
+    // Page Visibility API：用户切回标签页时立即检测版本
+    // 场景：用户早上打开页面切走做其他事，中午回来时已有新版本 → 立即刷新
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkVersion();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       clearTimeout(delayTimer);
       if (timerRef.current) clearInterval(timerRef.current);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 }

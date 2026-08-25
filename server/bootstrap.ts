@@ -145,27 +145,27 @@ export async function startServer() {
     );
 
     // 2) public 目录静态资源（下载文件、图片等）→ 缓存 1 天 + 每次验证
+    //    index: false —— 禁止 express.static 自动服务 index.html，
+    //    所有 HTML 请求统一走 SPA 回退路由，确保缓存头一致（修复 CDN 层旧 HTML 残留）
+    //    setHeaders: 对直接请求 /index.html 的路径也强制 no-store（防止 CDN 缓存旧 HTML）
     app.use(
       express.static(distPath, {
         maxAge: "1d",
         etag: true,
         lastModified: true,
-        // 对 HTML 文件不缓存，确保用户始终获取最新版本
+        index: false,
         setHeaders: (res, filePath) => {
           if (filePath.endsWith(".html")) {
-            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-            res.setHeader("Pragma", "no-cache");
-            res.setHeader("Expires", "0");
+            res.setHeader("Cache-Control", "no-store");
           }
         },
       })
     );
 
-    // 3) SPA 回退：所有未匹配路由返回 index.html，并设置 no-cache 头
+    // 3) SPA 回退：所有未匹配路由（含 /）返回 index.html
+    //    Cache-Control: no-store —— 最强不缓存指令，浏览器 + CDN（Cloudflare）均不得缓存
     app.get("*", (req, res) => {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
+      res.setHeader("Cache-Control", "no-store");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

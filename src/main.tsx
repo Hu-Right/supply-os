@@ -12,18 +12,26 @@ import './index.css';
 // ── 性能监控初始化 ──
 initPerfMonitor();
 
-// ── 部署更新兑底：动态 chunk 加载失败时自动重载 ──
+// ── 部署更新兜底：动态 chunk 加载失败时自动重载 ──
 // 部署后旧哈希文件名已不存在，用户导航到新页面时 import() 会报 ChunkLoadError。
 // 此时自动刷新即可加载最新资源，用户完全无感知。
+// 双通道捕获：error 事件（Vite 同步加载失败）+ unhandledrejection（动态 import() 异步失败）
 const RELOAD_KEY = 'supply-os:auto-reload';
+const isChunkError = (err: unknown) => {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { name?: string; message?: string };
+  return e.name === 'ChunkLoadError' || /Loading chunk/i.test(e.message || '') || /Failed to fetch dynamically imported module/i.test(e.message || '');
+};
 window.addEventListener('error', (event) => {
-  const err = event.error;
-  if (err && (err.name === 'ChunkLoadError' || /Loading chunk/i.test(err.message || ''))) {
-    // 防止无限循环：同一会话只自动刷新一次
-    if (!sessionStorage.getItem(RELOAD_KEY)) {
-      sessionStorage.setItem(RELOAD_KEY, '1');
-      window.location.reload();
-    }
+  if (isChunkError(event.error) && !sessionStorage.getItem(RELOAD_KEY)) {
+    sessionStorage.setItem(RELOAD_KEY, '1');
+    window.location.reload();
+  }
+});
+window.addEventListener('unhandledrejection', (event) => {
+  if (isChunkError(event.reason) && !sessionStorage.getItem(RELOAD_KEY)) {
+    sessionStorage.setItem(RELOAD_KEY, '1');
+    window.location.reload();
   }
 });
 

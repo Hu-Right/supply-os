@@ -10,10 +10,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="apple-touch-icon" href="/weixin-service-qr.png" />
-    <!-- 缓存控制：HTML 文档本身不缓存，每次访问都向服务器验证最新版本 -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <!-- 缓存控制由服务端 HTTP 响应头 Cache-Control: no-store 统一保障（见 server/bootstrap.ts SPA 回退路由），
+         meta http-equiv 标签对 CDN/反向代理无效，已移除以避免"已处理缓存"的错觉 -->
     <!-- P1 性能优化：资源预加载提示——提前建立外部域名连接、预解析支付/翻译服务域名 -->
     <!-- 回滚：删除下方 link[rel=preconnect]/link[rel=dns-prefetch] 行即可 -->
     <link rel="preconnect" href="https://osneosmart.com" crossorigin />
