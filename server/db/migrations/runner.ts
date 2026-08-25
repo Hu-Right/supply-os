@@ -103,7 +103,16 @@ export async function runMigrations(dbPool: Pool, migrations: Migration[]): Prom
 
 // ── DDL 工具函数（供迁移文件使用）──
 
+/** 校验 SQL 标识符（表名/列名），防止模板字面量拼接引入注入面 */
+function assertValidIdentifier(name: string, label: string): void {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid SQL identifier for ${label}: ${name}`);
+  }
+}
+
 export async function ensureColumn(dbPool: Pool, table: string, column: string, ddl: string) {
+  assertValidIdentifier(table, "table");
+  assertValidIdentifier(column, "column");
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
      FROM INFORMATION_SCHEMA.COLUMNS
@@ -116,6 +125,8 @@ export async function ensureColumn(dbPool: Pool, table: string, column: string, 
 }
 
 export async function ensureColumnType(dbPool: Pool, table: string, column: string, ddl: string) {
+  assertValidIdentifier(table, "table");
+  assertValidIdentifier(column, "column");
   const [rows] = await dbPool.query(
     `SELECT COLUMN_TYPE AS column_type
      FROM INFORMATION_SCHEMA.COLUMNS
@@ -129,6 +140,8 @@ export async function ensureColumnType(dbPool: Pool, table: string, column: stri
 }
 
 export async function ensureIndex(dbPool: Pool, table: string, indexName: string, ddl: string) {
+  assertValidIdentifier(table, "table");
+  assertValidIdentifier(indexName, "index");
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
      FROM INFORMATION_SCHEMA.STATISTICS
