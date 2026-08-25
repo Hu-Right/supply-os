@@ -67,3 +67,15 @@ export const ACTIVE_NOTICE_WHERE_NO_ALIAS =
  */
 export const MEILI_ACTIVE_FILTER =
   "(deadline_sec = 0 OR deadline_sec >= {now})";
+
+/**
+ * 将日期字符串按北京时间（UTC+8）解析为 Unix 时间戳
+ *
+ * 导出供 Meilisearch filter 构建与 MySQL 降级路径复用，确保两条路径时区一致。
+ * 原定义于 meilisearch/search.ts，迁移至此以消除对已删除模块的依赖。
+ */
+export function toBeijingUnixTs(dateStr: string, time: string): number {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm, ss] = time.split(":").map(Number);
+  return Math.floor(new Date(Date.UTC(y, m - 1, d, hh - 8, mm, ss)).getTime() / 1000);
+}

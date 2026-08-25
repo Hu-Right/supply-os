@@ -13,7 +13,7 @@ import { expandCountryAllForms, expandCountryAliases } from "../notice-search/co
 import { getAgencyCacheData } from "../notice-search/agencies/index";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
-import { toBeijingUnixTs } from "../meilisearch/index";
+import { toBeijingUnixTs } from "../../utils/notice-expired";
 
 /** 转义 Meilisearch filter 字符串中的双引号和反斜杠 */
 function escapeFilter(value: string): string {
