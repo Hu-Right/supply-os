@@ -29,6 +29,9 @@ export default defineConfig({
 
         "server/services/bid-report/constants.ts",
         "server/services/bid-report/merge.ts",
+        "server/services/bid-report/build.ts",
+        "server/services/bid-report/builders.ts",
+        "server/services/bid-report/preview.ts",
         "server/services/recommend/ab-testing.ts",
         "server/services/recommend/recall.ts",
         "server/services/recommend/rerank.ts",
@@ -36,10 +39,26 @@ export default defineConfig({
         "server/services/recommend/text-similarity.ts",
         "server/services/search-orchestrator/metrics.ts",
         "server/services/search-orchestrator/params.ts",
-        "server/services/translation/withTimeout.ts",
         "server/services/unspsc/parser.ts",
         "server/services/unspsc/tree-cache.ts",
         "server/services/unspsc/interest.ts",
+        // ── notice-search 子模块 ──
+        "server/services/notice-search/agencies/translate.ts",
+        "server/services/notice-search/agencies/cache.ts",
+        "server/services/notice-search/countries.ts",
+        "server/services/notice-search/stats.ts",
+        "server/services/notice-search/cache.ts",
+        // ── search-orchestrator 子模块 ──
+        "server/services/search-orchestrator/format.ts",
+        "server/services/search-orchestrator/mode-resolver.ts",
+        "server/services/search-orchestrator/detail-fetch.ts",
+        // ── translation 子模块 ──
+        "server/services/translation/fetchWithTimeout.ts",
+        "server/services/translation/chain.ts",
+        // ── notices ──
+        "server/services/notices/featured.ts",
+        // ── industry-profile ──
+        "server/services/industry-profile/resolve.ts",
         // ── 以下为 DB 重度依赖/外部服务，排除出覆盖率统计 ──
         // server/services/recommend/index.ts (推荐编排，DB)
         // server/services/search-orchestrator/* (搜索编排，DB/Meilisearch)
