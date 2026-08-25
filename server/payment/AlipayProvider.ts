@@ -96,6 +96,11 @@ export class AlipayProvider implements PaymentStrategy {
     return { pay_url: payUrl, qr_code_url: qrCodeUrl };
   }
 
+  /**
+   * 验证支付宝异步通知签名
+   * @param rawBody - 回调请求体（含 sign/sign_type 等字段）
+   * @param _signature - 保留参数（实际验签由 SDK checkNotifySign 从 rawBody 内提取 sign 字段完成）
+   */
   async verifyCallback(rawBody: any, _signature: string): Promise<{
     verified: boolean;
     order_no: string;

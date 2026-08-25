@@ -45,7 +45,10 @@ export default function App() {
     setShowPaymentModal(false);
     setPaymentPlan(null);
     // 支付成功后刷新认证状态，更新 isVip 以隐藏套餐卡片
-    refreshAuth();
+    // P3 容错：刷新失败时提示用户手动刷新
+    refreshAuth().catch(() => {
+      console.warn("[payment] 支付成功后刷新用户状态失败，用户可能需要手动刷新页面");
+    });
   };
 
   return (

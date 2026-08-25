@@ -68,6 +68,23 @@ const cache = new Map<string, CacheEntry>();
 // 飞行中请求缓存：防止同一端点的并发请求穿透缓存（竞态条件）
 const pendingRequests = new Map<string, PendingEntry>();
 
+// P3 缓存容量保护：超过上限时淘汰最旧条目，防止长时间运行内存膨胀
+const MAX_CACHE_ENTRIES = 200;
+
+function evictCacheIfNeeded(): void {
+  if (cache.size <= MAX_CACHE_ENTRIES) return;
+  // 淘汰最早写入的条目
+  let oldestKey: string | null = null;
+  let oldestTime = Infinity;
+  for (const [key, entry] of cache) {
+    if (entry.timestamp < oldestTime) {
+      oldestTime = entry.timestamp;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) cache.delete(oldestKey);
+}
+
 // ── Token 刷新状态管理 ──
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
@@ -249,6 +266,7 @@ export async function apiCached<T>(
 
   // 发起请求并缓存 Promise，防止并发穿透
   const promise = api<T>(endpoint, { signal }).then((data) => {
+    evictCacheIfNeeded();
     cache.set(endpoint, { data, timestamp: Date.now() });
     pendingRequests.delete(endpoint);
     return data;
@@ -277,6 +295,7 @@ export function getCachedTimestamp(key: string): number {
 
 /** 设置缓存数据 */
 export function setCachedData(key: string, data: unknown): void {
+  evictCacheIfNeeded();
   cache.set(key, { data, timestamp: Date.now() });
 }
 
