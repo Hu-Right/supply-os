@@ -73,7 +73,7 @@ const MAX_CACHE_ENTRIES = 200;
 
 function evictCacheIfNeeded(): void {
   if (cache.size <= MAX_CACHE_ENTRIES) return;
-  // 淘汰最早写入的条目
+  // 淘汰最早写入的条目（时间戳相同时回退到 Map 插入顺序）
   let oldestKey: string | null = null;
   let oldestTime = Infinity;
   for (const [key, entry] of cache) {
@@ -81,6 +81,10 @@ function evictCacheIfNeeded(): void {
       oldestTime = entry.timestamp;
       oldestKey = key;
     }
+  }
+  // 回退：时间戳全部相同时，淘汰 Map 中第一个条目（即最早插入的）
+  if (!oldestKey) {
+    oldestKey = cache.keys().next().value ?? null;
   }
   if (oldestKey) cache.delete(oldestKey);
 }

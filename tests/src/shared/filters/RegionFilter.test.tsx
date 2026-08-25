@@ -71,4 +71,35 @@ describe("RegionFilter", () => {
     render(<RegionFilter {...defaultProps} />);
     expect(screen.getByRole("combobox")).toHaveAttribute("aria-label", "filterSelectRegion");
   });
+
+  it("有 countries 但无 onCountryChange → 只显示地区下拉", () => {
+    render(
+      <RegionFilter
+        {...defaultProps}
+        countries={["China", "Japan"]}
+        onCountryChange={undefined}
+      />,
+    );
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  });
+
+  it("selectedCountry 有值时国家下拉正确选中", () => {
+    render(
+      <RegionFilter
+        {...defaultProps}
+        countries={["China", "Japan"]}
+        onCountryChange={vi.fn()}
+        selectedCountry="Japan"
+      />,
+    );
+    const selects = screen.getAllByRole("combobox");
+    expect(selects[1]).toHaveValue("Japan");
+  });
+
+  it("自定义 className 应用到容器", () => {
+    const { container } = render(
+      <RegionFilter {...defaultProps} className="custom-class" />,
+    );
+    expect(container.firstChild).toHaveClass("custom-class");
+  });
 });

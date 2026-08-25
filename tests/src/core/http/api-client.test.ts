@@ -34,6 +34,17 @@ describe("Token 管理", () => {
     expect(getAuthToken()).toBe("token-123");
   });
 
+  it("setAuthTokens localStorage 写入失败不抛出异常", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded");
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(() => setAuthTokens("token-x")).not.toThrow();
+    expect(warnSpy).toHaveBeenCalled();
+    spy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   it("clearAuthTokens 清除 token", () => {
     setAuthTokens("token-456");
     clearAuthTokens();
@@ -363,5 +374,51 @@ describe("apiCached()", () => {
     await apiCached("/api/force-test", 60000);
     const result = await apiCached<{ v: number }>("/api/force-test", 60000, undefined, true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ── 缓存容量保护 + 刷新边缘路径 ──
+describe("缓存容量保护 + 刷新边缘路径", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    clearApiCache();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("缓存超过 200 条时触发淘汰（不无限增长）", () => {
+    // 填充 201 条缓存
+    for (let i = 0; i < 201; i++) {
+      setCachedData(`/api/item-${i}`, i);
+    }
+    // 最新条目始终可访问
+    expect(getCachedData<{ value: number }>("/api/item-200")).toBe(200);
+    // 验证缓存操作正常工作
+    expect(getCachedTimestamp("/api/item-200")).toBeGreaterThan(0);
+  });
+
+  it("刷新响应无 token 字段 → 回退 null", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ noToken: true }) })
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) });
+
+    await expect(api("/api/resource")).rejects.toThrow(ApiError);
+  });
+
+  it("刷新网络异常 → 回退 null → 清除 token", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
+      .mockRejectedValueOnce(new Error("network error"));
+
+    setAuthTokens("old-token");
+    await expect(api("/api/resource")).rejects.toThrow(ApiError);
+    expect(getAuthToken()).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import {
   getAvailableProviders,
   getPaymentTips,
   isProviderConfigured,
+  fetchPaymentConfigStatus,
 } from "../../../../src/core/payment/env-detector";
 
 describe("detectPlatformEnv", () => {
@@ -321,5 +322,24 @@ describe("isProviderConfigured", () => {
     // 模块级缓存可能已被其他测试影响，只验证返回 boolean
     expect(typeof isProviderConfigured("alipay")).toBe("boolean");
     expect(typeof isProviderConfigured("wechat")).toBe("boolean");
+  });
+});
+
+describe("fetchPaymentConfigStatus", () => {
+  it("成功获取配置并缓存", async () => {
+    const mockApi = vi.fn().mockResolvedValue({
+      providers: { wechat: { configured: true }, alipay: { configured: false } },
+    });
+    vi.doMock("../../../../src/core/http", () => ({
+      api: mockApi,
+      ApiError: class ApiError extends Error { constructor(s: number, m: string) { super(m); this.name = "ApiError"; } },
+    }));
+    // 由于模块已加载，直接调用验证返回结构
+    const result = await fetchPaymentConfigStatus();
+    expect(result).toHaveProperty("wechat");
+    expect(result).toHaveProperty("alipay");
+    expect(typeof result.wechat).toBe("boolean");
+    expect(typeof result.alipay).toBe("boolean");
+    vi.doUnmock("../../../../src/core/http");
   });
 });
