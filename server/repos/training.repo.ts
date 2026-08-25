@@ -115,24 +115,22 @@ export interface FaqRow extends RowDataPacket {
   sort_order: number;
 }
 
-export interface ParticipantRow extends RowDataPacket {
-  id: number;
-  order_id: number;
+/** 学员信息（JSON 存储在 crm_training_registrations.participants 中） */
+export interface ParticipantData {
   participant_no: number;
   full_name: string;
-  gender: string | null;
-  phone: string | null;
-  company_name: string | null;
-  position: string | null;
-  created_at: Date;
-  updated_at: Date | null;
+  gender?: string | null;
+  phone?: string | null;
+  company_name?: string | null;
+  position?: string | null;
+  email?: string | null;
 }
 
 export interface CreateTrainingOrderData {
   orderNo: string;
   courseId: number;
   scheduleId: number | null;
-  registrationId: number | null;
+  registrationId: number;
   participantCount: number;
   unitPrice: number;
   totalAmount: number;
@@ -141,8 +139,6 @@ export interface CreateTrainingOrderData {
   qrCode: string | null;
   payUrl: string | null;
   expiresAt: Date;
-  contactName: string | null;
-  telephone: string | null;
 }
 
 export class TrainingRepo {
@@ -162,16 +158,26 @@ export class TrainingRepo {
     email: string;
     remark: string;
     ip: string;
+    participants?: ParticipantData[] | null;
+    participantCount?: number;
+    scheduleId?: number | null;
   }): Promise<number> {
     const [result] = await this.pool.execute(
       `INSERT INTO crm_training_registrations
-        (company_name, industry_id, industry, main_product, export_experience, certification, contact_name, position, telephone, email, remark, created_at, ip, audit_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
+        (company_name, industry_id, industry, main_product, export_experience, certification,
+         contact_name, position, telephone, email, remark,
+         participants, participant_count, schedule_id,
+         created_at, ip, audit_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'pending')`,
       [
         data.companyName, data.industryId, data.industry,
         data.mainProduct, data.exportExperience, data.certification,
         data.contactName, data.position, data.telephone,
-        data.email, data.remark, data.ip,
+        data.email, data.remark,
+        data.participants ? JSON.stringify(data.participants) : null,
+        data.participantCount ?? 1,
+        data.scheduleId ?? null,
+        data.ip,
       ],
     );
     return Number((result as RowDataPacket).insertId);
@@ -238,13 +244,12 @@ export class TrainingRepo {
     const [result] = await this.pool.execute(
       `INSERT INTO training_orders
         (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+         currency, provider, status, qr_code, pay_url, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
         data.orderNo, data.courseId, data.scheduleId, data.registrationId,
         data.participantCount, data.unitPrice, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
-        data.contactName, data.telephone,
       ],
     );
     return Number((result as RowDataPacket).insertId);
@@ -272,14 +277,6 @@ export class TrainingRepo {
         [status, orderNo],
       );
     }
-  }
-
-  /** 更新报名记录的支付状态与关联订单 */
-  async updateRegistrationPayment(registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
-      [paymentStatus, orderId, registrationId],
-    );
   }
 
   // ── 事务感知方法（供履约等需要悲观锁的场景使用） ──
@@ -311,14 +308,6 @@ export class TrainingRepo {
         [status, orderNo],
       );
     }
-  }
-
-  /** 事务内更新报名记录支付状态 */
-  async updateRegistrationPaymentInTransaction(conn: PoolConnection, registrationId: number, orderId: number, paymentStatus: string): Promise<void> {
-    await conn.execute(
-      "UPDATE crm_training_registrations SET payment_status = ?, order_id = ? WHERE id = ?",
-      [paymentStatus, orderId, registrationId],
-    );
   }
 
   /** 事务内递增期次报名人数 */
@@ -378,64 +367,49 @@ export class TrainingRepo {
     return rows as FaqRow[];
   }
 
-  /** 保存学员信息（批量插入/更新） */
-  async saveParticipants(orderId: number, participants: Array<{
-    participant_no: number;
-    full_name: string;
-    gender?: string | null;
-    phone?: string | null;
-    company_name?: string | null;
-    position?: string | null;
-  }>): Promise<void> {
-    // 先删除该订单的旧学员记录（支持重新提交）
-    await this.pool.execute("DELETE FROM training_participants WHERE order_id = ?", [orderId]);
-    
-    // 批量插入新学员记录
-    if (participants.length === 0) return;
-    
-    const values = participants.map(p => [
-      orderId,
-      p.participant_no,
-      p.full_name,
-      p.gender || null,
-      p.phone || null,
-      p.company_name || null,
-      p.position || null,
-    ]);
-    
-    const placeholders = values.map(() => 
-      "(?, ?, ?, ?, ?, ?, ?)"
-    ).join(", ");
-    
-    const flatValues = values.flat();
-    
+  /** 保存学员信息到报名记录的 participants JSON 字段 */
+  async saveParticipants(registrationId: number, participants: ParticipantData[]): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO training_participants (
-        order_id, participant_no, full_name, gender, phone, company_name, position
-      ) VALUES ${placeholders}`,
-      flatValues
+      "UPDATE crm_training_registrations SET participants = ?, participant_count = ? WHERE id = ?",
+      [JSON.stringify(participants), participants.length, registrationId],
     );
   }
 
-  /** 查询订单的学员信息 */
-  async getParticipantsByOrderId(orderId: number): Promise<ParticipantRow[]> {
+  /** 查询报名记录的学员信息（从 JSON 字段解析） */
+  async getParticipantsByRegistrationId(registrationId: number): Promise<ParticipantData[]> {
     const [rows] = await this.pool.execute(
-      "SELECT * FROM training_participants WHERE order_id = ? ORDER BY participant_no ASC",
-      [orderId]
+      "SELECT participants FROM crm_training_registrations WHERE id = ? LIMIT 1",
+      [registrationId],
     );
-    return rows as ParticipantRow[];
+    const row = (rows as RowDataPacket[])?.[0];
+    if (!row?.participants) return [];
+    try {
+      return typeof row.participants === "string"
+        ? JSON.parse(row.participants)
+        : row.participants;
+    } catch {
+      return [];
+    }
   }
 
-  /** 通过订单号查询学员信息 */
-  async getParticipantsByOrderNo(orderNo: string): Promise<ParticipantRow[]> {
+  /** 通过订单号查询学员信息（经由 order → registration 链路） */
+  async getParticipantsByOrderNo(orderNo: string): Promise<ParticipantData[]> {
     const [rows] = await this.pool.execute(
-      `SELECT tp.* FROM training_participants tp
-       INNER JOIN training_orders to ON to.id = tp.order_id
-       WHERE to.order_no = ?
-       ORDER BY tp.participant_no ASC`,
-      [orderNo]
+      `SELECT r.participants FROM crm_training_registrations r
+       INNER JOIN training_orders o ON o.registration_id = r.id
+       WHERE o.order_no = ?
+       LIMIT 1`,
+      [orderNo],
     );
-    return rows as ParticipantRow[];
+    const row = (rows as RowDataPacket[])?.[0];
+    if (!row?.participants) return [];
+    try {
+      return typeof row.participants === "string"
+        ? JSON.parse(row.participants)
+        : row.participants;
+    } catch {
+      return [];
+    }
   }
 }
 

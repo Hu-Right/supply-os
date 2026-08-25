@@ -14,7 +14,6 @@ import {
   createTrainingOrder,
   fetchTrainingOrderStatus,
   mockPayTrainingOrder,
-  saveTrainingParticipants,
   type LandingCourse,
   type LandingSchedule,
   type TrainingParticipant,
@@ -27,7 +26,6 @@ export interface TrainingPaymentModalProps {
   course: LandingCourse | null;
   /** 可选期次列表；若有多期则强制用户选择后才能下单 */
   schedules: LandingSchedule[];
-  registrationId?: number | null;
   /** 外部预设期次（如从 ScheduleSection 点选进入），优先级最高 */
   defaultScheduleId?: number | null;
 }
@@ -45,7 +43,6 @@ export default function TrainingPaymentModal({
   onClose,
   course,
   schedules,
-  registrationId,
   defaultScheduleId,
 }: TrainingPaymentModalProps) {
   const { t, locale } = useLocale();
@@ -54,7 +51,6 @@ export default function TrainingPaymentModal({
   // phase="participants" → 先填学员信息
   // phase="payment" → 再支付
   const [phase, setPhase] = useState<"participants" | "payment">("participants");
-  const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
     company_name: "",
     industry_id: "",
@@ -64,10 +60,15 @@ export default function TrainingPaymentModal({
     export_experience: "",
     certification: [],
     other_certification: "",
+    contact_name: "",
+    position: "",
+    telephone: "",
+    email: "",
     remark: "",
   });
   const [submittingCompany, setSubmittingCompany] = useState(false);
   const [companyError, setCompanyError] = useState("");
+  const [localRegistrationId, setRegistrationId] = useState<number | null>(null);
 
   // ── 期次选择 ──
   const openSchedules = useMemo(() => schedules.filter((s) => s.status === "open"), [schedules]);
@@ -89,9 +90,9 @@ export default function TrainingPaymentModal({
   const hasMultipleSchedules = openSchedules.length > 1;
   const scheduleSelected = !hasMultipleSchedules || selectedScheduleId !== null;
 
-  // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
+  // ── 阶段一：学员信息填写完成 → 提交报名（含企业信息+联系人+学员名单）→ 进入支付阶段 ──
   const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
-    if (!companyInfo.company_name) {
+    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
       setCompanyError(t("tlCompanyInfoRequired"));
       return;
     }
@@ -114,7 +115,14 @@ export default function TrainingPaymentModal({
           main_product: companyInfo.main_product,
           export_experience: companyInfo.export_experience,
           certification: certificationStr,
+          contact_name: companyInfo.contact_name,
+          position: companyInfo.position,
+          telephone: companyInfo.telephone,
+          email: companyInfo.email,
           remark: companyInfo.remark,
+          participants,
+          participant_count: participantCount,
+          schedule_id: selectedScheduleId,
         }),
       });
 
@@ -125,24 +133,27 @@ export default function TrainingPaymentModal({
       }
 
       const data = await res.json();
+      // 保存报名 ID，后续创建订单时使用
+      setRegistrationId(data.id ?? null);
 
-      setPendingParticipants(participants);
       setPhase("payment");
     } catch (err) {
       setCompanyError(t("formError"));
     } finally {
       setSubmittingCompany(false);
     }
-  }, [companyInfo, t]);
+  }, [companyInfo, participantCount, selectedScheduleId, t]);
 
   // ── 培训下单适配器 ──
   const handleCreateOrder = useCallback(
     async (provider: "alipay" | "wechat") => {
       if (!course) throw new Error("COURSE_NOT_FOUND");
+      const effectiveRegId = localRegistrationId;
+      if (!effectiveRegId) throw new Error("REGISTRATION_ID_MISSING");
       const result = await createTrainingOrder({
         course_id: course.id,
         schedule_id: selectedScheduleId ?? null,
-        registration_id: registrationId ?? null,
+        registration_id: effectiveRegId,
         participant_count: participantCount,
         provider,
       });
@@ -153,7 +164,7 @@ export default function TrainingPaymentModal({
         pay_url: result.pay_url,
       };
     },
-    [course, selectedScheduleId, registrationId, participantCount],
+    [course, selectedScheduleId, localRegistrationId, participantCount],
   );
 
   const handleQueryStatus = useCallback((orderNo: string) => fetchTrainingOrderStatus(orderNo), []);
@@ -162,17 +173,10 @@ export default function TrainingPaymentModal({
     await mockPayTrainingOrder(orderNo);
   }, []);
 
-  // ── 支付成功回调：先展示成功 UI，再异步保存学员信息 ──
-  const handlePaymentSuccess = useCallback((orderNo: string) => {
-    if (pendingParticipants) {
-      // 异步保存，不阻塞成功 UI 展示
-      saveTrainingParticipants(orderNo, pendingParticipants)
-        .then(() => console.log(`[TrainingPayment] 学员信息已保存 (order: ${orderNo})`))
-        .catch((err) => console.error(`[TrainingPayment] 学员信息保存失败 (order: ${orderNo}):`, err));
-    }
-    // 延迟关闭，让用户看到成功页
+  // ── 支付成功回调：学员信息已在报名阶段入库，直接关闭 ──
+  const handlePaymentSuccess = useCallback((_orderNo: string) => {
     setTimeout(onClose, 2000);
-  }, [pendingParticipants, onClose]);
+  }, [onClose]);
 
   const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
 
@@ -301,10 +305,10 @@ export default function TrainingPaymentModal({
       chooseExtra={
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
           <p className="text-sm font-bold text-emerald-800">
-            ✓ {pendingParticipants?.length ?? 0} {t("tlPaymentParticipants")}信息已填写完成
+            ✓ {t("tlPaymentParticipants")}信息已随报名表提交
           </p>
           <p className="mt-1 text-xs text-emerald-600">
-            支付成功后系统将自动提交学员信息
+            支付成功后系统将自动完成报名流程
           </p>
         </div>
       }

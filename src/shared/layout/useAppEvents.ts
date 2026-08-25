@@ -13,7 +13,6 @@ export interface AppEventHandlers {
   onRequireLogin: () => void;
   onConsult: () => void;
   onPay: (detail: PayEventDetail) => void;
-  onOpenTrainingRegister: () => void;
 }
 
 export function useAppEvents(handlers: AppEventHandlers) {
@@ -27,7 +26,6 @@ export function useAppEvents(handlers: AppEventHandlers) {
       onAppEvent("supply-os:open-account", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:consult", () => handlers.onConsult()),
       onAppEvent("supply-os:pay", (detail) => { if (detail) handlers.onPay(detail); }),
-      onAppEvent("supply-os:open-training-register", () => handlers.onOpenTrainingRegister()),
     ];
     return () => unsubs.forEach((fn) => fn());
   }, [handlers]);

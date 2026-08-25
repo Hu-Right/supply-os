@@ -21,6 +21,10 @@ export interface CompanyInfoData {
   export_experience: string;
   certification: string[];
   other_certification: string;
+  contact_name: string;
+  position: string;
+  telephone: string;
+  email: string;
   remark: string;
 }
 
@@ -187,6 +191,48 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
           className="mt-3"
         />
       </section>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")} <span className="text-rose-500">*</span></span>
+          <Input
+            name="contact_name"
+            value={value.contact_name}
+            onChange={(e) => handleChange("contact_name", e.target.value)}
+            placeholder={pickLocale(locale, "联系人姓名", "Contact name")}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPosition")}</span>
+          <Input
+            name="position"
+            value={value.position}
+            onChange={(e) => handleChange("position", e.target.value)}
+            placeholder={pickLocale(locale, "如：采购经理", "e.g. Procurement Manager")}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")} <span className="text-rose-500">*</span></span>
+          <Input
+            name="telephone"
+            value={value.telephone}
+            onChange={(e) => handleChange("telephone", e.target.value)}
+            placeholder={pickLocale(locale, "手机号码", "Phone number")}
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormEmail")}</span>
+          <Input
+            name="email"
+            value={value.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            placeholder={pickLocale(locale, "邮箱地址", "Email address")}
+          />
+        </label>
+      </div>
 
       <label className="block">
         <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormRemark")}</span>

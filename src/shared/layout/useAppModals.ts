@@ -18,15 +18,12 @@ export interface UseAppModalsReturn {
   setPaymentPlan: (v: PayEventDetail | null) => void;
   showConsultForm: boolean;
   setShowConsultForm: (v: boolean) => void;
-  showTrainingRegisterForm: boolean;
-  setShowTrainingRegisterForm: (v: boolean) => void;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (v: boolean) => void;
   /** 事件回调，传给 useAppEvents */
   onRequireLogin: () => void;
   onConsult: () => void;
   onPay: (detail: PayEventDetail) => void;
-  onOpenTrainingRegister: () => void;
 }
 
 export function useAppModals(): UseAppModalsReturn {
@@ -34,12 +31,10 @@ export function useAppModals(): UseAppModalsReturn {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentPlan, setPaymentPlan] = useState<PayEventDetail | null>(null);
   const [showConsultForm, setShowConsultForm] = useState(false);
-  const [showTrainingRegisterForm, setShowTrainingRegisterForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const onRequireLogin = useCallback(() => setShowAuthModal(true), []);
   const onConsult = useCallback(() => setShowConsultForm(true), []);
-  const onOpenTrainingRegister = useCallback(() => setShowTrainingRegisterForm(true), []);
   const onPay = useCallback((detail: PayEventDetail) => {
     setPaymentPlan(detail);
     setShowPaymentModal(true);
@@ -50,8 +45,7 @@ export function useAppModals(): UseAppModalsReturn {
     showPaymentModal, setShowPaymentModal,
     paymentPlan, setPaymentPlan,
     showConsultForm, setShowConsultForm,
-    showTrainingRegisterForm, setShowTrainingRegisterForm,
     mobileMenuOpen, setMobileMenuOpen,
-    onRequireLogin, onConsult, onPay, onOpenTrainingRegister,
+    onRequireLogin, onConsult, onPay,
   };
 }
