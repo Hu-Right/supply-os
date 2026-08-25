@@ -167,6 +167,7 @@ export async function api<T>(
       const retryRes = await fetch(url, {
         ...init,
         signal,
+        credentials: "same-origin", // B2【P1】重试请求同样携带 HttpOnly Cookie
         headers: {
           ...(hasBody ? { "Content-Type": "application/json" } : {}),
           Authorization: `Bearer ${newToken}`,
