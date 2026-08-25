@@ -138,8 +138,8 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     console.log(`[meilisearch] fullSync: 构建临时索引 ${TMP_INDEX}（旧索引保持可查）...`);
 
     // ── Step 2：从宽表分批写入临时索引 ──
-    const BATCH = 2000;
-    const MEILI_BATCH = 200; // Meilisearch 分批写入大小，避免单次 HTTP 请求体过大
+    const BATCH = 5000;       // 单次从 MySQL 读取的行数
+    const MEILI_BATCH = 500;  // Meilisearch 单次写入文档数（增大以减少 HTTP 轮次）
     let lastId = 0;
     let totalSynced = 0;
 
@@ -169,8 +169,8 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       } catch {
         // 统计失败（瞬时）忽略，继续等待
       }
-      if (Date.now() - indexStart > 10 * 60 * 1000) {
-        console.warn("[meilisearch] fullSync: 等待临时索引就绪超时（10 分钟），放弃切换");
+      if (Date.now() - indexStart > 30 * 60 * 1000) {
+        console.warn("[meilisearch] fullSync: 等待临时索引就绪超时（30 分钟），放弃切换");
         throw new Error("TMP_INDEX_NOT_READY_TIMEOUT");
       }
       await new Promise((r) => setTimeout(r, 3000));
@@ -252,36 +252,41 @@ export async function incrementalSync(
     const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
-    // 权威值覆盖：is_featured/deadline_sec 从主表 crm_bid_notices 读取
-    // 宽表 deadline_sec 是普通列（非生成列），可能因主表 deadline 变更而陈旧，
-    // 此处从主表读取权威值，确保 Meilisearch 索引状态一致
-    const allIds = allRaw.map((r) => Number(r.id));
-    try {
-      const BATCH = 1000;
-      const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
-      for (let i = 0; i < allIds.length; i += BATCH) {
-        const batch = allIds.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        const [statusRows] = await pool.query(
-          `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${ph})`,
-          batch,
-        );
-        for (const row of statusRows as RowDataPacket[]) {
-          statusMap.set(Number(row.id), {
-            is_featured: row.is_featured ? 1 : 0,
-            deadline_sec: Number(row.deadline_sec) || 0,
-          });
+    // 权威值覆盖（仅对 updatedRaw 行）：
+    // newRows 来自宽表增量同步（每 5s），其 is_featured/deadline_sec 由宽表构建器
+    // 从主表直接读取，值已是最新；updatedRaw 是近 10 分钟内被更新的行，
+    // 宽表可能尚未对账（deadline 对账 60s，featured 对账 5min），存在陈旧窗口。
+    // 仅对 updatedRaw 查询主表权威值，减少不必要的 DB 往返。
+    const updatedIdSet = new Set(updatedRaw.map((r) => Number(r.id)));
+    if (updatedIdSet.size > 0) {
+      const updatedIds = Array.from(updatedIdSet);
+      try {
+        const BATCH = 1000;
+        const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
+        for (let i = 0; i < updatedIds.length; i += BATCH) {
+          const batch = updatedIds.slice(i, i + BATCH);
+          const ph = batch.map(() => "?").join(",");
+          const [statusRows] = await pool.query(
+            `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${ph})`,
+            batch,
+          );
+          for (const row of statusRows as RowDataPacket[]) {
+            statusMap.set(Number(row.id), {
+              is_featured: row.is_featured ? 1 : 0,
+              deadline_sec: Number(row.deadline_sec) || 0,
+            });
+          }
         }
-      }
-      for (const r of allRaw) {
-        const status = statusMap.get(Number(r.id));
-        if (status) {
-          r.is_featured = status.is_featured;
-          r.deadline_sec = status.deadline_sec;
+        for (const r of allRaw) {
+          const status = statusMap.get(Number(r.id));
+          if (status) {
+            r.is_featured = status.is_featured;
+            r.deadline_sec = status.deadline_sec;
+          }
         }
+      } catch (e) {
+        console.warn("[meilisearch] 权威值覆盖失败（静默降级）:", (e as Error).message);
       }
-    } catch (e) {
-      console.warn("[meilisearch] 权威值覆盖失败（静默降级）:", (e as Error).message);
     }
 
     const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
