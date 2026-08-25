@@ -45,12 +45,12 @@ export function formatItems(
   locale: string,
   profileLevels?: Array<{ level: number; id: string }>,
 ): Array<Record<string, unknown>> {
-  // 机构国际化映射
+  // 机构国际化映射（键统一大写，与 query.ts 缓存构建侧 mergeKey/typeKey 口径对齐）
   const agencyCache = getAgencyCacheData();
   const agencyI18nMap = new Map<string, Record<string, string>>();
   if (agencyCache) {
     for (const item of agencyCache) {
-      if (item.i18n) agencyI18nMap.set(item.agency, item.i18n);
+      if (item.i18n) agencyI18nMap.set(String(item.agency || "").toUpperCase(), item.i18n);
     }
   }
 
