@@ -42,6 +42,12 @@
  *              032-wide-table-schema-converge   宽表description列前向收敛(P1-17:基线漂移修复→TEXT)
  *              033-main-table-dead-index-cleanup 主表死索引清理(is_active/deadline_ts 相关)
  *              034-training-landing-page         研修班落地页(课程/期次/订单/讲师/团队/照片/反馈/FAQ)
+ *              035-training-team-titles           讲师/团队成员职称字段
+ *              036-training-team-roles            讲师/团队成员角色字段
+ *              037-training-order-payurl-text     培训订单 pay_url 列扩容为 TEXT
+ *              038-training-participants          研修班学员信息表
+ *              039-training-schedule-seed         研修班期次种子数据
+ *              040-training-participants-add-email 学员表补全邮箱列
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
