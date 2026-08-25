@@ -141,6 +141,14 @@ export default defineConfig({
         "src/features/procurement/hooks/searchFormReducer.ts",
         "src/features/procurement/utils/detailViewCount.ts",
         "src/features/procurement/utils/formatDeadlineZh.ts",
+        // ── src/features — Phase 4 新增 ──
+        "src/features/services/data.ts",
+        "src/features/showroom/api.ts",
+        "src/features/supplier/api.ts",
+        "src/features/crm/api.ts",
+        "src/features/training/api.ts",
+        "src/features/payment/hooks/useOrderHistory.ts",
+        "src/features/payment/hooks/useRecordsSummary.ts",
         // ── src/shared — 纯逻辑 + 组件 ──
         "src/shared/auth/**/*.ts",
         "src/shared/data/**/*.ts",
