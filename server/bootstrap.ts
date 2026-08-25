@@ -197,7 +197,7 @@ export async function startServer() {
         if (meiliClient) {
           const indexReady = await ensureIndex();
           if (indexReady) {
-            stopSearchSync = startSearchSync(dbPool, { intervalMs: 10 * 1000 });
+            stopSearchSync = startSearchSync(dbPool, { intervalMs: 5 * 1000 });
             // 阶段 3 加固：级联同步失败重试队列
             stopSyncRetryQueue = startSyncRetryQueue(dbPool);
           } else {

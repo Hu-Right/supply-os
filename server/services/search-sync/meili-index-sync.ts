@@ -92,10 +92,11 @@ export function startSearchSync(pool: Pool, options: SyncOptions = {}): () => vo
       // 静默降级，不影响主服务
       console.warn("[meilisearch] 增量同步异常（静默降级）:", (err as Error).message);
     }
-    // 覆盖率对账：每 10 轮增量同步后检查 Meilisearch 文档数与宽表行数的比值，
+    // 覆盖率对账：每 20 轮增量同步后检查 Meilisearch 文档数与宽表行数的比值，
     // 差距超过 5% 时主动触发全量重建，防止索引长期不完整导致"数据库有但搜不到"
+    // （同步间隔 5s × 20 轮 = ~100s 检查一次，与旧 10s × 10 轮频率一致）
     syncCount++;
-    if (initialized && syncCount % 10 === 0 && isHealthy()) {
+    if (initialized && syncCount % 20 === 0 && isHealthy()) {
       try {
         const [meiliCount, wideCount] = await Promise.all([getDocCount(), getWideTableCount(pool)]);
         if (wideCount > 0 && meiliCount < wideCount * 0.95) {
