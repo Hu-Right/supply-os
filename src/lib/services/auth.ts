@@ -1,0 +1,137 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import crypto from "crypto";
+import bcrypt from "bcrypt";
+import type { MembershipRepo } from "../repos/membership.repo";
+import type { SupplierRegistrationRepo } from "../repos/suppliers/supplier-registration.repo";
+import type { AuthRepo } from "../repos/auth.repo";
+import type { UserRow } from "../repos/types";
+import { maskPhone } from "../utils/mask";
+import { resolveMembershipState } from "./membership-status";
+import {
+  signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
+} from "./jwt";
+
+const BCRYPT_ROUNDS = 12;
+
+/**
+ * 签发 JWT Token 对（登录/注册/重置密码共用，#6 自三个路由文件收口）
+ * Refresh Token 哈希异步入库（失败仅记日志，不阻断登录主流程，与原实现行为一致）
+ */
+export async function issueTokenPair(
+  authRepo: AuthRepo,
+  userKey: string,
+  email: string,
+): Promise<{ token: string; refresh_token: string }> {
+  const accessToken = signAccessToken({ user_key: userKey, email });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
+  const expiresAt = getRefreshTokenExpiresAt();
+  void authRepo.insertRefreshToken(userKey, tokenHash, expiresAt)
+    .catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
+  return { token: accessToken, refresh_token: refreshToken };
+}
+
+/**
+ * 旧 SHA-256 哈希（仅用于兼容验证存量用户密码）
+ * Legacy SHA-256 hash — only for verifying existing user passwords during migration
+ */
+export function hashPasswordLegacy(password: string): string {
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+/**
+ * 新 bcrypt 哈希（所有新密码统一使用）
+ * bcrypt hash — used for all new passwords (registration, reset, upgrade)
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+/**
+ * 双算法验证：根据 hashType 选择对应算法
+ * Dual-algorithm verification: selects algorithm based on hashType
+ */
+export async function verifyPassword(
+  password: string,
+  storedHash: string,
+  hashType: string,
+): Promise<boolean> {
+  if (hashType === "bcrypt") {
+    return bcrypt.compare(password, storedHash);
+  }
+  // sha256 兼容验证
+  return hashPasswordLegacy(password) === storedHash;
+}
+
+/**
+ * 判断是否需要从旧算法升级到 bcrypt
+ * Check if the password hash needs to be upgraded from legacy algorithm
+ */
+export function needsUpgrade(hashType: string): boolean {
+  return hashType !== "bcrypt";
+}
+
+// ── 验证码哈希 ──
+// 验证码存储安全：数据库中只存哈希值，明文仅用于发送短信/邮件
+// SHA-256 即可（验证码一次性、6 位数字、短生命周期，无需 bcrypt）
+
+/** 对验证码明文计算哈希（用于入库存储） */
+export function hashVerificationCode(code: string): string {
+  return crypto.createHash("sha256").update(`verify_code:${code}`).digest("hex");
+}
+
+/** 登录/用户信息公共响应体 */
+export interface AuthUserResponse {
+  user_key: string;
+  email: string;
+  display_name: string;
+  membership_tier: string;
+  account_status: string;
+  supplier_id: number | null;
+  supplier_industry_id: number | null;
+  supplier_industry: string | null;
+  /** 已绑定手机号（脱敏显示） */
+  phone: string | null;
+  /** 手机号是否已验证 */
+  phone_verified: number;
+}
+
+/**
+ * 组装登录/用户信息响应：查会员状态 → 查供应商 → 拼装响应
+ * login 和 /api/auth/user 共用，消除重复逻辑。
+ */
+export async function buildUserResponse(
+  user: UserRow | Partial<UserRow>,
+  membershipRepo: MembershipRepo,
+  registrationRepo: SupplierRegistrationRepo,
+): Promise<AuthUserResponse> {
+  const userKey = user.user_key ?? "";
+  // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
+  const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
+  const [memberState, supplierRow] = await Promise.all([
+    resolveMembershipState(membershipRepo, userKey),
+    needSupplier
+      ? registrationRepo.findBasicInfo(Number(user.supplier_id))
+      : Promise.resolve(null),
+  ]);
+  const supplier = supplierRow as Record<string, unknown> | null;
+  // N1 收敛（2026-08-20）：tier 取自唯一端口 resolveMembershipState（订阅 OR 付费剩余配额 > 0），
+  // 修复原"仅看订阅"口径下，仅购买单次解锁卡的用户登录态被误判为 free 的分叉问题。
+  const tier = memberState.tier;
+  return {
+    user_key: userKey,
+    email: user.email ?? "",
+    display_name: user.display_name ?? "",
+    membership_tier: tier,
+    account_status: user.account_status ?? "pending",
+    supplier_id: (supplier?.id as number) || null,
+    supplier_industry_id: (supplier?.industry_id as number) || null,
+    supplier_industry: (supplier?.industry as string) || null,
+    phone: user.phone ? maskPhone(user.phone) : null,
+    phone_verified: user.phone_verified ?? 0,
+  };
+}
+

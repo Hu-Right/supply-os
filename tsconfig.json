@@ -18,7 +18,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "paths": {
       "@/*": [
         "./src/*"
@@ -26,7 +26,6 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true,
-
     // ── 严格模式（A2 开启）──
     // strict 已涵盖 noImplicitAny / strictNullChecks / strictFunctionTypes /
     // strictBindCallApply / noImplicitThis / alwaysStrict 等全部子项；
@@ -34,15 +33,32 @@
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
-
     // 附带零错误加固（已实证验证对存量代码无新增报错）：
     // switch 语句 case 穿透检测、模块导入路径大小写一致性检测
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
-
+    "forceConsistentCasingInFileNames": true,
+    // Next.js 类型检查插件
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
     // ── 第二阶段候选项（存量错误较多，待收敛后评估开启，勿直接取消注释）──
     // "noUncheckedIndexedAccess": true,   // 索引访问结果强制包含 undefined
     // "exactOptionalPropertyTypes": true, // 可选属性不允许显式赋 undefined
     // "noImplicitReturns": true           // 所有分支必须显式返回
-  }
+    ,
+    "incremental": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

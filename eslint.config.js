@@ -22,6 +22,8 @@ export default tseslint.config(
       "dumps/",
       "*.config.js",
       "*.config.ts",
+      // Phase 2 迁移：src/lib/ 是从 server/ 复制的后端代码，由 server/ 侧的 lint 覆盖
+      "src/lib/",
     ],
   },
   // JS 基础规则

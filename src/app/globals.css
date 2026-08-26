@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+/* iconfont 字体图标（底部社交媒体链接） */
+@font-face {
+  font-family: "iconfont";
+  src: url('/fonts/iconfont.woff2') format('woff2'),
+       url('/fonts/iconfont.woff') format('woff'),
+       url('/fonts/iconfont.ttf') format('truetype');
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.icon-instagram:before { content: "\e74d"; }
+.icon-pinterest:before { content: "\e697"; }
+.icon-facebook:before { content: "\e685"; }
+.icon-Youtube:before { content: "\e880"; }
+.icon-whatsapp:before { content: "\e8ea"; }
+.icon-tuite:before { content: "\e61d"; }
+.icon-tiktok:before { content: "\ecdc"; }
+
+/* 隐藏滚动条但保留滚动功能（自定义 utility，按需生成） */
+@utility scrollbar-none {
+  -ms-overflow-style: none;   /* IE / Edge */
+  scrollbar-width: none;       /* Firefox */
+  &::-webkit-scrollbar {
+    display: none;             /* Chrome / Safari */
+  }
+}
+
+/* P2-6 移动端修复：iOS Safari 输入框聚焦时禁止自动缩放（font-size < 16px 触发） */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/*
+ * 语义色板（设计 token 单一来源）
+ * 组件不再直接使用 slate/teal/rose 等原始色名，统一映射：
+ *   slate→secondary（中性）、teal→primary（品牌）、rose/red→danger、
+ *   emerald→success、amber→accent、orange→cta、blue/sky→info
+ * 保留原始色例外（装饰性渐变端点/点缀）：cyan、indigo、violet、purple
+ */
+@theme {
+  /* 品牌色 primary（teal） */
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #115e59;
+  --color-primary-900: #134e4a;
+  --color-primary-950: #042f2e;
+
+  /* 中性色 secondary（slate） */
+  --color-secondary-50: #f8fafc;
+  --color-secondary-100: #f1f5f9;
+  --color-secondary-200: #e2e8f0;
+  --color-secondary-300: #cbd5e1;
+  --color-secondary-400: #94a3b8;
+  --color-secondary-500: #64748b;
+  --color-secondary-600: #475569;
+  --color-secondary-700: #334155;
+  --color-secondary-800: #1e293b;
+  --color-secondary-900: #0f172a;
+  --color-secondary-950: #020617;
+
+  /* 强调色 accent（amber：星级/徽章/优惠） */
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+  --color-accent-800: #92400e;
+  --color-accent-900: #78350f;
+  --color-accent-950: #451a03;
+
+  /* 行动号召 cta（orange：会员/研修班转化按钮、暖色渐变端点） */
+  --color-cta-50: #fff7ed;
+  --color-cta-100: #ffedd5;
+  --color-cta-200: #fed7aa;
+  --color-cta-300: #fdba74;
+  --color-cta-400: #fb923c;
+  --color-cta-500: #f97316;
+  --color-cta-600: #ea580c;
+  --color-cta-700: #c2410c;
+  --color-cta-800: #9a3412;
+  --color-cta-900: #7c2d12;
+  --color-cta-950: #431407;
+
+  /* 危险 danger（rose） */
+  --color-danger-50: #fff1f2;
+  --color-danger-100: #ffe4e6;
+  --color-danger-200: #fecdd3;
+  --color-danger-300: #fda4af;
+  --color-danger-400: #fb7185;
+  --color-danger-500: #f43f5e;
+  --color-danger-600: #e11d48;
+  --color-danger-700: #be123c;
+  --color-danger-800: #9f1239;
+  --color-danger-900: #881337;
+  --color-danger-950: #4c0519;
+
+  /* 成功 success（emerald） */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+  --color-success-900: #064e3b;
+  --color-success-950: #022c22;
+
+  /* 信息 info（blue：链接/提示框/信息徽章） */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+  --color-info-950: #172554;
+
+  /* 圆角 token（为后续 shadcn 变量对齐铺路，暂无消费方） */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* 抽屉滑入动画（原 .animate-in.slide-in-from-left 迁移为 --animate-* token） */
+  --animate-slide-in-left: slide-in-from-left 0.2s ease-out;
+  @keyframes slide-in-from-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+}
