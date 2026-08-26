@@ -1,0 +1,52 @@
+/**
+ * POST /api/auth/register — 用户注册
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { getContext } from "@/lib/db/context";
+import { hashPassword, hashVerificationCode, issueTokenPair } from "@/lib/services/auth";
+import { validatePassword } from "@/lib/utils/passwordPolicy";
+import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+
+export async function POST(req: NextRequest) {
+  const { email, password, verify_code, display_name } = await req.json();
+  const addr = String(email || "").trim().toLowerCase();
+  const pw = String(password || "");
+  const code = String(verify_code || "");
+  const displayName = String(display_name || addr.split("@")[0] || "会员");
+
+  if (!addr || !pw) return NextResponse.json({ code: 40001, message: "邮箱和密码不能为空" }, { status: 400 });
+  if (!code) return NextResponse.json({ code: 40005, message: "请输入邮箱验证码" }, { status: 400 });
+  const pwCheck = validatePassword(pw);
+  if (!pwCheck.valid) return NextResponse.json({ code: 40006, message: pwCheck.message }, { status: 400 });
+
+  const ctx = getContext();
+  const codeRecord = await ctx.user.authRepo.findLatestActiveCode(addr, "registration");
+  if (!codeRecord) return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
+  if (codeRecord.attempts >= 5) return NextResponse.json({ code: 40029, message: "尝试次数过多，请重新获取验证码" }, { status: 429 });
+  if (codeRecord.code !== hashVerificationCode(code)) {
+    await ctx.user.authRepo.incrementCodeAttempts(codeRecord.id);
+    return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
+  }
+
+  const existing = await ctx.user.usersRepo.findByKey(addr);
+  if (existing) return NextResponse.json({ code: 40008, message: "注册失败，请检查邮箱或验证码后重试" }, { status: 400 });
+
+  const created = await ctx.user.usersRepo.create({
+    user_key: addr, email: addr, display_name: displayName, password_hash: await hashPassword(pw),
+  });
+  if (!created) return NextResponse.json({ code: 40008, message: "注册失败，请检查邮箱或验证码后重试" }, { status: 400 });
+
+  await ctx.user.authRepo.markCodeUsed(codeRecord.id);
+  await ctx.user.usersRepo.markEmailVerified(addr);
+
+  let tokens: { token: string; refresh_token: string } | null = null;
+  try { tokens = await issueTokenPair(ctx.user.authRepo, addr, addr); } catch { /* JWT_SECRET 未配置 */ }
+
+  const response = NextResponse.json({
+    success: true,
+    user: { user_key: addr, email: addr, display_name: displayName, membership_tier: "free" },
+    token: tokens?.token,
+  }, { status: 201 });
+  if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
+  return response;
+}
