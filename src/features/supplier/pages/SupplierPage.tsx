@@ -8,7 +8,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/compat/router-compat";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";

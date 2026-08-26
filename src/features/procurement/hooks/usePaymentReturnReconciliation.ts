@@ -10,7 +10,7 @@
  *              cleans them up afterwards.
  */
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/features/payment";

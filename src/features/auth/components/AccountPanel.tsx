@@ -9,7 +9,7 @@
  *              Logged-in panel of the auth modal: account info card, phone binding,
  *              industry preference form, records panel and logout.
  */
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/compat/router-compat";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";

@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchActions
  */
 import { useCallback, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";

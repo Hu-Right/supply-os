@@ -11,7 +11,7 @@
  *              register forms are triggered via global events to keep features self-contained.
  */
 
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "@/lib/compat/router-compat";
 import { BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";

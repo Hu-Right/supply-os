@@ -8,7 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "@/lib/compat/router-compat";
 import { CheckCircle2 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";

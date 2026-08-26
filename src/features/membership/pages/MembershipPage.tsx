@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";

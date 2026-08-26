@@ -10,7 +10,7 @@
 
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
 import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/compat/router-compat";
 import { useLocale } from "@/core/i18n";
 import type { MembershipStatus } from "@/types";
 

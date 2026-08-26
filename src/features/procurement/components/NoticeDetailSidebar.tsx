@@ -9,7 +9,7 @@
  *              non-VIP users see "View Plans" button to navigate to plans page.
  */
 import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/compat/router-compat";
 import { useLocale } from "@/core/i18n";
 import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
 import type { NoticeItem, MembershipStatus } from "../types";

@@ -4,7 +4,7 @@
  *
  * @module shared/layout/MobileDrawer
  */
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "@/lib/compat/router-compat";
 import { Globe, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
