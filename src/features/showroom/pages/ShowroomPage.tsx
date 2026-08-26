@@ -14,6 +14,7 @@ import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
 import { Input, Select } from "@/shared/ui";
+import { SeoHead } from "@/shared/seo";
 import { ShowroomCard } from "../components/ShowroomCard";
 import { RegisterForm } from "../components/RegisterForm";
 import { onAppEvent, emitAppEvent } from "@/core/events";
@@ -108,7 +109,14 @@ export default function ShowroomPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <SeoHead
+        title="全球智能展厅"
+        description="浏览全球智能展厅，发现各国采购商机。支持按地区、国家筛选，快速找到目标市场的展厅信息。"
+        keywords="展厅,全球采购,国际展览,采购商机,外贸,osneosmart"
+        canonical="https://osneosmart.com/showroom"
+      />
+      <div className="space-y-6">
       {/* Active Filters — 移动端垂直堆叠，桌面端横向排列 */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs">
         <div className="relative w-full md:w-1/3 md:min-w-[280px]">
@@ -202,6 +210,7 @@ export default function ShowroomPage() {
         />
       )}
     </div>
+    </>
   );
 }
 

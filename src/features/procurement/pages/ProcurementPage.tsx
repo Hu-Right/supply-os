@@ -9,6 +9,7 @@ import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
+import { SeoHead } from "@/shared/seo";
 // P2 性能优化：详情页懒加载——仅在用户点击卡片时加载，减少列表 chunk 体积
 // 回滚：将 lazy(...) 替换回 import { NoticeDetail } from "../components/NoticeDetail";
 const NoticeDetail = lazy(() => import("../components/NoticeDetail").then(m => ({ default: m.NoticeDetail })));
@@ -125,7 +126,14 @@ export default function ProcurementPage() {
   // 详情页
   if (selectedNotice) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-teal-500" /></div>}>
+      <>
+        <SeoHead
+          title="采购公告详情"
+          description={`查看采购公告详情：${selectedNotice.title_zh || selectedNotice.title_en}`}
+          keywords="采购公告,招标,Tender,采购详情"
+          noIndex={true}
+        />
+        <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-teal-500" /></div>}>
         <NoticeDetail
         notice={selectedNotice}
         actionMessage={actions.actionMessage}
@@ -148,12 +156,19 @@ export default function ProcurementPage() {
         onPayUnlock={actions.handlePayUnlock}
       />
       </Suspense>
+      </>
     );
   }
 
   // 列表页
   return (
     <>
+    <SeoHead
+      title="全球采购公告搜索"
+      description="搜索全球采购公告，发现采购商机。支持按行业、国家、机构筛选，实时获取最新采购信息。"
+      keywords="采购公告,全球采购,招标,Tender,采购搜索,外贸商机"
+      canonical="https://osneosmart.com/procurement"
+    />
     {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-5">
