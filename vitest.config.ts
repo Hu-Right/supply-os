@@ -186,6 +186,13 @@ export default defineConfig({
         "src/features/training/api.ts",
         "src/features/payment/hooks/useOrderHistory.ts",
         "src/features/payment/hooks/useRecordsSummary.ts",
+        // ── src/features — Phase 3 新增 ──
+        "src/shared/layout/nav-tabs.ts",
+        "src/features/procurement/api/membership.ts",
+        "src/features/procurement/hooks/search/useSearchQuery.ts",
+        "src/features/procurement/hooks/search/useSearchFormState.ts",
+        "src/features/training/hooks/useTrainingModals.ts",
+        "src/features/membership/hooks/useMembershipTier.ts",
         // ── src/shared — 纯逻辑 + 组件 ──
         "src/shared/auth/**/*.ts",
         "src/shared/data/**/*.ts",

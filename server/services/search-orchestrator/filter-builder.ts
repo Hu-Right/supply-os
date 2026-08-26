@@ -79,7 +79,10 @@ function expandAgency(agency: string): AgencyExpansion {
   if (cached?.sqlPattern) {
     return {
       hasSqlPattern: true,
-      meiliAgencies: [agency], // Meilisearch 无法 LIKE：退化精确匹配（文档已记录限制）
+      // Meilisearch: 用 agency_group 字段（存 typeKey，如 "SECRETARIA_BR"）过滤，
+      // 而非 agency 字段（存 agency_std 规范名，如 "SECRETARIA DE PLANEJAMENTO..."）。
+      // 修复：typeKey ≠ agency_std 导致 Meilisearch filter 命中零条的 BUG。
+      meiliAgencyGroup: cached.agencyGroup || agency,
       mysqlClause: "n.agency LIKE ?",
       mysqlParams: [cached.sqlPattern],
     };
