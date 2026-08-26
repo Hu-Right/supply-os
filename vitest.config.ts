@@ -22,10 +22,14 @@ export default defineConfig({
         "server/utils/**/*.ts",
         // ── server/data（静态数据）──
         "server/data/countryNames.ts",
+        "server/data/agency-i18n/**/*.ts",
+        "server/services/agency-i18n-data.ts",
         // ── server/config ──
         "server/config/env.ts",
         // ── server/services — 可独立测试的子模块 ──
         "server/services/amount/parser.ts",
+        "server/services/amount/view-rollup.ts",
+        "server/services/amount/cache-backfill.ts",
 
         "server/services/bid-report/constants.ts",
         "server/services/bid-report/merge.ts",
@@ -37,8 +41,15 @@ export default defineConfig({
         "server/services/recommend/rerank.ts",
         "server/services/recommend/scoring.ts",
         "server/services/recommend/text-similarity.ts",
+        "server/services/recommend/interest-decay.ts",
+        "server/services/recommend/weight-profile.ts",
         "server/services/search-orchestrator/metrics.ts",
         "server/services/search-orchestrator/params.ts",
+        "server/services/search-orchestrator/filter-builder.ts",
+        "server/services/search-orchestrator/meili-query.ts",
+        "server/services/search-orchestrator/reference-fast-path.ts",
+        "server/services/search-orchestrator/rebuild-trigger.ts",
+        "server/services/search-orchestrator/mysql-fallback.ts",
         "server/services/unspsc/parser.ts",
         "server/services/unspsc/tree-cache.ts",
         "server/services/unspsc/interest.ts",
@@ -55,6 +66,10 @@ export default defineConfig({
         // ── translation 子模块 ──
         "server/services/translation/fetchWithTimeout.ts",
         "server/services/translation/chain.ts",
+        "server/services/translation/retry.ts",
+        "server/services/translation/auto.ts",
+        "server/services/translation/notice.ts",
+        "server/services/translation/logCleanup.ts",
         // ── notices ──
         "server/services/notices/featured.ts",
         // ── industry-profile ──
@@ -77,15 +92,37 @@ export default defineConfig({
         "server/services/suppliers.ts",
         "server/services/paymentHistory.ts",
         "server/services/agencyAliasSeed.ts",
+        "server/services/training-payment.ts",
+        "server/services/notice-actions.ts",
+        // ── meilisearch ──
+        "server/services/meilisearch/segmentZh.ts",
+        // ── search-sync ──
+        "server/services/search-sync/wide-row-builder.ts",
+        "server/services/search-sync/sync-queue.ts",
+        "server/services/search-sync/sync-retry-queue.ts",
+        "server/services/search-sync/sync-scheduler.ts",
+        "server/services/search-sync/meili-index-sync.ts",
+        // ── data-cleanup ──
+        "server/services/data-cleanup/engine.ts",
+        "server/services/data-cleanup/bridge-cleanup.ts",
+        "server/services/data-cleanup/data-cleanup.ts",
+        // ── bridge-sync ──
+        "server/services/bridge-sync/full-sync.ts",
+        // ── quality-monitor ──
+        "server/services/quality-monitor/snapshot.ts",
         // ── server/middleware ──
         "server/middleware/auth.ts",
         "server/middleware/errorHandler.ts",
+        "server/middleware/csrf.ts",
+        "server/middleware/rateLimiter.ts",
         // ── server/payment ──
         "server/payment/keys.ts",
         "server/payment/MockProvider.ts",
         "server/payment/PaymentService.ts",
         "server/payment/AlipayProvider.ts",
         "server/payment/WechatProvider.ts",
+        "server/payment/qr.ts",
+        "server/payment/fulfillment.ts",
         // ── server/routes ──
         "server/routes/system.routes.ts",
         "server/routes/admin/middleware.ts",
