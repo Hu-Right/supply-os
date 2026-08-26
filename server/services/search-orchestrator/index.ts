@@ -31,6 +31,7 @@ import { logPerf, recordFallback } from "./metrics";
 import { requestIndexRebuild } from "./rebuild-trigger";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
+import { getNoticeAgencies, getAgencyCacheData } from "../notice-search/agencies/index";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
@@ -126,6 +127,13 @@ async function _searchCore(
   cacheKey: string,
 ): Promise<UnifiedSearchResult> {
   const t0 = Date.now();
+  // ── 机构缓存预热：formatItems 依赖 getAgencyCacheData() 返回的内存缓存，
+  //    该缓存仅在 /api/notices/agencies 端点被调用后填充。
+  //    runWarmup 虽会预热但为后台异步（void），首次搜索可能在预热完成前到达。
+  //    此处惰性触发：缓存为空时主动拉取一次，后续请求直接命中缓存（零开销）。──
+  if (!getAgencyCacheData()) {
+    await getNoticeAgencies(pool).catch(() => undefined);
+  }
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
     const reco = await recommendNotices(pool, p.userKey, p.page, p.pageSize, p.locale || undefined);
