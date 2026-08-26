@@ -33,10 +33,13 @@ export async function getNoticeAgencies(
     items = await _pendingAgenciesRefresh;
   }
   const lang = locale?.toLowerCase();
+  // 过滤掉 "EU" 条目——它本质是地区名，与国家下拉框的 "European Union" 功能重叠
+  // 保留 "TED"（欧盟电子招标日报）等具体机构条目
+  const filteredItems = items.filter(({ agency }) => agency !== "EU");
   if (!lang || lang === "en") {
-    return items.map(({ agency, count }) => ({ agency, count }));
+    return filteredItems.map(({ agency, count }) => ({ agency, count }));
   }
-  return items.map(({ agency, count, i18n }) => {
+  return filteredItems.map(({ agency, count, i18n }) => {
     const translated = i18n?.[lang];
     const isValidTranslation = translated && translated !== agency;
     return isValidTranslation ? { agency, count, agency_i18n: translated } : { agency, count };
