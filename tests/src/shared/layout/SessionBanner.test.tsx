@@ -7,20 +7,20 @@ import userEvent from "@testing-library/user-event";
 import { SessionBanner } from "@/shared/layout/SessionBanner";
 import { emitAppEvent } from "@/core/events";
 
-// 覆盖全局 useLocation mock
+// next/navigation mock（替代原 react-router-dom mock）
 const mockPathname = vi.fn(() => "/showroom");
-const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
-  useLocation: () => ({ pathname: mockPathname(), search: "", hash: "", state: null, key: "" }),
-  useNavigate: () => mockNavigate,
-  Navigate: () => null,
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  usePathname: () => mockPathname(),
+  useRouter: () => ({ push: mockPush, replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("SessionBanner", () => {
   beforeEach(() => {
     mockPathname.mockReturnValue("/showroom");
     vi.mocked(emitAppEvent).mockClear();
-    mockNavigate.mockClear();
+    mockPush.mockClear();
   });
 
   it("渲染 SESSION ACTIVE STATUS 标签", () => {
@@ -81,6 +81,6 @@ describe("SessionBanner", () => {
     mockPathname.mockReturnValue("/procurement");
     render(<SessionBanner />);
     await user.click(screen.getByText("procurementScreeningBtn"));
-    expect(mockNavigate).toHaveBeenCalledWith("/procurement/qualification");
+    expect(mockPush).toHaveBeenCalledWith("/procurement/qualification");
   });
 });

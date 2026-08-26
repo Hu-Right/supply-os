@@ -6,16 +6,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppHeader, useNavTabs, type AppTab } from "@/shared/layout/AppHeader";
 
-// 可变 location mock，供 useNavTabs 测试切换路由
-const _mockLocation: { pathname: string; search: string; hash: string; state: null; key: string } = {
-  pathname: "/showroom", search: "", hash: "", state: null, key: "",
-};
-const _mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
-  useNavigate: () => _mockNavigate,
-  useLocation: () => _mockLocation,
-  Navigate: () => null,
-  Link: ({ children }: { children: unknown }) => children,
+// 可变 pathname mock，供 useNavTabs 测试切换路由
+let _mockPathname = "/showroom";
+const _mockPush = vi.fn();
+const _mockReplace = vi.fn();
+vi.mock("next/navigation", () => ({
+  usePathname: () => _mockPathname,
+  useRouter: () => ({ push: _mockPush, replace: _mockReplace, back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 // mock 子组件，聚焦 AppHeader 自身逻辑
@@ -98,8 +96,8 @@ describe("AppHeader", () => {
 // ── useNavTabs hook ──
 describe("useNavTabs", () => {
   beforeEach(() => {
-    _mockNavigate.mockClear();
-    _mockLocation.pathname = "/showroom";
+    _mockPush.mockClear();
+    _mockPathname = "/showroom";
   });
 
   it("返回 tabs/activeTab/switchMainTab", () => {
@@ -118,18 +116,18 @@ describe("useNavTabs", () => {
     expect(screen.getByTestId("active").textContent).toBe("/showroom");
   });
 
-  it("switchMainTab 调用 navigate", () => {
+  it("switchMainTab 调用 router.push", () => {
     function TestComp() {
       const { switchMainTab } = useNavTabs();
       return <button onClick={() => switchMainTab("/crm")}>go</button>;
     }
     render(<TestComp />);
     screen.getByText("go").click();
-    expect(_mockNavigate).toHaveBeenCalledWith("/crm");
+    expect(_mockPush).toHaveBeenCalledWith("/crm");
   });
 
   it("子路由前缀匹配 → activeTab 为父路径", () => {
-    _mockLocation.pathname = "/membership/upgrade";
+    _mockPathname = "/membership/upgrade";
     function TestComp() {
       const { activeTab } = useNavTabs();
       return <span data-testid="active">{activeTab}</span>;
@@ -139,7 +137,7 @@ describe("useNavTabs", () => {
   });
 
   it("未匹配路由 → 回退 /showroom", () => {
-    _mockLocation.pathname = "/unknown-page";
+    _mockPathname = "/unknown-page";
     function TestComp() {
       const { activeTab } = useNavTabs();
       return <span data-testid="active">{activeTab}</span>;
