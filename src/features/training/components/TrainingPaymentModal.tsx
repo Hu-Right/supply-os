@@ -15,10 +15,12 @@ import {
   fetchTrainingOrderStatus,
   mockPayTrainingOrder,
   saveTrainingParticipants,
+  submitTrainingRegister,
   type LandingCourse,
   type LandingSchedule,
   type TrainingParticipant,
 } from "../api";
+import { ApiError } from "@/core/http";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import ParticipantForm from "./ParticipantForm";
 
@@ -109,35 +111,23 @@ export default function TrainingPaymentModal({
         certificationStr += "\n" + companyInfo.other_certification.trim();
       }
 
-      const res = await fetch("/api/training/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: companyInfo.company_name,
-          industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
-          main_product: companyInfo.main_product,
-          export_experience: companyInfo.export_experience,
-          certification: certificationStr,
-          contact_name: companyInfo.contact_name,
-          position: companyInfo.position,
-          telephone: companyInfo.telephone,
-          email: companyInfo.email,
-          remark: companyInfo.remark,
-        }),
+      await submitTrainingRegister({
+        company_name: companyInfo.company_name,
+        industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
+        main_product: companyInfo.main_product,
+        export_experience: companyInfo.export_experience,
+        certification: certificationStr,
+        contact_name: companyInfo.contact_name,
+        position: companyInfo.position,
+        telephone: companyInfo.telephone,
+        email: companyInfo.email,
+        remark: companyInfo.remark,
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setCompanyError(data.error || t("formError"));
-        return;
-      }
-
-      const data = await res.json();
 
       setPendingParticipants(participants);
       setPhase("payment");
     } catch (err) {
-      setCompanyError(t("formError"));
+      setCompanyError(err instanceof ApiError ? err.message : t("formError"));
     } finally {
       setSubmittingCompany(false);
     }

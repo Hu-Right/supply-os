@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select } from "@/shared/ui";
+import { fetchCertifications, fetchIndustries, fetchSubIndustries } from "../api";
 import type { DictionaryItem } from "../api";
 
 export interface CompanyInfoData {
@@ -42,40 +43,39 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
   const [level2Industries, setLevel2Industries] = useState<DictionaryItem[]>([]);
   const [level3Industries, setLevel3Industries] = useState<DictionaryItem[]>([]);
 
-  // 加载资质证书和行业数据
+  // 加载资质证书和行业数据（统一走 training service；此前裸 fetch 无鉴权重试/无缓存）
   useEffect(() => {
-    fetch("/api/certifications")
-      .then(res => res.json())
+    fetchCertifications()
       .then(data => setCertifications(Array.isArray(data) ? data : []))
       .catch(() => {});
 
-    fetch("/api/unspsc/industries?level=1")
-      .then(res => res.json())
+    fetchIndustries()
       .then(data => setLevel1Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
 
   // 二级行业联动
+  // 注意：/api/unspsc/industries 服务端忽略 level/parent_id 参数（固定返回一级类目），
+  // 此前 level=2&parent_id= 的裸 fetch 实际拿到的是一级列表（级联数据错误）；
+  // 正确通道为 /api/unspsc/children?parent_id=。
   useEffect(() => {
     if (!value.industry_id) {
       setLevel2Industries([]);
       setLevel3Industries([]);
       return;
     }
-    fetch(`/api/unspsc/industries?level=2&parent_id=${value.industry_id}`)
-      .then(res => res.json())
+    fetchSubIndustries(value.industry_id)
       .then(data => setLevel2Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [value.industry_id]);
 
-  // 三级行业联动
+  // 三级行业联动（同上，改用 children 端点）
   useEffect(() => {
     if (!value.industry_level2_id) {
       setLevel3Industries([]);
       return;
     }
-    fetch(`/api/unspsc/industries?level=3&parent_id=${value.industry_level2_id}`)
-      .then(res => res.json())
+    fetchSubIndustries(value.industry_level2_id)
       .then(data => setLevel3Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [value.industry_level2_id]);

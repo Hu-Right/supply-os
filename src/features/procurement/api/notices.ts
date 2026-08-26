@@ -3,7 +3,7 @@
  * Notice search and detail API functions
  */
 import type { NoticeResponse, NoticeItem, NoticeTranslation } from "../types";
-import { api, apiCached, buildQuery, getAuthToken, ApiError } from "@/core/http";
+import { api, apiCached, buildQuery, downloadFile } from "@/core/http";
 
 export const fetchNoticeCountries = () =>
   apiCached<Array<{ country: string; count: number }>>("/api/notices/countries");
@@ -77,24 +77,8 @@ export const fetchNoticeTranslation = (noticeId: number, lang: string) =>
  * Authorization 头（退役前依赖已废弃的 query user_key），改为带 Token 拉取 Blob 后本地保存。
  */
 export async function downloadNoticeReport(reportUrl: string): Promise<void> {
-  const token = getAuthToken();
-  const res = await fetch(reportUrl, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!res.ok) throw new ApiError(res.status, `Report download failed: ${res.status}`);
-  // 文件名优先取 Content-Disposition（后端 bidReportFileName 口径），缺失时兜底 report.docx
-  const disposition = res.headers.get("Content-Disposition") || "";
-  const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-  const fileName = matched ? decodeURIComponent(matched[1]) : "report.docx";
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = objectUrl;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(objectUrl);
+  // 统一走 api-client 的 downloadFile 通道（自动携带 Bearer + Content-Disposition 文件名解析）
+  await downloadFile(reportUrl, "report.docx");
 }
 
 /**

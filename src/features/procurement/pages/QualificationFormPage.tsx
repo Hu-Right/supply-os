@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Input } from "@/shared/ui";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/features/training/components/landing-ui";
+import { submitSupplierQualification } from "../api/qualification";
+import { ApiError } from "@/core/http";
 
 // ── 选项常量 ──
 
@@ -264,39 +266,29 @@ export default function QualificationFormPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/supplier-qualification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: form.company_name.trim(),
-          company_website: form.company_website.trim(),
-          founding_year: form.founding_year.trim() || null,
-          employee_count: form.employee_count || null,
-          industry: form.industry,
-          other_industry: form.other_industry.trim() || null,
-          main_product: form.main_product.trim(),
-          export_scale: form.export_scale,
-          certifications: form.certifications,
-          other_certifications: form.other_certifications.trim() || null,
-          service_countries: form.service_countries.trim(),
-          overseas_companies: form.overseas_companies.trim(),
-          ungm_status: form.ungm_status,
-          english_team: form.english_team,
-          payment_terms: form.payment_terms,
-          bid_willingness: form.bid_willingness,
-          contact_info: form.contact_info.trim() || null,
-        }),
+      await submitSupplierQualification({
+        company_name: form.company_name.trim(),
+        company_website: form.company_website.trim(),
+        founding_year: form.founding_year.trim() || null,
+        employee_count: form.employee_count || null,
+        industry: form.industry,
+        other_industry: form.other_industry.trim() || null,
+        main_product: form.main_product.trim(),
+        export_scale: form.export_scale,
+        certifications: form.certifications,
+        other_certifications: form.other_certifications.trim() || null,
+        service_countries: form.service_countries.trim(),
+        overseas_companies: form.overseas_companies.trim(),
+        ungm_status: form.ungm_status,
+        english_team: form.english_team,
+        payment_terms: form.payment_terms,
+        bid_willingness: form.bid_willingness,
+        contact_info: form.contact_info.trim() || null,
       });
-
-      if (res.ok) {
-        toast.success(t("qualSuccessTitle"));
-        setSubmitted(true);
-      } else {
-        const data = await res.json();
-        toast.error(data.message || data.error || t("qualErrorSubmit"));
-      }
-    } catch {
-      toast.error(t("qualErrorNetwork"));
+      toast.success(t("qualSuccessTitle"));
+      setSubmitted(true);
+    } catch (err) {
+      toast.error(err instanceof ApiError && err.message ? err.message : t("qualErrorNetwork"));
     } finally {
       setLoading(false);
     }
