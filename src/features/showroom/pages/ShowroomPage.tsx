@@ -14,7 +14,7 @@ import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
 import { Input, Select } from "@/shared/ui";
-import { SeoHead } from "@/shared/seo";
+import { SeoHead, WebSiteJsonLd } from "@/shared/seo";
 import { ShowroomCard } from "../components/ShowroomCard";
 import { RegisterForm } from "../components/RegisterForm";
 import { onAppEvent, emitAppEvent } from "@/core/events";
@@ -115,6 +115,11 @@ export default function ShowroomPage() {
         description="浏览全球智能展厅，发现各国采购商机。支持按地区、国家筛选，快速找到目标市场的展厅信息。"
         keywords="展厅,全球采购,国际展览,采购商机,外贸,osneosmart"
         canonical="https://osneosmart.com/showroom"
+      />
+      <WebSiteJsonLd
+        name="云境全球智能展厅"
+        url="https://osneosmart.com"
+        description="外贸员的全球采购订单雷达 - 直接查看哪些国家、机构、企业正在采购您的产品"
       />
       <div className="space-y-6">
       {/* Active Filters — 移动端垂直堆叠，桌面端横向排列 */}
