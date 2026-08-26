@@ -2,6 +2,11 @@ import { defineConfig } from "vitest/config";
 import path from "path";
 
 export default defineConfig({
+  // Next.js 迁移后 tsconfig 为 jsx: preserve，vitest 需显式使用 automatic runtime，
+  // 否则 JSX 转译为 React.createElement 而测试文件未导入 React（"React is not defined"）。
+  esbuild: {
+    jsx: "automatic",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
