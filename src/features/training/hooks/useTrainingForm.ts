@@ -9,14 +9,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
-import {
-  fetchCertifications,
-  fetchIndustries,
-  fetchSubIndustries,
-  submitTrainingRegister,
-  type DictionaryItem,
-  type TrainingRegisterForm,
-} from "../api";
+import { submitTrainingRegister, type TrainingRegisterForm } from "../api";
+// 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
+import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
+import type { DictionaryItem } from "@/core/unspsc/types";
 
 const EXPORT_EXPERIENCE_OPTIONS = ["3年以内", "3-5年", "5-10年", "10年以上"];
 
@@ -72,7 +68,7 @@ export function useTrainingForm() {
       .then((items) => setCertifications(Array.isArray(items) ? items : []))
       .catch(() => setCertifications([]));
 
-    fetchIndustries()
+    fetchUnspscIndustries()
       .then((items) => setLevel1Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel1Industries([]));
   }, []);
@@ -84,7 +80,7 @@ export function useTrainingForm() {
       setLevel3Industries([]);
       return;
     }
-    fetchSubIndustries(form.industry_id)
+    fetchUnspscChildren(form.industry_id)
       .then((items) => setLevel2Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel2Industries([]));
     setForm((prev) => ({ ...prev, industry_level2_id: "", industry_level3_id: "" }));
@@ -96,7 +92,7 @@ export function useTrainingForm() {
       setLevel3Industries([]);
       return;
     }
-    fetchSubIndustries(form.industry_level2_id)
+    fetchUnspscChildren(form.industry_level2_id)
       .then((items) => setLevel3Industries(Array.isArray(items) ? items : []))
       .catch(() => setLevel3Industries([]));
     setForm((prev) => ({ ...prev, industry_level3_id: "" }));

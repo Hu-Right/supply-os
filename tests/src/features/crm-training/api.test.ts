@@ -8,8 +8,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const apiMock = vi.fn();
+const apiCachedMock = vi.fn();
 vi.mock("@/core/http", () => ({
   api: (...args: any[]) => apiMock(...args),
+  apiCached: (...args: any[]) => apiCachedMock(...args),
+  buildQuery: vi.fn((params: Record<string, any>) => {
+    const parts: string[] = [];
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== "") parts.push(`${k}=${encodeURIComponent(String(v))}`);
+    }
+    return parts.join("&");
+  }),
 }));
 
 // ── crm/api.ts ──
@@ -25,11 +34,15 @@ describe("fetchLeads", () => {
   });
 });
 
-// ── training/api.ts ──
+// ── core/unspsc/api.ts（字典端点唯一实现，原 training/api 三实现已删除） ──
 import {
   fetchCertifications,
-  fetchIndustries,
-  fetchSubIndustries,
+  fetchUnspscIndustries,
+  fetchUnspscChildren,
+} from "@/core/unspsc/api";
+
+// ── training/api.ts ──
+import {
   submitTrainingRegister,
   fetchLandingData,
   createTrainingOrder,
@@ -47,19 +60,19 @@ describe("fetchCertifications", () => {
   });
 });
 
-describe("fetchIndustries", () => {
-  it("GET /api/unspsc/industries", async () => {
-    apiMock.mockResolvedValue([]);
-    await fetchIndustries();
-    expect(apiMock).toHaveBeenCalledWith("/api/unspsc/industries");
+describe("fetchUnspscIndustries", () => {
+  it("GET /api/unspsc/industries（apiCached）", async () => {
+    apiCachedMock.mockResolvedValue([]);
+    await fetchUnspscIndustries();
+    expect(apiCachedMock).toHaveBeenCalledWith("/api/unspsc/industries");
   });
 });
 
-describe("fetchSubIndustries", () => {
-  it("GET /api/unspsc/children?parent_id=xxx", async () => {
-    apiMock.mockResolvedValue([]);
-    await fetchSubIndustries(42);
-    expect(apiMock).toHaveBeenCalledWith("/api/unspsc/children?parent_id=42");
+describe("fetchUnspscChildren", () => {
+  it("GET /api/unspsc/children?parent_id=xxx（apiCached）", async () => {
+    apiCachedMock.mockResolvedValue([]);
+    await fetchUnspscChildren("42");
+    expect(apiCachedMock).toHaveBeenCalledWith("/api/unspsc/children?parent_id=42");
   });
 });
 
