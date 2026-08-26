@@ -10,7 +10,7 @@
 import { useLocale } from "@/core/i18n";
 import { ServiceCard } from "../components/ServiceCard";
 import { SuccessStories } from "../components/SuccessStories";
-import { SERVICES, SUCCESS_STORIES } from "../data";
+import { SERVICES, SUCCESS_STORIES } from "@/data/services";
 import { emitAppEvent } from "@/core/events";
 
 export default function ServicesPage() {

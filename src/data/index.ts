@@ -13,3 +13,5 @@ export { EXHIBITION_HALLS } from "./exhibition-halls";
 export { OPPORTUNITIES } from "./opportunities";
 export { LEARNING_MATERIALS, TRAINING_DOWNLOAD_MATERIALS } from "./materials";
 export { FAQS } from "./faqs";
+// 注意：services 数据依赖 lucide-react 图标组件，不走本桶文件导出
+// （避免所有 @/data 消费方被迫加载图标库），请直接 import "@/data/services"。
