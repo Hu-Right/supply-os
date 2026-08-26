@@ -20,11 +20,12 @@ git fetch origin
 git checkout "${BRANCH}"
 git reset --hard "origin/${BRANCH}"
 
-# 2. 安装依赖（锁文件，速度快且可复现；失败则回退 npm install）
+# 2. 安装依赖（node_modules 已存在时增量安装，避免每次 ci 删除重装导致超时）
 echo "[deploy] 安装依赖..."
-if ! npm ci; then
-  echo "[deploy] npm ci 失败，回退 npm install..."
+if [ -d node_modules ]; then
   npm install
+else
+  npm ci
 fi
 
 # 3. 构建前端 + 打包后端到 dist/
