@@ -95,6 +95,10 @@ vi.mock("lucide-react", () => ({
   TrendingUp: _StubIcon, Upload: _StubIcon, Users: _StubIcon,
   WifiOff: _StubIcon, X: _StubIcon,
   Zap: _StubIcon, Star: _StubIcon,
+  ArrowLeft: _StubIcon, AlertCircle: _StubIcon, ExternalLink: _StubIcon,
+  Loader2: _StubIcon, Smartphone: _StubIcon, Unlink: _StubIcon,
+  Filter: _StubIcon,
+  CreditCard: _StubIcon, Shield: _StubIcon, Clock: _StubIcon,
 }));
 
 // jsdom 不提供 matchMedia，前端组件测试常用兜底
