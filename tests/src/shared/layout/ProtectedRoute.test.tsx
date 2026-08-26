@@ -6,6 +6,14 @@ import { render, screen } from "@testing-library/react";
 import { ProtectedRoute } from "@/shared/layout/ProtectedRoute";
 import { emitAppEvent } from "@/core/events";
 
+// next/navigation mock
+const mockReplace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace, push: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/showroom",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // 覆盖全局 useAuth mock（本文件需要可变状态）
 const mockAuth = vi.fn(() => ({ authUser: null, isVip: false }));
 vi.mock("@/core/auth", () => ({
@@ -15,6 +23,7 @@ vi.mock("@/core/auth", () => ({
 describe("ProtectedRoute", () => {
   beforeEach(() => {
     vi.mocked(emitAppEvent).mockClear();
+    mockReplace.mockClear();
     mockAuth.mockReturnValue({ authUser: null, isVip: false });
   });
 

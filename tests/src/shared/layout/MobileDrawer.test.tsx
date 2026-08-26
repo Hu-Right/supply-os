@@ -6,11 +6,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MobileDrawer } from "@/shared/layout/MobileDrawer";
 
-// mock useLocation（覆盖全局 mock 以支持 active 判断）
-vi.mock("react-router-dom", () => ({
-  useLocation: () => ({ pathname: "/showroom", search: "", hash: "", state: null, key: "" }),
-  useNavigate: () => vi.fn(),
-  Navigate: () => null,
+// next/navigation mock（替代原 react-router-dom mock）
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/showroom",
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("MobileDrawer", () => {
@@ -33,7 +33,6 @@ describe("MobileDrawer", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<MobileDrawer open onClose={onClose} />);
-    // 遮罩是第一个 absolute div
     const backdrop = document.querySelector(".bg-slate-900\\/50")!;
     await user.click(backdrop);
     expect(onClose).toHaveBeenCalled();
@@ -43,9 +42,7 @@ describe("MobileDrawer", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<MobileDrawer open onClose={onClose} />);
-    // 关闭按钮是抽屉头部里的 button（含 X icon）
     const buttons = screen.getAllByRole("button");
-    // 第一个 button 是关闭按钮（头部 X）
     await user.click(buttons[0]);
     expect(onClose).toHaveBeenCalled();
   });
