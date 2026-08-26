@@ -12,6 +12,7 @@ const ServicesPage = lazy(() => import("@/features/services").then(m => ({ defau
 const LearningPage = lazy(() => import("@/features/learning").then(m => ({ default: m.LearningPage })));
 const MembershipPage = lazy(() => import("@/features/membership").then(m => ({ default: m.MembershipPage })));
 const TrainingPage = lazy(() => import("@/features/training").then(m => ({ default: m.TrainingLandingPage })));
+const QualificationFormPage = lazy(() => import("@/features/procurement/pages/QualificationFormPage"));
 
 /**
  * Root redirect component
@@ -48,6 +49,7 @@ export default function AppRoutes() {
           <Route path="/learning" element={<LearningPage />} />
           <Route path="/membership" element={<MembershipPage />} />
           <Route path="/training" element={<TrainingPage />} />
+          <Route path="/procurement/qualification" element={<QualificationFormPage />} />
           <Route path="*" element={<Navigate to="/showroom" replace />} />
         </Routes>
       </Suspense>
@@ -68,6 +70,7 @@ const preloadMap: Record<string, () => Promise<unknown>> = {
   "/learning": () => import("@/features/learning"),
   "/membership": () => import("@/features/membership"),
   "/training": () => import("@/features/training"),
+  "/procurement/qualification": () => import("@/features/procurement/pages/QualificationFormPage"),
 };
 
 /**

@@ -38,7 +38,8 @@ export default function App() {
   useVersionCheck();
   // 研修班落地页：main 全宽，由页面内部决定通版/版心
   // （藏青导航条/Hero/CTA 通版，其余区块受 max-w-7xl 版心约束）
-  const isTrainingPage = useLocation().pathname === "/training";
+  const pathname = useLocation().pathname;
+  const isTrainingPage = pathname === "/training" || pathname === "/procurement/qualification";
 
   const handlePaymentSuccess = () => {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });

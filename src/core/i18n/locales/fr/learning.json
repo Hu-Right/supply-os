@@ -13,6 +13,7 @@
   "trainingBannerDesc": "Page d'inscription autonome pour affiches, codes QR et liens externes.",
   "trainingSubmittedTitle": "Inscription soumise.",
   "trainingSubmittedDesc": "Nous confirmerons votre présence par téléphone ou e-mail avant le début de l'atelier.",
+  "trainingFormSubmitAgain": "Soumettre à nouveau",
   "trainingFormCompanyName": "Nom de l'entreprise *",
   "trainingFormLevel1Industry": "Secteur de niveau 1 (UNSPSC) *",
   "trainingFormSelectLevel1": "Sélectionner le niveau 1",

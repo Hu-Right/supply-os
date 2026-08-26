@@ -13,6 +13,7 @@
   "trainingBannerDesc": "Отдельная страница регистрации для плакатов, QR-кодов и внешних ссылок.",
   "trainingSubmittedTitle": "Заявка отправлена.",
   "trainingSubmittedDesc": "Мы подтвердим ваше участие по телефону или эл. почте до начала практикума.",
+  "trainingFormSubmitAgain": "Отправить снова",
   "trainingFormCompanyName": "Название компании *",
   "trainingFormLevel1Industry": "Отрасль уровня 1 (UNSPSC) *",
   "trainingFormSelectLevel1": "Выберите уровень 1",

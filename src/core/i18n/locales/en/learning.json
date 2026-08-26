@@ -13,6 +13,7 @@
   "trainingBannerDesc": "Standalone registration page for posters, QR codes and external links.",
   "trainingSubmittedTitle": "Registration submitted.",
   "trainingSubmittedDesc": "We will confirm your attendance via phone or email before the workshop starts.",
+  "trainingFormSubmitAgain": "Submit Again",
   "trainingFormCompanyName": "Company Name *",
   "trainingFormLevel1Industry": "Level 1 Industry (UNSPSC) *",
   "trainingFormSelectLevel1": "Select Level 1",

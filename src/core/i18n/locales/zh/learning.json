@@ -13,6 +13,7 @@
   "trainingBannerDesc": "独立报名页面，可用于海报、二维码和外部跳转访问。",
   "trainingSubmittedTitle": "报名信息已提交。",
   "trainingSubmittedDesc": "我们将在开班前通过电话或邮件确认参会细节。",
+  "trainingFormSubmitAgain": "再次提交",
   "trainingFormCompanyName": "企业名称 *",
   "trainingFormLevel1Industry": "一级行业（UNSPSC）*",
   "trainingFormSelectLevel1": "请选择一级行业",
