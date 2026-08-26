@@ -108,7 +108,7 @@ export function useAuthForm(onSuccess: () => void) {
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
           registerVerifyCode
         );
-        await saveIndustryPrefs(email.toLowerCase(), {
+        await saveIndustryPrefs({
           level1_id: Number(prefLevel1),
           level2_id: Number(prefLevel2),
           level3_id: prefLevel3 ? Number(prefLevel3) : null,

@@ -136,11 +136,6 @@ export type SupplierContact = {
  * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
  * Fetch plaintext supplier contact (VIP only)
  */
-export async function fetchSupplierContact(
-  id: string,
-  userKey: string
-): Promise<SupplierContact> {
-  return api<SupplierContact>(
-    `/api/suppliers/${encodeURIComponent(id)}/contact?user_key=${encodeURIComponent(userKey)}`
-  );
+export async function fetchSupplierContact(id: string): Promise<SupplierContact> {
+  return api<SupplierContact>(`/api/suppliers/${encodeURIComponent(id)}/contact`);
 }

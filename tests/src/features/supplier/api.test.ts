@@ -106,11 +106,9 @@ describe("fetchSuppliersPaginated", () => {
 describe("fetchSupplierContact", () => {
   beforeEach(() => apiMock.mockReset());
 
-  it("GET /api/suppliers/:id/contact?user_key=xxx", async () => {
+  it("GET /api/suppliers/:id/contact（不含 legacy user_key）", async () => {
     apiMock.mockResolvedValue({ contactPerson: "张三" });
-    await fetchSupplierContact("42", "user@test.com");
-    expect(apiMock).toHaveBeenCalledWith(
-      "/api/suppliers/42/contact?user_key=user%40test.com"
-    );
+    await fetchSupplierContact("42");
+    expect(apiMock).toHaveBeenCalledWith("/api/suppliers/42/contact");
   });
 });

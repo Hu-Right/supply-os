@@ -139,7 +139,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
     try {
       await api("/api/auth/rebind-phone", {
         method: "POST",
-        body: { user_key: authUser.user_key, new_phone: phone, code },
+        body: { new_phone: phone, code },
       });
       setMessage(t("authPhoneRebindSuccess"));
       setIsError(false);
@@ -162,7 +162,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
     try {
       await api("/api/auth/unbind-phone", {
         method: "POST",
-        body: { user_key: authUser.user_key, code },
+        body: { code },
       });
       setMessage(t("authPhoneUnbindSuccess"));
       setIsError(false);
