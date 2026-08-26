@@ -22,7 +22,8 @@ export default defineConfig({
         "server/utils/**/*.ts",
         // ── server/data（静态数据）──
         "server/data/countryNames.ts",
-        "server/data/agency-i18n/**/*.ts",
+        // agency-i18n 大型静态数据表（>500 行）仅做结构测试，不纳入覆盖率统计
+        // "server/data/agency-i18n/**/*.ts",
         // "server/services/agency-i18n-data.ts",  // barrel re-export，无独立逻辑
         // ── server/config ──
         "server/config/env.ts",
