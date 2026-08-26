@@ -1,10 +1,11 @@
 /**
- * 服务生态静态数据
+ * 服务生态静态数据（内容型静态数据统一存放于 src/data）
  * Services Ecosystem Static Data
  *
- * @module features/services/data
- * @description 服务项列表、成功案例（迁移阶段使用静态数据，后续可改为 API）
- *              Service items list, success stories (static data for migration phase, can be replaced with API later)
+ * @module data/services
+ * @description 服务项列表、成功案例（迁移阶段使用静态数据，后续可改为 API）。
+ *              自 features/services/data.ts 上移至全局静态数据仓库，
+ *              与 FAQ / 学习资料 / 展厅 / 商机等静态内容同源管理。
  */
 
 import {
@@ -15,7 +16,22 @@ import {
   Crown,
   MessageSquare,
 } from "lucide-react";
-import type { ServiceItem, SuccessStoryItem } from "./types";
+
+/** 服务项 */
+export interface ServiceItem {
+  title: string;
+  desc: string;
+  icon: import("lucide-react").LucideIcon;
+  specs: string[];
+  active?: boolean;
+}
+
+/** 成功案例 */
+export interface SuccessStoryItem {
+  date: string;
+  title: string;
+  description: string;
+}
 
 /**
  * 服务项列表

@@ -3,7 +3,7 @@
  * 覆盖 SERVICES 和 SUCCESS_STORIES 静态数据
  */
 import { describe, it, expect } from "vitest";
-import { SERVICES, SUCCESS_STORIES } from "@/features/services/data";
+import { SERVICES, SUCCESS_STORIES } from "@/data/services";
 
 describe("SERVICES", () => {
   it("包含 6 个服务项", () => {
