@@ -3,6 +3,5 @@
 import dynamic from "next/dynamic";
 
 export default dynamic(
-  () => import("@/features/supplier").then(m => m.default || m.SupplierPage),
-  { ssr: false },
+  () => import("@/features/supplier").then(m => (m as any).default || m.SupplierPage),
 );
