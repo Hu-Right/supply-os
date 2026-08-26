@@ -3,6 +3,5 @@
 import dynamic from "next/dynamic";
 
 export default dynamic(
-  () => import("@/features/learning").then(m => m.default || m.LearningPage),
-  { ssr: false },
+  () => import("@/features/learning").then(m => (m as any).default || m.LearningPage),
 );
