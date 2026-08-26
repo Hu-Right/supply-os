@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "node ./node_modules/tsx/dist/cli.mjs server.ts",
     "build": "node ./node_modules/vite/bin/vite.js build && (node scripts/generate-version.mjs || echo [version] skipped) && node ./node_modules/esbuild/bin/esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.mjs",
+    "build:prerender": "npm run build && npx tsx scripts/prerender.ts",
+    "prerender": "npx tsx scripts/prerender.ts",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "start": "set NODE_ENV=production&& node dist/server.mjs",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
