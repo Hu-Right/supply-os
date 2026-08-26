@@ -11,7 +11,7 @@
  *              navigation items; auto-closes on selection.
  */
 import { useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "@/lib/compat/router-compat";
 import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";

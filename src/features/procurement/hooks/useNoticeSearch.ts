@@ -11,7 +11,7 @@
  *              - useSearchResults（列表数据加载）
  */
 import { useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
 import { useSearchDropdowns } from "./useSearchDropdowns";

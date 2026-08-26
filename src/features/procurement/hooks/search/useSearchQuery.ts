@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchQuery
  */
 import { useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 
 export interface SearchQuery {
   activeQ: string;

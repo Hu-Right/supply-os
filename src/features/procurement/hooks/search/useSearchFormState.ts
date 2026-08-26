@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchFormState
  */
 import { useCallback, useReducer, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "@/lib/compat/router-compat";
 import { searchFormReducer, type SearchFormState } from "../searchFormReducer";
 
 export interface SearchFormInputs {

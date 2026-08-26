@@ -8,7 +8,7 @@
  */
 
 import { useEffect, type ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "@/lib/compat/router-compat";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 
