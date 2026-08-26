@@ -7,6 +7,7 @@ import type { Pool } from "mysql2/promise";
 import { asyncHandler } from "../middleware/errorHandler";
 import { rateLimitMiddleware } from "../middleware/rateLimiter";
 import { sendError, ApiErrorCode } from "../utils/http-error";
+import { SupplierQualificationRepo } from "../repos/supplier-qualification.repo";
 
 export interface QualificationDeps {
   dbPool: Pool;
@@ -14,7 +15,8 @@ export interface QualificationDeps {
 
 export function createQualificationRouter(deps: QualificationDeps): Router {
   const router = Router();
-  const { dbPool } = deps;
+  // F7 修复：SQL 一律经 Repo 出口（此前路由层直接持有 dbPool.execute）
+  const repo = new SupplierQualificationRepo(deps.dbPool);
 
   // 限流：每分钟最多 10 次提交（防刷）
   const rateLimit = rateLimitMiddleware({ windowMs: 60_000, maxAttempts: 10 });
@@ -72,36 +74,27 @@ export function createQualificationRouter(deps: QualificationDeps): Router {
       || req.socket?.remoteAddress
       || "127.0.0.1";
 
-    const [result] = await dbPool.execute(
-      `INSERT INTO crm_supplier_qualification
-        (company_name, company_website, founding_year, employee_count, industry, other_industry,
-         main_product, export_scale, certifications, other_certifications,
-         service_countries, overseas_companies, ungm_status, english_team,
-         payment_terms, bid_willingness, contact_info, audit_status, ip, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())`,
-      [
-        String(company_name).trim(),
-        String(company_website).trim(),
-        String(founding_year || "").trim() || null,
-        String(employee_count || "").trim() || null,
-        toArray(industry),
-        String(other_industry || "").trim() || null,
-        String(main_product).trim(),
-        String(export_scale).trim(),
-        toArray(certifications),
-        String(other_certifications || "").trim() || null,
-        String(service_countries).trim(),
-        String(overseas_companies).trim(),
-        String(ungm_status).trim(),
-        String(english_team).trim(),
-        String(payment_terms).trim(),
-        String(bid_willingness).trim(),
-        String(contact_info || "").trim() || null,
-        ip,
-      ],
-    );
+    const id = await repo.insertQualification({
+      company_name: String(company_name).trim(),
+      company_website: String(company_website).trim(),
+      founding_year: String(founding_year || "").trim() || null,
+      employee_count: String(employee_count || "").trim() || null,
+      industry: toArray(industry),
+      other_industry: String(other_industry || "").trim() || null,
+      main_product: String(main_product).trim(),
+      export_scale: String(export_scale).trim(),
+      certifications: toArray(certifications),
+      other_certifications: String(other_certifications || "").trim() || null,
+      service_countries: String(service_countries).trim(),
+      overseas_companies: String(overseas_companies).trim(),
+      ungm_status: String(ungm_status).trim(),
+      english_team: String(english_team).trim(),
+      payment_terms: String(payment_terms).trim(),
+      bid_willingness: String(bid_willingness).trim(),
+      contact_info: String(contact_info || "").trim() || null,
+      ip,
+    });
 
-    const id = Number((result as any).insertId);
     res.status(201).json({ success: true, id, message: "提交成功，我们将尽快审核" });
   }));
 
