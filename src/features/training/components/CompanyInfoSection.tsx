@@ -10,8 +10,9 @@
 import { useEffect, useState } from "react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select } from "@/shared/ui";
-import { fetchCertifications, fetchIndustries, fetchSubIndustries } from "../api";
-import type { DictionaryItem } from "../api";
+// 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
+import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
+import type { DictionaryItem } from "@/core/unspsc/types";
 
 export interface CompanyInfoData {
   company_name: string;
@@ -49,7 +50,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
       .then(data => setCertifications(Array.isArray(data) ? data : []))
       .catch(() => {});
 
-    fetchIndustries()
+    fetchUnspscIndustries()
       .then(data => setLevel1Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, []);
@@ -64,7 +65,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
       setLevel3Industries([]);
       return;
     }
-    fetchSubIndustries(value.industry_id)
+    fetchUnspscChildren(value.industry_id)
       .then(data => setLevel2Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [value.industry_id]);
@@ -75,7 +76,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
       setLevel3Industries([]);
       return;
     }
-    fetchSubIndustries(value.industry_level2_id)
+    fetchUnspscChildren(value.industry_level2_id)
       .then(data => setLevel3Industries(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [value.industry_level2_id]);

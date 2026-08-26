@@ -5,6 +5,15 @@
  * @module core/unspsc/types
  */
 
+/** 字典项（认证/类目下拉通用形状，原 features/training/api 收敛至此） */
+export interface DictionaryItem {
+  id: number;
+  code?: string;
+  title_zh?: string;
+  title_en?: string;
+  name?: string;
+}
+
 export interface UnspscOption {
   id: number;
   code: string;

@@ -11,7 +11,7 @@ import { CheckCircle2, GraduationCap, Send } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select } from "@/shared/ui";
 import { useTrainingForm } from "../hooks/useTrainingForm";
-import type { DictionaryItem } from "../api";
+import type { DictionaryItem } from "@/core/unspsc/types";
 
 export default function TrainingPage() {
   const { t, locale } = useLocale();
