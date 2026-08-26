@@ -202,6 +202,17 @@ export default defineConfig({
         "src/shared/layout/**/*.{ts,tsx}",
         // ── src/shared/filters — React 组件 ──
         "src/shared/filters/**/*.{ts,tsx}",
+        // ── src/features — Phase 4 组件 ──
+        "src/features/training/components/*.tsx",
+        "src/features/services/components/*.tsx",
+        "src/features/procurement/components/*.tsx",
+        "src/features/showroom/components/*.tsx",
+        "src/features/supplier/components/*.tsx",
+        "src/features/membership/components/*.tsx",
+        "src/features/payment/components/*.tsx",
+        "src/features/auth/components/*.tsx",
+        "src/features/auth/components/forms/*.tsx",
+        "src/features/crm/components/*.tsx",
       ],
       exclude: [
         "src/__tests__/**",
