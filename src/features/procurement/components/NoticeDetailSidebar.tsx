@@ -9,7 +9,7 @@
  *              non-VIP users see "View Plans" button to navigate to plans page.
  */
 import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
-import { useNavigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
 import type { NoticeItem, MembershipStatus } from "../types";
@@ -46,7 +46,7 @@ export function NoticeDetailSidebar({
   onUnlock,
   onPayUnlock,
 }: NoticeDetailSidebarProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { t } = useLocale();
 
   /** 操作按钮组（移动端固定底栏 / 桌面端侧边栏共用） */
@@ -110,7 +110,7 @@ export function NoticeDetailSidebar({
       {/* 非VIP用户显示"查看套餐"按钮，跳转到会员套餐详情页面 */}
       {!isVip && (
         <button
-          onClick={() => navigate(`/membership?notice_id=${notice.id}`)}
+          onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
           className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 text-sm font-black hover:bg-amber-100 transition-colors"
         >
           <ExternalLink className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, lazy, Suspense } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -27,7 +27,8 @@ import { useNoticeActions } from "../hooks/useNoticeActions";
 export default function ProcurementPage() {
   const { t } = useLocale();
   const { authUser, isVip, refreshAuth } = useAuth();
-  const [, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const userKey = authUser?.user_key;
 
   // ── 性能监控：首屏计时 ──
@@ -54,7 +55,7 @@ export default function ProcurementPage() {
     setPage(1);
     setSelectedNotice(null);
     // 清空 URL 搜索条件（表单由 sync effect 自动同步清空）
-    setSearchParams({});
+    router.replace("/procurement");
     // 乐观切回 prefs 模式并重新预选行业路径
     void restorePrefsMode();
   };

@@ -4,7 +4,7 @@
  *
  * @module shared/layout/MobileDrawer
  */
-import { useLocation, useNavigate } from "@/lib/compat/router-compat";
+import { usePathname, useRouter } from "next/navigation";
 import { Globe, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -21,8 +21,8 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
   const { tierLabel } = useMembershipTier();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // VIP 等级标签：按已解锁套餐显示，兜底 VIP
   const vipDisplayLabel = tierLabel || "VIP";
@@ -31,12 +31,12 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   if (!open) return null;
 
   const handleNavClick = (path: string) => {
-    navigate(path);
+    router.push(path);
     onClose();
   };
 
   const isTabActive = (path: string) => {
-    const p = location.pathname;
+    const p = pathname;
     return p === path || (path === "/showroom" && (p === "/" || p === ""));
   };
 

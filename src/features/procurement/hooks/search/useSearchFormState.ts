@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchFormState
  */
 import { useCallback, useReducer, useEffect } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams } from "next/navigation";
 import { searchFormReducer, type SearchFormState } from "../searchFormReducer";
 
 export interface SearchFormInputs {
@@ -43,7 +43,7 @@ export function useSearchFormState(): {
   }) => void;
   clear: () => void;
 } {
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const [formState, dispatchForm] = useReducer(searchFormReducer, {
     q: searchParams.get("q") || "",
     country: searchParams.get("country") || "",

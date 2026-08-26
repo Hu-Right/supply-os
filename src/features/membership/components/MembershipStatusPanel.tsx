@@ -10,7 +10,7 @@
 
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
 import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
-import { useNavigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import type { MembershipStatus } from "@/types";
 
@@ -50,13 +50,13 @@ export function MembershipStatusPanel({
   compact = false,
 }: MembershipStatusPanelProps) {
   const { t } = useLocale();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // 未登录或无数据时不展示
   if (!isLoggedIn || !membership) return null;
 
   const handleGoToPlans = () => {
-    navigate(noticeId ? `/membership?notice_id=${noticeId}` : "/membership");
+    router.push(noticeId ? `/membership?notice_id=${noticeId}` : "/membership");
   };
 
   const entitlements = membership.entitlements ?? [];

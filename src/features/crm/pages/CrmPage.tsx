@@ -8,7 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
-import { useLocation } from "@/lib/compat/router-compat";
+import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";
@@ -19,10 +19,19 @@ import { LeadTracker } from "../components/LeadTracker";
 
 export default function CrmPage() {
   const { t } = useLocale();
-  // 供应商页"AI 撮合商机"跳转时通过路由 state 带入目标供应商，挂载后自动撮合
-  const location = useLocation();
-  const autoMatchSupplier =
-    (location.state as { aiMatchSupplier?: Supplier } | null)?.aiMatchSupplier ?? null;
+  // 供应商页"AI 撮合商机"跳转时通过 sessionStorage 带入目标供应商
+  const [autoMatchSupplier] = useState<Supplier | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("__route_state__");
+      if (raw) {
+        const state = JSON.parse(raw);
+        sessionStorage.removeItem("__route_state__");
+        return state?.aiMatchSupplier ?? null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  });
   const {
     leads,
     isLoadingLeads,

@@ -10,7 +10,7 @@
  *              cleans them up afterwards.
  */
 import { useEffect } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/features/payment";
@@ -30,7 +30,8 @@ export function usePaymentReturnReconciliation({
   userKey,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   useEffect(() => {
     const orderNo = searchParams.get("order_no");
@@ -68,7 +69,7 @@ export function usePaymentReturnReconciliation({
       } else if (noticeIdParam) {
         await openNoticeById(Number(noticeIdParam));
       }
-      if (!cancelled) setSearchParams({}, { replace: true });
+      if (!cancelled) router.replace(window.location.pathname);
     })();
     return () => {
       cancelled = true;

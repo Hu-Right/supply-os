@@ -8,7 +8,7 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
@@ -21,7 +21,9 @@ import { onAppEvent, emitAppEvent } from "@/core/events";
 
 export default function ShowroomPage() {
   const { t, locale } = useLocale();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   
   // 从 URL 参数初始化搜索状态（页面刷新后保持搜索条件）
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") || "");
@@ -47,10 +49,10 @@ export default function ShowroomPage() {
     
     // 只有在有搜索条件时才更新 URL，避免无意义的 URL 变化
     if (searchTerm || selectedRegion || selectedCountry) {
-      setSearchParams(params, { replace: true });
-    } else if (searchParams.toString()) {
-      // 如果当前 URL 有参数但搜索条件为空，清空 URL 参数
-      setSearchParams({}, { replace: true });
+      const qs = params.toString();
+      router.replace(`${pathname}?${qs}`, { scroll: false });
+    } else if (searchParams?.toString()) {
+      router.replace(pathname, { scroll: false });
     }
   }, [searchTerm, selectedRegion, selectedCountry]);
 
@@ -96,7 +98,7 @@ export default function ShowroomPage() {
     setSelectedCountry("");
     setSearchTerm("");
     // 清空 URL 参数
-    setSearchParams({}, { replace: true });
+    router.replace(pathname, { scroll: false });
   };
 
   const handleRegister = (showroom: ExhibitionHall | null) => {
