@@ -93,5 +93,60 @@ export function createSystemRouter(ctx: AppContext): Router {
     res.json({ version: readBuildVersion() });
   });
 
+  // ─ Sitemap.xml 动态生成（SEO 核心基础设施）──
+  // 缓存 1 小时，页面结构变更频率低
+  // 包含所有公开页面，帮助搜索引擎快速发现和索引
+  let sitemapCache: { xml: string; ts: number } | null = null;
+  const SITEMAP_CACHE_TTL = 60 * 60 * 1000; // 1 小时
+
+  /** 公开页面列表（不含需要认证的页面） */
+  const PUBLIC_PAGES = [
+    { path: "/", priority: "1.0", changefreq: "daily" },
+    { path: "/showroom", priority: "0.9", changefreq: "daily" },
+    { path: "/procurement", priority: "0.8", changefreq: "hourly" },
+    { path: "/supplier", priority: "0.8", changefreq: "daily" },
+    { path: "/services", priority: "0.7", changefreq: "weekly" },
+    { path: "/learning", priority: "0.7", changefreq: "weekly" },
+    { path: "/training", priority: "0.8", changefreq: "weekly" },
+    { path: "/procurement/qualification", priority: "0.6", changefreq: "monthly" },
+  ];
+
+  router.get("/sitemap.xml", (_req, res) => {
+    const now = Date.now();
+
+    // 使用缓存（1 小时内）
+    if (sitemapCache && now - sitemapCache.ts < SITEMAP_CACHE_TTL) {
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      return res.send(sitemapCache.xml);
+    }
+
+    // 生成 sitemap XML
+    const baseUrl = process.env.SITE_URL || "https://osneosmart.com";
+    const lastmod = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+    const urls = PUBLIC_PAGES.map(
+      (page) =>
+        `  <url>
+    <loc>${baseUrl}${page.path}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>`
+    ).join("\n");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>`;
+
+    // 更新缓存
+    sitemapCache = { xml, ts: now };
+
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(xml);
+  });
+
   return router;
 }
