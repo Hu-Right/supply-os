@@ -37,33 +37,29 @@ test.describe("海外展厅页面", () => {
   });
 
   test("搜索过滤 → 卡片数量变化", async ({ page }) => {
-    // 等待初始卡片加载
-    await page.waitForTimeout(500);
-
-    // 记录初始卡片数量（通过展厅名称特征定位）
-    const initialCards = page.locator("[class*='rounded-2xl'][class*='border']");
-    const initialCount = await initialCards.count();
+    // 等待初始卡片渲染完成（展厅卡片为静态数据，但渲染需等待）
+    const cardSelector = "[class*='rounded-2xl'][class*='border']";
+    await expect(page.locator(cardSelector).first()).toBeVisible({ timeout: 5000 });
+    const initialCount = await page.locator(cardSelector).count();
 
     // 输入搜索关键词（匹配特定展厅）
     const searchInput = page.getByPlaceholder("输入关键字搜索");
     await searchInput.fill("法兰克福");
 
     // 等待过滤生效
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
 
-    // 验证卡片数量减少
-    const filteredCards = page.locator("[class*='rounded-2xl'][class*='border']");
+    // 验证卡片数量减少或保持（过滤结果不多于初始）
+    const filteredCards = page.locator(cardSelector);
     const filteredCount = await filteredCards.count();
-
-    // 过滤后卡片应少于或等于初始数量
     expect(filteredCount).toBeLessThanOrEqual(initialCount);
 
     // 清空搜索
     await searchInput.clear();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
 
     // 验证卡片恢复
-    const restoredCards = page.locator("[class*='rounded-2xl'][class*='border']");
+    const restoredCards = page.locator(cardSelector);
     const restoredCount = await restoredCards.count();
     expect(restoredCount).toBe(initialCount);
   });

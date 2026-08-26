@@ -5,7 +5,7 @@
  * @module shared/layout/useAppEvents
  * @description 统一注册 supply-os:* 自定义事件到 window，驱动 AuthModal / PaymentModal / ConsultForm 等全局弹窗。
  */
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { onAppEvent } from "@/core/events";
 import type { PayEventDetail } from "@/core/events";
 
@@ -17,7 +17,9 @@ export interface AppEventHandlers {
 }
 
 export function useAppEvents(handlers: AppEventHandlers) {
-  useEffect(() => {
+  // useLayoutEffect：父组件 layout effect 先于子组件普通 effect 执行，
+  // 保证首次加载时子组件（如 ProtectedRoute）在 effect 中派发的事件不丢失
+  useLayoutEffect(() => {
     // 注意：不订阅 supply-os:unauthorized —— 被动 401（游客访问需登录接口、
     // 会话过期后的后台请求）不应自动弹出登录框；登录弹窗仅由用户主动操作
     // （require-login / open-account / require-vip）触发。

@@ -38,8 +38,8 @@ test.describe("会员套餐浏览", () => {
     await page.waitForTimeout(2000); // 等待 API 响应
 
     // 验证至少有一个套餐卡片可见
-    // 卡片包含"购买"或"立即开通"等按钮文本
-    const buyButtons = page.getByRole("button", { name: /购买|开通|选择|订阅/i });
+    // 卡片包含“立即购买”按钮（语言切换器的 aria-label“选择语言”会误匹配“选择”，需精确匹配）
+    const buyButtons = page.getByRole("button", { name: /立即购买/ });
     const count = await buyButtons.count();
 
     // 如果 API 正常，应有至少 2 个购买按钮
@@ -77,8 +77,8 @@ test.describe("会员套餐浏览", () => {
     // 等待套餐卡片加载
     await page.waitForTimeout(2000);
 
-    // 找到第一个购买按钮
-    const buyButton = page.getByRole("button", { name: /购买|开通|选择|订阅/i }).first();
+    // 找到第一个购买按钮（精确匹配“立即购买”，避开语言切换器）
+    const buyButton = page.getByRole("button", { name: /立即购买/ }).first();
     const isBuyButtonVisible = await buyButton.isVisible().catch(() => false);
 
     if (!isBuyButtonVisible) {
@@ -112,8 +112,8 @@ test.describe("会员套餐浏览", () => {
     await page.goto(`/membership?t=${Date.now()}`);
     await page.waitForLoadState("networkidle");
 
-    // 验证错误提示可见（错误文案 + 重新加载按钮）
-    const errorText = page.getByText(/重新加载|加载失败|请稍后重试/i);
+    // 验证错误提示可见（错误文案 + 重新加载按钮，取第一个匹配）
+    const errorText = page.getByText(/重新加载|加载失败|请稍后重试/i).first();
     await expect(errorText).toBeVisible({ timeout: 10_000 });
   });
 });
