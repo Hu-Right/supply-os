@@ -81,7 +81,7 @@ export function IndustryPrefsForm() {
     if (savedMb) setMainBusinessRaw(savedMb);
 
     // 从后端加载已保存的行业偏好
-    fetchIndustryPrefs(userKey).then((prefs) => {
+    fetchIndustryPrefs().then((prefs) => {
       setPrefLevel1(prefs?.level1_id ? String(prefs.level1_id) : "");
       setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
       setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
@@ -145,7 +145,7 @@ export function IndustryPrefsForm() {
     try {
       // 仅持久化用户在 UI 中确认过的 L1~L3；L4/L5 是推断产物，
       // 静默保存会在推断出错时把匹配锁定到错误分支（最高分档），故恒置 null
-      await saveIndustryPrefs(authUser.user_key, {
+      await saveIndustryPrefs({
         level1_id: Number(prefLevel1),
         level2_id: Number(prefLevel2),
         level3_id: prefLevel3 ? Number(prefLevel3) : null,
@@ -168,7 +168,7 @@ export function IndustryPrefsForm() {
   const clearPrefs = async () => {
     if (!authUser?.user_key) return;
     try {
-      await saveIndustryPrefs(authUser.user_key, { level1_id: null });
+      await saveIndustryPrefs({ level1_id: null });
       // 仅在后端确认清除后才复位本地选择，失败时保留原偏好显示
       setPrefLevel1("");
       setPrefLevel2("");

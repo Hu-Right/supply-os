@@ -135,7 +135,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     setPage(1);
     setPrefsMode("prefs");
     try {
-      const prefs = await fetchIndustryPrefs(userKey);
+      const prefs = await fetchIndustryPrefs();
       if (prefs?.level1_id) {
         setHasIndustryPrefs(true);
         await applyPrefsPath(prefs);
@@ -177,7 +177,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     const stale = () => prefsInitKeyRef.current !== userKey;
     const detect = async () => {
       try {
-        const prefs = await fetchIndustryPrefs(userKey);
+        const prefs = await fetchIndustryPrefs();
         if (stale()) return;
         if (prefs?.level1_id) {
           // S0 有账号偏好：预选级联路径，切行业精准匹配数据源（方案 A）

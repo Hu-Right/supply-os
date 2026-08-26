@@ -23,9 +23,9 @@ export interface IndustryPrefs {
  * @remarks 任何异常返回 null（回退到推荐/全量），绝不阻断公采页。
  *          偏好可在个人中心随时修改，故不走缓存。
  */
-export const fetchIndustryPrefs = async (userKey: string): Promise<IndustryPrefs | null> => {
+export const fetchIndustryPrefs = async (): Promise<IndustryPrefs | null> => {
   try {
-    const data = await api<{ prefs?: IndustryPrefs }>(`/api/user/industry-prefs?user_key=${encodeURIComponent(userKey)}`);
+    const data = await api<{ prefs?: IndustryPrefs }>("/api/user/industry-prefs");
     return data?.prefs || null;
   } catch {
     return null;
@@ -36,8 +36,8 @@ export const fetchIndustryPrefs = async (userKey: string): Promise<IndustryPrefs
  * 保存账号默认行业偏好（level1_id 传空即清除偏好）
  * Save the account's default industry preference (null level1_id clears it)
  */
-export const saveIndustryPrefs = (userKey: string, prefs: Partial<IndustryPrefs>) =>
+export const saveIndustryPrefs = (prefs: Partial<IndustryPrefs>) =>
   api("/api/user/industry-prefs", {
     method: "POST",
-    body: { user_key: userKey, ...prefs },
+    body: prefs,
   });

@@ -122,7 +122,7 @@ export default function SupplierPage() {
     // 弹窗先开（加载态），数据到达后原地切换，避免点击后无反馈
     setContactModal({ supplier, status: "loading", contact: null });
     try {
-      const contact = await fetchSupplierContact(supplier.id, authUser.user_key);
+      const contact = await fetchSupplierContact(supplier.id);
       setContactModal({ supplier, status: "success", contact });
     } catch {
       setContactModal({ supplier, status: "error", contact: null });

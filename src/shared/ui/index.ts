@@ -42,7 +42,5 @@ export type { ErrorBoundaryProps } from "./ErrorBoundary";
 export { Pagination } from "./Pagination";
 export type { PaginationProps } from "./Pagination";
 
-export { useInfiniteScroll } from "./useInfiniteScroll";
-
 export { LoadingOverlay } from "./LoadingOverlay";
 export type { LoadingOverlayProps } from "./LoadingOverlay";
