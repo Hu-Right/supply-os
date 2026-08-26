@@ -6,6 +6,7 @@ coverage/
 *.tsbuildinfo
 .vite/
 .cache/
+.next/
 
 # ===== 敏感配置(保留 .env.example)=====
 .env*
@@ -83,6 +84,7 @@ Desktop.ini
 
 # ===== 开发过程文档 =====
 docs/
+!docs/adr/
 要求.md
 .superpowers/
 生成报告.txt

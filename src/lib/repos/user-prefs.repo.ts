@@ -1,0 +1,49 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * 用户行业偏好数据访问层
+ * User Preferences Repository
+ *
+ * @module repos/user-prefs.repo
+ */
+import type { Pool } from "mysql2/promise";
+
+export interface UserIndustryPrefsRow {
+  level1_id: number | null;
+  level2_id: number | null;
+  level3_id: number | null;
+  level4_id: number | null;
+  level5_id: number | null;
+  updated_at: Date | null;
+}
+
+export class UserPrefsRepo {
+  constructor(private pool: Pool) {}
+
+  /** 查询用户行业偏好 */
+  async getIndustryPrefs(userKey: string): Promise<UserIndustryPrefsRow | null> {
+    const [rows] = await this.pool.query(
+      "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, updated_at FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1",
+      [userKey],
+    );
+    return (rows as UserIndustryPrefsRow[])[0] ?? null;
+  }
+
+  /** 清除用户行业偏好 */
+  async deleteIndustryPrefs(userKey: string): Promise<void> {
+    await this.pool.execute("DELETE FROM crm_user_industry_prefs WHERE user_key = ?", [userKey]);
+  }
+
+  /** 写入/更新用户行业偏好 */
+  async upsertIndustryPrefs(userKey: string, levels: (number | null)[]): Promise<void> {
+    await this.pool.execute(
+      `INSERT INTO crm_user_industry_prefs (user_key, level1_id, level2_id, level3_id, level4_id, level5_id)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         level1_id = VALUES(level1_id), level2_id = VALUES(level2_id), level3_id = VALUES(level3_id),
+         level4_id = VALUES(level4_id), level5_id = VALUES(level5_id), updated_at = NOW()`,
+      [userKey, ...levels],
+    );
+  }
+}
