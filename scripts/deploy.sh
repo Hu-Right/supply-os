@@ -1,37 +1,49 @@
 #!/usr/bin/env bash
-# 服务器端部署脚本（Docker Compose）：拉取最新代码 → 重新构建镜像 → 重启容器
+# 服务器端部署脚本（裸装）：拉取最新代码 → 安装依赖 → 构建 → 重启应用（pm2）
 # 由 GitHub Actions（.github/workflows/deploy.yml）通过 SSH 调用，
 # 也可在服务器上手动执行：bash scripts/deploy.sh
 set -euo pipefail
 
-# 部署目录与分支（可通过环境变量覆盖）
+# 部署目录、应用名与分支（可通过环境变量覆盖）
 APP_DIR="${APP_DIR:-/root/supply-os}"
+APP_NAME="${APP_NAME:-supply-os}"
 BRANCH="${BRANCH:-main}"
-# 是否启用 Meilisearch 搜索（with-search profile）；设为 "on" 时随应用一起启动
-ENABLE_SEARCH="${ENABLE_SEARCH:-off}"
 
 echo "[deploy] $(date '+%F %T') 开始部署: ${APP_DIR} (分支 ${BRANCH})"
 
 cd "${APP_DIR}"
 
 # 1. 拉取最新代码：强制对齐远端，避免服务器本地误改导致合并冲突
-#    注意：.env.production / docker 数据卷均为 gitignore 未跟踪内容，reset 不影响它们
+#    注意：.env / bin / logs / runtime 均为 gitignore 未跟踪文件，reset 不影响它们
 echo "[deploy] 拉取最新代码..."
 git fetch origin
 git checkout "${BRANCH}"
 git reset --hard "origin/${BRANCH}"
 
-# 2. 构建镜像并重启容器（依赖 .env.production，首次部署需手动创建）
-echo "[deploy] 构建并重启容器..."
-if [ "${ENABLE_SEARCH}" = "on" ]; then
-  docker compose --profile with-search up -d --build
-else
-  docker compose up -d --build
+# 2. 安装依赖（锁文件，速度快且可复现；失败则回退 npm install）
+echo "[deploy] 安装依赖..."
+if ! npm ci; then
+  echo "[deploy] npm ci 失败，回退 npm install..."
+  npm install
 fi
 
-# 3. 清理悬空镜像，释放磁盘空间
-echo "[deploy] 清理旧镜像..."
-docker image prune -f
+# 3. 构建前端 + 打包后端到 dist/
+echo "[deploy] 构建..."
+npm run build
 
-echo "[deploy] $(date '+%F %T') 部署完成，当前容器状态："
-docker compose ps
+# 4. 重启应用（pm2 托管，保持常驻）
+echo "[deploy] 重启应用..."
+if command -v pm2 >/dev/null 2>&1; then
+  NODE_ENV=production pm2 reload "${APP_NAME}" \
+    || NODE_ENV=production pm2 start dist/server.mjs --name "${APP_NAME}"
+  pm2 save
+else
+  echo "[deploy] ⚠ 未安装 pm2，请先执行："
+  echo "          npm i -g pm2"
+  echo "          NODE_ENV=production pm2 start ${APP_DIR}/dist/server.mjs --name ${APP_NAME}"
+  echo "          pm2 save && pm2 startup"
+  exit 1
+fi
+
+echo "[deploy] $(date '+%F %T') 部署完成，当前进程状态："
+pm2 list | grep "${APP_NAME}" || true
