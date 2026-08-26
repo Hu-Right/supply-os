@@ -289,11 +289,6 @@ export const AGENCY_ALIAS_GROUPS: AgencyAliasGroup[] = [
     i18n: { zh: "经合组织", fr: "OCDE", ru: "ОЭСР", es: "OCDE", ar: "منظمة التعاون الاقتصادي والتنمية" },
   },
   {
-    canonical: "EU",
-    aliases: ["EUROPEAN UNION", "EUROPEAN COMMISSION", "EC"],
-    i18n: { zh: "欧盟", fr: "UE", ru: "ЕС", es: "UE", ar: "الاتحاد الأوروبي" },
-  },
-  {
     canonical: "NATO",
     aliases: ["NORTH ATLANTIC TREATY ORGANIZATION"],
     i18n: { zh: "北约", fr: "OTAN", ru: "НАТО", es: "OTAN", ar: "منظمة حلف شمال الأطلسي" },

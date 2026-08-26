@@ -84,17 +84,21 @@ vi.mock("lucide-react", () => ({
   default: _StubIcon,
   // 所有组件中使用的图标统一返回同一个占位组件
   Building2: _StubIcon, BookOpen: _StubIcon, Briefcase: _StubIcon,
-  Brain: _StubIcon, Check: _StubIcon, CheckCircle2: _StubIcon,
+  Brain: _StubIcon, CalendarDays: _StubIcon, Check: _StubIcon, CheckCircle2: _StubIcon,
   ChevronDown: _StubIcon, ChevronLeft: _StubIcon, ChevronRight: _StubIcon,
   Crown: _StubIcon, FileSearch: _StubIcon, FileText: _StubIcon,
   Globe: _StubIcon, GraduationCap: _StubIcon, Inbox: _StubIcon,
-  Layers: _StubIcon, LayoutGrid: _StubIcon, Menu: _StubIcon,
-  MessageCircle: _StubIcon, MessageSquare: _StubIcon, Play: _StubIcon,
-  Plus: _StubIcon, Quote: _StubIcon, Search: _StubIcon,
-  Send: _StubIcon, ShieldCheck: _StubIcon, Target: _StubIcon,
+  Layers: _StubIcon, LayoutGrid: _StubIcon, MapPin: _StubIcon, Menu: _StubIcon,
+  MessageCircle: _StubIcon, MessageSquare: _StubIcon, Network: _StubIcon, Play: _StubIcon,
+  Plus: _StubIcon, Quote: _StubIcon, ScrollText: _StubIcon, Search: _StubIcon,
+  Send: _StubIcon, ShieldCheck: _StubIcon, BadgeCheck: _StubIcon, Target: _StubIcon,
   TrendingUp: _StubIcon, Upload: _StubIcon, Users: _StubIcon,
   WifiOff: _StubIcon, X: _StubIcon,
   Zap: _StubIcon, Star: _StubIcon,
+  ArrowLeft: _StubIcon, AlertCircle: _StubIcon, ExternalLink: _StubIcon,
+  Loader2: _StubIcon, Smartphone: _StubIcon, Unlink: _StubIcon,
+  Filter: _StubIcon,
+  CreditCard: _StubIcon, Shield: _StubIcon, Clock: _StubIcon,
 }));
 
 // jsdom 不提供 matchMedia，前端组件测试常用兜底

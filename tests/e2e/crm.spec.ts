@@ -15,18 +15,13 @@ test.describe("CRM 线索管理", () => {
     await page.goto("/crm");
     await page.waitForLoadState("networkidle");
 
+    // ProtectedRoute 未登录重定向到 /showroom，并触发 require-login 弹窗
     const url = page.url();
-    // 应被重定向到登录页或显示登录提示
-    const isRedirected = url.includes("/auth") || url.includes("/login");
+    expect(url).toContain("/showroom");
 
-    if (!isRedirected) {
-      // 可能停留在 /crm 但显示登录提示
-      const loginPrompt = page.getByText(/登录|注册|Login|Sign/i).first();
-      const hasPrompt = await loginPrompt.isVisible({ timeout: 3000 }).catch(() => false);
-      expect(hasPrompt || isRedirected).toBeTruthy();
-    } else {
-      expect(url).toMatch(/auth|login/);
-    }
+    // 登录弹窗应弹出（AuthModal 为 lazy 加载，等待稍长）
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible({ timeout: 10_000 });
   });
 });
 

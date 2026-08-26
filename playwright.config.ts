@@ -22,6 +22,10 @@ export default defineConfig({
 
   use: {
     baseURL: "http://localhost:3039",
+    /* API 测试需要 Origin 头以通过 CSRF 中间件 */
+    extraHTTPHeaders: {
+      Origin: "http://localhost:3039",
+    },
     /* 失败时截图 */
     screenshot: "only-on-failure",
     /* 重试时录制 trace */

@@ -7,6 +7,7 @@
  */
 
 import { lazy, Suspense } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "sonner";
 import { useLocation } from "react-router-dom";
 import { useLocale } from "@/core/i18n";
@@ -38,7 +39,8 @@ export default function App() {
   useVersionCheck();
   // 研修班落地页：main 全宽，由页面内部决定通版/版心
   // （藏青导航条/Hero/CTA 通版，其余区块受 max-w-7xl 版心约束）
-  const isTrainingPage = useLocation().pathname === "/training";
+  const pathname = useLocation().pathname;
+  const isTrainingPage = pathname === "/training" || pathname === "/procurement/qualification";
 
   const handlePaymentSuccess = () => {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
@@ -52,33 +54,35 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
-      <NetworkBanner />
-      <AppHeader tabs={tabs} activeTab={activeTab}
-        mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
-        onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
-      <main className={isTrainingPage ? "flex-1 w-full" : "flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6"}>
-        <SessionBanner />
-        <AppRoutes />
-      </main>
-      {showAuthModal && <Suspense fallback={null}><AuthModal onClose={() => setShowAuthModal(false)} /></Suspense>}
-      {showConsultForm && <Suspense fallback={null}><ConsultForm onClose={() => setShowConsultForm(false)} /></Suspense>}
-      {showTrainingRegisterForm && (
-        <Suspense fallback={null}>
-          <TrainingRegisterForm onClose={() => setShowTrainingRegisterForm(false)} />
-        </Suspense>
-      )}
-      {showPaymentModal && paymentPlan && authUser && (
-        <Suspense fallback={null}>
-          <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}
-            currency={paymentPlan.currency} noticeId={paymentPlan.noticeId ?? null}
-            returnUrl={paymentPlan.returnUrl} orderType={paymentPlan.orderType} originalPlanCode={paymentPlan.originalPlanCode}
-            onClose={() => setShowPaymentModal(false)}
-            onPaymentSuccess={handlePaymentSuccess} />
-        </Suspense>
-      )}
-      <Toaster richColors position="top-center" closeButton />
-      <AppFooter activeTab={activeTab} onSwitchTab={switchMainTab} onOpenConsult={() => setShowConsultForm(true)} />
-    </div>
+    <HelmetProvider>
+      <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-teal-500 selection:text-white">
+        <NetworkBanner />
+        <AppHeader tabs={tabs} activeTab={activeTab}
+          mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen}
+          onSwitchTab={switchMainTab} onOpenAuth={() => setShowAuthModal(true)} />
+        <main className={isTrainingPage ? "flex-1 w-full" : "flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6"}>
+          <SessionBanner />
+          <AppRoutes />
+        </main>
+        {showAuthModal && <Suspense fallback={null}><AuthModal onClose={() => setShowAuthModal(false)} /></Suspense>}
+        {showConsultForm && <Suspense fallback={null}><ConsultForm onClose={() => setShowConsultForm(false)} /></Suspense>}
+        {showTrainingRegisterForm && (
+          <Suspense fallback={null}>
+            <TrainingRegisterForm onClose={() => setShowTrainingRegisterForm(false)} />
+          </Suspense>
+        )}
+        {showPaymentModal && paymentPlan && authUser && (
+          <Suspense fallback={null}>
+            <PaymentModal planCode={paymentPlan.code} planName={paymentPlan.name} amount={paymentPlan.price}
+              currency={paymentPlan.currency} noticeId={paymentPlan.noticeId ?? null}
+              returnUrl={paymentPlan.returnUrl} orderType={paymentPlan.orderType} originalPlanCode={paymentPlan.originalPlanCode}
+              onClose={() => setShowPaymentModal(false)}
+              onPaymentSuccess={handlePaymentSuccess} />
+          </Suspense>
+        )}
+        <Toaster richColors position="top-center" closeButton />
+        <AppFooter activeTab={activeTab} onSwitchTab={switchMainTab} onOpenConsult={() => setShowConsultForm(true)} />
+      </div>
+    </HelmetProvider>
   );
 }

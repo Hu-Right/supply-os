@@ -9,9 +9,10 @@ import { emitAppEvent } from "@/core/events";
 
 // 覆盖全局 useLocation mock
 const mockPathname = vi.fn(() => "/showroom");
+const mockNavigate = vi.fn();
 vi.mock("react-router-dom", () => ({
   useLocation: () => ({ pathname: mockPathname(), search: "", hash: "", state: null, key: "" }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
   Navigate: () => null,
 }));
 
@@ -19,6 +20,7 @@ describe("SessionBanner", () => {
   beforeEach(() => {
     mockPathname.mockReturnValue("/showroom");
     vi.mocked(emitAppEvent).mockClear();
+    mockNavigate.mockClear();
   });
 
   it("渲染 SESSION ACTIVE STATUS 标签", () => {
@@ -74,11 +76,11 @@ describe("SessionBanner", () => {
     expect(emitAppEvent).toHaveBeenCalledWith("supply-os:open-supplier-register");
   });
 
-  it("/procurement → 显示培训注册按钮", async () => {
+  it("/procurement → 筛选按钮导航到资格表单页", async () => {
     const user = userEvent.setup();
     mockPathname.mockReturnValue("/procurement");
     render(<SessionBanner />);
     await user.click(screen.getByText("procurementScreeningBtn"));
-    expect(emitAppEvent).toHaveBeenCalledWith("supply-os:open-training-register");
+    expect(mockNavigate).toHaveBeenCalledWith("/procurement/qualification");
   });
 });

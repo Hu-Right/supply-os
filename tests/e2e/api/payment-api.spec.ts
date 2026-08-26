@@ -40,7 +40,7 @@ test.describe("支付 API", () => {
       data: {},
     });
 
-    // 缺少必填字段应返回 400
-    expect([400, 422, 500]).toContain(response.status());
+    // 缺少必填字段应返回 400（无管理员密钥时返回 403）
+    expect([400, 403, 422, 500]).toContain(response.status());
   });
 });

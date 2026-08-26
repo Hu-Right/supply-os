@@ -24,11 +24,13 @@ import { createUserPrefsRouter } from "./routes/user-prefs.routes";
 import { createMembershipRouter } from "./routes/membership.routes";
 import { createAdminRouter } from "./routes/admin/index";
 import { createTrainingRouter } from "./routes/training.routes";
+import { createQualificationRouter } from "./routes/supplier-qualification.routes";
 import { createAiRouter } from "./routes/ai.routes";
 import { createSystemRouter } from "./routes/system.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
 import { optionalAuth } from "./middleware/auth";
 import { csrfProtection } from "./middleware/csrf";
+import { prerenderMiddleware } from "./middleware/prerender";
 
 export function createApp(ctx: AppContext): Express {
   const app = express();
@@ -78,6 +80,9 @@ export function createApp(ctx: AppContext): Express {
   app.use(optionalAuth);
   // P0-3 安全加固：CSRF 防护（纵深防御，JWT Bearer 请求自动跳过）
   app.use(csrfProtection);
+  // SEO[P1] 爬虫检测中间件：为搜索引擎爬虫返回预渲染的静态 HTML
+  // 必须在 API 路由之前，但在静态资源之后（避免拦截 API 请求）
+  app.use(prerenderMiddleware);
   // 挂载顺序 = 原 server.ts 注册顺序，禁止调整：
   app.use(createLeadsRouter(ctx));            // 1. /api/leads*
   app.use(createSuppliersRouter(ctx));        // 2. /api/suppliers*, /api/supplier-claims
@@ -90,6 +95,7 @@ export function createApp(ctx: AppContext): Express {
   app.use(createMembershipRouter(ctx));        // 9. /api/membership/*
   app.use(createAdminRouter(ctx));             // 10. /api/admin/*, /api/procurement/schema-status
   app.use(createTrainingRouter(ctx));          // 11. /api/training/*
+  app.use(createQualificationRouter({ dbPool: ctx.dbPool })); // 12. /api/supplier-qualification
   app.use(createAiRouter(ctx));               // 12. /api/ai/matchmake
   app.use(createSystemRouter(ctx));            // 13. /api/system/*
 

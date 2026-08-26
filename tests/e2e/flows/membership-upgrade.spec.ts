@@ -27,8 +27,8 @@ test.describe("会员升级流程", () => {
     // 等待套餐卡片加载
     await page.waitForTimeout(2000);
 
-    // 验证至少有一个购买按钮
-    const buyButtons = page.getByRole("button", { name: /购买|开通|选择|订阅/i });
+    // 验证至少有一个购买按钮（精确匹配“立即购买”，避开语言切换器的“选择语言”）
+    const buyButtons = page.getByRole("button", { name: /立即购买/ });
     const count = await buyButtons.count();
 
     if (count > 0) {
@@ -61,8 +61,8 @@ test.describe("会员升级流程", () => {
   test("未登录点击购买 → 弹出登录弹窗", async ({ page }) => {
     await page.waitForTimeout(2000);
 
-    // 找到第一个购买按钮
-    const buyButton = page.getByRole("button", { name: /购买|开通|选择|订阅/i }).first();
+    // 找到第一个购买按钮（精确匹配“立即购买”，避开语言切换器）
+    const buyButton = page.getByRole("button", { name: /立即购买/ }).first();
     const isBuyButtonVisible = await buyButton.isVisible().catch(() => false);
 
     if (!isBuyButtonVisible) {
@@ -82,8 +82,8 @@ test.describe("会员升级流程", () => {
   });
 
   test("套餐加载失败 → 显示错误提示", async ({ page }) => {
-    // 拦截 API 请求并返回错误
-    await page.route("**/api/membership/plans", (route) => {
+    // 拦截 API 请求并返回错误（通配符匹配带缓存破坏参数的 URL）
+    await page.route("**/api/membership/plans**", (route) => {
       route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -91,12 +91,12 @@ test.describe("会员升级流程", () => {
       });
     });
 
-    // 重新加载页面
-    await page.reload();
+    // 加时间戳参数跳过 apiCached 内存缓存
+    await page.goto(`/membership?t=${Date.now()}`);
     await page.waitForLoadState("networkidle");
 
-    // 验证错误提示可见
-    const errorText = page.getByText(/重新加载|加载失败|错误/i);
+    // 验证错误提示可见（错误文案 + 重新加载按钮，取第一个匹配）
+    const errorText = page.getByText(/重新加载|加载失败|请稍后重试/i).first();
     await expect(errorText).toBeVisible({ timeout: 10_000 });
   });
 });

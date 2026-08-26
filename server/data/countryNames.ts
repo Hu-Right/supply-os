@@ -244,6 +244,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "South Africa": "南非",
   "ZAF": "南非",
   "Africa do Sul": "南非",      // 葡萄牙语
+  "África do Sul": "南非",     // 葡萄牙语（带重音）
   "Afrique du Sud": "南非",     // 法语
   "Suid-Afrika": "南非",        // 南非荷兰语
   "South Sudan": "南苏丹",

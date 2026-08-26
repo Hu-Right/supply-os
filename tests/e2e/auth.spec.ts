@@ -32,7 +32,8 @@ test.describe("认证弹窗", () => {
     await expect(modal.getByText("会员登录与供应商注册")).toBeVisible();
 
     // 验证默认显示登录 tab（登录 tab 处于激活状态，有白色背景）
-    const loginTab = modal.getByRole("button", { name: "登录" });
+    // exact: true 避免匹配到“登录会员”提交按钮
+    const loginTab = modal.getByRole("button", { name: "登录", exact: true });
     await expect(loginTab).toBeVisible();
 
     // 验证登录表单元素可见
@@ -52,9 +53,9 @@ test.describe("认证弹窗", () => {
     await registerTab.click();
 
     // 验证注册表单元素可见（公司名称、邮箱、密码等）
-    // 注册表单包含更多字段
-    await expect(modal.getByPlaceholder("邮箱 / 手机号")).toBeVisible();
-    await expect(modal.getByRole("button", { name: /注册/ })).toBeVisible();
+    // 注册表单邮箱占位符为“邮箱”（登录表单才是“邮箱 / 手机号”），可能有多个输入匹配，取第一个
+    await expect(modal.getByPlaceholder("邮箱").first()).toBeVisible();
+    await expect(modal.getByRole("button", { name: "注册并提交供应商申请" })).toBeVisible();
 
     // 验证登录 tab 不再激活（注册 tab 激活）
     // 注册 tab 应有白色背景样式

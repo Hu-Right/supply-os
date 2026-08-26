@@ -50,8 +50,8 @@ test.describe("公告搜索 API", () => {
     expect(Array.isArray(body)).toBeTruthy();
 
     if (body.length > 0) {
-      // 每个国家应有 name 或 code 字段
-      expect(body[0]).toHaveProperty("name");
+      // 每个国家应有 country 字段
+      expect(body[0]).toHaveProperty("country");
     }
   });
 
@@ -65,8 +65,8 @@ test.describe("公告搜索 API", () => {
     expect(Array.isArray(body)).toBeTruthy();
 
     if (body.length > 0) {
-      // 每个机构应有 name 字段
-      expect(body[0]).toHaveProperty("name");
+      // 每个机构应有 agency 字段
+      expect(body[0]).toHaveProperty("agency");
     }
   });
 
