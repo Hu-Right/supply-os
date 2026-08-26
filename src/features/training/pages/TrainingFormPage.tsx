@@ -127,7 +127,7 @@ export default function TrainingFormPage() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-base font-black text-white">
-          {pickLocale(locale, "联合国采购招投标能力初筛问卷", "UN Procurement Capability Screening")}
+          {pickLocale(locale, "企业全球采购机会诊断", "Enterprise Global Procurement Opportunity Diagnosis")}
         </h1>
       </header>
 
@@ -136,8 +136,9 @@ export default function TrainingFormPage() {
         <div className="max-w-lg mx-auto">
           <p className="text-sm text-slate-600 leading-relaxed">
             {pickLocale(
-              "填写以下信息完成资质诊断，我们将根据您的企业情况评估联合国采购入驻资格。带 * 为必填项。",
-              "Fill in the information below to complete the qualification diagnosis. We will assess your UN procurement eligibility based on your company profile. Fields marked * are required.",
+              locale,
+              "填写以下信息完成企业全球采购机会诊断，我们将根据您的企业情况评估全球采购入驻资格。带 * 为必填项。",
+              "Fill in the information below to complete the global procurement opportunity diagnosis. We will assess your global procurement eligibility based on your company profile. Fields marked * are required.",
             )}
           </p>
         </div>
@@ -169,12 +170,12 @@ export default function TrainingFormPage() {
           >
             <Send className="w-5 h-5" />
             {loading
-              ? pickLocale("提交中...", "Submitting...")
-              : pickLocale("提交资质诊断", "Submit Diagnosis")}
+              ? pickLocale(locale, "提交中...", "Submitting...")
+              : pickLocale(locale, "提交资质诊断", "Submit Diagnosis")}
           </button>
 
           <p className="text-center text-xs text-slate-400 pb-4">
-            {pickLocale("提交即表示您同意我们收集并使用上述信息", "By submitting you agree to our data collection policy")}
+            {pickLocale(locale, "提交即表示您同意我们收集并使用上述信息", "By submitting you agree to our data collection policy")}
           </p>
         </div>
       </form>
