@@ -51,6 +51,32 @@ interface AgencyExpansion {
   hasSqlPattern: boolean;
 }
 
+/**
+ * 生成机构 MySQL 子查询：通过宽表 agency_std 列匹配。
+ *
+ * 根因：mysqlFallback 查 crm_bid_notices（主表原始值），但缓存中的机构名
+ * 是规范名（经别名映射/模式翻译），两者可能不同（如 "EU" vs "EUROPEAN UNION"）。
+ * 改用宽表子查询确保匹配规范后的 agency_std 列（与 UNSPSC 端口一致）。
+ */
+function agencyStdSubquery(values: string[], useLike?: string): { mysqlClause: string; mysqlParams: unknown[] } {
+  if (useLike) {
+    return {
+      mysqlClause: "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std LIKE ?)",
+      mysqlParams: [useLike],
+    };
+  }
+  if (values.length === 1) {
+    return {
+      mysqlClause: "EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std = ?)",
+      mysqlParams: [values[0]],
+    };
+  }
+  return {
+    mysqlClause: `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND ns.agency_std IN (${values.map(() => "?").join(",")}))`,
+    mysqlParams: [...values],
+  };
+}
+
 /** 解析机构缓存扩展（FORCE_COUNTRY / sqlPattern / originalAgencies） */
 function expandAgency(agency: string): AgencyExpansion {
   const items = getAgencyCacheData() || [];
@@ -77,49 +103,34 @@ function expandAgency(agency: string): AgencyExpansion {
     };
   }
   if (cached?.sqlPattern) {
+    // Meilisearch: 用 agency_group 字段（存 typeKey）过滤
+    // MySQL: 用宽表 agency_std LIKE 子查询（主表无 LIKE 规范名）
     return {
       hasSqlPattern: true,
-      // Meilisearch: 用 agency_group 字段（存 typeKey，如 "SECRETARIA_BR"）过滤，
-      // 而非 agency 字段（存 agency_std 规范名，如 "SECRETARIA DE PLANEJAMENTO..."）。
-      // 修复：typeKey ≠ agency_std 导致 Meilisearch filter 命中零条的 BUG。
       meiliAgencyGroup: cached.agencyGroup || agency,
-      mysqlClause: "n.agency LIKE ?",
-      mysqlParams: [cached.sqlPattern],
+      ...agencyStdSubquery([], cached.sqlPattern),
     };
   }
   if (cached?.agencyGroup && !cached.agencyGroup.startsWith("ORPHAN_")) {
-    // Meilisearch 用 agency_group 聚合字段；MySQL 主表无该列，用 originalAgencies 等价展开
-    const originals = cached.originalAgencies && cached.originalAgencies.length > 0 ? cached.originalAgencies : [agency];
+    // Meilisearch 用 agency_group 聚合字段
+    // MySQL 用宽表 agency_std 子查询（确保匹配规范名而非主表原始名）
     return {
       hasSqlPattern: false,
       meiliAgencyGroup: cached.agencyGroup,
-      mysqlClause: originals.length > 1
-        ? `n.agency IN (${originals.map(() => "?").join(",")})`
-        : "n.agency = ?",
-      mysqlParams: [...originals],
+      ...agencyStdSubquery(cached.originalAgencies?.length ? cached.originalAgencies : [agency]),
     };
   }
-  if (cached?.originalAgencies && cached.originalAgencies.length > 1) {
+  if (cached?.originalAgencies && cached.originalAgencies.length > 0) {
     return {
       hasSqlPattern: false,
       meiliAgencies: cached.originalAgencies,
-      mysqlClause: `n.agency IN (${cached.originalAgencies.map(() => "?").join(",")})`,
-      mysqlParams: [...cached.originalAgencies],
-    };
-  }
-  if (cached?.originalAgencies?.length === 1) {
-    return {
-      hasSqlPattern: false,
-      meiliAgencies: [cached.originalAgencies[0]],
-      mysqlClause: "n.agency = ?",
-      mysqlParams: [cached.originalAgencies[0]],
+      ...agencyStdSubquery(cached.originalAgencies),
     };
   }
   return {
     hasSqlPattern: false,
     meiliAgencies: [agency],
-    mysqlClause: "n.agency = ?",
-    mysqlParams: [agency],
+    ...agencyStdSubquery([agency]),
   };
 }
 
