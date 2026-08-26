@@ -24,6 +24,7 @@ import { createUserPrefsRouter } from "./routes/user-prefs.routes";
 import { createMembershipRouter } from "./routes/membership.routes";
 import { createAdminRouter } from "./routes/admin/index";
 import { createTrainingRouter } from "./routes/training.routes";
+import { createQualificationRouter } from "./routes/supplier-qualification.routes";
 import { createAiRouter } from "./routes/ai.routes";
 import { createSystemRouter } from "./routes/system.routes";
 import { notFoundHandler, errorHandler } from "./middleware/errorHandler";
@@ -90,6 +91,7 @@ export function createApp(ctx: AppContext): Express {
   app.use(createMembershipRouter(ctx));        // 9. /api/membership/*
   app.use(createAdminRouter(ctx));             // 10. /api/admin/*, /api/procurement/schema-status
   app.use(createTrainingRouter(ctx));          // 11. /api/training/*
+  app.use(createQualificationRouter({ dbPool: ctx.dbPool })); // 12. /api/supplier-qualification
   app.use(createAiRouter(ctx));               // 12. /api/ai/matchmake
   app.use(createSystemRouter(ctx));            // 13. /api/system/*
 

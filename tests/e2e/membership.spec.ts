@@ -26,8 +26,8 @@ test.describe("会员套餐浏览", () => {
     const mainTitle = page.getByText("会员套餐详情");
     await expect(mainTitle).toBeVisible();
 
-    // 验证副标题可见
-    const subtitle = page.getByText(/选择适合您的套餐/);
+    // 验证副标题可见（套餐区和对比区共用同一文案，取第一个）
+    const subtitle = page.getByText(/选择适合您的套餐/).first();
     await expect(subtitle).toBeVisible();
   });
 
@@ -99,8 +99,8 @@ test.describe("会员套餐浏览", () => {
   });
 
   test("页面加载错误 → 显示错误提示", async ({ page }) => {
-    // 拦截 API 请求并返回错误
-    await page.route("**/api/membership/plans", (route) => {
+    // 拦截 API 请求并返回错误（通配符匹配带缓存破坏参数的 URL）
+    await page.route("**/api/membership/plans**", (route) => {
       route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -108,12 +108,12 @@ test.describe("会员套餐浏览", () => {
       });
     });
 
-    // 重新加载页面
-    await page.reload();
+    // 重新加载页面（加时间戳参数跳过 apiCached 内存缓存）
+    await page.goto(`/membership?t=${Date.now()}`);
     await page.waitForLoadState("networkidle");
 
-    // 验证错误提示可见
-    const errorText = page.getByText(/重新加载|加载失败|错误/i);
+    // 验证错误提示可见（错误文案 + 重新加载按钮）
+    const errorText = page.getByText(/重新加载|加载失败|请稍后重试/i);
     await expect(errorText).toBeVisible({ timeout: 10_000 });
   });
 });

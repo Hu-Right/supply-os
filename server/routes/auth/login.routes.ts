@@ -95,7 +95,7 @@ export function createLoginRouter(
 
   // ── 获取用户信息 ──────────────────────────────────────────
   router.get("/api/auth/user", asyncHandler(async (req, res) => {
-    if (!req.userKey) return sendError(res, 400, ApiErrorCode.USER_REQUIRED, "请先登录");
+    if (!req.userKey) return sendError(res, 401, ApiErrorCode.USER_REQUIRED, "请先登录");
     if (!req.authViaJwt) {
       return sendError(res, 403, ApiErrorCode.FORBIDDEN, "请通过有效凭证访问");
     }

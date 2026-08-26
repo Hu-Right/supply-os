@@ -1,0 +1,6 @@
+/**
+ * SEO 模块入口
+ * @module shared/seo
+ */
+export { SeoHead } from "./SeoHead";
+export type { SeoHeadProps } from "./SeoHead";
