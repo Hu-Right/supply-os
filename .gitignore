@@ -29,6 +29,7 @@ scripts/*
 !scripts/seed-test-db.ts
 !scripts/perf-budget-check.ts
 !scripts/prerender.ts
+!scripts/deploy.sh
 runtime/
 backups/
 bin/
