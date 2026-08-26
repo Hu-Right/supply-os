@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchQuery
  */
 import { useMemo } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams } from "next/navigation";
 
 export interface SearchQuery {
   activeQ: string;
@@ -23,7 +23,7 @@ export interface SearchQuery {
 }
 
 export function useSearchQuery(deepestCodeId: string): SearchQuery {
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
 
   const activeQ = searchParams.get("q") || "";
   const activeCountry = searchParams.get("country") || "";

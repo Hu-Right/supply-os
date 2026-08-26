@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -22,7 +22,7 @@ import { getGridCols } from "../utils";
 import type { MembershipPlan, UpgradePreview } from "@/types";
 
 export default function MembershipPage() {
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");

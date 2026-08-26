@@ -9,7 +9,7 @@
  *              Logged-in panel of the auth modal: account info card, phone binding,
  *              industry preference form, records panel and logout.
  */
-import { useNavigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
@@ -26,7 +26,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
   const { t } = useLocale();
   const { authUser, isVip, logout, claimMessage } = useAuth();
   const { tierLabel } = useMembershipTier();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // VIP 徽章文案：按已解锁套餐显示等级（如"基础版"），兜底"VIP 会员"/"免费会员"
   const tierBadgeText = isVip
@@ -36,7 +36,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
   // 打开关联公告：先关闭账户弹窗再跳转到公采页
   const openNotice = (noticeId: number) => {
     onClose();
-    navigate(`/procurement?notice_id=${noticeId}`);
+    router.push(`/procurement?notice_id=${noticeId}`);
   };
 
   if (!authUser) return null;

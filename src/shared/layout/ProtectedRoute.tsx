@@ -8,7 +8,7 @@
  */
 
 import { useEffect, type ReactNode } from "react";
-import { Navigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 
@@ -23,28 +23,21 @@ export function ProtectedRoute({
   requireVip = false,
 }: ProtectedRouteProps) {
   const { authUser, isVip } = useAuth();
+  const router = useRouter();
   const needLogin = !authUser;
   const needVip = !needLogin && requireVip && !isVip;
 
-  // 弹窗事件属于副作用，必须放在提交后的 effect 中派发，
-  // 避免渲染期派发导致 StrictMode 双触发与重复弹窗
   useEffect(() => {
     if (needLogin) {
-      // 触发登录弹窗
       emitAppEvent("supply-os:require-login");
+      router.replace("/showroom");
     } else if (needVip) {
-      // 触发 VIP 升级提示
       emitAppEvent("supply-os:require-vip");
+      router.replace("/showroom");
     }
-  }, [needLogin, needVip]);
+  }, [needLogin, needVip, router]);
 
-  if (needLogin) {
-    return <Navigate to="/showroom" replace />;
-  }
-
-  if (needVip) {
-    return <Navigate to="/showroom" replace />;
-  }
+  if (needLogin || needVip) return null;
 
   return <>{children}</>;
 }

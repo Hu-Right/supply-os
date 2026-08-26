@@ -11,7 +11,7 @@
  *              navigation items; auto-closes on selection.
  */
 import { useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "@/lib/compat/router-compat";
+import { useRouter, usePathname } from "next/navigation";
 import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -46,8 +46,8 @@ export function AppHeader({
   const { authUser, isVip } = useAuth();
   const { tierLabel } = useMembershipTier();
   const navScrollRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
+  const pathname = usePathname();
+  const router = useRouter();
 
   // VIP 等级标签：按已解锁套餐显示（个人版/基础版/旗舰版/至尊版），兜底 VIP
   const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
@@ -132,8 +132,8 @@ export function AppHeader({
 /** 构建主导航 tabs 配置（以 NAV_TABS 为单一数据源，路径作为 Tab 标识） */
 export function useNavTabs() {
   const { t } = useLocale();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const tabs: AppTab[] = NAV_TABS.map((tab) => ({
     path: tab.path,
@@ -145,14 +145,14 @@ export function useNavTabs() {
 
   // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /membership/xxx）
   const activeTab = (() => {
-    const p = location.pathname;
+    const p = pathname;
     const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
     if (hit) return hit.path;
     return "/showroom";
   })();
 
   const switchMainTab = (path: string) => {
-    navigate(path);
+    router.push(path);
   };
 
   return { tabs, activeTab, switchMainTab };

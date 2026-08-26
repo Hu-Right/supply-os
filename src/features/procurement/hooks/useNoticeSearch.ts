@@ -11,7 +11,7 @@
  *              - useSearchResults（列表数据加载）
  */
 import { useEffect, useRef } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
 import { useSearchDropdowns } from "./useSearchDropdowns";
@@ -96,7 +96,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     variantRef,
     onClear,
   } = options;
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const { countries, agencies } = useSearchDropdowns();
 
   // 子 hooks

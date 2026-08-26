@@ -5,7 +5,7 @@
  * @module features/procurement/hooks/search/useSearchActions
  */
 import { useCallback, useRef } from "react";
-import { useSearchParams } from "@/lib/compat/router-compat";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
@@ -30,6 +30,15 @@ export interface SearchActions {
   markUserSubmitted: () => void;
 }
 
+/** 将 Record 构建为 URL 查询字符串 */
+function buildQs(params: Record<string, string>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v) sp.set(k, v);
+  }
+  return sp.toString();
+}
+
 export function useSearchActions(options: SearchActionsOptions): SearchActions {
   const {
     inputs,
@@ -42,7 +51,9 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     clearForm,
     onClear,
   } = options;
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const userSubmittedRef = useRef(false);
 
   const markUserSubmitted = useCallback(() => {
@@ -65,42 +76,36 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (deepestCodeId) next.code_id = deepestCodeId;
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "deadline_farthest") next.sort = sortValue;
-    // 统一化重构：不再强制退出行业匹配模式，仅在全量搜索模式下更新 URL 参数
-    // 行业匹配模式下同样更新 URL 参数，后端会叠加筛选
     if (prefsMode === "default") {
       // 全量搜索模式：行为不变
     } else if (prefsMode === "recommended") {
-      // 推荐模式：有筛选时退出推荐，进入全量搜索
       setPrefsMode("default");
     }
-    // prefsMode === "prefs" 时保持行业匹配模式，不强制退出
     setPage(1);
     setSelectedNotice(null);
-    setSearchParams(next);
-  }, [inputs, query, deepestCodeId, prefsMode, setPrefsMode, setPage, setSelectedNotice, setSearchParams]);
+    const qs = buildQs(next);
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [inputs, query, deepestCodeId, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   const toggleFeatured = useCallback(() => {
-    const next = new URLSearchParams(searchParams);
+    const next = new URLSearchParams(searchParams ?? undefined);
     if (query.activeFeatured) next.delete("featured");
     else next.set("featured", "1");
-    // 统一化重构：不再强制退出行业匹配模式
-    // 推荐模式下切换精选则退出推荐
     if (prefsMode === "recommended") setPrefsMode("default");
     setPage(1);
     setSelectedNotice(null);
-    setSearchParams(next);
-  }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, setSearchParams]);
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, query.activeFeatured, prefsMode, setPrefsMode, setPage, setSelectedNotice, router, pathname]);
 
   const clearSearch = useCallback(() => {
     clearForm();
-    // P1 修复：先同步更新所有状态（包括 prefsMode/selectedIds），再清空 URL 参数
-    // 避免 setSearchParams 触发 useSearchQuery 重算时其他状态还未就绪，导致冗余请求
     onClear?.();
     setPage(1);
-    setSearchParams({});
+    router.replace(pathname, { scroll: false });
     userSubmittedRef.current = true;
     clearApiCache("/api/notices");
-  }, [clearForm, setPage, setSearchParams, onClear]);
+  }, [clearForm, setPage, router, pathname, onClear]);
 
   return {
     applySearch,

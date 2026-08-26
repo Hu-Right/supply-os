@@ -8,7 +8,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
@@ -26,7 +26,7 @@ import { onAppEvent } from "@/core/events";
 export default function SupplierPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
   const [supplierIndustry, setSupplierIndustry] = useState("");
@@ -110,7 +110,9 @@ export default function SupplierPage() {
 
   const handleAiMatch = (supplier: Supplier) => {
     // 对齐原版：带上目标供应商跳转 CRM，由 CRM 页自动执行 AI 撮合
-    navigate("/crm", { state: { aiMatchSupplier: supplier } });
+    // Next.js 无路由 state，通过 sessionStorage 传递
+    try { sessionStorage.setItem("__route_state__", JSON.stringify({ aiMatchSupplier: supplier })); } catch { /* ignore */ }
+    router.push("/crm");
   };
 
   // 联系方式为 VIP 专属：命中门槛后向后端请求明文（列表数据为掩码）

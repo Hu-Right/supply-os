@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
 import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
-import { useNavigate } from "@/lib/compat/router-compat";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { fetchMembershipStatus } from "@/features/membership/api";
@@ -34,7 +34,7 @@ function formatDateShort(dateStr: string): string {
 export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -94,7 +94,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
     if (onViewPlans) {
       onViewPlans();
     } else {
-      navigate("/membership");
+      router.push("/membership");
     }
   };
 
