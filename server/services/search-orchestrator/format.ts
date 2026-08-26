@@ -9,6 +9,7 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import { getAgencyCacheData } from "../notice-search/agencies/index";
+import { classifyAgencyType } from "../agency/index";
 
 /** 匹配分 → 档次标签（2 档分色；分数与 mode-resolver 绝对层级口径对齐：
  *  L4/L5 命中 → 5 → precise；L2/L3 命中 → 2 → relevant） */
@@ -55,15 +56,20 @@ export function formatItems(
   }
 
   return rows.map((row) => {
-    // 机构 i18n 查找（两级回退）：
+    // 机构 i18n 查找（三级回退）：
     // 1. 缓存精确匹配：agency_std 大写 → agencyI18nMap（来自下拉 API 缓存）
     // 2. 聚合键回退：agency_group（classifyAgencyType 聚合键，如 "MUNICIPIO_BR"）
-    // 注意：不使用 translateByPattern 兜底——该函数对未翻译的葡语/英语前缀
-    // 会生成 "${rest}厅" 等混合文本（如 "PLANEJAMENTO E GESTAO厅"），质量不可控。
-    // 缓存未预热时直接显示 agency_std 原名，优于显示半翻译的混合文本。
+    // 3. 直接计算回退：用 classifyAgencyType 从 agency_std 实时计算 typeKey + i18n
+    //    解决缓存键与 agency_std 不在同一命名空间的问题（如别名映射后 canonical
+    //    与缓存中的 pattern-translated canonical 不同）。
+    //    classifyAgencyType 为纯内存正则匹配，无 DB/缓存依赖，开销可忽略。
     const agencyUpper = String(row.agency || "").toUpperCase();
-    const i18n = agencyI18nMap.get(agencyUpper)
+    let i18n = agencyI18nMap.get(agencyUpper)
       || (row.agency_group ? agencyI18nMap.get(row.agency_group) : undefined);
+    if (!i18n && row.agency) {
+      const typeInfo = classifyAgencyType(String(row.agency), row.country || undefined);
+      if (typeInfo?.i18n) i18n = typeInfo.i18n;
+    }
     // breakdown_file_count：宽表直取；多表 JOIN 回退路径解析 JSON
     const breakdownCount = row.breakdown_file_count !== undefined
       ? (Number(row.breakdown_file_count) || undefined)
