@@ -314,6 +314,14 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   };
 
   for (const [key, item] of typeAggregated) {
+    // 已有 sqlPattern 的类型聚合条目直接保留，不参与 ORPHAN 合并。
+    // 与 FORCE_COUNTRY 处理一致：类型组有明确的翻译名和 SQL 模式，
+    // 合并到 ORPHAN 会丢失细粒度翻译（如 "巴西各市厅局" → "巴西各机构"），
+    // 且导致卡片（实时计算翻译）与下拉框（ORPHAN 桶翻译）不一致。
+    if (item.sqlPattern) {
+      finalAggregated.set(key, item);
+      continue;
+    }
     if (item.count > AGENCY_MIN_COUNT) {
       finalAggregated.set(key, item);
       continue;
