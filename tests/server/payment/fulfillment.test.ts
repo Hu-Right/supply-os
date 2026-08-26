@@ -4,8 +4,13 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { activatePaidOrder, fulfillMockPayment, activateSubscription } from "../../../server/payment/fulfillment";
+import type { PaymentsRepo } from "../../../server/repos/payments.repo";
+import type { MembershipRepo } from "../../../server/repos/membership.repo";
 
-function createMockPaymentsRepo(overrides: Record<string, any> = {}) {
+// mock 对象经双重断言兼容类类型，同时保留 _conn 供断言使用
+type MockPaymentsRepo = PaymentsRepo & { _conn: any };
+
+function createMockPaymentsRepo(overrides: Record<string, any> = {}): MockPaymentsRepo {
   const conn = {
     beginTransaction: vi.fn().mockResolvedValue(undefined),
     commit: vi.fn().mockResolvedValue(undefined),
@@ -31,15 +36,15 @@ function createMockPaymentsRepo(overrides: Record<string, any> = {}) {
     upsertNoticeInterestInTransaction: vi.fn().mockResolvedValue(undefined),
     _conn: conn,
     ...overrides,
-  };
+  } as unknown as MockPaymentsRepo;
 }
 
-function createMockMembershipRepo(overrides: Record<string, any> = {}) {
+function createMockMembershipRepo(overrides: Record<string, any> = {}): MembershipRepo {
   return {
     findPlanByCodeForFulfillment: vi.fn().mockResolvedValue(null),
     findPlanByCode: vi.fn().mockResolvedValue(null),
     ...overrides,
-  };
+  } as unknown as MembershipRepo;
 }
 
 describe("activatePaidOrder", () => {
