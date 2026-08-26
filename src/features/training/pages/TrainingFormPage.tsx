@@ -14,6 +14,8 @@ import { CheckCircle2, Send, ArrowLeft } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import CompanyInfoSection, { type CompanyInfoData } from "../components/CompanyInfoSection";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "../components/landing-ui";
+import { submitTrainingRegister } from "../api";
+import { ApiError } from "@/core/http";
 
 const INITIAL_FORM: CompanyInfoData = {
   company_name: "",
@@ -57,31 +59,21 @@ export default function TrainingFormPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/training/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: form.company_name,
-          industry_id: selectedIndustryId ? parseInt(selectedIndustryId) : null,
-          main_product: form.main_product,
-          export_experience: form.export_experience,
-          certification: certificationStr,
-          contact_name: form.contact_name,
-          position: form.position,
-          telephone: form.telephone,
-          email: form.email,
-          remark: form.remark,
-        }),
+      await submitTrainingRegister({
+        company_name: form.company_name,
+        industry_id: selectedIndustryId ? parseInt(selectedIndustryId) : null,
+        main_product: form.main_product,
+        export_experience: form.export_experience,
+        certification: certificationStr,
+        contact_name: form.contact_name,
+        position: form.position,
+        telephone: form.telephone,
+        email: form.email,
+        remark: form.remark,
       });
-
-      if (res.ok) {
-        setSubmitted(true);
-      } else {
-        const data = await res.json();
-        setError(data.error || t("formError"));
-      }
-    } catch {
-      setError(t("formError"));
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("formError"));
     } finally {
       setLoading(false);
     }

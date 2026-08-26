@@ -13,6 +13,8 @@ import { CheckCircle2, Send } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
+import { submitTrainingRegister } from "../api";
+import { ApiError } from "@/core/http";
 
 export interface TrainingRegisterFormProps {
   /** 关闭回调 */
@@ -71,34 +73,24 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
 
     setLoading(true);
     try {
-      const res = await fetch("/api/training/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: companyInfo.company_name,
-          industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
-          main_product: companyInfo.main_product,
-          export_experience: companyInfo.export_experience,
-          certification: certificationStr,
-          contact_name: companyInfo.contact_name,
-          position: companyInfo.position,
-          telephone: companyInfo.telephone,
-          email: companyInfo.email,
-          remark: companyInfo.remark,
-        }),
+      const data = await submitTrainingRegister({
+        company_name: companyInfo.company_name,
+        industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
+        main_product: companyInfo.main_product,
+        export_experience: companyInfo.export_experience,
+        certification: certificationStr,
+        contact_name: companyInfo.contact_name,
+        position: companyInfo.position,
+        telephone: companyInfo.telephone,
+        email: companyInfo.email,
+        remark: companyInfo.remark,
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setRegistrationId(data.registration_id ?? null);
-        setSubmitted(true);
-        setTimeout(() => onClose(), 2500);
-      } else {
-        const data = await res.json();
-        setError(data.error || t("formError"));
-      }
+      // 服务端响应字段为 id（此前裸 fetch 误读 registration_id，恒为 undefined，报名后无法联动支付弹窗）
+      setRegistrationId(data.id ?? null);
+      setSubmitted(true);
+      setTimeout(() => onClose(), 2500);
     } catch (err) {
-      setError(t("formError"));
+      setError(err instanceof ApiError ? err.message : t("formError"));
     } finally {
       setLoading(false);
     }

@@ -160,7 +160,8 @@ export interface DictionaryItem {
  */
 export interface TrainingRegisterForm {
   company_name: string;
-  industry_id: number;
+  // 未选择行业时允许 null（服务端 industry_id || null）
+  industry_id: number | null;
   main_product: string;
   export_experience: string;
   certification: string;

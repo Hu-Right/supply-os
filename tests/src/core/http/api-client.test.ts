@@ -15,7 +15,7 @@ vi.stubEnv("VITE_API_BASE_URL", "");
 import {
   getAuthToken, setAuthTokens, clearAuthTokens, updateAuthToken,
   ApiError,
-  api, apiCached,
+  api, apiCached, downloadFile,
   getCachedData, setCachedData, deleteCachedData, clearApiCache, getCachedTimestamp,
 } from "@/core/http/api-client";
 
@@ -420,5 +420,83 @@ describe("缓存容量保护 + 刷新边缘路径", () => {
     setAuthTokens("old-token");
     await expect(api("/api/resource")).rejects.toThrow(ApiError);
     expect(getAuthToken()).toBeNull();
+  });
+});
+
+// ── downloadFile() 统一文件下载通道 ──
+describe("downloadFile()", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:mock-url"),
+      revokeObjectURL: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("带 token 请求 + Content-Disposition 文件名", async () => {
+    setAuthTokens("jwt-token");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (h: string) => h === "Content-Disposition" ? 'attachment; filename="test.docx"' : null },
+      blob: async () => new Blob(["content"]),
+    });
+
+    const createSpy = vi.spyOn(document, "createElement");
+    await downloadFile("/api/report/1", "fallback.docx");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/report/1", {
+      headers: { Authorization: "Bearer jwt-token" },
+      credentials: "same-origin",
+    });
+    const anchor = createSpy.mock.results.find((r) => r.value?.tagName === "A")?.value;
+    expect(anchor?.download).toBe("test.docx");
+    createSpy.mockRestore();
+  });
+
+  it("无 token 时不带 Authorization", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      blob: async () => new Blob(),
+    });
+
+    await downloadFile("/api/report/2", "fallback.docx");
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/report/2", {
+      headers: {},
+      credentials: "same-origin",
+    });
+  });
+
+  it("无 Content-Disposition 时使用兜底文件名", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      blob: async () => new Blob(),
+    });
+
+    const createSpy = vi.spyOn(document, "createElement");
+    await downloadFile("/api/report/3", "report.docx");
+
+    const anchor = createSpy.mock.results.find((r) => r.value?.tagName === "A")?.value;
+    expect(anchor?.download).toBe("report.docx");
+    createSpy.mockRestore();
+  });
+
+  it("非 ok 响应抛出 ApiError", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404, headers: { get: () => null } });
+
+    await expect(downloadFile("/api/report/4", "x.docx")).rejects.toThrow(ApiError);
   });
 });

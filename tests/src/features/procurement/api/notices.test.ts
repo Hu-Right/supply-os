@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock api / apiCached / buildQuery / getAuthToken / ApiError
+// Mock api / apiCached / buildQuery / getAuthToken / ApiError / downloadFile
 vi.mock("@/core/http", () => ({
   api: vi.fn(),
   apiCached: vi.fn(),
@@ -15,6 +15,7 @@ vi.mock("@/core/http", () => ({
     return parts.join("&");
   }),
   getAuthToken: vi.fn(),
+  downloadFile: vi.fn(),
   ApiError: class ApiError extends Error {
     constructor(public status: number, msg: string) { super(msg); }
   },
@@ -34,11 +35,11 @@ import {
   fetchUnifiedSearch,
   downloadNoticeReport,
 } from "@/features/procurement/api/notices";
-import { api, apiCached, getAuthToken, ApiError } from "@/core/http";
+import { api, apiCached, downloadFile } from "@/core/http";
 
 const mockApi = vi.mocked(api);
 const mockApiCached = vi.mocked(apiCached);
-const mockGetAuthToken = vi.mocked(getAuthToken);
+const mockDownloadFile = vi.mocked(downloadFile);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -174,71 +175,11 @@ describe("fetchUnifiedSearch", () => {
   });
 });
 
-// ── downloadNoticeReport ──
+// ── downloadNoticeReport：委托 api-client 的 downloadFile 通道 ──
 describe("downloadNoticeReport", () => {
-  const fetchMock = vi.fn();
-
-  beforeEach(() => {
-    vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("URL", {
-      createObjectURL: vi.fn(() => "blob:mock-url"),
-      revokeObjectURL: vi.fn(),
-    });
-  });
-
-  it("成功下载：带 token + Content-Disposition 文件名", async () => {
-    mockGetAuthToken.mockReturnValue("jwt-token");
-    const blob = new Blob(["content"]);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      headers: { get: (h: string) => h === "Content-Disposition" ? 'attachment; filename="test.docx"' : null },
-      blob: async () => blob,
-    });
-
-    const createSpy = vi.spyOn(document, "createElement");
+  it("委托 downloadFile(url, report.docx)", async () => {
+    mockDownloadFile.mockResolvedValue(undefined);
     await downloadNoticeReport("/api/report/1");
-
-    expect(fetchMock).toHaveBeenCalledWith("/api/report/1", {
-      headers: { Authorization: "Bearer jwt-token" },
-    });
-    const anchor = createSpy.mock.results.find((r) => r.value?.tagName === "A")?.value;
-    expect(anchor?.download).toBe("test.docx");
-    createSpy.mockRestore();
-  });
-
-  it("无 token 时不带 Authorization", async () => {
-    mockGetAuthToken.mockReturnValue(null);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      headers: { get: () => null },
-      blob: async () => new Blob(),
-    });
-
-    await downloadNoticeReport("/api/report/2");
-
-    expect(fetchMock).toHaveBeenCalledWith("/api/report/2", { headers: {} });
-  });
-
-  it("无 Content-Disposition 时兑底 report.docx", async () => {
-    mockGetAuthToken.mockReturnValue(null);
-    fetchMock.mockResolvedValue({
-      ok: true,
-      headers: { get: () => null },
-      blob: async () => new Blob(),
-    });
-
-    const createSpy = vi.spyOn(document, "createElement");
-    await downloadNoticeReport("/api/report/3");
-
-    const anchor = createSpy.mock.results.find((r) => r.value?.tagName === "A")?.value;
-    expect(anchor?.download).toBe("report.docx");
-    createSpy.mockRestore();
-  });
-
-  it("非 ok 响应抛出 ApiError", async () => {
-    mockGetAuthToken.mockReturnValue(null);
-    fetchMock.mockResolvedValue({ ok: false, status: 404, headers: { get: () => null } });
-
-    await expect(downloadNoticeReport("/api/report/4")).rejects.toThrow(ApiError);
+    expect(mockDownloadFile).toHaveBeenCalledWith("/api/report/1", "report.docx");
   });
 });

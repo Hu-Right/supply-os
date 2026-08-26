@@ -321,3 +321,29 @@ export function clearApiCache(pattern?: string): void {
     if (key.includes(pattern)) cache.delete(key);
   }
 }
+
+/**
+ * 统一文件下载通道：带鉴权拉取 Blob 后触发浏览器保存。
+ * 用于 report/附件等 Blob 响应端点（api() 仅支持 JSON，且 <a> 直链无法携带 Bearer）。
+ * 文件名优先取 Content-Disposition，缺失时使用 fallbackFileName。
+ */
+export async function downloadFile(url: string, fallbackFileName: string): Promise<void> {
+  const authToken = getAuthToken();
+  const res = await fetch(url, {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    credentials: "same-origin",
+  });
+  if (!res.ok) throw new ApiError(res.status, `Download failed: ${res.status}`);
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+  const fileName = matched ? decodeURIComponent(matched[1]) : fallbackFileName;
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+}
