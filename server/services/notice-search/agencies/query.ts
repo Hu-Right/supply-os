@@ -228,12 +228,18 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   }
 
   // 3.6.1) 强制国家级聚合
+  // 注意：已有 sqlPattern 的类型聚合条目（如 SECRETARIA_BR）不参与 FORCE_COUNTRY 合并。
+  // 这些条目已有精确的 SQL LIKE 模式（如 "SECRETARIA %"），filter-builder 可直接使用，
+  // 且保留了细粒度翻译名（如 "巴西各市厅局"）。强制合并会丢失这些翻译，
+  // 将所有巴西/肯尼亚类型组压缩为单一的 "巴西各机构" / "肯尼亚各机构"。
   const FORCE_COUNTRY_COUNTRIES = new Set(["Brazil", "Kenya"]);
   const FORCE_COUNTRY_ZH: Record<string, string> = { "Brazil": "巴西", "Kenya": "肯尼亚" };
   const FORCE_COUNTRY_SQL: Record<string, string> = { "Brazil": "%", "Kenya": "%" };
 
   const forceCountryBuckets = new Map<string, AgencyCacheItem>();
   for (const [key, item] of typeAggregated) {
+    // 已有 sqlPattern 的条目（来自 stage 3.6 类型聚合）保留独立性，不参与 FORCE_COUNTRY 合并
+    if (item.sqlPattern) continue;
     let forceCountry: string | null = null;
     if (key.endsWith("_BR")) forceCountry = "Brazil";
     else if (key.endsWith("_KE")) forceCountry = "Kenya";
@@ -272,19 +278,19 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
   }
 
   for (const [key] of typeAggregated) {
+    // 已有 sqlPattern 的条目保留，不参与 FORCE_COUNTRY 删除判定
+    const item = typeAggregated.get(key)!;
+    if (item.sqlPattern) continue;
     let isForceCountry = false;
     if (key.endsWith("_BR") || key.endsWith("_KE")) isForceCountry = true;
     if (!isForceCountry) {
       const country = canonicalToCountry.get(key) || canonicalToCountry.get(key.toUpperCase());
       if (country && FORCE_COUNTRY_COUNTRIES.has(country)) isForceCountry = true;
     }
-    if (!isForceCountry) {
-      const item = typeAggregated.get(key)!;
-      if (item.originalAgencies?.length) {
-        for (const orig of item.originalAgencies) {
-          const c = canonicalToCountry.get(orig.toUpperCase());
-          if (c && FORCE_COUNTRY_COUNTRIES.has(c)) { isForceCountry = true; break; }
-        }
+    if (!isForceCountry && item.originalAgencies?.length) {
+      for (const orig of item.originalAgencies) {
+        const c = canonicalToCountry.get(orig.toUpperCase());
+        if (c && FORCE_COUNTRY_COUNTRIES.has(c)) { isForceCountry = true; break; }
       }
     }
     if (isForceCountry) typeAggregated.delete(key);
