@@ -1,14 +1,14 @@
 /**
  * 空状态组件
- * Empty State Component
+ * Empty State Component (shadcn/ui pattern)
  *
  * @module shared/ui/EmptyState
- * @description 空数据占位符
- *              Empty data placeholder
+ * @description 空数据占位符，使用 cn() 合并类名。
  */
 
 import { type ReactNode } from "react";
 import { Inbox } from "lucide-react";
+import { cn } from "@/shared/utils";
 
 export interface EmptyStateProps {
   /** 标题 */
@@ -24,15 +24,18 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
-  title = "暂无数据",
+  title,
   description,
   icon,
   action,
-  className = "",
+  className,
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center ${className}`}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center",
+        className,
+      )}
     >
       <div className="mb-3 text-slate-400">
         {icon || <Inbox className="h-12 w-12" />}

@@ -1,20 +1,21 @@
 /**
  * 搜索输入框组件
- * Search Input Component
+ * Search Input Component (shadcn/ui pattern)
  *
  * @module shared/ui/SearchInput
- * @description 带搜索图标的输入框，role="searchbox"
- *              Input with search icon, role="searchbox"
+ * @description 带搜索图标的输入框，role="searchbox"。
+ *              使用 cn() 合并类名。
  */
 
 import { type InputHTMLAttributes, forwardRef } from "react";
 import { Search } from "lucide-react";
+import { cn } from "@/shared/utils";
 
 export interface SearchInputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {}
 
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className = "", ...props }, ref) => {
+  ({ className, ...props }, ref) => {
     const baseClasses =
       "w-full rounded-lg border border-slate-300 bg-white py-2 ps-9 pe-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
 
@@ -29,7 +30,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
           type="search"
           role="searchbox"
           dir="auto"
-          className={`${baseClasses} ${className}`}
+          className={cn(baseClasses, className)}
           {...props}
         />
       </div>

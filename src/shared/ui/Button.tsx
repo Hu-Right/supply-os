@@ -1,56 +1,68 @@
 /**
  * 按钮组件
- * Button Component
+ * Button Component (shadcn/ui pattern)
  *
  * @module shared/ui/Button
- * @description 通用按钮，支持 icon-only 模式（必填 aria-label）
- *              Generic button, supports icon-only mode (aria-label required)
+ * @description 通用按钮，支持 icon-only 模式（必填 aria-label）。
+ *              基于 shadcn/ui Button 模式：cva 管理变体 + Radix Slot 支持 asChild。
+ *              asChild 允许按钮渲染为 <a> 等其他元素，保留所有按钮行为。
  */
 
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/shared/utils";
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** 按钮变体 */
-  variant?: "primary" | "secondary" | "ghost" | "outline" | "danger";
-  /** 尺寸 */
-  size?: "sm" | "md" | "lg";
-  /** 是否加载中 */
+const buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed",
+  {
+    variants: {
+      variant: {
+        primary: "bg-teal-600 text-white hover:bg-teal-700 focus-visible:ring-teal-600",
+        secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400",
+        ghost: "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400",
+        outline: "border border-slate-200 bg-transparent text-slate-500 hover:bg-slate-50 focus-visible:ring-slate-400",
+        danger: "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600",
+      },
+      size: {
+        sm: "px-3 py-1.5 text-xs",
+        md: "px-4 py-2.5 text-sm",
+        lg: "px-6 py-3 text-base",
+      },
+    },
+    defaultVariants: {
+      variant: "primary",
+      size: "md",
+    },
+  },
+);
+
+export interface ButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  /** 是否加载中（显示 spinner + 禁用） */
   loading?: boolean;
   /** 子元素 */
   children?: ReactNode;
+  /** 渲染为子元素（如 <a>），保留所有按钮行为 */
+  asChild?: boolean;
 }
 
-// primary 使用站点主色 teal，与业务代码主 CTA 按钮保持一致
-const variantClasses: Record<string, string> = {
-  primary: "bg-teal-600 text-white hover:bg-teal-700 focus-visible:ring-teal-600",
-  secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400",
-  outline: "border border-slate-200 bg-transparent text-slate-500 hover:bg-slate-50 focus-visible:ring-slate-400",
-  danger: "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600",
-};
-
-const sizeClasses: Record<string, string> = {
-  sm: "px-3 py-1.5 text-xs",
-  md: "px-4 py-2.5 text-sm",
-  lg: "px-6 py-3 text-base",
-};
-
 export function Button({
-  variant = "primary",
-  size = "md",
+  variant,
+  size,
   loading = false,
+  asChild = false,
   children,
-  className = "",
+  className,
   disabled,
   ...props
 }: ButtonProps) {
-  const baseClasses =
-    "inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+  const Comp = asChild ? Slot : "button";
 
   return (
-    <button
-      className={twMerge(baseClasses, variantClasses[variant], sizeClasses[size], className)}
+    <Comp
+      className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled || loading}
       {...props}
     >
@@ -67,8 +79,10 @@ export function Button({
         </svg>
       )}
       {children}
-    </button>
+    </Comp>
   );
 }
 
 Button.displayName = "Button";
+
+export { buttonVariants };
