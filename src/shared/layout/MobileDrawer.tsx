@@ -9,7 +9,6 @@ import { Globe, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
-import { preloadRoute } from "@/routes";
 import { NAV_TABS } from "./nav-tabs";
 
 export interface MobileDrawerProps {
@@ -75,7 +74,6 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               <button
                 key={tab.path}
                 onClick={() => handleNavClick(tab.path)}
-                onMouseEnter={() => preloadRoute(tab.path)}
                 className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-colors mb-0.5 ${
                   isActive
                     ? "bg-teal-50 text-teal-700 font-semibold"

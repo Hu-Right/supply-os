@@ -17,7 +17,6 @@ import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-import { preloadRoute } from "@/routes";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
 
@@ -114,7 +113,6 @@ export function AppHeader({
               const Icon = tab.icon;
               return (
                 <button key={tab.path} onClick={() => onSwitchTab(tab.path)}
-                  onMouseEnter={() => preloadRoute(tab.path)}
                   className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${activeTab === tab.path ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
                   <Icon className={`w-4 h-4 ${tab.highlight && activeTab !== tab.path ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>

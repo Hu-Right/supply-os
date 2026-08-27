@@ -2,17 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // 过渡期：已迁移路由由 Next 自动接管，未迁移的反代到 Express
-  async rewrites() {
-    const legacyApi = process.env.NEXT_LEGACY_API || "http://127.0.0.1:3039";
-    return {
-      afterFiles: [
-        // afterFiles：文件系统路由优先，已迁移的 Route Handler 自动压过代理
-        // 无需"逐域移除"——迁移完一个域 = Next 自动接管该域
-        { source: "/api/:path*", destination: `${legacyApi}/api/:path*` },
-      ],
-    };
-  },
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
