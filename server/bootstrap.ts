@@ -2,8 +2,6 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import os from "os";
-import express from "express";
 import { createDbPool } from "./db/pool";
 import { PaymentService } from "./payment/PaymentService";
 import { UsersRepo } from "./repos/users.repo";
@@ -23,7 +21,6 @@ import { UserPrefsRepo } from "./repos/user-prefs.repo";
 import { LeadsRepo } from "./repos/leads.repo";
 import { TrainingRepo, SystemRepo } from "./repos/training.repo";
 import { AdminRepo } from "./repos/admin.repo";
-import { createApp } from "./app";
 import { startAutoTranslate } from "./services/translation/auto";
 import { startReportCacheCleanup } from "./services/reportCacheCleanup";
 import { initMeilisearch, ensureIndex, isHealthy as isMeiliHealthy } from "./services/meilisearch/index";
@@ -50,8 +47,6 @@ export interface ServerHandle {
 }
 
 export async function startServer() {
-  const PORT = 3039;
-
   // MySQL2 connection pool for crm database
   const dbPool = createDbPool();
   const phaseCtx = { dbPool };
@@ -117,7 +112,6 @@ export async function startServer() {
     // 其他领域 Repo
     opportunitiesRepo, catalogRepo, leadsRepo, trainingRepo, systemRepo,
   };
-  const app = createApp(ctx);
 
   // ── 增量双语翻译定时任务（外抽至 services/autoTranslate.ts）──
   const stopAutoTranslate = startAutoTranslate(dbPool, {
@@ -174,19 +168,11 @@ export async function startServer() {
   // ── 定时任务统一管理（外抽至 lifecycle/timers.ts）──
   const timersHandle = startAllTimers({ dbPool });
 
-  // ── 服务先监听，预热在后台异步完成（非阻塞启动）──
-  // C1：保留 httpServer 引用，供优雅关闭时停止接收新请求并排空在途连接
-  const httpServer = app.listen(PORT, "0.0.0.0", () => {
-    const lanIp = Object.values(os.networkInterfaces())
-      .flat()
-      .find((iface) => iface?.family === "IPv4" && !iface.internal)?.address
-      ?? "localhost";
-    console.log(`Server listening on http://localhost:${PORT}  (LAN: http://${lanIp}:${PORT})`);
-  });
-
   // ── P0 性能优化：启动时预热（后台异步，不阻塞启动）──
   void runWarmup({ dbPool, directoryRepo: supplierDirectoryRepo })
     .catch((e) => console.error("[warmup] 预热失败（静默降级，首次请求将承担冷启动）:", (e as Error).message));
+
+  console.log("[bootstrap] 后台服务已启动（Next.js 处理 HTTP 请求）");
 
   // C1【P0】优雅关闭：返回 stop/shutdown 句柄，由入口（server.ts）接线 SIGTERM/SIGINT。
   // 关闭顺序依据：先停后台任务（不再产生新的 DB 写入/同步工作），
@@ -203,18 +189,6 @@ export async function startServer() {
   const shutdown = async () => {
     console.log("[shutdown] 停止后台定时器与同步任务…");
     stop();
-
-    console.log("[shutdown] 停止接收新请求，等待在途请求完成…");
-    await new Promise<void>((resolve) => {
-      // close() 在所有现存连接处理完毕后回调；不再接受新连接
-      httpServer.close(() => resolve());
-      // Node ≥18.2 可用：立即关闭空闲 keep-alive 连接，避免 close() 挂等到对端超时。
-      // 类型断言原因：@types/node 与运行时 Node 版本差异，做存在性检查保证低版本安全。
-      const srv = httpServer as typeof httpServer & { closeIdleConnections?: () => void };
-      if (typeof srv.closeIdleConnections === "function") {
-        srv.closeIdleConnections();
-      }
-    });
 
     console.log("[shutdown] 关闭 MySQL 连接池…");
     try {
