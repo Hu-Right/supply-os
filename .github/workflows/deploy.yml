@@ -29,6 +29,7 @@ jobs:
       || (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'DEPLOY')
     steps:
       - name: SSH 到服务器执行部署脚本
+        id: deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -40,3 +41,29 @@ jobs:
           script: |
             cd /root/supply-os
             bash scripts/deploy.sh
+
+      - name: 部署后健康检查
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: "22"
+          script_stop: true
+          script: |
+            # 等待应用启动（pm2 reload 后需要几秒初始化）
+            sleep 5
+            # 检查 pm2 进程是否存活
+            pm2 describe supply-os | grep -q "online" || { echo "✗ pm2 进程未运行"; exit 1; }
+            # 健康端点探活（最多重试 3 次，间隔 5 秒）
+            for i in 1 2 3; do
+              if curl -sf --max-time 5 http://localhost:3039/api/system/version > /dev/null 2>&1; then
+                echo "✓ 健康检查通过 (第 ${i} 次尝试)"
+                exit 0
+              fi
+              echo "⏳ 第 ${i} 次尝试失败，等待 5 秒..."
+              sleep 5
+            done
+            echo "✗ 健康检查失败：应用未响应"
+            pm2 logs supply-os --lines 20 --nostream
+            exit 1

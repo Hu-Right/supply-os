@@ -28,20 +28,21 @@ else
   npm ci
 fi
 
-# 3. 构建前端 + 打包后端到 dist/
+# 3. Next.js 构建（output: standalone → .next/standalone/）
 echo "[deploy] 构建..."
 npm run build
 
 # 4. 重启应用（pm2 托管，保持常驻）
+#    Next.js standalone 模式入口为 .next/standalone/server.js
 echo "[deploy] 重启应用..."
 if command -v pm2 >/dev/null 2>&1; then
   NODE_ENV=production pm2 reload "${APP_NAME}" \
-    || NODE_ENV=production pm2 start dist/server.mjs --name "${APP_NAME}"
+    || NODE_ENV=production pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
 else
   echo "[deploy] ⚠ 未安装 pm2，请先执行："
   echo "          npm i -g pm2"
-  echo "          NODE_ENV=production pm2 start ${APP_DIR}/dist/server.mjs --name ${APP_NAME}"
+  echo "          NODE_ENV=production pm2 start ${APP_DIR}/.next/standalone/server.js --name ${APP_NAME}"
   echo "          pm2 save && pm2 startup"
   exit 1
 fi

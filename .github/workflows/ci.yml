@@ -38,6 +38,8 @@ jobs:
       - run: npm ci
       - name: Run unit tests with coverage
         run: npm run test:coverage -- --coverage.reportsDirectory=coverage/unit
+      - name: Coverage gate check (≥90%)
+        run: node scripts/coverage-gate.mjs coverage/unit 90
       - name: Upload unit coverage
         uses: actions/upload-artifact@v4
         with:
@@ -77,6 +79,7 @@ jobs:
       - run: npm run build
       - name: Verify build output
         run: |
-          test -f dist/server.mjs || exit 1
-          test -f dist/index.html || exit 1
-          echo "Build verification passed"
+          # Next.js standalone 模式：入口为 .next/standalone/server.js
+          test -f .next/standalone/server.js || { echo "✗ .next/standalone/server.js 不存在"; exit 1; }
+          test -d .next/static || { echo "✗ .next/static/ 不存在"; exit 1; }
+          echo "✓ Build verification passed (Next.js standalone)"
