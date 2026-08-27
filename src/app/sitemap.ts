@@ -2,13 +2,25 @@
  * Sitemap — Next.js App Router 动态生成
  *
  * @module app/sitemap
- * @description 替代旧的 scripts/prerender.ts + Playwright 预渲染方案。
- *              Next.js 在构建时或 ISR revalidate 时自动调用此函数生成 sitemap.xml。
- *              动态从数据库获取公告和供应商数据，覆盖数千页面。
+ * @description 动态 URL 数据由 lib/services/seo/sitemap-sources 提供
+ *              （单一事实源：真实表名 + ACTIVE_NOTICE_WHERE 权威过滤器）。
+ *              公告/供应商两段独立容错 —— 任一段失败只降级该段并 console.error
+ *              报警，不再静默吞掉全部动态 URL（2026-08-28 根治性修复）。
  */
 import type { MetadataRoute } from "next";
+import {
+  fetchSitemapNotices,
+  fetchSitemapSuppliers,
+} from "@/lib/services/seo/sitemap-sources";
 
-const BASE_URL = "https://osneosmart.com";
+const BASE_URL = process.env.SITE_URL || "https://osneosmart.com";
+
+function isoOrNull(v: Date | string | number | null): string | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  // crm_bid_notices.update_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
+  const d = typeof v === "number" ? new Date(v * 1000) : new Date(v);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date().toISOString();
@@ -25,38 +37,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/procurement/qualification`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 
-  // ── 动态页面：从数据库获取公告列表 ──
+  // ── 动态公告段（独立容错：失败仅降级本段并报警）──
   let noticePages: MetadataRoute.Sitemap = [];
-  let supplierPages: MetadataRoute.Sitemap = [];
-
   try {
-    const { getPool } = await import("@/lib/db/pool");
-    const pool = getPool();
-
-    // 采购公告（最多 5000 条）
-    const [noticeRows] = await pool.query(
-      "SELECT id, updated_at FROM notices WHERE status = 'active' ORDER BY updated_at DESC LIMIT 5000"
-    );
-    noticePages = (noticeRows as Array<{ id: number; updated_at: string | Date }>).map((row) => ({
+    const rows = await fetchSitemapNotices();
+    noticePages = rows.map((row) => ({
       url: `${BASE_URL}/procurement?notice_id=${row.id}`,
-      lastModified: new Date(row.updated_at).toISOString(),
+      lastModified: isoOrNull(row.update_time) ?? now,
       changeFrequency: "weekly" as const,
       priority: 0.6,
     }));
+  } catch (err) {
+    console.error("[sitemap] 公告段生成失败，动态公告 URL 已降级为空:", (err as Error).message);
+  }
 
-    // 供应商目录（最多 2000 条）
-    const [supplierRows] = await pool.query(
-      "SELECT id, updated_at FROM suppliers WHERE is_active = 1 ORDER BY updated_at DESC LIMIT 2000"
-    );
-    supplierPages = (supplierRows as Array<{ id: number; updated_at: string | Date }>).map((row) => ({
+  // ── 动态供应商段（独立容错）──
+  let supplierPages: MetadataRoute.Sitemap = [];
+  try {
+    const rows = await fetchSitemapSuppliers();
+    supplierPages = rows.map((row) => ({
       url: `${BASE_URL}/supplier?supplier_id=${row.id}`,
-      lastModified: new Date(row.updated_at).toISOString(),
+      lastModified: isoOrNull(row.addtime) ?? now,
       changeFrequency: "monthly" as const,
       priority: 0.6,
     }));
-  } catch {
-    // 数据库不可用时降级为仅静态页面（构建时或 CI 环境）
-    console.warn("[sitemap] DB unavailable, generating static-only sitemap");
+  } catch (err) {
+    console.error("[sitemap] 供应商段生成失败，动态供应商 URL 已降级为空:", (err as Error).message);
+  }
+
+  // ── 静默失效防线：DB 可达但两段皆空视为异常（表结构变更/权限问题的早期信号）──
+  if (noticePages.length === 0 && supplierPages.length === 0) {
+    console.error("[sitemap] 警告：动态段全部为空 —— 请检查 sitemap-sources 查询与数据库可用性");
   }
 
   return [...staticPages, ...noticePages, ...supplierPages];
