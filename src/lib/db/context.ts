@@ -123,8 +123,7 @@ export function getContext(): AppContext {
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
 
-  const paymentService = new PaymentService(paymentsRepo, membershipRepo);
-  PaymentService.initDefault(paymentsRepo, paymentMode, membershipRepo);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
 
   const ctx: AppContext = {
     dbPool,
