@@ -76,7 +76,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
                 key={tab.path}
                 href={tab.path}
                 onClick={onClose}
-                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-colors mb-0.5 ${
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-colors active:scale-[0.98] mb-0.5 ${
                   isActive
                     ? "bg-teal-50 text-teal-700 font-semibold"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"

@@ -9,7 +9,7 @@
  *
  * <html lang/dir> 使用静态默认值，客户端 useEffect 会同步更新。
  */
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
 import Providers from "./providers";
@@ -37,6 +37,12 @@ export const metadata: Metadata = {
     title: "Supply OS — Global Procurement & Showrooms Portal",
     description: "Global intelligent supply chain platform.",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f766e", // teal-700 品牌色
 };
 
 // 静态默认 locale —— 不调用 headers()/cookies()，保证 ISR/SSG 生效

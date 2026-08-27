@@ -117,7 +117,7 @@ export function AppHeader({
               const isActive = activeTab === tab.path;
               return (
                 <Link key={tab.path} href={tab.path} scroll={false}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
                   <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
                   {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
