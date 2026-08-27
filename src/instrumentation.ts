@@ -1,16 +1,20 @@
 /**
  * Next.js instrumentation hook
  *
- * 在 Next.js 启动时执行：
+ * 在 Next.js 启动时执行（生产 standalone 与 dev 均生效）：
  * 1. 复用 lifecycle/phases.ts 的 6 阶段启动流程
  * 2. 初始化 AppContext（触发 PaymentService.initDefault）
  * 3. Meilisearch 健康检查与索引初始化（非阻塞）
  * 4. 启动第一档后台任务（autoTranslate/reportCacheCleanup/timers）
- * 5. 预热（后台异步）
- * 6. 注册 SIGTERM 处理器
+ * 5. 启动第二档 5s 级任务（searchSync/syncRetryQueue/wideTableSync/featuredSync）
+ * 6. 预热（后台异步）
+ * 7. 注册 SIGTERM 处理器
  *
- * 第二档 5s 级任务（searchSync/syncRetryQueue/wideTableSync/featuredSyncCallback）
- * 按迁移计划中期外置为独立 worker，不在此处启动。
+ * 二档任务说明（2026-08-28 根治性回归）：
+ *   原计划外置独立 worker，但 compose/Dockerfile 均无 worker 入口，导致
+ *   生产环境宽表与 Meilisearch 增量同步完全不运行（外部管道新数据陈旧）。
+ *   现默认在本进程启动（SYNC_WORKER_IN_APP=on），单实例部署零额外成本；
+ *   未来多实例部署时设 SYNC_WORKER_IN_APP=off 并另行部署 worker 进程。
  */
 import type { Pool } from "mysql2/promise";
 
@@ -52,9 +56,45 @@ export async function register() {
   // 触发 PaymentService.initDefault 与所有 Repo 初始化
   const ctx = getContext();
 
-  // Meilisearch 初始化（非阻塞）
-  if (String(process.env.MEILI_ENABLED ?? "off").toLowerCase() === "on") {
-    void initMeilisearchAsync(dbPool);
+  // ── 第二档 5s 级同步任务（根治：默认随进程启动）──
+  const stops: Array<() => void> = [];
+  const meiliEnabled = String(process.env.MEILI_ENABLED ?? "off").toLowerCase() === "on";
+
+  // Meilisearch 初始化（非阻塞）；就绪后拉起 Meili 同步与重试队列
+  if (meiliEnabled) {
+    void (async () => {
+      try {
+        const { initMeilisearch, ensureIndex } = await import("./lib/services/meilisearch/index");
+        const client = initMeilisearch();
+        if (!client) return;
+        const ok = await ensureIndex();
+        if (!ok) {
+          console.warn("[meilisearch] 索引未就绪，搜索将降级到 MySQL FULLTEXT");
+          return;
+        }
+        const { startSearchSync } = await import("./lib/services/search-sync/index");
+        const { startSyncRetryQueue } = await import("./lib/services/search-sync/sync-retry-queue");
+        stops.push(startSearchSync(dbPool, { intervalMs: 5 * 1000 }));
+        stops.push(startSyncRetryQueue(dbPool));
+      } catch (e) {
+        console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
+      }
+    })();
+  }
+
+  if (String(process.env.SYNC_WORKER_IN_APP ?? "on").toLowerCase() !== "off") {
+    // 宽表增量同步（水位扫描，同时补偿内存同步队列的进程重启丢失）
+    const { startWideTableSync } = await import("./lib/services/search-sync/index");
+    stops.push(startWideTableSync(dbPool, { intervalMs: 5 * 1000 }));
+
+    // 精选状态变更 → 入同步队列（宽表 → Meilisearch 级联）
+    const { registerFeaturedSyncCallback } = await import("./lib/services/notices/featured");
+    const { enqueue } = await import("./lib/services/search-sync/sync-queue");
+    registerFeaturedSyncCallback((ids: number[]) => {
+      enqueue(dbPool, ids);
+    });
+  } else {
+    console.log("[instrumentation] SYNC_WORKER_IN_APP=off：二档同步任务未在本进程启动（预期由独立 worker 承担）");
   }
 
   // 启动第一档后台任务
@@ -68,23 +108,8 @@ export async function register() {
   // 注册优雅关闭
   registerShutdownHooks(() => {
     backgroundHandle.stop();
+    stops.forEach((stop) => stop());
     // 关闭连接池由 Next.js 进程退出自动回收；
     // 如需显式关闭，可在此调用 dbPool.end()。
   });
-}
-
-/** Meilisearch 异步初始化：健康检查 + 索引创建 */
-async function initMeilisearchAsync(dbPool: Pool) {
-  const { initMeilisearch, ensureIndex } = await import("./lib/services/meilisearch/index");
-  try {
-    const client = initMeilisearch();
-    if (client) {
-      const ok = await ensureIndex();
-      if (!ok) {
-        console.warn("[meilisearch] 索引未就绪，搜索将降级到 MySQL FULLTEXT");
-      }
-    }
-  } catch (e) {
-    console.warn("[meilisearch] 初始化失败（静默降级）:", (e as Error).message);
-  }
 }
