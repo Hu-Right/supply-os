@@ -181,7 +181,7 @@ Output (JSON array[${texts.length}]):`;
   const content = String(data?.choices?.[0]?.message?.content ?? "").trim();
   if (!content) throw new Error("DEEPSEEK_EMPTY");
   // 容错提取 JSON 数组：先剥 markdown 围栏，再尝试从混合文本中定位 [...]
-  let cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);

@@ -3,7 +3,7 @@
 import { LocaleProvider } from "@/core/i18n";
 import { AuthProvider } from "@/core/auth";
 import { Toaster } from "sonner";
-import type { Locale } from "@/core/i18n/bundles";
+import type { Locale } from "@/core/i18n/types";
 
 /**
  * Client-side Providers wrapper.

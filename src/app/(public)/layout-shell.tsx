@@ -1,12 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ReactNode } from "react";
+import type { ReactNode, ComponentType } from "react";
 
 // Client Components — 动态加载（AppHeader/AppFooter 含大量交互与浏览器 API）
-const NetworkBanner = dynamic(() => import("@/shared/layout/NetworkBanner").then(m => m.default || m.NetworkBanner), { ssr: true });
-const AppHeader = dynamic(() => import("@/shared/layout/AppHeader").then(m => m.default || m.AppHeader), { ssr: false, loading: () => <div className="h-14" /> });
-const AppFooter = dynamic(() => import("@/shared/layout/AppFooter").then(m => m.default || m.AppFooter), { ssr: false });
+const NetworkBanner = dynamic(() => import("@/shared/layout/NetworkBanner").then(m => (m as any).default || m.NetworkBanner), { ssr: true }) as ComponentType<any>;
+const AppHeader = dynamic(() => import("@/shared/layout/AppHeader").then(m => (m as any).default || m.AppHeader), { ssr: false, loading: () => <div className="h-14" /> }) as ComponentType<any>;
+const AppFooter = dynamic(() => import("@/shared/layout/AppFooter").then(m => (m as any).default || m.AppFooter), { ssr: false }) as ComponentType<any>;
 
 export default function LayoutShell({ children }: { children: ReactNode }) {
   return (

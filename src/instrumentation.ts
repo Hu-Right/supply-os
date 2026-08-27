@@ -9,13 +9,25 @@
  * 5. 预热（后台异步）
  * 6. 注册 SIGTERM 处理器
  *
- * 第二档 5s 级任务（searchSync/syncRetryQueue/wideTableSync/featuredSyncCallback）
- * 按迁移计划中期外置为独立 worker，不在此处启动。
+ * 注意：使用 eval("require") 而非 await import() 来加载服务器端模块，
+ * 防止 webpack 在客户端构建时静态分析并跟踪 Node.js 依赖链
+ * （alipay-sdk → urllib → undici → node:console 等）。
+ * instrumentation.ts 仅在 Node.js 运行时执行，客户端永远不会触达这些代码。
  */
 import type { Pool } from "mysql2/promise";
 
 // dev 热重载守卫：防止热重载重复注册
 let started = false;
+
+/**
+ * 服务器端模块加载器 — 绕过 webpack 静态分析
+ * 使用 eval("require") 使 webpack 无法在编译期确定依赖关系，
+ * 从而避免将 Node.js 服务器端包打入客户端 bundle。
+ */
+function serverRequire<T>(moduleId: string): T {
+  // eslint-disable-next-line no-eval
+  return eval("require")(moduleId);
+}
 
 export async function register() {
   if (started) return;
@@ -24,8 +36,8 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { getPool } = await import("@/server/db/pool");
-  const { getContext } = await import("@/server/db/context");
+  const { getPool } = serverRequire<{ getPool: () => Pool }>("@/server/db/pool");
+  const { getContext } = serverRequire<{ getContext: typeof import("@/server/db/context").getContext }>("@/server/db/context");
   const {
     schemaPhase,
     seedsPhase,
@@ -34,9 +46,12 @@ export async function register() {
     featuredPhase,
     paymentPhase,
     executePhase,
-  } = await import("@/server/lifecycle/phases");
-  const { runWarmup } = await import("@/server/lifecycle/warmup");
-  const { startBackgroundTasks, registerShutdownHooks } = await import("@/server/lifecycle/background");
+  } = serverRequire<typeof import("@/server/lifecycle/phases")>("@/server/lifecycle/phases");
+  const { runWarmup } = serverRequire<{ runWarmup: (opts: Record<string, unknown>) => Promise<void> }>("@/server/lifecycle/warmup");
+  const { startBackgroundTasks, registerShutdownHooks } = serverRequire<{
+    startBackgroundTasks: (pool: Pool) => { stop: () => void };
+    registerShutdownHooks: (cb: () => void) => void;
+  }>("@/server/lifecycle/background");
 
   const dbPool: Pool = getPool();
 
@@ -68,14 +83,15 @@ export async function register() {
   // 注册优雅关闭
   registerShutdownHooks(() => {
     backgroundHandle.stop();
-    // 关闭连接池由 Next.js 进程退出自动回收；
-    // 如需显式关闭，可在此调用 dbPool.end()。
   });
 }
 
 /** Meilisearch 异步初始化：健康检查 + 索引创建 */
 async function initMeilisearchAsync(dbPool: Pool) {
-  const { initMeilisearch, ensureIndex } = await import("@/server/services/meilisearch/index");
+  const { initMeilisearch, ensureIndex } = serverRequire<{
+    initMeilisearch: () => ReturnType<typeof import("@/server/services/meilisearch/index").initMeilisearch>;
+    ensureIndex: () => Promise<boolean>;
+  }>("@/server/services/meilisearch/index");
   try {
     const client = initMeilisearch();
     if (client) {

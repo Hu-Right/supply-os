@@ -34,7 +34,7 @@ interface FailureLocation {
 
 // 全局状态
 let failureIndex: Map<string, FailureLocation[]> | null = null;
-let cleanedKeys: Set<string> = new Set();
+const cleanedKeys: Set<string> = new Set();
 let flushed = false;
 
 /**

@@ -6,7 +6,8 @@
  */
 import type { Metadata } from "next";
 import "./globals.css";
-import { getLocaleDir, type Locale } from "@/core/i18n/bundles";
+import { getLocaleDir } from "@/core/i18n/bundles";
+import type { Locale } from "@/core/i18n/types";
 import { getServerI18n } from "@/lib/i18n/server";
 import Providers from "./providers";
 
