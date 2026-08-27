@@ -10,7 +10,7 @@
 
 import { recordApiMetric } from "@/core/perf";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // ── JWT Token 管理 ──
 // B2【P1】安全加固：Access Token 仍存 localStorage（短生命 2h，XSS 窗口有限），

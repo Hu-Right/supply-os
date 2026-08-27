@@ -49,12 +49,13 @@ export function createApp(ctx: AppContext): Express {
       reportOnly: true, // 观测模式：只上报违规，不阻断
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval"], // 兼容 Vite HMR + 第三方 SDK
+        scriptSrc: ["'self'", "'unsafe-inline'"], // 兼容第三方 SDK；'unsafe-eval' 已被 CSP Level 3 弃用
         styleSrc: ["'self'", "'unsafe-inline'"], //  Tailwind/CSS-in-JS 需要 inline style
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'", "https:"],
         fontSrc: ["'self'", "data:"],
         frameSrc: ["'self'", "https://open.alipay.com", "https://wx.tenpay.com"],
+        upgradeInsecureRequests: null, // report-only 模式下此指令无意义，显式移除以消除告警
       },
     },
     crossOriginEmbedderPolicy: false, // 第三方资源（字体/图片）需要跨域加载

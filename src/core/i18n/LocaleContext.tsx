@@ -73,17 +73,19 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
-export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale: Locale }) {
+export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
     const { t: translate, i18n: instance } = useTranslation();
     const [ready, setReady] = useState(false);
+    // Vite SPA 模式未传 initialLocale 时，自动检测（cookie / navigator）
+    const effectiveLocale = initialLocale || detectLocale();
 
     // 初始化 i18n engine + 预加载初始语言包
     useEffect(() => {
-      setupI18nSync(initialLocale);
+      setupI18nSync(effectiveLocale);
       const load = async () => {
         try {
-          const langsToLoad: Locale[] = [initialLocale];
-          if (initialLocale !== "en") langsToLoad.push("en");
+          const langsToLoad: Locale[] = [effectiveLocale];
+          if (effectiveLocale !== "en") langsToLoad.push("en");
           for (const lang of langsToLoad) {
             const data = await loadLanguage(lang);
             if (Object.keys(data).length > 0) {
@@ -95,9 +97,9 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
         setReady(true);
       };
       load();
-    }, [instance, initialLocale]);
+    }, [instance, effectiveLocale]);
 
-    const locale = (instance.language as Locale) || initialLocale || "en";
+    const locale = (instance.language as Locale) || effectiveLocale;
     const localeDir = getLocaleDir(locale);
 
     const setLocale = useCallback(async (next: Locale) => {

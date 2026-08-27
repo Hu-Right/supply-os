@@ -50,6 +50,9 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
+        // Vite SPA 开发环境无 Next.js App Router 上下文，
+        // 将 next/navigation 桥接到 react-router-dom 兼容垫片
+        'next/navigation': path.resolve(__dirname, 'src/lib/compat/next-navigation-shim.ts'),
       },
     },
     build: {
