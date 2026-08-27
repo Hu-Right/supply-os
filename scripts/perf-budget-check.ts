@@ -24,7 +24,7 @@ interface PerfMetrics {
 const BUDGETS = {
   ttfb: Number(process.env.PERF_TTFB_BUDGET || 500),
   fcp: Number(process.env.PERF_FCP_BUDGET || 1800),
-  lcp: Number(process.env.PERF_LCP_BUDGET || 4000),
+  lcp: Number(process.env.PERF_LCP_BUDGET || 2500),  // Google "Good" 阈值
   domInteractive: Number(process.env.PERF_DOM_BUDGET || 3500),
 };
 
@@ -32,9 +32,11 @@ const BASE_URL = process.env.PERF_BASE_URL || "http://localhost:3039";
 
 /** 需要检查的关键页面 */
 const PAGES = [
-  { name: "首页", path: "/" },
-  { name: "公告列表", path: "/procurement/notices" },
-  { name: "供应商目录", path: "/supplier/list" },
+  { name: "展厅", path: "/showroom" },
+  { name: "采购公告", path: "/procurement" },
+  { name: "供应商目录", path: "/supplier" },
+  { name: "研修班", path: "/training" },
+  { name: "会员", path: "/membership" },
 ];
 
 async function collectMetrics(page: import("@playwright/test").Page, url: string): Promise<PerfMetrics> {
