@@ -43,7 +43,10 @@ export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 
 export { Pagination } from "./Pagination";
-export type { PaginationProps } from "./Pagination";
+export type { PaginationProps, PaginationLabels } from "./Pagination";
+
+export { ListPage } from "./ListPage";
+export type { ListPageProps } from "./ListPage";
 
 export { LoadingOverlay } from "./LoadingOverlay";
 export type { LoadingOverlayProps } from "./LoadingOverlay";

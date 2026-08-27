@@ -17,9 +17,9 @@ import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
-import { Pagination, LoadingOverlay } from "@/shared/ui";
+import { ListPage, LoadingOverlay } from "@/shared/ui";
 import { Input, Select } from "@/shared/ui";
-import { PAGE_SIZE } from "@/features/procurement/constants";
+import { PAGE_SIZE } from "@/shared/constants";
 import { fetchSuppliersPaginated, fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 import { onAppEvent } from "@/core/events";
 
@@ -193,40 +193,29 @@ export default function SupplierPage() {
       {/* 语言切换等后续操作：全屏蒙层阻断交互；首次加载用骨架屏 */}
       <LoadingOverlay visible={loading && firstLoadDoneRef.current} />
 
-      {/* Suppliers Grid cards view */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* 首次加载：骨架屏数量对齐 PAGE_SIZE */}
-        {loading && !firstLoadDoneRef.current &&
-          Array.from({ length: PAGE_SIZE }, (_, idx) => <SupplierCardSkeleton key={idx} />)}
-
-        {!loading &&
-          suppliers.map((sup) => (
-            <SupplierCard
-              key={sup.id}
-              supplier={sup}
-              onAiMatch={handleAiMatch}
-              onContact={handleContact}
-            />
-          ))}
-
-        {!loading && total === 0 && (
-          <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center text-slate-400">
-            <p>{t("noData")}</p>
-          </div>
-        )}
-      </div>
-
-      {/* 分页控件：复用公采页同款（每页 9 条） */}
-      {!loading && total > 0 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          serverPageSize={PAGE_SIZE}
-          total={total}
-          loading={loading}
-          onPageChange={setPage}
-        />
-      )}
+      {/* Suppliers Grid cards view — ListPage 模板统一骨架屏/网格/空态/分页 */}
+      <ListPage
+        loading={loading}
+        firstLoadDone={firstLoadDoneRef.current}
+        skeleton={Array.from({ length: PAGE_SIZE }, (_, idx) => (
+          <SupplierCardSkeleton key={idx} />
+        ))}
+        total={total}
+        page={page}
+        totalPages={totalPages}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+        emptyText={t("noData")}
+      >
+        {suppliers.map((sup) => (
+          <SupplierCard
+            key={sup.id}
+            supplier={sup}
+            onAiMatch={handleAiMatch}
+            onContact={handleContact}
+          />
+        ))}
+      </ListPage>
 
       {showRegisterModal && (
         <SupplierRegisterModal
