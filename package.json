@@ -32,7 +32,8 @@
     "test:merge-coverage": "npx istanbul-merge --out coverage/merged/coverage-final.json coverage/unit/coverage-final.json coverage/integration/coverage-final.json",
     "test:coverage-gate": "node scripts/coverage-gate.mjs",
     "perf:check": "npx tsx scripts/perf-budget-check.ts",
-    "seed:test-db": "npx tsx scripts/seed-test-db.ts"
+    "seed:test-db": "npx tsx scripts/seed-test-db.ts",
+    "pre-push": "npm run check:encoding && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
