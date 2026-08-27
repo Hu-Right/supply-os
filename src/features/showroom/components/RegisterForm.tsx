@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileText } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { FormModal, Input, Select } from "@/shared/ui";
+import { FormModal, Button, Input, Select } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
 import { emitAppEvent } from "@/core/events";
@@ -279,20 +279,12 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
         </div>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="cursor-pointer rounded-lg border border-slate-200 px-4 py-2 text-xs text-slate-500 hover:bg-slate-50"
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          </Button>
+          <Button type="submit" variant="dark" loading={loading}>
             {t("submitRequestBtn")}
-          </button>
+          </Button>
         </div>
       </form>
     </FormModal>

@@ -12,7 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { FormModal } from "@/shared/ui";
+import { FormModal, Button } from "@/shared/ui";
 import { api } from "@/core/http";
 
 export interface ConsultFormProps {
@@ -112,20 +112,12 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 border border-slate-200 text-slate-400 rounded text-xs cursor-pointer"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t("cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-4 py-1.5 bg-slate-900 text-white rounded text-xs font-semibold hover:bg-slate-800 disabled:opacity-50 cursor-pointer"
-          >
+          </Button>
+          <Button type="submit" variant="dark" size="sm" loading={submitting}>
             {t("consultSubmitBtn")}
-          </button>
+          </Button>
         </div>
       </form>
     </FormModal>

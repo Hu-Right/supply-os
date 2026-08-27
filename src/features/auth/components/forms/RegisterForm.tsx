@@ -5,7 +5,7 @@
  * @module features/auth/components/forms/RegisterForm
  */
 import { useState, useEffect } from "react";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, Button } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
@@ -246,12 +246,13 @@ export function RegisterForm({
           {authError}
         </p>
       )}
-      <button
+      <Button
         type="submit"
-        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
+        variant="dark"
+        className="w-full py-3 rounded-xl text-sm font-black"
       >
         {t("authRegisterSubmit")}
-      </button>
+      </Button>
     </div>
   );
 }

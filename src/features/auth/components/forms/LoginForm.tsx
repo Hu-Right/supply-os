@@ -4,7 +4,7 @@
  *
  * @module features/auth/components/forms/LoginForm
  */
-import { Input } from "@/shared/ui";
+import { Input, Button } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { AuthFormState } from "../../hooks/useAuthForm";
@@ -60,12 +60,13 @@ export function LoginForm({
           {claimMessage}
         </p>
       )}
-      <button
+      <Button
         type="submit"
-        className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800"
+        variant="dark"
+        className="w-full py-3 rounded-xl text-sm font-black"
       >
         {t("authLoginSubmit")}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { FormModal, Input, Select } from "@/shared/ui";
+import { FormModal, Button, Input, Select } from "@/shared/ui";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
 import { emitAppEvent } from "@/core/events";
 
@@ -207,20 +207,12 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg text-xs"
-          >
+          <Button type="button" variant="outline" onClick={onClose}>
             {t("cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+          </Button>
+          <Button type="submit" variant="dark" loading={submitting}>
             {t("supplierRegSubmitBtn")}
-          </button>
+          </Button>
         </div>
       </form>
     </FormModal>

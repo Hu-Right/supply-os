@@ -4,7 +4,7 @@
  *
  * @module features/auth/components/forms/ForgotPasswordForm
  */
-import { Input } from "@/shared/ui";
+import { Input, Button } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { Mail } from "lucide-react";
 import type { useForgotPassword } from "../../hooks/useForgotPassword";
@@ -65,14 +65,15 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
               </p>
             );
           })()}
-          <button
+          <Button
             type="button"
+            variant="dark"
+            loading={forgotLoading}
+            className="w-full py-3 rounded-xl text-sm font-black"
             onClick={handleSendResetCode}
-            disabled={forgotLoading}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-50"
           >
             {forgotLoading ? t("authForgotSending") : t("authForgotSendCode")}
-          </button>
+          </Button>
         </div>
       ) : (
         /* 步骤 2：输入验证码 + 新密码 */
@@ -100,14 +101,15 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
             placeholder={t("authForgotNewPasswordPlaceholder")}
             minLength={PASSWORD_MIN_LENGTH}
           />
-          <button
+          <Button
             type="button"
+            variant="dark"
+            loading={forgotLoading}
+            className="w-full py-3 rounded-xl text-sm font-black"
             onClick={handleResetPassword}
-            disabled={forgotLoading}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 disabled:opacity-50"
           >
             {forgotLoading ? t("authForgotResetting") : t("authForgotResetSubmit")}
-          </button>
+          </Button>
           <button
             type="button"
             onClick={() => {
