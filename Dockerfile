@@ -1,12 +1,12 @@
 # ============================================================
-# Supply-OS 多阶段 Docker 构建
+# Supply-OS Next.js 多阶段 Docker 构建
 # ============================================================
 # 阶段 1 (deps)   — 安装全部依赖（含原生编译工具链）
-# 阶段 2 (build)  — 构建前端 + 后端 bundle
+# 阶段 2 (build)  — Next.js 构建
 # 阶段 3 (runtime) — 最小运行时镜像，仅含生产产物
 # ============================================================
 
-# ── 阶段 1: 依赖安装 ──────────────────────────────────────────
+# ─ 阶段 1: 依赖安装 ──────────────────────────────────────────
 FROM node:24-slim AS deps
 
 # nodejieba / bcrypt 需要 C++ 编译工具链
@@ -22,7 +22,7 @@ COPY package.json package-lock.json ./
 # 安装全部依赖（含 devDependencies，构建阶段需要）
 RUN npm ci
 
-# ── 阶段 2: 构建 ─────────────────────────────────────────────
+# ── 阶段 2: Next.js 构建 ────────────────────────────────────
 FROM deps AS build
 
 WORKDIR /app
@@ -30,7 +30,7 @@ WORKDIR /app
 # 复制源码
 COPY . .
 
-# 执行构建：Vite (前端) + esbuild (后端 bundle → dist/server.mjs)
+# Next.js 构建（output: "standalone" 生成独立部署包）
 RUN npm run build
 
 # ── 阶段 3: 运行时 ───────────────────────────────────────────
@@ -38,7 +38,7 @@ FROM node:24-slim AS runtime
 
 # 安全加固：非 root 用户
 RUN groupadd -r appuser && useradd -r -g appuser -G audio,video appuser \
-    && mkdir -p /app/server/logs && chown -R appuser:appuser /app
+    && mkdir -p /app/.next && chown -R appuser:appuser /app
 
 WORKDIR /app
 
@@ -46,23 +46,23 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# 从 build 阶段拷贝构建产物
-COPY --from=build /app/dist ./dist
-
-# 公共静态资源（下载文件、字体、manifest 等）
+# 从 build 阶段拷贝 Next.js standalone 产物
+# next.config.ts 中 output: "standalone" 生成 .next/standalone/server.js
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 
 # ── 环境变量默认值 ──
 ENV NODE_ENV=production \
-    PORT=3039
+    PORT=3000
 
-EXPOSE 3039
+EXPOSE 3000
 
-# 健康检查：利用已有的 /api/system/version 轻量端点
+# 健康检查：利用 /api/system/version 轻量端点
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://localhost:3039/api/system/version').then(r=>{if(!r.ok)throw 1;process.exit(0)}).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://localhost:3000/api/system/version').then(r=>{if(!r.ok)throw 1;process.exit(0)}).catch(()=>process.exit(1))"
 
 USER appuser
 
-# 生产启动：直接运行 esbuild bundle
-CMD ["node", "dist/server.mjs"]
+# 生产启动：Next.js standalone server
+CMD ["node", "server.js"]
