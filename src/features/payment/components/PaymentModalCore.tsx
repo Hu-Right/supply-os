@@ -336,6 +336,7 @@ export default function PaymentModalCore({
 
             {qrImage ? (
               <div className="mx-auto w-fit rounded-xl border-2 border-slate-200 bg-white p-2">
+                {/* NOTE: 保留原生 <img> — qrImage 为 data URL（qrcode 库生成），next/image 不支持 data: 协议 */}
                 <img src={qrImage} alt={order.order_no} className="h-48 w-48 object-contain" />
               </div>
             ) : (

@@ -7,6 +7,7 @@
  */
 
 import { MessageCircle } from "lucide-react";
+import Image from "next/image";
 import { useLocale } from "@/core/i18n";
 import { Modal } from "@/shared/ui";
 
@@ -24,11 +25,12 @@ export default function WechatQRModal({ onClose }: WechatQRModalProps) {
           <MessageCircle className="h-6 w-6" />
         </div>
         <div className="overflow-hidden rounded-xl border-4 border-amber-400 bg-white p-2 shadow-md">
-          <img
+          <Image
             src="/wechat-service-qr.png"
             alt={t("tlWechatModalTitle")}
+            width={208}
+            height={208}
             className="h-52 w-52 object-contain"
-            loading="eager"
           />
         </div>
         <p className="text-center text-sm leading-relaxed text-slate-600">{t("tlWechatModalDesc")}</p>

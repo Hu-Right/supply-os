@@ -8,6 +8,7 @@
  */
 import { useEffect, useState, useCallback } from "react";
 import { Presentation, ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
 import { Modal } from "@/shared/ui";
@@ -62,11 +63,13 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
       >
         <div className="relative h-40 bg-[#0A2A55] cursor-pointer" onClick={handleImageClick}>
           {current ? (
-            <img
+            <Image
               src={current.image_path}
               alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              loading="lazy"
+              fill
+              sizes="300px"
+              quality={80}
+              className="object-cover transition-transform duration-300 hover:scale-105"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
@@ -99,9 +102,12 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
           <div className="relative h-full flex flex-col">
             {/* 图片区域 */}
             <div className="relative flex-1 flex items-center justify-center overflow-hidden">
-              <img
+              <Image
                 src={images[previewIdx].image_path}
                 alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+                width={1200}
+                height={800}
+                quality={85}
                 className="max-w-full max-h-full object-contain"
               />
 

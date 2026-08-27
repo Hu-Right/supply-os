@@ -10,6 +10,7 @@
  *              色值均采样自设计图。头像为空时渲染默认剪影占位。
  */
 import { UserRound, Trophy, GraduationCap, BadgeCheck, HeartHandshake, Award, UserStar, Shapes } from "lucide-react";
+import Image from "next/image";
 import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
 import type { LandingInstructor, LandingTeamMember } from "../api";
@@ -28,7 +29,18 @@ function Avatar({ src, alt, className }: { src: string; alt: string; className: 
       </span>
     );
   }
-  return <img src={src} alt={alt} className={`${className} object-cover object-center`} loading="lazy" />;
+  return (
+    <span className={`${className} relative block`}>
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes="(max-width: 768px) 100px, 160px"
+        quality={75}
+        className="object-cover object-center"
+      />
+    </span>
+  );
 }
 
 const ROLE_COLS: { icon: typeof Award; titleKey: LocaleKey; descKey: LocaleKey }[] = [

@@ -8,6 +8,7 @@
  */
 
 import { Clock } from "lucide-react";
+import Image from "next/image";
 import { useLocale, pickLocale } from "@/core/i18n";
 import type { ExhibitionHall } from "@/types";
 
@@ -24,12 +25,13 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
     <div className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs transition-all duration-300 hover:border-teal-500/55 hover:shadow-md">
       {/* Banner Image with Badge */}
       <div className="relative h-36 md:h-48 w-full overflow-hidden bg-slate-100">
-        <img
+        <Image
           src={showroom.bannerUrl}
           alt={pickLocale(locale, showroom.nameZh, showroom.nameEn)}
-          loading="lazy"
-          decoding="async"
-          className="h-full w-full object-cover transition-transform duration-550 group-hover:scale-105"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          quality={80}
+          className="object-cover transition-transform duration-550 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
         <div className="absolute start-4 top-4 rounded-full bg-teal-600 px-3 py-1 text-xs font-bold text-white shadow-xs">

@@ -17,6 +17,7 @@ export interface HeroSectionProps {
 }
 
 /** 地球装饰（earth.png 透明底，右侧融入藏青背景） Earth decoration */
+/* NOTE: 保留原生 <img> — 装饰性图片使用 h-[140%] w-auto 及 mask-image，next/image 不支持此模式 */
 function GlobeDots() {
   return (
     <img
