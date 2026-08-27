@@ -73,7 +73,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
               {t("mainProducts")}
             </span>
             <div className="mt-1 flex flex-wrap gap-1">
-              {pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn).map((p, idx) => (
+              {(pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? []).map((p, idx) => (
                 <span key={idx} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
                   {p}
                 </span>
@@ -86,7 +86,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
               {t("complianceLabel")}
             </span>
             <div className="mt-1 flex flex-wrap gap-1">
-              {pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn).map(
+              {(pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn) ?? []).map(
                 (c, idx) => (
                   <span
                     key={idx}

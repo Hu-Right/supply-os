@@ -61,7 +61,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
               {t("featuredProducts")}
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {pickLocale(locale, showroom.featuredProductsZh, showroom.featuredProductsEn).map(
+              {(pickLocale(locale, showroom.featuredProductsZh, showroom.featuredProductsEn) ?? []).map(
                 (prod, idx) => (
                   <span
                     key={idx}
