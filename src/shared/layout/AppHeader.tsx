@@ -11,6 +11,7 @@
  *              navigation items; auto-closes on selection.
  */
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -113,13 +114,14 @@ export function AppHeader({
           <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
             {tabs.map((tab) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.path;
               return (
-                <button key={tab.path} onClick={() => onSwitchTab(tab.path)}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer ${activeTab === tab.path ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && activeTab !== tab.path ? "text-amber-400 animate-pulse" : ""}`} />
+                <Link key={tab.path} href={tab.path} scroll={false}
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
+                  <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-amber-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
                   {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
-                </button>
+                </Link>
               );
             })}
           </div>

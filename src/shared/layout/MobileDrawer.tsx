@@ -4,7 +4,8 @@
  *
  * @module shared/layout/MobileDrawer
  */
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Globe, X, Check, Loader2 } from "lucide-react";
 import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
@@ -21,7 +22,6 @@ export interface MobileDrawerProps {
 export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const { t, locale, switching, setLocale } = useLocale();
   const { authUser, isVip } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
 
   // VIP 等级标签：按已解锁套餐显示，兜底 i18n VIP/免费标签
@@ -29,11 +29,6 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const userTierLabel = vipDisplayLabel;
 
   if (!open) return null;
-
-  const handleNavClick = (path: string) => {
-    router.push(path);
-    onClose();
-  };
 
   const isTabActive = (path: string) => {
     const p = pathname;
@@ -77,9 +72,10 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
             const isActive = isTabActive(tab.path);
             const label = t(tab.labelKey);
             return (
-              <button
+              <Link
                 key={tab.path}
-                onClick={() => handleNavClick(tab.path)}
+                href={tab.path}
+                onClick={onClose}
                 className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-colors mb-0.5 ${
                   isActive
                     ? "bg-teal-50 text-teal-700 font-semibold"
@@ -96,7 +92,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
                 {tab.highlight && !isActive && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{vipDisplayLabel}</span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
