@@ -42,26 +42,13 @@ export function usePathname(): string {
  * useSearchParams — 桥接 next/navigation useSearchParams
  * 直接从 useLocation().search 构造原生 URLSearchParams，
  * 避免依赖 react-router-dom 的 useSearchParams（v7 返回类型不保证 .get() 方法）
+ *
+ * 与 Next.js App Router API 一致：仅返回 URLSearchParams 对象。
+ * 如需修改参数，使用 useRouter().push/replace 配合 URLSearchParams 构造。
  */
-export function useSearchParams(): [URLSearchParams, (params: Record<string, string>) => void] {
-  const navigate = useNavigate();
+export function useSearchParams(): URLSearchParams {
   const location = useLocation();
-  // 原生 URLSearchParams 保证 .get()/.set()/.delete() 等方法可用
-  const searchParams = new URLSearchParams(location.search);
-
-  const setSearchParams = (params: Record<string, string>) => {
-    const usp = new URLSearchParams(location.search);
-    for (const [k, v] of Object.entries(params)) {
-      if (v === "" || v === undefined || v === null) {
-        usp.delete(k);
-      } else {
-        usp.set(k, v);
-      }
-    }
-    navigate(`${location.pathname}?${usp.toString()}`);
-  };
-
-  return [searchParams, setSearchParams];
+  return new URLSearchParams(location.search);
 }
 
 /**
