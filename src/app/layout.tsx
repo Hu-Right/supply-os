@@ -8,15 +8,18 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getLocaleDir, type Locale } from "@/core/i18n/bundles";
 import { getServerI18n } from "@/lib/i18n/server";
+import { getPageMetadata } from "@/lib/i18n/metadata";
 import Providers from "./providers";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getServerI18n();
+  const meta = getPageMetadata("showroom", locale);
   return {
     title: {
-      default: "Supply OS — 全球智能供应链平台",
+      default: meta.title,
       template: "%s | Supply OS",
     },
-    description: "全球智能供应链平台：展厅、采购搜索、供应商目录、CRM、培训认证。",
+    description: meta.description,
     keywords: ["supply chain", "procurement", "bidding", "tender", "supplier", "招标", "采购"],
     alternates: {
       canonical: "https://osneosmart.com/",

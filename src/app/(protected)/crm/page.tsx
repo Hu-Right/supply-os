@@ -1,13 +1,17 @@
 /**
- * /crm — 纯 CSR（受保护页面）
+ * /crm — protected page
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
+import { getServerI18n } from "@/lib/i18n/server";
+import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getServerI18n();
+  const meta = getPageMetadata("crm", locale);
   return {
-    title: "CRM 客户管理 | Supply OS",
-    description: "管理您的客户关系与销售线索",
+    title: meta.title,
+    description: meta.description,
     alternates: {
       canonical: "https://osneosmart.com/crm",
       languages: { "x-default": "https://osneosmart.com/crm" },

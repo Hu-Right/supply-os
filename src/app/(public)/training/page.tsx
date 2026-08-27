@@ -1,15 +1,19 @@
 /**
- * /training — ISR (revalidate: 3600)，全宽布局
+ * /training — ISR (revalidate: 3600)
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
+import { getServerI18n } from "@/lib/i18n/server";
+import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getServerI18n();
+  const meta = getPageMetadata("training", locale);
   return {
-    title: "研修班 | Supply OS",
-    description: "供应链研修培训课程报名",
+    title: meta.title,
+    description: meta.description,
     alternates: {
       canonical: "https://osneosmart.com/training",
       languages: { "x-default": "https://osneosmart.com/training" },

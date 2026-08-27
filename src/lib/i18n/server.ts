@@ -3,11 +3,13 @@
  *
  * @module lib/i18n/server
  * @description 每个请求创建一个独立的 i18next 实例，避免并发冲突。
- *              语言决议优先级：Cookie (supply_os_locale) > Accept-Language header > "en"。
- *              注意：Proxy 设置的 x-locale 是响应头，Server Component 的 headers()
- *              只能读取请求头，因此此处直接从 Cookie 读取（服务端可访问）。
+ *              语言决议优先级：Accept-Language header > "en"。
+ *              使用 headers() 而非 cookies()：cookies() 会强制整站动态渲染，
+ *              导致 ISR/SSG 全部失效（所有页面变为 ƒ）。
+ *              headers() 仅使 root layout 动态，子页面仍可 ISR 缓存。
+ *              客户端语言偏好由 Cookie 持久化，客户端 detectLocale() 读取。
  */
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { SERVER_BUNDLES, SUPPORTED_LOCALE_CODES, type Locale } from "@/core/i18n/bundles";
 import * as i18nextModule from "i18next";
 
@@ -16,19 +18,6 @@ type I18nInstance = {
   init: (options: Record<string, unknown>) => Promise<void>;
 };
 
-// 将 SERVER_BUNDLES 转为 i18next 期望的 resources 格式
-const RESOURCES = Object.fromEntries(
-  Object.entries(SERVER_BUNDLES).map(([lang, data]) => [
-    lang,
-    Object.fromEntries(
-      Object.entries(data).map(([ns, translations]) => [
-        ns,
-        { translation: translations },
-      ]),
-    ),
-  ]),
-) as Record<string, Record<string, { translation: Record<string, string> }>>;
-
 export type { Locale };
 
 /**
@@ -36,19 +25,15 @@ export type { Locale };
  * 需在 Server Component 中调用（需 await）。
  */
 export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: Locale }> {
-  // ★ 直接从 Cookie 读取语言偏好（服务端可访问，无需依赖 Proxy 响应头）★
-  const cookieStore = await cookies();
-  let locale = (cookieStore.get("supply_os_locale")?.value) as Locale | undefined;
+  // ★ 使用 headers() 而非 cookies() —— cookies() 强制整站动态渲染，ISR/SSG 全部失效 ★
+  const headersList = await headers();
+  const acceptLang = headersList.get("accept-language");
+  let locale: Locale | undefined;
 
-  // fallback: Accept-Language header
-  if (!locale || !SUPPORTED_LOCALE_CODES.includes(locale)) {
-    const headersList = await headers();
-    const acceptLang = headersList.get("accept-language");
-    if (acceptLang) {
-      const primary = acceptLang.split(",")[0]?.trim().split("-")[0]?.toLowerCase();
-      if (primary && SUPPORTED_LOCALE_CODES.includes(primary as Locale)) {
-        locale = primary as Locale;
-      }
+  if (acceptLang) {
+    const primary = acceptLang.split(",")[0]?.trim().split("-")[0]?.toLowerCase();
+    if (primary && SUPPORTED_LOCALE_CODES.includes(primary as Locale)) {
+      locale = primary as Locale;
     }
   }
 
@@ -62,7 +47,7 @@ export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: L
   await instance.init({
     lng: locale,
     fallbackLng: "en",
-    resources: RESOURCES,
+    resources: SERVER_BUNDLES,
     interpolation: {
       escapeValue: false,
       prefix: "{",

@@ -1,15 +1,19 @@
 /**
- * /services — SSG
+ * /services — ISR (revalidate: 3600)
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
+import { getServerI18n } from "@/lib/i18n/server";
+import { getPageMetadata } from "@/lib/i18n/metadata";
 
-export const revalidate = 86400;
+export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getServerI18n();
+  const meta = getPageMetadata("services", locale);
   return {
-    title: "服务 | Supply OS",
-    description: "了解供应链相关服务",
+    title: meta.title,
+    description: meta.description,
     alternates: {
       canonical: "https://osneosmart.com/services",
       languages: { "x-default": "https://osneosmart.com/services" },
