@@ -66,6 +66,8 @@ function detectLocale(): Locale {
 type LocaleContextValue = {
   locale: Locale;
   localeDir: "ltr" | "rtl";
+  /** 语言切换进行中（正在下载资源包 + changeLanguage） */
+  switching: boolean;
   setLocale: (next: Locale) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 };
@@ -76,14 +78,24 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
  * 内部组件：在 I18nextProvider 内部执行翻译逻辑
  * 确保 useTranslation() 在 i18next 实例初始化后被调用
  */
-function LocaleInner({ children, effectiveLocale }: { children: ReactNode; effectiveLocale: Locale }) {
+function LocaleInner({ children, effectiveLocale, initPromise }: { children: ReactNode; effectiveLocale: Locale; initPromise: Promise<void> | null }) {
   const { t: translate, i18n: instance } = useTranslation();
   const [ready, setReady] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  // ★ locale 提升为 React state —— 保证 setLocale 后必定触发 re-render ★
+  // 之前 locale 从 instance.language 派生，依赖 useSyncExternalStore 事件链
+  // 触发重渲染。react-i18next v17 的 subscribe 每次渲染因 i18nOptions 引用变化
+  // 而重建，导致 useSyncExternalStore 反复重新订阅；changeLanguage 的
+  // languageChanged 事件可能在旧订阅已拆除、新订阅未生效的间隙触发，
+  // 使 useSyncExternalStore 完全错过事件 → 组件树不重渲染 → 语言切换"无效果"。
+  const [locale, setLocaleState] = useState<Locale>(effectiveLocale);
 
-  // 加载翻译资源包
+  // 加载翻译资源包（仅初始挂载 + effectiveLocale 变化时）
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
+        if (initPromise) await initPromise;
         const langsToLoad: Locale[] = [effectiveLocale];
         if (effectiveLocale !== "en") langsToLoad.push("en");
         for (const lang of langsToLoad) {
@@ -92,50 +104,69 @@ function LocaleInner({ children, effectiveLocale }: { children: ReactNode; effec
             instance.addResourceBundle(lang, "translation", data, true, true);
           }
         }
-        instance.changeLanguage(effectiveLocale);
-      } catch { /* ignore hydration error */ }
-      setReady(true);
+        await instance.changeLanguage(effectiveLocale);
+        if (!cancelled) setLocaleState(effectiveLocale);
+      } catch (err) {
+        console.error("[i18n] init load error:", err);
+      }
+      if (!cancelled) setReady(true);
     };
     load();
-  }, [instance, effectiveLocale]);
+    return () => { cancelled = true; };
+  }, [instance, effectiveLocale, initPromise]);
 
   // 同步 HTML lang/dir
   useEffect(() => {
     if (typeof document !== "undefined") {
-      document.documentElement.lang = effectiveLocale;
-      document.documentElement.dir = getLocaleDir(effectiveLocale);
+      document.documentElement.lang = locale;
+      document.documentElement.dir = getLocaleDir(locale);
     }
-  }, [effectiveLocale]);
+  }, [locale]);
 
-  const locale = (instance.language as Locale) || effectiveLocale;
   const localeDir = getLocaleDir(locale);
 
   const setLocale = useCallback(async (next: Locale) => {
-    // 按需下载目标语言资源
+    if (next === locale) return;
+    setSwitching(true);
     try {
-      const data = await loadLanguage(next);
-      if (Object.keys(data).length > 0) {
-        instance.addResourceBundle(next, "translation", data, true, true);
-      }
-    } catch { /* chunk not ready yet */ }
-    // 确保英文兜底已加载
-    if (next !== "en") {
+      if (initPromise) await initPromise;
+      // 按需下载目标语言资源
       try {
-        const enData = await loadLanguage("en");
-        if (Object.keys(enData).length > 0) {
-          instance.addResourceBundle("en", "translation", enData, true, true);
+        const data = await loadLanguage(next);
+        if (Object.keys(data).length > 0) {
+          instance.addResourceBundle(next, "translation", data, true, true);
         }
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error("[i18n] loadLanguage error:", next, err);
+      }
+      // 确保英文兜底已加载
+      if (next !== "en") {
+        try {
+          const enData = await loadLanguage("en");
+          if (Object.keys(enData).length > 0) {
+            instance.addResourceBundle("en", "translation", enData, true, true);
+          }
+        } catch (err) {
+          console.error("[i18n] loadLanguage(en) error:", err);
+        }
+      }
+      // 切换 i18next 实例语言
+      await instance.changeLanguage(next);
+    } catch (err) {
+      console.error("[i18n] changeLanguage error:", next, err);
+    } finally {
+      setSwitching(false);
     }
-    instance.changeLanguage(next);
-    // ★ Cookie 是唯一真实源 ★
+    // ★ 显式更新 React state —— 保证 re-render，不依赖 useSyncExternalStore 事件链 ★
+    setLocaleState(next);
+    // ★ Cookie 持久化 ★
     setCookie(COOKIE_NAME, next, 365);
     try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     if (typeof document !== "undefined") {
       document.documentElement.lang = next;
       document.documentElement.dir = getLocaleDir(next);
     }
-  }, [instance]);
+  }, [instance, initPromise, locale]);
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string =>
@@ -143,7 +174,7 @@ function LocaleInner({ children, effectiveLocale }: { children: ReactNode; effec
     [translate],
   );
 
-  const value = useMemo(() => ({ locale, localeDir, setLocale, t }), [locale, localeDir, setLocale, t]);
+  const value = useMemo(() => ({ locale, localeDir, switching, setLocale, t }), [locale, localeDir, switching, setLocale, t]);
 
   if (!ready) return null;
 
@@ -153,23 +184,29 @@ function LocaleInner({ children, effectiveLocale }: { children: ReactNode; effec
 export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
   const effectiveLocale = initialLocale || detectLocale();
   const i18nInstanceRef = useRef<ReturnType<typeof createInstance> | null>(null);
+  const initPromiseRef = useRef<Promise<void> | null>(null);
 
   // ★ 创建独立 i18next 实例（仅一次）★
   if (!i18nInstanceRef.current) {
     const instance = createInstance();
-    instance.use(initReactI18next).init({
+    const initPromise = instance.use(initReactI18next).init({
       lng: effectiveLocale,
       fallbackLng: "en",
       resources: {},
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
       returnNull: false,
+      // ★ react-i18next v17 默认 useSuspense: true，
+      //   语言切换瞬间 hasLoadedNamespace 返回 false 时组件会 throw Promise，
+      //   无 <Suspense> 边界则整棵组件树崩溃。必须显式关闭。★
+      react: { useSuspense: false },
     });
     i18nInstanceRef.current = instance;
+    initPromiseRef.current = initPromise;
   }
 
   return (
     <I18nextProvider i18n={i18nInstanceRef.current}>
-      <LocaleInner effectiveLocale={effectiveLocale}>{children}</LocaleInner>
+      <LocaleInner effectiveLocale={effectiveLocale} initPromise={initPromiseRef.current}>{children}</LocaleInner>
     </I18nextProvider>
   );
 }

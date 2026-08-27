@@ -108,20 +108,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // GET /api/payment/config-status — 公共支付配置状态（最小字段）
-  if (path === "/api/payment/config-status") {
-    const ctx = getContext();
-    const { paymentService, paymentMode } = ctx.payment;
-    const live = paymentMode === "live";
-    return NextResponse.json({
-      providers: {
-        alipay: { configured: live && paymentService.hasStrategy("alipay") },
-        wechat: { configured: live && paymentService.hasStrategy("wechat") },
-      },
-    });
-  }
-
-  // GET /api/payments/config-status — 管理员完整配置状态
+  // GET /api/payment/config-status — 已迁移到 payment/config-status/route.ts
+  // GET /api/payments/config-status — 管理员完整配置状态（保留在此处，因需要 auth 中间件）
   if (path === "/api/payments/config-status") {
     const adminAuth = await requireAdmin(req);
     if (adminAuth instanceof Response) return adminAuth;

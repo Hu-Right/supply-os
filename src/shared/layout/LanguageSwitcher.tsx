@@ -5,24 +5,26 @@
  * @module shared/layout/LanguageSwitcher
  * @description 页头语言选择。点击展开下拉，列出联合国 6 种官方语言，点击切换。
  *              下拉面板始终向左展开（物理 right:0 定位），不受文档方向影响。
+ *              切换期间显示旋转指示器 + 禁用交互，防止重复点击。
  *              Header language selector: click to open a dropdown listing the 6
  *              UN official languages; selecting one switches the locale.
+ *              A spinner + disabled state is shown while the switch is in progress.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Globe, ChevronDown, Check } from "lucide-react";
+import { Globe, ChevronDown, Check, Loader2 } from "lucide-react";
 import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 
 export function LanguageSwitcher() {
-  const { locale, setLocale, t } = useLocale();
+  const { locale, switching, setLocale, t } = useLocale();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const current =
     SUPPORTED_LOCALES.find((l) => l.code === locale) ?? SUPPORTED_LOCALES[0];
 
-  // 点击外部 / Esc 关闭
+  // 点击外部 / Esc 关闭（切换中不响应）
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -43,23 +45,33 @@ export function LanguageSwitcher() {
 
   const handleSelect = useCallback(
     (code: Locale) => {
+      if (switching) return; // 切换进行中忽略重复点击
       setLocale(code);
       setOpen(false);
     },
-    [setLocale],
+    [setLocale, switching],
   );
 
   return (
     <div ref={rootRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => { if (!switching) setOpen((v) => !v); }}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t("uiSelectLanguage")}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-medium cursor-pointer"
+        disabled={switching}
+        className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+          switching
+            ? "border-teal-300 bg-teal-50 text-teal-700 cursor-wait"
+            : "border-slate-200 hover:bg-slate-50"
+        }`}
       >
-        <Globe className="w-3.5 h-3.5 text-teal-600" />
+        {switching ? (
+          <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
+        ) : (
+          <Globe className="w-3.5 h-3.5 text-teal-600" />
+        )}
         <span>{current.nativeName}</span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
@@ -80,12 +92,18 @@ export function LanguageSwitcher() {
                   type="button"
                   onClick={() => handleSelect(l.code)}
                   dir={l.dir}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 ${
+                  disabled={switching}
+                  className={`flex w-full items-center justify-between px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    switching
+                      ? "opacity-50 cursor-wait"
+                      : "hover:bg-slate-50"
+                  } ${
                     selected ? "font-semibold text-teal-700" : "text-slate-700"
                   }`}
                 >
                   <span>{l.nativeName}</span>
-                  {selected && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                  {selected && !switching && <Check className="w-3.5 h-3.5 text-teal-600" />}
+                  {selected && switching && <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />}
                 </button>
               </li>
             );

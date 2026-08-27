@@ -5,8 +5,9 @@
  * @module shared/layout/MobileDrawer
  */
 import { usePathname, useRouter } from "next/navigation";
-import { Globe, X } from "lucide-react";
-import { useLocale } from "@/core/i18n";
+import { Globe, X, Check, Loader2 } from "lucide-react";
+import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
+import type { Locale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { NAV_TABS } from "./nav-tabs";
@@ -17,7 +18,7 @@ export interface MobileDrawerProps {
 }
 
 export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
-  const { t } = useLocale();
+  const { t, locale, switching, setLocale } = useLocale();
   const { authUser, isVip } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
@@ -37,6 +38,11 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const isTabActive = (path: string) => {
     const p = pathname;
     return p === path || (path === "/showroom" && (p === "/" || p === ""));
+  };
+
+  const handleLocaleSelect = (code: Locale) => {
+    if (switching) return;
+    setLocale(code);
   };
 
   return (
@@ -94,6 +100,43 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             );
           })}
         </nav>
+
+        {/* 语言选择区 */}
+        <div className="border-t border-slate-100 px-3 py-2">
+          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            {t("uiSelectLanguage")}
+          </p>
+          <div className="grid grid-cols-3 gap-1">
+            {SUPPORTED_LOCALES.map((l) => {
+              const selected = l.code === locale;
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => handleLocaleSelect(l.code)}
+                  disabled={switching}
+                  dir={l.dir}
+                  className={`flex items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors cursor-pointer ${
+                    switching
+                      ? "opacity-50 cursor-wait"
+                      : ""
+                  } ${
+                    selected
+                      ? "bg-teal-50 text-teal-700 font-semibold"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {selected && switching ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : selected ? (
+                    <Check className="w-3 h-3 text-teal-600" />
+                  ) : null}
+                  <span>{l.nativeName}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* 抽屉底部：用户信息 */}
         <div className="border-t border-slate-100 px-5 py-4">
