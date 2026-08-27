@@ -31,8 +31,17 @@ export default function ProtectedLayout({ children }: { children: ReactNode }) {
     }
   }, [authReady, needLogin, needVip, router]);
 
-  // 初始化期间显示空白（不渲染子组件，避免闪烁）
-  if (!authReady) return null;
+  // 初始化期间显示加载指示（不渲染子组件，避免闪烁）
+  if (!authReady) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-slate-200 border-t-teal-500" />
+          <p className="text-sm text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   if (needLogin || needVip) return null;
 
   return <>{children}</>;
