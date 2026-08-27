@@ -11,7 +11,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (auth instanceof Response) return auth;
 
   const { id } = await context.params;
-  const supplierId = Number(id);
+  // mapSupplierRow 产出的 id 带 sup-db- 前缀（区分数据源），此处剥离后取数字主键
+  const rawId = id.startsWith("sup-db-") ? id.slice("sup-db-".length) : id;
+  const supplierId = Number(rawId);
   if (!supplierId) return NextResponse.json({ code: 40000, message: "Invalid ID" }, { status: 400 });
 
   const ctx = getContext();

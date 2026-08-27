@@ -32,6 +32,8 @@ export interface AuthContextValue {
   authUser: AuthUser | null;
   /** 是否为 VIP 会员 */
   isVip: boolean;
+  /** 认证初始化完成（localStorage 恢复 + refresh 完成），此前不应做路由守卫判断 */
+  authReady: boolean;
   /** 认证操作加载中（登录/注册/刷新） */
   isAuthLoading: boolean;
   /** 登录（支持邮箱或手机号） */

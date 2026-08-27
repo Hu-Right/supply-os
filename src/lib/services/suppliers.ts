@@ -15,10 +15,11 @@ export function mapSupplierRow(row: any, tr: any | null): Supplier {
   const industryTr = String(tr?.industry_tr || "").trim() || industryZh;
   const productsTr = tr?.main_products_tr ? splitListField(tr.main_products_tr) : productsZh;
   const cityZh = String(row.city || "").trim() || String(row.province || "").trim() || "—";
+  const companyName = String(row.company || "").trim();
   return {
     id: `sup-db-${row.id}`,
-    nameZh: row.company,
-    nameEn: row.company, // 公司名保留真实原文，不翻译
+    nameZh: companyName,
+    nameEn: companyName, // 公司名保留真实原文，不翻译
     type: row.type === "international" ? "international" : "domestic",
     industryZh,
     industryEn: industryTr,

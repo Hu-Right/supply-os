@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isVip, setIsVip] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
+  /** 认证初始化完成标志：localStorage 恢复 + 可选 refresh 完成后才为 true */
+  const [authReady, setAuthReady] = useState(false);
 
   // 使用 ref 避免闭包陈旧引用
   const authUserRef = useRef<AuthUser | null>(authUser);
@@ -245,11 +247,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const parsedUser = JSON.parse(savedUser) as AuthUser;
         persistAuthUser(parsedUser);
-        // 异步刷新用户信息
-        refreshAuth();
+        // 异步刷新用户信息，完成后标记就绪
+        refreshAuth().finally(() => setAuthReady(true));
       } catch {
         window.localStorage.removeItem(AUTH_USER_KEY);
+        setAuthReady(true);
       }
+    } else {
+      // 无缓存用户，直接标记就绪（未登录状态）
+      setAuthReady(true);
     }
   }, [persistAuthUser, refreshAuth]);
 
@@ -257,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = useMemo(() => ({
     authUser,
     isVip,
+    authReady,
     isAuthLoading,
     login,
     register,
@@ -267,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setClaimMessage,
     sendResetCode,
     resetPassword,
-  }), [authUser, isVip, isAuthLoading, login, register, logout, refreshAuth, submitSupplierClaim, claimMessage, sendResetCode, resetPassword]);
+  }), [authUser, isVip, authReady, isAuthLoading, login, register, logout, refreshAuth, submitSupplierClaim, claimMessage, sendResetCode, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
