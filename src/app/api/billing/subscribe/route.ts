@@ -6,9 +6,19 @@
  * @description 从 Express routes/payment.routes.ts 迁移。
  *              管理员通过 API Token 为用户开通 VIP 会员。
  */
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { activateSubscription } from "@/lib/payment/fulfillment";
+
+/** 常数时间比较管理员密钥（防时序侧信道逐字节探测） */
+function isAdminKeyValid(provided: string, expected: string): boolean {
+  if (!expected || !provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 // ── 错误码定义 ──
 const ApiErrorCode = {
@@ -31,7 +41,7 @@ export async function POST(req: NextRequest) {
   const adminKey = String(body.admin_key || req.headers.get("x-admin-key") || "");
   const expectedAdminKey = process.env.ADMIN_API_TOKEN || "";
 
-  if (!expectedAdminKey || adminKey !== expectedAdminKey) {
+  if (!isAdminKeyValid(adminKey, expectedAdminKey)) {
     return sendError("此端点需要管理员密钥", 403, ApiErrorCode.ADMIN_AUTH_REQUIRED);
   }
 

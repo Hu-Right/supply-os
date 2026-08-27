@@ -4,6 +4,8 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendRegistrationVerifyEmail, isEmailConfigured } from "@/lib/services/email";
 
@@ -17,6 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 40060, message: "邮件服务暂未配置，请稍后重试" }, { status: 503 });
   }
 
+  // 限流：未认证端点，防邮件轰炸（IP + 目标邮箱双维度，1 分钟 3 次）
+  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 3 },
+    (r) => `regcode:${extractClientIp(r)}:${addr}`);
+  if (rl) return rl;
+
   const ctx = getContext();
   const existing = await ctx.user.usersRepo.findByKey(addr);
   if (existing) {
@@ -26,7 +33,7 @@ export async function POST(req: NextRequest) {
   await ctx.user.authRepo.invalidateUnusedCodes(addr, "registration");
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  const resetId = await ctx.user.authRepo.createResetCode({ userKey: addr, codeHash: hashVerificationCode(code), codeType: "registration", expiresAt, ip: "127.0.0.1" });
+  const resetId = await ctx.user.authRepo.createResetCode({ userKey: addr, codeHash: hashVerificationCode(code), codeType: "registration", expiresAt, ip: extractClientIp(req) });
 
   let emailSent = false;
   try {

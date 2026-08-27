@@ -5,6 +5,8 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 
@@ -34,9 +36,14 @@ export async function POST(req: NextRequest) {
   if ((scene === "rebind" || scene === "unbind") && !user.phone) return NextResponse.json({ code: 40030, message: "尚未绑定手机号" }, { status: 400 });
 
   const codeType = `phone_${scene}`;
+  // 限流：短信按 user + 手机号双维度，1 分钟 1 次（防短信轰炸）
+  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 1 },
+    () => `smscode:${auth.userKey}:${targetPhone}`);
+  if (rl) return rl;
+
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  const resetId = await ctx.user.authRepo.createResetCode({ userKey: auth.userKey, phone: targetPhone, codeHash: hashVerificationCode(code), codeType, expiresAt, ip: "127.0.0.1" });
+  const resetId = await ctx.user.authRepo.createResetCode({ userKey: auth.userKey, phone: targetPhone, codeHash: hashVerificationCode(code), codeType, expiresAt, ip: extractClientIp(req) });
 
   let smsSent = false;
   try {
