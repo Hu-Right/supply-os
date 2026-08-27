@@ -73,7 +73,8 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   };
 
   return (
-    <>
+    // flex 纵向 + min-h-screen：内容切换/加载塌缩时页脚钉在视口底部，不再闪现到屏幕中部
+    <div className="flex min-h-screen flex-col">
       <NetworkBanner />
       <AppHeader
         tabs={tabs}
@@ -127,6 +128,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         onSwitchTab={switchMainTab}
         onOpenConsult={() => setShowConsultForm(true)}
       />
-    </>
+    </div>
   );
 }
