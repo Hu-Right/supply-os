@@ -52,10 +52,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "src/app/api/billing",
-    "src/app/api/notices/actions",
-    "src/app/api/notices/[id]/translation",
-    "src/app/api/payment/notify"
+    "node_modules"
   ]
 }
