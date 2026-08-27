@@ -3,9 +3,8 @@ name: CI Pipeline
 on:
   pull_request:
     branches: [main, develop]
-  # 移除 push 触发，避免每次 push 都运行 CI
-  # 如需手动触发，可在 GitHub Actions 页面操作
-  workflow_dispatch:
+  push:
+    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

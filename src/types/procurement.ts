@@ -48,8 +48,6 @@ export interface NoticeItem {
   title_i18n?: string;
   /** 列表级国际化描述（来自 crm_notice_translations；缺失时回退 description） */
   description_i18n?: string;
-  /** 中文翻译回退（来自 crm_notice_translations lang='zh'） */
-  title_zh?: string;
   /** 英文翻译回退（当前语言无译文时使用，来自 crm_notice_translations lang='en'） */
   title_en?: string;
   /** 英文翻译回退描述 */
