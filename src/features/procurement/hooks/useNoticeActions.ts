@@ -12,6 +12,7 @@ import { useCallback, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
+import { clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { unlockNotice } from "../api";
 import { useNoticePayment } from "./useNoticePayment";
@@ -65,6 +66,8 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
       } catch {
         // 支付回调可能已在服务端完成解锁，忽略此处失败
       }
+      // SSOT 修复：失效会员状态缓存后再刷新，避免 useMembershipTier 读到 60s 内的旧等级
+      clearApiCache("/api/membership/status");
       await membership.refreshMembership();
       // 刷新 AuthContext 的 isVip 状态，确保 VIP 用户隐藏套餐卡片
       if (refreshAuth) await refreshAuth();

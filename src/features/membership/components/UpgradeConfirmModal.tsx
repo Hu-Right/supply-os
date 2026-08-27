@@ -7,7 +7,7 @@
  */
 import { ArrowUpCircle, Clock, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Modal } from "@/shared/ui";
+import { Button, Modal } from "@/shared/ui";
 import type { UpgradePreview } from "@/types";
 
 export interface UpgradeConfirmModalProps {
@@ -124,14 +124,15 @@ export function UpgradeConfirmModal({
 
       {/* 底部按钮 */}
       <div className="flex gap-3 pt-4 mt-4 border-t border-slate-100">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onClose}
           disabled={submitting}
-          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          className="flex-1 rounded-xl text-slate-600"
         >
           {t("upgradeCancelBtn")}
-        </button>
+        </Button>
         <button
           type="button"
           onClick={onConfirm}

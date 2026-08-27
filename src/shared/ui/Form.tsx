@@ -16,9 +16,9 @@
 import {
   createContext,
   useContext,
+  useId as useReactId,
   forwardRef,
   type HTMLAttributes,
-  type ReactNode,
 } from "react";
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
@@ -69,7 +69,8 @@ function useFormField() {
 
 const FormItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
-    const id = `form-item-${useId()}`;
+    // React 内置 useId：SSR 安全（避免 Math.random 导致的水合不匹配）
+    const id = `form-item-${useReactId()}`;
     return (
       <FormItemContext.Provider value={{ id }}>
         <div ref={ref} className={cn("space-y-1", className)} {...props} />
@@ -78,10 +79,6 @@ const FormItem = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   },
 );
 FormItem.displayName = "FormItem";
-
-function useId() {
-  return Math.random().toString(36).slice(2, 10);
-}
 
 const FormLabel = forwardRef<
   React.ComponentRef<typeof LabelPrimitive.Root>,

@@ -17,6 +17,8 @@ import { cn } from "@/shared/utils";
 export interface ComboboxItem {
   value: string;
   label: string;
+  /** 下拉项右侧提示文案（如筛选计数），仅在下拉列表中展示 */
+  hint?: string;
 }
 
 export interface ComboboxProps {
@@ -28,6 +30,8 @@ export interface ComboboxProps {
   searchPlaceholder?: string;
   /** 清除按钮 aria-label */
   clearLabel?: string;
+  /** 无匹配结果时的提示文案 */
+  noResultsText?: string;
   className?: string;
   disabled?: boolean;
 }
@@ -39,6 +43,7 @@ export function Combobox({
   placeholder,
   searchPlaceholder,
   clearLabel,
+  noResultsText,
   className,
   disabled,
 }: ComboboxProps) {
@@ -56,7 +61,7 @@ export function Combobox({
             "disabled:bg-slate-100 disabled:text-slate-500 text-start flex items-center justify-between gap-2 cursor-pointer",
           )}
         >
-          <span className={cn("truncate", !selected && "text-slate-400")}>
+          <span dir="auto" className={cn("truncate", !selected && "text-slate-400")}>
             {selected?.label ?? placeholder ?? ""}
           </span>
           <span className="flex items-center gap-1 shrink-0">
@@ -95,7 +100,7 @@ export function Combobox({
               )}
               <Command.List className="max-h-60 overflow-y-auto p-1">
                 <Command.Empty className="py-4 text-center text-xs text-slate-400">
-                  —
+                  {noResultsText ?? "—"}
                 </Command.Empty>
                 {items.map((item) => (
                   <Command.Item
@@ -110,7 +115,10 @@ export function Combobox({
                       "data-[selected=true]:bg-teal-50 data-[selected=true]:text-teal-700",
                     )}
                   >
-                    <span className="truncate">{item.label}</span>
+                    <span dir="auto" className="truncate">{item.label}</span>
+                    {item.hint && (
+                      <span className="shrink-0 text-xs text-slate-400 tabular-nums">{item.hint}</span>
+                    )}
                     {item.value === value && <Check className="h-4 w-4 shrink-0 text-teal-600" />}
                   </Command.Item>
                 ))}

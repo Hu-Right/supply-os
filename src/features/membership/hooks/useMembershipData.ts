@@ -46,7 +46,9 @@ export function useMembershipData(): UseMembershipDataReturn {
 
     Promise.all([
       fetchPlans(),
-      authUser ? fetchMembershipStatus().catch(() => null) : Promise.resolve(null),
+      // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
+      // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status
+      authUser ? fetchMembershipStatus(true).catch(() => null) : Promise.resolve(null),
     ])
       .then(([fetchedPlans, status]) => {
         if (!alive) return;

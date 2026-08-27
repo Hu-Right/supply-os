@@ -9,6 +9,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import * as i18nModule from "i18next";
+import { Button } from "./Button";
 
 const i18n = (i18nModule as any).default || i18nModule;
 
@@ -86,13 +87,14 @@ export class ErrorBoundary extends Component<
               <p className="mt-2 text-sm text-slate-500">
                 {t("errorBoundaryChunkDesc")}
               </p>
-              <button
+              <Button
                 type="button"
+                variant="dark"
                 onClick={this.handleRetry}
-                className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+                className="mt-4 py-2"
               >
                 {t("errorBoundaryRetry")}
-              </button>
+              </Button>
             </div>
           </div>
         );
@@ -119,15 +121,16 @@ export class ErrorBoundary extends Component<
                 {this.state.error.message}
               </pre>
             )}
-            <button
+            <Button
               type="button"
+              variant="dark"
               onClick={() => {
                 window.location.href = "/showroom";
               }}
-              className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+              className="mt-5 py-2"
             >
               {t("errorBoundaryBackHome")}
-            </button>
+            </Button>
           </div>
         </div>
       );

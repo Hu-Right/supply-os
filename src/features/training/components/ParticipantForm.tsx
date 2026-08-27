@@ -10,7 +10,7 @@
 
 import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
-import { Modal } from "@/shared/ui";
+import { Button, Modal } from "@/shared/ui";
 import type { TrainingParticipant } from "../api";
 import type { ReactNode } from "react";
 
@@ -321,14 +321,15 @@ export default function ParticipantForm({
               >
                 {t("tlParticipantLater")}
               </button>
-              <button
+              <Button
                 type="button"
+                variant="primary"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                className="flex-1 py-2"
               >
                 {isSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPostPay")}
-              </button>
+              </Button>
             </>
           )}
         </div>

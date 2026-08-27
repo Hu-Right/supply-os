@@ -10,6 +10,7 @@
 import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, FileText, Lock, Crown, Unlock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useReportPreview } from "../hooks/useReportPreview";
 import type { NoticeItem } from "@/types/procurement";
 
@@ -127,13 +128,14 @@ export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLoc
             </p>
             {isVip ? (
               /* P1-14 安全修复：假对象补全 title，避免空标题 */
-              <button
+              <Button
                 onClick={() => onUnlock({ id: noticeId, title: `#${noticeId}` } as NoticeItem)}
-                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-lg bg-teal-600 text-white text-xs sm:text-sm font-black hover:bg-teal-700 transition-colors shadow-sm whitespace-nowrap min-w-0 max-w-full"
+                variant="primary"
+                className="sm:px-5 py-2 text-xs sm:text-sm font-black shadow-sm whitespace-nowrap min-w-0 max-w-full"
               >
                 <Unlock className="w-4 h-4 shrink-0" />
                 <span className="truncate">{t("procurement_previewUnlockNow")}</span>
-              </button>
+              </Button>
             ) : (
               <a
                 href="/membership"

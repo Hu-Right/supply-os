@@ -12,6 +12,7 @@
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
@@ -87,12 +88,13 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
           {claimMessage}
         </p>
       )}
-      <button
+      <Button
         onClick={logout}
-        className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50"
+        variant="outline"
+        className="w-full text-slate-600"
       >
         {t("authLogout")}
-      </button>
+      </Button>
     </div>
   );
 }

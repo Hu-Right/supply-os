@@ -9,6 +9,7 @@
 
 import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { Supplier } from "@/types";
 
 export interface SupplierCardProps {
@@ -110,12 +111,14 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
           <Sparkles className="h-3.5 w-3.5" />
           <span>{t("supplierAiMatchBtn")}</span>
         </button>
-        <button
+        <Button
           onClick={() => onContact(supplier)}
-          className="cursor-pointer rounded bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-200"
+          variant="secondary"
+          size="sm"
+          className="rounded px-2.5 text-slate-700 cursor-pointer"
         >
           {t("supplierContactBtn")}
-        </button>
+        </Button>
       </div>
     </div>
   );

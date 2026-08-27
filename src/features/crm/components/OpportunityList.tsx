@@ -6,6 +6,7 @@
  */
 
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { OPPORTUNITIES } from "@/data";
 import type { Opportunity } from "@/types";
 
@@ -61,15 +62,17 @@ export function OpportunityList({
             </p>
             <div className="mt-3 flex justify-between items-center border-t border-slate-200/50 pt-2 text-[11px] text-slate-400">
               <span>{deadlineLabel(opp.deadline)}</span>
-              <button
+              <Button
                 onClick={(e) => {
                   e.stopPropagation();
                   onSubscribe();
                 }}
-                className="bg-slate-900 text-white px-2 py-1 rounded hover:bg-slate-800 font-bold"
+                variant="dark"
+                size="sm"
+                className="px-2 py-1 rounded"
               >
                 {labels.subscribe}
-              </button>
+              </Button>
             </div>
           </div>
         ))}

@@ -11,6 +11,7 @@
 import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
 import type { NoticeItem, MembershipStatus } from "../types";
 
@@ -61,13 +62,14 @@ export function NoticeDetailSidebar({
         <Heart className="w-4 h-4 shrink-0" />
         <span className="truncate">{t("procurement_interested")}</span>
       </button>
-      <button
+      <Button
         onClick={() => onExpressInterest(notice, "subscribed")}
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-slate-900 text-white text-sm max-[900px]:text-xs font-black hover:bg-slate-800"
+        variant="dark"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs font-black"
       >
         <Bell className="w-4 h-4 shrink-0 text-amber-300" />
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
-      </button>
+      </Button>
       <button
         onClick={() => onUnlock(notice)}
         className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm max-[900px]:text-xs font-black hover:bg-teal-200"

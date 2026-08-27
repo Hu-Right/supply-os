@@ -57,6 +57,8 @@ export function usePaymentReturnReconciliation({
               }
               // P2-5：解锁成功后清除解锁历史缓存，RecentUnlocks 立即刷新
               clearApiCache("/api/payment/unlocks");
+              // SSOT 修复：同步失效会员状态缓存，避免 60s 内展示旧等级
+              clearApiCache("/api/membership/status");
               await refreshMembership();
             }
             if (nid) await openNoticeById(nid);

@@ -20,7 +20,7 @@ import {
   mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
-import { Modal } from "@/shared/ui";
+import { Button, Modal } from "@/shared/ui";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
 
@@ -355,13 +355,14 @@ export default function PaymentModalCore({
                   <>
                     <p className="text-xs text-slate-500">{texts?.mockNote ?? t("paymentMockNote")}</p>
                     {onMockConfirm && (
-                      <button
+                      <Button
                         type="button"
+                        variant="primary"
                         onClick={handleMockConfirm}
-                        className="w-full rounded-2xl bg-teal-600 py-3 text-sm font-black text-white hover:bg-teal-700"
+                        className="w-full rounded-2xl py-3 font-black"
                       >
                         {t("paymentConfirmBtn")}
-                      </button>
+                      </Button>
                     )}
                   </>
                 )}
@@ -385,13 +386,14 @@ export default function PaymentModalCore({
                 {t("paymentOrderNo")}: {order.order_no}
               </p>
             )}
-            <button
+            <Button
               type="button"
+              variant="primary"
               onClick={onClose}
-              className="mt-4 w-full rounded-2xl bg-teal-600 py-3 text-sm font-black text-white hover:bg-teal-700"
+              className="mt-4 w-full rounded-2xl py-3 font-black"
             >
               {t("paymentDoneBtn")}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -401,13 +403,14 @@ export default function PaymentModalCore({
             <AlertCircle className="mx-auto mb-3 h-12 w-12 text-rose-600" />
             <p className="text-lg font-black text-rose-800">{texts?.failedTitle ?? t("paymentFailedTitle")}</p>
             <p className="mt-1 text-sm text-rose-700">{error || t("paymentFailedDesc")}</p>
-            <button
+            <Button
               type="button"
+              variant="danger"
               onClick={handleRetry}
-              className="mt-4 w-full rounded-2xl bg-rose-600 py-3 text-sm font-black text-white hover:bg-rose-700"
+              className="mt-4 w-full rounded-2xl py-3 font-black"
             >
               {t("paymentRetryBtn")}
-            </button>
+            </Button>
           </div>
         )}
       </div>

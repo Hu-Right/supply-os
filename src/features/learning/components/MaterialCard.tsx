@@ -9,6 +9,7 @@
 
 import { AlertCircle, CheckCircle2, FileDown } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { LearningMaterial } from "@/types";
 
 export interface MaterialCardProps {
@@ -81,7 +82,7 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
           </div>
 
           <div className="flex justify-end gap-2 pt-1 text-xs">
-            <button
+            <Button
               onClick={() =>
                 onDownload(
                   material.fileUrl ?? "",
@@ -89,12 +90,14 @@ export function MaterialCard({ material, isVip, onDownload, onUpgradeClick }: Ma
                   material.id
                 )
               }
+              variant="dark"
+              size="sm"
               disabled={!material.fileUrl}
-              className="flex cursor-pointer items-center space-x-1.5 rounded bg-slate-900 px-3.5 py-1.5 font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded px-3.5 cursor-pointer disabled:opacity-40"
             >
               <FileDown className="h-3.5 w-3.5 text-teal-400" />
               <span>{t("downloadBtn")}</span>
-            </button>
+            </Button>
           </div>
         </div>
       )}

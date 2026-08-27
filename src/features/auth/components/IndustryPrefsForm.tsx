@@ -21,7 +21,7 @@ import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { UnspscPrefSelects } from "./UnspscPrefSelects";
 import { UnspscInferCandidates } from "./UnspscInferCandidates";
 import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
-import { Input } from "@/shared/ui";
+import { Button, Input } from "@/shared/ui";
 
 export interface IndustryPrefsFormProps {}
 
@@ -245,14 +245,15 @@ export function IndustryPrefsForm() {
         />
       </div>
       <div className="mt-3 flex items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={savePrefs}
           disabled={!prefLevel1 || !prefLevel2}
-          className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-black shadow-xs hover:bg-teal-700 disabled:opacity-50 disabled:hover:bg-teal-600"
+          className="py-2 text-xs font-black shadow-xs disabled:hover:bg-teal-600"
         >
           {t("authIndustryPrefSave")}
-        </button>
+        </Button>
         <button
           type="button"
           onClick={clearPrefs}

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { Lead } from "@/types";
-import { Select } from "@/shared/ui";
+import { Button, Select } from "@/shared/ui";
 
 type FollowUpLogPanelProps = {
   lead: Lead;
@@ -102,13 +102,15 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
             <option value="lost">❌ lost (已流失)</option>
           </Select>
 
-          <button
+          <Button
             type="submit"
+            variant="dark"
+            size="sm"
             disabled={submitting}
-            className="flex-1 py-1 px-3 bg-slate-900 hover:bg-slate-855 text-white rounded text-xs font-semibold disabled:opacity-60"
+            className="flex-1 py-1 rounded font-semibold disabled:opacity-60"
           >
             {labels.saveToCRM}
-          </button>
+          </Button>
         </div>
 
         {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}

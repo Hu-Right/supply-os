@@ -15,6 +15,7 @@ import { useState } from "react";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
+import { Button } from "@/shared/ui";
 import type { OrderRecord, UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
 import { useRecordsSummary } from "../hooks/useRecordsSummary";
@@ -254,22 +255,26 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
           })}
         </span>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={history.page <= 1 || history.loading}
             onClick={() => history.setPage(Math.max(1, history.page - 1))}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+            className="font-black disabled:opacity-40"
           >
             {t("myPurchasesPrev")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             disabled={history.page >= history.totalPages || history.loading}
             onClick={() => history.setPage(Math.min(history.totalPages, history.page + 1))}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 font-black disabled:opacity-40 hover:bg-slate-50"
+            className="font-black disabled:opacity-40"
           >
             {t("myPurchasesNext")}
-          </button>
+          </Button>
         </div>
       </div>
     </section>

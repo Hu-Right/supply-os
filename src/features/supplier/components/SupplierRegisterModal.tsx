@@ -4,13 +4,22 @@
  *
  * @module features/supplier/components/SupplierRegisterModal
  * @description 供应商自助入驻表单弹窗，提交 POST /api/suppliers。
- *              使用 FormModal 外壳消除深色头部 + submitted 切换样板代码。
+ *              FormModal 外壳 + react-hook-form（rules 校验 + FormMessage 错误展示）。
  */
 
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { useLocale } from "@/core/i18n";
 import { FormModal, Button, Input, Select } from "@/shared/ui";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/shared/ui/Form";
 import { registerSupplier, type SupplierRegisterInput } from "../api";
 import { emitAppEvent } from "@/core/events";
 
@@ -34,46 +43,26 @@ const EMPTY_FORM: SupplierRegisterInput = {
   contactPhone: "",
 };
 
-const labelClass = "block text-xs font-extrabold text-slate-700 mb-1";
-
 export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegisterModalProps) {
   const { t } = useLocale();
-  const [form, setForm] = useState<SupplierRegisterInput>(EMPTY_FORM);
   const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const setField = <K extends keyof SupplierRegisterInput>(key: K, value: SupplierRegisterInput[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const form = useForm<SupplierRegisterInput>({ defaultValues: EMPTY_FORM });
+  const { handleSubmit, setValue, formState: { isSubmitting } } = form;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = handleSubmit(async (data) => {
     setError("");
-
-    if (
-      !form.nameZh.trim() ||
-      !form.contactPerson.trim() ||
-      !form.contactEmail.trim() ||
-      !form.mainProductsZh.trim()
-    ) {
-      setError(t("formError"));
-      return;
-    }
-
-    setSubmitting(true);
     try {
-      await registerSupplier(form);
+      await registerSupplier(data);
       setSubmitted(true);
       onRegistered?.();
       emitAppEvent("supply-os:crm-refresh");
       setTimeout(() => onClose(), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("formError"));
-    } finally {
-      setSubmitting(false);
     }
-  };
+  });
 
   return (
     <FormModal
@@ -98,123 +87,178 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
       }
       bodyClassName="max-h-[60vh] overflow-y-auto"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>{t("supplierRegNameZhLabel")}</label>
-            <Input
-              type="text"
-              value={form.nameZh}
-              onChange={(e) => setField("nameZh", e.target.value)}
-              placeholder={t("supplierNameZhPlaceholder")}
-              className="px-3 py-2 text-xs"
+      <Form {...form}>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              name="nameZh"
+              rules={{ required: t("formError") }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegNameZhLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={t("supplierNameZhPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="nameEn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegNameEnLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={t("supplierNameEnPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegTypeLabel")}</FormLabel>
+                  <FormControl>
+                    <Select className="px-3 py-1.5 text-xs" {...field}>
+                      <option value="domestic">{t("supplierTypeDomestic")}</option>
+                      <option value="international">{t("supplierTypeIntl")}</option>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="ungmCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegUngmLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={t("supplierUnspscPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="industryZh"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegIndustryLabel")}</FormLabel>
+                  <FormControl>
+                    <Select className="px-3 py-1.5 text-xs" {...field}>
+                      <option value="机械">{t("industryOptionMachinery")}</option>
+                      <option value="电子">{t("industryOptionElectronics")}</option>
+                      <option value="建材">{t("industryOptionConstruction")}</option>
+                      <option value="医疗">{t("industryOptionMedical")}</option>
+                      <option value="化工">{t("industryOptionChemical")}</option>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="contactPerson"
+              rules={{ required: t("formError") }}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegContactLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={t("supplierContactPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                      onChange={(e) => {
+                        // 原版联动：联系人输入同时填充 contactPhone（隐藏默认值）
+                        field.onChange(e);
+                        setValue("contactPhone", e.target.value);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="contactEmail"
+              rules={{ required: t("formError") }}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegEmailLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder={t("supplierRegEmailPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              name="mainProductsZh"
+              rules={{ required: t("formError") }}
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="text-xs font-extrabold">{t("supplierRegProductsLabel")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      placeholder={t("supplierProductsPlaceholder")}
+                      className="px-3 py-2 text-xs"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
 
-          <div>
-            <label className={labelClass}>{t("supplierRegNameEnLabel")}</label>
-            <Input
-              type="text"
-              value={form.nameEn}
-              onChange={(e) => setField("nameEn", e.target.value)}
-              placeholder={t("supplierNameEnPlaceholder")}
-              className="px-3 py-2 text-xs"
-            />
+          {error && (
+            <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
+              {error}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t("cancel")}
+            </Button>
+            <Button type="submit" variant="dark" loading={isSubmitting}>
+              {t("supplierRegSubmitBtn")}
+            </Button>
           </div>
-
-          <div>
-            <label className={labelClass}>{t("supplierRegTypeLabel")}</label>
-            <Select
-              value={form.type}
-              onChange={(e) => setField("type", e.target.value as SupplierRegisterInput["type"])}
-              className="px-3 py-1.5 text-xs"
-            >
-              <option value="domestic">{t("supplierTypeDomestic")}</option>
-              <option value="international">{t("supplierTypeIntl")}</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("supplierRegUngmLabel")}</label>
-            <Input
-              type="text"
-              value={form.ungmCode}
-              onChange={(e) => setField("ungmCode", e.target.value)}
-              placeholder={t("supplierUnspscPlaceholder")}
-              className="px-3 py-2 text-xs"
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("supplierRegIndustryLabel")}</label>
-            <Select
-              value={form.industryZh}
-              onChange={(e) => setField("industryZh", e.target.value)}
-              className="px-3 py-1.5 text-xs"
-            >
-              <option value="机械">{t("industryOptionMachinery")}</option>
-              <option value="电子">{t("industryOptionElectronics")}</option>
-              <option value="建材">{t("industryOptionConstruction")}</option>
-              <option value="医疗">{t("industryOptionMedical")}</option>
-              <option value="化工">{t("industryOptionChemical")}</option>
-            </Select>
-          </div>
-
-          <div>
-            <label className={labelClass}>{t("supplierRegContactLabel")}</label>
-            <Input
-              type="text"
-              value={form.contactPerson}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  contactPerson: e.target.value,
-                  contactPhone: e.target.value,
-                }))
-              }
-              placeholder={t("supplierContactPlaceholder")}
-              className="px-3 py-2 text-xs"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className={labelClass}>{t("supplierRegEmailLabel")}</label>
-            <Input
-              type="email"
-              value={form.contactEmail}
-              onChange={(e) => setField("contactEmail", e.target.value)}
-              placeholder={t("supplierRegEmailPlaceholder")}
-              className="px-3 py-2 text-xs"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className={labelClass}>{t("supplierRegProductsLabel")}</label>
-            <Input
-              type="text"
-              value={form.mainProductsZh}
-              onChange={(e) => setField("mainProductsZh", e.target.value)}
-              placeholder={t("supplierProductsPlaceholder")}
-              className="px-3 py-2 text-xs"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-          <Button type="button" variant="outline" onClick={onClose}>
-            {t("cancel")}
-          </Button>
-          <Button type="submit" variant="dark" loading={submitting}>
-            {t("supplierRegSubmitBtn")}
-          </Button>
-        </div>
-      </form>
+        </form>
+      </Form>
     </FormModal>
   );
 }

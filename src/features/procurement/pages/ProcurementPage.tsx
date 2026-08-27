@@ -115,6 +115,8 @@ export default function ProcurementPage() {
       }
       // P2-5：解锁成功后清除解锁历史缓存，RecentUnlocks 立即刷新
       clearApiCache("/api/payment/unlocks");
+      // SSOT 修复：同时失效会员状态缓存，useMembershipTier 的 60s 缓存标签不再过期展示旧等级
+      clearApiCache("/api/membership/status");
       await actions.refreshMembership();
       refreshAuth();
       await actions.openNoticeById(noticeId);

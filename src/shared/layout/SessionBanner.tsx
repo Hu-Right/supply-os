@@ -15,6 +15,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BookOpen, MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
+import { Button } from "@/shared/ui";
 
 type BannerConfig = {
   /** 标题翻译键 */
@@ -81,13 +82,14 @@ export function SessionBanner() {
             <span>{t("procurementScreeningBtn")}</span>
           </button>
         )}
-        <button
+        <Button
           onClick={() => emitAppEvent("supply-os:consult")}
-          className="inline-flex items-center space-x-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer"
+          variant="dark"
+          className="py-2 rounded-xl font-semibold shadow-xs cursor-pointer"
         >
           <MessageSquare className="w-4 h-4 text-teal-400" />
           <span>{t("bookServiceNow")}</span>
-        </button>
+        </Button>
       </div>
     </div>
   );

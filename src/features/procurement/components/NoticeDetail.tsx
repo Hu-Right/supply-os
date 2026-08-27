@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import { Button } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth } from "@/core/auth";
 import type { NoticeItem, MembershipStatus } from "../types";
@@ -108,13 +109,14 @@ export function NoticeDetail({
 
   return (
     <div className="space-y-5">
-      <button
+      <Button
         onClick={onBack}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-600 hover:bg-slate-50"
+        variant="outline"
+        className="px-3 py-2 text-slate-600 bg-white"
       >
         <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
         {t("procurement_back")}
-      </button>
+      </Button>
 
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6 max-[900px]:grid-cols-1">

@@ -7,7 +7,7 @@
  *              逻辑已提取至 usePhoneBinding hook。
  */
 import { Smartphone, ShieldCheck, Unlink } from "lucide-react";
-import { Input } from "@/shared/ui";
+import { Button, Input } from "@/shared/ui";
 import { usePhoneBinding } from "../hooks/usePhoneBinding";
 
 export function PhoneBinding() {
@@ -61,13 +61,14 @@ export function PhoneBinding() {
       {!hasPhone && view === "idle" && (
         <div className="space-y-3">
           <p className="text-xs text-slate-500">{t("authPhoneNotBound")}</p>
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={() => { setView("binding"); resetState(); }}
-            className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-black hover:bg-teal-700"
+            className="py-2 text-xs font-black"
           >
             {t("authPhoneBindAction")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -100,21 +101,23 @@ export function PhoneBinding() {
             </button>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="primary"
               disabled={loading || !phone || !code}
               onClick={handleBind}
-              className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-black hover:bg-teal-700 disabled:opacity-50"
+              className="py-2 text-xs font-black"
             >
               {t("authPhoneBind")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { setView("idle"); resetState(); }}
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50"
+              className="py-2 text-xs bg-white"
             >
               {t("cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -148,21 +151,23 @@ export function PhoneBinding() {
             </button>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="primary"
               disabled={loading || !phone || !code}
               onClick={handleRebind}
-              className="px-4 py-2 rounded-lg bg-teal-600 text-white text-xs font-black hover:bg-teal-700 disabled:opacity-50"
+              className="py-2 text-xs font-black"
             >
               {t("authPhoneRebindConfirm")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { setView("idle"); resetState(); }}
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50"
+              className="py-2 text-xs bg-white"
             >
               {t("cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -192,21 +197,23 @@ export function PhoneBinding() {
             </button>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="danger"
               disabled={loading || !code}
               onClick={handleUnbind}
-              className="px-4 py-2 rounded-lg bg-rose-600 text-white text-xs font-black hover:bg-rose-700 disabled:opacity-50"
+              className="py-2 text-xs font-black"
             >
               {t("authPhoneUnbindConfirm")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               onClick={() => { setView("idle"); resetState(); }}
-              className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 hover:bg-slate-50"
+              className="py-2 text-xs bg-white"
             >
               {t("cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
