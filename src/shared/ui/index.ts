@@ -19,6 +19,9 @@ export type { SelectProps } from "./Select";
 export { Modal } from "./Modal";
 export type { ModalProps } from "./Modal";
 
+export { FormModal } from "./FormModal";
+export type { FormModalProps } from "./FormModal";
+
 export { useScrollLock } from "./useScrollLock";
 
 export { Badge } from "./Badge";
