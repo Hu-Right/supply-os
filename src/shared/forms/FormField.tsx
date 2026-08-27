@@ -1,15 +1,16 @@
 /**
  * 表单字段包装组件
- * Form Field Component
+ * Form Field Component (shadcn/ui pattern)
  *
  * @module shared/forms/FormField
- * @description label + children 包装
- *              Label + children wrapper
+ * @description label + children 包装，使用 cn() 合并类名。
+ *              未来可与 react-hook-form + shadcn Form 集成。
  */
 
-import { type ReactNode } from "react";
+import { type ReactNode, forwardRef, type HTMLAttributes } from "react";
+import { cn } from "@/shared/utils";
 
-export interface FormFieldProps {
+export interface FormFieldProps extends HTMLAttributes<HTMLDivElement> {
   /** 字段标签 */
   label: string;
   /** 是否必填 */
@@ -18,27 +19,21 @@ export interface FormFieldProps {
   error?: string;
   /** 子元素（输入控件） */
   children: ReactNode;
-  /** 自定义类名 */
-  className?: string;
 }
 
-export function FormField({
-  label,
-  required = false,
-  error,
-  children,
-  className = "",
-}: FormFieldProps) {
-  return (
-    <div className={`space-y-1 ${className}`}>
-      <label className="block text-xs font-semibold text-slate-700">
-        {label}
-        {required && <span className="ms-0.5 text-rose-500">*</span>}
-      </label>
-      {children}
-      {error && <p className="text-xs text-rose-600">{error}</p>}
-    </div>
-  );
-}
+export const FormField = forwardRef<HTMLDivElement, FormFieldProps>(
+  ({ label, required = false, error, children, className, ...props }, ref) => {
+    return (
+      <div ref={ref} className={cn("space-y-1", className)} {...props}>
+        <label className="block text-xs font-semibold text-slate-700">
+          {label}
+          {required && <span className="ms-0.5 text-rose-500">*</span>}
+        </label>
+        {children}
+        {error && <p className="text-xs text-rose-600">{error}</p>}
+      </div>
+    );
+  },
+);
 
 FormField.displayName = "FormField";
