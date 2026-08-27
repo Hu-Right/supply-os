@@ -82,7 +82,7 @@ import arServices from "./locales/ar/services.json";
 import arLearning from "./locales/ar/learning.json";
 import arTraining from "./locales/ar/training.json";
 
-const mergeNamespaces = (...modules: typeof zhCommon[]): Record<string, string> => {
+const mergeNamespaces = (...modules: Record<string, unknown>[]): Record<string, string> => {
   const result: Record<string, string> = {};
   for (const m of modules) {
     if (typeof m === "object" && m !== null && "default" in m) {
@@ -105,6 +105,9 @@ export const SERVER_BUNDLES: Record<string, { translation: Record<string, string
 
 /** 支持的完整语言代码列表 */
 export const SUPPORTED_LOCALE_CODES = ["zh", "en", "fr", "ru", "es", "ar"] as const;
+
+/** 语言类型 */
+export type { Locale } from "./types";
 
 /** 获取语言书写方向 */
 export function getLocaleDir(locale: string): "ltr" | "rtl" {

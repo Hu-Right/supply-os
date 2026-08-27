@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "**" }],
-  },
+  // 使用 Turbopack 作为打包工具（Next.js 16 默认，性能更优）
+  // Turbopack 原生支持 Node.js builtins，无需 webpack 的 fallback/alias 配置
+  turbopack: {},
   serverExternalPackages: [
     "mysql2",
     "nodejieba",
@@ -17,12 +17,23 @@ const nextConfig: NextConfig = {
     "@google/genai",
     "meilisearch",
     "urllib",
-    "formstream",
     "destroy",
     "nodemailer",
     "jsonwebtoken",
     "qrcode",
+    "undici",
+    "httpx",
+    "kitx",
+    "xml2js",
+    "sdk-base",
+    "address",
+    "agentkeepalive",
+    "bowser",
+    "utility",
   ],
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
+  },
   // 安全头：完整复制现有 helmet 指令集（含 CSP report-only）
   async headers() {
     return [
@@ -44,51 +55,6 @@ const nextConfig: NextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config, { isServer, nextRuntime }) => {
-    const existing = Array.isArray(config.externals) ? config.externals : [];
-    // Edge 运行时（middleware 编译）会连带打包 instrumentation 的依赖图，
-    // 其中 crypto/fs/stream 等 Node builtin 在 edge 不可用。
-    // instrumentation 内的 NEXT_RUNTIME 守卫保证 edge 永不执行这些代码，
-    // 因此将 Node builtin 标记为 external，让 edge bundle 编译通过即可。
-    if (nextRuntime === "edge") {
-      const nodeBuiltins = [
-        "crypto", "fs", "path", "os", "stream", "util", "zlib",
-        "http", "https", "net", "tls", "events", "url", "buffer", "querystring",
-        "console", "process", "assert", "child_process", "cluster", "dgram",
-        "dns", "domain", "module", "readline", "repl", "sys", "timers",
-        "tty", "v8", "vm", "wasi", "worker_threads", "async_hooks",
-      ];
-      config.externals = [...existing, ...nodeBuiltins];
-      return config;
-    }
-    if (isServer) {
-      // alipay-sdk v4 为纯 ESM Node 库，serverExternalPackages 仅对 CJS 生效。
-      // 用 function-based external 拦截这些包及其传递依赖（含 node: 前缀 URI），
-      // 留给运行时 Node 解析，避免 webpack 尝试打包。
-      const nodeOnlyEsm = /^(@alicloud\/.*|alipay-sdk|formstream|urllib|through|pause-stream|utility|node:.*)$/;
-      config.externals = [
-        ...existing,
-        ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
-          if (request && nodeOnlyEsm.test(request)) {
-            return callback(null, "commonjs " + request);
-          }
-          callback();
-        },
-      ];
-    } else {
-      // 客户端构建：将 node: 前缀的模块标记为 external，防止 webpack 尝试打包
-      config.externals = [
-        ...existing,
-        ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
-          if (request && request.startsWith("node:")) {
-            return callback(null, "commonjs " + request);
-          }
-          callback();
-        },
-      ];
-    }
-    return config;
   },
   generateBuildId: async () => {
     // CI 注入 BUILD_ID（github.sha），runtime 容器同步注入

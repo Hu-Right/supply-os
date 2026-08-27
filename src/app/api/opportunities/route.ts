@@ -10,13 +10,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { normalizeUnspscCodes } from "@/server/services/unspsc/parser";
-import { persistUserInterestCodes } from "@/server/services/unspsc/interest";
+import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
+import { persistUserInterestCodes } from "@/lib/services/unspsc/interest";
 import {
   NOTICE_TRANSLATION_LANGS,
   pendingNoticeTranslations,
   translateNoticeViaChain,
-} from "@/server/services/translation/notice";
+} from "@/lib/services/translation/notice";
 
 // ── 错误码定义 ──
 const ApiErrorCode = {

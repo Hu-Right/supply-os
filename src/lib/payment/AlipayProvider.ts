@@ -1,3 +1,4 @@
+import "server-only";
 import { AlipaySdk } from "alipay-sdk";
 import type { PaymentOrderStatus } from "../types/payment";
 import type { PaymentStrategy } from "./types";

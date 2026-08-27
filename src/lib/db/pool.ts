@@ -6,6 +6,7 @@
  *              使用 globalThis 缓存 Pool 实例，防止连接池泄漏。
  *              与 server/db/pool.ts 的 createDbPool() 配置完全一致。
  */
+import "server-only";
 import mysql2 from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
 import { EventEmitter } from "events";

@@ -13,14 +13,14 @@ import nodePath from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
-import { findQualifiedOpportunityForNotice } from "@/server/services/notices/featured";
+import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import {
   buildBidReportDocx,
   buildBidReportPreviewText,
   estimateFullReportCharCount,
   mergeBidReportRow,
   bidReportFileName,
-} from "@/server/services/bid-report";
+} from "@/lib/services/bid-report";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 

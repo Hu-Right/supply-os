@@ -7,7 +7,12 @@
  */
 import type { NextRequest } from "next/server";
 import { SERVER_BUNDLES, SUPPORTED_LOCALE_CODES, type Locale } from "@/core/i18n/bundles";
-import i18next from "i18next";
+import * as i18nextModule from "i18next";
+
+type I18nInstance = {
+  t: (key: string, options?: Record<string, unknown>) => string;
+  init: (options: Record<string, unknown>) => Promise<void>;
+};
 
 // 将 SERVER_BUNDLES 转为 i18next 期望的 resources 格式
 const RESOURCES = Object.fromEntries(
@@ -30,7 +35,7 @@ export type { Locale };
  */
 export async function getServerI18n(
   request?: NextRequest,
-): Promise<{ t: ReturnType<i18next["t"]>; locale: Locale }> {
+): Promise<{ t: I18nInstance["t"]; locale: Locale }> {
   // 从 headers() 读取 x-locale（来自 middleware）
   const { headers } = await import("next/headers");
   const headersList = await headers();
@@ -40,6 +45,7 @@ export async function getServerI18n(
     locale = "en";
   }
 
+  const i18next = i18nextModule as unknown as { createInstance: () => I18nInstance };
   const instance = i18next.createInstance();
   await instance.init({
     lng: locale,
@@ -54,5 +60,5 @@ export async function getServerI18n(
     returnObjects: false,
   });
 
-  return { t: instance.t as typeof instance.t, locale };
+  return { t: instance.t, locale };
 }

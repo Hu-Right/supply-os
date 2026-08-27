@@ -10,9 +10,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, requireAdmin } from "@/lib/middleware/auth";
-import { getPaymentRuntimeConfig } from "@/server/config/env";
-import { toQrDataUrl } from "@/server/payment/qr";
-import { fulfillMockPayment } from "@/server/payment/fulfillment";
+import { getPaymentRuntimeConfig } from "@/lib/config/env";
+import { toQrDataUrl } from "@/lib/payment/qr";
+import { fulfillMockPayment } from "@/lib/payment/fulfillment";
 
 // ── 错误码定义（与 server/utils/http-error.ts 保持一致）──
 const ApiErrorCode = {

@@ -4,6 +4,7 @@
  * @description 按业务域拆分的领域上下文。统一使用领域上下文（如 ctx.notice.detailRepo）。
  *              从 server/context.ts 复制，新增 getContext() 工厂函数（原逻辑在 bootstrap.ts 中）。
  */
+import "server-only";
 import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";

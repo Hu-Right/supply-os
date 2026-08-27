@@ -7,8 +7,8 @@
  *              管理员通过 API Token 为用户开通 VIP 会员。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/server/db/context";
-import { activateSubscription } from "@/server/payment/fulfillment";
+import { getContext } from "@/lib/db/context";
+import { activateSubscription } from "@/lib/payment/fulfillment";
 
 // ── 错误码定义 ──
 const ApiErrorCode = {
