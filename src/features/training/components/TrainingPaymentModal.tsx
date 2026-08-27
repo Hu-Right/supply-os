@@ -4,24 +4,26 @@
  *
  * @module features/training/components/TrainingPaymentModal
  * @description 支付流程统一收敛至 PaymentModalCore（零跳转弹窗支付）：
- *              两阶段流程：先填写学员信息 → 再扫码支付 → 支付成功后自动保存学员信息。
+ *              三阶段流程：先填写企业诊断表单 → 再填写学员信息 → 再扫码支付 → 支付成功后自动保存学员信息。
+ *              企业表单复用 QualificationForm 组件，数据写入 crm_supplier_qualification 表。
  */
 
 import { useCallback, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { PaymentModalCore } from "@/features/payment";
+import QualificationForm, {
+  INITIAL_QUALIFICATION_FORM,
+  type QualificationFormData,
+} from "@/features/procurement/components/QualificationForm";
 import {
   createTrainingOrder,
   fetchTrainingOrderStatus,
   mockPayTrainingOrder,
   saveTrainingParticipants,
-  submitTrainingRegister,
   type LandingCourse,
   type LandingSchedule,
   type TrainingParticipant,
 } from "../api";
-import { ApiError } from "@/core/http";
-import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import ParticipantForm from "./ParticipantForm";
 
 export interface TrainingPaymentModalProps {
@@ -52,28 +54,16 @@ export default function TrainingPaymentModal({
 }: TrainingPaymentModalProps) {
   const { t, locale } = useLocale();
 
-  // ── 两阶段流程 ──
-  // phase="participants" → 先填学员信息
-  // phase="payment" → 再支付
-  const [phase, setPhase] = useState<"participants" | "payment">("participants");
+  // ── 三阶段流程 ──
+  // phase="qualification" → 填写企业诊断表单
+  // phase="participants" → 填写学员信息
+  // phase="payment" → 扫码支付
+  const [phase, setPhase] = useState<"qualification" | "participants" | "payment">("qualification");
+  const [qualificationData, setQualificationData] = useState<QualificationFormData>(INITIAL_QUALIFICATION_FORM);
+  const [qualificationId, setQualificationId] = useState<number | null>(null);
   const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
-    company_name: "",
-    industry_id: "",
-    industry_level2_id: "",
-    industry_level3_id: "",
-    main_product: "",
-    export_experience: "",
-    certification: [],
-    other_certification: "",
-    contact_name: "",
-    position: "",
-    telephone: "",
-    email: "",
-    remark: "",
-  });
-  const [submittingCompany, setSubmittingCompany] = useState(false);
-  const [companyError, setCompanyError] = useState("");
+  const [submittingQualification, setSubmittingQualification] = useState(false);
+  const [qualificationError, setQualificationError] = useState("");
 
   // ── 期次选择 ──
   const openSchedules = useMemo(() => schedules.filter((s) => s.status === "open"), [schedules]);
@@ -95,43 +85,75 @@ export default function TrainingPaymentModal({
   const hasMultipleSchedules = openSchedules.length > 1;
   const scheduleSelected = !hasMultipleSchedules || selectedScheduleId !== null;
 
-  // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
-  const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
-    if (!companyInfo.company_name || !companyInfo.contact_name || !companyInfo.telephone) {
-      setCompanyError(t("tlCompanyInfoRequired"));
-      return;
-    }
+  // ── 阶段一：提交企业诊断表单 → 写入 crm_supplier_qualification ──
+  const handleQualificationSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQualificationError("");
 
-    setSubmittingCompany(true);
-    setCompanyError("");
+    // 前端必填校验
+    if (!qualificationData.company_name.trim()) return setQualificationError(`${t("qualCompanyName")}${t("qualErrorRequired")}`);
+    if (!qualificationData.company_website.trim()) return setQualificationError(`${t("qualCompanyWebsite")}${t("qualErrorRequired")}`);
+    if (qualificationData.industry.length === 0) return setQualificationError(`${t("qualIndustry")}${t("qualErrorRequired")}`);
+    if (!qualificationData.main_product.trim()) return setQualificationError(`${t("qualMainProduct")}${t("qualErrorRequired")}`);
+    if (!qualificationData.export_scale) return setQualificationError(`${t("qualExportScale")}${t("qualErrorRequired")}`);
+    if (qualificationData.certifications.length === 0) return setQualificationError(`${t("qualCertifications")}${t("qualErrorRequired")}`);
+    if (!qualificationData.service_countries.trim()) return setQualificationError(`${t("qualServiceCountries")}${t("qualErrorRequired")}`);
+    if (!qualificationData.overseas_companies.trim()) return setQualificationError(`${t("qualOverseasCompanies")}${t("qualErrorRequired")}`);
+    if (!qualificationData.ungm_status) return setQualificationError(`${t("qualUngmStatus")}${t("qualErrorRequired")}`);
+    if (!qualificationData.english_team) return setQualificationError(`${t("qualEnglishTeam")}${t("qualErrorRequired")}`);
+    if (!qualificationData.payment_terms) return setQualificationError(`${t("qualPaymentTerms")}${t("qualErrorRequired")}`);
+    if (!qualificationData.bid_willingness) return setQualificationError(`${t("qualBidWillingness")}${t("qualErrorRequired")}`);
 
+    setSubmittingQualification(true);
     try {
-      let certificationStr = companyInfo.certification.join("\n");
-      if (companyInfo.other_certification.trim()) {
-        certificationStr += "\n" + companyInfo.other_certification.trim();
-      }
-
-      await submitTrainingRegister({
-        company_name: companyInfo.company_name,
-        industry_id: companyInfo.industry_id ? parseInt(companyInfo.industry_id) : null,
-        main_product: companyInfo.main_product,
-        export_experience: companyInfo.export_experience,
-        certification: certificationStr,
-        contact_name: companyInfo.contact_name,
-        position: companyInfo.position,
-        telephone: companyInfo.telephone,
-        email: companyInfo.email,
-        remark: companyInfo.remark,
+      const res = await fetch("/api/supplier-qualification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: qualificationData.company_name.trim(),
+          company_website: qualificationData.company_website.trim(),
+          founding_year: qualificationData.founding_year.trim() || null,
+          employee_count: qualificationData.employee_count || null,
+          industry: qualificationData.industry,
+          other_industry: qualificationData.other_industry.trim() || null,
+          main_product: qualificationData.main_product.trim(),
+          export_scale: qualificationData.export_scale,
+          certifications: qualificationData.certifications,
+          other_certifications: qualificationData.other_certifications.trim() || null,
+          service_countries: qualificationData.service_countries.trim(),
+          overseas_companies: qualificationData.overseas_companies.trim(),
+          ungm_status: qualificationData.ungm_status,
+          english_team: qualificationData.english_team,
+          payment_terms: qualificationData.payment_terms,
+          bid_willingness: qualificationData.bid_willingness,
+          contact_info: qualificationData.contact_info.trim() || null,
+          source: "training",
+          participant_count: participantCount,
+          schedule_id: selectedScheduleId,
+        }),
       });
 
-      setPendingParticipants(participants);
-      setPhase("payment");
-    } catch (err) {
-      setCompanyError(err instanceof ApiError ? err.message : t("formError"));
+      if (!res.ok) {
+        const data = await res.json();
+        setQualificationError(data.message || data.error || t("formError"));
+        return;
+      }
+
+      const data = await res.json();
+      setQualificationId(data.id);
+      setPhase("participants");
+    } catch {
+      setQualificationError(t("formError"));
     } finally {
-      setSubmittingCompany(false);
+      setSubmittingQualification(false);
     }
-  }, [companyInfo, t]);
+  }, [qualificationData, participantCount, selectedScheduleId, t]);
+
+  // ── 阶段二：学员信息填写完成 → 进入支付阶段 ──
+  const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
+    setPendingParticipants(participants);
+    setPhase("payment");
+  }, []);
 
   // ── 培训下单适配器 ──
   const handleCreateOrder = useCallback(
@@ -141,6 +163,7 @@ export default function TrainingPaymentModal({
         course_id: course.id,
         schedule_id: selectedScheduleId ?? null,
         registration_id: registrationId ?? null,
+        qualification_id: qualificationId ?? null,
         participant_count: participantCount,
         provider,
       });
@@ -151,7 +174,7 @@ export default function TrainingPaymentModal({
         pay_url: result.pay_url,
       };
     },
-    [course, selectedScheduleId, registrationId, participantCount],
+    [course, selectedScheduleId, registrationId, qualificationId, participantCount],
   );
 
   const handleQueryStatus = useCallback((orderNo: string) => fetchTrainingOrderStatus(orderNo), []);
@@ -160,7 +183,7 @@ export default function TrainingPaymentModal({
     await mockPayTrainingOrder(orderNo);
   }, []);
 
-  // ── 支付成功回调：先展示成功 UI，再异步保存学员信息 ──
+  // ─ 支付成功回调：先展示成功 UI，再异步保存学员信息 ──
   const handlePaymentSuccess = useCallback((orderNo: string) => {
     if (pendingParticipants) {
       // 异步保存，不阻塞成功 UI 展示
@@ -174,7 +197,86 @@ export default function TrainingPaymentModal({
 
   const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
 
-  // ── 阶段一：学员信息填写 ──
+  // ── 阶段一：企业诊断表单 ──
+  if (phase === "qualification") {
+    return (
+      <ParticipantForm
+        open
+        onClose={onClose}
+        orderNo=""
+        participantCount={0}
+        onSubmit={() => {}}
+        preFormSection={
+          <div>
+            {/* 期次选择 */}
+            {hasMultipleSchedules && (
+              <div className="mb-4">
+                <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentScheduleLabel")}</p>
+                <div className="space-y-2">
+                  {openSchedules.map((s) => {
+                    const isSelected = s.id === selectedScheduleId;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setSelectedScheduleId(s.id)}
+                        className={`flex w-full items-center justify-between rounded-xl border-2 p-3 text-left transition-all ${
+                          isSelected
+                            ? "border-red-500 bg-red-50 cursor-pointer"
+                            : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900">
+                            {t("tlPaymentSchedulePeriod").replace("{n}", String(s.period_number))}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {fmtDate(s.start_date, locale)} · {s.city} · {s.format}
+                          </p>
+                        </div>
+                        <span className="ml-3 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          {t("tlPaymentScheduleStatusOpen")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {/* 企业诊断表单 */}
+            <QualificationForm value={qualificationData} onChange={setQualificationData} hideSubmit />
+            {/* 参训人数 */}
+            <div className="mt-4">
+              <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentParticipants")}</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setParticipantCount((c) => Math.max(1, c - 1))}
+                  className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  -
+                </button>
+                <span className="w-10 text-center text-lg font-black text-slate-900">{participantCount}</span>
+                <button
+                  type="button"
+                  onClick={() => setParticipantCount((c) => Math.min(20, c + 1))}
+                  className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+        preFormError={qualificationError}
+        preFormSubmitting={submittingQualification}
+        scheduleRequired={!scheduleSelected}
+        scheduleRequiredText={t("tlPaymentScheduleRequired")}
+      />
+    );
+  }
+
+  // ── 阶段二：学员信息填写 ──
   if (phase === "participants") {
     return (
       <ParticipantForm
@@ -183,76 +285,11 @@ export default function TrainingPaymentModal({
         orderNo=""
         participantCount={participantCount}
         onSubmit={handleParticipantsReady}
-        preFormSection={
-          <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} />
-        }
-        preFormError={companyError}
-        preFormSubmitting={submittingCompany}
-        scheduleSelector={
-          hasMultipleSchedules ? (
-            <div>
-              <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentScheduleLabel")}</p>
-              <div className="space-y-2">
-                {openSchedules.map((s) => {
-                  const isSelected = s.id === selectedScheduleId;
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => setSelectedScheduleId(s.id)}
-                      className={`flex w-full items-center justify-between rounded-xl border-2 p-3 text-left transition-all ${
-                        isSelected
-                          ? "border-red-500 bg-red-50 cursor-pointer"
-                          : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">
-                          {t("tlPaymentSchedulePeriod").replace("{n}", String(s.period_number))}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {fmtDate(s.start_date, locale)} · {s.city} · {s.format}
-                        </p>
-                      </div>
-                      <span className="ml-3 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        {t("tlPaymentScheduleStatusOpen")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : undefined
-        }
-        participantCountSelector={
-          <div>
-            <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentParticipants")}</p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setParticipantCount((c) => Math.max(1, c - 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
-              >
-                -
-              </button>
-              <span className="w-10 text-center text-lg font-black text-slate-900">{participantCount}</span>
-              <button
-                type="button"
-                onClick={() => setParticipantCount((c) => Math.min(20, c + 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        }
-        scheduleRequired={!scheduleSelected}
-        scheduleRequiredText={t("tlPaymentScheduleRequired")}
       />
     );
   }
 
-  // ── 阶段二：支付 ──
+  // ── 阶段三：支付 ──
   return (
     <PaymentModalCore
       onClose={onClose}
