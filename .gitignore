@@ -40,6 +40,7 @@ server/logs/
 
 # ===== IDE 与编辑器 =====
 .qoder/
+.zcode/
 .vscode/
 .idea/
 *.suo
