@@ -38,6 +38,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang={DEFAULT_LOCALE} dir={DEFAULT_DIR}>
+      <head>
+        {/* 预加载 iconfont woff2 字体（关键渲染路径，消除 FOIT/FOUT 延迟） */}
+        <link rel="preload" href="/fonts/iconfont.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </head>
       <body className="antialiased">
         <Providers>{children}</Providers>
       </body>
