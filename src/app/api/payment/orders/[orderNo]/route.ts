@@ -1,0 +1,40 @@
+/**
+ * GET /api/payment/orders/:orderNo — 查询订单状态
+ *
+ * @module app/api/payment/orders/[orderNo]/route
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { getContext } from "@/lib/db/context";
+import { requireUserKey } from "@/lib/middleware/auth";
+
+const ApiErrorCode = {
+  PAYMENT_ORDER_NOT_FOUND: 40402,
+  FORBIDDEN: 40301,
+} as const;
+
+function sendError(message: string, status: number, code: number) {
+  return NextResponse.json({ code, message, error: message }, { status });
+}
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ orderNo: string }> },
+) {
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
+
+  const { orderNo } = await params;
+  const decodedOrderNo = decodeURIComponent(orderNo);
+
+  const url = req.nextUrl;
+  const ctx = getContext();
+  const { paymentsRepo, paymentService } = ctx.payment;
+
+  const order = await paymentsRepo.findByOrderNo(decodedOrderNo);
+  if (!order) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
+  if (order.user_key !== auth.userKey) return sendError("无权操作", 403, ApiErrorCode.FORBIDDEN);
+
+  const tradeNo = url.searchParams.get("trade_no") || "";
+  const result = await paymentService.queryOrder(decodedOrderNo, tradeNo);
+  return NextResponse.json(result);
+}

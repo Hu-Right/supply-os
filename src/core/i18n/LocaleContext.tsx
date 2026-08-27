@@ -24,6 +24,7 @@ type I18nInstance = {
   language: string;
   changeLanguage: (lng: string) => Promise<void>;
   addResourceBundle: (lng: string, ns: string, resources: Record<string, string>, deep?: boolean, overwrite?: boolean) => void;
+  getFixedT: (lng: string, ns?: string | string[]) => (key: string, opts?: Record<string, unknown>) => string;
   use: (plugin: unknown) => I18nInstance;
   init: (options: Record<string, unknown>) => Promise<void>;
 };
@@ -79,7 +80,7 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
  * 确保 useTranslation() 在 i18next 实例初始化后被调用
  */
 function LocaleInner({ children, effectiveLocale, initPromise }: { children: ReactNode; effectiveLocale: Locale; initPromise: Promise<void> | null }) {
-  const { t: translate, i18n: instance } = useTranslation();
+  const { i18n: instance } = useTranslation();
   const [ready, setReady] = useState(false);
   const [switching, setSwitching] = useState(false);
   // ★ locale 提升为 React state —— 保证 setLocale 后必定触发 re-render ★
@@ -168,10 +169,19 @@ function LocaleInner({ children, effectiveLocale, initPromise }: { children: Rea
     }
   }, [instance, initPromise, locale]);
 
+  // ★ t 函数由 React state (locale) 驱动，不依赖 useSyncExternalStore 事件链 ★
+  // useTranslation() 的 translate 依赖 useSyncExternalStore 检测 languageChanged 事件，
+  // 但 react-i18next v17 的 subscribe 每次渲染因 i18nOptions 引用变化而重建，
+  // 事件可能在订阅间隙丢失 → translate 永远返回旧语言翻译。
+  // getFixedT(locale) 直接从 i18next 实例按当前 locale 生成翻译函数，100% 确定性。
+  const i18nT = useMemo(
+    () => instance.getFixedT(locale, "translation"),
+    [instance, locale],
+  );
   const t = useCallback(
     (key: string, params?: Record<string, string | number>): string =>
-      translate(key, params) as string,
-    [translate],
+      i18nT(key, params as Record<string, unknown>) as string,
+    [i18nT],
   );
 
   const value = useMemo(() => ({ locale, localeDir, switching, setLocale, t }), [locale, localeDir, switching, setLocale, t]);
