@@ -82,7 +82,6 @@ export default defineConfig({
         // server/services/notice-actions.ts (解锁事务，DB)
         // server/services/reportCacheCleanup.ts (定时调度)
         // server/services/sms.ts (外部 SMS API)
-        // server/middleware/csrf.ts, rateLimiter.ts (Express 中间件)
         "server/services/unspsc/filter.ts",
         // ── server/services — 独立服务文件 ──
         "server/services/auth.ts",
@@ -103,11 +102,6 @@ export default defineConfig({
         "server/services/data-cleanup/engine.ts",
         // ── quality-monitor ──
         "server/services/quality-monitor/snapshot.ts",
-        // ── server/middleware ──
-        "server/middleware/auth.ts",
-        "server/middleware/errorHandler.ts",
-        "server/middleware/csrf.ts",
-        "server/middleware/rateLimiter.ts",
         // ── server/payment ──
         "server/payment/keys.ts",
         "server/payment/MockProvider.ts",
@@ -174,9 +168,6 @@ export default defineConfig({
         "server/bootstrap.ts",
         "server/context.ts",
         "server.ts",
-        "server/app.ts",
-        "src/App.tsx",
-        "src/routes.tsx",
         "src/vite-env.d.ts",
         // barrel re-export 入口（无逻辑）
         "src/shared/layout/index.ts",
