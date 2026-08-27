@@ -9,7 +9,6 @@ import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
-import { SeoHead } from "@/shared/seo";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
@@ -126,12 +125,7 @@ export default function ProcurementPage() {
   if (selectedNotice) {
     return (
       <>
-        <SeoHead
-          title="采购公告详情"
-          description={`查看采购公告详情：${selectedNotice.title_zh || selectedNotice.title_en}`}
-          keywords="采购公告,招标,Tender,采购详情"
-          noIndex={true}
-        />
+        {/* SEO: 详情页 noIndex 由 page.tsx metadata 的 robots 控制 */}
         <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin h-8 w-8 rounded-full border-[3px] border-slate-200 border-t-teal-500" /></div>}>
         <NoticeDetail
         notice={selectedNotice}
@@ -162,12 +156,7 @@ export default function ProcurementPage() {
   // 列表页
   return (
     <>
-    <SeoHead
-      title="全球采购公告搜索"
-      description="搜索全球采购公告，发现采购商机。支持按行业、国家、机构筛选，实时获取最新采购信息。"
-      keywords="采购公告,全球采购,招标,Tender,采购搜索,外贸商机"
-      canonical="https://osneosmart.com/procurement"
-    />
+    {/* SEO metadata 由 page.tsx metadata 导出在服务端处理 */}
     {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-5">

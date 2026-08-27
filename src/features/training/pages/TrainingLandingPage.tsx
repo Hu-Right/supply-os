@@ -11,7 +11,6 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { Spinner } from "@/shared/ui";
-import { SeoHead, CourseJsonLd } from "@/shared/seo";
 import { fetchLandingData, type LandingDataResponse } from "../api";
 import { useTrainingModals } from "../hooks/useTrainingModals";
 import FloatingNav from "../components/FloatingNav";
@@ -78,20 +77,7 @@ export default function TrainingLandingPage() {
 
   return (
     <>
-      <SeoHead
-        title="外贸研修班"
-        description="专业外贸研修班，提升外贸实战能力。学习全球采购、供应商管理、国际贸易实务等核心技能，助力外贸职业发展。"
-        keywords="外贸研修班,外贸培训,国际贸易,采购管理,供应商管理,外贸技能提升"
-        canonical="https://osneosmart.com/training"
-      />
-      <CourseJsonLd
-        name={course?.name_zh || course?.name_en || "外贸研修班"}
-        description={course?.description_zh || course?.description_en || "专业外贸实战培训课程"}
-        provider="云境科技"
-        url="https://osneosmart.com/training"
-        price="799"
-        priceCurrency="CNY"
-      />
+      {/* SEO metadata 由 page.tsx metadata 导出在服务端处理 */}
       {/* 浮动导航 + Hero + CTA 为通版；其余区块受 max-w-7xl 版心约束 */}
       <div className="bg-white">
       {/* 浮动导航：桌面端右侧垂直侧边栏 / 移动端底部水平导航栏 */}
