@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const ctx = getContext();
   try {
     const result = await ctx.supplier.claimRepo.insertClaim({ ...body, user_key: auth.userKey });
-    return NextResponse.json({ success: true, id: result }, { status: 201 });
+    return NextResponse.json({ success: true, id: result, status: "pending" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-claims POST]", err);
     return NextResponse.json({ code: 50000, message: "认领失败" }, { status: 500 });

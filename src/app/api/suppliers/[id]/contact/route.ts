@@ -26,5 +26,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const contact = await directoryRepo.findContact(supplierId);
   if (!contact) return NextResponse.json({ code: 40044, message: "供应商不存在" }, { status: 404 });
 
-  return NextResponse.json(contact);
+  // 字段名映射：DB 列名 → 前端期望字段
+  return NextResponse.json({
+    contactPerson: contact.contact || "",
+    contactPhone: contact.phone || "",
+    contactEmail: contact.email || "",
+  });
 }
