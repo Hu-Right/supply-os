@@ -2,10 +2,8 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import path from "path";
 import os from "os";
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import { createDbPool } from "./db/pool";
 import { PaymentService } from "./payment/PaymentService";
 import { UsersRepo } from "./repos/users.repo";
@@ -120,55 +118,6 @@ export async function startServer() {
     opportunitiesRepo, catalogRepo, leadsRepo, trainingRepo, systemRepo,
   };
   const app = createApp(ctx);
-
-  // Vite Integration for high performance SPA support
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa"
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-
-    // ── 分层缓存策略 ──
-    // 1) 带哈希的静态资源（JS/CSS/图片/字体）→ 强缓存 1 年
-    //    内容变化 → 哈希变化 → 文件名变化 → 浏览器必须重新下载
-    app.use(
-      "/assets",
-      express.static(path.join(distPath, "assets"), {
-        maxAge: "1y",
-        immutable: true,
-        etag: true,
-        lastModified: false,
-      })
-    );
-
-    // 2) public 目录静态资源（下载文件、图片等）→ 缓存 1 天 + 每次验证
-    //    index: false —— 禁止 express.static 自动服务 index.html，
-    //    所有 HTML 请求统一走 SPA 回退路由，确保缓存头一致（修复 CDN 层旧 HTML 残留）
-    //    setHeaders: 对直接请求 /index.html 的路径也强制 no-store（防止 CDN 缓存旧 HTML）
-    app.use(
-      express.static(distPath, {
-        maxAge: "1d",
-        etag: true,
-        lastModified: true,
-        index: false,
-        setHeaders: (res, filePath) => {
-          if (filePath.endsWith(".html")) {
-            res.setHeader("Cache-Control", "no-store");
-          }
-        },
-      })
-    );
-
-    // 3) SPA 回退：所有未匹配路由（含 /）返回 index.html
-    //    Cache-Control: no-store —— 最强不缓存指令，浏览器 + CDN（Cloudflare）均不得缓存
-    app.get("*", (req, res) => {
-      res.setHeader("Cache-Control", "no-store");
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
 
   // ── 增量双语翻译定时任务（外抽至 services/autoTranslate.ts）──
   const stopAutoTranslate = startAutoTranslate(dbPool, {
