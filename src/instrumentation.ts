@@ -36,8 +36,8 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { getPool } = serverRequire<{ getPool: () => Pool }>("@/server/db/pool");
-  const { getContext } = serverRequire<{ getContext: typeof import("@/server/db/context").getContext }>("@/server/db/context");
+  const { getPool } = serverRequire<{ getPool: () => Pool }>("./server/db/pool");
+  const { getContext } = serverRequire<{ getContext: typeof import("./server/db/context").getContext }>("./server/db/context");
   const {
     schemaPhase,
     seedsPhase,
@@ -46,12 +46,12 @@ export async function register() {
     featuredPhase,
     paymentPhase,
     executePhase,
-  } = serverRequire<typeof import("@/server/lifecycle/phases")>("@/server/lifecycle/phases");
-  const { runWarmup } = serverRequire<{ runWarmup: (opts: Record<string, unknown>) => Promise<void> }>("@/server/lifecycle/warmup");
+  } = serverRequire<typeof import("./server/lifecycle/phases")>("./server/lifecycle/phases");
+  const { runWarmup } = serverRequire<{ runWarmup: (opts: Record<string, unknown>) => Promise<void> }>("./server/lifecycle/warmup");
   const { startBackgroundTasks, registerShutdownHooks } = serverRequire<{
     startBackgroundTasks: (pool: Pool) => { stop: () => void };
     registerShutdownHooks: (cb: () => void) => void;
-  }>("@/server/lifecycle/background");
+  }>("./server/lifecycle/background");
 
   const dbPool: Pool = getPool();
 
@@ -89,9 +89,9 @@ export async function register() {
 /** Meilisearch 异步初始化：健康检查 + 索引创建 */
 async function initMeilisearchAsync(dbPool: Pool) {
   const { initMeilisearch, ensureIndex } = serverRequire<{
-    initMeilisearch: () => ReturnType<typeof import("@/server/services/meilisearch/index").initMeilisearch>;
+    initMeilisearch: () => ReturnType<typeof import("./server/services/meilisearch/index").initMeilisearch>;
     ensureIndex: () => Promise<boolean>;
-  }>("@/server/services/meilisearch/index");
+  }>("./server/services/meilisearch/index");
   try {
     const client = initMeilisearch();
     if (client) {

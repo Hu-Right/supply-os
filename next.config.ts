@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { builtinModules } from "module";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // output: "standalone", // 过渡期暂时禁用，Docker 部署时再启用
   // 过渡期：src/server/ 从 src/lib/ 复制，ESLint/TS 规则差异暂不处理
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
