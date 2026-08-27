@@ -48,5 +48,15 @@ export type { PaginationProps, PaginationLabels } from "./Pagination";
 export { ListPage } from "./ListPage";
 export type { ListPageProps } from "./ListPage";
 
+export { DataTable } from "./DataTable";
+export type { DataTableProps } from "./DataTable";
+
+export { Combobox } from "./Combobox";
+export type { ComboboxProps, ComboboxItem } from "./Combobox";
+
+// react-hook-form 表单组件集：从 "@/shared/ui/Form" 子路径导入，
+// 避免与 shared/forms 的 FormField 在 shared/index.ts 产生导出歧义。
+// import { Form, FormField, FormItem, ... } from "@/shared/ui/Form";
+
 export { LoadingOverlay } from "./LoadingOverlay";
 export type { LoadingOverlayProps } from "./LoadingOverlay";
