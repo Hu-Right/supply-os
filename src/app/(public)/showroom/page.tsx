@@ -3,23 +3,17 @@
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
-import { getServerI18n } from "@/lib/i18n/server";
-import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export const revalidate = 3600;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { locale } = await getServerI18n();
-  const meta = getPageMetadata("showroom", locale);
-  return {
-    title: meta.title,
-    description: meta.description,
-    alternates: {
-      canonical: "https://osneosmart.com/showroom",
-      languages: { "x-default": "https://osneosmart.com/showroom" },
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Global Showrooms | Supply OS",
+  description: "Browse global supply chain resources and exhibition information",
+  alternates: {
+    canonical: "https://osneosmart.com/showroom",
+    languages: { "x-default": "https://osneosmart.com/showroom" },
+  },
+};
 
 export default function ShowroomPage() {
   return <PageClient />;

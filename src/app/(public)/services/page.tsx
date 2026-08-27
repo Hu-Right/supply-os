@@ -3,23 +3,17 @@
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
-import { getServerI18n } from "@/lib/i18n/server";
-import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export const revalidate = 3600;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { locale } = await getServerI18n();
-  const meta = getPageMetadata("services", locale);
-  return {
-    title: meta.title,
-    description: meta.description,
-    alternates: {
-      canonical: "https://osneosmart.com/services",
-      languages: { "x-default": "https://osneosmart.com/services" },
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Ecosystem Services | Supply OS",
+  description: "Explore supply chain related services",
+  alternates: {
+    canonical: "https://osneosmart.com/services",
+    languages: { "x-default": "https://osneosmart.com/services" },
+  },
+};
 
 export default function ServicesPage() {
   return <PageClient />;

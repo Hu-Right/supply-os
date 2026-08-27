@@ -3,8 +3,10 @@
  *
  * @module proxy
  * @description 从 cookie `supply_os_locale` 或 `Accept-Language` header
- *              解析用户首选语言，写入 `x-locale` response header。
- *              Per-request 粒度由 getServerI18n() 读取该 header。
+ *              解析用户首选语言，写入 `x-locale` 请求头。
+ *              使用请求头（而非响应头）是因为 Next.js Server Component
+ *              只能读取请求头，无法读取中间件设置的响应头。
+ *              Per-request 粒度由 getServerI18n() 读取该请求头。
  *              Next.js 16: middleware 已重命名为 proxy。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -30,9 +32,11 @@ export function proxy(request: NextRequest) {
     locale = "en";
   }
 
-  const res = NextResponse.next();
-  res.headers.set("x-locale", locale);
-  return res;
+  // ★ 写入请求头（而非响应头），使 Server Component 可通过 headers() 读取 ★
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-locale", locale);
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

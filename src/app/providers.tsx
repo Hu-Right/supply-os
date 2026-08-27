@@ -8,10 +8,10 @@ import type { Locale } from "@/core/i18n/bundles";
 
 /**
  * Client-side Providers wrapper.
- * Receives initialLocale from Root Layout (SSR), passes it to LocaleProvider
- * so that translation is ready at hydration time.
+ * initialLocale 可选：root layout 不再传递（保持静态 ISR），
+ * LocaleProvider 内部通过 detectLocale() 从 Cookie 读取语言偏好。
  *
- * <Suspense> 作为安全边界：即使 i18next 内部触发 Suspense（如 useSuspense 配置遗漏），
+ * <Suspense> 作为安全边界：即使 i18next 内部触发 Suspense，
  * 也不会导致整棵组件树崩溃。
  */
 export default function Providers({
@@ -19,7 +19,7 @@ export default function Providers({
   initialLocale,
 }: {
   children: React.ReactNode;
-  initialLocale: Locale;
+  initialLocale?: Locale;
 }) {
   return (
     <Suspense fallback={null}>

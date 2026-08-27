@@ -3,11 +3,14 @@
  *
  * @module lib/i18n/server
  * @description 每个请求创建一个独立的 i18next 实例，避免并发冲突。
- *              语言决议优先级：Accept-Language header > "en"。
- *              使用 headers() 而非 cookies()：cookies() 会强制整站动态渲染，
- *              导致 ISR/SSG 全部失效（所有页面变为 ƒ）。
- *              headers() 仅使 root layout 动态，子页面仍可 ISR 缓存。
- *              客户端语言偏好由 Cookie 持久化，客户端 detectLocale() 读取。
+ *              语言决议优先级：
+ *                1. x-locale 请求头（由 proxy.ts 中间件设置，携带 Cookie 偏好）
+ *                2. Accept-Language header
+ *                3. "en" 兜底
+ *
+ *              ️ 调用 headers() 会使所在 Server Component 变为动态渲染。
+ *                 不要在 root layout 中调用此函数（会拖垮整站 ISR/SSG）。
+ *                 仅在需要服务端翻译的独立页面/组件中按需调用。
  */
 import { headers } from "next/headers";
 import { SERVER_BUNDLES, SUPPORTED_LOCALE_CODES, type Locale } from "@/core/i18n/bundles";
@@ -23,17 +26,24 @@ export type { Locale };
 /**
  * 从当前请求获取服务端翻译函数和语言信息。
  * 需在 Server Component 中调用（需 await）。
+ *
+ * ⚠️ 此函数调用 headers()，会使所在组件变为动态渲染。
+ *    不要在 root layout 中调用。
  */
 export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: Locale }> {
-  // ★ 使用 headers() 而非 cookies() —— cookies() 强制整站动态渲染，ISR/SSG 全部失效 ★
   const headersList = await headers();
-  const acceptLang = headersList.get("accept-language");
-  let locale: Locale | undefined;
 
-  if (acceptLang) {
-    const primary = acceptLang.split(",")[0]?.trim().split("-")[0]?.toLowerCase();
-    if (primary && SUPPORTED_LOCALE_CODES.includes(primary as Locale)) {
-      locale = primary as Locale;
+  // ★ 优先读 x-locale 请求头（proxy.ts 中间件基于 Cookie 设置）★
+  let locale = headersList.get("x-locale") as Locale | undefined;
+
+  // fallback: Accept-Language
+  if (!locale || !SUPPORTED_LOCALE_CODES.includes(locale)) {
+    const acceptLang = headersList.get("accept-language");
+    if (acceptLang) {
+      const primary = acceptLang.split(",")[0]?.trim().split("-")[0]?.toLowerCase();
+      if (primary && SUPPORTED_LOCALE_CODES.includes(primary as Locale)) {
+        locale = primary as Locale;
+      }
     }
   }
 

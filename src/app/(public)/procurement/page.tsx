@@ -3,23 +3,17 @@
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
-import { getServerI18n } from "@/lib/i18n/server";
-import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export const revalidate = 3600;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { locale } = await getServerI18n();
-  const meta = getPageMetadata("procurement", locale);
-  return {
-    title: meta.title,
-    description: meta.description,
-    alternates: {
-      canonical: "https://osneosmart.com/procurement",
-      languages: { "x-default": "https://osneosmart.com/procurement" },
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Procurement Search | Supply OS",
+  description: "Search global bidding and procurement information",
+  alternates: {
+    canonical: "https://osneosmart.com/procurement",
+    languages: { "x-default": "https://osneosmart.com/procurement" },
+  },
+};
 
 export default function ProcurementPage() {
   return <PageClient />;

@@ -3,23 +3,17 @@
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";
-import { getServerI18n } from "@/lib/i18n/server";
-import { getPageMetadata } from "@/lib/i18n/metadata";
 
 export const revalidate = 3600;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const { locale } = await getServerI18n();
-  const meta = getPageMetadata("qualification", locale);
-  return {
-    title: meta.title,
-    description: meta.description,
-    alternates: {
-      canonical: "https://osneosmart.com/procurement/qualification",
-      languages: { "x-default": "https://osneosmart.com/procurement/qualification" },
-    },
-  };
-}
+export const metadata: Metadata = {
+  title: "Supplier Qualification | Supply OS",
+  description: "Apply to become a certified supplier",
+  alternates: {
+    canonical: "https://osneosmart.com/procurement/qualification",
+    languages: { "x-default": "https://osneosmart.com/procurement/qualification" },
+  },
+};
 
 export default function QualificationPage() {
   return <PageClient />;
