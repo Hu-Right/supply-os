@@ -93,6 +93,7 @@ export interface CreateTrainingOrderRequest {
   course_id: number;
   schedule_id?: number | null;
   registration_id?: number | null;
+  qualification_id?: number | null;
   participant_count?: number;
   provider: "alipay" | "wechat";
   contact_name?: string;
