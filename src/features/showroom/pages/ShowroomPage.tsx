@@ -8,6 +8,7 @@
  */
 
 import { useState, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
@@ -16,8 +17,19 @@ import type { ExhibitionHall } from "@/types";
 import { Input, Select } from "@/shared/ui";
 import { SeoHead, WebSiteJsonLd } from "@/shared/seo";
 import { ShowroomCard } from "../components/ShowroomCard";
-import { RegisterForm } from "../components/RegisterForm";
 import { onAppEvent, emitAppEvent } from "@/core/events";
+
+// RegisterForm 按需加载（329 行表单组件，仅在用户点击"入驻"时展示）
+const RegisterForm = dynamic(
+  () => import("../components/RegisterForm").then((m) => ({ default: m.RegisterForm })),
+  {
+    loading: () => (
+      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+        <div className="h-96 w-full max-w-lg animate-pulse rounded-2xl bg-white" />
+      </div>
+    ),
+  },
+);
 
 export default function ShowroomPage() {
   const { t, locale } = useLocale();
