@@ -55,6 +55,9 @@ const nextConfig: NextConfig = {
       const nodeBuiltins = [
         "crypto", "fs", "path", "os", "stream", "util", "zlib",
         "http", "https", "net", "tls", "events", "url", "buffer", "querystring",
+        "console", "process", "assert", "child_process", "cluster", "dgram",
+        "dns", "domain", "module", "readline", "repl", "sys", "timers",
+        "tty", "v8", "vm", "wasi", "worker_threads", "async_hooks",
       ];
       config.externals = [...existing, ...nodeBuiltins];
       return config;
@@ -68,6 +71,17 @@ const nextConfig: NextConfig = {
         ...existing,
         ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
           if (request && nodeOnlyEsm.test(request)) {
+            return callback(null, "commonjs " + request);
+          }
+          callback();
+        },
+      ];
+    } else {
+      // 客户端构建：将 node: 前缀的模块标记为 external，防止 webpack 尝试打包
+      config.externals = [
+        ...existing,
+        ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
+          if (request && request.startsWith("node:")) {
             return callback(null, "commonjs " + request);
           }
           callback();
