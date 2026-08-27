@@ -12,7 +12,7 @@
  */
 import React, { createContext, useContext, useCallback, useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import * as i18nextModule from "i18next";
-import { I18nextProvider, initReactI18next, useTranslation } from "react-i18next";
+import { I18nextProvider, initReactI18next } from "react-i18next";
 import { SUPPORTED_LOCALE_CODES, getLocaleDir } from "./locales";
 import { loadLanguage } from "./loader";
 import type { Locale } from "./types";
@@ -79,8 +79,13 @@ const LocaleContext = createContext<LocaleContextValue | null>(null);
  * 内部组件：在 I18nextProvider 内部执行翻译逻辑
  * 确保 useTranslation() 在 i18next 实例初始化后被调用
  */
-function LocaleInner({ children, effectiveLocale, initPromise }: { children: ReactNode; effectiveLocale: Locale; initPromise: Promise<void> | null }) {
-  const { i18n: instance } = useTranslation();
+function LocaleInner({ children, effectiveLocale, initPromise, i18nInstance }: {
+  children: ReactNode;
+  effectiveLocale: Locale;
+  initPromise: Promise<void> | null;
+  i18nInstance: I18nInstance;
+}) {
+  const instance = i18nInstance;
   const [ready, setReady] = useState(false);
   const [switching, setSwitching] = useState(false);
   // ★ locale 提升为 React state —— 保证 setLocale 后必定触发 re-render ★
@@ -216,7 +221,7 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
 
   return (
     <I18nextProvider i18n={i18nInstanceRef.current}>
-      <LocaleInner effectiveLocale={effectiveLocale} initPromise={initPromiseRef.current}>{children}</LocaleInner>
+      <LocaleInner effectiveLocale={effectiveLocale} initPromise={initPromiseRef.current} i18nInstance={i18nInstanceRef.current}>{children}</LocaleInner>
     </I18nextProvider>
   );
 }
