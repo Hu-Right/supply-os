@@ -1,8 +1,8 @@
 /** POST /api/auth/unbind-phone — 解绑手机号（需认证） */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { hashVerificationCode } from "@/lib/services/auth";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { hashVerificationCode } from "@/server/services/auth";
 
 export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);

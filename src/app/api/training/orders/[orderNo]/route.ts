@@ -3,8 +3,8 @@
  * GET /api/training/orders/[orderNo]/participants — 获取参与者
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ orderNo: string }> }) {
   const auth = await requireUserKey(req);

@@ -7,8 +7,8 @@
  *              处理支付平台的异步通知，验证签名并更新订单状态。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { getPaymentRuntimeConfig } from "@/lib/config/env";
+import { getContext } from "@/server/db/context";
+import { getPaymentRuntimeConfig } from "@/server/config/env";
 
 // ── POST /api/payment/notify/alipay — 支付宝异步通知 ──
 export async function POST(req: NextRequest) {

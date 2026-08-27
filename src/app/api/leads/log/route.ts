@@ -1,7 +1,7 @@
 /** POST /api/leads/log — 跟进日志（admin） */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireAdmin } from "@/lib/middleware/auth";
+import { getContext } from "@/server/db/context";
+import { requireAdmin } from "@/server/middleware/auth";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);

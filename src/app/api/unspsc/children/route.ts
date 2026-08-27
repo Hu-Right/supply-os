@@ -2,7 +2,7 @@
  * GET /api/unspsc/children — UNSPSC 子分类（按 parent_id）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 export async function GET(req: NextRequest) {
   const parentId = Number(req.nextUrl.searchParams.get("parent_id") || 0);

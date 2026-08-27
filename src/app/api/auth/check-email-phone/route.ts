@@ -2,8 +2,8 @@
  * POST /api/auth/check-email-phone — 检查邮箱是否绑定手机号
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { maskPhone } from "@/lib/utils/mask";
+import { getContext } from "@/server/db/context";
+import { maskPhone } from "@/server/utils/mask";
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json();

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -56,8 +57,57 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  webpack: (config, { isServer, nextRuntime }) => {
+  webpack: (config, { isServer, nextRuntime, webpack: wp }) => {
     const existing = Array.isArray(config.externals) ? config.externals : [];
+  
+    // 客户端构建：为 Node.js 内置模块提供空 fallback
+    if (!isServer && nextRuntime !== 'edge') {
+      config.resolve = config.resolve || {};
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        // Node.js 内置模块
+        console: false,
+        crypto: false,
+        fs: false,
+        path: false,
+        os: false,
+        stream: false,
+        util: false,
+        zlib: false,
+        http: false,
+        https: false,
+        net: false,
+        tls: false,
+        events: false,
+        url: false,
+        buffer: false,
+        querystring: false,
+        diagnostics_channel: false,
+        async_hooks: false,
+        child_process: false,
+        // 服务器端包
+        mysql2: false,
+        bcrypt: false,
+        'alipay-sdk': false,
+        urllib: false,
+        undici: false,
+        nodemailer: false,
+        meilisearch: false,
+        nodejieba: false,
+      };
+
+      // 处理 node: 前缀的模块
+      config.externals = [
+        ...existing,
+        ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {
+          if (request && request.startsWith('node:')) {
+            return callback(null, 'commonjs ' + request);
+          }
+          callback();
+        },
+      ];
+    }
+  
     // Edge 运行时（middleware 编译）会连带打包 instrumentation 的依赖图，
     // 其中 crypto/fs/stream 等 Node builtin 在 edge 不可用。
     // instrumentation 内的 NEXT_RUNTIME 守卫保证 edge 永不执行这些代码，
@@ -74,7 +124,7 @@ const nextConfig: NextConfig = {
       // alipay-sdk v4 为纯 ESM Node 库，serverExternalPackages 仅对 CJS 生效。
       // 用 function-based external 拦截这些包及其传递依赖（含 node: 前缀 URI），
       // 留给运行时 Node 解析，避免 webpack 尝试打包。
-      const nodeOnlyEsm = /^(@alicloud\/.*|alipay-sdk|formstream|urllib|through|pause-stream|utility|node:.*)$/;
+      const nodeOnlyEsm = /^(@alicloud\/. *|alipay-sdk|formstream|urllib|through|pause-stream|utility|node:.*)$/;
       config.externals = [
         ...existing,
         ({ request }: { request?: string }, callback: (err?: Error | null, result?: string) => void) => {

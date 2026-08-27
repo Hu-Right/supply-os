@@ -3,10 +3,10 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { hashVerificationCode } from "@/lib/services/auth";
-import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { hashVerificationCode } from "@/server/services/auth";
+import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/server/services/sms";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 

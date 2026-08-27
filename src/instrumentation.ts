@@ -24,8 +24,8 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { getPool } = await import("./lib/db/pool");
-  const { getContext } = await import("./lib/db/context");
+  const { getPool } = await import("@/server/db/pool");
+  const { getContext } = await import("@/server/db/context");
   const {
     schemaPhase,
     seedsPhase,
@@ -34,9 +34,9 @@ export async function register() {
     featuredPhase,
     paymentPhase,
     executePhase,
-  } = await import("./lib/lifecycle/phases");
-  const { runWarmup } = await import("./lib/lifecycle/warmup");
-  const { startBackgroundTasks, registerShutdownHooks } = await import("./lib/lifecycle/background");
+  } = await import("@/server/lifecycle/phases");
+  const { runWarmup } = await import("@/server/lifecycle/warmup");
+  const { startBackgroundTasks, registerShutdownHooks } = await import("@/server/lifecycle/background");
 
   const dbPool: Pool = getPool();
 
@@ -75,7 +75,7 @@ export async function register() {
 
 /** Meilisearch 异步初始化：健康检查 + 索引创建 */
 async function initMeilisearchAsync(dbPool: Pool) {
-  const { initMeilisearch, ensureIndex } = await import("./lib/services/meilisearch/index");
+  const { initMeilisearch, ensureIndex } = await import("@/server/services/meilisearch/index");
   try {
     const client = initMeilisearch();
     if (client) {

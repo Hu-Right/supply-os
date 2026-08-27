@@ -3,11 +3,11 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { hashVerificationCode } from "@/lib/services/auth";
-import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
-import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
-import { maskPhone } from "@/lib/utils/mask";
+import { getContext } from "@/server/db/context";
+import { hashVerificationCode } from "@/server/services/auth";
+import { sendPasswordResetEmail, isEmailConfigured } from "@/server/services/email";
+import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/server/services/sms";
+import { maskPhone } from "@/server/utils/mask";
 
 export async function POST(req: NextRequest) {
   const { email, channel = "email" } = await req.json();

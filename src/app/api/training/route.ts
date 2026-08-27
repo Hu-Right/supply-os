@@ -7,9 +7,9 @@
  *              包含报名、落地页数据、下载追踪、订单创建等功能。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { createTrainingOrder } from "@/lib/services/training-payment";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { createTrainingOrder } from "@/server/services/training-payment";
 
 // ── 错误码定义 ──
 const ApiErrorCode = {

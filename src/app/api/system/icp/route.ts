@@ -2,7 +2,7 @@
  * GET /api/system/icp — ICP 备案号（10min 缓存）
  */
 import { NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 let icpCache: { bah: string; ts: number } | null = null;
 const ICP_CACHE_TTL = 10 * 60 * 1000;

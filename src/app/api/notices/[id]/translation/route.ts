@@ -7,18 +7,18 @@
  *              获取公告的翻译内容，支持中文快速路径和通用翻译路径。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
-import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
+import { getPool } from "@/server/db/pool";
+import { requireUserKey } from "@/server/middleware/auth";
+import { NoticeDetailRepo } from "@/server/db/repos/notices/notice-detail.repo";
+import { NoticeTranslationRepo } from "@/server/db/repos/notices/notice-translation.repo";
 import {
   NOTICE_TRANSLATION_LANGS,
   getTranslatedNoticeDetail,
   detectSourceLang,
   translateNoticeViaChain,
-} from "@/lib/services/translation/notice";
-import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/index";
-import { syncWideIds } from "@/lib/services/search-sync/index";
+} from "@/server/services/translation/notice";
+import { findQualifiedOpportunityForNotice } from "@/server/services/notices/index";
+import { syncWideIds } from "@/server/services/search-sync/index";
 
 // ── 错误码定义 ──
 const ApiErrorCode = {

@@ -8,22 +8,22 @@
  *              lib/services/notice-actions.ts。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { getPool } from "@/server/db/pool";
+import { requireUserKey } from "@/server/middleware/auth";
+import { checkRateLimit } from "@/server/middleware/rateLimiter";
 import {
   executeUnlock,
   processFeedback,
   submitInterest,
   NoticeNotFoundError,
   QuotaExceededError,
-} from "@/lib/services/notice-actions";
-import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
-import { NoticeInteractionRepo } from "@/lib/repos/notices/notice-interaction.repo";
-import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
-import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
-import { MembershipRepo } from "@/lib/repos/membership.repo";
-import type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
+} from "@/server/services/notice-actions";
+import { NoticeUnlockRepo } from "@/server/db/repos/notices/notice-unlock.repo";
+import { NoticeInteractionRepo } from "@/server/db/repos/notices/notice-interaction.repo";
+import { NoticeDetailRepo } from "@/server/db/repos/notices/notice-detail.repo";
+import { NoticeFeedbackRepo } from "@/server/db/repos/notices/notice-feedback.repo";
+import { MembershipRepo } from "@/server/db/repos/membership.repo";
+import type { RecoFeedbackItem } from "@/server/db/repos/notices/notice-feedback.repo";
 
 // ── 错误码定义（与 server/utils/http-error.ts 保持一致）──
 const ApiErrorCode = {

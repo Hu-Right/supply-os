@@ -5,8 +5,8 @@
  * POST /api/opportunities/[id]/unlock — 解锁商机
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);

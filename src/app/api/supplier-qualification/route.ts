@@ -2,8 +2,8 @@
  * POST /api/supplier-qualification — 提交国际招投标能力初筛（公开+限流）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
+import { getPool } from "@/server/db/pool";
+import { SupplierQualificationRepo } from "@/server/db/repos/supplier-qualification.repo";
 
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;

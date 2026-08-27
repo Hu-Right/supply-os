@@ -3,9 +3,9 @@
  * GET /api/notices/[id]/content — 公告全文（需认证）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { normalizeNoticeDetailPayload } from "@/lib/services/notices";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { normalizeNoticeDetailPayload } from "@/server/services/notices";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requireUserKey(req);

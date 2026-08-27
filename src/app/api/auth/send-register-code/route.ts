@@ -3,9 +3,9 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { hashVerificationCode } from "@/lib/services/auth";
-import { sendRegistrationVerifyEmail, isEmailConfigured } from "@/lib/services/email";
+import { getContext } from "@/server/db/context";
+import { hashVerificationCode } from "@/server/services/auth";
+import { sendRegistrationVerifyEmail, isEmailConfigured } from "@/server/services/email";
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json();

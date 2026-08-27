@@ -4,8 +4,8 @@
  * POST /api/payment/orders — 创建支付订单
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
 
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);

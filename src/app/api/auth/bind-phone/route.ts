@@ -1,9 +1,9 @@
 /** POST /api/auth/bind-phone — 绑定手机号（需认证） */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { hashVerificationCode } from "@/lib/services/auth";
-import { maskPhone } from "@/lib/utils/mask";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { hashVerificationCode } from "@/server/services/auth";
+import { maskPhone } from "@/server/utils/mask";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 

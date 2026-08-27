@@ -2,7 +2,7 @@
  * GET /api/unspsc/industries — UNSPSC 一级行业分类（10min 缓存）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 export async function GET(req: NextRequest) {
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";

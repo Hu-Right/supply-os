@@ -2,9 +2,9 @@
  * POST /api/auth/login — 登录（邮箱/手机号 + 密码）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/lib/services/auth";
-import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { getContext } from "@/server/db/context";
+import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/server/services/auth";
+import { setRefreshCookieOnResponse } from "@/server/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json();

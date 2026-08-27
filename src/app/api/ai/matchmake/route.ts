@@ -1,6 +1,6 @@
 /** POST /api/ai/matchmake — AI 匹配（requireAuth + 限流） */
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/server/middleware/auth";
 
 const sanitizeField = (value: unknown, maxLen = 200): string => String(value ?? "").slice(0, maxLen);
 

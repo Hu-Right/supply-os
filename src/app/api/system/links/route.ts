@@ -2,7 +2,7 @@
  * GET /api/system/links — 底部社交媒体链接（30min 缓存）
  */
 import { NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 interface FooterLink { id: number; name: string; url: string; icon: string }
 

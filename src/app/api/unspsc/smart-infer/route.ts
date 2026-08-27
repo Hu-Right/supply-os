@@ -2,7 +2,7 @@
  * GET /api/unspsc/smart-infer — 智能推断 UNSPSC 类目
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";

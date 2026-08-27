@@ -3,8 +3,8 @@
  * POST /api/leads — 创建线索（requireAuth）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey, requireAdmin } from "@/lib/middleware/auth";
+import { getContext } from "@/server/db/context";
+import { requireUserKey, requireAdmin } from "@/server/middleware/auth";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);

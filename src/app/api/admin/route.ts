@@ -8,10 +8,10 @@
  *              所有端点均需管理员权限验证。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { checkAdmin } from "@/lib/middleware/admin";
-import { hashPassword } from "@/lib/services/auth";
-import { validatePassword } from "@/lib/utils/passwordPolicy";
+import { getContext } from "@/server/db/context";
+import { checkAdmin } from "@/server/middleware/admin";
+import { hashPassword } from "@/server/services/auth";
+import { validatePassword } from "@/server/utils/passwordPolicy";
 
 // ── 错误码定义 ─
 const ApiErrorCode = {
@@ -91,7 +91,7 @@ export async function GET(req: NextRequest) {
 
   // GET /api/admin/retry-translation — 查询翻译重试状态
   if (url.pathname.endsWith("/retry-translation")) {
-    const { isRetryRunning, getLastRetryResult, countPendingRetries } = await import("@/lib/services/translation/retry");
+    const { isRetryRunning, getLastRetryResult, countPendingRetries } = await import("@/server/services/translation/retry");
     const running = isRetryRunning();
     const lastResult = getLastRetryResult();
     const diagnosis = await countPendingRetries(ctx.dbPool);
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
 
   // GET /api/admin/reco-ab-metrics — A/B 推荐指标
   if (url.pathname.endsWith("/reco-ab-metrics")) {
-    const { AB_TREATMENT_PCT } = await import("@/lib/services/recommend/index");
+    const { AB_TREATMENT_PCT } = await import("@/server/services/recommend/index");
     const sinceDays = Math.min(Math.max(parseInt(url.searchParams.get("since_days") || "30"), 1), 365);
     const rows = await adminRepo.listRecoAbMetrics(sinceDays);
     return NextResponse.json({ since_days: sinceDays, treatment_pct: AB_TREATMENT_PCT, variants: rows });
@@ -130,8 +130,8 @@ export async function POST(req: NextRequest) {
 
   // POST /api/admin/sync-bridge — 全量 bridge 回填
   if (url.pathname.endsWith("/sync-bridge")) {
-    const { syncUnspscBridgeFull } = await import("@/lib/services/bridge-sync");
-    const { backfillUnspscCodeIds } = await import("@/lib/db/backfills");
+    const { syncUnspscBridgeFull } = await import("@/server/services/bridge-sync");
+    const { backfillUnspscCodeIds } = await import("@/server/db/backfills");
     // 响应先返回，回填在后台执行
     Promise.all([
       syncUnspscBridgeFull(dbPool, "notice"),
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
 
   // POST /api/admin/backfill-amounts — 金额回填
   if (url.pathname.endsWith("/backfill-amounts")) {
-    const { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache } = await import("@/lib/services/amount/index");
+    const { AMOUNT_PARSE_VERSION, backfillNoticeAmountCache } = await import("@/server/services/amount/index");
     const batches = Math.min(Math.max(parseInt(url.searchParams.get("batches") || "5"), 1), 30);
     let processed = 0;
     for (let i = 0; i < batches; i++) {
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
 
   // POST /api/admin/rollup-views — 浏览量日汇总
   if (url.pathname.endsWith("/rollup-views")) {
-    const { rollupNoticeViewDaily } = await import("@/lib/services/amount/index");
+    const { rollupNoticeViewDaily } = await import("@/server/services/amount/index");
     const sinceDays = Math.min(Math.max(parseInt(url.searchParams.get("since_days") || "0"), 0), 365);
     const result = await rollupNoticeViewDaily(dbPool, sinceDays);
     const stats = await adminRepo.getViewRollupStats();
@@ -167,14 +167,14 @@ export async function POST(req: NextRequest) {
 
   // POST /api/admin/quality-snapshot — 质量快照采集
   if (url.pathname.endsWith("/quality-snapshot")) {
-    const { captureDataQualitySnapshot } = await import("@/lib/services/quality-monitor");
+    const { captureDataQualitySnapshot } = await import("@/server/services/quality-monitor");
     const metrics = await captureDataQualitySnapshot(dbPool);
     return NextResponse.json({ success: true, metrics });
   }
 
   // POST /api/admin/retry-translation — 批量翻译重试
   if (url.pathname.endsWith("/retry-translation")) {
-    const { runRetryTranslation, isRetryRunning } = await import("@/lib/services/translation/retry");
+    const { runRetryTranslation, isRetryRunning } = await import("@/server/services/translation/retry");
     if (isRetryRunning()) {
       return NextResponse.json({ success: false, message: "批量重试已在运行中" }, { status: 409 });
     }

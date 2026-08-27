@@ -2,9 +2,9 @@
  * POST /api/auth/refresh — Token 刷新（Refresh Token 轮换）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken, getRefreshTokenExpiresAt } from "@/lib/services/jwt";
-import { readRefreshCookieFromRequest, setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { getContext } from "@/server/db/context";
+import { signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken, getRefreshTokenExpiresAt } from "@/server/services/jwt";
+import { readRefreshCookieFromRequest, setRefreshCookieOnResponse } from "@/server/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
   const refreshToken = readRefreshCookieFromRequest(req);

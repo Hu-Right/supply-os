@@ -5,10 +5,10 @@
  * GET /api/notices/stats — 统计数据
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { extractUserKey } from "@/lib/middleware/auth";
-import { searchUnified } from "@/lib/services/search-orchestrator";
-import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "@/lib/services/notice-search";
+import { getPool } from "@/server/db/pool";
+import { extractUserKey } from "@/server/middleware/auth";
+import { searchUnified } from "@/server/services/search-orchestrator";
+import { getNoticeCountries, getNoticeAgencies, getNoticeStats } from "@/server/services/notice-search";
 
 function parseSearchParams(req: NextRequest) {
   const sp = req.nextUrl.searchParams;

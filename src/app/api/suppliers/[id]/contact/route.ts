@@ -2,9 +2,9 @@
  * GET /api/suppliers/[id]/contact — 获取供应商联系方式（需认证+VIP）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { resolveMembershipState } from "@/lib/services/membership-status";
+import { getContext } from "@/server/db/context";
+import { requireUserKey } from "@/server/middleware/auth";
+import { resolveMembershipState } from "@/server/services/membership-status";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requireUserKey(req);

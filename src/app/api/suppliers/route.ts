@@ -2,7 +2,7 @@
  * GET /api/suppliers — 供应商列表（公开，支持分页/全量模式）
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
+import { getContext } from "@/server/db/context";
 
 export async function GET(req: NextRequest) {
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "zh";

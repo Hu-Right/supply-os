@@ -2,10 +2,10 @@
  * POST /api/auth/register — 用户注册
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { hashPassword, hashVerificationCode, issueTokenPair } from "@/lib/services/auth";
-import { validatePassword } from "@/lib/utils/passwordPolicy";
-import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { getContext } from "@/server/db/context";
+import { hashPassword, hashVerificationCode, issueTokenPair } from "@/server/services/auth";
+import { validatePassword } from "@/server/utils/passwordPolicy";
+import { setRefreshCookieOnResponse } from "@/server/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
   const { email, password, verify_code, display_name } = await req.json();

@@ -2,10 +2,10 @@
  * POST /api/auth/reset-password — 找回密码：重置密码
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
-import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "@/lib/services/auth";
-import { validatePassword } from "@/lib/utils/passwordPolicy";
-import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { getContext } from "@/server/db/context";
+import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "@/server/services/auth";
+import { validatePassword } from "@/server/utils/passwordPolicy";
+import { setRefreshCookieOnResponse } from "@/server/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
   const { email, code, new_password, channel = "email" } = await req.json();
