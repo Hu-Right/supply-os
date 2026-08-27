@@ -14,7 +14,7 @@ import { CheckCircle2, Send, ArrowLeft, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Input } from "@/shared/ui";
-import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/features/training/components/landing-ui";
+import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
 import { submitSupplierQualification } from "../api/qualification";
 import { ApiError } from "@/core/http";
 

@@ -1,26 +1,14 @@
 /**
- * 落地页通用 UI（配色常量 + 标题装饰）
- * Landing page shared UI (palette + decorated section title)
+ * 落地页通用 UI（标题装饰）
+ * Landing page shared UI (decorated section title)
  *
  * @module features/training/components/landing-ui
- * @description 设计图 1:1 还原的通用视觉元素：深藏青主色、品牌绿、
- *              居中标题两侧的「线+圆点」装饰。
+ * @description 设计图 1:1 还原的通用视觉元素：居中标题两侧的「线+圆点」装饰。
+ *              色值常量已提取至 @/shared/constants/colors，此处仅保留 re-export 兼容。
  */
 
-/** 主藏青色（Hero/深色区背景） Main navy — 设计图采样 #022049 */
-export const NAVY = "#022049";
-/** 品牌绿（按钮/强调） Brand green — 设计图采样 #0CAF8C */
-export const GREEN = "#0CAF8C";
-/** 品牌绿 hover */
-export const GREEN_HOVER = "#0A9B7C";
-/** 深绿（价格/强调文字） Deep green — 采样 #069E78 */
-export const GREEN_DEEP = "#069E78";
-/** 墨蓝（图形/标题） Ink navy — 采样 #0A2A55 */
-export const INK = "#0A2A55";
-/** 浅色区背景 Light bg — 统一柔和浅蓝灰 #F5F8FB */
-export const BG_LIGHT = "#F5F8FB";
-/** 卡片描边 Border — 柔和描边 #E5EBF3 */
-export const BORDER = "#E5EBF3";
+// 色值常量已提取至 shared 层，此处 re-export 保持向后兼容
+export { NAVY, GREEN, GREEN_HOVER, GREEN_DEEP, INK, BG_LIGHT, BORDER } from "@/shared/constants/colors";
 
 /** 标题侧边装饰（左：线+点+点；右：点+点+线） */
 function Deco({ flip = false }: { flip?: boolean }) {

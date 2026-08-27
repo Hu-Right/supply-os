@@ -13,6 +13,7 @@
 import { lazy, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/core/auth";
+import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
 import {
   SessionBanner,
@@ -35,6 +36,7 @@ const TrainingRegisterForm = lazy(() =>
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const { authUser, refreshAuth } = useAuth();
+  const { tierLabel } = useMembershipTier();
   const {
     showAuthModal,
     setShowAuthModal,
@@ -80,6 +82,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         setMobileMenuOpen={setMobileMenuOpen}
         onSwitchTab={switchMainTab}
         onOpenAuth={() => setShowAuthModal(true)}
+        tierLabel={tierLabel}
       />
       <main className={isTrainingPage ? "flex-1 w-full" : "flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6"}>
         <SessionBanner />

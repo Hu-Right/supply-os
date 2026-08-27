@@ -9,24 +9,24 @@ import { Globe, X, Check, Loader2 } from "lucide-react";
 import { useLocale, SUPPORTED_LOCALES } from "@/core/i18n";
 import type { Locale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
-import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { NAV_TABS } from "./nav-tabs";
 
 export interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
+  /** 会员等级标签（由 AppHeader 从 app 层透传，避免 shared→features 违规） */
+  tierLabel: string;
 }
 
-export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   const { t, locale, switching, setLocale } = useLocale();
   const { authUser, isVip } = useAuth();
-  const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const pathname = usePathname();
 
-  // VIP 等级标签：按已解锁套餐显示，兜底 VIP
-  const vipDisplayLabel = tierLabel || "VIP";
-  const userTierLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
+  // VIP 等级标签：按已解锁套餐显示，兜底 i18n VIP/免费标签
+  const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
+  const userTierLabel = vipDisplayLabel;
 
   if (!open) return null;
 

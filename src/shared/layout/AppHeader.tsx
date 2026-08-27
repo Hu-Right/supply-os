@@ -15,7 +15,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { Globe, Crown, Menu, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
-import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
@@ -35,15 +34,17 @@ export interface AppHeaderProps {
   setMobileMenuOpen: (open: boolean) => void;
   onSwitchTab: (path: string) => void;
   onOpenAuth: () => void;
+  /** 会员等级标签（由 app 层调用 useMembershipTier 获取后传入，避免 shared→features 违规） */
+  tierLabel: string;
 }
 
 export function AppHeader({
   tabs, activeTab,
   mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAuth,
+  tierLabel,
 }: AppHeaderProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
-  const { tierLabel } = useMembershipTier();
   const navScrollRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -103,6 +104,7 @@ export function AppHeader({
       <MobileDrawer
         open={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
+        tierLabel={tierLabel}
       />
 
       {/* DESKTOP NAV */}
