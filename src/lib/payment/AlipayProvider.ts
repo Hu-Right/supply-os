@@ -135,10 +135,11 @@ export class AlipayProvider implements PaymentStrategy {
       }
 
       // P0-2 安全修复：校验 trade_status，仅接受 TRADE_SUCCESS / TRADE_FINISHED
-      // TRADE_CLOSED（退款/关闭）不应触发履约
+      // TRADE_CLOSED（退款/关闭）不应触发履约；
+      // 白名单强制匹配：缺失/空串同样拒绝（原实现的空值穿透是防御缺口）
       const tradeStatus = String(rawBody?.trade_status || "");
-      if (tradeStatus && tradeStatus !== "TRADE_SUCCESS" && tradeStatus !== "TRADE_FINISHED") {
-        console.warn(`[AlipayProvider] 非法 trade_status=${tradeStatus}: order_no=${order_no}`);
+      if (tradeStatus !== "TRADE_SUCCESS" && tradeStatus !== "TRADE_FINISHED") {
+        console.warn(`[AlipayProvider] 非法 trade_status=${tradeStatus || "(空)"}: order_no=${order_no}`);
         return { verified: false, order_no, provider_trade_no, amount };
       }
 

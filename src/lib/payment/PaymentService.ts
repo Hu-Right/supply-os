@@ -194,14 +194,18 @@ export class PaymentService {
     }
     {
       const dbOrder = await this.paymentsRepo!.findOrderAmount(verifyResult.order_no);
-      if (dbOrder) {
-        const orderAmount = dbOrder.amount;
-        if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
-          console.warn(
-            `[PaymentService] 金额不匹配: order=${orderAmount}, callback=${callbackAmount}, order_no=${verifyResult.order_no}`,
-          );
-          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
-        }
+      if (!dbOrder) {
+        // 未知订单拒绝：跨环境误投/伪造 order_no 不再静默放行（原实现跳过校验并回 success，
+        // 导致平台停止重试、通知永久丢失）
+        console.warn(`[PaymentService] 订单不存在: order_no=${verifyResult.order_no}`);
+        return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+      }
+      const orderAmount = dbOrder.amount;
+      if (orderAmount > 0 && Math.abs(orderAmount - callbackAmount) > 0.01) {
+        console.warn(
+          `[PaymentService] 金额不匹配: order=${orderAmount}, callback=${callbackAmount}, order_no=${verifyResult.order_no}`,
+        );
+        return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
       }
     }
 
