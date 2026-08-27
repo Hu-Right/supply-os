@@ -54,13 +54,13 @@ COPY --from=build /app/public ./public
 
 # ── 环境变量默认值 ──
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3039
 
-EXPOSE 3000
+EXPOSE 3039
 
 # 健康检查：利用 /api/system/version 轻量端点
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://localhost:3000/api/system/version').then(r=>{if(!r.ok)throw 1;process.exit(0)}).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://localhost:3039/api/system/version').then(r=>{if(!r.ok)throw 1;process.exit(0)}).catch(()=>process.exit(1))"
 
 USER appuser
 

@@ -35,8 +35,26 @@ const nextConfig: NextConfig = {
   ],
   images: {
     remotePatterns: [{ protocol: "https", hostname: "**" }],
+    // 优先 AVIF（体积更小），降级 WebP（兼容性更广）
+    formats: ["image/avif", "image/webp"],
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
   },
-  // 安全头：完整复制现有 helmet 指令集（含 CSP report-only）
+  // 优化大型 npm 包的 tree-shaking（减少 bundle 体积）
+  experimental: {
+    optimizePackageImports: ["lucide-react", "i18next", "react-i18next"],
+  },
+  // 根路由重定向到 /showroom（307 临时重定向，对 SEO 友好）
+  async redirects() {
+    return [
+      {
+        source: "/",
+        destination: "/showroom",
+        permanent: false,
+      },
+    ];
+  },
+  // 安全头：CSP 收紧 + 标准安全头
   async headers() {
     return [
       {
@@ -51,8 +69,17 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy-Report-Only",
-            value:
-              "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:; frame-src 'self' https://open.alipay.com https://wx.tenpay.com",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https:",
+              "frame-src 'self' https://open.alipay.com https://wx.tenpay.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join("; "),
           },
         ],
       },
