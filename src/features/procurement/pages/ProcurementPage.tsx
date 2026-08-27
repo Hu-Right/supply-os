@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, lazy, Suspense } from "react";
+import { useRef, useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -10,9 +10,7 @@ import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "@/features/payment";
 import type { NoticeItem } from "../types";
 import { SeoHead } from "@/shared/seo";
-// P2 性能优化：详情页懒加载——仅在用户点击卡片时加载，减少列表 chunk 体积
-// 回滚：将 lazy(...) 替换回 import { NoticeDetail } from "../components/NoticeDetail";
-const NoticeDetail = lazy(() => import("../components/NoticeDetail").then(m => ({ default: m.NoticeDetail })));
+import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { Button, LoadingOverlay } from "@/shared/ui";
@@ -153,7 +151,7 @@ export default function ProcurementPage() {
           setSelectedNotice(null);
         }}
         onExpressInterest={actions.handleExpressInterest}
-        onUnlock={(n) => actions.handleUnlockNotice(n)}
+        onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
         onPayUnlock={actions.handlePayUnlock}
       />
       </Suspense>
