@@ -13,14 +13,37 @@ import Providers from "./providers";
 export async function generateMetadata(): Promise<Metadata> {
   return {
     title: {
-      default: "Supply OS — 全球智能供应链平台",
-      template: "%s | Supply OS",
+      default: "云境全球智能展厅与国际采购操作系统",
+      template: "%s | 云境公采",
     },
-    description: "全球智能供应链平台：展厅、采购搜索、供应商目录、CRM、培训认证。",
-    keywords: ["supply chain", "procurement", "bidding", "tender", "supplier", "招标", "采购"],
+    description: "云境OS是外贸员的全球采购订单雷达。登录即可看到哪些国家、哪些机构、哪些企业正在采购您的产品。799元/年入驻，获取全球采购商机。",
+    keywords: ["国际采购", "全球采购", "外贸", "采购订单", "Tender", "招标公告", "供应商管理", "CRM", "外贸员", "采购雷达", "osneosmart", "云境公采"],
+    authors: [{ name: "云境科技" }],
+    openGraph: {
+      type: "website",
+      locale: "zh_CN",
+      siteName: "云境全球智能展厅",
+      title: "云境全球智能展厅与国际采购操作系统",
+      description: "外贸员的全球采购订单雷达 - 直接查看哪些国家、机构、企业正在采购您的产品",
+      url: "https://osneosmart.com/",
+      images: [{ url: "https://osneosmart.com/og-image.png", width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "云境全球智能展厅与国际采购操作系统",
+      description: "外贸员的全球采购订单雷达 - 直接查看全球采购商机",
+      images: ["https://osneosmart.com/og-image.png"],
+    },
     alternates: {
       canonical: "https://osneosmart.com/",
       languages: { "x-default": "https://osneosmart.com/" },
+    },
+    robots: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
     },
   };
 }
