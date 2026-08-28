@@ -82,6 +82,7 @@ Desktop.ini
 !public/downloads/training/**
 !public/images/training/**
 !public/manifest.json
+!src/app/favicon.ico/
 
 # ===== 开发过程文档 =====
 docs/

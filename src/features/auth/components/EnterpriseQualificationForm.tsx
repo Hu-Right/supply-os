@@ -197,7 +197,7 @@ export default function EnterpriseQualificationForm({ onSuccess }: EnterpriseQua
 
   // ── 表单 ──
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div onSubmit={handleSubmit} className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-extrabold text-slate-900">{t("eqfTitle")}</h4>
@@ -329,11 +329,11 @@ export default function EnterpriseQualificationForm({ onSuccess }: EnterpriseQua
         </p>
       )}
 
-      <button type="submit" disabled={loading}
+      <button type="button" onClick={(e) => handleSubmit(e as unknown as React.FormEvent)} disabled={loading}
         className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-md disabled:opacity-60 disabled:cursor-not-allowed transition-all bg-[#0CAF8C] hover:bg-[#099a7a]">
         <Send className="w-4 h-4" />
         {loading ? t("eqfSubmitting") : t("eqfSubmitBtn")}
       </button>
-    </form>
+    </div>
   );
 }
