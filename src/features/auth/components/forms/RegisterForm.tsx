@@ -14,6 +14,7 @@ import { UnspscInferCandidates } from "../UnspscInferCandidates";
 import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
+import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
 
 export interface RegisterFormProps {
   authForm: AuthFormState;
@@ -35,6 +36,7 @@ export function RegisterForm({
   cascade,
 }: RegisterFormProps) {
   const { t } = useLocale();
+  const [enterpriseQualificationDone, setEnterpriseQualificationDone] = useState(false);
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
@@ -131,103 +133,9 @@ export function RegisterForm({
         </button>
       </div>
 
-      {/* 企业信息（仅企业注册显示） */}
-      {authForm.userType === "enterprise" && (
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-extrabold text-slate-900">
-            {t("authCompanyClaimInfo")}
-          </h4>
-          <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
-            {t("authPendingReview")}
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input
-            type="text"
-            value={authForm.displayName}
-            onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
-            placeholder={t("authContactNamePlaceholder")}
-            className="bg-white"
-          />
-          <Select
-            value={claimForm.supplierType}
-            onChange={(e) => setClaimForm({ ...claimForm, supplierType: e.target.value })}
-            className="bg-white"
-          >
-            <option value="domestic">{t("authSupplierDomestic")}</option>
-            <option value="international">{t("authSupplierInternational")}</option>
-          </Select>
-          <Input
-            type="text"
-            value={claimForm.companyName}
-            onChange={(e) => setClaimForm({ ...claimForm, companyName: e.target.value })}
-            placeholder={t("authCompanyPlaceholder")}
-            className="sm:col-span-2 bg-white"
-          />
-          <Input
-            type="text"
-            value={claimForm.contactPhone}
-            onChange={(e) => setClaimForm({ ...claimForm, contactPhone: e.target.value })}
-            placeholder={t("authPhonePlaceholder")}
-            className="bg-white"
-          />
-          <Input
-            type="text"
-            value={claimForm.businessLicenseNo}
-            onChange={(e) => setClaimForm({ ...claimForm, businessLicenseNo: e.target.value })}
-            placeholder={t("authLicensePlaceholder")}
-            className="bg-white"
-          />
-        </div>
-        {/* 主营行业 */}
-        <div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-xs font-black text-slate-500">
-              {t("authIndustryPrefLabel")}
-            </p>
-            <p className="text-[11px] text-slate-400">
-              {t("authIndustryPrefRequiredHint")}
-            </p>
-          </div>
-          <Input
-            type="text"
-            value={mainBusiness}
-            onChange={(e) => setMainBusiness(e.target.value)}
-            placeholder={t("authMainBusinessPlaceholder")}
-            className="mt-2 bg-white"
-          />
-          {inferLoading && (
-            <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
-          )}
-          {!inferLoading && inferCandidates.length > 0 && (
-            <UnspscInferCandidates
-              candidates={inferCandidates}
-              appliedNodeId={autoAppliedNodeId}
-              hint={inferHint}
-              onPick={pickCandidate}
-            />
-          )}
-          {!inferLoading && inferCandidates.length === 0 && inferSearched && (
-            <p className="mt-1 text-[11px] text-amber-600">
-              {t("authMainBusinessNoMatch")}
-            </p>
-          )}
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <UnspscPrefSelects
-              industryOptions={industryOptions}
-              subOptions={subOptions}
-              subOptions2={subOptions2}
-              prefLevel1={prefLevel1}
-              prefLevel2={prefLevel2}
-              prefLevel3={prefLevel3}
-              onLevel1Change={handlePrefLevel1Change}
-              onLevel2Change={handlePrefLevel2Change}
-              onLevel3Change={setPrefLevel3}
-            />
-          </div>
-        </div>
-      </div>
+      {/* 企业诊断表单（仅企业注册显示） */}
+      {authForm.userType === "enterprise" && !enterpriseQualificationDone && (
+        <EnterpriseQualificationForm onSuccess={() => setEnterpriseQualificationDone(true)} />
       )}
 
       {/* 手机号（必填）+ 短信验证码 */}
@@ -311,13 +219,20 @@ export function RegisterForm({
           {authError}
         </p>
       )}
-      <Button
-        type="submit"
-        variant="dark"
-        className="w-full py-3 rounded-xl text-sm font-black"
-      >
-        {t("authRegisterSubmit")}
-      </Button>
+      {/* 企业用户需先完成诊断问卷才能注册 */}
+      {authForm.userType === "enterprise" && !enterpriseQualificationDone ? (
+        <div className="text-center text-xs text-slate-400 py-2">
+          {t("eqfCompleteFirst") || "请先完成上方诊断问卷"}
+        </div>
+      ) : (
+        <Button
+          type="submit"
+          variant="dark"
+          className="w-full py-3 rounded-xl text-sm font-black"
+        >
+          {t("authRegisterSubmit")}
+        </Button>
+      )}
     </div>
   );
 }
