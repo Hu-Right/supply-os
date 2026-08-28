@@ -16,6 +16,12 @@ import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
 import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
 
+/** 检测浏览器是否存在 ref_code Cookie（推荐链接自动带入） */
+function detectRefCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return /(?:^|;\s*)ref_code=/.test(document.cookie);
+}
+
 export interface RegisterFormProps {
   authForm: AuthFormState;
   setAuthForm: React.Dispatch<React.SetStateAction<AuthFormState>>;
@@ -38,6 +44,9 @@ export function RegisterForm({
   onQualificationChange,
 }: RegisterFormProps) {
   const { t } = useLocale();
+
+  // 检测推荐链接 Cookie，用于显示自动填入提示
+  const [hasRefCookie] = useState(detectRefCookie);
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
@@ -191,13 +200,20 @@ export function RegisterForm({
       />
 
       {/* 邀请码（必填） */}
-      <Input
-        type="text"
-        value={authForm.invitationCode}
-        onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
-        placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码"}
-        className="uppercase tracking-wider"
-      />
+      <div>
+        <Input
+          type="text"
+          value={authForm.invitationCode}
+          onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
+          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码"}
+          className="uppercase tracking-wider"
+        />
+        {authForm.invitationCode && hasRefCookie && (
+          <p className="text-xs text-teal-600 mt-1 flex items-center gap-1">
+            <span>✓</span> {t("authInvitationCodeAutoFilled") || "邀请码已由推荐链接自动填入"}
+          </p>
+        )}
+      </div>
 
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">

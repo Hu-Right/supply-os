@@ -35,14 +35,22 @@ export function useAuthForm(onSuccess: () => void) {
 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState("");
-  const [authForm, setAuthForm] = useState<AuthFormState>({
-    displayName: "",
-    identifier: "",
-    email: "",
-    phone: "",
-    password: "",
-    invitationCode: "",
-    userType: "enterprise",
+  const [authForm, setAuthForm] = useState<AuthFormState>(() => {
+    // ★ 推荐链接自动带入：从 Cookie 读取 ref_code 预填邀请码
+    let prefilledCode = "";
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
+      if (match) prefilledCode = decodeURIComponent(match[1]).toUpperCase();
+    }
+    return {
+      displayName: "",
+      identifier: "",
+      email: "",
+      phone: "",
+      password: "",
+      invitationCode: prefilledCode,
+      userType: "enterprise",
+    };
   });
   const [claimForm, setClaimForm] = useState<ClaimFormState>({
     companyName: "",

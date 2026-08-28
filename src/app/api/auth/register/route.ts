@@ -10,7 +10,14 @@ import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 export async function POST(req: NextRequest) {
   const { email, phone, password, verify_code, display_name, invitation_code, user_type } = await req.json();
   const userType = user_type === "personal" ? "personal" : "enterprise";
-  const inviteCode = String(invitation_code || "").trim().toUpperCase();
+
+  // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
+  let inviteCode = String(invitation_code || "").trim().toUpperCase();
+  if (!inviteCode) {
+    const cookieCode = req.cookies.get("ref_code")?.value;
+    if (cookieCode) inviteCode = cookieCode.trim().toUpperCase();
+  }
+
   const pw = String(password || "");
   const code = String(verify_code || "");
   const displayName = String(display_name || "会员");
@@ -72,5 +79,7 @@ export async function POST(req: NextRequest) {
     token: tokens?.token,
   }, { status: 201 });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
+  // 注册成功后清除推荐链接 Cookie，避免重复归属
+  response.cookies.set("ref_code", "", { maxAge: 0, path: "/" });
   return response;
 }

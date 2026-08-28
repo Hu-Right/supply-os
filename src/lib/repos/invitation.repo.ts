@@ -198,4 +198,56 @@ export class InvitationRepo {
       [active ? 1 : 0, id],
     );
   }
+
+  /**
+   * 管理员：全员推荐排行榜
+   * 返回所有员工的推荐统计，按 total_referrals 降序排列。
+   */
+  async getLeaderboard(): Promise<Array<{
+    employee_id: number;
+    employee_name: string;
+    department: string | null;
+    kpi_target: number | null;
+    invitation_code: string;
+    total_referrals: number;
+    month_referrals: number;
+    personal_count: number;
+    enterprise_count: number;
+    completion_rate: number;
+  }>> {
+    const [rows] = await this.pool.query(
+      `SELECT
+         e.id AS employee_id,
+         e.name AS employee_name,
+         e.department,
+         e.kpi_target,
+         ic.code AS invitation_code,
+         COUNT(u.id) AS total_referrals,
+         SUM(CASE WHEN u.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END) AS month_referrals,
+         SUM(CASE WHEN u.user_type = 'personal' THEN 1 ELSE 0 END) AS personal_count,
+         SUM(CASE WHEN u.user_type = 'enterprise' THEN 1 ELSE 0 END) AS enterprise_count
+       FROM crm_employees e
+       LEFT JOIN crm_invitation_codes ic ON ic.employee_id = e.id AND ic.is_active = 1
+       LEFT JOIN crm_users u ON u.referral_employee_id = e.id
+       GROUP BY e.id, e.name, e.department, e.kpi_target, ic.code
+       ORDER BY total_referrals DESC`,
+    );
+
+    return (rows as Array<Record<string, unknown>>).map((r) => {
+      const total = Number(r.total_referrals || 0);
+      const target = Number(r.kpi_target || 0);
+      return {
+        employee_id: Number(r.employee_id),
+        employee_name: r.employee_name as string,
+        department: r.department as string | null,
+        kpi_target: target || null,
+        invitation_code: (r.invitation_code as string) || "",
+        total_referrals: total,
+        month_referrals: Number(r.month_referrals || 0),
+        personal_count: Number(r.personal_count || 0),
+        enterprise_count: Number(r.enterprise_count || 0),
+        completion_rate: target ? Math.round((total / target) * 100) : 0,
+      };
+    });
+  }
 }
