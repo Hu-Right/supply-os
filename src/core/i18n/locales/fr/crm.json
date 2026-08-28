@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "Comprendre les opportunités",
   "crmMatchSelectSupplier": "Sélectionner le fournisseur",
   "crmMatchSelectOpp": "Sélectionner l'opportunité",
-  "crmMatchChoose": "Choisir..."
+  "crmMatchChoose": "Choisir...",
+  "crmAssistantApiFallback": "Erreur de connexion. Mode hors ligne activé. Les messages seront synchronisés ultérieurement."
 }

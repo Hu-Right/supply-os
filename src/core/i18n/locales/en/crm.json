@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "Help me understand opportunities",
   "crmMatchSelectSupplier": "Select Supplier",
   "crmMatchSelectOpp": "Select Opportunity",
-  "crmMatchChoose": "Choose..."
+  "crmMatchChoose": "Choose...",
+  "crmAssistantApiFallback": "Connection error. Switched to offline mode. Messages will sync when restored."
 }

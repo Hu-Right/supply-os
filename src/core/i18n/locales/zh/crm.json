@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "帮我了解商机信息",
   "crmMatchSelectSupplier": "选择供应商",
   "crmMatchSelectOpp": "选择商机",
-  "crmMatchChoose": "请选择..."
+  "crmMatchChoose": "请选择...",
+  "crmAssistantApiFallback": "服务连接异常，已切换至离线模式，消息将在恢复后同步。"
 }

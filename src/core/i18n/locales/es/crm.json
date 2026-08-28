@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "Entender oportunidades",
   "crmMatchSelectSupplier": "Seleccionar proveedor",
   "crmMatchSelectOpp": "Seleccionar oportunidad",
-  "crmMatchChoose": "Elegir..."
+  "crmMatchChoose": "Elegir...",
+  "crmAssistantApiFallback": "Error de conexión. Modo sin conexión activado. Los mensajes se sincronizarán al restaurarse."
 }

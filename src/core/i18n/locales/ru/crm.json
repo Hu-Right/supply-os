@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "Понять возможности",
   "crmMatchSelectSupplier": "Выбрать поставщика",
   "crmMatchSelectOpp": "Выбрать возможность",
-  "crmMatchChoose": "Выбрать..."
+  "crmMatchChoose": "Выбрать...",
+  "crmAssistantApiFallback": "Ошибка соединения. Переключено в офлайн-режим. Сообщения синхронизируются при восстановлении."
 }

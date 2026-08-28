@@ -71,5 +71,6 @@
   "crmQuickActionOppHelp": "فهم الفرص",
   "crmMatchSelectSupplier": "اختر المورد",
   "crmMatchSelectOpp": "اختر الفرصة",
-  "crmMatchChoose": "اختر..."
+  "crmMatchChoose": "اختر...",
+  "crmAssistantApiFallback": "خطأ في الاتصال. تم التبديل إلى وضع عدم الاتصال. ستتم مزامنة الرسائل عند الاستعادة."
 }

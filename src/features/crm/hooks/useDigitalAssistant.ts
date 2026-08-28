@@ -9,6 +9,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
 import type { Supplier, Opportunity } from "@/types";
 
@@ -83,6 +84,11 @@ export interface UseDigitalAssistantReturn {
   triggerMatch: () => Promise<void>;
   /** 重置撮合阶段 */
   resetMatch: () => void;
+  // ── 后端会话相关 ──
+  /** 当前后端会话 ID（转人工后创建） */
+  chatSessionId: number | null;
+  /** 添加远端消息（SSE 接收的 agent/ai 消息） */
+  addRemoteMessage: (role: MessageRole, content: string) => void;
 }
 
 // ── 工具函数 ──
@@ -108,6 +114,7 @@ export function useDigitalAssistant(
   const [mode, setMode] = useState<AssistantMode>("ai");
   const [isThinking, setIsThinking] = useState(false);
   const [agentName, setAgentName] = useState<string | null>(null);
+  const [chatSessionId, setChatSessionId] = useState<number | null>(null);
 
   // 防止并发发送
   const sendingRef = useRef(false);
@@ -230,23 +237,36 @@ export function useDigitalAssistant(
     [appendMessage, ensureWelcome, t, leadCount, activeLeadCount],
   );
 
-  /** 请求转人工 */
+  /** 请求转人工（创建后端会话） */
   const requestHumanAgent = useCallback(async () => {
     ensureWelcome();
     setMode("waiting");
     appendMessage("system", t("crmAssistantWaitingMsg"));
 
-    // 模拟等待人工接入（后续接入 SSE）
+    try {
+      // 创建后端客服会话
+      const session = await api<{ id: number; customer_name: string | null }>("/api/crm/chat/sessions", {
+        method: "POST",
+        body: {
+          customerName: "CRM User",
+          locale,
+          aiSummary: messages.slice(-10).map(m => `${m.role}: ${m.content}`).join("\n"),
+        },
+      });
+      setChatSessionId(session.id);
+    } catch {
+      // API 失败时仍允许前端模拟模式
+      appendMessage("system", t("crmAssistantApiFallback"));
+    }
+
+    // 模拟等待人工接入（后续由 SSE 推送实际接入事件）
     await new Promise((r) => setTimeout(r, 2000));
 
     setMode("human");
     setAgentName(t("crmDefaultAgentName"));
     appendMessage("system", t("crmAssistantAgentJoined"));
-    appendMessage(
-      "assistant",
-      t("crmAssistantHumanGreeting"),
-    );
-  }, [appendMessage, ensureWelcome, t]);
+    appendMessage("assistant", t("crmAssistantHumanGreeting"));
+  }, [appendMessage, ensureWelcome, t, locale, messages]);
 
   /** 结束人工会话 */
   const endHumanSession = useCallback(() => {
@@ -275,12 +295,21 @@ export function useDigitalAssistant(
     setMatchPhase("idle");
   }, []);
 
+  /** 添加远端消息（SSE 接收的 agent/ai 消息） */
+  const addRemoteMessage = useCallback(
+    (role: MessageRole, content: string) => {
+      appendMessage(role, content);
+    },
+    [appendMessage],
+  );
+
   /** 清空对话 */
   const clearMessages = useCallback(() => {
     setMessages([]);
     setMode("ai");
     setAgentName(null);
     setMatchPhase("idle");
+    setChatSessionId(null);
   }, []);
 
   return {
@@ -303,5 +332,8 @@ export function useDigitalAssistant(
     setMatchOpportunity: aiMatch.setSelectedOpportunity,
     triggerMatch,
     resetMatch,
+    // 后端会话
+    chatSessionId,
+    addRemoteMessage,
   };
 }

@@ -7,10 +7,11 @@
  *              Floating trigger button + right-side slide-in drawer, composing ChatWindow
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MessageCircle, X, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
+import { useChatSSE } from "../../hooks/useChatSSE";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier, Opportunity } from "@/types";
 import { OPPORTUNITIES } from "@/data";
@@ -50,7 +51,30 @@ export function DigitalAssistant({
     setMatchOpportunity,
     triggerMatch,
     resetMatch,
+    chatSessionId,
+    addRemoteMessage,
   } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
+
+  // SSE 回调：收到远端消息时追加到对话流
+  const handleSSEMessage = useCallback(
+    (msg: { role: string; content: string }) => {
+      // SSE 角色 (agent/ai) 映射到前端 MessageRole (assistant)
+      if (msg.role === "agent" || msg.role === "ai") {
+        addRemoteMessage("assistant", msg.content);
+      }
+    },
+    [addRemoteMessage],
+  );
+
+  // SSE 连接：转人工后自动建立
+  useChatSSE({
+    sessionId: chatSessionId,
+    enabled: mode === "human" || mode === "waiting",
+    onMessage: handleSSEMessage,
+    onSessionClosed: () => {
+      endHumanSession();
+    },
+  });
 
   // 打开抽屉时初始化欢迎消息
   useEffect(() => {
