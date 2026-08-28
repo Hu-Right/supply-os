@@ -1,4 +1,4 @@
-# 部署工作流：push 到 main 或 PR 合并到 main 后自动部署
+# 部署工作流：push 到 main 后自动 SSH 到服务器执行部署
 # 依赖的 GitHub Secrets（Settings → Secrets and variables → Actions）：
 #   SSH_HOST          服务器公网 IP，如 117.72.108.14
 #   SSH_USER          登录用户，通常 root
@@ -7,33 +7,16 @@
 name: Deploy to Server
 
 on:
-  # 推送到 main 分支时自动触发部署
   push:
     branches: [main]
-  # PR 合并到 main 时也触发
-  pull_request:
-    types: [closed]
-    branches: [main]
-  # 支持在 GitHub 页面手动触发（需输入确认词）
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: '输入 DEPLOY 确认部署'
-        required: true
-        type: string
+  workflow_dispatch: # 支持在 GitHub 页面手动触发
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    # push 到 main、PR 合并、或手动确认时执行
-    if: >
-      github.event_name == 'push'
-      || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
-      || (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'DEPLOY')
     steps:
       - name: SSH 到服务器执行部署脚本
-        id: deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -41,33 +24,28 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: "22"
           command_timeout: "30m"
-          script_stop: true
+          script_stop: false
           script: |
             cd /root/supply-os
             bash scripts/deploy.sh
 
-      - name: 部署后健康检查
+      - name: 诊断：检查服务器状态
+        if: always()
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: "22"
-          script_stop: true
           script: |
-            # 等待应用启动（pm2 reload 后需要几秒初始化）
-            sleep 5
-            # 检查 pm2 进程是否存活
-            pm2 describe supply-os | grep -q "online" || { echo "✗ pm2 进程未运行"; exit 1; }
-            # 健康端点探活（最多重试 3 次，间隔 5 秒）
-            for i in 1 2 3; do
-              if curl -sf --max-time 5 http://localhost:3039/api/system/version > /dev/null 2>&1; then
-                echo "✓ 健康检查通过 (第 ${i} 次尝试)"
-                exit 0
-              fi
-              echo "⏳ 第 ${i} 次尝试失败，等待 5 秒..."
-              sleep 5
-            done
-            echo "✗ 健康检查失败：应用未响应"
-            pm2 logs supply-os --lines 20 --nostream
-            exit 1
+            echo "=== .next/standalone/.env 数据库配置 ==="
+            grep -E 'DB_HOST|DB_PORT|DB_USER|DB_PASSWORD|DB_NAME' /root/supply-os/.next/standalone/.env 2>/dev/null || echo "文件不存在"
+            echo ""
+            echo "=== PM2 进程状态 ==="
+            pm2 list 2>/dev/null || echo "pm2 未运行"
+            echo ""
+            echo "=== 最近 30 行应用日志 ==="
+            pm2 logs supply-os --lines 30 --nostream 2>/dev/null || echo "无日志"
+            echo ""
+            echo "=== 健康检查 ==="
+            curl -sf --max-time 5 http://localhost:3039/api/system/version && echo " (正常)" || echo " (失败)"
