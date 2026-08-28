@@ -22,6 +22,7 @@ export interface UserRow {
   email_verified: number;
   membership_tier: string;
   account_status: string;
+  user_type: string; // 'personal' | 'enterprise'
   supplier_id: number | null;
   supplier_link_status: string;
   referral_code: string | null;

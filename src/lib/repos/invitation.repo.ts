@@ -67,9 +67,11 @@ export class InvitationRepo {
     personal: {
       total_referrals: number;
       month_referrals: number;
-      completion_rate: number; // 完成率（0-100）
+      personal_count: number;    // 个人注册数
+      enterprise_count: number;  // 企业注册数
+      completion_rate: number;
     };
-    recent_referrals: Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date }>;
+    recent_referrals: Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date; user_type: string }>;
   }> {
     // 员工基本信息（含 KPI 目标）
     const [empRows] = await this.pool.query(
@@ -96,9 +98,21 @@ export class InvitationRepo {
     // 完成率
     const completionRate = emp.kpi_target ? Math.round((personalTotal / emp.kpi_target) * 100) : 0;
 
+    // 个人注册数 vs 企业注册数
+    const [typeRows] = await this.pool.query(
+      `SELECT user_type, COUNT(*) AS cnt FROM crm_users WHERE referral_employee_id = ? GROUP BY user_type`,
+      [employeeId],
+    );
+    let personalCount = 0;
+    let enterpriseCount = 0;
+    for (const row of typeRows as Array<{ user_type: string; cnt: string | number }>) {
+      if (row.user_type === "personal") personalCount = Number(row.cnt);
+      else enterpriseCount = Number(row.cnt);
+    }
+
     // 最近 50 条个人推荐用户
     const [recentRows] = await this.pool.query(
-      `SELECT user_key, email, display_name, created_at
+      `SELECT user_key, email, display_name, created_at, user_type
        FROM crm_users
        WHERE referral_employee_id = ?
        ORDER BY created_at DESC
@@ -111,9 +125,11 @@ export class InvitationRepo {
       personal: {
         total_referrals: personalTotal,
         month_referrals: personalMonth,
+        personal_count: personalCount,
+        enterprise_count: enterpriseCount,
         completion_rate: completionRate,
       },
-      recent_referrals: recentRows as Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date }>,
+      recent_referrals: recentRows as Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date; user_type: string }>,
     };
   }
 

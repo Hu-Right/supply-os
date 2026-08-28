@@ -51,6 +51,8 @@
  *              041-supplier-qualification           供应商国际招投标能力初筛表
  *              042-crm-chat-sessions                 CRM数字人客服会话与消息表
  *              043-invitation-codes                   邀请码与员工业绩追踪
+ *              044-full-team-seed                     全员种子数据+预生成邀请码
+ *              045-user-registration-type             用户注册类型区分（个人/企业）
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -97,6 +99,8 @@ import { migration as m040 } from "./migrations/040-training-participants-add-em
 import { migration as m041 } from "./migrations/041-supplier-qualification";
 import { migration as m042 } from "./migrations/042-crm-chat-sessions";
 import { migration as m043 } from "./migrations/043-invitation-codes";
+import { migration as m044 } from "./migrations/044-full-team-seed";
+import { migration as m045 } from "./migrations/045-user-registration-type";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -105,7 +109,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041, m042, m043,
+  m037, m038, m039, m040, m041, m042, m043, m044, m045,
 ];
 
 /**

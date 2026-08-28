@@ -16,6 +16,7 @@ export interface AuthFormState {
   email: string;
   password: string;
   invitationCode: string;
+  userType: "personal" | "enterprise";
 }
 
 export interface ClaimFormState {
@@ -37,6 +38,7 @@ export function useAuthForm(onSuccess: () => void) {
     email: "",
     password: "",
     invitationCode: "",
+    userType: "enterprise",
   });
   const [claimForm, setClaimForm] = useState<ClaimFormState>({
     companyName: "",
@@ -84,7 +86,8 @@ export function useAuthForm(onSuccess: () => void) {
       }
     }
 
-    if (authMode === "register" && !claimForm.companyName.trim()) {
+    // 企业注册才需要公司名称
+    if (authMode === "register" && authForm.userType === "enterprise" && !claimForm.companyName.trim()) {
       setAuthError(t("authCompanyNameRequired"));
       return;
     }
@@ -98,7 +101,8 @@ export function useAuthForm(onSuccess: () => void) {
       });
     }
 
-    if (authMode === "register" && (!prefLevel1 || !prefLevel2)) {
+    // 企业注册才需要行业偏好
+    if (authMode === "register" && authForm.userType === "enterprise" && (!prefLevel1 || !prefLevel2)) {
       setAuthError(t("authIndustryPrefRequired"));
       return;
     }
@@ -106,23 +110,27 @@ export function useAuthForm(onSuccess: () => void) {
     try {
       if (authMode === "login") {
         await login(email, password);
-        setAuthForm({ displayName: "", email, password: "" });
+        setAuthForm({ displayName: "", email, password: "", invitationCode: "", userType: "enterprise" });
       } else {
         await register(
           email,
           password,
           authForm.displayName,
-          claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
+          authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
           registerVerifyCode,
-          authForm.invitationCode.trim()
+          authForm.invitationCode.trim(),
+          authForm.userType
         );
-        await saveIndustryPrefs({
-          level1_id: Number(prefLevel1),
-          level2_id: Number(prefLevel2),
-          level3_id: prefLevel3 ? Number(prefLevel3) : null,
-          level4_id: null,
-          level5_id: null,
-        });
+        // 企业注册才保存行业偏好
+        if (authForm.userType === "enterprise") {
+          await saveIndustryPrefs({
+            level1_id: Number(prefLevel1),
+            level2_id: Number(prefLevel2),
+            level3_id: prefLevel3 ? Number(prefLevel3) : null,
+            level4_id: null,
+            level5_id: null,
+          });
+        }
         onSuccess();
       }
     } catch (err: any) {

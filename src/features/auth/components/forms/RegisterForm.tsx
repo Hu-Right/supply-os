@@ -97,7 +97,42 @@ export function RegisterForm({
 
   return (
     <div className="space-y-3">
-      {/* 供应商绑定信息 */}
+      {/* 注册类型选择 */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setAuthForm({ ...authForm, userType: "personal" })}
+          className={`rounded-xl border-2 p-3 text-center transition-all ${
+            authForm.userType === "personal"
+              ? "border-teal-500 bg-teal-50"
+              : "border-slate-200 bg-white hover:border-slate-300"
+          }`}
+        >
+          <div className="text-lg font-bold">👤</div>
+          <div className={`text-sm font-bold ${authForm.userType === "personal" ? "text-teal-700" : "text-slate-600"}`}>
+            {t("authRegisterTypePersonal") || "个人注册"}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setAuthForm({ ...authForm, userType: "enterprise" })}
+          className={`rounded-xl border-2 p-3 text-center transition-all ${
+            authForm.userType === "enterprise"
+              ? "border-blue-500 bg-blue-50"
+              : "border-slate-200 bg-white hover:border-slate-300"
+          }`}
+        >
+          <div className="text-lg font-bold">🏢</div>
+          <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-blue-700" : "text-slate-600"}`}>
+            {t("authRegisterTypeEnterprise") || "企业注册"}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
+        </button>
+      </div>
+
+      {/* 企业信息（仅企业注册显示） */}
+      {authForm.userType === "enterprise" && (
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-extrabold text-slate-900">
@@ -193,6 +228,7 @@ export function RegisterForm({
           </div>
         </div>
       </div>
+      )}
 
       {/* 邮箱 + 验证码 + 密码 */}
       <Input

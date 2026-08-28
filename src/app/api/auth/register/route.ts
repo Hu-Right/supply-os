@@ -8,11 +8,12 @@ import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
-  const { email, password, verify_code, display_name, invitation_code } = await req.json();
+  const { email, password, verify_code, display_name, invitation_code, user_type } = await req.json();
   const addr = String(email || "").trim().toLowerCase();
   const pw = String(password || "");
   const code = String(verify_code || "");
   const displayName = String(display_name || addr.split("@")[0] || "会员");
+  const userType = user_type === "personal" ? "personal" : "enterprise";
 
   if (!addr || !pw) return NextResponse.json({ code: 40001, message: "邮箱和密码不能为空" }, { status: 400 });
   if (!code) return NextResponse.json({ code: 40005, message: "请输入邮箱验证码" }, { status: 400 });
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
 
   const created = await ctx.user.usersRepo.create({
     user_key: addr, email: addr, display_name: displayName, password_hash: await hashPassword(pw),
+    user_type: userType,
     referral_code: inviteCode,
     referral_employee_id: referralEmployeeId,
   });
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
 
   const response = NextResponse.json({
     success: true,
-    user: { user_key: addr, email: addr, display_name: displayName, membership_tier: "free" },
+    user: { user_key: addr, email: addr, display_name: displayName, membership_tier: "free", user_type: userType },
     token: tokens?.token,
   }, { status: 201 });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
