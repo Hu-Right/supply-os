@@ -60,30 +60,23 @@ export class InvitationRepo {
 
   /**
    * 按员工 ID 查询业绩概览
-   * 如果员工属于业绩组，同时返回组合并统计数据
-   * 返回：员工信息 + 个人统计 + 组合并统计（如有）+ 个人最近注册用户列表
+   * 返回：员工信息（含 KPI 目标）+ 个人统计 + 完成进度 + 最近注册用户列表
    */
   async getEmployeePerformance(employeeId: number): Promise<{
-    employee: { id: number; name: string; department: string | null; performance_group: string | null };
+    employee: { id: number; name: string; department: string | null; kpi_target: number | null };
     personal: {
       total_referrals: number;
       month_referrals: number;
+      completion_rate: number; // 完成率（0-100）
     };
-    group: {
-      group_name: string;
-      member_count: number;
-      total_referrals: number;
-      month_referrals: number;
-      members: Array<{ id: number; name: string; total_referrals: number; month_referrals: number }>;
-    } | null;
     recent_referrals: Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date }>;
   }> {
-    // 员工基本信息（含业绩组）
+    // 员工基本信息（含 KPI 目标）
     const [empRows] = await this.pool.query(
-      "SELECT id, name, department, performance_group FROM crm_employees WHERE id = ? LIMIT 1",
+      "SELECT id, name, department, kpi_target FROM crm_employees WHERE id = ? LIMIT 1",
       [employeeId],
     );
-    const emp = (empRows as Array<{ id: number; name: string; department: string | null; performance_group: string | null }>)[0];
+    const emp = (empRows as Array<{ id: number; name: string; department: string | null; kpi_target: number | null }>)[0];
     if (!emp) throw new Error(`Employee ${employeeId} not found`);
 
     // 个人总推荐数
@@ -100,6 +93,9 @@ export class InvitationRepo {
     );
     const personalMonth = Number((monthRows as Array<{ total: number }>)[0]?.total || 0);
 
+    // 完成率
+    const completionRate = emp.kpi_target ? Math.round((personalTotal / emp.kpi_target) * 100) : 0;
+
     // 最近 50 条个人推荐用户
     const [recentRows] = await this.pool.query(
       `SELECT user_key, email, display_name, created_at
@@ -110,76 +106,13 @@ export class InvitationRepo {
       [employeeId],
     );
 
-    // 业绩组合并统计
-    let groupStats: {
-      group_name: string;
-      member_count: number;
-      total_referrals: number;
-      month_referrals: number;
-      members: Array<{ id: number; name: string; total_referrals: number; month_referrals: number }>;
-    } | null = null;
-
-    if (emp.performance_group) {
-      // 查询同组所有员工
-      const [groupEmpRows] = await this.pool.query(
-        "SELECT id, name FROM crm_employees WHERE performance_group = ? AND is_active = 1 ORDER BY id",
-        [emp.performance_group],
-      );
-      const groupMembers = groupEmpRows as Array<{ id: number; name: string }>;
-
-      if (groupMembers.length > 0) {
-        const memberIds = groupMembers.map((m) => m.id);
-        const placeholders = memberIds.map(() => "?").join(",");
-
-        // 组合并总推荐数
-        const [groupTotalRows] = await this.pool.query(
-          `SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id IN (${placeholders})`,
-          memberIds,
-        );
-        const groupTotal = Number((groupTotalRows as Array<{ total: number }>)[0]?.total || 0);
-
-        // 组合并本月推荐数
-        const [groupMonthRows] = await this.pool.query(
-          `SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id IN (${placeholders}) AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')`,
-          memberIds,
-        );
-        const groupMonth = Number((groupMonthRows as Array<{ total: number }>)[0]?.total || 0);
-
-        // 每个组员的个人统计
-        const memberStats: Array<{ id: number; name: string; total_referrals: number; month_referrals: number }> = [];
-        for (const member of groupMembers) {
-          const [mTotalRows] = await this.pool.query(
-            "SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id = ?",
-            [member.id],
-          );
-          const mTotal = Number((mTotalRows as Array<{ total: number }>)[0]?.total || 0);
-
-          const [mMonthRows] = await this.pool.query(
-            "SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')",
-            [member.id],
-          );
-          const mMonth = Number((mMonthRows as Array<{ total: number }>)[0]?.total || 0);
-
-          memberStats.push({ id: member.id, name: member.name, total_referrals: mTotal, month_referrals: mMonth });
-        }
-
-        groupStats = {
-          group_name: emp.performance_group,
-          member_count: groupMembers.length,
-          total_referrals: groupTotal,
-          month_referrals: groupMonth,
-          members: memberStats,
-        };
-      }
-    }
-
     return {
-      employee: { id: emp.id, name: emp.name, department: emp.department, performance_group: emp.performance_group },
+      employee: { id: emp.id, name: emp.name, department: emp.department, kpi_target: emp.kpi_target },
       personal: {
         total_referrals: personalTotal,
         month_referrals: personalMonth,
+        completion_rate: completionRate,
       },
-      group: groupStats,
       recent_referrals: recentRows as Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date }>,
     };
   }
@@ -207,14 +140,14 @@ export class InvitationRepo {
   }
 
   /** 管理员：列出所有邀请码（含员工信息和使用统计） */
-  async listAllWithEmployee(): Promise<Array<InvitationCodeRow & { employee_name: string; department: string | null; performance_group: string | null }>> {
+  async listAllWithEmployee(): Promise<Array<InvitationCodeRow & { employee_name: string; department: string | null; kpi_target: number | null }>> {
     const [rows] = await this.pool.query(
-      `SELECT ic.*, e.name AS employee_name, e.department, e.performance_group
+      `SELECT ic.*, e.name AS employee_name, e.department, e.kpi_target
        FROM crm_invitation_codes ic
        JOIN crm_employees e ON e.id = ic.employee_id
        ORDER BY ic.created_at DESC`,
     );
-    return rows as Array<InvitationCodeRow & { employee_name: string; department: string | null; performance_group: string | null }>;
+    return rows as Array<InvitationCodeRow & { employee_name: string; department: string | null; kpi_target: number | null }>;
   }
 
   /**

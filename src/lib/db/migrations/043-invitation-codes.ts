@@ -13,19 +13,18 @@ export const migration: Migration = {
   version: 43,
   name: "invitation-codes",
   async up(dbPool: Pool) {
-    // ── 员工表 ──
+    // ── 员工表 ─
     await dbPool.query(`
       CREATE TABLE IF NOT EXISTS crm_employees (
         id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(100) NOT NULL COMMENT '员工姓名',
         employee_no VARCHAR(50) NULL COMMENT '工号',
         department VARCHAR(100) NULL COMMENT '部门',
-        performance_group VARCHAR(50) NULL COMMENT '业绩组合并标识（同组员工业绩合并计算）',
+        kpi_target INT UNSIGNED NULL DEFAULT NULL COMMENT '个人KPI目标数（总注册量）',
         is_active TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否在职',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_employee_no (employee_no),
-        KEY idx_performance_group (performance_group)
+        UNIQUE KEY uk_employee_no (employee_no)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -69,12 +68,12 @@ export const migration: Migration = {
       "CREATE INDEX idx_referral ON crm_users (referral_employee_id, referral_code)",
     );
 
-    // ── 种子数据：啊历 + 许丹（私域运营组，业绩合并计算）──
+    // ── 种子数据：啊历（518）+ 许丹（222），各自独立 KPI 目标 ─
     await dbPool.query(`
-      INSERT INTO crm_employees (name, department, performance_group)
-      VALUES ('啊历', '私域运营', 'private_ops'),
-             ('许丹', '私域运营', 'private_ops')
-      ON DUPLICATE KEY UPDATE name = VALUES(name)
+      INSERT INTO crm_employees (name, department, kpi_target)
+      VALUES ('啊历', '私域运营', 518),
+             ('许丹', '私域运营', 222)
+      ON DUPLICATE KEY UPDATE name = VALUES(name), kpi_target = VALUES(kpi_target)
     `);
   },
 };

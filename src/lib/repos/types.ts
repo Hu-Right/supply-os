@@ -134,7 +134,7 @@ export interface EmployeeRow {
   name: string;
   employee_no: string | null;
   department: string | null;
-  performance_group: string | null;
+  kpi_target: number | null;
   is_active: number;
   created_at: Date;
   updated_at: Date | null;
