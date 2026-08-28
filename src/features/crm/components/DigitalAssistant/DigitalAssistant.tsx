@@ -12,17 +12,22 @@ import { MessageCircle, X, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
 import { ChatWindow } from "./ChatWindow";
+import type { Supplier, Opportunity } from "@/types";
+import { OPPORTUNITIES } from "@/data";
 
 type DigitalAssistantProps = {
   /** 当前线索总数（传递给 hook 用于上下文回复） */
   leadCount?: number;
   /** 活跃线索数 */
   activeLeadCount?: number;
+  /** 供应商列表（AI 撮合用） */
+  suppliers?: Supplier[];
 };
 
 export function DigitalAssistant({
   leadCount = 0,
   activeLeadCount = 0,
+  suppliers = [],
 }: DigitalAssistantProps) {
   const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
@@ -37,7 +42,15 @@ export function DigitalAssistant({
     requestHumanAgent,
     endHumanSession,
     ensureWelcome,
-  } = useDigitalAssistant({ leadCount, activeLeadCount });
+    matchPhase,
+    matchReport,
+    matchSupplier,
+    matchOpportunity,
+    setMatchSupplier,
+    setMatchOpportunity,
+    triggerMatch,
+    resetMatch,
+  } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
 
   // 打开抽屉时初始化欢迎消息
   useEffect(() => {
@@ -184,6 +197,16 @@ export function DigitalAssistant({
               isThinking={isThinking}
               onSend={sendMessage}
               onQuickAction={triggerQuickAction}
+              matchPhase={matchPhase}
+              matchReport={matchReport}
+              suppliers={suppliers}
+              opportunities={OPPORTUNITIES}
+              matchSupplier={matchSupplier}
+              matchOpportunity={matchOpportunity}
+              onSetMatchSupplier={setMatchSupplier}
+              onSetMatchOpportunity={setMatchOpportunity}
+              onTriggerMatch={triggerMatch}
+              onResetMatch={resetMatch}
             />
           </div>
         </>

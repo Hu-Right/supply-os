@@ -68,5 +68,8 @@
   "crmQuickActionMatch": "Lancer le matching IA",
   "crmQuickActionQueryLeads": "Consulter les prospects",
   "crmQuickActionLeadStatus": "Analyser les statuts",
-  "crmQuickActionOppHelp": "Comprendre les opportunités"
+  "crmQuickActionOppHelp": "Comprendre les opportunités",
+  "crmMatchSelectSupplier": "Sélectionner le fournisseur",
+  "crmMatchSelectOpp": "Sélectionner l'opportunité",
+  "crmMatchChoose": "Choisir..."
 }

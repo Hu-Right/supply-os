@@ -68,5 +68,8 @@
   "crmQuickActionMatch": "Iniciar emparejamiento IA",
   "crmQuickActionQueryLeads": "Consultar prospectos",
   "crmQuickActionLeadStatus": "Analizar estados",
-  "crmQuickActionOppHelp": "Entender oportunidades"
+  "crmQuickActionOppHelp": "Entender oportunidades",
+  "crmMatchSelectSupplier": "Seleccionar proveedor",
+  "crmMatchSelectOpp": "Seleccionar oportunidad",
+  "crmMatchChoose": "Elegir..."
 }

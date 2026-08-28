@@ -68,5 +68,8 @@
   "crmQuickActionMatch": "Запустить ИИ-подбор",
   "crmQuickActionQueryLeads": "Просмотреть лидов",
   "crmQuickActionLeadStatus": "Анализ статусов",
-  "crmQuickActionOppHelp": "Понять возможности"
+  "crmQuickActionOppHelp": "Понять возможности",
+  "crmMatchSelectSupplier": "Выбрать поставщика",
+  "crmMatchSelectOpp": "Выбрать возможность",
+  "crmMatchChoose": "Выбрать..."
 }

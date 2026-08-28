@@ -68,5 +68,8 @@
   "crmQuickActionMatch": "تشغيل المطابقة الذكية",
   "crmQuickActionQueryLeads": "استعلام عن العملاء",
   "crmQuickActionLeadStatus": "تحليل الحالات",
-  "crmQuickActionOppHelp": "فهم الفرص"
+  "crmQuickActionOppHelp": "فهم الفرص",
+  "crmMatchSelectSupplier": "اختر المورد",
+  "crmMatchSelectOpp": "اختر الفرصة",
+  "crmMatchChoose": "اختر..."
 }

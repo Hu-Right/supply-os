@@ -139,6 +139,7 @@ export default function CrmPage() {
       <DigitalAssistant
         leadCount={leads.length}
         activeLeadCount={leads.filter(l => l.status !== "lost").length}
+        suppliers={totalSuppliersList}
       />
     </div>
   );

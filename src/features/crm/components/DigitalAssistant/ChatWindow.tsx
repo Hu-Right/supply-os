@@ -14,10 +14,14 @@ import type {
   ChatMessage,
   AssistantMode,
   QuickActionType,
+  MatchPhase,
 } from "../../hooks/useDigitalAssistant";
+import type { Supplier, Opportunity } from "@/types";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
 import { QuickActions } from "./QuickActions";
+import { MatchSelector } from "./MatchSelector";
+import { MatchReportCard } from "./MatchReportCard";
 
 type ChatWindowProps = {
   messages: ChatMessage[];
@@ -25,6 +29,17 @@ type ChatWindowProps = {
   isThinking: boolean;
   onSend: (content: string) => void;
   onQuickAction: (action: QuickActionType) => void;
+  // ── AI 撮合 ──
+  matchPhase: MatchPhase;
+  matchReport: string;
+  suppliers: Supplier[];
+  opportunities: Opportunity[];
+  matchSupplier: Supplier | null;
+  matchOpportunity: Opportunity | null;
+  onSetMatchSupplier: (s: Supplier | null) => void;
+  onSetMatchOpportunity: (o: Opportunity | null) => void;
+  onTriggerMatch: () => void;
+  onResetMatch: () => void;
 };
 
 export function ChatWindow({
@@ -33,6 +48,16 @@ export function ChatWindow({
   isThinking,
   onSend,
   onQuickAction,
+  matchPhase,
+  matchReport,
+  suppliers,
+  opportunities,
+  matchSupplier,
+  matchOpportunity,
+  onSetMatchSupplier,
+  onSetMatchOpportunity,
+  onTriggerMatch,
+  onResetMatch,
 }: ChatWindowProps) {
   const { t } = useLocale();
   const [input, setInput] = useState("");
@@ -79,8 +104,33 @@ export function ChatWindow({
           <MessageBubble key={msg.id} message={msg} />
         ))}
 
+        {/* ── AI 撮合选择器（内联在消息流中） ── */}
+        {(matchPhase === "selecting" || matchPhase === "matching") && (
+          <MatchSelector
+            suppliers={suppliers}
+            opportunities={opportunities}
+            selectedSupplier={matchSupplier}
+            selectedOpportunity={matchOpportunity}
+            isMatching={matchPhase === "matching"}
+            onSelectSupplier={onSetMatchSupplier}
+            onSelectOpportunity={onSetMatchOpportunity}
+            onTrigger={onTriggerMatch}
+            t={t}
+          />
+        )}
+
+        {/* ── AI 撮合报告卡片 ── */}
+        {matchPhase === "done" && matchReport && matchSupplier && matchOpportunity && (
+          <MatchReportCard
+            report={matchReport}
+            supplierName={matchSupplier.nameZh || matchSupplier.nameEn}
+            opportunityName={matchOpportunity.titleZh || matchOpportunity.titleEn}
+            t={t}
+          />
+        )}
+
         {/* AI 正在思考指示器 */}
-        {isThinking && <TypingIndicator />}
+        {isThinking && matchPhase !== "matching" && <TypingIndicator />}
       </div>
 
       {/* ── 快捷操作（仅 AI 模式显示） ── */}

@@ -9,6 +9,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useLocale } from "@/core/i18n";
+import { useAiMatch } from "./useAiMatch";
+import type { Supplier, Opportunity } from "@/types";
 
 // ── 类型定义 ──
 
@@ -31,12 +33,19 @@ export type AssistantMode = "ai" | "waiting" | "human";
 /** 快捷操作类型 */
 export type QuickActionType = "match" | "query_leads" | "lead_status" | "opp_help" | "request_human";
 
+/** 撮合阶段 */
+export type MatchPhase = "idle" | "selecting" | "matching" | "done";
+
 /** Hook 入参 */
 export interface UseDigitalAssistantOptions {
   /** 当前线索数（用于上下文） */
   leadCount?: number;
   /** 当前活跃线索数 */
   activeLeadCount?: number;
+  /** 供应商列表（AI 撮合用） */
+  suppliers?: Supplier[];
+  /** 商机列表（AI 撮合用） */
+  opportunities?: Opportunity[];
 }
 
 /** Hook 返回值 */
@@ -57,6 +66,23 @@ export interface UseDigitalAssistantReturn {
   clearMessages: () => void;
   /** 初始化欢迎消息（打开抽屉时调用） */
   ensureWelcome: () => void;
+  // ── AI 撮合相关 ──
+  /** 撮合阶段 */
+  matchPhase: MatchPhase;
+  /** AI 撮合报告 */
+  matchReport: string;
+  /** 撮合选中的供应商 */
+  matchSupplier: Supplier | null;
+  /** 撮合选中的商机 */
+  matchOpportunity: Opportunity | null;
+  /** 设置撮合供应商 */
+  setMatchSupplier: (s: Supplier | null) => void;
+  /** 设置撮合商机 */
+  setMatchOpportunity: (o: Opportunity | null) => void;
+  /** 触发 AI 撮合 */
+  triggerMatch: () => Promise<void>;
+  /** 重置撮合阶段 */
+  resetMatch: () => void;
 }
 
 // ── 工具函数 ──
@@ -72,7 +98,11 @@ export function useDigitalAssistant(
   options: UseDigitalAssistantOptions = {},
 ): UseDigitalAssistantReturn {
   const { t, locale } = useLocale();
-  const { leadCount = 0, activeLeadCount = 0 } = options;
+  const { leadCount = 0, activeLeadCount = 0, suppliers = [], opportunities = [] } = options;
+
+  // ── AI 撮合集成 ──
+  const aiMatch = useAiMatch();
+  const [matchPhase, setMatchPhase] = useState<MatchPhase>("idle");
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mode, setMode] = useState<AssistantMode>("ai");
@@ -176,18 +206,25 @@ export function useDigitalAssistant(
 
       // 用户快捷消息 + AI 回复
       appendMessage("user", msg);
+
+      // 撮合操作：进入选择阶段，不生成文本回复
+      if (action === "match") {
+        setMatchPhase("selecting");
+        aiMatch.setSelectedSupplier(suppliers.length > 0 ? suppliers[0] : null);
+        if (opportunities.length > 0) aiMatch.setSelectedOpportunity(opportunities[0]);
+        return;
+      }
+
       setIsThinking(true);
       setTimeout(() => {
         setIsThinking(false);
-        // 根据操作类型给出不同回复
-        const replies: Record<QuickActionType, string> = {
-          match: t("crmAssistantReplyMatch"),
+        const replies: Record<Exclude<QuickActionType, "match">, string> = {
           query_leads: t("crmAssistantReplyLeads", { count: String(leadCount) }),
           lead_status: t("crmAssistantReplyLeadStatus"),
           opp_help: t("crmAssistantReplyOpportunities"),
           request_human: "",
         };
-        appendMessage("assistant", replies[action]);
+        appendMessage("assistant", replies[action as Exclude<QuickActionType, "match">]);
       }, 600 + Math.random() * 400);
     },
     [appendMessage, ensureWelcome, t, leadCount, activeLeadCount],
@@ -218,11 +255,32 @@ export function useDigitalAssistant(
     appendMessage("system", t("crmAssistantSessionEnded"));
   }, [appendMessage, t]);
 
+  /** 触发 AI 撮合（从 MatchSelector 组件调用） */
+  const triggerMatch = useCallback(async () => {
+    if (!aiMatch.selectedSupplier || !aiMatch.selectedOpportunity) return;
+    setMatchPhase("matching");
+
+    const supplierName = aiMatch.selectedSupplier.nameZh || aiMatch.selectedSupplier.nameEn;
+    const oppName = aiMatch.selectedOpportunity.titleZh || aiMatch.selectedOpportunity.titleEn;
+    appendMessage("system", t("aiAnalyzing"));
+
+    await aiMatch.triggerMatch(aiMatch.selectedSupplier, aiMatch.selectedOpportunity);
+
+    setMatchPhase("done");
+    appendMessage("system", `${supplierName} × ${oppName}`);
+  }, [aiMatch, appendMessage, t]);
+
+  /** 重置撮合阶段 */
+  const resetMatch = useCallback(() => {
+    setMatchPhase("idle");
+  }, []);
+
   /** 清空对话 */
   const clearMessages = useCallback(() => {
     setMessages([]);
     setMode("ai");
     setAgentName(null);
+    setMatchPhase("idle");
   }, []);
 
   return {
@@ -236,5 +294,14 @@ export function useDigitalAssistant(
     endHumanSession,
     clearMessages,
     ensureWelcome,
+    // AI 撮合
+    matchPhase,
+    matchReport: aiMatch.report,
+    matchSupplier: aiMatch.selectedSupplier,
+    matchOpportunity: aiMatch.selectedOpportunity,
+    setMatchSupplier: aiMatch.setSelectedSupplier,
+    setMatchOpportunity: aiMatch.setSelectedOpportunity,
+    triggerMatch,
+    resetMatch,
   };
 }
