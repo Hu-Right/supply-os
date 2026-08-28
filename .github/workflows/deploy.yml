@@ -32,7 +32,7 @@ jobs:
       || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
       || (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'DEPLOY')
     steps:
-      - name: SSH 到服务器执行部署脚本
+      - name: SSH 到服务器执行部署
         id: deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -43,8 +43,43 @@ jobs:
           command_timeout: "30m"
           script_stop: true
           script: |
-            cd /root/supply-os
-            bash scripts/deploy.sh
+            set -euo pipefail
+            APP_DIR=/root/supply-os
+            APP_NAME=supply-os
+            BRANCH=main
+
+            echo "[deploy] $(date '+%F %T') 开始部署"
+            cd "${APP_DIR}"
+
+            # 1. 拉取最新代码
+            echo "[deploy] 拉取最新代码..."
+            git fetch origin
+            git checkout "${BRANCH}"
+            git reset --hard "origin/${BRANCH}"
+
+            # 2. 安装依赖
+            echo "[deploy] 安装依赖..."
+            if [ -d node_modules ]; then
+              npm install
+            else
+              npm ci
+            fi
+
+            # 3. Next.js 构建
+            echo "[deploy] 构建..."
+            npm run build
+
+            # 4. 彻底重启应用
+            #    先 kill 旧进程，再删除 pm2 记录，最后用新入口启动
+            #    避免 pm2 reload 保留旧入口文件配置（如 dist/server.mjs）
+            echo "[deploy] 重启应用..."
+            pm2 delete "${APP_NAME}" 2>/dev/null || true
+            pm2 kill 2>/dev/null || true
+            NODE_ENV=production pm2 start "${APP_DIR}/.next/standalone/server.js" --name "${APP_NAME}"
+            pm2 save
+
+            echo "[deploy] $(date '+%F %T') 部署完成"
+            pm2 list | grep "${APP_NAME}" || true
 
       - name: 部署后健康检查
         uses: appleboy/ssh-action@v1.2.0
@@ -55,12 +90,12 @@ jobs:
           port: "22"
           script_stop: true
           script: |
-            # 等待应用启动（pm2 reload 后需要几秒初始化）
-            sleep 5
+            # 等待应用启动（pm2 kill+start 后需要较长初始化时间）
+            sleep 10
             # 检查 pm2 进程是否存活
             pm2 describe supply-os | grep -q "online" || { echo "✗ pm2 进程未运行"; exit 1; }
-            # 健康端点探活（最多重试 3 次，间隔 5 秒）
-            for i in 1 2 3; do
+            # 健康端点探活（最多重试 6 次，间隔 5 秒）
+            for i in 1 2 3 4 5 6; do
               if curl -sf --max-time 5 http://localhost:3039/api/system/version > /dev/null 2>&1; then
                 echo "✓ 健康检查通过 (第 ${i} 次尝试)"
                 exit 0

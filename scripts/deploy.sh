@@ -34,10 +34,11 @@ npm run build
 
 # 4. 重启应用（pm2 托管，保持常驻）
 #    Next.js standalone 模式入口为 .next/standalone/server.js
+#    注意：必须先 delete 再 start，pm2 reload 会保留旧的入口文件配置（如 dist/server.mjs）
 echo "[deploy] 重启应用..."
 if command -v pm2 >/dev/null 2>&1; then
-  NODE_ENV=production pm2 reload "${APP_NAME}" \
-    || NODE_ENV=production pm2 start .next/standalone/server.js --name "${APP_NAME}"
+  pm2 delete "${APP_NAME}" 2>/dev/null || true
+  NODE_ENV=production pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
 else
   echo "[deploy] ⚠ 未安装 pm2，请先执行："
