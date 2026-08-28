@@ -112,12 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（含供应商绑定申请）
    * Register (with supplier claim application)
    */
-  const register = useCallback(async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string, userType?: string) => {
+  const register = useCallback(async (email: string | null, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string, userType?: string, phone?: string) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
-        body: { email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode, invitation_code: invitationCode, user_type: userType },
+        body: { email, password, display_name: displayName || "会员", verify_code: verifyCode, invitation_code: invitationCode, user_type: userType, phone },
       });
 
       // 存储 Access Token（注册即登录）

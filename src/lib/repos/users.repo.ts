@@ -46,20 +46,21 @@ export class UsersRepo {
   /** 创建用户（INSERT ONLY，不覆盖已有记录） */
   async create(data: {
     user_key: string;
-    email: string;
+    email: string | null;
     display_name: string;
     password_hash: string;
     password_hash_type?: string;
     user_type?: string;
+    phone?: string;
     referral_code?: string;
     referral_employee_id?: number;
   }): Promise<boolean> {
     const hashType = data.password_hash_type ?? "bcrypt";
     const userType = data.user_type ?? "enterprise";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status, user_type, referral_code, referral_employee_id)
-       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?)`,
-      [data.user_key, data.email, data.display_name, data.password_hash, hashType, userType, data.referral_code ?? null, data.referral_employee_id ?? null],
+      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
+       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
+      [data.user_key, data.email, data.display_name, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
     return (result as any).affectedRows > 0;
   }

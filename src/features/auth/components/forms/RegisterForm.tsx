@@ -230,45 +230,115 @@ export function RegisterForm({
       </div>
       )}
 
-      {/* 邮箱 + 验证码 + 密码 */}
-      <Input
-        type="email"
-        inputMode="email"
-        value={authForm.email}
-        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-        placeholder={t("authEmailPlaceholder")}
-        autoComplete="email"
-      />
-      <div className="space-y-1">
-        <div className="flex gap-2">
-          <Input
-            type="text"
-            value={registerCode.registerVerifyCode}
-            onChange={(e) => registerCode.setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
-            maxLength={6}
-            className="flex-1 tracking-widest"
-          />
-          <button
-            type="button"
-            onClick={() => registerCode.handleSendRegisterCode(authForm.email.trim())}
-            disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
-            className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          >
-            {registerCode.registerCodeCountdown > 0
-              ? `${registerCode.registerCodeCountdown}s`
-              : registerCode.registerCodeLoading
-                ? t("authForgotSending")
-                : t("authRegisterSendCode") || "获取验证码"}
-          </button>
-        </div>
-        {registerCode.registerCodeError && (
-          <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>
-        )}
-        {registerCode.registerCodeSent && registerCode.registerCodeCountdown <= 0 && (
-          <p className="text-xs text-teal-600">{t("authRegisterCodeSent") || "验证码已发送，请查收邮箱"}</p>
-        )}
+      {/* 手机号/邮箱切换 + 输入 */}
+      <div className="flex items-center gap-2 mb-1">
+        <button
+          type="button"
+          onClick={() => { setAuthForm({ ...authForm, registerMethod: "phone" }); registerCode.reset(); }}
+          className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+            authForm.registerMethod === "phone"
+              ? "bg-teal-600 text-white"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          {t("authRegisterByPhone") || "手机号注册"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAuthForm({ ...authForm, registerMethod: "email" }); registerCode.reset(); }}
+          className={`text-xs font-bold px-3 py-1 rounded-full transition-all ${
+            authForm.registerMethod === "email"
+              ? "bg-blue-600 text-white"
+              : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+          }`}
+        >
+          {t("authRegisterByEmail") || "邮箱注册"}
+        </button>
       </div>
+
+      {authForm.registerMethod === "phone" ? (
+        <>
+          <Input
+            type="tel"
+            inputMode="tel"
+            value={authForm.phone}
+            onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value.replace(/\D/g, "").slice(0, 11) })}
+            placeholder={t("authPhonePlaceholder") || "请输入手机号"}
+            autoComplete="tel"
+          />
+          <div className="space-y-1">
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={registerCode.registerVerifyCode}
+                onChange={(e) => registerCode.setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder={t("authSmsCodePlaceholder") || "短信验证码"}
+                maxLength={6}
+                className="flex-1 tracking-widest"
+              />
+              <button
+                type="button"
+                onClick={() => registerCode.handleSendSmsCode(authForm.phone.trim())}
+                disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
+                className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {registerCode.registerCodeCountdown > 0
+                  ? `${registerCode.registerCodeCountdown}s`
+                  : registerCode.registerCodeLoading
+                    ? t("authForgotSending")
+                    : t("authRegisterSendSmsCode") || "获取验证码"}
+              </button>
+            </div>
+            {registerCode.registerCodeError && (
+              <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>
+            )}
+            {registerCode.registerCodeSent && registerCode.registerCodeCountdown <= 0 && (
+              <p className="text-xs text-teal-600">{t("authSmsCodeSent") || "验证码已发送，请查收短信"}</p>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <Input
+            type="email"
+            inputMode="email"
+            value={authForm.email}
+            onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+            placeholder={t("authEmailPlaceholder")}
+            autoComplete="email"
+          />
+          <div className="space-y-1">
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                value={registerCode.registerVerifyCode}
+                onChange={(e) => registerCode.setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
+                maxLength={6}
+                className="flex-1 tracking-widest"
+              />
+              <button
+                type="button"
+                onClick={() => registerCode.handleSendRegisterCode(authForm.email.trim())}
+                disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
+                className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {registerCode.registerCodeCountdown > 0
+                  ? `${registerCode.registerCodeCountdown}s`
+                  : registerCode.registerCodeLoading
+                    ? t("authForgotSending")
+                    : t("authRegisterSendCode") || "获取验证码"}
+              </button>
+            </div>
+            {registerCode.registerCodeError && (
+              <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>
+            )}
+            {registerCode.registerCodeSent && registerCode.registerCodeCountdown <= 0 && (
+              <p className="text-xs text-teal-600">{t("authRegisterCodeSent") || "验证码已发送，请查收邮箱"}</p>
+            )}
+          </div>
+        </>
+      )}
       <Input
         type="password"
         value={authForm.password}

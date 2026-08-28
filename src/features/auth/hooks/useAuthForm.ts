@@ -14,9 +14,11 @@ import { validatePassword } from "@/shared/auth/passwordPolicy";
 export interface AuthFormState {
   displayName: string;
   email: string;
+  phone: string;
   password: string;
   invitationCode: string;
   userType: "personal" | "enterprise";
+  registerMethod: "phone" | "email"; // 注册方式：手机号（默认）或邮箱
 }
 
 export interface ClaimFormState {
@@ -36,9 +38,11 @@ export function useAuthForm(onSuccess: () => void) {
   const [authForm, setAuthForm] = useState<AuthFormState>({
     displayName: "",
     email: "",
+    phone: "",
     password: "",
     invitationCode: "",
     userType: "enterprise",
+    registerMethod: "phone",
   });
   const [claimForm, setClaimForm] = useState<ClaimFormState>({
     companyName: "",
@@ -58,21 +62,31 @@ export function useAuthForm(onSuccess: () => void) {
     setAuthError("");
 
     const email = authForm.email.trim();
+    const phone = authForm.phone.trim();
     const password = authForm.password;
+    const isPhoneRegister = authForm.registerMethod === "phone" && /^1[3-9]\d{9}$/.test(phone);
 
-    if (!email || !password) {
+    if (!password) {
       setAuthError(t("formError"));
       return;
     }
 
     if (authMode === "register") {
+      if (isPhoneRegister && !phone) {
+        setAuthError("请输入手机号");
+        return;
+      }
+      if (!isPhoneRegister && !email) {
+        setAuthError("请输入邮箱");
+        return;
+      }
       const pwCheck = validatePassword(password);
       if (!pwCheck.valid) {
         setAuthError(pwCheck.message);
         return;
       }
       if (!registerCodeSent) {
-        setAuthError("请先获取邮箱验证码");
+        setAuthError(isPhoneRegister ? "请先获取短信验证码" : "请先获取邮箱验证码");
         return;
       }
       if (registerVerifyCode.length !== 6) {
@@ -109,17 +123,18 @@ export function useAuthForm(onSuccess: () => void) {
 
     try {
       if (authMode === "login") {
-        await login(email, password);
-        setAuthForm({ displayName: "", email, password: "", invitationCode: "", userType: "enterprise" });
+        await login(email || phone, password);
+        setAuthForm({ displayName: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise", registerMethod: "phone" });
       } else {
         await register(
-          email,
+          isPhoneRegister ? (email || null) : email,
           password,
           authForm.displayName,
           authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
           registerVerifyCode,
           authForm.invitationCode.trim(),
-          authForm.userType
+          authForm.userType,
+          isPhoneRegister ? phone : undefined
         );
         // 企业注册才保存行业偏好
         if (authForm.userType === "enterprise") {
