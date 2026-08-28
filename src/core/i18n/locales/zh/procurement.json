@@ -270,5 +270,10 @@
   "qualEnterProduct": "请输入主营产品",
   "qualEnterCountries": "请输入国家名称，多个用逗号分隔",
   "qualEnterYears": "如：10年",
-  "qualOtherIndustry": "请注明具体行业"
+  "qualOtherIndustry": "请注明具体行业",
+  "qualScoreTitle": "评分结果",
+  "qualScorePoint": "分",
+  "qualScoreDownloadPdf": "下载PDF评估报告",
+  "qualScoreTopGaps": "关键能力缺口（Top 5）",
+  "qualScoreNeedsReview": "该维度建议由评估师人工补充验证"
 }

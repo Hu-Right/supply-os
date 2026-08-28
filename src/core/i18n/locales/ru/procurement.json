@@ -270,5 +270,10 @@
   "qualEnterProduct": "Введите основные продукты",
   "qualEnterCountries": "Введите страны, через запятую",
   "qualEnterYears": "напр. 10 лет",
-  "qualOtherIndustry": "Пожалуйста, уточните отрасль"
+  "qualOtherIndustry": "Пожалуйста, уточните отрасль",
+  "qualScoreTitle": "Результаты оценки",
+  "qualScorePoint": "баллов",
+  "qualScoreDownloadPdf": "Скачать PDF-отчёт",
+  "qualScoreTopGaps": "Ключевые пробелы в компетенциях (Top 5)",
+  "qualScoreNeedsReview": "Этот параметр требует ручной проверки оценщиком"
 }

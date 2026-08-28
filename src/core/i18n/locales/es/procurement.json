@@ -270,5 +270,10 @@
   "qualEnterProduct": "Ingrese los productos principales",
   "qualEnterCountries": "Ingrese los países, separados por comas",
   "qualEnterYears": "ej. 10 años",
-  "qualOtherIndustry": "Por favor especifique el sector"
+  "qualOtherIndustry": "Por favor especifique el sector",
+  "qualScoreTitle": "Resultados de la Evaluación",
+  "qualScorePoint": "pts",
+  "qualScoreDownloadPdf": "Descargar Informe PDF",
+  "qualScoreTopGaps": "Principales Brechas de Capacidad (Top 5)",
+  "qualScoreNeedsReview": "Esta dimensión requiere revisión manual por un evaluador"
 }

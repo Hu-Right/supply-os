@@ -270,5 +270,10 @@
   "qualEnterProduct": "أدخل المنتجات الرئيسية",
   "qualEnterCountries": "أدخل الدول، مفصولة بفواصل",
   "qualEnterYears": "مثال: 10 سنوات",
-  "qualOtherIndustry": "يرجى تحديد القطاع"
+  "qualOtherIndustry": "يرجى تحديد القطاع",
+  "qualScoreTitle": "نتائج التقييم",
+  "qualScorePoint": "نقطة",
+  "qualScoreDownloadPdf": "تحميل تقرير PDF",
+  "qualScoreTopGaps": "أهم فجوات القدرة (أعلى 5)",
+  "qualScoreNeedsReview": "يتطلب هذا البعد مراجعة يدوية من قبل مقيّم"
 }

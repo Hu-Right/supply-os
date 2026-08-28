@@ -270,5 +270,10 @@
   "qualEnterProduct": "Enter main products",
   "qualEnterCountries": "Enter countries, separated by commas",
   "qualEnterYears": "e.g. 10 years",
-  "qualOtherIndustry": "Please specify the industry"
+  "qualOtherIndustry": "Please specify the industry",
+  "qualScoreTitle": "Score Results",
+  "qualScorePoint": "pts",
+  "qualScoreDownloadPdf": "Download PDF Report",
+  "qualScoreTopGaps": "Top Capability Gaps (Top 5)",
+  "qualScoreNeedsReview": "This dimension needs manual review by an assessor"
 }
