@@ -39,6 +39,7 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     deviceSizes: [640, 750, 828, 1080, 1200],
     imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    qualities: [75, 80],
   },
   // 优化大型 npm 包的 tree-shaking（减少 bundle 体积）
   experimental: {

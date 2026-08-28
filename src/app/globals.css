@@ -25,6 +25,16 @@
 .icon-tuite:before { content: "\e61d"; }
 .icon-tiktok:before { content: "\ecdc"; }
 
+/* 隐藏 number input 的上下箭头（Chrome/Safari/Edge/Firefox） */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* 隐藏滚动条但保留滚动功能（自定义 utility，按需生成） */
 @utility scrollbar-none {
   -ms-overflow-style: none;   /* IE / Edge */
