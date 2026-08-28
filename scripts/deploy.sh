@@ -32,12 +32,11 @@ fi
 echo "[deploy] 构建..."
 npm run build
 
-# 3.5 复制 .env 到 standalone 目录（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
-#    同时修正数据库地址：本地开发用 192.168.1.2（办公室内网），生产服务器用 117.72.108.14
-if [ -f .env ]; then
+# 3.5 .env 处理（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+#    仅在首次部署时复制，之后不再触碰服务器上的 .env 配置
+if [ ! -f .next/standalone/.env ] && [ -f .env ]; then
   cp .env .next/standalone/.env
-  sed -i 's/DB_HOST="192.168.1.2"/DB_HOST="117.72.108.14"/g' .next/standalone/.env
-  echo "[deploy] 已复制 .env → .next/standalone/.env（DB_HOST 已修正）"
+  echo "[deploy] 首次部署：复制 .env → .next/standalone/.env"
 fi
 
 # 4. 重启应用（pm2 托管，保持常驻）
