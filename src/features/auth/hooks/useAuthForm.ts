@@ -13,8 +13,8 @@ import { validatePassword } from "@/shared/auth/passwordPolicy";
 
 export interface AuthFormState {
   displayName: string;
-  identifier: string; // 登录用：手机号或邮箱
-  email: string; // 注册用：选填邮箱
+  identifier: string; // 登录用：手机号
+  email: string; // 注册用：选填邮箱（仅用于通知，不作为登录凭证）
   phone: string; // 注册用：必填手机号
   password: string;
   invitationCode: string;
@@ -119,7 +119,13 @@ export function useAuthForm(onSuccess: () => void) {
 
     try {
       if (authMode === "login") {
-        await login(authForm.identifier, password);
+        // 登录仅支持手机号
+        const loginPhone = authForm.identifier.trim();
+        if (!loginPhone || !/^1[3-9]\d{9}$/.test(loginPhone)) {
+          setAuthError(t("authErrPhoneInvalid"));
+          return;
+        }
+        await login(loginPhone, password);
         setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
       } else {
         // 注册：手机号必填，邮箱选填

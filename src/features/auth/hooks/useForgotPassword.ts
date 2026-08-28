@@ -27,9 +27,12 @@ export function maskPhone(phone: string): string {
   return p.slice(0, 3) + "****" + p.slice(-4);
 }
 
-/** 根据输入格式智能识别验证渠道 */
-export function detectChannel(identifier: string): "email" | "sms" {
-  return /^1[3-9]\d{9}$/.test(identifier.trim()) ? "sms" : "email";
+/** 根据输入格式智能识别验证渠道：手机号 → sms，邮箱 → email，默认 sms */
+export function detectChannel(identifier: string): "sms" | "email" {
+  const trimmed = identifier.trim();
+  if (/^1[3-9]\d{9}$/.test(trimmed)) return "sms";
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "email";
+  return "sms"; // 默认短信渠道
 }
 
 export function useForgotPassword(onSuccess: () => void) {
@@ -62,7 +65,7 @@ export function useForgotPassword(onSuccess: () => void) {
 
     const identifier = forgotIdentifier.trim();
     if (!identifier) {
-      setForgotError(t("authForgotIdentifierInvalid") || "请输入邮箱或手机号");
+      setForgotError(t("authForgotIdentifierInvalid") || "请输入手机号或邮箱");
       return;
     }
 

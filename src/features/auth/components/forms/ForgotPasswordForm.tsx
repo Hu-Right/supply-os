@@ -52,7 +52,7 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
             inputMode="text"
             value={forgotIdentifier}
             onChange={(e) => setForgotIdentifier(e.target.value)}
-            placeholder={t("authForgotIdentifierPlaceholder") || "邮箱 / 手机号"}
+            placeholder={t("authForgotIdentifierPlaceholder") || "手机号（推荐）或邮箱"}
             autoComplete="username"
           />
           {forgotIdentifier.trim() && (() => {
@@ -61,7 +61,7 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
               <p className="text-[11px] text-slate-400">
                 {detected === "sms"
                   ? (t("authForgotDetectSms") || "已识别为手机号，将通过短信验证")
-                  : (t("authForgotDetectEmail") || "已识别为邮箱，将通过邮件验证")}
+                  : (t("authForgotDetectEmail") || "已识别为邮箱，将通过邮件验证（备用渠道）")}
               </p>
             );
           })()}

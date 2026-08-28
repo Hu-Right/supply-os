@@ -36,7 +36,8 @@ export function RegisterForm({
   cascade,
 }: RegisterFormProps) {
   const { t } = useLocale();
-  const [enterpriseQualificationDone, setEnterpriseQualificationDone] = useState(false);
+  const [qualificationData, setQualificationData] = useState<any>(null);
+  const handleQualificationChange = (data: any) => setQualificationData(data);
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
@@ -133,16 +134,13 @@ export function RegisterForm({
         </button>
       </div>
 
-      {/* 企业诊断表单（仅企业注册显示） */}
-      {authForm.userType === "enterprise" && !enterpriseQualificationDone && (
-        <EnterpriseQualificationForm onSuccess={() => setEnterpriseQualificationDone(true)} />
+      {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
+      {authForm.userType === "enterprise" && (
+        <EnterpriseQualificationForm onFormChange={handleQualificationChange} />
       )}
 
-      {/* 手机号（必填）+ 短信验证码 */}
+      {/* 手机号 */}
       <div className="space-y-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-          {t("authPhoneRequired") || "手机号 *"}
-        </p>
         <Input
           type="tel"
           inputMode="tel"
@@ -183,20 +181,7 @@ export function RegisterForm({
         )}
       </div>
 
-      {/* 邮箱（选填，用于找回密码/接收通知） */}
-      <div className="space-y-1">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-          {t("authEmailOptional") || "邮箱（选填）"}
-        </p>
-        <Input
-          type="email"
-          inputMode="email"
-          value={authForm.email}
-          onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-          placeholder={t("authEmailOptionalPlaceholder") || "用于找回密码或接收通知"}
-          autoComplete="email"
-        />
-      </div>
+      {/* 邮箱已从注册流程移除，用户可在个人中心独立绑定 */}
       <Input
         type="password"
         value={authForm.password}
@@ -219,20 +204,13 @@ export function RegisterForm({
           {authError}
         </p>
       )}
-      {/* 企业用户需先完成诊断问卷才能注册 */}
-      {authForm.userType === "enterprise" && !enterpriseQualificationDone ? (
-        <div className="text-center text-xs text-slate-400 py-2">
-          {t("eqfCompleteFirst") || "请先完成上方诊断问卷"}
-        </div>
-      ) : (
-        <Button
-          type="submit"
-          variant="dark"
-          className="w-full py-3 rounded-xl text-sm font-black"
-        >
-          {t("authRegisterSubmit")}
-        </Button>
-      )}
+      <Button
+        type="submit"
+        variant="dark"
+        className="w-full py-3 rounded-xl text-sm font-black"
+      >
+        {t("authRegisterSubmit")}
+      </Button>
     </div>
   );
 }

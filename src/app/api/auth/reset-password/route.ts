@@ -1,5 +1,5 @@
 /**
- * POST /api/auth/reset-password — 找回密码：重置密码
+ * POST /api/auth/reset-password — 找回密码：重置密码（手机优先，邮箱备用）
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -7,12 +7,23 @@ import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair }
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
+const PHONE_RE = /^1[3-9]\d{9}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 智能识别：手机号 → sms，邮箱 → email，默认 sms */
+function detectChannel(identifier: string): "sms" | "email" {
+  if (PHONE_RE.test(identifier)) return "sms";
+  if (EMAIL_RE.test(identifier)) return "email";
+  return "sms";
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const identifier = String(body.identifier || body.email || "").trim().toLowerCase();
+  const identifier = String(body.identifier || "").trim();
   const verifyCode = String(body.code || "").trim();
   const newPassword = String(body.new_password || "");
-  const channel = body.channel || "email";
+  // 前端可显式指定 channel，未指定时自动识别
+  const channel: "sms" | "email" = body.channel || detectChannel(identifier);
 
   if (!identifier || !verifyCode || !newPassword) {
     return NextResponse.json({ code: 40002, message: "请填写完整信息" }, { status: 400 });

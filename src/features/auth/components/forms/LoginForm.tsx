@@ -29,12 +29,12 @@ export function LoginForm({
   return (
     <div className="space-y-3">
       <Input
-        type="text"
-        inputMode="text"
+        type="tel"
+        inputMode="tel"
         value={authForm.identifier}
-        onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value })}
-        placeholder={t("authEmailOrPhonePlaceholder")}
-        autoComplete="username"
+        onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value.replace(/\D/g, "").slice(0, 11) })}
+        placeholder={t("authPhoneLoginPlaceholder") || "请输入手机号"}
+        autoComplete="tel"
       />
       <Input
         type="password"

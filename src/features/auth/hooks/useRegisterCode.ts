@@ -24,32 +24,6 @@ export function useRegisterCode() {
     return () => clearTimeout(timer);
   }, [registerCodeCountdown]);
 
-  const handleSendRegisterCode = async (email: string): Promise<void> => {
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setRegisterCodeError(t("authForgotEmailInvalid"));
-      return;
-    }
-
-    setRegisterCodeLoading(true);
-    setRegisterCodeError("");
-    try {
-      const data = await api<{ email_sent?: boolean }>(
-        "/api/auth/send-register-code",
-        { method: "POST", body: { email } },
-      );
-      if (!data.email_sent) {
-        setRegisterCodeError(t("authForgotEmailSendFailed") || "邮件发送失败");
-      } else {
-        setRegisterCodeSent(true);
-        setRegisterCodeCountdown(60);
-      }
-    } catch (err: unknown) {
-      setRegisterCodeError((err as Error).message || "发送失败，请稍后重试");
-    } finally {
-      setRegisterCodeLoading(false);
-    }
-  };
-
   const handleSendSmsCode = async (phone: string): Promise<void> => {
     if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
       setRegisterCodeError(t("authPhoneInvalid") || "请输入有效的手机号");
@@ -93,7 +67,6 @@ export function useRegisterCode() {
     registerCodeError,
     setRegisterCodeError,
     registerCodeCountdown,
-    handleSendRegisterCode,
     handleSendSmsCode,
     reset,
   };

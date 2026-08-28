@@ -25,7 +25,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（仅返回登录/展示所需字段） */
   async findProfileByKey(userKey: string): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, phone, phone_verified, display_name, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT user_key, email, email_verified, phone, phone_verified, display_name, membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
     );
@@ -125,11 +125,36 @@ export class UsersRepo {
     );
   }
 
+  /** 绑定邮箱（同时标记已验证） */
+  async bindEmail(userKey: string, email: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email = ?, email_verified = 1, updated_at = NOW() WHERE user_key = ?",
+      [email.toLowerCase(), userKey],
+    );
+  }
+
+  /** 解绑邮箱 */
+  async unbindEmail(userKey: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email = NULL, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
+      [userKey],
+    );
+  }
+
   /** 按手机号查找用户（换绑冲突检测） */
   async findByPhone(phone: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
       "SELECT * FROM crm_users WHERE phone = ? LIMIT 1",
       [phone],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
+  /** 按邮箱查找用户（邮箱绑定冲突检测） */
+  async findByEmail(email: string): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_users WHERE email = ? LIMIT 1",
+      [email.toLowerCase()],
     );
     return (rows as UserRow[])[0] ?? null;
   }
@@ -147,12 +172,14 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
-  /** 按手机号或邮箱查找用户（登录鉴权专用，含 password_hash） */
+  /** 按手机号或邮箱查找用户（登录鉴权专用，含 password_hash）
+   *  登录已限制为仅手机号，此处保留邮箱查找以兼容历史数据 */
   async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
     const isPhone = /^1[3-9]\d{9}$/.test(identifier);
     if (isPhone) {
       return this.findAuthByKey(identifier);
     }
+    // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(
       `SELECT user_key, email, phone, phone_verified, display_name, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status

@@ -87,16 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   /**
-   * 登录（支持邮箱或手机号）
-   * Login (email or phone)
+   * 登录（仅手机号）
+   * Login (phone only)
    */
-  const login = useCallback(async (identifier: string, password: string) => {
+  const login = useCallback(async (phone: string, password: string) => {
     setIsAuthLoading(true);
     try {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
       const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: { identifier, password },
+        body: { identifier: phone, password },
       });
       // 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发）
       if (data.token) {
@@ -109,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   /**
-   * 注册（含供应商绑定申请）
-   * Register (with supplier claim application)
+   * 注册（手机号必填，邮箱选填仅用于通知）
+   * Register (phone required, email optional for notifications only)
    */
   const register = useCallback(async (email: string | null, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string, userType?: string, phone?: string) => {
     setIsAuthLoading(true);

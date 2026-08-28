@@ -1,5 +1,5 @@
 /**
- * POST /api/auth/forgot-password — 找回密码：发送验证码（邮箱/短信双渠道）
+ * POST /api/auth/forgot-password — 找回密码：发送验证码（手机优先，邮箱备用）
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,18 +9,30 @@ import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email"
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 import { maskPhone } from "@/lib/utils/mask";
 
+const PHONE_RE = /^1[3-9]\d{9}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 智能识别输入类型：手机号 → sms，邮箱 → email */
+function detectChannel(identifier: string): "sms" | "email" {
+  if (PHONE_RE.test(identifier)) return "sms";
+  if (EMAIL_RE.test(identifier)) return "email";
+  return "sms"; // 默认短信渠道
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const identifier = String(body.identifier || body.email || "").trim().toLowerCase();
-  const channel = body.channel || "email";
+  const identifier = String(body.identifier || "").trim();
+  // 前端可显式指定 channel，未指定时自动识别
+  const channel: "sms" | "email" = body.channel || detectChannel(identifier);
   const ctx = getContext();
 
-  // ── 短信渠道 ──
+  // ── 短信渠道（默认优先） ──
   if (channel === "sms") {
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
-      return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
+    // 邮箱格式误入短信渠道：引导使用邮箱验证
+    if (EMAIL_RE.test(identifier)) {
+      return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: "该格式为邮箱，请使用邮箱验证方式" });
     }
-    if (!/^1[3-9]\d{9}$/.test(identifier)) {
+    if (!PHONE_RE.test(identifier)) {
       return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
     }
     const user = await ctx.user.usersRepo.findByIdentifier(identifier);
@@ -48,8 +60,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, message: "验证码已发送到您的手机", sms_sent: smsSent, support_hint: smsSent ? null : "短信发送失败，请使用邮箱验证或联系客服" });
   }
 
-  // ── 邮箱渠道（默认） ──
-  if (!identifier || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+  // ── 邮箱渠道（备用） ──
+  if (!identifier || !EMAIL_RE.test(identifier)) {
     return NextResponse.json({ code: 40010, message: "请输入有效的邮箱地址" }, { status: 400 });
   }
   if (!isEmailConfigured()) {
