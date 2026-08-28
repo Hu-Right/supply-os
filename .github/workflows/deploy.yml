@@ -1,4 +1,4 @@
-# 部署工作流：PR 合并到 main 后自动部署（禁止直接 push 触发）
+# 部署工作流：push 到 main 或 PR 合并到 main 后自动部署
 # 依赖的 GitHub Secrets（Settings → Secrets and variables → Actions）：
 #   SSH_HOST          服务器公网 IP，如 117.72.108.14
 #   SSH_USER          登录用户，通常 root
@@ -7,7 +7,10 @@
 name: Deploy to Server
 
 on:
-  # 仅当 PR 合并到 main 时触发（普通 push 不会触发部署）
+  # 推送到 main 分支时自动触发部署
+  push:
+    branches: [main]
+  # PR 合并到 main 时也触发
   pull_request:
     types: [closed]
     branches: [main]
@@ -23,9 +26,10 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    # 仅当 PR 被合并（非关闭）时执行，或手动确认
+    # push 到 main、PR 合并、或手动确认时执行
     if: >
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      github.event_name == 'push'
+      || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
       || (github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'DEPLOY')
     steps:
       - name: SSH 到服务器执行部署脚本
