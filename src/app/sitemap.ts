@@ -37,6 +37,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/procurement/qualification`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 
+  // ── 构建阶段跳过动态查询（CI 环境无数据库访问）──
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return staticPages;
+  }
+
   // ── 动态公告段（独立容错：失败仅降级本段并报警）──
   let noticePages: MetadataRoute.Sitemap = [];
   try {
