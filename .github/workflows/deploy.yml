@@ -80,6 +80,15 @@ jobs:
               exit 1
             fi
 
+            # 3.5.1 修正错误的数据库地址（本地局域网地址不应出现在生产服务器）
+            ENV_FILE=".next/standalone/.env"
+            if grep -q 'DB_HOST="192.168.1.2"' "$ENV_FILE" 2>/dev/null; then
+              echo "[deploy] ⚠ 检测到本地数据库地址 192.168.1.2，修正为 127.0.0.1"
+              sed -i 's/DB_HOST="192.168.1.2"/DB_HOST="127.0.0.1"/g' "$ENV_FILE"
+              # 同步修正项目根目录 .env，防止下次构建再次带入
+              sed -i 's/DB_HOST="192.168.1.2"/DB_HOST="127.0.0.1"/g' .env 2>/dev/null || true
+            fi
+
             # 3.6 数据库预检（使用 standalone 目录的 .env）
             echo "[deploy] 检查 MySQL 服务..."
             ENV_FILE=".next/standalone/.env"
