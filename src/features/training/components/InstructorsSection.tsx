@@ -4,8 +4,8 @@
  *
  * @module features/training/components/InstructorsSection
  * @description 浅蓝底（#EBF2FA，顶部点阵世界地图水印）+
- *              4 张核心讲师大卡（teal 徽章 pill + 蓝底圆环头像 + 姓名/头衔/简介）+
- *              浅色面板（三角色列带竖分隔线 + 11 人团队头像网格）+
+ *              4 张核心讲师大卡（teal 徽章 pill + 竖椭圆头像 + 姓名/头衔/简介）+
+ *              浅色面板（三角色列带竖分隔线 + 团队竖椭圆头像网格）+
  *              深藏青价值横幅（Trophy + 4 价值图标竖分隔）。
  *              色值均采样自设计图。头像为空时渲染默认剪影占位。
  */
@@ -20,7 +20,7 @@ export interface InstructorsSectionProps {
   team: LandingTeamMember[];
 }
 
-/** 竖版矩形头像（空路径 → 藏青剪影占位） */
+/** 竖椭圆头像（空路径 → 藏青剪影占位） */
 function Avatar({ src, alt, className }: { src: string; alt: string; className: string }) {
   if (!src) {
     return (
@@ -30,7 +30,7 @@ function Avatar({ src, alt, className }: { src: string; alt: string; className: 
     );
   }
   return (
-    <span className={`${className} relative block`}>
+    <span className={`${className} relative block overflow-hidden`}>
       <Image
         src={src}
         alt={alt}
@@ -83,13 +83,11 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
             {featured.map((ins) => (
               <div key={ins.id} className="rounded-xl bg-white p-6 pt-7 text-center shadow-[0_2px_12px_rgba(10,42,85,0.06)]">
                 <div className="mt-6 flex justify-center">
-                  <span className="inline-block rounded-[50%]">
-                    <Avatar
-                      src={ins.avatar_path}
-                      alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
-                      className="w-40 h-52 rounded-[50%]"
-                    />
-                  </span>
+                  <Avatar
+                    src={ins.avatar_path}
+                    alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
+                    className="w-40 h-52 rounded-[50%]"
+                  />
                 </div>
                 <h3 className="mt-6 text-2xl font-black text-[#0A245E]">
                   {pickLocale(locale, ins.name_zh, ins.name_en)}
@@ -118,22 +116,18 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
             <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
               {team.map((m) => (
                 <div key={m.id} className="flex flex-col items-center">
-                  <span className="mt-2 inline-block rounded-[50%]">
-                    <Avatar
-                      src={m.avatar_path}
-                      alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                      className="w-[100px] h-[126px] rounded-[50%]"
-                    />
-                  </span>
-                  <span className="text-[11px] font-bold text-[#0A245E] text-center mt-5">
+                  <Avatar
+                    src={m.avatar_path}
+                    alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
+                    className="w-[110px] h-[138px] rounded-[50%]"
+                  />
+                  <span className="text-[12px] font-bold text-[#0A245E] text-center mt-5">
                     {pickLocale(locale, m.name_zh, m.name_en)}
                   </span>
                 </div>
               ))}
             </div>
           )}
-
-
 
           <div className="grid md:grid-cols-3 gap-8 md:gap-0 md:divide-x md:divide-[#DCE6F2] mt-10">
             {ROLE_COLS.map(({ icon: Icon, titleKey, descKey }) => (
