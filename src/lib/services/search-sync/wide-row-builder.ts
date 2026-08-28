@@ -50,10 +50,14 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   const result = new Map<number, Record<string, { title: string; description: string }>>();
   
   const placeholders = noticeIds.map(() => "?").join(",");
+  // LEFT JOIN 原始公告表：当 model = 'skip-same-lang' 时，原文即目标语言，
+  // 用原始标题/内容填充宽表对应语言字段，避免 title_en 等字段留空。
   const [rows] = await pool.query(
-    `SELECT notice_id, lang, title_tr, description_tr
-     FROM crm_notice_translations
-     WHERE notice_id IN (${placeholders})`,
+    `SELECT t.notice_id, t.lang, t.title_tr, t.description_tr, t.model,
+            n.title AS orig_title, LEFT(n.description, 2000) AS orig_desc
+     FROM crm_notice_translations t
+     LEFT JOIN crm_bid_notices n ON n.id = t.notice_id
+     WHERE t.notice_id IN (${placeholders})`,
     noticeIds,
   );
   
@@ -61,9 +65,14 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
     const nid = Number(row.notice_id);
     if (!result.has(nid)) result.set(nid, {});
     const entry = result.get(nid)!;
+    const isSkipSameLang = String(row.model || "") === "skip-same-lang";
     entry[String(row.lang)] = {
-      title: String(row.title_tr || ""),
-      description: String(row.description_tr || ""),
+      title: isSkipSameLang
+        ? String(row.orig_title || row.title_tr || "")
+        : String(row.title_tr || ""),
+      description: isSkipSameLang
+        ? String(row.orig_desc || row.description_tr || "")
+        : String(row.description_tr || ""),
     };
   }
   return result;
