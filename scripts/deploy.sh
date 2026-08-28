@@ -32,49 +32,21 @@ fi
 echo "[deploy] 构建..."
 npm run build
 
-# 3.5 复制 .env 到 standalone 目录（优先使用服务器现有配置，避免覆盖生产环境数据库凭据）
-if [ -f .next/standalone/.env ]; then
-  echo "[deploy] ✓ 保留服务器现有 .next/standalone/.env（避免覆盖生产配置）"
-elif [ -f .env ]; then
+# 3.5 复制 .env 到 standalone 目录（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+#    同时修正数据库地址：本地开发用 192.168.1.2（办公室内网），生产服务器用 117.72.108.14
+if [ -f .env ]; then
   cp .env .next/standalone/.env
-  echo "[deploy] 已复制 .env → .next/standalone/.env"
-else
-  echo "[deploy] ✗ 未找到任何 .env 文件，应用无法连接数据库"
-  exit 1
-fi
-
-# 3.6 数据库预检（使用 standalone 目录的 .env）
-echo "[deploy] 检查 MySQL 服务..."
-ENV_FILE=".next/standalone/.env"
-DB_USER=$(grep '^DB_USER=' "$ENV_FILE" | cut -d'"' -f2)
-DB_PASS=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d'"' -f2)
-DB_HOST=$(grep '^DB_HOST=' "$ENV_FILE" | cut -d'"' -f2)
-
-if [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
-  echo "[deploy] ✗ .env 中缺少 DB_USER 或 DB_PASSWORD"
-  exit 1
-fi
-
-if command -v mysqladmin >/dev/null 2>&1; then
-  if mysqladmin -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" ping >/dev/null 2>&1; then
-    echo "[deploy] ✓ MySQL 连接正常 ($DB_HOST)"
-  else
-    echo "[deploy] ✗ MySQL 连接失败 (host=$DB_HOST, user=$DB_USER)"
-    echo "[deploy]   请检查：1) 数据库服务是否运行  2) 凭据是否正确  3) 网络是否可达"
-    exit 1
-  fi
-else
-  echo "[deploy] ⚠ 跳过 MySQL 预检（mysqladmin 未安装）"
+  sed -i 's/DB_HOST="192.168.1.2"/DB_HOST="117.72.108.14"/g' .next/standalone/.env
+  echo "[deploy] 已复制 .env → .next/standalone/.env（DB_HOST 已修正）"
 fi
 
 # 4. 重启应用（pm2 托管，保持常驻）
 #    Next.js standalone 模式入口为 .next/standalone/server.js
-#    注意：必须先 delete + kill 再 start，pm2 reload 会保留旧的入口文件配置（如 dist/server.mjs）
+#    注意：必须 delete + kill 再 start，pm2 reload 会保留旧的入口文件配置（如 dist/server.mjs）
 echo "[deploy] 重启应用..."
 if command -v pm2 >/dev/null 2>&1; then
   pm2 delete "${APP_NAME}" 2>/dev/null || true
   pm2 kill 2>/dev/null || true
-  sleep 2  # 等待 pm2 完全停止
   NODE_ENV=production PORT=3039 pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
 else
