@@ -66,5 +66,7 @@
   "galleryNext": "Siguiente",
   "navPageNav": "Navegación de página",
   "uploadDropZoneLabel": "Área de carga de archivos",
-  "uiLoadingDots": "Cargando..."
+  "uiLoadingDots": "Cargando...",
+  "uiPaginationGo": "Ir",
+  "uiPaginationJumpTo": "Ir a la página"
 }

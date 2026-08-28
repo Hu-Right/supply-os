@@ -66,5 +66,7 @@
   "galleryNext": "Next",
   "navPageNav": "Page navigation",
   "uploadDropZoneLabel": "File upload area",
-  "uiLoadingDots": "Loading..."
+  "uiLoadingDots": "Loading...",
+  "uiPaginationGo": "Go",
+  "uiPaginationJumpTo": "Go to page"
 }

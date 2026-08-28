@@ -3,10 +3,10 @@
  * Notice List
  *
  * @module features/procurement/components/NoticeList
- * @description 列表 + NoticeCard 循环 + Pagination + 空态。
+ * @description 单列垂直列表 + NoticeCard 行循环 + Pagination + 空态。
  *              全部 props 来自 hook 返回值，自身无内部状态。
- *              Notice card grid + Pagination + empty state; all props come
- *              from hooks, stateless.
+ *              Vertical list + NoticeCard row loop + Pagination + empty state;
+ *              all props come from hooks, stateless.
  */
 import { memo } from "react";
 import { useLocale } from "@/core/i18n";
@@ -28,7 +28,6 @@ export interface NoticeListProps {
 }
 
 // P0 性能优化：React.memo 避免翻页/筛选时列表组件不必要重渲染
-// 回滚：删除 memo() 包裹，恢复为 export function NoticeList(...)
 export const NoticeList = memo(function NoticeList({
   items,
   loading,
@@ -45,7 +44,7 @@ export const NoticeList = memo(function NoticeList({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-3">
         {items.map((item) => (
           <NoticeCard
             key={item.id}

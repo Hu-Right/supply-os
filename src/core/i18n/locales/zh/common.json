@@ -66,5 +66,7 @@
   "galleryNext": "下一张",
   "navPageNav": "页面导航",
   "uploadDropZoneLabel": "文件上传区域",
-  "uiLoadingDots": "加载中..."
+  "uiLoadingDots": "加载中...",
+  "uiPaginationGo": "前往",
+  "uiPaginationJumpTo": "跳转至页"
 }

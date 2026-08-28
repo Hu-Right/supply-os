@@ -66,5 +66,7 @@
   "galleryNext": "التالية",
   "navPageNav": "التنقل في الصفحة",
   "uploadDropZoneLabel": "منطقة تحميل الملفات",
-  "uiLoadingDots": "جارٍ التحميل..."
+  "uiLoadingDots": "جارٍ التحميل...",
+  "uiPaginationGo": "انتقال",
+  "uiPaginationJumpTo": "الانتقال إلى الصفحة"
 }

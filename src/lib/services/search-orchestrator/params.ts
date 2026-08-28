@@ -53,7 +53,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     mode,
     userKey: String(raw.userKey || ""),
     page: Math.min(Math.max(Math.floor(raw.page || 1), 1), 1000),
-    pageSize: Math.min(Math.max(Math.floor(raw.pageSize || 9), 6), 30),
+    pageSize: Math.min(Math.max(Math.floor(raw.pageSize || 10), 6), 30),
     locale: String(raw.locale || ""),
     q: String(raw.q || "").slice(0, 200).trim(),
     country: String(raw.country || "").slice(0, 100),

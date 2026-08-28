@@ -17,7 +17,7 @@ import type { UnspscOption, NoticeItem, PrefsMode } from "../types";
 import { fetchIndustryPrefs } from "@/core/api/industry-prefs";
 import { fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
 import { fetchUnifiedSearch } from "../api";
-import { PAGE_SIZE } from "../constants";
+import { NOTICE_PAGE_SIZE } from "../constants";
 
 // P1 性能优化：UNSPSC 一级类目 sessionStorage 缓存（10 分钟 TTL，按 locale 分键）
 // 与国家/机构下拉缓存策略一致，避免每次进入采购页重复请求
@@ -190,7 +190,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setHasIndustryPrefs(false);
         // S1 无偏好：探测行为兴趣推荐，有结果则切推荐数据源
         try {
-          const probe = await fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: PAGE_SIZE });
+          const probe = await fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: NOTICE_PAGE_SIZE });
           if (stale()) return;
           if (Number(probe.total || 0) > 0) {
             setPrefsMode("recommended");
@@ -269,7 +269,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
 
     if (prefsMode === "prefs" && userKey) {
       // 取消行业匹配：尝试降级到推荐
-      fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: PAGE_SIZE })
+      fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: NOTICE_PAGE_SIZE })
         .then((probe) => {
           // 序号过期说明用户已做后续操作，跳过模式覆盖
           if (exitSeqRef.current !== mySeq) return;

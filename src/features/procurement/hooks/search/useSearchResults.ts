@@ -8,7 +8,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeItem, PrefsMode } from "../../types";
 import { fetchUnifiedSearch } from "../../api";
-import { PAGE_SIZE } from "../../constants";
+import { NOTICE_PAGE_SIZE } from "../../constants";
 import type { SearchQuery } from "./useSearchQuery";
 
 export interface SearchResultsOptions {
@@ -36,7 +36,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [serverPageSize, setServerPageSize] = useState(PAGE_SIZE);
+  const [serverPageSize, setServerPageSize] = useState(NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -107,7 +107,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       const request = fetchUnifiedSearch({
         mode: unifiedMode,
         page,
-        pageSize: PAGE_SIZE,
+        pageSize: NOTICE_PAGE_SIZE,
         codeId: deepestCodeId || undefined,
         q: query.activeQ || undefined,
         country: query.activeCountry || undefined,
@@ -125,7 +125,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         .then((json) => {
           if (requestSeq !== noticesRequestSeq.current) return;
           if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
-          const nextPageSize = Number(json.pageSize || json.page_size || PAGE_SIZE);
+          const nextPageSize = Number(json.pageSize || json.page_size || NOTICE_PAGE_SIZE);
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));
@@ -164,7 +164,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     fetchUnifiedSearch({
       mode: prefetchMode,
       page: nextPage,
-      pageSize: PAGE_SIZE,
+      pageSize: NOTICE_PAGE_SIZE,
       codeId: deepestCodeId || undefined,
       q: query.activeQ || undefined,
       country: query.activeCountry || undefined,

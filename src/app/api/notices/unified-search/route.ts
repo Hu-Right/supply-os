@@ -16,7 +16,7 @@ function parseSearchParams(req: NextRequest) {
     mode: get("mode", "default"),
     userKey: "",
     page: getInt("page", 1),
-    page_size: getInt("page_size", 9),
+    page_size: getInt("page_size", 10),
     locale: get("locale"),
     q: get("q"),
     country: get("country"),

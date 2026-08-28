@@ -66,5 +66,7 @@
   "galleryNext": "Следующая",
   "navPageNav": "Навигация по странице",
   "uploadDropZoneLabel": "Область загрузки файлов",
-  "uiLoadingDots": "Загрузка..."
+  "uiLoadingDots": "Загрузка...",
+  "uiPaginationGo": "Перейти",
+  "uiPaginationJumpTo": "Перейти на страницу"
 }

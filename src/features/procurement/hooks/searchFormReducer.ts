@@ -6,6 +6,7 @@
  */
 
 // N7 收敛（2026-08-20）：PAGE_SIZE 定义已迁至 ../constants.ts，此处 re-export 保持向后兼容
+// 2026-08-28：公采公告使用 NOTICE_PAGE_SIZE = 10，PAGE_SIZE 保留为共享常量（9）
 export { PAGE_SIZE } from "../constants";
 
 // PERF 优化：关键词最大长度——与服务端 parseOptionalString(q, 200) 对齐，

@@ -16,7 +16,7 @@ import { Button, LoadingOverlay } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
-import { PAGE_SIZE } from "../constants";
+import { NOTICE_PAGE_SIZE } from "../constants";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
@@ -289,9 +289,9 @@ export default function ProcurementPage() {
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
-        {/* 首次加载显示骨架屏（数量对齐 PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
+        {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
         {search.result.loading && search.result.items.length === 0
-          ? <NoticeListSkeleton count={PAGE_SIZE} />
+          ? <NoticeListSkeleton count={NOTICE_PAGE_SIZE} />
           : <NoticeList
               items={search.result.items}
               loading={search.result.loading}
