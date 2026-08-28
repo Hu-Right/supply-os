@@ -69,17 +69,37 @@ jobs:
             echo "[deploy] 构建..."
             npm run build
 
-            # 3.5 复制 .env 到 standalone 目录（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+            # 3.5 复制 .env 到 standalone 目录
             if [ -f .env ]; then
               cp .env .next/standalone/.env
               echo "[deploy] 已复制 .env → .next/standalone/.env"
+              # 验证关键变量
+              if grep -q 'DB_PASSWORD' .next/standalone/.env; then
+                echo "[deploy] .env 包含 DB_PASSWORD 配置"
+              else
+                echo "[deploy]  警告: .env 中未找到 DB_PASSWORD"
+              fi
             else
-              echo "[deploy]  未找到 .env 文件，应用可能无法连接数据库"
+              echo "[deploy]  未找到 .env 文件，应用无法连接数据库"
+              exit 1
+            fi
+
+            # 3.6 数据库预检
+            echo "[deploy] 检查 MySQL 服务..."
+            if command -v mysqladmin >/dev/null 2>&1; then
+              DB_USER=$(grep '^DB_USER=' .env | cut -d'"' -f2)
+              DB_PASS=$(grep '^DB_PASSWORD=' .env | cut -d'"' -f2)
+              if mysqladmin -u"${DB_USER}" -p"${DB_PASS}" ping >/dev/null 2>&1; then
+                echo "[deploy]  MySQL 连接正常"
+              else
+                echo "[deploy]  MySQL 连接失败，请检查数据库服务是否运行及凭据是否正确"
+                exit 1
+              fi
+            else
+              echo "[deploy]  跳过 MySQL 预检（mysqladmin 未安装）"
             fi
 
             # 4. 彻底重启应用
-            #    先 kill 旧进程，再删除 pm2 记录，最后用新入口启动
-            #    避免 pm2 reload 保留旧入口文件配置（如 dist/server.mjs）
             echo "[deploy] 重启应用..."
             pm2 delete "${APP_NAME}" 2>/dev/null || true
             pm2 kill 2>/dev/null || true
