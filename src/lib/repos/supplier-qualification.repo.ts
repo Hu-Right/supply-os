@@ -6,7 +6,7 @@
  * @description 初筛表单落库的 SQL 唯一出口（自 routes/supplier-qualification 上移，
  *              协议层不再直接持有 dbPool.execute，与其余域 Repo 模式对齐）。
  */
-import type { Pool, ResultSetHeader } from "mysql2/promise";
+import type { Pool, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 /** 初筛表单提交数据（路由层已完成必填校验与归一化） */
 export interface SupplierQualificationInput {
@@ -30,8 +30,42 @@ export interface SupplierQualificationInput {
   ip: string;
 }
 
+/** DB 行记录（供评分报告生成使用） */
+export interface SupplierQualificationRecord extends RowDataPacket {
+  id: number;
+  company_name: string;
+  company_website: string;
+  founding_year: string | null;
+  employee_count: string | null;
+  industry: string;
+  other_industry: string | null;
+  main_product: string;
+  export_scale: string;
+  certifications: string;
+  other_certifications: string | null;
+  service_countries: string;
+  overseas_companies: string;
+  ungm_status: string;
+  english_team: string;
+  payment_terms: string;
+  bid_willingness: string;
+  contact_info: string | null;
+  audit_status: string;
+  ip: string;
+  created_at: Date;
+}
+
 export class SupplierQualificationRepo {
   constructor(private readonly pool: Pool) {}
+
+  /** 按 ID 查询单条记录 */
+  async findById(id: number): Promise<SupplierQualificationRecord | null> {
+    const [rows] = await this.pool.execute<SupplierQualificationRecord[]>(
+      `SELECT * FROM crm_supplier_qualification WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  }
 
   /** 插入初筛申请，返回自增 id */
   async insertQualification(data: SupplierQualificationInput): Promise<number> {
