@@ -32,6 +32,14 @@ fi
 echo "[deploy] 构建..."
 npm run build
 
+# 3.5 复制 .env 到 standalone 目录（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+if [ -f .env ]; then
+  cp .env .next/standalone/.env
+  echo "[deploy] 已复制 .env → .next/standalone/.env"
+else
+  echo "[deploy]  未找到 .env 文件，应用可能无法连接数据库"
+fi
+
 # 4. 重启应用（pm2 托管，保持常驻）
 #    Next.js standalone 模式入口为 .next/standalone/server.js
 #    注意：必须先 delete 再 start，pm2 reload 会保留旧的入口文件配置（如 dist/server.mjs）
