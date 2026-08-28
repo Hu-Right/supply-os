@@ -24,6 +24,7 @@ export interface RegisterFormProps {
   authError: string;
   registerCode: ReturnType<typeof useRegisterCode>;
   cascade: UseUnspscPrefCascadeReturn;
+  onQualificationChange?: (data: Record<string, string | string[]>) => void;
 }
 
 export function RegisterForm({
@@ -34,10 +35,9 @@ export function RegisterForm({
   authError,
   registerCode,
   cascade,
+  onQualificationChange,
 }: RegisterFormProps) {
   const { t } = useLocale();
-  const [qualificationData, setQualificationData] = useState<any>(null);
-  const handleQualificationChange = (data: any) => setQualificationData(data);
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
@@ -136,7 +136,7 @@ export function RegisterForm({
 
       {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
       {authForm.userType === "enterprise" && (
-        <EnterpriseQualificationForm onFormChange={handleQualificationChange} />
+        <EnterpriseQualificationForm onFormChange={(data) => onQualificationChange?.(data as unknown as Record<string, string | string[]>)} />
       )}
 
       {/* 手机号 */}

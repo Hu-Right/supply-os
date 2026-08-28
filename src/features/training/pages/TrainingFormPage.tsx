@@ -87,8 +87,22 @@ export default function TrainingFormPage() {
           <div className="w-20 h-20 mx-auto rounded-full bg-[#0AA09B]/10 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-12 h-12 text-[#0AA09B]" />
           </div>
-          <h1 className="text-xl font-black text-[#0A2A55] mb-3">{t("trainingSubmittedTitle")}</h1>
-          <p className="text-sm text-slate-500 leading-relaxed mb-8">{t("trainingSubmittedDesc")}</p>
+          <h1 className="text-xl font-black text-[#0A2A55] mb-3">
+            {pickLocale(locale, "诊断问卷已提交", "Diagnosis Submitted")}
+          </h1>
+          <p className="text-sm text-slate-500 leading-relaxed mb-6">
+            {pickLocale(locale, "添加客服微信，发送「诊断报告+企业名称」即可获取专属诊断报告", "Add our customer service on WeChat and send 'Diagnosis Report' to get your exclusive report")}
+          </p>
+          <div className="flex justify-center mb-6">
+            <img
+              src="/wechat-service-qr.png"
+              alt="WeChat QR"
+              className="w-44 h-44 rounded-xl border-2 border-white shadow-md"
+            />
+          </div>
+          <p className="text-xs text-slate-400 mb-8">
+            {pickLocale(locale, "微信扫码添加客服", "Scan QR code to add customer service on WeChat")}
+          </p>
           <button
             type="button"
             onClick={() => { setSubmitted(false); setForm(INITIAL_FORM); }}
@@ -98,7 +112,7 @@ export default function TrainingFormPage() {
             onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
           >
             <Send className="w-4 h-4" />
-            {t("trainingFormSubmitAgain")}
+            {pickLocale(locale, "重新填写", "Fill Again")}
           </button>
         </div>
       </div>
@@ -129,8 +143,8 @@ export default function TrainingFormPage() {
           <p className="text-sm text-slate-600 leading-relaxed">
             {pickLocale(
               locale,
-              "填写以下信息完成企业全球采购机会诊断，我们将根据您的企业情况评估全球采购入驻资格。带 * 为必填项。",
-              "Fill in the information below to complete the global procurement opportunity diagnosis. We will assess your global procurement eligibility based on your company profile. Fields marked * are required.",
+              "填写以下信息完成企业全球采购机会诊断，我们将根据您的企业情况评估全球采购入驻资格。",
+              "Fill in the information below to complete the global procurement opportunity diagnosis. We will assess your global procurement eligibility based on your company profile.",
             )}
           </p>
         </div>

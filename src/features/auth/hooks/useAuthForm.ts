@@ -58,6 +58,7 @@ export function useAuthForm(onSuccess: () => void) {
     prefLevel1: string | null,
     prefLevel2: string | null,
     prefLevel3: string | null,
+    qualificationData?: Record<string, string | string[]> | null,
   ): Promise<void> => {
     setAuthError("");
 
@@ -119,13 +120,13 @@ export function useAuthForm(onSuccess: () => void) {
 
     try {
       if (authMode === "login") {
-        // 登录仅支持手机号
-        const loginPhone = authForm.identifier.trim();
-        if (!loginPhone || !/^1[3-9]\d{9}$/.test(loginPhone)) {
+        // 登录支持手机号或邮箱
+        const loginIdentifier = authForm.identifier.trim();
+        if (!loginIdentifier) {
           setAuthError(t("authErrPhoneInvalid"));
           return;
         }
-        await login(loginPhone, password);
+        await login(loginIdentifier, password);
         setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
       } else {
         // 注册：手机号必填，邮箱选填
@@ -148,6 +149,28 @@ export function useAuthForm(onSuccess: () => void) {
             level4_id: null,
             level5_id: null,
           });
+        }
+        // 企业注册时静默提交诊断表单数据到培训报名表
+        if (authForm.userType === "enterprise" && qualificationData && Object.keys(qualificationData).length > 0) {
+          try {
+            const { api: apiFetch } = await import("@/core/http");
+            await apiFetch("/api/training/register", {
+              method: "POST",
+              body: {
+                company_name: (qualificationData.company_name as string) || "",
+                industry_id: (qualificationData.industry as string[])?.[0] || null,
+                main_product: (qualificationData.main_product as string) || "",
+                export_experience: (qualificationData.export_scale as string) || "",
+                certification: (qualificationData.certifications as string[])?.join("\n") || "",
+                contact_name: authForm.displayName || "",
+                telephone: phone,
+                email: "",
+                remark: `企业注册诊断问卷 - 用户: ${phone}`,
+              },
+            });
+          } catch {
+            // 静默失败，不影响注册流程
+          }
         }
         onSuccess();
       }

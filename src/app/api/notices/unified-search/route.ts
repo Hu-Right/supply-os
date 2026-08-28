@@ -37,5 +37,5 @@ export async function GET(req: NextRequest) {
   params.userKey = auth.userKey;
   const pool = getPool();
   const result = await searchUnified(pool, params);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, page_size: result.pageSize });
 }

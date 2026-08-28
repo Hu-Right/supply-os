@@ -23,6 +23,7 @@ export interface LoginRegisterFormProps {
 export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const { t } = useLocale();
   const [forgotView, setForgotView] = useState(false);
+  const [qualificationData, setQualificationData] = useState<Record<string, string | string[]> | null>(null);
 
   const auth = useAuthForm(onSuccess);
   const forgot = useForgotPassword(onSuccess);
@@ -51,6 +52,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
         cascade.prefLevel1 || null,
         cascade.prefLevel2 || null,
         cascade.prefLevel3 || null,
+        qualificationData,
       );
     }
   };
@@ -117,6 +119,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           authError={auth.authError}
           registerCode={registerCode}
           cascade={cascade}
+          onQualificationChange={setQualificationData}
         />
       )}
     </form>

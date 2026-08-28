@@ -106,7 +106,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")}</span>
           <Input
             name="company_name"
             value={value.company_name}
@@ -195,7 +195,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span>
           <Input
             name="contact_name"
             value={value.contact_name}
@@ -215,12 +215,12 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")}</span>
           <Input
             name="telephone"
             value={value.telephone}
             onChange={(e) => handleChange("telephone", e.target.value)}
-            placeholder={pickLocale(locale, "手机号码", "Phone number")}
+            placeholder={pickLocale(locale, "请输入手机号", "Enter phone number")}
           />
         </label>
 

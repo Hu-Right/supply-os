@@ -1,21 +1,18 @@
 /**
- * POST /api/auth/login — 登录（仅手机号 + 密码）
+ * POST /api/auth/login — 登录（手机号/邮箱 + 密码）
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/lib/services/auth";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
-const PHONE_RE = /^1[3-9]\d{9}$/;
-
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const identifier = String(body.identifier || "").trim();
   const password = String(body.password || "");
 
-  // 仅接受手机号登录
-  if (!PHONE_RE.test(identifier)) {
-    return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
+  if (!identifier) {
+    return NextResponse.json({ code: 40011, message: "请输入手机号或邮箱" }, { status: 400 });
   }
 
   const ctx = getContext();
