@@ -75,7 +75,7 @@ jobs:
             echo "[deploy] 重启应用..."
             pm2 delete "${APP_NAME}" 2>/dev/null || true
             pm2 kill 2>/dev/null || true
-            NODE_ENV=production pm2 start "${APP_DIR}/.next/standalone/server.js" --name "${APP_NAME}"
+            NODE_ENV=production PORT=3039 pm2 start "${APP_DIR}/.next/standalone/server.js" --name "${APP_NAME}"
             pm2 save
 
             echo "[deploy] $(date '+%F %T') 部署完成"

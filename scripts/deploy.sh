@@ -38,7 +38,7 @@ npm run build
 echo "[deploy] 重启应用..."
 if command -v pm2 >/dev/null 2>&1; then
   pm2 delete "${APP_NAME}" 2>/dev/null || true
-  NODE_ENV=production pm2 start .next/standalone/server.js --name "${APP_NAME}"
+  NODE_ENV=production PORT=3039 pm2 start .next/standalone/server.js --name "${APP_NAME}"
   pm2 save
 else
   echo "[deploy] ⚠ 未安装 pm2，请先执行："
