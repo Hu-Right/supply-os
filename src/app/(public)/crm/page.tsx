@@ -1,5 +1,5 @@
 /**
- * /crm — protected page
+ * /crm — public page (open to all users)
  */
 import type { Metadata } from "next";
 import PageClient from "./page-client";

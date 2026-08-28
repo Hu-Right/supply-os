@@ -12,11 +12,11 @@ import { useLocale } from "@/core/i18n";
 
 /** 网络状态 Hook：返回当前是否在线 */
 export function useNetworkStatus() {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
+    // 客户端挂载后同步真实网络状态，避免 SSR/客户端水合不匹配
+    setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
