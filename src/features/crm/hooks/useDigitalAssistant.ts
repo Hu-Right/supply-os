@@ -7,7 +7,7 @@
  *              Manages digital assistant conversation state, message send/receive, mode switching
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
@@ -115,9 +115,13 @@ export function useDigitalAssistant(
   const [isThinking, setIsThinking] = useState(false);
   const [agentName, setAgentName] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<number | null>(null);
+  // 同步 ref
+  useEffect(() => { chatSessionIdRef.current = chatSessionId; }, [chatSessionId]);
 
   // 防止并发发送
   const sendingRef = useRef(false);
+  // 实时读取 chatSessionId（避免 useCallback 闭包过期）
+  const chatSessionIdRef = useRef<number | null>(null);
 
   /** 追加一条消息 */
   const appendMessage = useCallback(
@@ -152,7 +156,8 @@ export function useDigitalAssistant(
 
   /**
    * 发送用户消息
-   * 当前阶段：AI 模拟回复（后续接入后端 API）
+   * 人工模式（有 chatSessionId）：调用后端 API 发送，agent 回复通过 SSE 接收
+   * AI 模式（无 chatSessionId）：前端模拟回复
    */
   const sendMessage = useCallback(
     async (content: string) => {
@@ -162,15 +167,34 @@ export function useDigitalAssistant(
       // 确保有欢迎消息
       ensureWelcome();
 
-      // 追加用户消息
+      // 追加用户消息到对话流
       appendMessage("user", content);
 
-      // 模拟 AI 思考延迟
+      // ── 人工模式：发送到后端 API ──
+      if (chatSessionIdRef.current) {
+        try {
+          await api("/api/crm/chat/messages", {
+            method: "POST",
+            body: {
+              sessionId: chatSessionIdRef.current,
+              role: "customer",
+              content,
+            },
+          });
+          // agent 回复会通过 SSE 推送，由 addRemoteMessage 追加
+        } catch {
+          appendMessage("assistant", t("crmAssistantApiFallback"));
+        } finally {
+          sendingRef.current = false;
+        }
+        return;
+      }
+
+      // ── AI 模式：前端模拟回复 ──
       setIsThinking(true);
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
       setIsThinking(false);
 
-      // ── 临时：基于关键词的简单回复（后续替换为后端 API） ──
       const lowerContent = content.toLowerCase();
       let reply: string;
 

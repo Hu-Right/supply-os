@@ -21,6 +21,13 @@ const POLL_INTERVAL = 2000;
 const MAX_IDLE = 5 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
+  // SSE 的 EventSource 不支持自定义 Header，Token 通过 query 参数传递。
+  // 将 query token 注入 Authorization Header，使 requireUserKey 能正常解析。
+  const queryToken = req.nextUrl.searchParams.get("token");
+  if (queryToken && !req.headers.get("authorization")) {
+    req.headers.set("authorization", `Bearer ${queryToken}`);
+  }
+
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
