@@ -30,7 +30,7 @@ export interface SupplierQualificationForm {
 }
 
 export const submitSupplierQualification = (data: SupplierQualificationForm) =>
-  api<{ success: boolean }>("/api/supplier-qualification", {
+  api<{ success: boolean; id: number; message: string }>("/api/supplier-qualification", {
     method: "POST",
     body: data as unknown as BodyInit,
   });

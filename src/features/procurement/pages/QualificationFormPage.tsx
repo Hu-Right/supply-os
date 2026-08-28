@@ -10,13 +10,14 @@
  */
 
 import { useState } from "react";
-import { CheckCircle2, Send, ArrowLeft, Building2 } from "lucide-react";
+import { CheckCircle2, Send, ArrowLeft, Building2, Download, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Input } from "@/shared/ui";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
 import { submitSupplierQualification } from "../api/qualification";
 import { ApiError } from "@/core/http";
+import { scoreQualification, type ScoringResult } from "../utils/scoringEngine";
 
 // ── 选项常量 ──
 
@@ -229,6 +230,8 @@ export default function QualificationFormPage() {
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [qualificationId, setQualificationId] = useState<number | null>(null);
+  const [scoreResult, setScoreResult] = useState<ScoringResult | null>(null);
 
   const update = <K extends keyof FormState>(key: K, val: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -266,7 +269,7 @@ export default function QualificationFormPage() {
 
     setLoading(true);
     try {
-      await submitSupplierQualification({
+      const res = await submitSupplierQualification({
         company_name: form.company_name.trim(),
         company_website: form.company_website.trim(),
         founding_year: form.founding_year.trim() || null,
@@ -285,6 +288,18 @@ export default function QualificationFormPage() {
         bid_willingness: form.bid_willingness,
         contact_info: form.contact_info.trim() || null,
       });
+      // 客户端即时计算评分
+      const scoreInput = {
+        ...form,
+        founding_year: form.founding_year.trim(),
+        employee_count: form.employee_count,
+        other_industry: form.other_industry.trim(),
+        other_certifications: form.other_certifications.trim(),
+        contact_info: form.contact_info.trim(),
+      };
+      const result = scoreQualification(scoreInput as Parameters<typeof scoreQualification>[0]);
+      setQualificationId(res.id);
+      setScoreResult(result);
       toast.success(t("qualSuccessTitle"));
       setSubmitted(true);
     } catch (err) {
@@ -296,25 +311,122 @@ export default function QualificationFormPage() {
 
   // ─ 提交成功页 ──
   if (submitted) {
+    const AMBER = "#D97706";
+    const RED = "#DC2626";
+    const gradeColor = scoreResult?.grade === "A" ? GREEN : scoreResult?.grade === "B" ? AMBER : RED;
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: BG_LIGHT }}>
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-          <div className="w-16 h-16 mx-auto rounded-full bg-teal-50 flex items-center justify-center mb-5">
-            <CheckCircle2 className="w-10 h-10 text-teal-600" />
+      <div className="min-h-screen px-4 py-6" style={{ background: BG_LIGHT }}>
+        <div className="max-w-lg mx-auto space-y-5">
+          {/* 成功卡片 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-8 h-8 text-teal-600" />
+            </div>
+            <h1 className="text-lg font-bold text-slate-900 mb-1">{t("qualSuccessTitle")}</h1>
+            <p className="text-sm text-slate-500 leading-relaxed mb-4">{t("qualSuccessDesc")}</p>
+            <button
+              type="button"
+              onClick={() => { setSubmitted(false); setForm(INITIAL_FORM); setQualificationId(null); setScoreResult(null); }}
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-colors"
+              style={{ background: GREEN }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
+              onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
+            >
+              <Send className="w-4 h-4" />
+              {t("qualSubmitAgain")}
+            </button>
           </div>
-          <h1 className="text-xl font-bold text-slate-900 mb-2">{t("qualSuccessTitle")}</h1>
-          <p className="text-sm text-slate-500 leading-relaxed mb-6">{t("qualSuccessDesc")}</p>
-          <button
-            type="button"
-            onClick={() => { setSubmitted(false); setForm(INITIAL_FORM); }}
-            className="inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-colors"
-            style={{ background: GREEN }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
-            onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
-          >
-            <Send className="w-4 h-4" />
-            {t("qualSubmitAgain")}
-          </button>
+
+          {/* 评分结果卡片 */}
+          {scoreResult && (
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="w-5 h-5" style={{ color: NAVY }} />
+                <h2 className="text-base font-bold" style={{ color: NAVY }}>{t("qualScoreTitle")}</h2>
+              </div>
+
+              {/* 总分 + 等级 */}
+              <div className="flex items-center gap-4 mb-5">
+                <div
+                  className="w-20 h-20 rounded-2xl flex flex-col items-center justify-center text-white shadow-md"
+                  style={{ background: gradeColor }}
+                >
+                  <span className="text-2xl font-black">{scoreResult.grade}</span>
+                  <span className="text-xs opacity-90">{scoreResult.totalScore}{t("qualScorePoint")}</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-slate-800">{scoreResult.gradeLabel}</p>
+                  <p className="text-xs text-slate-500 mt-1">{scoreResult.gradePath}</p>
+                </div>
+              </div>
+
+              {/* 覆盖规则提示 */}
+              {scoreResult.overrideGateTriggered && (
+                <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-100">
+                  <p className="text-xs text-red-600">⚠ {scoreResult.overrideGateReason}</p>
+                </div>
+              )}
+
+              {/* 10维度得分列表 */}
+              <div className="space-y-2.5 mb-5">
+                {scoreResult.dimensions.map((d) => {
+                  const ratio = d.rawScore / 5;
+                  const barColor = ratio >= 0.8 ? GREEN : ratio >= 0.6 ? "#D97706" : "#DC2626";
+                  return (
+                    <div key={d.no}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs text-slate-600 truncate flex-1">
+                          {d.no}. {d.name}
+                          {d.needsManualReview && (
+                            <span className="ml-1 text-amber-500" title={t("qualScoreNeedsReview")}>●</span>
+                          )}
+                        </span>
+                        <span className="text-xs font-mono text-slate-500 ml-2 shrink-0">
+                          {d.weightedScore}/{d.weight}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${ratio * 100}%`, background: barColor }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Top 5 能力缺口 */}
+              <div className="mb-5">
+                <h3 className="text-xs font-bold text-slate-700 mb-2">{t("qualScoreTopGaps")}</h3>
+                <div className="space-y-1">
+                  {scoreResult.topGaps.map((g, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-mono shrink-0">{i + 1}</span>
+                      <span className="text-slate-600 flex-1 truncate">{g.dimension}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-white text-[10px] font-bold shrink-0 ${
+                        g.priority === "High" ? "bg-red-500" : g.priority === "Medium" ? "bg-amber-500" : "bg-green-500"
+                      }`}>{g.priority}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 下载PDF按钮 */}
+              {qualificationId && (
+                <a
+                  href={`/api/supplier-qualification/${qualificationId}/report`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
+                  style={{ background: NAVY }}
+                >
+                  <Download className="w-4 h-4" />
+                  {t("qualScoreDownloadPdf")}
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
