@@ -15,6 +15,7 @@ export interface AuthFormState {
   displayName: string;
   email: string;
   password: string;
+  invitationCode: string;
 }
 
 export interface ClaimFormState {
@@ -35,6 +36,7 @@ export function useAuthForm(onSuccess: () => void) {
     displayName: "",
     email: "",
     password: "",
+    invitationCode: "",
   });
   const [claimForm, setClaimForm] = useState<ClaimFormState>({
     companyName: "",
@@ -75,6 +77,11 @@ export function useAuthForm(onSuccess: () => void) {
         setAuthError("请输入6位验证码");
         return;
       }
+      // 邀请码必填
+      if (!authForm.invitationCode.trim()) {
+        setAuthError(t("authInvitationCodeRequired"));
+        return;
+      }
     }
 
     if (authMode === "register" && !claimForm.companyName.trim()) {
@@ -106,7 +113,8 @@ export function useAuthForm(onSuccess: () => void) {
           password,
           authForm.displayName,
           claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
-          registerVerifyCode
+          registerVerifyCode,
+          authForm.invitationCode.trim()
         );
         await saveIndustryPrefs({
           level1_id: Number(prefLevel1),

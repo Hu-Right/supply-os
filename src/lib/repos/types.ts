@@ -24,6 +24,8 @@ export interface UserRow {
   account_status: string;
   supplier_id: number | null;
   supplier_link_status: string;
+  referral_code: string | null;
+  referral_employee_id: number | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -125,4 +127,26 @@ export interface UnlockRow {
 
 export interface CountRow {
   total: number;
+}
+
+export interface EmployeeRow {
+  id: number;
+  name: string;
+  employee_no: string | null;
+  department: string | null;
+  performance_group: string | null;
+  is_active: number;
+  created_at: Date;
+  updated_at: Date | null;
+}
+
+export interface InvitationCodeRow {
+  id: number;
+  code: string;
+  employee_id: number;
+  max_uses: number | null;
+  used_count: number;
+  is_active: number;
+  expires_at: Date | null;
+  created_at: Date;
 }

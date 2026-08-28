@@ -8,7 +8,7 @@ import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
-  const { email, password, verify_code, display_name } = await req.json();
+  const { email, password, verify_code, display_name, invitation_code } = await req.json();
   const addr = String(email || "").trim().toLowerCase();
   const pw = String(password || "");
   const code = String(verify_code || "");
@@ -19,6 +19,10 @@ export async function POST(req: NextRequest) {
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) return NextResponse.json({ code: 40006, message: pwCheck.message }, { status: 400 });
 
+  // ── 邀请码必填校验 ──
+  const inviteCode = String(invitation_code || "").trim().toUpperCase();
+  if (!inviteCode) return NextResponse.json({ code: 40030, message: "请输入邀请码" }, { status: 400 });
+
   const ctx = getContext();
   const codeRecord = await ctx.user.authRepo.findLatestActiveCode(addr, "registration");
   if (!codeRecord) return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
@@ -28,16 +32,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
   }
 
+  // ── 邀请码有效性校验 ──
+  const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
+  if (!inviteValidation.valid) {
+    return NextResponse.json({ code: 40031, message: inviteValidation.reason || "邀请码无效" }, { status: 400 });
+  }
+  const referralEmployeeId = inviteValidation.employee_id!;
+
   const existing = await ctx.user.usersRepo.findByKey(addr);
   if (existing) return NextResponse.json({ code: 40008, message: "注册失败，请检查邮箱或验证码后重试" }, { status: 400 });
 
   const created = await ctx.user.usersRepo.create({
     user_key: addr, email: addr, display_name: displayName, password_hash: await hashPassword(pw),
+    referral_code: inviteCode,
+    referral_employee_id: referralEmployeeId,
   });
   if (!created) return NextResponse.json({ code: 40008, message: "注册失败，请检查邮箱或验证码后重试" }, { status: 400 });
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   await ctx.user.usersRepo.markEmailVerified(addr);
+
+  // 邀请码使用次数 +1
+  await ctx.user.invitationRepo.incrementUsedCount(inviteCode);
 
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, addr, addr); } catch { /* JWT_SECRET 未配置 */ }

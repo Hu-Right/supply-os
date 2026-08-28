@@ -38,8 +38,8 @@ export interface AuthContextValue {
   isAuthLoading: boolean;
   /** 登录（支持邮箱或手机号） */
   login: (identifier: string, password: string) => Promise<void>;
-  /** 注册（含供应商绑定申请，需邮箱验证码） */
-  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => Promise<void>;
+  /** 注册（含供应商绑定申请，需邮箱验证码 + 邀请码） */
+  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string) => Promise<void>;
   /** 登出 */
   logout: () => void;
   /** 刷新认证状态 */

@@ -241,6 +241,15 @@ export function RegisterForm({
         minLength={PASSWORD_MIN_LENGTH}
       />
 
+      {/* 邀请码（必填） */}
+      <Input
+        type="text"
+        value={authForm.invitationCode}
+        onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
+        placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码"}
+        className="uppercase tracking-wider"
+      />
+
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
           {authError}

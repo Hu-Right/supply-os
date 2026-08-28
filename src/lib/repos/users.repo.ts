@@ -50,12 +50,14 @@ export class UsersRepo {
     display_name: string;
     password_hash: string;
     password_hash_type?: string;
+    referral_code?: string;
+    referral_employee_id?: number;
   }): Promise<boolean> {
     const hashType = data.password_hash_type ?? "bcrypt";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status)
-       VALUES (?, ?, ?, ?, ?, 'free', 'pending')`,
-      [data.user_key, data.email, data.display_name, data.password_hash, hashType],
+      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status, referral_code, referral_employee_id)
+       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?)`,
+      [data.user_key, data.email, data.display_name, data.password_hash, hashType, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
     return (result as any).affectedRows > 0;
   }
