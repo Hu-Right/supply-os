@@ -86,30 +86,6 @@ jobs:
             sed -i 's/DB_HOST="[^"]*"/DB_HOST="117.72.108.14"/g' .env 2>/dev/null || true
             echo "[deploy] DB_HOST 已设为 117.72.108.14"
 
-            # 3.6 数据库预检（使用 standalone 目录的 .env）
-            echo "[deploy] 检查 MySQL 服务..."
-            ENV_FILE=".next/standalone/.env"
-            DB_USER=$(grep '^DB_USER=' "$ENV_FILE" | cut -d'"' -f2)
-            DB_PASS=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d'"' -f2)
-            DB_HOST=$(grep '^DB_HOST=' "$ENV_FILE" | cut -d'"' -f2)
-                        
-            if [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
-              echo "[deploy] ✗ .env 中缺少 DB_USER 或 DB_PASSWORD"
-              exit 1
-            fi
-                        
-            if command -v mysqladmin >/dev/null 2>&1; then
-              if mysqladmin -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" ping >/dev/null 2>&1; then
-                echo "[deploy] ✓ MySQL 连接正常 ($DB_HOST)"
-              else
-                echo "[deploy]  MySQL 连接失败 (host=$DB_HOST, user=$DB_USER)"
-                echo "[deploy]   请检查：1) 数据库服务是否运行  2) 凭据是否正确  3) 网络是否可达"
-                exit 1
-              fi
-            else
-              echo "[deploy] ⚠ 跳过 MySQL 预检（mysqladmin 未安装）"
-            fi
-
             # 4. 彻底重启应用（先 kill 清除 pm2 daemon 状态，防止残留旧配置）
             echo "[deploy] 重启应用..."
             pm2 delete "${APP_NAME}" 2>/dev/null || true
