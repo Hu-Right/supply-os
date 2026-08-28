@@ -69,43 +69,49 @@ jobs:
             echo "[deploy] 构建..."
             npm run build
 
-            # 3.5 复制 .env 到 standalone 目录
-            if [ -f .env ]; then
+            # 3.5 复制 .env 到 standalone 目录（优先使用服务器现有配置）
+            if [ -f .next/standalone/.env ]; then
+              echo "[deploy] ✓ 保留服务器现有 .next/standalone/.env（避免覆盖生产配置）"
+            elif [ -f .env ]; then
               cp .env .next/standalone/.env
               echo "[deploy] 已复制 .env → .next/standalone/.env"
-              # 验证关键变量
-              if grep -q 'DB_PASSWORD' .next/standalone/.env; then
-                echo "[deploy] .env 包含 DB_PASSWORD 配置"
-              else
-                echo "[deploy]  警告: .env 中未找到 DB_PASSWORD"
-              fi
             else
-              echo "[deploy]  未找到 .env 文件，应用无法连接数据库"
+              echo "[deploy] ✗ 未找到任何 .env 文件，应用无法连接数据库"
               exit 1
             fi
 
-            # 3.6 数据库预检
+            # 3.6 数据库预检（使用 standalone 目录的 .env）
             echo "[deploy] 检查 MySQL 服务..."
+            ENV_FILE=".next/standalone/.env"
+            DB_USER=$(grep '^DB_USER=' "$ENV_FILE" | cut -d'"' -f2)
+            DB_PASS=$(grep '^DB_PASSWORD=' "$ENV_FILE" | cut -d'"' -f2)
+            DB_HOST=$(grep '^DB_HOST=' "$ENV_FILE" | cut -d'"' -f2)
+                        
+            if [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
+              echo "[deploy] ✗ .env 中缺少 DB_USER 或 DB_PASSWORD"
+              exit 1
+            fi
+                        
             if command -v mysqladmin >/dev/null 2>&1; then
-              DB_USER=$(grep '^DB_USER=' .env | cut -d'"' -f2)
-              DB_PASS=$(grep '^DB_PASSWORD=' .env | cut -d'"' -f2)
-              if mysqladmin -u"${DB_USER}" -p"${DB_PASS}" ping >/dev/null 2>&1; then
-                echo "[deploy]  MySQL 连接正常"
+              if mysqladmin -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" ping >/dev/null 2>&1; then
+                echo "[deploy] ✓ MySQL 连接正常 ($DB_HOST)"
               else
-                echo "[deploy]  MySQL 连接失败，请检查数据库服务是否运行及凭据是否正确"
+                echo "[deploy]  MySQL 连接失败 (host=$DB_HOST, user=$DB_USER)"
+                echo "[deploy]   请检查：1) 数据库服务是否运行  2) 凭据是否正确  3) 网络是否可达"
                 exit 1
               fi
             else
-              echo "[deploy]  跳过 MySQL 预检（mysqladmin 未安装）"
+              echo "[deploy] ⚠ 跳过 MySQL 预检（mysqladmin 未安装）"
             fi
 
-            # 4. 彻底重启应用
+            # 4. 彻底重启应用（先 kill 清除 pm2 daemon 状态，防止残留旧配置）
             echo "[deploy] 重启应用..."
             pm2 delete "${APP_NAME}" 2>/dev/null || true
             pm2 kill 2>/dev/null || true
+            sleep 2  # 等待 pm2 完全停止
             NODE_ENV=production PORT=3039 pm2 start "${APP_DIR}/.next/standalone/server.js" --name "${APP_NAME}"
             pm2 save
-
+                        
             echo "[deploy] $(date '+%F %T') 部署完成"
             pm2 list | grep "${APP_NAME}" || true
 
@@ -118,12 +124,20 @@ jobs:
           port: "22"
           script_stop: true
           script: |
-            # 等待应用启动（pm2 kill+start 后需要较长初始化时间）
-            sleep 10
+            # 等待应用启动（schema 迁移可能需要较长时间，增加等待至 30 秒）
+            echo "[health] 等待应用初始化..."
+            sleep 30
+            
             # 检查 pm2 进程是否存活
-            pm2 describe supply-os | grep -q "online" || { echo "✗ pm2 进程未运行"; exit 1; }
-            # 健康端点探活（最多重试 6 次，间隔 5 秒）
-            for i in 1 2 3 4 5 6; do
+            if ! pm2 describe supply-os | grep -q "online"; then
+              echo "✗ pm2 进程未运行"
+              echo "--- PM2 Logs (last 50 lines) ---"
+              pm2 logs supply-os --lines 50 --nostream
+              exit 1
+            fi
+            
+            # 健康端点探活（最多重试 12 次，间隔 5 秒，共 60 秒）
+            for i in $(seq 1 12); do
               if curl -sf --max-time 5 http://localhost:3039/api/system/version > /dev/null 2>&1; then
                 echo "✓ 健康检查通过 (第 ${i} 次尝试)"
                 exit 0
@@ -131,6 +145,10 @@ jobs:
               echo "⏳ 第 ${i} 次尝试失败，等待 5 秒..."
               sleep 5
             done
+            
             echo "✗ 健康检查失败：应用未响应"
-            pm2 logs supply-os --lines 20 --nostream
+            echo "--- PM2 Process Status ---"
+            pm2 list
+            echo "--- PM2 Logs (last 100 lines) ---"
+            pm2 logs supply-os --lines 100 --nostream
             exit 1

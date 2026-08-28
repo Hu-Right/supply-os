@@ -49,6 +49,21 @@ export async function register() {
   for (const phase of phases) {
     const ok = await executePhase(phase, { dbPool });
     if (!ok && !phase.optional) {
+      // 提供更详细的错误信息，帮助诊断数据库连接问题
+      const dbHost = process.env.DB_HOST || '127.0.0.1';
+      const dbUser = process.env.DB_USER || 'root';
+      const dbName = process.env.DB_NAME || 'crm';
+      console.error(
+        `\n[bootstrap] 启动失败诊断信息：\n` +
+        `  - 失败阶段：${phase.name}\n` +
+        `  - 数据库配置：${dbUser}@${dbHost}/${dbName}\n` +
+        `  - 可能原因：\n` +
+        `    1. 数据库服务未运行\n` +
+        `    2. 数据库凭据错误（DB_USER/DB_PASSWORD）\n` +
+        `    3. 数据库主机不可达（网络问题）\n` +
+        `    4. 数据库不存在（DB_NAME=${dbName}）\n` +
+        `  - 请检查 .next/standalone/.env 文件中的数据库配置\n`
+      );
       throw new Error(`启动阶段 ${phase.name} 失败，服务终止`);
     }
   }
