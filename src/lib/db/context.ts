@@ -28,6 +28,7 @@ import {
 import { CatalogRepo } from "../repos/catalog.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { LeadsRepo } from "../repos/leads.repo";
+import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
 import { AdminRepo } from "../repos/admin.repo";
 
@@ -84,6 +85,7 @@ export type AppContext = {
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   leadsRepo: LeadsRepo;
+  chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
 };
@@ -119,6 +121,7 @@ export function getContext(): AppContext {
   const catalogRepo = new CatalogRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
+  const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
@@ -135,6 +138,7 @@ export function getContext(): AppContext {
     opportunitiesRepo,
     catalogRepo,
     leadsRepo,
+    chatRepo,
     trainingRepo,
     systemRepo,
   };
