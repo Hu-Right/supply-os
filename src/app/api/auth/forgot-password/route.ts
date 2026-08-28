@@ -10,8 +10,9 @@ import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } fro
 import { maskPhone } from "@/lib/utils/mask";
 
 export async function POST(req: NextRequest) {
-  const { email, channel = "email" } = await req.json();
-  const identifier = String(email || "").trim().toLowerCase();
+  const body = await req.json();
+  const identifier = String(body.identifier || body.email || "").trim().toLowerCase();
+  const channel = body.channel || "email";
   const ctx = getContext();
 
   // ── 短信渠道 ──
@@ -22,11 +23,7 @@ export async function POST(req: NextRequest) {
     if (!/^1[3-9]\d{9}$/.test(identifier)) {
       return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
     }
-    const byPhone = await ctx.user.usersRepo.findByPhone(identifier);
-    if (!byPhone || !byPhone.user_key) {
-      return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
-    }
-    const user = await ctx.user.usersRepo.findByKey(byPhone.user_key);
+    const user = await ctx.user.usersRepo.findByIdentifier(identifier);
     if (!user || !user.phone || !user.phone_verified) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
     }
@@ -37,7 +34,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const code = String(crypto.randomInt(100000, 1000000));
     const resetId = await ctx.user.authRepo.createResetCode({
-      userKey: byPhone.user_key, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: "127.0.0.1",
+      userKey: user.user_key, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: "127.0.0.1",
     });
 
     let smsSent = false;
@@ -59,7 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 40060, message: "邮件服务暂未配置，请联系客服重置密码" }, { status: 503 });
   }
 
-  const user = await ctx.user.usersRepo.findByKey(identifier);
+  const user = await ctx.user.usersRepo.findByIdentifier(identifier);
   let emailSent = true;
   if (user) {
     await ctx.user.authRepo.invalidateUnusedCodes(identifier, "email_reset");

@@ -100,8 +100,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           setAuthForm={auth.setAuthForm}
           authError={auth.authError}
           claimMessage={auth.claimMessage}
-          onForgotPassword={(email) => {
-            forgot.setForgotEmail(email);
+          onForgotPassword={(identifier) => {
+            forgot.setForgotIdentifier(identifier);
             auth.setAuthError("");
             setForgotView(true);
           }}

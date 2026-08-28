@@ -19,8 +19,8 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
     t,
     forgotStep,
     setForgotStep,
-    forgotEmail,
-    setForgotEmail,
+    forgotIdentifier,
+    setForgotIdentifier,
     forgotCode,
     setForgotCode,
     forgotNewPassword,
@@ -50,13 +50,13 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
           <Input
             type="text"
             inputMode="text"
-            value={forgotEmail}
-            onChange={(e) => setForgotEmail(e.target.value)}
+            value={forgotIdentifier}
+            onChange={(e) => setForgotIdentifier(e.target.value)}
             placeholder={t("authForgotIdentifierPlaceholder") || "邮箱 / 手机号"}
             autoComplete="username"
           />
-          {forgotEmail.trim() && (() => {
-            const detected = detectChannel(forgotEmail.trim());
+          {forgotIdentifier.trim() && (() => {
+            const detected = detectChannel(forgotIdentifier.trim());
             return (
               <p className="text-[11px] text-slate-400">
                 {detected === "sms"
@@ -79,7 +79,7 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
         /* 步骤 2：输入验证码 + 新密码 */
         <div className="space-y-3">
           <p className="text-xs text-slate-500 text-center">
-            {t("authForgotCodeHint")} {detectChannel(forgotEmail) === "sms" ? maskPhone(forgotEmail) : maskEmail(forgotEmail)}
+            {t("authForgotCodeHint")} {detectChannel(forgotIdentifier) === "sms" ? maskPhone(forgotIdentifier) : maskEmail(forgotIdentifier)}
           </p>
           <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
             <p className="text-xs text-blue-700">

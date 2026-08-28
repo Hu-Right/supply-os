@@ -1,5 +1,5 @@
 /**
- * POST /api/auth/login — 登录（邮箱/手机号 + 密码）
+ * POST /api/auth/login — 登录（手机号/邮箱 + 密码）
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -7,9 +7,9 @@ import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTok
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
-  const identifier = String(email || "").trim();
-  const isPhoneLogin = /^1[3-9]\d{9}$/.test(identifier);
+  const body = await req.json();
+  const identifier = String(body.identifier || body.email || "").trim();
+  const password = String(body.password || "");
 
   const ctx = getContext();
   const usersRepo = ctx.user.usersRepo;
@@ -17,12 +17,7 @@ export async function POST(req: NextRequest) {
   const membershipRepo = ctx.user.membershipRepo;
   const registrationRepo = ctx.supplier.registrationRepo;
 
-  let user: any = null;
-  if (isPhoneLogin) {
-    user = await usersRepo.findByPhone(identifier);
-  } else {
-    user = await usersRepo.findAuthByKey(identifier.toLowerCase());
-  }
+  const user = await usersRepo.findAuthByIdentifier(identifier);
 
   const hashType = user?.password_hash_type ?? "sha256";
   if (!user || !user.password_hash) {

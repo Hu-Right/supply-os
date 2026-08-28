@@ -31,8 +31,8 @@ export function LoginForm({
       <Input
         type="text"
         inputMode="text"
-        value={authForm.email}
-        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+        value={authForm.identifier}
+        onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value })}
         placeholder={t("authEmailOrPhonePlaceholder")}
         autoComplete="username"
       />
@@ -45,7 +45,7 @@ export function LoginForm({
       />
       <button
         type="button"
-        onClick={() => onForgotPassword(authForm.email.trim())}
+        onClick={() => onForgotPassword(authForm.identifier.trim())}
         className="text-xs text-slate-500 hover:text-slate-700 underline"
       >
         {t("authForgotLink")}

@@ -134,6 +134,34 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
+  /** 按手机号或邮箱查找用户（登录/找回密码统一入口） */
+  async findByIdentifier(identifier: string): Promise<UserRow | null> {
+    const isPhone = /^1[3-9]\d{9}$/.test(identifier);
+    if (isPhone) {
+      return this.findByPhone(identifier);
+    }
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_users WHERE email = ? LIMIT 1",
+      [identifier.toLowerCase()],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
+  /** 按手机号或邮箱查找用户（登录鉴权专用，含 password_hash） */
+  async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
+    const isPhone = /^1[3-9]\d{9}$/.test(identifier);
+    if (isPhone) {
+      return this.findAuthByKey(identifier);
+    }
+    const [rows] = await this.pool.query(
+      `SELECT user_key, email, phone, phone_verified, display_name, password_hash, password_hash_type, email_verified,
+              membership_tier, account_status, supplier_id, supplier_link_status
+       FROM crm_users WHERE email = ? LIMIT 1`,
+      [identifier.toLowerCase()],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
   /** 标记手机已验证 */
   async markPhoneVerified(userKey: string): Promise<void> {
     await this.pool.execute(

@@ -51,7 +51,7 @@ export interface AuthContextValue {
   /** 设置供应商绑定申请消息 */
   setClaimMessage: (msg: string) => void;
   /** 发送找回密码验证码，返回邮件发送状态 */
-  sendResetCode: (email: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
+  sendResetCode: (identifier: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
   /** 重置密码（验证码+新密码），成功后自动登录 */
-  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
+  resetPassword: (identifier: string, code: string, newPassword: string) => Promise<void>;
 }

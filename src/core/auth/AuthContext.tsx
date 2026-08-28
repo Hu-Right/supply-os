@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
       const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: { email: identifier, password },
+        body: { identifier, password },
       });
       // 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发）
       if (data.token) {
@@ -211,10 +211,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 发送找回密码验证码
    * Send password reset verification code
    */
-  const sendResetCode = useCallback(async (email: string) => {
+  const sendResetCode = useCallback(async (identifier: string) => {
     const data = await api<{ email_sent?: boolean; support_hint?: string | null }>(
       "/api/auth/forgot-password",
-      { method: "POST", body: { email } },
+      { method: "POST", body: { identifier } },
     );
     return { email_sent: data.email_sent ?? true, support_hint: data.support_hint ?? null };
   }, []);
@@ -223,12 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 重置密码（验证码+新密码），成功后自动登录
    * Reset password (code + new password), auto-login on success
    */
-  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
+  const resetPassword = useCallback(async (identifier: string, code: string, newPassword: string) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/reset-password", {
         method: "POST",
-        body: { email, code, new_password: newPassword },
+        body: { identifier, code, new_password: newPassword },
       });
       // 存储 Access Token（重置后自动登录）
       if (data.token) {
