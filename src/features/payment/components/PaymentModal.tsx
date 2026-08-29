@@ -23,6 +23,8 @@ type PaymentModalProps = {
   orderType?: "new" | "upgrade";
   /** 升级时的当前套餐 code（服务端校验用） */
   originalPlanCode?: string;
+  /** 打包套餐包含的资料 ID 列表 */
+  bundleItems?: string[];
   onClose: () => void;
   onPaymentSuccess: (orderNo: string) => void;
 };
@@ -36,6 +38,7 @@ export default function PaymentModal({
   returnUrl,
   orderType,
   originalPlanCode,
+  bundleItems,
   onClose,
   onPaymentSuccess,
 }: PaymentModalProps) {
@@ -52,6 +55,8 @@ export default function PaymentModal({
         returnUrl,
         orderType,
         originalPlanCode,
+        amount,
+        bundleItems,
       });
       return {
         order_no: order.order_no,
@@ -60,7 +65,7 @@ export default function PaymentModal({
         pay_url: order.pay_url,
       };
     },
-    [planCode, noticeId, returnUrl, orderType, originalPlanCode],
+    [planCode, noticeId, returnUrl, orderType, originalPlanCode, amount, bundleItems],
   );
 
   const handleQueryStatus = useCallback((orderNo: string) => getOrderStatus(orderNo), []);

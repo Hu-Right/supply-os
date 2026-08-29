@@ -22,6 +22,10 @@ export type CreateOrderParams = {
   orderType?: "new" | "upgrade";
   /** 升级时的当前套餐 code（服务端校验用） */
   originalPlanCode?: string;
+  /** 学习资料/打包套餐的指定金额（跳过套餐表查找） */
+  amount?: number;
+  /** 打包套餐包含的资料 ID 列表 */
+  bundleItems?: string[];
 };
 
 /**
@@ -30,16 +34,19 @@ export type CreateOrderParams = {
  * B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，订单归属由 JWT 身份决定
  */
 export async function createOrder(params: CreateOrderParams): Promise<OrderInfo> {
+  const body = {
+    plan_code: params.planCode,
+    provider: params.provider,
+    notice_id: params.noticeId ?? null,
+    return_url: params.returnUrl || window.location.origin + window.location.pathname,
+    order_type: params.orderType || "new",
+    original_plan_code: params.originalPlanCode || "",
+    amount: params.amount,
+    bundle_items: params.bundleItems,
+  };
   return api<OrderInfo>("/api/payment/orders", {
     method: "POST",
-    body: {
-      plan_code: params.planCode,
-      provider: params.provider,
-      notice_id: params.noticeId ?? null,
-      return_url: params.returnUrl || window.location.origin + window.location.pathname,
-      order_type: params.orderType || "new",
-      original_plan_code: params.originalPlanCode || "",
-    },
+    body,
   });
 }
 

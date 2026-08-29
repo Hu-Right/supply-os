@@ -69,6 +69,8 @@ export async function POST(req: NextRequest) {
       client_ip: clientIp,
       order_type: body.order_type === "upgrade" ? "upgrade" : "new",
       original_plan_code: String(body.original_plan_code || ""),
+      amount: body.amount != null ? Number(body.amount) : undefined,
+      bundle_items: Array.isArray(body.bundle_items) ? body.bundle_items : undefined,
     });
 
     const clientPayUrl = result.provider === "alipay"
