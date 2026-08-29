@@ -1,5 +1,8 @@
 /**
- * GET /api/supplier-qualification/[id]/report — 生成供应商就绪度评估报告 PDF
+ * GET /api/supplier-qualification/[id]/report — 生成国际公采能力诊断报告 PDF
+ *
+ * 完整 12 章节诊断报告，包含企业画像、标准认证、UNSPSC映射、风险评估、
+ * 市场策略、KPI建议、90天行动计划、综合结论等。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
@@ -60,9 +63,10 @@ export async function GET(
       assessDate: new Date().toISOString().slice(0, 10),
     });
 
-    const fileName = `supplier-readiness-${String(row.id).padStart(6, "0")}.pdf`;
+    const companyName = String(row.company_name || "supplier").replace(/[\\/:*?"<>|]/g, "_");
+    const fileName = `国际公采能力诊断报告_${companyName}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
