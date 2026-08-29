@@ -70,7 +70,7 @@ export async function getUserUnlockKeywords(dbPool: any, userKey: string): Promi
   const cached = userUnlockKeywordsCache.get(userKey);
   if (cached && cached.expires > Date.now()) return cached.keywords;
   if (userUnlockKeywordsCache.size > 2000) userUnlockKeywordsCache.clear(); // 简易防膨胀
-  let keywords: Set<string> | null = null;
+  let keywords: Set<string> | null;
   try {
     const [rows] = await dbPool.query(
       `SELECT n.title

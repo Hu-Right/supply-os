@@ -77,7 +77,7 @@ function parseDecimalValue(raw: unknown): number {
   if (typeof raw === "number") return raw;
   const str = String(raw).trim();
   if (!str) return 0;
-  const cleaned = str.replace(/[^0-9.\-]/g, "");
+  const cleaned = str.replace(/[^0-9.-]/g, "");
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }

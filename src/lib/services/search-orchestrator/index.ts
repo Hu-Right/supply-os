@@ -226,8 +226,8 @@ async function _searchCore(
   }
 
   // ── Meilisearch 主检索（全量重建窗口内索引不完整，直接走 MySQL 降级）──
-  let ids: number[] = [];
-  let total = 0;
+  let ids: number[];
+  let total: number; // 初始值在 if/else 中始终被覆盖
   let path: SearchPath = "meili";
   const meiliStart = Date.now();
   const meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize);

@@ -8,6 +8,7 @@
  */
 import "server-only";
 import path from "path";
+import fs from "fs";
 import PDFDocument from "pdfkit";
 import type { ScoringResult, QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
 import { scoreQualification } from "@/features/procurement/utils/scoringEngine";
@@ -41,7 +42,7 @@ function getFontPath(): string {
     path.join(process.cwd(), "src", "lib", "fonts", "SimHei.ttf"),
   ];
   for (const p of candidates) {
-    try { require("fs").accessSync(p); return p; } catch { /* next */ }
+    try { fs.accessSync(p); return p; } catch { /* next */ }
   }
   throw new Error("SimHei.ttf font not found");
 }
@@ -146,7 +147,7 @@ export async function generateReadinessPdf(input: PdfReportInput): Promise<Buffe
 
     const pw = doc.page.width - 100;
     const lx = 50;
-    let y = 0;
+    let y: number;
 
     // ═══ 封面 ═══
     doc.save();

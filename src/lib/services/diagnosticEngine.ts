@@ -257,7 +257,7 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
   risks.push({ id: `R${riskId++}`, risk: "国际合规专项体系未形成", riskEn: "Procurement-specific compliance not formalized", severity: "High", impact: "反腐败、制裁、出口管制风险", owner: "法务/合规", due: "60天" });
   risks.push({ id: `R${riskId++}`, risk: "UNSPSC编码库未形成", riskEn: "No formal UNSPSC library", severity: "Medium", impact: "搜标召回率与匹配准确率低", owner: "数据/国际业务", due: "30天" });
   risks.push({ id: `R${riskId++}`, risk: "保函/授信能力未核验", riskEn: "Bonding capacity unknown", severity: "Medium", impact: "大额项目可能无法提交或履约", owner: "财务", due: "30天" });
-  if (serviceCount < 3) risks.push({ id: `R${riskId++}`, risk: "非欧洲/中东本地服务覆盖不足", riskEn: "Limited service outside Europe/Middle East", severity: "Medium", impact: "限制安装、调试及SLA型项目", owner: "海外事业部", due: "60天" });
+  if (serviceCount < 3) risks.push({ id: `R${riskId++}`, risk: "非欧洲/中东本地服务覆盖不足", riskEn: "Limited service outside Europe/Middle East", severity: "Medium", impact: "限制安装、调试及SLA型项目", owner: "海外事业部", due: "60天" }); // eslint-disable-line -- riskId 自增为最后一次使用
 
   // ── 八、市场匹配 ──
   const market: DiagnosticReport["market"] = {

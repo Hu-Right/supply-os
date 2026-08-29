@@ -22,8 +22,6 @@ export default tseslint.config(
       "dumps/",
       "*.config.js",
       "*.config.ts",
-      // Phase 2 迁移：src/lib/ 是从 server/ 复制的后端代码，由 server/ 侧的 lint 覆盖
-      "src/lib/",
     ],
   },
   // JS 基础规则
@@ -90,6 +88,35 @@ export default tseslint.config(
       "react-hooks/set-state-in-render": "off",
       "react-hooks/use-memo-with-deps": "off",
       "react-hooks/refs-in-render": "off",
+    },
+  },
+  // ── src/lib/ 后端代码：禁用 React 专属规则，启用 Node.js 全局 ──
+  // #ARCH-001: 消除后端代码 ESLint 监管盲区
+  {
+    files: ["src/lib/**/*.ts"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+        setTimeout: "readonly",
+        setInterval: "readonly",
+        clearTimeout: "readonly",
+        clearInterval: "readonly",
+        crypto: "readonly",
+        globalThis: "readonly",
+      },
+    },
+    rules: {
+      // React Hooks 规则对纯后端代码不适用
+      "react-hooks/rules-of-hooks": "off",
+      "react-hooks/exhaustive-deps": "off",
+      // 后端代码中 any 渐进收敛
+      "@typescript-eslint/no-explicit-any": "warn",
+      // 存量正则中的冗余转义（如 \.）不影响功能，降级为 warn 渐进修复
+      "no-useless-escape": "warn",
     },
   },
 );

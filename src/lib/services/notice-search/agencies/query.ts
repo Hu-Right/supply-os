@@ -382,7 +382,7 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
 
   // 3.8) 汉化补全
   const resolveCountryZh = (key: string, item: AgencyCacheItem): string | null => {
-    let country = canonicalToCountry.get(key.toUpperCase()) || "";
+    const country = canonicalToCountry.get(key.toUpperCase()) || "";
     if (country) {
       const zh = COUNTRY_ZH[country];
       if (zh) return zh;

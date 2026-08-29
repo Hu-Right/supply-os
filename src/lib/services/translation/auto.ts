@@ -284,7 +284,7 @@ export async function runIncrementalTranslation(
               }
 
               // 批量翻译未命中的唯一标题（一次 API 调用翻译多条）
-              let translatedMap = new Map<string, { titleTr: string; provider: string }>();
+              const translatedMap = new Map<string, { titleTr: string; provider: string }>();
               if (uniqueTitles.length > 0) {
                 try {
                   const result = await translateViaChain(

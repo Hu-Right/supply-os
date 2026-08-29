@@ -96,9 +96,6 @@ export async function createTrainingOrder(
   // payUrl：存库值（alipay 为自动提交的 HTML 表单，由跳转端点渲染）
   // clientPayUrl：下发前端的可访问地址（alipay 为跳转端点路径，与会员区一致）
   // 网关失败时明确报错，不创建无二维码/无链接的空订单
-  let qrCode: string | null = null;
-  let payUrl: string | null = null;
-  let clientPayUrl: string | null = null;
   let gatewayResult: { pay_url: string; qr_code_url?: string };
   try {
     const strategy = ctx.payment.paymentService.getStrategy(provider);
@@ -111,10 +108,10 @@ export async function createTrainingOrder(
     );
   } catch (err) {
     console.error(`[TrainingPayment] 支付网关创建链接失败 orderNo=${orderNo}:`, (err as Error).message);
-    throw new Error("PAYMENT_GATEWAY_ERROR");
+    throw new Error("PAYMENT_GATEWAY_ERROR", { cause: err });
   }
-  payUrl = gatewayResult.pay_url || null;
-  clientPayUrl = payUrl;
+  const payUrl = gatewayResult.pay_url || null;
+  const clientPayUrl = payUrl;
   if (!payUrl) throw new Error("PAYMENT_GATEWAY_ERROR");
   
   // 必须使用支付渠道返回的原生二维码（如支付宝当面付 precreate）
@@ -122,7 +119,7 @@ export async function createTrainingOrder(
   if (!gatewayResult.qr_code_url) {
     throw new Error("PAYMENT_QR_CODE_MISSING");
   }
-  qrCode = await toQrDataUrl(gatewayResult.qr_code_url);
+  const qrCode = await toQrDataUrl(gatewayResult.qr_code_url);
 
   await trainingRepo.createOrder({
     orderNo,

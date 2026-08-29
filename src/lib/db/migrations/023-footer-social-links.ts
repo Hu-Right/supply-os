@@ -37,6 +37,6 @@ export const migration: Migration = {
 
     // 索引（ensureIndex 内部检查是否已存在）
     await ensureIndex(dbPool, "link", "idx_link_status_sort",
-      "CREATE INDEX idx_link_status_sort ON \`crm\`.\`link\` (status, sort_order, id)");
+      "CREATE INDEX idx_link_status_sort ON `crm`.`link` (status, sort_order, id)");
   },
 };
