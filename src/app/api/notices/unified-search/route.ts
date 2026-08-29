@@ -12,19 +12,20 @@ function parseSearchParams(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const get = (k: string, d = "") => sp.get(k) || d;
   const getInt = (k: string, d = 0) => { const v = sp.get(k); return v ? Number(v) : d; };
+  // 属性名使用 camelCase，与 RawSearchParams 接口及 validateParams 内部字段对齐
   return {
     mode: get("mode", "default"),
     userKey: "",
     page: getInt("page", 1),
-    page_size: getInt("page_size", 10),
+    pageSize: getInt("page_size", 10),
     locale: get("locale"),
     q: get("q"),
     country: get("country"),
     agency: get("agency"),
-    deadline_from: get("deadline_from"),
-    deadline_to: get("deadline_to"),
-    deadline_within_days: getInt("deadline_within_days"),
-    notice_type: get("notice_type"),
+    deadlineFrom: get("deadline_from"),
+    deadlineTo: get("deadline_to"),
+    deadlineWithinDays: getInt("deadline_within_days"),
+    noticeType: get("notice_type"),
     featuredOnly: sp.get("featured") === "1",
     sort: get("sort", "deadline_farthest"),
     codeId: getInt("code_id") || getInt("industry_id"),
