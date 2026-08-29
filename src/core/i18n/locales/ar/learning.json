@@ -56,5 +56,7 @@
   "learningSectionDesc": "نماذج العطاءات، وأدلة الامتثال، وحالات المشتريات، وموارد الأعضاء للتعلّم المستمر.",
   "learningDownloadCount": "تم التنزيل: {num} مرة",
   "learningSummary": "ملخّص",
-  "learningCoreContent": "المحتوى الأساسي"
+  "learningCoreContent": "المحتوى الأساسي",
+  "buyMaterialBtn": "شراء الملف",
+  "learningBundleTitle": " شراء حزمة بخصم"
 }

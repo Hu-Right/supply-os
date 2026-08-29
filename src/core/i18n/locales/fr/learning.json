@@ -56,5 +56,7 @@
   "learningSectionDesc": "Modèles d'offres, guides de conformité, cas d'achat et ressources membres pour un apprentissage continu.",
   "learningDownloadCount": "Téléchargé : {num} fois",
   "learningSummary": "Résumé",
-  "learningCoreContent": "Contenu principal"
+  "learningCoreContent": "Contenu principal",
+  "buyMaterialBtn": "Acheter le document",
+  "learningBundleTitle": " Achat groupé à prix réduit"
 }
