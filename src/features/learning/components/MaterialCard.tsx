@@ -9,7 +9,6 @@
 
 import { FileDown } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
 import type { LearningMaterial } from "@/types";
 
 export interface MaterialCardProps {
@@ -58,7 +57,7 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
 
       <div className="flex justify-end gap-2 pt-1 text-xs">
         {isPurchased ? (
-          <Button
+          <button
             onClick={() =>
               onDownload(
                 material.fileUrl ?? "",
@@ -66,18 +65,16 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
                 material.id
               )
             }
-            variant="dark"
-            size="sm"
             disabled={!material.fileUrl}
-            className="rounded px-3.5 cursor-pointer disabled:opacity-40"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            <FileDown className="h-3.5 w-3.5 text-teal-400" />
+            <FileDown className="h-3.5 w-3.5" />
             <span>{t("downloadBtn")}</span>
-          </Button>
+          </button>
         ) : (
           <button
             onClick={() => onBuyMaterial(material)}
-            className="cursor-pointer rounded bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700 whitespace-nowrap"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700 whitespace-nowrap"
           >
             {displayPrice || t("buyMaterialBtn")}
           </button>
