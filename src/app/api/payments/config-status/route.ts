@@ -1,14 +1,14 @@
 /**
- * GET /api/payments/config-status — 管理员完整支付配置状态
+ * GET /api/payments/config-status — 支付配置状态（需登录）
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireAdmin } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/lib/middleware/auth";
 import { getPaymentRuntimeConfig } from "@/lib/config/env";
 
 export async function GET(req: Request) {
-  const adminAuth = await requireAdmin(req as any);
-  if (adminAuth instanceof Response) return adminAuth;
+  const auth = await requireUserKey(req as any);
+  if (auth instanceof Response) return auth;
 
   const ctx = getContext();
   const { paymentsRepo } = ctx.payment;

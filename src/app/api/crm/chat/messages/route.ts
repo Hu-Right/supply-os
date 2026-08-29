@@ -3,15 +3,15 @@
  * CRM Chat Messages API
  *
  * GET  /api/crm/chat/messages?sessionId=xxx  — 获取会话消息列表
- * POST /api/crm/chat/messages                — 发送消息（客户/运营经理）
+ * POST /api/crm/chat/messages                — 发送消息
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey, requireAdmin } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/lib/middleware/auth";
 
 /**
  * GET /api/crm/chat/messages?sessionId=xxx
- * 获取指定会话的消息列表
+ * 获取指定会话的消息列表（仅会话所有者）
  */
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
@@ -36,10 +36,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 非 admin 只能查看自己的会话
+  // 只能查看自己的会话
   if (session.customer_id !== auth.userKey) {
-    const adminCheck = await requireAdmin(req);
-    if (adminCheck instanceof Response) return adminCheck;
+    return NextResponse.json(
+      { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
+      { status: 403 },
+    );
   }
 
   const limit = Number(req.nextUrl.searchParams.get("limit")) || 100;
@@ -84,13 +86,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 客户只能发 customer 消息；agent 消息需要 admin 权限
-  let effectiveRole: "customer" | "agent" = "customer";
-  if (role === "agent") {
-    const adminCheck = await requireAdmin(req);
-    if (adminCheck instanceof Response) return adminCheck;
-    effectiveRole = "agent";
+  // 只能操作自己的会话
+  if (session.customer_id !== auth.userKey) {
+    return NextResponse.json(
+      { code: 40003, message: "无权操作此会话", error: "无权操作此会话" },
+      { status: 403 },
+    );
   }
+
+  const effectiveRole: "customer" | "agent" = role === "agent" ? "agent" : "customer";
 
   // 客户发消息时，如果会话还在 waiting 状态且是第一条消息，递增 AI 计数
   if (effectiveRole === "customer") {

@@ -2,36 +2,24 @@
  * CRM 客服会话 API
  * CRM Chat Sessions API
  *
- * GET  /api/crm/chat/sessions          — 列出活跃会话（admin）或当前用户的会话
- * POST /api/crm/chat/sessions          — 创建新会话（转人工时调用）
- * PUT  /api/crm/chat/sessions          — 接入会话（admin 运营经理操作）
- * DELETE /api/crm/chat/sessions        — 关闭会话
+ * GET  /api/crm/chat/sessions   — 列出当前用户的活跃会话
+ * POST /api/crm/chat/sessions   — 创建新会话（转人工时调用）
+ * PUT  /api/crm/chat/sessions   — 接入会话
+ * DELETE /api/crm/chat/sessions — 关闭会话
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey, requireAdmin } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/lib/middleware/auth";
 
 /**
  * GET /api/crm/chat/sessions
- * admin → 列出所有 waiting/active 会话
- * 普通用户 → 列出自己的活跃会话
+ * 列出当前用户的活跃会话
  */
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
   const chatRepo = getContext().chatRepo;
-
-  // admin 看全部
-  const isAdmin = req.nextUrl.searchParams.get("admin") === "1";
-  if (isAdmin) {
-    const adminAuth = await requireAdmin(req);
-    if (adminAuth instanceof Response) return adminAuth;
-    const sessions = await chatRepo.listActiveSessions();
-    return NextResponse.json(sessions);
-  }
-
-  // 普通用户看自己的
   const sessions = await chatRepo.listSessionsByCustomer(auth.userKey);
   return NextResponse.json(sessions);
 }
@@ -67,12 +55,12 @@ export async function POST(req: NextRequest) {
 
 /**
  * PUT /api/crm/chat/sessions
- * 运营经理接入会话（admin only）
+ * 接入会话
  * Body: { sessionId: number }
  */
 export async function PUT(req: NextRequest) {
-  const adminAuth = await requireAdmin(req);
-  if (adminAuth instanceof Response) return adminAuth;
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
 
   const body = await req.json();
   const { sessionId } = body as { sessionId: number };
@@ -85,7 +73,7 @@ export async function PUT(req: NextRequest) {
   }
 
   const chatRepo = getContext().chatRepo;
-  await chatRepo.acceptSession(sessionId, adminAuth.userKey, adminAuth.userKey);
+  await chatRepo.acceptSession(sessionId, auth.userKey, auth.userKey);
 
   const session = await chatRepo.findSessionById(sessionId);
   return NextResponse.json(session);
@@ -93,7 +81,7 @@ export async function PUT(req: NextRequest) {
 
 /**
  * DELETE /api/crm/chat/sessions?sessionId=xxx
- * 关闭会话（admin 或会话所有者）
+ * 关闭会话（仅会话所有者）
  */
 export async function DELETE(req: NextRequest) {
   const auth = await requireUserKey(req);
@@ -117,10 +105,12 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
-  // 非 admin 只能关闭自己的会话
+  // 只能关闭自己的会话
   if (session.customer_id !== auth.userKey) {
-    const adminCheck = await requireAdmin(req);
-    if (adminCheck instanceof Response) return adminCheck;
+    return NextResponse.json(
+      { code: 40003, message: "无权关闭此会话", error: "无权关闭此会话" },
+      { status: 403 },
+    );
   }
 
   await chatRepo.closeSession(sessionId);

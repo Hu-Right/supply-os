@@ -39,25 +39,3 @@ export async function requireUserKey(req: NextRequest): Promise<AuthResult | Res
   }
   return result;
 }
-
-/** 要求管理员认证 */
-export async function requireAdmin(req: NextRequest): Promise<AuthResult | Response> {
-  const authResult = await extractUserKey(req);
-  if (!authResult.userKey) {
-    return Response.json(
-      { code: 40042, message: "请先登录", error: "请先登录" },
-      { status: 401 },
-    );
-  }
-  // 检查 admin token
-  const adminToken = process.env.ADMIN_API_TOKEN;
-  const bearerToken = req.headers.get("authorization")?.replace("Bearer ", "") || "";
-  const headerToken = req.headers.get("x-admin-token") || "";
-  if (adminToken && bearerToken !== adminToken && headerToken !== adminToken) {
-    return Response.json(
-      { code: 40003, message: "需要管理员权限", error: "需要管理员权限" },
-      { status: 403 },
-    );
-  }
-  return authResult;
-}

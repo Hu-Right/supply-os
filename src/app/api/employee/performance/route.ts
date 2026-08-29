@@ -3,16 +3,16 @@
  *
  * 参数：employee_id (必填), month (可选，默认当月)
  * 返回：员工信息 + 月度KPI目标 + 实际完成 + 完成率 + 最近注册用户列表
- * 认证：需管理员权限
+ * 认证：需登录
  *
  * @module app/api/employee/performance/route
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireAdmin } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/lib/middleware/auth";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
+  const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
   const employeeId = Number(req.nextUrl.searchParams.get("employee_id"));

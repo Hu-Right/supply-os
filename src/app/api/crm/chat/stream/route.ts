@@ -50,11 +50,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 权限检查：admin 或会话所有者
+  // 权限检查：仅会话所有者可访问
   if (session.customer_id !== auth.userKey) {
-    const { requireAdmin } = await import("@/lib/middleware/auth");
-    const adminCheck = await requireAdmin(req);
-    if (adminCheck instanceof Response) return adminCheck;
+    return Response.json(
+      { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
+      { status: 403 },
+    );
   }
 
   // 记录上次推送的最后消息 ID
