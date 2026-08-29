@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { LocaleProvider } from "@/core/i18n";
 import { AuthProvider } from "@/core/auth";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
+import { initCountryNames } from "@/shared/data/countryNames";
 import type { Locale } from "@/core/i18n/bundles";
 
 /**
@@ -27,11 +28,18 @@ export default function Providers({
     <ErrorBoundary>
       <Suspense fallback={<ProvidersSkeleton />}>
         <LocaleProvider initialLocale={initialLocale}>
+          <AppInit />
           <AuthProvider>{children}<Toaster richColors position="top-center" closeButton /></AuthProvider>
         </LocaleProvider>
       </Suspense>
     </ErrorBoundary>
   );
+}
+
+/** 应用启动时一次性加载运行时数据（国家名映射等） */
+function AppInit() {
+  useEffect(() => { initCountryNames(); }, []);
+  return null;
 }
 
 /** Providers 加载期间的页面骨架（i18n / auth 初始化时可见） */

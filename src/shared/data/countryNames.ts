@@ -26,12 +26,12 @@ export async function initCountryNames(): Promise<void> {
   if (_initialized) return;
   try {
     const data = await api<{
-      countryNameZh: Record<string, string>;
-      regionNameZh: Record<string, string>;
+      countries: Record<string, string>;
+      regions: Record<string, string>;
       zhToEn: Record<string, string>;
     }>("/api/catalog/country-name-map");
-    _countryNameZh = data.countryNameZh || {};
-    _regionNameZh = data.regionNameZh || {};
+    _countryNameZh = data.countries || {};
+    _regionNameZh = data.regions || {};
     _zhToEn = data.zhToEn || {};
     _initialized = true;
   } catch {
