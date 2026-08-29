@@ -17,7 +17,7 @@ export default defineConfig({
     environment: "jsdom",
     pool: "forks",
     setupFiles: ["./src/__tests__/setup.ts"],
-    exclude: ["node_modules/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/integration/**"],
+    exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/integration/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
@@ -154,9 +154,19 @@ export default defineConfig({
         // ── src/shared — 纯逻辑 + 组件 ──
         "src/shared/auth/**/*.ts",
         "src/shared/data/**/*.ts",
-        // 注：shared/ui、shared/layout、shared/filters 的 React 组件 (*.tsx)
-        // 已有测试覆盖但 JSX 渲染语句拉低覆盖率百分比，不纳入统计。
-        // 测试文件保留作为回归保障。
+        // ── src/shared/ui — 组件测试覆盖（JSX 渲染纳入统计）──
+        "src/shared/ui/Button.tsx",
+        "src/shared/ui/Badge.tsx",
+        "src/shared/ui/Input.tsx",
+        "src/shared/ui/SearchInput.tsx",
+        "src/shared/ui/EmptyState.tsx",
+        "src/shared/ui/SelectableCard.tsx",
+        "src/shared/ui/Spinner.tsx",
+        "src/shared/ui/Pagination.tsx",
+        "src/shared/ui/ErrorBoundary.tsx",
+        "src/shared/utils/cn.ts",
+        // 注：shared/layout、shared/filters 的 React 组件 (*.tsx)
+        // 依赖 App 上下文较重，由 E2E 测试覆盖，不纳入单元测试统计。
       ],
       exclude: [
         "src/__tests__/**",

@@ -57,8 +57,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "24", cache: "npm" }
       - run: npm ci
-      - name: Run integration tests
+      - name: Run integration tests with coverage
         run: npx vitest run --config vitest.integration.config.ts --coverage
+      - name: Integration coverage gate check (≥80%)
+        run: node scripts/coverage-gate.mjs coverage/integration 80
       - name: Upload integration coverage
         uses: actions/upload-artifact@v4
         with:
