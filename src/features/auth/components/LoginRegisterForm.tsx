@@ -15,6 +15,7 @@ import { LoginForm } from "./forms/LoginForm";
 import { RegisterForm } from "./forms/RegisterForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
+import { SegmentedControl } from "@/shared/ui";
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
@@ -61,30 +62,15 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Login / Register toggle */}
       {!forgotView && (
-        <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => auth.setAuthMode("login")}
-            className={`py-2.5 rounded-lg text-sm font-black ${
-              auth.authMode === "login"
-                ? "bg-white shadow-xs text-slate-900"
-                : "text-slate-500"
-            }`}
-          >
-            {t("authLoginTab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => auth.setAuthMode("register")}
-            className={`py-2.5 rounded-lg text-sm font-black ${
-              auth.authMode === "register"
-                ? "bg-white shadow-xs text-slate-900"
-                : "text-slate-500"
-            }`}
-          >
-            {t("authRegisterTab")}
-          </button>
-        </div>
+        <SegmentedControl
+          fullWidth
+          value={auth.authMode}
+          onChange={(mode) => auth.setAuthMode(mode)}
+          items={[
+            { value: "login", label: t("authLoginTab") },
+            { value: "register", label: t("authRegisterTab") },
+          ]}
+        />
       )}
 
       {/* 找回密码视图 */}

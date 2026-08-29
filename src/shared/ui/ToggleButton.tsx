@@ -17,6 +17,8 @@ export interface ToggleButtonProps
   children: ReactNode;
   /** amber（默认，精选/醒目筛选）/ teal（品牌色开关） */
   tone?: "amber" | "teal";
+  /** outline（默认，未选为中性灰）/ solid（teal 实底激活态，未选为 teal 淡底——行业匹配类常开开关） */
+  variant?: "outline" | "solid";
 }
 
 const activeByTone = {
@@ -29,14 +31,28 @@ const hoverByTone = {
   teal: "hover:border-teal-300 hover:text-teal-600",
 } as const;
 
+/** solid 变体：激活 = teal 实底白字；未激活 = teal 淡底（整钮始终带品牌色） */
+const solidActive =
+  "border-teal-500 bg-teal-500 text-white hover:border-teal-600 hover:bg-teal-600";
+const solidInactive =
+  "border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300 hover:text-teal-800";
+
 export function ToggleButton({
   pressed,
   tone = "amber",
+  variant = "outline",
   children,
   className,
   type = "button",
   ...props
 }: ToggleButtonProps) {
+  const activeCls =
+    variant === "solid" ? solidActive : activeByTone[tone];
+  const inactiveCls =
+    variant === "solid"
+      ? solidInactive
+      : cn("border-slate-200 bg-slate-50 text-slate-500", hoverByTone[tone]);
+
   return (
     <button
       type={type}
@@ -44,9 +60,7 @@ export function ToggleButton({
       className={cn(
         "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-black",
         "whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        pressed
-          ? activeByTone[tone]
-          : cn("border-slate-200 bg-slate-50 text-slate-500", hoverByTone[tone]),
+        pressed ? activeCls : inactiveCls,
         className,
       )}
       {...props}

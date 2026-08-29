@@ -12,7 +12,7 @@ import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
-import { Button, LoadingOverlay } from "@/shared/ui";
+import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
@@ -230,33 +230,26 @@ export default function ProcurementPage() {
             >
               {t("procurement_clearSearch")}
             </Button>
-            <button
-              type="button"
+            <ToggleButton
+              pressed={search.query.activeFeatured}
               onClick={search.actions.toggleFeatured}
-              aria-pressed={search.query.activeFeatured}
-              className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
-                search.query.activeFeatured
-                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                  : "border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-600"
-              }`}
+              tone="amber"
+              className="py-2.5"
             >
               <Crown className="w-3.5 h-3.5" />
               {t("procurement_featuredOnly")}
-            </button>
+            </ToggleButton>
             {/* 行业匹配按钮：账号已设置默认行业时始终显示，根据当前模式切换文案和行为 */}
             {hasIndustryPrefs && prefsMode !== "loading" && (
-              <button
-                type="button"
+              <ToggleButton
+                variant="solid"
+                pressed={prefsMode === "prefs"}
                 onClick={prefsMode === "prefs" ? exitAutoMode : handleRestoreIndustryMatch}
-                className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm font-black whitespace-nowrap transition-colors ${
-                  prefsMode === "prefs"
-                    ? "border-teal-500 bg-teal-500 text-white hover:border-teal-600 hover:bg-teal-600"
-                    : "border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300 hover:text-teal-800"
-                }`}
+                className="py-2.5"
               >
                 <Target className="w-3.5 h-3.5" />
                 {prefsMode === "prefs" ? t("procurement_cancelIndustryMatch") : t("procurement_restoreIndustryMatch")}
-              </button>
+              </ToggleButton>
             )}
           </div>
         </div>

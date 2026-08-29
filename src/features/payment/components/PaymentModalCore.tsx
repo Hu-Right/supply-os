@@ -21,7 +21,7 @@ import {
   type PaymentConfigStatus,
 } from "@/core/payment";
 import { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "@/core/payment";
-import { Button, Modal } from "@/shared/ui";
+import { Button, Modal, SelectableCard } from "@/shared/ui";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
 
@@ -262,14 +262,12 @@ export default function PaymentModalCore({
                   const unavailable = Boolean(paymentConfig && !paymentConfig[item.provider]);
                   const selected = provider === item.provider && !unavailable;
                   return (
-                    <button
+                    <SelectableCard
                       key={item.provider}
-                      type="button"
-                      aria-disabled={unavailable}
+                      selected={selected}
+                      disabled={unavailable}
                       onClick={() => handleSelectProvider(item.provider)}
-                      className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 transition-all ${
-                        selected ? "border-teal-600 bg-teal-50" : "border-slate-200 bg-white hover:border-slate-300"
-                      } ${unavailable ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                      className="rounded-2xl flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{item.icon}</span>
@@ -293,7 +291,7 @@ export default function PaymentModalCore({
                           )
                         )}
                       </div>
-                    </button>
+                    </SelectableCard>
                   );
                 })}
               </div>

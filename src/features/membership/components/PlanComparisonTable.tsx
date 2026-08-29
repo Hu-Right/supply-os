@@ -11,6 +11,7 @@
 import { useState, Fragment, useMemo } from "react";
 import { Check, X, Filter } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { ToggleButton } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
 
 interface PlanComparisonTableProps {
@@ -186,17 +187,14 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
             {t("membershipComparisonTitle")}
           </span>
         </div>
-        <button
-          type="button"
+        <ToggleButton
+          pressed={showDiffOnly}
           onClick={() => setShowDiffOnly(!showDiffOnly)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            showDiffOnly
-              ? "bg-amber-100/80 text-amber-700 border border-amber-200/60"
-              : "bg-white/80 text-slate-500 border border-slate-200/60 hover:bg-slate-50"
-          }`}
+          tone="amber"
+          className="py-1.5 text-xs font-semibold"
         >
           {t("membershipComparisonShowDiffOnly")}
-        </button>
+        </ToggleButton>
       </div>
 
       <div className="overflow-x-auto">

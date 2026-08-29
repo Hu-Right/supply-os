@@ -27,6 +27,8 @@ export interface SegmentedControlProps<T extends string = string> {
   disabled?: boolean;
   /** 容器类名 */
   className?: string;
+  /** 逐项附加类名（如 font-semibold 覆盖默认字重） */
+  itemClassName?: string;
   size?: "sm" | "md";
 }
 
@@ -37,6 +39,7 @@ export function SegmentedControl<T extends string = string>({
   fullWidth = false,
   disabled = false,
   className,
+  itemClassName,
   size = "md",
 }: SegmentedControlProps<T>) {
   return (
@@ -62,10 +65,11 @@ export function SegmentedControl<T extends string = string>({
             className={cn(
               "cursor-pointer rounded-lg font-black transition-colors",
               "disabled:cursor-not-allowed disabled:opacity-50",
-              size === "sm" ? "py-1.5 text-xs" : "py-2.5 text-sm",
+              size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm",
               active
                 ? "bg-white text-slate-900 shadow-xs"
                 : "text-slate-500 hover:text-slate-800",
+              itemClassName,
             )}
           >
             {item.label}
