@@ -12,15 +12,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { fetchPaymentConfigStatus, mapPaymentError, type PaymentConfigStatus } from "@/core/payment";
+import { fetchPaymentConfigStatus, mapPaymentError, PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS, type PaymentConfigStatus } from "@/core/payment";
 import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/features/payment";
 import type { NoticeItem } from "../types";
 
 /** 面板支持的支付方式（微信暂未开通，仅支付宝可用） */
 export type PanelProvider = "alipay" | "wechat";
 
-const POLL_INTERVAL_MS = 3000;
-const POLL_MAX_ATTEMPTS = 80;
+// 轮询参数统一由 core/payment/constants 管理
+const POLL_INTERVAL_MS = PAYMENT_POLL_INTERVAL_MS;
+const POLL_MAX_ATTEMPTS = PAYMENT_POLL_MAX_ATTEMPTS;
 
 export type UseNoticePaymentOptions = {
   /** 当前登录用户 key，无则触发登录 */

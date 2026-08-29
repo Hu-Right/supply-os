@@ -20,6 +20,7 @@ import {
   mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
+import { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "@/core/payment";
 import { Button, Modal } from "@/shared/ui";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
@@ -69,9 +70,9 @@ export interface PaymentModalCoreProps {
   onSuccess?: (orderNo: string) => void;
 }
 
-/** 轮询上限（200 次 × 3s ≈ 10 分钟），防止订单永不 paid 时无限轮询 */
-const MAX_POLL_ATTEMPTS = 200;
-const POLL_INTERVAL_MS = 3000;
+// 轮询参数统一由 core/payment/constants 管理
+const MAX_POLL_ATTEMPTS = PAYMENT_POLL_MAX_ATTEMPTS;
+const POLL_INTERVAL_MS = PAYMENT_POLL_INTERVAL_MS;
 
 export default function PaymentModalCore({
   onClose,
