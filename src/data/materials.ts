@@ -100,8 +100,8 @@ export const TRAINING_DOWNLOAD_MATERIALS: LearningMaterial[] = [
     downloadsCount: 0,
     number: 3,
     price: 19.9,
-    fileUrl: "/downloads/training/3-联合国采购供应商注册指南（UNGM基础级（Basic Level）保姆级开户与注册指南）.zip",
-    fileName: "3-联合国采购供应商注册指南（保姆级）.zip"
+    fileUrl: "/downloads/training/3-联合国采购供应商注册指南（保姆级）.pdf",
+    fileName: "3-联合国采购供应商注册指南（保姆级）.pdf"
   },
   {
     id: "training-doc-04",

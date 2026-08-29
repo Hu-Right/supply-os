@@ -67,7 +67,7 @@ export const migration: Migration = {
          'A zero-to-finish walkthrough for UNGM Basic Level account creation, ideal for first-time registrants.',
          '包含：UNGM基础级开户步骤、所需材料清单、在线填写注意事项、审核等待期应对、账户激活后操作指南。',
          'Includes: UNGM Basic Level account steps, required documents, online form tips, review waiting period and post-activation guide.',
-         19.9, '/downloads/training/3-联合国采购供应商注册指南（UNGM基础级（Basic Level）保姆级开户与注册指南）.zip', '3-联合国采购供应商注册指南（保姆级）.zip', 0, 1, 3),
+         19.9, '/downloads/training/3-联合国采购供应商注册指南（保姆级）.pdf', '3-联合国采购供应商注册指南（保姆级）.pdf', 0, 1, 3),
 
         ('training-doc-04', '联采从业人员工作手册（中文版）', 'Joint Procurement Practitioner''s Handbook (Chinese)',
          '工作手册', 'Handbook',
