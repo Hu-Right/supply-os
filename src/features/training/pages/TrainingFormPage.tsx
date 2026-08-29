@@ -58,6 +58,7 @@ export default function TrainingFormPage() {
     setError("");
 
     if (!form.company_name.trim()) return setError(t("qualErrorCompanyName"));
+    if (form.company_website.trim() && !/^https?:\/\/.+/i.test(form.company_website.trim())) return setError(t("qualErrorWebsiteFormat"));
     if (form.industry.length === 0) return setError(t("qualErrorIndustry"));
     if (!form.main_product.trim()) return setError(t("qualErrorMainProduct"));
     if (!form.export_scale) return setError(t("qualErrorExportScale"));
@@ -184,6 +185,7 @@ export default function TrainingFormPage() {
             toggleIndustry={toggleIndustry}
             toggleCert={toggleCert}
             label={label}
+            placeholder={(key: string) => t(key)}
             options={options}
             className="rounded-2xl border border-[#E5EBF3] bg-white p-5 shadow-sm space-y-5"
           />

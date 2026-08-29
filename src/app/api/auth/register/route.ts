@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   await ctx.user.usersRepo.markPhoneVerified(targetPhone);
-  await ctx.user.invitationRepo.incrementUsedCount(inviteCode);
+  await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
 
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, targetPhone, email || ""); } catch { /* JWT_SECRET 未配置 */ }

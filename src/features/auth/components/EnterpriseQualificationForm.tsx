@@ -84,6 +84,7 @@ export default function EnterpriseQualificationForm({ onFormChange }: Enterprise
           toggleIndustry={toggleIndustry}
           toggleCert={toggleCert}
           label={label}
+          placeholder={(key: string) => t(key)}
           options={options}
           className="space-y-4"
         />

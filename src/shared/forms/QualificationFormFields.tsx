@@ -65,7 +65,7 @@ export type QualFieldKey =
 /** 字段元数据：序号、key、是否必填 */
 export const QUAL_FIELDS: Array<{ no: number; key: QualFieldKey; required: boolean }> = [
   { no: 1, key: "companyName", required: true },
-  { no: 2, key: "companyWebsite", required: true },
+  { no: 2, key: "companyWebsite", required: false },
   { no: 3, key: "foundingYear", required: false },
   { no: 4, key: "employeeCount", required: false },
   { no: 5, key: "industry", required: true },
@@ -221,22 +221,21 @@ export function QualificationFormFields({
       {/* 1. 企业名称 */}
       <div>
         <FieldLabel required>{QUAL_FIELDS[0].no}. {label("companyName")}：</FieldLabel>
-        <FormTextArea
+        <Input
           value={form.company_name}
-          onChange={(v) => update("company_name", v)}
+          onChange={(e) => update("company_name", e.target.value)}
           placeholder={ph(PLACEHOLDER_KEYS.companyName)}
-          rows={2}
         />
       </div>
 
-      {/* 2. 企业官网 */}
+      {/* 2. 企业官网（非必填，填写时需校验 URL 格式） */}
       <div>
-        <FieldLabel required>{QUAL_FIELDS[1].no}. {label("companyWebsite")}：</FieldLabel>
+        <FieldLabel>{QUAL_FIELDS[1].no}. {label("companyWebsite")}：</FieldLabel>
         <Input
           type="url"
           value={form.company_website}
           onChange={(e) => update("company_website", e.target.value)}
-          placeholder="https://"
+          placeholder={ph("qualCompanyWebsitePlaceholder")}
         />
       </div>
 

@@ -145,7 +145,15 @@ export function RegisterForm({
 
       {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
       {authForm.userType === "enterprise" && (
-        <EnterpriseQualificationForm onFormChange={(data) => onQualificationChange?.(data as unknown as Record<string, string | string[]>)} />
+        <EnterpriseQualificationForm
+          onFormChange={(data) => {
+            onQualificationChange?.(data as unknown as Record<string, string | string[]>);
+            // 同步公司名称到 claimForm，供注册校验使用
+            if (data.company_name !== claimForm.companyName) {
+              setClaimForm((prev) => ({ ...prev, companyName: data.company_name }));
+            }
+          }}
+        />
       )}
 
       {/* 手机号 */}

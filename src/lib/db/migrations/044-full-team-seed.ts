@@ -23,7 +23,7 @@ export const migration: Migration = {
   version: 44,
   name: "full-team-seed",
   async up(dbPool: Pool) {
-    // ── 1. 补全/更新员工记录 ─
+    // ── 1. 补全/更新员工记录 ──
     const employeeValues = TEAM.map((e) => `('${e.name}', '${e.department}', ${e.kpi})`).join(",\n       ");
     await dbPool.query(`
       INSERT INTO crm_employees (name, department, kpi_target)

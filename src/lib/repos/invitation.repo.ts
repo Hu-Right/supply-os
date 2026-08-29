@@ -1,253 +1,228 @@
 /**
- * 邀请码数据访问层
- * Invitation Code Repository
+ * 邀请码与月度KPI数据访问层
+ * Invitation Code & Monthly KPI Repository
  *
  * @module repos/invitation.repo
  */
 import type { Pool } from "mysql2/promise";
-import type { InvitationCodeRow } from "./types";
 
-/** 生成随机邀请码：EMP-XXXXXXXX（8位大写字母数字） */
-function generateInvitationCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 排除易混淆字符 0/1/I/O
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `EMP-${code}`;
+/** 获取当前月份字符串 'YYYY-MM' */
+function currentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export class InvitationRepo {
   constructor(private pool: Pool) {}
 
-  /** 按邀请码查询（含员工姓名） */
-  async findByCode(code: string): Promise<(InvitationCodeRow & { employee_name: string }) | null> {
+  // ──────────────────────────────────────────────
+  //  邀请码（直接从 crm_employees 查询）
+  // ──────────────────────────────────────────────
+
+  /** 按邀请码查询员工 */
+  async findByCode(code: string): Promise<{ employee_id: number; name: string; department: string | null; invitation_code: string } | null> {
     const [rows] = await this.pool.query(
-      `SELECT ic.*, e.name AS employee_name
-       FROM crm_invitation_codes ic
-       JOIN crm_employees e ON e.id = ic.employee_id
-       WHERE ic.code = ?
+      `SELECT id AS employee_id, name, department, invitation_code
+       FROM crm_employees
+       WHERE invitation_code = ? AND is_active = 1
        LIMIT 1`,
       [code],
     );
-    return (rows as (InvitationCodeRow & { employee_name: string })[])[0] ?? null;
+    return (rows as Array<{ employee_id: number; name: string; department: string | null; invitation_code: string }>)[0] ?? null;
   }
 
-  /**
-   * 验证邀请码有效性：存在 + 启用 + 未过期 + 未超使用上限
-   * @returns valid=false 时 reason 包含人类可读的原因
-   */
+  /** 验证邀请码有效性 */
   async validateCode(code: string): Promise<{ valid: boolean; reason?: string; employee_id?: number }> {
     const record = await this.findByCode(code);
     if (!record) return { valid: false, reason: "邀请码不存在" };
-    if (!record.is_active) return { valid: false, reason: "邀请码已停用" };
-    if (record.expires_at && new Date(record.expires_at) < new Date()) {
-      return { valid: false, reason: "邀请码已过期" };
-    }
-    if (record.max_uses !== null && record.used_count >= record.max_uses) {
-      return { valid: false, reason: "邀请码已达使用上限" };
-    }
     return { valid: true, employee_id: record.employee_id };
   }
 
-  /** 使用邀请码：used_count + 1 */
-  async incrementUsedCount(code: string): Promise<void> {
+  // ──────────────────────────────────────────────
+  //  月度 KPI
+  // ──────────────────────────────────────────────
+
+  /**
+   * 注册时调用：当月实际完成数 +1
+   * 如果当月记录不存在则自动创建（目标值从种子数据继承，首次为0）
+   */
+  async incrementMonthlyActual(employeeId: number, userType: "personal" | "enterprise", month?: string): Promise<void> {
+    const kpiMonth = month ?? currentMonth();
+    const column = userType === "personal" ? "actual_personal" : "actual_enterprise";
     await this.pool.execute(
-      "UPDATE crm_invitation_codes SET used_count = used_count + 1 WHERE code = ?",
-      [code],
+      `INSERT INTO crm_monthly_kpi (employee_id, kpi_month)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE ${column} = ${column} + 1`,
+      [employeeId, kpiMonth],
     );
   }
 
+  /** 查询指定月份的KPI记录 */
+  async getMonthlyKpi(employeeId: number, month?: string): Promise<MonthlyKpiData | null> {
+    const kpiMonth = month ?? currentMonth();
+    const [rows] = await this.pool.query(
+      `SELECT * FROM crm_monthly_kpi WHERE employee_id = ? AND kpi_month = ? LIMIT 1`,
+      [employeeId, kpiMonth],
+    );
+    return (rows as MonthlyKpiData[])[0] ?? null;
+  }
+
+  /** 设置指定月份的KPI目标 */
+  async setMonthlyTarget(employeeId: number, month: string, kpiPersonal: number, kpiEnterprise: number): Promise<void> {
+    await this.pool.execute(
+      `INSERT INTO crm_monthly_kpi (employee_id, kpi_month, kpi_personal, kpi_enterprise)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         kpi_personal = VALUES(kpi_personal),
+         kpi_enterprise = VALUES(kpi_enterprise)`,
+      [employeeId, month, kpiPersonal, kpiEnterprise],
+    );
+  }
+
+  // ──────────────────────────────────────────────
+  //  业绩概览 & 排行榜
+  // ──────────────────────────────────────────────
+
   /**
-   * 按员工 ID 查询业绩概览
-   * 返回：员工信息（含 KPI 目标）+ 个人统计 + 完成进度 + 最近注册用户列表
+   * 按员工 ID 查询业绩概览（指定月份，默认当月）
    */
-  async getEmployeePerformance(employeeId: number): Promise<{
-    employee: { id: number; name: string; department: string | null; kpi_target: number | null };
-    personal: {
-      total_referrals: number;
-      month_referrals: number;
-      personal_count: number;    // 个人注册数
-      enterprise_count: number;  // 企业注册数
-      completion_rate: number;
-    };
+  async getEmployeePerformance(employeeId: number, month?: string): Promise<{
+    employee: { id: number; name: string; department: string | null; invitation_code: string | null };
+    kpi_month: string;
+    targets: { personal: number; enterprise: number; total: number };
+    actuals: { personal: number; enterprise: number; total: number };
+    completion: { personal_rate: number; enterprise_rate: number; total_rate: number };
     recent_referrals: Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date; user_type: string }>;
   }> {
-    // 员工基本信息（含 KPI 目标）
+    const kpiMonth = month ?? currentMonth();
+
+    // 员工基本信息
     const [empRows] = await this.pool.query(
-      "SELECT id, name, department, kpi_target FROM crm_employees WHERE id = ? LIMIT 1",
+      "SELECT id, name, department, invitation_code FROM crm_employees WHERE id = ? LIMIT 1",
       [employeeId],
     );
-    const emp = (empRows as Array<{ id: number; name: string; department: string | null; kpi_target: number | null }>)[0];
+    const emp = (empRows as Array<{ id: number; name: string; department: string | null; invitation_code: string | null }>)[0];
     if (!emp) throw new Error(`Employee ${employeeId} not found`);
 
-    // 个人总推荐数
-    const [totalRows] = await this.pool.query(
-      "SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id = ?",
-      [employeeId],
-    );
-    const personalTotal = Number((totalRows as Array<{ total: number }>)[0]?.total || 0);
-
-    // 个人本月推荐数
-    const [monthRows] = await this.pool.query(
-      "SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')",
-      [employeeId],
-    );
-    const personalMonth = Number((monthRows as Array<{ total: number }>)[0]?.total || 0);
+    // 月度KPI
+    const kpi = await this.getMonthlyKpi(employeeId, kpiMonth);
+    const kpiPersonal = kpi?.kpi_personal ?? 0;
+    const kpiEnterprise = kpi?.kpi_enterprise ?? 0;
+    const actualPersonal = kpi?.actual_personal ?? 0;
+    const actualEnterprise = kpi?.actual_enterprise ?? 0;
 
     // 完成率
-    const completionRate = emp.kpi_target ? Math.round((personalTotal / emp.kpi_target) * 100) : 0;
+    const personalRate = kpiPersonal ? Math.round((actualPersonal / kpiPersonal) * 100) : 0;
+    const enterpriseRate = kpiEnterprise ? Math.round((actualEnterprise / kpiEnterprise) * 100) : 0;
+    const totalRate = (kpiPersonal + kpiEnterprise) ? Math.round(((actualPersonal + actualEnterprise) / (kpiPersonal + kpiEnterprise)) * 100) : 0;
 
-    // 个人注册数 vs 企业注册数
-    const [typeRows] = await this.pool.query(
-      `SELECT user_type, COUNT(*) AS cnt FROM crm_users WHERE referral_employee_id = ? GROUP BY user_type`,
-      [employeeId],
-    );
-    let personalCount = 0;
-    let enterpriseCount = 0;
-    for (const row of typeRows as Array<{ user_type: string; cnt: string | number }>) {
-      if (row.user_type === "personal") personalCount = Number(row.cnt);
-      else enterpriseCount = Number(row.cnt);
-    }
-
-    // 最近 50 条个人推荐用户
+    // 最近注册用户
     const [recentRows] = await this.pool.query(
       `SELECT user_key, email, display_name, created_at, user_type
        FROM crm_users
-       WHERE referral_employee_id = ?
+       WHERE referral_employee_id = ? AND DATE_FORMAT(created_at, '%Y-%m') = ?
        ORDER BY created_at DESC
        LIMIT 50`,
-      [employeeId],
+      [employeeId, kpiMonth],
     );
 
     return {
-      employee: { id: emp.id, name: emp.name, department: emp.department, kpi_target: emp.kpi_target },
-      personal: {
-        total_referrals: personalTotal,
-        month_referrals: personalMonth,
-        personal_count: personalCount,
-        enterprise_count: enterpriseCount,
-        completion_rate: completionRate,
-      },
+      employee: { id: emp.id, name: emp.name, department: emp.department, invitation_code: emp.invitation_code },
+      kpi_month: kpiMonth,
+      targets: { personal: kpiPersonal, enterprise: kpiEnterprise, total: kpiPersonal + kpiEnterprise },
+      actuals: { personal: actualPersonal, enterprise: actualEnterprise, total: actualPersonal + actualEnterprise },
+      completion: { personal_rate: personalRate, enterprise_rate: enterpriseRate, total_rate: totalRate },
       recent_referrals: recentRows as Array<{ user_key: string; email: string | null; display_name: string | null; created_at: Date; user_type: string }>,
     };
   }
 
-  /** 按员工统计推荐数据（支持时间段，管理员用） */
-  async getReferralStatsByEmployee(
-    employeeId: number,
-    startDate?: Date,
-    endDate?: Date,
-  ): Promise<{ total: number }> {
-    let sql = "SELECT COUNT(*) AS total FROM crm_users WHERE referral_employee_id = ?";
-    const params: unknown[] = [employeeId];
-
-    if (startDate) {
-      sql += " AND created_at >= ?";
-      params.push(startDate);
-    }
-    if (endDate) {
-      sql += " AND created_at <= ?";
-      params.push(endDate);
-    }
-
-    const [rows] = await this.pool.query(sql, params);
-    return { total: Number((rows as Array<{ total: number }>)[0]?.total || 0) };
-  }
-
-  /** 管理员：列出所有邀请码（含员工信息和使用统计） */
-  async listAllWithEmployee(): Promise<Array<InvitationCodeRow & { employee_name: string; department: string | null; kpi_target: number | null }>> {
-    const [rows] = await this.pool.query(
-      `SELECT ic.*, e.name AS employee_name, e.department, e.kpi_target
-       FROM crm_invitation_codes ic
-       JOIN crm_employees e ON e.id = ic.employee_id
-       ORDER BY ic.created_at DESC`,
-    );
-    return rows as Array<InvitationCodeRow & { employee_name: string; department: string | null; kpi_target: number | null }>;
-  }
-
   /**
-   * 管理员：创建邀请码
-   * @returns 生成的邀请码字符串
+   * 管理员：全员推荐排行榜（指定月份，默认当月）
    */
-  async create(data: { employee_id: number; max_uses?: number; expires_at?: Date }): Promise<string> {
-    // 生成唯一邀请码（最多重试 10 次避免碰撞）
-    let code = generateInvitationCode();
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const [existing] = await this.pool.query(
-        "SELECT id FROM crm_invitation_codes WHERE code = ? LIMIT 1",
-        [code],
-      );
-      if ((existing as unknown[]).length === 0) break;
-      code = generateInvitationCode();
-    }
-
-    await this.pool.execute(
-      `INSERT INTO crm_invitation_codes (code, employee_id, max_uses, expires_at)
-       VALUES (?, ?, ?, ?)`,
-      [code, data.employee_id, data.max_uses ?? null, data.expires_at ?? null],
-    );
-
-    return code;
-  }
-
-  /** 管理员：停用/启用邀请码 */
-  async toggleActive(id: number, active: boolean): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_invitation_codes SET is_active = ? WHERE id = ?",
-      [active ? 1 : 0, id],
-    );
-  }
-
-  /**
-   * 管理员：全员推荐排行榜
-   * 返回所有员工的推荐统计，按 total_referrals 降序排列。
-   */
-  async getLeaderboard(): Promise<Array<{
+  async getLeaderboard(month?: string): Promise<Array<{
     employee_id: number;
     employee_name: string;
     department: string | null;
-    kpi_target: number | null;
-    invitation_code: string;
-    total_referrals: number;
-    month_referrals: number;
-    personal_count: number;
-    enterprise_count: number;
-    completion_rate: number;
+    invitation_code: string | null;
+    kpi_month: string;
+    targets: { personal: number; enterprise: number; total: number };
+    actuals: { personal: number; enterprise: number; total: number };
+    completion: { personal_rate: number; enterprise_rate: number; total_rate: number };
   }>> {
+    const kpiMonth = month ?? currentMonth();
+
     const [rows] = await this.pool.query(
       `SELECT
          e.id AS employee_id,
          e.name AS employee_name,
          e.department,
-         e.kpi_target,
-         ic.code AS invitation_code,
-         COUNT(u.id) AS total_referrals,
-         SUM(CASE WHEN u.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END) AS month_referrals,
-         SUM(CASE WHEN u.user_type = 'personal' THEN 1 ELSE 0 END) AS personal_count,
-         SUM(CASE WHEN u.user_type = 'enterprise' THEN 1 ELSE 0 END) AS enterprise_count
+         e.invitation_code,
+         COALESCE(mk.kpi_personal, 0) AS kpi_personal,
+         COALESCE(mk.kpi_enterprise, 0) AS kpi_enterprise,
+         COALESCE(mk.actual_personal, 0) AS actual_personal,
+         COALESCE(mk.actual_enterprise, 0) AS actual_enterprise
        FROM crm_employees e
-       LEFT JOIN crm_invitation_codes ic ON ic.employee_id = e.id AND ic.is_active = 1
-       LEFT JOIN crm_users u ON u.referral_employee_id = e.id
-       GROUP BY e.id, e.name, e.department, e.kpi_target, ic.code
-       ORDER BY total_referrals DESC`,
+       LEFT JOIN crm_monthly_kpi mk ON mk.employee_id = e.id AND mk.kpi_month = ?
+       WHERE e.is_active = 1
+       ORDER BY (COALESCE(mk.actual_personal, 0) + COALESCE(mk.actual_enterprise, 0)) DESC`,
+      [kpiMonth],
     );
 
     return (rows as Array<Record<string, unknown>>).map((r) => {
-      const total = Number(r.total_referrals || 0);
-      const target = Number(r.kpi_target || 0);
+      const kpiP = Number(r.kpi_personal || 0);
+      const kpiE = Number(r.kpi_enterprise || 0);
+      const actP = Number(r.actual_personal || 0);
+      const actE = Number(r.actual_enterprise || 0);
       return {
         employee_id: Number(r.employee_id),
         employee_name: r.employee_name as string,
         department: r.department as string | null,
-        kpi_target: target || null,
-        invitation_code: (r.invitation_code as string) || "",
-        total_referrals: total,
-        month_referrals: Number(r.month_referrals || 0),
-        personal_count: Number(r.personal_count || 0),
-        enterprise_count: Number(r.enterprise_count || 0),
-        completion_rate: target ? Math.round((total / target) * 100) : 0,
+        invitation_code: (r.invitation_code as string) || null,
+        kpi_month: kpiMonth,
+        targets: { personal: kpiP, enterprise: kpiE, total: kpiP + kpiE },
+        actuals: { personal: actP, enterprise: actE, total: actP + actE },
+        completion: {
+          personal_rate: kpiP ? Math.round((actP / kpiP) * 100) : 0,
+          enterprise_rate: kpiE ? Math.round((actE / kpiE) * 100) : 0,
+          total_rate: (kpiP + kpiE) ? Math.round(((actP + actE) / (kpiP + kpiE)) * 100) : 0,
+        },
       };
     });
   }
+
+  /**
+   * 管理员：列出所有员工及邀请码
+   */
+  async listAllEmployees(): Promise<Array<{
+    employee_id: number;
+    name: string;
+    department: string | null;
+    invitation_code: string | null;
+    is_active: number;
+  }>> {
+    const [rows] = await this.pool.query(
+      `SELECT id AS employee_id, name, department, invitation_code, is_active
+       FROM crm_employees
+       ORDER BY id`,
+    );
+    return rows as Array<{
+      employee_id: number;
+      name: string;
+      department: string | null;
+      invitation_code: string | null;
+      is_active: number;
+    }>;
+  }
+}
+
+interface MonthlyKpiData {
+  id: number;
+  employee_id: number;
+  kpi_month: string;
+  kpi_personal: number;
+  kpi_enterprise: number;
+  actual_personal: number;
+  actual_enterprise: number;
+  created_at: Date;
+  updated_at: Date | null;
 }

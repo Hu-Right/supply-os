@@ -58,7 +58,7 @@ export default function QualificationFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.company_name.trim()) return toast.error(`${t("qualCompanyName")}${t("qualErrorRequired")}`);
-    if (!form.company_website.trim()) return toast.error(`${t("qualCompanyWebsite")}${t("qualErrorRequired")}`);
+    if (form.company_website.trim() && !/^https?:\/\/.+/i.test(form.company_website.trim())) return toast.error(t("qualErrorWebsiteFormat"));
     if (form.industry.length === 0) return toast.error(`${t("qualIndustry")}${t("qualErrorRequired")}`);
     if (!form.main_product.trim()) return toast.error(`${t("qualMainProduct")}${t("qualErrorRequired")}`);
     if (!form.export_scale) return toast.error(`${t("qualExportScale")}${t("qualErrorRequired")}`);

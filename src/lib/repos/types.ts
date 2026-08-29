@@ -136,19 +136,20 @@ export interface EmployeeRow {
   name: string;
   employee_no: string | null;
   department: string | null;
-  kpi_target: number | null;
+  invitation_code: string | null;
   is_active: number;
   created_at: Date;
   updated_at: Date | null;
 }
 
-export interface InvitationCodeRow {
+export interface MonthlyKpiRow {
   id: number;
-  code: string;
   employee_id: number;
-  max_uses: number | null;
-  used_count: number;
-  is_active: number;
-  expires_at: Date | null;
+  kpi_month: string;       // 'YYYY-MM'
+  kpi_personal: number;
+  kpi_enterprise: number;
+  actual_personal: number;
+  actual_enterprise: number;
   created_at: Date;
+  updated_at: Date | null;
 }
