@@ -10,7 +10,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { CheckCircle2, Send, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Send, ArrowLeft, FileText } from "lucide-react";
+import Image from "next/image";
 import { useLocale } from "@/core/i18n";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "../components/landing-ui";
 import { ApiError } from "@/core/http";
@@ -30,6 +31,7 @@ export default function TrainingFormPage() {
   const { t, locale } = useLocale();
   const [form, setForm] = useState<QualificationFormState>(INITIAL_QUALIFICATION_FORM);
   const [submitted, setSubmitted] = useState(false);
+  const [qualificationId, setQualificationId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,10 +72,11 @@ export default function TrainingFormPage() {
     setLoading(true);
     try {
       const { api } = await import("@/core/http");
-      await api("/api/supplier-qualification", {
+      const res = await api<{ id: number }>("/api/supplier-qualification", {
         method: "POST",
         body: { ...form, source: "diagnosis" },
       });
+      setQualificationId(res.id ?? null);
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("qualErrorNetwork"));
@@ -106,17 +109,30 @@ export default function TrainingFormPage() {
   // ── 提交成功页 ──
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: BG_LIGHT }}>
-        <div className="max-w-md w-full text-center">
+      <div className="min-h-screen flex items-center justify-center px-4 py-10" style={{ background: BG_LIGHT }}>
+        <div className="max-w-sm w-full text-center">
           <div className="w-20 h-20 mx-auto rounded-full bg-[#0AA09B]/10 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-12 h-12 text-[#0AA09B]" />
           </div>
           <h1 className="text-xl font-black text-[#0A2A55] mb-3">{t("qualDiagSubmitted")}</h1>
-          <p className="text-sm text-slate-500 leading-relaxed mb-8">{t("qualDiagSubmittedDesc")}</p>
+          <p className="text-sm text-slate-500 leading-relaxed mb-6">{t("qualDiagSubmittedDesc")}</p>
+
+          <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 shadow-sm">
+            <Image
+              src="/wechat-service-qr.png"
+              alt="客服微信二维码"
+              width={180}
+              height={180}
+              className="mx-auto rounded-lg"
+            />
+            <p className="mt-4 text-sm font-bold text-[#0A2A55]">{t("qualDiagQrTitle")}</p>
+            <p className="mt-2 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
+          </div>
+
           <button
             type="button"
-            onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); }}
-            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-black text-white"
+            onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); setQualificationId(null); }}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-black text-white"
             style={{ background: GREEN }}
             onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
             onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
@@ -124,6 +140,18 @@ export default function TrainingFormPage() {
             <Send className="w-4 h-4" />
             {t("qualSubmitAgain")}
           </button>
+
+          {qualificationId && (
+            <a
+              href={`/api/supplier-qualification/${qualificationId}/report`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 mx-auto flex max-w-xs items-center justify-center gap-2 rounded-xl border-2 border-[#0A2A55]/10 bg-white px-6 py-3 text-sm font-bold text-[#0A2A55] transition-colors hover:border-[#0A2A55]/30 hover:bg-[#0A2A55]/5"
+            >
+              <FileText className="w-4 h-4" />
+              {t("qualDownloadReport")}
+            </a>
+          )}
         </div>
       </div>
     );
