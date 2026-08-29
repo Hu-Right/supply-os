@@ -16,9 +16,12 @@ import { invalidateUnifiedSearchCache } from "../search-orchestrator/index";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
-  buildWideRow, upsertWideRows, reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
-  reconcileTranslations, reconcilePreciseCodes, reconcileContentDrift,
+  buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
+import {
+  reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
+  reconcileTranslations, reconcilePreciseCodes, reconcileContentDrift,
+} from "./wide-row-reconcile";
 
 /**
  * 全量回填宽表
