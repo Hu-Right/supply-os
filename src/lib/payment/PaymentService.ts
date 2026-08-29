@@ -44,27 +44,40 @@ export class PaymentService {
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
-    const plan = await this.paymentsRepo!.findActivePlan(planCode);
-    if (!plan) throw new Error("PLAN_NOT_FOUND");
-
-    // ── 升级订单：校验升级资格并计算差价 ──
-    let amount = Number(plan.price);
+    // 学习资料/打包套餐：跳过套餐表查找，直接使用请求中的 amount
+    const isLearningOrder = planCode.startsWith("material_") || planCode.startsWith("bundle_");
+    let amount: number;
+    let planName = planCode;
+    let currency = "CNY";
     let originalOrderNo: string | null = null;
-    if (orderType === "upgrade") {
-      if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
-      const current = await this.membershipRepo.findCurrentBestPlan(userKey);
-      if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
-      if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
-      if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
-      amount = Math.max(0, Number(plan.price) - Number(current.price));
-      originalOrderNo = current.source_order_no;
-      if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
-    } else if (amount <= 0) {
-      throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+
+    if (isLearningOrder) {
+      amount = Number(request.amount || 0);
+      if (amount <= 0) throw new Error("INVALID_AMOUNT");
+    } else {
+      const plan = await this.paymentsRepo!.findActivePlan(planCode);
+      if (!plan) throw new Error("PLAN_NOT_FOUND");
+      amount = Number(plan.price);
+      planName = String(plan.name || planCode);
+      currency = plan.currency || "CNY";
+
+      // ── 升级订单：校验升级资格并计算差价 ──
+      if (orderType === "upgrade") {
+        if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
+        const current = await this.membershipRepo.findCurrentBestPlan(userKey);
+        if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
+        if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
+        if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
+        amount = Math.max(0, Number(plan.price) - Number(current.price));
+        originalOrderNo = current.source_order_no;
+        if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+      } else if (amount <= 0) {
+        throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+      }
     }
 
     // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
-    const existingOrder = orderType === "upgrade"
+    const existingOrder = orderType === "upgrade" || isLearningOrder
       ? null
       : await this.paymentsRepo!.findPendingOrder({
           userKey, planCode, provider, noticeId,
@@ -79,7 +92,7 @@ export class PaymentService {
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
       orderNo,
       amount,
-      String(plan.name || planCode),
+      planName,
       returnUrl,
       request.client_ip,
     );
@@ -87,7 +100,7 @@ export class PaymentService {
     if (existingOrder) {
       await this.paymentsRepo!.updatePendingOrder(orderNo, {
         amount,
-        currency: plan.currency || "CNY",
+        currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
         rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
@@ -100,7 +113,7 @@ export class PaymentService {
         planCode,
         noticeId,
         amount,
-        currency: plan.currency || "CNY",
+        currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
         rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
@@ -113,7 +126,7 @@ export class PaymentService {
       order_no: orderNo,
       provider,
       amount,
-      currency: plan.currency || "CNY",
+      currency,
       pay_url,
       qr_code_url,
       status: "pending",

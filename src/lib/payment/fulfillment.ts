@@ -12,6 +12,8 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
 import type { PoolConnection } from "mysql2/promise";
 import type { PaymentOrderRow } from "../repos/types";
+import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
+import { getPool } from "../db/pool";
 
 // ── 真实支付回调履约（事务版） ────────────────────────────────────────────────
 
@@ -36,6 +38,31 @@ export async function activatePaidOrder(
     if (order.status === "paid") { await conn.commit(); return; }
 
     await paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
+
+    // 学习资料购买：写入 crm_learning_material_purchases 持久化购买记录
+    if (order.plan_code.startsWith("material_")) {
+      const materialId = order.plan_code.replace(/^material_/, "");
+      const lmRepo = new LearningMaterialsRepo(getPool());
+      await lmRepo.recordPurchaseInTransaction(conn, order.user_key, materialId, orderNo, Number(order.amount));
+      await conn.commit();
+      return;
+    }
+
+    // 打包套餐购买：从 raw_request 解析 material_ids，批量写入购买记录
+    if (order.plan_code.startsWith("bundle_")) {
+      let bundleItems: string[] = [];
+      try {
+        const raw = JSON.parse(order.raw_request || "{}");
+        bundleItems = Array.isArray(raw.bundle_items) ? raw.bundle_items : [];
+      } catch { /* ignore parse errors */ }
+
+      if (bundleItems.length > 0) {
+        const lmRepo = new LearningMaterialsRepo(getPool());
+        await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, bundleItems, orderNo, Number(order.amount));
+      }
+      await conn.commit();
+      return;
+    }
 
     // 升级订单走独立的平滑升级履约（补差价，次数保留，有效期追溯）
     if (order.order_type === "upgrade") {
@@ -217,6 +244,30 @@ export async function fulfillMockPayment(
     try {
       await conn.beginTransaction();
       await payments.markAsMockPaidInTransaction(conn, params.orderNo, params.rawNotify);
+
+      // 学习资料购买：写入 crm_learning_material_purchases 持久化购买记录
+      if (order.plan_code.startsWith("material_")) {
+        const materialId = order.plan_code.replace(/^material_/, "");
+        const lmRepo = new LearningMaterialsRepo(getPool());
+        await lmRepo.recordPurchaseInTransaction(conn, order.user_key, materialId, params.orderNo, Number(order.amount));
+        await conn.commit();
+        return { found: true };
+      }
+
+      // 打包套餐购买：从 raw_request 解析 material_ids，批量写入购买记录
+      if (order.plan_code.startsWith("bundle_")) {
+        let bundleItems: string[] = [];
+        try {
+          const raw = JSON.parse(order.raw_request || "{}");
+          bundleItems = Array.isArray(raw.bundle_items) ? raw.bundle_items : [];
+        } catch { /* ignore */ }
+        if (bundleItems.length > 0) {
+          const lmRepo = new LearningMaterialsRepo(getPool());
+          await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, bundleItems, params.orderNo, Number(order.amount));
+        }
+        await conn.commit();
+        return { found: true };
+      }
       await payments.insertEntitlementInTransaction(conn, {
         userKey: order.user_key,
         orderNo: params.orderNo,

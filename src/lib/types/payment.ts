@@ -37,6 +37,10 @@ export interface CreateOrderRequest {
   order_type?: "new" | "upgrade";
   /** 升级时的当前套餐 code（服务端校验用） */
   original_plan_code?: string;
+  /** 学习资料/打包套餐的指定金额（跳过套餐表查找） */
+  amount?: number;
+  /** 打包套餐包含的资料 ID 列表（写入 raw_request 供履约解析） */
+  bundle_items?: string[];
 }
 
 export interface OrderInfo {
