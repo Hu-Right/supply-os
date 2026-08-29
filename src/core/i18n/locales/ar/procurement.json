@@ -339,5 +339,21 @@
   "qualOptCertTISI": "TISI (Thailand)",
   "qualOptCertSNI": "SNI (Indonesia)",
   "qualOptCertSONCAP": "SONCAP (Nigeria)",
-  "qualOptCertGMark": "G-Mark (GCC)"
+  "qualOptCertGMark": "G-Mark (GCC)",
+  "qualDiagTitle": "تشخيص المشتريات العالمية",
+  "qualDiagDesc": "املأ الحقول الـ 14 أدناه. سنقيّم أهليتك ونُعدّ تقرير تشخيصي.",
+  "qualDiagSubmitBtn": "إرسال التشخيص",
+  "qualDiagSubmitted": "تم إرسال التشخيص",
+  "qualDiagSubmittedDesc": "شكراً لتسجيلك. سنقيّم طلبك قريباً.",
+  "qualErrorCompanyName": "الرجاء إدخال اسم الشركة",
+  "qualErrorIndustry": "الرجاء اختيار الصناعة",
+  "qualErrorMainProduct": "الرجاء إدخال المنتج الرئيسي",
+  "qualErrorExportScale": "الرجاء اختيار حجم التصدير",
+  "qualErrorCertifications": "الرجاء اختيار الشهادات",
+  "qualErrorServiceCountries": "الرجاء إدخال دول الخدمة",
+  "qualErrorOverseasCompanies": "الرجاء إدخال الشركات الخارجية",
+  "qualErrorUngmStatus": "الرجاء اختيار حالة UNGM",
+  "qualErrorEnglishTeam": "الرجاء اختيار قدرة الفريق الإنجليزي",
+  "qualErrorPaymentTerms": "الرجاء اختيار شروط الدفع",
+  "qualErrorBidWillingness": "الرجاء اختيار الرغبة في العطاء"
 }

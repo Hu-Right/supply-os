@@ -339,5 +339,21 @@
   "qualOptCertTISI": "TISI (Thailand)",
   "qualOptCertSNI": "SNI (Indonesia)",
   "qualOptCertSONCAP": "SONCAP (Nigeria)",
-  "qualOptCertGMark": "G-Mark (GCC)"
+  "qualOptCertGMark": "G-Mark (GCC)",
+  "qualDiagTitle": "Enterprise Global Procurement Diagnosis",
+  "qualDiagDesc": "Fill in the 14 fields below. We will evaluate your global procurement eligibility and generate a diagnosis report based on your company profile.",
+  "qualDiagSubmitBtn": "Submit Diagnosis",
+  "qualDiagSubmitted": "Diagnosis Submitted",
+  "qualDiagSubmittedDesc": "Thank you for your submission. We will evaluate and generate your diagnosis report shortly.",
+  "qualErrorCompanyName": "Please enter company name",
+  "qualErrorIndustry": "Please select industry",
+  "qualErrorMainProduct": "Please enter main product",
+  "qualErrorExportScale": "Please select export scale",
+  "qualErrorCertifications": "Please select certifications",
+  "qualErrorServiceCountries": "Please enter service countries",
+  "qualErrorOverseasCompanies": "Please enter overseas companies",
+  "qualErrorUngmStatus": "Please select UNGM status",
+  "qualErrorEnglishTeam": "Please select English team capability",
+  "qualErrorPaymentTerms": "Please select payment terms",
+  "qualErrorBidWillingness": "Please select bid willingness"
 }

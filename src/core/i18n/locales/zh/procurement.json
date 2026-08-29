@@ -339,5 +339,21 @@
   "qualOptCertTISI": "TISI认证（泰国）",
   "qualOptCertSNI": "SNI认证（印尼）",
   "qualOptCertSONCAP": "SONCAP认证（尼日利亚）",
-  "qualOptCertGMark": "G-Mark（海湾七国）"
+  "qualOptCertGMark": "G-Mark（海湾七国）",
+  "qualDiagTitle": "企业全球采购机会诊断",
+  "qualDiagDesc": "填写以下 14 项企业信息，我们将根据您的情况评估全球采购入驻资格并出具诊断报告。",
+  "qualDiagSubmitBtn": "提交诊断问卷",
+  "qualDiagSubmitted": "诊断问卷已提交",
+  "qualDiagSubmittedDesc": "感谢您的填写，我们将尽快为您评估并出具诊断报告。",
+  "qualErrorCompanyName": "请填写企业名称",
+  "qualErrorIndustry": "请选择所属行业",
+  "qualErrorMainProduct": "请填写主营产品",
+  "qualErrorExportScale": "请选择出口规模",
+  "qualErrorCertifications": "请选择资质证书",
+  "qualErrorServiceCountries": "请填写服务国家",
+  "qualErrorOverseasCompanies": "请填写海外分公司",
+  "qualErrorUngmStatus": "请选择UNGM状态",
+  "qualErrorEnglishTeam": "请选择英文团队能力",
+  "qualErrorPaymentTerms": "请选择账期接受度",
+  "qualErrorBidWillingness": "请选择投标意愿"
 }

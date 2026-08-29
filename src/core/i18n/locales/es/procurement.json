@@ -339,5 +339,21 @@
   "qualOptCertTISI": "TISI (Thailand)",
   "qualOptCertSNI": "SNI (Indonesia)",
   "qualOptCertSONCAP": "SONCAP (Nigeria)",
-  "qualOptCertGMark": "G-Mark (GCC)"
+  "qualOptCertGMark": "G-Mark (GCC)",
+  "qualDiagTitle": "Diagnóstico de compras globales",
+  "qualDiagDesc": "Complete los 14 campos a continuación. Evaluaremos su elegibilidad y generaremos un informe de diagnóstico.",
+  "qualDiagSubmitBtn": "Enviar diagnóstico",
+  "qualDiagSubmitted": "Diagnóstico enviado",
+  "qualDiagSubmittedDesc": "Gracias por su envío. Le evaluaremos pronto.",
+  "qualErrorCompanyName": "Ingrese el nombre de la empresa",
+  "qualErrorIndustry": "Seleccione la industria",
+  "qualErrorMainProduct": "Ingrese el producto principal",
+  "qualErrorExportScale": "Seleccione la escala de exportación",
+  "qualErrorCertifications": "Seleccione las certificaciones",
+  "qualErrorServiceCountries": "Ingrese los países de servicio",
+  "qualErrorOverseasCompanies": "Ingrese las empresas en el extranjero",
+  "qualErrorUngmStatus": "Seleccione el estado UNGM",
+  "qualErrorEnglishTeam": "Seleccione la capacidad del equipo en inglés",
+  "qualErrorPaymentTerms": "Seleccione las condiciones de pago",
+  "qualErrorBidWillingness": "Seleccione la disposición a licitar"
 }

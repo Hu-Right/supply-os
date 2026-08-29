@@ -339,5 +339,21 @@
   "qualOptCertTISI": "TISI (Thailand)",
   "qualOptCertSNI": "SNI (Indonesia)",
   "qualOptCertSONCAP": "SONCAP (Nigeria)",
-  "qualOptCertGMark": "G-Mark (GCC)"
+  "qualOptCertGMark": "G-Mark (GCC)",
+  "qualDiagTitle": "Диагностика глобальных закупок",
+  "qualDiagDesc": "Заполните 14 полей ниже. Мы оценим вашу пригодность и подготовим диагностический отчёт.",
+  "qualDiagSubmitBtn": "Отправить диагностику",
+  "qualDiagSubmitted": "Диагностика отправлена",
+  "qualDiagSubmittedDesc": "Спасибо за заполнение. Мы скоро подготовим отчёт.",
+  "qualErrorCompanyName": "Введите название компании",
+  "qualErrorIndustry": "Выберите отрасль",
+  "qualErrorMainProduct": "Введите основной продукт",
+  "qualErrorExportScale": "Выберите масштаб экспорта",
+  "qualErrorCertifications": "Выберите сертификаты",
+  "qualErrorServiceCountries": "Введите страны обслуживания",
+  "qualErrorOverseasCompanies": "Введите зарубежные компании",
+  "qualErrorUngmStatus": "Выберите статус UNGM",
+  "qualErrorEnglishTeam": "Выберите уровень английской команды",
+  "qualErrorPaymentTerms": "Выберите условия оплаты",
+  "qualErrorBidWillingness": "Выберите готовность к тендерам"
 }

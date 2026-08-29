@@ -12,3 +12,8 @@ export type { FormFieldProps } from "./FormField";
 
 export { ConsultForm } from "./ConsultForm";
 export type { ConsultFormProps } from "./ConsultForm";
+
+export { QualificationFormFields } from "./QualificationFormFields";
+export type { QualificationFormFieldsProps, QualificationFormState } from "./QualificationFormFields";
+export { INITIAL_QUALIFICATION_FORM, QUAL_FIELDS } from "./QualificationFormFields";
+export type { QualFieldKey } from "./QualificationFormFields";
