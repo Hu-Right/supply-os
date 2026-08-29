@@ -28,6 +28,12 @@ export interface SupplierQualificationInput {
   bid_willingness: string;
   contact_info: string | null;
   ip: string;
+  /** 关联用户（注册后回写） */
+  user_id?: number | null;
+  /** 推荐员工（KPI 归属） */
+  referral_employee_id?: number | null;
+  /** 来源：registration / diagnosis / qualification */
+  source?: string;
 }
 
 /** DB 行记录（供评分报告生成使用） */
@@ -52,6 +58,9 @@ export interface SupplierQualificationRecord extends RowDataPacket {
   contact_info: string | null;
   audit_status: string;
   ip: string;
+  user_id: number | null;
+  referral_employee_id: number | null;
+  source: string;
   created_at: Date;
 }
 
@@ -74,8 +83,9 @@ export class SupplierQualificationRepo {
         (company_name, company_website, founding_year, employee_count, industry, other_industry,
          main_product, export_scale, certifications, other_certifications,
          service_countries, overseas_companies, ungm_status, english_team,
-         payment_terms, bid_willingness, contact_info, audit_status, ip, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW())`,
+         payment_terms, bid_willingness, contact_info, audit_status, ip,
+         user_id, referral_employee_id, source, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NOW())`,
       [
         data.company_name,
         data.company_website,
@@ -95,8 +105,27 @@ export class SupplierQualificationRepo {
         data.bid_willingness,
         data.contact_info,
         data.ip,
+        data.user_id ?? null,
+        data.referral_employee_id ?? null,
+        data.source ?? "qualification",
       ],
     );
     return Number((result as ResultSetHeader).insertId);
+  }
+
+  /** 回写 user_id（注册成功后将诊断记录关联到用户账号） */
+  async linkUser(qualificationId: number, userId: number): Promise<void> {
+    await this.pool.execute(
+      `UPDATE crm_supplier_qualification SET user_id = ? WHERE id = ?`,
+      [userId, qualificationId],
+    );
+  }
+
+  /** 回写 crm_users.qualification_id（用户账号关联评估记录） */
+  async linkUserQualification(userId: number, qualificationId: number): Promise<void> {
+    await this.pool.execute(
+      `UPDATE crm_users SET qualification_id = ? WHERE id = ?`,
+      [qualificationId, userId],
+    );
   }
 }

@@ -56,6 +56,7 @@
  *              046-phone-unique-index                 手机号唯一索引
  *              047-learning-material-purchases        学习资料购买记录表
  *              048-learning-materials                 学习资料表+种子数据
+ *              049-evaluation-unification              企业注册数据流归一化(统一评估表)
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -107,6 +108,7 @@ import { migration as m045 } from "./migrations/045-user-registration-type";
 import { migration as m046 } from "./migrations/046-phone-unique-index";
 import { migration as m047 } from "./migrations/047-learning-material-purchases";
 import { migration as m048 } from "./migrations/048-learning-materials";
+import { migration as m049 } from "./migrations/049-evaluation-unification";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -115,7 +117,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048,
+  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049,
 ];
 
 /**

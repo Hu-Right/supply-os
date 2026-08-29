@@ -27,6 +27,7 @@ export interface UserRow {
   supplier_link_status: string;
   referral_code: string | null;
   referral_employee_id: number | null;
+  qualification_id: number | null;
   created_at: Date;
   updated_at: Date | null;
 }
