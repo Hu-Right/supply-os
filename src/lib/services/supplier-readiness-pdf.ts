@@ -1,9 +1,9 @@
 /**
- * 供应商就绪度评估报告 PDF 生成服务
- * Supplier Readiness Scorecard PDF Generator
+ * 国际公采能力诊断报告 PDF 生成服务
+ * International Public Procurement Diagnostic Report PDF Generator
  *
  * @module src/lib/services/supplier-readiness-pdf
- * @description 使用 pdfkit 生成与「9-供应商就绪度评分表」格式对齐的 PDF 报告。
+ * @description 按 docx 模板风格生成完整 12 章节诊断报告 PDF。
  *              服务端专用（import "server-only"），输出为 Buffer。
  */
 import "server-only";
@@ -11,13 +11,12 @@ import path from "path";
 import PDFDocument from "pdfkit";
 import type { ScoringResult, QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
 import { scoreQualification } from "@/features/procurement/utils/scoringEngine";
+import { generateDiagnosticReport, type DiagnosticReport } from "./diagnosticEngine";
 
 // ── 类型 ──
 
 export interface PdfReportInput extends QualificationScoreInput {
-  /** 记录 ID（用于报告编号） */
   id?: number;
-  /** 评估日期（默认今天） */
   assessDate?: string;
 }
 
@@ -32,451 +31,335 @@ const GRAY = "#64748B";
 const LIGHT_GRAY = "#E2E8F0";
 const RED = "#DC2626";
 const AMBER = "#D97706";
+const PURPLE = "#7C3AED";
 
-// ── 字体路径 ──
+// ── 字体 ──
 
 function getFontPath(): string {
-  // 优先尝试项目内 public/fonts/，再尝试 src/lib/fonts/
   const candidates = [
     path.join(process.cwd(), "public", "fonts", "SimHei.ttf"),
     path.join(process.cwd(), "src", "lib", "fonts", "SimHei.ttf"),
   ];
   for (const p of candidates) {
-    try {
-      require("fs").accessSync(p);
-      return p;
-    } catch { /* try next */ }
+    try { require("fs").accessSync(p); return p; } catch { /* next */ }
   }
-  throw new Error("SimHei.ttf font not found in public/fonts/ or src/lib/fonts/");
+  throw new Error("SimHei.ttf font not found");
 }
 
-// ── 辅助：绘制表格 ──
+// ── 工具：表格 ──
 
-interface TableOptions {
-  x: number;
-  y: number;
-  width: number;
-  colWidths: number[];
-  rowHeight: number;
-  headerHeight?: number;
-  doc: PDFKit.PDFDocument;
-  fontName: string;
-  fontSize?: number;
-  headerBg?: string;
-  headerFg?: string;
+interface TableOpts {
+  x: number; y: number; width: number; colWidths: number[]; rowHeight: number;
+  headerHeight?: number; doc: PDFKit.PDFDocument; font: string; fontSize?: number;
+  headerBg?: string; headerFg?: string;
 }
 
-function drawTable(
-  opts: TableOptions,
-  headers: string[],
-  rows: string[][],
-): number {
-  const { x, width, colWidths, rowHeight, doc, fontName, fontSize = 8 } = opts;
-  const headerHeight = opts.headerHeight || rowHeight + 4;
-  const headerBg = opts.headerBg || NAVY;
-  const headerFg = opts.headerFg || WHITE;
+function drawTable(opts: TableOpts, headers: string[], rows: string[][]): number {
+  const { x, width, colWidths, rowHeight, doc, font, fontSize = 8 } = opts;
+  const hh = opts.headerHeight || rowHeight + 4;
+  const hbg = opts.headerBg || NAVY;
+  const hfg = opts.headerFg || WHITE;
   let y = opts.y;
 
-  // ── 表头 ──
+  // 表头
   doc.save();
-  doc.rect(x, y, width, headerHeight).fill(headerBg);
-  doc.font(fontName).fontSize(fontSize).fillColor(headerFg);
+  doc.rect(x, y, width, hh).fill(hbg);
+  doc.font(font).fontSize(fontSize).fillColor(hfg);
   let cx = x;
   for (let i = 0; i < headers.length; i++) {
-    doc.text(headers[i], cx + 4, y + 4, {
-      width: colWidths[i] - 8,
-      height: headerHeight - 8,
-      align: "center",
-      lineBreak: false,
-    });
+    doc.text(headers[i], cx + 4, y + 4, { width: colWidths[i] - 8, height: hh - 8, align: "center", lineBreak: false });
     cx += colWidths[i];
   }
   doc.restore();
-  y += headerHeight;
+  y += hh;
 
-  // ── 数据行 ──
-  for (let r = 0; r < rows.length; r++) {
-    const bg = r % 2 === 0 ? WHITE : LIGHT_BG;
-
-    // 检查是否需要换页
-    if (y + rowHeight > doc.page.height - 50) {
-      doc.addPage();
-      y = 50;
-    }
-
+  // 数据行
+  for (const row of rows) {
+    const bg = rows.indexOf(row) % 2 === 0 ? WHITE : LIGHT_BG;
+    if (y + rowHeight > doc.page.height - 50) { doc.addPage(); y = 50; }
     doc.save();
     doc.rect(x, y, width, rowHeight).fill(bg);
     doc.rect(x, y, width, rowHeight).stroke(LIGHT_GRAY);
-    doc.font(fontName).fontSize(fontSize).fillColor(DARK);
-
+    doc.font(font).fontSize(fontSize).fillColor(DARK);
     cx = x;
-    for (let i = 0; i < rows[r].length; i++) {
-      // 画竖线
-      if (i > 0) {
-        doc.save();
-        doc.moveTo(cx, y).lineTo(cx, y + rowHeight).stroke(LIGHT_GRAY);
-        doc.restore();
-      }
-      doc.text(rows[r][i], cx + 4, y + 4, {
-        width: colWidths[i] - 8,
-        height: rowHeight - 8,
-        align: i === 0 ? "left" : "center",
-        lineBreak: false,
-      });
+    for (let i = 0; i < row.length; i++) {
+      if (i > 0) { doc.moveTo(cx, y).lineTo(cx, y + rowHeight).stroke(LIGHT_GRAY); }
+      doc.text(row[i], cx + 4, y + 4, { width: colWidths[i] - 8, height: rowHeight - 8, align: i === 0 ? "left" : "center", lineBreak: false });
       cx += colWidths[i];
     }
     doc.restore();
     y += rowHeight;
   }
-
   return y;
 }
 
-// ── 辅助：绘制进度条 ──
+// ── 工具：章节标题 ──
 
-function drawScoreBar(
-  doc: PDFKit.PDFDocument,
-  fontName: string,
-  x: number,
-  y: number,
-  score: number,
-  maxScore: number,
-  barWidth: number,
-  barHeight: number,
-): void {
-  const ratio = Math.min(score / maxScore, 1);
-  const fillWidth = barWidth * ratio;
-
-  // 背景条
-  doc.save();
-  doc.roundedRect(x, y, barWidth, barHeight, 2).fill(LIGHT_GRAY);
-
-  // 填充条（按分数着色）
-  const color = ratio >= 0.8 ? GREEN : ratio >= 0.6 ? AMBER : RED;
-  if (fillWidth > 0) {
-    doc.roundedRect(x, y, fillWidth, barHeight, 2).fill(color);
-  }
-  doc.restore();
-
-  // 分数文字
-  doc.font(fontName).fontSize(8).fillColor(DARK);
-  doc.text(`${score}/${maxScore}`, x + barWidth + 6, y - 1, { width: 40, align: "left" });
+function sectionHeader(doc: PDFKit.PDFDocument, font: string, y: number, no: string, titleZh: string, titleEn: string): number {
+  if (y > doc.page.height - 100) { doc.addPage(); y = 50; }
+  doc.font(font).fontSize(13).fillColor(NAVY);
+  doc.text(`${no}、${titleZh}`, 50, y, { width: doc.page.width - 100 });
+  y += 18;
+  doc.font(font).fontSize(9).fillColor(GRAY);
+  doc.text(titleEn, 50, y, { width: doc.page.width - 100 });
+  y += 18;
+  return y;
 }
 
-// ── 主函数：生成 PDF Buffer ──
+// ── 工具：检查换页 ──
+
+function checkPage(doc: PDFKit.PDFDocument, y: number, needed: number): number {
+  if (y + needed > doc.page.height - 50) { doc.addPage(); return 50; }
+  return y;
+}
+
+// ── 工具：进度条 ──
+
+function drawBar(doc: PDFKit.PDFDocument, font: string, x: number, y: number, score: number, max: number, w: number, h: number) {
+  const r = Math.min(score / max, 1);
+  doc.save();
+  doc.roundedRect(x, y, w, h, 2).fill(LIGHT_GRAY);
+  if (r > 0) {
+    const c = r >= 0.8 ? GREEN : r >= 0.6 ? AMBER : RED;
+    doc.roundedRect(x, y, w * r, h, 2).fill(c);
+  }
+  doc.restore();
+  doc.font(font).fontSize(8).fillColor(DARK);
+  doc.text(`${score}/${max}`, x + w + 6, y - 1, { width: 40, align: "left" });
+}
+
+// ── 主函数 ──
 
 export async function generateReadinessPdf(input: PdfReportInput): Promise<Buffer> {
-  const result = scoreQualification(input);
+  const scoring = scoreQualification(input);
+  const report = generateDiagnosticReport(input, scoring, input.id, input.assessDate);
   const fontPath = getFontPath();
-  const FONT = "SimHei";
+  const F = "SimHei";
 
   return new Promise<Buffer>((resolve, reject) => {
-    const doc = new PDFDocument({
-      size: "A4",
-      margins: { top: 50, bottom: 50, left: 50, right: 50 },
-      bufferPages: true,
-      info: {
-        Title: "供应商就绪度评估报告",
-        Author: "国际采购供应链平台",
-        Subject: `供应商就绪度评分 - ${input.company_name}`,
-      },
-    });
-
+    const doc = new PDFDocument({ size: "A4", margins: { top: 50, bottom: 50, left: 50, right: 50 }, bufferPages: true, info: { Title: "国际公采能力诊断报告", Author: "国际采购供应链平台", Subject: `诊断报告 - ${input.company_name}` } });
     const chunks: Buffer[] = [];
-    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("data", (c: Buffer) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
+    doc.registerFont(F, fontPath);
 
-    // 注册中文字体
-    doc.registerFont(FONT, fontPath);
+    const pw = doc.page.width - 100;
+    const lx = 50;
+    let y = 0;
 
-    const pageWidth = doc.page.width - 100; // 减去左右 margin
-    const leftX = 50;
-
-    // ═══════════════════════════════════════════════════════════
-    // 第 1 页：封面 + 企业基本信息
-    // ═══════════════════════════════════════════════════════════
-
-    // ── 标题区 ──
+    // ═══ 封面 ═══
     doc.save();
-    doc.rect(0, 0, doc.page.width, 120).fill(NAVY);
-    doc.font(FONT).fontSize(24).fillColor(WHITE);
-    doc.text("供应商就绪度评估报告", 50, 30, { align: "center", width: pageWidth });
-    doc.fontSize(12).fillColor("#94A3B8");
-    doc.text("SUPPLIER READINESS SCORECARD", 50, 65, { align: "center", width: pageWidth });
-    doc.fontSize(9).fillColor("#64748B");
-    doc.text("培训现场分级与会后跟进工具 / On-site classification and post-training follow-up tool", 50, 88, { align: "center", width: pageWidth });
+    doc.rect(0, 0, doc.page.width, 130).fill(NAVY);
+    doc.font(F).fontSize(22).fillColor(WHITE);
+    doc.text("国际公采能力诊断报告", 50, 25, { align: "center", width: pw });
+    doc.fontSize(10).fillColor("#94A3B8");
+    doc.text("INTERNATIONAL PUBLIC PROCUREMENT CAPABILITY DIAGNOSTIC REPORT", 50, 58, { align: "center", width: pw });
+    doc.fontSize(14).fillColor(WHITE);
+    doc.text(report.cover.companyName, 50, 85, { align: "center", width: pw });
     doc.restore();
 
-    let y = 140;
-
-    // ── 企业基本信息 ──
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("企业与评估信息 / COMPANY & ASSESSMENT INFORMATION", leftX, y);
-    y += 25;
-
-    const infoRows = [
-      ["企业名称", input.company_name || "-", "行业", input.industry.join(", ") || "-"],
-      ["企业官网", input.company_website || "-", "主营产品", input.main_product || "-"],
-      ["成立年份", input.founding_year || "-", "企业规模", input.employee_count || "-"],
-      ["出口规模", input.export_scale || "-", "UNGM状态", input.ungm_status || "-"],
-      ["英文团队", input.english_team || "-", "账期接受", input.payment_terms || "-"],
-      ["投标意愿", input.bid_willingness || "-", "联系方式", input.contact_info || "-"],
-      ["评估日期", input.assessDate || new Date().toISOString().slice(0, 10), "报告编号", input.id ? `QR-${String(input.id).padStart(6, "0")}` : "-"],
+    y = 150;
+    // 封面信息表
+    const coverRows = [
+      ["报告名称 / Report Title", report.cover.reportTitle],
+      ["诊断日期 / Assessment Date", report.cover.assessDate],
+      ["诊断依据 / Basis", report.cover.basis],
+      ["综合评分 / Overall Score", `${report.cover.score} / 100`],
+      ["标准等级 / Standard Rating", `${report.cover.grade} / ${report.cover.gradeLabel}`],
+      ["建议阶段 / Recommended Stage", report.cover.stage],
     ];
+    y = drawTable({ x: lx, y, width: pw, colWidths: [150, pw - 150], rowHeight: 22, doc, font: F, fontSize: 9 }, ["项目 / Item", "内容 / Entry"], coverRows);
 
-    const infoColWidths = [80, pageWidth / 2 - 80, 80, pageWidth / 2 - 80];
-    y = drawTable(
-      { x: leftX, y, width: pageWidth, colWidths: infoColWidths, rowHeight: 22, doc, fontName: FONT, fontSize: 9 },
-      ["字段", "值", "字段", "值"],
-      infoRows,
-    );
+    y += 15;
+    doc.font(F).fontSize(8).fillColor(GRAY);
+    doc.text('说明：本报告采用标准化诊断口径。由于现阶段主要依据企业自报信息，本报告中的部分结论属于\u201c待证据核验\u201d。', lx, y, { width: pw });
+    y += 12;
+    doc.text("Note: This report follows the standardized diagnostic framework. Certain findings remain subject to evidence verification.", lx, y, { width: pw });
 
-    y += 20;
+    // ═══ 一、报告基本信息 ═══
+    y = checkPage(doc, y + 30, 200);
+    y = sectionHeader(doc, F, y, "一", "报告基本信息", "1. Report Administration");
 
-    // ── 评分方法说明 ──
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("评分方法 / SCORING METHOD", leftX, y);
-    y += 22;
+    const adminRows = report.admin.fields.map(f => [f.field, f.value, f.evidence]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [100, pw - 220, 120], rowHeight: 20, doc, font: F, fontSize: 8 }, ["字段 / Field", "企业信息 / Company Information", "证据状态 / Evidence"], adminRows);
 
-    const methodRows = [
-      ["0 分", "无能力或无证据", "No capability/evidence"],
-      ["1-2 分", "起步阶段，重大缺口", "Early stage, major gaps"],
-      ["3-4 分", "基本可用，但需补强", "Usable, needs strengthening"],
-      ["5 分", "已验证、可立即调用", "Verified and immediately usable"],
-    ];
-    const methodColWidths = [60, pageWidth / 2 - 30, pageWidth / 2 - 30];
-    y = drawTable(
-      { x: leftX, y, width: pageWidth, colWidths: methodColWidths, rowHeight: 20, doc, fontName: FONT, fontSize: 9 },
-      ["评分", "含义（中文）", "含义（英文）"],
-      methodRows,
-    );
-
-    // ═══════════════════════════════════════════════════════════
-    // 第 2 页：核心评分矩阵
-    // ═══════════════════════════════════════════════════════════
-    doc.addPage();
-    y = 50;
-
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("核心评分矩阵 / CORE READINESS SCORING MATRIX", leftX, y);
-    y += 8;
-    doc.font(FONT).fontSize(9).fillColor(GRAY);
-    doc.text("评分 = (原始评分 ÷ 5) × 权重", leftX, y + 14, { width: pageWidth });
-    y += 28;
-
-    // 评分矩阵表
-    const matrixHeaders = ["No.", "评估维度", "权重", "评分", "加权分", "证据来源", "状态"];
-    const matrixColWidths = [30, 180, 45, 45, 55, 60, pageWidth - 415];
-    const matrixRows = result.dimensions.map((d) => [
-      String(d.no),
-      d.name,
-      String(d.weight),
-      `${d.rawScore}/5`,
-      `${d.weightedScore}`,
-      d.evidenceSource,
-      d.needsManualReview ? "需补充" : "OK",
-    ]);
-
-    // 总计行
-    matrixRows.push([
-      "",
-      "总计 / TOTAL",
-      "100",
-      "",
-      `${result.totalScore}`,
-      "",
-      result.grade,
-    ]);
-
-    y = drawTable(
-      {
-        x: leftX, y, width: pageWidth,
-        colWidths: matrixColWidths,
-        rowHeight: 22,
-        headerHeight: 26,
-        doc, fontName: FONT, fontSize: 8,
-        headerBg: NAVY,
-      },
-      matrixHeaders,
-      matrixRows,
-    );
-
-    y += 20;
-
-    // ── 各维度得分条 ──
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("各维度得分概览", leftX, y);
-    y += 22;
-
-    for (const d of result.dimensions) {
-      if (y > doc.page.height - 80) {
-        doc.addPage();
-        y = 50;
-      }
-      // 维度名称
-      doc.font(FONT).fontSize(9).fillColor(DARK);
-      doc.text(`${d.no}. ${d.name}`, leftX, y, { width: 300 });
-      doc.text(`${d.weightedScore}/${d.weight}`, leftX + 310, y, { width: 50, align: "right" });
-      y += 14;
-
-      // 进度条
-      drawScoreBar(doc, FONT, leftX + 10, y, d.rawScore, 5, 300, 10);
-      y += 18;
-
-      // 评分依据
-      doc.font(FONT).fontSize(7).fillColor(GRAY);
-      const basisText = d.needsManualReview ? `[需人工补充] ${d.scoringBasis}` : d.scoringBasis;
-      doc.text(basisText, leftX + 10, y, { width: pageWidth - 20 });
-      y += 16;
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // 第 3 页：即时结论 + 能力缺口 + 准入决定
-    // ═══════════════════════════════════════════════════════════
-    doc.addPage();
-    y = 50;
-
-    // ── 即时结论 ──
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("即时结论 / IMMEDIATE RESULT", leftX, y);
-    y += 25;
-
-    // 等级大标签
-    const gradeColor = result.grade === "A" ? GREEN : result.grade === "B" ? AMBER : RED;
-    doc.save();
-    doc.roundedRect(leftX, y, 120, 60, 8).fill(gradeColor);
-    doc.font(FONT).fontSize(28).fillColor(WHITE);
-    doc.text(result.grade, leftX, y + 5, { width: 120, align: "center" });
-    doc.fontSize(10);
-    doc.text(`${result.totalScore} 分`, leftX, y + 38, { width: 120, align: "center" });
-    doc.restore();
-
-    // 等级说明
-    doc.font(FONT).fontSize(12).fillColor(DARK);
-    doc.text(result.gradeLabel, leftX + 140, y + 8, { width: 300 });
-    doc.font(FONT).fontSize(10).fillColor(GRAY);
-    doc.text(result.gradePath, leftX + 140, y + 28, { width: 300 });
-    y += 75;
-
-    // 覆盖规则提示
-    if (result.overrideGateTriggered) {
-      doc.save();
-      doc.roundedRect(leftX, y, pageWidth, 30, 4).fill("#FEF2F2");
-      doc.font(FONT).fontSize(9).fillColor(RED);
-      doc.text(`⚠ 覆盖规则触发：${result.overrideGateReason}`, leftX + 10, y + 10, { width: pageWidth - 20 });
-      doc.restore();
-      y += 40;
-    }
-
-    // ── 关键能力缺口 ──
     y += 10;
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("关键能力缺口（Top 5）/ TOP CAPABILITY GAPS", leftX, y);
-    y += 22;
+    doc.font(F).fontSize(9).fillColor(DARK);
+    doc.text(`标准结论：${report.admin.standardFinding}`, lx, y, { width: pw });
+    y += 14;
+    doc.font(F).fontSize(8).fillColor(GRAY);
+    doc.text(`Standard Finding: ${report.admin.standardFindingEn}`, lx, y, { width: pw });
 
-    const gapHeaders = ["No.", "能力缺口", "优先级", "当前评分"];
-    const gapColWidths = [35, pageWidth - 180, 70, 75];
-    const gapRows = result.topGaps.map((g, i) => {
-      const dim = result.dimensions.find((d) => d.name === g.dimension);
-      return [
-        String(i + 1),
-        g.dimension,
-        g.priority,
-        `${dim?.rawScore ?? "-"}/5`,
-      ];
-    });
+    // ═══ 二、企业基础画像 ═══
+    y = checkPage(doc, y + 30, 200);
+    y = sectionHeader(doc, F, y, "二", "企业基础画像与国际化能力", "2. Corporate Profile & Internationalization");
 
-    y = drawTable(
-      {
-        x: leftX, y, width: pageWidth,
-        colWidths: gapColWidths,
-        rowHeight: 22,
-        doc, fontName: FONT, fontSize: 9,
-        headerBg: "#7C3AED",
-      },
-      gapHeaders,
-      gapRows,
-    );
+    const profRows = report.profile.items.map(p => [p.item, p.status, p.finding, p.recommendation]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [80, 100, 120, pw - 300], rowHeight: 30, doc, font: F, fontSize: 7 }, ["诊断项 / Diagnostic", "当前情况", "诊断结果", "建议 / Recommendation"], profRows);
 
-    // ── 投标准入决定 ──
-    y += 25;
-    if (y > doc.page.height - 200) {
-      doc.addPage();
-      y = 50;
+    // ═══ 三、标准/认证诊断 ═══
+    y = checkPage(doc, y + 30, 150);
+    y = sectionHeader(doc, F, y, "三", "标准与认证诊断", "3. Standards & Certification Diagnosis");
+
+    if (report.standards.held.length > 0) {
+      doc.font(F).fontSize(9).fillColor(DARK);
+      doc.text("已持有认证：", lx, y);
+      y += 14;
+      const certRows = report.standards.held.map(c => [c.name, c.status]);
+      y = drawTable({ x: lx, y, width: pw, colWidths: [pw / 2, pw / 2], rowHeight: 18, doc, font: F, fontSize: 8 }, ["认证名称", "状态"], certRows);
+    }
+    if (report.standards.gaps.length > 0) {
+      y += 8;
+      doc.font(F).fontSize(9).fillColor(DARK);
+      doc.text("建议补齐认证：", lx, y);
+      y += 14;
+      const gapRows = report.standards.gaps.map(g => [g.gap, g.priority]);
+      y = drawTable({ x: lx, y, width: pw, colWidths: [pw - 80, 80], rowHeight: 18, doc, font: F, fontSize: 8 }, ["认证缺口 / Gap", "优先级"], gapRows);
+    }
+    y += 6;
+    for (const rec of report.standards.recommendations) {
+      doc.font(F).fontSize(8).fillColor(DARK);
+      doc.text(`• ${rec}`, lx + 10, y, { width: pw - 20 });
+      y += 12;
     }
 
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("投标准入决定 / BID-ENTRY DECISION", leftX, y);
-    y += 22;
+    // ═══ 四、UNSPSC 编码映射 ═══
+    y = checkPage(doc, y + 30, 150);
+    y = sectionHeader(doc, F, y, "四", "UNSPSC 产品编码映射", "4. UNSPSC Product Code Mapping");
 
-    const decisionRows = [
-      ["最终等级", result.grade],
-      ["总分", `${result.totalScore} / 100`],
-      ["覆盖规则触发", result.overrideGateTriggered ? "是" : "否"],
-      ["建议路径", result.gradePath],
-      ["评估日期", input.assessDate || new Date().toISOString().slice(0, 10)],
+    if (report.unspsc.products.length > 0) {
+      const uRows = report.unspsc.products.map(u => [u.product, u.candidateCode, u.candidateName, u.matchLevel, u.note]);
+      y = drawTable({ x: lx, y, width: pw, colWidths: [70, 65, 120, 50, pw - 305], rowHeight: 22, doc, font: F, fontSize: 7 }, ["产品", "候选编码", "编码名称", "匹配度", "建议"], uRows);
+    }
+    y += 8;
+    doc.font(F).fontSize(8).fillColor(DARK);
+    doc.text(report.unspsc.status, lx, y, { width: pw });
+    y += 14;
+
+    // ═══ 五、国际业务与履约 ═══
+    y = checkPage(doc, y + 30, 200);
+    y = sectionHeader(doc, F, y, "五", "国际业务与履约能力诊断", "5. International Business & Delivery Capability");
+
+    const intlRows = report.international.items.map(i => [i.capability, i.result, i.risk, i.recommendation]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [70, 90, 40, pw - 200], rowHeight: 26, doc, font: F, fontSize: 7 }, ["能力项 / Capability", "结果 / Finding", "风险", "诊断建议 / Recommendation"], intlRows);
+
+    // ═══ 六、投标组织 ═══
+    y = checkPage(doc, y + 30, 200);
+    y = sectionHeader(doc, F, y, "六", "投标组织与英文文件能力诊断", "6. Bid Organization & English Documentation");
+
+    const bidRows = report.bidOrg.modules.map(m => [m.module, m.status, m.owner, m.target, m.kpi]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [60, 80, 70, 100, pw - 310], rowHeight: 26, doc, font: F, fontSize: 7 }, ["模块 / Module", "当前状态", "建议负责人", "目标状态", "KPI/动作"], bidRows);
+
+    // ═══ 七、关键短板与风险 ═══
+    y = checkPage(doc, y + 30, 150);
+    y = sectionHeader(doc, F, y, "七", "关键短板与风险诊断", "7. Critical Gaps & Risk Assessment");
+
+    const riskRows = report.risks.items.map(r => [r.id, r.risk, r.severity, r.impact, r.owner, r.due]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [25, 110, 40, 120, 65, 40], rowHeight: 22, doc, font: F, fontSize: 7, headerBg: PURPLE }, ["ID", "风险事项 / Risk", "严重度", "影响 / Impact", "责任建议", "时限"], riskRows);
+
+    // ═══ 八、市场匹配 ═══
+    y = checkPage(doc, y + 30, 180);
+    y = sectionHeader(doc, F, y, "八", "市场与订单匹配策略", "8. Market & Opportunity Matching Strategy");
+
+    const mktRows = [
+      ["优先订单类型", report.market.priorityOrders],
+      ["优先产品", report.market.priorityProducts],
+      ["优先采购方", report.market.priorityBuyers],
+      ["优先区域", report.market.priorityRegions],
+      ["Go/No-Go 门槛", report.market.goNoGoGate],
     ];
-    const decisionColWidths = [120, pageWidth - 120];
-    y = drawTable(
-      {
-        x: leftX, y, width: pageWidth,
-        colWidths: decisionColWidths,
-        rowHeight: 22,
-        doc, fontName: FONT, fontSize: 10,
-        headerBg: NAVY,
-      },
-      ["项目", "内容"],
-      decisionRows,
-    );
+    y = drawTable({ x: lx, y, width: pw, colWidths: [100, pw - 100], rowHeight: 24, doc, font: F, fontSize: 8 }, ["维度 / Dimension", "建议策略 / Recommended Strategy"], mktRows);
 
-    // ── 页脚：评分锚点摘要 ──
-    y += 25;
-    if (y > doc.page.height - 180) {
-      doc.addPage();
-      y = 50;
+    // ═══ 九、内部 KPI ═══
+    y = checkPage(doc, y + 30, 250);
+    y = sectionHeader(doc, F, y, "九", "建议内部国际公采准备 KPI", "9. Recommended Internal Readiness KPIs");
+
+    const kpiRows = report.kpis.items.map(k => [k.area, k.day30, k.day60, k.day90, k.owner]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [70, 100, 100, 100, pw - 370], rowHeight: 28, doc, font: F, fontSize: 7 }, ["KPI模块", "30天", "60天", "90天", "责任建议"], kpiRows);
+
+    // ═══ 十、90天行动计划 ═══
+    y = checkPage(doc, y + 30, 150);
+    y = sectionHeader(doc, F, y, "十", "90天国际公采能力提升行动计划", "10. 90-Day International Procurement Readiness Roadmap");
+
+    const rmRows = report.roadmap.phases.map(p => [p.days, p.actions, p.deliverables, p.acceptance]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: [60, 140, 100, pw - 300], rowHeight: 36, doc, font: F, fontSize: 7 }, ["阶段 / Phase", "重点工作 / Key Actions", "核心输出 / Deliverables", "完成标准 / Acceptance"], rmRows);
+
+    // ═══ 十一、综合结论 ═══
+    y = checkPage(doc, y + 30, 300);
+    y = sectionHeader(doc, F, y, "十一", "综合诊断结论", "11. Overall Diagnostic Conclusion");
+
+    // 等级标签
+    const gc = report.conclusion.grade === "A" ? GREEN : report.conclusion.grade === "B" ? AMBER : RED;
+    doc.save();
+    doc.roundedRect(lx, y, 80, 50, 6).fill(gc);
+    doc.font(F).fontSize(24).fillColor(WHITE);
+    doc.text(report.conclusion.grade, lx, y + 5, { width: 80, align: "center" });
+    doc.fontSize(10);
+    doc.text(`${report.conclusion.score} 分`, lx, y + 32, { width: 80, align: "center" });
+    doc.restore();
+
+    const concRows = [
+      ["当前定位", report.conclusion.position],
+      ["核心优势", report.conclusion.strengths],
+      ["首要短板", report.conclusion.gaps],
+      ["建议进入阶段", report.conclusion.recommendedStage],
+      ["推荐切入产品", report.conclusion.recommendedProducts],
+      ["推荐投标方式", report.conclusion.recommendedRoute],
+    ];
+    y += 60;
+    y = drawTable({ x: lx, y, width: pw, colWidths: [100, pw - 100], rowHeight: 24, doc, font: F, fontSize: 8 }, ["结论项 / Conclusion", "诊断结果 / Diagnostic Result"], concRows);
+
+    // 最终诊断意见
+    y += 12;
+    doc.font(F).fontSize(10).fillColor(NAVY);
+    doc.text("最终诊断意见 / Final Diagnostic Opinion", lx, y, { width: pw });
+    y += 16;
+    doc.font(F).fontSize(8).fillColor(DARK);
+    doc.text(report.conclusion.finalOpinion, lx, y, { width: pw });
+    y += 14;
+    doc.font(F).fontSize(7).fillColor(GRAY);
+    doc.text(report.conclusion.finalOpinionEn, lx, y, { width: pw });
+    y += 20;
+
+    // ═══ 核心评分矩阵（附录） ═══
+    y = checkPage(doc, y + 30, 200);
+    doc.font(F).fontSize(12).fillColor(NAVY);
+    doc.text("附录：核心评分矩阵 / Appendix: Core Readiness Scoring Matrix", lx, y, { width: pw });
+    y += 18;
+
+    const mHeaders = ["No.", "评估维度", "权重", "评分", "加权分", "证据来源", "状态"];
+    const mCols = [25, 160, 40, 40, 50, 55, pw - 370];
+    const mRows = scoring.dimensions.map(d => [String(d.no), d.name, String(d.weight), `${d.rawScore}/5`, `${d.weightedScore}`, d.evidenceSource, d.needsManualReview ? "需补充" : "OK"]);
+    mRows.push(["", "总计 / TOTAL", "100", "", `${scoring.totalScore}`, "", scoring.grade]);
+    y = drawTable({ x: lx, y, width: pw, colWidths: mCols, rowHeight: 20, headerHeight: 24, doc, font: F, fontSize: 7 }, mHeaders, mRows);
+
+    y += 12;
+    for (const d of scoring.dimensions) {
+      if (y > doc.page.height - 70) { doc.addPage(); y = 50; }
+      doc.font(F).fontSize(8).fillColor(DARK);
+      doc.text(`${d.no}. ${d.name}`, lx, y, { width: 280 });
+      doc.text(`${d.weightedScore}/${d.weight}`, lx + 290, y, { width: 40, align: "right" });
+      y += 12;
+      drawBar(doc, F, lx + 10, y, d.rawScore, 5, 280, 8);
+      y += 14;
+      doc.font(F).fontSize(6).fillColor(GRAY);
+      doc.text(d.scoringBasis, lx + 10, y, { width: pw - 20 });
+      y += 12;
     }
 
-    doc.font(FONT).fontSize(14).fillColor(NAVY);
-    doc.text("评分锚点摘要 / SCORING ANCHORS SUMMARY", leftX, y);
-    y += 22;
+    // ═══ 免责声明 ═══
+    y = checkPage(doc, y + 40, 60);
+    y += 10;
+    doc.font(F).fontSize(7).fillColor(GRAY);
+    doc.text(`免责声明：${report.disclaimer.zh}`, lx, y, { width: pw });
+    y += 14;
+    doc.text(`Disclaimer: ${report.disclaimer.en}`, lx, y, { width: pw });
 
-    // 每个维度一行简要锚点
-    const anchorRows = result.dimensions.map((d) => [
-      `${d.no}`,
-      d.name.length > 14 ? d.name.slice(0, 14) + "…" : d.name,
-      `${d.rawScore}/5`,
-      d.scoringBasis.length > 30 ? d.scoringBasis.slice(0, 30) + "…" : d.scoringBasis,
-    ]);
-
-    const anchorColWidths = [25, 130, 40, pageWidth - 195];
-    drawTable(
-      {
-        x: leftX, y, width: pageWidth,
-        colWidths: anchorColWidths,
-        rowHeight: 20,
-        doc, fontName: FONT, fontSize: 8,
-        headerBg: GRAY,
-      },
-      ["#", "维度", "评分", "依据"],
-      anchorRows,
-    );
-
-    // ── 底部声明 ──
-    const pageHeight = doc.page.height;
-    doc.font(FONT).fontSize(7).fillColor(GRAY);
-    doc.text(
-      '本报告由国际采购供应链平台自动生成，基于企业填写的初筛表单数据。标注「需人工补充」的维度建议由评估师进一步验证。',
-      leftX,
-      pageHeight - 40,
-      { width: pageWidth, align: "center" },
-    );
-    doc.text(
-      "This report is auto-generated. Dimensions marked as \"needs manual review\" should be further verified by an assessor.",
-      leftX,
-      pageHeight - 28,
-      { width: pageWidth, align: "center" },
-    );
+    // 底部
+    const ph = doc.page.height;
+    doc.font(F).fontSize(6).fillColor(LIGHT_GRAY);
+    doc.text("本报告由国际采购供应链平台自动生成 / Auto-generated by International Procurement & Supply Chain Platform", lx, ph - 30, { width: pw, align: "center" });
 
     doc.end();
   });
