@@ -11,10 +11,9 @@
  *              将绕过 `*` 组的全部 Disallow（/crm、/api/ 反而可爬）。
  */
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/services/seo/site";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.SITE_URL || "https://osneosmart.com";
-
   return {
     rules: [
       {
@@ -28,6 +27,6 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

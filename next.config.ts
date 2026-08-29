@@ -45,13 +45,15 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "i18next", "react-i18next"],
   },
-  // 根路由重定向到 /showroom（307 临时重定向，对 SEO 友好）
+  // 根路由 301 永久重定向到 /showroom —— 长期存在的 307 会让搜索引擎
+  // 视为"临时"，权重沉淀在 / 上永不转移；/showroom 是既定永久首页
+  // （canonical/sitemap/导航均已指向），用 permanent: true 传递信号
   async redirects() {
     return [
       {
         source: "/",
         destination: "/showroom",
-        permanent: false,
+        permanent: true,
       },
     ];
   },

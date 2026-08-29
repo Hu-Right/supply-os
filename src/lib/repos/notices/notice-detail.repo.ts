@@ -53,6 +53,23 @@ export class NoticeDetailRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
+  /**
+   * SEO 详情页公开字段（/procurement/notice/[id] SSR 用）。
+   * 字段集 = findPreview 口径 + deadline/estimated_value/country/notice_type，
+   * 描述与搜索列表同口径截断 300 字符 —— 全文/联系人/文档仍是解锁后内容，
+   * 严禁在此查询中放宽（会被 SSR 进 HTML 泄露给未付费用户与爬虫）。
+   */
+  async findSeoDetail(noticeId: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, notice_id, reference, title, notice_type, agency, agency_full,
+         country, deadline, deadline_ts, deadline_sec, estimated_value,
+         published_date, LEFT(description, 300) AS description
+       FROM crm_bid_notices WHERE id = ? LIMIT 1`,
+      [noticeId],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
+
   /** 翻译决策所需元信息（描述源与机会转换标记） */
   async findDescMeta(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
