@@ -54,7 +54,7 @@ export interface DiagnosticReport {
   international: { items: CapabilityItem[]; };
   bidOrg: { modules: BidModule[]; };
   risks: { items: RiskItem[]; };
-  market: { priorityOrders: string; priorityProducts: string; priorityBuyers: string; priorityRegions: string; goNoGoGate: string; };
+  market: { priorityOrders: string; priorityProducts: string; priorityBuyers: string; priorityRegions: string; goNoGoGate: string; searchMethod: string; };
   kpis: { items: KpiItem[]; };
   roadmap: { phases: RoadmapPhase[]; };
   conclusion: { score: number; grade: string; position: string; positionEn: string; strengths: string; strengthsEn: string; gaps: string; gapsEn: string; recommendedStage: string; recommendedProducts: string; recommendedRoute: string; finalOpinion: string; finalOpinionEn: string; };
@@ -142,19 +142,19 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
   const evSelf = "C：企业自报 / Self-declared";
   const evVerify = "C：待证书核验 / To be verified";
   const adminFields: FieldEntry[] = [
-    { field: "企业名称", fieldEn: "Company Name", value: input.company_name, valueEn: input.company_name, evidence: evSelf, evidenceEn: evSelf },
-    { field: "官网", fieldEn: "Website", value: input.company_website, valueEn: input.company_website, evidence: evSelf, evidenceEn: evSelf },
-    { field: "成立时间", fieldEn: "Founded", value: input.founding_year || "-", valueEn: input.founding_year || "-", evidence: evSelf, evidenceEn: evSelf },
-    { field: "员工规模", fieldEn: "Employees", value: input.employee_count || "-", valueEn: input.employee_count || "-", evidence: evSelf, evidenceEn: evSelf },
-    { field: "所属行业", fieldEn: "Industry", value: input.industry.join(", "), valueEn: input.industry.join(", "), evidence: evSelf, evidenceEn: evSelf },
-    { field: "主营产品", fieldEn: "Main Products", value: input.main_product, valueEn: input.main_product, evidence: evSelf, evidenceEn: evSelf },
-    { field: "近2年国际业务", fieldEn: "2-year International Business", value: input.export_scale || "-", valueEn: input.export_scale || "-", evidence: evSelf, evidenceEn: evSelf },
-    { field: "管理/产品认证", fieldEn: "Certifications", value: input.certifications.join("、") || "-", valueEn: input.certifications.join(", ") || "-", evidence: certCount > 0 ? evVerify : evSelf, evidenceEn: certCount > 0 ? evVerify : evSelf },
-    { field: "海外售后", fieldEn: "Overseas Service", value: input.service_countries || "-", valueEn: input.service_countries || "-", evidence: evSelf, evidenceEn: evSelf },
-    { field: "海外公司", fieldEn: "Overseas Entity", value: input.overseas_companies || "-", valueEn: input.overseas_companies || "-", evidence: evSelf, evidenceEn: evSelf },
-    { field: "UNGM注册", fieldEn: "UNGM Registration", value: input.ungm_status, valueEn: input.ungm_status, evidence: evSelf, evidenceEn: evSelf },
-    { field: "英文商务及标书能力", fieldEn: "English Business & Bid Capability", value: input.english_team, valueEn: input.english_team, evidence: evSelf, evidenceEn: evSelf },
-    { field: "30天账期", fieldEn: "30-day Payment Terms", value: input.payment_terms, valueEn: input.payment_terms, evidence: evSelf, evidenceEn: evSelf },
+    { field: "企业名称 / Company Name", fieldEn: "Company Name", value: input.company_name, valueEn: input.company_name, evidence: evSelf, evidenceEn: evSelf },
+    { field: "官网 / Website", fieldEn: "Website", value: input.company_website, valueEn: input.company_website, evidence: evSelf, evidenceEn: evSelf },
+    { field: "成立时间 / Founded", fieldEn: "Founded", value: input.founding_year || "-", valueEn: input.founding_year || "-", evidence: evSelf, evidenceEn: evSelf },
+    { field: "员工规模 / Employees", fieldEn: "Employees", value: input.employee_count || "-", valueEn: input.employee_count || "-", evidence: evSelf, evidenceEn: evSelf },
+    { field: "所属行业 / Industry", fieldEn: "Industry", value: input.industry.join(", "), valueEn: input.industry.join(", "), evidence: evSelf, evidenceEn: evSelf },
+    { field: "主营产品 / Main Products", fieldEn: "Main Products", value: input.main_product, valueEn: input.main_product, evidence: evSelf, evidenceEn: evSelf },
+    { field: "近2年国际业务 / 2-year Intl Business", fieldEn: "2-year International Business", value: input.export_scale || "-", valueEn: input.export_scale || "-", evidence: evSelf, evidenceEn: evSelf },
+    { field: "管理/产品认证 / Certifications", fieldEn: "Certifications", value: input.certifications.join("、") || "-", valueEn: input.certifications.join(", ") || "-", evidence: certCount > 0 ? evVerify : evSelf, evidenceEn: certCount > 0 ? evVerify : evSelf },
+    { field: "海外售后 / Overseas Service", fieldEn: "Overseas Service", value: input.service_countries || "-", valueEn: input.service_countries || "-", evidence: evSelf, evidenceEn: evSelf },
+    { field: "海外公司 / Overseas Entity", fieldEn: "Overseas Entity", value: input.overseas_companies || "-", valueEn: input.overseas_companies || "-", evidence: evSelf, evidenceEn: evSelf },
+    { field: "UNGM注册 / UNGM Registration", fieldEn: "UNGM Registration", value: input.ungm_status, valueEn: input.ungm_status, evidence: evSelf, evidenceEn: evSelf },
+    { field: "英文商务及标书能力 / English Capability", fieldEn: "English Business & Bid Capability", value: input.english_team, valueEn: input.english_team, evidence: evSelf, evidenceEn: evSelf },
+    { field: "30天账期 / 30-day Payment Terms", fieldEn: "30-day Payment Terms", value: input.payment_terms, valueEn: input.payment_terms, evidence: evSelf, evidenceEn: evSelf },
   ];
 
   const standardFinding = `${input.company_name}${hasExport ? "具备一定国际业务基础" : "尚处于国际业务起步阶段"}，持有 ${certCount} 项认证（${intlCertCount} 项国际认证）。${hasUngm ? "已完成UNGM注册。" : "尚未注册UNGM，需优先完成准入基础建设。"}${hasEnglish ? "英文团队能力具备。" : "英文能力需重点补强。"}`;
@@ -257,7 +257,11 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
   risks.push({ id: `R${riskId++}`, risk: "国际合规专项体系未形成", riskEn: "Procurement-specific compliance not formalized", severity: "High", impact: "反腐败、制裁、出口管制风险", owner: "法务/合规", due: "60天" });
   risks.push({ id: `R${riskId++}`, risk: "UNSPSC编码库未形成", riskEn: "No formal UNSPSC library", severity: "Medium", impact: "搜标召回率与匹配准确率低", owner: "数据/国际业务", due: "30天" });
   risks.push({ id: `R${riskId++}`, risk: "保函/授信能力未核验", riskEn: "Bonding capacity unknown", severity: "Medium", impact: "大额项目可能无法提交或履约", owner: "财务", due: "30天" });
-  if (serviceCount < 3) risks.push({ id: `R${riskId++}`, risk: "非欧洲/中东本地服务覆盖不足", riskEn: "Limited service outside Europe/Middle East", severity: "Medium", impact: "限制安装、调试及SLA型项目", owner: "海外事业部", due: "60天" }); // eslint-disable-line -- riskId 自增为最后一次使用
+  if (serviceCount < 3) risks.push({ id: `R${riskId++}`, risk: "非欧洲/中东本地服务覆盖不足", riskEn: "Limited service outside Europe/Middle East", severity: "Medium", impact: "限制安装、调试及SLA型项目", owner: "海外事业部", due: "90天" });
+  // R8: 储能专项安全/并网认证（如主营产品含储能）
+  if (input.main_product.includes("储能") || input.main_product.includes("BESS") || input.main_product.includes("battery")) {
+    risks.push({ id: `R${riskId++}`, risk: "BESS专项安全/并网认证未展示", riskEn: "BESS safety and grid evidence not shown", severity: "High", impact: "储能项目技术门槛高", owner: "储能产品团队", due: "60天" }); // eslint-disable-line -- riskId 自增为最后一次使用
+  }
 
   // ── 八、市场匹配 ──
   const market: DiagnosticReport["market"] = {
@@ -266,6 +270,7 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
     priorityBuyers: "公用事业公司、能源部门、MDB项目执行机构、UN基础设施项目、EPC总包商",
     priorityRegions: hasOverseasEntity ? `${input.overseas_companies}可利用现有网络；并逐步拓展东南亚、非洲` : "优先拓展欧洲/中东，逐步覆盖东南亚、非洲",
     goNoGoGate: "资格100%满足；核心技术条款>=90%；合规无红线；付款保函可承受；交期可实现",
+    searchMethod: "UNSPSC + 关键词 + 买方 + 地域 + 技术参数联合检索",
   };
 
   // ── 九、KPI ──
@@ -277,6 +282,7 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
     { area: "UNSPSC编码匹配", areaEn: "UNSPSC Mapping", day30: "核心SKU完成8位编码初配", day60: "与英文关键词和参数绑定", day90: "核心产品覆盖100%", owner: "国际业务/数据" },
     { area: "机会筛选", areaEn: "Opportunity Screening", day30: "每周5-10条高匹配机会", day60: "形成Go/No-Go评分卡", day90: "稳定输出高匹配项目池", owner: "国际业务" },
     { area: "投标闭环", areaEn: "Bid Execution", day30: "完成模板/清单/报价模型", day60: "至少1个实投", day90: "累计2-3个高匹配实投", owner: "投标团队" },
+    { area: "英文关键词库", areaEn: "Keyword Library", day30: "每条产品线20-40个关键词、同义词、排除词", day60: "与UNSPSC逐项绑定", day90: "按搜索效果迭代", owner: "国际业务/数据" },
     { area: "海外履约网络", areaEn: "Local Delivery Network", day30: "梳理现有网络能力", day60: "新增1-2个重点区域伙伴", day90: "累计新增2-3个EPC/售后伙伴", owner: "海外事业部" },
   ];
 
@@ -314,14 +320,14 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
     recommendedStage: stage.zh,
     recommendedProducts: `${input.main_product || "核心产品"}优先；成熟产品线先行建立公采业绩`,
     recommendedRoute: "优先设备供货型项目，并与EPC/本地服务商联合，降低施工牌照与本地履约门槛",
-    finalOpinion: `${input.company_name}已经具备开展国际公共采购业务的核心基础，不属于"产品或团队能力不足"的企业，而属于"需要把既有能力转换成国际公采可验证证据与标准化投标体系"的企业。建议纳入重点培育企业池。未来90天应优先完成UNGM注册、国际标准/型式试验矩阵、国际项目业绩证据库、国际合规体系、核心产品UNSPSC编码库、保函授信核验及目标市场履约网络建设。`,
-    finalOpinionEn: `${input.company_name} already possesses the core capabilities to participate in international public procurement. The company is recommended for the priority development pool. Over the next 90 days, priority actions include UNGM registration, standards/type-test matrix, verifiable references, procurement compliance, UNSPSC taxonomy, bonding verification and delivery-network expansion.`,
+    finalOpinion: `${input.company_name}已经具备开展国际公共采购业务的核心基础，不属于"产品或团队能力不足"的企业，而属于"需要把既有能力转换成国际公采可验证证据与标准化投标体系"的企业。建议纳入重点培育企业池。未来90天应优先完成UNGM注册、国际标准/型式试验矩阵、国际项目业绩证据库、国际合规体系、核心产品UNSPSC 8位编码库、保函授信核验及目标市场履约网络建设。完成上述工作后，可逐步从中等金额的设备供货型项目进入常态化投标，并通过2-5个真实项目持续校准技术响应、报价和合规体系。`,
+    finalOpinionEn: `${input.company_name} already possesses the core capabilities to participate in international public procurement. The main challenge is not product or team capability, but converting existing capabilities into verifiable procurement evidence and a standardized bidding system. The company is recommended for the priority development pool. Over the next 90 days, priority actions should include UNGM registration, product standards/type-test matrix, verifiable international references, procurement-specific compliance, 8-digit UNSPSC taxonomy, bonding/credit verification and delivery-network expansion. After these are in place, the company can move toward regular bidding for medium-value equipment-supply opportunities and calibrate its system through 2-5 live bids.`,
   };
 
   // ── 免责声明 ──
   const disclaimer = {
     zh: "本报告为基于企业自报测试信息的国际公共采购准备度诊断，不构成任何具体项目的投标资格确认、法律意见、认证意见、制裁/出口管制法律判断或中标保证。实际投标资格必须以具体招标文件、采购方规则、目的国法律、技术标准及适用合规要求为准。",
-    en: "This report is a procurement-readiness diagnostic based on self-declared company information. It does not constitute legal advice, certification, eligibility confirmation for any specific solicitation, sanctions/export-control legal determination or guarantee of award.",
+    en: "This report is a procurement-readiness diagnostic based on self-declared company information. It does not constitute legal advice, certification, eligibility confirmation for any specific solicitation, sanctions/export-control legal determination or guarantee of award. Actual eligibility must be assessed against the specific solicitation, buyer rules, local law, technical standards and applicable compliance requirements.",
   };
 
   return {

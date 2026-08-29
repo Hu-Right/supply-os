@@ -65,12 +65,15 @@ export async function GET(
 
     const companyName = String(row.company_name || "supplier").replace(/[\\/:*?"<>|]/g, "_");
     const fileName = `国际公采能力诊断报告_${companyName}.pdf`;
+    // RFC 5987: 中文文件名需要 URL 编码，HTTP header 不支持非 ASCII 字符
+    const encodedFileName = encodeURIComponent(fileName);
 
-    return new NextResponse(pdfBuffer as unknown as BodyInit, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        // 同时提供 ASCII fallback 和 UTF-8 编码文件名
+        "Content-Disposition": `attachment; filename="report.pdf"; filename*=UTF-8''${encodedFileName}`,
         "Content-Length": String(pdfBuffer.length),
       },
     });
