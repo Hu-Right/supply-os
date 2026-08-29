@@ -232,6 +232,17 @@ export async function getDocCount(): Promise<number> {
   }
 }
 
+/** [P1-B] 带 60s 缓存的文档总数（编排器空索引预检用，避免高频 getStats） */
+let _docCountCache: { value: number; expires: number } | null = null;
+const DOC_COUNT_CACHE_TTL = 60 * 1000;
+
+export async function getCachedDocCount(): Promise<number> {
+  if (_docCountCache && _docCountCache.expires > Date.now()) return _docCountCache.value;
+  const value = await getDocCount();
+  _docCountCache = { value, expires: Date.now() + DOC_COUNT_CACHE_TTL };
+  return value;
+}
+
 /** 检测索引中是否存在旧哨兵值(9999999999)的文档 */
 export async function hasOldSentinel(): Promise<boolean> {
   if (!client || !healthy) return false;

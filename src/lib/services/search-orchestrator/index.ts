@@ -23,7 +23,7 @@ import { resolveMode, type UnspscFilter } from "./mode-resolver";
 import { meiliQuery, meiliMultiQuery } from "./meili-query";
 import { mysqlFallback } from "./mysql-fallback";
 import { isFullSyncRunning } from "../meilisearch/sync";
-import { tryRecover } from "../meilisearch/client";
+import { tryRecover, getCachedDocCount } from "../meilisearch/client";
 import { referenceFastPath } from "./reference-fast-path";
 import { fetchDetailsByIds } from "./detail-fetch";
 import { formatItems } from "./format";
@@ -236,6 +236,20 @@ async function _searchCore(
   if (meiliResult) {
     ids = meiliResult.ids;
     total = meiliResult.total;
+    // [P1-B] 空索引防护：total=0 且索引文档数异常低（如 fullSync 失败后残留的
+    // 空索引）时，判定为索引不完整而非"无匹配"——降级 MySQL 并触发重建，
+    // 避免向用户返回假空结果。docCount 带 60s 缓存，正常无匹配搜索零额外开销。
+    if (total === 0) {
+      const docCount = await getCachedDocCount();
+      if (docCount < 1000) {
+        recordFallback("index-empty");
+        requestIndexRebuild("index-empty");
+        const fb = await mysqlFallback(pool, p, plan);
+        ids = fb.ids;
+        total = fb.total;
+        path = "mysql";
+      }
+    }
   } else {
     // ── MySQL 应急降级（Meilisearch 不可用或索引重建中）──
     // 注意：重建窗口内的降级（fullsync-running）不重复标记重建，
