@@ -50,8 +50,8 @@ export class InvitationRepo {
     const kpiMonth = month ?? currentMonth();
     const column = userType === "personal" ? "actual_personal" : "actual_enterprise";
     await this.pool.execute(
-      `INSERT INTO crm_monthly_kpi (employee_id, kpi_month)
-       VALUES (?, ?)
+      `INSERT INTO crm_monthly_kpi (employee_id, kpi_month, ${column})
+       VALUES (?, ?, 1)
        ON DUPLICATE KEY UPDATE ${column} = ${column} + 1`,
       [employeeId, kpiMonth],
     );
