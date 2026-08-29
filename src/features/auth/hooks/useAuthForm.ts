@@ -158,22 +158,17 @@ export function useAuthForm(onSuccess: () => void) {
             level5_id: null,
           });
         }
-        // 企业注册时静默提交诊断表单数据到培训报名表
+        // 企业注册时提交完整 14 字段诊断数据到统一评估表
         if (authForm.userType === "enterprise" && qualificationData && Object.keys(qualificationData).length > 0) {
           try {
             const { api: apiFetch } = await import("@/core/http");
-            await apiFetch("/api/training/register", {
+            await apiFetch("/api/supplier-qualification", {
               method: "POST",
               body: {
-                company_name: (qualificationData.company_name as string) || "",
-                industry_id: (qualificationData.industry as string[])?.[0] || null,
-                main_product: (qualificationData.main_product as string) || "",
-                export_experience: (qualificationData.export_scale as string) || "",
-                certification: (qualificationData.certifications as string[])?.join("\n") || "",
-                contact_name: authForm.displayName || "",
-                telephone: phone,
-                email: "",
-                remark: `企业注册诊断问卷 - 用户: ${phone}`,
+                ...qualificationData,        // 完整 14 字段透传
+                source: "registration",
+                user_key: phone,             // 关联用户
+                invitation_code: authForm.invitationCode.trim(), // 解析员工 ID（KPI 归属）
               },
             });
           } catch {

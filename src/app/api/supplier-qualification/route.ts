@@ -57,9 +57,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 推荐员工 ID（KPI 归属）
+  // 推荐员工 ID（KPI 归属）：支持直接传入或通过邀请码解析
   if (body.referral_employee_id) {
     referralEmployeeId = Number(body.referral_employee_id);
+  } else if (body.invitation_code) {
+    try {
+      const ctx = getContext();
+      const record = await ctx.user.invitationRepo.findByCode(String(body.invitation_code).trim().toUpperCase());
+      if (record) referralEmployeeId = record.employee_id;
+    } catch {
+      // 解析失败不阻断提交
+    }
   }
 
   try {
