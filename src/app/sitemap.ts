@@ -15,6 +15,15 @@ import {
 
 const BASE_URL = process.env.SITE_URL || "https://osneosmart.com";
 
+/**
+ * ISR 解冻（2026-08-29 P0 修复）：
+ * metadata 路由默认静态化 —— 构建期 NEXT_PHASE 守卫返回纯静态段后，
+ * 生产运行时永远不再执行下方 DB 查询，线上 sitemap 冻结在 8 条 URL
+ * （curl 实测 1389 字节 / 0 条公告）。导出 revalidate 后：构建期照旧
+ * 短路（CI 无 DB），上线 1 小时后在生产运行时重新生成完整 sitemap。
+ */
+export const revalidate = 3600;
+
 function isoOrNull(v: Date | string | number | null): string | undefined {
   if (v === null || v === undefined || v === "") return undefined;
   // crm_bid_notices.update_time / supplier.addtime 实际为 Unix 秒时间戳（数字）
