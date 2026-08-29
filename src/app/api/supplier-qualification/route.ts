@@ -94,6 +94,16 @@ export async function POST(req: NextRequest) {
       referral_employee_id: referralEmployeeId,
       source,
     });
+
+    // 自动回写：当 user_key 已解析到用户时，将 qualification_id 关联到 crm_users
+    if (userId) {
+      try {
+        await repo.linkUserQualification(userId, id);
+      } catch {
+        // 回写失败不阻断提交
+      }
+    }
+
     return NextResponse.json({ success: true, id, qualification_id: id, message: "提交成功，我们将尽快审核" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-qualification]", err);
