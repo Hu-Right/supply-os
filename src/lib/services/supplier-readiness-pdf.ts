@@ -62,8 +62,8 @@ function drawTable(opts: TableOpts, headers: string[], rows: string[][]): number
   const { x, width, colWidths, doc, font, fontSize = 8 } = opts;
   const hbg = opts.headerBg || NAVY;
   const hfg = opts.headerFg || WHITE;
-  const maxRh = opts.rowHeight || 24; // 最大行高
-  const minRh = 16; // 最小行高
+  const maxRh = opts.rowHeight || 60; // 最大行高（允许长文本换行）
+  const minRh = 18; // 最小行高
   let y = opts.y;
   const hh = 20;
 
@@ -108,7 +108,7 @@ function drawTable(opts: TableOpts, headers: string[], rows: string[][]): number
         height: rowH - 8,
         align: "left",
         lineBreak: true,
-        ellipsis: true,
+        // 不使用 ellipsis，让文本完整显示
       });
       cx += colWidths[i];
     }
@@ -122,8 +122,8 @@ function drawTable(opts: TableOpts, headers: string[], rows: string[][]): number
 
 function drawRiskTable(opts: TableOpts, rows: string[][]): number {
   const { x, width, colWidths, doc, font, fontSize = 7 } = opts;
-  const maxRh = opts.rowHeight || 24;
-  const minRh = 16;
+  const maxRh = opts.rowHeight || 60;
+  const minRh = 18;
   let y = opts.y;
   const hh = 20;
 
@@ -179,7 +179,7 @@ function drawRiskTable(opts: TableOpts, rows: string[][]): number {
           height: rowH - 8,
           align: "left",
           lineBreak: true,
-          ellipsis: true,
+          // 不使用 ellipsis
         });
       }
       cx += colWidths[i];
