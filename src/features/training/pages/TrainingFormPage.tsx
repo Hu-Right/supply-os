@@ -24,7 +24,7 @@ import {
   getEmployeeOptions, getIndustryOptions, getExportOptions,
   getCertOptions, getUngmOptions, getEnglishTeamOptions,
   getPaymentOptions, getBidOptions,
-} from "@/features/procurement/utils/qualificationOptions";
+} from "@/shared/data/qualificationOptions";
 
 export default function TrainingFormPage() {
   const { t, locale } = useLocale();

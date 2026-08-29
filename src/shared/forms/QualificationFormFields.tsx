@@ -10,7 +10,7 @@
  */
 
 import { Input } from "@/shared/ui";
-import type { QualOption } from "@/features/procurement/utils/qualificationOptions";
+import type { QualOption } from "@/shared/data/qualificationOptions";
 
 // ── 表单状态类型（与 crm_supplier_qualification 14 字段对齐） ──
 

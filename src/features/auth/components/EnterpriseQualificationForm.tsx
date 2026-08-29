@@ -18,7 +18,7 @@ import {
   getEmployeeOptions, getIndustryOptions, getExportOptions,
   getCertOptions, getUngmOptions, getEnglishTeamOptions,
   getPaymentOptions, getBidOptions,
-} from "@/features/procurement/utils/qualificationOptions";
+} from "@/shared/data/qualificationOptions";
 
 interface EnterpriseQualificationFormProps {
   /** 表单数据变化回调，父组件通过此回调收集信息 */

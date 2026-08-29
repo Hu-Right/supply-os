@@ -26,7 +26,7 @@ import {
   getEmployeeOptions, getIndustryOptions, getExportOptions,
   getCertOptions, getUngmOptions, getEnglishTeamOptions,
   getPaymentOptions, getBidOptions,
-} from "../utils/qualificationOptions";
+} from "@/shared/data/qualificationOptions";
 
 export default function QualificationFormPage() {
   const { t } = useLocale();
