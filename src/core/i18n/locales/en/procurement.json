@@ -347,7 +347,7 @@
   "qualDiagSubmitted": "Diagnosis Submitted",
   "qualDiagSubmittedDesc": "Thank you for your submission. We will evaluate and generate your diagnosis report shortly.",
     "qualDiagQrTitle": "Add us on WeChat to get your report",
-    "qualDiagQrDesc": "Scan the QR code to add our customer service on WeChat, then send 'Diagnosis Report' to receive your report.",
+    "qualDiagQrDesc": "Scan the QR code to add our customer service on WeChat, then send 'Diagnosis Report + Company Name' to receive your report.",
   "qualErrorCompanyName": "Please enter company name",
   "qualErrorIndustry": "Please select industry",
   "qualErrorMainProduct": "Please enter main product",

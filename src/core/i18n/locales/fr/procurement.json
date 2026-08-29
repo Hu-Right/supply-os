@@ -347,7 +347,7 @@
   "qualDiagSubmitted": "Diagnostic soumis",
   "qualDiagSubmittedDesc": "Merci pour votre soumission. Nous vous évaluerons bientôt.",
     "qualDiagQrTitle": "Ajoutez-nous sur WeChat pour obtenir le rapport",
-    "qualDiagQrDesc": "Scannez le code QR pour ajouter notre service client sur WeChat, puis envoyez 'Rapport de Diagnostic' pour recevoir votre rapport.",
+    "qualDiagQrDesc": "Scannez le code QR pour ajouter notre service client sur WeChat, puis envoyez 'Rapport de Diagnostic + Nom de l'entreprise' pour recevoir votre rapport.",
   "qualErrorCompanyName": "Veuillez entrer le nom de l'entreprise",
   "qualErrorIndustry": "Veuillez sélectionner l'industrie",
   "qualErrorMainProduct": "Veuillez entrer le produit principal",

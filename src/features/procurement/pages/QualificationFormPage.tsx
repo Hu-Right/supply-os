@@ -9,7 +9,8 @@
  */
 
 import { useState, useMemo } from "react";
-import { CheckCircle2, Send, ArrowLeft, Building2, Download, FileText } from "lucide-react";
+import { CheckCircle2, Send, ArrowLeft, Building2, FileText } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
@@ -190,32 +191,18 @@ export default function QualificationFormPage() {
                   );
                 })}
               </div>
-              <div className="mb-5">
-                <h3 className="text-xs font-bold text-slate-700 mb-2">{t("qualScoreTopGaps")}</h3>
-                <div className="space-y-1">
-                  {scoreResult.topGaps.map((g, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-mono shrink-0">{i + 1}</span>
-                      <span className="text-slate-600 flex-1 truncate">{g.dimension}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-white text-[10px] font-bold shrink-0 ${
-                        g.priority === "High" ? "bg-red-500" : g.priority === "Medium" ? "bg-amber-500" : "bg-green-500"
-                      }`}>{g.priority}</span>
-                    </div>
-                  ))}
-                </div>
+              {/* 客服二维码引导 */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center">
+                <Image
+                  src="/wechat-service-qr.png"
+                  alt="客服微信二维码"
+                  width={160}
+                  height={160}
+                  className="mx-auto rounded-lg"
+                />
+                <p className="mt-3 text-sm font-bold text-slate-800">{t("qualDiagQrTitle")}</p>
+                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
               </div>
-              {qualificationId && (
-                <a
-                  href={`/api/supplier-qualification/${qualificationId}/report`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
-                  style={{ background: NAVY }}
-                >
-                  <Download className="w-4 h-4" />
-                  {t("qualScoreDownloadPdf")}
-                </a>
-              )}
             </div>
           )}
         </div>
@@ -253,6 +240,7 @@ export default function QualificationFormPage() {
             toggleIndustry={toggleIndustry}
             toggleCert={toggleCert}
             label={label}
+            placeholder={(key: string) => t(key)}
             options={options}
           />
           <button

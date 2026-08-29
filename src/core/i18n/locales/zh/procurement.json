@@ -347,7 +347,7 @@
   "qualDiagSubmitted": "诊断问卷已提交",
   "qualDiagSubmittedDesc": "感谢您的填写，我们将尽快为您评估并出具诊断报告。",
     "qualDiagQrTitle": "添加客服微信获取诊断报告",
-    "qualDiagQrDesc": "微信扫码添加客服，发送「诊断报告」即可获取您的专属企业诊断报告。",
+    "qualDiagQrDesc": "微信扫码添加客服，发送「诊断报告 + 公司名称」即可获取。",
   "qualErrorCompanyName": "请填写企业名称",
   "qualErrorIndustry": "请选择所属行业",
   "qualErrorMainProduct": "请填写主营产品",

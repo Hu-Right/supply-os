@@ -347,7 +347,7 @@
   "qualDiagSubmitted": "تم إرسال التشخيص",
   "qualDiagSubmittedDesc": "شكراً لتسجيلك. سنقيّم طلبك قريباً.",
     "qualDiagQrTitle": "أضفنا على WeChat للحصول على التقرير",
-    "qualDiagQrDesc": "امسح رمز QR لإضافة خدمة العملاء على WeChat، ثم أرسل 'تقرير تشخيصي' لاستلام تقريرك.",
+    "qualDiagQrDesc": "امسح رمز QR لإضافة خدمة العملاء على WeChat، ثم أرسل 'تقرير تشخيصي + اسم الشركة' لاستلام تقريرك.",
   "qualErrorCompanyName": "الرجاء إدخال اسم الشركة",
   "qualErrorIndustry": "الرجاء اختيار الصناعة",
   "qualErrorMainProduct": "الرجاء إدخال المنتج الرئيسي",

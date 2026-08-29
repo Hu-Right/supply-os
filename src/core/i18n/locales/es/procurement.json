@@ -347,7 +347,7 @@
   "qualDiagSubmitted": "Diagnóstico enviado",
   "qualDiagSubmittedDesc": "Gracias por su envío. Le evaluaremos pronto.",
     "qualDiagQrTitle": "Agregue nuestro WeChat para obtener el informe",
-    "qualDiagQrDesc": "Escanee el código QR para agregar nuestro servicio al cliente en WeChat, luego envíe 'Informe de Diagnóstico' para recibir su informe.",
+    "qualDiagQrDesc": "Escanee el código QR para agregar nuestro servicio al cliente en WeChat, luego envíe 'Informe de Diagnóstico + Nombre de la empresa' para recibir su informe.",
   "qualErrorCompanyName": "Ingrese el nombre de la empresa",
   "qualErrorIndustry": "Seleccione la industria",
   "qualErrorMainProduct": "Ingrese el producto principal",
