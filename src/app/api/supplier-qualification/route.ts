@@ -1,8 +1,16 @@
 /**
- * POST /api/supplier-qualification — 提交国际招投标能力初筛（公开+限流）
+ * POST /api/supplier-qualification — 统一供应商评估提交
+ *
+ * 三个入口共用：
+ *   - 资质测试独立页（source=qualification，默认）
+ *   - 企业注册弹窗（source=registration，携带 user_key + referral_employee_id）
+ *   - 扫码诊断独立页（source=diagnosis）
+ *
+ * 所有数据统一写入 crm_supplier_qualification 表。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 
 export async function POST(req: NextRequest) {
@@ -33,6 +41,27 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
   const repo = new SupplierQualificationRepo(getPool());
 
+  // ── 可选参数：关联用户、推荐员工、来源 ──
+  const source = typeof body.source === "string" ? body.source : "qualification";
+  let userId: number | null = null;
+  let referralEmployeeId: number | null = null;
+
+  // 通过 user_key（手机号）查找用户 ID
+  if (body.user_key) {
+    try {
+      const ctx = getContext();
+      const user = await ctx.user.usersRepo.findByPhone(String(body.user_key).trim());
+      if (user) userId = user.id;
+    } catch {
+      // 查找失败不阻断提交
+    }
+  }
+
+  // 推荐员工 ID（KPI 归属）
+  if (body.referral_employee_id) {
+    referralEmployeeId = Number(body.referral_employee_id);
+  }
+
   try {
     const id = await repo.insertQualification({
       company_name: String(body.company_name).trim(),
@@ -53,8 +82,11 @@ export async function POST(req: NextRequest) {
       bid_willingness: String(body.bid_willingness).trim(),
       contact_info: String(body.contact_info || "").trim() || null,
       ip,
+      user_id: userId,
+      referral_employee_id: referralEmployeeId,
+      source,
     });
-    return NextResponse.json({ success: true, id, message: "提交成功，我们将尽快审核" }, { status: 201 });
+    return NextResponse.json({ success: true, id, qualification_id: id, message: "提交成功，我们将尽快审核" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-qualification]", err);
     return NextResponse.json({ code: 50000, message: "提交失败" }, { status: 500 });
