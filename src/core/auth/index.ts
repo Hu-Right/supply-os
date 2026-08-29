@@ -8,4 +8,4 @@
  */
 
 export { AuthProvider, useAuth, useOptionalAuth } from "./AuthContext";
-export type { AuthUser, AuthContextValue, SupplierClaimForm } from "./types";
+export type { AuthUser, AuthContextValue, SupplierClaimForm, RegisterOptions } from "./types";

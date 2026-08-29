@@ -12,6 +12,21 @@ import type { AuthUser } from "@/types/auth";
 export type { AuthUser };
 
 /**
+ * 注册参数选项
+ * #ARCH-004: 替代原 8 个位置参数，消除传参顺序错误风险
+ */
+export interface RegisterOptions {
+  email?: string | null;
+  password: string;
+  displayName?: string;
+  claim?: SupplierClaimForm;
+  verifyCode?: string;
+  invitationCode?: string;
+  userType?: string;
+  phone?: string;
+}
+
+/**
  * 供应商绑定申请表单
  * Supplier Claim Application Form
  */
@@ -38,8 +53,8 @@ export interface AuthContextValue {
   isAuthLoading: boolean;
   /** 登录（仅手机号） */
   login: (phone: string, password: string) => Promise<void>;
-  /** 注册（手机号必填，邮箱选填仅用于通知） */
-  register: (email: string | null, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string, userType?: string, phone?: string) => Promise<void>;
+  /** 注册（options 对象模式，消除位置参数顺序依赖） */
+  register: (options: RegisterOptions) => Promise<void>;
   /** 登出 */
   logout: () => void;
   /** 刷新认证状态 */

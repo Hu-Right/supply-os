@@ -59,6 +59,7 @@
   "authRefreshFailed": "فشل تحديث حالة الحساب",
   "authLoginRequiredForBind": "يرجى تسجيل الدخول أولاً لربط شركتك",
   "authBindFailed": "فشل طلب الربط",
+  "authRegisterClaimSubmitted": "تم التسجيل بنجاح. تم تقديم طلب ربط المورد، بانتظار المراجعة.",
   "filterSelectRegion": "اختر المنطقة",
   "filterSelectCountry": "اختر الدولة",
   "filterSelectIndustry": "اختر القطاع",

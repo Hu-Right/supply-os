@@ -59,6 +59,7 @@
   "authRefreshFailed": "Error al actualizar el estado de la cuenta",
   "authLoginRequiredForBind": "Inicie sesión primero para vincular su empresa",
   "authBindFailed": "Error en la solicitud de vinculación",
+  "authRegisterClaimSubmitted": "Registro exitoso. Solicitud de vinculación de proveedor enviada, pendiente de revisión.",
   "filterSelectRegion": "Seleccionar región",
   "filterSelectCountry": "Seleccionar país",
   "filterSelectIndustry": "Seleccionar sector",

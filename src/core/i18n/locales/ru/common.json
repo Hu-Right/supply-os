@@ -59,6 +59,7 @@
   "authRefreshFailed": "Не удалось обновить статус аккаунта",
   "authLoginRequiredForBind": "Войдите, чтобы привязать компанию",
   "authBindFailed": "Ошибка запроса привязки",
+  "authRegisterClaimSubmitted": "Регистрация успешна. Заявка на привязку поставщика отправлена, ожидает проверки.",
   "filterSelectRegion": "Выбрать регион",
   "filterSelectCountry": "Выбрать страну",
   "filterSelectIndustry": "Выбрать отрасль",

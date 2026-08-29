@@ -59,6 +59,7 @@
   "authRefreshFailed": "Failed to refresh account status",
   "authLoginRequiredForBind": "Please login first to bind your company",
   "authBindFailed": "Binding request failed",
+  "authRegisterClaimSubmitted": "Registration successful. Supplier binding request submitted, pending review.",
   "filterSelectRegion": "Select region",
   "filterSelectCountry": "Select country",
   "filterSelectIndustry": "Select industry",

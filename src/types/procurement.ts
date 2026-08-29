@@ -5,19 +5,19 @@
  * @module types/procurement
  * @description 采购公告实体（含 UNSPSC 编码、锁定状态、解锁详情字段）及分页响应结构。
  *              作为全局单一事实源，feature 层通过 `@/types` re-export 复用。
- *              Procurement notice entity (with UNSPSC codes, lock status, unlocked
- *              detail fields) and paginated response. Single source of truth; the
- *              feature layer re-exports it via `@/types`.
+ *              #ARCH-004: 拆分为 NoticeListItem（列表级）+ NoticeDetailItem（解锁详情）
+ *              两个窄接口，NoticeItem 保留为列表级别名以兼容存量代码。
  */
 
-export interface NoticeItem {
+/** 公告列表级字段（搜索/推荐/行业匹配等列表端点返回） */
+export interface NoticeListItem {
   id: number;
   notice_id?: string;
   reference?: string;
   title: string;
   notice_type?: string;
   agency?: string;
-  /** 当前 locale 的机构翻译名（服务端按 locale 从聚合缓存下发） */
+  /** 当前 locale 的机构翻译名 */
   agency_i18n?: string;
   organization?: string;
   country?: string;
@@ -29,33 +29,40 @@ export interface NoticeItem {
   source_url?: string;
   unspsc_codes?: Array<{ code?: string; name?: string; description?: string }>;
   core_locked?: boolean;
-  /** 锁定态拆解文件计数预览（仅数量不含清单，服务端本地差异 #19；缺失时前端回退中性提示） */
+  /** 锁定态拆解文件计数预览 */
   breakdown_file_count?: number;
-  /** 锁定态联系人数量预告（仅数量不含身份，预览端点下发；0 表示无可预告联系人） */
+  /** 锁定态联系人数量预告 */
   contact_count?: number;
   unlock_type?: string;
   unlocked_at?: string;
-  /** 推荐模式命中的 UNSPSC 兴趣码数（仅 /api/notices/recommended 返回） */
+  /** 推荐模式命中的 UNSPSC 兴趣码数 */
   match_score?: number;
-  /** 行业精准匹配命中档次（仅行业匹配频道返回：precise=精确匹配/relevant=行业相关） */
+  /** 行业精准匹配命中档次 */
   match_tier?: string;
-  /** 推荐理由标签键（C.3.4，每卡至多 2 个；前端映射 procurement_reason_* i18n 键渲染） */
+  /** 推荐理由标签键 */
   reco_reasons?: string[];
-  /** 精选公告（T-A4，本地差异 #14）：对应合格机会三路判定，列表端点批量标注 */
-  // [精选功能重新启用 2026-07-31] 字段恢复（服务端标注与前端徽标已同步恢复）
+  /** 精选公告标注 */
   is_featured?: boolean;
-  /** 列表级国际化标题（来自 crm_notice_translations；缺失时回退 title） */
+  /** 列表级国际化标题 */
   title_i18n?: string;
-  /** 列表级国际化描述（来自 crm_notice_translations；缺失时回退 description） */
+  /** 列表级国际化描述 */
   description_i18n?: string;
-  /** 中文翻译回退（来自 crm_notice_translations lang='zh'） */
+  /** 中文翻译回退 */
   title_zh?: string;
-  /** 英文翻译回退（当前语言无译文时使用，来自 crm_notice_translations lang='en'） */
+  /** 英文翻译回退 */
   title_en?: string;
   /** 英文翻译回退描述 */
   description_en?: string;
-  // 解锁后由 /api/notices/:id/detail 补充的拓展字段
-  // Extended fields provided by /api/notices/:id/detail once unlocked
+  /** 精选公告人工/AI 精加工的中文描述 */
+  description_cn?: string;
+  /** 招标内容 / 投标内容概览（列表级截断 200 字符） */
+  bid_overview?: string;
+  /** 受援助国（逗号分隔字符串） */
+  beneficiary_countries?: string;
+}
+
+/** 解锁详情级字段（由 /api/notices/:id/detail 补充） */
+export interface NoticeDetailFields {
   url?: string;
   agency_full?: string;
   published_date?: string;
@@ -66,17 +73,20 @@ export interface NoticeItem {
   documents?: NoticeAttachment[];
   procurement_files?: NoticeAttachment[];
   external_links?: NoticeAttachment[];
-  /** 中文版订单拆解报告可用（合格商机存在；仅解锁详情返回） */
+  /** 中文版订单拆解报告可用 */
   report_available?: boolean;
-  /** 精选公告人工/AI 精加工的中文描述（列表级由 opp LEFT JOIN 返回；解锁详情同样返回） */
-  description_cn?: string;
-  /** 招标内容 / 投标内容概览（crm_bid_opportunities.bid_overview，列表级截断 200 字符） */
-  bid_overview?: string;
-  /** 受援助国（crm_bid_opportunities.beneficiary_countries，逗号分隔字符串） */
-  beneficiary_countries?: string;
-  /** 报告下载路径（/api/notices/:id/report，需 JWT 认证；仅解锁详情返回） */
+  /** 报告下载路径 */
   report_url?: string;
 }
+
+/** 解锁后的完整公告（列表字段 + 详情字段） */
+export interface NoticeDetailItem extends NoticeListItem, NoticeDetailFields {}
+
+/**
+ * 公告通用类型（向后兼容，包含列表 + 详情全部字段）。
+ * 新代码建议使用 NoticeListItem（仅列表字段）或 NoticeDetailItem（列表 + 详情字段）。
+ */
+export type NoticeItem = NoticeListItem & Partial<NoticeDetailFields>;
 
 /** 公告联系人（解锁详情） */
 export interface NoticeContact {

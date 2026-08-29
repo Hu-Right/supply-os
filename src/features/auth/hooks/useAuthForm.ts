@@ -138,16 +138,16 @@ export function useAuthForm(onSuccess: () => void) {
         setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
       } else {
         // 注册：手机号必填，邮箱选填
-        await register(
-          email || null,  // 邮箱可选
+        await register({
+          email: email || null,
           password,
-          authForm.displayName,
-          authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
-          registerVerifyCode,
-          authForm.invitationCode.trim(),
-          authForm.userType,
-          phone  // 手机号必填
-        );
+          displayName: authForm.displayName,
+          claim: authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
+          verifyCode: registerVerifyCode,
+          invitationCode: authForm.invitationCode.trim(),
+          userType: authForm.userType,
+          phone,
+        });
         // 企业注册才保存行业偏好
         if (authForm.userType === "enterprise") {
           await saveIndustryPrefs({

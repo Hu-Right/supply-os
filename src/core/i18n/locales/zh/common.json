@@ -59,6 +59,7 @@
   "authRefreshFailed": "刷新账号状态失败",
   "authLoginRequiredForBind": "请先登录后再绑定公司",
   "authBindFailed": "绑定申请提交失败",
+  "authRegisterClaimSubmitted": "注册成功，供应商绑定申请已提交，等待后台审核。",
   "filterSelectRegion": "选择地区",
   "filterSelectCountry": "选择国家",
   "filterSelectIndustry": "选择行业",

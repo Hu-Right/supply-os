@@ -11,7 +11,7 @@
 
 import { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
-import type { AuthContextValue, SupplierClaimForm } from "./types";
+import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
 import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（手机号必填，邮箱选填仅用于通知）
    * Register (phone required, email optional for notifications only)
    */
-  const register = useCallback(async (email: string | null, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string, invitationCode?: string, userType?: string, phone?: string) => {
+  const register = useCallback(async ({ email, password, displayName = "会员", claim, verifyCode, invitationCode, userType, phone }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         });
         // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
-        setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
+        setClaimMessage(t("authRegisterClaimSubmitted"));
       }
     } finally {
       setIsAuthLoading(false);
