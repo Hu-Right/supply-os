@@ -106,6 +106,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           registerCode={registerCode}
           cascade={cascade}
           onQualificationChange={setQualificationData}
+          agreedToTerms={auth.agreedToTerms}
+          setAgreedToTerms={auth.setAgreedToTerms}
         />
       )}
     </form>

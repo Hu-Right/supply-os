@@ -5,6 +5,7 @@
  * @module features/auth/components/forms/RegisterForm
  */
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Input, Select, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
@@ -31,6 +32,10 @@ export interface RegisterFormProps {
   registerCode: ReturnType<typeof useRegisterCode>;
   cascade: UseUnspscPrefCascadeReturn;
   onQualificationChange?: (data: Record<string, string | string[]>) => void;
+  /** 用户是否已勾选同意协议 */
+  agreedToTerms: boolean;
+  /** 设置同意协议状态 */
+  setAgreedToTerms: (value: boolean) => void;
 }
 
 export function RegisterForm({
@@ -42,6 +47,8 @@ export function RegisterForm({
   registerCode,
   cascade,
   onQualificationChange,
+  agreedToTerms,
+  setAgreedToTerms,
 }: RegisterFormProps) {
   const { t } = useLocale();
 
@@ -223,6 +230,28 @@ export function RegisterForm({
           {authError}
         </p>
       )}
+
+      {/* ── 法律协议勾选（P0 合规）：默认不勾选，用户必须主动勾选 ── */}
+      <label className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer select-none leading-relaxed">
+        <input
+          type="checkbox"
+          checked={agreedToTerms}
+          onChange={(e) => setAgreedToTerms(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-teal-600"
+        />
+        <span>
+          {t("authAgreeTermsPrefix")}
+          {" "}
+          <Link href="/terms" target="_blank" className="text-teal-600 underline hover:text-teal-700">
+            {t("authAgreeTermsLink")}
+          </Link>
+          {" "}
+          <Link href="/privacy" target="_blank" className="text-teal-600 underline hover:text-teal-700">
+            {t("authAgreePrivacyLink")}
+          </Link>
+        </span>
+      </label>
+
       <Button
         type="submit"
         variant="dark"

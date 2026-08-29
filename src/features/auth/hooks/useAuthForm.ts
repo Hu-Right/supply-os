@@ -35,6 +35,8 @@ export function useAuthForm(onSuccess: () => void) {
 
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authError, setAuthError] = useState("");
+  /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [authForm, setAuthForm] = useState<AuthFormState>(() => {
     // ★ 推荐链接自动带入：从 Cookie 读取 ref_code 预填邀请码
     let prefilledCode = "";
@@ -103,6 +105,11 @@ export function useAuthForm(onSuccess: () => void) {
         setAuthError(t("authInvitationCodeRequired"));
         return;
       }
+      // 协议勾选校验：必须用户主动勾选，不得默认勾选
+      if (!agreedToTerms) {
+        setAuthError(t("authErrAgreementRequired"));
+        return;
+      }
     }
 
     // 企业注册才需要公司名称
@@ -147,6 +154,9 @@ export function useAuthForm(onSuccess: () => void) {
           invitationCode: authForm.invitationCode.trim(),
           userType: authForm.userType,
           phone,
+          // ── 合规审计：记录用户同意协议的版本与时间 ──
+          agreementVersion: "V1.0",
+          agreementAcceptedAt: new Date().toISOString(),
         });
         // 企业注册才保存行业偏好
         if (authForm.userType === "enterprise") {
@@ -194,5 +204,7 @@ export function useAuthForm(onSuccess: () => void) {
     setClaimForm,
     claimMessage,
     submitAuth,
+    agreedToTerms,
+    setAgreedToTerms,
   };
 }

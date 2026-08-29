@@ -24,6 +24,10 @@ export interface RegisterOptions {
   invitationCode?: string;
   userType?: string;
   phone?: string;
+  /** 用户同意的协议版本号（如 "V1.0"），用于审计追踪 */
+  agreementVersion?: string;
+  /** 用户同意协议的时间（ISO 8601），用于审计追踪 */
+  agreementAcceptedAt?: string;
 }
 
 /**

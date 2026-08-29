@@ -112,12 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（手机号必填，邮箱选填仅用于通知）
    * Register (phone required, email optional for notifications only)
    */
-  const register = useCallback(async ({ email, password, displayName = "会员", claim, verifyCode, invitationCode, userType, phone }: RegisterOptions) => {
+  const register = useCallback(async ({ email, password, displayName = "会员", claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
-        body: { email, password, display_name: displayName || "会员", verify_code: verifyCode, invitation_code: invitationCode, user_type: userType, phone },
+        body: {
+          email, password, display_name: displayName || "会员", verify_code: verifyCode,
+          invitation_code: invitationCode, user_type: userType, phone,
+          // ── 合规审计：协议同意记录 ──
+          agreement_version: agreementVersion,
+          agreement_accepted_at: agreementAcceptedAt,
+        },
       });
 
       // 存储 Access Token（注册即登录）

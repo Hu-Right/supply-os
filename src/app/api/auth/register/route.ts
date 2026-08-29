@@ -8,7 +8,11 @@ import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
-  const { email, phone, password, verify_code, display_name, invitation_code, user_type } = await req.json();
+  const {
+    email, phone, password, verify_code, display_name, invitation_code, user_type,
+    // ── 合规审计字段 ──
+    agreement_version, agreement_accepted_at,
+  } = await req.json();
   const userType = user_type === "personal" ? "personal" : "enterprise";
 
   // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
@@ -69,6 +73,37 @@ export async function POST(req: NextRequest) {
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   await ctx.user.usersRepo.markPhoneVerified(targetPhone);
   await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
+
+  // ── 合规审计：记录用户协议同意日志（P0） ──
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? req.headers.get("x-real-ip")
+    ?? "unknown";
+  const userAgent = req.headers.get("user-agent") ?? "unknown";
+  try {
+    await ctx.user.authRepo.recordConsentLog({
+      userKey: targetPhone,
+      consentType: "terms",
+      documentVersion: agreement_version || "V1.0",
+      action: "agree",
+      timestamp: agreement_accepted_at || new Date().toISOString(),
+      ipAddress: clientIp,
+      userAgent,
+      sourcePage: "register",
+    });
+    await ctx.user.authRepo.recordConsentLog({
+      userKey: targetPhone,
+      consentType: "privacy",
+      documentVersion: agreement_version || "V1.0",
+      action: "agree",
+      timestamp: agreement_accepted_at || new Date().toISOString(),
+      ipAddress: clientIp,
+      userAgent,
+      sourcePage: "register",
+    });
+  } catch (consentErr) {
+    // 同意日志写入失败不阻断注册主流程，但输出告警便于排查
+    console.error("[register] consent log write failed:", (consentErr as Error).message);
+  }
 
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, targetPhone, email || ""); } catch { /* JWT_SECRET 未配置 */ }
