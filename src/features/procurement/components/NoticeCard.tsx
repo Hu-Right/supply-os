@@ -14,6 +14,7 @@
 import { memo } from "react";
 import { Crown, Target /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
@@ -119,15 +120,16 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
       </div>
 
       {/* ── 标题（可点击查看详情） ── */}
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => onClick(item)}
-        className="w-full text-left mt-2 group/title"
+        className="w-full justify-start px-0 py-0 mt-2 text-left hover:bg-transparent group/title"
       >
         <h4 dir="auto" className="text-sm font-extrabold text-slate-900 line-clamp-2 group-hover/title:text-teal-700 transition-colors">
           {displayTitle}
         </h4>
-      </button>
+      </Button>
 
       {/* ── 两栏：左侧主内容 + 右侧操作按钮 ── */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mt-2">
@@ -164,12 +166,14 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
 
         {/* 右栏：查看详情按钮 */}
         <div className="flex items-center">
-          <button
+          <Button
             onClick={() => onClick(item)}
-            className="shrink-0 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200 whitespace-nowrap"
+            variant="secondary"
+            size="sm"
+            className="shrink-0 px-4 py-2.5 font-black text-teal-800 whitespace-nowrap"
           >
             {t("procurement_detail")}
-          </button>
+          </Button>
         </div>
       </div>
     </article>

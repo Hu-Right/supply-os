@@ -343,14 +343,15 @@ export default function PaymentModalCore({
             ) : (
               <div className="space-y-2">
                 {order.pay_url && order.provider !== "mock" && (
-                  <button
+                  <Button
                     type="button"
+                    variant="dark"
                     onClick={handleOpenPayUrl}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700"
+                    className="w-full rounded-2xl py-3 hover:bg-slate-700"
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("paymentReOpenBtn")}
-                  </button>
+                  </Button>
                 )}
                 {order.provider === "mock" && (
                   <>

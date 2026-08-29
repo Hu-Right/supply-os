@@ -133,15 +133,16 @@ export function UpgradeConfirmModal({
         >
           {t("upgradeCancelBtn")}
         </Button>
-        <button
+        <Button
           type="button"
+          variant="accent"
           onClick={onConfirm}
           disabled={submitting || loading || !preview?.can_upgrade}
-          className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          className="flex-1 py-2.5 rounded-xl text-sm shadow-md transition-all duration-300 gap-1.5"
         >
           {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {t("upgradeConfirmBtn")}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

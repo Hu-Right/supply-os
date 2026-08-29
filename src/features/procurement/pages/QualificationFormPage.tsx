@@ -13,6 +13,7 @@ import { CheckCircle2, Send, ArrowLeft, Building2, FileText } from "lucide-react
 import Image from "next/image";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
 import { submitSupplierQualification } from "../api/qualification";
 import { ApiError } from "@/core/http";
@@ -215,9 +216,9 @@ export default function QualificationFormPage() {
     <div className="min-h-screen" style={{ background: BG_LIGHT }}>
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={() => window.history.back()} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors" aria-label="返回">
+          <Button type="button" variant="ghost" size="iconSm" onClick={() => window.history.back()} aria-label="返回" className="hover:bg-slate-100">
             <ArrowLeft className="w-5 h-5 text-slate-600" />
-          </button>
+          </Button>
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <Building2 className="w-5 h-5 text-[#0A2A55] shrink-0" />
             <h1 className="text-base font-bold text-[#0A2A55] truncate">{t("qualPageTitle")}</h1>

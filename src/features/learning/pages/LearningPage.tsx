@@ -8,6 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { FAQS } from "@/data";
@@ -192,16 +193,17 @@ export default function LearningPage() {
               <h4 className="text-sm font-extrabold text-teal-800 mb-3">{t("learningBundleTitle")}</h4>
               <div className="space-y-2">
                 {bundles.map((bundle) => (
-                  <button
+                  <Button
                     key={bundle.id}
                     onClick={() => handleBuyBundle(bundle)}
-                    className="w-full flex items-center justify-between rounded-lg border border-teal-200 bg-white px-4 py-3 text-sm hover:border-teal-400 hover:shadow-sm transition-all cursor-pointer"
+                    variant="outline"
+                    className="w-full justify-between rounded-lg border-teal-200 bg-white px-4 py-3 text-sm font-normal hover:border-teal-400 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
                   >
                     <span className="font-bold text-slate-800">{bundle.labelZh}</span>
                     <span className="shrink-0 ml-3 rounded-full bg-teal-600 px-3 py-1 text-xs font-black text-white">
                       ¥{bundle.price.toFixed(1)}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>

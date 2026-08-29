@@ -9,6 +9,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { PaymentModalCore } from "@/features/payment";
 import {
   createTrainingOrder,
@@ -228,21 +229,27 @@ export default function TrainingPaymentModal({
           <div>
             <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentParticipants")}</p>
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => setParticipantCount((c) => Math.max(1, c - 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                aria-label={t("tlPaymentParticipants")}
+                className="text-lg font-bold text-slate-600"
               >
                 -
-              </button>
+              </Button>
               <span className="w-10 text-center text-lg font-black text-slate-900">{participantCount}</span>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => setParticipantCount((c) => Math.min(20, c + 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                aria-label={t("tlPaymentParticipants")}
+                className="text-lg font-bold text-slate-600"
               >
                 +
-              </button>
+              </Button>
             </div>
           </div>
         }

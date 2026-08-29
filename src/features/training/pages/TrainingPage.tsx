@@ -9,7 +9,7 @@
 
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, Button } from "@/shared/ui";
 import { useTrainingForm } from "../hooks/useTrainingForm";
 import type { DictionaryItem } from "@/core/unspsc/types";
 
@@ -252,14 +252,16 @@ export default function TrainingPage() {
         </label>
 
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-60"
+            variant="accent"
+            size="lg"
+            loading={loading}
+            className="rounded-xl text-sm font-black"
           >
             <Send className="h-4 w-4" />
             {loading ? t("trainingSubmitting") : t("trainingSubmitBtn")}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

@@ -195,14 +195,16 @@ export default function ProcurementPage() {
 
           {/* 行业分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
           <div className="border-t border-slate-100 pt-4">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setUnspscExpanded(!unspscExpanded)}
-              className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-teal-700 transition-colors"
+              className="gap-2 px-0 text-sm text-slate-600 hover:text-teal-700 hover:bg-transparent"
             >
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${unspscExpanded ? "rotate-180" : ""}`} />
               {t("procurement_industryCategory")}
-            </button>
+            </Button>
             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${unspscExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
               <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
             </div>

@@ -104,13 +104,15 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
 
       {/* Operational actions */}
       <div className="mt-5 flex gap-2 border-t border-slate-100 pt-3">
-        <button
+        <Button
           onClick={() => onAiMatch(supplier)}
-          className="flex flex-1 cursor-pointer items-center justify-center space-x-1 rounded bg-gradient-to-tr from-teal-500 to-teal-600 py-1.5 text-xs font-bold text-white hover:from-teal-600 hover:to-teal-700"
+          variant="cta"
+          size="sm"
+          className="flex-1 rounded py-1.5 gap-1 cursor-pointer"
         >
           <Sparkles className="h-3.5 w-3.5" />
           <span>{t("supplierAiMatchBtn")}</span>
-        </button>
+        </Button>
         <Button
           onClick={() => onContact(supplier)}
           variant="secondary"

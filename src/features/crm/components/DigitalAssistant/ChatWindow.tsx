@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type {
   ChatMessage,
   AssistantMode,
@@ -174,16 +175,16 @@ export function ChatWindow({
               transition-colors"
             style={{ maxHeight: "120px" }}
           />
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            size="icon"
             disabled={!input.trim() || isThinking || mode === "waiting"}
-            className="shrink-0 bg-teal-600 text-white p-2.5 rounded-xl
-              hover:bg-teal-500 transition-colors
-              disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shrink-0 rounded-xl p-2.5 hover:bg-teal-500"
             aria-label={t("crmAssistantSend")}
           >
             <Send className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
       </form>
     </div>

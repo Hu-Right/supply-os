@@ -9,6 +9,7 @@
 
 import { FileDown } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { LearningMaterial } from "@/types";
 
 export interface MaterialCardProps {
@@ -57,7 +58,7 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
 
       <div className="flex justify-end gap-2 pt-1 text-xs">
         {isPurchased ? (
-          <button
+          <Button
             onClick={() =>
               onDownload(
                 material.fileUrl ?? "",
@@ -66,18 +67,20 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
               )
             }
             disabled={!material.fileUrl}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            size="sm"
+            className="px-4 py-2 gap-1.5 disabled:opacity-40 whitespace-nowrap cursor-pointer"
           >
             <FileDown className="h-3.5 w-3.5" />
             <span>{t("downloadBtn")}</span>
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             onClick={() => onBuyMaterial(material)}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-teal-700 whitespace-nowrap"
+            size="sm"
+            className="px-4 py-2 gap-1.5 whitespace-nowrap cursor-pointer"
           >
             {displayPrice || t("buyMaterialBtn")}
-          </button>
+          </Button>
         )}
       </div>
     </div>

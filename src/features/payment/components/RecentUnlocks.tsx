@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, History } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { fetchUnlocks, type UnlockRecord } from "../api";
 
 export interface RecentUnlocksProps {
@@ -58,12 +59,14 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
           {t("procurement_recentUnlocksTitle")}
         </p>
         {hasTranslation && (
-          <button
+          <Button
             onClick={() => setShowOriginal((v) => !v)}
-            className="text-xs font-bold text-blue-700 hover:underline shrink-0"
+            variant="link"
+            size="sm"
+            className="shrink-0 px-0"
           >
             {showOriginal ? t("procurement_viewTranslation") : t("procurement_viewOriginal")}
-          </button>
+          </Button>
         )}
       </div>
       <ul className="space-y-2">
@@ -88,13 +91,15 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
                     {t("myRecordsExpired")}
                   </span>
                 )}
-                <button
+                <Button
                   onClick={() => onOpenNotice(record.notice_id)}
-                  className="inline-flex items-center gap-1 text-xs font-black text-teal-700 hover:text-teal-800 cursor-pointer"
+                  variant="link"
+                  size="sm"
+                  className="gap-1 px-0 font-black hover:text-teal-800 cursor-pointer"
                 >
                   {t("myPurchasesOpenDetail")}
                   <ArrowRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
-                </button>
+                </Button>
               </span>
             </li>
           );

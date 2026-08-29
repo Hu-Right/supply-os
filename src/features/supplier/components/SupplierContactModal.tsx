@@ -9,7 +9,7 @@
 
 import { Crown, User, Mail, Phone, AlertCircle } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Modal, Spinner } from "@/shared/ui";
+import { Modal, Spinner, Button } from "@/shared/ui";
 import type { Supplier } from "@/types";
 import type { SupplierContact } from "../api";
 import { emitAppEvent } from "@/core/events";
@@ -46,13 +46,14 @@ export function SupplierContactModal({
             <Crown className="mt-0.5 h-5 w-5 shrink-0" />
             <p>{t("supplierContactVipOnly")}</p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="cta"
             onClick={handleUpgrade}
-            className="w-full cursor-pointer rounded-lg bg-gradient-to-tr from-teal-600 to-indigo-600 py-2.5 text-sm font-bold text-white shadow-md transition-opacity hover:opacity-90"
+            className="w-full py-2.5 shadow-md transition-opacity hover:opacity-90 cursor-pointer"
           >
             {t("supplierContactUpgradeBtn")}
-          </button>
+          </Button>
         </div>
       )}
 

@@ -6,6 +6,7 @@
  * @description 品牌名 + 六个锚点链接 + 立即报名（绿）/ 咨询顾问（描边）按钮。
  */
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 
 const ANCHORS = [
   ["intro", "tlNavIntro"],
@@ -31,14 +32,16 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
         <span className="text-sm font-bold text-white whitespace-nowrap">{t("tlFootBrand")}</span>
         <div className="flex items-center gap-0.5 md:gap-1.5 overflow-x-auto scrollbar-none">
           {ANCHORS.map(([id, key]) => (
-            <button
+            <Button
               key={id}
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => go(id)}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white whitespace-nowrap cursor-pointer"
+              className="px-2.5 py-1.5 font-medium text-slate-300 hover:text-white hover:bg-transparent whitespace-nowrap cursor-pointer"
             >
               {t(key)}
-            </button>
+            </Button>
           ))}
           <button
             type="button"
@@ -47,13 +50,15 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
           >
             {t("tlNavEnroll")}
           </button>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={onConsult}
-            className="ml-1 rounded border border-slate-400/60 px-4 py-1.5 text-xs font-bold text-slate-100 hover:bg-white/10 whitespace-nowrap cursor-pointer"
+            className="ml-1 rounded border-slate-400/60 px-4 py-1.5 text-slate-100 hover:bg-white/10 whitespace-nowrap cursor-pointer"
           >
             {t("tlNavConsult")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

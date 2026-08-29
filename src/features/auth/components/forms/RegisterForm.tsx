@@ -177,18 +177,20 @@ export function RegisterForm({
             maxLength={6}
             className="flex-1 tracking-widest"
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => registerCode.handleSendSmsCode(authForm.phone.trim())}
             disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
-            className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
           >
             {registerCode.registerCodeCountdown > 0
               ? `${registerCode.registerCodeCountdown}s`
               : registerCode.registerCodeLoading
                 ? t("authForgotSending")
                 : t("authRegisterSendSmsCode") || "获取验证码"}
-          </button>
+          </Button>
         </div>
         {registerCode.registerCodeError && (
           <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>

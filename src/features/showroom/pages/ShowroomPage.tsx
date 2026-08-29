@@ -14,7 +14,7 @@ import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { EXHIBITION_HALLS } from "@/data";
 import type { ExhibitionHall } from "@/types";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, Button } from "@/shared/ui";
 import { ShowroomCard } from "../components/ShowroomCard";
 import { onAppEvent, emitAppEvent } from "@/core/events";
 
@@ -174,12 +174,14 @@ export default function ShowroomPage() {
           </Select>
 
           {(selectedRegion || selectedCountry || searchTerm) && (
-            <button
+            <Button
               onClick={handleReset}
-              className="text-xs font-bold text-rose-600 hover:underline"
+              variant="link"
+              size="sm"
+              className="px-0 text-rose-600"
             >
               {t("resetFilter")}
-            </button>
+            </Button>
           )}
         </div>
       </div>

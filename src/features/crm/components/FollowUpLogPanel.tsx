@@ -52,9 +52,9 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest text-teal-700">
           {labels.editingLead(lead.companyName)}
         </h4>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+        <Button variant="ghost" size="iconSm" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-slate-600">
           <X className="w-4 h-4" />
-        </button>
+        </Button>
       </div>
 
       {/* Timeline logs */}

@@ -8,7 +8,7 @@
  */
 
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Select } from "@/shared/ui";
+import { Button, Select } from "@/shared/ui";
 import { Sparkles } from "lucide-react";
 import type { Supplier, Opportunity } from "@/types";
 
@@ -88,15 +88,15 @@ export function MatchSelector({
       </div>
 
       {/* Trigger Button */}
-      <button
+      <Button
         type="button"
         onClick={onTrigger}
         disabled={isMatching || !selectedSupplier || !selectedOpportunity}
-        className="w-full py-2.5 bg-teal-500 text-slate-900 rounded-lg text-xs font-bold
-          hover:bg-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        size="sm"
+        className="w-full py-2.5"
       >
         {isMatching ? t("aiAnalyzing") : t("clickAiMatch")}
-      </button>
+      </Button>
     </div>
   );
 }

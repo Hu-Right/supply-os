@@ -75,10 +75,11 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   if (view === "overview") {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => openView("orders")}
-          className="text-start rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
+          className="text-start justify-start rounded-xl bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -97,12 +98,13 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               {summary.ordersFirst?.order_no || t("myRecordsOrdersHint")}
             </p>
           </div>
-        </button>
+        </Button>
 
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => openView("unlocks")}
-          className="text-start rounded-xl border border-teal-100 bg-teal-50 p-4 hover:border-teal-300"
+          className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -121,7 +123,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               {summary.unlocksFirst ? recordTime(summary.unlocksFirst) : t("myRecordsUnlocksHint")}
             </p>
           </div>
-        </button>
+        </Button>
       </div>
     );
   }
@@ -133,14 +135,15 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     <section className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="iconSm"
             onClick={() => setView("overview")}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
             title={t("myRecordsBackTitle")}
           >
             <ArrowLeft className="w-4 h-4 rtl:-scale-x-100" />
-          </button>
+          </Button>
           <div>
             <p className="text-sm font-extrabold text-slate-900">
               {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsUnlocksManage")}
@@ -150,13 +153,15 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
             </p>
           </div>
         </div>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={history.refresh}
-          className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-black text-teal-700 hover:bg-teal-50"
+          className="font-black text-teal-700 hover:bg-teal-50"
         >
           {history.loading ? t("myRecordsRefreshing") : t("myRecordsRefresh")}
-        </button>
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -164,13 +169,15 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
         {history.error && !history.loading && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-center text-xs text-rose-700">
             <p className="font-black">{t("myRecordsLoadFailed")}</p>
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={history.refresh}
-              className="mt-2 px-3 py-1.5 rounded-lg border border-rose-300 bg-white font-black text-rose-700 hover:bg-rose-100"
+              className="mt-2 border-rose-300 bg-white text-rose-700 hover:bg-rose-100"
             >
               {t("myRecordsRetry")}
-            </button>
+            </Button>
           </div>
         )}
         {rows.length === 0 && (
@@ -218,13 +225,15 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                     : row.notice?.country || row.notice?.reference || "-"}
                 </span>
                 {canOpen && (
-                  <button
+                  <Button
                     type="button"
+                    variant="link"
+                    size="sm"
                     onClick={() => onOpenNotice(Number(row.notice_id))}
-                    className="shrink-0 font-black text-blue-700 hover:text-blue-900"
+                    className="shrink-0 px-0 font-black"
                   >
                     {t("myPurchasesOpenDetail")}
-                  </button>
+                  </Button>
                 )}
               </div>
               {/* 公采搜索功能（本地差异 #6 配套：需求 2 客诉止血）——

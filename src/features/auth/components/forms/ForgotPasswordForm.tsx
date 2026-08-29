@@ -110,18 +110,20 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
           >
             {forgotLoading ? t("authForgotResetting") : t("authForgotResetSubmit")}
           </Button>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setForgotStep(1);
               setForgotCode("");
               setForgotNewPassword("");
               setForgotError("");
             }}
-            className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+            className="w-full text-center px-0 py-0 font-normal text-slate-500 hover:text-slate-700 hover:bg-transparent"
           >
             {t("authForgotChangeAccount") || "信息有误？返回修改"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -156,16 +158,18 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
         </div>
       )}
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => {
           reset();
           onBack();
         }}
-        className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+        className="w-full text-center px-0 py-0 font-normal text-slate-500 hover:text-slate-700 hover:bg-transparent"
       >
         ← {t("authForgotBackToLogin")}
-      </button>
+      </Button>
     </div>
   );
 }

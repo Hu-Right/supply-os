@@ -294,14 +294,15 @@ export default function ParticipantForm({
         <div className="flex gap-3 pt-4 border-t border-slate-200">
           {isPrePaymentMode ? (
             <>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={onClose}
                 disabled={isSubmitting || preFormSubmitting}
-                className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50 text-sm font-semibold"
+                className="flex-1 border-slate-300 text-slate-700 font-semibold"
               >
                 {t("tlParticipantCancel")}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={handleSubmit}
@@ -313,14 +314,15 @@ export default function ParticipantForm({
             </>
           ) : (
             <>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="flex-1 py-2 border-slate-300 text-slate-700"
               >
                 {t("tlParticipantLater")}
-              </button>
+              </Button>
               <Button
                 type="button"
                 variant="primary"

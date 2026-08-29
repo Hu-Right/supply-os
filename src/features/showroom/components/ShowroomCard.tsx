@@ -10,6 +10,7 @@
 import { Clock } from "lucide-react";
 import Image from "next/image";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 
 export interface ShowroomCardProps {
@@ -77,19 +78,23 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
           </div>
 
           <div className="flex gap-2 pt-2">
-            <button
+            <Button
               onClick={() => onApply(showroom)}
-              className="flex-1 cursor-pointer rounded-lg bg-slate-900 py-2 text-center text-xs font-bold text-white shadow-sm transition-colors group-hover:bg-teal-600"
+              variant="dark"
+              size="sm"
+              className="flex-1 py-2 shadow-sm group-hover:bg-teal-600 cursor-pointer"
             >
               {t("showroomApplyBtn")}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onConsult(showroom)}
-              className="cursor-pointer rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 transition-colors hover:bg-teal-50 hover:text-teal-600"
+              variant="secondary"
+              size="sm"
+              className="px-3 py-2 font-medium text-slate-500 hover:bg-teal-50 hover:text-teal-600 cursor-pointer"
               title={t("showroomConsultTitle")}
             >
               {t("showroomConsultBtn")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

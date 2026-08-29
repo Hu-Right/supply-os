@@ -7,6 +7,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { SectionTitle } from "./landing-ui";
 import type { LandingFaq } from "../api";
 
@@ -35,10 +36,11 @@ function AccordionItem({
 
   return (
     <div className="border-b border-slate-200 last:border-b-0">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 py-5 text-left cursor-pointer"
+        className="w-full justify-between gap-4 py-5 px-0 text-left hover:bg-transparent cursor-pointer"
       >
         <span className="text-sm font-black text-[#0A2A55]">{question}</span>
         <ChevronDown
@@ -46,7 +48,7 @@ function AccordionItem({
             isOpen ? "rotate-180" : ""
           }`}
         />
-      </button>
+      </Button>
       <div
         style={{ height }}
         className="overflow-hidden transition-[height] duration-300 ease-in-out"

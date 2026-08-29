@@ -43,13 +43,15 @@ export function LoginForm({
         placeholder={t("authPasswordPlaceholder")}
         minLength={PASSWORD_MIN_LENGTH}
       />
-      <button
+      <Button
         type="button"
+        variant="link"
+        size="sm"
         onClick={() => onForgotPassword(authForm.identifier.trim())}
-        className="text-xs text-slate-500 hover:text-slate-700 underline"
+        className="px-0 text-slate-500 hover:text-slate-700 underline"
       >
         {t("authForgotLink")}
-      </button>
+      </Button>
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
           {authError}

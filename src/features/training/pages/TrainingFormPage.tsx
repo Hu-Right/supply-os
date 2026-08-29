@@ -13,6 +13,7 @@ import { useState, useMemo } from "react";
 import { CheckCircle2, Send, ArrowLeft, FileText } from "lucide-react";
 import Image from "next/image";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "../components/landing-ui";
 import { ApiError } from "@/core/http";
 import {
@@ -162,9 +163,16 @@ export default function TrainingFormPage() {
   return (
     <div className="min-h-screen" style={{ background: BG_LIGHT }}>
       <header className="sticky top-0 z-10 px-4 py-3 flex items-center gap-3" style={{ background: NAVY }}>
-        <button type="button" onClick={() => window.history.back()} className="text-white/80 hover:text-white cursor-pointer" aria-label="返回">
+        <Button
+          type="button"
+          variant="ghost"
+          size="iconSm"
+          onClick={() => window.history.back()}
+          className="text-white/80 hover:text-white hover:bg-transparent cursor-pointer"
+          aria-label="返回"
+        >
           <ArrowLeft className="w-5 h-5" />
-        </button>
+        </Button>
         <h1 className="text-base font-black text-white">{t("qualDiagTitle")}</h1>
       </header>
 

@@ -254,13 +254,15 @@ export function IndustryPrefsForm() {
         >
           {t("authIndustryPrefSave")}
         </Button>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={clearPrefs}
-          className="px-4 py-2 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
+          className="px-4 py-2 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50"
         >
           {t("authIndustryPrefClear")}
-        </button>
+        </Button>
         {/* 未选满前两级时按钮旁给出引导，选满后自动消失 */}
         {(!prefLevel1 || !prefLevel2) && (
           <p className="text-xs font-bold text-amber-600">

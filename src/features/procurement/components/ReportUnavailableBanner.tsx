@@ -15,6 +15,7 @@
 import { useState, useCallback } from "react";
 import { Crown, MessageCircle, X, FileX } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import WechatQRModal from "@/features/training/components/WechatQRModal";
 
 // ── sessionStorage 去重工具 ──
@@ -94,13 +95,15 @@ export function ReportUnavailableBanner({
               </span>
             )}
           </p>
-          <button
+          <Button
             onClick={handleDismiss}
-            className="shrink-0 p-1 rounded-md text-amber-400 hover:text-amber-700 hover:bg-amber-100"
+            variant="ghost"
+            size="iconSm"
+            className="shrink-0 rounded-md text-amber-400 hover:text-amber-700 hover:bg-amber-100"
             aria-label={t("procurement_dismiss")}
           >
             <X className="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
         {/* 引导文案 */}
@@ -108,13 +111,15 @@ export function ReportUnavailableBanner({
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={() => setShowQr(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-black hover:bg-amber-700"
+            variant="accent"
+            size="sm"
+            className="gap-1.5 font-black"
           >
             <MessageCircle className="w-3.5 h-3.5" />
             {t("procurement_contactWechatService")}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -6,6 +6,7 @@
  * @description 品牌 + 版权 + 锚点链接。
  */
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 
 const LINKS = [
   ["intro", "tlNavIntro"],
@@ -27,14 +28,16 @@ export function LandingFooter() {
           <span className="text-sm font-bold text-white">{t("tlFootBrand")}</span>
           <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
             {LINKS.map(([id, key]) => (
-              <button
+              <Button
                 key={id}
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => go(id)}
-                className="text-xs text-slate-300 hover:text-white cursor-pointer"
+                className="px-0 py-0 font-normal text-slate-300 hover:text-white hover:bg-transparent cursor-pointer"
               >
                 {t(key)}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

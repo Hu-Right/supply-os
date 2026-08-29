@@ -10,6 +10,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MessageCircle, X, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
 import { useChatSSE } from "../../hooks/useChatSSE";
 import { ChatWindow } from "./ChatWindow";
@@ -128,11 +129,11 @@ export function DigitalAssistant({
     <>
       {/* ── 浮动触发按钮 ── */}
       {!isOpen && (
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 end-6 z-40 flex items-center gap-2
-            bg-teal-600 text-white px-5 py-3 rounded-full shadow-lg
+          className="fixed bottom-6 end-6 z-40 px-5 py-3 rounded-full shadow-lg
             hover:bg-teal-500 hover:shadow-xl hover:scale-105
             transition-all duration-200 group"
           aria-label={t("crmAssistantOpen")}
@@ -143,7 +144,7 @@ export function DigitalAssistant({
           {messages.length > 0 && (
             <span className="absolute -top-1 -end-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
           )}
-        </button>
+        </Button>
       )}
 
       {/* ── 侧边抽屉 ── */}
@@ -182,35 +183,41 @@ export function DigitalAssistant({
               <div className="flex items-center gap-2">
                 {/* AI 模式：显示转人工按钮 */}
                 {mode === "ai" && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={requestHumanAgent}
-                    className="text-[11px] px-3 py-1 rounded-full
-                      border border-slate-600 hover:bg-slate-800 transition-colors"
+                    className="text-[11px] px-3 py-1 rounded-full text-white
+                      border border-slate-600 hover:bg-slate-800"
                   >
                     {t("crmRequestHuman")}
-                  </button>
+                  </Button>
                 )}
                 {/* 人工模式：显示结束会话按钮 */}
                 {mode === "human" && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={endHumanSession}
-                    className="text-[11px] px-3 py-1 rounded-full
-                      border border-slate-600 hover:bg-slate-800 transition-colors"
+                    className="text-[11px] px-3 py-1 rounded-full text-white
+                      border border-slate-600 hover:bg-slate-800"
                   >
                     {t("crmEndHumanSession")}
-                  </button>
+                  </Button>
                 )}
                 {/* 关闭按钮 */}
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="iconSm"
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                  className="text-white hover:bg-slate-800"
                   aria-label={t("uiClose")}
                 >
                   <X className="w-5 h-5" />
-                </button>
+                </Button>
               </div>
             </div>
 

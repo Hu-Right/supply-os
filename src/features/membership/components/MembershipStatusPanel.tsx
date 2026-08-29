@@ -12,6 +12,7 @@
 import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { MembershipStatus } from "@/types";
 
 export interface MembershipStatusPanelProps {
@@ -114,12 +115,14 @@ export function MembershipStatusPanel({
             <span className="text-xs text-slate-500">{t("statusPanelTotalUnlocks")}</span>
           </div>
           {!compact && totalRemaining === 0 && (
-            <button
+            <Button
               onClick={handleGoToPlans}
-              className="mt-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+              variant="link"
+              size="sm"
+              className="mt-1 px-0 text-amber-600 hover:text-amber-700"
             >
               {t("statusPanelUpgradeBtn")} →
-            </button>
+            </Button>
           )}
         </div>
       </div>

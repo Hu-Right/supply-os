@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
@@ -131,13 +132,14 @@ export default function MembershipPage() {
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
               <p className="text-slate-600 text-lg mb-2">{error}</p>
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => window.location.reload()}
-                className="text-sm text-teal-600 hover:text-teal-700 font-medium cursor-pointer"
+                className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
               >
                 重新加载
-              </button>
+              </Button>
             </div>
           ) : plans.length === 0 ? (
             <div className="text-center py-20">

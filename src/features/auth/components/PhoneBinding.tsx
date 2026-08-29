@@ -38,21 +38,25 @@ export function PhoneBinding() {
             {t("authPhoneBound")}: <span className="font-mono font-bold text-slate-900">{currentPhone}</span>
           </p>
           <div className="flex gap-2">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => { setView("rebinding"); resetState(); }}
-              className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              className="bg-white text-slate-700 hover:bg-slate-100"
             >
               {t("authPhoneRebind")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => { setView("unbinding"); resetState(); }}
-              className="px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50 inline-flex items-center gap-1"
+              className="bg-white border-rose-200 text-rose-600 hover:bg-rose-50 gap-1"
             >
               <Unlink className="w-3 h-3" />
               {t("authPhoneUnbind")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -91,14 +95,16 @@ export function PhoneBinding() {
               maxLength={6}
               className="flex-1 bg-white tracking-widest"
             />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={loading || countdown > 0}
               onClick={() => handleSendCode("bind")}
-              className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
             >
               {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </button>
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button
@@ -141,14 +147,16 @@ export function PhoneBinding() {
               maxLength={6}
               className="flex-1 bg-white tracking-widest"
             />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={loading || countdown > 0}
               onClick={() => handleSendCode("rebind")}
-              className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
             >
               {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </button>
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button
@@ -187,14 +195,16 @@ export function PhoneBinding() {
               maxLength={6}
               className="flex-1 bg-white tracking-widest"
             />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               disabled={loading || countdown > 0}
               onClick={() => handleSendCode("unbind")}
-              className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
             >
               {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </button>
+            </Button>
           </div>
           <div className="flex gap-2">
             <Button

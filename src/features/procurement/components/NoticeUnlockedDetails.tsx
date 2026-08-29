@@ -15,6 +15,7 @@ import { Download, ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } fr
 import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 import { downloadNoticeReport } from "../api";
 import { ReportUnavailableBanner } from "./ReportUnavailableBanner";
@@ -211,16 +212,17 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
         <div className="space-y-2">
           {/* 中文版订单拆解报告：置顶下载项；无合格商机时降级为整理中提示 */}
           {canDownloadReport ? (
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={handleDownloadReport}
-              className="w-full flex items-center justify-between gap-3 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 hover:border-teal-400"
+              className="w-full justify-between gap-3 rounded-md border-teal-200 bg-teal-50 px-3 py-2 hover:border-teal-400 hover:bg-teal-50"
             >
               <span dir="auto" className="font-black text-teal-800 truncate">
                 {t("procurement_reportFileLabel")}
               </span>
               <Download className="w-4 h-4 shrink-0 text-teal-700" />
-            </button>
+            </Button>
           ) : (
             <div className="space-y-2">
               <p className="text-slate-400">{t("procurement_reportPending")}</p>
