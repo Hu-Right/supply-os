@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 const CODE_PATTERN = /^EMP-[A-Z0-9]{4,12}$/i;
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code } = await params;
@@ -21,14 +21,17 @@ export async function GET(
 
   // 基本格式校验，防止非法值写入 Cookie
   if (!CODE_PATTERN.test(normalized)) {
-    return NextResponse.redirect(new URL("/showroom", _req.url));
+    return NextResponse.redirect(new URL("/showroom", req.url));
   }
 
   // 30 天后过期
   const expires = new Date();
   expires.setDate(expires.getDate() + 30);
 
-  const redirectUrl = new URL("/showroom", _req.url);
+  // 从请求头获取 host，避免 0.0.0.0 导致浏览器无法访问
+  const host = req.headers.get("host") || "localhost:3000";
+  const protocol = req.headers.get("x-forwarded-proto") || "http";
+  const redirectUrl = `${protocol}://${host}/showroom`;
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.set("ref_code", normalized, {
