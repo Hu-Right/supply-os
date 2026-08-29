@@ -17,25 +17,20 @@ export interface CountryFilterProps {
   placeholder?: string;
   searchPlaceholder?: string;
   noResultsText?: string;
-  moreResultsText?: string;
   className?: string;
 }
-
-/** 下拉列表最大渲染条数 */
-const MAX_VISIBLE = 200;
 
 export function CountryFilter({
   countries, value, onChange,
   locale = "en", placeholder = "All countries",
   noResultsText,
-  moreResultsText = "more results — refine your search",
   className = "",
 }: CountryFilterProps) {
   const { t } = useLocale();
   const resolvedNoResults: string = noResultsText ?? t("filterNoMatchCountries");
   const {
     containerRef, inputRef, showDropdown,
-    visible, hasMore, filteredCount,
+    visible,
     inputValue,
     handleSelect, handleClear, handleFocus, handleBlur,
     setQuery, setFocused,
@@ -74,8 +69,7 @@ export function CountryFilter({
       {showDropdown && (
         <CountryDropdown
           visible={visible} placeholder={placeholder} value={value} locale={locale}
-          onSelect={handleSelect} hasMore={hasMore} filteredCount={filteredCount}
-          maxVisible={MAX_VISIBLE} noResultsText={resolvedNoResults} moreResultsText={moreResultsText}
+          onSelect={handleSelect} noResultsText={resolvedNoResults}
         />
       )}
     </div>

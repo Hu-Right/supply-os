@@ -148,7 +148,6 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             locale={locale}
             placeholder={t("procurement_countryAll")}
             noResultsText={t("countryFilter_noResults")}
-            moreResultsText={t("countryFilter_moreResults")}
             className="w-full"
           />
           <Input
