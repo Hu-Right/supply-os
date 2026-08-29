@@ -100,6 +100,7 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
           label={label}
           placeholder={(key: string) => t(key)}
           options={options}
+          hideFields={["bidWillingness"]}
           className="space-y-4"
         />
       </div>

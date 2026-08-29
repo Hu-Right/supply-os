@@ -202,6 +202,8 @@ export interface QualificationFormFieldsProps {
   };
   /** 外层容器 className（默认卡片样式） */
   className?: string;
+  /** 需要隐藏的字段（注册流程中部分字段已自动填充，无需用户手动填写） */
+  hideFields?: QualFieldKey[];
 }
 
 export function QualificationFormFields({
@@ -213,8 +215,10 @@ export function QualificationFormFields({
   placeholder,
   options,
   className = "rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6",
+  hideFields,
 }: QualificationFormFieldsProps) {
   const ph = placeholder ?? ((key: string) => key);
+  const hidden = new Set(hideFields);
 
   return (
     <div className={className}>
@@ -370,6 +374,7 @@ export function QualificationFormFields({
       </div>
 
       {/* 14. 投标意愿 */}
+      {!hidden.has("bidWillingness") && (
       <div>
         <FieldLabel required>{QUAL_FIELDS[13].no}. {label("bidWillingness")}：</FieldLabel>
         <RadioButtons
@@ -389,6 +394,7 @@ export function QualificationFormFields({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
