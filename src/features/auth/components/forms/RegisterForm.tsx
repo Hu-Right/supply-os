@@ -5,7 +5,7 @@
  * @module features/auth/components/forms/RegisterForm
  */
 import { useState, useEffect } from "react";
-import { Input, Select, Button } from "@/shared/ui";
+import { Input, Select, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
@@ -111,41 +111,34 @@ export function RegisterForm({
     <div className="space-y-3">
       {/* 注册类型选择 */}
       <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
+        <SelectableCard
+          selected={authForm.userType === "personal"}
           onClick={() => setAuthForm({ ...authForm, userType: "personal" })}
-          className={`rounded-xl border-2 p-3 text-center transition-all ${
-            authForm.userType === "personal"
-              ? "border-teal-500 bg-teal-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
-          }`}
+          className="p-3 text-center"
         >
           <div className="text-lg font-bold">👤</div>
           <div className={`text-sm font-bold ${authForm.userType === "personal" ? "text-teal-700" : "text-slate-600"}`}>
             {t("authRegisterTypePersonal") || "个人注册"}
           </div>
           <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
-        </button>
-        <button
-          type="button"
+        </SelectableCard>
+        <SelectableCard
+          selected={authForm.userType === "enterprise"}
           onClick={() => setAuthForm({ ...authForm, userType: "enterprise" })}
-          className={`rounded-xl border-2 p-3 text-center transition-all ${
-            authForm.userType === "enterprise"
-              ? "border-blue-500 bg-blue-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
-          }`}
+          className="p-3 text-center"
         >
           <div className="text-lg font-bold">🏢</div>
-          <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-blue-700" : "text-slate-600"}`}>
+          <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-teal-700" : "text-slate-600"}`}>
             {t("authRegisterTypeEnterprise") || "企业注册"}
           </div>
           <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
-        </button>
+        </SelectableCard>
       </div>
 
       {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
       {authForm.userType === "enterprise" && (
         <EnterpriseQualificationForm
+          registrationPhone={authForm.phone}
           onFormChange={(data) => {
             onQualificationChange?.(data as unknown as Record<string, string | string[]>);
             // 同步公司名称到 claimForm，供注册校验使用

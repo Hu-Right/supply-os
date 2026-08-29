@@ -267,7 +267,20 @@ export function buildWideRow(
 
   const agencyStd = (agency ? (aliasMap.get(agency.toUpperCase()) || agency) : "").slice(0, 200);
   const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
-  const agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
+  // [修复] _INTL 类型国家级聚合键不一致问题：
+  // classifyAgencyType(agencyStd, countryStd) 对国际机构返回国家级 typeKey
+  // （如 "Brazil Committee"），但内存缓存（agencies/query.ts stage 3.6）使用
+  // 通用 typeKey（如 "COMMITTEE_INTL"）。不一致导致 Meilisearch filter
+  // agency_group = "COMMITTEE_INTL" 匹配不到索引中的 "Brazil Committee"。
+  // 修复：对 _INTL 后缀类型，用无国家参数重新分类获取通用 typeKey，
+  // 确保宽表 agency_group 与缓存 agencyGroup 一致。
+  let agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
+  if (typeInfo && typeInfo.typeKey.endsWith("_INTL")) {
+    const genericInfo = classifyAgencyType(agencyStd);
+    if (genericInfo) {
+      agencyGroup = genericInfo.typeKey.slice(0, 100);
+    }
+  }
   const noticeTypeStd = normalizeNoticeType(r.notice_type).slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
   // 修复 030：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED 截断。
