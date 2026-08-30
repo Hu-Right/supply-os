@@ -12,8 +12,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 export async function POST(req: NextRequest) {
+  // 公开端点限流（审查 F33）：防垃圾数据灌库
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 },
+    (r) => `sq:${extractClientIp(r)}`);
+  if (rl) return rl;
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -38,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   const toArray = (v: unknown) => Array.isArray(v) ? v.join(", ") : String(v || "");
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const ip = extractClientIp(req);
   const repo = new SupplierQualificationRepo(getPool());
 
   // ── 可选参数：关联用户、推荐员工、来源 ──
@@ -57,10 +64,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 推荐员工 ID（KPI 归属）：支持直接传入或通过邀请码解析
-  if (body.referral_employee_id) {
-    referralEmployeeId = Number(body.referral_employee_id);
-  } else if (body.invitation_code) {
+  // 推荐员工 ID（KPI 归属）：仅接受邀请码解析。不再直接信任请求体中的
+  // referral_employee_id——未认证请求可借此为任意员工伪造 KPI 归因（审查 F33）
+  if (body.invitation_code) {
     try {
       const ctx = getContext();
       const record = await ctx.user.invitationRepo.findByCode(String(body.invitation_code).trim().toUpperCase());
