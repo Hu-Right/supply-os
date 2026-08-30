@@ -48,7 +48,8 @@ export async function activatePaidOrder(
       return;
     }
 
-    // 打包套餐购买：从 raw_request 解析 material_ids，批量写入购买记录
+    // 打包套餐购买：raw_request 中的条目为下单时服务端解析的权威清单；
+    // 履约前再按 DB 过滤一次，防止历史订单携带已下架/不存在的条目
     if (order.plan_code.startsWith("bundle_")) {
       let bundleItems: string[] = [];
       try {
@@ -58,7 +59,11 @@ export async function activatePaidOrder(
 
       if (bundleItems.length > 0) {
         const lmRepo = new LearningMaterialsRepo(getPool());
-        await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, bundleItems, orderNo, Number(order.amount));
+        const existingMaterials = await lmRepo.findByMaterialIds(bundleItems);
+        const validIds = existingMaterials.map((m) => m.material_id);
+        if (validIds.length > 0) {
+          await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, validIds, orderNo, Number(order.amount));
+        }
       }
       await conn.commit();
       return;

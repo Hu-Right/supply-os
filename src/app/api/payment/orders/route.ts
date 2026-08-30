@@ -97,7 +97,11 @@ export async function POST(req: NextRequest) {
       ? "PAYMENT_PROVIDER_UNAVAILABLE"
       : raw.includes("PAYMENT_QR_CODE_MISSING")
         ? '支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试'
-        : raw;
+        : raw.includes("MATERIAL_NOT_FOUND")
+          ? "学习资料不存在或已下架"
+          : raw.includes("BUNDLE_NOT_FOUND")
+            ? "打包套餐不存在或已下架"
+            : "创建订单失败，请稍后重试";
     return sendError(friendly, 400, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
   }
 }

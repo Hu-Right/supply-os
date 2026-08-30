@@ -9,6 +9,8 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
+import type { LearningMaterialsRepo } from "../repos/learning-materials.repo";
+import { findLearningBundle } from "../data/learning-bundles";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
@@ -18,7 +20,11 @@ import { isParseablePrivateKey } from "./keys";
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
 
-  constructor(private paymentsRepo?: PaymentsRepo, private membershipRepo?: MembershipRepo) {}
+  constructor(
+    private paymentsRepo?: PaymentsRepo,
+    private membershipRepo?: MembershipRepo,
+    private learningMaterialsRepo?: LearningMaterialsRepo,
+  ) {}
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
@@ -44,15 +50,30 @@ export class PaymentService {
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
-    // 学习资料/打包套餐：跳过套餐表查找，直接使用请求中的 amount
+    // 学习资料/打包套餐：服务端权威定价（审查 F2）
+    // 金额与套餐条目一律由服务端解析（material 查 DB 定价、bundle 查静态套餐配置），
+    // 请求体中的 amount / bundle_items 不参与定价，仅作展示参考
     const isLearningOrder = planCode.startsWith("material_") || planCode.startsWith("bundle_");
     let amount: number;
     let planName = planCode;
     let currency = "CNY";
     let originalOrderNo: string | null = null;
+    let bundleItems: string[] | null = null;
 
     if (isLearningOrder) {
-      amount = Number(request.amount || 0);
+      if (planCode.startsWith("material_")) {
+        const materialId = planCode.slice("material_".length);
+        const material = await this.learningMaterialsRepo?.findByMaterialId(materialId);
+        if (!material) throw new Error("MATERIAL_NOT_FOUND");
+        amount = Number(material.price);
+        planName = material.title_zh || material.title_en || planCode;
+      } else {
+        const bundle = findLearningBundle(planCode.slice("bundle_".length));
+        if (!bundle) throw new Error("BUNDLE_NOT_FOUND");
+        amount = bundle.price;
+        planName = bundle.labelZh;
+        bundleItems = [...bundle.includesIds];
+      }
       if (amount <= 0) throw new Error("INVALID_AMOUNT");
     } else {
       const plan = await this.paymentsRepo!.findActivePlan(planCode);
@@ -97,13 +118,22 @@ export class PaymentService {
       request.client_ip,
     );
 
+    // raw_request 记录服务端解析后的权威金额与套餐条目（履约以此为准）
+    const rawRequestPayload = JSON.stringify({
+      ...request,
+      user_key: userKey,
+      notice_id: noticeId,
+      amount,
+      ...(bundleItems ? { bundle_items: bundleItems } : {}),
+    });
+
     if (existingOrder) {
       await this.paymentsRepo!.updatePendingOrder(orderNo, {
         amount,
         currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
-        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+        rawRequest: rawRequestPayload,
       });
     } else {
       await this.paymentsRepo!.createOrder({
@@ -116,7 +146,7 @@ export class PaymentService {
         currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
-        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+        rawRequest: rawRequestPayload,
         orderType,
         originalOrderNo,
       });
@@ -254,8 +284,8 @@ export class PaymentService {
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }
 
-  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
-    const service = new PaymentService(paymentsRepo, membershipRepo);
+  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo, learningMaterialsRepo?: LearningMaterialsRepo): PaymentService {
+    const service = new PaymentService(paymentsRepo, membershipRepo, learningMaterialsRepo);
     service.registerStrategy("mock", new MockProvider());
 
     if (paymentMode === "live") {

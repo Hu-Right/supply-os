@@ -12,6 +12,7 @@ import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
+import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
   NoticeDetailRepo,
@@ -108,6 +109,7 @@ export function getContext(): AppContext {
   const authRepo = new AuthRepo(dbPool);
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
+  const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
   const detailRepo = new NoticeDetailRepo(dbPool);
@@ -129,7 +131,7 @@ export function getContext(): AppContext {
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
 
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo, learningMaterialsRepo);
 
   const ctx: AppContext = {
     dbPool,
