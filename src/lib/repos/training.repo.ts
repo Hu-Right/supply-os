@@ -227,6 +227,15 @@ export class TrainingRepo {
     return rows as ScheduleRow[];
   }
 
+  /** 查询单个期次（下单容量校验用，审查 F25） */
+  async findScheduleById(scheduleId: number): Promise<ScheduleRow | null> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_schedules WHERE id = ? LIMIT 1",
+      [scheduleId],
+    );
+    return (rows as ScheduleRow[])[0] ?? null;
+  }
+
   /** 支付成功后递增期次报名人数 */
   async incrementEnrolledCount(scheduleId: number, delta = 1): Promise<void> {
     await this.pool.execute(
@@ -323,12 +332,19 @@ export class TrainingRepo {
     );
   }
 
-  /** 事务内递增期次报名人数 */
-  async incrementEnrolledCountInTransaction(conn: PoolConnection, scheduleId: number, delta = 1): Promise<void> {
-    await conn.execute(
-      "UPDATE training_schedules SET enrolled_count = enrolled_count + ? WHERE id = ?",
-      [delta, scheduleId],
+  /**
+   * 事务内递增期次报名人数（审查 F25）：
+   * 带容量护栏（capacity 为 NULL 视为不限），返回受影响行数——
+   * 0 表示名额已被并发占满，调用方必须回滚并转人工
+   */
+  async incrementEnrolledCountInTransaction(conn: PoolConnection, scheduleId: number, delta = 1): Promise<number> {
+    const [result] = await conn.execute(
+      `UPDATE training_schedules
+       SET enrolled_count = enrolled_count + ?
+       WHERE id = ? AND (capacity IS NULL OR enrolled_count + ? <= capacity)`,
+      [delta, scheduleId, delta],
     );
+    return Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
 
   /** 查询核心讲师（featured 大卡片） */

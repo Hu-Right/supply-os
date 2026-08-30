@@ -84,8 +84,21 @@ export async function createTrainingOrder(
   const unitPrice = Number(course.unit_price || 0);
   if (unitPrice <= 0) throw new Error("COURSE_PRICE_INVALID");
 
-  const participantCount = Math.max(1, Number(params.participantCount || 1));
+  // 单笔人数上限护栏（审查 F25）：防极端值下单（金额可拒付但名额会被占）
+  const MAX_PARTICIPANTS_PER_ORDER = 50;
+  const participantCount = Math.max(1, Math.min(MAX_PARTICIPANTS_PER_ORDER, Number(params.participantCount || 1)));
   const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
+
+  // 容量校验（审查 F25）：下单即校验期次名额，支付前尽早失败；
+  // 权威校验在履约事务内（incrementEnrolledCountInTransaction 容量护栏）
+  if (params.scheduleId) {
+    const schedule = await trainingRepo.findScheduleById(Number(params.scheduleId));
+    if (!schedule) throw new Error("SCHEDULE_NOT_FOUND");
+    if (schedule.capacity != null
+      && Number(schedule.enrolled_count || 0) + participantCount > Number(schedule.capacity)) {
+      throw new Error("SCHEDULE_CAPACITY_EXCEEDED");
+    }
+  }
 
   const provider = resolveProvider(ctx, params.provider);
   const orderNo = makeTrainingOrderNo();
@@ -180,7 +193,14 @@ export async function fulfillTrainingOrder(
       await trainingRepo.updateRegistrationPaymentInTransaction(conn, order.registration_id, order.id, "paid");
     }
     if (order.schedule_id) {
-      await trainingRepo.incrementEnrolledCountInTransaction(conn, order.schedule_id, order.participant_count);
+      const incremented = await trainingRepo.incrementEnrolledCountInTransaction(
+        conn, order.schedule_id, order.participant_count,
+      );
+      if (incremented === 0) {
+        // 容量在支付等待期被并发占满：钱已收但无名额——回滚保持订单原状态，
+        // 抛错告警转人工退款（审查 F25）
+        throw new Error("SCHEDULE_CAPACITY_EXCEEDED_AT_FULFILLMENT");
+      }
     }
 
     await conn.commit();
@@ -204,19 +224,14 @@ export async function queryTrainingOrderStatus(
   const order = await trainingRepo.findOrderByNo(orderNo);
   if (!order) throw new Error("ORDER_NOT_FOUND");
 
-  // 过期处理
-  if (order.status === "pending" && new Date(order.expires_at).getTime() < Date.now()) {
-    await trainingRepo.updateOrderStatus(orderNo, "expired");
-    return {
-      order_no: orderNo,
-      status: "expired",
-      total_amount: Number(order.total_amount || 0),
-      paid_at: null,
-    };
-  }
+  const isPending = order.status === "pending";
+  const isExpiredLocally = order.status === "expired";
+  const isPastExpiry = new Date(order.expires_at).getTime() < Date.now();
 
-  // pending 时主动轮询支付网关
-  if (order.status === "pending") {
+  // 网关优先（审查 F24）：pending 与本地已判过期的订单都先查一次网关——
+  // 防止"用户已付款但本地过期判定先行"导致扣款无履约；
+  // 只有网关确认未支付（或查询失败）才把 pending 落库为 expired
+  if (isPending || isExpiredLocally) {
     try {
       const strategy = ctx.payment.paymentService.getStrategy(order.provider as PaymentProviderName);
       const result = await strategy.queryOrderStatus(orderNo, order.provider_trade_no || undefined);
@@ -229,8 +244,20 @@ export async function queryTrainingOrderStatus(
           paid_at: new Date().toISOString(),
         };
       }
-    } catch {
-      // 网关不可用时保持数据库状态
+    } catch (err) {
+      // 网关不可用时保持数据库状态；容量占满（SCHEDULE_CAPACITY_EXCEEDED_AT_FULFILLMENT）
+      // 同样向上抛出，由路由转 500 告警转人工
+      if ((err as Error).message === "SCHEDULE_CAPACITY_EXCEEDED_AT_FULFILLMENT") throw err;
+    }
+
+    if (isPending && isPastExpiry) {
+      await trainingRepo.updateOrderStatus(orderNo, "expired");
+      return {
+        order_no: orderNo,
+        status: "expired",
+        total_amount: Number(order.total_amount || 0),
+        paid_at: null,
+      };
     }
   }
 
