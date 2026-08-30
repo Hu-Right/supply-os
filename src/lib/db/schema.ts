@@ -57,6 +57,9 @@
  *              047-learning-material-purchases        学习资料购买记录表
  *              048-learning-materials                 学习资料表+种子数据
  *              049-evaluation-unification              企业注册数据流归一化(统一评估表)
+ *              050-kpi-split-personal-enterprise       KPI个人/企业注册拆分
+ *              051-kpi-monthly-restructure             KPI月度化重构
+ *              052-training-orders-user-key            培训订单user_key+报名表支付状态列补全
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -111,6 +114,7 @@ import { migration as m048 } from "./migrations/048-learning-materials";
 import { migration as m049 } from "./migrations/049-evaluation-unification";
 import { migration as m050 } from "./migrations/050-kpi-split-personal-enterprise";
 import { migration as m051 } from "./migrations/051-kpi-monthly-restructure";
+import { migration as m052 } from "./migrations/052-training-orders-user-key";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -119,7 +123,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051,
+  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052,
 ];
 
 /**

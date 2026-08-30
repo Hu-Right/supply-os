@@ -24,6 +24,7 @@ export interface CreateTrainingOrderParams {
   contactName?: string;
   telephone?: string;
   clientIp?: string;
+  userKey?: string | null;
   /** 站点对外访问基址（如 https://host），用于生成可扫码的绝对二维码链接 */
   baseUrl?: string;
 }
@@ -136,6 +137,7 @@ export async function createTrainingOrder(
     expiresAt,
     contactName: params.contactName || null,
     telephone: params.telephone || null,
+    userKey: params.userKey || null,
   });
 
   return {

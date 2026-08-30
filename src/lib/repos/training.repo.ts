@@ -53,6 +53,7 @@ export interface TrainingOrderRow extends RowDataPacket {
   provider_trade_no: string | null;
   paid_at: Date | null;
   expires_at: Date;
+  user_key: string | null;
 }
 
 export interface InstructorRow extends RowDataPacket {
@@ -143,6 +144,7 @@ export interface CreateTrainingOrderData {
   expiresAt: Date;
   contactName: string | null;
   telephone: string | null;
+  userKey: string | null;
 }
 
 export class TrainingRepo {
@@ -238,13 +240,13 @@ export class TrainingRepo {
     const [result] = await this.pool.execute(
       `INSERT INTO training_orders
         (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_key, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
       [
         data.orderNo, data.courseId, data.scheduleId, data.registrationId,
         data.participantCount, data.unitPrice, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
-        data.contactName, data.telephone,
+        data.contactName, data.telephone, data.userKey,
       ],
     );
     return Number((result as RowDataPacket).insertId);
