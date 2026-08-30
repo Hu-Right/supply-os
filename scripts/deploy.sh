@@ -29,12 +29,23 @@ else
 fi
 
 # 3. Next.js 构建（output: standalone → .next/standalone/）
+#    构建会重建 .next/standalone/ 目录，导致 .env 被删除
+#    因此构建前备份，构建后恢复
 echo "[deploy] 构建..."
+
+# 3.1 备份现有 .env（如果存在）
+if [ -f .next/standalone/.env ]; then
+  cp .next/standalone/.env /tmp/supply-os.env.bak
+  echo "[deploy] 已备份 .env"
+fi
+
 npm run build
 
-# 3.5 .env 处理（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
-#    仅在首次部署时复制，之后不再触碰服务器上的 .env 配置
-if [ ! -f .next/standalone/.env ] && [ -f .env ]; then
+# 3.2 恢复 .env
+if [ -f /tmp/supply-os.env.bak ]; then
+  cp /tmp/supply-os.env.bak .next/standalone/.env
+  echo "[deploy] 已恢复 .env"
+elif [ -f .env ]; then
   cp .env .next/standalone/.env
   echo "[deploy] 首次部署：复制 .env → .next/standalone/.env"
 fi
