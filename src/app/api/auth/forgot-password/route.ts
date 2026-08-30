@@ -8,6 +8,8 @@ import { hashVerificationCode } from "@/lib/services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 import { maskPhone } from "@/lib/utils/mask";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,6 +27,11 @@ export async function POST(req: NextRequest) {
   // 前端可显式指定 channel，未指定时自动识别
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);
   const ctx = getContext();
+
+  // 限流（审查 F12）：IP + 目标账号双维度，防短信/邮件轰炸
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 3 },
+    (r) => `forgot:${extractClientIp(r)}:${identifier.toLowerCase()}`);
+  if (rl) return rl;
 
   // ── 短信渠道（默认优先） ──
   if (channel === "sms") {
@@ -45,8 +52,10 @@ export async function POST(req: NextRequest) {
 
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const code = String(crypto.randomInt(100000, 1000000));
+    // 发新码前失效旧码，旧验证码不得继续可用（与邮箱渠道对齐）
+    await ctx.user.authRepo.invalidateUnusedCodes(user.user_key, "phone_reset");
     const resetId = await ctx.user.authRepo.createResetCode({
-      userKey: user.user_key, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: "127.0.0.1",
+      userKey: user.user_key, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: extractClientIp(req),
     });
 
     let smsSent = false;
@@ -75,7 +84,7 @@ export async function POST(req: NextRequest) {
     const code = String(crypto.randomInt(100000, 1000000));
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const resetId = await ctx.user.authRepo.createResetCode({
-      userKey: identifier, codeHash: hashVerificationCode(code), codeType: "email_reset", expiresAt, ip: "127.0.0.1",
+      userKey: identifier, codeHash: hashVerificationCode(code), codeType: "email_reset", expiresAt, ip: extractClientIp(req),
     });
     try {
       await sendPasswordResetEmail(identifier, code);

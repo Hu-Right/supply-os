@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
   const record = await ctx.user.authRepo.findLatestActiveCode(auth.userKey, "email_unbind", user.email);
   if (!record) return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
+  if (record.attempts >= 5) return NextResponse.json({ code: 40029, message: "尝试次数过多" }, { status: 429 });
   if (record.code !== hashVerificationCode(code)) {
     await ctx.user.authRepo.incrementCodeAttempts(record.id);
     return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });

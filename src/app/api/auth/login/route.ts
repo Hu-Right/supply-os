@@ -5,6 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/lib/services/auth";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -14,6 +16,14 @@ export async function POST(req: NextRequest) {
   if (!identifier) {
     return NextResponse.json({ code: 40011, message: "请输入手机号或邮箱" }, { status: 400 });
   }
+
+  // 限流（审查 F11）：IP 与账号双维度，防密码爆破/撞库
+  const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 30 },
+    (r) => `login-ip:${extractClientIp(r)}`);
+  if (rlIp) return rlIp;
+  const rlAccount = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 10 },
+    () => `login-acct:${identifier.toLowerCase()}`);
+  if (rlAccount) return rlAccount;
 
   const ctx = getContext();
   const usersRepo = ctx.user.usersRepo;
