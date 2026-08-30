@@ -44,7 +44,7 @@ export const NoticeList = memo(function NoticeList({
 
   return (
     <>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-testid="search-results">
         {items.map((item) => (
           <NoticeCard
             key={item.id}

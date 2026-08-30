@@ -62,6 +62,7 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           placeholder={t("procurement_searchPlaceholder")}
           dir="auto"
           leftIcon={<Search className="w-4 h-4" />}
+          data-testid="search-input"
         />
         <div className="flex items-center gap-2 min-w-0">
           <Select

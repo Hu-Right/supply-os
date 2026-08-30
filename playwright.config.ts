@@ -55,7 +55,7 @@ export default defineConfig({
     ? undefined // CI 中由 e2e.yml 单独启动
     : {
         command: "npm run dev",
-        url: "http://localhost:3000",
+        url: process.env.BASE_URL || "http://localhost:3000",
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
       },

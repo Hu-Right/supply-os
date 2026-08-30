@@ -38,6 +38,7 @@ export function PlanCard({
     <div
       key={plan.plan_code}
       className="group relative flex flex-col rounded-2xl bg-white/80 backdrop-blur-xl border-2 border-slate-200/80 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-teal-200/50 hover:border-teal-400 hover:-translate-y-2 hover:bg-white"
+      data-testid="plan-card"
     >
       <div className="flex-1 flex flex-col p-6">
         <div className="flex items-start gap-3 mb-4">

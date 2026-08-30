@@ -28,7 +28,13 @@ export default function MembershipPage() {
   const { authUser, isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+  const { plans: allPlans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+
+  // 首单特惠（2026-08-30）：资格不符的登录用户隐藏 99 首单价卡片（保留 199
+  // 标准卡）；未登录可见作获客展示，服务端下单时二次校验资格
+  const plans = allPlans.filter(
+    (p) => !(p.plan_code === "single_99" && p.first_purchase_eligible === false),
+  );
 
   // ── 升级弹窗状态 ──
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -146,7 +152,7 @@ export default function MembershipPage() {
               <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
             </div>
           ) : (
-            <div className={`grid ${gridCols} gap-5`}>
+            <div className={`grid ${gridCols} gap-5`} data-testid="plan-list">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.plan_code}

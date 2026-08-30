@@ -80,6 +80,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
     <article
       ref={(el) => observe?.(el, item.id)}
       className="border border-slate-200 rounded-xl p-4 bg-white hover:border-teal-300 hover:shadow-sm transition-all"
+      data-testid="notice-card"
     >
       {/* ── 顶栏：类型 / 精选 / 匹配档次 / 推荐理由 + 截止日期 ── */}
       <div className="flex items-start justify-between gap-3">
