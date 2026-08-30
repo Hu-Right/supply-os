@@ -53,7 +53,8 @@ export function getPool(): Pool {
     if (process.env.DB_DEBUG === "1") console.log("[db-pool] 连接已释放");
   });
 
-  // 非生产环境缓存到 globalThis（热重载时复用）
-  if (process.env.NODE_ENV !== "production") globalForDb._pool = pool;
+  // globalThis 单例缓存（dev 与生产共用）：Next.js 模块可能被多次实例化，
+  // 不缓存会导致每次 getPool() 新建一个连接池且永不回收，耗尽 MySQL 连接
+  globalForDb._pool = pool;
   return pool;
 }
