@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, ChipToggleGroup } from "@/shared/ui";
 // 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
 import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
 import type { DictionaryItem } from "@/core/unspsc/types";
@@ -106,7 +106,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormCompanyName")}</span>
           <Input
             name="company_name"
             value={value.company_name}
@@ -168,22 +168,15 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <section>
         <p className="mb-2 text-xs font-extrabold text-slate-700">{t("trainingFormCertifications")}</p>
-        <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          {certifications.map((item) => {
+        <ChipToggleGroup
+          className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+          selected={value.certification}
+          onToggle={toggleCertification}
+          items={certifications.map((item) => {
             const name = item.name || item.title_zh || item.title_en || String(item.id);
-            const active = value.certification.includes(name);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => toggleCertification(name)}
-                className={`rounded-md border px-2.5 py-1 text-xs ${active ? "border-teal-600 bg-teal-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}
-              >
-                {name}
-              </button>
-            );
+            return { value: name, label: name };
           })}
-        </div>
+        />
         <Input
           name="other_certification"
           value={value.other_certification}
@@ -195,7 +188,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormContactName")}</span>
           <Input
             name="contact_name"
             value={value.contact_name}
@@ -215,12 +208,12 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
         </label>
 
         <label className="block">
-          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")} <span className="text-rose-500">*</span></span>
+          <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormPhone")}</span>
           <Input
             name="telephone"
             value={value.telephone}
             onChange={(e) => handleChange("telephone", e.target.value)}
-            placeholder={pickLocale(locale, "手机号码", "Phone number")}
+            placeholder={pickLocale(locale, "请输入手机号", "Enter phone number")}
           />
         </label>
 

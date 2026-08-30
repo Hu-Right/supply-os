@@ -15,7 +15,6 @@ import { emitAppEvent } from "@/core/events";
 import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { viewNotice, unlockNotice, expressInterest } from "../api";
-import { getDetailViewCount, setDetailViewCount } from "../utils/detailViewCount";
 import type { UseNoticeMembershipReturn } from "./useNoticeMembership";
 import type { UseNoticeUnlockReturn } from "./useNoticeUnlock";
 
@@ -73,23 +72,15 @@ export function useNoticeHandlers({
     // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
     trackClick(notice.id);
 
-    const currentViews = getDetailViewCount(userKey);
     const alreadyUnlocked = isUnlocked(notice.id);
-    // 门槛与后端配额同源：freeQuota 来自 membership.free_quota（DB 单一数据源）
-    if (!isVip && !alreadyUnlocked && currentViews >= freeQuota) {
-      setSelectedNotice(notice);
-      setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
-      openPaywall(notice);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+    // 免费试用已移除（2026-08-30）：未解锁用户打开详情由服务端 403 core_locked
+    // 付费墙接管（本地 localStorage 计数门槛已删除），此处不再前置拦截
 
     // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
     trackDetailOpen(notice.id);
 
     // 三请求并行：浏览计数与配额刷新不再阻塞详情数据到达
     void viewNotice(notice.id);
-    if (!isVip && !alreadyUnlocked) setDetailViewCount(userKey, currentViews + 1);
     setDetailLoadingId(alreadyUnlocked ? notice.id : null);
     setSelectedNotice(notice);
     setActionMessage("");
@@ -104,7 +95,7 @@ export function useNoticeHandlers({
     // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
     // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
   }, [
-    userKey, isVip, freeQuota, t,
+    userKey, isVip, t,
     onRequireLogin, trackClick, trackDetailOpen,
     isUnlocked, setSelectedNotice, setActionMessage, openPaywall,
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
@@ -117,14 +108,17 @@ export function useNoticeHandlers({
       return;
     }
     // P1-10 安全修复：套餐码与价格从后端在售套餐动态获取，不再硬编码——
-    // 套餐上下架/调价时无需发版；拉取失败时回退默认码，服务端仍会校验套餐有效性
+    // 套餐上下架/调价时无需发版；single_99 首单价仅在用户具备资格时选用
+    // （服务端 plans 接口附 first_purchase_eligible），否则回退标准 single_199
     const plans = await membership.loadPaidPlans();
-    const singlePlan = plans.find((p) => p.plan_type === "single");
+    const singleFirst = plans.find((p) => p.plan_code === "single_99");
+    const singleStandard = plans.find((p) => p.plan_code === "single_199" && p.plan_type === "single");
+    const singlePlan = singleFirst?.first_purchase_eligible === true ? singleFirst : singleStandard;
     emitAppEvent("supply-os:pay", {
       code: singlePlan?.plan_code || "single_199",
       name: t("procurement_singleUnlockName"),
       price: Number(singlePlan?.price ?? 199),
-      currency: singlePlan?.currency || "CNY",
+      currency: "CNY",
       noticeId: notice.id,
       returnUrl: `${window.location.origin}/procurement`,
     });
@@ -136,13 +130,14 @@ export function useNoticeHandlers({
       return false;
     }
 
-    if (!unlockType && !canUsePaidQuota && freeRemaining <= 0) {
-      setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
+    // 免费试用已移除：无显式类型时一律走订阅配额，配额不足由服务端 402 拦截
+    if (!unlockType && !canUsePaidQuota) {
+      setActionMessage(t("procurement_paidQuotaRequired"));
       openPaywall(notice);
       return false;
     }
 
-    const nextUnlockType = unlockType || (freeRemaining > 0 ? "free" : "subscription");
+    const nextUnlockType = unlockType || "subscription";
     // 解锁发起即进入加载态：锁定面板让位于骨架屏，直至详情返回
     setDetailLoadingId(notice.id);
     try {
@@ -151,7 +146,7 @@ export function useNoticeHandlers({
     } catch (err) {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
-        setActionMessage(t("procurement_freeLimit", { count: freeQuota }));
+        setActionMessage(t("procurement_paidQuotaRequired"));
         openPaywall(notice);
       } else {
         setActionMessage(t("procurement_unlockFail"));
@@ -164,7 +159,7 @@ export function useNoticeHandlers({
     markUnlocked(notice.id);
     // P2-5 安全修复：解锁成功后清除解锁历史缓存，确保 RecentUnlocks 立即刷新
     clearApiCache("/api/payment/unlocks");
-    setActionMessage(nextUnlockType === "free" ? t("procurement_freeUnlockOk") : t("procurement_paidUnlockOk"));
+    setActionMessage(t("procurement_paidUnlockOk"));
     // 解锁成功后拉取拓展详情，实时补全联系人/文件等信息
     await loadNoticeDetail(notice);
     return true;

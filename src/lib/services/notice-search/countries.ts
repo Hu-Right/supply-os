@@ -69,6 +69,46 @@ export function expandCountryAllForms(country: string): string[] {
   return CANONICAL_TO_ORIGINAL_FORMS.get(canonical) || [country, country.toUpperCase()];
 }
 
+/**
+ * 将数据库 country 字段拆分为独立国家列表。
+ *
+ * 数据库中部分公告的 country 字段存储了多国列表（如 "EU 27, Afghanistan, Argentina, ..."），
+ * 需检测并拆分；而 "Congo, Democratic Republic of the" 等合法含逗号国名不可拆分。
+ *
+ * 判定规则：归一化后仍含逗号 → 按逗号拆分各部分 → 若 2+ 部分匹配已知国家 → 多国列表。
+ */
+function splitCountryEntry(raw: string): string[] {
+  const single = normalizeCountry(raw);
+  // 归一化结果不含逗号 → 单国家（含 "Canada, BC" → "Canada" 的正常情况）
+  if (!single.includes(",")) return [single];
+
+  // 归一化后仍含逗号：可能是合法国名（"Congo, Democratic Republic of the"），
+  // 也可能是多国列表。尝试拆分各部分并检查已知国家匹配数。
+  const parts = single.split(",").map((p) => p.trim()).filter(Boolean);
+  const recognized: string[] = [];
+  for (const part of parts) {
+    const normalized = normalizeCountry(part);
+    // 仅接受可识别的国家（归一化结果与输入不同，或在已知映射中）
+    if (normalized !== part || COUNTRY_NAME_ZH[part]) {
+      recognized.push(normalized);
+    }
+  }
+  // 2+ 部分可识别为独立国家 → 多国列表
+  if (recognized.length >= 2) return recognized;
+  // 否则视为合法含逗号国名
+  return [single];
+}
+
+/** 非国家实体（区域 grouping、国际组织等），从国家下拉中排除 */
+const NON_COUNTRY_ENTRIES = new Set([
+  "EU 27", "EU 28", "EU", "European Union",
+  "GCC", "ASEAN", "SAARC", "MERCOSUR",
+  "Sub-Saharan Africa", "East Africa", "West Africa",
+  "Latin America", "Caribbean", "Central America",
+  "Middle East", "North Africa", "Southeast Asia",
+  "Pacific", "Oceania",
+]);
+
 /** 从数据库重新查询并刷新国家缓存（含归一化合并） */
 export async function refreshNoticeCountries(pool: Pool): Promise<Array<{ country: string; count: number }>> {
   // 修复：与搜索路径口径统一，只用 deadline_sec 实时判断，移除 is_active 依赖
@@ -81,9 +121,11 @@ export async function refreshNoticeCountries(pool: Pool): Promise<Array<{ countr
   // 归一化合并：将同一国家的不同名称变体的计数合并到标准名
   const merged = new Map<string, number>();
   for (const row of rows as RowDataPacket[]) {
-    const canonical = normalizeCountry(String(row.country || ""));
-    if (!canonical) continue;
-    merged.set(canonical, (merged.get(canonical) || 0) + Number(row.cnt));
+    const countries = splitCountryEntry(String(row.country || ""));
+    for (const canonical of countries) {
+      if (!canonical || NON_COUNTRY_ENTRIES.has(canonical)) continue;
+      merged.set(canonical, (merged.get(canonical) || 0) + Number(row.cnt));
+    }
   }
   const data = Array.from(merged.entries())
     .map(([country, count]) => ({ country, count }))

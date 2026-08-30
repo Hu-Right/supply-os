@@ -28,8 +28,8 @@ export function normalizeContactRows(...sources: any[]) {
 }
 
 export function extractContactsFromText(text: string) {
-  const emails = text.match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi) || [];
-  const phones = text.match(/(?:\+?\d[\d\s().\-]{7,}\d)/g) || [];
+  const emails = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+  const phones = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) || [];
   const count = Math.max(emails.length, phones.length);
   return Array.from({ length: count }).map((_, index) => ({
     name: "",
@@ -66,10 +66,12 @@ export function normalizeUserKey(raw: unknown): string | null {
 }
 
 /**
- * 转义 SQL LIKE 通配符（% 和 _），防止用户输入中的通配符导致意外匹配
+ * 转义 SQL LIKE 通配符（\、% 和 _），防止用户输入中的通配符导致意外匹配
  * L-BIZ-1 修复：用于构建 LIKE 模式时先转义用户输入中的特殊字符
+ * F55 修复：必须先转义转义符 \，否则输入 "\_" 会展开成 "\\_"，MySQL 把
+ * "\\" 解析为字面反斜杠后，后面的 "_" 仍是未转义的单字符通配符
  * @example escapeLikeWildcard("100%") // → "100\\%"
  */
 export function escapeLikeWildcard(value: string): string {
-  return value.replace(/%/g, "\\%").replace(/_/g, "\\_");
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }

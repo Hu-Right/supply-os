@@ -4,7 +4,7 @@
   "unlockedPremium": "【高级会员专属知识】已解锁，请放心阅读！",
   "lockedPremium": "本深度文件为【高级会员专属】。您当前为游客，请点击升级或申请代注册体验解锁全量合规模板。",
   "upgradeToVip": "一键升级为金牌公采系列高级会员",
-  "downloadBtn": "下载模板 (模拟)",
+  "downloadBtn": "下载资料",
   "hasDownloaded": "已模拟下载！请查收您的存储目录。",
   "alreadyVip": "您当前已是金牌高级会员！可获取全部合规政策与招标文件模板。",
   "trainingPageTitle": "联合国采购投标实操与能力建设研修班",
@@ -56,5 +56,8 @@
   "learningSectionDesc": "沉淀投标模板、合规说明、采购案例和会员资料，供团队持续学习。",
   "learningDownloadCount": "已学习(下载): {num} 次",
   "learningSummary": "概要说明",
-  "learningCoreContent": "核心内容"
+  "learningCoreContent": "核心内容",
+  "buyMaterialBtn": "购买资料",
+  "learningBundleTitle": "📦 打包优惠购买",
+  "learningContentLocked": "购买后可查看完整内容与下载"
 }

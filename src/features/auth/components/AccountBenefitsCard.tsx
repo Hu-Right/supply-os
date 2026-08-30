@@ -13,6 +13,7 @@ import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react"
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { fetchMembershipStatus } from "@/features/membership/api";
 import type { MembershipStatus } from "@/types";
 
@@ -178,12 +179,14 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
 
       {/* 升级引导 */}
       {totalRemaining === 0 && (
-        <button
+        <Button
           onClick={handleViewPlans}
-          className="w-full mt-2 text-xs font-bold text-amber-600 hover:text-amber-700 text-center"
+          variant="link"
+          size="sm"
+          className="w-full mt-2 px-0 text-amber-600 hover:text-amber-700 text-center"
         >
           {t("statusPanelUpgradeBtn")} →
-        </button>
+        </Button>
       )}
     </div>
   );

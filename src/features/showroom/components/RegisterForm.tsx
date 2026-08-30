@@ -39,6 +39,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
   const [form, setForm] = useState(INITIAL_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -84,7 +85,9 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
       emitAppEvent("supply-os:crm-refresh");
       window.setTimeout(() => onSuccess(), 3000);
     } catch (err) {
+      // 静默吞错会让用户以为没点上而反复提交（审查 F53），给出可见错误态
       console.error(err);
+      setSubmitError(t("formSubmitFailed"));
     } finally {
       setLoading(false);
     }
@@ -119,6 +122,11 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
       bodyClassName="max-h-[60vh] overflow-y-auto"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {submitError && (
+          <p className="rounded-lg border border-rose-100 bg-rose-50 p-3 text-xs font-bold text-rose-600">
+            {submitError}
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label className={labelClass}>{t("companyName")} *</label>

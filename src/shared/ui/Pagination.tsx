@@ -1,24 +1,19 @@
 /**
  * 通用翻页组件
- * Shared pagination component (shadcn/ui pattern)
+ * Shared pagination component
  *
  * @module shared/ui/Pagination
- * @description 服务端分页的通用翻页条（由 procurement 模块下沉而来）。
+ * @description 服务端分页的通用翻页条：上一页 / 页码输入 / 下一页 / 跳转。
  *              默认使用 procurement_* 翻译键（向后兼容）；非 procurement 消费方
  *              可通过 labels prop 传入自有文案，解耦 feature 命名空间。
  */
+import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils";
 
 /** 翻页条文案（不传则回退 procurement_* 翻译键） */
 export interface PaginationLabels {
-  /** "显示" — 显示 X-Y 的前缀 */
-  show?: string;
-  /** "条" — 显示 X-Y 条 的后缀 */
-  items?: string;
-  /** 无匹配数据提示 */
-  noMatch?: string;
   /** 上一页按钮 */
   prev?: string;
   /** 下一页按钮 */
@@ -39,51 +34,70 @@ export interface PaginationProps {
 export function Pagination({
   page,
   totalPages,
-  serverPageSize,
-  total,
   loading,
   onPageChange,
   labels,
 }: PaginationProps) {
   const { t } = useLocale();
+  const [jumpInput, setJumpInput] = useState("");
 
-  const showLabel = labels?.show ?? t("procurement_show");
-  const itemsLabel = labels?.items ?? t("procurement_items");
-  const noMatchLabel = labels?.noMatch ?? t("procurement_noMatch");
   const prevLabel = labels?.prev ?? t("procurement_prev");
   const nextLabel = labels?.next ?? t("procurement_next");
 
   const btnClass =
-    "inline-flex items-center gap-1 px-3 py-2.5 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-50 hover:bg-slate-50 min-h-[40px]";
+    "inline-flex items-center gap-1 px-3 py-2.5 rounded-lg border border-secondary-200 text-xs font-bold disabled:opacity-50 hover:bg-secondary-50 min-h-[40px]";
+
+  /** 页码跳转处理：校验输入合法性后触发 onPageChange */
+  const handleJump = () => {
+    const target = parseInt(jumpInput, 10);
+    if (!Number.isNaN(target) && target >= 1 && target <= totalPages) {
+      onPageChange(target);
+      setJumpInput("");
+    }
+  };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-5">
-      <p className="text-xs text-slate-500">
-        {total > 0
-          ? <>{showLabel} {(page - 1) * serverPageSize + 1} - {Math.min(page * serverPageSize, total)} {itemsLabel}</>
-          : <>{noMatchLabel}</>
-        }
-      </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={page <= 1 || loading}
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          className={cn(btnClass)}
-        >
-          <ChevronLeft className="w-4 h-4 rtl:-scale-x-100" />
-          {prevLabel}
-        </button>
-        <button
-          type="button"
-          disabled={page >= totalPages || loading}
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          className={cn(btnClass)}
-        >
-          {nextLabel}
-          <ChevronRight className="w-4 h-4 rtl:-scale-x-100" />
-        </button>
-      </div>
+    <div className="flex items-center justify-center gap-2 mt-5">
+      <button
+        type="button"
+        disabled={page <= 1 || loading}
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        className={cn(btnClass)}
+      >
+        <ChevronLeft className="w-4 h-4 rtl:-scale-x-100" />
+        {prevLabel}
+      </button>
+
+      <input
+        type="number"
+        min={1}
+        max={totalPages}
+        value={jumpInput}
+        onChange={(e) => setJumpInput(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") handleJump(); }}
+        placeholder={`${page}`}
+        className="w-20 px-3 py-2.5 rounded-xl border border-secondary-300 bg-white text-sm text-center font-bold text-secondary-700 shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all min-h-[40px]"
+        aria-label={t("uiPaginationJumpTo")}
+      />
+
+      <button
+        type="button"
+        disabled={page >= totalPages || loading}
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        className={cn(btnClass)}
+      >
+        {nextLabel}
+        <ChevronRight className="w-4 h-4 rtl:-scale-x-100" />
+      </button>
+
+      <button
+        type="button"
+        onClick={handleJump}
+        disabled={!jumpInput || loading}
+        className={cn(btnClass, "px-3")}
+      >
+        {t("uiPaginationGo")}
+      </button>
     </div>
   );
 }

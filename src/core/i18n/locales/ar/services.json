@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "مثال: أحمد محمد",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "مثال: ننتج تغليفًا طبيًا ونحتاج إلى إرشاد UN Level 1.",
-  "formRequired": "يرجى ملء هذا الحقل"
+  "formRequired": "يرجى ملء هذا الحقل",
+  "formSubmitFailed": "فشل الإرسال، يرجى المحاولة لاحقاً"
 }

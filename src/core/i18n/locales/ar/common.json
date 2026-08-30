@@ -46,6 +46,10 @@
   "updateAvailable_refresh": "تحديث",
   "networkOffline": "انقطع الاتصال بالشبكة. يرجى التحقق من اتصالك.",
   "uiClose": "إغلاق",
+  "confirmTitle": "يرجى التأكيد",
+  "confirmOk": "تأكيد",
+  "confirmCancel": "إلغاء",
+  "confirmLoading": "جاري المعالجة…",
   "uiLoading": "جارٍ التحميل",
   "allRegions": "جميع المناطق",
   "filterNoMatchAgencies": "لا توجد وكالات مطابقة",
@@ -59,6 +63,7 @@
   "authRefreshFailed": "فشل تحديث حالة الحساب",
   "authLoginRequiredForBind": "يرجى تسجيل الدخول أولاً لربط شركتك",
   "authBindFailed": "فشل طلب الربط",
+  "authRegisterClaimSubmitted": "تم التسجيل بنجاح. تم تقديم طلب ربط المورد، بانتظار المراجعة.",
   "filterSelectRegion": "اختر المنطقة",
   "filterSelectCountry": "اختر الدولة",
   "filterSelectIndustry": "اختر القطاع",
@@ -66,5 +71,10 @@
   "galleryNext": "التالية",
   "navPageNav": "التنقل في الصفحة",
   "uploadDropZoneLabel": "منطقة تحميل الملفات",
-  "uiLoadingDots": "جارٍ التحميل..."
+  "uiLoadingDots": "جارٍ التحميل...",
+  "uiPaginationGo": "انتقال",
+  "uiPaginationJumpTo": "الانتقال إلى الصفحة",
+  "uiMenuOpen": "فتح القائمة",
+  "uiMenuClose": "إغلاق القائمة",
+  "skipToContent": "تخطي إلى المحتوى الرئيسي"
 }

@@ -46,6 +46,10 @@
   "updateAvailable_refresh": "Обновить",
   "networkOffline": "Сеть отключена. Проверьте подключение.",
   "uiClose": "Закрыть",
+  "confirmTitle": "Пожалуйста, подтвердите",
+  "confirmOk": "Подтвердить",
+  "confirmCancel": "Отмена",
+  "confirmLoading": "Обработка…",
   "uiLoading": "Загрузка",
   "allRegions": "Все регионы",
   "filterNoMatchAgencies": "Нет подходящих агентств",
@@ -59,6 +63,7 @@
   "authRefreshFailed": "Не удалось обновить статус аккаунта",
   "authLoginRequiredForBind": "Войдите, чтобы привязать компанию",
   "authBindFailed": "Ошибка запроса привязки",
+  "authRegisterClaimSubmitted": "Регистрация успешна. Заявка на привязку поставщика отправлена, ожидает проверки.",
   "filterSelectRegion": "Выбрать регион",
   "filterSelectCountry": "Выбрать страну",
   "filterSelectIndustry": "Выбрать отрасль",
@@ -66,5 +71,10 @@
   "galleryNext": "Следующая",
   "navPageNav": "Навигация по странице",
   "uploadDropZoneLabel": "Область загрузки файлов",
-  "uiLoadingDots": "Загрузка..."
+  "uiLoadingDots": "Загрузка...",
+  "uiPaginationGo": "Перейти",
+  "uiPaginationJumpTo": "Перейти на страницу",
+  "uiMenuOpen": "Открыть меню",
+  "uiMenuClose": "Закрыть меню",
+  "skipToContent": "Перейти к основному контенту"
 }

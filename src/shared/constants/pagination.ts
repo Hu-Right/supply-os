@@ -7,5 +7,5 @@
  *              现提取至 shared 层，消除 supplier→procurement 的跨 feature 耦合。
  */
 
-/** 列表分页大小（公告列表、供应商列表、推荐列表通用） */
+/** 列表分页大小（供应商列表等通用） */
 export const PAGE_SIZE = 9;

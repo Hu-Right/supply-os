@@ -11,7 +11,7 @@ import { Presentation, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
-import { Modal } from "@/shared/ui";
+import { Modal, Button } from "@/shared/ui";
 import type { LandingGalleryCategory } from "../api";
 
 const ROTATE_INTERVAL = 3000;
@@ -114,22 +114,24 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
               {/* 左右切换按钮 */}
               {images.length > 1 && (
                 <>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={handlePrev}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 cursor-pointer shadow-lg"
                     aria-label={t("galleryPrev")}
                   >
                     <ChevronLeft className="w-8 h-8" />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={handleNext}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 transition-colors cursor-pointer shadow-lg"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-3 text-white hover:bg-black/70 cursor-pointer shadow-lg"
                     aria-label={t("galleryNext")}
                   >
                     <ChevronRight className="w-8 h-8" />
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

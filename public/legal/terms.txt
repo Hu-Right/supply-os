@@ -1,0 +1,148 @@
+OS NEO SMART
+OS NEO SMART 用户服务协议
+OS NEO SMART Terms of Service
+版本：V1.0    发布/建议生效日期：2026年8月29日运营主体：杭州云境智展科技有限公司网站：osneosmart.com
+网站上线版 / 技术实施版
+
+上线使用说明 / Deployment Note本文件正文可作为 osneosmart.com 的《用户服务协议》直接上线。技术上线时建议使用固定URL（如 /terms），注册、购买、企业认证等关键页面应可点击查看，并记录用户同意的协议版本与时间。英文为中文的便利翻译；如中英文理解不一致，以中文版本为准。
+
+重要提示 / Important Notice
+请您在注册、登录、购买或使用OS NEO SMART服务前认真阅读本协议，尤其是关于采购信息来源、第三方平台、AI/自动化分析、付费服务、责任限制、争议解决等条款。
+Please read these Terms carefully before registering, logging in, purchasing or using OS NEO SMART, particularly the clauses regarding procurement information sources, third-party platforms, AI/automated analysis, paid services, limitations of liability and dispute resolution.
+OS NEO SMART提供国际公共采购、政府采购、国际组织采购等相关的信息检索、匹配、分析与企业服务工具。平台提供的信息和分析属于业务辅助信息，不构成采购机构的官方确认，也不构成任何中标、资质或收益保证。
+OS NEO SMART provides information search, matching, analysis and enterprise-service tools relating to international public procurement, government procurement and international-organization procurement. Information and analysis on the Platform are business-support information and do not constitute official confirmation by any procuring entity or any guarantee of eligibility, award or profit.
+1. 协议主体与适用范围 / Parties and Scope
+本协议由您与杭州云境智展科技有限公司（以下简称“我们”或“平台运营者”）就您访问、注册、登录、购买及使用OS NEO SMART网站（osneosmart.com）及其相关产品和服务所订立。
+“用户”包括个人用户、企业用户、企业管理员、外贸从业人员、采购/投标相关从业人员以及经合法授权代表企业使用平台的人员。
+当某项具体服务另有专项规则、订单确认页、报价单、服务合同或项目协议时，该专项文件与本协议共同构成双方约定；如存在冲突，以对该具体服务约定更明确且双方有效确认的文件为准。
+These Terms are entered into between you and 杭州云境智展科技有限公司 (the “Operator”, “we” or “us”) in connection with your access to, registration for, login to, purchase of and use of the OS NEO SMART website (osneosmart.com) and related products and services.
+“User” includes individual users, enterprise users, enterprise administrators, foreign-trade professionals, procurement/tender professionals and persons duly authorised to use the Platform on behalf of an enterprise.
+Where a particular service is subject to specific rules, an order confirmation page, quotation, service contract or project agreement, those documents form part of the agreement between the parties. In case of inconsistency, the document that more specifically governs the relevant service and has been validly accepted by the parties shall prevail.
+2. 协议成立、接受与更新 / Acceptance and Updates
+您通过主动勾选、点击“同意并注册”“确认购买”等具有明确同意含义的操作，或在充分提示后继续使用相关服务，即表示您已阅读、理解并同意受本协议约束。注册页面的协议勾选框不得由平台预先勾选。
+我们可基于法律法规、监管要求、产品功能、商业模式或安全需要更新本协议。涉及用户重大权益的变更，我们将通过网站公告、站内信、弹窗、电子邮件或其他显著方式通知；依法需要重新取得同意的，我们将重新征得您的同意。
+协议版本、发布时间和生效时间应在页面显著位置展示，并保留历史版本以供核查。
+You accept these Terms by taking an affirmative action such as checking the agreement box, clicking “Agree and Register” or “Confirm Purchase”, or continuing to use the relevant service after adequate notice where legally permitted. Agreement checkboxes on registration pages must not be pre-selected.
+We may update these Terms due to changes in law, regulatory requirements, product functions, business models or security needs. Material changes affecting user rights will be notified by prominent means such as website notice, in-product message, pop-up or email. Where renewed consent is required by law, we will obtain it.
+The current version, publication date and effective date shall be prominently displayed, and historical versions shall be retained for auditability.
+3. 账号注册与用户资格 / Account Registration and Eligibility
+您应具有与所进行民事行为相适应的民事行为能力。企业账号的注册、认证和使用人应具有代表该企业进行相关操作的合法授权。
+您应提供真实、准确、完整、有效的信息，并在信息发生变化时及时更新。因虚假、过期、冒用或无权提供的信息产生的责任由相应用户承担。
+您应妥善保管账号、密码、验证码及其他认证要素。除平台明确允许的企业协作功能外，不得出租、出借、出售或以其他方式转让账号。
+You must have the legal capacity appropriate to your activities. A person registering, verifying or operating an enterprise account must have lawful authority to act for that enterprise.
+You must provide truthful, accurate, complete and valid information and keep it updated. Responsibility for false, outdated, impersonated or unauthorised information rests with the relevant user.
+You are responsible for safeguarding your account, password, verification codes and other authentication factors. Except for enterprise collaboration features expressly supported by the Platform, accounts may not be leased, lent, sold or otherwise transferred.
+4. 平台服务内容 / Platform Services
+平台可根据实际上线情况提供：国际公共采购/政府采购/国际组织采购机会检索与展示、关键词及UNSPSC匹配、行业/企业画像、采购机会推荐、标讯翻译和结构化拆解、投标分析报告、收藏/订阅/提醒、会员服务、企业注册与资料管理、培训课程、咨询服务及其他企业出海与国际公采支持服务。
+部分功能可能由算法、人工智能、大语言模型、规则引擎、自动化采集或第三方数据接口辅助完成。不同套餐可享有不同的数据范围、频次、下载、导出、报告或人工服务权益。
+我们有权基于技术升级、数据源调整、监管要求或商业安排对非核心功能进行优化、增加、下线或调整；对已付费且尚未履行完毕的核心权益，我们将依法依约处理。
+Depending on availability, the Platform may provide: international public/government/international-organisation procurement opportunity search and display, keyword and UNSPSC matching, industry/enterprise profiling, opportunity recommendations, tender translation and structured analysis, bid-analysis reports, favourites/subscriptions/alerts, membership services, enterprise registration and profile management, training, consulting and other international-procurement and overseas-business support.
+Certain features may be assisted by algorithms, artificial intelligence, large language models, rule engines, automated collection or third-party data interfaces. Different plans may include different data coverage, frequency, download/export, report or human-service entitlements.
+We may optimise, add, discontinue or adjust non-core functions due to technical upgrades, source changes, regulatory requirements or business arrangements. Paid core entitlements not yet fulfilled will be handled in accordance with law and the applicable agreement.
+5. 采购信息来源与时效性 / Procurement Information Sources and Timeliness
+平台展示的采购信息可能来源于联合国及其机构、世界银行及其他多边开发机构、各国政府及公共采购平台、采购机构官方网站、依法公开的招投标平台、企业/机构官方网站、公开API/数据接口以及其他合法公开来源或经授权的数据源。
+国际采购项目可能随时发生澄清、补遗、延期、取消、预算变化、资格变化、文件替换或平台迁移。平台会尽合理努力保持信息准确，但无法保证第三方源数据实时、完整、无误。
+用户拟参与任何真实采购项目时，应始终以采购方/采购机构官方网站、原始招标文件及其最新澄清补遗为最终依据，并自行完成资格核验和投标决策。
+Procurement information displayed on the Platform may originate from the United Nations and its agencies, the World Bank and other multilateral development institutions, government and public-procurement portals, procuring-entity websites, lawfully public tender platforms, company/institutional websites, public APIs/data feeds, other lawful public sources or authorised sources.
+International procurement opportunities may be clarified, amended, extended, cancelled or otherwise changed at any time. We use reasonable efforts to maintain accuracy but cannot guarantee that third-party source data is real-time, complete or error-free.
+Before participating in any procurement, users must rely on the procuring entity’s official website, original solicitation documents and latest amendments/clarifications, and must independently verify eligibility and make their own bidding decision.
+6. AI、自动化分析与翻译 / AI, Automated Analysis and Translation
+平台的自动翻译、摘要、拆标、匹配、评分、合规提示、资质提示、关键词推荐、UNSPSC匹配等功能可能存在理解偏差、数据遗漏或模型误差，仅作为提高工作效率的辅助工具。
+对于可能对用户业务决策产生重大影响的事项，用户应结合原始文件、官方规则以及必要的法律、税务、技术、合规或专业顾问意见进行复核。
+除非专项服务合同明确约定人工审核范围，我们不承诺所有自动生成内容均经过人工逐条复核。
+Automated translation, summaries, tender decomposition, matching, scoring, compliance prompts, qualification prompts, keyword recommendations and UNSPSC matching may contain interpretation errors, omissions or model inaccuracies and are provided as productivity-support tools.
+For matters that may materially affect business decisions, users should verify against source documents, official rules and, where appropriate, legal, tax, technical, compliance or other professional advice.
+Unless a specific service agreement expressly includes human review, we do not represent that every automatically generated output has been individually reviewed by a person.
+7. 企业资料与用户提交内容 / Enterprise Data and User Content
+您可根据功能需要提交企业名称、营业执照、产品资料、资质证书、联系人信息、投标资料、案例材料等。您应确保有权上传、使用并授权平台处理相关材料，且不得侵犯第三方个人信息、商业秘密、知识产权或其他合法权益。
+平台仅在提供约定服务、履行合同、保障安全、依法合规及经您授权的范围内处理这些材料。涉及保密项目、受出口管制信息、国家秘密、工作秘密或其他依法不得上传的信息，用户不得上传至普通平台功能。
+如您代他人或代表企业提交含个人信息的材料，您应确保已具有相应合法处理基础，并完成必要告知、授权或同意。
+You may submit company names, business licences, product materials, certificates, contact information, tender materials, case studies and other content as required by particular features. You must have the right to upload, use and authorise our processing of such content and must not infringe third-party privacy, trade secrets, intellectual property or other lawful rights.
+We process such materials only to provide agreed services, perform contracts, maintain security, comply with law and within the scope of your authorisation. Users must not upload state secrets, work secrets, export-controlled information, confidential-project materials or other information prohibited from being uploaded to ordinary platform functions.
+If you submit materials containing another person’s personal information or act on behalf of an enterprise, you must ensure a valid legal basis and complete any required notice, authorisation or consent.
+8. 付费服务、订单与发票 / Paid Services, Orders and Invoices
+具体收费项目、价格、期限、权益、使用限制、是否包含人工服务、发票安排及其他交易条件，以用户付款前页面、报价单、订单确认页或双方另行签署的合同为准。
+用户在付款前应核对服务内容、适用主体、服务期限和退款条件。平台不得以默认勾选方式强制用户购买附加服务。
+数字内容、已解锁采购数据、已生成并交付的定制报告、已开始的人工咨询/代写/代投等服务，可能因履约性质而适用不同退款规则，具体见《OS NEO SMART付费会员及退款规则》或专项合同。
+The specific paid item, price, term, entitlements, usage limitations, inclusion of human services, invoicing arrangements and other transaction terms are governed by the pre-payment page, quotation, order confirmation or separately executed contract.
+Before payment, users should verify the service scope, applicable account/entity, service term and refund conditions. The Platform will not force add-on purchases through pre-selected options.
+Digital content, unlocked procurement data, delivered customised reports, and human services that have begun (such as consulting, bid drafting or bid submission support) may be subject to different refund rules based on performance status. See the OS NEO SMART Paid Membership & Refund Policy or applicable project contract.
+9. 自动续费 / Automatic Renewal
+除非购买页面以显著方式另行说明并由用户主动选择，平台默认不启用自动续费。
+如未来上线自动续费服务，我们将在用户开通前及每次自动续费日前以显著方式提醒，并提供便捷的关闭途径。
+Automatic renewal is disabled by default unless prominently disclosed on the purchase page and affirmatively selected by the user.
+If automatic renewal is introduced in the future, we will provide prominent notice before activation and before each renewal date and will provide an accessible way to cancel it.
+10. 知识产权与数据库使用 / Intellectual Property and Database Use
+平台自有的软件、页面设计、数据结构、分类体系、报告模板、原创分析、品牌标识及依法享有权利的内容受知识产权及相关法律保护。
+第三方采购公告、法规、官方文件及其他第三方内容的权利归其权利人所有。平台对其进行结构化、索引、翻译、摘要或匹配，不改变第三方原始权利归属。
+未经书面许可，用户不得利用爬虫、机器人、脚本、批量导出、镜像、数据库复制等方式大规模获取、复制、转售或建立与平台实质竞争的数据产品；正常人工查询和经套餐授权的下载/导出不受本条限制。
+Platform software, interface design, data structures, taxonomies, report templates, original analysis, branding and other content in which we hold rights are protected by applicable intellectual-property laws.
+Rights in third-party procurement notices, laws, official documents and other third-party materials remain with their respective owners. Structuring, indexing, translation, summarisation or matching by the Platform does not change ownership of the original materials.
+Without written permission, users may not use crawlers, bots, scripts, bulk export, mirroring, database copying or similar methods to acquire, copy, resell or build a substantially competing data product at scale. Normal manual searches and downloads/exports authorised by a paid plan are not prohibited.
+11. 用户行为规范 / Acceptable Use
+用户不得实施违法活动、攻击系统、绕过权限、批量恶意注册、盗用他人账号、传播恶意代码、侵犯他人权益、虚构企业资质、上传虚假投标材料、冒充采购机构或以平台名义未经授权作出承诺。
+用户不得将平台用于商业贿赂、串标围标、洗钱、制裁规避、出口管制规避、欺诈或其他违法违规活动。
+平台发现异常使用或安全风险时，可采取验证码、限流、暂停部分功能、要求重新认证、冻结账号等必要措施；涉及严重违法风险时可依法保存证据并向主管机关报告。
+Users must not engage in unlawful activities, attack systems, bypass access controls, conduct abusive bulk registrations, misappropriate accounts, distribute malware, infringe rights, fabricate company qualifications, upload fraudulent bid materials, impersonate procuring entities or make unauthorised commitments in the Platform’s name.
+The Platform may not be used for bribery, bid rigging/collusion, money laundering, sanctions evasion, export-control evasion, fraud or other unlawful conduct.
+Where abnormal use or security risk is detected, we may apply verification, rate limits, feature suspension, re-authentication, account freezing or other necessary measures. For serious suspected illegality, we may preserve evidence and report to competent authorities as required by law.
+12. 第三方平台与外部链接 / Third-Party Platforms and Links
+平台可能提供UNGM、世界银行、各国政府采购平台、采购机构网站、支付服务商、地图、云服务、客服工具或其他第三方链接/接口。第三方服务由相应主体独立运营并适用其自身条款和隐私规则。
+用户访问第三方网站、注册第三方账号或向第三方提交投标文件前，应独立核验网址、主体、规则和安全性。平台不对第三方平台的可用性、内容变更、账户审核或采购决策承担控制责任。
+The Platform may link to or integrate UNGM, World Bank systems, government procurement portals, procuring-entity websites, payment processors, maps, cloud services, customer-support tools or other third-party services. Those services are independently operated and governed by their own terms and privacy rules.
+Before visiting a third-party site, registering a third-party account or submitting a bid to a third party, users should independently verify the URL, operator, rules and security. We do not control third-party availability, content changes, account approvals or procurement decisions.
+13. 服务可用性与维护 / Availability and Maintenance
+我们会采取合理措施保障服务稳定，但因维护升级、网络故障、云服务故障、攻击事件、第三方数据源中断、不可抗力或其他超出合理控制的原因，服务可能临时中断。
+对于可预见的重大维护，我们将尽可能提前通知。因安全风险需要立即处置的，可先采取措施后通知。
+We use reasonable measures to maintain service stability. Temporary interruption may occur due to maintenance, network or cloud failure, attacks, source-data interruption, force majeure or other causes beyond reasonable control.
+For foreseeable material maintenance, we will endeavour to give prior notice. Where immediate action is required for security, measures may be taken first and notice provided afterwards.
+14. 个人信息与数据保护 / Personal Information and Data Protection
+我们将按照《OS NEO SMART隐私政策》处理用户个人信息。隐私政策与本协议共同适用。
+涉及敏感个人信息、向其他个人信息处理者提供个人信息、公开个人信息或个人信息出境等依法需要单独同意、影响评估或其他程序的，我们将按适用法律履行相应义务。
+We process personal information in accordance with the OS NEO SMART Privacy Policy, which applies together with these Terms.
+Where processing of sensitive personal information, provision to another personal-information processor, public disclosure, cross-border transfer or other activity requires separate consent, impact assessment or another legal procedure, we will comply with applicable requirements.
+15. 账号注销与终止 / Account Closure and Termination
+用户可通过个人中心提供的注销入口或平台公示渠道申请注销账号。平台将在完成身份验证、未结订单/争议处理及依法必须保留事项后，依法删除或匿名化相关个人信息；法律要求继续保存的，仅在法定范围内保留并限制其他处理。
+用户严重违反本协议、法律法规或危及平台安全时，我们可暂停或终止服务。对已付费但未履行的权益，将根据违规性质、服务履行情况、法律规定及专项规则处理。
+Users may request account closure through the account centre or published support channel. After identity verification, resolution of outstanding orders/disputes and completion of legally required retention, we will delete or anonymise relevant personal information. Where retention is required by law, processing will be limited accordingly.
+We may suspend or terminate services for serious violations of these Terms, law or platform security. Any paid but unperformed entitlements will be handled according to the nature of the breach, performance status, applicable law and specific service rules.
+16. 采购与投标责任边界 / Procurement and Tender Responsibility
+是否参与项目、是否具备投标资格、报价策略、联合体安排、资质获取、投标文件提交、税务、制裁、出口管制、当地注册、履约安排及最终商业决策均由用户自行负责，除非双方另行签署专项服务合同明确由我们承担某项具体工作。
+平台提供“适合度”“可投性”“资质缺口”等判断时，该判断基于当时可获得的信息，不能替代采购机构的资格预审、评审委员会判断、法律意见或监管许可。
+任何“推荐”“匹配分”“高匹配”等描述均不构成中标概率承诺。
+The user remains responsible for decisions concerning participation, eligibility, pricing, consortium structure, qualifications, submission, tax, sanctions, export controls, local registration, performance and other commercial matters unless a separate service contract expressly assigns a specific task to us.
+Any assessment of “fit”, “bidability” or “qualification gap” is based on information available at the time and does not replace procuring-entity prequalification, evaluation committee determinations, legal advice or regulatory approvals.
+Any “recommended”, “match score”, “high match” or similar label is not a representation or guarantee of award probability.
+17. 责任限制 / Limitation of Liability
+在法律允许范围内，对于第三方采购信息更新不及时、第三方网站故障、用户未核验原始文件、用户自身资质或提交行为、不可抗力等非因平台故意或重大过失直接造成的损失，平台不承担超出法律规定和双方明确约定范围的责任。
+对于依法不得排除或限制的责任，本协议不作排除或限制。任何责任限制条款不得减损消费者依法享有的强制性权利。
+To the extent permitted by law, we are not liable beyond mandatory law or express contractual commitments for losses arising from delayed third-party updates, third-party outages, a user’s failure to verify source documents, the user’s own qualifications/submissions, force majeure or other circumstances not directly caused by our intentional misconduct or gross negligence.
+Nothing in these Terms excludes or limits liability that cannot lawfully be excluded or limited, and no limitation of liability reduces mandatory consumer rights.
+18. 通知与送达 / Notices
+我们可通过网站公告、站内信、用户绑定邮箱/手机号、订单页面或其他用户已提供的有效联系方式发送与服务有关的通知。用户应保持联系方式有效。
+涉及重大权益变化、协议重大修改或依法应显著提示的事项，我们将采取与事项重要性相适应的显著方式通知。
+Service notices may be delivered by website notice, in-product message, the user’s registered email/phone, order page or other valid contact channel provided by the user. Users should keep contact details current.
+Material rights changes, material amendments or matters requiring prominent notice by law will be communicated using a method proportionate to their importance.
+19. 适用法律与争议解决 / Governing Law and Dispute Resolution
+本协议的订立、生效、履行、解释及争议解决适用中华人民共和国大陆地区法律。
+发生争议时，双方应先通过友好协商解决；协商不成的，依法由有管辖权的人民法院处理。若用户属于消费者，法律对消费者争议管辖有强制性规定的，从其规定。
+These Terms are governed by the laws of Mainland China.
+The parties should first attempt to resolve disputes amicably. If no settlement is reached, disputes shall be submitted to a court with jurisdiction under applicable law. Mandatory consumer-jurisdiction rules prevail where applicable.
+20. 语言、可分割性与其他 / Language, Severability and Miscellaneous
+本协议提供中英文版本以方便国际用户理解。中英文存在不一致时，在法律允许范围内以中文版本为准。
+本协议任何条款被认定无效或不可执行，不影响其他条款继续有效。标题仅为阅读便利，不影响条款解释。
+These Terms are provided in Chinese and English for international accessibility. To the extent permitted by law, the Chinese version prevails in case of inconsistency.
+If any provision is found invalid or unenforceable, the remaining provisions remain effective. Headings are for convenience only.
+21. 联系我们 / Contact Us
+运营主体：杭州云境智展科技有限公司。网站：osneosmart.com。
+如您对本协议、账号、订单、投诉或争议处理有疑问，可通过网站“联系我们/投诉与建议”页面公示的客服渠道与我们联系。为满足个人信息保护要求，平台应在隐私政策中另行公示个人信息保护联系渠道。
+Operator: 杭州云境智展科技有限公司. Website: osneosmart.com.
+For questions about these Terms, accounts, orders, complaints or disputes, please use the customer-support channel published on the Website’s “Contact Us / Complaints & Feedback” page. A separate privacy contact channel should be published in the Privacy Policy as required.
+法律依据与版本说明（技术/法务参考，不必展示在网站正文末尾）
+《中华人民共和国个人信息保护法》： HYPERLINK "https://www.npc.gov.cn/npc/c2/c30834/202108/t20210820_313088.html" \h 官方链接
+《网络数据安全管理条例》： HYPERLINK "https://www.cac.gov.cn/2024-09/30/c_1729384452307680.htm" \h 官方链接
+《个人信息保护合规审计管理办法》： HYPERLINK "https://www.cac.gov.cn/2025-02/14/c_1741233507681519.htm" \h 官方链接
+《促进和规范数据跨境流动规定》： HYPERLINK "https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm" \h 官方链接
+《中华人民共和国消费者权益保护法实施条例》： HYPERLINK "https://app.www.gov.cn/govdata/gov/202403/19/513111/article.html" \h 官方链接
+《中华人民共和国电子商务法》： HYPERLINK "https://www.samr.gov.cn/wljys/gzzd/art/2023/art_3e75434c954b4cb9bd14867dacff26d1.html" \h 官方链接
+说明：本文件按截至2026年8月29日公开有效的主要中国法律法规及OS NEO SMART业务场景整理。正式上线前应核对网站真实的数据流、第三方服务商、支付规则、主体登记信息及实际产品价格；如业务、法律或监管要求变化，应同步更新版本。

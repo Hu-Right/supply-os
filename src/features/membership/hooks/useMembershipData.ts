@@ -45,7 +45,9 @@ export function useMembershipData(): UseMembershipDataReturn {
     let alive = true;
 
     Promise.all([
-      fetchPlans(),
+      // 登录态强制跳过缓存：first_purchase_eligible 依赖登录态，
+      // 复用未登录缓存会让 99/199 两卡同时出现（2026-08-30 修复）
+      fetchPlans(Boolean(authUser)),
       // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
       // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status
       authUser ? fetchMembershipStatus(true).catch(() => null) : Promise.resolve(null),
@@ -83,8 +85,9 @@ export function useMembershipData(): UseMembershipDataReturn {
         ? "entitlement"
         : "free";
 
-  const freeRemaining = membership?.free_remaining ?? 3;
-  const freeQuota = membership?.free_quota ?? 3;
+  // 免费试用已移除（2026-08-30）：无状态时兜底 0，不再展示 3 次免费额度
+  const freeRemaining = membership?.free_remaining ?? 0;
+  const freeQuota = membership?.free_quota ?? 0;
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
   // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
   // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算

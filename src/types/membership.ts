@@ -17,6 +17,8 @@ export interface MembershipPlan {
   unlock_quota: number;
   free_quota: number;
   plan_type: string;
+  /** 仅 single_99 行携带：当前用户是否具备首单特惠资格（服务端判定） */
+  first_purchase_eligible?: boolean;
 }
 
 export interface MembershipStatus {

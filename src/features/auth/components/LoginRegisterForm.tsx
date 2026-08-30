@@ -15,6 +15,7 @@ import { LoginForm } from "./forms/LoginForm";
 import { RegisterForm } from "./forms/RegisterForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
+import { SegmentedControl } from "@/shared/ui";
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
@@ -23,6 +24,7 @@ export interface LoginRegisterFormProps {
 export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
   const { t } = useLocale();
   const [forgotView, setForgotView] = useState(false);
+  const [qualificationData, setQualificationData] = useState<Record<string, string | string[]> | null>(null);
 
   const auth = useAuthForm(onSuccess);
   const forgot = useForgotPassword(onSuccess);
@@ -51,6 +53,7 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
         cascade.prefLevel1 || null,
         cascade.prefLevel2 || null,
         cascade.prefLevel3 || null,
+        qualificationData,
       );
     }
   };
@@ -59,30 +62,15 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Login / Register toggle */}
       {!forgotView && (
-        <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
-          <button
-            type="button"
-            onClick={() => auth.setAuthMode("login")}
-            className={`py-2.5 rounded-lg text-sm font-black ${
-              auth.authMode === "login"
-                ? "bg-white shadow-xs text-slate-900"
-                : "text-slate-500"
-            }`}
-          >
-            {t("authLoginTab")}
-          </button>
-          <button
-            type="button"
-            onClick={() => auth.setAuthMode("register")}
-            className={`py-2.5 rounded-lg text-sm font-black ${
-              auth.authMode === "register"
-                ? "bg-white shadow-xs text-slate-900"
-                : "text-slate-500"
-            }`}
-          >
-            {t("authRegisterTab")}
-          </button>
-        </div>
+        <SegmentedControl
+          fullWidth
+          value={auth.authMode}
+          onChange={(mode) => auth.setAuthMode(mode)}
+          items={[
+            { value: "login", label: t("authLoginTab") },
+            { value: "register", label: t("authRegisterTab") },
+          ]}
+        />
       )}
 
       {/* 找回密码视图 */}
@@ -100,8 +88,8 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           setAuthForm={auth.setAuthForm}
           authError={auth.authError}
           claimMessage={auth.claimMessage}
-          onForgotPassword={(email) => {
-            forgot.setForgotEmail(email);
+          onForgotPassword={(identifier) => {
+            forgot.setForgotIdentifier(identifier);
             auth.setAuthError("");
             setForgotView(true);
           }}
@@ -117,6 +105,9 @@ export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
           authError={auth.authError}
           registerCode={registerCode}
           cascade={cascade}
+          onQualificationChange={setQualificationData}
+          agreedToTerms={auth.agreedToTerms}
+          setAgreedToTerms={auth.setAgreedToTerms}
         />
       )}
     </form>

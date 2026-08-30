@@ -9,6 +9,7 @@
  *              Mobile navigation is handled by the top tab bar in AppHeader.
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLocale } from "@/core/i18n";
 import { apiCached } from "@/core/http/api-client";
 
@@ -76,8 +77,12 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
 
         {/* 右侧：服务条款链接 */}
         <div className="flex space-x-4">
-          <span className="hover:underline cursor-pointer">{t("footerTerms")}</span>
-          <span className="hover:underline cursor-pointer">{t("footerPrivacy")}</span>
+          <Link href="/terms" className="hover:underline cursor-pointer" target="_blank">
+            {t("footerTerms")}
+          </Link>
+          <Link href="/privacy" className="hover:underline cursor-pointer" target="_blank">
+            {t("footerPrivacy")}
+          </Link>
           <span className="hover:underline cursor-pointer">{t("footerUnspsc")}</span>
         </div>
       </div>

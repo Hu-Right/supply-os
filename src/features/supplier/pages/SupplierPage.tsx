@@ -18,7 +18,7 @@ import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
 import { ListPage, LoadingOverlay } from "@/shared/ui";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, SegmentedControl } from "@/shared/ui";
 import { PAGE_SIZE } from "@/shared/constants";
 import { fetchSuppliersPaginated, fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
 import { onAppEvent } from "@/core/events";
@@ -136,27 +136,21 @@ export default function SupplierPage() {
       {/* Inline Toggle Filter tabs for Suppliers */}
       <div className="flex flex-col items-center justify-between gap-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs md:flex-row">
         {/* shrink-0：筛选标签不因右侧搜索区变宽被挤压变形 */}
-        <div className="flex shrink-0 rounded-lg bg-slate-100 p-1">
-          {[
-            { id: "all", label: t("supplierFilterAll") },
-            { id: "domestic", label: t("supplierFilterDomestic") },
-            { id: "international", label: t("supplierFilterIntl") },
-          ].map((s) => (
-            <button
-              key={s.id}
-              onClick={() => {
-                setSupplierSubTab(s.id as "all" | "domestic" | "international");
-                setPage(1);
-              }}
-              className={`cursor-pointer rounded-md px-4 py-1.5 text-xs font-semibold ${supplierSubTab === s.id
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-                }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          className="shrink-0 rounded-lg"
+          itemClassName="px-4 font-semibold"
+          value={supplierSubTab}
+          onChange={(id) => {
+            setSupplierSubTab(id);
+            setPage(1);
+          }}
+          items={[
+            { value: "all" as const, label: t("supplierFilterAll") },
+            { value: "domestic" as const, label: t("supplierFilterDomestic") },
+            { value: "international" as const, label: t("supplierFilterIntl") },
+          ]}
+        />
 
         {/* md:max-w-xl 取代 md:w-auto：容器宽度受限三列等分，
             不再被 UNSPSC 长 placeholder 的固有宽度撑开 */}

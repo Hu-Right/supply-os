@@ -56,18 +56,18 @@ export function Combobox({
         <PopoverPrimitive.Trigger
           disabled={disabled}
           className={cn(
-            "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900",
-            "focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500",
-            "disabled:bg-slate-100 disabled:text-slate-500 text-start flex items-center justify-between gap-2 cursor-pointer",
+            "w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2.5 text-sm text-secondary-900",
+            "focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500",
+            "disabled:bg-secondary-100 disabled:text-secondary-500 text-start flex items-center justify-between gap-2 cursor-pointer",
           )}
         >
-          <span dir="auto" className={cn("truncate", !selected && "text-slate-400")}>
+          <span dir="auto" className={cn("truncate", !selected && "text-secondary-400")}>
             {selected?.label ?? placeholder ?? ""}
           </span>
           <span className="flex items-center gap-1 shrink-0">
             {selected && (
               <X
-                className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600"
+                className="h-3.5 w-3.5 text-secondary-400 hover:text-secondary-600"
                 onClick={(e) => {
                   e.stopPropagation();
                   onChange("");
@@ -76,7 +76,7 @@ export function Combobox({
                 role="button"
               />
             )}
-            <ChevronsUpDown className="h-4 w-4 text-slate-400 shrink-0" />
+            <ChevronsUpDown className="h-4 w-4 text-secondary-400 shrink-0" />
           </span>
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
@@ -84,22 +84,22 @@ export function Combobox({
             sideOffset={4}
             align="start"
             className={cn(
-              "z-50 w-[var(--radix-popover-trigger-width)] rounded-lg border border-slate-200 bg-white shadow-lg",
+              "z-50 w-[var(--radix-popover-trigger-width)] rounded-lg border border-secondary-200 bg-white shadow-lg",
               "max-h-72 overflow-hidden",
             )}
           >
             <Command shouldFilter={!searchPlaceholder ? true : true} className="w-full">
               {searchPlaceholder !== undefined && (
-                <div className="flex items-center gap-2 border-b border-slate-100 px-3">
-                  <Search className="h-4 w-4 shrink-0 text-slate-400" />
+                <div className="flex items-center gap-2 border-b border-secondary-100 px-3">
+                  <Search className="h-4 w-4 shrink-0 text-secondary-400" />
                   <Command.Input
                     placeholder={searchPlaceholder}
-                    className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-slate-400"
+                    className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-secondary-400"
                   />
                 </div>
               )}
               <Command.List className="max-h-60 overflow-y-auto p-1">
-                <Command.Empty className="py-4 text-center text-xs text-slate-400">
+                <Command.Empty className="py-4 text-center text-xs text-secondary-400">
                   {noResultsText ?? "—"}
                 </Command.Empty>
                 {items.map((item) => (
@@ -111,15 +111,15 @@ export function Combobox({
                       setOpen(false);
                     }}
                     className={cn(
-                      "flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm text-slate-700",
-                      "data-[selected=true]:bg-teal-50 data-[selected=true]:text-teal-700",
+                      "flex cursor-pointer items-center justify-between rounded-md px-2.5 py-2 text-sm text-secondary-700",
+                      "data-[selected=true]:bg-primary-50 data-[selected=true]:text-primary-700",
                     )}
                   >
                     <span dir="auto" className="truncate">{item.label}</span>
                     {item.hint && (
-                      <span className="shrink-0 text-xs text-slate-400 tabular-nums">{item.hint}</span>
+                      <span className="shrink-0 text-xs text-secondary-400 tabular-nums">{item.hint}</span>
                     )}
-                    {item.value === value && <Check className="h-4 w-4 shrink-0 text-teal-600" />}
+                    {item.value === value && <Check className="h-4 w-4 shrink-0 text-primary-600" />}
                   </Command.Item>
                 ))}
               </Command.List>

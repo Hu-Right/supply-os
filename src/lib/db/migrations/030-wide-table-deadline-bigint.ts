@@ -47,8 +47,9 @@ export const migration: Migration = {
         console.log("[migration-030] DDL 完成");
       }
     } catch (err) {
-      console.warn("[migration-030] DDL 失败:", (err as Error).message);
-      return;
+      // 真实失败必须抛出阻断迁移（版本记录前失败可重跑）；吞错会导致
+      // 版本照记、列停留在 INT，且后续回填在错误类型上执行（审查 F18）
+      throw err;
     }
 
     // ── Step 3: 修复被 028 迁移错误归零的记录 ──
@@ -82,7 +83,8 @@ export const migration: Migration = {
         console.log("[migration-030] 无需修复的记录");
       }
     } catch (err) {
-      console.warn("[migration-030] 数据回填失败:", (err as Error).message);
+      // 数据回填失败必须抛出，否则版本照记、deadline_sec 停留在错误状态（审查 F18）
+      throw err;
     }
   },
 };

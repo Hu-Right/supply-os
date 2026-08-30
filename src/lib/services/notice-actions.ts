@@ -69,18 +69,11 @@ export async function executeUnlock(
 
     // 配额检查（事务内）
     if (unlockType === "free") {
-      // N6 收敛（2026-08-20）：免费配额唯一端口 MembershipRepo.getFreeQuota（读配置表，
-      // 事务外读取无并发风险），删除原事务内裸 SQL + 独立的兜底常量副本。
-      const freeQuota = await membershipRepo.getFreeQuota();
-      const [countRows] = await conn.query(
-        "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
-        [userKey],
-      );
-      const freeUsed = Number((countRows as any[])[0]?.total || 0);
-      if (freeUsed >= freeQuota) {
-        await conn.rollback();
-        throw new QuotaExceededError("FREE_LIMIT_REACHED");
-      }
+      // 免费试用已移除（2026-08-30 产品决策）：free 配置归零是数据层手段，
+      // 此处为服务端硬闸——无论配置如何，free 解锁一律 402，杜绝配置回滚
+      // 或手工改库重新放出免费额度。历史 free 解锁记录保留可审计。
+      await conn.rollback();
+      throw new QuotaExceededError("FREE_LIMIT_REACHED");
     }
 
     if (unlockType === "subscription" || unlockType === "single") {

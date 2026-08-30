@@ -4,7 +4,7 @@
   "unlockedPremium": "[Contenido exclusivo Premium] desbloqueado. ¡Disfrute de su estudio!",
   "lockedPremium": "Este archivo es solo para [miembros Premium]. Usted es invitado. Actualice ahora para desbloquear miles de archivos de licitación.",
   "upgradeToVip": "Actualizar a membresía Premium Gold con 1 clic",
-  "downloadBtn": "Descargar archivo (simulación)",
+  "downloadBtn": "Descargar material",
   "hasDownloaded": "Archivo descargado con éxito en entorno simulado.",
   "alreadyVip": "¡Actualmente es miembro Gold Premium! Disfrute del acceso a todas las listas de cumplimiento y expedientes de licitación.",
   "trainingPageTitle": "Taller de práctica de licitaciones de la ONU y desarrollo de capacidades",
@@ -56,5 +56,8 @@
   "learningSectionDesc": "Plantillas de ofertas, guías de cumplimiento, casos de compras y recursos para miembros para un aprendizaje continuo.",
   "learningDownloadCount": "Descargado: {num} veces",
   "learningSummary": "Resumen",
-  "learningCoreContent": "Contenido principal"
+  "learningCoreContent": "Contenido principal",
+  "buyMaterialBtn": "Comprar material",
+  "learningBundleTitle": " Compra de paquete con descuento",
+  "learningContentLocked": "Compre para desbloquear el contenido completo y la descarga"
 }

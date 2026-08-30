@@ -21,6 +21,9 @@ export interface LearningMaterial {
   downloadsCount: number;
   fileUrl?: string;
   fileName?: string;
+  price?: number;
+  /** 资料编号（用于卡片左上角编号徽章，与数组顺序一致） */
+  number?: number;
 }
 
 export interface FAQItem {

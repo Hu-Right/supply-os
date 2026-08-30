@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Send } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Modal } from "@/shared/ui";
+import { Modal, Button } from "@/shared/ui";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import { submitTrainingRegister } from "../api";
 import { ApiError } from "@/core/http";
@@ -119,14 +119,16 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
           <CompanyInfoSection value={companyInfo} onChange={setCompanyInfo} />
 
           <div className="flex justify-end">
-            <button
+            <Button
               type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-60"
+              variant="accent"
+              size="lg"
+              loading={loading}
+              className="rounded-xl text-sm font-black"
             >
               <Send className="h-4 w-4" />
               {loading ? t("trainingSubmitting") : t("trainingSubmitBtn")}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

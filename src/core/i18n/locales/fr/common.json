@@ -46,6 +46,10 @@
   "updateAvailable_refresh": "Actualiser",
   "networkOffline": "Réseau déconnecté. Vérifiez votre connexion.",
   "uiClose": "Fermer",
+  "confirmTitle": "Veuillez confirmer",
+  "confirmOk": "Confirmer",
+  "confirmCancel": "Annuler",
+  "confirmLoading": "Traitement…",
   "uiLoading": "Chargement",
   "allRegions": "Toutes les régions",
   "filterNoMatchAgencies": "Aucune agence correspondante",
@@ -59,6 +63,7 @@
   "authRefreshFailed": "Échec de l'actualisation du statut du compte",
   "authLoginRequiredForBind": "Veuillez vous connecter d'abord pour lier votre entreprise",
   "authBindFailed": "Échec de la demande de liaison",
+  "authRegisterClaimSubmitted": "Inscription réussie. Demande de liaison fournisseur soumise, en attente de révision.",
   "filterSelectRegion": "Sélectionner la région",
   "filterSelectCountry": "Sélectionner le pays",
   "filterSelectIndustry": "Sélectionner le secteur",
@@ -66,5 +71,10 @@
   "galleryNext": "Suivant",
   "navPageNav": "Navigation de page",
   "uploadDropZoneLabel": "Zone de téléchargement",
-  "uiLoadingDots": "Chargement..."
+  "uiLoadingDots": "Chargement...",
+  "uiPaginationGo": "Aller",
+  "uiPaginationJumpTo": "Aller à la page",
+  "uiMenuOpen": "Ouvrir le menu",
+  "uiMenuClose": "Fermer le menu",
+  "skipToContent": "Aller au contenu principal"
 }

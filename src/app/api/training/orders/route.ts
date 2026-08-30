@@ -32,20 +32,35 @@ export async function POST(req: NextRequest) {
       contactName: body.contact_name,
       telephone: body.telephone,
       clientIp: extractClientIp(req),
+      userKey: auth.userKey,
       baseUrl: `${req.nextUrl.protocol}//${req.nextUrl.host}`,
     });
 
     return NextResponse.json({ success: true, ...result }, { status: 201 });
   } catch (err) {
     const msg = (err as Error).message;
-    const codeMap: Record<string, [number, number]> = {
-      COURSE_NOT_FOUND: [400, 40030],
-      COURSE_PRICE_INVALID: [400, 40032],
-      PAYMENT_PROVIDER_UNAVAILABLE: [500, 40034],
-      PAYMENT_GATEWAY_ERROR: [500, 40034],
-      PAYMENT_QR_CODE_MISSING: [500, 40034],
+    const messageMap: Record<string, string> = {
+      COURSE_NOT_FOUND: "课程不存在或已下架",
+      COURSE_PRICE_INVALID: "课程价格配置异常，请联系客服",
+      PAYMENT_PROVIDER_UNAVAILABLE: "支付渠道暂不可用，请稍后重试",
+      PAYMENT_GATEWAY_ERROR: "支付网关暂不可用，请稍后重试",
+      PAYMENT_QR_CODE_MISSING: "支付二维码生成失败，请稍后重试",
+      SCHEDULE_NOT_FOUND: "所选期次不存在",
+      SCHEDULE_CAPACITY_EXCEEDED: "该期次名额已满，请选择其他期次",
     };
+    const codeMap: Record<string, [number, number]> = {
+      COURSE_NOT_FOUND: [404, 40030],
+      COURSE_PRICE_INVALID: [500, 40032],
+      PAYMENT_PROVIDER_UNAVAILABLE: [503, 40034],
+      PAYMENT_GATEWAY_ERROR: [503, 40034],
+      PAYMENT_QR_CODE_MISSING: [503, 40034],
+      SCHEDULE_NOT_FOUND: [400, 40033],
+      SCHEDULE_CAPACITY_EXCEEDED: [409, 40035],
+    };
+    // 未知异常不透传内部错误文本（审查 F50），留 trace 用 message 记日志
     const [status, code] = codeMap[msg] || [500, 50000];
-    return NextResponse.json({ code, message: msg, error: msg }, { status });
+    const message = messageMap[msg] || "下单失败，请稍后重试";
+    if (!messageMap[msg]) console.error(`[training/orders] 下单异常:`, err);
+    return NextResponse.json({ code, message, error: message }, { status });
   }
 }

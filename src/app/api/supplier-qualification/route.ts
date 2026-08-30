@@ -1,11 +1,26 @@
 /**
- * POST /api/supplier-qualification — 提交国际招投标能力初筛（公开+限流）
+ * POST /api/supplier-qualification — 统一供应商评估提交
+ *
+ * 三个入口共用：
+ *   - 资质测试独立页（source=qualification，默认）
+ *   - 企业注册弹窗（source=registration，携带 user_key + referral_employee_id）
+ *   - 扫码诊断独立页（source=diagnosis）
+ *
+ * 所有数据统一写入 crm_supplier_qualification 表。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
+import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 export async function POST(req: NextRequest) {
+  // 公开端点限流（审查 F33）：防垃圾数据灌库
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 },
+    (r) => `sq:${extractClientIp(r)}`);
+  if (rl) return rl;
+
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -30,8 +45,36 @@ export async function POST(req: NextRequest) {
   }
 
   const toArray = (v: unknown) => Array.isArray(v) ? v.join(", ") : String(v || "");
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const ip = extractClientIp(req);
   const repo = new SupplierQualificationRepo(getPool());
+
+  // ── 可选参数：关联用户、推荐员工、来源 ──
+  const source = typeof body.source === "string" ? body.source : "qualification";
+  let userId: number | null = null;
+  let referralEmployeeId: number | null = null;
+
+  // 通过 user_key（手机号）查找用户 ID
+  if (body.user_key) {
+    try {
+      const ctx = getContext();
+      const user = await ctx.user.usersRepo.findByPhone(String(body.user_key).trim());
+      if (user) userId = user.id;
+    } catch {
+      // 查找失败不阻断提交
+    }
+  }
+
+  // 推荐员工 ID（KPI 归属）：仅接受邀请码解析。不再直接信任请求体中的
+  // referral_employee_id——未认证请求可借此为任意员工伪造 KPI 归因（审查 F33）
+  if (body.invitation_code) {
+    try {
+      const ctx = getContext();
+      const record = await ctx.user.invitationRepo.findByCode(String(body.invitation_code).trim().toUpperCase());
+      if (record) referralEmployeeId = record.employee_id;
+    } catch {
+      // 解析失败不阻断提交
+    }
+  }
 
   try {
     const id = await repo.insertQualification({
@@ -53,8 +96,21 @@ export async function POST(req: NextRequest) {
       bid_willingness: String(body.bid_willingness).trim(),
       contact_info: String(body.contact_info || "").trim() || null,
       ip,
+      user_id: userId,
+      referral_employee_id: referralEmployeeId,
+      source,
     });
-    return NextResponse.json({ success: true, id, message: "提交成功，我们将尽快审核" }, { status: 201 });
+
+    // 自动回写：当 user_key 已解析到用户时，将 qualification_id 关联到 crm_users
+    if (userId) {
+      try {
+        await repo.linkUserQualification(userId, id);
+      } catch {
+        // 回写失败不阻断提交
+      }
+    }
+
+    return NextResponse.json({ success: true, id, qualification_id: id, message: "提交成功，我们将尽快审核" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-qualification]", err);
     return NextResponse.json({ code: 50000, message: "提交失败" }, { status: 500 });

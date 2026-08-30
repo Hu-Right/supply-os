@@ -106,8 +106,15 @@ const WIDE_TABLE_SYNC_SQL = `
  * 现改为在临时索引上全量构建完成后原子切换，切换前旧索引持续可查，零空白期。
  * 失败时仅清理临时索引，旧索引毫发无损。
  * 降级演练修复：多调用方并发调用时加全局并发锁，重复调用直接跳过。
+ *
+ * [2026-08-29 P1-A] swap 快照窗口防护：fullSync 进行期间，事件/对账级联
+ * （syncNoticeIds）直写主索引的变更会被 swap 用 tmp 快照整体回滚。
+ * 现改为暂存到 _pendingDuringFullSync，fullSync 结束（swap 后或失败后）统一补写。
  */
 let _fullSyncRunning = false;
+
+/** fullSync 期间暂存的级联变更 ID（swap 后统一补写，防止快照回滚丢失） */
+const _pendingDuringFullSync = new Set<number>();
 
 /** 是否有 fullSync 正在执行（编排器可据此路由降级） */
 export function isFullSyncRunning(): boolean {
@@ -128,6 +135,20 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
   const start = Date.now();
 
   try {
+    // ── Step 0：清理陈旧的 tmp 残留索引（上次失败保留供诊断的 / 异常遗留的）──
+    // [P2-C] 失败路径不再立即删除 tmp（保留诊断），靠此处下次启动时回收，防 400MB 级残留累积
+    try {
+      const stale = await client.getIndexes({ limit: 100 });
+      for (const idx of stale.results as Array<{ uid: string }>) {
+        if (idx.uid.startsWith(`${INDEX_NAME}_tmp_`) && idx.uid !== TMP_INDEX) {
+          await client.deleteIndex(idx.uid).catch(() => {});
+          console.log(`[meilisearch] fullSync: 清理陈旧临时索引 ${idx.uid}`);
+        }
+      }
+    } catch {
+      // 列举失败不阻断全量同步
+    }
+
     // ── Step 1：创建临时索引并应用与主索引同源的设置 ──
     try {
       await client.createIndex(TMP_INDEX, { primaryKey: "id" });
@@ -161,6 +182,8 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     }
 
     // ── Step 3：等待临时索引文档处理就绪（addDocuments 仅保证入队）──
+    // [P2-C] 同时监测 Meili 端失败任务：addDocuments 入队成功 ≠ 消费成功，
+    //        部分批次被拒时唯一旧结局是空转 30 分钟超时后全部丢弃重跑
     const indexStart = Date.now();
     while (true) {
       try {
@@ -168,6 +191,18 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
         if (stats.numberOfDocuments >= totalSynced) break;
       } catch {
         // 统计失败（瞬时）忽略，继续等待
+      }
+      // 失败任务检查：全新 tmp 索引上出现任何 failed 任务均属异常（文档被拒/超限）
+      try {
+        const failed = await client.tasks.getTasks({ indexUids: [TMP_INDEX], statuses: ["failed"] } as any);
+        const failedCount = (failed.results as unknown[]).length;
+        if (failedCount > 0) {
+          const firstErr = (failed.results as any[])[0]?.error;
+          throw new Error(`TMP_INDEX_TASK_FAILURES(${failedCount}): ${String(firstErr?.message || firstErr || "unknown")}`);
+        }
+      } catch (e) {
+        if ((e as Error).message.startsWith("TMP_INDEX_TASK_FAILURES")) throw e;
+        // getTasks 查询失败（瞬时）忽略
       }
       if (Date.now() - indexStart > 30 * 60 * 1000) {
         console.warn("[meilisearch] fullSync: 等待临时索引就绪超时（30 分钟），放弃切换");
@@ -177,6 +212,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     }
 
     // ── Step 4：原子切换（切换前查询持续命中旧索引，零空白期）──
+    // rename: false 为 SDK IndexSwap 类型必填字段（Meili 端忽略其值）
     await client.swapIndexes([{ indexes: [INDEX_NAME, TMP_INDEX], rename: false }]);
     // 等待 swap 任务生效：主索引文档数达到目标值（最多 60s）
     const swapStart = Date.now();
@@ -203,15 +239,23 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     return { synced: totalSynced, elapsed, lastId };
   } catch (err) {
     console.error("[meilisearch] fullSync failed:", (err as Error).message);
-    // 失败路径：清理临时索引，旧索引保持原样（可用性零影响）
-    try {
-      await client.deleteIndex(TMP_INDEX);
-    } catch {
-      // 忽略清理失败
-    }
+    // [P2-C] 失败路径保留 tmp 索引供诊断（20 万级文档重跑代价高，先查因）；
+    // 陈旧残留由下次 fullSync 的 Step 0 自动回收
+    console.warn(`[meilisearch] fullSync: 临时索引 ${TMP_INDEX} 已保留供诊断，下次全量同步时自动清理`);
     return { synced: 0, elapsed: Date.now() - start, lastId: 0 };
   } finally {
     _fullSyncRunning = false;
+    // [P1-A] swap 后（或失败后）统一补写 fullSync 期间暂存的级联变更：
+    // 此时 _fullSyncRunning 已置 false，syncNoticeIds 守卫放行，写入的是
+    // swap 后的主索引（新快照），变更不再被回滚
+    if (_pendingDuringFullSync.size > 0) {
+      const pending = Array.from(_pendingDuringFullSync);
+      _pendingDuringFullSync.clear();
+      console.log(`[meilisearch] fullSync 结束，补写期间暂存的 ${pending.length} 条级联变更`);
+      void syncNoticeIds(pool, pending).catch((e) => {
+        console.warn("[meilisearch] 暂存变更补写失败（交由定时对账兜底）:", (e as Error).message);
+      });
+    }
   }
 }
 
@@ -289,6 +333,20 @@ export async function incrementalSync(
       }
     }
 
+    // [F17] fullSync 进行中：此刻直写主索引的变更会被 swap 快照整体回滚，
+    // 且水位推进后这些行不再被增量选中——变更永久丢失。
+    // 与 syncNoticeIds 的守卫一致：暂存到 _pendingDuringFullSync，由 fullSync
+    // 结束（swap 后）的 finally 统一补写；水位照常推进，避免 fullSync 期间
+    // 每 5 秒重复拉取同一批行。
+    if (_fullSyncRunning) {
+      for (const r of allRaw) {
+        const id = Number(r.id);
+        if (Number.isFinite(id) && id > 0) _pendingDuringFullSync.add(id);
+      }
+      const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
+      return { synced: 0, newWatermark };
+    }
+
     const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
     // P1-24 安全修复：水位不可回退，取 Math.max 防止低 ID 更新导致周期性全量重灌
@@ -315,6 +373,17 @@ export async function incrementalSync(
 export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number; deleted: number }> {
   const client = getClient();
   if (!client || !isHealthy() || ids.length === 0) return { synced: 0, deleted: 0 };
+
+  // [P1-A] fullSync 进行中：此刻直写主索引的变更会被 swap 快照整体回滚，
+  // 改为暂存到 _pendingDuringFullSync，fullSync 结束后由其 finally 统一补写。
+  // 返回 synced=ids.length 计入已处理，避免上层级联判定失败并入重试队列造成重复补写。
+  if (_fullSyncRunning) {
+    for (const id of ids) {
+      if (Number.isFinite(id) && id > 0) _pendingDuringFullSync.add(id);
+    }
+    return { synced: ids.length, deleted: 0 };
+  }
+
   const INDEX_NAME = getIndexName();
 
   try {

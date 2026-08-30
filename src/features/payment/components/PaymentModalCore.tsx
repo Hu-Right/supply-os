@@ -20,7 +20,8 @@ import {
   mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
-import { Button, Modal } from "@/shared/ui";
+import { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "@/core/payment";
+import { Button, Modal, SelectableCard } from "@/shared/ui";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
 
@@ -69,9 +70,9 @@ export interface PaymentModalCoreProps {
   onSuccess?: (orderNo: string) => void;
 }
 
-/** 轮询上限（200 次 × 3s ≈ 10 分钟），防止订单永不 paid 时无限轮询 */
-const MAX_POLL_ATTEMPTS = 200;
-const POLL_INTERVAL_MS = 3000;
+// 轮询参数统一由 core/payment/constants 管理
+const MAX_POLL_ATTEMPTS = PAYMENT_POLL_MAX_ATTEMPTS;
+const POLL_INTERVAL_MS = PAYMENT_POLL_INTERVAL_MS;
 
 export default function PaymentModalCore({
   onClose,
@@ -118,11 +119,15 @@ export default function PaymentModalCore({
   // ── 轮询（统一上限，会员/研修班一致） ──
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  // 轮询轮次令牌（审查 F44）：stop 后在途的慢响应必须失效，否则已 success/
+  // failed 的弹窗可能被迟到响应二次触发 onSuccess
+  const pollEpochRef = useRef(0);
   // ref 持有最新 onSuccess，避免轮询闭包捕获 stale 回调
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
   const stopPolling = useCallback(() => {
+    pollEpochRef.current += 1;
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -135,6 +140,7 @@ export default function PaymentModalCore({
     (orderNo: string) => {
       stopPolling();
       pollCountRef.current = 0;
+      const epoch = pollEpochRef.current;
       pollingRef.current = setInterval(async () => {
         pollCountRef.current += 1;
         if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
@@ -145,6 +151,8 @@ export default function PaymentModalCore({
         }
         try {
           const data = await onQueryStatus(orderNo);
+          // 在途响应守卫：本轮轮询已被停止/重启时丢弃迟到响应
+          if (epoch !== pollEpochRef.current) return;
           if (data.status === "paid") {
             stopPolling();
             setStep("success");
@@ -261,14 +269,12 @@ export default function PaymentModalCore({
                   const unavailable = Boolean(paymentConfig && !paymentConfig[item.provider]);
                   const selected = provider === item.provider && !unavailable;
                   return (
-                    <button
+                    <SelectableCard
                       key={item.provider}
-                      type="button"
-                      aria-disabled={unavailable}
+                      selected={selected}
+                      disabled={unavailable}
                       onClick={() => handleSelectProvider(item.provider)}
-                      className={`flex w-full items-center justify-between rounded-2xl border-2 p-4 transition-all ${
-                        selected ? "border-teal-600 bg-teal-50" : "border-slate-200 bg-white hover:border-slate-300"
-                      } ${unavailable ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                      className="rounded-2xl flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{item.icon}</span>
@@ -292,7 +298,7 @@ export default function PaymentModalCore({
                           )
                         )}
                       </div>
-                    </button>
+                    </SelectableCard>
                   );
                 })}
               </div>
@@ -342,14 +348,15 @@ export default function PaymentModalCore({
             ) : (
               <div className="space-y-2">
                 {order.pay_url && order.provider !== "mock" && (
-                  <button
+                  <Button
                     type="button"
+                    variant="dark"
                     onClick={handleOpenPayUrl}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-700"
+                    className="w-full rounded-2xl py-3 hover:bg-slate-700"
                   >
                     <ExternalLink className="h-4 w-4" />
                     {t("paymentReOpenBtn")}
-                  </button>
+                  </Button>
                 )}
                 {order.provider === "mock" && (
                   <>

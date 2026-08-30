@@ -65,32 +65,40 @@ export interface PerfSnapshot {
 }
 
 // ── 存储 ──
+// 环形缓冲（审查 F49）：SPA 长驻下每个 API 请求都会 push，无上限数组线性
+// 膨胀导致内存增长与 computeSummary O(n) 变慢；各类指标保留最近 MAX 条。
+const MAX_METRICS = 500;
 
 const apiMetrics: ApiMetric[] = [];
 const renderMetrics: RenderMetric[] = [];
 const navigationMetrics: NavigationMetric[] = [];
 const firstScreenMetrics: FirstScreenMetric[] = [];
 
+function pushCapped<T>(arr: T[], item: T): void {
+  arr.push(item);
+  if (arr.length > MAX_METRICS) arr.splice(0, arr.length - MAX_METRICS);
+}
+
 // ── 采集函数 ──
 
 /** 记录 API 请求指标 */
 export function recordApiMetric(metric: ApiMetric): void {
-  apiMetrics.push(metric);
+  pushCapped(apiMetrics, metric);
 }
 
 /** 记录组件渲染耗时 */
 export function recordRenderMetric(metric: RenderMetric): void {
-  renderMetrics.push(metric);
+  pushCapped(renderMetrics, metric);
 }
 
 /** 记录导航计时（来自 PerformanceObserver 或手动标记） */
 export function recordNavigationMetric(metric: NavigationMetric): void {
-  navigationMetrics.push(metric);
+  pushCapped(navigationMetrics, metric);
 }
 
 /** 记录首屏加载完成 */
 export function recordFirstScreen(metric: FirstScreenMetric): void {
-  firstScreenMetrics.push(metric);
+  pushCapped(firstScreenMetrics, metric);
 }
 
 // ── 页面首屏计时工具 ──

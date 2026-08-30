@@ -8,6 +8,7 @@
  *              toggle and the description body.
  */
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 
 export interface NoticeDescriptionSectionProps {
   /** 翻译进行中 */
@@ -52,12 +53,14 @@ export function NoticeDescriptionSection({
           </span>
         )}
         {hasTranslation && (
-          <button
+          <Button
             onClick={toggleOriginal}
-            className="text-xs font-bold text-blue-700 hover:underline"
+            variant="link"
+            size="sm"
+            className="px-0"
           >
             {showOriginal ? t("procurement_viewTranslation") : t("procurement_viewOriginal")}
-          </button>
+          </Button>
         )}
       </div>
       <p dir="auto" className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">

@@ -1,8 +1,20 @@
+/**
+ * 公采公告列表行组件
+ * Notice List Row
+ *
+ * @module features/procurement/components/NoticeCard
+ * @description 列表行布局（单列紧凑行），替代原卡片网格。
+ *              两栏结构：左侧主内容（描述 / 机构 / 金额 / UNSPSC）+ 右侧操作按钮，
+ *              确保关键信息在首屏完整可见。
+ *              List row layout replacing card grid. Two-column structure:
+ *              left = main content, right = action button.
+ */
 // [収藏/dismiss 功能临时禁用 2026-07-30] Star, X 不再使用
 // [精选功能重新启用 2026-07-31] Crown 随精选徽标一并恢复
 import { memo } from "react";
 import { Crown, Target /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
@@ -35,12 +47,11 @@ interface NoticeCardProps {
   // onDismiss?: (item: NoticeItem) => void;
   // onFavorite?: (item: NoticeItem) => void;
   // favorited?: boolean;
-  /** T-B9：曝光采集挂点——父级用 IntersectionObserver 观察卡片根节点 */
+  /** T-B9：曝光采集挂点——父级用 IntersectionObserver 观察行根节点 */
   observe?: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-// P0 性能优化：React.memo 避免父组件 state 变化时 9 张卡片全部重渲染
-// 回滚：删除 memo() 包裹，恢复为 export function NoticeCard(...)
+// P0 性能优化：React.memo 避免父组件 state 变化时列表行全部重渲染
 export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
   const { t, locale } = useLocale();
   // 卡片国际化回退链：
@@ -68,43 +79,28 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
   return (
     <article
       ref={(el) => observe?.(el, item.id)}
-      className="border border-slate-200 rounded-xl p-4 min-h-64 flex flex-col hover:border-teal-300 hover:shadow-sm transition-all"
+      className="border border-slate-200 rounded-xl p-4 bg-white hover:border-teal-300 hover:shadow-sm transition-all"
+      data-testid="notice-card"
     >
+      {/* ── 顶栏：类型 / 精选 / 匹配档次 / 推荐理由 + 截止日期 ── */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-black">
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </span>
-          {/* T-A4（本地差异 #14）：精选徽标——三路合格机会判定命中，服务端批量标注 */}
-          {/* [精选功能重新启用 2026-07-31] 徽标恢复（服务端 is_featured 标注已同步恢复） */}
-          {/* BUG 修复：is_featured 为数据库数值 0/1，`0 && <jsx>` 会被 React 渲染为裸文本 "0"，
-              必须转布尔后再短路 */}
+          {/* [精选功能重新启用 2026-07-31] 徽标恢复 */}
           {Boolean(item.is_featured) && (
             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
             </span>
           )}
-          {/* 行业精准匹配档次徽章（SSOT 2 档分色）：仅 industry-matched 数据源携带 match_tier */}
           {item.match_tier && MATCH_TIER_CONFIG[item.match_tier] && (
             <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-black ${MATCH_TIER_CONFIG[item.match_tier].color}`}>
               <Target className="w-3 h-3" />
               {t(MATCH_TIER_CONFIG[item.match_tier].key)}
             </span>
           )}
-        </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
-          <span className="text-[11px] text-slate-500 font-mono text-end" dir="ltr">
-            {locale === "zh"
-              ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
-              : (item.deadline || t("procurement_noDeadline"))}
-          </span>
-          {/* [収藏/dismiss 功能临时禁用 2026-07-30] Star/X 按钮已移除 */}
-        </div>
-      </div>
-      {reasonKeys.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
           {reasonKeys.map((key) => (
             <span
               key={key}
@@ -114,42 +110,72 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
             </span>
           ))}
         </div>
-      )}
-      <h4 dir="auto" className="text-base font-extrabold text-slate-900 mt-3 line-clamp-2">{displayTitle}</h4>
-      {/* 招标内容 */}
-      <p dir="auto" className="text-xs text-slate-500 mt-2 line-clamp-3">
-        {bidContent || t("procurement_noDesc")}
-      </p>
-      <div className="flex flex-wrap gap-1.5 mt-3">
-        {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
-          <span
-            key={`${code.code || index}`}
-            dir="ltr"
-            className="px-1.5 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-600"
-          >
-            {code.code || code.name || code.description}
+        <div className="flex flex-col items-end gap-0.5 shrink-0">
+          <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
+          <span className="text-[11px] text-slate-500 font-mono text-end" dir="ltr">
+            {locale === "zh"
+              ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
+              : (item.deadline || t("procurement_noDeadline"))}
           </span>
-        ))}
-      </div>
-      <div className="mt-auto pt-4 border-t border-slate-100 flex items-end justify-between gap-3">
-        <div className="text-xs min-w-0">
-          <p className="font-black text-slate-800">{item.estimated_value || t("procurement_budgetPending")}</p>
-          <p className="text-slate-500 truncate">
-            {item.agency_i18n || item.agency || item.organization || t("procurement_unknownAgency")}
-          </p>
         </div>
-        {item.beneficiary_countries && (
-          <div className="text-[11px] text-slate-500 min-w-0 text-center">
-            <span className="font-bold text-slate-400">{t("procurement_beneficiaryCountry")}</span>
-            <p className="truncate">{item.beneficiary_countries.split(",").map((s) => s.trim()).filter(Boolean).map((name) => getCountryDisplayName(name, locale)).join(", ")}</p>
+      </div>
+
+      {/* ── 标题（可点击查看详情） ── */}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => onClick(item)}
+        className="w-full justify-start px-0 py-0 mt-2 text-left hover:bg-transparent group/title"
+      >
+        <h4 dir="auto" className="text-sm font-extrabold text-slate-900 line-clamp-2 group-hover/title:text-teal-700 transition-colors">
+          {displayTitle}
+        </h4>
+      </Button>
+
+      {/* ── 两栏：左侧主内容 + 右侧操作按钮 ── */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mt-2">
+        {/* 左栏：描述 / 机构 / 金额 / 受援国 / UNSPSC */}
+        <div className="min-w-0 space-y-2">
+          <p dir="auto" className="text-xs text-slate-500 line-clamp-2">
+            {bidContent || t("procurement_noDesc")}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="text-slate-700 font-bold truncate max-w-[240px]">
+              {item.agency_i18n || item.agency || item.organization || t("procurement_unknownAgency")}
+            </span>
+            <span className="font-black text-slate-800 whitespace-nowrap">
+              {item.estimated_value || t("procurement_budgetPending")}
+            </span>
+            {item.beneficiary_countries && (
+              <span className="text-slate-500 truncate max-w-[160px]">
+                {item.beneficiary_countries.split(",").map((s) => s.trim()).filter(Boolean).map((name) => getCountryDisplayName(name, locale)).join(", ")}
+              </span>
+            )}
           </div>
-        )}
-        <button
-          onClick={() => onClick(item)}
-          className="shrink-0 px-4 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-xs font-black hover:bg-teal-200 min-h-[40px]"
-        >
-          {t("procurement_detail")}
-        </button>
+          <div className="flex flex-wrap gap-1.5">
+            {(item.core_locked === false ? (item.unspsc_codes || []) : []).slice(0, 4).map((code, index) => (
+              <span
+                key={`${code.code || index}`}
+                dir="ltr"
+                className="px-1.5 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-600"
+              >
+                {code.code || code.name || code.description}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* 右栏：查看详情按钮 */}
+        <div className="flex items-center">
+          <Button
+            onClick={() => onClick(item)}
+            variant="secondary"
+            size="sm"
+            className="shrink-0 px-4 py-2.5 font-black text-teal-800 whitespace-nowrap"
+          >
+            {t("procurement_detail")}
+          </Button>
+        </div>
       </div>
     </article>
   );

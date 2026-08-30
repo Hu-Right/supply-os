@@ -10,6 +10,19 @@
 export { Button, buttonVariants } from "./Button";
 export type { ButtonProps } from "./Button";
 
+// ── 选择器控件（ADR-0005 豁免类的正解）──
+export { SegmentedControl } from "./SegmentedControl";
+export type { SegmentedControlProps, SegmentedControlItem } from "./SegmentedControl";
+
+export { ChipToggleGroup } from "./ChipToggleGroup";
+export type { ChipToggleGroupProps, ChipToggleItem } from "./ChipToggleGroup";
+
+export { SelectableCard } from "./SelectableCard";
+export type { SelectableCardProps } from "./SelectableCard";
+
+export { ToggleButton } from "./ToggleButton";
+export type { ToggleButtonProps } from "./ToggleButton";
+
 export { Input } from "./Input";
 export type { InputProps } from "./Input";
 
@@ -60,3 +73,12 @@ export type { ComboboxProps, ComboboxItem } from "./Combobox";
 
 export { LoadingOverlay } from "./LoadingOverlay";
 export type { LoadingOverlayProps } from "./LoadingOverlay";
+
+export { Skeleton } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";
+
+export { ConfirmDialog } from "./ConfirmDialog";
+export type { ConfirmDialogProps } from "./ConfirmDialog";
+
+export { Tooltip } from "./Tooltip";
+export type { TooltipProps } from "./Tooltip";

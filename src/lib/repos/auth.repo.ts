@@ -128,9 +128,13 @@ export class AuthRepo {
     return ((rows as RowDataPacket[])[0] as { id: number; user_key: string }) ?? null;
   }
 
-  /** 按哈希撤销单个 Refresh Token（轮换/登出） */
-  async deleteRefreshTokenByHash(tokenHash: string): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
+  /** 按哈希撤销单个 Refresh Token（轮换/登出）；返回受影响行数供原子轮换判定 */
+  async deleteRefreshTokenByHash(tokenHash: string): Promise<number> {
+    const [result] = await this.pool.execute(
+      "DELETE FROM crm_refresh_tokens WHERE token_hash = ?",
+      [tokenHash],
+    );
+    return Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
 
   /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录） */
@@ -155,5 +159,38 @@ export class AuthRepo {
     sql += " ORDER BY created_at DESC LIMIT ?";
     const [rows] = await this.pool.query(sql, [options.limit]);
     return rows as RowDataPacket[];
+  }
+
+  // ── crm_consent_log：协议同意审计日志（P0 合规） ─────────────────────────────
+
+  /**
+   * 记录用户协议同意日志
+   * 对应表 crm_consent_log（需提前建表，见 docs/04 技术需求清单第四节）
+   */
+  async recordConsentLog(params: {
+    userKey: string;
+    consentType: string;   // terms / privacy / marketing / cookie
+    documentVersion: string;
+    action: string;        // agree / withdraw / re-agree
+    timestamp: string;     // ISO 8601
+    ipAddress: string;
+    userAgent: string;
+    sourcePage: string;    // register / checkout / profile
+  }): Promise<void> {
+    await this.pool.execute(
+      `INSERT INTO crm_consent_log
+        (user_key, consent_type, document_version, action, consent_timestamp, ip_address, user_agent, source_page)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        params.userKey,
+        params.consentType,
+        params.documentVersion,
+        params.action,
+        params.timestamp,
+        params.ipAddress,
+        params.userAgent,
+        params.sourcePage,
+      ],
+    );
   }
 }

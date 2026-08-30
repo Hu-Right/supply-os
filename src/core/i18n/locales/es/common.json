@@ -46,6 +46,10 @@
   "updateAvailable_refresh": "Actualizar",
   "networkOffline": "Red desconectada. Por favor, revise su conexión.",
   "uiClose": "Cerrar",
+  "confirmTitle": "Por favor confirme",
+  "confirmOk": "Confirmar",
+  "confirmCancel": "Cancelar",
+  "confirmLoading": "Procesando…",
   "uiLoading": "Cargando",
   "allRegions": "Todas las regiones",
   "filterNoMatchAgencies": "Sin agencias coincidentes",
@@ -59,6 +63,7 @@
   "authRefreshFailed": "Error al actualizar el estado de la cuenta",
   "authLoginRequiredForBind": "Inicie sesión primero para vincular su empresa",
   "authBindFailed": "Error en la solicitud de vinculación",
+  "authRegisterClaimSubmitted": "Registro exitoso. Solicitud de vinculación de proveedor enviada, pendiente de revisión.",
   "filterSelectRegion": "Seleccionar región",
   "filterSelectCountry": "Seleccionar país",
   "filterSelectIndustry": "Seleccionar sector",
@@ -66,5 +71,10 @@
   "galleryNext": "Siguiente",
   "navPageNav": "Navegación de página",
   "uploadDropZoneLabel": "Área de carga de archivos",
-  "uiLoadingDots": "Cargando..."
+  "uiLoadingDots": "Cargando...",
+  "uiPaginationGo": "Ir",
+  "uiPaginationJumpTo": "Ir a la página",
+  "uiMenuOpen": "Abrir menú",
+  "uiMenuClose": "Cerrar menú",
+  "skipToContent": "Ir al contenido principal"
 }

@@ -97,6 +97,8 @@ export interface AuthUserResponse {
   phone: string | null;
   /** 手机号是否已验证 */
   phone_verified: number;
+  /** 邮箱是否已验证 */
+  email_verified: number;
 }
 
 /**
@@ -132,6 +134,7 @@ export async function buildUserResponse(
     supplier_industry: (supplier?.industry as string) || null,
     phone: user.phone ? maskPhone(user.phone) : null,
     phone_verified: user.phone_verified ?? 0,
+    email_verified: user.email_verified ?? 0,
   };
 }
 

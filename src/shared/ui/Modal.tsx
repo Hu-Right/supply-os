@@ -72,7 +72,7 @@ export function Modal({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-secondary-900/60 backdrop-blur-xs" />
         <DialogPrimitive.Content
           onEscapeKeyDown={closeOnEsc ? undefined : (e) => e.preventDefault()}
           onInteractOutside={closeOnBackdrop ? undefined : (e) => e.preventDefault()}
@@ -80,7 +80,7 @@ export function Modal({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-full max-w-lg p-4 md:p-6 rounded-2xl border border-slate-200 bg-white shadow-xl transition-transform focus:outline-none",
+            "fixed left-1/2 top-1/2 z-50 w-full max-w-lg p-4 md:p-6 rounded-2xl border border-secondary-200 bg-white shadow-xl transition-transform focus:outline-none",
             className,
           )}
           style={{
@@ -93,14 +93,14 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              className="absolute end-4 top-4 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+              className="absolute end-4 top-4 rounded-lg p-1 text-secondary-400 hover:bg-secondary-100 hover:text-secondary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-400"
               aria-label={t("uiClose")}
             >
               <X className="h-5 w-5" />
             </button>
           )}
           <DialogPrimitive.Title
-            className={cn(title ? "mb-4 text-lg font-bold text-slate-900" : "sr-only")}
+            className={cn(title ? "mb-4 text-lg font-bold text-secondary-900" : "sr-only")}
           >
             {title ?? "dialog"}
           </DialogPrimitive.Title>

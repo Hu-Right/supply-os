@@ -46,6 +46,10 @@
   "updateAvailable_refresh": "Refresh Now",
   "networkOffline": "Network disconnected. Please check your connection.",
   "uiClose": "Close",
+  "confirmTitle": "Please confirm",
+  "confirmOk": "Confirm",
+  "confirmCancel": "Cancel",
+  "confirmLoading": "Processing…",
   "uiLoading": "Loading",
   "allRegions": "All Regions",
   "filterNoMatchAgencies": "No matching agencies",
@@ -59,6 +63,7 @@
   "authRefreshFailed": "Failed to refresh account status",
   "authLoginRequiredForBind": "Please login first to bind your company",
   "authBindFailed": "Binding request failed",
+  "authRegisterClaimSubmitted": "Registration successful. Supplier binding request submitted, pending review.",
   "filterSelectRegion": "Select region",
   "filterSelectCountry": "Select country",
   "filterSelectIndustry": "Select industry",
@@ -66,5 +71,10 @@
   "galleryNext": "Next",
   "navPageNav": "Page navigation",
   "uploadDropZoneLabel": "File upload area",
-  "uiLoadingDots": "Loading..."
+  "uiLoadingDots": "Loading...",
+  "uiPaginationGo": "Go",
+  "uiPaginationJumpTo": "Go to page",
+  "uiMenuOpen": "Open menu",
+  "uiMenuClose": "Close menu",
+  "skipToContent": "Skip to main content"
 }

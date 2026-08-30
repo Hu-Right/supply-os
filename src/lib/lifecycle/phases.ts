@@ -7,9 +7,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import { ensureProcurementSchema } from "../db/schema";
-import { runSeeds } from "../db/seeds";
 import { backfillUserIds, backfillIndustryPrefsL45Null, hydratePaymentEnvFromDb } from "../db/backfills";
-import { seedAgencyAliases } from "../services/agencyAliasSeed";
 import { refreshFeaturedColumn } from "../services/notices/index";
 import { isHealthy as isMeiliHealthy, syncNoticeIds } from "../services/meilisearch/index";
 
@@ -34,30 +32,7 @@ export const schemaPhase: Phase = {
 };
 
 /**
- * 阶段 2: 种子数据
- */
-export const seedsPhase: Phase = {
-  name: "seeds",
-  async run(ctx) {
-    await runSeeds(ctx.dbPool, {
-      enabled: String(process.env.SEED_ENABLED ?? "on").toLowerCase() !== "off",
-    });
-  },
-};
-
-/**
- * 阶段 3: 机构别名种子
- */
-export const agencyAliasPhase: Phase = {
-  name: "agency-alias",
-  optional: true,
-  async run(ctx) {
-    await seedAgencyAliases(ctx.dbPool);
-  },
-};
-
-/**
- * 阶段 4: 用户 ID 回填
+ * 阶段 2: 用户 ID 回填
  */
 export const backfillPhase: Phase = {
   name: "backfill",
@@ -72,7 +47,7 @@ export const backfillPhase: Phase = {
 };
 
 /**
- * 阶段 5: 精选列回填
+ * 阶段 3: 精选列回填
  */
 export const featuredPhase: Phase = {
   name: "featured",
@@ -86,7 +61,7 @@ export const featuredPhase: Phase = {
 };
 
 /**
- * 阶段 6: 支付环境回填
+ * 阶段 4: 支付环境回填
  */
 export const paymentPhase: Phase = {
   name: "payment",

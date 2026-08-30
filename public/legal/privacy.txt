@@ -1,0 +1,180 @@
+OS NEO SMART
+OS NEO SMART 隐私政策
+OS NEO SMART Privacy Policy
+版本：V1.0    发布/建议生效日期：2026年8月29日运营主体：杭州云境智展科技有限公司网站：osneosmart.com
+网站上线版 / 技术实施版
+
+上线前必须核验 / Pre-launch Verification正文可直接上线，但下列项目必须按真实系统核对后发布：① 实际收集字段；② 实际第三方SDK/API/云服务商及其隐私政策链接；③ 实际数据存储地点与跨境访问情况；④ 个人信息保护联系邮箱/工单入口。不得为了“看起来合规”而写入不存在的技术措施或第三方名称。
+
+政策摘要 / Summary
+我们遵循合法、正当、必要、诚信和最小必要原则处理个人信息，并向用户提供查阅、复制、更正、补充、删除、撤回同意、注销账号等权利行使渠道。
+We process personal information lawfully, fairly, in good faith and on a data-minimisation basis, and provide mechanisms for access, copy, correction, supplementation, deletion, withdrawal of consent and account closure.
+OS NEO SMART属于面向企业国际公共采购与出海业务的服务平台。企业信息中如包含自然人姓名、工作邮箱、电话、职位等，也可能属于个人信息。
+OS NEO SMART is a business platform for international public procurement and overseas-business support. Enterprise data may also constitute personal information where it contains identifiable individuals, such as names, work emails, phone numbers or job titles.
+1. 我们是谁及本政策适用范围 / Who We Are and Scope
+本政策适用于杭州云境智展科技有限公司运营的OS NEO SMART网站（osneosmart.com）以及明确引用本政策的相关网页、账户系统、会员服务和在线功能。
+本政策解释我们如何收集、存储、使用、加工、传输、提供、公开和删除个人信息。与某项线下项目、代投标、培训或专项企业服务另行签署的数据处理约定，与本政策共同适用。
+This Policy applies to the OS NEO SMART website (osneosmart.com) operated by 杭州云境智展科技有限公司, and to related pages, accounts, memberships and online functions that expressly reference this Policy.
+It explains how we collect, store, use, process, transmit, provide, disclose and delete personal information. Data-processing terms in a separate offline project, bid-support, training or enterprise-service agreement apply together with this Policy.
+2. 我们处理个人信息的基本原则 / Core Processing Principles
+我们按照明确、合理的目的处理个人信息，并仅处理与目的直接相关的最小范围信息；不通过误导、欺诈或胁迫方式取得同意。
+基于同意处理时，您的同意应在充分知情前提下自愿、明确作出。法律要求单独同意或书面同意的，我们将按要求取得。
+对于提供核心服务非必要的信息，您有权拒绝提供；除法律另有规定或该信息确属提供相应功能所必需外，我们不会仅因您不同意额外处理而拒绝提供基本服务。
+We process personal information for specific and reasonable purposes and limit processing to what is directly relevant and necessary. Consent is not obtained through deception, fraud or coercion.
+Where processing is based on consent, consent must be voluntary, informed and explicit. Separate or written consent will be obtained where required by law.
+You may refuse to provide information that is not necessary for the core service. Except where required by law or necessary for the requested feature, we will not deny basic services merely because you decline optional processing.
+3. 我们收集哪些个人信息 / Personal Information We Collect
+我们根据您实际使用的功能收集不同信息。以下为OS NEO SMART典型场景，技术上线前应按真实字段完成核对并删除未实际收集的项目。
+The information we collect depends on the functions you use. The table below describes typical OS NEO SMART scenarios. Before launch, the technical team must verify actual fields and remove any item that is not in fact collected.
+3.1 个人信息收集清单 / Personal Information Collection List
+场景 / Scenario
+信息类型 / Data
+目的 / Purpose
+处理基础与说明 / Basis
+账号注册/登录
+手机号或邮箱、验证码/密码、账号ID、登录时间/IP、安全日志
+创建账号、身份验证、账号安全
+提供账号服务所必要/同意；以实际登录方式为准
+企业账号/认证
+企业名称、统一社会信用代码、企业联系人姓名/职位/工作电话/工作邮箱、营业执照或认证材料
+建立企业档案、认证企业主体、提供企业服务
+履行服务合同/同意；证件类材料仅在认证需要时收集
+采购检索与匹配
+搜索词、产品类目、UNSPSC、收藏、浏览/点击/下载记录
+提供搜索、推荐、匹配、历史记录与服务优化
+履行服务/同意；个性化推荐应提供关闭或非个性化选项
+购买/会员
+订单号、购买项目、金额、支付状态、开票信息；支付账户敏感字段通常由支付机构直接处理
+完成交易、对账、退款、发票、售后
+履行合同/法定义务
+咨询/投标服务
+联系人、企业资质、产品资料、项目材料、沟通记录、由用户主动提交的投标相关文件
+提供咨询、报告、代写/代投等约定服务
+履行合同/用户主动提供；如含他人个人信息需有合法基础
+客服/投诉
+姓名或称呼、联系方式、工单/沟通记录、必要的订单与账号信息
+处理咨询、投诉、争议与售后
+履行合同/法定义务/同意
+网站安全与运维
+IP、浏览器/设备类型、操作系统、访问时间、请求日志、异常行为记录、Cookie/会话标识
+安全防护、反滥用、故障分析、保持登录
+网站安全和提供服务所必要；非必要分析Cookie按适用规则取得选择
+营销通知（可选）
+手机号、邮箱、企业/行业偏好、活动报名信息
+发送采购机会、课程、活动或优惠通知
+单独的可撤回选择；不得与基本注册强制捆绑
+3.2 敏感个人信息 / Sensitive Personal Information
+平台原则上不以收集敏感个人信息作为普通注册的必要条件。若企业认证、退款、合同签署、特定投标项目确需处理身份证件、金融账户、精确位置、特定身份等敏感个人信息，我们将说明必要性、对个人权益的影响，并在法律要求时取得单独同意。
+As a rule, sensitive personal information is not required for ordinary registration. If enterprise verification, refunds, contracting or a specific tender project genuinely requires identity documents, financial-account information, precise location, specific identity information or other sensitive data, we will explain necessity and impact and obtain separate consent where required by law.
+4. 我们如何使用个人信息 / How We Use Personal Information
+我们主要用于：创建和管理账号；识别和验证企业；提供采购搜索、匹配、报告与会员权益；完成订单、开票和售后；响应咨询与投诉；防止欺诈、攻击和滥用；改进产品；履行法律法规要求。
+如拟将个人信息用于与原处理目的无直接关联的新目的，我们会依法重新告知并在需要时重新取得同意。
+We primarily use personal information to create/manage accounts; identify and verify enterprises; provide procurement search, matching, reports and membership benefits; fulfil orders, invoicing and after-sales support; respond to requests/complaints; prevent fraud, attacks and abuse; improve products; and comply with law.
+If we intend to use personal information for a new purpose not directly related to the original purpose, we will provide renewed notice and obtain renewed consent where required.
+5. 采购公开信息与职业联系信息 / Public Procurement and Professional Contact Information
+平台可能从合法公开来源获得采购公告、采购机构联系人、企业联系人、工作邮箱、工作电话、职位等信息，并用于采购信息索引、来源回溯、机构识别、项目分析和企业服务。
+公开可访问并不意味着个人信息可以无限制使用。对于可识别自然人的公开信息，我们将结合信息公开目的、合理预期、使用方式及对个人权益影响进行处理；如处理对个人权益有重大影响，依法取得同意或满足其他合法处理条件。
+如您认为平台展示的职业联系信息不准确、超出合理范围或应删除，可通过隐私权利渠道提交申请。
+The Platform may obtain procurement notices, procuring-entity contacts, enterprise contacts, work emails, work phone numbers and job titles from lawful public sources and use them for indexing, source traceability, institutional identification, project analysis and enterprise services.
+Public availability does not mean personal information may be used without limitation. For identifiable public information, we consider the purpose for which it was made public, reasonable expectations, manner of use and impact on the individual. Where processing materially affects individual rights, we will obtain consent or rely on another lawful basis as required.
+If you believe professional contact information displayed by the Platform is inaccurate, excessive or should be removed, you may submit a request through our privacy-rights channel.
+6. Cookie、日志与类似技术 / Cookies, Logs and Similar Technologies
+为维持登录状态、账号安全、语言/界面偏好和基础功能，我们可能使用必要Cookie或本地存储。
+对于统计分析、个性化推荐、广告或其他非必要Cookie/类似技术，平台应根据适用法律和实际部署提供相应告知与选择机制；技术团队不得在用户作出选择前启动需要同意的非必要追踪。
+Cookie名称、提供方、目的、有效期和关闭方式应在Cookie设置或相关清单中可查看。
+We may use strictly necessary cookies or local storage to maintain sessions, account security, language/interface preferences and core functions.
+For analytics, personalised recommendations, advertising or other non-essential cookies/similar technologies, the Platform should provide notice and choices appropriate to applicable law and actual deployment. Tracking requiring consent must not start before the user has made the required choice.
+Cookie names, providers, purposes, durations and control methods should be available in cookie settings or a related list.
+7. 共享、委托处理与第三方服务 / Sharing, Processors and Third-Party Services
+为提供服务，我们可能委托云计算、短信/邮件、验证码、支付、客服、日志监控、数据分析、AI/API等供应商处理必要信息。我们将根据适用法律对受托方进行评估并通过合同约定处理目的、期限、方式、信息种类和保护措施。
+如我们向其他独立个人信息处理者提供您的个人信息，我们将依法向您告知接收方信息、处理目的/方式和个人信息种类，并在需要时取得单独同意、开展个人信息保护影响评估。
+【上线前强制项】网站应提供实际《第三方信息共享清单》，列明真实第三方名称、服务用途、涉及信息、处理方式、第三方隐私政策链接及是否可能跨境。未实际接入的第三方不得写入；已接入的不得遗漏。
+To provide services, we may engage cloud, SMS/email, verification, payment, customer support, monitoring, analytics, AI/API and similar vendors to process necessary information. We will assess processors as required and contractually define purpose, duration, method, data categories and safeguards.
+If we provide your personal information to another independent personal-information processor, we will provide legally required information about the recipient, purpose/method and data categories, obtain separate consent where required and conduct a personal-information protection impact assessment where applicable.
+[Mandatory before launch] The Website must publish an actual “Third-Party Information Sharing List” identifying each real third party, purpose, data involved, processing method, privacy-policy link and potential cross-border element. Do not list unused vendors and do not omit integrated vendors.
+8. 个人信息跨境提供 / Cross-Border Transfers
+OS NEO SMART具有国际业务属性，但“国际业务”本身不等于用户个人信息必然出境。我们将优先根据业务必要性控制跨境传输范围。
+如因境外云服务、国际采购平台接口、境外合作方、跨境客服、AI/API或履行用户主动发起的跨境业务确需向境外提供个人信息，我们将依据《个人信息保护法》《促进和规范数据跨境流动规定》等适用规则，判断是否属于豁免情形，或履行安全评估、个人信息出境标准合同/备案、个人信息保护认证等适用程序，并依法进行告知、取得单独同意和开展影响评估（如适用）。
+跨境接收方、国家/地区、数据类别、目的和机制应以实际数据流为准，并在适用时向用户提供明确说明。
+OS NEO SMART operates internationally, but international business does not itself mean that user personal information is necessarily transferred abroad. We seek to minimise cross-border data flows based on business necessity.
+Where personal information must be provided abroad due to overseas cloud services, procurement-platform integrations, overseas partners, cross-border support, AI/API services or a user-initiated cross-border transaction, we will assess exemptions and, where applicable, complete security assessment, standard-contract/filing, certification or other mechanisms under the PIPL, Provisions on Facilitating and Regulating Cross-Border Data Flows and other applicable rules. Notice, separate consent and impact assessment will be completed where required.
+Recipients, countries/regions, data categories, purposes and legal mechanisms will be based on actual data flows and disclosed where applicable.
+9. 存储地点与保存期限 / Storage Location and Retention
+原则上，我们将在中华人民共和国境内存储在境内运营中收集和产生的个人信息；若实际使用境外存储或境外可远程访问，应按“个人信息跨境提供”章节执行并据实更新本政策。
+个人信息保存期限以实现处理目的所必要的最短时间为原则。账号信息通常保存至账号注销或服务终止后依法必要的期限；订单、合同、发票、财务和交易记录按照适用法律规定保存；安全日志按网络安全、审计和风险管理所需的合理期限保存。
+达到保存期限后，我们将删除或匿名化个人信息；因法律规定不能立即删除时，将停止除存储和必要安全保护之外的处理。
+As a general rule, personal information collected and generated through operations in Mainland China will be stored in Mainland China. If overseas storage or overseas remote access is in fact used, the Cross-Border Transfers section will apply and this Policy must be updated to reflect reality.
+Retention is limited to the shortest period necessary for the processing purpose. Account data is generally retained until account closure/service termination plus any legally required period; order, contract, invoice, finance and transaction records are retained as required by law; security logs are retained for a reasonable period needed for cybersecurity, audit and risk management.
+After the applicable period, data is deleted or anonymised. Where immediate deletion is prohibited or technically infeasible due to legal retention requirements, processing will be limited to storage and necessary protection.
+10. 信息安全措施 / Security Measures
+我们采取与业务和风险相适应的访问控制、身份认证、权限最小化、日志审计、备份、漏洞修复、传输保护、必要的加密或去标识化等管理和技术措施。
+企业投标材料、认证材料等高敏感业务文件应实行更严格的访问权限和最小可见原则。内部员工和外部受托方仅在职责和授权范围内访问。
+如发生个人信息安全事件，我们将依法采取补救措施，并在法律要求时向主管部门报告、向受影响个人告知。
+We use organisational and technical safeguards appropriate to business and risk, including access control, authentication, least-privilege permissions, logging/audit, backups, vulnerability remediation, transmission protection and, where appropriate, encryption or de-identification.
+Enterprise tender and verification materials should be subject to stricter access controls and least-visibility principles. Employees and processors may access them only within authorised duties.
+In the event of a personal-information security incident, we will take remedial measures and, where required, report to authorities and notify affected individuals.
+11. 自动化决策与个性化推荐 / Automated Decision-Making and Personalisation
+平台可能根据您输入的产品、行业、UNSPSC、搜索/收藏行为等进行采购机会推荐或匹配。此类推荐主要用于提升信息发现效率。
+如自动化决策对个人权益产生重大影响，我们将依法提高透明度并提供相应说明、拒绝或其他救济机制。用于商业营销或信息推送时，应提供非针对个人特征的选项或便捷拒绝方式。
+The Platform may recommend or match procurement opportunities based on product, industry, UNSPSC, search/favourite behaviour and similar data to improve information discovery.
+Where automated decision-making materially affects individual rights, we will provide legally required transparency and appropriate explanation, opt-out or other safeguards. For marketing/information pushes, we will provide a non-personalised option or an accessible method to refuse personalised targeting as required.
+12. 您的个人信息权利 / Your Privacy Rights
+在适用法律规定范围内，您有权查阅、复制、更正、补充、删除、限制处理、撤回同意、注销账号，并在符合法定条件时请求转移个人信息。
+平台应在个人中心提供便捷入口，或者通过“隐私权利申请/联系我们”渠道受理。我们可能为保护账号安全核验申请人身份，但不得设置与请求无关的不合理条件。
+撤回同意不影响撤回前基于同意开展的处理活动的效力。对于提供服务所必需且具有其他合法处理基础的信息，即使撤回可选授权，我们仍可能在必要范围内继续处理。
+Subject to applicable law, you may access, copy, correct, supplement, delete, restrict processing, withdraw consent, close your account and, where statutory conditions are met, request transfer of your personal information.
+The Platform should provide an accessible account-centre entry or process requests through a “Privacy Rights / Contact Us” channel. We may verify identity for security but will not impose unreasonable conditions unrelated to the request.
+Withdrawal of consent does not affect processing lawfully conducted before withdrawal. If certain information remains necessary for a service and another lawful basis applies, limited processing may continue as permitted by law.
+13. 账号注销 / Account Closure
+用户申请注销后，我们将核验身份并处理未完成订单、退款、争议和必要的安全事项。完成注销后，除法律法规要求保留的信息外，我们将删除或匿名化与账号直接关联的个人信息。
+注销入口不得设置不合理障碍，不得以必须线下到场、提供与注册无关的额外材料等方式无正当理由阻止注销。
+After a closure request, we verify identity and resolve outstanding orders, refunds, disputes and necessary security matters. Once closure is complete, personal information directly associated with the account will be deleted or anonymised except where retention is legally required.
+The closure process must not impose unreasonable barriers, such as unjustified in-person attendance or documents unrelated to account registration.
+14. 未成年人 / Minors
+OS NEO SMART主要面向具有企业业务需求的成年人和组织用户，不以不满十四周岁的未成年人为目标用户。
+如我们发现无适当监护人同意而处理了不满十四周岁未成年人的个人信息，将依法尽快删除或采取其他必要措施。如未来专门向未成年人提供服务，将制定专门个人信息处理规则。
+OS NEO SMART is primarily intended for adults and organisations with business needs and is not directed at children under 14.
+If we learn that we processed personal information of a child under 14 without appropriate guardian consent, we will delete it or take other necessary measures as required by law. If services are later specifically offered to minors, a dedicated child privacy rule will be adopted.
+15. 政策更新 / Updates to This Policy
+我们会根据法律法规、监管要求、数据处理活动或产品功能变化更新本政策。重大变更将以弹窗、公告、站内信或其他显著方式提示。
+如处理目的、方式、信息种类等发生变化且依法需要重新取得同意，我们将在新处理开始前重新取得同意。历史版本应保留以供查询。
+We may update this Policy due to changes in law, regulation, data processing or product functions. Material changes will be highlighted through pop-ups, notices, in-product messages or other prominent means.
+Where processing purpose, method or data category changes and renewed consent is legally required, we will obtain it before the new processing begins. Historical versions should be retained.
+16. 如何联系我们 / How to Contact Us
+个人信息处理者：杭州云境智展科技有限公司；网站：osneosmart.com。
+个人信息保护相关问题、权利申请、投诉或举报，请通过网站“隐私权利申请/联系我们/投诉与建议”页面公示的专用渠道提交。【上线前必须配置至少一个可长期使用的角色型邮箱，例如 privacy@企业域名，或等效工单入口，并在本政策页面展示。】
+我们将在核验身份后依法及时处理。复杂请求需要更多时间时，我们会说明原因和预计处理安排（以法律要求为准）。
+Personal-information processor: 杭州云境智展科技有限公司; Website: osneosmart.com.
+For privacy questions, rights requests, complaints or reports, use the dedicated channel published on the Website’s “Privacy Rights / Contact Us / Complaints & Feedback” page. [Before launch, configure at least one durable role-based email (for example, privacy@your-domain) or equivalent ticketing channel and display it on this page.]
+We will process valid requests promptly after identity verification in accordance with applicable law. For complex requests requiring additional time, we will explain the reason and handling arrangement as required by law.
+附录A：第三方信息共享清单——上线模板 / Appendix A: Third-Party Sharing List Template
+强制执行项此表不能用“示例供应商”直接上线。技术团队必须从前端代码、后端配置、云资源、支付、短信、邮件、AI/API、统计、客服、CDN、验证码等系统真实盘点后填写。
+
+第三方名称
+服务/目的
+涉及个人信息
+收集/提供方式
+隐私政策链接
+是否跨境/地区
+【按实际填写】
+云计算/短信/支付/统计/客服/AI等
+【按实际字段】
+SDK/API/服务端传输等
+【真实官方链接】
+是/否；如是写明地区与机制
+附录B：个人信息权利请求建议入口 / Appendix B: Rights Request Entry
+查阅/复制我的个人信息
+更正/补充个人信息
+删除个人信息
+撤回营销或个性化授权
+注销账号
+投诉/举报个人信息处理问题
+个人信息转移申请（符合法定条件时）
+法律依据与版本说明（技术/法务参考，不必展示在网站正文末尾）
+《中华人民共和国个人信息保护法》： HYPERLINK "https://www.npc.gov.cn/npc/c2/c30834/202108/t20210820_313088.html" \h 官方链接
+《网络数据安全管理条例》： HYPERLINK "https://www.cac.gov.cn/2024-09/30/c_1729384452307680.htm" \h 官方链接
+《个人信息保护合规审计管理办法》： HYPERLINK "https://www.cac.gov.cn/2025-02/14/c_1741233507681519.htm" \h 官方链接
+《促进和规范数据跨境流动规定》： HYPERLINK "https://www.cac.gov.cn/2024-03/22/c_1712776611775634.htm" \h 官方链接
+《中华人民共和国消费者权益保护法实施条例》： HYPERLINK "https://app.www.gov.cn/govdata/gov/202403/19/513111/article.html" \h 官方链接
+《中华人民共和国电子商务法》： HYPERLINK "https://www.samr.gov.cn/wljys/gzzd/art/2023/art_3e75434c954b4cb9bd14867dacff26d1.html" \h 官方链接
+说明：本文件按截至2026年8月29日公开有效的主要中国法律法规及OS NEO SMART业务场景整理。正式上线前应核对网站真实的数据流、第三方服务商、支付规则、主体登记信息及实际产品价格；如业务、法律或监管要求变化，应同步更新版本。

@@ -15,7 +15,7 @@ import { Search, ChevronDown } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, ToggleButton } from "@/shared/ui";
 import type { UseNoticeSearchReturn } from "../hooks/useNoticeSearch";
 
 export interface NoticeSearchBarProps {
@@ -62,6 +62,7 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           placeholder={t("procurement_searchPlaceholder")}
           dir="auto"
           leftIcon={<Search className="w-4 h-4" />}
+          data-testid="search-input"
         />
         <div className="flex items-center gap-2 min-w-0">
           <Select
@@ -77,18 +78,15 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             <option value="latest">{t("procurement_sortByLatest")}</option>
           </Select>
           {/* 移动端高级筛选展开/折叠按钮 */}
-          <button
-            type="button"
+          <ToggleButton
+            pressed={showAdvanced}
             onClick={() => setShowAdvanced((v) => !v)}
-            className={`lg:hidden shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all ${
-              showAdvanced
-                ? "border-teal-300 bg-teal-50 text-teal-700 shadow-sm ring-1 ring-teal-200"
-                : "border-slate-200 bg-slate-50 text-slate-500 hover:border-teal-300 hover:text-teal-600"
-            }`}
+            tone="teal"
+            className="lg:hidden shrink-0 px-3 py-2 text-xs font-bold"
           >
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
             {t("procurement_advancedFilter")}
-          </button>
+          </ToggleButton>
         </div>
       </div>
 
@@ -151,7 +149,6 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             locale={locale}
             placeholder={t("procurement_countryAll")}
             noResultsText={t("countryFilter_noResults")}
-            moreResultsText={t("countryFilter_moreResults")}
             className="w-full"
           />
           <Input

@@ -27,16 +27,19 @@ export function maskPhone(phone: string): string {
   return p.slice(0, 3) + "****" + p.slice(-4);
 }
 
-/** 根据输入格式智能识别验证渠道 */
-export function detectChannel(identifier: string): "email" | "sms" {
-  return /^1[3-9]\d{9}$/.test(identifier.trim()) ? "sms" : "email";
+/** 根据输入格式智能识别验证渠道：手机号 → sms，邮箱 → email，默认 sms */
+export function detectChannel(identifier: string): "sms" | "email" {
+  const trimmed = identifier.trim();
+  if (/^1[3-9]\d{9}$/.test(trimmed)) return "sms";
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "email";
+  return "sms"; // 默认短信渠道
 }
 
 export function useForgotPassword(onSuccess: () => void) {
   const { t } = useLocale();
 
   const [forgotStep, setForgotStep] = useState<1 | 2>(1);
-  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotIdentifier, setForgotIdentifier] = useState("");
   const [forgotCode, setForgotCode] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -46,7 +49,7 @@ export function useForgotPassword(onSuccess: () => void) {
 
   const reset = () => {
     setForgotStep(1);
-    setForgotEmail("");
+    setForgotIdentifier("");
     setForgotCode("");
     setForgotNewPassword("");
     setForgotError("");
@@ -60,9 +63,9 @@ export function useForgotPassword(onSuccess: () => void) {
     setForgotSuccess("");
     setShowSupportHint(false);
 
-    const identifier = forgotEmail.trim();
+    const identifier = forgotIdentifier.trim();
     if (!identifier) {
-      setForgotError(t("authForgotIdentifierInvalid") || "请输入邮箱或手机号");
+      setForgotError(t("authForgotIdentifierInvalid") || "请输入手机号或邮箱");
       return;
     }
 
@@ -85,7 +88,7 @@ export function useForgotPassword(onSuccess: () => void) {
       // 双轨制退役（轨道C）：统一走 api()；非 2xx 抛 ApiError（message = 服务端 error 字段）
       const data = await api<{ sms_sent?: boolean; email_sent?: boolean; support_hint?: string | null }>(
         "/api/auth/forgot-password",
-        { method: "POST", body: { email: identifier, channel } },
+        { method: "POST", body: { identifier, channel } },
       );
       if (channel === "sms") {
         if (data.sms_sent === false) {
@@ -125,7 +128,7 @@ export function useForgotPassword(onSuccess: () => void) {
       return;
     }
 
-    const identifier = forgotEmail.trim();
+    const identifier = forgotIdentifier.trim();
     const channel = detectChannel(identifier);
 
     setForgotLoading(true);
@@ -134,7 +137,7 @@ export function useForgotPassword(onSuccess: () => void) {
       await api("/api/auth/reset-password", {
         method: "POST",
         body: {
-          email: identifier,
+          identifier,
           channel,
           code: forgotCode.trim(),
           new_password: forgotNewPassword,
@@ -152,8 +155,8 @@ export function useForgotPassword(onSuccess: () => void) {
     t,
     forgotStep,
     setForgotStep,
-    forgotEmail,
-    setForgotEmail,
+    forgotIdentifier,
+    setForgotIdentifier,
     forgotCode,
     setForgotCode,
     forgotNewPassword,

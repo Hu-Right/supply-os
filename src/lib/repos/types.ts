@@ -22,8 +22,12 @@ export interface UserRow {
   email_verified: number;
   membership_tier: string;
   account_status: string;
+  user_type: string; // 'personal' | 'enterprise'
   supplier_id: number | null;
   supplier_link_status: string;
+  referral_code: string | null;
+  referral_employee_id: number | null;
+  qualification_id: number | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -126,3 +130,4 @@ export interface UnlockRow {
 export interface CountRow {
   total: number;
 }
+

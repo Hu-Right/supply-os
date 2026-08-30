@@ -6,6 +6,7 @@
  */
 import { ArrowRight, ArrowUpCircle, Check } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
 import { PLAN_CONFIG, ORIGINAL_PRICES, formatQuota, splitDescription, getPlanFeatures } from "../utils";
 
@@ -37,6 +38,7 @@ export function PlanCard({
     <div
       key={plan.plan_code}
       className="group relative flex flex-col rounded-2xl bg-white/80 backdrop-blur-xl border-2 border-slate-200/80 shadow-lg transition-all duration-300 hover:shadow-2xl hover:shadow-teal-200/50 hover:border-teal-400 hover:-translate-y-2 hover:bg-white"
+      data-testid="plan-card"
     >
       <div className="flex-1 flex flex-col p-6">
         <div className="flex items-start gap-3 mb-4">
@@ -111,14 +113,15 @@ export function PlanCard({
 
       <div className="px-6 pb-6 pt-0">
         {isUpgradeTarget ? (
-          <button
+          <Button
             type="button"
+            variant="accent"
             onClick={() => onUpgrade?.(plan)}
-            className="w-full rounded-xl py-3 text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full rounded-xl py-3 text-xs shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer"
           >
             <ArrowUpCircle className="w-3.5 h-3.5" />
             {t("upgradeBtn")} {plan.currency === "CNY" ? "¥" : "$"}{priceDiff.toLocaleString()}
-          </button>
+          </Button>
         ) : hasUpgradeablePlan ? (
           <div className="w-full rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/60 py-3 text-center">
             <span className="text-xs font-bold text-emerald-700 inline-flex items-center gap-1.5">
@@ -127,14 +130,15 @@ export function PlanCard({
             </span>
           </div>
         ) : (
-          <button
+          <Button
             type="button"
+            variant="cta"
             onClick={() => onBuy(plan)}
-            className="w-full rounded-xl py-3 text-xs font-bold bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:from-teal-600 hover:to-emerald-600 shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full rounded-xl py-3 text-xs shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer"
           >
             {t("membershipBuyNow")}
             <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         )}
       </div>
     </div>

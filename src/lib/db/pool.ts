@@ -9,7 +9,6 @@
 import "server-only";
 import mysql2 from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
-import { EventEmitter } from "events";
 
 const globalForDb = globalThis as unknown as { _pool: Pool | undefined };
 
@@ -42,18 +41,9 @@ export function getPool(): Pool {
     queueLimit: 0,
   });
 
-  const emitter = pool as unknown as EventEmitter;
-  emitter.on("error", (err: Error) => {
-    console.error("[db-pool] 连接池错误:", err.message);
-  });
-  emitter.on("acquire", () => {
-    if (process.env.DB_DEBUG === "1") console.log("[db-pool] 连接已获取");
-  });
-  emitter.on("release", () => {
-    if (process.env.DB_DEBUG === "1") console.log("[db-pool] 连接已释放");
-  });
-
-  // 非生产环境缓存到 globalThis（热重载时复用）
-  if (process.env.NODE_ENV !== "production") globalForDb._pool = pool;
+  // 连接级错误通过查询 promise 冒泡，无需（也无法）在 PromisePool 上监听 error 事件
+  // globalThis 单例缓存（dev 与生产共用）：Next.js 模块可能被多次实例化，
+  // 不缓存会导致每次 getPool() 新建一个连接池且永不回收，耗尽 MySQL 连接
+  globalForDb._pool = pool;
   return pool;
 }

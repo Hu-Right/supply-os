@@ -1,15 +1,29 @@
 /**
- * POST /api/auth/login — 登录（邮箱/手机号 + 密码）
+ * POST /api/auth/login — 登录（手机号/邮箱 + 密码）
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/lib/services/auth";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 export async function POST(req: NextRequest) {
-  const { email, password } = await req.json();
-  const identifier = String(email || "").trim();
-  const isPhoneLogin = /^1[3-9]\d{9}$/.test(identifier);
+  const body = await req.json();
+  const identifier = String(body.identifier || "").trim();
+  const password = String(body.password || "");
+
+  if (!identifier) {
+    return NextResponse.json({ code: 40011, message: "请输入手机号或邮箱" }, { status: 400 });
+  }
+
+  // 限流（审查 F11）：IP 与账号双维度，防密码爆破/撞库
+  const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 30 },
+    (r) => `login-ip:${extractClientIp(r)}`);
+  if (rlIp) return rlIp;
+  const rlAccount = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 10 },
+    () => `login-acct:${identifier.toLowerCase()}`);
+  if (rlAccount) return rlAccount;
 
   const ctx = getContext();
   const usersRepo = ctx.user.usersRepo;
@@ -17,12 +31,7 @@ export async function POST(req: NextRequest) {
   const membershipRepo = ctx.user.membershipRepo;
   const registrationRepo = ctx.supplier.registrationRepo;
 
-  let user: any = null;
-  if (isPhoneLogin) {
-    user = await usersRepo.findByPhone(identifier);
-  } else {
-    user = await usersRepo.findAuthByKey(identifier.toLowerCase());
-  }
+  const user = await usersRepo.findAuthByIdentifier(identifier);
 
   const hashType = user?.password_hash_type ?? "sha256";
   if (!user || !user.password_hash) {

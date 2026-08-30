@@ -66,7 +66,7 @@ export function FormModal({
       {/* 深色头部：负边距撑满 Modal 内边距 */}
       <div
         className={cn(
-          "bg-slate-900 text-white p-4 flex justify-between rounded-t-2xl",
+          "bg-secondary-900 text-white p-4 flex justify-between rounded-t-2xl",
           "-mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-4 md:mb-6",
           headerAlign === "start" ? "items-start" : "items-center",
           headerClassName,
@@ -76,13 +76,13 @@ export function FormModal({
           {headerExtra}
           <h3 className="text-base font-extrabold">{title}</h3>
           {subtitle && (
-            <p className="text-[10px] text-slate-400 mt-1">{subtitle}</p>
+            <p className="text-[10px] text-secondary-400 mt-1">{subtitle}</p>
           )}
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="text-slate-400 hover:text-white"
+          className="text-secondary-400 hover:text-white"
         >
           <X className="w-5 h-5" />
         </button>

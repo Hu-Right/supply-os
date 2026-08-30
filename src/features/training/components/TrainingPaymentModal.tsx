@@ -9,6 +9,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
+import { Button, SelectableCard } from "@/shared/ui";
 import { PaymentModalCore } from "@/features/payment";
 import {
   createTrainingOrder,
@@ -196,15 +197,12 @@ export default function TrainingPaymentModal({
                 {openSchedules.map((s) => {
                   const isSelected = s.id === selectedScheduleId;
                   return (
-                    <button
+                    <SelectableCard
                       key={s.id}
-                      type="button"
+                      selected={isSelected}
                       onClick={() => setSelectedScheduleId(s.id)}
-                      className={`flex w-full items-center justify-between rounded-xl border-2 p-3 text-left transition-all ${
-                        isSelected
-                          ? "border-red-500 bg-red-50 cursor-pointer"
-                          : "border-slate-200 bg-white hover:border-slate-300 cursor-pointer"
-                      }`}
+                      variant="brand"
+                      className="flex items-center justify-between p-3"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900">
@@ -217,7 +215,7 @@ export default function TrainingPaymentModal({
                       <span className="ml-3 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         {t("tlPaymentScheduleStatusOpen")}
                       </span>
-                    </button>
+                    </SelectableCard>
                   );
                 })}
               </div>
@@ -228,21 +226,27 @@ export default function TrainingPaymentModal({
           <div>
             <p className="mb-2 text-sm font-bold text-slate-700">{t("tlPaymentParticipants")}</p>
             <div className="flex items-center gap-3">
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => setParticipantCount((c) => Math.max(1, c - 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                aria-label={t("tlPaymentParticipants")}
+                className="text-lg font-bold text-slate-600"
               >
                 -
-              </button>
+              </Button>
               <span className="w-10 text-center text-lg font-black text-slate-900">{participantCount}</span>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="icon"
                 onClick={() => setParticipantCount((c) => Math.min(20, c + 1))}
-                className="h-9 w-9 rounded-lg border border-slate-200 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                aria-label={t("tlPaymentParticipants")}
+                className="text-lg font-bold text-slate-600"
               >
                 +
-              </button>
+              </Button>
             </div>
           </div>
         }

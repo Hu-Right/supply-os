@@ -11,6 +11,7 @@
 import { useState, Fragment, useMemo } from "react";
 import { Check, X, Filter } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { ToggleButton } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
 
 interface PlanComparisonTableProps {
@@ -51,7 +52,7 @@ function getPlanTier(planCode: string): string {
 /**
  * 增值服务特性定义
  * annual_basic: 年度会员基础版（annual_8800）— 仅有外贸交流群 + 专属客服
- * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 合同签约
+ * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 企业合同/对公/发票
  */
 const ADDITIONAL_SERVICES: { key: string; labelKey: string; tiers: Record<string, boolean> }[] = [
   {
@@ -186,17 +187,14 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
             {t("membershipComparisonTitle")}
           </span>
         </div>
-        <button
-          type="button"
+        <ToggleButton
+          pressed={showDiffOnly}
           onClick={() => setShowDiffOnly(!showDiffOnly)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            showDiffOnly
-              ? "bg-amber-100/80 text-amber-700 border border-amber-200/60"
-              : "bg-white/80 text-slate-500 border border-slate-200/60 hover:bg-slate-50"
-          }`}
+          tone="amber"
+          className="py-1.5 text-xs font-semibold"
         >
           {t("membershipComparisonShowDiffOnly")}
-        </button>
+        </ToggleButton>
       </div>
 
       <div className="overflow-x-auto">

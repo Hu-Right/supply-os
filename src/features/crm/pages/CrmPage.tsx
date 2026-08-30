@@ -16,6 +16,7 @@ import { StatsCards } from "../components/StatsCards";
 import { OpportunityList } from "../components/OpportunityList";
 import { AiMatchmaker } from "../components/AiMatchmaker";
 import { LeadTracker } from "../components/LeadTracker";
+import { DigitalAssistant } from "../components/DigitalAssistant/DigitalAssistant";
 
 export default function CrmPage() {
   const { t } = useLocale();
@@ -133,6 +134,13 @@ export default function CrmPage() {
           />
         </div>
       </div>
+
+      {/* 数字人客服 — 浮动层，不影响布局 */}
+      <DigitalAssistant
+        leadCount={leads.length}
+        activeLeadCount={leads.filter(l => l.status !== "lost").length}
+        suppliers={totalSuppliersList}
+      />
     </div>
   );
 }

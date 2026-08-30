@@ -11,7 +11,9 @@ export type PaymentProviderName = "alipay" | "wechat" | "mock";
 
 export type PaymentMode = "mock" | "live";
 
-export type PaymentOrderStatus = "pending" | "paid" | "closed" | "failed";
+// expired 为真实终态：培训订单 30 分钟本地过期后查询会返回 expired
+// （src/lib/services/training-payment.ts queryTrainingOrderStatus）
+export type PaymentOrderStatus = "pending" | "paid" | "closed" | "failed" | "expired";
 
 export type PlatformEnv = "wechat" | "browser" | "app";
 

@@ -20,9 +20,9 @@ import { useSearchQuery } from "./search/useSearchQuery";
 import { useSearchActions } from "./search/useSearchActions";
 import { useSearchResults } from "./search/useSearchResults";
 // N7 收敛（2026-08-20）：PAGE_SIZE 统一从 ../constants 导入
-import { PAGE_SIZE } from "../constants";
+import { NOTICE_PAGE_SIZE } from "../constants";
 
-export { PAGE_SIZE };
+export { NOTICE_PAGE_SIZE };
 
 export interface UseNoticeSearchOptions {
   userKey: string | undefined;

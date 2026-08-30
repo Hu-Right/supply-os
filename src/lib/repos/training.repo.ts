@@ -53,6 +53,7 @@ export interface TrainingOrderRow extends RowDataPacket {
   provider_trade_no: string | null;
   paid_at: Date | null;
   expires_at: Date;
+  user_key: string | null;
 }
 
 export interface InstructorRow extends RowDataPacket {
@@ -143,6 +144,7 @@ export interface CreateTrainingOrderData {
   expiresAt: Date;
   contactName: string | null;
   telephone: string | null;
+  userKey: string | null;
 }
 
 export class TrainingRepo {
@@ -225,6 +227,15 @@ export class TrainingRepo {
     return rows as ScheduleRow[];
   }
 
+  /** 查询单个期次（下单容量校验用，审查 F25） */
+  async findScheduleById(scheduleId: number): Promise<ScheduleRow | null> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM training_schedules WHERE id = ? LIMIT 1",
+      [scheduleId],
+    );
+    return (rows as ScheduleRow[])[0] ?? null;
+  }
+
   /** 支付成功后递增期次报名人数 */
   async incrementEnrolledCount(scheduleId: number, delta = 1): Promise<void> {
     await this.pool.execute(
@@ -238,13 +249,13 @@ export class TrainingRepo {
     const [result] = await this.pool.execute(
       `INSERT INTO training_orders
         (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_key, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
       [
         data.orderNo, data.courseId, data.scheduleId, data.registrationId,
         data.participantCount, data.unitPrice, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
-        data.contactName, data.telephone,
+        data.contactName, data.telephone, data.userKey,
       ],
     );
     return Number((result as RowDataPacket).insertId);
@@ -321,12 +332,19 @@ export class TrainingRepo {
     );
   }
 
-  /** 事务内递增期次报名人数 */
-  async incrementEnrolledCountInTransaction(conn: PoolConnection, scheduleId: number, delta = 1): Promise<void> {
-    await conn.execute(
-      "UPDATE training_schedules SET enrolled_count = enrolled_count + ? WHERE id = ?",
-      [delta, scheduleId],
+  /**
+   * 事务内递增期次报名人数（审查 F25）：
+   * 带容量护栏（capacity 为 NULL 视为不限），返回受影响行数——
+   * 0 表示名额已被并发占满，调用方必须回滚并转人工
+   */
+  async incrementEnrolledCountInTransaction(conn: PoolConnection, scheduleId: number, delta = 1): Promise<number> {
+    const [result] = await conn.execute(
+      `UPDATE training_schedules
+       SET enrolled_count = enrolled_count + ?
+       WHERE id = ? AND (capacity IS NULL OR enrolled_count + ? <= capacity)`,
+      [delta, scheduleId, delta],
     );
+    return Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
 
   /** 查询核心讲师（featured 大卡片） */
@@ -422,18 +440,6 @@ export class TrainingRepo {
     const [rows] = await this.pool.execute(
       "SELECT * FROM training_participants WHERE order_id = ? ORDER BY participant_no ASC",
       [orderId]
-    );
-    return rows as ParticipantRow[];
-  }
-
-  /** 通过订单号查询学员信息 */
-  async getParticipantsByOrderNo(orderNo: string): Promise<ParticipantRow[]> {
-    const [rows] = await this.pool.execute(
-      `SELECT tp.* FROM training_participants tp
-       INNER JOIN training_orders to ON to.id = tp.order_id
-       WHERE to.order_no = ?
-       ORDER BY tp.participant_no ASC`,
-      [orderNo]
     );
     return rows as ParticipantRow[];
   }

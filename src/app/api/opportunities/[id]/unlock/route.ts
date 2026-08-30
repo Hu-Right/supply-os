@@ -1,12 +1,15 @@
 /**
- * POST /api/opportunities/:id/unlock — 商机解锁（带限流 + entitlement 校验）
+ * POST /api/opportunities/:id/unlock — 商机解锁（限流 + 事务化配额消耗）
+ *
+ * 解锁编排收敛到 executeOpportunityUnlock（审查报告 F10）：配额消耗与
+ * 解锁记录同事务，FOR UPDATE 防并发超卖，免费额度事务内复核。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
-import { persistUserInterestCodes } from "@/lib/services/unspsc/interest";
+import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 
 const ApiErrorCode = {
   FREE_LIMIT_REACHED: 41001,
@@ -45,30 +48,32 @@ export async function POST(
     price = Number(singlePlan?.price || 0);
   }
 
-  const existing = await oppsRepo.findExistingUnlock(auth.userKey, opportunityId);
-  if (existing) return NextResponse.json({ success: true, alreadyUnlocked: true });
-
-  if (unlockType === "free") {
-    const freeQuota = await membershipRepo.getFreeQuota();
-    if (await membershipRepo.countFreeUnlocks(auth.userKey) >= freeQuota) {
-      return sendError("免费查看次数已用完", 402, ApiErrorCode.FREE_LIMIT_REACHED);
-    }
-  }
-
-  if (unlockType === "subscription" || unlockType === "single") {
-    const activeEntitlements = await membershipRepo.findActiveEntitlements(auth.userKey);
-    if (activeEntitlements.length === 0) {
-      return sendError("付费查看次数已用完，请开通会员", 402, ApiErrorCode.PAID_QUOTA_REQUIRED);
-    }
-  }
-
   const opp = await oppsRepo.findById(opportunityId);
   if (!opp) return sendError("机会不存在", 404, ApiErrorCode.OPPORTUNITY_NOT_FOUND);
   const snapshot = normalizeUnspscCodes(opp.unspsc_codes);
 
-  await oppsRepo.insertUnlock({ userKey: auth.userKey, opportunityId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot) });
-  await oppsRepo.incrementUnlockCount(opportunityId);
-  await persistUserInterestCodes(dbPool, auth.userKey, snapshot, "unlock_order", 2.50).catch(() => {});
-
-  return NextResponse.json({ success: true, unlock_type: unlockType }, { status: 201 });
+  try {
+    const result = await executeOpportunityUnlock(
+      { dbPool, opportunitiesRepo: oppsRepo, membershipRepo },
+      {
+        userKey: auth.userKey,
+        opportunityId,
+        unlockType,
+        price,
+        snapshotJson: JSON.stringify(snapshot),
+      },
+    );
+    if (result.alreadyUnlocked) {
+      return NextResponse.json({ success: true, alreadyUnlocked: true });
+    }
+    return NextResponse.json({ success: true, unlock_type: unlockType }, { status: 201 });
+  } catch (err) {
+    if (err instanceof OpportunityUnlockError) {
+      if (err.code === "FREE_LIMIT_REACHED") {
+        return sendError("免费查看次数已用完", 402, ApiErrorCode.FREE_LIMIT_REACHED);
+      }
+      return sendError("付费查看次数已用完，请开通会员", 402, ApiErrorCode.PAID_QUOTA_REQUIRED);
+    }
+    throw err;
+  }
 }

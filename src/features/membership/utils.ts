@@ -26,6 +26,9 @@ export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }>
 /** 套餐原价映射（用于展示首单优惠等促销信息） */
 export const ORIGINAL_PRICES: Record<string, number> = {
   annual_799: 1999,
+  // 首单特惠（2026-08-30）：99 元首单价展示 199 划线价；资格不符的登录用户
+  // 由 MembershipPage 直接过滤该卡片，服务端 PaymentService 双重校验
+  single_99: 199,
 };
 
 /**

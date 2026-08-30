@@ -12,6 +12,25 @@ import type { AuthUser } from "@/types/auth";
 export type { AuthUser };
 
 /**
+ * 注册参数选项
+ * #ARCH-004: 替代原 8 个位置参数，消除传参顺序错误风险
+ */
+export interface RegisterOptions {
+  email?: string | null;
+  password: string;
+  displayName?: string;
+  claim?: SupplierClaimForm;
+  verifyCode?: string;
+  invitationCode?: string;
+  userType?: string;
+  phone?: string;
+  /** 用户同意的协议版本号（如 "V1.0"），用于审计追踪 */
+  agreementVersion?: string;
+  /** 用户同意协议的时间（ISO 8601），用于审计追踪 */
+  agreementAcceptedAt?: string;
+}
+
+/**
  * 供应商绑定申请表单
  * Supplier Claim Application Form
  */
@@ -36,10 +55,10 @@ export interface AuthContextValue {
   authReady: boolean;
   /** 认证操作加载中（登录/注册/刷新） */
   isAuthLoading: boolean;
-  /** 登录（支持邮箱或手机号） */
-  login: (identifier: string, password: string) => Promise<void>;
-  /** 注册（含供应商绑定申请，需邮箱验证码） */
-  register: (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => Promise<void>;
+  /** 登录（仅手机号） */
+  login: (phone: string, password: string) => Promise<void>;
+  /** 注册（options 对象模式，消除位置参数顺序依赖） */
+  register: (options: RegisterOptions) => Promise<void>;
   /** 登出 */
   logout: () => void;
   /** 刷新认证状态 */
@@ -51,7 +70,7 @@ export interface AuthContextValue {
   /** 设置供应商绑定申请消息 */
   setClaimMessage: (msg: string) => void;
   /** 发送找回密码验证码，返回邮件发送状态 */
-  sendResetCode: (email: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
+  sendResetCode: (identifier: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
   /** 重置密码（验证码+新密码），成功后自动登录 */
-  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
+  resetPassword: (identifier: string, code: string, newPassword: string) => Promise<void>;
 }

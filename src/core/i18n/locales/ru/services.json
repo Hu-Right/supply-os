@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "напр. Иван Иванов",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "напр. Мы производим медицинскую упаковку и нуждаемся в руководстве UN Level 1.",
-  "formRequired": "Пожалуйста, заполните это поле"
+  "formRequired": "Пожалуйста, заполните это поле",
+  "formSubmitFailed": "Не удалось отправить, попробуйте позже"
 }

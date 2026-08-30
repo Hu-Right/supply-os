@@ -52,6 +52,11 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 
+# nodejieba 词典文件（standalone 不会自动复制原生模块的 dict 资源，
+# 缺失时 Meilisearch 全量重建触发 nodejieba 分词 → FATAL 崩溃）
+COPY --from=build /app/node_modules/nodejieba/submodules/cppjieba/dict \
+  ./node_modules/nodejieba/submodules/cppjieba/dict
+
 # ── 环境变量默认值 ──
 ENV NODE_ENV=production \
     PORT=3039

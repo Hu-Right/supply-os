@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
@@ -27,7 +28,19 @@ export default function MembershipPage() {
   const { authUser, isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+  const { plans: allPlans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+
+  // 单次解锁卡是同一商品的两档价（2026-08-30）：互斥显示一张卡——
+  // 未登录或首单资格命中 → single_99（带 199 划线价首单角标）；
+  // 登录且资格不符 → 仅 single_199 标准卡；登录但资格标记缺失（缓存时序）→ 按 199 兜底。
+  // 修复：此前 99/199 两卡并排展示，与"同一商品两档价"的产品语义不符。
+  const plans = (() => {
+    const s99 = allPlans.find((p) => p.plan_code === "single_99");
+    const s199 = allPlans.find((p) => p.plan_code === "single_199");
+    if (!s99 || !s199) return allPlans;
+    const showFirstPrice = authUser ? s99.first_purchase_eligible === true : true;
+    return allPlans.filter((p) => p.plan_code !== (showFirstPrice ? "single_199" : "single_99"));
+  })();
 
   // ── 升级弹窗状态 ──
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -131,20 +144,21 @@ export default function MembershipPage() {
                 <AlertCircle className="w-8 h-8 text-red-600" />
               </div>
               <p className="text-slate-600 text-lg mb-2">{error}</p>
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() => window.location.reload()}
-                className="text-sm text-teal-600 hover:text-teal-700 font-medium cursor-pointer"
+                className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
               >
                 重新加载
-              </button>
+              </Button>
             </div>
           ) : plans.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
             </div>
           ) : (
-            <div className={`grid ${gridCols} gap-5`}>
+            <div className={`grid ${gridCols} gap-5`} data-testid="plan-list">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.plan_code}

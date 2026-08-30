@@ -49,6 +49,17 @@
  *              039-training-schedule-seed         研修班期次种子数据
  *              040-training-participants-add-email 学员表补全邮箱列
  *              041-supplier-qualification           供应商国际招投标能力初筛表
+ *              042-crm-chat-sessions                 CRM数字人客服会话与消息表
+ *              043-invitation-codes                   邀请码与员工业绩追踪
+ *              044-full-team-seed                     全员种子数据+预生成邀请码
+ *              045-user-registration-type             用户注册类型区分（个人/企业）
+ *              046-phone-unique-index                 手机号唯一索引
+ *              047-learning-material-purchases        学习资料购买记录表
+ *              048-learning-materials                 学习资料表+种子数据
+ *              049-evaluation-unification              企业注册数据流归一化(统一评估表)
+ *              050-kpi-split-personal-enterprise       KPI个人/企业注册拆分
+ *              051-kpi-monthly-restructure             KPI月度化重构
+ *              052-training-orders-user-key            培训订单user_key+报名表支付状态列补全
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -93,6 +104,23 @@ import { migration as m038 } from "./migrations/038-training-participants";
 import { migration as m039 } from "./migrations/039-training-schedule-seed";
 import { migration as m040 } from "./migrations/040-training-participants-add-email";
 import { migration as m041 } from "./migrations/041-supplier-qualification";
+import { migration as m042 } from "./migrations/042-crm-chat-sessions";
+import { migration as m043 } from "./migrations/043-invitation-codes";
+import { migration as m044 } from "./migrations/044-full-team-seed";
+import { migration as m045 } from "./migrations/045-user-registration-type";
+import { migration as m046 } from "./migrations/046-phone-unique-index";
+import { migration as m047 } from "./migrations/047-learning-material-purchases";
+import { migration as m048 } from "./migrations/048-learning-materials";
+import { migration as m049 } from "./migrations/049-evaluation-unification";
+import { migration as m050 } from "./migrations/050-kpi-split-personal-enterprise";
+import { migration as m051 } from "./migrations/051-kpi-monthly-restructure";
+import { migration as m052 } from "./migrations/052-training-orders-user-key";
+import { migration as m053 } from "./migrations/053-training-download-stats";
+import { migration as m054 } from "./migrations/054-membership-plans-seed";
+import { migration as m055 } from "./migrations/055-agency-aliases-seed";
+import { migration as m056 } from "./migrations/056-membership-contract-invoice-copy";
+import { migration as m057 } from "./migrations/057-payment-order-refunded-enum";
+import { migration as m058 } from "./migrations/058-free-trial-removal-and-single-first-promo";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -101,7 +129,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041,
+  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058,
 ];
 
 /**

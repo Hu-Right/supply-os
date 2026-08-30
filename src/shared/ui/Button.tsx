@@ -18,17 +18,26 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-teal-600 text-white hover:bg-teal-700 focus-visible:ring-teal-600",
-        dark: "bg-slate-900 text-white hover:bg-slate-800 focus-visible:ring-slate-600",
-        secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200 focus-visible:ring-slate-400",
-        ghost: "bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-slate-400",
-        outline: "border border-slate-200 bg-transparent text-slate-500 hover:bg-slate-50 focus-visible:ring-slate-400",
-        danger: "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600",
+        primary: "bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-600",
+        dark: "bg-secondary-900 text-white hover:bg-secondary-800 focus-visible:ring-secondary-600",
+        secondary: "bg-secondary-100 text-secondary-900 hover:bg-secondary-200 focus-visible:ring-secondary-400",
+        ghost: "bg-transparent text-secondary-700 hover:bg-secondary-100 focus-visible:ring-secondary-400",
+        outline: "border border-secondary-200 bg-transparent text-secondary-500 hover:bg-secondary-50 focus-visible:ring-secondary-400",
+        danger: "bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-danger-600",
+        // 醒目行动点（客服/升级提示等 amber 场景）
+        accent: "bg-accent-500 text-white hover:bg-accent-600 focus-visible:ring-accent-500",
+        // 营销转化 CTA（teal 渐变，AI 匹配/升级确认等核心转化按钮）
+        cta: "bg-gradient-to-tr from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 focus-visible:ring-primary-500",
+        // 文字链按钮（shadcn link 标准形态；配合 size="sm" + className="px-0" 可做纯链接）
+        link: "bg-transparent text-primary-700 underline-offset-4 hover:underline focus-visible:ring-primary-500",
       },
       size: {
         sm: "px-3 py-1.5 text-xs",
         md: "px-4 py-2.5 text-sm",
         lg: "px-6 py-3 text-base",
+        // 图标按钮（shadcn 标准方形，必须配 aria-label）
+        icon: "h-9 w-9 p-0",
+        iconSm: "h-7 w-7 p-0 min-h-[44px] min-w-[44px]",
       },
     },
     defaultVariants: {

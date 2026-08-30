@@ -4,7 +4,7 @@
   "unlockedPremium": "[Premium Exclusive Content] Unlocked. Enjoy your study!",
   "lockedPremium": "This file is for [Premium Members Only]. You are a Guest. Upgrade now to unlock thousands of tender files.",
   "upgradeToVip": "Upgrade to Premium Gold Membership with 1-Click",
-  "downloadBtn": "Download File (Simulation)",
+  "downloadBtn": "Download Material",
   "hasDownloaded": "File downloaded successfully in simulated environment.",
   "alreadyVip": "You are currently a Gold Premium Member! Enjoy access to all regulatory checklists & bidding dossiers.",
   "trainingPageTitle": "UN Procurement Bidding Practice & Capacity Building Workshop",
@@ -56,5 +56,8 @@
   "learningSectionDesc": "Bid templates, compliance guides, procurement cases and member resources for continuous learning.",
   "learningDownloadCount": "Downloaded: {num} times",
   "learningSummary": "Summary",
-  "learningCoreContent": "Core Content"
+  "learningCoreContent": "Core Content",
+  "buyMaterialBtn": "Buy Material",
+  "learningBundleTitle": " Bundle Discount Purchase",
+  "learningContentLocked": "Purchase to unlock full content and download"
 }

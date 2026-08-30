@@ -93,7 +93,7 @@ export function AppHeader({
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
-              aria-label={mobileMenuOpen ? "关闭菜单" : "打开菜单"}
+              aria-label={mobileMenuOpen ? t("uiMenuClose") : t("uiMenuOpen")}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>

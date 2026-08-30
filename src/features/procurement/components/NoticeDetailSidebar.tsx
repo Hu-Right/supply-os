@@ -55,13 +55,14 @@ export function NoticeDetailSidebar({
   // truncate 生效 + 文案包裹 truncate span；桌面端保持原样（flex-1 在非 flex 容器无副作用）
   const actionButtons = (
     <>
-      <button
+      <Button
         onClick={() => onExpressInterest(notice, "interested")}
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-blue-600 text-white text-sm max-[900px]:text-xs font-black hover:bg-blue-700"
+        variant="primary"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs py-2.5 font-black"
       >
         <Heart className="w-4 h-4 shrink-0" />
         <span className="truncate">{t("procurement_interested")}</span>
-      </button>
+      </Button>
       <Button
         onClick={() => onExpressInterest(notice, "subscribed")}
         variant="dark"
@@ -70,9 +71,10 @@ export function NoticeDetailSidebar({
         <Bell className="w-4 h-4 shrink-0 text-amber-300" />
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
       </Button>
-      <button
+      <Button
         onClick={() => onUnlock(notice)}
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 inline-flex items-center justify-center gap-2 max-[900px]:gap-1.5 px-4 max-[900px]:px-2 py-2.5 rounded-lg bg-teal-100 text-teal-800 text-sm max-[900px]:text-xs font-black hover:bg-teal-200"
+        variant="secondary"
+        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs py-2.5 font-black text-teal-800"
       >
         <Lock className="w-4 h-4 shrink-0" />
         <span className="truncate">
@@ -82,7 +84,7 @@ export function NoticeDetailSidebar({
               ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
               : t("procurement_freeUsedUp")}
         </span>
-      </button>
+      </Button>
     </>
   );
 
@@ -111,13 +113,14 @@ export function NoticeDetailSidebar({
 
       {/* 非VIP用户显示"查看套餐"按钮，跳转到会员套餐详情页面 */}
       {!isVip && (
-        <button
+        <Button
           onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 text-sm font-black hover:bg-amber-100 transition-colors"
+          variant="outline"
+          className="w-full rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 py-3 font-black hover:bg-amber-100"
         >
           <ExternalLink className="w-4 h-4" />
           {t("procurement_viewPlans")}
-        </button>
+        </Button>
       )}
     </aside>
   );

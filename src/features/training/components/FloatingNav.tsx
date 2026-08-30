@@ -7,6 +7,7 @@
  *              始终可见，不随页面滚动消失。保留所有锚点跳转和按钮功能。
  */
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import {
   BookOpen,
   FileText,
@@ -45,18 +46,19 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
       >
         {/* 锚点链接 */}
         {ANCHORS.map(({ id, labelKey, icon: Icon }) => (
-          <button
+          <Button
             key={id}
             type="button"
+            variant="ghost"
             onClick={() => go(id)}
-            className="group flex items-center gap-2 rounded-xl px-2.5 py-2 text-slate-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+            className="group gap-2 rounded-xl px-2.5 py-2 text-slate-300 hover:bg-white/10 hover:text-white cursor-pointer"
             title={t(labelKey)}
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span className="text-xs font-medium whitespace-nowrap">
               {t(labelKey)}
             </span>
-          </button>
+          </Button>
         ))}
 
         {/* 分割线 */}
@@ -74,15 +76,16 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         </button>
 
         {/* 咨询顾问 */}
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onConsult}
-          className="flex items-center gap-2 rounded-xl border border-white/20 px-2.5 py-2 text-slate-200 hover:bg-white/10 transition-colors cursor-pointer"
+          className="gap-2 rounded-xl border-white/20 px-2.5 py-2 text-slate-200 hover:bg-white/10 cursor-pointer"
           title={t("tlNavConsult")}
         >
           <Headphones className="w-4 h-4 shrink-0" />
           <span className="text-xs font-bold whitespace-nowrap">{t("tlNavConsult")}</span>
-        </button>
+        </Button>
       </nav>
 
       {/* ── 移动端：底部水平导航栏 ── */}
@@ -93,15 +96,16 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         <div className="flex items-center justify-around px-1 py-1.5">
           {/* 锚点链接 */}
           {ANCHORS.map(({ id, labelKey, icon: Icon }) => (
-            <button
+            <Button
               key={id}
               type="button"
+              variant="ghost"
               onClick={() => go(id)}
-              className="flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-slate-400 hover:text-white active:bg-white/10 transition-colors cursor-pointer min-w-0"
+              className="flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-slate-400 hover:bg-transparent hover:text-white active:bg-white/10 cursor-pointer min-w-0"
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="text-[10px] font-medium truncate max-w-full">{t(labelKey)}</span>
-            </button>
+            </Button>
           ))}
 
           {/* 立即报名 */}
@@ -115,14 +119,15 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
           </button>
 
           {/* 咨询顾问 */}
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onConsult}
-            className="flex flex-col items-center gap-0.5 rounded-lg border border-white/20 px-2 py-1 text-slate-300 active:bg-white/10 transition-colors cursor-pointer min-w-0"
+            className="flex-col items-center gap-0.5 rounded-lg border-white/20 px-2 py-1 text-slate-300 hover:bg-transparent active:bg-white/10 cursor-pointer min-w-0"
           >
             <Headphones className="w-4 h-4 shrink-0" />
             <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavConsult")}</span>
-          </button>
+          </Button>
         </div>
       </nav>
     </>

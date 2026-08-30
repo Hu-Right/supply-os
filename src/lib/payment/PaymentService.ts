@@ -9,16 +9,38 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
+import type { LearningMaterialsRepo } from "../repos/learning-materials.repo";
+import { findLearningBundle } from "../data/learning-bundles";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
-import { activatePaidOrder } from "./fulfillment";
+import { activatePaidOrder, reverseFulfilledOrder } from "./fulfillment";
 import { isParseablePrivateKey } from "./keys";
+import { SITE_URL } from "../services/seo/site";
+
+/**
+ * return_url 白名单（审查 F26）：仅接受本站相对路径或与 SITE_URL 同源的
+ * 绝对地址（同源绝对地址规范化为相对路径）；外域一律丢弃。
+ */
+function sanitizeReturnUrl(url: string): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url, SITE_URL);
+    if (parsed.origin !== new URL(SITE_URL).origin) return "";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "";
+  }
+}
 
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
 
-  constructor(private paymentsRepo?: PaymentsRepo, private membershipRepo?: MembershipRepo) {}
+  constructor(
+    private paymentsRepo?: PaymentsRepo,
+    private membershipRepo?: MembershipRepo,
+    private learningMaterialsRepo?: LearningMaterialsRepo,
+  ) {}
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
@@ -44,27 +66,92 @@ export class PaymentService {
 
     if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
-    const plan = await this.paymentsRepo!.findActivePlan(planCode);
-    if (!plan) throw new Error("PLAN_NOT_FOUND");
-
-    // ── 升级订单：校验升级资格并计算差价 ──
-    let amount = Number(plan.price);
+    // 学习资料/打包套餐：服务端权威定价（审查 F2）
+    // 金额与套餐条目一律由服务端解析（material 查 DB 定价、bundle 查静态套餐配置），
+    // 请求体中的 amount / bundle_items 不参与定价，仅作展示参考
+    const isLearningOrder = planCode.startsWith("material_") || planCode.startsWith("bundle_");
+    let amount: number;
+    let planName = planCode;
+    let currency = "CNY";
     let originalOrderNo: string | null = null;
-    if (orderType === "upgrade") {
-      if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
-      const current = await this.membershipRepo.findCurrentBestPlan(userKey);
-      if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
-      if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
-      if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
-      amount = Math.max(0, Number(plan.price) - Number(current.price));
-      originalOrderNo = current.source_order_no;
-      if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
-    } else if (amount <= 0) {
-      throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+    let bundleItems: string[] | null = null;
+    let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
+    let deductionSnapshot: { source_order_no: string; source_amount: number; base_price: number } | null = null;
+
+    if (isLearningOrder) {
+      if (planCode.startsWith("material_")) {
+        const materialId = planCode.slice("material_".length);
+        const material = await this.learningMaterialsRepo?.findByMaterialId(materialId);
+        if (!material) throw new Error("MATERIAL_NOT_FOUND");
+        amount = Number(material.price);
+        planName = material.title_zh || material.title_en || planCode;
+      } else {
+        const bundle = findLearningBundle(planCode.slice("bundle_".length));
+        if (!bundle) throw new Error("BUNDLE_NOT_FOUND");
+        amount = bundle.price;
+        planName = bundle.labelZh;
+        bundleItems = [...bundle.includesIds];
+      }
+      if (amount <= 0) throw new Error("INVALID_AMOUNT");
+    } else {
+      const plan = await this.paymentsRepo!.findActivePlan(planCode);
+      if (!plan) throw new Error("PLAN_NOT_FOUND");
+      amount = Number(plan.price);
+      planName = String(plan.name || planCode);
+      currency = plan.currency || "CNY";
+
+      // ── 首单特惠资格（single_99，2026-08-30）──
+      // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
+      if (planCode === "single_99") {
+        const hasRecord = await this.paymentsRepo!.hasSingleUnlockRecord(userKey);
+        if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
+      }
+
+      // ── 升级订单：校验升级资格并计算差价 ──
+      if (orderType === "upgrade") {
+        if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
+        const current = await this.membershipRepo.findCurrentBestPlan(userKey);
+        if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
+        if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
+        if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
+        amount = Math.max(0, Number(plan.price) - Number(current.price));
+        originalOrderNo = current.source_order_no;
+        if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+        // 差价快照（审查 F23）：履约时校验目标套餐价与当前权益价未漂移，
+        // 漂移则拒绝自动履约转人工
+        upgradeSnapshot = {
+          target_plan_code: planCode,
+          target_price: Number(plan.price),
+          current_plan_code: current.plan_code,
+          current_price: Number(current.price),
+        };
+      } else if (amount <= 0) {
+        throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+      }
+
+      // ── 首单抵扣（2026-08-30 产品决策）：购标讯个人会员时，7 天内已支付的
+      // single_99 订单金额自动抵扣（799-99=700）。快照锁价与升级差价同哲学：
+      // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
+      // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
+      if (planCode === "annual_799" && orderType === "new") {
+        const source = await this.paymentsRepo!.findDeductibleSingleOrder(userKey);
+        if (source && source.amount > 0) {
+          amount = Math.max(0, amount - source.amount);
+          originalOrderNo = source.order_no;
+          deductionSnapshot = {
+            source_order_no: source.order_no,
+            source_amount: source.amount,
+            base_price: Number(plan.price),
+          };
+        }
+      }
     }
 
-    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
-    const existingOrder = orderType === "upgrade"
+    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建；
+    // annual_799 抵扣单同理（抵扣窗口/资格在下单时判定，复用旧 pending 会把
+    // 带抵扣与不带抵扣的单据互相覆盖）；single_99 首单资格同样按当次判定
+    const isPromotionalOrder = planCode === "annual_799" || planCode === "single_99";
+    const existingOrder = orderType === "upgrade" || isLearningOrder || isPromotionalOrder
       ? null
       : await this.paymentsRepo!.findPendingOrder({
           userKey, planCode, provider, noticeId,
@@ -72,25 +159,38 @@ export class PaymentService {
 
     const strategy = this.getStrategy(provider);
     const orderNo = existingOrder?.order_no || this.makeOrderNo();
-    const returnUrl = this.appendUrlParams(request.return_url || "", {
+    // return_url 白名单（审查 F26）：仅接受本站地址，防止支付完成跳转任意
+    // 站点并拼接 order_no/notice_id 参数钓鱼
+    const returnUrl = this.appendUrlParams(sanitizeReturnUrl(request.return_url || ""), {
       order_no: orderNo,
       notice_id: noticeId || "",
     });
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
       orderNo,
       amount,
-      String(plan.name || planCode),
+      planName,
       returnUrl,
       request.client_ip,
     );
 
+    // raw_request 记录服务端解析后的权威金额与套餐条目（履约以此为准）
+    const rawRequestPayload = JSON.stringify({
+      ...request,
+      user_key: userKey,
+      notice_id: noticeId,
+      amount,
+      ...(bundleItems ? { bundle_items: bundleItems } : {}),
+      ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
+      ...(deductionSnapshot ? { deduction: deductionSnapshot } : {}),
+    });
+
     if (existingOrder) {
       await this.paymentsRepo!.updatePendingOrder(orderNo, {
         amount,
-        currency: plan.currency || "CNY",
+        currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
-        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+        rawRequest: rawRequestPayload,
       });
     } else {
       await this.paymentsRepo!.createOrder({
@@ -100,10 +200,10 @@ export class PaymentService {
         planCode,
         noticeId,
         amount,
-        currency: plan.currency || "CNY",
+        currency,
         payUrl: pay_url,
         qrCodeUrl: qr_code_url || null,
-        rawRequest: JSON.stringify({ ...request, user_key: userKey, notice_id: noticeId }),
+        rawRequest: rawRequestPayload,
         orderType,
         originalOrderNo,
       });
@@ -113,7 +213,7 @@ export class PaymentService {
       order_no: orderNo,
       provider,
       amount,
-      currency: plan.currency || "CNY",
+      currency,
       pay_url,
       qr_code_url,
       status: "pending",
@@ -178,6 +278,22 @@ export class PaymentService {
   ): Promise<{ success: boolean; order_no: string; message?: string }> {
     const strategy = this.getStrategy(provider);
     const verifyResult = await strategy.verifyCallback(rawBody, signature);
+    // 退款/关闭通知路由（审查 F20）：签名有效但 trade_status=TRADE_CLOSED，
+    // 不得履约也不得当作验签失败丢弃——路由到权益逆向回收
+    if (!verifyResult.verified && verifyResult.tradeStatus === "TRADE_CLOSED") {
+      if (!verifyResult.order_no) {
+        return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
+      }
+      const refundResult = await reverseFulfilledOrder(this.paymentsRepo!, verifyResult.order_no);
+      if (!refundResult.found) {
+        return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+      }
+      return {
+        success: true,
+        order_no: verifyResult.order_no,
+        message: refundResult.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
+      };
+    }
     if (!verifyResult.verified) {
       return { success: false, order_no: verifyResult.order_no, message: "SIGN_VERIFY_FAILED" };
     }
@@ -241,8 +357,8 @@ export class PaymentService {
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }
 
-  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
-    const service = new PaymentService(paymentsRepo, membershipRepo);
+  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo, learningMaterialsRepo?: LearningMaterialsRepo): PaymentService {
+    const service = new PaymentService(paymentsRepo, membershipRepo, learningMaterialsRepo);
     service.registerStrategy("mock", new MockProvider());
 
     if (paymentMode === "live") {

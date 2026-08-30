@@ -31,9 +31,9 @@ export function LoginForm({
       <Input
         type="text"
         inputMode="text"
-        value={authForm.email}
-        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-        placeholder={t("authEmailOrPhonePlaceholder")}
+        value={authForm.identifier}
+        onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value })}
+        placeholder={t("authPhoneLoginPlaceholder") || "请输入手机号或邮箱"}
         autoComplete="username"
       />
       <Input
@@ -43,13 +43,15 @@ export function LoginForm({
         placeholder={t("authPasswordPlaceholder")}
         minLength={PASSWORD_MIN_LENGTH}
       />
-      <button
+      <Button
         type="button"
-        onClick={() => onForgotPassword(authForm.email.trim())}
-        className="text-xs text-slate-500 hover:text-slate-700 underline"
+        variant="link"
+        size="sm"
+        onClick={() => onForgotPassword(authForm.identifier.trim())}
+        className="px-0 text-slate-500 hover:text-slate-700 underline"
       >
         {t("authForgotLink")}
-      </button>
+      </Button>
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
           {authError}

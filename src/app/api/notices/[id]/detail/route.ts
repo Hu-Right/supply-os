@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
-import { normalizeNoticeDetailPayload } from "@/lib/services/notices";
+import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "@/lib/services/notices";
 
 export async function GET(
   req: NextRequest,
@@ -30,6 +30,8 @@ export async function GET(
   if (!unlock) return NextResponse.json({ code: 40013, message: "公告已锁定，请先解锁", core_locked: true }, { status: 403 });
   if (!notice) return NextResponse.json({ code: 40044, message: "公告不存在" }, { status: 404 });
 
-  const payload = normalizeNoticeDetailPayload(notice, unlock, null);
+  // 查询合格机会：精选公告必有合格机会，report_available/report_url 依赖此数据
+  const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+  const payload = normalizeNoticeDetailPayload(notice, unlock, opportunity);
   return NextResponse.json(payload);
 }

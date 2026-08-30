@@ -70,12 +70,16 @@ export class MembershipRepo {
     return (rows as MembershipPlanRow[])[0] ?? null;
   }
 
-  /** 获取免费套餐的 free_quota */
+  /**
+   * 获取免费套餐的 free_quota
+   * 兜底语义（免费试用移除，2026-08-30）：缺配置 = 没有免费额度（|| 0）。
+   * 此前的 || 3 会在套餐表异常时静默放大免费额度（审查 F14 同源教训）。
+   */
   async getFreeQuota(): Promise<number> {
     const [rows] = await this.pool.query(
       "SELECT free_quota FROM crm_membership_plans WHERE plan_code = 'free' LIMIT 1",
     );
-    return Number((rows as MembershipPlanRow[])[0]?.free_quota || 3);
+    return Number((rows as MembershipPlanRow[])[0]?.free_quota || 0);
   }
 
   /** 查询用户的有效订阅（含套餐名称和解锁配额） */

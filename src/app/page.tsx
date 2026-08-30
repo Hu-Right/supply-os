@@ -1,8 +1,0 @@
-/**
- * / → redirect /showroom
- */
-import { redirect } from "next/navigation";
-
-export default function HomePage() {
-  redirect("/showroom");
-}

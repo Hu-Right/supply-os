@@ -543,7 +543,9 @@ export const KENYA_PREFIX_MAP: Array<[RegExp, (rest: string) => PatternI18nResul
   })],
   [/^KENYA\s+(.+)/i, (rest) => ({
     canonical: `KENYA ${rest}`,
-    i18n: { zh: `肯尼亚${rest}`, fr: `Kenya ${rest}`, ru: `Кения ${rest}`, es: `Kenia ${rest}`, ar: `كينيا ${rest}` },
+    // [修复 2026-08-29] 中文回退不再拼接 rest（避免中英混合如"肯尼亚Railways"），
+    // 改为保留英文全名。常见肯尼亚机构已由 known-acronyms 精确翻译覆盖。
+    i18n: { zh: `Kenya ${rest}`, fr: `Kenya ${rest}`, ru: `Кения ${rest}`, es: `Kenia ${rest}`, ar: `كينيا ${rest}` },
   })],
   // 肯尼亚学校
   [/^(.+)\s+(?:GIRLS|BOYS)\s+(?:HIGH\s+)?SCHOOL/i, (rest) => ({

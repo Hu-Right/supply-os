@@ -5,7 +5,8 @@
  * @module features/auth/components/forms/RegisterForm
  */
 import { useState, useEffect } from "react";
-import { Input, Select, Button } from "@/shared/ui";
+import Link from "next/link";
+import { Input, Select, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
@@ -14,6 +15,13 @@ import { UnspscInferCandidates } from "../UnspscInferCandidates";
 import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
+import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
+
+/** 检测浏览器是否存在 ref_code Cookie（推荐链接自动带入） */
+function detectRefCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return /(?:^|;\s*)ref_code=/.test(document.cookie);
+}
 
 export interface RegisterFormProps {
   authForm: AuthFormState;
@@ -23,6 +31,11 @@ export interface RegisterFormProps {
   authError: string;
   registerCode: ReturnType<typeof useRegisterCode>;
   cascade: UseUnspscPrefCascadeReturn;
+  onQualificationChange?: (data: Record<string, string | string[]>) => void;
+  /** 用户是否已勾选同意协议 */
+  agreedToTerms: boolean;
+  /** 设置同意协议状态 */
+  setAgreedToTerms: (value: boolean) => void;
 }
 
 export function RegisterForm({
@@ -33,8 +46,14 @@ export function RegisterForm({
   authError,
   registerCode,
   cascade,
+  onQualificationChange,
+  agreedToTerms,
+  setAgreedToTerms,
 }: RegisterFormProps) {
   const { t } = useLocale();
+
+  // 检测推荐链接 Cookie，用于显示自动填入提示
+  const [hasRefCookie] = useState(detectRefCookie);
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
@@ -97,142 +116,91 @@ export function RegisterForm({
 
   return (
     <div className="space-y-3">
-      {/* 供应商绑定信息 */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-extrabold text-slate-900">
-            {t("authCompanyClaimInfo")}
-          </h4>
-          <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-1">
-            {t("authPendingReview")}
-          </span>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input
-            type="text"
-            value={authForm.displayName}
-            onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
-            placeholder={t("authContactNamePlaceholder")}
-            className="bg-white"
-          />
-          <Select
-            value={claimForm.supplierType}
-            onChange={(e) => setClaimForm({ ...claimForm, supplierType: e.target.value })}
-            className="bg-white"
-          >
-            <option value="domestic">{t("authSupplierDomestic")}</option>
-            <option value="international">{t("authSupplierInternational")}</option>
-          </Select>
-          <Input
-            type="text"
-            value={claimForm.companyName}
-            onChange={(e) => setClaimForm({ ...claimForm, companyName: e.target.value })}
-            placeholder={t("authCompanyPlaceholder")}
-            className="sm:col-span-2 bg-white"
-          />
-          <Input
-            type="text"
-            value={claimForm.contactPhone}
-            onChange={(e) => setClaimForm({ ...claimForm, contactPhone: e.target.value })}
-            placeholder={t("authPhonePlaceholder")}
-            className="bg-white"
-          />
-          <Input
-            type="text"
-            value={claimForm.businessLicenseNo}
-            onChange={(e) => setClaimForm({ ...claimForm, businessLicenseNo: e.target.value })}
-            placeholder={t("authLicensePlaceholder")}
-            className="bg-white"
-          />
-        </div>
-        {/* 主营行业 */}
-        <div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-xs font-black text-slate-500">
-              {t("authIndustryPrefLabel")}
-            </p>
-            <p className="text-[11px] text-slate-400">
-              {t("authIndustryPrefRequiredHint")}
-            </p>
+      {/* 注册类型选择 */}
+      <div className="grid grid-cols-2 gap-3">
+        <SelectableCard
+          selected={authForm.userType === "personal"}
+          onClick={() => setAuthForm({ ...authForm, userType: "personal" })}
+          className="p-3 text-center"
+        >
+          <div className="text-lg font-bold">👤</div>
+          <div className={`text-sm font-bold ${authForm.userType === "personal" ? "text-teal-700" : "text-slate-600"}`}>
+            {t("authRegisterTypePersonal") || "个人注册"}
           </div>
-          <Input
-            type="text"
-            value={mainBusiness}
-            onChange={(e) => setMainBusiness(e.target.value)}
-            placeholder={t("authMainBusinessPlaceholder")}
-            className="mt-2 bg-white"
-          />
-          {inferLoading && (
-            <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
-          )}
-          {!inferLoading && inferCandidates.length > 0 && (
-            <UnspscInferCandidates
-              candidates={inferCandidates}
-              appliedNodeId={autoAppliedNodeId}
-              hint={inferHint}
-              onPick={pickCandidate}
-            />
-          )}
-          {!inferLoading && inferCandidates.length === 0 && inferSearched && (
-            <p className="mt-1 text-[11px] text-amber-600">
-              {t("authMainBusinessNoMatch")}
-            </p>
-          )}
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <UnspscPrefSelects
-              industryOptions={industryOptions}
-              subOptions={subOptions}
-              subOptions2={subOptions2}
-              prefLevel1={prefLevel1}
-              prefLevel2={prefLevel2}
-              prefLevel3={prefLevel3}
-              onLevel1Change={handlePrefLevel1Change}
-              onLevel2Change={handlePrefLevel2Change}
-              onLevel3Change={setPrefLevel3}
-            />
+          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
+        </SelectableCard>
+        <SelectableCard
+          selected={authForm.userType === "enterprise"}
+          onClick={() => setAuthForm({ ...authForm, userType: "enterprise" })}
+          className="p-3 text-center"
+        >
+          <div className="text-lg font-bold">🏢</div>
+          <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-teal-700" : "text-slate-600"}`}>
+            {t("authRegisterTypeEnterprise") || "企业注册"}
           </div>
-        </div>
+          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
+        </SelectableCard>
       </div>
 
-      {/* 邮箱 + 验证码 + 密码 */}
-      <Input
-        type="email"
-        inputMode="email"
-        value={authForm.email}
-        onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-        placeholder={t("authEmailPlaceholder")}
-        autoComplete="email"
-      />
+      {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
+      {authForm.userType === "enterprise" && (
+        <EnterpriseQualificationForm
+          registrationPhone={authForm.phone}
+          onFormChange={(data) => {
+            onQualificationChange?.(data as unknown as Record<string, string | string[]>);
+            // 同步公司名称到 claimForm，供注册校验使用
+            if (data.company_name !== claimForm.companyName) {
+              setClaimForm((prev) => ({ ...prev, companyName: data.company_name }));
+            }
+          }}
+        />
+      )}
+
+      {/* 手机号 */}
+      <div className="space-y-1">
+        <Input
+          type="tel"
+          inputMode="tel"
+          value={authForm.phone}
+          onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value.replace(/\D/g, "").slice(0, 11) })}
+          placeholder={t("authPhonePlaceholder") || "请输入手机号"}
+          autoComplete="tel"
+        />
+      </div>
       <div className="space-y-1">
         <div className="flex gap-2">
           <Input
             type="text"
             value={registerCode.registerVerifyCode}
             onChange={(e) => registerCode.setRegisterVerifyCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder={t("authRegisterCodePlaceholder") || "邮箱验证码"}
+            placeholder={t("authSmsCodePlaceholder") || "短信验证码"}
             maxLength={6}
             className="flex-1 tracking-widest"
           />
-          <button
+          <Button
             type="button"
-            onClick={() => registerCode.handleSendRegisterCode(authForm.email.trim())}
+            variant="outline"
+            size="sm"
+            onClick={() => registerCode.handleSendSmsCode(authForm.phone.trim())}
             disabled={registerCode.registerCodeLoading || registerCode.registerCodeCountdown > 0}
-            className="shrink-0 px-3 py-2 text-xs font-bold text-teal-600 border border-teal-200 rounded-lg hover:bg-teal-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
           >
             {registerCode.registerCodeCountdown > 0
               ? `${registerCode.registerCodeCountdown}s`
               : registerCode.registerCodeLoading
                 ? t("authForgotSending")
-                : t("authRegisterSendCode") || "获取验证码"}
-          </button>
+                : t("authRegisterSendSmsCode") || "获取验证码"}
+          </Button>
         </div>
         {registerCode.registerCodeError && (
           <p className="text-xs font-bold text-rose-600">{registerCode.registerCodeError}</p>
         )}
         {registerCode.registerCodeSent && registerCode.registerCodeCountdown <= 0 && (
-          <p className="text-xs text-teal-600">{t("authRegisterCodeSent") || "验证码已发送，请查收邮箱"}</p>
+          <p className="text-xs text-teal-600">{t("authSmsCodeSent") || "验证码已发送，请查收短信"}</p>
         )}
       </div>
+
+      {/* 邮箱已从注册流程移除，用户可在个人中心独立绑定 */}
       <Input
         type="password"
         value={authForm.password}
@@ -241,11 +209,54 @@ export function RegisterForm({
         minLength={PASSWORD_MIN_LENGTH}
       />
 
+      {/* 邀请码（选填） */}
+      <div>
+        <Input
+          type="text"
+          value={authForm.invitationCode}
+          onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
+          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码（选填）"}
+          className="uppercase tracking-wider"
+        />
+        {authForm.invitationCode && hasRefCookie && (
+          <p className="text-xs text-teal-600 mt-1 flex items-center gap-1">
+            <span>✓</span> {t("authInvitationCodeAutoFilled") || "邀请码已由推荐链接自动填入"}
+          </p>
+        )}
+        {!authForm.invitationCode && (
+          <p className="text-xs text-slate-400 mt-1">
+            {t("authInvitationCodeOptional") || "选填，如有邀请码或推荐链接请填写"}
+          </p>
+        )}
+      </div>
+
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
           {authError}
         </p>
       )}
+
+      {/* ── 法律协议勾选（P0 合规）：默认不勾选，用户必须主动勾选 ── */}
+      <label className="flex items-start gap-2 text-xs text-slate-500 cursor-pointer select-none leading-relaxed">
+        <input
+          type="checkbox"
+          checked={agreedToTerms}
+          onChange={(e) => setAgreedToTerms(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-teal-600"
+        />
+        <span>
+          {t("authAgreeTermsPrefix")}
+          {" "}
+          <Link href="/terms" target="_blank" className="text-teal-600 underline hover:text-teal-700">
+            {t("authAgreeTermsLink")}
+          </Link>
+          {" "}
+          <Link href="/privacy" target="_blank" className="text-teal-600 underline hover:text-teal-700">
+            {t("authAgreePrivacyLink")}
+          </Link>
+        </span>
+      </label>
+
       <Button
         type="submit"
         variant="dark"

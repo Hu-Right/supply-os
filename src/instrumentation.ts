@@ -28,12 +28,20 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // 支付模式 fail-fast（审查 F21）：PAYMENT_MODE 缺省回落 mock，生产漏配时
+  // mock-paid 等自激活端点可达，支付形同虚设；生产必须显式 live
+  if (process.env.NODE_ENV === "production" && process.env.PAYMENT_MODE !== "live") {
+    throw new Error(
+      "[bootstrap] 生产环境必须显式配置 PAYMENT_MODE=live（当前值：" +
+        (process.env.PAYMENT_MODE || "(未配置)") +
+        "），服务终止",
+    );
+  }
+
   const { getPool } = await import("./lib/db/pool");
   const { getContext } = await import("./lib/db/context");
   const {
     schemaPhase,
-    seedsPhase,
-    agencyAliasPhase,
     backfillPhase,
     featuredPhase,
     paymentPhase,
@@ -44,11 +52,26 @@ export async function register() {
 
   const dbPool: Pool = getPool();
 
-  // 阶段 1-6：与 Express 启动完全一致
-  const phases = [schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase];
+  // 阶段 1-4：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
+  const phases = [schemaPhase, backfillPhase, featuredPhase, paymentPhase];
   for (const phase of phases) {
     const ok = await executePhase(phase, { dbPool });
     if (!ok && !phase.optional) {
+      // 提供更详细的错误信息，帮助诊断数据库连接问题
+      const dbHost = process.env.DB_HOST || '127.0.0.1';
+      const dbUser = process.env.DB_USER || 'root';
+      const dbName = process.env.DB_NAME || 'crm';
+      console.error(
+        `\n[bootstrap] 启动失败诊断信息：\n` +
+        `  - 失败阶段：${phase.name}\n` +
+        `  - 数据库配置：${dbUser}@${dbHost}/${dbName}\n` +
+        `  - 可能原因：\n` +
+        `    1. 数据库服务未运行\n` +
+        `    2. 数据库凭据错误（DB_USER/DB_PASSWORD）\n` +
+        `    3. 数据库主机不可达（网络问题）\n` +
+        `    4. 数据库不存在（DB_NAME=${dbName}）\n` +
+        `  - 请检查 .next/standalone/.env 文件中的数据库配置\n`
+      );
       throw new Error(`启动阶段 ${phase.name} 失败，服务终止`);
     }
   }

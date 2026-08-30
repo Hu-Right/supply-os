@@ -16,16 +16,9 @@ import { normalizeCountry } from "../../utils/countryNormalize";
 // ── 支持的语言列表 ──
 export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
-// ── 对账日志节流（同一类型 30 分钟内不重复输出，避免高频刷屏）──
-const RECONCILE_LOG_TTL = 30 * 60 * 1000;
-const _reconcileLogLast: Map<string, { ts: number; count: number }> = new Map();
-function reconcileLog(type: string, count: number, msg: string): void {
-  const now = Date.now();
-  const prev = _reconcileLogLast.get(type);
-  if (prev && now - prev.ts < RECONCILE_LOG_TTL) return;
-  _reconcileLogLast.set(type, { ts: now, count });
-  console.log(msg);
-}
+// ── 对账逻辑已拆至 wide-row-reconcile.ts ──
+
+// ── 批量写入宽表 ──
 
 // ── 同步 SQL（含所有语言翻译，不含 UNSPSC）──
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
@@ -50,10 +43,14 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   const result = new Map<number, Record<string, { title: string; description: string }>>();
   
   const placeholders = noticeIds.map(() => "?").join(",");
+  // LEFT JOIN 原始公告表：当 model = 'skip-same-lang' 时，原文即目标语言，
+  // 用原始标题/内容填充宽表对应语言字段，避免 title_en 等字段留空。
   const [rows] = await pool.query(
-    `SELECT notice_id, lang, title_tr, description_tr
-     FROM crm_notice_translations
-     WHERE notice_id IN (${placeholders})`,
+    `SELECT t.notice_id, t.lang, t.title_tr, t.description_tr, t.model,
+            n.title AS orig_title, LEFT(n.description, 2000) AS orig_desc
+     FROM crm_notice_translations t
+     LEFT JOIN crm_bid_notices n ON n.id = t.notice_id
+     WHERE t.notice_id IN (${placeholders})`,
     noticeIds,
   );
   
@@ -61,9 +58,14 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
     const nid = Number(row.notice_id);
     if (!result.has(nid)) result.set(nid, {});
     const entry = result.get(nid)!;
+    const isSkipSameLang = String(row.model || "") === "skip-same-lang";
     entry[String(row.lang)] = {
-      title: String(row.title_tr || ""),
-      description: String(row.description_tr || ""),
+      title: isSkipSameLang
+        ? String(row.orig_title || row.title_tr || "")
+        : String(row.title_tr || ""),
+      description: isSkipSameLang
+        ? String(row.orig_desc || row.description_tr || "")
+        : String(row.description_tr || ""),
     };
   }
   return result;
@@ -75,7 +77,7 @@ function parseDecimalValue(raw: unknown): number {
   if (typeof raw === "number") return raw;
   const str = String(raw).trim();
   if (!str) return 0;
-  const cleaned = str.replace(/[^0-9.\-]/g, "");
+  const cleaned = str.replace(/[^0-9.-]/g, "");
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
@@ -265,7 +267,20 @@ export function buildWideRow(
 
   const agencyStd = (agency ? (aliasMap.get(agency.toUpperCase()) || agency) : "").slice(0, 200);
   const typeInfo = agencyStd && countryStd ? classifyAgencyType(agencyStd, countryStd) : null;
-  const agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
+  // [修复] _INTL 类型国家级聚合键不一致问题：
+  // classifyAgencyType(agencyStd, countryStd) 对国际机构返回国家级 typeKey
+  // （如 "Brazil Committee"），但内存缓存（agencies/query.ts stage 3.6）使用
+  // 通用 typeKey（如 "COMMITTEE_INTL"）。不一致导致 Meilisearch filter
+  // agency_group = "COMMITTEE_INTL" 匹配不到索引中的 "Brazil Committee"。
+  // 修复：对 _INTL 后缀类型，用无国家参数重新分类获取通用 typeKey，
+  // 确保宽表 agency_group 与缓存 agencyGroup 一致。
+  let agencyGroup = (typeInfo?.typeKey || "").slice(0, 100);
+  if (typeInfo && typeInfo.typeKey.endsWith("_INTL")) {
+    const genericInfo = classifyAgencyType(agencyStd);
+    if (genericInfo) {
+      agencyGroup = genericInfo.typeKey.slice(0, 100);
+    }
+  }
   const noticeTypeStd = normalizeNoticeType(r.notice_type).slice(0, 20);
   const docs = normalizeDocumentRows(r.documents, r.procurement_files);
   // 修复 030：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED 截断。
@@ -341,346 +356,6 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
     if (_aliasMapCache) return _aliasMapCache;
   }
   return aliasMap;
-}
-
-/**
- * deadline_sec 对账：检测主表与宽表之间的 deadline_sec 不一致并修复
- *
- * 解决问题：主表 deadline_sec 是 VIRTUAL 生成列（自动跟随 deadline 计算），
- * 宽表 deadline_sec 是普通列（静态拷贝）。当主表 deadline 变更时，
- * 宽表 deadline_sec 不会自动更新，导致已过期的记录被误判为"无截止日期"(0)。
- *
- * [修复 030]：宽表 deadline_sec 已扩容为 BIGINT UNSIGNED，不再需要 INT UNSIGNED
- * 溢出截断。仅保留负值保护（GREATEST(..., 0)），防止主表生成列异常负值传入。
- *
- * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
- * 返回所有变更 ID 供上层同步到 Meilisearch。
- */
-export async function reconcileDeadlineSec(pool: Pool): Promise<number[]> {
-  const allIds: number[] = [];
-  const MAX_ROUNDS = 10;
-  // [修复 030]：宽表已扩容为 BIGINT UNSIGNED，直接使用主表值，
-  // 仅用 GREATEST 保护负值（防御主表生成列异常）。
-  const SAFE_EXPR = `GREATEST(COALESCE(n.deadline_sec, 0), 0)`;
-  try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
-      // 检测宽表 deadline_sec 与主表不一致的记录
-      const [mismatchRows] = await pool.query(
-        `SELECT n.id, ${SAFE_EXPR} AS deadline_sec
-         FROM crm_bid_notices n
-         INNER JOIN crm_notice_search ns ON ns.id = n.id
-         WHERE ns.deadline_sec != ${SAFE_EXPR}
-         LIMIT 5000`,
-      );
-      const mismatches = mismatchRows as RowDataPacket[];
-      if (mismatches.length === 0) break;
-
-      const ids = mismatches.map(r => Number(r.id));
-      allIds.push(...ids);
-      const BATCH = 1000;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        await pool.query(
-          `UPDATE crm_notice_search ns
-           INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.deadline_sec = ${SAFE_EXPR}
-           WHERE ns.id IN (${ph})`,
-          batch,
-        );
-      }
-      if (mismatches.length < 5000) break;
-    }
-    if (allIds.length > 0) {
-      reconcileLog("deadline", allIds.length, `[wide-table] deadline_sec 对账修复 ${allIds.length} 条不一致记录`);
-    }
-    return allIds;
-  } catch (e) {
-    console.warn(`[wide-table] deadline_sec 对账失败（静默降级）:`, (e as Error).message);
-    return allIds;
-  }
-}
-
-/**
- * Ghost 行清理：删除宽表中主表已不存在的记录
- *
- * 解决问题：增量同步只处理 id > watermark 的新记录，不会处理删除操作。
- * 当主表删除记录时，宽表不会同步删除，导致 ghost 行残留。
- *
- * 对账逻辑：每轮删除最多 5000 条 ghost 行，最多 10 轮，
- * 返回所有删除的 ID 供上层同步到 Meilisearch。
- */
-export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
-  const allDeletedIds: number[] = [];
-  const MAX_ROUNDS = 10;
-  try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
-      // 查找宽表中主表已不存在的记录（ghost 行）
-      const [ghostRows] = await pool.query(
-        `SELECT ns.id FROM crm_notice_search ns
-         LEFT JOIN crm_bid_notices n ON n.id = ns.id
-         WHERE n.id IS NULL
-         LIMIT 5000`,
-      );
-      const ghosts = ghostRows as RowDataPacket[];
-      if (ghosts.length === 0) break;
-
-      const ids = ghosts.map(r => Number(r.id));
-      allDeletedIds.push(...ids);
-      const BATCH = 1000;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        await pool.query(`DELETE FROM crm_notice_search WHERE id IN (${ph})`, batch);
-      }
-      if (ghosts.length < 5000) break;
-    }
-    if (allDeletedIds.length > 0) {
-      console.log(`[wide-table] ghost 行清理: 删除 ${allDeletedIds.length} 条主表已不存在的记录`);
-    }
-    return allDeletedIds;
-  } catch (e) {
-    console.warn(`[wide-table] ghost 行清理失败（静默降级）:`, (e as Error).message);
-    return allDeletedIds;
-  }
-}
-
-/**
- * is_featured 对账：同步主表的 is_featured 状态到宽表
- *
- * 解决问题：主表 is_featured 由精选标注任务更新，宽表 is_featured 是静态拷贝。
- * 当主表 is_featured 变更时，宽表不会自动更新。
- *
- * 对账逻辑：循环检测并修复不一致记录（每轮最多 5000 条，最多 10 轮），
- * 返回所有变更 ID 供上层同步到 Meilisearch。
- */
-export async function reconcileIsFeatured(pool: Pool): Promise<number[]> {
-  const allIds: number[] = [];
-  const MAX_ROUNDS = 10;
-  try {
-    for (let round = 0; round < MAX_ROUNDS; round++) {
-      // 检测宽表 is_featured 与主表不一致的记录
-      const [mismatchRows] = await pool.query(
-        `SELECT n.id, n.is_featured
-         FROM crm_bid_notices n
-         INNER JOIN crm_notice_search ns ON ns.id = n.id
-         WHERE ns.is_featured != n.is_featured
-         LIMIT 5000`,
-      );
-      const mismatches = mismatchRows as RowDataPacket[];
-      if (mismatches.length === 0) break;
-
-      const ids = mismatches.map(r => Number(r.id));
-      allIds.push(...ids);
-      const BATCH = 1000;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        await pool.query(
-          `UPDATE crm_notice_search ns
-           INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.is_featured = n.is_featured
-           WHERE ns.id IN (${ph})`,
-          batch,
-        );
-      }
-      if (mismatches.length < 5000) break;
-    }
-    if (allIds.length > 0) {
-      reconcileLog("featured", allIds.length, `[wide-table] is_featured 对账修复 ${allIds.length} 条不一致记录`);
-    }
-    return allIds;
-  } catch (e) {
-    console.warn(`[wide-table] is_featured 对账失败（静默降级）:`, (e as Error).message);
-    return allIds;
-  }
-}
-
-/**
- * 译文对账：检测宽表 title_zh 与翻译表 title_tr（lang='zh'）不一致的行。
- * 修复"译文已入 crm_notice_translations 但宽表/索引滞后"的断链场景。
- * 检测后直接 UPDATE 宽表，避免下轮对账重复检测。
- * 每轮抽样上限 200 条，返回需重新同步的公告 ID。
- */
-export async function reconcileTranslations(pool: Pool): Promise<number[]> {
-  try {
-    const [mismatchRows] = await pool.query(
-      `SELECT ns.id
-       FROM crm_notice_search ns
-       INNER JOIN crm_notice_translations t
-         ON t.notice_id = ns.id AND t.lang = 'zh'
-       WHERE NOT (COALESCE(ns.title_zh, '') = COALESCE(t.title_tr, ''))
-       LIMIT 200`,
-    );
-    const ids = (mismatchRows as any[]).map((r) => Number(r.id)).filter(Boolean);
-    if (ids.length > 0) {
-      // 修复宽表：将翻译表的 title_tr / description_tr 写回宽表
-      const BATCH = 100;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        await pool.query(
-          `UPDATE crm_notice_search ns
-           INNER JOIN crm_notice_translations t
-             ON t.notice_id = ns.id AND t.lang = 'zh'
-           SET ns.title_zh = LEFT(COALESCE(t.title_tr, ''), 1000),
-               ns.description_zh = LEFT(COALESCE(t.description_tr, ''), 2000)
-           WHERE ns.id IN (${ph})`,
-          batch,
-        );
-      }
-      reconcileLog("translation", ids.length, `[wide-table] 译文对账修复 ${ids.length} 条 title_zh 滞后记录`);
-    }
-    return ids;
-  } catch (e) {
-    console.warn(`[wide-table] 译文对账失败（静默降级）:`, (e as Error).message);
-    return [];
-  }
-}
-
-/**
- * precise 对账：检测宽表精准码与 candidates 表实际状态之间的差异。
- *
- * [修复] 原实现每次返回全部"有 approved 候选码的公告"ID（上限 2000），
- * 导致每 5 分钟触发 ~2000 条无效级联同步（宽表重写 + Meilisearch 更新），
- * 即使精准码未发生任何变化。
- *
- * 改为变更感知：比较宽表 precise_level1 与当前 approved 候选码的聚合值，
- * 仅返回实际存在差异的记录 ID。检测后直接将聚合值写回宽表，
- * 避免下轮对账重复检测。
- */
-export async function reconcilePreciseCodes(pool: Pool): Promise<number[]> {
-  try {
-    // 比较宽表 precise_level1 与当前 approved 候选码的聚合值
-    // 候选码以逗号分隔存储，GROUP_CONCAT 聚合后与宽表值对比
-    const [rows] = await pool.query(`
-      SELECT n.id, n.notice_id,
-             ns.precise_level1 AS wide_val,
-             (SELECT GROUP_CONCAT(DISTINCT c2.candidate_code ORDER BY c2.candidate_code SEPARATOR ',')
-              FROM crm_bid_opportunities o2
-              JOIN crm_bid_opportunity_unspsc_candidates c2
-                ON c2.opportunity_id = o2.id AND c2.status = 'approved'
-              WHERE o2.source_notice_id = n.notice_id
-             ) AS expected_val
-      FROM crm_bid_notices n
-      INNER JOIN crm_notice_search ns ON ns.id = n.id
-      WHERE EXISTS (
-        SELECT 1 FROM crm_bid_opportunities o
-        JOIN crm_bid_opportunity_unspsc_candidates c
-          ON c.opportunity_id = o.id AND c.status = 'approved'
-        WHERE o.source_notice_id = n.notice_id
-      )
-      HAVING NOT (
-        (wide_val IS NULL AND expected_val IS NULL)
-        OR (wide_val IS NOT NULL AND expected_val IS NOT NULL AND wide_val = expected_val)
-      )
-      LIMIT 2000
-    `);
-    const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
-    if (ids.length > 0) {
-      // 修复宽表：将聚合后的精准码写回 precise_level1
-      const BATCH = 100;
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const batch = ids.slice(i, i + BATCH);
-        const ph = batch.map(() => "?").join(",");
-        await pool.query(
-          `UPDATE crm_notice_search ns
-           INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.precise_level1 = (
-             SELECT GROUP_CONCAT(DISTINCT c2.candidate_code ORDER BY c2.candidate_code SEPARATOR ',')
-             FROM crm_bid_opportunities o2
-             JOIN crm_bid_opportunity_unspsc_candidates c2
-               ON c2.opportunity_id = o2.id AND c2.status = 'approved'
-             WHERE o2.source_notice_id = n.notice_id
-           )
-           WHERE ns.id IN (${ph})`,
-          batch,
-        );
-      }
-      reconcileLog("precise", ids.length, `[wide-table] precise 对账修复 ${ids.length} 条精准码实际变更`);
-    }
-    return ids;
-  } catch (e) {
-    console.warn(`[wide-table] precise 对账失败（静默降级）:`, (e as Error).message);
-    return [];
-  }
-}
-
-/**
- * 内容漂移对账：检测主表 title/description 变更后宽表滞后的记录并修复
- *
- * 解决问题：增量同步只处理 id > watermark 的新行，主表已有行的 title/description
- * 被外部数据管道更新后，宽表不会同步更新，导致搜索结果显示过期内容。
- * 与 deadline_sec/is_featured 等单字段对账不同，本函数覆盖 title + description
- * 两个核心搜索字段，确保搜索索引与主表内容一致。
- *
- * 检测策略：由于 crm_bid_notices 是外部表，无 updated_at 列，
- * 采用 ID 范围分批扫描（每批 1000 条），比较内容差异并修复。
- * 每轮上限 2000 条，返回变更 ID 供上层同步 Meilisearch。
- */
-export async function reconcileContentDrift(pool: Pool): Promise<number[]> {
-  try {
-    // 获取宽表中最大的 ID，作为扫描范围上限
-    const [maxIdRows] = await pool.query(`
-      SELECT COALESCE(MAX(id), 0) as max_id FROM crm_notice_search
-    `);
-    const maxId = Number((maxIdRows as RowDataPacket[])[0]?.max_id || 0);
-    if (maxId === 0) return [];
-
-    // 分批扫描：从 ID 1 开始，每批 1000 条，最多扫描 2 批（2000 条）
-    const BATCH_SIZE = 1000;
-    const MAX_BATCHES = 2;
-    const allChangedIds: number[] = [];
-
-    for (let batch = 0; batch < MAX_BATCHES; batch++) {
-      const startId = batch * BATCH_SIZE + 1;
-      const endId = startId + BATCH_SIZE - 1;
-
-      const [rows] = await pool.query(`
-        SELECT n.id
-        FROM crm_bid_notices n
-        INNER JOIN crm_notice_search ns ON ns.id = n.id
-        WHERE n.id BETWEEN ? AND ?
-          AND (
-            ns.title != LEFT(n.title, 1000)
-            OR ns.description != LEFT(n.description, 2000)
-            OR ns.reference != LEFT(n.reference, 200)
-          )
-        LIMIT 2000
-      `, [startId, endId]);
-
-      const ids = (rows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
-      allChangedIds.push(...ids);
-
-      // 如果本批未找到变更记录且未达到最大 ID，继续下一批
-      if (ids.length === 0 && endId < maxId) continue;
-      // 如果已找到变更记录或已达到最大 ID，停止扫描
-      if (ids.length > 0 || endId >= maxId) break;
-    }
-
-    if (allChangedIds.length > 0) {
-      // 批量修复：将主表 title/description/reference 同步到宽表
-      const FIX_BATCH = 500;
-      for (let i = 0; i < allChangedIds.length; i += FIX_BATCH) {
-        const batchIds = allChangedIds.slice(i, i + FIX_BATCH);
-        const ph = batchIds.map(() => "?").join(",");
-        await pool.query(
-          `UPDATE crm_notice_search ns
-           INNER JOIN crm_bid_notices n ON n.id = ns.id
-           SET ns.title = LEFT(n.title, 1000),
-               ns.description = LEFT(n.description, 2000),
-               ns.reference = LEFT(n.reference, 200)
-           WHERE ns.id IN (${ph})`,
-          batchIds,
-        );
-      }
-      reconcileLog("content_drift", allChangedIds.length, `[wide-table] 内容漂移对账修复 ${allChangedIds.length} 条 title/description 滞后记录`);
-    }
-    return allChangedIds;
-  } catch (e) {
-    console.warn(`[wide-table] 内容漂移对账失败（静默降级）:`, (e as Error).message);
-    return [];
-  }
 }
 
 // ── 批量写入宽表 ──

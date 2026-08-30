@@ -51,6 +51,7 @@ export interface TimersHandle {
  * 3. 国家/机构缓存每日凌晨 5 点定时刷新
  * 4. 桥接表脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
  * 5. 附属数据（翻译表 + 宽表）脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
+ * 6. 支付维护：超时未支付订单每小时关闭 + 无生效订阅的 VIP 会员身份每日 04:30 兜底降级
  */
 export function startAllTimers(deps: TimersDeps): TimersHandle {
   const { dbPool } = deps;
@@ -131,6 +132,56 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     }, dataCleanupIntervalHours * 3600 * 1000);
   }
 
+  // 6. 支付维护（payment-maintenance）：
+  //    a) 超时未支付订单每 60 分钟关闭一次（支付宝侧 timeout_express 30 分钟，DB 侧延后 2 小时兜底），
+  //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭
+  //    b) 会员身份兜底降级：每日 04:30 将"已无生效订阅"的 VIP 用户 membership_tier 回落为 free
+  //       （线上身份以 resolveMembershipState 实时计算为准，此任务仅消除落库列的滞后）
+  let paymentMaintenanceTimer: NodeJS.Timeout | null = null;
+  let paymentTierSyncTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.PAYMENT_MAINTENANCE_ENABLED ?? "on").toLowerCase() !== "off") {
+    const closeStalePendingOrders = async () => {
+      try {
+        const [ret] = await dbPool.query(
+          `UPDATE crm_payment_orders SET status = 'closed'
+           WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
+        );
+        const affected = (ret as { affectedRows?: number }).affectedRows ?? 0;
+        if (affected > 0) console.log(`[payment-maintenance] 已关闭 ${affected} 笔超时未支付订单`);
+      } catch (e) {
+        console.error("[payment-maintenance] 关闭超时订单失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    const demoteExpiredVipTier = async () => {
+      try {
+        const [ret] = await dbPool.query(
+          `UPDATE crm_users u
+           SET u.membership_tier = 'free'
+           WHERE u.membership_tier = 'vip'
+             AND NOT EXISTS (
+               SELECT 1 FROM crm_user_subscriptions s
+               WHERE s.user_key = u.user_key
+                 AND s.status = 'active'
+                 AND (s.expires_at IS NULL OR s.expires_at > NOW())
+             )`,
+        );
+        const affected = (ret as { affectedRows?: number }).affectedRows ?? 0;
+        if (affected > 0) console.log(`[payment-maintenance] 已将 ${affected} 名无生效订阅的 VIP 用户降级为 free`);
+      } catch (e) {
+        console.error("[payment-maintenance] 会员身份兜底降级失败:", (e as Error).message);
+      }
+    };
+    // 启动时立即异步处理一次存量（不阻塞启动）
+    void closeStalePendingOrders();
+    void demoteExpiredVipTier();
+    paymentMaintenanceTimer = setInterval(() => {
+      void closeStalePendingOrders();
+    }, 60 * 60 * 1000);
+    paymentTierSyncTimer = scheduleDailyAt(4, async () => {
+      await demoteExpiredVipTier();
+    });
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -138,6 +189,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       clearTimeout(dailyRefreshTimer);
       if (bridgeCleanupTimer) clearInterval(bridgeCleanupTimer);
       if (dataCleanupTimer) clearInterval(dataCleanupTimer);
+      if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
+      if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
     },
   };
 }

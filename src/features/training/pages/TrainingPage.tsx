@@ -9,7 +9,7 @@
 
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Input, Select } from "@/shared/ui";
+import { Input, Select, Button, ChipToggleGroup } from "@/shared/ui";
 import { useTrainingForm } from "../hooks/useTrainingForm";
 import type { DictionaryItem } from "@/core/unspsc/types";
 
@@ -169,22 +169,15 @@ export default function TrainingPage() {
           <p className="mb-2 text-xs font-extrabold text-slate-700">
             {t("trainingFormCertifications")}
           </p>
-          <div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            {certifications.map((item) => {
+          <ChipToggleGroup
+            className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+            selected={form.certification}
+            onToggle={toggleCertification}
+            items={certifications.map((item) => {
               const name = item.name || item.title_zh || item.title_en || String(item.id);
-              const active = form.certification.includes(name);
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => toggleCertification(name)}
-                  className={`rounded-md border px-2.5 py-1 text-xs ${active ? "border-teal-600 bg-teal-600 text-white" : "border-slate-200 bg-white text-slate-600"}`}
-                >
-                  {name}
-                </button>
-              );
+              return { value: name, label: name };
             })}
-          </div>
+          />
           <Input
             name="other_certification"
             value={form.other_certification}
@@ -252,14 +245,16 @@ export default function TrainingPage() {
         </label>
 
         <div className="flex justify-end">
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-black text-white hover:bg-orange-700 disabled:opacity-60"
+            variant="accent"
+            size="lg"
+            loading={loading}
+            className="rounded-xl text-sm font-black"
           >
             <Send className="h-4 w-4" />
             {loading ? t("trainingSubmitting") : t("trainingSubmitBtn")}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

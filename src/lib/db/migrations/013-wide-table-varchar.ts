@@ -25,16 +25,13 @@ export const migration: Migration = {
   version: 13,
   name: "wide-table-varchar",
   async up(dbPool: Pool) {
-    // 检查表是否存在
-    try {
-      const [tables] = await dbPool.query(
-        "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'crm_notice_search'"
-      );
-      if ((tables as any[]).length === 0) {
-        console.log("[migration-013] crm_notice_search 不存在，跳过");
-        return;
-      }
-    } catch {
+    // 检查表是否存在（查询失败属真实错误，必须抛出阻断——吞错会导致版本
+    // 照记而迁移实际未执行，审查 F18）
+    const [tables] = await dbPool.query(
+      "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'crm_notice_search'"
+    );
+    if ((tables as any[]).length === 0) {
+      console.log("[migration-013] crm_notice_search 不存在，跳过");
       return;
     }
 
@@ -61,7 +58,8 @@ export const migration: Migration = {
           console.log(`[migration-013]   ${col}: 截断 ${totalTruncated} 行`);
         }
       } catch (err) {
-        console.warn(`[migration-013]   ${col} 截断失败:`, (err as Error).message);
+        // 截断失败将导致后续 ALTER "Data too long"，必须抛出阻断（审查 F18）
+        throw err;
       }
     }
 
@@ -94,7 +92,8 @@ export const migration: Migration = {
         );
         console.log(`[migration-013]   ${col}: 完成 (${Date.now() - start}ms)`);
       } catch (err) {
-        console.warn(`[migration-013]   ${col} 修改失败:`, (err as Error).message);
+        // ALTER 失败必须抛出阻断，否则版本照记、列停留 LONGTEXT（审查 F18）
+        throw err;
       }
     }
 

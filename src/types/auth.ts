@@ -19,4 +19,6 @@ export interface AuthUser {
   phone?: string | null;
   /** 手机号是否已验证 */
   phone_verified?: number;
+  /** 邮箱是否已验证 */
+  email_verified?: number;
 }

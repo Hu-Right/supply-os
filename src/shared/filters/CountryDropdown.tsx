@@ -13,17 +13,12 @@ export interface CountryDropdownProps {
   value: string;
   locale: string;
   onSelect: (country: string) => void;
-  hasMore: boolean;
-  filteredCount: number;
-  maxVisible: number;
   noResultsText: string;
-  moreResultsText: string;
 }
 
 export function CountryDropdown({
   visible, placeholder, value, locale, onSelect,
-  hasMore, filteredCount, maxVisible,
-  noResultsText, moreResultsText,
+  noResultsText,
 }: CountryDropdownProps) {
   return (
     <div className="absolute z-50 mt-1.5 w-full max-w-[420px] rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden">
@@ -62,12 +57,6 @@ export function CountryDropdown({
           </li>
         ))}
       </ul>
-
-      {hasMore && (
-        <div className="px-4 py-2 text-xs text-slate-400 border-t border-slate-100 bg-slate-50 text-center">
-          {filteredCount - maxVisible} {moreResultsText}
-        </div>
-      )}
 
       {visible.length === 0 && (
         <div className="px-4 py-5 text-sm text-slate-400 text-center">{noResultsText}</div>

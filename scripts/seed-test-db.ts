@@ -107,6 +107,8 @@ async function main() {
   console.log("[seed-test-db] 写入种子数据 ...");
   await seedMembershipPlans(pool);
   await seedFooterLinks(pool);
+  await seedTestNotices(pool);
+  await seedTestSuppliers(pool);
 
   // 5. 创建 E2E 测试专用账号
   await seedE2EUsers(pool);
@@ -178,6 +180,49 @@ async function seedE2EUsers(pool: mysql2.Pool) {
   ]);
 
   console.log("[seed-test-db] E2E 测试账号创建完成");
+}
+
+async function seedTestNotices(pool: mysql2.Pool) {
+  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices");
+  const total = Number((countRows as { total: number }[])[0]?.total || 0);
+  if (total > 0) return;
+
+  // 插入 5 条测试采购公告（覆盖不同类型和国家）
+  await pool.execute(`
+    INSERT IGNORE INTO crm_bid_notices
+      (reference_no, title, notice_type, country, agency, deadline_sec, description, created_at)
+    VALUES
+      (?, ?, ?, ?, ?, ?, ?, NOW()),
+      (?, ?, ?, ?, ?, ?, ?, NOW()),
+      (?, ?, ?, ?, ?, ?, ?, NOW()),
+      (?, ?, ?, ?, ?, ?, ?, NOW()),
+      (?, ?, ?, ?, ?, ?, ?, NOW())
+  `, [
+    "REF-TEST-001", "Construction of School Buildings - UNICEF", "ITB", "China", "UNICEF", 0, "Test notice for E2E", 
+    "REF-TEST-002", "Supply of Medical Equipment - WHO", "RFQ", "Brazil", "WHO", 0, "Test notice for E2E",
+    "REF-TEST-003", "IT Services Contract - UNDP", "RFP", "India", "UNDP", 0, "Test notice for E2E",
+    "REF-TEST-004", "Road Rehabilitation - World Bank", "ITB", "Kenya", "World Bank", 0, "Test notice for E2E",
+    "REF-TEST-005", "Consulting Services - UNESCO", "EOI", "France", "UNESCO", 0, "Test notice for E2E",
+  ]);
+  console.log("[seed-test-db] 测试采购公告种子数据写入完成");
+}
+
+async function seedTestSuppliers(pool: mysql2.Pool) {
+  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_suppliers");
+  const total = Number((countRows as { total: number }[])[0]?.total || 0);
+  if (total > 0) return;
+
+  await pool.execute(`
+    INSERT IGNORE INTO crm_suppliers (user_key, company_name, country, industry, status, created_at)
+    VALUES (?, ?, ?, ?, ?, NOW())
+  `, [
+    "e2e-vip@test.com",
+    "E2E Test Supplier Co.",
+    "China",
+    "Construction",
+    "active",
+  ]);
+  console.log("[seed-test-db] 测试供应商种子数据写入完成");
 }
 
 main().catch((err) => {

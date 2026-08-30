@@ -50,7 +50,7 @@ async function getAliyunClient(): Promise<any> {
     _aliyunClient = new Client(config);
     return _aliyunClient;
   } catch (err) {
-    throw new Error(`SMS_SDK_INIT_FAILED: ${(err as Error).message}`);
+    throw new Error(`SMS_SDK_INIT_FAILED: ${(err as Error).message}`, { cause: err });
   }
 }
 
@@ -113,6 +113,6 @@ export async function sendSmsVerificationCode(
     throw new Error(`SMS_SEND_FAILED: ${body?.message || body?.code || "unknown"}`);
   } catch (err: any) {
     if (err.message?.startsWith("SMS_")) throw err;
-    throw new Error(`SMS_SEND_ERROR: ${err.message}`);
+    throw new Error(`SMS_SEND_ERROR: ${err.message}`, { cause: err });
   }
 }

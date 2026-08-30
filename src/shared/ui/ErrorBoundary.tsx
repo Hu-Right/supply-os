@@ -78,13 +78,13 @@ export class ErrorBoundary extends Component<
         return (
           <div
             role="alert"
-            className="flex min-h-screen items-center justify-center bg-slate-50 p-6"
+            className="flex min-h-screen items-center justify-center bg-secondary-50 p-6"
           >
-            <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-              <h1 className="text-lg font-bold text-slate-900">
+            <div className="max-w-md rounded-2xl border border-secondary-200 bg-white p-6 text-center shadow-sm">
+              <h1 className="text-lg font-bold text-secondary-900">
                 {t("errorBoundaryChunkTitle")}
               </h1>
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-secondary-500">
                 {t("errorBoundaryChunkDesc")}
               </p>
               <Button
@@ -104,20 +104,20 @@ export class ErrorBoundary extends Component<
       return (
         <div
           role="alert"
-          className="flex min-h-screen items-center justify-center bg-slate-50 p-6"
+          className="flex min-h-screen items-center justify-center bg-secondary-50 p-6"
         >
-          <div className="max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-widest text-teal-600">
+          <div className="max-w-md rounded-2xl border border-secondary-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary-600">
               Supply OS
             </p>
-            <h1 className="mt-2 text-xl font-extrabold text-slate-900">
+            <h1 className="mt-2 text-xl font-extrabold text-secondary-900">
               {t("errorBoundaryTitle")}
             </h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-secondary-500">
               {t("errorBoundaryDesc")}
             </p>
             {this.state.error && (
-              <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-slate-100 p-3 text-xs text-slate-600">
+              <pre className="mt-4 max-h-32 overflow-auto rounded-lg bg-secondary-100 p-3 text-xs text-secondary-600">
                 {this.state.error.message}
               </pre>
             )}

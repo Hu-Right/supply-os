@@ -325,12 +325,12 @@ export class PaymentsRepo {
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  /** 事务内标记订单已支付 */
+  /** 事务内标记订单已支付（仅 pending 可流转，防止 closed/refunded 被复活，审查 F19） */
   async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, providerTradeNo: string | null): Promise<void> {
     await conn.execute(
       `UPDATE crm_payment_orders
        SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ?`,
+       WHERE order_no = ? AND status = 'pending'`,
       [providerTradeNo, orderNo],
     );
   }
@@ -460,9 +460,9 @@ export class PaymentsRepo {
     conn: PoolConnection,
     userKey: string,
     targetPlanCode: string,
-  ): Promise<{ id: number; plan_code: string; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
+  ): Promise<{ id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
     const [rows] = await conn.query(
-      `SELECT e.id, e.plan_code, e.quota_used, e.started_at, e.expires_at
+      `SELECT e.id, e.plan_code, p.price, e.quota_used, e.started_at, e.expires_at
        FROM crm_user_entitlements e
        INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
        WHERE e.user_key = ? AND e.status = 'active' AND e.is_upgraded = 0
@@ -500,6 +500,44 @@ export class PaymentsRepo {
     );
     const row = (rows as RowDataPacket[])[0];
     return row ? { amount: Number(row.amount || 0), status: row.status } : null;
+  }
+
+  /**
+   * 首单特惠资格（single_99，2026-08-30）：用户是否从未购买过任何单次解锁。
+   * pending 也计入——只查 paid 会被"先开单不付款再开第二单"绕过。
+   */
+  async hasSingleUnlockRecord(userKey: string): Promise<boolean> {
+    const [rows] = await this.pool.query(
+      "SELECT 1 FROM crm_payment_orders WHERE user_key = ? AND plan_code LIKE 'single_%' AND status IN ('pending','paid') LIMIT 1",
+      [userKey],
+    );
+    return (rows as RowDataPacket[]).length > 0;
+  }
+
+  /**
+   * 可抵扣的 single_99 源订单（2026-08-30 产品决策）：
+   * - 已支付且 paid_at 在 7 天内
+   * - 未被任何非 closed 订单通过 original_order_no 引用过（一单只能抵扣一次）
+   * - 历史 single_199 买家不参与抵扣（决策 1：仅 single_99 作为漏斗钩子）
+   */
+  async findDeductibleSingleOrder(userKey: string): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
+    const [rows] = await this.pool.query(
+      `SELECT o.order_no, o.amount, o.paid_at
+       FROM crm_payment_orders o
+       WHERE o.user_key = ? AND o.plan_code = 'single_99' AND o.status = 'paid'
+         AND o.paid_at >= NOW() - INTERVAL 7 DAY
+         AND NOT EXISTS (
+           SELECT 1 FROM crm_payment_orders o2
+           WHERE o2.original_order_no = o.order_no AND o2.status <> 'closed'
+         )
+       ORDER BY o.paid_at DESC
+       LIMIT 1`,
+      [userKey],
+    );
+    const row = (rows as RowDataPacket[])[0];
+    return row
+      ? { order_no: row.order_no as string, amount: Number(row.amount || 0), paid_at: row.paid_at as Date }
+      : null;
   }
 
   /** 授予单条公告解锁（含幂等检查 + UNSPSC 快照 + 兴趣记录） */

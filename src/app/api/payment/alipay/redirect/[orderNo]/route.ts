@@ -7,17 +7,23 @@
  */
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { requireUserKey } from "@/lib/middleware/auth";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orderNo: string }> },
 ) {
+  // 归属校验（审查 F27）：仅订单本人可获取支付表单
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
+
   const { orderNo } = await params;
   const decodedOrderNo = decodeURIComponent(orderNo);
 
   const ctx = getContext();
   const order = await ctx.payment.paymentsRepo.findByOrderNo(decodedOrderNo);
   if (!order) return new Response("Order not found", { status: 404 });
+  if (order.user_key !== auth.userKey) return new Response("Forbidden", { status: 403 });
   if (order.provider !== "alipay") return new Response("Not an Alipay order", { status: 400 });
   if (order.status !== "pending") return new Response("Order is not pending", { status: 400 });
 

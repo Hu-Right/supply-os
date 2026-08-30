@@ -10,6 +10,9 @@ import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { extractClientIp } from "../utils/ip";
 
+/** 共享限流 Map 的容量上限（审查 F31：防 XFF 伪造无限造键导致内存耗尽） */
+const MAX_KEYS = 100_000;
+
 export interface RateLimiterConfig {
   windowMs: number;
   maxAttempts: number;
@@ -84,6 +87,17 @@ export function createRateLimiter(config: RateLimiterConfig): RateLimiter {
     const entry = attempts.get(key);
 
     if (!entry || now > entry.resetAt) {
+      // 容量护栏（审查 F31）：键空间（XFF 伪造可无限造键）无上限会导致
+      // 内存耗尽；超限时先清过期条目，仍满则丢弃最旧键
+      if (!attempts.has(key) && attempts.size >= MAX_KEYS) {
+        for (const [k, e] of attempts) {
+          if (e.resetAt <= now) attempts.delete(k);
+        }
+        if (attempts.size >= MAX_KEYS) {
+          const oldest = attempts.keys().next().value;
+          if (oldest !== undefined) attempts.delete(oldest);
+        }
+      }
       attempts.set(key, { count: 0, resetAt: now + windowMs });
       return { blocked: false, retryAfterSec: 0 };
     }
@@ -131,6 +145,19 @@ export function createRateLimiter(config: RateLimiterConfig): RateLimiter {
       }
       if (changed && persistFile) persist();
     }, cleanupIntervalMs).unref();
+  } else {
+    // 默认清理（审查 F31）：调用方从不传 cleanupIntervalMs，共享 Map 的
+    // 过期条目无人回收 → 进程级单例定时器周期清理（globalThis 去重）
+    const globalForRlTimer = globalThis as unknown as { _rlCleanupTimer?: ReturnType<typeof setInterval> };
+    if (!globalForRlTimer._rlCleanupTimer) {
+      globalForRlTimer._rlCleanupTimer = setInterval(() => {
+        const now = Date.now();
+        for (const [key, entry] of attempts) {
+          if (now > entry.resetAt) attempts.delete(key);
+        }
+      }, 60_000);
+      globalForRlTimer._rlCleanupTimer.unref?.();
+    }
   }
 
   return { check, record, clear, persist };

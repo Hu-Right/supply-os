@@ -89,8 +89,8 @@ const FormLabel = forwardRef<
     <LabelPrimitive.Root
       ref={ref}
       className={cn(
-        "block text-xs font-semibold text-slate-700",
-        error && "text-rose-600",
+        "block text-xs font-semibold text-secondary-700",
+        error && "text-danger-600",
         className,
       )}
       htmlFor={formItemId}
@@ -119,7 +119,7 @@ FormControl.displayName = "FormControl";
 
 const FormDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-xs text-slate-400", className)} {...props} />
+    <p ref={ref} className={cn("text-xs text-secondary-400", className)} {...props} />
   ),
 );
 FormDescription.displayName = "FormDescription";
@@ -133,7 +133,7 @@ const FormMessage = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagrap
       <p
         ref={ref}
         id={formMessageId}
-        className={cn("text-xs font-medium text-rose-600", className)}
+        className={cn("text-xs font-medium text-danger-600", className)}
         {...props}
       >
         {body}

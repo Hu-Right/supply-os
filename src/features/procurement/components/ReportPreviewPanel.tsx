@@ -86,9 +86,10 @@ export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLoc
   return (
     <div className="rounded-xl border border-teal-200 bg-teal-50/40 overflow-hidden">
       {/* 标题栏 */}
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setCollapsed((v) => !v)}
-        className="w-full flex items-center justify-between gap-2 px-4 py-3 hover:bg-teal-50 transition-colors"
+        className="w-full justify-between gap-2 px-4 py-3 hover:bg-teal-50"
       >
         <p className="text-sm font-extrabold text-teal-800 flex items-center gap-2">
           <FileText className="w-4 h-4 shrink-0 text-teal-600" />
@@ -98,7 +99,7 @@ export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLoc
           </span>
         </p>
         {collapsed ? <ChevronDown className="w-4 h-4 text-teal-500 shrink-0" /> : <ChevronUp className="w-4 h-4 text-teal-500 shrink-0" />}
-      </button>
+      </Button>
 
       {/* 展开/收缩内容：grid-rows 过渡动画 */}
       <div

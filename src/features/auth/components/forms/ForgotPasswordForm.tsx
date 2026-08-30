@@ -19,8 +19,8 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
     t,
     forgotStep,
     setForgotStep,
-    forgotEmail,
-    setForgotEmail,
+    forgotIdentifier,
+    setForgotIdentifier,
     forgotCode,
     setForgotCode,
     forgotNewPassword,
@@ -50,18 +50,18 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
           <Input
             type="text"
             inputMode="text"
-            value={forgotEmail}
-            onChange={(e) => setForgotEmail(e.target.value)}
-            placeholder={t("authForgotIdentifierPlaceholder") || "邮箱 / 手机号"}
+            value={forgotIdentifier}
+            onChange={(e) => setForgotIdentifier(e.target.value)}
+            placeholder={t("authForgotIdentifierPlaceholder") || "手机号（推荐）或邮箱"}
             autoComplete="username"
           />
-          {forgotEmail.trim() && (() => {
-            const detected = detectChannel(forgotEmail.trim());
+          {forgotIdentifier.trim() && (() => {
+            const detected = detectChannel(forgotIdentifier.trim());
             return (
               <p className="text-[11px] text-slate-400">
                 {detected === "sms"
                   ? (t("authForgotDetectSms") || "已识别为手机号，将通过短信验证")
-                  : (t("authForgotDetectEmail") || "已识别为邮箱，将通过邮件验证")}
+                  : (t("authForgotDetectEmail") || "已识别为邮箱，将通过邮件验证（备用渠道）")}
               </p>
             );
           })()}
@@ -79,7 +79,7 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
         /* 步骤 2：输入验证码 + 新密码 */
         <div className="space-y-3">
           <p className="text-xs text-slate-500 text-center">
-            {t("authForgotCodeHint")} {detectChannel(forgotEmail) === "sms" ? maskPhone(forgotEmail) : maskEmail(forgotEmail)}
+            {t("authForgotCodeHint")} {detectChannel(forgotIdentifier) === "sms" ? maskPhone(forgotIdentifier) : maskEmail(forgotIdentifier)}
           </p>
           <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
             <p className="text-xs text-blue-700">
@@ -110,18 +110,20 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
           >
             {forgotLoading ? t("authForgotResetting") : t("authForgotResetSubmit")}
           </Button>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => {
               setForgotStep(1);
               setForgotCode("");
               setForgotNewPassword("");
               setForgotError("");
             }}
-            className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+            className="w-full text-center px-0 py-0 font-normal text-slate-500 hover:text-slate-700 hover:bg-transparent"
           >
             {t("authForgotChangeAccount") || "信息有误？返回修改"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -156,16 +158,18 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
         </div>
       )}
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => {
           reset();
           onBack();
         }}
-        className="w-full text-center text-xs text-slate-500 hover:text-slate-700"
+        className="w-full text-center px-0 py-0 font-normal text-slate-500 hover:text-slate-700 hover:bg-transparent"
       >
         ← {t("authForgotBackToLogin")}
-      </button>
+      </Button>
     </div>
   );
 }

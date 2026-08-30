@@ -12,6 +12,7 @@ import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
+import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
   NoticeDetailRepo,
@@ -28,6 +29,8 @@ import {
 import { CatalogRepo } from "../repos/catalog.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { LeadsRepo } from "../repos/leads.repo";
+import { InvitationRepo } from "../repos/invitation.repo";
+import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
 import { AdminRepo } from "../repos/admin.repo";
 
@@ -57,6 +60,7 @@ export type UserContext = {
   authRepo: AuthRepo;
   membershipRepo: MembershipRepo;
   userPrefsRepo: UserPrefsRepo;
+  invitationRepo: InvitationRepo;
 };
 
 /** 供应商域上下文 */
@@ -84,6 +88,7 @@ export type AppContext = {
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   leadsRepo: LeadsRepo;
+  chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
   systemRepo: SystemRepo;
 };
@@ -104,6 +109,7 @@ export function getContext(): AppContext {
   const authRepo = new AuthRepo(dbPool);
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
+  const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
   const detailRepo = new NoticeDetailRepo(dbPool);
@@ -118,23 +124,26 @@ export function getContext(): AppContext {
 
   const catalogRepo = new CatalogRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
+  const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
+  const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
 
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo, learningMaterialsRepo);
 
   const ctx: AppContext = {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
     payment: { dbPool, paymentService, paymentMode, paymentsRepo, membershipRepo },
-    user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo },
+    user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
     admin: { dbPool, adminRepo, usersRepo },
     opportunitiesRepo,
     catalogRepo,
     leadsRepo,
+    chatRepo,
     trainingRepo,
     systemRepo,
   };

@@ -12,6 +12,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
+import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -22,8 +23,8 @@ export const metadata: Metadata = {
   description: "Global intelligent supply chain platform: showrooms, procurement search, supplier directory, CRM, training.",
   keywords: ["supply chain", "procurement", "bidding", "tender", "supplier"],
   alternates: {
-    canonical: "https://osneosmart.com/",
-    languages: { "x-default": "https://osneosmart.com/" },
+    canonical: absoluteUrl("/"),
+    languages: { "x-default": absoluteUrl("/") },
   },
   openGraph: {
     title: "Supply OS — Global Procurement & Showrooms Portal",
@@ -55,19 +56,19 @@ const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Supply OS",
-    url: "https://osneosmart.com",
-    logo: "https://osneosmart.com/logo.png",
+    url: SITE_URL,
+    logo: `${SITE_URL}/logo.png`,
     description: "Global intelligent supply chain platform.",
   },
   website: {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Supply OS",
-    url: "https://osneosmart.com",
+    url: SITE_URL,
     description: "外贸员的全球采购订单雷达",
     potentialAction: {
       "@type": "SearchAction",
-      target: "https://osneosmart.com/procurement?q={search_term_string}",
+      target: `${SITE_URL}/procurement?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   },
@@ -88,6 +89,13 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.website) }} />
       </head>
       <body className="antialiased">
+        {/* Skip Navigation — 键盘/屏幕阅读器用户可直接跳到主内容区 (WCAG 2.4.1) */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-lg focus:bg-primary-600 focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         <Providers>{children}</Providers>
       </body>
     </html>

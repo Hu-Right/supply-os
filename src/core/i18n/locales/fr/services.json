@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "p. ex. Jean Dupont",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "p. ex. Nous fabriquons des emballages médicaux et avons besoin de conseils UN Level 1.",
-  "formRequired": "Veuillez remplir ce champ"
+  "formRequired": "Veuillez remplir ce champ",
+  "formSubmitFailed": "Échec de la soumission, veuillez réessayer plus tard"
 }

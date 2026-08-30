@@ -11,11 +11,12 @@
 
 import { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
-import type { AuthContextValue, SupplierClaimForm } from "./types";
+import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
 import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
 import { useLocale } from "@/core/i18n";
+import { onAppEvent } from "@/core/events";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
  * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
@@ -87,16 +88,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   /**
-   * 登录（支持邮箱或手机号）
-   * Login (email or phone)
+   * 登录（仅手机号）
+   * Login (phone only)
    */
-  const login = useCallback(async (identifier: string, password: string) => {
+  const login = useCallback(async (phone: string, password: string) => {
     setIsAuthLoading(true);
     try {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
       const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: { email: identifier, password },
+        body: { identifier: phone, password },
       });
       // 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发）
       if (data.token) {
@@ -109,15 +110,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   /**
-   * 注册（含供应商绑定申请）
-   * Register (with supplier claim application)
+   * 注册（手机号必填，邮箱选填仅用于通知）
+   * Register (phone required, email optional for notifications only)
    */
-  const register = useCallback(async (email: string, password: string, displayName: string, claim?: SupplierClaimForm, verifyCode?: string) => {
+  const register = useCallback(async ({ email, password, displayName = "会员", claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
-        body: { email, password, display_name: displayName || email.split("@")[0], verify_code: verifyCode },
+        body: {
+          email, password, display_name: displayName || "会员", verify_code: verifyCode,
+          invitation_code: invitationCode, user_type: userType, phone,
+          // ── 合规审计：协议同意记录 ──
+          agreement_version: agreementVersion,
+          agreement_accepted_at: agreementAcceptedAt,
+        },
       });
 
       // 存储 Access Token（注册即登录）
@@ -142,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           },
         });
         // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
-        setClaimMessage("注册成功，供应商绑定申请已提交，等待后台审核。");
+        setClaimMessage(t("authRegisterClaimSubmitted"));
       }
     } finally {
       setIsAuthLoading(false);
@@ -211,10 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 发送找回密码验证码
    * Send password reset verification code
    */
-  const sendResetCode = useCallback(async (email: string) => {
+  const sendResetCode = useCallback(async (identifier: string) => {
     const data = await api<{ email_sent?: boolean; support_hint?: string | null }>(
       "/api/auth/forgot-password",
-      { method: "POST", body: { email } },
+      { method: "POST", body: { identifier } },
     );
     return { email_sent: data.email_sent ?? true, support_hint: data.support_hint ?? null };
   }, []);
@@ -223,12 +230,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 重置密码（验证码+新密码），成功后自动登录
    * Reset password (code + new password), auto-login on success
    */
-  const resetPassword = useCallback(async (email: string, code: string, newPassword: string) => {
+  const resetPassword = useCallback(async (identifier: string, code: string, newPassword: string) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/reset-password", {
         method: "POST",
-        body: { email, code, new_password: newPassword },
+        body: { identifier, code, new_password: newPassword },
       });
       // 存储 Access Token（重置后自动登录）
       if (data.token) {
@@ -258,6 +265,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthReady(true);
     }
   }, [persistAuthUser, refreshAuth]);
+
+  // 会话过期守卫：当 api-client 检测到 Access Token + Refresh Token 均失效时，
+  // 派发 supply-os:unauthorized 事件 → 此处清除 React 状态 → ProtectedRoute 自动重定向
+  useEffect(() => {
+    return onAppEvent("supply-os:unauthorized", () => {
+      authUserRef.current = null;
+      setAuthUser(null);
+      setIsVip(false);
+      window.localStorage.removeItem(AUTH_USER_KEY);
+      clearApiCache();
+    });
+  }, []);
 
   // P2-1：value useMemo——仅状态/方法真实变化时才重建，阻断消费组件级联重渲染
   const value: AuthContextValue = useMemo(() => ({

@@ -9,8 +9,11 @@
 export {
   SUPPORTED_LANGS, WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
-  buildWideRow, loadAliasMap, reconcileDeadlineSec, upsertWideRows,
+  buildWideRow, loadAliasMap, upsertWideRows,
 } from "./wide-row-builder";
+
+// 对账层
+export { reconcileDeadlineSec } from "./wide-row-reconcile";
 
 // 同步调度层（对外门面）
 export {

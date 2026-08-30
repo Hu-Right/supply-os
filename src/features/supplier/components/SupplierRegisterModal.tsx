@@ -192,11 +192,6 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
                       placeholder={t("supplierContactPlaceholder")}
                       className="px-3 py-2 text-xs"
                       {...field}
-                      onChange={(e) => {
-                        // 原版联动：联系人输入同时填充 contactPhone（隐藏默认值）
-                        field.onChange(e);
-                        setValue("contactPhone", e.target.value);
-                      }}
                     />
                   </FormControl>
                   <FormMessage />

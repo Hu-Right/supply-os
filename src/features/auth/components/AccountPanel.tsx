@@ -17,6 +17,7 @@ import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
+import { EmailBinding } from "./EmailBinding";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
 
 export interface AccountPanelProps {
@@ -81,6 +82,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
         </div>
       </div>
       <PhoneBinding />
+      <EmailBinding />
       <IndustryPrefsForm />
       <MyRecordsPanel onOpenNotice={openNotice} />
       {claimMessage && (

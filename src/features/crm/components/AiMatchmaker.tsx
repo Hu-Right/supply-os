@@ -9,7 +9,7 @@ import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { OPPORTUNITIES } from "@/data";
 import type { Supplier, Opportunity } from "@/types";
-import { Select } from "@/shared/ui";
+import { Button, Select } from "@/shared/ui";
 
 type AiMatchmakerProps = {
   suppliers: Supplier[];
@@ -96,13 +96,14 @@ export function AiMatchmaker({
           </Select>
         </div>
 
-        <button
+        <Button
           onClick={onTrigger}
-          disabled={isMatching}
-          className="w-full py-2.5 mt-2 bg-teal-500 text-slate-955 rounded-lg text-xs font-bold hover:bg-teal-400 transition-colors disabled:opacity-50 cursor-pointer text-center text-slate-900"
+          loading={isMatching}
+          size="sm"
+          className="w-full py-2.5 mt-2"
         >
           {isMatching ? labels.analyzing : labels.trigger}
-        </button>
+        </Button>
       </div>
 
       {report && (
