@@ -33,16 +33,16 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center",
+        "flex flex-col items-center justify-center rounded-xl border border-dashed border-secondary-300 bg-secondary-50 p-8 text-center",
         className,
       )}
     >
-      <div className="mb-3 text-slate-400">
+      <div className="mb-3 text-secondary-400">
         {icon || <Inbox className="h-12 w-12" />}
       </div>
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+      <h3 className="text-sm font-semibold text-secondary-700">{title}</h3>
       {description && (
-        <p className="mt-1 text-xs text-slate-500">{description}</p>
+        <p className="mt-1 text-xs text-secondary-500">{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

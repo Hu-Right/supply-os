@@ -46,7 +46,7 @@ export function SegmentedControl<T extends string = string>({
     <div
       role="radiogroup"
       className={cn(
-        "gap-1 rounded-xl bg-slate-100 p-1",
+        "gap-1 rounded-xl bg-secondary-100 p-1",
         fullWidth ? "grid" : "inline-flex",
         className,
       )}
@@ -67,8 +67,8 @@ export function SegmentedControl<T extends string = string>({
               "disabled:cursor-not-allowed disabled:opacity-50",
               size === "sm" ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm",
               active
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-500 hover:text-slate-800",
+                ? "bg-white text-secondary-900 shadow-xs"
+                : "text-secondary-500 hover:text-secondary-800",
               itemClassName,
             )}
           >

@@ -22,20 +22,20 @@ export interface ToggleButtonProps
 }
 
 const activeByTone = {
-  amber: "border-amber-300 bg-amber-50 text-amber-700 shadow-sm ring-1 ring-amber-200",
-  teal: "border-teal-300 bg-teal-50 text-teal-700 shadow-sm ring-1 ring-teal-200",
+  amber: "border-accent-300 bg-accent-50 text-accent-700 shadow-sm ring-1 ring-accent-200",
+  teal: "border-primary-300 bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-200",
 } as const;
 
 const hoverByTone = {
-  amber: "hover:border-amber-300 hover:text-amber-600",
-  teal: "hover:border-teal-300 hover:text-teal-600",
+  amber: "hover:border-accent-300 hover:text-accent-600",
+  teal: "hover:border-primary-300 hover:text-primary-600",
 } as const;
 
 /** solid 变体：激活 = teal 实底白字；未激活 = teal 淡底（整钮始终带品牌色） */
 const solidActive =
-  "border-teal-500 bg-teal-500 text-white hover:border-teal-600 hover:bg-teal-600";
+  "border-primary-500 bg-primary-500 text-white hover:border-primary-600 hover:bg-primary-600";
 const solidInactive =
-  "border-teal-200 bg-teal-50 text-teal-700 hover:border-teal-300 hover:text-teal-800";
+  "border-primary-200 bg-primary-50 text-primary-700 hover:border-primary-300 hover:text-primary-800";
 
 export function ToggleButton({
   pressed,
@@ -51,7 +51,7 @@ export function ToggleButton({
   const inactiveCls =
     variant === "solid"
       ? solidInactive
-      : cn("border-slate-200 bg-slate-50 text-slate-500", hoverByTone[tone]);
+      : cn("border-secondary-200 bg-secondary-50 text-secondary-500", hoverByTone[tone]);
 
   return (
     <button

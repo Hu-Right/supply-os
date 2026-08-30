@@ -16,11 +16,11 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-slate-100 text-slate-700",
-        success: "bg-emerald-100 text-emerald-700",
-        warning: "bg-amber-100 text-amber-700",
-        error: "bg-rose-100 text-rose-700",
-        info: "bg-teal-100 text-teal-700",
+        default: "bg-secondary-100 text-secondary-700",
+        success: "bg-success-100 text-success-700",
+        warning: "bg-accent-100 text-accent-700",
+        error: "bg-danger-100 text-danger-700",
+        info: "bg-primary-100 text-primary-700",
       },
     },
     defaultVariants: {

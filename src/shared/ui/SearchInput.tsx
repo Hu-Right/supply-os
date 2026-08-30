@@ -17,12 +17,12 @@ export interface SearchInputProps
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ className, ...props }, ref) => {
     const baseClasses =
-      "w-full rounded-lg border border-slate-300 bg-white py-2 ps-9 pe-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
+      "w-full rounded-lg border border-secondary-300 bg-white py-2 ps-9 pe-3 text-sm text-secondary-900 placeholder:text-secondary-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20";
 
     return (
       <div className="relative">
         <Search
-          className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+          className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-400"
           aria-hidden="true"
         />
         <input

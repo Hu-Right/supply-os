@@ -59,8 +59,8 @@ export function ChipToggleGroup({
               "cursor-pointer rounded-md border px-2.5 py-1 text-xs transition-colors",
               "disabled:cursor-not-allowed disabled:opacity-50",
               active
-                ? "border-teal-600 bg-teal-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-teal-400 hover:text-teal-700",
+                ? "border-primary-600 bg-primary-600 text-white"
+                : "border-secondary-200 bg-white text-secondary-600 hover:border-primary-400 hover:text-primary-700",
             )}
           >
             {item.label}

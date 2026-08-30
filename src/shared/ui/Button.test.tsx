@@ -33,14 +33,14 @@ describe("Button", () => {
     expect(spinner).toBeInTheDocument();
   });
 
-  it("默认 variant=primary 包含 bg-teal-600 类名", () => {
+  it("默认 variant=primary 包含 bg-primary-600 类名", () => {
     render(<Button>主按钮</Button>);
-    expect(screen.getByRole("button").className).toContain("bg-teal-600");
+    expect(screen.getByRole("button").className).toContain("bg-primary-600");
   });
 
-  it("variant=danger 包含 bg-rose-600 类名", () => {
+  it("variant=danger 包含 bg-danger-600 类名", () => {
     render(<Button variant="danger">危险</Button>);
-    expect(screen.getByRole("button").className).toContain("bg-rose-600");
+    expect(screen.getByRole("button").className).toContain("bg-danger-600");
   });
 
   it("size=sm 包含 text-xs 类名", () => {

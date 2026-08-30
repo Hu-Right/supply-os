@@ -8,24 +8,24 @@ describe("Badge", () => {
     expect(screen.getByText("活跃")).toBeInTheDocument();
   });
 
-  it("默认 variant=default 包含 bg-slate-100", () => {
+  it("默认 variant=default 包含 bg-secondary-100", () => {
     render(<Badge>默认</Badge>);
-    expect(screen.getByText("默认").className).toContain("bg-slate-100");
+    expect(screen.getByText("默认").className).toContain("bg-secondary-100");
   });
 
-  it("variant=success 包含 bg-emerald-100", () => {
+  it("variant=success 包含 bg-success-100", () => {
     render(<Badge variant="success">成功</Badge>);
-    expect(screen.getByText("成功").className).toContain("bg-emerald-100");
+    expect(screen.getByText("成功").className).toContain("bg-success-100");
   });
 
-  it("variant=error 包含 bg-rose-100", () => {
+  it("variant=error 包含 bg-danger-100", () => {
     render(<Badge variant="error">错误</Badge>);
-    expect(screen.getByText("错误").className).toContain("bg-rose-100");
+    expect(screen.getByText("错误").className).toContain("bg-danger-100");
   });
 
-  it("variant=warning 包含 bg-amber-100", () => {
+  it("variant=warning 包含 bg-accent-100", () => {
     render(<Badge variant="warning">警告</Badge>);
-    expect(screen.getByText("警告").className).toContain("bg-amber-100");
+    expect(screen.getByText("警告").className).toContain("bg-accent-100");
   });
 
   it("pulsate=true → role=status + animate-pulse", () => {

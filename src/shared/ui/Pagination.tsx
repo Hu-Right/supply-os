@@ -45,7 +45,7 @@ export function Pagination({
   const nextLabel = labels?.next ?? t("procurement_next");
 
   const btnClass =
-    "inline-flex items-center gap-1 px-3 py-2.5 rounded-lg border border-slate-200 text-xs font-bold disabled:opacity-50 hover:bg-slate-50 min-h-[40px]";
+    "inline-flex items-center gap-1 px-3 py-2.5 rounded-lg border border-secondary-200 text-xs font-bold disabled:opacity-50 hover:bg-secondary-50 min-h-[40px]";
 
   /** 页码跳转处理：校验输入合法性后触发 onPageChange */
   const handleJump = () => {
@@ -76,7 +76,7 @@ export function Pagination({
         onChange={(e) => setJumpInput(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") handleJump(); }}
         placeholder={`${page}`}
-        className="w-20 px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm text-center font-bold text-slate-700 shadow-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all min-h-[40px]"
+        className="w-20 px-3 py-2.5 rounded-xl border border-secondary-300 bg-white text-sm text-center font-bold text-secondary-700 shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none transition-all min-h-[40px]"
         aria-label={t("uiPaginationJumpTo")}
       />
 

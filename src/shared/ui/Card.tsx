@@ -23,7 +23,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl border border-slate-200 bg-white p-4 shadow-sm",
+          "rounded-xl border border-secondary-200 bg-white p-4 shadow-sm",
           onClick && "cursor-pointer transition-shadow hover:shadow-md",
           className,
         )}

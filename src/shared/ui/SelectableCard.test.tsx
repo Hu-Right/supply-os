@@ -34,9 +34,9 @@ describe("SelectableCard", () => {
     expect(card).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("selected=true + variant=teal → border-teal-500", () => {
+  it("selected=true + variant=teal → border-primary-500", () => {
     render(<SelectableCard selected onClick={() => {}} variant="teal">选中</SelectableCard>);
-    expect(screen.getByRole("radio").className).toContain("border-teal-500");
+    expect(screen.getByRole("radio").className).toContain("border-primary-500");
   });
 
   it("selected=true + variant=brand → border-red-500", () => {
@@ -44,8 +44,8 @@ describe("SelectableCard", () => {
     expect(screen.getByRole("radio").className).toContain("border-red-500");
   });
 
-  it("selected=false → border-slate-200", () => {
+  it("selected=false → border-secondary-200", () => {
     render(<SelectableCard selected={false} onClick={() => {}}>未选</SelectableCard>);
-    expect(screen.getByRole("radio").className).toContain("border-slate-200");
+    expect(screen.getByRole("radio").className).toContain("border-secondary-200");
   });
 });

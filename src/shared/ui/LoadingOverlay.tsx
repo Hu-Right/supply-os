@@ -37,10 +37,10 @@ export function LoadingOverlay({ visible }: LoadingOverlayProps) {
       <div className="flex flex-col items-center gap-3">
         {/* 旋转动画指示器 */}
         <div className="relative h-10 w-10">
-          <div className="absolute inset-0 rounded-full border-[3px] border-slate-200" />
-          <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-teal-500" />
+          <div className="absolute inset-0 rounded-full border-[3px] border-secondary-200" />
+          <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-transparent border-t-primary-500" />
         </div>
-        <span className="text-xs font-bold text-slate-500">{t("procurement_loading")}</span>
+        <span className="text-xs font-bold text-secondary-500">{t("procurement_loading")}</span>
       </div>
     </div>
   );

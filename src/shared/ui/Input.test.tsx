@@ -16,16 +16,16 @@ describe("Input", () => {
     expect(onChange).toHaveBeenCalled();
   });
 
-  it("error=true → 包含 border-rose-500 错误样式", () => {
+  it("error=true → 包含 border-danger-500 错误样式", () => {
     const { container } = render(<Input error />);
     const input = container.querySelector("input");
-    expect(input?.className).toContain("border-rose-500");
+    expect(input?.className).toContain("border-danger-500");
   });
 
   it("error=false → 不包含错误样式", () => {
     const { container } = render(<Input />);
     const input = container.querySelector("input");
-    expect(input?.className).not.toContain("border-rose-500");
+    expect(input?.className).not.toContain("border-danger-500");
   });
 
   it("disabled 状态正确传递", () => {

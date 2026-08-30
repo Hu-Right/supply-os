@@ -5,37 +5,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, extractUserKey } from "@/lib/middleware/auth";
-import type { AppointmentRow } from "@/lib/repos/leads.repo";
+import { safeJson } from "@/lib/utils/json";
 import type { Lead } from "@/types";
 
-/** 将数据库 AppointmentRow（snake_case）转换为前端 Lead（camelCase） */
-function toLead(row: AppointmentRow): Lead {
-  let followUpLogs: Lead["followUpLogs"];
-  if (row.follow_up_logs) {
-    try {
-      const parsed = JSON.parse(row.follow_up_logs);
-      followUpLogs = Array.isArray(parsed) ? parsed : undefined;
-    } catch {
-      // 非 JSON 格式：整段作为单条日志
-      followUpLogs = [{ date: new Date(row.created_at).toISOString(), content: row.follow_up_logs, author: "System" }];
-    }
-  }
+/**
+ * 将数据库 AppointmentRow 转换为前端 Lead（camelCase）。
+ * 与 Express 版 server/services/leads.ts 的 mapUngmAppointmentRow 完全对齐。
+ */
+function mapUngmAppointmentRow(row: Record<string, any>): Lead {
   return {
     id: row.appointment_key,
-    companyName: row.company_name || "",
-    country: row.country || "",
-    city: row.city || "",
-    contactPerson: row.contact_person || "",
-    contactMethod: row.contact_method || "",
+    companyName: row.company_name,
+    country: row.country || "China",
+    city: row.city || "Unknown",
+    contactPerson: row.contact_person,
+    contactMethod: row.contact_method,
     email: row.email || "",
-    industry: row.industry || "",
+    industry: row.industry || "Services",
     mainProducts: "",
     hasIntlProcurement: false,
     notes: row.consultation_needs || "",
-    type: "custom",
-    status: (row.status as Lead["status"]) || "new",
-    createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
-    followUpLogs,
+    type: "consulting_advisor",
+    status: row.status || "new",
+    createdAt: row.created_at instanceof Date
+      ? row.created_at.toISOString()
+      : new Date(row.created_at).toISOString(),
+    followUpLogs: safeJson(row.follow_up_logs),
   };
 }
 
@@ -43,7 +38,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
   const rows = await getContext().leadsRepo.listAppointments();
-  const leads = rows.map(toLead);
+  const leads = rows.map(mapUngmAppointmentRow);
   return NextResponse.json(leads);
 }
 
@@ -52,18 +47,68 @@ export async function POST(req: NextRequest) {
   const leadType = body?.type;
 
   // 展厅注册（exhibition_register）允许未登录用户提交
-  if (leadType === "exhibition_register") {
+  let userKey = "anonymous";
+  if (leadType !== "exhibition_register") {
+    const auth = await requireUserKey(req);
+    if (auth instanceof Response) return auth;
+    userKey = auth.userKey;
+  } else {
     const authResult = await extractUserKey(req);
-    const result = await getContext().leadsRepo.insertAppointment({
-      ...body,
-      user_key: authResult.userKey || "anonymous",
-    });
-    return NextResponse.json(result, { status: 201 });
+    userKey = authResult.userKey || "anonymous";
   }
 
-  // 其他类型线索需要登录
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
-  const result = await getContext().leadsRepo.insertAppointment({ ...body, user_key: auth.userKey });
-  return NextResponse.json(result, { status: 201 });
+  const {
+    companyName, country, city, contactPerson, contactMethod,
+    email, industry, mainProducts, hasIntlProcurement, notes, type,
+  } = body;
+
+  if (!companyName || !contactPerson || !contactMethod) {
+    return NextResponse.json(
+      { code: 40022, message: "请填写必填字段" },
+      { status: 400 },
+    );
+  }
+
+  const newLead: Lead = {
+    id: `lead-user-${Date.now()}`,
+    companyName,
+    country: country || "China",
+    city: city || "Unknown",
+    contactPerson,
+    contactMethod,
+    email: email || "",
+    industry: industry || "Other",
+    mainProducts: mainProducts || "",
+    hasIntlProcurement: !!hasIntlProcurement,
+    notes: notes || "",
+    type: type || "custom",
+    status: "new",
+    createdAt: new Date().toISOString(),
+    followUpLogs: [{
+      date: new Date().toISOString().substring(0, 16).replace("T", " "),
+      content: `线索自动录入：来自门户前端表单申请，类型 ${type || "custom"}。`,
+      author: "CRM System",
+    }],
+  };
+
+  const ctx = getContext();
+  await ctx.leadsRepo.insertAppointment({
+    appointmentKey: newLead.id,
+    companyName: newLead.companyName,
+    country: newLead.country,
+    city: newLead.city,
+    contactPerson: newLead.contactPerson,
+    contactMethod: newLead.contactMethod,
+    email: newLead.email,
+    industry: newLead.industry,
+    consultationNeeds: newLead.notes,
+    status: newLead.status,
+    followUpLogs: JSON.stringify(newLead.followUpLogs || []),
+    extra: JSON.stringify({ source: "portal", lead_type: type || "custom" }),
+    rawPayload: JSON.stringify(body),
+    ip: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "",
+    createdAt: new Date(newLead.createdAt),
+  });
+
+  return NextResponse.json(newLead, { status: 201 });
 }

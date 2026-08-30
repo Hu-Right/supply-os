@@ -53,15 +53,15 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className={cn("rounded-lg border border-slate-200 overflow-x-auto", className)}>
+    <div className={cn("rounded-lg border border-secondary-200 overflow-x-auto", className)}>
       <table className="w-full text-xs">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b border-slate-200 bg-slate-50">
+            <tr key={headerGroup.id} className="border-b border-secondary-200 bg-secondary-50">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
-                  className="px-3 py-2.5 text-start font-semibold text-slate-700 whitespace-nowrap"
+                  className="px-3 py-2.5 text-start font-semibold text-secondary-700 whitespace-nowrap"
                 >
                   {header.isPlaceholder
                     ? null
@@ -74,9 +74,9 @@ export function DataTable<TData, TValue>({
         <tbody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">
+              <tr key={row.id} className="border-b border-secondary-100 last:border-0 hover:bg-secondary-50/50">
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-3 py-2.5 text-slate-600">
+                  <td key={cell.id} className="px-3 py-2.5 text-secondary-600">
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -84,7 +84,7 @@ export function DataTable<TData, TValue>({
             ))
           ) : (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">
+              <td colSpan={columns.length} className="px-3 py-8 text-center text-secondary-400">
                 {emptyText ?? "—"}
               </td>
             </tr>

@@ -42,7 +42,7 @@ export function ConfirmDialog({
     <Modal open={open} onClose={onClose} title={title ?? t("confirmTitle")}>
       <div className="space-y-4">
         {description && (
-          <p className="text-sm text-slate-600">{description}</p>
+          <p className="text-sm text-secondary-600">{description}</p>
         )}
         <div className="flex justify-end gap-3">
           <Button type="button" variant="ghost" onClick={onClose} disabled={loading}>

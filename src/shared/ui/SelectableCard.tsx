@@ -16,7 +16,7 @@ export interface SelectableCardProps {
   onClick: () => void;
   children: ReactNode;
   disabled?: boolean;
-  /** teal = border-teal-500 bg-teal-50（站内）；brand = border-red-500 bg-red-50（研修班落地页色系） */
+  /** teal = border-primary-500 bg-primary-50（站内）；brand = border-red-500 bg-red-50（研修班落地页色系） */
   variant?: "teal" | "brand";
   className?: string;
 }
@@ -43,8 +43,8 @@ export function SelectableCard({
         selected
           ? variant === "brand"
             ? "border-red-500 bg-red-50"
-            : "border-teal-500 bg-teal-50"
-          : "border-slate-200 bg-white hover:border-slate-300",
+            : "border-primary-500 bg-primary-50"
+          : "border-secondary-200 bg-white hover:border-secondary-300",
         className,
       )}
     >
