@@ -178,14 +178,15 @@ export async function api<T>(
     timestamp: Date.now(),
   });
 
-  // 401 未授权：先解析响应体，区分业务错误（如登录凭证错误）与 Token 过期
+  // 401 未授权：统一尝试 Token 刷新重试，区分业务错误（如登录凭证错误）与 Token 过期
   if (res.status === 401) {
     const errBody = await res.json().catch(() => ({}));
-    // 含 code 字段 → 业务级错误（sendError 端口），直接透传服务端消息
-    if (errBody.code) {
-      throw new ApiError(401, errBody.message || errBody.error || "Unauthorized");
-    }
-    // 无 code 字段 → Token 过期，尝试刷新
+    const businessMessage = errBody.code
+      ? (errBody.message || errBody.error || "Unauthorized")
+      : null;
+
+    // 尝试刷新 Token 并重试（无论是否含 code 字段均尝试——requireUserKey 返回的
+    // 401 也携带 code: 40042，但本质是 JWT 过期，需要走刷新路径）
     const newToken = await tryRefreshToken();
     if (newToken) {
       // 用新 Token 重试原请求
@@ -201,8 +202,11 @@ export async function api<T>(
         body: hasBody ? JSON.stringify(body) : undefined,
       });
       if (retryRes.ok) return retryRes.json();
-      // 刷新后仍然 401，Token 已失效，清除并触发登录
+      // 刷新后仍然 401：若原始响应含业务 code，透传服务端消息（如权限不足）
       if (retryRes.status === 401) {
+        if (businessMessage) {
+          throw new ApiError(401, businessMessage);
+        }
         clearAuthTokens();
         window.dispatchEvent(
           new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
@@ -212,11 +216,17 @@ export async function api<T>(
       const err = await retryRes.json().catch(() => ({}));
       throw new ApiError(retryRes.status, err.error || `Request failed: ${retryRes.status}`);
     }
-    // 刷新失败，清除 Token 并触发全局事件
+
+    // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效，
+    // 整个认证会话已不可恢复——清除过期凭据并触发全局登出事件。
     clearAuthTokens();
     window.dispatchEvent(
       new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
     );
+    // 若原始响应含业务 code（如 requireUserKey 的 "请先登录"），透传服务端消息
+    if (businessMessage) {
+      throw new ApiError(401, businessMessage);
+    }
     throw new ApiError(401, "Unauthorized");
   }
 

@@ -35,8 +35,11 @@ function mapUngmAppointmentRow(row: Record<string, any>): Lead {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+  // 公开页面：未登录返回空列表，已登录返回完整线索
+  const { authViaJwt } = await extractUserKey(req);
+  if (!authViaJwt) {
+    return NextResponse.json([]);
+  }
   const rows = await getContext().leadsRepo.listAppointments();
   const leads = rows.map(mapUngmAppointmentRow);
   return NextResponse.json(leads);

@@ -16,6 +16,7 @@ import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./typ
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
 import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
 import { useLocale } from "@/core/i18n";
+import { onAppEvent } from "@/core/events";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
  * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
@@ -264,6 +265,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthReady(true);
     }
   }, [persistAuthUser, refreshAuth]);
+
+  // 会话过期守卫：当 api-client 检测到 Access Token + Refresh Token 均失效时，
+  // 派发 supply-os:unauthorized 事件 → 此处清除 React 状态 → ProtectedRoute 自动重定向
+  useEffect(() => {
+    return onAppEvent("supply-os:unauthorized", () => {
+      authUserRef.current = null;
+      setAuthUser(null);
+      setIsVip(false);
+      window.localStorage.removeItem(AUTH_USER_KEY);
+      clearApiCache();
+    });
+  }, []);
 
   // P2-1：value useMemo——仅状态/方法真实变化时才重建，阻断消费组件级联重渲染
   const value: AuthContextValue = useMemo(() => ({
