@@ -50,6 +50,10 @@ elif [ -f .env ]; then
   echo "[deploy] 首次部署：复制 .env → .next/standalone/.env"
 fi
 
+# 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
+cp -r .next/static .next/standalone/.next/static
+echo "[deploy] 已复制静态资源 → standalone"
+
 # 3.6 nodejieba 词典文件（Next.js standalone 不会自动复制原生模块的 dict 资源，
 #     缺失时 Meilisearch 全量重建触发 nodejieba 分词 → FATAL 崩溃 → PM2 无限重启）
 if [ -d node_modules/nodejieba/submodules/cppjieba/dict ]; then
