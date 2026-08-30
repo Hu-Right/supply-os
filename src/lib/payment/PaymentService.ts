@@ -75,6 +75,7 @@ export class PaymentService {
     let currency = "CNY";
     let originalOrderNo: string | null = null;
     let bundleItems: string[] | null = null;
+    let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
 
     if (isLearningOrder) {
       if (planCode.startsWith("material_")) {
@@ -108,6 +109,14 @@ export class PaymentService {
         amount = Math.max(0, Number(plan.price) - Number(current.price));
         originalOrderNo = current.source_order_no;
         if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+        // 差价快照（审查 F23）：履约时校验目标套餐价与当前权益价未漂移，
+        // 漂移则拒绝自动履约转人工
+        upgradeSnapshot = {
+          target_plan_code: planCode,
+          target_price: Number(plan.price),
+          current_plan_code: current.plan_code,
+          current_price: Number(current.price),
+        };
       } else if (amount <= 0) {
         throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
       }
@@ -143,6 +152,7 @@ export class PaymentService {
       notice_id: noticeId,
       amount,
       ...(bundleItems ? { bundle_items: bundleItems } : {}),
+      ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
     });
 
     if (existingOrder) {

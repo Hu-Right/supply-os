@@ -460,9 +460,9 @@ export class PaymentsRepo {
     conn: PoolConnection,
     userKey: string,
     targetPlanCode: string,
-  ): Promise<{ id: number; plan_code: string; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
+  ): Promise<{ id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
     const [rows] = await conn.query(
-      `SELECT e.id, e.plan_code, e.quota_used, e.started_at, e.expires_at
+      `SELECT e.id, e.plan_code, p.price, e.quota_used, e.started_at, e.expires_at
        FROM crm_user_entitlements e
        INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
        WHERE e.user_key = ? AND e.status = 'active' AND e.is_upgraded = 0

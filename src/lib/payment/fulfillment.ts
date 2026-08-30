@@ -155,6 +155,37 @@ async function performUpgradeInTransaction(
     conn, order.user_key, targetPlanCode,
   );
 
+  // 差价快照校验（审查 F23）：下单时记录的目标套餐价/当前权益价与履约时
+  // 实际值发生漂移（运营调价、权益到期、并发下单）→ 差价与承接权益失配，
+  // 拒绝自动履约（事务回滚、订单保持 pending、告警转人工退款）。
+  // 修复前的存量订单无快照字段，跳过校验保持向后兼容。
+  let snapshot: { target_price?: number; current_price?: number } | null = null;
+  try {
+    const raw = JSON.parse(order.raw_request || "{}");
+    if (raw.upgrade_snapshot && typeof raw.upgrade_snapshot === "object") {
+      snapshot = raw.upgrade_snapshot;
+    }
+  } catch { /* raw_request 损坏时视为无快照 */ }
+
+  if (snapshot) {
+    const drift: string[] = [];
+    const targetPrice = Number(targetPlan.price);
+    if (snapshot.target_price !== undefined
+      && Math.abs(targetPrice - Number(snapshot.target_price)) > 0.01) {
+      drift.push(`target_price ${snapshot.target_price}→${targetPrice}`);
+    }
+    if (snapshot.current_price !== undefined && original
+      && Math.abs(Number(original.price ?? 0) - Number(snapshot.current_price)) > 0.01) {
+      drift.push(`current_price ${snapshot.current_price}→${original.price}`);
+    }
+    if (drift.length > 0) {
+      console.error(
+        `[upgrade] 差价快照校验失败（${drift.join("; ")}），转人工核处: order_no=${order.order_no}`,
+      );
+      throw new Error("UPGRADE_PRICE_DRIFT");
+    }
+  }
+
   if (original) {
     // 标记旧权益已升级（quota_used 保留供审计）
     await paymentsRepo.markEntitlementUpgradedInTransaction(conn, original.id);
