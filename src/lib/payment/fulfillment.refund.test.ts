@@ -32,11 +32,11 @@ function makeEnv(order: ReturnType<typeof makeOrder> | null, flagAffectedRows = 
     }),
     query: vi.fn(async (sql: string, params?: unknown[]) => {
       executed.push({ sql, params: params ?? [] });
-      // 抵扣关联查询按 params 匹配返回；其余查询返回空
+      // mysql2 返回 [rows, fields]；抵扣关联查询按需返回行，其余返回空集
       if (sql.includes("original_order_no")) {
-        return linkedOrder ? [linkedOrder] : [];
+        return [linkedOrder ? [linkedOrder] : []];
       }
-      return [];
+      return [[]];
     }),
   } as unknown as PoolConnection;
   const repo = {
