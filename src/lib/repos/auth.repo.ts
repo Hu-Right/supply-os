@@ -128,9 +128,13 @@ export class AuthRepo {
     return ((rows as RowDataPacket[])[0] as { id: number; user_key: string }) ?? null;
   }
 
-  /** 按哈希撤销单个 Refresh Token（轮换/登出） */
-  async deleteRefreshTokenByHash(tokenHash: string): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE token_hash = ?", [tokenHash]);
+  /** 按哈希撤销单个 Refresh Token（轮换/登出）；返回受影响行数供原子轮换判定 */
+  async deleteRefreshTokenByHash(tokenHash: string): Promise<number> {
+    const [result] = await this.pool.execute(
+      "DELETE FROM crm_refresh_tokens WHERE token_hash = ?",
+      [tokenHash],
+    );
+    return Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
 
   /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录） */
