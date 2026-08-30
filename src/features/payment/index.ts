@@ -18,8 +18,6 @@ export type {
 } from "./components/PaymentModalCore";
 export { useOrderHistory } from "./hooks/useOrderHistory";
 export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
-export { usePaymentPolling } from "./hooks/usePaymentPolling";
-export type { PollStatus, UsePaymentPollingOptions, UsePaymentPollingReturn } from "./hooks/usePaymentPolling";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
 export { RecentUnlocks } from "./components/RecentUnlocks";
 export type { RecentUnlocksProps } from "./components/RecentUnlocks";

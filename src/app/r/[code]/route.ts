@@ -28,11 +28,9 @@ export async function GET(
   const expires = new Date();
   expires.setDate(expires.getDate() + 7);
 
-  // 从请求头获取 host，避免 0.0.0.0 导致浏览器无法访问
-  const host = req.headers.get("host") || "localhost:3000";
-  const protocol = req.headers.get("x-forwarded-proto") || "http";
-  const redirectUrl = `${protocol}://${host}/showroom`;
-  const response = NextResponse.redirect(redirectUrl);
+  // 重定向目标用请求 URL 解析（审查 F62-lite）：不再手工拼接
+  // x-forwarded-proto/host 头，消除头注入/缓存投毒拼接面
+  const response = NextResponse.redirect(new URL("/showroom", req.url));
 
   response.cookies.set("ref_code", normalized, {
     path: "/",

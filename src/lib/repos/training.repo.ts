@@ -427,18 +427,6 @@ export class TrainingRepo {
     );
     return rows as ParticipantRow[];
   }
-
-  /** 通过订单号查询学员信息 */
-  async getParticipantsByOrderNo(orderNo: string): Promise<ParticipantRow[]> {
-    const [rows] = await this.pool.execute(
-      `SELECT tp.* FROM training_participants tp
-       INNER JOIN training_orders to ON to.id = tp.order_id
-       WHERE to.order_no = ?
-       ORDER BY tp.participant_no ASC`,
-      [orderNo]
-    );
-    return rows as ParticipantRow[];
-  }
 }
 
 /** 系统配置（system 表） */

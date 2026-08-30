@@ -28,7 +28,6 @@ type I18nInstance = {
 };
 
 const COOKIE_NAME = "supply_os_locale";
-const STORAGE_KEY = "supply_os_locale";
 
 // ---- 工具函数：读写 cookie ----
 function getCookie(name: string): string | undefined {
@@ -105,9 +104,9 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
     });
     // ★ 显式更新 React state —— 保证 re-render，不依赖 useSyncExternalStore 事件链 ★
     setLocaleState(next);
-    // ★ Cookie 持久化 ★
+    // ★ Cookie 持久化 ★（语言决议只读 cookie：本组件与 middleware.ts；
+    // localStorage 双写是死代码，已移除——审查 F70）
     setCookie(COOKIE_NAME, next, 365);
-    try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     if (typeof document !== "undefined") {
       document.documentElement.lang = next;
       document.documentElement.dir = getLocaleDir(next);

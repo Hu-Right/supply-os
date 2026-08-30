@@ -53,7 +53,8 @@ export function signAccessToken(payload: { user_key: string; email: string }): s
 /** 验证 Access Token，返回 payload；失败抛出 JsonWebTokenError / TokenExpiredError */
 export function verifyAccessToken(token: string): AccessTokenPayload {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
-  const decoded = jwt.verify(token, JWT_SECRET) as AccessTokenPayload;
+  // 算法白名单（审查 F58）：显式限定 HS256，防 alg 混淆类回归
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as AccessTokenPayload;
   if (decoded.type !== "access") throw new Error("INVALID_TOKEN_TYPE");
   return decoded;
 }
@@ -75,7 +76,8 @@ export function signRefreshToken(payload: { user_key: string }): { token: string
 /** 验证 Refresh Token，返回 payload */
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
-  const decoded = jwt.verify(token, JWT_SECRET) as RefreshTokenPayload;
+  // 算法白名单（审查 F58）：显式限定 HS256
+  const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as RefreshTokenPayload;
   if (decoded.type !== "refresh") throw new Error("INVALID_TOKEN_TYPE");
   return decoded;
 }
