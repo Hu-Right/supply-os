@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKey } from "@/lib/middleware/auth";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
 import {
@@ -41,6 +42,10 @@ export async function GET(
 ) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
+
+  // 限流（审查 F29）：按需翻译触发 LLM 调用链，防遍历公告 × 6 语言的费用滥用
+  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `notice_tr:${auth.userKey}`);
+  if (rl) return rl;
 
   const { id } = await params;
   const noticeId = Number(id);
