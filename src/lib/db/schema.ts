@@ -120,6 +120,7 @@ import { migration as m054 } from "./migrations/054-membership-plans-seed";
 import { migration as m055 } from "./migrations/055-agency-aliases-seed";
 import { migration as m056 } from "./migrations/056-membership-contract-invoice-copy";
 import { migration as m057 } from "./migrations/057-payment-order-refunded-enum";
+import { migration as m058 } from "./migrations/058-free-trial-removal-and-single-first-promo";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -128,7 +129,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m012, m013, m014, m015, m016, m017, m018, m019, m020, m021,
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
-  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057,
+  m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058,
 ];
 
 /**

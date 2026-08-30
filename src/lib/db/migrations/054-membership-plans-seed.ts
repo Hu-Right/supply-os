@@ -26,9 +26,9 @@ export const migration: Migration = {
       INSERT IGNORE INTO crm_membership_plans
         (plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, sort_order, is_active)
       VALUES
-        ('free', '基础体验版', '免费注册供应商，浏览目录并免费解锁 3 条完整订单。', 0, 'CNY', NULL, 3, 3, 'free', 1, 0),
+        ('free', '基础体验版', '免费注册供应商，浏览公告目录与摘要。', 0, 'CNY', NULL, 0, 0, 'free', 1, 0),
+        ('single_99', '单次解锁·首单特惠', '首次购买专享价，解锁查看 1 条完整采购订单，含原始招标链接与中文解析报告。购买后 7 天内升级标讯个人会员可抵扣本单费用。', 99, 'CNY', NULL, 1, 0, 'single', 100, 1),
         ('single_89', '单点解锁', '单条查看完整采购详情与机构信息。', 89, 'CNY', NULL, 1, 0, 'single', 2, 0),
-        ('trial_99_3', '尝鲜特惠包', '适合初步测试转化率，3 条订单额度。', 99, 'CNY', NULL, 3, 0, 'bundle', 3, 0),
         ('week_299_21', '抢单周卡', '7 天内 21 条订单额度，适合集中筛单。', 299, 'CNY', 7, 21, 0, 'subscription', 4, 0),
         ('annual_5600', '企业至尊年卡', '全年最高 1095 条订单额度，适合团队稳定使用。', 5600, 'CNY', 365, 1095, 0, 'subscription', 5, 0),
         ('annual_manual_8800', '年度人工顾问服务', '含线索对接指导、投标机会分析、合同流程、企业转账确认及微信服务群。', 8800, 'CNY', 365, 0, 0, 'subscription', 6, 0),
