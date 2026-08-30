@@ -79,3 +79,6 @@ export type { SkeletonProps } from "./Skeleton";
 
 export { ConfirmDialog } from "./ConfirmDialog";
 export type { ConfirmDialogProps } from "./ConfirmDialog";
+
+export { Tooltip } from "./Tooltip";
+export type { TooltipProps } from "./Tooltip";

@@ -162,6 +162,24 @@ input[type="number"] {
     from { transform: translateX(-100%); }
     to { transform: translateX(0); }
   }
+
+  /* 通用过渡动画 token */
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-scale-up: scale-up 0.15s ease-out;
+  --animate-slide-up: slide-up 0.2s ease-out;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-up {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slide-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
 }
 
 /* ── shadcn/ui 语义色变量（从 index.css 合并，统一由 globals.css 管理） ── */
@@ -223,4 +241,16 @@ input[type="number"] {
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+}
+
+/* ── 无障碍：用户开启“减少动画”时禁用所有过渡/动画 ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
