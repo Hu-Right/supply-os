@@ -101,7 +101,13 @@ export async function POST(req: NextRequest) {
           ? "学习资料不存在或已下架"
           : raw.includes("BUNDLE_NOT_FOUND")
             ? "打包套餐不存在或已下架"
-            : "创建订单失败，请稍后重试";
+            : raw.includes("SINGLE_FIRST_PURCHASE_ONLY")
+              ? "首单特惠仅限首次购买，请选择标准单次解锁"
+              : "创建订单失败，请稍后重试";
+    // 首单资格冲突用 409 让前端能区分提示
+    if (raw.includes("SINGLE_FIRST_PURCHASE_ONLY")) {
+      return sendError(friendly, 409, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+    }
     return sendError(friendly, 400, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
   }
 }
