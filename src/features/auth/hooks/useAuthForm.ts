@@ -100,11 +100,7 @@ export function useAuthForm(onSuccess: () => void) {
         setAuthError(t("authErrCodeLength"));
         return;
       }
-      // 邀请码必填
-      if (!authForm.invitationCode.trim()) {
-        setAuthError(t("authInvitationCodeRequired"));
-        return;
-      }
+      // 邀请码为可选字段：推荐链接自动填入或手动输入，留空亦可提交
       // 协议勾选校验：必须用户主动勾选，不得默认勾选
       if (!agreedToTerms) {
         setAuthError(t("authErrAgreementRequired"));

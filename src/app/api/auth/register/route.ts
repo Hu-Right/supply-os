@@ -34,17 +34,19 @@ export async function POST(req: NextRequest) {
   if (!pw) return NextResponse.json({ code: 40001, message: "密码不能为空" }, { status: 400 });
   const pwCheck = validatePassword(pw);
   if (!pwCheck.valid) return NextResponse.json({ code: 40006, message: pwCheck.message }, { status: 400 });
-  if (!inviteCode) return NextResponse.json({ code: 40030, message: "请输入邀请码" }, { status: 400 });
   if (!code) return NextResponse.json({ code: 40005, message: "请输入短信验证码" }, { status: 400 });
 
   const ctx = getContext();
 
-  // ── 邀请码有效性校验 ──
-  const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
-  if (!inviteValidation.valid) {
-    return NextResponse.json({ code: 40031, message: inviteValidation.reason || "邀请码无效" }, { status: 400 });
+  // ── 邀请码有效性校验（可选：有邀请码时校验，无则跳过） ──
+  let referralEmployeeId: number | null = null;
+  if (inviteCode) {
+    const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
+    if (!inviteValidation.valid) {
+      return NextResponse.json({ code: 40031, message: inviteValidation.reason || "邀请码无效" }, { status: 400 });
+    }
+    referralEmployeeId = inviteValidation.employee_id!;
   }
-  const referralEmployeeId = inviteValidation.employee_id!;
 
   // ── 短信验证码校验 ──
   const codeRecord = await ctx.user.authRepo.findLatestActiveCode(targetPhone, "registration", targetPhone);
@@ -66,13 +68,16 @@ export async function POST(req: NextRequest) {
     user_type: userType,
     phone: targetPhone,
     referral_code: inviteCode,
-    referral_employee_id: referralEmployeeId,
+    referral_employee_id: referralEmployeeId ?? undefined,
   });
   if (!created) return NextResponse.json({ code: 40008, message: "注册失败，请稍后重试" }, { status: 400 });
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   await ctx.user.usersRepo.markPhoneVerified(targetPhone);
-  await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
+  // 仅在邀请码有效时递增 KPI 归属计数
+  if (referralEmployeeId) {
+    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
+  }
 
   // ── 合规审计：记录用户协议同意日志（P0） ──
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()

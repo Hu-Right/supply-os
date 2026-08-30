@@ -209,18 +209,23 @@ export function RegisterForm({
         minLength={PASSWORD_MIN_LENGTH}
       />
 
-      {/* 邀请码（必填） */}
+      {/* 邀请码（选填） */}
       <div>
         <Input
           type="text"
           value={authForm.invitationCode}
           onChange={(e) => setAuthForm({ ...authForm, invitationCode: e.target.value.toUpperCase() })}
-          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码"}
+          placeholder={t("authInvitationCodePlaceholder") || "请输入邀请码（选填）"}
           className="uppercase tracking-wider"
         />
         {authForm.invitationCode && hasRefCookie && (
           <p className="text-xs text-teal-600 mt-1 flex items-center gap-1">
             <span>✓</span> {t("authInvitationCodeAutoFilled") || "邀请码已由推荐链接自动填入"}
+          </p>
+        )}
+        {!authForm.invitationCode && (
+          <p className="text-xs text-slate-400 mt-1">
+            {t("authInvitationCodeOptional") || "选填，如有邀请码或推荐链接请填写"}
           </p>
         )}
       </div>
