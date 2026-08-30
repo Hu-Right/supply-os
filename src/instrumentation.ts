@@ -32,8 +32,6 @@ export async function register() {
   const { getContext } = await import("./lib/db/context");
   const {
     schemaPhase,
-    seedsPhase,
-    agencyAliasPhase,
     backfillPhase,
     featuredPhase,
     paymentPhase,
@@ -44,8 +42,8 @@ export async function register() {
 
   const dbPool: Pool = getPool();
 
-  // 阶段 1-6：与 Express 启动完全一致
-  const phases = [schemaPhase, seedsPhase, agencyAliasPhase, backfillPhase, featuredPhase, paymentPhase];
+  // 阶段 1-4：与 Express 启动完全一致（种子数据已禁用，不再对数据库进行任何读写）
+  const phases = [schemaPhase, backfillPhase, featuredPhase, paymentPhase];
   for (const phase of phases) {
     const ok = await executePhase(phase, { dbPool });
     if (!ok && !phase.optional) {
