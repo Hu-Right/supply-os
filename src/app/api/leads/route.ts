@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, extractUserKey } from "@/lib/middleware/auth";
+import { resolveMembershipState } from "@/lib/services/membership-status";
 import { safeJson } from "@/lib/utils/json";
 import type { Lead } from "@/types";
 
@@ -35,12 +36,21 @@ function mapUngmAppointmentRow(row: Record<string, any>): Lead {
 }
 
 export async function GET(req: NextRequest) {
-  // 公开页面：未登录返回空列表，已登录返回完整线索
-  const { authViaJwt } = await extractUserKey(req);
-  if (!authViaJwt) {
-    return NextResponse.json([]);
+  // VIP 门控（审查 F5，2026-08-30 产品决策）：线索属 CRM 客户数据
+  // （含联系人电话/邮箱），仅 VIP 会员可读；前端 useCrmData 对 403 已有置空兜底
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
+
+  const ctx = getContext();
+  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userKey);
+  if (!state.isVip) {
+    return NextResponse.json(
+      { code: 40041, message: "线索视图仅对 VIP 会员开放" },
+      { status: 403 },
+    );
   }
-  const rows = await getContext().leadsRepo.listAppointments();
+
+  const rows = await ctx.leadsRepo.listAppointments();
   const leads = rows.map(mapUngmAppointmentRow);
   return NextResponse.json(leads);
 }

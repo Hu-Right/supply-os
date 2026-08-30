@@ -8,8 +8,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
+import { resolveMembershipState } from "@/lib/services/membership-status";
 import { safeJson } from "@/lib/utils/json";
 import type { Lead } from "@/types";
+
+/** 跟进状态白名单（审查 F5）：与 Lead 类型定义保持一致，防任意值篡改状态 */
+const LEAD_STATUS_WHITELIST = new Set(["new", "contacted", "qualified", "lost"]);
 
 function mapUngmAppointmentRow(row: Record<string, any>): Lead {
   return {
@@ -52,7 +56,29 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx = getContext();
-  const row = await ctx.leadsRepo.findByKey(leadId);
+
+  // VIP 门控（审查 F5，2026-08-30 产品决策）：跟进记录会修改线索状态，
+  // 与线索读取同权限（仅 VIP 会员）
+  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userKey);
+  if (!state.isVip) {
+    return NextResponse.json(
+      { code: 40041, message: "线索跟进仅对 VIP 会员开放" },
+      { status: 403 },
+    );
+  }
+
+  // 状态白名单 + 内容限长（审查 F5）：nextStatus 此前为任意字符串断言，
+  // content 无上限可灌大 TEXT 列
+  if (nextStatus !== undefined && !LEAD_STATUS_WHITELIST.has(String(nextStatus))) {
+    return NextResponse.json(
+      { code: 40000, message: "无效的跟进状态" },
+      { status: 400 },
+    );
+  }
+  const safeContent = String(content).trim().slice(0, 2000);
+  const safeAuthor = String(body.author || auth.userKey || "Operator").trim().slice(0, 100);
+
+  const row = await ctx.leadsRepo.findByKey(String(leadId).slice(0, 100));
   if (!row) {
     return NextResponse.json(
       { code: 40044, message: "线索不存在" },
@@ -66,11 +92,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 追加日志条目（与 Express 版行为一致）
-  const author = body.author || auth.userKey || "Operator";
   targetLead.followUpLogs.push({
     date: new Date().toISOString().substring(0, 16).replace("T", " "),
-    content,
-    author,
+    content: safeContent,
+    author: safeAuthor,
   });
 
   if (nextStatus) {
@@ -79,7 +104,7 @@ export async function POST(req: NextRequest) {
 
   // 持久化
   await ctx.leadsRepo.updateFollowUpLogs(
-    leadId,
+    String(leadId).slice(0, 100),
     JSON.stringify(targetLead.followUpLogs),
     targetLead.status,
   );
