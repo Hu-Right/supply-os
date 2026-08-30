@@ -333,6 +333,20 @@ export async function incrementalSync(
       }
     }
 
+    // [F17] fullSync 进行中：此刻直写主索引的变更会被 swap 快照整体回滚，
+    // 且水位推进后这些行不再被增量选中——变更永久丢失。
+    // 与 syncNoticeIds 的守卫一致：暂存到 _pendingDuringFullSync，由 fullSync
+    // 结束（swap 后）的 finally 统一补写；水位照常推进，避免 fullSync 期间
+    // 每 5 秒重复拉取同一批行。
+    if (_fullSyncRunning) {
+      for (const r of allRaw) {
+        const id = Number(r.id);
+        if (Number.isFinite(id) && id > 0) _pendingDuringFullSync.add(id);
+      }
+      const newWatermark = Math.max(watermark, allRaw[allRaw.length - 1].id);
+      return { synced: 0, newWatermark };
+    }
+
     const docs = allRaw.map((r) => buildSyncDocFromWideTable(r));
     await Promise.all(client.index(INDEX_NAME).addDocumentsInBatches(docs, 500, { primaryKey: "id" }));
     // P1-24 安全修复：水位不可回退，取 Math.max 防止低 ID 更新导致周期性全量重灌
