@@ -37,7 +37,7 @@ export interface UseChatSSEReturn {
   reconnect: () => void;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 export function useChatSSE(options: UseChatSSEOptions): UseChatSSEReturn {
   const { sessionId, onMessage, onSessionClosed, onStatusChange, enabled = true } = options;

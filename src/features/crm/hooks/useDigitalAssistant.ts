@@ -279,8 +279,11 @@ export function useDigitalAssistant(
       });
       setChatSessionId(session.id);
     } catch {
-      // API 失败时仍允许前端模拟模式
+      // 审查 F53：会话创建失败时不得假装"人工已接入"——chatSessionId 为空时
+      // 后续消息只会落到本地关键词模拟，用户以为在跟人工对话实际无人响应。
+      // 保持 waiting 态 + 降级提示，用户可重试或留资。
       appendMessage("system", t("crmAssistantApiFallback"));
+      return;
     }
 
     // 模拟等待人工接入（后续由 SSE 推送实际接入事件）

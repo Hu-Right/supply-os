@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "p. ej. Juan Pérez",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "p. ej. Fabricamos envases médicos y necesitamos orientación UN Level 1.",
-  "formRequired": "Por favor, complete este campo"
+  "formRequired": "Por favor, complete este campo",
+  "formSubmitFailed": "Error al enviar, inténtelo de nuevo más tarde"
 }

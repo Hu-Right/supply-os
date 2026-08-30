@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "e.g. John Smith",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "e.g. We produce medical packaging and need UN Level 1 guidance.",
-  "formRequired": "Please fill out this field"
+  "formRequired": "Please fill out this field",
+  "formSubmitFailed": "Submission failed, please try again later"
 }

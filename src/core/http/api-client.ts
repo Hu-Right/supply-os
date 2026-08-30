@@ -10,7 +10,9 @@
 
 import { recordApiMetric } from "@/core/perf";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+// Next.js 项目使用 NEXT_PUBLIC_ 前缀注入客户端环境变量（审查 F52：
+// 原 import.meta.env.VITE_API_BASE_URL 是 Vite 遗留，恒为空串，碰巧同源可用）
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 // ── JWT Token 管理 ──
 // B2【P1】安全加固：Access Token 仍存 localStorage（短生命 2h，XSS 窗口有限），

@@ -22,10 +22,12 @@ export function ProtectedRoute({
   children,
   requireVip = false,
 }: ProtectedRouteProps) {
-  const { authUser, isVip } = useAuth();
+  const { authUser, isVip, authReady } = useAuth();
   const router = useRouter();
-  const needLogin = !authUser;
-  const needVip = !needLogin && requireVip && !isVip;
+  // 守卫判定必须等本地会话恢复完成（审查 F51）：硬刷新首帧 authUser 为 null，
+  // 未等 authReady 就重定向会把已登录用户误弹回展厅
+  const needLogin = authReady && !authUser;
+  const needVip = authReady && !needLogin && requireVip && !isVip;
 
   useEffect(() => {
     if (needLogin) {

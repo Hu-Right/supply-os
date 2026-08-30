@@ -55,5 +55,6 @@
   "consultPersonPlaceholder": "例如: 林经理",
   "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
   "consultNotesPlaceholder": "如: 我司生产医疗包装袋，需要了解国际公共采购 Level1 的最低财务申报流和海外展厅展示费率。",
-  "formRequired": "请填写该字段"
+  "formRequired": "请填写该字段",
+  "formSubmitFailed": "提交失败，请稍后重试"
 }
