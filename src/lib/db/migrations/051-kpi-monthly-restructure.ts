@@ -4,10 +4,12 @@
  *
  * 变更内容：
  * 1. crm_employees 新增 invitation_code 列，从 crm_invitation_codes 迁移数据
- * 2. crm_employees 移除 kpi_target / kpi_personal / kpi_enterprise（改存月度表）
- * 3. 新建 crm_monthly_kpi 表（月度KPI目标 + 实际完成）
- * 4. 回填 2026-09 月度KPI种子数据
- * 5. 删除 crm_invitation_codes 表
+ * 2. 新建 crm_monthly_kpi 表（月度KPI目标 + 实际完成，目标值由外部 CRM 维护）
+ * 3. 回填 2026-09 月度KPI种子数据
+ * 4. 删除 crm_invitation_codes 表
+ *
+ * 注意：crm_employees 的 kpi_target / kpi_personal / kpi_enterprise 字段
+ * 由独立 CRM 系统管理，本迁移不创建也不删除这些字段。
  */
 import type { Pool } from "mysql2/promise";
 import { ensureColumn, type Migration } from "./runner";
@@ -20,7 +22,7 @@ const SEP_2026_KPI = [
   { name: "啊历",   personal: 154,  enterprise: 364  },
   { name: "许丹",   personal: 66,   enterprise: 156  },
   { name: "李建森", personal: 70,   enterprise: 1000 },
-  { name: "王超",   personal: 120,  enterprise: 550  },
+  { name: "王超",   personal: 120,  enterprise: 550 },
 ] as const;
 
 export const migration: Migration = {
@@ -86,14 +88,7 @@ export const migration: Migration = {
     }
     console.log("[migrate] 2026-09 月度KPI种子数据已回填");
 
-    // ─ 5. crm_employees 移除旧KPI列 ─
-    const dropColumn = async (col: string) => {
-      try { await dbPool.query(`ALTER TABLE crm_employees DROP COLUMN ${col}`); } catch { /* 列不存在则跳过 */ }
-    };
-    await dropColumn("kpi_target");
-    await dropColumn("kpi_personal");
-    await dropColumn("kpi_enterprise");
-    console.log("[migrate] crm_employees 旧KPI列已移除");
+    // ── 5. crm_employees 的 KPI 字段归外部 CRM 管理，本迁移不创建也不删除 ──
 
     // ── 6. 删除 crm_invitation_codes 表 ──
     await dbPool.query("DROP TABLE IF EXISTS crm_invitation_codes");
