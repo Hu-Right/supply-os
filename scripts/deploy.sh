@@ -54,6 +54,10 @@ fi
 cp -r .next/static .next/standalone/.next/static
 echo "[deploy] 已复制静态资源 → standalone"
 
+# 3.4 复制 public 目录（字体、图片等静态文件）
+cp -r public .next/standalone/public
+echo "[deploy] 已复制 public → standalone"
+
 # 3.6 nodejieba 词典文件（Next.js standalone 不会自动复制原生模块的 dict 资源，
 #     缺失时 Meilisearch 全量重建触发 nodejieba 分词 → FATAL 崩溃 → PM2 无限重启）
 if [ -d node_modules/nodejieba/submodules/cppjieba/dict ]; then
