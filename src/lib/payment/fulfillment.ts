@@ -34,8 +34,9 @@ export async function activatePaidOrder(
     const order = await paymentsRepo.findOrderForUpdate(conn, orderNo);
     if (!order) { await conn.commit(); return; }
 
-    // 幂等保护：已支付的订单直接跳过
-    if (order.status === "paid") { await conn.commit(); return; }
+    // 状态机白名单（审查 F19）：仅 pending 订单可履约；
+    // closed/refunded/expired 等终态不得被迟到通知复活重新发放权益
+    if (order.status !== "pending") { await conn.commit(); return; }
 
     await paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
 
@@ -235,12 +236,15 @@ export async function fulfillMockPayment(
 ): Promise<{ found: boolean }> {
   const order = await payments.findByOrderNo(params.orderNo);
   if (!order) return { found: false };
-  if (order.status !== "paid") {
-    // 升级订单走平滑升级履约（补差价，次数保留，有效期追溯）
-    if (order.order_type === "upgrade") {
-      await fulfillUpgradeOrder(payments, params.orderNo, `MOCK-${params.orderNo}`);
-      return { found: true };
-    }
+  // 状态机白名单（审查 F19）：仅 pending 订单可 mock 履约
+  if (order.status !== "pending") {
+    return { found: true };
+  }
+  // 升级订单走平滑升级履约（补差价，次数保留，有效期追溯）
+  if (order.order_type === "upgrade") {
+    await fulfillUpgradeOrder(payments, params.orderNo, `MOCK-${params.orderNo}`);
+    return { found: true };
+  }
     const plan = (await membership.findPlanByCodeForFulfillment(order.plan_code))
       ?? { unlock_quota: 1, duration_days: null as number | null, plan_type: "single" as string };
 
@@ -294,10 +298,8 @@ export async function fulfillMockPayment(
     } finally {
       conn.release();
     }
-  }
   return { found: true };
 }
-
 // ── 订阅开通 ──────────────────────────────────────────────────────────────────
 
 /**

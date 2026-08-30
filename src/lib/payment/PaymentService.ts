@@ -16,6 +16,22 @@ import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
 import { activatePaidOrder } from "./fulfillment";
 import { isParseablePrivateKey } from "./keys";
+import { SITE_URL } from "../services/seo/site";
+
+/**
+ * return_url 白名单（审查 F26）：仅接受本站相对路径或与 SITE_URL 同源的
+ * 绝对地址（同源绝对地址规范化为相对路径）；外域一律丢弃。
+ */
+function sanitizeReturnUrl(url: string): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url, SITE_URL);
+    if (parsed.origin !== new URL(SITE_URL).origin) return "";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "";
+  }
+}
 
 export class PaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
@@ -106,7 +122,9 @@ export class PaymentService {
 
     const strategy = this.getStrategy(provider);
     const orderNo = existingOrder?.order_no || this.makeOrderNo();
-    const returnUrl = this.appendUrlParams(request.return_url || "", {
+    // return_url 白名单（审查 F26）：仅接受本站地址，防止支付完成跳转任意
+    // 站点并拼接 order_no/notice_id 参数钓鱼
+    const returnUrl = this.appendUrlParams(sanitizeReturnUrl(request.return_url || ""), {
       order_no: orderNo,
       notice_id: noticeId || "",
     });

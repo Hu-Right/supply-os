@@ -170,8 +170,9 @@ export async function fulfillTrainingOrder(
     const order = await trainingRepo.findOrderByNoForUpdate(conn, orderNo);
     if (!order) { await conn.commit(); return; }
 
-    // 幂等保护：已支付的订单直接跳过
-    if (order.status === "paid") { await conn.commit(); return; }
+    // 状态机白名单（审查 F19/F24）：pending 正常履约；expired 允许"迟到付款"
+    // 复活（钱货两清，过期判定先于网关确认）；其余终态一律拒绝
+    if (order.status !== "pending" && order.status !== "expired") { await conn.commit(); return; }
 
     await trainingRepo.updateOrderStatusInTransaction(conn, orderNo, "paid", providerTradeNo || null);
 

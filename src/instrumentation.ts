@@ -28,6 +28,16 @@ export async function register() {
   // instrumentation 只应在 Node.js runtime 执行
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // 支付模式 fail-fast（审查 F21）：PAYMENT_MODE 缺省回落 mock，生产漏配时
+  // mock-paid 等自激活端点可达，支付形同虚设；生产必须显式 live
+  if (process.env.NODE_ENV === "production" && process.env.PAYMENT_MODE !== "live") {
+    throw new Error(
+      "[bootstrap] 生产环境必须显式配置 PAYMENT_MODE=live（当前值：" +
+        (process.env.PAYMENT_MODE || "(未配置)") +
+        "），服务终止",
+    );
+  }
+
   const { getPool } = await import("./lib/db/pool");
   const { getContext } = await import("./lib/db/context");
   const {

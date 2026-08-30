@@ -127,11 +127,22 @@ export class AlipayProvider implements PaymentStrategy {
         return { verified: false, order_no, provider_trade_no, amount };
       }
 
-      // 校验 app_id 是否与本应用一致（防止伪造通知）
+      // 校验 app_id（审查 F22）：通知内 app_id 受签名保护，缺失或不匹配一律拒绝
       const callbackAppId = String(rawBody?.app_id || "");
-      if (callbackAppId && callbackAppId !== this.appId) {
-        console.warn(`[AlipayProvider] app_id 不匹配: 期望 ${this.appId}, 实际 ${callbackAppId}`);
+      if (callbackAppId !== this.appId) {
+        console.warn(`[AlipayProvider] app_id 不匹配: 期望 ${this.appId}, 实际 ${callbackAppId || "(空)"}`);
         return { verified: false, order_no, provider_trade_no, amount };
+      }
+
+      // 校验 seller_id（商户号，审查 F22）：配置 ALIPAY_SELLER_ID 后强制比对，
+      // 防止同主体多 app 场景下跨 app 通知被放行
+      const expectedSellerId = process.env.ALIPAY_SELLER_ID || "";
+      if (expectedSellerId) {
+        const callbackSellerId = String(rawBody?.seller_id || "");
+        if (callbackSellerId && callbackSellerId !== expectedSellerId) {
+          console.warn(`[AlipayProvider] seller_id 不匹配: 期望 ${expectedSellerId}, 实际 ${callbackSellerId}`);
+          return { verified: false, order_no, provider_trade_no, amount };
+        }
       }
 
       // P0-2 安全修复：校验 trade_status，仅接受 TRADE_SUCCESS / TRADE_FINISHED

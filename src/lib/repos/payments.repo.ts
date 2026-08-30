@@ -325,12 +325,12 @@ export class PaymentsRepo {
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  /** 事务内标记订单已支付 */
+  /** 事务内标记订单已支付（仅 pending 可流转，防止 closed/refunded 被复活，审查 F19） */
   async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, providerTradeNo: string | null): Promise<void> {
     await conn.execute(
       `UPDATE crm_payment_orders
        SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ?`,
+       WHERE order_no = ? AND status = 'pending'`,
       [providerTradeNo, orderNo],
     );
   }
