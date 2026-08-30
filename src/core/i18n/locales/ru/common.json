@@ -73,5 +73,8 @@
   "uploadDropZoneLabel": "Область загрузки файлов",
   "uiLoadingDots": "Загрузка...",
   "uiPaginationGo": "Перейти",
-  "uiPaginationJumpTo": "Перейти на страницу"
+  "uiPaginationJumpTo": "Перейти на страницу",
+  "uiMenuOpen": "Открыть меню",
+  "uiMenuClose": "Закрыть меню",
+  "skipToContent": "Перейти к основному контенту"
 }

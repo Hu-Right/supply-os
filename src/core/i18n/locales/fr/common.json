@@ -73,5 +73,8 @@
   "uploadDropZoneLabel": "Zone de téléchargement",
   "uiLoadingDots": "Chargement...",
   "uiPaginationGo": "Aller",
-  "uiPaginationJumpTo": "Aller à la page"
+  "uiPaginationJumpTo": "Aller à la page",
+  "uiMenuOpen": "Ouvrir le menu",
+  "uiMenuClose": "Fermer le menu",
+  "skipToContent": "Aller au contenu principal"
 }

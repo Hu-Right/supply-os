@@ -37,7 +37,7 @@ const buttonVariants = cva(
         lg: "px-6 py-3 text-base",
         // 图标按钮（shadcn 标准方形，必须配 aria-label）
         icon: "h-9 w-9 p-0",
-        iconSm: "h-7 w-7 p-0",
+        iconSm: "h-7 w-7 p-0 min-h-[44px] min-w-[44px]",
       },
     },
     defaultVariants: {

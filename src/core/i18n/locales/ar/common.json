@@ -73,5 +73,8 @@
   "uploadDropZoneLabel": "منطقة تحميل الملفات",
   "uiLoadingDots": "جارٍ التحميل...",
   "uiPaginationGo": "انتقال",
-  "uiPaginationJumpTo": "الانتقال إلى الصفحة"
+  "uiPaginationJumpTo": "الانتقال إلى الصفحة",
+  "uiMenuOpen": "فتح القائمة",
+  "uiMenuClose": "إغلاق القائمة",
+  "skipToContent": "تخطي إلى المحتوى الرئيسي"
 }

@@ -187,6 +187,27 @@ input[type="number"] {
   --radius: 0.5rem;
 }
 
+/* ── 暗色模式（通过 .dark 类或 prefers-color-scheme 触发） ── */
+.dark {
+  --background: #0f172a;             /* secondary-900 */
+  --foreground: #f1f5f9;             /* secondary-100 */
+  --card: #1e293b;                   /* secondary-800 */
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #14b8a6;                /* primary-500 */
+  --primary-foreground: #042f2e;     /* primary-950 */
+  --secondary: #334155;              /* secondary-700 */
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;       /* secondary-400 */
+  --destructive: #fb7185;            /* danger-400 */
+  --destructive-foreground: #4c0519; /* danger-950 */
+  --border: #334155;                 /* secondary-700 */
+  --input: #334155;
+  --ring: #2dd4bf;                   /* primary-400 */
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

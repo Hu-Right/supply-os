@@ -73,5 +73,8 @@
   "uploadDropZoneLabel": "File upload area",
   "uiLoadingDots": "Loading...",
   "uiPaginationGo": "Go",
-  "uiPaginationJumpTo": "Go to page"
+  "uiPaginationJumpTo": "Go to page",
+  "uiMenuOpen": "Open menu",
+  "uiMenuClose": "Close menu",
+  "skipToContent": "Skip to main content"
 }
