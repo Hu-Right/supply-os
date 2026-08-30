@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const createPool = vi.fn(() => ({ fakePool: true }));
+const createPool = vi.fn((..._args: unknown[]) => ({ fakePool: true }));
 
 vi.mock("server-only", () => ({}));
 
