@@ -117,16 +117,33 @@ export default function LearningPage() {
     prevAuthRef.current = authUser;
   }, [authUser, refreshPurchased]);
 
-  const handleDownload = (fileUrl: string, fileName: string, materialId: string) => {
+  // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
+  // /content 端点获取（服务端校验登录 + 购买记录）
+  const handleDownload = async (fileUrl: string, fileName: string, materialId: string) => {
+    let url = fileUrl;
+    let name = fileName;
+    if (!url) {
+      try {
+        const data = await api<{ fileUrl: string; fileName: string }>(
+          `/api/learning/materials/${encodeURIComponent(materialId)}/content`,
+        );
+        url = data.fileUrl;
+        name = data.fileName || name;
+      } catch {
+        console.error("[learning] 获取下载地址失败");
+        return;
+      }
+    }
+    if (!url) return;
     const a = document.createElement("a");
-    a.href = fileUrl;
-    a.download = fileName;
+    a.href = url;
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     void api("/api/training/downloads/track", {
       method: "POST",
-      body: { material_id: materialId, file_name: fileName },
+      body: { material_id: materialId, file_name: name },
     }).catch(() => {});
   };
 
