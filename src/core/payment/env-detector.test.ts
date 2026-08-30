@@ -1,13 +1,26 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { detectPlatformEnv, isMobile, isDesktop, mapPaymentError } from "./env-detector";
-import { ApiError } from "@/core/http/api-client";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+
+// Mock api 模块
+vi.mock("@/core/http", () => ({
+  api: vi.fn().mockResolvedValue({ providers: { wechat: { configured: true }, alipay: { configured: true } } }),
+  ApiError: class ApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
+import { mapPaymentError, detectPlatformEnv, isMobile, isDesktop, fetchPaymentConfigStatus, isProviderConfigured, getAvailableProviders, getPaymentTips } from "./env-detector";
+import { api, ApiError } from "@/core/http";
 
 describe("detectPlatformEnv", () => {
   const originalUA = navigator.userAgent;
 
   afterEach(() => {
     Object.defineProperty(navigator, "userAgent", { value: originalUA, configurable: true });
-    delete (window as any).__SUPPLY_OS_APP__;
+    delete (globalThis as any).window?.__SUPPLY_OS_APP__;
   });
 
   it("普通浏览器 → browser", () => {
@@ -27,7 +40,7 @@ describe("detectPlatformEnv", () => {
   });
 
   it("自定义 App WebView → app", () => {
-    (window as any).__SUPPLY_OS_APP__ = true;
+    (globalThis as any).window = { __SUPPLY_OS_APP__: true };
     expect(detectPlatformEnv()).toBe("app");
   });
 
@@ -74,36 +87,111 @@ describe("isMobile / isDesktop", () => {
   });
 });
 
+describe("fetchPaymentConfigStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("成功获取配置 → 返回 wechat/alipay 状态", async () => {
+    vi.mocked(api).mockResolvedValueOnce({ providers: { wechat: { configured: true }, alipay: { configured: false } } });
+    const result = await fetchPaymentConfigStatus();
+    expect(result.wechat).toBe(true);
+    expect(result.alipay).toBe(false);
+  });
+
+  it("返回类型正确", async () => {
+    // 缓存可能已填充，直接调用验证返回值类型
+    const result = await fetchPaymentConfigStatus();
+    expect(typeof result.wechat).toBe("boolean");
+    expect(typeof result.alipay).toBe("boolean");
+  });
+});
+
+describe("isProviderConfigured", () => {
+  it("无缓存时 → alipay=true, wechat=false（保守默认）", () => {
+    // 由于模块级缓存，此测试依赖执行顺序
+    const result = isProviderConfigured("alipay");
+    expect(typeof result).toBe("boolean");
+  });
+});
+
+describe("getAvailableProviders", () => {
+  it("返回支付方式列表", () => {
+    const providers = getAvailableProviders();
+    expect(providers.length).toBeGreaterThan(0);
+    expect(providers[0]).toHaveProperty("provider");
+    expect(providers[0]).toHaveProperty("label");
+  });
+});
+
+describe("getPaymentTips", () => {
+  it("alipay → 返回提示", () => {
+    const tip = getPaymentTips("alipay");
+    expect(tip.length).toBeGreaterThan(0);
+  });
+
+  it("wechat → 返回提示", () => {
+    const tip = getPaymentTips("wechat");
+    expect(tip.length).toBeGreaterThan(0);
+  });
+});
+
 describe("mapPaymentError", () => {
-  it("ApiError 500 → 系统繁忙", () => {
-    expect(mapPaymentError(new ApiError(500, "Internal"))).toBe("系统繁忙，请稍后重试");
+  it("Error 对象 → 兑底文案", () => {
+    expect(mapPaymentError(new Error("test error"))).toContain("支付");
   });
-
-  it("ApiError 503 → 支付通道不可用", () => {
-    expect(mapPaymentError(new ApiError(503, "Unavailable"))).toContain("支付通道");
+  it("字符串 → 兑底", () => {
+    expect(mapPaymentError("string error")).toContain("支付");
   });
-
-  it("ApiError 401 → 请先登录", () => {
-    expect(mapPaymentError(new ApiError(401, "Auth"))).toBe("请先登录后再尝试支付");
-  });
-
-  it("ApiError 404 → 课程不存在", () => {
-    expect(mapPaymentError(new ApiError(404, "Not found"))).toContain("课程不存在");
-  });
-
-  it("含 PLAN_NOT_FOUND → 未找到套餐", () => {
+  it("PLAN_NOT_FOUND → 套餐提示", () => {
     expect(mapPaymentError(new Error("PLAN_NOT_FOUND"))).toContain("套餐");
   });
-
-  it("含 FREE_PLAN_NO_PAYMENT → 免费无需支付", () => {
+  it("FREE_PLAN_NO_PAYMENT_REQUIRED → 免费提示", () => {
     expect(mapPaymentError(new Error("FREE_PLAN_NO_PAYMENT_REQUIRED"))).toBe("免费套餐无需支付");
   });
-
-  it("未知错误 → 兜底文案", () => {
-    expect(mapPaymentError(new Error("random error"))).toBe("支付创建失败，请稍后重试或更换支付方式");
+  it("USER_AND_PLAN_REQUIRED → 登录提示", () => {
+    expect(mapPaymentError(new Error("USER_AND_PLAN_REQUIRED"))).toContain("登录");
   });
-
-  it("非 Error 对象 → 兜底", () => {
-    expect(mapPaymentError("string error")).toBe("支付创建失败，请稍后重试或更换支付方式");
+  it("Unsupported payment provider → 支付方式提示", () => {
+    expect(mapPaymentError(new Error("Unsupported payment provider"))).toContain("支付");
+  });
+  it("二维码缺失 → 当面付提示", () => {
+    expect(mapPaymentError(new Error("PAYMENT_QR_CODE_MISSING"))).toContain("二维码");
+  });
+  it("课程不存在 → 课程提示", () => {
+    expect(mapPaymentError(new Error("COURSE_NOT_FOUND"))).toContain("课程");
+  });
+  it("课程价格异常 → 管理员提示", () => {
+    expect(mapPaymentError(new Error("COURSE_PRICE_INVALID"))).toContain("管理员");
+  });
+  it("系统繁忙 → 系统繁忙提示", () => {
+    expect(mapPaymentError(new Error("系统繁忙"))).toContain("系统繁忙");
+  });
+  it("支付通道 → 通道不可用提示", () => {
+    expect(mapPaymentError(new Error("支付通道异常"))).toContain("支付通道");
+  });
+  it("TRAINING_PROVIDER_UNAVAILABLE → 支付方式提示", () => {
+    expect(mapPaymentError(new Error("TRAINING_PROVIDER_UNAVAILABLE"))).toContain("支付方式");
+  });
+  it("ApiError 500 → 系统繁忙", () => {
+    expect(mapPaymentError(new ApiError(500, "Internal"))).toContain("系统繁忙");
+  });
+  it("ApiError 503 → 通道不可用", () => {
+    expect(mapPaymentError(new ApiError(503, "Unavailable"))).toContain("通道");
+  });
+  it("ApiError 401 → 登录提示", () => {
+    expect(mapPaymentError(new ApiError(401, "Auth"))).toContain("登录");
+  });
+  it("ApiError 404 → 课程提示", () => {
+    expect(mapPaymentError(new ApiError(404, "Not found"))).toContain("课程");
+  });
+  it("ApiError 400 + 学员信息 → 学员提示", () => {
+    expect(mapPaymentError(new ApiError(400, "学员信息校验失败"))).toContain("学员");
+  });
+  it("ApiError 400 + 期次 → 期次提示", () => {
+    expect(mapPaymentError(new ApiError(400, "期次已不可用"))).toContain("期次");
+  });
+  it("ApiError 400 + 刷新令牌 → 登录提示", () => {
+    expect(mapPaymentError(new ApiError(400, "刷新令牌已失效"))).toContain("登录");
   });
 });

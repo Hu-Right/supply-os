@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { statsKeyFor } from "./stats";
+import { describe, it, expect, vi } from "vitest";
+import { statsKeyFor, getStatsCount, refreshNoticeStats, getNoticeStats } from "./stats";
 import type { NoticeSearchParams } from "./types";
 
 const base: NoticeSearchParams = {
@@ -51,5 +51,65 @@ describe("statsKeyFor", () => {
 
   it("聚合机构名（FORCE_COUNTRY_）→ null", () => {
     expect(statsKeyFor({ ...base, agency: "FORCE_COUNTRY_XYZ" })).toBeNull();
+  });
+});
+
+describe("getStatsCount", () => {
+  it("DB 返回有效数据 → 返回数字", async () => {
+    const mockPool = {
+      query: vi.fn().mockResolvedValue([[{ stat_value: 100 }]]),
+    };
+    const result = await getStatsCount(mockPool as any, "test_key");
+    expect(result).toBe(100);
+  });
+
+  it("DB 返回空 → null", async () => {
+    const mockPool = {
+      query: vi.fn().mockResolvedValue([[]]),
+    };
+    const result = await getStatsCount(mockPool as any, "missing_key");
+    expect(result).toBeNull();
+  });
+
+  it("DB 异常 → null", async () => {
+    const mockPool = {
+      query: vi.fn().mockRejectedValue(new Error("DB error")),
+    };
+    const result = await getStatsCount(mockPool as any, "err_key");
+    expect(result).toBeNull();
+  });
+});
+
+describe("refreshNoticeStats", () => {
+  it("调用 DB 查询并执行刷新", async () => {
+    const mockPool = {
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ cnt: 100 }]])  // active total
+        .mockResolvedValueOnce([[{ cnt: 10 }]])    // featured
+        .mockResolvedValueOnce([[]])               // countries
+        .mockResolvedValueOnce([[]])               // agencies
+        .mockResolvedValueOnce([[]])               // INSERT entries
+        .mockResolvedValueOnce([[{ affectedRows: 0 }]]), // cleanup
+    };
+    await refreshNoticeStats(mockPool as any);
+    expect(mockPool.query).toHaveBeenCalled();
+  });
+});
+
+describe("getNoticeStats", () => {
+  it("返回统计数据", async () => {
+    const mockPool = {
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ total: 200 }]])  // raw
+        .mockResolvedValueOnce([[{ total: 100 }]])  // active
+        .mockResolvedValueOnce([[{ total: 50 }]])   // bridged
+        .mockResolvedValueOnce([[{ total: 10 }]]),  // featured
+    };
+    const result = await getNoticeStats(mockPool as any);
+    expect(result.raw).toBe(200);
+    expect(result.active).toBe(100);
+    expect(result.bridged).toBe(50);
+    expect(result.featured).toBe(10);
+    expect(result.bridge_gap).toBe(50);
   });
 });

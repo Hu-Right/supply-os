@@ -34,32 +34,45 @@ export default defineConfig({
         "src/lib/utils/ip.ts",
 
         // ── src/lib/services/recommend — 纯逻辑子模块 ──
-        // ab-testing.ts: fnv1a32 内部函数未导出，覆盖率 40% → 暂不纳入
-        // recall.ts: deadlineFallback 为 DB 函数，纯函数部分已测 → 暂不纳入
-        // scoring.ts: getAmountPreference 为 DB 函数 → 暂不纳入
-        // text-similarity.ts: getUserUnlockKeywords 为 DB 函数 → 暂不纳入
+        "src/lib/services/recommend/ab-testing.ts",
+        "src/lib/services/recommend/recall.ts",
         "src/lib/services/recommend/rerank.ts",
+        "src/lib/services/recommend/scoring.ts",
+        "src/lib/services/recommend/text-similarity.ts",
 
         // ── src/lib/services/search-orchestrator — 纯逻辑子模块 ──
         "src/lib/services/search-orchestrator/metrics.ts",
         "src/lib/services/search-orchestrator/params.ts",
+        "src/lib/services/search-orchestrator/format.ts",
+        "src/lib/services/search-orchestrator/rebuild-trigger.ts",
 
         // ── src/lib/services/unspsc — 纯函数 ──
         "src/lib/services/unspsc/parser.ts",
 
-        // ── src/lib/services/notice-search — 缓存/翻译 ──
+        // ── src/lib/services/notice-search — 缓存/统计/翻译 ──
         "src/lib/services/notice-search/agencies/translate.ts",
         "src/lib/services/notice-search/cache.ts",
-        // stats.ts: statsKeyFor 已测但 DB 函数占 70% → 暂不纳入
+        "src/lib/services/notice-search/stats.ts",
 
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
 
         // ── src/lib/services — 独立服务文件（有测试）──
-        // auth.ts: 仅测 hash 工具函数，issueTokenPair/buildUserResponse 为 DB 函数 → 暂不纳入
+        "src/lib/services/auth.ts",
         "src/lib/services/jwt.ts",
         "src/lib/services/membership-status.ts",
         "src/lib/services/membership-upgrade.ts",
+
+        // ── src/lib/services/amount — 金额解析 ──
+        "src/lib/services/amount/parser.ts",
+
+        // ── src/lib/services/bid-report — 报告构件/合并/预览 ──
+        "src/lib/services/bid-report/constants.ts",
+        "src/lib/services/bid-report/merge.ts",
+        "src/lib/services/bid-report/preview.ts",
+
+        // ── src/lib/services/meilisearch — 中文分词 ──
+        "src/lib/services/meilisearch/segmentZh.ts",
 
         // ── src/lib/payment — 密钥校验 + Mock 策略 ──
         "src/lib/payment/keys.ts",
@@ -70,7 +83,7 @@ export default defineConfig({
         "src/core/http/buildQuery.ts",
         "src/core/i18n/detectScript.ts",
         "src/core/i18n/pickLocale.ts",
-        // env-detector.ts: mapPaymentError 已测但 detectPlatformEnv 多分支 → 暂不纳入
+        "src/core/payment/env-detector.ts",
 
         // ── src/features/procurement — 纯逻辑/工具（有测试）──
         "src/features/procurement/notice-type.ts",

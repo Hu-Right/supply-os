@@ -28,6 +28,26 @@ describe("searchFormReducer", () => {
     expect(state.country).toBe("Brazil");
   });
 
+  it("set_from → 更新起始日期", () => {
+    const state = searchFormReducer(initialState, { type: "set_from", payload: "2026-01-01" });
+    expect(state.from).toBe("2026-01-01");
+  });
+
+  it("set_to → 更新结束日期", () => {
+    const state = searchFormReducer(initialState, { type: "set_to", payload: "2026-12-31" });
+    expect(state.to).toBe("2026-12-31");
+  });
+
+  it("set_window → 更新窗口", () => {
+    const state = searchFormReducer(initialState, { type: "set_window", payload: "30d" });
+    expect(state.window).toBe("30d");
+  });
+
+  it("set_type → 更新类型", () => {
+    const state = searchFormReducer(initialState, { type: "set_type", payload: "ITB" });
+    expect(state.type).toBe("ITB");
+  });
+
   it("sync → 完全替换状态", () => {
     const newState: SearchFormState = {
       q: "test",
