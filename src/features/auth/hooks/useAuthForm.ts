@@ -114,20 +114,7 @@ export function useAuthForm(onSuccess: () => void) {
       return;
     }
 
-    if (authMode === "register") {
-      // 调试：打印提交瞬间实际收到的行业 ID，便于定位状态同步问题
-      console.info("[submitAuth] industry prefs at submit:", {
-        prefLevel1,
-        prefLevel2,
-        prefLevel3,
-      });
-    }
-
-    // 企业注册才需要行业偏好
-    if (authMode === "register" && authForm.userType === "enterprise" && (!prefLevel1 || !prefLevel2)) {
-      setAuthError(t("authIndustryPrefRequired"));
-      return;
-    }
+    // 行业偏好注册时不在表单中收集（注册后可在账户面板选填），不做必选校验
 
     try {
       if (authMode === "login") {
@@ -154,8 +141,8 @@ export function useAuthForm(onSuccess: () => void) {
           agreementVersion: "V1.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
-        // 企业注册才保存行业偏好
-        if (authForm.userType === "enterprise") {
+        // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存
+        if (authForm.userType === "enterprise" && prefLevel1 && prefLevel2) {
           await saveIndustryPrefs({
             level1_id: Number(prefLevel1),
             level2_id: Number(prefLevel2),
