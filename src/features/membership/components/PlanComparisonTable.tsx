@@ -52,7 +52,7 @@ function getPlanTier(planCode: string): string {
 /**
  * 增值服务特性定义
  * annual_basic: 年度会员基础版（annual_8800）— 仅有外贸交流群 + 专属客服
- * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 合同签约
+ * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 企业合同/对公/发票
  */
 const ADDITIONAL_SERVICES: { key: string; labelKey: string; tiers: Record<string, boolean> }[] = [
   {
