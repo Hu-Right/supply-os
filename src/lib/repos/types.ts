@@ -131,25 +131,3 @@ export interface CountRow {
   total: number;
 }
 
-export interface EmployeeRow {
-  id: number;
-  name: string;
-  employee_no: string | null;
-  department: string | null;
-  invitation_code: string | null;
-  is_active: number;
-  created_at: Date;
-  updated_at: Date | null;
-}
-
-export interface MonthlyKpiRow {
-  id: number;
-  employee_id: number;
-  kpi_month: string;       // 'YYYY-MM'
-  kpi_personal: number;
-  kpi_enterprise: number;
-  actual_personal: number;
-  actual_enterprise: number;
-  created_at: Date;
-  updated_at: Date | null;
-}
