@@ -145,7 +145,9 @@ export default async function NoticeSeoPage({ params }: PageProps) {
 
   return (
     <article className="mx-auto max-w-4xl space-y-6 py-4">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* JSON-LD 防注入（审查 F43）：标题等来自采集数据，`</script>` 可闭合标签
+          执行任意 JS；JSON.stringify 不转义 <，必须替换为 unicode 转义 */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
       {/* 面包屑 */}
       <nav aria-label="Breadcrumb" className="text-sm text-slate-500">

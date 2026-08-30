@@ -71,7 +71,15 @@ export function usePaymentReturnReconciliation({
       } else if (noticeIdParam) {
         await openNoticeById(Number(noticeIdParam));
       }
-      if (!cancelled) router.replace(window.location.pathname);
+      // 回跳参数清理（审查 F46）：仅剔除支付对账参数，保留用户原有搜索条件
+      if (!cancelled) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete("order_no");
+        params.delete("notice_id");
+        params.delete("trade_no");
+        const qs = params.toString();
+        router.replace(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      }
     })();
     return () => {
       cancelled = true;

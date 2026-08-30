@@ -64,8 +64,11 @@ export function useNoticePayment({
   // 当前详情页公告 ID：非 VIP 侧边栏常驻面板场景，paywallNotice 为 null 时的回退来源
   const [currentNoticeId, setCurrentNoticeId] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 轮询轮次令牌（审查 F44）：stop 后在途的慢响应必须失效，防 onPaid 双触发
+  const pollEpochRef = useRef(0);
 
   const stopPolling = useCallback(() => {
+    pollEpochRef.current += 1;
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -97,16 +100,20 @@ export function useNoticePayment({
   const startPolling = useCallback(
     (orderNo: string, planCode: string, noticeId?: number) => {
       stopPolling();
+      const epoch = pollEpochRef.current;
       let attempts = 0;
       pollingRef.current = setInterval(async () => {
         attempts += 1;
         try {
           const status = await getOrderStatus(orderNo);
+          // 在途响应守卫（审查 F44）：轮询已停止/重启时丢弃迟到响应
+          if (epoch !== pollEpochRef.current) return;
           if (status.status === "paid") {
             stopPolling();
             setPaymentMessage(t("procurement_paidOk"));
             if (noticeId) await onPaid(noticeId, planCode);
-          } else if (status.status === "closed" || status.status === "failed") {
+          } else if (status.status === "closed" || status.status === "failed" || status.status === "expired") {
+            // expired 为终态（审查 F45）：与 PaymentModalCore 口径一致，避免空转 10 分钟
             stopPolling();
             setPaymentMessage(t("procurement_paidFail"));
           }

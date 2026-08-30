@@ -119,11 +119,15 @@ export default function PaymentModalCore({
   // ── 轮询（统一上限，会员/研修班一致） ──
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  // 轮询轮次令牌（审查 F44）：stop 后在途的慢响应必须失效，否则已 success/
+  // failed 的弹窗可能被迟到响应二次触发 onSuccess
+  const pollEpochRef = useRef(0);
   // ref 持有最新 onSuccess，避免轮询闭包捕获 stale 回调
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
   const stopPolling = useCallback(() => {
+    pollEpochRef.current += 1;
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
@@ -136,6 +140,7 @@ export default function PaymentModalCore({
     (orderNo: string) => {
       stopPolling();
       pollCountRef.current = 0;
+      const epoch = pollEpochRef.current;
       pollingRef.current = setInterval(async () => {
         pollCountRef.current += 1;
         if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
@@ -146,6 +151,8 @@ export default function PaymentModalCore({
         }
         try {
           const data = await onQueryStatus(orderNo);
+          // 在途响应守卫：本轮轮询已被停止/重启时丢弃迟到响应
+          if (epoch !== pollEpochRef.current) return;
           if (data.status === "paid") {
             stopPolling();
             setStep("success");

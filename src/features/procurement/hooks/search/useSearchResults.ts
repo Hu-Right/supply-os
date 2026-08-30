@@ -159,8 +159,20 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
   useEffect(() => {
     if (loading || items.length === 0 || page >= totalPages) return;
+    // 与主请求的 unifiedMode 计算保持一致（审查 F47）：此前预取只区分
+    // recommended/default，行业匹配（prefs）模式下预取 key 与真实翻页
+    // 请求不同，预取无效且请求翻倍
+    const dataSource =
+      prefsMode === "prefs" && userKey
+        ? "industry-matched"
+        : prefsMode === "recommended" && userKey && !query.hasOtherSearch
+          ? "recommended"
+          : "search";
+    const prefetchMode =
+      dataSource === "industry-matched" ? "prefs"
+      : dataSource === "recommended" ? "recommended"
+      : "default";
     const nextPage = page + 1;
-    const prefetchMode = prefsMode === "recommended" && !query.hasOtherSearch ? "recommended" : "default";
     fetchUnifiedSearch({
       mode: prefetchMode,
       page: nextPage,
@@ -177,7 +189,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       sort: query.activeSort,
       locale,
     }).catch(() => { /* 预取失败静默 */ });
-  }, [page, totalPages, items.length, loading, prefsMode]);
+  }, [page, totalPages, items.length, loading, prefsMode, userKey, query.hasOtherSearch, query.searchKey]);
 
   return {
     items,

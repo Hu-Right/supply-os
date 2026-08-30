@@ -157,7 +157,9 @@ function scoreComplianceGovernance(f: QualificationScoreInput): Omit<DimensionSc
   if (ungmLevel === "未注册" && intlCerts === 0) {
     return { rawScore: 0, weightedScore: 0, evidenceSource: "表单", scoringBasis: "未注册 UNGM，无国际合规认证", needsManualReview: false };
   }
-  if ((ungmLevel === "已注册一级(Level 2)" || ungmLevel === "已注册二级(Level 2)") && intlCerts >= 3) {
+  // 修复审查 F48：原条件写作 "已注册一级(Level 2)"（一级与 Level 2 错误拼接，
+  // 恒为 false），Level 1 用户永远进不了高分档；按选项实际取值修正
+  if ((ungmLevel === "已注册一级(Level 1)" || ungmLevel === "已注册二级(Level 2)") && intlCerts >= 3) {
     return { rawScore: 5, weightedScore: 0, evidenceSource: "表单", scoringBasis: `UNGM 高级注册 + ${intlCerts} 项国际合规认证`, needsManualReview: false };
   }
   if (ungmLevel !== "未注册" || intlCerts >= 2) {
