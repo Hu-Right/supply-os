@@ -35,9 +35,9 @@ function Avatar({ src, alt, className }: { src: string; alt: string; className: 
         src={src}
         alt={alt}
         fill
-        sizes="(max-width: 768px) 100px, 160px"
-        quality={75}
-        className="object-cover object-center"
+        sizes="(max-width: 768px) 100px, (max-width: 1200px) 128px, 140px"
+        quality={90}
+        className="object-cover object-top"
       />
     </span>
   );
@@ -113,13 +113,13 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
         {/* 团队头像 + 三角色介绍面板 */}
         <div className="mt-10 rounded-2xl bg-white p-8 md:p-10">
           {team.length > 0 && (
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1000px] mx-auto">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1120px] mx-auto">
               {team.map((m) => (
                 <div key={m.id} className="flex flex-col items-center">
                   <Avatar
                     src={m.avatar_path}
                     alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                    className="w-[110px] h-[138px] rounded-[50%]"
+                    className="w-[128px] h-[160px] rounded-[50%]"
                   />
                   <span className="text-[12px] font-bold text-[#0A245E] text-center mt-5">
                     {pickLocale(locale, m.name_zh, m.name_en)}
