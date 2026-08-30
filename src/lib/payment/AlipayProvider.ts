@@ -107,6 +107,7 @@ export class AlipayProvider implements PaymentStrategy {
     order_no: string;
     provider_trade_no: string;
     amount: number;
+    tradeStatus?: string;
   }> {
     const order_no = rawBody?.out_trade_no || "";
     const provider_trade_no = rawBody?.trade_no || "";
@@ -145,16 +146,23 @@ export class AlipayProvider implements PaymentStrategy {
         }
       }
 
-      // P0-2 安全修复：校验 trade_status，仅接受 TRADE_SUCCESS / TRADE_FINISHED
-      // TRADE_CLOSED（退款/关闭）不应触发履约；
-      // 白名单强制匹配：缺失/空串同样拒绝（原实现的空值穿透是防御缺口）
+      // trade_status 分类（审查 F20）：
+      // - TRADE_SUCCESS / TRADE_FINISHED → 履约（verified=true）
+      // - TRADE_CLOSED → 全额退款/交易关闭，签名有效但不得履约——原样上抛
+      //   tradeStatus，由 handleNotify 路由到权益逆向回收
+      // - 其他/缺失状态 → 一律拒绝（空值穿透仍是防御缺口）
       const tradeStatus = String(rawBody?.trade_status || "");
-      if (tradeStatus !== "TRADE_SUCCESS" && tradeStatus !== "TRADE_FINISHED") {
+      if (tradeStatus !== "TRADE_SUCCESS" && tradeStatus !== "TRADE_FINISHED" && tradeStatus !== "TRADE_CLOSED") {
         console.warn(`[AlipayProvider] 非法 trade_status=${tradeStatus || "(空)"}: order_no=${order_no}`);
         return { verified: false, order_no, provider_trade_no, amount };
       }
-
-      return { verified: true, order_no, provider_trade_no, amount };
+      return {
+        verified: tradeStatus === "TRADE_SUCCESS" || tradeStatus === "TRADE_FINISHED",
+        order_no,
+        provider_trade_no,
+        amount,
+        tradeStatus,
+      };
     } catch (err) {
       console.error("[AlipayProvider] verifyCallback 异常:", (err as Error).message);
       return { verified: false, order_no, provider_trade_no, amount };

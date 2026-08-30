@@ -24,6 +24,9 @@ export interface PaymentStrategy {
     order_no: string;
     provider_trade_no: string;
     amount: number;
+    /** 网关原始交易状态（审查 F20）：TRADE_CLOSED 表示退款/关闭，
+     *  签名有效但不应履约——由 handleNotify 路由到权益逆向回收 */
+    tradeStatus?: string;
   }>;
   queryOrderStatus(orderNo: string, providerTradeNo?: string): Promise<{
     status: PaymentOrderStatus;

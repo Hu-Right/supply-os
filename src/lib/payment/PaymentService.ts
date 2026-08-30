@@ -14,7 +14,7 @@ import { findLearningBundle } from "../data/learning-bundles";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
-import { activatePaidOrder } from "./fulfillment";
+import { activatePaidOrder, reverseFulfilledOrder } from "./fulfillment";
 import { isParseablePrivateKey } from "./keys";
 import { SITE_URL } from "../services/seo/site";
 
@@ -239,6 +239,22 @@ export class PaymentService {
   ): Promise<{ success: boolean; order_no: string; message?: string }> {
     const strategy = this.getStrategy(provider);
     const verifyResult = await strategy.verifyCallback(rawBody, signature);
+    // 退款/关闭通知路由（审查 F20）：签名有效但 trade_status=TRADE_CLOSED，
+    // 不得履约也不得当作验签失败丢弃——路由到权益逆向回收
+    if (!verifyResult.verified && verifyResult.tradeStatus === "TRADE_CLOSED") {
+      if (!verifyResult.order_no) {
+        return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
+      }
+      const refundResult = await reverseFulfilledOrder(this.paymentsRepo!, verifyResult.order_no);
+      if (!refundResult.found) {
+        return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+      }
+      return {
+        success: true,
+        order_no: verifyResult.order_no,
+        message: refundResult.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
+      };
+    }
     if (!verifyResult.verified) {
       return { success: false, order_no: verifyResult.order_no, message: "SIGN_VERIFY_FAILED" };
     }
