@@ -19,7 +19,7 @@ function makeOrder(over: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function makeEnv(order: ReturnType<typeof makeOrder> | null, flagAffectedRows = 1) {
+function makeEnv(order: ReturnType<typeof makeOrder> | null, flagAffectedRows = 1, linkedOrder: { order_no: string } | null = null) {
   const executed: Array<{ sql: string; params: unknown[] }> = [];
   const conn = {
     beginTransaction: vi.fn().mockResolvedValue(undefined),
@@ -30,7 +30,14 @@ function makeEnv(order: ReturnType<typeof makeOrder> | null, flagAffectedRows = 
       executed.push({ sql, params: params ?? [] });
       return [{ affectedRows: flagAffectedRows }];
     }),
-    query: vi.fn(),
+    query: vi.fn(async (sql: string, params?: unknown[]) => {
+      executed.push({ sql, params: params ?? [] });
+      // 抵扣关联查询按 params 匹配返回；其余查询返回空
+      if (sql.includes("original_order_no")) {
+        return linkedOrder ? [linkedOrder] : [];
+      }
+      return [];
+    }),
   } as unknown as PoolConnection;
   const repo = {
     getConnection: vi.fn().mockResolvedValue(conn),
@@ -100,5 +107,17 @@ describe("reverseFulfilledOrder 退款逆向（F20）", () => {
 
     expect(result).toEqual({ found: true, reversed: false });
     expect(executed).toHaveLength(1);
+  });
+
+  it("被抵扣引用的源订单（首单抵扣配套）：标记 refunded 但权益保留转人工", async () => {
+    const { repo, executed } = makeEnv(makeOrder({ plan_code: "single_99" }), 1, { order_no: "SO-MEMBER-700" });
+    const { reverseFulfilledOrder } = await import("./fulfillment");
+    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
+
+    // 订单已标 refunded，但不应出现权益回收/购买记录删除/降级 SQL
+    expect(result).toEqual({ found: true, reversed: false });
+    expect(hasSql(executed, "SET status = 'refunded'")).toBe(true);
+    expect(hasSql(executed, "crm_learning_material_purchases")).toBe(false);
+    expect(hasSql(executed, "membership_tier = 'free'")).toBe(false);
   });
 });

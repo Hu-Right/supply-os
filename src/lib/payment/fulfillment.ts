@@ -369,6 +369,23 @@ export async function reverseFulfilledOrder(
       return { found: true, reversed: false };
     }
 
+    // 抵扣关联护栏（2026-08-30 首单抵扣配套）：本单退款若已被其他已支付订单
+    // 通过 original_order_no 引用（single_99 已被拿去抵扣 annual_799 且会员已
+    // 发货），自动回收会留下"退回 99 元、700 元会员照常保有"的套利口子——
+    // 不回收权益，标记 refunded 并告警转人工核处
+    const [linkedRows] = await conn.query(
+      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status = 'paid' LIMIT 1",
+      [orderNo],
+    );
+    const linkedOrder = (linkedRows as Array<{ order_no: string }>)[0];
+    if (linkedOrder) {
+      await conn.commit();
+      console.error(
+        `[refund] 订单已被抵扣引用（linked_order_no=${linkedOrder.order_no}），权益保留转人工核处: order_no=${orderNo}`,
+      );
+      return { found: true, reversed: false };
+    }
+
     if (order.plan_code.startsWith("material_") || order.plan_code.startsWith("bundle_")) {
       await conn.execute(
         "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_key = ?",
