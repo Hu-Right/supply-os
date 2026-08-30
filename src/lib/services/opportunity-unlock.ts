@@ -61,17 +61,11 @@ export async function executeOpportunityUnlock(
       return { alreadyUnlocked: true, unlockType };
     }
 
-    // 免费额度：事务内 COUNT，防并发超免费次数
+    // 免费试用已移除（2026-08-30 产品决策）：服务端硬闸，free 解锁一律 402，
+    // 与公告解锁 executeUnlock 口径一致；历史 free 记录保留可审计
     if (unlockType === "free") {
-      const freeQuota = await membershipRepo.getFreeQuota();
-      const [countRows] = await conn.query(
-        "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
-        [userKey],
-      );
-      if (Number((countRows as Array<{ total: number }>)[0]?.total || 0) >= freeQuota) {
-        await conn.rollback();
-        throw new OpportunityUnlockError("FREE_LIMIT_REACHED");
-      }
+      await conn.rollback();
+      throw new OpportunityUnlockError("FREE_LIMIT_REACHED");
     }
 
     // 付费解锁：FOR UPDATE 锁定权益行，防并发配额超卖
