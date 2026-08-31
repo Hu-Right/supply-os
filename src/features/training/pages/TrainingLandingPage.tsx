@@ -29,7 +29,7 @@ import { FAQSection } from "../components/FAQSection";
 import { CTASection } from "../components/CTASection";
 import { MaterialsSection } from "../components/MaterialsSection";
 import TrainingPaymentModal from "../components/TrainingPaymentModal";
-import WechatQRModal from "../components/WechatQRModal";
+import { WechatQRModal } from "@/shared/ui";
 
 export default function TrainingLandingPage() {
   const { t } = useLocale();
