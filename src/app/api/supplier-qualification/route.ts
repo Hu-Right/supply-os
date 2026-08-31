@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ code: 40000, message: "Invalid JSON" }, { status: 400 });
   }
 
-  // 必填校验
+  // 必填校验（company_website 为选填，与前端 QualificationFormFields 保持一致）
   const required: [string, string][] = [
-    ["company_name", "企业名称"], ["company_website", "企业官网网址"],
+    ["company_name", "企业名称"],
     ["industry", "企业所属行业"], ["main_product", "企业主营产品"],
     ["export_scale", "出口/国际业务规模"], ["certifications", "资质证书"],
     ["service_countries", "售后点/服务站/维修点"], ["overseas_companies", "海外分公司/投资公司"],
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   try {
     const id = await repo.insertQualification({
       company_name: String(body.company_name).trim(),
-      company_website: String(body.company_website).trim(),
+      company_website: String(body.company_website || "").trim(),
       founding_year: String(body.founding_year || "").trim() || null,
       employee_count: String(body.employee_count || "").trim() || null,
       industry: toArray(body.industry),
