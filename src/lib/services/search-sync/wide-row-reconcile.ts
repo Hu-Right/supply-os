@@ -175,7 +175,7 @@ export async function reconcileTranslations(pool: Pool): Promise<number[]> {
        WHERE NOT (COALESCE(ns.title_zh, '') = COALESCE(t.title_tr, ''))
        LIMIT 200`,
     );
-    const ids = (mismatchRows as any[]).map((r) => Number(r.id)).filter(Boolean);
+    const ids = (mismatchRows as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);
     if (ids.length > 0) {
       const BATCH = 100;
       for (let i = 0; i < ids.length; i += BATCH) {

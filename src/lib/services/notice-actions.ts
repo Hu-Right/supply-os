@@ -7,7 +7,7 @@
  *              反馈（含兴趣码持久化/衰减）、兴趣提交等动作的服务层编排。
  *              路由层仅做参数解析与响应构造，业务逻辑集中于此。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
 import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
@@ -62,7 +62,7 @@ export async function executeUnlock(
       "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
       [userKey, noticeId],
     );
-    if ((existingRows as any[]).length > 0) {
+    if ((existingRows as RowDataPacket[]).length > 0) {
       await conn.commit();
       return { alreadyUnlocked: true, unlockType };
     }
@@ -87,7 +87,7 @@ export async function executeUnlock(
          FOR UPDATE`,
         [userKey],
       );
-      const ent = (entRows as any[])[0];
+      const ent = (entRows as RowDataPacket[])[0];
       if (ent) {
         consumedEntitlementId = Number(ent.id);
       } else if (unlockType === "subscription") {
@@ -99,7 +99,7 @@ export async function executeUnlock(
            LIMIT 1`,
           [userKey],
         );
-        if ((subRows as any[]).length === 0) {
+        if ((subRows as RowDataPacket[]).length === 0) {
           await conn.rollback();
           throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
         }
@@ -125,7 +125,7 @@ export async function executeUnlock(
         [consumedEntitlementId],
       );
       // P1-7 安全修复：检查 affectedRows，若为 0 说明配额已被并发消耗
-      if ((updateResult as any).affectedRows === 0) {
+      if ((updateResult as ResultSetHeader).affectedRows === 0) {
         await conn.rollback();
         throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
       }
