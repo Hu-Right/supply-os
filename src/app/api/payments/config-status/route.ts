@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const runtime = getPaymentRuntimeConfig();
   return NextResponse.json({
     ...runtime,
-    active_provider_configs: configs.map((item: Record<string, unknown>) => ({
+    active_provider_configs: configs.map((item) => ({
       provider: item.provider,
       mode: item.mode,
       app_id: item.app_id ? `${String(item.app_id).slice(0, 6)}***` : null,

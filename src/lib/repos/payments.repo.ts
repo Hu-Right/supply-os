@@ -50,6 +50,16 @@ export interface UnlockHistoryRow {
   description?: string | null;
 }
 
+/** 支付渠道配置行（config-status 展示用） */
+export interface PaymentProviderConfigRow {
+  provider: string;
+  mode: string;
+  app_id: string | null;
+  merchant_id: string | null;
+  notify_url: string | null;
+  is_active: number;
+}
+
 export class PaymentsRepo {
   constructor(private pool: Pool) {}
 
@@ -294,14 +304,14 @@ export class PaymentsRepo {
   }
 
   /** 查询活跃支付渠道配置（config-status 展示用） */
-  async listActiveProviderConfigs(): Promise<any[]> {
+  async listActiveProviderConfigs(): Promise<PaymentProviderConfigRow[]> {
     const [rows] = await this.pool.query(
       `SELECT provider, mode, app_id, merchant_id, notify_url, is_active
        FROM crm_payment_provider_configs
        WHERE is_active = 1
        ORDER BY provider, id DESC`,
     );
-    return rows as RowDataPacket[];
+    return rows as PaymentProviderConfigRow[];
   }
 
   // ── 事务支持方法（接受 PoolConnection 用于 activatePaidOrder 事务）──
@@ -473,7 +483,7 @@ export class PaymentsRepo {
        FOR UPDATE`,
       [userKey, targetPlanCode],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] as { id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } ?? null;
   }
 
   /** 事务内查询用户可升级的活跃订阅（最新一条非目标套餐的活跃订阅） */
@@ -489,7 +499,7 @@ export class PaymentsRepo {
        ORDER BY id DESC LIMIT 1`,
       [userKey, targetPlanCode],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] as { id: number } ?? null;
   }
 
   /** 查询订单金额（回调金额校验用） */
@@ -580,7 +590,7 @@ export class PaymentsRepo {
 }
 
 /** 将值安全转为 JSON 数组 */
-function normalizeJsonArray(value: any): any[] {
+function normalizeJsonArray(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (!value) return [];
   try {
