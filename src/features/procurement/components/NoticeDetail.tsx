@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth } from "@/core/auth";
-import type { NoticeItem, MembershipStatus } from "../types";
+import type { NoticeItem, NoticeDetailItem, MembershipStatus } from "../types";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
 import { collectBreakdownFiles } from "./NoticeUnlockedDetails";
@@ -15,7 +15,7 @@ import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface NoticeDetailProps {
-  notice: NoticeItem;
+  notice: NoticeDetailItem;
   actionMessage: string;
   membership: MembershipStatus | null;
   canUsePaidQuota: boolean;
