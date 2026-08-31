@@ -1,9 +1,9 @@
 /**
- * GET /r/[code] — 推荐链接落地页
+ * GET /r/[code] — 员工推广扫码落地页
  *
- * 员工分享专属链接（如 https://platform.com/r/EMP-XCAO26A1），
- * 用户点击后自动写入 ref_code Cookie（7 天有效），
- * 随后重定向到首页。注册时 API 读取 Cookie 完成归属。
+ * 员工分享专属二维码（如 https://osneosmart.com/r/EMP-XCAO26A1），
+ * 用户扫码后自动写入 ref_code Cookie（7 天有效），
+ * 随后重定向到供应商资质表单页。提交时 API 读取 Cookie 完成员工归属绑定。
  *
  * @module app/r/[code]/route
  */
@@ -22,7 +22,7 @@ export async function GET(
 
   // 基本格式校验，防止非法值写入 Cookie
   if (!CODE_PATTERN.test(normalized)) {
-    return NextResponse.redirect(new URL("/showroom", SITE_URL));
+    return NextResponse.redirect(new URL("/procurement/qualification", SITE_URL));
   }
 
   // 7 天后过期
@@ -32,7 +32,7 @@ export async function GET(
   // 使用 SITE_URL 作为重定向 base（而非 req.url）：
   // Next.js standalone 背后有 nginx 反向代理时，req.url 为内部地址
   // （如 http://0.0.0.0:3039/...），会导致重定向到无效地址。
-  const response = NextResponse.redirect(new URL("/showroom", SITE_URL));
+  const response = NextResponse.redirect(new URL("/procurement/qualification", SITE_URL));
 
   response.cookies.set("ref_code", normalized, {
     path: "/",

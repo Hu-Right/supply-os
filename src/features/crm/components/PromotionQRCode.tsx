@@ -101,7 +101,7 @@ export default function PromotionQRCode() {
         <div>
           <h3 className="text-base font-bold text-slate-900">推广二维码生成</h3>
           <p className="text-xs text-slate-500">
-            输入您的员工邀请码，生成专属推广二维码。扫码后用户自动绑定推荐关系。
+            输入您的员工邀请码，生成专属推广二维码。扫码后用户直接进入资质表单页，自动绑定推荐关系。
           </p>
         </div>
       </div>
@@ -179,8 +179,8 @@ export default function PromotionQRCode() {
           <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 space-y-1">
             <p className="font-bold text-slate-700">使用说明：</p>
             <p>• 下载二维码图片后，可印刷在海报、传单、名片等推广物料上</p>
-            <p>• 用户扫码后浏览器打开您的专属推广链接，自动写入推荐关系</p>
-            <p>• 用户在 7 天内完成注册，即计入您的业绩</p>
+            <p>• 用户扫码后直接打开资质表单页，自动绑定您的邀请码</p>
+            <p>• 用户提交表单后，即计入您的业绩</p>
             <p>• 「复制链接」可直接在微信、邮件等线上渠道分享</p>
           </div>
         </div>

@@ -8,7 +8,7 @@
  *              本组件仅负责页面外壳、提交逻辑与评分结果展示。
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { CheckCircle2, Send, ArrowLeft, Building2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -35,6 +35,13 @@ export default function QualificationFormPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualificationId, setQualificationId] = useState<number | null>(null);
+  // 员工推广扫码归因：读取 /r/[code] 写入的 ref_code Cookie
+  const [refCode, setRefCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]+)/);
+    if (match) setRefCode(decodeURIComponent(match[1]).toUpperCase());
+  }, []);
 
   const options = useMemo(() => ({
     employee: getEmployeeOptions(t),
@@ -89,6 +96,8 @@ export default function QualificationFormPage() {
         payment_terms: form.payment_terms,
         bid_willingness: form.bid_willingness,
         contact_info: form.contact_info.trim() || null,
+        // 员工推广归因：将 ref_code Cookie 作为邀请码传递后端，解析为 employee_id
+        ...(refCode ? { invitation_code: refCode } : {}),
       });
       setQualificationId(res.id);
       toast.success(t("qualSuccessTitle"));

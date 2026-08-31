@@ -27,6 +27,8 @@ export interface SupplierQualificationForm {
   payment_terms: string;
   bid_willingness: string;
   contact_info: string | null;
+  /** 员工推广归因：ref_code Cookie 解析出的邀请码 */
+  invitation_code?: string;
 }
 
 export const submitSupplierQualification = (data: SupplierQualificationForm) =>
