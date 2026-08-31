@@ -29,15 +29,32 @@ else
 fi
 
 # 3. Next.js 构建（output: standalone → .next/standalone/）
+# 3.1 备份现有 .env（standalone 重建会删除 .env）
+if [ -f .next/standalone/.env ]; then
+  cp .next/standalone/.env /tmp/supply-os.env.bak
+  echo "[deploy] 已备份 .env"
+fi
+
 echo "[deploy] 构建..."
 npm run build
 
-# 3.5 .env 处理（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
-#    仅在首次部署时复制，之后不再触碰服务器上的 .env 配置
-if [ ! -f .next/standalone/.env ] && [ -f .env ]; then
+# 3.2 恢复 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
+if [ -f /tmp/supply-os.env.bak ]; then
+  cp /tmp/supply-os.env.bak .next/standalone/.env
+  echo "[deploy] 已恢复 .env"
+elif [ -f .env ]; then
   cp .env .next/standalone/.env
   echo "[deploy] 首次部署：复制 .env → .next/standalone/.env"
 fi
+
+# 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
+cp -r .next/static .next/standalone/.next/static
+echo "[deploy] 已复制静态资源 → standalone"
+
+# 3.4 复制 public 目录（字体、图片等静态文件）
+#     使用 -T 将目标视为目录，避免 cp -r 在目标已存在时嵌套为 public/public/
+cp -rT public .next/standalone/public/
+echo "[deploy] 已复制 public → standalone"
 
 # 3.6 nodejieba 词典文件（Next.js standalone 不会自动复制原生模块的 dict 资源，
 #     缺失时 Meilisearch 全量重建触发 nodejieba 分词 → FATAL 崩溃 → PM2 无限重启）
