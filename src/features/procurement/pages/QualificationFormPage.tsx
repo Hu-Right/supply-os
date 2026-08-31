@@ -9,7 +9,7 @@
  */
 
 import { useState, useMemo } from "react";
-import { CheckCircle2, Send, ArrowLeft, Building2, FileText } from "lucide-react";
+import { CheckCircle2, Send, ArrowLeft, Building2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
@@ -17,7 +17,6 @@ import { Button } from "@/shared/ui";
 import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
 import { submitSupplierQualification } from "../api/qualification";
 import { ApiError } from "@/core/http";
-import { scoreQualification, type ScoringResult } from "../utils/scoringEngine";
 import {
   QualificationFormFields,
   INITIAL_QUALIFICATION_FORM,
@@ -36,7 +35,6 @@ export default function QualificationFormPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qualificationId, setQualificationId] = useState<number | null>(null);
-  const [scoreResult, setScoreResult] = useState<ScoringResult | null>(null);
 
   const options = useMemo(() => ({
     employee: getEmployeeOptions(t),
@@ -92,9 +90,7 @@ export default function QualificationFormPage() {
         bid_willingness: form.bid_willingness,
         contact_info: form.contact_info.trim() || null,
       });
-      const result = scoreQualification(form as Parameters<typeof scoreQualification>[0]);
       setQualificationId(res.id);
-      setScoreResult(result);
       toast.success(t("qualSuccessTitle"));
       setSubmitted(true);
     } catch (err) {
@@ -126,9 +122,6 @@ export default function QualificationFormPage() {
 
   // ─ 提交成功页 ─
   if (submitted) {
-    const AMBER = "#D97706";
-    const RED = "#DC2626";
-    const gradeColor = scoreResult?.grade === "A" ? GREEN : scoreResult?.grade === "B" ? AMBER : RED;
     return (
       <div className="min-h-screen px-4 py-6" style={{ background: BG_LIGHT }}>
         <div className="max-w-lg mx-auto space-y-5">
@@ -140,7 +133,7 @@ export default function QualificationFormPage() {
             <p className="text-sm text-slate-500 leading-relaxed mb-4">{t("qualSuccessDesc")}</p>
             <button
               type="button"
-              onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); setQualificationId(null); setScoreResult(null); }}
+              onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); setQualificationId(null); }}
               className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-colors"
               style={{ background: GREEN }}
               onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
@@ -151,61 +144,18 @@ export default function QualificationFormPage() {
             </button>
           </div>
 
-          {scoreResult && (
-            <div className="bg-white rounded-2xl shadow-lg p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-5 h-5" style={{ color: NAVY }} />
-                <h2 className="text-base font-bold" style={{ color: NAVY }}>{t("qualScoreTitle")}</h2>
-              </div>
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-20 h-20 rounded-2xl flex flex-col items-center justify-center text-white shadow-md" style={{ background: gradeColor }}>
-                  <span className="text-2xl font-black">{scoreResult.grade}</span>
-                  <span className="text-xs opacity-90">{scoreResult.totalScore}{t("qualScorePoint")}</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-slate-800">{scoreResult.gradeLabel}</p>
-                  <p className="text-xs text-slate-500 mt-1">{scoreResult.gradePath}</p>
-                </div>
-              </div>
-              {scoreResult.overrideGateTriggered && (
-                <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-100">
-                  <p className="text-xs text-red-600">⚠ {scoreResult.overrideGateReason}</p>
-                </div>
-              )}
-              <div className="space-y-2.5 mb-5">
-                {scoreResult.dimensions.map((d) => {
-                  const ratio = d.rawScore / 5;
-                  const barColor = ratio >= 0.8 ? GREEN : ratio >= 0.6 ? "#D97706" : "#DC2626";
-                  return (
-                    <div key={d.no}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-xs text-slate-600 truncate flex-1">
-                          {d.no}. {d.name}
-                          {d.needsManualReview && <span className="ml-1 text-amber-500" title={t("qualScoreNeedsReview")}>●</span>}
-                        </span>
-                        <span className="text-xs font-mono text-slate-500 ml-2 shrink-0">{d.weightedScore}/{d.weight}</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full rounded-full transition-all" style={{ width: `${ratio * 100}%`, background: barColor }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {/* 客服二维码引导 */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center">
-                <Image
-                  src="/wechat-service-qr.png"
-                  alt="客服微信二维码"
-                  width={160}
-                  height={160}
-                  className="mx-auto rounded-lg"
-                />
-                <p className="mt-3 text-sm font-bold text-slate-800">{t("qualDiagQrTitle")}</p>
-                <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
-              </div>
-            </div>
-          )}
+          {/* 客服二维码 */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <Image
+              src="/wechat-service-qr.png"
+              alt="客服微信二维码"
+              width={180}
+              height={180}
+              className="mx-auto rounded-lg"
+            />
+            <p className="mt-4 text-sm font-bold text-slate-800">{t("qualDiagQrTitle")}</p>
+            <p className="mt-2 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
+          </div>
         </div>
       </div>
     );
