@@ -42,6 +42,14 @@ export class PaymentService {
     private learningMaterialsRepo?: LearningMaterialsRepo,
   ) {}
 
+  /** 获取 paymentsRepo（未初始化时抛出明确错误） */
+  private get repo(): PaymentsRepo {
+    if (!this.paymentsRepo) {
+      throw new Error("PaymentService: paymentsRepo is required for this operation");
+    }
+    return this.paymentsRepo;
+  }
+
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
   }
@@ -94,7 +102,7 @@ export class PaymentService {
       }
       if (amount <= 0) throw new Error("INVALID_AMOUNT");
     } else {
-      const plan = await this.paymentsRepo!.findActivePlan(planCode);
+      const plan = await this.repo.findActivePlan(planCode);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
       amount = Number(plan.price);
       planName = String(plan.name || planCode);
@@ -103,7 +111,7 @@ export class PaymentService {
       // ── 首单特惠资格（single_99，2026-08-30）──
       // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
       if (planCode === "single_99") {
-        const hasRecord = await this.paymentsRepo!.hasSingleUnlockRecord(userKey);
+        const hasRecord = await this.repo.hasSingleUnlockRecord(userKey);
         if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
       }
 
@@ -134,7 +142,7 @@ export class PaymentService {
       // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
       // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
       if (planCode === "annual_799" && orderType === "new") {
-        const source = await this.paymentsRepo!.findDeductibleSingleOrder(userKey);
+        const source = await this.repo.findDeductibleSingleOrder(userKey);
         if (source && source.amount > 0) {
           amount = Math.max(0, amount - source.amount);
           originalOrderNo = source.order_no;
@@ -153,7 +161,7 @@ export class PaymentService {
     const isPromotionalOrder = planCode === "annual_799" || planCode === "single_99";
     const existingOrder = orderType === "upgrade" || isLearningOrder || isPromotionalOrder
       ? null
-      : await this.paymentsRepo!.findPendingOrder({
+      : await this.repo.findPendingOrder({
           userKey, planCode, provider, noticeId,
         });
 
@@ -185,7 +193,7 @@ export class PaymentService {
     });
 
     if (existingOrder) {
-      await this.paymentsRepo!.updatePendingOrder(orderNo, {
+      await this.repo.updatePendingOrder(orderNo, {
         amount,
         currency,
         payUrl: pay_url,
@@ -193,7 +201,7 @@ export class PaymentService {
         rawRequest: rawRequestPayload,
       });
     } else {
-      await this.paymentsRepo!.createOrder({
+      await this.repo.createOrder({
         userKey,
         orderNo,
         provider,
@@ -223,7 +231,7 @@ export class PaymentService {
   }
 
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
-    const dbOrder = await this.paymentsRepo!.findByOrderNo(orderNo);
+    const dbOrder = await this.repo.findByOrderNo(orderNo);
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
 
     if (dbOrder.status === "pending" && dbOrder.provider) {
@@ -284,7 +292,7 @@ export class PaymentService {
       if (!verifyResult.order_no) {
         return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
       }
-      const refundResult = await reverseFulfilledOrder(this.paymentsRepo!, verifyResult.order_no);
+      const refundResult = await reverseFulfilledOrder(this.repo, verifyResult.order_no);
       if (!refundResult.found) {
         return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
       }
@@ -309,7 +317,7 @@ export class PaymentService {
       return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_INVALID" };
     }
     {
-      const dbOrder = await this.paymentsRepo!.findOrderAmount(verifyResult.order_no);
+      const dbOrder = await this.repo.findOrderAmount(verifyResult.order_no);
       if (!dbOrder) {
         // 未知订单拒绝：跨环境误投/伪造 order_no 不再静默放行（原实现跳过校验并回 success，
         // 导致平台停止重试、通知永久丢失）
@@ -331,7 +339,7 @@ export class PaymentService {
 
   /** 激活已支付订单（委托至 fulfillment 模块） */
   private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
-    return activatePaidOrder(this.paymentsRepo!, orderNo, providerTradeNo);
+    return activatePaidOrder(this.repo, orderNo, providerTradeNo);
   }
 
   private makeOrderNo(): string {
