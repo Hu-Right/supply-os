@@ -6,7 +6,7 @@
  * @description 从 14 字段企业输入 + 10 维度评分结果，生成完整 12 章节诊断报告数据。
  *              纯函数，可前后端共用。
  */
-import type { QualificationScoreInput, ScoringResult } from "@/features/procurement/utils/scoringEngine";
+import type { QualificationScoreInput, ScoringResult } from "./scoring";
 
 // ── 输出类型 ──
 
