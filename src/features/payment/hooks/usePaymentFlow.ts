@@ -67,7 +67,9 @@ export function usePaymentFlow({
 
   // 弹窗打开时获取支付通道配置状态
   useEffect(() => {
-    void fetchPaymentConfigStatus().then(setPaymentConfig);
+    fetchPaymentConfigStatus()
+      .then(setPaymentConfig)
+      .catch(() => setPaymentConfig(null));
   }, []);
 
   // 配置加载后若当前选中方式未开通，自动切换到第一个已开通的方式

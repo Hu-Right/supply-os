@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
+import { requireUserKey } from "@/lib/middleware/auth";
 import type { QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
 
 /**
@@ -42,6 +43,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // 认证检查：诊断报告含企业敏感商业信息，必须登录后才可获取
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
+
   const { id: idStr } = await params;
   const id = Number(idStr);
   if (!Number.isFinite(id) || id <= 0) {

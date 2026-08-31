@@ -116,6 +116,15 @@ export async function GET(req: NextRequest) {
             controller.enqueue(encoder.encode(errorEvent));
           }
         }, POLL_INTERVAL);
+      }).catch((err) => {
+        // 基线查询失败时关闭流，避免静默悬挂
+        console.error("[crm/chat/stream] baseline query failed:", err);
+        try {
+          const errorEvent = `event: error\ndata: ${JSON.stringify({ message: "baseline_query_failed" })}\n\n`;
+          controller.enqueue(encoder.encode(errorEvent));
+        } finally {
+          controller.close();
+        }
       });
     },
     cancel() {

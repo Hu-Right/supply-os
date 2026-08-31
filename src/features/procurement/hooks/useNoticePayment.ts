@@ -80,7 +80,9 @@ export function useNoticePayment({
 
   // 启动时获取支付通道配置状态（微信/支付宝是否已开通）
   useEffect(() => {
-    void fetchPaymentConfigStatus().then(setPaymentConfig);
+    fetchPaymentConfigStatus()
+      .then(setPaymentConfig)
+      .catch(() => setPaymentConfig(null));
   }, []);
 
   const openPaywall = useCallback((notice: NoticeItem) => {
