@@ -1,11 +1,11 @@
 /**
- * 会员 API — re-export（N5 归属归正，2026-08-20）
+ * 会员 API — re-export（ARCH-P1b 层级归正，2026-08-31）
  * Membership API — re-export from canonical location
  *
- * @description N5 归属归正：权威实现已迁回 features/membership/api.ts，
- *              本文件改为纯 re-export，维持 procurement/api/index.ts 的导出路径。
+ * @description ARCH-P1b：权威实现已迁至 core/api/membership.ts，
+ *              本文件改为 re-export，维持 procurement/api/index.ts 的导出路径。
  */
 export {
   fetchMembershipPlans,
   fetchMembershipStatus,
-} from "@/features/membership/api";
+} from "@/core/api/membership";

@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { fetchMembershipStatus } from "@/features/membership/api";
+import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatus } from "@/types";
 
 export interface AccountBenefitsCardProps {
