@@ -4,7 +4,7 @@
   "procurement_recommendedBanner": "توصيات ذكية بناءً على اهتماماتكم",
   "procurement_back": "العودة إلى الإشعارات",
   "procurement_poolTitle": "عملاء المشتريات العامة الدولية المحتملون",
-  "procurement_poolDesc": "صفِّ إشعارات المشتريات العامة حسب UNSPSC. يمكن للمستخدمين المسجّلين عرض {count} تفاصيل مجانًا.",
+  "procurement_poolDesc": "صفِّ إشعارات المشتريات العامة حسب UNSPSC.",
   "procurement_total": "الإجمالي",
   "procurement_items": "عناصر",
   "procurement_freeTrial": "الحصة المجانية",

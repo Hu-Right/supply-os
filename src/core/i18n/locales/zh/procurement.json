@@ -4,7 +4,7 @@
   "procurement_recommendedBanner": "已按您的关注偏好智能推荐",
   "procurement_back": "返回采购列表",
   "procurement_poolTitle": "国际公共采购 采购线索池",
-  "procurement_poolDesc": "按 UNSPSC 分类筛选公开采购机会，登录后可免费查看 {count} 条详情。",
+  "procurement_poolDesc": "按 UNSPSC 分类筛选公开采购机会。",
   "procurement_total": "共",
   "procurement_items": "条",
   "procurement_freeTrial": "免费体验",
