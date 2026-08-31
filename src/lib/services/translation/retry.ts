@@ -133,8 +133,9 @@ export async function runRetryTranslation(
           return result;
         }
       }
-    } catch (err: any) {
-      console.warn(`[retry-translate] 预算状态读取失败（静默跳过预算检查）: ${err?.message || err}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[retry-translate] 预算状态读取失败（静默跳过预算检查）: ${msg}`);
     }
   }
 
@@ -378,8 +379,9 @@ export async function runRetryTranslation(
            ON DUPLICATE KEY UPDATE state_value = VALUES(state_value)`,
           ["budget_day", today, "budget_chars_used", String(charsUsedToday + result.charsUsed)]
         );
-      } catch (err: any) {
-        console.warn(`[retry-translate] 预算状态更新失败: ${err?.message || err}`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[retry-translate] 预算状态更新失败: ${msg}`);
       }
     }
 

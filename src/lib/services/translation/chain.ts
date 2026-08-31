@@ -218,15 +218,15 @@ async function translateViaDeepSeek(
   if (!circuitBreakerAllow()) {
     throw new Error("DEEPSEEK_CIRCUIT_BREAKER_OPEN");
   }
-  let lastErr: any;
+  let lastErr: unknown;
   for (let attempt = 0; attempt <= DEEPSEEK_MAX_RETRIES; attempt++) {
     try {
       const result = await translateViaDeepSeekOnce(texts, sourceLang, targetLang);
       circuitBreakerRecordSuccess();
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastErr = err;
-      const errMsg = err?.message || "";
+      const errMsg = err instanceof Error ? err.message : String(err);
       if (attempt < DEEPSEEK_MAX_RETRIES && isDeepSeekRetryable(errMsg)) {
         const delayMs = DEEPSEEK_RETRY_BASE_MS * Math.pow(2, attempt);
         console.warn(`[translate] deepseek retry ${attempt + 1}/${DEEPSEEK_MAX_RETRIES} after ${delayMs}ms: ${errMsg}`);
@@ -287,11 +287,12 @@ export async function translateViaChain(
       translations: assemble(translated),
       provider: "deepseek-v4-flash",
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     // DeepSeek 失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
     const chainErr = new Error("TRANSLATION_UNAVAILABLE");
-    (chainErr as any).degradedFrom = [`deepseek-v4-flash:${err?.message}`];
-    console.warn(`[translate] deepseek unavailable: ${err?.message}`);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    (chainErr as any).degradedFrom = [`deepseek-v4-flash:${errMsg}`];
+    console.warn(`[translate] deepseek unavailable: ${errMsg}`);
     throw chainErr;
   }
 }

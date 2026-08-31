@@ -399,9 +399,11 @@ async function probeDeepSeekHealth(): Promise<void> {
   }
   try {
     await translateViaChain(["Hello"], "en", "zh");
-  } catch (err: any) {
-    const degraded = (err?.degradedFrom as string[] | undefined)?.join(" → ") || err?.message || String(err);
-    console.error(`[auto-translate] ✗ DeepSeek 健康检查失败: ${degraded}。翻译任务将继续尝试但可能持续失败，请检查 API Key 与网络。`);
+  } catch (err: unknown) {
+    const errObj = err instanceof Error ? err : new Error(String(err));
+    const degraded = (errObj as any).degradedFrom as string[] | undefined;
+    const degradedStr = degraded?.join(" → ") || errObj.message;
+    console.error(`[auto-translate] ✗ DeepSeek 健康检查失败: ${degradedStr}。翻译任务将继续尝试但可能持续失败，请检查 API Key 与网络。`);
   }
 }
 
@@ -426,8 +428,9 @@ export function startAutoTranslate(
     running = true;
     try {
       await runIncrementalTranslation(dbPool, cfg);
-    } catch (err: any) {
-      logger.warn(`SCAN_FAIL error="${err?.message || err}"`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`SCAN_FAIL error="${msg}"`);
     } finally {
       running = false;
       scheduleNext();

@@ -111,8 +111,9 @@ export async function sendSmsVerificationCode(
     }
 
     throw new Error(`SMS_SEND_FAILED: ${body?.message || body?.code || "unknown"}`);
-  } catch (err: any) {
-    if (err.message?.startsWith("SMS_")) throw err;
-    throw new Error(`SMS_SEND_ERROR: ${err.message}`, { cause: err });
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message?.startsWith("SMS_")) throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`SMS_SEND_ERROR: ${msg}`, { cause: err });
   }
 }

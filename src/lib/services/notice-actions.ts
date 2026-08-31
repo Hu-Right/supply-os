@@ -138,10 +138,10 @@ export async function executeUnlock(
       await persistUserInterestCodes(dbPool, userKey, snapshot, "unlock_order", 2.50).catch(() => {});
     }
     return { alreadyUnlocked: false, unlockType };
-  } catch (err: any) {
+  } catch (err: unknown) {
     await conn.rollback();
     // 唯一约束冲突 = 并发请求已解锁
-    if (err?.code === "ER_DUP_ENTRY") {
+    if (err instanceof Error && "code" in err && (err as { code: string }).code === "ER_DUP_ENTRY") {
       return { alreadyUnlocked: true, unlockType };
     }
     throw err;

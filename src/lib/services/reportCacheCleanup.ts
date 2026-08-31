@@ -97,8 +97,9 @@ export function startReportCacheCleanup(cfg: ReportCacheCleanupConfig): () => vo
         try {
           const removed = await clearReportCache();
           console.log(`[report-cache] monthly cleanup done, removed ${removed} file(s)`);
-        } catch (err: any) {
-          console.warn(`[report-cache] monthly cleanup failed: ${err?.message || err}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[report-cache] monthly cleanup failed: ${msg}`);
         }
         // 过期译文清理（源数据不动，仅删缓存行）
         if (cfg.dbPool) {
@@ -107,8 +108,9 @@ export function startReportCacheCleanup(cfg: ReportCacheCleanupConfig): () => vo
             console.log(
               `[translation-cleanup] monthly done, removed notices=${notices} opportunities=${opportunities}`
             );
-          } catch (err: any) {
-            console.warn(`[translation-cleanup] monthly failed: ${err?.message || err}`);
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.warn(`[translation-cleanup] monthly failed: ${msg}`);
           }
         }
       }
