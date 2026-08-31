@@ -8,6 +8,7 @@
  * @module app/r/[code]/route
  */
 import { NextRequest, NextResponse } from "next/server";
+import { SITE_URL } from "@/lib/services/seo/site";
 
 /** 推荐链接格式：/r/EMP-XXXXXXXX */
 const CODE_PATTERN = /^EMP-[A-Z0-9]{4,12}$/i;
@@ -21,16 +22,17 @@ export async function GET(
 
   // 基本格式校验，防止非法值写入 Cookie
   if (!CODE_PATTERN.test(normalized)) {
-    return NextResponse.redirect(new URL("/showroom", req.url));
+    return NextResponse.redirect(new URL("/showroom", SITE_URL));
   }
 
   // 7 天后过期
   const expires = new Date();
   expires.setDate(expires.getDate() + 7);
 
-  // 重定向目标用请求 URL 解析（审查 F62-lite）：不再手工拼接
-  // x-forwarded-proto/host 头，消除头注入/缓存投毒拼接面
-  const response = NextResponse.redirect(new URL("/showroom", req.url));
+  // 使用 SITE_URL 作为重定向 base（而非 req.url）：
+  // Next.js standalone 背后有 nginx 反向代理时，req.url 为内部地址
+  // （如 http://0.0.0.0:3039/...），会导致重定向到无效地址。
+  const response = NextResponse.redirect(new URL("/showroom", SITE_URL));
 
   response.cookies.set("ref_code", normalized, {
     path: "/",
