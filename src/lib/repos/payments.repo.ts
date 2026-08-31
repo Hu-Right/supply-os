@@ -513,8 +513,12 @@ export class PaymentsRepo {
   }
 
   /**
-   * 首单特惠资格（single_99，2026-08-30）：用户是否从未购买过任何单次解锁。
-   * pending 也计入——只查 paid 会被"先开单不付款再开第二单"绕过。
+   * 首单特惠资格检查：用户是否从未购买过任何单次解锁（single_* 系列）。
+   *
+   * 业务规则（产品决策 2026-08-30）：
+   * - 匹配所有 single_* 套餐（不限 single_99）
+   * - pending 也计入——防止"先开单不付款再开第二单"绕过首单限制
+   * - 用于首单特惠资格判定和前端套餐列表展示
    */
   async hasSingleUnlockRecord(userKey: string): Promise<boolean> {
     const [rows] = await this.pool.query(
@@ -525,10 +529,13 @@ export class PaymentsRepo {
   }
 
   /**
-   * 可抵扣的 single_99 源订单（2026-08-30 产品决策）：
-   * - 已支付且 paid_at 在 7 天内
+   * 可抵扣的 single_99 源订单查找（首单特惠抵扣逻辑）。
+   *
+   * 业务规则（产品决策 2026-08-30）：
+   * - 仅限 single_99 套餐（single_199 历史买家不参与抵扣）
+   * - 已支付且 paid_at 在 7 天内（抵扣窗口期）
    * - 未被任何非 closed 订单通过 original_order_no 引用过（一单只能抵扣一次）
-   * - 历史 single_199 买家不参与抵扣（决策 1：仅 single_99 作为漏斗钩子）
+   * - 用于首单特惠升级时的金额抵扣计算
    */
   async findDeductibleSingleOrder(userKey: string): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
     const [rows] = await this.pool.query(
@@ -548,55 +555,5 @@ export class PaymentsRepo {
     return row
       ? { order_no: row.order_no as string, amount: Number(row.amount || 0), paid_at: row.paid_at as Date }
       : null;
-  }
-
-  /** 授予单条公告解锁（含幂等检查 + UNSPSC 快照 + 兴趣记录） */
-  async grantSingleNoticeUnlock(conn: PoolConnection, params: {
-    userKey: string; noticeId: number; amount: number;
-  }): Promise<void> {
-    // 幂等检查
-    const [existingRows] = await conn.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
-      [params.userKey, params.noticeId],
-    );
-    if ((existingRows as RowDataPacket[]).length > 0) return;
-
-    // 查询公告 UNSPSC 快照
-    const [noticeRows] = await conn.query(
-      "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
-      [params.noticeId],
-    );
-    const notice = (noticeRows as RowDataPacket[])[0];
-    if (!notice) return;
-
-    const unspscSnapshot = normalizeJsonArray(notice.unspsc_codes);
-
-    // 写入解锁记录
-    await conn.execute(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'single', ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.noticeId, params.amount, JSON.stringify(unspscSnapshot)],
-    );
-
-    // 写入兴趣记录
-    await conn.execute(
-      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
-      [params.userKey, params.userKey, params.noticeId],
-    );
-  }
-}
-
-/** 将值安全转为 JSON 数组 */
-function normalizeJsonArray(value: unknown): unknown[] {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(String(value));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
   }
 }
