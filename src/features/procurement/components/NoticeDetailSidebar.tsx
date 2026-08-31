@@ -18,8 +18,6 @@ import type { NoticeItem, MembershipStatus } from "../types";
 export interface NoticeDetailSidebarProps {
   notice: NoticeItem;
   membership: MembershipStatus | null;
-  freeRemaining: number;
-  freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
   /** 总可用解锁次数 */
@@ -36,8 +34,6 @@ export interface NoticeDetailSidebarProps {
 export function NoticeDetailSidebar({
   notice,
   membership,
-  freeRemaining,
-  freeQuota,
   canUsePaidQuota,
   isVip,
   totalRemaining,
@@ -80,9 +76,7 @@ export function NoticeDetailSidebar({
         <span className="truncate">
           {canUsePaidQuota
             ? t("procurement_memberUnlock")
-            : freeRemaining > 0
-              ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
-              : t("procurement_freeUsedUp")}
+            : t("procurement_freeUsedUp")}
         </span>
       </Button>
     </>
@@ -94,8 +88,6 @@ export function NoticeDetailSidebar({
       <MembershipStatusPanel
         membership={membership}
         totalRemaining={totalRemaining}
-        freeQuota={freeQuota}
-        freeRemaining={freeRemaining}
         isLoggedIn={isLoggedIn}
         noticeId={notice.id}
         compact

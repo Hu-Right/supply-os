@@ -9,7 +9,7 @@
  */
 
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
-import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -19,10 +19,6 @@ export interface MembershipStatusPanelProps {
   membership: MembershipStatus | null;
   /** 总可用解锁次数（由 Hook 计算） */
   totalRemaining: number;
-  /** 免费额度 */
-  freeQuota: number;
-  /** 免费剩余 */
-  freeRemaining: number;
   /** 是否已登录 */
   isLoggedIn: boolean;
   /** 可选：公告 ID（用于跳转套餐页时携带） */
@@ -44,8 +40,6 @@ function formatDate(dateStr: string): string {
 export function MembershipStatusPanel({
   membership,
   totalRemaining,
-  freeQuota,
-  freeRemaining,
   isLoggedIn,
   noticeId,
   compact = false,
@@ -72,13 +66,13 @@ export function MembershipStatusPanel({
     ? "amber"
     : hasSingleCard
       ? "blue"
-      : "teal";
+      : "slate";
 
   const bgGradient = hasSubscription
     ? "from-amber-50 to-orange-50"
     : hasSingleCard
       ? "from-blue-50 to-cyan-50"
-      : "from-slate-50 to-teal-50/30";
+      : "from-slate-50 to-slate-50/30";
 
   const borderColor = hasSubscription
     ? "border-amber-200/60"
@@ -90,15 +84,15 @@ export function MembershipStatusPanel({
     ? "bg-amber-100"
     : hasSingleCard
       ? "bg-blue-100"
-      : "bg-teal-100";
+      : "bg-slate-100";
 
   const iconColor = hasSubscription
     ? "text-amber-600"
     : hasSingleCard
       ? "text-blue-600"
-      : "text-teal-600";
+      : "text-slate-500";
 
-  const Icon = hasSubscription ? Crown : hasSingleCard ? Zap : Gift;
+  const Icon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
 
   return (
     <div className={`rounded-xl border ${borderColor} bg-gradient-to-r ${bgGradient} ${compact ? "p-3" : "p-4"}`}>
@@ -189,15 +183,6 @@ export function MembershipStatusPanel({
             })()}
           </div>
         )}
-
-        {/* 免费额度 */}
-        <div className="flex items-center gap-2 text-xs">
-          <Gift className="w-3 h-3 text-teal-500 flex-shrink-0" />
-          <span className="font-bold text-slate-700">{t("statusPanelFreeTitle")}</span>
-          <span className={freeRemaining > 0 ? "text-slate-600" : "text-red-600"}>
-            {freeRemaining} / {freeQuota} {t("statusPanelTimes")}
-          </span>
-        </div>
       </div>
     </div>
   );

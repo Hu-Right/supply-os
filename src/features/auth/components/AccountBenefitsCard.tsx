@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
-import { Crown, Zap, Gift, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -60,30 +60,31 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   }
 
   if (!membership) {
-    // 数据加载失败，回退显示免费额度
-    const freeQuota = 3;
+    // 数据加载失败，显示无权益状态
     return (
       <div className="bg-white border border-slate-200 rounded-lg p-3">
-        <div className="flex items-center gap-1.5 text-teal-600 mb-1">
-          <Gift className="w-3.5 h-3.5" />
-          <p className="font-black text-xs">{t("authLeadQuota")}</p>
+        <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+          <Lock className="w-3.5 h-3.5" />
+          <p className="font-black text-xs">{t("statusPanelNoEntitlement")}</p>
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-lg font-extrabold text-teal-700">{freeQuota}</span>
-          <span className="text-xs text-slate-500">/ {freeQuota} {t("statusPanelTimes")}</span>
-        </div>
+        <Button
+          onClick={() => onViewPlans ? onViewPlans() : router.push("/membership")}
+          variant="link"
+          size="sm"
+          className="px-0 text-amber-600 hover:text-amber-700 text-xs"
+        >
+          {t("statusPanelUpgradeBtn")} →
+        </Button>
       </div>
     );
   }
 
   const entitlements = membership.entitlements ?? [];
   const subscriptions = membership.active_subscriptions ?? [];
-  const freeQuota = membership.free_quota ?? 3;
-  const freeRemaining = membership.free_remaining ?? 0;
   const paidRemaining = Number(membership.paid_quota_remaining || 0);
   // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
   // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
-  const totalRemaining = freeRemaining + paidRemaining;
+  const totalRemaining = paidRemaining;
   // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
   const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
   const hasSubscription = subscriptions.length > 0;
@@ -100,8 +101,8 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   };
 
   // 根据最佳权益类型决定主色调
-  const themeIcon = hasSubscription ? Crown : hasSingleCard ? Zap : Gift;
-  const themeColor = hasSubscription ? "text-amber-600" : hasSingleCard ? "text-blue-600" : "text-teal-600";
+  const themeIcon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
+  const themeColor = hasSubscription ? "text-amber-600" : hasSingleCard ? "text-blue-600" : "text-slate-500";
   const themeBg = hasSubscription
     ? "from-amber-50 to-orange-50 border-amber-200/60"
     : hasSingleCard
@@ -166,15 +167,6 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
             )}
           </div>
         )}
-
-        {/* 免费额度 */}
-        <div className="flex items-center gap-1.5 text-[11px]">
-          <Gift className="w-3 h-3 text-teal-500 flex-shrink-0" />
-          <span className="font-bold text-slate-700">{t("statusPanelFreeTitle")}</span>
-          <span className={freeRemaining > 0 ? "text-slate-600" : "text-red-600"}>
-            {freeRemaining}/{freeQuota}
-          </span>
-        </div>
       </div>
 
       {/* 升级引导 */}

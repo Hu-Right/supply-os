@@ -60,7 +60,7 @@ export function useNoticeHandlers({
   setActionMessage,
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
   const { t } = useLocale();
-  const { freeQuota, freeRemaining, canUsePaidQuota, refreshMembership } = membership;
+  const { canUsePaidQuota, refreshMembership } = membership;
   const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview, loadNoticeContent, setDetailLoadingId } = unlock;
 
   const openNotice = useCallback(async (notice: NoticeItem) => {

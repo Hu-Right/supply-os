@@ -14,15 +14,13 @@ export interface UseMembershipDataReturn {
   membership: MembershipStatus | null;
   loading: boolean;
   error: string | null;
-  freeRemaining: number;
-  freeQuota: number;
-  /** 当前最优权益类型：subscription > entitlement > free */
-  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 当前最优权益类型：subscription > entitlement */
+  bestBenefitType: "subscription" | "entitlement" | "none";
   /** 单次解锁卡权益列表 */
   entitlements: MembershipStatus["entitlements"];
   /** 活跃订阅列表 */
   activeSubscriptions: MembershipStatus["active_subscriptions"];
-  /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
+  /** 总可用解锁次数（所有单次卡 + 订阅配额） */
   totalRemaining: number;
   /** 当前最优周期性套餐 code（升级判断依据） */
   currentPlanCode: string | null;
@@ -78,28 +76,23 @@ export function useMembershipData(): UseMembershipDataReturn {
 
   const entitlements = membership?.entitlements ?? [];
   const activeSubscriptions = membership?.active_subscriptions ?? [];
-  const bestBenefitType: "subscription" | "entitlement" | "free" =
+  const bestBenefitType: "subscription" | "entitlement" | "none" =
     activeSubscriptions.length > 0
       ? "subscription"
       : entitlements.length > 0
         ? "entitlement"
-        : "free";
+        : "none";
 
-  // 免费试用已移除（2026-08-30）：无状态时兜底 0，不再展示 3 次免费额度
-  const freeRemaining = membership?.free_remaining ?? 0;
-  const freeQuota = membership?.free_quota ?? 0;
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
   // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
   // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
-  const totalRemaining = freeRemaining + paidRemaining;
+  const totalRemaining = paidRemaining;
 
   return {
     plans,
     membership,
     loading,
     error,
-    freeRemaining,
-    freeQuota,
     bestBenefitType,
     entitlements,
     activeSubscriptions,

@@ -18,8 +18,6 @@ interface NoticeDetailProps {
   notice: NoticeItem;
   actionMessage: string;
   membership: MembershipStatus | null;
-  freeRemaining: number;
-  freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
   /** 总可用解锁次数 */
@@ -38,8 +36,6 @@ export function NoticeDetail({
   notice,
   actionMessage,
   membership,
-  freeRemaining,
-  freeQuota,
   canUsePaidQuota,
   isVip,
   totalRemaining,
@@ -208,8 +204,6 @@ export function NoticeDetail({
           <NoticeDetailSidebar
             notice={notice}
             membership={membership}
-            freeRemaining={freeRemaining}
-            freeQuota={freeQuota}
             canUsePaidQuota={canUsePaidQuota}
             isVip={isVip}
             totalRemaining={totalRemaining}

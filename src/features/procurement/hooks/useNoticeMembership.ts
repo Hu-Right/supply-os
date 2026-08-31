@@ -11,15 +11,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { MembershipPlan, MembershipStatus } from "../types";
 import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
 
-// P3-17 安全修复：免费配额兆底值为 0，防止后端接口异常时前端硬编码的 3 次免费额度被误用；
-// 真实配额以后端 membership.free_quota 为准（源自 crm_membership_plans 表），
-// 接口未返回时 freeRemaining/freeQuota 均为 0，不产生任何免费查看权限。
-const FREE_QUOTA_FALLBACK = 0;
-
 export interface UseNoticeMembershipOptions {
   /** 当前登录用户 key */
   userKey: string | undefined;
-  /** 是否 VIP（决定免费配额门槛与解锁类型） */
+  /** 是否 VIP（决定解锁类型） */
   isVip: boolean;
 }
 
@@ -27,16 +22,14 @@ export interface UseNoticeMembershipReturn {
   membership: MembershipStatus | null;
   paidPlans: MembershipPlan[];
   paidRemaining: number;
-  freeRemaining: number;
-  freeQuota: number;
   canUsePaidQuota: boolean;
-  /** 当前最优权益类型：subscription > entitlement > free */
-  bestBenefitType: "subscription" | "entitlement" | "free";
+  /** 当前最优权益类型：subscription > entitlement */
+  bestBenefitType: "subscription" | "entitlement" | "none";
   /** 单次解锁卡权益列表 */
   entitlements: MembershipStatus["entitlements"];
   /** 活跃订阅列表 */
   activeSubscriptions: MembershipStatus["active_subscriptions"];
-  /** 总可用解锁次数（免费 + 所有单次卡 + 订阅配额） */
+  /** 总可用解锁次数（所有单次卡 + 订阅配额） */
   totalRemaining: number;
   refreshMembership: (useCache?: boolean) => Promise<void>;
   /** 懒加载付费套餐列表（P1-10：返回套餐数组供调用方动态取码/取价） */
@@ -51,27 +44,24 @@ export function useNoticeMembership({
   const [paidPlans, setPaidPlans] = useState<MembershipPlan[]>([]);
 
   const paidRemaining = Number(membership?.paid_quota_remaining || 0);
-  // P3-17：后端下发优先；membership 未加载时兆底为 0（接口异常时不产生免费权限）
-  const freeRemaining = Number(membership?.free_remaining ?? FREE_QUOTA_FALLBACK);
-  const freeQuota = Number(membership?.free_quota ?? FREE_QUOTA_FALLBACK);
   const canUsePaidQuota = isVip || paidRemaining > 0;
 
   // 权益列表（直接从 membership 透传，供 UI 组件消费）
   const entitlements = membership?.entitlements ?? [];
   const activeSubscriptions = membership?.active_subscriptions ?? [];
 
-  // 综合展示优先级：订阅 > 单次卡 > 免费
-  const bestBenefitType: "subscription" | "entitlement" | "free" =
+  // 综合展示优先级：订阅 > 单次卡 > 无
+  const bestBenefitType: "subscription" | "entitlement" | "none" =
     activeSubscriptions.length > 0
       ? "subscription"
       : entitlements.length > 0
         ? "entitlement"
-        : "free";
+        : "none";
 
-  // 总可用解锁次数 = 免费剩余 + 付费剩余
+  // 总可用解锁次数 = 付费剩余
   // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
   // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
-  const totalRemaining = freeRemaining + paidRemaining;
+  const totalRemaining = paidRemaining;
 
   // P2-2：useCallback 稳定引用，配合下游 openNotice 的 memo 化不击穿 NoticeCard
   const refreshMembership = useCallback(async (useCache = false) => {
@@ -116,8 +106,6 @@ export function useNoticeMembership({
     membership,
     paidPlans,
     paidRemaining,
-    freeRemaining,
-    freeQuota,
     canUsePaidQuota,
     bestBenefitType,
     entitlements,
