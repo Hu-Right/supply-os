@@ -123,38 +123,44 @@ export default function QualificationFormPage() {
   // ─ 提交成功页 ─
   if (submitted) {
     return (
-      <div className="min-h-screen px-4 py-6" style={{ background: BG_LIGHT }}>
-        <div className="max-w-lg mx-auto space-y-5">
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-            <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 flex items-center justify-center mb-4">
-              <CheckCircle2 className="w-8 h-8 text-teal-600" />
+      <div className="px-4 pt-8 pb-6">
+        <div className="mx-auto max-w-sm">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            {/* 上半：提交成功 */}
+            <div className="p-6 text-center">
+              <div className="w-14 h-14 mx-auto rounded-full bg-teal-50 flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-8 h-8 text-teal-600" />
+              </div>
+              <h1 className="text-lg font-bold text-slate-900 mb-1">{t("qualSuccessTitle")}</h1>
+              <p className="text-sm text-slate-500 leading-relaxed mb-5">{t("qualSuccessDesc")}</p>
+              <button
+                type="button"
+                onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); setQualificationId(null); }}
+                className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-colors"
+                style={{ background: GREEN }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
+              >
+                <Send className="w-4 h-4" />
+                {t("qualSubmitAgain")}
+              </button>
             </div>
-            <h1 className="text-lg font-bold text-slate-900 mb-1">{t("qualSuccessTitle")}</h1>
-            <p className="text-sm text-slate-500 leading-relaxed mb-4">{t("qualSuccessDesc")}</p>
-            <button
-              type="button"
-              onClick={() => { setSubmitted(false); setForm(INITIAL_QUALIFICATION_FORM); setQualificationId(null); }}
-              className="inline-flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-white transition-colors"
-              style={{ background: GREEN }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = GREEN_HOVER)}
-              onMouseLeave={(e) => (e.currentTarget.style.background = GREEN)}
-            >
-              <Send className="w-4 h-4" />
-              {t("qualSubmitAgain")}
-            </button>
-          </div>
 
-          {/* 客服二维码 */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-            <Image
-              src="/wechat-service-qr.png"
-              alt="客服微信二维码"
-              width={180}
-              height={180}
-              className="mx-auto rounded-lg"
-            />
-            <p className="mt-4 text-sm font-bold text-slate-800">{t("qualDiagQrTitle")}</p>
-            <p className="mt-2 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
+            {/* 分割线 */}
+            <div className="mx-6 border-t border-slate-100" />
+
+            {/* 下半：客服二维码 */}
+            <div className="p-6 text-center">
+              <Image
+                src="/wechat-service-qr.png"
+                alt="客服微信二维码"
+                width={140}
+                height={140}
+                className="mx-auto rounded-lg"
+              />
+              <p className="mt-3 text-sm font-bold text-slate-800">{t("qualDiagQrTitle")}</p>
+              <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
+            </div>
           </div>
         </div>
       </div>
