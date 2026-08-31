@@ -12,7 +12,7 @@ import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
+import { MembershipStatusPanel } from "@/features/membership";
 import type { NoticeItem, MembershipStatus } from "../types";
 
 export interface NoticeDetailSidebarProps {
