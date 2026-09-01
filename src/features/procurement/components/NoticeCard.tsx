@@ -14,7 +14,7 @@
 import { memo } from "react";
 import { Crown, Target /* , Star, X */ } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, Card, Badge } from "@/shared/ui";
 import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
@@ -34,10 +34,10 @@ const RECO_REASON_KEYS: Record<string, LocaleKey> = {
 };
 
 // 行业精准匹配档次徽章（SSOT 重构后 2 档分色）：
-// precise → 绿色（L5/L4 精确匹配），relevant → 蓝色（L3/L2 行业相关）
-const MATCH_TIER_CONFIG: Record<string, { key: LocaleKey; color: string }> = {
-  precise: { key: "procurement_tier_precise", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  relevant: { key: "procurement_tier_relevant", color: "bg-sky-50 text-sky-700 border-sky-200" },
+// precise → success（L5/L4 精确匹配），relevant → info（L3/L2 行业相关）
+const MATCH_TIER_CONFIG: Record<string, { key: LocaleKey; variant: "success" | "info" }> = {
+  precise: { key: "procurement_tier_precise", variant: "success" },
+  relevant: { key: "procurement_tier_relevant", variant: "info" },
 };
 
 interface NoticeCardProps {
@@ -77,37 +77,36 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
     .slice(0, 2);
 
   return (
-    <article
+    <Card
       ref={(el) => observe?.(el, item.id)}
-      className="border border-slate-200 rounded-xl p-4 bg-white hover:border-teal-300 hover:shadow-sm transition-all"
+      interactive
+      className="p-4"
       data-testid="notice-card"
     >
       {/* ── 顶栏：类型 / 精选 / 匹配档次 / 推荐理由 + 截止日期 ── */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-black">
+          {/* 采购类型标签：indigo 为保留原始色例外（装饰性） */}
+          <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[11px] font-black">
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
-          </span>
+          </Badge>
           {/* [精选功能重新启用 2026-07-31] 徽标恢复 */}
           {Boolean(item.is_featured) && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black">
+            <Badge variant="warning" shape="tag" className="text-[11px] font-black">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
-            </span>
+            </Badge>
           )}
           {item.match_tier && MATCH_TIER_CONFIG[item.match_tier] && (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-black ${MATCH_TIER_CONFIG[item.match_tier].color}`}>
+            <Badge variant={MATCH_TIER_CONFIG[item.match_tier].variant} shape="tag" className="text-[11px] font-black">
               <Target className="w-3 h-3" />
               {t(MATCH_TIER_CONFIG[item.match_tier].key)}
-            </span>
+            </Badge>
           )}
           {reasonKeys.map((key) => (
-            <span
-              key={key}
-              className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-100 text-[11px] font-black"
-            >
+            <Badge key={key} variant="warning" shape="tag" className="text-[11px] font-black">
               {t(key)}
-            </span>
+            </Badge>
           ))}
         </div>
         <div className="flex flex-col items-end gap-0.5 shrink-0">
@@ -177,6 +176,6 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           </Button>
         </div>
       </div>
-    </article>
+    </Card>
   );
 });

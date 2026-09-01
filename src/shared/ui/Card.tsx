@@ -5,6 +5,7 @@
  * @module shared/ui/Card
  * @description 通用卡片容器，支持 forwardRef 和 className 正确合并。
  *              基于 shadcn/ui Card 模式，使用 cn() 工具合并类名。
+ *              interactive 属性控制 hover 交互效果，与 onClick 解耦。
  */
 
 import { type ReactNode, forwardRef, type HTMLAttributes } from "react";
@@ -15,16 +16,19 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   /** 是否可点击 */
   onClick?: () => void;
+  /** 是否启用 hover 交互效果（阴影/边框高亮），默认 false。
+   *  与 onClick 解耦：静态卡片也可开启 hover 视觉反馈。 */
+  interactive?: boolean;
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
-  ({ children, className, onClick, ...props }, ref) => {
+  ({ children, className, onClick, interactive = false, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
           "rounded-xl border border-secondary-200 bg-white p-4 shadow-sm",
-          onClick && "cursor-pointer transition-shadow hover:shadow-md",
+          (interactive || onClick) && "cursor-pointer transition-all hover:border-primary-300 hover:shadow-md",
           className,
         )}
         onClick={onClick}

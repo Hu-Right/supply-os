@@ -11,6 +11,7 @@
 
 import { NOTICE_PAGE_SIZE } from "../constants";
 import { useLocale } from "@/core/i18n";
+import { Card } from "@/shared/ui";
 
 export interface NoticeListSkeletonProps {
   /** 骨架行数量，默认 NOTICE_PAGE_SIZE（10） */
@@ -22,7 +23,7 @@ export function NoticeListSkeleton({ count = NOTICE_PAGE_SIZE }: NoticeListSkele
   return (
     <div className="flex flex-col gap-3" aria-busy="true" aria-label={t("uiLoadingDots")}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="border border-slate-200 rounded-xl p-4 animate-pulse">
+        <Card key={i} className="border-secondary-200 p-4 animate-pulse">
           {/* 顶栏：左侧类型标签 + 右侧截止日 */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -68,7 +69,7 @@ export function NoticeListSkeleton({ count = NOTICE_PAGE_SIZE }: NoticeListSkele
               <div className="shrink-0 h-9 w-16 rounded-lg bg-slate-100" />
             </div>
           </div>
-        </div>
+        </Card>
       ))}
     </div>
   );
