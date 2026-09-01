@@ -16,6 +16,9 @@ import type { PaymentStrategy } from "./types";
  *   WECHAT_PRIVATE_KEY   - 商户 API 私钥 (PEM)
  *
  * 当前实现为 stub + live 骨架，待安装 wechatpay-node-v3 后替换为完整实现。
+ *
+ * ⚠️ 安全警告：verifyCallback 硬拒绝所有回调（SDK 未安装，无法验签）。
+ *    若需启用微信支付，必须先集成 wechatpay-node-v3 并实现真实签名验证。
  */
 export class WechatProvider implements PaymentStrategy {
   readonly name = "wechat" as const;
@@ -102,17 +105,19 @@ export class WechatProvider implements PaymentStrategy {
     provider_trade_no: string;
     amount: number;
   }> {
-    // 待安装 wechatpay-node-v3 后:
-    // 1. 从 HTTP 头获取 Wechatpay-Signature / Wechatpay-Nonce / Wechatpay-Timestamp
-    // 2. 构建签名字符串: "timestamp\nnonce\nbody\n"
-    // 3. 使用微信平台公钥验签
-
-    // 当前 stub
+    // ── 安全闸：SDK 未安装，禁止任何验签通过 ──
+    // wechatpay-node-v3 尚未集成，此处若返回 verified:true 将导致
+    // 任意伪造回调均可触发履约，造成资金损失。必须硬拒绝。
+    console.error(
+      "[WechatProvider] CRITICAL: verifyCallback invoked but SDK not installed. " +
+      "Rejecting all callbacks to prevent unauthorized fulfillment. " +
+      "Install wechatpay-node-v3 and implement real signature verification.",
+    );
     return {
-      verified: true,
+      verified: false,
       order_no: rawBody?.out_trade_no || "",
       provider_trade_no: rawBody?.transaction_id || "",
-      amount: (rawBody?.amount?.total || 0) / 100,
+      amount: 0,
     };
   }
 
@@ -120,11 +125,11 @@ export class WechatProvider implements PaymentStrategy {
     status: PaymentOrderStatus;
     provider_trade_no?: string;
   }> {
-    // 待安装 wechatpay-node-v3 后:
-    // const result = await wxpay.query({ out_trade_no: orderNo, mchid });
-    // 根据 trade_state 返回状态
-
-    // 当前 stub
+    // SDK 未安装，无法向微信网关查询真实状态。
+    // 返回 pending 而非假 paid，避免误触发履约。
+    console.warn(
+      `[WechatProvider] queryOrderStatus called for ${orderNo} but SDK not installed. Returning pending.`,
+    );
     return { status: "pending" };
   }
 }
