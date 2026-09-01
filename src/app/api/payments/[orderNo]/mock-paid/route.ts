@@ -18,7 +18,7 @@ export async function POST(
 ) {
   const ctx = getContext();
   if (ctx.payment.paymentMode === "live") {
-    return NextResponse.json({ code: 40404, message: "Not found" }, { status: 404 });
+    return NextResponse.json({ code: 40404, message: "订单不存在" }, { status: 404 });
   }
 
   const auth = await requireUserKey(req);

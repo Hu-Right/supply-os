@@ -18,7 +18,7 @@ export async function GET(
 
   const { id } = await params;
   const noticeId = Number(id);
-  if (!noticeId) return NextResponse.json({ code: 40000, message: "Invalid ID" }, { status: 400 });
+  if (!noticeId) return NextResponse.json({ code: 40000, message: "无效的公告 ID" }, { status: 400 });
 
   const ctx = getContext();
   const { detailRepo, unlockRepo } = ctx.notice;

@@ -63,5 +63,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ code: 40404, message: "Not found" }, { status: 404 });
+  return NextResponse.json({ code: 40404, message: "通知路由不存在" }, { status: 404 });
 }

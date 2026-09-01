@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
   }
 
   // 必填校验（company_website 为选填，与前端 QualificationFormFields 保持一致）
