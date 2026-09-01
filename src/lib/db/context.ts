@@ -12,6 +12,7 @@ import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
+import { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
@@ -50,6 +51,7 @@ export type PaymentContext = {
   paymentService: PaymentService;
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
+  paymentHistoryRepo: PaymentHistoryRepo;
   membershipRepo: MembershipRepo;
 };
 
@@ -109,6 +111,7 @@ export function getContext(): AppContext {
   const authRepo = new AuthRepo(dbPool);
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
+  const paymentHistoryRepo = new PaymentHistoryRepo(dbPool);
   const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
@@ -136,7 +139,7 @@ export function getContext(): AppContext {
   const ctx: AppContext = {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
-    payment: { dbPool, paymentService, paymentMode, paymentsRepo, membershipRepo },
+    payment: { dbPool, paymentService, paymentMode, paymentsRepo, paymentHistoryRepo, membershipRepo },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
     admin: { dbPool, adminRepo, usersRepo },

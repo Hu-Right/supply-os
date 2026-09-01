@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const url = req.nextUrl;
   const ctx = getContext();
-  const { paymentsRepo } = ctx.payment;
+  const { paymentHistoryRepo } = ctx.payment;
 
   const status = url.searchParams.get("status") || "all";
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 20)));
@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   const [total, orders] = await Promise.all([
-    paymentsRepo.countOrders(auth.userKey, status),
-    paymentsRepo.listOrders(auth.userKey, status, limit, offset),
+    paymentHistoryRepo.countOrders(auth.userKey, status),
+    paymentHistoryRepo.listOrders(auth.userKey, status, limit, offset),
   ]);
   return NextResponse.json({ total, page, limit, list: orders });
 }

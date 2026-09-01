@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const url = req.nextUrl;
   const ctx = getContext();
-  const { paymentsRepo } = ctx.payment;
+  const { paymentHistoryRepo } = ctx.payment;
 
   const lang = url.searchParams.get("lang") || "";
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 20)));
@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   const [total, unlocks] = await Promise.all([
-    paymentsRepo.countUnlocks(auth.userKey),
-    paymentsRepo.listUnlocks(auth.userKey, limit, offset, lang ? { lang } : null),
+    paymentHistoryRepo.countUnlocks(auth.userKey),
+    paymentHistoryRepo.listUnlocks(auth.userKey, limit, offset, lang ? { lang } : null),
   ]);
   return NextResponse.json({ total, page, limit, list: unlocks });
 }
