@@ -82,6 +82,11 @@ export function useAuthForm(onSuccess: () => void) {
     }
 
     if (authMode === "register") {
+      // 姓名必填
+      if (!authForm.displayName.trim()) {
+        setAuthError(t("authErrDisplayNameRequired"));
+        return;
+      }
       // 手机号必填
       if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
         setAuthError(t("authErrPhoneInvalid"));
