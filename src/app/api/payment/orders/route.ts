@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { toQrDataUrl } from "@/lib/payment/qr";
+import { getOrderBusiness } from "@/lib/payment/orchestrator";
 
 const ApiErrorCode = {
   USER_REQUIRED: 40001,
@@ -19,25 +20,22 @@ function sendError(message: string, status: number, code: number, extra?: Record
   return NextResponse.json({ code, message, error: message, ...extra }, { status });
 }
 
-// ── GET — 订单历史 ──
+// ── GET — 订单历史（聚合三表） ──
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
   const url = req.nextUrl;
   const ctx = getContext();
-  const { paymentHistoryRepo } = ctx.payment;
+  const { orchestrator } = ctx.payment;
 
   const status = url.searchParams.get("status") || "all";
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 20)));
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
 
-  const [total, orders] = await Promise.all([
-    paymentHistoryRepo.countOrders(auth.userKey, status),
-    paymentHistoryRepo.listOrders(auth.userKey, status, limit, offset),
-  ]);
-  return NextResponse.json({ total, page, limit, list: orders });
+  const { total, list } = await orchestrator.listAllOrders(auth.userKey, status, limit, offset);
+  return NextResponse.json({ total, page, limit, list });
 }
 
 // ── POST — 创建支付订单 ──
@@ -60,18 +58,31 @@ export async function POST(req: NextRequest) {
     }
     const provider = (paymentMode === "live" ? requestedProvider : "mock") as "alipay" | "wechat" | "mock";
 
-    const result = await paymentService.createOrder({
-      user_key: auth.userKey,
-      plan_code: String(body.plan_code || ""),
-      notice_id: body.notice_id ? Number(body.notice_id) : null,
-      provider,
-      return_url: String(body.return_url || ""),
-      client_ip: clientIp,
-      order_type: body.order_type === "upgrade" ? "upgrade" : "new",
-      original_plan_code: String(body.original_plan_code || ""),
-      amount: body.amount != null ? Number(body.amount) : undefined,
-      bundle_items: Array.isArray(body.bundle_items) ? body.bundle_items : undefined,
-    });
+    // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单路由至 LearningPaymentService
+    const planCode = String(body.plan_code || "");
+    let result;
+    if (planCode.startsWith("material_") || planCode.startsWith("bundle_")) {
+      result = await ctx.payment.learningPaymentService.createOrder({
+        userKey: auth.userKey,
+        planCode,
+        provider,
+        returnUrl: String(body.return_url || ""),
+        clientIp: clientIp,
+      });
+    } else {
+      result = await paymentService.createOrder({
+        user_key: auth.userKey,
+        plan_code: planCode,
+        notice_id: body.notice_id ? Number(body.notice_id) : null,
+        provider,
+        return_url: String(body.return_url || ""),
+        client_ip: clientIp,
+        order_type: body.order_type === "upgrade" ? "upgrade" : "new",
+        original_plan_code: String(body.original_plan_code || ""),
+        amount: body.amount != null ? Number(body.amount) : undefined,
+        bundle_items: Array.isArray(body.bundle_items) ? body.bundle_items : undefined,
+      });
+    }
 
     const clientPayUrl = result.provider === "alipay"
       ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`

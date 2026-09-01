@@ -62,6 +62,9 @@ export async function reverseFulfilledOrder(
     }
 
     if (order.plan_code.startsWith("material_") || order.plan_code.startsWith("bundle_")) {
+      // ARCH-B+（2026-09-01）：学习资料订单已拆分至 learning_orders 表，
+      // 退款由 LearningPaymentService.reverseOrder 独立处理。
+      // 此处仅回滚 crm_payment_orders 中的历史数据（向后兼容）。
       await conn.execute(
         "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_key = ?",
         [orderNo, order.user_key],

@@ -8,8 +8,6 @@
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
-import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
-import { getPool } from "../db/pool";
 import { fulfillUpgradeOrder } from "./upgrade";
 
 /**
@@ -42,29 +40,9 @@ export async function fulfillMockPayment(
       await conn.beginTransaction();
       await payments.markAsMockPaidInTransaction(conn, params.orderNo, params.rawNotify);
 
-      // 学习资料购买：写入 crm_learning_material_purchases 持久化购买记录
-      if (order.plan_code.startsWith("material_")) {
-        const materialId = order.plan_code.replace(/^material_/, "");
-        const lmRepo = new LearningMaterialsRepo(getPool());
-        await lmRepo.recordPurchaseInTransaction(conn, order.user_key, materialId, params.orderNo, Number(order.amount));
-        await conn.commit();
-        return { found: true };
-      }
+      // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
+      // 由 LearningPaymentService.fulfillMockOrder 独立履约。
 
-      // 打包套餐购买：从 raw_request 解析 material_ids，批量写入购买记录
-      if (order.plan_code.startsWith("bundle_")) {
-        let bundleItems: string[] = [];
-        try {
-          const raw = JSON.parse(order.raw_request || "{}");
-          bundleItems = Array.isArray(raw.bundle_items) ? raw.bundle_items : [];
-        } catch { /* ignore */ }
-        if (bundleItems.length > 0) {
-          const lmRepo = new LearningMaterialsRepo(getPool());
-          await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, bundleItems, params.orderNo, Number(order.amount));
-        }
-        await conn.commit();
-        return { found: true };
-      }
       await payments.insertEntitlementInTransaction(conn, {
         userKey: order.user_key,
         orderNo: params.orderNo,

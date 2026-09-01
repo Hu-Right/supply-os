@@ -8,11 +8,14 @@ import "server-only";
 import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
+import { LearningPaymentService } from "../payment/learning-payment";
+import { PaymentOrchestrator } from "../payment/orchestrator";
 import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { PaymentHistoryRepo } from "../repos/payment-history.repo";
+import { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
@@ -49,8 +52,11 @@ export type NoticeContext = {
 export type PaymentContext = {
   dbPool: Pool;
   paymentService: PaymentService;
+  learningPaymentService: LearningPaymentService;
+  orchestrator: PaymentOrchestrator;
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
+  learningOrdersRepo: LearningOrdersRepo;
   paymentHistoryRepo: PaymentHistoryRepo;
   membershipRepo: MembershipRepo;
 };
@@ -112,6 +118,7 @@ export function getContext(): AppContext {
   const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
   const paymentHistoryRepo = new PaymentHistoryRepo(dbPool);
+  const learningOrdersRepo = new LearningOrdersRepo(dbPool);
   const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
@@ -134,12 +141,17 @@ export function getContext(): AppContext {
   const systemRepo = new SystemRepo(dbPool);
   const adminRepo = new AdminRepo(dbPool);
 
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo, learningMaterialsRepo);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
+  const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
+  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo);
 
   const ctx: AppContext = {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
-    payment: { dbPool, paymentService, paymentMode, paymentsRepo, paymentHistoryRepo, membershipRepo },
+    payment: {
+      dbPool, paymentService, learningPaymentService, orchestrator, paymentMode,
+      paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,
+    },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
     admin: { dbPool, adminRepo, usersRepo },

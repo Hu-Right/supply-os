@@ -1,10 +1,11 @@
 /**
  * POST /api/payments/:orderNo/mock-paid — Mock 支付履约（仅 mock 模式）
+ *
+ * ARCH-B+（2026-09-01）：通过 Orchestrator 按订单号前缀路由至对应业务服务。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
-import { fulfillMockPayment } from "@/lib/payment/fulfillment";
 
 const ApiErrorCode = { PAYMENT_ORDER_NOT_FOUND: 40402, FORBIDDEN: 40301 } as const;
 
@@ -25,17 +26,16 @@ export async function POST(
   if (auth instanceof Response) return auth;
 
   const { orderNo } = await params;
-  const { paymentsRepo, membershipRepo } = ctx.payment;
+  const { orchestrator } = ctx.payment;
 
-  const dbOrder = await paymentsRepo.findByOrderNo(orderNo);
+  const dbOrder = await orchestrator.findOrder(orderNo);
   if (!dbOrder) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
   if (dbOrder.user_key !== auth.userKey) return sendError("无权操作此订单", 403, ApiErrorCode.FORBIDDEN);
 
   const body = await req.json().catch(() => ({}));
-  const { found } = await fulfillMockPayment(paymentsRepo as any, membershipRepo as any, {
-    orderNo,
-    rawNotify: JSON.stringify(body || { mock: true }),
-  });
+  const { found } = await orchestrator.fulfillMockOrder(
+    orderNo, auth.userKey, JSON.stringify(body || { mock: true }),
+  );
   if (!found) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
 
   return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });

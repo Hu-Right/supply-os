@@ -3,8 +3,8 @@
  * Payment async notification routes (Alipay/Wechat)
  *
  * @module app/api/payment/notify/route
- * @description 从 Express routes/payment.routes.ts 迁移。
- *              处理支付平台的异步通知，验证签名并更新订单状态。
+ * @description ARCH-B+（2026-09-01）：通过 Orchestrator 统一入口，
+ *              根据订单号前缀自动路由至对应业务服务。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (path.endsWith("/alipay")) {
     try {
       const ctx = getContext();
-      const { paymentService } = ctx.payment;
+      const { orchestrator } = ctx.payment;
 
       // 解析 form-urlencoded body
       const body = await req.formData();
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       });
 
       const signature = params.sign || "";
-      const result = await paymentService.handleNotify("alipay", params, signature);
+      const result = await orchestrator.handleNotify("alipay", params, signature);
 
       // 支付宝期望返回纯文本 "success" 或 "fail"
       return new Response(result.success ? "success" : "fail", {
@@ -47,11 +47,11 @@ export async function POST(req: NextRequest) {
   if (path.endsWith("/wechat")) {
     try {
       const ctx = getContext();
-      const { paymentService } = ctx.payment;
+      const { orchestrator } = ctx.payment;
 
       const body = await req.json();
       const signature = req.headers.get("wechatpay-signature") || "";
-      const result = await paymentService.handleNotify("wechat", body, signature);
+      const result = await orchestrator.handleNotify("wechat", body, signature);
 
       return NextResponse.json({
         code: result.success ? "SUCCESS" : "FAIL",

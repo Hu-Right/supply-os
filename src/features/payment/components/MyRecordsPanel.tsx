@@ -61,11 +61,30 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
     );
   }
 
-  const recordTitle = (row: RecordRow) =>
-    row.notice?.title ||
-    ("order_no" in row ? row.order_no : "") ||
-    (row.notice_id ? String(row.notice_id) : "") ||
-    t("myRecordsUntitled");
+  const recordTitle = (row: RecordRow) => {
+    // 公告标题优先
+    if (row.notice?.title) return row.notice.title;
+    // 订单类型：按 plan_code 生成可读标题
+    if ("order_no" in row) {
+      const planCode = (row as OrderRecord).plan_code || "";
+      if (planCode.startsWith("material_")) return t("myRecordsLearningMaterial");
+      if (planCode.startsWith("bundle_")) return t("myRecordsLearningBundle");
+      if (planCode.startsWith("training_course_")) return t("myRecordsTraining");
+      return t("myRecordsMembershipOrder");
+    }
+    if (row.notice_id) return String(row.notice_id);
+    return t("myRecordsUntitled");
+  };
+
+  /** 订单副标题：金额 + 时间（不展示订单号） */
+  const recordSubtitle = (row: RecordRow) => {
+    if ("order_no" in row) {
+      const o = row as OrderRecord;
+      const amt = `${o.currency || "CNY"} ${Number(o.amount || 0).toFixed(2)}`;
+      return `${amt} · ${recordTime(row)}`;
+    }
+    return `${row.unlock_type || "unlock"} · ${recordTime(row)}`;
+  };
 
   const openView = (next: PurchaseTab) => {
     history.setTab(next);
@@ -81,23 +100,14 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
           onClick={() => openView("orders")}
           className="text-start justify-start rounded-xl bg-white p-4 hover:border-blue-200 hover:bg-blue-50/40"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-extrabold text-slate-900">{t("myRecordsOrdersTitle")}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{t("myRecordsOrdersDesc")}</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-extrabold text-slate-900">{t("myRecordsOrdersTitle")}</p>
             <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700">
               {summary.ordersTotal}
             </span>
           </div>
-          <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs">
-            <p className="font-black text-slate-800 truncate">
-              {summary.ordersFirst ? recordTitle(summary.ordersFirst) : t("myPurchasesEmptyOrders")}
-            </p>
-            <p className="mt-1 text-slate-500">
-              {summary.ordersFirst?.order_no || t("myRecordsOrdersHint")}
-            </p>
-          </div>
+          <p className="text-[11px] text-slate-500 mt-1">{t("myRecordsOrdersDesc")}</p>
+          <p className="text-[11px] text-blue-600 mt-2 font-bold">{t("myRecordsOrdersHint")} →</p>
         </Button>
 
         <Button
@@ -106,23 +116,14 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
           onClick={() => openView("unlocks")}
           className="text-start justify-start rounded-xl border-teal-100 bg-teal-50 p-4 hover:border-teal-300 hover:bg-teal-50"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-extrabold text-teal-950">{t("myRecordsUnlocksTitle")}</p>
-              <p className="text-[11px] text-teal-700 mt-0.5">{t("myRecordsUnlocksDesc")}</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-extrabold text-teal-950">{t("myRecordsUnlocksTitle")}</p>
             <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-teal-700">
               {summary.unlocksTotal}
             </span>
           </div>
-          <div className="mt-3 rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs">
-            <p className="font-black text-slate-800 truncate">
-              {summary.unlocksFirst ? recordTitle(summary.unlocksFirst) : t("myPurchasesEmptyUnlocks")}
-            </p>
-            <p className="mt-1 text-slate-500">
-              {summary.unlocksFirst ? recordTime(summary.unlocksFirst) : t("myRecordsUnlocksHint")}
-            </p>
-          </div>
+          <p className="text-[11px] text-teal-700 mt-1">{t("myRecordsUnlocksDesc")}</p>
+          <p className="text-[11px] text-teal-800 mt-2 font-bold">{t("myRecordsUnlocksHint")} →</p>
         </Button>
       </div>
     );
@@ -205,7 +206,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                 <div className="min-w-0 pe-2">
                   <p className="font-black text-slate-800 truncate">{recordTitle(row)}</p>
                   <p className="mt-1 text-slate-500 truncate">
-                    {isOrder ? row.order_no : `${row.unlock_type || "unlock"} · ${recordTime(row)}`}
+                    {recordSubtitle(row)}
                   </p>
                 </div>
                 {isOrder ? (

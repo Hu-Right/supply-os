@@ -10,8 +10,6 @@
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
 import type { PaymentOrderRow } from "../repos/types";
-import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
-import { getPool } from "../db/pool";
 import { performUpgradeInTransaction } from "./upgrade";
 
 // ── 真实支付回调履约（事务版） ────────────────────────────────────────────────
@@ -39,35 +37,8 @@ export async function activatePaidOrder(
 
     await paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
 
-    // 学习资料购买：写入 crm_learning_material_purchases 持久化购买记录
-    if (order.plan_code.startsWith("material_")) {
-      const materialId = order.plan_code.replace(/^material_/, "");
-      const lmRepo = new LearningMaterialsRepo(getPool());
-      await lmRepo.recordPurchaseInTransaction(conn, order.user_key, materialId, orderNo, Number(order.amount));
-      await conn.commit();
-      return;
-    }
-
-    // 打包套餐购买：raw_request 中的条目为下单时服务端解析的权威清单；
-    // 履约前再按 DB 过滤一次，防止历史订单携带已下架/不存在的条目
-    if (order.plan_code.startsWith("bundle_")) {
-      let bundleItems: string[] = [];
-      try {
-        const raw = JSON.parse(order.raw_request || "{}");
-        bundleItems = Array.isArray(raw.bundle_items) ? raw.bundle_items : [];
-      } catch { /* ignore parse errors */ }
-
-      if (bundleItems.length > 0) {
-        const lmRepo = new LearningMaterialsRepo(getPool());
-        const existingMaterials = await lmRepo.findByMaterialIds(bundleItems);
-        const validIds = existingMaterials.map((m) => m.material_id);
-        if (validIds.length > 0) {
-          await lmRepo.recordBundlePurchasesInTransaction(conn, order.user_key, validIds, orderNo, Number(order.amount));
-        }
-      }
-      await conn.commit();
-      return;
-    }
+    // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
+    // 由 LearningPaymentService.fulfillOrder 独立履约，不再经过此函数。
 
     // 升级订单走独立的平滑升级履约（补差价，次数保留，有效期追溯）
     if (order.order_type === "upgrade") {
