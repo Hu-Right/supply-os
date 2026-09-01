@@ -7,7 +7,7 @@
  *
  * @module repos/membership.repo
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, SubscriptionRow, EntitlementRow, CountRow } from "./types";
 
 /**
@@ -209,5 +209,37 @@ export class MembershipRepo {
       };
     }
     return null;
+  }
+
+  // ── 事务感知方法（供 executeUnlock 服务层编排使用）──
+
+  /** 事务内悲观锁查询用户有效权益（SELECT ... FOR UPDATE 防并发配额超卖） */
+  async findAndLockEntitlement(
+    conn: PoolConnection, userKey: string,
+  ): Promise<EntitlementRow | null> {
+    const [rows] = await conn.query(
+      `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
+       FROM crm_user_entitlements
+       WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
+         AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
+       FOR UPDATE`,
+      [userKey],
+    );
+    return (rows as EntitlementRow[])[0] ?? null;
+  }
+
+  /** 事务内检查用户是否有活跃订阅 */
+  async hasActiveSubscriptionInTransaction(
+    conn: PoolConnection, userKey: string,
+  ): Promise<boolean> {
+    const [rows] = await conn.query(
+      `SELECT id FROM crm_user_subscriptions
+       WHERE user_key = ? AND status = 'active'
+         AND (expires_at IS NULL OR expires_at > NOW())
+       LIMIT 1`,
+      [userKey],
+    );
+    return (rows as RowDataPacket[]).length > 0;
   }
 }

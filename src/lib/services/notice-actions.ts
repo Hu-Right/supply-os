@@ -7,7 +7,7 @@
  *              反馈（含兴趣码持久化/衰减）、兴趣提交等动作的服务层编排。
  *              路由层仅做参数解析与响应构造，业务逻辑集中于此。
  */
-import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { Pool } from "mysql2/promise";
 import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
 import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
@@ -58,11 +58,7 @@ export async function executeUnlock(
     await conn.beginTransaction();
 
     // 事务内再次检查（可能并发请求已通过快速路径）
-    const [existingRows] = await conn.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
-      [userKey, noticeId],
-    );
-    if ((existingRows as RowDataPacket[]).length > 0) {
+    if (await unlockRepo.findExistingUnlockInTransaction(conn, userKey, noticeId)) {
       await conn.commit();
       return { alreadyUnlocked: true, unlockType };
     }
@@ -78,28 +74,12 @@ export async function executeUnlock(
 
     if (unlockType === "subscription" || unlockType === "single") {
       // P1-7 安全修复：SELECT FOR UPDATE 防止并发配额超卖
-      const [entRows] = await conn.query(
-        `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
-         FROM crm_user_entitlements
-         WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
-           AND (expires_at IS NULL OR expires_at > NOW())
-         ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
-         FOR UPDATE`,
-        [userKey],
-      );
-      const ent = (entRows as RowDataPacket[])[0];
+      const ent = await membershipRepo.findAndLockEntitlement(conn, userKey);
       if (ent) {
         consumedEntitlementId = Number(ent.id);
       } else if (unlockType === "subscription") {
         // P1-6 安全修复：subscription 类型兼容活跃订阅——有有效订阅即放行，不强制要求 entitlement
-        const [subRows] = await conn.query(
-          `SELECT id FROM crm_user_subscriptions
-           WHERE user_key = ? AND status = 'active'
-             AND (expires_at IS NULL OR expires_at > NOW())
-           LIMIT 1`,
-          [userKey],
-        );
-        if ((subRows as RowDataPacket[]).length === 0) {
+        if (!await membershipRepo.hasActiveSubscriptionInTransaction(conn, userKey)) {
           await conn.rollback();
           throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
         }
@@ -111,21 +91,15 @@ export async function executeUnlock(
     }
 
     // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
-    await conn.query(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
-      [userKey, userKey, noticeId, unlockType, price, JSON.stringify(snapshot)],
-    );
+    await unlockRepo.insertUnlockInTransaction(conn, {
+      userKey, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
+    });
 
     // 消耗配额
     if (consumedEntitlementId) {
-      const [updateResult] = await conn.query(
-        "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
-        [consumedEntitlementId],
-      );
       // P1-7 安全修复：检查 affectedRows，若为 0 说明配额已被并发消耗
-      if ((updateResult as ResultSetHeader).affectedRows === 0) {
+      const affected = await unlockRepo.consumeEntitlementInTransaction(conn, consumedEntitlementId);
+      if (affected === 0) {
         await conn.rollback();
         throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
       }

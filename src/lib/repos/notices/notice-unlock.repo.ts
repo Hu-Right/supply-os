@@ -5,7 +5,7 @@
  * @module server/repos/notices/notice-unlock.repo
  * @description 操作 crm_opportunity_unlocks + crm_user_entitlements 表。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 export class NoticeUnlockRepo {
   constructor(private pool: Pool) {}
@@ -59,5 +59,42 @@ export class NoticeUnlockRepo {
       "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used AND is_upgraded = 0",
       [entitlementId],
     );
+  }
+
+  // ── 事务感知方法（供 executeUnlock 服务层编排使用）──
+
+  /** 事务内检查已有解锁记录（悲观锁路径，防止并发重复解锁） */
+  async findExistingUnlockInTransaction(
+    conn: PoolConnection, userKey: string, noticeId: number,
+  ): Promise<RowDataPacket | null> {
+    const [rows] = await conn.query(
+      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
+      [userKey, noticeId],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
+
+  /** 事务内写入解锁流水 */
+  async insertUnlockInTransaction(
+    conn: PoolConnection,
+    params: { userKey: string; noticeId: number; unlockType: string; price: number; unspscSnapshot: string },
+  ): Promise<void> {
+    await conn.query(
+      `INSERT INTO crm_opportunity_unlocks
+        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
+       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
+      [params.userKey, params.userKey, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
+    );
+  }
+
+  /** 事务内消耗配额，返回 affectedRows（0 表示配额已被并发消耗） */
+  async consumeEntitlementInTransaction(
+    conn: PoolConnection, entitlementId: number,
+  ): Promise<number> {
+    const [result] = await conn.query(
+      "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
+      [entitlementId],
+    );
+    return (result as ResultSetHeader).affectedRows;
   }
 }
