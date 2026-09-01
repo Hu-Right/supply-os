@@ -5,6 +5,7 @@
  * @module features/payment/hooks/usePaymentFlow
  * @description ARCH-P3c（2026-08-31）：从 PaymentModalCore.tsx 拆分。
  *              管理支付状态机（choose → waiting → success/failed）、轮询、通道配置检查。
+ *              ARCH-P2（2026-09-01）：轮询基础设施委托至 usePaymentPolling SSOT。
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import {
@@ -14,11 +15,8 @@ import {
   mapPaymentError,
   type PaymentConfigStatus,
 } from "@/core/payment";
-import { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "@/core/payment";
 import type { PaymentModalOrder } from "../components/PaymentModalCore";
-
-const MAX_POLL_ATTEMPTS = PAYMENT_POLL_MAX_ATTEMPTS;
-const POLL_INTERVAL_MS = PAYMENT_POLL_INTERVAL_MS;
+import { usePaymentPolling } from "./usePaymentPolling";
 
 export type PaymentModalStep = "choose" | "waiting" | "success" | "failed";
 
@@ -81,55 +79,25 @@ export function usePaymentFlow({
     }
   }, [paymentConfig, provider, providers]);
 
-  // ── 轮询 ──
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollCountRef = useRef(0);
-  const pollEpochRef = useRef(0);
+  // ── 轮询（委托至 usePaymentPolling SSOT）──
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
-  const stopPolling = useCallback(() => {
-    pollEpochRef.current += 1;
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => stopPolling, [stopPolling]);
-
-  const startPolling = useCallback(
-    (orderNo: string) => {
-      stopPolling();
-      pollCountRef.current = 0;
-      const epoch = pollEpochRef.current;
-      pollingRef.current = setInterval(async () => {
-        pollCountRef.current += 1;
-        if (pollCountRef.current > MAX_POLL_ATTEMPTS) {
-          stopPolling();
-          setStep("failed");
-          setError(t("paymentTimeoutError"));
-          return;
-        }
-        try {
-          const data = await onQueryStatus(orderNo);
-          if (epoch !== pollEpochRef.current) return;
-          if (data.status === "paid") {
-            stopPolling();
-            setStep("success");
-            onSuccessRef.current?.(orderNo);
-          } else if (data.status === "closed" || data.status === "failed" || data.status === "expired") {
-            stopPolling();
-            setStep("failed");
-            setError(t("paymentTimeoutError"));
-          }
-        } catch {
-          // 忽略单次轮询失败
-        }
-      }, POLL_INTERVAL_MS);
+  const { startPolling, stopPolling } = usePaymentPolling({
+    queryStatus: onQueryStatus,
+    onPaid: (orderNo) => {
+      setStep("success");
+      onSuccessRef.current?.(orderNo);
     },
-    [onQueryStatus, stopPolling, t],
-  );
+    onFailed: () => {
+      setStep("failed");
+      setError(t("paymentTimeoutError"));
+    },
+    onTimeout: () => {
+      setStep("failed");
+      setError(t("paymentTimeoutError"));
+    },
+  });
 
   const handleSelectProvider = useCallback(
     (p: "alipay" | "wechat") => {
