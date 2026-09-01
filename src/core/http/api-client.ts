@@ -219,7 +219,7 @@ export async function api<T>(
         throw new ApiError(401, "Unauthorized");
       }
       const err = await retryRes.json().catch(() => ({}));
-      throw new ApiError(retryRes.status, err.error || `Request failed: ${retryRes.status}`);
+      throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`);
     }
 
     // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效，
@@ -238,7 +238,8 @@ export async function api<T>(
   // 其他错误
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, err.error || `Request failed: ${res.status}`);
+    // 后端统一契约：{ code, message }；err.message 优先于 err.error
+    throw new ApiError(res.status, err.message || err.error || `Request failed: ${res.status}`);
   }
 
   return res.json();
