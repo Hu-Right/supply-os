@@ -22,7 +22,7 @@ export async function GET(
 
   // 基本格式校验，防止非法值写入 Cookie
   if (!CODE_PATTERN.test(normalized)) {
-    return NextResponse.redirect(new URL("/procurement/qualification", SITE_URL));
+    return NextResponse.redirect(new URL("/showroom", SITE_URL));
   }
 
   // 7 天后过期
@@ -32,11 +32,20 @@ export async function GET(
   // 使用 SITE_URL 作为重定向 base（而非 req.url）：
   // Next.js standalone 背后有 nginx 反向代理时，req.url 为内部地址
   // （如 http://0.0.0.0:3039/...），会导致重定向到无效地址。
-  const response = NextResponse.redirect(new URL("/procurement/qualification", SITE_URL));
+  const response = NextResponse.redirect(new URL("/showroom", SITE_URL));
 
+  // 推荐码 Cookie（7 天有效，注册时自动填入邀请码）
   response.cookies.set("ref_code", normalized, {
     path: "/",
     expires,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  // ★ 自动打开注册弹窗信号（会话级 Cookie，浏览器关闭即失效）
+  // 前端 layout-shell 读取后自动弹出 AuthModal 并切到注册 Tab，随后删除此 Cookie。
+  response.cookies.set("qr_auto_open", "1", {
+    path: "/",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
   });

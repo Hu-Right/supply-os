@@ -10,7 +10,7 @@
  *              所有子组件已通过 next/navigation 适配，无需 shim。
  */
 
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
@@ -58,6 +58,17 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const { tabs, activeTab, switchMainTab } = useNavTabs();
   useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister });
   useVersionCheck();
+
+  // ★ 扫码推广自动弹出注册弹窗：检测服务端 /r/[code] 写入的 qr_auto_open Cookie
+  // 采用 Cookie 而非 URL 参数，因为服务端 302 重定向的查询参数不会同步到 Next.js 客户端路由状态。
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|;\s*)qr_auto_open=([^;]+)/);
+    if (match) {
+      setShowAuthModal(true);
+      // 立即删除信号 Cookie，防止后续页面加载重复弹出
+      document.cookie = "qr_auto_open=; path=/; max-age=0";
+    }
+  }, []);
 
   // 研修班落地页 + 资质表单：main 全宽
   const pathname = usePathname();

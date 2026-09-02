@@ -33,7 +33,13 @@ export function useAuthForm(onSuccess: () => void) {
   const { t } = useLocale();
   const { login, register, claimMessage } = useAuth();
 
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  // ★ 扫码推广自动注册：服务端 /r/[code] 写入的 qr_auto_open Cookie 存在时默认切到注册模式
+  const [authMode, setAuthMode] = useState<"login" | "register">(() => {
+    if (typeof document !== "undefined" && /(?:^|;\s*)qr_auto_open=/.test(document.cookie)) {
+      return "register";
+    }
+    return "login";
+  });
   const [authError, setAuthError] = useState("");
   /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
   const [agreedToTerms, setAgreedToTerms] = useState(false);
