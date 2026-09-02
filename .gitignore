@@ -7,6 +7,7 @@ coverage/
 .vite/
 .cache/
 .next/
+.mimosa/
 
 # ===== 敏感配置(保留 .env.example)=====
 .env*
@@ -85,7 +86,8 @@ Desktop.ini
 !src/app/favicon.ico/
 
 # ===== 开发过程文档 =====
-docs/
+# docs/*（非 docs/）才能让下方 !docs/adr/ 否则规则生效——git 不进入被整目录排除的路径
+docs/*
 !docs/adr/
 要求.md
 .superpowers/

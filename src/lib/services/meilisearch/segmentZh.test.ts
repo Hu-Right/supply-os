@@ -1,7 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { segmentZh, segmentZhBatch } from "./segmentZh";
+import { describe, it, expect, beforeAll } from "vitest";
+import { segmentZh, segmentZhBatch, jiebaReady } from "./segmentZh";
 
 describe("segmentZh", () => {
+  // jieba 为模块加载时异步初始化，需等待就绪否则首个用例走降级路径（竞态）
+  beforeAll(async () => {
+    await jiebaReady;
+  });
+
   it("空文本 → 空串", () => {
     expect(segmentZh("")).toBe("");
   });

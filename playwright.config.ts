@@ -22,6 +22,9 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
+    // 固定浏览器 locale：i18n 语言检测依赖 Accept-Language，
+    // 不固定时 Firefox/WebKit 默认 locale 与 Chromium 不一致导致页面渲染语言漂移
+    locale: "zh-CN",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

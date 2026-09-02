@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi, afterEach } from "vitest";
 
 // 在导入 jwt 模块之前设置 JWT_SECRET（模块加载时即读取环境变量）
 beforeAll(() => {
@@ -99,5 +99,51 @@ describe("getRefreshTokenExpiresAt", () => {
     const expires = jwt.getRefreshTokenExpiresAt();
     const diffDays = (expires.getTime() - now) / (1000 * 60 * 60 * 24);
     expect(diffDays).toBeCloseTo(7, 0);
+  });
+});
+
+describe("token 类型校验", () => {
+  it("用 refresh token 验证 access → 抛出 INVALID_TOKEN_TYPE", async () => {
+    const jwt = await getJwt();
+    const { token } = jwt.signRefreshToken({ user_key: "user@test.com" });
+    expect(() => jwt.verifyAccessToken(token)).toThrow("INVALID_TOKEN_TYPE");
+  });
+});
+
+// ── JWT_SECRET 缺失守卫 ───────────────────────────────────────────────────────
+// JWT_SECRET 为模块加载时读取的常量，需 resetModules + stubEnv 重新求值。
+
+describe("JWT_SECRET 缺失守卫", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("未配置 JWT_SECRET（非生产）→ 模块降级加载，签发/验证抛 JWT_SECRET_NOT_CONFIGURED", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.resetModules();
+    vi.stubEnv("JWT_SECRET", "");
+    const jwt = await import("./jwt");
+
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("JWT_SECRET"));
+    expect(() => jwt.signAccessToken({ user_key: "u", email: "e" })).toThrow(
+      "JWT_SECRET_NOT_CONFIGURED",
+    );
+    expect(() => jwt.verifyAccessToken("any-token")).toThrow("JWT_SECRET_NOT_CONFIGURED");
+    expect(() => jwt.signRefreshToken({ user_key: "u" })).toThrow("JWT_SECRET_NOT_CONFIGURED");
+    expect(() => jwt.verifyRefreshToken("any-token")).toThrow("JWT_SECRET_NOT_CONFIGURED");
+    errSpy.mockRestore();
+  });
+
+  it("生产环境缺失 JWT_SECRET → import 即抛错（fail-fast 阻止启动）", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.resetModules();
+    vi.stubEnv("JWT_SECRET", "");
+    vi.stubEnv("NODE_ENV", "production");
+
+    await expect(import("./jwt")).rejects.toThrow(
+      "JWT_SECRET 环境变量必须在生产环境中配置",
+    );
+    errSpy.mockRestore();
   });
 });

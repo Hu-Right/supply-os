@@ -31,8 +31,10 @@ async function loadJieba(): Promise<JiebaInstance | null> {
   }
 }
 
-// 启动时尝试加载（不阻塞服务启动）
-void loadJieba();
+// 启动时尝试加载（不阻塞服务启动）；
+// 导出 ready promise 供调用方/测试等待初始化完成（首次同步调用前 jieba 尚未就绪时会降级为原文）
+export const jiebaReady: Promise<JiebaInstance | null> = loadJieba();
+void jiebaReady;
 
 /**
  * 对中文文本执行 jieba 分词，返回空格分隔的词语字符串。
