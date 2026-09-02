@@ -79,7 +79,7 @@ export default function TrainingLandingPage() {
     <>
       {/* SEO metadata 由 page.tsx metadata 导出在服务端处理 */}
       {/* 浮动导航 + Hero + CTA 为通版；其余区块受 max-w-7xl 版心约束 */}
-      <div className="bg-white">
+      <div className="bg-white pb-20 md:pb-0">
       {/* 浮动导航：桌面端右侧垂直侧边栏 / 移动端底部水平导航栏 */}
       <FloatingNav onEnroll={handleDirectPay} onConsult={openWechatQR} />
 
