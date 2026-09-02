@@ -10,8 +10,8 @@
  *              所有子组件已通过 next/navigation 适配，无需 shim。
  */
 
-import { lazy, Suspense, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
@@ -59,19 +59,26 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister });
   useVersionCheck();
 
-  // ★ 扫码推广自动弹出注册弹窗：检测 URL 中的 qr=1 参数
-  // 采用 URL 参数而非 Cookie，因为服务端 302 重定向后浏览器地址栏可直接读取。
-  const router = useRouter();
+  // ★ 扫码推广自动弹出注册弹窗：检测 /r/[code] 中转页写入的 qr_auto_open Cookie
+  // （兼容旧版二维码的 URL ?qr=1 参数）。Cookie 由浏览器 JS 写入，不依赖服务端跨重定向 Set-Cookie。
+  const [qrRegisterMode, setQrRegisterMode] = useState(false);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("qr") === "1") {
+    const hasCookie = /(?:^|;\s*)qr_auto_open=/.test(document.cookie);
+    const hasParam = new URLSearchParams(window.location.search).get("qr") === "1";
+    if (hasCookie || hasParam) {
+      setQrRegisterMode(true);
       setShowAuthModal(true);
-      // 清除 URL 参数，防止刷新重复弹出
-      params.delete("qr");
-      const clean = params.toString();
-      router.replace(clean ? `${window.location.pathname}?${clean}` : window.location.pathname, { scroll: false });
+      // 清除信号，防止刷新重复弹出
+      document.cookie = "qr_auto_open=; path=/; max-age=0";
+      if (hasParam) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete("qr");
+        const clean = params.toString();
+        // 用 history API 清参数，避免触发 Next 路由重渲染
+        window.history.replaceState(null, "", clean ? `${window.location.pathname}?${clean}` : window.location.pathname);
+      }
     }
-  }, [router]);
+  }, []);
 
   // 研修班落地页 + 资质表单：main 全宽
   const pathname = usePathname();
@@ -107,7 +114,13 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       {/* Modals */}
       {showAuthModal && (
         <Suspense fallback={null}>
-          <AuthModal onClose={() => setShowAuthModal(false)} />
+          <AuthModal
+            initialMode={qrRegisterMode ? "register" : "login"}
+            onClose={() => {
+              setShowAuthModal(false);
+              setQrRegisterMode(false);
+            }}
+          />
         </Suspense>
       )}
       {showConsultForm && (
