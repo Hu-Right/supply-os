@@ -30,7 +30,7 @@ export function LoginForm({
     <div className="space-y-3">
       <Input
         type="text"
-        inputMode="text"
+        inputMode={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.identifier) ? "email" : "text"}
         value={authForm.identifier}
         onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value })}
         placeholder={t("authPhoneLoginPlaceholder") || "请输入手机号或邮箱"}

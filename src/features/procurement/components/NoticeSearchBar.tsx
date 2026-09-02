@@ -57,11 +57,13 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
       {/* 第 1 行：关键词搜索 + 排序 + 移动端高级筛选开关 */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_170px] gap-3 lg:items-end">
         <Input
+          type="search"
           value={form.qInput}
           onChange={(e) => form.setQInput(e.target.value)}
           placeholder={t("procurement_searchPlaceholder")}
           dir="auto"
           leftIcon={<Search className="w-4 h-4" />}
+          enterKeyHint="search"
           data-testid="search-input"
         />
         <div className="flex items-center gap-2 min-w-0">
