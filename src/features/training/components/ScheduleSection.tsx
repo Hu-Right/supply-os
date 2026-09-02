@@ -37,7 +37,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
   };
 
   const getStatusColor = (status: string): string => {
-    if (status === "open") return "text-[#0CAF8C]";
+    if (status === "open") return "text-training-green";
     if (status === "closed") return "text-slate-400";
     return "text-[#F59E0B]";
   };
@@ -47,9 +47,9 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 grid lg:grid-cols-2 gap-12 items-start">
         {/* 左：开课安排表 */}
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0A2A55] text-center">{t("tlSchTitle")}</h3>
+          <h3 className="text-lg md:text-xl font-black text-training-navy text-center">{t("tlSchTitle")}</h3>
           {visibleSchedules.length > 0 && (
-            <div className="mt-6 overflow-hidden rounded-lg border border-[#E5EBF3]">
+            <div className="mt-6 overflow-hidden rounded-lg border border-training-border">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#183252] text-white">
@@ -63,7 +63,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <tbody>
                   {visibleSchedules.map((s) => (
                     <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-bold text-[#0A2A55]">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
+                      <td className="px-4 py-3 font-bold text-training-navy">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
                       <td className="px-4 py-3 text-slate-600">{fmtDate(s.start_date, locale)}</td>
                       <td className="px-4 py-3 text-slate-600">{s.city}</td>
                       <td className="px-4 py-3 text-slate-600">{s.format}</td>
@@ -81,7 +81,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
 
         {/* 右：费用卡 */}
         <div>
-          <h3 className="text-lg md:text-xl font-black text-[#0A2A55] text-center">{t("tlFeeTitle")}</h3>
+          <h3 className="text-lg md:text-xl font-black text-training-navy text-center">{t("tlFeeTitle")}</h3>
           {course && (
             <div className="mt-6 overflow-hidden rounded-lg shadow-[0_4px_16px_rgba(10,42,85,0.10)]">
               {/* 上部藏青：课程名 + 价格 + 副标题 */}
@@ -99,7 +99,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
                   {(course.includes || []).map((item) => (
                     <li key={item} className="flex items-start gap-2">
-                      <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-[#0CAF8C]" strokeWidth={3} />
+                      <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-training-green" strokeWidth={3} />
                       <span className="text-xs font-bold text-[#3E5070]">{item}</span>
                     </li>
                   ))}
@@ -107,7 +107,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                 <button
                   type="button"
                   onClick={onReserve}
-                  className="mt-6 w-full rounded-md bg-[#0CAF8C] py-3 text-sm font-black text-white hover:bg-[#0A9B7C] cursor-pointer"
+                  className="mt-6 w-full rounded-md bg-training-green py-3 text-sm font-black text-white hover:bg-training-green-hover cursor-pointer"
                 >
                   {t("tlFeeBtn")}
                 </button>

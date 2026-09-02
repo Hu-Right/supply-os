@@ -187,6 +187,24 @@ input[type="number"] {
     from { transform: translateY(8px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
+
+  /* ── 研修班（Training）模块专属 token ── */
+  /* 深藏青：标题/背景主色 */
+  --color-training-navy: #0A2A55;
+  /* 深蓝导航背景 */
+  --color-training-dark: #001636;
+  /* 品牌绿 CTA */
+  --color-training-green: #0CAF8C;
+  --color-training-green-hover: #0A9B7C;
+  /* 浅边框/浅背景 */
+  --color-training-border: #E5EBF3;
+  --color-training-bg: #F5F8FB;
+
+  /* 通用柔和卡片阴影 */
+  --shadow-card-soft: 0 4px 16px rgba(10, 42, 85, 0.06);
+
+  /* 慢速旋转动画（Globe 图标） */
+  --animate-spin-slow: spin 3s linear infinite;
 }
 
 /* ── shadcn/ui 语义色变量（从 index.css 合并，统一由 globals.css 管理） ── */

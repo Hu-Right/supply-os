@@ -43,7 +43,7 @@ function AccordionItem({
         onClick={onToggle}
         className="w-full justify-between gap-4 py-5 px-0 text-left hover:bg-transparent cursor-pointer"
       >
-        <span className="text-sm font-black text-[#0A2A55]">{question}</span>
+        <span className="text-sm font-black text-training-navy">{question}</span>
         <ChevronDown
           className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-300 ${
             isOpen ? "rotate-180" : ""

@@ -41,7 +41,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
     <>
       {/* ── 桌面端：右侧垂直侧边栏 ── */}
       <nav
-        className="hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-1 rounded-2xl bg-[#001636]/95 backdrop-blur-sm px-2 py-3 shadow-[0_8px_32px_rgba(0,22,54,0.3)]"
+        className="hidden md:flex fixed right-4 top-1/2 -translate-y-1/2 z-50 flex-col gap-1 rounded-2xl bg-training-dark/95 backdrop-blur-sm px-2 py-3 shadow-[0_8px_32px_rgba(0,22,54,0.3)]"
         aria-label={t("navPageNav")}
       >
         {/* 锚点链接 */}
@@ -68,7 +68,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         <button
           type="button"
           onClick={onEnroll}
-          className="flex items-center gap-2 rounded-xl bg-[#0CAF8C] px-2.5 py-2 text-white hover:bg-[#0A9B7C] transition-colors cursor-pointer"
+          className="flex items-center gap-2 rounded-xl bg-training-green px-2.5 py-2 text-white hover:bg-training-green-hover transition-colors cursor-pointer"
           title={t("tlNavEnroll")}
         >
           <PenLine className="w-4 h-4 shrink-0" />
@@ -90,7 +90,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
 
       {/* ── 移动端：底部水平导航栏 ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#001636]/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)] pb-[env(safe-area-inset-bottom)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-training-dark/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)] pb-[env(safe-area-inset-bottom)]"
         aria-label={t("navPageNav")}
       >
         <div className="flex items-center justify-around px-1 py-1.5">
@@ -112,7 +112,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="flex flex-col items-center gap-0.5 rounded-lg bg-[#0CAF8C] px-2 py-1 text-white active:bg-[#0A9B7C] transition-colors cursor-pointer min-w-0"
+            className="flex flex-col items-center gap-0.5 rounded-lg bg-training-green px-2 py-1 text-white active:bg-training-green-hover transition-colors cursor-pointer min-w-0"
           >
             <PenLine className="w-4 h-4 shrink-0" />
             <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavEnroll")}</span>

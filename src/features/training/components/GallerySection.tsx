@@ -57,11 +57,11 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   return (
     <>
       <div
-        className="rounded-lg border border-[#E5EBF3] bg-white overflow-hidden shadow-[0_4px_16px_rgba(10,42,85,0.06)]"
+        className="rounded-lg border border-training-border bg-white overflow-hidden shadow-card-soft"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="relative h-40 bg-[#0A2A55] cursor-pointer" onClick={handleImageClick}>
+        <div className="relative h-40 bg-training-navy cursor-pointer" onClick={handleImageClick}>
           {current ? (
             <Image
               src={current.image_path}
@@ -72,7 +72,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
               className="object-cover transition-transform duration-300 hover:scale-105"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0A2A55] to-[#11437E]">
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-training-navy to-[#11437E]">
               <Presentation className="w-10 h-10 text-white/40" />
             </div>
           )}
@@ -83,7 +83,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
           )}
         </div>
         <div className="p-4 text-center">
-          <h3 className="text-sm font-black text-[#0A2A55]">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
+          <h3 className="text-sm font-black text-training-navy">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
           <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
         </div>
       </div>
@@ -138,7 +138,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
 
             {/* 底部信息 */}
             <div className="mt-2 flex items-center justify-between px-2">
-              <p className="text-base font-bold text-[#0A2A55]">
+              <p className="text-base font-bold text-training-navy">
                 {pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
               </p>
               {images.length > 1 && (

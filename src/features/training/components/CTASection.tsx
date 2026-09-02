@@ -17,7 +17,7 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
   return (
     <section className="bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="rounded-2xl border border-[#E5EBF3] bg-gradient-to-r from-[#F5F8FB] to-white p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+        <div className="rounded-2xl border border-training-border bg-gradient-to-r from-training-bg to-white p-8 md:p-10 flex flex-col md:flex-row items-center gap-6 md:gap-10">
           {/* 左侧文案 */}
           <div className="flex-1 text-center md:text-left">
             <h3 className="text-2xl md:text-3xl font-black text-[#0A245E] tracking-wide">
@@ -31,7 +31,7 @@ export function CTASection({ onEnroll, onConsult }: CTASectionProps) {
             <button
               type="button"
               onClick={onEnroll}
-              className="rounded-lg bg-[#0CAF8C] px-7 py-2.5 text-sm font-black text-white hover:bg-[#0A9B7C] transition-colors cursor-pointer"
+              className="rounded-lg bg-training-green px-7 py-2.5 text-sm font-black text-white hover:bg-training-green-hover transition-colors cursor-pointer"
             >
               {t("tlCtaBtn1")}
             </button>

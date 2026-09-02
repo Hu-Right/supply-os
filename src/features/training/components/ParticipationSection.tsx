@@ -19,7 +19,7 @@ function CheckItem({ k }: { k: LocaleKey }) {
   const { t } = useLocale();
   return (
     <li className="flex items-start gap-2 text-xs text-slate-600">
-      <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-[#0CAF8C]" strokeWidth={3} />
+      <Check className="mt-0.5 w-3.5 h-3.5 shrink-0 text-training-green" strokeWidth={3} />
       {t(k)}
     </li>
   );
@@ -30,14 +30,14 @@ export function ParticipationSection({ course, onConsult }: ParticipationSection
 
   return (
     <div className="flex h-full flex-col">
-      <h3 className="text-lg md:text-xl font-black text-[#0A2A55]">{t("tlPartTitle")}</h3>
+      <h3 className="text-lg md:text-xl font-black text-training-navy">{t("tlPartTitle")}</h3>
 
       <div className="mt-6 grid sm:grid-cols-2 gap-5">
         {/* A 单人报名 */}
-        <div className="rounded-lg border border-[#E5EBF3] bg-white p-6 shadow-[0_4px_16px_rgba(10,42,85,0.06)]">
+        <div className="rounded-lg border border-training-border bg-white p-6 shadow-card-soft">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-md bg-[#0A2A55] text-white font-black flex items-center justify-center">A</span>
-            <h4 className="text-base font-black text-[#0A2A55]">{t("tlPartATitle")}</h4>
+            <span className="w-8 h-8 rounded-md bg-training-navy text-white font-black flex items-center justify-center">A</span>
+            <h4 className="text-base font-black text-training-navy">{t("tlPartATitle")}</h4>
           </div>
           <p className="mt-2 text-xs text-slate-600">{t("tlPartADesc")}</p>
           <p className="mt-4 text-2xl font-black text-[#069E78]">
@@ -50,10 +50,10 @@ export function ParticipationSection({ course, onConsult }: ParticipationSection
         </div>
 
         {/* B 2-3人组团 */}
-        <div className="rounded-lg border border-[#E5EBF3] bg-white p-6 shadow-[0_4px_16px_rgba(10,42,85,0.06)]">
+        <div className="rounded-lg border border-training-border bg-white p-6 shadow-card-soft">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-md bg-[#0A2A55] text-white font-black flex items-center justify-center">B</span>
-            <h4 className="text-base font-black text-[#0A2A55]">{t("tlPartBTitle")}</h4>
+            <span className="w-8 h-8 rounded-md bg-training-navy text-white font-black flex items-center justify-center">B</span>
+            <h4 className="text-base font-black text-training-navy">{t("tlPartBTitle")}</h4>
           </div>
           <p className="mt-2 text-xs text-slate-600">{t("tlPartBDesc")}</p>
           <p className="mt-4 text-xl font-black text-[#069E78]">{t("tlPartBTag")}</p>
@@ -64,10 +64,10 @@ export function ParticipationSection({ course, onConsult }: ParticipationSection
       </div>
 
       {/* C 企业定向深训 */}
-      <div className="mt-5 flex-1 rounded-lg border border-[#E5EBF3] bg-white p-6 shadow-[0_4px_16px_rgba(10,42,85,0.06)]">
+      <div className="mt-5 flex-1 rounded-lg border border-training-border bg-white p-6 shadow-card-soft">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="w-8 h-8 rounded-md bg-[#0A2A55] text-white font-black flex items-center justify-center">C</span>
-          <h4 className="text-base font-black text-[#0A2A55]">{t("tlPartCTitle")}</h4>
+          <span className="w-8 h-8 rounded-md bg-training-navy text-white font-black flex items-center justify-center">C</span>
+          <h4 className="text-base font-black text-training-navy">{t("tlPartCTitle")}</h4>
           <span className="text-xs text-slate-600">{t("tlPartCDesc")}</span>
         </div>
         <ul className="mt-4 grid sm:grid-cols-2 gap-2">

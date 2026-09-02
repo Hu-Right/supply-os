@@ -15,14 +15,14 @@ export function TestimonialsSection() {
   if (TESTIMONIALS.length === 0) return null;
 
   return (
-    <section id="testimonials" className="bg-[#F5F8FB]">
+    <section id="testimonials" className="bg-training-bg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlTestTitle")} />
         <div className="grid md:grid-cols-3 gap-6">
           {TESTIMONIALS.map((item) => (
-            <div key={item.id} className="rounded-lg border border-[#E5EBF3] bg-white p-7 shadow-[0_4px_16px_rgba(10,42,85,0.06)] flex flex-col">
-              <Quote className="w-8 h-8 text-[#0CAF8C]" fill="currentColor" />
-              <p className="mt-4 flex-1 text-sm leading-relaxed text-[#0A2A55]">
+            <div key={item.id} className="rounded-lg border border-training-border bg-white p-7 shadow-card-soft flex flex-col">
+              <Quote className="w-8 h-8 text-training-green" fill="currentColor" />
+              <p className="mt-4 flex-1 text-sm leading-relaxed text-training-navy">
                 {pickLocale(locale, item.quote_zh, item.quote_en)}
               </p>
               <p className="mt-5 text-right text-xs font-black text-[#069E78]">

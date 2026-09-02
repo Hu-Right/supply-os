@@ -307,7 +307,7 @@ export default function ParticipantForm({
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting || preFormSubmitting}
-                className="flex-1 px-4 py-2.5 bg-[#0CAF8C] text-white rounded-lg hover:bg-[#0A9B7C] disabled:opacity-50 text-sm font-bold"
+                className="flex-1 px-4 py-2.5 bg-training-green text-white rounded-lg hover:bg-training-green-hover disabled:opacity-50 text-sm font-bold"
               >
                 {isSubmitting || preFormSubmitting ? t("tlParticipantSubmitting") : t("tlParticipantSubmitPrePay")}
               </button>

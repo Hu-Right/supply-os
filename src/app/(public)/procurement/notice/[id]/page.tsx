@@ -152,9 +152,9 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {/* 面包屑 */}
       <nav aria-label="Breadcrumb" className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/showroom" className="hover:text-[#0CAF8C]">Home</Link></li>
+          <li><Link href="/showroom" className="hover:text-training-green">Home</Link></li>
           <li aria-hidden>/</li>
-          <li><Link href="/procurement" className="hover:text-[#0CAF8C]">Procurement Notices</Link></li>
+          <li><Link href="/procurement" className="hover:text-training-green">Procurement Notices</Link></li>
           <li aria-hidden>/</li>
           <li className="max-w-[16rem] truncate text-slate-700" title={row.title}>Notice #{row.id}</li>
         </ol>
@@ -163,7 +163,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {/* 标题 + 类型徽标 */}
       <header className="space-y-3">
         {row.notice_type && (
-          <span className="inline-block rounded-full bg-[#0CAF8C]/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#0CAF8C]">
+          <span className="inline-block rounded-full bg-training-green/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-training-green">
             {row.notice_type}
           </span>
         )}
@@ -191,7 +191,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       )}
 
       {/* 解锁 CTA —— 完整公告内容/联系人/文档需登录解锁 */}
-      <section className="rounded-2xl border border-[#0CAF8C]/20 bg-[#0CAF8C]/5 p-6">
+      <section className="rounded-2xl border border-training-green/20 bg-training-green/5 p-6">
         <h2 className="text-base font-bold text-slate-900">View the full notice</h2>
         <p className="mt-1 text-sm text-slate-600">
           Full description, contacts and procurement documents are available to signed-in members.
@@ -199,13 +199,13 @@ export default async function NoticeSeoPage({ params }: PageProps) {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={`/procurement?notice_id=${row.id}`}
-            className="rounded-lg bg-[#0CAF8C] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#0A9A7C]"
+            className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-training-green-hover"
           >
             Open notice details
           </Link>
           <Link
             href="/procurement"
-            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-[#0CAF8C]/40 hover:text-[#0CAF8C]"
+            className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-training-green/40 hover:text-training-green"
           >
             Search all notices
           </Link>

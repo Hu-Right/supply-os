@@ -116,10 +116,10 @@ export default function TrainingFormPage() {
           <div className="w-20 h-20 mx-auto rounded-full bg-[#0AA09B]/10 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-12 h-12 text-[#0AA09B]" />
           </div>
-          <h1 className="text-xl font-black text-[#0A2A55] mb-3">{t("qualDiagSubmitted")}</h1>
+          <h1 className="text-xl font-black text-training-navy mb-3">{t("qualDiagSubmitted")}</h1>
           <p className="text-sm text-slate-500 leading-relaxed mb-6">{t("qualDiagSubmittedDesc")}</p>
 
-          <div className="rounded-2xl border border-[#E5EBF3] bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-training-border bg-white p-6 shadow-sm">
             <Image
               src="/wechat-service-qr.png"
               alt="客服微信二维码"
@@ -127,7 +127,7 @@ export default function TrainingFormPage() {
               height={180}
               className="mx-auto rounded-lg"
             />
-            <p className="mt-4 text-sm font-bold text-[#0A2A55]">{t("qualDiagQrTitle")}</p>
+            <p className="mt-4 text-sm font-bold text-training-navy">{t("qualDiagQrTitle")}</p>
             <p className="mt-2 text-xs text-slate-500 leading-relaxed">{t("qualDiagQrDesc")}</p>
           </div>
 
@@ -148,7 +148,7 @@ export default function TrainingFormPage() {
               href={`/api/supplier-qualification/${qualificationId}/report`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 mx-auto flex max-w-xs items-center justify-center gap-2 rounded-xl border-2 border-[#0A2A55]/10 bg-white px-6 py-3 text-sm font-bold text-[#0A2A55] transition-colors hover:border-[#0A2A55]/30 hover:bg-[#0A2A55]/5"
+              className="mt-3 mx-auto flex max-w-xs items-center justify-center gap-2 rounded-xl border-2 border-training-navy/10 bg-white px-6 py-3 text-sm font-bold text-training-navy transition-colors hover:border-training-navy/30 hover:bg-training-navy/5"
             >
               <FileText className="w-4 h-4" />
               {t("qualDownloadReport")}
@@ -195,7 +195,7 @@ export default function TrainingFormPage() {
             label={label}
             placeholder={(key: string) => t(key)}
             options={options}
-            className="rounded-2xl border border-[#E5EBF3] bg-white p-5 shadow-sm space-y-5"
+            className="rounded-2xl border border-training-border bg-white p-5 shadow-sm space-y-5"
           />
           <button
             type="submit"

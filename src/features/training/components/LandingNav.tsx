@@ -27,7 +27,7 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
   const go = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 
   return (
-    <div className="bg-[#001636] text-slate-200">
+    <div className="bg-training-dark text-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
         <span className="text-sm font-bold text-white whitespace-nowrap">{t("tlFootBrand")}</span>
         <div className="flex items-center gap-0.5 md:gap-1.5 overflow-x-auto scrollbar-none">
@@ -46,7 +46,7 @@ export function LandingNav({ onEnroll, onConsult }: LandingNavProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="ml-2 rounded bg-[#0CAF8C] px-4 py-1.5 text-xs font-bold text-white hover:bg-[#0A9B7C] whitespace-nowrap cursor-pointer"
+            className="ml-2 rounded bg-training-green px-4 py-1.5 text-xs font-bold text-white hover:bg-training-green-hover whitespace-nowrap cursor-pointer"
           >
             {t("tlNavEnroll")}
           </button>

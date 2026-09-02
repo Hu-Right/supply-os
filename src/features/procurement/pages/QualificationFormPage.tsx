@@ -185,14 +185,14 @@ export default function QualificationFormPage() {
             <ArrowLeft className="w-5 h-5 text-slate-600" />
           </Button>
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <Building2 className="w-5 h-5 text-[#0A2A55] shrink-0" />
-            <h1 className="text-base font-bold text-[#0A2A55] truncate">{t("qualPageTitle")}</h1>
+            <Building2 className="w-5 h-5 text-training-navy shrink-0" />
+            <h1 className="text-base font-bold text-training-navy truncate">{t("qualPageTitle")}</h1>
           </div>
         </div>
       </header>
 
       <div className="max-w-3xl mx-auto px-4 pt-6 pb-4">
-        <div className="rounded-xl bg-gradient-to-br from-[#0A2A55] to-[#1a4a7a] p-5 text-white shadow-lg">
+        <div className="rounded-xl bg-gradient-to-br from-training-navy to-[#1a4a7a] p-5 text-white shadow-lg">
           <p className="text-sm leading-relaxed opacity-95">{t("qualPageDesc")}</p>
           <p className="text-xs mt-3 opacity-75">{t("qualPagePrivacy")}</p>
         </div>

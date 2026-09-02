@@ -107,8 +107,8 @@ function RadioButtons({ value, options, onChange }: {
             onClick={() => onChange(opt.value)}
             className={`rounded-lg border px-3.5 py-2 text-sm font-medium transition-all ${
               active
-                ? "border-[#0CAF8C] bg-[#0CAF8C] text-white shadow-sm"
-                : "border-slate-200 bg-white text-slate-600 hover:border-[#0CAF8C]/40 hover:bg-[#0CAF8C]/5"
+                ? "border-training-green bg-training-green text-white shadow-sm"
+                : "border-slate-200 bg-white text-slate-600 hover:border-training-green/40 hover:bg-training-green/5"
             }`}
           >
             {opt.label}
@@ -135,8 +135,8 @@ function CheckboxButtons({ options, selected, onToggle }: {
             onClick={() => onToggle(opt.value)}
             className={`rounded-lg border px-3 py-1.5 text-sm transition-all ${
               active
-                ? "border-[#0CAF8C] bg-[#0CAF8C] text-white shadow-sm"
-                : "border-slate-200 bg-white text-slate-600 hover:border-[#0CAF8C]/40 hover:bg-[#0CAF8C]/5"
+                ? "border-training-green bg-training-green text-white shadow-sm"
+                : "border-slate-200 bg-white text-slate-600 hover:border-training-green/40 hover:bg-training-green/5"
             }`}
           >
             {opt.label}
@@ -159,7 +159,7 @@ function FormTextArea({ value, onChange, placeholder, rows = 3 }: {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-2 focus:ring-[#0CAF8C]/20 focus:border-[#0CAF8C] focus:outline-none transition-all resize-none"
+      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:ring-2 focus:ring-training-green/20 focus:border-training-green focus:outline-none transition-all resize-none"
     />
   );
 }

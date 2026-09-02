@@ -65,7 +65,7 @@ export default function TrainingLandingPage() {
         <button
           type="button"
           onClick={() => { setLoadState("loading"); fetchLandingData().then(setData).then(() => setLoadState("ready")).catch(() => setLoadState("error")); }}
-          className="rounded-xl bg-[#0CAF8C] px-6 py-2.5 text-sm font-black text-white hover:bg-[#0A9B7C]"
+          className="rounded-xl bg-training-green px-6 py-2.5 text-sm font-black text-white hover:bg-training-green-hover"
         >
           {t("tlPaymentRetry")}
         </button>
