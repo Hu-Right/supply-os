@@ -58,7 +58,7 @@ export function SessionBanner() {
         {(pathname === "/showroom" || pathname === "/") && (
           <button
             onClick={() => emitAppEvent("supply-os:open-showroom-register")}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer min-h-[40px]"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer min-h-[44px] flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>{t("registerShowroomBtn")}</span>
@@ -67,17 +67,17 @@ export function SessionBanner() {
         {pathname === "/supplier" && (
           <button
             onClick={() => emitAppEvent("supply-os:open-supplier-register")}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer min-h-[40px]"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer min-h-[44px] flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden md:inline">{t("registerSupplierBtn")}</span>
-            <span className="md:hidden">{t("registerSupplierBtnShort")}</span>
+            <span className="hidden sm:inline">{t("registerSupplierBtn")}</span>
+            <span className="sm:hidden">{t("registerSupplierBtnShort")}</span>
           </button>
         )}
         {pathname === "/procurement" && (
           <button
             onClick={() => router.push("/procurement/qualification")}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer min-h-[40px]"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer min-h-[44px] flex-shrink-0"
           >
             <BookOpen className="w-4 h-4 text-orange-100" />
             <span>{t("procurementScreeningBtn")}</span>
@@ -86,7 +86,7 @@ export function SessionBanner() {
         <Button
           onClick={() => emitAppEvent("supply-os:consult")}
           variant="dark"
-          className="py-2 rounded-xl font-semibold shadow-xs cursor-pointer"
+          className="py-2 rounded-xl font-semibold shadow-xs cursor-pointer min-h-[44px] flex-shrink-0"
         >
           <MessageSquare className="w-4 h-4 text-teal-400" />
           <span>{t("bookServiceNow")}</span>
