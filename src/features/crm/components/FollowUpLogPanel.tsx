@@ -85,7 +85,7 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
             value={newEntry}
             onChange={(e) => setNewEntry(e.target.value)}
             rows={2}
-            className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-755 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="w-full bg-white border border-slate-200 rounded p-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
         </div>
 

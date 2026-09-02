@@ -52,7 +52,7 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
       <Button
         variant="primary"
         onClick={onBook}
-        className="mt-5 w-full bg-slate-900 hover:bg-slate-850 py-2 text-xs font-semibold"
+        className="mt-5 w-full bg-slate-900 hover:bg-slate-800 py-2 text-xs font-semibold"
       >
         {bookLabel}
       </Button>

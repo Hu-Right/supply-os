@@ -44,7 +44,7 @@ export function OpportunityList({
             onClick={() => onSelect(opp)}
             className={`p-4 rounded-xl border transition-all cursor-pointer ${
               selectedOpportunity?.id === opp.id
-                ? "bg-gradient-to-tr from-slate-50 to-teal-55/15 border-teal-500 shadow-sm"
+                ? "bg-gradient-to-tr from-slate-50 to-teal-50/15 border-teal-500 shadow-sm"
                 : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"
             }`}
           >
