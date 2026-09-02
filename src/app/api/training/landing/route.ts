@@ -16,13 +16,11 @@ export async function GET() {
   const course = await trainingRepo.getActiveCourse();
   const schedules = course ? await trainingRepo.listSchedules(course.id) : [];
 
-  // 讲师/团队/照片/反馈/FAQ — 并行查询
-  const [instructors, team, galleryCategories, testimonials, faqs] = await Promise.all([
+  // 讲师/团队/照片 — 并行查询（学员反馈 & 常见问题已改为前端静态数据）
+  const [instructors, team, galleryCategories] = await Promise.all([
     trainingRepo.listFeaturedInstructors(),
     trainingRepo.listTeamMembers(),
     trainingRepo.listGalleryCategories(),
-    trainingRepo.listTestimonials(),
-    trainingRepo.listFaqs(),
   ]);
 
   // 照片按分类组装
@@ -38,7 +36,5 @@ export async function GET() {
     schedules,
     instructors: { featured: instructors, team },
     gallery,
-    testimonials,
-    faqs,
   });
 }

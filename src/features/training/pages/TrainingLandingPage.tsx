@@ -73,7 +73,7 @@ export default function TrainingLandingPage() {
     );
   }
 
-  const { course, schedules, instructors, gallery, testimonials, faqs } = data;
+  const { course, schedules, instructors, gallery } = data;
 
   return (
     <>
@@ -102,8 +102,8 @@ export default function TrainingLandingPage() {
         <GallerySection gallery={gallery} />
         <HighlightsSection />
         <ScheduleSection schedules={schedules} course={course} onReserve={handleDirectPay} />
-        <TestimonialsSection testimonials={testimonials} />
-        <FAQSection faqs={faqs} />
+        <TestimonialsSection />
+        <FAQSection />
       </div>
 
       <CTASection onEnroll={handleDirectPay} onConsult={openWechatQR} />
