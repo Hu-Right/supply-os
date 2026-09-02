@@ -7,15 +7,20 @@
  *              具体表单逻辑已拆分至 hooks/ 和 forms/ 子模块。
  */
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
 import { useRegisterCode } from "../hooks/useRegisterCode";
 import { useUnspscPrefCascade } from "../hooks/useUnspscPrefCascade";
 import { LoginForm } from "./forms/LoginForm";
-import { RegisterForm } from "./forms/RegisterForm";
 import { ForgotPasswordForm } from "./forms/ForgotPasswordForm";
 import { useLocale } from "@/core/i18n";
 import { SegmentedControl } from "@/shared/ui";
+
+/** 注册表单按需加载：仅切换到注册模式时才拉取，避免登录模式下无用加载 */
+const RegisterForm = dynamic(() => import("./forms/RegisterForm").then((m) => m.RegisterForm), {
+  ssr: false,
+});
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
