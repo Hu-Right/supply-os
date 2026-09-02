@@ -136,7 +136,7 @@ export function DigitalAssistant({
           className="fixed bottom-6 end-6 z-20 px-5 py-3 rounded-full shadow-lg
             hover:bg-teal-500 hover:shadow-xl hover:scale-105
             transition-all duration-200 group
-            max-[900px]:bottom-20"
+            md:bottom-6 bottom-20"
           aria-label={t("crmAssistantOpen")}
         >
           <MessageCircle className="w-5 h-5 group-hover:animate-pulse" />

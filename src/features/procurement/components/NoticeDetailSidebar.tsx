@@ -54,7 +54,7 @@ export function NoticeDetailSidebar({
       <Button
         onClick={() => onExpressInterest(notice, "interested")}
         variant="primary"
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs py-2.5 font-black"
+        className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold md:w-auto md:flex-none md:min-w-0 md:gap-3 md:px-4 md:text-sm"
       >
         <Heart className="w-4 h-4 shrink-0" />
         <span className="truncate">{t("procurement_interested")}</span>
@@ -62,7 +62,7 @@ export function NoticeDetailSidebar({
       <Button
         onClick={() => onExpressInterest(notice, "subscribed")}
         variant="dark"
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs font-black"
+        className="flex-1 min-w-0 gap-1.5 px-2 text-xs font-semibold md:w-auto md:flex-none md:min-w-0 md:gap-3 md:px-4 md:text-sm"
       >
         <Bell className="w-4 h-4 shrink-0 text-amber-300" />
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
@@ -70,7 +70,7 @@ export function NoticeDetailSidebar({
       <Button
         onClick={() => onUnlock(notice)}
         variant="secondary"
-        className="w-full max-[900px]:flex-1 max-[900px]:min-w-0 max-[900px]:gap-1.5 max-[900px]:px-2 max-[900px]:text-xs py-2.5 font-black text-teal-800"
+        className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold text-primary-800 md:w-auto md:flex-none md:min-w-0 md:gap-3 md:px-4 md:text-sm"
       >
         <Lock className="w-4 h-4 shrink-0" />
         <span className="truncate">
@@ -83,7 +83,7 @@ export function NoticeDetailSidebar({
   );
 
   return (
-    <aside className="sticky top-24 h-fit space-y-4 max-[900px]:static">
+    <aside className="static md:sticky md:top-24 md:h-fit space-y-4">
       {/* 会员权益状态面板：展示总可用次数与分层明细 */}
       <MembershipStatusPanel
         membership={membership}
@@ -93,13 +93,13 @@ export function NoticeDetailSidebar({
         compact
       />
 
-      {/* P0-2 移动端修复：操作按钮固定于视口底部，无需滚动即可触达核心转化操作 */}
-      <div className="hidden max-[900px]:fixed max-[900px]:bottom-0 max-[900px]:left-0 max-[900px]:right-0 max-[900px]:z-30 max-[900px]:flex max-[900px]:gap-2 max-[900px]:bg-white/95 max-[900px]:backdrop-blur-md max-[900px]:border-t max-[900px]:border-slate-200 max-[900px]:p-3 max-[900px]:shadow-lg max-[900px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      {/* 移动端：操作按钮固定于视口底部，md 以上隐藏 */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 flex gap-2 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 shadow-lg pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:hidden">
         {actionButtons}
       </div>
 
-      {/* 桌面端侧边栏：操作按钮 */}
-      <Card className="border-secondary-200 bg-slate-50 space-y-3 max-[900px]:hidden">
+      {/* 桌面端侧边栏：操作按钮，移动端隐藏 */}
+      <Card className="border-secondary-200 bg-slate-50 space-y-3 hidden md:block">
         {actionButtons}
       </Card>
 

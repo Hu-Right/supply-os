@@ -115,8 +115,8 @@ export function NoticeDetail({
       </Button>
 
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-        <div className="grid grid-cols-[minmax(0,1fr)_340px] gap-6 max-[900px]:grid-cols-1">
-          <main className="min-w-0 space-y-5 max-[900px]:pb-24">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_340px] gap-6">
+          <main className="min-w-0 space-y-5 pb-24 md:pb-0">
             <div className="border-b border-slate-100 pb-5">
               <p className="text-xs font-black text-teal-600 uppercase tracking-wider">
                 {typeKey ? t(typeKey) : notice.notice_type || "Procurement Notice"}
