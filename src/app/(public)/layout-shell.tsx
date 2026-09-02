@@ -34,6 +34,19 @@ const TrainingRegisterForm = lazy(() =>
   import("@/features/training/components/TrainingRegisterForm").then((m) => ({ default: m.default })),
 );
 
+/** 模态框加载骨架屏 - 移动端弱网环境下提供视觉反馈 */
+function ModalSkeleton() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-2xl p-8 min-w-[300px] animate-pulse shadow-2xl">
+        <div className="h-6 bg-slate-200 rounded mb-4 w-3/4" />
+        <div className="h-10 bg-slate-200 rounded mb-3" />
+        <div className="h-10 bg-slate-200 rounded" />
+      </div>
+    </div>
+  );
+}
+
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const { authUser, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
@@ -113,7 +126,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
 
       {/* Modals */}
       {showAuthModal && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalSkeleton />}>
           <AuthModal
             initialMode={qrRegisterMode ? "register" : "login"}
             onClose={() => {
@@ -124,17 +137,17 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         </Suspense>
       )}
       {showConsultForm && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalSkeleton />}>
           <ConsultForm onClose={() => setShowConsultForm(false)} />
         </Suspense>
       )}
       {showTrainingRegisterForm && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalSkeleton />}>
           <TrainingRegisterForm onClose={() => setShowTrainingRegisterForm(false)} />
         </Suspense>
       )}
       {showPaymentModal && paymentPlan && authUser && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<ModalSkeleton />}>
           <PaymentModal
             planCode={paymentPlan.code}
             planName={paymentPlan.name}
