@@ -29,13 +29,14 @@ else
 fi
 
 # 3. Next.js 构建（output: standalone → .next/standalone/）
-# 3.1 备份现有 .env（standalone 重建会删除 .env）
+echo "[deploy] 构建..."
+
+# 3.1 备份现有 .env（如果存在）
 if [ -f .next/standalone/.env ]; then
   cp .next/standalone/.env /tmp/supply-os.env.bak
   echo "[deploy] 已备份 .env"
 fi
 
-echo "[deploy] 构建..."
 npm run build
 
 # 3.2 恢复 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）

@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "mysql2",
     "nodejieba",
+    "@node-rs/jieba",
     "bcrypt",
     "alipay-sdk",
     "formstream",
