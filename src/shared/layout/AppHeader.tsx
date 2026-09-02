@@ -71,8 +71,8 @@ export function AppHeader({
     <>
       <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-slate-200/80 shadow-xs backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
+          <div className="flex items-center min-w-0 space-x-3">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
               <Globe className="w-6 h-6 animate-spin-slow" />
             </div>
             <div className="min-w-0 flex-1">
@@ -82,18 +82,21 @@ export function AppHeader({
               </div>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 shrink-0">
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"}`}>
               <Crown className="w-3.5 h-3.5" />
               <span className="hidden md:inline">{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
               <span className="md:hidden">{authUser ? (authUser.display_name || authUser.email) : t("guestLevelShort")}</span>
             </button>
-            <LanguageSwitcher />
+            {/* 语言切换器：移动端隐藏（抽屉菜单已提供语言选择） */}
+            <div className="hidden md:block">
+              <LanguageSwitcher />
+            </div>
             {/* 移动端汉堡菜单按钮 */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
               aria-label={mobileMenuOpen ? t("uiMenuClose") : t("uiMenuOpen")}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
