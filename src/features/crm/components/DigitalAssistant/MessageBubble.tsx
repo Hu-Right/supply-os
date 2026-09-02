@@ -28,7 +28,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       <div className="flex items-center justify-center my-3">
         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
           <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-          <span className="text-[11px] text-slate-500 font-medium">{content}</span>
+          <span className="text-3xs text-slate-500 font-medium">{content}</span>
           <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
         </div>
       </div>
@@ -48,7 +48,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       >
         <p className="whitespace-pre-wrap break-words">{content}</p>
         <span
-          className={`text-[10px] mt-1 block ${
+          className={`text-2xs mt-1 block ${
             isUser ? "text-teal-200" : "text-slate-400"
           }`}
         >

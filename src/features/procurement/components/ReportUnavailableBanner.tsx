@@ -89,7 +89,7 @@ export function ReportUnavailableBanner({
             <FileX className="w-4 h-4 shrink-0 text-amber-600" />
             {t("procurement_reportUnavailable")}
             {isVip && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-[10px] font-black text-amber-700">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-2xs font-black text-amber-700">
                 <Crown className="w-3 h-3" />
                 VIP
               </span>

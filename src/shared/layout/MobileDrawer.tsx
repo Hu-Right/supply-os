@@ -90,7 +90,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
                   <span className="w-2 h-2 rounded-full bg-rose-500" />
                 )}
                 {tab.highlight && !isActive && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{vipDisplayLabel}</span>
+                  <span className="text-2xs font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">{vipDisplayLabel}</span>
                 )}
               </Link>
             );
@@ -99,7 +99,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
 
         {/* 语言选择区 */}
         <div className="border-t border-slate-100 px-3 py-2">
-          <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <p className="px-2 py-1 text-2xs font-semibold uppercase tracking-wider text-slate-400">
             {t("uiSelectLanguage")}
           </p>
           <div className="grid grid-cols-3 gap-1">

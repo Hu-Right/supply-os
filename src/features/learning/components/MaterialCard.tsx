@@ -61,10 +61,10 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
       )}
 
       <div className="flex items-center space-x-2 pt-1">
-        <span className="rounded border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10px] font-bold text-teal-700">
+        <span className="rounded border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-2xs font-bold text-teal-700">
           {pickLocale(locale, material.categoryZh, material.categoryEn)}
         </span>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-3xs text-slate-400">
           {t("learningDownloadCount", { num: material.downloadsCount })}
         </span>
       </div>
@@ -85,7 +85,7 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
         </div>
       ) : (
         <div className="max-h-36 overflow-auto rounded-lg bg-slate-100 p-3 font-mono text-xs leading-relaxed text-slate-700">
-          <strong className="mb-1 block text-[10px] font-bold uppercase text-slate-400">
+          <strong className="mb-1 block text-2xs font-bold uppercase text-slate-400">
             {t("learningCoreContent")}
           </strong>
           {contentText}

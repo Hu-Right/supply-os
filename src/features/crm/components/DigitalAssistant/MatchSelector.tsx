@@ -49,7 +49,7 @@ export function MatchSelector({
 
       {/* Supplier Select */}
       <div className="flex items-center justify-between gap-3 bg-slate-800/80 rounded-lg px-3 py-2 border border-slate-700">
-        <span className="text-[11px] text-slate-400 shrink-0">1. {t("crmMatchSelectSupplier")}</span>
+        <span className="text-3xs text-slate-400 shrink-0">1. {t("crmMatchSelectSupplier")}</span>
         <Select
           value={selectedSupplier?.id ?? ""}
           onChange={(e) => {
@@ -69,7 +69,7 @@ export function MatchSelector({
 
       {/* Opportunity Select */}
       <div className="flex items-center justify-between gap-3 bg-slate-800/80 rounded-lg px-3 py-2 border border-slate-700">
-        <span className="text-[11px] text-slate-400 shrink-0">2. {t("crmMatchSelectOpp")}</span>
+        <span className="text-3xs text-slate-400 shrink-0">2. {t("crmMatchSelectOpp")}</span>
         <Select
           value={selectedOpportunity?.id ?? ""}
           onChange={(e) => {

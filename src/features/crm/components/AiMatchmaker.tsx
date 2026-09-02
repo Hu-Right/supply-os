@@ -54,7 +54,7 @@ export function AiMatchmaker({
           </div>
           <div>
             <h3 className="text-base font-bold text-teal-400">{labels.title}</h3>
-            <p className="text-[11px] text-slate-400">{labels.description}</p>
+            <p className="text-3xs text-slate-400">{labels.description}</p>
           </div>
         </div>
       </div>

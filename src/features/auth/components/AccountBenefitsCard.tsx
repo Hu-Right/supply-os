@@ -130,7 +130,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
       <div className="space-y-1 pt-2 border-t border-slate-200/40">
         {/* 订阅会员 */}
         {hasSubscription && (
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-3xs">
             <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
             <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
             <span className="text-slate-600 truncate">{subscriptions[0].plan_name || subscriptions[0].plan_code}</span>
@@ -149,7 +149,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
 
         {/* 单次解锁卡（汇总） */}
         {hasSingleCard && (
-          <div className="flex items-center gap-1.5 text-[11px]">
+          <div className="flex items-center gap-1.5 text-3xs">
             <Zap className="w-3 h-3 text-blue-500 flex-shrink-0" />
             <span className="font-bold text-slate-700">
               {t("statusPanelEntitlementCards", { count: singleCards.length })}

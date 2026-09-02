@@ -35,7 +35,7 @@ export function AuthModal({ onClose, initialMode }: AuthModalProps) {
       title={t("authModalTitle")}
       subtitle={t("authModalDesc")}
       headerExtra={
-        <div className="inline-flex items-center gap-1.5 text-[10px] font-black text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-1 mb-2">
+        <div className="inline-flex items-center gap-1.5 text-2xs font-black text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-1 mb-2">
           <Crown className="w-3.5 h-3.5" />
           {t("authModalBadge")}
         </div>

@@ -60,7 +60,7 @@ export function OpportunityList({
             <p className="text-xs text-slate-500 mt-1 line-clamp-2">
               {pickLocale(locale, opp.descriptionZh, opp.descriptionEn)}
             </p>
-            <div className="mt-3 flex justify-between items-center border-t border-slate-200/50 pt-2 text-[11px] text-slate-400">
+            <div className="mt-3 flex justify-between items-center border-t border-slate-200/50 pt-2 text-3xs text-slate-400">
               <span>{deadlineLabel(opp.deadline)}</span>
               <Button
                 onClick={(e) => {

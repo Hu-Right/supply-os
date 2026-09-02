@@ -37,7 +37,7 @@ export function MatchReportCard({
           <p className="text-xs font-bold text-teal-400 truncate">
             {t("aiMatchingResult")}
           </p>
-          <p className="text-[10px] text-slate-500 truncate">
+          <p className="text-2xs text-slate-500 truncate">
             {supplierName} × {opportunityName}
           </p>
         </div>

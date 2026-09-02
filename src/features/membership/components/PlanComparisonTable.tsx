@@ -225,7 +225,7 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
                   <tr className="bg-slate-50/60 border-b border-slate-200/40">
                     <td
                       colSpan={plans.length + 1}
-                      className="px-6 py-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest"
+                      className="px-6 py-2.5 text-3xs font-bold text-slate-400 uppercase tracking-widest"
                     >
                       {t(category.categoryKey as any)}
                     </td>

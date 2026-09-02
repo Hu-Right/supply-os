@@ -87,7 +87,7 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
               {/* 已过期标签紧贴"查看详情"按钮前方，保证所有列表项视觉对齐 */}
               <span className="shrink-0 flex items-center gap-1.5">
                 {record.notice?.deadline_expired === true && (
-                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-black text-rose-700">
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-3xs font-black text-rose-700">
                     {t("myRecordsExpired")}
                   </span>
                 )}
@@ -106,7 +106,7 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
         })}
       </ul>
       {hasTranslation && !showOriginal && (
-        <p className="text-[11px] text-slate-400 mt-2">{t("procurement_translateNote")}</p>
+        <p className="text-3xs text-slate-400 mt-2">{t("procurement_translateNote")}</p>
       )}
     </div>
   );

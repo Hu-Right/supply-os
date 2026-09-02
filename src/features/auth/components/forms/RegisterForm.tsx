@@ -127,7 +127,7 @@ export function RegisterForm({
           <div className={`text-sm font-bold ${authForm.userType === "personal" ? "text-teal-700" : "text-slate-600"}`}>
             {t("authRegisterTypePersonal") || "个人注册"}
           </div>
-          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
+          <div className="text-2xs text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
         </SelectableCard>
         <SelectableCard
           selected={authForm.userType === "enterprise"}
@@ -138,7 +138,7 @@ export function RegisterForm({
           <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-teal-700" : "text-slate-600"}`}>
             {t("authRegisterTypeEnterprise") || "企业注册"}
           </div>
-          <div className="text-[10px] text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
+          <div className="text-2xs text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
         </SelectableCard>
       </div>
 

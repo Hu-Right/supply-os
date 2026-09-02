@@ -239,7 +239,7 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
           {/* 原始招标附件（外文原件）：投标仍需原件，降级为次级小标题展示 */}
           {[...files, ...externalLinks].length > 0 && (
-            <p className="text-[11px] font-black text-slate-500 uppercase pt-1">
+            <p className="text-3xs font-black text-slate-500 uppercase pt-1">
               {t("procurement_originalAttachments")}
             </p>
           )}

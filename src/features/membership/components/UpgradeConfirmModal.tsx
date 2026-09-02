@@ -81,7 +81,7 @@ export function UpgradeConfirmModal({
           <div className="space-y-4">
             {/* 当前套餐 */}
             <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3.5">
-              <p className="text-[11px] font-bold text-slate-400 uppercase">{t("upgradeCurrentPlan")}</p>
+              <p className="text-3xs font-bold text-slate-400 uppercase">{t("upgradeCurrentPlan")}</p>
               <p className="text-sm font-bold text-slate-800 mt-1">{preview.current_plan?.name}</p>
               <p className="text-xs text-slate-500 mt-0.5">
                 {t("upgradeUsed")}：{preview.quota_used} / {preview.current_plan?.unlock_quota} {t("statusPanelTimes")}
@@ -90,7 +90,7 @@ export function UpgradeConfirmModal({
 
             {/* 目标套餐 */}
             <div className="rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-3.5">
-              <p className="text-[11px] font-bold text-amber-600 uppercase">{t("upgradeTargetPlan")}</p>
+              <p className="text-3xs font-bold text-amber-600 uppercase">{t("upgradeTargetPlan")}</p>
               <p className="text-sm font-bold text-slate-900 mt-1">{preview.target_plan?.name}</p>
               <div className="mt-1.5 space-y-0.5">
                 <p className="text-xs text-slate-600">

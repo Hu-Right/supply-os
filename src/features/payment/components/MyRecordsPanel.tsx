@@ -106,8 +106,8 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               {summary.ordersTotal}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">{t("myRecordsOrdersDesc")}</p>
-          <p className="text-[11px] text-blue-600 mt-2 font-bold">{t("myRecordsOrdersHint")} →</p>
+          <p className="text-3xs text-slate-500 mt-1">{t("myRecordsOrdersDesc")}</p>
+          <p className="text-3xs text-blue-600 mt-2 font-bold">{t("myRecordsOrdersHint")} →</p>
         </Button>
 
         <Button
@@ -122,8 +122,8 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
               {summary.unlocksTotal}
             </span>
           </div>
-          <p className="text-[11px] text-teal-700 mt-1">{t("myRecordsUnlocksDesc")}</p>
-          <p className="text-[11px] text-teal-800 mt-2 font-bold">{t("myRecordsUnlocksHint")} →</p>
+          <p className="text-3xs text-teal-700 mt-1">{t("myRecordsUnlocksDesc")}</p>
+          <p className="text-3xs text-teal-800 mt-2 font-bold">{t("myRecordsUnlocksHint")} →</p>
         </Button>
       </div>
     );
@@ -149,7 +149,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
             <p className="text-sm font-extrabold text-slate-900">
               {view === "orders" ? t("myRecordsOrdersManage") : t("myRecordsUnlocksManage")}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <p className="text-3xs text-slate-500 mt-0.5">
               {view === "orders" ? t("myRecordsOrdersManageDesc") : t("myRecordsUnlocksManageDesc")}
             </p>
           </div>

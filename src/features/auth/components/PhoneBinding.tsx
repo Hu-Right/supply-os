@@ -24,7 +24,7 @@ export function PhoneBinding() {
         <Smartphone className="w-4 h-4 text-teal-600" />
         <h4 className="text-sm font-extrabold text-slate-900">{t("authPhoneTitle")}</h4>
         {hasPhone && isVerified && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+          <span className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
             <ShieldCheck className="w-3 h-3" />
             {t("authPhoneVerified")}
           </span>

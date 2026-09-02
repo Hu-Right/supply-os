@@ -94,7 +94,7 @@ export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLoc
         <p className="text-sm font-extrabold text-teal-800 flex items-center gap-2">
           <FileText className="w-4 h-4 shrink-0 text-teal-600" />
           {t("procurement_reportPreviewTitle")}
-          <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
+          <span className="text-2xs font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">
             {t("procurement_previewPartial")}
           </span>
         </p>
@@ -122,7 +122,7 @@ export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLoc
           {/* 锁定提示 + 升级引导（预览仅含 2.1 采购描述（中文），无需其余章节模糊占位） */}
           <div className="flex flex-col items-center justify-center bg-gradient-to-t from-teal-50/95 via-teal-50/80 to-teal-50/40 rounded-lg pt-6 pb-4 px-4">
             <Lock className="w-5 h-5 text-slate-400 mb-1" />
-            <p className="text-[11px] text-slate-500 mb-2 text-center">
+            <p className="text-3xs text-slate-500 mb-2 text-center">
               {t("procurement_previewUnlockHint")}
               {/* P1-15/P2-15 安全修复：预览百分比抽成 i18n key，避免硬编码中文 */}
               {totalReportChars > 0 && " " + t("procurement_previewPercent", { percent: ((shownCharCount / totalReportChars) * 100).toFixed(1) })}

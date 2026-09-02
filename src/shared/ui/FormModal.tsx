@@ -76,7 +76,7 @@ export function FormModal({
           {headerExtra}
           <h3 className="text-base font-extrabold">{title}</h3>
           {subtitle && (
-            <p className="text-[10px] text-secondary-400 mt-1">{subtitle}</p>
+            <p className="text-2xs text-secondary-400 mt-1">{subtitle}</p>
           )}
         </div>
         <button

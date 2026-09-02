@@ -61,7 +61,7 @@ export function PlanCard({
               <span className="text-sm text-slate-500 font-medium">/{t("membershipYear")}</span>
             ) : null}
             {ORIGINAL_PRICES[plan.plan_code] && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+              <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-3xs font-semibold border border-blue-100">
                 {t("firstOrderDiscount")}
               </span>
             )}

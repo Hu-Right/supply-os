@@ -99,7 +99,7 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
         {/* 第 2 行：截止日期起止 + 截止窗口 */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_180px] gap-3">
           <label className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap shrink-0">
+            <span className="text-3xs font-bold text-slate-500 whitespace-nowrap shrink-0">
               {t("procurement_deadlineFrom")}
             </span>
             <Input
@@ -111,7 +111,7 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             />
           </label>
           <label className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap shrink-0">
+            <span className="text-3xs font-bold text-slate-500 whitespace-nowrap shrink-0">
               {t("procurement_deadlineTo")}
             </span>
             <Input

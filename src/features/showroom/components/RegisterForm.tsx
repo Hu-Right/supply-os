@@ -251,7 +251,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
           >
             <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400" />
             <p className="text-xs font-semibold text-slate-600">{t("uploadPlaceholder")}</p>
-            <p className="mt-0.5 text-[10px] text-slate-400">{t("uploadFileHint")}</p>
+            <p className="mt-0.5 text-2xs text-slate-400">{t("uploadFileHint")}</p>
 
             {uploadedFiles.length > 0 && (
               <div className="mt-3 max-h-24 space-y-1.5 overflow-y-auto border-t border-slate-200 pt-2.5 text-start">
@@ -260,8 +260,8 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
                     key={idx}
                     className="flex items-center justify-between rounded border border-slate-200 bg-white px-2.5 py-1 text-xs"
                   >
-                    <span className="truncate font-mono text-[11px] text-slate-700">{fn}</span>
-                    <span className="text-[10px] font-bold text-emerald-600">
+                    <span className="truncate font-mono text-3xs text-slate-700">{fn}</span>
+                    <span className="text-2xs font-bold text-emerald-600">
                       {t("uploadMockSuccess")}
                     </span>
                   </div>
@@ -282,7 +282,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
           />
         </div>
 
-        <div className="text-[11px] text-slate-400">
+        <div className="text-3xs text-slate-400">
           {t("formSubmitAgreement")}
         </div>
 

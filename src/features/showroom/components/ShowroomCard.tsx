@@ -68,7 +68,7 @@ export function ShowroomCard({ showroom, onApply, onConsult }: ShowroomCardProps
                 (prod, idx) => (
                   <span
                     key={idx}
-                    className="rounded-md border border-slate-200/50 bg-slate-100 px-2.5 py-1 text-[11px] text-slate-800"
+                    className="rounded-md border border-slate-200/50 bg-slate-100 px-2.5 py-1 text-3xs text-slate-800"
                   >
                     {prod}
                   </span>

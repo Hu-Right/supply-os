@@ -87,31 +87,31 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {/* 采购类型标签：indigo 为保留原始色例外（装饰性） */}
-          <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[11px] font-black">
+          <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold">
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </Badge>
           {/* [精选功能重新启用 2026-07-31] 徽标恢复 */}
           {Boolean(item.is_featured) && (
-            <Badge variant="warning" shape="tag" className="text-[11px] font-black">
+            <Badge variant="warning" shape="tag" className="text-3xs font-bold">
               <Crown className="w-3 h-3" />
               {t("procurement_featuredBadge")}
             </Badge>
           )}
           {item.match_tier && MATCH_TIER_CONFIG[item.match_tier] && (
-            <Badge variant={MATCH_TIER_CONFIG[item.match_tier].variant} shape="tag" className="text-[11px] font-black">
+            <Badge variant={MATCH_TIER_CONFIG[item.match_tier].variant} shape="tag" className="text-3xs font-bold">
               <Target className="w-3 h-3" />
               {t(MATCH_TIER_CONFIG[item.match_tier].key)}
             </Badge>
           )}
           {reasonKeys.map((key) => (
-            <Badge key={key} variant="warning" shape="tag" className="text-[11px] font-black">
+            <Badge key={key} variant="warning" shape="tag" className="text-3xs font-bold">
               {t(key)}
             </Badge>
           ))}
         </div>
         <div className="flex flex-col items-end gap-0.5 shrink-0">
-          <span className="text-[11px] text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
-          <span className="text-[11px] text-slate-500 font-mono text-end" dir="ltr">
+          <span className="text-3xs text-slate-400 font-bold whitespace-nowrap">{t("procurement_cardDeadlineLabel")}</span>
+          <span className="text-3xs text-slate-500 font-mono text-end" dir="ltr">
             {locale === "zh"
               ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
               : (item.deadline || t("procurement_noDeadline"))}
@@ -156,7 +156,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
               <span
                 key={`${code.code || index}`}
                 dir="ltr"
-                className="px-1.5 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-600"
+                className="px-1.5 py-0.5 rounded border border-slate-200 text-3xs font-mono text-slate-600"
               >
                 {code.code || code.name || code.description}
               </span>

@@ -61,7 +61,7 @@ export function LeadTracker({ leads, isLoading, onSubmitLog, labels }: LeadTrack
       <div>
         <h3 className="text-base font-extrabold text-slate-800 flex items-center justify-between">
           <span>{labels.title}</span>
-          <span className="text-[10px] bg-teal-600 text-white font-mono px-2 py-0.5 rounded-full">
+          <span className="text-2xs bg-teal-600 text-white font-mono px-2 py-0.5 rounded-full">
             {labels.badge}
           </span>
         </h3>

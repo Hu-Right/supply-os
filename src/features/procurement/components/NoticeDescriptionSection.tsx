@@ -67,7 +67,7 @@ export function NoticeDescriptionSection({
         {displayDescription || t("procurement_noDesc")}
       </p>
       {showTranslated && (
-        <p className="text-[11px] text-slate-400 mt-2">{t("procurement_translateNote")}</p>
+        <p className="text-3xs text-slate-400 mt-2">{t("procurement_translateNote")}</p>
       )}
     </div>
   );

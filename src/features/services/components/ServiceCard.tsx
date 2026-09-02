@@ -33,14 +33,14 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
         </p>
 
         <div className="mt-4 border-t border-slate-100 pt-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <span className="text-2xs font-bold uppercase tracking-wider text-slate-400">
             技术指标 / 服务涵盖
           </span>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {service.specs.map((sp, sIdx) => (
               <span
                 key={sIdx}
-                className="rounded border border-slate-150 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600"
+                className="rounded border border-slate-150 bg-slate-50 px-2 py-0.5 text-2xs text-slate-600"
               >
                 {sp}
               </span>

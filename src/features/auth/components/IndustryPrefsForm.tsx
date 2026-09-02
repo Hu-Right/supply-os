@@ -201,7 +201,7 @@ export function IndustryPrefsForm() {
         <h4 className="text-sm font-extrabold text-slate-900">
           {t("authIndustryPrefLabel")}
         </h4>
-        <p className="text-[11px] text-slate-400">
+        <p className="text-3xs text-slate-400">
           {t("authIndustryPrefRequiredHint")}
         </p>
       </div>
@@ -215,7 +215,7 @@ export function IndustryPrefsForm() {
           className="bg-white"
         />
         {inferLoading && (
-          <p className="mt-1 text-[11px] text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
+          <p className="mt-1 text-3xs text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
         )}
         {!inferLoading && inferCandidates.length > 0 && (
           <UnspscInferCandidates
@@ -226,7 +226,7 @@ export function IndustryPrefsForm() {
           />
         )}
         {!inferLoading && inferCandidates.length === 0 && inferSearched && (
-          <p className="mt-1 text-[11px] text-amber-600">
+          <p className="mt-1 text-3xs text-amber-600">
             {t("authMainBusinessNoMatch")}
           </p>
         )}

@@ -59,12 +59,12 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
 
       {/* Timeline logs */}
       <div>
-        <p className="text-[10px] text-slate-400 font-extrabold pb-2">{labels.followUpLogs}</p>
+        <p className="text-2xs text-slate-400 font-extrabold pb-2">{labels.followUpLogs}</p>
         {lead.followUpLogs && lead.followUpLogs.length > 0 ? (
           <div className="space-y-2 max-h-36 overflow-y-auto">
             {lead.followUpLogs.map((log, lIdx) => (
               <div key={lIdx} className="bg-white p-2.5 rounded border border-slate-200 text-xs">
-                <div className="flex justify-between text-[10px] text-slate-400">
+                <div className="flex justify-between text-2xs text-slate-400">
                   <strong>{log.author}</strong>
                   <span>{log.date}</span>
                 </div>
@@ -73,7 +73,7 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
             ))}
           </div>
         ) : (
-          <div className="text-[11px] text-slate-400 italic">{labels.noLogs}</div>
+          <div className="text-3xs text-slate-400 italic">{labels.noLogs}</div>
         )}
       </div>
 
@@ -113,7 +113,7 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
           </Button>
         </div>
 
-        {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
+        {error && <p className="text-3xs font-bold text-rose-600">{error}</p>}
       </form>
     </div>
   );

@@ -104,7 +104,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
               className="flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-slate-400 hover:bg-transparent hover:text-white active:bg-white/10 cursor-pointer min-w-0"
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="text-[10px] font-medium truncate max-w-full">{t(labelKey)}</span>
+              <span className="text-2xs font-medium truncate max-w-full">{t(labelKey)}</span>
             </Button>
           ))}
 
@@ -115,7 +115,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
             className="flex flex-col items-center gap-0.5 rounded-lg bg-training-green px-2 py-1 text-white active:bg-training-green-hover transition-colors cursor-pointer min-w-0"
           >
             <PenLine className="w-4 h-4 shrink-0" />
-            <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavEnroll")}</span>
+            <span className="text-2xs font-bold truncate max-w-full">{t("tlNavEnroll")}</span>
           </button>
 
           {/* 咨询顾问 */}
@@ -126,7 +126,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
             className="flex-col items-center gap-0.5 rounded-lg border-white/20 px-2 py-1 text-slate-300 hover:bg-transparent active:bg-white/10 cursor-pointer min-w-0"
           >
             <Headphones className="w-4 h-4 shrink-0" />
-            <span className="text-[10px] font-bold truncate max-w-full">{t("tlNavConsult")}</span>
+            <span className="text-2xs font-bold truncate max-w-full">{t("tlNavConsult")}</span>
           </Button>
         </div>
       </nav>

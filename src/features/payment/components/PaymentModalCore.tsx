@@ -149,12 +149,12 @@ export default function PaymentModalCore({
                       </div>
                       <div className="flex items-center gap-2">
                         {unavailable ? (
-                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-2xs font-bold text-slate-500">
                             {t("paymentDisabledTag")}
                           </span>
                         ) : (
                           item.recommended && (
-                            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-900">
+                            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-2xs font-bold uppercase text-amber-900">
                               {t("paymentRecommended")}
                             </span>
                           )

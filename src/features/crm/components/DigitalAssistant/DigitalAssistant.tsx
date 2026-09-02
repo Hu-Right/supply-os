@@ -175,7 +175,7 @@ export function DigitalAssistant({
                   <p className="text-sm font-bold">{config.title}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className={`w-2 h-2 rounded-full ${config.statusDot}`} />
-                    <span className="text-[11px] text-slate-300">{config.statusText}</span>
+                    <span className="text-3xs text-slate-300">{config.statusText}</span>
                   </div>
                 </div>
               </div>
@@ -189,7 +189,7 @@ export function DigitalAssistant({
                     variant="ghost"
                     size="sm"
                     onClick={requestHumanAgent}
-                    className="text-[11px] px-3 py-1 rounded-full text-white
+                    className="text-3xs px-3 py-1 rounded-full text-white
                       border border-slate-600 hover:bg-slate-800"
                   >
                     {t("crmRequestHuman")}
@@ -202,7 +202,7 @@ export function DigitalAssistant({
                     variant="ghost"
                     size="sm"
                     onClick={endHumanSession}
-                    className="text-[11px] px-3 py-1 rounded-full text-white
+                    className="text-3xs px-3 py-1 rounded-full text-white
                       border border-slate-600 hover:bg-slate-800"
                   >
                     {t("crmEndHumanSession")}

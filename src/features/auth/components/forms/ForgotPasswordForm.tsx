@@ -58,7 +58,7 @@ export function ForgotPasswordForm({ forgot, onBack }: ForgotPasswordFormProps) 
           {forgotIdentifier.trim() && (() => {
             const detected = detectChannel(forgotIdentifier.trim());
             return (
-              <p className="text-[11px] text-slate-400">
+              <p className="text-3xs text-slate-400">
                 {detected === "sms"
                   ? (t("authForgotDetectSms") || "已识别为手机号，将通过短信验证")
                   : (t("authForgotDetectEmail") || "已识别为邮箱，将通过邮件验证（备用渠道）")}
