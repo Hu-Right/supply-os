@@ -142,7 +142,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-800 truncate">
-                {authUser ? authUser.display_name || authUser.email : t("guestLevel")}
+                {authUser ? authUser.display_name || authUser.email : t("guestLevelShort")}
               </p>
               <p className={`text-xs ${isVip ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
                 {userTierLabel}

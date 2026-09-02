@@ -3,6 +3,7 @@
   "domesticSuppliers": "مصانع OEM عالية الجودة (تصفية حسب القطاع)",
   "internationalSuppliers": "المورّدون الدوليون المسجّلون (حسب رمز UNSPSC)",
   "registerSupplierBtn": "التسجيل كمورد للمشتريات العالمية",
+  "registerSupplierBtnShort": "التسجيل",
   "supplierType": "نوع المورّد",
   "supplierTypeDomestic": "مصنع OEM محلي",
   "supplierTypeIntl": "شركة دولية / تابعة",

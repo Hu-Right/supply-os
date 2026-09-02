@@ -6,7 +6,7 @@
  * @description 订单历史 / 解锁历史的分页查询与响应映射（原 payment.routes.ts 内联逻辑下沉）。
  *              解锁历史附带缺译标题的后台补翻（与详情端点共用缓存表）。
  */
-import type { PaymentsRepo, OrderHistoryRow, UnlockHistoryRow } from "../repos/payments.repo";
+import type { PaymentHistoryRepo, OrderHistoryRow, UnlockHistoryRow } from "../repos/payment-history.repo";
 import { NOTICE_TRANSLATION_LANGS, pendingNoticeTranslations, translateNoticeViaChain } from "./translation/notice";
 
 export interface PagedHistory<T> {
@@ -83,7 +83,7 @@ function mapUnlockRow(row: UnlockHistoryRow, translatable: boolean) {
 
 /** 订单历史分页（GET /api/payment/orders） */
 export async function listOrderHistory(
-  repo: PaymentsRepo,
+  repo: PaymentHistoryRepo,
   params: { userKey: string; status: string; page: number; limit: number },
 ): Promise<PagedHistory<ReturnType<typeof mapOrderRow>>> {
   const offset = (params.page - 1) * params.limit;
@@ -101,7 +101,7 @@ export async function listOrderHistory(
  * noticeId:lang 去重，翻译链全不可用时静默跳过）。
  */
 export async function listUnlockHistory(
-  repo: PaymentsRepo,
+  repo: PaymentHistoryRepo,
   params: { userKey: string; lang: string; page: number; limit: number },
 ): Promise<PagedHistory<ReturnType<typeof mapUnlockRow>>> {
   const offset = (params.page - 1) * params.limit;
@@ -115,7 +115,7 @@ export async function listUnlockHistory(
   return { total, page: params.page, limit: params.limit, list: rows.map((row) => mapUnlockRow(row, translatable)) };
 }
 
-async function backfillUnlockTranslations(repo: PaymentsRepo, rows: UnlockHistoryRow[], lang: string): Promise<void> {
+async function backfillUnlockTranslations(repo: PaymentHistoryRepo, rows: UnlockHistoryRow[], lang: string): Promise<void> {
   for (const row of rows) {
     if (!row.notice_id || row.title_i18n || !String(row.title || "").trim()) continue;
     const pendingKey = `${row.notice_id}:${lang}`;

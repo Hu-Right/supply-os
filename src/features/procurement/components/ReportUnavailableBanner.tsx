@@ -16,7 +16,7 @@ import { useState, useCallback } from "react";
 import { Crown, MessageCircle, X, FileX } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import WechatQRModal from "@/features/training/components/WechatQRModal";
+import { WechatQRModal } from "@/shared/ui";
 
 // ── sessionStorage 去重工具 ──
 const DISMISSED_KEY = "report_unavailable_dismissed";

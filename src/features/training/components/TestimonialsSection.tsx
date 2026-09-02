@@ -3,22 +3,23 @@
  * Testimonials section
  *
  * @module features/training/components/TestimonialsSection
+ * @description 数据已改为前端静态写死，避免数据库查询影响体验。
  */
 import { Quote } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
-import type { LandingTestimonial } from "../api";
+import { TESTIMONIALS } from "@/data/training-testimonials";
 
-export function TestimonialsSection({ testimonials }: { testimonials: LandingTestimonial[] }) {
+export function TestimonialsSection() {
   const { t, locale } = useLocale();
-  if (testimonials.length === 0) return null;
+  if (TESTIMONIALS.length === 0) return null;
 
   return (
     <section id="testimonials" className="bg-[#F5F8FB]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlTestTitle")} />
         <div className="grid md:grid-cols-3 gap-6">
-          {testimonials.map((item) => (
+          {TESTIMONIALS.map((item) => (
             <div key={item.id} className="rounded-lg border border-[#E5EBF3] bg-white p-7 shadow-[0_4px_16px_rgba(10,42,85,0.06)] flex flex-col">
               <Quote className="w-8 h-8 text-[#0CAF8C]" fill="currentColor" />
               <p className="mt-4 flex-1 text-sm leading-relaxed text-[#0A2A55]">

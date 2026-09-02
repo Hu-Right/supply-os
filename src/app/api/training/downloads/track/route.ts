@@ -17,12 +17,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
   }
   const materialId = String(body.material_id || "").trim().slice(0, 60);
   const fileName = String(body.file_name || "").trim().slice(0, 120);
   if (!materialId) {
-    return NextResponse.json({ code: 40000, message: "material_id is required" }, { status: 400 });
+    return NextResponse.json({ code: 40000, message: "缺少资料 ID" }, { status: 400 });
   }
 
   const ctx = getContext();

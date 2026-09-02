@@ -4,7 +4,7 @@
   "procurement_recommendedBanner": "Smart recommendations based on your interests",
   "procurement_back": "Back to notices",
   "procurement_poolTitle": "International Public Procurement Leads",
-  "procurement_poolDesc": "Filter public procurement notices by UNSPSC. Logged-in users can view {count} details for free.",
+  "procurement_poolDesc": "Filter public procurement notices by UNSPSC.",
   "procurement_total": "Total",
   "procurement_items": "items",
   "procurement_freeTrial": "Free quota",

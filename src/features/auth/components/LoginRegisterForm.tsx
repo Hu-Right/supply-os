@@ -19,14 +19,16 @@ import { SegmentedControl } from "@/shared/ui";
 
 export interface LoginRegisterFormProps {
   onSuccess: () => void;
+  /** 初始模式（默认登录）；扫码推广场景传 register */
+  initialMode?: "login" | "register";
 }
 
-export function LoginRegisterForm({ onSuccess }: LoginRegisterFormProps) {
+export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormProps) {
   const { t } = useLocale();
   const [forgotView, setForgotView] = useState(false);
   const [qualificationData, setQualificationData] = useState<Record<string, string | string[]> | null>(null);
 
-  const auth = useAuthForm(onSuccess);
+  const auth = useAuthForm(onSuccess, initialMode);
   const forgot = useForgotPassword(onSuccess);
   const registerCode = useRegisterCode();
   const cascade = useUnspscPrefCascade();

@@ -38,13 +38,13 @@ export function useRegisterCode() {
         { method: "POST", body: { phone } },
       );
       if (!data.sms_sent) {
-        setRegisterCodeError("短信发送失败");
+        setRegisterCodeError(t("authSmsSendFailed") || "短信发送失败");
       } else {
         setRegisterCodeSent(true);
         setRegisterCodeCountdown(60);
       }
     } catch (err: unknown) {
-      setRegisterCodeError((err as Error).message || "发送失败，请稍后重试");
+      setRegisterCodeError((err as Error).message || (t("authSmsSendFailed") || "发送失败，请稍后重试"));
     } finally {
       setRegisterCodeLoading(false);
     }

@@ -156,6 +156,17 @@ export function RegisterForm({
         />
       )}
 
+      {/* 姓名（必填） */}
+      <div className="space-y-1">
+        <Input
+          type="text"
+          value={authForm.displayName}
+          onChange={(e) => setAuthForm({ ...authForm, displayName: e.target.value })}
+          placeholder={t("authDisplayNamePlaceholder") || "请输入您的姓名"}
+          autoComplete="name"
+        />
+      </div>
+
       {/* 手机号 */}
       <div className="space-y-1">
         <Input
@@ -223,11 +234,7 @@ export function RegisterForm({
             <span>✓</span> {t("authInvitationCodeAutoFilled") || "邀请码已由推荐链接自动填入"}
           </p>
         )}
-        {!authForm.invitationCode && (
-          <p className="text-xs text-slate-400 mt-1">
-            {t("authInvitationCodeOptional") || "选填，如有邀请码或推荐链接请填写"}
-          </p>
-        )}
+
       </div>
 
       {authError && (

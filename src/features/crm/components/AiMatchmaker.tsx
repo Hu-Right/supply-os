@@ -60,8 +60,8 @@ export function AiMatchmaker({
       </div>
 
       <div className="space-y-3 bg-slate-800/80 p-3.5 rounded-xl border border-slate-700 text-xs">
-        <div className="flex justify-between items-center">
-          <span className="text-slate-400">1. {labels.selectSupplier}</span>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <span className="text-slate-400 shrink-0">1. {labels.selectSupplier}</span>
           <Select
             value={selectedSupplier ? selectedSupplier.id : ""}
             onChange={(e) => {
@@ -78,8 +78,8 @@ export function AiMatchmaker({
           </Select>
         </div>
 
-        <div className="flex justify-between items-center">
-          <span className="text-slate-400">2. {labels.selectOpportunity}</span>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <span className="text-slate-400 shrink-0">2. {labels.selectOpportunity}</span>
           <Select
             value={selectedOpportunity ? selectedOpportunity.id : ""}
             onChange={(e) => {

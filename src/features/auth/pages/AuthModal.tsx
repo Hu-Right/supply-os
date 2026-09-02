@@ -17,9 +17,11 @@ import { LoginRegisterForm } from "../components/LoginRegisterForm";
 
 type AuthModalProps = {
   onClose: () => void;
+  /** 初始模式：扫码推广场景直接落在注册 Tab */
+  initialMode?: "login" | "register";
 };
 
-export function AuthModal({ onClose }: AuthModalProps) {
+export function AuthModal({ onClose, initialMode }: AuthModalProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
 
@@ -45,7 +47,7 @@ export function AuthModal({ onClose }: AuthModalProps) {
       {authUser ? (
         <AccountPanel onClose={onClose} />
       ) : (
-        <LoginRegisterForm onSuccess={onClose} />
+        <LoginRegisterForm onSuccess={onClose} initialMode={initialMode} />
       )}
     </FormModal>
   );

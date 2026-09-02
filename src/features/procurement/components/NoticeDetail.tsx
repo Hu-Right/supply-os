@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth } from "@/core/auth";
-import type { NoticeItem, MembershipStatus } from "../types";
+import type { NoticeItem, NoticeDetailItem, MembershipStatus } from "../types";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
 import { collectBreakdownFiles } from "./NoticeUnlockedDetails";
@@ -15,11 +15,9 @@ import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface NoticeDetailProps {
-  notice: NoticeItem;
+  notice: NoticeDetailItem;
   actionMessage: string;
   membership: MembershipStatus | null;
-  freeRemaining: number;
-  freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
   /** 总可用解锁次数 */
@@ -38,8 +36,6 @@ export function NoticeDetail({
   notice,
   actionMessage,
   membership,
-  freeRemaining,
-  freeQuota,
   canUsePaidQuota,
   isVip,
   totalRemaining,
@@ -141,7 +137,7 @@ export function NoticeDetail({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               {[
                 [t("procurement_metaNo"), notice.reference || notice.notice_id || "-"],
                 [t("procurement_agency"), visibleAgency],
@@ -208,8 +204,6 @@ export function NoticeDetail({
           <NoticeDetailSidebar
             notice={notice}
             membership={membership}
-            freeRemaining={freeRemaining}
-            freeQuota={freeQuota}
             canUsePaidQuota={canUsePaidQuota}
             isVip={isVip}
             totalRemaining={totalRemaining}

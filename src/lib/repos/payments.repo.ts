@@ -6,48 +6,24 @@
  * Payments Repository
  *
  * @module repos/payments.repo
+ * @description ARCH-P4b（2026-09-01）：查询视图方法（countOrders/listOrders/
+ *              countUnlocks/listUnlocks/upsertNoticeTranslation）已拆至
+ *              payment-history.repo.ts。本 Repo 聚焦订单 CRUD + 履约事务。
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { MembershipPlanRow, PaymentOrderRow } from "./types";
 
-/** 订单历史查询行（订单 LEFT JOIN 公告，供列表映射） */
-export interface OrderHistoryRow extends PaymentOrderRow {
-  external_notice_id: string | null;
-  source_channel: string | null;
-  reference: string | null;
-  title: string | null;
-  notice_type: string | null;
-  agency: string | null;
-  agency_full: string | null;
-  country: string | null;
-  deadline: string | null;
-  urgency: string | null;
-  url: string | null;
-  industry: string | null;
-}
+// 向后兼容：历史查询类型 re-export（新代码应从 payment-history.repo 导入）
+export type { OrderHistoryRow, UnlockHistoryRow } from "./payment-history.repo";
 
-/** 解锁历史查询行（解锁 LEFT JOIN 公告 [+ 译文]，供列表映射与后台补翻） */
-export interface UnlockHistoryRow {
-  user_key: string;
-  notice_id: number | null;
-  unlock_type: string;
-  price: number;
-  unlocked_at: Date;
-  external_notice_id: string | null;
-  source_channel: string | null;
-  reference: string | null;
-  title: string | null;
-  title_i18n?: string | null;
-  notice_type: string | null;
-  agency: string | null;
-  agency_full: string | null;
-  country: string | null;
-  deadline: string | null;
-  deadline_ts: number | null;
-  urgency: string | null;
-  url: string | null;
-  industry: string | null;
-  description?: string | null;
+/** 支付渠道配置行（config-status 展示用） */
+export interface PaymentProviderConfigRow {
+  provider: string;
+  mode: string;
+  app_id: string | null;
+  merchant_id: string | null;
+  notify_url: string | null;
+  is_active: number;
 }
 
 export class PaymentsRepo {
@@ -141,106 +117,6 @@ export class PaymentsRepo {
     );
   }
 
-  /** 订单历史总数（可选状态过滤） */
-  async countOrders(userKey: string, status: string): Promise<number> {
-    const params: any[] = [userKey];
-    let where = "WHERE o.user_key = ?";
-    if (status) {
-      where += " AND o.status = ?";
-      params.push(status);
-    }
-    const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS total
-       FROM crm_payment_orders o
-       ${where}`,
-      params,
-    );
-    return Number((rows as RowDataPacket[])[0]?.total || 0);
-  }
-
-  /** 订单历史分页（订单 LEFT JOIN 公告摘要） */
-  async listOrders(userKey: string, status: string, limit: number, offset: number): Promise<OrderHistoryRow[]> {
-    const params: any[] = [userKey];
-    let where = "WHERE o.user_key = ?";
-    if (status) {
-      where += " AND o.status = ?";
-      params.push(status);
-    }
-    params.push(limit, offset);
-    const [rows] = await this.pool.query(
-      `SELECT
-         o.order_no, o.user_key, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
-         o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
-         n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-         n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
-       FROM crm_payment_orders o
-       LEFT JOIN crm_bid_notices n ON n.id = o.notice_id
-       ${where}
-       ORDER BY o.id DESC
-       LIMIT ? OFFSET ?`,
-      params,
-    );
-    return rows as OrderHistoryRow[];
-  }
-
-  /** 解锁历史总数（仅公告解锁） */
-  async countUnlocks(userKey: string): Promise<number> {
-    const [rows] = await this.pool.query(
-      `SELECT COUNT(*) AS total
-       FROM crm_opportunity_unlocks u
-       WHERE u.user_key = ? AND u.notice_id IS NOT NULL`,
-      [userKey],
-    );
-    return Number((rows as RowDataPacket[])[0]?.total || 0);
-  }
-
-  /**
-   * 解锁历史分页（解锁 LEFT JOIN 公告 [+ 译文]）。
-   * withTranslation 为 true 时多取 n.description（仅供后台补翻用，不返回）与缓存译文标题。
-   */
-  async listUnlocks(
-    userKey: string,
-    limit: number,
-    offset: number,
-    withTranslation: { lang: string } | null,
-  ): Promise<UnlockHistoryRow[]> {
-    const [rows] = await this.pool.query(
-      withTranslation
-        ? `SELECT
-             u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
-             n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry,
-             n.description, tr.title_tr AS title_i18n
-           FROM crm_opportunity_unlocks u
-           LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
-           LEFT JOIN crm_notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
-           WHERE u.user_key = ? AND u.notice_id IS NOT NULL
-           ORDER BY u.id DESC
-           LIMIT ? OFFSET ?`
-        : `SELECT
-             u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
-             n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
-             n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry
-           FROM crm_opportunity_unlocks u
-           LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
-           WHERE u.user_key = ? AND u.notice_id IS NOT NULL
-           ORDER BY u.id DESC
-           LIMIT ? OFFSET ?`,
-      withTranslation ? [withTranslation.lang, userKey, limit, offset] : [userKey, limit, offset],
-    );
-    return rows as UnlockHistoryRow[];
-  }
-
-  /** 公告译文缓存 upsert（后台补翻落库） */
-  async upsertNoticeTranslation(noticeId: number, lang: string, titleTr: string, descriptionTr: string, model: string): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO crm_notice_translations (notice_id, lang, title_tr, description_tr, model)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), description_tr = VALUES(description_tr), model = VALUES(model)`,
-      [noticeId, lang, titleTr, descriptionTr, model],
-    );
-  }
-
   /** 创建用户订阅（days 为 null 时不过期） */
   async createSubscription(userKey: string, planCode: string, days: number | null): Promise<void> {
     await this.pool.execute(
@@ -294,14 +170,14 @@ export class PaymentsRepo {
   }
 
   /** 查询活跃支付渠道配置（config-status 展示用） */
-  async listActiveProviderConfigs(): Promise<any[]> {
+  async listActiveProviderConfigs(): Promise<PaymentProviderConfigRow[]> {
     const [rows] = await this.pool.query(
       `SELECT provider, mode, app_id, merchant_id, notify_url, is_active
        FROM crm_payment_provider_configs
        WHERE is_active = 1
        ORDER BY provider, id DESC`,
     );
-    return rows as RowDataPacket[];
+    return rows as PaymentProviderConfigRow[];
   }
 
   // ── 事务支持方法（接受 PoolConnection 用于 activatePaidOrder 事务）──
@@ -473,7 +349,7 @@ export class PaymentsRepo {
        FOR UPDATE`,
       [userKey, targetPlanCode],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] as { id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } ?? null;
   }
 
   /** 事务内查询用户可升级的活跃订阅（最新一条非目标套餐的活跃订阅） */
@@ -489,7 +365,7 @@ export class PaymentsRepo {
        ORDER BY id DESC LIMIT 1`,
       [userKey, targetPlanCode],
     );
-    return (rows as any[])[0] ?? null;
+    return (rows as RowDataPacket[])[0] as { id: number } ?? null;
   }
 
   /** 查询订单金额（回调金额校验用） */
@@ -503,8 +379,12 @@ export class PaymentsRepo {
   }
 
   /**
-   * 首单特惠资格（single_99，2026-08-30）：用户是否从未购买过任何单次解锁。
-   * pending 也计入——只查 paid 会被"先开单不付款再开第二单"绕过。
+   * 首单特惠资格检查：用户是否从未购买过任何单次解锁（single_* 系列）。
+   *
+   * 业务规则（产品决策 2026-08-30）：
+   * - 匹配所有 single_* 套餐（不限 single_99）
+   * - pending 也计入——防止"先开单不付款再开第二单"绕过首单限制
+   * - 用于首单特惠资格判定和前端套餐列表展示
    */
   async hasSingleUnlockRecord(userKey: string): Promise<boolean> {
     const [rows] = await this.pool.query(
@@ -515,10 +395,13 @@ export class PaymentsRepo {
   }
 
   /**
-   * 可抵扣的 single_99 源订单（2026-08-30 产品决策）：
-   * - 已支付且 paid_at 在 7 天内
+   * 可抵扣的 single_99 源订单查找（首单特惠抵扣逻辑）。
+   *
+   * 业务规则（产品决策 2026-08-30）：
+   * - 仅限 single_99 套餐（single_199 历史买家不参与抵扣）
+   * - 已支付且 paid_at 在 7 天内（抵扣窗口期）
    * - 未被任何非 closed 订单通过 original_order_no 引用过（一单只能抵扣一次）
-   * - 历史 single_199 买家不参与抵扣（决策 1：仅 single_99 作为漏斗钩子）
+   * - 用于首单特惠升级时的金额抵扣计算
    */
   async findDeductibleSingleOrder(userKey: string): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
     const [rows] = await this.pool.query(
@@ -538,55 +421,5 @@ export class PaymentsRepo {
     return row
       ? { order_no: row.order_no as string, amount: Number(row.amount || 0), paid_at: row.paid_at as Date }
       : null;
-  }
-
-  /** 授予单条公告解锁（含幂等检查 + UNSPSC 快照 + 兴趣记录） */
-  async grantSingleNoticeUnlock(conn: PoolConnection, params: {
-    userKey: string; noticeId: number; amount: number;
-  }): Promise<void> {
-    // 幂等检查
-    const [existingRows] = await conn.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND notice_id = ? LIMIT 1",
-      [params.userKey, params.noticeId],
-    );
-    if ((existingRows as RowDataPacket[]).length > 0) return;
-
-    // 查询公告 UNSPSC 快照
-    const [noticeRows] = await conn.query(
-      "SELECT id, unspsc_codes FROM crm_bid_notices WHERE id = ? LIMIT 1",
-      [params.noticeId],
-    );
-    const notice = (noticeRows as RowDataPacket[])[0];
-    if (!notice) return;
-
-    const unspscSnapshot = normalizeJsonArray(notice.unspsc_codes);
-
-    // 写入解锁记录
-    await conn.execute(
-      `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'single', ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.noticeId, params.amount, JSON.stringify(unspscSnapshot)],
-    );
-
-    // 写入兴趣记录
-    await conn.execute(
-      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
-      [params.userKey, params.userKey, params.noticeId],
-    );
-  }
-}
-
-/** 将值安全转为 JSON 数组 */
-function normalizeJsonArray(value: any): any[] {
-  if (Array.isArray(value)) return value;
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(String(value));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
   }
 }

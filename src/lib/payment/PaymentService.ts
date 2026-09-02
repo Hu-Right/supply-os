@@ -9,12 +9,12 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
-import type { LearningMaterialsRepo } from "../repos/learning-materials.repo";
-import { findLearningBundle } from "../data/learning-bundles";
 import { MockProvider } from "./MockProvider";
 import { AlipayProvider } from "./AlipayProvider";
 import { WechatProvider } from "./WechatProvider";
-import { activatePaidOrder, reverseFulfilledOrder } from "./fulfillment";
+import { activatePaidOrder } from "./fulfillment";
+import { reverseFulfilledOrder } from "./reverse";
+import { fulfillMockPayment } from "./mock";
 import { isParseablePrivateKey } from "./keys";
 import { SITE_URL } from "../services/seo/site";
 
@@ -39,8 +39,15 @@ export class PaymentService {
   constructor(
     private paymentsRepo?: PaymentsRepo,
     private membershipRepo?: MembershipRepo,
-    private learningMaterialsRepo?: LearningMaterialsRepo,
   ) {}
+
+  /** 获取 paymentsRepo（未初始化时抛出明确错误） */
+  private get repo(): PaymentsRepo {
+    if (!this.paymentsRepo) {
+      throw new Error("PaymentService: paymentsRepo is required for this operation");
+    }
+    return this.paymentsRepo;
+  }
 
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
@@ -74,27 +81,15 @@ export class PaymentService {
     let planName = planCode;
     let currency = "CNY";
     let originalOrderNo: string | null = null;
-    let bundleItems: string[] | null = null;
     let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
     let deductionSnapshot: { source_order_no: string; source_amount: number; base_price: number } | null = null;
 
+    // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
+    // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
     if (isLearningOrder) {
-      if (planCode.startsWith("material_")) {
-        const materialId = planCode.slice("material_".length);
-        const material = await this.learningMaterialsRepo?.findByMaterialId(materialId);
-        if (!material) throw new Error("MATERIAL_NOT_FOUND");
-        amount = Number(material.price);
-        planName = material.title_zh || material.title_en || planCode;
-      } else {
-        const bundle = findLearningBundle(planCode.slice("bundle_".length));
-        if (!bundle) throw new Error("BUNDLE_NOT_FOUND");
-        amount = bundle.price;
-        planName = bundle.labelZh;
-        bundleItems = [...bundle.includesIds];
-      }
-      if (amount <= 0) throw new Error("INVALID_AMOUNT");
+      throw new Error("LEARNING_ORDERS_DELEGATED");
     } else {
-      const plan = await this.paymentsRepo!.findActivePlan(planCode);
+      const plan = await this.repo.findActivePlan(planCode);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
       amount = Number(plan.price);
       planName = String(plan.name || planCode);
@@ -103,7 +98,7 @@ export class PaymentService {
       // ── 首单特惠资格（single_99，2026-08-30）──
       // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
       if (planCode === "single_99") {
-        const hasRecord = await this.paymentsRepo!.hasSingleUnlockRecord(userKey);
+        const hasRecord = await this.repo.hasSingleUnlockRecord(userKey);
         if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
       }
 
@@ -134,7 +129,7 @@ export class PaymentService {
       // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
       // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
       if (planCode === "annual_799" && orderType === "new") {
-        const source = await this.paymentsRepo!.findDeductibleSingleOrder(userKey);
+        const source = await this.repo.findDeductibleSingleOrder(userKey);
         if (source && source.amount > 0) {
           amount = Math.max(0, amount - source.amount);
           originalOrderNo = source.order_no;
@@ -151,9 +146,9 @@ export class PaymentService {
     // annual_799 抵扣单同理（抵扣窗口/资格在下单时判定，复用旧 pending 会把
     // 带抵扣与不带抵扣的单据互相覆盖）；single_99 首单资格同样按当次判定
     const isPromotionalOrder = planCode === "annual_799" || planCode === "single_99";
-    const existingOrder = orderType === "upgrade" || isLearningOrder || isPromotionalOrder
+    const existingOrder = orderType === "upgrade" || isPromotionalOrder
       ? null
-      : await this.paymentsRepo!.findPendingOrder({
+      : await this.repo.findPendingOrder({
           userKey, planCode, provider, noticeId,
         });
 
@@ -179,13 +174,12 @@ export class PaymentService {
       user_key: userKey,
       notice_id: noticeId,
       amount,
-      ...(bundleItems ? { bundle_items: bundleItems } : {}),
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
       ...(deductionSnapshot ? { deduction: deductionSnapshot } : {}),
     });
 
     if (existingOrder) {
-      await this.paymentsRepo!.updatePendingOrder(orderNo, {
+      await this.repo.updatePendingOrder(orderNo, {
         amount,
         currency,
         payUrl: pay_url,
@@ -193,7 +187,7 @@ export class PaymentService {
         rawRequest: rawRequestPayload,
       });
     } else {
-      await this.paymentsRepo!.createOrder({
+      await this.repo.createOrder({
         userKey,
         orderNo,
         provider,
@@ -223,7 +217,7 @@ export class PaymentService {
   }
 
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
-    const dbOrder = await this.paymentsRepo!.findByOrderNo(orderNo);
+    const dbOrder = await this.repo.findByOrderNo(orderNo);
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
 
     if (dbOrder.status === "pending" && dbOrder.provider) {
@@ -284,7 +278,7 @@ export class PaymentService {
       if (!verifyResult.order_no) {
         return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
       }
-      const refundResult = await reverseFulfilledOrder(this.paymentsRepo!, verifyResult.order_no);
+      const refundResult = await reverseFulfilledOrder(this.repo, verifyResult.order_no);
       if (!refundResult.found) {
         return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
       }
@@ -309,7 +303,7 @@ export class PaymentService {
       return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_INVALID" };
     }
     {
-      const dbOrder = await this.paymentsRepo!.findOrderAmount(verifyResult.order_no);
+      const dbOrder = await this.repo.findOrderAmount(verifyResult.order_no);
       if (!dbOrder) {
         // 未知订单拒绝：跨环境误投/伪造 order_no 不再静默放行（原实现跳过校验并回 success，
         // 导致平台停止重试、通知永久丢失）
@@ -331,7 +325,7 @@ export class PaymentService {
 
   /** 激活已支付订单（委托至 fulfillment 模块） */
   private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
-    return activatePaidOrder(this.paymentsRepo!, orderNo, providerTradeNo);
+    return activatePaidOrder(this.repo, orderNo, providerTradeNo);
   }
 
   private makeOrderNo(): string {
@@ -357,8 +351,18 @@ export class PaymentService {
     return `${url}${url.includes("?") ? "&" : "?"}${query}`;
   }
 
-  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo, learningMaterialsRepo?: LearningMaterialsRepo): PaymentService {
-    const service = new PaymentService(paymentsRepo, membershipRepo, learningMaterialsRepo);
+  /**
+   * Mock 支付履约（会员订单）
+   * ARCH-B+（2026-09-01）：供 Orchestrator 路由调用
+   */
+  async fulfillMockMembershipOrder(orderNo: string, userKey: string, rawNotify: string): Promise<boolean> {
+    if (!this.paymentsRepo || !this.membershipRepo) return false;
+    const { found } = await fulfillMockPayment(this.paymentsRepo, this.membershipRepo, { orderNo, rawNotify });
+    return found;
+  }
+
+  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
+    const service = new PaymentService(paymentsRepo, membershipRepo);
     service.registerStrategy("mock", new MockProvider());
 
     if (paymentMode === "live") {

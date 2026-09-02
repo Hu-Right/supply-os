@@ -90,7 +90,7 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
 
       {/* ── 移动端：底部水平导航栏 ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#001636]/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#001636]/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)] pb-[env(safe-area-inset-bottom)]"
         aria-label={t("navPageNav")}
       >
         <div className="flex items-center justify-around px-1 py-1.5">

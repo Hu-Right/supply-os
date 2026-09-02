@@ -2,14 +2,16 @@
  * 企业微信二维码弹窗（黄框）
  * WeChat Work QR Code Modal (amber border)
  *
- * @module features/training/components/WechatQRModal
- * @description 展示企业微信客服二维码，引导用户扫码咨询课程顾问。
+ * @module shared/ui/WechatQRModal
+ * @description 展示企业微信客服二维码，引导用户扫码咨询。
+ *              ARCH-P1a（2026-08-31）：从 features/training/components 迁至 shared/ui，
+ *              消除 procurement → training 跨 feature 依赖。
  */
 
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
 import { useLocale } from "@/core/i18n";
-import { Modal } from "@/shared/ui";
+import { Modal } from "./Modal";
 
 export interface WechatQRModalProps {
   onClose: () => void;

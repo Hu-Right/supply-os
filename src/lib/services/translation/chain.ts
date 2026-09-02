@@ -16,6 +16,16 @@ export type ChainResult = {
   degradedFrom?: string[];
 };
 
+/** 翻译链错误：携带降级轨迹信息 */
+export class TranslationError extends Error {
+  degradedFrom?: string[];
+  constructor(message: string, degradedFrom?: string[]) {
+    super(message);
+    this.name = "TranslationError";
+    this.degradedFrom = degradedFrom;
+  }
+}
+
 // 链路通用的语言全名映射（供 LLM 通道拼 prompt 用；源语言覆盖本地可检测的语种，目标含六语言）
 const CHAIN_LANG_NAMES: Record<string, string> = {
   zh: "Simplified Chinese",
@@ -218,15 +228,15 @@ async function translateViaDeepSeek(
   if (!circuitBreakerAllow()) {
     throw new Error("DEEPSEEK_CIRCUIT_BREAKER_OPEN");
   }
-  let lastErr: any;
+  let lastErr: unknown;
   for (let attempt = 0; attempt <= DEEPSEEK_MAX_RETRIES; attempt++) {
     try {
       const result = await translateViaDeepSeekOnce(texts, sourceLang, targetLang);
       circuitBreakerRecordSuccess();
       return result;
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastErr = err;
-      const errMsg = err?.message || "";
+      const errMsg = err instanceof Error ? err.message : String(err);
       if (attempt < DEEPSEEK_MAX_RETRIES && isDeepSeekRetryable(errMsg)) {
         const delayMs = DEEPSEEK_RETRY_BASE_MS * Math.pow(2, attempt);
         console.warn(`[translate] deepseek retry ${attempt + 1}/${DEEPSEEK_MAX_RETRIES} after ${delayMs}ms: ${errMsg}`);
@@ -287,11 +297,10 @@ export async function translateViaChain(
       translations: assemble(translated),
       provider: "deepseek-v4-flash",
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     // DeepSeek 失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
-    const chainErr = new Error("TRANSLATION_UNAVAILABLE");
-    (chainErr as any).degradedFrom = [`deepseek-v4-flash:${err?.message}`];
-    console.warn(`[translate] deepseek unavailable: ${err?.message}`);
-    throw chainErr;
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`[translate] deepseek unavailable: ${errMsg}`);
+    throw new TranslationError("TRANSLATION_UNAVAILABLE", [`deepseek-v4-flash:${errMsg}`]);
   }
 }

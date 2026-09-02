@@ -3,6 +3,7 @@
   "domesticSuppliers": "Usines OEM de qualité (filtre par secteur)",
   "internationalSuppliers": "Fournisseurs internationaux enregistrés (par code UNSPSC)",
   "registerSupplierBtn": "S'inscrire comme fournisseur d'achat mondial",
+  "registerSupplierBtnShort": "S'inscrire",
   "supplierType": "Type de fournisseur",
   "supplierTypeDomestic": "Usine OEM nationale",
   "supplierTypeIntl": "International / Filiale",

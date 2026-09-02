@@ -8,7 +8,7 @@
  */
 
 import type { ServiceItem } from "../types";
-import { Button } from "@/shared/ui";
+import { Button, Card } from "@/shared/ui";
 
 export interface ServiceCardProps {
   service: ServiceItem;
@@ -20,7 +20,7 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
   const Icon = service.icon;
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 transition-all hover:border-teal-500 hover:shadow-xs">
+    <Card interactive className="flex flex-col justify-between rounded-2xl p-5">
       <div>
         <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 font-bold text-teal-600">
           <Icon className="h-5 w-5" />
@@ -56,7 +56,7 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
       >
         {bookLabel}
       </Button>
-    </div>
+    </Card>
   );
 }
 

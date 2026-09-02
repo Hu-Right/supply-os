@@ -28,13 +28,14 @@ export async function GET(
 
   const url = req.nextUrl;
   const ctx = getContext();
-  const { paymentsRepo, paymentService } = ctx.payment;
+  const { orchestrator } = ctx.payment;
 
-  const order = await paymentsRepo.findByOrderNo(decodedOrderNo);
+  // ARCH-B+（2026-09-01）：通过 Orchestrator 按订单号前缀路由查询
+  const order = await orchestrator.findOrder(decodedOrderNo);
   if (!order) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
   if (order.user_key !== auth.userKey) return sendError("无权操作", 403, ApiErrorCode.FORBIDDEN);
 
   const tradeNo = url.searchParams.get("trade_no") || "";
-  const result = await paymentService.queryOrder(decodedOrderNo, tradeNo);
+  const result = await orchestrator.queryOrder(decodedOrderNo, tradeNo);
   return NextResponse.json(result);
 }

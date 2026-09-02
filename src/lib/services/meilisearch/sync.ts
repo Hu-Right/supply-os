@@ -170,7 +170,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
         [lastId, BATCH]
       );
 
-      const docs = (rows as any[]).map((r) => buildSyncDocFromWideTable(r));
+      const docs = (rows as RowDataPacket[]).map((r) => buildSyncDocFromWideTable(r));
       if (docs.length === 0) break;
 
       // addDocumentsInBatches 返回 Promise 数组，需 Promise.all 正确等待全部入队
@@ -283,14 +283,14 @@ export async function incrementalSync(
         " WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE) ORDER BY id ASC LIMIT 2000",
         []
       );
-      updatedRaw = updatedRows as any[];
+      updatedRaw = updatedRows as RowDataPacket[];
     } catch {
       // updated_at 列可能不存在
     }
 
     // 合并去重
     const rawMap = new Map<number, any>();
-    for (const r of newRows as any[]) rawMap.set(r.id, r);
+    for (const r of newRows as RowDataPacket[]) rawMap.set(r.id, r);
     for (const r of updatedRaw) rawMap.set(r.id, r);
 
     const allRaw = Array.from(rawMap.values()).sort((a, b) => a.id - b.id);
@@ -403,14 +403,14 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 
       // 构建主表状态映射
       const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
-      for (const row of (statusRows[0] as any[])) {
+      for (const row of (statusRows[0] as RowDataPacket[])) {
         statusMap.set(Number(row.id), {
           is_featured: row.is_featured ? 1 : 0,
           deadline_sec: Number(row.deadline_sec) || 0,
         });
       }
 
-      const docs = (wideRows[0] as any[]).map((r) => {
+      const docs = (wideRows[0] as RowDataPacket[]).map((r) => {
         const doc = buildSyncDocFromWideTable(r);
         // 用主表的权威值覆盖宽表值（修复宽表 deadline_sec 不一致问题）
         const status = statusMap.get(doc.id);
@@ -428,7 +428,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       }
 
       // ── 索引残留清理：宽表与主表均不存在的 ID → 删除 Meilisearch 文档 ──
-      const wideIdSet = new Set((wideRows[0] as any[]).map((r) => Number(r.id)));
+      const wideIdSet = new Set((wideRows[0] as RowDataPacket[]).map((r) => Number(r.id)));
       const ghostBatchIds = batch.filter((id) => !wideIdSet.has(id) && !statusMap.has(id));
       if (ghostBatchIds.length > 0) {
         await client.index(INDEX_NAME).deleteDocuments(ghostBatchIds);

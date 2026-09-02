@@ -9,7 +9,7 @@
 
 import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, Card, Badge } from "@/shared/ui";
 import type { Supplier } from "@/types";
 
 export interface SupplierCardProps {
@@ -22,26 +22,27 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
   const { t, locale } = useLocale();
 
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 hover:border-indigo-400-shadow-xs hover:shadow-xs">
+    <Card interactive className="flex flex-col justify-between rounded-2xl p-5">
       <div>
         {/* Header line with tag */}
         <div className="mb-3 flex items-start justify-between">
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${supplier.type === "domestic"
-                ? "border border-teal-200 bg-teal-50 text-teal-700"
-                : "border border-indigo-200 bg-indigo-50 text-indigo-700"
-              }`}
+          <Badge
+            shape="pill"
+            className={supplier.type === "domestic"
+              ? "border border-teal-200 bg-teal-50 text-teal-700 text-[10px] font-bold"
+              : "border border-indigo-200 bg-indigo-50 text-indigo-700 text-[10px] font-bold"
+            }
           >
             {supplier.type === "domestic" ? t("supplierTypeDomestic") : t("supplierTypeIntl")}
-          </span>
+          </Badge>
           {supplier.status === "pending" ? (
-            <span className="animate-pulse rounded bg-amber-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-700">
+            <Badge pulsate shape="pill" className="bg-amber-50 text-amber-700 text-[10px] font-bold uppercase">
               {t("supplierStatusPending")}
-            </span>
+            </Badge>
           ) : (
-            <span className="rounded bg-teal-50 px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-teal-800">
+            <Badge variant="success" shape="pill" className="text-[10px] font-bold uppercase">
               {t("supplierStatusVerified")}
-            </span>
+            </Badge>
           )}
         </div>
 
@@ -122,7 +123,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
           {t("supplierContactBtn")}
         </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 

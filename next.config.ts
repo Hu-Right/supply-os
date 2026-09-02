@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   // Turbopack 原生支持 Node.js builtins，无需 webpack 的 fallback/alias 配置
   turbopack: {},
   // Next.js 16 安全策略：允许局域网 IP 访问 dev 资源（解决 403 + WebSocket HMR 失败）
-  allowedDevOrigins: ["172.16.2.206"],
+  allowedDevOrigins: ["172.16.2.206", "192.168.1.24"],
   serverExternalPackages: [
     "mysql2",
     "nodejieba",

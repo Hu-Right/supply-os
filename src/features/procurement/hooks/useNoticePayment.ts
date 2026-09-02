@@ -5,23 +5,18 @@
  * @module features/procurement/hooks/useNoticePayment
  * @description 管理采购详情页内嵌多套餐付费面板的付费墙状态、订单创建、
  *              模拟支付确认与 3 秒轮询对账，成功后回调页面完成解锁。
- *              Manages the paywall state, order creation, mock-payment
- *              confirmation and 3s polling for the notice-embedded multi-plan
- *              payment panel; invokes a callback to unlock on success.
+ *              ARCH-P2（2026-09-01）：轮询基础设施委托至 usePaymentPolling SSOT。
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { fetchPaymentConfigStatus, mapPaymentError, PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS, type PaymentConfigStatus } from "@/core/payment";
-import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/features/payment";
+import { fetchPaymentConfigStatus, mapPaymentError, type PaymentConfigStatus } from "@/core/payment";
+import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/core/payment/payment-facade";
+import { usePaymentPolling } from "@/features/payment/hooks/usePaymentPolling";
 import type { NoticeItem } from "../types";
 
 /** 面板支持的支付方式（微信暂未开通，仅支付宝可用） */
 export type PanelProvider = "alipay" | "wechat";
-
-// 轮询参数统一由 core/payment/constants 管理
-const POLL_INTERVAL_MS = PAYMENT_POLL_INTERVAL_MS;
-const POLL_MAX_ATTEMPTS = PAYMENT_POLL_MAX_ATTEMPTS;
 
 export type UseNoticePaymentOptions = {
   /** 当前登录用户 key，无则触发登录 */
@@ -63,24 +58,43 @@ export function useNoticePayment({
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfigStatus | null>(null);
   // 当前详情页公告 ID：非 VIP 侧边栏常驻面板场景，paywallNotice 为 null 时的回退来源
   const [currentNoticeId, setCurrentNoticeId] = useState<number | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // 轮询轮次令牌（审查 F44）：stop 后在途的慢响应必须失效，防 onPaid 双触发
-  const pollEpochRef = useRef(0);
 
-  const stopPolling = useCallback(() => {
-    pollEpochRef.current += 1;
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
+  // ── 轮询上下文 ref（startPolling 仅接收 orderNo，额外参数通过 ref 传递）──
+  const pollPlanCodeRef = useRef("");
+  const pollNoticeIdRef = useRef<number | undefined>(undefined);
+  const onPaidRef = useRef(onPaid);
+  onPaidRef.current = onPaid;
 
-  // 组件卸载时清理轮询
-  useEffect(() => stopPolling, [stopPolling]);
+  const { startPolling: startPollingCore, stopPolling } = usePaymentPolling({
+    queryStatus: (orderNo) => getOrderStatus(orderNo),
+    onPaid: async () => {
+      setPaymentMessage(t("procurement_paidOk"));
+      const noticeId = pollNoticeIdRef.current;
+      if (noticeId) await onPaidRef.current(noticeId, pollPlanCodeRef.current);
+    },
+    onFailed: () => {
+      setPaymentMessage(t("procurement_paidFail"));
+    },
+    onTimeout: () => {
+      setPaymentMessage(t("procurement_paidFail"));
+    },
+  });
+
+  // 包装 startPolling：存储轮询上下文后启动核心轮询
+  const startPolling = useCallback(
+    (orderNo: string, planCode: string, noticeId?: number) => {
+      pollPlanCodeRef.current = planCode;
+      pollNoticeIdRef.current = noticeId;
+      startPollingCore(orderNo);
+    },
+    [startPollingCore],
+  );
 
   // 启动时获取支付通道配置状态（微信/支付宝是否已开通）
   useEffect(() => {
-    void fetchPaymentConfigStatus().then(setPaymentConfig);
+    fetchPaymentConfigStatus()
+      .then(setPaymentConfig)
+      .catch(() => setPaymentConfig(null));
   }, []);
 
   const openPaywall = useCallback((notice: NoticeItem) => {
@@ -96,38 +110,6 @@ export function useNoticePayment({
     setPaymentMessage("");
     setBusyPlanCode("");
   }, [stopPolling]);
-
-  const startPolling = useCallback(
-    (orderNo: string, planCode: string, noticeId?: number) => {
-      stopPolling();
-      const epoch = pollEpochRef.current;
-      let attempts = 0;
-      pollingRef.current = setInterval(async () => {
-        attempts += 1;
-        try {
-          const status = await getOrderStatus(orderNo);
-          // 在途响应守卫（审查 F44）：轮询已停止/重启时丢弃迟到响应
-          if (epoch !== pollEpochRef.current) return;
-          if (status.status === "paid") {
-            stopPolling();
-            setPaymentMessage(t("procurement_paidOk"));
-            if (noticeId) await onPaid(noticeId, planCode);
-          } else if (status.status === "closed" || status.status === "failed" || status.status === "expired") {
-            // expired 为终态（审查 F45）：与 PaymentModalCore 口径一致，避免空转 10 分钟
-            stopPolling();
-            setPaymentMessage(t("procurement_paidFail"));
-          }
-        } catch {
-          // 网络抖动时静默重试，直至超时
-        }
-        if (attempts >= POLL_MAX_ATTEMPTS) {
-          stopPolling();
-          setPaymentMessage(t("procurement_paidFail"));
-        }
-      }, POLL_INTERVAL_MS);
-    },
-    [onPaid, stopPolling, t],
-  );
 
   const createNoticeOrder = useCallback(
     async (planCode: string) => {

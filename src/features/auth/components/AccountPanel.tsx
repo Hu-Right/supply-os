@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
+import { useMembershipTier } from "@/features/membership";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";

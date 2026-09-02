@@ -24,5 +24,5 @@ export async function GET(req: NextRequest) {
       })),
     );
   }
-  return NextResponse.json({ code: 40404, message: "Not found — provide code_id or industry_id" }, { status: 404 });
+  return NextResponse.json({ code: 40404, message: "请提供 code_id 或 industry_id" }, { status: 404 });
 }

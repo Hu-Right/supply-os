@@ -89,9 +89,6 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="text-sm font-extrabold text-slate-900">{t("eqfTitle")}</h4>
-        </div>
         <QualificationFormFields
           form={form}
           update={update}

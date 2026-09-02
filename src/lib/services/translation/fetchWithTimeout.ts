@@ -22,7 +22,7 @@ export async function fetchWithTimeout(
         );
       }),
     ]);
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (controller.signal.aborted) throw new Error("CHANNEL_TIMEOUT", { cause: err });
     throw err;
   } finally {

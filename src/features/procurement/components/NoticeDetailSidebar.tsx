@@ -11,15 +11,13 @@
 import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
-import { MembershipStatusPanel } from "@/features/membership/components/MembershipStatusPanel";
+import { Button, Card } from "@/shared/ui";
+import { MembershipStatusPanel } from "@/features/membership";
 import type { NoticeItem, MembershipStatus } from "../types";
 
 export interface NoticeDetailSidebarProps {
   notice: NoticeItem;
   membership: MembershipStatus | null;
-  freeRemaining: number;
-  freeQuota: number;
   canUsePaidQuota: boolean;
   isVip: boolean;
   /** 总可用解锁次数 */
@@ -36,8 +34,6 @@ export interface NoticeDetailSidebarProps {
 export function NoticeDetailSidebar({
   notice,
   membership,
-  freeRemaining,
-  freeQuota,
   canUsePaidQuota,
   isVip,
   totalRemaining,
@@ -80,9 +76,7 @@ export function NoticeDetailSidebar({
         <span className="truncate">
           {canUsePaidQuota
             ? t("procurement_memberUnlock")
-            : freeRemaining > 0
-              ? `${t("procurement_freeUnlock")} (${t("procurement_remaining")} ${freeRemaining})`
-              : t("procurement_freeUsedUp")}
+            : t("procurement_freeUsedUp")}
         </span>
       </Button>
     </>
@@ -94,8 +88,6 @@ export function NoticeDetailSidebar({
       <MembershipStatusPanel
         membership={membership}
         totalRemaining={totalRemaining}
-        freeQuota={freeQuota}
-        freeRemaining={freeRemaining}
         isLoggedIn={isLoggedIn}
         noticeId={notice.id}
         compact
@@ -107,9 +99,9 @@ export function NoticeDetailSidebar({
       </div>
 
       {/* 桌面端侧边栏：操作按钮 */}
-      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3 max-[900px]:hidden">
+      <Card className="border-secondary-200 bg-slate-50 space-y-3 max-[900px]:hidden">
         {actionButtons}
-      </div>
+      </Card>
 
       {/* 非VIP用户显示"查看套餐"按钮，跳转到会员套餐详情页面 */}
       {!isVip && (

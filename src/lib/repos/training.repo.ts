@@ -443,6 +443,36 @@ export class TrainingRepo {
     );
     return rows as ParticipantRow[];
   }
+
+  /** 按用户查询培训订单（可选状态过滤） */
+  async findOrdersByUserKey(userKey: string, status: string): Promise<TrainingOrderRow[]> {
+    const params: unknown[] = [userKey];
+    let where = "WHERE user_key = ?";
+    if (status) {
+      where += " AND status = ?";
+      params.push(status);
+    }
+    const [rows] = await this.pool.query(
+      `SELECT * FROM training_orders ${where} ORDER BY id DESC`,
+      params,
+    );
+    return rows as TrainingOrderRow[];
+  }
+
+  /** 按用户统计培训订单数 */
+  async countOrdersByUserKey(userKey: string, status: string): Promise<number> {
+    const params: unknown[] = [userKey];
+    let where = "WHERE user_key = ?";
+    if (status) {
+      where += " AND status = ?";
+      params.push(status);
+    }
+    const [rows] = await this.pool.query(
+      `SELECT COUNT(*) AS total FROM training_orders ${where}`,
+      params,
+    );
+    return Number((rows as RowDataPacket[])[0]?.total || 0);
+  }
 }
 
 /** 系统配置（system 表） */

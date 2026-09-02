@@ -80,7 +80,7 @@ export function Modal({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-full max-w-lg p-4 md:p-6 rounded-2xl border border-secondary-200 bg-white shadow-xl transition-transform focus:outline-none",
+            "fixed left-1/2 top-1/2 z-50 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 md:p-6 rounded-2xl border border-secondary-200 bg-white shadow-xl transition-transform focus:outline-none",
             className,
           )}
           style={{

@@ -6,7 +6,7 @@
  * @description 负责宽表同步的调度逻辑：全量回填、增量同步、按 ID 同步、就绪检查、定时器管理。
  *              数据构建细节由 wide-row-builder.ts 提供，本文件仅关心同步时机和流程编排。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
 import { tryRecover } from "../meilisearch/client";
 import { enqueueRetry } from "./sync-retry-queue";
@@ -40,7 +40,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
         WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT ?",
         [lastId, BATCH],
       );
-      const rawRows = rows as any[];
+      const rawRows = rows as RowDataPacket[];
       if (rawRows.length === 0) break;
 
       const noticeIds = rawRows.map((r) => String(r.notice_id));
@@ -87,7 +87,7 @@ export async function incrementalWideSync(
       [watermark],
     );
 
-    const allRaw = newRows as any[];
+    const allRaw = newRows as RowDataPacket[];
     if (allRaw.length === 0) return { synced: 0, newWatermark: watermark };
 
     const noticeIds = allRaw.map((r) => String(r.notice_id));
@@ -129,14 +129,14 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
       ids,
     );
-    const noticeIds = (rows as any[]).map((r) => String(r.notice_id));
-    const rowIds = (rows as any[]).map((r) => Number(r.id));
+    const noticeIds = (rows as RowDataPacket[]).map((r) => String(r.notice_id));
+    const rowIds = (rows as RowDataPacket[]).map((r) => Number(r.id));
     const [unspscMap, translationsMap, preciseMap] = await Promise.all([
       loadUnspscByNoticeIds(pool, noticeIds),
       loadTranslationsByNoticeIds(pool, rowIds),
       loadPreciseByNoticeIds(pool, noticeIds),
     ]);
-    const wideRows = (rows as any[]).map((r) => buildWideRow(
+    const wideRows = (rows as RowDataPacket[]).map((r) => buildWideRow(
       r, aliasMap,
       unspscMap.get(String(r.notice_id)),
       translationsMap.get(Number(r.id)),
@@ -188,7 +188,7 @@ export async function isWideTableReady(pool: Pool): Promise<boolean> {
   }
   try {
     const [rows] = await pool.query("SELECT 1 FROM crm_notice_search LIMIT 1");
-    const ready = (rows as any[]).length > 0;
+    const ready = (rows as RowDataPacket[]).length > 0;
     _wideTableReadyCache = { ready, expires: Date.now() + WIDE_TABLE_READY_CACHE_TTL };
     return ready;
   } catch {
@@ -224,11 +224,11 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
         const result = await fullBackfill(pool);
         if (result.synced > 0) {
           const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
-          watermark = Number((maxRows as any[])[0]?.max_id || 0);
+          watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
         }
       } else {
         const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
-        watermark = Number((maxRows as any[])[0]?.max_id || 0);
+        watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
       }
 
       // 定时器 1：增量同步（拉取新行）

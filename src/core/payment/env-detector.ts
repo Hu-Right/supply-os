@@ -225,6 +225,21 @@ export function mapPaymentError(err: unknown): string {
   if (message.includes("FREE_PLAN_NO_PAYMENT_REQUIRED")) {
     return "免费套餐无需支付";
   }
+  if (message.includes("SINGLE_FIRST_PURCHASE_ONLY")) {
+    return "首单特惠仅限首次购买，请选择标准单次解锁";
+  }
+  if (message.includes("AMOUNT_MISMATCH") || message.includes("AMOUNT_INVALID")) {
+    return "支付金额异常，请联系客服处理";
+  }
+  if (message.includes("SIGN_VERIFY_FAILED")) {
+    return "支付验证失败，请重试或更换支付方式";
+  }
+  if (message.includes("SCHEDULE_CAPACITY_EXCEEDED")) {
+    return "所选期次名额已满，请选择其他期次";
+  }
+  if (message.includes("ORDER_NOT_FOUND")) {
+    return "订单不存在或已过期，请重新创建";
+  }
   // 兜底：打印原始错误便于排查
   console.warn("[mapPaymentError] 未匹配的错误消息:", message);
   return "支付创建失败，请稍后重试或更换支付方式";

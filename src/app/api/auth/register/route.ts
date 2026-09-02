@@ -24,10 +24,13 @@ export async function POST(req: NextRequest) {
 
   const pw = String(password || "");
   const code = String(verify_code || "");
-  const displayName = String(display_name || "会员");
+  const displayName = String(display_name || "").trim();
   const targetPhone = String(phone || "").trim();
 
   // ── 公共校验 ──
+  if (!displayName) {
+    return NextResponse.json({ code: 40000, message: "请填写姓名" }, { status: 400 });
+  }
   if (!targetPhone || !/^1[3-9]\d{9}$/.test(targetPhone)) {
     return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
   }
@@ -88,7 +91,7 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "terms",
-      documentVersion: agreement_version || "V1.0",
+      documentVersion: agreement_version || "V2.0",
       action: "agree",
       timestamp: agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "privacy",
-      documentVersion: agreement_version || "V1.0",
+      documentVersion: agreement_version || "V2.0",
       action: "agree",
       timestamp: agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,

@@ -12,8 +12,8 @@ import "server-only";
 import path from "path";
 import fs from "fs";
 import PDFDocument from "pdfkit";
-import type { ScoringResult, QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
-import { scoreQualification } from "@/features/procurement/utils/scoringEngine";
+import type { ScoringResult, QualificationScoreInput } from "./scoring";
+import { scoreQualification } from "./scoring";
 import { generateDiagnosticReport, type DiagnosticReport } from "./diagnosticEngine";
 
 // ── 类型 ──

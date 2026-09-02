@@ -29,8 +29,6 @@ else
 fi
 
 # 3. Next.js 构建（output: standalone → .next/standalone/）
-#    构建会重建 .next/standalone/ 目录，导致 .env 被删除
-#    因此构建前备份，构建后恢复
 echo "[deploy] 构建..."
 
 # 3.1 备份现有 .env（如果存在）
@@ -41,7 +39,7 @@ fi
 
 npm run build
 
-# 3.2 恢复 .env
+# 3.2 恢复 .env（Next.js standalone 模式的进程 cwd 是 .next/standalone/）
 if [ -f /tmp/supply-os.env.bak ]; then
   cp /tmp/supply-os.env.bak .next/standalone/.env
   echo "[deploy] 已恢复 .env"
@@ -55,7 +53,8 @@ cp -r .next/static .next/standalone/.next/static
 echo "[deploy] 已复制静态资源 → standalone"
 
 # 3.4 复制 public 目录（字体、图片等静态文件）
-cp -r public .next/standalone/public
+#     使用 -T 将目标视为目录，避免 cp -r 在目标已存在时嵌套为 public/public/
+cp -rT public .next/standalone/public/
 echo "[deploy] 已复制 public → standalone"
 
 # 3.6 nodejieba 词典文件（Next.js standalone 不会自动复制原生模块的 dict 资源，

@@ -133,8 +133,6 @@ export default function ProcurementPage() {
         notice={selectedNotice}
         actionMessage={actions.actionMessage}
         membership={actions.membership}
-        freeRemaining={actions.freeRemaining}
-        freeQuota={actions.freeQuota}
         canUsePaidQuota={actions.canUsePaidQuota}
         isVip={isVip}
         totalRemaining={actions.totalRemaining}
@@ -170,14 +168,12 @@ export default function ProcurementPage() {
               {t("procurement_poolTitle")}
             </h3>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold whitespace-nowrap">
               {t("procurement_total")} {search.result.total} {t("procurement_items")}
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
-              {actions.totalRemaining > 0
-                ? `${t("statusPanelTotalUnlocks")} ${actions.totalRemaining} ${t("procurement_items")}`
-                : `${t("procurement_freeTrial")} ${actions.freeRemaining} ${t("procurement_items")}`}
+              {t("statusPanelTotalUnlocks")} {actions.totalRemaining} {t("procurement_items")}
             </span>
           </div>
         </div>
@@ -208,11 +204,11 @@ export default function ProcurementPage() {
             <div className={`overflow-hidden transition-all duration-200 ease-in-out ${unspscExpanded ? "max-h-60 mt-3 opacity-100" : "max-h-0 mt-0 opacity-0"}`}>
               <UnspcsSelector levels={levels} selectedIds={selectedIds} onChange={handleLevelChange} />
             </div>
-            <p className="text-xs text-slate-500 mt-2">{t("procurement_poolDesc", { count: actions.freeQuota })}</p>
+            <p className="text-xs text-slate-500 mt-2">{t("procurement_poolDesc")}</p>
           </div>
 
           {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
-          <div className="border-t border-slate-100 pt-4 flex items-center gap-2">
+          <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center gap-2">
             <Button
               type="submit"
               form="procurement-search-form"

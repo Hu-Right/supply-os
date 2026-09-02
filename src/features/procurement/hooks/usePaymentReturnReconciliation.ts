@@ -13,7 +13,7 @@ import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
-import { getOrderStatus } from "@/features/payment";
+import { getOrderStatus } from "@/core/payment/payment-facade";
 import { unlockNotice } from "../api";
 
 export interface UsePaymentReturnReconciliationOptions {

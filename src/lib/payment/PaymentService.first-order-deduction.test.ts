@@ -33,7 +33,7 @@ function makeEnv(opts: {
 
 async function getService(paymentsRepo: PaymentsRepo) {
   const { PaymentService } = await import("./PaymentService");
-  const svc = new PaymentService(paymentsRepo, undefined, undefined);
+  const svc = new PaymentService(paymentsRepo, undefined);
   svc.registerStrategy("mock", {
     createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "data:image/png;base64,x" }),
     queryOrderStatus: async () => ({ order_no: "", status: "pending" }),

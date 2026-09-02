@@ -29,11 +29,12 @@ export interface ClaimFormState {
   businessLicenseNo: string;
 }
 
-export function useAuthForm(onSuccess: () => void) {
+export function useAuthForm(onSuccess: () => void, initialMode: "login" | "register" = "login") {
   const { t } = useLocale();
   const { login, register, claimMessage } = useAuth();
 
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  // 初始模式由调用方注入（扫码推广场景 layout-shell 传 "register"）
+  const [authMode, setAuthMode] = useState<"login" | "register">(initialMode);
   const [authError, setAuthError] = useState("");
   /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -82,6 +83,11 @@ export function useAuthForm(onSuccess: () => void) {
     }
 
     if (authMode === "register") {
+      // 姓名必填
+      if (!authForm.displayName.trim()) {
+        setAuthError(t("authErrDisplayNameRequired"));
+        return;
+      }
       // 手机号必填
       if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
         setAuthError(t("authErrPhoneInvalid"));
@@ -138,7 +144,7 @@ export function useAuthForm(onSuccess: () => void) {
           userType: authForm.userType,
           phone,
           // ── 合规审计：记录用户同意协议的版本与时间 ──
-          agreementVersion: "V1.0",
+          agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
         // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存

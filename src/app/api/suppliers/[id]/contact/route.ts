@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // mapSupplierRow 产出的 id 带 sup-db- 前缀（区分数据源），此处剥离后取数字主键
   const rawId = id.startsWith("sup-db-") ? id.slice("sup-db-".length) : id;
   const supplierId = Number(rawId);
-  if (!supplierId) return NextResponse.json({ code: 40000, message: "Invalid ID" }, { status: 400 });
+  if (!supplierId) return NextResponse.json({ code: 40000, message: "无效的供应商 ID" }, { status: 400 });
 
   const ctx = getContext();
   const { directoryRepo } = ctx.supplier;

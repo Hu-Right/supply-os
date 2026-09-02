@@ -64,29 +64,11 @@ export interface LandingGalleryCategory {
   images: { image_path: string }[];
 }
 
-export interface LandingTestimonial {
-  id: number;
-  quote_zh: string;
-  quote_en: string | null;
-  author_name: string;
-  author_title: string | null;
-}
-
-export interface LandingFaq {
-  id: number;
-  question_zh: string;
-  question_en: string | null;
-  answer_zh: string;
-  answer_en: string | null;
-}
-
 export interface LandingDataResponse {
   course: LandingCourse | null;
   schedules: LandingSchedule[];
   instructors: { featured: LandingInstructor[]; team: LandingTeamMember[] };
   gallery: LandingGalleryCategory[];
-  testimonials: LandingTestimonial[];
-  faqs: LandingFaq[];
 }
 
 export interface CreateTrainingOrderRequest {
@@ -172,7 +154,7 @@ export const submitTrainingRegister = (data: TrainingRegisterForm) =>
   });
 
 /**
- * 获取落地页动态数据（课程/期次/讲师/团队/照片/反馈/FAQ）
+ * 获取落地页动态数据（课程/期次/讲师/团队/照片）
  * Fetch landing page dynamic data
  */
 export const fetchLandingData = () => api<LandingDataResponse>("/api/training/landing");

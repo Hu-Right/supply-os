@@ -5,6 +5,7 @@
  * @module shared/ui/Badge
  * @description 状态徽章，pulsate 时 role="status"。
  *              基于 shadcn/ui Badge 模式，用 cva 管理变体，cn() 合并类名。
+ *              支持 shape 切换圆形药丸 / 方形标签，适配不同场景。
  */
 
 import { type ReactNode, forwardRef, type HTMLAttributes } from "react";
@@ -12,7 +13,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/shared/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+  "inline-flex items-center gap-1 text-xs font-semibold",
   {
     variants: {
       variant: {
@@ -22,9 +23,14 @@ const badgeVariants = cva(
         error: "bg-danger-100 text-danger-700",
         info: "bg-primary-100 text-primary-700",
       },
+      shape: {
+        pill: "rounded-full px-2.5 py-0.5",
+        tag: "rounded-md border px-2 py-0.5",
+      },
     },
     defaultVariants: {
       variant: "default",
+      shape: "pill",
     },
   },
 );
@@ -39,11 +45,11 @@ export interface BadgeProps
 }
 
 export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
-  ({ variant, pulsate = false, children, className, ...props }, ref) => {
+  ({ variant, shape, pulsate = false, children, className, ...props }, ref) => {
     return (
       <span
         ref={ref}
-        className={cn(badgeVariants({ variant }), pulsate && "animate-pulse", className)}
+        className={cn(badgeVariants({ variant, shape }), pulsate && "animate-pulse", className)}
         role={pulsate ? "status" : undefined}
         {...props}
       >

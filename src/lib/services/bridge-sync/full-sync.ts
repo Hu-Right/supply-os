@@ -165,16 +165,18 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
           const bridgeRows = prepareBridgeRowsFromCache(row, fk);
           allBridgeRows.push(...bridgeRows);
           processed++;
-        } catch (err: any) {
+        } catch (err: unknown) {
           skipped++;
-          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${err.message}`);
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${msg}`);
         }
       }
       if (allBridgeRows.length > 0) {
         try {
           await batchUpsertBridgeRows(dbPool, bridgeTable, fk, allBridgeRows);
-        } catch (err: any) {
-          console.warn(`[BridgeSync] 批量写入失败，跳过本批 ${allBridgeRows.length} 行: ${err.message}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[BridgeSync] 批量写入失败，跳过本批 ${allBridgeRows.length} 行: ${msg}`);
         }
       }
     } else {
@@ -183,9 +185,10 @@ export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | 
         try {
           await syncUnspscBridgeRow(dbPool, bridgeTable, fk, row);
           processed++;
-        } catch (err: any) {
+        } catch (err: unknown) {
           skipped++;
-          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${err.message}`);
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn(`[BridgeSync] 跳过 ${source} id=${row.id}: ${msg}`);
         }
       }
     }
