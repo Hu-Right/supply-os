@@ -69,22 +69,22 @@ export function AppHeader({
 
   return (
     <>
-      <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-slate-200/80 shadow-xs backdrop-blur-md">
+      <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
           <div className="flex items-center min-w-0 space-x-3">
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
               <Globe className="w-6 h-6 animate-spin-slow" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
-              <div className="text-xs text-slate-400 font-mono hidden md:block">
+              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-primary-700 to-secondary-900 bg-clip-text text-transparent">{t("brandName")}</h1>
+              <div className="text-xs text-secondary-400 font-mono hidden md:block">
                 SYS: ACTIVE | UTC: 2026-05-30
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-3 shrink-0">
             <button onClick={onOpenAuth}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"}`}>
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
               <span className="hidden md:inline">{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
               <span className="md:hidden">{authUser ? (authUser.display_name || authUser.email) : t("guestLevelShort")}</span>
@@ -96,7 +96,7 @@ export function AppHeader({
             {/* 移动端汉堡菜单按钮 */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
+              className="md:hidden p-2 rounded-lg text-secondary-500 hover:bg-secondary-100 transition-colors shrink-0"
               aria-label={mobileMenuOpen ? t("uiMenuClose") : t("uiMenuOpen")}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -113,7 +113,7 @@ export function AppHeader({
       />
 
       {/* DESKTOP NAV */}
-      <nav className="hidden md:block bg-slate-900 text-slate-200">
+      <nav className="hidden md:block bg-secondary-900 text-secondary-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
             {tabs.map((tab) => {
@@ -121,10 +121,10 @@ export function AppHeader({
               const isActive = activeTab === tab.path;
               return (
                 <Link key={tab.path} href={tab.path} scroll={false}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-teal-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-amber-500/10 text-amber-400 border border-amber-500/25 hover:bg-amber-500/20" : "hover:bg-slate-800 text-slate-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-amber-400 animate-pulse" : ""}`} />
+                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-primary-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-accent-500/10 text-accent-400 border border-accent-500/25 hover:bg-accent-500/20" : "hover:bg-secondary-800 text-secondary-300"}`}>
+                  <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-accent-400 animate-pulse" : ""}`} />
                   <span>{tab.label}</span>
-                  {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />}
+                  {tab.alert && <span className="w-2 h-2 rounded-full bg-danger-500 animate-ping inline-block" />}
                 </Link>
               );
             })}
