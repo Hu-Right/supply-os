@@ -3,12 +3,12 @@
  * Supplier Directory Repository
  *
  * @module server/repos/suppliers/supplier-directory.repo
- * @description 操作 supplier_merged 外部表（只读）：目录列表、分页查询、联系方式。
+ * @description 操作 supplier 外部表（只读）：目录列表、分页查询、联系方式。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { escapeLikeWildcard } from "../../utils/normalize";
 
-/** 供应商目录行（supplier_merged 表） */
+/** 供应商目录行（supplier 表） */
 export interface SupplierDirectoryRow {
   id: number;
   company: string | null;
@@ -27,12 +27,14 @@ export interface SupplierDirectoryRow {
 export class SupplierDirectoryRepo {
   constructor(private pool: Pool) {}
 
-  /** 供应商目录（排除测试数据，最新 500 家） */
+  /** 供应商目录（排除测试数据与已合并记录，最新 500 家） */
   async listDirectory(): Promise<SupplierDirectoryRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
-       FROM supplier_merged
-       WHERE company <> '测试'
+      `SELECT id, company, country, country_code,
+              province, city,
+              contact, phone, email, products, industry, type
+       FROM supplier
+       WHERE company <> '测试' AND merged_id IS NULL
        ORDER BY id DESC
        LIMIT 500`,
     );
@@ -51,7 +53,7 @@ export class SupplierDirectoryRepo {
     const { limit, offset, lang, search, type, industry } = params;
 
     // ── WHERE 条件构建 ──
-    const conditions: string[] = ["company <> '测试'"];
+    const conditions: string[] = ["company <> '测试'", "merged_id IS NULL"];
     const values: any[] = [];
 
     if (search) {
@@ -61,7 +63,7 @@ export class SupplierDirectoryRepo {
     }
 
     if (type && (type === "domestic" || type === "international")) {
-      // supplier_merged 的 type 列存经营类型（如 Manufacturer），无 domestic/international 值，
+      // supplier 的 type 列存经营类型（如 foreign），无 domestic/international 值，
       // 按国家语义区分：CN 或空（展示层兜底"中国"）= 国内，其余 = 国际
       if (type === "domestic") {
         conditions.push("(country_code = 'CN' OR country_code IS NULL OR country_code = '')");
@@ -77,7 +79,7 @@ export class SupplierDirectoryRepo {
       };
       if (lang !== "zh" && translationLangs[lang]) {
         conditions.push(
-          `(COALESCE((SELECT industry_tr FROM crm_supplier_translations WHERE supplier_id = supplier_merged.id AND lang = ? LIMIT 1), industry) = ?)`,
+          `(COALESCE((SELECT industry_tr FROM crm_supplier_translations WHERE supplier_id = supplier.id AND lang = ? LIMIT 1), industry) = ?)`,
         );
         values.push(translationLangs[lang], industry);
       } else {
@@ -90,7 +92,7 @@ export class SupplierDirectoryRepo {
 
     // 总数查询
     const [countRows] = await this.pool.query(
-      `SELECT COUNT(*) as total FROM supplier_merged WHERE ${whereSql}`,
+      `SELECT COUNT(*) as total FROM supplier WHERE ${whereSql}`,
       values,
     );
     const total = (countRows as any[])[0]?.total ?? 0;
@@ -98,7 +100,7 @@ export class SupplierDirectoryRepo {
     // 分页数据查询
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
-       FROM supplier_merged
+       FROM supplier
        WHERE ${whereSql}
        ORDER BY id DESC
        LIMIT ? OFFSET ?`,
@@ -111,7 +113,7 @@ export class SupplierDirectoryRepo {
   /** 供应商明文联系方式（VIP 端点） */
   async findContact(supplierId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT contact, phone, email FROM supplier_merged WHERE id = ? LIMIT 1",
+      "SELECT contact, phone, email FROM supplier WHERE id = ? LIMIT 1",
       [supplierId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
