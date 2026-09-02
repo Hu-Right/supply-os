@@ -57,6 +57,28 @@ export class ApiError extends Error {
 
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 分钟
 
+/**
+ * 根据网络质量动态调整缓存 TTL
+ * @param baseTTL - 基础 TTL（毫秒）
+ * @returns 动态调整后的 TTL
+ */
+function getDynamicTTL(baseTTL: number): number {
+  if (typeof window === "undefined") return baseTTL;
+  const conn = (navigator as any).connection;
+  if (!conn || !conn.effectiveType) return baseTTL;
+
+  switch (conn.effectiveType) {
+    case "slow-2g":
+    case "2g":
+      return baseTTL * 3; // 弱网延长 3 倍
+    case "3g":
+      return baseTTL * 2; // 中等网络延长 2 倍
+    case "4g":
+    default:
+      return baseTTL; // 良好网络保持原值
+  }
+}
+
 interface CacheEntry<T = unknown> {
   data: T;
   timestamp: number;
@@ -268,10 +290,13 @@ export async function apiCached<T>(
   signal?: AbortSignal,
   force = false,
 ): Promise<T> {
+  // P1-4: 根据网络质量动态调整 TTL
+  const dynamicTTL = getDynamicTTL(ttl);
+
   // P1-12: force 模式跳过缓存读取
   if (!force) {
     const cached = cache.get(endpoint);
-    if (cached && Date.now() - cached.timestamp < ttl) {
+    if (cached && Date.now() - cached.timestamp < dynamicTTL) {
       recordApiMetric({
         endpoint,
         method: "GET",
