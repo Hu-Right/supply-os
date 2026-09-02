@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "terms",
-      documentVersion: agreement_version || "V1.0",
+      documentVersion: agreement_version || "V2.0",
       action: "agree",
       timestamp: agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "privacy",
-      documentVersion: agreement_version || "V1.0",
+      documentVersion: agreement_version || "V2.0",
       action: "agree",
       timestamp: agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,

@@ -144,7 +144,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           userType: authForm.userType,
           phone,
           // ── 合规审计：记录用户同意协议的版本与时间 ──
-          agreementVersion: "V1.0",
+          agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
         // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存
