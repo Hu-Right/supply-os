@@ -68,7 +68,7 @@ export function AiMatchmaker({
               const found = suppliers.find((x) => x.id === e.target.value);
               if (found) onSelectSupplier(found);
             }}
-            className="bg-slate-700 text-white rounded px-2 py-1"
+            className="bg-slate-700 text-white rounded px-2 py-1 min-w-0 max-w-full truncate"
           >
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
@@ -86,7 +86,7 @@ export function AiMatchmaker({
               const found = OPPORTUNITIES.find((x) => x.id === e.target.value);
               if (found) onSelectOpportunity(found);
             }}
-            className="bg-slate-700 text-white rounded px-2 py-1"
+            className="bg-slate-700 text-white rounded px-2 py-1 min-w-0 max-w-full truncate"
           >
             {OPPORTUNITIES.map((o) => (
               <option key={o.id} value={o.id}>
