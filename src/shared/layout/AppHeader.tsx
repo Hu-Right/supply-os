@@ -75,8 +75,8 @@ export function AppHeader({
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
               <Globe className="w-6 h-6 animate-spin-slow" />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-[calc(100vw-180px)] md:max-w-none bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-teal-700 to-slate-900 bg-clip-text text-transparent">{t("brandName")}</h1>
               <div className="text-xs text-slate-400 font-mono hidden md:block">
                 SYS: ACTIVE | UTC: 2026-05-30
               </div>
