@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* P0-4 移动端修复：防止小屏幕下水平溢出导致可左右滑动 */
+html,
+body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 /* iconfont 字体图标（底部社交媒体链接） */
 @font-face {
   font-family: "iconfont";

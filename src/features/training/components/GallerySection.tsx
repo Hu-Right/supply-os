@@ -96,7 +96,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
         closeOnBackdrop={true}
         closeOnEsc={true}
         closeOnDrag={false}
-        className="max-w-none w-[95vw] h-[90vh] p-2"
+        className="max-w-none w-full sm:w-[95vw] h-[90vh] p-2"
       >
         {previewIdx !== null && images[previewIdx] && (
           <div className="relative h-full flex flex-col">
