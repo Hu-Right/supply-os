@@ -132,7 +132,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
       </Button>
 
       {/* ── 两栏：左侧主内容 + 右侧操作按钮 ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 mt-2">
+      <div className="grid grid-cols-1 gap-3 mt-2">
         {/* 左栏：描述 / 机构 / 金额 / 受援国 / UNSPSC */}
         <div className="min-w-0 space-y-2">
           <p dir="auto" className="text-xs text-slate-500 line-clamp-2">
@@ -164,13 +164,13 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           </div>
         </div>
 
-        {/* 右栏：查看详情按钮 */}
-        <div className="flex items-center">
+        {/* 右栏：查看详情按钮 - 移动端全宽，桌面端自适应 */}
+        <div className="flex justify-end">
           <Button
             onClick={() => onClick(item)}
             variant="secondary"
             size="sm"
-            className="shrink-0 px-4 py-2.5 font-black text-teal-800 whitespace-nowrap"
+            className="w-full sm:w-auto shrink-0 px-4 py-2.5 font-black text-teal-800 whitespace-nowrap"
           >
             {t("procurement_detail")}
           </Button>
