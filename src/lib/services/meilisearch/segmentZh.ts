@@ -9,14 +9,30 @@
  *              Meilisearch 即可按词 token 精确匹配。
  *              仅对含中文字符的文本生效；纯英文/数字文本原样返回。
  */
-import { Jieba } from "@node-rs/jieba";
-import { dict } from "@node-rs/jieba/dict";
-
-// ── 单例：Rust 内核，字典内嵌于二进制，无外部文件依赖 ──
-const jieba = Jieba.withDict(dict);
-
 // ── 中文字符检测 ──
 const HAS_CHINESE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+
+// ── 动态加载 jieba（原生模块缺失时降级为不分词） ──
+type JiebaInstance = { cut: (text: string) => string[] };
+let jiebaInstance: JiebaInstance | null = null;
+let jiebaLoadAttempted = false;
+
+async function loadJieba(): Promise<JiebaInstance | null> {
+  if (jiebaLoadAttempted) return jiebaInstance;
+  jiebaLoadAttempted = true;
+  try {
+    const { Jieba } = await import("@node-rs/jieba");
+    const { dict } = await import("@node-rs/jieba/dict");
+    jiebaInstance = Jieba.withDict(dict) as JiebaInstance;
+    return jiebaInstance;
+  } catch {
+    console.warn("[segmentZh] @node-rs/jieba 原生模块不可用，中文分词已降级为原文返回");
+    return null;
+  }
+}
+
+// 启动时尝试加载（不阻塞服务启动）
+void loadJieba();
 
 /**
  * 对中文文本执行 jieba 分词，返回空格分隔的词语字符串。
@@ -29,8 +45,9 @@ const HAS_CHINESE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
 export function segmentZh(text: string): string {
   if (!text) return "";
   if (!HAS_CHINESE.test(text)) return text;
+  if (!jiebaInstance) return text; // jieba 未加载，降级为原文
   try {
-    return jieba.cut(text).join(" ");
+    return jiebaInstance.cut(text).join(" ");
   } catch {
     // jieba 失败时降级为原文（不影响主流程）
     return text;

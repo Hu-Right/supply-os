@@ -154,7 +154,7 @@ export default function SupplierPage() {
 
         {/* md:max-w-xl 取代 md:w-auto：容器宽度受限三列等分，
             不再被 UNSPSC 长 placeholder 的固有宽度撑开 */}
-        <div className="grid w-full grid-cols-2 gap-2 md:max-w-xl md:grid-cols-3">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 md:max-w-xl md:grid-cols-3">
           <Input
             type="text"
             placeholder={t("searchSupplierPlaceholder")}

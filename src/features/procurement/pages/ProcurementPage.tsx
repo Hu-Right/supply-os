@@ -168,8 +168,8 @@ export default function ProcurementPage() {
               {t("procurement_poolTitle")}
             </h3>
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold whitespace-nowrap">
               {t("procurement_total")} {search.result.total} {t("procurement_items")}
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
@@ -208,7 +208,7 @@ export default function ProcurementPage() {
           </div>
 
           {/* 操作按钮行：搜索 / 清除筛选 / 只看精选 —— 移至卡片底部 */}
-          <div className="border-t border-slate-100 pt-4 flex items-center gap-2">
+          <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center gap-2">
             <Button
               type="submit"
               form="procurement-search-form"

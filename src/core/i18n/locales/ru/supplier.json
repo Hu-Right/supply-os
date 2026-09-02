@@ -3,6 +3,7 @@
   "domesticSuppliers": "Качественные OEM-заводы (фильтр по секторам)",
   "internationalSuppliers": "Международные зарегистрированные поставщики (по коду UNSPSC)",
   "registerSupplierBtn": "Зарегистрироваться как поставщик глобальных закупок",
+  "registerSupplierBtnShort": "Регистрация",
   "supplierType": "Тип поставщика",
   "supplierTypeDomestic": "Отечественный OEM-завод",
   "supplierTypeIntl": "Международная / дочерняя компания",

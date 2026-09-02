@@ -86,7 +86,8 @@ export function AppHeader({
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200"}`}>
               <Crown className="w-3.5 h-3.5" />
-              <span>{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
+              <span className="hidden md:inline">{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
+              <span className="md:hidden">{authUser ? (authUser.display_name || authUser.email) : t("guestLevelShort")}</span>
             </button>
             <LanguageSwitcher />
             {/* 移动端汉堡菜单按钮 */}

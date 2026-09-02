@@ -137,7 +137,7 @@ export function NoticeDetail({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               {[
                 [t("procurement_metaNo"), notice.reference || notice.notice_id || "-"],
                 [t("procurement_agency"), visibleAgency],

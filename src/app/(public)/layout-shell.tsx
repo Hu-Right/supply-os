@@ -11,7 +11,7 @@
  */
 
 import { lazy, Suspense, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
@@ -59,16 +59,19 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister });
   useVersionCheck();
 
-  // ★ 扫码推广自动弹出注册弹窗：检测服务端 /r/[code] 写入的 qr_auto_open Cookie
-  // 采用 Cookie 而非 URL 参数，因为服务端 302 重定向的查询参数不会同步到 Next.js 客户端路由状态。
+  // ★ 扫码推广自动弹出注册弹窗：检测 URL 中的 qr=1 参数
+  // 采用 URL 参数而非 Cookie，因为服务端 302 重定向后浏览器地址栏可直接读取。
+  const router = useRouter();
   useEffect(() => {
-    const match = document.cookie.match(/(?:^|;\s*)qr_auto_open=([^;]+)/);
-    if (match) {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("qr") === "1") {
       setShowAuthModal(true);
-      // 立即删除信号 Cookie，防止后续页面加载重复弹出
-      document.cookie = "qr_auto_open=; path=/; max-age=0";
+      // 清除 URL 参数，防止刷新重复弹出
+      params.delete("qr");
+      const clean = params.toString();
+      router.replace(clean ? `${window.location.pathname}?${clean}` : window.location.pathname, { scroll: false });
     }
-  }, []);
+  }, [router]);
 
   // 研修班落地页 + 资质表单：main 全宽
   const pathname = usePathname();
