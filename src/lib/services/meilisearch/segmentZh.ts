@@ -9,7 +9,11 @@
  *              Meilisearch 即可按词 token 精确匹配。
  *              仅对含中文字符的文本生效；纯英文/数字文本原样返回。
  */
-import * as nodejieba from "nodejieba";
+import { Jieba } from "@node-rs/jieba";
+import { dict } from "@node-rs/jieba/dict";
+
+// ── 单例：Rust 内核，字典内嵌于二进制，无外部文件依赖 ──
+const jieba = Jieba.withDict(dict);
 
 // ── 中文字符检测 ──
 const HAS_CHINESE = /[\u4e00-\u9fff\u3400-\u4dbf]/;
@@ -26,7 +30,7 @@ export function segmentZh(text: string): string {
   if (!text) return "";
   if (!HAS_CHINESE.test(text)) return text;
   try {
-    return nodejieba.cut(text).join(" ");
+    return jieba.cut(text).join(" ");
   } catch {
     // jieba 失败时降级为原文（不影响主流程）
     return text;
