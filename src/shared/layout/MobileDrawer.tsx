@@ -48,7 +48,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
         onClick={onClose}
       />
       {/* 抽屉面板 */}
-      <div className="absolute top-0 left-0 bottom-0 w-72 max-w-[85vw] bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+      <div className="absolute top-0 left-0 bottom-0 min-w-[260px] max-w-[85vw] sm:w-72 bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
         {/* 抽屉头部 */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
