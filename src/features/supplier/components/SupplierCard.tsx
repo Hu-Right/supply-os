@@ -68,43 +68,50 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
           )}
         </div>
 
-        {/* Products & compliance badges */}
-        <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {t("mainProducts")}
-            </span>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {(pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? []).map((p, idx) => (
-                <span key={idx} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                  {p}
+        {/* Products & compliance badges — 无数据时隐藏整个区块 */}
+        {((pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? []).length > 0 ||
+          (pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn) ?? []).length > 0) && (
+          <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+            {(pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? []).length > 0 && (
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {t("mainProducts")}
                 </span>
-              ))}
-            </div>
-          </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? []).map((p, idx) => (
+                    <span key={idx} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              {t("complianceLabel")}
-            </span>
-            <div className="mt-1 flex flex-wrap gap-1">
-              {(pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn) ?? []).map(
-                (c, idx) => (
-                  <span
-                    key={idx}
-                    className="rounded border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-800"
-                  >
-                    {c}
-                  </span>
-                )
-              )}
-            </div>
+            {(pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn) ?? []).length > 0 && (
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {t("complianceLabel")}
+                </span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {(pickLocale(locale, supplier.complianceLabelsZh, supplier.complianceLabelsEn) ?? []).map(
+                    (c, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded border border-emerald-100 bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-800"
+                      >
+                        {c}
+                      </span>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
       {/* Operational actions */}
-      <div className="mt-5 flex gap-2 border-t border-slate-100 pt-3">
+      <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
         <Button
           onClick={() => onAiMatch(supplier)}
           variant="cta"
