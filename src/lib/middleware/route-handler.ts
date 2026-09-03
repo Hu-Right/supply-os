@@ -59,13 +59,14 @@ export async function parseJson<T>(
   }
 }
 
-type RouteHandler<C> = (req: NextRequest, ctx?: C) => Promise<Response> | Response;
+type RouteHandler<C> = (req: NextRequest, ctx: C) => Promise<Response> | Response;
 
-/** 包装 Route Handler：统一错误捕获与 envelope，业务代码只写成功路径 */
-export function withRoute<C>(handler: RouteHandler<C>): RouteHandler<C> {
+/** 包装 Route Handler：统一错误捕获与 envelope，业务代码只写成功路径。
+ *  外层签名 ctx 可选（兼容测试单参调用），内层 handler 拿到非可选 ctx（Next 恒传入）。 */
+export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?: C) => Promise<Response> {
   return async (req: NextRequest, ctx?: C) => {
     try {
-      return await handler(req, ctx);
+      return await handler(req, ctx as C);
     } catch (err) {
       if (err instanceof RouteError) {
         return NextResponse.json({ code: err.code, message: err.message }, { status: err.status });
