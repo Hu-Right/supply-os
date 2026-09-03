@@ -160,7 +160,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
            WHERE u.membership_tier = 'vip'
              AND NOT EXISTS (
                SELECT 1 FROM crm_user_subscriptions s
-               WHERE s.user_key = u.user_key
+               WHERE s.user_id = u.id
                  AND s.status = 'active'
                  AND (s.expires_at IS NULL OR s.expires_at > NOW())
              )`,
