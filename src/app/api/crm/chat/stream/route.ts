@@ -61,6 +61,9 @@ export async function GET(req: NextRequest) {
   // 记录上次推送的最后消息 ID
   let lastMessageId = 0;
   let lastActivity = Date.now();
+  // 追踪会话状态变化（用于推送 agent-joined 等系统事件）
+  let lastStatus = "";
+  let agentJoinedEmitted = false;
 
   const encoder = new TextEncoder();
   let timerId: ReturnType<typeof setInterval> | null = null;
@@ -71,10 +74,26 @@ export async function GET(req: NextRequest) {
       const initEvent = `event: connected\ndata: ${JSON.stringify({ sessionId, timestamp: Date.now() })}\n\n`;
       controller.enqueue(encoder.encode(initEvent));
 
-      // 获取当前最新消息 ID 作为基线
-      chatRepo.listMessages(sessionId, 1).then((msgs) => {
+      // 获取当前最新消息 ID 作为基线 + 记录初始会话状态
+      Promise.all([
+        chatRepo.listMessages(sessionId, 1),
+        chatRepo.findSessionById(sessionId),
+      ]).then(([msgs, sessionSnapshot]) => {
         if (msgs.length > 0) {
           lastMessageId = msgs[msgs.length - 1].id;
+        }
+        if (sessionSnapshot) {
+          lastStatus = sessionSnapshot.status;
+          // 如果连接时会话已处于 active 状态（断线重连场景），立即推送 agent-joined
+          if (lastStatus === "active" && sessionSnapshot.agent_id) {
+            agentJoinedEmitted = true;
+            const joinEvent = `event: agent-joined\ndata: ${JSON.stringify({
+              sessionId,
+              agentId: sessionSnapshot.agent_id,
+              agentEmail: sessionSnapshot.agent_email,
+            })}\n\n`;
+            controller.enqueue(encoder.encode(joinEvent));
+          }
         }
 
         // 启动轮询
@@ -95,13 +114,33 @@ export async function GET(req: NextRequest) {
               }
             }
 
-            // 检查会话是否已关闭
+            // 检测会话状态变化（Agent 接入 / 关闭）
             const currentSession = await chatRepo.findSessionById(sessionId);
-            if (currentSession?.status === "closed") {
-              const closeEvent = `event: session_closed\ndata: ${JSON.stringify({ sessionId })}\n\n`;
-              controller.enqueue(encoder.encode(closeEvent));
-              controller.close();
-              return;
+            if (currentSession) {
+              // Agent 接入：waiting → active
+              if (
+                !agentJoinedEmitted &&
+                lastStatus === "waiting" &&
+                currentSession.status === "active"
+              ) {
+                agentJoinedEmitted = true;
+                lastActivity = Date.now();
+                const joinEvent = `event: agent-joined\ndata: ${JSON.stringify({
+                  sessionId,
+                  agentId: currentSession.agent_id,
+                  agentEmail: currentSession.agent_email,
+                })}\n\n`;
+                controller.enqueue(encoder.encode(joinEvent));
+              }
+              lastStatus = currentSession.status;
+
+              // 会话已关闭（Agent 或客户从任一侧关闭）
+              if (currentSession.status === "closed") {
+                const closeEvent = `event: session_closed\ndata: ${JSON.stringify({ sessionId })}\n\n`;
+                controller.enqueue(encoder.encode(closeEvent));
+                controller.close();
+                return;
+              }
             }
 
             // 空闲超时检查
