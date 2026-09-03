@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import type { Lead } from "@/types";
-import { Button, Select } from "@/shared/ui";
+import { Button, Select, Textarea } from "@/shared/ui";
 
 type FollowUpLogPanelProps = {
   lead: Lead;
@@ -80,7 +80,7 @@ export function FollowUpLogPanel({ lead, onClose, onSubmit, labels }: FollowUpLo
       {/* Quick Follow up form */}
       <form onSubmit={handleSubmit} className="space-y-2">
         <div>
-          <textarea
+          <Textarea
             placeholder={labels.logPlaceholder}
             value={newEntry}
             onChange={(e) => setNewEntry(e.target.value)}

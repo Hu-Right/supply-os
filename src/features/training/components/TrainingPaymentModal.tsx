@@ -10,6 +10,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button, SelectableCard } from "@/shared/ui";
+import { formatScheduleDate } from "@/shared/utils/format";
 import { PaymentModalCore } from "@/features/payment";
 import {
   createTrainingOrder,
@@ -33,15 +34,6 @@ export interface TrainingPaymentModalProps {
   registrationId?: number | null;
   /** 外部预设期次（如从 ScheduleSection 点选进入），优先级最高 */
   defaultScheduleId?: number | null;
-}
-
-/** 期次日期 → 2026年1月20日 格式 */
-function fmtDate(d: string | Date, locale: string): string {
-  const date = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(date.getTime())) return String(d);
-  return locale === "zh"
-    ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
-    : date.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
 }
 
 export default function TrainingPaymentModal({
@@ -209,7 +201,7 @@ export default function TrainingPaymentModal({
                           {t("tlPaymentSchedulePeriod").replace("{n}", String(s.period_number))}
                         </p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {fmtDate(s.start_date, locale)} · {s.city} · {s.format}
+                          {formatScheduleDate(s.start_date, locale)} · {s.city} · {s.format}
                         </p>
                       </div>
                       <span className="ml-3 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-2xs font-bold text-emerald-700">
@@ -289,7 +281,7 @@ export default function TrainingPaymentModal({
             <p className="mt-1 text-xs text-slate-500">
               {t("tlPaymentSchedulePeriod").replace("{n}", String(selectedSchedule.period_number))}
               {" · "}
-              {fmtDate(selectedSchedule.start_date, locale)}
+              {formatScheduleDate(selectedSchedule.start_date, locale)}
               {" · "}
               {selectedSchedule.city}
             </p>

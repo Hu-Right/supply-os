@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { statsKeyFor, getStatsCount, refreshNoticeStats, getNoticeStats } from "./stats";
+import { statsKeyFor, getStatsCount, refreshNoticeStats, getNoticeStats, clearStatsCache } from "./stats";
 import type { NoticeSearchParams } from "./types";
 
 const base: NoticeSearchParams = {
@@ -111,5 +111,56 @@ describe("getNoticeStats", () => {
     expect(result.bridged).toBe(50);
     expect(result.featured).toBe(10);
     expect(result.bridge_gap).toBe(50);
+  });
+});
+
+describe("statsKeyFor — featuredOnly 组合分支", () => {
+  it("featuredOnly + country → null（组合筛选走 COUNT）", () => {
+    expect(statsKeyFor({ ...base, featuredOnly: true, country: "Brazil" })).toBeNull();
+  });
+
+  it("featuredOnly + agency → null", () => {
+    expect(statsKeyFor({ ...base, featuredOnly: true, agency: "UNICEF" })).toBeNull();
+  });
+});
+
+describe("refreshNoticeStats", () => {
+  function makePool() {
+    const insertCalls: string[] = [];
+    return {
+      insertCalls,
+      pool: {
+        query: vi.fn(async (sql: string) => {
+          if (sql.includes("INSERT INTO crm_notice_stats")) {
+            insertCalls.push(sql);
+            return [{ affectedRows: 1 }];
+          }
+          if (sql.includes("DELETE FROM crm_notice_stats")) return [{ affectedRows: 3 }];
+          if (sql.includes("GROUP BY country")) return [[{ country: "Brazil", cnt: 50 }, { country: "Kenya", cnt: 30 }]];
+          if (sql.includes("GROUP BY agency")) return [[{ agency: "UNICEF", cnt: 40 }]];
+          if (sql.includes("is_featured = 1")) return [[{ cnt: 10 }]];
+          return [[{ cnt: 100 }]];
+        }),
+      } as any,
+    };
+  }
+
+  it("刷新成功 → 写入全部统计项并预填缓存，无异常", async () => {
+    const { pool, insertCalls } = makePool();
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    await refreshNoticeStats(pool);
+    // 2 条固定统计 + 2 国 + 1 机构 = 5 条 upsert
+    expect(insertCalls).toHaveLength(5);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("统计表刷新完成"));
+    logSpy.mockRestore();
+    clearStatsCache();
+  });
+
+  it("查询异常 → 静默降级不抛出", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const badPool = { query: vi.fn().mockRejectedValue(new Error("db down")) } as any;
+    await expect(refreshNoticeStats(badPool)).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("统计表刷新失败"), expect.anything());
+    errorSpy.mockRestore();
   });
 });

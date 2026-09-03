@@ -68,27 +68,36 @@ function titleSimilarity(a: string, b: string): number {
 // 详情端点与翻译端点对同一公告反复调用 findQualifiedOpportunityForNotice（每次 1-3 次顺序 DB
 // 查询）。合格机会结果短期内不变，10 分钟 TTL 缓存消除重复查询；未命中（null）同样缓存，
 // 避免无合格机会的公告反复走三路回退查询。
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const oppCache = new LRUCache<string, any>({
+/** 公告标识字段（调用方传入的行子集，字段可能缺失；索引签名兼容 RowDataPacket 调用方） */
+interface NoticeIdentity {
+  id?: number | string;
+  converted_opp_id?: number | string | null;
+  notice_id?: string | number;
+  reference?: string;
+  title?: string;
+  [key: string]: unknown;
+}
+
+const oppCache = new LRUCache<string, { row: RowDataPacket | null }>({
   max: 500,
   ttl: 10 * 60 * 1000,
 });
 
-export async function findQualifiedOpportunityForNotice(dbPool: any, notice: Record<string, any>) {
+export async function findQualifiedOpportunityForNotice(dbPool: Pool, notice: NoticeIdentity) {
   // 无 id 的载荷（如测试夹具/最小占位对象）无法稳定标识公告：跳过缓存直查
   const cacheKey = notice?.id != null
     ? `${notice.id}:${notice.converted_opp_id || 0}:${notice.notice_id || ""}`
     : "";
   if (cacheKey) {
     const cached = oppCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return cached.row;
   }
   const result = await queryQualifiedOpportunity(dbPool, notice);
-  if (cacheKey) oppCache.set(cacheKey, result);
+  if (cacheKey) oppCache.set(cacheKey, { row: result });
   return result;
 }
 
-async function queryQualifiedOpportunity(dbPool: any, notice: any) {
+async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
   const fields = `
     id, source_notice_id, source_url, title, reference, notice_type, registration_level,
     agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,
@@ -134,7 +143,7 @@ async function queryQualifiedOpportunity(dbPool: any, notice: any) {
       [String(notice.reference)]
     );
     for (const opp of rows as RowDataPacket[]) {
-      if (titleSimilarity(notice.title, opp.title) >= 0.3) return opp;
+      if (titleSimilarity(notice.title ?? "", opp.title) >= 0.3) return opp;
     }
   }
 
@@ -161,13 +170,13 @@ export async function refreshFeaturedColumn(dbPool: Pool): Promise<{ marked: num
   const [toMarkRows] = await dbPool.query(
     `SELECT n.id FROM crm_bid_notices n WHERE ${FEATURED_NOTICE_EXISTS} AND n.is_featured = 0`
   );
-  const toMarkIds = (toMarkRows as any[]).map(r => r.id);
+  const toMarkIds = (toMarkRows as RowDataPacket[]).map(r => Number(r.id));
 
   // 步骤 2：查询即将被取消 featured 的 ID（当前 is_featured=1 但不再符合条件）
   const [toUnmarkRows] = await dbPool.query(
     `SELECT n.id FROM crm_bid_notices n WHERE n.is_featured = 1 AND NOT (${FEATURED_NOTICE_EXISTS})`
   );
-  const toUnmarkIds = (toUnmarkRows as any[]).map(r => r.id);
+  const toUnmarkIds = (toUnmarkRows as RowDataPacket[]).map(r => Number(r.id));
 
   // 步骤 3：执行 UPDATE
   if (toMarkIds.length > 0) {

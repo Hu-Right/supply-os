@@ -11,7 +11,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, X, History, ArrowLeft } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api, getAuthToken } from "@/core/http";
-import { Button } from "@/shared/ui";
+import { Button, Textarea } from "@/shared/ui";
 import type {
   ChatMessage,
   AssistantMode,
@@ -396,7 +396,7 @@ export function ChatWindow({
                 <p className="text-3xs text-teal-700 font-medium">{t("crmAssistantLeaveDone")}</p>
               ) : leaveMessageOpen ? (
                 <div>
-                  <textarea
+                  <Textarea
                     value={leaveMessage}
                     onChange={(e) => setLeaveMessage(e.target.value)}
                     placeholder={t("crmAssistantLeavePlaceholder")}
@@ -484,7 +484,7 @@ export function ChatWindow({
           >
             <Paperclip className={`w-4 h-4 ${uploading ? "animate-pulse" : ""}`} />
           </Button>
-          <textarea
+          <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

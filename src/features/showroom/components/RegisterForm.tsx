@@ -10,7 +10,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileText } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { FormModal, Button, Input, Select } from "@/shared/ui";
+import { FormModal, Button, Input, Select, Textarea } from "@/shared/ui";
 import type { ExhibitionHall } from "@/types";
 import { submitShowroomRegister, type ShowroomRegisterForm } from "../api";
 import { emitAppEvent } from "@/core/events";
@@ -273,7 +273,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
 
         <div>
           <label className={labelClass}>{t("formSpecialRequests")}</label>
-          <textarea
+          <Textarea
             value={form.notes}
             onChange={(e) => handleChange("notes", e.target.value)}
             rows={2}

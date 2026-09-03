@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { calcTotalPages } from "@/shared/constants/pagination";
 import {
   fetchOrders,
   fetchUnlocks,
@@ -103,7 +104,7 @@ export function useOrderHistory(userId: number | undefined): UseOrderHistoryRetu
 
   const current = tab === "orders" ? orders : unlocks;
   const total = Number(current?.total || 0);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_LIMIT));
+  const totalPages = calcTotalPages(total, PAGE_LIMIT);
 
   return {
     tab,

@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Input, Select, ChipToggleGroup } from "@/shared/ui";
+import { Input, Select, ChipToggleGroup, Textarea } from "@/shared/ui";
 // 字典端点唯一实现已收敛至 core/unspsc（原 training/api 三实现删除）
 import { fetchCertifications, fetchUnspscIndustries, fetchUnspscChildren } from "@/core/unspsc/api";
 import type { DictionaryItem } from "@/core/unspsc/types";
@@ -230,7 +230,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
 
       <label className="block">
         <span className="mb-1 block text-xs font-extrabold text-slate-700">{t("trainingFormRemark")}</span>
-        <textarea
+        <Textarea
           name="remark"
           value={value.remark}
           onChange={(e) => handleChange("remark", e.target.value)}

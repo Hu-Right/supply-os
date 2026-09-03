@@ -6,6 +6,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useLocale } from "@/core/i18n";
+import { calcTotalPages } from "@/shared/constants/pagination";
 import type { NoticeItem, PrefsMode } from "../../types";
 import { fetchUnifiedSearch } from "../../api";
 import { NOTICE_PAGE_SIZE } from "../../constants";
@@ -46,7 +47,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const SEARCH_TIMEOUT_MS = 15_000;
 
-  const totalPages = Math.max(1, Math.ceil(total / serverPageSize));
+  const totalPages = calcTotalPages(total, serverPageSize);
 
   const prevDataSourceForPrefsRef = useRef<string>("initial");
   const prevSearchKeyForSkipRef = useRef<string>("");

@@ -14,11 +14,11 @@ const AMOUNT_PREF_CACHE_TTL = 10 * 60 * 1000;
 
 export interface ScoringContext {
   matchWeightExpr: string;
-  scoreParams: any[];
+  scoreParams: (string | number)[];
   denominator: number;
   urgencyExpr: string;
   amountExpr: string;
-  amountScoreParams: any[];
+  amountScoreParams: (string | number)[];
   l4HitExpr: string;
   l4Params: string[];
   recoScoreExpr: string;
@@ -39,7 +39,7 @@ export function buildScoringContext(
 ): ScoringContext {
   const matchWeightExpr = scoredCodes.length
     ? `(${scoredCodes.map(() => "MAX(b.code LIKE ?) * ?").join(" + ")})` : "0";
-  const scoreParams: any[] = [];
+  const scoreParams: (string | number)[] = [];
   for (const item of scoredCodes) scoreParams.push(`${item.prefix}%`, item.weighted);
   const denominator = interestTotal > 0 ? interestTotal : 1;
 
@@ -97,7 +97,7 @@ export function resolveWeights(
   variant: string,
 ): { wUnspsc: number; wUrgency: number; wAmount: number; wNeutral: number; profileStale: boolean } {
   const profile = variant === "treatment" ? profileRow : null;
-  const pickWeight = (value: any, fallback: number) => {
+  const pickWeight = (value: unknown, fallback: number) => {
     const n = Number(value); return Number.isFinite(n) && n > 0 && n < 1 ? n : fallback;
   };
   const wUnspsc = pickWeight(profile?.w_unspsc, 0.5);

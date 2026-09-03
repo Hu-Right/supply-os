@@ -7,21 +7,13 @@
  */
 import { Check } from "lucide-react";
 import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
+import { formatScheduleDate } from "@/shared/utils/format";
 import type { LandingCourse, LandingSchedule } from "../api";
 
 export interface ScheduleSectionProps {
   schedules: LandingSchedule[];
   course: LandingCourse | null;
   onReserve: () => void;
-}
-
-/** 期次日期 → 2026年1月20日 格式 */
-function fmtDate(d: string | Date, locale: string): string {
-  const date = typeof d === "string" ? new Date(d) : d;
-  if (Number.isNaN(date.getTime())) return String(d);
-  return locale === "zh"
-    ? `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
-    : date.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
 }
 
 export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectionProps) {
@@ -64,7 +56,7 @@ export function ScheduleSection({ schedules, course, onReserve }: ScheduleSectio
                   {visibleSchedules.map((s) => (
                     <tr key={s.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 font-bold text-training-navy">{t("tlSchPeriodNo").replace("{n}", String(s.period_number))}</td>
-                      <td className="px-4 py-3 text-slate-600">{fmtDate(s.start_date, locale)}</td>
+                      <td className="px-4 py-3 text-slate-600">{formatScheduleDate(s.start_date, locale)}</td>
                       <td className="px-4 py-3 text-slate-600">{s.city}</td>
                       <td className="px-4 py-3 text-slate-600">{s.format}</td>
                       <td className={`px-4 py-3 font-bold ${getStatusColor(s.status)}`}>

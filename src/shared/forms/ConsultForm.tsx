@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { CheckCircle2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useLocale } from "@/core/i18n";
-import { FormModal, Button } from "@/shared/ui";
+import { FormModal, Button, Textarea } from "@/shared/ui";
 import {
   Form,
   FormField,
@@ -145,7 +145,7 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
               <FormItem>
                 <FormLabel>{t("formConsultNeeds")}</FormLabel>
                 <FormControl>
-                  <textarea
+                  <Textarea
                     rows={2}
                     placeholder={t("consultNotesPlaceholder")}
                     className={inputCls}

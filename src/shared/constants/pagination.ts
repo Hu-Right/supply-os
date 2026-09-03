@@ -9,3 +9,8 @@
 
 /** 列表分页大小（供应商列表等通用） */
 export const PAGE_SIZE = 9;
+
+/** 计算总页数（至少 1 页）——收编 useOrderHistory/useSearchResults/SupplierPage 的重复公式 */
+export function calcTotalPages(total: number, pageSize: number): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}

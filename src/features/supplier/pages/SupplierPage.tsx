@@ -7,11 +7,12 @@
  *              Supplier page entry, displays supplier list and filters
  */
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
+import { calcTotalPages } from "@/shared/constants/pagination";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
@@ -20,7 +21,8 @@ import { SupplierContactModal, type SupplierContactStatus } from "../components/
 import { ListPage, LoadingOverlay } from "@/shared/ui";
 import { Input, Select, SegmentedControl } from "@/shared/ui";
 import { PAGE_SIZE } from "@/shared/constants";
-import { fetchSuppliersPaginated, fetchSuppliers, fetchSupplierContact, type SupplierContact } from "../api";
+import { useSupplierSearch } from "../hooks/useSupplierSearch";
+import { fetchSupplierContact, type SupplierContact } from "../api";
 import { onAppEvent } from "@/core/events";
 
 export default function SupplierPage() {
@@ -37,13 +39,13 @@ export default function SupplierPage() {
     status: SupplierContactStatus;
     contact: SupplierContact | null;
   } | null>(null);
-  // ── 服务端分页状态 ──
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  // 行业下拉选项（独立加载，不阻塞首屏骨架屏）
-  const [industries, setIndustries] = useState<string[]>([]);
+  // ── 服务端分页 + 行业下拉（hooks 层承载） ──
+  const { suppliers, total, loading, industries, page, setPage, reload } = useSupplierSearch({
+    locale,
+    searchTerm,
+    supplierSubTab,
+    supplierIndustry,
+  });
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);
@@ -58,55 +60,13 @@ export default function SupplierPage() {
   }, [loading, suppliers.length]);
   useRenderTimer("SupplierPage", [loading, suppliers.length]);
 
-  // ── 加载行业列表（用于筛选下拉，独立于分页数据，不阻塞骨架屏） ──
-  useEffect(() => {
-    let cancelled = false;
-    fetchSuppliers(locale)
-      .then((list) => {
-        if (cancelled) return;
-        const set = new Set<string>();
-        (Array.isArray(list) ? list : []).forEach((s) => {
-          const ind = pickLocale(locale, s.industryZh, s.industryEn);
-          if (ind) set.add(ind);
-        });
-        setIndustries(Array.from(set));
-      })
-      .catch(() => { /* 静默：下拉保持空 */ });
-    return () => { cancelled = true; };
-  }, [locale]);
-
-  // ── 服务端分页加载 ──
-  const loadSuppliers = useCallback(() => {
-    setLoading(true);
-    fetchSuppliersPaginated(locale, {
-      page,
-      pageSize: PAGE_SIZE,
-      q: searchTerm || undefined,
-      type: supplierSubTab !== "all" ? supplierSubTab : undefined,
-      industry: supplierIndustry || undefined,
-    })
-      .then((result) => {
-        setSuppliers(result.items);
-        setTotal(result.total);
-      })
-      .catch(() => {
-        setSuppliers([]);
-        setTotal(0);
-      })
-      .finally(() => setLoading(false));
-  }, [locale, page, searchTerm, supplierSubTab, supplierIndustry]);
-
-  useEffect(() => {
-    loadSuppliers();
-  }, [loadSuppliers]);
-
   // 监听页头横幅"注册成为认证供应商"事件，打开入驻表单
   useEffect(() => {
     return onAppEvent("supply-os:open-supplier-register", () => setShowRegisterModal(true));
   }, []);
 
   // 服务端分页：total 即筛选后总数
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = calcTotalPages(total, PAGE_SIZE);
 
   const handleAiMatch = (supplier: Supplier) => {
     // 对齐原版：带上目标供应商跳转 CRM，由 CRM 页自动执行 AI 撮合
@@ -214,7 +174,7 @@ export default function SupplierPage() {
       {showRegisterModal && (
         <SupplierRegisterModal
           onClose={() => setShowRegisterModal(false)}
-          onRegistered={loadSuppliers}
+          onRegistered={reload}
         />
       )}
 

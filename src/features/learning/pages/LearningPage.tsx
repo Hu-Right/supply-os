@@ -14,108 +14,14 @@ import { api } from "@/core/http";
 import { FAQS } from "@/data";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
-import { emitAppEvent, type PayEventDetail } from "@/core/events";
+import { useLearningMaterials, type ApiBundle } from "../hooks/useLearningMaterials";
 import type { LearningMaterial } from "@/types";
-import { useState, useEffect, useCallback, useRef } from "react";
-
-interface ApiMaterial {
-  id: string;
-  titleZh: string;
-  titleEn: string;
-  categoryZh: string;
-  categoryEn: string;
-  summaryZh: string;
-  summaryEn: string;
-  contentZh: string;
-  contentEn: string;
-  isPremium: boolean;
-  downloadsCount: number;
-  number: number;
-  price: number;
-  fileUrl: string;
-  fileName: string;
-}
-
-interface ApiBundle {
-  id: string;
-  labelZh: string;
-  labelEn: string;
-  includesIds: string[];
-  price: number;
-}
+import { emitAppEvent, type PayEventDetail } from "@/core/events";
 
 export default function LearningPage() {
   const { t, locale } = useLocale();
   const { authUser } = useAuth();
-  const [materials, setMaterials] = useState<LearningMaterial[]>([]);
-  const [bundles, setBundles] = useState<ApiBundle[]>([]);
-  const [purchasedIds, setPurchasedIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const prevAuthRef = useRef(authUser);
-
-  // 加载资料 + 套餐 + 已购状态
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [matRes, bundleRes] = await Promise.all([
-        api<{ materials: ApiMaterial[] }>("/api/learning/materials"),
-        api<{ bundles: ApiBundle[] }>("/api/learning/bundles"),
-      ]);
-      setMaterials(
-        (matRes.materials ?? []).map((m) => ({
-          id: m.id,
-          titleZh: m.titleZh,
-          titleEn: m.titleEn,
-          categoryZh: m.categoryZh,
-          categoryEn: m.categoryEn,
-          summaryZh: m.summaryZh,
-          summaryEn: m.summaryEn,
-          contentZh: m.contentZh,
-          contentEn: m.contentEn,
-          isPremium: m.isPremium,
-          downloadsCount: m.downloadsCount,
-          number: m.number,
-          price: m.price,
-          fileUrl: m.fileUrl,
-          fileName: m.fileName,
-        })),
-      );
-      setBundles(bundleRes.bundles ?? []);
-    } catch {
-      // 静默失败
-    }
-    setLoading(false);
-  }, []);
-
-  // 刷新已购资料列表
-  const refreshPurchased = useCallback(async () => {
-    if (!authUser) {
-      setPurchasedIds(new Set());
-      return;
-    }
-    try {
-      const data = await api<{ material_ids: string[] }>("/api/learning/purchased", { method: "GET" });
-      setPurchasedIds(new Set(data.material_ids ?? []));
-    } catch {
-      // 静默失败
-    }
-  }, [authUser]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  useEffect(() => {
-    void refreshPurchased();
-  }, [refreshPurchased]);
-
-  // 检测支付弹窗关闭后刷新已购列表
-  useEffect(() => {
-    if (prevAuthRef.current !== authUser && authUser) {
-      void refreshPurchased();
-    }
-    prevAuthRef.current = authUser;
-  }, [authUser, refreshPurchased]);
+  const { materials, bundles, purchasedIds, loading, refreshPurchased } = useLearningMaterials();
 
   // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
   // /content 端点获取（服务端校验登录 + 购买记录）

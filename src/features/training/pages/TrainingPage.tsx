@@ -9,7 +9,7 @@
 
 import { CheckCircle2, GraduationCap, Send } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Input, Select, Button, ChipToggleGroup } from "@/shared/ui";
+import { Input, Select, Button, ChipToggleGroup, Textarea } from "@/shared/ui";
 import { useTrainingForm } from "../hooks/useTrainingForm";
 import type { DictionaryItem } from "@/core/unspsc/types";
 
@@ -234,7 +234,7 @@ export default function TrainingPage() {
           <span className="mb-1 block text-xs font-extrabold text-slate-700">
             {t("trainingFormRemark")}
           </span>
-          <textarea
+          <Textarea
             name="remark"
             value={form.remark}
             onChange={handleChange}

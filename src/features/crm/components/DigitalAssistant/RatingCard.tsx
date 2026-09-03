@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Star } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, Textarea } from "@/shared/ui";
 
 type RatingCardProps = {
   onSubmit: (score: number, tag?: string, comment?: string) => Promise<void>;
@@ -85,7 +85,7 @@ export function RatingCard({ onSubmit, onSkip }: RatingCardProps) {
       </div>
 
       {/* 文字反馈 */}
-      <textarea
+      <Textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder={t("crmAssistantRateCommentPlaceholder")}

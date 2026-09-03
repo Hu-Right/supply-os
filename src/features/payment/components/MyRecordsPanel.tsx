@@ -16,6 +16,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { Button } from "@/shared/ui";
+import { formatDateTimeZh } from "@/shared/utils/format";
 import type { OrderRecord, UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
 import { useRecordsSummary } from "../hooks/useRecordsSummary";
@@ -29,17 +30,8 @@ type PanelView = "overview" | PurchaseTab;
 
 type RecordRow = OrderRecord | UnlockRecord;
 
-/** 原版 formatUserDateTime：yyyy-MM-dd HH:mm */
-const formatUserDateTime = (value?: string | null) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value.replace("T", " ").replace(".000Z", "");
-  const pad = (num: number) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
-
 const recordTime = (row: RecordRow) =>
-  formatUserDateTime(
+  formatDateTimeZh(
     ("unlocked_at" in row ? row.unlocked_at : undefined) ||
       ("paid_at" in row ? row.paid_at : undefined) ||
       ("created_at" in row ? row.created_at : undefined),

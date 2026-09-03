@@ -9,7 +9,7 @@
  *              Each consumer handles its own layout shell, submission logic and success page.
  */
 
-import { Input } from "@/shared/ui";
+import { Input, Textarea } from "@/shared/ui";
 import type { QualOption } from "@/shared/data/qualificationOptions";
 
 // ── 表单状态类型（与 crm_supplier_qualification 14 字段对齐） ──
@@ -154,7 +154,7 @@ function FormTextArea({ value, onChange, placeholder, rows = 3 }: {
   rows?: number;
 }) {
   return (
-    <textarea
+    <Textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
