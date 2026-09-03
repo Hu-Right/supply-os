@@ -13,7 +13,7 @@ import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
 
 export interface UseNoticeMembershipOptions {
   /** 当前登录用户 key */
-  userKey: number | undefined;
+  userId: number | undefined;
   /** 是否 VIP（决定解锁类型） */
   isVip: boolean;
 }
@@ -37,7 +37,7 @@ export interface UseNoticeMembershipReturn {
 }
 
 export function useNoticeMembership({
-  userKey,
+  userId,
   isVip,
 }: UseNoticeMembershipOptions): UseNoticeMembershipReturn {
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
@@ -65,7 +65,7 @@ export function useNoticeMembership({
 
   // P2-2：useCallback 稳定引用，配合下游 openNotice 的 memo 化不击穿 NoticeCard
   const refreshMembership = useCallback(async (useCache = false) => {
-    if (!userKey) {
+    if (!userId) {
       setMembership(null);
       return;
     }
@@ -76,7 +76,7 @@ export function useNoticeMembership({
     } catch {
       setMembership(null);
     }
-  }, [userKey]);
+  }, [userId]);
 
   // 套餐列表懒加载：仅在用户首次触发付费操作时才请求，避免初始页面加载时多发一个请求；
   // 套餐展示由后端 is_active 控制，前端不再硬编码过滤
@@ -100,7 +100,7 @@ export function useNoticeMembership({
   useEffect(() => {
     refreshMembership(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userKey, isVip]);
+  }, [userId, isVip]);
 
   return {
     membership,

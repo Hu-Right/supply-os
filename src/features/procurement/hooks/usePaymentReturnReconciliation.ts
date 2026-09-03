@@ -20,14 +20,14 @@ export interface UsePaymentReturnReconciliationOptions {
   refreshMembership: () => Promise<void>;
   openNoticeById: (id: number) => Promise<void>;
   setActionMessage: (message: string) => void;
-  userKey?: number;
+  userId?: number;
 }
 
 export function usePaymentReturnReconciliation({
   refreshMembership,
   openNoticeById,
   setActionMessage,
-  userKey,
+  userId,
 }: UsePaymentReturnReconciliationOptions) {
   const { t } = useLocale();
   const searchParams = useSearchParams();
@@ -49,7 +49,7 @@ export function usePaymentReturnReconciliation({
             await refreshMembership();
             const nid = status.notice_id ?? (noticeIdParam ? Number(noticeIdParam) : null);
             // P0-9 安全修复：paid 分支先执行解锁，再打开详情（否则详情接口返回 403 NOTICE_LOCKED）
-            if (nid && userKey) {
+            if (nid && userId) {
               try {
                 await unlockNotice(nid, "single", 0);
               } catch {

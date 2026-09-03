@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
   const { customerName, leadId, locale, aiSummary } = parsed.data;
   const sessionId = await chatRepo.createSession({
     userId: auth.userId,
-    customerId: auth.userKey,
+    customerId: "",
     customerName,
     leadId,
     locale,

@@ -12,7 +12,6 @@ import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 export interface LearningOrderRow {
   id: number;
   order_no: string;
-  user_key: string;
   user_id: number | null;
   plan_code: string;
   amount: number;
@@ -89,7 +88,6 @@ export class LearningOrdersRepo {
   /** 创建学习订单 */
   async createOrder(data: {
     userId: number;
-    userKey: string;
     orderNo: string;
     provider: string;
     planCode: string;

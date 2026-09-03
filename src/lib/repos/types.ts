@@ -85,7 +85,6 @@ export interface PaymentOrderRow {
   id: number;
   user_id: number | null;
   order_no: string;
-  user_key: string;
   provider: string;
   plan_code: string;
   /** 订单类型：'new'（新购）/ 'upgrade'（升级补差） */

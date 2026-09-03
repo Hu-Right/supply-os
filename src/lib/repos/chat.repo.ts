@@ -53,12 +53,12 @@ export interface ChatMessageRow extends RowDataPacket {
  */
 export function sessionOwnedBy(
   session: Pick<ChatSessionRow, "user_id" | "customer_id">,
-  auth: { userId?: number | null; userKey: string },
+  auth: { userId?: number | null },
 ): boolean {
   if (session.user_id != null && auth.userId != null) {
     return session.user_id === auth.userId;
   }
-  return session.customer_id === auth.userKey;
+  return false;
 }
 
 export class ChatRepo {

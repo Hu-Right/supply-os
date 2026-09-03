@@ -28,12 +28,11 @@ export async function POST(
 
   const { id } = await params;
   const noticeId = Number(id);
-  const userKey = auth.userKey;
   const body = await req.json();
   const interestType = body.interest_type === "subscribed" ? "subscribed" : "interested";
   const note = String(body.note || "").slice(0, 500);
 
-  if (!userKey && !auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
 
   const pool = getPool();
 

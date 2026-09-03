@@ -53,7 +53,6 @@ export interface TrainingOrderRow extends RowDataPacket {
   provider_trade_no: string | null;
   paid_at: Date | null;
   expires_at: Date;
-  user_key: string | null;
 }
 
 export interface InstructorRow extends RowDataPacket {
@@ -146,8 +145,6 @@ export interface CreateTrainingOrderData {
   telephone: string | null;
   /** 内部用户 ID */
   userId?: number | null;
-  /** 用户标识（兼容保留，不再写入 DB） */
-  userKey?: string | null;
 }
 
 export class TrainingRepo {

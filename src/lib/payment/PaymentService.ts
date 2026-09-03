@@ -65,7 +65,6 @@ export class PaymentService {
   }
 
   async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
-    const userKey = String(request.user_key || "").trim().toLowerCase().slice(0, 190);
     const userId = request.user_id;
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
@@ -172,7 +171,6 @@ export class PaymentService {
     // raw_request 记录服务端解析后的权威金额与套餐条目（履约以此为准）
     const rawRequestPayload = JSON.stringify({
       ...request,
-      user_key: userKey,
       notice_id: noticeId,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
@@ -190,7 +188,6 @@ export class PaymentService {
     } else {
       await this.repo.createOrder({
         userId: userId!,
-        userKey,
         orderNo,
         provider,
         planCode,

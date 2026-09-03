@@ -30,8 +30,6 @@ export interface NormalizedOrder {
   order_no: string;
   /** 内部用户 ID */
   user_id: number;
-  /** 用户标识（兼容保留，仅展示用） */
-  user_key?: string;
   provider: string;
   plan_code: string;
   notice_id: number | null;
@@ -211,21 +209,21 @@ export class PaymentOrchestrator {
 
   // ── 订单查找（身份校验用） ────────────────────────────────────────────────
 
-  async findOrder(orderNo: string): Promise<{ user_id: number; user_key?: string; status: string } | null> {
+  async findOrder(orderNo: string): Promise<{ user_id: number; status: string } | null> {
     const business = getOrderBusiness(orderNo);
     switch (business) {
       case "learning": {
         const order = await this.learningOrdersRepo.findByOrderNo(orderNo);
-        return order ? { user_id: order.user_id!, user_key: order.user_key, status: order.status } : null;
+        return order ? { user_id: order.user_id!, status: order.status } : null;
       }
       case "training": {
         const order = await this.trainingRepo.findOrderByNo(orderNo);
-        return order ? { user_id: order.user_id!, user_key: order.user_key || undefined, status: order.status } : null;
+        return order ? { user_id: order.user_id!, status: order.status } : null;
       }
       case "membership":
       default: {
         const order = await this.paymentsRepo.findByOrderNo(orderNo);
-        return order ? { user_id: order.user_id!, user_key: order.user_key, status: order.status } : null;
+        return order ? { user_id: order.user_id!, status: order.status } : null;
       }
     }
   }
@@ -234,7 +232,7 @@ export class PaymentOrchestrator {
 
   /** 统一订单行（聚合三表后的公共字段） */
   private normalizeOrder(row: {
-    order_no: string; user_id?: number | null; user_key?: string; provider: string; plan_code: string;
+    order_no: string; user_id?: number | null; provider: string; plan_code: string;
     amount: number | string; currency: string; status: string;
     provider_trade_no: string | null; paid_at: Date | string | null;
     created_at: Date | string; updated_at: Date | string | null;
@@ -243,7 +241,6 @@ export class PaymentOrchestrator {
     return {
       order_no: row.order_no,
       user_id: row.user_id ?? 0,
-      user_key: row.user_key,
       provider: row.provider,
       plan_code: row.plan_code,
       notice_id: row.notice_id ?? null,
@@ -281,7 +278,7 @@ export class PaymentOrchestrator {
       ...membershipOrders.map((o) => this.normalizeOrder(o)),
       ...learningOrders.map((o) => this.normalizeOrder(o)),
       ...trainingOrders.map((o) => this.normalizeOrder({
-        order_no: o.order_no, user_id: o.user_id, user_key: o.user_key || undefined, provider: o.provider,
+        order_no: o.order_no, user_id: o.user_id, provider: o.provider,
         plan_code: `training_course_${o.course_id}`, amount: o.total_amount,
         currency: o.currency, status: o.status, provider_trade_no: o.provider_trade_no,
         paid_at: o.paid_at, created_at: o.created_at as unknown as Date,

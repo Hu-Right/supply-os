@@ -20,11 +20,11 @@ import { Button } from "@/shared/ui";
 import { fetchUnlocks, type UnlockRecord } from "../api";
 
 export interface RecentUnlocksProps {
-  userKey: number;
+  userId: number;
   onOpenNotice: (noticeId: number) => void;
 }
 
-export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
+export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   const { t, locale } = useLocale();
   const [records, setRecords] = useState<UnlockRecord[]>([]);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -44,7 +44,7 @@ export function RecentUnlocks({ userKey, onOpenNotice }: RecentUnlocksProps) {
     return () => {
       cancelled = true;
     };
-  }, [userKey, locale]);
+  }, [userId, locale]);
 
   if (records.length === 0) return null;
 

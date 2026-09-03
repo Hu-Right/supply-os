@@ -22,7 +22,7 @@ import { useNoticeHandlers, type UseNoticeHandlersReturn } from "./useNoticeHand
 import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation";
 
 export interface UseNoticeActionsOptions {
-  userKey: number | undefined; // 当前登录用户 ID
+  userId: number | undefined; // 当前登录用户 ID
   isVip: boolean; // 是否 VIP（决定免费配额门槛与解锁类型）
   items: NoticeItem[]; // 当前列表数据（openNoticeById 复用列表内已有项）
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器
@@ -41,19 +41,19 @@ export interface UseNoticeActionsReturn
 }
 
 export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeActionsReturn {
-  const { userKey, isVip, items, setSelectedNotice, trackClick, trackDetailOpen, refreshAuth } = options;
+  const { userId, isVip, items, setSelectedNotice, trackClick, trackDetailOpen, refreshAuth } = options;
   const { t } = useLocale();
   const [actionMessage, setActionMessage] = useState("");
 
   // P2-2：useCallback 稳定引用，作为 openNotice memo 依赖链的一环
   const onRequireLogin = useCallback(() => emitAppEvent("supply-os:require-login"), []);
 
-  const membership = useNoticeMembership({ userKey, isVip });
-  const unlock = useNoticeUnlock({ userKey, items, setSelectedNotice });
+  const membership = useNoticeMembership({ userId, isVip });
+  const unlock = useNoticeUnlock({ userId, items, setSelectedNotice });
 
   // 采购详情内嵌多套餐付费面板状态：付费墙 / 订单 / 轮询对账，对齐远端 PaymentPanel
   const { openPaywall, ...payment } = useNoticePayment({
-    userKey,
+    userId,
     onRequireLogin,
     onPaid: async (noticeId, planCode) => {
       const unlockType = planCode.includes("single") ? "single" : "subscription";
@@ -84,7 +84,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   }, [membership.loadPaidPlans, openPaywall]);
 
   const handlers = useNoticeHandlers({
-    userKey,
+    userId,
     isVip,
     setSelectedNotice,
     trackClick,
@@ -103,7 +103,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
   };
 
   // 支付整页跳回后的对账：?order_no=&trade_no=&notice_id= 或仅 ?notice_id=
-  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, userKey });
+  usePaymentReturnReconciliation({ refreshMembership: membership.refreshMembership, openNoticeById, setActionMessage, userId });
 
   return {
     ...membership,

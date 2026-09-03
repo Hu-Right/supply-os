@@ -44,7 +44,6 @@ export class LearningPaymentService {
 
   async createOrder(params: {
     userId: number;
-    userKey: string;
     planCode: string;
     provider: PaymentProviderName;
     returnUrl?: string;
@@ -59,7 +58,7 @@ export class LearningPaymentService {
     status: "pending";
     created_at: string;
   }> {
-    const { userId, userKey, planCode, provider } = params;
+    const { userId, planCode, provider } = params;
 
     // ── 服务端权威定价（审查 F2）──
     let amount: number;
@@ -90,11 +89,11 @@ export class LearningPaymentService {
     );
 
     const rawRequest = JSON.stringify({
-      user_key: userKey, plan_code: planCode, amount,
+      plan_code: planCode, amount,
     });
 
     await this.learningOrdersRepo.createOrder({
-      userId, userKey, orderNo, provider, planCode, amount,
+      userId, orderNo, provider, planCode, amount,
       currency: "CNY", payUrl: pay_url, qrCodeUrl: qr_code_url || null, rawRequest,
     });
 

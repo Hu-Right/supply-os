@@ -40,7 +40,6 @@ export async function GET(
 
   const { id } = await params;
   const noticeId = Number(id);
-  const userKey = auth.userKey;
   const userId = auth.userId;
 
   if (!noticeId || !userId) {

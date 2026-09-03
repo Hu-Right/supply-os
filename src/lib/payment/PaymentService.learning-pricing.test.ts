@@ -55,7 +55,7 @@ describe("LearningPaymentService 学习订单服务端定价（F2）", () => {
     const { captured, getService } = makeService(makeMaterial(1.9));
     const svc = await getService();
     const order = await svc.createOrder({
-      userKey: "13800000000", userId: 1, planCode: "material_training-doc-01", provider: "mock",
+      userId: 1, planCode: "material_training-doc-01", provider: "mock",
     });
     expect(order.amount).toBe(1.9);
     expect(captured.amount).toBe(1.9);
@@ -66,7 +66,7 @@ describe("LearningPaymentService 学习订单服务端定价（F2）", () => {
     const svc = await getService();
     await expect(
       svc.createOrder({
-        userKey: "13800000000", userId: 1, planCode: "material_training-doc-01", provider: "mock",
+        userId: 1, planCode: "material_training-doc-01", provider: "mock",
       }),
     ).rejects.toThrow("MATERIAL_NOT_FOUND");
   });
@@ -75,7 +75,7 @@ describe("LearningPaymentService 学习订单服务端定价（F2）", () => {
     const { captured, getService, learningMaterialsRepo } = makeService(null);
     const svc = await getService();
     const order = await svc.createOrder({
-      userKey: "13800000000", userId: 1, planCode: "bundle_bundle-all", provider: "mock",
+      userId: 1, planCode: "bundle_bundle-all", provider: "mock",
     });
     expect(order.amount).toBe(99);
     expect(captured.planCode).toBe("bundle_bundle-all");
@@ -88,7 +88,7 @@ describe("LearningPaymentService 学习订单服务端定价（F2）", () => {
     const svc = await getService();
     await expect(
       svc.createOrder({
-        userKey: "13800000000", userId: 1, planCode: "bundle_not-exist", provider: "mock",
+        userId: 1, planCode: "bundle_not-exist", provider: "mock",
       }),
     ).rejects.toThrow("BUNDLE_NOT_FOUND");
   });

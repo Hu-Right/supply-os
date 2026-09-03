@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const ctx = getContext();
   const rows = await ctx.user.membershipRepo.findActivePlans();
 
-  const { authViaJwt, userKey, userId } = await extractUserKey(req);
+  const { authViaJwt, userId } = await extractUserKey(req);
   let eligible: boolean | null = null;
   if (authViaJwt && userId) {
     eligible = !(await ctx.payment.paymentsRepo.hasSingleUnlockRecord(userId));

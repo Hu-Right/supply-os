@@ -36,14 +36,9 @@ export async function POST(req: NextRequest) {
   const leadType = body?.type;
 
   // 展厅注册（exhibition_register）允许未登录用户提交
-  let userKey = "anonymous";
   if (leadType !== "exhibition_register") {
     const auth = await requireUserKey(req);
     if (auth instanceof Response) return auth;
-    userKey = auth.userKey;
-  } else {
-    const authResult = await extractUserKey(req);
-    userKey = authResult.userKey || "anonymous";
   }
 
   const {

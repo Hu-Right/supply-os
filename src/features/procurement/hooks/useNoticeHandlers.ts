@@ -20,7 +20,7 @@ import type { UseNoticeUnlockReturn } from "./useNoticeUnlock";
 
 export interface UseNoticeHandlersOptions {
   /** 当前登录用户 key */
-  userKey: number | undefined;
+  userId: number | undefined;
   /** 是否 VIP（决定免费配额门槛与解锁类型） */
   isVip: boolean;
   /** 选中详情设置器（Page 持有 selectedNotice） */
@@ -48,7 +48,7 @@ export interface UseNoticeHandlersReturn {
 }
 
 export function useNoticeHandlers({
-  userKey,
+  userId,
   isVip,
   setSelectedNotice,
   trackClick,
@@ -64,7 +64,7 @@ export function useNoticeHandlers({
   const { isUnlocked, markUnlocked, loadNoticeDetail, loadNoticePreview, loadNoticeContent, setDetailLoadingId } = unlock;
 
   const openNotice = useCallback(async (notice: NoticeItem) => {
-    if (!userKey) {
+    if (!userId) {
       onRequireLogin();
       return;
     }
@@ -95,7 +95,7 @@ export function useNoticeHandlers({
     // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
     // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
   }, [
-    userKey, isVip, t,
+    userId, isVip, t,
     onRequireLogin, trackClick, trackDetailOpen,
     isUnlocked, setSelectedNotice, setActionMessage, openPaywall,
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
@@ -103,7 +103,7 @@ export function useNoticeHandlers({
 
   // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
   const handlePayUnlock = async (notice: NoticeItem) => {
-    if (!userKey) {
+    if (!userId) {
       onRequireLogin();
       return;
     }
@@ -125,7 +125,7 @@ export function useNoticeHandlers({
   };
 
   const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => {
-    if (!userKey) {
+    if (!userId) {
       onRequireLogin();
       return false;
     }
@@ -166,7 +166,7 @@ export function useNoticeHandlers({
   };
 
   const handleExpressInterest = async (notice: NoticeItem, interestType: "interested" | "subscribed") => {
-    if (!userKey) {
+    if (!userId) {
       onRequireLogin();
       return;
     }

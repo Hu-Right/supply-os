@@ -26,7 +26,7 @@ export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const userKey = authUser?.id;
+  const userId = authUser?.id;
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);
@@ -45,7 +45,7 @@ export default function ProcurementPage() {
     levels, selectedIds, setLevels, setSelectedIds, prefsMode, setPrefsMode,
     prefsBannerName, deepestCodeId, exitAutoMode, handleLevelChange,
     hasIndustryPrefs, restorePrefsMode,
-  } = useIndustryPrefs({ userKey, locale: useLocale().locale, setPage, setSelectedNotice });
+  } = useIndustryPrefs({ userId, locale: useLocale().locale, setPage, setSelectedNotice });
 
   // ── 恢复行业匹配：清除手动搜索条件并切回行业精准匹配模式 ──
   const handleRestoreIndustryMatch = () => {
@@ -59,7 +59,7 @@ export default function ProcurementPage() {
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
-    userId: userKey, page, setPage, deepestCodeId,
+    userId, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
     // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
     // BUG2 修复：清除筛选彻底退出行业匹配/推荐模式，回到全量检索
@@ -83,7 +83,7 @@ export default function ProcurementPage() {
 
   // ── 推荐反馈采集（曝光/点击/dwell/scroll_end/quick_exit/revisit）──
   const feedback = useNoticeFeedback({
-    userId: userKey, prefsMode,
+    userId, prefsMode,
     hasSearch: search.query.hasSearch,
     activeSort: search.query.activeSort,
     selectedNotice, variantRef,
@@ -91,7 +91,7 @@ export default function ProcurementPage() {
 
   // ── 详情与支付动作 ──
   const actions = useNoticeActions({
-    userKey, isVip,
+    userId, isVip,
     items: search.result.items,
     setSelectedNotice,
     trackClick: feedback.trackClick,
@@ -106,7 +106,7 @@ export default function ProcurementPage() {
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {
-    if (!userKey) return;
+    if (!userId) return;
     return onAppEvent("supply-os:notice-paid", async ({ noticeId }) => {
       try {
         await unlockNotice(noticeId, "single", 0);
@@ -121,7 +121,7 @@ export default function ProcurementPage() {
       refreshAuth();
       await actions.openNoticeById(noticeId);
     });
-  }, [userKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 详情页
   if (selectedNotice) {
@@ -276,7 +276,7 @@ export default function ProcurementPage() {
           </div>
         )}
 
-        {userKey && <RecentUnlocks userKey={userKey} onOpenNotice={actions.openNoticeById} />}
+        {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 

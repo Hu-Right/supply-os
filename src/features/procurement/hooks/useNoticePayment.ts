@@ -20,7 +20,7 @@ export type PanelProvider = "alipay" | "wechat";
 
 export type UseNoticePaymentOptions = {
   /** 当前登录用户 key，无则触发登录 */
-  userKey?: number;
+  userId?: number;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
   /** 支付成功（mock 或轮询到 paid）后的解锁回调 */
@@ -45,7 +45,7 @@ export type UseNoticePaymentReturn = {
 };
 
 export function useNoticePayment({
-  userKey,
+  userId,
   onRequireLogin,
   onPaid,
 }: UseNoticePaymentOptions): UseNoticePaymentReturn {
@@ -114,8 +114,8 @@ export function useNoticePayment({
   const createNoticeOrder = useCallback(
     async (planCode: string) => {
       if (busyPlanCode) return;
-      // 认证检查：仅需 userKey；paywallNotice 为 null 时回退到 currentNoticeId（侧边栏常驻面板场景）
-      if (!userKey) {
+      // 认证检查：仅需 userId；paywallNotice 为 null 时回退到 currentNoticeId（侧边栏常驻面板场景）
+      if (!userId) {
         onRequireLogin();
         return;
       }
@@ -154,7 +154,7 @@ export function useNoticePayment({
         setBusyPlanCode("");
       }
     },
-    [busyPlanCode, userKey, paywallNotice, currentNoticeId, paymentProvider, paymentConfig, startPolling, onRequireLogin, t],
+    [busyPlanCode, userId, paywallNotice, currentNoticeId, paymentProvider, paymentConfig, startPolling, onRequireLogin, t],
   );
 
   const markPaid = useCallback(async () => {

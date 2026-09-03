@@ -38,11 +38,9 @@ function sign(data: string): string {
 export function signChatTicket(
   userId: number,
   sessionId: number,
-  userKey?: string,
 ): string {
   const payload: TicketPayload = {
     i: userId,
-    ...(userKey ? { u: userKey } : {}),
     s: sessionId,
     exp: Date.now() + TICKET_TTL_MS,
     n: randomUUID(),
@@ -74,7 +72,6 @@ function markUsed(body: string): boolean {
 
 export interface VerifiedTicket {
   userId: number;
-  userKey?: string;
   sessionId: number;
 }
 
@@ -106,7 +103,6 @@ export function verifyChatTicket(ticket: string): VerifiedTicket | null {
 
   return {
     userId: payload.i!,
-    ...(payload.u ? { userKey: payload.u } : {}),
     sessionId: payload.s,
   };
 }

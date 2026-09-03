@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
       contactName: body.contact_name,
       telephone: body.telephone,
       clientIp: extractClientIp(req),
-      userKey: auth.userKey,
       baseUrl: `${req.nextUrl.protocol}//${req.nextUrl.host}`,
     });
 

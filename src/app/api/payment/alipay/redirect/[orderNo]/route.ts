@@ -23,7 +23,7 @@ export async function GET(
   const ctx = getContext();
   const order = await ctx.payment.paymentsRepo.findByOrderNo(decodedOrderNo);
   if (!order) return new Response("Order not found", { status: 404 });
-  if (order.user_key !== auth.userKey) return new Response("Forbidden", { status: 403 });
+  if (order.user_id !== auth.userId) return new Response("Forbidden", { status: 403 });
   if (order.provider !== "alipay") return new Response("Not an Alipay order", { status: 400 });
   if (order.status !== "pending") return new Response("Order is not pending", { status: 400 });
 

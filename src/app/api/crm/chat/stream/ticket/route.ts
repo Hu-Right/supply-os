@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, ticketLimiterConfig, () => `user:${auth.userId || auth.userKey}`);
+  const limited = checkRateLimit(req, ticketLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
 
   let body: unknown;

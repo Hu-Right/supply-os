@@ -15,7 +15,7 @@ import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlocke
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
-  userKey: number | undefined;
+  userId: number | undefined;
   /** 当前列表数据（openNoticeById 复用列表内已有项） */
   items: NoticeItem[];
   /** 选中详情设置器（Page 持有 selectedNotice，函数式更新合并拓展详情） */
@@ -39,7 +39,7 @@ export interface UseNoticeUnlockReturn {
 }
 
 export function useNoticeUnlock({
-  userKey,
+  userId,
   items,
   setSelectedNotice,
 }: UseNoticeUnlockOptions): UseNoticeUnlockReturn {
@@ -57,7 +57,7 @@ export function useNoticeUnlock({
 
   // 登录后预取已解锁集合：详情首帧据此决定骨架屏还是锁定面板
   useEffect(() => {
-    if (!userKey) {
+    if (!userId) {
       setUnlockedIds(new Set());
       return;
     }
@@ -68,10 +68,10 @@ export function useNoticeUnlock({
     return () => {
       cancelled = true;
     };
-  }, [userKey]);
+  }, [userId]);
 
   const loadNoticeDetail = useCallback(async (notice: NoticeItem) => {
-    if (!userKey) {
+    if (!userId) {
       setDetailLoadingId(null);
       return;
     }
@@ -84,19 +84,19 @@ export function useNoticeUnlock({
     } finally {
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
     }
-  }, [userKey, setSelectedNotice, markUnlocked]);
+  }, [userId, setSelectedNotice, markUnlocked]);
 
   // 锁定态有限预览：机构名/分类标签（VIP 另含机构全称与发布日期），
   // 仅增强展示不含敏感字段，失败静默不阻断详情页
   const loadNoticePreview = useCallback(async (notice: NoticeItem) => {
-    if (!userKey) return;
+    if (!userId) return;
     try {
       const preview = await fetchNoticePreview(notice.id);
       setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...preview } : prev));
     } catch {
       // 预览为增强项：失败保留列表数据
     }
-  }, [userKey, setSelectedNotice]);
+  }, [userId, setSelectedNotice]);
 
   // 公告全文内容加载：搜索 SQL 将 description 截断为 300 字符，
   // 本函数拉取完整 description 替换截断版本，确保"查看原文"开关有意义；

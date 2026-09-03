@@ -27,8 +27,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const userKey = auth.userKey;
-  if (!userKey && !auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
 
   const body = await req.json();
   const sessionId = String(body.session_id || "").trim().slice(0, 64);

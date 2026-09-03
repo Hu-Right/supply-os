@@ -19,7 +19,7 @@ import { useUnspscCascade } from "./useUnspscCascade";
 
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */
-  userKey: number | undefined;
+  userId: number | undefined;
   /** 当前语言（UNSPSC 选项译文按 lang 由后端返回） */
   locale: string;
   /** 页码设置器（自动筛选/手动改选时重置为 1） */
@@ -46,7 +46,7 @@ export interface UseIndustryPrefsReturn {
 }
 
 export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryPrefsReturn {
-  const { userKey, locale, setPage, setSelectedNotice } = options;
+  const { userId, locale, setPage, setSelectedNotice } = options;
 
   // UNSPSC 级联选择（拆分至独立 hook）
   const cascade = useUnspscCascade({ locale });
@@ -56,7 +56,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   const [prefsPath, setPrefsPath] = useState<string[]>(["", "", "", "", ""]);
 
   // ── 账号默认行业偏好三级降级 ──
-  const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userKey ? "loading" : "default"));
+  const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userId ? "loading" : "default"));
   const [hasIndustryPrefs, setHasIndustryPrefs] = useState(false);
   const prefsInitKeyRef = useRef<number | null>(null);
   const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
@@ -90,7 +90,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
    * 恢复行业匹配
    */
   const restorePrefsMode = async () => {
-    if (!userKey) return;
+    if (!userId) return;
     setPage(1);
     setPrefsMode("prefs");
     try {
@@ -117,7 +117,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   };
 
   useEffect(() => {
-    if (!userKey) {
+    if (!userId) {
       prefsInitKeyRef.current = null;
       setHasIndustryPrefs(false);
       if (prefsMode !== "default") {
@@ -129,10 +129,10 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       }
       return;
     }
-    if (prefsInitKeyRef.current === userKey) return;
-    prefsInitKeyRef.current = userKey;
+    if (prefsInitKeyRef.current === userId) return;
+    prefsInitKeyRef.current = userId ?? null;
     if (prefsMode !== "loading") setPrefsMode("loading");
-    const stale = () => prefsInitKeyRef.current !== userKey;
+    const stale = () => prefsInitKeyRef.current !== userId;
     const detect = async () => {
       try {
         const prefs = await fetchIndustryPrefs();
@@ -160,11 +160,11 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     };
     const timeout = new Promise<void>((resolve) => setTimeout(resolve, 10_000));
     Promise.race([detect(), timeout]).then(() => {
-      if (!stale() && prefsInitKeyRef.current === userKey) {
+      if (!stale() && prefsInitKeyRef.current === userId) {
         setPrefsMode((prev) => prev === "loading" ? "default" : prev);
       }
     });
-  }, [userKey, prefsMode, prefsRefreshTick]);
+  }, [userId, prefsMode, prefsRefreshTick]);
 
   useEffect(() => {
     const onPrefsUpdated = () => {
@@ -173,12 +173,12 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       setPrefsPath(["", "", "", "", ""]);
       setLevels((prev) => [prev[0], [], [], [], []]);
       setPage(1);
-      setPrefsMode(userKey ? "loading" : "default");
+      setPrefsMode(userId ? "loading" : "default");
       setPrefsRefreshTick((tick) => tick + 1);
       clearApiCache("/api/notices");
     };
     return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
-  }, [userKey]);
+  }, [userId]);
 
   const prefsBannerName = useMemo(() => {
     const names: string[] = [];
@@ -199,7 +199,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     const mySeq = exitSeqRef.current + 1;
     exitSeqRef.current = mySeq;
 
-    if (prefsMode === "prefs" && userKey) {
+    if (prefsMode === "prefs" && userId) {
       fetchUnifiedSearch({ mode: "recommended", page: 1, pageSize: NOTICE_PAGE_SIZE })
         .then((probe) => {
           if (exitSeqRef.current !== mySeq) return;
@@ -210,7 +210,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
           }
         })
         .catch(() => { if (exitSeqRef.current === mySeq) setPrefsMode("default"); });
-    } else if (prefsMode === "recommended" && userKey && hasIndustryPrefs) {
+    } else if (prefsMode === "recommended" && userId && hasIndustryPrefs) {
       if (exitSeqRef.current !== mySeq) return;
       setPrefsMode("prefs");
       void restorePrefsMode();
