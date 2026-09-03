@@ -206,6 +206,20 @@ export function ChatWindow({
     return new Date(d).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
 
+  // ── 离线留言兜底（P1：客服全部离线时，waiting 会话可直接留言） ──
+  const [leaveMessageOpen, setLeaveMessageOpen] = useState(false);
+  const [leaveMessage, setLeaveMessage] = useState("");
+  const [leaveMessageDone, setLeaveMessageDone] = useState(false);
+
+  function handleLeaveMessage() {
+    const text = leaveMessage.trim();
+    if (!text) return;
+    onSend(text);
+    setLeaveMessage("");
+    setLeaveMessageOpen(false);
+    setLeaveMessageDone(true);
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Enter 发送，Shift+Enter 换行
     if (e.key === "Enter" && !e.shiftKey) {
@@ -357,7 +371,7 @@ export function ChatWindow({
         />
       )}
 
-      {/* ── 等待人工接入提示（含实时排队信息，P1） ── */}
+      {/* ── 等待人工接入提示（含实时排队信息 + 离线留言兜底，P1） ── */}
       {historyView === "none" && mode === "waiting" && (
         <div className="px-4 py-3 bg-amber-50 border-t border-amber-200">
           <div className="flex items-center gap-2">
@@ -375,6 +389,54 @@ export function ChatWindow({
               </span>
             )}
           </div>
+          {/* 客服全部离线时的留言兜底 */}
+          {queueInfo.agentsOnline === 0 && (
+            <div className="mt-2">
+              {leaveMessageDone ? (
+                <p className="text-3xs text-teal-700 font-medium">{t("crmAssistantLeaveDone")}</p>
+              ) : leaveMessageOpen ? (
+                <div>
+                  <textarea
+                    value={leaveMessage}
+                    onChange={(e) => setLeaveMessage(e.target.value)}
+                    placeholder={t("crmAssistantLeavePlaceholder")}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full resize-none border border-amber-200 rounded-lg px-3 py-2 text-xs
+                      text-slate-700 placeholder:text-slate-400 bg-white
+                      focus:ring-2 focus:ring-teal-500 focus:border-teal-500 focus:outline-none mb-2"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      disabled={!leaveMessage.trim()}
+                      onClick={handleLeaveMessage}
+                      className="text-3xs px-3 py-1.5 rounded-full"
+                    >
+                      {t("crmAssistantLeaveSubmit")}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setLeaveMessageOpen(false)}
+                      className="text-3xs text-slate-400 hover:text-slate-600"
+                    >
+                      {t("crmAssistantRateSkip")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setLeaveMessageOpen(true)}
+                  className="text-3xs text-amber-700 underline underline-offset-2 hover:text-amber-900"
+                >
+                  {t("crmAssistantLeaveMessage")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -14,6 +14,8 @@ export type SearchMode = "default" | "prefs" | "recommended";
 export interface UnifiedSearchParams {
   mode: SearchMode;
   userKey: string;
+  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  userId?: number;
   page: number;
   pageSize: number;
   locale: string;

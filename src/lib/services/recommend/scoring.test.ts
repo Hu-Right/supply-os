@@ -48,7 +48,7 @@ describe("getAmountPreference", () => {
     const mockPool = {
       query: vi.fn().mockResolvedValue([[{ center_log: 3.5, cnt: 5 }]]),
     };
-    const result = await getAmountPreference(mockPool as any, "user@test.com");
+    const result = await getAmountPreference(mockPool as any, 1);
     expect(result.centerLog).toBe(3.5);
     expect(result.active).toBe(true);
   });
@@ -57,7 +57,7 @@ describe("getAmountPreference", () => {
     const mockPool = {
       query: vi.fn().mockResolvedValue([[{ center_log: 0, cnt: 1 }]]),
     };
-    const result = await getAmountPreference(mockPool as any, "new@test.com");
+    const result = await getAmountPreference(mockPool as any, 2);
     expect(result.active).toBe(false);
   });
 });

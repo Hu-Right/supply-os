@@ -12,26 +12,27 @@
  */
 import type { RowDataPacket } from "mysql2/promise";
 
-const recoWeightRefreshing = new Set<string>();
+const recoWeightRefreshing = new Set<number>();
 const RECO_REFRESH_TIMEOUT = 30_000; // 安全超时：30s 后自动解锁，防止 DB 挂起导致永久阻塞
 
 /**
  * 重算用户推荐权重档案
  *
  * @param dbPool - 数据库连接池
- * @param userKey - 用户标识
+ * @param userId - 内部用户 ID
+ * @param userKey - 用户标识（保留兼容）
  */
-export async function recomputeRecoWeightProfile(dbPool: any, userKey: string): Promise<void> {
-  if (recoWeightRefreshing.has(userKey)) return; // 并发请求下同一用户只跑一次
-  recoWeightRefreshing.add(userKey);
-  const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userKey), RECO_REFRESH_TIMEOUT);
+export async function recomputeRecoWeightProfile(dbPool: any, userId: number, userKey: string): Promise<void> {
+  if (recoWeightRefreshing.has(userId)) return; // 并发请求下同一用户只跑一次
+  recoWeightRefreshing.add(userId);
+  const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userId), RECO_REFRESH_TIMEOUT);
   try {
     const [rows] = await dbPool.query(
       `SELECT action FROM crm_user_reco_feedback
-       WHERE user_key = ? AND action IN ('click','favorite','unlock','dismiss','quick_exit')
+       WHERE user_id = ? AND action IN ('click','favorite','unlock','dismiss','quick_exit')
        ORDER BY created_at DESC, id DESC
        LIMIT 200`,
-      [userKey],
+      [userId],
     );
     const actions = (rows as RowDataPacket[]).reverse(); // 时间正序遍历，EMA 天然给最新反馈更高权重
     if (actions.length === 0) return; // 无显式反馈：不建档案，保持全局默认恒等
@@ -45,12 +46,13 @@ export async function recomputeRecoWeightProfile(dbPool: any, userKey: string): 
     // （全档位为正，w_agency/w_geo 不动，总和恒 1.000）
     const delta = Math.max(-0.1, Math.min(0.1, (ema - 0.5) * 0.2));
     await dbPool.execute(
-      `INSERT INTO crm_reco_weight_profile (user_key, w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())
+      `INSERT INTO crm_reco_weight_profile (user_id, user_key, w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
          w_unspsc = VALUES(w_unspsc), w_agency = VALUES(w_agency), w_amount = VALUES(w_amount),
          w_geo = VALUES(w_geo), w_urgency = VALUES(w_urgency), updated_at = NOW()`,
       [
+        userId,
         userKey,
         (0.5 + delta).toFixed(3),
         (0.15).toFixed(3),
@@ -61,6 +63,6 @@ export async function recomputeRecoWeightProfile(dbPool: any, userKey: string): 
     );
   } finally {
     clearTimeout(safetyTimer);
-    recoWeightRefreshing.delete(userKey);
+    recoWeightRefreshing.delete(userId);
   }
 }

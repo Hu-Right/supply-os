@@ -9,7 +9,7 @@ import type { RecallResult } from "./recall";
 import { DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 
 // 金额偏好查询缓存
-const amountPrefCache = new Map<string, { centerLog: number; active: boolean; expires: number }>();
+const amountPrefCache = new Map<number, { centerLog: number; active: boolean; expires: number }>();
 const AMOUNT_PREF_CACHE_TTL = 10 * 60 * 1000;
 
 export interface ScoringContext {
@@ -70,9 +70,9 @@ export function buildScoringContext(
  * 查询金额偏好（带缓存）
  */
 export async function getAmountPreference(
-  pool: Pool, userKey: string,
+  pool: Pool, userId: number,
 ): Promise<{ centerLog: number; active: boolean }> {
-  const cachedAmountPref = amountPrefCache.get(userKey);
+  const cachedAmountPref = amountPrefCache.get(userId);
   if (cachedAmountPref && cachedAmountPref.expires > Date.now()) {
     return { centerLog: cachedAmountPref.centerLog, active: cachedAmountPref.active };
   }
@@ -80,12 +80,12 @@ export async function getAmountPreference(
     `SELECT AVG(LOG10(c.amount_usd + 1)) AS center_log, COUNT(*) AS cnt
      FROM crm_opportunity_unlocks u
      INNER JOIN crm_notice_amount_cache c ON c.notice_id = u.notice_id
-     WHERE u.user_key = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
-    [userKey],
+     WHERE u.user_id = ? AND u.notice_id IS NOT NULL AND c.amount_usd IS NOT NULL AND c.amount_usd > 0`,
+    [userId],
   );
   const centerLog = Number((amountPrefRows as RowDataPacket[])[0]?.center_log || 0);
   const active = Number((amountPrefRows as RowDataPacket[])[0]?.cnt || 0) >= 2;
-  amountPrefCache.set(userKey, { centerLog, active, expires: Date.now() + AMOUNT_PREF_CACHE_TTL });
+  amountPrefCache.set(userId, { centerLog, active, expires: Date.now() + AMOUNT_PREF_CACHE_TTL });
   return { centerLog, active };
 }
 

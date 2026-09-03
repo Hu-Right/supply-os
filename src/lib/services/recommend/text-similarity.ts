@@ -56,7 +56,7 @@ export const jaccardTokenSim = (a: Set<string>, b: Set<string>): number => {
 /** s_text 独立加分维度系数（当页内微调排序，不破 SQL 分页语义；满分加成 0.05 与 T-B7 权重档不冲突） */
 export const S_TEXT_BONUS = 0.05;
 
-const userUnlockKeywordsCache = new Map<string, { keywords: Set<string> | null; expires: number }>();
+const userUnlockKeywordsCache = new Map<number, { keywords: Set<string> | null; expires: number }>();
 const USER_KEYWORDS_TTL_MS = 10 * 60 * 1000;
 
 /**
@@ -66,8 +66,8 @@ const USER_KEYWORDS_TTL_MS = 10 * 60 * 1000;
  * @param userKey - 用户标识
  * @returns 关键词集合，无历史记录返回 null
  */
-export async function getUserUnlockKeywords(dbPool: any, userKey: string): Promise<Set<string> | null> {
-  const cached = userUnlockKeywordsCache.get(userKey);
+export async function getUserUnlockKeywords(dbPool: any, userId: number): Promise<Set<string> | null> {
+  const cached = userUnlockKeywordsCache.get(userId);
   if (cached && cached.expires > Date.now()) return cached.keywords;
   if (userUnlockKeywordsCache.size > 2000) userUnlockKeywordsCache.clear(); // 简易防膨胀
   let keywords: Set<string> | null;
@@ -76,10 +76,10 @@ export async function getUserUnlockKeywords(dbPool: any, userKey: string): Promi
       `SELECT n.title
        FROM crm_opportunity_unlocks u
        INNER JOIN crm_bid_notices n ON n.id = u.notice_id
-       WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+       WHERE u.user_id = ? AND u.notice_id IS NOT NULL
        ORDER BY u.unlocked_at DESC
        LIMIT 50`,
-      [userKey],
+      [userId],
     );
     const merged = new Set<string>();
     for (const row of rows as RowDataPacket[]) {
@@ -89,6 +89,6 @@ export async function getUserUnlockKeywords(dbPool: any, userKey: string): Promi
   } catch {
     keywords = null; // 查询异常降级为无文本信号，不阻断推荐主链
   }
-  userUnlockKeywordsCache.set(userKey, { keywords, expires: Date.now() + USER_KEYWORDS_TTL_MS });
+  userUnlockKeywordsCache.set(userId, { keywords, expires: Date.now() + USER_KEYWORDS_TTL_MS });
   return keywords;
 }

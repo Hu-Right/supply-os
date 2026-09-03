@@ -47,14 +47,14 @@ export interface NoticeRecommendResult {
  * 译文生产统一收敛到定时任务（translation/auto.ts）与详情页按需翻译。
  */
 export async function recommendNotices(
-  pool: Pool, userKey: string, page: number, pageSize: number,
+  pool: Pool, userId: number, userKey: string, page: number, pageSize: number,
   locale?: string,
 ): Promise<NoticeRecommendResult> {
   const offset = (page - 1) * pageSize;
   if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // 缓存命中检查
-  const recoCacheKey = `${userKey}:${page}:${pageSize}:${locale || ""}`;
+  const recoCacheKey = `${userId}:${page}:${pageSize}:${locale || ""}`;
   const cachedReco = recoResultCache.get(recoCacheKey);
   if (cachedReco && cachedReco.expires > Date.now()) return cachedReco.data;
 
@@ -63,9 +63,9 @@ export async function recommendNotices(
     `SELECT code, level, MAX(code_id) AS code_id,
             SUM(weight * EXP(-LN(2) * GREATEST(0, DATEDIFF(NOW(), COALESCE(updated_at, created_at))) / 90)) AS decayed_weight,
             MAX(COALESCE(updated_at, created_at)) AS last_update
-     FROM crm_user_interest_codes WHERE user_key = ?
+     FROM crm_user_interest_codes WHERE user_id = ?
      GROUP BY code, level ORDER BY decayed_weight DESC, last_update DESC LIMIT 80`,
-    [userKey],
+    [userId],
   );
 
   const { scoredCodes, clauses, interestTotal } = processInterestCodes(interestRows as RowDataPacket[], DEPTH_FACTOR);
@@ -81,8 +81,8 @@ export async function recommendNotices(
       clauses.params,
     ),
     pool.query(
-      `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_key = ? LIMIT 1`,
-      [userKey],
+      `SELECT w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at FROM crm_reco_weight_profile WHERE user_id = ? LIMIT 1`,
+      [userId],
     ),
   ]);
   const [countRows] = countResult;
@@ -90,10 +90,10 @@ export async function recommendNotices(
   const profileRow = (profileRows as RowDataPacket[])[0] || null;
 
   const { wUnspsc, wUrgency, wAmount, wNeutral, profileStale } = resolveWeights(profileRow, variant);
-  if (profileStale) void recomputeRecoWeightProfile(pool, userKey).catch(() => undefined);
+  if (profileStale) void recomputeRecoWeightProfile(pool, userId, userKey).catch(() => undefined);
 
   // 金额偏好
-  const { centerLog: amountCenterLog, active: amountActive } = await getAmountPreference(pool, userKey);
+  const { centerLog: amountCenterLog, active: amountActive } = await getAmountPreference(pool, userId);
 
   // 构建评分表达式
   const scoring = buildScoringContext(scoredCodes, interestTotal, wUnspsc, wUrgency, wAmount, wNeutral, amountCenterLog, amountActive);
@@ -139,7 +139,7 @@ export async function recommendNotices(
   if (pageNoticeIds.length) void backfillNoticeAmountCache(pool, pageNoticeIds).catch(() => undefined);
 
   // 解锁关键词文本相似度加分
-  const unlockKeywords = await getUserUnlockKeywords(pool, userKey);
+  const unlockKeywords = await getUserUnlockKeywords(pool, userId);
   if (unlockKeywords) {
     for (const row of rows as RowDataPacket[]) {
       const sText = jaccardTokenSim(unlockKeywords, tokenizeNoticeText(`${row.title || ""} ${row.description || ""}`));

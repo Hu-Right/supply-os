@@ -45,7 +45,7 @@ describe("getUserUnlockKeywords", () => {
     const mockPool = {
       query: vi.fn().mockResolvedValue([[{ title: "Construction of Schools" }]]),
     };
-    const result = await getUserUnlockKeywords(mockPool, "user@test.com");
+    const result = await getUserUnlockKeywords(mockPool, 1);
     expect(result).toBeInstanceOf(Set);
     expect(result!.size).toBeGreaterThan(0);
   });
@@ -54,7 +54,7 @@ describe("getUserUnlockKeywords", () => {
     const mockPool = {
       query: vi.fn().mockResolvedValue([[]]),
     };
-    const result = await getUserUnlockKeywords(mockPool, "new@test.com");
+    const result = await getUserUnlockKeywords(mockPool, 2);
     expect(result).toBeNull();
   });
 
@@ -62,7 +62,7 @@ describe("getUserUnlockKeywords", () => {
     const mockPool = {
       query: vi.fn().mockRejectedValue(new Error("DB error")),
     };
-    const result = await getUserUnlockKeywords(mockPool, "err@test.com");
+    const result = await getUserUnlockKeywords(mockPool, 3);
     expect(result).toBeNull();
   });
 });

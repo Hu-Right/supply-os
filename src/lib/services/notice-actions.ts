@@ -160,12 +160,12 @@ export async function processFeedback(
       if (!snapshot || snapshot.length === 0) continue;
       if (item.action === "click") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_click", 0.3);
       else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_favorite", 0.8);
-      else if (item.action === "dismiss") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.5);
+      else if (item.action === "dismiss") await decayUserInterestCodes(dbPool, userId, userKey, snapshot, 0.5);
       else if (item.action === "dwell" && (item.dwellMs || 0) >= 30000)
         await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_dwell", 0.2);
       else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_scroll_end", 0.1);
       else if (item.action === "revisit") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_revisit", 0.5);
-      else if (item.action === "quick_exit") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.95);
+      else if (item.action === "quick_exit") await decayUserInterestCodes(dbPool, userId, userKey, snapshot, 0.95);
     }
   }
 
