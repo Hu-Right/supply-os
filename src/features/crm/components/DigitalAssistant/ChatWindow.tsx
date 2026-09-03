@@ -222,7 +222,45 @@ export function ChatWindow({
         onSubmit={handleSubmit}
         className="p-4 border-t border-slate-200 bg-white"
       >
+        {/* 上传失败提示 */}
+        {uploadError && (
+          <p className="mb-2 text-2xs text-red-500">{uploadError}</p>
+        )}
+        {/* 附件预览 */}
+        {pendingAttachment && (
+          <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200">
+            <span className="text-xs text-slate-600 truncate flex-1">{pendingAttachment.name}</span>
+            <button
+              type="button"
+              onClick={() => setPendingAttachment(null)}
+              className="text-slate-400 hover:text-slate-600"
+              aria-label={t("uiClose")}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
+          {/* 附件选择（waiting 态禁用） */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT_EXTS}
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={mode === "waiting" || uploading}
+            onClick={() => fileInputRef.current?.click()}
+            className="shrink-0 rounded-xl p-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            aria-label={t("crmAssistantAttach")}
+            title={t("crmAssistantAttach")}
+          >
+            <Paperclip className={`w-4 h-4 ${uploading ? "animate-pulse" : ""}`} />
+          </Button>
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -241,7 +279,7 @@ export function ChatWindow({
             type="submit"
             variant="primary"
             size="icon"
-            disabled={!input.trim() || isThinking || mode === "waiting"}
+            disabled={(!input.trim() && !pendingAttachment) || isThinking || uploading || mode === "waiting"}
             className="shrink-0 rounded-xl p-2.5 hover:bg-teal-500"
             aria-label={t("crmAssistantSend")}
           >
