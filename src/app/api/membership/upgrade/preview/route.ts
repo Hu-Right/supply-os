@@ -14,6 +14,6 @@ export async function GET(req: NextRequest) {
   if (!targetPlanCode) {
     return NextResponse.json({ code: 40000, message: "请指定目标套餐" }, { status: 400 });
   }
-  const result = await previewUpgrade(getContext().user.membershipRepo, auth.userKey, targetPlanCode);
+  const result = await previewUpgrade(getContext().user.membershipRepo, auth.userId!, targetPlanCode);
   return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
 }

@@ -54,7 +54,7 @@ export function extractTierLabel(planName: string | null | undefined): string {
  */
 export async function previewUpgrade(
   membershipRepo: MembershipRepo,
-  userKey: string,
+  userId: number,
   targetPlanCode: string,
 ): Promise<UpgradePreviewResult> {
   const empty: UpgradePreviewResult = {
@@ -74,7 +74,7 @@ export async function previewUpgrade(
   if (Number(targetPlan.unlock_quota || 0) <= 0) return { ...empty, reason: "TARGET_PLAN_NOT_UPGRADABLE" };
 
   // 当前最优周期性套餐
-  const current = await membershipRepo.findCurrentBestPlan(userKey);
+  const current = await membershipRepo.findCurrentBestPlan(userId);
   if (!current) return { ...empty, reason: "NO_ACTIVE_PLAN" };
   if (current.plan_code === targetPlanCode) return { ...empty, reason: "ALREADY_ON_TARGET_PLAN" };
   if (Number(targetPlan.price) <= Number(current.price)) return { ...empty, reason: "CANNOT_DOWNGRADE" };
