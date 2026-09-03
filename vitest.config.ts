@@ -16,6 +16,7 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     pool: "forks",
+    include: ["tests/unit/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/__tests__/setup.ts"],
     exclude: ["node_modules/**", ".next/**", "tests/e2e/**", "tests/e2e-frontend/**", "tests/integration/**"],
     coverage: {
@@ -126,8 +127,7 @@ export default defineConfig({
       exclude: [
         "src/__tests__/**",
         "src/**/*.d.ts",
-        "src/**/*.test.{ts,tsx}",
-        "src/lib/**/*.test.ts",
+        "tests/unit/**/*.test.{ts,tsx}",
         "src/lib/db/**",
         "src/lib/lifecycle/**",
         "src/lib/bootstrap.ts",
