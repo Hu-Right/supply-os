@@ -6,14 +6,16 @@
  * @description GET 返回的 items 已通过 mapSupplierRow 映射为前端 Supplier DTO，
  *              含多语言译文（crm_supplier_translations）与联系方式脱敏。
  *              DB 查询失败时返回空结构（非 500），前端显示空状态而非白屏。
+ *              POST 编排已下沉 lib/services/suppliers.ts（A4）。
  */
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import { mapSupplierRow } from "@/lib/services/suppliers";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, parseJson } from "@/lib/middleware/route-handler";
+import { mapSupplierRow, registerCrmSupplier } from "@/lib/services/suppliers";
 import type { SupplierDirectoryRow, SupplierTranslationRow, SupplierRegistrationRepo } from "@/lib/repos/suppliers";
 import type { Supplier } from "@/types";
-import crypto from "crypto";
 
 /**
  * 批量映射：原始 DB 行 → 前端 Supplier DTO。
@@ -73,53 +75,20 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+const registerSchema = z.object({
+  nameZh: z.string().optional(),
+  contactPerson: z.string().optional(),
+  contactPhone: z.string().optional(),
+  contactEmail: z.string().optional(),
+  mainProductsZh: z.array(z.string()).optional(),
+  industryZh: z.string().optional(),
+  complianceLabelsZh: z.array(z.string()).optional(),
+});
 
-  const body = await req.json();
-  const ctx = getContext();
-  const { registrationRepo } = ctx.supplier;
+export const POST = withRoute(async (req: NextRequest) => {
+  await requireUserKeyOrThrow(req);
+  const body = await parseJson(req, registerSchema);
 
-  // 构建请求哈希（防重提交）
-  const hashPayload = JSON.stringify({
-    name: body.nameZh,
-    contact: body.contactPerson,
-    email: body.contactEmail,
-  });
-  // 防重哈希：sha256 截断 32 位十六进制（128 位），与外部 CRM crm_suppliers.request_hash
-  // 的既有列宽（32）兼容；防重窗口 24h，非对抗性场景，截断不构成安全弱化
-  const requestHash = crypto
-    .createHash("sha256")
-    .update(hashPayload)
-    .digest("hex")
-    .slice(0, 32);
-
-  // 防重：同哈希 24h 内不重复提交
-  const existing = await registrationRepo.findCrmByRequestHash(requestHash);
-  if (existing) {
-    return NextResponse.json(
-      { code: 40019, message: "该公司已注册或近期已提交过", error: "已注册" },
-      { status: 409 },
-    );
-  }
-
-  try {
-    const id = await registrationRepo.insertCrmSupplier({
-      companyName: body.nameZh || "",
-      contactName: body.contactPerson || "",
-      telephone: body.contactPhone || "",
-      email: body.contactEmail || "",
-      mainProduct: Array.isArray(body.mainProductsZh) ? body.mainProductsZh.join(", ") : "",
-      industry: body.industryZh || "",
-      certification: Array.isArray(body.complianceLabelsZh) ? body.complianceLabelsZh.join(", ") : "",
-      requestHash,
-    });
-
-    const supplier = await registrationRepo.findCrmById(id);
-    return NextResponse.json(supplier || { id }, { status: 201 });
-  } catch (err) {
-    console.error("[suppliers POST]", err);
-    return NextResponse.json({ code: 50000, message: "注册失败" }, { status: 500 });
-  }
-}
+  const supplier = await registerCrmSupplier(getContext().supplier.registrationRepo, body);
+  return NextResponse.json(supplier, { status: 201 });
+});

@@ -44,3 +44,64 @@ export function mapSupplierRow(row: any, tr: any | null): Supplier {
   };
 }
 
+// ─ 供应商入驻注册编排（架构评估 A4：自 suppliers POST 路由下沉） ──
+import crypto from "crypto";
+import type { SupplierRegistrationRepo } from "../repos/suppliers";
+import { RouteError } from "../middleware/route-handler";
+
+export interface CrmSupplierRegistrationInput {
+  nameZh?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  mainProductsZh?: string[];
+  industryZh?: string;
+  complianceLabelsZh?: string[];
+}
+
+/**
+ * 外部 CRM 供应商入驻注册：防重哈希 → 查重 → 插入 → 回读。
+ * 命中 24h 防重窗口抛 RouteError(409/40019)；插入失败抛 RouteError(500/50000)。
+ * 防重哈希：sha256 截断 32 位十六进制（128 位），与外部 CRM crm_suppliers.request_hash
+ * 的既有列宽（32）兼容；防重窗口 24h，非对抗性场景，截断不构成安全弱化。
+ */
+export async function registerCrmSupplier(
+  registrationRepo: SupplierRegistrationRepo,
+  input: CrmSupplierRegistrationInput,
+): Promise<Record<string, unknown>> {
+  const hashPayload = JSON.stringify({
+    name: input.nameZh,
+    contact: input.contactPerson,
+    email: input.contactEmail,
+  });
+  const requestHash = crypto
+    .createHash("sha256")
+    .update(hashPayload)
+    .digest("hex")
+    .slice(0, 32);
+
+  // 防重：同哈希 24h 内不重复提交
+  const existing = await registrationRepo.findCrmByRequestHash(requestHash);
+  if (existing) {
+    throw new RouteError(409, 40019, "该公司已注册或近期已提交过");
+  }
+
+  try {
+    const id = await registrationRepo.insertCrmSupplier({
+      companyName: input.nameZh || "",
+      contactName: input.contactPerson || "",
+      telephone: input.contactPhone || "",
+      email: input.contactEmail || "",
+      mainProduct: Array.isArray(input.mainProductsZh) ? input.mainProductsZh.join(", ") : "",
+      industry: input.industryZh || "",
+      certification: Array.isArray(input.complianceLabelsZh) ? input.complianceLabelsZh.join(", ") : "",
+      requestHash,
+    });
+    return (await registrationRepo.findCrmById(id)) || { id };
+  } catch (err) {
+    if (err instanceof RouteError) throw err;
+    console.error("[suppliers POST]", err);
+    throw new RouteError(500, 50000, "注册失败");
+  }
+}
+
