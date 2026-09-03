@@ -7,18 +7,15 @@
  *              4 张核心讲师大卡（teal 徽章 pill + 竖椭圆头像 + 姓名/头衔/简介）+
  *              浅色面板（三角色列带竖分隔线 + 团队竖椭圆头像网格）+
  *              深藏青价值横幅（Trophy + 4 价值图标竖分隔）。
- *              色值均采样自设计图。头像为空时渲染默认剪影占位。
+ *              色值均采样自设计图。头像为空路径时渲染默认剪影占位。
+ *              讲师/团队数据前端写死（src/data/training-content.ts）：
+ *              头像路径为静态配置，姓名/头衔/简介/角色文案走六语言 i18n。
  */
 import { UserRound, Trophy, GraduationCap, BadgeCheck, HeartHandshake, Award, UserStar, Shapes } from "lucide-react";
 import Image from "next/image";
-import { useLocale, pickLocale, type LocaleKey } from "@/core/i18n";
+import { useLocale, type LocaleKey } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
-import type { LandingInstructor, LandingTeamMember } from "../api";
-
-export interface InstructorsSectionProps {
-  featured: LandingInstructor[];
-  team: LandingTeamMember[];
-}
+import { TRAINING_INSTRUCTORS, TRAINING_TEAM } from "@/data/training-content";
 
 /** 竖椭圆头像（空路径 → 藏青剪影占位） */
 function Avatar({ src, alt, className }: { src: string; alt: string; className: string }) {
@@ -56,9 +53,9 @@ const BANNER_VALUES: { icon: typeof Award; key: LocaleKey }[] = [
   { icon: UserRound, key: "tlInsV4" },
 ];
 
-export function InstructorsSection({ featured, team }: InstructorsSectionProps) {
+export function InstructorsSection() {
   const { t, locale } = useLocale();
-  if (featured.length === 0 && team.length === 0) return null;
+  const roleSeparator = locale === "zh" ? "、" : ", ";
 
   return (
     <section id="instructors" className="relative overflow-hidden bg-[#F5F8FB]">
@@ -78,33 +75,23 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
         <SectionTitle title={t("tlInsTitle")} sub={t("tlInsSub")} />
 
         {/* 4 张核心讲师大卡 */}
-        {featured.length > 0 && (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featured.map((ins) => (
-              <div key={ins.id} className="rounded-xl bg-white p-6 pt-7 text-center shadow-[0_2px_12px_rgba(10,42,85,0.06)]">
-                <div className="mt-6 flex justify-center">
-                  <Avatar
-                    src={ins.avatar_path}
-                    alt={pickLocale(locale, ins.name_zh, ins.name_en ?? ins.name_zh)}
-                    className="w-40 h-52 rounded-[50%]"
-                  />
-                </div>
-                <h3 className="mt-6 text-2xl font-black text-[#0A245E]">
-                  {pickLocale(locale, ins.name_zh, ins.name_en)}
-                </h3>
-                <p className="mt-3 text-sm font-bold leading-relaxed text-[#0B7F82]">
-                  {pickLocale(locale, ins.title_zh, ins.title_en)}
-                </p>
-                <p className="mt-4 text-xs leading-relaxed text-[#3E5070] text-left">
-                  {ins.roles.length > 0 && (
-                    <span className="font-bold text-[#0B7F82]">{ins.roles.join("、")}。</span>
-                  )}
-                  {pickLocale(locale, ins.bio_zh, ins.bio_en)}
-                </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {TRAINING_INSTRUCTORS.map((ins) => (
+            <div key={ins.id} className="rounded-xl bg-white p-6 pt-7 text-center shadow-[0_2px_12px_rgba(10,42,85,0.06)]">
+              <div className="mt-6 flex justify-center">
+                <Avatar src={ins.avatarPath} alt={t(ins.nameKey)} className="w-40 h-52 rounded-[50%]" />
               </div>
-            ))}
-          </div>
-        )}
+              <h3 className="mt-6 text-2xl font-black text-[#0A245E]">{t(ins.nameKey)}</h3>
+              <p className="mt-3 text-sm font-bold leading-relaxed text-[#0B7F82]">{t(ins.titleKey)}</p>
+              <p className="mt-4 text-xs leading-relaxed text-[#3E5070] text-left">
+                {ins.roleKeys.length > 0 && (
+                  <span className="font-bold text-[#0B7F82]">{ins.roleKeys.map((k) => t(k)).join(roleSeparator)}。</span>
+                )}
+                {t(ins.bioKey)}
+              </p>
+            </div>
+          ))}
+        </div>
 
         <div className="mt-10">
           <SectionTitle title={t("tlInsRolesTitle")} />
@@ -112,22 +99,14 @@ export function InstructorsSection({ featured, team }: InstructorsSectionProps) 
 
         {/* 团队头像 + 三角色介绍面板 */}
         <div className="mt-10 rounded-2xl bg-white p-8 md:p-10">
-          {team.length > 0 && (
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1120px] mx-auto">
-              {team.map((m) => (
-                <div key={m.id} className="flex flex-col items-center">
-                  <Avatar
-                    src={m.avatar_path}
-                    alt={pickLocale(locale, m.name_zh, m.name_en ?? m.name_zh)}
-                    className="w-[128px] h-[160px] rounded-[50%]"
-                  />
-                  <span className="text-[12px] font-bold text-[#0A245E] text-center mt-5">
-                    {pickLocale(locale, m.name_zh, m.name_en)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-x-3 gap-y-5 max-w-[1120px] mx-auto">
+            {TRAINING_TEAM.map((m) => (
+              <div key={m.id} className="flex flex-col items-center">
+                <Avatar src={m.avatarPath} alt={t(m.nameKey)} className="w-[128px] h-[160px] rounded-[50%]" />
+                <span className="text-[12px] font-bold text-[#0A245E] text-center mt-5">{t(m.nameKey)}</span>
+              </div>
+            ))}
+          </div>
 
           <div className="grid md:grid-cols-3 gap-8 md:gap-0 md:divide-x md:divide-[#DCE6F2] mt-10">
             {ROLE_COLS.map(({ icon: Icon, titleKey, descKey }) => (

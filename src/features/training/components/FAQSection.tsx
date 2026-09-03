@@ -3,14 +3,13 @@
  * FAQ section
  *
  * @module features/training/components/FAQSection
- * @description 数据已改为前端静态写死，复用 src/data/faqs.ts，避免数据库查询影响体验。
+ * @description 文案前端写死并走 i18n（六语言 training.json 的 tlFaq* key），不再查库。
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronDown } from "lucide-react";
-import { useLocale, pickLocale } from "@/core/i18n";
+import { useLocale, type LocaleKey } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { SectionTitle } from "./landing-ui";
-import { TRAINING_FAQS } from "@/data/training-faqs";
 
 /** 带展开/收起过渡动画的手风琴面板 */
 function AccordionItem({
@@ -62,8 +61,17 @@ function AccordionItem({
   );
 }
 
+/** 常见问题条目（问答对 i18n key，文案在六语言 training.json） */
+const FAQ_ITEMS: { qKey: LocaleKey; aKey: LocaleKey }[] = [
+  { qKey: "tlFaq1Q", aKey: "tlFaq1A" },
+  { qKey: "tlFaq2Q", aKey: "tlFaq2A" },
+  { qKey: "tlFaq3Q", aKey: "tlFaq3A" },
+  { qKey: "tlFaq4Q", aKey: "tlFaq4A" },
+  { qKey: "tlFaq5Q", aKey: "tlFaq5A" },
+];
+
 export function FAQSection() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const [open, setOpen] = useState<number | null>(0);
 
   const handleToggle = useCallback(
@@ -71,18 +79,16 @@ export function FAQSection() {
     [],
   );
 
-  if (TRAINING_FAQS.length === 0) return null;
-
   return (
     <section id="faq" className="bg-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlFaqTitle")} />
         <div className="border-y border-slate-200">
-          {TRAINING_FAQS.map((f, i) => (
+          {FAQ_ITEMS.map(({ qKey, aKey }, i) => (
             <AccordionItem
-              key={f.id}
-              question={pickLocale(locale, f.question_zh, f.question_en) ?? ""}
-              answer={pickLocale(locale, f.answer_zh, f.answer_en) ?? ""}
+              key={qKey}
+              question={t(qKey)}
+              answer={t(aKey)}
               isOpen={open === i}
               onToggle={() => handleToggle(i)}
             />

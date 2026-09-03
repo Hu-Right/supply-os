@@ -3,7 +3,8 @@
  * Training Landing Page
  *
  * @module features/training/pages/TrainingLandingPage
- * @description 一次性拉取落地页动态数据（课程/期次/讲师/团队/照片/反馈/FAQ），
+ * @description 仅拉取支付所需动态数据（课程/期次），其余内容（讲师/团队/照片/文案）
+ *              均为前端写死 + 六语言 i18n（见 src/data/training-content.ts）；
  *              按设计图顺序组合各 Section；全出血布局突破外层容器；
  *              管理三个弹窗（报名表单/动态支付/企微二维码）。
  */
@@ -73,7 +74,7 @@ export default function TrainingLandingPage() {
     );
   }
 
-  const { course, schedules, instructors, gallery } = data;
+  const { course, schedules } = data;
 
   return (
     <>
@@ -98,8 +99,8 @@ export default function TrainingLandingPage() {
           </div>
         </section>
 
-        <InstructorsSection featured={instructors.featured} team={instructors.team} />
-        <GallerySection gallery={gallery} />
+        <InstructorsSection />
+        <GallerySection />
         <HighlightsSection />
         <ScheduleSection schedules={schedules} course={course} onReserve={handleDirectPay} />
         <TestimonialsSection />

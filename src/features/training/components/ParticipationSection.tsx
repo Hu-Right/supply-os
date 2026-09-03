@@ -7,6 +7,7 @@
  */
 import { Check } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
+import { TRAINING_FALLBACK_UNIT_PRICE } from "@/data/training-content";
 import type { LandingCourse } from "../api";
 
 export interface ParticipationSectionProps {
@@ -41,7 +42,7 @@ export function ParticipationSection({ course, onConsult }: ParticipationSection
           </div>
           <p className="mt-2 text-xs text-slate-600">{t("tlPartADesc")}</p>
           <p className="mt-4 text-2xl font-black text-[#069E78]">
-            {course ? course.unit_price.toLocaleString("zh-CN") : "2800"}
+            {course ? course.unit_price.toLocaleString("zh-CN") : TRAINING_FALLBACK_UNIT_PRICE.toLocaleString("zh-CN")}
             <span className="ml-1 text-sm font-bold">{t("tlPricePerPerson")}</span>
           </p>
           <ul className="mt-4 space-y-2">

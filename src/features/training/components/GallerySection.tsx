@@ -3,26 +3,30 @@
  * Gallery section v2
  *
  * @module features/training/components/GallerySection
- * @description 分类名称与描述文案前端写死（src/data/training-gallery.ts），
- *              仅图片由 /api/training/landing 按 category_id 查库返回；无图片时显示占位视觉。
+ * @description 分类文案走 i18n（六语言 training.json 的 tlGalCat* key），
+ *              图片路径为前端静态配置（src/data/training-content.ts，文件在
+ *              public/images/training/gallery/ 下），不再查库；无图片时显示占位视觉。
  *              交互增强：鼠标悬停暂停轮播，点击图片打开全屏预览。
  */
 import { useEffect, useState, useCallback } from "react";
 import { Presentation, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
-import { useLocale, pickLocale } from "@/core/i18n";
+import { useLocale, type LocaleKey } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
 import { Modal, Button } from "@/shared/ui";
-import type { LandingGalleryCategory } from "../api";
+import { TRAINING_GALLERY_CATEGORIES } from "@/data/training-content";
 
 const ROTATE_INTERVAL = 3000;
 
-function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
-  const { locale, t } = useLocale();
+function GalleryCard({ nameKey, descKey, images }: {
+  nameKey: LocaleKey;
+  descKey: LocaleKey;
+  images: string[];
+}) {
+  const { t } = useLocale();
   const [idx, setIdx] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [previewIdx, setPreviewIdx] = useState<number | null>(null);
-  const images = cat.images;
 
   // 多于 1 张时定时轮播，鼠标悬停时暂停
   useEffect(() => {
@@ -32,6 +36,8 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   }, [images.length, isHovered]);
 
   const current = images[idx];
+  const name = t(nameKey);
+  const description = t(descKey);
 
   const handleImageClick = useCallback(() => {
     setPreviewIdx(idx);
@@ -65,8 +71,8 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
         <div className="relative h-40 bg-training-navy cursor-pointer" onClick={handleImageClick}>
           {current ? (
             <Image
-              src={current.image_path}
-              alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+              src={current}
+              alt={name}
               fill
               sizes="300px"
               quality={80}
@@ -84,8 +90,8 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
           )}
         </div>
         <div className="p-4 text-center">
-          <h3 className="text-sm font-black text-training-navy">{pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}</h3>
-          <p className="mt-1.5 text-xs text-slate-600">{pickLocale(locale, cat.description_zh || "", cat.description_en)}</p>
+          <h3 className="text-sm font-black text-training-navy">{name}</h3>
+          <p className="mt-1.5 text-xs text-slate-600">{description}</p>
         </div>
       </div>
 
@@ -104,8 +110,8 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
             {/* 图片区域 */}
             <div className="relative flex-1 flex items-center justify-center overflow-hidden">
               <Image
-                src={images[previewIdx].image_path}
-                alt={pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
+                src={images[previewIdx]}
+                alt={name}
                 width={1200}
                 height={800}
                 quality={85}
@@ -139,9 +145,7 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
 
             {/* 底部信息 */}
             <div className="mt-2 flex items-center justify-between px-2">
-              <p className="text-base font-bold text-training-navy">
-                {pickLocale(locale, cat.name_zh, cat.name_en ?? cat.name_zh)}
-              </p>
+              <p className="text-base font-bold text-training-navy">{name}</p>
               {images.length > 1 && (
                 <span className="rounded-full bg-slate-100 px-4 py-1.5 text-sm font-bold text-slate-600">
                   {previewIdx + 1} / {images.length}
@@ -155,16 +159,22 @@ function GalleryCard({ cat }: { cat: LandingGalleryCategory }) {
   );
 }
 
-export function GallerySection({ gallery }: { gallery: LandingGalleryCategory[] }) {
+export function GallerySection() {
   const { t } = useLocale();
-  if (gallery.length === 0) return null;
 
   return (
     <section className="bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
         <SectionTitle title={t("tlGalTitle")} />
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-          {gallery.map((cat) => <GalleryCard key={cat.id} cat={cat} />)}
+          {TRAINING_GALLERY_CATEGORIES.map((cat) => (
+            <GalleryCard
+              key={cat.id}
+              nameKey={cat.nameKey}
+              descKey={cat.descKey}
+              images={cat.images}
+            />
+          ))}
         </div>
       </div>
     </section>
