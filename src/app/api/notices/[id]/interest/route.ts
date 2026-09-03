@@ -33,7 +33,7 @@ export async function POST(
   const interestType = body.interest_type === "subscribed" ? "subscribed" : "interested";
   const note = String(body.note || "").slice(0, 500);
 
-  if (!userKey) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!userKey && !auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
 
   const pool = getPool();
 
@@ -44,7 +44,7 @@ export async function POST(
         interactionRepo: new NoticeInteractionRepo(pool),
         dbPool: pool,
       },
-      { userId: auth.userId!, userKey, noticeId, interestType, note },
+      { userId: auth.userId!, noticeId, interestType, note },
     );
     return NextResponse.json({ success: true, interest_type: interestType }, { status: 201 });
   } catch (err) {

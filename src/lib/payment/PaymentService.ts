@@ -72,7 +72,7 @@ export class PaymentService {
     const noticeId = request.notice_id ? Number(request.notice_id) : null;
     const orderType = request.order_type === "upgrade" ? "upgrade" : "new";
 
-    if (!userKey || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
+    if (!userId || !planCode) throw new Error("USER_AND_PLAN_REQUIRED");
 
     // 学习资料/打包套餐：服务端权威定价（审查 F2）
     // 金额与套餐条目一律由服务端解析（material 查 DB 定价、bundle 查静态套餐配置），

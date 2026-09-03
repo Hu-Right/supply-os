@@ -30,11 +30,11 @@ export async function POST(
 
   const dbOrder = await orchestrator.findOrder(orderNo);
   if (!dbOrder) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
-  if (dbOrder.user_key !== auth.userKey) return sendError("无权操作此订单", 403, ApiErrorCode.FORBIDDEN);
+  if (dbOrder.user_id !== auth.userId) return sendError("无权操作此订单", 403, ApiErrorCode.FORBIDDEN);
 
   const body = await req.json().catch(() => ({}));
   const { found } = await orchestrator.fulfillMockOrder(
-    orderNo, auth.userKey, JSON.stringify(body || { mock: true }),
+    orderNo, JSON.stringify(body || { mock: true }),
   );
   if (!found) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
 

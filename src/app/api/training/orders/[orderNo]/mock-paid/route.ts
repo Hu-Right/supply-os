@@ -32,7 +32,7 @@ export async function POST(
 
   const order = await trainingRepo.findOrderByNo(orderNo);
   if (!order) return sendError("订单不存在", 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND);
-  if (order.user_key && order.user_key !== auth.userKey) return sendError("无权操作此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
+  if (order.user_id && order.user_id !== auth.userId) return sendError("无权操作此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
 
   await fulfillTrainingOrder(trainingRepo as any, orderNo, `MOCK-${orderNo}`);
   return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });

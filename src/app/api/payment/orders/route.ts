@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     let result;
     if (planCode.startsWith("material_") || planCode.startsWith("bundle_")) {
       result = await ctx.payment.learningPaymentService.createOrder({
+        userId: auth.userId!,
         userKey: auth.userKey,
         planCode,
         provider,
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       result = await paymentService.createOrder({
+        user_id: auth.userId!,
         user_key: auth.userKey,
         plan_code: planCode,
         notice_id: body.notice_id ? Number(body.notice_id) : null,

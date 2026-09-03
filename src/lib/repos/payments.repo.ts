@@ -37,7 +37,7 @@ export class PaymentsRepo {
   /** 按订单号查询订单 */
   async findByOrderNo(orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT order_no, user_key, provider, plan_code, order_type, original_order_no, amount, currency, status, notice_id,
+      `SELECT order_no, user_id, user_key, provider, plan_code, order_type, original_order_no, amount, currency, status, notice_id,
               provider_trade_no, pay_url, paid_at, created_at, updated_at, raw_request, raw_notify
        FROM crm_payment_orders WHERE order_no = ? LIMIT 1`,
       [orderNo],
@@ -196,7 +196,7 @@ export class PaymentsRepo {
   /** 悲观锁查询订单（事务内使用） */
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await conn.query(
-      "SELECT user_key, plan_code, order_type, original_order_no, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
+      "SELECT user_id, user_key, plan_code, order_type, original_order_no, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
       [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;

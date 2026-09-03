@@ -31,7 +31,7 @@ export interface OrderHistoryRow extends PaymentOrderRow {
 
 /** 解锁历史查询行（解锁 LEFT JOIN 公告 [+ 译文]，供列表映射与后台补翻） */
 export interface UnlockHistoryRow {
-  user_key: string;
+  user_id: number;
   notice_id: number | null;
   unlock_type: string;
   price: number;
@@ -84,7 +84,7 @@ export class PaymentHistoryRepo {
     params.push(limit, offset);
     const [rows] = await this.pool.query(
       `SELECT
-         o.order_no, o.user_key, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
+         o.order_no, o.user_id, o.user_key, o.provider, o.plan_code, o.notice_id, o.amount, o.currency,
          o.status, o.provider_trade_no, o.paid_at, o.created_at, o.updated_at,
          n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
          n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.urgency, n.url, n.industry
@@ -122,7 +122,7 @@ export class PaymentHistoryRepo {
     const [rows] = await this.pool.query(
       withTranslation
         ? `SELECT
-             u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+             u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
              n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry,
              n.description, tr.title_tr AS title_i18n
@@ -133,7 +133,7 @@ export class PaymentHistoryRepo {
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`
         : `SELECT
-             u.user_key, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
+             u.user_id, u.notice_id, u.unlock_type, u.price, u.unlocked_at,
              n.notice_id AS external_notice_id, n.source_channel, n.reference, n.title,
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry
            FROM crm_opportunity_unlocks u

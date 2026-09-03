@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof Response) return auth;
 
   const userKey = auth.userKey;
-  if (!userKey) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!userKey && !auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
 
   const body = await req.json();
   const sessionId = String(body.session_id || "").trim().slice(0, 64);
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       feedbackRepo: new NoticeFeedbackRepo(pool),
       dbPool: pool,
     },
-    { userId: auth.userId!, userKey, sessionId, items },
+    { userId: auth.userId!, sessionId, items },
   );
   return NextResponse.json({ success: true, ...result }, { status: 201 });
 }

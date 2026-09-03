@@ -42,6 +42,7 @@ async function getService(paymentsRepo: PaymentsRepo) {
 }
 
 const req = (over: Partial<CreateOrderRequest> = {}): CreateOrderRequest => ({
+  user_id: 1,
   user_key: "13800000000",
   plan_code: "single_99",
   provider: "mock",

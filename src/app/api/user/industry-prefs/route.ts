@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
 
   if (!levels[0]) {
     // level1_id 为空：清除偏好（与 Express 版本行为一致）
-    await getContext().user.userPrefsRepo.deleteIndustryPrefs(auth.userKey);
+    await getContext().user.userPrefsRepo.deleteIndustryPrefs(auth.userId!);
   } else {
-    await getContext().user.userPrefsRepo.upsertIndustryPrefs(auth.userKey, levels);
+    await getContext().user.userPrefsRepo.upsertIndustryPrefs(auth.userId!, levels);
   }
   return NextResponse.json({ success: true });
 }
