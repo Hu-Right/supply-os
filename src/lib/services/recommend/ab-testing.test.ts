@@ -7,9 +7,8 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("AB_TREATMENT_PCT", () => {
-  it("默认值 0（实验关闭）", () => {
-    // 测试环境未设 RECO_AB_TREATMENT_PCT → 默认 0
+describe("AB_TREATMENT_PCT 常量", () => {
+  it("默认环境（未设置）→ 0（全 control）", () => {
     expect(AB_TREATMENT_PCT).toBe(0);
   });
 });
@@ -53,27 +52,27 @@ describe("RECO_AB_TREATMENT_PCT 放量（模块加载时求值）", () => {
     expect((await loadWithPct("12")).AB_TREATMENT_PCT).toBe(12); // 正常取值
   });
 
-  it("PCT=100 → 全部 treatment（含空 userKey）", async () => {
+  it("PCT=100 → 全部 treatment（含 userId=0 边界）", async () => {
     const { recoVariant: variant } = await loadWithPct("100");
-    expect(variant("any-user")).toBe("treatment");
-    expect(variant("")).toBe("treatment");
-    expect(variant("用户-001")).toBe("treatment");
+    expect(variant(1001)).toBe("treatment");
+    expect(variant(0)).toBe("treatment");
+    expect(variant(999999)).toBe("treatment");
   });
 
   it("PCT=0（显式）→ 全部 control（一键回退路径）", async () => {
     const { recoVariant: variant } = await loadWithPct("0");
-    expect(variant("any-user")).toBe("control");
+    expect(variant(1001)).toBe("control");
   });
 
-  it("PCT=50 → 双桶均出现且同 key 恒定（FNV 哈希分流）", async () => {
+  it("PCT=50 → 双桶均出现且同 userId 恒定（FNV 哈希分流）", async () => {
     const { recoVariant: variant } = await loadWithPct("50");
     const seen = new Set<string>();
     for (let i = 0; i < 200; i++) {
-      seen.add(variant(`user-${i}`));
+      seen.add(variant(i));
     }
     expect(seen.has("treatment")).toBe(true);
     expect(seen.has("control")).toBe(true);
-    // 分桶对同一 key 恒定（跨请求一致性）
-    expect(variant("user-7")).toBe(variant("user-7"));
+    // 分桶对同一 userId 恒定（跨请求一致性）
+    expect(variant(7)).toBe(variant(7));
   });
 });

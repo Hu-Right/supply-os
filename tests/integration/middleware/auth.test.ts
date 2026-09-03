@@ -41,9 +41,11 @@ describe("extractUserKey", () => {
       user_key: "Test@User.com",
       email: "test@user.com",
       type: "access",
-    });
+      uid: 55,
+    } as never);
     const result = await extractUserKey(makeRequest({ authorization: "Bearer valid-token" }));
     expect(result.userKey).toBe("test@user.com");
+    expect(result.userId).toBe(55);
     expect(result.authViaJwt).toBe(true);
   });
 
@@ -76,9 +78,11 @@ describe("requireUserKey", () => {
       user_key: "user@test.com",
       email: "user@test.com",
       type: "access",
-    });
+      uid: 56,
+    } as never);
     const result = await requireUserKey(makeRequest({ authorization: "Bearer valid-token" }));
     expect(result).not.toBeInstanceOf(Response);
     expect((result as { userKey: string }).userKey).toBe("user@test.com");
+    expect((result as { userId: number }).userId).toBe(56);
   });
 });

@@ -202,6 +202,7 @@ describe("GET /api/membership/plans", () => {
       user_key: "user-1",
       email: "user-1@test.com",
       type: "access",
+      uid: 101,
     } as never);
 
     const { GET } = await import("@/app/api/membership/plans/route");
@@ -225,6 +226,7 @@ describe("GET /api/membership/plans", () => {
       user_key: "user-1",
       email: "user-1@test.com",
       type: "access",
+      uid: 101,
     } as never);
 
     const { GET } = await import("@/app/api/membership/plans/route");
@@ -252,6 +254,7 @@ describe("GET /api/membership/upgrade/preview", () => {
       user_key: "user-1",
       email: "user-1@test.com",
       type: "access",
+      uid: 101,
     } as never);
 
     const { GET } = await import("@/app/api/membership/upgrade/preview/route");
@@ -269,6 +272,7 @@ describe("GET /api/membership/upgrade/preview", () => {
       user_key: "user-1",
       email: "user-1@test.com",
       type: "access",
+      uid: 101,
     } as never);
     const { previewUpgrade } = await import("@/lib/services/membership-upgrade");
     vi.mocked(previewUpgrade).mockResolvedValue({
@@ -284,7 +288,7 @@ describe("GET /api/membership/upgrade/preview", () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ code: 0, data: { target_plan_code: "vip_y" } });
-    expect(previewUpgrade).toHaveBeenCalledWith(expect.anything(), "user-1", "vip_y");
+    expect(previewUpgrade).toHaveBeenCalledWith(expect.anything(), 101, "vip_y");
   });
 });
 
@@ -318,6 +322,7 @@ describe("GET /api/membership/status", () => {
       user_key: "user-1",
       email: "user-1@test.com",
       type: "access",
+      uid: 101,
     } as never);
     const { resolveMembershipState } = await import("@/lib/services/membership-status");
     vi.mocked(resolveMembershipState).mockResolvedValue(MEMBER_STATE as never);
@@ -332,7 +337,7 @@ describe("GET /api/membership/status", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({
-      user_key: "user-1",
+      user_id: 101,
       membership_tier: "vip",
       free_remaining: 4,
       paid_quota_remaining: 7,
@@ -340,7 +345,7 @@ describe("GET /api/membership/status", () => {
       current_plan_tier_label: "月度VIP",
       current_plan_price: 199,
     });
-    expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), "user-1");
+    expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101);
   });
 
   it("认证 + 无当前套餐 → 套餐字段为 null", async () => {
@@ -349,6 +354,7 @@ describe("GET /api/membership/status", () => {
       user_key: "user-2",
       email: "user-2@test.com",
       type: "access",
+      uid: 102,
     } as never);
     const { resolveMembershipState } = await import("@/lib/services/membership-status");
     vi.mocked(resolveMembershipState).mockResolvedValue({
