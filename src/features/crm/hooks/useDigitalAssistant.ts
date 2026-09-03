@@ -89,6 +89,8 @@ export interface UseDigitalAssistantReturn {
   chatSessionId: number | null;
   /** 添加远端消息（SSE 接收的 agent/ai 消息） */
   addRemoteMessage: (role: MessageRole, content: string) => void;
+  /** Agent 接入事件处理（SSE agent-joined 事件触发时调用） */
+  handleAgentJoined: (agentEmail: string | null) => void;
 }
 
 // ── 工具函数 ──
@@ -175,6 +177,7 @@ export function useDigitalAssistant(
         try {
           await api("/api/crm/chat/messages", {
             method: "POST",
+            retryOnAuth: true,
             body: {
               sessionId: chatSessionIdRef.current,
               role: "customer",
@@ -271,6 +274,7 @@ export function useDigitalAssistant(
       // 创建后端客服会话
       const session = await api<{ id: number; customer_name: string | null }>("/api/crm/chat/sessions", {
         method: "POST",
+        retryOnAuth: true, // 创建会话是安全操作，token 刷新后可重试
         body: {
           customerName: "CRM User",
           locale,
@@ -286,19 +290,26 @@ export function useDigitalAssistant(
       return;
     }
 
-    // 模拟等待人工接入（后续由 SSE 推送实际接入事件）
-    await new Promise((r) => setTimeout(r, 2000));
-
-    setMode("human");
-    setAgentName(t("crmDefaultAgentName"));
-    appendMessage("system", t("crmAssistantAgentJoined"));
-    appendMessage("assistant", t("crmAssistantHumanGreeting"));
+    // 保持 waiting 态，等待 SSE 推送 agent-joined 事件后自动切换
+    // 不再使用 setTimeout 模拟——真实接入由内网 Agent 操作触发
   }, [appendMessage, ensureWelcome, t, locale, messages]);
 
-  /** 结束人工会话 */
-  const endHumanSession = useCallback(() => {
+  /** 结束人工会话（调用后端 API 真正关闭会话） */
+  const endHumanSession = useCallback(async () => {
+    // 调用后端 DELETE 关闭会话（通知内网 Agent 侧 SSE 也推送 session_closed）
+    if (chatSessionIdRef.current) {
+      try {
+        await api(`/api/crm/chat/sessions?sessionId=${chatSessionIdRef.current}`, {
+          method: "DELETE",
+          retryOnAuth: true,
+        });
+      } catch {
+        // 关闭失败时仍在前端切换状态，避免用户卡死
+      }
+    }
     setMode("ai");
     setAgentName(null);
+    setChatSessionId(null);
     appendMessage("system", t("crmAssistantSessionEnded"));
   }, [appendMessage, t]);
 
@@ -328,6 +339,18 @@ export function useDigitalAssistant(
       appendMessage(role, content);
     },
     [appendMessage],
+  );
+
+  /** Agent 接入事件处理（由 SSE agent-joined 事件触发） */
+  const handleAgentJoined = useCallback(
+    (agentEmail: string | null) => {
+      setMode("human");
+      const displayName = agentEmail || t("crmDefaultAgentName");
+      setAgentName(displayName);
+      appendMessage("system", t("crmAssistantAgentJoined"));
+      appendMessage("assistant", t("crmAssistantHumanGreeting"));
+    },
+    [appendMessage, t],
   );
 
   /** 清空对话 */
@@ -362,5 +385,6 @@ export function useDigitalAssistant(
     // 后端会话
     chatSessionId,
     addRemoteMessage,
+    handleAgentJoined,
   };
 }

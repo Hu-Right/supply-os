@@ -7,7 +7,7 @@
  *              Floating trigger button + right-side slide-in drawer, composing ChatWindow
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MessageCircle, X, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -16,6 +16,24 @@ import { useChatSSE } from "../../hooks/useChatSSE";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier, Opportunity } from "@/types";
 import { OPPORTUNITIES } from "@/data";
+
+/** 播放提示音（Web Audio API） */
+let _audioCtx: AudioContext | null = null;
+function playNotifySound() {
+  try {
+    if (!_audioCtx) _audioCtx = new AudioContext();
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.12;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
+    osc.stop(_audioCtx.currentTime + 0.3);
+  } catch { /* 忽略音频错误 */
+  }
+}
 
 type DigitalAssistantProps = {
   /** 当前线索总数（传递给 hook 用于上下文回复） */
@@ -33,6 +51,8 @@ export function DigitalAssistant({
 }: DigitalAssistantProps) {
   const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const prevMsgLenRef = useRef(0);
 
   const {
     messages,
@@ -54,17 +74,23 @@ export function DigitalAssistant({
     resetMatch,
     chatSessionId,
     addRemoteMessage,
+    handleAgentJoined,
   } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
 
-  // SSE 回调：收到远端消息时追加到对话流
+  // SSE 回调：收到远端消息时追加到对话流 + 通知提示
   const handleSSEMessage = useCallback(
     (msg: { role: string; content: string }) => {
       // SSE 角色 (agent/ai) 映射到前端 MessageRole (assistant)
       if (msg.role === "agent" || msg.role === "ai") {
         addRemoteMessage("assistant", msg.content);
+        // 抽屉关闭时播放提示音 + 增加未读计数
+        if (!isOpen) {
+          playNotifySound();
+          setUnreadCount((c) => c + 1);
+        }
       }
     },
-    [addRemoteMessage],
+    [addRemoteMessage, isOpen],
   );
 
   // SSE 连接：转人工后自动建立
@@ -75,12 +101,16 @@ export function DigitalAssistant({
     onSessionClosed: () => {
       endHumanSession();
     },
+    onAgentJoined: (data) => {
+      handleAgentJoined(data.agentEmail);
+    },
   });
 
-  // 打开抽屉时初始化欢迎消息
+  // 打开抽屉时初始化欢迎消息 + 清除未读
   useEffect(() => {
     if (isOpen) {
       ensureWelcome();
+      setUnreadCount(0);
     }
   }, [isOpen, ensureWelcome]);
 
@@ -141,9 +171,11 @@ export function DigitalAssistant({
         >
           <MessageCircle className="w-5 h-5 group-hover:animate-pulse" />
           <span className="text-sm font-bold">{t("crmAssistant")}</span>
-          {/* 未读消息指示（预留） */}
-          {messages.length > 0 && (
-            <span className="absolute -top-1 -end-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+          {/* 未读消息计数 */}
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -end-2 min-w-[20px] h-5 px-1 bg-red-500 text-white text-2xs font-bold rounded-full border-2 border-white flex items-center justify-center">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
         </Button>
       )}

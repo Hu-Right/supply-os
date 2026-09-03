@@ -22,6 +22,8 @@ export interface UseChatSSEOptions {
   onMessage?: (msg: ChatMessageRow) => void;
   /** 会话关闭回调 */
   onSessionClosed?: () => void;
+  /** Agent 接入回调（内网运营经理接入会话时触发） */
+  onAgentJoined?: (data: { sessionId: number; agentId: string | null; agentEmail: string | null }) => void;
   /** 连接状态变化回调 */
   onStatusChange?: (status: SSEStatus) => void;
   /** 是否启用（默认 true） */
@@ -40,14 +42,14 @@ export interface UseChatSSEReturn {
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 export function useChatSSE(options: UseChatSSEOptions): UseChatSSEReturn {
-  const { sessionId, onMessage, onSessionClosed, onStatusChange, enabled = true } = options;
+  const { sessionId, onMessage, onSessionClosed, onAgentJoined, onStatusChange, enabled = true } = options;
 
   const [status, setStatus] = useState<SSEStatus>("disconnected");
   const eventSourceRef = useRef<EventSource | null>(null);
-  const callbacksRef = useRef({ onMessage, onSessionClosed, onStatusChange });
+  const callbacksRef = useRef({ onMessage, onSessionClosed, onAgentJoined, onStatusChange });
 
   // 保持回调引用最新
-  callbacksRef.current = { onMessage, onSessionClosed, onStatusChange };
+  callbacksRef.current = { onMessage, onSessionClosed, onAgentJoined, onStatusChange };
 
   const updateStatus = useCallback((newStatus: SSEStatus) => {
     setStatus(newStatus);
@@ -95,6 +97,15 @@ export function useChatSSE(options: UseChatSSEOptions): UseChatSSEReturn {
     es.addEventListener("session_closed", () => {
       callbacksRef.current.onSessionClosed?.();
       disconnect();
+    });
+
+    es.addEventListener("agent-joined", (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        callbacksRef.current.onAgentJoined?.(data);
+      } catch {
+        // 忽略解析错误
+      }
     });
 
     es.addEventListener("timeout", () => {
