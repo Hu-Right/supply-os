@@ -162,9 +162,9 @@ async function tryRefreshToken(): Promise<string | null> {
  */
 export async function api<T>(
   endpoint: string,
-  options: Omit<RequestInit, "body"> & { body?: unknown; signal?: AbortSignal } = {},
+  options: Omit<RequestInit, "body"> & { body?: unknown; signal?: AbortSignal; retryOnAuth?: boolean } = {},
 ): Promise<T> {
-  const { body, signal, ...init } = options;
+  const { body, signal, retryOnAuth, ...init } = options;
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
   const method = init.method || "GET";
   const startTime = performance.now();
@@ -211,11 +211,11 @@ export async function api<T>(
 
     // 尝试刷新 Token 并重试（无论是否含 code 字段均尝试——requireUserKey 返回的
     // 401 也携带 code: 40042，但本质是 JWT 过期，需要走刷新路径）
-    // 审查 F71：仅幂等的 GET 自动重试，非幂等写请求（POST 建单等）不重放，
-    // 防止换新 token 重发导致重复下单
+    // GET 恒可重试（幂等）；POST 仅在调用方显式标记 retryOnAuth 时重试
+    // （如创建会话等安全操作，避免支付类接口重复下单）
     const newToken = await tryRefreshToken();
-    const isIdempotent = method === "GET";
-    if (newToken && isIdempotent) {
+    const shouldRetry = method === "GET" || retryOnAuth === true;
+    if (newToken && shouldRetry) {
       // 用新 Token 重试原请求
       const retryRes = await fetch(url, {
         ...init,

@@ -62,6 +62,8 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { t } = useLocale();
   const [input, setInput] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 新消息时自动滚动到底部
