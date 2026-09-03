@@ -53,11 +53,12 @@ export async function issueTokenPair(
   authRepo: AuthRepo,
   userKey: string,
   email: string,
+  userId?: number,
 ): Promise<{ token: string; refresh_token: string }> {
-  const accessToken = signAccessToken({ user_key: userKey, email });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey });
+  const accessToken = signAccessToken({ user_key: userKey, email, uid: userId });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey, uid: userId });
   const expiresAt = getRefreshTokenExpiresAt();
-  void authRepo.insertRefreshToken(userKey, tokenHash, expiresAt)
+  void authRepo.insertRefreshToken(userId ?? userKey as any, tokenHash, expiresAt)
     .catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
   return { token: accessToken, refresh_token: refreshToken };
 }

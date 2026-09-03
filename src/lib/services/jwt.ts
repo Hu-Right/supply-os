@@ -30,18 +30,22 @@ if (!JWT_SECRET) {
 export interface AccessTokenPayload {
   user_key: string;
   email: string;
+  /** 内部用户 ID（Phase 2 user_id 迁移新增；旧 token 可能缺失） */
+  uid?: number;
   type: "access";
 }
 
 export interface RefreshTokenPayload {
   user_key: string;
+  /** 内部用户 ID（Phase 2 user_id 迁移新增；旧 token 可能缺失） */
+  uid?: number;
   type: "refresh";
 }
 
 // ── Access Token ──
 
 /** 签发 Access Token */
-export function signAccessToken(payload: { user_key: string; email: string }): string {
+export function signAccessToken(payload: { user_key: string; email: string; uid?: number }): string {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
   return jwt.sign(
     { ...payload, type: "access" } as AccessTokenPayload,
@@ -62,7 +66,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 // ── Refresh Token ──
 
 /** 签发 Refresh Token（同时返回明文 token 与哈希，哈希用于入库） */
-export function signRefreshToken(payload: { user_key: string }): { token: string; tokenHash: string } {
+export function signRefreshToken(payload: { user_key: string; uid?: number }): { token: string; tokenHash: string } {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
   const token = jwt.sign(
     { ...payload, type: "refresh" } as RefreshTokenPayload,
