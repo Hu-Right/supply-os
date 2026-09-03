@@ -62,6 +62,7 @@ export function invalidateProfileCache(userKey?: string): void {
 export async function resolveUserIndustryProfile(
   pool: Pool,
   userKey: string,
+  userId?: number,
 ): Promise<UserIndustryProfile | null> {
   // ── 缓存命中检查 ──
   const cached = _profileCache.get(userKey);
@@ -72,7 +73,14 @@ export async function resolveUserIndustryProfile(
   const userPrefsRepo = new UserPrefsRepo(pool);
   const catalogRepo = new CatalogRepo(pool);
 
-  const row = await userPrefsRepo.getIndustryPrefs(userKey);
+  // 如果提供了 userId，使用它；否则回退查表获取
+  let effectiveUserId = userId;
+  if (!effectiveUserId) {
+    const user = await new (await import("@/lib/repos/users.repo")).UsersRepo(pool).findByKey(userKey);
+    effectiveUserId = user?.id;
+  }
+
+  const row = effectiveUserId ? await userPrefsRepo.getIndustryPrefs(effectiveUserId) : null;
   if (!row) {
     _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
     if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();

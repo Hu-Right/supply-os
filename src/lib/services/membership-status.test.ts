@@ -70,7 +70,7 @@ function makeRepo(data: {
   } as unknown as MembershipRepo;
 }
 
-const USER = "u-test";
+const USER = 1; // userId (was "u-test" userKey)
 
 // ── 7 画像回归用例 ────────────────────────────────────────────────────────────
 

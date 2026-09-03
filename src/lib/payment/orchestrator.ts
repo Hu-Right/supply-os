@@ -29,6 +29,8 @@ import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
 export interface NormalizedOrder {
   order_no: string;
   user_key: string;
+  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  user_id?: number;
   provider: string;
   plan_code: string;
   notice_id: number | null;

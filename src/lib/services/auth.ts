@@ -144,7 +144,7 @@ export async function buildUserResponse(
   // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
   const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
   const [memberState, supplierRow] = await Promise.all([
-    resolveMembershipState(membershipRepo, userKey),
+    resolveMembershipState(membershipRepo, user.id!),
     needSupplier
       ? registrationRepo.findBasicInfo(Number(user.supplier_id))
       : Promise.resolve(null),

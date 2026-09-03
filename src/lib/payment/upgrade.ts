@@ -33,7 +33,7 @@ export async function performUpgradeInTransaction(
 
   // 查找待升级的原权益（最高价、非目标套餐，悲观锁防并发）
   const original = await paymentsRepo.findBestEntitlementForUpgradeInTransaction(
-    conn, order.user_key, targetPlanCode,
+    conn, order.user_id!, targetPlanCode,
   );
 
   // 差价快照校验（审查 F23）：下单时记录的目标套餐价/当前权益价与履约时
@@ -100,7 +100,7 @@ export async function performUpgradeInTransaction(
   }
 
   // 同步变更订阅 plan_code（最新一条非目标套餐的活跃订阅），有效期不变
-  const sub = await paymentsRepo.findUpgradeableSubscriptionInTransaction(conn, order.user_key, targetPlanCode);
+  const sub = await paymentsRepo.findUpgradeableSubscriptionInTransaction(conn, order.user_id!, targetPlanCode);
   if (sub) {
     await paymentsRepo.updateSubscriptionPlanInTransaction(conn, sub.id, targetPlanCode);
   }
