@@ -12,6 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
 import type { Supplier, Opportunity } from "@/types";
+import type { ChatSessionRow, ChatMessageRow } from "@/lib/repos/chat.repo";
 
 // ── 类型定义 ──
 
@@ -91,6 +92,12 @@ export interface UseDigitalAssistantReturn {
   addRemoteMessage: (role: MessageRole, content: string) => void;
   /** Agent 接入事件处理（SSE agent-joined 事件触发时调用） */
   handleAgentJoined: (agentEmail: string | null) => void;
+  /** 恢复进行中的会话（页面加载时调用，审查 P0-B6：刷新不丢会话） */
+  restoreActiveSession: () => Promise<void>;
+  /** SSE 空闲超时断流处理（前端回退 AI 态并提示） */
+  handleSessionTimeout: () => void;
+  /** SSE 重连超限处理 */
+  handleConnectionLost: () => void;
 }
 
 // ── 工具函数 ──
@@ -353,6 +360,64 @@ export function useDigitalAssistant(
     [appendMessage, t],
   );
 
+  /**
+   * 恢复进行中的会话（审查 P0-B6：此前对话与会话 ID 仅存内存，刷新页面
+   * 即丢失，后端留下无人应答的孤儿 waiting 会话）。
+   * 页面加载时调用：存在 waiting/active 会话则恢复状态并回放历史消息。
+   */
+  const restoreActiveSession = useCallback(async () => {
+    if (chatSessionIdRef.current) return; // 已有会话不重复恢复
+    try {
+      const sessions = await api<ChatSessionRow[]>("/api/crm/chat/sessions");
+      const latest = sessions?.[0];
+      if (!latest) return;
+
+      setChatSessionId(latest.id);
+      if (latest.status === "active") {
+        setMode("human");
+        setAgentName(latest.agent_email);
+      } else {
+        setMode("waiting");
+      }
+
+      // 回放历史消息（customer → user，agent/ai → assistant）
+      const history = await api<ChatMessageRow[]>(
+        `/api/crm/chat/messages?sessionId=${latest.id}`,
+      );
+      if (history?.length > 0) {
+        setMessages(
+          history.map((m) => ({
+            id: `hist_${m.id}`,
+            role: (m.role === "customer" ? "user" : "assistant") as MessageRole,
+            content: m.content,
+            timestamp: new Date(m.created_at).getTime() || Date.now(),
+            isHistory: true,
+          })),
+        );
+      }
+      appendMessage("system", t("crmAssistantSessionRestored"));
+    } catch {
+      // 恢复失败静默降级为全新 AI 会话
+    }
+  }, [appendMessage, t]);
+
+  /** SSE 空闲超时断流处理：前端回退 AI 态并提示（后端会话由超时巡检关闭） */
+  const handleSessionTimeout = useCallback(() => {
+    if (chatSessionIdRef.current) {
+      appendMessage("system", t("crmAssistantSessionTimeout"));
+    }
+    setMode("ai");
+    setAgentName(null);
+    setChatSessionId(null);
+  }, [appendMessage, t]);
+
+  /** SSE 重连超限处理：提示用户连接异常，保持会话态以便恢复 */
+  const handleConnectionLost = useCallback(() => {
+    if (chatSessionIdRef.current) {
+      appendMessage("system", t("crmAssistantConnectionLost"));
+    }
+  }, [appendMessage, t]);
+
   /** 清空对话 */
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -386,5 +451,8 @@ export function useDigitalAssistant(
     chatSessionId,
     addRemoteMessage,
     handleAgentJoined,
+    restoreActiveSession,
+    handleSessionTimeout,
+    handleConnectionLost,
   };
 }

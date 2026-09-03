@@ -75,6 +75,9 @@ export function DigitalAssistant({
     chatSessionId,
     addRemoteMessage,
     handleAgentJoined,
+    restoreActiveSession,
+    handleSessionTimeout,
+    handleConnectionLost,
   } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
 
   // SSE 回调：收到远端消息时追加到对话流 + 通知提示
@@ -104,7 +107,14 @@ export function DigitalAssistant({
     onAgentJoined: (data) => {
       handleAgentJoined(data.agentEmail);
     },
+    onTimeout: handleSessionTimeout,
+    onError: handleConnectionLost,
   });
+
+  // 页面加载时恢复进行中的会话（刷新不丢会话）
+  useEffect(() => {
+    restoreActiveSession();
+  }, [restoreActiveSession]);
 
   // 打开抽屉时初始化欢迎消息 + 清除未读
   useEffect(() => {

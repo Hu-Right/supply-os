@@ -1,41 +1,52 @@
 /**
  * CRM 客服消息 SSE 流式推送
- * CRM Chat SSE Stream
  *
- * GET /api/crm/chat/stream?sessionId=xxx — 实时推送新消息（运营经理端）
+ * GET /api/crm/chat/stream?ticket=xxx — 实时推送新消息（客户端）
  *
  * @module api/crm/chat/stream
  * @description 基于 SSE (Server-Sent Events) 的实时消息推送。
- *              运营经理打开会话后，通过 EventSource 接收新消息。
- *              每 2 秒轮询数据库，有新消息时推送 event: message。
- *              客户端断开连接时自动清理。
+ *              每 2 秒增量轮询数据库（WHERE id > lastId，审查 P0-B8：修复
+ *              原"取前 500 条再内存过滤"超会话漏推问题），有新消息时推送
+ *              event: message。每 25 秒发送 `: ping` 心跳注释帧，供客户端
+ *              看门狗与中间代理保活。
+ *              审查 P0-B4：鉴权改为 60 秒一次性 ticket（POST
+ *              /stream/ticket 换取），JWT 不再出现在 URL 中。
  */
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
-import type { ChatMessageRow } from "@/lib/repos/chat.repo";
+import { verifyChatTicket } from "@/lib/services/chatTicket";
 
 /** 轮询间隔（毫秒） */
 const POLL_INTERVAL = 2000;
+/** 心跳间隔（毫秒） */
+const HEARTBEAT_INTERVAL = 25_000;
 /** 最大空闲时间（毫秒），超时后关闭连接 */
 const MAX_IDLE = 5 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
-  // SSE 的 EventSource 不支持自定义 Header，Token 通过 query 参数传递。
-  // 将 query token 注入 Authorization Header，使 requireUserKey 能正常解析。
-  const queryToken = req.nextUrl.searchParams.get("token");
-  if (queryToken && !req.headers.get("authorization")) {
-    req.headers.set("authorization", `Bearer ${queryToken}`);
+  // 一次性 ticket 鉴权（替代原 URL query JWT）
+  const ticket = req.nextUrl.searchParams.get("ticket");
+  const verified = ticket ? verifyChatTicket(ticket) : null;
+  if (!verified) {
+    return Response.json(
+      { code: 40042, message: "SSE 凭据无效或已过期", error: "Invalid or expired ticket" },
+      { status: 401 },
+    );
   }
-
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+  const { userKey, sessionId: ticketSessionId } = verified;
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
   if (!sessionId) {
     return Response.json(
       { code: 40022, message: "缺少 sessionId", error: "Missing sessionId" },
       { status: 400 },
+    );
+  }
+  // ticket 与 sessionId 必须匹配，防止用 A 会话的 ticket 监听 B 会话
+  if (sessionId !== ticketSessionId) {
+    return Response.json(
+      { code: 40003, message: "凭据与会话不匹配", error: "Ticket/session mismatch" },
+      { status: 403 },
     );
   }
 
@@ -51,7 +62,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 权限检查：仅会话所有者可访问
-  if (session.customer_id !== auth.userKey) {
+  if (session.customer_id !== userKey) {
     return Response.json(
       { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
@@ -66,112 +77,141 @@ export async function GET(req: NextRequest) {
   let agentJoinedEmitted = false;
 
   const encoder = new TextEncoder();
-  let timerId: ReturnType<typeof setInterval> | null = null;
+  let pollTimerId: ReturnType<typeof setInterval> | null = null;
+  let heartbeatTimerId: ReturnType<typeof setInterval> | null = null;
 
   const stream = new ReadableStream({
     start(controller) {
+      let closed = false;
+      const safeEnqueue = (data: string) => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(data));
+        } catch {
+          closed = true;
+        }
+      };
+      const safeClose = () => {
+        if (closed) return;
+        closed = true;
+        if (pollTimerId) clearInterval(pollTimerId);
+        if (heartbeatTimerId) clearInterval(heartbeatTimerId);
+        try {
+          controller.close();
+        } catch {
+          /* already closed */
+        }
+      };
+
       // 发送初始连接确认
-      const initEvent = `event: connected\ndata: ${JSON.stringify({ sessionId, timestamp: Date.now() })}\n\n`;
-      controller.enqueue(encoder.encode(initEvent));
+      safeEnqueue(
+        `event: connected\ndata: ${JSON.stringify({ sessionId, timestamp: Date.now() })}\n\n`,
+      );
+
+      // 服务端心跳注释帧：客户端看门狗与中间代理保活（审查 P0-B7）
+      heartbeatTimerId = setInterval(() => {
+        safeEnqueue(`: ping ${Date.now()}\n\n`);
+      }, HEARTBEAT_INTERVAL);
 
       // 获取当前最新消息 ID 作为基线 + 记录初始会话状态
       Promise.all([
         chatRepo.listMessages(sessionId, 1),
         chatRepo.findSessionById(sessionId),
-      ]).then(([msgs, sessionSnapshot]) => {
-        if (msgs.length > 0) {
-          lastMessageId = msgs[msgs.length - 1].id;
-        }
-        if (sessionSnapshot) {
-          lastStatus = sessionSnapshot.status;
-          // 如果连接时会话已处于 active 状态（断线重连场景），立即推送 agent-joined
-          if (lastStatus === "active" && sessionSnapshot.agent_id) {
-            agentJoinedEmitted = true;
-            const joinEvent = `event: agent-joined\ndata: ${JSON.stringify({
-              sessionId,
-              agentId: sessionSnapshot.agent_id,
-              agentEmail: sessionSnapshot.agent_email,
-            })}\n\n`;
-            controller.enqueue(encoder.encode(joinEvent));
+      ])
+        .then(([msgs, sessionSnapshot]) => {
+          // 基线查询期间流可能已被取消
+          if (closed) return;
+          if (msgs.length > 0) {
+            lastMessageId = Math.max(...msgs.map((m) => m.id));
           }
-        }
-
-        // 启动轮询
-        timerId = setInterval(async () => {
-          try {
-            // 查询新消息（ID > lastMessageId）
-            const allMessages = await chatRepo.listMessages(sessionId, 500);
-            const newMessages = allMessages.filter(
-              (m: ChatMessageRow) => m.id > lastMessageId,
-            );
-
-            if (newMessages.length > 0) {
-              lastActivity = Date.now();
-              for (const msg of newMessages) {
-                const event = `event: message\ndata: ${JSON.stringify(msg)}\n\n`;
-                controller.enqueue(encoder.encode(event));
-                lastMessageId = msg.id;
-              }
-            }
-
-            // 检测会话状态变化（Agent 接入 / 关闭）
-            const currentSession = await chatRepo.findSessionById(sessionId);
-            if (currentSession) {
-              // Agent 接入：waiting → active
-              if (
-                !agentJoinedEmitted &&
-                lastStatus === "waiting" &&
-                currentSession.status === "active"
-              ) {
-                agentJoinedEmitted = true;
-                lastActivity = Date.now();
-                const joinEvent = `event: agent-joined\ndata: ${JSON.stringify({
+          if (sessionSnapshot) {
+            lastStatus = sessionSnapshot.status;
+            // 如果连接时会话已处于 active 状态（断线重连场景），立即推送 agent-joined
+            if (lastStatus === "active" && sessionSnapshot.agent_id) {
+              agentJoinedEmitted = true;
+              safeEnqueue(
+                `event: agent-joined\ndata: ${JSON.stringify({
                   sessionId,
-                  agentId: currentSession.agent_id,
-                  agentEmail: currentSession.agent_email,
-                })}\n\n`;
-                controller.enqueue(encoder.encode(joinEvent));
-              }
-              lastStatus = currentSession.status;
-
-              // 会话已关闭（Agent 或客户从任一侧关闭）
-              if (currentSession.status === "closed") {
-                const closeEvent = `event: session_closed\ndata: ${JSON.stringify({ sessionId })}\n\n`;
-                controller.enqueue(encoder.encode(closeEvent));
-                controller.close();
-                return;
-              }
+                  agentId: sessionSnapshot.agent_id,
+                  agentEmail: sessionSnapshot.agent_email,
+                })}\n\n`,
+              );
             }
-
-            // 空闲超时检查
-            if (Date.now() - lastActivity > MAX_IDLE) {
-              const timeoutEvent = `event: timeout\ndata: ${JSON.stringify({ reason: "idle_timeout" })}\n\n`;
-              controller.enqueue(encoder.encode(timeoutEvent));
-              controller.close();
-            }
-          } catch (err) {
-            // 数据库错误时发送错误事件但不中断
-            const errorEvent = `event: error\ndata: ${JSON.stringify({ message: "poll_error" })}\n\n`;
-            controller.enqueue(encoder.encode(errorEvent));
           }
-        }, POLL_INTERVAL);
-      }).catch((err) => {
-        // 基线查询失败时关闭流，避免静默悬挂
-        console.error("[crm/chat/stream] baseline query failed:", err);
-        try {
-          const errorEvent = `event: error\ndata: ${JSON.stringify({ message: "baseline_query_failed" })}\n\n`;
-          controller.enqueue(encoder.encode(errorEvent));
-        } finally {
-          controller.close();
-        }
-      });
+
+          // 启动轮询
+          pollTimerId = setInterval(async () => {
+            try {
+              // 增量查询新消息（WHERE id > lastMessageId，无截断窗口）
+              const newMessages = await chatRepo.listMessagesAfter(sessionId, lastMessageId);
+
+              if (newMessages.length > 0) {
+                lastActivity = Date.now();
+                for (const msg of newMessages) {
+                  safeEnqueue(`event: message\ndata: ${JSON.stringify(msg)}\n\n`);
+                  lastMessageId = msg.id;
+                }
+              }
+
+              // 检测会话状态变化（Agent 接入 / 关闭）
+              const currentSession = await chatRepo.findSessionById(sessionId);
+              if (currentSession) {
+                // Agent 接入：waiting → active
+                if (
+                  !agentJoinedEmitted &&
+                  lastStatus === "waiting" &&
+                  currentSession.status === "active"
+                ) {
+                  agentJoinedEmitted = true;
+                  lastActivity = Date.now();
+                  safeEnqueue(
+                    `event: agent-joined\ndata: ${JSON.stringify({
+                      sessionId,
+                      agentId: currentSession.agent_id,
+                      agentEmail: currentSession.agent_email,
+                    })}\n\n`,
+                  );
+                }
+                lastStatus = currentSession.status;
+
+                // 会话已关闭（Agent 或客户从任一侧关闭）
+                if (currentSession.status === "closed") {
+                  safeEnqueue(
+                    `event: session_closed\ndata: ${JSON.stringify({ sessionId })}\n\n`,
+                  );
+                  safeClose();
+                  return;
+                }
+              }
+
+              // 空闲超时检查
+              if (Date.now() - lastActivity > MAX_IDLE) {
+                safeEnqueue(
+                  `event: timeout\ndata: ${JSON.stringify({ reason: "idle_timeout" })}\n\n`,
+                );
+                safeClose();
+              }
+            } catch {
+              // 数据库错误时发送错误事件但不中断
+              safeEnqueue(
+                `event: error\ndata: ${JSON.stringify({ message: "poll_error" })}\n\n`,
+              );
+            }
+          }, POLL_INTERVAL);
+        })
+        .catch((err) => {
+          // 基线查询失败时关闭流，避免静默悬挂
+          console.error("[crm/chat/stream] baseline query failed:", err);
+          safeEnqueue(
+            `event: error\ndata: ${JSON.stringify({ message: "baseline_query_failed" })}\n\n`,
+          );
+          safeClose();
+        });
     },
     cancel() {
       // 客户端断开时清理定时器
-      if (timerId) {
-        clearInterval(timerId);
-        timerId = null;
-      }
+      if (pollTimerId) clearInterval(pollTimerId);
+      if (heartbeatTimerId) clearInterval(heartbeatTimerId);
     },
   });
 
