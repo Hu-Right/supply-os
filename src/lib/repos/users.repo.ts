@@ -25,7 +25,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（仅返回登录/展示所需字段） */
   async findProfileByKey(userKey: string): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, email_verified, phone, phone_verified, display_name, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT user_key, email, email_verified, phone, phone_verified, display_name, nickname, membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
     );
@@ -35,7 +35,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, phone, phone_verified, display_name, password_hash, password_hash_type, email_verified,
+      `SELECT user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
@@ -48,6 +48,7 @@ export class UsersRepo {
     user_key: string;
     email: string | null;
     display_name: string;
+    nickname?: string;
     password_hash: string;
     password_hash_type?: string;
     user_type?: string;
@@ -58,9 +59,9 @@ export class UsersRepo {
     const hashType = data.password_hash_type ?? "bcrypt";
     const userType = data.user_type ?? "enterprise";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (user_key, email, display_name, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
-       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
-      [data.user_key, data.email, data.display_name, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
+      `INSERT INTO crm_users (user_key, email, display_name, nickname, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
+       VALUES (?, ?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
+      [data.user_key, data.email, data.display_name, data.nickname ?? null, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
     return (result as any).affectedRows > 0;
   }
@@ -81,11 +82,11 @@ export class UsersRepo {
     );
   }
 
-  /** 更新显示名（不触碰密码） */
-  async updateProfile(userKey: string, displayName: string): Promise<void> {
+  /** 更新昵称（不触碰密码；nickname_source=2 标记用户自定义，回填脚本以 source=1 补齐） */
+  async updateProfile(userKey: string, nickname: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET display_name = ?, updated_at = NOW() WHERE user_key = ?",
-      [displayName, userKey],
+      "UPDATE crm_users SET nickname = ?, nickname_source = 2, updated_at = NOW() WHERE user_key = ?",
+      [nickname, userKey],
     );
   }
 
@@ -181,7 +182,7 @@ export class UsersRepo {
     }
     // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, phone, phone_verified, display_name, password_hash, password_hash_type, email_verified,
+      `SELECT user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE email = ? LIMIT 1`,
       [identifier.toLowerCase()],

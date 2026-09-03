@@ -9,13 +9,29 @@ import type { MembershipRepo } from "../repos/membership.repo";
 import type { SupplierRegistrationRepo } from "../repos/suppliers/supplier-registration.repo";
 import type { AuthRepo } from "../repos/auth.repo";
 import type { UserRow } from "../repos/types";
-import { maskPhone } from "../utils/mask";
+import { maskPhone, maskName } from "../utils/mask";
 import { resolveMembershipState } from "./membership-status";
 import {
   signAccessToken, signRefreshToken, getRefreshTokenExpiresAt,
 } from "./jwt";
 
 const BCRYPT_ROUNDS = 12;
+
+/** 昵称随机段字符表：去除易混淆的 I/L/O/0/1 */
+const NICKNAME_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/**
+ * 生成默认展示昵称（如"采友_K7X2"）。
+ * 每位用户随机不同、不携带手机号/邮箱片段（防反推身份）；不要求唯一，身份锚点是 user_key。
+ */
+export function generateNickname(): string {
+  const bytes = crypto.randomBytes(4);
+  let suffix = "";
+  for (let i = 0; i < 4; i++) {
+    suffix += NICKNAME_ALPHABET[bytes[i] % NICKNAME_ALPHABET.length];
+  }
+  return `采友_${suffix}`;
+}
 
 /**
  * 签发 JWT Token 对（登录/注册/重置密码共用，#6 自三个路由文件收口）
@@ -87,7 +103,8 @@ export function hashVerificationCode(code: string): string {
 export interface AuthUserResponse {
   user_key: string;
   email: string;
-  display_name: string;
+  /** 对外展示名（昵称）。真实姓名 display_name 不进入任何 API 响应（隐私收口） */
+  nickname: string;
   membership_tier: string;
   account_status: string;
   supplier_id: number | null;
@@ -123,10 +140,13 @@ export async function buildUserResponse(
   // N1 收敛（2026-08-20）：tier 取自唯一端口 resolveMembershipState（订阅 OR 付费剩余配额 > 0），
   // 修复原"仅看订阅"口径下，仅购买单次解锁卡的用户登录态被误判为 free 的分叉问题。
   const tier = memberState.tier;
+  // 展示名收口：只输出昵称。窗口期兜底（代码先上、060 回填未跑时 nickname 为 NULL）——
+  // 此时以姓名掩码临时展示，回填完成后此分支自然不再命中，可在稳定后移除。
+  const nickname = user.nickname || maskName(user.display_name ?? "");
   return {
     user_key: userKey,
     email: user.email ?? "",
-    display_name: user.display_name ?? "",
+    nickname,
     membership_tier: tier,
     account_status: user.account_status ?? "pending",
     supplier_id: (supplier?.id as number) || null,

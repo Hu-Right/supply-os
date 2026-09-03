@@ -1,0 +1,45 @@
+/**
+ * PUT /api/auth/profile — 修改昵称（需认证）
+ *
+ * 隐私整改：对外展示名（nickname）用户自定义入口。
+ * 真实姓名 display_name 不接受本路由修改（涉及实名一致性，走客服通道）。
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { getContext } from "@/lib/db/context";
+import { requireUserKey } from "@/lib/middleware/auth";
+import { buildUserResponse } from "@/lib/services/auth";
+
+/** 昵称清洗与校验：1-40 字符，去首尾空白，剥离富文本特殊字符（防 XSS 存量，SQL 已参数化） */
+function sanitizeNickname(input: unknown): { ok: true; value: string } | { ok: false } {
+  const raw = String(input ?? "").trim();
+  const cleaned = raw.replace(/[<>"'&\\]/g, "").trim();
+  if (!cleaned || cleaned.length > 40) return { ok: false };
+  return { ok: true, value: cleaned };
+}
+
+export async function PUT(req: NextRequest) {
+  const auth = await requireUserKey(req);
+  if (auth instanceof Response) return auth;
+  if (!auth.authViaJwt) {
+    return NextResponse.json({ code: 40003, message: "请通过有效凭证访问" }, { status: 403 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as { nickname?: unknown };
+  const check = sanitizeNickname(body.nickname);
+  if (!check.ok) {
+    return NextResponse.json(
+      { code: 40051, message: "昵称需为 1-40 个字符，且不含特殊符号" },
+      { status: 400 },
+    );
+  }
+
+  const ctx = getContext();
+  await ctx.user.usersRepo.updateProfile(auth.userKey, check.value);
+
+  const user = await ctx.user.usersRepo.findProfileByKey(auth.userKey);
+  if (!user) {
+    return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
+  }
+  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  return NextResponse.json({ success: true, user: payload });
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { maskPhone, maskEmail, splitListField } from "./mask";
+import { maskPhone, maskEmail, maskName, splitListField } from "./mask";
 
 describe("maskPhone", () => {
   it("正常手机号（11 位）→ 前 3 + **** + 后 4", () => {
@@ -45,6 +45,33 @@ describe("maskEmail", () => {
 
   it("@ 在首位 → ***", () => {
     expect(maskEmail("@example.com")).toBe("***");
+  });
+});
+
+describe("maskName", () => {
+  it("中文姓名保留首字，星号最多补 2 个", () => {
+    expect(maskName("李大明")).toBe("李**");
+    expect(maskName("李明")).toBe("李*");
+    expect(maskName("诸葛亮孔明")).toBe("诸**");
+  });
+
+  it("单词姓名保留首字符", () => {
+    expect(maskName("John")).toBe("J**");
+  });
+
+  it("单字符原样返回", () => {
+    expect(maskName("李")).toBe("李");
+  });
+
+  it("多词姓名保留各词首字母", () => {
+    expect(maskName("John Smith")).toBe("J*** S***");
+  });
+
+  it("空值返回空串", () => {
+    expect(maskName("")).toBe("");
+    expect(maskName("   ")).toBe("");
+    expect(maskName(null)).toBe("");
+    expect(maskName(undefined)).toBe("");
   });
 });
 

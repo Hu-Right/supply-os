@@ -3,7 +3,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { hashPassword, hashVerificationCode, issueTokenPair } from "@/lib/services/auth";
+import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "@/lib/services/auth";
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
     user_key: targetPhone,
     email: email ? String(email).trim().toLowerCase() : null,
     display_name: displayName,
+    // 展示名与真实姓名分离：昵称自动生成（用户后续可在个人中心自定义）
+    nickname: generateNickname(),
     password_hash: await hashPassword(pw),
     user_type: userType,
     phone: targetPhone,
@@ -113,12 +115,20 @@ export async function POST(req: NextRequest) {
     console.error("[register] consent log write failed:", (consentErr as Error).message);
   }
 
+  // 响应统一走 buildUserResponse 收口（隐私整改）：
+  // 只返回昵称（不返回 display_name 真实姓名），手机号脱敏（修复原响应返回明文手机号）
+  const createdUser = await ctx.user.usersRepo.findAuthByKey(targetPhone);
+  if (!createdUser) {
+    return NextResponse.json({ code: 40008, message: "注册失败，请稍后重试" }, { status: 500 });
+  }
+  const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, targetPhone, email || ""); } catch { /* JWT_SECRET 未配置 */ }
 
   const response = NextResponse.json({
     success: true,
-    user: { user_key: targetPhone, phone: targetPhone, email: email || null, display_name: displayName, membership_tier: "free", user_type: userType },
+    user: payload,
     token: tokens?.token,
   }, { status: 201 });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);

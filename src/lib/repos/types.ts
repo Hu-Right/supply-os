@@ -17,6 +17,10 @@ export interface UserRow {
   phone: string | null;
   phone_verified: number;
   display_name: string | null;
+  /** 对外展示名（昵称）；display_name 存真实姓名，不进入 API 响应 */
+  nickname: string | null;
+  /** 昵称来源：1=自动生成, 2=用户自定义 */
+  nickname_source: number;
   password_hash: string | null;
   password_hash_type: string;
   email_verified: number;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { hashPasswordLegacy, hashVerificationCode, needsUpgrade, verifyPassword, hashPassword } from "./auth";
+import { hashPasswordLegacy, hashVerificationCode, needsUpgrade, verifyPassword, hashPassword, generateNickname } from "./auth";
 import crypto from "crypto";
 
 beforeAll(() => {
@@ -80,6 +80,17 @@ describe("issueTokenPair", () => {
   });
 });
 
+describe("generateNickname", () => {
+  it("格式：采友_ + 4 位随机字符（去除易混淆字符）", () => {
+    expect(generateNickname()).toMatch(/^采友_[A-HJKMNP-Z2-9]{4}$/);
+  });
+
+  it("随机性：多次生成不重复", () => {
+    const set = new Set(Array.from({ length: 50 }, () => generateNickname()));
+    expect(set.size).toBeGreaterThan(1);
+  });
+});
+
 describe("buildUserResponse", () => {
   const mockMembershipRepo = {
     getFreeQuota: vi.fn().mockResolvedValue(5),
@@ -110,6 +121,28 @@ describe("buildUserResponse", () => {
     expect(result.membership_tier).toBe("free");
     expect(result.phone).toBeTruthy();
     expect(result.phone_verified).toBe(1);
+  });
+
+  it("有昵称 → 输出 nickname，且响应体不含 display_name（隐私收口验收断言）", async () => {
+    const { buildUserResponse } = await import("./auth");
+    const user = {
+      user_key: "13800138000",
+      email: "u@test.com",
+      display_name: "李大明",
+      nickname: "采友_K7X2",
+    };
+    const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
+    expect(result.nickname).toBe("采友_K7X2");
+    expect(result).not.toHaveProperty("display_name");
+    expect(JSON.stringify(result)).not.toContain("李大明");
+  });
+
+  it("回填窗口期兜底：无昵称 → 姓名掩码临时展示", async () => {
+    const { buildUserResponse } = await import("./auth");
+    const user = { user_key: "13800138000", display_name: "李大明", nickname: null };
+    const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
+    expect(result.nickname).toBe("李**");
+    expect(result).not.toHaveProperty("display_name");
   });
 
   it("无手机号 → phone=null", async () => {
