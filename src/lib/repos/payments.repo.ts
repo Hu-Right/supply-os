@@ -47,7 +47,7 @@ export class PaymentsRepo {
 
   /** 查找用户待支付订单（同 plan + provider + notice 组合） */
   async findPendingOrder(params: {
-    userKey: string;
+    userId: number;
     planCode: string;
     provider: string;
     noticeId: number | null;
@@ -55,9 +55,9 @@ export class PaymentsRepo {
     const [rows] = await this.pool.query(
       `SELECT order_no, provider, plan_code, amount, currency, status, notice_id, pay_url, qr_code_url
        FROM crm_payment_orders
-       WHERE user_key = ? AND plan_code = ? AND provider = ? AND status = 'pending' AND (notice_id <=> ?)
+       WHERE user_id = ? AND plan_code = ? AND provider = ? AND status = 'pending' AND (notice_id <=> ?)
        ORDER BY id DESC LIMIT 1`,
-      [params.userKey, params.planCode, params.provider, params.noticeId],
+      [params.userId, params.planCode, params.provider, params.noticeId],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
@@ -334,20 +334,20 @@ export class PaymentsRepo {
    */
   async findBestEntitlementForUpgradeInTransaction(
     conn: PoolConnection,
-    userKey: string,
+    userId: number,
     targetPlanCode: string,
   ): Promise<{ id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
     const [rows] = await conn.query(
       `SELECT e.id, e.plan_code, p.price, e.quota_used, e.started_at, e.expires_at
        FROM crm_user_entitlements e
        INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
-       WHERE e.user_key = ? AND e.status = 'active' AND e.is_upgraded = 0
+       WHERE e.user_id = ? AND e.status = 'active' AND e.is_upgraded = 0
          AND e.plan_code <> ?
          AND (e.expires_at IS NULL OR e.expires_at > NOW())
        ORDER BY p.price DESC, e.id DESC
        LIMIT 1
        FOR UPDATE`,
-      [userKey, targetPlanCode],
+      [userId, targetPlanCode],
     );
     return (rows as RowDataPacket[])[0] as { id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } ?? null;
   }
@@ -355,15 +355,15 @@ export class PaymentsRepo {
   /** 事务内查询用户可升级的活跃订阅（最新一条非目标套餐的活跃订阅） */
   async findUpgradeableSubscriptionInTransaction(
     conn: PoolConnection,
-    userKey: string,
+    userId: number,
     targetPlanCode: string,
   ): Promise<{ id: number } | null> {
     const [rows] = await conn.query(
       `SELECT id FROM crm_user_subscriptions
-       WHERE user_key = ? AND status = 'active' AND plan_code <> ?
+       WHERE user_id = ? AND status = 'active' AND plan_code <> ?
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY id DESC LIMIT 1`,
-      [userKey, targetPlanCode],
+      [userId, targetPlanCode],
     );
     return (rows as RowDataPacket[])[0] as { id: number } ?? null;
   }
@@ -386,10 +386,10 @@ export class PaymentsRepo {
    * - pending 也计入——防止"先开单不付款再开第二单"绕过首单限制
    * - 用于首单特惠资格判定和前端套餐列表展示
    */
-  async hasSingleUnlockRecord(userKey: string): Promise<boolean> {
+  async hasSingleUnlockRecord(userId: number): Promise<boolean> {
     const [rows] = await this.pool.query(
-      "SELECT 1 FROM crm_payment_orders WHERE user_key = ? AND plan_code LIKE 'single_%' AND status IN ('pending','paid') LIMIT 1",
-      [userKey],
+      "SELECT 1 FROM crm_payment_orders WHERE user_id = ? AND plan_code LIKE 'single_%' AND status IN ('pending','paid') LIMIT 1",
+      [userId],
     );
     return (rows as RowDataPacket[]).length > 0;
   }
@@ -403,11 +403,11 @@ export class PaymentsRepo {
    * - 未被任何非 closed 订单通过 original_order_no 引用过（一单只能抵扣一次）
    * - 用于首单特惠升级时的金额抵扣计算
    */
-  async findDeductibleSingleOrder(userKey: string): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
+  async findDeductibleSingleOrder(userId: number): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
     const [rows] = await this.pool.query(
       `SELECT o.order_no, o.amount, o.paid_at
        FROM crm_payment_orders o
-       WHERE o.user_key = ? AND o.plan_code = 'single_99' AND o.status = 'paid'
+       WHERE o.user_id = ? AND o.plan_code = 'single_99' AND o.status = 'paid'
          AND o.paid_at >= NOW() - INTERVAL 7 DAY
          AND NOT EXISTS (
            SELECT 1 FROM crm_payment_orders o2
@@ -415,7 +415,7 @@ export class PaymentsRepo {
          )
        ORDER BY o.paid_at DESC
        LIMIT 1`,
-      [userKey],
+      [userId],
     );
     const row = (rows as RowDataPacket[])[0];
     return row

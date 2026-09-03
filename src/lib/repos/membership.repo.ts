@@ -83,32 +83,32 @@ export class MembershipRepo {
   }
 
   /** 查询用户的有效订阅（含套餐名称和解锁配额） */
-  async findActiveSubscriptions(userKey: string): Promise<SubscriptionRow[]> {
+  async findActiveSubscriptions(userId: number): Promise<SubscriptionRow[]> {
     const [rows] = await this.pool.query(
       `SELECT s.id, s.user_id, s.user_key, s.plan_code, p.name AS plan_name, p.unlock_quota, s.status, s.started_at, s.expires_at, s.created_at
        FROM crm_user_subscriptions s
        LEFT JOIN crm_membership_plans p ON s.plan_code = p.plan_code
-       WHERE s.user_key = ? AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
+       WHERE s.user_id = ? AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
        ORDER BY s.id DESC`,
-      [userKey],
+      [userId],
     );
     return rows as SubscriptionRow[];
   }
 
   /** 统计用户免费解锁次数 */
-  async countFreeUnlocks(userKey: string): Promise<number> {
+  async countFreeUnlocks(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type = 'free'",
-      [userKey],
+      "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_id = ? AND unlock_type = 'free'",
+      [userId],
     );
     return Number((rows as CountRow[])[0]?.total || 0);
   }
 
   /** 统计用户付费解锁次数 */
-  async countPaidUnlocks(userKey: string): Promise<number> {
+  async countPaidUnlocks(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_key = ? AND unlock_type IN ('single','subscription')",
-      [userKey],
+      "SELECT COUNT(*) AS total FROM crm_opportunity_unlocks WHERE user_id = ? AND unlock_type IN ('single','subscription')",
+      [userId],
     );
     return Number((rows as CountRow[])[0]?.total || 0);
   }
@@ -118,17 +118,17 @@ export class MembershipRepo {
   // 避免"仅订阅"口径再次复活导致状态分叉。
 
   /** 查询用户有效权益（有剩余配额且未过期，排除已被升级替代的权益） */
-  async findActiveEntitlements(userKey: string): Promise<EntitlementRow[]> {
+  async findActiveEntitlements(userId: number): Promise<EntitlementRow[]> {
     const [rows] = await this.pool.query(
       `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
        FROM crm_user_entitlements
-       WHERE user_key = ?
+       WHERE user_id = ?
          AND status = 'active'
          AND is_upgraded = 0
          AND quota_total > quota_used
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC`,
-      [userKey],
+      [userId],
     );
     return rows as EntitlementRow[];
   }
@@ -138,18 +138,18 @@ export class MembershipRepo {
    * 仅统计有配额、非单次卡的活跃权益；无权益时回退至活跃订阅。
    * 按套餐价格倒序取最高者，价格相同取最新。
    */
-  async findCurrentBestPlan(userKey: string): Promise<CurrentBestPlanRow | null> {
+  async findCurrentBestPlan(userId: number): Promise<CurrentBestPlanRow | null> {
     // 优先：未升级的活跃权益（配额型套餐）
     const [entRows] = await this.pool.query(
       `SELECT e.id AS entitlement_id, e.source_order_no, e.plan_code, e.quota_total, e.quota_used, e.started_at, e.expires_at,
               p.name AS plan_name, p.price, p.unlock_quota,
               (SELECT s.id FROM crm_user_subscriptions s
-                WHERE s.user_key = ? AND s.status = 'active' AND s.plan_code = e.plan_code
+                WHERE s.user_id = ? AND s.status = 'active' AND s.plan_code = e.plan_code
                   AND (s.expires_at IS NULL OR s.expires_at > NOW())
                 ORDER BY s.id DESC LIMIT 1) AS subscription_id
        FROM crm_user_entitlements e
        INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
-       WHERE e.user_key = ?
+       WHERE e.user_id = ?
          AND e.status = 'active'
          AND e.is_upgraded = 0
          AND e.quota_total > 0
@@ -158,7 +158,7 @@ export class MembershipRepo {
          AND p.plan_type <> 'single'
        ORDER BY p.price DESC, e.id DESC
        LIMIT 1`,
-      [userKey, userKey],
+      [userId, userId],
     );
     const ent = (entRows as any[])[0];
     if (ent) {
@@ -183,14 +183,14 @@ export class MembershipRepo {
               p.name AS plan_name, p.price, p.unlock_quota
        FROM crm_user_subscriptions s
        INNER JOIN crm_membership_plans p ON p.plan_code = s.plan_code
-       WHERE s.user_key = ?
+       WHERE s.user_id = ?
          AND s.status = 'active'
          AND (s.expires_at IS NULL OR s.expires_at > NOW())
          AND p.price > 0
          AND p.plan_type <> 'single'
        ORDER BY p.price DESC, s.id DESC
        LIMIT 1`,
-      [userKey],
+      [userId],
     );
     const sub = (subRows as any[])[0];
     if (sub) {
@@ -215,30 +215,30 @@ export class MembershipRepo {
 
   /** 事务内悲观锁查询用户有效权益（SELECT ... FOR UPDATE 防并发配额超卖） */
   async findAndLockEntitlement(
-    conn: PoolConnection, userKey: string,
+    conn: PoolConnection, userId: number,
   ): Promise<EntitlementRow | null> {
     const [rows] = await conn.query(
       `SELECT id, plan_code, quota_total, quota_used, (quota_total - quota_used) AS quota_remaining, expires_at
        FROM crm_user_entitlements
-       WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
+       WHERE user_id = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
          AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
        FOR UPDATE`,
-      [userKey],
+      [userId],
     );
     return (rows as EntitlementRow[])[0] ?? null;
   }
 
   /** 事务内检查用户是否有活跃订阅 */
   async hasActiveSubscriptionInTransaction(
-    conn: PoolConnection, userKey: string,
+    conn: PoolConnection, userId: number,
   ): Promise<boolean> {
     const [rows] = await conn.query(
       `SELECT id FROM crm_user_subscriptions
-       WHERE user_key = ? AND status = 'active'
+       WHERE user_id = ? AND status = 'active'
          AND (expires_at IS NULL OR expires_at > NOW())
        LIMIT 1`,
-      [userKey],
+      [userId],
     );
     return (rows as RowDataPacket[]).length > 0;
   }
