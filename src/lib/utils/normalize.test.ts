@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUserKey, escapeLikeWildcard, normalizeContactRows, extractContactsFromText } from "./normalize";
+import { normalizeUserKey, escapeLikeWildcard, normalizeContactRows, extractContactsFromText, normalizeDocumentRows } from "./normalize";
 
 describe("normalizeUserKey", () => {
   it("正常邮箱 → 小写截断", () => {
@@ -76,5 +76,45 @@ describe("extractContactsFromText", () => {
 
   it("无联系方式 → 空数组", () => {
     expect(extractContactsFromText("no contacts here")).toEqual([]);
+  });
+});
+
+describe("normalizeDocumentRows", () => {
+  it("从数组提取文档并规范化 url/name（href/title 变体字段）", () => {
+    const rows = normalizeDocumentRows([
+      { url: "https://x.com/a/b.pdf", title: "招标文件" },
+      { href: "https://y.com/c.docx", fileName: "附件" },
+    ]);
+    expect(rows[0]).toMatchObject({ url: "https://x.com/a/b.pdf", name: "招标文件" });
+    expect(rows[1]).toMatchObject({ url: "https://y.com/c.docx", name: "附件" });
+  });
+
+  it("name 缺失时从 url 取 basename（剥离 query）", () => {
+    const rows = normalizeDocumentRows([{ url: "https://x.com/files/spec-v2.pdf?token=1" }]);
+    expect(rows[0].name).toBe("spec-v2.pdf");
+  });
+
+  it("非对象/纯文本条目 → 跳过；仅 name 无 url → 保留", () => {
+    expect(normalizeDocumentRows([null, "text", 123])).toEqual([]);
+    expect(normalizeDocumentRows([{ name: "只有名字无链接" }])).toEqual([
+      { name: "只有名字无链接", url: "" },
+    ]);
+  });
+
+  it("JSON 字符串来源与多来源合并", () => {
+    const rows = normalizeDocumentRows(
+      JSON.stringify([{ url: "https://x.com/1.pdf", name: "A" }]),
+      [{ url: "https://x.com/2.pdf", name: "B" }],
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it("url+name 去重（大小写不敏感，含 href 变体）", () => {
+    const rows = normalizeDocumentRows([
+      { url: "https://X.com/a.pdf", name: "文件" },
+      { url: "https://x.com/a.pdf", name: "文件" },
+      { href: "https://x.com/a.pdf", name: "文件" },
+    ]);
+    expect(rows).toHaveLength(1);
   });
 });

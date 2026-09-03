@@ -27,7 +27,7 @@
     "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:merge-coverage": "npx istanbul-merge --out coverage/merged/coverage-final.json coverage/unit/coverage-final.json coverage/integration/coverage-final.json",
     "test:coverage-gate": "node scripts/coverage-gate.mjs",
-    "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
+    "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/perf-budget-check.ts",
     "seed:test-db": "npx tsx scripts/seed-test-db.ts",
     "pre-push": "npm run check:encoding && npm run typecheck && npm run lint && npm run test && npm run build"

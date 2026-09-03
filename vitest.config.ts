@@ -79,9 +79,13 @@ export default defineConfig({
         // ── src/lib/services/meilisearch — 中文分词 ──
         "src/lib/services/meilisearch/segmentZh.ts",
 
-        // ── src/lib/payment — 密钥校验 + Mock 策略 ──
+        // ── src/lib/payment — 密钥校验 + Mock 策略 + 钱路核心 ──
         "src/lib/payment/keys.ts",
         "src/lib/payment/MockProvider.ts",
+        "src/lib/payment/PaymentService.ts",
+        "src/lib/payment/fulfillment.ts",
+        "src/lib/services/opportunity-unlock.ts",
+        "src/lib/repos/payments.repo.ts",
 
         // ── src/core — 纯逻辑模块（有测试）──
         "src/core/events/events.ts",
