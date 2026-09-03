@@ -29,6 +29,32 @@ export interface ChatMessage {
   isHistory?: boolean;
 }
 
+/** 附件元数据（上传接口返回值子集） */
+export interface AttachmentMeta {
+  url: string;
+  name: string;
+  type: string;
+}
+
+/** 从消息 metadata（DB JSON 列，可能是字符串）中提取附件内容标记 */
+function attachmentMarkerFromMetadata(metadata: unknown): string {
+  let meta: unknown = metadata;
+  if (typeof metadata === "string") {
+    try {
+      meta = JSON.parse(metadata);
+    } catch {
+      return "";
+    }
+  }
+  const att = (meta as { attachment?: unknown } | null)?.attachment;
+  if (!att || typeof att !== "object") return "";
+  try {
+    return ` [attachment:${JSON.stringify(att)}]`;
+  } catch {
+    return "";
+  }
+}
+
 /** 客服会话模式 */
 export type AssistantMode = "ai" | "waiting" | "human";
 
@@ -57,7 +83,7 @@ export interface UseDigitalAssistantReturn {
   isThinking: boolean;
   agentName: string | null;
   /** 发送用户消息 */
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, attachment?: AttachmentMeta) => Promise<void>;
   /** 触发快捷操作 */
   triggerQuickAction: (action: QuickActionType) => void;
   /** 请求转人工 */
@@ -165,19 +191,25 @@ export function useDigitalAssistant(
 
   /**
    * 发送用户消息
-   * 人工模式（有 chatSessionId）：调用后端 API 发送，agent 回复通过 SSE 接收
+   * 人工模式（有 chatSessionId）：调用后端 API 发送，附件走 metadata（客服端
+   *   气泡从 metadata.attachment 渲染），agent 回复通过 SSE 接收
    * AI 模式（无 chatSessionId）：前端模拟回复
    */
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!content.trim() || sendingRef.current) return;
+    async (content: string, attachment?: AttachmentMeta) => {
+      if (sendingRef.current) return;
+      const text = content.trim();
+      if (!text && !attachment) return;
       sendingRef.current = true;
 
       // 确保有欢迎消息
       ensureWelcome();
 
-      // 追加用户消息到对话流
-      appendMessage("user", content);
+      // 本地气泡：附件以内容标记渲染（MessageBubble 协议）
+      const displayContent = attachment
+        ? `${text} [attachment:${JSON.stringify(attachment)}]`.trim()
+        : text;
+      appendMessage("user", displayContent);
 
       // ── 人工模式：发送到后端 API ──
       if (chatSessionIdRef.current) {
@@ -187,8 +219,8 @@ export function useDigitalAssistant(
             retryOnAuth: true,
             body: {
               sessionId: chatSessionIdRef.current,
-              role: "customer",
-              content,
+              content: text || attachment?.name || "[附件]",
+              metadata: attachment ? { attachment } : undefined,
             },
           });
           // agent 回复会通过 SSE 推送，由 addRemoteMessage 追加
@@ -205,7 +237,7 @@ export function useDigitalAssistant(
       await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
       setIsThinking(false);
 
-      const lowerContent = content.toLowerCase();
+      const lowerContent = text.toLowerCase();
       let reply: string;
 
       if (lowerContent.includes("线索") || lowerContent.includes("lead")) {
@@ -389,7 +421,8 @@ export function useDigitalAssistant(
           history.map((m) => ({
             id: `hist_${m.id}`,
             role: (m.role === "customer" ? "user" : "assistant") as MessageRole,
-            content: m.content,
+            // metadata 中的附件转回内容标记，气泡组件按标记渲染
+            content: m.content + attachmentMarkerFromMetadata(m.metadata),
             timestamp: new Date(m.created_at).getTime() || Date.now(),
             isHistory: true,
           })),

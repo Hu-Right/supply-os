@@ -53,9 +53,9 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const code = String(crypto.randomInt(100000, 1000000));
     // 发新码前失效旧码，旧验证码不得继续可用（与邮箱渠道对齐）
-    await ctx.user.authRepo.invalidateUnusedCodes(user.user_key, "phone_reset");
+    await ctx.user.authRepo.invalidateUnusedCodes(user.id, "phone_reset");
     const resetId = await ctx.user.authRepo.createResetCode({
-      userKey: user.user_key, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: extractClientIp(req),
+      userId: user.id, phone: user.phone, codeHash: hashVerificationCode(code), codeType: "phone_reset", expiresAt, ip: extractClientIp(req),
     });
 
     let smsSent = false;
@@ -80,11 +80,11 @@ export async function POST(req: NextRequest) {
   const user = await ctx.user.usersRepo.findByIdentifier(identifier);
   let emailSent = true;
   if (user) {
-    await ctx.user.authRepo.invalidateUnusedCodes(identifier, "email_reset");
+    await ctx.user.authRepo.invalidateUnusedCodes(user.id, "email_reset");
     const code = String(crypto.randomInt(100000, 1000000));
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     const resetId = await ctx.user.authRepo.createResetCode({
-      userKey: identifier, codeHash: hashVerificationCode(code), codeType: "email_reset", expiresAt, ip: extractClientIp(req),
+      userId: user.id, codeHash: hashVerificationCode(code), codeType: "email_reset", expiresAt, ip: extractClientIp(req),
     });
     try {
       await sendPasswordResetEmail(identifier, code);

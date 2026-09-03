@@ -24,16 +24,25 @@ export class AuthRepo {
   // ── crm_password_resets：验证码生命周期 ────────────────────────────────────
 
   /** 失效某用户某类型下所有未使用的验证码（M-3：发新码前作废旧码） */
-  async invalidateUnusedCodes(userId: number, codeType: string): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
-      [userId, codeType],
-    );
+  async invalidateUnusedCodes(userIdOrKey: number | string, codeType: string): Promise<void> {
+    if (typeof userIdOrKey === "number") {
+      await this.pool.execute(
+        "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
+        [userIdOrKey, codeType],
+      );
+    } else {
+      // 注册场景：用户尚未创建，按 user_key 失效
+      await this.pool.execute(
+        "UPDATE crm_password_resets SET used = 1 WHERE user_key = ? AND code_type = ? AND used = 0",
+        [userIdOrKey, codeType],
+      );
+    }
   }
 
   /** 创建验证码记录，返回自增 id（phone 仅手机渠道传入） */
   async createResetCode(params: {
-    userId: number;
+    userId?: number | null;
+    userKey?: string;
     codeHash: string;
     codeType: string;
     expiresAt: Date;
@@ -42,23 +51,24 @@ export class AuthRepo {
   }): Promise<number> {
     const [result] = await this.pool.execute(
       `INSERT INTO crm_password_resets (user_id, user_key, phone, code, code_type, expires_at, ip)
-       VALUES (?, NULL, ?, ?, ?, ?, ?)`,
-      [params.userId, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [params.userId ?? null, params.userKey ?? null, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
     );
     return (result as ResultSetHeader).insertId;
   }
 
   /** 查询最新一条有效（未使用且未过期）验证码；phone 非空时附加手机号匹配 */
   async findLatestActiveCode(
-    userId: number,
+    userIdOrKey: number | string,
     codeType: string,
     phone?: string,
   ): Promise<AuthCodeRow | null> {
+    const isUserId = typeof userIdOrKey === "number";
     const sql = `SELECT id, code, expires_at, attempts
        FROM crm_password_resets
-       WHERE user_id = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
+       WHERE ${isUserId ? "user_id" : "user_key"} = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 1`;
-    const args = phone ? [userId, phone, codeType] : [userId, codeType];
+    const args = phone ? [userIdOrKey, phone, codeType] : [userIdOrKey, codeType];
     const [rows] = await this.pool.query(sql, args);
     return (rows as AuthCodeRow[])[0] ?? null;
   }

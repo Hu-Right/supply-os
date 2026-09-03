@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-  const resetId = await ctx.user.authRepo.createResetCode({ userKey: auth.userKey, phone: targetPhone, codeHash: hashVerificationCode(code), codeType, expiresAt, ip: extractClientIp(req) });
+  const resetId = await ctx.user.authRepo.createResetCode({ userId: auth.userId!, phone: targetPhone, codeHash: hashVerificationCode(code), codeType, expiresAt, ip: extractClientIp(req) });
 
   let smsSent = false;
   try {

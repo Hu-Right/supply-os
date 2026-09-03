@@ -8,14 +8,16 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Paperclip, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { getAuthToken } from "@/core/http";
 import { Button } from "@/shared/ui";
 import type {
   ChatMessage,
   AssistantMode,
   QuickActionType,
   MatchPhase,
+  AttachmentMeta,
 } from "../../hooks/useDigitalAssistant";
 import type { QueueInfo } from "../../hooks/useQueueInfo";
 import type { Supplier, Opportunity } from "@/types";
@@ -25,11 +27,16 @@ import { QuickActions } from "./QuickActions";
 import { MatchSelector } from "./MatchSelector";
 import { MatchReportCard } from "./MatchReportCard";
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+/** 与后端上传白名单一致（扩展名粗筛，服务端仍做 magic bytes 校验） */
+const ACCEPT_EXTS = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar";
+
 type ChatWindowProps = {
   messages: ChatMessage[];
   mode: AssistantMode;
   isThinking: boolean;
-  onSend: (content: string) => void;
+  onSend: (content: string, attachment?: AttachmentMeta) => void;
   onQuickAction: (action: QuickActionType) => void;
   /** 排队信息（waiting 态轮询，P1） */
   queueInfo: QueueInfo;
@@ -68,6 +75,8 @@ export function ChatWindow({
   const [input, setInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<AttachmentMeta | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // 新消息时自动滚动到底部
@@ -77,11 +86,49 @@ export function ChatWindow({
     }
   }, [messages, isThinking]);
 
+  /** 本地系统提示（上传失败等），不进对话流持久化 */
+  function appendLocalSystem(msg: string) {
+    setUploadError(msg);
+    setTimeout(() => setUploadError(null), 4000);
+  }
+
+  // 附件上传（POST /api/crm/chat/upload，FormData 需 raw fetch；api() 只支持 JSON body）
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      appendLocalSystem(t("crmAssistantFileTooLarge"));
+      return;
+    }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = getAuthToken();
+      const res = await fetch(`${BASE_URL}/api/crm/chat/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+      const data = (await res.json()) as { url: string; name: string; type: string };
+      setPendingAttachment({ url: data.url, name: data.name, type: data.type });
+    } catch {
+      appendLocalSystem(t("crmAssistantUploadFailed"));
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isThinking) return;
-    onSend(input.trim());
+    if (isThinking || uploading) return;
+    const text = input.trim();
+    if (!text && !pendingAttachment) return;
+    onSend(text, pendingAttachment ?? undefined);
     setInput("");
+    setPendingAttachment(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

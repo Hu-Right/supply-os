@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
   if (user.phone) return NextResponse.json({ code: 40031, message: "已绑定手机号，请先解绑或换绑" }, { status: 409 });
 
-  const record = await ctx.user.authRepo.findLatestActiveCode(auth.userKey, "phone_bind", phone);
+  const record = await ctx.user.authRepo.findLatestActiveCode(user.id, "phone_bind", phone);
   if (!record) return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
   if (record.attempts >= 5) return NextResponse.json({ code: 40029, message: "尝试次数过多" }, { status: 429 });
   if (record.code !== hashVerificationCode(code)) {

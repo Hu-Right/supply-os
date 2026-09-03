@@ -14,6 +14,7 @@ import { Button } from "@/shared/ui";
 import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
 import { useChatSSE } from "../../hooks/useChatSSE";
 import { useQueueInfo } from "../../hooks/useQueueInfo";
+import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier, Opportunity } from "@/types";
 import { OPPORTUNITIES } from "@/data";
@@ -83,10 +84,12 @@ export function DigitalAssistant({
 
   // SSE 回调：收到远端消息时追加到对话流 + 通知提示
   const handleSSEMessage = useCallback(
-    (msg: { role: string; content: string }) => {
+    (msg: { role: string; content: string; metadata?: unknown }) => {
       // SSE 角色 (agent/ai) 映射到前端 MessageRole (assistant)
       if (msg.role === "agent" || msg.role === "ai") {
-        addRemoteMessage("assistant", msg.content);
+        // metadata 中的附件转回内容标记（与历史回放同协议）
+        const marker = attachmentMarkerFromMetadata(msg.metadata);
+        addRemoteMessage("assistant", marker ? `${msg.content} ${marker}`.trim() : msg.content);
         // 抽屉关闭时播放提示音 + 增加未读计数
         if (!isOpen) {
           playNotifySound();
