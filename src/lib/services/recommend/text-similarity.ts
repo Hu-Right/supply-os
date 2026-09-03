@@ -63,7 +63,7 @@ const USER_KEYWORDS_TTL_MS = 10 * 60 * 1000;
  * 获取用户解锁关键词集合（带缓存）
  *
  * @param dbPool - 数据库连接池
- * @param userKey - 用户标识
+ * @param userId - 内部用户 ID
  * @returns 关键词集合，无历史记录返回 null
  */
 export async function getUserUnlockKeywords(dbPool: any, userId: number): Promise<Set<string> | null> {

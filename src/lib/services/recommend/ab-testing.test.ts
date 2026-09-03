@@ -11,19 +11,19 @@ describe("AB_TREATMENT_PCT", () => {
 describe("recoVariant", () => {
   it("AB_TREATMENT_PCT=0 → 全部 control", () => {
     // 默认环境：所有用户进 control
-    expect(recoVariant("user@test.com")).toBe("control");
-    expect(recoVariant("another-user")).toBe("control");
-    expect(recoVariant("")).toBe("control");
+    expect(recoVariant(1)).toBe("control");
+    expect(recoVariant(999)).toBe("control");
+    expect(recoVariant(0)).toBe("control");
   });
 
-  it("同一 userKey 结果恒定（幂等）", () => {
-    const r1 = recoVariant("stable-user");
-    const r2 = recoVariant("stable-user");
+  it("同一 userId 结果恒定（幂等）", () => {
+    const r1 = recoVariant(42);
+    const r2 = recoVariant(42);
     expect(r1).toBe(r2);
   });
 
   it("返回值仅为 control 或 treatment", () => {
     const valid = new Set(["control", "treatment"]);
-    expect(valid.has(recoVariant("any-user"))).toBe(true);
+    expect(valid.has(recoVariant(123))).toBe(true);
   });
 });

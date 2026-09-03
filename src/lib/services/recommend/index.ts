@@ -47,11 +47,11 @@ export interface NoticeRecommendResult {
  * 译文生产统一收敛到定时任务（translation/auto.ts）与详情页按需翻译。
  */
 export async function recommendNotices(
-  pool: Pool, userId: number, userKey: string, page: number, pageSize: number,
+  pool: Pool, userId: number, page: number, pageSize: number,
   locale?: string,
 ): Promise<NoticeRecommendResult> {
   const offset = (page - 1) * pageSize;
-  if (!userKey) return deadlineFallback(pool, page, pageSize, offset, locale);
+  if (!userId) return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // 缓存命中检查
   const recoCacheKey = `${userId}:${page}:${pageSize}:${locale || ""}`;
@@ -72,7 +72,7 @@ export async function recommendNotices(
   if (clauses.bridgeWhere === "") return deadlineFallback(pool, page, pageSize, offset, locale);
 
   // ── 评分上下文：COUNT + 权重画像并行 ──
-  const variant = recoVariant(userKey);
+  const variant = recoVariant(userId);
   const [countResult, profileResult] = await Promise.all([
     pool.query(
       `SELECT COUNT(DISTINCT n.id) AS total FROM crm_bid_notices n
@@ -90,7 +90,7 @@ export async function recommendNotices(
   const profileRow = (profileRows as RowDataPacket[])[0] || null;
 
   const { wUnspsc, wUrgency, wAmount, wNeutral, profileStale } = resolveWeights(profileRow, variant);
-  if (profileStale) void recomputeRecoWeightProfile(pool, userId, userKey).catch(() => undefined);
+  if (profileStale) void recomputeRecoWeightProfile(pool, userId).catch(() => undefined);
 
   // 金额偏好
   const { centerLog: amountCenterLog, active: amountActive } = await getAmountPreference(pool, userId);

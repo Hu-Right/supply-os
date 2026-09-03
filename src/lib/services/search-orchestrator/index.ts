@@ -136,7 +136,7 @@ async function _searchCore(
   }
   // ── recommended 模式：委托既有推荐服务（模式专属管道）──
   if (p.mode === "recommended") {
-    const reco = await recommendNotices(pool, p.userId!, p.userKey, p.page, p.pageSize, p.locale || undefined);
+    const reco = await recommendNotices(pool, p.userId!, p.page, p.pageSize, p.locale || undefined);
     logPerf({
       mode: "recommended", path: "reco-delegate", q: "", filterDigest: "reco",
       meiliMs: 0, detailMs: 0, totalMs: Date.now() - t0,

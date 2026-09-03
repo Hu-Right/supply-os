@@ -14,14 +14,12 @@ import { expandUnspscInterestPrefixes } from "../unspsc/index";
  *
  * @param dbPool - 数据库连接池
  * @param userId - 内部用户 ID
- * @param userKey - 用户标识（保留兼容）
  * @param snapshot - 公告 UNSPSC 码快照
  * @param factor - 衰减因子（默认 0.5）
  */
 export async function decayUserInterestCodes(
   dbPool: any,
   userId: number,
-  userKey: string,
   snapshot: Array<{ code?: unknown }>,
   factor = 0.5,
 ): Promise<void> {

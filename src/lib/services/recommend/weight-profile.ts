@@ -20,9 +20,8 @@ const RECO_REFRESH_TIMEOUT = 30_000; // 安全超时：30s 后自动解锁，防
  *
  * @param dbPool - 数据库连接池
  * @param userId - 内部用户 ID
- * @param userKey - 用户标识（保留兼容）
  */
-export async function recomputeRecoWeightProfile(dbPool: any, userId: number, userKey: string): Promise<void> {
+export async function recomputeRecoWeightProfile(dbPool: any, userId: number): Promise<void> {
   if (recoWeightRefreshing.has(userId)) return; // 并发请求下同一用户只跑一次
   recoWeightRefreshing.add(userId);
   const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userId), RECO_REFRESH_TIMEOUT);
@@ -46,14 +45,13 @@ export async function recomputeRecoWeightProfile(dbPool: any, userId: number, us
     // （全档位为正，w_agency/w_geo 不动，总和恒 1.000）
     const delta = Math.max(-0.1, Math.min(0.1, (ema - 0.5) * 0.2));
     await dbPool.execute(
-      `INSERT INTO crm_reco_weight_profile (user_id, user_key, w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `INSERT INTO crm_reco_weight_profile (user_id, w_unspsc, w_agency, w_amount, w_geo, w_urgency, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())
        ON DUPLICATE KEY UPDATE
          w_unspsc = VALUES(w_unspsc), w_agency = VALUES(w_agency), w_amount = VALUES(w_amount),
          w_geo = VALUES(w_geo), w_urgency = VALUES(w_urgency), updated_at = NOW()`,
       [
         userId,
-        userKey,
         (0.5 + delta).toFixed(3),
         (0.15).toFixed(3),
         (0.1 - delta * 0.4).toFixed(3),
