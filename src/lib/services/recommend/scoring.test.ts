@@ -24,6 +24,23 @@ describe("buildScoringContext", () => {
     const ctx = buildScoringContext([], 0, 0.5, 0.15, 0.1, 0.05, 3, true);
     expect(ctx.denominator).toBe(1);
   });
+
+  it("含 L4 长前缀（≥8 位）→ 生成 l4 OR-LIKE 表达式与参数", () => {
+    const codes: RecallResult[] = [
+      { prefix: "12345678", weighted: 1.0 },
+      { prefix: "99", weighted: 0.5 },
+    ];
+    const ctx = buildScoringContext(codes, 10, 0.5, 0.15, 0.1, 0.05, 3, true);
+    expect(ctx.l4HitExpr).toContain("b.code LIKE ?");
+    expect(ctx.l4Params).toEqual(["12345678%"]);
+  });
+
+  it("全部短前缀（<8 位）→ l4HitExpr 恒为 0", () => {
+    const codes: RecallResult[] = [{ prefix: "99", weighted: 0.5 }];
+    const ctx = buildScoringContext(codes, 10, 0.5, 0.15, 0.1, 0.05, 3, true);
+    expect(ctx.l4HitExpr).toBe("0");
+    expect(ctx.l4Params).toEqual([]);
+  });
 });
 
 describe("resolveWeights", () => {
@@ -59,5 +76,16 @@ describe("getAmountPreference", () => {
     };
     const result = await getAmountPreference(mockPool as any, 2);
     expect(result.active).toBe(false);
+  });
+
+  it("TTL 内重复查询 → 命中缓存不再触达 DB", async () => {
+    const mockPool = {
+      query: vi.fn().mockResolvedValue([[{ center_log: 2.5, cnt: 3 }]]),
+    };
+    await getAmountPreference(mockPool as any, 99);
+    await getAmountPreference(mockPool as any, 99);
+    await getAmountPreference(mockPool as any, 99);
+    expect(mockPool.query).toHaveBeenCalledTimes(1);
+    expect(await getAmountPreference(mockPool as any, 99)).toEqual({ centerLog: 2.5, active: true });
   });
 });

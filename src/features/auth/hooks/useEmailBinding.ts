@@ -4,10 +4,12 @@
  *
  * @module features/auth/hooks/useEmailBinding
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api, ApiError } from "@/core/http";
+import { useCountdown } from "@/shared/hooks/useCountdown";
+import { isEmail } from "@/shared/utils/validators";
 
 export type EmailView = "idle" | "binding" | "unbinding";
 
@@ -44,18 +46,11 @@ export function useEmailBinding(): UseEmailBindingReturn {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  const { countdown, start: startCountdown, reset: resetCountdown } = useCountdown();
 
   const hasEmail = !!authUser?.email;
   const currentEmail = authUser?.email;
   const isVerified = authUser?.email_verified === 1;
-
-  // 倒计时
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   const resetState = () => {
     setEmail("");
@@ -63,13 +58,13 @@ export function useEmailBinding(): UseEmailBindingReturn {
     setMessage("");
     setIsError(false);
     setCodeSent(false);
-    setCountdown(0);
+    resetCountdown();
     setLoading(false);
   };
 
   const handleSendCode = async (scene: "bind" | "unbind") => {
     if (!authUser?.id) return;
-    if (scene === "bind" && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
+    if (scene === "bind" && !isEmail(email)) {
       setMessage(t("authEmailInvalid") || "请输入有效的邮箱地址");
       setIsError(true);
       return;
@@ -90,7 +85,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
         setIsError(true);
       } else {
         setCodeSent(true);
-        setCountdown(60);
+        startCountdown(60);
         setMessage("");
         setIsError(false);
       }

@@ -50,6 +50,23 @@ describe("parseEstimatedValue", () => {
     expect(r!.currency).toBe("GBP");
   });
 
+  it("货币符号 US$ → USD", () => {
+    const r = parseEstimatedValue("US $120000");
+    expect(r!.currency).toBe("USD");
+  });
+
+  it("货币符号 ¥/￥ → CNY", () => {
+    expect(parseEstimatedValue("¥800000")!.currency).toBe("CNY");
+    expect(parseEstimatedValue("￥800000")!.currency).toBe("CNY");
+  });
+
+  it("货币符号 R$ → BRL、₱ → PHP、₹ → INR、₩ → KRW", () => {
+    expect(parseEstimatedValue("R$500000")!.currency).toBe("BRL");
+    expect(parseEstimatedValue("₱250000")!.currency).toBe("PHP");
+    expect(parseEstimatedValue("₹400000")!.currency).toBe("INR");
+    expect(parseEstimatedValue("₩100000000")!.currency).toBe("KRW");
+  });
+
   it("country 推断币种 → inferred=true", () => {
     const r = parseEstimatedValue("50000", "Brazil");
     expect(r!.currency).toBe("BRL");

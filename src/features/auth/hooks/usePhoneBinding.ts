@@ -4,10 +4,12 @@
  *
  * @module features/auth/hooks/usePhoneBinding
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api, ApiError } from "@/core/http";
+import { useCountdown } from "@/shared/hooks/useCountdown";
+import { isMainlandPhone } from "@/shared/utils/validators";
 
 export type PhoneView = "idle" | "binding" | "rebinding" | "unbinding";
 
@@ -50,18 +52,11 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   const [isError, setIsError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [codeSent, setCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  const { countdown, start: startCountdown, reset: resetCountdown } = useCountdown();
 
   const hasPhone = !!authUser?.phone;
   const currentPhone = authUser?.phone;
   const isVerified = authUser?.phone_verified === 1;
-
-  // 倒计时
-  useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   const resetState = () => {
     setPhone("");
@@ -69,13 +64,13 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
     setMessage("");
     setIsError(false);
     setCodeSent(false);
-    setCountdown(0);
+    resetCountdown();
     setLoading(false);
   };
 
   const handleSendCode = async (scene: "bind" | "rebind" | "unbind") => {
     if (!authUser?.id) return;
-    if (scene !== "unbind" && (!phone || !/^1[3-9]\d{9}$/.test(phone))) {
+    if (scene !== "unbind" && !isMainlandPhone(phone)) {
       setMessage(t("authPhoneInvalid"));
       setIsError(true);
       return;
@@ -96,7 +91,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
         setIsError(true);
       } else {
         setCodeSent(true);
-        setCountdown(60);
+        startCountdown(60);
         setMessage("");
         setIsError(false);
       }

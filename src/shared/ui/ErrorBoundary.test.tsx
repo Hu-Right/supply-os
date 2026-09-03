@@ -84,4 +84,50 @@ describe("ErrorBoundary", () => {
     expect(reporter).toHaveBeenCalledOnce();
     expect(reporter.mock.calls[0][0].message).toBe("上报测试");
   });
+
+  it("ChunkLoadError 点击重试按钮 → 触发整页 reload", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const reloadSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, reload: reloadSpy },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function ThrowChunkError(): never {
+      throw new TypeError("Loading chunk 5 failed");
+    }
+    render(
+      <ErrorBoundary>
+        <ThrowChunkError />
+      </ErrorBoundary>,
+    );
+    await user.click(screen.getByText("errorBoundaryRetry"));
+    expect(reloadSpy).toHaveBeenCalledOnce();
+  });
+
+  it("默认错误 UI 点击 showroom 按钮 → 跳转 /showroom", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const hrefSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...window.location,
+        reload: vi.fn(),
+        get href() {
+          return "http://localhost/";
+        },
+        set href(v: string) {
+          hrefSpy(v);
+        },
+      },
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <ErrorBoundary>
+        <ThrowError message="普通错误" />
+      </ErrorBoundary>,
+    );
+    await user.click(screen.getByText("errorBoundaryBackHome"));
+    expect(hrefSpy).toHaveBeenCalledWith("/showroom");
+  });
 });
