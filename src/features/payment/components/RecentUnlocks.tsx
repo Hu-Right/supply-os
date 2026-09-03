@@ -20,7 +20,7 @@ import { Button } from "@/shared/ui";
 import { fetchUnlocks, type UnlockRecord } from "../api";
 
 export interface RecentUnlocksProps {
-  userKey: string;
+  userKey: number;
   onOpenNotice: (noticeId: number) => void;
 }
 

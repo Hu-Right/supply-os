@@ -20,7 +20,7 @@ export interface UsePaymentReturnReconciliationOptions {
   refreshMembership: () => Promise<void>;
   openNoticeById: (id: number) => Promise<void>;
   setActionMessage: (message: string) => void;
-  userKey?: string;
+  userKey?: number;
 }
 
 export function usePaymentReturnReconciliation({

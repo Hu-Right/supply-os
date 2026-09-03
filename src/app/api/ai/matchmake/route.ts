@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (auth instanceof Response) return auth;
 
   // 限流（审查 F28）：每次调用产生真实 Gemini API 费用，20 次/小时/用户
-  const rl = checkRateLimit(req, { windowMs: 60 * 60_000, maxAttempts: 20 }, () => `ai:${auth.userId ?? auth.userKey}`);
+  const rl = checkRateLimit(req, { windowMs: 60 * 60_000, maxAttempts: 20 }, () => `ai:${auth.userId}`);
   if (rl) return rl;
 
   const { supplier, opportunity, language } = await req.json();

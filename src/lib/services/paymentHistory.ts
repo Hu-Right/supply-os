@@ -19,7 +19,7 @@ export interface PagedHistory<T> {
 function mapOrderRow(row: OrderHistoryRow) {
   return {
     order_no: row.order_no,
-    user_key: row.user_key,
+    user_id: row.user_id,
     provider: row.provider,
     plan_code: row.plan_code,
     notice_id: row.notice_id,
@@ -50,7 +50,7 @@ function mapOrderRow(row: OrderHistoryRow) {
 
 function mapUnlockRow(row: UnlockHistoryRow, translatable: boolean) {
   return {
-    user_key: row.user_key,
+    user_id: row.user_id,
     notice_id: row.notice_id,
     unlock_type: row.unlock_type,
     price: Number(row.price || 0),

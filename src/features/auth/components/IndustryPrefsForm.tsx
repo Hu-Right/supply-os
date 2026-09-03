@@ -46,7 +46,7 @@ export function IndustryPrefsForm() {
   } = useUnspscPrefCascade();
 
   // 主营业务智能推断状态（按用户隔离 localStorage key）
-  const mbKey = authUser?.user_key ? `supply-os:main-business:${authUser.user_key}` : "";
+  const mbKey = authUser?.id ? `supply-os:main-business:${authUser.id}` : "";
   const [mainBusiness, setMainBusinessRaw] = useState(
     () => (mbKey ? localStorage.getItem(mbKey) || "" : ""),
   );
@@ -73,7 +73,7 @@ export function IndustryPrefsForm() {
     setInferSearched(false);
     setPrefMessage("");
 
-    const userKey = authUser?.user_key;
+    const userKey = authUser?.id;
     if (!userKey) return;
 
     // 回填当前用户的 localStorage 关键词
@@ -86,7 +86,7 @@ export function IndustryPrefsForm() {
       setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
       setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
     });
-  }, [authUser?.user_key, resetCascade]);
+  }, [authUser?.id, resetCascade]);
 
   // 防抖推断（300ms）：用户输入主营业务关键词后匹配 UNSPSC 类目候选
   useEffect(() => {
@@ -141,7 +141,7 @@ export function IndustryPrefsForm() {
 
   /** 已登录面板：保存当前选择为账号默认行业（前两级必选） */
   const savePrefs = async () => {
-    if (!authUser?.user_key || !prefLevel1 || !prefLevel2) return;
+    if (!authUser?.id || !prefLevel1 || !prefLevel2) return;
     try {
       // 仅持久化用户在 UI 中确认过的 L1~L3；L4/L5 是推断产物，
       // 静默保存会在推断出错时把匹配锁定到错误分支（最高分档），故恒置 null
@@ -166,7 +166,7 @@ export function IndustryPrefsForm() {
 
   /** 已登录面板：清除账号默认行业（level1 传空即删除） */
   const clearPrefs = async () => {
-    if (!authUser?.user_key) return;
+    if (!authUser?.id) return;
     try {
       await saveIndustryPrefs({ level1_id: null });
       // 仅在后端确认清除后才复位本地选择，失败时保留原偏好显示

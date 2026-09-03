@@ -117,7 +117,7 @@ export default function SupplierPage() {
 
   // 联系方式为 VIP 专属：命中门槛后向后端请求明文（列表数据为掩码）
   const handleContact = async (supplier: Supplier) => {
-    if (!authUser?.user_key || !isVip) {
+    if (!authUser?.id || !isVip) {
       setContactModal({ supplier, status: "vipOnly", contact: null });
       return;
     }

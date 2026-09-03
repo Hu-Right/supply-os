@@ -20,7 +20,7 @@ export type PanelProvider = "alipay" | "wechat";
 
 export type UseNoticePaymentOptions = {
   /** 当前登录用户 key，无则触发登录 */
-  userKey?: string;
+  userKey?: number;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
   /** 支付成功（mock 或轮询到 paid）后的解锁回调 */

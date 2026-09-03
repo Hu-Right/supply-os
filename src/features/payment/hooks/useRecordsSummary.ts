@@ -32,7 +32,7 @@ export type UseRecordsSummaryReturn = {
  * 采购记录概览摘要 Hook
  * Purchase records overview summary Hook
  */
-export function useRecordsSummary(userKey: string | undefined): UseRecordsSummaryReturn {
+export function useRecordsSummary(userId: number | undefined): UseRecordsSummaryReturn {
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [unlocksTotal, setUnlocksTotal] = useState(0);
   const [ordersFirst, setOrdersFirst] = useState<OrderRecord | null>(null);
@@ -41,7 +41,7 @@ export function useRecordsSummary(userKey: string | undefined): UseRecordsSummar
   const requestSeq = useRef(0);
 
   const load = useCallback(() => {
-    if (!userKey) {
+    if (!userId) {
       setOrdersTotal(0);
       setUnlocksTotal(0);
       setOrdersFirst(null);
@@ -70,7 +70,7 @@ export function useRecordsSummary(userKey: string | undefined): UseRecordsSummar
       .finally(() => {
         if (seq === requestSeq.current) setLoading(false);
       });
-  }, [userKey]);
+  }, [userId]);
 
   useEffect(() => {
     load();

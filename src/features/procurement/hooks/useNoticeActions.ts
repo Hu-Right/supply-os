@@ -22,7 +22,7 @@ import { useNoticeHandlers, type UseNoticeHandlersReturn } from "./useNoticeHand
 import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation";
 
 export interface UseNoticeActionsOptions {
-  userKey: string | undefined; // 当前登录用户 key
+  userKey: number | undefined; // 当前登录用户 ID
   isVip: boolean; // 是否 VIP（决定免费配额门槛与解锁类型）
   items: NoticeItem[]; // 当前列表数据（openNoticeById 复用列表内已有项）
   setSelectedNotice: Dispatch<SetStateAction<NoticeItem | null>>; // Page 持有的选中详情设置器

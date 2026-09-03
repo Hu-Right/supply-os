@@ -25,7 +25,7 @@ import { NOTICE_PAGE_SIZE } from "../constants";
 export { NOTICE_PAGE_SIZE };
 
 export interface UseNoticeSearchOptions {
-  userKey: string | undefined;
+  userId: number | undefined;
   page: number;
   setPage: (page: number) => void;
   deepestCodeId: string;
@@ -86,7 +86,7 @@ export interface UseNoticeSearchReturn {
 
 export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearchReturn {
   const {
-    userKey,
+    userId,
     page,
     setPage,
     deepestCodeId,
@@ -118,7 +118,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     page,
     deepestCodeId,
     prefsMode,
-    userKey,
+    userId,
     variantRef,
   });
 
@@ -157,13 +157,13 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
   }, [query.searchKey, setPage]);
 
   // 账号切换时主动清除缓存（前缀覆盖旧端点与 unified-search 两类缓存键）
-  const prevUserKeyForCacheRef = useRef(userKey);
+  const prevUserIdForCacheRef = useRef(userId);
   useEffect(() => {
-    if (prevUserKeyForCacheRef.current !== userKey) {
-      prevUserKeyForCacheRef.current = userKey;
+    if (prevUserIdForCacheRef.current !== userId) {
+      prevUserIdForCacheRef.current = userId;
       clearApiCache("/api/notices");
     }
-  }, [userKey]);
+  }, [userId]);
 
   return {
     query: {

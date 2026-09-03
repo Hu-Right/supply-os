@@ -39,12 +39,12 @@ export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, readLimiterConfig, () => `user:${auth.userId ?? auth.userKey}`);
+  const limited = checkRateLimit(req, readLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
 
   const chatRepo = getContext().chatRepo;
   // user_id 为准（迁移 062）；旧 token 无 userId 时无历史会话可列
-  if (auth.userId == null) return NextResponse.json([]);
+  if (!auth.userId) return NextResponse.json([]);
   const sessions = await chatRepo.listSessionsByCustomer(auth.userId);
   return NextResponse.json(sessions);
 }
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, createLimiterConfig, () => `user:${auth.userId ?? auth.userKey}`);
+  const limited = checkRateLimit(req, createLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
 
   let body: unknown;
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   const chatRepo = getContext().chatRepo;
 
   // 复用既有 waiting/active 会话（取最近一条）
-  if (auth.userId == null) {
+  if (!auth.userId) {
     return NextResponse.json(
       { code: 40042, message: "登录态缺少用户 ID，请重新登录", error: "Missing userId" },
       { status: 401 },

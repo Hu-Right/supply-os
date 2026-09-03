@@ -33,7 +33,7 @@ export async function POST(
   const rateLimitResponse = checkRateLimit(req, {
     windowMs: 60_000,
     maxAttempts: 30,
-  }, () => `unlock:${auth.userId ?? auth.userKey}`);
+  }, () => `unlock:${auth.userId}`);
   if (rateLimitResponse) return rateLimitResponse;
 
   const { id } = await params;

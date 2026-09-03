@@ -68,7 +68,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleSendCode = async (scene: "bind" | "unbind") => {
-    if (!authUser?.user_key) return;
+    if (!authUser?.id) return;
     if (scene === "bind" && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       setMessage(t("authEmailInvalid") || "请输入有效的邮箱地址");
       setIsError(true);
@@ -104,7 +104,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleBind = async () => {
-    if (!authUser?.user_key || !email || !code) return;
+    if (!authUser?.id || !email || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -127,7 +127,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleUnbind = async () => {
-    if (!authUser?.user_key || !code) return;
+    if (!authUser?.id || !code) return;
     setLoading(true);
     setMessage("");
     try {

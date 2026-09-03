@@ -116,7 +116,6 @@ export function hashVerificationCode(code: string): string {
 export interface AuthUserResponse {
   /** 内部用户 ID */
   id: number;
-  user_key: string;
   email: string;
   /** 对外展示名（昵称）。真实姓名 display_name 不进入任何 API 响应（隐私收口） */
   nickname: string;
@@ -142,7 +141,6 @@ export async function buildUserResponse(
   membershipRepo: MembershipRepo,
   registrationRepo: SupplierRegistrationRepo,
 ): Promise<AuthUserResponse> {
-  const userKey = user.user_key ?? "";
   // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
   const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
   const [memberState, supplierRow] = await Promise.all([
@@ -160,7 +158,6 @@ export async function buildUserResponse(
   const nickname = user.nickname || maskName(user.display_name ?? "");
   return {
     id: user.id!,
-    user_key: userKey,
     email: user.email ?? "",
     nickname,
     membership_tier: tier,

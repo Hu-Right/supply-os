@@ -19,7 +19,7 @@ import { useUnspscCascade } from "./useUnspscCascade";
 
 export interface UseIndustryPrefsOptions {
   /** 当前登录用户 key，未登录直接回 default 全量 */
-  userKey: string | undefined;
+  userKey: number | undefined;
   /** 当前语言（UNSPSC 选项译文按 lang 由后端返回） */
   locale: string;
   /** 页码设置器（自动筛选/手动改选时重置为 1） */
@@ -58,7 +58,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   // ── 账号默认行业偏好三级降级 ──
   const [prefsMode, setPrefsMode] = useState<PrefsMode>(() => (userKey ? "loading" : "default"));
   const [hasIndustryPrefs, setHasIndustryPrefs] = useState(false);
-  const prefsInitKeyRef = useRef<string | null>(null);
+  const prefsInitKeyRef = useRef<number | null>(null);
   const [prefsRefreshTick, setPrefsRefreshTick] = useState(0);
   const exitSeqRef = useRef(0);
 

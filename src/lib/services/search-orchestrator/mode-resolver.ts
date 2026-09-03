@@ -42,8 +42,8 @@ export async function resolveMode(
 
   // ── prefs：用户行业画像 → 渐进放宽序列 ──
   if (p.mode === "prefs") {
-    if (!p.userKey) return { kind: "no-prefs", codeUnspsc: null, profileLevels: null };
-    const profile = await resolveUserIndustryProfile(pool, p.userKey);
+    if (!p.userId) return { kind: "no-prefs", codeUnspsc: null, profileLevels: null };
+    const profile = await resolveUserIndustryProfile(pool, p.userId);
     if (!profile) return { kind: "no-prefs", codeUnspsc: null, profileLevels: null };
 
     // 从最深层向上构建放宽序列，底线 L2（L1 大类过于宽泛，放宽到 L1 会引入跨行业误报）。

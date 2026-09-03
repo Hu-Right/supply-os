@@ -118,6 +118,7 @@ describe("buildUserResponse", () => {
   it("基础用户 → 返回完整响应体", async () => {
     const { buildUserResponse } = await import("./auth");
     const user = {
+      id: 1,
       user_key: "user@test.com",
       email: "user@test.com",
       display_name: "Test User",
@@ -127,7 +128,7 @@ describe("buildUserResponse", () => {
       email_verified: 1,
     };
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
-    expect(result.user_key).toBe("user@test.com");
+    expect(result.id).toBe(1);
     expect(result.email).toBe("user@test.com");
     expect(result.membership_tier).toBe("free");
     expect(result.phone).toBeTruthy();

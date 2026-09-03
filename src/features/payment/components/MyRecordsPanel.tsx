@@ -48,12 +48,12 @@ const recordTime = (row: RecordRow) =>
 export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
-  const userKey = authUser?.user_key;
+  const userId = authUser?.id;
   const [view, setView] = useState<PanelView>("overview");
-  const history = useOrderHistory(userKey);
-  const summary = useRecordsSummary(userKey);
+  const history = useOrderHistory(userId);
+  const summary = useRecordsSummary(userId);
 
-  if (!userKey) {
+  if (!userId) {
     return (
       <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
         {t("myPurchasesLoginRequired")}

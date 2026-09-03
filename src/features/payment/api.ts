@@ -53,7 +53,7 @@ export type OrderNoticeBrief = {
  */
 export type OrderRecord = {
   order_no: string;
-  user_key: string;
+  user_id: number;
   provider: "alipay" | "wechat" | "mock";
   plan_code: string;
   notice_id?: number | null;
@@ -72,7 +72,7 @@ export type OrderRecord = {
  * Unlock record
  */
 export type UnlockRecord = {
-  user_key: string;
+  user_id: number;
   notice_id: number;
   unlock_type: string;
   price: number;

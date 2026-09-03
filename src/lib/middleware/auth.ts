@@ -1,22 +1,28 @@
 /**
  * Next.js Route Handler 认证 helper
  *
- * 从 JWT Access Token 提取 userKey + userId，供 Route Handler 使用。
- * user_id 迁移 Phase 2：JWT 新增 uid claim；旧 token 无 uid 时回退查 crm_users。
+ * 从 JWT Access Token 提取 userId，供 Route Handler 使用。
+ * user_id 迁移完成后，userId 为唯一身份标识。
  */
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
+import type { UserId } from "@/lib/types/identity";
 
 export interface AuthResult {
+  /** 内部用户 ID — 全系统唯一身份标识 */
+  userId: UserId;
+  /**
+   * @deprecated 仅限 auth 域路由（bind-email 等 DB 查找）过渡使用。
+   * 业务路由、限流、归属校验一律使用 userId。
+   * user_key 列退役后此字段将移除。
+   */
   userKey: string;
-  /** 内部用户 ID（来自 JWT uid claim 或 DB 回退查询） */
-  userId: number | null;
   authViaJwt: boolean;
 }
 
-/** 从 Authorization 头部提取并验证 JWT，返回 userKey + userId */
+/** 从 Authorization 头部提取并验证 JWT，返回 userId + userKey */
 export async function extractUserKey(req: NextRequest): Promise<AuthResult> {
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return { userKey: "", userId: null, authViaJwt: false };
+  if (!authHeader?.startsWith("Bearer ")) return { userId: 0, userKey: "", authViaJwt: false };
 
   try {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
@@ -24,30 +30,30 @@ export async function extractUserKey(req: NextRequest): Promise<AuthResult> {
     const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
     const userKey = normalizeUserKey(payload.user_key) || "";
-    if (!userKey) return { userKey: "", userId: null, authViaJwt: false };
+    if (!userKey) return { userId: 0, userKey: "", authViaJwt: false };
 
     // 优先使用 JWT 中的 uid claim；旧 token 无 uid 时回退查 DB
-    let userId: number | null = payload.uid ?? null;
+    let userId: UserId = payload.uid ?? 0;
     if (!userId) {
       try {
         const { getContext } = await import("@/lib/db/context");
         const ctx = getContext();
         const user = await ctx.user.usersRepo.findByKey(userKey);
-        userId = user?.id ?? null;
+        userId = user?.id ?? 0;
       } catch {
-        // DB 查询失败不阻断认证，userId 保持 null
+        // DB 查询失败不阻断认证，userId 保持 0
       }
     }
-    return { userKey, userId, authViaJwt: true };
+    return { userId, userKey, authViaJwt: true };
   } catch {
-    return { userKey: "", userId: null, authViaJwt: false };
+    return { userId: 0, userKey: "", authViaJwt: false };
   }
 }
 
 /** 要求认证：未登录返回 401 响应 */
 export async function requireUserKey(req: NextRequest): Promise<AuthResult | Response> {
   const result = await extractUserKey(req);
-  if (!result.userKey) {
+  if (!result.userId) {
     return Response.json(
       { code: 40042, message: "请先登录", error: "请先登录" },
       { status: 401 },

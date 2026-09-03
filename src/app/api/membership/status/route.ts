@@ -16,7 +16,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     user_id: auth.userId,
-    user_key: auth.userKey,
     membership_tier: state.tier,
     free_quota: state.freeQuota,
     free_used: state.freeUsed,

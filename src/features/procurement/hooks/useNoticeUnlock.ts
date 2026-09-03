@@ -15,7 +15,7 @@ import { fetchNoticeDetail, fetchNoticePreview, fetchNoticeContent, fetchUnlocke
 
 export interface UseNoticeUnlockOptions {
   /** 当前登录用户 key */
-  userKey: string | undefined;
+  userKey: number | undefined;
   /** 当前列表数据（openNoticeById 复用列表内已有项） */
   items: NoticeItem[];
   /** 选中详情设置器（Page 持有 selectedNotice，函数式更新合并拓展详情） */

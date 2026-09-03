@@ -13,7 +13,7 @@ import { fetchMembershipPlans, fetchMembershipStatus } from "../api";
 
 export interface UseNoticeMembershipOptions {
   /** 当前登录用户 key */
-  userKey: string | undefined;
+  userKey: number | undefined;
   /** 是否 VIP（决定解锁类型） */
   isVip: boolean;
 }

@@ -72,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Refresh authentication state
    */
   const refreshAuth = useCallback(async () => {
-    const userKey = authUserRef.current?.user_key;
-    if (!userKey) return;
+    const userId = authUserRef.current?.id;
+    if (!userId) return;
 
     setIsAuthLoading(true);
     try {
@@ -142,7 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await api("/api/supplier-claims", {
           method: "POST",
           body: {
-            user_key: data.user.user_key,
             company_name: claim.companyName,
             supplier_type: claim.supplierType,
             contact_name: claim.contactName || displayName,
@@ -200,7 +199,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await api<{ status?: string }>("/api/supplier-claims", {
         method: "POST",
         body: {
-          user_key: authUserRef.current.user_key,
           company_name: claim.companyName,
           supplier_type: claim.supplierType,
           contact_name: claim.contactName,

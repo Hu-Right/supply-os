@@ -16,7 +16,7 @@ export interface SearchResultsOptions {
   page: number;
   deepestCodeId: string;
   prefsMode: PrefsMode;
-  userKey: string | undefined;
+  userId: number | undefined;
   variantRef: { current: string | undefined };
 }
 
@@ -31,7 +31,7 @@ export interface SearchResults {
 }
 
 export function useSearchResults(options: SearchResultsOptions): SearchResults {
-  const { query, page, deepestCodeId, prefsMode, userKey, variantRef } = options;
+  const { query, page, deepestCodeId, prefsMode, userId, variantRef } = options;
   const { locale, t } = useLocale();
 
   const [items, setItems] = useState<NoticeItem[]>([]);
@@ -59,9 +59,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     if (prefsMode === "loading") return;
 
     const currentDataSource =
-      prefsMode === "prefs" && userKey
+      prefsMode === "prefs" && userId
         ? "industry-matched"       // 行业匹配模式：始终走行业匹配 API（携带筛选参数）
-        : prefsMode === "recommended" && userKey && !query.hasOtherSearch
+        : prefsMode === "recommended" && userId && !query.hasOtherSearch
           ? "recommended"          // 推荐模式：无筛选时走推荐
           : "search";              // 其他：全量搜索
 
@@ -153,7 +153,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       prevSearchKeyForDebounceRef.current = "";
       prevDeepestCodeIdForSkipRef.current = "";
     };
-  }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userKey, query.hasSearch]);
+  }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userId, query.hasSearch]);
 
   // 分页预取（统一端点）
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
@@ -163,9 +163,9 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     // recommended/default，行业匹配（prefs）模式下预取 key 与真实翻页
     // 请求不同，预取无效且请求翻倍
     const dataSource =
-      prefsMode === "prefs" && userKey
+      prefsMode === "prefs" && userId
         ? "industry-matched"
-        : prefsMode === "recommended" && userKey && !query.hasOtherSearch
+        : prefsMode === "recommended" && userId && !query.hasOtherSearch
           ? "recommended"
           : "search";
     const prefetchMode =
@@ -189,7 +189,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       sort: query.activeSort,
       locale,
     }).catch(() => { /* 预取失败静默 */ });
-  }, [page, totalPages, items.length, loading, prefsMode, userKey, query.hasOtherSearch, query.searchKey]);
+  }, [page, totalPages, items.length, loading, prefsMode, userId, query.hasOtherSearch, query.searchKey]);
 
   return {
     items,

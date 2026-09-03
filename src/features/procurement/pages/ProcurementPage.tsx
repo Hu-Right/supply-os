@@ -26,7 +26,7 @@ export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const userKey = authUser?.user_key;
+  const userKey = authUser?.id;
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);
@@ -59,7 +59,7 @@ export default function ProcurementPage() {
 
   // ── 搜索 + URL 参数事实源 + 列表数据 ──
   const search = useNoticeSearch({
-    userKey, page, setPage, deepestCodeId,
+    userId: userKey, page, setPage, deepestCodeId,
     prefsMode, setPrefsMode, setSelectedNotice, variantRef,
     // BUG1 修复：clearSearch 时同步重置 UNSPSC 行业筛选状态
     // BUG2 修复：清除筛选彻底退出行业匹配/推荐模式，回到全量检索
@@ -83,7 +83,7 @@ export default function ProcurementPage() {
 
   // ── 推荐反馈采集（曝光/点击/dwell/scroll_end/quick_exit/revisit）──
   const feedback = useNoticeFeedback({
-    userKey, prefsMode,
+    userId: userKey, prefsMode,
     hasSearch: search.query.hasSearch,
     activeSort: search.query.activeSort,
     selectedNotice, variantRef,

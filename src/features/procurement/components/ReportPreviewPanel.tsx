@@ -16,16 +16,16 @@ import type { NoticeItem } from "@/types/procurement";
 
 interface ReportPreviewPanelProps {
   noticeId: number;
-  userKey: string;
+  userId: number;
   isVip: boolean;
   onUnlock: (notice: NoticeItem) => void;
   /** 公告锁定状态，解锁后变化触发预览数据重新请求 */
   coreLocked?: boolean;
 }
 
-export function ReportPreviewPanel({ noticeId, userKey, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
+export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
   const { t, locale } = useLocale();
-  const { preview, loading, error } = useReportPreview(noticeId, userKey, locale, coreLocked);
+  const { preview, loading, error } = useReportPreview(noticeId, String(userId), locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
   const isUnlocked = preview?.is_unlocked ?? false;

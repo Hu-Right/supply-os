@@ -20,7 +20,7 @@ import type { UseNoticeUnlockReturn } from "./useNoticeUnlock";
 
 export interface UseNoticeHandlersOptions {
   /** 当前登录用户 key */
-  userKey: string | undefined;
+  userKey: number | undefined;
   /** 是否 VIP（决定免费配额门槛与解锁类型） */
   isVip: boolean;
   /** 选中详情设置器（Page 持有 selectedNotice） */

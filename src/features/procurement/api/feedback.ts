@@ -39,11 +39,11 @@ export const getFeedbackSessionId = (): string => {
 const fallbackSessionId = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
 export const sendNoticeFeedback = (
-  userKey: string,
+  userId: number,
   actions: NoticeFeedbackItem[]
 ): Promise<void> => {
-  // userKey 仅作登录态门控；身份归属由 JWT 承载（后端忽略 body 中的身份参数）
-  if (!userKey || actions.length === 0) return Promise.resolve();
+  // userId 仅作登录态门控；身份归属由 JWT 承载（后端忽略 body 中的身份参数）
+  if (!userId || actions.length === 0) return Promise.resolve();
   return api("/api/notices/feedback", {
     method: "POST",
     body: {

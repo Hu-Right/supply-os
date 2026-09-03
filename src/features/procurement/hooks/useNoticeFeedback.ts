@@ -15,8 +15,8 @@ import type { NoticeItem, PrefsMode } from "../types";
 import { sendNoticeFeedback } from "../api";
 
 export interface UseNoticeFeedbackOptions {
-  /** 当前登录用户 key（未登录不采集） */
-  userKey: string | undefined;
+  /** 当前登录用户 ID（未登录不采集） */
+  userId: number | undefined;
   /** 自动筛选模式（仅推荐模式采集反馈） */
   prefsMode: PrefsMode;
   /** 是否有生效搜索条件（搜索场景不采集） */
@@ -43,11 +43,11 @@ export interface UseNoticeFeedbackReturn {
 }
 
 export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeFeedbackReturn {
-  const { userKey, prefsMode, hasSearch, activeSort, selectedNotice, variantRef } = options;
+  const { userId, prefsMode, hasSearch, activeSort, selectedNotice, variantRef } = options;
 
   // ── T-B9 推荐反馈采集（本地差异 #13：D.7 前端侧）──
   // 仅推荐模式采集曝光/点击/dismiss/收藏，避免污染搜索/筛选场景的反馈数据
-  const feedbackEnabled = Boolean(userKey) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline_farthest";
+  const feedbackEnabled = Boolean(userId) && prefsMode === "recommended" && !hasSearch && activeSort === "deadline_farthest";
   // [dismiss/収藏功能临时禁用 2026-07-30] favoritedIds 已移除
   // const [favoritedIds, setFavoritedIds] = useState<Set<number>>(new Set());
   // 曝光去重：本地 Set 记录已上报卡片（同 session 同卡只报一次；服务端唯一键幂等兜底）
@@ -57,8 +57,8 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   const cardElsRef = useRef<Map<number, Element>>(new Map());
   const observedIdsRef = useRef<Map<Element, number>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const userKeyRef = useRef(userKey);
-  userKeyRef.current = userKey;
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
   // P2-2：feedbackEnabled 同步到 ref，供 useCallback([]) 的埋点函数读取最新值，
   // 保证函数引用稳定不击穿 NoticeCard 的 React.memo
   const feedbackEnabledRef = useRef(feedbackEnabled);
@@ -74,7 +74,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   // 待上报曝光短暂聚合后批量发送（≤50 条与服务端一致）
   const flushImpressions = () => {
     impressionTimerRef.current = null;
-    const key = userKeyRef.current;
+    const key = userIdRef.current;
     const batch = impressionPendingRef.current.splice(0, 50);
     if (key && batch.length) {
       void sendNoticeFeedback(key, batch.map((id) => ({ notice_id: id, action: "impression" as const, variant: variantRef.current })));
@@ -143,7 +143,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   // T-B9 点击埋点：仅推荐模式上报（正反馈联动兴趣码权重，D.7）
   // P2-2：useCallback 稳定引用（经 ref 读取最新门控状态）
   const trackClick = useCallback((noticeId: number) => {
-    const key = userKeyRef.current;
+    const key = userIdRef.current;
     if (feedbackEnabledRef.current && key) {
       void sendNoticeFeedback(key, [{ notice_id: noticeId, action: "click", variant: variantRef.current }]);
     }
@@ -152,7 +152,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   // T-C7：详情真实打开（过付费墙拦截后）才计隐式信号——会话内回看 +0.5；记录进入时刻供退出结算
   const trackDetailOpen = useCallback((noticeId: number) => {
     if (!feedbackEnabledRef.current) return;
-    const key = userKeyRef.current;
+    const key = userIdRef.current;
     if (visitedDetailIdsRef.current.has(noticeId)) {
       if (key) void sendNoticeFeedback(key, [{ notice_id: noticeId, action: "revisit", variant: variantRef.current }]);
     } else {
@@ -166,7 +166,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
   const reportDetailExit = useCallback(() => {
     const enter = detailEnterRef.current;
     detailEnterRef.current = null;
-    const key = userKeyRef.current;
+    const key = userIdRef.current;
     if (!enter || !feedbackEnabledRef.current || !key) return;
     const dwellMs = Date.now() - enter.ts;
     if (dwellMs > 30000) {
@@ -178,17 +178,17 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
 
   // T-C7：详情滚动到底 +0.1（NoticeDetail 为整页布局，监听 window 滚动；每卡每会话只报一次）
   useEffect(() => {
-    if (!selectedNotice || !feedbackEnabled || !userKey) return;
+    if (!selectedNotice || !feedbackEnabled || !userId) return;
     const noticeId = selectedNotice.id;
     const onScroll = () => {
       if (scrollEndReportedRef.current.has(noticeId)) return;
       if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 60) return;
       scrollEndReportedRef.current.add(noticeId);
-      void sendNoticeFeedback(userKey, [{ notice_id: noticeId, action: "scroll_end", variant: variantRef.current }]);
+      void sendNoticeFeedback(userId, [{ notice_id: noticeId, action: "scroll_end", variant: variantRef.current }]);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [selectedNotice, feedbackEnabled, userKey]);
+  }, [selectedNotice, feedbackEnabled, userId]);
 
   return {
     feedbackEnabled,

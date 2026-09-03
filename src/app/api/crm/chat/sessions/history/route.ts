@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, historyLimiterConfig, () => `user:${auth.userId ?? auth.userKey}`);
+  const limited = checkRateLimit(req, historyLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
 
-  if (auth.userId == null) {
+  if (!auth.userId) {
     return NextResponse.json({ sessions: [], total: null });
   }
 

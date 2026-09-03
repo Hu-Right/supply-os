@@ -54,7 +54,7 @@ export type UseOrderHistoryReturn = {
  * 采购记录历史 Hook
  * Purchase history Hook
  */
-export function useOrderHistory(userKey: string | undefined): UseOrderHistoryReturn {
+export function useOrderHistory(userId: number | undefined): UseOrderHistoryReturn {
   const [tab, setTabState] = useState<PurchaseTab>("orders");
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<PagedResult<OrderRecord> | null>(null);
@@ -69,7 +69,7 @@ export function useOrderHistory(userKey: string | undefined): UseOrderHistoryRet
   }, []);
 
   const load = useCallback(() => {
-    if (!userKey) {
+    if (!userId) {
       setOrders(null);
       setUnlocks(null);
       return;
@@ -95,7 +95,7 @@ export function useOrderHistory(userKey: string | undefined): UseOrderHistoryRet
       .finally(() => {
         if (seq === requestSeq.current) setLoading(false);
       });
-  }, [userKey, tab, page]);
+  }, [userId, tab, page]);
 
   useEffect(() => {
     load();

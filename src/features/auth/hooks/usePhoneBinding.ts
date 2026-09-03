@@ -74,7 +74,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleSendCode = async (scene: "bind" | "rebind" | "unbind") => {
-    if (!authUser?.user_key) return;
+    if (!authUser?.id) return;
     if (scene !== "unbind" && (!phone || !/^1[3-9]\d{9}$/.test(phone))) {
       setMessage(t("authPhoneInvalid"));
       setIsError(true);
@@ -110,7 +110,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleBind = async () => {
-    if (!authUser?.user_key || !phone || !code) return;
+    if (!authUser?.id || !phone || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -133,7 +133,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleRebind = async () => {
-    if (!authUser?.user_key || !phone || !code) return;
+    if (!authUser?.id || !phone || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -156,7 +156,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleUnbind = async () => {
-    if (!authUser?.user_key || !code) return;
+    if (!authUser?.id || !code) return;
     setLoading(true);
     setMessage("");
     try {

@@ -8,9 +8,8 @@
  */
 
 export interface AuthUser {
-  /** 内部用户 ID */
+  /** 内部用户 ID — 全系统唯一身份标识 */
   id: number;
-  user_key: string;
   email: string;
   /** 对外展示名（昵称）。真实姓名不进入任何 API 响应（隐私收口） */
   nickname?: string;
