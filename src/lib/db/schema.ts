@@ -129,6 +129,7 @@ import { migration as m060 } from "./migrations/060-user-nickname";
 import { migration as m061 } from "./migrations/061-chat-queue-assignment";
 import { migration as m062 } from "./migrations/062-user-id-migration";
 import { migration as m063 } from "./migrations/063-chat-canned-replies";
+import { migration as m064 } from "./migrations/064-chat-satisfaction";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -138,7 +139,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
-  m060, m061, m062, m063,
+  m060, m061, m062, m063, m064,
 ];
 
 /**

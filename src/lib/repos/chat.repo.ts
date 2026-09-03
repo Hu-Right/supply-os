@@ -29,6 +29,11 @@ export interface ChatSessionRow extends RowDataPacket {
   accepted_at: Date | null;
   closed_at: Date | null;
   last_message_at: Date | null;
+  /** 满意度评价（迁移 064）：1-5 星 / 标签 / 可选文字 */
+  satisfaction: number | null;
+  satisfaction_tag: string | null;
+  satisfaction_comment: string | null;
+  rated_at: Date | null;
 }
 
 export interface ChatMessageRow extends RowDataPacket {
@@ -134,6 +139,58 @@ export class ChatRepo {
       "UPDATE crm_chat_sessions SET status = 'closed', closed_at = NOW() WHERE id = ?",
       [sessionId],
     );
+  }
+
+  /**
+   * 提交满意度评价（迁移 064）。
+   * 仅 closed 且未评价过的会话可提交；affectedRows = 0 表示不可评价
+   * （会话不存在/未关闭/已评价过），由路由层区分提示。
+   */
+  async rateSession(
+    sessionId: number,
+    input: { satisfaction: number; tag?: string; comment?: string },
+  ): Promise<boolean> {
+    const [result] = await this.pool.execute(
+      `UPDATE crm_chat_sessions
+       SET satisfaction = ?, satisfaction_tag = ?, satisfaction_comment = ?, rated_at = NOW()
+       WHERE id = ? AND status = 'closed' AND rated_at IS NULL`,
+      [input.satisfaction, input.tag ?? null, input.comment ?? null, sessionId],
+    );
+    return (result as { affectedRows: number }).affectedRows > 0;
+  }
+
+  /** 客户侧历史会话（closed），带最后一条消息预览与评分 */
+  async listHistorySessions(
+    userId: number,
+    limit = 20,
+    offset = 0,
+  ): Promise<
+    Array<
+      Pick<
+        ChatSessionRow,
+        | "id" | "agent_email" | "status" | "mode" | "locale" | "ai_summary"
+        | "created_at" | "accepted_at" | "closed_at" | "satisfaction"
+      > & { last_message: string | null; message_count: number }
+    >
+  > {
+    const [rows] = await this.pool.execute(
+      `SELECT s.id, s.agent_email, s.status, s.mode, s.locale, s.ai_summary,
+              s.created_at, s.accepted_at, s.closed_at, s.satisfaction,
+              (SELECT m.content FROM crm_chat_messages m WHERE m.session_id = s.id ORDER BY m.id DESC LIMIT 1) AS last_message,
+              (SELECT COUNT(*) FROM crm_chat_messages m WHERE m.session_id = s.id) AS message_count
+       FROM crm_chat_sessions s
+       WHERE s.user_id = ? AND s.status = 'closed'
+       ORDER BY s.closed_at DESC
+       LIMIT ? OFFSET ?`,
+      [userId, limit, offset],
+    );
+    return rows as Array<
+      Pick<
+        ChatSessionRow,
+        | "id" | "agent_email" | "status" | "mode" | "locale" | "ai_summary"
+        | "created_at" | "accepted_at" | "closed_at" | "satisfaction"
+      > & { last_message: string | null; message_count: number }
+    >;
   }
 
   /** 递增 AI 回复计数 */

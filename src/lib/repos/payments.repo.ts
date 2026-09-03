@@ -64,6 +64,7 @@ export class PaymentsRepo {
 
   /** 创建支付订单 */
   async createOrder(data: {
+    userId: number;
     userKey: string;
     orderNo: string;
     provider: string;
@@ -82,9 +83,9 @@ export class PaymentsRepo {
     await this.pool.execute(
       `INSERT INTO crm_payment_orders
         (user_id, order_no, user_key, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
-        data.userKey, data.orderNo, data.userKey, data.provider, data.planCode,
+        data.userId, data.orderNo, data.userKey, data.provider, data.planCode,
         data.orderType || "new", data.originalOrderNo ?? null,
         data.noticeId, data.amount, data.currency, data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],
@@ -118,11 +119,11 @@ export class PaymentsRepo {
   }
 
   /** 创建用户订阅（days 为 null 时不过期） */
-  async createSubscription(userKey: string, planCode: string, days: number | null): Promise<void> {
+  async createSubscription(userId: number, userKey: string, planCode: string, days: number | null): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_user_subscriptions (user_id, user_key, plan_code, status, started_at, expires_at)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW(), ${days ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})`,
-      days ? [userKey, userKey, planCode, days] : [userKey, userKey, planCode],
+       VALUES (?, ?, ?, 'active', NOW(), ${days ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})`,
+      days ? [userId, userKey, planCode, days] : [userId, userKey, planCode],
     );
   }
 
@@ -133,6 +134,7 @@ export class PaymentsRepo {
 
   /** 发放解锁额度（days 为 null 时不过期） */
   async insertEntitlement(params: {
+    userId: number;
     userKey: string;
     orderNo: string;
     planCode: string;
@@ -142,20 +144,20 @@ export class PaymentsRepo {
     await this.pool.execute(
       `INSERT INTO crm_user_entitlements
         (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW(), ${params.durationDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"}, 'active')`,
+       VALUES (?, ?, ?, ?, ?, 0, NOW(), ${params.durationDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"}, 'active')`,
       params.durationDays
-        ? [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
+        ? [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
+        : [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
     );
   }
 
   /** 记录支付带来的公告订阅（幂等 upsert） */
-  async upsertNoticeInterest(userKey: string, noticeId: number): Promise<void> {
+  async upsertNoticeInterest(userId: number, userKey: string, noticeId: number): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
-      [userKey, userKey, noticeId],
+       VALUES (?, ?, ?, 'subscribed', 'payment')
+       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+      [userId, userKey, noticeId],
     );
   }
 
@@ -230,26 +232,26 @@ export class PaymentsRepo {
   }
 
   /** 事务内创建订阅 */
-  async createSubscriptionInTransaction(conn: PoolConnection, userKey: string, planCode: string, days: number | null): Promise<void> {
+  async createSubscriptionInTransaction(conn: PoolConnection, userId: number, userKey: string, planCode: string, days: number | null): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_user_subscriptions
         (user_id, user_key, plan_code, status, started_at${days ? ", expires_at" : ""})
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
-      days ? [userKey, userKey, planCode, days] : [userKey, userKey, planCode],
+       VALUES (?, ?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
+      days ? [userId, userKey, planCode, days] : [userId, userKey, planCode],
     );
   }
 
   /** 事务内发放权益 */
   async insertEntitlementInTransaction(conn: PoolConnection, params: {
-    userKey: string; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
+    userId: number; userKey: string; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
   }): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_user_entitlements
         (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${params.durationDays ? ", expires_at" : ""}, status)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
+       VALUES (?, ?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
       params.durationDays
-        ? [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userKey, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
+        ? [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
+        : [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
     );
   }
 
@@ -272,12 +274,12 @@ export class PaymentsRepo {
   }
 
   /** 事务内记录公告订阅兴趣 */
-  async upsertNoticeInterestInTransaction(conn: PoolConnection, userKey: string, noticeId: number): Promise<void> {
+  async upsertNoticeInterestInTransaction(conn: PoolConnection, userId: number, userKey: string, noticeId: number): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), updated_at = NOW()`,
-      [userKey, userKey, noticeId],
+       VALUES (?, ?, ?, 'subscribed', 'payment')
+       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
+      [userId, userKey, noticeId],
     );
   }
 
@@ -296,6 +298,7 @@ export class PaymentsRepo {
    * 继承原权益的 quota_used（次数保留）与 started_at/expires_at（有效期追溯）
    */
   async insertUpgradedEntitlementInTransaction(conn: PoolConnection, params: {
+    userId: number;
     userKey: string;
     orderNo: string;
     planCode: string;
@@ -309,11 +312,9 @@ export class PaymentsRepo {
       `INSERT INTO crm_user_entitlements
         (user_id, user_key, source_order_no, upgraded_from_entitlement_id, plan_code,
          quota_total, quota_used, started_at, expires_at, status)
-       VALUES (
-         (SELECT id FROM crm_users WHERE user_key = ? LIMIT 1),
-         ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       [
-        params.userKey, params.userKey, params.orderNo, params.upgradedFromEntitlementId,
+        params.userId, params.userKey, params.orderNo, params.upgradedFromEntitlementId,
         params.planCode, params.quotaTotal, params.quotaUsed,
         params.startedAt || new Date(), params.expiresAt,
       ],
