@@ -18,6 +18,7 @@ import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
+import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
 
 export interface AccountPanelProps {
@@ -52,7 +53,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
               {t("authCurrentAccount")}
             </p>
             <h4 className="text-lg font-extrabold text-slate-900 mt-1">
-              {authUser.display_name || authUser.email}
+              {authUser.nickname || authUser.email}
             </h4>
             <p className="text-xs text-slate-500 mt-0.5">
               {authUser.email}
@@ -81,6 +82,7 @@ export function AccountPanel({ onClose }: AccountPanelProps) {
           <AccountBenefitsCard />
         </div>
       </div>
+      <NicknameEditor />
       <PhoneBinding />
       <EmailBinding />
       <IndustryPrefsForm />

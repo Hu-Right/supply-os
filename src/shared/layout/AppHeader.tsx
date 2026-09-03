@@ -96,8 +96,8 @@ export function AppHeader({
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{authUser ? `${authUser.display_name || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
-              <span className="md:hidden">{authUser ? (authUser.display_name || authUser.email) : t("guestLevelShort")}</span>
+              <span className="hidden md:inline">{authUser ? `${authUser.nickname || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
+              <span className="md:hidden">{authUser ? (authUser.nickname || authUser.email) : t("guestLevelShort")}</span>
             </button>
             {/* 语言切换器：移动端隐藏（抽屉菜单已提供语言选择） */}
             <div className="hidden md:block">

@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthUser(user);
     setIsVip(user.membership_tier === "vip");
     // P2 容错：localStorage 满或隐私模式下可能抛异常，不阻断登录主流程
+    // 隐私约束：此处只允许持久化脱敏后字段（昵称 nickname、掩码 phone），禁止存真实姓名
     try {
       window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
     } catch (e) {

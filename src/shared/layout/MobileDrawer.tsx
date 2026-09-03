@@ -138,11 +138,11 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
         <div className="border-t border-slate-100 px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-sm font-bold">
-              {authUser ? (authUser.display_name || authUser.email).charAt(0).toUpperCase() : "?"}
+              {authUser ? (authUser.nickname || authUser.email).charAt(0).toUpperCase() : "?"}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-slate-800 truncate">
-                {authUser ? authUser.display_name || authUser.email : t("guestLevelShort")}
+                {authUser ? authUser.nickname || authUser.email : t("guestLevelShort")}
               </p>
               <p className={`text-xs ${isVip ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
                 {userTierLabel}
