@@ -357,7 +357,7 @@ export class PaymentService {
    * Mock 支付履约（会员订单）
    * ARCH-B+（2026-09-01）：供 Orchestrator 路由调用
    */
-  async fulfillMockMembershipOrder(orderNo: string, userKey: string, rawNotify: string): Promise<boolean> {
+  async fulfillMockMembershipOrder(orderNo: string, rawNotify: string): Promise<boolean> {
     if (!this.paymentsRepo || !this.membershipRepo) return false;
     const { found } = await fulfillMockPayment(this.paymentsRepo, this.membershipRepo, { orderNo, rawNotify });
     return found;

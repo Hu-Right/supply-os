@@ -58,7 +58,6 @@ export async function activatePaidOrder(
       }
       await paymentsRepo.insertEntitlementInTransaction(conn, {
         userId: order.user_id!,
-        userKey: order.user_key,
         orderNo,
         planCode: order.plan_code,
         quotaTotal: Number(plan.unlock_quota || 1),
@@ -77,19 +76,18 @@ export async function activatePaidOrder(
     }
 
     await paymentsRepo.createSubscriptionInTransaction(
-      conn, order.user_id!, order.user_key, order.plan_code, plan.duration_days,
+      conn, order.user_id!, order.plan_code, plan.duration_days,
     );
 
     await paymentsRepo.insertEntitlementInTransaction(conn, {
       userId: order.user_id!,
-      userKey: order.user_key,
       orderNo,
       planCode: order.plan_code,
       quotaTotal: Number(plan.unlock_quota || 1),
       durationDays: plan.duration_days,
     });
 
-    await paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
+    await paymentsRepo.promoteToVipInTransaction(conn, order.user_id!);
 
     await conn.commit();
   } catch (err) {
@@ -111,15 +109,15 @@ export async function activatePaidOrder(
 export async function activateSubscription(
   repo: PaymentsRepo,
   membership: MembershipRepo,
-  params: { userId: number; userKey: string; planCode: string },
+  params: { userId: number; planCode: string },
 ): Promise<{ planCode: string; price: number; quota: number } | null> {
   const plan = await membership.findPlanByCode(params.planCode);
   if (!plan) return null;
   const conn = await repo.getConnection();
   try {
     await conn.beginTransaction();
-    await repo.createSubscriptionInTransaction(conn, params.userId, params.userKey, params.planCode, plan.duration_days ?? null);
-    await repo.promoteToVipInTransaction(conn, params.userKey);
+    await repo.createSubscriptionInTransaction(conn, params.userId, params.planCode, plan.duration_days ?? null);
+    await repo.promoteToVipInTransaction(conn, params.userId);
     await conn.commit();
   } catch (err) {
     await conn.rollback();

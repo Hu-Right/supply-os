@@ -45,18 +45,17 @@ export async function fulfillMockPayment(
 
       await payments.insertEntitlementInTransaction(conn, {
         userId: order.user_id!,
-        userKey: order.user_key,
         orderNo: params.orderNo,
         planCode: order.plan_code,
         quotaTotal: Math.max(1, Number(plan.unlock_quota || 1)),
         durationDays: plan.duration_days ?? null,
       });
       if (plan.plan_type !== "single") {
-        await payments.createSubscriptionInTransaction(conn, order.user_id!, order.user_key, order.plan_code, plan.duration_days ?? null);
-        await payments.promoteToVipInTransaction(conn, order.user_key);
+        await payments.createSubscriptionInTransaction(conn, order.user_id!, order.plan_code, plan.duration_days ?? null);
+        await payments.promoteToVipInTransaction(conn, order.user_id!);
       }
       if (order.notice_id) {
-        await payments.upsertNoticeInterestInTransaction(conn, order.user_id!, order.user_key, order.notice_id);
+        await payments.upsertNoticeInterestInTransaction(conn, order.user_id!, order.notice_id);
       }
       await conn.commit();
     } catch (err) {

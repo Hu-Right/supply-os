@@ -43,6 +43,7 @@ export class LearningPaymentService {
   // ── 创建订单 ──────────────────────────────────────────────────────────────
 
   async createOrder(params: {
+    userId: number;
     userKey: string;
     planCode: string;
     provider: PaymentProviderName;
@@ -58,7 +59,7 @@ export class LearningPaymentService {
     status: "pending";
     created_at: string;
   }> {
-    const { userKey, planCode, provider } = params;
+    const { userId, userKey, planCode, provider } = params;
 
     // ── 服务端权威定价（审查 F2）──
     let amount: number;
@@ -93,7 +94,7 @@ export class LearningPaymentService {
     });
 
     await this.learningOrdersRepo.createOrder({
-      userKey, orderNo, provider, planCode, amount,
+      userId, userKey, orderNo, provider, planCode, amount,
       currency: "CNY", payUrl: pay_url, qrCodeUrl: qr_code_url || null, rawRequest,
     });
 
@@ -177,7 +178,7 @@ export class LearningPaymentService {
       if (order.plan_code.startsWith("material_")) {
         const materialId = order.plan_code.replace(/^material_/, "");
         await this.learningMaterialsRepo.recordPurchaseInTransaction(
-          conn, order.user_key, materialId, orderNo, Number(order.amount),
+          conn, order.user_id!, materialId, orderNo, Number(order.amount),
         );
         await conn.commit();
         return;
@@ -193,7 +194,7 @@ export class LearningPaymentService {
           const validIds = existingMaterials.map((m) => m.material_id);
           if (validIds.length > 0) {
             await this.learningMaterialsRepo.recordBundlePurchasesInTransaction(
-              conn, order.user_key, validIds, orderNo, Number(order.amount),
+              conn, order.user_id!, validIds, orderNo, Number(order.amount),
             );
           }
         }
@@ -225,7 +226,7 @@ export class LearningPaymentService {
       if (order.plan_code.startsWith("material_")) {
         const materialId = order.plan_code.replace(/^material_/, "");
         await this.learningMaterialsRepo.recordPurchaseInTransaction(
-          conn, order.user_key, materialId, orderNo, Number(order.amount),
+          conn, order.user_id!, materialId, orderNo, Number(order.amount),
         );
         await conn.commit();
         return { found: true };
@@ -240,7 +241,7 @@ export class LearningPaymentService {
           const validIds = existingMaterials.map((m) => m.material_id);
           if (validIds.length > 0) {
             await this.learningMaterialsRepo.recordBundlePurchasesInTransaction(
-              conn, order.user_key, validIds, orderNo, Number(order.amount),
+              conn, order.user_id!, validIds, orderNo, Number(order.amount),
             );
           }
         }

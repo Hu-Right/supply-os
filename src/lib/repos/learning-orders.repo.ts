@@ -13,6 +13,7 @@ export interface LearningOrderRow {
   id: number;
   order_no: string;
   user_key: string;
+  user_id: number | null;
   plan_code: string;
   amount: number;
   currency: string;
@@ -87,6 +88,7 @@ export class LearningOrdersRepo {
 
   /** 创建学习订单 */
   async createOrder(data: {
+    userId: number;
     userKey: string;
     orderNo: string;
     provider: string;
@@ -99,10 +101,10 @@ export class LearningOrdersRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO learning_orders
-        (order_no, user_key, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (order_no, user_id, user_key, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.userKey, data.planCode,
+        data.orderNo, data.userId, data.userKey, data.planCode,
         data.amount, data.currency, data.provider,
         data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],

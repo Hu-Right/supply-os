@@ -192,7 +192,6 @@ export class PaymentOrchestrator {
 
   async fulfillMockOrder(
     orderNo: string,
-    userKey: string,
     rawNotify: string,
   ): Promise<{ found: boolean; business: string }> {
     const business = getOrderBusiness(orderNo);
@@ -203,7 +202,7 @@ export class PaymentOrchestrator {
       }
       case "membership":
       default: {
-        const found = await this.paymentService.fulfillMockMembershipOrder(orderNo, userKey, rawNotify);
+        const found = await this.paymentService.fulfillMockMembershipOrder(orderNo, rawNotify);
         return { found, business };
       }
     }

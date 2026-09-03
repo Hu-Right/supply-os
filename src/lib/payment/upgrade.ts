@@ -73,7 +73,6 @@ export async function performUpgradeInTransaction(
     // 发放新权益：继承 quota_used（次数保留）+ started_at/expires_at（有效期追溯）
     await paymentsRepo.insertUpgradedEntitlementInTransaction(conn, {
       userId: order.user_id!,
-      userKey: order.user_key,
       orderNo: order.order_no,
       planCode: targetPlanCode,
       quotaTotal,
@@ -90,7 +89,6 @@ export async function performUpgradeInTransaction(
       : null;
     await paymentsRepo.insertUpgradedEntitlementInTransaction(conn, {
       userId: order.user_id!,
-      userKey: order.user_key,
       orderNo: order.order_no,
       planCode: targetPlanCode,
       quotaTotal,
@@ -107,7 +105,7 @@ export async function performUpgradeInTransaction(
     await paymentsRepo.updateSubscriptionPlanInTransaction(conn, sub.id, targetPlanCode);
   }
 
-  await paymentsRepo.promoteToVipInTransaction(conn, order.user_key);
+  await paymentsRepo.promoteToVipInTransaction(conn, order.user_id!);
 }
 
 /**

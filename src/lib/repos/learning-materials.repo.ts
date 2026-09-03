@@ -82,23 +82,23 @@ export class LearningMaterialsRepo {
   /** 事务内：记录购买（幂等，ON DUPLICATE KEY UPDATE） */
   async recordPurchaseInTransaction(
     conn: PoolConnection,
-    userKey: string,
+    userId: number,
     materialId: string,
     orderNo: string,
     amount: number,
   ): Promise<void> {
     await conn.execute(
-      `INSERT INTO crm_learning_material_purchases (user_key, material_id, order_no, amount)
+      `INSERT INTO crm_learning_material_purchases (user_id, material_id, order_no, amount)
        VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE order_no = VALUES(order_no), amount = VALUES(amount)`,
-      [userKey, materialId, orderNo, amount],
+      [userId, materialId, orderNo, amount],
     );
   }
 
   /** 事务内：批量记录购买（打包套餐） */
   async recordBundlePurchasesInTransaction(
     conn: PoolConnection,
-    userKey: string,
+    userId: number,
     materialIds: string[],
     orderNo: string,
     amount: number,
@@ -107,10 +107,10 @@ export class LearningMaterialsRepo {
     const perItemAmount = amount / materialIds.length;
     for (const materialId of materialIds) {
       await conn.execute(
-        `INSERT INTO crm_learning_material_purchases (user_key, material_id, order_no, amount)
+        `INSERT INTO crm_learning_material_purchases (user_id, material_id, order_no, amount)
          VALUES (?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE order_no = VALUES(order_no), amount = VALUES(amount)`,
-        [userKey, materialId, orderNo, perItemAmount],
+        [userId, materialId, orderNo, perItemAmount],
       );
     }
   }

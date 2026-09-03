@@ -119,23 +119,22 @@ export class PaymentsRepo {
   }
 
   /** 创建用户订阅（days 为 null 时不过期） */
-  async createSubscription(userId: number, userKey: string, planCode: string, days: number | null): Promise<void> {
+  async createSubscription(userId: number, planCode: string, days: number | null): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_subscriptions (user_id, user_key, plan_code, status, started_at, expires_at)
-       VALUES (?, ?, ?, 'active', NOW(), ${days ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})`,
-      days ? [userId, userKey, planCode, days] : [userId, userKey, planCode],
+      `INSERT INTO crm_user_subscriptions (user_id, plan_code, status, started_at, expires_at)
+       VALUES (?, ?, 'active', NOW(), ${days ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})`,
+      days ? [userId, planCode, days] : [userId, planCode],
     );
   }
 
   /** 提升用户为 VIP */
-  async promoteToVip(userKey: string): Promise<void> {
-    await this.pool.execute("UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?", [userKey]);
+  async promoteToVip(userId: number): Promise<void> {
+    await this.pool.execute("UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE id = ?", [userId]);
   }
 
   /** 发放解锁额度（days 为 null 时不过期） */
   async insertEntitlement(params: {
     userId: number;
-    userKey: string;
     orderNo: string;
     planCode: string;
     quotaTotal: number;
@@ -143,21 +142,21 @@ export class PaymentsRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_user_entitlements
-        (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
-       VALUES (?, ?, ?, ?, ?, 0, NOW(), ${params.durationDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"}, 'active')`,
+        (user_id, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
+       VALUES (?, ?, ?, ?, 0, NOW(), ${params.durationDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"}, 'active')`,
       params.durationDays
-        ? [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
+        ? [params.userId, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
+        : [params.userId, params.orderNo, params.planCode, params.quotaTotal],
     );
   }
 
   /** 记录支付带来的公告订阅（幂等 upsert） */
-  async upsertNoticeInterest(userId: number, userKey: string, noticeId: number): Promise<void> {
+  async upsertNoticeInterest(userId: number, noticeId: number): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES (?, ?, ?, 'subscribed', 'payment')
+      `INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source)
+       VALUES (?, ?, 'subscribed', 'payment')
        ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-      [userId, userKey, noticeId],
+      [userId, noticeId],
     );
   }
 
@@ -232,34 +231,34 @@ export class PaymentsRepo {
   }
 
   /** 事务内创建订阅 */
-  async createSubscriptionInTransaction(conn: PoolConnection, userId: number, userKey: string, planCode: string, days: number | null): Promise<void> {
+  async createSubscriptionInTransaction(conn: PoolConnection, userId: number, planCode: string, days: number | null): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_user_subscriptions
-        (user_id, user_key, plan_code, status, started_at${days ? ", expires_at" : ""})
-       VALUES (?, ?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
-      days ? [userId, userKey, planCode, days] : [userId, userKey, planCode],
+        (user_id, plan_code, status, started_at${days ? ", expires_at" : ""})
+       VALUES (?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
+      days ? [userId, planCode, days] : [userId, planCode],
     );
   }
 
   /** 事务内发放权益 */
   async insertEntitlementInTransaction(conn: PoolConnection, params: {
-    userId: number; userKey: string; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
+    userId: number; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
   }): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_user_entitlements
-        (user_id, user_key, source_order_no, plan_code, quota_total, quota_used, started_at${params.durationDays ? ", expires_at" : ""}, status)
-       VALUES (?, ?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
+        (user_id, source_order_no, plan_code, quota_total, quota_used, started_at${params.durationDays ? ", expires_at" : ""}, status)
+       VALUES (?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
       params.durationDays
-        ? [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userId, params.userKey, params.orderNo, params.planCode, params.quotaTotal],
+        ? [params.userId, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
+        : [params.userId, params.orderNo, params.planCode, params.quotaTotal],
     );
   }
 
   /** 事务内提升 VIP */
-  async promoteToVipInTransaction(conn: PoolConnection, userKey: string): Promise<void> {
+  async promoteToVipInTransaction(conn: PoolConnection, userId: number): Promise<void> {
     await conn.execute(
-      "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE user_key = ?",
-      [userKey],
+      "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE id = ?",
+      [userId],
     );
   }
 
@@ -274,12 +273,12 @@ export class PaymentsRepo {
   }
 
   /** 事务内记录公告订阅兴趣 */
-  async upsertNoticeInterestInTransaction(conn: PoolConnection, userId: number, userKey: string, noticeId: number): Promise<void> {
+  async upsertNoticeInterestInTransaction(conn: PoolConnection, userId: number, noticeId: number): Promise<void> {
     await conn.execute(
-      `INSERT INTO crm_notice_interests (user_id, user_key, notice_id, interest_type, source)
-       VALUES (?, ?, ?, 'subscribed', 'payment')
+      `INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source)
+       VALUES (?, ?, 'subscribed', 'payment')
        ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-      [userId, userKey, noticeId],
+      [userId, noticeId],
     );
   }
 
@@ -299,7 +298,6 @@ export class PaymentsRepo {
    */
   async insertUpgradedEntitlementInTransaction(conn: PoolConnection, params: {
     userId: number;
-    userKey: string;
     orderNo: string;
     planCode: string;
     quotaTotal: number;
@@ -310,11 +308,11 @@ export class PaymentsRepo {
   }): Promise<void> {
     await conn.execute(
       `INSERT INTO crm_user_entitlements
-        (user_id, user_key, source_order_no, upgraded_from_entitlement_id, plan_code,
+        (user_id, source_order_no, upgraded_from_entitlement_id, plan_code,
          quota_total, quota_used, started_at, expires_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
       [
-        params.userId, params.userKey, params.orderNo, params.upgradedFromEntitlementId,
+        params.userId, params.orderNo, params.upgradedFromEntitlementId,
         params.planCode, params.quotaTotal, params.quotaUsed,
         params.startedAt || new Date(), params.expiresAt,
       ],
