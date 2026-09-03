@@ -94,14 +94,19 @@ export class ChatRepo {
     return rows as ChatSessionRow[];
   }
 
-  /** 运营经理接入会话 */
-  async acceptSession(sessionId: number, agentId: string, agentEmail: string): Promise<void> {
-    await this.pool.execute(
+  /**
+   * 运营经理接入会话
+   * 审查 P0-B3：必须带状态机条件（仅 waiting 可接入），防止并发/重复接入
+   * 覆盖已有认领信息。affectedRows = 0 表示会话不存在或已被接入/关闭。
+   */
+  async acceptSession(sessionId: number, agentId: string, agentEmail: string): Promise<boolean> {
+    const [result] = await this.pool.execute(
       `UPDATE crm_chat_sessions
        SET status = 'active', mode = 'human', agent_id = ?, agent_email = ?, accepted_at = NOW()
-       WHERE id = ?`,
+       WHERE id = ? AND status = 'waiting'`,
       [agentId, agentEmail, sessionId],
     );
+    return (result as { affectedRows: number }).affectedRows > 0;
   }
 
   /** 关闭会话 */
@@ -152,6 +157,30 @@ export class ChatRepo {
        WHERE session_id = ?
        ORDER BY created_at ASC LIMIT ?`,
       [sessionId, limit],
+    );
+    return rows as ChatMessageRow[];
+  }
+
+  /** 按 ID 精确查询单条消息（插入后回显用，审查 P0-B8） */
+  async findMessageById(messageId: number): Promise<ChatMessageRow | null> {
+    const [rows] = await this.pool.execute(
+      "SELECT * FROM crm_chat_messages WHERE id = ? LIMIT 1",
+      [messageId],
+    );
+    return (rows as ChatMessageRow[])[0] ?? null;
+  }
+
+  /**
+   * 增量查询：仅返回 id > afterId 的消息（SSE 轮询用）。
+   * 审查 P0-B8：此前轮询取前 500 条再内存过滤，会话超 500 条后新消息被
+   * 截断漏推；改为服务端 WHERE 过滤后无此上限。
+   */
+  async listMessagesAfter(sessionId: number, afterId: number, limit = 200): Promise<ChatMessageRow[]> {
+    const [rows] = await this.pool.execute(
+      `SELECT * FROM crm_chat_messages
+       WHERE session_id = ? AND id > ?
+       ORDER BY id ASC LIMIT ?`,
+      [sessionId, afterId, limit],
     );
     return rows as ChatMessageRow[];
   }

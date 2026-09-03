@@ -1,13 +1,32 @@
 /**
  * CRM 客服消息 API
- * CRM Chat Messages API
  *
  * GET  /api/crm/chat/messages?sessionId=xxx  — 获取会话消息列表
- * POST /api/crm/chat/messages                — 发送消息
+ * POST /api/crm/chat/messages                — 发送消息（仅 customer 角色）
+ *
+ * 审查 P0-B1：客户端传入的 role 一律忽略，服务端强制 role="customer"；
+ * agent/ai 角色消息只能由客服侧（intelligence-daily 服务端）写入。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
+import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
+import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
+import path from "path";
+
+/** 消息发送限流：同一用户每分钟最多 30 条 */
+const sendLimiterConfig = {
+  windowMs: 60 * 1000,
+  maxAttempts: 30,
+  persistFile: path.join(getRateLimitPersistDir(), "chat-message-send.json"),
+};
+
+/** 消息读取限流 */
+const readLimiterConfig = {
+  windowMs: 60 * 1000,
+  maxAttempts: 60,
+  persistFile: path.join(getRateLimitPersistDir(), "chat-message-read.json"),
+};
 
 /**
  * GET /api/crm/chat/messages?sessionId=xxx
@@ -16,6 +35,9 @@ import { requireUserKey } from "@/lib/middleware/auth";
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
+
+  const limited = checkRateLimit(req, readLimiterConfig, () => `user:${auth.userKey}`);
+  if (limited) return limited;
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
   if (!sessionId) {
@@ -44,36 +66,43 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const limit = Number(req.nextUrl.searchParams.get("limit")) || 100;
+  const limit = Math.min(500, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 100));
   const messages = await chatRepo.listMessages(sessionId, limit);
   return NextResponse.json(messages);
 }
 
 /**
  * POST /api/crm/chat/messages
- * 发送消息
- * Body: { sessionId: number, role: "customer"|"agent", content: string, metadata?: object }
- *
- * 注: role="ai" 的消息由后端 AI 服务写入，前端只能发 customer/agent
+ * 发送消息（客户侧）
+ * Body: { sessionId: number, content: string, metadata?: object }
  */
 export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const body = await req.json();
-  const { sessionId, role, content, metadata } = body as {
-    sessionId: number;
-    role: "customer" | "agent";
-    content: string;
-    metadata?: Record<string, unknown>;
-  };
+  const limited = checkRateLimit(req, sendLimiterConfig, () => `user:${auth.userKey}`);
+  if (limited) return limited;
 
-  if (!sessionId || !content) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
     return NextResponse.json(
-      { code: 40022, message: "缺少必填字段", error: "Missing sessionId or content" },
+      { code: 40022, message: "无效的请求体", error: "Invalid JSON body" },
       { status: 400 },
     );
   }
+
+  const parsed = chatMessageSendSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: 40022, message: "参数校验失败", error: parsed.error.issues[0]?.message ?? "Invalid params" },
+      { status: 400 },
+    );
+  }
+
+  const { sessionId, content } = parsed.data;
+  const metadata = sanitizeMetadata(parsed.data.metadata);
 
   const chatRepo = getContext().chatRepo;
 
@@ -94,13 +123,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const effectiveRole: "customer" | "agent" = role === "agent" ? "agent" : "customer";
+  // 已关闭会话拒绝写入，防止"用户以为在跟人工对话实际无人响应"
+  if (session.status === "closed") {
+    return NextResponse.json(
+      { code: 40901, message: "会话已结束", error: "Session already closed" },
+      { status: 409 },
+    );
+  }
 
-  // 客户发消息时，如果会话还在 waiting 状态且是第一条消息，递增 AI 计数
-  if (effectiveRole === "customer") {
+  // ai_handled_count 仅统计人工接入前（waiting，AI 模式）的客户消息
+  if (session.status === "waiting") {
     await chatRepo.incrementAiCount(sessionId);
   }
 
+  const effectiveRole = "customer" as const;
   const messageId = await chatRepo.insertMessage({
     sessionId,
     role: effectiveRole,
@@ -108,9 +144,17 @@ export async function POST(req: NextRequest) {
     metadata,
   });
 
-  // 查询刚插入的消息返回
-  const [msg] = await chatRepo.listMessages(sessionId, 200);
-  const createdMsg = msg?.id === messageId ? msg : { id: messageId, session_id: sessionId, role: effectiveRole, content, metadata: null, created_at: new Date() };
-
-  return NextResponse.json(createdMsg, { status: 201 });
+  // 按 insertId 精确回查（审查 P0-B8：此前取列表第一条，多消息时回显错误）
+  const createdMsg = await chatRepo.findMessageById(messageId);
+  return NextResponse.json(
+    createdMsg ?? {
+      id: messageId,
+      session_id: sessionId,
+      role: effectiveRole,
+      content,
+      metadata: metadata ?? null,
+      created_at: new Date(),
+    },
+    { status: 201 },
+  );
 }
