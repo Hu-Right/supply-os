@@ -3,7 +3,8 @@
  * Floating Navigation (fixed position, responsive layout)
  *
  * @module features/training/components/FloatingNav
- * @description 桌面端：右侧垂直侧边栏；移动端：底部水平导航栏。
+ * @description 桌面端：右侧垂直侧边栏（完整标签 tlNav*）；移动端：底部水平导航栏
+ *              （短标签 mobileNav*，8 项挤一行时完整标签会被 truncate 省略，短标签保证可读）。
  *              始终可见，不随页面滚动消失。保留所有锚点跳转和按钮功能。
  */
 import { useLocale } from "@/core/i18n";
@@ -20,12 +21,12 @@ import {
 } from "lucide-react";
 
 const ANCHORS = [
-  { id: "intro", labelKey: "tlNavIntro", icon: BookOpen },
-  { id: "syllabus", labelKey: "tlNavSyllabus", icon: FileText },
-  { id: "instructors", labelKey: "tlNavInstructors", icon: Users },
-  { id: "schedule", labelKey: "tlNavSchedule", icon: Calendar },
-  { id: "testimonials", labelKey: "tlNavTestimonials", icon: MessageSquareQuote },
-  { id: "faq", labelKey: "tlNavFaq", icon: HelpCircle },
+  { id: "intro", labelKey: "tlNavIntro", shortKey: "mobileNavIntro", icon: BookOpen },
+  { id: "syllabus", labelKey: "tlNavSyllabus", shortKey: "mobileNavSyllabus", icon: FileText },
+  { id: "instructors", labelKey: "tlNavInstructors", shortKey: "mobileNavInstructors", icon: Users },
+  { id: "schedule", labelKey: "tlNavSchedule", shortKey: "mobileNavSchedule", icon: Calendar },
+  { id: "testimonials", labelKey: "tlNavTestimonials", shortKey: "mobileNavTestimonials", icon: MessageSquareQuote },
+  { id: "faq", labelKey: "tlNavFaq", shortKey: "mobileNavFaq", icon: HelpCircle },
 ] as const;
 
 export interface FloatingNavProps {
@@ -93,18 +94,19 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
         className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-training-dark/95 backdrop-blur-sm border-t border-white/10 shadow-[0_-4px_16px_rgba(0,22,54,0.2)] pb-[env(safe-area-inset-bottom)]"
         aria-label={t("navPageNav")}
       >
-        <div className="flex items-center justify-around px-1 py-1.5">
-          {/* 锚点链接 */}
-          {ANCHORS.map(({ id, labelKey, icon: Icon }) => (
+        <div className="flex items-center justify-around px-0.5 py-1.5">
+          {/* 锚点链接（短标签防截断，aria-label 保留完整名称） */}
+          {ANCHORS.map(({ id, labelKey, shortKey, icon: Icon }) => (
             <Button
               key={id}
               type="button"
               variant="ghost"
               onClick={() => go(id)}
-              className="flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-slate-400 hover:bg-transparent hover:text-white active:bg-white/10 cursor-pointer min-w-0"
+              aria-label={t(labelKey)}
+              className="flex-col items-center gap-0.5 rounded-lg px-1 py-1 text-slate-400 hover:bg-transparent hover:text-white active:bg-white/10 cursor-pointer min-w-0"
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="text-2xs font-medium truncate max-w-full">{t(labelKey)}</span>
+              <span className="text-2xs font-medium truncate max-w-full">{t(shortKey)}</span>
             </Button>
           ))}
 
@@ -112,10 +114,11 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
           <button
             type="button"
             onClick={onEnroll}
-            className="flex flex-col items-center gap-0.5 rounded-lg bg-training-green px-2 py-1 text-white active:bg-training-green-hover transition-colors cursor-pointer min-w-0"
+            aria-label={t("tlNavEnroll")}
+            className="flex flex-col items-center gap-0.5 rounded-lg bg-training-green px-1 py-1 text-white active:bg-training-green-hover transition-colors cursor-pointer min-w-0"
           >
             <PenLine className="w-4 h-4 shrink-0" />
-            <span className="text-2xs font-bold truncate max-w-full">{t("tlNavEnroll")}</span>
+            <span className="text-2xs font-bold truncate max-w-full">{t("mobileNavEnroll")}</span>
           </button>
 
           {/* 咨询顾问 */}
@@ -123,10 +126,11 @@ export default function FloatingNav({ onEnroll, onConsult }: FloatingNavProps) {
             type="button"
             variant="outline"
             onClick={onConsult}
-            className="flex-col items-center gap-0.5 rounded-lg border-white/20 px-2 py-1 text-slate-300 hover:bg-transparent active:bg-white/10 cursor-pointer min-w-0"
+            aria-label={t("tlNavConsult")}
+            className="flex-col items-center gap-0.5 rounded-lg border-white/20 px-1 py-1 text-slate-300 hover:bg-transparent active:bg-white/10 cursor-pointer min-w-0"
           >
             <Headphones className="w-4 h-4 shrink-0" />
-            <span className="text-2xs font-bold truncate max-w-full">{t("tlNavConsult")}</span>
+            <span className="text-2xs font-bold truncate max-w-full">{t("mobileNavConsult")}</span>
           </Button>
         </div>
       </nav>
