@@ -3,7 +3,8 @@
  * Gallery section v2
  *
  * @module features/training/components/GallerySection
- * @description 分类来自 DB；无图片时显示占位视觉。
+ * @description 分类名称与描述文案前端写死（src/data/training-gallery.ts），
+ *              仅图片由 /api/training/landing 按 category_id 查库返回；无图片时显示占位视觉。
  *              交互增强：鼠标悬停暂停轮播，点击图片打开全屏预览。
  */
 import { useEffect, useState, useCallback } from "react";

@@ -71,7 +71,16 @@ export function AppHeader({
     <>
       <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
+          {/* 左侧：汉堡菜单 + 品牌标识 */}
           <div className="flex items-center min-w-0 space-x-3">
+            {/* 移动端汉堡菜单按钮（左侧） */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg text-secondary-500 hover:bg-secondary-100 transition-colors shrink-0"
+              aria-label={mobileMenuOpen ? t("uiMenuClose") : t("uiMenuOpen")}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
             <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
               <Globe className="w-6 h-6 animate-spin-slow" />
             </div>
@@ -82,6 +91,7 @@ export function AppHeader({
               </div>
             </div>
           </div>
+          {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
@@ -93,14 +103,6 @@ export function AppHeader({
             <div className="hidden md:block">
               <LanguageSwitcher />
             </div>
-            {/* 移动端汉堡菜单按钮 */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-secondary-500 hover:bg-secondary-100 transition-colors shrink-0"
-              aria-label={mobileMenuOpen ? t("uiMenuClose") : t("uiMenuOpen")}
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
           </div>
         </div>
       </header>

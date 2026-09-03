@@ -2,11 +2,12 @@
  * GET /api/training/landing — 培训着陆页完整数据
  *
  * @module app/api/training/landing/route
- * @description 返回课程/期次/讲师/团队/照片/反馈/FAQ 全部数据。
- *              前端 LandingDataResponse 期望 6 个字段，缺一不可。
+ * @description 只返回动态内容：课程/期次/讲师/团队/课堂照片。
+ *              学员反馈、常见问题与课堂照片分类文案已改为前端静态数据（src/data/training-*.ts）。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { TRAINING_GALLERY_CATEGORIES } from "@/data/training-gallery";
 
 export async function GET() {
   const ctx = getContext();
@@ -16,16 +17,15 @@ export async function GET() {
   const course = await trainingRepo.getActiveCourse();
   const schedules = course ? await trainingRepo.listSchedules(course.id) : [];
 
-  // 讲师/团队/照片 — 并行查询（学员反馈 & 常见问题已改为前端静态数据）
-  const [instructors, team, galleryCategories] = await Promise.all([
+  // 讲师/团队 — 并行查询
+  const [instructors, team] = await Promise.all([
     trainingRepo.listFeaturedInstructors(),
     trainingRepo.listTeamMembers(),
-    trainingRepo.listGalleryCategories(),
   ]);
 
-  // 照片按分类组装
+  // 照片按分类组装（分类名称与描述来自前端静态数据，仅图片查库）
   const gallery = await Promise.all(
-    galleryCategories.map(async (cat) => ({
+    TRAINING_GALLERY_CATEGORIES.map(async (cat) => ({
       ...cat,
       images: await trainingRepo.listGalleryImagesByCategory(cat.id),
     })),
