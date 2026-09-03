@@ -66,8 +66,13 @@ export function useNicknameEditor(): UseNicknameEditorReturn {
       setIsError(false);
       setView("idle");
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (t("authNicknameSaveFailed") || "昵称保存失败，请稍后重试");
-      setMessage(msg);
+      // 服务端 message 为固定中文（API 错误文案现状不随语言），这里按错误类别
+      // 映射为本地化文案，避免英文/俄语等环境透出中文
+      if (err instanceof ApiError && err.status === 400) {
+        setMessage(t("authNicknameInvalid") || "昵称需为 1-40 个字符，且不含特殊符号");
+      } else {
+        setMessage(t("authNicknameSaveFailed") || "昵称保存失败，请稍后重试");
+      }
       setIsError(true);
     } finally {
       setLoading(false);

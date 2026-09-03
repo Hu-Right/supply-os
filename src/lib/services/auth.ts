@@ -20,17 +20,29 @@ const BCRYPT_ROUNDS = 12;
 /** 昵称随机段字符表：去除易混淆的 I/L/O/0/1 */
 const NICKNAME_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
+/** 默认昵称前缀按注册语言生成（昵称是存储值，生成后不随界面语言切换） */
+const NICKNAME_PREFIXES: Record<string, string> = {
+  zh: "采友",
+  en: "Buyer",
+  es: "Comprador",
+  fr: "Acheteur",
+  ru: "Закупщик",
+  ar: "مشتري",
+};
+
 /**
- * 生成默认展示昵称（如"采友_K7X2"）。
+ * 生成默认展示昵称（如"采友_K7X2" / "Buyer_K7X2"）。
  * 每位用户随机不同、不携带手机号/邮箱片段（防反推身份）；不要求唯一，身份锚点是 user_key。
+ * 未知/缺省语言回退中文前缀。
  */
-export function generateNickname(): string {
+export function generateNickname(locale?: string): string {
+  const prefix = (locale && NICKNAME_PREFIXES[locale]) || "采友";
   const bytes = crypto.randomBytes(4);
   let suffix = "";
   for (let i = 0; i < 4; i++) {
     suffix += NICKNAME_ALPHABET[bytes[i] % NICKNAME_ALPHABET.length];
   }
-  return `采友_${suffix}`;
+  return `${prefix}_${suffix}`;
 }
 
 /**

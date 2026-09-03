@@ -4,6 +4,8 @@
  *
  * 为 crm_users.nickname IS NULL 的用户生成默认昵称（采友_XXXX，source=1），幂等可重跑。
  * 真实姓名 display_name 列不做任何改动（备份表已由迁移 060 创建）。
+ * 注意：存量用户注册语言未知，统一使用默认中文前缀（generateNickname 不传 locale）；
+ * 用户可随后在个人中心自行修改。
  *
  * 用法（低峰期执行，支持 --batch / --delay-ms 调速）：
  *   npx tsx scripts/backfill-user-nickname.ts

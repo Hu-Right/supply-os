@@ -9,7 +9,7 @@ import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export async function POST(req: NextRequest) {
   const {
-    email, phone, password, verify_code, display_name, invitation_code, user_type,
+    email, phone, password, verify_code, display_name, invitation_code, user_type, locale,
     // ── 合规审计字段 ──
     agreement_version, agreement_accepted_at,
   } = await req.json();
@@ -67,8 +67,8 @@ export async function POST(req: NextRequest) {
     user_key: targetPhone,
     email: email ? String(email).trim().toLowerCase() : null,
     display_name: displayName,
-    // 展示名与真实姓名分离：昵称自动生成（用户后续可在个人中心自定义）
-    nickname: generateNickname(),
+    // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
+    nickname: generateNickname(typeof locale === "string" ? locale : undefined),
     password_hash: await hashPassword(pw),
     user_type: userType,
     phone: targetPhone,

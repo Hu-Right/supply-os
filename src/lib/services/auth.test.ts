@@ -81,8 +81,19 @@ describe("issueTokenPair", () => {
 });
 
 describe("generateNickname", () => {
-  it("格式：采友_ + 4 位随机字符（去除易混淆字符）", () => {
+  it("格式：语言前缀 + _ + 4 位随机字符（去除易混淆字符）", () => {
     expect(generateNickname()).toMatch(/^采友_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("zh")).toMatch(/^采友_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("en")).toMatch(/^Buyer_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("es")).toMatch(/^Comprador_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("fr")).toMatch(/^Acheteur_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("ru")).toMatch(/^Закупщик_[A-HJKMNP-Z2-9]{4}$/);
+    expect(generateNickname("ar")).toMatch(/^مشتري_[A-HJKMNP-Z2-9]{4}$/);
+  });
+
+  it("未知/缺省语言回退中文前缀", () => {
+    expect(generateNickname("xx")).toMatch(/^采友_/);
+    expect(generateNickname(undefined)).toMatch(/^采友_/);
   });
 
   it("随机性：多次生成不重复", () => {

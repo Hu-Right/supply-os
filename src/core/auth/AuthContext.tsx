@@ -37,7 +37,7 @@ const AUTH_USER_KEY = "supply_os_auth_user";
  * @param children - 子组件
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isVip, setIsVip] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
@@ -122,6 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: {
           email, password, display_name: displayName, verify_code: verifyCode,
           invitation_code: invitationCode, user_type: userType, phone,
+          // 默认昵称按注册界面语言生成（服务端 generateNickname 白名单内回退）
+          locale,
           // ── 合规审计：协议同意记录 ──
           agreement_version: agreementVersion,
           agreement_accepted_at: agreementAcceptedAt,
@@ -155,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  }, [persistAuthUser]);
+  }, [persistAuthUser, locale]);
 
   /**
    * 登出
