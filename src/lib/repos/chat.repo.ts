@@ -197,4 +197,44 @@ export class ChatRepo {
     );
     return rows as ChatMessageRow[];
   }
+
+  // ── 排队信息（P1：waiting 横幅展示） ──
+
+  /**
+   * 查询指定 waiting 会话的排队信息：
+   * - position：按 FIFO（created_at 升序）排第几位，1 = 下一个被接入
+   * - agentsOnline：当前 online 状态的客服数（chat_agent_presence 由客服端维护）
+   * - avgAcceptSeconds：最近 20 个已接入会话的平均等待时长（估预计等待用）
+   */
+  async getQueueInfo(sessionId: number): Promise<{
+    position: number;
+    agentsOnline: number;
+    avgAcceptSeconds: number | null;
+  }> {
+    const [ahead] = await this.pool.execute(
+      `SELECT COUNT(*) AS ahead FROM crm_chat_sessions
+       WHERE status = 'waiting' AND created_at < (SELECT created_at FROM crm_chat_sessions WHERE id = ?)`,
+      [sessionId],
+    );
+    const [online] = await this.pool.query(
+      `SELECT COUNT(*) AS total FROM chat_agent_presence WHERE status = 'online'`,
+    );
+    const [avg] = await this.pool.query(
+      `SELECT AVG(wait_seconds) AS avg_seconds FROM (
+         SELECT TIMESTAMPDIFF(SECOND, created_at, accepted_at) AS wait_seconds
+         FROM crm_chat_sessions
+         WHERE accepted_at IS NOT NULL
+         ORDER BY accepted_at DESC LIMIT 20
+       ) recent`,
+    );
+
+    return {
+      position: Number((ahead as RowDataPacket[])[0]?.ahead ?? 0) + 1,
+      agentsOnline: Number((online as RowDataPacket[])[0]?.total ?? 0),
+      avgAcceptSeconds:
+        (avg as RowDataPacket[])[0]?.avg_seconds != null
+          ? Math.round(Number((avg as RowDataPacket[])[0].avg_seconds))
+          : null,
+    };
+  }
 }

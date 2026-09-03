@@ -17,6 +17,7 @@ import type {
   QuickActionType,
   MatchPhase,
 } from "../../hooks/useDigitalAssistant";
+import type { QueueInfo } from "../../hooks/useQueueInfo";
 import type { Supplier, Opportunity } from "@/types";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";
@@ -30,6 +31,8 @@ type ChatWindowProps = {
   isThinking: boolean;
   onSend: (content: string) => void;
   onQuickAction: (action: QuickActionType) => void;
+  /** 排队信息（waiting 态轮询，P1） */
+  queueInfo: QueueInfo;
   // ── AI 撮合 ──
   matchPhase: MatchPhase;
   matchReport: string;
@@ -49,6 +52,7 @@ export function ChatWindow({
   isThinking,
   onSend,
   onQuickAction,
+  queueInfo,
   matchPhase,
   matchReport,
   suppliers,
@@ -145,14 +149,23 @@ export function ChatWindow({
         />
       )}
 
-      {/* ── 等待人工接入提示 ── */}
+      {/* ── 等待人工接入提示（含实时排队信息，P1） ── */}
       {mode === "waiting" && (
         <div className="px-4 py-3 bg-amber-50 border-t border-amber-200">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-xs text-amber-700 font-medium">
-              {t("crmAssistantWaitingNotice")}
-            </span>
+            {queueInfo.agentsOnline > 0 ? (
+              <span className="text-xs text-amber-700 font-medium">
+                {t("crmAssistantQueueStatus", {
+                  position: String(queueInfo.position),
+                  minutes: String(Math.max(1, Math.ceil((queueInfo.estimatedSeconds ?? 300) / 60))),
+                })}
+              </span>
+            ) : (
+              <span className="text-xs text-amber-700 font-medium">
+                {t("crmAssistantQueueNoAgent")}
+              </span>
+            )}
           </div>
         </div>
       )}

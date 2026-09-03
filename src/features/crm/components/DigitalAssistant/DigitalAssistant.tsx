@@ -13,6 +13,7 @@ import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { useDigitalAssistant } from "../../hooks/useDigitalAssistant";
 import { useChatSSE } from "../../hooks/useChatSSE";
+import { useQueueInfo } from "../../hooks/useQueueInfo";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier, Opportunity } from "@/types";
 import { OPPORTUNITIES } from "@/data";
@@ -95,6 +96,9 @@ export function DigitalAssistant({
     },
     [addRemoteMessage, isOpen],
   );
+
+  // 排队信息：waiting 态下轮询（P1）
+  const queueInfo = useQueueInfo(chatSessionId, mode === "waiting");
 
   // SSE 连接：转人工后自动建立
   useChatSSE({
@@ -271,6 +275,7 @@ export function DigitalAssistant({
               isThinking={isThinking}
               onSend={sendMessage}
               onQuickAction={triggerQuickAction}
+              queueInfo={queueInfo}
               matchPhase={matchPhase}
               matchReport={matchReport}
               suppliers={suppliers}

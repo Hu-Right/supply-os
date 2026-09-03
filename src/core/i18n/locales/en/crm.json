@@ -52,6 +52,8 @@
   "crmAssistantSessionEnded": "Human session ended. Switched back to AI mode.",
   "crmAssistantSessionTimeout": "This session was disconnected due to inactivity. Request human support again if needed.",
   "crmAssistantSessionRestored": "Your ongoing support session has been restored.",
+  "crmAssistantQueueStatus": "You are #{position} in queue, estimated wait about {minutes} min",
+  "crmAssistantQueueNoAgent": "All agents are offline. You are in queue and will be served as soon as one comes online",
   "crmAssistantConnectionLost": "Connection lost. Automatic reconnection failed. Please try again later.",
   "crmRequestHuman": "Human Agent",
   "crmEndHumanSession": "End Session",

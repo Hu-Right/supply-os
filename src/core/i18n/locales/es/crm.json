@@ -52,6 +52,8 @@
   "crmAssistantSessionEnded": "Sesión humana finalizada. Volviendo al modo IA.",
   "crmAssistantSessionTimeout": "Esta sesión se interrumpió por inactividad. Solicite atención humana de nuevo si lo necesita.",
   "crmAssistantSessionRestored": "Su sesión de atención en curso ha sido restaurada.",
+  "crmAssistantQueueStatus": "Usted es el número {position} en la cola, espera estimada de unos {minutes} min",
+  "crmAssistantQueueNoAgent": "Todos los agentes están desconectados. Está en la cola y será atendido en cuanto haya uno disponible",
   "crmAssistantConnectionLost": "Conexión perdida. La reconexión automática falló. Inténtelo más tarde.",
   "crmRequestHuman": "Agente humano",
   "crmEndHumanSession": "Finalizar",
