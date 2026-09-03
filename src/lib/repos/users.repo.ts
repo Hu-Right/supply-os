@@ -198,11 +198,16 @@ export class UsersRepo {
     );
   }
 
-  /** N6 收敛（2026-08-20）：管理员通道更换邮箱（同时更新 user_key，因为 user_key 就是小写邮箱） */
+  /**
+   * N6 收敛（2026-08-20）+ user_id 迁移 Phase 0（2026-09-03）：
+   * 管理员通道更换邮箱。不再修改 user_key——user_key 退役为仅 crm_users 本表的登录凭据，
+   * 业务表全部以 user_id（crm_users.id）关联。换邮箱不影响任何历史数据查询。
+   * 登录兼容：findByEmail / findByIdentifier 已按 email 查找，新邮箱登录无需 user_key 同步。
+   */
   async updateUserEmail(oldUserKey: string, newEmail: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET user_key = ?, email = ?, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
-      [newEmail, newEmail, oldUserKey],
+      "UPDATE crm_users SET email = ?, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
+      [newEmail, oldUserKey],
     );
   }
 }
