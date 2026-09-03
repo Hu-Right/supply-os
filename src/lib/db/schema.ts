@@ -61,6 +61,8 @@
  *              051-kpi-monthly-restructure             KPI月度化重构
  *              052-training-orders-user-key            培训订单user_key+报名表支付状态列补全
  *              060-user-nickname                       用户昵称列（展示名与真实姓名分离）
+ *              061-chat-queue-assignment               客服队列分配
+ *              062-user-id-migration                   user_id 内部化（B类表加列+唯一键重建+索引）
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -124,6 +126,8 @@ import { migration as m057 } from "./migrations/057-payment-order-refunded-enum"
 import { migration as m058 } from "./migrations/058-free-trial-removal-and-single-first-promo";
 import { migration as m059 } from "./migrations/059-learning-orders";
 import { migration as m060 } from "./migrations/060-user-nickname";
+import { migration as m061 } from "./migrations/061-chat-queue-assignment";
+import { migration as m062 } from "./migrations/062-user-id-migration";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -133,7 +137,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
-  m060,
+  m060, m061, m062,
 ];
 
 /**

@@ -5,8 +5,17 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { isParseablePrivateKey, normalizePem } from "../payment/keys";
 
+/**
+ * user_id 内部化回填：将所有业务表中 user_id 为 NULL 的行，
+ * 根据 user_key 去 crm_users 表查出对应的 crm_users.id 填入。
+ *
+ * 覆盖全集 19 张表（A 类 11 张 + B 类 8 张）。
+ * 幂等：WHERE user_id IS NULL 保证重跑零副作用。
+ * 分批限速：id 游标 + LIMIT 2000 + 批间 50ms，防止大表锁库。
+ */
 export async function backfillUserIds(dbPool: any) {
   const tables = [
+    // ── A 类：user_key + user_id 双列已存在（11 张）──
     "crm_user_subscriptions",
     "crm_payment_orders",
     "crm_user_entitlements",
@@ -15,15 +24,42 @@ export async function backfillUserIds(dbPool: any) {
     "crm_notice_interests",
     "crm_user_interest_codes",
     "crm_supplier_claims",
+    "crm_user_industry_prefs",
+    "crm_user_reco_feedback",
+    "crm_supplier_qualification",
+    // ── B 类：迁移 062 刚加 user_id 列（8 张）──
+    "crm_password_resets",
+    "crm_refresh_tokens",
+    "crm_reco_weight_profile",
+    "crm_chat_sessions",
+    "crm_learning_material_purchases",
+    "learning_orders",
+    "training_orders",
+    "crm_user_search_log",
   ];
 
+  const BATCH = 2000;
+  const SLEEP_MS = 50;
+
   for (const table of tables) {
-    await dbPool.execute(
-      `UPDATE ${table} target
-       INNER JOIN crm_users u ON u.user_key = target.user_key
-       SET target.user_id = u.id
-       WHERE target.user_id IS NULL`
-    );
+    let lastId = 0;
+    let affected = 0;
+    do {
+      const [result] = await dbPool.execute(
+        `UPDATE ${table} target
+         INNER JOIN crm_users u ON u.user_key = target.user_key
+         SET target.user_id = u.id
+         WHERE target.user_id IS NULL AND target.id > ?
+         LIMIT ${BATCH}`,
+        [lastId],
+      );
+      affected = (result as { affectedRows?: number })?.affectedRows ?? 0;
+      if (affected > 0) lastId += BATCH;
+      // 分批限速：大批量时批间休眠，防止大表锁库
+      if (affected >= BATCH) {
+        await new Promise((r) => setTimeout(r, SLEEP_MS));
+      }
+    } while (affected >= BATCH);
   }
 }
 
