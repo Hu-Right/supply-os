@@ -18,8 +18,10 @@ export { reconcileDeadlineSec } from "./wide-row-reconcile";
 // 同步调度层（对外门面）
 export {
   fullBackfill, incrementalWideSync, syncWideIds,
-  isWideTableReady, startWideTableSync,
+  startWideTableSync,
 } from "./sync-scheduler";
+// 宽表就绪检查（A2 解环）：从无依赖叶子模块导出，供 orchestrator 侧直用
+export { isWideTableReady } from "./wide-table-readiness";
 
 // Meili 索引同步层（#8：自顶层 searchSync.ts 迁入，统一域名消除混淆）
 export { startSearchSync } from "./meili-index-sync";

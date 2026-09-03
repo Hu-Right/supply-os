@@ -7,7 +7,8 @@
  *              宽表优先（零 JOIN），宽表未就绪回退多表 JOIN。保持 FIELD() 顺序与传入一致。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { isWideTableReady } from "../search-sync/index";
+// A2 解环：直接从无依赖叶子模块导入，不经过 search-sync barrel（避免循环回环）
+import { isWideTableReady } from "../search-sync/wide-table-readiness";
 
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 

@@ -7,7 +7,9 @@ import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-import { RecentUnlocks } from "@/features/payment";
+// 子路径导入（A3）：绕过 payment barrel，避免 PaymentModal/PaymentModalCore/MyRecordsPanel
+// 全套被静态拉进 procurement 首屏 chunk
+import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";

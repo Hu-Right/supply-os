@@ -11,7 +11,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button, SelectableCard } from "@/shared/ui";
 import { formatScheduleDate } from "@/shared/utils/format";
-import { PaymentModalCore } from "@/features/payment";
+// 子路径导入（A3）：训练页 chunk 不连带 payment barrel 全套
+import PaymentModalCore from "@/features/payment/components/PaymentModalCore";
 import {
   createTrainingOrder,
   fetchTrainingOrderStatus,

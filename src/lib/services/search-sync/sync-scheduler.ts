@@ -10,6 +10,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
 import { tryRecover } from "../meilisearch/client";
 import { enqueueRetry } from "./sync-retry-queue";
+import { isWideTableReady } from "./wide-table-readiness";
 import { logSyncCascade } from "../search-orchestrator/metrics";
 import { requestIndexRebuild } from "../search-orchestrator/rebuild-trigger";
 import { invalidateUnifiedSearchCache } from "../search-orchestrator/index";
@@ -176,26 +177,8 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
   }
 }
 
-/**
- * 检查宽表是否已就绪
- */
-let _wideTableReadyCache: { ready: boolean; expires: number } | null = null;
-const WIDE_TABLE_READY_CACHE_TTL = 60 * 1000; // 1 分钟
-
-export async function isWideTableReady(pool: Pool): Promise<boolean> {
-  if (_wideTableReadyCache && _wideTableReadyCache.expires > Date.now()) {
-    return _wideTableReadyCache.ready;
-  }
-  try {
-    const [rows] = await pool.query("SELECT 1 FROM crm_notice_search LIMIT 1");
-    const ready = (rows as RowDataPacket[]).length > 0;
-    _wideTableReadyCache = { ready, expires: Date.now() + WIDE_TABLE_READY_CACHE_TTL };
-    return ready;
-  } catch {
-    _wideTableReadyCache = { ready: false, expires: Date.now() + WIDE_TABLE_READY_CACHE_TTL };
-    return false;
-  }
-}
+// 宽表就绪检查已抽至无依赖叶子模块（A2 解环），此处重导出维持调用方兼容
+export { isWideTableReady } from "./wide-table-readiness";
 
 /**
  * 启动宽表增量同步定时器
