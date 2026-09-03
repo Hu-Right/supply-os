@@ -84,12 +84,12 @@ function mapUnlockRow(row: UnlockHistoryRow, translatable: boolean) {
 /** 订单历史分页（GET /api/payment/orders） */
 export async function listOrderHistory(
   repo: PaymentHistoryRepo,
-  params: { userKey: string; status: string; page: number; limit: number },
+  params: { userId: number; status: string; page: number; limit: number },
 ): Promise<PagedHistory<ReturnType<typeof mapOrderRow>>> {
   const offset = (params.page - 1) * params.limit;
   const [total, rows] = await Promise.all([
-    repo.countOrders(params.userKey, params.status),
-    repo.listOrders(params.userKey, params.status, params.limit, offset),
+    repo.countOrders(params.userId, params.status),
+    repo.listOrders(params.userId, params.status, params.limit, offset),
   ]);
   return { total, page: params.page, limit: params.limit, list: rows.map(mapOrderRow) };
 }
@@ -102,14 +102,14 @@ export async function listOrderHistory(
  */
 export async function listUnlockHistory(
   repo: PaymentHistoryRepo,
-  params: { userKey: string; lang: string; page: number; limit: number },
+  params: { userId: number; lang: string; page: number; limit: number },
 ): Promise<PagedHistory<ReturnType<typeof mapUnlockRow>>> {
   const offset = (params.page - 1) * params.limit;
   const lang = params.lang.toLowerCase();
   const translatable = !!NOTICE_TRANSLATION_LANGS[lang];
   const [total, rows] = await Promise.all([
-    repo.countUnlocks(params.userKey),
-    repo.listUnlocks(params.userKey, params.limit, offset, translatable ? { lang } : null),
+    repo.countUnlocks(params.userId),
+    repo.listUnlocks(params.userId, params.limit, offset, translatable ? { lang } : null),
   ]);
   if (translatable) void backfillUnlockTranslations(repo, rows, lang);
   return { total, page: params.page, limit: params.limit, list: rows.map((row) => mapUnlockRow(row, translatable)) };

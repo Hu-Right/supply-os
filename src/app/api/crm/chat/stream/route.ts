@@ -15,6 +15,7 @@
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyChatTicket } from "@/lib/services/chatTicket";
+import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 
 /** 轮询间隔（毫秒） */
 const POLL_INTERVAL = 2000;
@@ -61,8 +62,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 权限检查：仅会话所有者可访问
-  if (session.customer_id !== userKey) {
+  // 权限检查：仅会话所有者可访问（user_id 为准，历史行回退 customer_id）
+  if (!sessionOwnedBy(session, { userKey, userId: verified.userId ?? null })) {
     return Response.json(
       { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },

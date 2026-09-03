@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const { resolveMembershipState } = await import("@/lib/services/membership-status");
   const { extractTierLabel } = await import("@/lib/services/membership-upgrade");
   const membershipRepo = getContext().user.membershipRepo;
-  const state = await resolveMembershipState(membershipRepo, auth.userKey);
+  const state = await resolveMembershipState(membershipRepo, auth.userId!);
 
   return NextResponse.json({
     user_key: auth.userKey,

@@ -28,6 +28,8 @@ export interface OpportunityUnlockDeps {
 
 export interface OpportunityUnlockParams {
   userKey: string;
+  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  userId?: number;
   opportunityId: number;
   unlockType: "free" | "subscription" | "single";
   price: number;
@@ -39,10 +41,10 @@ export async function executeOpportunityUnlock(
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const { dbPool, opportunitiesRepo, membershipRepo } = deps;
-  const { userKey, opportunityId, unlockType, price, snapshotJson } = params;
+  const { userKey, userId, opportunityId, unlockType, price, snapshotJson } = params;
 
   // 快速路径：无锁预检，减少事务冲突
-  if (await opportunitiesRepo.findExistingUnlock(userKey, opportunityId)) {
+  if (await opportunitiesRepo.findExistingUnlock(userId!, opportunityId)) {
     return { alreadyUnlocked: true, unlockType };
   }
 

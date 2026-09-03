@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   // VIP 门控（审查 F5，2026-08-30 产品决策）：跟进记录会修改线索状态，
   // 与线索读取同权限（仅 VIP 会员）
-  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userKey);
+  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userId!);
   if (!state.isVip) {
     return NextResponse.json(
       { code: 40041, message: "线索跟进仅对 VIP 会员开放" },

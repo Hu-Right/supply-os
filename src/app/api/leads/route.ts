@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (auth instanceof Response) return auth;
 
   const ctx = getContext();
-  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userKey);
+  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userId!);
   if (!state.isVip) {
     return NextResponse.json(
       { code: 40041, message: "线索视图仅对 VIP 会员开放" },

@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ticket: signChatTicket(auth.userKey, sessionId),
+    ticket: signChatTicket(auth.userKey, sessionId, auth.userId),
     expiresIn: TICKET_TTL_SECONDS,
   });
 }

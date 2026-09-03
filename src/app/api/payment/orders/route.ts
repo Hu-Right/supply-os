@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
 
-  const { total, list } = await orchestrator.listAllOrders(auth.userKey, status, limit, offset);
+  const { total, list } = await orchestrator.listAllOrders(auth.userId!, status, limit, offset);
   return NextResponse.json({ total, page, limit, list });
 }
 

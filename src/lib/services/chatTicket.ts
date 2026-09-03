@@ -14,6 +14,8 @@ const TICKET_TTL_MS = 60_000;
 interface TicketPayload {
   /** 用户 key */
   u: string;
+  /** 内部用户 ID（user_id 迁移后与会话归属比对用；旧 token 可缺省） */
+  i?: number;
   /** 会话 ID */
   s: number;
   /** 过期时间（毫秒） */
@@ -33,9 +35,14 @@ function sign(data: string): string {
 }
 
 /** 签发 ticket（明文部分为 base64url(payload).sig） */
-export function signChatTicket(userKey: string, sessionId: number): string {
+export function signChatTicket(
+  userKey: string,
+  sessionId: number,
+  userId?: number | null,
+): string {
   const payload: TicketPayload = {
     u: userKey,
+    ...(userId != null ? { i: userId } : {}),
     s: sessionId,
     exp: Date.now() + TICKET_TTL_MS,
     n: randomUUID(),
@@ -67,6 +74,7 @@ function markUsed(body: string): boolean {
 
 export interface VerifiedTicket {
   userKey: string;
+  userId?: number;
   sessionId: number;
 }
 
@@ -96,5 +104,9 @@ export function verifyChatTicket(ticket: string): VerifiedTicket | null {
   }
   if (!markUsed(body)) return null;
 
-  return { userKey: payload.u, sessionId: payload.s };
+  return {
+    userKey: payload.u,
+    ...(payload.i != null ? { userId: payload.i } : {}),
+    sessionId: payload.s,
+  };
 }

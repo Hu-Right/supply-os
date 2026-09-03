@@ -37,7 +37,7 @@ export interface AttachmentMeta {
 }
 
 /** 从消息 metadata（DB JSON 列，可能是字符串）中提取附件内容标记 */
-function attachmentMarkerFromMetadata(metadata: unknown): string {
+export function attachmentMarkerFromMetadata(metadata: unknown): string {
   let meta: unknown = metadata;
   if (typeof metadata === "string") {
     try {

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const { directoryRepo } = ctx.supplier;
 
   // VIP 校验
-  const memberState = await resolveMembershipState(ctx.user.membershipRepo, auth.userKey);
+  const memberState = await resolveMembershipState(ctx.user.membershipRepo, auth.userId!);
   if (memberState.tier === "free") {
     return NextResponse.json({ code: 40003, message: "需要 VIP 会员才能查看联系方式" }, { status: 403 });
   }
