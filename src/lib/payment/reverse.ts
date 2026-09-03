@@ -66,8 +66,8 @@ export async function reverseFulfilledOrder(
       // 退款由 LearningPaymentService.reverseOrder 独立处理。
       // 此处仅回滚 crm_payment_orders 中的历史数据（向后兼容）。
       await conn.execute(
-        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_key = ?",
-        [orderNo, order.user_key],
+        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_id = ?",
+        [orderNo, order.user_id],
       );
     } else if (order.order_type === "upgrade") {
       // 升级订单承接链复杂（补差价/次数保留/有效期追溯），不自动回滚：
@@ -82,8 +82,8 @@ export async function reverseFulfilledOrder(
       );
       // 订阅表无 source_order_no：按用户+套餐回退最近一份活跃订阅
       await conn.execute(
-        "UPDATE crm_user_subscriptions SET status = 'refunded' WHERE user_key = ? AND plan_code = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1",
-        [order.user_key, order.plan_code],
+        "UPDATE crm_user_subscriptions SET status = 'refunded' WHERE user_id = ? AND plan_code = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1",
+        [order.user_id, order.plan_code],
       );
       // 无其他活跃订阅则降级会员等级
       await conn.execute(
@@ -91,7 +91,7 @@ export async function reverseFulfilledOrder(
          WHERE u.user_key = ?
            AND NOT EXISTS (
              SELECT 1 FROM crm_user_subscriptions s
-             WHERE s.user_key = u.user_key AND s.status = 'active'
+             WHERE s.user_id = u.id AND s.status = 'active'
                AND (s.expires_at IS NULL OR s.expires_at > NOW())
            )`,
         [order.user_key],
