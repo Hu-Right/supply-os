@@ -101,10 +101,10 @@ export class LearningOrdersRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO learning_orders
-        (order_no, user_id, user_key, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (order_no, user_id, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
-        data.orderNo, data.userId, data.userKey, data.planCode,
+        data.orderNo, data.userId, data.planCode,
         data.amount, data.currency, data.provider,
         data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],

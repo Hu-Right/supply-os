@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
   try {
     const result = await ctx.supplier.claimRepo.insertClaim({
       userId: auth.userId!,
-      userKey: auth.userKey,
       supplierId,
       companyName: str(body.companyName ?? body.company_name, 200),
       supplierType: str(body.supplierType ?? body.supplier_type, 50),

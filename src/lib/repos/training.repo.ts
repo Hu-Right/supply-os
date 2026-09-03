@@ -144,7 +144,10 @@ export interface CreateTrainingOrderData {
   expiresAt: Date;
   contactName: string | null;
   telephone: string | null;
-  userKey: string | null;
+  /** 内部用户 ID */
+  userId?: number | null;
+  /** 用户标识（兼容保留，不再写入 DB） */
+  userKey?: string | null;
 }
 
 export class TrainingRepo {
@@ -249,13 +252,13 @@ export class TrainingRepo {
     const [result] = await this.pool.execute(
       `INSERT INTO training_orders
         (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_key, created_at)
+         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
       [
         data.orderNo, data.courseId, data.scheduleId, data.registrationId,
         data.participantCount, data.unitPrice, data.totalAmount, data.currency,
         data.provider, data.qrCode, data.payUrl, data.expiresAt,
-        data.contactName, data.telephone, data.userKey,
+        data.contactName, data.telephone, data.userId ?? null,
       ],
     );
     return Number((result as RowDataPacket).insertId);

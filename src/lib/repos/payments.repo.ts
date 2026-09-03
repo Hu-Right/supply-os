@@ -82,10 +82,10 @@ export class PaymentsRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_payment_orders
-        (user_id, order_no, user_key, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (user_id, order_no, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
-        data.userId, data.orderNo, data.userKey, data.provider, data.planCode,
+        data.userId, data.orderNo, data.provider, data.planCode,
         data.orderType || "new", data.originalOrderNo ?? null,
         data.noticeId, data.amount, data.currency, data.payUrl, data.qrCodeUrl, data.rawRequest,
       ],
