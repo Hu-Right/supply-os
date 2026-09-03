@@ -8,6 +8,8 @@
  */
 
 export interface AuthUser {
+  /** 内部用户 ID */
+  id: number;
   user_key: string;
   email: string;
   /** 对外展示名（昵称）。真实姓名不进入任何 API 响应（隐私收口） */

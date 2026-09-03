@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const state = await resolveMembershipState(membershipRepo, auth.userId!);
 
   return NextResponse.json({
+    user_id: auth.userId,
     user_key: auth.userKey,
     membership_tier: state.tier,
     free_quota: state.freeQuota,

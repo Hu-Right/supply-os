@@ -114,6 +114,8 @@ export function hashVerificationCode(code: string): string {
 
 /** 登录/用户信息公共响应体 */
 export interface AuthUserResponse {
+  /** 内部用户 ID */
+  id: number;
   user_key: string;
   email: string;
   /** 对外展示名（昵称）。真实姓名 display_name 不进入任何 API 响应（隐私收口） */
@@ -157,6 +159,7 @@ export async function buildUserResponse(
   // 此时以姓名掩码临时展示，回填完成后此分支自然不再命中，可在稳定后移除。
   const nickname = user.nickname || maskName(user.display_name ?? "");
   return {
+    id: user.id!,
     user_key: userKey,
     email: user.email ?? "",
     nickname,

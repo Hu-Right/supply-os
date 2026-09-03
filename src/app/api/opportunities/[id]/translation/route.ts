@@ -25,7 +25,7 @@ export async function GET(
   if (auth instanceof Response) return auth;
 
   // 限流（审查 F29）：按需翻译触发 LLM 调用链，防遍历费用滥用
-  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `opp_tr:${auth.userKey}`);
+  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `opp_tr:${auth.userId ?? auth.userKey}`);
   if (rl) return rl;
 
   const { id } = await params;

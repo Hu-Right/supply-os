@@ -28,7 +28,7 @@ export async function POST(
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const rateLimitResponse = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `opp_unlock:${auth.userKey}`);
+  const rateLimitResponse = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `opp_unlock:${auth.userId ?? auth.userKey}`);
   if (rateLimitResponse) return rateLimitResponse;
 
   const { id } = await params;
@@ -56,7 +56,7 @@ export async function POST(
     const result = await executeOpportunityUnlock(
       { dbPool, opportunitiesRepo: oppsRepo, membershipRepo },
       {
-        userKey: auth.userKey,
+        userId: auth.userId!,
         opportunityId,
         unlockType,
         price,

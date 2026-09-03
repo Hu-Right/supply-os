@@ -35,7 +35,7 @@ export async function GET(
   const userKey = auth.userKey;
   const userId = auth.userId;
 
-  if (!noticeId || !userKey) {
+  if (!noticeId || !userId) {
     return sendError("请先登录并指定公告", 400, ApiErrorCode.USER_REQUIRED);
   }
 

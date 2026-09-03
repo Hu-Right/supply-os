@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const codeType = `phone_${scene}`;
   // 限流：短信按 user + 手机号双维度，1 分钟 1 次（防短信轰炸）
   const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 1 },
-    () => `smscode:${auth.userKey}:${targetPhone}`);
+    () => `smscode:${auth.userId ?? auth.userKey}:${targetPhone}`);
   if (rl) return rl;
 
   const code = String(crypto.randomInt(100000, 1000000));

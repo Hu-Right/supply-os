@@ -19,7 +19,7 @@ export async function POST(
   const rateLimitResponse = checkRateLimit(req, {
     windowMs: 60_000,
     maxAttempts: 120,
-  }, () => `view:${auth.userKey}`);
+  }, () => `view:${auth.userId ?? auth.userKey}`);
   if (rateLimitResponse) return rateLimitResponse;
 
   const { id } = await params;

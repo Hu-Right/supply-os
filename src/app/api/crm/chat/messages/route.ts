@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, readLimiterConfig, () => `user:${auth.userKey}`);
+  const limited = checkRateLimit(req, readLimiterConfig, () => `user:${auth.userId ?? auth.userKey}`);
   if (limited) return limited;
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, sendLimiterConfig, () => `user:${auth.userKey}`);
+  const limited = checkRateLimit(req, sendLimiterConfig, () => `user:${auth.userId ?? auth.userKey}`);
   if (limited) return limited;
 
   let body: unknown;

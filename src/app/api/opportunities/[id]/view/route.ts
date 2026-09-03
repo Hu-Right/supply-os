@@ -13,7 +13,7 @@ export async function POST(
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const rateLimitResponse = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 120 }, () => `opp_view:${auth.userKey}`);
+  const rateLimitResponse = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 120 }, () => `opp_view:${auth.userId ?? auth.userKey}`);
   if (rateLimitResponse) return rateLimitResponse;
 
   const { id } = await params;

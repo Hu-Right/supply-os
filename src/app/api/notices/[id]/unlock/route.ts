@@ -33,13 +33,13 @@ export async function POST(
   const rateLimitResponse = checkRateLimit(req, {
     windowMs: 60_000,
     maxAttempts: 30,
-  }, () => `unlock:${auth.userKey}`);
+  }, () => `unlock:${auth.userId ?? auth.userKey}`);
   if (rateLimitResponse) return rateLimitResponse;
 
   const { id } = await params;
   const noticeId = Number(id);
   const pool = getPool();
-  const userKey = auth.userKey;
+  const userId = auth.userId!;
   const body = await req.json();
   const unlockType = body.unlock_type === "subscription" || body.unlock_type === "single"
     ? body.unlock_type : "free";
@@ -60,7 +60,7 @@ export async function POST(
         dbPool: pool,
         membershipRepo: new MembershipRepo(pool),
       },
-      { userKey, noticeId, unlockType, price },
+      { userId, noticeId, unlockType, price },
     );
     if (result.alreadyUnlocked) {
       return NextResponse.json({ success: true, alreadyUnlocked: true });

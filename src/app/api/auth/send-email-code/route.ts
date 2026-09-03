@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const codeType = `email_${scene}`;
   // 限流：邮件按 user + 邮箱双维度，1 分钟 3 次
   const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 3 },
-    () => `emailcode:${auth.userKey}:${targetEmail}`);
+    () => `emailcode:${auth.userId ?? auth.userKey}:${targetEmail}`);
   if (rl) return rl;
 
   const code = String(crypto.randomInt(100000, 1000000));
