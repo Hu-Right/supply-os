@@ -71,10 +71,10 @@ export class LearningMaterialsRepo {
   }
 
   /** 获取用户已购买的资料 material_id 列表 */
-  async findPurchasedMaterialIds(userKey: string): Promise<string[]> {
+  async findPurchasedMaterialIds(userId: number): Promise<string[]> {
     const [rows] = await this.pool.query(
-      `SELECT material_id FROM crm_learning_material_purchases WHERE user_key = ?`,
-      [userKey],
+      `SELECT material_id FROM crm_learning_material_purchases WHERE user_id = ?`,
+      [userId],
     );
     return (rows as RowDataPacket[]).map((r) => r.material_id as string);
   }

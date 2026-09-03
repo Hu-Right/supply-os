@@ -24,16 +24,16 @@ export class AuthRepo {
   // ── crm_password_resets：验证码生命周期 ────────────────────────────────────
 
   /** 失效某用户某类型下所有未使用的验证码（M-3：发新码前作废旧码） */
-  async invalidateUnusedCodes(userKey: string, codeType: string): Promise<void> {
+  async invalidateUnusedCodes(userId: number, codeType: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_password_resets SET used = 1 WHERE user_key = ? AND code_type = ? AND used = 0",
-      [userKey, codeType],
+      "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
+      [userId, codeType],
     );
   }
 
   /** 创建验证码记录，返回自增 id（phone 仅手机渠道传入） */
   async createResetCode(params: {
-    userKey: string;
+    userId: number;
     codeHash: string;
     codeType: string;
     expiresAt: Date;
@@ -41,24 +41,24 @@ export class AuthRepo {
     phone?: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_password_resets (user_key, phone, code, code_type, expires_at, ip)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [params.userKey, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
+      `INSERT INTO crm_password_resets (user_id, user_key, phone, code, code_type, expires_at, ip)
+       VALUES (?, NULL, ?, ?, ?, ?, ?)`,
+      [params.userId, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
     );
     return (result as ResultSetHeader).insertId;
   }
 
   /** 查询最新一条有效（未使用且未过期）验证码；phone 非空时附加手机号匹配 */
   async findLatestActiveCode(
-    userKey: string,
+    userId: number,
     codeType: string,
     phone?: string,
   ): Promise<AuthCodeRow | null> {
     const sql = `SELECT id, code, expires_at, attempts
        FROM crm_password_resets
-       WHERE user_key = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
+       WHERE user_id = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 1`;
-    const args = phone ? [userKey, phone, codeType] : [userKey, codeType];
+    const args = phone ? [userId, phone, codeType] : [userId, codeType];
     const [rows] = await this.pool.query(sql, args);
     return (rows as AuthCodeRow[])[0] ?? null;
   }
@@ -112,10 +112,10 @@ export class AuthRepo {
   // ── crm_refresh_tokens：Refresh Token 生命周期 ─────────────────────────────
 
   /** 入库新签发的 Refresh Token 哈希 */
-  async insertRefreshToken(userKey: string, tokenHash: string, expiresAt: Date): Promise<void> {
+  async insertRefreshToken(userId: number, tokenHash: string, expiresAt: Date): Promise<void> {
     await this.pool.execute(
-      "INSERT INTO crm_refresh_tokens (user_key, token_hash, expires_at) VALUES (?, ?, ?)",
-      [userKey, tokenHash, expiresAt],
+      "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, NULL, ?, ?)",
+      [userId, tokenHash, expiresAt],
     );
   }
 
@@ -138,8 +138,8 @@ export class AuthRepo {
   }
 
   /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录） */
-  async deleteRefreshTokensByUser(userKey: string): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [userKey]);
+  async deleteRefreshTokensByUser(userId: number): Promise<void> {
+    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_id = ?", [userId]);
   }
 
   /** 清理全部过期 Refresh Token（由 auth.routes 定时器周期调用） */
@@ -168,7 +168,7 @@ export class AuthRepo {
    * 对应表 crm_consent_log（需提前建表，见 docs/04 技术需求清单第四节）
    */
   async recordConsentLog(params: {
-    userKey: string;
+    userId: number;
     consentType: string;   // terms / privacy / marketing / cookie
     documentVersion: string;
     action: string;        // agree / withdraw / re-agree
@@ -179,10 +179,10 @@ export class AuthRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_consent_log
-        (user_key, consent_type, document_version, action, consent_timestamp, ip_address, user_agent, source_page)
+        (user_id, consent_type, document_version, action, consent_timestamp, ip_address, user_agent, source_page)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        params.userKey,
+        params.userId,
         params.consentType,
         params.documentVersion,
         params.action,

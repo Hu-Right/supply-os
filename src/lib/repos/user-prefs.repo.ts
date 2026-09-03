@@ -22,10 +22,10 @@ export class UserPrefsRepo {
   constructor(private pool: Pool) {}
 
   /** 查询用户行业偏好 */
-  async getIndustryPrefs(userKey: string): Promise<UserIndustryPrefsRow | null> {
+  async getIndustryPrefs(userId: number): Promise<UserIndustryPrefsRow | null> {
     const [rows] = await this.pool.query(
-      "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, updated_at FROM crm_user_industry_prefs WHERE user_key = ? LIMIT 1",
-      [userKey],
+      "SELECT level1_id, level2_id, level3_id, level4_id, level5_id, updated_at FROM crm_user_industry_prefs WHERE user_id = ? LIMIT 1",
+      [userId],
     );
     return (rows as UserIndustryPrefsRow[])[0] ?? null;
   }

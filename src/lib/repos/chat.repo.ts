@@ -73,13 +73,13 @@ export class ChatRepo {
     return (rows as ChatSessionRow[])[0] ?? null;
   }
 
-  /** 列出客户的活跃/等待会话 */
-  async listSessionsByCustomer(customerId: string): Promise<ChatSessionRow[]> {
+  /** 列出客户的活跃/等待会话（按 user_id 查询） */
+  async listSessionsByCustomer(userId: number): Promise<ChatSessionRow[]> {
     const [rows] = await this.pool.execute(
       `SELECT * FROM crm_chat_sessions
-       WHERE customer_id = ? AND status IN ('waiting', 'active')
+       WHERE user_id = ? AND status IN ('waiting', 'active')
        ORDER BY created_at DESC LIMIT 20`,
-      [customerId],
+      [userId],
     );
     return rows as ChatSessionRow[];
   }

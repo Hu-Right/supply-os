@@ -57,9 +57,9 @@ export class PaymentHistoryRepo {
   constructor(private pool: Pool) {}
 
   /** 订单历史总数（可选状态过滤） */
-  async countOrders(userKey: string, status: string): Promise<number> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE o.user_key = ?";
+  async countOrders(userId: number, status: string): Promise<number> {
+    const params: unknown[] = [userId];
+    let where = "WHERE o.user_id = ?";
     if (status) {
       where += " AND o.status = ?";
       params.push(status);
@@ -74,9 +74,9 @@ export class PaymentHistoryRepo {
   }
 
   /** 订单历史分页（订单 LEFT JOIN 公告摘要） */
-  async listOrders(userKey: string, status: string, limit: number, offset: number): Promise<OrderHistoryRow[]> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE o.user_key = ?";
+  async listOrders(userId: number, status: string, limit: number, offset: number): Promise<OrderHistoryRow[]> {
+    const params: unknown[] = [userId];
+    let where = "WHERE o.user_id = ?";
     if (status) {
       where += " AND o.status = ?";
       params.push(status);
@@ -99,12 +99,12 @@ export class PaymentHistoryRepo {
   }
 
   /** 解锁历史总数（仅公告解锁） */
-  async countUnlocks(userKey: string): Promise<number> {
+  async countUnlocks(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS total
        FROM crm_opportunity_unlocks u
-       WHERE u.user_key = ? AND u.notice_id IS NOT NULL`,
-      [userKey],
+       WHERE u.user_id = ? AND u.notice_id IS NOT NULL`,
+      [userId],
     );
     return Number((rows as RowDataPacket[])[0]?.total || 0);
   }
@@ -114,7 +114,7 @@ export class PaymentHistoryRepo {
    * withTranslation 为 true 时多取 n.description（仅供后台补翻用，不返回）与缓存译文标题。
    */
   async listUnlocks(
-    userKey: string,
+    userId: number,
     limit: number,
     offset: number,
     withTranslation: { lang: string } | null,
@@ -129,7 +129,7 @@ export class PaymentHistoryRepo {
            FROM crm_opportunity_unlocks u
            LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
            LEFT JOIN crm_notice_translations tr ON tr.notice_id = u.notice_id AND tr.lang = ?
-           WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+           WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`
         : `SELECT
@@ -138,10 +138,10 @@ export class PaymentHistoryRepo {
              n.notice_type, n.agency, n.agency_full, n.country, n.deadline, n.deadline_ts, n.urgency, n.url, n.industry
            FROM crm_opportunity_unlocks u
            LEFT JOIN crm_bid_notices n ON n.id = u.notice_id
-           WHERE u.user_key = ? AND u.notice_id IS NOT NULL
+           WHERE u.user_id = ? AND u.notice_id IS NOT NULL
            ORDER BY u.id DESC
            LIMIT ? OFFSET ?`,
-      withTranslation ? [withTranslation.lang, userKey, limit, offset] : [userKey, limit, offset],
+      withTranslation ? [withTranslation.lang, userId, limit, offset] : [userId, limit, offset],
     );
     return rows as UnlockHistoryRow[];
   }

@@ -46,9 +46,9 @@ export class LearningOrdersRepo {
   }
 
   /** 按用户查询订单（可选状态过滤） */
-  async findByUserKey(userKey: string, status: string): Promise<LearningOrderRow[]> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE user_key = ?";
+  async findByUserKey(userId: number, status: string): Promise<LearningOrderRow[]> {
+    const params: unknown[] = [userId];
+    let where = "WHERE user_id = ?";
     if (status) {
       where += " AND status = ?";
       params.push(status);
@@ -61,9 +61,9 @@ export class LearningOrdersRepo {
   }
 
   /** 按用户统计订单数 */
-  async countByUserKey(userKey: string, status: string): Promise<number> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE user_key = ?";
+  async countByUserKey(userId: number, status: string): Promise<number> {
+    const params: unknown[] = [userId];
+    let where = "WHERE user_id = ?";
     if (status) {
       where += " AND status = ?";
       params.push(status);

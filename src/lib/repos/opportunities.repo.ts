@@ -89,10 +89,10 @@ export class OpportunitiesRepo {
   }
 
   /** 用户商机解锁流水（按解锁时间倒序） */
-  async listUnlocks(userKey: string): Promise<OpportunityUnlockRow[]> {
+  async listUnlocks(userId: number): Promise<OpportunityUnlockRow[]> {
     const [rows] = await this.pool.query(
-      "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_key = ? ORDER BY unlocked_at DESC",
-      [userKey],
+      "SELECT opportunity_id, unlock_type, unlocked_at FROM crm_opportunity_unlocks WHERE user_id = ? ORDER BY unlocked_at DESC",
+      [userId],
     );
     return rows as OpportunityUnlockRow[];
   }
@@ -155,12 +155,12 @@ export class OpportunitiesRepo {
 
   /** 已有解锁记录（幂等判定，无记录返回 null） */
   async findExistingUnlock(
-    userKey: string,
+    userId: number,
     opportunityId: number,
   ): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, unlock_type FROM crm_opportunity_unlocks WHERE user_key = ? AND opportunity_id = ? LIMIT 1",
-      [userKey, opportunityId],
+      "SELECT id, unlock_type FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
+      [userId, opportunityId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
   }

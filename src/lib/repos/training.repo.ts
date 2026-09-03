@@ -445,9 +445,9 @@ export class TrainingRepo {
   }
 
   /** 按用户查询培训订单（可选状态过滤） */
-  async findOrdersByUserKey(userKey: string, status: string): Promise<TrainingOrderRow[]> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE user_key = ?";
+  async findOrdersByUserKey(userId: number, status: string): Promise<TrainingOrderRow[]> {
+    const params: unknown[] = [userId];
+    let where = "WHERE user_id = ?";
     if (status) {
       where += " AND status = ?";
       params.push(status);
@@ -460,9 +460,9 @@ export class TrainingRepo {
   }
 
   /** 按用户统计培训订单数 */
-  async countOrdersByUserKey(userKey: string, status: string): Promise<number> {
-    const params: unknown[] = [userKey];
-    let where = "WHERE user_key = ?";
+  async countOrdersByUserKey(userId: number, status: string): Promise<number> {
+    const params: unknown[] = [userId];
+    let where = "WHERE user_id = ?";
     if (status) {
       where += " AND status = ?";
       params.push(status);
