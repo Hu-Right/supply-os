@@ -32,6 +32,10 @@ export default defineConfig({
         "src/lib/utils/normalize.ts",
         "src/lib/utils/notice-expired.ts",
         "src/lib/utils/ip.ts",
+        "src/lib/utils/fileSniff.ts",
+
+        // ── src/lib/validators — 客服输入校验 ──
+        "src/lib/validators/chat.ts",
 
         // ── src/lib/services/recommend — 纯逻辑子模块 ──
         "src/lib/services/recommend/ab-testing.ts",
@@ -62,6 +66,7 @@ export default defineConfig({
         "src/lib/services/jwt.ts",
         "src/lib/services/membership-status.ts",
         "src/lib/services/membership-upgrade.ts",
+        "src/lib/services/chatTicket.ts",
 
         // ── src/lib/services/amount — 金额解析 ──
         "src/lib/services/amount/parser.ts",
