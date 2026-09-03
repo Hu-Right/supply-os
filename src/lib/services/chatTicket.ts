@@ -12,10 +12,10 @@ import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 const TICKET_TTL_MS = 60_000;
 
 interface TicketPayload {
-  /** 用户 key */
-  u: string;
-  /** 内部用户 ID（user_id 迁移后与会话归属比对用；旧 token 可缺省） */
-  i?: number;
+  /** 内部用户 ID */
+  i: number;
+  /** 用户 key（兼容旧 token，可选） */
+  u?: string;
   /** 会话 ID */
   s: number;
   /** 过期时间（毫秒） */
@@ -36,13 +36,13 @@ function sign(data: string): string {
 
 /** 签发 ticket（明文部分为 base64url(payload).sig） */
 export function signChatTicket(
-  userKey: string,
+  userId: number,
   sessionId: number,
-  userId?: number | null,
+  userKey?: string,
 ): string {
   const payload: TicketPayload = {
-    u: userKey,
-    ...(userId != null ? { i: userId } : {}),
+    i: userId,
+    ...(userKey ? { u: userKey } : {}),
     s: sessionId,
     exp: Date.now() + TICKET_TTL_MS,
     n: randomUUID(),
@@ -73,8 +73,8 @@ function markUsed(body: string): boolean {
 }
 
 export interface VerifiedTicket {
-  userKey: string;
-  userId?: number;
+  userId: number;
+  userKey?: string;
   sessionId: number;
 }
 
@@ -99,14 +99,14 @@ export function verifyChatTicket(ticket: string): VerifiedTicket | null {
   } catch {
     return null;
   }
-  if (!payload.u || typeof payload.s !== "number" || payload.exp < Date.now()) {
+  if ((!payload.i && !payload.u) || typeof payload.s !== "number" || payload.exp < Date.now()) {
     return null;
   }
   if (!markUsed(body)) return null;
 
   return {
-    userKey: payload.u,
-    ...(payload.i != null ? { userId: payload.i } : {}),
+    userId: payload.i!,
+    ...(payload.u ? { userKey: payload.u } : {}),
     sessionId: payload.s,
   };
 }

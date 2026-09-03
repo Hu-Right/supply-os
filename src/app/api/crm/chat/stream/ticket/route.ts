@@ -13,6 +13,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { signChatTicket } from "@/lib/services/chatTicket";
+import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 import path from "path";
 import { z } from "zod";
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const limited = checkRateLimit(req, ticketLimiterConfig, () => `user:${auth.userKey}`);
+  const limited = checkRateLimit(req, ticketLimiterConfig, () => `user:${auth.userId || auth.userKey}`);
   if (limited) return limited;
 
   let body: unknown;
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
       { status: 404 },
     );
   }
-  if (session.customer_id !== auth.userKey) {
+  if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
       { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ticket: signChatTicket(auth.userKey, sessionId, auth.userId),
+    ticket: signChatTicket(auth.userId!, sessionId, auth.userKey),
     expiresIn: TICKET_TTL_SECONDS,
   });
 }

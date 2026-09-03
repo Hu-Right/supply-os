@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       { status: 401 },
     );
   }
-  const { userKey, sessionId: ticketSessionId } = verified;
+  const { userId: ticketUserId, userKey: ticketUserKey, sessionId: ticketSessionId } = verified;
 
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
   if (!sessionId) {
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   }
 
   // 权限检查：仅会话所有者可访问（user_id 为准，历史行回退 customer_id）
-  if (!sessionOwnedBy(session, { userKey, userId: verified.userId ?? null })) {
+  if (!sessionOwnedBy(session, { userKey: ticketUserKey || "", userId: ticketUserId })) {
     return Response.json(
       { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
