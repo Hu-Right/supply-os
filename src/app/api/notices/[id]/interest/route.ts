@@ -44,7 +44,7 @@ export async function POST(
         interactionRepo: new NoticeInteractionRepo(pool),
         dbPool: pool,
       },
-      { userKey, noticeId, interestType, note },
+      { userId: auth.userId!, userKey, noticeId, interestType, note },
     );
     return NextResponse.json({ success: true, interest_type: interestType }, { status: 201 });
   } catch (err) {

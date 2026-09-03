@@ -72,6 +72,7 @@ export async function performUpgradeInTransaction(
     await paymentsRepo.markEntitlementUpgradedInTransaction(conn, original.id);
     // 发放新权益：继承 quota_used（次数保留）+ started_at/expires_at（有效期追溯）
     await paymentsRepo.insertUpgradedEntitlementInTransaction(conn, {
+      userId: order.user_id!,
       userKey: order.user_key,
       orderNo: order.order_no,
       planCode: targetPlanCode,
@@ -88,6 +89,7 @@ export async function performUpgradeInTransaction(
       ? new Date(now.getTime() + Number(targetPlan.duration_days) * 86400000)
       : null;
     await paymentsRepo.insertUpgradedEntitlementInTransaction(conn, {
+      userId: order.user_id!,
       userKey: order.user_key,
       orderNo: order.order_no,
       planCode: targetPlanCode,

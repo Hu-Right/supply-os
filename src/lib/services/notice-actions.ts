@@ -94,7 +94,7 @@ export async function executeUnlock(
 
     // 插入解锁记录（唯一约束 uk_user_notice 保证原子性）
     await unlockRepo.insertUnlockInTransaction(conn, {
-      userKey, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
+      userId: userId!, userKey, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
     });
 
     // 消耗配额
@@ -111,7 +111,7 @@ export async function executeUnlock(
 
     // 事务外：更新兴趣码（非关键路径，失败不影响解锁）
     if (userKey !== "guest") {
-      await persistUserInterestCodes(dbPool, userKey, snapshot, "unlock_order", 2.50).catch(() => {});
+      await persistUserInterestCodes(dbPool, userId!, userKey, snapshot, "unlock_order", 2.50).catch(() => {});
     }
     return { alreadyUnlocked: false, unlockType };
   } catch (err: unknown) {
@@ -140,12 +140,12 @@ export interface FeedbackResult {
  */
 export async function processFeedback(
   ctx: { detailRepo: NoticeDetailRepo; feedbackRepo: NoticeFeedbackRepo; dbPool: Pool },
-  params: { userKey: string; sessionId: string; items: RecoFeedbackItem[] },
+  params: { userId: number; userKey: string; sessionId: string; items: RecoFeedbackItem[] },
 ): Promise<FeedbackResult> {
   const { detailRepo, feedbackRepo, dbPool } = ctx;
-  const { userKey, sessionId, items } = params;
+  const { userId, userKey, sessionId, items } = params;
 
-  const inserted = await feedbackRepo.insertRecoFeedback(userKey, sessionId, items);
+  const inserted = await feedbackRepo.insertRecoFeedback(userId, userKey, sessionId, items);
 
   const linkedActions = items.filter((item) =>
     ["click", "favorite", "dismiss", "dwell", "scroll_end", "quick_exit", "revisit"].includes(item.action)
@@ -158,13 +158,13 @@ export async function processFeedback(
     for (const item of linkedActions) {
       const snapshot = snapshotById.get(item.noticeId);
       if (!snapshot || snapshot.length === 0) continue;
-      if (item.action === "click") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_click", 0.3);
-      else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_favorite", 0.8);
+      if (item.action === "click") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_click", 0.3);
+      else if (item.action === "favorite") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_favorite", 0.8);
       else if (item.action === "dismiss") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.5);
       else if (item.action === "dwell" && (item.dwellMs || 0) >= 30000)
-        await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_dwell", 0.2);
-      else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_scroll_end", 0.1);
-      else if (item.action === "revisit") await persistUserInterestCodes(dbPool, userKey, snapshot, "feedback_revisit", 0.5);
+        await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_dwell", 0.2);
+      else if (item.action === "scroll_end") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_scroll_end", 0.1);
+      else if (item.action === "revisit") await persistUserInterestCodes(dbPool, userId, userKey, snapshot, "feedback_revisit", 0.5);
       else if (item.action === "quick_exit") await decayUserInterestCodes(dbPool, userKey, snapshot, 0.95);
     }
   }
@@ -175,6 +175,7 @@ export async function processFeedback(
 // ── 兴趣 ──────────────────────────────────────────────────────────────────────
 
 export interface InterestParams {
+  userId: number;
   userKey: string;
   noticeId: number;
   interestType: "interested" | "subscribed";
@@ -190,15 +191,15 @@ export async function submitInterest(
   params: InterestParams,
 ): Promise<void> {
   const { detailRepo, interactionRepo, dbPool } = ctx;
-  const { userKey, noticeId, interestType, note } = params;
+  const { userId, userKey, noticeId, interestType, note } = params;
 
   const notice = await detailRepo.findById(noticeId);
   if (!notice) throw new NoticeNotFoundError();
 
-  await interactionRepo.upsertInterest({ userKey, noticeId, interestType, note });
+  await interactionRepo.upsertInterest({ userId, userKey, noticeId, interestType, note });
   const snapshot = normalizeUnspscCodes(notice.unspsc_codes);
   await persistUserInterestCodes(
-    dbPool, userKey, snapshot,
+    dbPool, userId, userKey, snapshot,
     interestType === "subscribed" ? "subscribe_notice" : "express_interest",
     interestType === "subscribed" ? 2.0 : 1.0
   );

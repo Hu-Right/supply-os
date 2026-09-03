@@ -189,6 +189,7 @@ export class PaymentService {
       });
     } else {
       await this.repo.createOrder({
+        userId: userId!,
         userKey,
         orderNo,
         provider,

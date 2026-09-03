@@ -80,6 +80,9 @@ export function DigitalAssistant({
     restoreActiveSession,
     handleSessionTimeout,
     handleConnectionLost,
+    pendingRating,
+    submitRating,
+    skipRating,
   } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
 
   // SSE 回调：收到远端消息时追加到对话流 + 通知提示
@@ -279,6 +282,9 @@ export function DigitalAssistant({
               onSend={sendMessage}
               onQuickAction={triggerQuickAction}
               queueInfo={queueInfo}
+              pendingRating={pendingRating}
+              onSubmitRating={submitRating}
+              onSkipRating={skipRating}
               matchPhase={matchPhase}
               matchReport={matchReport}
               suppliers={suppliers}

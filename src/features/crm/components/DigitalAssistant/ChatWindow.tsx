@@ -225,45 +225,131 @@ export function ChatWindow({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* ── 消息列表区 ── */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-thin"
-      >
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
-        ))}
+      {/* ── 历史会话列表（P1） ── */}
+      {historyView === "list" && (
+        <div className="flex-1 overflow-y-auto px-4 py-3 scrollbar-thin">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-slate-700">{t("crmAssistantHistory")}</p>
+            <button
+              type="button"
+              onClick={() => setHistoryView("none")}
+              className="flex items-center gap-1 text-3xs text-slate-400 hover:text-teal-600"
+            >
+              <ArrowLeft className="w-3 h-3" /> {t("crmAssistantHistoryBack")}
+            </button>
+          </div>
+          {historyLoading && <p className="text-3xs text-slate-400 py-4 text-center">…</p>}
+          {!historyLoading && historySessions.length === 0 && (
+            <p className="text-3xs text-slate-400 py-6 text-center">{t("crmAssistantHistoryEmpty")}</p>
+          )}
+          <div className="space-y-2">
+            {historySessions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => viewTranscript(item)}
+                className="w-full text-start px-3 py-2.5 rounded-lg border border-slate-200
+                  hover:border-teal-400 hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-3xs text-slate-500">{historyDate(item)}</span>
+                  {item.satisfaction != null && (
+                    <span className="text-3xs text-amber-500 font-semibold">
+                      {"★".repeat(item.satisfaction)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-700 truncate">
+                  {item.last_message ? item.last_message.slice(0, 60) : t("crmAssistantHistoryEmpty")}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-        {/* ── AI 撮合选择器（内联在消息流中） ── */}
-        {(matchPhase === "selecting" || matchPhase === "matching") && (
-          <MatchSelector
-            suppliers={suppliers}
-            opportunities={opportunities}
-            selectedSupplier={matchSupplier}
-            selectedOpportunity={matchOpportunity}
-            isMatching={matchPhase === "matching"}
-            onSelectSupplier={onSetMatchSupplier}
-            onSelectOpportunity={onSetMatchOpportunity}
-            onTrigger={onTriggerMatch}
-            t={t}
-          />
-        )}
+      {/* ── 历史会话回放（只读，P1） ── */}
+      {historyView === "transcript" && (
+        <>
+          <div className="px-4 py-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <span className="text-3xs text-slate-500">{t("crmAssistantHistoryReadonly")}</span>
+            <button
+              type="button"
+              onClick={() => setHistoryView("list")}
+              className="flex items-center gap-1 text-3xs text-slate-400 hover:text-teal-600"
+            >
+              <ArrowLeft className="w-3 h-3" /> {t("crmAssistantHistoryBack")}
+            </button>
+          </div>
+          <div ref={transcriptScrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-thin">
+            {transcriptLoading && <p className="text-3xs text-slate-400 py-4 text-center">…</p>}
+            {transcript?.map((msg) => <MessageBubble key={msg.id} message={msg} />)}
+          </div>
+        </>
+      )}
 
-        {/* ── AI 撮合报告卡片 ── */}
-        {matchPhase === "done" && matchReport && matchSupplier && matchOpportunity && (
-          <MatchReportCard
-            report={matchReport}
-            supplierName={matchSupplier.nameZh || matchSupplier.nameEn}
-            opportunityName={matchOpportunity.titleZh || matchOpportunity.titleEn}
-            t={t}
-          />
-        )}
+      {/* ── 正常聊天：消息列表区 ── */}
+      {historyView === "none" && (
+        <>
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-1 scrollbar-thin"
+          >
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} />
+            ))}
 
-        {/* AI 正在思考指示器 */}
-        {isThinking && matchPhase !== "matching" && <TypingIndicator />}
-      </div>
+            {/* ── AI 撮合选择器（内联在消息流中） ── */}
+            {(matchPhase === "selecting" || matchPhase === "matching") && (
+              <MatchSelector
+                suppliers={suppliers}
+                opportunities={opportunities}
+                selectedSupplier={matchSupplier}
+                selectedOpportunity={matchOpportunity}
+                isMatching={matchPhase === "matching"}
+                onSelectSupplier={onSetMatchSupplier}
+                onSelectOpportunity={onSetMatchOpportunity}
+                onTrigger={onTriggerMatch}
+                t={t}
+              />
+            )}
+
+            {/* ── AI 撮合报告卡片 ── */}
+            {matchPhase === "done" && matchReport && matchSupplier && matchOpportunity && (
+              <MatchReportCard
+                report={matchReport}
+                supplierName={matchSupplier.nameZh || matchSupplier.nameEn}
+                opportunityName={matchOpportunity.titleZh || matchOpportunity.titleEn}
+                t={t}
+              />
+            )}
+
+            {/* AI 正在思考指示器 */}
+            {isThinking && matchPhase !== "matching" && <TypingIndicator />}
+          </div>
+
+          {/* 历史会话入口（仅 AI 空闲态，P1） */}
+          {mode === "ai" && pendingRating == null && !isThinking && (
+            <div className="px-4 pb-1 flex justify-end">
+              <button
+                type="button"
+                onClick={openHistory}
+                className="flex items-center gap-1 text-3xs text-slate-400 hover:text-teal-600"
+              >
+                <History className="w-3 h-3" /> {t("crmAssistantHistory")}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── 评分卡片（人工会话结束后，P1） ── */}
+      {historyView === "none" && pendingRating != null && (
+        <RatingCard onSubmit={onSubmitRating} onSkip={onSkipRating} />
+      )}
 
       {/* ── 快捷操作（仅 AI 模式显示） ── */}
-      {mode === "ai" && (
+      {historyView === "none" && mode === "ai" && pendingRating == null && (
         <QuickActions
           t={t}
           onAction={onQuickAction}
@@ -272,7 +358,7 @@ export function ChatWindow({
       )}
 
       {/* ── 等待人工接入提示（含实时排队信息，P1） ── */}
-      {mode === "waiting" && (
+      {historyView === "none" && mode === "waiting" && (
         <div className="px-4 py-3 bg-amber-50 border-t border-amber-200">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -295,7 +381,7 @@ export function ChatWindow({
       {/* ── 输入框 ── */}
       <form
         onSubmit={handleSubmit}
-        className="p-4 border-t border-slate-200 bg-white"
+        className={`p-4 border-t border-slate-200 bg-white ${historyView !== "none" || pendingRating != null ? "hidden" : ""}`}
       >
         {/* 上传失败提示 */}
         {uploadError && (

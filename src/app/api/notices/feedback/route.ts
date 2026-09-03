@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       feedbackRepo: new NoticeFeedbackRepo(pool),
       dbPool: pool,
     },
-    { userKey, sessionId, items },
+    { userId: auth.userId!, userKey, sessionId, items },
   );
   return NextResponse.json({ success: true, ...result }, { status: 201 });
 }

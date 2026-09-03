@@ -44,6 +44,7 @@ export async function fulfillMockPayment(
       // 由 LearningPaymentService.fulfillMockOrder 独立履约。
 
       await payments.insertEntitlementInTransaction(conn, {
+        userId: order.user_id!,
         userKey: order.user_key,
         orderNo: params.orderNo,
         planCode: order.plan_code,
@@ -51,11 +52,11 @@ export async function fulfillMockPayment(
         durationDays: plan.duration_days ?? null,
       });
       if (plan.plan_type !== "single") {
-        await payments.createSubscriptionInTransaction(conn, order.user_key, order.plan_code, plan.duration_days ?? null);
+        await payments.createSubscriptionInTransaction(conn, order.user_id!, order.user_key, order.plan_code, plan.duration_days ?? null);
         await payments.promoteToVipInTransaction(conn, order.user_key);
       }
       if (order.notice_id) {
-        await payments.upsertNoticeInterestInTransaction(conn, order.user_key, order.notice_id);
+        await payments.upsertNoticeInterestInTransaction(conn, order.user_id!, order.user_key, order.notice_id);
       }
       await conn.commit();
     } catch (err) {

@@ -133,7 +133,7 @@ export async function executeOpportunityUnlock(
     // 事务外：兴趣码（非关键路径）
     if (userKey !== "guest") {
       try {
-        await persistUserInterestCodes(dbPool, userKey, JSON.parse(snapshotJson), "unlock_order", 2.5);
+        await persistUserInterestCodes(dbPool, userId!, userKey, JSON.parse(snapshotJson), "unlock_order", 2.5);
       } catch { /* 忽略 */ }
     }
     return { alreadyUnlocked: false, unlockType };
