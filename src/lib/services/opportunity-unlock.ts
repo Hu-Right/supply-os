@@ -55,8 +55,8 @@ export async function executeOpportunityUnlock(
 
     // 事务内复查（并发请求可能已通过快速路径）
     const [existingRows] = await conn.query(
-      "SELECT id FROM crm_opportunity_unlocks WHERE user_key = ? AND opportunity_id = ? LIMIT 1",
-      [userKey, opportunityId],
+      "SELECT id FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
+      [userId!, opportunityId],
     );
     if ((existingRows as unknown[]).length > 0) {
       await conn.commit();
@@ -75,11 +75,11 @@ export async function executeOpportunityUnlock(
       const [entRows] = await conn.query(
         `SELECT id, plan_code, quota_total, quota_used
          FROM crm_user_entitlements
-         WHERE user_key = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
+         WHERE user_id = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
            AND (expires_at IS NULL OR expires_at > NOW())
          ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
          FOR UPDATE`,
-        [userKey],
+        [userId!],
       );
       const ent = (entRows as Array<{ id: number }>)[0];
       if (ent) {
@@ -88,9 +88,9 @@ export async function executeOpportunityUnlock(
         // 与公告解锁一致：subscription 兼容活跃订阅（有有效订阅即放行）
         const [subRows] = await conn.query(
           `SELECT id FROM crm_user_subscriptions
-           WHERE user_key = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
+           WHERE user_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
            LIMIT 1`,
-          [userKey],
+          [userId!],
         );
         if ((subRows as unknown[]).length === 0) {
           await conn.rollback();
