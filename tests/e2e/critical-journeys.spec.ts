@@ -17,6 +17,8 @@ import { test, expect, type Page } from "@playwright/test";
 const TEST_BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const VIP_USER = "e2e-vip@test.com";
 const FREE_USER = "e2e-free@test.com";
+// E2E 账号口令来自环境变量（种子账号由 scripts/seed-test-db.ts 创建）
+const E2E_TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "test-password";
 
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +27,7 @@ async function loginAs(page: Page, email: string): Promise<void> {
   await page.goto(`${TEST_BASE_URL}/api/auth/login`, { waitUntil: "networkidle" });
   // 通过 API 直接获取 token（E2E 测试专用快捷方式）
   const response = await page.request.post(`${TEST_BASE_URL}/api/auth/login`, {
-    data: { email, password: "test-password" },
+    data: { email, password: E2E_TEST_PASSWORD },
   });
   if (response.ok()) {
     const data = await response.json();
@@ -44,11 +46,13 @@ test.describe("供应商目录旅程", () => {
   test("查看供应商列表 → 搜索过滤", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/supplier`);
 
-    // 验证页面加载成功（供应商列表区域可见）
-    await expect(page.locator("text=供应商").first()).toBeVisible({ timeout: 10_000 });
+    // 验证页面加载成功：锁定主内容区（role 语义 + 作用域内断言），
+    // 避免命中移动端折叠导航中的隐藏链接、且不受渲染语言影响
+    const mainContent = page.getByRole("main");
+    await expect(mainContent).toBeVisible({ timeout: 10_000 });
 
-    // 验证筛选控件存在
-    const searchInput = page.locator('input[type="text"]').first();
+    // 验证筛选控件存在（主内容区内的搜索输入框）
+    const searchInput = mainContent.locator('input[type="text"], input[type="search"]').first();
     await expect(searchInput).toBeVisible();
   });
 

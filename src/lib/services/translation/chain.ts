@@ -162,6 +162,14 @@ async function translateViaDeepSeekOnce(
   const targetName = CHAIN_LANG_NAMES[targetLang];
   if (!channelConfigured(apiKey) || !targetName) throw new Error("CHANNEL_SKIPPED");
   const baseUrl = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "");
+  // env 派生出站地址 fail-fast 校验：仅允许 https 公网主机（拒绝环回/私有/保留段）
+  if (
+    !/^https:\/\/(?!localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)[a-zA-Z0-9.-]+(:\d+)?$/.test(
+      baseUrl,
+    )
+  ) {
+    throw new Error("CHANNEL_URL_BLOCKED");
+  }
   const prompt = `You are a procurement text translator. Translate each text below into ${targetName}.
 Rules:
 - Preserve ⟦Tn⟧ placeholders exactly as-is

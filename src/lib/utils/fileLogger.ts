@@ -48,7 +48,8 @@ function timestamp(): string {
 
 function logToFile(filename: string, line: string) {
   ensureLogDir();
-  const filePath = path.join(LOG_DIR, filename);
+  // basename 防路径穿越：filename 仅允许 LOG_DIR 下的平铺文件名
+  const filePath = path.join(LOG_DIR, path.basename(filename));
   fs.appendFileSync(filePath, line + "\n", "utf-8");
 }
 

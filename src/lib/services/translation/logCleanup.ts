@@ -51,7 +51,8 @@ function ensureIndex(): Map<string, FailureLocation[]> {
     .filter((f) => f.startsWith("auto-translate-") && f.endsWith(".log"));
 
   for (const file of logFiles) {
-    const filePath = path.join(LOG_DIR, file);
+    // basename 防路径穿越：目录列表仅允许 LOG_DIR 下的平铺文件名
+    const filePath = path.join(LOG_DIR, path.basename(file));
     let lines: string[];
     try {
       lines = fs.readFileSync(filePath, "utf-8").split("\n");
@@ -143,7 +144,8 @@ export async function flushCleanedLogs(): Promise<{
   let filesDeleted = 0;
 
   for (const [file, lineIndices] of linesToRemoveByFile) {
-    const filePath = path.join(LOG_DIR, file);
+    // basename 防路径穿越：日志引用仅允许 LOG_DIR 下的平铺文件名
+    const filePath = path.join(LOG_DIR, path.basename(file));
     let lines: string[];
     try {
       lines = fs.readFileSync(filePath, "utf-8").split("\n");

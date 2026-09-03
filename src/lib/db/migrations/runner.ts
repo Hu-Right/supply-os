@@ -18,13 +18,9 @@ export interface Migration {
 
 /** 确保迁移追踪表存在 */
 async function ensureMigrationsTable(dbPool: Pool): Promise<void> {
-  await dbPool.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INT UNSIGNED NOT NULL PRIMARY KEY,
-      name VARCHAR(120) NOT NULL,
-      applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-  `);
+  await dbPool.query(
+    "CREATE TABLE IF NOT EXISTS schema_migrations (version INT UNSIGNED NOT NULL PRIMARY KEY, name VARCHAR(120) NOT NULL, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+  );
 }
 
 /** 获取已应用的迁移版本号集合 */
@@ -110,9 +106,21 @@ function assertValidIdentifier(name: string, label: string): void {
   }
 }
 
+/**
+ * 校验 DDL 片段（列/索引定义）：阻断语句分隔符与注释注入向量。
+ * 片段本身是开发者编写的 SQL 语法（非数据），故采用危险字符阻断而非白名单；
+ * 中文 COMMENT、括号、引号等合法 DDL 字符不受影响。
+ */
+function assertSafeDdlFragment(ddl: string, label: string): void {
+  if (/[;`]/.test(ddl) || /--/.test(ddl) || /\/\*/.test(ddl)) {
+    throw new Error(`Unsafe DDL fragment for ${label}: ${ddl.slice(0, 60)}`);
+  }
+}
+
 export async function ensureColumn(dbPool: Pool, table: string, column: string, ddl: string) {
   assertValidIdentifier(table, "table");
   assertValidIdentifier(column, "column");
+  assertSafeDdlFragment(ddl, "ddl");
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
      FROM INFORMATION_SCHEMA.COLUMNS
@@ -142,6 +150,7 @@ export async function ensureColumnType(dbPool: Pool, table: string, column: stri
 export async function ensureIndex(dbPool: Pool, table: string, indexName: string, ddl: string) {
   assertValidIdentifier(table, "table");
   assertValidIdentifier(indexName, "index");
+  assertSafeDdlFragment(ddl, "ddl");
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total
      FROM INFORMATION_SCHEMA.STATISTICS

@@ -17,6 +17,7 @@
  */
 import mysql2 from "mysql2/promise";
 import { runMigrations, type Migration } from "../src/lib/db/migrations/runner.js";
+import { DbConfigSchema } from "../src/lib/db/db-config.js";
 import { migration as m001 } from "../src/lib/db/migrations/001-core-tables.js";
 import { migration as m002 } from "../src/lib/db/migrations/002-membership-payment.js";
 import { migration as m003 } from "../src/lib/db/migrations/003-notice-interactions.js";
@@ -62,18 +63,29 @@ const DB_HOST = process.env.MYSQL_HOST || "127.0.0.1";
 const DB_PORT = Number(process.env.MYSQL_PORT || 3306);
 const DB_USER = process.env.MYSQL_USER || "root";
 const DB_PASSWORD = process.env.MYSQL_PASSWORD || "";
+// fail-fast：env 派生连接配置经 zod 运行时校验后才建池（净化解直连 createConnection/createPool）
+const DB_CFG = DbConfigSchema.parse({
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: process.env.MYSQL_DATABASE || "supply_os_test",
+});
 const DB_NAME = process.env.MYSQL_DATABASE || "supply_os_test";
 
 async function main() {
   console.log(`[seed-test-db] 连接 MySQL ${DB_HOST}:${DB_PORT} ...`);
 
   // 1. 先不带 database 连接，创建测试库
+  // 校验库名：CREATE DATABASE 的标识符无法参数化，仅允许安全字符集
+  if (!/^[A-Za-z0-9_]+$/.test(DB_NAME)) {
+    throw new Error(`[seed-test-db] 非法数据库名: ${DB_NAME}`);
+  }
   const bootstrap = await mysql2.createConnection({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: DB_USER,
-    password: DB_PASSWORD,
-    multipleStatements: true,
+    host: DB_CFG.host,
+    port: DB_CFG.port,
+    user: DB_CFG.user,
+    password: DB_CFG.password,
   });
 
   await bootstrap.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
@@ -82,11 +94,11 @@ async function main() {
 
   // 2. 连接到测试库
   const pool = mysql2.createPool({
-    host: DB_HOST,
-    port: DB_PORT,
-    user: DB_USER,
-    password: DB_PASSWORD,
-    database: DB_NAME,
+    host: DB_CFG.host,
+    port: DB_CFG.port,
+    user: DB_CFG.user,
+    password: DB_CFG.password,
+    database: DB_CFG.database,
     waitForConnections: true,
     connectionLimit: 5,
   });
@@ -122,15 +134,15 @@ async function seedMembershipPlans(pool: mysql2.Pool) {
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
-  await pool.execute(`
-    INSERT IGNORE INTO crm_membership_plans
-      (plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, sort_order, is_active)
-    VALUES
-      ('free', '基础体验版', '免费注册', 0, 'CNY', NULL, 3, 3, 'free', 1, 0),
-      ('single_199', '单次解锁卡', '单次解锁', 199, 'CNY', NULL, 1, 0, 'single', 101, 1),
-      ('annual_799', '标讯个人会员', '个人年度会员', 799, 'CNY', 365, 100, 0, 'bundle', 102, 0),
-      ('annual_8800', '标讯企业会员-基础版', '企业基础版', 8800, 'CNY', 365, 365, 0, 'subscription', 103, 0)
-  `);
+  // 全参数化：11 列 × 4 行占位符，值经 execute 参数数组传入
+  await pool.execute(
+    "INSERT IGNORE INTO crm_membership_plans (plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [
+    "free", "基础体验版", "免费注册", 0, "CNY", null, 3, 3, "free", 1, 0,
+    "single_199", "单次解锁卡", "单次解锁", 199, "CNY", null, 1, 0, "single", 101, 1,
+    "annual_799", "标讯个人会员", "个人年度会员", 799, "CNY", 365, 100, 0, "bundle", 102, 0,
+    "annual_8800", "标讯企业会员-基础版", "企业基础版", 8800, "CNY", 365, 365, 0, "subscription", 103, 0,
+  ]);
   console.log("[seed-test-db] 会员计划种子数据写入完成");
 }
 
@@ -139,22 +151,21 @@ async function seedFooterLinks(pool: mysql2.Pool) {
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
-  await pool.execute(`
-    INSERT IGNORE INTO link (name, url, icon, sort_order, status)
-    VALUES
-      ('Instagram', 'https://www.instagram.com', 'instagram', 1, 1),
-      ('Facebook', 'https://www.facebook.com', 'facebook', 2, 1),
-      ('WhatsApp', 'https://www.whatsapp.com', 'whatsapp', 3, 1)
-  `);
+  await pool.execute(
+    "INSERT IGNORE INTO link (name, url, icon, sort_order, status) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)",
+    [
+    "Instagram", "https://www.instagram.com", "instagram", 1, 1,
+    "Facebook", "https://www.facebook.com", "facebook", 2, 1,
+    "WhatsApp", "https://www.whatsapp.com", "whatsapp", 3, 1,
+  ]);
   console.log("[seed-test-db] 底部链接种子数据写入完成");
 }
 
 async function seedE2EUsers(pool: mysql2.Pool) {
   // 创建 E2E 测试用 VIP 用户（已付费，有解锁额度）
-  await pool.execute(`
-    INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, vip_expires_at, unlock_quota, unlock_used)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, [
+  await pool.execute(
+    "INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, vip_expires_at, unlock_quota, unlock_used) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    [
     "e2e-vip@test.com",
     "e2e-vip@test.com",
     "E2E VIP User",
@@ -166,10 +177,9 @@ async function seedE2EUsers(pool: mysql2.Pool) {
   ]);
 
   // 创建 E2E 测试用免费用户
-  await pool.execute(`
-    INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, unlock_quota, unlock_used)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `, [
+  await pool.execute(
+    "INSERT IGNORE INTO crm_users (user_key, email, name, role, is_vip, unlock_quota, unlock_used) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [
     "e2e-free@test.com",
     "e2e-free@test.com",
     "E2E Free User",
@@ -187,17 +197,10 @@ async function seedTestNotices(pool: mysql2.Pool) {
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
-  // 插入 5 条测试采购公告（覆盖不同类型和国家）
-  await pool.execute(`
-    INSERT IGNORE INTO crm_bid_notices
-      (reference_no, title, notice_type, country, agency, deadline_sec, description, created_at)
-    VALUES
-      (?, ?, ?, ?, ?, ?, ?, NOW()),
-      (?, ?, ?, ?, ?, ?, ?, NOW()),
-      (?, ?, ?, ?, ?, ?, ?, NOW()),
-      (?, ?, ?, ?, ?, ?, ?, NOW()),
-      (?, ?, ?, ?, ?, ?, ?, NOW())
-  `, [
+  // 插入 5 条测试采购公告（覆盖不同类型和国家），35 个占位符全参数化
+  await pool.execute(
+    "INSERT IGNORE INTO crm_bid_notices (reference_no, title, notice_type, country, agency, deadline_sec, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW()), (?, ?, ?, ?, ?, ?, ?, NOW())",
+    [
     "REF-TEST-001", "Construction of School Buildings - UNICEF", "ITB", "China", "UNICEF", 0, "Test notice for E2E", 
     "REF-TEST-002", "Supply of Medical Equipment - WHO", "RFQ", "Brazil", "WHO", 0, "Test notice for E2E",
     "REF-TEST-003", "IT Services Contract - UNDP", "RFP", "India", "UNDP", 0, "Test notice for E2E",
@@ -212,10 +215,9 @@ async function seedTestSuppliers(pool: mysql2.Pool) {
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
-  await pool.execute(`
-    INSERT IGNORE INTO crm_suppliers (user_key, company_name, country, industry, status, created_at)
-    VALUES (?, ?, ?, ?, ?, NOW())
-  `, [
+  await pool.execute(
+    "INSERT IGNORE INTO crm_suppliers (user_key, company_name, country, industry, status, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
+    [
     "e2e-vip@test.com",
     "E2E Test Supplier Co.",
     "China",

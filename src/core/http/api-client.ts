@@ -127,7 +127,8 @@ async function tryRefreshToken(): Promise<string | null> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      // 刷新端点恒为同源相对路径（credentials: same-origin 语义要求），避免任何绝对 URL 拼接
+      const res = await fetch("/api/auth/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin", // B2【P1】携带 HttpOnly Refresh Token Cookie

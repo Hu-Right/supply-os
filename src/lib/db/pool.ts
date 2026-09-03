@@ -9,15 +9,22 @@
 import "server-only";
 import mysql2 from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
+import { DbConfigSchema } from "./db-config";
 
 const globalForDb = globalThis as unknown as { _pool: Pool | undefined };
 
 export function getPool(): Pool {
   if (globalForDb._pool) return globalForDb._pool;
 
-  const dbUser = process.env.DB_USER || "root";
-  const dbPassword = process.env.DB_PASSWORD || "";
-  if (process.env.NODE_ENV === "production" && (!dbPassword || dbUser === "root")) {
+  // fail-fast：env 派生配置经 zod 运行时校验后才进入连接池（净化解直连 createPool）
+  const cfg = DbConfigSchema.parse({
+    host: process.env.DB_HOST || "127.0.0.1",
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASSWORD || "",
+    database: process.env.DB_NAME || "crm",
+  });
+  if (process.env.NODE_ENV === "production" && (!cfg.password || cfg.user === "root")) {
     console.warn(
       "\n╔══════════════════════════════════════════════════════════════╗\n" +
         "║  [db-pool] ✗ 安全警告：生产环境数据库使用默认凭据！          ║\n" +
@@ -27,11 +34,11 @@ export function getPool(): Pool {
   }
 
   const pool = mysql2.createPool({
-    host: process.env.DB_HOST || "127.0.0.1",
-    port: Number(process.env.DB_PORT || 3306),
-    user: dbUser,
-    password: dbPassword,
-    database: process.env.DB_NAME || "crm",
+    host: cfg.host,
+    port: cfg.port,
+    user: cfg.user,
+    password: cfg.password,
+    database: cfg.database,
     waitForConnections: true,
     connectionLimit: Number(process.env.DB_POOL_LIMIT || 20),
     enableKeepAlive: true,

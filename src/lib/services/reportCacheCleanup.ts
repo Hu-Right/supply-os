@@ -41,9 +41,7 @@ export async function clearReportCache(dir = reportCacheDir()): Promise<number> 
   return results.reduce<number>((sum, n) => sum + n, 0);
 }
 
-/** 过期判定：deadline_sec 生成列已过去 90 天以上 */
-const EXPIRED_90D_SQL =
-  "n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400";
+/** 过期判定条件（两条 DELETE 的 WHERE 子句共用同一字面量，纯静态无插值） */
 
 /**
  * 删除已过期 90 天以上的公告/精选译文缓存行（源数据不动）。
@@ -53,14 +51,10 @@ export async function clearExpiredTranslations(
   dbPool: Pool
 ): Promise<{ notices: number; opportunities: number }> {
   const [noticeResult] = await dbPool.query(
-    `DELETE t FROM crm_notice_translations t
-     JOIN crm_bid_notices n ON n.id = t.notice_id
-     WHERE n.deadline_sec > 0 AND ${EXPIRED_90D_SQL}`
+    "DELETE t FROM crm_notice_translations t JOIN crm_bid_notices n ON n.id = t.notice_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
   );
   const [oppResult] = await dbPool.query(
-    `DELETE t FROM crm_opportunity_translations t
-     JOIN crm_bid_opportunities n ON n.id = t.opportunity_id
-     WHERE n.deadline_sec > 0 AND ${EXPIRED_90D_SQL}`
+    "DELETE t FROM crm_opportunity_translations t JOIN crm_bid_opportunities n ON n.id = t.opportunity_id WHERE n.deadline_sec > 0 AND n.deadline_sec < UNIX_TIMESTAMP(NOW()) - 90 * 86400"
   );
   return {
     notices: (noticeResult as RowDataPacket).affectedRows ?? 0,

@@ -87,7 +87,13 @@ export async function POST(req: NextRequest) {
     contact: body.contactPerson,
     email: body.contactEmail,
   });
-  const requestHash = crypto.createHash("md5").update(hashPayload).digest("hex");
+  // 防重哈希：sha256 截断 32 位十六进制（128 位），与外部 CRM crm_suppliers.request_hash
+  // 的既有列宽（32）兼容；防重窗口 24h，非对抗性场景，截断不构成安全弱化
+  const requestHash = crypto
+    .createHash("sha256")
+    .update(hashPayload)
+    .digest("hex")
+    .slice(0, 32);
 
   // 防重：同哈希 24h 内不重复提交
   const existing = await registrationRepo.findCrmByRequestHash(requestHash);

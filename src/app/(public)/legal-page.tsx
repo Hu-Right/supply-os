@@ -14,7 +14,12 @@ interface LegalPageProps {
 }
 
 export function LegalPageContent({ filename }: LegalPageProps) {
-  const filePath = path.join(process.cwd(), "public", "legal", filename);
+  // 允许清单校验 + basename：filename 仅允许 legal 目录下的平铺 .txt 文档名
+  const safeName = path.basename(filename);
+  if (!/^[a-z0-9-]+\.txt$/.test(safeName)) {
+    throw new Error(`非法的法律文档文件名: ${filename}`);
+  }
+  const filePath = path.join(process.cwd(), "public", "legal", safeName);
   const raw = fs.readFileSync(filePath, "utf-8");
 
   // 截断：去掉"法律依据与版本说明"之后的内部参考内容
@@ -36,7 +41,7 @@ export function LegalPageContent({ filename }: LegalPageProps) {
     if (trimmed === "// This is the omitted part") continue;
 
     // 章节标题：以数字+点开头（如 "1." "3.1" "七、"）
-    const isHeading = /^\d+[\.\、]/.test(trimmed) || /^[一二三四五六七八九十]+[\、]/.test(trimmed);
+    const isHeading = /^\d+[.、]/.test(trimmed) || /^[一二三四五六七八九十]+[、]/.test(trimmed);
 
     if (isHeading) {
       elements.push(

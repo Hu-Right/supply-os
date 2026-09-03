@@ -21,9 +21,8 @@ describe("normalizePem", () => {
 });
 
 describe("isParseablePrivateKey", () => {
-  it("真实 RSA 私钥 → true", () => {
-    const { privateKey } = crypto.generateKeyPairSync("rsa", {
-      modulusLength: 2048,
+  it("真实 Ed25519 私钥 → true", () => {
+    const { privateKey } = crypto.generateKeyPairSync("ed25519", {
       publicKeyEncoding: { type: "spki", format: "pem" },
       privateKeyEncoding: { type: "pkcs8", format: "pem" },
     });
@@ -37,9 +36,8 @@ describe("isParseablePrivateKey", () => {
 });
 
 describe("isParseablePublicKey", () => {
-  it("真实 RSA 公钥 → true", () => {
-    const { publicKey } = crypto.generateKeyPairSync("rsa", {
-      modulusLength: 2048,
+  it("真实 Ed25519 公钥 → true", () => {
+    const { publicKey } = crypto.generateKeyPairSync("ed25519", {
       publicKeyEncoding: { type: "spki", format: "pem" },
       privateKeyEncoding: { type: "pkcs8", format: "pem" },
     });

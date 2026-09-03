@@ -62,7 +62,7 @@ export class LearningPaymentService {
 
     // ── 服务端权威定价（审查 F2）──
     let amount: number;
-    let planName = planCode;
+    let planName: string;
 
     if (planCode.startsWith("material_")) {
       const materialId = planCode.slice("material_".length);

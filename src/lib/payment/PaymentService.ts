@@ -78,8 +78,8 @@ export class PaymentService {
     // 请求体中的 amount / bundle_items 不参与定价，仅作展示参考
     const isLearningOrder = planCode.startsWith("material_") || planCode.startsWith("bundle_");
     let amount: number;
-    let planName = planCode;
-    let currency = "CNY";
+    let planName: string;
+    let currency: string;
     let originalOrderNo: string | null = null;
     let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
     let deductionSnapshot: { source_order_no: string; source_amount: number; base_price: number } | null = null;
