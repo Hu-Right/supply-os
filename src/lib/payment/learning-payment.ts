@@ -278,8 +278,8 @@ export class LearningPaymentService {
 
       // 删除购买记录
       await conn.execute(
-        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_key = ?",
-        [orderNo, order.user_key],
+        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_id = ?",
+        [orderNo, order.user_id],
       );
 
       await conn.commit();

@@ -73,7 +73,7 @@ export async function reverseFulfilledOrder(
       // 升级订单承接链复杂（补差价/次数保留/有效期追溯），不自动回滚：
       // 订单已标记 refunded，权益保留并告警转人工核处
       console.error(
-        `[refund] 升级订单退款需人工核处: order_no=${orderNo}, user_key=${order.user_key}`,
+        `[refund] 升级订单退款需人工核处: order_no=${orderNo}, user_id=${order.user_id}`,
       );
     } else {
       await conn.execute(
@@ -88,13 +88,13 @@ export async function reverseFulfilledOrder(
       // 无其他活跃订阅则降级会员等级
       await conn.execute(
         `UPDATE crm_users u SET u.membership_tier = 'free'
-         WHERE u.user_key = ?
+         WHERE u.id = ?
            AND NOT EXISTS (
              SELECT 1 FROM crm_user_subscriptions s
              WHERE s.user_id = u.id AND s.status = 'active'
                AND (s.expires_at IS NULL OR s.expires_at > NOW())
            )`,
-        [order.user_key],
+        [order.user_id],
       );
     }
 
