@@ -11,6 +11,7 @@ import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
+import { toast } from "sonner";
 import { FAQS } from "@/data";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
@@ -36,11 +37,16 @@ export default function LearningPage() {
         url = data.fileUrl;
         name = data.fileName || name;
       } catch {
+        // 付费资料获取失败必须可见（E2）：此前仅 console 静默，用户无感知
         console.error("[learning] 获取下载地址失败");
+        toast.error("获取下载地址失败，请稍后重试或联系客服");
         return;
       }
     }
-    if (!url) return;
+    if (!url) {
+      toast.error("该资料暂无可下载文件，请稍后重试或联系客服");
+      return;
+    }
     const a = document.createElement("a");
     a.href = url;
     a.download = name;

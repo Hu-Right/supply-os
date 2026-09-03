@@ -38,8 +38,6 @@ export type { ModalProps } from "./Modal";
 export { FormModal } from "./FormModal";
 export type { FormModalProps } from "./FormModal";
 
-export { useScrollLock } from "./useScrollLock";
-
 export { Badge } from "./Badge";
 export type { BadgeProps } from "./Badge";
 
@@ -52,9 +50,6 @@ export type { EmptyStateProps } from "./EmptyState";
 export { Spinner } from "./Spinner";
 export type { SpinnerProps } from "./Spinner";
 
-export { SearchInput } from "./SearchInput";
-export type { SearchInputProps } from "./SearchInput";
-
 export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 
@@ -63,9 +58,6 @@ export type { PaginationProps, PaginationLabels } from "./Pagination";
 
 export { ListPage } from "./ListPage";
 export type { ListPageProps } from "./ListPage";
-
-export { DataTable } from "./DataTable";
-export type { DataTableProps } from "./DataTable";
 
 export { Combobox } from "./Combobox";
 export type { ComboboxProps, ComboboxItem } from "./Combobox";

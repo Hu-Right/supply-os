@@ -109,6 +109,19 @@ function matchUnspsc(mainProduct: string): UnspscMapping[] {
 
 // ── 主函数 ──
 
+/**
+ * 生成完整的企业国际公采能力诊断报告。
+ *
+ * 输入 14 字段企业信息 + 10 维度评分结果（scoring 引擎产物），
+ * 纯函数推导出 12 章节诊断报告数据：综合评分与等级、优势项、资质清单与缺口
+ * （国际认证识别）、UNSPSC 产品映射（精确/待确认分级）、海外布局、
+ * 服务能力矩阵、风险清单（含优先级）、KPI 建议与 3 阶段路线图。
+ *
+ * @param input 资质评估表单的原始输入（14 字段）
+ * @param scoring 评分引擎结果（scoring/index 的 10 维度加权输出）
+ * @param id 评估记录 ID（写入报告元信息，可选）
+ * @param assessDate 评估日期（默认当天，ISO yyyy-MM-dd）
+ */
 export function generateDiagnosticReport(input: QualificationScoreInput, scoring: ScoringResult, id?: number, assessDate?: string): DiagnosticReport {
   const date = assessDate || new Date().toISOString().slice(0, 10);
   const certCount = input.certifications.length;

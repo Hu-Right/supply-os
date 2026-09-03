@@ -64,6 +64,19 @@ export class PaymentService {
     return strategy;
   }
 
+  /**
+   * 创建支付订单（服务端权威定价）。
+   *
+   * 编排：学习类 plan_code 拒绝并委托 LearningPaymentService → 服务端定价
+   * （金额一律取 DB/套餐配置，请求体 amount 不参与定价，审查 F2）→
+   * single_99 首单特惠资格（曾购含 pending 即 409，产品决策 2026-08-30）→
+   * 升级差价计算与快照（审查 F23）→ 首单抵扣（annual_799，799-99=700）→
+   * 生成订单号 + 渠道支付链接 + 落库（pending）。
+   *
+   * @throws SINGLE_FIRST_PURCHASE_ONLY / UPGRADE_NOT_SUPPORTED /
+   *         NO_ACTIVE_PLAN_TO_UPGRADE / ALREADY_ON_TARGET_PLAN /
+   *         CANNOT_DOWNGRADE / FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
+   */
   async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
     const userId = request.user_id;
     const planCode = String(request.plan_code || "").trim();
@@ -215,6 +228,10 @@ export class PaymentService {
     };
   }
 
+  /**
+   * 查询订单状态：先查 DB，pending 订单向支付渠道发起网关查询，
+   * 渠道侧已支付则触发履约激活（幂等）。用于用户主动查询与支付回跳核对。
+   */
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
     const dbOrder = await this.repo.findByOrderNo(orderNo);
     if (!dbOrder) return { order_no: orderNo, status: "closed" };
@@ -264,6 +281,19 @@ export class PaymentService {
     };
   }
 
+  /**
+   * 支付回调处理（Alipay notify 入口）。
+   *
+   * 分支顺序：
+   * 1. 验签失败但 trade_status=TRADE_CLOSED → 退款/关闭路由（审查 F20，
+   *    路由到 reverseFulfilledOrder 权益逆向，不得履约也不得丢弃）；
+   * 2. 验签失败 → SIGN_VERIFY_FAILED；
+   * 3. 回调金额校验（审查 P1-4）：缺失/0 拒绝，与 DB 订单金额偏差 > 0.01 拒绝；
+   * 4. 未知订单拒绝（不再静默放行，防通知永久丢失）；
+   * 5. 全部通过 → activatePaidOrder 履约激活（幂等）。
+   *
+   * @returns success=false 时附 reason message，支付平台据此决定是否重试
+   */
   async handleNotify(
     provider: PaymentProviderName,
     rawBody: any,

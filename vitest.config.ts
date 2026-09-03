@@ -109,7 +109,6 @@ export default defineConfig({
         "src/shared/ui/Button.tsx",
         "src/shared/ui/Badge.tsx",
         "src/shared/ui/Input.tsx",
-        "src/shared/ui/SearchInput.tsx",
         "src/shared/ui/EmptyState.tsx",
         "src/shared/ui/SelectableCard.tsx",
         "src/shared/ui/Spinner.tsx",

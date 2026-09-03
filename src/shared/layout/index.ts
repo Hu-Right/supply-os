@@ -7,8 +7,6 @@
  *              Unified exports for layout components
  */
 
-export { ProtectedRoute } from "./ProtectedRoute";
-export type { ProtectedRouteProps } from "./ProtectedRoute";
 export { LanguageSwitcher } from "./LanguageSwitcher";
 export { SessionBanner } from "./SessionBanner";
 export { AppHeader, useNavTabs } from "./AppHeader";

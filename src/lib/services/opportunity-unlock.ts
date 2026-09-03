@@ -14,6 +14,7 @@ import type { OpportunitiesRepo } from "../repos/opportunities.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
 import { persistUserInterestCodes } from "./unspsc/interest";
 
+/** 解锁业务失败：code 供路由映射为用户可见文案（FREE_LIMIT_REACHED/PAID_QUOTA_REQUIRED） */
 export class OpportunityUnlockError extends Error {
   constructor(public code: "FREE_LIMIT_REACHED" | "PAID_QUOTA_REQUIRED") {
     super(code);
@@ -35,6 +36,18 @@ export interface OpportunityUnlockParams {
   snapshotJson: string;
 }
 
+/**
+ * 执行商机解锁（事务编排，与公告解锁 executeUnlock 同构）。
+ *
+ * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → FOR UPDATE 权益行锁 →
+ * 插入解锁记录（唯一键 ER_DUP_ENTRY 兜底幂等）→ 条件 UPDATE 消耗配额 +
+ * affectedRows 复核防超卖 → 商机计数+1）→ 提交 → 事务外写兴趣码（非关键路径，
+ * userId=0 跳过）。
+ *
+ * @throws OpportunityUnlockError FREE_LIMIT_REACHED（免费解锁已移除，服务端硬闸）
+ *         | PAID_QUOTA_REQUIRED（无可用权益且不满足订阅放行 / 并发配额耗尽）
+ * @returns alreadyUnlocked=true 表示并发请求已完成解锁（幂等成功语义）
+ */
 export async function executeOpportunityUnlock(
   deps: OpportunityUnlockDeps,
   params: OpportunityUnlockParams,
