@@ -41,6 +41,7 @@ export async function GET(
   const { id } = await params;
   const noticeId = Number(id);
   const userKey = auth.userKey;
+  const userId = auth.userId;
 
   if (!noticeId || !userKey) {
     return sendError("请先登录并指定公告", 400, ApiErrorCode.USER_REQUIRED);
@@ -50,7 +51,7 @@ export async function GET(
   const { detailRepo, unlockRepo } = ctx.notice;
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
-  const unlock = await unlockRepo.findUnlock(userKey, noticeId);
+  const unlock = await unlockRepo.findUnlock(userId!, noticeId);
   if (!unlock) return sendError("公告已锁定，请先解锁", 403, ApiErrorCode.NOTICE_LOCKED, { core_locked: true });
 
   const notice = await detailRepo.findDetail(noticeId);

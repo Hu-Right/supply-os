@@ -13,10 +13,10 @@ export async function GET(req: NextRequest) {
   const ctx = getContext();
   const rows = await ctx.user.membershipRepo.findActivePlans();
 
-  const { authViaJwt, userKey } = await extractUserKey(req);
+  const { authViaJwt, userKey, userId } = await extractUserKey(req);
   let eligible: boolean | null = null;
-  if (authViaJwt && userKey) {
-    eligible = !(await ctx.payment.paymentsRepo.hasSingleUnlockRecord(userKey));
+  if (authViaJwt && userId) {
+    eligible = !(await ctx.payment.paymentsRepo.hasSingleUnlockRecord(userId));
   }
 
   const plans = rows.map((row) =>

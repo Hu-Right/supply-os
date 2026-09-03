@@ -12,6 +12,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
+import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 import path from "path";
 
 /** 消息发送限流：同一用户每分钟最多 30 条 */
@@ -58,8 +59,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 只能查看自己的会话
-  if (session.customer_id !== auth.userKey) {
+  // 只能查看自己的会话（user_id 为准，历史行回退 customer_id）
+  if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
       { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
@@ -115,8 +116,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 只能操作自己的会话
-  if (session.customer_id !== auth.userKey) {
+  // 只能操作自己的会话（user_id 为准，历史行回退 customer_id）
+  if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
       { code: 40003, message: "无权操作此会话", error: "无权操作此会话" },
       { status: 403 },

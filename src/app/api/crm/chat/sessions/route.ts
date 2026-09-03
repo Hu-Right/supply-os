@@ -14,6 +14,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatSessionCreateSchema } from "@/lib/validators/chat";
+import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 import path from "path";
 
 /** 转人工创建会话：同一用户 10 分钟内最多 5 次（正常场景一次即复用） */
@@ -42,7 +43,9 @@ export async function GET(req: NextRequest) {
   if (limited) return limited;
 
   const chatRepo = getContext().chatRepo;
-  const sessions = await chatRepo.listSessionsByCustomer(auth.userKey);
+  // user_id 为准（迁移 062）；旧 token 无 userId 时无历史会话可列
+  if (auth.userId == null) return NextResponse.json([]);
+  const sessions = await chatRepo.listSessionsByCustomer(auth.userId);
   return NextResponse.json(sessions);
 }
 
@@ -80,13 +83,20 @@ export async function POST(req: NextRequest) {
   const chatRepo = getContext().chatRepo;
 
   // 复用既有 waiting/active 会话（取最近一条）
-  const existing = await chatRepo.listSessionsByCustomer(auth.userKey);
+  if (auth.userId == null) {
+    return NextResponse.json(
+      { code: 40042, message: "登录态缺少用户 ID，请重新登录", error: "Missing userId" },
+      { status: 401 },
+    );
+  }
+  const existing = await chatRepo.listSessionsByCustomer(auth.userId);
   if (existing.length > 0) {
     return NextResponse.json(existing[0]);
   }
 
   const { customerName, leadId, locale, aiSummary } = parsed.data;
   const sessionId = await chatRepo.createSession({
+    userId: auth.userId,
     customerId: auth.userKey,
     customerName,
     leadId,
@@ -124,8 +134,8 @@ export async function DELETE(req: NextRequest) {
     );
   }
 
-  // 只能关闭自己的会话
-  if (session.customer_id !== auth.userKey) {
+  // 只能关闭自己的会话（user_id 为准，历史行回退 customer_id）
+  if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
       { code: 40003, message: "无权关闭此会话", error: "无权关闭此会话" },
       { status: 403 },

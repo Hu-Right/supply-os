@@ -54,15 +54,15 @@ export interface MembershipState {
  */
 export async function resolveMembershipState(
   membershipRepo: MembershipRepo,
-  userKey: string,
+  userId: number,
 ): Promise<MembershipState> {
   // 五个无相互依赖的查询并行发起（与原 /status 端点串行口径一致，性能不回退）
   const [freeQuota, freeUsed, subs, paidUnlocks, entitlements] = await Promise.all([
     membershipRepo.getFreeQuota(),
-    membershipRepo.countFreeUnlocks(userKey),
-    membershipRepo.findActiveSubscriptions(userKey),
-    membershipRepo.countPaidUnlocks(userKey),
-    membershipRepo.findActiveEntitlements(userKey),
+    membershipRepo.countFreeUnlocks(userId),
+    membershipRepo.findActiveSubscriptions(userId),
+    membershipRepo.countPaidUnlocks(userId),
+    membershipRepo.findActiveEntitlements(userId),
   ]);
 
   const paidQuotaTotal = entitlements.reduce((sum, item) => sum + Number(item.quota_total || 0), 0);
@@ -75,7 +75,7 @@ export async function resolveMembershipState(
   const paidQuotaRemaining = entitlementRemaining + subscriptionRemaining;
 
   // 当前最优周期性套餐（供升级判断与 VIP 等级标签展示）
-  const currentBest = await membershipRepo.findCurrentBestPlan(userKey);
+  const currentBest = await membershipRepo.findCurrentBestPlan(userId);
 
   // §2.0 裁决（Phase 0.1，2026-08-20）：期限基准，与额度解耦——
   // R1 单次卡（entitlements）不授予 VIP；R2 配额耗尽不剥夺期限内订阅的 VIP。

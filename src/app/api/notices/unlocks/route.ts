@@ -14,6 +14,6 @@ export async function GET(req: NextRequest) {
 
   const pool = getPool();
   const unlockRepo = new NoticeUnlockRepo(pool);
-  const rows = await unlockRepo.listNoticeUnlocks(auth.userKey);
+  const rows = await unlockRepo.listNoticeUnlocks(auth.userId!);
   return NextResponse.json(rows);
 }

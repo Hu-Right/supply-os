@@ -24,7 +24,7 @@ export async function GET(
   const { detailRepo, unlockRepo } = ctx.notice;
 
   const [unlock, notice] = await Promise.all([
-    unlockRepo.findUnlock(auth.userKey, noticeId),
+    unlockRepo.findUnlock(auth.userId!, noticeId),
     detailRepo.findDetail(noticeId),
   ]);
   if (!unlock) return NextResponse.json({ code: 40013, message: "公告已锁定，请先解锁", core_locked: true }, { status: 403 });

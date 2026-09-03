@@ -9,15 +9,15 @@ import { getPool } from "@/lib/db/pool";
 import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
 
 export async function GET(req: NextRequest) {
-  const { userKey } = await extractUserKey(req);
-  if (!userKey) {
+  const { userKey, userId } = await extractUserKey(req);
+  if (!userKey || !userId) {
     return NextResponse.json({ material_ids: [] });
   }
 
   try {
     const pool = getPool();
     const repo = new LearningMaterialsRepo(pool);
-    const materialIds = await repo.findPurchasedMaterialIds(userKey);
+    const materialIds = await repo.findPurchasedMaterialIds(userId);
     return NextResponse.json({ material_ids: materialIds });
   } catch {
     return NextResponse.json({ material_ids: [] });

@@ -12,6 +12,9 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 
 export interface ChatSessionRow extends RowDataPacket {
   id: number;
+  /** 内部用户 ID（Phase 2 user_id 迁移；跨表关联以此为准） */
+  user_id: number | null;
+  /** 登录凭据（旧列，仅兼容保留；不再用作关联键） */
   customer_id: string;
   customer_name: string | null;
   lead_id: string | null;
@@ -39,11 +42,26 @@ export interface ChatMessageRow extends RowDataPacket {
 
 // ── Repo 实现 ──
 
+/**
+ * 会话归属校验：优先比对 user_id（迁移 062 后的统一关联键），
+ * 旧 token 无 userId 或历史行未回填时回退 customer_id。
+ */
+export function sessionOwnedBy(
+  session: Pick<ChatSessionRow, "user_id" | "customer_id">,
+  auth: { userId?: number | null; userKey: string },
+): boolean {
+  if (session.user_id != null && auth.userId != null) {
+    return session.user_id === auth.userId;
+  }
+  return session.customer_id === auth.userKey;
+}
+
 export class ChatRepo {
   constructor(private pool: Pool) {}
 
-  /** 创建客服会话 */
+  /** 创建客服会话（user_id 为主关联键，customer_id 双写兼容历史数据） */
   async createSession(params: {
+    userId?: number | null;
     customerId: string;
     customerName?: string;
     leadId?: string;
@@ -51,9 +69,10 @@ export class ChatRepo {
     aiSummary?: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_chat_sessions (customer_id, customer_name, lead_id, locale, ai_summary)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO crm_chat_sessions (user_id, customer_id, customer_name, lead_id, locale, ai_summary)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
+        params.userId ?? null,
         params.customerId,
         params.customerName ?? null,
         params.leadId ?? null,

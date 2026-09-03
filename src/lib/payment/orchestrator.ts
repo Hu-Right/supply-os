@@ -259,17 +259,17 @@ export class PaymentOrchestrator {
    * 会员订单保留 PaymentHistoryRepo 的 LEFT JOIN 公告摘要能力。
    */
   async listAllOrders(
-    userKey: string, status: string, limit: number, offset: number,
+    userId: number, status: string, limit: number, offset: number,
   ): Promise<{ total: number; list: NormalizedOrder[] }> {
     const statusParam = status && status !== "all" ? status : "";
 
     const [membershipOrders, learningOrders, trainingOrders, membershipTotal, learningTotal, trainingTotal] = await Promise.all([
-      this.paymentHistoryRepo.listOrders(userKey, statusParam, 9999, 0),
-      this.learningOrdersRepo.findByUserKey(userKey, statusParam),
-      this.trainingRepo.findOrdersByUserKey(userKey, statusParam),
-      this.paymentHistoryRepo.countOrders(userKey, statusParam),
-      this.learningOrdersRepo.countByUserKey(userKey, statusParam),
-      this.trainingRepo.countOrdersByUserKey(userKey, statusParam),
+      this.paymentHistoryRepo.listOrders(userId, statusParam, 9999, 0),
+      this.learningOrdersRepo.findByUserKey(userId, statusParam),
+      this.trainingRepo.findOrdersByUserKey(userId, statusParam),
+      this.paymentHistoryRepo.countOrders(userId, statusParam),
+      this.learningOrdersRepo.countByUserKey(userId, statusParam),
+      this.trainingRepo.countOrdersByUserKey(userId, statusParam),
     ]);
 
     const total = membershipTotal + learningTotal + trainingTotal;

@@ -33,6 +33,7 @@ export async function GET(
   const { id } = await params;
   const noticeId = Number(id);
   const userKey = auth.userKey;
+  const userId = auth.userId;
 
   if (!noticeId || !userKey) {
     return sendError("请先登录并指定公告", 400, ApiErrorCode.USER_REQUIRED);
@@ -43,7 +44,7 @@ export async function GET(
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
   const [unlock, notice] = await Promise.all([
-    unlockRepo.findUnlock(userKey, noticeId),
+    unlockRepo.findUnlock(userId!, noticeId),
     detailRepo.findDetail(noticeId),
   ]);
   if (!notice) return sendError("公告不存在", 404, ApiErrorCode.NOTICE_NOT_FOUND);

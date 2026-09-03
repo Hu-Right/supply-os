@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   const [total, unlocks] = await Promise.all([
-    paymentHistoryRepo.countUnlocks(auth.userKey),
-    paymentHistoryRepo.listUnlocks(auth.userKey, limit, offset, lang ? { lang } : null),
+    paymentHistoryRepo.countUnlocks(auth.userId!),
+    paymentHistoryRepo.listUnlocks(auth.userId!, limit, offset, lang ? { lang } : null),
   ]);
   return NextResponse.json({ total, page, limit, list: unlocks });
 }

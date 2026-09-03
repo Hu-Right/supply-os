@@ -30,6 +30,8 @@ export interface PaymentOrderPlan {
 
 export interface CreateOrderRequest {
   user_key: string;
+  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  user_id?: number;
   plan_code: string;
   provider: PaymentProviderName;
   notice_id?: number | null;

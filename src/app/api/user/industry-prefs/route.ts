@@ -13,7 +13,7 @@ import { requireUserKey } from "@/lib/middleware/auth";
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
-  const prefs = await getContext().user.userPrefsRepo.getIndustryPrefs(auth.userKey);
+  const prefs = await getContext().user.userPrefsRepo.getIndustryPrefs(auth.userId!);
   return NextResponse.json({ prefs: prefs || null });
 }
 

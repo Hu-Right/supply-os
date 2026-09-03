@@ -43,7 +43,7 @@ export async function GET(
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  const purchasedIds = await repo.findPurchasedMaterialIds(auth.userKey);
+  const purchasedIds = await repo.findPurchasedMaterialIds(auth.userId!);
   if (!purchasedIds.includes(materialId)) {
     return NextResponse.json({ code: 40301, message: "请先购买后查看" }, { status: 403 });
   }

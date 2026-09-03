@@ -66,6 +66,7 @@ export class PaymentService {
 
   async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
     const userKey = String(request.user_key || "").trim().toLowerCase().slice(0, 190);
+    const userId = request.user_id;
     const planCode = String(request.plan_code || "").trim();
     const provider = request.provider;
     const noticeId = request.notice_id ? Number(request.notice_id) : null;
@@ -98,14 +99,14 @@ export class PaymentService {
       // ── 首单特惠资格（single_99，2026-08-30）──
       // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
       if (planCode === "single_99") {
-        const hasRecord = await this.repo.hasSingleUnlockRecord(userKey);
+        const hasRecord = await this.repo.hasSingleUnlockRecord(userId!);
         if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
       }
 
       // ── 升级订单：校验升级资格并计算差价 ──
       if (orderType === "upgrade") {
         if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
-        const current = await this.membershipRepo.findCurrentBestPlan(userKey);
+        const current = await this.membershipRepo.findCurrentBestPlan(userId!);
         if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
         if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
         if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
@@ -129,7 +130,7 @@ export class PaymentService {
       // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
       // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
       if (planCode === "annual_799" && orderType === "new") {
-        const source = await this.repo.findDeductibleSingleOrder(userKey);
+        const source = await this.repo.findDeductibleSingleOrder(userId!);
         if (source && source.amount > 0) {
           amount = Math.max(0, amount - source.amount);
           originalOrderNo = source.order_no;
@@ -149,7 +150,7 @@ export class PaymentService {
     const existingOrder = orderType === "upgrade" || isPromotionalOrder
       ? null
       : await this.repo.findPendingOrder({
-          userKey, planCode, provider, noticeId,
+          userId: userId!, planCode, provider, noticeId,
         });
 
     const strategy = this.getStrategy(provider);

@@ -9,6 +9,6 @@ export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
   const ctx = getContext();
-  const unlocks = await ctx.opportunitiesRepo.listUnlocks(auth.userKey);
+  const unlocks = await ctx.opportunitiesRepo.listUnlocks(auth.userId!);
   return NextResponse.json(unlocks);
 }

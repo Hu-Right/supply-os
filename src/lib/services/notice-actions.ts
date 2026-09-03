@@ -20,6 +20,8 @@ import { decayUserInterestCodes } from "./recommend/index";
 
 export interface UnlockParams {
   userKey: string;
+  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  userId?: number;
   noticeId: number;
   unlockType: "free" | "single" | "subscription";
   price: number;
@@ -39,10 +41,10 @@ export async function executeUnlock(
   params: UnlockParams,
 ): Promise<UnlockResult> {
   const { detailRepo, unlockRepo, dbPool, membershipRepo } = ctx;
-  const { userKey, noticeId, unlockType, price } = params;
+  const { userKey, userId, noticeId, unlockType, price } = params;
 
   // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
-  if (await unlockRepo.findExistingUnlock(userKey, noticeId)) {
+  if (await unlockRepo.findExistingUnlock(userId!, noticeId)) {
     return { alreadyUnlocked: true, unlockType };
   }
 
@@ -58,7 +60,7 @@ export async function executeUnlock(
     await conn.beginTransaction();
 
     // 事务内再次检查（可能并发请求已通过快速路径）
-    if (await unlockRepo.findExistingUnlockInTransaction(conn, userKey, noticeId)) {
+    if (await unlockRepo.findExistingUnlockInTransaction(conn, userId!, noticeId)) {
       await conn.commit();
       return { alreadyUnlocked: true, unlockType };
     }
@@ -74,12 +76,12 @@ export async function executeUnlock(
 
     if (unlockType === "subscription" || unlockType === "single") {
       // P1-7 安全修复：SELECT FOR UPDATE 防止并发配额超卖
-      const ent = await membershipRepo.findAndLockEntitlement(conn, userKey);
+      const ent = await membershipRepo.findAndLockEntitlement(conn, userId!);
       if (ent) {
         consumedEntitlementId = Number(ent.id);
       } else if (unlockType === "subscription") {
         // P1-6 安全修复：subscription 类型兼容活跃订阅——有有效订阅即放行，不强制要求 entitlement
-        if (!await membershipRepo.hasActiveSubscriptionInTransaction(conn, userKey)) {
+        if (!await membershipRepo.hasActiveSubscriptionInTransaction(conn, userId!)) {
           await conn.rollback();
           throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
         }
