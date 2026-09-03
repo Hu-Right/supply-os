@@ -27,9 +27,8 @@ export interface OpportunityUnlockDeps {
 }
 
 export interface OpportunityUnlockParams {
-  userKey: string;
-  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
-  userId?: number;
+  /** 内部用户 ID */
+  userId: number;
   opportunityId: number;
   unlockType: "free" | "subscription" | "single";
   price: number;
@@ -41,10 +40,10 @@ export async function executeOpportunityUnlock(
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const { dbPool, opportunitiesRepo, membershipRepo } = deps;
-  const { userKey, userId, opportunityId, unlockType, price, snapshotJson } = params;
+  const { userId, opportunityId, unlockType, price, snapshotJson } = params;
 
   // 快速路径：无锁预检，减少事务冲突
-  if (await opportunitiesRepo.findExistingUnlock(userId!, opportunityId)) {
+  if (await opportunitiesRepo.findExistingUnlock(userId, opportunityId)) {
     return { alreadyUnlocked: true, unlockType };
   }
 
@@ -56,7 +55,7 @@ export async function executeOpportunityUnlock(
     // 事务内复查（并发请求可能已通过快速路径）
     const [existingRows] = await conn.query(
       "SELECT id FROM crm_opportunity_unlocks WHERE user_id = ? AND opportunity_id = ? LIMIT 1",
-      [userId!, opportunityId],
+      [userId, opportunityId],
     );
     if ((existingRows as unknown[]).length > 0) {
       await conn.commit();
@@ -79,7 +78,7 @@ export async function executeOpportunityUnlock(
            AND (expires_at IS NULL OR expires_at > NOW())
          ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
          FOR UPDATE`,
-        [userId!],
+        [userId],
       );
       const ent = (entRows as Array<{ id: number }>)[0];
       if (ent) {
@@ -90,7 +89,7 @@ export async function executeOpportunityUnlock(
           `SELECT id FROM crm_user_subscriptions
            WHERE user_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
            LIMIT 1`,
-          [userId!],
+          [userId],
         );
         if ((subRows as unknown[]).length === 0) {
           await conn.rollback();
@@ -102,12 +101,12 @@ export async function executeOpportunityUnlock(
       }
     }
 
-    // 插入解锁记录（uk_user_opportunity 唯一约束兜底）
+    // 插入解锁记录（uk_user_opportunity 唯一约束兆底）
     await conn.query(
       `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
-      [userId!, userKey, opportunityId, unlockType, price, snapshotJson],
+        (user_id, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
+       VALUES (?, ?, ?, ?, NOW(), ?)`,
+      [userId, opportunityId, unlockType, price, snapshotJson],
     );
 
     // 消耗配额：条件 UPDATE + affectedRows 复核（并发耗尽则回滚）
@@ -131,9 +130,9 @@ export async function executeOpportunityUnlock(
     await conn.commit();
 
     // 事务外：兴趣码（非关键路径）
-    if (userKey !== "guest") {
+    if (userId) {
       try {
-        await persistUserInterestCodes(dbPool, userId!, userKey, JSON.parse(snapshotJson), "unlock_order", 2.5);
+        await persistUserInterestCodes(dbPool, userId, JSON.parse(snapshotJson), "unlock_order", 2.5);
       } catch { /* 忽略 */ }
     }
     return { alreadyUnlocked: false, unlockType };

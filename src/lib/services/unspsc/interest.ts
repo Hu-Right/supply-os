@@ -29,7 +29,7 @@ const INTEREST_WEIGHT_CAP = 500;
  * 持久化用户兴趣码：从公告 UNSPSC 快照提取前缀，写入 crm_user_interest_codes
  *
  * @param dbPool - 数据库连接池
- * @param userKey - 用户标识
+ * @param userId - 内部用户 ID
  * @param snapshot - 公告 UNSPSC 码快照（normalizeUnspscCodes 输出）
  * @param source - 来源（必须在白名单内）
  * @param weight - 权重增量
@@ -37,7 +37,6 @@ const INTEREST_WEIGHT_CAP = 500;
 export async function persistUserInterestCodes(
   dbPool: any,
   userId: number,
-  userKey: string,
   snapshot: any[],
   source: string,
   weight: number,
@@ -56,10 +55,10 @@ export async function persistUserInterestCodes(
     );
     const codeRow = (codeRows as UnspscCodeRow[])[0];
     await dbPool.execute(
-      `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO crm_user_interest_codes (user_id, code_id, code, level, source, weight)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
-      [userId, userKey, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
+      [userId, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
     );
   }
 }

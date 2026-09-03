@@ -137,11 +137,11 @@ export class OpportunitiesRepo {
   }
 
   /** 记录浏览流水 */
-  async insertView(params: { userId: number; userKey: string; opportunityId: number; ip: string }): Promise<void> {
+  async insertView(params: { userId: number; opportunityId: number; ip: string }): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_notice_views (user_id, user_key, opportunity_id, viewed_at, ip)
-       VALUES (?, ?, ?, NOW(), ?)`,
-      [params.userId, params.userKey, params.opportunityId, params.ip],
+      `INSERT INTO crm_user_notice_views (user_id, opportunity_id, viewed_at, ip)
+       VALUES (?, ?, NOW(), ?)`,
+      [params.userId, params.opportunityId, params.ip],
     );
   }
 
@@ -194,7 +194,6 @@ export class OpportunitiesRepo {
   /** 写入解锁流水 */
   async insertUnlock(params: {
     userId: number;
-    userKey: string;
     opportunityId: number;
     unlockType: string;
     price: number;
@@ -202,9 +201,9 @@ export class OpportunitiesRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_opportunity_unlocks
-        (user_id, user_key, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
-      [params.userId, params.userKey, params.opportunityId, params.unlockType, params.price, params.unspscSnapshot],
+        (user_id, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
+       VALUES (?, ?, ?, ?, NOW(), ?)`,
+      [params.userId, params.opportunityId, params.unlockType, params.price, params.unspscSnapshot],
     );
   }
 
@@ -219,16 +218,15 @@ export class OpportunitiesRepo {
   /** 兴趣码 upsert（解锁来源，重复时权重 +0.50） */
   async upsertInterestCode(params: {
     userId: number;
-    userKey: string;
     codeId: number | null;
     code: string;
     level: number;
   }): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-       VALUES (?, ?, ?, ?, ?, 'unlock_order', 2.50)
+      `INSERT INTO crm_user_interest_codes (user_id, code_id, code, level, source, weight)
+       VALUES (?, ?, ?, ?, 'unlock_order', 2.50)
        ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
-      [params.userId, params.userKey, params.codeId, params.code, params.level],
+      [params.userId, params.codeId, params.code, params.level],
     );
   }
 }
