@@ -16,6 +16,7 @@
 import type { LeadsRepo } from "../repos/leads.repo";
 import { Lead } from "../types/crm";
 import { safeJson } from "../utils/json";
+import { maskName } from "../utils/mask";
 
 export function mapUngmAppointmentRow(row: any): Lead {
   return {
@@ -34,6 +35,33 @@ export function mapUngmAppointmentRow(row: any): Lead {
     status: row.status || "new",
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
     followUpLogs: safeJson(row.follow_up_logs),
+  };
+}
+
+/**
+ * 会员侧线索视图（隐私收口，GET /api/leads 与 POST /api/leads/log 响应统一走此映射）。
+ *
+ * 线索是门户访客提交的咨询/注册意向，属运营方销售资产：联系人是提交表单的第三方个人，
+ * 其姓名/联系方式/内部跟进记录不属于会员视图——审查 F5 的"VIP 可浏览线索"产品决策
+ * 保留商机信号（公司/行业/国家/需求/状态/时间），联系方式一律不下发。
+ */
+export function mapLeadForMemberView(row: any): Lead {
+  return {
+    id: row.appointment_key,
+    companyName: row.company_name,
+    country: row.country || "China",
+    city: row.city || "Unknown",
+    contactPerson: maskName(row.contact_person),
+    contactMethod: "****",
+    email: "",
+    industry: row.industry || "Services",
+    mainProducts: "",
+    hasIntlProcurement: false,
+    notes: row.consultation_needs || "",
+    type: "consulting_advisor",
+    status: row.status || "new",
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    // followUpLogs 有意不下发：内部跟进记录，且 author 可能含其他会员手机号
   };
 }
 

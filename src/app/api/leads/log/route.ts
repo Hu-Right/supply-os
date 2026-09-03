@@ -9,33 +9,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { resolveMembershipState } from "@/lib/services/membership-status";
-import { safeJson } from "@/lib/utils/json";
+import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
 
 /** 跟进状态白名单（审查 F5）：与 Lead 类型定义保持一致，防任意值篡改状态 */
 const LEAD_STATUS_WHITELIST = new Set(["new", "contacted", "qualified", "lost"]);
 
-function mapUngmAppointmentRow(row: Record<string, any>): Lead {
-  return {
-    id: row.appointment_key,
-    companyName: row.company_name,
-    country: row.country || "China",
-    city: row.city || "Unknown",
-    contactPerson: row.contact_person,
-    contactMethod: row.contact_method,
-    email: row.email || "",
-    industry: row.industry || "Services",
-    mainProducts: "",
-    hasIntlProcurement: false,
-    notes: row.consultation_needs || "",
-    type: "consulting_advisor",
-    status: row.status || "new",
-    createdAt: row.created_at instanceof Date
-      ? row.created_at.toISOString()
-      : new Date(row.created_at).toISOString(),
-    followUpLogs: safeJson(row.follow_up_logs),
-  };
-}
+/**
+ * 会员跟进日志的固定作者标识。
+ * 越权修复：author 此前默认取 auth.userKey（即会员手机号），落库后经线索视图
+ * 回显给其他会员（PII 写放大）；且 body.author 客户端可控，可伪造 "CRM System"
+ * 等内部身份。会员写入统一使用固定标识，不采信客户端传入。
+ */
+const MEMBER_LOG_AUTHOR = "VIP Member";
 
 export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
@@ -76,7 +62,6 @@ export async function POST(req: NextRequest) {
     );
   }
   const safeContent = String(content).trim().slice(0, 2000);
-  const safeAuthor = String(body.author || auth.userKey || "Operator").trim().slice(0, 100);
 
   const row = await ctx.leadsRepo.findByKey(String(leadId).slice(0, 100));
   if (!row) {
@@ -86,6 +71,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 变更走全量视图（需要读写完整 follow_up_logs），响应走会员视图（隐私收口）
   const targetLead = mapUngmAppointmentRow(row);
   if (!targetLead.followUpLogs) {
     targetLead.followUpLogs = [];
@@ -95,7 +81,7 @@ export async function POST(req: NextRequest) {
   targetLead.followUpLogs.push({
     date: new Date().toISOString().substring(0, 16).replace("T", " "),
     content: safeContent,
-    author: safeAuthor,
+    author: MEMBER_LOG_AUTHOR,
   });
 
   if (nextStatus) {
@@ -109,5 +95,7 @@ export async function POST(req: NextRequest) {
     targetLead.status,
   );
 
-  return NextResponse.json(targetLead);
+  const responseLead = mapLeadForMemberView(row);
+  responseLead.status = targetLead.status;
+  return NextResponse.json(responseLead);
 }

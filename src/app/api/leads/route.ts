@@ -6,38 +6,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, extractUserKey } from "@/lib/middleware/auth";
 import { resolveMembershipState } from "@/lib/services/membership-status";
-import { safeJson } from "@/lib/utils/json";
+import { mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
 
-/**
- * 将数据库 AppointmentRow 转换为前端 Lead（camelCase）。
- * 与 Express 版 server/services/leads.ts 的 mapUngmAppointmentRow 完全对齐。
- */
-function mapUngmAppointmentRow(row: Record<string, any>): Lead {
-  return {
-    id: row.appointment_key,
-    companyName: row.company_name,
-    country: row.country || "China",
-    city: row.city || "Unknown",
-    contactPerson: row.contact_person,
-    contactMethod: row.contact_method,
-    email: row.email || "",
-    industry: row.industry || "Services",
-    mainProducts: "",
-    hasIntlProcurement: false,
-    notes: row.consultation_needs || "",
-    type: "consulting_advisor",
-    status: row.status || "new",
-    createdAt: row.created_at instanceof Date
-      ? row.created_at.toISOString()
-      : new Date(row.created_at).toISOString(),
-    followUpLogs: safeJson(row.follow_up_logs),
-  };
-}
-
 export async function GET(req: NextRequest) {
-  // VIP 门控（审查 F5，2026-08-30 产品决策）：线索属 CRM 客户数据
-  // （含联系人电话/邮箱），仅 VIP 会员可读；前端 useCrmData 对 403 已有置空兜底
+  // VIP 门控（审查 F5，2026-08-30 产品决策）：线索属 CRM 客户数据，仅 VIP 会员可读；
+  // 前端 useCrmData 对 403 已有置空兜底。
+  // 隐私收口（越权修复）：F5 门控解决了"谁能看"，本映射解决"能看到什么"——
+  // 线索联系人是提交表单的第三方个人，其姓名/联系方式与内部跟进记录不随视图下发。
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
@@ -51,7 +27,7 @@ export async function GET(req: NextRequest) {
   }
 
   const rows = await ctx.leadsRepo.listAppointments();
-  const leads = rows.map(mapUngmAppointmentRow);
+  const leads = rows.map(mapLeadForMemberView);
   return NextResponse.json(leads);
 }
 
