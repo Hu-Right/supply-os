@@ -2,20 +2,21 @@
  * POST /api/auth/login — 登录（手机号/邮箱 + 密码）
  */
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "@/lib/services/auth";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  const identifier = String(body.identifier || "").trim();
-  const password = String(body.password || "");
+const loginSchema = z.object({
+  identifier: z.string({ error: "请输入手机号或邮箱" }).trim().min(1, "请输入手机号或邮箱"),
+  password: z.string().default(""),
+});
 
-  if (!identifier) {
-    return NextResponse.json({ code: 40011, message: "请输入手机号或邮箱" }, { status: 400 });
-  }
+export const POST = withRoute(async (req: NextRequest) => {
+  const { identifier, password } = await parseJson(req, loginSchema, { identifier: 40011 });
 
   // 限流（审查 F11）：IP 与账号双维度，防密码爆破/撞库
   const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 30 },
@@ -37,13 +38,13 @@ export async function POST(req: NextRequest) {
   if (!user || !user.password_hash) {
     // 恒时验证防时序攻击
     await verifyPassword(password || "", "$2b$12$AAAAAAAAAAAAAAAAAAAAAAOqGHn2kLJ3xQ4y5m6n7p8r9s0t1u2v3w", "bcrypt");
-    return NextResponse.json({ code: 40042, message: "账号或密码错误" }, { status: 401 });
+    routeError(401, 40042, "账号或密码错误");
   }
   if (!(await verifyPassword(password || "", user.password_hash, hashType))) {
-    return NextResponse.json({ code: 40042, message: "账号或密码错误" }, { status: 401 });
+    routeError(401, 40042, "账号或密码错误");
   }
   if (user.account_status === "disabled" || user.account_status === "rejected") {
-    return NextResponse.json({ code: 40003, message: "账号未通过审核或已停用" }, { status: 403 });
+    routeError(403, 40003, "账号未通过审核或已停用");
   }
 
   if (needsUpgrade(hashType)) {
@@ -60,4 +61,4 @@ export async function POST(req: NextRequest) {
   const response = NextResponse.json({ success: true, user: payload, token: tokens?.token });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
   return response;
-}
+});

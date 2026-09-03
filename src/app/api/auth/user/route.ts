@@ -3,21 +3,21 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { buildUserResponse } from "@/lib/services/auth";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
   if (!auth.authViaJwt) {
-    return NextResponse.json({ code: 40003, message: "请通过有效凭证访问" }, { status: 403 });
+    routeError(403, 40003, "请通过有效凭证访问");
   }
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findProfileByKey(auth.userKey);
   if (!user) {
-    return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
+    routeError(404, 40044, "用户不存在");
   }
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   return NextResponse.json({ success: true, user: payload });
-}
+});

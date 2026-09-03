@@ -3,20 +3,26 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendRegistrationVerifyEmail, isEmailConfigured } from "@/lib/services/email";
 
-export async function POST(req: NextRequest) {
-  const { email } = await req.json();
-  const addr = String(email || "").trim().toLowerCase();
-  if (!addr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
-    return NextResponse.json({ code: 40010, message: "请输入有效的邮箱地址" }, { status: 400 });
-  }
+const registerEmailSchema = z.object({
+  email: z
+    .string({ error: "请输入有效的邮箱地址" })
+    .trim()
+    .toLowerCase()
+    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "请输入有效的邮箱地址"),
+});
+
+export const POST = withRoute(async (req: NextRequest) => {
+  const { email: addr } = await parseJson(req, registerEmailSchema, { email: 40010 });
   if (!isEmailConfigured()) {
-    return NextResponse.json({ code: 40060, message: "邮件服务暂未配置，请稍后重试" }, { status: 503 });
+    routeError(503, 40060, "邮件服务暂未配置，请稍后重试");
   }
 
   // 限流：未认证端点，防邮件轰炸（IP + 目标邮箱双维度，1 分钟 3 次）
@@ -44,4 +50,4 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.markEmailSent(resetId, false, (err as Error).message);
   }
   return NextResponse.json({ success: true, email_sent: emailSent, support_hint: emailSent ? null : "邮件发送失败，请检查邮箱地址或稍后重试" });
-}
+});

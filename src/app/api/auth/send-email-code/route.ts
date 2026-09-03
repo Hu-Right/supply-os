@@ -5,8 +5,10 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -14,38 +16,38 @@ import { sendEmailBindingCode, isEmailConfigured } from "@/lib/services/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+const sendEmailSchema = z.object({
+  email: z.string().optional(),
+  scene: z.enum(["bind", "unbind"], { error: "无效的操作类型" }).default("bind"),
+});
 
-  const { email, scene = "bind" } = await req.json();
-  if (!["bind", "unbind"].includes(scene)) {
-    return NextResponse.json({ code: 40020, message: "无效的操作类型" }, { status: 400 });
-  }
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const { email, scene } = await parseJson(req, sendEmailSchema, { scene: 40020 });
   if (!isEmailConfigured()) {
-    return NextResponse.json({ code: 40060, message: "邮件服务暂未配置，请稍后重试" }, { status: 503 });
+    routeError(503, 40060, "邮件服务暂未配置，请稍后重试");
   }
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findByKey(auth.userKey);
-  if (!user) return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
+  if (!user) routeError(404, 40044, "用户不存在");
 
   const targetEmail = scene === "unbind" ? (user.email || "") : String(email || "").trim().toLowerCase();
   if (!targetEmail || !EMAIL_RE.test(targetEmail)) {
-    return NextResponse.json({ code: 40010, message: "请输入有效的邮箱地址" }, { status: 400 });
+    routeError(400, 40010, "请输入有效的邮箱地址");
   }
   if (scene === "bind" && user.email) {
-    return NextResponse.json({ code: 40031, message: "已绑定邮箱，请先解绑" }, { status: 409 });
+    routeError(409, 40031, "已绑定邮箱，请先解绑");
   }
   if (scene === "unbind" && !user.email) {
-    return NextResponse.json({ code: 40030, message: "尚未绑定邮箱" }, { status: 400 });
+    routeError(400, 40030, "尚未绑定邮箱");
   }
 
   // 检查邮箱是否已被其他用户绑定
   if (scene === "bind") {
     const existingByEmail = await ctx.user.usersRepo.findByEmail(targetEmail);
     if (existingByEmail && existingByEmail.user_key !== auth.userKey) {
-      return NextResponse.json({ code: 40032, message: "该邮箱已被其他用户绑定" }, { status: 409 });
+      routeError(409, 40032, "该邮箱已被其他用户绑定");
     }
   }
 
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.markEmailSent(resetId, false, (err as Error).message);
   }
   if (!emailSent) {
-    return NextResponse.json({ code: 40062, message: "邮件发送失败，请稍后重试" }, { status: 500 });
+    routeError(500, 40062, "邮件发送失败，请稍后重试");
   }
   return NextResponse.json({ success: true, email_sent: true });
-}
+});

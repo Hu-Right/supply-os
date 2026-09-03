@@ -1,52 +1,51 @@
 /**
- * API 统一响应工具
- * Unified API Response Helpers
+ * API 统一响应工具（架构评估 TY2：复活死代码并对齐存量契约）
  *
  * @module lib/api/response
- * @description 为所有 Route Handler 提供标准化的 JSON 响应格式。
- *              成功响应：{ data: T, ok: true }
- *              错误响应：{ error: { message, code? }, ok: false }
+ * @description 响应契约与全仓现状及 api-client 读取逻辑一致：
+ *              - 2xx：裸载荷（不包 envelope）
+ *              - 4xx/5xx：{ code: number, message: string }
+ *              新代码优先使用 withRoute + routeError（lib/middleware/route-handler），
+ *              本模块供不便整体包装的调用点（如工具函数返回 Response）使用。
  */
 import { NextResponse } from "next/server";
 
-/** 成功响应 */
-export function apiSuccess<T>(data: T, status = 200): NextResponse {
-  return NextResponse.json({ data, ok: true }, { status });
+/** 成功响应：裸载荷 */
+export function apiOk<T>(data: T, status = 200): NextResponse {
+  return NextResponse.json(data, { status });
 }
 
-/** 错误响应 */
-export function apiError(
-  status: number,
-  message: string,
-  code?: string,
-): NextResponse {
-  return NextResponse.json(
-    { error: { message, code }, ok: false },
-    { status },
-  );
+/** 错误响应：标准 envelope */
+export function apiFail(status: number, code: number, message: string): NextResponse {
+  return NextResponse.json({ code, message }, { status });
 }
 
-/** 400 Bad Request */
-export function apiBadRequest(message: string): NextResponse {
-  return apiError(400, message, "BAD_REQUEST");
+/** 400 参数错误 */
+export function apiBadRequest(message: string, code = 40000): NextResponse {
+  return apiFail(400, code, message);
 }
 
-/** 401 Unauthorized */
-export function apiUnauthorized(message = "Unauthorized"): NextResponse {
-  return apiError(401, message, "UNAUTHORIZED");
+/** 401 未登录 */
+export function apiUnauthorized(message = "请先登录", code = 40042): NextResponse {
+  return apiFail(401, code, message);
 }
 
-/** 403 Forbidden */
-export function apiForbidden(message = "Forbidden"): NextResponse {
-  return apiError(403, message, "FORBIDDEN");
+/** 403 禁止 */
+export function apiForbidden(message: string, code = 40003): NextResponse {
+  return apiFail(403, code, message);
 }
 
-/** 404 Not Found */
-export function apiNotFound(message = "Not found"): NextResponse {
-  return apiError(404, message, "NOT_FOUND");
+/** 404 不存在 */
+export function apiNotFound(message: string, code = 40004): NextResponse {
+  return apiFail(404, code, message);
 }
 
-/** 500 Internal Server Error */
-export function apiInternalError(message = "Internal server error"): NextResponse {
-  return apiError(500, message, "INTERNAL_ERROR");
+/** 409 冲突 */
+export function apiConflict(message: string, code = 40030): NextResponse {
+  return apiFail(409, code, message);
+}
+
+/** 500 内部错误 */
+export function apiInternalError(message = "服务器内部错误", code = 50000): NextResponse {
+  return apiFail(500, code, message);
 }

@@ -5,24 +5,23 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
 
-const PHONE_RE = /^1[3-9]\d{9}$/;
+const registerSmsSchema = z.object({
+  phone: z.string({ error: "请输入有效的手机号" }).trim().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
+});
 
-export async function POST(req: NextRequest) {
-  const { phone } = await req.json();
-  const targetPhone = String(phone || "").trim();
-
-  if (!targetPhone || !PHONE_RE.test(targetPhone)) {
-    return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
-  }
+export const POST = withRoute(async (req: NextRequest) => {
+  const { phone: targetPhone } = await parseJson(req, registerSmsSchema, { phone: 40011 });
 
   if (!isSmsConfigured()) {
-    return NextResponse.json({ code: 40061, message: "短信服务暂未配置，请稍后重试" }, { status: 503 });
+    routeError(503, 40061, "短信服务暂未配置，请稍后重试");
   }
 
   const ctx = getContext();
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
   // 检查手机号是否已注册
   const existing = await ctx.user.usersRepo.findByPhone(targetPhone);
   if (existing) {
-    return NextResponse.json({ code: 40008, message: "该手机号已注册，请直接登录" }, { status: 400 });
+    routeError(400, 40008, "该手机号已注册，请直接登录");
   }
 
   // 限流：同一手机号 60 秒内只能发一次
@@ -63,8 +62,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (!smsSent) {
-    return NextResponse.json({ code: 40062, message: "短信发送失败，请稍后重试" }, { status: 500 });
+    routeError(500, 40062, "短信发送失败，请稍后重试");
   }
 
   return NextResponse.json({ success: true, sms_sent: true });
-}
+});

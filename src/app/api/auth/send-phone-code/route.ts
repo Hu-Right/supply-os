@@ -3,8 +3,10 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
@@ -12,28 +14,29 @@ import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } fro
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+const sendPhoneSchema = z.object({
+  phone: z.string().optional(),
+  scene: z.enum(["bind", "rebind", "unbind", "reset"], { error: "无效的操作类型" }).default("bind"),
+});
 
-  const { phone, scene = "bind" } = await req.json();
-  if (!["bind", "rebind", "unbind", "reset"].includes(scene)) {
-    return NextResponse.json({ code: 40020, message: "无效的操作类型" }, { status: 400 });
-  }
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const { phone, scene } = await parseJson(req, sendPhoneSchema, { scene: 40020 });
   if (!isSmsConfigured()) {
-    return NextResponse.json({ code: 40061, message: "短信服务暂未配置，请稍后重试" }, { status: 503 });
+    routeError(503, 40061, "短信服务暂未配置，请稍后重试");
   }
 
   const ctx = getContext();
   const user = await ctx.user.usersRepo.findByKey(auth.userKey);
-  if (!user) return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
+  if (!user) routeError(404, 40044, "用户不存在");
 
   const targetPhone = (scene === "unbind" || scene === "reset") ? (user.phone || "") : String(phone || "").trim();
   if (!targetPhone || !PHONE_RE.test(targetPhone)) {
-    return NextResponse.json({ code: scene === "unbind" || scene === "reset" ? 40030 : 40011, message: scene === "unbind" || scene === "reset" ? "尚未绑定手机号" : "请输入有效的手机号" }, { status: 400 });
+    routeError(400, scene === "unbind" || scene === "reset" ? 40030 : 40011,
+      scene === "unbind" || scene === "reset" ? "尚未绑定手机号" : "请输入有效的手机号");
   }
-  if (scene === "bind" && user.phone) return NextResponse.json({ code: 40031, message: "已绑定手机号，请先解绑或换绑" }, { status: 409 });
-  if ((scene === "rebind" || scene === "unbind") && !user.phone) return NextResponse.json({ code: 40030, message: "尚未绑定手机号" }, { status: 400 });
+  if (scene === "bind" && user.phone) routeError(409, 40031, "已绑定手机号，请先解绑或换绑");
+  if ((scene === "rebind" || scene === "unbind") && !user.phone) routeError(400, 40030, "尚未绑定手机号");
 
   const codeType = `phone_${scene}`;
   // 限流：短信按 user + 手机号双维度，1 分钟 1 次（防短信轰炸）
@@ -54,6 +57,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     await ctx.user.authRepo.markSmsSent(resetId, false, (err as Error).message);
   }
-  if (!smsSent) return NextResponse.json({ code: 40062, message: "短信发送失败，请稍后重试" }, { status: 500 });
+  if (!smsSent) routeError(500, 40062, "短信发送失败，请稍后重试");
   return NextResponse.json({ success: true, sms_sent: true });
-}
+});

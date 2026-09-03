@@ -3,16 +3,22 @@
  */
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
-import { maskPhone } from "@/lib/utils/mask";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const forgotSchema = z.object({
+  identifier: z.string().optional(),
+  channel: z.enum(["sms", "email"], { error: "无效的操作类型" }).optional(),
+});
 
 /** 智能识别输入类型：手机号 → sms，邮箱 → email */
 function detectChannel(identifier: string): "sms" | "email" {
@@ -21,8 +27,8 @@ function detectChannel(identifier: string): "sms" | "email" {
   return "sms"; // 默认短信渠道
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json();
+export const POST = withRoute(async (req: NextRequest) => {
+  const body = await parseJson(req, forgotSchema, { channel: 40020 });
   const identifier = String(body.identifier || "").trim();
   // 前端可显式指定 channel，未指定时自动识别
   const channel: "sms" | "email" = body.channel || detectChannel(identifier);
@@ -40,14 +46,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: "该格式为邮箱，请使用邮箱验证方式" });
     }
     if (!PHONE_RE.test(identifier)) {
-      return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
+      routeError(400, 40011, "请输入有效的手机号");
     }
     const user = await ctx.user.usersRepo.findByIdentifier(identifier);
     if (!user || !user.phone || !user.phone_verified) {
       return NextResponse.json({ success: true, message: "验证码发送请求已提交", sms_sent: false, support_hint: null });
     }
     if (!isSmsConfigured()) {
-      return NextResponse.json({ code: 40061, message: "短信服务暂未配置，请使用邮箱验证" }, { status: 503 });
+      routeError(503, 40061, "短信服务暂未配置，请使用邮箱验证");
     }
 
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
@@ -71,10 +77,10 @@ export async function POST(req: NextRequest) {
 
   // ── 邮箱渠道（备用） ──
   if (!identifier || !EMAIL_RE.test(identifier)) {
-    return NextResponse.json({ code: 40010, message: "请输入有效的邮箱地址" }, { status: 400 });
+    routeError(400, 40010, "请输入有效的邮箱地址");
   }
   if (!isEmailConfigured()) {
-    return NextResponse.json({ code: 40060, message: "邮件服务暂未配置，请联系客服重置密码" }, { status: 503 });
+    routeError(503, 40060, "邮件服务暂未配置，请联系客服重置密码");
   }
 
   const user = await ctx.user.usersRepo.findByIdentifier(identifier);
@@ -95,4 +101,4 @@ export async function POST(req: NextRequest) {
     }
   }
   return NextResponse.json({ success: true, message: "验证码已发送到您的邮箱", email_sent: emailSent, support_hint: emailSent ? null : "邮件发送失败，请联系客服协助重置密码" });
-}
+});

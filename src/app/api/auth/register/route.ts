@@ -2,42 +2,44 @@
  * POST /api/auth/register — 用户注册
  */
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
+import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "@/lib/services/auth";
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
-export async function POST(req: NextRequest) {
-  const {
-    email, phone, password, verify_code, display_name, invitation_code, user_type, locale,
-    // ── 合规审计字段 ──
-    agreement_version, agreement_accepted_at,
-  } = await req.json();
-  const userType = user_type === "personal" ? "personal" : "enterprise";
+// 字段顺序即校验优先级（zod issues[0] 与原实现的报错顺序一致）
+const registerSchema = z.object({
+  display_name: z.string({ error: "请填写姓名" }).trim().min(1, "请填写姓名"),
+  phone: z.string({ error: "请输入有效的手机号" }).trim().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
+  password: z.string({ error: "密码不能为空" }).min(1, "密码不能为空"),
+  verify_code: z.string({ error: "请输入短信验证码" }).min(1, "请输入短信验证码"),
+  email: z.string().trim().toLowerCase().optional(),
+  invitation_code: z.string().optional(),
+  user_type: z.string().optional(),
+  locale: z.string().optional(),
+  agreement_version: z.string().optional(),
+  agreement_accepted_at: z.string().optional(),
+});
+
+export const POST = withRoute(async (req: NextRequest) => {
+  const body = await parseJson(req, registerSchema, {
+    display_name: 40000, phone: 40011, password: 40001, verify_code: 40005,
+  });
+  const { email, phone: targetPhone, password: pw, verify_code: code, display_name: displayName } = body;
+  const userType = body.user_type === "personal" ? "personal" : "enterprise";
 
   // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
-  let inviteCode = String(invitation_code || "").trim().toUpperCase();
+  let inviteCode = String(body.invitation_code || "").trim().toUpperCase();
   if (!inviteCode) {
     const cookieCode = req.cookies.get("ref_code")?.value;
     if (cookieCode) inviteCode = cookieCode.trim().toUpperCase();
   }
 
-  const pw = String(password || "");
-  const code = String(verify_code || "");
-  const displayName = String(display_name || "").trim();
-  const targetPhone = String(phone || "").trim();
-
-  // ── 公共校验 ──
-  if (!displayName) {
-    return NextResponse.json({ code: 40000, message: "请填写姓名" }, { status: 400 });
-  }
-  if (!targetPhone || !/^1[3-9]\d{9}$/.test(targetPhone)) {
-    return NextResponse.json({ code: 40011, message: "请输入有效的手机号" }, { status: 400 });
-  }
-  if (!pw) return NextResponse.json({ code: 40001, message: "密码不能为空" }, { status: 400 });
+  // 密码策略（40006）
   const pwCheck = validatePassword(pw);
-  if (!pwCheck.valid) return NextResponse.json({ code: 40006, message: pwCheck.message }, { status: 400 });
-  if (!code) return NextResponse.json({ code: 40005, message: "请输入短信验证码" }, { status: 400 });
+  if (!pwCheck.valid) routeError(400, 40006, pwCheck.message);
 
   const ctx = getContext();
 
@@ -46,36 +48,36 @@ export async function POST(req: NextRequest) {
   if (inviteCode) {
     const inviteValidation = await ctx.user.invitationRepo.validateCode(inviteCode);
     if (!inviteValidation.valid) {
-      return NextResponse.json({ code: 40031, message: inviteValidation.reason || "邀请码无效" }, { status: 400 });
+      routeError(400, 40031, inviteValidation.reason || "邀请码无效");
     }
     referralEmployeeId = inviteValidation.employee_id!;
   }
 
   // ── 短信验证码校验 ──
   const codeRecord = await ctx.user.authRepo.findLatestActiveCode(targetPhone, "registration", targetPhone);
-  if (!codeRecord) return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
-  if (codeRecord.attempts >= 5) return NextResponse.json({ code: 40029, message: "尝试次数过多，请重新获取验证码" }, { status: 429 });
+  if (!codeRecord) routeError(400, 40007, "验证码无效，请重新获取");
+  if (codeRecord.attempts >= 5) routeError(429, 40029, "尝试次数过多，请重新获取验证码");
   if (codeRecord.code !== hashVerificationCode(code)) {
     await ctx.user.authRepo.incrementCodeAttempts(codeRecord.id);
-    return NextResponse.json({ code: 40007, message: "验证码无效，请重新获取" }, { status: 400 });
+    routeError(400, 40007, "验证码无效，请重新获取");
   }
 
   const existing = await ctx.user.usersRepo.findByPhone(targetPhone);
-  if (existing) return NextResponse.json({ code: 40008, message: "该手机号已注册，请直接登录" }, { status: 400 });
+  if (existing) routeError(400, 40008, "该手机号已注册，请直接登录");
 
   const created = await ctx.user.usersRepo.create({
     user_key: targetPhone,
     email: email ? String(email).trim().toLowerCase() : null,
     display_name: displayName,
     // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
-    nickname: generateNickname(typeof locale === "string" ? locale : undefined),
+    nickname: generateNickname(body.locale),
     password_hash: await hashPassword(pw),
     user_type: userType,
     phone: targetPhone,
     referral_code: inviteCode,
     referral_employee_id: referralEmployeeId ?? undefined,
   });
-  if (!created) return NextResponse.json({ code: 40008, message: "注册失败，请稍后重试" }, { status: 400 });
+  if (!created) routeError(400, 40008, "注册失败，请稍后重试");
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   await ctx.user.usersRepo.markPhoneVerified(targetPhone);
@@ -93,9 +95,9 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "terms",
-      documentVersion: agreement_version || "V2.0",
+      documentVersion: body.agreement_version || "V2.0",
       action: "agree",
-      timestamp: agreement_accepted_at || new Date().toISOString(),
+      timestamp: body.agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,
       userAgent,
       sourcePage: "register",
@@ -103,9 +105,9 @@ export async function POST(req: NextRequest) {
     await ctx.user.authRepo.recordConsentLog({
       userKey: targetPhone,
       consentType: "privacy",
-      documentVersion: agreement_version || "V2.0",
+      documentVersion: body.agreement_version || "V2.0",
       action: "agree",
-      timestamp: agreement_accepted_at || new Date().toISOString(),
+      timestamp: body.agreement_accepted_at || new Date().toISOString(),
       ipAddress: clientIp,
       userAgent,
       sourcePage: "register",
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
   // 只返回昵称（不返回 display_name 真实姓名），手机号脱敏（修复原响应返回明文手机号）
   const createdUser = await ctx.user.usersRepo.findAuthByKey(targetPhone);
   if (!createdUser) {
-    return NextResponse.json({ code: 40008, message: "注册失败，请稍后重试" }, { status: 500 });
+    routeError(500, 50000, "注册失败，请稍后重试");
   }
   const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
 
@@ -135,4 +137,4 @@ export async function POST(req: NextRequest) {
   // 注册成功后清除推荐链接 Cookie，避免重复归属
   response.cookies.set("ref_code", "", { maxAge: 0, path: "/" });
   return response;
-}
+});

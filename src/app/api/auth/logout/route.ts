@@ -3,10 +3,11 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { hashRefreshToken } from "@/lib/services/jwt";
 import { readRefreshCookieFromRequest, clearRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
-export async function POST(req: Request) {
+export const POST = withRoute(async (req: Request) => {
   const refreshToken = readRefreshCookieFromRequest(req);
   if (refreshToken) {
     const tokenHash = hashRefreshToken(refreshToken);
@@ -15,4 +16,4 @@ export async function POST(req: Request) {
   const response = NextResponse.json({ success: true });
   clearRefreshCookieOnResponse(response);
   return response;
-}
+});
