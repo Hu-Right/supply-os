@@ -124,6 +124,12 @@ export interface UseDigitalAssistantReturn {
   handleSessionTimeout: () => void;
   /** SSE 重连超限处理 */
   handleConnectionLost: () => void;
+  /** 待评价的已结束人工会话 ID（非 null 时聊天窗口显示评价卡片） */
+  pendingRating: number | null;
+  /** 提交满意度评价（1-5 星 + 可选标签/文字） */
+  submitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
+  /** 跳过评价 */
+  skipRating: () => void;
 }
 
 // ── 工具函数 ──
@@ -150,6 +156,7 @@ export function useDigitalAssistant(
   const [isThinking, setIsThinking] = useState(false);
   const [agentName, setAgentName] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<number | null>(null);
+  const [pendingRating, setPendingRating] = useState<number | null>(null);
   // 同步 ref
   useEffect(() => { chatSessionIdRef.current = chatSessionId; }, [chatSessionId]);
 
@@ -335,10 +342,12 @@ export function useDigitalAssistant(
 
   /** 结束人工会话（调用后端 API 真正关闭会话） */
   const endHumanSession = useCallback(async () => {
+    const closingSessionId = chatSessionIdRef.current;
+    const hadAgent = mode === "human";
     // 调用后端 DELETE 关闭会话（通知内网 Agent 侧 SSE 也推送 session_closed）
-    if (chatSessionIdRef.current) {
+    if (closingSessionId) {
       try {
-        await api(`/api/crm/chat/sessions?sessionId=${chatSessionIdRef.current}`, {
+        await api(`/api/crm/chat/sessions?sessionId=${closingSessionId}`, {
           method: "DELETE",
           retryOnAuth: true,
         });
@@ -350,7 +359,11 @@ export function useDigitalAssistant(
     setAgentName(null);
     setChatSessionId(null);
     appendMessage("system", t("crmAssistantSessionEnded"));
-  }, [appendMessage, t]);
+    // 实际发生过人工接待才邀请评价（P1 满意度）
+    if (closingSessionId && hadAgent) {
+      setPendingRating(closingSessionId);
+    }
+  }, [appendMessage, t, mode]);
 
   /** 触发 AI 撮合（从 MatchSelector 组件调用） */
   const triggerMatch = useCallback(async () => {
@@ -436,13 +449,18 @@ export function useDigitalAssistant(
 
   /** SSE 空闲超时断流处理：前端回退 AI 态并提示（后端会话由超时巡检关闭） */
   const handleSessionTimeout = useCallback(() => {
-    if (chatSessionIdRef.current) {
+    const closingSessionId = chatSessionIdRef.current;
+    const hadAgent = mode === "human";
+    if (closingSessionId) {
       appendMessage("system", t("crmAssistantSessionTimeout"));
     }
     setMode("ai");
     setAgentName(null);
     setChatSessionId(null);
-  }, [appendMessage, t]);
+    if (closingSessionId && hadAgent) {
+      setPendingRating(closingSessionId);
+    }
+  }, [appendMessage, t, mode]);
 
   /** SSE 重连超限处理：提示用户连接异常，保持会话态以便恢复 */
   const handleConnectionLost = useCallback(() => {
@@ -450,6 +468,31 @@ export function useDigitalAssistant(
       appendMessage("system", t("crmAssistantConnectionLost"));
     }
   }, [appendMessage, t]);
+
+  /** 提交满意度评价（P1） */
+  const submitRating = useCallback(
+    async (score: number, tag?: string, comment?: string) => {
+      const sessionId = pendingRating;
+      if (sessionId == null) return;
+      try {
+        await api("/api/crm/chat/sessions/rate", {
+          method: "POST",
+          retryOnAuth: true,
+          body: { sessionId, satisfaction: score, tag, comment },
+        });
+        appendMessage("system", t("crmAssistantRateThanks"));
+        setPendingRating(null);
+      } catch {
+        appendMessage("system", t("crmAssistantRateFailed"));
+      }
+    },
+    [pendingRating, appendMessage, t],
+  );
+
+  /** 跳过评价 */
+  const skipRating = useCallback(() => {
+    setPendingRating(null);
+  }, []);
 
   /** 清空对话 */
   const clearMessages = useCallback(() => {
@@ -487,5 +530,8 @@ export function useDigitalAssistant(
     restoreActiveSession,
     handleSessionTimeout,
     handleConnectionLost,
+    pendingRating,
+    submitRating,
+    skipRating,
   };
 }

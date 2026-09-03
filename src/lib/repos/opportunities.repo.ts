@@ -137,11 +137,11 @@ export class OpportunitiesRepo {
   }
 
   /** 记录浏览流水 */
-  async insertView(params: { userKey: string; opportunityId: number; ip: string }): Promise<void> {
+  async insertView(params: { userId: number; userKey: string; opportunityId: number; ip: string }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_user_notice_views (user_id, user_key, opportunity_id, viewed_at, ip)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.opportunityId, params.ip],
+       VALUES (?, ?, ?, NOW(), ?)`,
+      [params.userId, params.userKey, params.opportunityId, params.ip],
     );
   }
 
@@ -193,6 +193,7 @@ export class OpportunitiesRepo {
 
   /** 写入解锁流水 */
   async insertUnlock(params: {
+    userId: number;
     userKey: string;
     opportunityId: number;
     unlockType: string;
@@ -202,8 +203,8 @@ export class OpportunitiesRepo {
     await this.pool.execute(
       `INSERT INTO crm_opportunity_unlocks
         (user_id, user_key, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.opportunityId, params.unlockType, params.price, params.unspscSnapshot],
+       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
+      [params.userId, params.userKey, params.opportunityId, params.unlockType, params.price, params.unspscSnapshot],
     );
   }
 
@@ -217,6 +218,7 @@ export class OpportunitiesRepo {
 
   /** 兴趣码 upsert（解锁来源，重复时权重 +0.50） */
   async upsertInterestCode(params: {
+    userId: number;
     userKey: string;
     codeId: number | null;
     code: string;
@@ -224,9 +226,9 @@ export class OpportunitiesRepo {
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, 'unlock_order', 2.50)
+       VALUES (?, ?, ?, ?, ?, 'unlock_order', 2.50)
        ON DUPLICATE KEY UPDATE weight = weight + 0.50, updated_at = NOW()`,
-      [params.userKey, params.userKey, params.codeId, params.code, params.level],
+      [params.userId, params.userKey, params.codeId, params.code, params.level],
     );
   }
 }

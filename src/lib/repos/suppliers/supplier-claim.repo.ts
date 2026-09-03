@@ -12,6 +12,7 @@ export class SupplierClaimRepo {
 
   /** 提交供应商认领，返回自增 id */
   async insertClaim(params: {
+    userId: number;
     userKey: string;
     supplierId: number | null;
     companyName: string;
@@ -24,9 +25,9 @@ export class SupplierClaimRepo {
     const [result] = await this.pool.execute(
       `INSERT INTO crm_supplier_claims
         (user_id, user_key, supplier_id, company_name, supplier_type, contact_name, contact_phone, contact_email, business_license_no, status)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
-        params.userKey, params.userKey, params.supplierId, params.companyName, params.supplierType,
+        params.userId, params.userKey, params.supplierId, params.companyName, params.supplierType,
         params.contactName, params.contactPhone, params.contactEmail, params.businessLicenseNo,
       ],
     );

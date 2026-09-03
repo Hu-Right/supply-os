@@ -8,9 +8,9 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, X } from "lucide-react";
+import { Send, Paperclip, X, History, ArrowLeft } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { getAuthToken } from "@/core/http";
+import { api, getAuthToken } from "@/core/http";
 import { Button } from "@/shared/ui";
 import type {
   ChatMessage,
@@ -19,6 +19,7 @@ import type {
   MatchPhase,
   AttachmentMeta,
 } from "../../hooks/useDigitalAssistant";
+import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import type { QueueInfo } from "../../hooks/useQueueInfo";
 import type { Supplier, Opportunity } from "@/types";
 import { MessageBubble } from "./MessageBubble";
@@ -26,11 +27,23 @@ import { TypingIndicator } from "./TypingIndicator";
 import { QuickActions } from "./QuickActions";
 import { MatchSelector } from "./MatchSelector";
 import { MatchReportCard } from "./MatchReportCard";
+import { RatingCard } from "./RatingCard";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** 与后端上传白名单一致（扩展名粗筛，服务端仍做 magic bytes 校验） */
 const ACCEPT_EXTS = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar";
+
+/** 历史会话列表项（GET /sessions/history 返回） */
+interface HistoryItem {
+  id: number;
+  agent_email: string | null;
+  created_at: string;
+  closed_at: string | null;
+  satisfaction: number | null;
+  last_message: string | null;
+  message_count: number;
+}
 
 type ChatWindowProps = {
   messages: ChatMessage[];
@@ -40,6 +53,10 @@ type ChatWindowProps = {
   onQuickAction: (action: QuickActionType) => void;
   /** 排队信息（waiting 态轮询，P1） */
   queueInfo: QueueInfo;
+  /** 待评价的已结束人工会话 ID（非 null 时显示评价卡片，P1） */
+  pendingRating: number | null;
+  onSubmitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
+  onSkipRating: () => void;
   // ── AI 撮合 ──
   matchPhase: MatchPhase;
   matchReport: string;
@@ -60,6 +77,9 @@ export function ChatWindow({
   onSend,
   onQuickAction,
   queueInfo,
+  pendingRating,
+  onSubmitRating,
+  onSkipRating,
   matchPhase,
   matchReport,
   suppliers,
@@ -130,6 +150,61 @@ export function ChatWindow({
     setInput("");
     setPendingAttachment(null);
   };
+
+  // ── 历史会话查看（P1，仅 AI 态入口；自包含状态，不污染会话流） ──
+  const [historyView, setHistoryView] = useState<"none" | "list" | "transcript">("none");
+  const [historySessions, setHistorySessions] = useState<HistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [transcript, setTranscript] = useState<ChatMessage[] | null>(null);
+  const [transcriptLoading, setTranscriptLoading] = useState(false);
+  const transcriptScrollRef = useRef<HTMLDivElement>(null);
+
+  async function openHistory() {
+    setHistoryView("list");
+    setHistoryLoading(true);
+    try {
+      const data = await api<{ sessions: HistoryItem[] }>("/api/crm/chat/sessions/history?limit=20");
+      setHistorySessions(data.sessions ?? []);
+    } catch {
+      setHistorySessions([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  async function viewTranscript(item: HistoryItem) {
+    setHistoryView("transcript");
+    setTranscriptLoading(true);
+    setTranscript(null);
+    try {
+      const rows = await api<Array<{ id: number; role: string; content: string; metadata: unknown; created_at: string }>>(
+        `/api/crm/chat/messages?sessionId=${item.id}&limit=200`,
+      );
+      setTranscript(
+        (rows ?? []).map((m) => ({
+          id: `h_${m.id}`,
+          role: (m.role === "customer" ? "user" : "assistant") as ChatMessage["role"],
+          content: m.content + attachmentMarkerFromMetadata(m.metadata),
+          timestamp: new Date(m.created_at).getTime() || Date.now(),
+          isHistory: true,
+        })),
+      );
+    } catch {
+      setTranscript([]);
+    } finally {
+      setTranscriptLoading(false);
+      requestAnimationFrame(() => {
+        if (transcriptScrollRef.current) {
+          transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+        }
+      });
+    }
+  }
+
+  function historyDate(item: HistoryItem): string {
+    const d = item.closed_at ?? item.created_at;
+    return new Date(d).toLocaleString(undefined, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Enter 发送，Shift+Enter 换行

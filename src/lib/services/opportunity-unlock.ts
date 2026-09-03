@@ -106,8 +106,8 @@ export async function executeOpportunityUnlock(
     await conn.query(
       `INSERT INTO crm_opportunity_unlocks
         (user_id, user_key, opportunity_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
-      [userKey, userKey, opportunityId, unlockType, price, snapshotJson],
+       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
+      [userId!, userKey, opportunityId, unlockType, price, snapshotJson],
     );
 
     // 消耗配额：条件 UPDATE + affectedRows 复核（并发耗尽则回滚）

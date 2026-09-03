@@ -21,13 +21,13 @@ export class NoticeFeedbackRepo {
   constructor(private pool: Pool) {}
 
   /** 推荐反馈批量插入（INSERT IGNORE，返回实际插入行数） */
-  async insertRecoFeedback(userKey: string, sessionId: string, items: RecoFeedbackItem[]): Promise<number> {
+  async insertRecoFeedback(userId: number, userKey: string, sessionId: string, items: RecoFeedbackItem[]): Promise<number> {
     const [insertResult] = await this.pool.query(
       `INSERT IGNORE INTO crm_user_reco_feedback
          (user_id, user_key, notice_id, action, reco_score, position, variant, session_id, dwell_ms)
-       VALUES ${items.map(() => "((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
+       VALUES ${items.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")}`,
       items.flatMap((item) => [
-        userKey, userKey, item.noticeId, item.action,
+        userId, userKey, item.noticeId, item.action,
         item.recoScore, item.position, item.variant, sessionId, item.dwellMs,
       ]),
     );

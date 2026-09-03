@@ -25,6 +25,14 @@ export const chatMessageSendSchema = z.object({
 /** metadata 序列化后的体积上限（防止借 metadata 夹带大对象） */
 export const METADATA_MAX_BYTES = 8 * 1024;
 
+/** 满意度评价提交（迁移 064；标签/文字选填） */
+export const chatRatingSchema = z.object({
+  sessionId: z.number().int().positive(),
+  satisfaction: z.number().int().min(1).max(5),
+  tag: z.string().trim().max(100).optional(),
+  comment: z.string().trim().max(500).optional(),
+});
+
 /** 校验 metadata 可序列化且不超限；不合法时返回 undefined */
 export function sanitizeMetadata(
   metadata: unknown,

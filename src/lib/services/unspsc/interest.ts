@@ -36,6 +36,7 @@ const INTEREST_WEIGHT_CAP = 500;
  */
 export async function persistUserInterestCodes(
   dbPool: any,
+  userId: number,
   userKey: string,
   snapshot: any[],
   source: string,
@@ -56,9 +57,9 @@ export async function persistUserInterestCodes(
     const codeRow = (codeRows as UnspscCodeRow[])[0];
     await dbPool.execute(
       `INSERT INTO crm_user_interest_codes (user_id, user_key, code_id, code, level, source, weight)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE weight = LEAST(${INTEREST_WEIGHT_CAP}, weight + VALUES(weight)), updated_at = NOW()`,
-      [userKey, userKey, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
+      [userId, userKey, codeRow?.id || null, prefix, Math.max(1, prefix.length / 2), source, weight]
     );
   }
 }

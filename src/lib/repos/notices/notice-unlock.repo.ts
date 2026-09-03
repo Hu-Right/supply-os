@@ -39,6 +39,7 @@ export class NoticeUnlockRepo {
 
   /** 写入解锁流水 */
   async insertUnlock(params: {
+    userId: number;
     userKey: string;
     noticeId: number;
     unlockType: string;
@@ -48,8 +49,8 @@ export class NoticeUnlockRepo {
     await this.pool.execute(
       `INSERT INTO crm_opportunity_unlocks
         (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
+       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
+      [params.userId, params.userKey, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
     );
   }
 
@@ -77,13 +78,13 @@ export class NoticeUnlockRepo {
   /** 事务内写入解锁流水 */
   async insertUnlockInTransaction(
     conn: PoolConnection,
-    params: { userKey: string; noticeId: number; unlockType: string; price: number; unspscSnapshot: string },
+    params: { userId: number; userKey: string; noticeId: number; unlockType: string; price: number; unspscSnapshot: string },
   ): Promise<void> {
     await conn.query(
       `INSERT INTO crm_opportunity_unlocks
         (user_id, user_key, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
-       VALUES ((SELECT id FROM crm_users WHERE user_key = ? LIMIT 1), ?, ?, ?, ?, NOW(), ?)`,
-      [params.userKey, params.userKey, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
+       VALUES (?, ?, ?, ?, ?, NOW(), ?)`,
+      [params.userId, params.userKey, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
     );
   }
 

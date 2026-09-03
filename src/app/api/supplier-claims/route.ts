@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   const ctx = getContext();
   try {
     const result = await ctx.supplier.claimRepo.insertClaim({
+      userId: auth.userId!,
       userKey: auth.userKey,
       supplierId,
       companyName: str(body.companyName ?? body.company_name, 200),
