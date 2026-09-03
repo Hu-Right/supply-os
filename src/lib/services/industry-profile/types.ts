@@ -13,7 +13,7 @@
 
 /** 用户五级行业画像（由 resolve.ts 解析） */
 export interface UserIndustryProfile {
-  userKey: string;
+  userId: number;
   /** 最深非空级（1~5） */
   deepestLevel: number;
   /** 各级类目 id（下标 0 = level1，未选级为 null） */

@@ -16,7 +16,7 @@ import { unspscPrefixFromCode } from "../unspsc";
 import type { UserIndustryProfile } from "./types";
 
 // ── B2 优化：用户行业画像内存缓存（60s TTL，偏好变更时主动失效）──
-const _profileCache = new Map<string, { profile: UserIndustryProfile | null; expires: number }>();
+const _profileCache = new Map<number, { profile: UserIndustryProfile | null; expires: number }>();
 const PROFILE_CACHE_TTL = 60 * 1000;
 const PROFILE_CACHE_MAX = 500;
 
@@ -29,7 +29,7 @@ interface UnspscNodeRow {
 }
 /** 类目树节点行转画像 */
 function buildProfile(
-  userKey: string,
+  userId: number,
   levelIds: (number | null)[],
   deepestLevel: number,
   deepestId: number,
@@ -37,7 +37,7 @@ function buildProfile(
 ): UserIndustryProfile {
   const branchPrefix = unspscPrefixFromCode(String(node.code || ""));
   return {
-    userKey,
+    userId,
     deepestLevel,
     deepestId,
     levelIds,
@@ -47,12 +47,12 @@ function buildProfile(
 }
 
 /** 失效用户行业画像缓存（用户修改行业偏好时调用） */
-export function invalidateProfileCache(userKey?: string): void {
-  if (!userKey) {
+export function invalidateProfileCache(userId?: number): void {
+  if (!userId) {
     _profileCache.clear();
     return;
   }
-  _profileCache.delete(userKey);
+  _profileCache.delete(userId);
 }
 
 /**
@@ -61,11 +61,10 @@ export function invalidateProfileCache(userKey?: string): void {
  */
 export async function resolveUserIndustryProfile(
   pool: Pool,
-  userKey: string,
-  userId?: number,
+  userId: number,
 ): Promise<UserIndustryProfile | null> {
   // ── 缓存命中检查 ──
-  const cached = _profileCache.get(userKey);
+  const cached = _profileCache.get(userId);
   if (cached && cached.expires > Date.now()) return cached.profile;
 
   // N6 收敛：偏好读取经 UserPrefsRepo 单一端口（与 user-prefs.routes 同口径），
@@ -73,16 +72,9 @@ export async function resolveUserIndustryProfile(
   const userPrefsRepo = new UserPrefsRepo(pool);
   const catalogRepo = new CatalogRepo(pool);
 
-  // 如果提供了 userId，使用它；否则回退查表获取
-  let effectiveUserId = userId;
-  if (!effectiveUserId) {
-    const user = await new (await import("@/lib/repos/users.repo")).UsersRepo(pool).findByKey(userKey);
-    effectiveUserId = user?.id;
-  }
-
-  const row = effectiveUserId ? await userPrefsRepo.getIndustryPrefs(effectiveUserId) : null;
+  const row = userId ? await userPrefsRepo.getIndustryPrefs(userId) : null;
   if (!row) {
-    _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+    _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
     if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
     return null;
   }
@@ -108,14 +100,14 @@ export async function resolveUserIndustryProfile(
     if (!id) continue;
     const node = (await catalogRepo.findUnspscNodeById(id)) as UnspscRow | null;
     if (node) {
-      const profile = buildProfile(userKey, levelIds, lvl, id, node);
-      _profileCache.set(userKey, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
+      const profile = buildProfile(userId, levelIds, lvl, id, node);
+      _profileCache.set(userId, { profile, expires: Date.now() + PROFILE_CACHE_TTL });
       if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
       return profile;
     }
   }
 
-  _profileCache.set(userKey, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
+  _profileCache.set(userId, { profile: null, expires: Date.now() + PROFILE_CACHE_TTL });
   if (_profileCache.size > PROFILE_CACHE_MAX) _profileCache.clear();
   return null;
 }

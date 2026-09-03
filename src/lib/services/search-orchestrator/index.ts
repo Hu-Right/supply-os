@@ -65,22 +65,22 @@ function cacheSet(key: string, data: UnifiedSearchResult): void {
 }
 
 /** 失效行业匹配相关缓存（用户修改行业偏好后调用） */
-export function invalidateUnifiedSearchCache(userKey?: string): void {
+export function invalidateUnifiedSearchCache(userId?: number): void {
   // B2 联动：偏好变更时同步失效画像缓存
-  invalidateProfileCache(userKey);
+  invalidateProfileCache(userId);
   // B6 联动：失效时也清理飞行中请求，防止偏好变更后复用旧 Promise
-  if (!userKey) {
+  if (!userId) {
     resultCache.clear();
     _inflight.clear();
     return;
   }
   for (const key of resultCache.keys()) {
-    if (key.includes(`|${userKey}|`) || key.startsWith(`prefs|${userKey}`)) {
+    if (key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`)) {
       resultCache.delete(key);
     }
   }
   for (const key of _inflight.keys()) {
-    if (key.includes(`|${userKey}|`) || key.startsWith(`prefs|${userKey}`)) {
+    if (key.includes(`|${userId}|`) || key.startsWith(`prefs|${userId}`)) {
       _inflight.delete(key);
     }
   }

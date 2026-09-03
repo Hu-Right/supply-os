@@ -31,19 +31,19 @@ export class UserPrefsRepo {
   }
 
   /** 清除用户行业偏好 */
-  async deleteIndustryPrefs(userKey: string): Promise<void> {
-    await this.pool.execute("DELETE FROM crm_user_industry_prefs WHERE user_key = ?", [userKey]);
+  async deleteIndustryPrefs(userId: number): Promise<void> {
+    await this.pool.execute("DELETE FROM crm_user_industry_prefs WHERE user_id = ?", [userId]);
   }
 
   /** 写入/更新用户行业偏好 */
-  async upsertIndustryPrefs(userKey: string, levels: (number | null)[]): Promise<void> {
+  async upsertIndustryPrefs(userId: number, levels: (number | null)[]): Promise<void> {
     await this.pool.execute(
-      `INSERT INTO crm_user_industry_prefs (user_key, level1_id, level2_id, level3_id, level4_id, level5_id)
+      `INSERT INTO crm_user_industry_prefs (user_id, level1_id, level2_id, level3_id, level4_id, level5_id)
        VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          level1_id = VALUES(level1_id), level2_id = VALUES(level2_id), level3_id = VALUES(level3_id),
          level4_id = VALUES(level4_id), level5_id = VALUES(level5_id), updated_at = NOW()`,
-      [userKey, ...levels],
+      [userId, ...levels],
     );
   }
 }
