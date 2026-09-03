@@ -10,6 +10,8 @@
 import { api } from "@/core/http";
 
 // ── 落地页动态数据类型（与后端 GET /api/training/landing 对齐） ──
+// 说明：落地页仅课程与期次走动态数据（支撑报名支付链路）；
+//       讲师/团队/课堂照片与全部文案均为前端静态配置 + i18n。
 
 export interface LandingCourse {
   id: number;
@@ -33,42 +35,9 @@ export interface LandingSchedule {
   enrolled_count: number;
 }
 
-export interface LandingInstructor {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  roles: string[];
-  title_zh: string;
-  title_en: string | null;
-  bio_zh: string;
-  bio_en: string | null;
-  avatar_path: string;
-}
-
-export interface LandingTeamMember {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  title_zh: string | null;
-  title_en: string | null;
-  roles: string[];
-  avatar_path: string;
-}
-
-export interface LandingGalleryCategory {
-  id: number;
-  name_zh: string;
-  name_en: string | null;
-  description_zh: string | null;
-  description_en: string | null;
-  images: { image_path: string }[];
-}
-
 export interface LandingDataResponse {
   course: LandingCourse | null;
   schedules: LandingSchedule[];
-  instructors: { featured: LandingInstructor[]; team: LandingTeamMember[] };
-  gallery: LandingGalleryCategory[];
 }
 
 export interface CreateTrainingOrderRequest {
@@ -154,7 +123,7 @@ export const submitTrainingRegister = (data: TrainingRegisterForm) =>
   });
 
 /**
- * 获取落地页动态数据（课程/期次/讲师/团队/照片）
+ * 获取落地页动态数据（课程/期次）
  * Fetch landing page dynamic data
  */
 export const fetchLandingData = () => api<LandingDataResponse>("/api/training/landing");
