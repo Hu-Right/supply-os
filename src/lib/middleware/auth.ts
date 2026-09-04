@@ -31,14 +31,14 @@ export async function extractUserKey(req: NextRequest): Promise<AuthResult> {
     const { normalizeUserKey } = await import("@/lib/utils/normalize");
     const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
-    const userKey = normalizeUserKey(payload.user_key) || "";
-    if (!userKey) return { userId: 0, userKey: "", authViaJwt: false };
 
-    // uid claim 自 user_id 迁移（2026-09-04）起始终存在；旧 token 已全部过期
+    // uid 为身份主锚点（user_key 列已废弃）：优先取 uid，无 uid 时回退 user_key
     const userId: UserId = payload.uid ?? 0;
-    if (!userId) return { userId: 0, userKey, authViaJwt: true };
+    const userKey = normalizeUserKey(payload.user_key) || "";
 
-    return { userId, userKey, authViaJwt: true };
+    if (userId) return { userId, userKey, authViaJwt: true };
+    if (userKey) return { userId: 0, userKey, authViaJwt: true };
+    return { userId: 0, userKey: "", authViaJwt: false };
   } catch {
     return { userId: 0, userKey: "", authViaJwt: false };
   }

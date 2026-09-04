@@ -58,8 +58,11 @@ export async function issueTokenPair(
   userId: number,
   userKey?: string,
 ): Promise<{ token: string; refresh_token: string }> {
-  const accessToken = signAccessToken({ uid: userId, user_key: userKey });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId, user_key: userKey });
+  // user_key 迁移过渡期：undefined 会导致 JWT 序列化时丢弃该字段，
+  // 服务端验签后拿不到 user_key → extractUserKey 返回 authViaJwt=false → 401
+  const safeUserKey = userKey ?? "";
+  const accessToken = signAccessToken({ uid: userId, user_key: safeUserKey });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId, user_key: safeUserKey });
   const expiresAt = getRefreshTokenExpiresAt();
   // 同步入库（确保 hash 落库后 token 才返回），失败仅记日志不阻断：
   // token 已签发可正常使用 2h；refresh 未入库仅影响后续刷新。
