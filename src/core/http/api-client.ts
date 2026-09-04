@@ -9,6 +9,7 @@
  */
 
 import { recordApiMetric } from "@/core/perf";
+import { emitAppEvent } from "@/core/events";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 // Next.js 项目使用 NEXT_PUBLIC_ 前缀注入客户端环境变量（审查 F52：
@@ -238,9 +239,7 @@ export async function api<T>(
           throw new ApiError(401, businessMessage);
         }
         clearAuthTokens();
-        window.dispatchEvent(
-          new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
-        );
+        emitAppEvent("supply-os:unauthorized", { endpoint });
         throw new ApiError(401, "Unauthorized");
       }
       const err = await retryRes.json().catch(() => ({}));
@@ -250,9 +249,7 @@ export async function api<T>(
     // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效，
     // 整个认证会话已不可恢复——清除过期凭据并触发全局登出事件。
     clearAuthTokens();
-    window.dispatchEvent(
-      new CustomEvent("supply-os:unauthorized", { detail: { endpoint } }),
-    );
+    emitAppEvent("supply-os:unauthorized", { endpoint });
     // 若原始响应含业务 code（如 requireUserKey 的 "请先登录"），透传服务端消息
     if (businessMessage) {
       throw new ApiError(401, businessMessage);
