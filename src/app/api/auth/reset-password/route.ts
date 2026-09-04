@@ -63,14 +63,15 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // 重置密码
   const newHash = await hashPassword(newPassword);
+  const user = await ctx.user.usersRepo.findAuthByKey(resolvedUserKey);
+  if (!user) routeError(404, 40044, "账户不存在");
   await ctx.user.usersRepo.updatePassword(resolvedUserKey, newHash, "bcrypt");
-  await ctx.user.authRepo.deleteRefreshTokensByUser(resolvedUserKey); // 撤销所有现有 Token
+  // 撤销所有现有 Token（按 user_id 删除，覆盖双写全口径；P0-B 钱路/安全整改）
+  await ctx.user.authRepo.deleteRefreshTokensByUser(user.id!);
   if (channel !== "sms") await ctx.user.usersRepo.markEmailVerified(resolvedUserKey);
   await ctx.user.authRepo.markCodeUsed(record.id);
 
   // 自动登录
-  const user = await ctx.user.usersRepo.findAuthByKey(resolvedUserKey);
-  if (!user) routeError(500, 50000, "重置成功，但获取用户信息失败，请重新登录");
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, user.user_key, user.email || ""); } catch { /* */ }

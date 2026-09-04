@@ -33,9 +33,9 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40007, "验证码无效，请重新获取");
   }
 
-  // 检查邮箱是否已被其他用户绑定
+  // 检查邮箱是否已被其他用户绑定（身份比对按 user_id；legacy 行 user_id 为 NULL 时 fail-closed 拒绝）
   const existingByEmail = await ctx.user.usersRepo.findByEmail(targetEmail);
-  if (existingByEmail && existingByEmail.user_key !== auth.userKey) {
+  if (existingByEmail && (existingByEmail.user_id == null || existingByEmail.user_id !== auth.userId)) {
     routeError(409, 40032, "该邮箱已被其他用户绑定");
   }
 

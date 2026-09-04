@@ -30,7 +30,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const existingByPhone = await ctx.user.usersRepo.findByPhone(new_phone);
-  if (existingByPhone && existingByPhone.user_key !== auth.userKey) {
+  if (existingByPhone && (existingByPhone.user_id == null || existingByPhone.user_id !== auth.userId)) {
     routeError(409, 40032, "该手机号已被其他用户绑定");
   }
   await ctx.user.usersRepo.bindPhone(auth.userKey, new_phone);

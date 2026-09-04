@@ -31,7 +31,7 @@ export class AuthRepo {
         [userIdOrKey, codeType],
       );
     } else {
-      // 注册场景：用户尚未创建，按 user_key 失效
+      // 注册场景（永久设计，非过渡态）：验证码创建于用户行之前，尚无 userId，只能按 user_key 失效
       await this.pool.execute(
         "UPDATE crm_password_resets SET used = 1 WHERE user_key = ? AND code_type = ? AND used = 0",
         [userIdOrKey, codeType],
@@ -137,12 +137,12 @@ export class AuthRepo {
   }
 
   /** 按哈希查询有效（未过期）Refresh Token 归属 */
-  async findRefreshTokenByHash(tokenHash: string): Promise<{ id: number; user_key: string } | null> {
+  async findRefreshTokenByHash(tokenHash: string): Promise<{ id: number; user_id: number | null; user_key: string | null } | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, user_key FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
+      "SELECT id, user_id, user_key FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
       [tokenHash],
     );
-    return ((rows as RowDataPacket[])[0] as { id: number; user_key: string }) ?? null;
+    return ((rows as RowDataPacket[])[0] as { id: number; user_id: number | null; user_key: string | null }) ?? null;
   }
 
   /** 按哈希撤销单个 Refresh Token（轮换/登出）；返回受影响行数供原子轮换判定 */
