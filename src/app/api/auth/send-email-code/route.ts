@@ -44,10 +44,10 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40030, "尚未绑定邮箱");
   }
 
-  // 检查邮箱是否已被其他用户绑定（身份比对按 user_id；legacy 行 user_id 为 NULL 时 fail-closed 拒绝）
+  // 检查邮箱是否已被其他用户绑定（身份比对按内部 id；无法确认归属时 fail-closed 拒绝）
   if (scene === "bind") {
     const existingByEmail = await ctx.user.usersRepo.findByEmail(targetEmail);
-    if (existingByEmail && (existingByEmail.user_id == null || existingByEmail.user_id !== auth.userId)) {
+    if (existingByEmail && (auth.userId == null || existingByEmail.id !== auth.userId)) {
       routeError(409, 40032, "该邮箱已被其他用户绑定");
     }
   }
