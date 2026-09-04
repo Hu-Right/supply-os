@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  }, [persistAuthUser]);
+  }, [persistAuthUser, t]);
 
   /**
    * 登录（仅手机号）
@@ -156,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  }, [persistAuthUser, locale]);
+  }, [persistAuthUser, locale, t]);
 
   /**
    * 登出
@@ -213,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsAuthLoading(false);
     }
-  }, []);
+  }, [t]);
 
   /**
    * 发送找回密码验证码
