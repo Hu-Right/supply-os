@@ -1,13 +1,13 @@
 /** POST /api/ai/matchmake — AI 匹配（requireAuth + 限流） */
 import { NextRequest, NextResponse } from "next/server";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 
 const sanitizeField = (value: unknown, maxLen = 200): string => String(value ?? "").slice(0, maxLen);
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   // 限流（审查 F28）：每次调用产生真实 Gemini API 费用，20 次/小时/用户
   const rl = checkRateLimit(req, { windowMs: 60 * 60_000, maxAttempts: 20 }, () => `ai:${auth.userId}`);
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const { supplier, opportunity, language } = await req.json();
   if (!supplier || !opportunity) {
-    return NextResponse.json({ code: 40000, message: "Required supplier and opportunity object parameters!" }, { status: 400 });
+    routeError(400, 40000, "Required supplier and opportunity object parameters!");
   }
   const lang = language || "zh";
 
@@ -57,4 +57,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ analysis: localAnalysisZh + "\n\n*(Gemini API error, used fallback)*", modelUsed: "local-match-fallback", success: true });
   }
-}
+});

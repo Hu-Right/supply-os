@@ -1,14 +1,14 @@
 /**
  * GET /api/payments/config-status — 支付配置状态（需登录）
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { getPaymentRuntimeConfig } from "@/lib/config/env";
 
-export async function GET(req: Request) {
-  const auth = await requireUserKey(req as any);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const ctx = getContext();
   const { paymentsRepo } = ctx.payment;
@@ -32,4 +32,4 @@ export async function GET(req: Request) {
       wechat: ["WECHAT_APP_ID", "WECHAT_MCH_ID", "WECHAT_API_V3_KEY", "WECHAT_PRIVATE_KEY", "WECHAT_NOTIFY_URL"],
     },
   });
-}
+});

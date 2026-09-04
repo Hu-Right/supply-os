@@ -6,7 +6,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
@@ -18,20 +19,15 @@ const historyLimiterConfig = {
   persistFile: path.join(getRateLimitPersistDir(), "chat-history.json"),
 };
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const limited = checkRateLimit(req, historyLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
-
-  if (!auth.userId) {
-    return NextResponse.json({ sessions: [], total: null });
-  }
 
   const limit = clampLimit(req.nextUrl.searchParams.get("limit"), CHAT_HISTORY_DEFAULT_LIMIT, CHAT_HISTORY_MAX_LIMIT);
   const offset = Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0);
 
   const sessions = await getContext().chatRepo.listHistorySessions(auth.userId, limit, offset);
   return NextResponse.json({ sessions, limit, offset });
-}
+});

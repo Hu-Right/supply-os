@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import type { QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
 
 /**
@@ -39,54 +40,44 @@ function toScoreInput(row: Record<string, unknown>): QualificationScoreInput {
   };
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  // 认证检查：诊断报告含企业敏感商业信息，必须登录后才可获取
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
 
-  const { id: idStr } = await params;
-  const id = Number(idStr);
-  if (!Number.isFinite(id) || id <= 0) {
-    return NextResponse.json({ code: 40000, message: "无效的记录 ID" }, { status: 400 });
-  }
+    const { id: idStr } = await params;
+    const id = Number(idStr);
+    if (!Number.isFinite(id) || id <= 0) routeError(400, 40000, "无效的记录 ID");
 
-  const repo = new SupplierQualificationRepo(getPool());
+    const repo = new SupplierQualificationRepo(getPool());
 
-  try {
-    const row = await repo.findById(id);
-    if (!row) {
-      return NextResponse.json({ code: 40400, message: "未找到该记录" }, { status: 404 });
+    try {
+      const row = await repo.findById(id);
+      if (!row) routeError(404, 40400, "未找到该记录");
+
+      const scoreInput = toScoreInput(row as unknown as Record<string, unknown>);
+      const pdfBuffer = await generateReadinessPdf({
+        ...scoreInput,
+        id: row.id,
+        assessDate: new Date().toISOString().slice(0, 10),
+      });
+
+      const companyName = String(row.company_name || "supplier").replace(/[\\/:*?"<>|]/g, "_");
+      const fileName = `国际公采能力诊断报告_${companyName}.pdf`;
+      // RFC 5987: 中文文件名需要 URL 编码，HTTP header 不支持非 ASCII 字符
+      const encodedFileName = encodeURIComponent(fileName);
+
+      return new NextResponse(new Uint8Array(pdfBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          // 同时提供 ASCII fallback 和 UTF-8 编码文件名
+          "Content-Disposition": `attachment; filename="report.pdf"; filename*=UTF-8''${encodedFileName}`,
+          "Content-Length": String(pdfBuffer.length),
+        },
+      });
+    } catch (err) {
+      console.error("[supplier-qualification-report]", err);
+      routeError(500, 50000, "生成报告失败");
     }
-
-    const scoreInput = toScoreInput(row as unknown as Record<string, unknown>);
-    const pdfBuffer = await generateReadinessPdf({
-      ...scoreInput,
-      id: row.id,
-      assessDate: new Date().toISOString().slice(0, 10),
-    });
-
-    const companyName = String(row.company_name || "supplier").replace(/[\\/:*?"<>|]/g, "_");
-    const fileName = `国际公采能力诊断报告_${companyName}.pdf`;
-    // RFC 5987: 中文文件名需要 URL 编码，HTTP header 不支持非 ASCII 字符
-    const encodedFileName = encodeURIComponent(fileName);
-
-    return new NextResponse(new Uint8Array(pdfBuffer), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        // 同时提供 ASCII fallback 和 UTF-8 编码文件名
-        "Content-Disposition": `attachment; filename="report.pdf"; filename*=UTF-8''${encodedFileName}`,
-        "Content-Length": String(pdfBuffer.length),
-      },
-    });
-  } catch (err) {
-    console.error("[supplier-qualification-report]", err);
-    return NextResponse.json(
-      { code: 50000, message: "生成报告失败" },
-      { status: 500 },
-    );
-  }
-}
+  },
+);

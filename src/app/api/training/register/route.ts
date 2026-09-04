@@ -7,12 +7,12 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { extractClientIp } from "@/lib/utils/ip";
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const body = await req.json();
   const ctx = getContext();
@@ -51,4 +51,4 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ success: true, id: result }, { status: 201 });
-}
+});
