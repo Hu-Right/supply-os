@@ -17,8 +17,8 @@ const checkSchema = z.object({
 
 export const POST = withRoute(async (req: NextRequest) => {
   const { email } = await parseJson(req, checkSchema, { email: 40010 });
-  // 按 user_key（登录凭据）查找——历史用户 user_key = 小写邮箱
-  const user = await getContext().user.usersRepo.findByKey(email);
+  // 分情况查重（user_key 列退役前置）：邮箱场景按 email 列查找，不再依赖已废弃的 user_key
+  const user = await getContext().user.usersRepo.findByEmail(email);
   if (!user || !user.phone || !user.phone_verified) {
     return NextResponse.json({ has_phone: false });
   }
