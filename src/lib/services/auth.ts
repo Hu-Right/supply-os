@@ -61,8 +61,13 @@ export async function issueTokenPair(
   const accessToken = signAccessToken({ uid: userId, user_key: userKey });
   const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId, user_key: userKey });
   const expiresAt = getRefreshTokenExpiresAt();
-  // 必须 await：确保 refresh token 入库后再返回，防止客户端立即刷新时 token 不存在
-  await authRepo.insertRefreshToken(userId, tokenHash, expiresAt);
+  // DB 写入失败不阻断登录主流程：token 已签发，客户端可正常使用 2h；
+  // refresh token 未入库仅影响后续刷新（用户需重新登录），优于登录直接失败。
+  try {
+    await authRepo.insertRefreshToken(userKey ?? "", tokenHash, expiresAt);
+  } catch (err) {
+    console.error("[jwt] refresh token 入库失败（登录仍成功）:", (err as Error).message);
+  }
   return { token: accessToken, refresh_token: refreshToken };
 }
 

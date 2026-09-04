@@ -59,7 +59,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 签发新 Token 对：新 refresh token 入库，旧 token 保留至自然过期
   const newAccessToken = signAccessToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
   const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
-  await authRepo.insertRefreshToken(user.id!, newTokenHash, getRefreshTokenExpiresAt());
+  await authRepo.insertRefreshToken(user.user_key ?? payload.user_key ?? "", newTokenHash, getRefreshTokenExpiresAt());
 
   const response = NextResponse.json({
     success: true,
