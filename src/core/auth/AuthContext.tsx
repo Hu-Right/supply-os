@@ -14,7 +14,7 @@ import type { AuthUser } from "@/types/auth";
 import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
-import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
+import { setAuthTokens, clearAuthTokens, clearApiCache, api, ApiError } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import { onAppEvent } from "@/core/events";
 import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
@@ -83,7 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data.user) throw new Error(t("authRefreshFailed"));
       persistAuthUser(data.user);
     } catch (err) {
-      console.error("Error refreshing auth user:", err);
+      // 401 是 Token 过期的预期行为（如用户长时间未操作后返回），降级为 warn 避免日志误导
+      if (err instanceof ApiError && err.status === 401) {
+        console.warn("[auth] Access Token 已过期且刷新未成功，用户需重新登录");
+      } else {
+        console.error("Error refreshing auth user:", err);
+      }
     } finally {
       setIsAuthLoading(false);
     }

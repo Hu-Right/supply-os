@@ -40,7 +40,7 @@ export interface NormalizedOrder {
   updated_at: string | null; // 更新时间
 }
 
-// 订单号前缀常量 SO：会员服务，LE：学习资料，TR：培训
+// 订单号前缀常量  SO：会员服务，LE：学习资料，TR：培训
 export const ORDER_PREFIX = {
   MEMBERSHIP: "SO",
   LEARNING: "LE",

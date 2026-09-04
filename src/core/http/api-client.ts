@@ -248,8 +248,26 @@ export async function api<T>(
       throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`);
     }
 
-    // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效，
-    // 整个认证会话已不可恢复——清除过期凭据并触发全局登出事件。
+    // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效。
+    // 多标签页容错：其他标签页可能已成功轮换并写入新 Access Token 到 localStorage，
+    // 此时不应清除认证状态，而是用新 Token 重试。
+    const crossTabToken = getAuthToken();
+    if (crossTabToken && crossTabToken !== authToken) {
+      const retryRes = await fetch(url, {
+        ...init,
+        signal,
+        credentials: "same-origin",
+        headers: {
+          ...(hasBody ? { "Content-Type": "application/json" } : {}),
+          Authorization: `Bearer ${crossTabToken}`,
+          ...(init.headers as Record<string, string>),
+        },
+        body: hasBody ? JSON.stringify(body) : undefined,
+      });
+      if (retryRes.ok) return retryRes.json();
+    }
+
+    // 确认无跨标签页可用 Token，清除过期凭据并触发全局登出事件。
     clearAuthTokens();
     emitAppEvent("supply-os:unauthorized", { endpoint });
     // 若原始响应含业务 code（如 requireUserKey 的 "请先登录"），透传服务端消息
