@@ -25,7 +25,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（仅返回登录/展示所需字段） */
   async findProfileByKey(userKey: string): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, email_verified, phone, phone_verified, display_name, nickname, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT id, user_key, email, email_verified, phone, phone_verified, display_name, nickname, membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
     );
