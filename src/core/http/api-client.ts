@@ -66,8 +66,11 @@ const DEFAULT_TTL = CACHE_TTL_STANDARD_MS;
  */
 function getDynamicTTL(baseTTL: number): number {
   if (typeof window === "undefined") return baseTTL;
-  const conn = (navigator as any).connection;
-  if (!conn || !conn.effectiveType) return baseTTL;
+  // Network Information API（实验性，Chromium 系浏览器支持）
+  // 使用 unknown + 类型收窄替代 any 强转，符合项目 strict 规范
+  const nav = navigator as unknown as { connection?: { effectiveType?: string } };
+  const conn = nav.connection;
+  if (!conn?.effectiveType) return baseTTL;
 
   switch (conn.effectiveType) {
     case "slow-2g":
