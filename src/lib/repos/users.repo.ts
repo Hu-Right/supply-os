@@ -62,6 +62,17 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
+  /** 按手机号查找用户（登录鉴权用） */
+  async findAuthByPhone(phone: string): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
+              membership_tier, account_status, supplier_id, supplier_link_status
+       FROM crm_users WHERE phone = ? LIMIT 1`,
+      [phone],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
   /** 创建用户（INSERT ONLY，不覆盖已有记录） */
   async create(data: {
     user_key: string;
@@ -265,7 +276,7 @@ export class UsersRepo {
   async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
     const isPhone = /^1[3-9]\d{9}$/.test(identifier);
     if (isPhone) {
-      return this.findAuthByKey(identifier);
+      return this.findAuthByPhone(identifier);
     }
     // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(
