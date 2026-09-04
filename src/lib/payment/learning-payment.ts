@@ -20,6 +20,7 @@ import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { findLearningBundle } from "../data/learning-bundles";
 import { getPool } from "../db/pool";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 export class LearningPaymentService {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
@@ -120,14 +121,14 @@ export class LearningPaymentService {
     if (!dbOrder) return null;
 
     // pending 时主动向网关轮询
-    if (dbOrder.status === "pending" && dbOrder.provider) {
+    if (dbOrder.status === ORDER_STATUS.PENDING && dbOrder.provider) {
       try {
         const strategy = this.getStrategy(dbOrder.provider as PaymentProviderName);
         const result = await strategy.queryOrderStatus(orderNo, providerTradeNo);
-        if (result.status === "paid") {
+        if (result.status === ORDER_STATUS.PAID) {
           await this.fulfillOrder(orderNo, result.provider_trade_no);
           return {
-            order_no: orderNo, status: "paid",
+            order_no: orderNo, status: ORDER_STATUS.PAID,
             provider: dbOrder.provider as PaymentProviderName,
             plan_code: dbOrder.plan_code, amount: Number(dbOrder.amount),
             currency: dbOrder.currency, paid_at: new Date().toISOString(),

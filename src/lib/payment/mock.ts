@@ -9,6 +9,7 @@
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
 import { fulfillUpgradeOrder } from "./upgrade";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 /**
  * mock 支付履约（POST /api/payments/:orderNo/mock-paid）：
@@ -23,7 +24,7 @@ export async function fulfillMockPayment(
   const order = await payments.findByOrderNo(params.orderNo);
   if (!order) return { found: false };
   // 状态机白名单（审查 F19）：仅 pending 订单可 mock 履约
-  if (order.status !== "pending") {
+  if (order.status !== ORDER_STATUS.PENDING) {
     return { found: true };
   }
   // 升级订单走平滑升级履约（补差价，次数保留，有效期追溯）

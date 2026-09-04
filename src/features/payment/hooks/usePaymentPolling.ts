@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useRef } from "react";
 import { PAYMENT_POLL_INTERVAL_MS, PAYMENT_POLL_MAX_ATTEMPTS } from "@/core/payment";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 export interface UsePaymentPollingCallbacks {
   /** 查询订单状态 */
@@ -81,7 +82,7 @@ export function usePaymentPolling(
           // epoch 守卫：轮询已停止/重启时丢弃迟到响应
           if (epoch !== pollEpochRef.current) return;
 
-          if (result.status === "paid") {
+          if (result.status === ORDER_STATUS.PAID) {
             stopPolling();
             callbacksRef.current.onPaid(orderNo);
           } else if (TERMINAL_STATUSES.has(result.status)) {

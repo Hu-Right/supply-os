@@ -15,6 +15,7 @@ import { useLocale } from "@/core/i18n";
 import { clearApiCache } from "@/core/http";
 import { getOrderStatus } from "@/core/payment/payment-facade";
 import { unlockNotice } from "../api";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 export interface UsePaymentReturnReconciliationOptions {
   refreshMembership: () => Promise<void>;
@@ -44,7 +45,7 @@ export function usePaymentReturnReconciliation({
         try {
           const status = await getOrderStatus(orderNo, tradeNo);
           if (cancelled) return;
-          if (status.status === "paid") {
+          if (status.status === ORDER_STATUS.PAID) {
             setActionMessage(t("procurement_paymentReturnPaid"));
             await refreshMembership();
             const nid = status.notice_id ?? (noticeIdParam ? Number(noticeIdParam) : null);

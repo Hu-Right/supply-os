@@ -17,6 +17,7 @@ import { reverseFulfilledOrder } from "./reverse";
 import { fulfillMockPayment } from "./mock";
 import { isParseablePrivateKey } from "./keys";
 import { SITE_URL } from "../services/seo/site";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 /**
  * return_url 白名单（审查 F26）：仅接受本站相对路径或与 SITE_URL 同源的
@@ -234,13 +235,13 @@ export class PaymentService {
    */
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
     const dbOrder = await this.repo.findByOrderNo(orderNo);
-    if (!dbOrder) return { order_no: orderNo, status: "closed" };
+    if (!dbOrder) return { order_no: orderNo, status: ORDER_STATUS.CLOSED };
 
-    if (dbOrder.status === "pending" && dbOrder.provider) {
+    if (dbOrder.status === ORDER_STATUS.PENDING && dbOrder.provider) {
       try {
         const strategy = this.getStrategy(dbOrder.provider as PaymentProviderName);
         const result = await strategy.queryOrderStatus(orderNo, providerTradeNo);
-        if (result.status === "paid") {
+        if (result.status === ORDER_STATUS.PAID) {
           await this.activatePaidOrder(orderNo, result.provider_trade_no);
           return {
             ...result,

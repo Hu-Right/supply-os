@@ -10,6 +10,7 @@
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { PoolConnection } from "mysql2/promise";
 import type { PaymentOrderRow } from "../repos/types";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 /**
  * 在事务内执行会员升级履约（订单已由调用方标记为 paid）
@@ -122,7 +123,7 @@ export async function fulfillUpgradeOrder(
     await conn.beginTransaction();
     const order = await paymentsRepo.findOrderForUpdate(conn, orderNo);
     if (!order) { await conn.commit(); return; }
-    if (order.status === "paid") { await conn.commit(); return; }
+    if (order.status === ORDER_STATUS.PAID) { await conn.commit(); return; }
     await paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
     await performUpgradeInTransaction(conn, paymentsRepo, order);
     await conn.commit();

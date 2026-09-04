@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { PaymentOrderStatus } from "../types/payment";
 import type { PaymentStrategy } from "./types";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 
 /**
  * Mock 支付策略 —— 开发环境模拟支付，无需真实支付宝/微信账号
@@ -34,8 +35,8 @@ export class MockProvider implements PaymentStrategy {
     // 5 秒后自动变为 paid（模拟支付回调）
     setTimeout(() => {
       const order = this.mockOrders.get(orderNo);
-      if (order && order.status === "pending") {
-        order.status = "paid";
+      if (order && order.status === ORDER_STATUS.PENDING) {
+        order.status = ORDER_STATUS.PAID;
         order.paid_at = new Date().toISOString();
         console.log(`[MockProvider] 订单 ${orderNo} 自动支付成功 (mock)`);
       }
