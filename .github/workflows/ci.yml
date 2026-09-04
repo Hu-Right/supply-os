@@ -42,3 +42,4 @@ jobs:
         env:
           # 构建期最小 env：防止 instrumentation 生产 fail-fast 误触发
           NODE_ENV: production
+          PAYMENT_MODE: live
