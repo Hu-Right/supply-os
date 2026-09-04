@@ -53,9 +53,8 @@ export interface TrainingOrderRow extends RowDataPacket {
   provider_trade_no: string | null;
   paid_at: Date | null;
   expires_at: Date;
-  /** 下单用户（内部标识；P3 写切换后新订单不再写 user_key） */
+  /** 下单用户（内部标识） */
   user_id: number | null;
-  user_key: string | null;
 }
 
 export interface InstructorRow extends RowDataPacket {
@@ -249,12 +248,11 @@ export class TrainingRepo {
 
   /** 创建培训支付订单，返回自增 id */
   async createOrder(data: CreateTrainingOrderData): Promise<number> {
-    // ARCH-B+（2026-09-04）：user_key 迁移兼容，插入空字符串占位（权威标识已切换至 user_id）
     const [result] = await this.pool.execute(
       `INSERT INTO training_orders
         (order_no, course_id, schedule_id, registration_id, participant_count, unit_price, total_amount,
-         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_id, user_key, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, '', NOW())`,
+         currency, provider, status, qr_code, pay_url, expires_at, contact_name, telephone, user_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, NOW())`,
       [
         data.orderNo, data.courseId, data.scheduleId, data.registrationId,
         data.participantCount, data.unitPrice, data.totalAmount, data.currency,
