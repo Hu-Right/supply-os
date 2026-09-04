@@ -2,7 +2,7 @@
  * Next.js Route Handler 认证 helper
  *
  * 从 JWT Access Token 提取 userId，供 Route Handler 使用。
- * user_id 迁移完成后，userId 为唯一身份标识。
+ * userId 为唯一身份标识（user_key 列已废弃）。
  */
 import type { NextRequest } from "next/server";
 import type { UserId } from "@/lib/types/identity";
@@ -34,18 +34,10 @@ export async function extractUserKey(req: NextRequest): Promise<AuthResult> {
     const userKey = normalizeUserKey(payload.user_key) || "";
     if (!userKey) return { userId: 0, userKey: "", authViaJwt: false };
 
-    // 优先使用 JWT 中的 uid claim；旧 token 无 uid 时回退查 DB
-    let userId: UserId = payload.uid ?? 0;
-    if (!userId) {
-      try {
-        const { getContext } = await import("@/lib/db/context");
-        const ctx = getContext();
-        const user = await ctx.user.usersRepo.findByKey(userKey);
-        userId = user?.id ?? 0;
-      } catch {
-        // DB 查询失败不阻断认证，userId 保持 0
-      }
-    }
+    // uid claim 自 user_id 迁移（2026-09-04）起始终存在；旧 token 已全部过期
+    const userId: UserId = payload.uid ?? 0;
+    if (!userId) return { userId: 0, userKey, authViaJwt: true };
+
     return { userId, userKey, authViaJwt: true };
   } catch {
     return { userId: 0, userKey: "", authViaJwt: false };
