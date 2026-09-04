@@ -27,28 +27,32 @@ if (!JWT_SECRET) {
 }
 
 // ── Token Payload 类型 ──
+// 身份主锚点为 uid（内部 user_id）；user_key 仅为过渡期诊断字段（可选），
+// 兼容迁移观察期内仍在流通的旧 token（旧 token 无 uid、仅 user_key）。
+// email 已从 payload 移除（从未有消费方，减少 token 扩散面）。
 export interface AccessTokenPayload {
-  user_key: string;
-  email: string;
-  /** 内部用户 ID（Phase 2 user_id 迁移新增；旧 token 可能缺失） */
+  /** 登录凭据（可选）：uid 就位后仅作诊断，新签发 token 仍携带过渡期 */
+  user_key?: string;
+  /** 内部用户 ID（身份主锚点）。新签发 token 必有；旧 token 可能缺失 */
   uid?: number;
   type: "access";
 }
 
 export interface RefreshTokenPayload {
-  user_key: string;
-  /** 内部用户 ID（Phase 2 user_id 迁移新增；旧 token 可能缺失） */
+  /** 登录凭据（可选）：uid 就位后仅作诊断，新签发 token 仍携带过渡期 */
+  user_key?: string;
+  /** 内部用户 ID（身份主锚点）。新签发 token 必有；旧 token 可能缺失 */
   uid?: number;
   type: "refresh";
 }
 
 // ── Access Token ──
 
-/** 签发 Access Token */
-export function signAccessToken(payload: { user_key: string; email: string; uid?: number }): string {
+/** 签发 Access Token（email 不再入 payload；uid 必选） */
+export function signAccessToken(payload: { uid: number; user_key?: string }): string {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
   return jwt.sign(
-    { ...payload, type: "access" } as AccessTokenPayload,
+    { user_key: payload.user_key, uid: payload.uid, type: "access" } as AccessTokenPayload,
     JWT_SECRET,
     { expiresIn: JWT_ACCESS_EXPIRES },
   );
@@ -65,11 +69,11 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
 // ── Refresh Token ──
 
-/** 签发 Refresh Token（同时返回明文 token 与哈希，哈希用于入库） */
-export function signRefreshToken(payload: { user_key: string; uid?: number }): { token: string; tokenHash: string } {
+/** 签发 Refresh Token（同时返回明文 token 与哈希，哈希用于入库；email 不再入 payload；uid 必选） */
+export function signRefreshToken(payload: { uid: number; user_key?: string }): { token: string; tokenHash: string } {
   if (!JWT_SECRET) throw new Error("JWT_SECRET_NOT_CONFIGURED");
   const token = jwt.sign(
-    { ...payload, type: "refresh" } as RefreshTokenPayload,
+    { user_key: payload.user_key, uid: payload.uid, type: "refresh" } as RefreshTokenPayload,
     JWT_SECRET,
     { expiresIn: `${JWT_REFRESH_EXPIRES_DAYS}d` },
   );

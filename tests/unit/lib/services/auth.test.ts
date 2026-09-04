@@ -65,7 +65,7 @@ describe("issueTokenPair", () => {
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockResolvedValue(undefined),
     };
-    const result = await issueTokenPair(mockAuthRepo as any, "user@test.com", "user@test.com");
+    const result = await issueTokenPair(mockAuthRepo as any, 42, "user@test.com");
     expect(result.token).toBe("mock-access-token");
     expect(result.refresh_token).toBe("mock-refresh-token");
   });
@@ -75,7 +75,7 @@ describe("issueTokenPair", () => {
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockRejectedValue(new Error("DB error")),
     };
-    const result = await issueTokenPair(mockAuthRepo as any, "user@test.com", "user@test.com");
+    const result = await issueTokenPair(mockAuthRepo as any, 42, "user@test.com");
     expect(result.token).toBe("mock-access-token");
   });
 });

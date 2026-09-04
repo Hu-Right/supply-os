@@ -13,7 +13,8 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40050, "缺少刷新令牌");
   }
 
-  let payload: { user_key: string };
+  // 新 token 携带 uid（身份主锚点）；旧 token 无 uid，按 user_key 回退定位
+  let payload: { user_key?: string; uid?: number };
   try {
     payload = verifyRefreshToken(refreshToken);
   } catch {
@@ -27,7 +28,10 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(401, 40052, "刷新令牌已失效");
   }
 
-  const user = await getContext().user.usersRepo.findProfileByKey(payload.user_key);
+  const usersRepo = getContext().user.usersRepo;
+  const user = payload.uid
+    ? await usersRepo.findProfileById(payload.uid)
+    : await usersRepo.findProfileByKey(payload.user_key ?? "");
   if (!user) {
     routeError(404, 40044, "用户不存在");
   }
@@ -41,8 +45,8 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // Refresh Token 原子轮换（审查 F32）：以条件删除的受影响行数为判定——
   // 并发重放同一 refresh token 时，仅首个请求轮换成功，后续全部拒绝
-  const newAccessToken = signAccessToken({ user_key: payload.user_key, email: (user as any).email || "", uid: user.id });
-  const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ user_key: payload.user_key, uid: user.id });
+  const newAccessToken = signAccessToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
+  const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
   const deleted = await authRepo.deleteRefreshTokenByHash(tokenHash);
   if (deleted === 0) {
     routeError(401, 40052, "刷新令牌已失效");

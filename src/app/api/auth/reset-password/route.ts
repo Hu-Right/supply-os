@@ -74,7 +74,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 自动登录
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
-  try { tokens = await issueTokenPair(ctx.user.authRepo, user.user_key, user.email || ""); } catch { /* */ }
+  try { tokens = await issueTokenPair(ctx.user.authRepo, user.id, user.user_key); } catch { /* */ }
 
   const response = NextResponse.json({ success: true, user: payload, token: tokens?.token });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);

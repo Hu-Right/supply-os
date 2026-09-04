@@ -52,7 +52,7 @@ export async function loginWithPassword(
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
   try {
-    tokens = await issueTokenPair(ctx.user.authRepo, user.user_key, user.email || "");
+    tokens = await issueTokenPair(ctx.user.authRepo, user.id, user.user_key);
   } catch { /* JWT_SECRET 未配置，静默降级 */ }
 
   return {

@@ -132,7 +132,7 @@ export async function registerUser(
   const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
 
   let tokens: { token: string; refresh_token: string } | null = null;
-  try { tokens = await issueTokenPair(ctx.user.authRepo, targetPhone, email || ""); } catch { /* JWT_SECRET 未配置 */ }
+  try { tokens = await issueTokenPair(ctx.user.authRepo, createdUser.id, targetPhone); } catch { /* JWT_SECRET 未配置 */ }
 
   return {
     payload,

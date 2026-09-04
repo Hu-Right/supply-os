@@ -48,17 +48,19 @@ export function generateNickname(locale?: string): string {
 /**
  * 签发 JWT Token 对（登录/注册/重置密码共用，#6 自三个路由文件收口）
  * Refresh Token 哈希异步入库（失败仅记日志，不阻断登录主流程，与原实现行为一致）
+ *
+ * P3 写切换收尾：payload 以 uid 为身份主锚点；email 已移除；
+ * user_key 仅为过渡期诊断字段（可选），观察期后随旧 token 一并退役。
  */
 export async function issueTokenPair(
   authRepo: AuthRepo,
-  userKey: string,
-  email: string,
-  userId?: number,
+  userId: number,
+  userKey?: string,
 ): Promise<{ token: string; refresh_token: string }> {
-  const accessToken = signAccessToken({ user_key: userKey, email, uid: userId });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ user_key: userKey, uid: userId });
+  const accessToken = signAccessToken({ uid: userId, user_key: userKey });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId, user_key: userKey });
   const expiresAt = getRefreshTokenExpiresAt();
-  void authRepo.insertRefreshToken(userId ?? userKey as any, tokenHash, expiresAt)
+  void authRepo.insertRefreshToken(userId, tokenHash, expiresAt)
     .catch((err) => console.error("[jwt] refresh token 入库失败:", (err as Error).message));
   return { token: accessToken, refresh_token: refreshToken };
 }

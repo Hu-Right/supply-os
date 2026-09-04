@@ -32,6 +32,16 @@ export class UsersRepo {
     return (rows as Partial<UserRow>[])[0] ?? null;
   }
 
+  /** 按 user_id 查找用户（仅返回登录/展示所需字段）——Token 刷新 uid 优先路径使用 */
+  async findProfileById(userId: number): Promise<Partial<UserRow> | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, user_key, email, email_verified, phone, phone_verified, display_name, nickname, membership_tier, account_status, supplier_id, supplier_link_status
+       FROM crm_users WHERE id = ? LIMIT 1`,
+      [userId],
+    );
+    return (rows as Partial<UserRow>[])[0] ?? null;
+  }
+
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
