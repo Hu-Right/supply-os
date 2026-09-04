@@ -5,12 +5,14 @@
  * Route-level error boundary for showroom page
  */
 export default function ShowroomError({
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // eslint-disable-next-line no-console
+  console.error("[ShowroomError]", error);
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center">

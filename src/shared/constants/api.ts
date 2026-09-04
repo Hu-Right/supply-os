@@ -51,6 +51,63 @@ export const EC_TRANSLATION_UNAVAILABLE = 50001;
 /** 公告不存在（Notice not found — 翻译/内容/预览场景） */
 export const EC_NOTICE_NOT_FOUND = 40006;
 
+/** 认证失败 / 未登录（路由层通用，替代各路由散落的 USER_REQUIRED: 40001） */
+export const EC_USER_REQUIRED = 40001;
+
+/** 支付渠道不可用 */
+export const EC_PAYMENT_PROVIDER_UNAVAILABLE = 40010;
+
+/** 支付二维码缺失（服务端错误） */
+export const EC_PAYMENT_QR_CODE_MISSING = 50001;
+
+/** 支付订单不存在 */
+export const EC_PAYMENT_ORDER_NOT_FOUND = 40402;
+
+/** 无权限 / 越权（支付/报告/培训订单等场景，统一 40301） */
+export const EC_ACCESS_FORBIDDEN = 40301;
+
+/** 培训订单不存在 */
+export const EC_TRAINING_ORDER_NOT_FOUND = 40406;
+
+/** 培训订单归属校验失败 */
+export const EC_TRAINING_ORDER_FORBIDDEN = 40303;
+
+/** 培训订单尚未支付 */
+export const EC_TRAINING_ORDER_NOT_PAID = 40020;
+
+/** 学员信息无效 */
+export const EC_TRAINING_PARTICIPANTS_INVALID = 40021;
+
+/** 学员数量不匹配 */
+export const EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH = 40022;
+
+/** 公告不存在（404 语义版本，与 EC_NOTICE_NOT_FOUND 40006 共存供不同场景选用） */
+export const EC_NOTICE_NOT_FOUND_404 = 40404;
+
+/** 报告不可用 */
+export const EC_REPORT_NOT_AVAILABLE = 40405;
+
+/** 商机不存在 */
+export const EC_OPPORTUNITY_NOT_FOUND = 40403;
+
+/** 参数无效 */
+export const EC_INVALID_PARAMS = 40000;
+
+/** 免费额度已用完 */
+export const EC_FREE_LIMIT_REACHED = 41001;
+
+/** 需付费额度 */
+export const EC_PAID_QUOTA_REQUIRED = 41002;
+
+/** 反馈操作数过多 */
+export const EC_TOO_MANY_ACTIONS = 40004;
+
+/** 反馈无有效操作 */
+export const EC_NO_VALID_ACTIONS = 40005;
+
+/** 会话不存在 */
+export const EC_SESSION_REQUIRED = 40002;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */

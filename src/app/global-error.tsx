@@ -14,6 +14,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // eslint-disable-next-line no-console
+  console.error("[GlobalError]", error);
   return (
     <html lang="zh">
       <body>

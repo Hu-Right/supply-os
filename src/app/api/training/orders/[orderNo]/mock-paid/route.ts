@@ -5,11 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { fulfillTrainingOrder } from "@/lib/services/training-payment";
-
-const ApiErrorCode = {
-  TRAINING_ORDER_NOT_FOUND: 40406,
-  TRAINING_ORDER_FORBIDDEN: 40303,
-} as const;
+import { EC_TRAINING_ORDER_NOT_FOUND, EC_TRAINING_ORDER_FORBIDDEN } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -31,8 +27,8 @@ export async function POST(
   const trainingRepo = ctx.trainingRepo;
 
   const order = await trainingRepo.findOrderByNo(orderNo);
-  if (!order) return sendError("订单不存在", 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND);
-  if (order.user_id && order.user_id !== auth.userId) return sendError("无权操作此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
+  if (!order) return sendError("订单不存在", 404, EC_TRAINING_ORDER_NOT_FOUND);
+  if (order.user_id && order.user_id !== auth.userId) return sendError("无权操作此订单", 403, EC_TRAINING_ORDER_FORBIDDEN);
 
   await fulfillTrainingOrder(trainingRepo as any, orderNo, `MOCK-${orderNo}`);
   return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });

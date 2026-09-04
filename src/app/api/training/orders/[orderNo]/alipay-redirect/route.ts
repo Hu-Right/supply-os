@@ -1,7 +1,7 @@
 /**
  * GET /api/training/orders/:orderNo/alipay-redirect — 支付宝跳转 HTML 表单
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 

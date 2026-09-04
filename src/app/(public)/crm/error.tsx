@@ -5,12 +5,14 @@
  * Route-level error boundary for CRM page
  */
 export default function CrmError({
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // eslint-disable-next-line no-console
+  console.error("[CrmError]", error);
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center">
