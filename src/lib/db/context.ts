@@ -10,6 +10,10 @@ import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
 import { LearningPaymentService } from "../payment/learning-payment";
 import { PaymentOrchestrator } from "../payment/orchestrator";
+import { MockProvider } from "../payment/MockProvider";
+import { AlipayProvider } from "../payment/AlipayProvider";
+import { WechatProvider } from "../payment/WechatProvider";
+import { isParseablePrivateKey } from "../payment/keys";
 import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
@@ -144,6 +148,41 @@ export function getContext(): AppContext {
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
   const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo);
+
+  // ARCH-B+（2026-09-04）：策略注册同步至 orchestrator 和 learningPaymentService
+  // PaymentService.initDefault() 仅注册到自身，需通过 orchestrator 统一分发
+  orchestrator.registerStrategy("mock", new MockProvider());
+  if (paymentMode === "live") {
+    const alipayAppId = process.env.ALIPAY_APP_ID || "";
+    const alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || "";
+    if (alipayAppId && isParseablePrivateKey(alipayPrivateKey)) {
+      orchestrator.registerStrategy(
+        "alipay",
+        new AlipayProvider({
+          appId: alipayAppId,
+          privateKey: alipayPrivateKey,
+          publicKey: process.env.ALIPAY_PUBLIC_KEY || "",
+          notifyUrl: process.env.ALIPAY_NOTIFY_URL || "",
+          sandbox: process.env.ALIPAY_SANDBOX === "true",
+        }),
+      );
+    }
+    const wechatAppId = process.env.WECHAT_APP_ID || "";
+    const wechatMchId = process.env.WECHAT_MCH_ID || process.env.WECHAT_MERCHANT_ID || "";
+    if (wechatAppId && wechatMchId) {
+      orchestrator.registerStrategy(
+        "wechat",
+        new WechatProvider({
+          appId: wechatAppId,
+          mchId: wechatMchId,
+          apiV3Key: process.env.WECHAT_API_V3_KEY || "",
+          privateKey: process.env.WECHAT_PRIVATE_KEY || "",
+          notifyUrl: process.env.WECHAT_NOTIFY_URL || "",
+          sandbox: false,
+        }),
+      );
+    }
+  }
 
   const ctx: AppContext = {
     dbPool,

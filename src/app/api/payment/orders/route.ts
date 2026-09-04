@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
     if (paymentMode === "live" && requestedProvider !== "alipay" && requestedProvider !== "wechat") {
       return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 400, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
     }
+    // ARCH-B+（2026-09-04）：live 模式下校验策略是否已注册（密钥是否已配置）
+    // 与 training-payment.ts resolveProvider 对齐：未注册则明确拒绝，不在下单时才失败
+    if (paymentMode === "live" && !paymentService.hasStrategy(requestedProvider as "alipay" | "wechat")) {
+      return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 503, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+    }
     const provider = (paymentMode === "live" ? requestedProvider : "mock") as "alipay" | "wechat" | "mock";
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单路由至 LearningPaymentService

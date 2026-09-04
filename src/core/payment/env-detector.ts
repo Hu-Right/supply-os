@@ -176,6 +176,10 @@ export function mapPaymentError(err: unknown): string {
     if (err.status === 404) return "课程不存在或已下架，请刷新页面后重试";
     if (err.status === 401) return "请先登录后再尝试支付";
     if (err.status === 400) {
+      // 支付渠道不可用（策略未注册或 provider 非法）
+      if (message.includes("PAYMENT_PROVIDER_UNAVAILABLE") || message.includes("Unsupported payment provider")) {
+        return "当前支付方式暂未开通，请选择其他支付方式或联系管理员";
+      }
       // 认证/刷新令牌相关 → 引导重新登录
       if (
         message.includes("刷新令牌") || message.includes("REFRESH_TOKEN") ||
