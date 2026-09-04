@@ -51,8 +51,7 @@ export class UsersRepo {
 
   /**
    * 创建用户（INSERT ONLY，不覆盖已有记录），返回自增 id（0 表示失败）。
-   * user_key 列仍为 NOT NULL UNIQUE（迁移 066 明确保留），写入值取手机号作为
-   * 登录凭据占位；后续 DROP COLUMN 迁移落地后可同步移除该字段。
+   * 迁移 068 已 DROP COLUMN crm_users.user_key，INSERT 不再包含该列。
    */
   async create(data: {
     email: string | null;
@@ -67,13 +66,10 @@ export class UsersRepo {
   }): Promise<number> {
     const hashType = data.password_hash_type ?? "bcrypt";
     const userType = data.user_type ?? "enterprise";
-    // user_key 占位值：手机号优先（新用户注册即登录账号），否则回退邮箱，最后回退随机串
-    // 保持 UNIQUE 约束不被空串冲突；DROP COLUMN 后此逻辑整体移除
-    const userKeyPlaceholder = data.phone || data.email || `pending_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (user_key, email, display_name, nickname, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
-       VALUES (?, ?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
-      [userKeyPlaceholder, data.email, data.display_name, data.nickname ?? null, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
+      `INSERT INTO crm_users (email, display_name, nickname, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
+       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
+      [data.email, data.display_name, data.nickname ?? null, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);
   }

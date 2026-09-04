@@ -2,7 +2,7 @@
  * 供应商资格提交路由测试
  * @module tests/unit/api/supplier-qualification.test.ts
  * @description 覆盖：JSON 解析失败、必填字段缺失、正常提交、
- *              phone 关联（兼容旧 user_key 字段名）、邀请码解析、DB 错误降级。
+ *              phone 关联、邀请码解析、DB 错误降级。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -95,22 +95,6 @@ describe("POST /api/supplier-qualification", () => {
     const res = await POST(makeReq({ ...validBody, phone: "13800000000" }));
     expect(res.status).toBe(201);
     expect(linkFn).toHaveBeenCalledWith(7, 42);
-  });
-
-  it("兼容旧客户端 user_key 字段 → 同样能关联用户", async () => {
-    // crm_users.user_key 列退役收尾：服务端保留对旧字段名的兼容读取（一个发布周期）
-    const linkFn = vi.fn().mockResolvedValue(undefined);
-    vi.mocked(getContext).mockReturnValue({
-      user: {
-        usersRepo: { findByPhone: vi.fn().mockResolvedValue({ id: 8 }) },
-        invitationRepo: { findByCode: vi.fn().mockResolvedValue(null) },
-      },
-    } as any);
-    mockRepoInstance.insertQualification = vi.fn().mockResolvedValue(43);
-    mockRepoInstance.linkUserQualification = linkFn;
-    const res = await POST(makeReq({ ...validBody, user_key: "13800000001" }));
-    expect(res.status).toBe(201);
-    expect(linkFn).toHaveBeenCalledWith(8, 43);
   });
 
   it("带 invitation_code → 解析推荐员工 ID", async () => {

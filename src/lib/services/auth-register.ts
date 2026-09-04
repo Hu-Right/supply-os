@@ -109,11 +109,10 @@ export async function registerUser(
   }
 
   // ── 合规审计：记录用户协议同意日志（P0）——失败不阻断主流程 ──
-  // user_id 与 user_key 双写（用户行已创建，直接携带 userId，避免依赖启动回填补齐）
+  // 纯 user_id 路径（迁移 068 已 DROP crm_users.user_key，crm_consent_log.user_key 写 NULL）
   try {
     await ctx.user.authRepo.recordConsentLog({
       userId: createdUser.id,
-      userKey: targetPhone,
       consentType: "terms",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",
@@ -124,7 +123,6 @@ export async function registerUser(
     });
     await ctx.user.authRepo.recordConsentLog({
       userId: createdUser.id,
-      userKey: targetPhone,
       consentType: "privacy",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",

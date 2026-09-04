@@ -4,96 +4,18 @@
  */
 import type { RowDataPacket } from "mysql2/promise";
 import { isParseablePrivateKey, normalizePem } from "../payment/keys";
-import { BACKFILL_BATCH_SIZE, BACKFILL_BATCH_SLEEP_MS } from "@/shared/constants/time";
 
 /**
- * user_id 内部化回填：将所有业务表中 user_id 为 NULL 的行，
- * 根据 user_key 去 crm_users 表查出对应的 crm_users.id 填入。
+ * user_id 内部化回填：已退役（迁移 068 DROP COLUMN crm_users.user_key）。
  *
- * 覆盖 18 张表。幂等：WHERE user_id IS NULL 保证重跑零副作用。
- * 分批限速：id 游标 + LIMIT 2000 + 批间 50ms，防止大表锁库。
+ * 原逻辑通过 JOIN crm_users.user_key 回填 18 张业务表的 user_id 列。
+ * 迁移 062/065/066/067 + 多次启动回填后，所有业务表 user_id 已 100% 补齐。
+ * 迁移 068 DROP COLUMN 后 JOIN 不再可行，本函数保留为空壳防止调用方报错。
  *
- * 注意：crm_supplier_qualification 不在清单——该表无 user_key 列（049 直接建
- * user_id，注册后回写），NULL 行属未注册评估数据，无回填来源。
- *
- * crm_users.user_key 列退役收尾（2026-09-04）：本回填依赖 JOIN crm_users.user_key，
- * DROP COLUMN 后 JOIN 将失败。运行前先探测列是否存在：不存在则直接跳过（幂等）。
- * 新部署后业务表已全量回填完成，本函数自然变为 no-op；完全可删除时机由 DBA 确认。
+ * 完全可删除时机：确认所有调用方已移除后（当前仅 lifecycle/phases.ts）。
  */
-export async function backfillUserIds(dbPool: any) {
-  // 前置探测：crm_users.user_key 列存在时才执行回填，避免 DROP COLUMN 后启动失败
-  try {
-    const [colRows] = await dbPool.query(
-      `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_users' AND COLUMN_NAME = 'user_key'`,
-    );
-    if (Number((colRows as RowDataPacket[])[0]?.total || 0) === 0) {
-      console.log("[backfill] crm_users.user_key 列已删除，跳过 user_id 回填（业务表应已全量回填完成）");
-      return;
-    }
-  } catch (err) {
-    console.warn("[backfill] 探测 crm_users.user_key 列失败，跳过回填：", (err as Error).message);
-    return;
-  }
-
-  // 表 → 关联 crm_users.user_key 的本表列名（crm_chat_sessions 关联列名为 customer_id）
-  const tables: Array<{ name: string; joinColumn: string }> = [
-    // ── A 类：user_key + user_id 双列已存在（10 张）──
-    { name: "crm_user_subscriptions", joinColumn: "user_key" },
-    { name: "crm_payment_orders", joinColumn: "user_key" },
-    { name: "crm_user_entitlements", joinColumn: "user_key" },
-    { name: "crm_opportunity_unlocks", joinColumn: "user_key" },
-    { name: "crm_user_notice_views", joinColumn: "user_key" },
-    { name: "crm_notice_interests", joinColumn: "user_key" },
-    { name: "crm_user_interest_codes", joinColumn: "user_key" },
-    { name: "crm_supplier_claims", joinColumn: "user_key" },
-    { name: "crm_user_industry_prefs", joinColumn: "user_key" },
-    { name: "crm_user_reco_feedback", joinColumn: "user_key" },
-    // ── B 类：迁移 062 刚加 user_id 列（8 张）──
-    { name: "crm_password_resets", joinColumn: "user_key" },
-    { name: "crm_refresh_tokens", joinColumn: "user_key" },
-    { name: "crm_reco_weight_profile", joinColumn: "user_key" },
-    { name: "crm_chat_sessions", joinColumn: "customer_id" },
-    { name: "crm_learning_material_purchases", joinColumn: "user_key" },
-    { name: "learning_orders", joinColumn: "user_key" },
-    { name: "training_orders", joinColumn: "user_key" },
-    { name: "crm_user_search_log", joinColumn: "user_key" },
-    { name: "crm_consent_log", joinColumn: "user_key" },
-  ];
-
-  const BATCH = BACKFILL_BATCH_SIZE;
-  const SLEEP_MS = BACKFILL_BATCH_SLEEP_MS;
-
-  for (const { name: table, joinColumn } of tables) {
-    if (!/^[a-z_]+$/.test(joinColumn)) {
-      console.warn(`[backfill] 非法关联列名，跳过 ${table}: ${joinColumn}`);
-      continue;
-    }
-    let lastId = 0;
-    let affected: number;
-    try {
-      do {
-        // MySQL 不支持多表 UPDATE + LIMIT，改用子查询限定 id 范围
-        const [result] = await dbPool.execute(
-          `UPDATE ${table} target
-           INNER JOIN crm_users u ON u.user_key = target.${joinColumn}
-           SET target.user_id = u.id
-           WHERE target.user_id IS NULL AND target.id > ? AND target.id <= ?`,
-          [lastId, lastId + BATCH],
-        );
-        affected = (result as { affectedRows?: number })?.affectedRows ?? 0;
-        if (affected > 0) lastId += BATCH;
-        // 分批限速：大批量时批间休眠，防止大表锁库
-        if (affected >= BATCH) {
-          await new Promise((r) => setTimeout(r, SLEEP_MS));
-        }
-      } while (affected >= BATCH);
-    } catch (err) {
-      // 单表失败（缺列/约束冲突等）跳过并记录警告，不阻断其他表的回填
-      console.warn(`[backfill] 跳过 ${table}: ${(err as Error).message}`);
-      continue;
-    }
-  }
+export async function backfillUserIds(_dbPool: any): Promise<void> {
+  // no-op: crm_users.user_key 列已由迁移 068 删除，回填任务退役
 }
 
 export async function backfillUnspscCodeIds(dbPool: any) {

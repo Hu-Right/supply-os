@@ -121,25 +121,21 @@ export class AuthRepo {
 
   // ── crm_refresh_tokens：Refresh Token 生命周期 ─────────────────────────────
 
-  /** 入库新签发的 Refresh Token 哈希 */
-  async insertRefreshToken(userIdOrKey: number | string, tokenHash: string, expiresAt: Date): Promise<void> {
-    // userIdOrKey 可能为 undefined（user_key 迁移过渡期），统一归一化
-    const isUserId = typeof userIdOrKey === "number";
-    const userId = isUserId ? userIdOrKey : null;
-    const userKey = isUserId ? null : (userIdOrKey ?? null);
+  /** 入库新签发的 Refresh Token 哈希（纯 user_id 路径，user_key 列写 NULL） */
+  async insertRefreshToken(userId: number, tokenHash: string, expiresAt: Date): Promise<void> {
     await this.pool.execute(
-      "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, ?, ?, ?)",
-      [userId, userKey, tokenHash, expiresAt],
+      "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, NULL, ?, ?)",
+      [userId, tokenHash, expiresAt],
     );
   }
 
-  /** 按哈希查询有效（未过期）Refresh Token 归属 */
-  async findRefreshTokenByHash(tokenHash: string): Promise<{ id: number; user_id: number | null; user_key: string | null } | null> {
+  /** 按哈希查询有效（未过期）Refresh Token 归属（仅返回 id + user_id） */
+  async findRefreshTokenByHash(tokenHash: string): Promise<{ id: number; user_id: number | null } | null> {
     const [rows] = await this.pool.query(
-      "SELECT id, user_id, user_key FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
+      "SELECT id, user_id FROM crm_refresh_tokens WHERE token_hash = ? AND expires_at > NOW() LIMIT 1",
       [tokenHash],
     );
-    return ((rows as RowDataPacket[])[0] as { id: number; user_id: number | null; user_key: string | null }) ?? null;
+    return ((rows as RowDataPacket[])[0] as { id: number; user_id: number | null }) ?? null;
   }
 
   /** 按哈希撤销单个 Refresh Token（轮换/登出）；返回受影响行数供原子轮换判定 */
@@ -151,13 +147,9 @@ export class AuthRepo {
     return Number((result as { affectedRows?: number }).affectedRows ?? 0);
   }
 
-  /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录） */
-  async deleteRefreshTokensByUser(userIdOrKey: number | string): Promise<void> {
-    if (typeof userIdOrKey === "number") {
-      await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_id = ?", [userIdOrKey]);
-    } else {
-      await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_key = ?", [userIdOrKey]);
-    }
+  /** 撤销某用户全部 Refresh Token（H-1：密码重置后强制重新登录）——纯 user_id */
+  async deleteRefreshTokensByUser(userId: number): Promise<void> {
+    await this.pool.execute("DELETE FROM crm_refresh_tokens WHERE user_id = ?", [userId]);
   }
 
   /** 清理全部过期 Refresh Token（由 auth.routes 定时器周期调用） */
@@ -182,12 +174,11 @@ export class AuthRepo {
   // ── crm_consent_log：协议同意审计日志（P0 合规） ─────────────────────────────
 
   /**
-   * 记录用户协议同意日志
+   * 记录用户协议同意日志（纯 user_id 路径，user_key 列写 NULL）
    * 对应表 crm_consent_log（需提前建表，见 docs/04 技术需求清单第四节）
    */
   async recordConsentLog(params: {
-    userId?: number | null;
-    userKey?: string;
+    userId: number;
     consentType: string;   // terms / privacy / marketing / cookie
     documentVersion: string;
     action: string;        // agree / withdraw / re-agree
@@ -199,10 +190,9 @@ export class AuthRepo {
     await this.pool.execute(
       `INSERT INTO crm_consent_log
         (user_id, user_key, consent_type, document_version, action, consent_timestamp, ip_address, user_agent, source_page)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        params.userId ?? null,
-        params.userKey ?? null,
+        params.userId,
         params.consentType,
         params.documentVersion,
         params.action,
