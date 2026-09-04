@@ -53,6 +53,9 @@ export interface TrainingOrderRow extends RowDataPacket {
   provider_trade_no: string | null;
   paid_at: Date | null;
   expires_at: Date;
+  /** 下单用户（内部标识；P3 写切换后新订单不再写 user_key） */
+  user_id: number | null;
+  user_key: string | null;
 }
 
 export interface InstructorRow extends RowDataPacket {
