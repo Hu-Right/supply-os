@@ -30,7 +30,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const ctx = getContext();
-  const user = await ctx.user.usersRepo.findByKey(auth.userKey);
+  const user = await ctx.user.usersRepo.findById(auth.userId!);
   if (!user) routeError(404, 40044, "用户不存在");
 
   const targetEmail = scene === "unbind" ? (user.email || "") : String(email || "").trim().toLowerCase();
@@ -61,7 +61,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
   const resetId = await ctx.user.authRepo.createResetCode({
-    userKey: auth.userKey,
+    userId: auth.userId!,
     phone: targetEmail, // 复用 phone 字段存储邮箱（code 表中 phone 列实际存储验证目标）
     codeHash: hashVerificationCode(code),
     codeType,

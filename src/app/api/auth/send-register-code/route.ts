@@ -32,6 +32,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (rl) return rl;
 
   const ctx = getContext();
+  // 检查 user_key 列（登录凭据）是否已占用（历史用户 user_key = 小写邮箱）
   const existing = await ctx.user.usersRepo.findByKey(addr);
   if (existing) {
     return NextResponse.json({ success: true, email_sent: true, message: "验证码已发送到您的邮箱，请查收", support_hint: null });

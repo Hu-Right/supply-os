@@ -34,9 +34,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const ctx = getContext();
-  await ctx.user.usersRepo.updateProfile(auth.userKey, check.value);
+  await ctx.user.usersRepo.updateProfileById(auth.userId!, check.value);
 
-  const user = await ctx.user.usersRepo.findProfileByKey(auth.userKey);
+  const user = await ctx.user.usersRepo.findProfileById(auth.userId!);
   if (!user) {
     return NextResponse.json({ code: 40044, message: "用户不存在" }, { status: 404 });
   }

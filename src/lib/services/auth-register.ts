@@ -97,9 +97,17 @@ export async function registerUser(
     await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
   }
 
+  // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）
+  const createdUser = await ctx.user.usersRepo.findAuthByKey(targetPhone);
+  if (!createdUser) {
+    throw new RouteError(500, 50000, "注册失败，请稍后重试");
+  }
+
   // ── 合规审计：记录用户协议同意日志（P0）——失败不阻断主流程 ──
+  // user_id 与 user_key 双写（用户行已创建，直接携带 userId，避免依赖启动回填补齐）
   try {
     await ctx.user.authRepo.recordConsentLog({
+      userId: createdUser.id,
       userKey: targetPhone,
       consentType: "terms",
       documentVersion: params.agreementVersion || "V2.0",
@@ -110,6 +118,7 @@ export async function registerUser(
       sourcePage: "register",
     });
     await ctx.user.authRepo.recordConsentLog({
+      userId: createdUser.id,
       userKey: targetPhone,
       consentType: "privacy",
       documentVersion: params.agreementVersion || "V2.0",
@@ -125,10 +134,6 @@ export async function registerUser(
 
   // 响应统一走 buildUserResponse 收口（隐私整改）：
   // 只返回昵称（不返回 display_name 真实姓名），手机号脱敏（修复原响应返回明文手机号）
-  const createdUser = await ctx.user.usersRepo.findAuthByKey(targetPhone);
-  if (!createdUser) {
-    throw new RouteError(500, 50000, "注册失败，请稍后重试");
-  }
   const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
 
   let tokens: { token: string; refresh_token: string } | null = null;

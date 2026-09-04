@@ -46,7 +46,7 @@ export class LearningOrdersRepo {
   }
 
   /** 按用户查询订单（可选状态过滤） */
-  async findByUserKey(userId: number, status: string): Promise<LearningOrderRow[]> {
+  async findByUserId(userId: number, status: string): Promise<LearningOrderRow[]> {
     const params: unknown[] = [userId];
     let where = "WHERE user_id = ?";
     if (status) {
@@ -61,7 +61,7 @@ export class LearningOrdersRepo {
   }
 
   /** 按用户统计订单数 */
-  async countByUserKey(userId: number, status: string): Promise<number> {
+  async countByUserId(userId: number, status: string): Promise<number> {
     const params: unknown[] = [userId];
     let where = "WHERE user_id = ?";
     if (status) {

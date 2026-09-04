@@ -28,7 +28,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const ctx = getContext();
-  const user = await ctx.user.usersRepo.findByKey(auth.userKey);
+  const user = await ctx.user.usersRepo.findById(auth.userId!);
   if (!user) routeError(404, 40044, "用户不存在");
 
   const targetPhone = (scene === "unbind" || scene === "reset") ? (user.phone || "") : String(phone || "").trim();

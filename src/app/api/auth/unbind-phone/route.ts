@@ -15,11 +15,11 @@ export const POST = withRoute(async (req: NextRequest) => {
   const { code } = await parseJson(req, unbindSchema, { code: 40005 });
 
   const ctx = getContext();
-  const user = await ctx.user.usersRepo.findByKey(auth.userKey);
+  const user = await ctx.user.usersRepo.findById(auth.userId!);
   if (!user) routeError(404, 40044, "用户不存在");
   if (!user.phone) routeError(400, 40030, "尚未绑定手机号");
 
-  const record = await ctx.user.authRepo.findLatestActiveCode(user.id, "phone_unbind", user.phone);
+  const record = await ctx.user.authRepo.findLatestActiveCode(auth.userId!, "phone_unbind", user.phone);
   if (!record) routeError(400, 40007, "验证码无效，请重新获取");
   if (record.attempts >= 5) routeError(429, 40029, "尝试次数过多");
   if (record.code !== hashVerificationCode(code)) {
@@ -27,7 +27,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40007, "验证码无效，请重新获取");
   }
 
-  await ctx.user.usersRepo.unbindPhone(auth.userKey);
+  await ctx.user.usersRepo.unbindPhoneById(auth.userId!);
   await ctx.user.authRepo.markCodeUsed(record.id);
   return NextResponse.json({ success: true });
 });

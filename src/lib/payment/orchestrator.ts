@@ -265,11 +265,11 @@ export class PaymentOrchestrator {
 
     const [membershipOrders, learningOrders, trainingOrders, membershipTotal, learningTotal, trainingTotal] = await Promise.all([
       this.paymentHistoryRepo.listOrders(userId, statusParam, 9999, 0),
-      this.learningOrdersRepo.findByUserKey(userId, statusParam),
-      this.trainingRepo.findOrdersByUserKey(userId, statusParam),
+      this.learningOrdersRepo.findByUserId(userId, statusParam),
+      this.trainingRepo.findOrdersByUserId(userId, statusParam),
       this.paymentHistoryRepo.countOrders(userId, statusParam),
-      this.learningOrdersRepo.countByUserKey(userId, statusParam),
-      this.trainingRepo.countOrdersByUserKey(userId, statusParam),
+      this.learningOrdersRepo.countByUserId(userId, statusParam),
+      this.trainingRepo.countOrdersByUserId(userId, statusParam),
     ]);
 
     const total = membershipTotal + learningTotal + trainingTotal;

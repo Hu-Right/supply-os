@@ -40,20 +40,23 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (!pwCheck.valid) routeError(400, 40006, pwCheck.message);
 
   const ctx = getContext();
-  let resolvedUserKey = identifier;
+  let resolvedUserId: number;
+  let user: Awaited<ReturnType<typeof ctx.user.usersRepo.findByPhone>>;
 
-  // 手机渠道：通过 identifier 反查 user_key
-  if (channel === "sms" && /^1[3-9]\d{9}$/.test(identifier)) {
-    const byPhone = await ctx.user.usersRepo.findByPhone(identifier);
-    if (!byPhone || !byPhone.user_key) {
-      routeError(400, 40007, "验证码无效，请重新获取");
-    }
-    resolvedUserKey = byPhone.user_key;
+  // 按 identifier 查找用户（手机走 findByPhone，邮箱走 findByEmail）
+  if (channel === "sms" && PHONE_RE.test(identifier)) {
+    user = await ctx.user.usersRepo.findByPhone(identifier);
+    if (!user) routeError(400, 40007, "验证码无效，请重新获取");
+    resolvedUserId = user.id!;
+  } else {
+    user = await ctx.user.usersRepo.findByEmail(identifier);
+    if (!user) routeError(400, 40007, "验证码无效，请重新获取");
+    resolvedUserId = user.id!;
   }
 
-  // 查找验证码记录
+  // 查找验证码记录（按 user_id）
   const codeType = channel === "sms" ? "phone_reset" : "email_reset";
-  const record = await ctx.user.authRepo.findLatestActiveCode(resolvedUserKey, codeType);
+  const record = await ctx.user.authRepo.findLatestActiveCode(resolvedUserId, codeType);
   if (!record) routeError(400, 40007, "验证码无效，请重新获取");
   if (record.attempts >= 5) routeError(429, 40029, "尝试次数过多，请重新获取验证码");
   if (record.code !== hashVerificationCode(verifyCode)) {
@@ -61,20 +64,19 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, 40007, "验证码无效，请重新获取");
   }
 
-  // 重置密码
+  // 重置密码（按 user_id）
   const newHash = await hashPassword(newPassword);
-  const user = await ctx.user.usersRepo.findAuthByKey(resolvedUserKey);
   if (!user) routeError(404, 40044, "账户不存在");
-  await ctx.user.usersRepo.updatePassword(resolvedUserKey, newHash, "bcrypt");
-  // 撤销所有现有 Token（按 user_id 删除，覆盖双写全口径；P0-B 钱路/安全整改）
-  await ctx.user.authRepo.deleteRefreshTokensByUser(user.id!);
-  if (channel !== "sms") await ctx.user.usersRepo.markEmailVerified(resolvedUserKey);
+  await ctx.user.usersRepo.updatePasswordById(resolvedUserId, newHash, "bcrypt");
+  // 撤销所有现有 Token（按 user_id）
+  await ctx.user.authRepo.deleteRefreshTokensByUser(resolvedUserId);
+  if (channel !== "sms") await ctx.user.usersRepo.markEmailVerifiedById(resolvedUserId);
   await ctx.user.authRepo.markCodeUsed(record.id);
 
   // 自动登录
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
-  try { tokens = await issueTokenPair(ctx.user.authRepo, user.id, user.user_key); } catch { /* */ }
+  try { tokens = await issueTokenPair(ctx.user.authRepo, user.id!); } catch { /* */ }
 
   const response = NextResponse.json({ success: true, user: payload, token: tokens?.token });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);

@@ -42,6 +42,15 @@ export class UsersRepo {
     return (rows as Partial<UserRow>[])[0] ?? null;
   }
 
+  /** 按 user_id 查找用户（完整行，含 phone/email 等；供已认证路由使用） */
+  async findById(userId: number): Promise<UserRow | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_users WHERE id = ? LIMIT 1",
+      [userId],
+    );
+    return (rows as UserRow[])[0] ?? null;
+  }
+
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
@@ -76,6 +85,14 @@ export class UsersRepo {
     return (result as any).affectedRows > 0;
   }
 
+  /** 更新密码及哈希类型（找回密码 / 透明升级）——按 user_id */
+  async updatePasswordById(userId: number, hash: string, hashType: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET password_hash = ?, password_hash_type = ?, updated_at = NOW() WHERE id = ?",
+      [hash, hashType, userId],
+    );
+  }
+
   /** 更新密码及哈希类型（找回密码 / 透明升级） */
   async updatePassword(userKey: string, hash: string, hashType: string): Promise<void> {
     await this.pool.execute(
@@ -84,11 +101,27 @@ export class UsersRepo {
     );
   }
 
+  /** 标记邮箱已验证——按 user_id */
+  async markEmailVerifiedById(userId: number): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email_verified = 1, updated_at = NOW() WHERE id = ?",
+      [userId],
+    );
+  }
+
   /** 标记邮箱已验证 */
   async markEmailVerified(userKey: string): Promise<void> {
     await this.pool.execute(
       "UPDATE crm_users SET email_verified = 1, updated_at = NOW() WHERE user_key = ?",
       [userKey],
+    );
+  }
+
+  /** 更新昵称（不触碰密码；nickname_source=2 标记用户自定义）——按 user_id */
+  async updateProfileById(userId: number, nickname: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET nickname = ?, nickname_source = 2, updated_at = NOW() WHERE id = ?",
+      [nickname, userId],
     );
   }
 
@@ -149,6 +182,50 @@ export class UsersRepo {
     await this.pool.execute(
       "UPDATE crm_users SET email = NULL, email_verified = 0, updated_at = NOW() WHERE user_key = ?",
       [userKey],
+    );
+  }
+
+  /** 绑定手机号（同时标记已验证）——按 user_id */
+  async bindPhoneById(userId: number, phone: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ?",
+      [phone, userId],
+    );
+  }
+
+  /**
+   * 原子绑定手机号：仅当用户尚未绑定时生效（H-3 安全加固）——按 user_id。
+   * 返回 false 表示用户已有绑定（并发/重复请求），由路由层区分冲突原因。
+   */
+  async bindPhoneIfUnboundById(userId: number, phone: string): Promise<boolean> {
+    const [result] = await this.pool.execute(
+      "UPDATE crm_users SET phone = ?, phone_verified = 1, updated_at = NOW() WHERE id = ? AND phone IS NULL",
+      [phone, userId],
+    );
+    return (result as any).affectedRows > 0;
+  }
+
+  /** 解绑手机号——按 user_id */
+  async unbindPhoneById(userId: number): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET phone = NULL, phone_verified = 0, updated_at = NOW() WHERE id = ?",
+      [userId],
+    );
+  }
+
+  /** 绑定邮箱（同时标记已验证）——按 user_id */
+  async bindEmailById(userId: number, email: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email = ?, email_verified = 1, updated_at = NOW() WHERE id = ?",
+      [email.toLowerCase(), userId],
+    );
+  }
+
+  /** 解绑邮箱——按 user_id */
+  async unbindEmailById(userId: number): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET email = NULL, email_verified = 0, updated_at = NOW() WHERE id = ?",
+      [userId],
     );
   }
 

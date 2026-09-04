@@ -142,7 +142,7 @@ describe("LearningOrdersRepo 集成测试", () => {
     });
   });
 
-  describe("findByUserKey", () => {
+  describe("findByUserId", () => {
     it("按用户 ID 查询订单列表", async () => {
       const mockOrders = [
         { order_no: "LE001", user_id: 123, status: "pending" },
@@ -150,7 +150,7 @@ describe("LearningOrdersRepo 集成测试", () => {
       ];
       mockQuery.mockResolvedValue([mockOrders]);
 
-      const result = await repo.findByUserKey(123, "");
+      const result = await repo.findByUserId(123, "");
 
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining("WHERE user_id = ?"),
@@ -162,7 +162,7 @@ describe("LearningOrdersRepo 集成测试", () => {
     it("按用户 ID 和状态查询", async () => {
       mockQuery.mockResolvedValue([[{ order_no: "LE001", status: "pending" }]]);
 
-      await repo.findByUserKey(123, "pending");
+      await repo.findByUserId(123, "pending");
 
       expect(mockQuery).toHaveBeenCalledWith(
         expect.stringContaining("WHERE user_id = ? AND status = ?"),

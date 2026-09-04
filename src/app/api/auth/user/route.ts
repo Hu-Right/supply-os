@@ -14,7 +14,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   }
 
   const ctx = getContext();
-  const user = await ctx.user.usersRepo.findProfileByKey(auth.userKey);
+  const user = await ctx.user.usersRepo.findProfileById(auth.userId!);
   if (!user) {
     routeError(404, 40044, "用户不存在");
   }
