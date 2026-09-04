@@ -4,9 +4,10 @@
  *
  * @module features/auth/hooks/useRegisterCode
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
+import { useCountdown } from "@/shared/hooks/useCountdown";
 
 export function useRegisterCode() {
   const { t } = useLocale();
@@ -15,14 +16,7 @@ export function useRegisterCode() {
   const [registerCodeSent, setRegisterCodeSent] = useState(false);
   const [registerCodeLoading, setRegisterCodeLoading] = useState(false);
   const [registerCodeError, setRegisterCodeError] = useState("");
-  const [registerCodeCountdown, setRegisterCodeCountdown] = useState(0);
-
-  // 倒计时
-  useEffect(() => {
-    if (registerCodeCountdown <= 0) return;
-    const timer = setTimeout(() => setRegisterCodeCountdown(c => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [registerCodeCountdown]);
+  const { countdown: registerCodeCountdown, start: startCountdown, reset: resetCountdown } = useCountdown();
 
   const handleSendSmsCode = async (phone: string): Promise<void> => {
     if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
@@ -41,7 +35,7 @@ export function useRegisterCode() {
         setRegisterCodeError(t("authSmsSendFailed") || "短信发送失败");
       } else {
         setRegisterCodeSent(true);
-        setRegisterCodeCountdown(60);
+        startCountdown(60);
       }
     } catch (err: unknown) {
       setRegisterCodeError((err as Error).message || (t("authSmsSendFailed") || "发送失败，请稍后重试"));
@@ -55,7 +49,7 @@ export function useRegisterCode() {
     setRegisterCodeSent(false);
     setRegisterCodeLoading(false);
     setRegisterCodeError("");
-    setRegisterCodeCountdown(0);
+    resetCountdown();
   };
 
   return {
