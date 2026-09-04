@@ -79,10 +79,11 @@ export class PaymentsRepo {
     /** 升级订单关联的原订单号 */
     originalOrderNo?: string | null;
   }): Promise<void> {
+    // ARCH-B+（2026-09-04）：user_key 迁移兼容，插入空字符串占位（权威标识已切换至 user_id）
     await this.pool.execute(
       `INSERT INTO crm_payment_orders
-        (user_id, order_no, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (user_id, user_key, order_no, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, '', ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
         data.userId, data.orderNo, data.provider, data.planCode,
         data.orderType || "new", data.originalOrderNo ?? null,
