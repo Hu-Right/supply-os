@@ -26,6 +26,7 @@ export function getAuthToken(): string | null {
 }
 
 /** 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发） */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function setAuthTokens(token: string, _refreshToken?: string): void {
   // P2 容错：localStorage 满或隐私模式下可能抛异常
   try {

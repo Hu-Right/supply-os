@@ -10,8 +10,7 @@ import {
   pendingNoticeTranslations,
   translateNoticeViaChain,
 } from "@/lib/services/translation/notice";
-
-const ApiErrorCode = { INVALID_PARAMS: 40000, OPPORTUNITY_NOT_FOUND: 40403 } as const;
+import { EC_INVALID_PARAMS, EC_OPPORTUNITY_NOT_FOUND } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -33,7 +32,7 @@ export async function GET(
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
 
   if (!opportunityId || !NOTICE_TRANSLATION_LANGS[lang]) {
-    return sendError("无效的机会 id 或语言参数", 400, ApiErrorCode.INVALID_PARAMS);
+    return sendError("无效的机会 id 或语言参数", 400, EC_INVALID_PARAMS);
   }
 
   const ctx = getContext();
@@ -45,7 +44,7 @@ export async function GET(
   }
 
   const opp = await oppsRepo.findTextById(opportunityId);
-  if (!opp) return sendError("机会不存在", 404, ApiErrorCode.OPPORTUNITY_NOT_FOUND);
+  if (!opp) return sendError("机会不存在", 404, EC_OPPORTUNITY_NOT_FOUND);
 
   const pendingKey = `opp:${opportunityId}:${lang}`;
   let pending = pendingNoticeTranslations.get(pendingKey);

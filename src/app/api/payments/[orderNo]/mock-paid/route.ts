@@ -6,8 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
-
-const ApiErrorCode = { PAYMENT_ORDER_NOT_FOUND: 40402, FORBIDDEN: 40301 } as const;
+import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -29,14 +28,14 @@ export async function POST(
   const { orchestrator } = ctx.payment;
 
   const dbOrder = await orchestrator.findOrder(orderNo);
-  if (!dbOrder) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
-  if (dbOrder.user_id !== auth.userId) return sendError("无权操作此订单", 403, ApiErrorCode.FORBIDDEN);
+  if (!dbOrder) return sendError("订单不存在", 404, EC_PAYMENT_ORDER_NOT_FOUND);
+  if (dbOrder.user_id !== auth.userId) return sendError("无权操作此订单", 403, EC_ACCESS_FORBIDDEN);
 
   const body = await req.json().catch(() => ({}));
   const { found } = await orchestrator.fulfillMockOrder(
     orderNo, JSON.stringify(body || { mock: true }),
   );
-  if (!found) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
+  if (!found) return sendError("订单不存在", 404, EC_PAYMENT_ORDER_NOT_FOUND);
 
   return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });
 }

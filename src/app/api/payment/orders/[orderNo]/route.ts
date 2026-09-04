@@ -6,11 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
-
-const ApiErrorCode = {
-  PAYMENT_ORDER_NOT_FOUND: 40402,
-  FORBIDDEN: 40301,
-} as const;
+import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -32,8 +28,8 @@ export async function GET(
 
   // ARCH-B+（2026-09-01）：通过 Orchestrator 按订单号前缀路由查询
   const order = await orchestrator.findOrder(decodedOrderNo);
-  if (!order) return sendError("订单不存在", 404, ApiErrorCode.PAYMENT_ORDER_NOT_FOUND);
-  if (order.user_id !== auth.userId) return sendError("无权操作", 403, ApiErrorCode.FORBIDDEN);
+  if (!order) return sendError("订单不存在", 404, EC_PAYMENT_ORDER_NOT_FOUND);
+  if (order.user_id !== auth.userId) return sendError("无权操作", 403, EC_ACCESS_FORBIDDEN);
 
   const tradeNo = url.searchParams.get("trade_no") || "";
   const result = await orchestrator.queryOrder(decodedOrderNo, tradeNo);

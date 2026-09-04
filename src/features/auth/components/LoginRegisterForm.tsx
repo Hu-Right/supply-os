@@ -43,7 +43,7 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
     if (auth.authMode === "register") {
       cascade.resetCascade();
     }
-  }, [auth.authMode]);
+  }, [auth.authMode, cascade]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

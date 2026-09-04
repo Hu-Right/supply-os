@@ -9,12 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { toQrDataUrl } from "@/lib/payment/qr";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
-
-const ApiErrorCode = {
-  USER_REQUIRED: 40001,
-  PAYMENT_PROVIDER_UNAVAILABLE: 40010,
-  PAYMENT_QR_CODE_MISSING: 50001,
-} as const;
+import { EC_USER_REQUIRED, EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ code, message, error: message, ...extra }, { status });
@@ -54,12 +49,12 @@ export async function POST(req: NextRequest) {
 
     const requestedProvider = String(body.provider || "");
     if (paymentMode === "live" && requestedProvider !== "alipay" && requestedProvider !== "wechat") {
-      return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 400, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+      return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 400, EC_PAYMENT_PROVIDER_UNAVAILABLE);
     }
     // ARCH-B+（2026-09-04）：live 模式下校验策略是否已注册（密钥是否已配置）
     // 与 training-payment.ts resolveProvider 对齐：未注册则明确拒绝，不在下单时才失败
     if (paymentMode === "live" && !paymentService.hasStrategy(requestedProvider as "alipay" | "wechat")) {
-      return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 503, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+      return sendError("PAYMENT_PROVIDER_UNAVAILABLE", 503, EC_PAYMENT_PROVIDER_UNAVAILABLE);
     }
     const provider = (paymentMode === "live" ? requestedProvider : "mock") as "alipay" | "wechat" | "mock";
 
@@ -94,7 +89,7 @@ export async function POST(req: NextRequest) {
       : result.pay_url;
 
     if (!result.qr_code_url) {
-      return sendError('支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试', 500, ApiErrorCode.PAYMENT_QR_CODE_MISSING);
+      return sendError('支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试', 500, EC_PAYMENT_QR_CODE_MISSING);
     }
     const qrCodeUrl = await toQrDataUrl(result.qr_code_url);
 
@@ -123,8 +118,8 @@ export async function POST(req: NextRequest) {
               : "创建订单失败，请稍后重试";
     // 首单资格冲突用 409 让前端能区分提示
     if (raw.includes("SINGLE_FIRST_PURCHASE_ONLY")) {
-      return sendError(friendly, 409, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+      return sendError(friendly, 409, EC_PAYMENT_PROVIDER_UNAVAILABLE);
     }
-    return sendError(friendly, 400, ApiErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
+    return sendError(friendly, 400, EC_PAYMENT_PROVIDER_UNAVAILABLE);
   }
 }

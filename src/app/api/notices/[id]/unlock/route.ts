@@ -11,13 +11,9 @@ import { executeUnlock, NoticeNotFoundError, QuotaExceededError } from "@/lib/se
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { MembershipRepo } from "@/lib/repos/membership.repo";
-
-const ApiErrorCode = {
-  USER_REQUIRED: 40001,
-  NOTICE_NOT_FOUND: 40006,
-  FREE_LIMIT_REACHED: 41001,
-  PAID_QUOTA_REQUIRED: 41002,
-} as const;
+import {
+  EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED,
+} from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -68,10 +64,10 @@ export async function POST(
     return NextResponse.json({ success: true, unlock_type: result.unlockType }, { status: 201 });
   } catch (err) {
     if (err instanceof NoticeNotFoundError) {
-      return sendError("公告不存在", 404, ApiErrorCode.NOTICE_NOT_FOUND);
+      return sendError("公告不存在", 404, EC_NOTICE_NOT_FOUND);
     }
     if (err instanceof QuotaExceededError) {
-      const code = err.code === "FREE_LIMIT_REACHED" ? ApiErrorCode.FREE_LIMIT_REACHED : ApiErrorCode.PAID_QUOTA_REQUIRED;
+      const code = err.code === "FREE_LIMIT_REACHED" ? EC_FREE_LIMIT_REACHED : EC_PAID_QUOTA_REQUIRED;
       const message = err.code === "FREE_LIMIT_REACHED" ? "免费查看次数已用完" : "付费查看次数已用完";
       return sendError(message, 402, code);
     }

@@ -10,14 +10,10 @@ import { processFeedback } from "@/lib/services/notice-actions";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
 import type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
-
-const ApiErrorCode = {
-  USER_REQUIRED: 40001,
-  SESSION_REQUIRED: 40002,
-  ACTIONS_REQUIRED: 40003,
-  TOO_MANY_ACTIONS: 40004,
-  NO_VALID_ACTIONS: 40005,
-} as const;
+import {
+  EC_USER_REQUIRED, EC_SESSION_REQUIRED, EC_FORBIDDEN,
+  EC_TOO_MANY_ACTIONS, EC_NO_VALID_ACTIONS,
+} from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ code, message, error: message, ...extra }, { status });
@@ -27,11 +23,11 @@ export async function POST(req: NextRequest) {
   const auth = await requireUserKey(req);
   if (auth instanceof Response) return auth;
 
-  if (!auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!auth.userId) return sendError("请先登录", 400, EC_USER_REQUIRED);
 
   const body = await req.json();
   const sessionId = String(body.session_id || "").trim().slice(0, 64);
-  if (!sessionId) return sendError("缺少会话标识", 400, ApiErrorCode.SESSION_REQUIRED);
+  if (!sessionId) return sendError("缺少会话标识", 400, EC_SESSION_REQUIRED);
 
   const VALID_ACTIONS = new Set([
     "impression", "click", "unlock", "dismiss", "favorite",
@@ -39,8 +35,8 @@ export async function POST(req: NextRequest) {
   ]);
   const rawActions: any[] = Array.isArray(body.actions)
     ? body.actions : body.notice_id ? [body] : [];
-  if (rawActions.length === 0) return sendError("请提供操作列表", 400, ApiErrorCode.ACTIONS_REQUIRED);
-  if (rawActions.length > 50) return sendError("单次最多 50 条操作", 400, ApiErrorCode.TOO_MANY_ACTIONS, { max: 50 });
+  if (rawActions.length === 0) return sendError("请提供操作列表", 400, EC_FORBIDDEN);
+  if (rawActions.length > 50) return sendError("单次最多 50 条操作", 400, EC_TOO_MANY_ACTIONS, { max: 50 });
 
   const pool = getPool();
   const items: RecoFeedbackItem[] = rawActions
@@ -53,7 +49,7 @@ export async function POST(req: NextRequest) {
       dwellMs: Number.isInteger(Number(item?.dwell_ms)) && Number(item.dwell_ms) > 0 ? Number(item.dwell_ms) : null,
     }))
     .filter((item) => item.noticeId > 0 && VALID_ACTIONS.has(item.action));
-  if (items.length === 0) return sendError("无有效操作", 400, ApiErrorCode.NO_VALID_ACTIONS);
+  if (items.length === 0) return sendError("无有效操作", 400, EC_NO_VALID_ACTIONS);
 
   const result = await processFeedback(
     {

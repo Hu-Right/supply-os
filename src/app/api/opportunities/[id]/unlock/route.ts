@@ -10,12 +10,9 @@ import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
-
-const ApiErrorCode = {
-  FREE_LIMIT_REACHED: 41001,
-  PAID_QUOTA_REQUIRED: 41002,
-  OPPORTUNITY_NOT_FOUND: 40403,
-} as const;
+import {
+  EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND,
+} from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -49,7 +46,7 @@ export async function POST(
   }
 
   const opp = await oppsRepo.findById(opportunityId);
-  if (!opp) return sendError("机会不存在", 404, ApiErrorCode.OPPORTUNITY_NOT_FOUND);
+  if (!opp) return sendError("机会不存在", 404, EC_OPPORTUNITY_NOT_FOUND);
   const snapshot = normalizeUnspscCodes(opp.unspsc_codes);
 
   try {
@@ -70,9 +67,9 @@ export async function POST(
   } catch (err) {
     if (err instanceof OpportunityUnlockError) {
       if (err.code === "FREE_LIMIT_REACHED") {
-        return sendError("免费查看次数已用完", 402, ApiErrorCode.FREE_LIMIT_REACHED);
+        return sendError("免费查看次数已用完", 402, EC_FREE_LIMIT_REACHED);
       }
-      return sendError("付费查看次数已用完，请开通会员", 402, ApiErrorCode.PAID_QUOTA_REQUIRED);
+      return sendError("付费查看次数已用完，请开通会员", 402, EC_PAID_QUOTA_REQUIRED);
     }
     throw err;
   }

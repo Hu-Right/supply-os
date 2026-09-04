@@ -6,12 +6,10 @@
  */
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Input, Select, Button, SelectableCard } from "@/shared/ui";
+import { Input, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
-import { UnspscPrefSelects } from "../UnspscPrefSelects";
-import { UnspscInferCandidates } from "../UnspscInferCandidates";
 import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";

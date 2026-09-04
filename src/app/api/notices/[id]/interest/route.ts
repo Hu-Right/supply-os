@@ -9,11 +9,7 @@ import { requireUserKey } from "@/lib/middleware/auth";
 import { submitInterest, NoticeNotFoundError } from "@/lib/services/notice-actions";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeInteractionRepo } from "@/lib/repos/notices/notice-interaction.repo";
-
-const ApiErrorCode = {
-  USER_REQUIRED: 40001,
-  NOTICE_NOT_FOUND: 40006,
-} as const;
+import { EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {
   return NextResponse.json({ code, message, error: message }, { status });
@@ -32,7 +28,7 @@ export async function POST(
   const interestType = body.interest_type === "subscribed" ? "subscribed" : "interested";
   const note = String(body.note || "").slice(0, 500);
 
-  if (!auth.userId) return sendError("请先登录", 400, ApiErrorCode.USER_REQUIRED);
+  if (!auth.userId) return sendError("请先登录", 400, EC_USER_REQUIRED);
 
   const pool = getPool();
 
@@ -48,7 +44,7 @@ export async function POST(
     return NextResponse.json({ success: true, interest_type: interestType }, { status: 201 });
   } catch (err) {
     if (err instanceof NoticeNotFoundError) {
-      return sendError("公告不存在", 404, ApiErrorCode.NOTICE_NOT_FOUND);
+      return sendError("公告不存在", 404, EC_NOTICE_NOT_FOUND);
     }
     throw err;
   }

@@ -20,12 +20,9 @@ import {
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const reportCacheDir = () => nodePath.join(process.cwd(), "runtime", "bid_reports");
 
-const ApiErrorCode = {
-  USER_REQUIRED: 40001,
-  NOTICE_NOT_FOUND: 40404,
-  NOTICE_LOCKED: 40301,
-  REPORT_NOT_AVAILABLE: 40405,
-} as const;
+import {
+  EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND_404, EC_ACCESS_FORBIDDEN, EC_REPORT_NOT_AVAILABLE,
+} from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ code, message, error: message, ...extra }, { status });
@@ -43,7 +40,7 @@ export async function GET(
   const userId = auth.userId;
 
   if (!noticeId || !userId) {
-    return sendError("请先登录并指定公告", 400, ApiErrorCode.USER_REQUIRED);
+    return sendError("请先登录并指定公告", 400, EC_USER_REQUIRED);
   }
 
   const ctx = getContext();
@@ -51,13 +48,13 @@ export async function GET(
   const opportunitiesRepo = ctx.opportunitiesRepo;
 
   const unlock = await unlockRepo.findUnlock(userId!, noticeId);
-  if (!unlock) return sendError("公告已锁定，请先解锁", 403, ApiErrorCode.NOTICE_LOCKED, { core_locked: true });
+  if (!unlock) return sendError("公告已锁定，请先解锁", 403, EC_ACCESS_FORBIDDEN, { core_locked: true });
 
   const notice = await detailRepo.findDetail(noticeId);
-  if (!notice) return sendError("公告不存在", 404, ApiErrorCode.NOTICE_NOT_FOUND);
+  if (!notice) return sendError("公告不存在", 404, EC_NOTICE_NOT_FOUND_404);
 
   const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-  if (!qualified) return sendError("报告不可用", 404, ApiErrorCode.REPORT_NOT_AVAILABLE);
+  if (!qualified) return sendError("报告不可用", 404, EC_REPORT_NOT_AVAILABLE);
 
   const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
   const opportunity = fullOpportunity || qualified;

@@ -28,7 +28,6 @@ export interface IndustryPrefsFormProps {}
 /** 我的默认行业（本地差异 #5 配套 UI），内部经 useAuth 取 userKey，不接受 props 透传用户 */
 export function IndustryPrefsForm() {
   const { t } = useLocale();
-  const { authUser } = useAuth();
   const userId = useUserId();
   const {
     industryOptions,
@@ -87,7 +86,7 @@ export function IndustryPrefsForm() {
       setPrefLevel2(prefs?.level2_id ? String(prefs.level2_id) : "");
       setPrefLevel3(prefs?.level3_id ? String(prefs.level3_id) : "");
     });
-  }, [userId, resetCascade]);
+  }, [userId, resetCascade, setPrefLevel1, setPrefLevel2, setPrefLevel3]);
 
   // 防抖推断（300ms）：用户输入主营业务关键词后匹配 UNSPSC 类目候选
   useEffect(() => {
