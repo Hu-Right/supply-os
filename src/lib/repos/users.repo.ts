@@ -54,7 +54,7 @@ export class UsersRepo {
   /** 按 user_key 查找用户（登录鉴权用，含 password_hash） */
   async findAuthByKey(userKey: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
+      `SELECT id, user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE user_key = ? LIMIT 1`,
       [userKey],
@@ -269,7 +269,7 @@ export class UsersRepo {
     }
     // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(
-      `SELECT user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
+      `SELECT id, user_key, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
               membership_tier, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE email = ? LIMIT 1`,
       [identifier.toLowerCase()],
