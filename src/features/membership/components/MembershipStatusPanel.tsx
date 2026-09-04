@@ -13,6 +13,7 @@ import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react"
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
+import { formatDateShort } from "@/shared/utils/format";
 import type { MembershipStatus } from "@/types";
 
 export interface MembershipStatusPanelProps {
@@ -25,16 +26,6 @@ export interface MembershipStatusPanelProps {
   noticeId?: number;
   /** 紧凑模式（用于侧边栏） */
   compact?: boolean;
-}
-
-/** 格式化日期为本地化短格式（含年份） */
-function formatDate(dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  } catch {
-    return dateStr;
-  }
 }
 
 export function MembershipStatusPanel({
@@ -135,7 +126,7 @@ export function MembershipStatusPanel({
               {sub.expires_at ? (
                 <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
                   <Clock className="w-3 h-3" />
-                  {formatDate(sub.expires_at)}
+                  {formatDateShort(sub.expires_at)}
                 </span>
               ) : (
                 <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
@@ -175,7 +166,7 @@ export function MembershipStatusPanel({
                 return (
                   <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
                     <Clock className="w-3 h-3" />
-                    {formatDate(earliest!)}
+                    {formatDateShort(earliest!)}
                   </span>
                 );
               }

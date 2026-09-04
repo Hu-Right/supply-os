@@ -14,22 +14,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
+import { formatDateShort } from "@/shared/utils/format";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatus } from "@/types";
 
 export interface AccountBenefitsCardProps {
   /** 点击"查看套餐"时的回调（可选） */
   onViewPlans?: () => void;
-}
-
-/** 格式化日期为短格式（含年份） */
-function formatDateShort(dateStr: string): string {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  } catch {
-    return dateStr;
-  }
 }
 
 export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {

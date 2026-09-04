@@ -8,6 +8,7 @@
 import { ArrowUpCircle, Clock, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Modal } from "@/shared/ui";
+import { formatDateShort } from "@/shared/utils/format";
 import type { UpgradePreview } from "@/types";
 
 export interface UpgradeConfirmModalProps {
@@ -20,19 +21,6 @@ export interface UpgradeConfirmModalProps {
   currency: string;
   onClose: () => void;
   onConfirm: () => void;
-}
-
-/** 格式化日期为本地化短格式 */
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
 }
 
 export function UpgradeConfirmModal({
@@ -105,7 +93,7 @@ export function UpgradeConfirmModal({
                   <Clock className="w-3 h-3" />
                   {t("upgradeValidity")}：{t("upgradeValidityUnchanged")}
                   {preview.current_plan?.expires_at && (
-                    <span className="text-slate-400">（{formatDate(preview.current_plan.expires_at)}）</span>
+                    <span className="text-slate-400">（{formatDateShort(preview.current_plan.expires_at)}）</span>
                   )}
                 </p>
               </div>

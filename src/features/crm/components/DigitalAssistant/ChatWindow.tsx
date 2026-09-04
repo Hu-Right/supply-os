@@ -89,7 +89,6 @@ export function ChatWindow({
   onSetMatchSupplier,
   onSetMatchOpportunity,
   onTriggerMatch,
-  onResetMatch,
 }: ChatWindowProps) {
   const { t } = useLocale();
   const [input, setInput] = useState("");

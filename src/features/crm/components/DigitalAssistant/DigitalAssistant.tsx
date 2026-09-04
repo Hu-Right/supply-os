@@ -16,7 +16,7 @@ import { useChatSSE } from "../../hooks/useChatSSE";
 import { useQueueInfo } from "../../hooks/useQueueInfo";
 import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { ChatWindow } from "./ChatWindow";
-import type { Supplier, Opportunity } from "@/types";
+import type { Supplier } from "@/types";
 import { OPPORTUNITIES } from "@/data";
 
 /** 播放提示音（Web Audio API） */

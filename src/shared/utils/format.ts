@@ -35,3 +35,16 @@ export function formatDateTimeZh(value?: string | null): string {
   if (Number.isNaN(date.getTime())) return value.replace("T", " ").replace(".000Z", "");
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
+
+/**
+ * 权益/会员到期日展示：本地化短格式（含年份），解析失败返回原字符串。
+ * （原 MembershipStatusPanel/UpgradeConfirmModal/AccountBenefitsCard 逐字重复的 formatDate）
+ */
+export function formatDateShort(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  } catch {
+    return dateStr;
+  }
+}

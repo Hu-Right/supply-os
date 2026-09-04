@@ -111,7 +111,6 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
           setClaimForm={auth.setClaimForm}
           authError={auth.authError}
           registerCode={registerCode}
-          cascade={cascade}
           onQualificationChange={setQualificationData}
           agreedToTerms={auth.agreedToTerms}
           setAgreedToTerms={auth.setAgreedToTerms}

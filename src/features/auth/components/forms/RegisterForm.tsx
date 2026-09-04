@@ -4,13 +4,11 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Input, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
-import type { UseUnspscPrefCascadeReturn } from "../../hooks/useUnspscPrefCascade";
-import { fetchSmartInferUnspsc, type SmartInferCandidate } from "@/core/unspsc";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
 import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
@@ -28,7 +26,6 @@ export interface RegisterFormProps {
   setClaimForm: React.Dispatch<React.SetStateAction<ClaimFormState>>;
   authError: string;
   registerCode: ReturnType<typeof useRegisterCode>;
-  cascade: UseUnspscPrefCascadeReturn;
   onQualificationChange?: (data: Record<string, string | string[]>) => void;
   /** 用户是否已勾选同意协议 */
   agreedToTerms: boolean;
@@ -43,7 +40,6 @@ export function RegisterForm({
   setClaimForm,
   authError,
   registerCode,
-  cascade,
   onQualificationChange,
   agreedToTerms,
   setAgreedToTerms,
@@ -52,58 +48,6 @@ export function RegisterForm({
 
   // 检测推荐链接 Cookie，用于显示自动填入提示
   const [hasRefCookie] = useState(detectRefCookie);
-
-  // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
-  const {
-    handlePrefLevel1Change,
-    handlePrefLevel2Change,
-    applyInferredPath,
-  } = cascade;
-
-  // 主营业务智能推断（候选确认式：高置信自动回填，其余由用户点选）
-  const [mainBusiness, setMainBusiness] = useState("");
-  const [inferCandidates, setInferCandidates] = useState<SmartInferCandidate[]>([]);
-  const [autoAppliedNodeId, setAutoAppliedNodeId] = useState<number | null>(null);
-  const [inferLoading, setInferLoading] = useState(false);
-  const [inferSearched, setInferSearched] = useState(false);
-
-  // 防抖推断
-  useEffect(() => {
-    if (mainBusiness.trim().length < 1) {
-      setInferCandidates([]);
-      setAutoAppliedNodeId(null);
-      setInferSearched(false);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setInferLoading(true);
-      setInferSearched(false);
-      try {
-        const data = await fetchSmartInferUnspsc(mainBusiness.trim());
-        const candidates = data?.candidates || [];
-        setInferCandidates(candidates);
-        // 不再自动回填：仅展示候选列表，由用户点选确认，防止推断覆盖手动选择
-        setAutoAppliedNodeId(null);
-        setInferSearched(true);
-      } catch {
-        // 推断失败不影响注册流程
-      } finally {
-        setInferLoading(false);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [mainBusiness]);
-
-  // 用户从候选中点选：以该候选路径回填级联（L1~L3），L4/L5 不参与
-  const pickCandidate = (candidate: SmartInferCandidate) => {
-    applyInferredPath(candidate);
-    setAutoAppliedNodeId(candidate.node_id);
-  };
-
-  // 推断反馈文案：自动应用 → 确认可改；未自动应用 → 引导手动点选
-  const inferHint = autoAppliedNodeId
-    ? `${t("authMainBusinessInferred")}，${t("authMainBusinessCandidateChange")}`
-    : t("authMainBusinessCandidatePick");
 
   return (
     <div className="space-y-3">
