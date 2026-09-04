@@ -73,11 +73,11 @@ export function IndustryPrefsForm() {
     setInferSearched(false);
     setPrefMessage("");
 
-    const userKey = userId;
-    if (!userKey) return;
+    const uid = userId;
+    if (!uid) return;
 
     // 回填当前用户的 localStorage 关键词
-    const savedMb = localStorage.getItem(`supply-os:main-business:${userKey}`);
+    const savedMb = localStorage.getItem(`supply-os:main-business:${uid}`);
     if (savedMb) setMainBusinessRaw(savedMb);
 
     // 从后端加载已保存的行业偏好
