@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 
@@ -26,6 +27,19 @@ export async function POST(req: NextRequest) {
   }
 
   const ctx = getContext();
+  // 写入统计表（保留明细追踪能力）
   const count = await ctx.trainingRepo.incrementDownloadCount(materialId, fileName);
+
+  // 同步递增 crm_learning_materials.downloads_count，保证前端展示数据源一致
+  try {
+    const pool = getPool();
+    await pool.execute(
+      "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
+      [materialId],
+    );
+  } catch {
+    // 非关键路径：即使同步失败也不影响下载追踪
+  }
+
   return NextResponse.json({ success: true, count });
 }

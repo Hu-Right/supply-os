@@ -280,6 +280,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // 会员等级变更：支付成功后服务端更新 membership_tier，此处刷新缓存
+  useEffect(() => {
+    return onAppEvent("supply-os:membership-changed", () => {
+      refreshAuth().catch(() => {
+        console.warn("[auth] 会员等级刷新失败，用户可能需要手动刷新页面");
+      });
+    });
+  }, [refreshAuth]);
+
   // P2-1：value useMemo——仅状态/方法真实变化时才重建，阻断消费组件级联重渲染
   const value: AuthContextValue = useMemo(() => ({
     authUser,

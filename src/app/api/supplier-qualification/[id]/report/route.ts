@@ -10,7 +10,7 @@ import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.re
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import type { QualificationScoreInput } from "@/features/procurement/utils/scoringEngine";
+import type { QualificationScoreInput } from "@/lib/services/scoring";
 
 /**
  * 将 DB 行转换为评分引擎输入（逗号分隔字符串 → 数组）

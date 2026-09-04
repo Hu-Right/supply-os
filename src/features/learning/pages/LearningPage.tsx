@@ -22,7 +22,7 @@ import { emitAppEvent, type PayEventDetail } from "@/core/events";
 export default function LearningPage() {
   const { t, locale } = useLocale();
   const { authUser } = useAuth();
-  const { materials, bundles, purchasedIds, loading, refreshPurchased } = useLearningMaterials();
+  const { materials, bundles, purchasedIds, loading, refreshPurchased, bumpDownloadCount } = useLearningMaterials();
 
   // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
   // /content 端点获取（服务端校验登录 + 购买记录）
@@ -56,7 +56,9 @@ export default function LearningPage() {
     void api("/api/training/downloads/track", {
       method: "POST",
       body: { material_id: materialId, file_name: name },
-    }).catch(() => {});
+    })
+      .then(() => bumpDownloadCount(materialId))
+      .catch(() => {});
   };
 
   const handleBuyMaterial = (material: LearningMaterial) => {

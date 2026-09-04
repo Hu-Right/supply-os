@@ -1,6 +1,5 @@
 /**
  * 支付编排层 — 跨业务统一入口
- * Payment Orchestrator — Cross-business unified entry point
  *
  * @module lib/payment/orchestrator
  * @description ARCH-B+（2026-09-01）：分表存储后的统一编排层。
@@ -27,29 +26,28 @@ import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
 
 /** 聚合后的统一订单行 */
 export interface NormalizedOrder {
-  order_no: string;
-  /** 内部用户 ID */
-  user_id: number;
-  provider: string;
-  plan_code: string;
-  notice_id: number | null;
-  amount: number;
-  currency: string;
-  status: string;
-  provider_trade_no: string | null;
-  paid_at: string | null;
-  created_at: string;
-  updated_at: string | null;
+  order_no: string; // 订单编号
+  user_id: number; // 内部用户 ID
+  provider: string; // 支付渠道 
+  plan_code: string; // 套餐代码
+  notice_id: number | null; // 解锁的资料 ID
+  amount: number; // 订单金额
+  currency: string; // 币种
+  status: string; // 订单状态
+  provider_trade_no: string | null; // 支付渠道订单编号
+  paid_at: string | null; // 支付时间
+  created_at: string; // 创建时间
+  updated_at: string | null; // 更新时间
 }
 
-/** 订单号前缀常量 */
+// 订单号前缀常量 SO：会员服务，LE：学习资料，TR：培训
 export const ORDER_PREFIX = {
   MEMBERSHIP: "SO",
   LEARNING: "LE",
   TRAINING: "TR",
 } as const;
 
-/** 根据订单号判断业务类型 */
+// 根据订单号判断支付订单的类型
 export function getOrderBusiness(orderNo: string): "membership" | "learning" | "training" | "unknown" {
   if (orderNo.startsWith(ORDER_PREFIX.LEARNING)) return "learning";
   if (orderNo.startsWith(ORDER_PREFIX.TRAINING)) return "training";
@@ -57,6 +55,7 @@ export function getOrderBusiness(orderNo: string): "membership" | "learning" | "
   return "unknown";
 }
 
+// 支付编排器
 export class PaymentOrchestrator {
   private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
 
@@ -208,7 +207,6 @@ export class PaymentOrchestrator {
   }
 
   // ── 订单查找（身份校验用） ────────────────────────────────────────────────
-
   async findOrder(orderNo: string): Promise<{ user_id: number; status: string } | null> {
     const business = getOrderBusiness(orderNo);
     switch (business) {

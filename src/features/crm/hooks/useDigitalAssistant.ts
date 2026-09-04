@@ -12,7 +12,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
 import type { Supplier, Opportunity } from "@/types";
-import type { ChatSessionRow, ChatMessageRow } from "@/lib/repos/chat.repo";
+import type { ChatSessionRow, ChatMessageRow } from "../types";
 
 // ── 类型定义 ──
 

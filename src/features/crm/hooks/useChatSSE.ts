@@ -11,7 +11,7 @@
  */
 import { useEffect, useRef, useCallback, useState } from "react";
 import { api } from "@/core/http";
-import type { ChatMessageRow } from "@/lib/repos/chat.repo";
+import type { ChatMessageRow } from "../types";
 
 export type SSEStatus = "disconnected" | "connecting" | "connected" | "error";
 

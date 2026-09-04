@@ -31,6 +31,7 @@ export interface AppEventMap {
   "supply-os:consult": void;
   "supply-os:pay": PayEventDetail;
   "supply-os:notice-paid": { noticeId: number };
+  "supply-os:membership-changed": void;
   "supply-os:crm-refresh": void;
   "supply-os:industry-prefs-updated": void;
   "supply-os:open-supplier-register": void;

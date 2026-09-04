@@ -109,7 +109,16 @@ export function useLearningMaterials() {
     if (authUser) void refreshPurchased();
   }, [authUser, refreshPurchased]);
 
-  return { materials, bundles, purchasedIds, loading, refreshPurchased };
+  /** 本地递增指定资料的下载计数（避免重新拉取整个列表） */
+  const bumpDownloadCount = useCallback((materialId: string) => {
+    setMaterials((prev) =>
+      prev.map((m) =>
+        m.id === materialId ? { ...m, downloadsCount: m.downloadsCount + 1 } : m,
+      ),
+    );
+  }, []);
+
+  return { materials, bundles, purchasedIds, loading, refreshPurchased, bumpDownloadCount };
 }
 
 export type { ApiBundle };

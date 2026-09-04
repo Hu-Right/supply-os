@@ -99,6 +99,8 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
 
   const handlePaymentSuccess = () => {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });
+    // 通知 AuthContext 刷新会员等级缓存
+    emitAppEvent("supply-os:membership-changed");
     setShowPaymentModal(false);
     setPaymentPlan(null);
     refreshAuth().catch(() => {
