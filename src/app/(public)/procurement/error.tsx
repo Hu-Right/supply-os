@@ -5,7 +5,7 @@
  * Route-level error boundary for procurement page
  */
 export default function ProcurementError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

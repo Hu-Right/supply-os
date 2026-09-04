@@ -5,7 +5,7 @@
  * Route-level error boundary for supplier page
  */
 export default function SupplierError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

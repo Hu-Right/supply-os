@@ -5,7 +5,7 @@
  * Route-level error boundary for membership page
  */
 export default function MembershipError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

@@ -5,7 +5,7 @@
  * Route-level error boundary for showroom page
  */
 export default function ShowroomError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };
