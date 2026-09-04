@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
   const auth = await extractUserKey(req);
   const params = parseSearchParams(req);
   params.userKey = auth.userKey;
+  params.userId = auth.userId || undefined;
   const pool = getPool();
   const result = await searchUnified(pool, params);
   return NextResponse.json({ ...result, page_size: result.pageSize });

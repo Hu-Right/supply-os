@@ -31,7 +31,7 @@ export async function GET(
 
   const order = await trainingRepo.findOrderByNo(orderNo);
   if (!order) return sendError("订单不存在", 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND);
-  if (order.user_key && order.user_key !== auth.userKey) return sendError("无权查看此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
+  if (order.user_id && order.user_id !== auth.userId) return sendError("无权查看此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
 
   const participants = await trainingRepo.getParticipantsByOrderId(order.id);
   return NextResponse.json({
@@ -56,7 +56,7 @@ export async function POST(
   const order = await trainingRepo.findOrderByNo(orderNo);
   if (!order) return sendError("订单不存在", 404, ApiErrorCode.TRAINING_ORDER_NOT_FOUND);
   if (order.status !== "paid") return sendError("订单尚未支付，无法保存学员信息", 400, ApiErrorCode.TRAINING_ORDER_NOT_PAID);
-  if (order.user_key && order.user_key !== auth.userKey) return sendError("无权操作此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
+  if (order.user_id && order.user_id !== auth.userId) return sendError("无权操作此订单", 403, ApiErrorCode.TRAINING_ORDER_FORBIDDEN);
 
   const body = await req.json();
   const participants = body.participants;

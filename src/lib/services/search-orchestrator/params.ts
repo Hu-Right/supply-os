@@ -13,6 +13,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export interface RawSearchParams {
   mode?: string;
   userKey?: string;
+  userId?: number;
   page?: number;
   pageSize?: number;
   locale?: string;
@@ -52,6 +53,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
   return {
     mode,
     userKey: String(raw.userKey || ""),
+    userId: raw.userId,
     page: Math.min(Math.max(Math.floor(raw.page || 1), 1), 1000),
     pageSize: Math.min(Math.max(Math.floor(raw.pageSize || 10), 6), 30),
     locale: String(raw.locale || ""),
@@ -75,7 +77,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
  */
 export function searchCacheKey(p: UnifiedSearchParams): string {
   return [
-    p.mode, p.userKey, p.page, p.pageSize, p.locale,
+    p.mode, p.userId ?? p.userKey, p.page, p.pageSize, p.locale,
     p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.codeId,
