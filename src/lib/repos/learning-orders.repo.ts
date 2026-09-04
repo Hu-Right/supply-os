@@ -97,10 +97,11 @@ export class LearningOrdersRepo {
     qrCodeUrl: string | null;
     rawRequest: string;
   }): Promise<void> {
+    // ARCH-B+（2026-09-04）：user_key 迁移兼容，插入空字符串占位（权威标识已切换至 user_id）
     await this.pool.execute(
       `INSERT INTO learning_orders
-        (order_no, user_id, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
+        (order_no, user_id, user_key, plan_code, amount, currency, provider, status, pay_url, qr_code_url, raw_request, created_at)
+       VALUES (?, ?, '', ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
       [
         data.orderNo, data.userId, data.planCode,
         data.amount, data.currency, data.provider,

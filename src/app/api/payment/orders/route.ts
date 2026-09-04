@@ -110,6 +110,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: unknown) {
     const raw = String((err as Error)?.message || "");
+    console.error("[payment/orders] 创建订单失败:", raw, (err as Error)?.stack);
     const friendly = raw.includes("Unsupported payment provider")
       ? "PAYMENT_PROVIDER_UNAVAILABLE"
       : raw.includes("PAYMENT_QR_CODE_MISSING")
