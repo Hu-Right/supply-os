@@ -1,5 +1,10 @@
 /**
- * POST /api/auth/refresh — Token 刷新（Refresh Token 轮换）
+ * POST /api/auth/refresh — Token 刷新（非严格轮换，多标签页安全）
+ *
+ * 旧 Refresh Token 不立即删除，保留至自然过期（7d）或由定期清理回收。
+ * 原因：严格轮换（删除旧 token → 插入新 token）在多标签页场景下会导致
+ * Tab A 轮换成功后 Tab B 用同一旧 token 刷新失败（deleted===0 → 401），
+ * 进而误清全局认证状态。非严格轮换下旧 token 始终可验证，彻底消除该竞态。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -22,8 +27,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const authRepo = getContext().user.authRepo;
-  const tokenHash = hashRefreshToken(refreshToken);
-  const stored = await authRepo.findRefreshTokenByHash(tokenHash);
+
+  // 非严格轮换：只查询不删除。旧 token 保留至自然过期，避免多标签页互踢。
+  const stored = await authRepo.findRefreshTokenByHash(hashRefreshToken(refreshToken));
   if (!stored) {
     routeError(401, 40052, "刷新令牌已失效");
   }
@@ -43,14 +49,9 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(403, 40003, "账号未通过审核或已停用");
   }
 
-  // Refresh Token 原子轮换（审查 F32）：以条件删除的受影响行数为判定——
-  // 并发重放同一 refresh token 时，仅首个请求轮换成功，后续全部拒绝
+  // 签发新 Token 对：新 refresh token 入库，旧 token 保留至自然过期
   const newAccessToken = signAccessToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
   const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
-  const deleted = await authRepo.deleteRefreshTokenByHash(tokenHash);
-  if (deleted === 0) {
-    routeError(401, 40052, "刷新令牌已失效");
-  }
   await authRepo.insertRefreshToken(user.id!, newTokenHash, getRefreshTokenExpiresAt());
 
   const response = NextResponse.json({ success: true, token: newAccessToken });

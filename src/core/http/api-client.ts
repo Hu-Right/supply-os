@@ -46,6 +46,19 @@ export function updateAuthToken(token: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
+// ── 跨标签页 Token 同步 ──
+// 当其他标签页刷新 Token 并写入 localStorage 时，本标签页即时感知。
+// 配合服务端非严格轮换（refresh 路由不删除旧 token），彻底消除多标签页互踢。
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key === AUTH_TOKEN_KEY && e.newValue) {
+      // localStorage 已由其他标签页更新，getAuthToken() 下次读取即返回新值
+      // 此处无需额外操作，仅记录日志便于调试
+      console.debug("[http] Access Token 已由其他标签页更新");
+    }
+  });
+}
+
 /**
  * API 错误类
  * API Error Class
