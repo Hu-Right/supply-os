@@ -10,39 +10,45 @@ import { BACKFILL_BATCH_SIZE, BACKFILL_BATCH_SLEEP_MS } from "@/shared/constants
  * user_id 内部化回填：将所有业务表中 user_id 为 NULL 的行，
  * 根据 user_key 去 crm_users 表查出对应的 crm_users.id 填入。
  *
- * 覆盖全集 19 张表（A 类 11 张 + B 类 8 张）。
- * 幂等：WHERE user_id IS NULL 保证重跑零副作用。
+ * 覆盖 18 张表。幂等：WHERE user_id IS NULL 保证重跑零副作用。
  * 分批限速：id 游标 + LIMIT 2000 + 批间 50ms，防止大表锁库。
+ *
+ * 注意：crm_supplier_qualification 不在清单——该表无 user_key 列（049 直接建
+ * user_id，注册后回写），NULL 行属未注册评估数据，无回填来源。
  */
 export async function backfillUserIds(dbPool: any) {
-  const tables = [
-    // ── A 类：user_key + user_id 双列已存在（11 张）──
-    "crm_user_subscriptions",
-    "crm_payment_orders",
-    "crm_user_entitlements",
-    "crm_opportunity_unlocks",
-    "crm_user_notice_views",
-    "crm_notice_interests",
-    "crm_user_interest_codes",
-    "crm_supplier_claims",
-    "crm_user_industry_prefs",
-    "crm_user_reco_feedback",
-    "crm_supplier_qualification",
+  // 表 → 关联 crm_users.user_key 的本表列名（crm_chat_sessions 关联列名为 customer_id）
+  const tables: Array<{ name: string; joinColumn: string }> = [
+    // ── A 类：user_key + user_id 双列已存在（10 张）──
+    { name: "crm_user_subscriptions", joinColumn: "user_key" },
+    { name: "crm_payment_orders", joinColumn: "user_key" },
+    { name: "crm_user_entitlements", joinColumn: "user_key" },
+    { name: "crm_opportunity_unlocks", joinColumn: "user_key" },
+    { name: "crm_user_notice_views", joinColumn: "user_key" },
+    { name: "crm_notice_interests", joinColumn: "user_key" },
+    { name: "crm_user_interest_codes", joinColumn: "user_key" },
+    { name: "crm_supplier_claims", joinColumn: "user_key" },
+    { name: "crm_user_industry_prefs", joinColumn: "user_key" },
+    { name: "crm_user_reco_feedback", joinColumn: "user_key" },
     // ── B 类：迁移 062 刚加 user_id 列（8 张）──
-    "crm_password_resets",
-    "crm_refresh_tokens",
-    "crm_reco_weight_profile",
-    "crm_chat_sessions",
-    "crm_learning_material_purchases",
-    "learning_orders",
-    "training_orders",
-    "crm_user_search_log",
+    { name: "crm_password_resets", joinColumn: "user_key" },
+    { name: "crm_refresh_tokens", joinColumn: "user_key" },
+    { name: "crm_reco_weight_profile", joinColumn: "user_key" },
+    { name: "crm_chat_sessions", joinColumn: "customer_id" },
+    { name: "crm_learning_material_purchases", joinColumn: "user_key" },
+    { name: "learning_orders", joinColumn: "user_key" },
+    { name: "training_orders", joinColumn: "user_key" },
+    { name: "crm_user_search_log", joinColumn: "user_key" },
   ];
 
   const BATCH = BACKFILL_BATCH_SIZE;
   const SLEEP_MS = BACKFILL_BATCH_SLEEP_MS;
 
-  for (const table of tables) {
+  for (const { name: table, joinColumn } of tables) {
+    if (!/^[a-z_]+$/.test(joinColumn)) {
+      console.warn(`[backfill] 非法关联列名，跳过 ${table}: ${joinColumn}`);
+      continue;
+    }
     let lastId = 0;
     let affected = 0;
     try {
@@ -50,7 +56,7 @@ export async function backfillUserIds(dbPool: any) {
         // MySQL 不支持多表 UPDATE + LIMIT，改用子查询限定 id 范围
         const [result] = await dbPool.execute(
           `UPDATE ${table} target
-           INNER JOIN crm_users u ON u.user_key = target.user_key
+           INNER JOIN crm_users u ON u.user_key = target.${joinColumn}
            SET target.user_id = u.id
            WHERE target.user_id IS NULL AND target.id > ? AND target.id <= ?`,
           [lastId, lastId + BATCH],
@@ -63,8 +69,7 @@ export async function backfillUserIds(dbPool: any) {
         }
       } while (affected >= BATCH);
     } catch (err) {
-      // 表可能缺 user_key 列（如 crm_supplier_qualification 直接用 user_id）——
-      // 跳过并记录警告，不阻断其他表的回填
+      // 单表失败（缺列/约束冲突等）跳过并记录警告，不阻断其他表的回填
       console.warn(`[backfill] 跳过 ${table}: ${(err as Error).message}`);
       continue;
     }
