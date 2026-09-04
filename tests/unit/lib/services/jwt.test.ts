@@ -11,18 +11,19 @@ async function getJwt() {
 }
 
 describe("signAccessToken / verifyAccessToken", () => {
-  it("签发后验证 → 返回正确 payload", async () => {
+  it("签发后验证 → 返回正确 payload（仅含 uid + type，无 user_key）", async () => {
     const jwt = await getJwt();
-    const token = jwt.signAccessToken({ uid: 42, user_key: "test@test.com" });
+    const token = jwt.signAccessToken({ uid: 42 });
     const payload = jwt.verifyAccessToken(token);
-    expect(payload.user_key).toBe("test@test.com");
     expect(payload.uid).toBe(42);
     expect(payload.type).toBe("access");
+    // crm_users.user_key 列退役收尾：payload 不再包含 user_key 字段
+    expect((payload as unknown as Record<string, unknown>).user_key).toBeUndefined();
   });
 
   it("篡改 token → 抛出错误", async () => {
     const jwt = await getJwt();
-    const token = jwt.signAccessToken({ uid: 42, user_key: "test@test.com" });
+    const token = jwt.signAccessToken({ uid: 42 });
     expect(() => jwt.verifyAccessToken(token + "tampered")).toThrow();
   });
 });
@@ -30,24 +31,24 @@ describe("signAccessToken / verifyAccessToken", () => {
 describe("signRefreshToken / verifyRefreshToken", () => {
   it("签发返回 token 和 tokenHash", async () => {
     const jwt = await getJwt();
-    const { token, tokenHash } = jwt.signRefreshToken({ uid: 42, user_key: "user@test.com" });
+    const { token, tokenHash } = jwt.signRefreshToken({ uid: 42 });
     expect(token).toBeTruthy();
     expect(tokenHash).toBeTruthy();
     expect(tokenHash).not.toBe(token);
   });
 
-  it("签发后验证 → 返回正确 payload", async () => {
+  it("签发后验证 → 返回正确 payload（仅含 uid + type，无 user_key）", async () => {
     const jwt = await getJwt();
-    const { token } = jwt.signRefreshToken({ uid: 42, user_key: "user@test.com" });
+    const { token } = jwt.signRefreshToken({ uid: 42 });
     const payload = jwt.verifyRefreshToken(token);
-    expect(payload.user_key).toBe("user@test.com");
     expect(payload.uid).toBe(42);
     expect(payload.type).toBe("refresh");
+    expect((payload as unknown as Record<string, unknown>).user_key).toBeUndefined();
   });
 
   it("用 access token 验证 refresh → 抛出 INVALID_TOKEN_TYPE", async () => {
     const jwt = await getJwt();
-    const accessToken = jwt.signAccessToken({ uid: 42, user_key: "test@test.com" });
+    const accessToken = jwt.signAccessToken({ uid: 42 });
     expect(() => jwt.verifyRefreshToken(accessToken)).toThrow("INVALID_TOKEN_TYPE");
   });
 });
@@ -106,7 +107,7 @@ describe("getRefreshTokenExpiresAt", () => {
 describe("token 类型校验", () => {
   it("用 refresh token 验证 access → 抛出 INVALID_TOKEN_TYPE", async () => {
     const jwt = await getJwt();
-    const { token } = jwt.signRefreshToken({ uid: 42, user_key: "user@test.com" });
+    const { token } = jwt.signRefreshToken({ uid: 42 });
     expect(() => jwt.verifyAccessToken(token)).toThrow("INVALID_TOKEN_TYPE");
   });
 });
@@ -127,11 +128,11 @@ describe("JWT_SECRET 缺失守卫", () => {
     const jwt = await import("@/lib/services/jwt");
 
     expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("JWT_SECRET"));
-    expect(() => jwt.signAccessToken({ uid: 1, user_key: "u" })).toThrow(
+    expect(() => jwt.signAccessToken({ uid: 1 })).toThrow(
       "JWT_SECRET_NOT_CONFIGURED",
     );
     expect(() => jwt.verifyAccessToken("any-token")).toThrow("JWT_SECRET_NOT_CONFIGURED");
-    expect(() => jwt.signRefreshToken({ uid: 1, user_key: "u" })).toThrow("JWT_SECRET_NOT_CONFIGURED");
+    expect(() => jwt.signRefreshToken({ uid: 1 })).toThrow("JWT_SECRET_NOT_CONFIGURED");
     expect(() => jwt.verifyRefreshToken("any-token")).toThrow("JWT_SECRET_NOT_CONFIGURED");
     errSpy.mockRestore();
   });

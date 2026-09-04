@@ -2,7 +2,8 @@
  * Token 刷新路由测试
  * @module tests/unit/api/auth/refresh.test.ts
  * @description 覆盖：缺少 token、无效 token、token 已失效、用户不存在、
- *              账号禁用（吊销会话）、正常刷新、多标签页安全（旧 token 不删除）。
+ *              账号禁用（吊销会话）、正常刷新、多标签页安全（旧 token 不删除）、
+ *              旧 token 无 uid → 401（user_key 回退路径已退役）。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
@@ -41,7 +42,7 @@ describe("POST /api/auth/refresh", () => {
           insertRefreshToken: vi.fn(),
           deleteRefreshTokensByUser: vi.fn(),
         },
-        usersRepo: { findProfileById: vi.fn(), findProfileByKey: vi.fn() },
+        usersRepo: { findProfileById: vi.fn() },
       },
     } as any);
   });
@@ -65,7 +66,7 @@ describe("POST /api/auth/refresh", () => {
 
   it("DB 中无存储 → 401/40052", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
-    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1, user_key: "u@t.com" } as any);
+    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1 } as any);
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue(null);
     const res = await POST(makeReq());
@@ -89,7 +90,7 @@ describe("POST /api/auth/refresh", () => {
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue({ user_id: 1 });
     ctx.user.usersRepo.findProfileById.mockResolvedValue({
-      id: 1, user_key: "u", account_status: "disabled",
+      id: 1, account_status: "disabled",
     });
     const res = await POST(makeReq());
     expect(res.status).toBe(403);
@@ -102,7 +103,7 @@ describe("POST /api/auth/refresh", () => {
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue({ user_id: 1 });
     ctx.user.usersRepo.findProfileById.mockResolvedValue({
-      id: 1, user_key: "u", account_status: "rejected",
+      id: 1, account_status: "rejected",
     });
     const res = await POST(makeReq());
     expect(res.status).toBe(403);
@@ -111,11 +112,11 @@ describe("POST /api/auth/refresh", () => {
 
   it("正常刷新 → 200 + 新 token + 旧 token 保留（多标签页安全）", async () => {
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("valid-token");
-    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1, user_key: "u@t.com" } as any);
+    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: 1 } as any);
     const ctx = getContext() as any;
     ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue({ user_id: 1 });
     ctx.user.usersRepo.findProfileById.mockResolvedValue({
-      id: 1, user_key: "u@t.com", account_status: "active",
+      id: 1, account_status: "active",
     });
     const res = await POST(makeReq());
     expect(res.status).toBe(200);
@@ -127,16 +128,12 @@ describe("POST /api/auth/refresh", () => {
     expect(ctx.user.authRepo.insertRefreshToken).toHaveBeenCalledWith(1, "new-hash", expect.any(Date));
   });
 
-  it("旧 token 无 uid → 回退 user_key 查找", async () => {
+  it("旧 token 无 uid → 401（user_key 回退路径已退役）", async () => {
+    // crm_users.user_key 列退役收尾：不再兼容无 uid 的旧 token，直接拒绝要求重新登录
     vi.mocked(readRefreshCookieFromRequest).mockReturnValue("old-token");
-    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: undefined, user_key: "old@t.com" } as any);
-    const ctx = getContext() as any;
-    ctx.user.authRepo.findRefreshTokenByHash.mockResolvedValue({ user_id: 1 });
-    ctx.user.usersRepo.findProfileByKey.mockResolvedValue({
-      id: 1, user_key: "old@t.com", account_status: "active",
-    });
+    vi.mocked(verifyRefreshToken).mockReturnValue({ uid: undefined } as any);
     const res = await POST(makeReq());
-    expect(res.status).toBe(200);
-    expect(ctx.user.usersRepo.findProfileByKey).toHaveBeenCalledWith("old@t.com");
+    expect(res.status).toBe(401);
+    expect((await res.json()).code).toBe(40051);
   });
 });

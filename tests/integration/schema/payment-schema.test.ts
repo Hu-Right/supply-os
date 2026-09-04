@@ -3,7 +3,10 @@
  *
  * @description 验证代码中的 SQL 语句与数据库表结构定义匹配。
  *              防止字段缺失、类型不匹配等迁移遗留问题。
- *              重点覆盖：learning_orders 表的 user_key 迁移兼容。
+ *              crm_users.user_key 列退役路线图收尾（2026-09-04）：
+ *              learning_orders / crm_payment_orders / training_orders 三张业务表
+ *              的 INSERT 语句已不再包含 user_key 字段（前次任务已清理），
+ *              本测试同步更新为断言 user_key 已移除，防止回归。
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
@@ -21,20 +24,6 @@ function extractInsertFields(repoFilePath: string, tableName: string): string[] 
   return match[1].split(",").map((f) => f.trim());
 }
 
-/**
- * 从 SQL migration 文件中提取表的 NOT NULL 字段
- */
-function extractNotNullFields(migrationContent: string, tableName: string): string[] {
-  const fields: string[] = [];
-  // 匹配 CREATE TABLE 或 ALTER TABLE 中的字段定义
-  const fieldRegex = /`?(\w+)`?\s+\w+[^,\n]*NOT NULL/gi;
-  let match;
-  while ((match = fieldRegex.exec(migrationContent)) !== null) {
-    fields.push(match[1]);
-  }
-  return fields;
-}
-
 describe("Schema 验证测试", () => {
   describe("learning_orders 表", () => {
     const repoPath = resolve(__dirname, "../../../src/lib/repos/learning-orders.repo.ts");
@@ -44,9 +33,9 @@ describe("Schema 验证测试", () => {
       expect(fields).toContain("user_id");
     });
 
-    it("INSERT 语句必须包含 user_key 字段（迁移兼容）", () => {
+    it("INSERT 语句不再包含 user_key 字段（列退役收尾）", () => {
       const fields = extractInsertFields(repoPath, "learning_orders");
-      expect(fields).toContain("user_key");
+      expect(fields).not.toContain("user_key");
     });
 
     it("INSERT 语句包含所有必需字段", () => {
@@ -54,7 +43,6 @@ describe("Schema 验证测试", () => {
       const requiredFields = [
         "order_no",
         "user_id",
-        "user_key",
         "plan_code",
         "amount",
         "currency",
@@ -90,9 +78,9 @@ describe("Schema 验证测试", () => {
       expect(fields).toContain("user_id");
     });
 
-    it("INSERT 语句必须包含 user_key 字段（迁移兼容）", () => {
+    it("INSERT 语句不再包含 user_key 字段（列退役收尾）", () => {
       const fields = extractInsertFields(repoPath, "crm_payment_orders");
-      expect(fields).toContain("user_key");
+      expect(fields).not.toContain("user_key");
     });
   });
 
@@ -104,9 +92,9 @@ describe("Schema 验证测试", () => {
       expect(fields).toContain("user_id");
     });
 
-    it("INSERT 语句必须包含 user_key 字段（迁移兼容）", () => {
+    it("INSERT 语句不再包含 user_key 字段（列退役收尾）", () => {
       const fields = extractInsertFields(repoPath, "training_orders");
-      expect(fields).toContain("user_key");
+      expect(fields).not.toContain("user_key");
     });
   });
 });

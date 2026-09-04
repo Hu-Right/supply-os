@@ -7,10 +7,6 @@ vi.mock("@/lib/services/jwt", () => ({
   verifyAccessToken: vi.fn(),
 }));
 
-vi.mock("@/lib/utils/normalize", () => ({
-  normalizeUserKey: vi.fn((key: string) => key ? key.toLowerCase() : null),
-}));
-
 import { verifyAccessToken } from "@/lib/services/jwt";
 
 function makeRequest(headers: Record<string, string> = {}): NextRequest {
@@ -24,37 +20,36 @@ describe("extractUserKey", () => {
     vi.clearAllMocks();
   });
 
-  it("无 Authorization 头 → 返回空 userKey", async () => {
+  it("无 Authorization 头 → userId=0, authViaJwt=false", async () => {
     const result = await extractUserKey(makeRequest());
-    expect(result.userKey).toBe("");
+    expect(result.userId).toBe(0);
     expect(result.authViaJwt).toBe(false);
   });
 
-  it("非 Bearer 格式 → 返回空 userKey", async () => {
+  it("非 Bearer 格式 → userId=0, authViaJwt=false", async () => {
     const result = await extractUserKey(makeRequest({ authorization: "Basic abc123" }));
-    expect(result.userKey).toBe("");
+    expect(result.userId).toBe(0);
     expect(result.authViaJwt).toBe(false);
   });
 
-  it("有效 Bearer Token → 返回 userKey", async () => {
+  it("有效 Bearer Token → 返回 userId（AuthResult 已无 userKey 字段）", async () => {
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "Test@User.com",
-      email: "test@user.com",
       type: "access",
       uid: 55,
     } as never);
     const result = await extractUserKey(makeRequest({ authorization: "Bearer valid-token" }));
-    expect(result.userKey).toBe("test@user.com");
     expect(result.userId).toBe(55);
     expect(result.authViaJwt).toBe(true);
+    // crm_users.user_key 列退役收尾：AuthResult 已不再暴露 userKey 字段
+    expect((result as unknown as Record<string, unknown>).userKey).toBeUndefined();
   });
 
-  it("Token 验证失败 → 返回空 userKey", async () => {
+  it("Token 验证失败 → userId=0, authViaJwt=false", async () => {
     vi.mocked(verifyAccessToken).mockImplementation(() => {
       throw new Error("invalid token");
     });
     const result = await extractUserKey(makeRequest({ authorization: "Bearer bad-token" }));
-    expect(result.userKey).toBe("");
+    expect(result.userId).toBe(0);
     expect(result.authViaJwt).toBe(false);
   });
 });
@@ -75,14 +70,11 @@ describe("requireUserKey", () => {
 
   it("已认证 → 返回 AuthResult", async () => {
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user@test.com",
-      email: "user@test.com",
       type: "access",
       uid: 56,
     } as never);
     const result = await requireUserKey(makeRequest({ authorization: "Bearer valid-token" }));
     expect(result).not.toBeInstanceOf(Response);
-    expect((result as { userKey: string }).userKey).toBe("user@test.com");
     expect((result as { userId: number }).userId).toBe(56);
   });
 });

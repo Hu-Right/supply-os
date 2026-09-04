@@ -60,12 +60,12 @@ describe("issueTokenPair", () => {
     getRefreshTokenExpiresAt: vi.fn(() => new Date("2099-01-01")),
   }));
 
-  it("返回 token + refresh_token", async () => {
+  it("返回 token + refresh_token（仅传 userId，无 user_key 参数）", async () => {
     const { issueTokenPair } = await import("@/lib/services/auth");
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockResolvedValue(undefined),
     };
-    const result = await issueTokenPair(mockAuthRepo as any, 42, "user@test.com");
+    const result = await issueTokenPair(mockAuthRepo as any, 42);
     expect(result.token).toBe("mock-access-token");
     expect(result.refresh_token).toBe("mock-refresh-token");
   });
@@ -75,9 +75,12 @@ describe("issueTokenPair", () => {
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockRejectedValue(new Error("DB error")),
     };
-    const result = await issueTokenPair(mockAuthRepo as any, 42, "user@test.com");
-    expect(result.token).toBeDefined();
-    expect(result.refresh_token).toBeDefined();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await issueTokenPair(mockAuthRepo as any, 42);
+    expect(result.token).toBe("mock-access-token");
+    expect(result.refresh_token).toBe("mock-refresh-token");
+    expect(errSpy).toHaveBeenCalled();
+    errSpy.mockRestore();
   });
 });
 
@@ -120,7 +123,6 @@ describe("buildUserResponse", () => {
     const { buildUserResponse } = await import("@/lib/services/auth");
     const user = {
       id: 1,
-      user_key: "user@test.com",
       email: "user@test.com",
       display_name: "Test User",
       account_status: "active",
@@ -139,7 +141,7 @@ describe("buildUserResponse", () => {
   it("有昵称 → 输出 nickname，且响应体不含 display_name（隐私收口验收断言）", async () => {
     const { buildUserResponse } = await import("@/lib/services/auth");
     const user = {
-      user_key: "13800138000",
+      id: 2,
       email: "u@test.com",
       display_name: "李大明",
       nickname: "采友_K7X2",
@@ -152,7 +154,7 @@ describe("buildUserResponse", () => {
 
   it("回填窗口期兜底：无昵称 → 姓名掩码临时展示", async () => {
     const { buildUserResponse } = await import("@/lib/services/auth");
-    const user = { user_key: "13800138000", display_name: "李大明", nickname: null };
+    const user = { id: 3, display_name: "李大明", nickname: null };
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
     expect(result.nickname).toBe("李**");
     expect(result).not.toHaveProperty("display_name");
@@ -160,7 +162,7 @@ describe("buildUserResponse", () => {
 
   it("无手机号 → phone=null", async () => {
     const { buildUserResponse } = await import("@/lib/services/auth");
-    const user = { user_key: "user@test.com" };
+    const user = { id: 4, email: "user@test.com" };
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
     expect(result.phone).toBeNull();
   });

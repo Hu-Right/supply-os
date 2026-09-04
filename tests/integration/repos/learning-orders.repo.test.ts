@@ -2,7 +2,9 @@
  * LearningOrdersRepo 集成测试
  *
  * @description 验证 LearningOrdersRepo 的 SQL 语句与数据库 schema 匹配。
- *              重点覆盖：INSERT 语句包含所有 NOT NULL 字段（user_key 迁移兼容）。
+ *              crm_users.user_key 列退役收尾（2026-09-04）：
+ *              INSERT 语句已不再包含 user_key 字段（前次任务已清理），
+ *              本测试同步更新为断言 user_key 已移除，防止回归。
  *              Mock DB Pool，验证 SQL 语句结构正确。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -27,7 +29,7 @@ describe("LearningOrdersRepo 集成测试", () => {
   });
 
   describe("createOrder", () => {
-    it("INSERT 语句必须包含 user_key 字段（NOT NULL 迁移兼容）", async () => {
+    it("INSERT 语句不再包含 user_key 字段（列退役收尾）", async () => {
       await repo.createOrder({
         userId: 123,
         orderNo: "LE20260904TEST001",
@@ -43,8 +45,8 @@ describe("LearningOrdersRepo 集成测试", () => {
       expect(mockExecute).toHaveBeenCalledTimes(1);
       const [sql, params] = mockExecute.mock.calls[0];
 
-      // 验证 SQL 包含 user_key 字段
-      expect(sql).toContain("user_key");
+      // crm_users.user_key 列退役收尾：INSERT 不再包含 user_key
+      expect(sql).not.toContain("user_key");
       // 验证 SQL 包含 user_id 字段
       expect(sql).toContain("user_id");
       // 验证参数中包含 userId
@@ -68,10 +70,10 @@ describe("LearningOrdersRepo 集成测试", () => {
 
       const [sql, params] = mockExecute.mock.calls[0];
 
-      // 验证 SQL 包含所有必需字段
+      // 验证 SQL 包含所有必需字段（user_key 已退役）
       expect(sql).toContain("order_no");
       expect(sql).toContain("user_id");
-      expect(sql).toContain("user_key");
+      expect(sql).not.toContain("user_key");
       expect(sql).toContain("plan_code");
       expect(sql).toContain("amount");
       expect(sql).toContain("currency");
@@ -80,8 +82,7 @@ describe("LearningOrdersRepo 集成测试", () => {
       expect(sql).toContain("qr_code_url");
       expect(sql).toContain("raw_request");
 
-      // 验证参数数量（10 个参数：orderNo, userId, planCode, amount, currency, provider, payUrl, qrCodeUrl, rawRequest）
-      // 注意：user_key 是硬编码空字符串，不在参数中
+      // 验证参数数量（9 个参数：orderNo, userId, planCode, amount, currency, provider, payUrl, qrCodeUrl, rawRequest）
       expect(params).toHaveLength(9);
     });
 

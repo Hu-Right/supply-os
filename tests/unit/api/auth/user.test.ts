@@ -28,7 +28,7 @@ describe("GET /api/auth/user", () => {
 
   it("未通过 JWT 认证 → 403/40003", async () => {
     vi.mocked(requireUserKeyOrThrow).mockResolvedValue({
-      userId: 1, userKey: "u", authViaJwt: false,
+      userId: 1, authViaJwt: false,
     });
     const req = new NextRequest("http://localhost/api/auth/user");
     const res = await GET(req);
@@ -38,7 +38,7 @@ describe("GET /api/auth/user", () => {
 
   it("用户不存在 → 404/40044", async () => {
     vi.mocked(requireUserKeyOrThrow).mockResolvedValue({
-      userId: 999, userKey: "u", authViaJwt: true,
+      userId: 999, authViaJwt: true,
     });
     const ctx = getContext() as any;
     ctx.user.usersRepo.findProfileById.mockResolvedValue(null);
@@ -50,7 +50,7 @@ describe("GET /api/auth/user", () => {
 
   it("正常 → 200 + user payload", async () => {
     vi.mocked(requireUserKeyOrThrow).mockResolvedValue({
-      userId: 1, userKey: "u", authViaJwt: true,
+      userId: 1, authViaJwt: true,
     });
     const ctx = getContext() as any;
     ctx.user.usersRepo.findProfileById.mockResolvedValue({ id: 1 });

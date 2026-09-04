@@ -7,13 +7,10 @@ import { NextRequest } from "next/server";
 
 vi.mock("@/lib/services/jwt", () => ({
   verifyAccessToken: vi.fn((token: string) => {
-    if (token === "valid") return { uid: 42, user_key: "user@test.com", type: "access" };
-    if (token === "no-uid") return { uid: undefined, user_key: "user@test.com", type: "access" };
+    if (token === "valid") return { uid: 42, type: "access" };
+    if (token === "no-uid") return { uid: undefined, type: "access" };
     throw new Error("invalid token");
   }),
-}));
-vi.mock("@/lib/utils/normalize", () => ({
-  normalizeUserKey: vi.fn((key: string) => key || ""),
 }));
 
 const { extractUserKey, requireUserKeyOrThrow } = await import("@/lib/middleware/auth");
@@ -37,11 +34,12 @@ describe("extractUserKey", () => {
     expect(result.authViaJwt).toBe(false);
   });
 
-  it("有效 Bearer token → 返回 userId + userKey", async () => {
+  it("有效 Bearer token → 返回 userId（无 userKey 字段）", async () => {
     const result = await extractUserKey(makeReq("Bearer valid"));
     expect(result.userId).toBe(42);
-    expect(result.userKey).toBe("user@test.com");
     expect(result.authViaJwt).toBe(true);
+    // crm_users.user_key 列退役收尾：AuthResult 不再包含 userKey 字段
+    expect((result as unknown as Record<string, unknown>).userKey).toBeUndefined();
   });
 
   it("token 验证失败 → authViaJwt=false", async () => {
@@ -50,7 +48,7 @@ describe("extractUserKey", () => {
     expect(result.authViaJwt).toBe(false);
   });
 
-  it("uid 缺失 → userId=0, authViaJwt=false", async () => {
+  it("uid 缺失 → userId=0, authViaJwt=false（拒绝旧 token）", async () => {
     const result = await extractUserKey(makeReq("Bearer no-uid"));
     expect(result.userId).toBe(0);
     expect(result.authViaJwt).toBe(false);

@@ -24,9 +24,12 @@ function makeCtx(overrides: Record<string, any> = {}) {
     user: {
       usersRepo: {
         findByPhone: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue({ id: 99 }),
-        findAuthByKey: vi.fn().mockResolvedValue({ id: 99, user_key: "13800000000", display_name: "Test" }),
-        markPhoneVerified: vi.fn(),
+        // create() 现在返回 insertId (number)，非 boolean
+        create: vi.fn().mockResolvedValue(99),
+        // 按 id 查找创建后的用户行（原 findAuthByKey 已退役）
+        findById: vi.fn().mockResolvedValue({ id: 99, display_name: "Test", phone: "13800000000" }),
+        // 按 id 标记手机已验证（原 markPhoneVerified(userKey) 已退役）
+        markPhoneVerifiedById: vi.fn(),
         ...overrides.usersRepo,
       },
       authRepo: {
@@ -159,5 +162,26 @@ describe("registerUser", () => {
     const result = await registerUser(ctx, baseParams);
     expect(result.accessToken).toBeNull();
     expect(result.refreshToken).toBeNull();
+  });
+
+  it("create() 返回 0 → 400/40008 注册失败", async () => {
+    const ctx = makeCtx({
+      usersRepo: { create: vi.fn().mockResolvedValue(0) },
+    });
+    await expect(registerUser(ctx, baseParams))
+      .rejects.toMatchObject({ status: 400, code: 40008 });
+  });
+
+  it("markPhoneVerifiedById 按新用户 id 调用（非 user_key）", async () => {
+    const markPhoneVerifiedById = vi.fn();
+    const ctx = makeCtx({
+      usersRepo: {
+        create: vi.fn().mockResolvedValue(77),
+        findById: vi.fn().mockResolvedValue({ id: 77, display_name: "Test", phone: "13800000000" }),
+        markPhoneVerifiedById,
+      },
+    });
+    await registerUser(ctx, baseParams);
+    expect(markPhoneVerifiedById).toHaveBeenCalledWith(77);
   });
 });
