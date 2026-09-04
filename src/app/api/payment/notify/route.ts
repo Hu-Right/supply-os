@@ -8,7 +8,6 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { getPaymentRuntimeConfig } from "@/lib/config/env";
 
 // ── POST /api/payment/notify/alipay — 支付宝异步通知 ──
 export async function POST(req: NextRequest) {

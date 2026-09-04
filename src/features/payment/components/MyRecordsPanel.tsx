@@ -16,6 +16,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 import { formatDateTimeZh } from "@/shared/utils/format";
 import type { OrderRecord, UnlockRecord } from "../api";
 import { useOrderHistory, type PurchaseTab } from "../hooks/useOrderHistory";
@@ -187,7 +188,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
         {rows.map((row) => {
           const isOrder = "order_no" in row;
           const canOpen = Boolean(
-            row.notice_id && (view === "unlocks" || (isOrder && row.status === "paid")),
+            row.notice_id && (view === "unlocks" || (isOrder && row.status === ORDER_STATUS.PAID)),
           );
           return (
             <article
@@ -203,9 +204,9 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
                 </div>
                 {isOrder ? (
                   <span
-                    className={`shrink-0 font-black ${row.status === "paid" ? "text-teal-700" : row.status === "closed" ? "text-slate-400" : "text-amber-700"}`}
+                    className={`shrink-0 font-black ${row.status === ORDER_STATUS.PAID ? "text-teal-700" : row.status === ORDER_STATUS.CLOSED ? "text-slate-400" : "text-amber-700"}`}
                   >
-                    {row.status === "paid" ? t("myPurchasesStatus_paid") : row.status || "-"}
+                    {row.status === ORDER_STATUS.PAID ? t("myPurchasesStatus_paid") : row.status || "-"}
                   </span>
                 ) : (
                   <CheckCircle2 className="w-4 h-4 shrink-0 text-teal-600" />

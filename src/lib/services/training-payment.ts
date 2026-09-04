@@ -14,6 +14,7 @@ import type { AppContext } from "../db/context";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
 import { TRAINING_ORDER_EXPIRES_MS } from "@/shared/constants/time";
+import { ORDER_STATUS } from "@/shared/constants/order-status";
 import { toQrDataUrl } from "../payment/qr";
 
 export interface CreateTrainingOrderParams {
@@ -159,7 +160,7 @@ export async function createTrainingOrder(
     currency: course.currency || "CNY",
     qr_code: qrCode,
     pay_url: clientPayUrl,
-    status: "pending",
+    status: ORDER_STATUS.PENDING,
     expires_at: expiresAt.toISOString(),
   };
 }
@@ -184,12 +185,12 @@ export async function fulfillTrainingOrder(
 
     // 状态机白名单（审查 F19/F24）：pending 正常履约；expired 允许"迟到付款"
     // 复活（钱货两清，过期判定先于网关确认）；其余终态一律拒绝
-    if (order.status !== "pending" && order.status !== "expired") { await conn.commit(); return; }
+    if (order.status !== ORDER_STATUS.PENDING && order.status !== ORDER_STATUS.EXPIRED) { await conn.commit(); return; }
 
-    await trainingRepo.updateOrderStatusInTransaction(conn, orderNo, "paid", providerTradeNo || null);
+    await trainingRepo.updateOrderStatusInTransaction(conn, orderNo, ORDER_STATUS.PAID, providerTradeNo || null);
 
     if (order.registration_id) {
-      await trainingRepo.updateRegistrationPaymentInTransaction(conn, order.registration_id, order.id, "paid");
+      await trainingRepo.updateRegistrationPaymentInTransaction(conn, order.registration_id, order.id, ORDER_STATUS.PAID);
     }
     if (order.schedule_id) {
       const incremented = await trainingRepo.incrementEnrolledCountInTransaction(
@@ -223,8 +224,8 @@ export async function queryTrainingOrderStatus(
   const order = await trainingRepo.findOrderByNo(orderNo);
   if (!order) throw new Error("ORDER_NOT_FOUND");
 
-  const isPending = order.status === "pending";
-  const isExpiredLocally = order.status === "expired";
+  const isPending = order.status === ORDER_STATUS.PENDING;
+  const isExpiredLocally = order.status === ORDER_STATUS.EXPIRED;
   const isPastExpiry = new Date(order.expires_at).getTime() < Date.now();
 
   // 网关优先（审查 F24）：pending 与本地已判过期的订单都先查一次网关——
@@ -234,11 +235,11 @@ export async function queryTrainingOrderStatus(
     try {
       const strategy = ctx.payment.paymentService.getStrategy(order.provider as PaymentProviderName);
       const result = await strategy.queryOrderStatus(orderNo, order.provider_trade_no || undefined);
-      if (result.status === "paid") {
+      if (result.status === ORDER_STATUS.PAID) {
         await fulfillTrainingOrder(trainingRepo, orderNo, result.provider_trade_no || null);
         return {
           order_no: orderNo,
-          status: "paid",
+          status: ORDER_STATUS.PAID,
           total_amount: Number(order.total_amount || 0),
           paid_at: new Date().toISOString(),
         };
@@ -250,10 +251,10 @@ export async function queryTrainingOrderStatus(
     }
 
     if (isPending && isPastExpiry) {
-      await trainingRepo.updateOrderStatus(orderNo, "expired");
+      await trainingRepo.updateOrderStatus(orderNo, ORDER_STATUS.EXPIRED);
       return {
         order_no: orderNo,
-        status: "expired",
+        status: ORDER_STATUS.EXPIRED,
         total_amount: Number(order.total_amount || 0),
         paid_at: null,
       };

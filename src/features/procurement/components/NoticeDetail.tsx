@@ -49,6 +49,7 @@ export function NoticeDetail({
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
   const authContext = useOptionalAuth();
+  const userId = useUserId();
   // 原文（标题+描述）供内容语言检测：修复“中文原文在英文环境直接展示/在中文环境被无效翻译”
   // 传入 notice.title_i18n 作为预填充种子：API 返回前首帧即显示搜索结果已有的译文标题
   // displayTitle：seed 预填充标题（首帧）→ API 译文标题 → 原文标题
@@ -184,10 +185,10 @@ export function NoticeDetail({
             {/* 中文版投标拆解报告预览：登录即可见（未解锁展示约 10% + 升级引导）；
                 内容按语言环境与数据可用性自适应：zh + description_cn → 中文，其余 → 英文原文兜底 */}
             {/* P3-14 安全修复：只在确认有报告时才挂载 ReportPreviewPanel，避免无报告时白耗请求 */}
-            {notice.id != null && useUserId() && reportKnown && hasReport && (
+            {notice.id != null && userId && reportKnown && hasReport && (
               <ReportPreviewPanel
                 noticeId={notice.id}
-                userId={useUserId()!}
+                userId={userId}
                 isVip={isVip}
                 onUnlock={onUnlock}
                 coreLocked={!coreUnlocked}
