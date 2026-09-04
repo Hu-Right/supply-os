@@ -3,7 +3,7 @@
  *
  * @module app/api/notices/[id]/interest/route
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

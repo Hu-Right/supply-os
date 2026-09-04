@@ -33,11 +33,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   const leadType = body?.type;
 
   // 展厅注册（exhibition_register）允许未登录用户提交
-  let userId: number | undefined;
   if (leadType !== "exhibition_register") {
     const auth = await requireUserKey(req);
     if (auth instanceof Response) return auth;
-    userId = auth.userId;
   }
 
   const {

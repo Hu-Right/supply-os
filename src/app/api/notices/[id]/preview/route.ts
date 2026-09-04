@@ -5,14 +5,12 @@
  * @description 返回公告的部分字段（机构名、分类标签等），用于锁定态增强展示。
  *              不含敏感字段，失败静默不阻断详情页。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
-  async (req, { params }) => {
-    const auth = await requireUserKeyOrThrow(req);
+  async (_req, { params }) => {
 
     const { id } = await params;
     const noticeId = Number(id);

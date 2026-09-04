@@ -9,7 +9,7 @@
  *              解锁校验（findUnlock），未解锁一律 403 core_locked。
  *              该端点曾是付费墙旁门（审查报告 F1）。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

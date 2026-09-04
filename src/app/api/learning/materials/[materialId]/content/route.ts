@@ -7,7 +7,7 @@
  *
  * @module app/api/learning/materials/[materialId]/content/route
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";

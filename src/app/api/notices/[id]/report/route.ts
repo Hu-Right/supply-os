@@ -7,7 +7,7 @@
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import nodePath from "path";
-import { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

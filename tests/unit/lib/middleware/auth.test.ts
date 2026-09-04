@@ -50,10 +50,10 @@ describe("extractUserKey", () => {
     expect(result.authViaJwt).toBe(false);
   });
 
-  it("uid 缺失 → userId=0, authViaJwt=true", async () => {
+  it("uid 缺失 → userId=0, authViaJwt=false", async () => {
     const result = await extractUserKey(makeReq("Bearer no-uid"));
     expect(result.userId).toBe(0);
-    expect(result.authViaJwt).toBe(true);
+    expect(result.authViaJwt).toBe(false);
   });
 });
 

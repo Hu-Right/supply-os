@@ -4,7 +4,7 @@
  * @module app/api/notices/[id]/detail/route
  * @description /content 端点已拆分到 [id]/content/route.ts。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
