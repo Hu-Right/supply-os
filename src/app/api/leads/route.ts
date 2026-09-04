@@ -4,7 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey, extractUserKey } from "@/lib/middleware/auth";
+import { requireUserKey } from "@/lib/middleware/auth";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
