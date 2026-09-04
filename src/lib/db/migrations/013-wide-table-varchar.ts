@@ -43,58 +43,48 @@ export const migration: Migration = {
     // ── Step 1: 分批截断超长数据（避免 ALTER 时 "Data too long" 错误）──
     console.log("[migration-013] Step 1: 分批截断超长数据…");
     for (const col of columns) {
-      try {
-        let totalTruncated = 0;
-        while (true) {
-          const [result] = await dbPool.query(
-            `UPDATE crm_notice_search SET ${col} = LEFT(${col}, ?) WHERE CHAR_LENGTH(${col}) > ? LIMIT ?`,
-            [MAX_LEN, MAX_LEN, BATCH_SIZE]
-          );
-          const affected = (result as any).affectedRows || 0;
-          totalTruncated += affected;
-          if (affected < BATCH_SIZE) break;
-        }
-        if (totalTruncated > 0) {
-          console.log(`[migration-013]   ${col}: 截断 ${totalTruncated} 行`);
-        }
-      } catch (err) {
-        // 截断失败将导致后续 ALTER "Data too long"，必须抛出阻断（审查 F18）
-        throw err;
+      let totalTruncated = 0;
+      while (true) {
+        const [result] = await dbPool.query(
+          `UPDATE crm_notice_search SET ${col} = LEFT(${col}, ?) WHERE CHAR_LENGTH(${col}) > ? LIMIT ?`,
+          [MAX_LEN, MAX_LEN, BATCH_SIZE]
+        );
+        const affected = (result as any).affectedRows || 0;
+        totalTruncated += affected;
+        if (affected < BATCH_SIZE) break;
+      }
+      if (totalTruncated > 0) {
+        console.log(`[migration-013]   ${col}: 截断 ${totalTruncated} 行`);
       }
     }
 
     // ── Step 2: 逐列 ALTER（每列一次全表重建）──
     console.log("[migration-013] Step 2: 逐列修改类型…");
     for (const col of columns) {
-      try {
-        // 检查当前类型
-        const [cols] = await dbPool.query(
-          `SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH 
-           FROM information_schema.columns 
-           WHERE table_schema = DATABASE() 
-             AND table_name = 'crm_notice_search' 
-             AND column_name = ?`,
-          [col]
-        );
-        const colInfo = (cols as any[])[0];
-        if (!colInfo) continue;
+      // 检查当前类型
+      const [cols] = await dbPool.query(
+        `SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH 
+         FROM information_schema.columns 
+         WHERE table_schema = DATABASE() 
+           AND table_name = 'crm_notice_search' 
+           AND column_name = ?`,
+        [col]
+      );
+      const colInfo = (cols as any[])[0];
+      if (!colInfo) continue;
 
-        // 已经是 TEXT 则跳过
-        if (colInfo.DATA_TYPE === "text") {
-          console.log(`[migration-013]   ${col}: 已是 TEXT，跳过`);
-          continue;
-        }
-
-        console.log(`[migration-013]   ${col}: ${colInfo.DATA_TYPE} → TEXT…`);
-        const start = Date.now();
-        await dbPool.query(
-          `ALTER TABLE crm_notice_search MODIFY COLUMN ${col} TEXT NOT NULL`
-        );
-        console.log(`[migration-013]   ${col}: 完成 (${Date.now() - start}ms)`);
-      } catch (err) {
-        // ALTER 失败必须抛出阻断，否则版本照记、列停留 LONGTEXT（审查 F18）
-        throw err;
+      // 已经是 TEXT 则跳过
+      if (colInfo.DATA_TYPE === "text") {
+        console.log(`[migration-013]   ${col}: 已是 TEXT，跳过`);
+        continue;
       }
+
+      console.log(`[migration-013]   ${col}: ${colInfo.DATA_TYPE} → TEXT…`);
+      const start = Date.now();
+      await dbPool.query(
+        `ALTER TABLE crm_notice_search MODIFY COLUMN ${col} TEXT NOT NULL`
+      );
+      console.log(`[migration-013]   ${col}: 完成 (${Date.now() - start}ms)`);
     }
 
     console.log("[migration-013] 宽表 description 列优化完成");
