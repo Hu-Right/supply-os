@@ -7,7 +7,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
@@ -23,9 +24,8 @@ const LEAD_STATUS_WHITELIST = new Set(["new", "contacted", "qualified", "lost"])
  */
 const MEMBER_LOG_AUTHOR = "VIP Member";
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const body = await req.json();
   const { leadId, content, nextStatus } = body as {
@@ -34,42 +34,26 @@ export async function POST(req: NextRequest) {
     nextStatus?: string;
   };
 
-  if (!leadId || !content) {
-    return NextResponse.json(
-      { code: 40022, message: "缺少线索 ID 或内容" },
-      { status: 400 },
-    );
-  }
+  if (!leadId || !content) routeError(400, 40022, "缺少线索 ID 或内容");
 
   const ctx = getContext();
 
   // VIP 门控（审查 F5，2026-08-30 产品决策）：跟进记录会修改线索状态，
   // 与线索读取同权限（仅 VIP 会员）
-  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userId!);
+  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userId);
   if (!state.isVip) {
-    return NextResponse.json(
-      { code: 40041, message: "线索跟进仅对 VIP 会员开放" },
-      { status: 403 },
-    );
+    routeError(403, 40041, "线索跟进仅对 VIP 会员开放");
   }
 
   // 状态白名单 + 内容限长（审查 F5）：nextStatus 此前为任意字符串断言，
   // content 无上限可灌大 TEXT 列
   if (nextStatus !== undefined && !LEAD_STATUS_WHITELIST.has(String(nextStatus))) {
-    return NextResponse.json(
-      { code: 40000, message: "无效的跟进状态" },
-      { status: 400 },
-    );
+    routeError(400, 40000, "无效的跟进状态");
   }
   const safeContent = String(content).trim().slice(0, 2000);
 
   const row = await ctx.leadsRepo.findByKey(String(leadId).slice(0, 100));
-  if (!row) {
-    return NextResponse.json(
-      { code: 40044, message: "线索不存在" },
-      { status: 404 },
-    );
-  }
+  if (!row) routeError(404, 40044, "线索不存在");
 
   // 变更走全量视图（需要读写完整 follow_up_logs），响应走会员视图（隐私收口）
   const targetLead = mapUngmAppointmentRow(row);
@@ -98,4 +82,4 @@ export async function POST(req: NextRequest) {
   const responseLead = mapLeadForMemberView(row);
   responseLead.status = targetLead.status;
   return NextResponse.json(responseLead);
-}
+});

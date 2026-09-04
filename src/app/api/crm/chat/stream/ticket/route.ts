@@ -10,7 +10,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { signChatTicket } from "@/lib/services/chatTicket";
 import { sessionOwnedBy } from "@/lib/repos/chat.repo";
@@ -29,9 +30,8 @@ const ticketLimiterConfig = {
   persistFile: path.join(getRateLimitPersistDir(), "chat-stream-ticket.json"),
 };
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const limited = checkRateLimit(req, ticketLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
@@ -40,37 +40,21 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { code: EC_INVALID_REQUEST, message: "无效的请求体", error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    routeError(400, EC_INVALID_REQUEST, "无效的请求体");
   }
 
   const parsed = ticketSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { code: EC_INVALID_REQUEST, message: "缺少有效的 sessionId", error: "Invalid sessionId" },
-      { status: 400 },
-    );
+    routeError(400, EC_INVALID_REQUEST, "缺少有效的 sessionId");
   }
 
-  const { sessionId } = parsed.data;
+  const { sessionId } = parsed.data!;
   const session = await getContext().chatRepo.findSessionById(sessionId);
-  if (!session) {
-    return NextResponse.json(
-      { code: EC_NOT_FOUND, message: "会话不存在", error: "Session not found" },
-      { status: 404 },
-    );
-  }
-  if (!sessionOwnedBy(session, auth)) {
-    return NextResponse.json(
-      { code: EC_FORBIDDEN, message: "无权访问此会话", error: "无权访问此会话" },
-      { status: 403 },
-    );
-  }
+  if (!session) routeError(404, EC_NOT_FOUND, "会话不存在");
+  if (!sessionOwnedBy(session, auth)) routeError(403, EC_FORBIDDEN, "无权访问此会话");
 
   return NextResponse.json({
     ticket: signChatTicket(auth.userId, sessionId),
     expiresIn: TICKET_TTL_SECONDS,
   });
-}
+});

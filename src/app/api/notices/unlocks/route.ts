@@ -5,15 +5,15 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const pool = getPool();
   const unlockRepo = new NoticeUnlockRepo(pool);
-  const rows = await unlockRepo.listNoticeUnlocks(auth.userId!);
+  const rows = await unlockRepo.listNoticeUnlocks(auth.userId);
   return NextResponse.json(rows);
-}
+});

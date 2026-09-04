@@ -11,32 +11,31 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
 
-  const { id } = await params;
-  const noticeId = Number(id);
-  if (!noticeId) return NextResponse.json({ code: 40000, message: "无效的公告 ID" }, { status: 400 });
+    const { id } = await params;
+    const noticeId = Number(id);
+    if (!noticeId) routeError(400, 40000, "无效的公告 ID");
 
-  const ctx = getContext();
-  const { detailRepo, unlockRepo } = ctx.notice;
+    const ctx = getContext();
+    const { detailRepo, unlockRepo } = ctx.notice;
 
-  const [unlock, notice] = await Promise.all([
-    unlockRepo.findUnlock(auth.userId!, noticeId),
-    detailRepo.findDetail(noticeId),
-  ]);
-  if (!unlock) return NextResponse.json({ code: 40013, message: "公告已锁定，请先解锁", core_locked: true }, { status: 403 });
-  if (!notice) return NextResponse.json({ code: 40044, message: "公告不存在" }, { status: 404 });
+    const [unlock, notice] = await Promise.all([
+      unlockRepo.findUnlock(auth.userId, noticeId),
+      detailRepo.findDetail(noticeId),
+    ]);
+    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+    if (!notice) routeError(404, 40044, "公告不存在");
 
-  return NextResponse.json({
-    description: notice.description || "",
-    title: notice.title || "",
-    description_cn: notice.description_cn || "",
-  });
-}
+    return NextResponse.json({
+      description: notice.description || "",
+      title: notice.title || "",
+      description_cn: notice.description_cn || "",
+    });
+  },
+);

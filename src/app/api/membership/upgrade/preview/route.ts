@@ -3,17 +3,17 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const { previewUpgrade } = await import("@/lib/services/membership-upgrade");
   const targetPlanCode = req.nextUrl.searchParams.get("target_plan_code")?.trim() || "";
   if (!targetPlanCode) {
-    return NextResponse.json({ code: 40000, message: "请指定目标套餐" }, { status: 400 });
+    routeError(400, 40000, "请指定目标套餐");
   }
-  const result = await previewUpgrade(getContext().user.membershipRepo, auth.userId!, targetPlanCode);
+  const result = await previewUpgrade(getContext().user.membershipRepo, auth.userId, targetPlanCode);
   return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
-}
+});

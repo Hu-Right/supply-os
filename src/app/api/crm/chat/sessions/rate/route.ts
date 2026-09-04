@@ -8,7 +8,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatRatingSchema } from "@/lib/validators/chat";
 import { sessionOwnedBy } from "@/lib/repos/chat.repo";
@@ -20,9 +21,8 @@ const rateLimiterConfig = {
   persistFile: path.join(getRateLimitPersistDir(), "chat-rate.json"),
 };
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const limited = checkRateLimit(req, rateLimiterConfig, () => `user:${auth.userId}`);
   if (limited) return limited;
@@ -31,42 +31,22 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { code: 40022, message: "无效的请求体", error: "Invalid JSON body" },
-      { status: 400 },
-    );
+    routeError(400, 40022, "无效的请求体");
   }
 
   const parsed = chatRatingSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { code: 40022, message: "参数校验失败", error: parsed.error.issues[0]?.message ?? "Invalid params" },
-      { status: 400 },
-    );
+    routeError(400, 40022, parsed.error.issues[0]?.message ?? "参数校验失败");
   }
 
-  const { sessionId, satisfaction, tag, comment } = parsed.data;
+  const { sessionId, satisfaction, tag, comment } = parsed.data!;
   const chatRepo = getContext().chatRepo;
   const session = await chatRepo.findSessionById(sessionId);
-  if (!session) {
-    return NextResponse.json(
-      { code: 40023, message: "会话不存在", error: "Session not found" },
-      { status: 404 },
-    );
-  }
-  if (!sessionOwnedBy(session, auth)) {
-    return NextResponse.json(
-      { code: 40003, message: "无权评价此会话", error: "无权评价此会话" },
-      { status: 403 },
-    );
-  }
+  if (!session) routeError(404, 40023, "会话不存在");
+  if (!sessionOwnedBy(session, auth)) routeError(403, 40003, "无权评价此会话");
 
   const ok = await chatRepo.rateSession(sessionId, { satisfaction, tag, comment });
-  if (!ok) {
-    return NextResponse.json(
-      { code: 40901, message: "会话未结束或已评价过", error: "Not rateable" },
-      { status: 409 },
-    );
-  }
+  if (!ok) routeError(409, 40901, "会话未结束或已评价过");
+
   return NextResponse.json({ success: true });
-}
+});
