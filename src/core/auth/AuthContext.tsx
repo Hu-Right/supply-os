@@ -73,9 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Refresh authentication state
    */
   const refreshAuth = useCallback(async () => {
-    const userId = authUserRef.current?.id;
-    if (!userId) return;
-
+    // 身份由 JWT 承载（api() 自动附加），不依赖缓存的 authUser.id。
+    // 旧版守卫要求缓存 id 存在才刷新，当 localStorage 快照缺 id 时会永久早退，
+    // 导致上下文无法自愈（徽章停免费会员 + 记录区误报未登录）。
     setIsAuthLoading(true);
     try {
       // api() 自动附加 JWT；未登录时返回 401 由下方 catch 静默降级（与原行为一致）
