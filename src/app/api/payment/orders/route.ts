@@ -9,7 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { toQrDataUrl } from "@/lib/payment/qr";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
-import { EC_USER_REQUIRED, EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING } from "@/shared/constants/api";
+import { EC_PAYMENT_PROVIDER_UNAVAILABLE, EC_PAYMENT_QR_CODE_MISSING } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ code, message, error: message, ...extra }, { status });

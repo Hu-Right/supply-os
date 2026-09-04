@@ -12,7 +12,7 @@ import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { MembershipRepo } from "@/lib/repos/membership.repo";
 import {
-  EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED,
+  EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED,
 } from "@/shared/constants/api";
 
 function sendError(message: string, status: number, code: number) {

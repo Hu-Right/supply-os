@@ -13,7 +13,7 @@
  *              save/clear so the procurement page re-probes.
  */
 import { useEffect, useState } from "react";
-import { useAuth, useUserId } from "@/core/auth";
+import { useUserId } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { fetchIndustryPrefs, saveIndustryPrefs } from "@/core/api/industry-prefs";

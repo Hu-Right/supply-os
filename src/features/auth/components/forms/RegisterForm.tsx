@@ -55,13 +55,6 @@ export function RegisterForm({
 
   // 主营行业偏好 — 由父组件 LoginRegisterForm 通过 cascade prop 注入
   const {
-    industryOptions,
-    subOptions,
-    subOptions2,
-    prefLevel1,
-    prefLevel2,
-    prefLevel3,
-    setPrefLevel3,
     handlePrefLevel1Change,
     handlePrefLevel2Change,
     applyInferredPath,

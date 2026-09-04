@@ -10,6 +10,7 @@
  *              industry preference form, records panel and logout.
  */
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -27,9 +28,16 @@ export interface AccountPanelProps {
 
 export function AccountPanel({ onClose }: AccountPanelProps) {
   const { t } = useLocale();
-  const { authUser, isVip, logout, claimMessage } = useAuth();
+  const { authUser, isVip, logout, claimMessage, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
+
+  // 打开面板时刷新认证快照：徽章 isVip 源自登录时缓存的 membership_tier，
+  // 若用户在本次会话内升级为 VIP，缓存仍为 free 会导致徽章误显"免费会员"。
+  // 权益卡走新鲜 /api/membership/status，此处对齐刷新上下文消除两者不一致。
+  useEffect(() => {
+    void refreshAuth();
+  }, [refreshAuth]);
 
   // VIP 徽章文案：按已解锁套餐显示等级（如"基础版"），兜底"VIP 会员"/"免费会员"
   const tierBadgeText = isVip
