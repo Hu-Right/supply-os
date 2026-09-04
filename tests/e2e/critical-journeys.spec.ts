@@ -23,11 +23,11 @@ const E2E_TEST_PASSWORD = process.env.E2E_TEST_PASSWORD ?? "test-password";
 // ── 辅助函数 ──────────────────────────────────────────────────────────────────
 
 /** 模拟登录（设置 JWT token 到 localStorage） */
-async function loginAs(page: Page, email: string): Promise<void> {
-  await page.goto(`${TEST_BASE_URL}/api/auth/login`, { waitUntil: "networkidle" });
+async function loginAs(page: Page, identifier: string): Promise<void> {
   // 通过 API 直接获取 token（E2E 测试专用快捷方式）
+  // 登录路由 schema 要求 identifier 字段（手机号或邮箱），非 email
   const response = await page.request.post(`${TEST_BASE_URL}/api/auth/login`, {
-    data: { email, password: E2E_TEST_PASSWORD },
+    data: { identifier, password: E2E_TEST_PASSWORD },
   });
   if (response.ok()) {
     const data = await response.json();

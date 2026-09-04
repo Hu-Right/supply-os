@@ -199,8 +199,6 @@ describe("GET /api/membership/plans", () => {
     stubPlansQueries(false);
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-1",
-      email: "user-1@test.com",
       type: "access",
       uid: 101,
     } as never);
@@ -223,8 +221,6 @@ describe("GET /api/membership/plans", () => {
     stubPlansQueries(true);
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-1",
-      email: "user-1@test.com",
       type: "access",
       uid: 101,
     } as never);
@@ -251,8 +247,6 @@ describe("GET /api/membership/upgrade/preview", () => {
   it("缺 target_plan_code → 400 业务错误码", async () => {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-1",
-      email: "user-1@test.com",
       type: "access",
       uid: 101,
     } as never);
@@ -269,8 +263,6 @@ describe("GET /api/membership/upgrade/preview", () => {
   it("合法请求 → 返回升级预览结果", async () => {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-1",
-      email: "user-1@test.com",
       type: "access",
       uid: 101,
     } as never);
@@ -319,8 +311,6 @@ describe("GET /api/membership/status", () => {
   it("认证 + 有当前套餐 → 返回会员状态与套餐标签", async () => {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-1",
-      email: "user-1@test.com",
       type: "access",
       uid: 101,
     } as never);
@@ -351,8 +341,6 @@ describe("GET /api/membership/status", () => {
   it("认证 + 无当前套餐 → 套餐字段为 null", async () => {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     vi.mocked(verifyAccessToken).mockReturnValue({
-      user_key: "user-2",
-      email: "user-2@test.com",
       type: "access",
       uid: 102,
     } as never);

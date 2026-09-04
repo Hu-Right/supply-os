@@ -40,7 +40,6 @@ vi.mock("@/lib/services/auth", () => ({
 
 const AUTH_USER_ROW = {
   id: 1,
-  user_key: "user-1",
   email: "user-1@test.com",
   phone: null,
   phone_verified: 0,
@@ -124,7 +123,7 @@ describe("POST /api/auth/login", () => {
     vi.mocked(verifyPassword).mockResolvedValue(true);
     vi.mocked(needsUpgrade).mockReturnValue(true);
     vi.mocked(hashPassword).mockResolvedValue("$2b$12$newhash");
-    vi.mocked(buildUserResponse).mockResolvedValue({ user_key: "user-1" } as never);
+    vi.mocked(buildUserResponse).mockResolvedValue({ id: 1, nickname: "Test" } as never);
     vi.mocked(issueTokenPair).mockResolvedValue({ token: "atk-123", refresh_token: "rtk-456" });
     poolQuery.mockResolvedValue([[{ ...AUTH_USER_ROW, password_hash_type: "sha256" }]]);
 
@@ -146,7 +145,7 @@ describe("POST /api/auth/login", () => {
       await import("@/lib/services/auth");
     vi.mocked(verifyPassword).mockResolvedValue(true);
     vi.mocked(needsUpgrade).mockReturnValue(false);
-    vi.mocked(buildUserResponse).mockResolvedValue({ user_key: "user-1" } as never);
+    vi.mocked(buildUserResponse).mockResolvedValue({ id: 1, nickname: "Test" } as never);
     vi.mocked(issueTokenPair).mockRejectedValue(new Error("JWT_SECRET_NOT_CONFIGURED"));
     poolQuery.mockResolvedValue([[AUTH_USER_ROW]]);
 
