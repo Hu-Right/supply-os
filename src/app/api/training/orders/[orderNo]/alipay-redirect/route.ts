@@ -3,27 +3,25 @@
  */
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ orderNo: string }> },
-) {
-  // 归属校验（审查 F27）：仅订单本人可获取支付表单（历史无归属订单除外）
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute<{ params: Promise<{ orderNo: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
 
-  const { orderNo } = await params;
-  const ctx = getContext();
-  const order = await ctx.trainingRepo.findOrderByNo(orderNo);
-  if (!order) return new Response("Order not found", { status: 404 });
-  if (order.user_id && order.user_id !== auth.userId) return new Response("Forbidden", { status: 403 });
-  if (order.provider !== "alipay") return new Response("Not an Alipay order", { status: 400 });
-  if (order.status !== "pending") return new Response("Order is not pending", { status: 400 });
-  if (!order.pay_url) return new Response("Payment url missing", { status: 400 });
+    const { orderNo } = await params;
+    const ctx = getContext();
+    const order = await ctx.trainingRepo.findOrderByNo(orderNo);
+    if (!order) routeError(404, 40404, "Order not found");
+    if (order.user_id && order.user_id !== auth.userId) routeError(403, 40003, "Forbidden");
+    if (order.provider !== "alipay") routeError(400, 40000, "Not an Alipay order");
+    if (order.status !== "pending") routeError(400, 40000, "Order is not pending");
+    if (!order.pay_url) routeError(400, 40000, "Payment url missing");
 
-  return new Response(order.pay_url, {
-    status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8" },
-  });
-}
+    return new Response(order.pay_url, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
+  },
+);

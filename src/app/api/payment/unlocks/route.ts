@@ -5,12 +5,12 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const url = req.nextUrl;
   const ctx = getContext();
@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   const offset = (page - 1) * limit;
 
   const [total, unlocks] = await Promise.all([
-    paymentHistoryRepo.countUnlocks(auth.userId!),
-    paymentHistoryRepo.listUnlocks(auth.userId!, limit, offset, lang ? { lang } : null),
+    paymentHistoryRepo.countUnlocks(auth.userId),
+    paymentHistoryRepo.listUnlocks(auth.userId, limit, offset, lang ? { lang } : null),
   ]);
   return NextResponse.json({ total, page, limit, list: unlocks });
-}
+});

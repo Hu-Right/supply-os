@@ -11,13 +11,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { createTrainingOrder } from "@/lib/services/training-payment";
 import { extractClientIp } from "@/lib/utils/ip";
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
 
   const body = await req.json();
   const ctx = getContext();
@@ -60,6 +60,6 @@ export async function POST(req: NextRequest) {
     const [status, code] = codeMap[msg] || [500, 50000];
     const message = messageMap[msg] || "下单失败，请稍后重试";
     if (!messageMap[msg]) console.error(`[training/orders] 下单异常:`, err);
-    return NextResponse.json({ code, message, error: message }, { status });
+    routeError(status, code, message);
   }
-}
+});

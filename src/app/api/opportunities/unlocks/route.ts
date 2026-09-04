@@ -3,12 +3,12 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
-  const unlocks = await ctx.opportunitiesRepo.listUnlocks(auth.userId!);
+  const unlocks = await ctx.opportunitiesRepo.listUnlocks(auth.userId);
   return NextResponse.json(unlocks);
-}
+});

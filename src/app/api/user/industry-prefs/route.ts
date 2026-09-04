@@ -8,18 +8,17 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
-  const prefs = await getContext().user.userPrefsRepo.getIndustryPrefs(auth.userId!);
+export const GET = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const prefs = await getContext().user.userPrefsRepo.getIndustryPrefs(auth.userId);
   return NextResponse.json({ prefs: prefs || null });
-}
+});
 
-export async function POST(req: NextRequest) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
   let body: {
     level1_id?: number | null;
     level2_id?: number | null;
@@ -30,7 +29,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
+    routeError(400, 40000, "请求数据格式错误");
   }
 
   const levels = [1, 2, 3, 4, 5].map((n) => {
@@ -39,11 +38,12 @@ export async function POST(req: NextRequest) {
     return Number.isInteger(value) && value > 0 ? value : null;
   });
 
+  const ctx = getContext();
   if (!levels[0]) {
     // level1_id 为空：清除偏好（与 Express 版本行为一致）
-    await getContext().user.userPrefsRepo.deleteIndustryPrefs(auth.userId!);
+    await ctx.user.userPrefsRepo.deleteIndustryPrefs(auth.userId);
   } else {
-    await getContext().user.userPrefsRepo.upsertIndustryPrefs(auth.userId!, levels);
+    await ctx.user.userPrefsRepo.upsertIndustryPrefs(auth.userId, levels);
   }
   return NextResponse.json({ success: true });
-}
+});
