@@ -17,6 +17,7 @@ import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./typ
 import { setAuthTokens, clearAuthTokens, clearApiCache, api } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import { onAppEvent } from "@/core/events";
+import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
  * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistAuthUser = useCallback((user: AuthUser) => {
     authUserRef.current = user;
     setAuthUser(user);
-    setIsVip(user.membership_tier === "vip");
+    setIsVip(user.membership_tier === MEMBERSHIP_TIER.VIP);
     // P2 容错：localStorage 满或隐私模式下可能抛异常，不阻断登录主流程
     // 隐私约束：此处只允许持久化脱敏后字段（昵称 nickname、掩码 phone），禁止存真实姓名
     try {

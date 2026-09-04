@@ -19,13 +19,15 @@
  */
 import type { MembershipRepo, CurrentBestPlanRow } from "../repos/membership.repo";
 import type { SubscriptionRow, EntitlementRow } from "../repos/types";
+import type { MembershipTier } from "@/shared/constants/membership";
+import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 /** 用户会员状态快照（免费/付费配额、订阅、权益、VIP 判定一次算清） */
 export interface MembershipState {
   /** 统一 VIP 判定：期限内活跃订阅（§2.0 R1/R2：单次卡不授予身份，配额耗尽不影响身份） */
   isVip: boolean;
   /** 与前端 membership_tier 契约对齐 */
-  tier: "free" | "vip";
+  tier: MembershipTier;
   freeQuota: number;
   freeUsed: number;
   freeRemaining: number;
@@ -83,7 +85,7 @@ export async function resolveMembershipState(
 
   return {
     isVip,
-    tier: isVip ? "vip" : "free",
+    tier: isVip ? MEMBERSHIP_TIER.VIP : MEMBERSHIP_TIER.FREE,
     freeQuota,
     freeUsed,
     freeRemaining: Math.max(0, freeQuota - freeUsed),

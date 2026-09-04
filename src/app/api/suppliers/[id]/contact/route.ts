@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { resolveMembershipState } from "@/lib/services/membership-status";
+import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await requireUserKey(req);
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
   // VIP 校验
   const memberState = await resolveMembershipState(ctx.user.membershipRepo, auth.userId!);
-  if (memberState.tier === "free") {
+  if (memberState.tier === MEMBERSHIP_TIER.FREE) {
     return NextResponse.json({ code: 40003, message: "需要 VIP 会员才能查看联系方式" }, { status: 403 });
   }
 
