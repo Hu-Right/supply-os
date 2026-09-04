@@ -123,17 +123,14 @@ export class AuthRepo {
 
   /** 入库新签发的 Refresh Token 哈希 */
   async insertRefreshToken(userIdOrKey: number | string, tokenHash: string, expiresAt: Date): Promise<void> {
-    if (typeof userIdOrKey === "number") {
-      await this.pool.execute(
-        "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, NULL, ?, ?)",
-        [userIdOrKey, tokenHash, expiresAt],
-      );
-    } else {
-      await this.pool.execute(
-        "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (NULL, ?, ?, ?)",
-        [userIdOrKey, tokenHash, expiresAt],
-      );
-    }
+    // userIdOrKey 可能为 undefined（user_key 迁移过渡期），统一归一化
+    const isUserId = typeof userIdOrKey === "number";
+    const userId = isUserId ? userIdOrKey : null;
+    const userKey = isUserId ? null : (userIdOrKey ?? null);
+    await this.pool.execute(
+      "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, ?, ?, ?)",
+      [userId, userKey, tokenHash, expiresAt],
+    );
   }
 
   /** 按哈希查询有效（未过期）Refresh Token 归属 */
