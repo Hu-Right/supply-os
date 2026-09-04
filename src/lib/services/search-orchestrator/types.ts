@@ -1,10 +1,11 @@
 /**
  * 统一搜索编排器 — 类型定义
- * Unified search orchestrator — type definitions
+ * Unified search orchestrator - type definitions
  *
  * @module server/services/search-orchestrator/types
  * @description 三种搜索模式（default/prefs/recommended）的统一参数与结果类型。
  *              对应《搜索链路架构级统一重构方案》第三节设计。
+ *              crm_users.user_key 列退役收尾：身份参数仅保留 userId。
  */
 
 /** 搜索模式：default=全量搜索 / prefs=行业精准匹配 / recommended=行为推荐 */
@@ -13,8 +14,7 @@ export type SearchMode = "default" | "prefs" | "recommended";
 /** 统一搜索参数（已由 params.ts 校验归一化） */
 export interface UnifiedSearchParams {
   mode: SearchMode;
-  userKey: string;
-  /** 内部用户 ID（user_id 迁移 Phase 2 新增） */
+  /** 内部用户 ID（user_id 迁移后为唯一身份锚点；未登录时为 undefined） */
   userId?: number;
   page: number;
   pageSize: number;

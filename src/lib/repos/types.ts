@@ -12,7 +12,6 @@
 
 export interface UserRow {
   id: number;
-  user_key: string;
   email: string | null;
   phone: string | null;
   phone_verified: number;

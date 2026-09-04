@@ -3,6 +3,8 @@
  * Unified search orchestrator — parameter validation & normalization
  *
  * @module server/services/search-orchestrator/params
+ * @description crm_users.user_key 列退役收尾：身份参数仅保留 userId，
+ *              缓存键生成不再回退 userKey，避免游客/登录用户键混淆。
  */
 import type { UnifiedSearchParams, SearchMode } from "./types";
 import { isKnownNoticeType } from "../../utils/notice-type";
@@ -12,7 +14,6 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 /** 原始查询参数（路由层解析后传入） */
 export interface RawSearchParams {
   mode?: string;
-  userKey?: string;
   userId?: number;
   page?: number;
   pageSize?: number;
@@ -52,7 +53,6 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
 
   return {
     mode,
-    userKey: String(raw.userKey || ""),
     userId: raw.userId,
     page: Math.min(Math.max(Math.floor(raw.page || 1), 1), 1000),
     pageSize: Math.min(Math.max(Math.floor(raw.pageSize || 10), 6), 30),
@@ -74,10 +74,11 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
  * 缓存键：mode + 全部影响结果的参数。
  * B3 优化：归一化 q（trim+lowercase）和 country（uppercase），
  * 避免 "Water"/"water"、"Kenya"/"KENYA" 生成不同键导致命中率稀释。
+ * 身份维度：仅使用 userId（未登录用户以 "guest" 占位，与登录用户完全隔离）。
  */
 export function searchCacheKey(p: UnifiedSearchParams): string {
   return [
-    p.mode, p.userId ?? p.userKey, p.page, p.pageSize, p.locale,
+    p.mode, p.userId ?? "guest", p.page, p.pageSize, p.locale,
     p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.codeId,

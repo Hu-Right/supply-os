@@ -7,6 +7,10 @@
  *              合规同意日志（失败不阻断）、载荷与 Token 签发。
  *              路由层只保留：请求解析、Cookie 邀请码回退、IP/UA 提取、Cookie 清理。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
+ *
+ *              crm_users.user_key 列退役收尾：create() 返回 insertId 后，
+ *              后续 markPhoneVerified/findAuthByKey 全部改为按 id 定位，
+ *              不再依赖 user_key 列做查询。
  */
 import type { AppContext } from "../db/context";
 import { RouteError } from "../middleware/route-handler";
@@ -76,8 +80,8 @@ export async function registerUser(
   const existing = await ctx.user.usersRepo.findByPhone(targetPhone);
   if (existing) throw new RouteError(400, 40008, "该手机号已注册，请直接登录");
 
-  const created = await ctx.user.usersRepo.create({
-    user_key: targetPhone,
+  // create() 返回新用户 id（user_key 列的 INSERT 占位由 repo 内部处理）
+  const newUserId = await ctx.user.usersRepo.create({
     email: email ? String(email).trim().toLowerCase() : null,
     display_name: displayName,
     // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
@@ -88,17 +92,18 @@ export async function registerUser(
     referral_code: inviteCode,
     referral_employee_id: referralEmployeeId ?? undefined,
   });
-  if (!created) throw new RouteError(400, 40008, "注册失败，请稍后重试");
+  if (!newUserId) throw new RouteError(400, 40008, "注册失败，请稍后重试");
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
-  await ctx.user.usersRepo.markPhoneVerified(targetPhone);
+  // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
+  await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
   // 仅在邀请码有效时递增 KPI 归属计数
   if (referralEmployeeId) {
     await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
   }
 
-  // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）
-  const createdUser = await ctx.user.usersRepo.findAuthByKey(targetPhone);
+  // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）——按 id 定位
+  const createdUser = await ctx.user.usersRepo.findById(newUserId);
   if (!createdUser) {
     throw new RouteError(500, 50000, "注册失败，请稍后重试");
   }
@@ -137,7 +142,7 @@ export async function registerUser(
   const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
 
   let tokens: { token: string; refresh_token: string } | null = null;
-  try { tokens = await issueTokenPair(ctx.user.authRepo, createdUser.id, targetPhone); } catch { /* JWT_SECRET 未配置 */ }
+  try { tokens = await issueTokenPair(ctx.user.authRepo, createdUser.id); } catch { /* JWT_SECRET 未配置 */ }
 
   return {
     payload,

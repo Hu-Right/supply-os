@@ -25,7 +25,7 @@ interface ReportPreviewPanelProps {
 
 export function ReportPreviewPanel({ noticeId, userId, isVip, onUnlock, coreLocked }: ReportPreviewPanelProps) {
   const { t, locale } = useLocale();
-  const { preview, loading, error } = useReportPreview(noticeId, String(userId), locale, coreLocked);
+  const { preview, loading, error } = useReportPreview(noticeId, userId, locale, coreLocked);
   const [collapsed, setCollapsed] = useState(false);
 
   const isUnlocked = preview?.is_unlocked ?? false;

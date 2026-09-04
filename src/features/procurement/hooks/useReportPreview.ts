@@ -8,6 +8,9 @@
  *              组件渲染预览内容。请求失败时静默回退（error 状态由组件决定是否降级展示）。
  *              Fetches structured JSON summary (now only the Chinese procurement
  *              description section) for preview rendering. Silently falls back on error.
+ *
+ *              crm_users.user_key 列退役收尾：身份参数改为 userId（number），
+ *              与服务端 JWT 身份锚点保持一致，避免误用已废弃的 user_key 概念。
  */
 import { useEffect, useState } from "react";
 import { api } from "@/core/http";
@@ -30,7 +33,7 @@ export interface ReportPreviewData {
 
 export function useReportPreview(
   noticeId: number | undefined,
-  userKey: string,
+  userId: number | undefined,
   /** 当前语言环境，zh 优先 description_cn，非 zh 直接 description */
   lang: string = "zh",
   /** 解锁状态变化触发重新请求（core_locked 从 true → false 时触发） */
@@ -41,7 +44,7 @@ export function useReportPreview(
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (!noticeId || !userKey) {
+    if (!noticeId || !userId) {
       setPreview(null);
       setLoading(false);
       return;
@@ -67,7 +70,7 @@ export function useReportPreview(
     return () => {
       cancelled = true;
     };
-  }, [noticeId, userKey, lang, coreLocked]);
+  }, [noticeId, userId, lang, coreLocked]);
 
   return { preview, loading, error };
 }

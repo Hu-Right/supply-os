@@ -3,10 +3,13 @@
  *
  * 三个入口共用：
  *   - 资质测试独立页（source=qualification，默认）
- *   - 企业注册弹窗（source=registration，携带 user_key + referral_employee_id）
+ *   - 企业注册弹窗（source=registration，携带 phone + invitation_code）
  *   - 扫码诊断独立页（source=diagnosis）
  *
  * 所有数据统一写入 crm_supplier_qualification 表。
+ *
+ * crm_users.user_key 列退役收尾：请求体字段名 user_key 重命名为 phone（语义对齐），
+ * 保留对旧字段名的兼容读取（一个发布周期后移除）。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
@@ -53,11 +56,12 @@ export async function POST(req: NextRequest) {
   let userId: number | null = null;
   let referralEmployeeId: number | null = null;
 
-  // 通过 user_key（手机号）查找用户 ID
-  if (body.user_key) {
+  // 通过手机号查找用户 ID（phone 为新字段名，兼容旧客户端的 user_key 字段一个发布周期）
+  const rawPhone = body.phone ?? body.user_key;
+  if (rawPhone) {
     try {
       const ctx = getContext();
-      const user = await ctx.user.usersRepo.findByPhone(String(body.user_key).trim());
+      const user = await ctx.user.usersRepo.findByPhone(String(rawPhone).trim());
       if (user) userId = user.id;
     } catch {
       // 查找失败不阻断提交
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest) {
       source,
     });
 
-    // 自动回写：当 user_key 已解析到用户时，将 qualification_id 关联到 crm_users
+    // 自动回写：当 phone 已解析到用户时，将 qualification_id 关联到 crm_users
     if (userId) {
       try {
         await repo.linkUserQualification(userId, id);

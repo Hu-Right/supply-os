@@ -15,8 +15,27 @@ import { BACKFILL_BATCH_SIZE, BACKFILL_BATCH_SLEEP_MS } from "@/shared/constants
  *
  * 注意：crm_supplier_qualification 不在清单——该表无 user_key 列（049 直接建
  * user_id，注册后回写），NULL 行属未注册评估数据，无回填来源。
+ *
+ * crm_users.user_key 列退役收尾（2026-09-04）：本回填依赖 JOIN crm_users.user_key，
+ * DROP COLUMN 后 JOIN 将失败。运行前先探测列是否存在：不存在则直接跳过（幂等）。
+ * 新部署后业务表已全量回填完成，本函数自然变为 no-op；完全可删除时机由 DBA 确认。
  */
 export async function backfillUserIds(dbPool: any) {
+  // 前置探测：crm_users.user_key 列存在时才执行回填，避免 DROP COLUMN 后启动失败
+  try {
+    const [colRows] = await dbPool.query(
+      `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_users' AND COLUMN_NAME = 'user_key'`,
+    );
+    if (Number((colRows as RowDataPacket[])[0]?.total || 0) === 0) {
+      console.log("[backfill] crm_users.user_key 列已删除，跳过 user_id 回填（业务表应已全量回填完成）");
+      return;
+    }
+  } catch (err) {
+    console.warn("[backfill] 探测 crm_users.user_key 列失败，跳过回填：", (err as Error).message);
+    return;
+  }
+
   // 表 → 关联 crm_users.user_key 的本表列名（crm_chat_sessions 关联列名为 customer_id）
   const tables: Array<{ name: string; joinColumn: string }> = [
     // ── A 类：user_key + user_id 双列已存在（10 张）──

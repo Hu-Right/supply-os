@@ -32,7 +32,7 @@ const NICKNAME_PREFIXES: Record<string, string> = {
 
 /**
  * 生成默认展示昵称（如"采友_K7X2" / "Buyer_K7X2"）。
- * 每位用户随机不同、不携带手机号/邮箱片段（防反推身份）；不要求唯一，身份锚点是 user_key。
+ * 每位用户随机不同、不携带手机号/邮箱片段（防反推身份）；不要求唯一，身份锚点是 user_id。
  * 未知/缺省语言回退中文前缀。
  */
 export function generateNickname(locale?: string): string {
@@ -50,19 +50,14 @@ export function generateNickname(locale?: string): string {
  * Refresh Token 哈希入库后再返回——必须 await，否则客户端在登录/注册后立即
  * 发 /api/auth/refresh 时 token 可能尚未落库，导致刷新失败（401 级联根因之一）。
  *
- * P3 写切换收尾：payload 以 uid 为身份主锚点；email 已移除；
- * user_key 仅为过渡期诊断字段（可选），观察期后随旧 token 一并退役。
+ * crm_users.user_key 列退役收尾：payload 以 uid 为唯一身份锚点，不再携带 user_key/email。
  */
 export async function issueTokenPair(
   authRepo: AuthRepo,
   userId: number,
-  userKey?: string,
 ): Promise<{ token: string; refresh_token: string }> {
-  // user_key 迁移过渡期：undefined 会导致 JWT 序列化时丢弃该字段，
-  // 服务端验签后拿不到 user_key → extractUserKey 返回 authViaJwt=false → 401
-  const safeUserKey = userKey ?? "";
-  const accessToken = signAccessToken({ uid: userId, user_key: safeUserKey });
-  const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId, user_key: safeUserKey });
+  const accessToken = signAccessToken({ uid: userId });
+  const { token: refreshToken, tokenHash } = signRefreshToken({ uid: userId });
   const expiresAt = getRefreshTokenExpiresAt();
   // 同步入库（确保 hash 落库后 token 才返回），失败仅记日志不阻断：
   // token 已签发可正常使用 2h；refresh 未入库仅影响后续刷新。

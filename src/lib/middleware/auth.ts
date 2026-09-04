@@ -2,7 +2,7 @@
  * Next.js Route Handler 认证 helper
  *
  * 从 JWT Access Token 提取 userId，供 Route Handler 使用。
- * userId 为唯一身份标识（user_key 列已废弃）。
+ * userId 为唯一身份标识（crm_users.user_key 列退役路线图收尾）。
  */
 import type { NextRequest } from "next/server";
 import type { UserId } from "@/lib/types/identity";
@@ -12,32 +12,27 @@ import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 export interface AuthResult {
   /** 内部用户 ID — 全系统唯一身份标识 */
   userId: UserId;
-  /**
-   * @deprecated 仅限 auth 域路由（bind-email 等 DB 查找）过渡使用。
-   * 业务路由、限流、归属校验一律使用 userId。
-   * user_key 列退役后此字段将移除。
-   */
-  userKey: string;
+  /** 是否通过 JWT 认证（true=已登录；false=游客或 token 无效） */
   authViaJwt: boolean;
 }
 
-/** 从 Authorization 头部提取并验证 JWT，返回 userId + userKey */
+/** 从 Authorization 头部提取并验证 JWT，返回 userId */
 export async function extractUserKey(req: NextRequest): Promise<AuthResult> {
   const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return { userId: 0, userKey: "", authViaJwt: false };
+  if (!authHeader?.startsWith("Bearer ")) return { userId: 0, authViaJwt: false };
 
   try {
     const { verifyAccessToken } = await import("@/lib/services/jwt");
     const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
 
-    // uid 为唯一身份标识（user_key 列已废弃，后续将删除）
+    // uid 为唯一身份标识（user_key 已彻底从 payload 移除）
     const userId: UserId = payload.uid ?? 0;
-    if (!userId) return { userId: 0, userKey: "", authViaJwt: false };
+    if (!userId) return { userId: 0, authViaJwt: false };
 
-    return { userId, userKey: payload.user_key ?? "", authViaJwt: true };
+    return { userId, authViaJwt: true };
   } catch {
-    return { userId: 0, userKey: "", authViaJwt: false };
+    return { userId: 0, authViaJwt: false };
   }
 }
 

@@ -9,8 +9,8 @@ import { getPool } from "@/lib/db/pool";
 import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
 
 export async function GET(req: NextRequest) {
-  const { userKey, userId } = await extractUserKey(req);
-  if (!userKey || !userId) {
+  const { userId } = await extractUserKey(req);
+  if (!userId) {
     return NextResponse.json({ material_ids: [] });
   }
 

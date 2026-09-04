@@ -166,7 +166,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
               body: {
                 ...qualificationData,        // 完整 14 字段透传
                 source: "registration",
-                user_key: phone,             // 关联用户
+                phone,                       // 关联用户（crm_users.user_key 列退役收尾：字段名从 user_key 重命名为 phone）
                 invitation_code: authForm.invitationCode.trim(), // 解析员工 ID（KPI 归属）
               },
             });

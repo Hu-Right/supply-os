@@ -16,7 +16,6 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
   // 属性名使用 camelCase，与 RawSearchParams 接口及 validateParams 内部字段对齐
   return {
     mode: get("mode", "default"),
-    userKey: "",
     userId: 0,
     page: getInt("page", 1),
     pageSize: getInt("page_size", 10),
@@ -37,7 +36,7 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
 export async function GET(req: NextRequest) {
   const auth = await extractUserKey(req);
   const params = parseSearchParams(req);
-  params.userKey = auth.userKey;
+  // 身份参数仅传 userId（crm_users.user_key 列退役收尾）
   params.userId = auth.userId || undefined;
   const pool = getPool();
   const result = await searchUnified(pool, params);
