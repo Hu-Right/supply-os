@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
+import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 
 export async function GET(req: NextRequest) {
   const auth = await requireUserKey(req);
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const { paymentHistoryRepo } = ctx.payment;
 
   const lang = url.searchParams.get("lang") || "";
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 20)));
+  const limit = clampLimit(url.searchParams.get("limit"), DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
 

@@ -16,13 +16,14 @@ import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyChatTicket } from "@/lib/services/chatTicket";
 import { sessionOwnedBy } from "@/lib/repos/chat.repo";
+import { SSE_POLL_INTERVAL_MS, SSE_HEARTBEAT_INTERVAL_MS, SSE_MAX_IDLE_MS } from "@/shared/constants/time";
 
 /** 轮询间隔（毫秒） */
-const POLL_INTERVAL = 2000;
+const POLL_INTERVAL = SSE_POLL_INTERVAL_MS;
 /** 心跳间隔（毫秒） */
-const HEARTBEAT_INTERVAL = 25_000;
+const HEARTBEAT_INTERVAL = SSE_HEARTBEAT_INTERVAL_MS;
 /** 最大空闲时间（毫秒），超时后关闭连接 */
-const MAX_IDLE = 5 * 60 * 1000;
+const MAX_IDLE = SSE_MAX_IDLE_MS;
 
 export async function GET(req: NextRequest) {
   // 一次性 ticket 鉴权（替代原 URL query JWT）

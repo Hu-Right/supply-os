@@ -32,10 +32,11 @@ import { requestIndexRebuild } from "./rebuild-trigger";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
 import { getNoticeAgencies, getAgencyCacheData } from "../notice-search/agencies/index";
+import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 // ── 结果缓存（5 分钟 TTL，与旧模块口径一致）──
 const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number }>();
-const RESULT_CACHE_TTL = 5 * 60 * 1000;
+const RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
 const RESULT_CACHE_MAX = 500;
 
 // ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──

@@ -11,6 +11,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
+import { VERIFICATION_CODE_EXPIRES_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 
@@ -40,12 +41,12 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const codeType = `phone_${scene}`;
   // 限流：短信按 user + 手机号双维度，1 分钟 1 次（防短信轰炸）
-  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 1 },
+  const rl = checkRateLimit(req, { windowMs: ONE_MINUTE_MS, maxAttempts: 1 },
     () => `smscode:${auth.userId}:${targetPhone}`);
   if (rl) return rl;
 
   const code = String(crypto.randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
   const resetId = await ctx.user.authRepo.createResetCode({ userId: auth.userId!, phone: targetPhone, codeHash: hashVerificationCode(code), codeType, expiresAt, ip: extractClientIp(req) });
 
   let smsSent = false;

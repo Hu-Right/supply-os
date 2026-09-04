@@ -12,6 +12,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendSmsVerificationCode, isSmsConfigured } from "@/lib/services/sms";
+import { VERIFICATION_CODE_EXPIRES_MS } from "@/shared/constants/time";
 
 const registerSmsSchema = z.object({
   phone: z.string({ error: "请输入有效的手机号" }).trim().regex(/^1[3-9]\d{9}$/, "请输入有效的手机号"),
@@ -39,7 +40,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // 生成 6 位验证码
   const code = String(crypto.randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 分钟有效
+  const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
 
   // 存入验证码表（user_key 用手机号，code_type 区分注册场景）
   const resetId = await ctx.user.authRepo.createResetCode({

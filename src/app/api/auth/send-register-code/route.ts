@@ -10,6 +10,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendRegistrationVerifyEmail, isEmailConfigured } from "@/lib/services/email";
+import { VERIFICATION_CODE_EXPIRES_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
 
 const registerEmailSchema = z.object({
   email: z
@@ -26,7 +27,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   // 限流：未认证端点，防邮件轰炸（IP + 目标邮箱双维度，1 分钟 3 次）
-  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 3 },
+  const rl = checkRateLimit(req, { windowMs: ONE_MINUTE_MS, maxAttempts: 3 },
     (r) => `regcode:${extractClientIp(r)}:${addr}`);
   if (rl) return rl;
 
@@ -38,7 +39,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   await ctx.user.authRepo.invalidateUnusedCodes(addr, "registration");
   const code = String(crypto.randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
   const resetId = await ctx.user.authRepo.createResetCode({ userKey: addr, codeHash: hashVerificationCode(code), codeType: "registration", expiresAt, ip: extractClientIp(req) });
 
   let emailSent = false;

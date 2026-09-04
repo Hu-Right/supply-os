@@ -9,9 +9,11 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import path from "path";
+import { ONE_MINUTE_MS } from "@/shared/constants/time";
+import { CHAT_HISTORY_DEFAULT_LIMIT, CHAT_HISTORY_MAX_LIMIT, clampLimit } from "@/shared/constants/api";
 
 const historyLimiterConfig = {
-  windowMs: 60 * 1000,
+  windowMs: ONE_MINUTE_MS,
   maxAttempts: 30,
   persistFile: path.join(getRateLimitPersistDir(), "chat-history.json"),
 };
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ sessions: [], total: null });
   }
 
-  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 20));
+  const limit = clampLimit(req.nextUrl.searchParams.get("limit"), CHAT_HISTORY_DEFAULT_LIMIT, CHAT_HISTORY_MAX_LIMIT);
   const offset = Math.max(0, Number(req.nextUrl.searchParams.get("offset")) || 0);
 
   const sessions = await getContext().chatRepo.listHistorySessions(auth.userId, limit, offset);

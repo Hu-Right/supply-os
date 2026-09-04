@@ -4,6 +4,7 @@
  */
 import type { RowDataPacket } from "mysql2/promise";
 import { isParseablePrivateKey, normalizePem } from "../payment/keys";
+import { BACKFILL_BATCH_SIZE, BACKFILL_BATCH_SLEEP_MS } from "@/shared/constants/time";
 
 /**
  * user_id 内部化回填：将所有业务表中 user_id 为 NULL 的行，
@@ -38,8 +39,8 @@ export async function backfillUserIds(dbPool: any) {
     "crm_user_search_log",
   ];
 
-  const BATCH = 2000;
-  const SLEEP_MS = 50;
+  const BATCH = BACKFILL_BATCH_SIZE;
+  const SLEEP_MS = BACKFILL_BATCH_SLEEP_MS;
 
   for (const table of tables) {
     let lastId = 0;

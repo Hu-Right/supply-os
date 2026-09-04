@@ -9,6 +9,9 @@
  *              本模块供不便整体包装的调用点（如工具函数返回 Response）使用。
  */
 import { NextResponse } from "next/server";
+import {
+  EC_AUTH_REQUIRED, EC_FORBIDDEN, EC_INTERNAL_ERROR,
+} from "@/shared/constants/api";
 
 /** 成功响应：裸载荷 */
 export function apiOk<T>(data: T, status = 200): NextResponse {
@@ -26,12 +29,12 @@ export function apiBadRequest(message: string, code = 40000): NextResponse {
 }
 
 /** 401 未登录 */
-export function apiUnauthorized(message = "请先登录", code = 40042): NextResponse {
+export function apiUnauthorized(message = "请先登录", code = EC_AUTH_REQUIRED): NextResponse {
   return apiFail(401, code, message);
 }
 
 /** 403 禁止 */
-export function apiForbidden(message: string, code = 40003): NextResponse {
+export function apiForbidden(message: string, code = EC_FORBIDDEN): NextResponse {
   return apiFail(403, code, message);
 }
 
@@ -46,6 +49,6 @@ export function apiConflict(message: string, code = 40030): NextResponse {
 }
 
 /** 500 内部错误 */
-export function apiInternalError(message = "服务器内部错误", code = 50000): NextResponse {
+export function apiInternalError(message = "服务器内部错误", code = EC_INTERNAL_ERROR): NextResponse {
   return apiFail(500, code, message);
 }

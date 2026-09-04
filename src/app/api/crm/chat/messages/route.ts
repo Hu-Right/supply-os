@@ -14,17 +14,20 @@ import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLim
 import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
 import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 import path from "path";
+import { ONE_MINUTE_MS } from "@/shared/constants/time";
+import { EC_INVALID_REQUEST, EC_NOT_FOUND, EC_FORBIDDEN } from "@/shared/constants/api";
+import { CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT, clampLimit } from "@/shared/constants/api";
 
 /** 消息发送限流：同一用户每分钟最多 30 条 */
 const sendLimiterConfig = {
-  windowMs: 60 * 1000,
+  windowMs: ONE_MINUTE_MS,
   maxAttempts: 30,
   persistFile: path.join(getRateLimitPersistDir(), "chat-message-send.json"),
 };
 
 /** 消息读取限流 */
 const readLimiterConfig = {
-  windowMs: 60 * 1000,
+  windowMs: ONE_MINUTE_MS,
   maxAttempts: 60,
   persistFile: path.join(getRateLimitPersistDir(), "chat-message-read.json"),
 };
@@ -43,7 +46,7 @@ export async function GET(req: NextRequest) {
   const sessionId = Number(req.nextUrl.searchParams.get("sessionId"));
   if (!sessionId) {
     return NextResponse.json(
-      { code: 40022, message: "缺少 sessionId", error: "Missing sessionId" },
+      { code: EC_INVALID_REQUEST, message: "缺少 sessionId", error: "Missing sessionId" },
       { status: 400 },
     );
   }
@@ -54,7 +57,7 @@ export async function GET(req: NextRequest) {
   const session = await chatRepo.findSessionById(sessionId);
   if (!session) {
     return NextResponse.json(
-      { code: 40023, message: "会话不存在", error: "Session not found" },
+      { code: EC_NOT_FOUND, message: "会话不存在", error: "Session not found" },
       { status: 404 },
     );
   }
@@ -62,12 +65,12 @@ export async function GET(req: NextRequest) {
   // 只能查看自己的会话（user_id 为准，历史行回退 customer_id）
   if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
-      { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
+      { code: EC_FORBIDDEN, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
     );
   }
 
-  const limit = Math.min(500, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 100));
+  const limit = clampLimit(req.nextUrl.searchParams.get("limit"), CHAT_MESSAGES_DEFAULT_LIMIT, CHAT_MESSAGES_MAX_LIMIT);
   const messages = await chatRepo.listMessages(sessionId, limit);
   return NextResponse.json(messages);
 }
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { code: 40022, message: "无效的请求体", error: "Invalid JSON body" },
+      { code: EC_INVALID_REQUEST, message: "无效的请求体", error: "Invalid JSON body" },
       { status: 400 },
     );
   }
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest) {
   const parsed = chatMessageSendSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { code: 40022, message: "参数校验失败", error: parsed.error.issues[0]?.message ?? "Invalid params" },
+      { code: EC_INVALID_REQUEST, message: "参数校验失败", error: parsed.error.issues[0]?.message ?? "Invalid params" },
       { status: 400 },
     );
   }
@@ -111,7 +114,7 @@ export async function POST(req: NextRequest) {
   const session = await chatRepo.findSessionById(sessionId);
   if (!session) {
     return NextResponse.json(
-      { code: 40023, message: "会话不存在", error: "Session not found" },
+      { code: EC_NOT_FOUND, message: "会话不存在", error: "Session not found" },
       { status: 404 },
     );
   }
@@ -119,7 +122,7 @@ export async function POST(req: NextRequest) {
   // 只能操作自己的会话（user_id 为准，历史行回退 customer_id）
   if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
-      { code: 40003, message: "无权操作此会话", error: "无权操作此会话" },
+      { code: EC_FORBIDDEN, message: "无权操作此会话", error: "无权操作此会话" },
       { status: 403 },
     );
   }

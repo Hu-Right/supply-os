@@ -25,11 +25,12 @@ import { mmrRerankPage, buildRecoReasons } from "./rerank";
 import { ACTIVE_NOTICE_WHERE, DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
 // N7 收敛（2026-08-20）：normalizeNoticeType 直连 utils/notice-type 权威端口
 import { normalizeNoticeType } from "../../utils/notice-type";
+import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 const DEPTH_FACTOR: Record<number, number> = { 1: 0.4, 2: 0.6, 3: 0.8, 4: 1.0 };
 
 // 推荐结果缓存
 const recoResultCache = new Map<string, { data: NoticeRecommendResult; expires: number }>();
-const RECO_RESULT_CACHE_TTL = 5 * 60 * 1000;
+const RECO_RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
 const RECO_RESULT_CACHE_MAX = 200;
 
 export interface NoticeRecommendResult {

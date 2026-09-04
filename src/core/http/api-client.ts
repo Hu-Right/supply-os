@@ -9,6 +9,7 @@
  */
 
 import { recordApiMetric } from "@/core/perf";
+import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
 // Next.js 项目使用 NEXT_PUBLIC_ 前缀注入客户端环境变量（审查 F52：
 // 原 import.meta.env.VITE_API_BASE_URL 是 Vite 遗留，恒为空串，碰巧同源可用）
@@ -55,7 +56,7 @@ export class ApiError extends Error {
   }
 }
 
-const DEFAULT_TTL = 5 * 60 * 1000; // 5 分钟
+const DEFAULT_TTL = CACHE_TTL_STANDARD_MS;
 
 /**
  * 根据网络质量动态调整缓存 TTL

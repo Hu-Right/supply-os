@@ -13,6 +13,10 @@ import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisea
 import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
+import {
+  FEATURED_REFRESH_INTERVAL_MS, STATS_REFRESH_INTERVAL_MS,
+  PAYMENT_MAINTENANCE_INTERVAL_MS,
+} from "@/shared/constants/time";
 
 /**
  * 每天在指定小时（本地时区）执行一次回调，返回可 clearTimeout 的 timer。
@@ -69,7 +73,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
         }
       }
     } catch { /* 静默降级 */ }
-  }, 30 * 60 * 1000);
+  }, FEATURED_REFRESH_INTERVAL_MS);
 
   // 2. 统计表每 10 分钟刷新（替代原 is_active 刷新，只更新统计数字）
   const statsRefreshTimer = setInterval(async () => {
@@ -78,7 +82,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     } catch (e) {
       console.error("[stats-timer] 刷新失败:", (e as Error).message);
     }
-  }, 10 * 60 * 1000);
+  }, STATS_REFRESH_INTERVAL_MS);
 
   // 3. 国家/机构缓存每日凌晨 5 点刷新
   const dailyRefreshTimer = scheduleDailyAt(5, async () => {
@@ -176,7 +180,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     void demoteExpiredVipTier();
     paymentMaintenanceTimer = setInterval(() => {
       void closeStalePendingOrders();
-    }, 60 * 60 * 1000);
+    }, PAYMENT_MAINTENANCE_INTERVAL_MS);
     paymentTierSyncTimer = scheduleDailyAt(4, async () => {
       await demoteExpiredVipTier();
     });

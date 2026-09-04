@@ -7,10 +7,11 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { RecallResult } from "./recall";
 import { DEADLINE_SEC_EXPR } from "../../utils/notice-expired";
+import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 // 金额偏好查询缓存
 const amountPrefCache = new Map<number, { centerLog: number; active: boolean; expires: number }>();
-const AMOUNT_PREF_CACHE_TTL = 10 * 60 * 1000;
+const AMOUNT_PREF_CACHE_TTL = CACHE_TTL_MEDIUM_MS;
 
 export interface ScoringContext {
   matchWeightExpr: string;

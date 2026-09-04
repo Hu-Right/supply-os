@@ -13,6 +13,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { hashVerificationCode } from "@/lib/services/auth";
 import { sendEmailBindingCode, isEmailConfigured } from "@/lib/services/email";
+import { VERIFICATION_CODE_EXPIRES_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -53,12 +54,12 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const codeType = `email_${scene}`;
   // 限流：邮件按 user + 邮箱双维度，1 分钟 3 次
-  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 3 },
+  const rl = checkRateLimit(req, { windowMs: ONE_MINUTE_MS, maxAttempts: 3 },
     () => `emailcode:${auth.userId}:${targetEmail}`);
   if (rl) return rl;
 
   const code = String(crypto.randomInt(100000, 1000000));
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
   const resetId = await ctx.user.authRepo.createResetCode({
     userKey: auth.userKey,
     phone: targetEmail, // 复用 phone 字段存储邮箱（code 表中 phone 列实际存储验证目标）

@@ -7,6 +7,7 @@
 import type { NextRequest } from "next/server";
 import type { UserId } from "@/lib/types/identity";
 import { RouteError } from "./route-handler";
+import { EC_AUTH_REQUIRED } from "@/shared/constants/api";
 
 export interface AuthResult {
   /** 内部用户 ID — 全系统唯一身份标识 */
@@ -56,7 +57,7 @@ export async function requireUserKey(req: NextRequest): Promise<AuthResult | Res
   const result = await extractUserKey(req);
   if (!result.userId) {
     return Response.json(
-      { code: 40042, message: "请先登录", error: "请先登录" },
+      { code: EC_AUTH_REQUIRED, message: "请先登录", error: "请先登录" },
       { status: 401 },
     );
   }

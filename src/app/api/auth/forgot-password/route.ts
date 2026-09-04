@@ -11,6 +11,7 @@ import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email"
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { PASSWORD_RESET_EXPIRES_MS, CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,7 +36,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
 
   // 限流（审查 F12）：IP + 目标账号双维度，防短信/邮件轰炸
-  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 3 },
+  const rl = checkRateLimit(req, { windowMs: CACHE_TTL_MEDIUM_MS, maxAttempts: 3 },
     (r) => `forgot:${extractClientIp(r)}:${identifier.toLowerCase()}`);
   if (rl) return rl;
 
@@ -56,7 +57,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       routeError(503, 40061, "短信服务暂未配置，请使用邮箱验证");
     }
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
     const code = String(crypto.randomInt(100000, 1000000));
     // 发新码前失效旧码，旧验证码不得继续可用（与邮箱渠道对齐）
     await ctx.user.authRepo.invalidateUnusedCodes(user.id, "phone_reset");
@@ -88,7 +89,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   if (user) {
     await ctx.user.authRepo.invalidateUnusedCodes(user.id, "email_reset");
     const code = String(crypto.randomInt(100000, 1000000));
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRES_MS);
     const resetId = await ctx.user.authRepo.createResetCode({
       userId: user.id, codeHash: hashVerificationCode(code), codeType: "email_reset", expiresAt, ip: extractClientIp(req),
     });

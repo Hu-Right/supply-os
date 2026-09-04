@@ -16,13 +16,15 @@ import { signChatTicket } from "@/lib/services/chatTicket";
 import { sessionOwnedBy } from "@/lib/repos/chat.repo";
 import path from "path";
 import { z } from "zod";
+import { CHAT_TICKET_TTL_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
+import { EC_INVALID_REQUEST, EC_FORBIDDEN, EC_NOT_FOUND } from "@/shared/constants/api";
 
-const TICKET_TTL_SECONDS = 60;
+const TICKET_TTL_SECONDS = CHAT_TICKET_TTL_MS / 1000;
 
 const ticketSchema = z.object({ sessionId: z.number().int().positive() });
 
 const ticketLimiterConfig = {
-  windowMs: 60 * 1000,
+  windowMs: ONE_MINUTE_MS,
   maxAttempts: 30,
   persistFile: path.join(getRateLimitPersistDir(), "chat-stream-ticket.json"),
 };
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json(
-      { code: 40022, message: "无效的请求体", error: "Invalid JSON body" },
+      { code: EC_INVALID_REQUEST, message: "无效的请求体", error: "Invalid JSON body" },
       { status: 400 },
     );
   }
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
   const parsed = ticketSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { code: 40022, message: "缺少有效的 sessionId", error: "Invalid sessionId" },
+      { code: EC_INVALID_REQUEST, message: "缺少有效的 sessionId", error: "Invalid sessionId" },
       { status: 400 },
     );
   }
@@ -56,13 +58,13 @@ export async function POST(req: NextRequest) {
   const session = await getContext().chatRepo.findSessionById(sessionId);
   if (!session) {
     return NextResponse.json(
-      { code: 40023, message: "会话不存在", error: "Session not found" },
+      { code: EC_NOT_FOUND, message: "会话不存在", error: "Session not found" },
       { status: 404 },
     );
   }
   if (!sessionOwnedBy(session, auth)) {
     return NextResponse.json(
-      { code: 40003, message: "无权访问此会话", error: "无权访问此会话" },
+      { code: EC_FORBIDDEN, message: "无权访问此会话", error: "无权访问此会话" },
       { status: 403 },
     );
   }

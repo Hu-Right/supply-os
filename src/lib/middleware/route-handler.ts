@@ -12,6 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
+import { EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
 /** 业务错误：withRoute 捕获后按 status/code/message 输出标准 envelope */
 export class RouteError extends Error {
@@ -78,7 +79,7 @@ export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?:
         );
       }
       console.error(`[route] ${req.method} ${new URL(req.url).pathname}`, err);
-      return NextResponse.json({ code: 50000, message: "服务器内部错误" }, { status: 500 });
+      return NextResponse.json({ code: EC_INTERNAL_ERROR, message: "服务器内部错误" }, { status: 500 });
     }
   };
 }

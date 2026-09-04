@@ -9,6 +9,7 @@
  *              零解锁历史用户 keywords=null → 加分恒 0，排序与上线前恒等（验收口径）
  */
 import type { RowDataPacket } from "mysql2/promise";
+import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 const TEXT_STOPWORDS = new Set([
   "the", "and", "for", "with", "from", "this", "that", "are", "was", "were", "will",
@@ -57,7 +58,7 @@ export const jaccardTokenSim = (a: Set<string>, b: Set<string>): number => {
 export const S_TEXT_BONUS = 0.05;
 
 const userUnlockKeywordsCache = new Map<number, { keywords: Set<string> | null; expires: number }>();
-const USER_KEYWORDS_TTL_MS = 10 * 60 * 1000;
+const USER_KEYWORDS_TTL_MS = CACHE_TTL_MEDIUM_MS;
 
 /**
  * 获取用户解锁关键词集合（带缓存）

@@ -9,6 +9,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKey } from "@/lib/middleware/auth";
 import { toQrDataUrl } from "@/lib/payment/qr";
 import { getOrderBusiness } from "@/lib/payment/orchestrator";
+import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, clampLimit } from "@/shared/constants/api";
 
 const ApiErrorCode = {
   USER_REQUIRED: 40001,
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   const { orchestrator } = ctx.payment;
 
   const status = url.searchParams.get("status") || "all";
-  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || 20)));
+  const limit = clampLimit(url.searchParams.get("limit"), DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
 

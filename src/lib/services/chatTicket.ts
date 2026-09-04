@@ -8,8 +8,7 @@
  *              ticket 为 HMAC 签名（依赖 JWT_SECRET），并有内存一次性核销表。
  */
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
-
-const TICKET_TTL_MS = 60_000;
+import { CHAT_TICKET_TTL_MS } from "@/shared/constants/time";
 
 interface TicketPayload {
   /** 内部用户 ID */
@@ -42,7 +41,7 @@ export function signChatTicket(
   const payload: TicketPayload = {
     i: userId,
     s: sessionId,
-    exp: Date.now() + TICKET_TTL_MS,
+    exp: Date.now() + CHAT_TICKET_TTL_MS,
     n: randomUUID(),
   };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -66,7 +65,7 @@ function markUsed(body: string): boolean {
     }
   }
   if (usedTickets.has(body)) return false;
-  usedTickets.set(body, now + TICKET_TTL_MS);
+  usedTickets.set(body, now + CHAT_TICKET_TTL_MS);
   return true;
 }
 

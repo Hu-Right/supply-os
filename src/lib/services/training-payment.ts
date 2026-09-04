@@ -13,6 +13,7 @@ import crypto from "crypto";
 import type { AppContext } from "../db/context";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
+import { TRAINING_ORDER_EXPIRES_MS } from "@/shared/constants/time";
 import { toQrDataUrl } from "../payment/qr";
 
 export interface CreateTrainingOrderParams {
@@ -103,7 +104,7 @@ export async function createTrainingOrder(
   const orderNo = makeTrainingOrderNo();
 
   // 订单 30 分钟过期
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + TRAINING_ORDER_EXPIRES_MS);
 
   // 通过支付策略生成二维码 / 支付链接
   // payUrl：存库值（alipay 为自动提交的 HTML 表单，由跳转端点渲染）
