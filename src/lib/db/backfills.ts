@@ -45,22 +45,29 @@ export async function backfillUserIds(dbPool: any) {
   for (const table of tables) {
     let lastId = 0;
     let affected = 0;
-    do {
-      const [result] = await dbPool.execute(
-        `UPDATE ${table} target
-         INNER JOIN crm_users u ON u.user_key = target.user_key
-         SET target.user_id = u.id
-         WHERE target.user_id IS NULL AND target.id > ?
-         LIMIT ${BATCH}`,
-        [lastId],
-      );
-      affected = (result as { affectedRows?: number })?.affectedRows ?? 0;
-      if (affected > 0) lastId += BATCH;
-      // 分批限速：大批量时批间休眠，防止大表锁库
-      if (affected >= BATCH) {
-        await new Promise((r) => setTimeout(r, SLEEP_MS));
-      }
-    } while (affected >= BATCH);
+    try {
+      do {
+        // MySQL 不支持多表 UPDATE + LIMIT，改用子查询限定 id 范围
+        const [result] = await dbPool.execute(
+          `UPDATE ${table} target
+           INNER JOIN crm_users u ON u.user_key = target.user_key
+           SET target.user_id = u.id
+           WHERE target.user_id IS NULL AND target.id > ? AND target.id <= ?`,
+          [lastId, lastId + BATCH],
+        );
+        affected = (result as { affectedRows?: number })?.affectedRows ?? 0;
+        if (affected > 0) lastId += BATCH;
+        // 分批限速：大批量时批间休眠，防止大表锁库
+        if (affected >= BATCH) {
+          await new Promise((r) => setTimeout(r, SLEEP_MS));
+        }
+      } while (affected >= BATCH);
+    } catch (err) {
+      // 表可能缺 user_key 列（如 crm_supplier_qualification 直接用 user_id）——
+      // 跳过并记录警告，不阻断其他表的回填
+      console.warn(`[backfill] 跳过 ${table}: ${(err as Error).message}`);
+      continue;
+    }
   }
 }
 

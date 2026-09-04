@@ -85,9 +85,9 @@ export const migration: Migration = {
       if (Number((idxRows as any[])[0]?.total || 0) > 0) {
         await dbPool.query(`ALTER TABLE \`${table}\` DROP INDEX \`${oldIndex}\``);
       }
-      // 创建新索引（ensureIndex 幂等）
+      // 创建新索引（ensureIndex 幂等；DDL 不含反引号以通过 assertSafeDdlFragment）
       await ensureIndex(dbPool, table, newIndex,
-        `ALTER TABLE \`${table}\` ADD UNIQUE KEY \`${newIndex}\` (${columns})`);
+        `ALTER TABLE ${table} ADD UNIQUE KEY ${newIndex} (${columns})`);
     };
 
     // crm_opportunity_unlocks: (user_key, opportunity_id) → (user_id, opportunity_id)

@@ -32,7 +32,7 @@ export const migration: Migration = {
       dbPool,
       "crm_chat_sessions",
       "idx_assigned_uid",
-      "ADD INDEX idx_assigned_uid (assigned_uid)",
+      "ALTER TABLE crm_chat_sessions ADD INDEX idx_assigned_uid (assigned_uid)"
     );
 
     await dbPool.query(`
