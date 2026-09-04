@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
+import { useAuth, useUserId } from "@/core/auth";
 import { api, ApiError } from "@/core/http";
 import { useCountdown } from "@/shared/hooks/useCountdown";
 import { isEmail } from "@/shared/utils/validators";
@@ -38,6 +38,7 @@ export interface UseEmailBindingReturn {
 export function useEmailBinding(): UseEmailBindingReturn {
   const { t } = useLocale();
   const { authUser, refreshAuth } = useAuth();
+  const userId = useUserId();
 
   const [view, setView] = useState<EmailView>("idle");
   const [email, setEmail] = useState("");
@@ -63,7 +64,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleSendCode = async (scene: "bind" | "unbind") => {
-    if (!authUser?.id) return;
+    if (!userId) return;
     if (scene === "bind" && !isEmail(email)) {
       setMessage(t("authEmailInvalid") || "请输入有效的邮箱地址");
       setIsError(true);
@@ -99,7 +100,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleBind = async () => {
-    if (!authUser?.id || !email || !code) return;
+    if (!userId || !email || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -122,7 +123,7 @@ export function useEmailBinding(): UseEmailBindingReturn {
   };
 
   const handleUnbind = async () => {
-    if (!authUser?.id || !code) return;
+    if (!userId || !code) return;
     setLoading(true);
     setMessage("");
     try {

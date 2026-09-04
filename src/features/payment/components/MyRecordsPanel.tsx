@@ -14,7 +14,7 @@
 import { useState } from "react";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
+import { useAuth, useUserId } from "@/core/auth";
 import { Button } from "@/shared/ui";
 import { formatDateTimeZh } from "@/shared/utils/format";
 import type { OrderRecord, UnlockRecord } from "../api";
@@ -40,7 +40,7 @@ const recordTime = (row: RecordRow) =>
 export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
-  const userId = authUser?.id;
+  const userId = useUserId();
   const [view, setView] = useState<PanelView>("overview");
   const history = useOrderHistory(userId);
   const summary = useRecordsSummary(userId);

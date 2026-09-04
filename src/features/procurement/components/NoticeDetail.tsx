@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/ui";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth } from "@/core/auth";
+import { useUserId } from "@/core/auth";
 import type { NoticeItem, NoticeDetailItem, MembershipStatus } from "../types";
 import { useNoticeTranslation } from "../hooks/useNoticeTranslation";
 import { noticeTypeKey } from "../notice-type";
@@ -183,10 +184,10 @@ export function NoticeDetail({
             {/* 中文版投标拆解报告预览：登录即可见（未解锁展示约 10% + 升级引导）；
                 内容按语言环境与数据可用性自适应：zh + description_cn → 中文，其余 → 英文原文兜底 */}
             {/* P3-14 安全修复：只在确认有报告时才挂载 ReportPreviewPanel，避免无报告时白耗请求 */}
-            {notice.id != null && authContext?.authUser?.id && reportKnown && hasReport && (
+            {notice.id != null && useUserId() && reportKnown && hasReport && (
               <ReportPreviewPanel
                 noticeId={notice.id}
-                userId={authContext.authUser.id}
+                userId={useUserId()!}
                 isVip={isVip}
                 onUnlock={onUnlock}
                 coreLocked={!coreUnlocked}

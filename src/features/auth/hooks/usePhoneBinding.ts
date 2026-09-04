@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
+import { useAuth, useUserId } from "@/core/auth";
 import { api, ApiError } from "@/core/http";
 import { useCountdown } from "@/shared/hooks/useCountdown";
 import { isMainlandPhone } from "@/shared/utils/validators";
@@ -44,6 +44,7 @@ export interface UsePhoneBindingReturn {
 export function usePhoneBinding(): UsePhoneBindingReturn {
   const { t } = useLocale();
   const { authUser, refreshAuth } = useAuth();
+  const userId = useUserId();
 
   const [view, setView] = useState<PhoneView>("idle");
   const [phone, setPhone] = useState("");
@@ -69,7 +70,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleSendCode = async (scene: "bind" | "rebind" | "unbind") => {
-    if (!authUser?.id) return;
+    if (!userId) return;
     if (scene !== "unbind" && !isMainlandPhone(phone)) {
       setMessage(t("authPhoneInvalid"));
       setIsError(true);
@@ -105,7 +106,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleBind = async () => {
-    if (!authUser?.id || !phone || !code) return;
+    if (!userId || !phone || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -128,7 +129,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleRebind = async () => {
-    if (!authUser?.id || !phone || !code) return;
+    if (!userId || !phone || !code) return;
     setLoading(true);
     setMessage("");
     try {
@@ -151,7 +152,7 @@ export function usePhoneBinding(): UsePhoneBindingReturn {
   };
 
   const handleUnbind = async () => {
-    if (!authUser?.id || !code) return;
+    if (!userId || !code) return;
     setLoading(true);
     setMessage("");
     try {

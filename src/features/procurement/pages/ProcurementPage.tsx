@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
+import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
@@ -28,7 +28,7 @@ export default function ProcurementPage() {
   const { authUser, isVip, refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const userId = authUser?.id;
+  const userId = useUserId();
 
   // ── 性能监控：首屏计时 ──
   const firstLoadDoneRef = useRef(false);

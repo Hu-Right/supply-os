@@ -10,7 +10,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { useAuth } from "@/core/auth";
+import { useAuth, useUserId } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { calcTotalPages } from "@/shared/constants/pagination";
 import type { Supplier } from "@/types";
@@ -28,6 +28,7 @@ import { onAppEvent } from "@/core/events";
 export default function SupplierPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip } = useAuth();
+  const userId = useUserId();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [supplierSubTab, setSupplierSubTab] = useState<"all" | "domestic" | "international">("all");
@@ -77,7 +78,7 @@ export default function SupplierPage() {
 
   // 联系方式为 VIP 专属：命中门槛后向后端请求明文（列表数据为掩码）
   const handleContact = async (supplier: Supplier) => {
-    if (!authUser?.id || !isVip) {
+    if (!userId || !isVip) {
       setContactModal({ supplier, status: "vipOnly", contact: null });
       return;
     }
