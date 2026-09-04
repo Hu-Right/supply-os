@@ -51,7 +51,7 @@ export async function backfillUserIds(dbPool: any) {
       continue;
     }
     let lastId = 0;
-    let affected = 0;
+    let affected: number;
     try {
       do {
         // MySQL 不支持多表 UPDATE + LIMIT，改用子查询限定 id 范围

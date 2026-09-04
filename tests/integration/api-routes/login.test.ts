@@ -39,6 +39,7 @@ vi.mock("@/lib/services/auth", () => ({
 }));
 
 const AUTH_USER_ROW = {
+  id: 1,
   user_key: "user-1",
   email: "user-1@test.com",
   phone: null,
@@ -131,10 +132,10 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({ success: true, token: "atk-123" });
-    // 哈希升级入库（repo 层参数顺序：newHash, hashType, userKey）
+    // 哈希升级入库（updatePasswordById 参数顺序：newHash, hashType, userId）
     expect(poolExecute).toHaveBeenCalledWith(
       expect.stringContaining("UPDATE crm_users"),
-      ["$2b$12$newhash", "bcrypt", "user-1"],
+      ["$2b$12$newhash", "bcrypt", 1],
     );
     // Refresh Cookie 设置（真实 cookie 工具）
     expect(res.headers.get("set-cookie")).toContain("supply_os_refresh_token=rtk-456");
