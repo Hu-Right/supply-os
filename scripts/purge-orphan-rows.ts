@@ -30,6 +30,8 @@ const ANON_TABLES = [
   "crm_user_industry_prefs",
   "crm_reco_weight_profile",
   "crm_opportunity_unlocks",
+  /** 同意审计日志：保留「同意已发生」的事实，清除已删用户的手机号标识 */
+  "crm_consent_log",
 ];
 
 /** FINANCE：财务凭证类（行保留，user_key → NULL + PII 字段清空） */
