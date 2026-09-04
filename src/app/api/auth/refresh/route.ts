@@ -13,7 +13,14 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken, hashRefreshToken
 import { readRefreshCookieFromRequest, setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const refreshToken = readRefreshCookieFromRequest(req);
+  // 双通道读取：优先 HttpOnly Cookie，降级从请求体读取（localStorage 兜底）
+  let refreshToken = readRefreshCookieFromRequest(req);
+  if (!refreshToken) {
+    try {
+      const body = await req.json();
+      refreshToken = String(body?.refresh_token || "").trim();
+    } catch { /* body 非 JSON，忽略 */ }
+  }
   if (!refreshToken) {
     routeError(400, 40050, "缺少刷新令牌");
   }
@@ -54,7 +61,11 @@ export const POST = withRoute(async (req: NextRequest) => {
   const { token: newRefreshToken, tokenHash: newTokenHash } = signRefreshToken({ uid: user.id!, user_key: user.user_key ?? payload.user_key });
   await authRepo.insertRefreshToken(user.id!, newTokenHash, getRefreshTokenExpiresAt());
 
-  const response = NextResponse.json({ success: true, token: newAccessToken });
+  const response = NextResponse.json({
+    success: true,
+    token: newAccessToken,
+    refresh_token: newRefreshToken,
+  });
   setRefreshCookieOnResponse(response, newRefreshToken);
   return response;
 });

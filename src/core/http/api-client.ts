@@ -18,32 +18,41 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 // ── JWT Token 管理 ──
 // B2【P1】安全加固：Access Token 仍存 localStorage（短生命 2h，XSS 窗口有限），
-// Refresh Token 已迁移到 HttpOnly Cookie（服务端设置，JS 不可读，XSS 无法窃取）。
+// Refresh Token 优先 HttpOnly Cookie（服务端设置，JS 不可读，XSS 无法窃取）；
+// 同时降级存储到 localStorage（cookie 未设置时的兜底，refresh 端点双读）。
 const AUTH_TOKEN_KEY = "supply_os_auth_token";
+const REFRESH_TOKEN_KEY = "supply_os_refresh_token";
 
 /** 获取当前 Access Token */
 export function getAuthToken(): string | null {
   return window.localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
-/** 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发） */
-export function setAuthTokens(token: string): void {
+/** 存储 Access Token + Refresh Token（Refresh Token 同时写入 HttpOnly Cookie + localStorage 降级） */
+export function setAuthTokens(token: string, refreshToken?: string): void {
   // P2 容错：localStorage 满或隐私模式下可能抛异常
   try {
     window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+    if (refreshToken) window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   } catch (e) {
-    console.warn("[http] localStorage 写入 Access Token 失败:", (e as Error).message);
+    console.warn("[http] localStorage 写入 Token 失败:", (e as Error).message);
   }
 }
 
-/** 清除 Access Token（Refresh Token Cookie 由服务端登出接口自动清除） */
+/** 清除 Access Token + Refresh Token（Refresh Token Cookie 由服务端登出接口自动清除） */
 export function clearAuthTokens(): void {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 /** 更新 Access Token（刷新后调用） */
 export function updateAuthToken(token: string): void {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+/** 获取降级存储的 Refresh Token（cookie 未设置时的兜底） */
+export function getRefreshToken(): string | null {
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 // ── 跨标签页 Token 同步 ──
@@ -135,29 +144,29 @@ function evictCacheIfNeeded(): void {
 let isRefreshing = false;
 let refreshPromise: Promise<string | null> | null = null;
 
-/** 尝试刷新 Access Token（Refresh Token 由 HttpOnly Cookie 自动携带） */
+/** 尝试刷新 Access Token（Refresh Token 优先 HttpOnly Cookie，降级 localStorage） */
 async function tryRefreshToken(): Promise<string | null> {
-  // B2【P1】无需手动读取 refresh_token——HttpOnly Cookie 由浏览器自动发送
-  // credentials: "same-origin" 确保同域请求携带 Cookie
-
   // 避免并发刷新
   if (isRefreshing && refreshPromise) return refreshPromise;
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      // 刷新端点恒为同源相对路径（credentials: same-origin 语义要求），避免任何绝对 URL 拼接
+      // 降级：cookie 未设置时从 localStorage 读取 refresh_token，通过 body 发送
+      const fallbackRefreshToken = getRefreshToken();
       const res = await fetch("/api/auth/refresh", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin", // B2【P1】携带 HttpOnly Refresh Token Cookie
-        body: JSON.stringify({}),
+        body: JSON.stringify({ refresh_token: fallbackRefreshToken ?? undefined }),
       });
       if (!res.ok) return null;
       const data = await res.json();
       if (data.token) {
-        // P3-4：服务端 Refresh Token 轮换——新 refresh_token 由服务端自动写入 Cookie；
-        // #5：响应体已不再携带 refresh_token，仅需更新 Access Token
         updateAuthToken(data.token);
+        // 服务端响应可能携带新 refresh_token（降级存储同步更新）
+        if (data.refresh_token) {
+          try { window.localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token); } catch { /* */ }
+        }
         return data.token as string;
       }
       return null;
@@ -261,26 +270,8 @@ export async function api<T>(
       throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`);
     }
 
-    // 刷新失败：Access Token 过期且 Refresh Token Cookie 缺失/失效。
-    // 多标签页容错：其他标签页可能已成功轮换并写入新 Access Token 到 localStorage，
-    // 此时不应清除认证状态，而是用新 Token 重试。
-    const crossTabToken = getAuthToken();
-    if (crossTabToken && crossTabToken !== authToken) {
-      const retryRes = await fetch(url, {
-        ...init,
-        signal,
-        credentials: "same-origin",
-        headers: {
-          ...(hasBody ? { "Content-Type": "application/json" } : {}),
-          Authorization: `Bearer ${crossTabToken}`,
-          ...(init.headers as Record<string, string>),
-        },
-        body: hasBody ? JSON.stringify(body) : undefined,
-      });
-      if (retryRes.ok) return retryRes.json();
-    }
-
-    // 确认无跨标签页可用 Token，清除过期凭据并触发全局登出事件。
+    // 刷新失败：Access Token 过期且 Refresh Token 双通道均不可用，
+    // 认证会话不可恢复——清除过期凭据并触发全局登出事件。
     clearAuthTokens();
     emitAppEvent("supply-os:unauthorized", { endpoint });
     // 若原始响应含业务 code（如 requireUserKey 的 "请先登录"），透传服务端消息

@@ -62,6 +62,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     success: true,
     user: payload,
     token: accessToken ?? undefined,
+    refresh_token: refreshToken ?? undefined,
   }, { status: 201 });
   if (refreshToken) setRefreshCookieOnResponse(response, refreshToken);
   // 注册成功后清除推荐链接 Cookie，避免重复归属

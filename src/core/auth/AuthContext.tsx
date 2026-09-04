@@ -20,9 +20,10 @@ import { onAppEvent } from "@/core/events";
 import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
- * Refresh Token 仅经 HttpOnly Cookie 下发，不出现在响应体中） */
+ * Refresh Token 同时经 HttpOnly Cookie + 响应体下发，客户端双存储） */
 interface AuthResponse {
   token?: string;
+  refresh_token?: string;
   user: AuthUser;
   [key: string]: unknown;
 }
@@ -106,9 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: { identifier: phone, password },
       });
-      // 存储 Access Token（Refresh Token 由服务端 HttpOnly Cookie 下发）
+      // 存储 Access Token + Refresh Token（Refresh Token 同时经 HttpOnly Cookie + localStorage 降级存储）
       if (data.token) {
-        setAuthTokens(data.token);
+        setAuthTokens(data.token, data.refresh_token);
       }
       persistAuthUser(data.user);
     } finally {
@@ -136,9 +137,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      // 存储 Access Token（注册即登录）
+      // 存储 Access Token + Refresh Token（注册即登录）
       if (data.token) {
-        setAuthTokens(data.token);
+        setAuthTokens(data.token, data.refresh_token);
       }
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
@@ -244,9 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: { identifier, code, new_password: newPassword },
       });
-      // 存储 Access Token（重置后自动登录）
+      // 存储 Access Token + Refresh Token（重置后自动登录）
       if (data.token) {
-        setAuthTokens(data.token);
+        setAuthTokens(data.token, data.refresh_token);
       }
       persistAuthUser(data.user);
     } finally {

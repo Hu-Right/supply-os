@@ -78,7 +78,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, user.id!); } catch { /* */ }
 
-  const response = NextResponse.json({ success: true, user: payload, token: tokens?.token });
+  const response = NextResponse.json({
+    success: true,
+    user: payload,
+    token: tokens?.token ?? undefined,
+    refresh_token: tokens?.refresh_token ?? undefined,
+  });
   if (tokens) setRefreshCookieOnResponse(response, tokens.refresh_token);
   return response;
 });

@@ -7,5 +7,5 @@
  *              Unified exports for HTTP request layer and declarative data fetching Hook.
  */
 
-export { api, apiCached, clearApiCache, ApiError, getAuthToken, setAuthTokens, clearAuthTokens, updateAuthToken, downloadFile } from "./api-client";
+export { api, apiCached, clearApiCache, ApiError, getAuthToken, getRefreshToken, setAuthTokens, clearAuthTokens, updateAuthToken, downloadFile } from "./api-client";
 export { buildQuery } from "./buildQuery";
