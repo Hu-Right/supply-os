@@ -7,7 +7,7 @@
  *              A4 下沉后路由仅保留：认证、限流、参数解析与校验；
  *              编排见 lib/services/translation/translation-flow.ts。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

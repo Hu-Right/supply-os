@@ -5,7 +5,7 @@
  * Route-level error boundary for CRM page
  */
 export default function CrmError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

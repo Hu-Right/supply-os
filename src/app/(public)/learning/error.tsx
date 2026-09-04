@@ -5,7 +5,7 @@
  * Route-level error boundary for learning page
  */
 export default function LearningError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

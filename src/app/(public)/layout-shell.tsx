@@ -91,7 +91,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         window.history.replaceState(null, "", clean ? `${window.location.pathname}?${clean}` : window.location.pathname);
       }
     }
-  }, []);
+  }, [setShowAuthModal]);
 
   // 研修班落地页 + 资质表单：main 全宽
   const pathname = usePathname();

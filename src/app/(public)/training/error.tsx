@@ -5,7 +5,7 @@
  * Route-level error boundary for training page
  */
 export default function TrainingError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };

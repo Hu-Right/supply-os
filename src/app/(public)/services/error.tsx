@@ -5,7 +5,7 @@
  * Route-level error boundary for services page
  */
 export default function ServicesError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };
