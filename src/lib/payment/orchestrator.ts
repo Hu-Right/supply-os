@@ -69,7 +69,6 @@ export class PaymentOrchestrator {
   ) {}
 
   // ── 渠道策略注册 ──────────────────────────────────────────────────────────
-
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
     this.paymentService.registerStrategy(provider, strategy);

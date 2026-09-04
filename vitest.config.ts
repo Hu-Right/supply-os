@@ -34,6 +34,10 @@ export default defineConfig({
         "src/lib/utils/notice-expired.ts",
         "src/lib/utils/ip.ts",
         "src/lib/utils/fileSniff.ts",
+        "src/lib/utils/auth-cookies-next.ts",
+
+        // ── src/lib/middleware — 认证中间件 ──
+        "src/lib/middleware/auth.ts",
 
         // ── src/lib/validators — 客服输入校验 ──
         "src/lib/validators/chat.ts",
@@ -64,6 +68,8 @@ export default defineConfig({
 
         // ── src/lib/services — 独立服务文件（有测试）──
         "src/lib/services/auth.ts",
+        "src/lib/services/auth-login.ts",
+        "src/lib/services/auth-register.ts",
         "src/lib/services/jwt.ts",
         "src/lib/services/membership-status.ts",
         "src/lib/services/membership-upgrade.ts",

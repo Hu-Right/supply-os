@@ -70,13 +70,13 @@ describe("issueTokenPair", () => {
     expect(result.refresh_token).toBe("mock-refresh-token");
   });
 
-  it("insertRefreshToken 失败不阻断", async () => {
+  it("insertRefreshToken 失败 → 错误传播（确保 token 入库才返回）", async () => {
     const { issueTokenPair } = await import("@/lib/services/auth");
     const mockAuthRepo = {
       insertRefreshToken: vi.fn().mockRejectedValue(new Error("DB error")),
     };
-    const result = await issueTokenPair(mockAuthRepo as any, 42, "user@test.com");
-    expect(result.token).toBe("mock-access-token");
+    await expect(issueTokenPair(mockAuthRepo as any, 42, "user@test.com"))
+      .rejects.toThrow("DB error");
   });
 });
 
