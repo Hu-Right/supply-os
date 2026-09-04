@@ -5,68 +5,63 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import {
   buildBidReportPreviewText,
   estimateFullReportCharCount,
   mergeBidReportRow,
 } from "@/lib/services/bid-report";
-import { EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND_404, EC_REPORT_NOT_AVAILABLE } from "@/shared/constants/api";
+import { EC_NOTICE_NOT_FOUND_404, EC_REPORT_NOT_AVAILABLE } from "@/shared/constants/api";
 
-function sendError(message: string, status: number, code: number) {
-  return NextResponse.json({ code, message, error: message }, { status });
-}
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+    const { id } = await params;
+    const noticeId = Number(id);
+    const userId = auth.userId;
 
-  const { id } = await params;
-  const noticeId = Number(id);
-  const userId = auth.userId;
+    if (!noticeId) {
+      routeError(400, EC_NOTICE_NOT_FOUND_404, "请先登录并指定公告");
+    }
 
-  if (!noticeId || !userId) {
-    return sendError("请先登录并指定公告", 400, EC_USER_REQUIRED);
-  }
+    const ctx = getContext();
+    const { detailRepo, unlockRepo } = ctx.notice;
+    const opportunitiesRepo = ctx.opportunitiesRepo;
 
-  const ctx = getContext();
-  const { detailRepo, unlockRepo } = ctx.notice;
-  const opportunitiesRepo = ctx.opportunitiesRepo;
+    const [unlock, notice] = await Promise.all([
+      unlockRepo.findUnlock(userId, noticeId),
+      detailRepo.findDetail(noticeId),
+    ]);
+    if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
 
-  const [unlock, notice] = await Promise.all([
-    unlockRepo.findUnlock(userId!, noticeId),
-    detailRepo.findDetail(noticeId),
-  ]);
-  if (!notice) return sendError("公告不存在", 404, EC_NOTICE_NOT_FOUND_404);
+    const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    if (!qualified) routeError(404, EC_REPORT_NOT_AVAILABLE, "报告不可用");
 
-  const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-  if (!qualified) return sendError("报告不可用", 404, EC_REPORT_NOT_AVAILABLE);
+    const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
+    const opportunity = fullOpportunity || qualified;
+    const row = mergeBidReportRow(notice, opportunity);
 
-  const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
-  const opportunity = fullOpportunity || qualified;
-  const row = mergeBidReportRow(notice, opportunity);
+    const lang = req.nextUrl.searchParams.get("lang") || "zh";
+    const sections = buildBidReportPreviewText(row, lang);
+    const total_report_chars = estimateFullReportCharCount(row);
 
-  const lang = req.nextUrl.searchParams.get("lang") || "zh";
-  const sections = buildBidReportPreviewText(row, lang);
-  const total_report_chars = estimateFullReportCharCount(row);
+    // 未解锁用户服务端截断 sections 内容
+    const MAX_CHARS_PER_SECTION = 500;
+    const safeSections = unlock
+      ? sections
+      : sections.map((s: { heading: string; body: string }) => ({
+          ...s,
+          body: s.body.length > MAX_CHARS_PER_SECTION ? s.body.slice(0, MAX_CHARS_PER_SECTION) + "…" : s.body,
+        }));
 
-  // 未解锁用户服务端截断 sections 内容
-  const MAX_CHARS_PER_SECTION = 500;
-  const safeSections = unlock
-    ? sections
-    : sections.map((s: { heading: string; body: string }) => ({
-        ...s,
-        body: s.body.length > MAX_CHARS_PER_SECTION ? s.body.slice(0, MAX_CHARS_PER_SECTION) + "…" : s.body,
-      }));
-
-  return NextResponse.json({
-    sections: safeSections,
-    is_unlocked: !!unlock,
-    has_full_report: true,
-    total_report_chars,
-  });
-}
+    return NextResponse.json({
+      sections: safeSections,
+      is_unlocked: !!unlock,
+      has_full_report: true,
+      total_report_chars,
+    });
+  },
+);

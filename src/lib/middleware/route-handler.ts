@@ -16,19 +16,23 @@ import { EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
 /** 业务错误：withRoute 捕获后按 status/code/message 输出标准 envelope */
 export class RouteError extends Error {
+  /** 附加到响应 envelope 的额外字段（如 { max: 50 }、{ core_locked: true }） */
+  public extra?: Record<string, unknown>;
   constructor(
     public status: number,
     public code: number,
     message: string,
+    extra?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "RouteError";
+    this.extra = extra;
   }
 }
 
 /** 抛出业务错误（在 withRoute 包裹的 handler 内使用） */
-export function routeError(status: number, code: number, message: string): never {
-  throw new RouteError(status, code, message);
+export function routeError(status: number, code: number, message: string, extra?: Record<string, unknown>): never {
+  throw new RouteError(status, code, message, extra);
 }
 
 /**
@@ -70,7 +74,7 @@ export function withRoute<C>(handler: RouteHandler<C>): (req: NextRequest, ctx?:
       return await handler(req, ctx as C);
     } catch (err) {
       if (err instanceof RouteError) {
-        return NextResponse.json({ code: err.code, message: err.message }, { status: err.status });
+        return NextResponse.json({ code: err.code, message: err.message, ...err.extra }, { status: err.status });
       }
       if (err instanceof ZodError) {
         return NextResponse.json(

@@ -5,37 +5,32 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 
-function sendError(message: string, status: number, code: number) {
-  return NextResponse.json({ code, message, error: message }, { status });
-}
+export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
+  async (req, { params }) => {
+    const ctx = getContext();
+    if (ctx.payment.paymentMode === "live") {
+      routeError(404, 40404, "订单不存在");
+    }
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ orderNo: string }> },
-) {
-  const ctx = getContext();
-  if (ctx.payment.paymentMode === "live") {
-    return NextResponse.json({ code: 40404, message: "订单不存在" }, { status: 404 });
-  }
+    const auth = await requireUserKeyOrThrow(req);
 
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+    const { orderNo } = await params;
+    const { orchestrator } = ctx.payment;
 
-  const { orderNo } = await params;
-  const { orchestrator } = ctx.payment;
+    const dbOrder = await orchestrator.findOrder(orderNo);
+    if (!dbOrder) routeError(404, EC_PAYMENT_ORDER_NOT_FOUND, "订单不存在");
+    if (dbOrder.user_id !== auth.userId) routeError(403, EC_ACCESS_FORBIDDEN, "无权操作此订单");
 
-  const dbOrder = await orchestrator.findOrder(orderNo);
-  if (!dbOrder) return sendError("订单不存在", 404, EC_PAYMENT_ORDER_NOT_FOUND);
-  if (dbOrder.user_id !== auth.userId) return sendError("无权操作此订单", 403, EC_ACCESS_FORBIDDEN);
+    const body = await req.json().catch(() => ({}));
+    const { found } = await orchestrator.fulfillMockOrder(
+      orderNo, JSON.stringify(body || { mock: true }),
+    );
+    if (!found) routeError(404, EC_PAYMENT_ORDER_NOT_FOUND, "订单不存在");
 
-  const body = await req.json().catch(() => ({}));
-  const { found } = await orchestrator.fulfillMockOrder(
-    orderNo, JSON.stringify(body || { mock: true }),
-  );
-  if (!found) return sendError("订单不存在", 404, EC_PAYMENT_ORDER_NOT_FOUND);
-
-  return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });
-}
+    return NextResponse.json({ success: true, order_no: orderNo, status: "paid" });
+  },
+);

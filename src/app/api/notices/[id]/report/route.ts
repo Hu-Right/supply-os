@@ -7,9 +7,10 @@
 import { createHash } from "crypto";
 import { promises as fs } from "fs";
 import nodePath from "path";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { requireUserKey } from "@/lib/middleware/auth";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
 import {
   buildBidReportDocx,
@@ -21,81 +22,75 @@ const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingm
 const reportCacheDir = () => nodePath.join(process.cwd(), "runtime", "bid_reports");
 
 import {
-  EC_USER_REQUIRED, EC_NOTICE_NOT_FOUND_404, EC_ACCESS_FORBIDDEN, EC_REPORT_NOT_AVAILABLE,
+  EC_NOTICE_NOT_FOUND_404, EC_ACCESS_FORBIDDEN, EC_REPORT_NOT_AVAILABLE,
 } from "@/shared/constants/api";
 
-function sendError(message: string, status: number, code: number, extra?: Record<string, unknown>) {
-  return NextResponse.json({ code, message, error: message, ...extra }, { status });
-}
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const auth = await requireUserKey(req);
-  if (auth instanceof Response) return auth;
+    const { id } = await params;
+    const noticeId = Number(id);
+    const userId = auth.userId;
 
-  const { id } = await params;
-  const noticeId = Number(id);
-  const userId = auth.userId;
-
-  if (!noticeId || !userId) {
-    return sendError("请先登录并指定公告", 400, EC_USER_REQUIRED);
-  }
-
-  const ctx = getContext();
-  const { detailRepo, unlockRepo } = ctx.notice;
-  const opportunitiesRepo = ctx.opportunitiesRepo;
-
-  const unlock = await unlockRepo.findUnlock(userId!, noticeId);
-  if (!unlock) return sendError("公告已锁定，请先解锁", 403, EC_ACCESS_FORBIDDEN, { core_locked: true });
-
-  const notice = await detailRepo.findDetail(noticeId);
-  if (!notice) return sendError("公告不存在", 404, EC_NOTICE_NOT_FOUND_404);
-
-  const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
-  if (!qualified) return sendError("报告不可用", 404, EC_REPORT_NOT_AVAILABLE);
-
-  const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
-  const opportunity = fullOpportunity || qualified;
-
-  const row = mergeBidReportRow(notice, opportunity);
-  const fileName = bidReportFileName(row);
-
-  const fingerprint = createHash("md5")
-    .update(`${opportunity.id}|${String(opportunity.update_time || "")}`)
-    .digest("hex")
-    .slice(0, 12);
-  const cacheDir = reportCacheDir();
-  const cachePath = nodePath.join(cacheDir, `bid_report_${noticeId}_${opportunity.id}_${fingerprint}.docx`);
-
-  let buffer: Buffer | null = null;
-  try {
-    buffer = await fs.readFile(cachePath);
-  } catch {
-    // 缓存未命中：生成
-  }
-  if (!buffer) {
-    buffer = await buildBidReportDocx(row);
-    try {
-      await fs.mkdir(cacheDir, { recursive: true });
-      const stale = (await fs.readdir(cacheDir)).filter(
-        (f) => f.startsWith(`bid_report_${noticeId}_`) && f !== nodePath.basename(cachePath),
-      );
-      await Promise.all(stale.map((f) => fs.unlink(nodePath.join(cacheDir, f)).catch(() => undefined)));
-      await fs.writeFile(cachePath, buffer);
-    } catch {
-      // 缓存写失败不影响下载
+    if (!noticeId) {
+      routeError(400, EC_NOTICE_NOT_FOUND_404, "请先登录并指定公告");
     }
-  }
 
-  const asciiName = `bid_report_${noticeId}.docx`;
-  return new Response(new Uint8Array(buffer), {
-    status: 200,
-    headers: {
-      "Content-Type": DOCX_MIME,
-      "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-      "Content-Length": String(buffer.length),
-    },
-  });
-}
+    const ctx = getContext();
+    const { detailRepo, unlockRepo } = ctx.notice;
+    const opportunitiesRepo = ctx.opportunitiesRepo;
+
+    const unlock = await unlockRepo.findUnlock(userId, noticeId);
+    if (!unlock) routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
+
+    const notice = await detailRepo.findDetail(noticeId);
+    if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
+
+    const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    if (!qualified) routeError(404, EC_REPORT_NOT_AVAILABLE, "报告不可用");
+
+    const fullOpportunity = await opportunitiesRepo.findFullById(Number(qualified.id));
+    const opportunity = fullOpportunity || qualified;
+
+    const row = mergeBidReportRow(notice, opportunity);
+    const fileName = bidReportFileName(row);
+
+    const fingerprint = createHash("md5")
+      .update(`${opportunity.id}|${String(opportunity.update_time || "")}`)
+      .digest("hex")
+      .slice(0, 12);
+    const cacheDir = reportCacheDir();
+    const cachePath = nodePath.join(cacheDir, `bid_report_${noticeId}_${opportunity.id}_${fingerprint}.docx`);
+
+    let buffer: Buffer | null = null;
+    try {
+      buffer = await fs.readFile(cachePath);
+    } catch {
+      // 缓存未命中：生成
+    }
+    if (!buffer) {
+      buffer = await buildBidReportDocx(row);
+      try {
+        await fs.mkdir(cacheDir, { recursive: true });
+        const stale = (await fs.readdir(cacheDir)).filter(
+          (f) => f.startsWith(`bid_report_${noticeId}_`) && f !== nodePath.basename(cachePath),
+        );
+        await Promise.all(stale.map((f) => fs.unlink(nodePath.join(cacheDir, f)).catch(() => undefined)));
+        await fs.writeFile(cachePath, buffer);
+      } catch {
+        // 缓存写失败不影响下载
+      }
+    }
+
+    const asciiName = `bid_report_${noticeId}.docx`;
+    return new Response(new Uint8Array(buffer), {
+      status: 200,
+      headers: {
+        "Content-Type": DOCX_MIME,
+        "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+        "Content-Length": String(buffer.length),
+      },
+    });
+  },
+);
