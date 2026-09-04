@@ -46,7 +46,7 @@ export async function loginWithPassword(
 
   if (needsUpgrade(hashType)) {
     const newHash = await hashPassword(password);
-    await ctx.user.usersRepo.updatePassword(user.user_key, newHash, "bcrypt");
+    await ctx.user.usersRepo.updatePasswordById(user.id, newHash, "bcrypt");
   }
 
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
