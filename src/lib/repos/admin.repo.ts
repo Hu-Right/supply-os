@@ -50,7 +50,7 @@ export class AdminRepo {
     const [rows] = await this.pool.query(
       `SELECT
          COALESCE(variant, 'control') AS variant,
-         COUNT(DISTINCT user_key) AS users,
+         COUNT(DISTINCT user_id) AS users,
          SUM(action = 'impression') AS impressions,
          SUM(action = 'click') AS clicks,
          SUM(action = 'unlock') AS unlocks,

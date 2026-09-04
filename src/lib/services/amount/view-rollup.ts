@@ -21,7 +21,7 @@ export async function rollupNoticeViewDaily(dbPool: any, sinceDays = 0): Promise
   const params = sinceDays > 0 ? [sinceDays] : [];
   const [result] = await dbPool.query(
     `INSERT INTO crm_notice_view_daily (notice_id, stat_day, view_cnt, uniq_user_cnt)
-     SELECT notice_id, DATE(viewed_at), COUNT(*), COUNT(DISTINCT user_key)
+     SELECT notice_id, DATE(viewed_at), COUNT(*), COUNT(DISTINCT user_id)
      FROM crm_user_notice_views
      WHERE notice_id IS NOT NULL ${windowWhere}
      GROUP BY notice_id, DATE(viewed_at)

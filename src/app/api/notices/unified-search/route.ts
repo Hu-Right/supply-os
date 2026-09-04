@@ -6,9 +6,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractUserKey } from "@/lib/middleware/auth";
 import { searchUnified } from "@/lib/services/search-orchestrator";
+import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
 
-function parseSearchParams(req: NextRequest) {
+function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
   const get = (k: string, d = "") => sp.get(k) || d;
   const getInt = (k: string, d = 0) => { const v = sp.get(k); return v ? Number(v) : d; };
@@ -16,6 +17,7 @@ function parseSearchParams(req: NextRequest) {
   return {
     mode: get("mode", "default"),
     userKey: "",
+    userId: 0,
     page: getInt("page", 1),
     pageSize: getInt("page_size", 10),
     locale: get("locale"),
