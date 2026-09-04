@@ -39,6 +39,7 @@ export async function backfillUserIds(dbPool: any) {
     { name: "learning_orders", joinColumn: "user_key" },
     { name: "training_orders", joinColumn: "user_key" },
     { name: "crm_user_search_log", joinColumn: "user_key" },
+    { name: "crm_consent_log", joinColumn: "user_key" },
   ];
 
   const BATCH = BACKFILL_BATCH_SIZE;
