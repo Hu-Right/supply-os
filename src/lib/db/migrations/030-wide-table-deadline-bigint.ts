@@ -31,60 +31,49 @@ export const migration: Migration = {
 
     // ── Step 2: 扩容列类型 INT UNSIGNED → BIGINT UNSIGNED ──
     // MySQL 8.0.12+ 整数扩展是 INSTANT DDL（毫秒级，不锁表）
-    try {
-      const [cols] = await dbPool.query(
-        `SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND COLUMN_NAME = 'deadline_sec'`,
+    const [cols] = await dbPool.query(
+      `SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND COLUMN_NAME = 'deadline_sec'`,
+    );
+    const currentType = (cols as any[])[0]?.DATA_TYPE || "";
+    if (currentType === "bigint") {
+      console.log("[migration-030] deadline_sec 已是 BIGINT，跳过 DDL");
+    } else {
+      console.log(`[migration-030] deadline_sec: ${currentType} → BIGINT UNSIGNED（INSTANT DDL）…`);
+      await dbPool.query(
+        `ALTER TABLE crm_notice_search MODIFY COLUMN deadline_sec BIGINT UNSIGNED NOT NULL DEFAULT 0`,
       );
-      const currentType = (cols as any[])[0]?.DATA_TYPE || "";
-      if (currentType === "bigint") {
-        console.log("[migration-030] deadline_sec 已是 BIGINT，跳过 DDL");
-      } else {
-        console.log(`[migration-030] deadline_sec: ${currentType} → BIGINT UNSIGNED（INSTANT DDL）…`);
-        await dbPool.query(
-          `ALTER TABLE crm_notice_search MODIFY COLUMN deadline_sec BIGINT UNSIGNED NOT NULL DEFAULT 0`,
-        );
-        console.log("[migration-030] DDL 完成");
-      }
-    } catch (err) {
-      // 真实失败必须抛出阻断迁移（版本记录前失败可重跑）；吞错会导致
-      // 版本照记、列停留在 INT，且后续回填在错误类型上执行（审查 F18）
-      throw err;
+      console.log("[migration-030] DDL 完成");
     }
 
     // ── Step 3: 修复被 028 迁移错误归零的记录 ──
     // 条件：宽表 deadline_sec = 0，但主表 deadline_sec > 0（有合法截止日期）
-    try {
-      const [before] = await dbPool.query(
-        `SELECT COUNT(*) as cnt FROM crm_notice_search ns
-         INNER JOIN crm_bid_notices n ON n.id = ns.id
-         WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0`,
-      );
-      const toFix = Number((before as any[])[0]?.cnt || 0);
-
-      if (toFix > 0) {
-        console.log(`[migration-030] 发现 ${toFix} 条被错误归零的记录，开始回填…`);
-        // 分批更新，每批 5000，避免长事务锁
-        let totalFixed = 0;
-        while (true) {
-          const [result] = await dbPool.query(
-            `UPDATE crm_notice_search ns
-             INNER JOIN crm_bid_notices n ON n.id = ns.id
-             SET ns.deadline_sec = n.deadline_sec
-             WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0
-             LIMIT 5000`,
-          );
-          const affected = (result as any).affectedRows || 0;
-          totalFixed += affected;
-          if (affected < 5000) break;
-        }
-        console.log(`[migration-030] 回填完成: ${totalFixed} 条`);
-      } else {
-        console.log("[migration-030] 无需修复的记录");
+    const [before] = await dbPool.query(
+      `SELECT COUNT(*) as cnt FROM crm_notice_search ns
+       INNER JOIN crm_bid_notices n ON n.id = ns.id
+       WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0`,
+    );
+    const toFix = Number((before as any[])[0]?.cnt || 0);
+    
+    if (toFix > 0) {
+      console.log(`[migration-030] 发现 ${toFix} 条被错误归零的记录，开始回填…`);
+      // 分批更新，每批 5000，避免长事务锁
+      let totalFixed = 0;
+      while (true) {
+        const [result] = await dbPool.query(
+          `UPDATE crm_notice_search ns
+           INNER JOIN crm_bid_notices n ON n.id = ns.id
+           SET ns.deadline_sec = n.deadline_sec
+           WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0
+           LIMIT 5000`,
+        );
+        const affected = (result as any).affectedRows || 0;
+        totalFixed += affected;
+        if (affected < 5000) break;
       }
-    } catch (err) {
-      // 数据回填失败必须抛出，否则版本照记、deadline_sec 停留在错误状态（审查 F18）
-      throw err;
+      console.log(`[migration-030] 回填完成：${totalFixed} 条`);
+    } else {
+      console.log("[migration-030] 无需修复的记录");
     }
   },
 };
