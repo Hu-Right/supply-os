@@ -118,16 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser]);
 
   /**
-   * 注册（手机号必填，邮箱选填仅用于通知）
-   * Register (phone required, email optional for notifications only)
+   * 注册（手机号必填，邮箱绑定在注册后个人中心完成）
+   * Register (phone required; email binding is done post-registration in profile)
    */
-  const register = useCallback(async ({ email, password, displayName, claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
+  const register = useCallback(async ({ password, displayName, claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
         body: {
-          email, password, display_name: displayName, verify_code: verifyCode,
+          password, display_name: displayName, verify_code: verifyCode,
           invitation_code: invitationCode, user_type: userType, phone,
           // 默认昵称按注册界面语言生成（服务端 generateNickname 白名单内回退）
           locale,
@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persistAuthUser(data.user);
 
       // 提交供应商绑定申请（注册成功后携带新签发的 JWT，api() 自动附加）
+      // 注：注册流程已移除邮箱收集，contact_email 留空，用户可在个人中心绑定邮箱后补充
       if (claim) {
         await api("/api/supplier-claims", {
           method: "POST",
@@ -153,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             supplier_type: claim.supplierType,
             contact_name: claim.contactName || displayName,
             contact_phone: claim.contactPhone,
-            contact_email: data.user.email,
             business_license_no: claim.businessLicenseNo,
           },
         });

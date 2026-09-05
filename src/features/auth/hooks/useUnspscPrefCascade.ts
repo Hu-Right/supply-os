@@ -12,7 +12,7 @@
  *              account panel: option loading (reload on locale switch) and
  *              level-change handlers (level-1 change clears levels 2/3, etc.).
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import {
   fetchUnspscIndustries,
@@ -118,7 +118,7 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setSubOptions2([]);
   }, []);
 
-  return {
+  return useMemo(() => ({
     industryOptions,
     subOptions,
     subOptions2,
@@ -132,5 +132,5 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel2Change,
     applyInferredPath,
     resetCascade,
-  };
+  }), [industryOptions, subOptions, subOptions2, prefLevel1, prefLevel2, prefLevel3, setPrefLevel1, setPrefLevel2, setPrefLevel3, handlePrefLevel1Change, handlePrefLevel2Change, applyInferredPath, resetCascade]);
 }

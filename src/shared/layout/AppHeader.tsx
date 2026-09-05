@@ -10,7 +10,7 @@
  *              Mobile: DeepSeek-style slide-out drawer from the left with icon + label
  *              navigation items; auto-closes on selection.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Globe, Crown, Menu, X } from "lucide-react";
@@ -19,6 +19,12 @@ import { useAuth } from "@/core/auth";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
+
+/** 格式化本地时间为 YYYY-MM-DD HH:MM:SS */
+const fmtLocalTime = (d: Date) =>
+  d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+  String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' +
+  String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
 
 export interface AppTab {
   path: string;
@@ -49,6 +55,13 @@ export function AppHeader({
   const navScrollRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+
+  // 动态本地时间（每秒刷新）
+  const [localTime, setLocalTime] = useState(() => fmtLocalTime(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => setLocalTime(fmtLocalTime(new Date())), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // VIP 等级标签：按已解锁套餐显示（个人版/基础版/旗舰版/至尊版），兜底 VIP
   const vipDisplayLabel = tierLabel || (isVip ? t("vipLabel") : t("freeLabel"));
@@ -87,7 +100,7 @@ export function AppHeader({
             <div className="min-w-0 flex-1">
               <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-primary-700 to-secondary-900 bg-clip-text text-transparent">{t("brandName")}</h1>
               <div className="text-xs text-secondary-400 font-mono hidden md:block">
-                SYS: ACTIVE | UTC: 2026-05-30
+                SYS: ACTIVE | {localTime}
               </div>
             </div>
           </div>

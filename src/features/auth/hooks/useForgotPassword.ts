@@ -16,7 +16,7 @@ export function maskEmail(email: string): string {
   if (local.length <= 2) {
     return `${local[0]}**@${domain}`;
   }
-  return `${local[0]}**${local[local.length - 1]}@domain}`;
+  return `${local[0]}**${local[local.length - 1]}@${domain}`;
 }
 
 /** 手机号脱敏：显示前3后4，中间用 **** 替代 */

@@ -73,7 +73,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   ): Promise<void> => {
     setAuthError("");
 
-    const email = authForm.email.trim();
     const phone = authForm.phone.trim();
     const password = authForm.password;
 
@@ -135,7 +134,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       } else {
         // 注册：手机号必填，邮箱选填
         await register({
-          email: email || null,
           password,
           displayName: authForm.displayName,
           claim: authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,

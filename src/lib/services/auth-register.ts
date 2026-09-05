@@ -33,7 +33,6 @@ export interface RegisterUserParams {
   password: string;
   /** 短信验证码 */
   code: string;
-  email?: string;
   /** 已大写的邀请码（Cookie 回退由路由完成） */
   inviteCode: string;
   userType: "personal" | "enterprise";
@@ -59,7 +58,7 @@ export async function registerUser(
   ctx: AppContext,
   params: RegisterUserParams,
 ): Promise<RegisterUserResult> {
-  const { displayName, targetPhone, password: pw, code, email, inviteCode } = params;
+  const { displayName, targetPhone, password: pw, code, inviteCode } = params;
   const userType = params.userType;
 
   // 密码策略（40006）
@@ -90,7 +89,7 @@ export async function registerUser(
 
   // create() 返回新用户 id（user_key 列的 INSERT 占位由 repo 内部处理）
   const newUserId = await ctx.user.usersRepo.create({
-    email: email ? String(email).trim().toLowerCase() : null,
+    email: null,
     display_name: displayName,
     // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
     nickname: generateNickname(params.locale),
