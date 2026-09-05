@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKey, requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
@@ -29,6 +31,11 @@ export const GET = withRoute(async (req: NextRequest) => {
 });
 
 export const POST = withRoute(async (req: NextRequest) => {
+  // ARCH-P3（2026-09-05）：限流补全 — leads 写端点，IP 维度 10min/10
+  // （展厅注册免登录，必须用 IP 维度而非用户维度）
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 }, () => `leads:${extractClientIp(req)}`);
+  if (rl) return rl;
+
   const body = await req.json();
   const leadType = body?.type;
 

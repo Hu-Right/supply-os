@@ -9,10 +9,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
+
+  // ARCH-P3（2026-09-05）：限流补全 — 培训报名写端点，IP 维度 10min/5
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 5 }, () => `training_reg:${extractClientIp(req)}`);
+  if (rl) return rl;
 
   const body = await req.json();
   const ctx = getContext();

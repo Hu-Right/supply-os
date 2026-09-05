@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { resolveMembershipState } from "@/lib/services/membership-status";
 import { mapUngmAppointmentRow, mapLeadForMemberView } from "@/lib/services/leads";
 import type { Lead } from "@/types";
@@ -26,6 +27,10 @@ const MEMBER_LOG_AUTHOR = "VIP Member";
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
+
+  // ARCH-P3（2026-09-05）：限流补全 — 跟进日志写端点，用户维度 1min/20
+  const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 20 }, () => `lead_log:${auth.userId}`);
+  if (rl) return rl;
 
   const body = await req.json();
   const { leadId, content, nextStatus } = body as {

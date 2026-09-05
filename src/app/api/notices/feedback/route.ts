@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { processFeedback } from "@/lib/services/notice-actions";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
@@ -24,6 +25,10 @@ const VALID_ACTIONS = new Set([
 export const POST = withRoute(
   async (req: NextRequest) => {
     const auth = await requireUserKeyOrThrow(req);
+
+    // ARCH-P3（2026-09-05）：限流补全 — 反馈写端点，用户维度 1min/30
+    const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `feedback:${auth.userId}`);
+    if (rl) return rl;
 
     const body = await req.json();
     const sessionId = String(body.session_id || "").trim().slice(0, 64);
