@@ -100,9 +100,8 @@ export function WorldMapChart() {
           },
           geo: {
             map: "world",
-            roam: true,
+            roam: false,
             zoom: 1.2,
-            scaleLimit: { min: 1, max: 5 },
             center: [0, 20],
             label: { show: false },
             itemStyle: {
@@ -166,7 +165,7 @@ export function WorldMapChart() {
   }
 
   return (
-    <div className="relative w-full h-[500px]">
+    <div className="relative" style={{ width: 800, height: 450 }}>
       {/* 加载遮罩 */}
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
