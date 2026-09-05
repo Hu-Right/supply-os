@@ -4,7 +4,7 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Input, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
@@ -51,6 +51,18 @@ export function RegisterForm({
   const [hasRefCookie, setHasRefCookie] = useState(false);
   useEffect(() => { setHasRefCookie(detectRefCookie()); }, []);
 
+  // ★ 用 ref 追踪上一次同步的 companyName，避免 claimForm.companyName 进入
+  // useCallback 依赖数组后与 setClaimForm 形成闭环，触发 React error #300
+  const prevCompanyNameRef = useRef(claimForm.companyName);
+  const handleQualificationChange = useCallback((data: QualificationFormState) => {
+    onQualificationChange?.(data as unknown as Record<string, string | string[]>);
+    // 仅当 companyName 实际变化时才同步，避免无效更新
+    if (data.company_name !== prevCompanyNameRef.current) {
+      prevCompanyNameRef.current = String(data.company_name);
+      setClaimForm((prev) => ({ ...prev, companyName: prevCompanyNameRef.current }));
+    }
+  }, [onQualificationChange, setClaimForm]);
+
   return (
     <div className="space-y-3">
       {/* 注册类型选择 */}
@@ -83,13 +95,7 @@ export function RegisterForm({
       {authForm.userType === "enterprise" && (
         <EnterpriseQualificationForm
           registrationPhone={authForm.phone}
-          onFormChange={useCallback((data: QualificationFormState) => {
-            onQualificationChange?.(data as unknown as Record<string, string | string[]>);
-            // 同步公司名称到 claimForm，供注册校验使用
-            if (data.company_name !== claimForm.companyName) {
-              setClaimForm((prev) => ({ ...prev, companyName: String(data.company_name) }));
-            }
-          }, [onQualificationChange, claimForm.companyName, setClaimForm])}
+          onFormChange={handleQualificationChange}
         />
       )}
 

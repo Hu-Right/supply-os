@@ -57,7 +57,7 @@ export function AppHeader({
   const router = useRouter();
 
   // 动态本地时间（每秒刷新）
-  // ★ 初始化为空字符串，仅在客户端 mount 后设置，避免 SSR/CSR 时间戳不一致导致 hydration mismatch ★
+  // ★ 初始化为空字符串 + suppressHydrationWarning，彻底避免 SSR/CSR 时间戳不一致导致 hydration mismatch
   const [localTime, setLocalTime] = useState("");
   useEffect(() => {
     setLocalTime(fmtLocalTime(new Date()));
@@ -101,7 +101,7 @@ export function AppHeader({
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-primary-700 to-secondary-900 bg-clip-text text-transparent">{t("brandName")}</h1>
-              <div className="text-xs text-secondary-400 font-mono hidden md:block">
+              <div className="text-xs text-secondary-400 font-mono hidden md:block" suppressHydrationWarning>
                 SYS: ACTIVE | {localTime}
               </div>
             </div>
