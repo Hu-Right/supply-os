@@ -49,11 +49,14 @@ export default defineConfig({
         "src/lib/services/recommend/scoring.ts",
         "src/lib/services/recommend/text-similarity.ts",
 
+        // ── src/lib/services/search-common — 搜索共享纯逻辑子模块 ──
+        "src/lib/services/search-common/metrics.ts",
+        "src/lib/services/search-common/rebuild-trigger.ts",
+        "src/lib/services/search-common/wide-table-readiness.ts",
+
         // ── src/lib/services/search-orchestrator — 纯逻辑子模块 ──
-        "src/lib/services/search-orchestrator/metrics.ts",
         "src/lib/services/search-orchestrator/params.ts",
         "src/lib/services/search-orchestrator/format.ts",
-        "src/lib/services/search-orchestrator/rebuild-trigger.ts",
 
         // ── src/lib/services/unspsc — 纯函数 ──
         "src/lib/services/unspsc/parser.ts",

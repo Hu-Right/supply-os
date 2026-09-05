@@ -10,10 +10,10 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../meilisearch";
 import { tryRecover } from "../meilisearch/client";
 import { enqueueRetry } from "./sync-retry-queue";
-import { isWideTableReady } from "./wide-table-readiness";
-import { logSyncCascade } from "../search-orchestrator/metrics";
-import { requestIndexRebuild } from "../search-orchestrator/rebuild-trigger";
-import { invalidateUnifiedSearchCache } from "../search-orchestrator/index";
+import { isWideTableReady } from "../search-common/wide-table-readiness";
+import { logSyncCascade } from "../search-common/metrics";
+import { requestIndexRebuild } from "../search-common/rebuild-trigger";
+import { invalidateSearchCache } from "../search-common/sync-events";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
@@ -108,7 +108,7 @@ export async function incrementalWideSync(
     const synced = await upsertWideRows(pool, wideRows);
     // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
     // 此前仅在 syncWideIds 级联处失效缓存，导致新公告最长 5 分钟内不出现在带缓存的搜索结果中
-    if (synced > 0) invalidateUnifiedSearchCache();
+    if (synced > 0) invalidateSearchCache();
     const newWatermark = allRaw[allRaw.length - 1].id;
     return { synced, newWatermark };
   } catch (err) {
@@ -145,7 +145,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
     ));
     const synced = await upsertWideRows(pool, wideRows);
     // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文
-    if (synced > 0) invalidateUnifiedSearchCache();
+    if (synced > 0) invalidateSearchCache();
     // 级联同步 Meilisearch：宽表更新后必须同步到索引，避免数据断链。
     // 修复 G1/G4/G5：不健康时先尝试 tryRecover 自愈，仍失败则标记重建 + 入重试队列，
     // 不再静默丢弃——确保"宽表有数据但索引搜不到"的问题可自愈。

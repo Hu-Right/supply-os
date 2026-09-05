@@ -8,7 +8,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 // A2 解环：直接从无依赖叶子模块导入，不经过 search-sync barrel（避免循环回环）
-import { isWideTableReady } from "../search-sync/wide-table-readiness";
+import { isWideTableReady } from "../search-common/wide-table-readiness";
 
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 

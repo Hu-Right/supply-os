@@ -27,8 +27,9 @@ import { tryRecover, getCachedDocCount } from "../meilisearch/client";
 import { referenceFastPath } from "./reference-fast-path";
 import { fetchDetailsByIds } from "./detail-fetch";
 import { formatItems } from "./format";
-import { logPerf, recordFallback } from "./metrics";
-import { requestIndexRebuild } from "./rebuild-trigger";
+import { logPerf, recordFallback } from "../search-common/metrics";
+import { requestIndexRebuild } from "../search-common/rebuild-trigger";
+import { registerInvalidateCallback } from "../search-common/sync-events";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
 import { getNoticeAgencies, getAgencyCacheData } from "../notice-search/agencies/index";
@@ -86,6 +87,10 @@ export function invalidateUnifiedSearchCache(userId?: number): void {
     }
   }
 }
+
+// ARCH-P3-解环（2026-09-05）：注册缓存失效回调，供 search-sync 同步完成后调用
+// 避免 search-sync 直接 import search-orchestrator/index 形成循环依赖
+registerInvalidateCallback(invalidateUnifiedSearchCache);
 
 /**
  * 统一搜索主入口（含 single-flight 并发去重 + 结果缓存）。
