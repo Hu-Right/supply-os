@@ -12,7 +12,7 @@
  *              remembered per session via sessionStorage (per notice_id).
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Crown, MessageCircle, X, FileX } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -62,7 +62,9 @@ export function ReportUnavailableBanner({
   isLoggedIn,
 }: ReportUnavailableBannerProps) {
   const { t } = useLocale();
-  const [dismissed, setDismissed] = useState(() => isDismissed(noticeId));
+  // ★ SSR 安全：初始 false，客户端 mount 后检测 sessionStorage，避免 hydration mismatch
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => { setDismissed(isDismissed(noticeId)); }, [noticeId]);
   const [showQr, setShowQr] = useState(false);
 
   const handleDismiss = useCallback(() => {

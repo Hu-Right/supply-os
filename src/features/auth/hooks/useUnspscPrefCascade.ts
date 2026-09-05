@@ -85,17 +85,17 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   }, [prefLevel2, locale]);
 
   // 手动改选一级：二/三级随之失效
-  const handlePrefLevel1Change = (value: string) => {
+  const handlePrefLevel1Change = useCallback((value: string) => {
     setPrefLevel1(value);
     setPrefLevel2("");
     setPrefLevel3("");
-  };
+  }, []);
 
   // 手动改选二级：三级失效
-  const handlePrefLevel2Change = (value: string) => {
+  const handlePrefLevel2Change = useCallback((value: string) => {
     setPrefLevel2(value);
     setPrefLevel3("");
-  };
+  }, []);
 
   /** 按推断路径同步回填 L1/L2/L3：状态在调用瞬间即正确，不依赖异步 fetch。
    *  fetch 只负责拉取选项列表供下拉展示，回显在选项加载后自动呈现。
@@ -118,6 +118,11 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setSubOptions2([]);
   }, []);
 
+  // ★ 依赖数组仅包含稳定的 useCallback 引用，不包含 state 值。
+  // 若将 prefLevel1/2/3、industryOptions 等 state 值放入依赖，
+  // 每次 state 变化都会产生新的 cascade 对象引用，
+  // 导致 LoginRegisterForm 的 useEffect([auth.authMode, cascade]) 反复触发 resetCascade()，
+  // 形成「state 变化 → cascade 引用变化 → resetCascade → state 清空 → 重新变化」的无限循环。
   return useMemo(() => ({
     industryOptions,
     subOptions,
@@ -132,5 +137,5 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel2Change,
     applyInferredPath,
     resetCascade,
-  }), [industryOptions, subOptions, subOptions2, prefLevel1, prefLevel2, prefLevel3, setPrefLevel1, setPrefLevel2, setPrefLevel3, handlePrefLevel1Change, handlePrefLevel2Change, applyInferredPath, resetCascade]);
+  }), [handlePrefLevel1Change, handlePrefLevel2Change, applyInferredPath, resetCascade]);
 }

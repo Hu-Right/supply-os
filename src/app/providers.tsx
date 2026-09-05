@@ -4,7 +4,7 @@ import { Suspense, useEffect } from "react";
 import { LocaleProvider } from "@/core/i18n";
 import { AuthProvider } from "@/core/auth";
 import { Toaster } from "sonner";
-import { ErrorBoundary } from "@/shared/ui/ErrorBoundary";
+import { ErrorBoundaryWithI18n } from "@/shared/ui/ErrorBoundary";
 import { initCountryNames } from "@/shared/data/countryNames";
 import type { Locale } from "@/core/i18n/bundles";
 
@@ -25,14 +25,14 @@ export default function Providers({
   initialLocale?: Locale;
 }) {
   return (
-    <ErrorBoundary>
-      <Suspense fallback={<ProvidersSkeleton />}>
-        <LocaleProvider initialLocale={initialLocale}>
+    <Suspense fallback={<ProvidersSkeleton />}>
+      <LocaleProvider initialLocale={initialLocale}>
+        <ErrorBoundaryWithI18n>
           <AppInit />
-          <AuthProvider>{children}<Toaster richColors position="top-center" closeButton duration={typeof window !== "undefined" && window.innerWidth < 768 ? 6000 : 4000} toastOptions={{ className: "max-w-[90vw] md:max-w-md" }} /></AuthProvider>
-        </LocaleProvider>
-      </Suspense>
-    </ErrorBoundary>
+          <AuthProvider>{children}<Toaster richColors position="top-center" closeButton duration={5000} toastOptions={{ className: "max-w-[90vw] md:max-w-md" }} /></AuthProvider>
+        </ErrorBoundaryWithI18n>
+      </LocaleProvider>
+    </Suspense>
   );
 }
 

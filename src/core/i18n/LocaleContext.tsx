@@ -83,6 +83,22 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
   // ★ locale 提升为 React state —— 保证 setLocale 后必定触发 re-render ★
   const [locale, setLocaleState] = useState<Locale>(effectiveLocale);
 
+  // ★ 客户端挂载后检测真实语言偏好（Cookie / navigator），与 SSR 默认值 "en" 对齐后更新
+  useEffect(() => {
+    const detected = detectLocale();
+    if (detected !== locale) {
+      setLocaleState(detected);
+      instance.changeLanguage(detected).catch((err) => {
+        console.error("[i18n] changeLanguage error:", detected, err);
+      });
+      setCookie(COOKIE_NAME, detected, 365);
+      if (typeof document !== "undefined") {
+        document.documentElement.lang = detected;
+        document.documentElement.dir = getLocaleDir(detected);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 同步 HTML lang/dir
   useEffect(() => {
     if (typeof document !== "undefined") {
@@ -130,14 +146,16 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
 }
 
 export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
-  const effectiveLocale = initialLocale || detectLocale();
+  // ★ SSR 安全：initialLocale 未传入时统一使用 "en"，避免 detectLocale() 在 SSR/CSR 返回不同值导致 hydration mismatch
+  // 实际语言检测在客户端 useEffect 中完成
+  const safeInitialLocale = initialLocale || "en";
   const i18nInstanceRef = useRef<I18nInstance | null>(null);
 
   // ★ 创建独立 i18next 实例（仅一次），静态注入全部翻译资源 ★
   if (!i18nInstanceRef.current) {
     const instance = createInstance();
     instance.use(initReactI18next).init({
-      lng: effectiveLocale,
+      lng: safeInitialLocale,
       fallbackLng: "en",
       resources: CLIENT_RESOURCES,
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
@@ -149,7 +167,7 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
 
   return (
     <I18nextProvider i18n={i18nInstanceRef.current}>
-      <LocaleInner effectiveLocale={effectiveLocale} i18nInstance={i18nInstanceRef.current}>{children}</LocaleInner>
+      <LocaleInner effectiveLocale={safeInitialLocale} i18nInstance={i18nInstanceRef.current}>{children}</LocaleInner>
     </I18nextProvider>
   );
 }
