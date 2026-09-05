@@ -10,8 +10,7 @@
  *              key (no numeric-id indirection).
  */
 import {
-  Globe, Building2, Users, Briefcase, BookOpen, Crown, LayoutGrid, GraduationCap,
-  Trophy, FileText,
+  Home, Globe, Trophy, Users, Building2, LayoutGrid, BookOpen, GraduationCap, Briefcase,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LocaleKey } from "@/core/i18n";
@@ -27,14 +26,13 @@ export interface NavTab {
 }
 
 export const NAV_TABS: NavTab[] = [
-  { path: "/showroom", labelKey: "navShowrooms", shortLabelKey: "navShortShowrooms", icon: Building2 },
-  { path: "/procurement", labelKey: "navJointProcure", shortLabelKey: "navShortProcure", icon: Globe },
+  { path: "/", labelKey: "navHome", shortLabelKey: "navShortHome", icon: Home, highlight: true },
+  { path: "/procurement", labelKey: "navGlobalOpportunities", shortLabelKey: "navShortOpportunities", icon: Globe },
   { path: "/award-intelligence", labelKey: "navAwardIntelligence", shortLabelKey: "navShortAwardIntelligence", icon: Trophy },
-  { path: "/supplier", labelKey: "navSuppliers", shortLabelKey: "navShortSuppliers", icon: Users },
-  { path: "/crm", labelKey: "navCRM", shortLabelKey: "navShortCRM", icon: Briefcase, alert: true },
-  { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
-  { path: "/services", labelKey: "navServices", icon: LayoutGrid },
-  { path: "/learning", labelKey: "navLearning", shortLabelKey: "navShortLearning", icon: BookOpen },
+  { path: "/supplier", labelKey: "navSupplierLibrary", shortLabelKey: "navShortSuppliers", icon: Users },
+  { path: "/showroom", labelKey: "navShowrooms", shortLabelKey: "navShortShowrooms", icon: Building2 },
+  { path: "/services", labelKey: "navBiddingServices", icon: LayoutGrid },
+  { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
   { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
-  { path: "/membership", labelKey: "navMembership", shortLabelKey: "navShortMembership", icon: Crown, highlight: true },
+  { path: "/crm", labelKey: "navWorkbench", shortLabelKey: "navShortWorkbench", icon: Briefcase, alert: true },
 ];
