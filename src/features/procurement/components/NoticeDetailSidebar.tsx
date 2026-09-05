@@ -12,7 +12,12 @@ import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
-import { MembershipStatusPanel } from "@/features/membership";
+// ARCH-P2-解耦（2026-09-05）：dynamic import 消除 procurement→membership 硬依赖
+import dynamic from "next/dynamic";
+const MembershipStatusPanel = dynamic(
+  () => import("@/features/membership").then(m => ({ default: m.MembershipStatusPanel })),
+  { ssr: false },
+);
 import type { NoticeItem, MembershipStatus } from "../types";
 
 export interface NoticeDetailSidebarProps {

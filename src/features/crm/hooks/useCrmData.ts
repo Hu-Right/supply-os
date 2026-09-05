@@ -13,7 +13,8 @@ import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { OPPORTUNITIES } from "@/data";
-import { fetchSuppliers } from "@/features/supplier";
+// ARCH-P2-解耦（2026-09-05）：fetchSuppliers 内联为 core/http 直连，
+// 消除 crm→supplier 跨 feature 硬依赖（原函数仅一行 api() 调用）
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
 import { onAppEvent } from "@/core/events";
@@ -75,7 +76,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
       } catch {
         setLeads([]);
       }
-      const suppliers = await fetchSuppliers(locale).catch(() => [] as Supplier[]);
+      const suppliers = await api<Supplier[]>(`/api/suppliers?lang=${encodeURIComponent(locale)}`).catch(() => [] as Supplier[]);
       setDbSuppliers(suppliers);
       // 首次加载：无跨页带入时默认选中拉取列表首条（列表为空则不预选）
       if (preselectFirstSupplier && !autoMatchSupplier && suppliers.length > 0) {

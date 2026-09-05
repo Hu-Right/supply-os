@@ -7,9 +7,9 @@ import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-// 子路径导入（A3）：绕过 payment barrel，避免 PaymentModal/PaymentModalCore/MyRecordsPanel
-// 全套被静态拉进 procurement 首屏 chunk
-import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
+// ARCH-P2-解耦（2026-09-05）：RecentUnlocks 已从 features/payment 迁移至本 feature，
+// 消除 procurement→payment 跨 feature 硬依赖
+import { RecentUnlocks } from "../components/RecentUnlocks";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";

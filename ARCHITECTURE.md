@@ -18,10 +18,10 @@ src/core       客户端框架：http(api-client) / auth(AuthContext) / i18n / e
 src/lib        服务端唯一树：db / repos / services / payment / middleware / i18n / types
 ```
 
-**红线（当前零违规，改动必须保持）**：
-1. `src/lib` 不 import features/shared/app；
+**红线（改动必须保持）**：
+1. `src/lib` 不 import `features/app`；允许 import `shared/constants` 与 `shared/data`（纯数据/常量层），禁止 import `shared/ui`、`shared/layout`、`shared/hooks`、`shared/filters`（组件/交互层）；
 2. `src/core` 不 import features/lib/app（http↔auth 通过 `supply-os:*` 事件总线反向感知，禁止直接 import 环）；
-3. `src/features` 不直接 import `@/lib/**`（服务端树），客户端一律经 `@/core/http` 的 `api()/apiCached()` 走 HTTP；
+3. `src/features` 不直接 import `@/lib/**`（服务端树），客户端一律经 `@/core/http` 的 `api()/apiCached()` 走 HTTP；feature 间禁止硬依赖，共享逻辑提升至 `shared/` 或经 `core/events` 事件总线解耦；
 4. 服务端唯一入口：`src/lib/**` + `src/instrumentation.ts`（无第二个服务端树）。
 
 ## 关键机制

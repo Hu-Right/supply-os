@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { fetchPaymentConfigStatus, mapPaymentError, type PaymentConfigStatus } from "@/core/payment";
 import { createOrder, getOrderStatus, mockPaid, type OrderInfo } from "@/core/payment/payment-facade";
-import { usePaymentPolling } from "@/features/payment/hooks/usePaymentPolling";
+import { usePaymentPolling } from "@/shared/hooks/usePaymentPolling";
 import type { NoticeItem } from "../types";
 
 /** 面板支持的支付方式（微信暂未开通，仅支付宝可用） */
