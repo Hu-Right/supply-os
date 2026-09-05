@@ -88,12 +88,13 @@ const COUNTRY_NAME_CN: Record<string, string> = {
   "Samoa": "萨摩亚", Tonga: "汤加", Kiribati: "基里巴斯",
   Palau: "帕劳", "Marshall Is.": "马绍尔群岛", "Micronesia": "密克罗尼西亚",
   "Isle of Man": "马恩岛", Jersey: "泽西岛", Guernsey: "根西岛",
-  "Faeroe Is.": "法罗群岛", Svalbard: "斯瓦尔巴群岛",
+  "Faeroe Is.": "法罗群岛", Svalbard: "斯瓦尔巴群岛", "Svalbard Is.": "斯瓦尔巴群岛",
   "Heard I. and McDonald Is.": "赫德岛和麦克唐纳群岛",
   "Indian Ocean Ter.": "英属印度洋领地",
   "Norfolk Island": "诺福克岛", "Christmas Island": "圣诞岛",
   "Cocos (Keeling) Is.": "科科斯群岛",
   Antarctica: "南极洲", "eSwatini": "斯威士兰", Swaziland: "斯威士兰", Benin: "贝宁",
+  "West Bank": "约旦河西岸", Bougainville: "布干维尔",
 };
 
 interface CountryData {

@@ -345,6 +345,9 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Antarctica": "南极洲",
   "N. Cyprus": "北塞浦路斯",
   "Somaliland": "索马里兰",
+  "French Guiana": "法属圭亚那",
+  "West Bank": "约旦河西岸",
+  "Bougainville": "布干维尔",
   // ─ 区域分组 / 特殊标记 ──
   "Eastern and Southern Africa": "东部和南部非洲",
   "Western and Central Africa": "西部和中部非洲",
