@@ -14,7 +14,6 @@ import * as echarts from "echarts/core";
 import { GeoComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
 import { MapChart } from "echarts/charts";
 import { CanvasRenderer } from "echarts/renderers";
-import { useLocale } from "@/core/i18n";
 
 echarts.use([GeoComponent, TooltipComponent, VisualMapComponent, MapChart, CanvasRenderer]);
 
@@ -79,7 +78,6 @@ export function WorldMapChart() {
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { locale } = useLocale();
 
   useEffect(() => {
     let cancelled = false;
@@ -126,8 +124,6 @@ export function WorldMapChart() {
         const chart = echarts.init(chartRef.current);
         chartInstance.current = chart;
 
-        const isZh = locale === "zh";
-
         chart.setOption({
           tooltip: {
             trigger: "item",
@@ -137,9 +133,8 @@ export function WorldMapChart() {
             textStyle: { color: "#1e293b", fontSize: 13 },
             formatter: (params: any) => {
               const countryEn = params.name;
-              const countryCn = COUNTRY_NAME_CN[countryEn] || countryEn;
+              const displayName = COUNTRY_NAME_CN[countryEn] || countryEn;
               const count = countryCountMap.get(countryEn) || 0;
-              const displayName = isZh ? countryCn : countryEn;
               return `
                 <div style="padding: 4px 8px;">
                   <div style="font-weight: 700; margin-bottom: 4px; font-size: 14px;">${displayName}</div>
@@ -226,18 +221,7 @@ export function WorldMapChart() {
       cancelled = true;
       chartInstance.current?.dispose();
     };
-  }, [locale]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96 bg-slate-50 rounded-2xl border border-slate-200">
-        <div className="text-center">
-          <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-teal-200 border-t-teal-600 mb-3" />
-          <p className="text-sm text-slate-500">加载世界地图...</p>
-        </div>
-      </div>
-    );
-  }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
     return (
@@ -248,9 +232,21 @@ export function WorldMapChart() {
   }
 
   return (
-    <div
-      ref={chartRef}
-      className="w-full h-[500px] rounded-2xl border border-slate-200 bg-white"
-    />
+    <div className="relative w-full h-[500px]">
+      {/* 加载遮罩 */}
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
+          <div className="text-center">
+            <div className="h-8 w-8 mx-auto animate-spin rounded-full border-4 border-teal-200 border-t-teal-600 mb-3" />
+            <p className="text-sm text-slate-500">加载世界地图...</p>
+          </div>
+        </div>
+      )}
+      {/* 图表容器 — 始终挂载，确保 chartRef 在 useEffect 中可用 */}
+      <div
+        ref={chartRef}
+        className="w-full h-full rounded-2xl border border-slate-200 bg-white"
+      />
+    </div>
   );
 }
