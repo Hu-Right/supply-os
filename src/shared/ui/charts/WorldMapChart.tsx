@@ -140,8 +140,10 @@ export function WorldMapChart() {
       <ComposableMap
         projection="geoNaturalEarth1"
         projectionConfig={{ scale: 160 }}
-        className="w-full h-full"
-        style={{ width: "100%", height: "100%" }}
+        width={800}
+        height={450}
+        className="w-full"
+        style={{ width: "100%", height: "auto" }}
       >
         <ZoomableGroup
           center={position.coordinates}
