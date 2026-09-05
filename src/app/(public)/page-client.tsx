@@ -14,12 +14,37 @@
  *   4. 会员升级横幅
  *   5. 产品路径 — 从找标到中标 4 步
  */
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
 
-/** Hero 区 — 双搜索入口（占位） */
+/** Hero 区 — 双搜索入口 + 热门标签 */
 function HeroSection() {
   const { t } = useLocale();
+  const router = useRouter();
+  const [procurementQuery, setProcurementQuery] = useState("");
+  const [supplierQuery, setSupplierQuery] = useState("");
+
+  const hotProcurementTags = ["医疗设备", "新能源", "工程机械", "建材", "电力设备", "UN/世行", "非洲", "东南亚"];
+  const hotSupplierTags = ["光伏组件", "氧化铝", "发电机组", "医疗耗材", "道路机械", "钢材"];
+
+  const handleProcurementSearch = () => {
+    if (procurementQuery.trim()) {
+      router.push(`/procurement?q=${encodeURIComponent(procurementQuery.trim())}`);
+    } else {
+      router.push("/procurement");
+    }
+  };
+
+  const handleSupplierSearch = () => {
+    if (supplierQuery.trim()) {
+      router.push(`/supplier?q=${encodeURIComponent(supplierQuery.trim())}`);
+    } else {
+      router.push("/supplier");
+    }
+  };
+
   return (
     <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 py-16 px-4 overflow-hidden">
       {/* 地球纹理背景占位 */}
@@ -36,38 +61,83 @@ function HeroSection() {
         </p>
 
         {/* 双搜索入口 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl">
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-5xl">
+          {/* 采购机会搜索 */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20">
             <div className="flex items-center gap-2 mb-3">
               <Globe className="w-5 h-5 text-teal-400" />
               <span className="text-white font-bold text-sm">搜索采购机会</span>
+              <span className="text-slate-400 text-xs">(招标 / 采购 / 项目)</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-3">
               <input
                 type="text"
-                placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区"
+                value={procurementQuery}
+                onChange={(e) => setProcurementQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleProcurementSearch()}
+                placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
                 className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
-              <button className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors">
+              <button
+                onClick={handleProcurementSearch}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+              >
                 搜索商机
               </button>
             </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-slate-400 text-xs">热门搜索：</span>
+              {hotProcurementTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    setProcurementQuery(tag);
+                    router.push(`/procurement?q=${encodeURIComponent(tag)}`);
+                  }}
+                  className="text-xs text-teal-300 hover:text-teal-200 hover:underline transition-colors"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+          {/* 供应商搜索 */}
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="w-5 h-5 text-teal-400" />
               <span className="text-white font-bold text-sm">查找供应商与产品</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-3">
               <input
                 type="text"
+                value={supplierQuery}
+                onChange={(e) => setSupplierQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSupplierSearch()}
                 placeholder="搜索产品 / 公司名称 / 资质 / 国家 / 认证"
                 className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
-              <button className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors">
+              <button
+                onClick={handleSupplierSearch}
+                className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+              >
                 找供应商
               </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-slate-400 text-xs">热门产品：</span>
+              {hotSupplierTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    setSupplierQuery(tag);
+                    router.push(`/supplier?q=${encodeURIComponent(tag)}`);
+                  }}
+                  className="text-xs text-teal-300 hover:text-teal-200 hover:underline transition-colors"
+                >
+                  {tag}
+                </button>
+              ))}
             </div>
           </div>
         </div>
