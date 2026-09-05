@@ -16,7 +16,6 @@ import { withRoute, parseJson } from "@/lib/middleware/route-handler";
 import { mapSupplierRow, registerCrmSupplier } from "@/lib/services/suppliers";
 import type { SupplierDirectoryRow, SupplierTranslationRow, SupplierRegistrationRepo } from "@/lib/repos/suppliers";
 import type { Supplier } from "@/types";
-import { getPool } from "@/lib/db/pool";
 
 /**
  * 批量映射：原始 DB 行 → 前端 Supplier DTO。
@@ -60,16 +59,7 @@ export async function GET(req: NextRequest) {
 
       const { items, total } = await directoryRepo.listDirectoryPaginated({ limit: pageSize, offset, lang, search, type, industry });
       const dtoItems = await mapSupplierItems(items, lang, registrationRepo);
-      // 追加认证供应商计数（certification 非空即视为已认证）
-      let certified = 0;
-      try {
-        const pool = getPool();
-        const [rows] = await pool.query(
-          "SELECT COUNT(*) AS total FROM crm_suppliers WHERE certification IS NOT NULL AND certification != ''"
-        );
-        certified = Number((rows as any[])[0]?.total || 0);
-      } catch { /* ignore */ }
-      return NextResponse.json({ items: dtoItems, total, page, pageSize, certified });
+      return NextResponse.json({ items: dtoItems, total, page, pageSize });
     }
 
     const rows = await directoryRepo.listDirectory();

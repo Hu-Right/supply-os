@@ -168,10 +168,9 @@ function useCountUp(target: number, duration = 1500): number {
   return count;
 }
 
-/** 格式化数字 */
+/** 格式化数字 — 直接展示，不带单位 */
 function formatNumber(num: number): string {
-  if (num >= 10000) return (num / 10000).toFixed(1) + "万+";
-  return num.toLocaleString() + "+";
+  return num.toLocaleString();
 }
 
 /** 单个统计卡片 — 带数字跳动动画 */
@@ -197,7 +196,7 @@ function StatsWall() {
     active: number; todayNew: number;
   } | null>(null);
   const [countryCount, setCountryCount] = useState(0);
-  const [certifiedSuppliers, setCertifiedSuppliers] = useState(0);
+  const [supplierTotal, setSupplierTotal] = useState(0);
 
   const fetchStats = () => {
     // 复用现有 /api/notices/stats（含 todayNew）
@@ -208,9 +207,9 @@ function StatsWall() {
     api<Array<{ country: string; count: number }>>("/api/notices/countries")
       .then((data) => setCountryCount(data.length))
       .catch(() => {});
-    // 复用现有 /api/suppliers 取认证供应商数
-    api<{ certified: number }>("/api/suppliers?page=1&pageSize=1")
-      .then((data) => setCertifiedSuppliers(data.certified ?? 0))
+    // 复用现有 /api/suppliers 取供应商总数
+    api<{ total: number }>("/api/suppliers?page=1&pageSize=1")
+      .then((data) => setSupplierTotal(data.total ?? 0))
       .catch(() => {});
   };
 
@@ -224,7 +223,7 @@ function StatsWall() {
     { label: "采购机会总量", value: noticeStats?.active ?? 0, sub: "未过期可投标", icon: Globe, color: "text-teal-600" },
     { label: "今日新增", value: noticeStats?.todayNew ?? 0, sub: "实时更新", icon: TrendingUp, color: "text-blue-600" },
     { label: "覆盖国家 / 地区", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "认证供应商", value: certifiedSuppliers, sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
+    { label: "供应商", value: supplierTotal, sub: "已入驻平台", icon: Building2, color: "text-amber-600" },
     { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Users, color: "text-rose-600" },
   ];
 
