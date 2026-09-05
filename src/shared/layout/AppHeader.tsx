@@ -20,6 +20,12 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { NAV_TABS } from "./nav-tabs";
 import { MobileDrawer } from "./MobileDrawer";
 
+/** 格式化本地时间为 YYYY-MM-DD HH:MM:SS */
+const fmtLocalTime = (d: Date) =>
+  d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' +
+  String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' +
+  String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+
 export interface AppTab {
   path: string;
   label: string;
@@ -51,10 +57,9 @@ export function AppHeader({
   const router = useRouter();
 
   // 动态本地时间（每秒刷新）
-  const fmt = (d: Date) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
-  const [localTime, setLocalTime] = useState(() => fmt(new Date()));
+  const [localTime, setLocalTime] = useState(() => fmtLocalTime(new Date()));
   useEffect(() => {
-    const id = setInterval(() => setLocalTime(fmt(new Date())), 1000);
+    const id = setInterval(() => setLocalTime(fmtLocalTime(new Date())), 1000);
     return () => clearInterval(id);
   }, []);
 

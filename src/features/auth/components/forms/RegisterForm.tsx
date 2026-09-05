@@ -4,13 +4,14 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Input, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
 import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
+import type { QualificationFormState } from "@/shared/forms/QualificationFormFields";
 import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
 
 /** 检测浏览器是否存在 ref_code Cookie（推荐链接自动带入） */
@@ -81,13 +82,13 @@ export function RegisterForm({
       {authForm.userType === "enterprise" && (
         <EnterpriseQualificationForm
           registrationPhone={authForm.phone}
-          onFormChange={(data) => {
+          onFormChange={useCallback((data: QualificationFormState) => {
             onQualificationChange?.(data as unknown as Record<string, string | string[]>);
             // 同步公司名称到 claimForm，供注册校验使用
             if (data.company_name !== claimForm.companyName) {
-              setClaimForm((prev) => ({ ...prev, companyName: data.company_name }));
+              setClaimForm((prev) => ({ ...prev, companyName: String(data.company_name) }));
             }
-          }}
+          }, [onQualificationChange, claimForm.companyName, setClaimForm])}
         />
       )}
 
