@@ -53,12 +53,26 @@ export function WorldMapChart() {
         // 注册地图
         echarts.registerMap("world", worldGeoJSON);
 
-        // 构建国家名→商机数映射
+        // 构建 GeoJSON 名称集合（用于匹配）
+        const geoJsonNames = new Set<string>();
+        worldGeoJSON.features.forEach((f: any) => {
+          const name = f.properties.ADMIN || f.properties.NAME || "";
+          if (name) geoJsonNames.add(name);
+        });
+
+        // 构建国家名→商机数映射，并匹配 GeoJSON 名称
         const countryCountMap = new Map<string, number>();
         let maxCount = 0;
+        const seriesData: { name: string; value: number }[] = [];
+        
         for (const item of countryData) {
           countryCountMap.set(item.country, item.count);
           if (item.count > maxCount) maxCount = item.count;
+          
+          // 如果 API 返回的国家名在 GeoJSON 中存在，直接使用
+          if (geoJsonNames.has(item.country)) {
+            seriesData.push({ name: item.country, value: item.count });
+          }
         }
 
         // 初始化图表
@@ -122,10 +136,7 @@ export function WorldMapChart() {
             {
               type: "map",
               geoIndex: 0,
-              data: countryData.map(item => ({
-                name: item.country,
-                value: item.count,
-              })),
+              data: seriesData,
             },
           ],
         });
