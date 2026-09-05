@@ -65,6 +65,12 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Congo, Republic of": "刚果（布）",
   "Congo, Democratic Republic of the": "刚果（金）",
   "Congo, The Democratic Republic of the": "刚果（金）", // ISO 3166 标准格式
+  "Congo, Democratic Rep": "刚果（金）",
+  "Congo, Dem. Rep.": "刚果（金）",
+  "DR Congo": "刚果（金）",
+  "Congo (Kinshasa)": "刚果（金）",
+  "Congo (Brazzaville)": "刚果（布）",
+  "Rep. of Congo": "刚果（布）",
   "Democratic Republic of the Congo": "刚果（金）",
   "DRC": "刚果（金）",
   "COD": "刚果（金）",
