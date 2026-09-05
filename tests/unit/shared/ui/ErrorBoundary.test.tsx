@@ -2,14 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ErrorBoundary, setErrorReporter } from "@/shared/ui/ErrorBoundary";
 
-// Mock i18next（ErrorBoundary 直接 import i18next）
-vi.mock("i18next", () => ({
-  default: {
-    language: "en",
-    getFixedT: () => (key: string) => key,
-  },
-  getFixedT: () => (key: string) => key,
-}));
+// t 函数现在通过 props 注入（由 ErrorBoundaryWithI18n 包装器提供），
+// 测试中直接传 t={(k) => k} 即可，不再需要 mock i18next
+const mockT = (key: string) => key;
 
 // 触发渲染错误的子组件
 function ThrowError({ message }: { message: string }): never {
@@ -19,7 +14,7 @@ function ThrowError({ message }: { message: string }): never {
 describe("ErrorBoundary", () => {
   it("正常渲染子元素（无错误时）", () => {
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <div>正常内容</div>
       </ErrorBoundary>,
     );
@@ -30,7 +25,7 @@ describe("ErrorBoundary", () => {
     // 抑制 React 的 console.error 输出
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowError message="测试错误" />
       </ErrorBoundary>,
     );
@@ -40,7 +35,7 @@ describe("ErrorBoundary", () => {
   it("子组件抛错 → 显示错误消息", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowError message="具体错误信息" />
       </ErrorBoundary>,
     );
@@ -50,7 +45,7 @@ describe("ErrorBoundary", () => {
   it("自定义 fallback → 渲染 fallback 而非默认 UI", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(
-      <ErrorBoundary fallback={<div>自定义降级</div>}>
+      <ErrorBoundary t={mockT} fallback={<div>自定义降级</div>}>
         <ThrowError message="错误" />
       </ErrorBoundary>,
     );
@@ -64,11 +59,11 @@ describe("ErrorBoundary", () => {
       throw chunkError;
     }
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowChunkError />
       </ErrorBoundary>,
     );
-    // errorBoundaryRetry 翻译键由 mock 返回原文
+    // errorBoundaryRetry 翻译键由 mock t 返回原文
     expect(screen.getByText("errorBoundaryRetry")).toBeInTheDocument();
   });
 
@@ -77,7 +72,7 @@ describe("ErrorBoundary", () => {
     setErrorReporter(reporter);
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowError message="上报测试" />
       </ErrorBoundary>,
     );
@@ -97,7 +92,7 @@ describe("ErrorBoundary", () => {
       throw new TypeError("Loading chunk 5 failed");
     }
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowChunkError />
       </ErrorBoundary>,
     );
@@ -123,7 +118,7 @@ describe("ErrorBoundary", () => {
     });
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(
-      <ErrorBoundary>
+      <ErrorBoundary t={mockT}>
         <ThrowError message="普通错误" />
       </ErrorBoundary>,
     );

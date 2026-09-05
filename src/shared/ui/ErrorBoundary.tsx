@@ -8,14 +8,14 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import * as i18nModule from "i18next";
+import { useLocale } from "@/core/i18n";
 import { Button } from "./Button";
-
-const i18n = (i18nModule as any).default || i18nModule;
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
+  /** 由外层函数组件通过 useLocale() 注入，避免 class component 直接使用未初始化的默认 i18next 实例 */
+  t?: (key: string) => string;
 }
 
 interface ErrorBoundaryState {
@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<
       }
 
       if (this.state.isChunkError) {
-        const t = i18n.getFixedT(i18n.language || "en");
+        const t = this.props.t ?? ((k: string) => k);
         return (
           <div
             role="alert"
@@ -100,7 +100,7 @@ export class ErrorBoundary extends Component<
         );
       }
 
-      const t = i18n.getFixedT(i18n.language || "en");
+      const t = this.props.t ?? ((k: string) => k);
       return (
         <div
           role="alert"
@@ -138,4 +138,10 @@ export class ErrorBoundary extends Component<
 
     return this.props.children;
   }
+}
+
+/** 带 i18n 感知的 ErrorBoundary 包装器：通过 useLocale() 注入 t 函数 */
+export function ErrorBoundaryWithI18n(props: Omit<ErrorBoundaryProps, "t">) {
+  const { t } = useLocale();
+  return <ErrorBoundary {...props} t={t} />;
 }

@@ -85,17 +85,17 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   }, [prefLevel2, locale]);
 
   // 手动改选一级：二/三级随之失效
-  const handlePrefLevel1Change = (value: string) => {
+  const handlePrefLevel1Change = useCallback((value: string) => {
     setPrefLevel1(value);
     setPrefLevel2("");
     setPrefLevel3("");
-  };
+  }, []);
 
   // 手动改选二级：三级失效
-  const handlePrefLevel2Change = (value: string) => {
+  const handlePrefLevel2Change = useCallback((value: string) => {
     setPrefLevel2(value);
     setPrefLevel3("");
-  };
+  }, []);
 
   /** 按推断路径同步回填 L1/L2/L3：状态在调用瞬间即正确，不依赖异步 fetch。
    *  fetch 只负责拉取选项列表供下拉展示，回显在选项加载后自动呈现。
