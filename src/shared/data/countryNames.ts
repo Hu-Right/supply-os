@@ -123,11 +123,22 @@ export function getCountryDisplayName(englishName: string, locale: string): stri
 
 /**
  * 获取国家的英文原名（用于中文环境下显示英文辅助信息）
- * 当数据库已存储中文名时，反向查找英文原名
+ * 支持数据库原始值、中文名、英文标准名等多种输入
  */
 export function getCountryEnglishName(rawName: string): string {
-  // 如果已经是英文（不在中文映射表中），直接返回
-  if (!_countryNameZh[rawName]) return rawName;
-  // 如果中文名在反向映射表中，返回英文
-  return _zhToEn[rawName] ?? rawName;
+  // Step 1: 如果是数据库原始值，先归一化到中文名
+  const zhName = _countryNameZh[rawName];
+  if (zhName) {
+    // Step 2: 中文名反查英文标准名
+    return _zhToEn[zhName] ?? zhName;
+  }
+  // Step 3: 大小写不敏感匹配
+  const lower = rawName.toLowerCase();
+  for (const [key, zh] of Object.entries(_countryNameZh)) {
+    if (key.toLowerCase() === lower) {
+      return _zhToEn[zh] ?? zh;
+    }
+  }
+  // Step 4: 如果已经是英文标准名，直接返回
+  return rawName;
 }
