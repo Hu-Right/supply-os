@@ -213,6 +213,80 @@ export async function fulfillTrainingOrder(
 }
 
 /**
+ * 培训订单退款逆向（TRADE_CLOSED 回调）
+ * 事务封装：标记订单 refunded + 回滚报名支付状态 + 递减期次人数
+ * 与 fulfillTrainingOrder 对称：幂等，仅 paid 订单可逆向
+ */
+export async function reverseTrainingOrder(
+  trainingRepo: TrainingRepo,
+  orderNo: string,
+): Promise<{ found: boolean; reversed: boolean }> {
+  const conn = await trainingRepo.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // 悲观锁查询
+    const order = await trainingRepo.findOrderByNoForUpdate(conn, orderNo);
+    if (!order) {
+      await conn.commit();
+      return { found: false, reversed: false };
+    }
+    // 幂等 + 状态机：仅 paid 可逆向
+    if (order.status !== ORDER_STATUS.PAID) {
+      await conn.commit();
+      return { found: true, reversed: false };
+    }
+
+    // 标记订单 refunded
+    await conn.execute(
+      "UPDATE training_orders SET status = 'refunded' WHERE order_no = ? AND status = 'paid'",
+      [orderNo],
+    );
+
+    // 回滚报名支付状态
+    if (order.registration_id) {
+      await conn.execute(
+        "UPDATE crm_training_registrations SET payment_status = 'refunded', order_id = NULL WHERE id = ?",
+        [order.registration_id],
+      );
+    }
+
+    // 递减期次报名人数（与履约 increment 对称）
+    if (order.schedule_id) {
+      await conn.execute(
+        "UPDATE training_schedules SET enrolled_count = GREATEST(0, enrolled_count - ?) WHERE id = ?",
+        [order.participant_count, order.schedule_id],
+      );
+    }
+
+    await conn.commit();
+    console.log(`[training-refund] 培训订单退款逆向完成: order_no=${orderNo}`);
+    return { found: true, reversed: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+/**
+ * Mock 支付履约（培训订单）
+ * 供 Orchestrator fulfillMockOrder 路由调用
+ */
+export async function fulfillMockTrainingOrder(
+  trainingRepo: TrainingRepo,
+  orderNo: string,
+  rawNotify: string,
+): Promise<{ found: boolean }> {
+  const order = await trainingRepo.findOrderByNo(orderNo);
+  if (!order) return { found: false };
+  if (order.status === ORDER_STATUS.PAID) return { found: true }; // 幂等
+  await fulfillTrainingOrder(trainingRepo, orderNo, `mock_${rawNotify}`);
+  return { found: true };
+}
+
+/**
  * 查询培训订单状态
  * pending 时主动向支付网关轮询，已支付则触发履约
  */

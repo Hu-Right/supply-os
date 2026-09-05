@@ -4,7 +4,7 @@
  * 完整 12 章节诊断报告，包含企业画像、标准认证、UNSPSC映射、风险评估、
  * 市场策略、KPI建议、90天行动计划、综合结论等。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
@@ -53,6 +53,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     try {
       const row = await repo.findById(id);
       if (!row) routeError(404, 40400, "未找到该记录");
+
+      // ARCH-P0（2026-09-05）：IDOR 防护 — 校验记录归属
+      // 仅允许记录创建者（user_id 匹配）或无主记录（user_id 为 NULL，注册前提交）下载报告
+      if (row.user_id !== null && Number(row.user_id) !== auth.userId) {
+        routeError(403, 40013, "无权访问该报告");
+      }
 
       const scoreInput = toScoreInput(row as unknown as Record<string, unknown>);
       const pdfBuffer = await generateReadinessPdf({

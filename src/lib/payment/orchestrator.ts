@@ -23,6 +23,7 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
+import { fulfillTrainingOrder, reverseTrainingOrder, fulfillMockTrainingOrder } from "../services/training-payment";
 
 /** 聚合后的统一订单行 */
 export interface NormalizedOrder {
@@ -135,6 +136,22 @@ export class PaymentOrchestrator {
         return { success: true, order_no: verifyResult.order_no };
       }
 
+      case "training": {
+        // ARCH-P0（2026-09-05）：培训订单回调履约通道
+        // 此前 TR 前缀订单落入 default 分支，在 payments_repo 中查找恒返 ORDER_NOT_FOUND，
+        // 导致"用户付了钱但无履约"。修复：独立路由至 training_orders 表。
+        const trainingOrder = await this.trainingRepo.findOrderByNo(verifyResult.order_no);
+        if (!trainingOrder) {
+          return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+        }
+        if (Number(trainingOrder.total_amount) > 0 &&
+            Math.abs(Number(trainingOrder.total_amount) - callbackAmount) > 0.01) {
+          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
+        }
+        await fulfillTrainingOrder(this.trainingRepo, verifyResult.order_no, verifyResult.provider_trade_no);
+        return { success: true, order_no: verifyResult.order_no };
+      }
+
       case "membership":
       default:
         // 会员订单完整走 PaymentService.handleNotify（含验签 + 金额校验 + 履约 + TRADE_CLOSED 退款）
@@ -149,6 +166,17 @@ export class PaymentOrchestrator {
     switch (business) {
       case "learning":
         return this.learningPaymentService.queryOrder(orderNo, providerTradeNo);
+      case "training": {
+        // 培训订单查询：需要 AppContext 以访问支付策略，此处直接查 DB 状态
+        const order = await this.trainingRepo.findOrderByNo(orderNo);
+        if (!order) return { order_no: orderNo, status: "closed" };
+        return {
+          order_no: order.order_no,
+          status: order.status,
+          total_amount: Number(order.total_amount || 0),
+          paid_at: order.paid_at ? new Date(order.paid_at).toISOString() : null,
+        };
+      }
       case "membership":
       default:
         return this.paymentService.queryOrder(orderNo, providerTradeNo);
@@ -162,6 +190,17 @@ export class PaymentOrchestrator {
     switch (business) {
       case "learning": {
         const result = await this.learningPaymentService.reverseOrder(orderNo);
+        if (!result.found) {
+          return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
+        }
+        return {
+          success: true, order_no: orderNo,
+          message: result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
+        };
+      }
+      case "training": {
+        // ARCH-P0（2026-09-05）：培训订单退款逆向
+        const result = await reverseTrainingOrder(this.trainingRepo, orderNo);
         if (!result.found) {
           return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
         }
@@ -195,6 +234,10 @@ export class PaymentOrchestrator {
     switch (business) {
       case "learning": {
         const result = await this.learningPaymentService.fulfillMockOrder(orderNo, rawNotify);
+        return { found: result.found, business };
+      }
+      case "training": {
+        const result = await fulfillMockTrainingOrder(this.trainingRepo, orderNo, rawNotify);
         return { found: result.found, business };
       }
       case "membership":
