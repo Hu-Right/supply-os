@@ -72,30 +72,42 @@ export function expandCountryAllForms(country: string): string[] {
 /**
  * 将数据库 country 字段拆分为独立国家列表。
  *
- * 数据库中部分公告的 country 字段存储了多国列表（如 "EU 27, Afghanistan, Argentina, ..."），
+ * 数据库中部分公告的 country 字段存储了多国列表：
+ * - 逗号分隔："EU 27, Afghanistan, Argentina"
+ * - 短横线分隔："DRC - Angola"
  * 需检测并拆分；而 "Congo, Democratic Republic of the" 等合法含逗号国名不可拆分。
  *
- * 判定规则：归一化后仍含逗号 → 按逗号拆分各部分 → 若 2+ 部分匹配已知国家 → 多国列表。
+ * 判定规则：
+ * 1. 先尝试按 " - " 拆分，若 2+ 部分均可识别为独立国家 → 多国列表
+ * 2. 归一化后仍含逗号 → 按逗号拆分 → 若 2+ 部分匹配已知国家 → 多国列表
  */
 function splitCountryEntry(raw: string): string[] {
   const single = normalizeCountry(raw);
-  // 归一化结果不含逗号 → 单国家（含 "Canada, BC" → "Canada" 的正常情况）
+
+  // 0. 先尝试按 " - " 拆分（处理 "DRC - Angola" 等多国组合）
+  if (raw.includes(" - ")) {
+    const dashParts = raw.split(" - ").map((p) => p.trim()).filter(Boolean);
+    if (dashParts.length >= 2) {
+      const recognized = dashParts
+        .map((p) => normalizeCountry(p))
+        .filter((n) => n && COUNTRY_NAME_ZH[n]);
+      if (recognized.length >= 2) return [...new Set(recognized)];
+    }
+  }
+
+  // 1. 归一化结果不含逗号 → 单国家
   if (!single.includes(",")) return [single];
 
-  // 归一化后仍含逗号：可能是合法国名（"Congo, Democratic Republic of the"），
-  // 也可能是多国列表。尝试拆分各部分并检查已知国家匹配数。
+  // 2. 归一化后仍含逗号：可能是合法国名，也可能是多国列表
   const parts = single.split(",").map((p) => p.trim()).filter(Boolean);
   const recognized: string[] = [];
   for (const part of parts) {
     const normalized = normalizeCountry(part);
-    // 仅接受可识别的国家（归一化结果与输入不同，或在已知映射中）
     if (normalized !== part || COUNTRY_NAME_ZH[part]) {
       recognized.push(normalized);
     }
   }
-  // 2+ 部分可识别为独立国家 → 多国列表
   if (recognized.length >= 2) return recognized;
-  // 否则视为合法含逗号国名
   return [single];
 }
 
