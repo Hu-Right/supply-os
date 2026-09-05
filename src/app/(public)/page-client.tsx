@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
+import { WorldMapChart } from "@/shared/ui/charts/WorldMapChart";
 
 /** Hero 区 — 双搜索入口 + 热门标签 */
 function HeroSection() {
@@ -407,8 +408,25 @@ export default function PageClient() {
     <div className="min-h-screen bg-slate-50">
       <HeroSection />
       <StatsWall />
+      <WorldMapSection />
       <ContentColumns />
       <UpgradeBanner />
     </div>
+  );
+}
+
+/** 全球商机地图区块 */
+function WorldMapSection() {
+  return (
+    <section className="px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mb-6">
+        <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+          <Globe className="w-5 h-5 text-teal-600" />
+          全球商机分布
+        </h2>
+        <p className="text-sm text-slate-500 mt-1">鼠标悬停查看各国未过期商机数量</p>
+      </div>
+      <WorldMapChart />
+    </section>
   );
 }
