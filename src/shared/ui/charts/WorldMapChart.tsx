@@ -18,10 +18,11 @@ import { useLocale } from "@/core/i18n";
 
 echarts.use([GeoComponent, TooltipComponent, VisualMapComponent, MapChart, CanvasRenderer]);
 
-/** 国家英文名 → 中文名的常用映射 */
+/** 国家英文名 → 中文名的常用映射（支持 Natural Earth 格式） */
 const COUNTRY_NAME_CN: Record<string, string> = {
   Brazil: "巴西", Spain: "西班牙", Poland: "波兰", France: "法国", Germany: "德国",
-  "United States": "美国", Italy: "意大利", "United Kingdom": "英国", India: "印度",
+  "United States": "美国", "United States of America": "美国", USA: "美国",
+  Italy: "意大利", "United Kingdom": "英国", India: "印度",
   China: "中国", Japan: "日本", "South Korea": "韩国", Russia: "俄罗斯",
   Canada: "加拿大", Australia: "澳大利亚", Mexico: "墨西哥", Argentina: "阿根廷",
   Turkey: "土耳其", "Saudi Arabia": "沙特阿拉伯", "United Arab Emirates": "阿联酋",
@@ -33,16 +34,18 @@ const COUNTRY_NAME_CN: Record<string, string> = {
   Greece: "希腊", Portugal: "葡萄牙", Austria: "奥地利", Switzerland: "瑞士",
   Israel: "以色列", Iran: "伊朗", Iraq: "伊拉克", Jordan: "约旦",
   Chile: "智利", Peru: "秘鲁", Colombia: "哥伦比亚", Venezuela: "委内瑞拉",
-  "Czech Republic": "捷克", Hungary: "匈牙利", Bulgaria: "保加利亚", Serbia: "塞尔维亚",
+  "Czech Republic": "捷克", "Czechia": "捷克", Hungary: "匈牙利", Bulgaria: "保加利亚", Serbia: "塞尔维亚",
   Croatia: "克罗地亚", Slovakia: "斯洛伐克", Slovenia: "斯洛文尼亚",
   "New Zealand": "新西兰", "Sri Lanka": "斯里兰卡", Myanmar: "缅甸",
   Cambodia: "柬埔寨", Laos: "老挝", Mongolia: "蒙古", Kazakhstan: "哈萨克斯坦",
   Uzbekistan: "乌兹别克斯坦", Ethiopia: "埃塞俄比亚", Ghana: "加纳", Tanzania: "坦桑尼亚",
+  "United Republic of Tanzania": "坦桑尼亚",
   Uganda: "乌干达", Morocco: "摩洛哥", Algeria: "阿尔及利亚", Tunisia: "突尼斯",
   Libya: "利比亚", Sudan: "苏丹", Angola: "安哥拉", Mozambique: "莫桑比克",
   Zambia: "赞比亚", Zimbabwe: "津巴布韦", Botswana: "博茨瓦纳", Namibia: "纳米比亚",
-  Senegal: "塞内加尔", "Ivory Coast": "科特迪瓦", Cameroon: "喀麦隆",
+  Senegal: "塞内加尔", "Ivory Coast": "科特迪瓦", "Cote d'Ivoire": "科特迪瓦", Cameroon: "喀麦隆",
   "Democratic Republic of the Congo": "刚果民主共和国", "Republic of the Congo": "刚果共和国",
+  "Dem. Rep. Congo": "刚果民主共和国", "Republic of Congo": "刚果共和国",
   Madagascar: "马达加斯加", Mauritius: "毛里求斯", Rwanda: "卢旺达",
   Afghanistan: "阿富汗", Nepal: "尼泊尔", Bhutan: "不丹", Maldives: "马尔代夫",
   Yemen: "也门", Oman: "阿曼", Qatar: "卡塔尔", Kuwait: "科威特",
@@ -60,32 +63,10 @@ const COUNTRY_NAME_CN: Record<string, string> = {
   Bahamas: "巴哈马", Barbados: "巴巴多斯",
   Ecuador: "厄瓜多尔", Bolivia: "玻利维亚", Paraguay: "巴拉圭", Uruguay: "乌拉圭",
   Guyana: "圭亚那", Suriname: "苏里南", "French Guiana": "法属圭亚那",
-  Papua: "巴布亚新几内亚", Fiji: "斐济", "Solomon Islands": "所罗门群岛",
+  "Papua New Guinea": "巴布亚新几内亚", Fiji: "斐济", "Solomon Islands": "所罗门群岛",
   Vanuatu: "瓦努阿图", "New Caledonia": "新喀里多尼亚",
   Greenland: "格陵兰", "Faroe Islands": "法罗群岛",
-  "Bermuda": "百慕大", "Cayman Islands": "开曼群岛",
-  "British Virgin Islands": "英属维尔京群岛", "US Virgin Islands": "美属维尔京群岛",
-  "American Samoa": "美属萨摩亚", Guam: "关岛",
-  "Northern Mariana Islands": "北马里亚纳群岛",
-  "French Polynesia": "法属波利尼西亚", Samoa: "萨摩亚", Tonga: "汤加",
-  Kiribati: "基里巴斯", Tuvalu: "图瓦卢", Nauru: "瑙鲁", Palau: "帕劳",
-  "Marshall Islands": "马绍尔群岛", "Micronesia": "密克罗尼西亚",
-  "Cook Islands": "库克群岛", Niue: "纽埃", Tokelau: "托克劳",
-  "Wallis and Futuna": "瓦利斯和富图纳", "French Southern Territories": "法属南部领地",
-  "Heard Island and McDonald Islands": "赫德岛和麦克唐纳群岛",
-  "South Georgia and the South Sandwich Islands": "南乔治亚和南桑威奇群岛",
-  "Falkland Islands": "福克兰群岛",
-  "Western Sahara": "西撒哈拉", "Mayotte": "马约特", "Reunion": "留尼汪",
-  "Saint Helena": "圣赫勒拿", "Ascension": "阿森松岛", "Tristan da Cunha": "特里斯坦-达库尼亚",
-  "Sao Tome and Principe": "圣多美和普林西比", "Cape Verde": "佛得角",
-  "Comoros": "科摩罗", "Seychelles": "塞舌尔",
-  "Djibouti": "吉布提", "Eritrea": "厄立特里亚", "Somalia": "索马里",
-  "South Sudan": "南苏丹", "Central African Republic": "中非共和国",
-  Chad: "乍得", Niger: "尼日尔", Mali: "马里", "Burkina Faso": "布基纳法索",
-  Guinea: "几内亚", "Guinea-Bissau": "几内亚比绍", "Sierra Leone": "塞拉利昂",
-  Liberia: "利比里亚", Gambia: "冈比亚", "Equatorial Guinea": "赤道几内亚",
-  Gabon: "加蓬", "Republic of Congo": "刚果共和国",
-  "Dem. Rep. Congo": "刚果民主共和国",
+  "W. Sahara": "西撒哈拉", "Western Sahara": "西撒哈拉",
 };
 
 interface CountryData {
@@ -114,12 +95,23 @@ export function WorldMapChart() {
 
         if (cancelled) return;
 
-        // 获取世界地图 GeoJSON（本地文件，避免 CORS）
+        // 获取世界地图 GeoJSON（Natural Earth 格式）
         const mapRes = await fetch("/world-map.json");
         if (!mapRes.ok) throw new Error("Failed to fetch world map");
         const worldGeoJSON = await mapRes.json();
 
         if (cancelled) return;
+
+        // 转换 GeoJSON：为每个 feature 添加 name 属性（ECharts 需要）
+        if (worldGeoJSON.features) {
+          worldGeoJSON.features = worldGeoJSON.features.map((feature: any) => ({
+            ...feature,
+            properties: {
+              ...feature.properties,
+              name: feature.properties.NAME || feature.properties.ADMIN || feature.properties.SOVEREIGNT || "",
+            },
+          }));
+        }
 
         // 注册地图
         echarts.registerMap("world", worldGeoJSON);

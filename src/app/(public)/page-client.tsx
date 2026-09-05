@@ -250,13 +250,13 @@ function ContentColumns() {
   }>>([]);
 
   useEffect(() => {
-    // 获取已审核的优质供应商（前 3 条）
-    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[] }> }>("/api/suppliers?page=1&pageSize=3")
+    // 获取已审核的优质供应商（最新 3 条）
+    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[] }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
       .catch(() => {});
 
-    // 获取今日精选商机（featured=1，只显示今天的）
-    api<{ items: Array<{ id: number; title: string; country: string; estimated_value: string; deadline_sec: number }> }>("/api/notices/unified-search?page=1&page_size=3&featured=1")
+    // 获取今日精选商机（featured=1，最新 3 条）
+    api<{ items: Array<{ id: number; title: string; country: string; estimated_value: string; deadline_sec: number }> }>("/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest")
       .then((data) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
