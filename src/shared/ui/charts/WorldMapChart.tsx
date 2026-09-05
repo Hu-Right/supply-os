@@ -1,83 +1,146 @@
 "use client";
 
 /**
- * 全球商机地图 — react-simple-maps 世界地图
+ * 全球商机地图 — ECharts 世界地图
  * Global Opportunities World Map
  *
  * @module shared/ui/charts/WorldMapChart
  * @description 展示各国未过期商机数量，鼠标悬停显示国家名和商机数。
- *              使用 react-simple-maps + Natural Earth 50m GeoJSON。
+ *              参考 portal.ungpa.com 的地图实现。
  */
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  ZoomableGroup,
-} from "react-simple-maps";
+import { useEffect, useRef, useState } from "react";
+import * as echarts from "echarts/core";
+import { GeoComponent, TooltipComponent, VisualMapComponent } from "echarts/components";
+import { MapChart } from "echarts/charts";
+import { CanvasRenderer } from "echarts/renderers";
 import { COUNTRY_NAME_CN } from "./countryNameMap";
+
+echarts.use([GeoComponent, TooltipComponent, VisualMapComponent, MapChart, CanvasRenderer]);
 
 interface CountryData {
   country: string;
   count: number;
 }
 
-interface TooltipState {
-  name: string;
-  count: number;
-  x: number;
-  y: number;
-}
-
-const GEO_URL = "/world-map.json";
-
-// 颜色比例尺（从浅到深）
-const COLORS = ["#f0fdfa", "#99f6e4", "#5eead4", "#14b8a6", "#0d9488", "#0f766e"];
-
-// 使用对数比例尺，避免极大值压缩其他国家的颜色差异
-function getColor(value: number, max: number): string {
-  if (value === 0) return "#e2e8f0"; // 无数据：灰色
-  if (max <= 1) return COLORS[COLORS.length - 1];
-  // 对数缩放：log(1)=0, log(max)=1
-  const logMax = Math.log10(max);
-  const logValue = Math.log10(value);
-  const ratio = logValue / logMax;
-  const idx = Math.min(Math.floor(ratio * COLORS.length), COLORS.length - 1);
-  return COLORS[idx];
-}
-
 export function WorldMapChart() {
-  const [countryData, setCountryData] = useState<CountryData[]>([]);
-  const [countryCountMap, setCountryCountMap] = useState<Map<string, number>>(new Map());
-  const [maxCount, setMaxCount] = useState(1000);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  const [position, setPosition] = useState<{ coordinates: [number, number]; zoom: number }>({ coordinates: [0, 20], zoom: 1 });
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchData = async () => {
+    const init = async () => {
+      if (!chartRef.current) return;
+
       try {
+        // 获取国家数据
         const res = await fetch("/api/notices/countries");
         if (!res.ok) throw new Error("Failed to fetch country data");
-        const data: CountryData[] = await res.json();
+        const countryData: CountryData[] = await res.json();
 
         if (cancelled) return;
 
-        const map = new Map<string, number>();
-        let max = 0;
-        for (const item of data) {
-          map.set(item.country, item.count);
-          if (item.count > max) max = item.count;
+        // 获取世界地图 GeoJSON
+        const mapRes = await fetch("/world-map.json");
+        if (!mapRes.ok) throw new Error("Failed to fetch world map");
+        const worldGeoJSON = await mapRes.json();
+
+        if (cancelled) return;
+
+        // 注册地图
+        echarts.registerMap("world", worldGeoJSON);
+
+        // 构建国家名→商机数映射
+        const countryCountMap = new Map<string, number>();
+        let maxCount = 0;
+        for (const item of countryData) {
+          countryCountMap.set(item.country, item.count);
+          if (item.count > maxCount) maxCount = item.count;
         }
 
-        setCountryData(data);
-        setCountryCountMap(map);
-        setMaxCount(Math.max(max, 1000));
+        // 初始化图表
+        const chart = echarts.init(chartRef.current);
+        chartInstance.current = chart;
+
+        chart.setOption({
+          tooltip: {
+            trigger: "item",
+            backgroundColor: "rgba(255, 255, 255, 0.95)",
+            borderColor: "#e2e8f0",
+            borderWidth: 1,
+            textStyle: { color: "#1e293b", fontSize: 13 },
+            formatter: (params: any) => {
+              const enName = params.name;
+              const cnName = COUNTRY_NAME_CN[enName] || enName;
+              const count = countryCountMap.get(enName) || 0;
+              return `
+                <div style="padding: 4px 8px;">
+                  <div style="font-weight: 700; margin-bottom: 4px; font-size: 14px;">${cnName}</div>
+                  <div style="color: #0d9488; font-weight: 600;">${count.toLocaleString()} 条商机</div>
+                </div>
+              `;
+            },
+          },
+          visualMap: {
+            min: 0,
+            max: Math.max(maxCount, 1000),
+            left: "left",
+            bottom: "20",
+            text: ["高", "低"],
+            calculable: true,
+            inRange: {
+              color: ["#e2e8f0", "#93c5fd", "#2dd4bf", "#fbbf24", "#f97316", "#ef4444"],
+            },
+            textStyle: { color: "#64748b", fontSize: 11 },
+            itemWidth: 12,
+            itemHeight: 80,
+          },
+          geo: {
+            map: "world",
+            roam: true,
+            zoom: 1.2,
+            scaleLimit: { min: 1, max: 5 },
+            center: [0, 20],
+            label: { show: false },
+            itemStyle: {
+              areaColor: "#e2e8f0",
+              borderColor: "#ffffff",
+              borderWidth: 0.5,
+            },
+            emphasis: {
+              itemStyle: {
+                areaColor: "#2dd4bf",
+                borderColor: "#0d9488",
+                borderWidth: 1,
+              },
+              label: { show: false },
+            },
+          },
+          series: [
+            {
+              type: "map",
+              geoIndex: 0,
+              data: countryData.map(item => ({
+                name: item.country,
+                value: item.count,
+              })),
+            },
+          ],
+        });
+
         setLoading(false);
+
+        // 响应式
+        const handleResize = () => chart.resize();
+        window.addEventListener("resize", handleResize);
+
+        return () => {
+          window.removeEventListener("resize", handleResize);
+          chart.dispose();
+        };
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "加载地图失败");
@@ -86,34 +149,12 @@ export function WorldMapChart() {
       }
     };
 
-    fetchData();
+    init();
 
     return () => {
       cancelled = true;
+      chartInstance.current?.dispose();
     };
-  }, []);
-
-  const handleMouseEnter = useCallback(
-    (geo: any, evt: React.MouseEvent) => {
-      const enName = geo.properties.ADMIN || geo.properties.NAME || "";
-      const cnName = COUNTRY_NAME_CN[enName] || enName;
-      const count = countryCountMap.get(enName) || 0;
-      setTooltip({
-        name: cnName,
-        count,
-        x: evt.clientX,
-        y: evt.clientY,
-      });
-    },
-    [countryCountMap],
-  );
-
-  const handleMouseLeave = useCallback(() => {
-    setTooltip(null);
-  }, []);
-
-  const handleMoveEnd = useCallback((pos: { coordinates: [number, number]; zoom: number }) => {
-    setPosition(pos);
   }, []);
 
   if (error) {
@@ -135,67 +176,11 @@ export function WorldMapChart() {
           </div>
         </div>
       )}
-
-      {/* 地图 */}
-      <ComposableMap
-        projection="geoNaturalEarth1"
-        projectionConfig={{ scale: 160 }}
-        width={800}
-        height={450}
-        className="w-full"
-        style={{ width: "100%", height: "auto" }}
-      >
-        <ZoomableGroup
-          center={position.coordinates}
-          zoom={position.zoom}
-          onMoveEnd={handleMoveEnd}
-          minZoom={1}
-          maxZoom={5}
-        >
-          <Geographies geography={GEO_URL}>
-            {({ geographies }: { geographies: any[] }) =>
-              geographies.map((geo: any) => {
-                const enName = geo.properties.ADMIN || geo.properties.NAME || "";
-                const count = countryCountMap.get(enName) || 0;
-                const fillColor = getColor(count, maxCount);
-
-                return (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill={fillColor}
-                    stroke="#ffffff"
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: "none" },
-                      hover: { outline: "none", fill: "#5eead4", stroke: "#0d9488", strokeWidth: 1 },
-                      pressed: { outline: "none" },
-                    }}
-                    onMouseEnter={(evt: React.MouseEvent) => handleMouseEnter(geo, evt)}
-                    onMouseLeave={handleMouseLeave}
-                  />
-                );
-              })
-            }
-          </Geographies>
-        </ZoomableGroup>
-      </ComposableMap>
-
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          className="fixed z-50 pointer-events-none bg-white/95 border border-slate-200 rounded-lg shadow-lg px-3 py-2"
-          style={{
-            left: tooltip.x + 12,
-            top: tooltip.y - 10,
-          }}
-        >
-          <div className="font-bold text-sm text-slate-900">{tooltip.name}</div>
-          <div className="text-teal-600 font-semibold text-sm">
-            {tooltip.count.toLocaleString()} 条商机
-          </div>
-        </div>
-      )}
+      {/* 图表容器 */}
+      <div
+        ref={chartRef}
+        className="w-full h-full rounded-2xl border border-slate-200 bg-white"
+      />
     </div>
   );
 }
