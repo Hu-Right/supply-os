@@ -29,7 +29,7 @@ export default function Providers({
       <LocaleProvider initialLocale={initialLocale}>
         <ErrorBoundaryWithI18n>
           <AppInit />
-          <AuthProvider>{children}<Toaster richColors position="top-center" closeButton duration={typeof window !== "undefined" && window.innerWidth < 768 ? 6000 : 4000} toastOptions={{ className: "max-w-[90vw] md:max-w-md" }} /></AuthProvider>
+          <AuthProvider>{children}<Toaster richColors position="top-center" closeButton duration={5000} toastOptions={{ className: "max-w-[90vw] md:max-w-md" }} /></AuthProvider>
         </ErrorBoundaryWithI18n>
       </LocaleProvider>
     </Suspense>

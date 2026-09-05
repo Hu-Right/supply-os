@@ -8,7 +8,7 @@
  */
 
 import { useLocale } from "@/core/i18n";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";
@@ -21,18 +21,18 @@ import { DigitalAssistant } from "../components/DigitalAssistant/DigitalAssistan
 export default function CrmPage() {
   const { t } = useLocale();
   // 供应商页"AI 撮合商机"跳转时通过 sessionStorage 带入目标供应商
-  const [autoMatchSupplier] = useState<Supplier | null>(() => {
-    if (typeof window === "undefined") return null;
+  // ★ SSR 安全：初始 null，客户端 mount 后从 sessionStorage 读取，避免 hydration mismatch
+  const [autoMatchSupplier, setAutoMatchSupplier] = useState<Supplier | null>(null);
+  useEffect(() => {
     try {
       const raw = sessionStorage.getItem("__route_state__");
       if (raw) {
         const state = JSON.parse(raw);
         sessionStorage.removeItem("__route_state__");
-        return state?.aiMatchSupplier ?? null;
+        setAutoMatchSupplier(state?.aiMatchSupplier ?? null);
       }
     } catch { /* ignore */ }
-    return null;
-  });
+  }, []);
   const {
     leads,
     isLoadingLeads,

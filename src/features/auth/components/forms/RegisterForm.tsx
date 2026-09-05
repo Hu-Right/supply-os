@@ -4,7 +4,7 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Input, Button, SelectableCard } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
@@ -47,8 +47,9 @@ export function RegisterForm({
 }: RegisterFormProps) {
   const { t } = useLocale();
 
-  // 检测推荐链接 Cookie，用于显示自动填入提示
-  const [hasRefCookie] = useState(detectRefCookie);
+  // ★ 检测推荐链接 Cookie：SSR 返回 false，客户端 mount 后检测真实值，避免 hydration mismatch
+  const [hasRefCookie, setHasRefCookie] = useState(false);
+  useEffect(() => { setHasRefCookie(detectRefCookie()); }, []);
 
   return (
     <div className="space-y-3">
