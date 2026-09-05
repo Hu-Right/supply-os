@@ -99,6 +99,7 @@ export default defineConfig({
 
         // ── src/core — 纯逻辑模块（有测试）──
         "src/core/events/events.ts",
+        "src/core/flags.ts",
         "src/core/http/buildQuery.ts",
         "src/core/i18n/detectScript.ts",
         "src/core/i18n/pickLocale.ts",
