@@ -17,6 +17,14 @@ import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
 
+/**
+ * 将 ISO 8601 时间戳转换为 MySQL DATETIME 格式
+ * MySQL 不接受 'T'/'Z' 字符，需要 'YYYY-MM-DD HH:MM:SS' 格式
+ */
+function toMysqlDatetime(isoString: string): string {
+  return isoString.replace("T", " ").replace("Z", "").split(".")[0];
+}
+
 export interface RegisterUserParams {
   /** 已 trim 的真实姓名（必填） */
   displayName: string;
@@ -110,13 +118,15 @@ export async function registerUser(
 
   // ── 合规审计：记录用户协议同意日志（P0）——失败不阻断主流程 ──
   // 纯 user_id 路径（迁移 068 已 DROP crm_users.user_key，crm_consent_log.user_key 写 NULL）
+  // 时间戳格式转换：ISO 8601 → MySQL DATETIME（MySQL 不接受 'T'/'Z' 格式）
+  const consentTimestamp = toMysqlDatetime(params.agreementAcceptedAt || new Date().toISOString());
   try {
     await ctx.user.authRepo.recordConsentLog({
       userId: createdUser.id,
       consentType: "terms",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",
-      timestamp: params.agreementAcceptedAt || new Date().toISOString(),
+      timestamp: consentTimestamp,
       ipAddress: params.clientIp,
       userAgent: params.userAgent,
       sourcePage: "register",
@@ -126,7 +136,7 @@ export async function registerUser(
       consentType: "privacy",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",
-      timestamp: params.agreementAcceptedAt || new Date().toISOString(),
+      timestamp: consentTimestamp,
       ipAddress: params.clientIp,
       userAgent: params.userAgent,
       sourcePage: "register",
