@@ -176,7 +176,7 @@ export function WorldMapChart() {
   }
 
   return (
-    <div className="relative" style={{ width: 800, height: 450 }}>
+    <div className="relative w-full" style={{ height: 500 }}>
       {/* 加载遮罩 */}
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
