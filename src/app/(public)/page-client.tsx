@@ -27,7 +27,7 @@ function HeroSection() {
         <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-teal-500/20 to-transparent" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto">
+      <div className="relative px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-3">
           全球公共采购与跨境供应链机会平台
         </h1>
@@ -89,7 +89,7 @@ function StatsWall() {
 
   return (
     <section className="bg-white border-b border-slate-200 py-8 px-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stats.map((s, i) => (
           <div key={i} className="text-center">
             <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{s.value}</p>
@@ -113,7 +113,7 @@ function ContentColumns() {
   ];
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
+    <section className="px-4 sm:px-6 lg:px-8 py-8">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {columns.map((col, i) => (
           <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
@@ -141,7 +141,7 @@ function ContentColumns() {
 /** 会员升级横幅（占位） */
 function UpgradeBanner() {
   return (
-    <section className="max-w-7xl mx-auto px-4 py-6">
+    <section className="px-4 sm:px-6 lg:px-8 py-6">
       <div className="bg-gradient-to-r from-amber-50 to-teal-50 rounded-2xl border border-amber-200 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Crown className="w-10 h-10 text-amber-500" />
@@ -171,7 +171,7 @@ function ProductPath() {
   ];
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
+    <section className="px-4 sm:px-6 lg:px-8 py-8">
       <h3 className="text-center text-lg font-extrabold text-slate-800 mb-6">
         从找标到中标 — 4 步产品路径
       </h3>

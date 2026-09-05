@@ -43,7 +43,7 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
 
   return (
     <footer className="hidden md:block bg-slate-100 border-t border-slate-200 py-6 text-xs text-slate-400">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+      <div className="px-4 flex items-center justify-between">
         {/* 左侧：版权信息 + ICP 备案 */}
         <p className="flex items-center gap-2">
           <span>{t("footerCopyright")}</span>

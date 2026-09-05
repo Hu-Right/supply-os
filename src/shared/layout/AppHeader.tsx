@@ -85,7 +85,7 @@ export function AppHeader({
   return (
     <>
       <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
+        <div className="px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
           {/* 左侧：汉堡菜单 + 品牌标识 */}
           <div className="flex items-center min-w-0 space-x-3">
             {/* 移动端汉堡菜单按钮（左侧） */}
@@ -131,7 +131,7 @@ export function AppHeader({
 
       {/* DESKTOP NAV */}
       <nav className="hidden md:block bg-secondary-900 text-secondary-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
             {tabs.map((tab) => {
               const Icon = tab.icon;
