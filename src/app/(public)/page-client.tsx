@@ -14,9 +14,10 @@
  *   4. 会员升级横幅
  *   5. 产品路径 — 从找标到中标 4 步
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
 
 /** Hero 区 — 双搜索入口 + 热门标签 */
@@ -146,21 +147,55 @@ function HeroSection() {
   );
 }
 
-/** 实时数字墙 — 6 个规模指标 */
+/** 实时数字墙 — 接真实 API */
 function StatsWall() {
-  const stats = [
-    { label: "采购机会总量", value: "100,587+", sub: "实时更新", icon: Globe, color: "text-teal-600" },
-    { label: "每日新增机会", value: "2,000+", sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
-    { label: "数据源 / API", value: "20+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "供应商资源", value: "1,245,678+", sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
-    { label: "认证供应商", value: "32,567+", sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
-    { label: "海外展厅 / 履约节点", value: "16+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
-  ];
+  const [stats, setStats] = useState<{
+    notices: { total: number; active: number };
+    suppliers: { total: number; certified: number };
+    showrooms: number;
+    dataSources: number;
+  } | null>(null);
+
+  useEffect(() => {
+    api<{
+      notices: { total: number; active: number };
+      suppliers: { total: number; certified: number };
+      showrooms: number;
+      dataSources: number;
+    }>("/api/home/stats")
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
+  const formatNumber = (num: number): string => {
+    if (num >= 10000) {
+      return (num / 10000).toFixed(1) + "万+";
+    }
+    return num.toLocaleString() + "+";
+  };
+
+  const statsData = stats
+    ? [
+        { label: "采购机会总量", value: formatNumber(stats.notices.total), sub: "实时更新", icon: Globe, color: "text-teal-600" },
+        { label: "活跃商机", value: formatNumber(stats.notices.active), sub: "可投标", icon: TrendingUp, color: "text-blue-600" },
+        { label: "数据源 / API", value: stats.dataSources + "+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
+        { label: "供应商资源", value: formatNumber(stats.suppliers.total), sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
+        { label: "认证供应商", value: formatNumber(stats.suppliers.certified), sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
+        { label: "海外展厅 / 履约节点", value: stats.showrooms + "+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
+      ]
+    : [
+        { label: "采购机会总量", value: "加载中...", sub: "实时更新", icon: Globe, color: "text-teal-600" },
+        { label: "活跃商机", value: "加载中...", sub: "可投标", icon: TrendingUp, color: "text-blue-600" },
+        { label: "数据源 / API", value: "20+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
+        { label: "供应商资源", value: "加载中...", sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
+        { label: "认证供应商", value: "加载中...", sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
+        { label: "海外展厅 / 履约节点", value: "16+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
+      ];
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
       <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-        {stats.map((s, i) => (
+        {statsData.map((s, i) => (
           <div key={i} className="text-center group">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
               <s.icon className={`w-5 h-5 ${s.color}`} />
@@ -339,35 +374,6 @@ function UpgradeBanner() {
   );
 }
 
-/** 产品路径 — 从找标到中标 4 步（占位） */
-function ProductPath() {
-  const steps = [
-    { num: 1, title: "找机会", desc: "全球采购机会库" },
-    { num: 2, title: "AI 评估", desc: "智能适配评分" },
-    { num: 3, title: "投标服务", desc: "标书/代投/顾问" },
-    { num: 4, title: "履约", desc: "海外展厅/物流" },
-  ];
-
-  return (
-    <section className="px-4 sm:px-6 lg:px-8 py-8">
-      <h3 className="text-center text-lg font-extrabold text-slate-800 mb-6">
-        从找标到中标 — 4 步产品路径
-      </h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {steps.map((s) => (
-          <div key={s.num} className="bg-white rounded-xl border border-slate-200 p-5 text-center shadow-xs">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-teal-100 text-teal-700 font-extrabold text-lg mb-3">
-              {s.num}
-            </div>
-            <h4 className="text-sm font-bold text-slate-800">{s.title}</h4>
-            <p className="text-xs text-slate-500 mt-1">{s.desc}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export default function PageClient() {
   return (
     <div className="min-h-screen bg-slate-50">
@@ -375,7 +381,6 @@ export default function PageClient() {
       <StatsWall />
       <ContentColumns />
       <UpgradeBanner />
-      <ProductPath />
     </div>
   );
 }
