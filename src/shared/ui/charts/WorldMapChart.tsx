@@ -114,8 +114,8 @@ export function WorldMapChart() {
 
         if (cancelled) return;
 
-        // 获取世界地图 GeoJSON
-        const mapRes = await fetch("https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json");
+        // 获取世界地图 GeoJSON（本地文件，避免 CORS）
+        const mapRes = await fetch("/world-map.json");
         if (!mapRes.ok) throw new Error("Failed to fetch world map");
         const worldGeoJSON = await mapRes.json();
 
