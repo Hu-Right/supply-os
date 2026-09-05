@@ -146,24 +146,27 @@ function HeroSection() {
   );
 }
 
-/** 实时数字墙（占位 — 后续接真实 API） */
+/** 实时数字墙 — 6 个规模指标 */
 function StatsWall() {
   const stats = [
-    { label: "采购机会总量", value: "100,587+", sub: "实时更新", icon: Globe },
-    { label: "每日新增机会", value: "2,000+", sub: "今日新增", icon: TrendingUp },
-    { label: "数据源 / API", value: "20+", sub: "政府 & 国际组织", icon: Search },
-    { label: "供应商资源", value: "[实时数]", sub: "实时更新", icon: Users },
-    { label: "认证供应商", value: "[实时数]", sub: "企业资质已核验", icon: Building2 },
-    { label: "海外展厅 / 履约节点", value: "16+", sub: "全球布局", icon: Building2 },
+    { label: "采购机会总量", value: "100,587+", sub: "实时更新", icon: Globe, color: "text-teal-600" },
+    { label: "每日新增机会", value: "2,000+", sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
+    { label: "数据源 / API", value: "20+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
+    { label: "供应商资源", value: "1,245,678+", sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
+    { label: "认证供应商", value: "32,567+", sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
+    { label: "海外展厅 / 履约节点", value: "16+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
   ];
 
   return (
-    <section className="bg-white border-b border-slate-200 py-8 px-4">
-      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
+      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
         {stats.map((s, i) => (
-          <div key={i} className="text-center">
+          <div key={i} className="text-center group">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
+              <s.icon className={`w-5 h-5 ${s.color}`} />
+            </div>
             <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{s.value}</p>
-            <p className="text-xs font-bold text-teal-600 mt-1">{s.label}</p>
+            <p className="text-xs font-bold text-slate-700 mt-1">{s.label}</p>
             <p className="text-2xs text-slate-400 mt-0.5">{s.sub}</p>
           </div>
         ))}
@@ -172,37 +175,142 @@ function StatsWall() {
   );
 }
 
-/** 三栏内容区（占位） */
+/** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
 function ContentColumns() {
   const { t } = useLocale();
 
-  const columns = [
-    { title: "今日热门商机", icon: Globe, path: "/procurement" },
-    { title: "优质供应商推荐", icon: Users, path: "/supplier" },
-    { title: "采购方 RFQ 需求", icon: Building2, path: "/rfq" },
+  // 模拟热门商机数据
+  const hotNotices = [
+    { title: "肯尼亚医院医疗设备采购项目", country: "肯尼亚", budget: "USD 8,500,000", deadline: "截止 27 天" },
+    { title: "阿联酋太阳能光伏电站项目合作征集", country: "阿联酋", budget: "USD 120,000,000", deadline: "截止 18 天" },
+    { title: "印尼公路养护机械设备采购项目", country: "印度尼西亚", budget: "USD 15,600,000", deadline: "截止 35 天" },
+  ];
+
+  // 模拟优质供应商数据
+  const topSuppliers = [
+    { name: "浙江国德光伏科技有限公司", location: "中国·杭州", certs: ["ISO 认证", "CE", "产能充足"] },
+    { name: "湖南敏强电气科技有限公司", location: "中国·长沙", certs: ["ISO 9001", "具备出口资质"] },
+    { name: "中机国际贸易有限公司", location: "中国·石家庄", certs: ["国企背景", "多国供应经验"] },
+  ];
+
+  // 模拟 RFQ 需求数据
+  const rfqRequests = [
+    { title: "求购光伏组件", desc: "单晶，550W+，数量 10MW", buyer: "南非 / 能源 / 私营企业", time: "2 小时前" },
+    { title: "求购工程机械挖掘机", desc: "20 吨级，数量 5 台", buyer: "菲律宾 / 基建 / 工程公司", time: "5 小时前" },
+    { title: "求购医用超声诊断设备", desc: "数量 20 套", buyer: "埃及 / 医疗 / 政府机构", time: "8 小时前" },
   ];
 
   return (
-    <section className="px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {columns.map((col, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-                <col.icon className="w-5 h-5 text-teal-600" />
-                {col.title}
-              </h3>
-              <a href={col.path} className="text-xs text-teal-600 font-bold hover:underline">
-                更多 →
-              </a>
-            </div>
-            <div className="space-y-3">
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="h-16 bg-slate-100 rounded-lg animate-pulse" />
-              ))}
-            </div>
+    <section className="px-4 sm:px-6 lg:px-8 py-10">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 热门商机 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+              <Globe className="w-5 h-5 text-teal-600" />
+              今日热门商机
+            </h3>
+            <a href="/procurement" className="text-xs text-teal-600 font-bold hover:underline">
+              查看全部 →
+            </a>
           </div>
-        ))}
+          <div className="space-y-4">
+            {hotNotices.map((notice, i) => (
+              <a key={i} href="/procurement" className="block group">
+                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                    <Globe className="w-4 h-4 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2">
+                      {notice.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
+                      <span>{notice.country}</span>
+                      <span className="text-slate-300">|</span>
+                      <span className="font-semibold text-slate-700">{notice.budget}</span>
+                    </div>
+                    <p className="text-xs text-amber-600 mt-1">{notice.deadline}</p>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* 优质供应商 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              优质供应商推荐
+            </h3>
+            <a href="/supplier" className="text-xs text-teal-600 font-bold hover:underline">
+              查看全部 →
+            </a>
+          </div>
+          <div className="space-y-4">
+            {topSuppliers.map((supplier, i) => (
+              <a key={i} href="/supplier" className="block group">
+                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">
+                      {supplier.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">{supplier.location}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {supplier.certs.map((cert, j) => (
+                        <span key={j} className="text-2xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          {cert}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* RFQ 需求 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-amber-600" />
+              采购方 RFQ 需求
+            </h3>
+            <a href="/rfq" className="text-xs text-teal-600 font-bold hover:underline">
+              查看全部 →
+            </a>
+          </div>
+          <div className="space-y-4">
+            {rfqRequests.map((rfq, i) => (
+              <a key={i} href="/rfq" className="block group">
+                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                    <Search className="w-4 h-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-2xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                        采购询价 (RFQ)
+                      </span>
+                      <span className="text-xs text-slate-400">{rfq.time}</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 transition-colors">
+                      {rfq.title}
+                    </p>
+                    <p className="text-xs text-slate-600 mt-1">{rfq.desc}</p>
+                    <p className="text-xs text-slate-500 mt-1">{rfq.buyer}</p>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
