@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       persistAuthUser(data.user);
 
       // 提交供应商绑定申请（注册成功后携带新签发的 JWT，api() 自动附加）
+      // 注：注册流程已移除邮箱收集，contact_email 留空，用户可在个人中心绑定邮箱后补充
       if (claim) {
         await api("/api/supplier-claims", {
           method: "POST",
@@ -153,7 +154,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             supplier_type: claim.supplierType,
             contact_name: claim.contactName || displayName,
             contact_phone: claim.contactPhone,
-            contact_email: data.user.email,
             business_license_no: claim.businessLicenseNo,
           },
         });
