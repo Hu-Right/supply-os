@@ -96,54 +96,6 @@ const COUNTRY_NAME_CN: Record<string, string> = {
   Antarctica: "南极洲", "eSwatini": "斯威士兰", Swaziland: "斯威士兰", Benin: "贝宁",
 };
 
-/**
- * API 返回的 ISO 标准国家名 → Natural Earth GeoJSON 国家名映射
- * normalizeCountry() 返回的是 ISO 标准名（如 "Korea, Republic of"），
- * 而 GeoJSON 使用 Natural Earth 名称（如 "South Korea"），需要转换才能匹配。
- */
-const ISO_TO_NATURAL_EARTH: Record<string, string> = {
-  "Korea, Republic of": "South Korea",
-  "Russian Federation": "Russia",
-  "Czech Republic": "Czechia",
-  "United Republic of Tanzania": "Tanzania",
-  "Central African Republic": "Central African Rep.",
-  "Republic of the Congo": "Congo",
-  "Democratic Republic of the Congo": "Dem. Rep. Congo",
-  "Equatorial Guinea": "Eq. Guinea",
-  "Dominican Republic": "Dominican Rep.",
-  "Bosnia and Herzegovina": "Bosnia and Herz.",
-  "Solomon Islands": "Solomon Is.",
-  "Antigua and Barbuda": "Antigua",
-  "Western Sahara": "W. Sahara",
-  "Faroe Islands": "Faeroe Is.",
-  "Cape Verde": "Cabo Verde",
-  "Sao Tome and Principe": "São Tomé and Príncipe",
-  "Federated States of Micronesia": "Micronesia",
-  "Republic of Moldova": "Moldova",
-  "Lao People's Democratic Republic": "Laos",
-  "Syrian Arab Republic": "Syria",
-  "Iran, Islamic Republic of": "Iran",
-  "Venezuela, Bolivarian Republic of": "Venezuela",
-  "Bolivia, Plurinational State of": "Bolivia",
-  "Palestine, State of": "Palestine",
-  "Republic of Korea": "South Korea",
-  "Democratic People's Republic of Korea": "North Korea",
-  "United States of America": "United States of America",
-  "The Netherlands": "Netherlands",
-  "The Philippines": "Philippines",
-  "The United Kingdom": "United Kingdom",
-  "The Russian Federation": "Russia",
-  "Türkiye": "Turkey",
-  "Côte d'Ivoire": "Côte d'Ivoire",
-  "Eswatini": "eSwatini",
-  "North Macedonia": "North Macedonia",
-  "South Sudan": "S. Sudan",
-  "Timor-Leste": "Timor-Leste",
-  "Myanmar": "Myanmar",
-  "Slovak Republic": "Slovakia",
-  "Republic of Serbia": "Serbia",
-};
-
 interface CountryData {
   country: string;
   count: number;
@@ -162,16 +114,10 @@ export function WorldMapChart() {
       if (!chartRef.current) return;
 
       try {
-        // 获取国家数据（API 返回 ISO 标准名）
+        // 获取国家数据（API 返回的 canonical 名已与 GeoJSON 一致）
         const res = await fetch("/api/notices/countries");
         if (!res.ok) throw new Error("Failed to fetch country data");
-        const rawCountryData: CountryData[] = await res.json();
-
-        // ISO 标准名 → Natural Earth 名转换，确保与 GeoJSON feature name 匹配
-        const countryData: CountryData[] = rawCountryData.map(item => ({
-          country: ISO_TO_NATURAL_EARTH[item.country] || item.country,
-          count: item.count,
-        }));
+        const countryData: CountryData[] = await res.json();
 
         if (cancelled) return;
 
