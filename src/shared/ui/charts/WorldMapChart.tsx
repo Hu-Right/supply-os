@@ -33,11 +33,16 @@ interface TooltipState {
 const GEO_URL = "/world-map.json";
 
 // 颜色比例尺（从浅到深）
-const COLORS = ["#f0fdfa", "#ccfbf1", "#5eead4", "#14b8a6", "#0d9488", "#0f766e"];
+const COLORS = ["#f0fdfa", "#99f6e4", "#5eead4", "#14b8a6", "#0d9488", "#0f766e"];
 
+// 使用对数比例尺，避免极大值压缩其他国家的颜色差异
 function getColor(value: number, max: number): string {
   if (value === 0) return "#e2e8f0"; // 无数据：灰色
-  const ratio = value / max;
+  if (max <= 1) return COLORS[COLORS.length - 1];
+  // 对数缩放：log(1)=0, log(max)=1
+  const logMax = Math.log10(max);
+  const logValue = Math.log10(value);
+  const ratio = logValue / logMax;
   const idx = Math.min(Math.floor(ratio * COLORS.length), COLORS.length - 1);
   return COLORS[idx];
 }
