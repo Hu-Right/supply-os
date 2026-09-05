@@ -140,10 +140,14 @@ export function AppHeader({
 /** 构建主导航 tabs 配置（以 NAV_TABS 为单一数据源，路径作为 Tab 标识） */
 export function useNavTabs() {
   const { t } = useLocale();
+  const { authUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const tabs: AppTab[] = NAV_TABS.map((tab) => ({
+  // CRM 仅登录后可见：未登录时从导航中移除（文档要求"CRM 退出公开导航"）
+  const visibleTabs = NAV_TABS.filter((tab) => tab.path !== "/crm" || !!authUser);
+
+  const tabs: AppTab[] = visibleTabs.map((tab) => ({
     path: tab.path,
     label: t(tab.labelKey),
     icon: tab.icon,

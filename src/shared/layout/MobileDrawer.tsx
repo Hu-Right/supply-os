@@ -65,9 +65,9 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
           </button>
         </div>
 
-        {/* 导航项列表 */}
+        {/* 导航项列表 — CRM 仅登录后可见 */}
         <nav className="flex-1 overflow-y-auto py-2 px-3">
-          {NAV_TABS.map((tab) => {
+          {NAV_TABS.filter((tab) => tab.path !== "/crm" || !!authUser).map((tab) => {
             const Icon = tab.icon;
             const isActive = isTabActive(tab.path);
             const label = t(tab.labelKey);
