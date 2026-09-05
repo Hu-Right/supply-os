@@ -16,6 +16,48 @@ import { MapChart } from "echarts/charts";
 import { CanvasRenderer } from "echarts/renderers";
 import { COUNTRY_NAME_CN } from "./countryNameMap";
 
+// API 国家名 → GeoJSON 名称映射
+const API_TO_GEOJSON: Record<string, string> = {
+  "United States": "United States of America",
+  "Russian Federation": "Russia",
+  "South Korea": "South Korea",
+  "North Korea": "North Korea",
+  "Czech Republic": "Czechia",
+  "Czechia": "Czechia",
+  "Venezuela": "Venezuela",
+  "Bolivia": "Bolivia",
+  "Iran": "Iran",
+  "Syria": "Syria",
+  "Laos": "Laos",
+  "Moldova": "Moldova",
+  "Tanzania": "United Republic of Tanzania",
+  "Micronesia": "Federated States of Micronesia",
+  "Cape Verde": "Cabo Verde",
+  "East Timor": "Timor-Leste",
+  "Swaziland": "eSwatini",
+  "Eswatini": "eSwatini",
+  "Myanmar": "Myanmar",
+  "Slovakia": "Slovakia",
+  "Serbia": "Republic of Serbia",
+  "Palestine": "Palestine",
+  "Congo": "Republic of the Congo",
+  "Dem. Rep. Congo": "Democratic Republic of the Congo",
+  "South Sudan": "South Sudan",
+  "Bosnia and Herz.": "Bosnia and Herzegovina",
+  "Dominican Rep.": "Dominican Republic",
+  "Central African Rep.": "Central African Republic",
+  "Eq. Guinea": "Equatorial Guinea",
+  "Solomon Is.": "Solomon Islands",
+  "W. Sahara": "Western Sahara",
+  "Falkland Is.": "Falkland Islands",
+  "Fr. S. Antarctic Lands": "French Southern and Antarctic Lands",
+  "N. Cyprus": "Northern Cyprus",
+  "S. Sudan": "South Sudan",
+  "Antigua": "Antigua and Barbuda",
+  "The Bahamas": "The Bahamas",
+  "Bosnia and Herzegovina": "Bosnia and Herzegovina",
+};
+
 echarts.use([GeoComponent, TooltipComponent, VisualMapComponent, MapChart, CanvasRenderer]);
 
 interface CountryData {
@@ -69,9 +111,12 @@ export function WorldMapChart() {
           countryCountMap.set(item.country, item.count);
           if (item.count > maxCount) maxCount = item.count;
           
-          // 如果 API 返回的国家名在 GeoJSON 中存在，直接使用
-          if (geoJsonNames.has(item.country)) {
-            seriesData.push({ name: item.country, value: item.count });
+          // 映射 API 国家名到 GeoJSON 名称
+          const geoName = API_TO_GEOJSON[item.country] || item.country;
+          
+          // 如果映射后的名称在 GeoJSON 中存在，添加到系列数据
+          if (geoJsonNames.has(geoName)) {
+            seriesData.push({ name: geoName, value: item.count });
           }
         }
 
@@ -176,7 +221,7 @@ export function WorldMapChart() {
   }
 
   return (
-    <div className="relative w-full" style={{ height: 500 }}>
+    <div className="relative w-full" style={{ height: 800 }}>
       {/* 加载遮罩 */}
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-200">
