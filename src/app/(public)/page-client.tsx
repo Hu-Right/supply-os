@@ -245,22 +245,33 @@ function ContentColumns() {
   const [suppliers, setSuppliers] = useState<Array<{
     id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
   }>>([]);
+  const [hotNotices, setHotNotices] = useState<Array<{
+    id: number; title: string; country: string; estimated_value: string; deadline_sec: number;
+  }>>([]);
 
   useEffect(() => {
     // 获取已审核的优质供应商（前 3 条）
     api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[] }> }>("/api/suppliers?page=1&pageSize=3")
       .then((data) => setSuppliers(data.items ?? []))
       .catch(() => {});
+
+    // 获取今日精选商机（featured=1，只显示今天的）
+    api<{ items: Array<{ id: number; title: string; country: string; estimated_value: string; deadline_sec: number }> }>("/api/notices/unified-search?page=1&page_size=3&featured=1")
+      .then((data) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        // 过滤：只显示今天发布的精选商机
+        const todayNotices = (data.items ?? []).filter((item) => {
+          // 这里假设 API 返回的数据中有 create_time 或通过其他方式判断
+          // 暂时先显示前 3 条精选，后续可优化为按日期过滤
+          return true;
+        });
+        setHotNotices(todayNotices.slice(0, 3));
+      })
+      .catch(() => {});
   }, []);
-
-  // 模拟热门商机数据（后续接入真实 API）
-  const hotNotices = [
-    { title: "肯尼亚医院医疗设备采购项目", country: "肯尼亚", budget: "USD 8,500,000", deadline: "截止 27 天" },
-    { title: "阿联酋太阳能光伏电站项目合作征集", country: "阿联酋", budget: "USD 120,000,000", deadline: "截止 18 天" },
-    { title: "印尼公路养护机械设备采购项目", country: "印度尼西亚", budget: "USD 15,600,000", deadline: "截止 35 天" },
-  ];
-
-  // 模拟 RFQ 需求数据（后续接入真实 API）
   const rfqRequests = [
     { title: "求购光伏组件", desc: "单晶，550W+，数量 10MW", buyer: "南非 / 能源 / 私营企业", time: "2 小时前" },
     { title: "求购工程机械挖掘机", desc: "20 吨级，数量 5 台", buyer: "菲律宾 / 基建 / 工程公司", time: "5 小时前" },
@@ -282,26 +293,40 @@ function ContentColumns() {
             </a>
           </div>
           <div className="space-y-4">
-            {hotNotices.map((notice, i) => (
-              <a key={i} href="/procurement" className="block group">
-                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div className="shrink-0 w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                    <Globe className="w-4 h-4 text-teal-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2">
-                      {notice.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
-                      <span>{notice.country}</span>
-                      <span className="text-slate-300">|</span>
-                      <span className="font-semibold text-slate-700">{notice.budget}</span>
+            {hotNotices.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">暂无今日精选商机</div>
+            ) : (
+              hotNotices.map((notice) => {
+                // 计算截止日期
+                const deadlineDate = new Date(notice.deadline_sec * 1000);
+                const now = new Date();
+                const daysLeft = Math.max(0, Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+                // 格式化预算
+                const budget = notice.estimated_value && notice.estimated_value !== "0.00"
+                  ? `USD ${Number(notice.estimated_value).toLocaleString()}`
+                  : "预算详谈";
+                return (
+                  <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                        <Globe className="w-4 h-4 text-teal-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2">
+                          {notice.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
+                          <span>{notice.country}</span>
+                          <span className="text-slate-300">|</span>
+                          <span className="font-semibold text-slate-700">{budget}</span>
+                        </div>
+                        <p className="text-xs text-amber-600 mt-1">截止 {daysLeft} 天</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-amber-600 mt-1">{notice.deadline}</p>
-                  </div>
-                </div>
-              </a>
-            ))}
+                  </a>
+                );
+              })
+            )}
           </div>
         </div>
 
