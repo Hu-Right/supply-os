@@ -4,7 +4,7 @@
  *
  * @module shared/layout/SessionBanner
  * @description 各主 Tab 顶部的动态摘要横幅（对齐远端 "Dynamic header summary banner"）：
- *              SESSION ACTIVE STATUS 徽标 + 按当前路由切换的标题/副标题 + 右侧动作按钮
+ *              按当前路由切换的标题/副标题 + 右侧动作按钮
  *              （入驻展厅 / 初筛问卷 / 注册供应商 / 返回公采，及常驻的预约顾问）。
  *              页面内注册表单通过全局事件触发，保持 feature 模块自包含。
  *              Dynamic per-route summary banner above the main workspace. Page-owned
@@ -45,9 +45,6 @@ export function SessionBanner() {
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-teal-50/20 via-white to-slate-50">
       <div>
-        <span className="text-xs font-bold text-teal-600 uppercase tracking-widest px-2.5 py-1 rounded-full bg-teal-100/60 inline-block mb-2">
-          SESSION ACTIVE STATUS
-        </span>
         <h2 className="text-xl md:text-2xl font-extrabold text-slate-800">{t(config.titleKey)}</h2>
         {config.descKey && (
           <p className="text-sm text-slate-500 mt-1 max-w-3xl">{t(config.descKey)}</p>
