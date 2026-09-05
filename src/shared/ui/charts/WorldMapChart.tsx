@@ -160,20 +160,25 @@ export function WorldMapChart() {
 
         if (cancelled) return;
 
-        // 转换 GeoJSON：将 feature name 改为中文
+        // 转换 GeoJSON：将 feature name 改为中文，并移除南极洲
         if (worldGeoJSON.features) {
-          worldGeoJSON.features = worldGeoJSON.features.map((feature: any) => {
-            const enName = feature.properties.NAME || feature.properties.ADMIN || feature.properties.SOVEREIGNT || "";
-            const cnName = COUNTRY_NAME_CN[enName] || enName;
-            return {
-              ...feature,
-              properties: {
-                ...feature.properties,
-                name: cnName,
-                _enName: enName,
-              },
-            };
-          });
+          worldGeoJSON.features = worldGeoJSON.features
+            .filter((feature: any) => {
+              const enName = feature.properties.NAME || feature.properties.ADMIN || feature.properties.SOVEREIGNT || "";
+              return enName !== "Antarctica";
+            })
+            .map((feature: any) => {
+              const enName = feature.properties.NAME || feature.properties.ADMIN || feature.properties.SOVEREIGNT || "";
+              const cnName = COUNTRY_NAME_CN[enName] || enName;
+              return {
+                ...feature,
+                properties: {
+                  ...feature.properties,
+                  name: cnName,
+                  _enName: enName,
+                },
+              };
+            });
         }
 
         // 注册地图
