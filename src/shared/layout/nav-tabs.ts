@@ -11,6 +11,7 @@
  */
 import {
   Globe, Building2, Users, Briefcase, BookOpen, Crown, LayoutGrid, GraduationCap,
+  Trophy, FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LocaleKey } from "@/core/i18n";
@@ -28,8 +29,10 @@ export interface NavTab {
 export const NAV_TABS: NavTab[] = [
   { path: "/showroom", labelKey: "navShowrooms", shortLabelKey: "navShortShowrooms", icon: Building2 },
   { path: "/procurement", labelKey: "navJointProcure", shortLabelKey: "navShortProcure", icon: Globe },
+  { path: "/award-intelligence", labelKey: "navAwardIntelligence", shortLabelKey: "navShortAwardIntelligence", icon: Trophy },
   { path: "/supplier", labelKey: "navSuppliers", shortLabelKey: "navShortSuppliers", icon: Users },
   { path: "/crm", labelKey: "navCRM", shortLabelKey: "navShortCRM", icon: Briefcase, alert: true },
+  { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
   { path: "/services", labelKey: "navServices", icon: LayoutGrid },
   { path: "/learning", labelKey: "navLearning", shortLabelKey: "navShortLearning", icon: BookOpen },
   { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
