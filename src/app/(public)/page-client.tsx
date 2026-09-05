@@ -147,63 +147,87 @@ function HeroSection() {
   );
 }
 
-/** 实时数字墙 — 接真实 API */
-function StatsWall() {
-  const [stats, setStats] = useState<{
-    notices: { total: number; active: number };
-    suppliers: { total: number; certified: number };
-    showrooms: number;
-    dataSources: number;
-  } | null>(null);
-
+/** 数字跳动动画 Hook */
+function useCountUp(target: number, duration = 1500): number {
+  const [count, setCount] = useState(0);
   useEffect(() => {
-    api<{
-      notices: { total: number; active: number };
-      suppliers: { total: number; certified: number };
-      showrooms: number;
-      dataSources: number;
-    }>("/api/home/stats")
-      .then(setStats)
-      .catch(() => {});
-  }, []);
+    if (target === 0) { setCount(0); return; }
+    let start = 0;
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutQuart
+      const eased = 1 - Math.pow(1 - progress, 4);
+      start = Math.floor(eased * target);
+      setCount(start);
+      if (progress >= 1) clearInterval(timer);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return count;
+}
 
-  const formatNumber = (num: number): string => {
-    if (num >= 10000) {
-      return (num / 10000).toFixed(1) + "万+";
-    }
-    return num.toLocaleString() + "+";
+/** 格式化数字 */
+function formatNumber(num: number): string {
+  if (num >= 10000) return (num / 10000).toFixed(1) + "万+";
+  return num.toLocaleString() + "+";
+}
+
+/** 单个统计卡片 — 带数字跳动动画 */
+function StatCard({ label, value, sub, icon: Icon, color }: {
+  label: string; value: number; sub: string; icon: typeof Globe; color: string;
+}) {
+  const animatedValue = useCountUp(value);
+  return (
+    <div className="text-center group">
+      <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatNumber(animatedValue)}</p>
+      <p className="text-xs font-bold text-slate-700 mt-1">{label}</p>
+      <p className="text-2xs text-slate-400 mt-0.5">{sub}</p>
+    </div>
+  );
+}
+
+/** 实时数字墙 — 调用现有 API，10 分钟自动刷新 */
+function StatsWall() {
+  const [noticeStats, setNoticeStats] = useState<{ raw: number; active: number } | null>(null);
+  const [supplierTotal, setSupplierTotal] = useState(0);
+
+  const fetchStats = () => {
+    // 复用现有 /api/notices/stats
+    api<{ raw: number; active: number; bridged: number; featured: number }>("/api/notices/stats")
+      .then((data) => setNoticeStats({ raw: data.raw, active: data.active }))
+      .catch(() => {});
+    // 复用现有 /api/suppliers 分页接口取 total
+    api<{ total: number }>("/api/suppliers?page=1&pageSize=1")
+      .then((data) => setSupplierTotal(data.total))
+      .catch(() => {});
   };
 
-  const statsData = stats
-    ? [
-        { label: "采购机会总量", value: formatNumber(stats.notices.total), sub: "实时更新", icon: Globe, color: "text-teal-600" },
-        { label: "活跃商机", value: formatNumber(stats.notices.active), sub: "可投标", icon: TrendingUp, color: "text-blue-600" },
-        { label: "数据源 / API", value: stats.dataSources + "+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-        { label: "供应商资源", value: formatNumber(stats.suppliers.total), sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
-        { label: "认证供应商", value: formatNumber(stats.suppliers.certified), sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
-        { label: "海外展厅 / 履约节点", value: stats.showrooms + "+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
-      ]
-    : [
-        { label: "采购机会总量", value: "加载中...", sub: "实时更新", icon: Globe, color: "text-teal-600" },
-        { label: "活跃商机", value: "加载中...", sub: "可投标", icon: TrendingUp, color: "text-blue-600" },
-        { label: "数据源 / API", value: "20+", sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-        { label: "供应商资源", value: "加载中...", sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
-        { label: "认证供应商", value: "加载中...", sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
-        { label: "海外展厅 / 履约节点", value: "16+", sub: "全球布局", icon: Globe, color: "text-rose-600" },
-      ];
+  useEffect(() => {
+    fetchStats();
+    // 每 10 分钟自动刷新
+    const timer = setInterval(fetchStats, 10 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const stats = [
+    { label: "采购机会总量", value: noticeStats?.raw ?? 0, sub: "实时更新", icon: Globe, color: "text-teal-600" },
+    { label: "未过期商机", value: noticeStats?.active ?? 0, sub: "可投标", icon: TrendingUp, color: "text-blue-600" },
+    { label: "数据源 / API", value: 20, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
+    { label: "供应商资源", value: supplierTotal, sub: "可检索供应商", icon: Users, color: "text-indigo-600" },
+    { label: "认证供应商", value: 0, sub: "企业资质已核验", icon: Building2, color: "text-amber-600" },
+    { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Globe, color: "text-rose-600" },
+  ];
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
       <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-        {statsData.map((s, i) => (
-          <div key={i} className="text-center group">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
-              <s.icon className={`w-5 h-5 ${s.color}`} />
-            </div>
-            <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{s.value}</p>
-            <p className="text-xs font-bold text-slate-700 mt-1">{s.label}</p>
-            <p className="text-2xs text-slate-400 mt-0.5">{s.sub}</p>
-          </div>
+        {stats.map((s, i) => (
+          <StatCard key={i} {...s} />
         ))}
       </div>
     </section>
