@@ -242,22 +242,25 @@ function StatsWall() {
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
 function ContentColumns() {
   const { t } = useLocale();
+  const [suppliers, setSuppliers] = useState<Array<{
+    id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
+  }>>([]);
 
-  // 模拟热门商机数据
+  useEffect(() => {
+    // 获取已审核的优质供应商（前 3 条）
+    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[] }> }>("/api/suppliers?page=1&pageSize=3")
+      .then((data) => setSuppliers(data.items ?? []))
+      .catch(() => {});
+  }, []);
+
+  // 模拟热门商机数据（后续接入真实 API）
   const hotNotices = [
     { title: "肯尼亚医院医疗设备采购项目", country: "肯尼亚", budget: "USD 8,500,000", deadline: "截止 27 天" },
     { title: "阿联酋太阳能光伏电站项目合作征集", country: "阿联酋", budget: "USD 120,000,000", deadline: "截止 18 天" },
     { title: "印尼公路养护机械设备采购项目", country: "印度尼西亚", budget: "USD 15,600,000", deadline: "截止 35 天" },
   ];
 
-  // 模拟优质供应商数据
-  const topSuppliers = [
-    { name: "浙江国德光伏科技有限公司", location: "中国·杭州", certs: ["ISO 认证", "CE", "产能充足"] },
-    { name: "湖南敏强电气科技有限公司", location: "中国·长沙", certs: ["ISO 9001", "具备出口资质"] },
-    { name: "中机国际贸易有限公司", location: "中国·石家庄", certs: ["国企背景", "多国供应经验"] },
-  ];
-
-  // 模拟 RFQ 需求数据
+  // 模拟 RFQ 需求数据（后续接入真实 API）
   const rfqRequests = [
     { title: "求购光伏组件", desc: "单晶，550W+，数量 10MW", buyer: "南非 / 能源 / 私营企业", time: "2 小时前" },
     { title: "求购工程机械挖掘机", desc: "20 吨级，数量 5 台", buyer: "菲律宾 / 基建 / 工程公司", time: "5 小时前" },
@@ -314,28 +317,34 @@ function ContentColumns() {
             </a>
           </div>
           <div className="space-y-4">
-            {topSuppliers.map((supplier, i) => (
-              <a key={i} href="/supplier" className="block group">
-                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Building2 className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">
-                      {supplier.name}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">{supplier.location}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {supplier.certs.map((cert, j) => (
-                        <span key={j} className="text-2xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          {cert}
-                        </span>
-                      ))}
+            {suppliers.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">加载中...</div>
+            ) : (
+              suppliers.map((supplier) => (
+                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
+                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors truncate">
+                        {supplier.nameZh}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">{supplier.countryZh} · {supplier.cityZh}</p>
+                      {supplier.complianceLabelsZh && supplier.complianceLabelsZh.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {supplier.complianceLabelsZh.slice(0, 3).map((label, j) => (
+                            <span key={j} className="text-2xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                              {label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </a>
-            ))}
+                </a>
+              ))
+            )}
           </div>
         </div>
 
