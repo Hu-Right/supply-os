@@ -16,7 +16,6 @@ export type { AuthUser };
  * #ARCH-004: 替代原 8 个位置参数，消除传参顺序错误风险
  */
 export interface RegisterOptions {
-  email?: string | null;
   password: string;
   displayName?: string;
   claim?: SupplierClaimForm;
