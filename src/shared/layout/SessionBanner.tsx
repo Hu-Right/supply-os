@@ -39,7 +39,9 @@ export function SessionBanner() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const config = BANNER_BY_PATH[pathname === "/" ? "/showroom" : pathname];
+  // 首页不渲染页头摘要横幅：首页有自己的深色 Hero（规划模块01 首屏无横幅），
+  // 旧逻辑对 "/" 回落到展厅文案，会在 Hero 上方多压一条展厅横幅
+  const config = BANNER_BY_PATH[pathname];
   if (!config) return null;
 
   return (

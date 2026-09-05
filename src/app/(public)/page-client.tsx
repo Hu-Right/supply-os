@@ -10,7 +10,7 @@
  * 页面结构 / Page structure:
  *   1. Hero 区 — 双搜索入口（找采购机会 / 找供应商）
  *   2. 实时数字墙 — 6 个规模指标
- *   3. 三栏内容 — 今日热门商机 / 优质供应商 / 采购方 RFQ
+ *   3. 三栏内容 — 今日热门商机 / 优质供应商 / 最新 RFQ 询价（统一搜索 notice_type=RFQ）
  *   4. 会员升级横幅
  *   5. 产品路径 — 从找标到中标 4 步
  */
@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
 import { WorldMapChart } from "@/shared/ui/charts/WorldMapChart";
 
@@ -239,15 +240,41 @@ function StatsWall() {
   );
 }
 
+/** 三栏卡片共用的宽表字段口径（与列表页 NoticeCard 一致） */
+interface HomeNoticeItem {
+  id: number; title: string; country: string; estimated_value: string; deadline_sec: number | null;
+  title_i18n?: string; title_en?: string; agency?: string; agency_i18n?: string;
+}
+
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
 function ContentColumns() {
-  const { t } = useLocale();
+  const { locale } = useLocale();
   const [suppliers, setSuppliers] = useState<Array<{
     id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
   }>>([]);
-  const [hotNotices, setHotNotices] = useState<Array<{
-    id: number; title: string; country: string; estimated_value: string; deadline_sec: number;
-  }>>([]);
+  const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
+  const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
+
+  // 与 NoticeCard 相同的宽表字段回退链：本地化标题 / 机构 i18n / 国家 中文名
+  const displayTitle = (n: HomeNoticeItem) => n.title_i18n || n.title_en || n.title;
+  const displayAgency = (n: HomeNoticeItem) => n.agency_i18n || n.agency || "";
+  const displayCountry = (n: HomeNoticeItem) => getCountryDisplayName(n.country, locale);
+  const displayBudget = (n: HomeNoticeItem) =>
+    n.estimated_value && n.estimated_value !== "0.00"
+      ? `USD ${Number(n.estimated_value).toLocaleString()}`
+      : "预算详谈";
+  // 兜底显示：宽表 NULLIF 后 deadline_sec 可能为 null；正常数据已被 deadline_from 过滤为未截止。
+  // 超长截止（框架协议/动态采购系统可达数年）显示具体日期，避免"截止 2154 天"式观感（规划 §8 数据质量）
+  const deadlineLabel = (n: HomeNoticeItem) => {
+    if (!n.deadline_sec || n.deadline_sec <= 0) return "无截止日期";
+    const left = Math.ceil((new Date(n.deadline_sec * 1000).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    if (left <= 0) return "已截止";
+    if (left > 365) {
+      const d = new Date(n.deadline_sec * 1000);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 截止`;
+    }
+    return `截止 ${left} 天`;
+  };
 
   useEffect(() => {
     // 获取已审核的优质供应商（最新 3 条）
@@ -255,28 +282,18 @@ function ContentColumns() {
       .then((data) => setSuppliers(data.items ?? []))
       .catch(() => {});
 
-    // 获取今日精选商机（featured=1，最新 3 条）
-    api<{ items: Array<{ id: number; title: string; country: string; estimated_value: string; deadline_sec: number }> }>("/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest")
-      .then((data) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        // 过滤：只显示今天发布的精选商机
-        const todayNotices = (data.items ?? []).filter((item) => {
-          // 这里假设 API 返回的数据中有 create_time 或通过其他方式判断
-          // 暂时先显示前 3 条精选，后续可优化为按日期过滤
-          return true;
-        });
-        setHotNotices(todayNotices.slice(0, 3));
-      })
+    // 热门商机：仅取运营精选（is_featured=1），与主流列表同管道（统一搜索 → Meili → 宽表详情）；
+    // deadline_from=北京时区今天 排除过期/无截止，首页只推可行动机会
+    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest&deadline_from=${today}`)
+      .then((data) => setHotNotices((data.items ?? []).slice(0, 3)))
+      .catch(() => {});
+
+    // 获取最新 RFQ 询价类公告（统一搜索 notice_type=RFQ，2026-09-06 起真数据渲染）
+    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&notice_type=RFQ&sort=newest&deadline_from=${today}`)
+      .then((data) => setRfqNotices((data.items ?? []).slice(0, 3)))
       .catch(() => {});
   }, []);
-  const rfqRequests = [
-    { title: "求购光伏组件", desc: "单晶，550W+，数量 10MW", buyer: "南非 / 能源 / 私营企业", time: "2 小时前" },
-    { title: "求购工程机械挖掘机", desc: "20 吨级，数量 5 台", buyer: "菲律宾 / 基建 / 工程公司", time: "5 小时前" },
-    { title: "求购医用超声诊断设备", desc: "数量 20 套", buyer: "埃及 / 医疗 / 政府机构", time: "8 小时前" },
-  ];
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-10">
@@ -297,14 +314,7 @@ function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无今日精选商机</div>
             ) : (
               hotNotices.map((notice) => {
-                // 计算截止日期
-                const deadlineDate = new Date(notice.deadline_sec * 1000);
-                const now = new Date();
-                const daysLeft = Math.max(0, Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-                // 格式化预算
-                const budget = notice.estimated_value && notice.estimated_value !== "0.00"
-                  ? `USD ${Number(notice.estimated_value).toLocaleString()}`
-                  : "预算详谈";
+                const budget = displayBudget(notice);
                 return (
                   <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
                     <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
@@ -313,14 +323,15 @@ function ContentColumns() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2">
-                          {notice.title}
+                          {displayTitle(notice)}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
-                          <span>{notice.country}</span>
-                          <span className="text-slate-300">|</span>
+                        <p className="text-xs text-slate-500 mt-1 truncate">
+                          {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" · ")}
+                        </p>
+                        <div className="flex items-center justify-between mt-1 text-xs">
                           <span className="font-semibold text-slate-700">{budget}</span>
+                          <span className="text-amber-600">{deadlineLabel(notice)}</span>
                         </div>
-                        <p className="text-xs text-amber-600 mt-1">截止 {daysLeft} 天</p>
                       </div>
                     </div>
                   </a>
@@ -373,41 +384,59 @@ function ContentColumns() {
           </div>
         </div>
 
-        {/* RFQ 需求 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
+        {/* 最新 RFQ 询价公告（真数据：统一搜索 notice_type=RFQ） */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
               <Building2 className="w-5 h-5 text-amber-600" />
-              采购方 RFQ 需求
+              最新 RFQ 询价
             </h3>
-            <a href="/rfq" className="text-xs text-teal-600 font-bold hover:underline">
+            <a href="/procurement?notice_type=RFQ" className="text-xs text-teal-600 font-bold hover:underline">
               查看全部 →
             </a>
           </div>
-          <div className="space-y-4">
-            {rfqRequests.map((rfq, i) => (
-              <a key={i} href="/rfq" className="block group">
-                <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-                    <Search className="w-4 h-4 text-amber-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-2xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
-                        采购询价 (RFQ)
-                      </span>
-                      <span className="text-xs text-slate-400">{rfq.time}</span>
+          <div className="space-y-4 flex-1">
+            {rfqNotices.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">暂无 RFQ 询价公告</div>
+            ) : (
+              rfqNotices.map((notice) => {
+                const budget = displayBudget(notice);
+                return (
+                  <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                        <Search className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-2xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
+                            询价公告 (RFQ)
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 transition-colors line-clamp-2">
+                          {displayTitle(notice)}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1 truncate">
+                          {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" · ")}
+                        </p>
+                        <div className="flex items-center justify-between mt-1 text-xs">
+                          <span className="font-semibold text-slate-700">{budget}</span>
+                          <span className="text-amber-600">{deadlineLabel(notice)}</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 transition-colors">
-                      {rfq.title}
-                    </p>
-                    <p className="text-xs text-slate-600 mt-1">{rfq.desc}</p>
-                    <p className="text-xs text-slate-500 mt-1">{rfq.buyer}</p>
-                  </div>
-                </div>
-              </a>
-            ))}
+                  </a>
+                );
+              })
+            )}
           </div>
+          {/* 采购方发布需求入口（规划模块13的转化入口） */}
+          <a
+            href="/rfq"
+            className="mt-4 flex items-center justify-center gap-1.5 border border-dashed border-amber-300 hover:border-amber-400 hover:bg-amber-50 rounded-lg py-2.5 text-xs font-bold text-amber-700 transition-colors"
+          >
+            我是采购方，免费发布询价需求 →
+          </a>
         </div>
       </div>
     </section>
