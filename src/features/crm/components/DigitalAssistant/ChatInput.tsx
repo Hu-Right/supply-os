@@ -13,7 +13,6 @@ import { api, getAuthToken } from "@/core/http";
 import { Button, Textarea } from "@/shared/ui";
 import type { AttachmentMeta } from "../../hooks/useDigitalAssistant";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** 与后端上传白名单一致（扩展名粗筛，服务端仍做 magic bytes 校验） */
 const ACCEPT_EXTS = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar";
@@ -57,7 +56,9 @@ export function ChatInput({ onSend, isThinking, mode, hidden }: ChatInputProps) 
       const formData = new FormData();
       formData.append("file", file);
       const token = getAuthToken();
-      const res = await fetch(`${BASE_URL}/api/crm/chat/upload`, {
+      // 上传端点固定为本应用同源路由（上传接口与前端同域部署），
+      // 不接受运行时拼接的外部 URL——消除 SSRF 形态
+      const res = await fetch("/api/crm/chat/upload", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: formData,

@@ -5,6 +5,7 @@
  * 市场策略、KPI建议、90天行动计划、综合结论等。
  */
 import { NextRequest, NextResponse } from "next/server";
+import type { RowDataPacket } from "mysql2/promise";
 import { getPool } from "@/lib/db/pool";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
@@ -53,6 +54,16 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     try {
       const row = await repo.findById(id);
       if (!row) routeError(404, 40400, "未找到该记录");
+
+      // P0 越权修复：报告含企业名称/联系方式等敏感信息，仅归属人可读。
+      // 归属判定：user_id 直接匹配，或当前账号 qualification_id 关联（公开表单以手机号回填的路径）
+      const [owner] = await getPool().query<RowDataPacket[]>(
+        "SELECT qualification_id FROM crm_users WHERE id = ? LIMIT 1",
+        [auth.userId],
+      );
+      const linkedQualificationId = Number(owner[0]?.qualification_id || 0);
+      const isOwner = Number(row.user_id || 0) === auth.userId || linkedQualificationId === id;
+      if (!isOwner) routeError(404, 40400, "未找到该记录");
 
       const scoreInput = toScoreInput(row as unknown as Record<string, unknown>);
       const pdfBuffer = await generateReadinessPdf({
