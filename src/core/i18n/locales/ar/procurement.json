@@ -10,6 +10,8 @@
   "procurement_statDeadline30": "إغلاق خلال 30 يومًا",
   "procurement_statWithDocs": "مع المستندات الأصلية",
   "procurement_statAiMatchable": "قابلة للمطابقة بالذكاء الاصطناعي",
+  "procurement_memberUnlock": "فتح للأعضاء",
+  "procurement_daysLeft": "متبقٍ {days} يومًا",
   "procurement_total": "الإجمالي",
   "procurement_items": "عناصر",
   "procurement_freeTrial": "الحصة المجانية",

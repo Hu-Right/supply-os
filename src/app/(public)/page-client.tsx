@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { COUNTRY_NAME_ISO2 } from "@/shared/data/countryIso2";
+import { CountryFlag } from "@/shared/ui";
 import { noticeTypeKey } from "@/features/procurement/notice-type";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
 import { WorldMapChart } from "@/shared/ui/charts/WorldMapChart";
@@ -249,35 +249,7 @@ interface HomeNoticeItem {
   title_i18n?: string; title_en?: string; agency?: string; agency_i18n?: string;
 }
 
-/** 国家英文名 → ISO2：直接匹配 → 逗号重排（"Congo, DR of the"→"dr of the congo"）→ 首段 → 去 the */
-function lookupCountryIso2(name: string): string | undefined {
-  const n = name.trim().toLowerCase();
-  if (!n) return undefined;
-  if (COUNTRY_NAME_ISO2[n]) return COUNTRY_NAME_ISO2[n];
-  if (n.includes(", ")) {
-    const reordered = n.split(", ").reverse().join(" ");
-    if (COUNTRY_NAME_ISO2[reordered]) return COUNTRY_NAME_ISO2[reordered];
-    const first = n.split(",")[0].trim();
-    if (COUNTRY_NAME_ISO2[first]) return COUNTRY_NAME_ISO2[first];
-  }
-  if (n.startsWith("the ") && COUNTRY_NAME_ISO2[n.slice(4)]) return COUNTRY_NAME_ISO2[n.slice(4)];
-  return undefined;
-}
-
-/** 国旗图（本地 /flags/{iso}.svg，源自 flag-icons 包 4x3 SVG）；未命中 ISO2 回退地球图标 */
-function CountryFlag({ name }: { name: string }) {
-  const iso = lookupCountryIso2(name);
-  if (!iso) return <Globe className="w-5 h-4 text-slate-300 shrink-0" />;
-  return (
-    <img
-      src={`/flags/${iso}.svg`}
-      alt=""
-      loading="lazy"
-      className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
-      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
-    />
-  );
-}
+/** 国旗图组件已提升至 shared/ui（features 层 NoticeCard 复用），此处直接引用 */
 
 /** 热门国家/行业/UNSPSC 代码 — 真实计数（规划 5.1 内容模块 + 7.3 数量SEO） */
 function HotTopicsSection() {

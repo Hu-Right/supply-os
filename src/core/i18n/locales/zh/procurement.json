@@ -10,6 +10,8 @@
   "procurement_statDeadline30": "未来30天截止",
   "procurement_statWithDocs": "含原始文件",
   "procurement_statAiMatchable": "可AI匹配",
+  "procurement_memberUnlock": "会员解锁",
+  "procurement_daysLeft": "剩余 {days} 天",
   "procurement_total": "共",
   "procurement_items": "条",
   "procurement_freeTrial": "免费体验",

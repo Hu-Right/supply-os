@@ -10,6 +10,8 @@
   "procurement_statDeadline30": "Cierre en 30 días",
   "procurement_statWithDocs": "Con documentos originales",
   "procurement_statAiMatchable": "Compatibles con IA",
+  "procurement_memberUnlock": "Desbloqueo para miembros",
+  "procurement_daysLeft": "Quedan {days} días",
   "procurement_total": "Total",
   "procurement_items": "elementos",
   "procurement_freeTrial": "Cuota gratuita",

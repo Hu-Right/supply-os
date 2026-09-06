@@ -46,12 +46,20 @@ export async function fetchDetailsByIds(
        ORDER BY FIELD(id, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
     );
-    return rows as RowDataPacket[];
+    // 模块02 NEW 标签：create_time 在主表（宽表无此列）。按 PK 二次查询后在内存合并，
+    // 不在宽表 SELECT 上 JOIN——两表 title/description 等列同名，JOIN 会引入歧义。
+    const [timeRows] = await pool.query(
+      `SELECT id, create_time FROM crm_bid_notices WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ids,
+    );
+    const timeMap = new Map<number, unknown>();
+    for (const r of timeRows as RowDataPacket[]) timeMap.set(Number(r.id), r.create_time);
+    return (rows as RowDataPacket[]).map((r) => ({ ...r, create_time: timeMap.get(Number(r.id)) ?? null }));
   }
 
   // 回退路径：原始多表 JOIN（宽表未就绪）
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country, n.create_time,
        n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
        n.is_featured, n.documents, n.procurement_files,
        LEFT(n.description, 300) AS description,

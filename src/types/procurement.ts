@@ -24,6 +24,8 @@ export interface NoticeListItem {
   deadline?: string;
   /** Unix 时间戳（秒或毫秒），供前端时区转换使用 */
   deadline_ts?: number | string;
+  /** 主表入库时间（宽表无此列，detail-fetch 二次查询合并），NEW 标签判定用 */
+  create_time?: string;
   estimated_value?: string;
   description?: string;
   source_url?: string;

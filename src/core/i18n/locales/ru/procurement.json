@@ -10,6 +10,8 @@
   "procurement_statDeadline30": "Закрытие в течение 30 дней",
   "procurement_statWithDocs": "С оригинальными документами",
   "procurement_statAiMatchable": "Доступны ИИ-подбору",
+  "procurement_memberUnlock": "Разблокировка для участников",
+  "procurement_daysLeft": "Осталось {days} дн.",
   "procurement_total": "Всего",
   "procurement_items": "элементов",
   "procurement_freeTrial": "Бесплатная квота",

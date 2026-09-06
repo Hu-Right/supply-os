@@ -80,3 +80,5 @@ export type { TooltipProps } from "./Tooltip";
 
 export { default as WechatQRModal } from "./WechatQRModal";
 export type { WechatQRModalProps } from "./WechatQRModal";
+
+export { CountryFlag, lookupCountryIso2 } from "./CountryFlag";
