@@ -19,6 +19,8 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
+import { COUNTRY_NAME_ISO2 } from "@/shared/data/countryIso2";
+import { noticeTypeKey } from "@/features/procurement/notice-type";
 import { Search, Building2, Globe, Users, Crown, TrendingUp } from "lucide-react";
 import { WorldMapChart } from "@/shared/ui/charts/WorldMapChart";
 
@@ -243,14 +245,122 @@ function StatsWall() {
 /** 三栏卡片共用的宽表字段口径（与列表页 NoticeCard 一致） */
 interface HomeNoticeItem {
   id: number; title: string; country: string; estimated_value: string; deadline_sec: number | null;
+  notice_type?: string;
   title_i18n?: string; title_en?: string; agency?: string; agency_i18n?: string;
+}
+
+/** 国家英文名 → ISO2：直接匹配 → 逗号重排（"Congo, DR of the"→"dr of the congo"）→ 首段 → 去 the */
+function lookupCountryIso2(name: string): string | undefined {
+  const n = name.trim().toLowerCase();
+  if (!n) return undefined;
+  if (COUNTRY_NAME_ISO2[n]) return COUNTRY_NAME_ISO2[n];
+  if (n.includes(", ")) {
+    const reordered = n.split(", ").reverse().join(" ");
+    if (COUNTRY_NAME_ISO2[reordered]) return COUNTRY_NAME_ISO2[reordered];
+    const first = n.split(",")[0].trim();
+    if (COUNTRY_NAME_ISO2[first]) return COUNTRY_NAME_ISO2[first];
+  }
+  if (n.startsWith("the ") && COUNTRY_NAME_ISO2[n.slice(4)]) return COUNTRY_NAME_ISO2[n.slice(4)];
+  return undefined;
+}
+
+/** 国旗图（flagcdn w40，仅展示用途）；全量 ISO2 表未命中时回退地球图标 */
+function CountryFlag({ name }: { name: string }) {
+  const iso = lookupCountryIso2(name);
+  if (!iso) return <Globe className="w-5 h-4 text-slate-300 shrink-0" />;
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${iso}.png`}
+      alt=""
+      loading="lazy"
+      className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
+      onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+    />
+  );
+}
+
+/** 热门国家/行业/UNSPSC 代码 — 真实计数（规划 5.1 内容模块 + 7.3 数量SEO） */
+function HotTopicsSection() {
+  const { locale } = useLocale();
+  const [topics, setTopics] = useState<{
+    countries: Array<{ country: string; count: number }>;
+    industries: Array<{ id: number; code: string; title_zh: string; title: string; count: number }>;
+    unspsc: Array<{ id: number; code: string; title_zh: string; title: string; count: number }>;
+  } | null>(null);
+
+  useEffect(() => {
+    // 服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询
+    api<NonNullable<typeof topics>>("/api/notices/hot-topics").then(setTopics).catch(() => {});
+  }, []);
+
+  if (!topics) return null;
+
+  const industryName = (i: { title_zh: string; title: string }) =>
+    locale === "zh" ? i.title_zh || i.title : i.title;
+
+  const groups = [
+    {
+      label: "热门国家",
+      items: topics.countries.map((c) => ({
+        key: c.country,
+        label: getCountryDisplayName(c.country, locale),
+        count: c.count,
+        href: `/procurement?country=${encodeURIComponent(c.country)}`,
+      })),
+    },
+    {
+      label: "热门行业",
+      items: topics.industries.map((i) => ({
+        key: String(i.id),
+        label: industryName(i),
+        count: i.count,
+        href: `/procurement?industry_id=${i.id}`,
+      })),
+    },
+    {
+      label: "UNSPSC 热门代码",
+      items: topics.unspsc.map((i) => ({
+        key: String(i.id),
+        label: `${i.code} ${industryName(i)}`,
+        count: i.count,
+        href: `/procurement?code_id=${i.id}`,
+      })),
+    },
+  ].filter((g) => g.items.length > 0);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <section className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100">
+      <div className="space-y-3">
+        {groups.map((g) => (
+          <div key={g.label} className="flex items-start gap-3">
+            <span className="shrink-0 w-24 text-xs font-bold text-slate-500 mt-1.5">{g.label}</span>
+            <div className="flex flex-wrap gap-2">
+              {g.items.map((item) => (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-teal-400 hover:text-teal-700 transition-colors"
+                >
+                  <span className="max-w-[180px] truncate">{item.label}</span>
+                  <span className="font-bold text-teal-600">{item.count.toLocaleString()}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
 function ContentColumns() {
-  const { locale } = useLocale();
+  const { t, locale } = useLocale();
   const [suppliers, setSuppliers] = useState<Array<{
     id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
+    mainProductsZh: string[]; status: string;
   }>>([]);
   const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
   const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
@@ -263,6 +373,11 @@ function ContentColumns() {
     n.estimated_value && n.estimated_value !== "0.00"
       ? `USD ${Number(n.estimated_value).toLocaleString()}`
       : "预算详谈";
+  // 采购类型徽章文案：noticeTypeKey + i18n（如"招标邀请（ITB）"），未知类型不展示徽章
+  const typeLabel = (n: HomeNoticeItem) => {
+    const key = noticeTypeKey(n.notice_type);
+    return key ? t(key) : "";
+  };
   // 兜底显示：宽表 NULLIF 后 deadline_sec 可能为 null；正常数据已被 deadline_from 过滤为未截止。
   // 超长截止（框架协议/动态采购系统可达数年）显示具体日期，避免"截止 2154 天"式观感（规划 §8 数据质量）
   const deadlineLabel = (n: HomeNoticeItem) => {
@@ -278,7 +393,7 @@ function ContentColumns() {
 
   useEffect(() => {
     // 获取已审核的优质供应商（最新 3 条）
-    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[] }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
+    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
       .catch(() => {});
 
@@ -299,143 +414,142 @@ function ContentColumns() {
     <section className="px-4 sm:px-6 lg:px-8 py-10">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 热门商机 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-teal-600" />
-              今日热门商机
-            </h3>
-            <a href="/procurement" className="text-xs text-teal-600 font-bold hover:underline">
-              查看全部 →
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-slate-900">今日热门商机</h3>
+            <a href="/procurement" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
+              更多 &gt;
             </a>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-5 flex-1">
             {hotNotices.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">暂无今日精选商机</div>
+              <div className="text-center py-8 text-sm text-slate-400">暂无热门商机</div>
             ) : (
-              hotNotices.map((notice) => {
-                const budget = displayBudget(notice);
-                return (
-                  <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
-                    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                      <div className="shrink-0 w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                        <Globe className="w-4 h-4 text-teal-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors line-clamp-2">
-                          {displayTitle(notice)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1 truncate">
-                          {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" · ")}
-                        </p>
-                        <div className="flex items-center justify-between mt-1 text-xs">
-                          <span className="font-semibold text-slate-700">{budget}</span>
-                          <span className="text-amber-600">{deadlineLabel(notice)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </a>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* 优质供应商 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-600" />
-              优质供应商推荐
-            </h3>
-            <a href="/supplier" className="text-xs text-teal-600 font-bold hover:underline">
-              查看全部 →
-            </a>
-          </div>
-          <div className="space-y-4">
-            {suppliers.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">加载中...</div>
-            ) : (
-              suppliers.map((supplier) => (
-                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
-                  <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors truncate">
-                        {supplier.nameZh}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">{supplier.countryZh} · {supplier.cityZh}</p>
-                      {supplier.complianceLabelsZh && supplier.complianceLabelsZh.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {supplier.complianceLabelsZh.slice(0, 3).map((label, j) => (
-                            <span key={j} className="text-2xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+              hotNotices.map((notice) => (
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                  <div className="flex items-center gap-2">
+                    <CountryFlag name={notice.country} />
+                    {notice.notice_type && (
+                      <span className="px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
+                        {typeLabel(notice)}
+                      </span>
+                    )}
+                    <span className="ml-auto text-xs text-amber-600 shrink-0">{deadlineLabel(notice)}</span>
+                  </div>
+                  <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors line-clamp-2 mt-2">
+                    {displayTitle(notice)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1.5 truncate">
+                    {[displayCountry(notice), displayAgency(notice)].filter(Boolean).join(" / ")}
+                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm font-semibold text-slate-800">预算：{displayBudget(notice)}</span>
+                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+                      查看详情
+                    </span>
                   </div>
                 </a>
               ))
             )}
           </div>
+          <a href="/procurement" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
+            查看全部商机 →
+          </a>
+        </div>
+
+        {/* 优质供应商 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-slate-900">优质供应商推荐</h3>
+            <a href="/supplier" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
+              更多 &gt;
+            </a>
+          </div>
+          <div className="space-y-5 flex-1">
+            {suppliers.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">加载中...</div>
+            ) : (
+              suppliers.map((supplier) => (
+                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-sm font-extrabold">
+                      {supplier.nameZh.slice(0, 1)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors truncate">
+                          {supplier.nameZh}
+                        </p>
+                        {supplier.status === "approved" && (
+                          <span className="shrink-0 px-1.5 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
+                            认证供应商
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 truncate">
+                        {[supplier.countryZh, supplier.cityZh, ...(supplier.mainProductsZh ?? []).slice(0, 2)].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex flex-wrap gap-1 min-w-0">
+                      {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
+                        <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+                      查看详情
+                    </span>
+                  </div>
+                </a>
+              ))
+            )}
+          </div>
+          <a href="/supplier" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
+            查看全部供应商 →
+          </a>
         </div>
 
         {/* 最新 RFQ 询价公告（真数据：统一搜索 notice_type=RFQ） */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-amber-600" />
-              最新 RFQ 询价
-            </h3>
-            <a href="/procurement?notice_type=RFQ" className="text-xs text-teal-600 font-bold hover:underline">
-              查看全部 →
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-extrabold text-slate-900">最新 RFQ 询价</h3>
+            <a href="/procurement?notice_type=RFQ" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
+              更多 &gt;
             </a>
           </div>
-          <div className="space-y-4 flex-1">
+          <div className="space-y-5 flex-1">
             {rfqNotices.length === 0 ? (
               <div className="text-center py-8 text-sm text-slate-400">暂无 RFQ 询价公告</div>
             ) : (
-              rfqNotices.map((notice) => {
-                const budget = displayBudget(notice);
-                return (
-                  <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
-                    <div className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
-                      <div className="shrink-0 w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-                        <Search className="w-4 h-4 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-2xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">
-                            询价公告 (RFQ)
-                          </span>
-                        </div>
-                        <p className="text-sm font-bold text-slate-800 group-hover:text-amber-700 transition-colors line-clamp-2">
-                          {displayTitle(notice)}
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1 truncate">
-                          {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" · ")}
-                        </p>
-                        <div className="flex items-center justify-between mt-1 text-xs">
-                          <span className="font-semibold text-slate-700">{budget}</span>
-                          <span className="text-amber-600">{deadlineLabel(notice)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </a>
-                );
-              })
+              rfqNotices.map((notice) => (
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
+                      询价公告 (RFQ)
+                    </span>
+                    <span className="ml-auto text-xs text-slate-400 shrink-0">{deadlineLabel(notice)}</span>
+                  </div>
+                  <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 mt-2">
+                    {displayTitle(notice)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1.5 truncate">
+                    {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" / ")}
+                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm font-semibold text-slate-800">预算：{displayBudget(notice)}</span>
+                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-blue-400 group-hover:text-blue-700 transition-colors">
+                      查看详情
+                    </span>
+                  </div>
+                </a>
+              ))
             )}
           </div>
-          {/* 采购方发布需求入口（规划模块13的转化入口） */}
-          <a
-            href="/rfq"
-            className="mt-4 flex items-center justify-center gap-1.5 border border-dashed border-amber-300 hover:border-amber-400 hover:bg-amber-50 rounded-lg py-2.5 text-xs font-bold text-amber-700 transition-colors"
-          >
-            我是采购方，免费发布询价需求 →
+          <a href="/procurement?notice_type=RFQ" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
+            查看全部RFQ →
           </a>
         </div>
       </div>
@@ -471,6 +585,7 @@ export default function PageClient() {
     <div className="min-h-screen bg-slate-50">
       <HeroSection />
       <StatsWall />
+      <HotTopicsSection />
       <WorldMapSection />
       <ContentColumns />
       <UpgradeBanner />
