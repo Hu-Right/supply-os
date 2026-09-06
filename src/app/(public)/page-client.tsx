@@ -264,13 +264,13 @@ function lookupCountryIso2(name: string): string | undefined {
   return undefined;
 }
 
-/** 国旗图（flagcdn w40，仅展示用途）；全量 ISO2 表未命中时回退地球图标 */
+/** 国旗图（本地 /flags/{iso}.svg，源自 flag-icons 包 4x3 SVG）；未命中 ISO2 回退地球图标 */
 function CountryFlag({ name }: { name: string }) {
   const iso = lookupCountryIso2(name);
   if (!iso) return <Globe className="w-5 h-4 text-slate-300 shrink-0" />;
   return (
     <img
-      src={`https://flagcdn.com/w40/${iso}.png`}
+      src={`/flags/${iso}.svg`}
       alt=""
       loading="lazy"
       className="h-3.5 w-5 shrink-0 rounded-[2px] object-cover"
