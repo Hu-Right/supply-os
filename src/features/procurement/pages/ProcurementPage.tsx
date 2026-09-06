@@ -4,7 +4,7 @@ import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-re
 import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
-import { clearApiCache } from "@/core/http";
+import { api, clearApiCache } from "@/core/http";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 // ARCH-P2-解耦（2026-09-05）：RecentUnlocks 已从 features/payment 迁移至本 feature，
@@ -41,6 +41,25 @@ export default function ProcurementPage() {
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [unspscExpanded, setUnspscExpanded] = useState(false);
+
+  // ── 模块02 规模条：公告池实时统计（服务端 10 分钟缓存） ──
+  const [listingStats, setListingStats] = useState<{
+    active: number; todayNew: number; deadline_in_30d: number; with_original_docs: number; bridged: number;
+  } | null>(null);
+  useEffect(() => {
+    api<{
+      active: number; todayNew?: number; deadline_in_30d?: number;
+      with_original_docs?: number; bridged: number;
+    }>("/api/notices/stats")
+      .then((d) => setListingStats({
+        active: d.active ?? 0,
+        todayNew: d.todayNew ?? 0,
+        deadline_in_30d: d.deadline_in_30d ?? 0,
+        with_original_docs: d.with_original_docs ?? 0,
+        bridged: d.bridged ?? 0,
+      }))
+      .catch(() => {});
+  }, []);
 
   // ── 行业偏好三级降级 ──
   const {
@@ -162,24 +181,50 @@ export default function ProcurementPage() {
     {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-5">
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      {/* 模块02 深色页头：库存感 + 实时规模条（样图 2-全球采购机会库） */}
+      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-6">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-500" />
+            <h2 className="text-xl md:text-2xl font-extrabold text-white flex items-center flex-wrap gap-3">
               {t("procurement_poolTitle")}
-            </h3>
+              {listingStats && (
+                <span className="px-2.5 py-1 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-bold">
+                  {listingStats.active.toLocaleString()}+ {t("procurement_statSearchable")}
+                </span>
+              )}
+            </h2>
+            <p className="text-slate-300 text-sm mt-1.5">{t("procurement_poolDesc")}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold whitespace-nowrap">
-              {t("procurement_total")} {search.result.total} {t("procurement_items")}
-            </span>
-            <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
+          {/* 解锁额度正向文案：>0 显示剩余额度；0/未登录显示升级引导（规划 §5.2 验收红线：不得出现"解锁 0 条"负向提示） */}
+          {actions.totalRemaining > 0 ? (
+            <span className="shrink-0 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-300/40 text-amber-300 text-xs font-bold whitespace-nowrap">
               {t("statusPanelTotalUnlocks")} {actions.totalRemaining} {t("procurement_items")}
             </span>
-          </div>
+          ) : (
+            <a href="/membership" className="shrink-0 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-300/40 text-amber-300 text-xs font-bold whitespace-nowrap hover:bg-amber-400/25 transition-colors">
+              {t("supplierContactUpgradeBtn")}
+            </a>
+          )}
         </div>
+        {listingStats && (
+          <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {[
+              { value: listingStats.active, label: t("procurement_statSearchable") },
+              { value: listingStats.todayNew, label: t("procurement_statTodayNew") },
+              { value: listingStats.deadline_in_30d, label: t("procurement_statDeadline30") },
+              { value: listingStats.with_original_docs, label: t("procurement_statWithDocs") },
+              { value: listingStats.bridged, label: t("procurement_statAiMatchable") },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
+                <p className="text-xl font-extrabold text-white">{s.value.toLocaleString()}</p>
+                <p className="text-2xs text-slate-300 mt-0.5">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
+      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="p-5 space-y-4">
           <NoticeSearchBar
             form={search.form}

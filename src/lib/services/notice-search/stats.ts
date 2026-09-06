@@ -159,11 +159,28 @@ export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
   const [featuredRows] = await pool.query(
     `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
   );
+  // 模块02 规模条口径（谓词字面内联以通过静态扫描，与 ACTIVE_NOTICE_WHERE_NO_ALIAS
+  // 逐字一致，口径变更须与 utils/notice-expired 两处同步）：
+  // 未来 30 天截止（把握近期机会）
+  const [deadline30Rows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM crm_bid_notices n
+     WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+       AND n.deadline_sec > UNIX_TIMESTAMP(NOW())
+       AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400`
+  );
+  // 含原始文件（宽表 documents_count>0，可下载附件）
+  const [docsRows] = await pool.query(
+    `SELECT COUNT(*) AS total FROM crm_notice_search ns
+     WHERE (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+       AND ns.documents_count > 0`
+  );
   const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
   const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
   const data: NoticeStatsResult = {
     raw: Number((rawRows as RowDataPacket[])[0]?.total || 0), active, bridged,
     featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridge_gap: active - bridged,
+    deadline_in_30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
+    with_original_docs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
   };
   noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
   return data;
