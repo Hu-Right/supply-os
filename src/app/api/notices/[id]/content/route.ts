@@ -32,10 +32,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
     if (!notice) routeError(404, 40044, "公告不存在");
 
+    // P2 修复：description_cn 存于宽表 crm_notice_search（findDetail 查主表无此列，
+    // 此前恒返回空串导致中文详情"秒显"永不生效）。仅在解锁后查询，无泄露面。
+    const [cnRows] = await ctx.dbPool.query(
+      "SELECT description_cn FROM crm_notice_search WHERE id = ? LIMIT 1",
+      [noticeId],
+    );
+    const descriptionCn = String((cnRows as Array<{ description_cn?: string }>)[0]?.description_cn || "");
+
     return NextResponse.json({
       description: notice.description || "",
       title: notice.title || "",
-      description_cn: notice.description_cn || "",
+      description_cn: descriptionCn,
     });
   },
 );
