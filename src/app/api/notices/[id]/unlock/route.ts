@@ -30,8 +30,14 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const noticeId = Number(id);
     const pool = getPool();
     const userId = auth.userId;
-    const body = await req.json();
-    const unlockType = body.unlock_type === "subscription" || body.unlock_type === "single"
+    // 空请求体/非法 JSON 返回 400 而非 500（body 可缺省，缺省按 free 解锁处理）
+    let body: { unlock_type?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+    const unlockType = body?.unlock_type === "subscription" || body?.unlock_type === "single"
       ? body.unlock_type : "free";
 
     let price = 0;

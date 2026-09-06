@@ -37,6 +37,22 @@ export class NoticeUnlockRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
+  /**
+   * 事务内统计用户已消耗的 subscription 类型解锁次数。
+   * P0-2 修复配套：无权益纯订阅解锁路径据此按套餐 unlock_quota 封顶。
+   * 调用方须已对该用户的订阅行 FOR UPDATE，防并发超卖。
+   * since 为 null 时经 COALESCE 落到 1970-01-01，即不限周期全量计数。
+   */
+  async countSubscriptionUnlocksSince(
+    conn: PoolConnection, userId: number, since: Date | null,
+  ): Promise<number> {
+    const [rows] = await conn.query(
+      "SELECT COUNT(*) AS cnt FROM crm_opportunity_unlocks WHERE user_id = ? AND unlock_type = 'subscription' AND unlocked_at >= COALESCE(?, '1970-01-01')",
+      [userId, since],
+    );
+    return Number((rows as RowDataPacket[])[0]?.cnt || 0);
+  }
+
   /** 写入解锁流水 */
   async insertUnlock(params: {
     userId: number;

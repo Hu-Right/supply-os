@@ -80,11 +80,21 @@ export async function executeUnlock(
         consumedEntitlementId = Number(ent.id);
       } else if (unlockType === "subscription") {
         // P1-6 安全修复：subscription 类型兼容活跃订阅——有有效订阅即放行，不强制要求 entitlement
-        if (!await membershipRepo.hasActiveSubscriptionInTransaction(conn, userId)) {
+        // P0-2 配额封顶修复：无权益纯订阅路径不得无限解锁——
+        // 锁定订阅行（序列化并发）并按套餐 unlock_quota 校验订阅期内累计解锁数
+        const sub = await membershipRepo.findActiveSubscriptionForUpdate(conn, userId);
+        if (!sub) {
           await conn.rollback();
           throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
         }
-        // 有活跃订阅，无需消耗 entitlement
+        const quota = Number(sub.unlock_quota ?? 0);
+        if (Number.isFinite(quota) && quota > 0) {
+          const used = await unlockRepo.countSubscriptionUnlocksSince(conn, userId, sub.started_at);
+          if (used >= quota) {
+            await conn.rollback();
+            throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+          }
+        }
       } else {
         await conn.rollback();
         throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
