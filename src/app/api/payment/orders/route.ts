@@ -86,10 +86,12 @@ export const POST = withRoute(
         ? `/api/payment/alipay/redirect/${encodeURIComponent(result.order_no)}`
         : result.pay_url;
 
-      if (!result.qr_code_url) {
+      // 仅支付宝通道强制二维码（当面付 precreate）；mock 等跳转式通道
+      // 以 pay_url 为准（MockProvider 有意不返回 qr_code_url）
+      if (result.provider === "alipay" && !result.qr_code_url) {
         routeError(500, EC_PAYMENT_QR_CODE_MISSING, '支付宝二维码生成失败，请确认已开通\u201C当面付\u201D产品后重试');
       }
-      const qrCodeUrl = await toQrDataUrl(result.qr_code_url);
+      const qrCodeUrl = result.qr_code_url ? await toQrDataUrl(result.qr_code_url) : null;
 
       return NextResponse.json(
         {

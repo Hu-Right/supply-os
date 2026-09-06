@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // POST /api/payment/notify/alipay
-  if (path.endsWith("/alipay")) {
+  // POST /api/payment/notify/alipay（精确匹配，防 /notify/xalipay 之类误命中）
+  if (path === "/api/payment/notify/alipay") {
     try {
       const ctx = getContext();
       const { orchestrator } = ctx.payment;
@@ -42,8 +42,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // POST /api/payment/notify/wechat
-  if (path.endsWith("/wechat")) {
+  // POST /api/payment/notify/wechat（精确匹配）
+  if (path === "/api/payment/notify/wechat") {
     try {
       const ctx = getContext();
       const { orchestrator } = ctx.payment;
