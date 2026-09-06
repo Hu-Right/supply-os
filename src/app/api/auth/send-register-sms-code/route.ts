@@ -38,6 +38,12 @@ export const POST = withRoute(async (req: NextRequest) => {
     () => `smscode:register:${targetPhone}`);
   if (rl) return rl;
 
+  // P1 修复：IP 维度限流（10 次/小时/IP）——防止单 IP 对大量手机号
+  // 各发 1 条的短信轰炸（配合按手机号限流绕过产生真实短信费用）
+  const rlIp = checkRateLimit(req, { windowMs: 3_600_000, maxAttempts: 10 },
+    () => `smscode:reg-ip:${extractClientIp(req)}`);
+  if (rlIp) return rlIp;
+
   // 生成 6 位验证码
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
