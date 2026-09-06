@@ -76,6 +76,9 @@ Desktop.ini
 *.ttf
 *.eot
 
+# ===== 本地参考材料（设计样图/规划文档，非生产文件，仅保留在本地） =====
+OS页面重构/
+
 # —— 以上规则的例外：项目运行必需的静态资源 ——
 !public/fonts/**
 !public/wechat-service-qr.png
