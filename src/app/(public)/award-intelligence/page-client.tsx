@@ -9,7 +9,9 @@
 import { useState } from "react";
 import {
   DollarSign, PieChart, Users, Bell, Search,
-  ArrowRight, Star,
+  ArrowRight, Star, FileSearch, Building2, UserCheck,
+  TrendingUp, Clock, Link2, Eye, FileSpreadsheet, Code,
+  FileText, Crown, Shield,
 } from "lucide-react";
 
 /* ── Mock Data ── */
@@ -320,6 +322,97 @@ export default function PageClient() {
           </div>
         </div>
       </div>
+
+      {/* ══ 核心内容模块 ═══ */}
+      <section className="px-4 sm:px-6 lg:px-8 py-10 bg-white border-t border-slate-100">
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-extrabold text-slate-900">核心内容模块</h2>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span className="w-8 h-px bg-teal-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            <span className="w-8 h-px bg-teal-500" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5 max-w-6xl mx-auto">
+          {[
+            { icon: FileSearch, title: "中标结果搜索", desc: "多维度搜索中标记录，支持高级筛选与快速定位关键项目" },
+            { icon: Building2, title: "采购机构画像", desc: "展示机构背景、采购偏好、历史金额与活跃度，深度理解买家行为" },
+            { icon: UserCheck, title: "中标商画像", desc: "追踪供应商中标表现、份额变化与合作历史，洞察竞争格局" },
+            { icon: TrendingUp, title: "价格/金额趋势", desc: "金额随时间变化趋势，品类价格区间与波动，支持同比分析" },
+            { icon: Clock, title: "预计再次采购提醒", desc: "基于历史周期预测下次采购时间，提前把握销售机会" },
+            { icon: Link2, title: "与新标/供应商互链", desc: "中标结果与在招标关联，关联供应商库与产品，形成完整情报链" },
+          ].map((mod) => {
+            const Icon = mod.icon;
+            return (
+              <div key={mod.title} className="bg-slate-50 hover:bg-white rounded-2xl border border-slate-200 hover:border-teal-200 p-5 text-center transition-all hover:shadow-md group">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white border border-slate-100 mb-3 group-hover:scale-110 transition-transform">
+                  <Icon className="w-6 h-6 text-teal-600" />
+                </div>
+                <h3 className="text-sm font-extrabold text-slate-900 mb-1">{mod.title}</h3>
+                <p className="text-2xs text-slate-500 leading-relaxed">{mod.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ═ 变现动作 ═══ */}
+      <section className="px-4 sm:px-6 lg:px-8 py-10">
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-extrabold text-slate-900">变现动作</h2>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <span className="w-8 h-px bg-teal-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+            <span className="w-8 h-px bg-teal-500" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 max-w-6xl mx-auto">
+          {[
+            { icon: Eye, title: "专业会员", desc: "解锁全部情报与数据深度分析" },
+            { icon: FileText, title: "竞争情报包", desc: "行业/国家/机构专属情报包" },
+            { icon: UserCheck, title: "买家追踪", desc: "订阅特定机构采购周期提醒" },
+            { icon: TrendingUp, title: "竞争对手监控", desc: "供应商中标动态监控与预警" },
+            { icon: FileSpreadsheet, title: "Excel导出", desc: "批量导出中标结果与趋势报表" },
+            { icon: Code, title: "API", desc: "数据接口接入企业系统" },
+            { icon: FileText, title: "定制市场报告", desc: "按需定制机构或市场维度报告" },
+          ].map((action) => {
+            const Icon = action.icon;
+            return (
+              <div key={action.title} className="text-center group">
+                <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-teal-50 transition-colors">
+                  <Icon className="w-5 h-5 text-slate-600 group-hover:text-teal-600 transition-colors" />
+                </div>
+                <p className="text-xs font-bold text-slate-900">{action.title}</p>
+                <p className="text-2xs text-slate-400 mt-0.5 leading-tight">{action.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ══ 页面价值 ═══ */}
+      <section className="px-4 sm:px-6 lg:px-8 py-10 bg-slate-50">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {[
+            { icon: Eye, title: "从\"看标\"升级为\"看市场\"", desc: "不只看到单个项目，更看懂市场机会与趋势" },
+            { icon: Crown, title: "买家情报是企业版续费理由", desc: "深度数据 + 趋势洞察，提升续费率与粘性" },
+            { icon: Shield, title: "高毛利数据价值来自历史与关联分析", desc: "独家历史数据与算法模型，构建高商护城河" },
+          ].map((v) => {
+            const Icon = v.icon;
+            return (
+              <div key={v.title} className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/10 mb-4">
+                  <Icon className="w-6 h-6 text-teal-400" />
+                </div>
+                <h3 className="text-sm font-extrabold text-white mb-2">{v.title}</h3>
+                <p className="text-2xs text-slate-400 leading-relaxed">{v.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
