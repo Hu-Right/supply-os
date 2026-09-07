@@ -153,9 +153,9 @@ export function AppHeader({
             {/* 右侧：会员套餐按钮 */}
             <Link
               href="/membership"
-              className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border-2 border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors ml-3"
+              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900 text-amber-400 hover:bg-slate-800 transition-colors ml-3"
             >
-              <Crown className="w-3.5 h-3.5" />
+              <Crown className="w-4 h-4" />
               会员套餐
             </Link>
           </div>
