@@ -17,6 +17,9 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+/** 服务生命周期阶段 */
+export type ServicePhase = "pre-bid" | "prep" | "submit" | "post-award";
+
 /** 服务项 */
 export interface ServiceItem {
   title: string;
@@ -24,6 +27,10 @@ export interface ServiceItem {
   icon: import("lucide-react").LucideIcon;
   specs: string[];
   active?: boolean;
+  /** 所属生命周期阶段 */
+  phase?: ServicePhase;
+  /** 价格标签 */
+  priceLabel?: string;
 }
 
 /** 成功案例 */
@@ -38,33 +45,15 @@ export interface SuccessStoryItem {
  * Service Items List
  */
 export const SERVICES: ServiceItem[] = [
+  // ── 投标前 ──
   {
     title: "国际公共采购 资质代办 & 代注册托管",
     desc: "帮助中方精密智造、生物制药、环保机械工厂快速完成联合国全球开发署/卫生组织一级或二级资格账户升级，减少多周期退单延误风险。",
     icon: LayoutGrid,
     specs: ["英文财务报表制作", "UNSPSC精确对准码", "1对1合规排雷"],
     active: true,
-  },
-  {
-    title: "海外保税区'前展后仓'备件物流",
-    desc: "位于法兰克福、迪拜、内罗毕、越南等展厅15公里保税工业园区内，提供样机直接存放、即刻提报、本地送样24小时极速响应。",
-    icon: Globe,
-    specs: ["海外关税退税核验", "常年Bilingual代表接洽", "同城快配配送服务"],
-    active: true,
-  },
-  {
-    title: "中英法阿多文案海牙与使馆认证",
-    desc: "提供专业的进出口通关凭证、测试报告、企业章程法务公证、以及出口目的地海牙或联合国指定认证材料加急翻译代办服务。",
-    icon: FileText,
-    specs: ["使馆背书直连", "特许多语言别名资质印章", "电子化核验通道"],
-    active: true,
-  },
-  {
-    title: "国际大宗标书（中英）翻译与编排",
-    desc: "资深跨国采购代理起草，在履约违约免责声明、不可抗力风险划分、以及联合国劳工福利合规声明上做针对性编排。",
-    icon: BookOpen,
-    specs: ["合规范文填充", "PDF高精度防改编排", "AI辅助匹配预测"],
-    active: true,
+    phase: "pre-bid",
+    priceLabel: "¥2,000 起",
   },
   {
     title: "金牌出海企业深度合规培训",
@@ -72,13 +61,47 @@ export const SERVICES: ServiceItem[] = [
     icon: Crown,
     specs: ["线下高管封闭课", "高频避坑标准教案", "在线视频实案演练"],
     active: true,
+    phase: "pre-bid",
+    priceLabel: "¥5,000/期",
   },
+  // ── 投标准备 ──
+  {
+    title: "国际大宗标书（中英）翻译与编排",
+    desc: "资深跨国采购代理起草，在履约违约免责声明、不可抗力风险划分、以及联合国劳工福利合规声明上做针对性编排。",
+    icon: BookOpen,
+    specs: ["合规范文填充", "PDF高精度防改编排", "AI辅助匹配预测"],
+    active: true,
+    phase: "prep",
+    priceLabel: "¥3,000 起/项目",
+  },
+  {
+    title: "中英法阿多文案海牙与使馆认证",
+    desc: "提供专业的进出口通关凭证、测试报告、企业章程法务公证、以及出口目的地海牙或联合国指定认证材料加急翻译代办服务。",
+    icon: FileText,
+    specs: ["使馆背书直连", "特许多语言别名资质印章", "电子化核验通道"],
+    active: true,
+    phase: "prep",
+    priceLabel: "¥1,500 起",
+  },
+  // ── 投标提交 ──
   {
     title: "1v1 全球直联远程会商支持",
     desc: "为入驻会员搭建的高清远程会议系统，当有国际买家在海外展厅中表现出高度意向时，我们顾问一键接连您与买家实现云端即时在线沟通谈判。",
     icon: MessageSquare,
     specs: ["同声即时传译协助", "会商纪要自动创建CRM", "一键订阅商机"],
     active: true,
+    phase: "submit",
+    priceLabel: "会员免费",
+  },
+  // ── 中标后 ──
+  {
+    title: "海外保税区'前展后仓'备件物流",
+    desc: "位于法兰克福、迪拜、内罗毕、越南等展厅15公里保税工业园区内，提供样机直接存放、即刻提报、本地送样24小时极速响应。",
+    icon: Globe,
+    specs: ["海外关税退税核验", "常年Bilingual代表接洽", "同城快配配送服务"],
+    active: true,
+    phase: "post-award",
+    priceLabel: "项目报价",
   },
 ];
 

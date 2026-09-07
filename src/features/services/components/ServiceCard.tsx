@@ -28,6 +28,11 @@ export function ServiceCard({ service, onBook, bookLabel }: ServiceCardProps) {
         <h4 className="text-base font-extrabold text-slate-800">
           {service.title}
         </h4>
+        {service.priceLabel && (
+          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-teal-50 border border-teal-200 text-2xs font-bold text-teal-700">
+            {service.priceLabel}
+          </span>
+        )}
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           {service.desc}
         </p>
