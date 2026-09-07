@@ -6,12 +6,12 @@
  *
  * @description 组合各区块组件，不包含业务逻辑。
  *              页面结构 / Page structure:
- *   1. Hero 区 — 双搜索入口（找采购机会 / 找供应商）
+ *   1. Hero 区 — 采购机会搜索入口
  *   2. 实时数字墙 — 6 个规模指标
- *   3. 热门话题 — 国家/行业/UNSPSC 快捷入口
+ *   3. 热门行业
  *   4. 全球商机地图
  *   5. 三栏内容 — 今日热门商机 / 优质供应商 / 最新 RFQ 询价
- *   6. 产品路径 — 从找标到中标 4 步
+ *   6. 平台介绍 — 定位 + 四步路径
  *   7. 会员升级横幅
  */
 import {
@@ -20,7 +20,7 @@ import {
   HotTopicsSection,
   WorldMapSection,
   ContentColumns,
-  ProductPath,
+  AboutSection,
   UpgradeBanner,
 } from "@/features/home";
 
@@ -32,7 +32,7 @@ export default function PageClient() {
       <HotTopicsSection />
       <WorldMapSection />
       <ContentColumns />
-      <ProductPath />
+      <AboutSection />
       <UpgradeBanner />
     </div>
   );
