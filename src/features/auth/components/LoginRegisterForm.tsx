@@ -6,7 +6,7 @@
  * @description 账号弹窗的登录/注册表单区块：模式切换、找回密码视图切换。
  *              具体表单逻辑已拆分至 hooks/ 和 forms/ 子模块。
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useAuthForm } from "../hooks/useAuthForm";
 import { useForgotPassword } from "../hooks/useForgotPassword";
@@ -32,6 +32,15 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
   const { t } = useLocale();
   const [forgotView, setForgotView] = useState(false);
   const [qualificationData, setQualificationData] = useState<Record<string, string | string[]> | null>(null);
+  // ★ 用 ref 存储最新 qualificationData，避免 useEffect 异步传播时序竞态
+  // （EnterpriseQualificationForm 通过 useEffect 回调更新 state，提交时 state 可能尚未更新）
+  // 直接在回调中同步更新 ref，不依赖 useEffect 的异步传播
+  const qualificationDataRef = useRef(qualificationData);
+
+  const handleQualificationDataChange = (data: Record<string, string | string[]> | null) => {
+    qualificationDataRef.current = data;
+    setQualificationData(data);
+  };
 
   const auth = useAuthForm(onSuccess, initialMode);
   const forgot = useForgotPassword(onSuccess);
@@ -60,7 +69,7 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
         cascade.prefLevel1 || null,
         cascade.prefLevel2 || null,
         cascade.prefLevel3 || null,
-        qualificationData,
+        qualificationDataRef.current,
       );
     }
   };
@@ -111,7 +120,7 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
           setClaimForm={auth.setClaimForm}
           authError={auth.authError}
           registerCode={registerCode}
-          onQualificationChange={setQualificationData}
+          onQualificationChange={handleQualificationDataChange}
           agreedToTerms={auth.agreedToTerms}
           setAgreedToTerms={auth.setAgreedToTerms}
         />
