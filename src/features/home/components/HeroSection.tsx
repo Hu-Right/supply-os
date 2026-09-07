@@ -66,7 +66,7 @@ export function HeroSection() {
         src="/earth.png?v=2"
         alt=""
         aria-hidden
-        className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[160%] w-auto object-contain opacity-30 hidden lg:block"
+        className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[160%] w-auto object-contain opacity-40 hidden lg:block brightness-150 contrast-125"
         style={{
           maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.2) 15%, black 40%)",
           WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.2) 15%, black 40%)",
