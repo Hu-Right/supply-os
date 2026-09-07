@@ -16,10 +16,7 @@ import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-  title: {
-    default: "云境·国际采购平台",
-    template: "%s | 云境·国际采购平台",
-  },
+  title: "云境·国际采购平台 | 云境OS | OS",
   description: "云境·国际采购平台：联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。助力中国企业连接全球采购机遇。",
   keywords: ["云境", "国际采购", "政府采购", "联合国采购", "供应商管理", "招标", "投标", "CRM", "海外展厅", "UN procurement", "global sourcing"],
   alternates: {
