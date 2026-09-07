@@ -69,10 +69,10 @@ export function NextStepsPanel({
   const steps: Array<NextStep & { onClick: () => void }> = [
     {
       icon: Upload,
-      titleKey: "procurement_nextStepUpload",
+      titleKey: "detail_stepUpload",
       titleDefault: "上传企业资料 → 匹配能力",
       tier: "free",
-      tierLabelKey: "procurement_tierFree",
+      tierLabelKey: "detail_tierFree",
       tierLabelDefault: "免费",
       onClick: () => {
         if (onUploadMaterials) {
@@ -86,10 +86,10 @@ export function NextStepsPanel({
     },
     {
       icon: FileText,
-      titleKey: "procurement_nextStepUnlock",
+      titleKey: "detail_stepUnlock",
       titleDefault: "解锁原始文件与附件",
       tier: "member",
-      tierLabelKey: "procurement_tierMember",
+      tierLabelKey: "detail_tierMember",
       tierLabelDefault: "会员",
       onClick: () => {
         if (onUnlock) {
@@ -103,10 +103,10 @@ export function NextStepsPanel({
     },
     {
       icon: UserCheck,
-      titleKey: "procurement_nextStepConsultant",
+      titleKey: "detail_stepConsultant",
       titleDefault: "预约标书顾问",
       tier: "professional",
-      tierLabelKey: "procurement_tierProfessional",
+      tierLabelKey: "detail_tierPro",
       tierLabelDefault: "专业服务",
       onClick: () => {
         if (onBookConsultant) {
@@ -118,10 +118,10 @@ export function NextStepsPanel({
     },
     {
       icon: MessageSquareText,
-      titleKey: "procurement_nextStepCrm",
-      titleDefault: "加入 CRM 跟进",
+      titleKey: "detail_stepCrm",
+      titleDefault: "加入CRM跟进",
       tier: "free",
-      tierLabelKey: "procurement_tierFree",
+      tierLabelKey: "detail_tierFree",
       tierLabelDefault: "免费",
       onClick: () => {
         if (onJoinCrm) {
@@ -138,7 +138,7 @@ export function NextStepsPanel({
   return (
     <aside className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sticky top-24">
       <h3 className="text-base font-extrabold text-white mb-4">
-        {t("procurement_nextStepsTitle") || "下一步动作"}
+        {t("detail_nextStepsTitle") || "下一步动作"}
       </h3>
       <div className="space-y-3">
         {steps.map((step) => {
@@ -177,7 +177,7 @@ export function NextStepsPanel({
           >
             <Crown className="w-4 h-4" />
             <Briefcase className="w-4 h-4" />
-            {t("procurement_upgradeToUnlock") || "升级会员，解锁完整执行信息"}
+            {t("detail_upgradeUnlock") || "升级会员，解锁完整执行信息"}
           </button>
         </div>
       )}

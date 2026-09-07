@@ -7,19 +7,15 @@
  *              免费用户可看到摘要概要，完整分析需升级会员。
  *              数据通过 props 注入（后端 API 待接入），无数据时展示占位引导。
  */
-import { useState } from "react";
 import {
   Package,
   ShieldCheck,
   Banknote,
   AlertTriangle,
   Lock,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
 
 /** AI 拆标摘要数据结构 */
 export interface AiSummaryData {
@@ -60,34 +56,33 @@ export function AiSummarySection({
   onUnlock,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
-  const [expanded, setExpanded] = useState(false);
 
   const items: SummaryItem[] = [
     {
       icon: Package,
       iconColor: "text-teal-600",
-      titleKey: "procurement_aiSummaryDeliverables",
+      titleKey: "detail_coreDeliverables",
       titleDefault: "核心交付",
       content: data?.coreDeliverables,
     },
     {
       icon: ShieldCheck,
       iconColor: "text-blue-600",
-      titleKey: "procurement_aiSummaryQualifications",
+      titleKey: "detail_keyQualifications",
       titleDefault: "关键资质",
       content: data?.keyQualifications,
     },
     {
       icon: Banknote,
       iconColor: "text-amber-600",
-      titleKey: "procurement_aiSummaryPayment",
+      titleKey: "detail_paymentCycle",
       titleDefault: "付款与周期",
       content: data?.paymentAndCycle,
     },
     {
       icon: AlertTriangle,
       iconColor: "text-rose-600",
-      titleKey: "procurement_aiSummaryRisks",
+      titleKey: "detail_riskAlerts",
       titleDefault: "风险提示",
       content: data?.riskAlerts,
     },
@@ -102,10 +97,10 @@ export function AiSummarySection({
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="w-5 h-5 text-teal-600" />
           <h3 className="text-base font-extrabold text-slate-900">
-            {t("procurement_aiSummaryTitle") || "AI 拆标摘要"}
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
           </h3>
           <span className="text-2xs text-slate-400 font-normal">
-            {t("procurement_aiSummaryBy") || "由 OS AI 分析生成"}
+            {t("detail_aiSummaryBy") || "由 OS AI 分析生成"}
           </span>
         </div>
         <div className="space-y-3 animate-pulse">
@@ -147,10 +142,10 @@ export function AiSummarySection({
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-teal-600" />
           <h3 className="text-base font-extrabold text-slate-900">
-            {t("procurement_aiSummaryTitle") || "AI 拆标摘要"}
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
           </h3>
           <span className="text-2xs text-slate-400 font-normal">
-            {t("procurement_aiSummaryBy") || "由 OS AI 分析生成"}
+            {t("detail_aiSummaryBy") || "由 OS AI 分析生成"}
           </span>
         </div>
       </div>
@@ -204,27 +199,16 @@ export function AiSummarySection({
         </div>
       )}
 
-      {/* 展开/收起按钮（免费用户） */}
-      {!isUnlocked && (
-        <Button
-          onClick={() => setExpanded((v) => !v)}
-          variant="ghost"
-          size="sm"
-          className="mt-4 w-full gap-2 text-sm font-bold text-teal-700 hover:bg-teal-50"
+      {/* 查看完整报告链接（右下角） */}
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onUnlock}
+          className="inline-flex items-center gap-1 text-sm font-bold text-teal-700 hover:text-teal-900 transition-colors"
         >
-          {expanded ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              {t("procurement_collapse") || "收起"}
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              {t("procurement_viewFullAiAnalysis") || "查看完整 AI 分析报告 →"}
-            </>
-          )}
-        </Button>
-      )}
+          {t("detail_viewFullReport") || "查看完整AI分析报告"} →
+        </button>
+      </div>
     </section>
   );
 }
