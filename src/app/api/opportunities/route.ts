@@ -9,6 +9,10 @@
  *              1. 添加认证要求（此前无认证即可拉取全量数据）
  *              2. 截断 description 至 300 字符（与公告搜索列表对齐）
  *              3. 移除 source_url（付费内容，仅在解锁后的详情端点返回）
+ *              P1 越权修复：本端点曾无认证返回完整 description + source_url，
+ *              可绕过统一搜索的付费脱敏口径（core_locked 截断）。现已要求登录，
+ *              且 description 截断至 300 字、source_url 置空，与列表口径对齐。
+ *              未解锁详情仍需走 /api/opportunities/[id]/unlock 链路。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
@@ -19,10 +23,13 @@ import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 /** description 截断阈值（与公告搜索列表 300 字符对齐） */
 const LIST_DESC_MAX_CHARS = 300;
 
-// ── GET /api/opportunities — 商机列表（按 UNSPSC code，需认证）──
+// ── GET /api/opportunities — 商机列表（按 UNSPSC code，需认证，脱敏口径）──
 export const GET = withRoute(
   async (req: NextRequest) => {
-    await requireUserKeyOrThrow(req);
+    const auth = await requireUserKeyOrThrow(req);
+    if (!auth.userId) {
+      return NextResponse.json({ code: 40042, message: "请先登录" }, { status: 401 });
+    }
 
     const url = req.nextUrl;
     const ctx = getContext();

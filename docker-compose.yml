@@ -83,7 +83,9 @@ services:
       MEILI_HOST: http://meilisearch:7700
       NODE_ENV: production
     ports:
-      - "3039:3039"
+      # P0 安全修复：仅绑定本机回环，由宿主机反向代理(nginx)对外发布，
+      # 否则直连流量可伪造 X-Forwarded-For 绕过所有限流
+      - "127.0.0.1:3039:3039"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3039/api/system/version').then(r=>{if(!r.ok)throw 1})"]
       interval: 30s

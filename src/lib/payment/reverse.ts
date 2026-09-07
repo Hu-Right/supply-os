@@ -49,7 +49,10 @@ export async function reverseFulfilledOrder(
     // 发货），自动回收会留下"退回 99 元、700 元会员照常保有"的套利口子——
     // 不回收权益，标记 refunded 并告警转人工核处
     const [linkedRows] = await conn.query(
-      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status = 'paid' LIMIT 1",
+      // P0 套利修复：pending 的抵扣单也必须拦截——只查 paid 会漏掉
+      // "已付 single_99 → 下 annual_799 抵扣单(pending) → 退 single_99 →
+      // 再付 pending 单"的 99 元套利链路，与 findDeductibleSingleOrder 口径对齐
+      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1",
       [orderNo],
     );
     const linkedOrder = (linkedRows as Array<{ order_no: string }>)[0];

@@ -108,7 +108,7 @@ export class ErrorBoundary extends Component<
         >
           <div className="max-w-md rounded-2xl border border-secondary-200 bg-white p-6 shadow-sm">
             <p className="text-xs font-bold uppercase tracking-widest text-primary-600">
-              Supply OS
+              云境·国际采购平台
             </p>
             <h1 className="mt-2 text-xl font-extrabold text-secondary-900">
               {t("errorBoundaryTitle")}

@@ -38,6 +38,24 @@ export async function register() {
     );
   }
 
+  // 生产消息通道配置告警（P1-5）：SMS_PROVIDER/SMTP 漏配时注册/找回静默降级
+  // （短信验证码只进日志），不 fail-fast 但必须在部署检查单中人工确认
+  if (process.env.NODE_ENV === "production") {
+    const smsProvider = (process.env.SMS_PROVIDER || "mock").toLowerCase();
+    if (smsProvider === "mock") {
+      console.error(
+        "[bootstrap] ⚠ 生产环境 SMS_PROVIDER 为 mock：短信验证码仅打印日志、不会真实发送，" +
+          "注册/手机找回流程将不可用！请配置 SMS_PROVIDER=aliyun 及对应密钥",
+      );
+    }
+    if (!process.env.SMTP_HOST) {
+      console.error(
+        "[bootstrap] ⚠ 生产环境未配置 SMTP_HOST：邮箱验证码/找回密码邮件将无法发送，" +
+          "请配置 SMTP 连接信息",
+      );
+    }
+  }
+
   const { getPool } = await import("./lib/db/pool");
   const { getContext } = await import("./lib/db/context");
   const {

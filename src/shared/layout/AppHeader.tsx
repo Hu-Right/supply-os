@@ -96,9 +96,11 @@ export function AppHeader({
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 flex items-center justify-center text-white font-extrabold shadow-sm">
-              <Globe className="w-6 h-6 animate-spin-slow" />
-            </div>
+            <img
+              src="/images/brand-icon.svg"
+              alt={t("brandName")}
+              className="w-10 h-10 shrink-0 object-contain"
+            />
             <div className="min-w-0 flex-1">
               <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-primary-700 to-secondary-900 bg-clip-text text-transparent">{t("brandName")}</h1>
               <div className="text-xs text-secondary-400 font-mono hidden md:block" suppressHydrationWarning>

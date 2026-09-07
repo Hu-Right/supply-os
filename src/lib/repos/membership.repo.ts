@@ -242,4 +242,29 @@ export class MembershipRepo {
     );
     return (rows as RowDataPacket[]).length > 0;
   }
+
+  /**
+   * 事务内悲观锁查询用户的活跃订阅（含套餐解锁配额）。
+   * P0-2 修复：无权益但有订阅的解锁路径必须按套餐配额封顶，
+   * FOR UPDATE 序列化同一用户并发解锁，防止配额超卖。
+   */
+  async findActiveSubscriptionForUpdate(
+    conn: PoolConnection, userId: number,
+  ): Promise<{ id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null } | null> {
+    const [rows] = await conn.query(
+      `SELECT s.id, s.plan_code, s.started_at, p.unlock_quota
+       FROM crm_user_subscriptions s
+       LEFT JOIN crm_membership_plans p ON p.plan_code = s.plan_code
+       WHERE s.user_id = ? AND s.status = 'active'
+         AND (s.expires_at IS NULL OR s.expires_at > NOW())
+       ORDER BY s.expires_at IS NULL DESC, s.expires_at DESC, s.id DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [userId],
+    );
+    const row = (rows as RowDataPacket[])[0] as
+      | { id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null }
+      | undefined;
+    return row ?? null;
+  }
 }

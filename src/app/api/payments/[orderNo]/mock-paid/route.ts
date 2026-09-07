@@ -12,6 +12,10 @@ import { EC_PAYMENT_ORDER_NOT_FOUND, EC_ACCESS_FORBIDDEN } from "@/shared/consta
 export const POST = withRoute<{ params: Promise<{ orderNo: string }> }>(
   async (req, { params }) => {
     const ctx = getContext();
+    // P0 双保险：生产环境无论 env 如何误配，一律封死 mock 履约入口
+    if (process.env.NODE_ENV === "production") {
+      routeError(404, 40404, "订单不存在");
+    }
     if (ctx.payment.paymentMode === "live") {
       routeError(404, 40404, "订单不存在");
     }

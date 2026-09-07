@@ -44,11 +44,15 @@ function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
 }
 
 /** ORDER BY 映射（与 Meilisearch 排序语义对齐） */
-function buildOrderBy(p: UnifiedSearchParams): string {
-  const refBoost = p.q
-    ? "(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = " +
-      `'${String(p.q).replace(/\s+/g, "").toUpperCase().replace(/'/g, "''")}') DESC, `
-    : "";
+export function buildOrderBy(p: UnifiedSearchParams): string {
+  // MySQL 默认开启反斜杠转义：必须先转义 \ 再转义 '，否则 q 含 \ 时
+  // 字符串字面量被破坏（查询必坏，且构成 ORDER BY 注入面）
+  const refLiteral = String(p.q ?? "")
+    .replace(/\s+/g, "")
+    .toUpperCase()
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "''");
+  const refBoost = p.q ? `(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = '${refLiteral}') DESC, ` : "";
   if (p.sort === "latest") return `${refBoost}n.id DESC`;
   if (p.sort === "deadline") {
     return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec ASC, n.id DESC`;

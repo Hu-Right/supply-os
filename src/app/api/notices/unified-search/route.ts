@@ -5,6 +5,8 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { extractUserKey } from "@/lib/middleware/auth";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 import { searchUnified } from "@/lib/services/search-orchestrator";
 import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
@@ -34,6 +36,13 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
 }
 
 export async function GET(req: NextRequest) {
+  // 公开端点限流：防止脚本无成本打满连接池（降级路径一次 COUNT + FULLTEXT UNION）
+  const rateLimitResponse = checkRateLimit(req, {
+    windowMs: 60_000,
+    maxAttempts: 60,
+  }, () => `search:${extractClientIp(req)}`);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const auth = await extractUserKey(req);
   const params = parseSearchParams(req);
   // 身份参数仅传 userId（crm_users.user_key 列退役收尾）

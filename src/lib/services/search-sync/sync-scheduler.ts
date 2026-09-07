@@ -198,9 +198,14 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
   const fullReconcileIntervalMs = options.fullReconcileIntervalMs ?? 5 * 60 * 1000; // 5 分钟
   let stopped = false;
   let watermark = 0;
+  let initDone = false;
   const stopFns: Array<() => void> = [];
 
-  void (async () => {
+  // 初始化（水位定格 / 首次全量回填）。
+  // 幂等且可重试：启动瞬间 DB 抖动只影响首轮回填，由增量定时器按周期自动重试，
+  // 绝不允许初始化失败导致定时器永不注册（静默永久停摆）。
+  const ensureInit = async (): Promise<void> => {
+    if (initDone) return;
     try {
       const ready = await isWideTableReady(pool);
       if (!ready) {
@@ -213,92 +218,96 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
         const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
         watermark = Number((maxRows as RowDataPacket[])[0]?.max_id || 0);
       }
-
-      // 定时器 1：增量同步（拉取新行）
-      const syncTimer = setInterval(async () => {
-        if (stopped) return;
-        try {
-          const { newWatermark } = await incrementalWideSync(pool, watermark);
-          watermark = newWatermark;
-        } catch (err) {
-          console.warn("[wide-table] 增量同步异常:", (err as Error).message);
-        }
-      }, intervalMs);
-      stopFns.push(() => clearInterval(syncTimer));
-
-      // 定时器 2：deadline_sec 对账（独立于增量同步，降频执行）
-      const reconcileTimer = setInterval(async () => {
-        if (stopped) return;
-        try {
-          const reconciledIds = await reconcileDeadlineSec(pool);
-          if (reconciledIds.length > 0) {
-            if (!isMeiliHealthy()) await tryRecover().catch(() => false);
-            if (isMeiliHealthy()) {
-              void syncNoticeIds(pool, reconciledIds).then((r) => {
-                const processed = r.synced + r.deleted;
-                logSyncCascade("meili", reconciledIds.length, processed > 0 ? "ok" : "fail");
-                if (processed < reconciledIds.length) enqueueRetry(reconciledIds);
-              }).catch((err) => {
-                console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
-                logSyncCascade("meili", reconciledIds.length, "fail");
-                enqueueRetry(reconciledIds);
-              });
-            } else {
-              logSyncCascade("meili", reconciledIds.length, "retry");
-              requestIndexRebuild("cascade-skipped-unhealthy");
-              enqueueRetry(reconciledIds);
-            }
-          }
-        } catch (err) {
-          console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
-        }
-      }, reconcileIntervalMs);
-      stopFns.push(() => clearInterval(reconcileTimer));
-
-      // 定时器 3：全量对账（ghost 行清理 + is_featured 同步 + 译文对账）
-      const fullReconcileTimer = setInterval(async () => {
-        if (stopped) return;
-        try {
-          // Ghost 行清理
-          const ghostIds = await reconcileGhostRows(pool);
-          // is_featured 对账
-          const featuredIds = await reconcileIsFeatured(pool);
-          // 译文对账：宽表 title_zh 与翻译表 title_tr 不一致的行重新同步
-          const translationIds = await reconcileTranslations(pool);
-          // precise 对账：专人更新 candidates 后跟随重算
-          const preciseIds = await reconcilePreciseCodes(pool);
-          // P1-18 内容漂移对账：主表 title/description 变更后宽表滞后修复
-          const contentDriftIds = await reconcileContentDrift(pool);
-
-          // 合并变更 ID 并同步到 Meilisearch
-          const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds, ...contentDriftIds])];
-          if (allChangedIds.length > 0) {
-            if (!isMeiliHealthy()) await tryRecover().catch(() => false);
-            if (isMeiliHealthy()) {
-              void syncNoticeIds(pool, allChangedIds).then((r) => {
-                const processed = r.synced + r.deleted;
-                logSyncCascade("meili", allChangedIds.length, processed > 0 ? "ok" : "fail");
-                if (processed < allChangedIds.length) enqueueRetry(allChangedIds);
-              }).catch((err) => {
-                console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
-                logSyncCascade("meili", allChangedIds.length, "fail");
-                enqueueRetry(allChangedIds);
-              });
-            } else {
-              logSyncCascade("meili", allChangedIds.length, "retry");
-              requestIndexRebuild("cascade-skipped-unhealthy");
-              enqueueRetry(allChangedIds);
-            }
-          }
-        } catch (err) {
-          console.warn("[wide-table] 全量对账异常:", (err as Error).message);
-        }
-      }, fullReconcileIntervalMs);
-      stopFns.push(() => clearInterval(fullReconcileTimer));
+      initDone = true;
     } catch (err) {
-      console.error("[wide-table] 初始化失败（静默降级）:", (err as Error).message);
+      console.error("[wide-table] 初始化失败（下个周期自动重试）:", (err as Error).message);
     }
-  })();
+  };
+
+  void ensureInit();
+
+  // 定时器 1：增量同步（拉取新行；初始化未完成时先补初始化）
+  const syncTimer = setInterval(async () => {
+    if (stopped) return;
+    try {
+      await ensureInit();
+      const { newWatermark } = await incrementalWideSync(pool, watermark);
+      watermark = newWatermark;
+    } catch (err) {
+      console.warn("[wide-table] 增量同步异常:", (err as Error).message);
+    }
+  }, intervalMs);
+  stopFns.push(() => clearInterval(syncTimer));
+
+  // 定时器 2：deadline_sec 对账（独立于增量同步，降频执行）
+  const reconcileTimer = setInterval(async () => {
+    if (stopped) return;
+    try {
+      const reconciledIds = await reconcileDeadlineSec(pool);
+      if (reconciledIds.length > 0) {
+        if (!isMeiliHealthy()) await tryRecover().catch(() => false);
+        if (isMeiliHealthy()) {
+          void syncNoticeIds(pool, reconciledIds).then((r) => {
+            const processed = r.synced + r.deleted;
+            logSyncCascade("meili", reconciledIds.length, processed > 0 ? "ok" : "fail");
+            if (processed < reconciledIds.length) enqueueRetry(reconciledIds);
+          }).catch((err) => {
+            console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+            logSyncCascade("meili", reconciledIds.length, "fail");
+            enqueueRetry(reconciledIds);
+          });
+        } else {
+          logSyncCascade("meili", reconciledIds.length, "retry");
+          requestIndexRebuild("cascade-skipped-unhealthy");
+          enqueueRetry(reconciledIds);
+        }
+      }
+    } catch (err) {
+      console.warn("[wide-table] deadline 对账异常:", (err as Error).message);
+    }
+  }, reconcileIntervalMs);
+  stopFns.push(() => clearInterval(reconcileTimer));
+
+  // 定时器 3：全量对账（ghost 行清理 + is_featured 同步 + 译文对账）
+  const fullReconcileTimer = setInterval(async () => {
+    if (stopped) return;
+    try {
+      // Ghost 行清理
+      const ghostIds = await reconcileGhostRows(pool);
+      // is_featured 对账
+      const featuredIds = await reconcileIsFeatured(pool);
+      // 译文对账：宽表 title_zh 与翻译表 title_tr 不一致的行重新同步
+      const translationIds = await reconcileTranslations(pool);
+      // precise 对账：专人更新 candidates 后跟随重算
+      const preciseIds = await reconcilePreciseCodes(pool);
+      // P1-18 内容漂移对账：主表 title/description 变更后宽表滞后修复
+      const contentDriftIds = await reconcileContentDrift(pool);
+
+      // 合并变更 ID 并同步到 Meilisearch
+      const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds, ...contentDriftIds])];
+      if (allChangedIds.length > 0) {
+        if (!isMeiliHealthy()) await tryRecover().catch(() => false);
+        if (isMeiliHealthy()) {
+          void syncNoticeIds(pool, allChangedIds).then((r) => {
+            const processed = r.synced + r.deleted;
+            logSyncCascade("meili", allChangedIds.length, processed > 0 ? "ok" : "fail");
+            if (processed < allChangedIds.length) enqueueRetry(allChangedIds);
+          }).catch((err) => {
+            console.warn("[wide-table] Meilisearch 级联同步失败:", (err as Error).message);
+            logSyncCascade("meili", allChangedIds.length, "fail");
+            enqueueRetry(allChangedIds);
+          });
+        } else {
+          logSyncCascade("meili", allChangedIds.length, "retry");
+          requestIndexRebuild("cascade-skipped-unhealthy");
+          enqueueRetry(allChangedIds);
+        }
+      }
+    } catch (err) {
+      console.warn("[wide-table] 全量对账异常:", (err as Error).message);
+    }
+  }, fullReconcileIntervalMs);
+  stopFns.push(() => clearInterval(fullReconcileTimer));
 
   return () => {
     stopped = true;

@@ -23,8 +23,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
     const auth = await requireUserKeyOrThrow(req);
 
-    // 限流（审查 F29）：按需翻译触发 LLM 调用链，防遍历公告 × 6 语言的费用滥用
-    const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 }, () => `notice_tr:${auth.userId}`);
+    // 限流（审查 F29）：按需翻译触发 LLM 调用链，防遍历公告 × 6 语言的费用滥用。
+    // P1 收紧：30/min/用户 × 12.7 万公告的 LLM 费用敞口过大，降为 10/min
+    const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 10 }, () => `notice_tr:${auth.userId}`);
     if (rl) return rl;
 
     const { id } = await params;

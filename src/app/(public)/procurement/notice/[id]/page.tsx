@@ -92,7 +92,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: summary,
       url,
       type: "article",
-      siteName: "Supply OS",
+      siteName: "云境·国际采购平台",
     },
     twitter: {
       card: "summary",
@@ -139,7 +139,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       name: row.title,
       url,
       description: buildSummary(row),
-      isPartOf: { "@type": "WebSite", name: "Supply OS", url: absoluteUrl("") },
+      isPartOf: { "@type": "WebSite", name: "云境·国际采购平台", url: absoluteUrl("") },
     },
   ];
 
