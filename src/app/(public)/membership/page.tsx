@@ -4,7 +4,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { absoluteUrl } from "@/lib/services/seo/site";
-import { SUPPORTED_LOCALE_CODES } from "@/core/i18n";
+import { SUPPORTED_LOCALE_CODES } from "@/core/i18n/locales";
 import PageClient from "./page-client";
 
 export const revalidate = 3600;
