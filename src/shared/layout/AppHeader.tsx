@@ -110,14 +110,6 @@ export function AppHeader({
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
-            {/* 会员套餐按钮 — 始终可见，点击跳转 /membership */}
-            <Link
-              href="/membership"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border-2 border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-            >
-              <Crown className="w-3.5 h-3.5" />
-              {t("membershipPlansTitle")}
-            </Link>
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
@@ -142,19 +134,30 @@ export function AppHeader({
       {/* DESKTOP NAV */}
       <nav className="hidden md:block bg-secondary-900 text-secondary-200">
         <div className="px-4 sm:px-6 lg:px-8">
-          <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.path;
-              return (
-                <Link key={tab.path} href={tab.path} scroll={false}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-primary-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-accent-500/10 text-accent-400 border border-accent-500/25 hover:bg-accent-500/20" : "hover:bg-secondary-800 text-secondary-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-accent-400 animate-pulse" : ""}`} />
-                  <span>{tab.label}</span>
-                  {tab.alert && <span className="w-2 h-2 rounded-full bg-danger-500 animate-ping inline-block" />}
-                </Link>
-              );
-            })}
+          <div className="flex items-center justify-between py-2">
+            {/* 左侧：导航 Tabs */}
+            <div ref={navScrollRef} className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.path;
+                return (
+                  <Link key={tab.path} href={tab.path} scroll={false}
+                    className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-primary-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-accent-500/10 text-accent-400 border border-accent-500/25 hover:bg-accent-500/20" : "hover:bg-secondary-800 text-secondary-300"}`}>
+                    <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-accent-400 animate-pulse" : ""}`} />
+                    <span>{tab.label}</span>
+                    {tab.alert && <span className="w-2 h-2 rounded-full bg-danger-500 animate-ping inline-block" />}
+                  </Link>
+                );
+              })}
+            </div>
+            {/* 右侧：会员套餐按钮 */}
+            <Link
+              href="/membership"
+              className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold border-2 border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors ml-3"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              会员套餐
+            </Link>
           </div>
         </div>
       </nav>
