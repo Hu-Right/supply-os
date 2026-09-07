@@ -83,7 +83,7 @@ export function HeroSection() {
         </p>
 
         {/* 双搜索入口 — 同一面板 */}
-        <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 max-w-6xl">
+        <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6">
           <div className="flex flex-col lg:flex-row items-stretch gap-6 lg:gap-10">
             {/* 左侧：采购机会搜索 */}
             <div className="flex-1">
