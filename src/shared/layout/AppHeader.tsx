@@ -132,8 +132,19 @@ export function AppHeader({
       />
 
       {/* DESKTOP NAV */}
-      <nav className="hidden md:block bg-secondary-900 text-secondary-200">
-        <div className="px-4 sm:px-6 lg:px-8">
+      <nav className="hidden md:block bg-secondary-900 text-secondary-200 relative overflow-hidden">
+        {/* 地球装饰背景图 */}
+        <img
+          src="/earth.png?v=2"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[160%] w-auto object-contain opacity-20"
+          style={{
+            maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 30%, black 60%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 30%, black 60%)",
+          }}
+        />
+        <div className="px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between py-2">
             {/* 左侧：导航 Tabs */}
             <div ref={navScrollRef} className="flex gap-1.5 overflow-x-auto scrollbar-none">
@@ -153,7 +164,7 @@ export function AppHeader({
             {/* 右侧：会员套餐按钮 */}
             <Link
               href="/membership"
-              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900 text-amber-400 hover:bg-slate-800 transition-colors ml-3"
+              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900/80 text-amber-400 hover:bg-slate-800 transition-colors ml-3 backdrop-blur-sm"
             >
               <Crown className="w-4 h-4" />
               会员套餐
