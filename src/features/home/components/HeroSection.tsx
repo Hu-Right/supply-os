@@ -84,26 +84,28 @@ export function HeroSection() {
 
         {/* 双搜索入口 — 同一面板 */}
         <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 max-w-5xl">
-          <div className="flex flex-col lg:flex-row items-stretch gap-4">
+          <div className="flex flex-col lg:flex-row items-stretch gap-6 lg:gap-10">
             {/* 左侧：采购机会搜索 */}
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <Search className="w-4 h-4 text-teal-400" />
+              <div className="mb-3">
                 <span className="text-white font-bold text-sm">搜索采购机会</span>
-                <span className="text-slate-500 text-xs">（招标 / 采购 / 项目）</span>
+                <span className="text-slate-500 text-xs ml-1">（招标 / 采购 / 项目）</span>
               </div>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  value={procurementQuery}
-                  onChange={(e) => setProcurementQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleProcurementSearch()}
-                  placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
-                  className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
+              <div className="flex mb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={procurementQuery}
+                    onChange={(e) => setProcurementQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleProcurementSearch()}
+                    placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
+                    className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
                 <button
                   onClick={handleProcurementSearch}
-                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
                 >
                   搜索商机
                 </button>
@@ -125,29 +127,26 @@ export function HeroSection() {
               </div>
             </div>
 
-            {/* 中间：或 */}
-            <div className="hidden lg:flex items-center justify-center px-2">
-              <span className="text-slate-500 text-sm font-medium">或</span>
-            </div>
-
             {/* 右侧：供应商搜索 */}
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <Building2 className="w-4 h-4 text-teal-400" />
+              <div className="mb-3">
                 <span className="text-white font-bold text-sm">查找供应商与产品</span>
               </div>
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  value={supplierQuery}
-                  onChange={(e) => setSupplierQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSupplierSearch()}
-                  placeholder="搜索产品 / 公司名称 / 资质 / 国家 / 认证"
-                  className="flex-1 bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                />
+              <div className="flex mb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={supplierQuery}
+                    onChange={(e) => setSupplierQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSupplierSearch()}
+                    placeholder="搜索产品 / 公司名称 / 资质 / 国家 / 认证"
+                    className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
                 <button
                   onClick={handleSupplierSearch}
-                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors whitespace-nowrap"
+                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
                 >
                   找供应商
                 </button>
