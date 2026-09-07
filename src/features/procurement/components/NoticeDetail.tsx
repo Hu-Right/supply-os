@@ -13,6 +13,9 @@ import { NoticeBreakdownIndicator } from "./NoticeBreakdownIndicator";
 import { NoticeCoreContent } from "./NoticeCoreContent";
 import { NoticeDetailSidebar } from "./NoticeDetailSidebar";
 import { ReportPreviewPanel } from "./ReportPreviewPanel";
+import { AiSummarySection } from "./AiSummarySection";
+import { NextStepsPanel } from "./NextStepsPanel";
+import { NoticeQuickView } from "./NoticeQuickView";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface NoticeDetailProps {
@@ -182,6 +185,14 @@ export function NoticeDetail({
               displayDescription={displayDescription}
             />
 
+            {/* Sprint 2C：AI 拆标摘要区（免费用户看前 2 项概要，后 2 项锁定） */}
+            <AiSummarySection
+              data={null}
+              loading={false}
+              isUnlocked={isVip || coreUnlocked}
+              onUnlock={() => onUnlock(notice)}
+            />
+
             {/* 中文版投标拆解报告预览：登录即可见（未解锁展示约 10% + 升级引导）；
                 内容按语言环境与数据可用性自适应：zh + description_cn → 中文，其余 → 英文原文兜底 */}
             {/* P3-14 安全修复：只在确认有报告时才挂载 ReportPreviewPanel，避免无报告时白耗请求 */}
@@ -201,22 +212,35 @@ export function NoticeDetail({
               showSkeleton={showSkeleton}
               breakdownFileCount={breakdownFileCount}
             />
+
+            {/* Sprint 2C：本标概况速览表 */}
+            <NoticeQuickView notice={notice} />
           </main>
 
-          <NoticeDetailSidebar
+          {/* Sprint 2C：下一步动作面板（首屏可见，深蓝背景固定侧栏） */}
+          <NextStepsPanel
             notice={notice}
-            membership={membership}
-            canUsePaidQuota={canUsePaidQuota}
-            isVip={isVip}
-            totalRemaining={totalRemaining}
             isLoggedIn={isLoggedIn}
-            showSkeleton={showSkeleton}
-            onExpressInterest={onExpressInterest}
-            onUnlock={onUnlock}
-            onPayUnlock={onPayUnlock}
+            isVip={isVip}
+            onUnlock={() => onUnlock(notice)}
+            onJoinCrm={() => onExpressInterest(notice, "subscribed")}
           />
         </div>
       </article>
+
+      {/* 保留原有侧边栏操作按钮（移动端底栏 + 桌面端兴趣/订阅/解锁按钮） */}
+      <NoticeDetailSidebar
+        notice={notice}
+        membership={membership}
+        canUsePaidQuota={canUsePaidQuota}
+        isVip={isVip}
+        totalRemaining={totalRemaining}
+        isLoggedIn={isLoggedIn}
+        showSkeleton={showSkeleton}
+        onExpressInterest={onExpressInterest}
+        onUnlock={onUnlock}
+        onPayUnlock={onPayUnlock}
+      />
     </div>
   );
 }
