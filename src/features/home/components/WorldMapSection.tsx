@@ -17,7 +17,6 @@ export function WorldMapSection() {
           <Globe className="w-5 h-5 text-teal-600" />
           全球商机分布
         </h2>
-        <p className="text-sm text-slate-500 mt-1">鼠标悬停查看各国未过期商机数量</p>
       </div>
       <WorldMapChart />
     </section>
