@@ -68,11 +68,11 @@ export function StatsWall() {
   }, []);
 
   const stats = [
-    { label: "采购机会总量", value: noticeStats?.active ?? 0, sub: "未过期可投标", icon: Globe, color: "text-teal-600" },
-    { label: "今日新增", value: noticeStats?.todayNew ?? 0, sub: "实时更新", icon: TrendingUp, color: "text-blue-600" },
-    { label: "覆盖国家 / 地区", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "供应商", value: supplierTotal, sub: "已入驻平台", icon: Building2, color: "text-amber-600" },
-    { label: "认证供应商", value: certifiedCount, sub: "已核验资质", icon: ShieldCheck, color: "text-emerald-600" },
+    { label: "采购机会总量", value: noticeStats?.active ?? 0, sub: "实时更新", icon: Globe, color: "text-teal-600" },
+    { label: "每日新增机会", value: noticeStats?.todayNew ?? 0, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
+    { label: "数据源 / API", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
+    { label: "供应商资源", value: supplierTotal, sub: "实时更新", icon: Building2, color: "text-amber-600" },
+    { label: "认证供应商", value: certifiedCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
     { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Users, color: "text-rose-600" },
   ];
 
