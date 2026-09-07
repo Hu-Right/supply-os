@@ -30,7 +30,7 @@ export const NAV_TABS: NavTab[] = [
   { path: "/procurement", labelKey: "navGlobalOpportunities", shortLabelKey: "navShortOpportunities", icon: Globe },
   { path: "/award-intelligence", labelKey: "navAwardIntelligence", shortLabelKey: "navShortAwardIntelligence", icon: Trophy },
   { path: "/supplier", labelKey: "navSupplierLibrary", shortLabelKey: "navShortSuppliers", icon: Users },
-  { path: "/showroom", labelKey: "navShowrooms", shortLabelKey: "navShortShowrooms", icon: Building2 },
+  { path: "/showroom", labelKey: "navFulfillment", shortLabelKey: "navShortFulfillment", icon: Building2 },
   { path: "/services", labelKey: "navBiddingServices", icon: LayoutGrid },
   { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
   { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
