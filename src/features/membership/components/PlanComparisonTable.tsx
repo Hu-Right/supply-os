@@ -145,8 +145,8 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
     }));
 
     return [
-      { category: "核心权益", categoryKey: "comparisonCoreBenefits", features: coreFeatures },
-      { category: "增值服务", categoryKey: "comparisonAdditionalServices", features: additionalFeatures },
+      { category: "core", categoryKey: "comparisonCoreBenefits", features: coreFeatures },
+      { category: "additional", categoryKey: "comparisonAdditionalServices", features: additionalFeatures },
     ];
   }, [plans, t]);
 

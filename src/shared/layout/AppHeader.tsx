@@ -110,6 +110,14 @@ export function AppHeader({
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
+            {/* 会员套餐按钮 — 始终可见，点击跳转 /membership */}
+            <Link
+              href="/membership"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border-2 border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              {t("membershipPlansTitle")}
+            </Link>
             <button onClick={onOpenAuth}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
