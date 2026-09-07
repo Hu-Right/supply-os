@@ -180,12 +180,11 @@ export function useNavTabs() {
     highlight: tab.highlight,
   }));
 
-  // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /membership/xxx）
+  // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /procurement/notice/xxx）
   const activeTab = (() => {
     const p = pathname;
     const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
-    if (hit) return hit.path;
-    return "/showroom";
+    return hit ? hit.path : "";
   })();
 
   const switchMainTab = (path: string) => {
