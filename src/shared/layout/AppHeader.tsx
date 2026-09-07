@@ -132,7 +132,7 @@ export function AppHeader({
       />
 
       {/* DESKTOP NAV */}
-      <nav className="hidden md:block bg-secondary-900 text-secondary-200 relative overflow-hidden">
+      <nav className="hidden md:block bg-[#0c1929] text-secondary-200 relative overflow-hidden">
         {/* 地球装饰背景图 */}
         <img
           src="/earth.png?v=2"
