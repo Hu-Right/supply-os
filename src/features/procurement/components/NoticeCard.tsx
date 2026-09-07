@@ -11,7 +11,7 @@
  *              detail page only. Mobile falls back to stacked compact layout.
  */
 import { memo } from "react";
-import { Crown, Target } from "lucide-react";
+import { Crown, Target, Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
 import type { LocaleKey } from "@/core/i18n";
@@ -44,6 +44,32 @@ function compactValue(v?: string): string {
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `$${Math.round(n / 1e3)}K`;
   return `$${n.toLocaleString()}`;
+}
+
+/** 从 source_url 提取来源平台名称（P0 静态映射，后续接 API source_name 字段） */
+function deriveSourceName(sourceUrl?: string): string {
+  if (!sourceUrl) return "";
+  try {
+    const host = new URL(sourceUrl).hostname.replace(/^www\./, "");
+    const map: Record<string, string> = {
+      "ungm.org": "UNGM",
+      "etimad.sa": "Etimad",
+      "gem.gov.in": "GeM",
+      "compranet.gob.mx": "Compranet",
+      "nupco.com": "NUPCO",
+      "sam.gov": "SAM.gov",
+      "ted.europa.eu": "TED",
+      "undp.org": "UNDP",
+      "seha.ae": "SEHA",
+    };
+    for (const [domain, name] of Object.entries(map)) {
+      if (host.includes(domain)) return name;
+    }
+    // 回退：取域名第一部分大写
+    return host.split(".")[0].toUpperCase();
+  } catch {
+    return "";
+  }
 }
 
 interface NoticeCardProps {
@@ -200,8 +226,23 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           )}
         </div>
 
-        {/* ── 解锁动作：锁定态金色「会员解锁」，解锁态「查看详情」 ── */}
-        <div className="shrink-0 self-start lg:self-center">
+        {/* ── 来源列（lg+）：从 source_url 提取平台名 ── */}
+        <div className="hidden lg:block w-28 shrink-0">
+          {item.source_url && (
+            <a
+              href={item.source_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-xs text-teal-700 hover:text-teal-900 font-medium truncate block"
+              title={item.source_url}
+            >
+              {deriveSourceName(item.source_url)}
+            </a>
+          )}
+        </div>
+
+        {/* ── 解锁动作 + 收藏：锁定态金色「会员解锁」，解锁态「查看详情」 ─ */}
+        <div className="shrink-0 self-start lg:self-center flex items-center gap-2">
           {isUnlocked ? (
             <Button
               onClick={() => onClick(item)}
@@ -221,6 +262,19 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
               {t("procurement_memberUnlock")}
             </Button>
           )}
+          {/* 收藏按钮 */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              // P0：UI 占位，后续接收藏 API
+              alert(t("procurement_comingSoon"));
+            }}
+            className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-300 transition-colors"
+            aria-label={t("procurement_bookmark")}
+          >
+            <Bookmark className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </Card>
