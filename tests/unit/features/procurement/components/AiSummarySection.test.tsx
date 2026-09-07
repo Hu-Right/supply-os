@@ -17,24 +17,22 @@ const mockData = {
 describe("AiSummarySection", () => {
   it("无数据时显示占位提示", () => {
     render(<AiSummarySection data={null} />);
-    // mock t() 返回 key
     expect(screen.getByText("procurement_aiSummaryTitle")).toBeInTheDocument();
   });
 
   it("加载中显示骨架屏", () => {
     render(<AiSummarySection loading />);
-    expect(screen.getByText("procurement_aiSummaryTitle")).toBeInTheDocument();
-    const section = screen.getByText("procurement_aiSummaryTitle").closest("section");
+    expect(screen.getByText("detail_aiSummaryTitle")).toBeInTheDocument();
+    const section = screen.getByText("detail_aiSummaryTitle").closest("section");
     expect(section?.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 
   it("有数据时显示 4 个子项标题", () => {
     render(<AiSummarySection data={mockData} isUnlocked />);
-    // mock t() 返回 key
-    expect(screen.getByText("procurement_aiSummaryDeliverables")).toBeInTheDocument();
-    expect(screen.getByText("procurement_aiSummaryQualifications")).toBeInTheDocument();
-    expect(screen.getByText("procurement_aiSummaryPayment")).toBeInTheDocument();
-    expect(screen.getByText("procurement_aiSummaryRisks")).toBeInTheDocument();
+    expect(screen.getByText("detail_coreDeliverables")).toBeInTheDocument();
+    expect(screen.getByText("detail_keyQualifications")).toBeInTheDocument();
+    expect(screen.getByText("detail_paymentCycle")).toBeInTheDocument();
+    expect(screen.getByText("detail_riskAlerts")).toBeInTheDocument();
   });
 
   it("有数据时显示内容文本", () => {
@@ -45,15 +43,13 @@ describe("AiSummarySection", () => {
 
   it("免费用户（isUnlocked=false）锁定后 2 项", () => {
     render(<AiSummarySection data={mockData} isUnlocked={false} />);
-    // mock t() 返回 key
-    expect(screen.getByText("procurement_aiSummaryDeliverables")).toBeInTheDocument();
-    expect(screen.getByText("procurement_aiSummaryQualifications")).toBeInTheDocument();
+    expect(screen.getByText("detail_coreDeliverables")).toBeInTheDocument();
+    expect(screen.getByText("detail_keyQualifications")).toBeInTheDocument();
     expect(screen.getAllByText("procurement_aiSummaryLocked")).toHaveLength(2);
   });
 
   it("显示'由 OS AI 分析生成'标注", () => {
     render(<AiSummarySection data={mockData} isUnlocked />);
-    // mock t() 返回 key
-    expect(screen.getByText("procurement_aiSummaryBy")).toBeInTheDocument();
+    expect(screen.getByText("detail_aiSummaryBy")).toBeInTheDocument();
   });
 });

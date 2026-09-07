@@ -8,7 +8,7 @@ vi.mock("@/core/i18n", () => ({
 import { NoticeQuickView } from "@/features/procurement/components/NoticeQuickView";
 import type { NoticeDetailItem } from "@/features/procurement/types";
 
-const mockNotice: NoticeDetailItem = {
+const mockNotice = {
   id: 1,
   title: "Test Notice",
   reference: "KEN/UNOPS/2025/0172",
@@ -16,13 +16,12 @@ const mockNotice: NoticeDetailItem = {
   country: "KE",
   deadline: "2025-06-15 17:00",
   estimated_value: "1200000",
-};
+} as NoticeDetailItem;
 
 describe("NoticeQuickView", () => {
   it("渲染标题", () => {
     render(<NoticeQuickView notice={mockNotice} />);
-    // mock t() 返回 key 本身
-    expect(screen.getByText("procurement_quickViewTitle")).toBeInTheDocument();
+    expect(screen.getByText("detail_quickViewTitle")).toBeInTheDocument();
   });
 
   it("显示项目编号", () => {
@@ -30,14 +29,14 @@ describe("NoticeQuickView", () => {
     expect(screen.getByText("KEN/UNOPS/2025/0172")).toBeInTheDocument();
   });
 
-  it("显示招标方式", () => {
+  it("显示招标方式 i18n key", () => {
     render(<NoticeQuickView notice={mockNotice} />);
-    expect(screen.getByText("ITB")).toBeInTheDocument();
+    expect(screen.getByText("detail_openTendering")).toBeInTheDocument();
   });
 
-  it("显示截止时间", () => {
+  it("显示货币 USD", () => {
     render(<NoticeQuickView notice={mockNotice} />);
-    expect(screen.getByText("2025-06-15 17:00")).toBeInTheDocument();
+    expect(screen.getByText("USD")).toBeInTheDocument();
   });
 
   it("扩展字段追加保函/联合体行", () => {
@@ -47,8 +46,8 @@ describe("NoticeQuickView", () => {
         extra={{ needs_guarantee: true, accepts_consortium: false }}
       />,
     );
-    expect(screen.getByText("是")).toBeInTheDocument();
-    expect(screen.getAllByText("否")).toHaveLength(1);
+    expect(screen.getByText("detail_yes")).toBeInTheDocument();
+    expect(screen.getAllByText("detail_no")).toHaveLength(1);
   });
 
   it("无数据时显示占位符 -", () => {
