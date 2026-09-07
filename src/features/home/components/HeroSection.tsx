@@ -82,89 +82,95 @@ export function HeroSection() {
           第一屏必须同时回答：这里有多少订单、多少供应商，我能立刻做什么。
         </p>
 
-        {/* 双搜索入口 — 同一面板 */}
-        <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 max-w-5xl">
-          <div className="flex flex-col lg:flex-row items-stretch gap-6 lg:gap-10">
-            {/* 左侧：采购机会搜索 */}
-            <div className="flex-1">
-              <div className="mb-3">
-                <span className="text-white font-bold text-sm">搜索采购机会</span>
-                <span className="text-slate-500 text-xs ml-1">（招标 / 采购 / 项目）</span>
-              </div>
-              <div className="flex mb-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={procurementQuery}
-                    onChange={(e) => setProcurementQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleProcurementSearch()}
-                    placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
-                    className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
+        {/* 双搜索入口 — 同一面板，居中显示 */}
+        <div className="flex justify-center">
+          <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 w-full max-w-5xl">
+            <div className="flex flex-col lg:flex-row items-stretch gap-6 lg:gap-10">
+              {/* 左侧：采购机会搜索 — 内容右对齐到中线 */}
+              <div className="flex-1 flex flex-col items-end">
+                <div className="w-full max-w-md">
+                  <div className="mb-3">
+                    <span className="text-white font-bold text-sm">搜索采购机会</span>
+                    <span className="text-slate-500 text-xs ml-1">（招标 / 采购 / 项目）</span>
+                  </div>
+                  <div className="flex mb-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={procurementQuery}
+                        onChange={(e) => setProcurementQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleProcurementSearch()}
+                        placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
+                        className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      onClick={handleProcurementSearch}
+                      className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
+                    >
+                      搜索商机
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 justify-end">
+                    <span className="text-slate-500 text-xs">热门搜索：</span>
+                    {dynamicProcurementTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          setProcurementQuery(tag);
+                          router.push(`/procurement?q=${encodeURIComponent(tag)}`);
+                        }}
+                        className="text-xs text-white hover:text-teal-300 transition-colors"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={handleProcurementSearch}
-                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
-                >
-                  搜索商机
-                </button>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-slate-500 text-xs">热门搜索：</span>
-                {dynamicProcurementTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      setProcurementQuery(tag);
-                      router.push(`/procurement?q=${encodeURIComponent(tag)}`);
-                    }}
-                    className="text-xs text-white hover:text-teal-300 transition-colors"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            {/* 右侧：供应商搜索 */}
-            <div className="flex-1">
-              <div className="mb-3">
-                <span className="text-white font-bold text-sm">查找供应商与产品</span>
-              </div>
-              <div className="flex mb-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={supplierQuery}
-                    onChange={(e) => setSupplierQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSupplierSearch()}
-                    placeholder="搜索产品 / 公司名称 / 资质 / 国家 / 认证"
-                    className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
+              {/* 右侧：供应商搜索 — 内容左对齐到中线 */}
+              <div className="flex-1 flex flex-col items-start">
+                <div className="w-full max-w-md">
+                  <div className="mb-3">
+                    <span className="text-white font-bold text-sm">查找供应商与产品</span>
+                  </div>
+                  <div className="flex mb-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={supplierQuery}
+                        onChange={(e) => setSupplierQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSupplierSearch()}
+                        placeholder="搜索产品 / 公司名称 / 资质 / 国家 / 认证"
+                        className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                      />
+                    </div>
+                    <button
+                      onClick={handleSupplierSearch}
+                      className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
+                    >
+                      找供应商
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-slate-500 text-xs">热门产品：</span>
+                    {hotSupplierTags.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          setSupplierQuery(tag);
+                          router.push(`/supplier?q=${encodeURIComponent(tag)}`);
+                        }}
+                        className="text-xs text-white hover:text-teal-300 transition-colors"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={handleSupplierSearch}
-                  className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
-                >
-                  找供应商
-                </button>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-slate-500 text-xs">热门产品：</span>
-                {hotSupplierTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => {
-                      setSupplierQuery(tag);
-                      router.push(`/supplier?q=${encodeURIComponent(tag)}`);
-                    }}
-                    className="text-xs text-white hover:text-teal-300 transition-colors"
-                  >
-                    {tag}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
