@@ -63,10 +63,17 @@ export function HeroSection() {
 
   return (
     <section className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 py-16 px-4 overflow-hidden">
-      {/* 地球纹理背景占位 */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute right-0 top-0 w-1/2 h-full bg-gradient-to-l from-teal-500/20 to-transparent" />
-      </div>
+      {/* 地球装饰背景图 */}
+      <img
+        src="/earth.png?v=2"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[150%] w-auto object-contain opacity-25 hidden lg:block"
+        style={{
+          maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 20%, black 45%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.3) 20%, black 45%)",
+        }}
+      />
 
       <div className="relative px-4 sm:px-6 lg:px-8">
         <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-3">
