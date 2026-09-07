@@ -1,13 +1,13 @@
 /**
- * 实时数字墙 — 6 个规模指标
- * Stats Wall — 6 Real-time Scale Indicators
+ * 实时数字墙 — 5 个规模指标
+ * Stats Wall — 5 Real-time Scale Indicators
  *
  * @module features/home/components/StatsWall
  * @description 调用现有 API 获取统计数字，10 分钟自动刷新，
  *              每个指标带数字跳动动画。
  */
 import { useState, useEffect } from "react";
-import { Search, Building2, Globe, Users, TrendingUp, ShieldCheck } from "lucide-react";
+import { Search, Globe, Users, TrendingUp, ShieldCheck } from "lucide-react";
 import { api } from "@/core/http";
 import { useCountUp } from "../hooks/useCountUp";
 
@@ -39,7 +39,6 @@ export function StatsWall() {
     active: number; todayNew: number;
   } | null>(null);
   const [countryCount, setCountryCount] = useState(0);
-  const [supplierTotal, setSupplierTotal] = useState(0);
   const [certifiedCount, setCertifiedCount] = useState(0);
 
   const fetchStats = () => {
@@ -50,10 +49,6 @@ export function StatsWall() {
     // 复用现有 /api/notices/countries 取国家数量
     api<Array<{ country: string; count: number }>>("/api/notices/countries")
       .then((data) => setCountryCount(data.length))
-      .catch(() => {});
-    // 复用现有 /api/suppliers 取供应商总数
-    api<{ total: number }>("/api/suppliers?page=1&pageSize=1")
-      .then((data) => setSupplierTotal(data.total ?? 0))
       .catch(() => {});
     // 认证供应商数量
     api<{ total: number }>("/api/suppliers?page=1&pageSize=1&status=approved")
@@ -71,14 +66,13 @@ export function StatsWall() {
     { label: "采购机会总量", value: noticeStats?.active ?? 0, sub: "实时更新", icon: Globe, color: "text-teal-600" },
     { label: "每日新增机会", value: noticeStats?.todayNew ?? 0, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
     { label: "数据源 / API", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "供应商资源", value: supplierTotal, sub: "实时更新", icon: Building2, color: "text-amber-600" },
     { label: "认证供应商", value: certifiedCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
     { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Users, color: "text-rose-600" },
   ];
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
-      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {stats.map((s, i) => (
           <StatCard key={i} {...s} />
         ))}
