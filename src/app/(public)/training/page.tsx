@@ -10,8 +10,13 @@ import PageClient from "./page-client";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Training Camp | Supply OS",
-  description: "Professional supply chain training camp: global procurement, supplier management, international trade practices, UN procurement bidding. Hands-on workshops with industry experts.",
+  title: "国际公共采购研修班 — 实战培训 | 云境·国际采购平台",
+  description: "云境·国际采购平台研修班：国际公共采购实战培训，联合国采购流程、投标技巧、供应商管理，行业专家手把手教学。",
+  openGraph: {
+    title: "国际公共采购研修班 | 云境·国际采购平台",
+    description: "联合国采购实战培训，行业专家手把手教学，助力企业掌握国际投标技能。",
+    type: "website",
+  },
   alternates: {
     canonical: absoluteUrl("/training"),
     languages: { "x-default": absoluteUrl("/training") },

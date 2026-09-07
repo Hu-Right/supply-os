@@ -37,6 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 信号，搜索引擎会学会忽略本站全部 lastmod（连带动态段的真数据一起失信）。
   // 动态段保留真实 update_time。
   const staticPages: MetadataRoute.Sitemap = [
+    { url: `${BASE_URL}/`, changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE_URL}/showroom`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/procurement`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/supplier`, changeFrequency: "weekly", priority: 0.8 },
@@ -45,6 +46,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/services`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/learning`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/procurement/qualification`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   // ── 构建阶段跳过动态查询（CI 环境无数据库访问）──

@@ -17,26 +17,27 @@ import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "Supply OS — Global Procurement & Showrooms Portal",
-    template: "%s | Supply OS",
+    default: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
+    template: "%s | 云境·国际采购平台",
   },
-  description: "Global intelligent supply chain platform: showrooms, procurement search, supplier directory, CRM, training.",
-  keywords: ["supply chain", "procurement", "bidding", "tender", "supplier"],
+  description: "云境·国际采购平台：联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。助力中国企业连接全球采购机遇。",
+  keywords: ["云境", "国际采购", "政府采购", "联合国采购", "供应商管理", "招标", "投标", "CRM", "海外展厅", "UN procurement", "global sourcing"],
   alternates: {
     canonical: absoluteUrl("/"),
     languages: { "x-default": absoluteUrl("/") },
   },
   openGraph: {
-    title: "Supply OS — Global Procurement & Showrooms Portal",
-    description: "Global intelligent supply chain platform: showrooms, procurement search, supplier directory, CRM, training.",
+    title: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
+    description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务、学习培训。助力中国企业连接全球采购机遇。",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
     type: "website",
-    siteName: "Supply OS",
+    siteName: "云境·国际采购平台",
+    locale: "zh_CN",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Supply OS — Global Procurement & Showrooms Portal",
-    description: "Global intelligent supply chain platform.",
+    title: "云境·国际采购平台",
+    description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务一站式平台。",
   },
 };
 
@@ -55,17 +56,22 @@ const jsonLd = {
   organization: {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Supply OS",
+    name: "云境·国际采购平台",
+    alternateName: "Yunjing International Procurement Platform",
     url: SITE_URL,
     logo: `${SITE_URL}/logo.png`,
-    description: "Global intelligent supply chain platform.",
+    description: "云境·国际采购平台 — 联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。",
+    foundingDate: "2026",
+    areaServed: "Worldwide",
+    serviceType: ["国际采购", "政府采购", "供应商管理", "CRM", "投标服务", "培训"],
   },
   website: {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    name: "Supply OS",
+    name: "云境·国际采购平台",
     url: SITE_URL,
-    description: "外贸员的全球采购订单雷达",
+    description: "外贸员的全球采购订单雷达 — 联合国、世界银行、各国政府招标信息一站式搜索与管理",
+    inLanguage: ["zh-CN", "en", "fr", "es", "ru", "ar"],
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE_URL}/procurement?q={search_term_string}`,
