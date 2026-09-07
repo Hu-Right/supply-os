@@ -8,10 +8,8 @@
  */
 import { useState } from "react";
 import {
-  Trophy, DollarSign, PieChart, Users, Bell, Search,
-  TrendingUp, ArrowRight, Eye, Building2, UserCircle,
-  LineChart as LineChartIcon, FileSpreadsheet, Code, FileText,
-  Shield, Target, Link2, ChevronRight, Star,
+  DollarSign, PieChart, Users, Bell, Search,
+  ArrowRight, Star,
 } from "lucide-react";
 
 /* ── Mock Data ── */
@@ -107,31 +105,6 @@ const TOP5_WINNERS = [
   { rank: 3, name: "MedSupplies Inc.", amount: "$2.6M", count: 17 },
   { rank: 4, name: "HealthCare Solutions", amount: "$1.9M", count: 12 },
   { rank: 5, name: "PrimeMed Group", amount: "$1.3M", count: 9 },
-];
-
-const CORE_MODULES = [
-  { icon: Search, title: "中标结果搜索", desc: "多维度搜索中标记录，支持高级筛选与快速定位关键项目。" },
-  { icon: Building2, title: "采购机构画像", desc: "展示机构背景、采购偏好、历史金额与活跃度，深度理解买家行为。" },
-  { icon: UserCircle, title: "中标商画像", desc: "追踪供应商中标表现、份额变化与合作历史，洞察竞争格局。" },
-  { icon: LineChartIcon, title: "价格 / 金额趋势", desc: "金额随时间变化趋势，品类价格区间与波动，支持同比分析。" },
-  { icon: Bell, title: "预计再次采购提醒", desc: "基于历史周期预测下次采购时间，提前把握销售机会。" },
-  { icon: Link2, title: "与新标 / 供应商互链", desc: "中标结果与在招标关联，关联供应商库与产品，形成完整情报链。" },
-];
-
-const MONETIZATION_ACTIONS = [
-  { icon: Eye, title: "专业会员", desc: "解锁全部情报与数据深度分析" },
-  { icon: Target, title: "竞争情报包", desc: "行业 / 国家 / 机构专属情报包" },
-  { icon: UserCircle, title: "买家追踪", desc: "订阅特定机构采购周期提醒" },
-  { icon: TrendingUp, title: "竞争对手监控", desc: "供应商中标动态监控与预警" },
-  { icon: FileSpreadsheet, title: "Excel导出", desc: "批量导出中标结果与趋势报表" },
-  { icon: Code, title: "API", desc: "数据接口接入企业系统" },
-  { icon: FileText, title: "定制市场报告", desc: "按需定制机构或市场维度报告" },
-];
-
-const VALUE_PROPS = [
-  { icon: Eye, title: '从"看标"升级为"看市场"', desc: "不只看到单个项目，更看懂市场机会与趋势" },
-  { icon: Trophy, title: "买家情报是企业版续费理由", desc: "深度数据 + 趋势洞察，提升续费率与粘性" },
-  { icon: Shield, title: "高毛利数据价值来自历史与关联分析", desc: "独家历史数据与算法模型，构建商户护城河" },
 ];
 
 /* ── CSS Bar+Line Chart ── */
@@ -346,74 +319,6 @@ export default function PageClient() {
             </button>
           </div>
         </div>
-
-        {/* ── Core Content Modules ── */}
-        <section className="mb-8">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <span className="w-8 h-px bg-teal-400" />
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            <h2 className="text-lg font-extrabold text-slate-900">核心内容模块</h2>
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            <span className="w-8 h-px bg-teal-400" />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {CORE_MODULES.map((m) => {
-              const Icon = m.icon;
-              return (
-                <div key={m.title} className="bg-white rounded-xl border border-slate-200 p-5 text-center hover:shadow-md transition-shadow">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-50 mb-3">
-                    <Icon className="w-6 h-6 text-slate-600" />
-                  </div>
-                  <h3 className="text-sm font-extrabold text-slate-900 mb-2">{m.title}</h3>
-                  <p className="text-2xs text-slate-500 leading-relaxed">{m.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ─ Monetization Actions ── */}
-        <section className="mb-8">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <span className="w-8 h-px bg-teal-400" />
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            <h2 className="text-lg font-extrabold text-slate-900">变现动作</h2>
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            <span className="w-8 h-px bg-teal-400" />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-            {MONETIZATION_ACTIONS.map((m) => {
-              const Icon = m.icon;
-              return (
-                <div key={m.title} className="bg-white rounded-xl border border-slate-200 p-4 text-center hover:shadow-md transition-shadow">
-                  <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 mb-2">
-                    <Icon className="w-5 h-5 text-slate-600" />
-                  </div>
-                  <h3 className="text-xs font-extrabold text-slate-900 mb-1">{m.title}</h3>
-                  <p className="text-2xs text-slate-500 leading-relaxed">{m.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ── Bottom Value Proposition ─ */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          {VALUE_PROPS.map((v) => {
-            const Icon = v.icon;
-            return (
-              <div key={v.title} className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-6 text-white">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-teal-400" />
-                  </div>
-                  <h3 className="text-sm font-extrabold">{v.title}</h3>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">{v.desc}</p>
-              </div>
-            );
-          })}
-        </section>
       </div>
     </div>
   );
