@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -113,6 +113,31 @@ export default function MembershipPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
+      {/* ══ 深色页头 ═══ */}
+      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-8 mb-6">
+        <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">会员与套餐</h1>
+        <p className="text-slate-400 text-sm max-w-3xl">
+          按个人用户、专业投标人、企业团队与深度合作客户设计分层权益。
+        </p>
+      </section>
+
+      {/* ══ Tab导航 ══ */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        {["个人会员", "企业会员", "增值服务"].map((tab, i) => (
+          <button
+            key={tab}
+            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${
+              i === 0 ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+        <span className="ml-2 text-xs text-amber-600 font-bold flex items-center gap-1">
+          💎 年付更优惠 最高可省 20%
+        </span>
+      </div>
+
       {/* 套餐卡片区域 */}
       <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -174,6 +199,34 @@ export default function MembershipPage() {
           )}
         </div>
       </section>
+
+      {/* ═ 为什么升级会员 ═══ */}
+      {!loading && plans.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+          <h2 className="text-xl font-extrabold text-slate-900 mb-6">为什么要升级会员</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {[
+              { icon: Rocket, title: "更快看到订单", desc: "更多商机与实时提醒，第一时间抢占全球采购先机。" },
+              { icon: Search, title: "更深拿到信息", desc: "解锁附件、下载原文与中标情报，让投标更有把握。" },
+              { icon: TrendingUp, title: "更高提高投标效率", desc: "AI评分、批量导出、团队协作，把更多时间用在赢单上。" },
+              { icon: Headphones, title: "更自然连接顾问服务", desc: "专属顾问答疑与行业资源，帮助你少走弯路、少踩坑。" },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.title} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
+                  <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-teal-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 mb-1">{item.title}</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 权益对比表区域 */}
       {!loading && plans.length > 0 && (
