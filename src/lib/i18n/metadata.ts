@@ -23,7 +23,7 @@ const BRAND = {
 } as const;
 
 /** 统一浏览器标签页标题三段式 */
-const BROWSER_TITLE = {
+export const BROWSER_TITLE = {
   zh: "云境·国际采购平台 | 云境OS | OS",
   en: "Yunjing International Procurement Platform | Yunjing OS | OS",
   fr: "Plateforme d'Achats Internationaux Yunjing | Yunjing OS | OS",
