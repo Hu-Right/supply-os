@@ -17,7 +17,7 @@ import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: {
-    default: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
+    default: "云境·国际采购平台",
     template: "%s | 云境·国际采购平台",
   },
   description: "云境·国际采购平台：联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。助力中国企业连接全球采购机遇。",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     languages: { "x-default": absoluteUrl("/") },
   },
   openGraph: {
-    title: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
+    title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务、学习培训。助力中国企业连接全球采购机遇。",
     images: [{ url: "/images/brand-icon.svg", width: 120, height: 120, alt: "云境·国际采购平台" }],
     type: "website",
@@ -48,7 +48,8 @@ export const viewport: Viewport = {
 };
 
 // 静态默认 locale —— 不调用 headers()/cookies()，保证 ISR/SSG 生效
-const DEFAULT_LOCALE = "en";
+// 主要客户为中文用户，默认使用中文
+const DEFAULT_LOCALE = "zh";
 const DEFAULT_DIR = getLocaleDir(DEFAULT_LOCALE);
 
 // JSON-LD 结构化数据（Organization + WebSite），搜索引擎爬虫可直接读取

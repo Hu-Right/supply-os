@@ -28,9 +28,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // final fallback
+  // final fallback: 主要客户为中文用户，默认使用中文
   if (!locale || !SUPPORTED_LOCALES.includes(locale)) {
-    locale = "en";
+    locale = "zh";
   }
 
   // ★ 写入请求头（而非响应头），使 Server Component 可通过 headers() 读取 ★

@@ -47,16 +47,16 @@ export async function getServerI18n(): Promise<{ t: I18nInstance["t"]; locale: L
     }
   }
 
-  // final fallback
+  // final fallback: 主要客户为中文用户，默认使用中文
   if (!locale || !SUPPORTED_LOCALE_CODES.includes(locale)) {
-    locale = "en";
+    locale = "zh";
   }
 
   const i18next = i18nextModule as unknown as { createInstance: () => I18nInstance };
   const instance = i18next.createInstance();
   await instance.init({
     lng: locale,
-    fallbackLng: "en",
+    fallbackLng: "zh",
     resources: SERVER_BUNDLES,
     interpolation: {
       escapeValue: false,
