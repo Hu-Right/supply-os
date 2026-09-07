@@ -119,7 +119,7 @@ export function HeroSection() {
                       setProcurementQuery(tag);
                       router.push(`/procurement?q=${encodeURIComponent(tag)}`);
                     }}
-                    className="text-xs text-teal-300 hover:text-teal-200 transition-colors"
+                    className="text-xs text-white hover:text-teal-300 transition-colors"
                   >
                     {tag}
                   </button>
@@ -160,7 +160,7 @@ export function HeroSection() {
                       setSupplierQuery(tag);
                       router.push(`/supplier?q=${encodeURIComponent(tag)}`);
                     }}
-                    className="text-xs text-teal-300 hover:text-teal-200 transition-colors"
+                    className="text-xs text-white hover:text-teal-300 transition-colors"
                   >
                     {tag}
                   </button>
