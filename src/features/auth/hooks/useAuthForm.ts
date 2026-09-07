@@ -5,6 +5,7 @@
  * @module features/auth/hooks/useAuthForm
  */
 import { useState } from "react";
+import { toast } from "sonner";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
@@ -168,8 +169,10 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
                 invitation_code: authForm.invitationCode.trim(), // 解析员工 ID（KPI 归属）
               },
             });
-          } catch {
-            // 静默失败，不影响注册流程
+          } catch (err) {
+            // 资质诊断数据提交失败不应阻断注册主流程，但必须记录并通知用户
+            console.error("[auth] 企业诊断数据提交失败:", err);
+            toast.error("账号注册成功，但企业资质诊断数据提交失败，请稍后重试或联系客服");
           }
         }
         onSuccess();
