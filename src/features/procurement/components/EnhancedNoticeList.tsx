@@ -1,16 +1,14 @@
 /**
- * 增强搜索结果列表 — 数据质量过滤 + 结果计数 + 状态标签
- * Enhanced Notice List — Data Quality + Result Count + Status Badges
+ * 增强搜索结果列表 — 数据质量过滤
+ * Enhanced Notice List — Data Quality Filtering
  *
  * @module features/procurement/components/EnhancedNoticeList
  * @description 在现有 NoticeList 基础上增加：
  *              1. 数据质量前端防御（过滤异常截止日期）
- *              2. 结果计数动态显示
- *              3. 每条结果附带 StatusBadge
+ *              结果计数和排序控制已上移到 ProcurementPage 结果头部。
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧列表切换。
  */
 import { memo, useMemo } from "react";
-import { useLocale } from "@/core/i18n";
 import { isDeadlineValid } from "@/shared/utils/dataQuality";
 import { NoticeList } from "./NoticeList";
 import type { NoticeItem } from "../types";
@@ -28,7 +26,7 @@ export interface EnhancedNoticeListProps {
   observeCard: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-/** 增强搜索结果列表 — 数据质量过滤 + 结果计数 */
+/** 增强搜索结果列表 — 数据质量过滤 */
 export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   items,
   loading,
@@ -41,8 +39,6 @@ export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   feedbackEnabled,
   observeCard,
 }: EnhancedNoticeListProps) {
-  const { t } = useLocale();
-
   // 数据质量防御：过滤异常截止日期的条目（规划 §1.2 A）
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -58,32 +54,17 @@ export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   }, [items]);
 
   return (
-    <>
-      {/* 结果计数动态显示 */}
-      {!loading && total > 0 && (
-        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-          <span className="text-teal-600">{total.toLocaleString()}</span>
-          <span>{t("procurement_resultsFound") || "条结果"}</span>
-          {filteredItems.length < items.length && (
-            <span className="text-xs text-amber-600 font-normal">
-              ({t("procurement_dataQualityFiltered") || "已过滤异常数据"})
-            </span>
-          )}
-        </div>
-      )}
-
-      <NoticeList
-        items={filteredItems}
-        loading={loading}
-        page={page}
-        totalPages={totalPages}
-        serverPageSize={serverPageSize}
-        total={total}
-        setPage={setPage}
-        openNotice={openNotice}
-        feedbackEnabled={feedbackEnabled}
-        observeCard={observeCard}
-      />
-    </>
+    <NoticeList
+      items={filteredItems}
+      loading={loading}
+      page={page}
+      totalPages={totalPages}
+      serverPageSize={serverPageSize}
+      total={total}
+      setPage={setPage}
+      openNotice={openNotice}
+      feedbackEnabled={feedbackEnabled}
+      observeCard={observeCard}
+    />
   );
 });
