@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
+import { ChevronDown, Crown, Search, Target, Star, Bell, Download, LayoutList, LayoutGrid } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
@@ -17,8 +17,7 @@ import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
 import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
 import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
-import { Button, LoadingOverlay, ToggleButton, HotTagBar } from "@/shared/ui";
-import type { HotTagItem } from "@/shared/ui";
+import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
@@ -29,7 +28,7 @@ import { useNoticeActions } from "../hooks/useNoticeActions";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 export default function ProcurementPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { authUser, isVip, refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -191,38 +190,48 @@ export default function ProcurementPage() {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
             <h2 className="text-xl md:text-2xl font-extrabold text-white flex items-center flex-wrap gap-3">
-              {t("procurement_poolTitle")}
+              {t("procurement_poolTitleNew")}
               {listingStats && (
                 <span className="px-2.5 py-1 rounded-full bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-bold">
-                  {listingStats.active.toLocaleString()}+ {t("procurement_statSearchable")}
+                  {listingStats.active.toLocaleString()}+ {t("procurement_searchableBadge")}
                 </span>
               )}
             </h2>
-            <p className="text-slate-300 text-sm mt-1.5">{t("procurement_poolDesc")}</p>
+            <p className="text-slate-300 text-sm mt-1.5">{t("procurement_poolDescNew")}</p>
           </div>
-          {/* 解锁额度正向文案：>0 显示剩余额度；0/未登录显示升级引导（规划 §5.2 验收红线：不得出现"解锁 0 条"负向提示） */}
-          {actions.totalRemaining > 0 ? (
-            <span className="shrink-0 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-300/40 text-amber-300 text-xs font-bold whitespace-nowrap">
-              {t("statusPanelTotalUnlocks")} {actions.totalRemaining} {t("procurement_items")}
-            </span>
-          ) : (
-            <a href="/membership" className="shrink-0 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-300/40 text-amber-300 text-xs font-bold whitespace-nowrap hover:bg-amber-400/25 transition-colors">
-              {t("supplierContactUpgradeBtn")}
-            </a>
-          )}
+          {/* 右侧操作按钮：保存搜索 + 设置提醒 */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => alert(t("procurement_comingSoon"))}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-white/20 bg-white/5 text-white text-xs font-bold hover:bg-white/10 transition-colors"
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400" />
+              {t("procurement_saveSearch")}
+            </button>
+            <button
+              type="button"
+              onClick={() => alert(t("procurement_comingSoon"))}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-white/20 bg-white/5 text-white text-xs font-bold hover:bg-white/10 transition-colors"
+            >
+              <Bell className="w-3.5 h-3.5 text-teal-400" />
+              {t("procurement_setReminder")}
+            </button>
+          </div>
         </div>
         {listingStats && (
           <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
-              { value: listingStats.active, label: t("procurement_statSearchable") },
-              { value: listingStats.todayNew, label: t("procurement_statTodayNew") },
-              { value: listingStats.deadline_in_30d, label: t("procurement_statDeadline30") },
-              { value: listingStats.with_original_docs, label: t("procurement_statWithDocs") },
-              { value: listingStats.bridged, label: t("procurement_statAiMatchable") },
+              { value: listingStats.active, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
+              { value: listingStats.todayNew, label: t("procurement_statTodayNewDesc"), sub: t("procurement_statTodayNewSub") },
+              { value: listingStats.deadline_in_30d, label: t("procurement_statDeadline30Desc"), sub: t("procurement_statDeadline30Sub") },
+              { value: listingStats.with_original_docs, label: t("procurement_statWithDocsDesc"), sub: t("procurement_statWithDocsSub") },
+              { value: listingStats.bridged, label: t("procurement_statAiMatchableDesc"), sub: t("procurement_statAiMatchableSub") },
             ].map((s) => (
               <div key={s.label} className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
                 <p className="text-xl font-extrabold text-white">{s.value.toLocaleString()}</p>
-                <p className="text-2xs text-slate-300 mt-0.5">{s.label}</p>
+                <p className="text-xs text-slate-300 mt-0.5 font-bold">{s.label}</p>
+                <p className="text-2xs text-slate-400 mt-0.5">{s.sub}</p>
               </div>
             ))}
           </div>
@@ -315,13 +324,113 @@ export default function ProcurementPage() {
         </div>
       </section>
 
+      {/* ═══ 热门标签：热门国家 + 热门行业（设计图样图位置） ═══ */}
+      {flags.ADVANCED_SEARCH && (
+        <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
+          {/* 热门国家 */}
+          {search.result.countries.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {search.result.countries.slice(0, 8).map((c) => (
+                <a
+                  key={c.country}
+                  href={`/procurement?country=${encodeURIComponent(c.country)}`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-teal-400 hover:text-teal-700 transition-colors"
+                >
+                  <span className="max-w-[120px] truncate">{getCountryDisplayName(c.country, locale)}</span>
+                  <span className="font-bold text-teal-600">{c.count.toLocaleString()}</span>
+                </a>
+              ))}
+              {search.result.countries.length > 8 && (
+                <span className="text-xs text-slate-400 font-semibold">{t("procurement_moreCountries")} &gt;</span>
+              )}
+            </div>
+          )}
+          {/* 热门行业（P0 静态数据） */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: "energy", label: t("procurement_industry_energy") },
+              { key: "infrastructure", label: t("procurement_industry_infrastructure") },
+              { key: "medical", label: t("procurement_industry_medical") },
+              { key: "transport", label: t("procurement_industry_transport") },
+              { key: "it", label: t("procurement_industry_it") },
+            ].map((ind) => (
+              <button
+                key={ind.key}
+                type="button"
+                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-teal-400 hover:text-teal-700 transition-colors font-medium"
+              >
+                {ind.label}
+              </button>
+            ))}
+            <span className="text-xs text-slate-400 font-semibold">{t("procurement_moreIndustries")} &gt;</span>
+          </div>
+        </section>
+      )}
+
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-4 text-xs text-slate-500">
-          <span className="inline-flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-            {t("procurement_currentPage")} {page} / {search.result.totalPages} {t("procurement_page")},{" "}
-            {t("procurement_eachPage")} {search.result.serverPageSize} {t("procurement_items")}
-          </span>
+        {/* 结果头部：结果数 + 已筛条件 + 排序/导出/视图 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-extrabold text-slate-900">
+              {t("procurement_resultsCount", { count: search.result.total.toLocaleString() })}
+            </span>
+            {/* 已筛条件标签 */}
+            {(search.query.activeCountry || search.query.activeQ) && (
+              <>
+                <span className="text-xs text-slate-400">{t("procurement_filteredConditions")}</span>
+                {search.query.activeCountry && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
+                    {t("procurement_country")}: {getCountryDisplayName(search.query.activeCountry, locale)}
+                  </span>
+                )}
+                {search.query.activeQ && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
+                    {search.query.activeQ}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={search.actions.clearSearch}
+                  className="text-xs text-slate-400 hover:text-teal-600 font-medium underline"
+                >
+                  {t("procurement_clearAll")}
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {/* 排序下拉 */}
+            <select
+              value={search.query.activeSort}
+              onChange={(e) => {
+                const v = e.target.value;
+                search.actions.applySearch(v === "latest" ? "latest" : v === "deadline" ? "deadline" : "deadline_farthest");
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none cursor-pointer"
+            >
+              <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
+              <option value="deadline">{t("procurement_sortByDeadline")}</option>
+              <option value="latest">{t("procurement_sortByLatest")}</option>
+            </select>
+            {/* 导出列表 */}
+            <button
+              type="button"
+              onClick={() => alert(t("procurement_comingSoon"))}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {t("procurement_exportList")}
+            </button>
+            {/* 视图切换 */}
+            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+              <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label="列表视图">
+                <LayoutList className="w-3.5 h-3.5" />
+              </button>
+              <button type="button" className="p-1.5 bg-white text-slate-400 hover:text-slate-600" aria-label="网格视图">
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 自动筛选提示条：偏好/推荐模式的状态告知（纯信息展示，无操作入口）
@@ -343,19 +452,6 @@ export default function ProcurementPage() {
         {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
-
-        {/* Sprint 2B：热门标签快捷入口（Feature Flag 控制） */}
-        {flags.ADVANCED_SEARCH && search.result.countries.length > 0 && (
-          <HotTagBar
-            items={search.result.countries.slice(0, 12).map((c): HotTagItem => ({
-              key: c.country,
-              label: getCountryDisplayName(c.country, useLocale().locale),
-              count: c.count,
-              href: `/procurement?country=${encodeURIComponent(c.country)}`,
-            }))}
-            maxVisible={8}
-          />
-        )}
 
         {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
         {search.result.loading && search.result.items.length === 0
