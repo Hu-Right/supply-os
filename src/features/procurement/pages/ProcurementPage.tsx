@@ -5,6 +5,7 @@ import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { api, clearApiCache } from "@/core/http";
+import { flags } from "@/core/flags";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 // ARCH-P2-解耦（2026-09-05）：RecentUnlocks 已从 features/payment 迁移至本 feature，
@@ -14,7 +15,10 @@ import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
-import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
+import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
+import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
+import { Button, LoadingOverlay, ToggleButton, HotTagBar } from "@/shared/ui";
+import type { HotTagItem } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
@@ -22,6 +26,7 @@ import { NOTICE_PAGE_SIZE } from "../constants";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 export default function ProcurementPage() {
   const { t } = useLocale();
@@ -226,15 +231,27 @@ export default function ProcurementPage() {
 
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="p-5 space-y-4">
-          <NoticeSearchBar
-            form={search.form}
-            query={search.query}
-            countries={search.result.countries}
-            agencies={search.result.agencies}
-            applySearch={search.actions.applySearch}
-            clearSearch={search.actions.clearSearch}
-            toggleFeatured={search.actions.toggleFeatured}
-          />
+          {flags.ADVANCED_SEARCH ? (
+            <AdvancedSearchPanel
+              form={search.form}
+              query={search.query}
+              countries={search.result.countries}
+              agencies={search.result.agencies}
+              applySearch={search.actions.applySearch}
+              clearSearch={search.actions.clearSearch}
+              toggleFeatured={search.actions.toggleFeatured}
+            />
+          ) : (
+            <NoticeSearchBar
+              form={search.form}
+              query={search.query}
+              countries={search.result.countries}
+              agencies={search.result.agencies}
+              applySearch={search.actions.applySearch}
+              clearSearch={search.actions.clearSearch}
+              toggleFeatured={search.actions.toggleFeatured}
+            />
+          )}
 
           {/* 行业分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
           <div className="border-t border-slate-100 pt-4">
@@ -327,21 +344,47 @@ export default function ProcurementPage() {
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
 
+        {/* Sprint 2B：热门标签快捷入口（Feature Flag 控制） */}
+        {flags.ADVANCED_SEARCH && search.result.countries.length > 0 && (
+          <HotTagBar
+            items={search.result.countries.slice(0, 12).map((c): HotTagItem => ({
+              key: c.country,
+              label: getCountryDisplayName(c.country, useLocale().locale),
+              count: c.count,
+              href: `/procurement?country=${encodeURIComponent(c.country)}`,
+            }))}
+            maxVisible={8}
+          />
+        )}
+
         {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
         {search.result.loading && search.result.items.length === 0
           ? <NoticeListSkeleton count={NOTICE_PAGE_SIZE} />
-          : <NoticeList
-              items={search.result.items}
-              loading={search.result.loading}
-              page={page}
-              totalPages={search.result.totalPages}
-              serverPageSize={search.result.serverPageSize}
-              total={search.result.total}
-              setPage={setPage}
-              openNotice={actions.openNotice}
-              feedbackEnabled={feedback.feedbackEnabled}
-              observeCard={feedback.observeCard}
-            />
+          : flags.ADVANCED_SEARCH
+            ? <EnhancedNoticeList
+                items={search.result.items}
+                loading={search.result.loading}
+                page={page}
+                totalPages={search.result.totalPages}
+                serverPageSize={search.result.serverPageSize}
+                total={search.result.total}
+                setPage={setPage}
+                openNotice={actions.openNotice}
+                feedbackEnabled={feedback.feedbackEnabled}
+                observeCard={feedback.observeCard}
+              />
+            : <NoticeList
+                items={search.result.items}
+                loading={search.result.loading}
+                page={page}
+                totalPages={search.result.totalPages}
+                serverPageSize={search.result.serverPageSize}
+                total={search.result.total}
+                setPage={setPage}
+                openNotice={actions.openNotice}
+                feedbackEnabled={feedback.feedbackEnabled}
+                observeCard={feedback.observeCard}
+              />
         }
       </section>
     </div>
