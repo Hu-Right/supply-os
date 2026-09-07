@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务、学习培训。助力中国企业连接全球采购机遇。",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/images/brand-icon.svg", width: 120, height: 120, alt: "云境·国际采购平台" }],
     type: "website",
     siteName: "云境·国际采购平台",
     locale: "zh_CN",
