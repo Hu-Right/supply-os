@@ -166,7 +166,7 @@ export function NoticeDetail({
 
   // 信息表数据
   const sourceName = deriveSourceName(notice.source_url);
-  const publishDate = formatPublishDate(notice.create_time);
+  const publishDate = notice.published_date || formatPublishDate(notice.create_time);
   const deadlineText = notice.deadline || t("procurement_noDeadline");
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
