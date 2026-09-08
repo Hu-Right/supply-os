@@ -77,7 +77,19 @@ export function useNoticeUnlock({
     }
     try {
       const detail = await fetchNoticeDetail(notice.id);
-      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
+      setSelectedNotice((prev) => {
+        if (!prev || prev.id !== notice.id) return prev;
+        // 显式重置数组字段，防止前一个公告的数据残留
+        return {
+          ...prev,
+          ...detail,
+          documents: detail.documents ?? [],
+          procurement_files: detail.procurement_files ?? [],
+          external_links: detail.external_links ?? [],
+          contacts: detail.contacts ?? [],
+          unspsc_codes: detail.unspsc_codes ?? [],
+        };
+      });
       markUnlocked(notice.id);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
@@ -92,7 +104,17 @@ export function useNoticeUnlock({
     if (!userId) return;
     try {
       const preview = await fetchNoticePreview(notice.id);
-      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...preview } : prev));
+      setSelectedNotice((prev) => {
+        if (!prev || prev.id !== notice.id) return prev;
+        // 预览接口不返回数组字段，显式清空防止残留
+        return {
+          ...prev,
+          ...preview,
+          documents: [],
+          procurement_files: [],
+          external_links: [],
+        };
+      });
     } catch {
       // 预览为增强项：失败保留列表数据
     }
