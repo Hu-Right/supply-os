@@ -3,10 +3,9 @@
  * About Section — Real Data + Minimalist Design
  *
  * @module features/home/components/AboutSection
- * @description 接入真实 API 数据（采购公告数、覆盖国家数、认证供应商数），
+ * @description 消费 useHomeStats 统一数据源（采购公告数、覆盖国家数、认证供应商数），
  *              采用苹果级极简设计：大量留白、精致排版、微妙动效。
  */
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -20,8 +19,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { api } from "@/core/http";
 import { formatCompactNumber } from "@/shared/utils/format";
+import { useHomeStats } from "../hooks/useHomeStats";
 
 /* ── 四步路径 ── */
 const STEPS = [
@@ -81,30 +80,12 @@ const ADVANTAGES: { icon: LucideIcon; title: string; desc: string; color: string
 
 export function AboutSection() {
   const router = useRouter();
-  const [stats, setStats] = useState({
-    notices: 0,
-    countries: 0,
-    suppliers: 0,
-  });
-
-  useEffect(() => {
-    Promise.all([
-      api<{ active: number; todayNew: number }>("/api/notices/stats").catch(() => ({ active: 0, todayNew: 0 })),
-      api<Array<{ country: string; count: number }>>("/api/notices/countries").catch(() => []),
-      api<{ total: number }>("/api/suppliers?page=1&pageSize=1&status=approved").catch(() => ({ total: 0 })),
-    ]).then(([noticeData, countries, supplierData]) => {
-      setStats({
-        notices: noticeData.active,
-        countries: countries.length,
-        suppliers: supplierData.total,
-      });
-    });
-  }, []);
+  const { noticeActive, countryCount, certifiedSupplierCount } = useHomeStats();
 
   const metrics = [
-    { value: formatCompactNumber(stats.notices), label: "实时采购公告", sub: "每日持续更新" },
-    { value: `${stats.countries}+`, label: "覆盖国家/地区", sub: "联合国 & 国际组织" },
-    { value: formatCompactNumber(stats.suppliers), label: "认证供应商", sub: "企业资质已核验" },
+    { value: formatCompactNumber(noticeActive), label: "实时采购公告", sub: "每日持续更新" },
+    { value: `${countryCount}+`, label: "覆盖国家/地区", sub: "联合国 & 国际组织" },
+    { value: formatCompactNumber(certifiedSupplierCount), label: "认证供应商", sub: "企业资质已核验" },
     { value: "13.5万亿$", label: "全球采购规模", sub: "2026 年全球统计" },
   ];
 
