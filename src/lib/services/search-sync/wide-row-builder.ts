@@ -28,6 +28,7 @@ export const WIDE_SYNC_SELECT = `
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
+         n.published_date,
          opp.description_cn, LEFT(opp.bid_overview, 200) AS bid_overview,
          opp.beneficiary_countries
 `;
@@ -333,6 +334,7 @@ export function buildWideRow(
     bid_overview: String(r.bid_overview || "").slice(0, 200),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
     documents_count: docs.length,
+    published_date: String(r.published_date || "").slice(0, 50),
   };
 }
 
@@ -374,6 +376,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
     "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
+    "published_date",
   ];
   
   const placeholders = allColumns.map(() => "?").join(", ");
@@ -392,6 +395,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
         row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
+        row.published_date,
       );
     }
     await pool.query(
