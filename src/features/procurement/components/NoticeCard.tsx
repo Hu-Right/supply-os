@@ -126,9 +126,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
     >
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
         {/* ── 状态标签列：桌面竖排窄列，移动端横向换行 ── */}
-        <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-20 shrink-0">
-          <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit">
-            {item.notice_type || "Notice"}
+        <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-28 shrink-0">
+          <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit whitespace-nowrap">
+            {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </Badge>
           {isNew && (
             <Badge variant="success" shape="tag" className="text-3xs font-bold w-fit">NEW</Badge>
@@ -139,8 +139,8 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
             </Badge>
           )}
           {docCount > 0 && (
-            <Badge variant="info" shape="tag" className="text-3xs font-bold w-fit">
-              {docCount} {t("procurement_attachments") || "附件"}
+            <Badge variant="info" shape="tag" className="text-3xs font-bold w-fit whitespace-nowrap">
+              {t("procurement_hasRawAttachments", { count: docCount })}
             </Badge>
           )}
           {Boolean(item.is_featured) && (
