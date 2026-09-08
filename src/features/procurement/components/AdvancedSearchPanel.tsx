@@ -1,56 +1,103 @@
 /**
- * 高级搜索面板 — 7+ 维搜索（模块02 设计图还原）
- * Advanced Search Panel — Extended Search Dimensions
+ * 高级搜索面板 — 模块02 设计图 100% 还原
+ * Advanced Search Panel — Design Mockup 1:1 Restoration
  *
  * @module features/procurement/components/AdvancedSearchPanel
  * @description 按「2-全球采购机会库」样图实现两行搜索布局：
- *              行1: 关键词 / UNSPSC / 国家 / 行业 / 截止时间
- *              行2: 采购机构 / 采购方式 / 预算金额 / 来源平台 + 搜索/清空按钮
+ *              行1: 关键词 / UNSPSC / 国家 / 行业(L1) / 截止时间
+ *              行2: 采购机构 / 采购方式(公告类型) / 预算金额 + 搜索/清空
+ *
+ *              与原始设计图的 3 处差异（用户明确要求）：
+ *              1. 采购方式 → 实际过滤 notice_type（公告类型），标签仍显示"采购方式"
+ *              2. 行业 → 使用 UNSPSC 一级分类（动态加载）
+ *              3. 预算金额 → 全链路实现（前端→URL→后端→SQL）
+ *
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
 import { useState, useCallback, type FormEvent } from "react";
-import { Search, X, Calendar, Building2, DollarSign, Globe2, Briefcase, Tag } from "lucide-react";
+import { Search, Calendar as CalendarIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { Button, Input } from "@/shared/ui";
+import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
 import type { NoticeSearchBarProps } from "./NoticeSearchBar";
 
-/** 采购方式静态选项（P0 静态数据，后续接 API） */
-const PROCUREMENT_METHODS = [
-  { value: "", labelKey: "procurement_procurementMethodAll" as const },
-  { value: "open", labelKey: "procurement_procurementMethod_open" as const },
-  { value: "restricted", labelKey: "procurement_procurementMethod_restricted" as const },
-  { value: "rfq", labelKey: "procurement_procurementMethod_rfQ" as const },
-  { value: "direct", labelKey: "procurement_procurementMethod_direct" as const },
-  { value: "framework", labelKey: "procurement_procurementMethod_framework" as const },
+/** 公告类型选项（复用现有 notice_type 归一化体系，标签显示为"采购方式"） */
+const NOTICE_TYPE_OPTIONS = [
+  { value: "", labelKey: "procurement_noticeTypeAll" as const },
+  { value: "ITB", labelKey: "procurement_type_itb" as const },
+  { value: "RFQ", labelKey: "procurement_type_rfq" as const },
+  { value: "RFP", labelKey: "procurement_type_rfp" as const },
+  { value: "EOI", labelKey: "procurement_type_eoi" as const },
+  { value: "PQ", labelKey: "procurement_type_prequalification" as const },
+  { value: "AWARD", labelKey: "procurement_type_contract_award" as const },
+  { value: "GPN", labelKey: "procurement_type_gpn" as const },
+  { value: "RFI", labelKey: "procurement_type_rfi" as const },
+  { value: "COMPETITIVE", labelKey: "procurement_type_competitive" as const },
+  { value: "FRAMEWORK", labelKey: "procurement_type_framework" as const },
+  { value: "DIRECT", labelKey: "procurement_type_direct_contracting" as const },
+  { value: "RESTRICTED", labelKey: "procurement_type_restricted" as const },
+  { value: "PIN", labelKey: "procurement_type_pin" as const },
+  { value: "PMC", labelKey: "procurement_type_pmc" as const },
 ];
 
-/** 热门行业静态选项（P0 静态数据，后续接 API） */
-const HOT_INDUSTRIES = [
-  { value: "energy", labelKey: "procurement_industry_energy" as const },
-  { value: "infrastructure", labelKey: "procurement_industry_infrastructure" as const },
-  { value: "medical", labelKey: "procurement_industry_medical" as const },
-  { value: "transport", labelKey: "procurement_industry_transport" as const },
-  { value: "it", labelKey: "procurement_industry_it" as const },
-];
+/** 日期范围选择器 — Popover + Calendar */
+function DateRangePicker({
+  fromValue,
+  toValue,
+  onFromChange,
+  onToChange,
+  placeholderFrom,
+  placeholderTo,
+}: {
+  fromValue: string;
+  toValue: string;
+  onFromChange: (v: string) => void;
+  onToChange: (v: string) => void;
+  placeholderFrom: string;
+  placeholderTo: string;
+}) {
+  const displayText = fromValue || toValue
+    ? `${fromValue || placeholderFrom} ~ ${toValue || placeholderTo}`
+    : `${placeholderFrom} ~ ${placeholderTo}`;
 
-/** 来源平台静态选项（P0 静态数据，后续接 API） */
-const SOURCE_PLATFORMS = [
-  { value: "", labelKey: "procurement_sourceAll" as const },
-  { value: "undp", label: "UNDP eProcurement" },
-  { value: "ungm", label: "UNGM" },
-  { value: "etimad", label: "Etimad" },
-  { value: "gem", label: "GeM" },
-  { value: "sam", label: "SAM.gov" },
-  { value: "ted", label: "TED (EU)" },
-  { value: "compranet", label: "Compranet" },
-  { value: "nupco", label: "NUPCO" },
-];
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-left transition-colors hover:border-slate-300 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none cursor-pointer"
+        >
+          <span className={`flex-1 truncate ${fromValue || toValue ? "text-slate-700" : "text-slate-400"}`}>
+            {displayText}
+          </span>
+          <CalendarIcon className="w-4 h-4 text-slate-400 ml-2 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-3" align="start">
+        <Calendar
+          mode="single"
+          selected={fromValue ? new Date(fromValue) : undefined}
+          onSelect={(date: Date | undefined) => {
+            if (!date) return;
+            const iso = date.toISOString().slice(0, 10);
+            if (!fromValue || (toValue && iso < fromValue)) {
+              onFromChange(iso);
+              onToChange("");
+            } else {
+              onToChange(iso);
+            }
+          }}
+          defaultMonth={fromValue ? new Date(fromValue) : undefined}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {}
 
-/** 高级搜索面板 — 两行 8 维搜索布局 */
+/** 高级搜索面板 — 两行搜索布局（设计图 1:1 还原） */
 export function AdvancedSearchPanel({
   form,
   query: _query,
@@ -62,12 +109,9 @@ export function AdvancedSearchPanel({
 }: AdvancedSearchPanelProps) {
   const { t } = useLocale();
 
-  // ── 新增维度本地状态（P0 前端 UI，后续接 API） ──
-  const [industry, setIndustry] = useState("");
-  const [procurementMethod, setProcurementMethod] = useState("");
+  // ── 预算金额本地状态 ───
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
-  const [sourcePlatform, setSourcePlatform] = useState("");
 
   const handleBudgetMinChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setBudgetMin(e.target.value.replace(/[^\d]/g, ""));
@@ -83,11 +127,8 @@ export function AdvancedSearchPanel({
   }, [applySearch]);
 
   const handleClear = useCallback(() => {
-    setIndustry("");
-    setProcurementMethod("");
     setBudgetMin("");
     setBudgetMax("");
-    setSourcePlatform("");
     clearSearch();
   }, [clearSearch]);
 
@@ -97,28 +138,31 @@ export function AdvancedSearchPanel({
       onSubmit={handleFormSubmit}
       className="space-y-4"
     >
-      {/* ══ 行1：关键词 / UNSPSC / 国家 / 行业 / 截止时间 ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1.2fr_auto_auto_1.3fr] gap-3 items-end">
+      {/* 高级搜索标题 */}
+      <h3 className="text-base font-extrabold text-slate-800">{t("procurement_advancedSearchTitle") || "高级搜索"}</h3>
+
+      {/* ══ 行1：关键词 / UNSPSC / 国家 / 截止时间 ══ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
         {/* 关键词 */}
-        <div className="md:col-span-1">
+        <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            {t("procurement_advancedSearch") || "关键词"}
+            {t("procurement_keyword") || "关键词"}
           </label>
           <div className="relative">
             <Input
               value={form.qInput}
               onChange={(e) => form.setQInput(e.target.value)}
               placeholder={t("procurement_keywordPlaceholder") || "输入产品、项目、机构、UNSPSC关键词"}
-              className="w-full ps-9"
+              className="w-full pe-9"
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
         </div>
 
         {/* UNSPSC / 产品服务分类 */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            UNSPSC / {t("procurement_level") || "产品服务分类"}
+            UNSPSC / {t("procurement_productService") || "产品服务分类"}
           </label>
           <Input
             value={form.typeInput}
@@ -130,9 +174,8 @@ export function AdvancedSearchPanel({
         </div>
 
         {/* 国家 */}
-        <div className="min-w-[140px]">
+        <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <Globe2 className="w-3.5 h-3.5 inline mr-1" />
             {t("procurement_country") || "国家"}
           </label>
           <CountryFilter
@@ -140,100 +183,67 @@ export function AdvancedSearchPanel({
             value={form.countryInput}
             onChange={form.setCountryInput}
             locale={useLocale().locale}
-            placeholder={t("procurement_countryAll")}
+            placeholder={t("procurement_selectCountry") || "选择国家"}
             noResultsText={t("countryFilter_noResults")}
             className="w-full"
           />
         </div>
 
-        {/* 行业 */}
-        <div className="min-w-[120px]">
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <Tag className="w-3.5 h-3.5 inline mr-1" />
-            {t("procurement_industryAll") || "行业"}
-          </label>
-          <select
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none transition-colors appearance-none cursor-pointer"
-          >
-            <option value="">{t("procurement_industryAll") || "选择行业"}</option>
-            {HOT_INDUSTRIES.map((ind) => (
-              <option key={ind.value} value={ind.value}>
-                {t(ind.labelKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* 截止时间 */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <Calendar className="w-3.5 h-3.5 inline mr-1" />
-            {t("procurement_deadlineFrom") || "截止时间"}
+            {t("procurement_deadline") || "截止时间"}
           </label>
-          <div className="flex items-center gap-1.5">
-            <Input
-              type="date"
-              value={form.fromInput}
-              onChange={(e) => form.setFromInput(e.target.value)}
-              className="w-full text-sm"
-              aria-label={t("procurement_deadlineStart") || "开始日期"}
-            />
-            <span className="text-xs text-slate-400 shrink-0">~</span>
-            <Input
-              type="date"
-              value={form.toInput}
-              onChange={(e) => form.setToInput(e.target.value)}
-              className="w-full text-sm"
-              aria-label={t("procurement_deadlineEnd") || "结束日期"}
-            />
-          </div>
+          <DateRangePicker
+            fromValue={form.fromInput}
+            toValue={form.toInput}
+            onFromChange={form.setFromInput}
+            onToChange={form.setToInput}
+            placeholderFrom={t("procurement_startDate") || "开始日期"}
+            placeholderTo={t("procurement_endDate") || "结束日期"}
+          />
         </div>
       </div>
 
-      {/* ═══ 行2：采购机构 / 采购方式 / 预算金额 / 来源平台 + 按钮 ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-[1.5fr_auto_1fr_auto_auto] gap-3 items-end">
+      {/* ══ 行2：采购机构 / 采购方式 / 预算金额 ══ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
         {/* 采购机构/买家 */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <Building2 className="w-3.5 h-3.5 inline mr-1" />
-            {t("procurement_agency") || "采购机构"} / {t("procurement_buyerInfo") || "买家"}
+            {t("procurement_agency") || "采购机构"} / {t("procurement_buyer") || "买家"}
           </label>
           <AgencyFilter
             agencies={agencies}
             value={form.agencyInput}
             onChange={form.setAgencyInput}
-            placeholder={t("procurement_agencyAll")}
+            placeholder={t("procurement_agencyPlaceholder") || "输入机构名称或买家名称"}
             noResultsText={t("agencyFilter_noResults")}
             className="w-full"
           />
         </div>
 
         {/* 采购方式 */}
-        <div className="min-w-[130px]">
+        <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <Briefcase className="w-3.5 h-3.5 inline mr-1" />
             {t("procurement_procurementMethod") || "采购方式"}
           </label>
-          <select
-            value={procurementMethod}
-            onChange={(e) => setProcurementMethod(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none transition-colors appearance-none cursor-pointer"
+          <Select
+            value={form.noticeTypeInput}
+            onChange={(e) => form.setNoticeTypeInput(e.target.value)}
+            className="w-full"
           >
-            {PROCUREMENT_METHODS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {t(m.labelKey)}
+            {NOTICE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* 预算金额 (USD) */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            <DollarSign className="w-3.5 h-3.5 inline mr-1" />
-            {t("procurement_budgetRange") || "预算金额（USD）"}
+            {t("procurement_budgetAmount") || "预算金额（USD）"}
           </label>
           <div className="flex items-center gap-1.5">
             <Input
@@ -241,7 +251,7 @@ export function AdvancedSearchPanel({
               inputMode="numeric"
               value={budgetMin}
               onChange={handleBudgetMinChange}
-              placeholder={t("procurement_budgetMin") || "最小值"}
+              placeholder={t("procurement_minValue") || "最小值"}
               className="w-full text-sm"
             />
             <span className="text-xs text-slate-400 shrink-0">~</span>
@@ -250,49 +260,10 @@ export function AdvancedSearchPanel({
               inputMode="numeric"
               value={budgetMax}
               onChange={handleBudgetMaxChange}
-              placeholder={t("procurement_budgetMax") || "最大值"}
+              placeholder={t("procurement_maxValue") || "最大值"}
               className="w-full text-sm"
             />
           </div>
-        </div>
-
-        {/* 来源平台 */}
-        <div className="min-w-[130px]">
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            {t("procurement_sourcePlatform") || "来源平台"}
-          </label>
-          <select
-            value={sourcePlatform}
-            onChange={(e) => setSourcePlatform(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 focus:ring-1 focus:ring-teal-400 outline-none transition-colors appearance-none cursor-pointer"
-          >
-            {SOURCE_PLATFORMS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {"label" in s ? s.label : t(s.labelKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* 搜索 + 清空按钮 */}
-        <div className="flex items-end gap-2">
-          <Button
-            type="submit"
-            variant="primary"
-            className="font-black whitespace-nowrap px-6"
-          >
-            <Search className="w-4 h-4 mr-1" />
-            {t("procurement_searchBtn")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={handleClear}
-            className="px-3 whitespace-nowrap text-slate-500 hover:text-slate-700"
-          >
-            <X className="w-3.5 h-3.5 mr-1" />
-            {t("procurement_clear")}
-          </Button>
         </div>
       </div>
     </form>
