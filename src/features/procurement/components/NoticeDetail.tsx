@@ -83,14 +83,17 @@ function deriveSourceName(sourceUrl?: string): string {
   } catch { return ""; }
 }
 
-/** 计算截止倒计时 */
+/** 计算截止倒计时（按北京时间 CST UTC+8） */
 function getCountdown(deadlineTs?: number | string): { days: number; time: string } | null {
   if (!deadlineTs) return null;
   const ms = typeof deadlineTs === "number"
     ? (deadlineTs > 1e12 ? deadlineTs : deadlineTs * 1000)
     : NaN;
   if (!Number.isFinite(ms) || ms <= 0) return null;
-  const diff = ms - Date.now();
+  const CST_OFFSET = 8 * 3600000;
+  const deadlineCst = new Date(ms + CST_OFFSET);
+  const nowCst = new Date(Date.now() + CST_OFFSET);
+  const diff = deadlineCst.getTime() - nowCst.getTime();
   if (diff <= 0) return null;
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);

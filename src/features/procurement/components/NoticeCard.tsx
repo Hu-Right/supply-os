@@ -70,19 +70,12 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
 
   // ── 状态标签组 ──
   const docCount = item.breakdown_file_count ?? 0;
-  // 剩余天数：deadline_ts 兼容秒/毫秒，按 CST (UTC+8) 日期计算
+  // 剩余天数：deadline_ts 兼容秒/毫秒
   const dlMs = typeof item.deadline_ts === "number"
     ? (item.deadline_ts > 1e12 ? item.deadline_ts : item.deadline_ts * 1000)
     : NaN;
   const daysLeft = Number.isFinite(dlMs) && dlMs > 0
-    ? (() => {
-        const CST_OFFSET = 8 * 3600000;
-        const deadlineCst = new Date(dlMs + CST_OFFSET);
-        const nowCst = new Date(Date.now() + CST_OFFSET);
-        const deadlineDay = Date.UTC(deadlineCst.getUTCFullYear(), deadlineCst.getUTCMonth(), deadlineCst.getUTCDate());
-        const todayDay = Date.UTC(nowCst.getUTCFullYear(), nowCst.getUTCMonth(), nowCst.getUTCDate());
-        return Math.ceil((deadlineDay - todayDay) / 86400000);
-      })()
+    ? Math.ceil((dlMs - Date.now()) / 86400000)
     : null;
   // Tender ID：reference 优先，回退 notice_id；UNSPSC 首码仅解锁态展示
   const tenderId = item.reference || item.notice_id || "";
