@@ -136,11 +136,11 @@ export function NextStepsPanel({
   ];
 
   return (
-    <aside className="rounded-2xl border border-slate-200 bg-white p-5 sticky top-24">
-      <h3 className="text-base font-extrabold text-slate-900 mb-4">
+    <aside className="rounded-2xl border border-slate-200 bg-white p-4 sticky top-24">
+      <h3 className="text-sm font-extrabold text-slate-900 mb-3">
         {t("detail_nextStepsTitle") || "下一步动作"}
       </h3>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {steps.map((step) => {
           const tierStyle = TIER_STYLES[step.tier];
           const Icon = step.icon;
@@ -148,13 +148,13 @@ export function NextStepsPanel({
             <button
               key={step.titleDefault}
               onClick={step.onClick}
-              className="w-full flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3.5 hover:border-teal-200 hover:bg-teal-50/50 transition-colors text-left group"
+              className="w-full flex items-center gap-2.5 rounded-lg border border-slate-100 bg-slate-50 p-2.5 hover:border-teal-200 hover:bg-teal-50/50 transition-colors text-left group"
             >
-              <div className="shrink-0 w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center group-hover:border-teal-300 transition-colors">
-                <Icon className="w-5 h-5 text-slate-600 group-hover:text-teal-700 transition-colors" />
+              <div className="shrink-0 w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center group-hover:border-teal-300 transition-colors">
+                <Icon className="w-4 h-4 text-slate-600 group-hover:text-teal-700 transition-colors" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-slate-900 truncate">
+                <p className="text-xs font-bold text-slate-900 truncate">
                   {t(step.titleKey) || step.titleDefault}
                 </p>
               </div>
@@ -170,7 +170,7 @@ export function NextStepsPanel({
 
       {/* 非 VIP 用户：底部升级提示 */}
       {!isVip && (
-        <div className="mt-4 pt-4 border-t border-slate-200">
+        <div className="mt-3 pt-3 border-t border-slate-200">
           <button
             onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white py-3 font-bold text-sm transition-colors"
