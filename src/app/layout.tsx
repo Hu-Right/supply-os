@@ -36,6 +36,11 @@ export const metadata: Metadata = {
     title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务一站式平台。",
   },
+  verification: {
+    other: {
+      "baidu-site-verification": "codeva-6P7uvzhCRZ",
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -88,6 +93,10 @@ export default function RootLayout({
       <head>
         {/* 预加载 iconfont woff2 字体（关键渲染路径，消除 FOIT/FOUT 延迟） */}
         <link rel="preload" href="/fonts/iconfont.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* 百度统计 */}
+        <script dangerouslySetInnerHTML={{ __html: `var _hmt=window._hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?77563025070521ff9535623fe9f96747";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();` }} />
+        {/* 百度链接自动推送 */}
+        <script src="https://zz.bdstatic.com/linksubmit/push.js" />
         {/* JSON-LD 结构化数据：搜索引擎可直接读取（替代旧的 react-helmet-async 方案） */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.organization) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.website) }} />
