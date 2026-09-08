@@ -26,6 +26,7 @@ import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { AiSummarySection } from "./AiSummarySection";
 import { NextStepsPanel } from "./NextStepsPanel";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
+import { getCountdown, formatPublishDate } from "@/shared/utils/countdown";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -82,40 +83,11 @@ function deriveSourceName(sourceUrl?: string): string {
   } catch { return ""; }
 }
 
-/** 计算截止倒计时（按北京时间 CST UTC+8） */
-function getCountdown(deadlineTs?: number | string): { days: number; time: string } | null {
-  if (!deadlineTs) return null;
-  const ms = typeof deadlineTs === "number"
-    ? (deadlineTs > 1e12 ? deadlineTs : deadlineTs * 1000)
-    : NaN;
-  if (!Number.isFinite(ms) || ms <= 0) return null;
-  const CST_OFFSET = 8 * 3600000;
-  const deadlineCst = new Date(ms + CST_OFFSET);
-  const nowCst = new Date(Date.now() + CST_OFFSET);
-  const diff = deadlineCst.getTime() - nowCst.getTime();
-  if (diff <= 0) return null;
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  const secs = Math.floor((diff % 60000) / 1000);
-  return { days, time: `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}` };
-}
+/** 计算截止倒计时（已迁移至 shared/utils/countdown） */
+// getCountdown 已提取至 @/shared/utils/countdown
 
-/** 格式化发布时间 */
-function formatPublishDate(createTime?: string | number): string {
-  if (!createTime) return "-";
-  try {
-    let date: Date;
-    if (typeof createTime === "number") {
-      // Unix 时间戳（秒级）转毫秒
-      date = new Date(createTime < 1e12 ? createTime * 1000 : createTime);
-    } else {
-      date = new Date(createTime);
-    }
-    if (isNaN(date.getTime()) || date.getFullYear() < 2000) return "-";
-    return date.toISOString().slice(0, 10);
-  } catch { return "-"; }
-}
+/** 格式化发布时间（已迁移至 shared/utils/countdown） */
+// formatPublishDate 已提取至 @/shared/utils/countdown
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
