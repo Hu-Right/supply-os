@@ -56,7 +56,7 @@ function detectLocale(): Locale {
       if (matched) return matched;
     }
   }
-  return "en";
+  return "zh";
 }
 
 type LocaleContextValue = {
@@ -146,9 +146,10 @@ function LocaleInner({ children, effectiveLocale, i18nInstance }: {
 }
 
 export function LocaleProvider({ children, initialLocale }: { children: ReactNode; initialLocale?: Locale }) {
-  // ★ SSR 安全：initialLocale 未传入时统一使用 "en"，避免 detectLocale() 在 SSR/CSR 返回不同值导致 hydration mismatch
+  // ★ SSR 安全：initialLocale 未传入时统一使用 "zh"（主要客户为中文用户），
+  // 避免 detectLocale() 在 SSR/CSR 返回不同值导致 hydration mismatch
   // 实际语言检测在客户端 useEffect 中完成
-  const safeInitialLocale = initialLocale || "en";
+  const safeInitialLocale = initialLocale || "zh";
   const i18nInstanceRef = useRef<I18nInstance | null>(null);
 
   // ★ 创建独立 i18next 实例（仅一次），静态注入全部翻译资源 ★
@@ -156,7 +157,7 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
     const instance = createInstance();
     instance.use(initReactI18next).init({
       lng: safeInitialLocale,
-      fallbackLng: "en",
+      fallbackLng: "zh",
       resources: CLIENT_RESOURCES,
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
       returnNull: false,

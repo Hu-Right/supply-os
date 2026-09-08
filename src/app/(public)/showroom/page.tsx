@@ -5,16 +5,17 @@
  */
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";
+import { BROWSER_TITLE } from "@/lib/i18n/metadata";
 import PageClient from "./page-client";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "履约服务 — 从中标到交付的全链路保障 | 云境·国际采购平台",
-  description: "云境·国际采购平台履约服务：合同合规、国际物流、结算保障、持续服务四大阶段全流程支持，助力企业高效完成国际采购履约。",
+  title: BROWSER_TITLE.zh,
+  description: "云境·国际采购平台海外展厅：法兰克福、迪拜、内罗毕、圣保罗、洛杉矶、胡志明市六大海外永久展示中心，驻外双语顾问 + 24小时前后仓备协同。",
   openGraph: {
-    title: "履约服务 | 云境·国际采购平台",
-    description: "从中标到交付的全链路保障，合同合规/国际物流/结算保障/持续服务一站式解决方案。",
+    title: BROWSER_TITLE.zh,
+    description: "六大海外永久展示中心，驻外双语顾问 + 24小时前后仓备协同，直达国际巨头采购商。",
     type: "website",
   },
   alternates: {

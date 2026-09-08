@@ -16,10 +16,7 @@ import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-  title: {
-    default: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
-    template: "%s | 云境·国际采购平台",
-  },
+  title: "云境·国际采购平台 | 云境OS | OS",
   description: "云境·国际采购平台：联合国及全球政府采购公告搜索、供应商目录、CRM 客户管理、投标服务、学习培训一站式平台。助力中国企业连接全球采购机遇。",
   keywords: ["云境", "国际采购", "政府采购", "联合国采购", "供应商管理", "招标", "投标", "CRM", "海外展厅", "UN procurement", "global sourcing"],
   alternates: {
@@ -27,7 +24,7 @@ export const metadata: Metadata = {
     languages: { "x-default": absoluteUrl("/") },
   },
   openGraph: {
-    title: "云境·国际采购平台 — 全球采购与海外展厅协同系统",
+    title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务、学习培训。助力中国企业连接全球采购机遇。",
     images: [{ url: "/images/brand-icon.svg", width: 120, height: 120, alt: "云境·国际采购平台" }],
     type: "website",
@@ -39,6 +36,11 @@ export const metadata: Metadata = {
     title: "云境·国际采购平台",
     description: "联合国及全球政府采购公告搜索、供应商目录、CRM、投标服务一站式平台。",
   },
+  verification: {
+    other: {
+      "baidu-site-verification": "codeva-6P7uvzhCRZ",
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -48,7 +50,8 @@ export const viewport: Viewport = {
 };
 
 // 静态默认 locale —— 不调用 headers()/cookies()，保证 ISR/SSG 生效
-const DEFAULT_LOCALE = "en";
+// 主要客户为中文用户，默认使用中文
+const DEFAULT_LOCALE = "zh";
 const DEFAULT_DIR = getLocaleDir(DEFAULT_LOCALE);
 
 // JSON-LD 结构化数据（Organization + WebSite），搜索引擎爬虫可直接读取
@@ -90,6 +93,10 @@ export default function RootLayout({
       <head>
         {/* 预加载 iconfont woff2 字体（关键渲染路径，消除 FOIT/FOUT 延迟） */}
         <link rel="preload" href="/fonts/iconfont.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* 百度统计 */}
+        <script dangerouslySetInnerHTML={{ __html: `var _hmt=window._hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?77563025070521ff9535623fe9f96747";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();` }} />
+        {/* 百度链接自动推送 */}
+        <script src="https://zz.bdstatic.com/linksubmit/push.js" />
         {/* JSON-LD 结构化数据：搜索引擎可直接读取（替代旧的 react-helmet-async 方案） */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.organization) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.website) }} />
