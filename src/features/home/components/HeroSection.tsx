@@ -5,32 +5,21 @@
  * @module features/home/components/HeroSection
  * @description 深蓝科技风 Hero，采购机会搜索入口。
  *              背景与导航栏连为一体，地球装饰在右侧。
+ *              热门标签数据由 useHotTopics hook 统一提供。
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
-import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
+import { useHotTopics } from "../hooks/useHotTopics";
 import { Search } from "lucide-react";
-
-/** 热门标签数据 */
-interface HotTags {
-  countries: Array<{ country: string; count: number }>;
-  industries: Array<{ id: number; code: string; title_zh: string; title: string; count: number }>;
-}
 
 /** Hero 区 — 采购机会搜索 + 热门标签 */
 export function HeroSection() {
   const router = useRouter();
   const { locale } = useLocale();
   const [query, setQuery] = useState("");
-  const [hotTags, setHotTags] = useState<HotTags | null>(null);
-
-  useEffect(() => {
-    api<HotTags>("/api/notices/hot-topics")
-      .then(setHotTags)
-      .catch(() => {});
-  }, []);
+  const { topics: hotTags } = useHotTopics();
 
   const fallbackCountries = ["肯尼亚", "美国", "联合国", "菲律宾"];
   const hotTags_list = hotTags
