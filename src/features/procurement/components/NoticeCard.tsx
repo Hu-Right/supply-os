@@ -3,39 +3,20 @@
  * Notice List Row — high-density horizontal layout
  *
  * @module features/procurement/components/NoticeCard
- * @description 按「2-全球采购机会库」样图重排：左侧状态标签竖排（NEW/即将截止/
- *              含附件/AI 匹配/精选/推荐理由）+ 标题与 Tender ID · UNSPSC 主列 +
+ * @description 按「2-全球采购机会库」样图重排：左侧状态标签（公告类型/附件）+ 标题与 Tender ID · UNSPSC 主列 +
  *              买家 / 国家 / 金额 / 截止 各列 + 解锁动作。行内不再放描述长文，
  *              一屏 6 条营造库存感（规划 §5.2）；移动端降级为纵向紧凑排布。
  *              Dense horizontal row per design mockup; description lives in the
  *              detail page only. Mobile falls back to stacked compact layout.
  */
 import { memo } from "react";
-import { Crown, Target, Bookmark } from "lucide-react";
+import { Crown, Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
-import type { LocaleKey } from "@/core/i18n";
 import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
 import { formatDeadlineZh } from "../utils/formatDeadlineZh";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-
-// T-C3 推荐理由标签（C.3.4）：服务端标签键 → i18n 键白名单映射，未知键静默丢弃
-const RECO_REASON_KEYS: Record<string, LocaleKey> = {
-  industry_match_l4: "procurement_reason_industry_match_l4",
-  industry_match: "procurement_reason_industry_match",
-  recent_deadline: "procurement_reason_recent_deadline",
-  high_value: "procurement_reason_high_value",
-  preferred_region: "procurement_reason_preferred_region",
-  similar_unlocked: "procurement_reason_similar_unlocked",
-};
-
-// 行业精准匹配档次徽章（SSOT 重构后 2 档分色）：
-// precise → success（L5/L4 精确匹配），relevant → info（L3/L2 行业相关）
-const MATCH_TIER_CONFIG: Record<string, { key: LocaleKey; variant: "success" | "info" }> = {
-  precise: { key: "procurement_tier_precise", variant: "success" },
-  relevant: { key: "procurement_tier_relevant", variant: "info" },
-};
 
 /** 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退 */
 function compactValue(v?: string): string {
@@ -88,28 +69,19 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
   const typeKey = noticeTypeKey(item.notice_type);
 
   // ── 状态标签组 ──
-  // NEW：主表 create_time 7 天内
-  const createdMs = item.create_time ? new Date(item.create_time).getTime() : NaN;
-  const isNew = Number.isFinite(createdMs) && Date.now() - createdMs < 7 * 86400000;
-  // 即将截止：deadline_ts 兼容秒/毫秒
+  const docCount = item.breakdown_file_count ?? 0;
+  // 剩余天数：deadline_ts 兼容秒/毫秒
   const dlMs = typeof item.deadline_ts === "number"
     ? (item.deadline_ts > 1e12 ? item.deadline_ts : item.deadline_ts * 1000)
     : NaN;
   const daysLeft = Number.isFinite(dlMs) && dlMs > 0
     ? Math.ceil((dlMs - Date.now()) / 86400000)
     : null;
-  const closingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
-  const docCount = item.breakdown_file_count ?? 0;
   // Tender ID：reference 优先，回退 notice_id；UNSPSC 首码仅解锁态展示
   const tenderId = item.reference || item.notice_id || "";
   const firstUnspsc = item.core_locked === false
     ? (item.unspsc_codes || []).map((c) => c.code).filter(Boolean)[0]
     : undefined;
-  // 推荐理由标签：仅推荐/热度兜底响应携带；至多 2 个
-  const reasonKeys = (item.reco_reasons || [])
-    .map((reason) => RECO_REASON_KEYS[reason])
-    .filter((key): key is LocaleKey => Boolean(key))
-    .slice(0, 2);
 
   const deadlineText = locale === "zh"
     ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
@@ -125,41 +97,16 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
       data-testid="notice-card"
     >
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-4">
-        {/* ── 状态标签列：桌面竖排窄列，移动端横向换行 ── */}
+        {/* ── 状态标签列：公告类型 + 附件 ── */}
         <div className="flex lg:flex-col flex-wrap lg:flex-nowrap items-start gap-1 lg:w-28 shrink-0">
           <Badge shape="tag" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-3xs font-bold w-fit whitespace-nowrap">
             {typeKey ? t(typeKey) : item.notice_type || "Notice"}
           </Badge>
-          {isNew && (
-            <Badge variant="success" shape="tag" className="text-3xs font-bold w-fit">NEW</Badge>
-          )}
-          {closingSoon && (
-            <Badge variant="error" shape="tag" className="text-3xs font-bold w-fit">
-              {t("procurement_reason_recent_deadline")}
-            </Badge>
-          )}
           {docCount > 0 && (
             <Badge variant="info" shape="tag" className="text-3xs font-bold w-fit whitespace-nowrap">
               {t("procurement_hasRawAttachments", { count: docCount })}
             </Badge>
           )}
-          {Boolean(item.is_featured) && (
-            <Badge variant="warning" shape="tag" className="text-3xs font-bold w-fit">
-              <Crown className="w-3 h-3" />
-              {t("procurement_featuredBadge")}
-            </Badge>
-          )}
-          {item.match_tier && MATCH_TIER_CONFIG[item.match_tier] && (
-            <Badge variant={MATCH_TIER_CONFIG[item.match_tier].variant} shape="tag" className="text-3xs font-bold w-fit">
-              <Target className="w-3 h-3" />
-              {t(MATCH_TIER_CONFIG[item.match_tier].key)}
-            </Badge>
-          )}
-          {reasonKeys.map((key) => (
-            <Badge key={key} variant="warning" shape="tag" className="text-3xs font-bold w-fit">
-              {t(key)}
-            </Badge>
-          ))}
         </div>
 
         {/* ── 主列：标题 + Tender ID · UNSPSC ── */}
