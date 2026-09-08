@@ -6,24 +6,17 @@
  * @description 深色背景 + 皇冠 + 4权益点 + 金色CTA按钮。
  *              根据登录态差异化：未登录→注册，免费→升级，付费→管理。
  */
-import { memo, useState, useEffect } from "react";
+import { memo } from "react";
 import {
   Crown, Search, Unlock, Filter, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/core/auth";
-import { api } from "@/core/http";
+import { useMembershipStatus } from "@/features/membership/hooks/useMembershipStatus";
 
 /** 会员升级横幅（根据登录态差异化） */
 export const UpgradeBanner = memo(function UpgradeBanner() {
   const { authUser, authReady } = useAuth();
-  const [planName, setPlanName] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authUser) return;
-    api<{ current_plan_name: string | null }>("/api/membership/status")
-      .then((data) => setPlanName(data.current_plan_name))
-      .catch(() => {});
-  }, [authUser]);
+  const planName = useMembershipStatus(!!authUser);
 
   // 未登录：注册引导
   if (authReady && !authUser) {
