@@ -102,10 +102,18 @@ function getCountdown(deadlineTs?: number | string): { days: number; time: strin
 }
 
 /** 格式化发布时间 */
-function formatPublishDate(createTime?: string): string {
+function formatPublishDate(createTime?: string | number): string {
   if (!createTime) return "-";
   try {
-    return new Date(createTime).toISOString().slice(0, 10);
+    // 处理 Unix 时间戳（秒级）
+    if (typeof createTime === "number") {
+      if (createTime < 946684800) return "-"; // 2000年之前的视为无效
+      return new Date(createTime * 1000).toISOString().slice(0, 10);
+    }
+    // 处理日期字符串
+    const date = new Date(createTime);
+    if (date.getFullYear() < 2000) return "-"; // 2000年之前的视为无效
+    return date.toISOString().slice(0, 10);
   } catch { return "-"; }
 }
 
