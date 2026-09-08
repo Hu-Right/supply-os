@@ -25,7 +25,6 @@ import { NoticeDetailSidebar } from "./NoticeDetailSidebar";
 import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { AiSummarySection } from "./AiSummarySection";
 import { NextStepsPanel } from "./NextStepsPanel";
-import { NoticeQuickView } from "./NoticeQuickView";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 interface NoticeDetailProps {
@@ -336,9 +335,6 @@ export function NoticeDetail({
               showSkeleton={showSkeleton}
               breakdownFileCount={breakdownFileCount}
             />
-
-            {/* 本标概况速览表 */}
-            <NoticeQuickView notice={notice} />
           </main>
 
           {/* ── 右栏：下一步动作面板（首屏可见） ── */}
