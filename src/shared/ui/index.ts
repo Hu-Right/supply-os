@@ -88,3 +88,8 @@ export type { StatusBadgeProps } from "./StatusBadge";
 
 export { HotTagBar } from "./HotTagBar";
 export type { HotTagBarProps, HotTagItem } from "./HotTagBar";
+
+export { Calendar } from "./Calendar";
+export type { CalendarProps } from "./Calendar";
+
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./Popover";
