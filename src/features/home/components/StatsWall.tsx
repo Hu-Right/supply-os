@@ -10,11 +10,7 @@ import { useState, useEffect } from "react";
 import { Search, Globe, Users, TrendingUp, ShieldCheck } from "lucide-react";
 import { api } from "@/core/http";
 import { useCountUp } from "../hooks/useCountUp";
-
-/** 格式化数字 — 直接展示，不带单位 */
-function formatNumber(num: number): string {
-  return num.toLocaleString();
-}
+import { formatPlainNumber } from "@/shared/utils/format";
 
 /** 单个统计卡片 — 带数字跳动动画 */
 function StatCard({ label, value, sub, icon: Icon, color }: {
@@ -26,7 +22,7 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
       <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
-      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatNumber(animatedValue)}</p>
+      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatPlainNumber(animatedValue)}</p>
       <p className="text-xs font-bold text-slate-700 mt-1">{label}</p>
       <p className="text-2xs text-slate-400 mt-0.5">{sub}</p>
     </div>

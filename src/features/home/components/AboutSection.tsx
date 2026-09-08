@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { api } from "@/core/http";
+import { formatCompactNumber } from "@/shared/utils/format";
 
 /* ── 四步路径 ── */
 const STEPS = [
@@ -78,13 +79,6 @@ const ADVANTAGES: { icon: LucideIcon; title: string; desc: string; color: string
   },
 ];
 
-function formatNumber(num: number): string {
-  if (num >= 10000) {
-    return `${(num / 10000).toFixed(1)}万+`;
-  }
-  return num.toLocaleString() + "+";
-}
-
 export function AboutSection() {
   const router = useRouter();
   const [stats, setStats] = useState({
@@ -108,9 +102,9 @@ export function AboutSection() {
   }, []);
 
   const metrics = [
-    { value: formatNumber(stats.notices), label: "实时采购公告", sub: "每日持续更新" },
+    { value: formatCompactNumber(stats.notices), label: "实时采购公告", sub: "每日持续更新" },
     { value: `${stats.countries}+`, label: "覆盖国家/地区", sub: "联合国 & 国际组织" },
-    { value: formatNumber(stats.suppliers), label: "认证供应商", sub: "企业资质已核验" },
+    { value: formatCompactNumber(stats.suppliers), label: "认证供应商", sub: "企业资质已核验" },
     { value: "13.5万亿$", label: "全球采购规模", sub: "2026 年全球统计" },
   ];
 

@@ -12,12 +12,14 @@ import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { CountryFlag } from "@/shared/ui";
 import { noticeTypeKey } from "@/features/procurement/notice-type";
+import {
+  displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel,
+  type NoticeDisplayFields,
+} from "@/shared/utils/noticeDisplay";
 
 /** 三栏卡片共用的宽表字段口径（与列表页 NoticeCard 一致） */
-interface HomeNoticeItem {
-  id: number; title: string; country: string; estimated_value: string; deadline_sec: number | null;
-  notice_type?: string;
-  title_i18n?: string; title_en?: string; agency?: string; agency_i18n?: string;
+interface HomeNoticeItem extends NoticeDisplayFields {
+  id: number;
 }
 
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
@@ -29,31 +31,13 @@ export function ContentColumns() {
   }>>([]);
   const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
   const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
-
-  // 与 NoticeCard 相同的宽表字段回退链：本地化标题 / 机构 i18n / 国家 中文名
-  const displayTitle = (n: HomeNoticeItem) => n.title_i18n || n.title_en || n.title;
-  const displayAgency = (n: HomeNoticeItem) => n.agency_i18n || n.agency || "";
+  
+  // 复用 shared 工具函数，与 procurement/NoticeCard 保持口径一致
   const displayCountry = (n: HomeNoticeItem) => getCountryDisplayName(n.country, locale);
-  const displayBudget = (n: HomeNoticeItem) =>
-    n.estimated_value && n.estimated_value !== "0.00"
-      ? `USD ${Number(n.estimated_value).toLocaleString()}`
-      : "预算详谈";
-  // 采购类型徽章文案：noticeTypeKey + i18n（如"招标邀请（ITB）"），未知类型不展示徽章
+  // 采购类型徽章文案：noticeTypeKey + i18n，未知类型不展示
   const typeLabel = (n: HomeNoticeItem) => {
     const key = noticeTypeKey(n.notice_type);
     return key ? t(key) : "";
-  };
-  // 兜底显示：宽表 NULLIF 后 deadline_sec 可能为 null；正常数据已被 deadline_from 过滤为未截止。
-  // 超长截止（框架协议/动态采购系统可达数年）显示具体日期，避免"截止 2154 天"式观感（规划 §8 数据质量）
-  const deadlineLabel = (n: HomeNoticeItem) => {
-    if (!n.deadline_sec || n.deadline_sec <= 0) return "无截止日期";
-    const left = Math.ceil((new Date(n.deadline_sec * 1000).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    if (left <= 0) return "已截止";
-    if (left > 365) {
-      const d = new Date(n.deadline_sec * 1000);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} 截止`;
-    }
-    return `截止 ${left} 天`;
   };
 
   useEffect(() => {
@@ -99,16 +83,16 @@ export function ContentColumns() {
                         {typeLabel(notice)}
                       </span>
                     )}
-                    <span className="ml-auto text-xs text-amber-600 shrink-0">{deadlineLabel(notice)}</span>
+                    <span className="ml-auto text-xs text-amber-600 shrink-0">{displayDeadlineLabel(notice.deadline_sec)}</span>
                   </div>
                   <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-teal-700 transition-colors line-clamp-2 mt-2">
-                    {displayTitle(notice)}
+                    {displayNoticeTitle(notice)}
                   </p>
                   <p className="text-xs text-slate-500 mt-1.5 truncate">
-                    {[displayCountry(notice), displayAgency(notice)].filter(Boolean).join(" / ")}
+                    {[displayCountry(notice), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-semibold text-slate-800">预算：{displayBudget(notice)}</span>
+                    <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
                       查看详情
                     </span>
@@ -195,16 +179,16 @@ export function ContentColumns() {
                     <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
                       询价公告 (RFQ)
                     </span>
-                    <span className="ml-auto text-xs text-slate-400 shrink-0">{deadlineLabel(notice)}</span>
+                    <span className="ml-auto text-xs text-slate-400 shrink-0">{displayDeadlineLabel(notice.deadline_sec)}</span>
                   </div>
                   <p className="text-[15px] font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 mt-2">
-                    {displayTitle(notice)}
+                    {displayNoticeTitle(notice)}
                   </p>
                   <p className="text-xs text-slate-500 mt-1.5 truncate">
-                    {[displayAgency(notice), displayCountry(notice)].filter(Boolean).join(" / ")}
+                    {[displayNoticeAgency(notice), displayCountry(notice)].filter(Boolean).join(" / ")}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-semibold text-slate-800">预算：{displayBudget(notice)}</span>
+                    <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-blue-400 group-hover:text-blue-700 transition-colors">
                       查看详情
                     </span>
