@@ -56,8 +56,12 @@ describe("validateParams", () => {
     expect(validateParams({ sort: "deadline" }).sort).toBe("deadline");
   });
 
-  it("sort=invalid → deadline_farthest", () => {
-    expect(validateParams({ sort: "bogus" }).sort).toBe("deadline_farthest");
+  it("sort=invalid → latest", () => {
+    expect(validateParams({ sort: "bogus" }).sort).toBe("latest");
+  });
+
+  it("sort=deadline_farthest → deadline_farthest", () => {
+    expect(validateParams({ sort: "deadline_farthest" }).sort).toBe("deadline_farthest");
   });
 
   it("deadlineWithinDays 钳制 [0, 365]", () => {

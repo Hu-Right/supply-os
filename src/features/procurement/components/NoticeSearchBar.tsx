@@ -75,9 +75,9 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             }}
             aria-label={t("procurement_sortByDeadlineFarthest")}
           >
+            <option value="latest">{t("procurement_sortByLatest")}</option>
             <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
             <option value="deadline">{t("procurement_sortByDeadline")}</option>
-            <option value="latest">{t("procurement_sortByLatest")}</option>
           </Select>
           {/* 移动端高级筛选展开/折叠按钮 */}
           <ToggleButton

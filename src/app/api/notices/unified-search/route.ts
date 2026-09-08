@@ -30,7 +30,7 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     deadlineWithinDays: getInt("deadline_within_days"),
     noticeType: get("notice_type"),
     featuredOnly: sp.get("featured") === "1",
-    sort: get("sort", "deadline_farthest"),
+    sort: get("sort", "latest"),
     codeId: getInt("code_id") || getInt("industry_id"),
   };
 }

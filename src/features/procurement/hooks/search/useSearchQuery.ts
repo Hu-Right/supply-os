@@ -32,7 +32,7 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const activeTo = searchParams.get("deadline_to") || "";
   const rawSort = searchParams.get("sort");
   const activeSort: "deadline" | "latest" | "deadline_farthest" =
-    rawSort === "latest" ? "latest" : rawSort === "deadline" ? "deadline" : "deadline_farthest";
+    rawSort === "deadline" ? "deadline" : rawSort === "deadline_farthest" ? "deadline_farthest" : "latest";
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   const activeFeatured = searchParams.get("featured") === "1";

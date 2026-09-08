@@ -7,7 +7,7 @@ import type { NoticeSearchParams } from "@/lib/services/notice-search/types";
 
 const defaultParams: NoticeSearchParams = {
   page: 1, pageSize: 9, q: "", country: "", agency: "",
-  deadlineFrom: "", deadlineTo: "", sort: "deadline_farthest",
+  deadlineFrom: "", deadlineTo: "", sort: "latest",
   deadlineWithinDays: 0, noticeType: "", featuredOnly: false, locale: "en",
 };
 

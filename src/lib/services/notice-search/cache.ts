@@ -64,7 +64,7 @@ export function setNoticeTypeCache(value: { types: string[]; expires: number }):
 export function searchCacheKey(p: NoticeSearchParams): string {
   return JSON.stringify([
     p.page, p.pageSize, p.codeId || 0, p.q || "", p.country || "", p.agency || "",
-    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "deadline_farthest",
+    p.deadlineFrom || "", p.deadlineTo || "", p.sort || "latest",
     p.deadlineWithinDays || 0, p.noticeType || "", !!p.featuredOnly, p.locale || "",
   ]);
 }

@@ -112,7 +112,7 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     // P3-5 修复：预填充复用 countCacheKey 生成逻辑
     const defaultParams: NoticeSearchParams = {
       page: 1, pageSize: 9, q: "", country: "", agency: "",
-      deadlineFrom: "", deadlineTo: "", sort: "deadline_farthest",
+      deadlineFrom: "", deadlineTo: "", sort: "latest",
       deadlineWithinDays: 0, noticeType: "", featuredOnly: false,
     };
     setCountCache(countCacheKey({ ...defaultParams }), false, activeTotal);

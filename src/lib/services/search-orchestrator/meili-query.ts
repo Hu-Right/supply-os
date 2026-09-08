@@ -14,9 +14,9 @@ const SEARCH_TIMEOUT_MS = 5000;
 
 /** 排序参数 → Meilisearch sort 数组（与 search.ts 口径一致） */
 function buildSortArr(sort: UnifiedSearchParams["sort"]): string[] {
-  if (sort === "latest") return ["id:desc"];
   if (sort === "deadline") return ["has_deadline:desc", "deadline_sec:asc", "id:desc"];
-  return ["has_deadline:desc", "deadline_sec:desc", "id:desc"];
+  if (sort === "deadline_farthest") return ["has_deadline:desc", "deadline_sec:desc", "id:desc"];
+  return ["id:desc"];
 }
 
 /**

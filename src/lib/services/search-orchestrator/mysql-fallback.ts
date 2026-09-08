@@ -53,11 +53,13 @@ export function buildOrderBy(p: UnifiedSearchParams): string {
     .replace(/\\/g, "\\\\")
     .replace(/'/g, "''");
   const refBoost = p.q ? `(UPPER(REPLACE(COALESCE(n.reference,''),' ','')) = '${refLiteral}') DESC, ` : "";
-  if (p.sort === "latest") return `${refBoost}n.id DESC`;
   if (p.sort === "deadline") {
     return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec ASC, n.id DESC`;
   }
-  return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec DESC, n.id DESC`;
+  if (p.sort === "deadline_farthest") {
+    return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec DESC, n.id DESC`;
+  }
+  return `${refBoost}n.id DESC`;
 }
 
 /**
