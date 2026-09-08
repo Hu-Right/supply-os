@@ -71,7 +71,6 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.fromInput) next.deadline_from = inputs.fromInput;
     if (inputs.toInput) next.deadline_to = inputs.toInput;
     if (inputs.windowInput) next.deadline_within_days = inputs.windowInput;
-    if (inputs.typeInput.trim()) next.notice_type = inputs.typeInput.trim();
     if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
     if (deepestCodeId) next.code_id = deepestCodeId;

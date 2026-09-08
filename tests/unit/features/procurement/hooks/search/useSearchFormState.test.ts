@@ -47,7 +47,7 @@ describe("useSearchFormState", () => {
       expect(result.current.inputs.fromInput).toBe("");
       expect(result.current.inputs.toInput).toBe("");
       expect(result.current.inputs.windowInput).toBe("");
-      expect(result.current.inputs.typeInput).toBe("");
+      expect(result.current.inputs.noticeTypeInput).toBe("");
     });
 
     it("从 URL 参数初始化 q", () => {
@@ -89,7 +89,7 @@ describe("useSearchFormState", () => {
     it("从 URL 参数初始化 notice_type", () => {
       mockSearchParams.set("notice_type", "ITB");
       const { result } = renderHook(() => useSearchFormState());
-      expect(result.current.inputs.typeInput).toBe("ITB");
+      expect(result.current.inputs.noticeTypeInput).toBe("ITB");
     });
 
     it("多参数同时初始化", () => {
@@ -142,10 +142,10 @@ describe("useSearchFormState", () => {
       expect(result.current.inputs.windowInput).toBe("7");
     });
 
-    it("setTypeInput 更新类型", () => {
+    it("setNoticeTypeInput 更新公告类型", () => {
       const { result } = renderHook(() => useSearchFormState());
-      act(() => result.current.setters.setTypeInput("RFQ"));
-      expect(result.current.inputs.typeInput).toBe("RFQ");
+      act(() => result.current.setters.setNoticeTypeInput("RFQ"));
+      expect(result.current.inputs.noticeTypeInput).toBe("RFQ");
     });
 
     it("多次 setter 调用累积更新", () => {
@@ -175,7 +175,6 @@ describe("useSearchFormState", () => {
         from: "2026-03-01",
         to: "2026-09-30",
         window: "90",
-        type: "EOI",
         noticeType: "EOI",
       }));
 
@@ -185,7 +184,7 @@ describe("useSearchFormState", () => {
       expect(result.current.inputs.fromInput).toBe("2026-03-01");
       expect(result.current.inputs.toInput).toBe("2026-09-30");
       expect(result.current.inputs.windowInput).toBe("90");
-      expect(result.current.inputs.typeInput).toBe("EOI");
+      expect(result.current.inputs.noticeTypeInput).toBe("EOI");
     });
 
     it("空字符串覆盖旧值", () => {
@@ -199,7 +198,6 @@ describe("useSearchFormState", () => {
         from: "",
         to: "",
         window: "",
-        type: "",
         noticeType: "",
       }));
 
@@ -221,7 +219,7 @@ describe("useSearchFormState", () => {
         result.current.setters.setFromInput("2026-01-01");
         result.current.setters.setToInput("2026-12-31");
         result.current.setters.setWindowInput("30");
-        result.current.setters.setTypeInput("ITB");
+        result.current.setters.setNoticeTypeInput("ITB");
       });
 
       // 清除
@@ -233,7 +231,7 @@ describe("useSearchFormState", () => {
       expect(result.current.inputs.fromInput).toBe("");
       expect(result.current.inputs.toInput).toBe("");
       expect(result.current.inputs.windowInput).toBe("");
-      expect(result.current.inputs.typeInput).toBe("");
+      expect(result.current.inputs.noticeTypeInput).toBe("");
     });
 
     it("clear 后 formState 与 inputs 一致", () => {

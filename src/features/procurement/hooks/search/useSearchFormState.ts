@@ -15,7 +15,6 @@ export interface SearchFormInputs {
   fromInput: string;
   toInput: string;
   windowInput: string;
-  typeInput: string;
   noticeTypeInput: string;
 }
 
@@ -26,7 +25,6 @@ export interface SearchFormSetters {
   setFromInput: (value: string) => void;
   setToInput: (value: string) => void;
   setWindowInput: (value: string) => void;
-  setTypeInput: (value: string) => void;
   setNoticeTypeInput: (value: string) => void;
 }
 
@@ -41,7 +39,6 @@ export function useSearchFormState(): {
     from: string;
     to: string;
     window: string;
-    type: string;
     noticeType: string;
   }) => void;
   clear: () => void;
@@ -54,7 +51,6 @@ export function useSearchFormState(): {
     from: searchParams.get("deadline_from") || "",
     to: searchParams.get("deadline_to") || "",
     window: searchParams.get("deadline_within_days") || "",
-    type: searchParams.get("notice_type") || "",
     noticeType: searchParams.get("notice_type") || "",
   });
 
@@ -64,7 +60,6 @@ export function useSearchFormState(): {
   const setFromInput = useCallback((v: string) => dispatchForm({ type: "set_from", payload: v }), []);
   const setToInput = useCallback((v: string) => dispatchForm({ type: "set_to", payload: v }), []);
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
-  const setTypeInput = useCallback((v: string) => dispatchForm({ type: "set_type", payload: v }), []);
   const setNoticeTypeInput = useCallback((v: string) => dispatchForm({ type: "set_notice_type", payload: v }), []);
 
   const syncFromUrl = (params: {
@@ -74,7 +69,6 @@ export function useSearchFormState(): {
     from: string;
     to: string;
     window: string;
-    type: string;
     noticeType: string;
   }) => {
     dispatchForm({ type: "sync", payload: params });
@@ -93,7 +87,6 @@ export function useSearchFormState(): {
       fromInput: formState.from,
       toInput: formState.to,
       windowInput: formState.window,
-      typeInput: formState.type,
       noticeTypeInput: formState.noticeType,
     },
     setters: {
@@ -103,7 +96,6 @@ export function useSearchFormState(): {
       setFromInput,
       setToInput,
       setWindowInput,
-      setTypeInput,
       setNoticeTypeInput,
     },
     syncFromUrl,

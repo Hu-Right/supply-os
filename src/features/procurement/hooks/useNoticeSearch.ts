@@ -65,8 +65,6 @@ export interface UseNoticeSearchReturn {
     setToInput: (value: string) => void;
     windowInput: string;
     setWindowInput: (value: string) => void;
-    typeInput: string;
-    setTypeInput: (value: string) => void;
     noticeTypeInput: string;
     setNoticeTypeInput: (value: string) => void;
   };
@@ -135,7 +133,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       from: query.activeFrom,
       to: query.activeTo,
       window: query.activeWindow,
-      type: query.activeNoticeType,
       noticeType: query.activeNoticeType,
     });
   }, [query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType]);
@@ -149,7 +146,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       from: query.activeFrom,
       to: query.activeTo,
       window: query.activeWindow,
-      type: query.activeNoticeType,
       noticeType: query.activeNoticeType,
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -200,8 +196,6 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       setToInput: form.setters.setToInput,
       windowInput: form.inputs.windowInput,
       setWindowInput: form.setters.setWindowInput,
-      typeInput: form.inputs.typeInput,
-      setTypeInput: form.setters.setTypeInput,
       noticeTypeInput: form.inputs.noticeTypeInput,
       setNoticeTypeInput: form.setters.setNoticeTypeInput,
     },

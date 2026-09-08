@@ -8,7 +8,6 @@ const initialState: SearchFormState = {
   from: "",
   to: "",
   window: "",
-  type: "",
   noticeType: "",
 };
 
@@ -44,9 +43,9 @@ describe("searchFormReducer", () => {
     expect(state.window).toBe("30d");
   });
 
-  it("set_type → 更新类型", () => {
-    const state = searchFormReducer(initialState, { type: "set_type", payload: "ITB" });
-    expect(state.type).toBe("ITB");
+  it("set_notice_type → 更新公告类型", () => {
+    const state = searchFormReducer(initialState, { type: "set_notice_type", payload: "ITB" });
+    expect(state.noticeType).toBe("ITB");
   });
 
   it("sync → 完全替换状态", () => {
@@ -57,7 +56,6 @@ describe("searchFormReducer", () => {
       from: "2026-01-01",
       to: "2026-12-31",
       window: "30d",
-      type: "ITB",
       noticeType: "ITB",
     };
     const state = searchFormReducer(initialState, { type: "sync", payload: newState });
@@ -67,7 +65,7 @@ describe("searchFormReducer", () => {
   it("clear → 重置所有字段", () => {
     const dirty: SearchFormState = {
       q: "test", country: "US", agency: "UNDP",
-      from: "2026-01-01", to: "2026-12-31", window: "30d", type: "ITB", noticeType: "ITB",
+      from: "2026-01-01", to: "2026-12-31", window: "30d", noticeType: "ITB",
     };
     const state = searchFormReducer(dirty, { type: "clear" });
     expect(state).toEqual(initialState);

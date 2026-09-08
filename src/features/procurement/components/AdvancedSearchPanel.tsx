@@ -141,8 +141,8 @@ export function AdvancedSearchPanel({
       {/* 高级搜索标题 */}
       <h3 className="text-base font-extrabold text-slate-800">{t("procurement_advancedSearchTitle") || "高级搜索"}</h3>
 
-      {/* ══ 行1：关键词 / UNSPSC / 国家 / 截止时间 ══ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+      {/* ══ 行1：关键词 / 国家 / 截止时间 ══ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
         {/* 关键词 */}
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-1.5">
@@ -152,25 +152,11 @@ export function AdvancedSearchPanel({
             <Input
               value={form.qInput}
               onChange={(e) => form.setQInput(e.target.value)}
-              placeholder={t("procurement_keywordPlaceholder") || "输入产品、项目、机构、UNSPSC关键词"}
+              placeholder={t("procurement_keywordPlaceholder") || "输入产品、项目、机构关键词"}
               className="w-full pe-9"
             />
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
-        </div>
-
-        {/* UNSPSC / 产品服务分类 */}
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1.5">
-            UNSPSC / {t("procurement_productService") || "产品服务分类"}
-          </label>
-          <Input
-            value={form.typeInput}
-            onChange={(e) => form.setTypeInput(e.target.value)}
-            placeholder={t("procurement_unspscPlaceholder") || "输入UNSPSC代码或关键词"}
-            className="w-full"
-            dir="auto"
-          />
         </div>
 
         {/* 国家 */}
