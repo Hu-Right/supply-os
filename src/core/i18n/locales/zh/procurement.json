@@ -198,6 +198,7 @@
   "procurement_reportPending": "中文拆解报告整理中，可先下载原始附件。",
   "procurement_originalAttachments": "原始招标附件（外文原件）",
   "procurement_hasRawAttachments": "含 {count} 个原始附件",
+  "procurement_attachments": "附件",
   "procurement_breakdownAfterUnlock": "拆解文件：解锁后可查看",
   "procurement_bidBreakdownTitle": "投标拆解建议",
   "procurement_bidUrgency": "紧急度",

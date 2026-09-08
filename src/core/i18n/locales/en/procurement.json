@@ -198,6 +198,7 @@
   "procurement_reportPending": "The Chinese breakdown report is being prepared; you can download the original attachments first.",
   "procurement_originalAttachments": "Original tender attachments (source language)",
   "procurement_hasRawAttachments": "{count} original attachment(s)",
+  "procurement_attachments": "attachments",
   "procurement_breakdownAfterUnlock": "Breakdown files: available after unlock",
   "procurement_bidBreakdownTitle": "Bid breakdown suggestions",
   "procurement_bidUrgency": "Urgency",
