@@ -10,6 +10,7 @@
  * <html lang/dir> 使用静态默认值，客户端 useEffect 会同步更新。
  */
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { getLocaleDir } from "@/core/i18n/bundles";
 import { SITE_URL, absoluteUrl } from "@/lib/services/seo/site";
@@ -93,15 +94,17 @@ export default function RootLayout({
       <head>
         {/* 预加载 iconfont woff2 字体（关键渲染路径，消除 FOIT/FOUT 延迟） */}
         <link rel="preload" href="/fonts/iconfont.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        {/* 百度统计 */}
-        <script dangerouslySetInnerHTML={{ __html: `var _hmt=window._hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?77563025070521ff9535623fe9f96747";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();` }} />
-        {/* 百度链接自动推送 */}
-        <script src="https://zz.bdstatic.com/linksubmit/push.js" />
         {/* JSON-LD 结构化数据：搜索引擎可直接读取（替代旧的 react-helmet-async 方案） */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.organization) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd.website) }} />
       </head>
       <body className="antialiased">
+        {/* 百度统计 — 使用 next/script 避免 React "script tag in component" 警告 */}
+        <Script id="baidu-analytics" strategy="afterInteractive">
+          {`var _hmt=window._hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?77563025070521ff9535623fe9f96747";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();`}
+        </Script>
+        {/* 百度链接自动推送 */}
+        <Script src="https://zz.bdstatic.com/linksubmit/push.js" strategy="afterInteractive" />
         {/* Skip Navigation — 键盘/屏幕阅读器用户可直接跳到主内容区 (WCAG 2.4.1) */}
         <a
           href="#main-content"
