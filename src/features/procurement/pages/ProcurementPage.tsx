@@ -323,49 +323,6 @@ export default function ProcurementPage() {
         </div>
       </section>
 
-      {/* ═══ 热门标签：热门国家 + 热门行业（设计图样图位置） ═══ */}
-      {flags.ADVANCED_SEARCH && (
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-3">
-          {/* 热门国家 */}
-          {search.result.countries.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {search.result.countries.slice(0, 8).map((c) => (
-                <a
-                  key={c.country}
-                  href={`/procurement?country=${encodeURIComponent(c.country)}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-teal-400 hover:text-teal-700 transition-colors"
-                >
-                  <span className="max-w-[120px] truncate">{getCountryDisplayName(c.country, locale)}</span>
-                  <span className="font-bold text-teal-600">{c.count.toLocaleString()}</span>
-                </a>
-              ))}
-              {search.result.countries.length > 8 && (
-                <span className="text-xs text-slate-400 font-semibold">{t("procurement_moreCountries")} &gt;</span>
-              )}
-            </div>
-          )}
-          {/* 热门行业（P0 静态数据） */}
-          <div className="flex flex-wrap items-center gap-2">
-            {[
-              { key: "energy", label: t("procurement_industry_energy") },
-              { key: "infrastructure", label: t("procurement_industry_infrastructure") },
-              { key: "medical", label: t("procurement_industry_medical") },
-              { key: "transport", label: t("procurement_industry_transport") },
-              { key: "it", label: t("procurement_industry_it") },
-            ].map((ind) => (
-              <button
-                key={ind.key}
-                type="button"
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:border-teal-400 hover:text-teal-700 transition-colors font-medium"
-              >
-                {ind.label}
-              </button>
-            ))}
-            <span className="text-xs text-slate-400 font-semibold">{t("procurement_moreIndustries")} &gt;</span>
-          </div>
-        </section>
-      )}
-
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
         {/* 结果头部：结果数 + 已筛条件 + 排序/导出/视图 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">

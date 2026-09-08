@@ -22,7 +22,7 @@ export const FEATURE_FLAGS = {
   /** 新首页（双搜索 Hero + 数字墙 + 三栏内容） */
   NEW_HOME: "FEATURE_NEW_HOME",
   /** 全球商机高级搜索（7 维筛选 + 热门入口） */
-  ADVANCED_SEARCH: "FEATURE_ADVANCED_SEARCH",
+  ADVANCED_SEARCH: "NEXT_PUBLIC_FEATURE_ADVANCED_SEARCH",
   /** 招标详情 AI 摘要 + 下一步动作面板 */
   NOTICE_DETAIL_ENHANCED: "FEATURE_NOTICE_DETAIL_ENHANCED",
   /** 供应商库多维筛选 + 视图切换 */
@@ -73,6 +73,8 @@ export function isFeatureEnabled(flagName: FeatureFlagName): boolean {
  */
 export const flags = new Proxy({} as Record<keyof typeof FEATURE_FLAGS, boolean>, {
   get(_target, prop: string) {
+    // ADVANCED_SEARCH 已正式上线，硬编码开启
+    if (prop === "ADVANCED_SEARCH") return true;
     const envVar = FEATURE_FLAGS[prop as keyof typeof FEATURE_FLAGS];
     if (!envVar) return false;
     return isFeatureEnabled(envVar);
