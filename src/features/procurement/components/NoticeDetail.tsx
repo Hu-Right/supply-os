@@ -105,14 +105,14 @@ function getCountdown(deadlineTs?: number | string): { days: number; time: strin
 function formatPublishDate(createTime?: string | number): string {
   if (!createTime) return "-";
   try {
-    // 处理 Unix 时间戳（秒级）
+    let date: Date;
     if (typeof createTime === "number") {
-      if (createTime < 946684800) return "-"; // 2000年之前的视为无效
-      return new Date(createTime * 1000).toISOString().slice(0, 10);
+      // Unix 时间戳（秒级）转毫秒
+      date = new Date(createTime < 1e12 ? createTime * 1000 : createTime);
+    } else {
+      date = new Date(createTime);
     }
-    // 处理日期字符串
-    const date = new Date(createTime);
-    if (date.getFullYear() < 2000) return "-"; // 2000年之前的视为无效
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) return "-";
     return date.toISOString().slice(0, 10);
   } catch { return "-"; }
 }
@@ -166,7 +166,7 @@ export function NoticeDetail({
 
   // 信息表数据
   const sourceName = deriveSourceName(notice.source_url);
-  const publishDate = notice.published_date || formatPublishDate(notice.create_time);
+  const publishDate = formatPublishDate(notice.create_time);
   const deadlineText = notice.deadline || t("procurement_noDeadline");
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
