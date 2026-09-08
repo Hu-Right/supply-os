@@ -3,27 +3,27 @@
  * Supplier Page — Module 05 Design Mockup
  *
  * @module features/supplier/pages/SupplierPage
- * @description 按「5-全球供应商库」样图重排：页头 + 4格统计墙 + 多Tab搜索面板 +
- *              热门搜索 + 结果头部（排序/视图切换）+ 4列供应商卡片网格 + 加载更多。
- *              数据优先走 API，缺失字段用静态 mock 数据占位。
+ * @description 按「5-全球供应商库」样图重排：页头 + 统计墙 + 多Tab搜索面板 +
+ *              热门搜索 + 结果头部（排序/视图切换）+ 供应商卡片网格/列表 + 加载更多。
+ *              数据通过 useSupplierSearch Hook 走真实API，缺失展示字段用 mock 填充。
  */
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, SlidersHorizontal, LayoutGrid, List, ChevronDown, Heart, Building2 } from "lucide-react";
+import { Search, LayoutGrid, List, ChevronDown, Building2, MapPin, Briefcase } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-import { api } from "@/core/http";
 import { onAppEvent } from "@/core/events";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
+import { SupplierProfileModal } from "../components/SupplierProfileModal";
 import { LoadingOverlay } from "@/shared/ui";
-import { Input, Select, Button } from "@/shared/ui";
+import { Input, Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact } from "../api";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
+import { useSupplierSearch } from "../hooks/useSupplierSearch";
 
 /** 搜索 Tab 定义 */
 const SEARCH_TABS = [
@@ -45,13 +45,7 @@ const SORT_OPTIONS = [
   { value: "completeness", labelKey: "supplierSortCompleteness" },
 ] as const;
 
-/** 热门搜索标签（静态数据） */
-const HOT_SEARCHES = [
-  "医疗器械", "光伏组件", "工程机械", "电力设备",
-  "阀门", "新能源", "LED照明", "不锈钢管材",
-];
-
-/** 静态 Mock 供应商数据（API 缺失字段时兜底） */
+/** 静态 Mock 供应商数据（API 缺失展示字段时兜底填充） */
 function createMockSuppliers(count: number): Supplier[] {
   const mockData: Array<Partial<Supplier> & { nameZh: string; nameEn: string }> = [
     { nameZh: "华东新能源制造有限公司", nameEn: "Huadong New Energy Mfg Co.", companyType: "factory", membershipTier: "certified", dataCompleteness: 95, unspscCode: "40101500", certifications: ["ISO 9001", "CE", "TÜV"], capabilityTags: ["准时交付 98%", "24h响应", "可定制"], mainProductsZh: ["光伏组件", "逆变器", "储能系统"], mainProductsEn: ["Solar Panels", "Inverters", "Energy Storage"] },
@@ -95,100 +89,57 @@ function createMockSuppliers(count: number): Supplier[] {
   });
 }
 
+/** 用 mock 数据补全真实 API 返回中缺失的展示字段 */
+function enrichWithMock(items: Supplier[]): Supplier[] {
+  const mocks = createMockSuppliers(items.length);
+  return items.map((s, i) => {
+    const mock = mocks[i % mocks.length];
+    return {
+      ...s,
+      companyType: s.companyType || mock.companyType,
+      membershipTier: s.membershipTier || mock.membershipTier,
+      dataCompleteness: s.dataCompleteness ?? mock.dataCompleteness,
+      unspscCode: s.unspscCode || s.ungmCode || mock.unspscCode,
+      certifications: s.certifications?.length ? s.certifications : mock.certifications,
+      capabilityTags: s.capabilityTags?.length ? s.capabilityTags : mock.capabilityTags,
+    } as Supplier;
+  });
+}
+
 export default function SupplierPage() {
   const { t, locale } = useLocale();
-  const { authUser, isVip } = useAuth();
+  const { isVip } = useAuth();
   const userId = useUserId();
   const router = useRouter();
 
-  // ── 搜索状态 ──
+  // ── 搜索状态 ─
   const [searchTab, setSearchTab] = useState("product");
   const [searchTerm, setSearchTerm] = useState("");
-  const [country, setCountry] = useState("");
   const [industry, setIndustry] = useState("");
-  const [certification, setCertification] = useState("");
-  const [companyType, setCompanyType] = useState("");
   const [sortBy, setSortBy] = useState("comprehensive");
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
 
-  // ── 数据状态 ──
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [industries, setIndustries] = useState<string[]>([]);
+  // ── 通过 Hook 获取数据 ──
+  const { suppliers: rawSuppliers, total, loading, industries, page, setPage, appendPage } = useSupplierSearch({
+    locale,
+    searchTerm,
+    supplierSubTab: "all",
+    supplierIndustry: industry,
+    sortBy,
+    pageSize: 8,
+  });
+
+  // ─ Mock 字段补全 ──
+  const suppliers = useMemo(() => enrichWithMock(rawSuppliers), [rawSuppliers]);
+
+  // ── 弹窗状态 ──
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [profileModalSupplier, setProfileModalSupplier] = useState<Supplier | null>(null);
   const [contactModal, setContactModal] = useState<{
     supplier: Supplier; status: SupplierContactStatus; contact: SupplierContact | null;
   } | null>(null);
 
-  // ── 统计墙数据（优先 API，回退静态值） ──
-  const [stats, setStats] = useState({ searchable: 0, registered: 0, verified: 0, unspsc: 0 });
-  useEffect(() => {
-    api<{ searchable?: number; registered?: number; verified?: number; unspsc?: number }>("/api/suppliers/stats")
-      .then((d) => setStats({
-        searchable: d.searchable ?? 1245678,
-        registered: d.registered ?? 32567,
-        verified: d.verified ?? 18934,
-        unspsc: d.unspsc ?? 16872,
-      }))
-      .catch(() => setStats({ searchable: 1245678, registered: 32567, verified: 18934, unspsc: 16872 }));
-  }, []);
-
-  // ── 加载供应商数据 ──
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    const params = new URLSearchParams({ lang: locale, page: String(page), pageSize: "8" });
-    if (searchTerm) params.set("q", searchTerm);
-    if (country) params.set("country", country);
-    if (industry) params.set("industry", industry);
-    if (companyType) params.set("type", companyType);
-
-    api<{ items: Supplier[]; total: number }>(`/api/suppliers?${params.toString()}`)
-      .then((result) => {
-        if (cancelled) return;
-        // 补充 mock 字段（API 可能不返回新字段）
-        const enriched = result.items.map((s, i) => {
-          const mock = createMockSuppliers(8)[i % 8];
-          return {
-            ...s,
-            companyType: s.companyType || mock.companyType,
-            membershipTier: s.membershipTier || mock.membershipTier,
-            dataCompleteness: s.dataCompleteness ?? mock.dataCompleteness,
-            unspscCode: s.unspscCode || s.ungmCode || mock.unspscCode,
-            certifications: s.certifications || mock.certifications,
-            capabilityTags: s.capabilityTags || mock.capabilityTags,
-          } as Supplier;
-        });
-        setSuppliers(enriched);
-        setTotal(result.total || 120568);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // API 失败时使用 mock 数据
-        setSuppliers(createMockSuppliers(8));
-        setTotal(120568);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [locale, page, searchTerm, country, industry, companyType]);
-
-  // ── 加载行业列表 ──
-  useEffect(() => {
-    api<Supplier[]>(`/api/suppliers?lang=${locale}`)
-      .then((list) => {
-        const set = new Set<string>();
-        (Array.isArray(list) ? list : []).forEach((s) => {
-          const ind = pickLocale(locale, s.industryZh, s.industryEn);
-          if (ind) set.add(ind);
-        });
-        setIndustries(Array.from(set));
-      })
-      .catch(() => {});
-  }, [locale]);
-
-  // ─ 性能监控 ──
+  //  性能监控 ──
   const firstLoadDoneRef = useRef(false);
   useEffect(() => { markPageStart("supplier"); }, []);
   useEffect(() => {
@@ -204,6 +155,10 @@ export default function SupplierPage() {
   }, []);
 
   // ── 操作处理 ──
+  const handleViewProfile = (supplier: Supplier) => {
+    setProfileModalSupplier(supplier);
+  };
+
   const handleAiMatch = (supplier: Supplier) => {
     try { sessionStorage.setItem("__route_state__", JSON.stringify({ aiMatchSupplier: supplier })); } catch {}
     router.push("/crm");
@@ -220,9 +175,16 @@ export default function SupplierPage() {
 
   const handleSearch = () => { setPage(1); };
   const handleReset = () => {
-    setSearchTerm(""); setCountry(""); setIndustry("");
-    setCertification(""); setCompanyType(""); setPage(1);
+    setSearchTerm(""); setIndustry(""); setPage(1);
   };
+
+  // ── 统计墙：使用真实 total，其余保留设计稿静态值 ──
+  const stats = useMemo(() => ({
+    searchable: total,
+    registered: 32567,
+    verified: 18934,
+    unspsc: 16872,
+  }), [total]);
 
   return (
     <div className="space-y-6">
@@ -238,7 +200,7 @@ export default function SupplierPage() {
         <p className="text-slate-400 text-xs mt-2">{t("supplierPageDesc")}</p>
       </section>
 
-      {/* ═══ 4格统计墙（独立白色区域） ═══ */}
+      {/* ═══ 统计墙 ═══ */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { value: stats.searchable, label: t("supplierStatSearchable") },
@@ -256,15 +218,15 @@ export default function SupplierPage() {
 
       {/* ═══ 搜索面板 ═══ */}
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-        {/* Tab 选择（下划线高亮风格） */}
-        <div className="flex items-center gap-4 border-b border-slate-200 pb-0">
+        {/* Tab 选择 */}
+        <div className="flex items-center gap-4 border-b border-slate-200 pb-0 overflow-x-auto">
           <span className="text-sm font-bold text-slate-500 shrink-0">{t("supplierSearchTab")}</span>
           {SEARCH_TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setSearchTab(tab.key)}
-              className={`pb-2.5 text-sm font-bold transition-colors border-b-2 ${
+              className={`pb-2.5 text-sm font-bold transition-colors border-b-2 whitespace-nowrap ${
                 searchTab === tab.key
                   ? "border-teal-600 text-teal-700"
                   : "border-transparent text-slate-500 hover:text-slate-700"
@@ -276,7 +238,7 @@ export default function SupplierPage() {
         </div>
 
         {/* 筛选行 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.5fr_auto_auto_auto_auto_auto] gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.5fr_auto_auto_auto] gap-3 items-end">
           <Input
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -284,43 +246,12 @@ export default function SupplierPage() {
             className="w-full"
           />
           <select
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[130px]"
-          >
-            <option value="">{t("supplierSelectCountry")}</option>
-            <option value="CN">中国</option>
-            <option value="US">美国</option>
-            <option value="DE">德国</option>
-            <option value="JP">日本</option>
-          </select>
-          <select
             value={industry}
             onChange={(e) => setIndustry(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[130px]"
           >
             <option value="">{t("supplierSelectIndustry")}</option>
             {industries.map((ind) => <option key={ind} value={ind}>{ind}</option>)}
-          </select>
-          <select
-            value={certification}
-            onChange={(e) => setCertification(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[130px]"
-          >
-            <option value="">{t("supplierSelectCertification")}</option>
-            <option value="ISO9001">ISO 9001</option>
-            <option value="CE">CE</option>
-            <option value="FDA">FDA</option>
-            <option value="TUV">TÜV</option>
-          </select>
-          <select
-            value={companyType}
-            onChange={(e) => setCompanyType(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-teal-400 outline-none min-w-[120px]"
-          >
-            <option value="">{t("supplierSelectAllTypes")}</option>
-            <option value="factory">{t("supplierFactory")}</option>
-            <option value="trader">{t("supplierTrader")}</option>
           </select>
           <div className="flex items-end gap-2">
             <Button onClick={handleSearch} variant="primary" className="font-black whitespace-nowrap px-5">
@@ -333,23 +264,6 @@ export default function SupplierPage() {
           </div>
         </div>
 
-        {/* 热门搜索 */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="font-bold text-slate-500">{t("supplierHotSearch")}</span>
-          {HOT_SEARCHES.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => { setSearchTerm(tag); setPage(1); }}
-              className="px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
-            >
-              {tag}
-            </button>
-          ))}
-          <span className="text-slate-400 ml-auto cursor-pointer hover:text-teal-600 font-medium">
-            {t("supplierMoreFilters")} <SlidersHorizontal className="w-3.5 h-3.5 inline" />
-          </span>
-        </div>
       </section>
 
       {/* ═══ 结果头部 ═══ */}
@@ -390,12 +304,14 @@ export default function SupplierPage() {
         </div>
       </div>
 
-      {/* ═══ 供应商网格 ═══ */}
+      {/* ═══ 供应商展示区 ═══ */}
       {loading && suppliers.length === 0 ? (
+        /* 骨架屏 */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }, (_, i) => <SupplierCardSkeleton key={i} />)}
         </div>
-      ) : (
+      ) : viewMode === "card" ? (
+        /* 卡片视图 */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {suppliers.map((sup) => (
             <SupplierCard
@@ -403,30 +319,113 @@ export default function SupplierPage() {
               supplier={sup}
               onAiMatch={handleAiMatch}
               onContact={handleContact}
+              onViewProfile={handleViewProfile}
             />
           ))}
         </div>
+      ) : (
+        /* 列表视图 */
+        <div className="space-y-3">
+          {suppliers.map((sup) => {
+            const name = pickLocale(locale, sup.nameZh, sup.nameEn);
+            const products = pickLocale(locale, sup.mainProductsZh, sup.mainProductsEn) ?? [];
+            const certs = sup.certifications ?? [];
+            const country = pickLocale(locale, sup.countryZh, sup.countryEn);
+            const industryName = pickLocale(locale, sup.industryZh, sup.industryEn);
+            return (
+              <div
+                key={sup.id}
+                className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-teal-300 transition-colors"
+              >
+                {/* 公司名 + 类型 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+                    <h4 className="text-sm font-extrabold text-slate-900 truncate">{name}</h4>
+                    {sup.membershipTier && (
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-2xs font-bold text-white ${
+                        sup.membershipTier === "gold" ? "bg-amber-500" :
+                        sup.membershipTier === "recommended" ? "bg-rose-500" : "bg-teal-500"
+                      }`}>
+                        {sup.membershipTier === "gold" ? t("supplierGoldMember") :
+                         sup.membershipTier === "recommended" ? t("supplierRecommended") : t("supplierCertifiedMember")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />{country}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Briefcase className="w-3 h-3" />{industryName}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 核心产品 */}
+                <div className="sm:w-48 text-xs text-slate-600 truncate" title={products.join(", ")}>
+                  <span className="font-bold text-slate-400">{t("supplierCoreProducts")}</span>
+                  {products.slice(0, 3).join("、")}
+                </div>
+
+                {/* 认证标签 */}
+                <div className="sm:w-36 flex flex-wrap gap-1">
+                  {certs.slice(0, 3).map((c, i) => (
+                    <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 text-2xs text-slate-600 font-medium">{c}</span>
+                  ))}
+                </div>
+
+                {/* 操作按钮 */}
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    onClick={() => handleViewProfile(sup)}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-bold text-slate-700 border-slate-300 hover:border-teal-400 hover:text-teal-700"
+                  >
+                    {t("supplierViewProfile")}
+                  </Button>
+                  <Button
+                    onClick={() => handleContact(sup)}
+                    variant="primary"
+                    size="sm"
+                    className="text-xs font-bold"
+                  >
+                    {t("supplierSendInquiry")}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {/* ══ 加载更多 ═══ */}
-      {!loading && suppliers.length > 0 && (
+      {/* ══ 加载更多（追加模式） ═══ */}
+      {!loading && suppliers.length > 0 && suppliers.length < total && (
         <div className="flex justify-center">
           <Button
-            onClick={() => setPage((p) => p + 1)}
+            onClick={appendPage}
             variant="outline"
             className="gap-2 font-bold text-slate-600 border-slate-300 hover:border-teal-400 hover:text-teal-700"
           >
-            {t("supplierLoadMore")}
+            {loading ? t("supplierContactLoading") : t("supplierLoadMore")}
             <ChevronDown className="w-4 h-4" />
           </Button>
         </div>
       )}
 
       {/* ═══ 弹窗 ═══ */}
+      {profileModalSupplier && (
+        <SupplierProfileModal
+          supplier={profileModalSupplier}
+          open={true}
+          onClose={() => setProfileModalSupplier(null)}
+        />
+      )}
       {showRegisterModal && (
         <SupplierRegisterModal
           onClose={() => setShowRegisterModal(false)}
-          onRegistered={() => { setShowRegisterModal(false); setPage(1); }}
+          onRegistered={() => { setShowRegisterModal(false); }}
         />
       )}
       {contactModal && (

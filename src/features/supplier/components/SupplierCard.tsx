@@ -16,6 +16,7 @@ export interface SupplierCardProps {
   supplier: Supplier;
   onAiMatch: (supplier: Supplier) => void;
   onContact: (supplier: Supplier) => void;
+  onViewProfile?: (supplier: Supplier) => void;
 }
 
 /** 会员标签样式映射 */
@@ -25,7 +26,7 @@ const TIER_BADGE: Record<string, { bg: string; text: string; border: string; lab
   recommended: { bg: "bg-rose-500", text: "text-white", border: "border-rose-500", labelKey: "supplierRecommended" },
 };
 
-export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardProps) {
+export function SupplierCard({ supplier, onAiMatch, onContact, onViewProfile }: SupplierCardProps) {
   const { t, locale } = useLocale();
 
   const name = pickLocale(locale, supplier.nameZh, supplier.nameEn);
@@ -137,7 +138,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardPro
       {/* ── 底部按钮 ─ */}
       <div className="flex gap-2 p-4 pt-0">
         <Button
-          onClick={() => onAiMatch(supplier)}
+          onClick={() => onViewProfile ? onViewProfile(supplier) : onAiMatch(supplier)}
           variant="outline"
           size="sm"
           className="flex-1 text-xs font-bold text-slate-700 border-slate-300 hover:border-teal-400 hover:text-teal-700"

@@ -99,6 +99,7 @@ export interface SupplierPageParams {
   q?: string;
   type?: string;
   industry?: string;
+  sort?: string;
 }
 
 /**
@@ -119,6 +120,7 @@ export async function fetchSuppliersPaginated(
   if (params.q) searchParams.set("q", params.q);
   if (params.type) searchParams.set("type", params.type);
   if (params.industry) searchParams.set("industry", params.industry);
+  if (params.sort) searchParams.set("sort", params.sort);
   return api<SupplierPageResult>(`/api/suppliers?${searchParams.toString()}`);
 }
 
