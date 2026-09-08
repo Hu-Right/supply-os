@@ -31,6 +31,8 @@ export function ContentColumns() {
   }>>([]);
   const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
   const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   
   // 复用 shared 工具函数，与 procurement/NoticeCard 保持口径一致
   const displayCountry = (n: HomeNoticeItem) => getCountryDisplayName(n.country, locale);
@@ -41,22 +43,36 @@ export function ContentColumns() {
   };
 
   useEffect(() => {
+    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    let completed = 0;
+    let failed = 0;
+    const total = 3;
+    const onSettle = () => {
+      completed++;
+      if (completed >= total) {
+        setLoading(false);
+        // 全部失败时才标记为错误态
+        if (failed >= total) setHasError(true);
+      }
+    };
+
     // 获取已审核的优质供应商（最新 3 条）
     api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
-      .catch(() => {});
+      .catch(() => { failed++; })
+      .finally(onSettle);
 
-    // 热门商机：仅取运营精选（is_featured=1），与主流列表同管道（统一搜索 → Meili → 宽表详情）；
-    // deadline_from=北京时区今天 排除过期/无截止，首页只推可行动机会
-    const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+    // 热门商机：仅取运营精选（is_featured=1）
     api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest&deadline_from=${today}`)
       .then((data) => setHotNotices((data.items ?? []).slice(0, 3)))
-      .catch(() => {});
+      .catch(() => { failed++; })
+      .finally(onSettle);
 
-    // 获取最新 RFQ 询价类公告（统一搜索 notice_type=RFQ，2026-09-06 起真数据渲染）
+    // 最新 RFQ 询价类公告
     api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&notice_type=RFQ&sort=newest&deadline_from=${today}`)
       .then((data) => setRfqNotices((data.items ?? []).slice(0, 3)))
-      .catch(() => {});
+      .catch(() => { failed++; })
+      .finally(onSettle);
   }, []);
 
   return (
@@ -71,7 +87,11 @@ export function ContentColumns() {
             </a>
           </div>
           <div className="space-y-5 flex-1">
-            {hotNotices.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
+            ) : hasError && hotNotices.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
+            ) : hotNotices.length === 0 ? (
               <div className="text-center py-8 text-sm text-slate-400">暂无热门商机</div>
             ) : (
               hotNotices.map((notice) => (
@@ -115,8 +135,12 @@ export function ContentColumns() {
             </a>
           </div>
           <div className="space-y-5 flex-1">
-            {suppliers.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">加载中...</div>
+            {loading ? (
+              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-slate-100 animate-pulse" />)}</div>
+            ) : hasError && suppliers.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
+            ) : suppliers.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">暂无推荐供应商</div>
             ) : (
               suppliers.map((supplier) => (
                 <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
@@ -170,7 +194,11 @@ export function ContentColumns() {
             </a>
           </div>
           <div className="space-y-5 flex-1">
-            {rfqNotices.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
+            ) : hasError && rfqNotices.length === 0 ? (
+              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
+            ) : rfqNotices.length === 0 ? (
               <div className="text-center py-8 text-sm text-slate-400">暂无 RFQ 询价公告</div>
             ) : (
               rfqNotices.map((notice) => (
