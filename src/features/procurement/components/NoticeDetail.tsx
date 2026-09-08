@@ -277,7 +277,7 @@ export function NoticeDetail({
         )}
 
         {/* ═══ 双栏布局：左（AI摘要 + 内容）+ 右（下一步动作） ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           {/* ── 左栏 ── */}
           <main className="min-w-0 space-y-6 pb-24 md:pb-0">
             {/* AI 拆标摘要区 */}
