@@ -364,9 +364,9 @@ export default function ProcurementPage() {
               }}
               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none cursor-pointer"
             >
-              <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
-              <option value="deadline">{t("procurement_sortByDeadline")}</option>
               <option value="latest">{t("procurement_sortByLatest")}</option>
+              <option value="deadline">{t("procurement_sortByDeadline")}</option>
+              <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
             </select>
             {/* 导出列表 */}
             <button
