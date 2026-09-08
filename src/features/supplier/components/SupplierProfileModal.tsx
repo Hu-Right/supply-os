@@ -87,11 +87,6 @@ export function SupplierProfileModal({ supplier, open, onClose }: SupplierProfil
         overlayClassName="data-[state=open]:animate-in data-[state=open]:fade-in duration-200"
         className="!max-w-[900px] !w-[92vw] sm:!w-[90vw] !max-h-[92vh] !p-0 !rounded-2xl !overflow-hidden data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 duration-200"
       >
-        {/* 品牌色顶条 */}
-        <div className="h-1 bg-gradient-to-r from-teal-500 via-teal-400 to-cyan-400" />
-
-        {/* 顶部留白 */}
-        <div className="h-4" />
 
         {/* ═══ 头部 ═══ */}
         <div className="px-6 pt-6 pb-0">
