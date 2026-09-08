@@ -7,7 +7,7 @@
 
 import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "../constants";
 import type { Supplier, Opportunity } from "@/types";
 import { Button, Select } from "@/shared/ui";
 

@@ -17,7 +17,7 @@ import { useQueueInfo } from "../../hooks/useQueueInfo";
 import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier } from "@/types";
-import { OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "../../constants";
 
 /** 播放提示音（Web Audio API） */
 let _audioCtx: AudioContext | null = null;

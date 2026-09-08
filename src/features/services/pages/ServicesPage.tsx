@@ -8,8 +8,8 @@
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
-import { SERVICES, SUCCESS_STORIES } from "@/data/services";
-import type { ServicePhase } from "@/data/services";
+import { SERVICES, SUCCESS_STORIES } from "../constants";
+import type { ServicePhase } from "../constants";
 import { ServiceCard } from "../components/ServiceCard";
 import { SuccessStories } from "../components/SuccessStories";
 import { emitAppEvent } from "@/core/events";

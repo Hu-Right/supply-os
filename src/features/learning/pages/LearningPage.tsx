@@ -12,7 +12,7 @@ import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { toast } from "sonner";
-import { FAQS } from "@/data";
+import { FAQS } from "../constants";
 import {
   BookOpen, FileText, Shield, Award, GraduationCap, Globe,
   ArrowRight, Lock,

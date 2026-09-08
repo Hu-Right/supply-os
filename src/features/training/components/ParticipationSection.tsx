@@ -7,7 +7,7 @@
  */
 import { Check } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
-import { TRAINING_FALLBACK_UNIT_PRICE } from "@/data/training-content";
+import { TRAINING_FALLBACK_UNIT_PRICE } from "../constants";
 import type { LandingCourse } from "../api";
 
 export interface ParticipationSectionProps {
