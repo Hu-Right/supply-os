@@ -90,6 +90,9 @@ export function SupplierProfileModal({ supplier, open, onClose }: SupplierProfil
         {/* 品牌色顶条 */}
         <div className="h-1 bg-gradient-to-r from-teal-500 via-teal-400 to-cyan-400" />
 
+        {/* 顶部留白 */}
+        <div className="h-4" />
+
         {/* ═══ 头部 ═══ */}
         <div className="px-6 pt-6 pb-0">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
