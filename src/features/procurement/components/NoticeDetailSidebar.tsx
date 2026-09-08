@@ -103,17 +103,12 @@ export function NoticeDetailSidebar({
         {actionButtons}
       </div>
 
-      {/* 桌面端侧边栏：操作按钮，移动端隐藏 */}
-      <Card className="border-secondary-200 bg-slate-50 space-y-3 hidden md:block">
-        {actionButtons}
-      </Card>
-
       {/* 非VIP用户显示"查看套餐"按钮，跳转到会员套餐详情页面 */}
       {!isVip && (
         <Button
           onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
           variant="outline"
-          className="w-full rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 py-3 font-black hover:bg-amber-100"
+          className="w-full rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-700 py-3 font-black hover:bg-amber-100 hidden md:block"
         >
           <ExternalLink className="w-4 h-4" />
           {t("procurement_viewPlans")}

@@ -342,8 +342,10 @@ export function NoticeDetail({
             notice={notice}
             isLoggedIn={isLoggedIn}
             isVip={isVip}
+            canUsePaidQuota={canUsePaidQuota}
             onUnlock={() => onUnlock(notice)}
             onJoinCrm={() => onExpressInterest(notice, "subscribed")}
+            onExpressInterest={(type) => onExpressInterest(notice, type)}
           />
         </div>
       </article>

@@ -14,6 +14,9 @@ import {
   MessageSquareText,
   Crown,
   Briefcase,
+  Heart,
+  Bell,
+  Lock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
@@ -37,6 +40,8 @@ export interface NextStepsPanelProps {
   isLoggedIn: boolean;
   /** 是否为 VIP 会员 */
   isVip: boolean;
+  /** 是否可使用付费配额 */
+  canUsePaidQuota?: boolean;
   /** 点击"上传资料"的回调 */
   onUploadMaterials?: () => void;
   /** 点击"解锁内容"的回调 */
@@ -45,6 +50,8 @@ export interface NextStepsPanelProps {
   onBookConsultant?: () => void;
   /** 点击"加入 CRM"的回调 */
   onJoinCrm?: () => void;
+  /** 点击"感兴趣"的回调 */
+  onExpressInterest?: (type: "interested" | "subscribed") => void;
 }
 
 const TIER_STYLES: Record<StepTier, { bg: string; text: string; border: string }> = {
@@ -58,10 +65,12 @@ export function NextStepsPanel({
   notice,
   isLoggedIn,
   isVip,
+  canUsePaidQuota,
   onUploadMaterials,
   onUnlock,
   onBookConsultant,
   onJoinCrm,
+  onExpressInterest,
 }: NextStepsPanelProps) {
   const { t } = useLocale();
   const router = useRouter();
@@ -166,6 +175,31 @@ export function NextStepsPanel({
             </button>
           );
         })}
+      </div>
+
+      {/* 操作按钮组 */}
+      <div className="mt-3 pt-3 border-t border-slate-200 flex gap-2">
+        <button
+          onClick={() => onExpressInterest?.("interested")}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white py-2 text-xs font-semibold transition-colors"
+        >
+          <Heart className="w-3.5 h-3.5" />
+          {t("procurement_interested") || "感兴趣"}
+        </button>
+        <button
+          onClick={() => onExpressInterest?.("subscribed")}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white py-2 text-xs font-semibold transition-colors"
+        >
+          <Bell className="w-3.5 h-3.5 text-amber-300" />
+          {t("procurement_subscribeNotice") || "订阅商机"}
+        </button>
+        <button
+          onClick={() => onUnlock?.()}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 py-2 text-xs font-semibold transition-colors"
+        >
+          <Lock className="w-3.5 h-3.5" />
+          {canUsePaidQuota ? (t("procurement_memberUnlock") || "会员查看") : (t("procurement_freeUsedUp") || "免费次数已用完")}
+        </button>
       </div>
 
       {/* 非 VIP 用户：底部升级提示 */}
