@@ -72,7 +72,7 @@ export function StatsWall() {
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
-      <div className="px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         {stats.map((s, i) => (
           <StatCard key={i} {...s} />
         ))}

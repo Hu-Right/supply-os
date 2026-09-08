@@ -197,7 +197,7 @@ export function WorldMapChart() {
       )}
       <div
         ref={chartRef}
-        className="w-full h-full rounded-2xl border border-slate-200 bg-white"
+        className="w-full h-full"
       />
     </div>
   );

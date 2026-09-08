@@ -49,7 +49,7 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative bg-[#0c1929] py-12 px-4 overflow-hidden">
+    <section className="relative bg-[#0c1929] py-12 w-[calc(100%+2rem)] -ml-4 sm:w-[calc(100%+3rem)] sm:-ml-6 lg:w-[calc(100%+4rem)] lg:-ml-8 overflow-hidden">
       {/* 地球装饰背景图 */}
       <img
         src="/earth.png?v=2"
@@ -62,7 +62,7 @@ export function HeroSection() {
         }}
       />
 
-      <div className="relative max-w-7xl text-left">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
         {/* 标题区 */}
         <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2">
           全球公共采购与跨境供应链机会平台
