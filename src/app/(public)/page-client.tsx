@@ -21,16 +21,37 @@ import {
   ContentColumns,
   AboutSection,
 } from "@/features/home";
+import { ErrorBoundary } from "@/shared/ui";
+
+/** 首页全局错误降级 UI */
+function HomeErrorFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center space-y-4">
+        <p className="text-lg font-bold text-slate-700">页面加载异常</p>
+        <p className="text-sm text-slate-500">请刷新页面重试，如问题持续请联系客服</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-teal-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-teal-700 transition-colors"
+        >
+          刷新页面
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function PageClient() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <HeroSection />
-      <StatsWall />
-      <HotTopicsSection />
-      <WorldMapSection />
-      <ContentColumns />
-      <AboutSection />
-    </div>
+    <ErrorBoundary fallback={<HomeErrorFallback />}>
+      <div className="min-h-screen bg-slate-50">
+        <HeroSection />
+        <StatsWall />
+        <HotTopicsSection />
+        <WorldMapSection />
+        <ContentColumns />
+        <AboutSection />
+      </div>
+    </ErrorBoundary>
   );
 }
