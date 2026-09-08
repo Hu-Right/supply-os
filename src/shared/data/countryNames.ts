@@ -112,6 +112,8 @@ function resolveRegionDisplayName(value: string): string | null {
  */
 export function getCountryDisplayName(englishName: string, locale: string): string {
   if (locale !== "zh") return englishName;
+  // 特殊值：跨国采购
+  if (englishName === "Multiple destinations") return "多国";
   // 先精确匹配
   if (_countryNameZh[englishName]) return _countryNameZh[englishName];
   // 大小写不敏感匹配（处理 "america" → "美国" 等）
