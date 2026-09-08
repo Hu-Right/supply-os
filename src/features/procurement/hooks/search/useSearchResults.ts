@@ -118,6 +118,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
         noticeType: query.activeNoticeType || undefined,
         featured: query.activeFeatured || undefined,
+        budgetMin: query.activeBudgetMin ? Number(query.activeBudgetMin) : undefined,
+        budgetMax: query.activeBudgetMax ? Number(query.activeBudgetMax) : undefined,
         sort: query.activeSort,
         locale,
       }, controller.signal);
@@ -187,6 +189,8 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       deadlineWithinDays: query.activeWindow ? Number(query.activeWindow) : undefined,
       noticeType: query.activeNoticeType || undefined,
       featured: query.activeFeatured || undefined,
+      budgetMin: query.activeBudgetMin ? Number(query.activeBudgetMin) : undefined,
+      budgetMax: query.activeBudgetMax ? Number(query.activeBudgetMax) : undefined,
       sort: query.activeSort,
       locale,
     }).catch(() => { /* 预取失败静默 */ });

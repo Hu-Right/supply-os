@@ -21,10 +21,11 @@ export interface SearchFormState {
   to: string;
   window: string;
   type: string;
+  noticeType: string;
 }
 
 export type SearchFormAction =
-  | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_type"; payload: string }
+  | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_type" | "set_notice_type"; payload: string }
   | { type: "sync"; payload: SearchFormState }
   | { type: "clear" };
 
@@ -37,8 +38,9 @@ export function searchFormReducer(state: SearchFormState, action: SearchFormActi
     case "set_to": return { ...state, to: action.payload };
     case "set_window": return { ...state, window: action.payload };
     case "set_type": return { ...state, type: action.payload };
+    case "set_notice_type": return { ...state, noticeType: action.payload };
     case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", type: "" };
+    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", type: "", noticeType: "" };
     default: return state;
   }
 }

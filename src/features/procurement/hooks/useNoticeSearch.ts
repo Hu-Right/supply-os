@@ -47,6 +47,8 @@ export interface UseNoticeSearchReturn {
     activeWindow: string;
     activeNoticeType: string;
     activeFeatured: boolean;
+    activeBudgetMin: string;
+    activeBudgetMax: string;
     hasSearch: boolean;
     searchKey: string;
   };
@@ -65,6 +67,8 @@ export interface UseNoticeSearchReturn {
     setWindowInput: (value: string) => void;
     typeInput: string;
     setTypeInput: (value: string) => void;
+    noticeTypeInput: string;
+    setNoticeTypeInput: (value: string) => void;
   };
   result: {
     countries: Array<{ country: string; count: number }>;
@@ -132,6 +136,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       to: query.activeTo,
       window: query.activeWindow,
       type: query.activeNoticeType,
+      noticeType: query.activeNoticeType,
     });
   }, [query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType]);
 
@@ -145,6 +150,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       to: query.activeTo,
       window: query.activeWindow,
       type: query.activeNoticeType,
+      noticeType: query.activeNoticeType,
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -176,6 +182,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       activeWindow: query.activeWindow,
       activeNoticeType: query.activeNoticeType,
       activeFeatured: query.activeFeatured,
+      activeBudgetMin: query.activeBudgetMin,
+      activeBudgetMax: query.activeBudgetMax,
       hasSearch: query.hasSearch,
       searchKey: query.searchKey,
     },
@@ -194,6 +202,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       setWindowInput: form.setters.setWindowInput,
       typeInput: form.inputs.typeInput,
       setTypeInput: form.setters.setTypeInput,
+      noticeTypeInput: form.inputs.noticeTypeInput,
+      setNoticeTypeInput: form.setters.setNoticeTypeInput,
     },
     result: {
       countries,

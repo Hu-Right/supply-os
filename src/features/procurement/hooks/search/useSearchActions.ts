@@ -72,8 +72,11 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (inputs.toInput) next.deadline_to = inputs.toInput;
     if (inputs.windowInput) next.deadline_within_days = inputs.windowInput;
     if (inputs.typeInput.trim()) next.notice_type = inputs.typeInput.trim();
+    if (inputs.noticeTypeInput.trim()) next.notice_type = inputs.noticeTypeInput.trim();
     if (query.activeFeatured) next.featured = "1";
     if (deepestCodeId) next.code_id = deepestCodeId;
+    if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
+    if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "deadline_farthest") next.sort = sortValue;
     if (prefsMode === "default") {

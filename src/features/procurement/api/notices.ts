@@ -100,6 +100,8 @@ export const fetchUnifiedSearch = (params: {
   noticeType?: string;
   featured?: boolean;
   sort?: string;
+  budgetMin?: number;
+  budgetMax?: number;
 }, signal?: AbortSignal): Promise<NoticeResponse> => {
   // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
   const qs = buildQuery({
@@ -117,6 +119,8 @@ export const fetchUnifiedSearch = (params: {
     notice_type: params.noticeType,
     featured: params.featured ? "1" : undefined,
     sort: params.sort && params.sort !== "deadline_farthest" ? params.sort : undefined,
+    budget_min: params.budgetMin?.toString(),
+    budget_max: params.budgetMax?.toString(),
   });
   return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
 };

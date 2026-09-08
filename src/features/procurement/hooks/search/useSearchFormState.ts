@@ -16,6 +16,7 @@ export interface SearchFormInputs {
   toInput: string;
   windowInput: string;
   typeInput: string;
+  noticeTypeInput: string;
 }
 
 export interface SearchFormSetters {
@@ -26,6 +27,7 @@ export interface SearchFormSetters {
   setToInput: (value: string) => void;
   setWindowInput: (value: string) => void;
   setTypeInput: (value: string) => void;
+  setNoticeTypeInput: (value: string) => void;
 }
 
 export function useSearchFormState(): {
@@ -40,6 +42,7 @@ export function useSearchFormState(): {
     to: string;
     window: string;
     type: string;
+    noticeType: string;
   }) => void;
   clear: () => void;
 } {
@@ -52,6 +55,7 @@ export function useSearchFormState(): {
     to: searchParams.get("deadline_to") || "",
     window: searchParams.get("deadline_within_days") || "",
     type: searchParams.get("notice_type") || "",
+    noticeType: searchParams.get("notice_type") || "",
   });
 
   const setQInput = useCallback((v: string) => dispatchForm({ type: "set_q", payload: v }), []);
@@ -61,6 +65,7 @@ export function useSearchFormState(): {
   const setToInput = useCallback((v: string) => dispatchForm({ type: "set_to", payload: v }), []);
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
   const setTypeInput = useCallback((v: string) => dispatchForm({ type: "set_type", payload: v }), []);
+  const setNoticeTypeInput = useCallback((v: string) => dispatchForm({ type: "set_notice_type", payload: v }), []);
 
   const syncFromUrl = (params: {
     q: string;
@@ -70,6 +75,7 @@ export function useSearchFormState(): {
     to: string;
     window: string;
     type: string;
+    noticeType: string;
   }) => {
     dispatchForm({ type: "sync", payload: params });
   };
@@ -88,6 +94,7 @@ export function useSearchFormState(): {
       toInput: formState.to,
       windowInput: formState.window,
       typeInput: formState.type,
+      noticeTypeInput: formState.noticeType,
     },
     setters: {
       setQInput,
@@ -97,6 +104,7 @@ export function useSearchFormState(): {
       setToInput,
       setWindowInput,
       setTypeInput,
+      setNoticeTypeInput,
     },
     syncFromUrl,
     clear,

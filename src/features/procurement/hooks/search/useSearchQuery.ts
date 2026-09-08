@@ -17,6 +17,8 @@ export interface SearchQuery {
   activeWindow: string;
   activeNoticeType: string;
   activeFeatured: boolean;
+  activeBudgetMin: string;
+  activeBudgetMax: string;
   hasSearch: boolean;
   hasOtherSearch: boolean;
   searchKey: string;
@@ -36,20 +38,24 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const activeWindow = searchParams.get("deadline_within_days") || "";
   const activeNoticeType = searchParams.get("notice_type") || "";
   const activeFeatured = searchParams.get("featured") === "1";
+  const activeBudgetMin = searchParams.get("budget_min") || "";
+  const activeBudgetMax = searchParams.get("budget_max") || "";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
-    activeWindow || activeNoticeType || activeFeatured || deepestCodeId
+    activeWindow || activeNoticeType || activeFeatured || deepestCodeId ||
+    activeBudgetMin || activeBudgetMax
   );
 
   // 统一化重构后：hasOtherSearch 仅影响推荐模式的退出判定
   // 不再影响行业匹配模式（行业匹配模式下筛选条件直接透传给后端）
   const hasOtherSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
-    activeWindow || activeNoticeType || activeFeatured
+    activeWindow || activeNoticeType || activeFeatured ||
+    activeBudgetMin || activeBudgetMax
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}`;
 
   return useMemo(() => ({
     activeQ,
@@ -61,8 +67,10 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeWindow,
     activeNoticeType,
     activeFeatured,
+    activeBudgetMin,
+    activeBudgetMax,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, hasSearch, hasOtherSearch, searchKey]);
 }
