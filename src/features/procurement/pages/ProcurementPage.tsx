@@ -220,13 +220,12 @@ export default function ProcurementPage() {
           </div>
         </div>
         {listingStats && (
-          <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[
               { value: listingStats.active, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
               { value: listingStats.todayNew, label: t("procurement_statTodayNewDesc"), sub: t("procurement_statTodayNewSub") },
               { value: listingStats.deadline_in_30d, label: t("procurement_statDeadline30Desc"), sub: t("procurement_statDeadline30Sub") },
               { value: listingStats.with_original_docs, label: t("procurement_statWithDocsDesc"), sub: t("procurement_statWithDocsSub") },
-              { value: listingStats.bridged, label: t("procurement_statAiMatchableDesc"), sub: t("procurement_statAiMatchableSub") },
             ].map((s) => (
               <div key={s.label} className="rounded-xl bg-white/5 border border-white/10 px-4 py-3">
                 <p className="text-xl font-extrabold text-white">{s.value.toLocaleString()}</p>

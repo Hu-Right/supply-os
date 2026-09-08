@@ -41,8 +41,9 @@ export function SessionBanner() {
 
   // 首页不渲染页头摘要横幅：首页有自己的深色 Hero（规划模块01 首屏无横幅），
   // 旧逻辑对 "/" 回落到展厅文案，会在 Hero 上方多压一条展厅横幅
+  // /procurement 路由不渲染横幅：页面内已有模块02深色页头（全球采购机会库）
   const config = BANNER_BY_PATH[pathname];
-  if (!config) return null;
+  if (!config || pathname === "/procurement") return null;
 
   return (
     <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-teal-50/20 via-white to-slate-50">
