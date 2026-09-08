@@ -176,6 +176,7 @@ describe("useSearchFormState", () => {
         to: "2026-09-30",
         window: "90",
         type: "EOI",
+        noticeType: "EOI",
       }));
 
       expect(result.current.inputs.qInput).toBe("new value");
@@ -199,6 +200,7 @@ describe("useSearchFormState", () => {
         to: "",
         window: "",
         type: "",
+        noticeType: "",
       }));
 
       expect(result.current.inputs.qInput).toBe("");

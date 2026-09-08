@@ -9,6 +9,7 @@ const initialState: SearchFormState = {
   to: "",
   window: "",
   type: "",
+  noticeType: "",
 };
 
 describe("searchFormReducer", () => {
@@ -57,6 +58,7 @@ describe("searchFormReducer", () => {
       to: "2026-12-31",
       window: "30d",
       type: "ITB",
+      noticeType: "ITB",
     };
     const state = searchFormReducer(initialState, { type: "sync", payload: newState });
     expect(state).toEqual(newState);
@@ -65,7 +67,7 @@ describe("searchFormReducer", () => {
   it("clear → 重置所有字段", () => {
     const dirty: SearchFormState = {
       q: "test", country: "US", agency: "UNDP",
-      from: "2026-01-01", to: "2026-12-31", window: "30d", type: "ITB",
+      from: "2026-01-01", to: "2026-12-31", window: "30d", type: "ITB", noticeType: "ITB",
     };
     const state = searchFormReducer(dirty, { type: "clear" });
     expect(state).toEqual(initialState);
