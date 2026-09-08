@@ -7,6 +7,11 @@
  *              /api/notices/hot-topics，提取为统一 hook 后由 api-client
  *              飞行中去重，确保同一时刻只发 1 次请求。
  *              服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
+ *
+ * 返回值：
+ * - topics: 数据（null = 加载中或失败）
+ * - loading: 是否正在加载
+ * - error: 是否加载失败
  */
 import { useState, useEffect } from "react";
 import { api } from "@/core/http";
@@ -16,18 +21,27 @@ export interface HotTopicsData {
   industries: Array<{ id: number; code: string; title_zh: string; title: string; count: number }>;
 }
 
+export interface UseHotTopicsReturn {
+  topics: HotTopicsData | null;
+  loading: boolean;
+  error: boolean;
+}
+
 /**
  * 热门话题数据 hook — 获取热门国家 + 行业（含计数）。
  * 服务端已缓存，客户端仅首次加载时请求。
  */
-export function useHotTopics(): { topics: HotTopicsData | null } {
+export function useHotTopics(): UseHotTopicsReturn {
   const [topics, setTopics] = useState<HotTopicsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     api<HotTopicsData>("/api/notices/hot-topics")
       .then(setTopics)
-      .catch(() => {});
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
   }, []);
 
-  return { topics };
+  return { topics, loading, error };
 }
