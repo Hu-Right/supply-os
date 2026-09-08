@@ -13,6 +13,8 @@ export { default as MembershipPage } from "./pages/MembershipPage";
 // Hook：被 auth/AccountPanel 等外部模块引用
 export { useMembershipTier } from "./hooks/useMembershipTier";
 export type { UseMembershipTierReturn } from "./hooks/useMembershipTier";
+export { useMembershipPayment } from "./hooks/useMembershipPayment";
+export type { UseMembershipPaymentOptions } from "./hooks/useMembershipPayment";
 
 // 组件：被 procurement/NoticeDetailSidebar 等外部模块引用
 export { MembershipStatusPanel } from "./components/MembershipStatusPanel";
