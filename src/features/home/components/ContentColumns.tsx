@@ -6,7 +6,7 @@
  * @description 首页三栏卡片区，数据来自真实 API。
  *              宽表字段回退链与列表页 NoticeCard 一致。
  */
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
@@ -23,7 +23,7 @@ interface HomeNoticeItem extends NoticeDisplayFields {
 }
 
 /** 三栏内容区 — 热门商机 / 优质供应商 / RFQ 需求 */
-export function ContentColumns() {
+export const ContentColumns = memo(function ContentColumns() {
   const { t, locale } = useLocale();
   const [suppliers, setSuppliers] = useState<Array<{
     id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
@@ -232,4 +232,4 @@ export function ContentColumns() {
       </div>
     </section>
   );
-}
+});
