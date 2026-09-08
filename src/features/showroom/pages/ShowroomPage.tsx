@@ -12,7 +12,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Globe, Search, Filter } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { EXHIBITION_HALLS } from "@/data";
+import { EXHIBITION_HALLS } from "../constants";
 import type { ExhibitionHall } from "@/types";
 import { Input, Select, Button } from "@/shared/ui";
 import { ShowroomCard } from "../components/ShowroomCard";
