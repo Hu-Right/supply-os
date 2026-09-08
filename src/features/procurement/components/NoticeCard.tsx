@@ -163,9 +163,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           </span>
         </div>
 
-        {/* ── 截止列（md+）：日期 + 剩余天数 ── */}
-        <div className="hidden md:block w-28 shrink-0">
-          <p className="text-xs text-slate-600 font-mono text-end" dir="ltr">{deadlineText}</p>
+        {/* ─ 截止列（md+）：日期 + 剩余天数 ── */}
+        <div className="hidden md:block w-36 shrink-0">
+          <p className="text-xs text-slate-600 font-mono text-end whitespace-nowrap" dir="ltr">{deadlineText}</p>
           {daysLeft !== null && daysLeft >= 0 && (
             <p className="text-3xs text-rose-600 font-bold text-end">
               {t("procurement_daysLeft", { days: daysLeft })}
