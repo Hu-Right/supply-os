@@ -305,7 +305,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
             hint="建议10-50字，格式：采购〔产品〕〔数量〕，交付至〔国家〕">
             <Input id="rfq-title" maxLength={50} value={form.title} error={!!errors.title}
               onChange={(e) => update("title", e.target.value)}
-              placeholder="例如：采购光伏组件 10MW，交付至德国汉堡" />
+              placeholder="请用一句话概括需求，如：采购光伏组件 10MW，交付至德国汉堡" />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
