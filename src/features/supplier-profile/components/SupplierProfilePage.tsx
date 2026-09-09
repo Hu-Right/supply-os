@@ -7,7 +7,7 @@
  *              6 Tab 导航（按需渲染）+ 内容面板。
  *              数据优先走 GET /api/suppliers/:id，缺失字段用 mock 兜底。
  */
-import { useState, useMemo, useEffect, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import {
   Building2, Globe, Crown, Send, ExternalLink, ArrowRight,
@@ -18,7 +18,7 @@ import { useAuth, useUserId } from "@/core/auth";
 import { Button, Card, Badge, EmptyState } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
-import { fetchSupplierContact, fetchCertifications, type SupplierContact, type CertificationItem } from "@/features/supplier/api";
+import { fetchSupplierContact, type SupplierContact } from "@/features/supplier/api";
 import { SupplierContactModal, type SupplierContactStatus } from "@/features/supplier/components/SupplierContactModal";
 import type { Supplier } from "@/types";
 
@@ -87,21 +87,6 @@ export function SupplierProfilePage() {
   const [contactModal, setContactModal] = useState<{
     status: SupplierContactStatus; contact: SupplierContact | null;
   } | null>(null);
-
-  // ─ 认证参考数据 ──
-  const [certRef, setCertRef] = useState<CertificationItem[]>([]);
-  useEffect(() => {
-    fetchCertifications().then(setCertRef).catch(() => {});
-  }, []);
-  const certNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of certRef) {
-      // 提取 name 开头的英文缩写作为 key，如 "ISO 9001（质量管理体系认证）" → key="ISO 9001"
-      const m = c.name.match(/^([A-ZÀ-Ž0-9/.\s]+)/);
-      if (m) map.set(m[1].trim().replace(/([A-Z])([0-9])/g, "$1 $2"), c.name);
-    }
-    return map;
-  }, [certRef]);
 
   const name = supplier ? pickLocale(locale, supplier.nameZh, supplier.nameEn) : "";
   const products = supplier ? pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? [] : [];
@@ -210,7 +195,7 @@ export function SupplierProfilePage() {
           <ProductsPanel products={products} unspsc={unspsc} t={t} />
         )}
         {activeTab === "certs" && (
-          <CertsPanel certs={certs} certNameMap={certNameMap} t={t} />
+          <CertsPanel certs={certs} t={t} />
         )}
         {activeTab === "procurement" && (
           <ProcurementPanel unspsc={unspsc} certs={certs} completeness={completeness} t={t} />
@@ -379,25 +364,8 @@ function ProductsPanel({ products, unspsc: _unspsc, t }: PanelProps & { products
   );
 }
 
-/**
- * 解析认证字符串为 { 缩写, 中文名 }
- * 优先从 certNameMap 查找完整名称，找不到则用正则解析
- */
-function parseCert(raw: string, certNameMap: Map<string, string>): { abbr: string; name: string } {
-  // 先提取缩写
-  const match = raw.match(/^([A-ZÀ-Ž0-9/.\s]+)/);
-  if (!match) return { abbr: raw, name: "" };
-  const abbr = match[1].trim().replace(/([A-Z])([0-9])/g, "$1 $2");
-  // 优先从参考表查找完整名称
-  const fullName = certNameMap.get(abbr);
-  if (fullName) return { abbr, name: fullName.replace(/^[A-ZÀ-Ž0-9/.\s]+/, "").trim() };
-  // 兜底：从原始字符串提取中文名
-  const rest = raw.slice(match[1].length).trim();
-  return { abbr, name: rest };
-}
-
 /** 资质证书 */
-function CertsPanel({ certs, certNameMap, t }: PanelProps & { certs: string[]; certNameMap: Map<string, string> }) {
+function CertsPanel({ certs, t }: PanelProps & { certs: string[] }) {
   if (certs.length === 0) {
     return <div className="py-10"><EmptyState title="暂无资质证书" description="该供应商尚未上传认证信息" /></div>;
   }
@@ -407,16 +375,11 @@ function CertsPanel({ certs, certNameMap, t }: PanelProps & { certs: string[]; c
         <Award className="w-5 h-5 text-teal-600" />{t("profile_tabCerts")}
       </h3>
       <div className="flex flex-wrap gap-2">
-        {certs.map((c, i) => {
-          const { abbr, name } = parseCert(c, certNameMap);
-          return (
-            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm shadow-xs">
-              <Award className="w-4 h-4 text-teal-500 shrink-0" />
-              <span className="font-bold text-slate-800">{abbr}</span>
-              {name && <span className="text-slate-400 font-normal">（{name}）</span>}
-            </span>
-          );
-        })}
+        {certs.map((c, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-xs">
+            <Award className="w-4 h-4 text-teal-500 shrink-0" />{c}
+          </span>
+        ))}
       </div>
     </Card>
   );
