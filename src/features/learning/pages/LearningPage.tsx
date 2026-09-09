@@ -1,58 +1,44 @@
 /**
- * 联合国采购与国际投标学习区
+ * 学习中心页面
  * Learning Center Page
  *
  * @module features/learning/pages/LearningPage
- * @description 资料卡片网格(3×2) + FAQ。
- *              从数据库 API 加载资料和已购状态。
+ * @description 学习中心页面入口，从数据库 API 加载资料和已购状态
+ *              Learning center page entry, loads materials and purchase status from API
  */
+
+import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { toast } from "sonner";
-import { FAQS } from "../constants";
-import {
-  BookOpen, FileText, Shield, Award, GraduationCap, Globe,
-  ArrowRight, Lock,
-} from "lucide-react";
+import { FAQS } from "@/data";
+import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
-import { useLearningMaterials } from "../hooks/useLearningMaterials";
+import { useLearningMaterials, type ApiBundle } from "../hooks/useLearningMaterials";
 import type { LearningMaterial } from "@/types";
-import { emitAppEvent } from "@/core/events";
-
-/** 分类 → 图标与配色映射 */
-const CATEGORY_STYLE: Record<string, { icon: typeof BookOpen; tagColor: string; iconColor: string }> = {
-  "指南": { icon: BookOpen, tagColor: "bg-teal-50 text-teal-700 border-teal-200", iconColor: "text-blue-600" },
-  "模板": { icon: FileText, tagColor: "bg-blue-50 text-blue-700 border-blue-200", iconColor: "text-indigo-600" },
-  "合规": { icon: Shield, tagColor: "bg-amber-50 text-amber-700 border-amber-200", iconColor: "text-emerald-600" },
-  "案例": { icon: Award, tagColor: "bg-purple-50 text-purple-700 border-purple-200", iconColor: "text-rose-600" },
-  "知识": { icon: GraduationCap, tagColor: "bg-rose-50 text-rose-700 border-rose-200", iconColor: "text-purple-600" },
-  "资源": { icon: Globe, tagColor: "bg-emerald-50 text-emerald-700 border-emerald-200", iconColor: "text-teal-600" },
-};
-
-const DEFAULT_STYLE = { icon: FileText, tagColor: "bg-slate-50 text-slate-700 border-slate-200", iconColor: "text-slate-600" };
-
-/** 根据资料属性生成访问权限文案 */
-function getAccessLabel(material: LearningMaterial): string {
-  if (material.price === 0 || !material.isPremium) return "免费预览 | 会员下载";
-  if (material.price && material.price > 0) return `专业版 ¥${material.price.toFixed(0)}`;
-  return "会员专享";
-}
+import { emitAppEvent, type PayEventDetail } from "@/core/events";
 
 export default function LearningPage() {
+  const { t, locale } = useLocale();
   const { authUser } = useAuth();
-  const { materials, purchasedIds, loading, bumpDownloadCount } = useLearningMaterials();
+  const { materials, bundles, purchasedIds, loading, refreshPurchased, bumpDownloadCount } = useLearningMaterials();
 
-  const handleDownload = async (material: LearningMaterial) => {
-    let url = material.fileUrl;
-    let name = material.fileName || material.titleZh;
+  // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
+  // /content 端点获取（服务端校验登录 + 购买记录）
+  const handleDownload = async (fileUrl: string, fileName: string, materialId: string) => {
+    let url = fileUrl;
+    let name = fileName;
     if (!url) {
       try {
         const data = await api<{ fileUrl: string; fileName: string }>(
-          `/api/learning/materials/${encodeURIComponent(material.id)}/content`,
+          `/api/learning/materials/${encodeURIComponent(materialId)}/content`,
         );
         url = data.fileUrl;
         name = data.fileName || name;
       } catch {
+        // 付费资料获取失败必须可见（E2）：此前仅 console 静默，用户无感知
+        console.error("[learning] 获取下载地址失败");
         toast.error("获取下载地址失败，请稍后重试或联系客服");
         return;
       }
@@ -69,17 +55,36 @@ export default function LearningPage() {
     document.body.removeChild(a);
     void api("/api/training/downloads/track", {
       method: "POST",
-      body: { material_id: material.id, file_name: name },
+      body: { material_id: materialId, file_name: name },
     })
-      .then(() => bumpDownloadCount(material.id))
-      .catch((err) => console.warn("[LearningPage] 下载追踪上报失败:", err));
+      .then(() => bumpDownloadCount(materialId))
+      .catch(() => {});
   };
 
   const handleBuyMaterial = (material: LearningMaterial) => {
-    if (!authUser) { emitAppEvent("supply-os:require-login"); return; }
+    if (!authUser) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
     emitAppEvent("supply-os:pay", {
-      code: `material_${material.id}`, name: material.titleZh, price: material.price ?? 0, currency: "CNY",
+      code: `material_${material.id}`,
+      name: material.titleZh,
+      price: material.price ?? 0,
+      currency: "CNY",
     });
+  };
+
+  const handleBuyBundle = (bundle: ApiBundle) => {
+    if (!authUser) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
+    emitAppEvent("supply-os:pay", {
+      code: `bundle_${bundle.id}`,
+      name: bundle.labelZh,
+      price: bundle.price,
+      currency: "CNY",
+    } as PayEventDetail);
   };
 
   if (loading) {
@@ -92,47 +97,54 @@ export default function LearningPage() {
 
   return (
     <div className="space-y-6">
-      {/* ══ 资料卡片网格 ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {materials.map((lm) => {
-          const style = CATEGORY_STYLE[lm.categoryZh] || DEFAULT_STYLE;
-          const Icon = style.icon;
-          const access = getAccessLabel(lm);
-          const isPurchased = purchasedIds.has(lm.id);
-          const isLocked = lm.isPremium && !isPurchased;
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-8">
+          <div>
+            <h3 className="text-base font-extrabold text-slate-800">
+              {t("learningSectionTitle")}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">{t("learningSectionDesc")}</p>
+          </div>
 
-          return (
-            <div key={lm.id} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${style.tagColor}`}>
-                  {lm.categoryZh || "资料"}
-                </span>
-                <Icon className={`w-8 h-8 ${style.iconColor} opacity-70`} />
-              </div>
-              <h3 className="text-sm font-extrabold text-slate-900 mb-1">《{lm.titleZh}》</h3>
-              <p className="text-2xs text-slate-400 mb-2 flex items-center gap-1">
-                {isLocked && <Lock className="w-3 h-3" />}
-                {access}
-              </p>
-              <p className="text-xs text-slate-500 leading-relaxed mb-4">{lm.summaryZh}</p>
-              <div className="flex items-center gap-1 text-xs font-bold text-teal-600">
-                <button
-                  type="button"
-                  onClick={() => isLocked ? handleBuyMaterial(lm) : handleDownload(lm)}
-                  className="hover:underline cursor-pointer"
-                >
-                  {isLocked ? "会员解锁" : "阅读下载"}
-                </button>
-                <ArrowRight className="w-3 h-3" />
-                <span className="text-slate-400 font-medium">同类采购机会</span>
+          <div className="space-y-4">
+            {materials.map((lm) => (
+              <MaterialCard
+                key={lm.id}
+                material={lm}
+                isPurchased={purchasedIds.has(lm.id)}
+                onDownload={handleDownload}
+                onBuyMaterial={handleBuyMaterial}
+              />
+            ))}
+          </div>
+
+          {/* 打包购买区域 */}
+          {bundles.length > 0 && (
+            <div className="rounded-xl border-2 border-dashed border-teal-200 bg-teal-50/50 p-4">
+              <h4 className="text-sm font-extrabold text-teal-800 mb-3">{t("learningBundleTitle")}</h4>
+              <div className="space-y-2">
+                {bundles.map((bundle) => (
+                  <Button
+                    key={bundle.id}
+                    onClick={() => handleBuyBundle(bundle)}
+                    variant="outline"
+                    className="w-full justify-between rounded-lg border-teal-200 bg-white px-4 py-3 text-sm font-normal hover:border-teal-400 hover:bg-white hover:shadow-sm transition-all cursor-pointer"
+                  >
+                    <span className="font-bold text-slate-800">{bundle.labelZh}</span>
+                    <span className="shrink-0 ml-3 rounded-full bg-teal-600 px-3 py-1 text-xs font-black text-white">
+                      ¥{bundle.price.toFixed(1)}
+                    </span>
+                  </Button>
+                ))}
               </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
-      {/* ══ FAQ ═══ */}
-      <FAQPanel faqs={FAQS} />
+        <div className="space-y-6 lg:col-span-4">
+          <FAQPanel faqs={FAQS} />
+        </div>
+      </div>
     </div>
   );
 }
