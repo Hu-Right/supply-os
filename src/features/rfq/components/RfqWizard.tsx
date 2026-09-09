@@ -28,6 +28,22 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp";
 
+/** 需求描述默认模板（引导用户填写关键信息） */
+const DESCRIPTION_TEMPLATE = `【采购背景】
+（简述采购用途和项目背景）
+
+【产品/服务要求】
+（规格、型号、技术参数等）
+
+【数量与交付】
+（数量、交付时间、交付地点）
+
+【资质要求】
+（认证、行业经验等）
+
+【报价要求】
+（报价币种、付款条件、贸易术语）`;
+
 const STEP_META = [
   { title: "需求概要" },
   { title: "数量规格" },
@@ -324,10 +340,10 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
           <Field label="需求描述" required error={errors.description} htmlFor="rfq-desc"
             counter={`${form.description.length}/2000`}
             hint="建议包含：用途、技术要求、验收标准">
-            <Textarea id="rfq-desc" rows={5} maxLength={2000} value={form.description}
+            <Textarea id="rfq-desc" rows={8} maxLength={2000} value={form.description}
               error={!!errors.description}
               onChange={(e) => update("description", e.target.value)}
-              placeholder="请描述采购用途、技术要求与验收标准…" />
+              placeholder={DESCRIPTION_TEMPLATE} />
           </Field>
         </div>
       )}
