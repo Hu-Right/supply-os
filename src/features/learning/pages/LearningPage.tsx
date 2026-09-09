@@ -3,7 +3,7 @@
  * Learning Center Page
  *
  * @module features/learning/pages/LearningPage
- * @description 页头 + 6内容卡片 + 资料列表 + FAQ。
+ * @description 页头 + 资料列表 + FAQ。
  *              从数据库 API 加载资料和已购状态。
  */
 import { useLocale } from "@/core/i18n";
@@ -12,61 +12,11 @@ import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { toast } from "sonner";
 import { FAQS } from "../constants";
-import {
-  BookOpen, FileText, Shield, Award, GraduationCap, Globe,
-  ArrowRight, Lock,
-} from "lucide-react";
 import { MaterialCard } from "../components/MaterialCard";
 import { FAQPanel } from "../components/FAQPanel";
 import { useLearningMaterials, type ApiBundle } from "../hooks/useLearningMaterials";
 import type { LearningMaterial } from "@/types";
 import { emitAppEvent, type PayEventDetail } from "@/core/events";
-
-/* ── 6内容卡片 ── */
-const CONTENT_CARDS = [
-  {
-    tag: "指南", tagColor: "bg-teal-50 text-teal-700 border-teal-200",
-    icon: BookOpen, iconColor: "text-blue-600",
-    title: "《UNGM中国供应商入驻白皮书》",
-    access: "免费预览 | 会员下载",
-    desc: "详解UNGM注册流程、材料清单与常见问题，助力快速入驻。",
-  },
-  {
-    tag: "模板", tagColor: "bg-blue-50 text-blue-700 border-blue-200",
-    icon: FileText, iconColor: "text-indigo-600",
-    title: "《UNSPSC编码匹配实操表》",
-    access: "专业版可下载",
-    desc: "行业分类与编码匹配模板，提升投标文件标准化能力。",
-  },
-  {
-    tag: "合规", tagColor: "bg-amber-50 text-amber-700 border-amber-200",
-    icon: Shield, iconColor: "text-emerald-600",
-    title: "《医疗设备国际公采合规清单》",
-    access: "会员专享",
-    desc: "汇总国际公采合规要点与认证要求，降低合规风险。",
-  },
-  {
-    tag: "案例", tagColor: "bg-purple-50 text-purple-700 border-purple-200",
-    icon: Award, iconColor: "text-rose-600",
-    title: "《中标案例：从机会筛选到提交》",
-    access: "部分免费",
-    desc: "真实中标案例复盘，拆解策略、文件要点与时间管理。",
-  },
-  {
-    tag: "知识", tagColor: "bg-rose-50 text-rose-700 border-rose-200",
-    icon: GraduationCap, iconColor: "text-purple-600",
-    title: "《国际公共采购常见保函条款》",
-    access: "专业版",
-    desc: "整理各类保函条款与注意事项，规避投标风险点。",
-  },
-  {
-    tag: "资源", tagColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    icon: Globe, iconColor: "text-teal-600",
-    title: "《30个高频采购机构入口清单》",
-    access: "会员专享",
-    desc: "覆盖联合国机构、国际组织及多国政府采购平台入口。",
-  },
-];
 
 export default function LearningPage() {
   const { t } = useLocale();
@@ -141,33 +91,7 @@ export default function LearningPage() {
         </p>
       </section>
 
-      {/* ══ 6内容卡片 ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {CONTENT_CARDS.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.title} className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <span className={`px-2 py-0.5 rounded border text-2xs font-bold ${card.tagColor}`}>{card.tag}</span>
-                <Icon className={`w-8 h-8 ${card.iconColor} opacity-70`} />
-              </div>
-              <h3 className="text-sm font-extrabold text-slate-900 mb-1">{card.title}</h3>
-              <p className="text-2xs text-slate-400 mb-2 flex items-center gap-1">
-                {card.access.includes("会员") || card.access.includes("专业") ? (
-                  <Lock className="w-3 h-3" />
-                ) : null}
-                {card.access}
-              </p>
-              <p className="text-xs text-slate-500 leading-relaxed mb-4">{card.desc}</p>
-              <div className="flex items-center gap-1 text-xs font-bold text-teal-600">
-                阅读 <ArrowRight className="w-3 h-3" /> 同类采购机会 <ArrowRight className="w-3 h-3" /> 会员解锁
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ══ 资料列表 + FAQ（原有功能保留） ═══ */}
+      {/* ══ 资料列表 + FAQ ═══ */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs lg:col-span-8">
           <div>
