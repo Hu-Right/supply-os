@@ -24,6 +24,7 @@ import {
 } from "./notice-actions";
 import { getNoticeTranslation } from "./translation/translation-flow";
 import type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
+export type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
 
 // ── 浏览计数 ──
 
@@ -104,7 +105,7 @@ export async function fetchNoticeTranslation(noticeId: number, lang: string): Pr
 /** 处理推荐反馈 */
 export async function submitNoticeFeedback(params: {
   userId: number; sessionId: string; items: RecoFeedbackItem[];
-}): Promise<unknown> {
+}): Promise<Record<string, unknown>> {
   const pool = getPool();
   return processFeedback(
     {
@@ -113,5 +114,5 @@ export async function submitNoticeFeedback(params: {
       dbPool: pool,
     },
     params,
-  );
+  ) as unknown as Promise<Record<string, unknown>>;
 }

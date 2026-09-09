@@ -4,14 +4,10 @@
  * @module app/api/notices/[id]/unlock/route
  */
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { executeUnlock, NoticeNotFoundError, QuotaExceededError } from "@/lib/services/notice-actions";
-import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
-import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
-import { MembershipRepo } from "@/lib/repos/membership.repo";
+import { unlockNotice, NoticeNotFoundError, QuotaExceededError } from "@/lib/services/notice-service";
 import {
   EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED,
 } from "@/shared/constants/api";
@@ -28,8 +24,6 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const { id } = await params;
     const noticeId = Number(id);
-    const pool = getPool();
-    const userId = auth.userId;
     // 空请求体/非法 JSON 返回 400 而非 500（body 可缺省，缺省按 free 解锁处理）
     let body: { unlock_type?: string } = {};
     try {
@@ -40,24 +34,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const unlockType = body?.unlock_type === "subscription" || body?.unlock_type === "single"
       ? body.unlock_type : "free";
 
-    let price = 0;
-    if (unlockType === "single") {
-      const membershipRepo = new MembershipRepo(pool);
-      const plans = await membershipRepo.findActivePlans();
-      const singlePlan = plans.find((p) => p.plan_type === "single");
-      price = Number(singlePlan?.price || 0);
-    }
-
     try {
-      const result = await executeUnlock(
-        {
-          detailRepo: new NoticeDetailRepo(pool),
-          unlockRepo: new NoticeUnlockRepo(pool),
-          dbPool: pool,
-          membershipRepo: new MembershipRepo(pool),
-        },
-        { userId, noticeId, unlockType, price },
-      );
+      const result = await unlockNotice({ userId: auth.userId, noticeId, unlockType });
       if (result.alreadyUnlocked) {
         return NextResponse.json({ success: true, alreadyUnlocked: true });
       }

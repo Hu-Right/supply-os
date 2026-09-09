@@ -3,12 +3,11 @@
  *
  * @module app/api/notices/[id]/view/route
  */
-import { NextRequest, NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
+import { NextResponse } from "next/server";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { NoticeInteractionRepo } from "@/lib/repos/notices/notice-interaction.repo";
+import { recordNoticeView } from "@/lib/services/notice-service";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -22,10 +21,8 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const { id } = await params;
     const noticeId = Number(id);
-    const pool = getPool();
-    const interactionRepo = new NoticeInteractionRepo(pool);
 
-    await interactionRepo.insertView({
+    await recordNoticeView({
       userId: auth.userId,
       noticeId,
       ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "127.0.0.1",
