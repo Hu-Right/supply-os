@@ -18,7 +18,7 @@ import {
 
 import { cn } from "@/shared/utils";
 import { Button, ChipToggleGroup, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
-import { CountrySelect, StateSelect, CitySelect } from "react-country-state-city";
+import { GetCountries, GetState, GetCity } from "react-country-state-city";
 import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
@@ -83,6 +83,38 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
+
+  // 国家/省/市数据（从 react-country-state-city API 获取）
+  const [countriesList, setCountriesList] = useState<Country[]>([]);
+  const [statesList, setStatesList] = useState<State[]>([]);
+  const [citiesList, setCitiesList] = useState<City[]>([]);
+
+  // 加载国家列表
+  useEffect(() => {
+    GetCountries().then(setCountriesList).catch(() => {});
+  }, []);
+
+  // 国家变化时加载省/州列表
+  useEffect(() => {
+    if (!form.countryId) {
+      setStatesList([]);
+      setCitiesList([]);
+      return;
+    }
+    setStatesList([]);
+    setCitiesList([]);
+    GetState(form.countryId).then(setStatesList).catch(() => {});
+  }, [form.countryId]);
+
+  // 省/州变化时加载城市列表
+  useEffect(() => {
+    if (!form.countryId || !form.stateId) {
+      setCitiesList([]);
+      return;
+    }
+    setCitiesList([]);
+    GetCity(form.countryId, form.stateId).then(setCitiesList).catch(() => {});
+  }, [form.countryId, form.stateId]);
 
   /** 表单变更统一上报草稿（跳过挂载首帧，避免空表单落草稿） */
   useEffect(() => {
@@ -379,48 +411,59 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
 
           <Field label="交付地点" required error={errors.country}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <CountrySelect
+              <select
+                value={form.countryId ?? ""}
                 onChange={(e) => {
-                  const c = e as Country;
-                  if (c?.id) {
-                    update("countryId", c.id);
-                    update("countryName", c.name);
-                    update("stateId", null);
-                    update("stateName", "");
-                    update("cityId", null);
-                    update("cityName", "");
-                  }
+                  const id = Number(e.target.value);
+                  const c = countriesList.find((x) => x.id === id);
+                  update("countryId", id || null);
+                  update("countryName", c?.name ?? "");
+                  update("stateId", null);
+                  update("stateName", "");
+                  update("cityId", null);
+                  update("cityName", "");
                 }}
-                placeHolder="选择国家"
-                showFlag
-              />
-              <StateSelect
-                countryid={form.countryId ?? 0}
+                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="">选择国家</option>
+                {countriesList.map((c) => (
+                  <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+                ))}
+              </select>
+              <select
+                value={form.stateId ?? ""}
                 onChange={(e) => {
-                  const s = e as State;
-                  if (s?.id) {
-                    update("stateId", s.id);
-                    update("stateName", s.name);
-                    update("cityId", null);
-                    update("cityName", "");
-                  }
+                  const id = Number(e.target.value);
+                  const s = statesList.find((x) => x.id === id);
+                  update("stateId", id || null);
+                  update("stateName", s?.name ?? "");
+                  update("cityId", null);
+                  update("cityName", "");
                 }}
-                placeHolder="选择省/州"
                 disabled={!form.countryId}
-              />
-              <CitySelect
-                countryid={form.countryId ?? 0}
-                stateid={form.stateId ?? 0}
+                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+              >
+                <option value="">{form.countryId ? "选择省/州" : "先选国家"}</option>
+                {statesList.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <select
+                value={form.cityId ?? ""}
                 onChange={(e) => {
-                  const c = e as City;
-                  if (c?.id) {
-                    update("cityId", c.id);
-                    update("cityName", c.name);
-                  }
+                  const id = Number(e.target.value);
+                  const c = citiesList.find((x) => x.id === id);
+                  update("cityId", id || null);
+                  update("cityName", c?.name ?? "");
                 }}
-                placeHolder="选择城市"
                 disabled={!form.stateId}
-              />
+                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+              >
+                <option value="">{form.stateId ? "选择城市" : "先选省/州"}</option>
+                {citiesList.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             {form.countryName && (
               <p className="text-2xs text-secondary-500 mt-1.5">
