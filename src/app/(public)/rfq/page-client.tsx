@@ -1,256 +1,94 @@
 "use client";
 
 /**
- * RFQ 采购方发布需求页 — 模块13 设计图100%还原
- * RFQ Page — Module 13 Design Mockup 100% Restore
+ * RFQ 采购方发布需求页 — 浅色重构版
+ * RFQ Page — Light Theme Redesign
  *
  * @module app/(public)/rfq/page-client
+ * @description 组合各区块组件的薄壳，不包含业务逻辑。
+ *              页面结构 / Page structure:
+ *   1. 浅色 Hero — 双 CTA 与能力标签
+ *   2. 发布向导（8 栏主列）+ sticky 侧栏（服务/顾问/草稿，4 栏）
+ *   3. 需求广场 — 关键词/行业/国家/预算筛选
+ *   4. 响应流程时间线
+ *   根容器显式铺 #F5F8FB 浅色底（负 margin 反贴 main 内边距，整幅浅色）。
  */
-import { useState } from "react";
-import {
-  Send, Upload,
-  Bot, User, UserCheck, Bell,
-  Lock,
-  ChevronRight, Globe, Crosshair, AlertTriangle,
-} from "lucide-react";
+import { useCallback, useState } from "react";
+
+import { useAuth } from "@/core/auth";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
+import {
+  LightHero, ResponseFlow, RfqPlaza, RfqSidebar, RfqWizard,
+  hasDraftProgress, mergeDraftWithDefaults, useRfqDraft,
+} from "@/features/rfq";
+import type { RfqFormState } from "@/features/rfq";
 
-/* ── 最新RFQ Mock 数据 ── */
-const LATEST_RFQS = [
-  { tag: "能源/光伏", tagColor: "bg-amber-50 text-amber-700 border-amber-200", title: "光伏组件采购", country: "德国", budget: "10MW", deadline: "2024-06-05", responses: 12 },
-  { tag: "医疗/设备", tagColor: "bg-blue-50 text-blue-700 border-blue-200", title: "医疗设备询价", country: "沙特阿拉伯", budget: "USD 500,000", deadline: "2024-06-03", responses: 18 },
-  { tag: "机械/工程", tagColor: "bg-slate-100 text-slate-700 border-slate-200", title: "工程机械需求", country: "肯尼亚", budget: "USD 300,000", deadline: "2024-06-08", responses: 9 },
-  { tag: "化工/原料", tagColor: "bg-teal-50 text-teal-700 border-teal-200", title: "化工原料采购", country: "印度尼西亚", budget: "100 吨", deadline: "2024-06-06", responses: 15 },
-];
+function RfqPageContent() {
+  const { authUser } = useAuth();
+  const draft = useRfqDraft();
+  const [wizardKey, setWizardKey] = useState(0);
 
-/* ── 平台服务辅助 ── */
-const PLATFORM_SERVICES = [
-  { icon: Bot, title: "AI推荐供应商", desc: "基于大数据与AI算法，智能推荐匹配度最高的优质供应商。" },
-  { icon: User, title: "顾问协助梳理需求", desc: "专业采购顾问1对1支持，帮助优化需求，明确采购要点。" },
-  { icon: UserCheck, title: "定向邀请认证供应商", desc: "可指定行业/地区/认证的优质供应商，定向邀请报价。" },
-  { icon: Bell, title: "报价管理与提醒", desc: "集中管理供应商报价，实时提醒截止时间与报价更新。" },
-];
+  /** 有实际填写进度才落草稿（空表单不存） */
+  const handleDataChange = useCallback(
+    (data: RfqFormState) => {
+      if (hasDraftProgress(data)) draft.save(data);
+    },
+    [draft],
+  );
 
-export default function PageClient() {
-  const [formData, setFormData] = useState({
-    title: "", category: "", quantity: "", country: "", deadline: "",
-    isPublic: true, contactName: "", contactInfo: "",
-  });
-  const [submitted, setSubmitted] = useState(false);
+  const handlePublished = useCallback(() => draft.clear(), [draft]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ title: "", category: "", quantity: "", country: "", deadline: "", isPublic: true, contactName: "", contactInfo: "" });
-    }, 3000);
-  };
+  const scrollToForm = useCallback(() => {
+    document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const handleClearDraft = useCallback(() => {
+    draft.clear();
+    // 重挂载向导以回到空白表单
+    setWizardKey((k) => k + 1);
+  }, [draft]);
 
   return (
-    <ErrorBoundary fallback={<PageErrorFallback />}>
-    <div className="space-y-6">
-      {/* ═══════════════════════════════════════════
-          1. 深色 Hero 页头
-         ═══════════════════════════════════════════ */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0a1628] via-[#0f2035] to-[#0d2847] px-6 sm:px-8 py-10 md:py-14">
-        {/* 右侧地球装饰 */}
-        <div className="absolute right-0 top-0 w-[45%] h-full opacity-15 pointer-events-none">
-          <div className="absolute right-[-10%] top-[-20%] w-[80%] h-[140%] rounded-full border border-teal-500/20" />
-          <div className="absolute right-[-5%] top-[-10%] w-[60%] h-[120%] rounded-full border border-teal-400/10" />
-          <div className="absolute right-[5%] top-[10%] w-[40%] h-[80%] rounded-full bg-gradient-to-br from-teal-500/10 to-transparent" />
-        </div>
+    // 负 margin 反贴 <main> 的内边距，让浅色底铺满整个内容区（根治画布透底发黑）
+    <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8 bg-[#F5F8FB] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="space-y-6">
+        <LightHero />
 
-        <div className="relative z-10">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-white tracking-tight">
-            采购方发布需求 / RFQ
-          </h1>
-          <p className="text-slate-400 text-sm md:text-base mt-3 max-w-2xl leading-relaxed">
-            一键发布采购需求，快速获取优质供应商报价与平台顾问支持。
-          </p>
-
-          {/* CTA 按钮 */}
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              onClick={() => document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" })}
-              className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-6 py-2.5 rounded-lg text-sm font-bold transition-colors"
-            >
-              <Send className="w-4 h-4" /> 立即发布需求
-            </button>
-            <button
-              onClick={() => {}}
-              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-2.5 rounded-lg text-sm font-bold transition-colors"
-            >
-              预约采购顾问
-            </button>
-          </div>
-
-          {/* 特性标签 */}
-          <div className="mt-5 flex flex-wrap gap-4 text-xs text-slate-400">
-            <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-teal-400" /> 公开询价</span>
-            <span className="flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5 text-blue-400" /> 定向邀约</span>
-            <span className="flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> 紧急采购</span>
-            <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-purple-400" /> 多语言支持</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          2. 表单 + 平台服务（双栏）
-         ═══════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* ── 左：发布需求表单 ── */}
-        <div className="lg:col-span-5">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs" id="rfq-form">
-            {submitted ? (
-              <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-100 mb-5">
-                  <Send className="w-10 h-10 text-teal-600" />
-                </div>
-                <h3 className="text-xl font-extrabold text-slate-900 mb-2">RFQ 已发布</h3>
-                <p className="text-sm text-slate-500">平台将智能匹配供应商，您将在 24 小时内收到报价。</p>
-              </div>
-            ) : (
-              <>
-                <h2 className="text-lg font-extrabold text-slate-900 mb-5">发布需求表单</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* 需求标题 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">需求标题 *</label>
-                    <input required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none" placeholder="请输入需求标题" />
-                  </div>
-                  {/* 产品/服务分类 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">产品/服务分类 *</label>
-                    <select required value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none bg-white">
-                      <option value="">请选择产品/服务分类</option>
-                      <option>医疗耗材</option><option>新能源</option><option>工程机械</option>
-                      <option>教育/IT</option><option>农业</option><option>化工原料</option><option>其他</option>
-                    </select>
-                  </div>
-                  {/* 数量/规格 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">数量/规格 *</label>
-                    <input required value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none" placeholder="如：5000件 / 功率550W / 尺寸定制等" />
-                  </div>
-                  {/* 目标国家 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">目标国家 *</label>
-                    <select required value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none bg-white">
-                      <option value="">请选择目标国家/地区</option>
-                      <option>德国</option><option>沙特阿拉伯</option><option>肯尼亚</option>
-                      <option>印度尼西亚</option><option>尼日利亚</option><option>其他</option>
-                    </select>
-                  </div>
-                  {/* 截止时间 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">截止时间 *</label>
-                    <input required type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none" />
-                  </div>
-                  {/* 附件上传 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">附件上传</label>
-                    <div className="flex items-center justify-between rounded-lg border border-dashed border-slate-300 px-3.5 py-3">
-                      <span className="text-xs text-slate-500">支持 PDF / Word / Excel / 图片，单个文件不超过 20MB</span>
-                      <button type="button" className="shrink-0 ml-3 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">
-                        <Upload className="w-3.5 h-3.5 inline mr-1" />上传文件
-                      </button>
-                    </div>
-                  </div>
-                  {/* 是否公开 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">是否公开 *</label>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="isPublic" checked={formData.isPublic} onChange={() => setFormData({ ...formData, isPublic: true })} className="accent-teal-600" />
-                        <span className="text-sm text-slate-700"><strong>公开询价</strong> <span className="text-xs text-slate-400">（所有认证供应商可见）</span></span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="isPublic" checked={!formData.isPublic} onChange={() => setFormData({ ...formData, isPublic: false })} className="accent-teal-600" />
-                        <span className="text-sm text-slate-700"><strong>定向邀约</strong> <span className="text-xs text-slate-400">（仅受邀供应商可见）</span></span>
-                      </label>
-                    </div>
-                  </div>
-                  {/* 联系方式 */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">联系方式 *</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input required value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
-                        className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none" placeholder="姓名" />
-                      <input required value={formData.contactInfo} onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
-                        className="rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-teal-400 outline-none" placeholder="邮箱 / 手机号" />
-                    </div>
-                  </div>
-                  {/* 提交 */}
-                  <button type="submit" className="w-full py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold transition-colors shadow-sm">
-                    发布RFQ
-                  </button>
-                  <p className="text-center text-2xs text-slate-400 flex items-center justify-center gap-1">
-                    <Lock className="w-3 h-3" /> 您的信息将严格保密，仅用于需求匹配与服务
-                  </p>
-                </form>
-              </>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-8 min-w-0">
+            {draft.ready && (
+              <RfqWizard
+                key={wizardKey}
+                initialData={mergeDraftWithDefaults(draft.data)}
+                authContact={{ name: authUser?.nickname ?? "", email: authUser?.email ?? "" }}
+                onDataChange={handleDataChange}
+                onPublished={handlePublished}
+              />
             )}
           </div>
+          <aside className="lg:col-span-4 min-w-0">
+            <div className="lg:sticky lg:top-28">
+              <RfqSidebar
+                hasDraft={draft.ready && draft.savedAt !== null}
+                savedAt={draft.savedAt}
+                onResume={scrollToForm}
+                onClearDraft={handleClearDraft}
+              />
+            </div>
+          </aside>
         </div>
 
-        {/* ── 右：平台服务 + 最新RFQ ── */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* 平台服务辅助 */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-            <h2 className="text-lg font-extrabold text-slate-900 mb-4">平台服务辅助</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {PLATFORM_SERVICES.map((s) => {
-                const Icon = s.icon;
-                return (
-                  <div key={s.title} className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-                    <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
-                      <Icon className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800 mb-0.5">{s.title}</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">{s.desc}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 最新RFQ需求 */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-extrabold text-slate-900">最新RFQ需求</h2>
-              <button className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-0.5">
-                更多 <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              {LATEST_RFQS.map((rfq) => (
-                <div key={rfq.title} className="rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
-                  <span className={`inline-block px-2 py-0.5 rounded border text-2xs font-bold mb-2 ${rfq.tagColor}`}>{rfq.tag}</span>
-                  <h4 className="text-sm font-bold text-slate-900 mb-2">{rfq.title}</h4>
-                  <div className="space-y-1 text-xs text-slate-500">
-                    <p>国家/地区：{rfq.country}</p>
-                    <p>数量/预算：{rfq.budget}</p>
-                    <p>截止时间：{rfq.deadline}</p>
-                    <p className="text-teal-600 font-bold">已有 {rfq.responses} 家响应</p>
-                  </div>
-                  <button className="mt-3 w-full py-1.5 rounded-lg border border-teal-200 text-xs font-bold text-teal-700 hover:bg-teal-50 transition-colors">
-                    查看详情
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <RfqPlaza />
+        <ResponseFlow />
       </div>
     </div>
+  );
+}
+
+export default function PageClient() {
+  return (
+    <ErrorBoundary fallback={<PageErrorFallback />}>
+      <RfqPageContent />
     </ErrorBoundary>
   );
 }
