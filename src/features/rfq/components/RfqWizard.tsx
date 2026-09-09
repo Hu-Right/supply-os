@@ -21,6 +21,7 @@ import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Sel
 import { GetCountries, GetState, GetCity } from "react-country-state-city";
 import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
 import worldCountries from "world-countries";
+import chinaDivision from "china-division";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
@@ -92,10 +93,15 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
 
-  // 国家/省/市数据（从 react-country-state-city API 获取）
+  // 国家/省/市数据
   const [countriesList, setCountriesList] = useState<Country[]>([]);
   const [statesList, setStatesList] = useState<State[]>([]);
   const [citiesList, setCitiesList] = useState<City[]>([]);
+  const [isChina, setIsChina] = useState(false);
+
+  // 中国行政区划数据（用于中国省份/城市）
+  const chinaProvinces = chinaDivision.provinces as Array<{ code: string; name: string }>;
+  const chinaCities = chinaDivision.cities as Array<{ code: string; name: string; provinceCode: string }>;
 
   // 加载国家列表
   useEffect(() => {
@@ -107,12 +113,30 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     if (!form.countryId) {
       setStatesList([]);
       setCitiesList([]);
+      setIsChina(false);
       return;
     }
+    const country = countriesList.find((c) => c.id === form.countryId);
+    const countryIsChina = country?.iso2 === "CN";
+    setIsChina(countryIsChina);
     setStatesList([]);
     setCitiesList([]);
-    GetState(form.countryId).then(setStatesList).catch(() => {});
-  }, [form.countryId]);
+
+    if (countryIsChina) {
+      // 中国：使用 china-division 数据（中文名称）
+      setStatesList(chinaProvinces.map((p) => ({
+        id: Number(p.code),
+        name: p.name,
+        state_code: p.code,
+        latitude: "",
+        longitude: "",
+        hasCities: true,
+      })));
+    } else {
+      // 其他国家：使用 react-country-state-city 数据
+      GetState(form.countryId).then(setStatesList).catch(() => {});
+    }
+  }, [form.countryId, countriesList]);
 
   // 省/州变化时加载城市列表
   useEffect(() => {
@@ -121,8 +145,23 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       return;
     }
     setCitiesList([]);
-    GetCity(form.countryId, form.stateId).then(setCitiesList).catch(() => {});
-  }, [form.countryId, form.stateId]);
+
+    if (isChina) {
+      // 中国：使用 china-division 数据（中文名称）
+      const provinceCode = String(form.stateId).padStart(2, "0");
+      setCitiesList(chinaCities
+        .filter((c) => c.provinceCode === provinceCode)
+        .map((c) => ({
+          id: Number(c.code),
+          name: c.name,
+          latitude: "",
+          longitude: "",
+        })));
+    } else {
+      // 其他国家：使用 react-country-state-city 数据
+      GetCity(form.countryId, form.stateId).then(setCitiesList).catch(() => {});
+    }
+  }, [form.countryId, form.stateId, isChina]);
 
   /** 表单变更统一上报草稿（跳过挂载首帧，避免空表单落草稿） */
   useEffect(() => {
