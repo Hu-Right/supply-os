@@ -17,11 +17,12 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/shared/utils";
-import { Button, ChipToggleGroup, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
+import { Button, ChipToggleGroup, CountryMultiSelect, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
-  PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS, TARGET_COUNTRIES,
+  PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
 } from "../constants";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 import type { FieldErrors, PurchaseType, RfqFormState } from "../types";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -376,21 +377,11 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
           </Field>
 
           <Field label="目标国家/地区" required error={errors.countries}>
-            <div className="flex flex-wrap gap-2">
-              {TARGET_COUNTRIES.map((c) => {
-                const selected = form.countries.includes(c.en);
-                return (
-                  <button key={c.en} type="button"
-                    onClick={() => update("countries", selected ? form.countries.filter((x) => x !== c.en) : [...form.countries, c.en])}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors",
-                      selected ? "bg-teal-50 border-teal-300 text-teal-700" : "bg-white border-secondary-200 text-secondary-600 hover:border-teal-300",
-                    )}>
-                    {c.zh}
-                  </button>
-                );
-              })}
-            </div>
+            <CountryMultiSelect
+              value={form.countries}
+              onChange={(v) => update("countries", v)}
+              placeholder="搜索并选择目标国家/地区"
+            />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -541,7 +532,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
               <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
               <SummaryItem label="产品分类" value={[form.categoryL1, form.categoryL2].filter(Boolean).join(" / ")} onEdit={() => setStep(0)} />
               <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budgetMin || form.budgetMax ? `${form.currency} ${[form.budgetMin, form.budgetMax].filter(Boolean).join(" – ")} 万` : ""} onEdit={() => setStep(1)} />
-              <SummaryItem label="目标国家" value={form.countries.length ? TARGET_COUNTRIES.filter((c) => form.countries.includes(c.en)).map((c) => c.zh).join("、") : ""} onEdit={() => setStep(1)} />
+              <SummaryItem label="目标国家" value={form.countries.length ? form.countries.map((en) => getCountryDisplayName(en, "zh")).join("、") : ""} onEdit={() => setStep(1)} />
               <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />
               <SummaryItem label="可见范围" value={form.visibility === "public" ? "公开询价" : "定向邀约"} onEdit={() => setStep(2)} />
               <SummaryItem label="附件" value={form.attachments.length ? `${form.attachments.length} 个文件` : ""} onEdit={() => setStep(2)} />
