@@ -364,6 +364,20 @@ function ProductsPanel({ products, unspsc: _unspsc, t }: PanelProps & { products
   );
 }
 
+/**
+ * 解析认证字符串为 { 缩写, 中文名 }
+ * 输入："ISO9001质量管理体系认证" → { abbr: "ISO 9001", name: "质量管理体系认证" }
+ * 输入："CE认证（欧盟）" → { abbr: "CE", name: "认证（欧盟）" }
+ * 输入："TÜV" → { abbr: "TÜV", name: "" }
+ */
+function parseCert(raw: string): { abbr: string; name: string } {
+  const match = raw.match(/^([A-ZÀ-Ž0-9/\s]+?)(.*)$/);
+  if (!match) return { abbr: raw, name: "" };
+  const abbr = match[1].trim().replace(/([A-Z])([0-9])/g, "$1 $2");
+  const name = match[2].trim();
+  return { abbr, name };
+}
+
 /** 资质证书 */
 function CertsPanel({ certs, t }: PanelProps & { certs: string[] }) {
   if (certs.length === 0) {
@@ -375,11 +389,16 @@ function CertsPanel({ certs, t }: PanelProps & { certs: string[] }) {
         <Award className="w-5 h-5 text-teal-600" />{t("profile_tabCerts")}
       </h3>
       <div className="flex flex-wrap gap-2">
-        {certs.map((c, i) => (
-          <span key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 shadow-xs">
-            <Award className="w-4 h-4 text-teal-500" />{c}
-          </span>
-        ))}
+        {certs.map((c, i) => {
+          const { abbr, name } = parseCert(c);
+          return (
+            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm shadow-xs">
+              <Award className="w-4 h-4 text-teal-500 shrink-0" />
+              <span className="font-bold text-slate-800">{abbr}</span>
+              {name && <span className="text-slate-400 font-normal">（{name}）</span>}
+            </span>
+          );
+        })}
       </div>
     </Card>
   );
