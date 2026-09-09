@@ -13,7 +13,6 @@ import {
   Bot, Users, UserCheck, Bell,
   FileText, Share2, FileCheck, Lock,
   Zap, Target, MessageCircle, Headphones,
-  Gem, Plane, Zap as LightningIcon, Crown, Shield,
   ChevronRight, Globe, Crosshair, AlertTriangle,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
@@ -49,35 +48,6 @@ const RFQ_VALUES = [
   { icon: Target, title: "定向匹配", desc: "精准匹配优质供应商 提高匹配成功率" },
   { icon: MessageCircle, title: "降低沟通成本", desc: "一站式发布与管理 减少重复沟通成本" },
   { icon: Headphones, title: "获得专业支持", desc: "专业顾问全程协助 提升采购成功率" },
-];
-
-/* ── 核心内容模块 ── */
-const CORE_MODULES = [
-  { icon: FileText, title: "发布表单", desc: "结构化表单，多样字段 支持附件与公开/定向设置" },
-  { icon: ListIcon, title: "最新RFQ列表", desc: "实时展示全球采购需求 支持筛选与关键词搜索" },
-  { icon: Crosshair, title: "定向邀约", desc: "按行业/地区/认证 定向邀请优质供应商" },
-  { icon: Users, title: "供应商推荐", desc: "AI与人工结合推荐 匹配度更高的供应商" },
-  { icon: FileCheck, title: "报价管理", desc: "集中管理报价与沟通 提醒与进度跟踪" },
-  { icon: Shield, title: "履约支持", desc: "顾问跟进，合同协助 推动履约与售后支持" },
-];
-
-function ListIcon(props: React.SVGProps<SVGSVGElement> & { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
-    </svg>
-  );
-}
-
-/* ── 变现动作 ── */
-const MONETIZATION = [
-  { icon: Gem, title: "发布增值包", desc: "高级展示/置顶曝光/优先推荐" },
-  { icon: Plane, title: "定向邀约服务", desc: "付费定向邀约更多认证供应商" },
-  { icon: LightningIcon, title: "加急匹配", desc: "加急匹配通道 提升响应速度" },
-  { icon: User, title: "采购顾问", desc: "一对一顾问服务与 梳理需求与谈判支持" },
-  { icon: Crown, title: "供应商会员响应权限", desc: "供应商会员获得更多 报价次数与优先响应权" },
-  { icon: Shield, title: "履约服务", desc: "验货、物流、支付结算 等增值服务收费" },
 ];
 
 export default function PageClient() {
@@ -350,88 +320,6 @@ export default function PageClient() {
             })}
           </div>
         </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════
-          4. 核心内容模块
-         ═══════════════════════════════════════════ */}
-      <section className="py-4">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="h-px w-12 bg-gradient-to-r from-transparent to-teal-400" />
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-          </div>
-          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900">核心内容模块</h2>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-          </div>
-          <div className="h-px w-12 bg-gradient-to-l from-transparent to-teal-400" />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {CORE_MODULES.map((mod) => {
-            const Icon = mod.icon;
-            return (
-              <div key={mod.title} className="bg-white rounded-xl border border-slate-200 p-4 text-center hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-slate-50 flex items-center justify-center mb-3">
-                  <Icon className="w-6 h-6 text-slate-700" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-900 mb-1.5">{mod.title}</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">{mod.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          5. 变现动作
-         ═══════════════════════════════════════════ */}
-      <section className="py-4">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="h-px w-12 bg-gradient-to-r from-transparent to-teal-400" />
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-          </div>
-          <h2 className="text-xl md:text-2xl font-extrabold text-slate-900">变现动作</h2>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-            <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-          </div>
-          <div className="h-px w-12 bg-gradient-to-l from-transparent to-teal-400" />
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {MONETIZATION.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.title} className="bg-white rounded-xl border border-slate-200 p-4 text-center hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-slate-50 flex items-center justify-center mb-3">
-                  <Icon className="w-6 h-6 text-slate-700" />
-                </div>
-                <h4 className="text-sm font-bold text-slate-900 mb-1.5">{item.title}</h4>
-                <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          6. 底部价值卡片
-         ═══════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {[
-          { title: "RFQ是平台最直接的撮合入口", desc: "采购方主动发需求，带来高转化线索，\n让供需双方在平台高效连接。" },
-          { title: "有需求的一方能带动供应商活跃与付费", desc: "真实采购需求驱动供应商活跃报价，会员与增\n值服务成为平台持续收入来源。" },
-          { title: "采购发布 + 供应商响应 + 顾问服务\n能形成闭环变现", desc: "线索 → 匹配 → 报价 → 履约，平台多角色参与，\n实现多维度、多层次的商业价值闭环。" },
-        ].map((card) => (
-          <div key={card.title} className="rounded-2xl bg-gradient-to-br from-[#0a1628] via-[#0f2035] to-[#0d2847] p-6">
-            <h4 className="text-base font-bold text-white mb-2 leading-snug">{card.title}</h4>
-            <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-line">{card.desc}</p>
-          </div>
-        ))}
       </div>
     </div>
     </ErrorBoundary>
