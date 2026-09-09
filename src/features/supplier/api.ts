@@ -155,6 +155,21 @@ export async function fetchCertifications(): Promise<CertificationItem[]> {
   return api<CertificationItem[]>("/api/certifications");
 }
 
+/** 供应商统计数据 */
+export interface SupplierStats {
+  searchable: number;
+  registered: number;
+  withCertification: number;
+  international: number;
+}
+
+/**
+ * 查询供应商统计数据
+ */
+export async function fetchSupplierStats(): Promise<SupplierStats> {
+  return api<SupplierStats>("/api/suppliers/stats");
+}
+
 /**
  * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
  * Fetch plaintext supplier contact (VIP only)

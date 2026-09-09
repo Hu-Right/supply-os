@@ -120,7 +120,7 @@ export async function executeUnlock(
 
     // 事务外：更新兴趣码（非关键路径，失败不影响解锁）
     if (userId) {
-      await persistUserInterestCodes(dbPool, userId, snapshot, "unlock_order", 2.50).catch(() => {});
+      await persistUserInterestCodes(dbPool, userId, snapshot, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistUserInterestCodes failed (non-critical):", e));
     }
     return { alreadyUnlocked: false, unlockType };
   } catch (err: unknown) {

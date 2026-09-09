@@ -59,19 +59,19 @@ export const ContentColumns = memo(function ContentColumns() {
     // 获取已审核的优质供应商（最新 3 条）
     api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
-      .catch(() => { failed++; })
+      .catch((e) => { failed++; console.warn("[ContentColumns] suppliers fetch failed:", e); })
       .finally(onSettle);
 
     // 热门商机：仅取运营精选（is_featured=1）
     api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest&deadline_from=${today}`)
       .then((data) => setHotNotices((data.items ?? []).slice(0, 3)))
-      .catch(() => { failed++; })
+      .catch((e) => { failed++; console.warn("[ContentColumns] hot notices fetch failed:", e); })
       .finally(onSettle);
 
     // 最新 RFQ 询价类公告
     api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&notice_type=RFQ&sort=newest&deadline_from=${today}`)
       .then((data) => setRfqNotices((data.items ?? []).slice(0, 3)))
-      .catch(() => { failed++; })
+      .catch((e) => { failed++; console.warn("[ContentColumns] RFQ notices fetch failed:", e); })
       .finally(onSettle);
   }, []);
 

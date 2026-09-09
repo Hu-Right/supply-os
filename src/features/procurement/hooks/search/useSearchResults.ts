@@ -193,7 +193,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       budgetMax: query.activeBudgetMax ? Number(query.activeBudgetMax) : undefined,
       sort: query.activeSort,
       locale,
-    }).catch(() => { /* 预取失败静默 */ });
+    }).catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
   }, [page, totalPages, items.length, loading, prefsMode, userId, query.hasOtherSearch, query.searchKey]);
 
   return {

@@ -70,7 +70,7 @@ export function useSupplierSearch({
         });
         setIndustries(Array.from(set));
       })
-      .catch(() => { /* 静默：下拉保持空 */ });
+      .catch((e) => { console.warn("[useSupplierSearch] industries prefetch failed:", e); });
     return () => { cancelled = true; };
   }, [locale]);
 

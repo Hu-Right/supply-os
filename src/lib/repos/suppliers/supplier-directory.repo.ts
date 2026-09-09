@@ -118,4 +118,26 @@ export class SupplierDirectoryRepo {
     );
     return (rows as RowDataPacket[])[0] ?? null;
   }
+
+  /** 供应商统计（用于统计墙） */
+  async getStats(): Promise<{
+    searchable: number;
+    withCertification: number;
+    international: number;
+  }> {
+    const [searchableRows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND merged_id IS NULL",
+    );
+    const [certRows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND merged_id IS NULL",
+    );
+    const [intlRows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL",
+    );
+    return {
+      searchable: (searchableRows as any[])[0]?.total ?? 0,
+      withCertification: (certRows as any[])[0]?.total ?? 0,
+      international: (intlRows as any[])[0]?.total ?? 0,
+    };
+  }
 }
