@@ -18,9 +18,6 @@ import {
 
 import { cn } from "@/shared/utils";
 import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Select, Textarea } from "@/shared/ui";
-import { GetCountries, GetState, GetCity } from "react-country-state-city";
-import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
-import worldCountries from "world-countries";
 import { provinces as chinaProvinces, cities as chinaCities, areas as chinaAreas } from "@/data/chinaDivision";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
@@ -31,13 +28,6 @@ import type { FieldErrors, PurchaseType, RfqFormState } from "../types";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp";
-
-/** 英文名 → 中文名映射（从 world-countries 构建） */
-const EN_TO_ZH: Record<string, string> = Object.fromEntries(
-  worldCountries
-    .filter((c) => c.status === "officially-assigned")
-    .map((c) => [c.name.common, c.translations.zho?.common ?? c.name.common]),
-);
 
 /** 需求描述默认模板（引导用户填写关键信息） */
 const DESCRIPTION_TEMPLATE = `【采购背景】

@@ -29,8 +29,6 @@ export type { InputProps } from "./Input";
 export { Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 
-export { CountryMultiSelect } from "./CountryMultiSelect";
-
 export { SearchableSelect } from "./SearchableSelect";
 
 export { Select } from "./Select";
