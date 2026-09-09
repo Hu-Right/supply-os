@@ -37,6 +37,7 @@ export function useAppModals(): UseAppModalsReturn {
   const [showTrainingRegisterForm, setShowTrainingRegisterForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // D4-4 语义化 API：提供意图明确的方法名，同时保留原始 setter 向后兼容
   const onRequireLogin = useCallback(() => setShowAuthModal(true), []);
   const onConsult = useCallback(() => setShowConsultForm(true), []);
   const onOpenTrainingRegister = useCallback(() => setShowTrainingRegisterForm(true), []);

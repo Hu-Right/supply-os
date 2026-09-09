@@ -109,7 +109,7 @@ export default function LearningPage() {
       body: { material_id: materialId, file_name: name },
     })
       .then(() => bumpDownloadCount(materialId))
-      .catch(() => {});
+      .catch((err) => console.warn("[LearningPage] 下载追踪上报失败:", err));
   };
 
   const handleBuyMaterial = (material: LearningMaterial) => {

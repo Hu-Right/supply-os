@@ -25,19 +25,26 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
   const { t, locale } = useLocale();
   const displayPrice = material.price != null ? `¥${material.price.toFixed(1)}` : "";
 
-  // premium 资料的正文不随列表下发：已购用户按需从 /content 端点加载
+  // D4-5 修复：premium 内容加载增加错误状态，避免静默吞异常导致用户看到空白
   const [premiumContent, setPremiumContent] = useState<{ contentZh: string; contentEn: string } | null>(null);
+  const [contentError, setContentError] = useState(false);
   const needsContentFetch = material.isPremium && isPurchased;
   useEffect(() => {
     if (!needsContentFetch) return;
     let cancelled = false;
+    setContentError(false);
     void api<{ contentZh: string; contentEn: string }>(
       `/api/learning/materials/${encodeURIComponent(material.id)}/content`,
     )
       .then((d) => {
         if (!cancelled) setPremiumContent({ contentZh: d.contentZh ?? "", contentEn: d.contentEn ?? "" });
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (!cancelled) {
+          setContentError(true);
+          console.warn("[MaterialCard] 付费内容加载失败:", err);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -89,6 +96,9 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
             {t("learningCoreContent")}
           </strong>
           {contentText}
+          {contentError && !contentText && (
+            <p className="mt-2 text-rose-500 font-sans">{t("learningContentLoadedFailed") || "内容加载失败，请刷新重试"}</p>
+          )}
         </div>
       )}
 

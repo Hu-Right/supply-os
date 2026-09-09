@@ -30,7 +30,7 @@ export function useListingStats(): ListingStats | null {
         deadline_in_30d: d.deadline_in_30d ?? 0,
         with_original_docs: d.with_original_docs ?? 0,
       }))
-      .catch(() => {});
+      .catch((err) => console.warn("[useListingStats] 统计接口加载失败:", err));
   }, []);
 
   return stats;
