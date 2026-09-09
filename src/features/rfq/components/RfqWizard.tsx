@@ -302,10 +302,10 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
         <div className="space-y-5">
           <Field label="需求标题" required error={errors.title} htmlFor="rfq-title"
             counter={`${form.title.length}/50`}
-            hint="建议10-50字，格式：采购〔产品〕〔数量〕，交付至〔国家〕">
+            hint="建议10-50字，格式：采购〔产品〕〔数量〕">
             <Input id="rfq-title" maxLength={50} value={form.title} error={!!errors.title}
               onChange={(e) => update("title", e.target.value)}
-              placeholder="请用一句话概括需求，如：采购光伏组件 10MW，交付至德国汉堡" />
+              placeholder="例：采购光伏组件 10MW" />
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -344,7 +344,8 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
             <Textarea id="rfq-desc" rows={8} maxLength={2000} value={form.description}
               error={!!errors.description}
               onChange={(e) => update("description", e.target.value)}
-              placeholder={DESCRIPTION_TEMPLATE} />
+              placeholder={DESCRIPTION_TEMPLATE}
+              className="resize-none" />
           </Field>
         </div>
       )}
