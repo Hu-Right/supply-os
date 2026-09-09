@@ -136,3 +136,45 @@
 | 11 | D4-1 | 组件规范 | QualificationFormFields 类型/常量提取 | 新增 `shared/forms/qualification-form-types.ts`；401→298 行 |
 | 12 | D2-2 | 高内聚低耦合 | Notice 6 个路由下沉 Service 层 | 新增 `lib/services/notice-service.ts`；6 个 route 不再 import repo |
 | 13 | D4-1 | 组件规范 | SupplierProfilePage 拆分 6 个 Tab 面板 | 新增 `ProfileTabPanels.tsx`；501→222 行 |
+
+---
+
+## 9. 三轮迭代修复记录（2026-09-09 续）
+
+> 基于二次审计结果，继续处理 P0/P1 架构违规与组件规范问题。
+
+### 9.1 跨 Feature 子路径依赖消除（A3 解耦）
+
+| # | 源 | 目标 | 修复措施 |
+|---|---|---|---|
+| 1 | supplier-profile | supplier | 子路径→barrel 导入 (fetchSupplierById/Contact/Modal) |
+| 2 | home | membership | 子路径→barrel 导入 (useMembershipStatus) |
+| 3 | home | procurement | noticeTypeKey 提升至 `shared/utils/notice-type.ts`；原文件改为 re-export |
+| 4 | training | payment | 子路径→barrel 导入 (PaymentModalCore) |
+| 5 | supplier | procurement | 子路径→barrel 导入 (submitSupplierQualification)；扩展 procurement barrel |
+
+### 9.2 静默错误处理修复
+
+| # | 文件 | 修复措施 |
+|---|---|---|
+| 1 | `lib/services/notice-actions.ts` | persistUserInterestCodes 失败添加 console.warn |
+| 2 | `home/components/ContentColumns.tsx` | 3 处 API 失败添加 console.warn |
+| 3 | `supplier/hooks/useSupplierSearch.ts` | 行业预取失败添加 console.warn |
+| 4 | `procurement/hooks/search/useSearchResults.ts` | 搜索预取失败添加 console.warn |
+
+### 9.3 大文件拆分
+
+| # | 文件 | 拆分前 | 拆分后 | 提取模块 |
+|---|---|---|---|---|
+| 1 | `crm/hooks/useDigitalAssistant.ts` | 480 行 | 200 行 | `useChatSession.ts`(221行) + `chat-replies.ts`(63行) + 接口移至 `chat-types.ts` |
+| 2 | `training/components/ParticipantForm.tsx` | 344 行 | 251 行 | `ParticipantRow.tsx`(72行) |
+
+### 9.4 分层红线合规性（三轮迭代后验证）
+
+| 红线 | 状态 | 详情 |
+|---|---|---|
+| R1: lib 不 import features/app | ✅ 零违规 | — |
+| R2: core 不 import features/lib/app | ✅ 零违规 | — |
+| R3: features 不直接 import @/lib/** | ✅ 零违规 | — |
+| R4: 服务端唯一入口 lib + instrumentation | ✅ 零违规 | — |
+| 跨 Feature 子路径依赖 | ✅ 零违规 | 9 处→0 处（barrel 契约 + shared 提升） |
