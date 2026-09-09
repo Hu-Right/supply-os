@@ -50,6 +50,37 @@ export interface UseDigitalAssistantOptions {
   opportunities?: import("@/types").Opportunity[];
 }
 
+/** Hook 返回值 */
+export interface UseDigitalAssistantReturn {
+  messages: ChatMessage[];
+  mode: AssistantMode;
+  isThinking: boolean;
+  agentName: string | null;
+  sendMessage: (content: string, attachment?: AttachmentMeta) => Promise<void>;
+  triggerQuickAction: (action: QuickActionType) => void;
+  requestHumanAgent: () => Promise<void>;
+  endHumanSession: () => void;
+  clearMessages: () => void;
+  ensureWelcome: () => void;
+  matchPhase: MatchPhase;
+  matchReport: string;
+  matchSupplier: import("@/types").Supplier | null;
+  matchOpportunity: import("@/types").Opportunity | null;
+  setMatchSupplier: (s: import("@/types").Supplier | null) => void;
+  setMatchOpportunity: (o: import("@/types").Opportunity | null) => void;
+  triggerMatch: () => Promise<void>;
+  resetMatch: () => void;
+  chatSessionId: number | null;
+  addRemoteMessage: (role: MessageRole, content: string) => void;
+  handleAgentJoined: (agentEmail: string | null) => void;
+  restoreActiveSession: () => Promise<void>;
+  handleSessionTimeout: () => void;
+  handleConnectionLost: () => void;
+  pendingRating: number | null;
+  submitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
+  skipRating: () => void;
+}
+
 // ── 工具函数 ──
 
 let _msgCounter = 0;

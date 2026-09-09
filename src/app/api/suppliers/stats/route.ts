@@ -8,17 +8,7 @@ export async function GET() {
   try {
     const ctx = getContext();
     const stats = await ctx.supplier.directoryRepo.getStats();
-
-    // 注册供应商数（crm_suppliers 表）
-    let registered = 0;
-    try {
-      const [rows] = await ctx.supplier.registrationRepo["pool"].query(
-        "SELECT COUNT(*) as total FROM crm_suppliers",
-      );
-      registered = (rows as any[])[0]?.total ?? 0;
-    } catch {
-      // 静默降级
-    }
+    const registered = await ctx.supplier.registrationRepo.countAll();
 
     return NextResponse.json({
       ...stats,

@@ -70,4 +70,9 @@ export class SupplierRegistrationRepo {
     return row ? Number(row.id) : null;
   }
 
+  /** 注册供应商总数 */
+  async countAll(): Promise<number> {
+    const [rows] = await this.pool.query("SELECT COUNT(*) as total FROM crm_suppliers");
+    return (rows as any[])[0]?.total ?? 0;
+  }
 }
