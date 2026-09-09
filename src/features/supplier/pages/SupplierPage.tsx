@@ -23,6 +23,8 @@ import { LoadingOverlay } from "@/shared/ui";
 import { Input, Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact } from "../api";
 import { useSupplierSearch } from "../hooks/useSupplierSearch";
+import { useSupplierStats } from "../hooks/useSupplierStats";
+import { useCountUp } from "../hooks/useCountUp";
 
 /** 搜索 Tab 定义 */
 const SEARCH_TABS = [
@@ -110,13 +112,12 @@ export default function SupplierPage() {
     setSearchTerm(""); setIndustry(""); setPage(1);
   };
 
-  // ── 统计墙：使用真实 total，其余保留设计稿静态值 ──
-  const stats = useMemo(() => ({
-    searchable: total,
-    registered: 32567,
-    verified: 18934,
-    unspsc: 16872,
-  }), [total]);
+  // ── 统计墙：真实数据 + 数字动画 ──
+  const realStats = useSupplierStats();
+  const animSearchable = useCountUp(realStats.searchable);
+  const animRegistered = useCountUp(realStats.registered);
+  const animVerified = useCountUp(realStats.withCertification);
+  const animUnspsc = useCountUp(realStats.international);
 
   return (
     <div className="space-y-6">
@@ -125,10 +126,10 @@ export default function SupplierPage() {
       {/* ═══ 统计墙 ═══ */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { value: stats.searchable, label: t("supplierStatSearchable") },
-          { value: stats.registered, label: t("supplierStatRegistered") },
-          { value: stats.verified, label: t("supplierStatVerified") },
-          { value: stats.unspsc, label: t("supplierStatUnspsc") },
+          { value: animSearchable, label: t("supplierStatSearchable") },
+          { value: animRegistered, label: t("supplierStatRegistered") },
+          { value: animVerified, label: t("supplierStatVerified") },
+          { value: animUnspsc, label: t("supplierStatUnspsc") },
         ].map((s) => (
           <div key={s.label} className="rounded-xl bg-white border border-slate-200 px-5 py-4 shadow-xs text-center">
             <p className="text-xs text-slate-400 font-bold">[{t("supplierStatRealtime")}]</p>
