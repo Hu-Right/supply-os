@@ -7,15 +7,13 @@
  * @module app/(public)/rfq/page-client
  */
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
-  Send, Calendar, Upload, Radio, User, Mail, Phone,
-  Bot, Users, UserCheck, Bell,
+  Send, Upload,
+  Bot, User, UserCheck, Bell,
   FileText, Share2, FileCheck, Lock,
   Zap, Target, MessageCircle, Headphones,
   ChevronRight, Globe, Crosshair, AlertTriangle,
 } from "lucide-react";
-import { useLocale } from "@/core/i18n";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 
 /* ── 最新RFQ Mock 数据 ── */
@@ -51,8 +49,6 @@ const RFQ_VALUES = [
 ];
 
 export default function PageClient() {
-  const { t } = useLocale();
-  const router = useRouter();
   const [formData, setFormData] = useState({
     title: "", category: "", quantity: "", country: "", deadline: "",
     isPublic: true, contactName: "", contactInfo: "",
