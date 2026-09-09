@@ -8,7 +8,7 @@
  *              数据优先走 GET /api/suppliers/:id，缺失字段用 mock 兜底。
  *              D4-1 拆分：6 个 Tab 面板提取至 ProfileTabPanels.tsx。
  */
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
   Building2, Globe, Send, MapPin,
@@ -36,46 +36,9 @@ const PROFILE_TABS = [
   { key: "opportunities", labelKey: "profile_tabOpportunities", icon: Globe },
 ] as const;
 
-/* ── Mock 兜底数据 ── */
-const MOCK_PROFILE: Partial<Supplier> = {
-  nameZh: "浙江某新能源科技有限公司",
-  nameEn: "Zhejiang New Energy Technology Co., Ltd.",
-  type: "domestic",
-  industryZh: "新能源",
-  industryEn: "New Energy",
-  countryZh: "中国",
-  countryEn: "China",
-  cityZh: "浙江",
-  cityEn: "Zhejiang",
-  mainProductsZh: ["光伏组件", "储能系统", "逆变器"],
-  mainProductsEn: ["Solar Panels", "Energy Storage", "Inverters"],
-  membershipTier: "gold",
-  dataCompleteness: 92,
-  unspscCode: "40101500",
-  certifications: ["ISO 9001", "CE", "TÜV", "IEC"],
-  capabilityTags: ["准时交付 98%", "出口经验", "可定制"],
-  companyType: "factory",
-};
-
-function enrichWithMock(s: Supplier | null): Supplier | null {
-  if (!s) return null;
-  const m = MOCK_PROFILE;
-  return {
-    ...s,
-    companyType: s.companyType || m.companyType,
-    membershipTier: s.membershipTier || m.membershipTier,
-    dataCompleteness: s.dataCompleteness ?? m.dataCompleteness,
-    unspscCode: s.unspscCode || s.ungmCode || m.unspscCode,
-    certifications: s.certifications?.length ? s.certifications : m.certifications,
-    capabilityTags: s.capabilityTags?.length ? s.capabilityTags : m.capabilityTags,
-    mainProductsZh: s.mainProductsZh?.length ? s.mainProductsZh : m.mainProductsZh,
-    mainProductsEn: s.mainProductsEn?.length ? s.mainProductsEn : m.mainProductsEn,
-  } as Supplier;
-}
-
-/* ═══════════════════════════════════════════
+/* ═════════════════════════════════════════
    主组件
-   ═════════════════════════════════════════ */
+   ════════════════════════════════════════ */
 
 export function SupplierProfilePage() {
   const { t, locale } = useLocale();
@@ -84,8 +47,7 @@ export function SupplierProfilePage() {
   const params = useParams();
   const id = String(params?.id ?? "");
 
-  const { supplier: rawSupplier, loading } = useSupplierProfile(locale, id);
-  const supplier = useMemo(() => enrichWithMock(rawSupplier), [rawSupplier]);
+  const { supplier, loading } = useSupplierProfile(locale, id);
 
   const [activeTab, setActiveTab] = useState("capability");
   const [contactModal, setContactModal] = useState<{
