@@ -22,7 +22,9 @@ export const OPPORTUNITIES: Opportunity[] = [
     deadline: "2026-08-30",
     descriptionZh: "本次代办集采由两部分组成：第一部分为2500套应急快装拉铆模块化集成瓦房；第二部分为1200套内嵌高附着防腐拼装复合板无水生物降解卫生箱卫浴间。",
     descriptionEn: "Joint Procurement opportunity composed of two lots: Lot 1 consists of 2,500 emergency clip-lock steel panel housing blocks; Lot 2 consists of 1,200 dry-system biodegradable latrine bathroom modules.",
-    subscribersCount: 46
+    subscribersCount: 46,
+    status: "active",
+    createdAt: "2026-06-01T00:00:00Z"
   },
   {
     id: "opp-02",
@@ -36,7 +38,9 @@ export const OPPORTUNITIES: Opportunity[] = [
     deadline: "2026-07-15",
     descriptionZh: "计划大规模援助多国边远社区诊所。要求供应商设备具有内置5G微卡与低频电离防雷特性、内置太阳能自给背夹蓄电配置。提供三方EN60601-2安规报告。",
     descriptionEn: "Aimed at deploying medical units globally to marginalized health structures. Requirements include solar battery-clips, rugged IP54 shells, and integrated 5G modules. Tested with EN60601-2 standards.",
-    subscribersCount: 32
+    subscribersCount: 32,
+    status: "active",
+    createdAt: "2026-05-15T00:00:00Z"
   },
   {
     id: "opp-03",
@@ -50,6 +54,8 @@ export const OPPORTUNITIES: Opportunity[] = [
     deadline: "2026-10-10",
     descriptionZh: "总数2400基。要求微处理网关芯片支持Zigbee及Wi-Fi通导协议双重热备，抗沙尘及长期55℃恶劣运行环境下保持高流明输出与长效散热可靠度。",
     descriptionEn: "Total need of 2,400 poles. Micro-controller gates must support dual Zigbee + Wi-Fi mesh hot standbys. Must run under continuous 55 degree desert thermal test with sandstorm protection.",
-    subscribersCount: 59
+    subscribersCount: 59,
+    status: "active",
+    createdAt: "2026-07-01T00:00:00Z"
   }
 ];
