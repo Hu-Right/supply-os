@@ -13,68 +13,17 @@ import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
 import type { Supplier, Opportunity } from "@/types";
 import type { ChatSessionRow, ChatMessageRow } from "../types";
-
-// ── 类型定义 ──
-
-/** 消息角色 */
-export type MessageRole = "user" | "assistant" | "system";
-
-/** 单条聊天消息 */
-export interface ChatMessage {
-  id: string;
-  role: MessageRole;
-  content: string;
-  timestamp: number;
-  /** 是否为历史消息（AI → 人工转接时保留） */
-  isHistory?: boolean;
-}
-
-/** 附件元数据（上传接口返回值子集） */
-export interface AttachmentMeta {
-  url: string;
-  name: string;
-  type: string;
-}
-
-/** 从消息 metadata（DB JSON 列，可能是字符串）中提取附件内容标记 */
-export function attachmentMarkerFromMetadata(metadata: unknown): string {
-  let meta: unknown = metadata;
-  if (typeof metadata === "string") {
-    try {
-      meta = JSON.parse(metadata);
-    } catch {
-      return "";
-    }
-  }
-  const att = (meta as { attachment?: unknown } | null)?.attachment;
-  if (!att || typeof att !== "object") return "";
-  try {
-    return ` [attachment:${JSON.stringify(att)}]`;
-  } catch {
-    return "";
-  }
-}
-
-/** 客服会话模式 */
-export type AssistantMode = "ai" | "waiting" | "human";
-
-/** 快捷操作类型 */
-export type QuickActionType = "match" | "query_leads" | "lead_status" | "opp_help" | "request_human";
-
-/** 撮合阶段 */
-export type MatchPhase = "idle" | "selecting" | "matching" | "done";
-
-/** Hook 入参 */
-export interface UseDigitalAssistantOptions {
-  /** 当前线索数（用于上下文） */
-  leadCount?: number;
-  /** 当前活跃线索数 */
-  activeLeadCount?: number;
-  /** 供应商列表（AI 撮合用） */
-  suppliers?: Supplier[];
-  /** 商机列表（AI 撮合用） */
-  opportunities?: Opportunity[];
-}
+// D4-1 拆分：类型与工具函数提取至 chat-types.ts，此处 re-export 保持向后兼容
+import { genMsgId, attachmentMarkerFromMetadata } from "./chat-types";
+export type {
+  MessageRole, ChatMessage, AttachmentMeta, AssistantMode,
+  QuickActionType, MatchPhase, UseDigitalAssistantOptions,
+} from "./chat-types";
+export { attachmentMarkerFromMetadata } from "./chat-types";
+import type {
+  MessageRole, ChatMessage, AttachmentMeta, AssistantMode,
+  QuickActionType, MatchPhase, UseDigitalAssistantOptions,
+} from "./chat-types";
 
 /** Hook 返回值 */
 export interface UseDigitalAssistantReturn {
@@ -130,13 +79,6 @@ export interface UseDigitalAssistantReturn {
   submitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
   /** 跳过评价 */
   skipRating: () => void;
-}
-
-// ── 工具函数 ──
-
-let _msgCounter = 0;
-function genMsgId(): string {
-  return `msg_${Date.now()}_${++_msgCounter}`;
 }
 
 // ── Hook 实现 ──
