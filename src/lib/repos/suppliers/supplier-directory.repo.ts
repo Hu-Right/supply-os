@@ -110,6 +110,17 @@ export class SupplierDirectoryRepo {
     return { items: rows as SupplierDirectoryRow[], total };
   }
 
+  /** 按 ID 查询单条供应商 */
+  async findById(id: number): Promise<SupplierDirectoryRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, country_code, province, city,
+              contact, phone, email, products, industry, type
+       FROM supplier WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+  }
+
   /** 供应商明文联系方式（VIP 端点） */
   async findContact(supplierId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(

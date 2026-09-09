@@ -135,6 +135,14 @@ export type SupplierContact = {
 };
 
 /**
+ * 查询单条供应商详情
+ * Fetch single supplier by ID
+ */
+export async function fetchSupplierById(lang: string, id: string): Promise<Supplier> {
+  return api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}?lang=${encodeURIComponent(lang)}`);
+}
+
+/**
  * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
  * Fetch plaintext supplier contact (VIP only)
  */
