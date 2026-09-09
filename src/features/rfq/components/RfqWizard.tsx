@@ -136,7 +136,8 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     const e: FieldErrors = {};
     if (s === 0) {
       const title = form.title.trim();
-      if (title.length < 5) e.title = "标题至少 5 个字，建议写明产品和数量，例如“采购光伏组件 10MW”";
+      if (title.length < 10) e.title = `标题至少 10 个字（当前 ${title.length}），建议写明产品和数量，例如"采购光伏组件 10MW"`;
+      else if (title.length > 50) e.title = "标题不能超过 50 个字";
       if (!form.categoryL2) e.categoryL2 = "请选择产品/服务分类";
       const desc = form.description.trim();
       if (desc.length < 50) e.description = `描述至少 50 个字（当前 ${desc.length}），请补充用途、技术要求与验收标准`;
@@ -300,9 +301,9 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       {step === 0 && (
         <div className="space-y-5">
           <Field label="需求标题" required error={errors.title} htmlFor="rfq-title"
-            counter={`${form.title.length}/80`}
-            hint="格式建议：采购〔产品〕〔数量〕，交付至〔国家〕">
-            <Input id="rfq-title" maxLength={80} value={form.title} error={!!errors.title}
+            counter={`${form.title.length}/50`}
+            hint="建议10-50字，格式：采购〔产品〕〔数量〕，交付至〔国家〕">
+            <Input id="rfq-title" maxLength={50} value={form.title} error={!!errors.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder="例如：采购光伏组件 10MW，交付至德国汉堡" />
           </Field>
