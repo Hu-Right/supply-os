@@ -1,18 +1,12 @@
 /**
- * 数字人客服 Hook
- * Digital Assistant Hook
- *
- * @module features/crm/hooks/useDigitalAssistant
- * @description 管理数字人客服的对话状态、消息收发、模式切换（AI / 等待人工 / 人工）。
- *              后端会话生命周期已提取至 useChatSession（D4-1 拆分二期）。
+ * 数字人客服 Hook — 管理对话状态、消息收发、模式切换（AI / 等待人工 / 人工）。
+ * 后端会话生命周期已提取至 useChatSession（D4-1 拆分二期）。
  */
-
 import { useState, useCallback, useRef } from "react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { useAiMatch } from "./useAiMatch";
 import { useChatSession } from "./useChatSession";
-import type { Supplier, Opportunity } from "@/types";
 // D4-1 拆分：类型与工具函数提取至 chat-types.ts，此处 re-export 保持向后兼容
 import { genMsgId } from "./chat-types";
 import { quickActionUserMessage, quickActionAiReply, aiKeywordReply } from "./chat-replies";
@@ -25,8 +19,6 @@ import type {
   MessageRole, ChatMessage, AttachmentMeta, AssistantMode,
   QuickActionType, MatchPhase, UseDigitalAssistantOptions, UseDigitalAssistantReturn,
 } from "./chat-types";
-
-// ── Hook 实现 ──
 
 export function useDigitalAssistant(
   options: UseDigitalAssistantOptions = {},
