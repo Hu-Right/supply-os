@@ -25,7 +25,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const noticeId = Number(id);
     // 空请求体/非法 JSON 返回 400 而非 500（body 可缺省，缺省按 free 解锁处理）
-    let body: { unlock_type?: string } = {};
+    let body: { unlock_type?: string };
     try {
       body = await req.json();
     } catch {
