@@ -10,8 +10,7 @@ import { useState } from "react";
 import {
   Send, Upload,
   Bot, User, UserCheck, Bell,
-  FileText, Share2, FileCheck, Lock,
-  Zap, Target, MessageCircle, Headphones,
+  Lock,
   ChevronRight, Globe, Crosshair, AlertTriangle,
 } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
@@ -30,22 +29,6 @@ const PLATFORM_SERVICES = [
   { icon: User, title: "顾问协助梳理需求", desc: "专业采购顾问1对1支持，帮助优化需求，明确采购要点。" },
   { icon: UserCheck, title: "定向邀请认证供应商", desc: "可指定行业/地区/认证的优质供应商，定向邀请报价。" },
   { icon: Bell, title: "报价管理与提醒", desc: "集中管理供应商报价，实时提醒截止时间与报价更新。" },
-];
-
-/* ── 供应商响应流程 ── */
-const RESPONSE_FLOW = [
-  { icon: FileText, title: "采购方发布", desc: "采购方发布 RFQ 明确需求与截止时间" },
-  { icon: Share2, title: "平台匹配", desc: "平台智能匹配供应商 定向邀约或公开询价" },
-  { icon: FileCheck, title: "供应商报价", desc: "供应商在线报价 提交方案与资质文件" },
-  { icon: Lock, title: "线下履约 / 顾问跟进", desc: "平台顾问跟进支持 推动合同与履约落地" },
-];
-
-/* ── RFQ价值 ── */
-const RFQ_VALUES = [
-  { icon: Zap, title: "快速比价", desc: "多家报价一目了然 快速对比更高效" },
-  { icon: Target, title: "定向匹配", desc: "精准匹配优质供应商 提高匹配成功率" },
-  { icon: MessageCircle, title: "降低沟通成本", desc: "一站式发布与管理 减少重复沟通成本" },
-  { icon: Headphones, title: "获得专业支持", desc: "专业顾问全程协助 提升采购成功率" },
 ];
 
 export default function PageClient() {
@@ -264,56 +247,6 @@ export default function PageClient() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════
-          3. 供应商响应流程 + RFQ价值
-         ═══════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 供应商响应流程 */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <h2 className="text-lg font-extrabold text-slate-900 mb-5">供应商响应流程</h2>
-          <div className="flex items-start gap-2 overflow-x-auto pb-2">
-            {RESPONSE_FLOW.map((step, idx) => {
-              const Icon = step.icon;
-              return (
-                <div key={step.title} className="flex items-start gap-2 min-w-0">
-                  <div className="flex flex-col items-center text-center min-w-[80px]">
-                    <div className="w-12 h-12 rounded-full bg-teal-50 flex items-center justify-center mb-2">
-                      <Icon className="w-5 h-5 text-teal-600" />
-                    </div>
-                    <h4 className="text-xs font-bold text-slate-800 mb-0.5">{step.title}</h4>
-                    <p className="text-2xs text-slate-500 leading-relaxed">{step.desc}</p>
-                  </div>
-                  {idx < RESPONSE_FLOW.length - 1 && (
-                    <div className="flex items-center pt-5 text-slate-300 shrink-0">
-                      <ChevronRight className="w-4 h-4" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* RFQ价值 */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
-          <h2 className="text-lg font-extrabold text-slate-900 mb-5">RFQ价值（为什么采购方愿意用）</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {RFQ_VALUES.map((v) => {
-              const Icon = v.icon;
-              return (
-                <div key={v.title} className="text-center p-3">
-                  <div className="w-12 h-12 mx-auto rounded-full bg-slate-50 flex items-center justify-center mb-2">
-                    <Icon className="w-5 h-5 text-slate-700" />
-                  </div>
-                  <h4 className="text-sm font-bold text-slate-800 mb-1">{v.title}</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">{v.desc}</p>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
