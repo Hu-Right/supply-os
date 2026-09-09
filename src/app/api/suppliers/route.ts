@@ -4,8 +4,7 @@
  *
  * @module app/api/suppliers/route
  * @description GET 返回的 items 已通过 mapSupplierRow 映射为前端 Supplier DTO，
- *              含多语言译文（crm_supplier_translations）与联系方式脱敏。
- *              DB 查询失败时返回空结构（非 500），前端显示空状态而非白屏。
+ *              含联系方式脱敏。DB 查询失败时返回空结构（非 500），前端显示空状态而非白屏。
  *              POST 编排已下沉 lib/services/suppliers.ts（A4）。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -14,39 +13,18 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, parseJson } from "@/lib/middleware/route-handler";
 import { mapSupplierRow, registerCrmSupplier } from "@/lib/services/suppliers";
-import type { SupplierDirectoryRow, SupplierTranslationRow, SupplierRegistrationRepo } from "@/lib/repos/suppliers";
+import type { SupplierDirectoryRow } from "@/lib/repos/suppliers";
 import type { Supplier } from "@/types";
 
-/**
- * 批量映射：原始 DB 行 → 前端 Supplier DTO。
- * 先按当前语言批量取译文（best-effort，失败静默降级到中文兜底），
- * 再逐行调用 mapSupplierRow 完成 column→field 转换与脱敏。
- */
-async function mapSupplierItems(
-  rows: SupplierDirectoryRow[],
-  lang: string,
-  registrationRepo: SupplierRegistrationRepo,
-): Promise<Supplier[]> {
-  if (rows.length === 0) return [];
-
-  const ids = rows.map((r) => r.id);
-  let translations: SupplierTranslationRow[] = [];
-  try {
-    translations = await registrationRepo.listTranslations(lang, ids);
-  } catch {
-    // 译文查询失败时静默降级：mapSupplierRow 的 fallback 会用中文原文填充 *En 槽
-  }
-  const trMap = new Map<number, SupplierTranslationRow | null>();
-  for (const tr of translations) trMap.set(tr.supplier_id, tr);
-
-  return rows.map((row) => mapSupplierRow(row, trMap.get(row.id) ?? null));
+/** 批量映射：原始 DB 行 → 前端 Supplier DTO（column→field 转换 + 脱敏） */
+function mapSupplierItems(rows: SupplierDirectoryRow[]): Supplier[] {
+  return rows.map((row) => mapSupplierRow(row));
 }
 
 export async function GET(req: NextRequest) {
-  const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "zh";
   const pageParam = req.nextUrl.searchParams.get("page");
   const ctx = getContext();
-  const { directoryRepo, registrationRepo } = ctx.supplier;
+  const { directoryRepo } = ctx.supplier;
 
   try {
     if (pageParam && Number(pageParam) >= 1) {
@@ -57,17 +35,16 @@ export async function GET(req: NextRequest) {
       const type = req.nextUrl.searchParams.get("type") || undefined;
       const industry = req.nextUrl.searchParams.get("industry") || undefined;
 
-      const { items, total } = await directoryRepo.listDirectoryPaginated({ limit: pageSize, offset, lang, search, type, industry });
-      const dtoItems = await mapSupplierItems(items, lang, registrationRepo);
+      const { items, total } = await directoryRepo.listDirectoryPaginated({ limit: pageSize, offset, search, type, industry });
+      const dtoItems = mapSupplierItems(items);
       return NextResponse.json({ items: dtoItems, total, page, pageSize });
     }
 
     const rows = await directoryRepo.listDirectory();
-    const dtoItems = await mapSupplierItems(rows, lang, registrationRepo);
+    const dtoItems = mapSupplierItems(rows);
     return NextResponse.json(dtoItems);
   } catch (err) {
     console.error("[suppliers GET]", err);
-    // 兜底：DB 查询失败时返回空结构而非 500，前端显示空状态而非白屏崩溃
     if (pageParam && Number(pageParam) >= 1) {
       return NextResponse.json({ items: [], total: 0, page: Number(pageParam) || 1, pageSize: 9 });
     }

@@ -45,12 +45,11 @@ export class SupplierDirectoryRepo {
   async listDirectoryPaginated(params: {
     limit: number;
     offset: number;
-    lang: string;
     search?: string;
     type?: string;
     industry?: string;
   }): Promise<{ items: SupplierDirectoryRow[]; total: number }> {
-    const { limit, offset, lang, search, type, industry } = params;
+    const { limit, offset, search, type, industry } = params;
 
     // ── WHERE 条件构建 ──
     const conditions: string[] = ["company <> '测试'", "merged_id IS NULL"];
@@ -73,19 +72,8 @@ export class SupplierDirectoryRepo {
     }
 
     if (industry) {
-      // 非中文语言：优先匹配译文表，回退到原文列
-      const translationLangs: Record<string, string> = {
-        en: "English", fr: "French", ru: "Russian", es: "Spanish", ar: "Arabic",
-      };
-      if (lang !== "zh" && translationLangs[lang]) {
-        conditions.push(
-          `(COALESCE((SELECT industry_tr FROM crm_supplier_translations WHERE supplier_id = supplier.id AND lang = ? LIMIT 1), industry) = ?)`,
-        );
-        values.push(translationLangs[lang], industry);
-      } else {
-        conditions.push("industry = ?");
-        values.push(industry);
-      }
+      conditions.push("industry = ?");
+      values.push(industry);
     }
 
     const whereSql = conditions.join(" AND ");

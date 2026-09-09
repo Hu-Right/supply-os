@@ -7,14 +7,11 @@ import { Supplier } from "../types/supplier";
 import { maskPhone, maskEmail, splitListField } from "../utils/mask";
 import { getCountryDisplayName, getCountryEnglishName } from "../data/countryNames";
 
-// ─ supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
-// 把「当前请求语言的译文」填进 *En 槽位：前端 pickLocale 对非 zh 语言取第二槽，组件零改动
-export function mapSupplierRow(row: any, tr: any | null): Supplier {
+//  supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
+export function mapSupplierRow(row: any): Supplier {
   const industryZh =
     String(row.industry || "").trim() || splitListField(row.products)[0] || "其他";
   const productsZh = splitListField(row.products);
-  const industryTr = String(tr?.industry_tr || "").trim() || industryZh;
-  const productsTr = tr?.main_products_tr ? splitListField(tr.main_products_tr) : productsZh;
   const cityZh = String(row.city || "").trim() || String(row.province || "").trim() || "—";
   const companyName = String(row.company || "").trim();
   // supplier.type 存经营类型（如 foreign），国内/国际改由 country_code 判定（与目录筛选一致）
@@ -26,7 +23,7 @@ export function mapSupplierRow(row: any, tr: any | null): Supplier {
     nameEn: companyName, // 公司名保留真实原文，不翻译
     type: isInternational ? "international" : "domestic",
     industryZh,
-    industryEn: industryTr,
+    industryEn: industryZh,
     // supplier.country 存英文名，中文环境经 getCountryDisplayName 转中文展示
     countryZh: getCountryDisplayName(countryRaw || "China", "zh"),
     countryEn: getCountryEnglishName(countryRaw) || "China",
@@ -34,7 +31,7 @@ export function mapSupplierRow(row: any, tr: any | null): Supplier {
     cityEn: cityZh,
     ungmCode: undefined,
     mainProductsZh: productsZh,
-    mainProductsEn: productsTr,
+    mainProductsEn: productsZh,
     complianceLabelsZh: [],
     complianceLabelsEn: [],
     contactPerson: row.contact || "",

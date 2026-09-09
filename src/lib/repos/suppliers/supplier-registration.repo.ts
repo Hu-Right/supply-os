@@ -3,17 +3,9 @@
  * Supplier Registration Repository
  *
  * @module server/repos/suppliers/supplier-registration.repo
- * @description 操作 crm_suppliers 自有表（注册记录）+ crm_supplier_translations（翻译）。
+ * @description 操作 crm_suppliers 自有表（注册记录）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-
-/** 供应商译文行（crm_supplier_translations） */
-export interface SupplierTranslationRow {
-  supplier_id: number;
-  industry_tr: string | null;
-  main_products_tr: string | null;
-  certification_tr: string | null;
-}
 
 export class SupplierRegistrationRepo {
   constructor(private pool: Pool) {}
@@ -78,31 +70,4 @@ export class SupplierRegistrationRepo {
     return row ? Number(row.id) : null;
   }
 
-  /** 批量取指定语言译文 */
-  async listTranslations(lang: string, supplierIds: number[]): Promise<SupplierTranslationRow[]> {
-    const [rows] = await this.pool.query(
-      `SELECT supplier_id, industry_tr, main_products_tr, certification_tr
-       FROM crm_supplier_translations
-       WHERE lang = ? AND supplier_id IN (?)`,
-      [lang, supplierIds],
-    );
-    return rows as SupplierTranslationRow[];
-  }
-
-  /** 译文 upsert（后台补翻落库） */
-  async upsertTranslation(
-    supplierId: number,
-    lang: string,
-    industryTr: string,
-    mainProductsTr: string,
-    model: string,
-  ): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO crm_supplier_translations (supplier_id, lang, industry_tr, main_products_tr, model)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE industry_tr = VALUES(industry_tr), main_products_tr = VALUES(main_products_tr),
-         model = VALUES(model)`,
-      [supplierId, lang, industryTr, mainProductsTr, model],
-    );
-  }
 }
