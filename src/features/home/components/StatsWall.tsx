@@ -3,18 +3,13 @@
  * Stats Wall — 5 Real-time Scale Indicators
  *
  * @module features/home/components/StatsWall
- * @description 调用现有 API 获取统计数字，10 分钟自动刷新，
+ * @description 消费 useHomeStats 统一数据源，纯展示组件，
  *              每个指标带数字跳动动画。
  */
-import { useState, useEffect } from "react";
 import { Search, Globe, Users, TrendingUp, ShieldCheck } from "lucide-react";
-import { api } from "@/core/http";
 import { useCountUp } from "../hooks/useCountUp";
-
-/** 格式化数字 — 直接展示，不带单位 */
-function formatNumber(num: number): string {
-  return num.toLocaleString();
-}
+import { useHomeStats } from "../hooks/useHomeStats";
+import { formatPlainNumber } from "@/shared/utils/format";
 
 /** 单个统计卡片 — 带数字跳动动画 */
 function StatCard({ label, value, sub, icon: Icon, color }: {
@@ -26,47 +21,22 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
       <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-100 mb-2 group-hover:bg-slate-200 transition-colors">
         <Icon className={`w-5 h-5 ${color}`} />
       </div>
-      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatNumber(animatedValue)}</p>
+      <p className="text-2xl md:text-3xl font-extrabold text-slate-900">{formatPlainNumber(animatedValue)}</p>
       <p className="text-xs font-bold text-slate-700 mt-1">{label}</p>
       <p className="text-2xs text-slate-400 mt-0.5">{sub}</p>
     </div>
   );
 }
 
-/** 实时数字墙 — 调用现有 API，10 分钟自动刷新 */
+/** 实时数字墙 — 消费 useHomeStats，纯展示组件 */
 export function StatsWall() {
-  const [noticeStats, setNoticeStats] = useState<{
-    active: number; todayNew: number;
-  } | null>(null);
-  const [countryCount, setCountryCount] = useState(0);
-  const [certifiedCount, setCertifiedCount] = useState(0);
-
-  const fetchStats = () => {
-    // 复用现有 /api/notices/stats（含 todayNew）
-    api<{ active: number; todayNew: number }>("/api/notices/stats")
-      .then((data) => setNoticeStats({ active: data.active, todayNew: data.todayNew ?? 0 }))
-      .catch(() => {});
-    // 复用现有 /api/notices/countries 取国家数量
-    api<Array<{ country: string; count: number }>>("/api/notices/countries")
-      .then((data) => setCountryCount(data.length))
-      .catch(() => {});
-    // 认证供应商数量
-    api<{ total: number }>("/api/suppliers?page=1&pageSize=1&status=approved")
-      .then((data) => setCertifiedCount(data.total ?? 0))
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    fetchStats();
-    const timer = setInterval(fetchStats, 10 * 60 * 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const { noticeActive, noticeTodayNew, countryCount, certifiedSupplierCount } = useHomeStats();
 
   const stats = [
-    { label: "采购机会总量", value: noticeStats?.active ?? 0, sub: "实时更新", icon: Globe, color: "text-teal-600" },
-    { label: "每日新增机会", value: noticeStats?.todayNew ?? 0, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
+    { label: "采购机会总量", value: noticeActive, sub: "实时更新", icon: Globe, color: "text-teal-600" },
+    { label: "每日新增机会", value: noticeTodayNew, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
     { label: "数据源 / API", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "认证供应商", value: certifiedCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
+    { label: "认证供应商", value: certifiedSupplierCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
     { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Users, color: "text-rose-600" },
   ];
 

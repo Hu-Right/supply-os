@@ -3,23 +3,16 @@
  * Hot Topics Section — Real Counts by Industry
  *
  * @module features/home/components/HotTopicsSection
- * @description 服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
+ * @description 消费 useHotTopics hook，纯展示组件。
+ *              服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询。
  */
-import { useState, useEffect } from "react";
 import { useLocale } from "@/core/i18n";
-import { api } from "@/core/http";
+import { useHotTopics } from "../hooks/useHotTopics";
 
 /** 热门行业 — 真实计数 */
 export function HotTopicsSection() {
   const { locale } = useLocale();
-  const [topics, setTopics] = useState<{
-    industries: Array<{ id: number; code: string; title_zh: string; title: string; count: number }>;
-  } | null>(null);
-
-  useEffect(() => {
-    // 服务端 10 分钟缓存 + HTTP 10 分钟缓存，无需客户端轮询
-    api<NonNullable<typeof topics>>("/api/notices/hot-topics").then(setTopics).catch(() => {});
-  }, []);
+  const { topics } = useHotTopics();
 
   if (!topics || !topics.industries?.length) return null;
 

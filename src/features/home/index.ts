@@ -12,3 +12,5 @@ export { ContentColumns } from "./components/ContentColumns";
 export { AboutSection } from "./components/AboutSection";
 export { UpgradeBanner } from "./components/UpgradeBanner";
 export { ProductPath } from "./components/ProductPath";
+export { useHomeStats } from "./hooks/useHomeStats";
+export { useHotTopics } from "./hooks/useHotTopics";

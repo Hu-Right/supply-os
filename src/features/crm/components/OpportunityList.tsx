@@ -7,7 +7,7 @@
 
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "../constants";
 import type { Opportunity } from "@/types";
 
 type OpportunityListProps = {

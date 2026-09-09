@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
-import { OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "../constants";
 // ARCH-P2-解耦（2026-09-05）：fetchSuppliers 内联为 core/http 直连，
 // 消除 crm→supplier 跨 feature 硬依赖（原函数仅一行 api() 调用）
 import type { Lead, Supplier, Opportunity } from "@/types";

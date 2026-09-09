@@ -44,15 +44,16 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
   const [level2Industries, setLevel2Industries] = useState<DictionaryItem[]>([]);
   const [level3Industries, setLevel3Industries] = useState<DictionaryItem[]>([]);
 
-  // 加载资质证书和行业数据（统一走 training service；此前裸 fetch 无鉴权重试/无缓存）
+  // 加载资质证书和行业数据（统一走 core/unspsc）
+  // 错误降级：字典加载失败时下拉列表保持空选项，用户仍可手动输入
   useEffect(() => {
     fetchCertifications()
       .then(data => setCertifications(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setCertifications([])); // 字典加载失败 → 空列表，表单仍可提交
 
     fetchUnspscIndustries()
       .then(data => setLevel1Industries(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setLevel1Industries([])); // 同上
   }, []);
 
   // 二级行业联动
@@ -67,7 +68,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
     }
     fetchUnspscChildren(value.industry_id)
       .then(data => setLevel2Industries(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setLevel2Industries([])); // 级联加载失败 → 空列表
   }, [value.industry_id]);
 
   // 三级行业联动（同上，改用 children 端点）
@@ -78,7 +79,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
     }
     fetchUnspscChildren(value.industry_level2_id)
       .then(data => setLevel3Industries(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setLevel3Industries([])); // 级联加载失败 → 空列表
   }, [value.industry_level2_id]);
 
   const handleChange = (field: keyof CompanyInfoData, val: string | string[]) => {

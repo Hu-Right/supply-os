@@ -7,7 +7,7 @@
 
 import { Activity, Clock, TrendingUp, Users } from "lucide-react";
 import type { Lead } from "@/types";
-import { OPPORTUNITIES } from "@/data";
+import { OPPORTUNITIES } from "../constants";
 
 type StatsCardsProps = {
   leads: Lead[];

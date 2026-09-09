@@ -48,3 +48,22 @@ export function formatDateShort(dateStr: string): string {
     return dateStr;
   }
 }
+
+/**
+ * 紧凑数字格式化：≥10000 → "X.X万+"，否则 "N,NNN+"。
+ * 用于首页规模数字墙、平台介绍指标等场景。
+ * （原 StatsWall/AboutSection 各自重复定义的 formatNumber）
+ */
+export function formatCompactNumber(num: number): string {
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1)}万+`;
+  }
+  return num.toLocaleString() + "+";
+}
+
+/**
+ * 纯数字格式化（不带+后缀）：用于需要精确数值的场景。
+ */
+export function formatPlainNumber(num: number): string {
+  return num.toLocaleString();
+}
