@@ -10,7 +10,7 @@
  *              key (no numeric-id indirection).
  */
 import {
-  Home, Globe, Trophy, Users, Building2, LayoutGrid, BookOpen, GraduationCap, Briefcase,
+  Home, Globe, Trophy, Users, Building2, LayoutGrid, BookOpen, GraduationCap, Briefcase, FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LocaleKey } from "@/core/i18n";
@@ -32,6 +32,7 @@ export const NAV_TABS: NavTab[] = [
   { path: "/supplier", labelKey: "navSupplierLibrary", shortLabelKey: "navShortSuppliers", icon: Users },
   { path: "/showroom", labelKey: "navFulfillment", shortLabelKey: "navShortFulfillment", icon: Building2 },
   { path: "/services", labelKey: "navBiddingServices", icon: LayoutGrid },
+  { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
   { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
   { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
   { path: "/crm", labelKey: "navWorkbench", shortLabelKey: "navShortWorkbench", icon: Briefcase, alert: true },
