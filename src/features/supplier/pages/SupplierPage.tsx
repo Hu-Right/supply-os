@@ -44,67 +44,6 @@ const SORT_OPTIONS = [
   { value: "completeness", labelKey: "supplierSortCompleteness" },
 ] as const;
 
-/** 静态 Mock 供应商数据（API 缺失展示字段时兜底填充） */
-function createMockSuppliers(count: number): Supplier[] {
-  const mockData: Array<Partial<Supplier> & { nameZh: string; nameEn: string }> = [
-    { nameZh: "华东新能源制造有限公司", nameEn: "Huadong New Energy Mfg Co.", companyType: "factory", membershipTier: "certified", dataCompleteness: 95, unspscCode: "40101500", certifications: ["ISO 9001", "CE", "TÜV"], capabilityTags: ["准时交付 98%", "24h响应", "可定制"], mainProductsZh: ["光伏组件", "逆变器", "储能系统"], mainProductsEn: ["Solar Panels", "Inverters", "Energy Storage"] },
-    { nameZh: "精密医疗器械工厂", nameEn: "Precision Medical Device Factory", companyType: "factory", membershipTier: "gold", dataCompleteness: 92, unspscCode: "42295100", certifications: ["ISO 13485", "CE", "FDA"], capabilityTags: ["准时交付 97%", "无尘车间", "出口检验"], mainProductsZh: ["手术器械", "耗材", "监护设备"], mainProductsEn: ["Surgical Instruments", "Consumables", "Monitors"] },
-    { nameZh: "工程机械供应商有限公司", nameEn: "Construction Machinery Supplier Ltd", companyType: "trader", membershipTier: "recommended", dataCompleteness: 88, unspscCode: "22101500", certifications: ["ISO 9001", "CE"], capabilityTags: ["准时交付 96%", "备件充足", "全球服务"], mainProductsZh: ["挖掘机", "装载机", "配件"], mainProductsEn: ["Excavators", "Loaders", "Parts"] },
-    { nameZh: "工业泵阀制造有限公司", nameEn: "Industrial Pump & Valve Mfg Co.", companyType: "factory", membershipTier: "certified", dataCompleteness: 91, unspscCode: "40141600", certifications: ["ISO 9001", "API", "CE"], capabilityTags: ["准时交付 97%", "质检严格", "支持定制"], mainProductsZh: ["工业泵", "阀门", "管件"], mainProductsEn: ["Industrial Pumps", "Valves", "Fittings"] },
-    { nameZh: "LED照明科技有限公司", nameEn: "LED Lighting Technology Co.", companyType: "factory", membershipTier: "certified", dataCompleteness: 89, unspscCode: "39111600", certifications: ["ISO 9001", "CE", "RoHS"], capabilityTags: ["准时交付 95%", "研发能力强", "出口经验"], mainProductsZh: ["LED灯具", "驱动电源"], mainProductsEn: ["LED Fixtures", "Drivers"] },
-    { nameZh: "不锈钢材料有限公司", nameEn: "Stainless Steel Materials Co.", companyType: "trader", membershipTier: "certified", dataCompleteness: 86, unspscCode: "30101700", certifications: ["ISO 9001"], capabilityTags: ["准时交付 94%", "现货充足", "切割加工"], mainProductsZh: ["不锈钢板", "管材", "型材"], mainProductsEn: ["SS Sheets", "Pipes", "Profiles"] },
-    { nameZh: "电力设备制造有限公司", nameEn: "Power Equipment Mfg Co.", companyType: "factory", membershipTier: "certified", dataCompleteness: 93, unspscCode: "39121000", certifications: ["ISO 9001", "CE", "CCC"], capabilityTags: ["准时交付 98%", "高压试验", "质保2年"], mainProductsZh: ["变压器", "开关柜", "配电箱"], mainProductsEn: ["Transformers", "Switchgear", "Distribution Boxes"] },
-    { nameZh: "化工原料供应商", nameEn: "Chemical Raw Materials Supplier", companyType: "trader", membershipTier: "certified", dataCompleteness: 87, unspscCode: "12162000", certifications: ["ISO 9001"], capabilityTags: ["准时交付 95%", "MSDS齐全", "危险品资质"], mainProductsZh: ["化工原料", "助剂", "溶剂"], mainProductsEn: ["Chemical Raw Materials", "Additives", "Solvents"] },
-  ];
-
-  return Array.from({ length: count }, (_, i) => {
-    const base = mockData[i % mockData.length];
-    return {
-      id: `mock-${i}`,
-      nameZh: base.nameZh!,
-      nameEn: base.nameEn!,
-      type: (base.companyType === "trader" ? "international" : "domestic") as "domestic" | "international",
-      industryZh: "制造业",
-      industryEn: "Manufacturing",
-      countryZh: "中国",
-      countryEn: "China",
-      cityZh: "上海",
-      cityEn: "Shanghai",
-      mainProductsZh: base.mainProductsZh || ["核心产品"],
-      mainProductsEn: base.mainProductsEn || ["Core Product"],
-      complianceLabelsZh: [],
-      complianceLabelsEn: [],
-      contactPerson: "联系人",
-      contactEmail: "contact@example.com",
-      contactPhone: "+86-21-00000000",
-      status: "approved" as const,
-      companyType: base.companyType,
-      membershipTier: base.membershipTier,
-      dataCompleteness: base.dataCompleteness,
-      unspscCode: base.unspscCode,
-      certifications: base.certifications,
-      capabilityTags: base.capabilityTags,
-    } as Supplier;
-  });
-}
-
-/** 用 mock 数据补全真实 API 返回中缺失的展示字段 */
-function enrichWithMock(items: Supplier[]): Supplier[] {
-  const mocks = createMockSuppliers(items.length);
-  return items.map((s, i) => {
-    const mock = mocks[i % mocks.length];
-    return {
-      ...s,
-      companyType: s.companyType || mock.companyType,
-      membershipTier: s.membershipTier || mock.membershipTier,
-      dataCompleteness: s.dataCompleteness ?? mock.dataCompleteness,
-      unspscCode: s.unspscCode || s.ungmCode || mock.unspscCode,
-      certifications: s.certifications?.length ? s.certifications : s.complianceLabelsZh?.length ? s.complianceLabelsZh : mock.certifications,
-      capabilityTags: s.capabilityTags?.length ? s.capabilityTags : mock.capabilityTags,
-    } as Supplier;
-  });
-}
-
 export default function SupplierPage() {
   const { t, locale } = useLocale();
   const { isVip } = useAuth();
@@ -128,8 +67,7 @@ export default function SupplierPage() {
     pageSize: 8,
   });
 
-  // ─ Mock 字段补全 ──
-  const suppliers = useMemo(() => enrichWithMock(rawSuppliers), [rawSuppliers]);
+  const suppliers = rawSuppliers;
 
   // ── 弹窗状态 ──
   const [showRegisterModal, setShowRegisterModal] = useState(false);

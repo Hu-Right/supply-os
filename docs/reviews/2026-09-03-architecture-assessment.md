@@ -134,3 +134,5 @@
 | 9 | D2-2 | 高内聚低耦合 | CRM Chat 6 个路由下沉 Service 层 | 新增 `lib/services/chat-service.ts`；6 个 route 不再 import repo |
 | 10 | D2-2 | 高内聚低耦合 | Learning 3 个路由下沉 Service 层 | 新增 `lib/services/learning-service.ts`；3 个 route 不再 import repo |
 | 11 | D4-1 | 组件规范 | QualificationFormFields 类型/常量提取 | 新增 `shared/forms/qualification-form-types.ts`；401→298 行 |
+| 12 | D2-2 | 高内聚低耦合 | Notice 6 个路由下沉 Service 层 | 新增 `lib/services/notice-service.ts`；6 个 route 不再 import repo |
+| 13 | D4-1 | 组件规范 | SupplierProfilePage 拆分 6 个 Tab 面板 | 新增 `ProfileTabPanels.tsx`；501→222 行 |
