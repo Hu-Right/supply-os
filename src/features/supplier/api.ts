@@ -158,9 +158,10 @@ export async function fetchCertifications(): Promise<CertificationItem[]> {
 /** 供应商统计数据 */
 export interface SupplierStats {
   searchable: number;
-  registered: number;
+  verified: number;
   withCertification: number;
   international: number;
+  registered: number;
 }
 
 /**

@@ -115,8 +115,8 @@ export default function SupplierPage() {
   // ── 统计墙：真实数据 + 数字动画 ──
   const realStats = useSupplierStats();
   const animSearchable = useCountUp(realStats.searchable);
+  const animVerified = useCountUp(realStats.verified);
   const animRegistered = useCountUp(realStats.registered);
-  const animVerified = useCountUp(realStats.withCertification);
   const animUnspsc = useCountUp(realStats.international);
 
   return (

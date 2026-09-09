@@ -18,6 +18,7 @@ export async function GET() {
     console.error("[suppliers/stats GET]", err);
     return NextResponse.json({
       searchable: 0,
+      verified: 0,
       withCertification: 0,
       international: 0,
       registered: 0,

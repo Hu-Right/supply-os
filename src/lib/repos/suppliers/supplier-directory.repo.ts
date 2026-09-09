@@ -122,10 +122,14 @@ export class SupplierDirectoryRepo {
   /** 供应商统计（用于统计墙） */
   async getStats(): Promise<{
     searchable: number;
+    verified: number;
     withCertification: number;
     international: number;
   }> {
-    const [searchableRows] = await this.pool.query(
+    const [allRows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier",
+    );
+    const [verifiedRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND merged_id IS NULL",
     );
     const [certRows] = await this.pool.query(
@@ -135,7 +139,8 @@ export class SupplierDirectoryRepo {
       "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL",
     );
     return {
-      searchable: (searchableRows as any[])[0]?.total ?? 0,
+      searchable: (allRows as any[])[0]?.total ?? 0,
+      verified: (verifiedRows as any[])[0]?.total ?? 0,
       withCertification: (certRows as any[])[0]?.total ?? 0,
       international: (intlRows as any[])[0]?.total ?? 0,
     };

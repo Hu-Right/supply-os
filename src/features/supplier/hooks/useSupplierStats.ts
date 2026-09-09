@@ -10,9 +10,10 @@ import { fetchSupplierStats, type SupplierStats } from "../api";
 
 const INITIAL_STATS: SupplierStats = {
   searchable: 0,
-  registered: 0,
+  verified: 0,
   withCertification: 0,
   international: 0,
+  registered: 0,
 };
 
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
