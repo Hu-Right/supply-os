@@ -16,7 +16,8 @@ export async function GET(
 ) {
   const { id } = await params;
   const lang = _req.nextUrl.searchParams.get("lang")?.toLowerCase() || "zh";
-  const numericId = Number(id);
+  // ID 格式：前端为 "sup-db-{numeric}" 或纯数字，提取数字部分
+  const numericId = Number(id.replace(/^sup-db-/, ""));
 
   if (!Number.isFinite(numericId) || numericId < 1) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });

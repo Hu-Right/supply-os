@@ -184,16 +184,6 @@ export default function SupplierPage() {
     <div className="space-y-6">
       <LoadingOverlay visible={loading && firstLoadDoneRef.current} />
 
-      {/* ═══ 深色页头 ══ */}
-      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-6">
-        <h2 className="text-xl md:text-2xl font-extrabold text-white">
-          {t("supplierPageTitle")}
-          <span className="text-base font-bold text-slate-300 ml-2">|</span>
-          <span className="text-base font-bold text-slate-300 ml-2">{t("supplierPageSubtitle")}</span>
-        </h2>
-        <p className="text-slate-400 text-xs mt-2">{t("supplierPageDesc")}</p>
-      </section>
-
       {/* ═══ 统计墙 ═══ */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
