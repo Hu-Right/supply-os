@@ -79,10 +79,10 @@ export function hasDraftProgress(form: RfqFormState): boolean {
   return Boolean(
     form.title.trim() ||
     form.description.trim() ||
-    form.quantity.trim() ||
-    form.specs.some((s) => s.name.trim() || s.value.trim()) ||
     form.countries.length > 0 ||
-    form.attachments.length > 0,
+    form.attachments.length > 0 ||
+    form.budgetMin.trim() ||
+    form.deadline,
   );
 }
 

@@ -63,16 +63,6 @@ export const TARGET_COUNTRIES: { zh: string; en: string }[] = [
   { zh: "美国", en: "United States" },
 ];
 
-/** 类目 → 规格参数名预置（二级类目命中时预填首行） */
-export const SPEC_PRESETS: Record<string, string[]> = {
-  光伏组件: ["功率(W)", "尺寸(mm)", "转换效率"],
-  医疗耗材: ["型号", "灭菌方式", "注册证号"],
-  医疗设备: ["型号", "技术参数", "注册证号"],
-  储能设备: ["容量(kWh)", "电压(V)", "循环寿命"],
-  工程机械整机: ["型号", "吨位/功率", "排放标准"],
-  基础化工原料: ["纯度", "包装规格", "执行标准"],
-};
-
 /** 表单默认值（草稿恢复与重置共用） */
 export const DEFAULT_RFQ_FORM: RfqFormState = {
   title: "",
@@ -80,24 +70,18 @@ export const DEFAULT_RFQ_FORM: RfqFormState = {
   categoryL2: "",
   purchaseType: "once",
   description: "",
-  quantity: "",
-  unit: "件",
-  specs: [{ name: "", value: "" }],
-  certs: [],
-  attachments: [],
-  needSample: false,
   budgetMin: "",
   budgetMax: "",
   currency: "USD",
   budgetConfidential: false,
   countries: [],
   incoterm: "",
-  destination: "",
   deliveryTime: "",
   paymentTerms: [],
   deadline: "",
-  supplierReqs: [],
   visibility: "public",
+  supplierReqs: [],
+  attachments: [],
   contactName: "",
   contactEmail: "",
   contactPhone: "",

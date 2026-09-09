@@ -12,4 +12,4 @@ export { RfqPlaza } from "./components/RfqPlaza";
 export { ResponseFlow } from "./components/ResponseFlow";
 export { useRfqDraft, hasDraftProgress, mergeDraftWithDefaults } from "./hooks/useRfqDraft";
 export { DEFAULT_RFQ_FORM, RFQ_DRAFT_KEY } from "./constants";
-export type { RfqFormState, PlazaRfq, SpecRow, AttachmentItem } from "./types";
+export type { RfqFormState, PlazaRfq, AttachmentItem } from "./types";

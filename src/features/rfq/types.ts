@@ -4,14 +4,9 @@
  *
  * @module features/rfq/types
  * @description 发布向导表单状态、需求广场卡片等数据结构。
+ *              三步流程：需求概要 → 商务条款 → 发布设置。
  *              P1 接入后端后，RfqFormState 即 createRfq 的请求体基线。
  */
-
-/** 规格参数键值行 */
-export interface SpecRow {
-  name: string;
-  value: string;
-}
 
 /** 附件元数据（前端校验通过后的待上传项；P1 换预签名直传） */
 export interface AttachmentItem {
@@ -26,7 +21,7 @@ export type PurchaseType = "once" | "framework" | "longterm";
 /** 可见范围 */
 export type RfqVisibility = "public" | "targeted";
 
-/** 发布向导表单状态（四步收集的完整字段集） */
+/** 发布向导表单状态（三步收集的完整字段集） */
 export interface RfqFormState {
   // Step 1 需求概要
   title: string;
@@ -34,27 +29,20 @@ export interface RfqFormState {
   categoryL2: string;
   purchaseType: PurchaseType;
   description: string;
-  // Step 2 数量规格
-  quantity: string;
-  unit: string;
-  specs: SpecRow[];
-  certs: string[];
-  attachments: AttachmentItem[];
-  needSample: boolean;
-  // Step 3 采购条款
+  // Step 2 商务条款
   budgetMin: string;
   budgetMax: string;
   currency: string;
   budgetConfidential: boolean;
   countries: string[];
   incoterm: string;
-  destination: string;
   deliveryTime: string;
   paymentTerms: string[];
   deadline: string;
-  supplierReqs: string[];
-  // Step 4 发布确认
+  // Step 3 发布设置
   visibility: RfqVisibility;
+  supplierReqs: string[];
+  attachments: AttachmentItem[];
   contactName: string;
   contactEmail: string;
   contactPhone: string;
