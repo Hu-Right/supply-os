@@ -14,7 +14,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { signChatTicket } from "@/lib/services/chatTicket";
-import { sessionOwnedBy } from "@/lib/repos/chat.repo";
+import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { z } from "zod";
 import { CHAT_TICKET_TTL_MS, ONE_MINUTE_MS } from "@/shared/constants/time";
