@@ -10,9 +10,6 @@ import { SERVICES } from "@/data/services";
 import { ServicesHero } from "../components/ServicesHero";
 import { ServiceCardGrid } from "../components/ServiceCardGrid";
 import { TrustBar } from "../components/TrustBar";
-import { CoreModules } from "../components/CoreModules";
-import { MonetizationActions } from "../components/MonetizationActions";
-import { ValueCards } from "../components/ValueCards";
 
 export default function ServicesPage() {
   return (
@@ -25,15 +22,6 @@ export default function ServicesPage() {
 
       {/* 信任条 */}
       <TrustBar />
-
-      {/* 核心内容模块 */}
-      <CoreModules />
-
-      {/* 变现动作 */}
-      <MonetizationActions />
-
-      {/* 底部价值卡片 + 标语 */}
-      <ValueCards />
     </div>
   );
 }
