@@ -112,11 +112,10 @@ export default function SupplierPage() {
     setSearchTerm(""); setIndustry(""); setPage(1);
   };
 
-  // ── 统计墙：真实数据 + 数字动画 ──
+  // ── 统计墙：真实数据 + 数字动画 ─
   const realStats = useSupplierStats();
   const animSearchable = useCountUp(realStats.searchable);
   const animVerified = useCountUp(realStats.verified);
-  const animRegistered = useCountUp(realStats.registered);
   const animUnspsc = useCountUp(realStats.international);
 
   return (
@@ -124,10 +123,9 @@ export default function SupplierPage() {
       <LoadingOverlay visible={loading && firstLoadDoneRef.current} />
 
       {/* ═══ 统计墙 ═══ */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { value: animSearchable, label: t("supplierStatSearchable") },
-          { value: animRegistered, label: t("supplierStatRegistered") },
           { value: animVerified, label: t("supplierStatVerified") },
           { value: animUnspsc, label: t("supplierStatUnspsc") },
         ].map((s) => (
