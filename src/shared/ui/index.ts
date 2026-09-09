@@ -53,6 +53,9 @@ export type { SpinnerProps } from "./Spinner";
 export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
 
+export { PageErrorFallback } from "./PageErrorFallback";
+export type { PageErrorFallbackProps } from "./PageErrorFallback";
+
 export { Pagination } from "./Pagination";
 export type { PaginationProps, PaginationLabels } from "./Pagination";
 

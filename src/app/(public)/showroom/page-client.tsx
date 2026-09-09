@@ -10,6 +10,7 @@ import {
   FileText, Truck, Shield, TrendingUp,
   ArrowRight, CheckCircle2, Globe, Building2,
 } from "lucide-react";
+import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 
 /* ── Mock Data ── */
 const STATS = [
@@ -77,6 +78,7 @@ const PARTNERS = [
 
 export default function PageClient() {
   return (
+    <ErrorBoundary fallback={<PageErrorFallback />}>
     <div className="min-h-screen bg-slate-50">
       {/* ── Hero Section ── */}
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 px-4 sm:px-6 lg:px-8 py-12">
@@ -191,5 +193,6 @@ export default function PageClient() {
         </section>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

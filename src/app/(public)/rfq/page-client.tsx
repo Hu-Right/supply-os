@@ -13,6 +13,7 @@ import {
   Send, FileText, Clock, Shield, ChevronDown, Building2,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 
 /* ── Mock RFQ 数据 ─ */
 interface RfqItem {
@@ -57,6 +58,7 @@ export default function PageClient() {
   };
 
   return (
+    <ErrorBoundary fallback={<PageErrorFallback />}>
     <div className="space-y-6">
       {/* ══ 深色页头 ═══ */}
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-8">
@@ -193,5 +195,6 @@ export default function PageClient() {
         })}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

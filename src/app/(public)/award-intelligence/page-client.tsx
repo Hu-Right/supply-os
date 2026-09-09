@@ -11,6 +11,7 @@ import {
   DollarSign, PieChart, Users, Bell, Search,
   ArrowRight, Star,
 } from "lucide-react";
+import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 
 /* ── Mock Data ── */
 const STATS = [
@@ -167,6 +168,7 @@ export default function PageClient() {
   const [searchQuery, setSearchQuery] = useState("");
 
   return (
+    <ErrorBoundary fallback={<PageErrorFallback />}>
     <div className="min-h-screen bg-slate-50">
       {/* ── Page Header ── */}
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 px-4 sm:px-6 lg:px-8 py-10">
@@ -321,5 +323,6 @@ export default function PageClient() {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

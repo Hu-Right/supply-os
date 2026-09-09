@@ -13,7 +13,7 @@
 import dynamic from "next/dynamic";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { Button } from "@/shared/ui";
+import { Button, ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { Briefcase, BarChart3, Calendar, FileText, Users } from "lucide-react";
 
@@ -121,6 +121,10 @@ export default function CrmPageClient() {
     return <CrmLandingPage />;
   }
 
-  // 已登录 → 加载 CRM 仪表盘
-  return <CrmDashboard />;
+  // 已登录 → 加载 CRM 仪表盘（ErrorBoundary 防止子组件渲染异常导致白屏）
+  return (
+    <ErrorBoundary fallback={<PageErrorFallback />}>
+      <CrmDashboard />
+    </ErrorBoundary>
+  );
 }
