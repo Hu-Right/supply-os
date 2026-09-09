@@ -9,37 +9,12 @@
  * @module app/api/learning/materials/route
  */
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
+import { listMaterials } from "@/lib/services/learning-service";
 
 export async function GET() {
   try {
-    const pool = getPool();
-    const repo = new LearningMaterialsRepo(pool);
-    const materials = await repo.findAll();
-
-    return NextResponse.json({
-      materials: materials.map((m) => {
-        const premium = m.is_premium === 1;
-        return {
-          id: m.material_id,
-          titleZh: m.title_zh,
-          titleEn: m.title_en,
-          categoryZh: m.category_zh,
-          categoryEn: m.category_en,
-          summaryZh: m.summary_zh,
-          summaryEn: m.summary_en,
-          contentZh: premium ? "" : (m.content_zh ?? ""),
-          contentEn: premium ? "" : (m.content_en ?? ""),
-          isPremium: premium,
-          downloadsCount: m.downloads_count,
-          number: m.number,
-          price: Number(m.price),
-          fileUrl: premium ? "" : m.file_url,
-          fileName: premium ? "" : m.file_name,
-        };
-      }),
-    });
+    const materials = await listMaterials();
+    return NextResponse.json({ materials });
   } catch {
     return NextResponse.json({ materials: [] }, { status: 500 });
   }
