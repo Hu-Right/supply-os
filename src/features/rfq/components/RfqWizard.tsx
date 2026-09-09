@@ -17,9 +17,10 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/shared/utils";
-import { Button, ChipToggleGroup, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
+import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Select, Textarea } from "@/shared/ui";
 import { GetCountries, GetState, GetCity } from "react-country-state-city";
 import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
+import worldCountries from "world-countries";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
@@ -29,6 +30,13 @@ import type { FieldErrors, PurchaseType, RfqFormState } from "../types";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp";
+
+/** 英文名 → 中文名映射（从 world-countries 构建） */
+const EN_TO_ZH: Record<string, string> = Object.fromEntries(
+  worldCountries
+    .filter((c) => c.status === "officially-assigned")
+    .map((c) => [c.name.common, c.translations.zho?.common ?? c.name.common]),
+);
 
 /** 需求描述默认模板（引导用户填写关键信息） */
 const DESCRIPTION_TEMPLATE = `【采购背景】
@@ -411,59 +419,47 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
 
           <Field label="交付地点" required error={errors.country}>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <select
-                value={form.countryId ?? ""}
-                onChange={(e) => {
-                  const id = Number(e.target.value);
-                  const c = countriesList.find((x) => x.id === id);
-                  update("countryId", id || null);
-                  update("countryName", c?.name ?? "");
+              <SearchableSelect
+                options={countriesList.map((c) => ({
+                  value: c.id,
+                  label: `${c.emoji} ${EN_TO_ZH[c.name] ?? c.name}`,
+                }))}
+                value={form.countryId}
+                onChange={(id) => {
+                  const c = countriesList.find((x) => x.id === Number(id));
+                  update("countryId", id ? Number(id) : null);
+                  update("countryName", c ? (EN_TO_ZH[c.name] ?? c.name) : "");
                   update("stateId", null);
                   update("stateName", "");
                   update("cityId", null);
                   update("cityName", "");
                 }}
-                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              >
-                <option value="">选择国家</option>
-                {countriesList.map((c) => (
-                  <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
-                ))}
-              </select>
-              <select
-                value={form.stateId ?? ""}
-                onChange={(e) => {
-                  const id = Number(e.target.value);
-                  const s = statesList.find((x) => x.id === id);
-                  update("stateId", id || null);
+                placeholder="搜索国家"
+              />
+              <SearchableSelect
+                options={statesList.map((s) => ({ value: s.id, label: s.name }))}
+                value={form.stateId}
+                onChange={(id) => {
+                  const s = statesList.find((x) => x.id === Number(id));
+                  update("stateId", id ? Number(id) : null);
                   update("stateName", s?.name ?? "");
                   update("cityId", null);
                   update("cityName", "");
                 }}
+                placeholder={form.countryId ? "搜索省/州" : "先选国家"}
                 disabled={!form.countryId}
-                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
-              >
-                <option value="">{form.countryId ? "选择省/州" : "先选国家"}</option>
-                {statesList.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <select
-                value={form.cityId ?? ""}
-                onChange={(e) => {
-                  const id = Number(e.target.value);
-                  const c = citiesList.find((x) => x.id === id);
-                  update("cityId", id || null);
+              />
+              <SearchableSelect
+                options={citiesList.map((c) => ({ value: c.id, label: c.name }))}
+                value={form.cityId}
+                onChange={(id) => {
+                  const c = citiesList.find((x) => x.id === Number(id));
+                  update("cityId", id ? Number(id) : null);
                   update("cityName", c?.name ?? "");
                 }}
+                placeholder={form.stateId ? "搜索城市" : "先选省/州"}
                 disabled={!form.stateId}
-                className="w-full rounded-lg border border-secondary-200 bg-secondary-50 px-3 py-2 text-sm text-secondary-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
-              >
-                <option value="">{form.stateId ? "选择城市" : "先选省/州"}</option>
-                {citiesList.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              />
             </div>
             {form.countryName && (
               <p className="text-2xs text-secondary-500 mt-1.5">
