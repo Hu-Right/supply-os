@@ -142,6 +142,19 @@ export async function fetchSupplierById(lang: string, id: string): Promise<Suppl
   return api<Supplier>(`/api/suppliers/${encodeURIComponent(id)}?lang=${encodeURIComponent(lang)}`);
 }
 
+/** 认证资质参考项 */
+export interface CertificationItem {
+  id: number;
+  name: string;
+}
+
+/**
+ * 查询认证资质参考列表（crm_supplier_certifications 表）
+ */
+export async function fetchCertifications(): Promise<CertificationItem[]> {
+  return api<CertificationItem[]>("/api/certifications");
+}
+
 /**
  * 查询供应商明文联系方式（VIP 专属，403 抛 VIP_REQUIRED）
  * Fetch plaintext supplier contact (VIP only)
