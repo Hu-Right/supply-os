@@ -67,7 +67,12 @@ function tomorrowIso(): string {
 }
 
 export function RfqWizard({ initialData, authContact, onDataChange, onPublished }: RfqWizardProps) {
-  const [form, setForm] = useState<RfqFormState>(initialData);
+  // 描述为空时预填模板（让用户看到结构和提示）
+  const initialForm: RfqFormState = {
+    ...initialData,
+    description: initialData.description || DESCRIPTION_TEMPLATE,
+  };
+  const [form, setForm] = useState<RfqFormState>(initialForm);
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [termsOpen, setTermsOpen] = useState(false);
@@ -339,10 +344,10 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
           <Field label="需求描述" required error={errors.description} htmlFor="rfq-desc"
             counter={`${form.description.length}/2000`}
             hint="建议包含：用途、技术要求、验收标准">
-            <Textarea id="rfq-desc" rows={8} maxLength={2000} value={form.description}
+            <Textarea id="rfq-desc" rows={12} maxLength={2000} value={form.description}
               error={!!errors.description}
               onChange={(e) => update("description", e.target.value)}
-              placeholder={DESCRIPTION_TEMPLATE}
+              placeholder="请在此填写您的采购需求…"
               className="resize-none" />
           </Field>
         </div>
