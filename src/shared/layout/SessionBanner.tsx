@@ -26,11 +26,9 @@ type BannerConfig = {
 
 /** 路由 → 横幅文案配置（对齐远端各 Tab 标题/副标题） */
 const BANNER_BY_PATH: Record<string, BannerConfig> = {
-  "/showroom": { titleKey: "showroomTitle", descKey: "showroomSubTitle" },
   "/procurement": { titleKey: "procurementNoticePoolTitle" },
   "/supplier": { titleKey: "supplierMgmtTitle", descKey: "tabSupplierDesc" },
   "/crm": { titleKey: "crmDashboard", descKey: "tabCrmDesc" },
-  "/services": { titleKey: "serviceEcoTitle", descKey: "ecosystemsSummary" },
   "/learning": { titleKey: "learningTitle", descKey: "tabLearningDesc" },
 };
 
