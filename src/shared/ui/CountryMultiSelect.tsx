@@ -3,14 +3,14 @@
  * Searchable Multi-Select Country Picker
  *
  * @module shared/ui/CountryMultiSelect
- * @description 从服务端 API 获取国家列表，支持搜索过滤和多选。
+ * @description 基于 world-countries（ISO 3166）官方数据，支持搜索过滤和多选。
  *              选中项以芯片形式展示，可单独删除。
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
-import { api } from "@/core/http";
 import { cn } from "@/shared/utils";
+import countriesData, { type Country } from "world-countries";
 
 interface CountryMultiSelectProps {
   value: string[];
@@ -20,9 +20,30 @@ interface CountryMultiSelectProps {
 }
 
 interface CountryItem {
+  /** ISO 3166-1 alpha-2 代码 */
+  code: string;
+  /** 英文通用名 */
   en: string;
+  /** 中文通用名 */
   zh: string;
+  /** 国旗 emoji */
+  flag: string;
 }
+
+/** 从 world-countries 提取干净的国家列表（仅保留正式分配的国家） */
+function buildCountryList(): CountryItem[] {
+  return countriesData
+    .filter((c) => c.status === "officially-assigned" || c.status === "user-assigned")
+    .map((c: Country) => ({
+      code: c.cca2,
+      en: c.name.common,
+      zh: c.translations.zho?.common ?? c.name.common,
+      flag: c.flag,
+    }))
+    .sort((a, b) => a.zh.localeCompare(b.zh, "zh"));
+}
+
+const COUNTRY_LIST = buildCountryList();
 
 export function CountryMultiSelect({
   value,
@@ -30,30 +51,9 @@ export function CountryMultiSelect({
   placeholder = "请选择国家/地区",
   className,
 }: CountryMultiSelectProps) {
-  const [countries, setCountries] = useState<CountryItem[]>([]);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // 获取国家列表
-  useEffect(() => {
-    let cancelled = false;
-    api<{ countries: Record<string, string>; zhToEn: Record<string, string> }>(
-      "/api/catalog/country-name-map",
-    )
-      .then((data) => {
-        if (cancelled) return;
-        const list: CountryItem[] = Object.entries(data.countries || {}).map(([en, zh]) => ({
-          en,
-          zh,
-        }));
-        // 按中文名排序
-        list.sort((a, b) => a.zh.localeCompare(b.zh, "zh"));
-        setCountries(list);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
 
   // 点击外部关闭下拉
   useEffect(() => {
@@ -67,28 +67,29 @@ export function CountryMultiSelect({
   }, []);
 
   // 过滤国家列表
-  const filtered = countries.filter((c) => {
-    if (!search) return true;
+  const filtered = useMemo(() => {
+    if (!search) return COUNTRY_LIST;
     const kw = search.toLowerCase();
-    return c.zh.toLowerCase().includes(kw) || c.en.toLowerCase().includes(kw);
-  }).slice(0, 100); // 限制显示数量
+    return COUNTRY_LIST.filter(
+      (c) => c.zh.toLowerCase().includes(kw) || c.en.toLowerCase().includes(kw) || c.code.toLowerCase().includes(kw),
+    );
+  }, [search]);
 
-  function toggleCountry(en: string) {
-    if (value.includes(en)) {
-      onChange(value.filter((v) => v !== en));
+  function toggleCountry(code: string) {
+    if (value.includes(code)) {
+      onChange(value.filter((v) => v !== code));
     } else {
-      onChange([...value, en]);
+      onChange([...value, code]);
     }
   }
 
-  function removeCountry(en: string) {
-    onChange(value.filter((v) => v !== en));
+  function removeCountry(code: string) {
+    onChange(value.filter((v) => v !== code));
   }
 
-  // 获取已选国家的中文名
-  function getCountryZh(en: string): string {
-    const c = countries.find((x) => x.en === en);
-    return c?.zh || en;
+  // 获取已选国家的显示信息
+  function getCountryInfo(code: string): CountryItem | undefined {
+    return COUNTRY_LIST.find((c) => c.code === code);
   }
 
   return (
@@ -96,21 +97,25 @@ export function CountryMultiSelect({
       {/* 已选国家芯片 */}
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
-          {value.map((en) => (
-            <span
-              key={en}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs font-bold text-teal-700"
-            >
-              {getCountryZh(en)}
-              <button
-                type="button"
-                onClick={() => removeCountry(en)}
-                className="text-teal-500 hover:text-teal-700"
+          {value.map((code) => {
+            const info = getCountryInfo(code);
+            return (
+              <span
+                key={code}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200 text-xs font-bold text-teal-700"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
+                <span>{info?.flag}</span>
+                {info?.zh || code}
+                <button
+                  type="button"
+                  onClick={() => removeCountry(code)}
+                  className="text-teal-500 hover:text-teal-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -149,20 +154,21 @@ export function CountryMultiSelect({
               </div>
             ) : (
               filtered.map((c) => {
-                const selected = value.includes(c.en);
+                const selected = value.includes(c.code);
                 return (
                   <button
-                    key={c.en}
+                    key={c.code}
                     type="button"
-                    onClick={() => toggleCountry(c.en)}
+                    onClick={() => toggleCountry(c.code)}
                     className={cn(
                       "w-full px-3 py-2 text-sm text-left flex items-center justify-between gap-2 hover:bg-teal-50 transition-colors",
                       selected && "bg-teal-50 text-teal-700 font-semibold",
                     )}
                   >
-                    <span className="truncate">
-                      {c.zh}
-                      <span className="text-xs text-secondary-400 ml-1.5 font-normal">{c.en}</span>
+                    <span className="truncate flex items-center gap-2">
+                      <span>{c.flag}</span>
+                      <span>{c.zh}</span>
+                      <span className="text-xs text-secondary-400 font-normal">{c.en}</span>
                     </span>
                     {selected && <span className="text-teal-600 text-xs">✓</span>}
                   </button>
