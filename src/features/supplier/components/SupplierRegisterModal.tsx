@@ -14,7 +14,7 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { FormModal, Button } from "@/shared/ui";
-import { submitSupplierQualification } from "@/features/procurement/api/qualification";
+import { submitSupplierQualification } from "@/features/procurement";
 import { ApiError } from "@/core/http";
 import {
   QualificationFormFields,

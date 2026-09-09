@@ -11,7 +11,7 @@ import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { CountryFlag } from "@/shared/ui";
-import { noticeTypeKey } from "@/features/procurement/notice-type";
+import { noticeTypeKey } from "@/shared/utils/notice-type";
 import {
   displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel,
   type NoticeDisplayFields,

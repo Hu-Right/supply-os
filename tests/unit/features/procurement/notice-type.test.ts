@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { noticeTypeKey } from "@/features/procurement/notice-type";
+import { noticeTypeKey } from "@/shared/utils/notice-type";
 
 describe("noticeTypeKey — 短代码精确匹配", () => {
   it("ITB → procurement_type_itb", () => {

@@ -8,4 +8,7 @@
  */
 
 export { default as SupplierPage } from "./pages/SupplierPage";
-export { fetchSuppliers } from "./api";
+export { fetchSuppliers, fetchSupplierById, fetchSupplierContact } from "./api";
+export type { SupplierContact } from "./api";
+export { SupplierContactModal } from "./components/SupplierContactModal";
+export type { SupplierContactModalProps, SupplierContactStatus } from "./components/SupplierContactModal";

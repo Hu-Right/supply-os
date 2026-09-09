@@ -11,7 +11,7 @@ import {
   Crown, Search, Unlock, Filter, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/core/auth";
-import { useMembershipStatus } from "@/features/membership/hooks/useMembershipStatus";
+import { useMembershipStatus } from "@/features/membership";
 
 /** 会员升级横幅（根据登录态差异化） */
 export const UpgradeBanner = memo(function UpgradeBanner() {
