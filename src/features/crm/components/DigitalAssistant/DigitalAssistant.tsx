@@ -276,25 +276,9 @@ export function DigitalAssistant({
 
             {/* ── 对话区域 ── */}
             <ChatWindow
-              messages={messages}
-              mode={mode}
-              isThinking={isThinking}
-              onSend={sendMessage}
-              onQuickAction={triggerQuickAction}
-              queueInfo={queueInfo}
-              pendingRating={pendingRating}
-              onSubmitRating={submitRating}
-              onSkipRating={skipRating}
-              matchPhase={matchPhase}
-              matchReport={matchReport}
-              suppliers={suppliers}
-              opportunities={OPPORTUNITIES}
-              matchSupplier={matchSupplier}
-              matchOpportunity={matchOpportunity}
-              onSetMatchSupplier={setMatchSupplier}
-              onSetMatchOpportunity={setMatchOpportunity}
-              onTriggerMatch={triggerMatch}
-              onResetMatch={resetMatch}
+              chatState={{ messages, mode, isThinking }}
+              chatActions={{ onSend: sendMessage, onQuickAction: triggerQuickAction, queueInfo, pendingRating, onSubmitRating: submitRating, onSkipRating: skipRating }}
+              matchProps={{ matchPhase, matchReport, suppliers, opportunities: OPPORTUNITIES, matchSupplier, matchOpportunity, onSetMatchSupplier: setMatchSupplier, onSetMatchOpportunity: setMatchOpportunity, onTriggerMatch: triggerMatch, onResetMatch: resetMatch }}
             />
           </div>
         </>
