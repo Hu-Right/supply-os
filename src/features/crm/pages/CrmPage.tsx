@@ -1,51 +1,24 @@
 /**
- * AI投标工作台/CRM 页面 — 100% 还原设计图
- * AI Bidding Workspace / CRM Page
+ * AI投标工作台/CRM 页面 — 容器组件
+ * AI Bidding Workspace / CRM Page — Container
  *
  * @module features/crm/pages/CrmPage
- * @description 左侧导航 + 顶部4统计卡 + 商机漏斗/AI Bid-NoBid双栏 + 底部4功能卡。
- *              登录态工作台，展示企业投标全流程管理。
+ * @description D4-2 容器/展示分离重构：CrmPage 仅编排子组件顺序，
+ *              不含静态数据和内联 UI。子组件：CrmSidebar / CrmFunnelChart /
+ *              CrmFeatureCards / DigitalAssistant + 内联统计卡/AI评估区。
  */
 import { useLocale } from "@/core/i18n";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, Briefcase, Sparkles, CalendarDays,
-  Users, FolderOpen, Headphones, Settings,
-  TrendingUp, Clock, CheckSquare, FileText,
-  ChevronDown, Info,
+  Briefcase, Clock, CheckSquare, TrendingUp,
+  Sparkles, Info, ChevronDown,
 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";
 import { DigitalAssistant } from "../components/DigitalAssistant/DigitalAssistant";
-
-/* ── 左侧导航项 ── */
-const NAV_ITEMS = [
-  { key: "overview", label: "工作概览", icon: LayoutDashboard },
-  { key: "opportunities", label: "我的商机", icon: Briefcase },
-  { key: "ai-eval", label: "AI评估", icon: Sparkles },
-  { key: "calendar", label: "截止日历", icon: CalendarDays },
-  { key: "tasks", label: "团队任务", icon: Users },
-  { key: "files", label: "文件中心", icon: FolderOpen },
-  { key: "consultant", label: "顾问协同", icon: Headphones },
-  { key: "settings", label: "企业设置", icon: Settings },
-];
-
-/* ── 商机漏斗数据 ── */
-const FUNNEL_DATA = [
-  { label: "新匹配", value: 23, color: "bg-teal-500" },
-  { label: "已收藏", value: 12, color: "bg-teal-400" },
-  { label: "评估中", value: 7, color: "bg-teal-300" },
-  { label: "准备投标", value: 3, color: "bg-teal-200" },
-  { label: "已提交", value: 1, color: "bg-teal-100" },
-];
-
-/* ── 底部功能卡 ── */
-const FEATURE_CARDS = [
-  { icon: CalendarDays, title: "截止日历", lines: ["7天内 7 个截止", "本月 23 个截止"] },
-  { icon: CheckSquare, title: "团队任务", lines: ["待办 5 个任务", "已完成 12 个"] },
-  { icon: FileText, title: "文件中心", lines: ["投标文件 128 份", "共享文件 32 份"] },
-  { icon: Headphones, title: "顾问协同", lines: ["在线顾问 3 位", "咨询记录 18 条"] },
-];
+import { CrmSidebar } from "../components/CrmSidebar";
+import { CrmFunnelChart } from "../components/CrmFunnelChart";
+import { CrmFeatureCards } from "../components/CrmFeatureCards";
 
 export default function CrmPage() {
   const { t } = useLocale();
@@ -75,52 +48,10 @@ export default function CrmPage() {
     triggerAiMatchmaking,
   } = useCrmData({ autoMatchSupplier });
 
-  const maxFunnel = Math.max(...FUNNEL_DATA.map((f) => f.value));
-
   return (
     <div className="flex min-h-screen bg-slate-50">
       {/* ═══ 左侧导航栏 ═══ */}
-      <aside className="w-56 shrink-0 bg-slate-900 text-white flex flex-col">
-        <div className="p-4">
-          <h2 className="text-lg font-extrabold">AI投标工作台</h2>
-        </div>
-        <nav className="flex-1 px-2 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeNav === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => setActiveNav(item.key)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-teal-600 text-white"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-        {/* AI额度 + 团队 + 升级 */}
-        <div className="p-4 space-y-4 border-t border-white/10">
-          <div>
-            <p className="text-xs text-slate-400 mb-1">本月AI额度</p>
-            <p className="text-sm font-bold text-white">已用 58 / 100 次</p>
-            <div className="mt-1.5 h-2 rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full w-[58%] rounded-full bg-teal-500" />
-            </div>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">团队成员 <span className="text-white font-bold">6/20</span></p>
-          </div>
-          <button className="w-full bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold py-2.5 rounded-lg transition-colors">
-            升级企业版<br />解锁更多能力
-          </button>
-        </div>
-      </aside>
+      <CrmSidebar activeNav={activeNav} onNavChange={setActiveNav} />
 
       {/* ═══ 主内容区 ═══ */}
       <main className="flex-1 p-6 space-y-6 overflow-y-auto">
@@ -152,29 +83,7 @@ export default function CrmPage() {
 
         {/* 双栏：商机漏斗 + AI Bid/No-Bid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 左：我的商机漏斗 */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-extrabold text-slate-900">我的商机漏斗</h3>
-              <button className="text-xs text-slate-500 flex items-center gap-1">
-                全部国家 <ChevronDown className="w-3 h-3" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              {FUNNEL_DATA.map((item) => (
-                <div key={item.label} className="flex items-center gap-3">
-                  <span className="w-16 text-sm font-bold text-slate-700 shrink-0">{item.label}</span>
-                  <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full transition-all`}
-                      style={{ width: `${(item.value / maxFunnel) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-8 text-right text-sm font-extrabold text-slate-900">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <CrmFunnelChart />
 
           {/* 右：AI Bid / No-Bid */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
@@ -224,7 +133,6 @@ export default function CrmPage() {
                 ))}
               </div>
             </div>
-            {/* AI报告展示 */}
             {aiReport && (
               <div className="mt-4 p-4 rounded-lg bg-slate-50 border border-slate-200">
                 <p className="text-xs font-bold text-slate-700 mb-2">AI 评估报告</p>
@@ -235,26 +143,7 @@ export default function CrmPage() {
         </div>
 
         {/* 底部4功能卡 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900 mb-1">截止日历 / 团队任务 / 文件中心 / 顾问协同</h3>
-          <p className="text-xs text-slate-500 mb-4">CRM属于登录后的工作台，不再作为官网一级导航展示内部"0条线索"。</p>
-          <div className="grid grid-cols-4 gap-4">
-            {FEATURE_CARDS.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div key={card.title} className="text-center p-4 rounded-xl border border-slate-100 hover:border-teal-200 transition-colors">
-                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-teal-50 mb-3">
-                    <Icon className="w-6 h-6 text-teal-600" />
-                  </div>
-                  <p className="text-sm font-extrabold text-slate-900 mb-1">{card.title}</p>
-                  {card.lines.map((line) => (
-                    <p key={line} className="text-xs text-slate-500">{line}</p>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <CrmFeatureCards />
 
         {/* Digital Assistant — 保留原有AI对话功能 */}
         <DigitalAssistant />
