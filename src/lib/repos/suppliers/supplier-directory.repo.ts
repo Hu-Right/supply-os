@@ -21,6 +21,7 @@ export interface SupplierDirectoryRow {
   email: string | null;
   products: string | null;
   industry: string | null;
+  certification: string | null;
   type: string | null;
 }
 
@@ -32,7 +33,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
               province, city,
-              contact, phone, email, products, industry, type
+              contact, phone, email, products, industry, certification, type
        FROM supplier
        WHERE company <> '测试' AND merged_id IS NULL
        ORDER BY id DESC
@@ -87,7 +88,7 @@ export class SupplierDirectoryRepo {
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, type
+      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, certification, type
        FROM supplier
        WHERE ${whereSql}
        ORDER BY id DESC
@@ -102,7 +103,7 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, type
+              contact, phone, email, products, industry, certification, type
        FROM supplier WHERE id = ? LIMIT 1`,
       [id],
     );

@@ -99,7 +99,7 @@ function enrichWithMock(items: Supplier[]): Supplier[] {
       membershipTier: s.membershipTier || mock.membershipTier,
       dataCompleteness: s.dataCompleteness ?? mock.dataCompleteness,
       unspscCode: s.unspscCode || s.ungmCode || mock.unspscCode,
-      certifications: s.certifications?.length ? s.certifications : mock.certifications,
+      certifications: s.certifications?.length ? s.certifications : s.complianceLabelsZh?.length ? s.complianceLabelsZh : mock.certifications,
       capabilityTags: s.capabilityTags?.length ? s.capabilityTags : mock.capabilityTags,
     } as Supplier;
   });
