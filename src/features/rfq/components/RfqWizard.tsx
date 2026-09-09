@@ -21,7 +21,7 @@ import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Sel
 import { GetCountries, GetState, GetCity } from "react-country-state-city";
 import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
 import worldCountries from "world-countries";
-import chinaDivision from "china-division";
+import { provinces as chinaProvinces, cities as chinaCities } from "@/data/chinaDivision";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
@@ -100,8 +100,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const [isChina, setIsChina] = useState(false);
 
   // 中国行政区划数据（用于中国省份/城市）
-  const chinaProvinces = chinaDivision.provinces as Array<{ code: string; name: string }>;
-  const chinaCities = chinaDivision.cities as Array<{ code: string; name: string; provinceCode: string }>;
+  // 从 @/data/chinaDivision 导入，避免 china-division 包的 Next.js 兼容性问题
 
   // 加载国家列表
   useEffect(() => {

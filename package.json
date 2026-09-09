@@ -47,7 +47,6 @@
     "@tailwindcss/vite": "^4.1.14",
     "alipay-sdk": "^4.14.0",
     "bcrypt": "^6.0.0",
-    "china-division": "^2.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
