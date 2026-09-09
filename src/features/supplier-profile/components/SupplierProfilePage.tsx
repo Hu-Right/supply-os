@@ -371,7 +371,8 @@ function ProductsPanel({ products, unspsc: _unspsc, t }: PanelProps & { products
  * 输入："TÜV" → { abbr: "TÜV", name: "" }
  */
 function parseCert(raw: string): { abbr: string; name: string } {
-  const match = raw.match(/^([A-ZÀ-Ž0-9/\s]+?)(.*)$/);
+  // 贪婪匹配开头的英文字母/数字/特殊字符（含内部空格），剩余部分为中文名
+  const match = raw.match(/^([A-ZÀ-Ž0-9/.\s]+)(.*)$/);
   if (!match) return { abbr: raw, name: "" };
   const abbr = match[1].trim().replace(/([A-Z])([0-9])/g, "$1 $2");
   const name = match[2].trim();
