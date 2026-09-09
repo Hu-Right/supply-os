@@ -17,12 +17,13 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/shared/utils";
-import { Button, ChipToggleGroup, CountryMultiSelect, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
+import { Button, ChipToggleGroup, Input, SegmentedControl, Select, Textarea } from "@/shared/ui";
+import { CountrySelect, StateSelect, CitySelect } from "react-country-state-city";
+import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
 } from "../constants";
-import { getCountryDisplayName } from "@/shared/data/countryNames";
 import type { FieldErrors, PurchaseType, RfqFormState } from "../types";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -138,7 +139,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     if (s === 1) {
       if (!form.deadline) e.deadline = "请选择报价截止时间";
       else if (form.deadline < tomorrowIso()) e.deadline = "截止时间至少在 24 小时以后";
-      if (!form.countries.length) e.countries = "请选择至少一个目标国家/地区";
+      if (!form.countryId) e.country = "请选择交付国家";
       if (!form.budgetConfidential) {
         const min = form.budgetMin.trim();
         const max = form.budgetMax.trim();
@@ -376,12 +377,56 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
             </div>
           </Field>
 
-          <Field label="目标国家/地区" required error={errors.countries}>
-            <CountryMultiSelect
-              value={form.countries}
-              onChange={(v) => update("countries", v)}
-              placeholder="搜索并选择目标国家/地区"
-            />
+          <Field label="交付地点" required error={errors.country}>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <CountrySelect
+                onChange={(e) => {
+                  const c = e as Country;
+                  if (c?.id) {
+                    update("countryId", c.id);
+                    update("countryName", c.name);
+                    update("stateId", null);
+                    update("stateName", "");
+                    update("cityId", null);
+                    update("cityName", "");
+                  }
+                }}
+                placeHolder="选择国家"
+                showFlag
+              />
+              <StateSelect
+                countryid={form.countryId ?? 0}
+                onChange={(e) => {
+                  const s = e as State;
+                  if (s?.id) {
+                    update("stateId", s.id);
+                    update("stateName", s.name);
+                    update("cityId", null);
+                    update("cityName", "");
+                  }
+                }}
+                placeHolder="选择省/州"
+                disabled={!form.countryId}
+              />
+              <CitySelect
+                countryid={form.countryId ?? 0}
+                stateid={form.stateId ?? 0}
+                onChange={(e) => {
+                  const c = e as City;
+                  if (c?.id) {
+                    update("cityId", c.id);
+                    update("cityName", c.name);
+                  }
+                }}
+                placeHolder="选择城市"
+                disabled={!form.stateId}
+              />
+            </div>
+            {form.countryName && (
+              <p className="text-2xs text-secondary-500 mt-1.5">
+                {[form.countryName, form.stateName, form.cityName].filter(Boolean).join(" / ")}
+              </p>
+            )}
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -532,7 +577,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
               <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
               <SummaryItem label="产品分类" value={[form.categoryL1, form.categoryL2].filter(Boolean).join(" / ")} onEdit={() => setStep(0)} />
               <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budgetMin || form.budgetMax ? `${form.currency} ${[form.budgetMin, form.budgetMax].filter(Boolean).join(" – ")} 万` : ""} onEdit={() => setStep(1)} />
-              <SummaryItem label="目标国家" value={form.countries.length ? form.countries.map((en) => getCountryDisplayName(en, "zh")).join("、") : ""} onEdit={() => setStep(1)} />
+              <SummaryItem label="交付地点" value={[form.countryName, form.stateName, form.cityName].filter(Boolean).join(" / ")} onEdit={() => setStep(1)} />
               <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />
               <SummaryItem label="可见范围" value={form.visibility === "public" ? "公开询价" : "定向邀约"} onEdit={() => setStep(2)} />
               <SummaryItem label="附件" value={form.attachments.length ? `${form.attachments.length} 个文件` : ""} onEdit={() => setStep(2)} />

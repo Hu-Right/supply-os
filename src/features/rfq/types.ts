@@ -34,7 +34,13 @@ export interface RfqFormState {
   budgetMax: string;
   currency: string;
   budgetConfidential: boolean;
-  countries: string[];
+  // 交付地点（国家→省→市三级联动）
+  countryId: number | null;
+  countryName: string;
+  stateId: number | null;
+  stateName: string;
+  cityId: number | null;
+  cityName: string;
   incoterm: string;
   deliveryTime: string;
   paymentTerms: string[];

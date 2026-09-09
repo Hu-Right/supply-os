@@ -79,7 +79,7 @@ export function hasDraftProgress(form: RfqFormState): boolean {
   return Boolean(
     form.title.trim() ||
     form.description.trim() ||
-    form.countries.length > 0 ||
+    form.countryId ||
     form.attachments.length > 0 ||
     form.budgetMin.trim() ||
     form.deadline,
