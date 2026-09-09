@@ -1,12 +1,11 @@
 /**
- * 知识中心页面 — 100% 还原设计图
- * Learning Center Page — Module 10 Design Mockup
+ * 联合国采购与国际投标学习区
+ * Learning Center Page
  *
  * @module features/learning/pages/LearningPage
- * @description 深色页头 + 分类Tab + 6内容卡片 + 资料列表 + FAQ。
+ * @description 页头 + 6内容卡片 + 资料列表 + FAQ。
  *              从数据库 API 加载资料和已购状态。
  */
-import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { useAuth } from "@/core/auth";
@@ -23,10 +22,7 @@ import { useLearningMaterials, type ApiBundle } from "../hooks/useLearningMateri
 import type { LearningMaterial } from "@/types";
 import { emitAppEvent, type PayEventDetail } from "@/core/events";
 
-/* ── 分类Tab ── */
-const CATEGORIES = ["UNGM入驻", "UNSPSC", "平台规则", "投标模板", "国际合规", "案例拆解"];
-
-/* ── 6内容卡片 ─ */
+/* ── 6内容卡片 ── */
 const CONTENT_CARDS = [
   {
     tag: "指南", tagColor: "bg-teal-50 text-teal-700 border-teal-200",
@@ -73,9 +69,8 @@ const CONTENT_CARDS = [
 ];
 
 export default function LearningPage() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const { authUser } = useAuth();
-  const [activeCategory, setActiveCategory] = useState("UNGM入驻");
   const { materials, bundles, purchasedIds, loading, refreshPurchased, bumpDownloadCount } = useLearningMaterials();
 
   const handleDownload = async (fileUrl: string, fileName: string, materialId: string) => {
@@ -136,34 +131,15 @@ export default function LearningPage() {
 
   return (
     <div className="space-y-6">
-      {/* ══ 深色页头 ═══ */}
+      {/* ══ 页头 ═══ */}
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-8">
         <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-          知识中心
-          <span className="text-base font-bold text-slate-300 ml-2">|</span>
-          <span className="text-base font-bold text-slate-300 ml-2">内容不是独立频道，而是SEO获客 + 会员转化入口</span>
+          联合国采购与国际投标学习区
         </h1>
         <p className="text-slate-400 text-sm mt-2 max-w-3xl">
-          每篇文章都必须回流到相关采购机会、UNSPSC页面、服务与会员。
+          从入驻指南、编码匹配、合规清单到中标案例，系统掌握国际公共采购全流程知识。
         </p>
       </section>
-
-      {/* ══ 分类Tab ═══ */}
-      <div className="flex flex-wrap gap-2">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${
-              activeCategory === cat
-                ? "bg-teal-600 text-white"
-                : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
 
       {/* ══ 6内容卡片 ═══ */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
