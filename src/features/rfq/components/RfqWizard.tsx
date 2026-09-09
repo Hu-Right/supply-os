@@ -21,7 +21,7 @@ import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Sel
 import { GetCountries, GetState, GetCity } from "react-country-state-city";
 import type { Country, State, City } from "react-country-state-city/dist/cjs/types";
 import worldCountries from "world-countries";
-import { provinces as chinaProvinces, cities as chinaCities } from "@/data/chinaDivision";
+import { provinces as chinaProvinces, cities as chinaCities, areas as chinaAreas } from "@/data/chinaDivision";
 import {
   CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
@@ -93,74 +93,31 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
 
-  // 国家/省/市数据
-  const [countriesList, setCountriesList] = useState<Country[]>([]);
-  const [statesList, setStatesList] = useState<State[]>([]);
-  const [citiesList, setCitiesList] = useState<City[]>([]);
-  const [isChina, setIsChina] = useState(false);
+  // 省/市/区数据（仅中国行政区划）
+  const [citiesList, setCitiesList] = useState<typeof chinaCities>([]);
+  const [districtsList, setDistrictsList] = useState<typeof chinaAreas>([]);
 
-  // 中国行政区划数据（用于中国省份/城市）
-  // 从 @/data/chinaDivision 导入，避免 china-division 包的 Next.js 兼容性问题
-
-  // 加载国家列表
+  // 省份变化时加载城市列表
   useEffect(() => {
-    GetCountries().then(setCountriesList).catch(() => {});
-  }, []);
-
-  // 国家变化时加载省/州列表
-  useEffect(() => {
-    if (!form.countryId) {
-      setStatesList([]);
+    if (!form.provinceId) {
       setCitiesList([]);
-      setIsChina(false);
+      setDistrictsList([]);
       return;
     }
-    const country = countriesList.find((c) => c.id === form.countryId);
-    const countryIsChina = country?.iso2 === "CN";
-    setIsChina(countryIsChina);
-    setStatesList([]);
-    setCitiesList([]);
+    const provinceCode = String(form.provinceId).padStart(2, "0");
+    setCitiesList(chinaCities.filter((c) => c.provinceCode === provinceCode));
+    setDistrictsList([]);
+  }, [form.provinceId]);
 
-    if (countryIsChina) {
-      // 中国：使用 china-division 数据（中文名称）
-      setStatesList(chinaProvinces.map((p) => ({
-        id: Number(p.code),
-        name: p.name,
-        state_code: p.code,
-        latitude: "",
-        longitude: "",
-        hasCities: true,
-      })));
-    } else {
-      // 其他国家：使用 react-country-state-city 数据
-      GetState(form.countryId).then(setStatesList).catch(() => {});
-    }
-  }, [form.countryId, countriesList]);
-
-  // 省/州变化时加载城市列表
+  // 城市变化时加载区/县列表
   useEffect(() => {
-    if (!form.countryId || !form.stateId) {
-      setCitiesList([]);
+    if (!form.cityId) {
+      setDistrictsList([]);
       return;
     }
-    setCitiesList([]);
-
-    if (isChina) {
-      // 中国：使用 china-division 数据（中文名称）
-      const provinceCode = String(form.stateId).padStart(2, "0");
-      setCitiesList(chinaCities
-        .filter((c) => c.provinceCode === provinceCode)
-        .map((c) => ({
-          id: Number(c.code),
-          name: c.name,
-          latitude: "",
-          longitude: "",
-        })));
-    } else {
-      // 其他国家：使用 react-country-state-city 数据
-      GetCity(form.countryId, form.stateId).then(setCitiesList).catch(() => {});
-    }
-  }, [form.countryId, form.stateId, isChina]);
+    const cityCode = String(form.cityId).padStart(4, "0");
+    setDistrictsList(chinaAreas.filter((a) => a.cityCode === cityCode));
+  }, [form.cityId]);
 
   /** 表单变更统一上报草稿（跳过挂载首帧，避免空表单落草稿） */
   useEffect(() => {
@@ -217,7 +174,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     if (s === 1) {
       if (!form.deadline) e.deadline = "请选择报价截止时间";
       else if (form.deadline < tomorrowIso()) e.deadline = "截止时间至少在 24 小时以后";
-      if (!form.countryId) e.country = "请选择交付国家";
+      if (!form.provinceId) e.province = "请选择省份";
       if (!form.budgetConfidential) {
         const min = form.budgetMin.trim();
         const max = form.budgetMax.trim();
@@ -455,53 +412,55 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
             </div>
           </Field>
 
-          <Field label="交付地点" required error={errors.country}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Field label="交付地点" required error={errors.province}>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <SearchableSelect
-                options={countriesList.map((c) => ({
-                  value: c.id,
-                  label: `${c.emoji} ${EN_TO_ZH[c.name] ?? c.name}`,
-                }))}
-                value={form.countryId}
+                options={chinaProvinces.map((p) => ({ value: Number(p.code), label: p.name }))}
+                value={form.provinceId}
                 onChange={(id) => {
-                  const c = countriesList.find((x) => x.id === Number(id));
-                  update("countryId", id ? Number(id) : null);
-                  update("countryName", c ? (EN_TO_ZH[c.name] ?? c.name) : "");
-                  update("stateId", null);
-                  update("stateName", "");
+                  const p = chinaProvinces.find((x) => Number(x.code) === Number(id));
+                  update("provinceId", id ? Number(id) : null);
+                  update("provinceName", p?.name ?? "");
                   update("cityId", null);
                   update("cityName", "");
+                  update("districtId", null);
+                  update("districtName", "");
                 }}
-                placeholder="搜索国家"
+                placeholder="搜索省份"
               />
               <SearchableSelect
-                options={statesList.map((s) => ({ value: s.id, label: s.name }))}
-                value={form.stateId}
-                onChange={(id) => {
-                  const s = statesList.find((x) => x.id === Number(id));
-                  update("stateId", id ? Number(id) : null);
-                  update("stateName", s?.name ?? "");
-                  update("cityId", null);
-                  update("cityName", "");
-                }}
-                placeholder={form.countryId ? "搜索省/州" : "先选国家"}
-                disabled={!form.countryId}
-              />
-              <SearchableSelect
-                options={citiesList.map((c) => ({ value: c.id, label: c.name }))}
+                options={citiesList.map((c) => ({ value: Number(c.code), label: c.name }))}
                 value={form.cityId}
                 onChange={(id) => {
-                  const c = citiesList.find((x) => x.id === Number(id));
+                  const c = citiesList.find((x) => Number(x.code) === Number(id));
                   update("cityId", id ? Number(id) : null);
                   update("cityName", c?.name ?? "");
+                  update("districtId", null);
+                  update("districtName", "");
                 }}
-                placeholder={form.stateId ? "搜索城市" : "先选省/州"}
-                disabled={!form.stateId}
+                placeholder={form.provinceId ? "搜索城市" : "先选省份"}
+                disabled={!form.provinceId}
+              />
+              <SearchableSelect
+                options={districtsList.map((a) => ({ value: Number(a.code), label: a.name }))}
+                value={form.districtId}
+                onChange={(id) => {
+                  const a = districtsList.find((x) => Number(x.code) === Number(id));
+                  update("districtId", id ? Number(id) : null);
+                  update("districtName", a?.name ?? "");
+                }}
+                placeholder={form.cityId ? "搜索区/县" : "先选城市"}
+                disabled={!form.cityId}
+              />
+              <Input
+                value={form.address}
+                onChange={(e) => update("address", e.target.value)}
+                placeholder="详细地址（街道、门牌号等）"
               />
             </div>
-            {form.countryName && (
+            {form.provinceName && (
               <p className="text-2xs text-secondary-500 mt-1.5">
-                {[form.countryName, form.stateName, form.cityName].filter(Boolean).join(" / ")}
+                {[form.provinceName, form.cityName, form.districtName, form.address].filter(Boolean).join(" ")}
               </p>
             )}
           </Field>
@@ -654,7 +613,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
               <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
               <SummaryItem label="产品分类" value={[form.categoryL1, form.categoryL2].filter(Boolean).join(" / ")} onEdit={() => setStep(0)} />
               <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budgetMin || form.budgetMax ? `${form.currency} ${[form.budgetMin, form.budgetMax].filter(Boolean).join(" – ")} 万` : ""} onEdit={() => setStep(1)} />
-              <SummaryItem label="交付地点" value={[form.countryName, form.stateName, form.cityName].filter(Boolean).join(" / ")} onEdit={() => setStep(1)} />
+              <SummaryItem label="交付地点" value={[form.provinceName, form.cityName, form.districtName, form.address].filter(Boolean).join(" ")} onEdit={() => setStep(1)} />
               <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />
               <SummaryItem label="可见范围" value={form.visibility === "public" ? "公开询价" : "定向邀约"} onEdit={() => setStep(2)} />
               <SummaryItem label="附件" value={form.attachments.length ? `${form.attachments.length} 个文件` : ""} onEdit={() => setStep(2)} />
