@@ -19,7 +19,6 @@ import { SupplierCard } from "../components/SupplierCard";
 import { SupplierCardSkeleton } from "../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "../components/SupplierContactModal";
-import { SupplierProfileModal } from "../components/SupplierProfileModal";
 import { LoadingOverlay } from "@/shared/ui";
 import { Input, Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact } from "../api";
@@ -134,7 +133,6 @@ export default function SupplierPage() {
 
   // ── 弹窗状态 ──
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [profileModalSupplier, setProfileModalSupplier] = useState<Supplier | null>(null);
   const [contactModal, setContactModal] = useState<{
     supplier: Supplier; status: SupplierContactStatus; contact: SupplierContact | null;
   } | null>(null);
@@ -155,10 +153,6 @@ export default function SupplierPage() {
   }, []);
 
   // ── 操作处理 ──
-  const handleViewProfile = (supplier: Supplier) => {
-    setProfileModalSupplier(supplier);
-  };
-
   const handleAiMatch = (supplier: Supplier) => {
     try { sessionStorage.setItem("__route_state__", JSON.stringify({ aiMatchSupplier: supplier })); } catch {}
     router.push("/crm");
@@ -319,7 +313,6 @@ export default function SupplierPage() {
               supplier={sup}
               onAiMatch={handleAiMatch}
               onContact={handleContact}
-              onViewProfile={handleViewProfile}
             />
           ))}
         </div>
@@ -378,7 +371,7 @@ export default function SupplierPage() {
                 {/* 操作按钮 */}
                 <div className="flex gap-2 shrink-0">
                   <Button
-                    onClick={() => handleViewProfile(sup)}
+                    onClick={() => router.push(`/supplier/${sup.id}`)}
                     variant="outline"
                     size="sm"
                     className="text-xs font-bold text-slate-700 border-slate-300 hover:border-teal-400 hover:text-teal-700"
@@ -415,13 +408,6 @@ export default function SupplierPage() {
       )}
 
       {/* ═══ 弹窗 ═══ */}
-      {profileModalSupplier && (
-        <SupplierProfileModal
-          supplier={profileModalSupplier}
-          open={true}
-          onClose={() => setProfileModalSupplier(null)}
-        />
-      )}
       {showRegisterModal && (
         <SupplierRegisterModal
           onClose={() => setShowRegisterModal(false)}

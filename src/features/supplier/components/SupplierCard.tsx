@@ -7,6 +7,7 @@
  *              公司名/类型 + 核心产品 + 认证 + 资料完整度进度条 + UNSPSC +
  *              能力标签 + 双按钮（查看企业主页/发询盘）。
  */
+import { useRouter } from "next/navigation";
 import { Bookmark, Share2, Factory, Store } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Button, Card, Badge } from "@/shared/ui";
@@ -16,7 +17,6 @@ export interface SupplierCardProps {
   supplier: Supplier;
   onAiMatch: (supplier: Supplier) => void;
   onContact: (supplier: Supplier) => void;
-  onViewProfile?: (supplier: Supplier) => void;
 }
 
 /** 会员标签样式映射 */
@@ -26,8 +26,9 @@ const TIER_BADGE: Record<string, { bg: string; text: string; border: string; lab
   recommended: { bg: "bg-rose-500", text: "text-white", border: "border-rose-500", labelKey: "supplierRecommended" },
 };
 
-export function SupplierCard({ supplier, onAiMatch, onContact, onViewProfile }: SupplierCardProps) {
+export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardProps) {
   const { t, locale } = useLocale();
+  const router = useRouter();
 
   const name = pickLocale(locale, supplier.nameZh, supplier.nameEn);
   const products = pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? [];
@@ -138,7 +139,7 @@ export function SupplierCard({ supplier, onAiMatch, onContact, onViewProfile }: 
       {/* ── 底部按钮 ─ */}
       <div className="flex gap-2 p-4 pt-0">
         <Button
-          onClick={() => onViewProfile ? onViewProfile(supplier) : onAiMatch(supplier)}
+          onClick={() => router.push(`/supplier/${supplier.id}`)}
           variant="outline"
           size="sm"
           className="flex-1 text-xs font-bold text-slate-700 border-slate-300 hover:border-teal-400 hover:text-teal-700"
