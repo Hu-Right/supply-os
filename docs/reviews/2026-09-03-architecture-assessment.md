@@ -1,6 +1,7 @@
 # Supply OS — 架构评估报告
 
 > 评估日期：2026-09-05（基于 2026-09-03 初始审查启动，09-05 完成实证与修复）
+> 二次审计：2026-09-09（全方位技术审计，74/100 → 修复执行中）
 > 配套文档：[ARCHITECTURE.md](../../ARCHITECTURE.md) · [CODE_REVIEW_GUIDE.md](./CODE_REVIEW_GUIDE.md) · [API_REFERENCE.md](../api/API_REFERENCE.md)
 
 ---
@@ -65,7 +66,7 @@
 
 ### 4.2 God Modal 瓶颈
 
-`layout-shell.tsx`（176 行）管理 4 个全局模态框，通过 `useAppModals`（57 行，10+ 状态变量）控制。计划 P2-4 引入 ModalRegistry Context 拆分。
+`layout-shell.tsx`（176 行）管理 4 个全局模态框，通过 `useAppModals`（57 行，10+ 状态变量）控制。✅ 2026-09-09 确认语义化 API 已就绪（onRequireLogin/onConsult/onPay/onOpenTrainingRegister）。P2-4 ModalRegistry Context 拆分仍待执行。
 
 ### 4.3 Procurement 巨型模块
 
@@ -87,7 +88,7 @@
 
 ### 类型定义收敛
 
-`src/types/` 声明为前后端共享 DTO 唯一源，但 `src/lib/types/` 存在平行定义（如 `crm.ts`）。建议：
+`src/types/` 声明为前后端共享 DTO 唯一源，但 `src/lib/types/` 存在平行定义（如 `crm.ts`）。✅ 2026-09-09 已修复：`lib/types/crm.ts` 和 `lib/types/supplier.ts` 已改为 re-export，与 `payment.ts` 同模式。建议：
 - `lib/types/` 仅保留服务端专用类型（策略接口/行类型）
 - 共享 DTO 一律放 `src/types/`
 - feature 内部类型留在 `features/*/types.ts`
@@ -113,3 +114,20 @@
 | `.env.example` CSRF 配置声称与实现不符 | ✅ 已修正（注释标注未实现） |
 | `docs/OS网站优化与收费产品设计.docx` 无法被技术评审读取 | ⏳ 待转化为 markdown |
 | `docs/①_OS网站逐页面修改清单+网站文案_V1.0.docx` 同上 | ⏳ 待转化 |
+
+---
+
+## 8. 二次审计修复记录（2026-09-09）
+
+> 审计总分 74/100，以下为已修复项：
+
+| # | 审计编号 | 维度 | 修复内容 | 涉及文件 |
+|---|---|---|---|---|
+| 1 | D3-1 | 架构化设计 | ErrorBoundary 覆盖率 4/12 → 12/12 | 新增 `shared/ui/PageErrorFallback.tsx`；修改 8 个 page-client |
+| 2 | D1-1 | SSOT | lib/types/crm.ts + supplier.ts 从手动双写改为 re-export | `lib/types/crm.ts`, `lib/types/supplier.ts`, `types/crm.ts` |
+| 3 | D1-2 | SSOT | INTL_CERTS 重复定义提取至 shared | 新增 `shared/constants/certifications.ts`；修改 scoring + diagnosticEngine |
+| 4 | D4-4 | 组件规范 | useAppModals 语义化 API 标注确认 | `shared/layout/useAppModals.ts` |
+| 5 | D4-5 | 组件规范 | 3 处 `.catch(() => {})` 静默错误修复 | `useListingStats`, `LearningPage`, `MaterialCard` |
+| 6 | D4-1 | 组件规范 | useDigitalAssistant 类型提取至 chat-types.ts | 新增 `crm/hooks/chat-types.ts`；538→479 行 |
+| 7 | D4-2 | 组件规范 | CrmPage 容器/展示分离，提取 3 个子组件 | 新增 CrmSidebar/CrmFunnelChart/CrmFeatureCards；267→155 行 |
+| 8 | D4-3 | 组件规范 | ChatWindow props 18→3 语义对象 | `ChatWindow.tsx`, `DigitalAssistant.tsx` |
