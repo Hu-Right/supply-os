@@ -131,3 +131,6 @@
 | 6 | D4-1 | 组件规范 | useDigitalAssistant 类型提取至 chat-types.ts | 新增 `crm/hooks/chat-types.ts`；538→479 行 |
 | 7 | D4-2 | 组件规范 | CrmPage 容器/展示分离，提取 3 个子组件 | 新增 CrmSidebar/CrmFunnelChart/CrmFeatureCards；267→155 行 |
 | 8 | D4-3 | 组件规范 | ChatWindow props 18→3 语义对象 | `ChatWindow.tsx`, `DigitalAssistant.tsx` |
+| 9 | D2-2 | 高内聚低耦合 | CRM Chat 6 个路由下沉 Service 层 | 新增 `lib/services/chat-service.ts`；6 个 route 不再 import repo |
+| 10 | D2-2 | 高内聚低耦合 | Learning 3 个路由下沉 Service 层 | 新增 `lib/services/learning-service.ts`；3 个 route 不再 import repo |
+| 11 | D4-1 | 组件规范 | QualificationFormFields 类型/常量提取 | 新增 `shared/forms/qualification-form-types.ts`；401→298 行 |
