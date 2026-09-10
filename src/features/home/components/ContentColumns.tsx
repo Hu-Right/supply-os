@@ -26,8 +26,8 @@ interface HomeNoticeItem extends NoticeDisplayFields {
 export const ContentColumns = memo(function ContentColumns() {
   const { t, locale } = useLocale();
   const [suppliers, setSuppliers] = useState<Array<{
-    id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[];
-    mainProductsZh: string[]; status: string;
+    id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string;
+    complianceLabelsZh: string[]; mainProductsZh: string[]; status: string;
   }>>([]);
   const [hotNotices, setHotNotices] = useState<HomeNoticeItem[]>([]);
   const [rfqNotices, setRfqNotices] = useState<HomeNoticeItem[]>([]);
@@ -67,7 +67,7 @@ export const ContentColumns = memo(function ContentColumns() {
     };
 
     // 获取已审核的优质供应商（最新 3 条）
-    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
+    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] suppliers fetch failed:", e); })
       .finally(onSettle);
@@ -155,7 +155,7 @@ export const ContentColumns = memo(function ContentColumns() {
               suppliers.map((supplier) => (
                 <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
                   {/* 第一行：头像 + 公司名 + 认证标签 */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <div
                       className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-extrabold"
                       style={{ backgroundColor: nameToColor(supplier.nameZh) }}
@@ -177,6 +177,11 @@ export const ContentColumns = memo(function ContentColumns() {
                         {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
                       </p>
                     </div>
+                    {supplier.industryZh && (
+                      <span className="shrink-0 px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-2xs font-bold text-slate-600">
+                        {supplier.industryZh}
+                      </span>
+                    )}
                   </div>
                   {/* 第二行：资质标签 */}
                   <div className="flex flex-wrap gap-1 mt-3">
