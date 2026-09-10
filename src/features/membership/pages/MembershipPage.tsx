@@ -7,6 +7,7 @@
  *              支付/升级逻辑已下沉至 useMembershipPayment hook。
  */
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useAuth } from "@/core/auth";
@@ -17,7 +18,6 @@ import { PlanCard } from "../components/PlanCard";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
-import { getGridCols } from "../utils";
 
 export default function MembershipPage() {
   const searchParams = useSearchParams();
@@ -43,7 +43,11 @@ export default function MembershipPage() {
     upgradePreview, upgradeLoading, upgradeTargetPlan,
   } = useMembershipPayment({ noticeId, currentPlanCode });
 
-  const gridCols = getGridCols(plans.length);
+  const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
+
+  const handleToggle = (planCode: string) => {
+    setExpandedPlanCode((prev) => (prev === planCode ? null : planCode));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
@@ -85,15 +89,17 @@ export default function MembershipPage() {
           </div>
 
           {loading ? (
-            <div className={`grid ${gridCols} gap-5`}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm p-6 shadow-lg animate-pulse">
-                  <div className="h-10 w-10 bg-slate-200/60 rounded-xl mb-5" />
-                  <div className="h-5 bg-slate-200/60 rounded w-3/4 mb-3" />
-                  <div className="h-10 bg-slate-200/60 rounded w-1/2 mb-5" />
-                  <div className="h-3.5 bg-slate-200/60 rounded w-full mb-2" />
-                  <div className="h-3.5 bg-slate-200/60 rounded w-5/6 mb-6" />
-                  <div className="h-11 bg-slate-200/60 rounded-xl w-full" />
+            <div className="flex flex-col gap-4 max-w-3xl mx-auto">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm px-6 py-5 shadow-lg animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 bg-slate-200/60 rounded-xl shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="h-5 bg-slate-200/60 rounded w-1/3 mb-2" />
+                      <div className="h-8 bg-slate-200/60 rounded w-1/4" />
+                    </div>
+                    <div className="h-8 w-8 bg-slate-200/60 rounded-full" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -117,7 +123,7 @@ export default function MembershipPage() {
               <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
             </div>
           ) : (
-            <div className={`grid ${gridCols} gap-5`} data-testid="plan-list">
+            <div className="flex flex-col gap-4 max-w-3xl mx-auto" data-testid="plan-list">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.plan_code}
@@ -125,6 +131,8 @@ export default function MembershipPage() {
                   isVip={isVip}
                   currentPlanPrice={currentPlanPrice}
                   currentPlanCode={currentPlanCode}
+                  expanded={expandedPlanCode === plan.plan_code}
+                  onToggle={() => handleToggle(plan.plan_code)}
                   onBuy={buyPlan}
                   onUpgrade={startUpgrade}
                 />
