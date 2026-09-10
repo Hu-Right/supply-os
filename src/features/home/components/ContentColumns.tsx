@@ -153,8 +153,9 @@ export const ContentColumns = memo(function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无推荐供应商</div>
             ) : (
               suppliers.map((supplier) => (
-                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
-                  <div className="flex items-start gap-3">
+                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
+                  {/* 第一行：头像 + 公司名 + 认证标签 */}
+                  <div className="flex items-center gap-3">
                     <div
                       className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-extrabold"
                       style={{ backgroundColor: nameToColor(supplier.nameZh) }}
@@ -172,20 +173,22 @@ export const ContentColumns = memo(function ContentColumns() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-1 truncate">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-2 min-w-0">
+                  {/* 第二行：资质标签 */}
+                  <div className="flex flex-wrap gap-1 mt-2.5">
                     {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
                       <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                         {label}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-xs text-slate-500 truncate">
+                  {/* 第三行：主营产品 + 按钮 */}
+                  <div className="flex items-center justify-between mt-2.5">
+                    <p className="text-xs text-slate-500 truncate flex-1 mr-3">
                       {(supplier.mainProductsZh ?? []).slice(0, 3).join(" · ")}
                     </p>
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
