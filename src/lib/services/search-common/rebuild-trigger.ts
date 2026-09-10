@@ -8,7 +8,7 @@
  *              原位置保留 re-export 兼容存量导入。
  */
 import type { Pool } from "mysql2/promise";
-import { fullSync, isHealthy } from "../meilisearch/index";
+import { fullSync, isHealthy, tryRecover } from "../meilisearch/index";
 
 let _rebuildRequested = false;
 let _rebuildReason = "";
@@ -29,11 +29,16 @@ export function isRebuildRequested(): boolean {
 
 /**
  * 尝试执行待处理的重建（由 searchSync 定时循环调用）。
- * 仅当 Meilisearch 健康且无并发重建时执行；失败保留标记下次重试。
+ * Meilisearch 不健康时先尝试恢复，恢复成功后执行重建；
+ * 无并发重建时执行；失败保留标记下次重试。
  */
 export async function tryRunPendingRebuild(pool: Pool): Promise<void> {
   if (!_rebuildRequested || _rebuilding) return;
-  if (!isHealthy()) return;
+  // 不健康时先尝试恢复，避免"提示重建但永远不执行"的死循环
+  if (!isHealthy()) {
+    const recovered = await tryRecover();
+    if (!recovered) return;
+  }
 
   _rebuilding = true;
   _rebuildRequested = false;

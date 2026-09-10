@@ -33,7 +33,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
   
   let lastId = 0;
   let totalSynced = 0;
-  const BATCH = 500;
+  const BATCH = 200;  // [内存优化] 从 500 降至 200，降低 8G 服务器宽表回填时的内存峰值
 
   try {
     while (true) {

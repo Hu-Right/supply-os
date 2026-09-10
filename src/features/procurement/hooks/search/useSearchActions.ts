@@ -77,7 +77,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
     const sortValue = sortOverride ?? query.activeSort;
-    if (sortValue !== "deadline_farthest") next.sort = sortValue;
+    if (sortValue !== "latest") next.sort = sortValue;
     if (prefsMode === "default") {
       // 全量搜索模式：行为不变
     } else if (prefsMode === "recommended") {

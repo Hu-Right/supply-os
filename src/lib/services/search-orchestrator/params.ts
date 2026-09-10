@@ -41,9 +41,9 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     raw.mode === "prefs" || raw.mode === "recommended" ? raw.mode : "default";
 
   const sort =
-    raw.sort === "latest" ? "latest"
-    : raw.sort === "deadline" ? "deadline"
-    : "deadline_farthest";
+    raw.sort === "deadline" ? "deadline"
+    : raw.sort === "deadline_farthest" ? "deadline_farthest"
+    : "latest";
 
   const deadlineFrom = raw.deadlineFrom && DATE_RE.test(raw.deadlineFrom) ? raw.deadlineFrom : "";
   const deadlineTo = raw.deadlineTo && DATE_RE.test(raw.deadlineTo) ? raw.deadlineTo : "";
