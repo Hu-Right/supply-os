@@ -85,19 +85,21 @@ export function HeroSection() {
               搜索商机
             </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1">
             <span className="text-slate-500 text-xs">热门搜索：</span>
-            {hotTags_list.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => {
-                  setQuery(tag);
-                  router.push(`/procurement?q=${encodeURIComponent(tag)}`);
-                }}
-                className="text-xs text-white hover:text-teal-300 transition-colors"
-              >
-                {tag}
-              </button>
+            {hotTags_list.map((tag, idx) => (
+              <span key={tag} className="inline-flex items-center gap-1">
+                {idx > 0 && <span className="text-slate-600 text-xs">/</span>}
+                <button
+                  onClick={() => {
+                    setQuery(tag);
+                    router.push(`/procurement?q=${encodeURIComponent(tag)}`);
+                  }}
+                  className="text-xs text-slate-300 hover:text-teal-300 transition-colors"
+                >
+                  {tag}
+                </button>
+              </span>
             ))}
           </div>
         </div>
