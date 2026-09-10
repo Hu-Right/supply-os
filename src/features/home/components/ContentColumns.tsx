@@ -96,7 +96,7 @@ export const ContentColumns = memo(function ContentColumns() {
               更多 &gt;
             </a>
           </div>
-          <div className="space-y-5 flex-1">
+          <div className="flex-1">
             {loading ? (
               <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
             ) : hasError && hotNotices.length === 0 ? (
@@ -105,7 +105,7 @@ export const ContentColumns = memo(function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无热门商机</div>
             ) : (
               hotNotices.map((notice) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
                   <div className="flex items-center gap-2">
                     <CountryFlag name={notice.country} />
                     {notice.notice_type && (
@@ -212,7 +212,7 @@ export const ContentColumns = memo(function ContentColumns() {
               更多 &gt;
             </a>
           </div>
-          <div className="space-y-5 flex-1">
+          <div className="flex-1">
             {loading ? (
               <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
             ) : hasError && rfqNotices.length === 0 ? (
@@ -221,7 +221,7 @@ export const ContentColumns = memo(function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无 RFQ 询价公告</div>
             ) : (
               rfqNotices.map((notice) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group">
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
                       询价公告 (RFQ)
