@@ -155,7 +155,7 @@ export const ContentColumns = memo(function ContentColumns() {
               suppliers.map((supplier) => (
                 <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
                   {/* 第一行：头像 + 公司名 + 认证标签 */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
                     <div
                       className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-extrabold"
                       style={{ backgroundColor: nameToColor(supplier.nameZh) }}
@@ -177,14 +177,14 @@ export const ContentColumns = memo(function ContentColumns() {
                         {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
                       </p>
                     </div>
+                  </div>
+                  {/* 第二行：行业 + 资质标签 */}
+                  <div className="flex flex-wrap items-center gap-1 mt-3">
                     {supplier.industryZh && (
-                      <span className="shrink-0 px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-2xs font-bold text-slate-600">
+                      <span className="text-2xs px-2 py-0.5 rounded border border-teal-200 bg-teal-50 text-teal-700 font-bold">
                         {supplier.industryZh}
                       </span>
                     )}
-                  </div>
-                  {/* 第二行：资质标签 */}
-                  <div className="flex flex-wrap gap-1 mt-3">
                     {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
                       <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                         {label}
