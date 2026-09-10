@@ -153,7 +153,7 @@ export const ContentColumns = memo(function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无推荐供应商</div>
             ) : (
               suppliers.map((supplier) => (
-                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
+                <a key={supplier.id} href={`/supplier/${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
                   {/* 第一行：头像 + 公司名 + 认证标签 */}
                   <div className="flex items-center gap-3">
                     <div
