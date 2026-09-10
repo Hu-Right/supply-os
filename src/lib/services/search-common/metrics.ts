@@ -63,6 +63,6 @@ export function recordFallback(reason: string): void {
 /** 记录同步级联事件（宽表 → Meilisearch），1/10 采样避免刷屏 */
 let _syncCascadeCounter = 0;
 export function logSyncCascade(stage: "wide" | "meili", ids: number, status: "ok" | "fail" | "retry"): void {
-  if (status === "ok" && ++_syncCascadeCounter % 10 !== 0) return;
+  if (status !== "fail") return; // 仅记录失败，ok/retry 静默
   console.log(`[sync-cascade] stage=${stage} ids=${ids} status=${status}`);
 }
