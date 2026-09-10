@@ -173,16 +173,24 @@ export const ContentColumns = memo(function ContentColumns() {
                         )}
                       </div>
                       <p className="text-xs text-slate-500 mt-1 truncate">
-                        {[supplier.countryZh, supplier.cityZh, ...(supplier.mainProductsZh ?? []).slice(0, 2)].filter(Boolean).join(" · ")}
+                        {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
                       </p>
-                      <div className="flex flex-wrap gap-1 mt-2 min-w-0">
-                        {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
-                          <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                            {label}
-                          </span>
-                        ))}
-                      </div>
                     </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-2 min-w-0">
+                    {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
+                      <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs text-slate-500 truncate">
+                      {(supplier.mainProductsZh ?? []).slice(0, 3).join(" · ")}
+                    </p>
+                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+                      查看详情
+                    </span>
                   </div>
                 </a>
               ))
