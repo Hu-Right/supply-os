@@ -42,6 +42,16 @@ export const ContentColumns = memo(function ContentColumns() {
     return key ? t(key) : "";
   };
 
+  /** 基于字符串哈希生成确定性 HSL 颜色（同一名称始终同色） */
+  const nameToColor = (name: string): string => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 55%, 50%)`;
+  };
+
   useEffect(() => {
     const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
     let completed = 0;
@@ -144,8 +154,11 @@ export const ContentColumns = memo(function ContentColumns() {
             ) : (
               suppliers.map((supplier) => (
                 <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group">
-                  <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-sm font-extrabold">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-extrabold"
+                      style={{ backgroundColor: nameToColor(supplier.nameZh) }}
+                    >
                       {supplier.nameZh.slice(0, 1)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -162,19 +175,14 @@ export const ContentColumns = memo(function ContentColumns() {
                       <p className="text-xs text-slate-500 mt-1 truncate">
                         {[supplier.countryZh, supplier.cityZh, ...(supplier.mainProductsZh ?? []).slice(0, 2)].filter(Boolean).join(" · ")}
                       </p>
+                      <div className="flex flex-wrap gap-1 mt-2 min-w-0">
+                        {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
+                          <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex flex-wrap gap-1 min-w-0">
-                      {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
-                        <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                    <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
-                      查看详情
-                    </span>
                   </div>
                 </a>
               ))
