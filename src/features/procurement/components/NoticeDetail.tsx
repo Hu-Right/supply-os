@@ -26,7 +26,7 @@ import { ReportPreviewPanel } from "./ReportPreviewPanel";
 import { AiSummarySection } from "./AiSummarySection";
 import { NextStepsPanel } from "./NextStepsPanel";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { getCountdown, formatPublishDate } from "@/shared/utils/countdown";
+import { getCountdown } from "@/shared/utils/countdown";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -86,9 +86,6 @@ function deriveSourceName(sourceUrl?: string): string {
 /** 计算截止倒计时（已迁移至 shared/utils/countdown） */
 // getCountdown 已提取至 @/shared/utils/countdown
 
-/** 格式化发布时间（已迁移至 shared/utils/countdown） */
-// formatPublishDate 已提取至 @/shared/utils/countdown
-
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
   totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock, onPayUnlock,
@@ -138,7 +135,7 @@ export function NoticeDetail({
 
   // 信息表数据
   const sourceName = deriveSourceName(notice.source_url);
-  const publishDate = formatPublishDate(notice.create_time);
+  const publishDate = notice.published_date || "-";
   const deadlineText = notice.deadline || t("procurement_noDeadline");
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
