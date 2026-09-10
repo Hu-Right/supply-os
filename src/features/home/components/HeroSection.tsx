@@ -57,7 +57,7 @@ export function HeroSection() {
           全球公共采购与跨境供应链机会平台
         </h1>
         <p className="text-slate-400 text-sm mb-8 max-w-2xl">
-          第一屏必须同时回答：这里有多少订单、多少供应商，我能立刻做什么。
+          聚合全球公共与大型机构采购机会，数据实时更新。
         </p>
 
         {/* 搜索入口 */}

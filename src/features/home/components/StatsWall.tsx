@@ -1,12 +1,12 @@
 /**
- * 实时数字墙 — 5 个规模指标
- * Stats Wall — 5 Real-time Scale Indicators
+ * 实时数字墙 — 4 个规模指标
+ * Stats Wall — 4 Real-time Scale Indicators
  *
  * @module features/home/components/StatsWall
  * @description 消费 useHomeStats 统一数据源，纯展示组件，
  *              每个指标带数字跳动动画。
  */
-import { Search, Globe, Users, TrendingUp, ShieldCheck } from "lucide-react";
+import { Search, Globe, TrendingUp, ShieldCheck } from "lucide-react";
 import { useCountUp } from "../hooks/useCountUp";
 import { useHomeStats } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
@@ -37,12 +37,11 @@ export function StatsWall() {
     { label: "每日新增机会", value: noticeTodayNew, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
     { label: "数据源 / API", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
     { label: "认证供应商", value: certifiedSupplierCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
-    { label: "海外展厅 / 履约节点", value: 16, sub: "全球布局", icon: Users, color: "text-rose-600" },
   ];
 
   return (
     <section className="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200 py-10 px-4">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((s, i) => (
           <StatCard key={i} {...s} />
         ))}
