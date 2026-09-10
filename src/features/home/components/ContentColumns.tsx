@@ -76,7 +76,7 @@ export const ContentColumns = memo(function ContentColumns() {
   }, []);
 
   return (
-    <section className="px-4 sm:px-6 lg:px-8 py-10 border-t border-slate-100">
+    <section className="px-4 sm:px-6 lg:px-8 py-10">
       <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 热门商机 */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
