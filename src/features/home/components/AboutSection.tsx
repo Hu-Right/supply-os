@@ -13,7 +13,7 @@ import { AboutCta } from "./about/AboutCta";
 
 export function AboutSection() {
   return (
-    <section className="bg-white">
+    <section className="bg-slate-50">
       <AboutHero />
       <AboutAdvantages />
       <AboutSteps />
