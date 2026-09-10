@@ -153,7 +153,7 @@ export const ContentColumns = memo(function ContentColumns() {
               <div className="text-center py-8 text-sm text-slate-400">暂无推荐供应商</div>
             ) : (
               suppliers.map((supplier) => (
-                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
+                <a key={supplier.id} href={`/supplier?id=${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
                   {/* 第一行：头像 + 公司名 + 认证标签 */}
                   <div className="flex items-center gap-3">
                     <div
@@ -173,13 +173,13 @@ export const ContentColumns = memo(function ContentColumns() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-1">
                         {[supplier.countryZh, supplier.cityZh].filter(Boolean).join(" · ")}
                       </p>
                     </div>
                   </div>
                   {/* 第二行：资质标签 */}
-                  <div className="flex flex-wrap gap-1 mt-2.5">
+                  <div className="flex flex-wrap gap-1 mt-3">
                     {(supplier.complianceLabelsZh ?? []).slice(0, 3).map((label, j) => (
                       <span key={j} className="text-2xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                         {label}
@@ -187,7 +187,7 @@ export const ContentColumns = memo(function ContentColumns() {
                     ))}
                   </div>
                   {/* 第三行：主营产品 + 按钮 */}
-                  <div className="flex items-center justify-between mt-2.5">
+                  <div className="flex items-center justify-between mt-3">
                     <p className="text-xs text-slate-500 truncate flex-1 mr-3">
                       {(supplier.mainProductsZh ?? []).slice(0, 3).join(" · ")}
                     </p>
