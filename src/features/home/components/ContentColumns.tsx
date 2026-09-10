@@ -122,7 +122,9 @@ export const ContentColumns = memo(function ContentColumns() {
                     {[displayCountry(notice), displayNoticeAgency(notice)].filter(Boolean).join(" / ")}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-semibold text-slate-800">{notice.estimated_value && notice.estimated_value !== '0.00' ? `预算：${displayNoticeBudget(notice.estimated_value)}` : '预算详谈'}</span>
+                    {notice.estimated_value && notice.estimated_value !== '0.00' ? (
+                      <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
+                    ) : <span />}
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
                       查看详情
                     </span>
@@ -240,7 +242,9 @@ export const ContentColumns = memo(function ContentColumns() {
                     {[displayNoticeAgency(notice), displayCountry(notice)].filter(Boolean).join(" / ")}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm font-semibold text-slate-800">{notice.estimated_value && notice.estimated_value !== '0.00' ? `预算：${displayNoticeBudget(notice.estimated_value)}` : '预算详谈'}</span>
+                    {notice.estimated_value && notice.estimated_value !== '0.00' ? (
+                      <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
+                    ) : <span />}
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-blue-400 group-hover:text-blue-700 transition-colors">
                       查看详情
                     </span>
