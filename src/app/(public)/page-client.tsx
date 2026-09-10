@@ -11,9 +11,7 @@
  *   3. 热门行业
  *   4. 全球商机地图
  *   5. 三栏内容 — 今日热门商机 / 优质供应商 / 最新 RFQ 询价
- *   6. 会员升级横幅 — 根据登录态差异化 CTA
- *   7. 平台介绍 — 定位 + 数据背书 + 核心优势 + 四步路径 + CTA
- *   8. 首页核心内容模块 — 6 卡片总览
+ *   6. 平台介绍 — 定位 + 数据背书 + 核心优势 + 四步路径 + CTA
  */
 import {
   HeroSection,
@@ -21,9 +19,7 @@ import {
   HotTopicsSection,
   WorldMapSection,
   ContentColumns,
-  UpgradeBanner,
   AboutSection,
-  ProductPath,
 } from "@/features/home";
 import { ErrorBoundary } from "@/shared/ui";
 
@@ -54,9 +50,7 @@ export default function PageClient() {
         <HotTopicsSection />
         <WorldMapSection />
         <ContentColumns />
-        <UpgradeBanner />
         <AboutSection />
-        <ProductPath />
       </div>
     </ErrorBoundary>
   );
