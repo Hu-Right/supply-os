@@ -22,6 +22,8 @@ export interface HomeStatsData {
   countryCount: number;
   /** 认证供应商数量 */
   certifiedSupplierCount: number;
+  /** 国家商机明细（供 WorldMapChart 使用，避免重复请求） */
+  countries: Array<{ country: string; count: number }>;
 }
 
 const INITIAL_STATS: HomeStatsData = {
@@ -29,6 +31,7 @@ const INITIAL_STATS: HomeStatsData = {
   noticeTodayNew: 0,
   countryCount: 0,
   certifiedSupplierCount: 0,
+  countries: [],
 };
 
 /** 自动刷新间隔：10 分钟 */
@@ -61,6 +64,7 @@ export function useHomeStats(): HomeStatsData & { loading: boolean } {
           noticeTodayNew: noticeData.todayNew ?? 0,
           countryCount: countries.length,
           certifiedSupplierCount: suppliers.total ?? 0,
+          countries,
         });
       } catch {
         // 静默失败：首页统计非关键路径，保持上一次的值
