@@ -17,8 +17,16 @@ export interface ListingStats {
   with_original_docs: number;
 }
 
-export function useListingStats(): ListingStats | null {
-  const [stats, setStats] = useState<ListingStats | null>(null);
+const EMPTY_STATS: ListingStats = {
+  active: 0,
+  todayNew: 0,
+  yesterdayNew: 0,
+  deadline_in_30d: 0,
+  with_original_docs: 0,
+};
+
+export function useListingStats(): ListingStats {
+  const [stats, setStats] = useState<ListingStats>(EMPTY_STATS);
 
   useEffect(() => {
     api<{

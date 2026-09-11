@@ -14,7 +14,7 @@ import { GREEN } from "@/shared/constants/colors";
 import type { ListingStats } from "../hooks/useListingStats";
 
 interface ListingStatsBarProps {
-  stats: ListingStats | null;
+  stats: ListingStats;
 }
 
 /** 计算环比百分比，yesterdayNew 为 0 时返回 null */
@@ -46,7 +46,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
         <div>
           <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 flex items-center flex-wrap gap-3">
             {t("procurement_poolTitleNew")}
-            {stats && (
+            {stats.active > 0 && (
               <span className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold">
                 {stats.active.toLocaleString()}+ {t("procurement_searchableBadge")}
               </span>
@@ -74,8 +74,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
           </button>
         </div>
       </div>
-      {stats && (
-        <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[
             { value: stats.active, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
             {
@@ -105,7 +104,6 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
             );
           })}
         </div>
-      )}
     </section>
   );
 }

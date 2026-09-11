@@ -263,7 +263,7 @@ export default function ProcurementPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-extrabold text-slate-900">
-              {t("procurement_resultsCount", { count: (search.query.hasSearch ? search.result.total : (listingStats?.active ?? search.result.total)).toLocaleString() })}
+              {t("procurement_resultsCount", { count: (search.query.hasSearch ? search.result.total : (listingStats.active || search.result.total)).toLocaleString() })}
             </span>
             {/* 已筛条件标签 */}
             {(search.query.activeCountry || search.query.activeQ) && (
