@@ -23,7 +23,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const conditions: string[] = ["n.user_id = ?", "n.notice_type = 'RFQ'"];
   const params: unknown[] = [auth.userId];
 
-  if (status === "draft" || status === "published" || status === "closed") {
+  if (status === "draft" || status === "published" || status === "closed" || status === "pending_review") {
     conditions.push("n.rfq_status = ?");
     params.push(status);
   }

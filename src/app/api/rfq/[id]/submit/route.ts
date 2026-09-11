@@ -26,7 +26,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, 40002, "请求体非法 JSON");
     }
 
-    const newStatus = body.status === "published" ? "published" : "draft";
+    const newStatus = body.status === "published" ? "published" : "pending_review";
 
     const pool = getPool();
 
@@ -44,6 +44,9 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (row.rfq_status === "published" && newStatus === "published") {
       // 幂等：已发布的不再重复更新
       return NextResponse.json({ code: 0, message: "ok", already_published: true });
+    }
+    if (row.rfq_status === "closed") {
+      routeError(400, 40005, "已撤回的 RFQ 无法重新提交");
     }
 
     const [result] = await pool.query(
