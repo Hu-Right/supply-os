@@ -2,7 +2,7 @@
  * 支付编排层 — 跨业务统一入口
  *
  * @module lib/payment/orchestrator
- * @description ARCH-B+（2026-09-01）：分表存储后的统一编排层。
+ * @description ARCH-B+（2026-09-01）+ ARCH-PN（2026-09-11）：分表存储后的统一编排层。
  *              根据订单号前缀路由至对应业务服务：
  *              - SO → PaymentService（会员 / 公告解锁）
  *              - LE → LearningPaymentService（学习资料 / 打包套餐）
@@ -29,7 +29,8 @@ import { fulfillTrainingOrder, reverseTrainingOrder, fulfillMockTrainingOrder } 
 export interface NormalizedOrder {
   order_no: string; // 订单编号
   user_id: number; // 内部用户 ID
-  provider: string; // 支付渠道 
+  business_type: "membership" | "learning" | "training"; // ARCH-PN：业务类型
+  provider: string; // 支付渠道
   plan_code: string; // 套餐代码
   notice_id: number | null; // 解锁的资料 ID
   amount: number; // 订单金额
@@ -39,6 +40,7 @@ export interface NormalizedOrder {
   paid_at: string | null; // 支付时间
   created_at: string; // 创建时间
   updated_at: string | null; // 更新时间
+  expires_at: string | null; // ARCH-PN：过期时间
 }
 
 // 订单号前缀常量  SO：会员服务，LE：学习资料，TR：培训
@@ -69,11 +71,22 @@ export class PaymentOrchestrator {
     private paymentHistoryRepo: PaymentHistoryRepo,
   ) {}
 
-  // ── 渠道策略注册 ──────────────────────────────────────────────────────────
+  // ── 渠道策略注册（唯一注册中心） ──────────────────────────────────────────
+
+  /**
+   * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
+   * 注册时同步向子服务注入策略解析器，消除三重冗余注册。
+   */
   registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
     this.strategies.set(provider, strategy);
-    this.paymentService.registerStrategy(provider, strategy);
-    this.learningPaymentService.registerStrategy(provider, strategy);
+    // 向子服务注入策略解析闭包（幂等：每次注册都覆写，确保 hasStrategy 返回最新值）
+    this.paymentService.setStrategyResolver({
+      getStrategy: (p) => this.getStrategy(p),
+      hasStrategy: (p) => this.hasStrategy(p),
+    });
+    this.learningPaymentService.setStrategyResolver({
+      getStrategy: (p) => this.getStrategy(p),
+    });
   }
 
   getStrategy(provider: PaymentProviderName): PaymentStrategy {
@@ -153,9 +166,20 @@ export class PaymentOrchestrator {
       }
 
       case "membership":
-      default:
-        // 会员订单完整走 PaymentService.handleNotify（含验签 + 金额校验 + 履约 + TRADE_CLOSED 退款）
-        return this.paymentService.handleNotify(provider, rawBody, signature);
+      default: {
+        // ARCH-PN（2026-09-11）：会员订单不再重复走 PaymentService.handleNotify（验签已在上方完成），
+        // 直接进行金额校验 + 履约，消除重复验签。
+        const dbOrder = await this.paymentsRepo.findOrderAmount(verifyResult.order_no);
+        if (!dbOrder) {
+          return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+        }
+        if (dbOrder.amount > 0 && Math.abs(dbOrder.amount - callbackAmount) > 0.01) {
+          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
+        }
+        const { activatePaidOrder } = await import("./fulfillment");
+        await activatePaidOrder(this.paymentsRepo, verifyResult.order_no, verifyResult.provider_trade_no);
+        return { success: true, order_no: verifyResult.order_no };
+      }
     }
   }
 
@@ -276,11 +300,12 @@ export class PaymentOrchestrator {
     amount: number | string; currency: string; status: string;
     provider_trade_no: string | null; paid_at: Date | string | null;
     created_at: Date | string; updated_at: Date | string | null;
-    notice_id?: number | null;
-  }): NormalizedOrder {
+    notice_id?: number | null; expires_at?: Date | string | null;
+  }, businessType: "membership" | "learning" | "training"): NormalizedOrder {
     return {
       order_no: row.order_no,
       user_id: row.user_id ?? 0,
+      business_type: businessType,
       provider: row.provider,
       plan_code: row.plan_code,
       notice_id: row.notice_id ?? null,
@@ -291,6 +316,7 @@ export class PaymentOrchestrator {
       paid_at: row.paid_at ? new Date(row.paid_at as string).toISOString() : null,
       created_at: new Date(row.created_at as string).toISOString(),
       updated_at: row.updated_at ? new Date(row.updated_at as string).toISOString() : null,
+      expires_at: row.expires_at ? new Date(row.expires_at as string).toISOString() : null,
     };
   }
 
@@ -315,15 +341,15 @@ export class PaymentOrchestrator {
     const total = membershipTotal + learningTotal + trainingTotal;
 
     const all = [
-      ...membershipOrders.map((o) => this.normalizeOrder(o)),
-      ...learningOrders.map((o) => this.normalizeOrder(o)),
+      ...membershipOrders.map((o) => this.normalizeOrder(o, "membership")),
+      ...learningOrders.map((o) => this.normalizeOrder(o, "learning")),
       ...trainingOrders.map((o) => this.normalizeOrder({
         order_no: o.order_no, user_id: o.user_id, provider: o.provider,
         plan_code: `training_course_${o.course_id}`, amount: o.total_amount,
         currency: o.currency, status: o.status, provider_trade_no: o.provider_trade_no,
         paid_at: o.paid_at, created_at: o.created_at as unknown as Date,
-        updated_at: null,
-      })),
+        updated_at: null, expires_at: o.expires_at ?? null,
+      }, "training")),
     ];
 
     all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
