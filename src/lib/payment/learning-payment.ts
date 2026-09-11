@@ -21,24 +21,30 @@ import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { findLearningBundle } from "../data/learning-bundles";
 import { getPool } from "../db/pool";
 import { ORDER_STATUS } from "@/shared/constants/order-status";
+import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 
 export class LearningPaymentService {
-  private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
+  /** 策略解析器（由 Orchestrator 注入） */
+  private getStrategyFn: ((provider: PaymentProviderName) => PaymentStrategy) | null = null;
 
   constructor(
     private learningOrdersRepo: LearningOrdersRepo,
     private learningMaterialsRepo: LearningMaterialsRepo,
   ) {}
 
-  /** 注入支付渠道策略（由 Orchestrator 统一分发） */
-  registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
-    this.strategies.set(provider, strategy);
+  /**
+   * 注入策略解析器（由 Orchestrator.registerStrategy 调用）
+   * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
+   */
+  setStrategyResolver(opts: {
+    getStrategy: (provider: PaymentProviderName) => PaymentStrategy;
+  }): void {
+    this.getStrategyFn = opts.getStrategy;
   }
 
   getStrategy(provider: PaymentProviderName): PaymentStrategy {
-    const s = this.strategies.get(provider);
-    if (!s) throw new Error(`Unsupported payment provider: ${provider}`);
-    return s;
+    if (!this.getStrategyFn) throw new Error("LearningPaymentService: strategy resolver not initialized");
+    return this.getStrategyFn(provider);
   }
 
   // ── 创建订单 ──────────────────────────────────────────────────────────────
@@ -105,8 +111,12 @@ export class LearningPaymentService {
     };
   }
 
-  // ── 查询订单 ──────────────────────────────────────────────────────────────
+  // ── 查询订单（使用统一查询管道） ────────────────────────────────────────────
 
+  /**
+   * ARCH-PN（2026-09-11）：委托 queryOrderWithGatewayPoll 管道，
+   * 消除与 PaymentService.queryOrder() 的重复逻辑。
+   */
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<{
     order_no: string;
     status: string;
@@ -120,39 +130,23 @@ export class LearningPaymentService {
     const dbOrder = await this.learningOrdersRepo.findByOrderNo(orderNo);
     if (!dbOrder) return null;
 
-    // pending 时主动向网关轮询
-    if (dbOrder.status === ORDER_STATUS.PENDING && dbOrder.provider) {
-      try {
-        const strategy = this.getStrategy(dbOrder.provider as PaymentProviderName);
-        const result = await strategy.queryOrderStatus(orderNo, providerTradeNo);
-        if (result.status === ORDER_STATUS.PAID) {
-          await this.fulfillOrder(orderNo, result.provider_trade_no);
-          return {
-            order_no: orderNo, status: ORDER_STATUS.PAID,
-            provider: dbOrder.provider as PaymentProviderName,
-            plan_code: dbOrder.plan_code, amount: Number(dbOrder.amount),
-            currency: dbOrder.currency, paid_at: new Date().toISOString(),
-          };
-        }
-        if (result.status !== "pending") {
-          return {
-            order_no: orderNo, status: result.status,
-            provider: dbOrder.provider as PaymentProviderName,
-            plan_code: dbOrder.plan_code, amount: Number(dbOrder.amount),
-            currency: dbOrder.currency,
-            provider_trade_no: result.provider_trade_no,
-          };
-        }
-      } catch { /* 网关不可用时保持数据库状态 */ }
-    }
+    const result = await queryOrderWithGatewayPoll({
+      findOrder: async () => dbOrder,
+      getStrategy: (p) => this.getStrategy(p),
+      onFulfill: (no, tradeNo) => this.fulfillOrder(no, tradeNo),
+      orderNo,
+      providerTradeNo,
+    });
 
     return {
-      order_no: dbOrder.order_no, status: dbOrder.status,
-      provider: dbOrder.provider as PaymentProviderName,
-      plan_code: dbOrder.plan_code, amount: Number(dbOrder.amount),
-      currency: dbOrder.currency,
-      provider_trade_no: dbOrder.provider_trade_no || undefined,
-      paid_at: dbOrder.paid_at ? new Date(dbOrder.paid_at).toISOString() : undefined,
+      order_no: result.order_no,
+      status: result.status,
+      provider: (result.provider || dbOrder.provider) as PaymentProviderName,
+      plan_code: result.plan_code || dbOrder.plan_code,
+      amount: result.amount ?? Number(dbOrder.amount),
+      currency: result.currency || dbOrder.currency,
+      provider_trade_no: result.provider_trade_no,
+      paid_at: result.paid_at,
     };
   }
 
