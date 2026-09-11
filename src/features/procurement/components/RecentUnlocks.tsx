@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { ArrowRight, History } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { apiCached, buildQuery } from "@/core/http";
 import { Button } from "@/shared/ui";
@@ -80,18 +80,18 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   const hasTranslation = records.some((record) => !!record.notice?.title_i18n);
 
   return (
-    <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div className="mb-4 rounded-xl border border-slate-100 bg-gradient-to-r from-slate-50 to-white p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <p className="text-xs font-black text-slate-500 uppercase flex items-center gap-1.5">
-          <History className="w-4 h-4 text-teal-600" />
-          {t("procurement_poolTitle")}
+        <p className="text-xs font-black text-slate-500 uppercase flex items-center gap-1.5 tracking-wide">
+          <Lock className="w-3.5 h-3.5 text-teal-500" />
+          最近解锁
         </p>
         {hasTranslation && (
           <Button
             onClick={() => setShowOriginal((v) => !v)}
             variant="link"
             size="sm"
-            className="shrink-0 px-0"
+            className="shrink-0 px-0 text-xs"
           >
             {showOriginal ? t("procurement_viewTranslation") : t("procurement_viewOriginal")}
           </Button>
@@ -107,14 +107,14 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
           return (
             <li
               key={`${record.notice_id}-${record.unlocked_at || ""}`}
-              className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3 py-2"
+              className="group flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-100 px-3.5 py-2.5 shadow-sm hover:border-teal-200 hover:shadow-md transition-all duration-200"
             >
-              <span dir="auto" className="text-sm font-bold text-slate-700 truncate min-w-0 flex-1">
+              <span dir="auto" className="text-sm font-semibold text-slate-700 truncate min-w-0 flex-1">
                 {title}
               </span>
               <span className="shrink-0 flex items-center gap-1.5">
                 {record.notice?.deadline_expired === true && (
-                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-3xs font-black text-rose-700">
+                  <span className="rounded-full bg-rose-50 border border-rose-100 px-2 py-0.5 text-3xs font-black text-rose-600">
                     {t("myRecordsExpired")}
                   </span>
                 )}
@@ -122,7 +122,7 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
                   onClick={() => onOpenNotice(record.notice_id)}
                   variant="link"
                   size="sm"
-                  className="gap-1 px-0 font-black hover:text-teal-800 cursor-pointer"
+                  className="gap-1 px-0 text-teal-600 font-semibold hover:text-teal-800 cursor-pointer opacity-70 group-hover:opacity-100 transition-opacity"
                 >
                   {t("myPurchasesOpenDetail")}
                   <ArrowRight className="w-3.5 h-3.5 rtl:-scale-x-100" />
