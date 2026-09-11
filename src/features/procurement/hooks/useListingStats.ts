@@ -12,6 +12,7 @@ import { api } from "@/core/http";
 export interface ListingStats {
   active: number;
   todayNew: number;
+  yesterdayNew: number;
   deadline_in_30d: number;
   with_original_docs: number;
 }
@@ -21,12 +22,13 @@ export function useListingStats(): ListingStats | null {
 
   useEffect(() => {
     api<{
-      active: number; todayNew?: number; deadline_in_30d?: number;
+      active: number; todayNew?: number; yesterdayNew?: number; deadline_in_30d?: number;
       with_original_docs?: number; bridged: number;
     }>("/api/notices/stats")
       .then((d) => setStats({
         active: d.active ?? 0,
         todayNew: d.todayNew ?? 0,
+        yesterdayNew: d.yesterdayNew ?? 0,
         deadline_in_30d: d.deadline_in_30d ?? 0,
         with_original_docs: d.with_original_docs ?? 0,
       }))
