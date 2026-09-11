@@ -34,7 +34,7 @@ export async function fetchDetailsByIds(
       `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
          country_std AS country, agency_std AS agency, agency_group,
          NULLIF(deadline_sec, 0) AS deadline_sec, NULLIF(deadline_sec, 0) AS deadline_ts,
-         estimated_value, is_featured,
+         estimated_value, is_featured, entry_source,
          LEFT(description, 300) AS description,
          ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, 500) AS description_i18n,
          title_en, LEFT(description_en, 500) AS description_en,
