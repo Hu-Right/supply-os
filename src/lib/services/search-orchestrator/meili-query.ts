@@ -13,9 +13,10 @@ import type { UnifiedSearchParams, MeiliHitResult } from "./types";
 const SEARCH_TIMEOUT_MS = 5000;
 
 /** 排序参数 → Meilisearch sort 数组
- * deadline_sec=0（长期有效）在两种截止排序下均排末尾：
+ * deadline_sec=0（长期有效/无截止日）的排序策略：
  *   - deadline（最近截止）：has_deadline:desc → 有截止日的在前，permanent 在后
- *   - deadline_farthest（最远截止）：has_deadline:desc → 有截止日的在前，permanent 在后
+ *   - deadline_farthest（截至最远）：has_deadline:desc → 有截止日的在前，permanent 在后
+ *     有截止日内按 deadline_sec:desc 降序，最远截止日排最前；permanent 排末尾
  */
 function buildSortArr(sort: UnifiedSearchParams["sort"]): string[] {
   if (sort === "deadline") return ["has_deadline:desc", "deadline_sec:asc", "id:desc"];

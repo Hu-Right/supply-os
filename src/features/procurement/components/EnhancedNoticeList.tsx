@@ -1,15 +1,19 @@
 /**
- * 增强搜索结果列表 — 数据质量过滤
- * Enhanced Notice List — Data Quality Filtering
+ * 增强搜索结果列表
+ * Enhanced Notice List
  *
  * @module features/procurement/components/EnhancedNoticeList
- * @description 在现有 NoticeList 基础上增加：
- *              1. 数据质量前端防御（过滤异常截止日期）
+ * @description 通过 FEATURE_ADVANCED_SEARCH flag 控制新旧列表切换。
  *              结果计数和排序控制已上移到 ProcurementPage 结果头部。
- *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧列表切换。
+ *
+ *              数据质量防御说明：已移除旧版 isDeadlineValid 前端过滤。
+ *              原因：后端 MEILI_ACTIVE_FILTER 已确保只返回未过期记录
+ *             （deadline_sec = 0 OR deadline_sec >= now），不存在已过期
+ *              数据泄漏风险。而 isDeadlineValid 的「当前年份+2」上限会
+ *              在"截至最远优先"排序时将合法的远期截止公告全部过滤，
+ *              导致首页为空。远期截止日（如 2030+）是国际公采的正常现象。
  */
-import { memo, useMemo } from "react";
-import { isDeadlineValid } from "@/shared/utils/dataQuality";
+import { memo } from "react";
 import { NoticeList } from "./NoticeList";
 import type { NoticeItem } from "../types";
 
@@ -26,7 +30,7 @@ export interface EnhancedNoticeListProps {
   observeCard: (el: HTMLElement | null, noticeId: number) => void;
 }
 
-/** 增强搜索结果列表 — 数据质量过滤 */
+/** 增强搜索结果列表 */
 export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   items,
   loading,
@@ -39,23 +43,9 @@ export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   feedbackEnabled,
   observeCard,
 }: EnhancedNoticeListProps) {
-  // 数据质量防御：过滤异常截止日期的条目（规划 §1.2 A）
-  const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      // deadline_ts 为秒级时间戳时校验合理性
-      if (item.deadline_ts) {
-        const sec = Number(item.deadline_ts);
-        // 如果是毫秒级时间戳，转为秒
-        const deadlineSec = sec > 1e12 ? Math.floor(sec / 1000) : sec;
-        if (!isDeadlineValid(deadlineSec)) return false;
-      }
-      return true;
-    });
-  }, [items]);
-
   return (
     <NoticeList
-      items={filteredItems}
+      items={items}
       loading={loading}
       page={page}
       totalPages={totalPages}

@@ -44,9 +44,10 @@ function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
 }
 
 /** ORDER BY 映射（与 Meilisearch 排序语义对齐）
- * deadline_sec=0（长期有效）在两种截止排序下均排末尾：
+ * deadline_sec=0（长期有效/无截止日）的排序策略：
  *   - deadline（最近截止）：(=0) ASC → permanent 在后
- *   - deadline_farthest（最远截止）：(=0) ASC → permanent 在后
+ *   - deadline_farthest（截至最远）：(=0) ASC → permanent 在后
+ *     有截止日内按 deadline_sec DESC 降序，最远截止日排最前；permanent 排末尾
  */
 export function buildOrderBy(p: UnifiedSearchParams): string {
   // MySQL 默认开启反斜杠转义：必须先转义 \ 再转义 '，否则 q 含 \ 时
