@@ -11,6 +11,7 @@
 import { Star, Bell, TrendingUp } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { GREEN } from "@/shared/constants/colors";
+import { useCountUp } from "@/shared/hooks/useCountUp";
 import type { ListingStats } from "../hooks/useListingStats";
 
 interface ListingStatsBarProps {
@@ -34,8 +35,14 @@ const CARD_THEMES = [
 export function ListingStatsBar({ stats }: ListingStatsBarProps) {
   const { t } = useLocale();
 
+  // 数字从 0 缓动到真实值（与首页 StatsWall 一致）
+  const animActive = useCountUp(stats.active);
+  const animTodayNew = useCountUp(stats.todayNew);
+  const animDeadline30 = useCountUp(stats.deadline_in_30d);
+  const animWithDocs = useCountUp(stats.with_original_docs);
+
   // 计算今日新增的环比变化
-  const changeRate = stats ? calcChangeRate(stats.todayNew, stats.yesterdayNew) : null;
+  const changeRate = calcChangeRate(stats.todayNew, stats.yesterdayNew);
   const changeLabel = changeRate !== null
     ? (changeRate >= 0 ? `+${changeRate}%` : `${changeRate}%`)
     : "—";
@@ -48,7 +55,7 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
             {t("procurement_poolTitleNew")}
             {stats.active > 0 && (
               <span className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold">
-                {stats.active.toLocaleString()}+ {t("procurement_searchableBadge")}
+                {animActive.toLocaleString()}+ {t("procurement_searchableBadge")}
               </span>
             )}
           </h2>
@@ -76,15 +83,15 @@ export function ListingStatsBar({ stats }: ListingStatsBarProps) {
       </div>
       <div className="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {[
-            { value: stats.active, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
+            { value: animActive, label: t("procurement_statSearchableNew"), sub: t("procurement_statSearchableSub") },
             {
-              value: stats.todayNew,
+              value: animTodayNew,
               label: t("procurement_statTodayNewDesc"),
               sub: `${t("procurement_statTodayNewSub")} ${changeLabel}`,
               changeRate,
             },
-            { value: stats.deadline_in_30d, label: t("procurement_statDeadline30Desc"), sub: t("procurement_statDeadline30Sub") },
-            { value: stats.with_original_docs, label: t("procurement_statWithDocsDesc"), sub: t("procurement_statWithDocsSub") },
+            { value: animDeadline30, label: t("procurement_statDeadline30Desc"), sub: t("procurement_statDeadline30Sub") },
+            { value: animWithDocs, label: t("procurement_statWithDocsDesc"), sub: t("procurement_statWithDocsSub") },
           ].map((s, i) => {
             const theme = CARD_THEMES[i] ?? CARD_THEMES[0];
             return (

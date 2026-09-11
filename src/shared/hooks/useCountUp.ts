@@ -2,8 +2,9 @@
  * 数字跳动动画 Hook
  * Count-up Animation Hook
  *
- * @module features/home/hooks/useCountUp
+ * @module shared/hooks/useCountUp
  * @description 从 0 缓动到目标数字，easeOutQuart 曲线。
+ *              首页 StatsWall、采购页 ListingStatsBar 共用。
  */
 import { useState, useEffect } from "react";
 

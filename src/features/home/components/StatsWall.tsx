@@ -7,7 +7,7 @@
  *              每个指标带数字跳动动画。
  */
 import { Search, Globe, TrendingUp, ShieldCheck } from "lucide-react";
-import { useCountUp } from "../hooks/useCountUp";
+import { useCountUp } from "@/shared/hooks/useCountUp";
 import { useHomeStats } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
 
