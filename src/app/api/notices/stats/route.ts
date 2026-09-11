@@ -44,7 +44,7 @@ export async function GET() {
     const todayStart = beijingDateToUnix(yesterdayStr, 10);      // 昨天 10:00
     const yesterdayStart = beijingDateToUnix(dayBeforeYesterdayStr, 10); // 前天 10:00
 
-    const [[todayRow], [yesterdayRow]] = await Promise.all([
+    const [todayResult, yesterdayResult] = await Promise.all([
       pool.query(
         "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
         [todayStart, todayEnd]
@@ -54,8 +54,9 @@ export async function GET() {
         [yesterdayStart, todayStart]
       ),
     ]);
-    (stats as any).todayNew = Number((todayRow as any)?.total || 0);
-    (stats as any).yesterdayNew = Number((yesterdayRow as any)?.total || 0);
+    // pool.query 返回 [rows, fields]，取 rows[0].total
+    (stats as any).todayNew = Number((todayResult[0] as any[])?.[0]?.total || 0);
+    (stats as any).yesterdayNew = Number((yesterdayResult[0] as any[])?.[0]?.total || 0);
   } catch {
     (stats as any).todayNew = 0;
     (stats as any).yesterdayNew = 0;
