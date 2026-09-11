@@ -24,45 +24,45 @@ export const migration: Migration = {
     // RFQ 状态
     await ensureColumn(
       dbPool, "crm_bid_notices", "rfq_status",
-      "rfq_status VARCHAR(20) NULL COMMENT 'RFQ状态: draft/published/closed' AFTER `published_date`",
+      "rfq_status VARCHAR(20) NULL COMMENT 'RFQ状态: draft, published, closed' AFTER published_date",
     );
 
     // 采购方联系方式
     await ensureColumn(
       dbPool, "crm_bid_notices", "contact_email",
-      "contact_email VARCHAR(200) NULL COMMENT '采购方联系邮箱' AFTER `rfq_status`",
+      "contact_email VARCHAR(200) NULL COMMENT '采购方联系邮箱' AFTER rfq_status",
     );
     await ensureColumn(
       dbPool, "crm_bid_notices", "contact_phone",
-      "contact_phone VARCHAR(50) NULL COMMENT '采购方联系电话' AFTER `contact_email`",
+      "contact_phone VARCHAR(50) NULL COMMENT '采购方联系电话' AFTER contact_email",
     );
 
     // 创建者用户 ID
     await ensureColumn(
       dbPool, "crm_bid_notices", "user_id",
-      "user_id BIGINT UNSIGNED NULL COMMENT '创建者用户ID（平台发布）' AFTER `contact_phone`",
+      "user_id BIGINT UNSIGNED NULL COMMENT '创建者用户ID（平台发布）' AFTER contact_phone",
     );
 
     // 数据来源标记
     await ensureColumn(
       dbPool, "crm_bid_notices", "entry_source",
-      "entry_source VARCHAR(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源: crawl/platform/api' AFTER `user_id`",
+      "entry_source VARCHAR(20) NOT NULL DEFAULT 'crawl' COMMENT '数据来源: crawl, platform, api' AFTER user_id",
     );
 
     // 交付省份
     await ensureColumn(
       dbPool, "crm_bid_notices", "province_name",
-      "province_name VARCHAR(50) NULL COMMENT '交付省份（RFQ国内用）' AFTER `entry_source`",
+      "province_name VARCHAR(50) NULL COMMENT '交付省份（RFQ国内用）' AFTER entry_source",
     );
 
     // UNSPSC 分类
     await ensureColumn(
       dbPool, "crm_bid_notices", "category_l1_id",
-      "category_l1_id INT UNSIGNED NULL COMMENT 'UNSPSC一级分类ID（RFQ用）' AFTER `province_name`",
+      "category_l1_id INT UNSIGNED NULL COMMENT 'UNSPSC一级分类ID（RFQ用）' AFTER province_name",
     );
     await ensureColumn(
       dbPool, "crm_bid_notices", "category_l2_id",
-      "category_l2_id INT UNSIGNED NULL COMMENT 'UNSPSC二级分类ID（RFQ用）' AFTER `category_l1_id`",
+      "category_l2_id INT UNSIGNED NULL COMMENT 'UNSPSC二级分类ID（RFQ用）' AFTER category_l1_id",
     );
 
     // 索引：RFQ 广场查询需要按 entry_source + notice_type 过滤

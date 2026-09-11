@@ -71,6 +71,74 @@ function tomorrowIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// ── 字段容器（必须在组件外部定义，否则每次渲染重建导致输入框失焦）──
+function Field({ label, required, error, hint, counter, htmlFor, children }: {
+  label: string; required?: boolean; error?: string; hint?: string; counter?: string;
+  htmlFor?: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label htmlFor={htmlFor} className="text-sm font-bold text-secondary-800">
+          {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
+        </label>
+        {counter && <span className="text-2xs text-secondary-400">{counter}</span>}
+      </div>
+      {children}
+      {hint && !error && <p className="text-2xs text-secondary-400">{hint}</p>}
+      {error && (
+        <p className="text-2xs text-rose-600 flex items-center gap-1" data-error="true">
+          <AlertTriangle className="w-3 h-3" /> {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── 发布确认摘要项 ─
+function SummaryItem({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
+  return (
+    <div className="flex items-start justify-between py-1.5 border-b border-secondary-100 last:border-0">
+      <div>
+        <dt className="text-2xs text-secondary-400 mb-0.5">{label}</dt>
+        <dd className="text-sm text-secondary-800 break-words">{value || <span className="text-secondary-300">未填写</span>}</dd>
+      </div>
+      <button type="button" onClick={onEdit} className="text-2xs text-teal-600 hover:text-teal-700 font-bold flex items-center gap-0.5 shrink-0 ml-3">
+        <Pencil className="w-3 h-3" /> 修改
+      </button>
+    </div>
+  );
+}
+
+// ── 步骤指示器（必须在组件外部，避免渲染时重建子树）──
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <div className="flex items-center gap-2 mb-6">
+      {STEP_META.map((s, i) => {
+        const isActive = i === step;
+        const isDone = i < step;
+        return (
+          <div key={s.title} className="flex items-center gap-2 flex-1">
+            <div className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shrink-0 transition-colors",
+              isActive && "bg-teal-600 text-white",
+              isDone && "bg-teal-100 text-teal-700",
+              !isActive && !isDone && "bg-secondary-100 text-secondary-500",
+            )}>
+              {isDone ? <Check className="h-4 w-4" /> : i + 1}
+            </div>
+            <span className={cn(
+              "text-sm font-bold truncate",
+              isActive ? "text-secondary-900" : isDone ? "text-teal-700" : "text-secondary-400",
+            )}>{s.title}</span>
+            {i < STEP_META.length - 1 && <div className="flex-1 h-px bg-secondary-200 mx-2" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function RfqWizard({ initialData, authContact, onDataChange, onPublished }: RfqWizardProps) {
   const { authUser } = useAuth();
 
@@ -102,6 +170,17 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
+
+  // 调试：追踪组件挂载/卸载
+  useEffect(() => {
+    console.log("[DEBUG] RfqWizard MOUNTED");
+    return () => console.log("[DEBUG] RfqWizard UNMOUNTED");
+  }, []);
+
+  // 调试：追踪 title 每次变化
+  useEffect(() => {
+    console.log("[DEBUG] form.title =", JSON.stringify(form.title), "len=", form.title.length, "step=", step);
+  }, [form.title, step]);
 
   // ── UNSPSC 分类数据 ──
   const [l1Options, setL1Options] = useState<UnspscOption[]>([]);
@@ -304,7 +383,11 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       setSubmitted(true);
       onPublished();
     } catch (err) {
-      setErrors({ _form: (err as Error).message || "发布失败，请稍后重试" });
+      const msg = (err as Error).message || "";
+      // ApiError 格式: "标题至少 10 个字（当前 5）" 或 "Request failed: 400"
+      const friendly = msg.includes("Request failed") ? "发布失败，请检查表单填写是否完整" : msg;
+      setErrors({ _form: friendly });
+      console.warn("[RfqWizard] submit failed:", err);
     } finally {
       setSubmitting(false);
     }
@@ -326,77 +409,9 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     );
   }
 
-  // ── 步骤指示器 ──
-  function StepIndicator() {
-    return (
-      <div className="flex items-center gap-2 mb-6">
-        {STEP_META.map((s, i) => {
-          const isActive = i === step;
-          const isDone = i < step;
-          return (
-            <div key={s.title} className="flex items-center gap-2 flex-1">
-              <div className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold shrink-0 transition-colors",
-                isActive && "bg-teal-600 text-white",
-                isDone && "bg-teal-100 text-teal-700",
-                !isActive && !isDone && "bg-secondary-100 text-secondary-500",
-              )}>
-                {isDone ? <Check className="h-4 w-4" /> : i + 1}
-              </div>
-              <span className={cn(
-                "text-sm font-bold truncate",
-                isActive ? "text-secondary-900" : isDone ? "text-teal-700" : "text-secondary-400",
-              )}>{s.title}</span>
-              {i < STEP_META.length - 1 && <div className="flex-1 h-px bg-secondary-200 mx-2" />}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  // ── 字段容器 ──
-  function Field({ label, required, error, hint, counter, htmlFor, children }: {
-    label: string; required?: boolean; error?: string; hint?: string; counter?: string;
-    htmlFor?: string; children: React.ReactNode;
-  }) {
-    return (
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <label htmlFor={htmlFor} className="text-sm font-bold text-secondary-800">
-            {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
-          </label>
-          {counter && <span className="text-2xs text-secondary-400">{counter}</span>}
-        </div>
-        {children}
-        {hint && !error && <p className="text-2xs text-secondary-400">{hint}</p>}
-        {error && (
-          <p className="text-2xs text-rose-600 flex items-center gap-1" data-error="true">
-            <AlertTriangle className="w-3 h-3" /> {error}
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  // ── 发布确认摘要项 ──
-  function SummaryItem({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
-    return (
-      <div className="flex items-start justify-between py-1.5 border-b border-secondary-100 last:border-0">
-        <div>
-          <dt className="text-2xs text-secondary-400 mb-0.5">{label}</dt>
-          <dd className="text-sm text-secondary-800 break-words">{value || <span className="text-secondary-300">未填写</span>}</dd>
-        </div>
-        <button type="button" onClick={onEdit} className="text-2xs text-teal-600 hover:text-teal-700 font-bold flex items-center gap-0.5 shrink-0 ml-3">
-          <Pencil className="w-3 h-3" /> 修改
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div ref={rootRef} className="rounded-2xl border border-secondary-200 bg-white p-6 shadow-xs">
-      <StepIndicator />
+      <StepIndicator step={step} />
 
       {/* ═══ Step 1 需求概要 ═══ */}
       {step === 0 && (
@@ -662,6 +677,11 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       )}
 
       {/* ══ 底部导航按钮 ═══ */}
+      {errors._form && (
+        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" /> {errors._form}
+        </div>
+      )}
       <div className="flex items-center justify-between mt-8 pt-5 border-t border-secondary-100">
         {step > 0 ? (
           <Button variant="outline" onClick={goPrev}>
