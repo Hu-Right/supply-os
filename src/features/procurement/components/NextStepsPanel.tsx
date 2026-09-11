@@ -207,7 +207,7 @@ export function NextStepsPanel({
         <div className="mt-3 pt-3 border-t border-slate-200">
           <button
             onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white py-3 font-bold text-sm transition-colors"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 font-bold text-sm transition-colors"
           >
             <Crown className="w-4 h-4" />
             <Briefcase className="w-4 h-4" />

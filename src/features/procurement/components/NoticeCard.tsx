@@ -203,7 +203,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
             <Button
               onClick={() => onClick(item)}
               size="sm"
-              className="px-4 py-2 font-black text-white whitespace-nowrap bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600"
+              className="px-4 py-2 font-bold text-white whitespace-nowrap rounded-lg bg-slate-900 hover:bg-slate-800 transition-colors"
             >
               <Crown className="w-3.5 h-3.5 mr-1" />
               {t("procurement_memberUnlock")}
