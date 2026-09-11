@@ -425,7 +425,7 @@
   "procurement_statAiMatchableDesc": "AI matchable",
   "procurement_statRealtime": "Real-time",
   "procurement_statSearchableSub": "Real-time inventory",
-  "procurement_statTodayNewSub": "vs yesterday +8.3%",
+  "procurement_statTodayNewSub": "vs yesterday",
   "procurement_statDeadline30Sub": "Upcoming opportunities",
   "procurement_statWithDocsSub": "Directly downloadable",
   "procurement_statAiMatchableSub": "Smart recommended opportunities",
