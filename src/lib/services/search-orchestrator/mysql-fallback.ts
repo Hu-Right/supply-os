@@ -43,7 +43,11 @@ function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
   };
 }
 
-/** ORDER BY 映射（与 Meilisearch 排序语义对齐） */
+/** ORDER BY 映射（与 Meilisearch 排序语义对齐）
+ * deadline_sec=0（长期有效）在两种截止排序下均排末尾：
+ *   - deadline（最近截止）：(=0) ASC → permanent 在后
+ *   - deadline_farthest（最远截止）：(=0) ASC → permanent 在后
+ */
 export function buildOrderBy(p: UnifiedSearchParams): string {
   // MySQL 默认开启反斜杠转义：必须先转义 \ 再转义 '，否则 q 含 \ 时
   // 字符串字面量被破坏（查询必坏，且构成 ORDER BY 注入面）

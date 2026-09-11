@@ -118,7 +118,7 @@ export const fetchUnifiedSearch = (params: {
     deadline_within_days: params.deadlineWithinDays,
     notice_type: params.noticeType,
     featured: params.featured ? "1" : undefined,
-    sort: params.sort && params.sort !== "deadline_farthest" ? params.sort : undefined,
+    sort: params.sort && params.sort !== "latest" ? params.sort : undefined,
     budget_min: params.budgetMin?.toString(),
     budget_max: params.budgetMax?.toString(),
   });
