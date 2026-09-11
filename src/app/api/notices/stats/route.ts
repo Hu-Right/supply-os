@@ -35,20 +35,30 @@ function getBeijingDateOffset(daysOffset: number): string {
 export async function GET() {
   const pool = getPool();
   const stats = await getNoticeStats(pool);
-  // 追加今日新增公告数（基于 create_time Unix 时间戳，北京时间 10:00 切分）
+  // 追加今日/昨日新增公告数（基于 create_time Unix 时间戳，北京时间 10:00 切分）
   try {
     const todayStr = getBeijingDate();
     const yesterdayStr = getBeijingDateOffset(-1);
-    const todayEnd = beijingDateToUnix(todayStr, 10);
-    const todayStart = beijingDateToUnix(yesterdayStr, 10);
+    const dayBeforeYesterdayStr = getBeijingDateOffset(-2);
+    const todayEnd = beijingDateToUnix(todayStr, 10);            // 今天 10:00
+    const todayStart = beijingDateToUnix(yesterdayStr, 10);      // 昨天 10:00
+    const yesterdayStart = beijingDateToUnix(dayBeforeYesterdayStr, 10); // 前天 10:00
 
-    const [todayRows] = await pool.query(
-      "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
-      [todayStart, todayEnd]
-    );
-    (stats as any).todayNew = Number((todayRows as any[])[0]?.total || 0);
+    const [[todayRow], [yesterdayRow]] = await Promise.all([
+      pool.query(
+        "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+        [todayStart, todayEnd]
+      ),
+      pool.query(
+        "SELECT COUNT(*) AS total FROM crm_bid_notices WHERE create_time >= ? AND create_time < ?",
+        [yesterdayStart, todayStart]
+      ),
+    ]);
+    (stats as any).todayNew = Number((todayRow as any)?.total || 0);
+    (stats as any).yesterdayNew = Number((yesterdayRow as any)?.total || 0);
   } catch {
     (stats as any).todayNew = 0;
+    (stats as any).yesterdayNew = 0;
   }
   return NextResponse.json(stats);
 }
