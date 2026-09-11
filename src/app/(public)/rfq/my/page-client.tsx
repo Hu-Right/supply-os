@@ -8,7 +8,7 @@
  * @description 列表 + 状态筛选 + 撤回操作。需登录。
  */
 import { useCallback, useEffect, useState } from "react";
-import { Clock, Eye, Lock, FileText } from "lucide-react";
+import { Clock, Eye, Lock, FileText, Pencil } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
@@ -27,6 +27,7 @@ interface MyRfq {
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   draft: { label: "草稿", color: "bg-slate-100 text-slate-600 border-slate-200" },
+  pending_review: { label: "待审核", color: "bg-amber-50 text-amber-700 border-amber-200" },
   published: { label: "已发布", color: "bg-teal-50 text-teal-700 border-teal-200" },
   closed: { label: "已撤回", color: "bg-rose-50 text-rose-600 border-rose-200" },
 };
@@ -99,6 +100,7 @@ export default function MyRfqPageClient() {
         <div className="flex gap-2">
           {[
             { value: "", label: "全部" },
+            { value: "pending_review", label: "待审核" },
             { value: "published", label: "已发布" },
             { value: "draft", label: "草稿" },
             { value: "closed", label: "已撤回" },
@@ -166,7 +168,17 @@ export default function MyRfqPageClient() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {rfq.status === "published" && (
+                    {(rfq.status === "draft" || rfq.status === "pending_review") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.location.href = `/rfq?edit=${rfq.id}`}
+                        className="gap-1"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> 编辑
+                      </Button>
+                    )}
+                    {(rfq.status === "published" || rfq.status === "pending_review") && (
                       <Button
                         variant="outline"
                         size="sm"

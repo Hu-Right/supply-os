@@ -295,10 +295,10 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       const rfqId = res.data?.id;
       if (!rfqId) throw new Error("创建失败");
 
-      // Step 2: 提交发布
+      // Step 2: 提交审核（状态变为 pending_review）
       await api(`/api/rfq/${rfqId}/submit`, {
         method: "PATCH",
-        body: JSON.stringify({ status: "published" }),
+        body: JSON.stringify({}),
       });
 
       setSubmitted(true);
@@ -318,7 +318,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
           <Check className="h-8 w-8 text-teal-600" />
         </div>
         <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
-        <p className="text-sm text-secondary-500 mb-6">平台将智能匹配供应商，审核通过后将自动展示在需求广场。</p>
+        <p className="text-sm text-secondary-500 mb-6">平台审核通过后将自动展示在需求广场，您可以随时在“我的采购需求”中查看或编辑。</p>
         <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
           发布新需求
         </Button>
