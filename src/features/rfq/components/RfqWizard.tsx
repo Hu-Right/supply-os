@@ -9,7 +9,7 @@
  *              字段级校验（步骤级拦截 + 滚动聚焦首个错误）、
  *              草稿即时上报（监听 form 统一上报，页面层负责持久化）、
  *              联系方式登录态预填。
- *              TODO(P1): 提交接入 createRfq API，附件换预签名直传。
+ *              提交已接入 /api/rfq/create，附件 P2 接入 OSS 预签名直传。
  */
 import { useEffect, useRef, useState } from "react";
 import {
@@ -19,8 +19,12 @@ import {
 import { cn } from "@/shared/utils";
 import { Button, ChipToggleGroup, Input, SearchableSelect, SegmentedControl, Select, Textarea } from "@/shared/ui";
 import { provinces as chinaProvinces, cities as chinaCities, areas as chinaAreas } from "@/data/chinaDivision";
+import { useAuth } from "@/core/auth";
+import { api } from "@/core/http";
+import { emitAppEvent } from "@/core/events";
+import { fetchUnspscIndustries, fetchUnspscChildren, type UnspscOption } from "@/core/unspsc";
 import {
-  CATEGORY_TREE, CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
+  CURRENCY_OPTIONS, DEFAULT_RFQ_FORM, INCOTERM_OPTIONS,
   PAYMENT_OPTIONS, SUPPLIER_REQ_OPTIONS,
 } from "../constants";
 import type { FieldErrors, PurchaseType, RfqFormState } from "../types";
@@ -68,6 +72,22 @@ function tomorrowIso(): string {
 }
 
 export function RfqWizard({ initialData, authContact, onDataChange, onPublished }: RfqWizardProps) {
+  const { authUser } = useAuth();
+
+  // 登录门槛：未登录用户无法填写表单
+  if (!authUser) {
+    return (
+      <div className="rounded-2xl border border-secondary-200 bg-white p-12 text-center shadow-xs">
+        <Lock className="w-12 h-12 text-secondary-300 mx-auto mb-4" />
+        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">发布采购需求需要先登录</h3>
+        <p className="text-sm text-secondary-500 mb-6">登录后即可发布采购需求，平台将智能匹配供应商</p>
+        <Button variant="primary" onClick={() => emitAppEvent("supply-os:require-login")}>
+          立即登录
+        </Button>
+      </div>
+    );
+  }
+
   // 描述为空时预填模板（让用户看到结构和提示）
   const initialForm: RfqFormState = {
     ...initialData,
@@ -82,6 +102,19 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(false);
+
+  // ── UNSPSC 分类数据 ──
+  const [l1Options, setL1Options] = useState<UnspscOption[]>([]);
+  const [l2Options, setL2Options] = useState<UnspscOption[]>([]);
+
+  useEffect(() => {
+    fetchUnspscIndustries("zh").then(setL1Options).catch(() => setL1Options([]));
+  }, []);
+
+  useEffect(() => {
+    if (!form.categoryL1) { setL2Options([]); return; }
+    fetchUnspscChildren(form.categoryL1, "zh").then(setL2Options).catch(() => setL2Options([]));
+  }, [form.categoryL1]);
 
   // 省/市/区数据（仅中国行政区划）
   const [citiesList, setCitiesList] = useState<typeof chinaCities>([]);
@@ -222,8 +255,8 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     setForm((prev) => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== idx) }));
   }
 
-  // ── 提交（TODO(P1): 接入 createRfq API，失败时保留数据并可重试） ──
-  function handleSubmit() {
+  // ── 提交：POST /api/rfq/create → PATCH /api/rfq/{id}/submit ──
+  async function handleSubmit() {
     const e = validateStep(2);
     setErrors(e);
     if (Object.keys(e).length > 0) {
@@ -231,11 +264,50 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       return;
     }
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      // Step 1: 创建 RFQ
+      const res = await api<{ code: number; data: { id: number } }>("/api/rfq/create", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title.trim(),
+          description: form.description.trim(),
+          budget_min: form.budgetConfidential ? 0 : Number(form.budgetMin) || 0,
+          budget_max: form.budgetConfidential ? 0 : Number(form.budgetMax) || 0,
+          currency: form.currency,
+          budget_confidential: form.budgetConfidential,
+          country: "China",
+          province_name: form.provinceName || "",
+          category_l1_id: form.categoryL1 ? Number(form.categoryL1) : undefined,
+          category_l2_id: form.categoryL2 ? Number(form.categoryL2) : undefined,
+          delivery_address: [form.cityName, form.districtName, form.address].filter(Boolean).join(" "),
+          incoterm: form.incoterm,
+          delivery_time: form.deliveryTime,
+          payment_terms: form.paymentTerms,
+          deadline: form.deadline,
+          visibility: form.visibility,
+          supplier_reqs: form.supplierReqs,
+          contact_name: form.contactName,
+          contact_email: form.contactEmail,
+          contact_phone: form.contactPhone,
+          status: "draft",
+        }),
+      });
+      const rfqId = res.data?.id;
+      if (!rfqId) throw new Error("创建失败");
+
+      // Step 2: 提交发布
+      await api(`/api/rfq/${rfqId}/submit`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "published" }),
+      });
+
       setSubmitted(true);
       onPublished();
-    }, 1500);
+    } catch (err) {
+      setErrors({ _form: (err as Error).message || "发布失败，请稍后重试" });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   // ── 发布成功态 ──
@@ -245,8 +317,8 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
         <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-100 mb-4">
           <Check className="h-8 w-8 text-teal-600" />
         </div>
-        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">RFQ 已发布</h3>
-        <p className="text-sm text-secondary-500 mb-6">平台将智能匹配供应商，您将在 24 小时内收到报价。</p>
+        <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
+        <p className="text-sm text-secondary-500 mb-6">平台将智能匹配供应商，审核通过后将自动展示在需求广场。</p>
         <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
           发布新需求
         </Button>
@@ -342,7 +414,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
               <Select id="rfq-cat1" value={form.categoryL1} error={!!errors.categoryL1}
                 onChange={(e) => onCategoryL1(e.target.value)}>
                 <option value="">请选择一级分类</option>
-                {CATEGORY_TREE.map((c) => <option key={c.label} value={c.label}>{c.label}</option>)}
+                {l1Options.map((o) => <option key={o.id} value={String(o.id)}>{o.title_zh || o.title || o.code}</option>)}
               </Select>
             </Field>
             <Field label="二级分类" required error={errors.categoryL2} htmlFor="rfq-cat2">
@@ -350,9 +422,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
                 onChange={(e) => update("categoryL2", e.target.value)}
                 disabled={!form.categoryL1}>
                 <option value="">请选择二级分类</option>
-                {CATEGORY_TREE.find((c) => c.label === form.categoryL1)?.children.map((c2) => (
-                  <option key={c2} value={c2}>{c2}</option>
-                ))}
+                {l2Options.map((o) => <option key={o.id} value={String(o.id)}>{o.title_zh || o.title || o.code}</option>)}
               </Select>
             </Field>
           </div>
@@ -516,34 +586,12 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
               }} />
           </Field>
 
-          <Field label="附件上传" error={errors.attachments}
-            hint="支持 PDF/Word/Excel/图片，单个不超过 20MB，最多 10 个">
-            <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-secondary-200 bg-secondary-50/50 p-6 cursor-pointer hover:border-teal-300 transition-colors"
-              onClick={() => fileRef.current?.click()}>
-              <input ref={fileRef} type="file" multiple accept={FILE_ACCEPT} className="hidden"
-                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-              <div className="text-center">
-                <Upload className="w-8 h-8 text-secondary-400 mx-auto mb-2" />
-                <p className="text-sm font-bold text-secondary-700">点击或拖拽上传附件</p>
-                <p className="text-2xs text-secondary-400 mt-1">技术图纸、规格书、资质文件等</p>
-              </div>
-            </div>
-            {form.attachments.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {form.attachments.map((f, i) => (
-                  <li key={i} className="flex items-center justify-between rounded-lg border border-secondary-100 bg-white px-3 py-2 text-sm">
-                    <span className="truncate text-secondary-700">{f.name}</span>
-                    <span className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className="text-2xs text-secondary-400">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                      <button type="button" onClick={() => removeAttachment(i)} className="text-secondary-400 hover:text-rose-500">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Field>
+          {/* 附件上传 — P2 接入 OSS 预签名直传 */}
+          <div className="rounded-xl border border-dashed border-secondary-200 bg-secondary-50/30 p-6 text-center">
+            <Upload className="w-8 h-8 text-secondary-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-secondary-500">附件上传功能即将开放</p>
+            <p className="text-2xs text-secondary-400 mt-1">如有技术图纸等文件，请在需求描述中注明</p>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="联系人姓名" required error={errors.contactName} htmlFor="rfq-name">

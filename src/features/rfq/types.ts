@@ -70,6 +70,12 @@ export interface PlazaRfq {
   countryZh: string;
   /** 英文名，供 CountryFlag 匹配 ISO2 */
   countryEn: string;
+  /** 交付省份 */
+  province?: string;
+  /** 一级分类名称 */
+  categoryL1?: string;
+  /** 二级分类名称 */
+  categoryL2?: string;
   budgetDisplay: string;
   /** 预算中枢（万美元），用于预算区间筛选 */
   budgetUsd: number;
