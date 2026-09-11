@@ -64,7 +64,6 @@ export function HeroSection() {
         <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 max-w-3xl">
           <div className="mb-3">
             <span className="text-white font-bold text-sm">搜索采购机会</span>
-            <span className="text-slate-500 text-xs ml-1">（招标 / 采购 / 项目）</span>
           </div>
           <div className="flex mb-3">
             <div className="relative flex-1">
