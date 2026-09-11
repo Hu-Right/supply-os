@@ -24,7 +24,6 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   try {
     const result = await createTrainingOrder(ctx, ctx.trainingRepo, {
-      courseId: Number(body.course_id),
       scheduleId: body.schedule_id != null ? Number(body.schedule_id) : undefined,
       registrationId: body.registration_id != null ? Number(body.registration_id) : undefined,
       participantCount: body.participant_count != null ? Number(body.participant_count) : undefined,

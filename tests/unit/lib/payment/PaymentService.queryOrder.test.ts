@@ -59,11 +59,12 @@ function makeMembershipRepo(current: Record<string, unknown> | null) {
 
 async function getService(repo: PaymentsRepo, opts?: { membershipRepo?: MembershipRepo; queryStatus?: Record<string, unknown> }) {
   const svc = new PaymentService(repo, opts?.membershipRepo);
-  svc.registerStrategy("mock", {
+  const _s = {
     createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "x" }),
     queryOrderStatus: vi.fn().mockResolvedValue(opts?.queryStatus ?? { order_no: "", status: "pending" }),
     verifyCallback: vi.fn(),
-  } as never);
+  } as never;
+  svc.setStrategyResolver({ getStrategy: () => _s, hasStrategy: () => true });
   return svc;
 }
 
@@ -185,13 +186,14 @@ describe("PaymentService — return_url 白名单与渠道注册", () => {
     const repo = makeRepo(null);
     let receivedReturnUrl = "";
     const svc = new PaymentService(repo);
-    svc.registerStrategy("mock", {
+    const _s2 = {
       createPaymentUrl: vi.fn(async (_no: string, _a: number, _n: string, returnUrl: string) => {
         receivedReturnUrl = returnUrl;
         return { pay_url: "/pay", qr_code_url: "x" };
       }),
       queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
-    } as never);
+    } as never;
+    svc.setStrategyResolver({ getStrategy: () => _s2, hasStrategy: () => true });
     await svc.createOrder({ user_id: 1, plan_code: "vip_m", provider: "mock", return_url: "https://evil.example/phish" });
     expect(receivedReturnUrl).not.toContain("order_no");
   });
@@ -200,13 +202,14 @@ describe("PaymentService — return_url 白名单与渠道注册", () => {
     const repo = makeRepo(null);
     let receivedReturnUrl = "";
     const svc = new PaymentService(repo);
-    svc.registerStrategy("mock", {
+    const _s3 = {
       createPaymentUrl: vi.fn(async (_no: string, _a: number, _n: string, returnUrl: string) => {
         receivedReturnUrl = returnUrl;
         return { pay_url: "/pay", qr_code_url: "x" };
       }),
       queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
-    } as never);
+    } as never;
+    svc.setStrategyResolver({ getStrategy: () => _s3, hasStrategy: () => true });
     // SITE_URL 同源绝对地址 → 规范化为相对路径后追加参数
     await svc.createOrder({ user_id: 1, plan_code: "vip_m", provider: "mock", return_url: "/pay#sec" });
     expect(receivedReturnUrl).toMatch(/^\/pay\?order_no=SO\d+.*#sec$/);

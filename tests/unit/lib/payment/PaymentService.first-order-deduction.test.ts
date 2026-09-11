@@ -34,10 +34,11 @@ function makeEnv(opts: {
 async function getService(paymentsRepo: PaymentsRepo) {
   const { PaymentService } = await import("@/lib/payment/PaymentService");
   const svc = new PaymentService(paymentsRepo, undefined);
-  svc.registerStrategy("mock", {
+  const _s = {
     createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "data:image/png;base64,x" }),
     queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
-  } as never);
+  } as never;
+  svc.setStrategyResolver({ getStrategy: () => _s, hasStrategy: () => true });
   return svc;
 }
 
