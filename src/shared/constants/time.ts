@@ -30,6 +30,12 @@ export const PASSWORD_RESET_EXPIRES_MS = 15 * ONE_MINUTE_MS;
 /** 培训订单支付超时（30 分钟） */
 export const TRAINING_ORDER_EXPIRES_MS = 30 * ONE_MINUTE_MS;
 
+/** 会员订单支付超时（30 分钟） */
+export const MEMBERSHIP_ORDER_EXPIRES_MS = 30 * ONE_MINUTE_MS;
+
+/** 学习资料订单支付超时（30 分钟） */
+export const LEARNING_ORDER_EXPIRES_MS = 30 * ONE_MINUTE_MS;
+
 /** SSE 一次性 Ticket 有效期（60 秒） */
 export const CHAT_TICKET_TTL_MS = 60_000;
 

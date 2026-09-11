@@ -9,6 +9,7 @@ import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
 import { LearningPaymentService } from "../payment/learning-payment";
+import { TrainingPaymentService } from "../payment/TrainingPaymentService";
 import { PaymentOrchestrator } from "../payment/orchestrator";
 import { MockProvider } from "../payment/MockProvider";
 import { AlipayProvider } from "../payment/AlipayProvider";
@@ -57,6 +58,7 @@ export type PaymentContext = {
   dbPool: Pool;
   paymentService: PaymentService;
   learningPaymentService: LearningPaymentService;
+  trainingPaymentService: TrainingPaymentService; // ARCH-PN 新增
   orchestrator: PaymentOrchestrator;
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
@@ -147,10 +149,12 @@ export function getContext(): AppContext {
 
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
+  const trainingPaymentService = new TrainingPaymentService(trainingRepo); // ARCH-PN 新增
   const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo);
 
-  // ARCH-B+（2026-09-04）：策略注册同步至 orchestrator 和 learningPaymentService
-  // PaymentService.initDefault() 仅注册到自身，需通过 orchestrator 统一分发
+  // ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
+  // orchestrator.registerStrategy() 内部自动向 paymentService / learningPaymentService
+  // 注入策略解析闭包，无需再分别调用各子服务的 registerStrategy()。
   orchestrator.registerStrategy("mock", new MockProvider());
   if (paymentMode === "live") {
     const alipayAppId = process.env.ALIPAY_APP_ID || "";
@@ -184,11 +188,19 @@ export function getContext(): AppContext {
     }
   }
 
+  // ARCH-PN（2026-09-11）：培训支付服务策略解析器注入
+  // （orchestrator 不直接持有 trainingPaymentService，需在此处手动注入）
+  trainingPaymentService.setStrategyResolver({
+    getStrategy: (p) => orchestrator.getStrategy(p),
+    hasStrategy: (p) => orchestrator.hasStrategy(p),
+    paymentMode,
+  });
+
   const ctx: AppContext = {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
     payment: {
-      dbPool, paymentService, learningPaymentService, orchestrator, paymentMode,
+      dbPool, paymentService, learningPaymentService, trainingPaymentService, orchestrator, paymentMode,
       paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,
     },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
