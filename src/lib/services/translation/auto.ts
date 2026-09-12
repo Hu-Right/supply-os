@@ -18,7 +18,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { ChainSourceLang } from "./chain";
-import { translateViaChain, TranslationError } from "./chain";
+import { translateViaChain, TranslationError, isDeepSeekCircuitBreakerOpen } from "./chain";
 import {
   pendingNoticeTranslations,
   detectSourceLang,
@@ -212,6 +212,11 @@ export async function runIncrementalTranslation(
         Array.from({ length: CONCURRENCY }, async () => {
           while (queue.length) {
             if (charsUsed >= cfg.dailyCharBudget) break;
+            // 熔断器打开：DeepSeek 不可用，继续跑 DB 查询无意义且抢连接
+            if (isDeepSeekCircuitBreakerOpen()) {
+              logger.warn(`[auto-translate] 熔断器已打开，worker 提前退出（剩余 ${queue.length} 条待处理）`);
+              break;
+            }
 
             // ── Phase 1: 收集一批条目，本地检测源语言（零 API 开销）──
             const batchItems: {

@@ -113,6 +113,11 @@ function circuitBreakerAllow(): boolean {
   return false;
 }
 
+/** 查询熔断器是否处于打开状态（供 auto.ts 等调用方提前退出 worker 循环） */
+export function isDeepSeekCircuitBreakerOpen(): boolean {
+  return circuitBreakerTripped;
+}
+
 function circuitBreakerRecordSuccess() {
   consecutiveFailures = 0;
   circuitBreakerTripped = false;
