@@ -7,6 +7,50 @@ import { Supplier } from "../types/supplier";
 import { maskPhone, maskEmail, splitListField } from "../utils/mask";
 import { getCountryDisplayName, getCountryEnglishName } from "../data/countryNames";
 
+// ── 资料完整度计算 ─
+// 根据供应商档案各字段填写情况，加权计算 0-100 百分比
+const COMPLETENESS_FIELDS: { key: keyof ReturnType<typeof buildSupplierFields>; weight: number }[] = [
+  { key: "companyName", weight: 15 },       // 公司名（核心）
+  { key: "industry", weight: 10 },          // 行业
+  { key: "country", weight: 8 },            // 国家
+  { key: "city", weight: 5 },               // 城市
+  { key: "products", weight: 15 },          // 主营产品
+  { key: "certification", weight: 12 },     // 认证资质
+  { key: "contactPerson", weight: 8 },      // 联系人
+  { key: "email", weight: 7 },              // 邮箱
+  { key: "phone", weight: 5 },              // 电话
+  { key: "imageUrl", weight: 5 },           // 公司图片
+  { key: "unspscCode", weight: 5 },         // UNSPSC 编码
+  { key: "companyType", weight: 5 },        // 企业类型
+];
+
+function buildSupplierFields(row: any) {
+  return {
+    companyName: String(row.company || "").trim(),
+    industry: String(row.industry || "").trim(),
+    country: String(row.country || "").trim(),
+    city: String(row.city || row.province || "").trim(),
+    products: String(row.products || "").trim(),
+    certification: String(row.certification || "").trim(),
+    contactPerson: String(row.contact || "").trim(),
+    email: String(row.email || "").trim(),
+    phone: String(row.phone || "").trim(),
+    imageUrl: String(row.image_url || row.imageUrl || "").trim(),
+    unspscCode: String(row.unspsc_code || row.unspscCode || "").trim(),
+    companyType: String(row.company_type || row.companyType || "").trim(),
+  };
+}
+
+function calculateDataCompleteness(row: any): number {
+  const fields = buildSupplierFields(row);
+  let score = 0;
+  for (const { key, weight } of COMPLETENESS_FIELDS) {
+    const val = fields[key];
+    if (val && val.length > 0) score += weight;
+  }
+  return Math.min(score, 100);
+}
+
 //  supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
 export function mapSupplierRow(row: any): Supplier {
   const industryZh =
@@ -38,6 +82,7 @@ export function mapSupplierRow(row: any): Supplier {
     contactEmail: maskEmail(row.email),
     contactPhone: maskPhone(row.phone),
     status: "approved",
+    dataCompleteness: calculateDataCompleteness(row),
   };
 }
 
