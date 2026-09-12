@@ -19,8 +19,10 @@ import { ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 // 新代码统一读写带 _v2 后缀的键，旧实例的写入被自然隔离（无人读取），无需停服、无需强制全员同步升级。
 const STATS_KEY_VER = "_v2";
 
-// ── 统计缓存 ──
+// ── 统计缓存 + 请求级锁 ──
 let noticeStatsCache: { data: NoticeStatsResult; expires: number } | null = null;
+/** 请求级锁：防止并发请求同时触发多轮 6 查询，只允许一个请求计算，其余等待结果 */
+let statsCalcPromise: Promise<NoticeStatsResult> | null = null;
 
 /** 根据搜索参数生成统计表 key；无法映射时返回 null（回退到 COUNT 查询） */
 export function statsKeyFor(p: NoticeSearchParams): string | null {
@@ -147,46 +149,61 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
   }
 }
 
-/** 获取公采池统计数据 */
-export async function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
-  if (noticeStatsCache && noticeStatsCache.expires > Date.now()) return noticeStatsCache.data;
-  const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
-  const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
-  const [bridgedRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
-     AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
-  );
-  const [featuredRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
-  );
-  // 模块02 规模条口径（谓词字面内联以通过静态扫描，与 ACTIVE_NOTICE_WHERE_NO_ALIAS
-  // 逐字一致，口径变更须与 utils/notice-expired 两处同步）：
-  // 未来 30 天截止（把握近期机会）
-  const [deadline30Rows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_bid_notices n
-     WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
-       AND n.deadline_sec > UNIX_TIMESTAMP(NOW())
-       AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400`
-  );
-  // 含原始文件（宽表 documents_count>0，可下载附件）
-  const [docsRows] = await pool.query(
-    `SELECT COUNT(*) AS total FROM crm_notice_search ns
-     WHERE (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
-       AND ns.documents_count > 0`
-  );
-  const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
-  const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
-  const data: NoticeStatsResult = {
-    raw: Number((rawRows as RowDataPacket[])[0]?.total || 0), active, bridged,
-    featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridge_gap: active - bridged,
-    deadline_in_30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
-    with_original_docs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
-  };
-  noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
-  return data;
+/** 获取公采池统计数据 — 串行执行 + 请求级锁，避免并发重复计算压垮数据库 */
+export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
+  // 缓存命中直接返回
+  if (noticeStatsCache && noticeStatsCache.expires > Date.now()) {
+    return Promise.resolve(noticeStatsCache.data);
+  }
+  // 已有计算在进行中，复用其 Promise（请求级锁）
+  if (statsCalcPromise) return statsCalcPromise;
+
+  statsCalcPromise = (async () => {
+    try {
+      const [rawRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_bid_notices n");
+      const [activeRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`);
+      const [bridgedRows] = await pool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}
+         AND EXISTS (SELECT 1 FROM crm_bid_notice_unspsc_codes b WHERE b.notice_id = n.notice_id)`
+      );
+      const [featuredRows] = await pool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS} AND n.is_featured = 1`
+      );
+      // 模块02 规模条口径（谓词字面内联以通过静态扫描，与 ACTIVE_NOTICE_WHERE_NO_ALIAS
+      // 逐字一致，口径变更须与 utils/notice-expired 两处同步）：
+      // 未来 30 天截止（把握近期机会）
+      const [deadline30Rows] = await pool.query(
+        `SELECT COUNT(*) AS total FROM crm_bid_notices n
+         WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+           AND n.deadline_sec > UNIX_TIMESTAMP(NOW())
+           AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400`
+      );
+      // 含原始文件（宽表 documents_count>0，可下载附件）
+      const [docsRows] = await pool.query(
+        `SELECT COUNT(*) AS total FROM crm_notice_search ns
+         WHERE (ns.deadline_sec = 0 OR ns.deadline_sec >= UNIX_TIMESTAMP(NOW()))
+           AND ns.documents_count > 0`
+      );
+      const active = Number((activeRows as RowDataPacket[])[0]?.total || 0);
+      const bridged = Number((bridgedRows as RowDataPacket[])[0]?.total || 0);
+      const data: NoticeStatsResult = {
+        raw: Number((rawRows as RowDataPacket[])[0]?.total || 0), active, bridged,
+        featured: Number((featuredRows as RowDataPacket[])[0]?.total || 0), bridge_gap: active - bridged,
+        deadline_in_30d: Number((deadline30Rows as RowDataPacket[])[0]?.total || 0),
+        with_original_docs: Number((docsRows as RowDataPacket[])[0]?.total || 0),
+      };
+      noticeStatsCache = { data, expires: Date.now() + 10 * 60 * 1000 };
+      return data;
+    } finally {
+      statsCalcPromise = null;
+    }
+  })();
+
+  return statsCalcPromise;
 }
 
 /** 清除统计缓存（测试辅助） */
 export function clearStatsCache(): void {
   noticeStatsCache = null;
+  statsCalcPromise = null;
 }
