@@ -54,3 +54,16 @@ export function getPool(): Pool {
   globalForDb._pool = pool;
   return pool;
 }
+
+/**
+ * 关闭数据库连接池（优雅退出时调用）。
+ * 等待所有活跃查询完成后释放连接，避免 MySQL 端出现僵尸 Sleep 连接。
+ */
+export async function closePool(): Promise<void> {
+  if (globalForDb._pool) {
+    console.log("[db-pool] 正在关闭连接池…");
+    await globalForDb._pool.end();
+    globalForDb._pool = undefined;
+    console.log("[db-pool] 连接池已关闭");
+  }
+}

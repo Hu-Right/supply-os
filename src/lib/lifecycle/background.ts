@@ -14,6 +14,7 @@ import type { Pool } from "mysql2/promise";
 import { startAutoTranslate } from "../services/translation/auto";
 import { startReportCacheCleanup } from "../services/reportCacheCleanup";
 import { startAllTimers } from "./timers";
+import { closePool } from "../db/pool";
 
 export interface BackgroundHandle {
   stop: () => void;
@@ -57,11 +58,22 @@ export function registerShutdownHooks(stop: () => void): void {
   if (shutdownRegistered) return;
   shutdownRegistered = true;
 
-  const handler = () => {
-    console.log("[shutdown] 收到 SIGTERM/SIGINT，停止后台任务…");
+  const handler = async () => {
+    console.log("[shutdown] 收到退出信号，开始优雅关闭…");
+    // 1. 停止所有后台定时任务
     stop();
+    // 2. 关闭数据库连接池（释放 MySQL 端连接，避免僵尸 Sleep）
+    await closePool();
+    // 3. 退出进程
+    console.log("[shutdown] 优雅关闭完成");
+    process.exit(0);
   };
 
   process.on("SIGTERM", handler);
   process.on("SIGINT", handler);
+
+  // 处理进程自然退出（无信号场景，如 uncaughtException 后退出）
+  process.on("beforeExit", async () => {
+    await closePool();
+  });
 }
