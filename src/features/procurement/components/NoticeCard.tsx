@@ -17,6 +17,9 @@ import type { NoticeItem } from "../types";
 import { noticeTypeKey } from "../notice-type";
 import { formatDeadlineZh } from "../utils/formatDeadlineZh";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
+// 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的
+// "今天/明天/后天" 标签同口径，避免"明天 + 剩余 2 天"的矛盾组合
+import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
 
 /** 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退 */
 function compactValue(v?: string): string {
@@ -70,13 +73,8 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
 
   // ── 状态标签组 ──
   const docCount = item.breakdown_file_count ?? 0;
-  // 剩余天数：deadline_ts 兼容秒/毫秒
-  const dlMs = typeof item.deadline_ts === "number"
-    ? (item.deadline_ts > 1e12 ? item.deadline_ts : item.deadline_ts * 1000)
-    : NaN;
-  const daysLeft = Number.isFinite(dlMs) && dlMs > 0
-    ? Math.ceil((dlMs - Date.now()) / 86400000)
-    : null;
+  // 剩余天数：日历口径（CST），与左侧 formatDeadlineZh 相对日期标签对齐
+  const daysLeft = calendarDaysLeftCst(toUnixMs(item.deadline_ts));
   // Tender ID：reference 优先，回退 notice_id；UNSPSC 首码仅解锁态展示
   const tenderId = item.reference || item.notice_id || "";
   const firstUnspsc = item.core_locked === false
