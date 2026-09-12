@@ -16,6 +16,7 @@ import {
   displayNoticeTitle, displayNoticeAgency, displayNoticeBudget, displayDeadlineLabel,
   type NoticeDisplayFields,
 } from "@/shared/utils/noticeDisplay";
+import { VerticalMarquee } from "./VerticalMarquee";
 
 /** 三栏卡片共用的宽表字段口径（与列表页 NoticeCard 一致） */
 interface HomeNoticeItem extends NoticeDisplayFields {
@@ -66,21 +67,21 @@ export const ContentColumns = memo(function ContentColumns() {
       }
     };
 
-    // 获取已审核的优质供应商（最新 3 条）
-    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=3&sort=latest")
+    // 获取已审核的优质供应商（20 条用于滚动展示）
+    api<{ items: Array<{ id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string; complianceLabelsZh: string[]; mainProductsZh: string[]; status: string }> }>("/api/suppliers?page=1&pageSize=20&sort=latest")
       .then((data) => setSuppliers(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] suppliers fetch failed:", e); })
       .finally(onSettle);
 
-    // 热门商机：仅取运营精选（is_featured=1）
-    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&featured=1&sort=newest&deadline_from=${today}`)
-      .then((data) => setHotNotices((data.items ?? []).slice(0, 3)))
+    // 热门商机：仅取运营精选（is_featured=1），20 条用于滚动
+    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&featured=1&sort=newest&deadline_from=${today}`)
+      .then((data) => setHotNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] hot notices fetch failed:", e); })
       .finally(onSettle);
 
-    // 最新 RFQ 询价类公告
-    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=3&notice_type=RFQ&sort=newest&deadline_from=${today}`)
-      .then((data) => setRfqNotices((data.items ?? []).slice(0, 3)))
+    // 最新 RFQ 询价类公告，20 条用于滚动
+    api<{ items: HomeNoticeItem[] }>(`/api/notices/unified-search?page=1&page_size=20&notice_type=RFQ&sort=newest&deadline_from=${today}`)
+      .then((data) => setRfqNotices(data.items ?? []))
       .catch((e) => { failed++; console.warn("[ContentColumns] RFQ notices fetch failed:", e); })
       .finally(onSettle);
   }, []);
@@ -97,15 +98,13 @@ export const ContentColumns = memo(function ContentColumns() {
             </a>
           </div>
           <div className="flex-1">
-            {loading ? (
-              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
-            ) : hasError && hotNotices.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
-            ) : hotNotices.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">暂无热门商机</div>
-            ) : (
-              hotNotices.map((notice) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
+            <VerticalMarquee
+              items={hotNotices}
+              loading={loading}
+              maxHeight={380}
+              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无热门商机"}
+              renderItem={(notice: HomeNoticeItem) => (
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
                   <div className="flex items-center gap-2">
                     <CountryFlag name={notice.country} />
                     {notice.notice_type && (
@@ -130,8 +129,8 @@ export const ContentColumns = memo(function ContentColumns() {
                     </span>
                   </div>
                 </a>
-              ))
-            )}
+              )}
+            />
           </div>
           <a href="/procurement" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
             查看全部商机 →
@@ -146,16 +145,17 @@ export const ContentColumns = memo(function ContentColumns() {
               更多 &gt;
             </a>
           </div>
-          <div className="space-y-5 flex-1">
-            {loading ? (
-              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-12 rounded-lg bg-slate-100 animate-pulse" />)}</div>
-            ) : hasError && suppliers.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
-            ) : suppliers.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">暂无推荐供应商</div>
-            ) : (
-              suppliers.map((supplier) => (
-                <a key={supplier.id} href={`/supplier/${supplier.id}`} className="block group py-5 border-b border-slate-100 last:border-b-0">
+          <div className="flex-1">
+            <VerticalMarquee
+              items={suppliers}
+              loading={loading}
+              maxHeight={380}
+              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无推荐供应商"}
+              renderItem={(supplier: {
+                id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string;
+                complianceLabelsZh: string[]; mainProductsZh: string[]; status: string;
+              }) => (
+                <a key={supplier.id} href={`/supplier/${supplier.id}`} className="block group py-4">
                   {/* 第一行：头像 + 公司名 + 认证标签 */}
                   <div className="flex items-center gap-3">
                     <div
@@ -203,8 +203,8 @@ export const ContentColumns = memo(function ContentColumns() {
                     </span>
                   </div>
                 </a>
-              ))
-            )}
+              )}
+            />
           </div>
           <a href="/supplier" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
             查看全部供应商 →
@@ -220,15 +220,13 @@ export const ContentColumns = memo(function ContentColumns() {
             </a>
           </div>
           <div className="flex-1">
-            {loading ? (
-              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-slate-100 animate-pulse" />)}</div>
-            ) : hasError && rfqNotices.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">加载失败，请稍后刷新重试</div>
-            ) : rfqNotices.length === 0 ? (
-              <div className="text-center py-8 text-sm text-slate-400">暂无 RFQ 询价公告</div>
-            ) : (
-              rfqNotices.map((notice) => (
-                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4 border-b border-slate-100 last:border-b-0">
+            <VerticalMarquee
+              items={rfqNotices}
+              loading={loading}
+              maxHeight={380}
+              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无 RFQ 询价公告"}
+              renderItem={(notice: HomeNoticeItem) => (
+                <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
                       询价公告 (RFQ)
@@ -250,8 +248,8 @@ export const ContentColumns = memo(function ContentColumns() {
                     </span>
                   </div>
                 </a>
-              ))
-            )}
+              )}
+            />
           </div>
           <a href="/procurement?notice_type=RFQ" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
             查看全部RFQ →
