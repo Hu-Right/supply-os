@@ -50,7 +50,7 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 10;  // 10 并发 worker（降低并发避免 DeepSeek 429 限流）
+const CONCURRENCY = 3;   // 3 并发 worker（启动时多任务并行，过高会抢光 DB 连接池）
 const DELAY_MS = 200;   // 每批次间隔 200ms（配合重试机制给 API 喘息时间）
 const BATCH_SIZE = 8;   // 每批合并翻译的标题数（≤8 显著降低 BAD_SHAPE 概率）
 
