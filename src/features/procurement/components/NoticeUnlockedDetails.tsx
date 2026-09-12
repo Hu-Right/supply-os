@@ -15,6 +15,7 @@ import { Download, ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } fr
 import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { downloadFile } from "@/core/http";
 import { Button } from "@/shared/ui";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 import { downloadNoticeReport } from "../api";
@@ -251,19 +252,18 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
                 <span dir="auto" className="font-bold text-slate-700 truncate">
                   {name}
                 </span>
-                <ExternalLink className="w-4 h-4 shrink-0 text-blue-600" />
+                <Download className="w-4 h-4 shrink-0 text-blue-600" />
               </>
             );
             return url ? (
-              <a
+              <button
                 key={`${name}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => void downloadFile(url, name).catch(() => {})}
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200 cursor-pointer text-left"
               >
                 {row}
-              </a>
+              </button>
             ) : (
               <span
                 key={`${name}-${index}`}

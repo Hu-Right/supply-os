@@ -72,7 +72,7 @@ export function MaterialCard({ material, isPurchased, onDownload, onBuyMaterial 
           {pickLocale(locale, material.categoryZh, material.categoryEn)}
         </span>
         <span className="text-3xs text-slate-400">
-          {t("learningDownloadCount", { num: material.downloadsCount })}
+          {t("learningDownloadCount", { num: material.downloadsCount ?? 0 })}
         </span>
       </div>
 
