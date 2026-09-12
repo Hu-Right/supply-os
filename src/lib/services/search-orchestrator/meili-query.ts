@@ -21,7 +21,8 @@ const SEARCH_TIMEOUT_MS = 5000;
 function buildSortArr(sort: UnifiedSearchParams["sort"]): string[] {
   if (sort === "deadline") return ["has_deadline:desc", "deadline_sec:asc", "id:desc"];
   if (sort === "deadline_farthest") return ["has_deadline:desc", "deadline_sec:desc", "id:desc"];
-  return ["id:desc"];
+  // latest：无截止日期的公告始终排在最后（与 deadline/deadline_farthest 口径一致）
+  return ["has_deadline:desc", "id:desc"];
 }
 
 /**

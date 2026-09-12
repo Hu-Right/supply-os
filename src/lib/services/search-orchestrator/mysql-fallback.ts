@@ -64,7 +64,8 @@ export function buildOrderBy(p: UnifiedSearchParams): string {
   if (p.sort === "deadline_farthest") {
     return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec DESC, n.id DESC`;
   }
-  return `${refBoost}n.id DESC`;
+  // latest：无截止日期的公告始终排在最后（与 deadline/deadline_farthest 口径一致）
+  return `${refBoost}(n.deadline_sec = 0) ASC, n.id DESC`;
 }
 
 /**
