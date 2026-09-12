@@ -437,18 +437,33 @@ export function startAutoTranslate(
 
   let running = false;
   let nextTimer: ReturnType<typeof setTimeout> | null = null;
+  // DB 不可用时的退避计数器：连续 N 次连接失败后延长等待，避免刷屏
+  let consecutiveDbFailures = 0;
+  const DB_FAILURE_BACKOFF_MS = 60_000; // DB 失败后至少等 60s 再重试
 
   const tick = async () => {
     if (running) return;
     running = true;
     try {
       await runIncrementalTranslation(dbPool, cfg);
+      consecutiveDbFailures = 0; // 成功则重置
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(`SCAN_FAIL error="${msg}"`);
+      consecutiveDbFailures++;
+      // DB 连接失败（ECONNREFUSED 等）：跳过正常调度，等退避时间后再试
+      if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH/i.test(msg)) {
+        const backoffMs = Math.min(DB_FAILURE_BACKOFF_MS * consecutiveDbFailures, 10 * 60_000);
+        logger.warn(`[auto-translate] DB 不可用，${backoffMs / 1000}s 后重试（连续失败 ${consecutiveDbFailures} 次）`);
+        running = false;
+        nextTimer = setTimeout(() => void tick(), backoffMs);
+        return;
+      }
     } finally {
-      running = false;
-      scheduleNext();
+      if (running) {
+        running = false;
+        scheduleNext();
+      }
     }
   };
 
