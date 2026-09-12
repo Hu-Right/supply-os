@@ -302,7 +302,18 @@ export async function runIncrementalTranslation(
                   const errMsg = batchErr?.message || String(batchErr);
                   const degraded = (batchErr?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
 
-                  // ── 批量失败降级：逐条单独重试（单条 API 调用格式稳定性远高于批量）──
+                  // ── 熔断器打开：跳过逐条重试，打一条汇总日志 ──
+                  if (degraded.includes("DEEPSEEK_CIRCUIT_BREAKER_OPEN")) {
+                    logger.warn(
+                      `[auto-translate] 熔断器已打开，跳过本批次 ${titleToItems.size} 条逐条重试（冷却期内 DeepSeek 不可用）`
+                    );
+                    for (const [, titleItems] of titleToItems) {
+                      failed += titleItems.length;
+                    }
+                    continue;
+                  }
+
+                  // ─ 批量失败降级：逐条单独重试（单条 API 调用格式稳定性远高于批量）──
                   for (const [title, titleItems] of titleToItems) {
                     let recovered = false;
                     try {
