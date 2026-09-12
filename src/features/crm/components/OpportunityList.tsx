@@ -7,7 +7,7 @@
 
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { OPPORTUNITIES } from "../constants";
+import { ACTIVE_OPPORTUNITIES } from "../constants";
 import type { Opportunity } from "@/types";
 
 type OpportunityListProps = {
@@ -38,7 +38,7 @@ export function OpportunityList({
         <span className="text-xs text-teal-600 font-mono">{labels.latestNotices}</span>
       </h3>
       <div className="space-y-4">
-        {OPPORTUNITIES.map((opp) => (
+        {ACTIVE_OPPORTUNITIES.map((opp) => (
           <div
             key={opp.id}
             onClick={() => onSelect(opp)}

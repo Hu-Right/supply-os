@@ -7,7 +7,7 @@
 
 import { Activity, Clock, TrendingUp, Users } from "lucide-react";
 import type { Lead } from "@/types";
-import { OPPORTUNITIES } from "../constants";
+import { ACTIVE_OPPORTUNITIES } from "../constants";
 
 type StatsCardsProps = {
   leads: Lead[];
@@ -22,7 +22,7 @@ type StatsCardsProps = {
 export function StatsCards({ leads, labels }: StatsCardsProps) {
   const metrics = [
     { title: labels.leadCount, val: leads.length, icon: Activity, col: "text-teal-600 bg-teal-50" },
-    { title: labels.oppCount, val: OPPORTUNITIES.length, icon: TrendingUp, col: "text-indigo-600 bg-indigo-50" },
+    { title: labels.oppCount, val: ACTIVE_OPPORTUNITIES.length, icon: TrendingUp, col: "text-indigo-600 bg-indigo-50" },
     {
       title: labels.clientPool,
       val: leads.filter((l) => l.status === "qualified" || l.status === "contacted").length,

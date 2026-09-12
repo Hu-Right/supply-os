@@ -7,7 +7,7 @@
 
 import { Sparkles } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { OPPORTUNITIES } from "../constants";
+import { ACTIVE_OPPORTUNITIES } from "../constants";
 import type { Supplier, Opportunity } from "@/types";
 import { Button, Select } from "@/shared/ui";
 
@@ -83,12 +83,12 @@ export function AiMatchmaker({
           <Select
             value={selectedOpportunity ? selectedOpportunity.id : ""}
             onChange={(e) => {
-              const found = OPPORTUNITIES.find((x) => x.id === e.target.value);
+              const found = ACTIVE_OPPORTUNITIES.find((x) => x.id === e.target.value);
               if (found) onSelectOpportunity(found);
             }}
             className="bg-slate-700 text-white rounded px-2 py-1 min-w-0 max-w-full truncate"
           >
-            {OPPORTUNITIES.map((o) => (
+            {ACTIVE_OPPORTUNITIES.map((o) => (
               <option key={o.id} value={o.id}>
                 {pickLocale(locale, o.titleZh, o.titleEn)}
               </option>
