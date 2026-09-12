@@ -120,6 +120,24 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       return;
     }
 
+    // 企业注册时校验诊断表单必填字段，缺失则阻断注册流程
+    if (authMode === "register" && authForm.userType === "enterprise" && qualificationData) {
+      const qualLabels: Record<string, string> = {
+        company_name: "企业名称", industry: "所属行业", main_product: "主营产品",
+        export_scale: "出口/国际业务规模", certifications: "资质证书",
+        service_countries: "售后点/服务站/维修点", overseas_companies: "海外分公司/投资公司",
+        ungm_status: "UNGM注册状态", english_team: "英文团队能力",
+        payment_terms: "账期接受度", bid_willingness: "投标意愿",
+      };
+      for (const [field, label] of Object.entries(qualLabels)) {
+        const val = qualificationData[field];
+        if (!val || (Array.isArray(val) && val.length === 0)) {
+          setAuthError(`企业诊断表单：${label}为必填项，请补全后重新提交`);
+          return;
+        }
+      }
+    }
+
     // 行业偏好注册时不在表单中收集（注册后可在账户面板选填），不做必选校验
 
     try {
