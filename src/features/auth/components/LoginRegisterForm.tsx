@@ -48,11 +48,14 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
   const cascade = useUnspscPrefCascade();
 
   // ★ 修复：切换到注册模式时重置级联状态，防止上一个账号的行业偏好残留
+  // 依赖仅使用 cascade.resetCascade（稳定 useCallback 引用），不依赖整个 cascade 对象，
+  // 避免 useUnspscPrefCascade 的 useMemo 因 state 变化产生新引用时反复触发 resetCascade。
   useEffect(() => {
     if (auth.authMode === "register") {
       cascade.resetCascade();
     }
-  }, [auth.authMode, cascade]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.authMode, cascade.resetCascade]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

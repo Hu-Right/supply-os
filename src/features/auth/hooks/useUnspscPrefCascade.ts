@@ -118,11 +118,11 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     setSubOptions2([]);
   }, []);
 
-  // ★ 依赖数组仅包含稳定的 useCallback 引用，不包含 state 值。
-  // 若将 prefLevel1/2/3、industryOptions 等 state 值放入依赖，
-  // 每次 state 变化都会产生新的 cascade 对象引用，
-  // 导致 LoginRegisterForm 的 useEffect([auth.authMode, cascade]) 反复触发 resetCascade()，
-  // 形成「state 变化 → cascade 引用变化 → resetCascade → state 清空 → 重新变化」的无限循环。
+  // ★ 依赖数组必须包含所有 state 值，否则 useMemo 闭包捕获的 prefLevel1/2/3 等
+  // 永远是旧值——applyInferredPath 更新 state 后，返回的对象仍为缓存的旧快照，
+  // 导致 IndustryPrefsForm 的三级下拉不回显。
+  // LoginRegisterForm 的 useEffect 已改为仅依赖 cascade.resetCascade（稳定引用），
+  // 不再因 cascade 对象引用变化而反复触发 resetCascade，可安全加入 state 依赖。
   return useMemo(() => ({
     industryOptions,
     subOptions,
@@ -137,5 +137,9 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
     handlePrefLevel2Change,
     applyInferredPath,
     resetCascade,
-  }), [handlePrefLevel1Change, handlePrefLevel2Change, applyInferredPath, resetCascade]);
+  }), [
+    industryOptions, subOptions, subOptions2,
+    prefLevel1, prefLevel2, prefLevel3,
+    handlePrefLevel1Change, handlePrefLevel2Change, applyInferredPath, resetCascade,
+  ]);
 }
