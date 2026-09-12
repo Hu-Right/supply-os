@@ -85,7 +85,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const user = await ctx.user.usersRepo.findByIdentifier(identifier);
-  let emailSent = true;
+  let emailSent = false;
   if (user) {
     await ctx.user.authRepo.invalidateUnusedCodes(user.id, "email_reset");
     const code = String(crypto.randomInt(100000, 1000000));
@@ -96,10 +96,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     try {
       await sendPasswordResetEmail(identifier, code);
       await ctx.user.authRepo.markEmailSent(resetId, true);
-    } catch {
-      await ctx.user.authRepo.markEmailSent(resetId, false, "发送失败");
-      emailSent = false;
+      emailSent = true;
+    } catch (err) {
+      const errMsg = (err as Error).message || "未知错误";
+      console.error(`[forgot-password] 邮件发送失败 to=${identifier}: ${errMsg}`);
+      await ctx.user.authRepo.markEmailSent(resetId, false, errMsg);
     }
+  } else {
+    // 用户不存在：仍返回成功（防邮箱枚举攻击），但不实际发送邮件
+    console.warn(`[forgot-password] 用户不存在: ${identifier}`);
   }
   return NextResponse.json({ success: true, message: "验证码已发送到您的邮箱", email_sent: emailSent, support_hint: emailSent ? null : "邮件发送失败，请联系客服协助重置密码" });
 });

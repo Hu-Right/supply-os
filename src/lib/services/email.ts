@@ -8,36 +8,51 @@
  */
 import nodemailer from "nodemailer";
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = Number(process.env.SMTP_PORT || 465);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM || '"国际采购供应链平台" <noreply@supply-os.com>';
+/**
+ * SMTP 配置读取策略：每次发送时从 process.env 实时读取，
+ * 避免模块加载时 const 捕获导致环境变量变更不生效。
+ */
+function getSmtpConfig() {
+  return {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 465),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.SMTP_FROM || '"国际采购供应链平台" <noreply@supply-os.com>',
+  };
+}
 
 /** 是否已配置 SMTP（未配置时邮件功能优雅降级） */
 export function isEmailConfigured(): boolean {
-  return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  const { host, user, pass } = getSmtpConfig();
+  return Boolean(host && user && pass);
 }
 
 /** transporter 懒初始化单例（避免每次发送都创建新连接） */
 let _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
-/** 获取 transporter（懒初始化单例） */
+/** 获取 transporter（懒初始化单例；发送失败后自动清除以便重建） */
 function getTransporter() {
-  if (!isEmailConfigured()) {
+  const cfg = getSmtpConfig();
+  if (!cfg.host || !cfg.user || !cfg.pass) {
     throw new Error("SMTP_NOT_CONFIGURED");
   }
   if (_transporter) return _transporter;
   _transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.port === 465,
     auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
+      user: cfg.user,
+      pass: cfg.pass,
     },
   });
   return _transporter;
+}
+
+/** 清除 transporter 单例（发送失败时调用，下次发送重建连接） */
+function resetTransporter() {
+  _transporter = null;
 }
 
 /**
@@ -46,9 +61,11 @@ function getTransporter() {
  */
 export async function sendPasswordResetEmail(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  await transporter.sendMail({
-    from: SMTP_FROM,
-    to: email,
+  const cfg = getSmtpConfig();
+  try {
+    await transporter.sendMail({
+      from: cfg.from,
+      to: email,
     subject: "找回密码 - 验证码",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
@@ -64,7 +81,11 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
         </p>
       </div>
     `,
-  });
+    });
+  } catch (err) {
+    resetTransporter();
+    throw err;
+  }
 }
 
 /**
@@ -73,9 +94,11 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
  */
 export async function sendRegistrationVerifyEmail(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  await transporter.sendMail({
-    from: SMTP_FROM,
-    to: email,
+  const cfg = getSmtpConfig();
+  try {
+    await transporter.sendMail({
+      from: cfg.from,
+      to: email,
     subject: "注册验证 - 验证码",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
@@ -91,7 +114,11 @@ export async function sendRegistrationVerifyEmail(email: string, code: string): 
         </p>
       </div>
     `,
-  });
+    });
+  } catch (err) {
+    resetTransporter();
+    throw err;
+  }
 }
 
 /**
@@ -100,9 +127,11 @@ export async function sendRegistrationVerifyEmail(email: string, code: string): 
  */
 export async function sendEmailBindingCode(email: string, code: string): Promise<void> {
   const transporter = getTransporter();
-  await transporter.sendMail({
-    from: SMTP_FROM,
-    to: email,
+  const cfg = getSmtpConfig();
+  try {
+    await transporter.sendMail({
+      from: cfg.from,
+      to: email,
     subject: "邮箱绑定 - 验证码",
     html: `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
@@ -118,5 +147,9 @@ export async function sendEmailBindingCode(email: string, code: string): Promise
         </p>
       </div>
     `,
-  });
+    });
+  } catch (err) {
+    resetTransporter();
+    throw err;
+  }
 }
