@@ -5,5 +5,5 @@
 import { NextResponse } from "next/server";
 
 export function GET() {
-  return new NextResponse(null, { status: 204 });
+  return new NextResponse(null, { status: 200, headers: { "Content-Length": "0" } });
 }

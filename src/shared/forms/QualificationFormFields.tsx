@@ -134,7 +134,7 @@ export function QualificationFormFields({
       <div>
         <FieldLabel>{QUAL_FIELDS[1].no}. {label("companyWebsite")}：</FieldLabel>
         <Input
-          type="url"
+          type="text"
           value={form.company_website}
           onChange={(e) => update("company_website", e.target.value)}
           placeholder={ph("qualCompanyWebsitePlaceholder")}

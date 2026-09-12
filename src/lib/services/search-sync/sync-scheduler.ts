@@ -199,6 +199,7 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
   let stopped = false;
   let watermark = 0;
   let initDone = false;
+  let backfillAllowed = false;
   const stopFns: Array<() => void> = [];
 
   // 初始化（水位定格 / 首次全量回填）。
@@ -209,6 +210,12 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
     try {
       const ready = await isWideTableReady(pool);
       if (!ready) {
+        // 全量回填延迟 30 秒执行，避免与启动阶段的 API 请求争抢数据库连接。
+        // 宽表为空时增量同步无法工作，但 API 查询走主表不受影响，优先保障 API 可用。
+        if (!backfillAllowed) {
+          console.log("[wide-table] 宽表未就绪，全量回填等待中（API 优先）");
+          return;
+        }
         const result = await fullBackfill(pool);
         if (result.synced > 0) {
           const [maxRows] = await pool.query("SELECT MAX(id) AS max_id FROM crm_notice_search");
@@ -224,7 +231,9 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
     }
   };
 
-  void ensureInit();
+  // 30 秒后允许全量回填，给启动阶段的 API 请求留出窗口
+  const backfillTimer = setTimeout(() => { backfillAllowed = true; }, 30 * 1000);
+  stopFns.push(() => clearTimeout(backfillTimer));
 
   // 定时器 1：增量同步（拉取新行；初始化未完成时先补初始化）
   const syncTimer = setInterval(async () => {

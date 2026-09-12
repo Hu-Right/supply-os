@@ -256,7 +256,7 @@
   "qualAgreeText": "提交即表示您同意我们收集并使用上述信息",
   "qualErrorRequired": "为必填项",
   "qualErrorNetwork": "网络错误，请检查网络后重试",
-  "qualErrorWebsiteFormat": "请输入有效的网址（以 http:// 或 https:// 开头）",
+  "qualErrorWebsiteFormat": "请输入有效的网址（以 http://、https:// 或 www. 开头）",
   "qualErrorSubmit": "提交失败，请重试",
   "qualCompanyName": "企业名称",
   "qualCompanyWebsite": "企业官网网址",

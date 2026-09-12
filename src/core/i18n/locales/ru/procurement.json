@@ -255,7 +255,7 @@
   "qualAgreeText": "Отправляя форму, вы соглашаетесь с нашей политикой сбора данных",
   "qualErrorRequired": "обязательно для заполнения",
   "qualErrorNetwork": "Ошибка сети. Проверьте подключение и повторите попытку.",
-  "qualErrorWebsiteFormat": "Введите действительный URL (начинающийся с http:// или https://)",
+  "qualErrorWebsiteFormat": "Введите действительный URL (начинающийся с http://, https:// или www.)",
   "qualErrorSubmit": "Ошибка отправки. Повторите попытку.",
   "qualCompanyName": "Название компании",
   "qualCompanyWebsite": "Веб-сайт компании",

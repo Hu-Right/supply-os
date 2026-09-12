@@ -59,7 +59,7 @@ export default function TrainingFormPage() {
     setError("");
 
     if (!form.company_name.trim()) return setError(t("qualErrorCompanyName"));
-    if (form.company_website.trim() && !/^https?:\/\/.+/i.test(form.company_website.trim())) return setError(t("qualErrorWebsiteFormat"));
+    if (form.company_website.trim() && !/^(https?:\/\/|www\.).+\..+/i.test(form.company_website.trim())) return setError(t("qualErrorWebsiteFormat"));
     if (form.industry.length === 0) return setError(t("qualErrorIndustry"));
     if (!form.main_product.trim()) return setError(t("qualErrorMainProduct"));
     if (!form.export_scale) return setError(t("qualErrorExportScale"));
@@ -76,7 +76,13 @@ export default function TrainingFormPage() {
       const { api } = await import("@/core/http");
       const res = await api<{ id: number }>("/api/supplier-qualification", {
         method: "POST",
-        body: { ...form, source: "diagnosis" },
+        body: {
+          ...form,
+          company_website: /^(https?:\/\/|www\.)/i.test(form.company_website.trim())
+            ? form.company_website.trim()
+            : form.company_website.trim() ? `https://${form.company_website.trim()}` : "",
+          source: "diagnosis",
+        },
       });
       setQualificationId(res.id ?? null);
       setSubmitted(true);
