@@ -226,7 +226,9 @@ Output (JSON array[${texts.length}]):`;
 }
 
 // DeepSeek 带重试 + 熔断的包装：429/5xx/超时自动指数退避重试，其余错误立即抛出
-// 熔断器：连续 N 次可重试失败后暂停通道，冷却期后自动恢复
+// 熔断器：连续 N 次失败（含不可重试的 401 等）后暂停通道，冷却期后自动恢复
+// 注意：熔断记录不再区分是否可重试——401（Key 失效）等确定性错误同样会持续浪费请求，
+// 必须计入熔断才能在批量扫描场景中避免「每条记录一次无效请求」的刷屏问题。
 async function translateViaDeepSeek(
   texts: string[],
   sourceLang: string,
@@ -251,10 +253,8 @@ async function translateViaDeepSeek(
         await new Promise((r) => setTimeout(r, delayMs));
         continue;
       }
-      // 不可重试或重试耗尽：记录熔断器
-      if (isDeepSeekRetryable(errMsg)) {
-        circuitBreakerRecordFailure();
-      }
+      // 不可重试或重试耗尽：记录熔断器（所有错误均计入，含 401 等确定性失败）
+      circuitBreakerRecordFailure();
       throw err;
     }
   }
