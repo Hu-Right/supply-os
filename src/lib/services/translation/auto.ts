@@ -103,13 +103,18 @@ function nextBeijingTrigger(): Date {
     dayOffset = 1;
   }
 
-  // 构造北京时间的目标时刻，再转回 UTC Date
-  const bjStr = new Date(now.getTime() + dayOffset * 86400000)
-    .toISOString().slice(0, 10);  // 目标日 UTC 日期字符串
-  const targetUtc = new Date(`${bjStr}T${String(Math.floor(targetMin / 60)).padStart(2, "0")}:${String(targetMin % 60).padStart(2, "0")}:00Z`);
-  // 调整到正确的 UTC 时间（北京时间 = UTC + 8h）
-  targetUtc.setTime(targetUtc.getTime() - 8 * 3600000);
-  return targetUtc;
+  // ★ 关键修复：用北京时区获取当前北京日期，而非 UTC 日期。
+  // 原代码用 toISOString().slice(0,10) 取 UTC 日期，
+  // 北京时间凌晨 00:00-07:59 时 UTC 日期仍是昨天，
+  // 导致目标时刻被算成"昨天 06:00"，delay=0，scheduler 死循环。
+  const bjDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(now.getTime() + dayOffset * 86400000));
+  // en-CA 格式为 YYYY-MM-DD，直接拼接北京时间
+  const targetHour = Math.floor(targetMin / 60);
+  const targetMinute = targetMin % 60;
+  return new Date(`${bjDateStr}T${String(targetHour).padStart(2, "0")}:${String(targetMinute).padStart(2, "0")}:00+08:00`);
 }
 
 
@@ -443,6 +448,12 @@ export function startAutoTranslate(
 
   const tick = async () => {
     if (running) return;
+    // 熔断器打开时跳过整个 tick，等冷却期后再试（避免每轮 spawn worker 再退出打日志）
+    if (isDeepSeekCircuitBreakerOpen()) {
+      logger.warn(`[auto-translate] 熔断器已打开，跳过本轮调度（60s 冷却期后重试）`);
+      nextTimer = setTimeout(() => void tick(), 60_000);
+      return;
+    }
     running = true;
     try {
       await runIncrementalTranslation(dbPool, cfg);
