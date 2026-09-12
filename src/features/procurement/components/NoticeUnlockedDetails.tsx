@@ -259,7 +259,13 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
               <button
                 key={`${name}-${index}`}
                 type="button"
-                onClick={() => void downloadFile(url, name).catch(() => {})}
+                onClick={() => {
+                  void downloadFile(url, name).catch(() => {
+                    // 后端代理也失败 → 降级为浏览器直接打开（新标签页），
+                    // 由浏览器自身处理下载 / 预览行为。
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  });
+                }}
                 className="flex w-full items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200 cursor-pointer text-left"
               >
                 {row}

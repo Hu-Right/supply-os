@@ -398,14 +398,41 @@ export function clearApiCache(pattern?: string): void {
  * 统一文件下载通道：带鉴权拉取 Blob 后触发浏览器保存。
  * 用于 report/附件等 Blob 响应端点（api() 仅支持 JSON，且 <a> 直链无法携带 Bearer）。
  * 文件名优先取 Content-Disposition，缺失时使用 fallbackFileName。
+ *
+ * 跨域降级策略：外部 URL（如 UN/DGM 采购平台）通常不返回 CORS 头，直接 fetch 会
+ * 网络失败。此时自动降级到 /api/notices/proxy 后端代理，由服务端代为拉取后回传。
  */
 export async function downloadFile(url: string, fallbackFileName: string): Promise<void> {
   const authToken = getAuthToken();
-  const res = await fetch(url, {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-    credentials: "same-origin",
-  });
-  if (!res.ok) throw new ApiError(res.status, `Download failed: ${res.status}`);
+  const headers: Record<string, string> = authToken
+    ? { Authorization: `Bearer ${authToken}` }
+    : {};
+
+  let res!: Response;
+  let directFetchFailed = false;
+
+  try {
+    res = await fetch(url, { headers, credentials: "same-origin" });
+    if (!res.ok) throw new ApiError(res.status, `Download failed: ${res.status}`);
+  } catch (err) {
+    // 跨域 / 网络失败 → 标记降级到后端代理
+    directFetchFailed = true;
+    // 仅对非网络层异常（如 URL 构造错误）保留日志
+    if (!(err instanceof TypeError)) {
+      console.warn("[downloadFile] 直接拉取失败，降级到代理:", (err as Error).message);
+    }
+  }
+
+  // 跨域降级：通过后端代理拉取外部资源（代理自身携带 JWT 鉴权）
+  if (directFetchFailed) {
+    const proxyUrl = `/api/notices/proxy?url=${encodeURIComponent(url)}`;
+    res = await fetch(proxyUrl, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      credentials: "same-origin",
+    });
+    if (!res.ok) throw new ApiError(res.status, `Proxy download failed: ${res.status}`);
+  }
+
   const disposition = res.headers.get("Content-Disposition") || "";
   const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
   const fileName = matched ? decodeURIComponent(matched[1]) : fallbackFileName;
@@ -417,5 +444,7 @@ export async function downloadFile(url: string, fallbackFileName: string): Promi
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(objectUrl);
+  // 延迟释放 Blob URL：部分浏览器在 click() 后异步启动下载，
+  // 立即 revokeObjectURL 会导致下载中断或静默失败。
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
