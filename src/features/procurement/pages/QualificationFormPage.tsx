@@ -64,7 +64,7 @@ export default function QualificationFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.company_name.trim()) return toast.error(`${t("qualCompanyName")}${t("qualErrorRequired")}`);
-    if (form.company_website.trim() && !/^https?:\/\/.+/i.test(form.company_website.trim())) return toast.error(t("qualErrorWebsiteFormat"));
+    if (form.company_website.trim() && !/^(https?:\/\/|www\.).+\..+/i.test(form.company_website.trim())) return toast.error(t("qualErrorWebsiteFormat"));
     if (form.industry.length === 0) return toast.error(`${t("qualIndustry")}${t("qualErrorRequired")}`);
     if (!form.main_product.trim()) return toast.error(`${t("qualMainProduct")}${t("qualErrorRequired")}`);
     if (!form.export_scale) return toast.error(`${t("qualExportScale")}${t("qualErrorRequired")}`);
@@ -80,7 +80,7 @@ export default function QualificationFormPage() {
     try {
       const res = await submitSupplierQualification({
         company_name: form.company_name.trim(),
-        company_website: form.company_website.trim(),
+        company_website: /^(https?:\/\/|www\.)/i.test(form.company_website.trim()) ? form.company_website.trim() : `https://${form.company_website.trim()}`,
         founding_year: form.founding_year.trim() || null,
         employee_count: form.employee_count || null,
         industry: form.industry,

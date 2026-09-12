@@ -248,7 +248,7 @@
   "qualAgreeText": "By submitting you agree to our data collection policy",
   "qualErrorRequired": "is required",
   "qualErrorNetwork": "Network error. Please check your connection and try again.",
-  "qualErrorWebsiteFormat": "Please enter a valid URL (starting with http:// or https://)",
+  "qualErrorWebsiteFormat": "Please enter a valid URL (starting with http://, https://, or www.)",
   "qualErrorSubmit": "Submission failed. Please try again.",
   "qualCompanyName": "Company Name",
   "qualCompanyWebsite": "Company Website",

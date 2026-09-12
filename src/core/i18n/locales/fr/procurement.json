@@ -248,7 +248,7 @@
   "qualAgreeText": "En soumettant, vous acceptez notre politique de collecte de données",
   "qualErrorRequired": "est obligatoire",
   "qualErrorNetwork": "Erreur réseau. Vérifiez votre connexion et réessayez.",
-  "qualErrorWebsiteFormat": "Veuillez entrer une URL valide (commençant par http:// ou https://)",
+  "qualErrorWebsiteFormat": "Veuillez entrer une URL valide (commençant par http://, https:// ou www.)",
   "qualErrorSubmit": "Échec de l'envoi. Veuillez réessayer.",
   "qualCompanyName": "Nom de l'entreprise",
   "qualCompanyWebsite": "Site web de l'entreprise",

@@ -248,7 +248,7 @@
   "qualAgreeText": "بإرسالك النموذج فإنك توافق على سياسة جمع البيانات",
   "qualErrorRequired": "إلزامي",
   "qualErrorNetwork": "خطأ في الشبكة. تحقق من اتصالك وحاول مرة أخرى.",
-  "qualErrorWebsiteFormat": "الرجاء إدخال عنوان URL صالح (يبدأ بـ http:// أو https://)",
+  "qualErrorWebsiteFormat": "الرجاء إدخال عنوان URL صالح (يبدأ بـ http:// أو https:// أو www.)",
   "qualErrorSubmit": "فشل الإرسال. يرجى المحاولة مرة أخرى.",
   "qualCompanyName": "اسم الشركة",
   "qualCompanyWebsite": "موقع الشركة الإلكتروني",
