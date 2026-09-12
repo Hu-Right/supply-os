@@ -11,6 +11,9 @@
 /** CST 时区偏移：UTC+8（毫秒） */
 const CST_OFFSET_MS = 8 * 3600 * 1000;
 
+// 秒/毫秒归一化收敛（2026-09-12）：判别谓词统一由 unixTs 提供（边界 1e12 归毫秒）
+import { toUnixMs } from "./unixTs";
+
 export interface CountdownResult {
   days: number;
   /** HH:MM:SS 格式 */
@@ -24,10 +27,7 @@ export interface CountdownResult {
  * @returns 剩余天/时/分/秒，已截止或无效输入返回 null
  */
 export function getCountdown(deadlineTs?: number | string | null): CountdownResult | null {
-  if (!deadlineTs) return null;
-  const ms = typeof deadlineTs === "number"
-    ? (deadlineTs > 1e12 ? deadlineTs : deadlineTs * 1000)
-    : NaN;
+  const ms = toUnixMs(deadlineTs);
   if (!Number.isFinite(ms) || ms <= 0) return null;
 
   const deadlineCst = new Date(ms + CST_OFFSET_MS);
@@ -57,7 +57,7 @@ export function formatPublishDate(createTime?: string | number): string {
   try {
     let date: Date;
     if (typeof createTime === "number") {
-      date = new Date(createTime < 1e12 ? createTime * 1000 : createTime);
+      date = new Date(toUnixMs(createTime));
     } else {
       date = new Date(createTime);
     }

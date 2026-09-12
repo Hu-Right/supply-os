@@ -47,14 +47,17 @@ export function displayNoticeBudget(estimatedValue: string | null | undefined): 
 
 /**
  * 截止日期标签：
- * - 无截止/已过期 → "已截止"
+ * - 无截止（deadline_sec = 0 / 字段缺失）→ "长期有效"
+ *   （与 utils/notice-expired 的 ACTIVE_NOTICE_WHERE 单一事实源对齐：
+ *     deadline_sec = 0 表示无截止日期、永不过期，不可误标为"已截止"）
+ * - 已过期 → "已截止"
  * - 超 365 天（框架协议等）→ 显示具体日期（规划 §8 数据质量）
  * - 其他 → "截止 N 天"
  *
  * （原 ContentColumns 内联逻辑，与 procurement/utils/formatDeadlineZh 互补）
  */
 export function displayDeadlineLabel(deadlineSec: number | null | undefined): string {
-  if (!deadlineSec || deadlineSec <= 0) return "已截止";
+  if (deadlineSec == null || deadlineSec === 0) return "长期有效";
   const nowMs = Date.now();
   const left = Math.ceil((new Date(deadlineSec * 1000).getTime() - nowMs) / (1000 * 60 * 60 * 24));
   if (left <= 0) return "已截止";

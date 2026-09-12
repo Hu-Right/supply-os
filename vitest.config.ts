@@ -116,6 +116,7 @@ export default defineConfig({
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",
         "src/shared/utils/cn.ts",
+        "src/shared/utils/unixTs.ts",
         "src/shared/ui/Button.tsx",
         "src/shared/ui/Badge.tsx",
         "src/shared/ui/Input.tsx",

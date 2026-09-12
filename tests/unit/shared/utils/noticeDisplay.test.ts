@@ -66,20 +66,20 @@ describe("displayNoticeBudget", () => {
 });
 
 describe("displayDeadlineLabel", () => {
-  it("null 返回 已截止", () => {
-    expect(displayDeadlineLabel(null)).toBe("已截止");
+  it("null 返回 长期有效（无截止日期哨兵口径）", () => {
+    expect(displayDeadlineLabel(null)).toBe("长期有效");
   });
 
-  it("undefined 返回 已截止", () => {
-    expect(displayDeadlineLabel(undefined)).toBe("已截止");
+  it("undefined 返回 长期有效", () => {
+    expect(displayDeadlineLabel(undefined)).toBe("长期有效");
   });
 
   it("过去时间戳返回 已截止", () => {
     expect(displayDeadlineLabel(1000)).toBe("已截止"); // 1970 年
   });
 
-  it("0 返回 已截止", () => {
-    expect(displayDeadlineLabel(0)).toBe("已截止");
+  it("0 返回 长期有效（deadline_sec=0 = 无截止日期，永不过期）", () => {
+    expect(displayDeadlineLabel(0)).toBe("长期有效");
   });
 
   it("未来时间戳返回 截止 N 天", () => {
