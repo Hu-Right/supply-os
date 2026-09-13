@@ -7,6 +7,9 @@
  *              环境变量缺失时优雅降级，抛出明确错误供上层处理。
  */
 import nodemailer from "nodemailer";
+import { createLogger } from "@/lib/utils/fileLogger";
+
+const log = createLogger("email");
 
 /**
  * SMTP 配置读取策略：每次发送时从 process.env 实时读取，
@@ -82,7 +85,10 @@ export async function sendPasswordResetEmail(email: string, code: string): Promi
       </div>
     `,
     });
+    log.info(`找回密码邮件发送成功 to=${email}`);
   } catch (err) {
+    const errMsg = (err as Error).message || "未知错误";
+    log.error(`找回密码邮件发送失败 to=${email}: ${errMsg}`);
     resetTransporter();
     throw err;
   }
@@ -115,7 +121,10 @@ export async function sendRegistrationVerifyEmail(email: string, code: string): 
       </div>
     `,
     });
+    log.info(`注册验证邮件发送成功 to=${email}`);
   } catch (err) {
+    const errMsg = (err as Error).message || "未知错误";
+    log.error(`注册验证邮件发送失败 to=${email}: ${errMsg}`);
     resetTransporter();
     throw err;
   }
@@ -148,7 +157,10 @@ export async function sendEmailBindingCode(email: string, code: string): Promise
       </div>
     `,
     });
+    log.info(`邮箱绑定邮件发送成功 to=${email}`);
   } catch (err) {
+    const errMsg = (err as Error).message || "未知错误";
+    log.error(`邮箱绑定邮件发送失败 to=${email}: ${errMsg}`);
     resetTransporter();
     throw err;
   }

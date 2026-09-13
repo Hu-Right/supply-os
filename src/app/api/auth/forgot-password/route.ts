@@ -11,7 +11,10 @@ import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/services/email"
 import { sendSmsVerificationCode, isSmsConfigured, getSmsResetTemplateCode } from "@/lib/services/sms";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { createLogger } from "@/lib/utils/fileLogger";
 import { PASSWORD_RESET_EXPIRES_MS, CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
+
+const log = createLogger("email");
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -99,12 +102,17 @@ export const POST = withRoute(async (req: NextRequest) => {
       emailSent = true;
     } catch (err) {
       const errMsg = (err as Error).message || "未知错误";
-      console.error(`[forgot-password] 邮件发送失败 to=${identifier}: ${errMsg}`);
+      log.error(`找回密码邮件发送失败 to=${identifier}: ${errMsg}`);
       await ctx.user.authRepo.markEmailSent(resetId, false, errMsg);
     }
   } else {
     // 用户不存在：仍返回成功（防邮箱枚举攻击），但不实际发送邮件
-    console.warn(`[forgot-password] 用户不存在: ${identifier}`);
+    log.warn(`找回密码请求但用户不存在: ${identifier}`);
   }
-  return NextResponse.json({ success: true, message: "验证码已发送到您的邮箱", email_sent: emailSent, support_hint: emailSent ? null : "邮件发送失败，请联系客服协助重置密码" });
+  return NextResponse.json({
+    success: true,
+    message: emailSent ? "验证码已发送到您的邮箱" : "如该邮箱已注册，验证码将发送到您的邮箱",
+    email_sent: emailSent,
+    support_hint: emailSent ? null : "未收到验证码？请检查邮箱地址是否正确，或联系客服协助重置密码",
+  });
 });
