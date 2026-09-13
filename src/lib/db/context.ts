@@ -41,7 +41,6 @@ import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
 import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
-import { AdminRepo } from "../repos/admin.repo";
 
 /** 公告域上下文 */
 export type NoticeContext = {
@@ -85,20 +84,12 @@ export type SupplierContext = {
   claimRepo: SupplierClaimRepo;
 };
 
-/** 管理运维域上下文 */
-export type AdminContext = {
-  dbPool: Pool;
-  adminRepo: AdminRepo;
-  usersRepo: UsersRepo;
-};
-
 export type AppContext = {
   dbPool: Pool;
   notice: NoticeContext;
   payment: PaymentContext;
   user: UserContext;
   supplier: SupplierContext;
-  admin: AdminContext;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   leadsRepo: LeadsRepo;
@@ -145,7 +136,6 @@ export function getContext(): AppContext {
   const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
-  const adminRepo = new AdminRepo(dbPool);
 
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
@@ -205,7 +195,6 @@ export function getContext(): AppContext {
     },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
-    admin: { dbPool, adminRepo, usersRepo },
     opportunitiesRepo,
     catalogRepo,
     leadsRepo,

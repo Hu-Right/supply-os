@@ -206,15 +206,4 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
-  /**
-   * N6 收敛（2026-08-20）+ user_id 迁移 Phase 0（2026-09-03）：
-   * 管理员通道更换邮箱——按 user_id 定位。换邮箱不影响任何历史数据查询。
-   * 登录兼容：findByEmail / findByIdentifier 已按 email 查找，新邮箱登录直接生效。
-   */
-  async updateUserEmailById(userId: number, newEmail: string): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_users SET email = ?, email_verified = 0, updated_at = NOW() WHERE id = ?",
-      [newEmail.toLowerCase(), userId],
-    );
-  }
 }
