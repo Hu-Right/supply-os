@@ -8,6 +8,9 @@ import { withRoute, parseJson, routeError } from "@/lib/middleware/route-handler
 import { hashPassword, hashVerificationCode, buildUserResponse, issueTokenPair } from "@/lib/services/auth";
 import { validatePassword } from "@/lib/utils/passwordPolicy";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { createLogger } from "@/lib/utils/fileLogger";
+
+const log = createLogger("auth");
 
 const PHONE_RE = /^1[3-9]\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -66,7 +69,6 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   // 重置密码（按 user_id）
   const newHash = await hashPassword(newPassword);
-  if (!user) routeError(404, 40044, "账户不存在");
   await ctx.user.usersRepo.updatePasswordById(resolvedUserId, newHash, "bcrypt");
   // 撤销所有现有 Token（按 user_id）
   await ctx.user.authRepo.deleteRefreshTokensByUser(resolvedUserId);
@@ -76,7 +78,11 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 自动登录
   const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
-  try { tokens = await issueTokenPair(ctx.user.authRepo, user.id!); } catch { /* */ }
+  try {
+    tokens = await issueTokenPair(ctx.user.authRepo, user.id!);
+  } catch (err) {
+    log.error(`密码重置后自动登录失败 userId=${resolvedUserId}: ${(err as Error).message}`);
+  }
 
   const response = NextResponse.json({
     success: true,
