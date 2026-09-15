@@ -116,6 +116,74 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       updateParams.push(str(body.contact_phone, 50));
     }
 
+    if (body.contact_name !== undefined) {
+      const contactName = str(body.contact_name, 100);
+      if (!contactName) routeError(400, 40010, "联系人姓名不能为空");
+      updates.push("contact_name = ?");
+      updateParams.push(contactName);
+    }
+
+    if (body.currency !== undefined) {
+      const currency = ["USD", "EUR", "CNY", "SAR", "AED"].includes(str(body.currency, 3))
+        ? str(body.currency, 3)
+        : "USD";
+      updates.push("currency = ?");
+      updateParams.push(currency);
+    }
+
+    if (body.budget_min !== undefined || body.budget_max !== undefined || body.budget_confidential !== undefined) {
+      const budgetMin = Number(body.budget_min) || 0;
+      const budgetMax = Number(body.budget_max) || 0;
+      const confidential = Boolean(body.budget_confidential);
+      if (!confidential && budgetMin > 0 && budgetMax > 0 && budgetMin > budgetMax) {
+        routeError(400, 40011, "最低预算不能高于最高预算");
+      }
+      const estimatedValue = confidential ? 0 : (budgetMin + budgetMax) / 2;
+      updates.push("budget_min = ?", "budget_max = ?", "budget_confidential = ?", "estimated_value = ?");
+      updateParams.push(
+        confidential ? 0 : budgetMin || null,
+        confidential ? 0 : budgetMax || null,
+        confidential ? 1 : 0,
+        estimatedValue,
+      );
+    }
+
+    if (body.incoterm !== undefined) {
+      updates.push("incoterm = ?");
+      updateParams.push(str(body.incoterm, 20) || null);
+    }
+
+    if (body.delivery_time !== undefined) {
+      updates.push("delivery_time = ?");
+      updateParams.push(str(body.delivery_time, 200) || null);
+    }
+
+    if (body.delivery_address !== undefined) {
+      updates.push("delivery_address = ?");
+      updateParams.push(str(body.delivery_address, 500) || null);
+    }
+
+    if (body.payment_terms !== undefined) {
+      const paymentTerms = Array.isArray(body.payment_terms)
+        ? body.payment_terms.map((v: unknown) => str(v, 50)).filter(Boolean).join(",")
+        : "";
+      updates.push("payment_terms = ?");
+      updateParams.push(paymentTerms || null);
+    }
+
+    if (body.supplier_reqs !== undefined) {
+      const supplierReqs = Array.isArray(body.supplier_reqs)
+        ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
+        : "";
+      updates.push("supplier_reqs = ?");
+      updateParams.push(supplierReqs || null);
+    }
+
+    if (body.visibility !== undefined) {
+      updates.push("visibility = ?");
+      updateParams.push(body.visibility === "targeted" ? "targeted" : "public");
+    }
+
     if (updates.length === 0) {
       routeError(400, 40009, "无有效更新字段");
     }

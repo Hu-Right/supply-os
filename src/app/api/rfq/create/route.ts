@@ -90,19 +90,11 @@ export const POST = withRoute(async (req: NextRequest) => {
     ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
     : "";
 
-  // 将商务条款拼入 description 尾部（crm_bid_notices 无独立列，复用 description 承载）
-  const businessTerms = [
-    incoterm && `贸易术语: ${incoterm}`,
-    deliveryTime && `交付时间: ${deliveryTime}`,
-    paymentTerms && `付款方式: ${paymentTerms}`,
-    deliveryAddress && `交付地点: ${deliveryAddress}`,
-    supplierReqs && `供应商资质: ${supplierReqs}`,
-    `可见范围: ${visibility === "public" ? "公开询价" : "定向邀约"}`,
-  ].filter(Boolean).join("\n");
+  const currency = ["USD", "EUR", "CNY", "SAR", "AED"].includes(str(body.currency, 3))
+    ? str(body.currency, 3)
+    : "USD";
 
-  const fullDescription = `${description}\n\n---\n${businessTerms}`;
-
-  // ── 写入 crm_bid_notices ──
+  // ── 写入 crm_bid_notices（商务条款走独立列，不再拼接 description）──
   const pool = getPool();
 
   try {
@@ -112,11 +104,13 @@ export const POST = withRoute(async (req: NextRequest) => {
          notice_type, deadline_sec,
          estimated_value, published_date, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
-         agency)
-       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, CURDATE(), ?, ?, ?, ?, 'platform', ?)`,
+         contact_name, currency, budget_min, budget_max, budget_confidential,
+         incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
+       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
+               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
-        fullDescription.slice(0, 10000),
+        description.slice(0, 10000),
         "China",
         provinceName,
         categoryL1Id,
@@ -127,7 +121,17 @@ export const POST = withRoute(async (req: NextRequest) => {
         contactEmail,
         contactPhone,
         auth.userId ?? null,
-        contactName, // agency 列暂存联系人姓名（RFQ 无机构概念）
+        contactName,
+        currency,
+        budgetConfidential ? 0 : budgetMin || null,
+        budgetConfidential ? 0 : budgetMax || null,
+        budgetConfidential ? 1 : 0,
+        incoterm || null,
+        deliveryTime || null,
+        deliveryAddress || null,
+        paymentTerms || null,
+        supplierReqs || null,
+        visibility,
       ],
     );
 
