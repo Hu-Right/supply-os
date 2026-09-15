@@ -118,7 +118,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       }
     };
     // 启动时立即异步清理一次存量脏数据（不阻塞启动）
-    void runBridgeCleanup();
+    // 延迟 5s 执行，避免与 auto-translate 等其他启动任务抢 DB 连接
+    setTimeout(() => { void runBridgeCleanup(); }, 5_000);
     bridgeCleanupTimer = setInterval(() => {
       void runBridgeCleanup();
     }, bridgeCleanupIntervalHours * 3600 * 1000);
@@ -141,7 +142,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       }
     };
     // 启动时立即异步清理一次存量脏数据（不阻塞启动）
-    void runDataCleanup();
+    // 延迟 10s 执行，与桥接表清理错开，避免启动瞬间 DB 连接风暴
+    setTimeout(() => { void runDataCleanup(); }, 10_000);
     dataCleanupTimer = setInterval(() => {
       void runDataCleanup();
     }, dataCleanupIntervalHours * 3600 * 1000);
@@ -187,8 +189,9 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       }
     };
     // 启动时立即异步处理一次存量（不阻塞启动）
-    void closeStalePendingOrders();
-    void demoteExpiredVipTier();
+    // 延迟 15s/20s 执行，与翻译/清理任务错开
+    setTimeout(() => { void closeStalePendingOrders(); }, 15_000);
+    setTimeout(() => { void demoteExpiredVipTier(); }, 20_000);
     paymentMaintenanceTimer = setInterval(() => {
       void closeStalePendingOrders();
     }, PAYMENT_MAINTENANCE_INTERVAL_MS);
