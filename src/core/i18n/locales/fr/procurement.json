@@ -487,5 +487,8 @@
   "detail_sourceOfficial": "Portail officiel",
   "detail_goodsProcurement": "Achat de marchandises",
   "detail_lowestPrice": "Prix le plus bas",
-  "detail_cnyApprox": "~{amount} CNY"
+  "detail_cnyApprox": "~{amount} CNY",
+  "procurement_aiSummaryTitle": "Résumé IA de l'appel d'offres",
+  "procurement_aiSummaryLocked": "Mettez à niveau pour débloquer l'analyse IA complète",
+  "procurement_aiSummaryUnavailable": "L'analyse IA est en cours de génération, veuillez actualiser plus tard."
 }

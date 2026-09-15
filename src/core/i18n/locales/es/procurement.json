@@ -487,5 +487,8 @@
   "detail_sourceOfficial": "Portal oficial",
   "detail_goodsProcurement": "Contratación de bienes",
   "detail_lowestPrice": "Precio más bajo",
-  "detail_cnyApprox": "~{amount} CNY"
+  "detail_cnyApprox": "~{amount} CNY",
+  "procurement_aiSummaryTitle": "Resumen IA de licitación",
+  "procurement_aiSummaryLocked": "Mejore para desbloquear análisis IA completo",
+  "procurement_aiSummaryUnavailable": "El análisis IA se está generando, actualice más tarde."
 }

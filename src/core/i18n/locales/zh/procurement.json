@@ -10,7 +10,7 @@
   "procurement_statDeadline30": "未来30天截止",
   "procurement_statWithDocs": "含原始文件",
   "procurement_statAiMatchable": "可AI匹配",
-  "procurement_memberUnlock": "会员解锁",
+  "procurement_memberUnlock": "会员查看",
   "procurement_daysLeft": "剩余 {days} 天",
   "procurement_total": "共",
   "procurement_items": "条",
@@ -75,7 +75,6 @@
   "procurement_freeUnlock": "免费查看",
   "procurement_freeUsedUp": "免费次数已用完",
   "procurement_viewPlans": "查看会员套餐",
-  "procurement_memberUnlock": "会员查看",
   "procurement_quotaTitle": "查看额度",
   "procurement_freeQuota": "免费额度",
   "procurement_paidQuota": "付费额度",
@@ -133,7 +132,7 @@
   "procurement_type_supplies": "物资采购（Supplies）",
   "procurement_type_works": "工程建设（Works）",
   "procurement_tags": "分类标签",
-  "procurement_source": "查看原始公告",
+  "procurement_source": "来源",
   "procurement_lockedCoreTitle": "核心信息已隐藏",
   "procurement_lockedCoreDesc": "真实机构、联系方式、采购文件将在解锁后展示。",
   "procurement_secondaryInfoPreview": "次要信息预览",
@@ -412,7 +411,6 @@
   "procurement_clearAll": "清空全部",
   "procurement_sortBy": "排序：",
   "procurement_exportList": "导出列表",
-  "procurement_source": "来源",
   "procurement_comingSoon": "即将上线",
   "procurement_bookmark": "收藏",
   "procurement_moreCountries": "更多国家",
@@ -490,5 +488,8 @@
   "detail_sourceOfficial": "官方门户",
   "detail_goodsProcurement": "货物采购",
   "detail_lowestPrice": "最低价评标",
-  "detail_cnyApprox": "约 {amount} CNY"
+  "detail_cnyApprox": "约 {amount} CNY",
+  "procurement_aiSummaryTitle": "AI 拆标摘要",
+  "procurement_aiSummaryLocked": "升级会员解锁完整 AI 分析",
+  "procurement_aiSummaryUnavailable": "AI 分析正在生成中，请稍后刷新查看。"
 }

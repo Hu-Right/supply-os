@@ -487,5 +487,8 @@
   "detail_sourceOfficial": "Официальный портал",
   "detail_goodsProcurement": "Закупка товаров",
   "detail_lowestPrice": "Минимальная цена",
-  "detail_cnyApprox": "~{amount} CNY"
+  "detail_cnyApprox": "~{amount} CNY",
+  "procurement_aiSummaryTitle": "ИИ-сводка тендера",
+  "procurement_aiSummaryLocked": "Обновите для полного ИИ-анализа",
+  "procurement_aiSummaryUnavailable": "ИИ-анализ генерируется, обновите позже."
 }

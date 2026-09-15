@@ -59,5 +59,6 @@
   "learningCoreContent": "Contenu principal",
   "buyMaterialBtn": "Acheter le document",
   "learningBundleTitle": " Achat groupé à prix réduit",
-  "learningContentLocked": "Achetez pour débloquer le contenu complet et le téléchargement"
+  "learningContentLocked": "Achetez pour débloquer le contenu complet et le téléchargement",
+  "learningContentLoadedFailed": "Échec du chargement du contenu, veuillez actualiser et réessayer"
 }

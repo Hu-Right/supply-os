@@ -487,5 +487,8 @@
   "detail_sourceOfficial": "البوابة الرسمية",
   "detail_goodsProcurement": "شراء البضائع",
   "detail_lowestPrice": "أقل سعر",
-  "detail_cnyApprox": "~{amount} CNY"
+  "detail_cnyApprox": "~{amount} CNY",
+  "procurement_aiSummaryTitle": "ملخص الذكاء الاصطناعي للمناقصة",
+  "procurement_aiSummaryLocked": "قم بالترقية لفتح تحليل الذكاء الاصطناعي الكامل",
+  "procurement_aiSummaryUnavailable": "جاري إنشاء تحليل الذكاء الاصطناعي، يرجى التحديث لاحقاً."
 }
