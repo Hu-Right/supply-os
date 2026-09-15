@@ -8,7 +8,7 @@ import { withRoute } from "@/lib/middleware/route-handler";
 import { getPaymentRuntimeConfig } from "@/lib/config/env";
 
 export const GET = withRoute(async (req: NextRequest) => {
-  const auth = await requireUserKeyOrThrow(req);
+  await requireUserKeyOrThrow(req);
 
   const ctx = getContext();
   const { paymentsRepo } = ctx.payment;

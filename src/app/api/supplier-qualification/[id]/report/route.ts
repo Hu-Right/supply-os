@@ -4,7 +4,7 @@
  * 完整 12 章节诊断报告，包含企业画像、标准认证、UNSPSC映射、风险评估、
  * 市场策略、KPI建议、90天行动计划、综合结论等。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2/promise";
 import { getPool } from "@/lib/db/pool";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
