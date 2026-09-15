@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 }
 
 const registerSchema = z.object({
-  nameZh: z.string().optional(),
+  nameZh: z.string({ error: "请填写供应商中文名称" }).trim().min(1, "请填写供应商中文名称"),
   contactPerson: z.string().optional(),
   contactPhone: z.string().optional(),
   contactEmail: z.string().optional(),
