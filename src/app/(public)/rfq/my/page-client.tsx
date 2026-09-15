@@ -8,6 +8,7 @@
  * @description 列表 + 状态筛选 + 撤回操作。需登录。
  */
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, Eye, Lock, FileText, Pencil } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
@@ -44,6 +45,7 @@ function formatDeadline(sec: number): string {
 }
 
 export default function MyRfqPageClient() {
+  const router = useRouter();
   const { authUser } = useAuth();
   const [items, setItems] = useState<MyRfq[]>([]);
   const [total, setTotal] = useState(0);
@@ -172,7 +174,7 @@ export default function MyRfqPageClient() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.location.href = `/rfq?edit=${rfq.id}`}
+                        onClick={() => router.push(`/rfq/${rfq.id}/edit`)}
                         className="gap-1"
                       >
                         <Pencil className="w-3.5 h-3.5" /> 编辑
@@ -189,7 +191,7 @@ export default function MyRfqPageClient() {
                         {withdrawing === rfq.id ? "撤回中…" : "撤回"}
                       </Button>
                     )}
-                    <Button variant="ghost" size="sm" className="gap-1">
+                    <Button variant="ghost" size="sm" className="gap-1" onClick={() => router.push(`/rfq/${rfq.id}`)}>
                       <Eye className="w-3.5 h-3.5" /> 查看
                     </Button>
                   </div>

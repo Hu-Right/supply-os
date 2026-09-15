@@ -53,7 +53,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.incoterm, n.delivery_time, n.delivery_address,
               n.payment_terms, n.supplier_reqs, n.visibility,
               n.estimated_value, n.deadline_sec, n.rfq_status,
-              n.published_date, n.user_id
+              n.published_date, n.user_id,
+              n.contact_name, n.contact_email, n.contact_phone
        FROM crm_bid_notices n
        LEFT JOIN crm_unspsc_codes c1 ON c1.id = n.category_l1_id
        LEFT JOIN crm_unspsc_codes c2 ON c2.id = n.category_l2_id
@@ -94,6 +95,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         deadlineSec: Number(row.deadline_sec) || 0,
         publishedDate: row.published_date ? String(row.published_date) : null,
         isOwner,
+        // 联系方式仅创建者可见（编辑回显用）
+        ...(isOwner ? {
+          contactName: String(row.contact_name || ""),
+          contactEmail: String(row.contact_email || ""),
+          contactPhone: String(row.contact_phone || ""),
+        } : {}),
       },
     });
   },
