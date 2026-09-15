@@ -6,6 +6,7 @@
  * @description 操作 crm_bid_notices 表：详情/预览/翻译源字段/UNSPSC 快照。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import { PLATFORM_PUBLISHED_ONLY_NO_ALIAS } from "@/lib/utils/notice-expired";
 
 export class NoticeDetailRepo {
   constructor(private pool: Pool) {}
@@ -41,13 +42,32 @@ export class NoticeDetailRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /** 公告锁定态预览字段 */
+  /**
+   * 公告详情全字段（仅公开可见数据）
+   *
+   * 与 findDetail 字段一致，但排除未发布的平台用户 RFQ
+   * （draft / pending_review），供面向用户的详情端点使用，
+   * 防止通过直接猜测 ID 查看未过审内容。内部翻译管道用 findDetail。
+   */
+  async findDetailPublished(noticeId: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, notice_id, reference, title, notice_type, agency, organization, country,
+       deadline, deadline_ts, estimated_value, description, industry, url, contacts,
+       documents, procurement_files, external_links, agency_full, published_date,
+       difficulty, registration_level, key_contacts, unspsc_codes, converted_opp_id, is_converted
+     FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
+      [noticeId],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
+  }
+
+  /** 公告锁定态预览字段（仅公开可见数据） */
   async findPreview(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
       `SELECT id, notice_id, reference, title, agency, organization, agency_full, published_date,
          difficulty, registration_level, contacts, key_contacts, description,
          unspsc_codes, converted_opp_id
-       FROM crm_bid_notices WHERE id = ? LIMIT 1`,
+       FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
     return (rows as RowDataPacket[])[0] ?? null;
@@ -64,7 +84,7 @@ export class NoticeDetailRepo {
       `SELECT id, notice_id, reference, title, notice_type, agency, agency_full,
          country, deadline, deadline_ts, deadline_sec, estimated_value,
          published_date, LEFT(description, 300) AS description
-       FROM crm_bid_notices WHERE id = ? LIMIT 1`,
+       FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

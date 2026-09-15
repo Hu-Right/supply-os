@@ -33,7 +33,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const [unlock, notice] = await Promise.all([
       unlockRepo.findUnlock(userId, noticeId),
-      detailRepo.findDetail(noticeId),
+      detailRepo.findDetailPublished(noticeId),
     ]);
     if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
 

@@ -18,7 +18,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const ctx = getContext();
     const { detailRepo } = ctx.notice;
-    const notice = await detailRepo.findDetail(noticeId);
+    const notice = await detailRepo.findDetailPublished(noticeId);
     if (!notice) routeError(404, 40044, "公告不存在");
 
     // 返回有限预览字段：机构名、国家、分类、截止日期等（不含完整描述）

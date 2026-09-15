@@ -43,7 +43,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const unlock = await unlockRepo.findUnlock(userId, noticeId);
     if (!unlock) routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
 
-    const notice = await detailRepo.findDetail(noticeId);
+    const notice = await detailRepo.findDetailPublished(noticeId);
     if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");
 
     const qualified = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
