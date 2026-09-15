@@ -10,11 +10,11 @@
  *              未登录点击"查看详情"唤起登录弹层（信息脱敏策略）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Clock, Gem, Search, Users } from "lucide-react";
 
 import { cn } from "@/shared/utils";
 import { Button, CountryFlag, EmptyState, Input, SegmentedControl, Select } from "@/shared/ui";
-import { emitAppEvent } from "@/core/events";
 import { api } from "@/core/http";
 import { provinces as chinaProvinces } from "@/data/chinaDivision";
 import { fetchUnspscIndustries, type UnspscOption } from "@/core/unspsc";
@@ -156,6 +156,7 @@ export function RfqPlaza() {
 }
 
 function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
+  const router = useRouter();
   const remain = remainingMs(rfq.deadline);
   const urgent = remain > 0 && remain < 72 * 3600 * 1000;
   const remainText = !rfq.deadline
@@ -203,7 +204,7 @@ function PlazaCard({ rfq }: { rfq: PlazaRfq }) {
         )}
       </div>
       <Button variant="outline" size="sm" className="mt-3 w-full"
-        onClick={() => emitAppEvent("supply-os:require-login")}>
+        onClick={() => router.push(`/rfq/${rfq.id}`)}>
         查看详情
       </Button>
     </div>

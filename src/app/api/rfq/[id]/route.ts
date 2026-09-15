@@ -1,8 +1,11 @@
 /**
+ * GET  /api/rfq/[id]  — RFQ 详情
  * PATCH /api/rfq/[id] — 编辑 RFQ
  *
  * @module app/api/rfq/[id]/route
- * @description 仅创建者可操作。仅 draft / pending_review 状态可编辑。
+ * @description GET：published 状态公开可访问（联系人信息不返回）；
+ *              创建者可查看自己 draft/pending_review/closed 的完整信息。
+ *              PATCH：仅创建者可操作。仅 draft / pending_review 状态可编辑。
  *              编辑后状态回退为 draft（需重新提交审核）。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -22,6 +25,79 @@ function deadlineToSec(isoDate: string): number {
   const d = new Date(`${isoDate}T23:59:59Z`);
   return isNaN(d.getTime()) ? 0 : Math.floor(d.getTime() / 1000);
 }
+
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const { id } = await params;
+    const rfqId = Number(id);
+    if (!Number.isFinite(rfqId) || rfqId <= 0) {
+      routeError(400, 40001, "无效的 RFQ ID");
+    }
+
+    // 可选登录：创建者可看未发布内容与联系方式
+    let userId: number | null = null;
+    try {
+      const auth = await requireUserKeyOrThrow(req);
+      userId = auth.userId;
+    } catch {
+      // 未登录：仅 published
+    }
+
+    const pool = getPool();
+    const [rows] = await pool.query(
+      `SELECT n.id, n.title, n.description, n.country, n.province_name,
+              n.category_l1_id, n.category_l2_id,
+              c1.title_zh AS category_l1_name,
+              c2.title_zh AS category_l2_name,
+              n.currency, n.budget_min, n.budget_max, n.budget_confidential,
+              n.incoterm, n.delivery_time, n.delivery_address,
+              n.payment_terms, n.supplier_reqs, n.visibility,
+              n.estimated_value, n.deadline_sec, n.rfq_status,
+              n.published_date, n.user_id
+       FROM crm_bid_notices n
+       LEFT JOIN crm_unspsc_codes c1 ON c1.id = n.category_l1_id
+       LEFT JOIN crm_unspsc_codes c2 ON c2.id = n.category_l2_id
+       WHERE n.id = ? AND n.notice_type = 'RFQ' AND n.entry_source = 'platform'
+       LIMIT 1`,
+      [rfqId],
+    );
+    const row = (rows as RowDataPacket[])[0];
+    if (!row) routeError(404, 40002, "RFQ 不存在");
+
+    const isOwner = userId !== null && Number(row.user_id) === userId;
+    if (row.rfq_status !== "published" && !isOwner) {
+      routeError(404, 40003, "RFQ 不存在或未公开");
+    }
+
+    const confidential = Number(row.budget_confidential) === 1;
+    return NextResponse.json({
+      code: 0,
+      message: "ok",
+      data: {
+        id: Number(row.id),
+        title: String(row.title || ""),
+        description: String(row.description || ""),
+        status: String(row.rfq_status || "draft"),
+        categoryL1: String(row.category_l1_name || ""),
+        categoryL2: String(row.category_l2_name || ""),
+        province: String(row.province_name || ""),
+        currency: String(row.currency || "USD"),
+        budgetConfidential: confidential,
+        budgetMin: confidential ? null : Number(row.budget_min) || 0,
+        budgetMax: confidential ? null : Number(row.budget_max) || 0,
+        incoterm: String(row.incoterm || ""),
+        deliveryTime: String(row.delivery_time || ""),
+        deliveryAddress: String(row.delivery_address || ""),
+        paymentTerms: String(row.payment_terms || "").split(",").filter(Boolean),
+        supplierReqs: String(row.supplier_reqs || "").split(",").filter(Boolean),
+        visibility: String(row.visibility || "public"),
+        deadlineSec: Number(row.deadline_sec) || 0,
+        publishedDate: row.published_date ? String(row.published_date) : null,
+        isOwner,
+      },
+    });
+  },
+);
 
 export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
