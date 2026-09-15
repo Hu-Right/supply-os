@@ -102,7 +102,7 @@ export function AppHeader({
               className="w-10 h-10 shrink-0 object-contain"
             />
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full bg-gradient-to-r from-brand-700 to-brand-900 bg-clip-text text-transparent">{t("brandName")}</h1>
+              <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-full text-brand-900">{t("brandName")}</h1>
               <div className="text-xs text-secondary-400 font-mono hidden md:block" suppressHydrationWarning>
                 SYS: ACTIVE | {localTime}
               </div>
