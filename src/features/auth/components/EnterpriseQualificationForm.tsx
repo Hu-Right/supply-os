@@ -6,7 +6,7 @@
  * @description 14 字段渲染委托给 shared/forms/QualificationFormFields，
  *              本组件仅负责嵌入式容器与 onFormChange 回调。
  */
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
 import {
   QualificationFormFields,
@@ -19,6 +19,8 @@ import {
   getCertOptions, getUngmOptions, getEnglishTeamOptions,
   getPaymentOptions, getBidOptions,
 } from "@/shared/data/qualificationOptions";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
+import { DRAFT_TTL_MS } from "../hooks/useAuthForm";
 
 interface EnterpriseQualificationFormProps {
   /** 表单数据变化回调，父组件通过此回调收集信息 */
@@ -29,13 +31,25 @@ interface EnterpriseQualificationFormProps {
 
 export default function EnterpriseQualificationForm({ onFormChange, registrationPhone }: EnterpriseQualificationFormProps) {
   const { t } = useLocale();
-  const [form, setForm] = useState<QualificationFormState>(() => ({
-    ...INITIAL_QUALIFICATION_FORM,
-    bid_willingness: "是",
-  }));
+
+  // ★ 草稿持久化：弹窗意外关闭/页面刷新后重新打开可自动恢复诊断数据
+  const [form, setForm, clearDraft] = usePersistedFormState<QualificationFormState>(
+    "draft:auth_qualification",
+    { ...INITIAL_QUALIFICATION_FORM, bid_willingness: "是" },
+    { ttlMs: DRAFT_TTL_MS },
+  );
+
+  // ★ 挂载时将恢复的草稿数据同步给父组件（用于提交时透传诊断数据）
+  // 使用 ref 持有回调，effect 仅依赖 form 初始引用，不会因 form 变化反复触发
+  const onFormChangeRef = useRef(onFormChange);
+  onFormChangeRef.current = onFormChange;
+  useEffect(() => {
+    onFormChangeRef.current?.(form);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 注册手机号同步到 contact_info（投标意愿默认"是"，手机号共享自注册表单）
-  const lastSyncedPhone = useRef("");
+  const lastSyncedPhone = useRef(registrationPhone);
   useEffect(() => {
     if (registrationPhone && registrationPhone !== lastSyncedPhone.current) {
       lastSyncedPhone.current = registrationPhone;

@@ -13,6 +13,9 @@ import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
+/** 草稿过期时间：3 天，超过后自动清除 */
+export const DRAFT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+
 export interface AuthFormState {
   displayName: string;
   identifier: string; // 登录用：手机号
@@ -58,13 +61,14 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         password: "", invitationCode: prefilledCode, userType: "enterprise",
       };
     })(),
-    { excludeKeys: ["password"] as (keyof AuthFormState)[] },
+    { excludeKeys: ["password"] as (keyof AuthFormState)[], ttlMs: DRAFT_TTL_MS },
   );
 
   // ★ 企业供应商绑定表单 — 同样持久化
   const [claimForm, setClaimForm, clearClaimDraft] = usePersistedFormState<ClaimFormState>(
     "draft:auth_claim",
     { companyName: "", supplierType: "domestic", contactName: "", contactPhone: "", businessLicenseNo: "" },
+    { ttlMs: DRAFT_TTL_MS },
   );
 
   // ★ 切换模式时清空当前表单，切换到注册时从草稿恢复
@@ -132,8 +136,17 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       return;
     }
 
+    // ★ 降级读取企业资质诊断数据：若 EnterpriseQualificationForm 挂载回调尚未同步 ref，直接从 localStorage 恢复
+    let qualData = qualificationData;
+    if (authMode === "register" && authForm.userType === "enterprise" && (!qualData || Object.keys(qualData).length === 0)) {
+      try {
+        const raw = window.localStorage.getItem("draft:auth_qualification");
+        if (raw) qualData = JSON.parse(raw) as Record<string, string | string[]>;
+      } catch { /* 静默降级 */ }
+    }
+
     // 企业注册时校验诊断表单必填字段，缺失则阻断注册流程
-    if (authMode === "register" && authForm.userType === "enterprise" && qualificationData) {
+    if (authMode === "register" && authForm.userType === "enterprise" && qualData) {
       const qualLabels: Record<string, string> = {
         company_name: "企业名称", industry: "所属行业", main_product: "主营产品",
         export_scale: "出口/国际业务规模", certifications: "资质证书",
@@ -142,7 +155,7 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         payment_terms: "账期接受度", bid_willingness: "投标意愿",
       };
       for (const [field, label] of Object.entries(qualLabels)) {
-        const val = qualificationData[field];
+        const val = qualData[field];
         if (!val || (Array.isArray(val) && val.length === 0)) {
           setAuthError(`企业诊断表单：${label}为必填项，请补全后重新提交`);
           return;
@@ -187,13 +200,13 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           });
         }
         // 企业注册时提交完整 14 字段诊断数据到统一评估表
-        if (authForm.userType === "enterprise" && qualificationData && Object.keys(qualificationData).length > 0) {
+        if (authForm.userType === "enterprise" && qualData && Object.keys(qualData).length > 0) {
           try {
             const { api: apiFetch } = await import("@/core/http");
             await apiFetch("/api/supplier-qualification", {
               method: "POST",
               body: {
-                ...qualificationData,        // 完整 14 字段透传
+                ...qualData,        // 完整 14 字段透传
                 source: "registration",
                 phone,                       // 关联用户（crm_users.user_key 列退役收尾：字段名从 user_key 重命名为 phone）
                 invitation_code: authForm.invitationCode.trim(), // 解析员工 ID（KPI 归属）
@@ -206,9 +219,10 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           }
         }
         onSuccess();
-        // 注册成功，清除草稿
+        // 注册成功，清除所有草稿（含企业资质诊断表单）
         clearAuthDraft();
         clearClaimDraft();
+        try { window.localStorage.removeItem("draft:auth_qualification"); } catch { /* 静默降级 */ }
       }
     } catch (err: any) {
       setAuthError(err.message || t("authLoginFailed"));

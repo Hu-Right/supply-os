@@ -6,8 +6,15 @@
  * @description 将表单状态同步到 localStorage，弹窗意外关闭后重新打开可自动恢复草稿。
  *              适用于注册、展厅申请、供应商入驻等长表单场景。
  *              提交成功后调用 clear() 清除草稿。
+ *              支持 TTL 过期自动清理，避免废弃草稿长期残留。
  */
 import { useState, useCallback, useEffect, useRef } from "react";
+
+/** 草稿存储信封：附带写入时间戳，用于 TTL 过期判断 */
+interface DraftEnvelope<T> {
+  _ts: number;
+  data: Partial<T>;
+}
 
 /**
  * 带草稿持久化的表单状态
@@ -15,22 +22,32 @@ import { useState, useCallback, useEffect, useRef } from "react";
  * @param initialValue - 表单初始值
  * @param options.excludeKeys - 不持久化的字段（如密码）
  * @param options.debounceMs - 写入 localStorage 的防抖间隔（默认 100ms）
+ * @param options.ttlMs - 草稿过期时间（毫秒），超过后自动删除并不再恢复
  */
 export function usePersistedFormState<T extends object>(
   key: string,
   initialValue: T,
-  options: { excludeKeys?: (keyof T)[]; debounceMs?: number } = {},
+  options: { excludeKeys?: (keyof T)[]; debounceMs?: number; ttlMs?: number } = {},
 ) {
-  const { excludeKeys = [], debounceMs = 100 } = options;
+  const { excludeKeys = [], debounceMs = 100, ttlMs } = options;
 
-  // 从 localStorage 恢复草稿，无草稿则用初始值
+  // 从 localStorage 恢复草稿，无草稿 / 已过期则用初始值
   const [state, setState] = useState<T>(() => {
     if (typeof window === "undefined") return initialValue;
     try {
       const saved = window.localStorage.getItem(key);
       if (saved) {
-        const parsed = JSON.parse(saved) as Partial<T>;
-        return { ...initialValue, ...parsed };
+        const envelope = JSON.parse(saved) as DraftEnvelope<T>;
+        // TTL 过期检查：草稿超龄则自动清除，不再恢复
+        if (ttlMs && envelope._ts && Date.now() - envelope._ts > ttlMs) {
+          window.localStorage.removeItem(key);
+          return initialValue;
+        }
+        if (envelope.data) {
+          return { ...initialValue, ...envelope.data };
+        }
+        // 兼容旧格式（无信封包裹的裸对象）
+        return { ...initialValue, ...(envelope as unknown as Partial<T>) };
       }
     } catch {
       // localStorage 读取失败（隐私模式/存储满），静默降级
@@ -59,7 +76,8 @@ export function usePersistedFormState<T extends object>(
         return v !== null && v !== undefined;
       });
       if (hasContent) {
-        window.localStorage.setItem(key, JSON.stringify(toSave));
+        const envelope: DraftEnvelope<T> = { _ts: Date.now(), data: toSave };
+        window.localStorage.setItem(key, JSON.stringify(envelope));
       } else {
         window.localStorage.removeItem(key);
       }
@@ -84,7 +102,8 @@ export function usePersistedFormState<T extends object>(
             return v !== null && v !== undefined;
           });
           if (hasContent) {
-            window.localStorage.setItem(key, JSON.stringify(toSave));
+            const envelope: DraftEnvelope<T> = { _ts: Date.now(), data: toSave };
+            window.localStorage.setItem(key, JSON.stringify(envelope));
           } else {
             window.localStorage.removeItem(key);
           }
