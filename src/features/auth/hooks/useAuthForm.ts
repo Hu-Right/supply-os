@@ -4,13 +4,14 @@
  *
  * @module features/auth/hooks/useAuthForm
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/core/auth";
 import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface AuthFormState {
   displayName: string;
@@ -39,30 +40,41 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   const [authError, setAuthError] = useState("");
   /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [authForm, setAuthForm] = useState<AuthFormState>(() => {
-    // ★ 推荐链接自动带入：从 Cookie 读取 ref_code 预填邀请码
-    let prefilledCode = "";
-    if (typeof document !== "undefined") {
-      const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
-      if (match) prefilledCode = decodeURIComponent(match[1]).toUpperCase();
+
+  // ★ 登录态表单（不持久化，登录字段简短无需草稿恢复）
+  const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
+
+  // ★ 注册态表单 — localStorage 草稿持久化，弹窗意外关闭后重新打开自动恢复
+  const [authForm, setAuthForm, clearAuthDraft] = usePersistedFormState<AuthFormState>(
+    "draft:auth_register",
+    (() => {
+      let prefilledCode = "";
+      if (typeof document !== "undefined") {
+        const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]*)/);
+        if (match) prefilledCode = decodeURIComponent(match[1]).toUpperCase();
+      }
+      return {
+        displayName: "", identifier: "", email: "", phone: "",
+        password: "", invitationCode: prefilledCode, userType: "enterprise",
+      };
+    })(),
+    { excludeKeys: ["password"] as (keyof AuthFormState)[] },
+  );
+
+  // ★ 企业供应商绑定表单 — 同样持久化
+  const [claimForm, setClaimForm, clearClaimDraft] = usePersistedFormState<ClaimFormState>(
+    "draft:auth_claim",
+    { companyName: "", supplierType: "domestic", contactName: "", contactPhone: "", businessLicenseNo: "" },
+  );
+
+  // ★ 切换模式时清空当前表单，切换到注册时从草稿恢复
+  useEffect(() => {
+    if (authMode === "login") {
+      setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
+      setClaimForm({ companyName: "", supplierType: "domestic", contactName: "", contactPhone: "", businessLicenseNo: "" });
     }
-    return {
-      displayName: "",
-      identifier: "",
-      email: "",
-      phone: "",
-      password: "",
-      invitationCode: prefilledCode,
-      userType: "enterprise",
-    };
-  });
-  const [claimForm, setClaimForm] = useState<ClaimFormState>({
-    companyName: "",
-    supplierType: "domestic",
-    contactName: "",
-    contactPhone: "",
-    businessLicenseNo: "",
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authMode]);
 
   const submitAuth = async (
     registerVerifyCode: string,
@@ -143,13 +155,13 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     try {
       if (authMode === "login") {
         // 登录支持手机号或邮箱
-        const loginIdentifier = authForm.identifier.trim();
+        const loginIdentifier = loginForm.identifier.trim();
         if (!loginIdentifier) {
           setAuthError(t("authErrPhoneInvalid"));
           return;
         }
-        await login(loginIdentifier, password);
-        setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
+        await login(loginIdentifier, loginForm.password);
+        setLoginForm({ identifier: "", password: "" });
       } else {
         // 注册：手机号必填，邮箱选填
         await register({
@@ -194,6 +206,9 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
           }
         }
         onSuccess();
+        // 注册成功，清除草稿
+        clearAuthDraft();
+        clearClaimDraft();
       }
     } catch (err: any) {
       setAuthError(err.message || t("authLoginFailed"));
@@ -208,6 +223,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     setAuthError,
     authForm,
     setAuthForm,
+    loginForm,
+    setLoginForm,
     claimForm,
     setClaimForm,
     claimMessage,

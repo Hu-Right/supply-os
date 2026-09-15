@@ -15,6 +15,7 @@ import { Modal, Button } from "@/shared/ui";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import { submitTrainingRegister } from "../api";
 import { ApiError } from "@/core/http";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface TrainingRegisterFormProps {
   /** 关闭回调 */
@@ -41,7 +42,10 @@ const INITIAL_COMPANY_INFO: CompanyInfoData = {
 
 export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: TrainingRegisterFormProps) {
   const { t } = useLocale();
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>(INITIAL_COMPANY_INFO);
+  const [companyInfo, setCompanyInfo, clearDraft] = usePersistedFormState(
+    "draft:training_register",
+    INITIAL_COMPANY_INFO,
+  );
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -88,6 +92,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
       // 服务端响应字段为 id（此前裸 fetch 误读 registration_id，恒为 undefined，报名后无法联动支付弹窗）
       setRegistrationId(data.id ?? null);
       setSubmitted(true);
+      clearDraft();
       setTimeout(() => onClose(), 2500);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("formError"));

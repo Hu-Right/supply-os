@@ -28,6 +28,7 @@ import {
   getPaymentOptions, getBidOptions,
 } from "@/shared/data/qualificationOptions";
 import { emitAppEvent } from "@/core/events";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 type SupplierRegisterModalProps = {
   onClose: () => void;
@@ -36,7 +37,10 @@ type SupplierRegisterModalProps = {
 
 export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegisterModalProps) {
   const { t } = useLocale();
-  const [form, setForm] = useState<QualificationFormState>(INITIAL_QUALIFICATION_FORM);
+  const [form, setForm, clearDraft] = usePersistedFormState(
+    "draft:supplier_register",
+    INITIAL_QUALIFICATION_FORM,
+  );
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   // 员工推广扫码归因：读取 /r/[code] 写入的 ref_code Cookie
@@ -104,6 +108,7 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
       });
       toast.success(t("qualSuccessTitle"));
       setSubmitted(true);
+      clearDraft();
       onRegistered?.();
       emitAppEvent("supply-os:crm-refresh");
       setTimeout(() => onClose(), 3000);

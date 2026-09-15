@@ -7,19 +7,18 @@
 import { Input, Button } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
-import type { AuthFormState } from "../../hooks/useAuthForm";
 
 export interface LoginFormProps {
-  authForm: AuthFormState;
-  setAuthForm: React.Dispatch<React.SetStateAction<AuthFormState>>;
+  loginForm: { identifier: string; password: string };
+  setLoginForm: React.Dispatch<React.SetStateAction<{ identifier: string; password: string }>>;
   authError: string;
   claimMessage: string | null;
   onForgotPassword: (email: string) => void;
 }
 
 export function LoginForm({
-  authForm,
-  setAuthForm,
+  loginForm,
+  setLoginForm,
   authError,
   claimMessage,
   onForgotPassword,
@@ -30,16 +29,16 @@ export function LoginForm({
     <div className="space-y-3">
       <Input
         type="text"
-        inputMode={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authForm.identifier) ? "email" : "text"}
-        value={authForm.identifier}
-        onChange={(e) => setAuthForm({ ...authForm, identifier: e.target.value })}
+        inputMode={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginForm.identifier) ? "email" : "text"}
+        value={loginForm.identifier}
+        onChange={(e) => setLoginForm({ ...loginForm, identifier: e.target.value })}
         placeholder={t("authPhoneLoginPlaceholder") || "请输入手机号或邮箱"}
         autoComplete="username"
       />
       <Input
         type="password"
-        value={authForm.password}
-        onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+        value={loginForm.password}
+        onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
         placeholder={t("authPasswordPlaceholder")}
         minLength={PASSWORD_MIN_LENGTH}
       />
@@ -47,7 +46,7 @@ export function LoginForm({
         type="button"
         variant="link"
         size="sm"
-        onClick={() => onForgotPassword(authForm.identifier.trim())}
+        onClick={() => onForgotPassword(loginForm.identifier.trim())}
         className="px-0 text-slate-500 hover:text-slate-700 underline"
       >
         {t("authForgotLink")}

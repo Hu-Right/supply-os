@@ -103,8 +103,8 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
       {/* 登录 / 注册表单 */}
       {!forgotView && auth.authMode === "login" && (
         <LoginForm
-          authForm={auth.authForm}
-          setAuthForm={auth.setAuthForm}
+          loginForm={auth.loginForm}
+          setLoginForm={auth.setLoginForm}
           authError={auth.authError}
           claimMessage={auth.claimMessage}
           onForgotPassword={(identifier) => {
