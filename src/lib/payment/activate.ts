@@ -116,6 +116,13 @@ export async function activateSubscription(
   const conn = await repo.getConnection();
   try {
     await conn.beginTransaction();
+
+    // 幂等防护：已有活跃订阅时跳过，防止重复调用创建多条订阅记录
+    if (await repo.hasActiveSubscriptionInTransaction(conn, params.userId, params.planCode)) {
+      await conn.commit();
+      return { planCode: params.planCode, price: Number(plan.price), quota: Math.max(1, Number(plan.unlock_quota || 1)) };
+    }
+
     await repo.createSubscriptionInTransaction(conn, params.userId, params.planCode, plan.duration_days ?? null);
     await repo.promoteToVipInTransaction(conn, params.userId);
     await conn.commit();
