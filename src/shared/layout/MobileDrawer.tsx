@@ -31,8 +31,7 @@ export function MobileDrawer({ open, onClose, tierLabel }: MobileDrawerProps) {
   if (!open) return null;
 
   const isTabActive = (path: string) => {
-    const p = pathname;
-    return p === path || (path === "/showroom" && (p === "/" || p === ""));
+    return pathname === path || (path === "/" && (pathname === ""));
   };
 
   const handleLocaleSelect = (code: Locale) => {

@@ -125,7 +125,7 @@ export class ErrorBoundary extends Component<
               type="button"
               variant="dark"
               onClick={() => {
-                window.location.href = "/showroom";
+                window.location.href = "/";
               }}
               className="mt-5 py-2"
             >

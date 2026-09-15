@@ -128,7 +128,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: absoluteUrl("/showroom") },
+        { "@type": "ListItem", position: 1, name: "Home", item: absoluteUrl("") },
         { "@type": "ListItem", position: 2, name: "Procurement Notices", item: absoluteUrl("/procurement") },
         { "@type": "ListItem", position: 3, name: row.title, item: url },
       ],
@@ -152,7 +152,7 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       {/* 面包屑 */}
       <nav aria-label="Breadcrumb" className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/showroom" className="hover:text-training-green">Home</Link></li>
+          <li><Link href="/" className="hover:text-training-green">Home</Link></li>
           <li aria-hidden>/</li>
           <li><Link href="/procurement" className="hover:text-training-green">Procurement Notices</Link></li>
           <li aria-hidden>/</li>

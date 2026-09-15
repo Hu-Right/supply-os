@@ -38,7 +38,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 动态段保留真实 update_time。
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`, changeFrequency: "daily", priority: 1.0 },
-    { url: `${BASE_URL}/showroom`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/procurement`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/supplier`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/training`, changeFrequency: "weekly", priority: 0.8 },

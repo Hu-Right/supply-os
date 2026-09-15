@@ -9,7 +9,6 @@
  *              Central re-export hub for all static data constants.
  */
 
-export { EXHIBITION_HALLS } from "./exhibition-halls";
 export { OPPORTUNITIES } from "./opportunities";
 export { LEARNING_MATERIALS, TRAINING_DOWNLOAD_MATERIALS, TRAINING_MATERIAL_BUNDLES } from "./materials";
 export { FAQS } from "./faqs";

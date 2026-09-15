@@ -35,7 +35,6 @@ export interface AppEventMap {
   "supply-os:crm-refresh": void;
   "supply-os:industry-prefs-updated": void;
   "supply-os:open-supplier-register": void;
-  "supply-os:open-showroom-register": void;
   "supply-os:open-training-register": void;
 }
 
