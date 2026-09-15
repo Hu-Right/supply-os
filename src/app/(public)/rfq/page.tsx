@@ -1,10 +1,9 @@
 /**
- * RFQ 采购需求发布页（骨架）
- * RFQ Page (Skeleton)
+ * RFQ 采购需求发布页
+ * RFQ Publish Page
  *
  * @module app/(public)/rfq
- * @description P0 占位页面 — 后续填充发布表单、RFQ 列表、供应商响应等模块。
- *              Placeholder page — to be filled with publish form, RFQ list, supplier responses.
+ * @description 发布向导 + 需求广场 + 响应流程时间线。
  */
 import type { Metadata } from "next";
 import { absoluteUrl } from "@/lib/services/seo/site";

@@ -59,10 +59,10 @@ export interface RfqFormState {
 /** 字段级错误信息（key → 错误文案） */
 export type FieldErrors = Record<string, string>;
 
-/** 需求广场卡片（P1 替换为 fetchRfqList 真实数据） */
+/** 需求广场卡片（数据来自 GET /api/rfq/list） */
 export interface PlazaRfq {
   id: number;
-  /** 一级行业（用于行业筛选，对齐 CATEGORY_TREE） */
+  /** 一级行业（用于行业筛选，对齐 UNSPSC 一级分类） */
   industry: string;
   /** 展示用标签文案 */
   tag: string;
