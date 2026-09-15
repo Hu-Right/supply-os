@@ -10,6 +10,8 @@ import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson } from "@/lib/middleware/route-handler";
 import { registerUser } from "@/lib/services/auth-register";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 // 字段顺序即校验优先级（zod issues[0] 与原实现的报错顺序一致）
 const registerSchema = z.object({
@@ -28,6 +30,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await parseJson(req, registerSchema, {
     display_name: 40000, phone: 40011, password: 40001, verify_code: 40005,
   });
+
+  // 限流：IP + 手机号双维度，防批量注册攻击/短信通道消耗
+  const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 5 },
+    (r) => `register-ip:${extractClientIp(r)}`);
+  if (rlIp) return rlIp;
+  const rlPhone = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 3 },
+    () => `register-phone:${body.phone}`);
+  if (rlPhone) return rlPhone;
 
   // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
   let inviteCode = String(body.invitation_code || "").trim().toUpperCase();
