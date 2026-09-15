@@ -70,6 +70,7 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
     <FormModal
       open
       onClose={onClose}
+      closeOnBackdrop={false}
       title={t("consultTitle")}
       submitted={submitted}
       successView={

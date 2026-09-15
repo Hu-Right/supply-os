@@ -63,7 +63,7 @@ export function Modal({
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (closeOnDrag && dragOffset > 120) {
+    if (closeOnDrag && dragOffset > 200) {
       onClose();
     }
     setDragOffset(0);

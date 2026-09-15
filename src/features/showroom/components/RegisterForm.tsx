@@ -99,6 +99,7 @@ export function RegisterForm({ selectedShowroom, onClose, onSuccess }: RegisterF
     <FormModal
       open
       onClose={onClose}
+      closeOnBackdrop={false}
       className="max-w-2xl"
       headerClassName="bg-gradient-to-r from-slate-950 to-transparent"
       title={
