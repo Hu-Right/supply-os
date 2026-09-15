@@ -9,7 +9,7 @@
 import { useState, useRef } from "react";
 import { Send, Paperclip, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { api, getAuthToken } from "@/core/http";
+import { getAuthToken } from "@/core/http";
 import { Button, Textarea } from "@/shared/ui";
 import type { AttachmentMeta } from "../../hooks/useDigitalAssistant";
 

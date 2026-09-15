@@ -12,7 +12,7 @@ import { withRoute } from "@/lib/middleware/route-handler";
 import { extractClientIp } from "@/lib/utils/ip";
 
 export const POST = withRoute(async (req: NextRequest) => {
-  const auth = await requireUserKeyOrThrow(req);
+  await requireUserKeyOrThrow(req);
 
   const body = await req.json();
   const ctx = getContext();
