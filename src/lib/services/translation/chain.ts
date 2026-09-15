@@ -5,9 +5,9 @@
 import { channelConfigured } from "../../config/env";
 import { fetchWithTimeout } from "./fetchWithTimeout";
 
-// ── 翻译通道（DeepSeek V4.1-Flash 单通道）──
+// ── 翻译通道（DeepSeek Flash (V4.1) 单通道）──
 // DeepSeek 未配置或失败时抛 TRANSLATION_UNAVAILABLE，复用既有降级路径
-// （详情 503 / 补翻静默）。缓存表 model 列写入真实提供方（deepseek-v4.1-flash）。
+// （详情 503 / 补翻静默）。缓存表 model 列写入真实提供方（deepseek-flash）。
 
 export type ChainResult = {
   translations: string[];
@@ -141,7 +141,7 @@ function isDeepSeekRetryable(errMsg: string): boolean {
     errMsg === "MT_PLACEHOLDER_LOST";
 }
 
-// 通道1：DeepSeek V4.1-Flash（OpenAI 兼容 /chat/completions，flash 快速模型）
+// 通道1：DeepSeek Flash（OpenAI 兼容 /chat/completions，V4.1 Flash 模型，API 模型名 deepseek-flash）
 // 认证需配置 DEEPSEEK_API_KEY；未配置即跳过本通道。作为 LLM 中间层：
 // DeepSeek Flash 对长描述/上下文语义更准，担任翻译链第一层。
 // flash 模型不支持 thinking/reasoning_effort 参数，译文直接取 content。
@@ -187,7 +187,7 @@ Output (JSON array[${texts.length}]):`;
       Authorization: `Bearer ${String(apiKey)}`,
     },
     body: JSON.stringify({
-      model: "deepseek-v4.1-flash",
+      model: "deepseek-flash",
       messages: [{ role: "user", content: prompt }],
       stream: false,
       thinking: { type: "disabled" },
@@ -288,7 +288,7 @@ export async function translateViaChain(
   // 降级轨迹：记录被跳过的上游通道及原因，供调用方打结构化日志
   const degraded: string[] = [];
 
-  // ── DeepSeek V4.1-Flash 单通道 ──
+  // ── DeepSeek Flash (V4.1) 单通道 ──
   try {
     // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）
     const masks = jobs.map((job) => protectTerms(job.text));
@@ -303,12 +303,12 @@ export async function translateViaChain(
     });
     return {
       translations: assemble(translated),
-      provider: "deepseek-v4.1-flash",
+      provider: "deepseek-flash",
     };
   } catch (err: unknown) {
     // DeepSeek 失败：抛统一错误码，复用既有降级路径（详情 503 / 补翻静默）
     const errMsg = err instanceof Error ? err.message : String(err);
     console.warn(`[translate] deepseek unavailable: ${errMsg}`);
-    throw new TranslationError("TRANSLATION_UNAVAILABLE", [`deepseek-v4.1-flash:${errMsg}`]);
+    throw new TranslationError("TRANSLATION_UNAVAILABLE", [`deepseek-flash:${errMsg}`]);
   }
 }
