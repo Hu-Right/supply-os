@@ -6,7 +6,7 @@
  * @description 14 字段渲染委托给 shared/forms/QualificationFormFields，
  *              本组件仅负责嵌入式容器与 onFormChange 回调。
  */
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
 import {
   QualificationFormFields,
@@ -39,13 +39,17 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
   useEffect(() => {
     if (registrationPhone && registrationPhone !== lastSyncedPhone.current) {
       lastSyncedPhone.current = registrationPhone;
-      setForm((prev) => ({ ...prev, contact_info: registrationPhone }));
+      const next = { ...form, contact_info: registrationPhone };
+      setForm(next);
+      onFormChange?.(next);
     }
   }, [registrationPhone]);
 
-  useEffect(() => {
-    onFormChange?.(form);
-  }, [form, onFormChange]);
+  // ★ 修复：删除原 useEffect(() => { onFormChange?.(form); }, [form, onFormChange])
+  // 原代码每次 form state 变化都回调父组件，导致每输入一个字符就触发
+  // EnterpriseQualificationForm → RegisterForm → LoginRegisterForm 级联重渲染，
+  // 移动端表现为焦点丢失、表单闪烁甚至弹窗意外关闭。
+  // 改为在用户实际操作的 update / toggle 函数中直接调用 onFormChange。
 
   const options = useMemo(() => ({
     employee: getEmployeeOptions(t),
@@ -58,12 +62,24 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
     bid: getBidOptions(t),
   }), [t]);
 
-  const update = <K extends keyof QualificationFormState>(key: K, val: QualificationFormState[K]) =>
-    setForm((prev) => ({ ...prev, [key]: val }));
-  const toggleIndustry = (val: string) =>
-    update("industry", form.industry.includes(val) ? form.industry.filter((i) => i !== val) : [...form.industry, val]);
-  const toggleCert = (val: string) =>
-    update("certifications", form.certifications.includes(val) ? form.certifications.filter((c) => c !== val) : [...form.certifications, val]);
+  // ★ 用户操作时才通知父组件，避免 useEffect 监听 form 导致的级联重渲染
+  const update = useCallback(<K extends keyof QualificationFormState>(key: K, val: QualificationFormState[K]) => {
+    const next = { ...form, [key]: val };
+    setForm(next);
+    onFormChange?.(next);
+  }, [form, onFormChange]);
+
+  const toggleIndustry = useCallback((val: string) => {
+    const next = { ...form, industry: form.industry.includes(val) ? form.industry.filter((i) => i !== val) : [...form.industry, val] };
+    setForm(next);
+    onFormChange?.(next);
+  }, [form, onFormChange]);
+
+  const toggleCert = useCallback((val: string) => {
+    const next = { ...form, certifications: form.certifications.includes(val) ? form.certifications.filter((c) => c !== val) : [...form.certifications, val] };
+    setForm(next);
+    onFormChange?.(next);
+  }, [form, onFormChange]);
 
   // eqf* 翻译 key 映射
   const label = (key: QualFieldKey) => {

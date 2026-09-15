@@ -139,6 +139,7 @@ export function SupplierRegisterModal({ onClose, onRegistered }: SupplierRegiste
     <FormModal
       open
       onClose={onClose}
+      closeOnBackdrop={false}
       className="max-w-3xl"
       title={t("supplierRegTitle")}
       subtitle={t("supplierRegDesc")}

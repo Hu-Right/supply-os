@@ -97,7 +97,7 @@ export default function TrainingRegisterForm({ onClose, onSubmitSuccess }: Train
   };
 
   return (
-    <Modal open onClose={onClose} title={t("tlRegisterModalTitle")}>
+    <Modal open onClose={onClose} title={t("tlRegisterModalTitle")} closeOnBackdrop={false}>
       <div className="max-h-[70vh] overflow-y-auto pr-1">
         {submitted && (
           <div className="mb-4 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 p-4">

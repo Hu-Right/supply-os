@@ -131,6 +131,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         <Suspense fallback={<ModalSkeleton />}>
           <AuthModal
             initialMode={qrRegisterMode ? "register" : "login"}
+            closeOnBackdrop={false}
             onClose={() => {
               setShowAuthModal(false);
               setQrRegisterMode(false);

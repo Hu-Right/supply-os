@@ -43,6 +43,8 @@ export interface FormModalProps {
   error?: ReactNode;
   /** 页脚（取消/提交按钮等） */
   footer?: ReactNode;
+  /** 是否允许点击遮罩层关闭（默认 true；表单弹窗建议传 false 防止误触关闭） */
+  closeOnBackdrop?: boolean;
 }
 
 export function FormModal({
@@ -60,9 +62,10 @@ export function FormModal({
   bodyClassName,
   error,
   footer,
+  closeOnBackdrop = true,
 }: FormModalProps) {
   return (
-    <Modal open={open} onClose={onClose} showClose={false} className={className}>
+    <Modal open={open} onClose={onClose} showClose={false} className={className} closeOnBackdrop={closeOnBackdrop}>
       {/* 深色头部：负边距撑满 Modal 内边距 */}
       <div
         className={cn(

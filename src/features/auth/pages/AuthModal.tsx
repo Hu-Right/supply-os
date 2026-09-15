@@ -19,9 +19,11 @@ type AuthModalProps = {
   onClose: () => void;
   /** 初始模式：扫码推广场景直接落在注册 Tab */
   initialMode?: "login" | "register";
+  /** 是否允许点击遮罩层关闭（默认 true） */
+  closeOnBackdrop?: boolean;
 };
 
-export function AuthModal({ onClose, initialMode }: AuthModalProps) {
+export function AuthModal({ onClose, initialMode, closeOnBackdrop }: AuthModalProps) {
   const { t } = useLocale();
   const { authUser } = useAuth();
 
@@ -29,6 +31,7 @@ export function AuthModal({ onClose, initialMode }: AuthModalProps) {
     <FormModal
       open
       onClose={onClose}
+      closeOnBackdrop={closeOnBackdrop}
       className="max-w-2xl"
       headerAlign="start"
       headerClassName="px-5 py-4"
