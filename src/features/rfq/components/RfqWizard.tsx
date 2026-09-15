@@ -59,10 +59,6 @@ interface RfqWizardProps {
   initialData: RfqFormState;
   /** 登录态联系方式预填 */
   authContact: { name: string; email: string };
-  /** 表单变更上报（页面层负责草稿持久化；跳过首次挂载） */
-  onDataChange: (data: RfqFormState) => void;
-  /** 发布成功后回调（页面层清除草稿） */
-  onPublished: () => void;
 }
 
 /** 明天 ISO 日期（截止时间下限，本地时区） */
@@ -139,7 +135,7 @@ function StepIndicator({ step }: { step: number }) {
   );
 }
 
-export function RfqWizard({ initialData, authContact, onDataChange, onPublished }: RfqWizardProps) {
+export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
   const { authUser } = useAuth();
 
   // 登录门槛：未登录用户无法填写表单
@@ -169,18 +165,6 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
   const [submitted, setSubmitted] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const mountedRef = useRef(false);
-
-  // 调试：追踪组件挂载/卸载
-  useEffect(() => {
-    console.log("[DEBUG] RfqWizard MOUNTED");
-    return () => console.log("[DEBUG] RfqWizard UNMOUNTED");
-  }, []);
-
-  // 调试：追踪 title 每次变化
-  useEffect(() => {
-    console.log("[DEBUG] form.title =", JSON.stringify(form.title), "len=", form.title.length, "step=", step);
-  }, [form.title, step]);
 
   // ── UNSPSC 分类数据 ──
   const [l1Options, setL1Options] = useState<UnspscOption[]>([]);
@@ -221,17 +205,7 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
     setDistrictsList(chinaAreas.filter((a) => a.cityCode === cityCode));
   }, [form.cityId]);
 
-  /** 表单变更统一上报草稿（跳过挂载首帧，避免空表单落草稿） */
-  useEffect(() => {
-    if (!mountedRef.current) {
-      mountedRef.current = true;
-      return;
-    }
-    onDataChange(form);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form]);
-
-  /** 联系方式登录态预填（仅在字段为空时，不覆盖草稿） */
+  /** 联系方式登录态预填（仅在字段为空时，不覆盖已填内容） */
   useEffect(() => {
     setForm((prev) => {
       if (prev.contactName || prev.contactEmail) return prev;
@@ -381,7 +355,6 @@ export function RfqWizard({ initialData, authContact, onDataChange, onPublished 
       });
 
       setSubmitted(true);
-      onPublished();
     } catch (err) {
       const msg = (err as Error).message || "";
       // ApiError 格式: "标题至少 10 个字（当前 5）" 或 "Request failed: 400"

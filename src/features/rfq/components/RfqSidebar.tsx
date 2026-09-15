@@ -7,7 +7,7 @@
  * @module features/rfq/components/RfqSidebar
  * @description 平台服务入口、采购顾问卡、我的草稿卡。填表过程中常驻可见。
  */
-import { Bell, Bot, ChevronRight, Headphones, Trash2, UserCheck, FileText } from "lucide-react";
+import { Bell, Bot, ChevronRight, Headphones, UserCheck } from "lucide-react";
 
 import { Button, Card } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
@@ -18,39 +18,9 @@ const SERVICES = [
   { icon: Bell, title: "报价管理与提醒", desc: "集中管理报价，截止时间实时提醒" },
 ];
 
-interface RfqSidebarProps {
-  hasDraft: boolean;
-  savedAt: number | null;
-  onResume: () => void;
-  onClearDraft: () => void;
-}
-
-export function RfqSidebar({ hasDraft, savedAt, onResume, onClearDraft }: RfqSidebarProps) {
+export function RfqSidebar() {
   return (
     <div className="space-y-6">
-      {/* 我的草稿 */}
-      {hasDraft && (
-        <Card className="rounded-2xl p-5">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
-              <FileText className="w-4.5 h-4.5 text-primary-600" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-sm font-bold text-secondary-900">有未完成的草稿</h4>
-              <p className="text-xs text-secondary-400 mt-0.5">
-                保存于 {savedAt ? new Date(savedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
-              </p>
-              <div className="flex items-center gap-2 mt-3">
-                <Button size="sm" onClick={onResume}>继续填写</Button>
-                <Button size="sm" variant="ghost" onClick={onClearDraft}>
-                  <Trash2 className="w-3.5 h-3.5" /> 删除
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
       {/* 平台服务辅助 */}
       <Card className="rounded-2xl p-5">
         <h3 className="text-sm font-extrabold text-secondary-900 mb-3">平台服务</h3>

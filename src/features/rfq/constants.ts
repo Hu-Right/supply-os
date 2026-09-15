@@ -8,9 +8,6 @@
  */
 import type { PlazaRfq, RfqFormState } from "./types";
 
-/** 草稿 localStorage 键 */
-export const RFQ_DRAFT_KEY = "rfq_publish_draft_v1";
-
 /** 一级/二级类目树 */
 export const CATEGORY_TREE: { label: string; children: string[] }[] = [
   { label: "医疗健康", children: ["医疗耗材", "医疗设备", "药品保健品", "实验室用品"] },

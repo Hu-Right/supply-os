@@ -13,40 +13,12 @@
  *   4. 响应流程时间线
  *   根容器显式铺 #F5F8FB 浅色底（负 margin 反贴 main 内边距，整幅浅色）。
  */
-import { useCallback, useState } from "react";
-
 import { useAuth } from "@/core/auth";
 import { ErrorBoundary, PageErrorFallback } from "@/shared/ui";
-import {
-  LightHero, ResponseFlow, RfqPlaza, RfqSidebar, RfqWizard,
-  hasDraftProgress, mergeDraftWithDefaults, useRfqDraft,
-} from "@/features/rfq";
-import type { RfqFormState } from "@/features/rfq";
+import { LightHero, ResponseFlow, RfqPlaza, RfqSidebar, RfqWizard, DEFAULT_RFQ_FORM } from "@/features/rfq";
 
 function RfqPageContent() {
   const { authUser } = useAuth();
-  const draft = useRfqDraft();
-  const [wizardKey, setWizardKey] = useState(0);
-
-  /** 有实际填写进度才落草稿（空表单不存） */
-  const handleDataChange = useCallback(
-    (data: RfqFormState) => {
-      if (hasDraftProgress(data)) draft.save(data);
-    },
-    [draft],
-  );
-
-  const handlePublished = useCallback(() => draft.clear(), [draft]);
-
-  const scrollToForm = useCallback(() => {
-    document.getElementById("rfq-form")?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const handleClearDraft = useCallback(() => {
-    draft.clear();
-    // 重挂载向导以回到空白表单
-    setWizardKey((k) => k + 1);
-  }, [draft]);
 
   return (
     // 负 margin 反贴 <main> 的内边距，让浅色底铺满整个内容区（根治画布透底发黑）
@@ -56,24 +28,14 @@ function RfqPageContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-8 min-w-0">
-            {draft.ready && (
-              <RfqWizard
-                key={wizardKey}
-                initialData={mergeDraftWithDefaults(draft.data)}
-                authContact={{ name: authUser?.nickname ?? "", email: authUser?.email ?? "" }}
-                onDataChange={handleDataChange}
-                onPublished={handlePublished}
-              />
-            )}
+            <RfqWizard
+              initialData={DEFAULT_RFQ_FORM}
+              authContact={{ name: authUser?.nickname ?? "", email: authUser?.email ?? "" }}
+            />
           </div>
           <aside className="lg:col-span-4 min-w-0">
             <div className="lg:sticky lg:top-28">
-              <RfqSidebar
-                hasDraft={draft.ready && draft.savedAt !== null}
-                savedAt={draft.savedAt}
-                onResume={scrollToForm}
-                onClearDraft={handleClearDraft}
-              />
+              <RfqSidebar />
             </div>
           </aside>
         </div>
