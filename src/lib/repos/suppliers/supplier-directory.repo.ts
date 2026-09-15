@@ -110,6 +110,31 @@ export class SupplierDirectoryRepo {
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
   }
 
+  /**
+   * 按公司名查找数据最完整的记录（防重兜底）
+   *
+   * 当 supplier 表存在同一公司的多条记录时（外部同步可能产生空字段重复记录），
+   * 优先返回关键字段（products/industry/phone/certification）填充最多的那条。
+   * 排除已合并记录（merged_id IS NOT NULL）。
+   */
+  async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, country_code, province, city,
+              contact, phone, email, products, industry, certification, type
+       FROM supplier
+       WHERE company = ? AND merged_id IS NULL
+       ORDER BY (
+         CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END +
+         CASE WHEN industry IS NOT NULL AND industry <> '' THEN 1 ELSE 0 END +
+         CASE WHEN phone IS NOT NULL AND phone <> '' THEN 1 ELSE 0 END +
+         CASE WHEN certification IS NOT NULL AND certification <> '' THEN 1 ELSE 0 END
+       ) DESC, id DESC
+       LIMIT 1`,
+      [companyName],
+    );
+    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+  }
+
   /** 供应商明文联系方式（VIP 端点） */
   async findContact(supplierId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
