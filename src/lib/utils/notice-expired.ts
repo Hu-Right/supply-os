@@ -29,6 +29,20 @@
 export const DEADLINE_SEC_EXPR = "n.deadline_sec";
 
 /**
+ * 平台用户 RFQ 未发布排除片段（n. 别名）
+ *
+ * 语义：仅爬虫/外部数据（entry_source <> 'platform'）或已发布（rfq_status = 'published'）
+ *       的平台 RFQ 允许进入公开搜索/SEO/sitemap/推荐/统计。
+ *       平台用户发布的 RFQ 在通过审核前（draft / pending_review）不得对外可见。
+ *       注意：rfq_status 对爬虫历史行为 NULL，用 IFNULL 兜底。
+ */
+export const PLATFORM_PUBLISHED_ONLY = "(n.entry_source <> 'platform' OR IFNULL(n.rfq_status, '') = 'published')";
+
+/** 同上，无表别名版本（单表查询） */
+export const PLATFORM_PUBLISHED_ONLY_NO_ALIAS =
+  "(entry_source <> 'platform' OR IFNULL(rfq_status, '') = 'published')";
+
+/**
  * 有效公告 WHERE 片段（n. 别名）—— MySQL 查询主口径
  *
  * 语义：无截止日期（deadline_sec = 0 → 永不过期，含 deadline_ts IS NULL 和 deadline_ts = 0）
@@ -40,7 +54,8 @@ export const DEADLINE_SEC_EXPR = "n.deadline_sec";
  * 适用表：crm_bid_notices（别名 n）
  */
 export const ACTIVE_NOTICE_WHERE =
-  "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+  "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
+  PLATFORM_PUBLISHED_ONLY;
 
 /**
  * 有效公告 WHERE 片段（o. 别名）—— 用于 crm_bid_opportunities 表
@@ -56,7 +71,8 @@ export const ACTIVE_OPP_WHERE =
  * 适用场景：crm_notice_stats 刷新、getNoticeStats 等
  */
 export const ACTIVE_NOTICE_WHERE_NO_ALIAS =
-  "(deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW()))";
+  "(deadline_sec = 0 OR deadline_sec >= UNIX_TIMESTAMP(NOW())) AND " +
+  PLATFORM_PUBLISHED_ONLY_NO_ALIAS;
 
 /**
  * Meilisearch 索引侧等价 filter

@@ -14,6 +14,7 @@ import { isWideTableReady } from "../search-common/wide-table-readiness";
 import { logSyncCascade } from "../search-common/metrics";
 import { requestIndexRebuild } from "../search-common/rebuild-trigger";
 import { invalidateSearchCache } from "../search-common/sync-events";
+import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
 import {
   WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
@@ -38,7 +39,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
   try {
     while (true) {
       const [rows] = await pool.query(
-        WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT ?",
+        WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT ?",
         [lastId, BATCH],
       );
       const rawRows = rows as RowDataPacket[];
@@ -84,7 +85,7 @@ export async function incrementalWideSync(
 
   try {
     const [newRows] = await pool.query(
-      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? ORDER BY n.id ASC LIMIT 5000",
+      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT 5000",
       [watermark],
     );
 
@@ -127,7 +128,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
   try {
     const placeholders = ids.map(() => "?").join(",");
     const [rows] = await pool.query(
-      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) ORDER BY n.id ASC`,
+      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) AND ` + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC",
       ids,
     );
     const noticeIds = (rows as RowDataPacket[]).map((r) => String(r.notice_id));

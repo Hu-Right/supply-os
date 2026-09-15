@@ -176,7 +176,8 @@ export function getNoticeStats(pool: Pool): Promise<NoticeStatsResult> {
         `SELECT COUNT(*) AS total FROM crm_bid_notices n
          WHERE (n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))
            AND n.deadline_sec > UNIX_TIMESTAMP(NOW())
-           AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400`
+           AND n.deadline_sec <= UNIX_TIMESTAMP(NOW()) + 30 * 86400
+           AND (n.entry_source <> 'platform' OR IFNULL(n.rfq_status, '') = 'published')`
       );
       // 含原始文件（宽表 documents_count>0，可下载附件）
       const [docsRows] = await pool.query(

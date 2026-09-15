@@ -93,6 +93,7 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
         `SELECT ns.id FROM crm_notice_search ns
          LEFT JOIN crm_bid_notices n ON n.id = ns.id
          WHERE n.id IS NULL
+            OR (n.entry_source = 'platform' AND IFNULL(n.rfq_status, '') <> 'published')
          LIMIT 5000`,
       );
       const ghosts = ghostRows as RowDataPacket[];
