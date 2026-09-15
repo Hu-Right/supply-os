@@ -4,7 +4,7 @@
  * 解锁编排收敛到 executeOpportunityUnlock（审查报告 F10）：配额消耗与
  * 解锁记录同事务，FOR UPDATE 防并发超卖，免费额度事务内复核。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

@@ -7,7 +7,7 @@
  *              Floating trigger button + right-side slide-in drawer, composing ChatWindow
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MessageCircle, X, Sparkles, User } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -54,7 +54,6 @@ export function DigitalAssistant({
   const { t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const prevMsgLenRef = useRef(0);
 
   const {
     messages,

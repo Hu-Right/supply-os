@@ -7,7 +7,7 @@
  */
 
 import { useRef, useEffect } from "react";
-import type { ChatMessage, MatchPhase, AttachmentMeta } from "../../hooks/useDigitalAssistant";
+import type { ChatMessage, MatchPhase } from "../../hooks/useDigitalAssistant";
 import type { Supplier, Opportunity } from "@/types";
 import { MessageBubble } from "./MessageBubble";
 import { TypingIndicator } from "./TypingIndicator";

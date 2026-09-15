@@ -18,7 +18,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { ChainSourceLang } from "./chain";
-import { translateViaChain, TranslationError } from "./chain";
+import { translateViaChain, TranslationError, isDeepSeekCircuitBreakerOpen } from "./chain";
 import {
   pendingNoticeTranslations,
   detectSourceLang,
@@ -50,7 +50,7 @@ export function readAutoTranslateConfig(): AutoTranslateConfig {
   };
 }
 
-const CONCURRENCY = 10;  // 10 并发 worker（降低并发避免 DeepSeek 429 限流）
+const CONCURRENCY = 3;   // 3 并发 worker（启动时多任务并行，过高会抢光 DB 连接池）
 const DELAY_MS = 200;   // 每批次间隔 200ms（配合重试机制给 API 喘息时间）
 const BATCH_SIZE = 8;   // 每批合并翻译的标题数（≤8 显著降低 BAD_SHAPE 概率）
 
@@ -103,13 +103,18 @@ function nextBeijingTrigger(): Date {
     dayOffset = 1;
   }
 
-  // 构造北京时间的目标时刻，再转回 UTC Date
-  const bjStr = new Date(now.getTime() + dayOffset * 86400000)
-    .toISOString().slice(0, 10);  // 目标日 UTC 日期字符串
-  const targetUtc = new Date(`${bjStr}T${String(Math.floor(targetMin / 60)).padStart(2, "0")}:${String(targetMin % 60).padStart(2, "0")}:00Z`);
-  // 调整到正确的 UTC 时间（北京时间 = UTC + 8h）
-  targetUtc.setTime(targetUtc.getTime() - 8 * 3600000);
-  return targetUtc;
+  // ★ 关键修复：用北京时区获取当前北京日期，而非 UTC 日期。
+  // 原代码用 toISOString().slice(0,10) 取 UTC 日期，
+  // 北京时间凌晨 00:00-07:59 时 UTC 日期仍是昨天，
+  // 导致目标时刻被算成"昨天 06:00"，delay=0，scheduler 死循环。
+  const bjDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(now.getTime() + dayOffset * 86400000));
+  // en-CA 格式为 YYYY-MM-DD，直接拼接北京时间
+  const targetHour = Math.floor(targetMin / 60);
+  const targetMinute = targetMin % 60;
+  return new Date(`${bjDateStr}T${String(targetHour).padStart(2, "0")}:${String(targetMinute).padStart(2, "0")}:00+08:00`);
 }
 
 
@@ -212,6 +217,11 @@ export async function runIncrementalTranslation(
         Array.from({ length: CONCURRENCY }, async () => {
           while (queue.length) {
             if (charsUsed >= cfg.dailyCharBudget) break;
+            // 熔断器打开：DeepSeek 不可用，继续跑 DB 查询无意义且抢连接
+            if (isDeepSeekCircuitBreakerOpen()) {
+              logger.warn(`[auto-translate] 熔断器已打开，worker 提前退出（剩余 ${queue.length} 条待处理）`);
+              break;
+            }
 
             // ── Phase 1: 收集一批条目，本地检测源语言（零 API 开销）──
             const batchItems: {
@@ -302,7 +312,18 @@ export async function runIncrementalTranslation(
                   const errMsg = batchErr?.message || String(batchErr);
                   const degraded = (batchErr?.degradedFrom as string[] | undefined)?.join(" → ") || "-";
 
-                  // ── 批量失败降级：逐条单独重试（单条 API 调用格式稳定性远高于批量）──
+                  // ── 熔断器打开：跳过逐条重试，打一条汇总日志 ──
+                  if (degraded.includes("DEEPSEEK_CIRCUIT_BREAKER_OPEN")) {
+                    logger.warn(
+                      `[auto-translate] 熔断器已打开，跳过本批次 ${titleToItems.size} 条逐条重试（冷却期内 DeepSeek 不可用）`
+                    );
+                    for (const [, titleItems] of titleToItems) {
+                      failed += titleItems.length;
+                    }
+                    continue;
+                  }
+
+                  // ─ 批量失败降级：逐条单独重试（单条 API 调用格式稳定性远高于批量）──
                   for (const [title, titleItems] of titleToItems) {
                     let recovered = false;
                     try {
@@ -421,18 +442,39 @@ export function startAutoTranslate(
 
   let running = false;
   let nextTimer: ReturnType<typeof setTimeout> | null = null;
+  // DB 不可用时的退避计数器：连续 N 次连接失败后延长等待，避免刷屏
+  let consecutiveDbFailures = 0;
+  const DB_FAILURE_BACKOFF_MS = 60_000; // DB 失败后至少等 60s 再重试
 
   const tick = async () => {
     if (running) return;
+    // 熔断器打开时跳过整个 tick，等冷却期后再试（避免每轮 spawn worker 再退出打日志）
+    if (isDeepSeekCircuitBreakerOpen()) {
+      logger.warn(`[auto-translate] 熔断器已打开，跳过本轮调度（60s 冷却期后重试）`);
+      nextTimer = setTimeout(() => void tick(), 60_000);
+      return;
+    }
     running = true;
     try {
       await runIncrementalTranslation(dbPool, cfg);
+      consecutiveDbFailures = 0; // 成功则重置
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(`SCAN_FAIL error="${msg}"`);
+      consecutiveDbFailures++;
+      // DB 连接失败（ECONNREFUSED 等）：跳过正常调度，等退避时间后再试
+      if (/ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH/i.test(msg)) {
+        const backoffMs = Math.min(DB_FAILURE_BACKOFF_MS * consecutiveDbFailures, 10 * 60_000);
+        logger.warn(`[auto-translate] DB 不可用，${backoffMs / 1000}s 后重试（连续失败 ${consecutiveDbFailures} 次）`);
+        running = false;
+        nextTimer = setTimeout(() => void tick(), backoffMs);
+        return;
+      }
     } finally {
-      running = false;
-      scheduleNext();
+      if (running) {
+        running = false;
+        scheduleNext();
+      }
     }
   };
 

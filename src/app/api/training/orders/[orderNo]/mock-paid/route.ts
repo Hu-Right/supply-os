@@ -1,7 +1,7 @@
 /**
  * POST /api/training/orders/:orderNo/mock-paid — Mock 支付履约
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

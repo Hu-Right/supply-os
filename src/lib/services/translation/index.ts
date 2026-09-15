@@ -12,7 +12,7 @@
  *              - fetchWithTimeout.ts  HTTP 超时封装
  */
 
-export { translateViaChain } from "./chain";
+export { translateViaChain, isDeepSeekCircuitBreakerOpen } from "./chain";
 export type { ChainResult, ChainSourceLang } from "./chain";
 
 export { startAutoTranslate, runIncrementalTranslation } from "./auto";

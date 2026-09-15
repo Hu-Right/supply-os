@@ -5,7 +5,6 @@
  * @description Alipay SDK pageExecute 返回自动提交的 HTML 表单，
  *              浏览器加载后自动 POST 到支付宝网关完成跳转。
  */
-import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

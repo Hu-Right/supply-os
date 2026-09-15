@@ -1,7 +1,7 @@
 /**
  * GET /api/suppliers/[id]/contact — 获取供应商联系方式（需认证+VIP）
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
