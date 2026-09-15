@@ -25,6 +25,15 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
     PIN: "PIN", PMC: "PMC",
     // EU 三大合同分类（西语源数据 Suministros/Servicios/Obras 的归一化出口）
     SERVICES: "SERVICES", SUPPLIES: "SUPPLIES", WORKS: "WORKS",
+    // 新增扩展类型（与前端 PATTERN_RULES 全量对齐）；幂等保障
+    CONTRACT_NOTICE: "CONTRACT_NOTICE", COMPETITIVE: "COMPETITIVE",
+    THRESHOLD: "THRESHOLD", NEGOTIATED: "NEGOTIATED",
+    MULTI_USE_LIST: "MULTI_USE_LIST", DIALOGUE: "DIALOGUE",
+    DPS: "DPS", DESIGN_CONTEST: "DESIGN_CONTEST",
+    INNOVATION: "INNOVATION", RESTRICTED: "RESTRICTED",
+    SUBCONTRACT: "SUBCONTRACT", QUAL_SYSTEM: "QUAL_SYSTEM",
+    SHORTLIST: "SHORTLIST", FRAMEWORK: "FRAMEWORK",
+    DIRECT_CONTRACTING: "DIRECT_CONTRACTING", REQUEST: "REQUEST",
   };
   if (SHORT_CODES[upper]) return SHORT_CODES[upper];
 
@@ -33,36 +42,66 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
   // snake_case 及 "consultation(PMC)" 等粘连形态生效
   const spaced = raw.replace(/[_\-–—()（）./\\]+/g, " ");
 
-  if (/expression of interest|意向表达|意向征集|兴趣征询|\beoi\b/i.test(spaced)) return "EOI";
+  // ── 高优先级：具体类型先于通用类型（与前端 PATTERN_RULES 优先级对齐）──
+  if (/expression of interest|express of interest|意向表达|意向征集|兴趣征询|\beoi\b/i.test(spaced)) return "EOI";
   if (/quotation|报价|询价/i.test(spaced)) return "RFQ";
   if (/\brfp\b|proposal|提案|建议书/i.test(spaced)) return "RFP";
-  if (/pre[\s-]?qualif|资格预审/i.test(spaced)) return "PQ";
+  if (/pre[\s-]?qualif|qualification|资格预审/i.test(spaced)) return "PQ";
   if (/consultant|顾问/i.test(spaced)) return "IC";
   // sources sought（美国 SAM 市场调研公告）语义等同信息征询
   if (/request for information|sources sought|信息征询|\brfi\b/i.test(spaced)) return "RFI";
   if (/general procurement notice|\bgpn\b/i.test(spaced)) return "GPN";
   if (/contract award|award notice|授标|中标/i.test(spaced)) return "AWARD";
-
+  
   // ── 扩展类型（与前端 PATTERN_RULES 对齐；具体规则先于通用规则）──
   // presolicitation（招标预告）语义属事前信息通知，须在 solicitation 规则前
   if (/prior information notice|presolicitation|\bpin\b|事前信息通知|预先信息通知/i.test(spaced)) return "PIN";
-  if (/contract notice|合同通知|合同公告/i.test(spaced)) return "CONTRACT_NOTICE";
-  if (/\bthreshold\b|门槛程序|阈值程序/i.test(spaced)) return "THRESHOLD";
   if (/preliminary market consultation|\bpmc\b|初步市场咨询|事前市场咨询/i.test(spaced)) return "PMC";
-  if (/\bnegotiated\b|谈判程序|谈判采购/i.test(spaced)) return "NEGOTIATED";
-  // 须在 ITB 前："Competitive – Open Bidding" 不得被通用招标规则截胡
-  // "Non-Competitive"（非竞争性采购）不得被 \bcompetitive\b 误判
+  // 多用途清单 / 合格供应商名单（须在 competitive 之前，避免 "qualified supplier list" 被误匹配）
+  if (/multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/i.test(spaced)) return "MULTI_USE_LIST";
+  // 竞争性对话（EU Competitive Dialogue）— 须在 competitive 之前，避免 "competitive dialogue" 被截胡
+  if (/competitive dialogue|dialogue|竞争性对话/i.test(spaced)) return "DIALOGUE";
+  // 动态采购系统（EU Dynamic Purchasing System / DPS）— 须在 competitive 之前
+  if (/dynamic purchasing system|\bdps\b|动态采购系统/i.test(spaced)) return "DPS";
+  // 设计竞赛（EU Design Contest）
+  if (/design contest|design competition|设计竞赛|设计比赛/i.test(spaced)) return "DESIGN_CONTEST";
+  // 创新合作伙伴关系（EU Innovation Partnership）
+  if (/innovation partnership|innovation|创新合作伙伴|创新伙伴关系/i.test(spaced)) return "INNOVATION";
+  // 限制性程序（EU Restricted Procedure）
+  if (/restricted procedure|restricted|限制性程序|限制程序/i.test(spaced)) return "RESTRICTED";
+  // 谈判程序（EU Negotiated Procedure）
+  if (/negotiated procedure|negotiated|谈判程序|谈判采购/i.test(spaced)) return "NEGOTIATED";
+  // 门槛程序（EU/National threshold procedures）
+  if (/\bthreshold\b|threshold procedures|门槛程序|阈值程序/i.test(spaced)) return "THRESHOLD";
+  // 分包通知（Subcontract Notice）— 须在 contract_notice 之前
+  if (/subcontract|sub-contract|分包通知|分包公告/i.test(spaced)) return "SUBCONTRACT";
+  // 合同通知（Contract Notice）
+  if (/contract notice|合同通知|合同公告/i.test(spaced)) return "CONTRACT_NOTICE";
+  // 资格系统（Qualification System）
+  if (/qualification system|资格系统/i.test(spaced)) return "QUAL_SYSTEM";
+  // 短名单（Shortlist）
+  if (/shortlist|short list|短名单/i.test(spaced)) return "SHORTLIST";
+  // 框架协议（Framework Agreement）— 须在 EOI/request 之前
+  if (/framework agreement|framework|standing offer|框架协议/i.test(spaced)) return "FRAMEWORK";
+  // 直接合同（Direct Contracting / Direct Procurement）
+  if (/direct contract|direct procurement|直接合同|直接采购/i.test(spaced)) return "DIRECT_CONTRACTING";
+  // 通用采购请求（request for... 排除已匹配的 RFI/RFP/RFQ）
+  if (/request for(?! information)|征询请求|采购请求/i.test(spaced)) return "REQUEST";
+  
+  // ── Non-Competitive 显式归 OTHER（须在 competitive 规则之前）──
   if (/non[\s-]?competitive/i.test(spaced)) return "OTHER";
+  // 竞争性公开招标（EU/国际公共采购常见类型）
   if (/\bcompetitive\b|open bidding|竞争性|公开招标/i.test(spaced)) return "COMPETITIVE";
-  // solicitation（美国 SAM 招标书，首页 OTHER 的最大来源）归入 ITB
+  // solicitation（美国 SAM 招标书）归入 ITB
   if (/solicitation/i.test(spaced)) return "ITB";
   // EU 三大合同分类：西语源数据的主分类（Servicios 先于 Suministros：
-  // “Servicios de suministro de personal” 语义属服务而非物资）
+  // "Servicios de suministro de personal" 语义属服务而非物资）
   if (/servicio|\bservices?\b/i.test(spaced)) return "SERVICES";
   if (/suministro|\bsupplies\b/i.test(spaced)) return "SUPPLIES";
   if (/\bobras\b|construcci|\bworks\b/i.test(spaced)) return "WORKS";
+  // ITB 放在较后位置（与前端对齐）：tenders?|bids? 在 framework/EOI/request 之后
   if (/\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/i.test(spaced)) return "ITB";
-
+  
   return "OTHER";
 }
 

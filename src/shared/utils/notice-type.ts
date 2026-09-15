@@ -24,6 +24,7 @@ const CODE_MAP: Record<string, LocaleKey> = {
   GPN: "procurement_type_gpn",
   OTHER: "procurement_type_other",
   // 服务端扩展标准代码（normalizeNoticeType 升级后输出的新 std 值）
+  AWARD: "procurement_type_contract_award",
   CONTRACT_NOTICE: "procurement_type_contract_notice",
   COMPETITIVE: "procurement_type_competitive",
   THRESHOLD: "procurement_type_threshold",
@@ -33,6 +34,19 @@ const CODE_MAP: Record<string, LocaleKey> = {
   SERVICES: "procurement_type_services",
   SUPPLIES: "procurement_type_supplies",
   WORKS: "procurement_type_works",
+  // 新增扩展类型（与 normalizeNoticeType 全量对齐）
+  MULTI_USE_LIST: "procurement_type_multi_use_list",
+  DIALOGUE: "procurement_type_dialogue",
+  DPS: "procurement_type_dps",
+  DESIGN_CONTEST: "procurement_type_design_contest",
+  INNOVATION: "procurement_type_innovation",
+  RESTRICTED: "procurement_type_restricted",
+  SUBCONTRACT: "procurement_type_subcontract",
+  QUAL_SYSTEM: "procurement_type_qualification_system",
+  SHORTLIST: "procurement_type_shortlist",
+  FRAMEWORK: "procurement_type_framework",
+  DIRECT_CONTRACTING: "procurement_type_direct_contracting",
+  REQUEST: "procurement_type_request",
 };
 
 // 子串规则按优先级排列：
