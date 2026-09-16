@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from "@/shared/ui/Form";
 import { api } from "@/core/http";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 export interface ConsultFormProps {
   onClose: () => void;
@@ -38,10 +39,17 @@ interface ConsultFormData {
 export function ConsultForm({ onClose }: ConsultFormProps) {
   const { t } = useLocale();
   const [submitted, setSubmitted] = useState(false);
-  const form = useForm<ConsultFormData>({
-    defaultValues: { companyName: "", contactPerson: "", phone: "", notes: "" },
-  });
+  const [draft, setDraft, clearDraft] = usePersistedFormState(
+    "draft:consult",
+    { companyName: "", contactPerson: "", phone: "", notes: "" },
+  );
+  const form = useForm<ConsultFormData>({ defaultValues: draft });
   const { handleSubmit, formState: { isSubmitting } } = form;
+
+  // 表单变化时同步到草稿
+  form.watch((value) => {
+    setDraft(value as ConsultFormData);
+  });
 
   const onSubmit = handleSubmit(async (data) => {
     try {
@@ -57,6 +65,7 @@ export function ConsultForm({ onClose }: ConsultFormProps) {
         } as unknown as BodyInit,
       });
       setSubmitted(true);
+      clearDraft();
       window.setTimeout(onClose, 2200);
     } catch {
       toast.error(t("consultSubmitFail"));

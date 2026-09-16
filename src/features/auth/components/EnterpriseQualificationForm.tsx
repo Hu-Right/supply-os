@@ -6,7 +6,7 @@
  * @description 14 字段渲染委托给 shared/forms/QualificationFormFields，
  *              本组件仅负责嵌入式容器与 onFormChange 回调。
  */
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 import { useLocale } from "@/core/i18n";
 import {
   QualificationFormFields,
@@ -19,6 +19,8 @@ import {
   getCertOptions, getUngmOptions, getEnglishTeamOptions,
   getPaymentOptions, getBidOptions,
 } from "@/shared/data/qualificationOptions";
+import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
+import { DRAFT_TTL_MS } from "../hooks/useAuthForm";
 
 interface EnterpriseQualificationFormProps {
   /** 表单数据变化回调，父组件通过此回调收集信息 */
@@ -29,19 +31,39 @@ interface EnterpriseQualificationFormProps {
 
 export default function EnterpriseQualificationForm({ onFormChange, registrationPhone }: EnterpriseQualificationFormProps) {
   const { t } = useLocale();
-  const [form, setForm] = useState<QualificationFormState>(() => ({
-    ...INITIAL_QUALIFICATION_FORM,
-    bid_willingness: "是",
-  }));
+
+  // ★ 草稿持久化：弹窗意外关闭/页面刷新后重新打开可自动恢复诊断数据
+  const [form, setForm, _clearDraft] = usePersistedFormState<QualificationFormState>(
+    "draft:auth_qualification",
+    { ...INITIAL_QUALIFICATION_FORM, bid_willingness: "是" },
+    { ttlMs: DRAFT_TTL_MS },
+  );
+
+  // ★ 用 ref 持有最新 form，避免 useCallback/useEffect 依赖 form 导致级联重渲染
+  const formRef = useRef(form);
+  formRef.current = form;
+
+  // ★ 挂载时将恢复的草稿数据同步给父组件（用于提交时透传诊断数据）
+  // 使用 ref 持有回调，effect 仅依赖 form 初始引用，不会因 form 变化反复触发
+  const onFormChangeRef = useRef(onFormChange);
+  onFormChangeRef.current = onFormChange;
+  useEffect(() => {
+    onFormChangeRef.current?.(formRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 注册手机号同步到 contact_info（投标意愿默认"是"，手机号共享自注册表单）
-  const lastSyncedPhone = useRef("");
+  const lastSyncedPhone = useRef(registrationPhone);
+  const setFormRef = useRef(setForm);
+  setFormRef.current = setForm;
   useEffect(() => {
     if (registrationPhone && registrationPhone !== lastSyncedPhone.current) {
       lastSyncedPhone.current = registrationPhone;
-      const next = { ...form, contact_info: registrationPhone };
-      setForm(next);
-      onFormChange?.(next);
+      setFormRef.current((prev) => {
+        const next = { ...prev, contact_info: registrationPhone };
+        onFormChangeRef.current?.(next);
+        return next;
+      });
     }
     // 有意省略 form/onFormChange：本 Effect 由手机号变化一次性触发（ref 防重入），
     // 依赖 form 会随每次按键重跑。表单回传改为 update/toggle 内直调（见下方注释），
@@ -67,23 +89,30 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
   }), [t]);
 
   // ★ 用户操作时才通知父组件，避免 useEffect 监听 form 导致的级联重渲染
+  // 使用函数式更新 + ref，不依赖 form/setForm/onFormChange，消除所有 lint 警告
   const update = useCallback(<K extends keyof QualificationFormState>(key: K, val: QualificationFormState[K]) => {
-    const next = { ...form, [key]: val };
-    setForm(next);
-    onFormChange?.(next);
-  }, [form, onFormChange]);
+    setFormRef.current((prev) => {
+      const next = { ...prev, [key]: val };
+      onFormChangeRef.current?.(next);
+      return next;
+    });
+  }, []);
 
   const toggleIndustry = useCallback((val: string) => {
-    const next = { ...form, industry: form.industry.includes(val) ? form.industry.filter((i) => i !== val) : [...form.industry, val] };
-    setForm(next);
-    onFormChange?.(next);
-  }, [form, onFormChange]);
+    setFormRef.current((prev) => {
+      const next = { ...prev, industry: prev.industry.includes(val) ? prev.industry.filter((i) => i !== val) : [...prev.industry, val] };
+      onFormChangeRef.current?.(next);
+      return next;
+    });
+  }, []);
 
   const toggleCert = useCallback((val: string) => {
-    const next = { ...form, certifications: form.certifications.includes(val) ? form.certifications.filter((c) => c !== val) : [...form.certifications, val] };
-    setForm(next);
-    onFormChange?.(next);
-  }, [form, onFormChange]);
+    setFormRef.current((prev) => {
+      const next = { ...prev, certifications: prev.certifications.includes(val) ? prev.certifications.filter((c) => c !== val) : [...prev.certifications, val] };
+      onFormChangeRef.current?.(next);
+      return next;
+    });
+  }, []);
 
   // eqf* 翻译 key 映射
   const label = (key: QualFieldKey) => {
