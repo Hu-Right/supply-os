@@ -91,7 +91,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     setAuthError("");
 
     const phone = authForm.phone.trim();
-    const password = authForm.password;
+    // ★ 登录模式从 loginForm 读取密码，注册模式从 authForm 读取
+    const password = authMode === "login" ? loginForm.password : authForm.password;
 
     if (!password) {
       setAuthError(t("formError"));
