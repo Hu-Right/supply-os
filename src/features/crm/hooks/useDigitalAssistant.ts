@@ -118,6 +118,11 @@ export function useDigitalAssistant(
     [appendMessage, ensureWelcome, t, leadCount, session.chatSessionIdRef],
   );
 
+  /** 请求转人工 */
+  const requestHumanAgent = useCallback(async () => {
+    await session.requestHumanAgent(ensureWelcome, setMode, appendMessage, messages);
+  }, [session, ensureWelcome, appendMessage, messages]);
+
   /** 触发快捷操作 */
   const triggerQuickAction = useCallback(
     (action: QuickActionType) => {
@@ -138,13 +143,10 @@ export function useDigitalAssistant(
         appendMessage("assistant", reply);
       }, 600 + Math.random() * 400);
     },
-    [appendMessage, ensureWelcome, t, leadCount, activeLeadCount],
+    // suppliers/opportunities 纳入依赖：CRM 数据异步加载完成后再点「撮合」
+    // 快捷操作时必须选中最新列表首条，而非闭包里的初始空列表
+    [appendMessage, ensureWelcome, t, leadCount, activeLeadCount, aiMatch, opportunities, suppliers, requestHumanAgent],
   );
-
-  /** 请求转人工 */
-  const requestHumanAgent = useCallback(async () => {
-    await session.requestHumanAgent(ensureWelcome, setMode, appendMessage, messages);
-  }, [session, ensureWelcome, appendMessage, messages]);
 
   /** 结束人工会话 */
   const endHumanSession = useCallback(async () => {

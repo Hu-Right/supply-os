@@ -43,6 +43,10 @@ export default function EnterpriseQualificationForm({ onFormChange, registration
       setForm(next);
       onFormChange?.(next);
     }
+    // 有意省略 form/onFormChange：本 Effect 由手机号变化一次性触发（ref 防重入），
+    // 依赖 form 会随每次按键重跑。表单回传改为 update/toggle 内直调（见下方注释），
+    // 补齐依赖会复发已修复的级联重渲染（焦点丢失/表单闪烁）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrationPhone]);
 
   // ★ 修复：删除原 useEffect(() => { onFormChange?.(form); }, [form, onFormChange])

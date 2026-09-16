@@ -7,7 +7,7 @@
  *              Manages CRM page data fetching, AI matching, subscription logic
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
@@ -89,7 +89,9 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
     }
   };
 
-  // Initial data load + default AI match selections
+  // Initial data load + default AI match selections（有意仅挂载时执行一次：
+  // fetchData/aiMatch 每次渲染重建，autoMatchSupplier 为对象引用，
+  // 纳入依赖会随任意渲染反复拉取数据并重复触发自动撮合）
   useEffect(() => {
     fetchData(true);
     // 跨页带入的供应商优先于默认列表首条
@@ -103,11 +105,19 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
     if (autoMatchSupplier && ACTIVE_OPPORTUNITIES.length > 0) {
       aiMatch.triggerMatch(autoMatchSupplier, ACTIVE_OPPORTUNITIES[0]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // latest-ref：事件处理器始终调用最新一帧的 fetchData，
+  // 避免闭包捕获首帧 fetchData（其中 locale 为挂载时旧值）
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
 
   // 展厅/供应商入驻成功后刷新线索池（对齐原版提交成功即 fetchData 的行为）
   useEffect(() => {
-    return onAppEvent("supply-os:crm-refresh", () => fetchData());
+    return onAppEvent("supply-os:crm-refresh", () => fetchDataRef.current());
   }, []);
 
   // Trigger AI matching (delegates to useAiMatch)
