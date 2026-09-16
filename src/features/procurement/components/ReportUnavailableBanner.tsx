@@ -125,8 +125,14 @@ export function ReportUnavailableBanner({
         </div>
       </div>
 
-      {/* 微信二维码 Modal（复用共享组件） */}
-      {showQr && <WechatQRModal onClose={() => setShowQr(false)} />}
+      {/* 微信二维码 Modal（复用共享组件，传入采购模块专属文案） */}
+      {showQr && (
+        <WechatQRModal
+          onClose={() => setShowQr(false)}
+          title={t("procurement_wechatServiceTitle")}
+          description={t("procurement_wechatServiceHint")}
+        />
+      )}
     </>
   );
 }

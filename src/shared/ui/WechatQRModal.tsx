@@ -15,13 +15,19 @@ import { Modal } from "./Modal";
 
 export interface WechatQRModalProps {
   onClose: () => void;
+  /** 自定义弹窗标题（默认使用培训模块文案） */
+  title?: string;
+  /** 自定义描述文案（默认使用培训模块文案） */
+  description?: string;
 }
 
-export default function WechatQRModal({ onClose }: WechatQRModalProps) {
+export default function WechatQRModal({ onClose, title, description }: WechatQRModalProps) {
   const { t } = useLocale();
+  const modalTitle = title ?? t("tlWechatModalTitle");
+  const modalDesc = description ?? t("tlWechatModalDesc");
 
   return (
-    <Modal open onClose={onClose} title={t("tlWechatModalTitle")}>
+    <Modal open onClose={onClose} title={modalTitle}>
       <div className="flex flex-col items-center gap-4 rounded-2xl border-2 border-amber-400 bg-amber-50/50 p-6">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-400 text-white">
           <MessageCircle className="h-6 w-6" />
@@ -29,13 +35,13 @@ export default function WechatQRModal({ onClose }: WechatQRModalProps) {
         <div className="overflow-hidden rounded-xl border-4 border-amber-400 bg-white p-2 shadow-md">
           <Image
             src="/wechat-service-qr.png"
-            alt={t("tlWechatModalTitle")}
+            alt={modalTitle}
             width={208}
             height={208}
             className="h-52 w-52 object-contain"
           />
         </div>
-        <p className="text-center text-sm leading-relaxed text-slate-600">{t("tlWechatModalDesc")}</p>
+        <p className="text-center text-sm leading-relaxed text-slate-600">{modalDesc}</p>
       </div>
     </Modal>
   );
