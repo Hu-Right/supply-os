@@ -100,7 +100,7 @@ describe("ErrorBoundary", () => {
     expect(reloadSpy).toHaveBeenCalledOnce();
   });
 
-  it("默认错误 UI 点击 showroom 按钮 → 跳转 /showroom", async () => {
+  it("默认错误 UI 点击返回首页按钮 → 跳转 /", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     const hrefSpy = vi.fn();
     Object.defineProperty(window, "location", {
@@ -123,6 +123,6 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
     await user.click(screen.getByText("errorBoundaryBackHome"));
-    expect(hrefSpy).toHaveBeenCalledWith("/showroom");
+    expect(hrefSpy).toHaveBeenCalledWith("/");
   });
 });
