@@ -147,8 +147,8 @@ export function RfqPlaza() {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {items.map((rfq) => (
-            <PlazaCard key={rfq.id} rfq={rfq} />
+          {items.map((rfq, i) => (
+            <PlazaCard key={rfq.id ?? i} rfq={rfq} />
           ))}
         </div>
       )}
