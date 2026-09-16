@@ -79,6 +79,18 @@ export interface NoticeDetailFields {
   report_available?: boolean;
   /** 报告下载路径 */
   report_url?: string;
+  /** 供应商投标条件 */
+  supplier_conditions?: string;
+  /** 资格要求 */
+  eligibility?: string;
+  /** 技术门槛 */
+  technical_hurdles?: string;
+  /** AI 识别产品清单 */
+  ai_products?: unknown;
+  /** AI 深度分析 */
+  ai_analysis?: Record<string, unknown>;
+  /** 产品编码 */
+  product_code?: string;
 }
 
 /** 解锁后的完整公告（列表字段 + 详情字段） */

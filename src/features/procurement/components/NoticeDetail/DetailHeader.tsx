@@ -81,8 +81,8 @@ export function DetailHeader({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-6 p-4 rounded-xl bg-slate-50/70 border border-slate-100">
         {[
           [t("detail_noticeId"), sourceUrl
-            ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline">{noticeId || "-"}<ExternalLink className="w-3 h-3 shrink-0" /></a>
-            : noticeId || "-"],
+            ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline group/notice-id" title={noticeId || "-"}><span className="truncate block max-w-full">{noticeId || "-"}</span><ExternalLink className="w-3 h-3 shrink-0" /></a>
+            : <span className="truncate block max-w-full" title={noticeId || "-"}>{noticeId || "-"}</span>],
           [t("detail_buyer"), visibleAgency],
           [t("detail_countryRegion"), getCountryDisplayName(country, locale) || t("procurement_global")],
           [t("detail_sourcePlatform"), sourceName || t("detail_sourceOfficial")],

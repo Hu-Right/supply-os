@@ -26,6 +26,10 @@ import { getCountdown } from "@/shared/utils/countdown";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
+import { QualificationTab } from "./QualificationTab";
+import { FilesTab } from "./FilesTab";
+import { PlaceholderTab } from "./PlaceholderTab";
+import { BarChart3, History, Sparkles } from "lucide-react";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -95,6 +99,10 @@ export function NoticeDetail({
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
 
+  // Tab 权益校验
+  const hasMemberAccess = isVip || coreUnlocked;
+  const hasProAccess = isVip;
+
   return (
     <div className="space-y-5">
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
@@ -114,49 +122,99 @@ export function NoticeDetail({
           </div>
         )}
 
-        {/* ═══ 双栏布局：左（AI摘要 + 内容）+ 右（下一步动作） ═══ */}
+        {/* ═══ 双栏布局：左（Tab 内容）+ 右（下一步动作） ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          {/* ── 左栏 ── */}
+          {/* ── 左栏：根据 activeTab 切换内容 ── */}
           <main className="min-w-0 space-y-6 pb-24 md:pb-0">
-            <AiSummarySection
-              data={null} loading={false}
-              isUnlocked={isVip || coreUnlocked}
-              onUnlock={() => onUnlock(notice)}
-            />
+            {activeTab === "summary" && (
+              <>
+                <AiSummarySection
+                  data={null} loading={false}
+                  isUnlocked={isVip || coreUnlocked}
+                  onUnlock={() => onUnlock(notice)}
+                />
 
-            <NoticeDescriptionSection
-              translating={showTranslating} failed={failed}
-              hasTranslation={!!translation} showOriginal={showOriginal}
-              showTranslated={!showOriginal && !!translation}
-              toggleOriginal={toggleOriginal}
-              displayDescription={displayDescription}
-            />
+                <NoticeDescriptionSection
+                  translating={showTranslating} failed={failed}
+                  hasTranslation={!!translation} showOriginal={showOriginal}
+                  showTranslated={!showOriginal && !!translation}
+                  toggleOriginal={toggleOriginal}
+                  displayDescription={displayDescription}
+                />
 
-            {!showSkeleton && (
-              <NoticeBreakdownIndicator
-                hasReport={hasReport} reportKnown={reportKnown}
-                breakdownFileCount={breakdownFileCount}
+                {!showSkeleton && (
+                  <NoticeBreakdownIndicator
+                    hasReport={hasReport} reportKnown={reportKnown}
+                    breakdownFileCount={breakdownFileCount}
+                  />
+                )}
+
+                {showReportGuide && notice.id != null && (
+                  <ReportUnavailableBanner
+                    noticeId={notice.id} isVip={isVip}
+                    isLoggedIn={!!authContext?.authUser}
+                  />
+                )}
+
+                {notice.id != null && userId && reportKnown && hasReport && (
+                  <ReportPreviewPanel
+                    noticeId={notice.id} userId={userId} isVip={isVip}
+                    onUnlock={onUnlock} coreLocked={!coreUnlocked}
+                  />
+                )}
+
+                <NoticeCoreContent
+                  notice={notice} coreUnlocked={coreUnlocked}
+                  showSkeleton={showSkeleton} breakdownFileCount={breakdownFileCount}
+                />
+              </>
+            )}
+
+            {activeTab === "qualification" && (
+              <QualificationTab notice={notice} coreUnlocked={coreUnlocked} />
+            )}
+
+            {activeTab === "files" && (
+              <FilesTab notice={notice} coreUnlocked={coreUnlocked} />
+            )}
+
+            {activeTab === "ai-score" && (
+              <PlaceholderTab
+                icon={BarChart3}
+                titleKey="detail_tabAiScore"
+                titleDefault="AI适配评分"
+                descKey="detail_aiScoreDesc"
+                descDefault="AI 将根据贵司资质与本标要求进行多维度匹配评分，帮助您快速判断投标可行性。"
+                tier="pro"
+                hasAccess={hasProAccess}
+                upgradePath="/membership"
               />
             )}
 
-            {showReportGuide && notice.id != null && (
-              <ReportUnavailableBanner
-                noticeId={notice.id} isVip={isVip}
-                isLoggedIn={!!authContext?.authUser}
+            {activeTab === "history" && (
+              <PlaceholderTab
+                icon={History}
+                titleKey="detail_tabHistory"
+                titleDefault="历史中标"
+                descKey="detail_historyDesc"
+                descDefault="展示同类项目历史中标数据，包括中标金额、中标企业、竞争态势分析。"
+                tier="pro"
+                hasAccess={hasProAccess}
+                upgradePath="/membership"
               />
             )}
 
-            {notice.id != null && userId && reportKnown && hasReport && (
-              <ReportPreviewPanel
-                noticeId={notice.id} userId={userId} isVip={isVip}
-                onUnlock={onUnlock} coreLocked={!coreUnlocked}
+            {activeTab === "similar" && (
+              <PlaceholderTab
+                icon={Sparkles}
+                titleKey="detail_tabSimilar"
+                titleDefault="相似机会"
+                descKey="detail_similarDesc"
+                descDefault="根据您的行业偏好与历史行为，推荐相似采购公告。"
+                tier="free"
+                hasAccess={true}
               />
             )}
-
-            <NoticeCoreContent
-              notice={notice} coreUnlocked={coreUnlocked}
-              showSkeleton={showSkeleton} breakdownFileCount={breakdownFileCount}
-            />
           </main>
 
           {/* ── 右栏：下一步动作面板（首屏可见） ── */}

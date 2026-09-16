@@ -10,7 +10,7 @@
  *              detail page only. Mobile falls back to stacked compact layout.
  */
 import { memo } from "react";
-import { Crown, Bookmark } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
 import type { NoticeItem } from "../types";
@@ -181,10 +181,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
             <Button
               onClick={() => onClick(item)}
               size="sm"
-              className="px-4 py-2 font-bold text-white whitespace-nowrap rounded-lg bg-slate-900 hover:bg-slate-800 transition-colors"
+              className="px-4 py-2 font-bold text-teal-700 whitespace-nowrap rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 transition-colors"
             >
-              <Crown className="w-3.5 h-3.5 mr-1" />
-              {t("procurement_memberUnlock")}
+              {t("procurement_detail")}
             </Button>
           )}
           {/* 收藏按钮 */}
