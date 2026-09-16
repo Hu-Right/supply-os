@@ -447,6 +447,7 @@
   "detail_countdown": "Cuenta regresiva (CST)",
   "detail_procurementType": "Tipo de contratación",
   "detail_budgetAmount": "Presupuesto/Monto",
+    "detail_noticeId": "Número de aviso",
   "detail_daysLeft": "{days}d {time} restantes",
   "detail_tabSummary": "Resumen",
   "detail_tabQualification": "Calificaciones",

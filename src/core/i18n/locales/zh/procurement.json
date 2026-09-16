@@ -448,6 +448,7 @@
   "detail_countdown": "倒计时（距北京时间）",
   "detail_procurementType": "采购类型",
   "detail_budgetAmount": "预算/金额",
+    "detail_noticeId": "公告编号",
   "detail_daysLeft": "距截止 {days}天 {time}",
   "detail_tabSummary": "采购摘要",
   "detail_tabQualification": "资格条件",

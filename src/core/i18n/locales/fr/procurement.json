@@ -447,6 +447,7 @@
   "detail_countdown": "Compte à rebours (CST)",
   "detail_procurementType": "Type de passation",
   "detail_budgetAmount": "Budget/Montant",
+    "detail_noticeId": "Référence de l'avis",
   "detail_daysLeft": "{days}j {time} restants",
   "detail_tabSummary": "Résumé",
   "detail_tabQualification": "Qualifications",

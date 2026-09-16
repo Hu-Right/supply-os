@@ -448,6 +448,7 @@
   "detail_countdown": "Countdown (CST)",
   "detail_procurementType": "Procurement Type",
   "detail_budgetAmount": "Budget/Amount",
+    "detail_noticeId": "Notice ID",
   "detail_daysLeft": "{days}d {time} left",
   "detail_tabSummary": "Summary",
   "detail_tabQualification": "Qualifications",

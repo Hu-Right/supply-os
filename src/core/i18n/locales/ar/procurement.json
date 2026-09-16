@@ -447,6 +447,7 @@
   "detail_countdown": "العد التنازلي (CST)",
   "detail_procurementType": "نوع المشتريات",
   "detail_budgetAmount": "الميزانية/المبلغ",
+    "detail_noticeId": "رقم الإعلان",
   "detail_daysLeft": "متبقي {days}يوم {time}",
   "detail_tabSummary": "ملخص",
   "detail_tabQualification": "المؤهلات",

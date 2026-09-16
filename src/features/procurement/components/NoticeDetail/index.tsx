@@ -3,7 +3,7 @@
  * Notice Detail Page — Module 03 Design Mockup
  *
  * @module features/procurement/components/NoticeDetail
- * @description 按「3-招标详情页」样图重排：面包屑 + 标题标签区 + 8列信息速览表 +
+ * @description 按「3-招标详情页」样图重排：面包屑 + 标题标签区 + 9列信息速览表 +
  *              Tab 导航 + 双栏布局（左：AI摘要/概况速览，右：下一步动作面板）。
  *              免费用户可判断价值，付费用户获取完整执行信息。
  */
@@ -100,7 +100,7 @@ export function NoticeDetail({
       <article className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
         <DetailHeader
           displayTitle={displayTitle} typeLabel={typeLabel} noticeType={notice.notice_type}
-          visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url}
+          noticeId={notice.notice_id} visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
         />

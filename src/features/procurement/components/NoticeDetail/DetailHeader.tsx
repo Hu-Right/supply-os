@@ -1,8 +1,8 @@
 /**
- * 标题区 + 操作按钮 + 8 列信息速览表
+ * 标题区 + 操作按钮 + 9 列信息速览表
  * @module features/procurement/components/NoticeDetail/DetailHeader
  */
-import { ArrowLeft, Bookmark, Share2 } from "lucide-react";
+import { ArrowLeft, Bookmark, ExternalLink, Share2 } from "lucide-react";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { deriveSourceName } from "./utils";
 
@@ -10,6 +10,7 @@ interface DetailHeaderProps {
   displayTitle: string;
   typeLabel: string;
   noticeType?: string;
+  noticeId?: string;
   visibleAgency: string;
   country: string;
   sourceUrl?: string;
@@ -24,7 +25,7 @@ interface DetailHeaderProps {
 }
 
 export function DetailHeader({
-  displayTitle, typeLabel, noticeType, visibleAgency, country,
+  displayTitle, typeLabel, noticeType, noticeId, visibleAgency, country,
   sourceUrl, publishDate, deadlineText, countdown, budgetText,
   onBack, t, locale,
 }: DetailHeaderProps) {
@@ -76,9 +77,12 @@ export function DetailHeader({
         </div>
       </div>
 
-      {/* ═══ 8列信息速览表 ═══ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6 p-4 rounded-xl bg-slate-50/70 border border-slate-100">
+      {/* ═══ 9列信息速览表 ═══ */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-6 p-4 rounded-xl bg-slate-50/70 border border-slate-100">
         {[
+          [t("detail_noticeId"), sourceUrl
+            ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 hover:underline">{noticeId || "-"}<ExternalLink className="w-3 h-3 shrink-0" /></a>
+            : noticeId || "-"],
           [t("detail_buyer"), visibleAgency],
           [t("detail_countryRegion"), getCountryDisplayName(country, locale) || t("procurement_global")],
           [t("detail_sourcePlatform"), sourceName || t("detail_sourceOfficial")],

@@ -447,6 +447,7 @@
   "detail_countdown": "Обратный отсчёт (CST)",
   "detail_procurementType": "Тип закупки",
   "detail_budgetAmount": "Бюджет/Сумма",
+    "detail_noticeId": "Номер извещения",
   "detail_daysLeft": "Осталось {days}д {time}",
   "detail_tabSummary": "Сводка",
   "detail_tabQualification": "Квалификации",
