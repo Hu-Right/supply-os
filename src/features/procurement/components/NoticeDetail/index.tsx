@@ -29,7 +29,7 @@ import { DetailTabs } from "./DetailTabs";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
 import { PlaceholderTab } from "./PlaceholderTab";
-import { BarChart3, History, Sparkles } from "lucide-react";
+import type { PlaceholderTabType } from "./PlaceholderTab";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -171,48 +171,39 @@ export function NoticeDetail({
             )}
 
             {activeTab === "qualification" && (
-              <QualificationTab notice={notice} coreUnlocked={coreUnlocked} />
+              <QualificationTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} />
             )}
 
             {activeTab === "files" && (
-              <FilesTab notice={notice} coreUnlocked={coreUnlocked} />
+              <FilesTab notice={notice} coreUnlocked={coreUnlocked} isVip={isVip} />
             )}
 
             {activeTab === "ai-score" && (
               <PlaceholderTab
-                icon={BarChart3}
-                titleKey="detail_tabAiScore"
-                titleDefault="AI适配评分"
-                descKey="detail_aiScoreDesc"
-                descDefault="AI 将根据贵司资质与本标要求进行多维度匹配评分，帮助您快速判断投标可行性。"
+                tabType={"ai-score" as PlaceholderTabType}
                 tier="pro"
                 hasAccess={hasProAccess}
                 upgradePath="/membership"
+                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
               />
             )}
 
             {activeTab === "history" && (
               <PlaceholderTab
-                icon={History}
-                titleKey="detail_tabHistory"
-                titleDefault="历史中标"
-                descKey="detail_historyDesc"
-                descDefault="展示同类项目历史中标数据，包括中标金额、中标企业、竞争态势分析。"
+                tabType={"history" as PlaceholderTabType}
                 tier="pro"
                 hasAccess={hasProAccess}
                 upgradePath="/membership"
+                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
               />
             )}
 
             {activeTab === "similar" && (
               <PlaceholderTab
-                icon={Sparkles}
-                titleKey="detail_tabSimilar"
-                titleDefault="相似机会"
-                descKey="detail_similarDesc"
-                descDefault="根据您的行业偏好与历史行为，推荐相似采购公告。"
+                tabType={"similar" as PlaceholderTabType}
                 tier="free"
                 hasAccess={true}
+                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
               />
             )}
           </main>
