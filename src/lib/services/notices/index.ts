@@ -27,7 +27,8 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
     ...notice,
     title: preferValue(opportunity?.title, notice.title),
     notice_type: preferValue(opportunity?.notice_type, notice.notice_type),
-    reference: preferValue(opportunity?.reference, notice.reference),
+    // 编号以公告官方 reference 为准，商机侧 reference 仅兜底（与 bid-report 合并口径一致）
+    reference: preferValue(notice.reference, opportunity?.reference),
     country: preferValue(opportunity?.country, notice.country),
     deadline: preferValue(opportunity?.deadline, notice.deadline),
     deadline_ts: preferValue(opportunity?.deadline_ts, notice.deadline_ts),
@@ -55,7 +56,7 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
       notice_id: notice.notice_id || "",
       opportunity_id: opportunity?.id || notice.converted_opp_id || null,
       detail_source: detailSource,
-      reference: preferValue(opportunity?.reference, notice.reference) || "",
+      reference: preferValue(notice.reference, opportunity?.reference) || "",
       notice_type: preferValue(opportunity?.notice_type, notice.notice_type) || "",
       agency,
       country: preferValue(opportunity?.country, notice.country) || "",

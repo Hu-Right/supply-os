@@ -7,13 +7,14 @@ import { safe, safeObj, type Row } from "./constants";
 
 /**
  * 报告 data 行：notice 与合格 opportunity 字段合并后的扁平结构。
- * opportunity 字段优先（与 normalizeNoticeDetailPayload 的 preferValue 口径一致）。
+ * opportunity 字段优先（与 normalizeNoticeDetailPayload 的 preferValue 口径一致），
+ * 例外：reference 以公告官方编号优先，商机侧编号仅兜底。
  */
 export function mergeBidReportRow(notice: Row, opportunity: Row | null): Row {
   const opp = opportunity || {};
   return {
     id: opp.id ?? notice.id,
-    reference: preferValue(opp.reference, notice.reference),
+    reference: preferValue(notice.reference, opp.reference),
     title: preferValue(opp.title, notice.title),
     notice_type: preferValue(opp.notice_type, notice.notice_type),
     registration_level: preferValue(opp.registration_level, notice.registration_level),
