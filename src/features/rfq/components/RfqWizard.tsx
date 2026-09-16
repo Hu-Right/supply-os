@@ -135,6 +135,11 @@ function StepIndicator({ step }: { step: number }) {
   );
 }
 
+/**
+ * 登录门槛外壳：只调用 useAuth 一个 Hook 并做提前返回，
+ * 向导本体的全部 Hook 收敛在 RfqWizardForm 内，避免条件 Hook 调用
+ * （未登录 → 登录时 Hook 数量变化会导致 React 崩溃）。
+ */
 export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
   const { authUser } = useAuth();
 
@@ -152,6 +157,10 @@ export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
     );
   }
 
+  return <RfqWizardForm initialData={initialData} authContact={authContact} />;
+}
+
+function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   // 描述为空时预填模板（让用户看到结构和提示）
   const initialForm: RfqFormState = {
     ...initialData,
