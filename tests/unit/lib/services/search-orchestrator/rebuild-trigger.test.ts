@@ -5,9 +5,10 @@ import type { Pool } from "mysql2/promise";
 vi.mock("@/lib/services/meilisearch/index", () => ({
   fullSync: vi.fn(),
   isHealthy: vi.fn(),
+  tryRecover: vi.fn(),
 }));
 
-import { fullSync, isHealthy } from "@/lib/services/meilisearch/index";
+import { fullSync, isHealthy, tryRecover } from "@/lib/services/meilisearch/index";
 import {
   requestIndexRebuild,
   isRebuildRequested,
@@ -16,6 +17,7 @@ import {
 
 const mockFullSync = vi.mocked(fullSync);
 const mockIsHealthy = vi.mocked(isHealthy);
+const mockTryRecover = vi.mocked(tryRecover);
 const noopPool = {} as Pool;
 
 describe("rebuild-trigger", () => {
@@ -24,7 +26,7 @@ describe("rebuild-trigger", () => {
   });
 
   // 模块级标记为单例状态机（无 reset 出口），用例按状态流转顺序串联：
-  // 无请求 → 已标记（不健康保留 / 健康消费 / 失败恢复）→ 并发防护
+  // 无请求 → 已标记（不健康恢复失败保留 / 不健康恢复成功消费 / 健康消费 / 失败恢复）→ 并发防护
 
   it("无待处理请求 → tryRunPendingRebuild 直接返回（不探活）", async () => {
     expect(isRebuildRequested()).toBe(false);
@@ -39,14 +41,29 @@ describe("rebuild-trigger", () => {
     expect(isRebuildRequested()).toBe(true);
   });
 
-  it("Meilisearch 不健康 → 不执行重建，标记保留待下次", async () => {
+  it("Meilisearch 不健康且恢复失败 → 不执行重建，标记保留待下次", async () => {
     mockIsHealthy.mockReturnValue(false);
+    mockTryRecover.mockResolvedValueOnce(false);
     await tryRunPendingRebuild(noopPool);
+    expect(mockTryRecover).toHaveBeenCalledTimes(1);
     expect(mockFullSync).not.toHaveBeenCalled();
     expect(isRebuildRequested()).toBe(true);
   });
 
+  it("Meilisearch 不健康但恢复成功 → 恢复后执行重建（避免提示重建但永不执行的死循环）", async () => {
+    mockIsHealthy.mockReturnValue(false);
+    mockTryRecover.mockResolvedValueOnce(true);
+    mockFullSync.mockResolvedValueOnce({ synced: 3, elapsed: 5, lastId: 9 });
+
+    await tryRunPendingRebuild(noopPool);
+    expect(mockTryRecover).toHaveBeenCalledTimes(1);
+    expect(mockFullSync).toHaveBeenCalledTimes(1);
+    expect(mockFullSync).toHaveBeenCalledWith(noopPool);
+    expect(isRebuildRequested()).toBe(false);
+  });
+
   it("健康 → 执行 fullSync 并清除标记；再次调用为 no-op", async () => {
+    requestIndexRebuild("reason_healthy");
     mockIsHealthy.mockReturnValue(true);
     mockFullSync.mockResolvedValueOnce({ synced: 5, elapsed: 10, lastId: 99 });
 
