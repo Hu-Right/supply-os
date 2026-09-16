@@ -35,8 +35,9 @@ export const POST = withRoute(async (req: NextRequest) => {
       );
       const row = (rows as Array<{ title_zh: string | null }>)[0];
       industryName = row?.title_zh || "";
-    } catch {
+    } catch (e) {
       // 查询失败不影响报名主流程，industry 留空
+      console.warn("[training/register] UNSPSC 行业查询失败:", (e as Error).message);
     }
   }
 

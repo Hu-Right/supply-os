@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
       "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
       [materialId],
     );
-  } catch {
+  } catch (e) {
     // 非关键路径：即使同步失败也不影响下载追踪
+    console.warn("[downloads/track] 同步 downloads_count 失败:", (e as Error).message);
   }
 
   return NextResponse.json({ success: true, count });

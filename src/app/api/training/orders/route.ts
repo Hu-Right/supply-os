@@ -15,6 +15,11 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { createTrainingOrder } from "@/lib/services/training-payment";
 import { extractClientIp } from "@/lib/utils/ip";
+import {
+  EC_TRAINING_COURSE_NOT_FOUND, EC_TRAINING_COURSE_PRICE_INVALID,
+  EC_TRAINING_PAYMENT_UNAVAILABLE, EC_TRAINING_SCHEDULE_NOT_FOUND,
+  EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED, EC_INTERNAL_ERROR,
+} from "@/shared/constants/api";
 
 export const POST = withRoute(async (req: NextRequest) => {
   await requireUserKeyOrThrow(req);
@@ -47,16 +52,16 @@ export const POST = withRoute(async (req: NextRequest) => {
       SCHEDULE_CAPACITY_EXCEEDED: "该期次名额已满，请选择其他期次",
     };
     const codeMap: Record<string, [number, number]> = {
-      COURSE_NOT_FOUND: [404, 40030],
-      COURSE_PRICE_INVALID: [500, 40032],
-      PAYMENT_PROVIDER_UNAVAILABLE: [503, 40034],
-      PAYMENT_GATEWAY_ERROR: [503, 40034],
-      PAYMENT_QR_CODE_MISSING: [503, 40034],
-      SCHEDULE_NOT_FOUND: [400, 40033],
-      SCHEDULE_CAPACITY_EXCEEDED: [409, 40035],
+      COURSE_NOT_FOUND: [404, EC_TRAINING_COURSE_NOT_FOUND],
+      COURSE_PRICE_INVALID: [500, EC_TRAINING_COURSE_PRICE_INVALID],
+      PAYMENT_PROVIDER_UNAVAILABLE: [503, EC_TRAINING_PAYMENT_UNAVAILABLE],
+      PAYMENT_GATEWAY_ERROR: [503, EC_TRAINING_PAYMENT_UNAVAILABLE],
+      PAYMENT_QR_CODE_MISSING: [503, EC_TRAINING_PAYMENT_UNAVAILABLE],
+      SCHEDULE_NOT_FOUND: [400, EC_TRAINING_SCHEDULE_NOT_FOUND],
+      SCHEDULE_CAPACITY_EXCEEDED: [409, EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED],
     };
     // 未知异常不透传内部错误文本（审查 F50），留 trace 用 message 记日志
-    const [status, code] = codeMap[msg] || [500, 50000];
+    const [status, code] = codeMap[msg] || [500, EC_INTERNAL_ERROR];
     const message = messageMap[msg] || "下单失败，请稍后重试";
     if (!messageMap[msg]) console.error(`[training/orders] 下单异常:`, err);
     routeError(status, code, message);

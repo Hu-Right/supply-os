@@ -7,7 +7,7 @@ import { getContext } from "@/lib/db/context";
 export async function GET(req: NextRequest) {
   const parentId = Number(req.nextUrl.searchParams.get("parent_id") || 0);
   if (!parentId) {
-    return NextResponse.json({ code: 40000, message: "parent_id is required" }, { status: 400 });
+    return NextResponse.json({ code: 40000, message: "请提供分类 ID" }, { status: 400 });
   }
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
   const catalogRepo = getContext().catalogRepo;

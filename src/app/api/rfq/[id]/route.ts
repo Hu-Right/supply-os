@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_FORBIDDEN, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
@@ -31,7 +32,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const rfqId = Number(id);
     if (!Number.isFinite(rfqId) || rfqId <= 0) {
-      routeError(400, 40001, "无效的 RFQ ID");
+      routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
     }
 
     // 可选登录：创建者可看未发布内容与联系方式
@@ -63,11 +64,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       [rfqId],
     );
     const row = (rows as RowDataPacket[])[0];
-    if (!row) routeError(404, 40002, "RFQ 不存在");
+    if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
 
     const isOwner = userId !== null && Number(row.user_id) === userId;
     if (row.rfq_status !== "published" && !isOwner) {
-      routeError(404, 40003, "RFQ 不存在或未公开");
+      routeError(404, EC_NOT_FOUND, "RFQ 不存在或未公开");
     }
 
     const confidential = Number(row.budget_confidential) === 1;
@@ -110,14 +111,14 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const rfqId = Number(id);
     if (!Number.isFinite(rfqId) || rfqId <= 0) {
-      routeError(400, 40001, "无效的 RFQ ID");
+      routeError(400, EC_INVALID_PARAMS, "无效的 RFQ ID");
     }
 
     let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
-      routeError(400, 40002, "请求体非法 JSON");
+      routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
     }
 
     const pool = getPool();
@@ -129,10 +130,10 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       [rfqId],
     );
     const row = (existing as RowDataPacket[])[0];
-    if (!row) routeError(404, 40003, "RFQ 不存在");
-    if (Number(row.user_id) !== auth.userId) routeError(403, 40004, "无权操作此 RFQ");
+    if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
+    if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
     if (row.rfq_status !== "draft" && row.rfq_status !== "pending_review") {
-      routeError(400, 40005, "仅草稿或待审核状态可编辑");
+      routeError(400, EC_INVALID_PARAMS, "仅草稿或待审核状态可编辑");
     }
 
     // ── 构建 UPDATE 字段 ──
@@ -141,14 +142,14 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     if (body.title !== undefined) {
       const title = str(body.title, 50);
-      if (title.length < 10) routeError(400, 40006, `标题至少 10 个字`);
+      if (title.length < 10) routeError(400, EC_INVALID_PARAMS, `标题至少 10 个字`);
       updates.push("title = ?");
       updateParams.push(title);
     }
 
     if (body.description !== undefined) {
       const desc = str(body.description, 5000);
-      if (desc.length < 50) routeError(400, 40007, `描述至少 50 个字`);
+      if (desc.length < 50) routeError(400, EC_INVALID_PARAMS, `描述至少 50 个字`);
       updates.push("description = ?");
       updateParams.push(desc);
     }
@@ -157,7 +158,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       const deadline = str(body.deadline, 10);
       const deadlineSec = deadlineToSec(deadline);
       if (deadlineSec <= Math.floor(Date.now() / 1000)) {
-        routeError(400, 40008, "截止时间必须晚于当前时间");
+        routeError(400, EC_INVALID_PARAMS, "截止时间必须晚于当前时间");
       }
       updates.push("deadline_sec = ?");
       updateParams.push(deadlineSec);
@@ -198,7 +199,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
 
     if (body.contact_name !== undefined) {
       const contactName = str(body.contact_name, 100);
-      if (!contactName) routeError(400, 40010, "联系人姓名不能为空");
+      if (!contactName) routeError(400, EC_INVALID_PARAMS, "联系人姓名不能为空");
       updates.push("contact_name = ?");
       updateParams.push(contactName);
     }
@@ -242,7 +243,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     if (updates.length === 0) {
-      routeError(400, 40009, "无有效更新字段");
+      routeError(400, EC_INVALID_PARAMS, "无有效更新字段");
     }
 
     // 编辑后状态回退为 draft
@@ -254,7 +255,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     );
 
     if ((result as ResultSetHeader).affectedRows === 0) {
-      routeError(500, 50001, "更新失败");
+      routeError(500, EC_INTERNAL_ERROR, "更新失败");
     }
 
     return NextResponse.json({ code: 0, message: "ok" });

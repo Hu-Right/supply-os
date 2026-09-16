@@ -47,12 +47,12 @@ export const POST = withRoute(
 
       const requestedProvider = String(body.provider || "");
       if (paymentMode === "live" && requestedProvider !== "alipay" && requestedProvider !== "wechat") {
-        routeError(400, EC_PAYMENT_PROVIDER_UNAVAILABLE, "PAYMENT_PROVIDER_UNAVAILABLE");
+        routeError(400, EC_PAYMENT_PROVIDER_UNAVAILABLE, "支付渠道暂不可用");
       }
       // ARCH-B+（2026-09-04）：live 模式下校验策略是否已注册（密钥是否已配置）
       // 与 training-payment.ts resolveProvider 对齐：未注册则明确拒绝，不在下单时才失败
       if (paymentMode === "live" && !paymentService.hasStrategy(requestedProvider as "alipay" | "wechat")) {
-        routeError(503, EC_PAYMENT_PROVIDER_UNAVAILABLE, "PAYMENT_PROVIDER_UNAVAILABLE");
+        routeError(503, EC_PAYMENT_PROVIDER_UNAVAILABLE, "支付渠道暂不可用");
       }
       const provider = (paymentMode === "live" ? requestedProvider : "mock") as "alipay" | "wechat" | "mock";
 

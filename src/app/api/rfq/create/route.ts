@@ -10,6 +10,7 @@ import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 import type { ResultSetHeader } from "mysql2/promise";
 
 /** 安全截断字符串 */
@@ -38,28 +39,28 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, 40001, "请求体非法 JSON");
+    routeError(400, EC_INVALID_PARAMS, "请求体非法 JSON");
   }
 
   // ── 参数校验 ──
   const title = str(body.title, 50);
-  if (title.length < 10) routeError(400, 40002, `标题至少 10 个字（当前 ${title.length}）`);
+  if (title.length < 10) routeError(400, EC_INVALID_PARAMS, `标题至少 10 个字（当前 ${title.length}）`);
 
   const description = str(body.description, 5000);
-  if (description.length < 50) routeError(400, 40003, `描述至少 50 个字（当前 ${description.length}）`);
+  if (description.length < 50) routeError(400, EC_INVALID_PARAMS, `描述至少 50 个字（当前 ${description.length}）`);
 
   const deadline = str(body.deadline, 10);
-  if (!deadline) routeError(400, 40004, "缺少报价截止时间");
+  if (!deadline) routeError(400, EC_INVALID_PARAMS, "缺少报价截止时间");
   const deadlineSec = deadlineToSec(deadline);
   const nowSec = Math.floor(Date.now() / 1000);
-  if (deadlineSec <= nowSec) routeError(400, 40005, "截止时间必须晚于当前时间");
+  if (deadlineSec <= nowSec) routeError(400, EC_INVALID_PARAMS, "截止时间必须晚于当前时间");
 
   const contactName = str(body.contact_name, 100);
-  if (!contactName) routeError(400, 40006, "缺少联系人姓名");
+  if (!contactName) routeError(400, EC_INVALID_PARAMS, "缺少联系人姓名");
 
   const contactEmail = str(body.contact_email, 200);
   if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
-    routeError(400, 40007, "联系邮箱格式无效");
+    routeError(400, EC_INVALID_PARAMS, "联系邮箱格式无效");
   }
 
   const status = body.status === "published" ? "published" : "draft";
@@ -134,6 +135,6 @@ export const POST = withRoute(async (req: NextRequest) => {
     );
   } catch (err) {
     console.warn("[api/rfq/create] INSERT failed:", (err as Error).message);
-    routeError(500, 50001, "创建失败，请稍后重试");
+    routeError(500, EC_INTERNAL_ERROR, "创建失败，请稍后重试");
   }
 });
