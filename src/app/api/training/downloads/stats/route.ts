@@ -4,10 +4,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   await requireUserKeyOrThrow(req);
   const ctx = getContext();
   const stats = await ctx.trainingRepo.listDownloadStats();
   return NextResponse.json(stats);
-}
+});

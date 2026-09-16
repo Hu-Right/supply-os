@@ -9,9 +9,10 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getHotTopics } from "@/lib/services/notice-search";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const pool = getPool();
   const data = await getHotTopics(pool);
   return NextResponse.json(data, { headers: { "Cache-Control": "public, max-age=600" } });
-}
+});

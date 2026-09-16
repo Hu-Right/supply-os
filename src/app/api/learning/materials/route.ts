@@ -10,12 +10,13 @@
  */
 import { NextResponse } from "next/server";
 import { listMaterials } from "@/lib/services/learning-service";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   try {
     const materials = await listMaterials();
     return NextResponse.json({ materials });
   } catch {
     return NextResponse.json({ materials: [] }, { status: 500 });
   }
-}
+});

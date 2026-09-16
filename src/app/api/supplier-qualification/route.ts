@@ -17,8 +17,10 @@ import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withRoute(async (req: NextRequest) => {
   // 公开端点限流（审查 F33）：防垃圾数据灌库
   const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 },
     (r) => `sq:${extractClientIp(r)}`);
@@ -28,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
+    routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
 
   // 必填校验（company_website 为选填，与前端 QualificationFormFields 保持一致）
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
   for (const [field, label] of required) {
     const val = body[field];
     if (!val || (Array.isArray(val) && val.length === 0)) {
-      return NextResponse.json({ code: 40000, message: `${label}为必填项` }, { status: 400 });
+      routeError(400, EC_INVALID_PARAMS, `${label}为必填项`);
     }
   }
 
@@ -116,6 +118,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, id, qualification_id: id, message: "提交成功，我们将尽快审核" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-qualification]", err);
-    return NextResponse.json({ code: 50000, message: "提交失败" }, { status: 500 });
+    routeError(500, EC_INTERNAL_ERROR, "提交失败");
   }
-}
+});

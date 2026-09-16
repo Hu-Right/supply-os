@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getNoticeStats } from "@/lib/services/notice-search";
+import { withRoute } from "@/lib/middleware/route-handler";
 
 /** 北京时间偏移量（毫秒） */
 const BEIJING_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -32,7 +33,7 @@ function getBeijingDateOffset(daysOffset: number): string {
   return now.toISOString().slice(0, 10);
 }
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const pool = getPool();
   const stats = await getNoticeStats(pool);
   // 追加今日/昨日新增公告数（基于 create_time Unix 时间戳，北京时间 10:00 切分）
@@ -62,4 +63,4 @@ export async function GET() {
     (stats as any).yesterdayNew = 0;
   }
   return NextResponse.json(stats);
-}
+});

@@ -21,7 +21,7 @@ function mapSupplierItems(rows: SupplierDirectoryRow[]): Supplier[] {
   return rows.map((row) => mapSupplierRow(row));
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const pageParam = req.nextUrl.searchParams.get("page");
   const ctx = getContext();
   const { directoryRepo } = ctx.supplier;
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json([]);
   }
-}
+});
 
 const registerSchema = z.object({
   nameZh: z.string({ error: "请填写供应商中文名称" }).trim().min(1, "请填写供应商中文名称"),

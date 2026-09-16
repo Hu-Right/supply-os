@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { withRoute } from "@/lib/middleware/route-handler";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
@@ -27,7 +28,7 @@ function formatBudget(valueCny: number): string {
   return `${Math.round(valueCny)} 万元`;
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 60 }, () => `rfq-list:${extractClientIp(req)}`);
   if (rl) return rl;
 
@@ -120,4 +121,4 @@ export async function GET(req: NextRequest) {
     console.warn("[api/rfq/list] failed:", (err as Error).message);
     return NextResponse.json({ items: [], total: 0, page, page_size: pageSize });
   }
-}
+});

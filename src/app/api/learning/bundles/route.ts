@@ -7,7 +7,8 @@
  */
 import { NextResponse } from "next/server";
 import { LEARNING_BUNDLES } from "@/lib/data/learning-bundles";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   return NextResponse.json({ bundles: LEARNING_BUNDLES });
-}
+});

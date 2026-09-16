@@ -7,8 +7,9 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const ctx = getContext();
   const { paymentService, paymentMode } = ctx.payment;
   const live = paymentMode === "live";
@@ -18,4 +19,4 @@ export async function GET() {
       wechat: { configured: live && paymentService.hasStrategy("wechat") },
     },
   });
-}
+});

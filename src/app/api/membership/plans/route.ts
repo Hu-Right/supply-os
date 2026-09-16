@@ -8,8 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { extractUserKey } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const ctx = getContext();
   const rows = await ctx.user.membershipRepo.findActivePlans();
 
@@ -25,4 +26,4 @@ export async function GET(req: NextRequest) {
       : row,
   );
   return NextResponse.json(plans, { headers: { "Cache-Control": "no-store" } });
-}
+});

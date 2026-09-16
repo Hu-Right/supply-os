@@ -9,8 +9,9 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const ctx = getContext();
   const trainingRepo = ctx.trainingRepo;
 
@@ -19,4 +20,4 @@ export async function GET() {
   const schedules = course ? await trainingRepo.listSchedules(course.id) : [];
 
   return NextResponse.json({ course, schedules });
-}
+});

@@ -66,7 +66,7 @@ afterEach(() => {
 describe("GET /api/system/version", () => {
   it("返回版本号（无需认证）", async () => {
     const { GET } = await import("@/app/api/system/version/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("version");
@@ -75,7 +75,7 @@ describe("GET /api/system/version", () => {
   it("BUILD_ID 环境变量优先于文件读取", async () => {
     vi.stubEnv("BUILD_ID", "build-abc-123");
     const { GET } = await import("@/app/api/system/version/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body.version).toBe("build-abc-123");
   });
@@ -90,7 +90,7 @@ describe("GET /api/system/version", () => {
     }
     try {
       const { GET } = await import("@/app/api/system/version/route");
-      const res = await GET();
+      const res = await GET(new NextRequest("http://localhost/api/test"));
       const body = await res.json();
       expect(body.version).toBe("9.9.9-test");
     } finally {
@@ -106,7 +106,7 @@ describe("GET /api/system/icp", () => {
   it("DB 查询异常 → 降级返回空 bah", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ bah: "" });
   });
@@ -114,7 +114,7 @@ describe("GET /api/system/icp", () => {
   it("查询成功 → 返回备案号并设置缓存", async () => {
     poolQuery.mockResolvedValue([[{ bah: "京ICP备2026-test号" }]]);
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ bah: "京ICP备2026-test号" });
     expect(res.headers.get("Cache-Control")).toContain("max-age=600");
@@ -123,7 +123,7 @@ describe("GET /api/system/icp", () => {
   it("TTL 内再次请求 → 命中缓存（DB 异常也不影响返回）", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(await res.json()).toMatchObject({ bah: "京ICP备2026-test号" });
     expect(res.headers.get("Cache-Control")).toContain("max-age=600");
   });
@@ -135,7 +135,7 @@ describe("GET /api/system/links", () => {
   it("DB 查询异常 → 降级返回空数组", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
   });
@@ -148,7 +148,7 @@ describe("GET /api/system/links", () => {
       ],
     ]);
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body).toEqual([
       { id: 1, name: "微信", url: "https://weixin.qq.com", icon: "wechat" },
@@ -160,7 +160,7 @@ describe("GET /api/system/links", () => {
   it("TTL 内再次请求 → 命中缓存", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body).toHaveLength(2);
     expect(res.headers.get("Cache-Control")).toContain("max-age=1800");
@@ -366,7 +366,7 @@ describe("GET /api/membership/status", () => {
 describe("GET /api/catalog/country-name-map", () => {
   it("返回国家名映射", async () => {
     const { GET } = await import("@/app/api/catalog/country-name-map/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     const body = await res.json();
     // 响应结构：{ data: { countries: {...}, countryNameZh: {...} } } 或 { countries: {...} }

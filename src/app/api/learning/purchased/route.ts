@@ -6,8 +6,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractUserKey } from "@/lib/middleware/auth";
 import { listPurchasedMaterialIds } from "@/lib/services/learning-service";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const { userId } = await extractUserKey(req);
   if (!userId) {
     return NextResponse.json({ material_ids: [] });
@@ -19,4 +20,4 @@ export async function GET(req: NextRequest) {
   } catch {
     return NextResponse.json({ material_ids: [] });
   }
-}
+});

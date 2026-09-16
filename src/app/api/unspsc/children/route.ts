@@ -3,11 +3,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const parentId = Number(req.nextUrl.searchParams.get("parent_id") || 0);
   if (!parentId) {
-    return NextResponse.json({ code: 40000, message: "请提供分类 ID" }, { status: 400 });
+    routeError(400, EC_INVALID_PARAMS, "请提供分类 ID");
   }
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
   const catalogRepo = getContext().catalogRepo;
@@ -29,4 +31,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(rows);
-}
+});

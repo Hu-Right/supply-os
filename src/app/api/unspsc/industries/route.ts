@@ -3,8 +3,9 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
   const catalogRepo = getContext().catalogRepo;
 
@@ -27,4 +28,4 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(rows, { headers: { "Cache-Control": "public, max-age=600" } });
-}
+});

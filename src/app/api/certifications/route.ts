@@ -3,8 +3,9 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   const rows = await getContext().catalogRepo.listActiveCertifications();
   return NextResponse.json(rows);
-}
+});

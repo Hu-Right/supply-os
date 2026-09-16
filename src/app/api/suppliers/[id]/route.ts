@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { mapSupplierRow } from "@/lib/services/suppliers";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
 /** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
 function isSparseRecord(row: { products?: string | null; industry?: string | null }): boolean {
@@ -18,17 +20,15 @@ function isSparseRecord(row: { products?: string | null; industry?: string | nul
   return products === "" && industry === "";
 }
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params;
     const rawId = id.replace(/^sup-db-/, "");
     const numericId = Number(rawId);
 
     if (!Number.isFinite(numericId) || numericId < 1) {
-      return NextResponse.json({ error: "Invalid ID", id }, { status: 400 });
+      routeError(400, EC_INVALID_PARAMS, `无效的供应商 ID: ${id}`);
     }
 
     const ctx = getContext();
@@ -49,13 +49,12 @@ export async function GET(
     }
 
     if (!row) {
-      return NextResponse.json({ error: "Not found", id: numericId }, { status: 404 });
+      routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);
     }
 
     return NextResponse.json(mapSupplierRow(row));
   } catch (err) {
     console.error("[suppliers/:id GET]", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: "Internal error", detail: msg }, { status: 500 });
+    routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");
   }
-}
+});

@@ -6,8 +6,9 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   let version = process.env.BUILD_ID || "";
 
   if (!version) {
@@ -35,4 +36,4 @@ export async function GET() {
       headers: { "Cache-Control": "no-cache, no-store, must-revalidate" },
     },
   );
-}
+});

@@ -3,8 +3,9 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET() {
+export const GET = withRoute(async () => {
   try {
     const ctx = getContext();
     const stats = await ctx.supplier.directoryRepo.getStats();
@@ -24,4 +25,4 @@ export async function GET() {
       registered: 0,
     });
   }
-}
+});
