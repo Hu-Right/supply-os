@@ -7,9 +7,6 @@
  */
 import type { RfqFormState } from "./types";
 
-/** 币种选项 */
-export const CURRENCY_OPTIONS = ["USD", "EUR", "CNY", "SAR", "AED"];
-
 /** 交付条款（Incoterms 常用子集） */
 export const INCOTERM_OPTIONS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"];
 
@@ -28,9 +25,7 @@ export const DEFAULT_RFQ_FORM: RfqFormState = {
   categoryL2: "",
   purchaseType: "once",
   description: "",
-  budgetMin: "",
-  budgetMax: "",
-  currency: "USD",
+  budget: "",
   budgetConfidential: false,
   // 交付地点（省→市→区/县三级联动 + 详细地址）
   provinceId: null,

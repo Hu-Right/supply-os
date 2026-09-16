@@ -7,25 +7,18 @@
  *              两阶段流程：先填写学员信息 → 再扫码支付 → 支付成功后自动保存学员信息。
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useLocale } from "@/core/i18n";
 import { Button, SelectableCard } from "@/shared/ui";
 import { formatScheduleDate } from "@/shared/utils/format";
-// 解耦：PaymentModalCore 已提升至 shared 层，消除 training → payment 跨 feature 硬依赖
 import PaymentModalCore from "@/shared/components/PaymentModalCore";
-import {
-  createTrainingOrder,
-  fetchTrainingOrderStatus,
-  mockPayTrainingOrder,
-  saveTrainingParticipants,
-  submitTrainingRegister,
-  type LandingCourse,
-  type LandingSchedule,
-  type TrainingParticipant,
-} from "../api";
+import type { LandingCourse, LandingSchedule, TrainingParticipant } from "../api";
 import { ApiError } from "@/core/http";
+import { submitTrainingRegister } from "../api";
 import CompanyInfoSection, { type CompanyInfoData } from "./CompanyInfoSection";
 import ParticipantForm from "./ParticipantForm";
+import { useTrainingSchedule } from "../hooks/useTrainingSchedule";
+import { useTrainingOrder } from "../hooks/useTrainingOrder";
 
 export interface TrainingPaymentModalProps {
   onClose: () => void;
@@ -47,8 +40,6 @@ export default function TrainingPaymentModal({
   const { t, locale } = useLocale();
 
   // ── 两阶段流程 ──
-  // phase="participants" → 先填学员信息
-  // phase="payment" → 再支付
   const [phase, setPhase] = useState<"participants" | "payment">("participants");
   const [pendingParticipants, setPendingParticipants] = useState<TrainingParticipant[] | null>(null);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfoData>({
@@ -69,25 +60,16 @@ export default function TrainingPaymentModal({
   const [submittingCompany, setSubmittingCompany] = useState(false);
   const [companyError, setCompanyError] = useState("");
 
-  // ── 期次选择 ──
-  const openSchedules = useMemo(() => schedules.filter((s) => s.status === "open"), [schedules]);
+  // ── 期次选择与人数 ──
+  const {
+    openSchedules, selectedScheduleId, setSelectedScheduleId,
+    participantCount, setParticipantCount,
+    totalAmount, hasMultipleSchedules, scheduleSelected, selectedSchedule,
+  } = useTrainingSchedule(schedules, course, defaultScheduleId);
 
-  const initialScheduleId = useMemo(() => {
-    if (defaultScheduleId) return defaultScheduleId;
-    if (openSchedules.length === 0) return null;
-    return openSchedules[0].id;
-  }, [defaultScheduleId, openSchedules]);
-
-  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(initialScheduleId);
-
-  // ── 参训人数 ──
-  const [participantCount, setParticipantCount] = useState(1);
-
-  const unitPrice = course?.unit_price ?? 0;
-  const totalAmount = Math.round(unitPrice * participantCount * 100) / 100;
-
-  const hasMultipleSchedules = openSchedules.length > 1;
-  const scheduleSelected = !hasMultipleSchedules || selectedScheduleId !== null;
+  // ── 订单与支付 ──
+  const { handleCreateOrder, handleQueryStatus, handleMockConfirm, handlePaymentSuccess } =
+    useTrainingOrder(course, selectedScheduleId, registrationId, participantCount, pendingParticipants, onClose);
 
   // ── 阶段一：学员信息填写完成 → 先提交公司信息 → 再进入支付阶段 ──
   const handleParticipantsReady = useCallback(async (participants: TrainingParticipant[]) => {
@@ -126,47 +108,6 @@ export default function TrainingPaymentModal({
       setSubmittingCompany(false);
     }
   }, [companyInfo, t]);
-
-  // ── 培训下单适配器 ──
-  const handleCreateOrder = useCallback(
-    async (provider: "alipay" | "wechat") => {
-      if (!course) throw new Error("COURSE_NOT_FOUND");
-      const result = await createTrainingOrder({
-        course_id: course.id,
-        schedule_id: selectedScheduleId ?? null,
-        registration_id: registrationId ?? null,
-        participant_count: participantCount,
-        provider,
-      });
-      return {
-        order_no: result.order_no,
-        provider: result.provider,
-        qr_code: result.qr_code,
-        pay_url: result.pay_url,
-      };
-    },
-    [course, selectedScheduleId, registrationId, participantCount],
-  );
-
-  const handleQueryStatus = useCallback((orderNo: string) => fetchTrainingOrderStatus(orderNo), []);
-
-  const handleMockConfirm = useCallback(async (orderNo: string) => {
-    await mockPayTrainingOrder(orderNo);
-  }, []);
-
-  // ── 支付成功回调：先展示成功 UI，再异步保存学员信息 ──
-  const handlePaymentSuccess = useCallback((orderNo: string) => {
-    if (pendingParticipants) {
-      // 异步保存，不阻塞成功 UI 展示
-      saveTrainingParticipants(orderNo, pendingParticipants)
-        .then(() => console.log(`[TrainingPayment] 学员信息已保存 (order: ${orderNo})`))
-        .catch((err) => console.error(`[TrainingPayment] 学员信息保存失败 (order: ${orderNo}):`, err));
-    }
-    // 延迟关闭，让用户看到成功页
-    setTimeout(onClose, 2000);
-  }, [pendingParticipants, onClose]);
-
-  const selectedSchedule = schedules.find((s) => s.id === selectedScheduleId) ?? null;
 
   // ── 阶段一：学员信息填写 ──
   if (phase === "participants") {

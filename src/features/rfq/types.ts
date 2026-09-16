@@ -30,9 +30,7 @@ export interface RfqFormState {
   purchaseType: PurchaseType;
   description: string;
   // Step 2 商务条款
-  budgetMin: string;
-  budgetMax: string;
-  currency: string;
+  budget: string;
   budgetConfidential: boolean;
   // 交付地点（省→市→区/县三级联动 + 详细地址）
   provinceId: number | null;

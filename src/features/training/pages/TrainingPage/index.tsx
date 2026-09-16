@@ -1,48 +1,22 @@
 /**
- * 国际公共采购实战研修班 — 100% 还原设计图
+ * 国际公共采购实战研修班 — 拆分后主入口
  * Training Landing Page — Module 11 Design Mockup
  *
  * @module features/training/pages/TrainingPage
  * @description 完整落地页：深色页头+统计墙+课程模块+讲师+课程安排+学员反馈+报名权益+报名表单。
  */
 import {
-  GraduationCap, Send, CheckCircle2, Calendar, Clock, FileText, MapPin,
-  BookOpen, Target, Layers, Shield, FileCheck, AlertTriangle, Handshake, Truck,
-  Users, Award, Globe,
+  Send, CheckCircle2, Calendar,
+  Layers, Globe, FileText, Users,
 } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Input, Select, Button, ChipToggleGroup, Textarea } from "@/shared/ui";
-import { useTrainingForm } from "../hooks/useTrainingForm";
+import { useTrainingForm } from "../../hooks/useTrainingForm";
 import type { DictionaryItem } from "@/core/unspsc/types";
 
-/* ── 课程模块 8 项 ── */
-const COURSE_MODULES = [
-  { num: 1, icon: BookOpen, title: "平台规则", desc: "联合国及主要国际公采平台规则解读" },
-  { num: 2, icon: Target, title: "商机筛选", desc: "需求分析与商机识别方法" },
-  { num: 3, icon: Layers, title: "UNSPSC", desc: "分类体系与编码实操应用" },
-  { num: 4, icon: Shield, title: "供应商资质", desc: "注册路径与资质文件准备" },
-  { num: 5, icon: FileCheck, title: "投标文件", desc: "投标文件结构与撰写要点" },
-  { num: 6, icon: AlertTriangle, title: "风险控制", desc: "合规要求与风险识别规避" },
-  { num: 7, icon: Handshake, title: "商务谈判", desc: "谈判策略与价格条款处理" },
-  { num: 8, icon: Truck, title: "中标后履约", desc: "合同执行、验收与持续合作管理" },
-];
-
-/* ── 讲师 4 位 ── */
-const INSTRUCTORS = [
-  { title: "联合国采购顾问", exp: "10年+ 联合国采购项目经验，熟悉UN流程与规则" },
-  { title: "国际公采实战导师", exp: "15年+ 国际公采投标实战经验，擅长策略与落地" },
-  { title: "投标拆标导师", exp: "精通标书拆解与评分逻辑，助力提升中标率" },
-  { title: "本地履约顾问", exp: "多国本地履约与合规经验，保障合同执行落地" },
-];
-
-/* ── 报名权益 ── */
-const ENROLLMENT_BENEFITS = [
-  "课程资料：全套课件与学习手册",
-  "模板清单：标书模板、清单与工具包",
-  "课后答疑：60天内讲师答疑服务",
-  "社群交流：学员社群，资源与经验分享",
-  "报名后可预约顾问沟通：1对1需求诊断与方案建议",
-];
+import { CourseModules } from "./CourseModules";
+import { Instructors } from "./Instructors";
+import { InfoColumns } from "./InfoColumns";
 
 export default function TrainingPage() {
   const { t, locale } = useLocale();
@@ -112,128 +86,12 @@ export default function TrainingPage() {
 
       {/* ══ 课程模块 + 讲师 ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 课程模块 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-            课程模块
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {COURSE_MODULES.map((mod) => {
-              const Icon = mod.icon;
-              return (
-                <div key={mod.num} className="border border-slate-100 rounded-lg p-3 hover:border-teal-200 transition-colors">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-2xs font-bold text-teal-600">{mod.num}.</span>
-                    <Icon className="w-4 h-4 text-slate-600" />
-                    <span className="text-xs font-extrabold text-slate-900">{mod.title}</span>
-                  </div>
-                  <p className="text-2xs text-slate-500 leading-relaxed">{mod.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 讲师阵容 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">2</span>
-            讲师阵容
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {INSTRUCTORS.map((inst) => (
-              <div key={inst.title} className="text-center border border-slate-100 rounded-lg p-3">
-                <div className="w-16 h-16 rounded-full bg-slate-100 mx-auto mb-2 flex items-center justify-center">
-                  <Users className="w-8 h-8 text-slate-400" />
-                </div>
-                <p className="text-xs font-extrabold text-slate-900 mb-1">{inst.title}</p>
-                <p className="text-2xs text-slate-500 leading-relaxed">{inst.exp}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CourseModules />
+        <Instructors />
       </div>
 
       {/* ══ 课程安排 + 学员反馈 + 报名权益 ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 课程安排 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">3</span>
-            课程安排
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { icon: Calendar, label: "开课频次", value: "每月1期，滚动开课" },
-              { icon: Clock, label: "时长", value: "2天线下集中研修（16课时）" },
-              { icon: FileText, label: "交付物", value: "课件+模板+清单+案例库+工具包" },
-              { icon: MapPin, label: "形式", value: "杭州线下为主，提供线上回放" },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.label}>
-                  <Icon className="w-5 h-5 text-teal-600 mb-1" />
-                  <p className="text-2xs font-bold text-slate-500">{item.label}</p>
-                  <p className="text-xs font-bold text-slate-800">{item.value}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 学员反馈/案例成果 */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-teal-600 text-white text-xs flex items-center justify-center font-bold">4</span>
-            学员反馈 / 案例成果
-          </h3>
-          <div className="space-y-3">
-            {[
-              "通过课程掌握了UN平台规则与投标方法，成功入驻UNGM平台。",
-              "课程中的标书模板和拆标方法非常实用，3周内完成首套标书。",
-              "在老师指导下锁定目标订单，已进入投标评估阶段。",
-            ].map((fb, i) => (
-              <div key={i} className="text-xs text-slate-600 border-l-2 border-teal-400 pl-3 py-1">
-                "{fb}"
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-            {[
-              { label: "完成平台入驻", sub: "UNGM注册成功" },
-              { label: "建立投标资料包", sub: "形成标准资料体系" },
-              { label: "锁定目标订单", sub: "进入投标评估环节" },
-            ].map((r) => (
-              <div key={r.label}>
-                <p className="text-xs font-extrabold text-teal-700">{r.label}</p>
-                <p className="text-2xs text-slate-400">{r.sub}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 报名权益（深色侧栏） */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white">
-          <h3 className="text-base font-extrabold mb-4 flex items-center gap-2">
-            <Award className="w-5 h-5 text-amber-400" /> 报名权益
-          </h3>
-          <ul className="space-y-2.5 mb-5">
-            {ENROLLMENT_BENEFITS.map((b) => (
-              <li key={b} className="flex items-start gap-2 text-xs text-slate-200">
-                <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-                {b}
-              </li>
-            ))}
-          </ul>
-          <button className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3 rounded-xl font-bold text-sm transition-colors mb-2">
-            立即报名
-          </button>
-          <button className="w-full bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl text-xs font-bold transition-colors">
-            咨询顾问了解详情
-          </button>
-        </div>
-      </div>
+      <InfoColumns />
 
       {/* ══ 报名表单（原有功能保留） ═══ */}
       {submitted && (
