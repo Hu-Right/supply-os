@@ -4,7 +4,7 @@
  */
 import { ArrowLeft, Bookmark, ExternalLink, Share2 } from "lucide-react";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { deriveSourceName } from "./utils";
+import { getSourcePlatformName } from "@/shared/data/sourcePlatforms";
 
 interface DetailHeaderProps {
   displayTitle: string;
@@ -29,7 +29,7 @@ export function DetailHeader({
   sourceUrl, publishDate, deadlineText, countdown, budgetText,
   onBack, t, locale,
 }: DetailHeaderProps) {
-  const sourceName = deriveSourceName(sourceUrl);
+  const sourceName = getSourcePlatformName(sourceUrl, locale);
 
   return (
     <>

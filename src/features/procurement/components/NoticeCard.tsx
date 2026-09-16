@@ -20,8 +20,8 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 // 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的
 // "今天/明天/后天" 标签同口径，避免"明天 + 剩余 2 天"的矛盾组合
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
-// 来源平台名与详情页共用同一实现（静态映射，未收录域名返回空串隐藏）
-import { deriveSourceName } from "./NoticeDetail/utils";
+// 来源平台与详情页共用统一注册表（shared/data）；列表列展示通用简称
+import { matchSourcePlatform } from "@/shared/data/sourcePlatforms";
 
 /**
  * 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退。
@@ -64,6 +64,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
     ? (formatDeadlineZh(item.deadline, item.deadline_ts) || t("procurement_noDeadline"))
     : (item.deadline || t("procurement_noDeadline"));
   const valueText = compactValue(item.estimated_value);
+  const sourceName = matchSourcePlatform(item.source_url)?.name ?? "";
   const isUnlocked = item.core_locked === false;
 
   return (
@@ -150,9 +151,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           )}
         </div>
 
-        {/* ── 来源列（lg+）：已知平台名才展示，未收录域名隐藏 ── */}
+        {/* ── 来源列（lg+）：已收录平台才展示，未收录域名隐藏 ── */}
         <div className="hidden lg:block w-28 shrink-0">
-          {item.source_url && deriveSourceName(item.source_url) && (
+          {item.source_url && sourceName && (
             <a
               href={item.source_url}
               target="_blank"
@@ -160,7 +161,7 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
               className="text-xs text-teal-700 hover:text-teal-900 font-medium truncate block"
               title={item.source_url}
             >
-              {deriveSourceName(item.source_url)}
+              {sourceName}
             </a>
           )}
         </div>
