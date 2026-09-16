@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { safeJson, preferValue } from "../../utils/json";
-import { normalizeContactRows, extractContactsFromText, normalizeDocumentRows } from "../../utils/normalize";
+import { normalizeContactRows, normalizeDocumentRows } from "../../utils/normalize";
 import { normalizeUnspscCodes } from "../unspsc/index";
 
 // Re-export 精选逻辑
@@ -15,8 +15,8 @@ export {
 
 export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: any) {
   const detailSource = opportunity ? "opportunity" : "notice";
-  const contacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
-  const mergedContacts = contacts.length > 0 ? contacts : extractContactsFromText(String(notice.description || ""));
+  // 联系人只认结构化字段，无数据即为空，不从 description 文本猜测抽取
+  const mergedContacts = normalizeContactRows(opportunity?.contacts, notice.contacts, notice.key_contacts);
   const documents = normalizeDocumentRows(opportunity?.documents, notice.documents, notice.procurement_files);
   const externalLinks = normalizeDocumentRows(opportunity?.external_links, notice.external_links);
   const unspscCodes = normalizeUnspscCodes(preferValue(opportunity?.unspsc_codes, notice.unspsc_codes));

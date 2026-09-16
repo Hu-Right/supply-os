@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUserKey, escapeLikeWildcard, normalizeContactRows, extractContactsFromText, normalizeDocumentRows } from "@/lib/utils/normalize";
+import { normalizeUserKey, escapeLikeWildcard, normalizeContactRows, normalizeDocumentRows } from "@/lib/utils/normalize";
 
 describe("normalizeUserKey", () => {
   it("正常邮箱 → 小写截断", () => {
@@ -64,18 +64,6 @@ describe("normalizeContactRows", () => {
     const result = normalizeContactRows(json);
     expect(result).toHaveLength(1);
     expect(result[0].email).toBe("b@test.com");
-  });
-});
-
-describe("extractContactsFromText", () => {
-  it("从文本提取邮箱和电话", () => {
-    const result = extractContactsFromText("Contact: alice@test.com or call +1234567890");
-    expect(result.length).toBeGreaterThanOrEqual(1);
-    expect(result[0].email).toBe("alice@test.com");
-  });
-
-  it("无联系方式 → 空数组", () => {
-    expect(extractContactsFromText("no contacts here")).toEqual([]);
   });
 });
 

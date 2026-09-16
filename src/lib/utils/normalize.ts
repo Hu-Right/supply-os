@@ -27,18 +27,6 @@ export function normalizeContactRows(...sources: any[]) {
   return rows;
 }
 
-export function extractContactsFromText(text: string) {
-  const emails = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
-  const phones = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) || [];
-  const count = Math.max(emails.length, phones.length);
-  return Array.from({ length: count }).map((_, index) => ({
-    name: "",
-    title: "",
-    email: emails[index] || "",
-    phone: phones[index] || "",
-  }));
-}
-
 export function normalizeDocumentRows(...sources: any[]) {
   const rows: any[] = [];
   const seen = new Set<string>();
