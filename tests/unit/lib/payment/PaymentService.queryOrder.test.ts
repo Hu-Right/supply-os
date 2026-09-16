@@ -6,10 +6,9 @@
  *   轮询异常保持 DB 状态（渠道不可用不误判）
  * - createOrder upgrade：升级资格校验（无套餐/同套餐/降级/差价 0）与差价快照（审查 F23）
  * - return_url 白名单（审查 F26）：外域丢弃，仅同源相对路径回填订单参数
- * - initDefault：渠道注册策略（占位符密钥不注册 alipay，wechat 配置齐则注册）
+ * - initDefault：仅创建实例不注册策略（ARCH-PN 注册收归 Orchestrator，见 db/context.ts）
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import crypto from "crypto";
 import type { PaymentsRepo } from "@/lib/repos/payments.repo";
 import type { MembershipRepo } from "@/lib/repos/membership.repo";
 import type { CreateOrderRequest } from "@/lib/types/payment";
@@ -215,48 +214,17 @@ describe("PaymentService — return_url 白名单与渠道注册", () => {
     expect(receivedReturnUrl).toMatch(/^\/pay\?order_no=SO\d+.*#sec$/);
   });
 
-  it("initDefault mock 模式 → 仅注册 mock 渠道", async () => {
-    const svc = PaymentService.initDefault(makeRepo(null), "mock");
-    expect(svc.hasStrategy("mock")).toBe(true);
-    expect(svc.hasStrategy("alipay")).toBe(false);
-  });
-
-  it("initDefault live 模式：env 缺失不注册渠道；占位符 alipay 密钥 → 告警且不注册；配置齐 → 注册", async () => {
-    // env 干净：appId 为空 → 既不注册也不告警
-    const svc = PaymentService.initDefault(makeRepo(null), "live");
-    expect(svc.hasStrategy("alipay")).toBe(false);
-    expect(svc.hasStrategy("wechat")).toBe(false);
+  it("initDefault 仅创建实例不注册策略（ARCH-PN：注册收归 Orchestrator）", () => {
+    // ARCH-PN（2026-09-11）后 initDefault 不再注册任何渠道，mock/live 行为一致；
+    // 渠道注册接线移至 db/context.ts 组合根，占位符密钥拦截由 keys.isParseablePrivateKey
+    // 承担（见 keys.test.ts），此处仅锁定「不注册、无副作用」的新契约。
+    const svcMock = PaymentService.initDefault(makeRepo(null), "mock");
+    const svcLive = PaymentService.initDefault(makeRepo(null), "live");
+    expect(svcMock.hasStrategy("mock")).toBe(false);
+    expect(svcLive.hasStrategy("mock")).toBe(false);
+    expect(svcLive.hasStrategy("alipay")).toBe(false);
+    expect(svcLive.hasStrategy("wechat")).toBe(false);
     expect(console.warn).not.toHaveBeenCalled();
-
-    // alipay appId 有但私钥为占位符 → 告警并跳过注册
-    process.env.ALIPAY_APP_ID = "2021000test";
-    process.env.ALIPAY_PRIVATE_KEY = "placeholder_key";
-    try {
-      const svcBad = PaymentService.initDefault(makeRepo(null), "live");
-      expect(svcBad.hasStrategy("alipay")).toBe(false);
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("支付宝私钥无法解析"));
-    } finally {
-      delete process.env.ALIPAY_PRIVATE_KEY;
-    }
-
-    // alipay 密钥可解析 + wechat 配置齐 → 双渠道注册
-    const { privateKey } = crypto.generateKeyPairSync("ed25519", {
-      publicKeyEncoding: { type: "spki", format: "pem" },
-      privateKeyEncoding: { type: "pkcs8", format: "pem" },
-    });
-    process.env.ALIPAY_PRIVATE_KEY = privateKey;
-    process.env.WECHAT_APP_ID = "wx-test";
-    process.env.WECHAT_MCH_ID = "mch-test";
-    try {
-      const svcOk = PaymentService.initDefault(makeRepo(null), "live");
-      expect(svcOk.hasStrategy("alipay")).toBe(true);
-      expect(svcOk.hasStrategy("wechat")).toBe(true);
-    } finally {
-      delete process.env.ALIPAY_APP_ID;
-      delete process.env.ALIPAY_PRIVATE_KEY;
-      delete process.env.WECHAT_APP_ID;
-      delete process.env.WECHAT_MCH_ID;
-    }
   });
 
   it("fulfillMockMembershipOrder：repo 齐备且 mock 履约命中 → true；缺 membershipRepo → false", async () => {
