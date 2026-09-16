@@ -27,8 +27,6 @@ jobs:
         run: npm run typecheck
 
       - name: Lint (encoding + eslint)
-        # 已知 6 个存量 error 位于已应用迁移文件的模板插值 SQL（013/030），重构属后续批次
-        continue-on-error: true
         run: npm run lint
 
       - name: Unit tests + coverage gate (90%)
