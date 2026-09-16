@@ -20,40 +20,19 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 // 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的
 // "今天/明天/后天" 标签同口径，避免"明天 + 剩余 2 天"的矛盾组合
 import { toUnixMs, calendarDaysLeftCst } from "@/shared/utils/unixTs";
+// 来源平台名与详情页共用同一实现（静态映射，未收录域名返回空串隐藏）
+import { deriveSourceName } from "./NoticeDetail/utils";
 
-/** 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退 */
+/**
+ * 金额紧凑格式（样图口径：3.2M / 980K）；无金额返回空串由调用方回退。
+ * 原始值约 56% 为纯数字（无币种线索），币种未知时不得加 $ 等符号冒充美元。
+ */
 function compactValue(v?: string): string {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return "";
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `$${Math.round(n / 1e3)}K`;
-  return `$${n.toLocaleString()}`;
-}
-
-/** 从 source_url 提取来源平台名称（P0 静态映射，后续接 API source_name 字段） */
-function deriveSourceName(sourceUrl?: string): string {
-  if (!sourceUrl) return "";
-  try {
-    const host = new URL(sourceUrl).hostname.replace(/^www\./, "");
-    const map: Record<string, string> = {
-      "ungm.org": "UNGM",
-      "etimad.sa": "Etimad",
-      "gem.gov.in": "GeM",
-      "compranet.gob.mx": "Compranet",
-      "nupco.com": "NUPCO",
-      "sam.gov": "SAM.gov",
-      "ted.europa.eu": "TED",
-      "undp.org": "UNDP",
-      "seha.ae": "SEHA",
-    };
-    for (const [domain, name] of Object.entries(map)) {
-      if (host.includes(domain)) return name;
-    }
-    // 回退：取域名第一部分大写
-    return host.split(".")[0].toUpperCase();
-  } catch {
-    return "";
-  }
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${Math.round(n / 1e3)}K`;
+  return n.toLocaleString();
 }
 
 interface NoticeCardProps {
@@ -171,9 +150,9 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
           )}
         </div>
 
-        {/* ── 来源列（lg+）：从 source_url 提取平台名 ── */}
+        {/* ── 来源列（lg+）：已知平台名才展示，未收录域名隐藏 ── */}
         <div className="hidden lg:block w-28 shrink-0">
-          {item.source_url && (
+          {item.source_url && deriveSourceName(item.source_url) && (
             <a
               href={item.source_url}
               target="_blank"

@@ -26,7 +26,8 @@ export const TIER_BADGE_STYLE: Record<string, string> = {
   pro: "bg-purple-50 text-purple-700 border-purple-200",
 };
 
-/** 从 source_url 提取来源平台名称 */
+/** 从 source_url 提取来源平台名称。
+ *  未收录的域名返回空串（详情页回退"官方来源"中性文案），不做域名猜测编造平台名 */
 export function deriveSourceName(sourceUrl?: string): string {
   if (!sourceUrl) return "";
   try {
@@ -39,6 +40,6 @@ export function deriveSourceName(sourceUrl?: string): string {
     for (const [domain, name] of Object.entries(map)) {
       if (host.includes(domain)) return name;
     }
-    return host.split(".")[0].toUpperCase();
+    return "";
   } catch { return ""; }
 }
