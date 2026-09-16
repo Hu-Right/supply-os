@@ -16,6 +16,7 @@ export type { UseMembershipTierReturn } from "@/shared/hooks/useMembershipTier";
 export { useMembershipPayment } from "./hooks/useMembershipPayment";
 export type { UseMembershipPaymentOptions } from "./hooks/useMembershipPayment";
 export { useMembershipStatus } from "@/shared/hooks/useMembershipStatus";
+export type { UseMembershipStatusReturn } from "@/shared/hooks/useMembershipStatus";
 
 // 组件：被 procurement/NoticeDetailSidebar 等外部模块引用
 export { MembershipStatusPanel } from "./components/MembershipStatusPanel";

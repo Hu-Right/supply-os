@@ -140,8 +140,8 @@ export function useNoticeUnlock({
             : prev,
         );
       })
-      .catch(() => {
-        // 全文加载失败：保留截断版本，不阻断详情页
+      .catch((e) => {
+        console.warn("[NoticeUnlock] 全文加载失败，保留截断版本:", e);
       });
   }, [setSelectedNotice]);
 

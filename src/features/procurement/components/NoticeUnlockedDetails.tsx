@@ -88,8 +88,8 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   const handleDownloadReport = () => {
     if (!notice.report_url) return;
-    void downloadNoticeReport(notice.report_url).catch(() => {
-      // 下载失败（如会话失效）静默降级：端点自身会做鉴权与解锁校验
+    void downloadNoticeReport(notice.report_url).catch((e) => {
+      console.warn("[NoticeDetails] 报告下载失败:", e);
     });
   };
 
@@ -260,7 +260,8 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
                 key={`${name}-${index}`}
                 type="button"
                 onClick={() => {
-                  void downloadFile(url, name).catch(() => {
+                  void downloadFile(url, name).catch((e) => {
+                    console.warn("[NoticeDetails] 附件下载失败，降级为浏览器直接打开:", e);
                     // 后端代理也失败 → 降级为浏览器直接打开（新标签页），
                     // 由浏览器自身处理下载 / 预览行为。
                     window.open(url, "_blank", "noopener,noreferrer");

@@ -16,7 +16,7 @@ import { useMembershipStatus } from "@/shared/hooks/useMembershipStatus";
 /** 会员升级横幅（根据登录态差异化） */
 export const UpgradeBanner = memo(function UpgradeBanner() {
   const { authUser, authReady } = useAuth();
-  const planName = useMembershipStatus(!!authUser);
+  const { planName, loading: membershipLoading } = useMembershipStatus(!!authUser);
 
   // 未登录：注册引导
   if (authReady && !authUser) {

@@ -49,11 +49,11 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
   useEffect(() => {
     fetchCertifications()
       .then(data => setCertifications(Array.isArray(data) ? data : []))
-      .catch(() => setCertifications([])); // 字典加载失败 → 空列表，表单仍可提交
+      .catch((e) => { console.warn("[CompanyInfo] 资质证书加载失败:", e); setCertifications([]); });
 
     fetchUnspscIndustries()
       .then(data => setLevel1Industries(Array.isArray(data) ? data : []))
-      .catch(() => setLevel1Industries([])); // 同上
+      .catch((e) => { console.warn("[CompanyInfo] 行业分类加载失败:", e); setLevel1Industries([]); });
   }, []);
 
   // 二级行业联动
@@ -68,7 +68,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
     }
     fetchUnspscChildren(value.industry_id)
       .then(data => setLevel2Industries(Array.isArray(data) ? data : []))
-      .catch(() => setLevel2Industries([])); // 级联加载失败 → 空列表
+      .catch((e) => { console.warn("[CompanyInfo] 二级行业联动失败:", e); setLevel2Industries([]); });
   }, [value.industry_id]);
 
   // 三级行业联动（同上，改用 children 端点）
@@ -79,7 +79,7 @@ export default function CompanyInfoSection({ value, onChange }: CompanyInfoSecti
     }
     fetchUnspscChildren(value.industry_level2_id)
       .then(data => setLevel3Industries(Array.isArray(data) ? data : []))
-      .catch(() => setLevel3Industries([])); // 级联加载失败 → 空列表
+      .catch((e) => { console.warn("[CompanyInfo] 三级行业联动失败:", e); setLevel3Industries([]); });
   }, [value.industry_level2_id]);
 
   const handleChange = (field: keyof CompanyInfoData, val: string | string[]) => {

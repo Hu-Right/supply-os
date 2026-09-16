@@ -67,7 +67,8 @@ export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
       .then((res) => {
         if (!cancelled) setRecords(res.list || []);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.warn("[RecentUnlocks] 解锁记录加载失败:", e);
         if (!cancelled) setRecords([]);
       });
     return () => {

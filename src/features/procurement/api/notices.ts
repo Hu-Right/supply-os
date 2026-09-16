@@ -19,7 +19,7 @@ export const viewNotice = (noticeId: number) =>
   api(`/api/notices/${noticeId}/view`, {
     method: "POST",
     body: {},
-  }).catch(() => undefined);
+  }).catch((e) => console.warn("[Notices] 浏览记录上报失败:", e));
 
 export const unlockNotice = (
   noticeId: number,

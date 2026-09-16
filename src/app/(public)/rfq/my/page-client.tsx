@@ -61,7 +61,7 @@ export default function MyRfqPageClient() {
         setItems(Array.isArray(res.items) ? res.items : []);
         setTotal(Number(res.total) || 0);
       })
-      .catch(() => { setItems([]); setTotal(0); })
+      .catch((e) => { console.warn("[MyRfq] 我的 RFQ 列表加载失败:", e); setItems([]); setTotal(0); })
       .finally(() => setLoading(false));
   }, [statusFilter]);
 

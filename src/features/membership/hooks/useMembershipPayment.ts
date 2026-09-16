@@ -44,6 +44,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<MembershipPlan | null>(null);
 
   /** 构建支付 returnUrl */
@@ -80,10 +81,17 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     setUpgradeModalOpen(true);
     setUpgradeLoading(true);
     setUpgradePreview(null);
+    setUpgradeError(null);
 
     fetchUpgradePreview(plan.plan_code)
-      .then(setUpgradePreview)
-      .catch(() => setUpgradePreview(FALLBACK_PREVIEW))
+      .then((preview) => {
+        setUpgradePreview(preview);
+        setUpgradeError(null);
+      })
+      .catch((err) => {
+        setUpgradePreview(FALLBACK_PREVIEW);
+        setUpgradeError(err?.message ?? "升级预览加载失败");
+      })
       .finally(() => setUpgradeLoading(false));
   }, [authUser]);
 
@@ -115,6 +123,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     closeUpgradeModal,
     upgradePreview,
     upgradeLoading,
+    upgradeError,
     upgradeTargetPlan,
   };
 }

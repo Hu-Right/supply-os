@@ -98,7 +98,8 @@ export function useSupplierSearch({
         }
         setTotal(result.total);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.warn("[SupplierSearch] 供应商搜索失败:", e);
         if (cancelled) return;
         if (!appendMode) {
           setSuppliers([]);

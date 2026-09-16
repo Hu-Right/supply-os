@@ -94,7 +94,10 @@ export function useNoticePayment({
   useEffect(() => {
     fetchPaymentConfigStatus()
       .then(setPaymentConfig)
-      .catch(() => setPaymentConfig(null));
+      .catch((e) => {
+        console.warn("[NoticePayment] 支付通道配置加载失败:", e);
+        setPaymentConfig(null);
+      });
   }, []);
 
   const openPaywall = useCallback((notice: NoticeItem) => {

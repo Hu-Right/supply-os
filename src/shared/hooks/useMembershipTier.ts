@@ -44,7 +44,8 @@ export function useMembershipTier(): UseMembershipTierReturn {
       .then((data) => {
         if (alive) setStatus(data);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.warn("[MembershipTier] 会员等级查询失败:", e);
         if (alive) setStatus(null);
       });
     return () => {

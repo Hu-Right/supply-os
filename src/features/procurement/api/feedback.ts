@@ -52,5 +52,5 @@ export const sendNoticeFeedback = (
     },
   })
     .then(() => undefined)
-    .catch(() => undefined);
+    .catch((e) => console.warn("[Feedback] 反馈上报失败:", e));
 };

@@ -75,7 +75,10 @@ export function usePaymentFlow({
   useEffect(() => {
     fetchPaymentConfigStatus()
       .then(setPaymentConfig)
-      .catch(() => setPaymentConfig(null));
+      .catch((e) => {
+        console.warn("[PaymentFlow] 支付通道配置加载失败:", e);
+        setPaymentConfig(null);
+      });
   }, []);
 
   // 配置加载后若当前选中方式未开通，自动切换到第一个已开通的方式

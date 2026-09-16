@@ -76,7 +76,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
       } catch {
         setLeads([]);
       }
-      const suppliers = await api<Supplier[]>(`/api/suppliers?lang=${encodeURIComponent(locale)}`).catch(() => [] as Supplier[]);
+      const suppliers = await api<Supplier[]>(`/api/suppliers?lang=${encodeURIComponent(locale)}`).catch((e) => { console.warn("[CRM] 供应商列表加载失败:", e); return [] as Supplier[]; });
       setDbSuppliers(suppliers);
       // 首次加载：无跨页带入时默认选中拉取列表首条（列表为空则不预选）
       if (preselectFirstSupplier && !autoMatchSupplier && suppliers.length > 0) {

@@ -58,7 +58,7 @@ export default function LearningPage() {
       body: { material_id: materialId, file_name: name },
     })
       .then(() => bumpDownloadCount(materialId))
-      .catch(() => {});
+      .catch((e) => console.warn("[LearningPage] 下载计数上报失败:", e));
   };
 
   const handleBuyMaterial = (material: LearningMaterial) => {

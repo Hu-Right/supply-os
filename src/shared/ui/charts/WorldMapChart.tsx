@@ -64,13 +64,8 @@ export function WorldMapChart({ countries }: WorldMapChartProps) {
 
       echarts.use([GeoComponent, TooltipComponent, VisualMapComponent, MapChart, CanvasRenderer]);
 
-      // 获取国家数据：优先使用 props，否则 fallback 到 API
-      let countryData: CountryData[] = countries ?? [];
-      if (!countries?.length) {
-        const res = await fetch("/api/notices/countries");
-        if (!res.ok) throw new Error("Failed to fetch country data");
-        countryData = await res.json();
-      }
+      // 获取国家数据：统一由父组件通过 useHomeStats 提供（不再降级自取）
+      const countryData: CountryData[] = countries ?? [];
 
       // 获取世界地图 GeoJSON
       const mapRes = await fetch("/world-map.json");
