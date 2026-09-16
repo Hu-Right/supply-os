@@ -64,14 +64,10 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const status = body.status === "published" ? "published" : "draft";
   const budgetConfidential = Boolean(body.budget_confidential);
-  const budgetMin = Number(body.budget_min) || 0;
-  const budgetMax = Number(body.budget_max) || 0;
-  if (!budgetConfidential && budgetMin > 0 && budgetMax > 0 && budgetMin > budgetMax) {
-    routeError(400, 40008, "最低预算不能高于最高预算");
-  }
+  const budget = Number(body.budget) || 0;
 
-  // estimated_value：取预算中值（万美元），保密时为 0
-  const estimatedValue = budgetConfidential ? 0 : (budgetMin + budgetMax) / 2;
+  // estimated_value：预算金额（万元人民币），保密时为 0
+  const estimatedValue = budgetConfidential ? 0 : budget;
 
   const contactPhone = str(body.contact_phone, 50);
   const provinceName = str(body.province_name, 50);
@@ -90,9 +86,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     ? body.supplier_reqs.map((v: unknown) => str(v, 100)).filter(Boolean).join(",")
     : "";
 
-  const currency = ["USD", "EUR", "CNY", "SAR", "AED"].includes(str(body.currency, 3))
-    ? str(body.currency, 3)
-    : "USD";
+
 
   // ── 写入 crm_bid_notices（商务条款走独立列，不再拼接 description）──
   const pool = getPool();
@@ -104,10 +98,10 @@ export const POST = withRoute(async (req: NextRequest) => {
          notice_type, deadline_sec,
          estimated_value, published_date, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
-         contact_name, currency, budget_min, budget_max, budget_confidential,
+         contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
        VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
-               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+               ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         description.slice(0, 10000),
@@ -122,9 +116,6 @@ export const POST = withRoute(async (req: NextRequest) => {
         contactPhone,
         auth.userId ?? null,
         contactName,
-        currency,
-        budgetConfidential ? 0 : budgetMin || null,
-        budgetConfidential ? 0 : budgetMax || null,
         budgetConfidential ? 1 : 0,
         incoterm || null,
         deliveryTime || null,

@@ -49,7 +49,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.category_l1_id, n.category_l2_id,
               c1.title_zh AS category_l1_name,
               c2.title_zh AS category_l2_name,
-              n.currency, n.budget_min, n.budget_max, n.budget_confidential,
+              n.budget_confidential,
               n.incoterm, n.delivery_time, n.delivery_address,
               n.payment_terms, n.supplier_reqs, n.visibility,
               n.estimated_value, n.deadline_sec, n.rfq_status,
@@ -82,10 +82,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         categoryL1: String(row.category_l1_name || ""),
         categoryL2: String(row.category_l2_name || ""),
         province: String(row.province_name || ""),
-        currency: String(row.currency || "USD"),
+        budget: confidential ? null : Number(row.estimated_value) || 0,
         budgetConfidential: confidential,
-        budgetMin: confidential ? null : Number(row.budget_min) || 0,
-        budgetMax: confidential ? null : Number(row.budget_max) || 0,
         incoterm: String(row.incoterm || ""),
         deliveryTime: String(row.delivery_time || ""),
         deliveryAddress: String(row.delivery_address || ""),
@@ -165,13 +163,12 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       updateParams.push(deadlineSec);
     }
 
-    if (body.budget_min !== undefined || body.budget_max !== undefined) {
-      const budgetMin = Number(body.budget_min) || 0;
-      const budgetMax = Number(body.budget_max) || 0;
+    if (body.budget !== undefined || body.budget_confidential !== undefined) {
+      const budget = Number(body.budget) || 0;
       const confidential = Boolean(body.budget_confidential);
-      const estimatedValue = confidential ? 0 : (budgetMin + budgetMax) / 2;
-      updates.push("estimated_value = ?");
-      updateParams.push(estimatedValue);
+      const estimatedValue = confidential ? 0 : budget;
+      updates.push("budget_confidential = ?", "estimated_value = ?");
+      updateParams.push(confidential ? 1 : 0, estimatedValue);
     }
 
     if (body.province_name !== undefined) {
@@ -206,30 +203,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       updateParams.push(contactName);
     }
 
-    if (body.currency !== undefined) {
-      const currency = ["USD", "EUR", "CNY", "SAR", "AED"].includes(str(body.currency, 3))
-        ? str(body.currency, 3)
-        : "USD";
-      updates.push("currency = ?");
-      updateParams.push(currency);
-    }
 
-    if (body.budget_min !== undefined || body.budget_max !== undefined || body.budget_confidential !== undefined) {
-      const budgetMin = Number(body.budget_min) || 0;
-      const budgetMax = Number(body.budget_max) || 0;
-      const confidential = Boolean(body.budget_confidential);
-      if (!confidential && budgetMin > 0 && budgetMax > 0 && budgetMin > budgetMax) {
-        routeError(400, 40011, "最低预算不能高于最高预算");
-      }
-      const estimatedValue = confidential ? 0 : (budgetMin + budgetMax) / 2;
-      updates.push("budget_min = ?", "budget_max = ?", "budget_confidential = ?", "estimated_value = ?");
-      updateParams.push(
-        confidential ? 0 : budgetMin || null,
-        confidential ? 0 : budgetMax || null,
-        confidential ? 1 : 0,
-        estimatedValue,
-      );
-    }
 
     if (body.incoterm !== undefined) {
       updates.push("incoterm = ?");

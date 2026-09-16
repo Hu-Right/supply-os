@@ -21,11 +21,10 @@ function formatDeadline(deadlineSec: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-/** estimated_value → 展示文案 */
-function formatBudget(valueUsd: number): string {
-  if (!valueUsd || valueUsd <= 0) return "预算保密";
-  if (valueUsd < 1) return `USD ${Math.round(valueUsd * 100)} 万以下`;
-  return `USD ${Math.round(valueUsd)} 万`;
+/** estimated_value → 展示文案（人民币万元） */
+function formatBudget(valueCny: number): string {
+  if (!valueCny || valueCny <= 0) return "预算保密";
+  return `${Math.round(valueCny)} 万元`;
 }
 
 export async function GET(req: NextRequest) {
