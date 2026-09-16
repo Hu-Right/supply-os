@@ -26,10 +26,8 @@ interface RfqDetail {
   categoryL1: string;
   categoryL2: string;
   province: string;
-  currency: string;
+  budget: number | null;
   budgetConfidential: boolean;
-  budgetMin: number | null;
-  budgetMax: number | null;
   incoterm: string;
   deliveryTime: string;
   deliveryAddress: string;
@@ -56,12 +54,9 @@ function formatDeadline(sec: number): string {
 
 function formatBudget(d: RfqDetail): string {
   if (d.budgetConfidential) return "面议（预算保密）";
-  const min = d.budgetMin ?? 0;
-  const max = d.budgetMax ?? 0;
-  if (!min && !max) return "面议";
-  if (min && !max) return `${min} 万 ${d.currency} 起`;
-  if (!min && max) return `${max} 万 ${d.currency} 以内`;
-  return `${min} ~ ${max} 万 ${d.currency}`;
+  const budget = d.budget ?? 0;
+  if (!budget) return "面议";
+  return `${budget} 万元`;
 }
 
 function TermItem({ icon: Icon, label, value }: {

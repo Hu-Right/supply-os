@@ -21,10 +21,8 @@ interface RfqEditData {
   title: string;
   description: string;
   status: string;
-  currency: string;
+  budget: number | null;
   budgetConfidential: boolean;
-  budgetMin: number | null;
-  budgetMax: number | null;
   incoterm: string;
   deliveryTime: string;
   deliveryAddress: string;
@@ -37,7 +35,6 @@ interface RfqEditData {
   contactPhone: string;
 }
 
-const CURRENCIES = ["USD", "EUR", "CNY", "SAR", "AED"];
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"];
 
 function secToDateInput(sec: number): string {
@@ -60,8 +57,7 @@ export default function RfqEditPageClient() {
 
   const [data, setData] = useState<RfqEditData | null>(null);
   const [deadline, setDeadline] = useState("");
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
+  const [budget, setBudget] = useState("");
   const [paymentText, setPaymentText] = useState("");
   const [reqText, setReqText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -84,8 +80,7 @@ export default function RfqEditPageClient() {
         }
         setData(d);
         setDeadline(secToDateInput(d.deadlineSec));
-        setBudgetMin(d.budgetMin ? String(d.budgetMin) : "");
-        setBudgetMax(d.budgetMax ? String(d.budgetMax) : "");
+        setBudget(d.budget ? String(d.budget) : "");
         setPaymentText(d.paymentTerms.join("、"));
         setReqText(d.supplierReqs.join("、"));
       })
@@ -104,9 +99,7 @@ export default function RfqEditPageClient() {
           title: data.title,
           description: data.description,
           deadline,
-          budget_min: Number(budgetMin) || 0,
-          budget_max: Number(budgetMax) || 0,
-          currency: data.currency,
+          budget: Number(budget) || 0,
           budget_confidential: data.budgetConfidential,
           incoterm: data.incoterm,
           delivery_time: data.deliveryTime,
@@ -173,6 +166,17 @@ export default function RfqEditPageClient() {
           />
         </div>
 
+        <div>
+          {label("预算金额（万元）")}
+          <input
+            type="number" min="0" className={inputCls}
+            value={budget}
+            disabled={data.budgetConfidential}
+            onChange={(e) => setBudget(e.target.value)}
+            placeholder="预算金额（万元）"
+          />
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             {label("报价截止日期")}
@@ -183,40 +187,6 @@ export default function RfqEditPageClient() {
               onChange={(e) => setDeadline(e.target.value)}
             />
           </div>
-          <div>
-            {label("币种")}
-            <select
-              className={inputCls}
-              value={data.currency}
-              onChange={(e) => setData({ ...data, currency: e.target.value })}
-            >
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {!data.budgetConfidential && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              {label("预算下限（万）")}
-              <input
-                type="number" min="0" className={inputCls}
-                value={budgetMin}
-                onChange={(e) => setBudgetMin(e.target.value)}
-              />
-            </div>
-            <div>
-              {label("预算上限（万）")}
-              <input
-                type="number" min="0" className={inputCls}
-                value={budgetMax}
-                onChange={(e) => setBudgetMax(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="grid grid-cols-2 gap-4">
           <div>
             {label("贸易术语")}
             <select
