@@ -13,6 +13,8 @@ import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { preferValue } from "@/lib/utils/json";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -31,19 +33,18 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     ]);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
     if (!notice) routeError(404, 40044, "公告不存在");
-
-    // P2 修复：description_cn 存于宽表 crm_notice_search（findDetail 查主表无此列，
-    // 此前恒返回空串导致中文详情"秒显"永不生效）。仅在解锁后查询，无泄露面。
-    const [cnRows] = await ctx.dbPool.query(
-      "SELECT description_cn FROM crm_notice_search WHERE id = ? LIMIT 1",
-      [noticeId],
-    );
-    const descriptionCn = String((cnRows as Array<{ description_cn?: string }>)[0]?.description_cn || "");
-
+    
+    // 从机会表取完整描述（主表 description 仅存标题，完整原文在 crm_bid_opportunities）
+    const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
+    const fullDescription = String(preferValue(opportunity?.description, notice.description) || "");
+    const descriptionCn = String(opportunity?.description_cn || "");
+    
     return NextResponse.json({
-      description: notice.description || "",
+      description: fullDescription,
       title: notice.title || "",
       description_cn: descriptionCn,
+      // 保留完整原文供"查看原文"切换使用（主表 description 仅存标题）
+      original_description: fullDescription,
     });
   },
 );

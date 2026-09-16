@@ -48,9 +48,9 @@ export const fetchNoticePreview = (noticeId: number): Promise<Partial<NoticeItem
   return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview`, 10 * 60 * 1000);
 };
 
-export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string }> => {
+export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string; original_description?: string }> => {
   const url = `/api/notices/${noticeId}/content`;
-  return apiCached<{ description: string; title: string; description_cn: string }>(url, 10 * 60 * 1000);
+  return apiCached<{ description: string; title: string; description_cn: string; original_description?: string }>(url, 10 * 60 * 1000);
 };
 
 export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {

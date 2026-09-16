@@ -24,7 +24,7 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 export const WIDE_SYNC_SELECT = `
   SELECT n.id, n.notice_id, n.reference, n.title,
-         n.description,
+         COALESCE(opp.description, n.description) AS description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
@@ -48,9 +48,11 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   // 用原始标题/内容填充宽表对应语言字段，避免 title_en 等字段留空。
   const [rows] = await pool.query(
     `SELECT t.notice_id, t.lang, t.title_tr, t.description_tr, t.model,
-            n.title AS orig_title, LEFT(n.description, 2000) AS orig_desc
+            n.title AS orig_title, LEFT(COALESCE(opp.description, n.description), 2000) AS orig_desc
      FROM crm_notice_translations t
      LEFT JOIN crm_bid_notices n ON n.id = t.notice_id
+     LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
+       AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
      WHERE t.notice_id IN (${placeholders})`,
     noticeIds,
   );

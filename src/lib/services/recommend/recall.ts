@@ -91,12 +91,14 @@ export async function deadlineFallback(
   const oppSubPrefix = "(SELECT opp.";
   const oppSubWhere = " FROM crm_bid_opportunities opp WHERE opp.source_notice_id = n.notice_id AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1) LIMIT 1)";
   const descCnSub = `${oppSubPrefix}description_cn${oppSubWhere} AS description_cn`;
+  const descSub = `LEFT(${oppSubPrefix}description${oppSubWhere}, 300) AS description`;
+  const descTruncSub = `CASE WHEN LENGTH(${oppSubPrefix}description${oppSubWhere}) > 300 THEN 1 ELSE 0 END AS description_truncated`;
   const bidOverviewSub = `${oppSubPrefix}bid_overview${oppSubWhere} AS bid_overview`;
   const beneficiarySub = `${oppSubPrefix}beneficiary_countries${oppSubWhere} AS beneficiary_countries`;
   const [fallbackRows] = await pool.query(
     `SELECT DISTINCT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
             n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency, n.is_featured,
-            LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+            ${descSub}, ${descTruncSub}, n.documents, n.procurement_files,
             ${trSelect} ${treSelect} ${descCnSub}, ${bidOverviewSub}, ${beneficiarySub}
      FROM crm_bid_notices n ${trJoin} ${treJoin} WHERE ${ACTIVE_NOTICE_WHERE} ORDER BY ${DEADLINE_SEC_EXPR} DESC LIMIT ? OFFSET ?`, [...trParams, pageSize, offset]);
   const fallbackItems = (fallbackRows as RowDataPacket[]).map(row => ({

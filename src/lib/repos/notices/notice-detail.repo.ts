@@ -81,10 +81,24 @@ export class NoticeDetailRepo {
    */
   async findSeoDetail(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
-      `SELECT id, notice_id, reference, title, notice_type, agency, agency_full,
-         country, deadline, deadline_ts, deadline_sec, estimated_value,
-         published_date, LEFT(description, 300) AS description
-       FROM crm_bid_notices WHERE id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
+      `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.agency, n.agency_full,
+         n.country, n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value,
+         n.published_date,
+         LEFT(COALESCE(
+           (SELECT opp.description FROM crm_bid_opportunities opp
+            WHERE opp.source_notice_id = n.notice_id
+              AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+            LIMIT 1),
+           n.description
+         ), 300) AS description,
+         CASE WHEN LENGTH(COALESCE(
+           (SELECT opp.description FROM crm_bid_opportunities opp
+            WHERE opp.source_notice_id = n.notice_id
+              AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+            LIMIT 1),
+           n.description
+         )) > 300 THEN 1 ELSE 0 END AS description_truncated
+       FROM crm_bid_notices n WHERE n.id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );
     return (rows as RowDataPacket[])[0] ?? null;

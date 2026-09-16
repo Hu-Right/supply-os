@@ -91,6 +91,10 @@ export interface NoticeDetailFields {
   ai_analysis?: Record<string, unknown>;
   /** 产品编码 */
   product_code?: string;
+  /** 完整原文（供"查看原文"切换使用；主表 description 仅存标题） */
+  original_description?: string;
+  /** 描述是否被 SQL 截断（300 字符），用于前端显示 ... 提示 */
+  description_truncated?: number | boolean;
 }
 
 /** 解锁后的完整公告（列表字段 + 详情字段） */

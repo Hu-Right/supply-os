@@ -136,6 +136,8 @@ export function useNoticeUnlock({
                 title: content.title,
                 // description_cn 确保中文环境下详情页立即显示中文，无需等待翻译 API
                 ...(content.description_cn ? { description_cn: content.description_cn } : {}),
+                // 完整原文供"查看原文"切换（主表 description 仅存标题）
+                ...(content.original_description ? { original_description: content.original_description } : {}),
               }
             : prev,
         );

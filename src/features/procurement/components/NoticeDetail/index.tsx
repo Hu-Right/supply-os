@@ -71,10 +71,12 @@ export function NoticeDetail({
   );
   const displayTitle = hookDisplayTitle || notice.title;
   const displayDescription = showOriginal
-    ? notice.description
+    ? (notice.original_description || notice.description)
     : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
   const descResolved = locale === "zh" && !!notice.description_cn;
   const showTranslating = translating && !descResolved;
+  // 切换按钮可见性：API 译文 或 description_cn 直出均视为"有译文"
+  const hasTranslation = !!translation || descResolved;
 
   // 锁定态
   const coreUnlocked = notice.core_locked === false;
@@ -136,10 +138,11 @@ export function NoticeDetail({
 
                 <NoticeDescriptionSection
                   translating={showTranslating} failed={failed}
-                  hasTranslation={!!translation} showOriginal={showOriginal}
-                  showTranslated={!showOriginal && !!translation}
+                  hasTranslation={hasTranslation} showOriginal={showOriginal}
+                  showTranslated={!showOriginal && hasTranslation}
                   toggleOriginal={toggleOriginal}
                   displayDescription={displayDescription}
+                  descriptionTruncated={!!notice.description_truncated}
                 />
 
                 {!showSkeleton && (
