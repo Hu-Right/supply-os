@@ -44,10 +44,10 @@ describe("buildOrderBy 搜索词转义", () => {
     expect(sql).toContain("'RFQ2026'");
   });
 
-  it("sort=latest：无 q 时不应有 refBoost", () => {
+  it("sort=latest：无 q 时无 refBoost，无截止日公告沉底（385adbd2，与 Meili 主路径同口径）", () => {
     const sql = buildOrderBy(makeParams("", "latest"));
-    expect(sql).not.toContain("DESC, ");
-    expect(sql).toBe("n.id DESC");
+    expect(sql).not.toContain(") DESC,"); // 无 refBoost
+    expect(sql).toBe("(n.deadline_sec = 0) ASC, n.id DESC");
   });
 
   it("sort=deadline：保留 deadline_sec 升序语义", () => {
