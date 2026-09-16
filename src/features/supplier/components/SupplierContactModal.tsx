@@ -11,10 +11,11 @@ import { Crown, User, Mail, Phone, AlertCircle } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { Modal, Spinner, Button } from "@/shared/ui";
 import type { Supplier } from "@/types";
-import type { SupplierContact } from "../api";
+import type { SupplierContact, SupplierContactStatus } from "@/shared/api/supplier";
 import { emitAppEvent } from "@/core/events";
 
-export type SupplierContactStatus = "vipOnly" | "loading" | "success" | "error";
+// re-export：供存量内部消费者（SupplierPage）保持导入路径不变
+export type { SupplierContactStatus };
 
 export type SupplierContactModalProps = {
   supplier: Supplier;

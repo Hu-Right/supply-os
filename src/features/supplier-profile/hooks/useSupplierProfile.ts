@@ -5,7 +5,7 @@
  * @description 按 ID 获取供应商详情，API 失败时降级到 mock 数据。
  */
 import { useEffect, useState } from "react";
-import { fetchSupplierById } from "@/features/supplier";
+import { fetchSupplierById } from "@/shared/api/supplier";
 import type { Supplier } from "@/types";
 
 export interface UseSupplierProfileReturn {

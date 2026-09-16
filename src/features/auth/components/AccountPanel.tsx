@@ -14,7 +14,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { useMembershipTier } from "@/features/membership";
+import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";

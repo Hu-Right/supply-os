@@ -18,7 +18,8 @@ import { useAuth, useUserId } from "@/core/auth";
 import { Button, Badge, EmptyState } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
-import { fetchSupplierContact, SupplierContactModal, type SupplierContact, type SupplierContactStatus } from "@/features/supplier";
+import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
+import { SupplierContactModal } from "@/features/supplier";
 import type { Supplier } from "@/types";
 import {
   CapabilityPanel, ProductsPanel, CertsPanel,
