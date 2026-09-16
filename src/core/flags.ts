@@ -13,8 +13,10 @@
  *   if (flags.NEW_HOME) { /* 新首页逻辑 *\/ }
  *
  * 环境变量命名规范 / Env var naming:
- *   FEATURE_<FLAG_NAME>="on"  → 开启
- *   未设置或 "off"            → 关闭（默认）
+ *   FEATURE_<FLAG_NAME>="on"              → 开启（服务端读取）
+ *   NEXT_PUBLIC_FEATURE_<FLAG_NAME>="on"  → 开启（客户端组件读取，必须带
+ *                                            NEXT_PUBLIC_ 前缀才会内联进浏览器 bundle）
+ *   未设置或 "off"                        → 关闭（默认）
  */
 
 /** 功能开关定义 / Feature flag definitions */

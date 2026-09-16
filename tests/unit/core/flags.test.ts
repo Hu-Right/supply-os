@@ -80,9 +80,11 @@ describe("core/flags", () => {
       }
     });
 
-    it("所有环境变量名遵循 FEATURE_ 前缀规范", () => {
+    it("所有环境变量名遵循 [NEXT_PUBLIC_]FEATURE_ 前缀规范", () => {
+      // 客户端组件读取的 flag（如 ADVANCED_SEARCH）必须带 NEXT_PUBLIC_ 前缀
+      // 才会被 Next.js 内联进浏览器 bundle，因此允许该可选前缀
       for (const envVar of Object.values(FEATURE_FLAGS)) {
-        expect(envVar).toMatch(/^FEATURE_[A-Z0-9_]+$/);
+        expect(envVar).toMatch(/^(NEXT_PUBLIC_)?FEATURE_[A-Z0-9_]+$/);
       }
     });
   });
@@ -121,7 +123,12 @@ describe("core/flags", () => {
       const { flags } = await import("@/core/flags");
 
       expect(flags.NEW_HOME).toBe(true);
-      expect(flags.ADVANCED_SEARCH).toBe(false);
+    });
+
+    it("已上线 flag 硬编码开启（ADVANCED_SEARCH 不再读环境变量）", async () => {
+      delete process.env.NEXT_PUBLIC_FEATURE_ADVANCED_SEARCH;
+      const { flags } = await import("@/core/flags");
+      expect(flags.ADVANCED_SEARCH).toBe(true);
     });
 
     it("访问不存在的属性返回 false", async () => {
