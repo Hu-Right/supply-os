@@ -105,24 +105,24 @@ function ConditionBlock({
 
 /** 从中英双语字段中提取纯中文部分
  *  数据格式多样，按优先级尝试：
- *  1. 有 "English" 标记 → 取标记之前的内容（中文在前）
- *  2. 有 "中文" 标记 → 取标记之后的内容（中文在后）
+ *  1. 有 "中文" 标记 → 取标记之后的内容（中文在后，最常见）
+ *  2. 有 "English" 标记 → 取标记之前的内容（中文在前）
  *  3. 兜底：按行检测，取第一个英文段落之前的中文行
  */
 function extractChinese(text: string): string {
   if (!text) return "";
 
-  // 策略1：找 "English" 标记（单独一行），取前面的内容
+  // 策略1：找 "中文" 标记（兼容有无冒号、半角/全角），取后面的内容
+  const zhMatch = text.match(/\n\s*中文\s*[:：]?\s*(?:\n|$)/);
+  if (zhMatch && zhMatch.index !== undefined) {
+    return text.slice(zhMatch.index + zhMatch[0].length).trim();
+  }
+
+  // 策略2：找 "English" 标记（单独一行），取前面的内容
   const enMatch = text.match(/\n\s*English\s*\n/);
   if (enMatch && enMatch.index !== undefined) {
     const before = text.slice(0, enMatch.index).trim();
     if (before) return before;
-  }
-
-  // 策略2：找 "中文" 标记（兼容有无冒号、半角/全角），取后面的内容
-  const zhMatch = text.match(/\n\s*中文\s*[:：]?\s*(?:\n|$)/);
-  if (zhMatch && zhMatch.index !== undefined) {
-    return text.slice(zhMatch.index + zhMatch[0].length).trim();
   }
 
   // 策略3：按行检测，取第一个英文段落之前的中文行
