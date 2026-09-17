@@ -16,7 +16,6 @@ import { useNoticeTranslation } from "../../hooks/useNoticeTranslation";
 import { useAiAnalysis } from "../../hooks/useAiAnalysis";
 import { noticeTypeKey } from "../../notice-type";
 import { collectBreakdownFiles } from "../NoticeUnlockedDetails";
-import { downloadNoticeReport } from "../../api";
 import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";
 import { NoticeBreakdownIndicator } from "../NoticeBreakdownIndicator";
@@ -164,11 +163,6 @@ export function NoticeDetail({
                   onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
-                  onViewReport={
-                    notice.report_url
-                      ? () => { void downloadNoticeReport(notice.report_url!).catch((e) => console.warn("[NoticeDetail] 报告下载失败:", e)); }
-                      : undefined
-                  }
                 />
 
                 <NoticeDescriptionSection

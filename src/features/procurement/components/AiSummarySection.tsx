@@ -38,8 +38,6 @@ export interface AiSummarySectionProps {
   /** 点击"开始分析"的回调 */
   onStart?: () => void;
   onRegenerate?: () => void;
-  /** 查看完整 AI 分析报告（下载 docx） */
-  onViewReport?: () => void;
 }
 
 interface SummaryItem {
@@ -59,7 +57,6 @@ export function AiSummarySection({
   onConfigure,
   onStart,
   onRegenerate,
-  onViewReport,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
 
@@ -255,9 +252,9 @@ export function AiSummarySection({
         ))}
       </div>
 
-      {/* 底部操作：重新分析 + 查看完整报告 */}
+      {/* 底部操作：重新分析 */}
       {!streaming && hasData && (
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-end">
           <button
             type="button"
             onClick={onRegenerate}
@@ -265,15 +262,6 @@ export function AiSummarySection({
           >
             {t("procurement_aiSummaryRegenerate") || "重新分析"}
           </button>
-          {onViewReport && (
-            <button
-              type="button"
-              onClick={onViewReport}
-              className="inline-flex items-center gap-1 text-sm font-bold text-teal-700 hover:text-teal-900 transition-colors"
-            >
-              {t("detail_viewFullReport") || "查看完整AI分析报告"} →
-            </button>
-          )}
         </div>
       )}
     </section>
