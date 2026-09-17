@@ -127,8 +127,8 @@ export function AiSummarySection({
     );
   }
 
-  // 未配置 LLM：引导卡片
-  if (!llmConfigured) {
+  // 未配置 LLM 且无数据：引导卡片（有数据时优先渲染数据）
+  if (!llmConfigured && !hasData) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2 mb-3">

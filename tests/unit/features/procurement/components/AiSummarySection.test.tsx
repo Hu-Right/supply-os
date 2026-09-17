@@ -15,9 +15,21 @@ const mockData = {
 };
 
 describe("AiSummarySection", () => {
-  it("无数据时显示占位提示", () => {
-    render(<AiSummarySection data={null} />);
+  it("无数据但已配置时显示占位提示", () => {
+    render(<AiSummarySection data={null} llmConfigured />);
     expect(screen.getByText("procurement_aiSummaryTitle")).toBeInTheDocument();
+  });
+
+  it("未配置 LLM 且无数据时显示引导卡片", () => {
+    render(<AiSummarySection data={null} llmConfigured={false} />);
+    expect(screen.getByText("procurement_aiSummaryNeedConfig")).toBeInTheDocument();
+    expect(screen.getByText(/procurement_aiSummaryGoConfig/)).toBeInTheDocument();
+  });
+
+  it("错误态显示错误提示与重试", () => {
+    render(<AiSummarySection data={null} llmConfigured error="LLM 调用失败" />);
+    expect(screen.getByText("procurement_aiSummaryError")).toBeInTheDocument();
+    expect(screen.getByText("LLM 调用失败")).toBeInTheDocument();
   });
 
   it("加载中显示骨架屏", () => {
