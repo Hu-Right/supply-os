@@ -38,6 +38,7 @@ import {
 } from "../repos/suppliers/index";
 import { CatalogRepo } from "../repos/catalog.repo";
 import { OpenApiRepo } from "../repos/open-api.repo";
+import { AwardsRepo } from "../repos/awards.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
@@ -96,6 +97,7 @@ export type AppContext = {
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   openApiRepo: OpenApiRepo;
+  awardsRepo: AwardsRepo;
   leadsRepo: LeadsRepo;
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
@@ -136,6 +138,7 @@ export function getContext(): AppContext {
 
   const catalogRepo = new CatalogRepo(dbPool);
   const openApiRepo = new OpenApiRepo(dbPool);
+  const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
@@ -204,6 +207,7 @@ export function getContext(): AppContext {
     opportunitiesRepo,
     catalogRepo,
     openApiRepo,
+    awardsRepo,
     leadsRepo,
     chatRepo,
     trainingRepo,
