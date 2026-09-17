@@ -62,7 +62,7 @@ export function DetailHeader({
           </button>
           <button type="button" onClick={() => {
               if (navigator.share) navigator.share({ title: displayTitle, url: window.location.href });
-              else { navigator.clipboard.writeText(window.location.href); alert("链接已复制"); }
+              else { navigator.clipboard.writeText(window.location.href); alert(t("detail_linkCopied")); }
             }}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-colors">
             <Share2 className="w-3.5 h-3.5" />
