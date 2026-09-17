@@ -1,38 +1,30 @@
 /**
- * GET /api/user/enterprise — 当前登录用户的企业信息（企业表 crm_suppliers）
+ * GET /api/user/enterprise — 当前登录用户的企业信息（supplier 企业表）
  *
  * @module app/api/user/enterprise/route
- * @description 依据 crm_users.supplier_id 关联 crm_suppliers（企业注册表），
- *              返回该企业展示字段。未绑定或企业记录不存在时 bound=false。
- *              仅返回展示所需字段，不泄露联系方式明文以外的敏感列。
+ * @description 依据 crm_users.supplier_id 关联 supplier 企业表，返回整行
+ *              （SELECT * 透传，DATETIME 序列化为 ISO），供前端按分组表格渲染
+ *              （基本信息/联系信息/工商与业务信息，有则展示、无则 -）。
+ *              防重兜底：记录关键字段全空时按公司名回退到数据更完整的同公司记录。
+ *              未绑定或记录不存在时 bound=false。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
 
-/** crm_suppliers 行 → 前端企业信息 DTO */
-function mapEnterprise(row: any) {
-  return {
-    id: Number(row.id),
-    companyName: String(row.company_name || ""),
-    enterpriseNature: String(row.enterprise_nature || ""),
-    supplierGrade: String(row.supplier_grade || ""),
-    industry: String(row.industry || ""),
-    mainProduct: String(row.main_product || ""),
-    certification: String(row.certification || ""),
-    exportExperience: String(row.export_experience || ""),
-    country: String(row.country || ""),
-    dataQualityScore: row.data_quality_score != null ? Number(row.data_quality_score) : null,
-    createdAt: row.created_at ? new Date(row.created_at).toISOString() : null,
-    registrationCount: Number(row.registration_count || 0),
-    isPaid: Number(row.is_paid || 0) === 1,
-  };
+/** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
+function isSparseRecord(row: Record<string, unknown> | null): boolean {
+  if (!row) return true;
+  const products = String(row.products ?? "").trim();
+  const industry = String(row.industry ?? "").trim();
+  return products === "" && industry === "";
 }
 
 export const GET = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
+  const repo = ctx.supplier.directoryRepo;
 
   const user = await ctx.user.usersRepo.findProfileById(auth.userId);
   const supplierId = user?.supplier_id ? Number(user.supplier_id) : 0;
@@ -42,10 +34,21 @@ export const GET = withRoute(async (req) => {
     return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
   }
 
-  const row = await ctx.supplier.registrationRepo.findCrmById(supplierId);
+  let row = await repo.findFullById(supplierId);
+  // 防重兜底：当前记录关键字段全空时，按公司名查找数据更完整的同公司记录
+  if (row && isSparseRecord(row)) {
+    const companyName = String(row.company ?? "").trim();
+    if (companyName) {
+      const better = await repo.findByCompanyBest(companyName);
+      if (better && better.id !== row.id) {
+        row = await repo.findFullById(Number(better.id));
+      }
+    }
+  }
+
   if (!row) {
     return NextResponse.json({ code: 0, message: "ok", data: { bound: false, linkStatus, enterprise: null } });
   }
 
-  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: mapEnterprise(row) } });
+  return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row } });
 });

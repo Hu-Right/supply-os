@@ -8,20 +8,34 @@ vi.mock("@/core/i18n", () => ({
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import type { EnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
 
-const mockEnterprise: EnterpriseInfo = {
-  id: 1,
-  companyName: "测试企业有限公司",
-  enterpriseNature: "工厂",
-  supplierGrade: "L2",
-  industry: "信息技术",
-  mainProduct: "服务器、交换机",
-  certification: "ISO 9001、CE",
-  exportExperience: "3 年",
+// supplier 企业表整行（snake_case 列名）
+const mockRow: EnterpriseInfo = {
+  id: 54,
+  company: "宝通集团有限公司",
+  name_confirmed: "宝通集团有限公司",
   country: "中国",
-  dataQualityScore: 88.5,
-  createdAt: "2026-01-15T00:00:00.000Z",
-  registrationCount: 1,
-  isPaid: false,
+  country_code: "CN",
+  province: "上海",
+  city: "上海",
+  address: "上海市徐汇区定安路55号",
+  registered_address: "香港九龙观塘成业街27号",
+  addtime: 1780000000,
+  data_quality_score: "75.00",
+  contact: "卢慧慧",
+  position: "销售经理",
+  phone: "15849125405",
+  email: "huihui.lu@ex-channel.com",
+  website: "-",
+  legal_rep: "-",
+  established_at: "2003-09-19",
+  registered_capital: "3000万元",
+  credit_code: "-",
+  industry: "it",
+  type: "国内",
+  certification: "-",
+  products: "智算模块",
+  intro: "智算模块提供商",
+  coop_status: 1,
 };
 
 const noop = vi.fn();
@@ -50,14 +64,23 @@ describe("EnterpriseInfoCard", () => {
     expect(screen.getByText("authEnterpriseBindNow")).toBeInTheDocument();
   });
 
-  it("已绑定展示企业表字段", () => {
+  it("已绑定渲染分组表格（公司名/分组标题/字段值）", () => {
     render(
-      <EnterpriseInfoCard enterprise={mockEnterprise} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={mockRow} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
-    expect(screen.getByText("测试企业有限公司")).toBeInTheDocument();
-    expect(screen.getByText("ISO 9001、CE")).toBeInTheDocument();
-    expect(screen.getByText("服务器、交换机")).toBeInTheDocument();
-    expect(screen.getByText("88.5")).toBeInTheDocument();
-    expect(screen.getByText("2026-01-15")).toBeInTheDocument();
+    // 头部公司名 + 确认后公司名单元格（多处出现）
+    expect(screen.getAllByText("宝通集团有限公司").length).toBeGreaterThan(0);
+    expect(screen.getByText("authEnterpriseDomestic")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseCoop")).toBeInTheDocument();
+    // 三个分组标题
+    expect(screen.getByText("settingsBasicInfo")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseGroupContact")).toBeInTheDocument();
+    expect(screen.getByText("authEnterpriseGroupBusiness")).toBeInTheDocument();
+    // 字段值（联系/工商）
+    expect(screen.getByText("卢慧慧")).toBeInTheDocument();
+    expect(screen.getByText("3000万元")).toBeInTheDocument();
+    expect(screen.getByText("智算模块")).toBeInTheDocument();
+    // 资料完整度百分比
+    expect(screen.getByText("75.00%")).toBeInTheDocument();
   });
 });

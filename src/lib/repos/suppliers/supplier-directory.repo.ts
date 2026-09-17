@@ -110,6 +110,15 @@ export class SupplierDirectoryRepo {
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
   }
 
+  /** 按 ID 查询单条供应商全字段（企业信息表格用，含工商/联系/地址等列） */
+  async findFullById(id: number): Promise<Record<string, unknown> | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM supplier WHERE id = ? LIMIT 1",
+      [id],
+    );
+    return ((rows as Record<string, unknown>[])[0]) ?? null;
+  }
+
   /**
    * 按公司名查找数据最完整的记录（防重兜底）
    *
