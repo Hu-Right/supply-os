@@ -109,8 +109,8 @@ function ConditionBlock({
  */
 function extractChinese(text: string): string {
   if (!text) return "";
-  // 优先匹配 "中文:" 或 "中文：" 标记（兼容半角/全角冒号、前后空格）
-  const zhMatch = text.match(/中文\s*[:：]/);
+  // 优先匹配 "中文" 标记（兼容有无冒号、半角/全角、前后空格/换行）
+  const zhMatch = text.match(/\n\s*中文\s*[:：]?\s*(?:\n|$)/);
   if (zhMatch && zhMatch.index !== undefined) {
     return text.slice(zhMatch.index + zhMatch[0].length).trim();
   }
