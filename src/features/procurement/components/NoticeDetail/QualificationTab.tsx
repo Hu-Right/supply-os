@@ -103,15 +103,23 @@ function ConditionBlock({
   );
 }
 
-/** 从中英双语字段中提取纯中文部分（第一个英文段落之前的内容） */
+/** 从中英双语字段中提取纯中文部分
+ *  格式：英文段落 + "中文:" 标记 + 中文段落
+ *  若无 "中文:" 标记则尝试按行检测（中文在前英文在后）
+ */
 function extractChinese(text: string): string {
   if (!text) return "";
+  // 优先匹配 "中文:" 标记
+  const zhMarker = text.indexOf("中文:");
+  if (zhMarker !== -1) {
+    return text.slice(zhMarker + 3).trim();
+  }
+  // 兜底：按行检测，取第一个英文段落之前的中文行
   const lines = text.split("\n");
   const zhLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) break;
-    // 判断是否为英文行：ASCII 字母占比 > 50%
     const asciiRatio = (trimmed.match(/[A-Za-z]/g) || []).length / Math.max(trimmed.length, 1);
     if (asciiRatio > 0.5) break;
     zhLines.push(line);
