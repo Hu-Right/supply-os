@@ -12,7 +12,6 @@
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
-import { EnterpriseLocationSelects } from "./EnterpriseLocationSelects";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
@@ -34,6 +33,8 @@ interface FieldDef {
   full?: boolean;
   textarea?: boolean;
   options?: OptionDef[];
+  placeholderKey?: string;
+  placeholder?: string;
 }
 
 /** 供应商类型下拉选项 */
@@ -44,28 +45,30 @@ const SUPPLIER_TYPE_OPTIONS: OptionDef[] = [
 ];
 
 const BASIC_FIELDS: FieldDef[] = [
-  { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
-  { key: "english_name", labelKey: "authEnterpriseEnglishName", fallback: "企业英文法务名" },
-  { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true },
-  { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true },
+  { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称", placeholderKey: "authEnterpriseNamePh" },
+  { key: "english_name", labelKey: "authEnterpriseEnglishName", fallback: "企业英文法务名", placeholderKey: "authEnterpriseEnglishNamePh" },
+  { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份", placeholderKey: "authEnterpriseProvincePh" },
+  { key: "city", labelKey: "authEnterpriseCity", fallback: "城市", placeholderKey: "authEnterpriseCityPh" },
+  { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true, placeholderKey: "authEnterpriseBizAddressPh" },
+  { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true, placeholderKey: "authEnterpriseRegAddressPh" },
 ];
 const CONTACT_FIELDS: FieldDef[] = [
-  { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
-  { key: "position", labelKey: "authEnterprisePosition", fallback: "职位" },
-  { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
-  { key: "email", labelKey: "authEnterpriseEmail", fallback: "邮箱" },
-  { key: "website", labelKey: "authEnterpriseWebsite", fallback: "官网", full: true },
+  { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人", placeholderKey: "authEnterpriseContactPh" },
+  { key: "position", labelKey: "authEnterprisePosition", fallback: "职位", placeholderKey: "authEnterprisePositionPh" },
+  { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话", placeholderKey: "authEnterprisePhonePh" },
+  { key: "email", labelKey: "authEnterpriseEmail", fallback: "邮箱", placeholderKey: "authEnterpriseEmailPh" },
+  { key: "website", labelKey: "authEnterpriseWebsite", fallback: "官网", full: true, placeholderKey: "authEnterpriseWebsitePh" },
 ];
 const BUSINESS_FIELDS: FieldDef[] = [
-  { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人" },
-  { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期" },
-  { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本" },
-  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码" },
-  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业" },
+  { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人", placeholderKey: "authEnterpriseLegalRepPh" },
+  { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期", placeholderKey: "authEnterpriseEstablishedPh" },
+  { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本", placeholderKey: "authEnterpriseCapitalPh" },
+  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码", placeholderKey: "authEnterpriseCreditCodePh" },
+  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业", placeholderKey: "authEnterpriseIndustryPh" },
   { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型", options: SUPPLIER_TYPE_OPTIONS },
-  { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证" },
-  { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品" },
-  { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true },
+  { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证", placeholderKey: "authEnterpriseCertificationsPh" },
+  { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品", placeholderKey: "authEnterpriseProductsPh" },
+  { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true, placeholderKey: "authEnterpriseIntroPh" },
 ];
 
 /** 必填字段（预提交阻断校验点名用） */
@@ -111,43 +114,47 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
 
   const set = (key: string, v: string) => setValues((s) => ({ ...s, [key]: v }));
 
-  const renderField = (f: FieldDef) => (
-    <div key={f.key} className="contents">
-      <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
-        {t(f.labelKey) || f.fallback}
+  const renderField = (f: FieldDef) => {
+    const ph = f.placeholderKey ? (t(f.placeholderKey) || f.placeholder || "") : (f.placeholder || "");
+    return (
+      <div key={f.key} className="contents">
+        <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
+          {t(f.labelKey) || f.fallback}
+        </div>
+        <div className={`px-3 py-2 ${f.full ? "col-span-3" : "col-span-1"}`}>
+          {f.textarea ? (
+            <textarea
+              className={`${inputCls} min-h-16 resize-y`}
+              value={values[f.key] || ""}
+              onChange={(e) => set(f.key, e.target.value)}
+              placeholder={ph}
+            />
+          ) : f.options ? (
+            <select
+              className={inputCls}
+              value={values[f.key] || ""}
+              onChange={(e) => set(f.key, e.target.value)}
+            >
+              <option value="">{t("authEnterpriseSelectPlaceholder") || "请选择"}</option>
+              {f.options.map((o) => (
+                <option key={o.value} value={o.value}>{t(o.labelKey) || o.fallback}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className={inputCls}
+              value={values[f.key] || ""}
+              onChange={(e) => set(f.key, e.target.value)}
+              placeholder={ph}
+            />
+          )}
+        </div>
       </div>
-      <div className={`px-3 py-2 ${f.full ? "col-span-3" : "col-span-1"}`}>
-        {f.textarea ? (
-          <textarea
-            className={`${inputCls} min-h-16 resize-y`}
-            value={values[f.key] || ""}
-            onChange={(e) => set(f.key, e.target.value)}
-          />
-        ) : f.options ? (
-          <select
-            className={inputCls}
-            value={values[f.key] || ""}
-            onChange={(e) => set(f.key, e.target.value)}
-          >
-            <option value="">{t("authEnterpriseSelectPlaceholder") || "请选择"}</option>
-            {f.options.map((o) => (
-              <option key={o.value} value={o.value}>{t(o.labelKey) || o.fallback}</option>
-            ))}
-          </select>
-        ) : (
-          <input
-            className={inputCls}
-            value={values[f.key] || ""}
-            onChange={(e) => set(f.key, e.target.value)}
-          />
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
-  const renderGroup = (fields: FieldDef[], extraRow?: React.ReactNode) => {
+  const renderGroup = (fields: FieldDef[]) => {
     const rows: React.ReactNode[] = [];
-    if (extraRow) rows.push(extraRow);
     let cur: FieldDef[] = [];
     const flush = () => {
       if (!cur.length) return;
@@ -177,22 +184,6 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
     );
   };
 
-  // 省/市级联行（全宽）
-  const locationRow = (
-    <div key="location" className="grid grid-cols-4 border-b border-border">
-      <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
-        {t("authEnterpriseProvince") || "省份"} / {t("authEnterpriseCity") || "城市"}
-      </div>
-      <div className="px-3 py-2 col-span-3">
-        <EnterpriseLocationSelects
-          provinceName={values.province || ""}
-          cityName={values.city || ""}
-          onChange={(next) => setValues((s) => ({ ...s, province: next.province, city: next.city }))}
-        />
-      </div>
-    </div>
-  );
-
   const handleSubmit = () => {
     const missing: string[] = [];
     for (const r of REQUIRED_KEYS) {
@@ -216,7 +207,7 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
     <div className="space-y-6">
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>
-        {renderGroup(BASIC_FIELDS, locationRow)}
+        {renderGroup(BASIC_FIELDS)}
       </section>
       <section>
         <GroupTitle>{t("authEnterpriseGroupContact") || "联系信息"}</GroupTitle>
