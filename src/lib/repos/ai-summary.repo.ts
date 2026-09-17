@@ -1,7 +1,8 @@
 /**
- * AI 摘要缓存数据访问层
+ * AI 摘要缓存数据访问层 v2
  * @module lib/repos/ai-summary.repo
  * @description 操作 crm_notice_ai_summaries 表（user_id + notice_id 唯一）。
+ *              支持 6 维度：核心交付/资质门槛/商务要素/竞争格局/投标策略/风险提示。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
@@ -12,6 +13,8 @@ export interface AiSummaryRow extends RowDataPacket {
   core_deliverables: string | null;
   key_qualifications: string | null;
   payment_cycle: string | null;
+  competitive_landscape: string | null;
+  bid_strategy: string | null;
   risk_alerts: string | null;
   model: string;
   provider_base_url: string;
@@ -25,6 +28,8 @@ export interface AiSummaryInput {
   coreDeliverables: string;
   keyQualifications: string;
   paymentCycle: string;
+  competitiveLandscape: string;
+  bidStrategy: string;
   riskAlerts: string;
   model: string;
   providerBaseUrl: string;
@@ -44,17 +49,20 @@ export class AiSummaryRepo {
     return (rows as AiSummaryRow[])[0] ?? null;
   }
 
-  /** UPSERT 分析结果 */
+  /** UPSERT 分析结果（6 维度） */
   async upsert(input: AiSummaryInput): Promise<void> {
     await this.pool.query(
       `INSERT INTO crm_notice_ai_summaries
-         (user_id, notice_id, core_deliverables, key_qualifications, payment_cycle, risk_alerts,
+         (user_id, notice_id, core_deliverables, key_qualifications, payment_cycle,
+          competitive_landscape, bid_strategy, risk_alerts,
           model, provider_base_url, input_tokens, output_tokens)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          core_deliverables = VALUES(core_deliverables),
          key_qualifications = VALUES(key_qualifications),
          payment_cycle = VALUES(payment_cycle),
+         competitive_landscape = VALUES(competitive_landscape),
+         bid_strategy = VALUES(bid_strategy),
          risk_alerts = VALUES(risk_alerts),
          model = VALUES(model),
          provider_base_url = VALUES(provider_base_url),
@@ -63,7 +71,8 @@ export class AiSummaryRepo {
          created_at = CURRENT_TIMESTAMP`,
       [
         input.userId, input.noticeId, input.coreDeliverables, input.keyQualifications,
-        input.paymentCycle, input.riskAlerts, input.model, input.providerBaseUrl,
+        input.paymentCycle, input.competitiveLandscape, input.bidStrategy, input.riskAlerts,
+        input.model, input.providerBaseUrl,
         input.inputTokens ?? null, input.outputTokens ?? null,
       ],
     );

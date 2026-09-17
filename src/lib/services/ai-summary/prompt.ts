@@ -1,21 +1,30 @@
 /**
- * AI 拆标摘要 Prompt 模板
+ * AI 拆标摘要 Prompt 模板 v2
  * @module lib/services/ai-summary/prompt
- * @description 组装系统提示词与用户提示词（公告信息 + 供应商画像）。
- *              公告描述截断至 2000 字控制 token 消耗；转义 <script>/围栏 防注入。
+ * @description 6 维度结构化分析：核心交付/资质门槛/商务要素/竞争格局/投标策略/风险提示。
+ *              支持附件内容摘要和企业简介注入。描述截断 4000 字。
  */
 
-export const SYSTEM_PROMPT = `你是一位资深的国际采购分析师。根据招标公告信息和供应商企业画像，输出针对该企业的投标适配分析。分析必须基于公告原文事实，不可臆造。
+export const SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采购投标顾问，专精联合国及国际公共采购。
 
-输出严格遵循以下 JSON 格式（4 个字段，每个字段为一段中文文本，100-300字），不要输出任何额外解释或 markdown：
+## 分析原则
+1. 所有结论必须基于公告原文事实，不可臆造。找不到信息时明确标注"公告未披露"。
+2. 用具体数据和条款支撑每个判断，避免"建议关注""可能存在"等模糊表述。
+3. 站在供应商视角，给出可操作的投标建议。
+
+## 输出格式
+严格输出以下 JSON（6 个字段，每个字段为一段中文文本，150-350 字），不要输出任何额外解释或 markdown：
 {
-  "coreDeliverables": "核心交付物：本标要求采购的具体产品/服务/工程内容",
-  "keyQualifications": "关键资质要求：参与投标必须满足的资质、认证、注册等级等门槛",
-  "paymentCycle": "付款与周期建议：预算规模、付款条件、交付时间、币种等商务要素",
-  "riskAlerts": "风险提示：基于公告内容识别的 2-4 个投标风险点"
+  "coreDeliverables": "核心交付物：逐条列出本标要求采购的具体产品/服务/工程内容，标注数量和规格",
+  "keyQualifications": "资质门槛：分【必须满足】和【加分项】两级列出资质、认证、注册等级、业绩要求等",
+  "paymentCycle": "商务要素：预算规模、付款条件（分期/里程碑）、交付周期、币种、价格调整机制",
+  "competitiveLandscape": "竞争格局：分析潜在竞争对手类型（本地/国际/国企/民企）、市场集中度、中标常见特征",
+  "bidStrategy": "投标策略：基于供应商画像，给出差异化竞争建议、联合体建议、报价策略方向",
+  "riskAlerts": "风险提示：列出 2-4 个具体风险点，每个附带应对建议"
 }`;
 
-const DESC_MAX = 2000;
+const DESC_MAX = 4000;
+const ATTACH_MAX = 3000;
 
 /** 安全截断 */
 export function truncate(text: string, max: number): string {
@@ -31,7 +40,7 @@ function sanitize(text: string): string {
     .replace(/\$\{|\}/g, "");
 }
 
-/** 公告字段子集（仅取组装所需） */
+/** 公告字段子集 */
 export interface NoticePromptFields {
   title?: string;
   notice_type?: string;
@@ -45,6 +54,8 @@ export interface NoticePromptFields {
   eligibility?: string;
   technical_hurdles?: string;
   supplier_conditions?: string;
+  /** 附件文本摘要（前 2 个附件提取结果拼接） */
+  attachments_text?: string;
   [key: string]: unknown;
 }
 
@@ -57,6 +68,8 @@ export interface SupplierPromptFields {
   country?: string;
   city?: string;
   type?: string;
+  /** 企业简介 */
+  intro?: string;
 }
 
 function line(label: string, value: unknown, fallback = "未列出"): string {
@@ -85,6 +98,12 @@ export function buildUserPrompt(
   parts.push(line("供应商条件", notice.supplier_conditions));
   parts.push(`- 公告描述：\n${desc || "（无）"}`);
 
+  // 附件内容摘要
+  const attText = sanitize(truncate(String(notice.attachments_text || ""), ATTACH_MAX));
+  if (attText) {
+    parts.push(`\n## 附件内容摘要\n${attText}`);
+  }
+
   if (supplier && String(supplier.company || "").trim()) {
     parts.push("\n## 我的企业画像");
     parts.push(line("公司名称", supplier.company));
@@ -93,7 +112,10 @@ export function buildUserPrompt(
     parts.push(line("资质证书", supplier.certification, "未填写"));
     parts.push(line("所在地区", [supplier.country, supplier.city].filter(Boolean).join(" ")));
     parts.push(line("经营类型", supplier.type));
-    parts.push("\n请结合我的企业画像，分析我是否适合参与本标，并给出 4 个维度的适配分析。");
+    if (supplier.intro) {
+      parts.push(line("企业简介", truncate(supplier.intro, 500)));
+    }
+    parts.push("\n请结合我的企业画像，分析我是否适合参与本标，并给出 6 个维度的适配分析。");
   } else {
     parts.push("\n（该企业未绑定供应商画像，请给出通用投标分析。）");
   }
