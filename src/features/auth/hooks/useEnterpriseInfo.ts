@@ -10,22 +10,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/core/http";
 
-/** 企业信息 DTO（crm_suppliers 展示字段） */
-export interface EnterpriseInfo {
-  id: number;
-  companyName: string;
-  enterpriseNature: string;
-  supplierGrade: string;
-  industry: string;
-  mainProduct: string;
-  certification: string;
-  exportExperience: string;
-  country: string;
-  dataQualityScore: number | null;
-  createdAt: string | null;
-  registrationCount: number;
-  isPaid: boolean;
-}
+/** 企业信息（crm_suppliers 整行透传，键为 snake_case 列名） */
+export type EnterpriseInfo = Record<string, unknown>;
 
 interface EnterpriseResponse {
   bound: boolean;

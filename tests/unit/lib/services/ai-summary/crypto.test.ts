@@ -1,3 +1,7 @@
+/**
+ * crypto.ts 单元测试：AES-256-GCM 加解密往返与篡改检测
+ * @module tests/unit/lib/services/ai-summary/crypto.test
+ */
 import { describe, it, expect, beforeEach } from "vitest";
 import { encryptApiKey, decryptApiKey } from "@/lib/services/ai-summary/crypto";
 

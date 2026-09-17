@@ -85,8 +85,10 @@ export function useNoticeHandlers({
     // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
     if (!alreadyUnlocked) void loadNoticePreview(notice);
     // 全文内容加载：搜索 SQL 截断 description 为 300 字符，本请求替换为完整原文，
-    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义
-    loadNoticeContent(notice);
+    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
+    // 仅解锁态发起：/content 自 2026-09-05 起属付费墙闸口（ARCH-P0），锁定态发起必 403；
+    // 解锁成功后全文由 loadNoticeDetail 的 detail 载荷合并，无需在此补发。
+    if (alreadyUnlocked || notice.core_locked === false) loadNoticeContent(notice);
     // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
     // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
   }, [

@@ -32,7 +32,7 @@ export interface UseNoticeUnlockReturn {
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
   /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
   loadNoticePreview: (notice: NoticeItem) => Promise<void>;
-  /** 拉取公告全文内容（公开·不受锁定状态限制）替换搜索结果截断的 description */
+  /** 拉取公告全文内容替换搜索结果截断的 description；仅解锁态可调用（/content 属付费墙闸口，ARCH-P0 2026-09-05） */
   loadNoticeContent: (notice: NoticeItem) => void;
   /** 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情） */
   openNoticeById: (id: number) => Promise<void>;
