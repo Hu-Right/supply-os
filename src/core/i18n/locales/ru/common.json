@@ -89,5 +89,22 @@
   "settingsAccountSecurity": "Аккаунт и безопасность",
   "settingsMembership": "Членство",
   "settingsMyRecords": "Мои записи",
-  "authAccountType": "Тип аккаунта"
+  "authAccountType": "Тип аккаунта",
+  "authEnterpriseTitle": "Информация о компании",
+  "authEnterpriseLoadError": "Не удалось загрузить информацию о компании",
+  "authEnterpriseRetry": "Повторить",
+  "authEnterpriseNotBoundDesc": "Привяжите компанию, чтобы отобразить её данные и участвовать в международном матчинге",
+  "authEnterpriseBindNow": "Привязать",
+  "authEnterpriseName": "Название компании",
+  "authEnterpriseType": "Тип компании",
+  "authEnterpriseTypeIntl": "Международная",
+  "authEnterpriseTypeDomestic": "Внутренняя",
+  "authEnterpriseMembership": "Уровень членства",
+  "authEnterpriseStatus": "Статус привязки",
+  "authEnterpriseStatusLinked": "Привязано",
+  "authEnterpriseIndustry": "Отрасль",
+  "authEnterpriseLocation": "Страна / Город",
+  "authEnterpriseCertifications": "Сертификаты",
+  "authEnterpriseProducts": "Основная продукция",
+  "authEnterpriseManage": "Управлять компанией"
 }

@@ -120,6 +120,7 @@ export default defineConfig({
 
         // ── src/features/auth — 组件（有测试）──
         "src/features/auth/components/ProfileContent.tsx",
+        "src/features/auth/components/EnterpriseInfoCard.tsx",
 
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",

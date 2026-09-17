@@ -89,5 +89,22 @@
   "settingsAccountSecurity": "الحساب والأمان",
   "settingsMembership": "العضوية",
   "settingsMyRecords": "سجلاتي",
-  "authAccountType": "نوع الحساب"
+  "authAccountType": "نوع الحساب",
+  "authEnterpriseTitle": "معلومات المؤسسة",
+  "authEnterpriseLoadError": "فشل تحميل معلومات المؤسسة",
+  "authEnterpriseRetry": "إعادة المحاولة",
+  "authEnterpriseNotBoundDesc": "اربط مؤسستك لعرض معلوماتها والمشاركة في المطابقة الدولية",
+  "authEnterpriseBindNow": "ربط الآن",
+  "authEnterpriseName": "اسم الشركة",
+  "authEnterpriseType": "نوع المؤسسة",
+  "authEnterpriseTypeIntl": "دولية",
+  "authEnterpriseTypeDomestic": "محلية",
+  "authEnterpriseMembership": "مستوى العضوية",
+  "authEnterpriseStatus": "حالة الربط",
+  "authEnterpriseStatusLinked": "مرتبط",
+  "authEnterpriseIndustry": "القطاع",
+  "authEnterpriseLocation": "الدولة / المدينة",
+  "authEnterpriseCertifications": "الشهادات",
+  "authEnterpriseProducts": "المنتجات الرئيسية",
+  "authEnterpriseManage": "إدارة المؤسسة"
 }

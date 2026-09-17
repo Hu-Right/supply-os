@@ -89,5 +89,22 @@
   "settingsAccountSecurity": "Compte et sécurité",
   "settingsMembership": "Abonnement",
   "settingsMyRecords": "Mes records",
-  "authAccountType": "Type de compte"
+  "authAccountType": "Type de compte",
+  "authEnterpriseTitle": "Infos entreprise",
+  "authEnterpriseLoadError": "Échec du chargement des infos entreprise",
+  "authEnterpriseRetry": "Réessayer",
+  "authEnterpriseNotBoundDesc": "Liez votre entreprise pour afficher ses infos et rejoindre le matchmaking international",
+  "authEnterpriseBindNow": "Lier maintenant",
+  "authEnterpriseName": "Nom de l'entreprise",
+  "authEnterpriseType": "Type d'entreprise",
+  "authEnterpriseTypeIntl": "International",
+  "authEnterpriseTypeDomestic": "Domestique",
+  "authEnterpriseMembership": "Niveau d'adhésion",
+  "authEnterpriseStatus": "Statut de liaison",
+  "authEnterpriseStatusLinked": "Lié",
+  "authEnterpriseIndustry": "Secteur",
+  "authEnterpriseLocation": "Pays / Ville",
+  "authEnterpriseCertifications": "Certifications",
+  "authEnterpriseProducts": "Produits principaux",
+  "authEnterpriseManage": "Gérer l'entreprise"
 }

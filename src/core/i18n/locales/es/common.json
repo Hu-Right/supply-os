@@ -89,5 +89,22 @@
   "settingsAccountSecurity": "Cuenta y seguridad",
   "settingsMembership": "Membresía",
   "settingsMyRecords": "Mis registros",
-  "authAccountType": "Tipo de cuenta"
+  "authAccountType": "Tipo de cuenta",
+  "authEnterpriseTitle": "Información de la empresa",
+  "authEnterpriseLoadError": "Error al cargar la información de la empresa",
+  "authEnterpriseRetry": "Reintentar",
+  "authEnterpriseNotBoundDesc": "Vincule su empresa para mostrar su información y unirse al emparejamiento internacional",
+  "authEnterpriseBindNow": "Vincular ahora",
+  "authEnterpriseName": "Nombre de la empresa",
+  "authEnterpriseType": "Tipo de empresa",
+  "authEnterpriseTypeIntl": "Internacional",
+  "authEnterpriseTypeDomestic": "Nacional",
+  "authEnterpriseMembership": "Nivel de membresía",
+  "authEnterpriseStatus": "Estado de vinculación",
+  "authEnterpriseStatusLinked": "Vinculado",
+  "authEnterpriseIndustry": "Sector",
+  "authEnterpriseLocation": "País / Ciudad",
+  "authEnterpriseCertifications": "Certificaciones",
+  "authEnterpriseProducts": "Productos principales",
+  "authEnterpriseManage": "Gestionar empresa"
 }

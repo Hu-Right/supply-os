@@ -5,15 +5,18 @@
  * @description 登录守卫：未登录展示"请先登录"引导（派发 require-login 打开登录弹窗），
  *              已登录渲染 ProfileContent（原账号弹窗正文的页面化版本）。
  */
+import { useState } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
 import { ProfileContent } from "@/features/auth/components/ProfileContent";
+import { SupplierRegisterModal } from "@/features/supplier/components/SupplierRegisterModal";
 
 export default function ProfileSettingsClient() {
   const { authUser } = useAuth();
   const { t } = useLocale();
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
 
   // 未登录：不自动弹窗（避免 SSR/hydration 副作用），仅渲染引导按钮由用户触发
   if (!authUser) {
@@ -32,5 +35,15 @@ export default function ProfileSettingsClient() {
     );
   }
 
-  return <ProfileContent />;
+  return (
+    <>
+      <ProfileContent onBindEnterprise={() => setShowRegisterModal(true)} />
+      {showRegisterModal && (
+        <SupplierRegisterModal
+          onClose={() => setShowRegisterModal(false)}
+          onRegistered={() => setShowRegisterModal(false)}
+        />
+      )}
+    </>
+  );
 }

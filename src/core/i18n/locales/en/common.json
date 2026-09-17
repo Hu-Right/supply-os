@@ -94,5 +94,22 @@
   "settingsAccountSecurity": "Account & Security",
   "settingsMembership": "Membership",
   "settingsMyRecords": "My Records",
-  "authAccountType": "Account Type"
+  "authAccountType": "Account Type",
+  "authEnterpriseTitle": "Enterprise Info",
+  "authEnterpriseLoadError": "Failed to load enterprise info",
+  "authEnterpriseRetry": "Retry",
+  "authEnterpriseNotBoundDesc": "Bind your enterprise to display its info and join international procurement matching",
+  "authEnterpriseBindNow": "Bind Now",
+  "authEnterpriseName": "Company Name",
+  "authEnterpriseType": "Enterprise Type",
+  "authEnterpriseTypeIntl": "International",
+  "authEnterpriseTypeDomestic": "Domestic",
+  "authEnterpriseMembership": "Membership Tier",
+  "authEnterpriseStatus": "Binding Status",
+  "authEnterpriseStatusLinked": "Linked",
+  "authEnterpriseIndustry": "Industry",
+  "authEnterpriseLocation": "Country / City",
+  "authEnterpriseCertifications": "Certifications",
+  "authEnterpriseProducts": "Main Products",
+  "authEnterpriseManage": "Manage Enterprise"
 }

@@ -94,5 +94,22 @@
   "settingsAccountSecurity": "账号与安全",
   "settingsMembership": "会员权益",
   "settingsMyRecords": "我的记录",
-  "authAccountType": "账户属性"
+  "authAccountType": "账户属性",
+  "authEnterpriseTitle": "企业信息",
+  "authEnterpriseLoadError": "企业信息加载失败",
+  "authEnterpriseRetry": "重试",
+  "authEnterpriseNotBoundDesc": "绑定企业后即可展示企业信息并参与国际采购撮合",
+  "authEnterpriseBindNow": "立即绑定",
+  "authEnterpriseName": "企业名称",
+  "authEnterpriseType": "企业类型",
+  "authEnterpriseTypeIntl": "国际",
+  "authEnterpriseTypeDomestic": "国内",
+  "authEnterpriseMembership": "会员等级",
+  "authEnterpriseStatus": "绑定状态",
+  "authEnterpriseStatusLinked": "已绑定",
+  "authEnterpriseIndustry": "所属行业",
+  "authEnterpriseLocation": "国家/城市",
+  "authEnterpriseCertifications": "认证资质",
+  "authEnterpriseProducts": "主营产品",
+  "authEnterpriseManage": "管理企业信息"
 }
