@@ -40,14 +40,15 @@ export interface AppHeaderProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   onSwitchTab: (path: string) => void;
-  onOpenAuth: () => void;
+  /** 账户入口：已登录跳 /settings/profile，未登录开登录弹窗 */
+  onOpenAccount: () => void;
   /** 会员等级标签（由 app 层调用 useMembershipTier 获取后传入，避免 shared→features 违规） */
   tierLabel: string;
 }
 
 export function AppHeader({
   tabs, activeTab,
-  mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAuth,
+  mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAccount,
   tierLabel,
 }: AppHeaderProps) {
   const { t } = useLocale();
@@ -110,7 +111,7 @@ export function AppHeader({
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
-            <button onClick={onOpenAuth}
+            <button onClick={onOpenAccount}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
               <span className="hidden md:inline">{authUser ? `${authUser.nickname || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
