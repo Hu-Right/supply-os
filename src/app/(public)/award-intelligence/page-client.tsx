@@ -15,12 +15,16 @@ import {
 } from "lucide-react";
 import { ErrorBoundary, PageErrorFallback, Modal } from "@/shared/ui";
 import { CN_AWARD_CASES, CN_CASE_CATEGORIES, type CnAwardCase } from "@/data/cn-award-cases";
+import { useAwardsData } from "@/features/procurement/hooks/useAwardsData";
 
 /* ═══════════════════════════════════════════
-   数据层 — 全部基于 UN ASR 2025 / UNICEF Report
+   数据层 — 策展数据（UN ASR 2025 / UNICEF Report）
+   当爬虫数据入库后，useAwardsData 会返回真实数据，
+   页面优先展示真实数据，策展数据作为降级兜底。
    ═══════════════════════════════════════════ */
 
-const STATS = [
+/** 策展 STATS（降级兜底） */
+const CURATED_STATS = [
   { label: "中标记录", value: "12,847", sub: "本月 +128" },
   { label: "采购机构档案", value: "386", sub: "覆盖 193 个国家" },
   { label: "可追踪竞争对手", value: "2,150+", sub: "持续更新中" },
@@ -737,6 +741,19 @@ export default function PageClient() {
   const [cnShowAll, setCnShowAll] = useState(false);
   const [cnDetail, setCnDetail] = useState<CnAwardCase | null>(null);
 
+  // ── 真实中标数据（爬虫入库后自动生效） ──
+  const awardsData = useAwardsData();
+
+  // 动态 STATS：有真实数据时用真实数据，否则降级到策展数据
+  const STATS = awardsData.hasRealData && awardsData.stats
+    ? [
+        { label: "中标记录", value: awardsData.stats.total.toLocaleString(), sub: `本月 +${awardsData.stats.by_month[0]?.count ?? 0}` },
+        { label: "采购机构档案", value: String(awardsData.stats.by_agency.length), sub: `覆盖 ${awardsData.stats.by_country.length} 个国家` },
+        { label: "可追踪竞争对手", value: `${awardsData.stats.top_winners.length}+`, sub: "持续更新中" },
+        { label: "数据追踪", value: awardsData.stats.by_month.length > 0 ? `${awardsData.stats.by_month[awardsData.stats.by_month.length - 1].month.slice(0, 4)}年起` : "2016年起", sub: "持续更新中" },
+      ]
+    : CURATED_STATS;
+
   const handleSearch = () => {
     const q = searchQuery.trim();
     router.push(`/procurement${q ? `?q=${encodeURIComponent(q)}` : ""}`);
@@ -753,6 +770,12 @@ export default function PageClient() {
           <span className="text-lg md:text-xl font-bold text-slate-300">全球中标数据 · 买家情报 · 竞争分析</span>
         </h1>
         <p className="text-slate-400 text-sm max-w-3xl">聚合全球公共采购中标数据，深度分析买家采购周期、竞争格局与价格趋势，助力企业精准把握市场机会。</p>
+        {awardsData.hasRealData && (
+          <p className="text-teal-400 text-xs mt-2 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse inline-block" />
+            实时数据已接入 · {awardsData.stats?.total.toLocaleString()} 条中标记录
+          </p>
+        )}
       </section>
 
       <div className="px-4 sm:px-6 lg:px-8 -mt-6">
