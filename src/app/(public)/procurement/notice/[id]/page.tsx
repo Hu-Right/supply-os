@@ -58,14 +58,14 @@ function formatDeadline(row: NoticeSeoRow): string {
   if (row.deadline_sec && row.deadline_sec > 0) {
     return new Date(row.deadline_sec * 1000).toISOString().slice(0, 10);
   }
-  return "No deadline (open)";
+  return "无截止日期（长期有效）";
 }
 
 function buildSummary(row: NoticeSeoRow): string {
   const parts = [
     row.agency || row.agency_full,
     row.country,
-    row.notice_type ? `${row.notice_type} notice` : "procurement notice",
+    row.notice_type ? `${row.notice_type} 采购公告` : "国际采购公告",
   ].filter(Boolean);
   const head = parts.join(" · ");
   const teaser = (row.description || "").replace(/\s+/g, " ").trim().slice(0, 160);
@@ -128,8 +128,8 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: absoluteUrl("") },
-        { "@type": "ListItem", position: 2, name: "Procurement Notices", item: absoluteUrl("/procurement") },
+        { "@type": "ListItem", position: 1, name: "首页", item: absoluteUrl("") },
+        { "@type": "ListItem", position: 2, name: "全球商机", item: absoluteUrl("/procurement") },
         { "@type": "ListItem", position: 3, name: row.title, item: url },
       ],
     },
@@ -150,13 +150,13 @@ export default async function NoticeSeoPage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
       {/* 面包屑 */}
-      <nav aria-label="Breadcrumb" className="text-sm text-slate-500">
+      <nav aria-label="面包屑" className="text-sm text-slate-500">
         <ol className="flex flex-wrap items-center gap-2">
-          <li><Link href="/" className="hover:text-training-green">Home</Link></li>
+          <li><Link href="/" className="hover:text-training-green">首页</Link></li>
           <li aria-hidden>/</li>
-          <li><Link href="/procurement" className="hover:text-training-green">Procurement Notices</Link></li>
+          <li><Link href="/procurement" className="hover:text-training-green">全球商机</Link></li>
           <li aria-hidden>/</li>
-          <li className="max-w-[16rem] truncate text-slate-700" title={row.title}>Notice #{row.id}</li>
+          <li className="max-w-[16rem] truncate text-slate-700" title={row.title}>公告 #{row.id}</li>
         </ol>
       </nav>
 
@@ -172,42 +172,42 @@ export default async function NoticeSeoPage({ params }: PageProps) {
 
       {/* 公开元信息 */}
       <dl className="grid grid-cols-2 gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:grid-cols-3">
-        <MetaItem label="Agency" value={row.agency || row.agency_full} />
-        <MetaItem label="Full Agency" value={row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
-        <MetaItem label="Country" value={row.country} />
-        <MetaItem label="Deadline" value={deadline} />
-        <MetaItem label="Published" value={row.published_date} />
-        <MetaItem label="Reference" value={row.reference} />
-        <MetaItem label="Est. Value" value={row.estimated_value} />
-        <MetaItem label="Source ID" value={row.notice_id} />
+        <MetaItem label="采购方" value={row.agency || row.agency_full} />
+        <MetaItem label="机构全称" value={row.agency_full && row.agency_full !== row.agency ? row.agency_full : null} />
+        <MetaItem label="国家/地区" value={row.country} />
+        <MetaItem label="截止时间" value={deadline} />
+        <MetaItem label="发布时间" value={row.published_date} />
+        <MetaItem label="公告编号" value={row.reference} />
+        <MetaItem label="预算/金额" value={row.estimated_value} />
+        <MetaItem label="来源编号" value={row.notice_id} />
       </dl>
 
       {/* 公开 teaser（与搜索列表 300 字符同口径） */}
       {row.description && (
         <section className="space-y-2">
-          <h2 className="text-lg font-bold text-slate-900">Notice Overview</h2>
+          <h2 className="text-lg font-bold text-slate-900">公告概况</h2>
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-600">{row.description}</p>
         </section>
       )}
 
       {/* 解锁 CTA —— 完整公告内容/联系人/文档需登录解锁 */}
       <section className="rounded-2xl border border-training-green/20 bg-training-green/5 p-6">
-        <h2 className="text-base font-bold text-slate-900">View the full notice</h2>
+        <h2 className="text-base font-bold text-slate-900">查看完整公告</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Full description, contacts and procurement documents are available to signed-in members.
+          完整描述、联系方式与采购文件需登录解锁后查看。
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={`/procurement?notice_id=${row.id}`}
             className="rounded-lg bg-training-green px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-training-green-hover"
           >
-            Open notice details
+            打开公告详情
           </Link>
           <Link
             href="/procurement"
             className="rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:border-training-green/40 hover:text-training-green"
           >
-            Search all notices
+            搜索全部公告
           </Link>
         </div>
       </section>
