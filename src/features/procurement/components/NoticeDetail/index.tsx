@@ -92,7 +92,9 @@ export function NoticeDetail({
     `${notice.title || ""}\n${notice.description || ""}`,
     locale === "zh" ? (notice.title_i18n || undefined) : undefined,
   );
-  const displayTitle = hookDisplayTitle || notice.title;
+  // 标题回退链：hook 译文 > 列表 i18n 标题（锁定态 seed 未注入时兜底）> 原文
+  // 修复：锁定态详情页跳过 title_i18n 导致中文环境下标题显示英文的问题
+  const displayTitle = hookDisplayTitle || notice.title_i18n || notice.title;
   const displayDescription = showOriginal
     ? (notice.original_description || notice.description)
     : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
