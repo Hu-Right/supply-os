@@ -96,6 +96,7 @@
   "authEnterpriseNotBoundDesc": "Liez votre entreprise pour afficher ses infos et rejoindre le matchmaking international",
   "authEnterpriseBindNow": "Lier maintenant",
   "authEnterpriseName": "Nom de l'entreprise",
+  "authEnterpriseEnglishName": "Nom légal en anglais",
   "authEnterpriseType": "Type d'entreprise",
   "authEnterpriseTypeIntl": "International",
   "authEnterpriseTypeDomestic": "Domestique",

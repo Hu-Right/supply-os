@@ -96,6 +96,7 @@
   "authEnterpriseNotBoundDesc": "Привяжите компанию, чтобы отобразить её данные и участвовать в международном матчинге",
   "authEnterpriseBindNow": "Привязать",
   "authEnterpriseName": "Название компании",
+  "authEnterpriseEnglishName": "Юридическое название на английском",
   "authEnterpriseType": "Тип компании",
   "authEnterpriseTypeIntl": "Международная",
   "authEnterpriseTypeDomestic": "Внутренняя",

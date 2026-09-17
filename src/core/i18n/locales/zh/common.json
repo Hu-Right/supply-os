@@ -101,6 +101,7 @@
   "authEnterpriseNotBoundDesc": "绑定企业后即可展示企业信息并参与国际采购撮合",
   "authEnterpriseBindNow": "立即绑定",
   "authEnterpriseName": "企业名称",
+  "authEnterpriseEnglishName": "企业英文法务名",
   "authEnterpriseType": "企业类型",
   "authEnterpriseTypeIntl": "国际",
   "authEnterpriseTypeDomestic": "国内",

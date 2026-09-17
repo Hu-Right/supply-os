@@ -96,6 +96,7 @@
   "authEnterpriseNotBoundDesc": "Vincule su empresa para mostrar su información y unirse al emparejamiento internacional",
   "authEnterpriseBindNow": "Vincular ahora",
   "authEnterpriseName": "Nombre de la empresa",
+  "authEnterpriseEnglishName": "Nombre legal en inglés",
   "authEnterpriseType": "Tipo de empresa",
   "authEnterpriseTypeIntl": "Internacional",
   "authEnterpriseTypeDomestic": "Nacional",

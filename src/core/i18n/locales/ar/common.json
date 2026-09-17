@@ -96,6 +96,7 @@
   "authEnterpriseNotBoundDesc": "اربط مؤسستك لعرض معلوماتها والمشاركة في المطابقة الدولية",
   "authEnterpriseBindNow": "ربط الآن",
   "authEnterpriseName": "اسم الشركة",
+  "authEnterpriseEnglishName": "الاسم القانوني بالإنجليزية",
   "authEnterpriseType": "نوع المؤسسة",
   "authEnterpriseTypeIntl": "دولية",
   "authEnterpriseTypeDomestic": "محلية",

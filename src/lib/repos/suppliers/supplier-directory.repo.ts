@@ -121,7 +121,7 @@ export class SupplierDirectoryRepo {
 
   /** 企业信息可编辑列白名单（与 supplier 最终表结构一致） */
   static readonly EDITABLE_COLUMNS = [
-    "company", "name_confirmed", "country", "country_code", "province", "city",
+    "company", "english_name", "name_confirmed", "country", "country_code", "province", "city",
     "address", "registered_address", "contact", "position", "phone", "email",
     "registered_phone", "registered_email", "website", "legal_rep",
     "established_at", "registered_capital", "credit_code", "industry",

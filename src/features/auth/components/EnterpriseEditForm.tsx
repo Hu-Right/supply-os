@@ -45,6 +45,7 @@ const SUPPLIER_TYPE_OPTIONS: OptionDef[] = [
 
 const BASIC_FIELDS: FieldDef[] = [
   { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
+  { key: "english_name", labelKey: "authEnterpriseEnglishName", fallback: "企业英文法务名" },
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true },
   { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true },
 ];
@@ -53,8 +54,6 @@ const CONTACT_FIELDS: FieldDef[] = [
   { key: "position", labelKey: "authEnterprisePosition", fallback: "职位" },
   { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
   { key: "email", labelKey: "authEnterpriseEmail", fallback: "邮箱" },
-  { key: "registered_phone", labelKey: "authEnterpriseRegPhone", fallback: "注册电话" },
-  { key: "registered_email", labelKey: "authEnterpriseRegEmail", fallback: "注册邮箱" },
   { key: "website", labelKey: "authEnterpriseWebsite", fallback: "官网", full: true },
 ];
 const BUSINESS_FIELDS: FieldDef[] = [
@@ -72,6 +71,8 @@ const BUSINESS_FIELDS: FieldDef[] = [
 /** 必填字段（预提交阻断校验点名用） */
 const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
   { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
+  { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码" },
+  { key: "legal_rep", labelKey: "authEnterpriseLegalRep", fallback: "法定代表人" },
   { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份" },
   { key: "city", labelKey: "authEnterpriseCity", fallback: "城市" },
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址" },

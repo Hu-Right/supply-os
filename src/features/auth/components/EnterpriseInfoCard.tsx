@@ -169,6 +169,7 @@ export function EnterpriseInfoCard({
   const basicCells: Cell[] = [
     { label: t("authEnterpriseId") || "ID", value: sv(row, "id") },
     { label: t("authEnterpriseNameConfirmed") || "确认后公司名", value: companyName },
+    { label: t("authEnterpriseEnglishName") || "企业英文法务名", value: sv(row, "english_name") },
     { label: t("authEnterpriseProvince") || "省份", value: sv(row, "province") },
     { label: t("authEnterpriseCity") || "城市", value: sv(row, "city") },
     { label: t("authEnterpriseBizAddress") || "经营地址", value: sv(row, "address"), full: true },
@@ -182,8 +183,6 @@ export function EnterpriseInfoCard({
     { label: t("authEnterprisePosition") || "职位", value: sv(row, "position") },
     { label: t("authEnterprisePhone") || "联系电话", value: sv(row, "phone") },
     { label: t("authEnterpriseEmail") || "邮箱", value: sv(row, "email") },
-    { label: t("authEnterpriseRegPhone") || "注册电话", value: sv(row, "registered_phone") },
-    { label: t("authEnterpriseRegEmail") || "注册邮箱", value: sv(row, "registered_email") },
     { label: t("authEnterpriseWebsite") || "官网", value: sv(row, "website"), full: true },
   ];
 

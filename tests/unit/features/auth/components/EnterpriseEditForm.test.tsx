@@ -37,7 +37,8 @@ describe("EnterpriseEditForm", () => {
     render(
       <EnterpriseEditForm
         initial={{
-          company: "X", province: "浙江省", city: "杭州市", address: "某路1号",
+          company: "X", credit_code: "91330000MA1234567X", legal_rep: "张三",
+          province: "浙江省", city: "杭州市", address: "某路1号",
           contact: "Y", phone: "123", industry: "IT", products: "P", type: "factory",
         } as never}
         saving={false}
