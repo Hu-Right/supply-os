@@ -35,6 +35,8 @@ export interface AiSummarySectionProps {
   error?: string | null;
   llmConfigured?: boolean;
   onConfigure?: () => void;
+  /** 点击"开始分析"的回调 */
+  onStart?: () => void;
   onRegenerate?: () => void;
 }
 
@@ -53,6 +55,7 @@ export function AiSummarySection({
   error = null,
   llmConfigured = false,
   onConfigure,
+  onStart,
   onRegenerate,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
@@ -136,7 +139,7 @@ export function AiSummarySection({
     );
   }
 
-  // 无数据占位
+  // 无数据占位：已配置 LLM 时显示"开始分析"按钮
   if (!hasData) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -146,9 +149,34 @@ export function AiSummarySection({
             {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
           </h3>
         </div>
-        <p className="text-sm text-slate-500">
-          {t("procurement_aiSummaryUnavailable") || "AI 分析正在生成中，请稍后刷新查看。"}
-        </p>
+        {llmConfigured ? (
+          <div>
+            <p className="text-sm text-slate-500 mb-3">
+              {t("detail_aiSummaryClickStart") || "点击按钮，AI 将结合您的企业画像生成本标 6 维度适配分析。"}
+            </p>
+            <button
+              type="button"
+              onClick={onStart}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              {t("detail_aiSummaryStart") || "开始 AI 分析"}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm text-slate-500 mb-3">
+              {t("procurement_aiSummaryNeedConfig") || "配置您的 AI 模型后，即可结合企业画像生成 6 维度投标适配分析。"}
+            </p>
+            <button
+              type="button"
+              onClick={onConfigure}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+            >
+              {t("procurement_aiSummaryGoConfig") || "去配置 AI 模型"} →
+            </button>
+          </div>
+        )}
       </section>
     );
   }

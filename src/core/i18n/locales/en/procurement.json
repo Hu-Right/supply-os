@@ -538,6 +538,8 @@
   "detail_bidStrategy": "Bid Strategy",
   "detail_aiSummaryStreaming": "Analyzing…",
   "detail_aiSummaryGenerating": "Generating…",
+  "detail_aiSummaryStart": "Start AI Analysis",
+  "detail_aiSummaryClickStart": "Click to let AI generate a 6-dimension bid fit analysis based on your company profile.",
   "detail_sourceOfficial": "Official Portal",
   "procurement_aiSummaryTitle": "AI Bid Summary",
   "procurement_aiSummaryLocked": "Upgrade to unlock full AI analysis",

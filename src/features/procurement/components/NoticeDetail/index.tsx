@@ -158,6 +158,7 @@ export function NoticeDetail({
                   streaming={aiSummary.streaming}
                   error={aiSummary.error}
                   llmConfigured={aiSummary.llmConfigured}
+                  onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />

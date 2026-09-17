@@ -17,9 +17,11 @@ const mockData = {
 };
 
 describe("AiSummarySection", () => {
-  it("无数据但已配置时显示占位提示", () => {
-    render(<AiSummarySection data={null} llmConfigured />);
+  it("无数据但已配置时显示开始分析按钮", () => {
+    const onStart = vi.fn();
+    render(<AiSummarySection data={null} llmConfigured onStart={onStart} />);
     expect(screen.getByText("detail_aiSummaryTitle")).toBeInTheDocument();
+    expect(screen.getByText("detail_aiSummaryStart")).toBeInTheDocument();
   });
 
   it("未配置 LLM 且无数据时显示引导卡片", () => {

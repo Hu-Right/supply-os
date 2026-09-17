@@ -110,7 +110,7 @@ export function useAiAnalysis(
     }
   }, []);
 
-  // 进入详情：先查配置，已配置则流式拉摘要
+  // 进入详情：仅检查 LLM 配置状态，不自动触发分析（由用户手动点击开始）
   useEffect(() => {
     abortRef.current = false;
     if (!noticeId || !isLoggedIn) {
@@ -122,15 +122,13 @@ export function useAiAnalysis(
       try {
         const cfg = await fetchLlmConfig();
         if (cancelled) return;
-        const configured = !!cfg.data?.configured;
-        setLlmConfigured(configured);
-        if (configured) await run(noticeId, false);
+        setLlmConfigured(!!cfg.data?.configured);
       } catch {
         if (!cancelled) setLlmConfigured(false);
       }
     })();
     return () => { cancelled = true; abortRef.current = true; };
-  }, [noticeId, isLoggedIn, run]);
+  }, [noticeId, isLoggedIn]);
 
   const triggerAnalysis = useCallback((force = false) => {
     if (!noticeId) return;
