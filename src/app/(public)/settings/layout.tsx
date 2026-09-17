@@ -6,12 +6,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User } from "lucide-react";
+import { Cpu, User, Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 
 const NAV_ITEMS = [
   { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
+  { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
 ];
 

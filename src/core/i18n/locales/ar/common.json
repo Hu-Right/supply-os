@@ -106,5 +106,12 @@
   "authEnterpriseLocation": "الدولة / المدينة",
   "authEnterpriseCertifications": "الشهادات",
   "authEnterpriseProducts": "المنتجات الرئيسية",
-  "authEnterpriseManage": "إدارة المؤسسة"
+  "authEnterpriseManage": "إدارة المؤسسة",
+  "settingsEnterprise": "المؤسسة",
+  "authEnterpriseNature": "طبيعة المؤسسة",
+  "authEnterpriseGrade": "درجة المورد",
+  "authEnterpriseCountry": "الدولة",
+  "authEnterpriseExport": "خبرة التصدير",
+  "authEnterpriseScore": "درجة البيانات",
+  "authEnterpriseRegisteredAt": "تاريخ التسجيل"
 }

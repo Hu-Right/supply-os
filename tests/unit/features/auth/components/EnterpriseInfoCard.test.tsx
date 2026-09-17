@@ -6,42 +6,37 @@ vi.mock("@/core/i18n", () => ({
 }));
 
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
-import type { Supplier } from "@/types";
+import type { EnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
 
-const mockSupplier = {
-  id: "sup-db-1",
-  nameZh: "测试企业有限公司",
-  nameEn: "Test Co",
-  type: "domestic",
-  industryZh: "信息技术",
-  industryEn: "IT",
-  countryZh: "中国",
-  countryEn: "China",
-  cityZh: "深圳",
-  cityEn: "Shenzhen",
-  mainProductsZh: ["服务器", "交换机"],
-  mainProductsEn: ["server", "switch"],
-  complianceLabelsZh: ["ISO 9001", "CE"],
-  complianceLabelsEn: ["ISO 9001", "CE"],
-  contactPerson: "",
-  contactEmail: "",
-  contactPhone: "",
-  status: "approved",
-} as Supplier;
+const mockEnterprise: EnterpriseInfo = {
+  id: 1,
+  companyName: "测试企业有限公司",
+  enterpriseNature: "工厂",
+  supplierGrade: "L2",
+  industry: "信息技术",
+  mainProduct: "服务器、交换机",
+  certification: "ISO 9001、CE",
+  exportExperience: "3 年",
+  country: "中国",
+  dataQualityScore: 88.5,
+  createdAt: "2026-01-15T00:00:00.000Z",
+  registrationCount: 1,
+  isPaid: false,
+};
 
 const noop = vi.fn();
 
 describe("EnterpriseInfoCard", () => {
   it("加载中显示骨架屏", () => {
     const { container } = render(
-      <EnterpriseInfoCard supplier={null} loading error={null} onRetry={noop} onManage={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={null} loading error={null} onRetry={noop} onBind={noop} />,
     );
     expect(container.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 
   it("加载失败显示错误与重试", () => {
     render(
-      <EnterpriseInfoCard supplier={null} loading={false} error="boom" onRetry={noop} onManage={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={null} loading={false} error="boom" onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseLoadError")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseRetry")).toBeInTheDocument();
@@ -49,20 +44,20 @@ describe("EnterpriseInfoCard", () => {
 
   it("未绑定显示引导与立即绑定", () => {
     render(
-      <EnterpriseInfoCard supplier={null} loading={false} error={null} onRetry={noop} onManage={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={null} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseNotBoundDesc")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseBindNow")).toBeInTheDocument();
   });
 
-  it("已绑定显示企业名称与管理按钮", () => {
+  it("已绑定展示企业表字段", () => {
     render(
-      <EnterpriseInfoCard supplier={mockSupplier} loading={false} error={null} onRetry={noop} onManage={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={mockEnterprise} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("测试企业有限公司")).toBeInTheDocument();
-    expect(screen.getByText("authEnterpriseManage")).toBeInTheDocument();
-    // 资质/产品以 、 join 展示
     expect(screen.getByText("ISO 9001、CE")).toBeInTheDocument();
     expect(screen.getByText("服务器、交换机")).toBeInTheDocument();
+    expect(screen.getByText("88.5")).toBeInTheDocument();
+    expect(screen.getByText("2026-01-15")).toBeInTheDocument();
   });
 });

@@ -106,5 +106,12 @@
   "authEnterpriseLocation": "Pays / Ville",
   "authEnterpriseCertifications": "Certifications",
   "authEnterpriseProducts": "Produits principaux",
-  "authEnterpriseManage": "Gérer l'entreprise"
+  "authEnterpriseManage": "Gérer l'entreprise",
+  "settingsEnterprise": "Entreprise",
+  "authEnterpriseNature": "Nature de l'entreprise",
+  "authEnterpriseGrade": "Grade fournisseur",
+  "authEnterpriseCountry": "Pays",
+  "authEnterpriseExport": "Expérience d'export",
+  "authEnterpriseScore": "Score des données",
+  "authEnterpriseRegisteredAt": "Date d'inscription"
 }

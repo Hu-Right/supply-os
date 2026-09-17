@@ -111,5 +111,12 @@
   "authEnterpriseLocation": "国家/城市",
   "authEnterpriseCertifications": "认证资质",
   "authEnterpriseProducts": "主营产品",
-  "authEnterpriseManage": "管理企业信息"
+  "authEnterpriseManage": "管理企业信息",
+  "settingsEnterprise": "企业信息",
+  "authEnterpriseNature": "企业性质",
+  "authEnterpriseGrade": "供应商等级",
+  "authEnterpriseCountry": "所在国家",
+  "authEnterpriseExport": "出口经验",
+  "authEnterpriseScore": "资料评分",
+  "authEnterpriseRegisteredAt": "注册时间"
 }

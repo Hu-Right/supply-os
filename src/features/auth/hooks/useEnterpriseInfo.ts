@@ -1,48 +1,71 @@
 /**
- * 企业信息取数 Hook
+ * 企业信息取数 Hook（企业表 crm_suppliers）
  * Enterprise Info Hook
  *
  * @module features/auth/hooks/useEnterpriseInfo
- * @description 按当前用户绑定的 supplier_id 拉取供应商目录信息（复用公开端点
- *              GET /api/suppliers/[id]，返回裸 Supplier DTO）。supplier_id 为空
- *              （未绑定）时不发请求直接 supplier=null。提供 loading/error/retry。
+ * @description 调用 GET /api/user/enterprise（后端按 crm_users.supplier_id 关联
+ *              crm_suppliers 企业表）获取当前用户企业信息。未绑定返回 bound=false。
+ *              提供 loading/error/retry。
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/core/http";
-import type { Supplier } from "@/types";
+
+/** 企业信息 DTO（crm_suppliers 展示字段） */
+export interface EnterpriseInfo {
+  id: number;
+  companyName: string;
+  enterpriseNature: string;
+  supplierGrade: string;
+  industry: string;
+  mainProduct: string;
+  certification: string;
+  exportExperience: string;
+  country: string;
+  dataQualityScore: number | null;
+  createdAt: string | null;
+  registrationCount: number;
+  isPaid: boolean;
+}
+
+interface EnterpriseResponse {
+  bound: boolean;
+  linkStatus: string;
+  enterprise: EnterpriseInfo | null;
+}
 
 export interface UseEnterpriseInfoReturn {
-  /** 已绑定供应商信息；未绑定或加载失败为 null */
-  supplier: Supplier | null;
+  bound: boolean;
+  linkStatus: string;
+  enterprise: EnterpriseInfo | null;
   loading: boolean;
   error: string | null;
   retry: () => void;
 }
 
-export function useEnterpriseInfo(supplierId: number | undefined): UseEnterpriseInfoReturn {
-  const [supplier, setSupplier] = useState<Supplier | null>(null);
-  const [loading, setLoading] = useState(false);
+export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
+  const [bound, setBound] = useState(false);
+  const [linkStatus, setLinkStatus] = useState("none");
+  const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
-    // 未绑定供应商：不发请求
-    if (!supplierId) {
-      setSupplier(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     setError(null);
-    api<Supplier>(`/api/suppliers/${supplierId}`)
-      .then((d) => {
-        if (!cancelled) setSupplier(d ?? null);
+    api<{ code: number; data: EnterpriseResponse }>("/api/user/enterprise")
+      .then((res) => {
+        if (cancelled) return;
+        const d = res.data;
+        setBound(!!d?.bound);
+        setLinkStatus(d?.linkStatus || "none");
+        setEnterprise(d?.enterprise ?? null);
       })
       .catch((e) => {
         if (!cancelled) {
-          setSupplier(null);
+          setBound(false);
+          setEnterprise(null);
           setError(e instanceof Error ? e.message : "load-failed");
         }
       })
@@ -52,9 +75,9 @@ export function useEnterpriseInfo(supplierId: number | undefined): UseEnterprise
     return () => {
       cancelled = true;
     };
-  }, [supplierId, nonce]);
+  }, [nonce]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
 
-  return { supplier, loading, error, retry };
+  return { bound, linkStatus, enterprise, loading, error, retry };
 }

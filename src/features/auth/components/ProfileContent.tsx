@@ -20,8 +20,6 @@ import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
-import { EnterpriseInfoCard } from "./EnterpriseInfoCard";
-import { useEnterpriseInfo } from "../hooks/useEnterpriseInfo";
 
 /** 基本信息内联单元：灰标签：值（同一行） */
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -39,12 +37,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-medium text-foreground mb-3">{children}</h2>;
 }
 
-export interface ProfileContentProps {
-  /** 点击“立即绑定”时由外层（app 层）打开供应商注册弹窗 */
-  onBindEnterprise?: () => void;
-}
-
-export function ProfileContent({ onBindEnterprise }: ProfileContentProps = {}) {
+export function ProfileContent() {
   const { t } = useLocale();
   const { authUser, isVip, logout, claimMessage, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
@@ -56,10 +49,6 @@ export function ProfileContent({ onBindEnterprise }: ProfileContentProps = {}) {
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
-
-  // 企业信息（按绑定 supplier_id 拉取；未绑定不发请求）
-  const supplierIdNum = authUser?.supplier_id ? Number(authUser.supplier_id) : undefined;
-  const enterprise = useEnterpriseInfo(supplierIdNum);
 
   if (!authUser) return null;
 
@@ -88,20 +77,6 @@ export function ProfileContent({ onBindEnterprise }: ProfileContentProps = {}) {
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ── 企业信息（基本信息之后、安全设置之前） ── */}
-      <section>
-        <SectionTitle>{t("authEnterpriseTitle") || "企业信息"}</SectionTitle>
-        <EnterpriseInfoCard
-          supplier={enterprise.supplier}
-          membershipTier={authUser.membership_tier}
-          loading={enterprise.loading}
-          error={enterprise.error}
-          onRetry={enterprise.retry}
-          onManage={() => router.push(`/supplier/${authUser.supplier_id}`)}
-          onBind={() => onBindEnterprise?.()}
-        />
       </section>
 
       {/* ── 安全设置（行卡） ── */}

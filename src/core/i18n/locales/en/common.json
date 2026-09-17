@@ -111,5 +111,12 @@
   "authEnterpriseLocation": "Country / City",
   "authEnterpriseCertifications": "Certifications",
   "authEnterpriseProducts": "Main Products",
-  "authEnterpriseManage": "Manage Enterprise"
+  "authEnterpriseManage": "Manage Enterprise",
+  "settingsEnterprise": "Enterprise",
+  "authEnterpriseNature": "Enterprise Nature",
+  "authEnterpriseGrade": "Supplier Grade",
+  "authEnterpriseCountry": "Country",
+  "authEnterpriseExport": "Export Experience",
+  "authEnterpriseScore": "Data Score",
+  "authEnterpriseRegisteredAt": "Registered At"
 }

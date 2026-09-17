@@ -106,5 +106,12 @@
   "authEnterpriseLocation": "Страна / Город",
   "authEnterpriseCertifications": "Сертификаты",
   "authEnterpriseProducts": "Основная продукция",
-  "authEnterpriseManage": "Управлять компанией"
+  "authEnterpriseManage": "Управлять компанией",
+  "settingsEnterprise": "Компания",
+  "authEnterpriseNature": "Характер компании",
+  "authEnterpriseGrade": "Класс поставщика",
+  "authEnterpriseCountry": "Страна",
+  "authEnterpriseExport": "Опыт экспорта",
+  "authEnterpriseScore": "Оценка данных",
+  "authEnterpriseRegisteredAt": "Дата регистрации"
 }

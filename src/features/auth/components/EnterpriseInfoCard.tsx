@@ -1,29 +1,26 @@
 /**
- * 企业信息卡 — 智谱极简风（展示组件）
+ * 企业信息卡 — 智谱极简风（展示组件，数据源 crm_suppliers 企业表）
  * Enterprise Info Card
  *
  * @module features/auth/components/EnterpriseInfoCard
- * @description 展示已绑定供应商的企业信息（label:value 内联网格）+ 右侧操作按钮；
+ * @description 展示当前用户绑定企业（crm_suppliers）的信息：label:value 内联网格；
  *              未绑定显示引导+立即绑定；加载中骨架屏；加载失败错误+重试。
  *              纯展示，数据由 useEnterpriseInfo 提供，动作经 props 回调。
  */
 import { Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import type { Supplier } from "@/types";
+import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
 
 export interface EnterpriseInfoCardProps {
-  supplier: Supplier | null;
+  enterprise: EnterpriseInfo | null;
   /** 绑定/审核状态（crm_users.supplier_link_status） */
-  bindingStatus?: string;
-  /** 会员等级（crm_users.membership_tier） */
-  membershipTier?: string;
+  linkStatus?: string;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
-  onManage: () => void;
   onBind: () => void;
 }
 
@@ -37,11 +34,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 }
 
 export function EnterpriseInfoCard({
-  supplier, bindingStatus, membershipTier,
-  loading, error, onRetry, onManage, onBind,
+  enterprise, linkStatus, loading, error, onRetry, onBind,
 }: EnterpriseInfoCardProps) {
-  const { t, locale } = useLocale();
-  const zh = locale === "zh";
+  const { t } = useLocale();
 
   // ── 加载中：骨架屏 ──
   if (loading) {
@@ -77,7 +72,7 @@ export function EnterpriseInfoCard({
   }
 
   // ── 未绑定：引导 + 立即绑定 ──
-  if (!supplier) {
+  if (!enterprise) {
     return (
       <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5 flex items-center gap-4">
         <span className="w-10 h-10 rounded-full bg-secondary-200 text-secondary-500 flex items-center justify-center shrink-0">
@@ -96,15 +91,9 @@ export function EnterpriseInfoCard({
     );
   }
 
-  // ── 已绑定：label:value 网格 + 右侧管理按钮 ──
-  const name = supplier.nameZh || "-";
-  const typeLabel = supplier.type === "international"
-    ? (t("authEnterpriseTypeIntl") || "国际")
-    : (t("authEnterpriseTypeDomestic") || "国内");
-  const certs = (supplier.complianceLabelsZh || []).join("、");
-  const products = (zh ? supplier.mainProductsZh : supplier.mainProductsEn || supplier.mainProductsZh || []).join("、");
-  const location = [zh ? supplier.countryZh : supplier.countryEn, zh ? supplier.cityZh : supplier.cityEn]
-    .filter(Boolean).join(" / ");
+  // ── 已绑定：企业表字段 label:value 网格 ──
+  const regDate = enterprise.createdAt ? enterprise.createdAt.slice(0, 10) : "";
+  const score = enterprise.dataQualityScore != null ? String(enterprise.dataQualityScore) : "";
 
   return (
     <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
@@ -114,19 +103,19 @@ export function EnterpriseInfoCard({
         </span>
         <div className="flex-1 min-w-0">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-3">
-            <InfoItem label={t("authEnterpriseName") || "企业名称"} value={name} />
-            <InfoItem label={t("authEnterpriseType") || "企业类型"} value={typeLabel} />
-            <InfoItem label={t("authEnterpriseMembership") || "会员等级"} value={membershipTier || "-"} />
-            <InfoItem label={t("authEnterpriseStatus") || "绑定状态"} value={bindingStatus || (t("authEnterpriseStatusLinked") || "已绑定")} />
-            <InfoItem label={t("authEnterpriseIndustry") || "所属行业"} value={zh ? supplier.industryZh : supplier.industryEn} />
-            <InfoItem label={t("authEnterpriseLocation") || "国家/城市"} value={location} />
-            <InfoItem label={t("authEnterpriseCertifications") || "认证资质"} value={certs} />
-            <InfoItem label={t("authEnterpriseProducts") || "主营产品"} value={products} />
+            <InfoItem label={t("authEnterpriseName") || "企业名称"} value={enterprise.companyName} />
+            <InfoItem label={t("authEnterpriseNature") || "企业性质"} value={enterprise.enterpriseNature} />
+            <InfoItem label={t("authEnterpriseGrade") || "供应商等级"} value={enterprise.supplierGrade} />
+            <InfoItem label={t("authEnterpriseStatus") || "绑定状态"} value={linkStatus || (t("authEnterpriseStatusLinked") || "已绑定")} />
+            <InfoItem label={t("authEnterpriseIndustry") || "所属行业"} value={enterprise.industry} />
+            <InfoItem label={t("authEnterpriseCountry") || "所在国家"} value={enterprise.country} />
+            <InfoItem label={t("authEnterpriseProducts") || "主营产品"} value={enterprise.mainProduct} />
+            <InfoItem label={t("authEnterpriseCertifications") || "认证资质"} value={enterprise.certification} />
+            <InfoItem label={t("authEnterpriseExport") || "出口经验"} value={enterprise.exportExperience} />
+            <InfoItem label={t("authEnterpriseScore") || "资料评分"} value={score} />
+            <InfoItem label={t("authEnterpriseRegisteredAt") || "注册时间"} value={regDate} />
           </div>
         </div>
-        <button type="button" onClick={onManage} className={btnBlue}>
-          {t("authEnterpriseManage") || "管理企业信息"}
-        </button>
       </div>
     </div>
   );
