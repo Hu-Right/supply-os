@@ -25,8 +25,14 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     if (!Number.isFinite(noticeId) || noticeId <= 0) {
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
+
+    // 解锁校验：AI 摘要属于公告完整内容的一部分，未解锁不可访问
+    const ctx = getContext();
+    const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
+    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+
     const body = await parseJson(req, bodySchema);
-    const pool = getContext().dbPool;
+    const pool = ctx.dbPool;
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
     return NextResponse.json({ code: 0, message: "ok", data: result });
   },
