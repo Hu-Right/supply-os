@@ -28,6 +28,10 @@ export interface EnhancedNoticeListProps {
   openNotice: (notice: NoticeItem) => void;
   feedbackEnabled: boolean;
   observeCard: (el: HTMLElement | null, noticeId: number) => void;
+  /** 已收藏公告 id 集合（卡片书签状态回显） */
+  favoriteIds?: Set<number>;
+  /** 收藏/取消收藏；未提供时卡片隐藏收藏按钮 */
+  onToggleFavorite?: (noticeId: number) => void;
 }
 
 /** 增强搜索结果列表 */
@@ -42,6 +46,8 @@ export const EnhancedNoticeList = memo(function EnhancedNoticeList({
   openNotice,
   feedbackEnabled,
   observeCard,
+  favoriteIds,
+  onToggleFavorite,
 }: EnhancedNoticeListProps) {
   return (
     <NoticeList
@@ -55,6 +61,8 @@ export const EnhancedNoticeList = memo(function EnhancedNoticeList({
       openNotice={openNotice}
       feedbackEnabled={feedbackEnabled}
       observeCard={observeCard}
+      favoriteIds={favoriteIds}
+      onToggleFavorite={onToggleFavorite}
     />
   );
 });

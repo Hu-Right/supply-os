@@ -40,10 +40,14 @@ interface NoticeCardProps {
   onClick: (item: NoticeItem) => void;
   /** T-B9：曝光采集挂点——父级用 IntersectionObserver 观察行根节点 */
   observe?: (el: HTMLElement | null, noticeId: number) => void;
+  /** 是否已收藏（配合 onToggleFavorite 渲染实心态） */
+  favorited?: boolean;
+  /** 收藏/取消收藏；未提供时隐藏收藏按钮（如首页等无收藏上下文的场景） */
+  onToggleFavorite?: (noticeId: number) => void;
 }
 
 // P0 性能优化：React.memo 避免父组件 state 变化时列表行全部重渲染
-export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: NoticeCardProps) {
+export const NoticeCard = memo(function NoticeCard({ item, onClick, observe, favorited, onToggleFavorite }: NoticeCardProps) {
   const { t, locale } = useLocale();
   // 标题国际化回退链：当前语言缓存 → 英文缓存 → 原文
   const displayTitle = item.title_i18n || item.title_en || item.title;
@@ -186,19 +190,24 @@ export const NoticeCard = memo(function NoticeCard({ item, onClick, observe }: N
               {t("procurement_detail")}
             </Button>
           )}
-          {/* 收藏按钮 */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              // P0：UI 占位，后续接收藏 API
-              alert(t("procurement_comingSoon"));
-            }}
-            className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-300 transition-colors"
-            aria-label={t("procurement_bookmark")}
-          >
-            <Bookmark className="w-4 h-4" />
-          </button>
+          {/* 收藏按钮（私有书签，未登录由 hook 触发登录） */}
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(item.id);
+              }}
+              className={`p-2 rounded-lg border transition-colors ${
+                favorited
+                  ? "border-amber-300 bg-amber-50 text-amber-500"
+                  : "border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-300"
+              }`}
+              aria-label={t("procurement_bookmark")}
+            >
+              <Bookmark className={`w-4 h-4 ${favorited ? "fill-amber-500" : ""}`} />
+            </button>
+          )}
         </div>
       </div>
     </Card>

@@ -354,6 +354,8 @@ export default function ProcurementPage() {
                 openNotice={actions.openNotice}
                 feedbackEnabled={feedback.feedbackEnabled}
                 observeCard={feedback.observeCard}
+                favoriteIds={actions.favoriteIds}
+                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
               />
             : <NoticeList
                 items={search.result.items}
@@ -366,6 +368,8 @@ export default function ProcurementPage() {
                 openNotice={actions.openNotice}
                 feedbackEnabled={feedback.feedbackEnabled}
                 observeCard={feedback.observeCard}
+                favoriteIds={actions.favoriteIds}
+                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
               />
         }
       </section>
