@@ -30,14 +30,22 @@ export interface AiSummaryData {
 }
 
 export interface AiSummarySectionProps {
-  /** AI 摘要数据（后端 API 待接入） */
+  /** AI 摘要数据 */
   data?: AiSummaryData | null;
-  /** 是否正在加载 AI 摘要 */
+  /** 是否正在加载 */
   loading?: boolean;
+  /** 错误信息（非空展示错误态） */
+  error?: string | null;
+  /** 用户是否已配置 LLM API Key */
+  llmConfigured?: boolean;
   /** 是否已解锁完整 AI 分析（免费用户=false） */
   isUnlocked?: boolean;
   /** 点击"查看完整分析"的回调 */
   onUnlock?: () => void;
+  /** 跳转 LLM 配置页 */
+  onConfigure?: () => void;
+  /** 重新分析 */
+  onRegenerate?: () => void;
 }
 
 interface SummaryItem {
@@ -52,8 +60,12 @@ interface SummaryItem {
 export function AiSummarySection({
   data,
   loading = false,
+  error = null,
+  llmConfigured = false,
   isUnlocked = false,
   onUnlock,
+  onConfigure,
+  onRegenerate,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
 
@@ -111,6 +123,52 @@ export function AiSummarySection({
             </div>
           ))}
         </div>
+      </section>
+    );
+  }
+
+  // 未配置 LLM：引导卡片
+  if (!llmConfigured) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Sparkles className="w-5 h-5 text-teal-600" />
+          <h3 className="text-base font-extrabold text-slate-900">
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
+          </h3>
+        </div>
+        <p className="text-sm text-slate-500 mb-4">
+          {t("procurement_aiSummaryNeedConfig") || "配置您的 AI 模型后，即可结合企业画像生成本标适配分析。"}
+        </p>
+        <button
+          type="button"
+          onClick={onConfigure}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+        >
+          {t("procurement_aiSummaryGoConfig") || "去配置 AI 模型"} →
+        </button>
+      </section>
+    );
+  }
+
+  // 错误态
+  if (error) {
+    return (
+      <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle className="w-5 h-5 text-rose-600" />
+          <h3 className="text-base font-extrabold text-rose-800">
+            {t("procurement_aiSummaryError") || "AI 分析失败"}
+          </h3>
+        </div>
+        <p className="text-sm text-rose-700 mb-4">{error}</p>
+        <button
+          type="button"
+          onClick={onRegenerate}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 px-4 py-2 text-sm font-bold transition-colors"
+        >
+          {t("procurement_aiSummaryRetry") || "重试"}
+        </button>
       </section>
     );
   }
@@ -199,8 +257,15 @@ export function AiSummarySection({
         </div>
       )}
 
-      {/* 查看完整报告链接（右下角） */}
-      <div className="mt-4 flex justify-end">
+      {/* 底部操作：重新分析 + 查看完整报告 */}
+      <div className="mt-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onRegenerate}
+          className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          {t("procurement_aiSummaryRegenerate") || "重新分析"}
+        </button>
         <button
           type="button"
           onClick={onUnlock}
