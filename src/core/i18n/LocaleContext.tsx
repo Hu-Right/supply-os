@@ -161,6 +161,9 @@ export function LocaleProvider({ children, initialLocale }: { children: ReactNod
       resources: CLIENT_RESOURCES,
       interpolation: { escapeValue: false, prefix: "{", suffix: "}" },
       returnNull: false,
+      // 缺 key 时返回空串而非 key 本身：t(key) || 中文兜底 的写法才能生效，
+      // 用户不会看到 detail_xxx 之类的裸 key
+      parseMissingKeyHandler: () => "",
       react: { useSuspense: false },
     });
     i18nInstanceRef.current = instance;
