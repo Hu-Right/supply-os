@@ -250,9 +250,9 @@ export class MembershipRepo {
    */
   async findActiveSubscriptionForUpdate(
     conn: PoolConnection, userId: number,
-  ): Promise<{ id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null } | null> {
+  ): Promise<{ id: number; plan_code: string; started_at: Date | null; expires_at: Date | null; unlock_quota: number | null } | null> {
     const [rows] = await conn.query(
-      `SELECT s.id, s.plan_code, s.started_at, p.unlock_quota
+      `SELECT s.id, s.plan_code, s.started_at, s.expires_at, p.unlock_quota
        FROM crm_user_subscriptions s
        LEFT JOIN crm_membership_plans p ON p.plan_code = s.plan_code
        WHERE s.user_id = ? AND s.status = 'active'
@@ -263,8 +263,34 @@ export class MembershipRepo {
       [userId],
     );
     const row = (rows as RowDataPacket[])[0] as
-      | { id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null }
+      | { id: number; plan_code: string; started_at: Date | null; expires_at: Date | null; unlock_quota: number | null }
       | undefined;
     return row ?? null;
+  }
+
+  /**
+   * 事务内懒补建权益（带已用次数），返回自增 id。
+   * 用于"有订阅无权益"的历史缺口数据：解锁时按需物化权益，
+   * 使配额发放/消耗统一落在权益表（quota_used 为唯一记账源）。
+   */
+  async insertEntitlementWithUsedInTransaction(
+    conn: PoolConnection,
+    params: {
+      userId: number; sourceOrderNo: string; planCode: string;
+      quotaTotal: number; quotaUsed: number;
+      startedAt: Date | null; expiresAt: Date | null;
+    },
+  ): Promise<number> {
+    const [result] = await conn.execute(
+      `INSERT INTO crm_user_entitlements
+         (user_id, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [
+        params.userId, params.sourceOrderNo, params.planCode,
+        params.quotaTotal, params.quotaUsed,
+        params.startedAt ?? new Date(), params.expiresAt,
+      ],
+    );
+    return Number((result as { insertId?: number }).insertId ?? 0);
   }
 }
