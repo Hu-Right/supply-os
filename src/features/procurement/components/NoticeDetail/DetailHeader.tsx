@@ -18,6 +18,10 @@ interface DetailHeaderProps {
   countdown: { days: number; time: string } | null;
   budgetText: string;
   onBack: () => void;
+  /** 当前公告是否已收藏 */
+  favorited?: boolean;
+  /** 收藏/取消收藏 */
+  onToggleFavorite?: () => void;
   /** i18n（params 供倒计时等插值文案使用） */
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: string;
@@ -26,7 +30,7 @@ interface DetailHeaderProps {
 export function DetailHeader({
   displayTitle, typeLabel, noticeId, visibleAgency, country,
   sourceUrl, publishDate, deadlineText, countdown, budgetText,
-  onBack, t, locale,
+  onBack, favorited, onToggleFavorite, t, locale,
 }: DetailHeaderProps) {
   const sourceName = getSourcePlatformName(sourceUrl, locale);
 
@@ -55,10 +59,14 @@ export function DetailHeader({
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button type="button" onClick={() => alert(t("procurement_comingSoon"))}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:border-teal-400 hover:text-teal-700 transition-colors">
-            <Bookmark className="w-3.5 h-3.5" />
-            {t("detail_collect")}
+          <button type="button" onClick={onToggleFavorite}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-xs font-bold transition-colors ${
+              favorited
+                ? "border-amber-300 bg-amber-50 text-amber-600"
+                : "border-slate-200 bg-white text-slate-600 hover:border-teal-400 hover:text-teal-700"
+            }`}>
+            <Bookmark className={`w-3.5 h-3.5 ${favorited ? "fill-amber-500 text-amber-500" : ""}`} />
+            {favorited ? (t("detail_collected") || "已收藏") : (t("detail_collect") || "收藏")}
           </button>
           <button type="button" onClick={() => {
               if (navigator.share) navigator.share({ title: displayTitle, url: window.location.href });

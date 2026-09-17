@@ -47,12 +47,17 @@ interface NoticeDetailProps {
   onUnlock: (notice: NoticeItem) => void;
   /** 打开另一条公告（相似机会 Tab 点击跳转） */
   onOpenNotice: (notice: NoticeItem) => void;
+  /** 当前公告是否已收藏 */
+  favorited: boolean;
+  /** 收藏/取消收藏（未登录由 hook 内部触发登录） */
+  onToggleFavorite: () => void;
   detailLoading?: boolean;
 }
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
   totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock, onOpenNotice,
+  favorited, onToggleFavorite,
   detailLoading,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
@@ -125,6 +130,7 @@ export function NoticeDetail({
           noticeId={notice.reference} visibleAgency={visibleAgency} country={notice.country || ""} sourceUrl={notice.source_url}
           publishDate={publishDate} deadlineText={deadlineText} countdown={countdown}
           budgetText={budgetText} onBack={onBack} t={t} locale={locale}
+          favorited={favorited} onToggleFavorite={onToggleFavorite}
         />
 
         <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} />

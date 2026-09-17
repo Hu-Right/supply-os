@@ -21,7 +21,11 @@ export {
   fetchNoticeTranslation,
   downloadNoticeReport,
   fetchUnifiedSearch,
+  toggleNoticeFavorite,
+  fetchNoticeFavoriteIds,
+  fetchNoticeFavorites,
 } from "./notices";
+export type { NoticeFavoriteEntry } from "./notices";
 
 export {
   sendNoticeFeedback,

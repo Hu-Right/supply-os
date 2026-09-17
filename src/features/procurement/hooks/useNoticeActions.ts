@@ -17,6 +17,7 @@ import type { NoticeItem } from "../types";
 import { useNoticeMembership, type UseNoticeMembershipReturn } from "./useNoticeMembership";
 import { useNoticeUnlock, type UseNoticeUnlockReturn } from "./useNoticeUnlock";
 import { useNoticeHandlers, type UseNoticeHandlersReturn } from "./useNoticeHandlers";
+import { useNoticeFavorite, type UseNoticeFavoriteReturn } from "./useNoticeFavorite";
 import { usePaymentReturnReconciliation } from "./usePaymentReturnReconciliation";
 
 export interface UseNoticeActionsOptions {
@@ -31,7 +32,8 @@ export interface UseNoticeActionsOptions {
 export interface UseNoticeActionsReturn
   extends UseNoticeMembershipReturn,
     UseNoticeUnlockReturn,
-    UseNoticeHandlersReturn {
+    UseNoticeHandlersReturn,
+    UseNoticeFavoriteReturn {
   actionMessage: string;
 }
 
@@ -44,6 +46,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
 
   const membership = useNoticeMembership({ userId, isVip });
   const unlock = useNoticeUnlock({ userId, items, setSelectedNotice });
+  const favorite = useNoticeFavorite({ userId, onRequireLogin });
 
   const handlers = useNoticeHandlers({
     userId,
@@ -70,6 +73,7 @@ export function useNoticeActions(options: UseNoticeActionsOptions): UseNoticeAct
     ...membership,
     ...unlock,
     ...handlers,
+    ...favorite,
     actionMessage,
     openNoticeById,
   };

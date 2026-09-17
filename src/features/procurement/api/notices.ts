@@ -124,3 +124,32 @@ export const fetchUnifiedSearch = (params: {
   });
   return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
 };
+
+// ── 收藏（用户私有书签） ──
+
+/** 收藏/取消收藏（toggle，返回切换后的状态） */
+export const toggleNoticeFavorite = (noticeId: number) =>
+  api<{ favorited: boolean }>(`/api/notices/${noticeId}/favorite`, { method: "POST" });
+
+/** 用户已收藏的公告 id 集合（状态回显，不走缓存保证即时性） */
+export const fetchNoticeFavoriteIds = () =>
+  api<{ ids: number[] }>("/api/notices/favorites/ids");
+
+/** 我的收藏（分页，按收藏时间倒序） */
+export interface NoticeFavoriteEntry {
+  id: number;
+  reference?: string | null;
+  title: string;
+  country?: string | null;
+  notice_type?: string | null;
+  agency?: string | null;
+  deadline?: string | null;
+  deadline_ts?: number | null;
+  estimated_value?: string | null;
+  favorited_at?: string;
+}
+
+export const fetchNoticeFavorites = (params: { page?: number; limit?: number } = {}) =>
+  api<{ total: number; page: number; limit: number; list: NoticeFavoriteEntry[] }>(
+    `/api/notices/favorites?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
+  );
