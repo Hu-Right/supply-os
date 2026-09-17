@@ -9,7 +9,6 @@ import { getSourcePlatformName } from "@/shared/data/sourcePlatforms";
 interface DetailHeaderProps {
   displayTitle: string;
   typeLabel: string;
-  noticeType?: string;
   noticeId?: string;
   visibleAgency: string;
   country: string;
@@ -25,7 +24,7 @@ interface DetailHeaderProps {
 }
 
 export function DetailHeader({
-  displayTitle, typeLabel, noticeType, noticeId, visibleAgency, country,
+  displayTitle, typeLabel, noticeId, visibleAgency, country,
   sourceUrl, publishDate, deadlineText, countdown, budgetText,
   onBack, t, locale,
 }: DetailHeaderProps) {
@@ -53,11 +52,6 @@ export function DetailHeader({
             <span className="px-2.5 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold">
               {typeLabel}
             </span>
-            {noticeType && (
-              <span className="px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold">
-                {t("detail_medical")}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
