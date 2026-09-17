@@ -57,33 +57,35 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
         <div className="flex items-center gap-2 mb-3">
           <FileText className="w-4 h-4 text-amber-600" />
           <h3 className="text-sm font-extrabold text-amber-800">
-            {t("detail_tabOriginalFiles") || "原始文件"} — 会员专享
+            {t("detail_tabOriginalFiles") || "原始文件"} — {t("detail_memberExclusive") || "会员专享"}
           </h3>
         </div>
         <p className="text-xs text-amber-700 mb-3">
-          解锁后可下载本公告的全部招标文件，包括：
+          {t("detail_filesLockedIntro") || "解锁后可下载本公告的全部招标文件，包括："}
         </p>
         <ul className="space-y-1.5 mb-4">
           <li className="flex items-center gap-2 text-xs text-amber-700">
             <Download className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            完整招标文件（{fileCount !== undefined ? `${fileCount} 个附件` : "含附件"}）
+            {fileCount !== undefined
+              ? t("detail_filesFullDocWithCount", { count: fileCount })
+              : t("detail_filesFullDoc") || "完整招标文件（含附件）"}
           </li>
           <li className="flex items-center gap-2 text-xs text-amber-700">
             <ExternalLink className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            外部参考链接与采购平台直达地址
+            {t("detail_filesExternalDesc") || "外部参考链接与采购平台直达地址"}
           </li>
           <li className="flex items-center gap-2 text-xs text-amber-700">
             <FileText className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-            中文版订单拆解报告（如已生成）
+            {t("detail_filesReportDesc") || "中文版订单拆解报告（如已生成）"}
           </li>
         </ul>
         {isVip ? (
           <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
-            您已是会员，解锁本公告后即可下载全部文件
+            {t("detail_filesVipHint") || "您已是会员，解锁本公告后即可下载全部文件"}
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            升级会员或单次解锁即可获取全部招标文件
+            {t("detail_filesUnlockHint") || "升级会员或单次解锁即可获取全部招标文件"}
           </p>
         )}
       </section>
@@ -106,7 +108,7 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
             className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-2"
           >
             <ExternalLink className="w-3 h-3" />
-            前往来源平台查看原始公告
+            {t("detail_goToSource") || "前往来源平台查看原始公告"}
           </a>
         )}
       </section>
@@ -121,9 +123,9 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
           {t("detail_tabOriginalFiles") || "原始文件"}
         </h3>
         <span className="text-xs text-slate-400 font-mono">
-          {documents.length > 0 && `${documents.length} 个附件`}
+          {documents.length > 0 && t("detail_attachmentCount", { count: documents.length })}
           {documents.length > 0 && externalLinks.length > 0 && " · "}
-          {externalLinks.length > 0 && `${externalLinks.length} 个外链`}
+          {externalLinks.length > 0 && t("detail_linkCount", { count: externalLinks.length })}
         </span>
       </div>
 

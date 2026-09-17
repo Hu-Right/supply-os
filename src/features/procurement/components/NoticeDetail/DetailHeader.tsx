@@ -18,8 +18,8 @@ interface DetailHeaderProps {
   countdown: { days: number; time: string } | null;
   budgetText: string;
   onBack: () => void;
-  /** i18n */
-  t: (key: string) => string;
+  /** i18n（params 供倒计时等插值文案使用） */
+  t: (key: string, params?: Record<string, string | number>) => string;
   locale: string;
 }
 
@@ -83,7 +83,7 @@ export function DetailHeader({
           [t("detail_publishDate"), publishDate],
           [t("detail_deadline"), deadlineText],
           [t("detail_countdown"), countdown
-            ? <span className="text-rose-600 font-bold font-mono">{countdown.days}天 {countdown.time}</span>
+            ? <span className="text-rose-600 font-bold font-mono">{t("detail_countdownDays", { days: countdown.days })} {countdown.time}</span>
             : t("procurement_noDeadline")],
           [t("detail_procurementType"), typeLabel],
           [t("detail_budgetAmount"),

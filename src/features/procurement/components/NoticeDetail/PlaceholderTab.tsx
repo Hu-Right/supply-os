@@ -134,7 +134,7 @@ export function PlaceholderTab({
         </span>
         {contextHint && (
           <p className="text-xs text-slate-400 mt-2">
-            当前公告：{contextHint}
+            {t("detail_currentNotice") || "当前公告："}{contextHint}
           </p>
         )}
       </div>
@@ -142,7 +142,9 @@ export function PlaceholderTab({
       {/* 功能预览卡片 */}
       <div className="p-5">
         <p className="text-xs font-bold text-slate-500 uppercase mb-3 text-center">
-          {hasAccess ? "即将上线的功能" : "升级后可解锁"}
+          {hasAccess
+            ? (t("detail_comingFeatures") || "即将上线的功能")
+            : (t("detail_unlockAfterUpgrade") || "升级后可解锁")}
         </p>
         <div className="space-y-2">
           {config.features.map((feat, i) => {

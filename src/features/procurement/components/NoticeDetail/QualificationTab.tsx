@@ -19,35 +19,35 @@ interface QualificationTabProps {
   isVip?: boolean;
 }
 
-/** 注册等级配置 */
-const REG_LEVEL_CONFIG: Record<string, { label: string; color: string; border: string; bg: string; guidance: string }> = {
+/** 注册等级配置（文案走 i18n，未知等级回退显示原始值） */
+const REG_LEVEL_CONFIG: Record<string, { labelKey?: string; label?: string; color: string; border: string; bg: string; guidanceKey?: string }> = {
   basic: {
-    label: "基础级 (Basic)",
+    labelKey: "detail_regLevelBasic",
     color: "text-slate-700",
     border: "border-slate-200",
     bg: "bg-slate-50",
-    guidance: "该公告对供应商注册等级要求较低，完成基础注册即可参与投标。",
+    guidanceKey: "detail_regLevelBasicGuide",
   },
   l1: {
-    label: "L1 级",
+    labelKey: "detail_regLevelL1",
     color: "text-teal-700",
     border: "border-teal-200",
     bg: "bg-teal-50",
-    guidance: "需完成 UNGM L1 注册，提交公司基本信息与财务报表。",
+    guidanceKey: "detail_regLevelL1Guide",
   },
   l2: {
-    label: "L2 级",
+    labelKey: "detail_regLevelL2",
     color: "text-blue-700",
     border: "border-blue-200",
     bg: "bg-blue-50",
-    guidance: "需完成 UNGM L2 注册，额外提供审计报告、ISO 认证等资质文件。",
+    guidanceKey: "detail_regLevelL2Guide",
   },
   l3: {
-    label: "L3 级",
+    labelKey: "detail_regLevelL3",
     color: "text-amber-700",
     border: "border-amber-200",
     bg: "bg-amber-50",
-    guidance: "最高等级要求，需通过采购方现场审核与过往业绩验证。",
+    guidanceKey: "detail_regLevelL3Guide",
   },
 };
 
@@ -65,7 +65,6 @@ function getLevelConfig(level?: string) {
     color: "text-slate-700",
     border: "border-slate-200",
     bg: "bg-slate-50",
-    guidance: "",
   };
 }
 
@@ -115,10 +114,10 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
   // ── 未解锁：展示具体锁定提示 ──
   if (!coreUnlocked) {
     const lockedItems = [
-      hasContent || notice.registration_level ? "注册等级要求与详细说明" : null,
-      supplierConditions ? "供应商投标条件全文" : null,
-      eligibility ? "资格要求细则" : null,
-      technicalHurdles ? "技术门槛与资质清单" : null,
+      hasContent || notice.registration_level ? t("detail_qualLockedLevel") || "注册等级要求与详细说明" : null,
+      supplierConditions ? t("detail_qualLockedConditions") || "供应商投标条件全文" : null,
+      eligibility ? t("detail_qualLockedEligibility") || "资格要求细则" : null,
+      technicalHurdles ? t("detail_qualLockedHurdles") || "技术门槛与资质清单" : null,
     ].filter(Boolean);
 
     return (
@@ -126,11 +125,11 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         <div className="flex items-center gap-2 mb-3">
           <Lock className="w-4 h-4 text-amber-600" />
           <h3 className="text-sm font-extrabold text-amber-800">
-            {t("detail_tabQualification") || "资格条件"} — 会员专享
+            {t("detail_tabQualification") || "资格条件"} — {t("detail_memberExclusive") || "会员专享"}
           </h3>
         </div>
         <p className="text-xs text-amber-700 mb-3">
-          解锁后可查看本公告的完整资格要求，包括：
+          {t("detail_qualLockedIntro") || "解锁后可查看本公告的完整资格要求，包括："}
         </p>
         <ul className="space-y-1.5 mb-4">
           {lockedItems.length > 0 ? lockedItems.map((item, i) => (
@@ -139,16 +138,16 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
               {item}
             </li>
           )) : (
-            <li className="text-xs text-amber-600">注册等级要求、供应商条件、资格细则与技术门槛</li>
+            <li className="text-xs text-amber-600">{t("detail_qualLockedAll") || "注册等级要求、供应商条件、资格细则与技术门槛"}</li>
           )}
         </ul>
         {isVip ? (
           <p className="text-xs font-bold text-amber-800 bg-amber-100/60 rounded-lg px-3 py-2 text-center">
-            您已是会员，解锁本公告后即可查看全部资格条件
+            {t("detail_qualVipHint") || "您已是会员，解锁本公告后即可查看全部资格条件"}
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            升级会员或单次解锁即可查看完整资格条件
+            {t("detail_qualUnlockHint") || "升级会员或单次解锁即可查看完整资格条件"}
           </p>
         )}
       </section>
@@ -164,7 +163,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
           {t("procurement_noQualificationInfo") || "本公告暂无结构化资格条件信息"}
         </p>
         <p className="text-xs text-slate-400">
-          建议下载原始招标文件获取完整的资质要求
+          {t("detail_qualNoInfoHint") || "建议下载原始招标文件获取完整的资质要求"}
         </p>
       </section>
     );
@@ -180,17 +179,17 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         {levelConfig && (
           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${levelConfig.bg} ${levelConfig.color} ${levelConfig.border}`}>
             <ShieldCheck className="w-3.5 h-3.5" />
-            {levelConfig.label}
+            {levelConfig.labelKey ? t(levelConfig.labelKey) : levelConfig.label}
           </span>
         )}
       </div>
 
       {/* 等级说明条 */}
-      {levelConfig?.guidance && (
+      {levelConfig?.guidanceKey && (
         <div className={`rounded-xl border ${levelConfig.border} ${levelConfig.bg} px-4 py-3`}>
           <p className="text-xs font-bold text-slate-700 leading-6">
             <ShieldCheck className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-            {levelConfig.guidance}
+            {t(levelConfig.guidanceKey)}
           </p>
         </div>
       )}
@@ -200,7 +199,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         iconColor="text-teal-600"
         title={t("procurement_supplierConditions") || "供应商投标条件"}
         content={supplierConditions}
-        emptyText="本公告未列出具体供应商条件，请参考原始招标文件"
+        emptyText={t("detail_qualEmptyConditions") || "本公告未列出具体供应商条件，请参考原始招标文件"}
       />
 
       <ConditionBlock
@@ -208,7 +207,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         iconColor="text-blue-600"
         title={t("procurement_eligibility") || "资格要求"}
         content={eligibility}
-        emptyText="本公告未列出具体资格要求，请参考原始招标文件"
+        emptyText={t("detail_qualEmptyEligibility") || "本公告未列出具体资格要求，请参考原始招标文件"}
       />
 
       <ConditionBlock
@@ -216,7 +215,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         iconColor="text-amber-600"
         title={t("procurement_technicalHurdles") || "技术门槛"}
         content={technicalHurdles}
-        emptyText="本公告未列出具体技术门槛，请参考原始招标文件"
+        emptyText={t("detail_qualEmptyHurdles") || "本公告未列出具体技术门槛，请参考原始招标文件"}
       />
     </section>
   );
