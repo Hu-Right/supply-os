@@ -439,6 +439,7 @@
   "detail_breadcrumbDetail": "Detalle de licitación",
   "detail_collect": "Guardar",
   "detail_collected": "Guardado",
+  "procurement_myFavorites": "Mis favoritos",
   "detail_share": "Compartir",
   "detail_linkCopied": "Enlace copiado",
   "detail_memberExclusive": "Exclusivo para miembros",
@@ -535,5 +536,10 @@
   "detail_sourceOfficial": "Portal oficial",
   "procurement_aiSummaryTitle": "Resumen IA de licitación",
   "procurement_aiSummaryLocked": "Mejore para desbloquear análisis IA completo",
-  "procurement_aiSummaryUnavailable": "El análisis IA se está generando, actualice más tarde."
+  "procurement_aiSummaryUnavailable": "El análisis IA se está generando, actualice más tarde.",
+  "procurement_aiSummaryNeedConfig": "Configure su modelo IA para generar un análisis adaptado al perfil de su empresa.",
+  "procurement_aiSummaryGoConfig": "Configurar modelo IA",
+  "procurement_aiSummaryError": "Error en el análisis IA",
+  "procurement_aiSummaryRetry": "Reintentar",
+  "procurement_aiSummaryRegenerate": "Volver a analizar"
 }

@@ -85,10 +85,10 @@ export async function listNoticeFavoriteIds(userId: number): Promise<number[]> {
 
 /** 我的收藏分页列表 */
 export async function listNoticeFavorites(params: {
-  userId: number; limit: number; offset: number;
+  userId: number; limit: number; offset: number; lang?: string | null;
 }): Promise<{ total: number; items: unknown[] }> {
   const { total, items } = await new NoticeFavoriteRepo(getPool()).listFavorites(
-    params.userId, params.limit, params.offset,
+    params.userId, params.limit, params.offset, params.lang || null,
   );
   return { total, items };
 }

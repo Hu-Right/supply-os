@@ -440,6 +440,7 @@
   "detail_breadcrumbDetail": "招标详情",
   "detail_collect": "收藏",
   "detail_collected": "已收藏",
+  "procurement_myFavorites": "我的收藏",
   "detail_share": "分享",
   "detail_linkCopied": "链接已复制",
   "detail_memberExclusive": "会员专享",
@@ -536,5 +537,10 @@
   "detail_sourceOfficial": "官方门户",
   "procurement_aiSummaryTitle": "AI 拆标摘要",
   "procurement_aiSummaryLocked": "升级会员解锁完整 AI 分析",
-  "procurement_aiSummaryUnavailable": "AI 分析正在生成中，请稍后刷新查看。"
+  "procurement_aiSummaryUnavailable": "AI 分析正在生成中，请稍后刷新查看。",
+  "procurement_aiSummaryNeedConfig": "配置您的 AI 模型后，即可结合企业画像生成本标适配分析。",
+  "procurement_aiSummaryGoConfig": "去配置 AI 模型",
+  "procurement_aiSummaryError": "AI 分析失败",
+  "procurement_aiSummaryRetry": "重试",
+  "procurement_aiSummaryRegenerate": "重新分析"
 }

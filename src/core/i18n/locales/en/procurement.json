@@ -440,6 +440,7 @@
   "detail_breadcrumbDetail": "Tender Detail",
   "detail_collect": "Bookmark",
   "detail_collected": "Saved",
+  "procurement_myFavorites": "My Favorites",
   "detail_share": "Share",
   "detail_linkCopied": "Link copied",
   "detail_memberExclusive": "Member Exclusive",
@@ -536,5 +537,10 @@
   "detail_sourceOfficial": "Official Portal",
   "procurement_aiSummaryTitle": "AI Bid Summary",
   "procurement_aiSummaryLocked": "Upgrade to unlock full AI analysis",
-  "procurement_aiSummaryUnavailable": "AI analysis is being generated, please refresh later."
+  "procurement_aiSummaryUnavailable": "AI analysis is being generated, please refresh later.",
+  "procurement_aiSummaryNeedConfig": "Configure your AI model to generate a tailored bid analysis based on your company profile.",
+  "procurement_aiSummaryGoConfig": "Configure AI Model",
+  "procurement_aiSummaryError": "AI Analysis Failed",
+  "procurement_aiSummaryRetry": "Retry",
+  "procurement_aiSummaryRegenerate": "Re-analyze"
 }

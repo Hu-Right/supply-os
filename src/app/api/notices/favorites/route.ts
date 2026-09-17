@@ -16,7 +16,10 @@ export const GET = withRoute(async (req: NextRequest) => {
   const limit = clampLimit(url.searchParams.get("limit"), DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT);
   const page = Math.max(1, Number(url.searchParams.get("page") || 1));
   const offset = (page - 1) * limit;
+  const lang = url.searchParams.get("lang") || "";
 
-  const { total, items } = await listNoticeFavorites({ userId: auth.userId, limit, offset });
+  const { total, items } = await listNoticeFavorites({
+    userId: auth.userId, limit, offset, lang: lang || null,
+  });
   return NextResponse.json({ total, page, limit, list: items });
 });

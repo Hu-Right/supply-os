@@ -9,6 +9,7 @@ import { flags } from "@/core/flags";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
 import { RecentUnlocks } from "../components/RecentUnlocks";
+import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
@@ -335,6 +336,9 @@ export default function ProcurementPage() {
           </div>
         )}
 
+        {userId && actions.favoriteIds.size > 0 && (
+          <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />
+        )}
         {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}

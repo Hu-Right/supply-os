@@ -439,6 +439,7 @@
   "detail_breadcrumbDetail": "Детали тендера",
   "detail_collect": "Сохранить",
   "detail_collected": "В избранном",
+  "procurement_myFavorites": "Моё избранное",
   "detail_share": "Поделиться",
   "detail_linkCopied": "Ссылка скопирована",
   "detail_memberExclusive": "Только для участников",
@@ -535,5 +536,10 @@
   "detail_sourceOfficial": "Официальный портал",
   "procurement_aiSummaryTitle": "ИИ-сводка тендера",
   "procurement_aiSummaryLocked": "Обновите для полного ИИ-анализа",
-  "procurement_aiSummaryUnavailable": "ИИ-анализ генерируется, обновите позже."
+  "procurement_aiSummaryUnavailable": "ИИ-анализ генерируется, обновите позже.",
+  "procurement_aiSummaryNeedConfig": "Настройте свою ИИ-модель, чтобы получить анализ с учётом профиля вашей компании.",
+  "procurement_aiSummaryGoConfig": "Настроить ИИ-модель",
+  "procurement_aiSummaryError": "Ошибка ИИ-анализа",
+  "procurement_aiSummaryRetry": "Повторить",
+  "procurement_aiSummaryRegenerate": "Повторить анализ"
 }

@@ -140,6 +140,7 @@ export interface NoticeFavoriteEntry {
   id: number;
   reference?: string | null;
   title: string;
+  title_i18n?: string | null;
   country?: string | null;
   notice_type?: string | null;
   agency?: string | null;

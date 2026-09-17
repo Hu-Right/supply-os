@@ -439,6 +439,7 @@
   "detail_breadcrumbDetail": "Détail de l'appel d'offres",
   "detail_collect": "Sauvegarder",
   "detail_collected": "Enregistré",
+  "procurement_myFavorites": "Mes favoris",
   "detail_share": "Partager",
   "detail_linkCopied": "Lien copié",
   "detail_memberExclusive": "Exclusif membres",
@@ -535,5 +536,10 @@
   "detail_sourceOfficial": "Portail officiel",
   "procurement_aiSummaryTitle": "Résumé IA de l'appel d'offres",
   "procurement_aiSummaryLocked": "Mettez à niveau pour débloquer l'analyse IA complète",
-  "procurement_aiSummaryUnavailable": "L'analyse IA est en cours de génération, veuillez actualiser plus tard."
+  "procurement_aiSummaryUnavailable": "L'analyse IA est en cours de génération, veuillez actualiser plus tard.",
+  "procurement_aiSummaryNeedConfig": "Configurez votre modèle IA pour générer une analyse adaptée au profil de votre entreprise.",
+  "procurement_aiSummaryGoConfig": "Configurer le modèle IA",
+  "procurement_aiSummaryError": "Échec de l'analyse IA",
+  "procurement_aiSummaryRetry": "Réessayer",
+  "procurement_aiSummaryRegenerate": "Réanalyser"
 }
