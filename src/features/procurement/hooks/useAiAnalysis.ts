@@ -71,9 +71,10 @@ export function useAiAnalysis(
             setData((prev) => ({ ...prev, ...partial }));
           }
         },
-        // onDone: 流结束，解析完整 JSON
+        // onDone: 流结束，解析完整 JSON；失败时降级部分解析，再失败报友好错误（不静默）
         (fullJson) => {
           if (abortRef.current) return;
+          let ok = false;
           try {
             const parsed = JSON.parse(fullJson);
             if (parsed.coreDeliverables !== undefined) {
@@ -86,9 +87,19 @@ export function useAiAnalysis(
                 riskAlerts: parsed.riskAlerts,
               });
               setCached(true);
+              ok = true;
             }
-          } catch {
-            // 流式文本无法解析为 JSON，保留已累积的 partial
+          } catch { /* 落入降级 */ }
+          if (!ok) {
+            // 降级：尝试从累积文本中提取已完成的字段
+            const partial = tryParsePartialJson(fullJson);
+            if (Object.keys(partial).length > 0) {
+              setData(partial as AiSummaryData);
+              ok = true;
+            }
+          }
+          if (!ok) {
+            setError(fullJson ? "AI 返回格式异常，请重试" : "AI 未返回内容，请重试");
           }
           setStreaming(false);
           setLoading(false);
