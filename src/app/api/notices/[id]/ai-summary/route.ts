@@ -1,8 +1,10 @@
 /**
+ * GET  /api/notices/:id/ai-summary — 只读缓存（不触发生成）
  * POST /api/notices/:id/ai-summary — 生成/获取 AI 拆标摘要
  *
  * @module app/api/notices/[id]/ai-summary/route
- * @description 缓存优先；forceRegenerate=true 强制重新生成。
+ * @description GET 仅查缓存：有则返回 {cached:true,data}，无则 {cached:false}，不调 LLM。
+ *              POST 缓存优先；forceRegenerate=true 强制重新生成。
  *              业务逻辑委托 lib/services/ai-summary。
  */
 import { NextResponse } from "next/server";
@@ -11,11 +13,42 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
+import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
 });
+
+/** GET：只读缓存，用于进页面时判断是否已有历史分析（不消耗 LLM） */
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
+    const { id } = await params;
+    const noticeId = Number(id);
+    if (!Number.isFinite(noticeId) || noticeId <= 0) {
+      routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
+    }
+    const ctx = getContext();
+    const repo = new AiSummaryRepo(ctx.dbPool);
+    const cached = await repo.find(auth.userId, noticeId);
+    if (!cached || !cached.core_deliverables) {
+      return NextResponse.json({ code: 0, message: "ok", data: { cached: false } });
+    }
+    return NextResponse.json({
+      code: 0, message: "ok",
+      data: {
+        cached: true,
+        coreDeliverables: cached.core_deliverables || "",
+        keyQualifications: cached.key_qualifications || "",
+        paymentAndCycle: cached.payment_cycle || "",
+        competitiveLandscape: cached.competitive_landscape || "",
+        bidStrategy: cached.bid_strategy || "",
+        riskAlerts: cached.risk_alerts || "",
+      },
+    });
+  },
+);
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {

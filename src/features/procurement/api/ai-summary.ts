@@ -34,6 +34,18 @@ export const generateAiSummary = (noticeId: number, forceRegenerate = false) =>
     body: { forceRegenerate },
   });
 
+/** 只读缓存：进页面时判断是否已有历史分析（不消耗 LLM） */
+export async function fetchAiSummaryCache(noticeId: number): Promise<AiSummaryResponse | null> {
+  try {
+    const res = await api<{ code: number; data: AiSummaryResponse & { cached: boolean } }>(
+      `/api/notices/${noticeId}/ai-summary`,
+    );
+    return res.data?.cached ? res.data : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 流式 AI 摘要（SSE）
  * @param noticeId 公告 ID

@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  streamAiSummary, fetchLlmConfig,
+  streamAiSummary, fetchLlmConfig, fetchAiSummaryCache,
   type AiSummaryData,
 } from "../api/ai-summary";
 
@@ -110,7 +110,7 @@ export function useAiAnalysis(
     }
   }, []);
 
-  // 进入详情：仅检查 LLM 配置状态，不自动触发分析（由用户手动点击开始）
+  // 进入详情：检查 LLM 配置 + 自动加载历史缓存（有缓存直接展示，无缓存才显示开始按钮）
   useEffect(() => {
     abortRef.current = false;
     if (!noticeId || !isLoggedIn) {
@@ -123,6 +123,20 @@ export function useAiAnalysis(
         const cfg = await fetchLlmConfig();
         if (cancelled) return;
         setLlmConfigured(!!cfg.data?.configured);
+        // 自动加载历史缓存（不触发生成）
+        const cachedData = await fetchAiSummaryCache(noticeId);
+        if (cancelled) return;
+        if (cachedData) {
+          setData({
+            coreDeliverables: cachedData.coreDeliverables,
+            keyQualifications: cachedData.keyQualifications,
+            paymentAndCycle: cachedData.paymentCycle,
+            competitiveLandscape: cachedData.competitiveLandscape,
+            bidStrategy: cachedData.bidStrategy,
+            riskAlerts: cachedData.riskAlerts,
+          });
+          setCached(true);
+        }
       } catch {
         if (!cancelled) setLlmConfigured(false);
       }
