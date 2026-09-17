@@ -78,5 +78,10 @@
   "uiPaginationJumpTo": "الانتقال إلى الصفحة",
   "uiMenuOpen": "فتح القائمة",
   "uiMenuClose": "إغلاق القائمة",
-  "skipToContent": "تخطي إلى المحتوى الرئيسي"
+  "skipToContent": "تخطي إلى المحتوى الرئيسي",
+  "settingsTitle": "إعدادات الحساب",
+  "settingsProfile": "الملف الشخصي",
+  "settingsAiModel": "نموذج الذكاء الاصطناعي",
+  "settingsProfileNeedLogin": "يرجى تسجيل الدخول لعرض وتعديل ملفك الشخصي.",
+  "settingsProfileGoLogin": "تسجيل الدخول"
 }

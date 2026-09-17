@@ -83,5 +83,10 @@
   "uiPaginationJumpTo": "Go to page",
   "uiMenuOpen": "Open menu",
   "uiMenuClose": "Close menu",
-  "skipToContent": "Skip to main content"
+  "skipToContent": "Skip to main content",
+  "settingsTitle": "Account Settings",
+  "settingsProfile": "Profile",
+  "settingsAiModel": "AI Model",
+  "settingsProfileNeedLogin": "Please log in to view and edit your profile.",
+  "settingsProfileGoLogin": "Log In"
 }

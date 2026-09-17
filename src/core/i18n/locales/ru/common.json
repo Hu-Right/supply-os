@@ -78,5 +78,10 @@
   "uiPaginationJumpTo": "Перейти на страницу",
   "uiMenuOpen": "Открыть меню",
   "uiMenuClose": "Закрыть меню",
-  "skipToContent": "Перейти к основному контенту"
+  "skipToContent": "Перейти к основному контенту",
+  "settingsTitle": "Настройки аккаунта",
+  "settingsProfile": "Профиль",
+  "settingsAiModel": "ИИ-модель",
+  "settingsProfileNeedLogin": "Войдите, чтобы просматривать и изменять профиль.",
+  "settingsProfileGoLogin": "Войти"
 }

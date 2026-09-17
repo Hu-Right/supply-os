@@ -83,5 +83,10 @@
   "uiPaginationJumpTo": "跳转至页",
   "uiMenuOpen": "打开菜单",
   "uiMenuClose": "关闭菜单",
-  "skipToContent": "跳到主要内容"
+  "skipToContent": "跳到主要内容",
+  "settingsTitle": "账户设置",
+  "settingsProfile": "个人信息",
+  "settingsAiModel": "AI 模型配置",
+  "settingsProfileNeedLogin": "查看与修改个人信息需要先登录。",
+  "settingsProfileGoLogin": "立即登录"
 }

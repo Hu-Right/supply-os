@@ -78,5 +78,10 @@
   "uiPaginationJumpTo": "Aller à la page",
   "uiMenuOpen": "Ouvrir le menu",
   "uiMenuClose": "Fermer le menu",
-  "skipToContent": "Aller au contenu principal"
+  "skipToContent": "Aller au contenu principal",
+  "settingsTitle": "Paramètres du compte",
+  "settingsProfile": "Profil",
+  "settingsAiModel": "Modèle IA",
+  "settingsProfileNeedLogin": "Veuillez vous connecter pour voir et modifier votre profil.",
+  "settingsProfileGoLogin": "Se connecter"
 }
