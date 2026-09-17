@@ -536,5 +536,10 @@
   "detail_sourceOfficial": "البوابة الرسمية",
   "procurement_aiSummaryTitle": "ملخص الذكاء الاصطناعي للمناقصة",
   "procurement_aiSummaryLocked": "قم بالترقية لفتح تحليل الذكاء الاصطناعي الكامل",
-  "procurement_aiSummaryUnavailable": "جاري إنشاء تحليل الذكاء الاصطناعي، يرجى التحديث لاحقاً."
+  "procurement_aiSummaryUnavailable": "جاري إنشاء تحليل الذكاء الاصطناعي، يرجى التحديث لاحقاً.",
+  "procurement_aiSummaryNeedConfig": "قم بتكوين نموذج الذكاء الاصطناعي الخاص بك لإنشاء تحليل مخصص بناءً على ملف شركتك.",
+  "procurement_aiSummaryGoConfig": "تكوين نموذج الذكاء الاصطناعي",
+  "procurement_aiSummaryError": "فشل تحليل الذكاء الاصطناعي",
+  "procurement_aiSummaryRetry": "إعادة المحاولة",
+  "procurement_aiSummaryRegenerate": "إعادة التحليل"
 }
