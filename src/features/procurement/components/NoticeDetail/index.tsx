@@ -8,10 +8,12 @@
  *              免费用户可判断价值，付费用户获取完整执行信息。
  */
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { useOptionalAuth, useUserId } from "@/core/auth";
 import type { NoticeItem, NoticeDetailItem, MembershipStatus } from "../../types";
 import { useNoticeTranslation } from "../../hooks/useNoticeTranslation";
+import { useAiAnalysis } from "../../hooks/useAiAnalysis";
 import { noticeTypeKey } from "../../notice-type";
 import { collectBreakdownFiles } from "../NoticeUnlockedDetails";
 import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
@@ -56,6 +58,9 @@ export function NoticeDetail({
   const { t, locale } = useLocale();
   const authContext = useOptionalAuth();
   const userId = useUserId();
+  const router = useRouter();
+  const noticeId = (notice as { id?: number }).id;
+  const aiSummary = useAiAnalysis(noticeId, isLoggedIn);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
 
@@ -138,9 +143,14 @@ export function NoticeDetail({
             {activeTab === "summary" && (
               <>
                 <AiSummarySection
-                  data={null} loading={false}
+                  data={aiSummary.data}
+                  loading={aiSummary.loading}
+                  error={aiSummary.error}
+                  llmConfigured={aiSummary.llmConfigured}
                   isUnlocked={isVip || coreUnlocked}
                   onUnlock={() => onUnlock(notice)}
+                  onConfigure={() => router.push("/settings/ai-model")}
+                  onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />
 
                 <NoticeDescriptionSection
