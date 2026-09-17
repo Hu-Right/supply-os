@@ -123,6 +123,18 @@ export const EC_NO_VALID_ACTIONS = 40005;
 /** 会话不存在 */
 export const EC_SESSION_REQUIRED = 40002;
 
+/** API Key 无效或已 revoked */
+export const EC_API_KEY_INVALID = 40101;
+
+/** API Key 已过期 */
+export const EC_API_KEY_EXPIRED = 40102;
+
+/** API Key 已暂停 */
+export const EC_API_KEY_SUSPENDED = 40302;
+
+/** API 每日配额已用完 */
+export const EC_API_QUOTA_EXCEEDED = 42901;
+
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 
 /** 通用 API 分页默认大小 */

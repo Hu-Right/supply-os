@@ -37,6 +37,7 @@ import {
   SupplierClaimRepo,
 } from "../repos/suppliers/index";
 import { CatalogRepo } from "../repos/catalog.repo";
+import { OpenApiRepo } from "../repos/open-api.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
@@ -94,6 +95,7 @@ export type AppContext = {
   supplier: SupplierContext;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
+  openApiRepo: OpenApiRepo;
   leadsRepo: LeadsRepo;
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
@@ -133,6 +135,7 @@ export function getContext(): AppContext {
   const claimRepo = new SupplierClaimRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
+  const openApiRepo = new OpenApiRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
@@ -200,6 +203,7 @@ export function getContext(): AppContext {
     supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
     opportunitiesRepo,
     catalogRepo,
+    openApiRepo,
     leadsRepo,
     chatRepo,
     trainingRepo,
