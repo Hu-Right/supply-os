@@ -85,7 +85,8 @@ describe("ProfileContent", () => {
 
   it("渲染供应商认证状态与退出登录按钮", () => {
     render(<ProfileContent />);
-    expect(screen.getByText("authLogout")).toBeInTheDocument();
+    // 退出行标题 + 按钮均含 authLogout，允许多个匹配
+    expect(screen.getAllByText("authLogout").length).toBeGreaterThan(0);
     // supplier_id=42 → 已认证文案 key
     expect(screen.getByText("authSupplierVerified")).toBeInTheDocument();
   });
