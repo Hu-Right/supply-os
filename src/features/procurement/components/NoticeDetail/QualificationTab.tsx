@@ -104,15 +104,15 @@ function ConditionBlock({
 }
 
 /** 从中英双语字段中提取纯中文部分
- *  格式：英文段落 + "中文:" 标记 + 中文段落
- *  若无 "中文:" 标记则尝试按行检测（中文在前英文在后）
+ *  格式：English: + 英文段落 + 中文:/中文：+ 中文段落
+ *  若无标记则尝试按行检测（中文在前英文在后）
  */
 function extractChinese(text: string): string {
   if (!text) return "";
-  // 优先匹配 "中文:" 标记
-  const zhMarker = text.indexOf("中文:");
-  if (zhMarker !== -1) {
-    return text.slice(zhMarker + 3).trim();
+  // 优先匹配 "中文:" 或 "中文：" 标记（兼容半角/全角冒号、前后空格）
+  const zhMatch = text.match(/中文\s*[:：]/);
+  if (zhMatch && zhMatch.index !== undefined) {
+    return text.slice(zhMatch.index + zhMatch[0].length).trim();
   }
   // 兜底：按行检测，取第一个英文段落之前的中文行
   const lines = text.split("\n");
