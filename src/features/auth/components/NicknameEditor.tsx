@@ -17,35 +17,35 @@ export function NicknameEditor() {
   } = useNicknameEditor();
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <UserPen className="w-4 h-4 text-teal-600" />
-        <h4 className="text-sm font-extrabold text-slate-900">{t("authNicknameTitle") || "昵称"}</h4>
-      </div>
-
-      {view === "idle" && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-600">
-            {t("authNicknameCurrent") || "当前昵称"}: <span className="font-bold text-slate-900">{currentNickname || "-"}</span>
+    <div className="px-5 py-4">
+      {/* 行头：图标 + 标题/当前值 + 右侧操作 */}
+      <div className="flex items-center gap-4">
+        <span className="w-10 h-10 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
+          <UserPen className="w-4 h-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">{t("authNicknameTitle") || "昵称"}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {view === "idle" ? (currentNickname || "-") : t("authNicknameHint") || "昵称是对外展示名"}
           </p>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            {t("authNicknameHint") || "昵称是对外展示名，不会公开您的真实姓名"}
-          </p>
+        </div>
+        {view === "idle" && (
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={handleEdit}
-            className="bg-white gap-1"
+            className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 gap-1"
           >
-            <UserPen className="w-3 h-3" />
-            {t("authNicknameEdit") || "修改昵称"}
+            <UserPen className="w-3.5 h-3.5" />
+            {t("authNicknameEdit") || "修改"}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
+      {/* 编辑态：行内展开 */}
       {view === "editing" && (
-        <div className="space-y-3">
+        <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in">
           <Input
             type="text"
             value={draft}
@@ -61,7 +61,6 @@ export function NicknameEditor() {
               size="sm"
               disabled={loading}
               onClick={handleSave}
-              className="py-2 text-xs font-black"
             >
               {loading ? (t("authNicknameSaving") || "保存中…") : (t("authNicknameSave") || "保存")}
             </Button>
@@ -79,7 +78,7 @@ export function NicknameEditor() {
       )}
 
       {message && (
-        <p className={`text-xs font-bold rounded-lg p-2.5 border ${isError ? "text-rose-700 bg-rose-50 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>
+        <p className={`mt-2 sm:pl-14 text-xs font-medium ${isError ? "text-danger-600" : "text-success-600"}`}>
           {message}
         </p>
       )}

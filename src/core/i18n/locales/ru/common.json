@@ -83,5 +83,11 @@
   "settingsProfile": "Профиль",
   "settingsAiModel": "ИИ-модель",
   "settingsProfileNeedLogin": "Войдите, чтобы просматривать и изменять профиль.",
-  "settingsProfileGoLogin": "Войти"
+  "settingsProfileGoLogin": "Войти",
+  "settingsNavGroup": "Настройки",
+  "settingsBasicInfo": "Основная информация",
+  "settingsAccountSecurity": "Аккаунт и безопасность",
+  "settingsMembership": "Членство",
+  "settingsMyRecords": "Мои записи",
+  "authAccountType": "Тип аккаунта"
 }

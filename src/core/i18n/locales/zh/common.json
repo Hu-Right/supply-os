@@ -88,5 +88,11 @@
   "settingsProfile": "个人信息",
   "settingsAiModel": "AI 模型配置",
   "settingsProfileNeedLogin": "查看与修改个人信息需要先登录。",
-  "settingsProfileGoLogin": "立即登录"
+  "settingsProfileGoLogin": "立即登录",
+  "settingsNavGroup": "设置",
+  "settingsBasicInfo": "基本信息",
+  "settingsAccountSecurity": "账号与安全",
+  "settingsMembership": "会员权益",
+  "settingsMyRecords": "我的记录",
+  "authAccountType": "账户属性"
 }

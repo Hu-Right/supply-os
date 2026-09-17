@@ -18,8 +18,8 @@ export default function ProfileSettingsClient() {
   // 未登录：不自动弹窗（避免 SSR/hydration 副作用），仅渲染引导按钮由用户触发
   if (!authUser) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-4">
-        <p className="text-sm text-slate-500">
+      <div className="bg-secondary-50 border border-border rounded-xl p-10 text-center space-y-4">
+        <p className="text-sm text-muted-foreground">
           {t("settingsProfileNeedLogin") || "查看与修改个人信息需要先登录。"}
         </p>
         <Button

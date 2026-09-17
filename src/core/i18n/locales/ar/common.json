@@ -83,5 +83,11 @@
   "settingsProfile": "الملف الشخصي",
   "settingsAiModel": "نموذج الذكاء الاصطناعي",
   "settingsProfileNeedLogin": "يرجى تسجيل الدخول لعرض وتعديل ملفك الشخصي.",
-  "settingsProfileGoLogin": "تسجيل الدخول"
+  "settingsProfileGoLogin": "تسجيل الدخول",
+  "settingsNavGroup": "الإعدادات",
+  "settingsBasicInfo": "المعلومات الأساسية",
+  "settingsAccountSecurity": "الحساب والأمان",
+  "settingsMembership": "العضوية",
+  "settingsMyRecords": "سجلاتي",
+  "authAccountType": "نوع الحساب"
 }

@@ -20,10 +20,11 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const { t } = useLocale();
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-xl font-extrabold text-slate-900 mb-6">{t("settingsTitle") || "账户设置"}</h1>
-      <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-6">
+      <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账户设置"}</h1>
+      <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-8">
         {/* 左侧导航（移动端横向 Tab） */}
-        <nav className="flex md:flex-col gap-2 overflow-x-auto">
+        <nav className="flex md:flex-col gap-1 overflow-x-auto">
+          <p className="hidden md:block text-2xs text-muted-foreground px-3 mb-2">{t("settingsNavGroup") || "设置"}</p>
           {NAV_ITEMS.map((item) => {
             const active = pathname.startsWith(item.href);
             const Icon = item.icon;
@@ -32,8 +33,10 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold whitespace-nowrap transition-colors",
-                  active ? "bg-teal-50 text-teal-700" : "text-slate-600 hover:bg-slate-50",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors",
+                  active
+                    ? "bg-secondary-100 text-foreground font-medium"
+                    : "text-muted-foreground hover:bg-secondary-50 hover:text-foreground",
                 )}
               >
                 <Icon className="w-4 h-4 shrink-0" />

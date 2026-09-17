@@ -88,5 +88,11 @@
   "settingsProfile": "Profile",
   "settingsAiModel": "AI Model",
   "settingsProfileNeedLogin": "Please log in to view and edit your profile.",
-  "settingsProfileGoLogin": "Log In"
+  "settingsProfileGoLogin": "Log In",
+  "settingsNavGroup": "Settings",
+  "settingsBasicInfo": "Basic Info",
+  "settingsAccountSecurity": "Account & Security",
+  "settingsMembership": "Membership",
+  "settingsMyRecords": "My Records",
+  "authAccountType": "Account Type"
 }

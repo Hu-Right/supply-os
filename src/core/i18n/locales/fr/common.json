@@ -83,5 +83,11 @@
   "settingsProfile": "Profil",
   "settingsAiModel": "Modèle IA",
   "settingsProfileNeedLogin": "Veuillez vous connecter pour voir et modifier votre profil.",
-  "settingsProfileGoLogin": "Se connecter"
+  "settingsProfileGoLogin": "Se connecter",
+  "settingsNavGroup": "Paramètres",
+  "settingsBasicInfo": "Informations de base",
+  "settingsAccountSecurity": "Compte et sécurité",
+  "settingsMembership": "Abonnement",
+  "settingsMyRecords": "Mes records",
+  "authAccountType": "Type de compte"
 }
