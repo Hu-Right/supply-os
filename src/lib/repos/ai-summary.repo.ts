@@ -85,4 +85,59 @@ export class AiSummaryRepo {
       [userId, noticeId],
     );
   }
+
+  // ── AI 适配评分 ──
+
+  /** 查评分缓存 */
+  async findScore(userId: number, noticeId: number): Promise<(AiSummaryRow & { score_reasons: string | null }) | null> {
+    const [rows] = await this.pool.query(
+      "SELECT * FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
+      [userId, noticeId],
+    );
+    return (rows as (AiSummaryRow & { score_reasons: string | null })[])[0] ?? null;
+  }
+
+  /** UPSERT 评分 */
+  async upsertScore(input: {
+    userId: number; noticeId: number;
+    qualification: number; experience: number; certification: number;
+    region: number; scale: number; delivery: number; price: number;
+    overall: number; reasons: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO crm_notice_ai_summaries
+         (user_id, notice_id, score_qualification, score_experience, score_certification,
+          score_region, score_scale, score_delivery, score_price, score_overall, score_reasons)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         score_qualification = VALUES(score_qualification),
+         score_experience = VALUES(score_experience),
+         score_certification = VALUES(score_certification),
+         score_region = VALUES(score_region),
+         score_scale = VALUES(score_scale),
+         score_delivery = VALUES(score_delivery),
+         score_price = VALUES(score_price),
+         score_overall = VALUES(score_overall),
+         score_reasons = VALUES(score_reasons),
+         created_at = CURRENT_TIMESTAMP`,
+      [
+        input.userId, input.noticeId,
+        input.qualification, input.experience, input.certification,
+        input.region, input.scale, input.delivery, input.price,
+        input.overall, input.reasons,
+      ],
+    );
+  }
+
+  /** 删除评分缓存 */
+  async removeScore(userId: number, noticeId: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE crm_notice_ai_summaries SET
+         score_qualification = NULL, score_experience = NULL, score_certification = NULL,
+         score_region = NULL, score_scale = NULL, score_delivery = NULL,
+         score_price = NULL, score_overall = NULL, score_reasons = NULL
+       WHERE user_id = ? AND notice_id = ?`,
+      [userId, noticeId],
+    );
+  }
 }
