@@ -31,6 +31,8 @@ import { DetailTabs } from "./DetailTabs";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
+import { AiScoreCard } from "../AiScoreCard";
+import { useAiScore } from "../../hooks/useAiScore";
 import { PlaceholderTab } from "./PlaceholderTab";
 import type { PlaceholderTabType } from "./PlaceholderTab";
 
@@ -66,6 +68,7 @@ export function NoticeDetail({
   const router = useRouter();
   const noticeId = (notice as { id?: number }).id;
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn);
+  const aiScore = useAiScore(noticeId);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
 
@@ -211,12 +214,12 @@ export function NoticeDetail({
             )}
 
             {activeTab === "ai-score" && (
-              <PlaceholderTab
-                tabType={"ai-score" as PlaceholderTabType}
-                tier="pro"
-                hasAccess={hasProAccess}
-                upgradePath="/membership"
-                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
+              <AiScoreCard
+                data={aiScore.data}
+                loading={aiScore.loading}
+                error={aiScore.error}
+                onStart={() => aiScore.triggerScore(false)}
+                onRegenerate={() => aiScore.triggerScore(true)}
               />
             )}
 
