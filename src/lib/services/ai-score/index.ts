@@ -98,7 +98,7 @@ export async function getOrGenerateAiScore(
       delivery: cached.score_delivery ?? 0,
       price: cached.score_price ?? 0,
       overall: cached.score_overall ?? 0,
-      reasons: cached.score_reasons ? JSON.parse(cached.score_reasons) : {},
+      details: cached.score_reasons ? JSON.parse(cached.score_reasons) : {},
       cached: true,
     };
   }
@@ -137,7 +137,7 @@ export async function getOrGenerateAiScore(
     delivery: data.delivery,
     price: data.price,
     overall: data.overall,
-    reasons: JSON.stringify(data.reasons),
+    reasons: JSON.stringify(data.details),
     model: result!.model,
     providerBaseUrl: config!.base_url,
   });

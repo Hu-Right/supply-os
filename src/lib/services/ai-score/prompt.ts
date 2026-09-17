@@ -1,8 +1,9 @@
 /**
- * AI 适配评分 Prompt 模板
+ * AI 适配评分 Prompt 模板 v2
  * @module lib/services/ai-score/prompt
  * @description 7 维度结构化评分：资质/经验/认证/地域/规模/交期/价格。
- *              输出 JSON：7 个维度分数(0-100) + 综合分 + 每维度一句话理由。
+ *              输出 JSON：7 维度分数 + 综合分 + 每维度结构化证据
+ *              （reason 总结 + matched 匹配项 + gaps 差距项）。
  */
 
 export const SCORE_SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采购投标顾问。根据招标公告要求和供应商企业画像，从 7 个维度评估该供应商参与本标的适配度。
@@ -11,9 +12,11 @@ export const SCORE_SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采�
 1. 每个维度 0-100 分，基于公告原文事实和企业画像数据，不可臆造。
 2. 信息缺失时给保守分（40-60），不要给极端分。
 3. 综合分 = 7 维度加权平均（资质20% 经验15% 认证15% 地域10% 规模15% 交期10% 价格15%）。
-4. 每个维度的理由必须引用具体证据，格式："企业侧事实 vs 公告侧要求 → 结论"。
-   例："企业拥有ISO9001/CE认证，公告要求ISO9001，完全覆盖→高分" 或 "公告要求本地供应商，企业位于中国→地域不适配→低分"。
-   理由控制在 50 字以内，必须让用户看懂分数从何而来。
+4. 每个维度必须给出结构化证据：
+   - reason：一句话总结（50字内），格式"企业侧 vs 公告侧 → 结论"。
+   - matched：数组，列出"企业已具备且公告认可/要求"的具体匹配项（2-4条，每条20字内）。无则空数组。
+   - gaps：数组，列出"公告要求但企业缺失/不足"的具体差距项（0-3条，每条20字内）。无则空数组。
+   证据必须具体到事实（如"企业有ISO9001""公告要求本地供应商"），不可泛泛而谈。
 
 ## 输出格式
 严格输出以下 JSON，不要输出任何额外解释或 markdown：
@@ -26,14 +29,14 @@ export const SCORE_SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采�
   "delivery": 80,
   "price": 65,
   "overall": 75,
-  "reasons": {
-    "qualification": "一句话理由",
-    "experience": "一句话理由",
-    "certification": "一句话理由",
-    "region": "一句话理由",
-    "scale": "一句话理由",
-    "delivery": "一句话理由",
-    "price": "一句话理由"
+  "details": {
+    "qualification": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "experience": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "certification": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "region": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "scale": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "delivery": { "reason": "…", "matched": ["…"], "gaps": ["…"] },
+    "price": { "reason": "…", "matched": ["…"], "gaps": ["…"] }
   }
 }`;
 
@@ -45,6 +48,13 @@ export const SCORE_DIMENSIONS = [
 
 export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
 
+/** 单个维度的结构化证据 */
+export interface DimensionDetail {
+  reason: string;
+  matched: string[];
+  gaps: string[];
+}
+
 export interface AiScoreRaw {
   qualification: number;
   experience: number;
@@ -54,7 +64,7 @@ export interface AiScoreRaw {
   delivery: number;
   price: number;
   overall: number;
-  reasons: Record<ScoreDimension, string>;
+  details: Record<ScoreDimension, DimensionDetail>;
 }
 
 /** 组装评分用户提示词（复用公告+供应商画像数据） */

@@ -4,7 +4,7 @@
  * @description 调用 OpenAI 兼容端点获取 7 维度评分 JSON。
  */
 import { fetchWithTimeout } from "../translation/fetchWithTimeout";
-import type { AiScoreRaw, ScoreDimension } from "./prompt";
+import type { AiScoreRaw, ScoreDimension, DimensionDetail } from "./prompt";
 import { SCORE_DIMENSIONS } from "./prompt";
 
 const LLM_TIMEOUT_MS = 30_000;
@@ -32,7 +32,24 @@ export function parseAiScoreResponse(content: string): AiScoreRaw {
     const n = Number(v);
     return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 50;
   };
-  const reasons = (o.reasons && typeof o.reasons === "object" ? o.reasons : {}) as Record<string, unknown>;
+
+  // 解析结构化证据：优先 details（新格式），兼容 reasons（旧格式）
+  const rawDetails = (o.details && typeof o.details === "object" ? o.details : {}) as Record<string, unknown>;
+  const rawReasons = (o.reasons && typeof o.reasons === "object" ? o.reasons : {}) as Record<string, unknown>;
+  const strArr = (v: unknown) => (Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : []);
+
+  const details = Object.fromEntries(
+    SCORE_DIMENSIONS.map((d) => {
+      const det = (rawDetails[d] && typeof rawDetails[d] === "object" ? rawDetails[d] : {}) as Record<string, unknown>;
+      const detail: DimensionDetail = {
+        reason: String(det.reason ?? rawReasons[d] ?? "").trim(),
+        matched: strArr(det.matched),
+        gaps: strArr(det.gaps),
+      };
+      return [d, detail];
+    }),
+  ) as Record<ScoreDimension, DimensionDetail>;
+
   return {
     qualification: num(o.qualification),
     experience: num(o.experience),
@@ -42,9 +59,7 @@ export function parseAiScoreResponse(content: string): AiScoreRaw {
     delivery: num(o.delivery),
     price: num(o.price),
     overall: num(o.overall),
-    reasons: Object.fromEntries(
-      SCORE_DIMENSIONS.map((d) => [d, String((reasons as Record<string, unknown>)[d] || "").trim()]),
-    ) as Record<ScoreDimension, string>,
+    details,
   };
 }
 
