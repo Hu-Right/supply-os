@@ -26,10 +26,10 @@ describe("prompt builder", () => {
     expect(p).toContain("T");
   });
 
-  it("描述超长被截断到 2000 字", () => {
-    const long = "x".repeat(3000);
+  it("描述超长被截断到 4000 字", () => {
+    const long = "x".repeat(5000);
     const p = buildUserPrompt({ title: "T", description: long }, null);
-    expect(p.length).toBeLessThan(3000);
+    expect(p.length).toBeLessThan(6000);
   });
 
   it("truncate 处理边界", () => {
