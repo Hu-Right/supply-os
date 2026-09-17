@@ -24,6 +24,7 @@ import {
   QuotaExceededError,
 } from "./notice-actions";
 import { getNoticeTranslation } from "./translation/translation-flow";
+import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
 import type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
 export type { RecoFeedbackItem } from "@/lib/repos/notices/notice-feedback.repo";
 
@@ -66,7 +67,8 @@ export async function submitNoticeInterest(params: {
 export async function toggleNoticeFavorite(params: {
   userId: number; noticeId: number;
 }): Promise<{ favorited: boolean }> {
-  const repo = new NoticeFavoriteRepo(getPool());
+  const pool = getPool();
+  const repo = new NoticeFavoriteRepo(pool);
   if (!(await repo.noticeExists(params.noticeId))) {
     throw new NoticeNotFoundError();
   }
@@ -75,6 +77,18 @@ export async function toggleNoticeFavorite(params: {
     return { favorited: false };
   }
   await repo.insert(params.userId, params.noticeId);
+  // 收藏写入兴趣码画像（feedback_favorite +0.8，白名单既有来源）：
+  // 仅喂推荐画像，不写 crm_notice_interests（销售线索漏斗保持纯净）；
+  // 取消收藏不衰减，与其他来源口径一致；反复 toggle 由单码 500 软上限兜底
+  try {
+    const notice = await new NoticeDetailRepo(pool).findById(params.noticeId);
+    const snapshot = normalizeUnspscCodes(
+      (notice as { unspsc_codes?: unknown[] } | null)?.unspsc_codes ?? [],
+    );
+    await persistUserInterestCodes(pool, params.userId, snapshot, "feedback_favorite", 0.8);
+  } catch (e) {
+    console.warn("[notice-service] favorite interest-code persist failed (non-critical):", e);
+  }
   return { favorited: true };
 }
 
