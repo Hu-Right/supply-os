@@ -156,5 +156,12 @@
   "authEnterpriseVerifyApproved": "已认证",
   "authEnterpriseVerifyProcessing": "审核中",
   "authEnterpriseVerifyRejected": "已驳回",
-  "authEnterpriseRejectReason": "驳回原因"
+  "authEnterpriseRejectReason": "驳回原因",
+  "authEnterpriseTypeFactory": "工厂",
+  "authEnterpriseTypeTrader": "贸易商",
+  "authEnterpriseTypeFactoryTrader": "工贸一体",
+  "authEnterpriseSelectPlaceholder": "请选择",
+  "authEnterpriseProvincePlaceholder": "搜索省份",
+  "authEnterpriseCityPlaceholder": "搜索城市",
+  "authEnterpriseSelectProvinceFirst": "先选省份"
 }

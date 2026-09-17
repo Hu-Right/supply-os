@@ -36,7 +36,10 @@ describe("EnterpriseEditForm", () => {
     const onSubmit = vi.fn();
     render(
       <EnterpriseEditForm
-        initial={{ company: "X", country: "CN", contact: "Y", phone: "123" } as never}
+        initial={{
+          company: "X", province: "浙江省", city: "杭州市", address: "某路1号",
+          contact: "Y", phone: "123", industry: "IT", products: "P", type: "factory",
+        } as never}
         saving={false}
         onSubmit={onSubmit}
         onCancel={vi.fn()}
@@ -46,7 +49,11 @@ describe("EnterpriseEditForm", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const payload = onSubmit.mock.calls[0][0] as Record<string, string>;
     expect(payload).toHaveProperty("company");
-    expect(payload).toHaveProperty("intro");
+    expect(payload).toHaveProperty("province", "浙江省");
+    expect(payload).toHaveProperty("type", "factory");
+    // 国家/国家代码不提交
+    expect(payload).not.toHaveProperty("country");
+    expect(payload).not.toHaveProperty("country_code");
   });
 
   it("点击取消回调 onCancel", () => {

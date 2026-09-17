@@ -169,7 +169,6 @@ export function EnterpriseInfoCard({
   const basicCells: Cell[] = [
     { label: t("authEnterpriseId") || "ID", value: sv(row, "id") },
     { label: t("authEnterpriseNameConfirmed") || "确认后公司名", value: companyName },
-    { label: t("authEnterpriseCountry") || "国家/地区", value: `${sv(row, "country")}（${sv(row, "country_code")}）` },
     { label: t("authEnterpriseProvince") || "省份", value: sv(row, "province") },
     { label: t("authEnterpriseCity") || "城市", value: sv(row, "city") },
     { label: t("authEnterpriseBizAddress") || "经营地址", value: sv(row, "address"), full: true },

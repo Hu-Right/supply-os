@@ -151,5 +151,12 @@
   "authEnterpriseVerifyApproved": "Vérifié",
   "authEnterpriseVerifyProcessing": "En cours d'examen",
   "authEnterpriseVerifyRejected": "Rejeté",
-  "authEnterpriseRejectReason": "Motif du rejet"
+  "authEnterpriseRejectReason": "Motif du rejet",
+  "authEnterpriseTypeFactory": "Usine",
+  "authEnterpriseTypeTrader": "Négociant",
+  "authEnterpriseTypeFactoryTrader": "Usine + Négociant",
+  "authEnterpriseSelectPlaceholder": "Veuillez sélectionner",
+  "authEnterpriseProvincePlaceholder": "Rechercher province",
+  "authEnterpriseCityPlaceholder": "Rechercher ville",
+  "authEnterpriseSelectProvinceFirst": "Sélectionnez d'abord la province"
 }

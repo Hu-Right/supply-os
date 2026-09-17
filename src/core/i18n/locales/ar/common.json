@@ -151,5 +151,12 @@
   "authEnterpriseVerifyApproved": "موثق",
   "authEnterpriseVerifyProcessing": "قيد المراجعة",
   "authEnterpriseVerifyRejected": "مرفوض",
-  "authEnterpriseRejectReason": "سبب الرفض"
+  "authEnterpriseRejectReason": "سبب الرفض",
+  "authEnterpriseTypeFactory": "مصنع",
+  "authEnterpriseTypeTrader": "تاجر",
+  "authEnterpriseTypeFactoryTrader": "مصنع + تاجر",
+  "authEnterpriseSelectPlaceholder": "يرجى الاختيار",
+  "authEnterpriseProvincePlaceholder": "بحث المقاطعة",
+  "authEnterpriseCityPlaceholder": "بحث المدينة",
+  "authEnterpriseSelectProvinceFirst": "اختر المقاطعة أولاً"
 }

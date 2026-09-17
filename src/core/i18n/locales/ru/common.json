@@ -151,5 +151,12 @@
   "authEnterpriseVerifyApproved": "Подтверждено",
   "authEnterpriseVerifyProcessing": "На проверке",
   "authEnterpriseVerifyRejected": "Отклонено",
-  "authEnterpriseRejectReason": "Причина отказа"
+  "authEnterpriseRejectReason": "Причина отказа",
+  "authEnterpriseTypeFactory": "Фабрика",
+  "authEnterpriseTypeTrader": "Трейдeр",
+  "authEnterpriseTypeFactoryTrader": "Фабрика + Трейдeр",
+  "authEnterpriseSelectPlaceholder": "Выберите",
+  "authEnterpriseProvincePlaceholder": "Поиск провинции",
+  "authEnterpriseCityPlaceholder": "Поиск города",
+  "authEnterpriseSelectProvinceFirst": "Сначала выберите провинцию"
 }

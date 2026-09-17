@@ -5,12 +5,14 @@
  * @module features/auth/components/EnterpriseEditForm
  * @description 与展示表格同构的可编辑表格：label 灰底单元格 + 输入框值单元格，
  *              分组（基本信息/联系信息/工商与业务信息）。所见即所填、所填即所显。
- *              提交值为 supplier 列名（snake_case）的键值对。纯展示+本地状态，
- *              保存动作由外层 onSubmit 回调负责。
+ *              面向中国场景：国家/国家代码不填写不入库（提交留空）；
+ *              省/市用级联下拉（对标采购需求地址表单）；供应商类型为下拉选择。
+ *              提交值为 supplier 列名（snake_case）键值对；保存动作由外层 onSubmit 负责。
  */
 import { useState } from "react";
 import { useLocale } from "@/core/i18n";
 import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
+import { EnterpriseLocationSelects } from "./EnterpriseLocationSelects";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
@@ -24,21 +26,25 @@ export interface EnterpriseEditFormProps {
   onCancel: () => void;
 }
 
-/** 可编辑字段定义：key=supplier 列名 */
+interface OptionDef { value: string; labelKey: string; fallback: string }
 interface FieldDef {
   key: string;
   labelKey: string;
   fallback: string;
   full?: boolean;
   textarea?: boolean;
+  options?: OptionDef[];
 }
+
+/** 供应商类型下拉选项 */
+const SUPPLIER_TYPE_OPTIONS: OptionDef[] = [
+  { value: "factory", labelKey: "authEnterpriseTypeFactory", fallback: "工厂" },
+  { value: "trader", labelKey: "authEnterpriseTypeTrader", fallback: "贸易商" },
+  { value: "factory_trader", labelKey: "authEnterpriseTypeFactoryTrader", fallback: "工贸一体" },
+];
 
 const BASIC_FIELDS: FieldDef[] = [
   { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
-  { key: "country", labelKey: "authEnterpriseCountry", fallback: "国家/地区" },
-  { key: "country_code", labelKey: "authEnterpriseCountryCode", fallback: "国家代码" },
-  { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份" },
-  { key: "city", labelKey: "authEnterpriseCity", fallback: "城市" },
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true },
   { key: "registered_address", labelKey: "authEnterpriseRegAddress", fallback: "注册地址", full: true },
 ];
@@ -56,11 +62,24 @@ const BUSINESS_FIELDS: FieldDef[] = [
   { key: "established_at", labelKey: "authEnterpriseEstablished", fallback: "成立日期" },
   { key: "registered_capital", labelKey: "authEnterpriseCapital", fallback: "注册资本" },
   { key: "credit_code", labelKey: "authEnterpriseCreditCode", fallback: "统一社会信用代码" },
-  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "行业" },
-  { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型" },
+  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业" },
+  { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型", options: SUPPLIER_TYPE_OPTIONS },
   { key: "certification", labelKey: "authEnterpriseCertifications", fallback: "资质认证" },
   { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品" },
   { key: "intro", labelKey: "authEnterpriseIntro", fallback: "企业简介", full: true, textarea: true },
+];
+
+/** 必填字段（预提交阻断校验点名用） */
+const REQUIRED_KEYS: { key: string; labelKey: string; fallback: string }[] = [
+  { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称" },
+  { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份" },
+  { key: "city", labelKey: "authEnterpriseCity", fallback: "城市" },
+  { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址" },
+  { key: "contact", labelKey: "authEnterpriseContact", fallback: "联系人" },
+  { key: "phone", labelKey: "authEnterprisePhone", fallback: "联系电话" },
+  { key: "industry", labelKey: "authEnterpriseIndustry", fallback: "所属行业" },
+  { key: "products", labelKey: "authEnterpriseProducts", fallback: "主营产品" },
+  { key: "type", labelKey: "authEnterpriseSupplierType", fallback: "供应商类型" },
 ];
 
 function GroupTitle({ children }: { children: React.ReactNode }) {
@@ -76,13 +95,16 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
   const { t } = useLocale();
   const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
+    const init: Record<string, string> = { province: "", city: "" };
     for (const group of [BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS]) {
       for (const f of group) {
         const v = initial?.[f.key];
         init[f.key] = v === null || v === undefined ? "" : String(v);
       }
     }
+    // 省市名称从初始行回填
+    init.province = initial?.province ? String(initial.province) : "";
+    init.city = initial?.city ? String(initial.city) : "";
     return init;
   });
 
@@ -100,6 +122,17 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
             value={values[f.key] || ""}
             onChange={(e) => set(f.key, e.target.value)}
           />
+        ) : f.options ? (
+          <select
+            className={inputCls}
+            value={values[f.key] || ""}
+            onChange={(e) => set(f.key, e.target.value)}
+          >
+            <option value="">{t("authEnterpriseSelectPlaceholder") || "请选择"}</option>
+            {f.options.map((o) => (
+              <option key={o.value} value={o.value}>{t(o.labelKey) || o.fallback}</option>
+            ))}
+          </select>
         ) : (
           <input
             className={inputCls}
@@ -111,57 +144,70 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
     </div>
   );
 
-  const renderGroup = (fields: FieldDef[]) => {
-    const rows: FieldDef[][] = [];
+  const renderGroup = (fields: FieldDef[], extraRow?: React.ReactNode) => {
+    const rows: React.ReactNode[] = [];
+    if (extraRow) rows.push(extraRow);
     let cur: FieldDef[] = [];
+    const flush = () => {
+      if (!cur.length) return;
+      const rowFields = cur;
+      rows.push(
+        <div key={`r-${rowFields[0].key}`} className="grid grid-cols-4 border-b border-border">
+          {rowFields.map(renderField)}
+          {rowFields.length === 1 && !rowFields[0].full && (
+            <>
+              <div className="bg-secondary-50 px-3 py-2 border-r border-border" />
+              <div className="px-3 py-2" />
+            </>
+          )}
+        </div>,
+      );
+      cur = [];
+    };
     for (const f of fields) {
-      if (f.full) {
-        if (cur.length) { rows.push(cur); cur = []; }
-        rows.push([f]);
-      } else {
-        cur.push(f);
-        if (cur.length === 2) { rows.push(cur); cur = []; }
-      }
+      if (f.full) { flush(); rows.push(<div key={`f-${f.key}`} className="grid grid-cols-4 border-b border-border">{renderField(f)}</div>); }
+      else { cur.push(f); if (cur.length === 2) flush(); }
     }
-    if (cur.length) rows.push(cur);
+    flush();
     return (
       <div className="border border-border rounded-md overflow-hidden bg-white">
-        {rows.map((row, ri) => (
-          <div key={ri} className="grid grid-cols-4 border-b border-border last:border-b-0">
-            {row.map(renderField)}
-            {row.length === 1 && !row[0].full && (
-              <>
-                <div className="bg-secondary-50 px-3 py-2 border-r border-border" />
-                <div className="px-3 py-2" />
-              </>
-            )}
-          </div>
-        ))}
+        {rows}
       </div>
     );
   };
 
+  // 省/市级联行（全宽）
+  const locationRow = (
+    <div key="location" className="grid grid-cols-4 border-b border-border">
+      <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
+        {t("authEnterpriseProvince") || "省份"} / {t("authEnterpriseCity") || "城市"}
+      </div>
+      <div className="px-3 py-2 col-span-3">
+        <EnterpriseLocationSelects
+          provinceName={values.province || ""}
+          cityName={values.city || ""}
+          onChange={(next) => setValues((s) => ({ ...s, province: next.province, city: next.city }))}
+        />
+      </div>
+    </div>
+  );
+
   const handleSubmit = () => {
-    // 预提交阻断校验：必填项缺失时红字点名，不发起提交（生产级表单教训）
-    const required: FieldDef[] = [
-      BASIC_FIELDS[0], // company 企业名称
-      BASIC_FIELDS[1], // country 国家/地区
-      CONTACT_FIELDS[0], // contact 联系人
-    ];
     const missing: string[] = [];
-    for (const f of required) {
-      if (!(values[f.key] || "").trim()) missing.push(t(f.labelKey) || f.fallback);
-    }
-    if (!(values.phone || "").trim() && !(values.email || "").trim()) {
-      missing.push(`${t("authEnterprisePhone") || "联系电话"}/${t("authEnterpriseEmail") || "邮箱"}`);
+    for (const r of REQUIRED_KEYS) {
+      if (!(values[r.key] || "").trim()) missing.push(t(r.labelKey) || r.fallback);
     }
     if (missing.length) {
       setFormError(`${t("authEnterpriseRequiredMissing") || "请填写必填项"}：${missing.join("、")}`);
       return;
     }
     setFormError(null);
+    // 国家/国家代码不提交（面向中国场景留空不入库）
     const payload: Record<string, string> = {};
-    for (const [k, v] of Object.entries(values)) payload[k] = v;
+    for (const [k, v] of Object.entries(values)) {
+      if (k === "country" || k === "country_code") continue;
+      payload[k] = v;
+    }
     onSubmit(payload);
   };
 
@@ -169,7 +215,7 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
     <div className="space-y-6">
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>
-        {renderGroup(BASIC_FIELDS)}
+        {renderGroup(BASIC_FIELDS, locationRow)}
       </section>
       <section>
         <GroupTitle>{t("authEnterpriseGroupContact") || "联系信息"}</GroupTitle>
