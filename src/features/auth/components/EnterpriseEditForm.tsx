@@ -114,12 +114,17 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
 
   const set = (key: string, v: string) => setValues((s) => ({ ...s, [key]: v }));
 
+  // 必填字段 Set（用于 label 星号标识）
+  const requiredKeys = new Set(REQUIRED_KEYS.map((r) => r.key));
+
   const renderField = (f: FieldDef) => {
     const ph = f.placeholderKey ? (t(f.placeholderKey) || f.placeholder || "") : (f.placeholder || "");
+    const isRequired = requiredKeys.has(f.key);
     return (
       <div key={f.key} className="contents">
         <div className="bg-secondary-50 px-3 py-2 text-xs text-muted-foreground border-r border-border flex items-center">
           {t(f.labelKey) || f.fallback}
+          {isRequired && <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>}
         </div>
         <div className={`px-3 py-2 ${f.full ? "col-span-3" : "col-span-1"}`}>
           {f.textarea ? (
