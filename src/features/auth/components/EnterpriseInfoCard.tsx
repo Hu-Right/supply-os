@@ -163,6 +163,8 @@ export function EnterpriseInfoCard({
   const companyName = sv(row, "name_confirmed") !== "-" ? sv(row, "name_confirmed") : sv(row, "company");
   const isIntl = String(row.country_code || "") !== "" && String(row.country_code) !== "CN";
   const coop = Number(row.coop_status || 0) === 1;
+  const verifyStatus = String(row.verify_status || "");
+  const checkNote = String(row.check_note || "");
 
   const basicCells: Cell[] = [
     { label: t("authEnterpriseId") || "ID", value: sv(row, "id") },
@@ -203,7 +205,25 @@ export function EnterpriseInfoCard({
       {/* 头部：公司名 + 标签 */}
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-semibold text-foreground">{companyName}</h3>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+          {verifyStatus === "done" && (
+            <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
+              {t("authEnterpriseVerifyApproved") || "已认证"}
+            </span>
+          )}
+          {verifyStatus === "processing" && (
+            <span className="px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-2xs">
+              {t("authEnterpriseVerifyProcessing") || "审核中"}
+            </span>
+          )}
+          {verifyStatus === "rejected" && (
+            <span
+              className="px-2 py-0.5 rounded border border-danger-200 bg-danger-50 text-danger-700 text-2xs"
+              title={checkNote || undefined}
+            >
+              {t("authEnterpriseVerifyRejected") || "已驳回"}
+            </span>
+          )}
           <span className="px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-2xs">
             {isIntl ? (t("authEnterpriseInternational") || "国际") : (t("authEnterpriseDomestic") || "国内")}
           </span>
@@ -214,6 +234,12 @@ export function EnterpriseInfoCard({
           )}
         </div>
       </div>
+
+      {verifyStatus === "rejected" && checkNote && (
+        <p className="text-xs text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
+          {t("authEnterpriseRejectReason") || "驳回原因"}：{checkNote}
+        </p>
+      )}
 
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>

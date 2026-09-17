@@ -146,5 +146,10 @@
   "authEnterpriseSave": "Сохранить",
   "authEnterpriseSaving": "Сохранение…",
   "authEnterpriseCancel": "Отмена",
-  "authEnterpriseSaveFailed": "Ошибка сохранения"
+  "authEnterpriseSaveFailed": "Ошибка сохранения",
+  "authEnterpriseRequiredMissing": "Заполните обязательные поля",
+  "authEnterpriseVerifyApproved": "Подтверждено",
+  "authEnterpriseVerifyProcessing": "На проверке",
+  "authEnterpriseVerifyRejected": "Отклонено",
+  "authEnterpriseRejectReason": "Причина отказа"
 }

@@ -146,5 +146,10 @@
   "authEnterpriseSave": "Guardar",
   "authEnterpriseSaving": "Guardando…",
   "authEnterpriseCancel": "Cancelar",
-  "authEnterpriseSaveFailed": "Error al guardar"
+  "authEnterpriseSaveFailed": "Error al guardar",
+  "authEnterpriseRequiredMissing": "Complete los campos obligatorios",
+  "authEnterpriseVerifyApproved": "Verificado",
+  "authEnterpriseVerifyProcessing": "En revisión",
+  "authEnterpriseVerifyRejected": "Rechazado",
+  "authEnterpriseRejectReason": "Motivo del rechazo"
 }

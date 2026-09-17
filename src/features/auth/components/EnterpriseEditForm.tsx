@@ -74,6 +74,7 @@ function GroupTitle({ children }: { children: React.ReactNode }) {
 
 export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: EnterpriseEditFormProps) {
   const { t } = useLocale();
+  const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const group of [BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS]) {
@@ -141,7 +142,24 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
   };
 
   const handleSubmit = () => {
-    // 仅提交非空字段（空串交由后端转 null）
+    // 预提交阻断校验：必填项缺失时红字点名，不发起提交（生产级表单教训）
+    const required: FieldDef[] = [
+      BASIC_FIELDS[0], // company 企业名称
+      BASIC_FIELDS[1], // country 国家/地区
+      CONTACT_FIELDS[0], // contact 联系人
+    ];
+    const missing: string[] = [];
+    for (const f of required) {
+      if (!(values[f.key] || "").trim()) missing.push(t(f.labelKey) || f.fallback);
+    }
+    if (!(values.phone || "").trim() && !(values.email || "").trim()) {
+      missing.push(`${t("authEnterprisePhone") || "联系电话"}/${t("authEnterpriseEmail") || "邮箱"}`);
+    }
+    if (missing.length) {
+      setFormError(`${t("authEnterpriseRequiredMissing") || "请填写必填项"}：${missing.join("、")}`);
+      return;
+    }
+    setFormError(null);
     const payload: Record<string, string> = {};
     for (const [k, v] of Object.entries(values)) payload[k] = v;
     onSubmit(payload);
@@ -161,6 +179,12 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
         <GroupTitle>{t("authEnterpriseGroupBusiness") || "工商与业务信息"}</GroupTitle>
         {renderGroup(BUSINESS_FIELDS)}
       </section>
+
+      {formError && (
+        <p className="text-xs font-medium text-danger-600 bg-danger-50 border border-danger-200 rounded-lg p-3">
+          {formError}
+        </p>
+      )}
 
       <div className="flex gap-2">
         <button type="button" className={btnBlue} disabled={saving} onClick={handleSubmit}>

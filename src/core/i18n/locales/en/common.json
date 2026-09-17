@@ -151,5 +151,10 @@
   "authEnterpriseSave": "Save",
   "authEnterpriseSaving": "Saving…",
   "authEnterpriseCancel": "Cancel",
-  "authEnterpriseSaveFailed": "Save failed"
+  "authEnterpriseSaveFailed": "Save failed",
+  "authEnterpriseRequiredMissing": "Please fill required fields",
+  "authEnterpriseVerifyApproved": "Verified",
+  "authEnterpriseVerifyProcessing": "Under review",
+  "authEnterpriseVerifyRejected": "Rejected",
+  "authEnterpriseRejectReason": "Reject reason"
 }

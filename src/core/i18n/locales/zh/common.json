@@ -151,5 +151,10 @@
   "authEnterpriseSave": "保存",
   "authEnterpriseSaving": "保存中…",
   "authEnterpriseCancel": "取消",
-  "authEnterpriseSaveFailed": "保存失败"
+  "authEnterpriseSaveFailed": "保存失败",
+  "authEnterpriseRequiredMissing": "请填写必填项",
+  "authEnterpriseVerifyApproved": "已认证",
+  "authEnterpriseVerifyProcessing": "审核中",
+  "authEnterpriseVerifyRejected": "已驳回",
+  "authEnterpriseRejectReason": "驳回原因"
 }

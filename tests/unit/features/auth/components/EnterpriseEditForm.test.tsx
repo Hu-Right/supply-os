@@ -32,9 +32,16 @@ describe("EnterpriseEditForm", () => {
     expect(values).toContain("卢慧慧");
   });
 
-  it("点击保存回调 onSubmit", () => {
+  it("填齐必填后点击保存回调 onSubmit", () => {
     const onSubmit = vi.fn();
-    render(<EnterpriseEditForm initial={null} saving={false} onSubmit={onSubmit} onCancel={vi.fn()} />);
+    render(
+      <EnterpriseEditForm
+        initial={{ company: "X", country: "CN", contact: "Y", phone: "123" } as never}
+        saving={false}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
     fireEvent.click(screen.getByText("authEnterpriseSave"));
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const payload = onSubmit.mock.calls[0][0] as Record<string, string>;
@@ -47,5 +54,13 @@ describe("EnterpriseEditForm", () => {
     render(<EnterpriseEditForm initial={null} saving={false} onSubmit={vi.fn()} onCancel={onCancel} />);
     fireEvent.click(screen.getByText("authEnterpriseCancel"));
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("必填缺失时阻断提交并红字点名", () => {
+    const onSubmit = vi.fn();
+    render(<EnterpriseEditForm initial={null} saving={false} onSubmit={onSubmit} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByText("authEnterpriseSave"));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/authEnterpriseRequiredMissing/)).toBeInTheDocument();
   });
 });

@@ -101,10 +101,11 @@ export const PUT = withRoute(async (req) => {
   return NextResponse.json({ code: 0, message: "ok" });
 });
 
-/** 未绑定：新建企业行并绑定到当前用户 */
+/** 未绑定：新建企业行并绑定到当前用户；防重：credit_code 优先、其次公司名，已存在则直接绑定已有行不新建 */
 export const POST = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
+  const repo = ctx.supplier.directoryRepo;
   const body = await parseJson(req, enterpriseBodySchema);
 
   const companyName = String(body.company || body.name_confirmed || "").trim();
@@ -112,15 +113,32 @@ export const POST = withRoute(async (req) => {
     routeError(400, EC_INVALID_PARAMS, "企业名称不能为空");
   }
 
-  const newId = await ctx.supplier.directoryRepo.insertEnterprise({
-    ...(body as Record<string, unknown>),
-    company: companyName,
-    name_confirmed: companyName,
-  });
+  // ── 防重：已存在则绑定已有行，不新建 ──
+  let existingId = 0;
+  const creditCode = String(body.credit_code || "").trim();
+  if (creditCode) {
+    const byCredit = await repo.findByCreditCode(creditCode);
+    if (byCredit) existingId = Number(byCredit.id);
+  }
+  if (!existingId) {
+    const byCompany = await repo.findByCompanyBest(companyName);
+    if (byCompany) existingId = Number(byCompany.id);
+  }
+
+  if (existingId) {
+    await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
+    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, reused: true } });
+  }
+
+  // ── 新建：审核中 + 自注册来源 ──
+  const newId = await repo.insertEnterprise(
+    { ...(body as Record<string, unknown>), company: companyName, name_confirmed: companyName },
+    { verify_status: "processing", source_channel: "self_register" },
+  );
   if (!newId) {
     routeError(500, EC_INVALID_PARAMS, "企业信息创建失败");
   }
 
   await ctx.user.usersRepo.bindSupplier(auth.userId, newId, "verified");
-  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId } });
+  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId, reused: false } });
 });

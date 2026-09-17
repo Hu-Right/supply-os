@@ -139,18 +139,38 @@ export class SupplierDirectoryRepo {
     return out;
   }
 
-  /** 新建企业行（企业信息填写），返回自增 id；addtime 记当前 epoch 秒 */
-  async insertEnterprise(input: Record<string, unknown>): Promise<number> {
+  /** 新建企业行（企业信息填写），返回自增 id；addtime 记当前 epoch 秒。
+   *  meta 可携带非用户编辑列（verify_status / source_channel）供注册审核流程使用。 */
+  async insertEnterprise(
+    input: Record<string, unknown>,
+    meta: { verify_status?: string; source_channel?: string } = {},
+  ): Promise<number> {
     const data = this.pickEditable(input);
     const cols = Object.keys(data);
-    if (cols.length === 0) return 0;
-    const placeholders = cols.map(() => "?").join(", ");
+    const extraCols: string[] = [];
+    const extraVals: unknown[] = [];
+    if (meta.verify_status) { extraCols.push("verify_status"); extraVals.push(meta.verify_status); }
+    if (meta.source_channel) { extraCols.push("source_channel"); extraVals.push(meta.source_channel); }
+    const allCols = [...cols, ...extraCols];
+    if (allCols.length === 0) return 0;
+    const placeholders = allCols.map(() => "?").join(", ");
     const nowSec = Math.floor(Date.now() / 1000);
     const [result] = await this.pool.query(
-      `INSERT INTO supplier (${cols.join(", ")}, addtime) VALUES (${placeholders}, ?)`,
-      [...cols.map((c) => data[c]), nowSec],
+      `INSERT INTO supplier (${allCols.join(", ")}, addtime) VALUES (${placeholders}, ?)`,
+      [...cols.map((c) => data[c]), ...extraVals, nowSec],
     );
     return Number((result as RowDataPacket).insertId);
+  }
+
+  /** 按统一社会信用代码查企业（注册防重优先键） */
+  async findByCreditCode(creditCode: string): Promise<SupplierDirectoryRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, country_code, province, city,
+              contact, phone, email, products, industry, certification, type
+       FROM supplier WHERE credit_code = ? AND merged_id IS NULL LIMIT 1`,
+      [creditCode],
+    );
+    return ((rows as SupplierDirectoryRow[])[0]) ?? null;
   }
 
   /** 更新企业行可编辑列（企业信息编辑） */

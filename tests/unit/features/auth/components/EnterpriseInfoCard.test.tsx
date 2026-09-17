@@ -83,4 +83,22 @@ describe("EnterpriseInfoCard", () => {
     // 资料完整度百分比
     expect(screen.getByText("75.00%")).toBeInTheDocument();
   });
+
+  it("认证标三态：审核中/已认证/已驳回", () => {
+    const { rerender } = render(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "processing" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
+
+    rerender(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "done" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
+
+    rerender(
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "rejected", check_note: "资质不全" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+    );
+    expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
+    expect(screen.getByText(/资质不全/)).toBeInTheDocument();
+  });
 });

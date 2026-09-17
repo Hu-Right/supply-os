@@ -146,5 +146,10 @@
   "authEnterpriseSave": "Enregistrer",
   "authEnterpriseSaving": "Enregistrement…",
   "authEnterpriseCancel": "Annuler",
-  "authEnterpriseSaveFailed": "Échec de l'enregistrement"
+  "authEnterpriseSaveFailed": "Échec de l'enregistrement",
+  "authEnterpriseRequiredMissing": "Veuillez remplir les champs obligatoires",
+  "authEnterpriseVerifyApproved": "Vérifié",
+  "authEnterpriseVerifyProcessing": "En cours d'examen",
+  "authEnterpriseVerifyRejected": "Rejeté",
+  "authEnterpriseRejectReason": "Motif du rejet"
 }

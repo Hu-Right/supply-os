@@ -146,5 +146,10 @@
   "authEnterpriseSave": "حفظ",
   "authEnterpriseSaving": "جارٍ الحفظ…",
   "authEnterpriseCancel": "إلغاء",
-  "authEnterpriseSaveFailed": "فشل الحفظ"
+  "authEnterpriseSaveFailed": "فشل الحفظ",
+  "authEnterpriseRequiredMissing": "يرجى تعبئة الحقول المطلوبة",
+  "authEnterpriseVerifyApproved": "موثق",
+  "authEnterpriseVerifyProcessing": "قيد المراجعة",
+  "authEnterpriseVerifyRejected": "مرفوض",
+  "authEnterpriseRejectReason": "سبب الرفض"
 }
