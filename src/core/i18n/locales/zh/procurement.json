@@ -489,6 +489,8 @@
   "aiScorePrice": "价格竞争力",
   "aiScoreCriteriaLabel": "评判标准",
   "aiScoreEvidenceLabel": "评分依据",
+  "aiScoreMatchedLabel": "匹配项（加分）",
+  "aiScoreGapsLabel": "差距项（扣分）",
   "aiScoreVerdictHigh": "适配度高，建议重点跟进本标，尽快准备投标文件。",
   "aiScoreVerdictMid": "适配度中等，建议补齐短板维度后再评估投标可行性。",
   "aiScoreVerdictLow": "适配度偏低，本标与贵司当前能力匹配不足，建议谨慎投入或寻找更匹配的机会。",

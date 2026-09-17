@@ -489,6 +489,8 @@
   "aiScorePrice": "Price",
   "aiScoreCriteriaLabel": "Criteria",
   "aiScoreEvidenceLabel": "Evidence",
+  "aiScoreMatchedLabel": "Matched (bonus)",
+  "aiScoreGapsLabel": "Gaps (deduction)",
   "aiScoreVerdictHigh": "High fit. Recommend prioritizing this bid and preparing documents soon.",
   "aiScoreVerdictMid": "Moderate fit. Recommend addressing weak dimensions before committing.",
   "aiScoreVerdictLow": "Low fit. This bid poorly matches your current capabilities; proceed cautiously.",

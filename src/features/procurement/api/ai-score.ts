@@ -4,6 +4,12 @@
  */
 import { api, getAuthToken } from "@/core/http";
 
+export interface DimensionDetail {
+  reason: string;
+  matched: string[];
+  gaps: string[];
+}
+
 export interface AiScoreData {
   qualification: number;
   experience: number;
@@ -13,7 +19,7 @@ export interface AiScoreData {
   delivery: number;
   price: number;
   overall: number;
-  reasons: Record<string, string>;
+  details: Record<string, DimensionDetail>;
   cached: boolean;
 }
 

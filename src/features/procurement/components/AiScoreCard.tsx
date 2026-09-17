@@ -218,10 +218,10 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
         {DIMENSIONS.map((d) => {
           const score = data![d.key] as number;
           const st = scoreStyle(score);
-          const reason = data!.reasons?.[d.key as string] || "";
+          const detail = data!.details?.[d.key as string];
           const isOpen = !!expanded[d.key as string];
           return (
-            <div key={d.key} className="rounded-lg border border-slate-100 bg-slate-50/50 overflow-hidden">
+            <div key={d.key} className="rounded-lg border border-slate-100 bg-slate-50/50 overflow-hidden transition-shadow hover:shadow-sm">
               {/* 行：维度名 + 进度条 + 分数 + 展开箭头 */}
               <button
                 type="button"
@@ -232,33 +232,63 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
                   {t(d.labelKey) || d.labelDefault}
                 </span>
                 <div className="flex-1 h-1.5 rounded-full bg-slate-200/70 overflow-hidden">
-                  <div className={`h-full rounded-full ${st.bar} transition-all`} style={{ width: `${score}%` }} />
+                  <div className={`h-full rounded-full ${st.bar} transition-all duration-500`} style={{ width: `${score}%` }} />
                 </div>
                 <span className={`text-sm font-black w-8 text-right ${st.color}`}>{score}</span>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
               </button>
 
-              {/* 展开区：评判标准 + 评分依据 */}
-              {isOpen && (
-                <div className="px-3 pb-3 pt-1 space-y-2 border-t border-slate-100">
-                  <div className="flex items-start gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <p className="text-2xs text-slate-500 leading-4">
-                      <span className="font-bold text-slate-600">{t("aiScoreCriteriaLabel") || "评判标准"}：</span>
-                      {t(d.criteriaKey) || d.criteriaDefault}
-                    </p>
-                  </div>
-                  {reason && (
+              {/* 展开区：grid-rows 平滑动画 + 结构化证据 */}
+              <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                  <div className="px-3 pb-3 pt-2 space-y-2.5 border-t border-slate-100">
+                    {/* 评判标准 */}
                     <div className="flex items-start gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
-                      <p className="text-2xs text-slate-600 leading-4">
-                        <span className="font-bold text-purple-600">{t("aiScoreEvidenceLabel") || "评分依据"}：</span>
-                        {reason}
+                      <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                      <p className="text-2xs text-slate-500 leading-4">
+                        <span className="font-bold text-slate-600">{t("aiScoreCriteriaLabel") || "评判标准"}：</span>
+                        {t(d.criteriaKey) || d.criteriaDefault}
                       </p>
                     </div>
-                  )}
+                    {/* 评分依据总结 */}
+                    {detail?.reason && (
+                      <div className="flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                        <p className="text-2xs text-slate-600 leading-4">
+                          <span className="font-bold text-purple-600">{t("aiScoreEvidenceLabel") || "评分依据"}：</span>
+                          {detail.reason}
+                        </p>
+                      </div>
+                    )}
+                    {/* 匹配项（加分） */}
+                    {detail?.matched && detail.matched.length > 0 && (
+                      <div className="rounded-md bg-emerald-50/60 border border-emerald-100 px-2.5 py-2">
+                        <p className="text-2xs font-bold text-emerald-700 mb-1">{t("aiScoreMatchedLabel") || "匹配项（加分）"}</p>
+                        <ul className="space-y-1">
+                          {detail.matched.map((m, i) => (
+                            <li key={i} className="flex items-start gap-1.5 text-2xs text-emerald-800 leading-4">
+                              <span className="text-emerald-500 font-black shrink-0">+</span>{m}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {/* 差距项（扣分） */}
+                    {detail?.gaps && detail.gaps.length > 0 && (
+                      <div className="rounded-md bg-rose-50/60 border border-rose-100 px-2.5 py-2">
+                        <p className="text-2xs font-bold text-rose-700 mb-1">{t("aiScoreGapsLabel") || "差距项（扣分）"}</p>
+                        <ul className="space-y-1">
+                          {detail.gaps.map((g, i) => (
+                            <li key={i} className="flex items-start gap-1.5 text-2xs text-rose-800 leading-4">
+                              <span className="text-rose-500 font-black shrink-0">−</span>{g}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
