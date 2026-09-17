@@ -138,6 +138,8 @@ export async function getOrGenerateAiScore(
     price: data.price,
     overall: data.overall,
     reasons: JSON.stringify(data.reasons),
+    model: result!.model,
+    providerBaseUrl: config!.base_url,
   });
 
   return { ...data, cached: false };

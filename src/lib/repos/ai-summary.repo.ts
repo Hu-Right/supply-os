@@ -103,12 +103,14 @@ export class AiSummaryRepo {
     qualification: number; experience: number; certification: number;
     region: number; scale: number; delivery: number; price: number;
     overall: number; reasons: string;
+    model: string; providerBaseUrl: string;
   }): Promise<void> {
     await this.pool.query(
       `INSERT INTO crm_notice_ai_summaries
-         (user_id, notice_id, score_qualification, score_experience, score_certification,
+         (user_id, notice_id, model, provider_base_url,
+          score_qualification, score_experience, score_certification,
           score_region, score_scale, score_delivery, score_price, score_overall, score_reasons)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          score_qualification = VALUES(score_qualification),
          score_experience = VALUES(score_experience),
@@ -121,7 +123,7 @@ export class AiSummaryRepo {
          score_reasons = VALUES(score_reasons),
          created_at = CURRENT_TIMESTAMP`,
       [
-        input.userId, input.noticeId,
+        input.userId, input.noticeId, input.model, input.providerBaseUrl,
         input.qualification, input.experience, input.certification,
         input.region, input.scale, input.delivery, input.price,
         input.overall, input.reasons,
