@@ -9,6 +9,7 @@
  *              - notice-translation: crm_notice_translations
  *              - notice-interaction: crm_user_notice_views + crm_notice_interests
  *              - notice-feedback: crm_user_reco_feedback + crm_user_search_log
+ *              - notice-favorite: crm_notice_favorites
  */
 
 export { NoticeDetailRepo } from "./notice-detail.repo";
@@ -16,4 +17,5 @@ export { NoticeUnlockRepo } from "./notice-unlock.repo";
 export { NoticeTranslationRepo } from "./notice-translation.repo";
 export { NoticeInteractionRepo } from "./notice-interaction.repo";
 export { NoticeFeedbackRepo } from "./notice-feedback.repo";
+export { NoticeFavoriteRepo } from "./notice-favorite.repo";
 export type { RecoFeedbackItem } from "./notice-feedback.repo";

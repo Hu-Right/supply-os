@@ -29,6 +29,7 @@ import {
   NoticeTranslationRepo,
   NoticeInteractionRepo,
   NoticeFeedbackRepo,
+  NoticeFavoriteRepo,
 } from "../repos/notices/index";
 import {
   SupplierDirectoryRepo,
@@ -50,6 +51,7 @@ export type NoticeContext = {
   translationRepo: NoticeTranslationRepo;
   interactionRepo: NoticeInteractionRepo;
   feedbackRepo: NoticeFeedbackRepo;
+  favoriteRepo: NoticeFavoriteRepo;
 };
 
 /** 支付域上下文 */
@@ -124,6 +126,7 @@ export function getContext(): AppContext {
   const translationRepo = new NoticeTranslationRepo(dbPool);
   const interactionRepo = new NoticeInteractionRepo(dbPool);
   const feedbackRepo = new NoticeFeedbackRepo(dbPool);
+  const favoriteRepo = new NoticeFavoriteRepo(dbPool);
 
   const directoryRepo = new SupplierDirectoryRepo(dbPool);
   const registrationRepo = new SupplierRegistrationRepo(dbPool);
@@ -188,7 +191,7 @@ export function getContext(): AppContext {
 
   const ctx: AppContext = {
     dbPool,
-    notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
+    notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
       dbPool, paymentService, learningPaymentService, trainingPaymentService, orchestrator, paymentMode,
       paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,

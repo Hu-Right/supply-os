@@ -14,6 +14,7 @@ import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
+import { NoticeFavoriteRepo } from "@/lib/repos/notices/notice-favorite.repo";
 import { MembershipRepo } from "@/lib/repos/membership.repo";
 import {
   submitInterest,
@@ -57,6 +58,39 @@ export async function submitNoticeInterest(params: {
     },
     params,
   );
+}
+
+// ── 收藏（用户私有书签，与意向/订阅的销售线索语义分离） ──
+
+/** 收藏/取消收藏（toggle，返回切换后的状态） */
+export async function toggleNoticeFavorite(params: {
+  userId: number; noticeId: number;
+}): Promise<{ favorited: boolean }> {
+  const repo = new NoticeFavoriteRepo(getPool());
+  if (!(await repo.noticeExists(params.noticeId))) {
+    throw new NoticeNotFoundError();
+  }
+  if (await repo.exists(params.userId, params.noticeId)) {
+    await repo.remove(params.userId, params.noticeId);
+    return { favorited: false };
+  }
+  await repo.insert(params.userId, params.noticeId);
+  return { favorited: true };
+}
+
+/** 用户已收藏的公告 id 集合（列表卡片/详情按钮状态回显） */
+export async function listNoticeFavoriteIds(userId: number): Promise<number[]> {
+  return new NoticeFavoriteRepo(getPool()).listNoticeIds(userId);
+}
+
+/** 我的收藏分页列表 */
+export async function listNoticeFavorites(params: {
+  userId: number; limit: number; offset: number;
+}): Promise<{ total: number; items: unknown[] }> {
+  const { total, items } = await new NoticeFavoriteRepo(getPool()).listFavorites(
+    params.userId, params.limit, params.offset,
+  );
+  return { total, items };
 }
 
 // ── 解锁公告（包装 executeUnlock，消除路由侧 DI 构造） ──
