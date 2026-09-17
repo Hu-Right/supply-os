@@ -214,11 +214,12 @@ export function NoticeDetail({
           </main>
 
           {/* ── 右栏：下一步动作面板（首屏可见） ── */}
+          {/* onJoinCrm 不接订阅动作：四步引导的"加入CRM跟进"保持字面行为（跳转 /crm），
+              订阅商机按钮是 interest_type=subscribed 的唯一入口，避免同一请求两个入口 */}
           <NextStepsPanel
             notice={notice} isLoggedIn={isLoggedIn} isVip={isVip}
             canUsePaidQuota={canUsePaidQuota}
             onUnlock={() => onUnlock(notice)}
-            onJoinCrm={() => onExpressInterest(notice, "subscribed")}
             onExpressInterest={(type) => onExpressInterest(notice, type)}
           />
         </div>
