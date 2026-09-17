@@ -33,7 +33,6 @@ export interface NoticeDetailSidebarProps {
   showSkeleton: boolean;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
-  onPayUnlock: (notice: NoticeItem) => void;
 }
 
 export function NoticeDetailSidebar({
@@ -46,7 +45,6 @@ export function NoticeDetailSidebar({
   showSkeleton,
   onExpressInterest,
   onUnlock,
-  onPayUnlock,
 }: NoticeDetailSidebarProps) {
   const router = useRouter();
   const { t } = useLocale();

@@ -148,7 +148,6 @@ export default function ProcurementPage() {
         }}
         onExpressInterest={actions.handleExpressInterest}
         onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
-        onPayUnlock={actions.handlePayUnlock}
       />
       </Suspense>
       </>

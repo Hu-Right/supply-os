@@ -42,13 +42,12 @@ interface NoticeDetailProps {
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
-  onPayUnlock: (notice: NoticeItem) => void;
   detailLoading?: boolean;
 }
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
-  totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock, onPayUnlock,
+  totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock,
   detailLoading,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
@@ -229,7 +228,7 @@ export function NoticeDetail({
         totalRemaining={totalRemaining} isLoggedIn={isLoggedIn}
         showSkeleton={showSkeleton}
         onExpressInterest={onExpressInterest}
-        onUnlock={onUnlock} onPayUnlock={onPayUnlock}
+        onUnlock={onUnlock}
       />
     </div>
   );

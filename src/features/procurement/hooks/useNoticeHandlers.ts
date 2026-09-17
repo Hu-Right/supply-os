@@ -11,7 +11,6 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
-import { emitAppEvent } from "@/core/events";
 import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { viewNotice, unlockNotice, expressInterest } from "../api";
@@ -40,7 +39,6 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handlePayUnlock: (notice: NoticeItem) => void;
   handleUnlockNotice: (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
@@ -98,29 +96,6 @@ export function useNoticeHandlers({
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
   ]);
 
-  // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
-  const handlePayUnlock = async (notice: NoticeItem) => {
-    if (!userId) {
-      onRequireLogin();
-      return;
-    }
-    // P1-10 安全修复：套餐码与价格从后端在售套餐动态获取，不再硬编码——
-    // 套餐上下架/调价时无需发版；single_99 首单价仅在用户具备资格时选用
-    // （服务端 plans 接口附 first_purchase_eligible），否则回退标准 single_199
-    const plans = await membership.loadPaidPlans();
-    const singleFirst = plans.find((p) => p.plan_code === "single_99");
-    const singleStandard = plans.find((p) => p.plan_code === "single_199" && p.plan_type === "single");
-    const singlePlan = singleFirst?.first_purchase_eligible === true ? singleFirst : singleStandard;
-    emitAppEvent("supply-os:pay", {
-      code: singlePlan?.plan_code || "single_199",
-      name: t("procurement_singleUnlockName"),
-      price: Number(singlePlan?.price ?? 199),
-      currency: "CNY",
-      noticeId: notice.id,
-      returnUrl: `${window.location.origin}/procurement`,
-    });
-  };
-
   const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => {
     if (!userId) {
       onRequireLogin();
@@ -177,5 +152,5 @@ export function useNoticeHandlers({
     await refreshMembership();
   };
 
-  return { openNotice, handlePayUnlock, handleUnlockNotice, handleExpressInterest };
+  return { openNotice, handleUnlockNotice, handleExpressInterest };
 }
