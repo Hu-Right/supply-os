@@ -28,6 +28,7 @@ import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
+import { SimilarTab } from "./SimilarTab";
 import { PlaceholderTab } from "./PlaceholderTab";
 import type { PlaceholderTabType } from "./PlaceholderTab";
 
@@ -42,12 +43,14 @@ interface NoticeDetailProps {
   onBack: () => void;
   onExpressInterest: (notice: NoticeItem, type: "interested" | "subscribed") => void;
   onUnlock: (notice: NoticeItem) => void;
+  /** 打开另一条公告（相似机会 Tab 点击跳转） */
+  onOpenNotice: (notice: NoticeItem) => void;
   detailLoading?: boolean;
 }
 
 export function NoticeDetail({
   notice, actionMessage, membership, canUsePaidQuota, isVip,
-  totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock,
+  totalRemaining, isLoggedIn, onBack, onExpressInterest, onUnlock, onOpenNotice,
   detailLoading,
 }: NoticeDetailProps) {
   const { t, locale } = useLocale();
@@ -61,6 +64,11 @@ export function NoticeDetail({
     const id = setInterval(() => setCountdown(getCountdown(notice.deadline_ts)), 1000);
     return () => clearInterval(id);
   }, [notice.deadline_ts]);
+
+  // 切换到另一条公告（如相似机会跳转）时回到概况 Tab
+  useEffect(() => {
+    setActiveTab("summary");
+  }, [notice.id]);
 
   // 翻译
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
@@ -201,12 +209,7 @@ export function NoticeDetail({
             )}
 
             {activeTab === "similar" && (
-              <PlaceholderTab
-                tabType={"similar" as PlaceholderTabType}
-                tier="free"
-                hasAccess={true}
-                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
-              />
+              <SimilarTab notice={notice} onOpen={onOpenNotice} />
             )}
           </main>
 

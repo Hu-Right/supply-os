@@ -471,6 +471,8 @@
   "detail_simFeat2": "同地区机会发现",
   "detail_simFeat3": "智能匹配度排序",
   "detail_similarLocked": "功能即将上线，敬请期待",
+  "detail_similarEmpty": "暂无相似公告",
+  "detail_similarBrowseAll": "浏览全部商机",
   "procurement_noQualificationInfo": "本公告暂无结构化资格条件信息",
   "procurement_supplierConditions": "供应商投标条件",
   "procurement_eligibility": "资格要求",

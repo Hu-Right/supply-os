@@ -148,6 +148,7 @@ export default function ProcurementPage() {
         }}
         onExpressInterest={actions.handleExpressInterest}
         onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
+        onOpenNotice={actions.openNotice}
       />
       </Suspense>
       </>

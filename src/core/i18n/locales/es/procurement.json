@@ -470,6 +470,8 @@
   "detail_simFeat2": "Oportunidades en la misma región",
   "detail_simFeat3": "Ordenación por compatibilidad inteligente",
   "detail_similarLocked": "Próximamente",
+  "detail_similarEmpty": "No hay licitaciones similares",
+  "detail_similarBrowseAll": "Ver todas las oportunidades",
   "procurement_noQualificationInfo": "Esta licitación no contiene información de cualificaciones estructurada",
   "procurement_supplierConditions": "Condiciones para proveedores",
   "procurement_eligibility": "Requisitos de elegibilidad",

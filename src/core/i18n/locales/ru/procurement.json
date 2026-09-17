@@ -470,6 +470,8 @@
   "detail_simFeat2": "Возможности в том же регионе",
   "detail_simFeat3": "Интеллектуальная сортировка по соответствию",
   "detail_similarLocked": "Скоро будет доступно",
+  "detail_similarEmpty": "Похожих закупок нет",
+  "detail_similarBrowseAll": "Смотреть все закупки",
   "procurement_noQualificationInfo": "Для этого тендера нет структурированной информации о квалификационных требованиях",
   "procurement_supplierConditions": "Условия для поставщиков",
   "procurement_eligibility": "Требования к участникам",

@@ -471,6 +471,8 @@
   "detail_simFeat2": "Opportunities in the same region",
   "detail_simFeat3": "Smart match ranking",
   "detail_similarLocked": "Coming soon — stay tuned",
+  "detail_similarEmpty": "No similar notices",
+  "detail_similarBrowseAll": "Browse all opportunities",
   "procurement_noQualificationInfo": "No structured qualification information for this notice",
   "procurement_supplierConditions": "Supplier Requirements",
   "procurement_eligibility": "Eligibility Requirements",

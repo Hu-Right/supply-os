@@ -470,6 +470,8 @@
   "detail_simFeat2": "فرص في المنطقة نفسها",
   "detail_simFeat3": "ترتيب ذكي حسب درجة التطابق",
   "detail_similarLocked": "قريبًا — تابعونا",
+  "detail_similarEmpty": "لا توجد مناقصات مشابهة",
+  "detail_similarBrowseAll": "تصفح جميع الفرص",
   "procurement_noQualificationInfo": "لا توجد معلومات مؤهلات منظمة لهذه المناقصة",
   "procurement_supplierConditions": "شروط الموردين",
   "procurement_eligibility": "متطلبات الأهلية",

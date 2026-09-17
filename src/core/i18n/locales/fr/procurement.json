@@ -470,6 +470,8 @@
   "detail_simFeat2": "Opportunités dans la même région",
   "detail_simFeat3": "Classement par compatibilité intelligente",
   "detail_similarLocked": "Bientôt disponible",
+  "detail_similarEmpty": "Aucun appel d'offres similaire",
+  "detail_similarBrowseAll": "Parcourir toutes les opportunités",
   "procurement_noQualificationInfo": "Aucune information de qualification structurée pour cet appel d'offres",
   "procurement_supplierConditions": "Conditions fournisseurs",
   "procurement_eligibility": "Conditions d'éligibilité",
