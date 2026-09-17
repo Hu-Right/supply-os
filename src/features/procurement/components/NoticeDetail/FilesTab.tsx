@@ -83,7 +83,7 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            升级会员或单次解锁（¥89）即可获取全部招标文件
+            升级会员或单次解锁即可获取全部招标文件
           </p>
         )}
       </section>
