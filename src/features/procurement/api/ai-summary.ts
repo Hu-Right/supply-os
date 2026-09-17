@@ -3,7 +3,7 @@
  * @module features/procurement/api/ai-summary
  * @description 支持 6 维度 + 流式 SSE 请求。
  */
-import { api } from "@/core/http";
+import { api, getAuthToken } from "@/core/http";
 
 export interface AiSummaryData {
   coreDeliverables?: string;
@@ -47,10 +47,14 @@ export async function streamAiSummary(
   onDone: (fullJson: string) => void,
   onError: (msg: string) => void,
 ): Promise<void> {
+  const authToken = getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
   const res = await fetch(`/api/notices/${noticeId}/ai-summary/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    headers,
+    credentials: "same-origin",
   });
 
   if (!res.ok) {
