@@ -63,18 +63,19 @@ export function ProfileContent() {
   if (!authUser) return null;
 
   return (
-    <div className="space-y-7 max-w-3xl">
+    // 居左向右铺满：不限宽，信息密度参考智谱（基本信息单行多列、行卡全宽）
+    <div className="space-y-7 w-full">
       {/* ── 基本信息 ── */}
       <section>
         <SectionTitle>{t("settingsBasicInfo") || "基本信息"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-xl p-5">
-          <div className="flex flex-col sm:flex-row gap-5">
+          <div className="flex flex-col lg:flex-row gap-5">
             {/* 头像 */}
             <div className="w-16 h-16 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center shrink-0">
               <User className="w-7 h-7" />
             </div>
-            {/* label:value 网格 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 flex-1">
+            {/* label:value 网格：宽屏单行 4 列提升密度 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4 flex-1">
               <InfoItem label={t("authNicknameTitle") || "用户名称"} value={authUser.nickname || "-"} />
               <InfoItem label={t("authEmailTitle") || "联系邮箱"} value={authUser.email || "-"} />
               <InfoItem label={t("authAccountType") || "账户属性"} value={tierBadgeText} />

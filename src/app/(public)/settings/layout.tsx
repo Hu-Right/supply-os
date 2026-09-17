@@ -19,7 +19,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const { t } = useLocale();
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    // 居左布局：侧栏固定左侧，内容区向右铺满（参考智谱用户中心），不居中不限宽
+    <div className="w-full px-6 lg:px-10 py-8">
       <h1 className="text-lg font-semibold text-foreground mb-6">{t("settingsTitle") || "账户设置"}</h1>
       <div className="grid grid-cols-1 md:grid-cols-[200px_minmax(0,1fr)] gap-8">
         {/* 左侧导航（移动端横向 Tab） */}
