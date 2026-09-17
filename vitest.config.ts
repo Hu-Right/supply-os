@@ -66,6 +66,11 @@ export default defineConfig({
         "src/lib/services/notice-search/cache.ts",
         "src/lib/services/notice-search/stats.ts",
 
+        // ── src/lib/services/ai-summary — AI 拆标摘要纯逻辑子模块 ──
+        "src/lib/services/ai-summary/crypto.ts",
+        "src/lib/services/ai-summary/llm-client.ts",
+        "src/lib/services/ai-summary/prompt.ts",
+
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
 
