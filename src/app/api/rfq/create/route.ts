@@ -66,6 +66,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const status = body.status === "published" ? "published" : "draft";
   const budgetConfidential = Boolean(body.budget_confidential);
   const budget = Number(body.budget) || 0;
+  const currency = str(body.currency || "CNY", 10);
 
   // estimated_value：预算金额（万元人民币），保密时为 0
   const estimatedValue = budgetConfidential ? 0 : budget;
@@ -97,11 +98,11 @@ export const POST = withRoute(async (req: NextRequest) => {
       `INSERT INTO crm_bid_notices
         (title, description, country, province_name, category_l1_id, category_l2_id,
          notice_type, deadline_sec,
-         estimated_value, published_date, rfq_status,
+         estimated_value, currency, published_date, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
          contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
+       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
                ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
@@ -112,6 +113,7 @@ export const POST = withRoute(async (req: NextRequest) => {
         categoryL2Id,
         deadlineSec,
         estimatedValue,
+        currency,
         status,
         contactEmail,
         contactPhone,

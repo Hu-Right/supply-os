@@ -50,7 +50,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
               n.category_l1_id, n.category_l2_id,
               c1.title_zh AS category_l1_name,
               c2.title_zh AS category_l2_name,
-              n.budget_confidential,
+              n.budget_confidential, n.currency,
               n.incoterm, n.delivery_time, n.delivery_address,
               n.payment_terms, n.supplier_reqs, n.visibility,
               n.estimated_value, n.deadline_sec, n.rfq_status,
@@ -85,6 +85,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         province: String(row.province_name || ""),
         budget: confidential ? null : Number(row.estimated_value) || 0,
         budgetConfidential: confidential,
+        currency: String(row.currency || "CNY"),
         incoterm: String(row.incoterm || ""),
         deliveryTime: String(row.delivery_time || ""),
         deliveryAddress: String(row.delivery_address || ""),
@@ -164,12 +165,17 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       updateParams.push(deadlineSec);
     }
 
-    if (body.budget !== undefined || body.budget_confidential !== undefined) {
+    if (body.budget !== undefined || body.budget_confidential !== undefined || body.currency !== undefined) {
       const budget = Number(body.budget) || 0;
       const confidential = Boolean(body.budget_confidential);
       const estimatedValue = confidential ? 0 : budget;
       updates.push("budget_confidential = ?", "estimated_value = ?");
       updateParams.push(confidential ? 1 : 0, estimatedValue);
+    }
+
+    if (body.currency !== undefined) {
+      updates.push("currency = ?");
+      updateParams.push(str(body.currency || "CNY", 10));
     }
 
     if (body.province_name !== undefined) {

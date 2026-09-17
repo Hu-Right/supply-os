@@ -32,6 +32,7 @@ export interface RfqFormState {
   // Step 2 商务条款
   budget: string;
   budgetConfidential: boolean;
+  currency: string;
   // 交付地点（省→市→区/县三级联动 + 详细地址）
   provinceId: number | null;
   provinceName: string;
@@ -77,6 +78,8 @@ export interface PlazaRfq {
   budgetDisplay: string;
   /** 预算中枢（万美元），用于预算区间筛选 */
   budgetUsd: number;
+  /** 币种代码 */
+  currency: string;
   /** ISO 日期 yyyy-MM-dd */
   deadline: string;
   responses: number;

@@ -23,6 +23,7 @@ interface RfqEditData {
   status: string;
   budget: number | null;
   budgetConfidential: boolean;
+  currency: string;
   incoterm: string;
   deliveryTime: string;
   deliveryAddress: string;
@@ -36,6 +37,14 @@ interface RfqEditData {
 }
 
 const INCOTERMS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"];
+const CURRENCIES = [
+  { value: "CNY", label: "人民币 (CNY)" },
+  { value: "USD", label: "美元 (USD)" },
+  { value: "EUR", label: "欧元 (EUR)" },
+  { value: "GBP", label: "英镑 (GBP)" },
+  { value: "JPY", label: "日元 (JPY)" },
+  { value: "HKD", label: "港币 (HKD)" },
+];
 
 function secToDateInput(sec: number): string {
   if (!sec) return "";
@@ -58,6 +67,7 @@ export default function RfqEditPageClient() {
   const [data, setData] = useState<RfqEditData | null>(null);
   const [deadline, setDeadline] = useState("");
   const [budget, setBudget] = useState("");
+  const [currency, setCurrency] = useState("CNY");
   const [paymentText, setPaymentText] = useState("");
   const [reqText, setReqText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -81,6 +91,7 @@ export default function RfqEditPageClient() {
         setData(d);
         setDeadline(secToDateInput(d.deadlineSec));
         setBudget(d.budget ? String(d.budget) : "");
+        setCurrency(d.currency || "CNY");
         setPaymentText(d.paymentTerms.join("、"));
         setReqText(d.supplierReqs.join("、"));
       })
@@ -101,6 +112,7 @@ export default function RfqEditPageClient() {
           deadline,
           budget: Number(budget) || 0,
           budget_confidential: data.budgetConfidential,
+          currency,
           incoterm: data.incoterm,
           delivery_time: data.deliveryTime,
           delivery_address: data.deliveryAddress,
@@ -166,15 +178,28 @@ export default function RfqEditPageClient() {
           />
         </div>
 
-        <div>
-          {label("预算金额（万元）")}
-          <input
-            type="number" min="0" className={inputCls}
-            value={budget}
-            disabled={data.budgetConfidential}
-            onChange={(e) => setBudget(e.target.value)}
-            placeholder="预算金额（万元）"
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            {label("预算金额")}
+            <input
+              type="number" min="0" className={inputCls}
+              value={budget}
+              disabled={data.budgetConfidential}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="预算金额"
+            />
+          </div>
+          <div>
+            {label("币种")}
+            <select
+              className={inputCls}
+              value={currency}
+              disabled={data.budgetConfidential}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {CURRENCIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

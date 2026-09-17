@@ -22,10 +22,12 @@ function formatDeadline(deadlineSec: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
-/** estimated_value → 展示文案（人民币万元） */
-function formatBudget(valueCny: number): string {
-  if (!valueCny || valueCny <= 0) return "预算保密";
-  return `${Math.round(valueCny)} 万元`;
+/** estimated_value + currency → 展示文案 */
+function formatBudget(value: number, currency: string): string {
+  if (!value || value <= 0) return "预算保密";
+  const symbol: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
+  const sym = symbol[currency] || currency;
+  return `${sym}${Math.round(value)}`;
 }
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -81,7 +83,7 @@ export const GET = withRoute(async (req: NextRequest) => {
                   n.category_l1_id, n.category_l2_id,
                   c1.title_zh AS category_l1_name,
                   c2.title_zh AS category_l2_name,
-                  n.estimated_value, n.deadline_sec, n.is_featured, n.agency
+                  n.estimated_value, n.currency, n.deadline_sec, n.is_featured, n.agency
            FROM crm_bid_notices n
            LEFT JOIN crm_unspsc_codes c1 ON c1.id = n.category_l1_id
            LEFT JOIN crm_unspsc_codes c2 ON c2.id = n.category_l2_id
@@ -108,8 +110,9 @@ export const GET = withRoute(async (req: NextRequest) => {
         province,
         categoryL1: catL1,
         categoryL2: String(row.category_l2_name || ""),
-        budgetDisplay: formatBudget(Number(row.estimated_value) || 0),
+        budgetDisplay: formatBudget(Number(row.estimated_value) || 0, String(row.currency || "CNY")),
         budgetUsd: Number(row.estimated_value) || 0,
+        currency: String(row.currency || "CNY"),
         deadline: formatDeadline(Number(row.deadline_sec) || 0),
         responses: 0,
         boosted: Boolean(row.is_featured),

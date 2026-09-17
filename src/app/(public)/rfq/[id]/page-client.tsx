@@ -28,6 +28,7 @@ interface RfqDetail {
   province: string;
   budget: number | null;
   budgetConfidential: boolean;
+  currency: string;
   incoterm: string;
   deliveryTime: string;
   deliveryAddress: string;
@@ -56,7 +57,9 @@ function formatBudget(d: RfqDetail): string {
   if (d.budgetConfidential) return "面议（预算保密）";
   const budget = d.budget ?? 0;
   if (!budget) return "面议";
-  return `${budget} 万元`;
+  const symbol: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
+  const sym = symbol[d.currency] || d.currency;
+  return `${sym}${budget}`;
 }
 
 function TermItem({ icon: Icon, label, value }: {

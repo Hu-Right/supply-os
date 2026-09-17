@@ -7,6 +7,16 @@
  */
 import type { RfqFormState } from "./types";
 
+/** 币种选项 */
+export const CURRENCY_OPTIONS = [
+  { value: "CNY", label: "人民币 (CNY)" },
+  { value: "USD", label: "美元 (USD)" },
+  { value: "EUR", label: "欧元 (EUR)" },
+  { value: "GBP", label: "英镑 (GBP)" },
+  { value: "JPY", label: "日元 (JPY)" },
+  { value: "HKD", label: "港币 (HKD)" },
+];
+
 /** 交付条款（Incoterms 常用子集） */
 export const INCOTERM_OPTIONS = ["EXW", "FCA", "FOB", "CFR", "CIF", "DAP", "DDP"];
 
@@ -27,6 +37,7 @@ export const DEFAULT_RFQ_FORM: RfqFormState = {
   description: "",
   budget: "",
   budgetConfidential: false,
+  currency: "CNY",
   // 交付地点（省→市→区/县三级联动 + 详细地址）
   provinceId: null,
   provinceName: "",

@@ -190,6 +190,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
           description: form.description.trim(),
           budget: form.budgetConfidential ? 0 : Number(form.budget) || 0,
           budget_confidential: form.budgetConfidential,
+          currency: form.currency || "CNY",
           country: "China",
           province_name: form.provinceName || "",
           category_l1_id: form.categoryL1 ? Number(form.categoryL1) : undefined,

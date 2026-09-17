@@ -5,7 +5,7 @@
 import { ChipToggleGroup, Input, SearchableSelect, Select } from "@/shared/ui";
 import { provinces as chinaProvinces } from "@/data/chinaDivision";
 import {
-  INCOTERM_OPTIONS, PAYMENT_OPTIONS,
+  INCOTERM_OPTIONS, PAYMENT_OPTIONS, CURRENCY_OPTIONS,
 } from "../../../constants";
 import type { FieldErrors, RfqFormState } from "../../../types";
 import { tomorrowIso } from "../utils";
@@ -22,12 +22,16 @@ export interface Step2Props {
 export function Step2BusinessTerms({ form, errors, update, citiesList, districtsList }: Step2Props) {
   return (
     <div className="space-y-5">
-      <Field label="预算金额（万元）" required={!form.budgetConfidential} error={errors.budget}
+      <Field label="预算金额" required={!form.budgetConfidential} error={errors.budget}
         hint="帮助供应商了解采购规模，可一键保密">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
           <Input inputMode="decimal" value={form.budget} error={!!errors.budget} disabled={form.budgetConfidential}
-            onChange={(e) => update("budget", e.target.value)} placeholder="预算金额（万元）" />
-          <label className="flex items-center gap-2 text-sm text-secondary-600 cursor-pointer">
+            onChange={(e) => update("budget", e.target.value)} placeholder="预算金额" />
+          <Select value={form.currency} disabled={form.budgetConfidential}
+            onChange={(e) => update("currency", e.target.value)}>
+            {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </Select>
+          <label className="flex items-center gap-2 text-sm text-secondary-600 cursor-pointer sm:col-span-2">
             <input type="checkbox" checked={form.budgetConfidential}
               onChange={(e) => update("budgetConfidential", e.target.checked)}
               className="accent-teal-600" />
