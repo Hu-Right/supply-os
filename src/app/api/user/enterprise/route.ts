@@ -1,17 +1,20 @@
 /**
- * GET /api/user/enterprise — 当前登录用户的企业信息（supplier 企业表）
+ * /api/user/enterprise — 当前登录用户的企业信息（supplier 企业表）
  *
  * @module app/api/user/enterprise/route
- * @description 依据 crm_users.supplier_id 关联 supplier 企业表，返回整行
- *              （SELECT * 透传，DATETIME 序列化为 ISO），供前端按分组表格渲染
- *              （基本信息/联系信息/工商与业务信息，有则展示、无则 -）。
- *              防重兜底：记录关键字段全空时按公司名回退到数据更完整的同公司记录。
- *              未绑定或记录不存在时 bound=false。
+ * @description
+ *   GET  按 crm_users.supplier_id 关联 supplier 企业表，返回整行（SELECT * 透传），
+ *        供前端分组表格渲染（有则展示、无则 -）；含防重兜底。
+ *   PUT  已绑定：按 supplier 最终表可编辑列白名单 UPDATE 该行（企业信息编辑）。
+ *   POST 未绑定：INSERT 新 supplier 行并回写 crm_users.supplier_id 完成绑定。
+ *        填写字段与 supplier 最终表结构一致（所见即所填），与诊断/审核链路剥离。
  */
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute } from "@/lib/middleware/route-handler";
+import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
 function isSparseRecord(row: Record<string, unknown> | null): boolean {
@@ -20,6 +23,36 @@ function isSparseRecord(row: Record<string, unknown> | null): boolean {
   const industry = String(row.industry ?? "").trim();
   return products === "" && industry === "";
 }
+
+/** 企业信息填写/编辑 body：全部可选字符串，键为 supplier 列名 */
+const enterpriseBodySchema = z.object({
+  company: z.string().max(200).optional(),
+  name_confirmed: z.string().max(120).optional(),
+  country: z.string().max(100).optional(),
+  country_code: z.string().max(5).optional(),
+  province: z.string().max(50).optional(),
+  city: z.string().max(50).optional(),
+  address: z.string().max(500).optional(),
+  registered_address: z.string().max(255).optional(),
+  contact: z.string().max(100).optional(),
+  position: z.string().max(100).optional(),
+  phone: z.string().max(60).optional(),
+  email: z.string().max(150).optional(),
+  registered_phone: z.string().max(40).optional(),
+  registered_email: z.string().max(120).optional(),
+  website: z.string().max(255).optional(),
+  legal_rep: z.string().max(50).optional(),
+  established_at: z.string().max(20).optional(),
+  registered_capital: z.string().max(40).optional(),
+  credit_code: z.string().max(30).optional(),
+  industry: z.string().max(200).optional(),
+  type: z.string().max(20).optional(),
+  business_type: z.string().max(50).optional(),
+  certification: z.string().max(500).optional(),
+  products: z.string().max(500).optional(),
+  intro: z.string().max(2000).optional(),
+  remark: z.string().max(2000).optional(),
+});
 
 export const GET = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -35,7 +68,6 @@ export const GET = withRoute(async (req) => {
   }
 
   let row = await repo.findFullById(supplierId);
-  // 防重兜底：当前记录关键字段全空时，按公司名查找数据更完整的同公司记录
   if (row && isSparseRecord(row)) {
     const companyName = String(row.company ?? "").trim();
     if (companyName) {
@@ -51,4 +83,44 @@ export const GET = withRoute(async (req) => {
   }
 
   return NextResponse.json({ code: 0, message: "ok", data: { bound: true, linkStatus, enterprise: row } });
+});
+
+/** 已绑定：更新企业行可编辑列 */
+export const PUT = withRoute(async (req) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const ctx = getContext();
+  const body = await parseJson(req, enterpriseBodySchema);
+
+  const user = await ctx.user.usersRepo.findProfileById(auth.userId);
+  const supplierId = user?.supplier_id ? Number(user.supplier_id) : 0;
+  if (!supplierId) {
+    routeError(400, EC_INVALID_PARAMS, "尚未绑定企业，请先填写企业信息");
+  }
+
+  await ctx.supplier.directoryRepo.updateEnterprise(supplierId, body as Record<string, unknown>);
+  return NextResponse.json({ code: 0, message: "ok" });
+});
+
+/** 未绑定：新建企业行并绑定到当前用户 */
+export const POST = withRoute(async (req) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const ctx = getContext();
+  const body = await parseJson(req, enterpriseBodySchema);
+
+  const companyName = String(body.company || body.name_confirmed || "").trim();
+  if (!companyName) {
+    routeError(400, EC_INVALID_PARAMS, "企业名称不能为空");
+  }
+
+  const newId = await ctx.supplier.directoryRepo.insertEnterprise({
+    ...(body as Record<string, unknown>),
+    company: companyName,
+    name_confirmed: companyName,
+  });
+  if (!newId) {
+    routeError(500, EC_INVALID_PARAMS, "企业信息创建失败");
+  }
+
+  await ctx.user.usersRepo.bindSupplier(auth.userId, newId, "verified");
+  return NextResponse.json({ code: 0, message: "ok", data: { supplierId: newId } });
 });

@@ -139,5 +139,12 @@
   "authEnterpriseIntro": "О компании",
   "authEnterpriseCoop": "Сотрудничает",
   "authEnterpriseDomestic": "Внутренний",
-  "authEnterpriseInternational": "Международный"
+  "authEnterpriseInternational": "Международный",
+  "authEnterpriseCountryCode": "Код страны",
+  "authEnterpriseEdit": "Редактировать",
+  "authEnterpriseFill": "Заполнить данные",
+  "authEnterpriseSave": "Сохранить",
+  "authEnterpriseSaving": "Сохранение…",
+  "authEnterpriseCancel": "Отмена",
+  "authEnterpriseSaveFailed": "Ошибка сохранения"
 }

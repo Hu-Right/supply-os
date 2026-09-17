@@ -119,6 +119,52 @@ export class SupplierDirectoryRepo {
     return ((rows as Record<string, unknown>[])[0]) ?? null;
   }
 
+  /** 企业信息可编辑列白名单（与 supplier 最终表结构一致） */
+  static readonly EDITABLE_COLUMNS = [
+    "company", "name_confirmed", "country", "country_code", "province", "city",
+    "address", "registered_address", "contact", "position", "phone", "email",
+    "registered_phone", "registered_email", "website", "legal_rep",
+    "established_at", "registered_capital", "credit_code", "industry",
+    "type", "business_type", "certification", "products", "intro", "remark",
+  ] as const;
+
+  /** 过滤输入到白名单列（忽略未知键、统一转字符串/null） */
+  private pickEditable(input: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const col of SupplierDirectoryRepo.EDITABLE_COLUMNS) {
+      if (!(col in input)) continue;
+      const v = input[col];
+      out[col] = v === undefined || v === null || v === "" ? null : String(v);
+    }
+    return out;
+  }
+
+  /** 新建企业行（企业信息填写），返回自增 id；addtime 记当前 epoch 秒 */
+  async insertEnterprise(input: Record<string, unknown>): Promise<number> {
+    const data = this.pickEditable(input);
+    const cols = Object.keys(data);
+    if (cols.length === 0) return 0;
+    const placeholders = cols.map(() => "?").join(", ");
+    const nowSec = Math.floor(Date.now() / 1000);
+    const [result] = await this.pool.query(
+      `INSERT INTO supplier (${cols.join(", ")}, addtime) VALUES (${placeholders}, ?)`,
+      [...cols.map((c) => data[c]), nowSec],
+    );
+    return Number((result as RowDataPacket).insertId);
+  }
+
+  /** 更新企业行可编辑列（企业信息编辑） */
+  async updateEnterprise(id: number, input: Record<string, unknown>): Promise<void> {
+    const data = this.pickEditable(input);
+    const cols = Object.keys(data);
+    if (cols.length === 0) return;
+    const sets = cols.map((c) => `${c} = ?`).join(", ");
+    await this.pool.query(
+      `UPDATE supplier SET ${sets} WHERE id = ?`,
+      [...cols.map((c) => data[c]), id],
+    );
+  }
+
   /**
    * 按公司名查找数据最完整的记录（防重兜底）
    *

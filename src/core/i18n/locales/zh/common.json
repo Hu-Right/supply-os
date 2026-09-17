@@ -144,5 +144,12 @@
   "authEnterpriseIntro": "企业简介",
   "authEnterpriseCoop": "已合作",
   "authEnterpriseDomestic": "国内",
-  "authEnterpriseInternational": "国际"
+  "authEnterpriseInternational": "国际",
+  "authEnterpriseCountryCode": "国家代码",
+  "authEnterpriseEdit": "编辑",
+  "authEnterpriseFill": "填写企业信息",
+  "authEnterpriseSave": "保存",
+  "authEnterpriseSaving": "保存中…",
+  "authEnterpriseCancel": "取消",
+  "authEnterpriseSaveFailed": "保存失败"
 }

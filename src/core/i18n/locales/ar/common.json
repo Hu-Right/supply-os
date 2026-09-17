@@ -139,5 +139,12 @@
   "authEnterpriseIntro": "نبذة عن الشركة",
   "authEnterpriseCoop": "متعاون",
   "authEnterpriseDomestic": "محلي",
-  "authEnterpriseInternational": "دولي"
+  "authEnterpriseInternational": "دولي",
+  "authEnterpriseCountryCode": "رمز الدولة",
+  "authEnterpriseEdit": "تعديل",
+  "authEnterpriseFill": "تعبئة البيانات",
+  "authEnterpriseSave": "حفظ",
+  "authEnterpriseSaving": "جارٍ الحفظ…",
+  "authEnterpriseCancel": "إلغاء",
+  "authEnterpriseSaveFailed": "فشل الحفظ"
 }

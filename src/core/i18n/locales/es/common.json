@@ -139,5 +139,12 @@
   "authEnterpriseIntro": "Presentación",
   "authEnterpriseCoop": "Cooperando",
   "authEnterpriseDomestic": "Nacional",
-  "authEnterpriseInternational": "Internacional"
+  "authEnterpriseInternational": "Internacional",
+  "authEnterpriseCountryCode": "Código de país",
+  "authEnterpriseEdit": "Editar",
+  "authEnterpriseFill": "Completar datos",
+  "authEnterpriseSave": "Guardar",
+  "authEnterpriseSaving": "Guardando…",
+  "authEnterpriseCancel": "Cancelar",
+  "authEnterpriseSaveFailed": "Error al guardar"
 }

@@ -29,6 +29,14 @@ export class UsersRepo {
     return (rows as Partial<UserRow>[])[0] ?? null;
   }
 
+  /** 绑定/更新用户的企业关联（supplier_id + 绑定状态） */
+  async bindSupplier(userId: number, supplierId: number, status = "verified"): Promise<void> {
+    await this.pool.query(
+      "UPDATE crm_users SET supplier_id = ?, supplier_link_status = ? WHERE id = ?",
+      [supplierId, status, userId],
+    );
+  }
+
   /** 按 user_id 查找用户（完整行，含 phone/email 等；供已认证路由使用） */
   async findById(userId: number): Promise<UserRow | null> {
     const [rows] = await this.pool.query(

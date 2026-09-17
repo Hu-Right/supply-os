@@ -144,5 +144,12 @@
   "authEnterpriseIntro": "Company Intro",
   "authEnterpriseCoop": "Cooperated",
   "authEnterpriseDomestic": "Domestic",
-  "authEnterpriseInternational": "International"
+  "authEnterpriseInternational": "International",
+  "authEnterpriseCountryCode": "Country Code",
+  "authEnterpriseEdit": "Edit",
+  "authEnterpriseFill": "Fill Enterprise Info",
+  "authEnterpriseSave": "Save",
+  "authEnterpriseSaving": "Saving…",
+  "authEnterpriseCancel": "Cancel",
+  "authEnterpriseSaveFailed": "Save failed"
 }
