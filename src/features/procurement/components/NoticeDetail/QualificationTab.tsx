@@ -7,7 +7,8 @@
  *              展示供应商投标条件、资格要求与技术门槛。
  *              未解锁时显示具体的解锁提示文案（含锁定项明细）。
  */
-import { ShieldCheck, FileCheck, Wrench, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { ShieldCheck, FileCheck, Wrench, Lock, AlertCircle, CheckCircle2, Languages } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { NoticeDetailItem } from "../../types";
 
@@ -102,14 +103,36 @@ function ConditionBlock({
   );
 }
 
+/** 从中英双语字段中提取纯中文部分（第一个英文段落之前的内容） */
+function extractChinese(text: string): string {
+  if (!text) return "";
+  const lines = text.split("\n");
+  const zhLines: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) break;
+    // 判断是否为英文行：ASCII 字母占比 > 50%
+    const asciiRatio = (trimmed.match(/[A-Za-z]/g) || []).length / Math.max(trimmed.length, 1);
+    if (asciiRatio > 0.5) break;
+    zhLines.push(line);
+  }
+  return zhLines.join("\n").trim();
+}
+
 export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationTabProps) {
   const { t } = useLocale();
+  const [showOriginal, setShowOriginal] = useState(false);
 
   const supplierConditions = notice.supplier_conditions || "";
   const eligibility = notice.eligibility || "";
   const technicalHurdles = notice.technical_hurdles || "";
   const hasContent = supplierConditions || eligibility || technicalHurdles;
   const levelConfig = getLevelConfig(notice.registration_level);
+
+  // 判断是否有双语内容（中文+英文）
+  const hasBilingual = [supplierConditions, eligibility, technicalHurdles].some(
+    (text) => text && extractChinese(text) && extractChinese(text).length < text.length,
+  );
 
   // ── 未解锁：展示具体锁定提示 ──
   if (!coreUnlocked) {
@@ -169,6 +192,9 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
     );
   }
 
+  // 根据切换状态决定显示中文还是完整双语
+  const display = (text: string) => (showOriginal ? text : extractChinese(text) || text);
+
   // ── 已解锁：展示完整资格条件 ──
   return (
     <section className="space-y-4">
@@ -176,12 +202,24 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         <h3 className="text-base font-extrabold text-slate-900">
           {t("detail_tabQualification") || "资格条件"}
         </h3>
-        {levelConfig && (
-          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${levelConfig.bg} ${levelConfig.color} ${levelConfig.border}`}>
-            <ShieldCheck className="w-3.5 h-3.5" />
-            {levelConfig.labelKey ? t(levelConfig.labelKey) : levelConfig.label}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {levelConfig && (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${levelConfig.bg} ${levelConfig.color} ${levelConfig.border}`}>
+              <ShieldCheck className="w-3.5 h-3.5" />
+              {levelConfig.labelKey ? t(levelConfig.labelKey) : levelConfig.label}
+            </span>
+          )}
+          {hasBilingual && (
+            <button
+              type="button"
+              onClick={() => setShowOriginal((v) => !v)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Languages className="w-3 h-3" />
+              {showOriginal ? (t("detail_qualShowZh") || "显示中文") : (t("detail_qualShowOriginal") || "显示原文")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 等级说明条 */}
@@ -198,7 +236,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         icon={ShieldCheck}
         iconColor="text-teal-600"
         title={t("procurement_supplierConditions") || "供应商投标条件"}
-        content={supplierConditions}
+        content={display(supplierConditions)}
         emptyText={t("detail_qualEmptyConditions") || "本公告未列出具体供应商条件，请参考原始招标文件"}
       />
 
@@ -206,7 +244,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         icon={FileCheck}
         iconColor="text-blue-600"
         title={t("procurement_eligibility") || "资格要求"}
-        content={eligibility}
+        content={display(eligibility)}
         emptyText={t("detail_qualEmptyEligibility") || "本公告未列出具体资格要求，请参考原始招标文件"}
       />
 
@@ -214,7 +252,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
         icon={Wrench}
         iconColor="text-amber-600"
         title={t("procurement_technicalHurdles") || "技术门槛"}
-        content={technicalHurdles}
+        content={display(technicalHurdles)}
         emptyText={t("detail_qualEmptyHurdles") || "本公告未列出具体技术门槛，请参考原始招标文件"}
       />
     </section>

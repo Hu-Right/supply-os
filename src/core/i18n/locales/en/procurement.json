@@ -474,6 +474,8 @@
   "detail_qualEmptyConditions": "No specific supplier conditions listed — refer to the original tender documents",
   "detail_qualEmptyEligibility": "No specific eligibility requirements listed — refer to the original tender documents",
   "detail_qualEmptyHurdles": "No specific technical barriers listed — refer to the original tender documents",
+  "detail_qualShowZh": "Show Chinese",
+  "detail_qualShowOriginal": "Show Original",
   "detail_currentNotice": "Current notice: ",
   "detail_comingFeatures": "Upcoming features",
   "detail_unlockAfterUpgrade": "Unlock after upgrading",

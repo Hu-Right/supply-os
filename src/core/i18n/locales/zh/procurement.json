@@ -474,6 +474,8 @@
   "detail_qualEmptyConditions": "本公告未列出具体供应商条件，请参考原始招标文件",
   "detail_qualEmptyEligibility": "本公告未列出具体资格要求，请参考原始招标文件",
   "detail_qualEmptyHurdles": "本公告未列出具体技术门槛，请参考原始招标文件",
+  "detail_qualShowZh": "显示中文",
+  "detail_qualShowOriginal": "显示原文",
   "detail_currentNotice": "当前公告：",
   "detail_comingFeatures": "即将上线的功能",
   "detail_unlockAfterUpgrade": "升级后可解锁",
