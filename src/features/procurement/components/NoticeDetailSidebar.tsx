@@ -8,7 +8,7 @@
  *              Detail page action rail: interest/subscribe/unlock buttons,
  *              non-VIP users see "View Plans" button to navigate to plans page.
  */
-import { Bell, Heart, Lock, ExternalLink } from "lucide-react";
+import { Bell, Heart, Lock, Crown, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
@@ -73,15 +73,15 @@ export function NoticeDetailSidebar({
         <span className="truncate">{t("procurement_subscribeNotice")}</span>
       </Button>
       <Button
-        onClick={() => onUnlock(notice)}
+        onClick={() => (canUsePaidQuota ? onUnlock(notice) : router.push(`/membership?notice_id=${notice.id}`))}
         variant="secondary"
         className="flex-1 min-w-0 gap-1.5 px-2 text-xs py-2.5 font-semibold text-primary-800 md:w-auto md:flex-none md:min-w-0 md:gap-3 md:px-4 md:text-sm"
       >
-        <Lock className="w-4 h-4 shrink-0" />
+        {canUsePaidQuota ? <Lock className="w-4 h-4 shrink-0" /> : <Crown className="w-4 h-4 shrink-0" />}
         <span className="truncate">
           {canUsePaidQuota
             ? t("procurement_memberUnlock")
-            : t("procurement_freeUsedUp")}
+            : t("procurement_upgradeToUnlock")}
         </span>
       </Button>
     </>

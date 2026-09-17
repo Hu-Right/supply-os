@@ -105,13 +105,7 @@ export default function ProcurementPage() {
     setSelectedNotice,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
-    refreshAuth,
   });
-
-  // 同步当前详情页公告 ID 到支付 hook：非 VIP 侧边栏常驻面板需要此 ID 创建订单
-  useEffect(() => {
-    actions.setCurrentNoticeId(selectedNotice?.id ?? null);
-  }, [selectedNotice?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {
@@ -149,7 +143,6 @@ export default function ProcurementPage() {
         detailLoading={actions.detailLoadingId === selectedNotice.id}
         onBack={() => {
           feedback.reportDetailExit();
-          actions.closePaywall();
           actions.setDetailLoadingId(null);
           setSelectedNotice(null);
         }}

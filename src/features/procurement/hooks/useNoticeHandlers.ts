@@ -33,8 +33,6 @@ export interface UseNoticeHandlersOptions {
   membership: UseNoticeMembershipReturn;
   /** 解锁集合与详情加载（useNoticeUnlock） */
   unlock: UseNoticeUnlockReturn;
-  /** 打开付费墙（useNoticePayment） */
-  openPaywall: (notice: NoticeItem) => void;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
   setActionMessage: (message: string) => void;
@@ -55,7 +53,6 @@ export function useNoticeHandlers({
   trackDetailOpen,
   membership,
   unlock,
-  openPaywall,
   onRequireLogin,
   setActionMessage,
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
@@ -97,7 +94,7 @@ export function useNoticeHandlers({
   }, [
     userId, isVip, t,
     onRequireLogin, trackClick, trackDetailOpen,
-    isUnlocked, setSelectedNotice, setActionMessage, openPaywall,
+    isUnlocked, setSelectedNotice, setActionMessage,
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
   ]);
 
@@ -133,7 +130,6 @@ export function useNoticeHandlers({
     // 免费试用已移除：无显式类型时一律走订阅配额，配额不足由服务端 402 拦截
     if (!unlockType && !canUsePaidQuota) {
       setActionMessage(t("procurement_paidQuotaRequired"));
-      openPaywall(notice);
       return false;
     }
 
@@ -147,7 +143,6 @@ export function useNoticeHandlers({
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
-        openPaywall(notice);
       } else {
         setActionMessage(t("procurement_unlockFail"));
       }
@@ -180,7 +175,6 @@ export function useNoticeHandlers({
 
     setActionMessage(interestType === "subscribed" ? t("procurement_subscribedSuccess") : t("procurement_actionSuccess"));
     await refreshMembership();
-    openPaywall(notice);
   };
 
   return { openNotice, handlePayUnlock, handleUnlockNotice, handleExpressInterest };

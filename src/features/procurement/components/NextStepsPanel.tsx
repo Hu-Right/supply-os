@@ -194,11 +194,17 @@ export function NextStepsPanel({
           {t("procurement_subscribeNotice") || "订阅商机"}
         </button>
         <button
-          onClick={() => onUnlock?.()}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 py-2 text-xs font-semibold transition-colors"
+          onClick={() => (canUsePaidQuota ? onUnlock?.() : router.push(`/membership?notice_id=${notice.id}`))}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors ${
+            canUsePaidQuota
+              ? "border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+              : "bg-amber-500 hover:bg-amber-600 text-white"
+          }`}
         >
-          <Lock className="w-3.5 h-3.5" />
-          {canUsePaidQuota ? (t("procurement_memberUnlock") || "会员查看") : (t("procurement_freeUsedUp") || "免费次数已用完")}
+          {canUsePaidQuota ? <Lock className="w-3.5 h-3.5" /> : <Crown className="w-3.5 h-3.5" />}
+          {canUsePaidQuota
+            ? (t("procurement_memberUnlock") || "会员查看")
+            : (t("procurement_upgradeToUnlock") || "升级会员解锁")}
         </button>
       </div>
 
