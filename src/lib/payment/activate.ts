@@ -124,6 +124,18 @@ export async function activateSubscription(
     }
 
     await repo.createSubscriptionInTransaction(conn, params.userId, params.planCode, plan.duration_days ?? null);
+
+    // 堵写入缺口：订阅开通同样发放权益（配额唯一权威源），
+    // 避免产生"有订阅无权益"的缺口数据（历史 vip@qq.com 类问题）。
+    // source_order_no 用合成标记（subscribe 无支付订单）。
+    await repo.insertEntitlementInTransaction(conn, {
+      userId: params.userId,
+      orderNo: `SUB-${params.userId}-${params.planCode}`,
+      planCode: params.planCode,
+      quotaTotal: Math.max(1, Number(plan.unlock_quota || 1)),
+      durationDays: plan.duration_days ?? null,
+    });
+
     await repo.promoteToVipInTransaction(conn, params.userId);
     await conn.commit();
   } catch (err) {
