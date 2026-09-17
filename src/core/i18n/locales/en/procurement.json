@@ -566,6 +566,8 @@
   "detail_bidStrategy": "Bid Strategy",
   "detail_aiSummaryStreaming": "Analyzing…",
   "detail_aiSummaryGenerating": "Generating…",
+  "detail_aiSummaryAnalyzing": "AI analyzing",
+  "detail_aiSummaryAnalyzingHint": "Reading the notice and generating 6-dimension analysis with your company profile. Usually 20-60s…",
   "detail_aiSummaryStart": "Start AI Analysis",
   "detail_aiSummaryClickStart": "Click to let AI generate a 6-dimension bid fit analysis based on your company profile.",
   "detail_aiSummaryErrorAuth": "Session expired. Please log in again.",

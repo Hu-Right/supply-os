@@ -58,7 +58,13 @@ export async function streamAiSummary(
   });
 
   if (!res.ok) {
-    onError(`HTTP ${res.status}`);
+    // 读取响应体真实错误信息（如"公告已锁定"），而非仅 HTTP 状态码
+    let msg = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.message) msg = body.message;
+    } catch { /* 忽略解析失败 */ }
+    onError(msg);
     return;
   }
 

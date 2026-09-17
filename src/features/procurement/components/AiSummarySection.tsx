@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useEffect, useState } from "react";
 
 /** AI 拆标摘要数据结构（6 维度） */
 export interface AiSummaryData {
@@ -71,6 +72,14 @@ export function AiSummarySection({
 
   const hasData = items.some((item) => item.content);
 
+  // 分析中计时器（让用户明确感知在工作）
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!loading) { setElapsed(0); return; }
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
+
   /** 将原始错误信息映射为用户友好的提示 */
   const friendlyError = (raw: string): string => {
     if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
@@ -88,22 +97,28 @@ export function AiSummarySection({
     return t("detail_aiSummaryErrorGeneric") || "AI 分析过程中出现错误，请稍后重试。";
   };
 
-  // 加载中骨架屏
+  // 加载中：明确的"分析中"动效面板（旋转+计时），而非静态骨架屏
   if (loading && !hasData) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-teal-600" />
-          <h3 className="text-base font-extrabold text-slate-900">
-            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
-          </h3>
+      <section className="rounded-2xl border border-teal-200 bg-teal-50/40 p-6">
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-6 h-6 text-teal-600 animate-spin shrink-0" />
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900">
+              {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
+              <span className="ml-2 text-sm font-bold text-teal-700">
+                {t("detail_aiSummaryAnalyzing") || "AI 正在分析中"}
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {t("detail_aiSummaryAnalyzingHint") || "正在阅读公告原文并结合企业画像生成 6 维度分析，通常需要 20-60 秒，请稍候…"}
+              <span className="ml-1 font-mono text-teal-600">{elapsed}s</span>
+            </p>
+          </div>
         </div>
-        <div className="space-y-3 animate-pulse">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-              <div className="h-4 w-24 bg-slate-200 rounded mb-2" />
-              <div className="h-3 w-full bg-slate-100 rounded" />
-            </div>
+        <div className="mt-4 space-y-2 animate-pulse">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-3 rounded bg-teal-100/70" style={{ width: `${90 - i * 15}%` }} />
           ))}
         </div>
       </section>

@@ -566,6 +566,8 @@
   "detail_bidStrategy": "投标策略",
   "detail_aiSummaryStreaming": "分析中…",
   "detail_aiSummaryGenerating": "正在生成…",
+  "detail_aiSummaryAnalyzing": "AI 正在分析中",
+  "detail_aiSummaryAnalyzingHint": "正在阅读公告原文并结合企业画像生成 6 维度分析，通常需要 20-60 秒，请稍候…",
   "detail_aiSummaryStart": "开始 AI 分析",
   "detail_aiSummaryClickStart": "点击按钮，AI 将结合您的企业画像生成本标 6 维度适配分析。",
   "detail_aiSummaryErrorAuth": "登录已过期，请重新登录后再试。",
