@@ -80,9 +80,14 @@ export function NoticeDetail({
     setActiveTab("summary");
   }, [notice.id]);
 
-  // 翻译
+  // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）
+  const coreUnlocked = notice.core_locked === false;
+
+  // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
+  // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
+  // 解锁后 core_locked 翻转为 false，钩子自动补发。
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
-    (notice as { id?: number }).id, locale,
+    coreUnlocked ? (notice as { id?: number }).id : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
     locale === "zh" ? (notice.title_i18n || undefined) : undefined,
   );
@@ -95,8 +100,7 @@ export function NoticeDetail({
   // 切换按钮可见性：API 译文 或 description_cn 直出均视为"有译文"
   const hasTranslation = !!translation || descResolved;
 
-  // 锁定态
-  const coreUnlocked = notice.core_locked === false;
+  // 锁定态展示项
   const showSkeleton = !coreUnlocked && !!detailLoading;
   const breakdownFileCount = coreUnlocked
     ? collectBreakdownFiles(notice).length
@@ -151,10 +155,9 @@ export function NoticeDetail({
                 <AiSummarySection
                   data={aiSummary.data}
                   loading={aiSummary.loading}
+                  streaming={aiSummary.streaming}
                   error={aiSummary.error}
                   llmConfigured={aiSummary.llmConfigured}
-                  isUnlocked={isVip || coreUnlocked}
-                  onUnlock={() => onUnlock(notice)}
                   onConfigure={() => router.push("/settings/ai-model")}
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />

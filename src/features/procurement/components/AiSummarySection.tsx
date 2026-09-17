@@ -1,50 +1,40 @@
 /**
- * AI 拆标摘要区
+ * AI 拆标摘要区 v2
  * AI Bid Summary Section
  *
  * @module features/procurement/components/AiSummarySection
- * @description 展示 AI 生成的招标摘要：核心交付物、关键资质要求、付款与周期、风险提示。
- *              免费用户可看到摘要概要，完整分析需升级会员。
- *              数据通过 props 注入（后端 API 待接入），无数据时展示占位引导。
+ * @description 6 维度流式展示：核心交付/资质门槛/商务要素/竞争格局/投标策略/风险提示。
+ *              支持 SSE 逐字流式渲染 + 缓存命中即时展示。
  */
 import {
   Package,
   ShieldCheck,
   Banknote,
+  TrendingUp,
+  Target,
   AlertTriangle,
-  Lock,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 
-/** AI 拆标摘要数据结构 */
+/** AI 拆标摘要数据结构（6 维度） */
 export interface AiSummaryData {
-  /** 核心交付物 */
   coreDeliverables?: string;
-  /** 关键资质要求 */
   keyQualifications?: string;
-  /** 付款与周期 */
   paymentAndCycle?: string;
-  /** 风险提示 */
+  competitiveLandscape?: string;
+  bidStrategy?: string;
   riskAlerts?: string;
 }
 
 export interface AiSummarySectionProps {
-  /** AI 摘要数据 */
   data?: AiSummaryData | null;
-  /** 是否正在加载 */
   loading?: boolean;
-  /** 错误信息（非空展示错误态） */
+  streaming?: boolean;
   error?: string | null;
-  /** 用户是否已配置 LLM API Key */
   llmConfigured?: boolean;
-  /** 是否已解锁完整 AI 分析（免费用户=false） */
-  isUnlocked?: boolean;
-  /** 点击"查看完整分析"的回调 */
-  onUnlock?: () => void;
-  /** 跳转 LLM 配置页 */
   onConfigure?: () => void;
-  /** 重新分析 */
   onRegenerate?: () => void;
 }
 
@@ -56,54 +46,30 @@ interface SummaryItem {
   content?: string;
 }
 
-/** AI 拆标摘要区 */
 export function AiSummarySection({
   data,
   loading = false,
+  streaming = false,
   error = null,
   llmConfigured = false,
-  isUnlocked = false,
-  onUnlock,
   onConfigure,
   onRegenerate,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
 
   const items: SummaryItem[] = [
-    {
-      icon: Package,
-      iconColor: "text-teal-600",
-      titleKey: "detail_coreDeliverables",
-      titleDefault: "核心交付",
-      content: data?.coreDeliverables,
-    },
-    {
-      icon: ShieldCheck,
-      iconColor: "text-blue-600",
-      titleKey: "detail_keyQualifications",
-      titleDefault: "关键资质",
-      content: data?.keyQualifications,
-    },
-    {
-      icon: Banknote,
-      iconColor: "text-amber-600",
-      titleKey: "detail_paymentCycle",
-      titleDefault: "付款与周期",
-      content: data?.paymentAndCycle,
-    },
-    {
-      icon: AlertTriangle,
-      iconColor: "text-rose-600",
-      titleKey: "detail_riskAlerts",
-      titleDefault: "风险提示",
-      content: data?.riskAlerts,
-    },
+    { icon: Package, iconColor: "text-teal-600", titleKey: "detail_coreDeliverables", titleDefault: "核心交付", content: data?.coreDeliverables },
+    { icon: ShieldCheck, iconColor: "text-blue-600", titleKey: "detail_keyQualifications", titleDefault: "资质门槛", content: data?.keyQualifications },
+    { icon: Banknote, iconColor: "text-amber-600", titleKey: "detail_paymentCycle", titleDefault: "商务要素", content: data?.paymentAndCycle },
+    { icon: TrendingUp, iconColor: "text-purple-600", titleKey: "detail_competitiveLandscape", titleDefault: "竞争格局", content: data?.competitiveLandscape },
+    { icon: Target, iconColor: "text-indigo-600", titleKey: "detail_bidStrategy", titleDefault: "投标策略", content: data?.bidStrategy },
+    { icon: AlertTriangle, iconColor: "text-rose-600", titleKey: "detail_riskAlerts", titleDefault: "风险提示", content: data?.riskAlerts },
   ];
 
   const hasData = items.some((item) => item.content);
 
   // 加载中骨架屏
-  if (loading) {
+  if (loading && !hasData) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2 mb-4">
@@ -111,12 +77,9 @@ export function AiSummarySection({
           <h3 className="text-base font-extrabold text-slate-900">
             {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
           </h3>
-          <span className="text-2xs text-slate-400 font-normal">
-            {t("detail_aiSummaryBy") || "由 OS AI 分析生成"}
-          </span>
         </div>
         <div className="space-y-3 animate-pulse">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <div className="h-4 w-24 bg-slate-200 rounded mb-2" />
               <div className="h-3 w-full bg-slate-100 rounded" />
@@ -127,7 +90,7 @@ export function AiSummarySection({
     );
   }
 
-  // 未配置 LLM 且无数据：引导卡片（有数据时优先渲染数据）
+  // 未配置 LLM 且无数据
   if (!llmConfigured && !hasData) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -138,7 +101,7 @@ export function AiSummarySection({
           </h3>
         </div>
         <p className="text-sm text-slate-500 mb-4">
-          {t("procurement_aiSummaryNeedConfig") || "配置您的 AI 模型后，即可结合企业画像生成本标适配分析。"}
+          {t("procurement_aiSummaryNeedConfig") || "配置您的 AI 模型后，即可结合企业画像生成 6 维度投标适配分析。"}
         </p>
         <button
           type="button"
@@ -173,14 +136,14 @@ export function AiSummarySection({
     );
   }
 
-  // 无数据时展示占位引导
+  // 无数据占位
   if (!hasData) {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="flex items-center gap-2 mb-3">
           <Sparkles className="w-5 h-5 text-teal-600" />
           <h3 className="text-base font-extrabold text-slate-900">
-            {t("procurement_aiSummaryTitle") || "AI 拆标摘要"}
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
           </h3>
         </div>
         <p className="text-sm text-slate-500">
@@ -189,10 +152,6 @@ export function AiSummarySection({
       </section>
     );
   }
-
-  // 免费用户：仅展示前 2 项概要 + 锁定后 2 项
-  const visibleItems = isUnlocked ? items : items.slice(0, 2);
-  const lockedItems = isUnlocked ? [] : items.slice(2);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -205,75 +164,61 @@ export function AiSummarySection({
           <span className="text-2xs text-slate-400 font-normal">
             {t("detail_aiSummaryBy") || "由 OS AI 分析生成"}
           </span>
+          {streaming && (
+            <span className="inline-flex items-center gap-1 text-2xs text-teal-600 font-medium">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              {t("detail_aiSummaryStreaming") || "分析中…"}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="space-y-3">
-        {visibleItems.map((item) => (
+        {items.map((item) => (
           <div
             key={item.titleDefault}
-            className="rounded-xl border border-slate-100 bg-slate-50/70 p-4"
+            className={`rounded-xl border p-4 transition-colors ${
+              item.content
+                ? "border-slate-100 bg-slate-50/70"
+                : streaming
+                  ? "border-slate-100 bg-slate-50/30"
+                  : "border-slate-100 bg-slate-50/30"
+            }`}
           >
             <div className="flex items-center gap-2 mb-2">
-              <item.icon className={`w-4 h-4 ${item.iconColor}`} />
-              <h4 className="text-sm font-extrabold text-slate-900">
+              <item.icon className={`w-4 h-4 ${item.content ? item.iconColor : "text-slate-300"}`} />
+              <h4 className={`text-sm font-extrabold ${item.content ? "text-slate-900" : "text-slate-400"}`}>
                 {t(item.titleKey) || item.titleDefault}
               </h4>
             </div>
-            <p className="text-sm text-slate-700 leading-relaxed">{item.content}</p>
+            {item.content ? (
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{item.content}</p>
+            ) : streaming ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />
+                <span className="text-sm text-slate-300">
+                  {t("detail_aiSummaryGenerating") || "正在生成…"}
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-300">—</p>
+            )}
           </div>
         ))}
       </div>
 
-      {/* 锁定项：免费用户看到后 2 项的锁定占位 */}
-      {!isUnlocked && lockedItems.length > 0 && (
-        <div className="mt-3 space-y-3">
-          {lockedItems.map((item) => (
-            <div
-              key={item.titleDefault}
-              className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 relative overflow-hidden"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <item.icon className={`w-4 h-4 ${item.iconColor} opacity-40`} />
-                <h4 className="text-sm font-extrabold text-slate-400">
-                  {t(item.titleKey) || item.titleDefault}
-                </h4>
-              </div>
-              {/* 模糊遮罩 */}
-              <div className="blur-sm select-none pointer-events-none">
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  {item.content || "••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••"}
-                </p>
-              </div>
-              {/* 锁定提示覆盖层 */}
-              <div className="absolute inset-0 flex items-center justify-center bg-white/60">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700">
-                  <Lock className="w-3.5 h-3.5" />
-                  {t("procurement_aiSummaryLocked") || "升级会员解锁完整 AI 分析"}
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* 底部操作：重新分析 */}
+      {!streaming && (
+        <div className="mt-4 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onRegenerate}
+            className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            {t("procurement_aiSummaryRegenerate") || "重新分析"}
+          </button>
         </div>
       )}
-
-      {/* 底部操作：重新分析 + 查看完整报告 */}
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onRegenerate}
-          className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
-        >
-          {t("procurement_aiSummaryRegenerate") || "重新分析"}
-        </button>
-        <button
-          type="button"
-          onClick={onUnlock}
-          className="inline-flex items-center gap-1 text-sm font-bold text-teal-700 hover:text-teal-900 transition-colors"
-        >
-          {t("detail_viewFullReport") || "查看完整AI分析报告"} →
-        </button>
-      </div>
     </section>
   );
 }
