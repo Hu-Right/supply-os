@@ -28,7 +28,7 @@ export interface SupplierDirectoryRow {
 export class SupplierDirectoryRepo {
   constructor(private pool: Pool) {}
 
-  /** 供应商目录（排除测试数据与已合并记录，最新 500 家） */
+  /** 供应商目录（排除测试数据与已合并记录，仅展示审批通过，最新 500 家） */
   async listDirectory(): Promise<SupplierDirectoryRow[]> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
@@ -36,6 +36,7 @@ export class SupplierDirectoryRepo {
               contact, phone, email, products, industry, certification, type
        FROM supplier
        WHERE company <> '测试' AND merged_id IS NULL
+         AND (verify_status = 'done' OR verify_status IS NULL)
        ORDER BY id DESC
        LIMIT 500`,
     );
@@ -53,7 +54,11 @@ export class SupplierDirectoryRepo {
     const { limit, offset, search, type, industry } = params;
 
     // ── WHERE 条件构建 ──
-    const conditions: string[] = ["company <> '测试'", "merged_id IS NULL"];
+    const conditions: string[] = [
+      "company <> '测试'",
+      "merged_id IS NULL",
+      "(verify_status = 'done' OR verify_status IS NULL)",
+    ];
     const values: any[] = [];
 
     if (search) {
@@ -99,12 +104,14 @@ export class SupplierDirectoryRepo {
     return { items: rows as SupplierDirectoryRow[], total };
   }
 
-  /** 按 ID 查询单条供应商 */
+  /** 按 ID 查询单条供应商（仅审批通过或历史无审核状态的数据） */
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry, certification, type
-       FROM supplier WHERE id = ? LIMIT 1`,
+       FROM supplier
+       WHERE id = ? AND (verify_status = 'done' OR verify_status IS NULL)
+       LIMIT 1`,
       [id],
     );
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
@@ -230,13 +237,13 @@ export class SupplierDirectoryRepo {
       "SELECT COUNT(*) as total FROM supplier",
     );
     const [verifiedRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND merged_id IS NULL",
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     const [certRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND merged_id IS NULL",
+      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     const [intlRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL",
+      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     return {
       searchable: (allRows as any[])[0]?.total ?? 0,
