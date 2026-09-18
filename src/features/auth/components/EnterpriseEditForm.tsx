@@ -9,8 +9,10 @@
  *              省/市用级联下拉（对标采购需求地址表单）；供应商类型为下拉选择。
  *              提交值为 supplier 列名（snake_case）键值对；保存动作由外层 onSubmit 负责。
  */
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
@@ -23,6 +25,10 @@ export interface EnterpriseEditFormProps {
   saving: boolean;
   onSubmit: (values: Record<string, string>) => void;
   onCancel: () => void;
+  /** 当前执照 URL（用于显示已有执照） */
+  licenseUrl?: string | null;
+  /** 执照上传成功回调 */
+  onLicenseUploaded?: (url: string) => void;
 }
 
 interface OptionDef { value: string; labelKey: string; fallback: string }
@@ -95,8 +101,12 @@ function GroupTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: EnterpriseEditFormProps) {
+export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded }: EnterpriseEditFormProps) {
   const { t } = useLocale();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [localLicenseUrl, setLocalLicenseUrl] = useState(licenseUrl || "");
   const [formError, setFormError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = { province: "", city: "" };
@@ -189,6 +199,36 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
     );
   };
 
+  const handleLicenseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("文件大小不能超过 5MB");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setUploadError("仅支持 JPG、PNG、WebP 格式");
+      return;
+    }
+    setUploadError("");
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res: { url: string } = await api("/api/user/enterprise/license-upload", {
+        method: "POST",
+        body: formData,
+      });
+      setLocalLicenseUrl(res.url);
+      onLicenseUploaded?.(res.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "上传失败");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = () => {
     const missing: string[] = [];
     for (const r of REQUIRED_KEYS) {
@@ -210,6 +250,58 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel }: Ente
 
   return (
     <div className="space-y-6">
+      {/* 营业执照上传 */}
+      <section>
+        <GroupTitle>{t("authEnterpriseLicense") || "营业执照"}</GroupTitle>
+        <div className="border border-border rounded-md overflow-hidden bg-white p-4">
+          {localLicenseUrl ? (
+            <div className="flex items-center gap-4">
+              <div className="w-32 h-24 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
+                <img src={localLicenseUrl} alt="营业执照" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
+                <button
+                  type="button"
+                  onClick={() => { setLocalLicenseUrl(""); onLicenseUploaded?.(""); }}
+                  className="text-xs text-danger-500 hover:text-danger-700 flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> 移除执照
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div className="w-32 h-24 rounded border border-dashed border-border bg-secondary-50 flex items-center justify-center">
+                <ImageIcon className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-xs text-muted-foreground">请上传营业执照（JPG/PNG/WebP，最大 5MB）</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleLicenseUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {uploading ? "上传中…" : "选择文件上传"}
+                </button>
+              </div>
+            </div>
+          )}
+          {uploadError && (
+            <p className="text-xs text-danger-600 mt-2">{uploadError}</p>
+          )}
+        </div>
+      </section>
+
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>
         {renderGroup(BASIC_FIELDS)}

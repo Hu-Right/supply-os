@@ -1,0 +1,65 @@
+/**
+ * POST /api/user/enterprise/license-upload — 上传营业执照图片
+ *
+ * @module app/api/user/enterprise/license-upload/route
+ * @description 接收营业执照图片（multipart/form-data），保存到 public/uploads/license/，
+ *              返回图片 URL。同时更新 supplier 表的 license_url 字段。
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { getContext } from "@/lib/db/context";
+import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { writeFile, mkdir } from "node:fs/promises";
+import { join } from "node:path";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+
+const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+export const POST = withRoute(async (req: NextRequest) => {
+  const auth = await requireUserKeyOrThrow(req);
+  const ctx = getContext();
+
+  const contentType = req.headers.get("content-type") || "";
+  if (!contentType.includes("multipart/form-data")) {
+    routeError(400, EC_INVALID_PARAMS, "请使用 multipart/form-data 格式上传");
+  }
+
+  const formData = await req.formData();
+  const file = formData.get("file") as File | null;
+
+  if (!file) {
+    routeError(400, EC_INVALID_PARAMS, "请选择要上传的文件");
+  }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    routeError(400, EC_INVALID_PARAMS, "仅支持 JPG、PNG、WebP 格式");
+  }
+
+  if (file.size > MAX_SIZE) {
+    routeError(400, EC_INVALID_PARAMS, "文件大小不能超过 5MB");
+  }
+
+  // 保存文件
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const filename = `license_${auth.userId}_${Date.now()}.${ext}`;
+  const uploadDir = join(process.cwd(), "public", "uploads", "license");
+  await mkdir(uploadDir, { recursive: true });
+  const filePath = join(uploadDir, filename);
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await writeFile(filePath, buffer);
+
+  const licenseUrl = `/uploads/license/${filename}`;
+
+  // 更新用户绑定的供应商的 license_url
+  const user = await ctx.user.usersRepo.findProfileById(auth.userId);
+  if (user?.supplier_id) {
+    const pool = (await import("@/lib/db/pool")).getPool();
+    await pool.execute(
+      `UPDATE supplier SET license_url = ? WHERE id = ?`,
+      [licenseUrl, Number(user.supplier_id)],
+    );
+  }
+
+  return NextResponse.json({ success: true, url: licenseUrl });
+});

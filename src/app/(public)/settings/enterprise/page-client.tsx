@@ -7,12 +7,13 @@
  *              编辑保存 PUT（已绑定更新该行）/ POST（未绑定新建并绑定）。
  *              与诊断/审核链路（SupplierRegisterModal）完全剥离。
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { api } from "@/core/http";
 import { Button } from "@/shared/ui";
+import { Clock, AlertTriangle } from "lucide-react";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
@@ -26,6 +27,46 @@ export default function EnterpriseSettingsClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const enterprise = useEnterpriseInfo();
+
+  // 认领过期倒计时
+  const [claimExpiry, setClaimExpiry] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState("");
+
+  useEffect(() => {
+    // 获取当前用户的认领过期时间
+    if (authUser?.id && enterprise.bound) {
+      api<{ expires_at?: string }>("/api/supplier-claims?supplier_id=" + (enterprise.enterprise?.id || ""))
+        .then((res) => {
+          if (res.expires_at) {
+            setClaimExpiry(res.expires_at);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [authUser?.id, enterprise.bound, enterprise.enterprise?.id]);
+
+  useEffect(() => {
+    if (!claimExpiry) return;
+    const timer = setInterval(() => {
+      const diff = new Date(claimExpiry).getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdown("已过期");
+        clearInterval(timer);
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
+    }, 60000);
+    // 立即执行一次
+    const diff = new Date(claimExpiry).getTime() - Date.now();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
+    return () => clearInterval(timer);
+  }, [claimExpiry]);
 
   // 未登录：登录引导
   if (!authUser) {
@@ -81,12 +122,28 @@ export default function EnterpriseSettingsClient() {
         </p>
       )}
 
+      {/* 认领过期倒计时横幅 */}
+      {claimExpiry && countdown && countdown !== "已过期" && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="font-medium">认领待完善</span>
+          <span className="text-xs text-amber-600">请在 <strong>{countdown}</strong> 内完善企业信息并上传营业执照，逾期将自动解除绑定</span>
+        </div>
+      )}
+      {countdown === "已过期" && (
+        <div className="flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">
+          <Clock className="w-4 h-4 shrink-0" />
+          <span>认领已过期，绑定已自动解除。如需绑定请重新认领。</span>
+        </div>
+      )}
+
       {editing ? (
         <EnterpriseEditForm
           initial={enterprise.enterprise}
           saving={saving}
           onSubmit={handleSubmit}
           onCancel={() => setEditing(false)}
+          licenseUrl={enterprise.enterprise?.license_url ? String(enterprise.enterprise.license_url) : null}
         />
       ) : (
         <EnterpriseInfoCard
