@@ -216,9 +216,9 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
     try {
       // 客户端压缩（减少上传体积和存储成本）
       const compressedBlob = await compressImage(file, {
-        maxWidth: 1920,
-        maxHeight: 1920,
-        quality: 0.8,
+        maxWidth: 2560,
+        maxHeight: 2560,
+        quality: 0.9,
         targetType: "image/jpeg", // 统一转为 JPEG 以获得更好压缩率
       });
       const compressedFile = blobToFile(compressedBlob, file.name);

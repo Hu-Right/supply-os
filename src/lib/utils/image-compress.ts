@@ -8,11 +8,11 @@
  */
 
 export interface CompressOptions {
-  /** 最大宽度（默认 1920） */
+  /** 最大宽度（默认 2560） */
   maxWidth?: number;
-  /** 最大高度（默认 1920） */
+  /** 最大高度（默认 2560） */
   maxHeight?: number;
-  /** JPEG/WebP 质量（0-1，默认 0.8） */
+  /** JPEG/WebP 质量（0-1，默认 0.9） */
   quality?: number;
   /** 目标格式（默认保持原格式，可强制转为 image/jpeg） */
   targetType?: "image/jpeg" | "image/png" | "image/webp";
@@ -26,9 +26,9 @@ export interface CompressOptions {
  */
 export async function compressImage(file: File, options: CompressOptions = {}): Promise<Blob> {
   const {
-    maxWidth = 1920,
-    maxHeight = 1920,
-    quality = 0.8,
+    maxWidth = 2560,
+    maxHeight = 2560,
+    quality = 0.9,
     targetType,
   } = options;
 
