@@ -186,8 +186,9 @@ export class SupplierDirectoryRepo {
     const cols = Object.keys(data);
     if (cols.length === 0) return;
     const sets = cols.map((c) => `${c} = ?`).join(", ");
+    // ★ 用户编辑后一律重置为审核中，需管理员重新确认
     await this.pool.query(
-      `UPDATE supplier SET ${sets} WHERE id = ?`,
+      `UPDATE supplier SET ${sets}, verify_status = 'processing' WHERE id = ?`,
       [...cols.map((c) => data[c]), id],
     );
   }
