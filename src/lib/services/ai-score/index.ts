@@ -44,7 +44,7 @@ async function fetchNoticeForScore(pool: Pool, noticeId: number): Promise<RowDat
   };
 }
 
-/** 供应商画像（含评分所需扩展字段） */
+/** 供应商画像（含评分所需扩展字段，JOIN 诊断表获取国际化能力数据） */
 async function fetchSupplierForScore(pool: Pool, userId: number) {
   const [userRows] = await pool.query(
     "SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1",
@@ -52,10 +52,20 @@ async function fetchSupplierForScore(pool: Pool, userId: number) {
   );
   const supplierId = Number((userRows as RowDataPacket[])[0]?.supplier_id || 0);
   if (!supplierId) return null;
+
+  // JOIN 诊断表获取国际化能力字段
   const [supRows] = await pool.query(
-    `SELECT company, industry, products, certification, country, city, type,
-            registered_capital, established_at, intro
-     FROM supplier WHERE id = ? LIMIT 1`,
+    `SELECT s.company, s.industry, s.products, s.certification, s.country, s.city, s.type,
+            s.registered_capital, s.established_at, s.intro,
+            q.employee_count, q.export_scale, q.service_countries,
+            q.overseas_companies, q.ungm_status, q.english_team,
+            q.payment_terms, q.bid_willingness
+     FROM supplier s
+     LEFT JOIN crm_users u ON u.supplier_id = s.id
+     LEFT JOIN crm_supplier_qualification q ON q.user_id = u.id
+     WHERE s.id = ?
+     ORDER BY q.id DESC
+     LIMIT 1`,
     [supplierId],
   );
   const row = (supRows as RowDataPacket[])[0];
@@ -71,6 +81,15 @@ async function fetchSupplierForScore(pool: Pool, userId: number) {
     registered_capital: String(row.registered_capital || ""),
     established_at: String(row.established_at || ""),
     intro: String(row.intro || ""),
+    // 诊断表字段
+    employee_count: String(row.employee_count || ""),
+    export_scale: String(row.export_scale || ""),
+    service_countries: String(row.service_countries || ""),
+    overseas_companies: String(row.overseas_companies || ""),
+    ungm_status: String(row.ungm_status || ""),
+    english_team: String(row.english_team || ""),
+    payment_terms: String(row.payment_terms || ""),
+    bid_willingness: String(row.bid_willingness || ""),
   };
 }
 
