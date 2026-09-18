@@ -55,19 +55,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   // 更新用户绑定的供应商的 license_url，并删除旧文件
   const user = await ctx.user.usersRepo.findProfileById(auth.userId);
   if (user?.supplier_id) {
-    const pool = (await import("@/lib/db/pool")).getPool();
-    // 查询旧的 license_url
-    const [rows] = await pool.query(
-      `SELECT license_url FROM supplier WHERE id = ?`,
-      [Number(user.supplier_id)],
-    );
-    const oldUrl = (rows as any)[0]?.license_url;
-
-    // 更新为新 URL
-    await pool.execute(
-      `UPDATE supplier SET license_url = ? WHERE id = ?`,
-      [licenseUrl, Number(user.supplier_id)],
-    );
+    const supplierId = Number(user.supplier_id);
+    const oldUrl = await ctx.supplier.directoryRepo.updateLicenseUrl(supplierId, licenseUrl);
 
     // 删除旧文件（如果存在且与新文件不同）
     if (oldUrl && oldUrl !== licenseUrl) {

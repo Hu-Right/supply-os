@@ -273,4 +273,21 @@ export class SupplierDirectoryRepo {
 
     return userBound || claimPending;
   }
+
+  /**
+   * 更新供应商的营业执照 URL，返回旧的 license_url（用于清理旧文件）
+   */
+  async updateLicenseUrl(supplierId: number, licenseUrl: string): Promise<string | null> {
+    const [rows] = await this.pool.query(
+      `SELECT license_url FROM supplier WHERE id = ?`,
+      [supplierId],
+    );
+    const oldUrl = (rows as any[])[0]?.license_url || null;
+
+    await this.pool.execute(
+      `UPDATE supplier SET license_url = ? WHERE id = ?`,
+      [licenseUrl, supplierId],
+    );
+    return oldUrl;
+  }
 }
