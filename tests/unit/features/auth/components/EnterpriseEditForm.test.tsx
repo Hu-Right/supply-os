@@ -44,6 +44,7 @@ describe("EnterpriseEditForm", () => {
         saving={false}
         onSubmit={onSubmit}
         onCancel={vi.fn()}
+        licenseUrl="/uploads/license/test.jpg"
       />,
     );
     fireEvent.click(screen.getByText("authEnterpriseSave"));
