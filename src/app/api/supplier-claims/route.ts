@@ -61,7 +61,8 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   // 检查供应商是否已被认领
-  if (supplier && String((supplier as any).claim_status || "") === "pending") {
+  const isClaimed = await ctx.supplier.directoryRepo.isClaimed(supplierId);
+  if (isClaimed) {
     routeError(400, EC_INVALID_PARAMS, "该供应商正在被认领中，请稍后再试");
   }
 

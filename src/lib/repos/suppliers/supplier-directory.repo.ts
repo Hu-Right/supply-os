@@ -253,4 +253,24 @@ export class SupplierDirectoryRepo {
       international: (intlRows as any[])[0]?.total ?? 0,
     };
   }
+
+  /**
+   * 检查供应商是否已被认领（永久绑定或临时绑定中）
+   * @returns true 表示已被认领，不可再次认领
+   */
+  async isClaimed(supplierId: number): Promise<boolean> {
+    const [userRows] = await this.pool.query(
+      `SELECT COUNT(*) AS cnt FROM crm_users WHERE supplier_id = ?`,
+      [supplierId],
+    );
+    const userBound = Number((userRows as any[])[0]?.cnt || 0) > 0;
+
+    const [supRows] = await this.pool.query(
+      `SELECT claim_status FROM supplier WHERE id = ?`,
+      [supplierId],
+    );
+    const claimPending = String((supRows as any[])[0]?.claim_status || "") === "pending";
+
+    return userBound || claimPending;
+  }
 }
