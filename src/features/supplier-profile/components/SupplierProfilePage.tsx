@@ -193,7 +193,7 @@ export function SupplierProfilePage() {
 
       {showClaimModal && supplier && (
         <SupplierClaimModal
-          supplierId={Number(supplier.id)}
+          supplierId={Number(String(supplier.id).replace(/^sup-db-/, ""))}
           companyName={name}
           onClose={() => setShowClaimModal(false)}
           onSuccess={() => setShowClaimModal(false)}
