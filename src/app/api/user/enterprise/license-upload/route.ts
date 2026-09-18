@@ -9,8 +9,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -51,14 +52,34 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   const licenseUrl = `/uploads/license/${filename}`;
 
-  // 更新用户绑定的供应商的 license_url
+  // 更新用户绑定的供应商的 license_url，并删除旧文件
   const user = await ctx.user.usersRepo.findProfileById(auth.userId);
   if (user?.supplier_id) {
     const pool = (await import("@/lib/db/pool")).getPool();
+    // 查询旧的 license_url
+    const [rows] = await pool.query(
+      `SELECT license_url FROM supplier WHERE id = ?`,
+      [Number(user.supplier_id)],
+    );
+    const oldUrl = (rows as any)[0]?.license_url;
+
+    // 更新为新 URL
     await pool.execute(
       `UPDATE supplier SET license_url = ? WHERE id = ?`,
       [licenseUrl, Number(user.supplier_id)],
     );
+
+    // 删除旧文件（如果存在且与新文件不同）
+    if (oldUrl && oldUrl !== licenseUrl) {
+      const oldPath = join(process.cwd(), "public", oldUrl);
+      if (existsSync(oldPath)) {
+        try {
+          await unlink(oldPath);
+        } catch (err) {
+          console.warn("[license-upload] 删除旧执照文件失败:", (err as Error).message);
+        }
+      }
+    }
   }
 
   return NextResponse.json({ success: true, url: licenseUrl });
