@@ -113,9 +113,10 @@ describe("ProfileContent", () => {
     const { rerender } = render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 
-    // 已认证
-    mockEnterpriseData = { verify_status: "done" };
+    // 已认证 → 显示公司名 + 已认证徽章
+    mockEnterpriseData = { verify_status: "done", name_confirmed: "杭州中建工程技术有限公司" };
     rerender(<ProfileContent />);
+    expect(screen.getByText("杭州中建工程技术有限公司")).toBeInTheDocument();
     expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
 
     // 已驳回

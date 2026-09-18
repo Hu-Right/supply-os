@@ -59,6 +59,9 @@ export function ProfileContent() {
   const checkNote = enterprise.enterprise
     ? String(enterprise.enterprise.check_note || "")
     : "";
+  const companyName = enterprise.enterprise
+    ? String(enterprise.enterprise.name_confirmed || enterprise.enterprise.company || "")
+    : "";
 
   if (!authUser) return null;
 
@@ -81,8 +84,13 @@ export function ProfileContent() {
                 {!enterprise.bound ? (
                   <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
                 ) : verifyStatus === "done" ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium">
-                    {t("authEnterpriseVerifyApproved") || "已认证"}
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
+                    <span className="text-sm text-foreground truncate" title={companyName || undefined}>
+                      {companyName || "-"}
+                    </span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium shrink-0">
+                      {t("authEnterpriseVerifyApproved") || "已认证"}
+                    </span>
                   </span>
                 ) : verifyStatus === "processing" ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-xs font-medium">
