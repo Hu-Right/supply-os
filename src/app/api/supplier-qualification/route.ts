@@ -17,6 +17,7 @@ import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.re
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { extractUserKey } from "@/lib/middleware/auth";
 import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
 export const POST = withRoute(async (req: NextRequest) => {
@@ -57,8 +58,13 @@ export const POST = withRoute(async (req: NextRequest) => {
   let userId: number | null = null;
   let referralEmployeeId: number | null = null;
 
-  // 通过手机号查找用户 ID（纯 phone 字段，user_key 兼容已移除）
-  if (body.phone) {
+  // ★ 用户关联优先级：JWT Token > 手机号匹配 > null（孤立记录）
+  // 已登录用户通过 api() 自动附加 JWT，直接从 Token 提取 userId，最可靠
+  const auth = await extractUserKey(req);
+  if (auth.userId) {
+    userId = auth.userId;
+  } else if (body.phone) {
+    // 回退：未登录场景（扫码诊断），通过手机号反查用户
     try {
       const ctx = getContext();
       const user = await ctx.user.usersRepo.findByPhone(String(body.phone).trim());
