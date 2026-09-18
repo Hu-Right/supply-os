@@ -13,11 +13,12 @@ import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { api } from "@/core/http";
 import { Button } from "@/shared/ui";
-import { Clock, AlertTriangle } from "lucide-react";
+import { Clock, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
+import { useHasSupplierPool } from "@/features/procurement/hooks/useHasSupplierPool";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 
@@ -28,6 +29,7 @@ export default function EnterpriseSettingsClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const enterprise = useEnterpriseInfo();
+  const { hasPool, loading: poolLoading } = useHasSupplierPool(authUser?.id);
   const { claimExpiry, countdown } = useClaimExpiry(
     authUser?.id,
     enterprise.enterprise?.id ? Number(enterprise.enterprise.id) : undefined,
@@ -44,6 +46,21 @@ export default function EnterpriseSettingsClient() {
         <Button variant="primary" onClick={() => emitAppEvent("supply-os:require-login")}>
           {t("settingsProfileGoLogin") || "立即登录"}
         </Button>
+      </div>
+    );
+  }
+
+  // 互斥锁定：已添加供应商到资源库 → 企业信息页不可访问
+  if (!poolLoading && hasPool && !enterprise.bound) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-8 text-center">
+        <ShieldAlert className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+        <p className="text-sm font-bold text-amber-800 mb-1">
+          {t("enterprisePoolDenied") || "您已建立供应商资源库，企业信息页不再可用"}
+        </p>
+        <p className="text-2xs text-amber-600">
+          {t("enterprisePoolDeniedHint") || "外贸员身份与企业身份互斥。如需切换，请先清空供应商资源库。"}
+        </p>
       </div>
     );
   }

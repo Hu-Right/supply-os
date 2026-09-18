@@ -135,6 +135,8 @@
   "supplierPoolDuplicate": "该供应商已在资源库中",
   "supplierPoolEnterpriseDenied": "供应商资源库仅对外贸员开放",
   "supplierPoolEnterpriseDeniedHint": "您已绑定企业，请使用企业身份进行 AI 适配评分。",
+  "enterprisePoolDenied": "您已建立供应商资源库，企业信息页不再可用",
+  "enterprisePoolDeniedHint": "外贸员身份与企业身份互斥。如需切换，请先清空供应商资源库。",
   "aiMatchTitle": "AI 智能匹配",
   "aiMatchIntro": "AI 将从你的供应商资源库中推荐最合适的工厂",
   "aiMatchStart": "开始匹配",
