@@ -95,7 +95,6 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
           loginForm={auth.loginForm}
           setLoginForm={auth.setLoginForm}
           authError={auth.authError}
-          claimMessage={auth.claimMessage}
           onForgotPassword={(identifier) => {
             forgot.setForgotIdentifier(identifier);
             auth.setAuthError("");

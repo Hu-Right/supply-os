@@ -25,7 +25,7 @@ export interface AuthFormState {
 
 export function useAuthForm(onSuccess: () => void, initialMode: "login" | "register" = "login") {
   const { t } = useLocale();
-  const { login, register, claimMessage } = useAuth();
+  const { login, register } = useAuth();
 
   // 初始模式由调用方注入（扫码推广场景 layout-shell 传 "register"）
   const [authMode, setAuthMode] = useState<"login" | "register">(initialMode);
@@ -164,7 +164,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     setAuthForm,
     loginForm,
     setLoginForm,
-    claimMessage,
     submitAuth,
     agreedToTerms,
     setAgreedToTerms,

@@ -3,8 +3,8 @@
  * Authentication Types
  *
  * @module core/auth/types
- * @description 认证状态、用户画像、供应商绑定等数据结构
- *              Authentication state, user profile, supplier claim binding
+ * @description 认证状态、用户画像等数据结构
+ *              Authentication state, user profile
  */
 
 import type { AuthUser } from "@/types/auth";
@@ -28,18 +28,6 @@ export interface RegisterOptions {
 }
 
 /**
- * 供应商绑定申请表单
- * Supplier Claim Application Form
- */
-export interface SupplierClaimForm {
-  companyName: string;
-  supplierType: "domestic" | "overseas" | "un";
-  contactName: string;
-  contactPhone: string;
-  businessLicenseNo: string;
-}
-
-/**
  * 认证上下文值
  * Auth Context Value
  */
@@ -60,12 +48,6 @@ export interface AuthContextValue {
   logout: () => void;
   /** 刷新认证状态 */
   refreshAuth: () => Promise<void>;
-  /** 提交供应商绑定申请 */
-  submitSupplierClaim: (claim: SupplierClaimForm) => Promise<void>;
-  /** 供应商绑定申请消息 */
-  claimMessage: string;
-  /** 设置供应商绑定申请消息 */
-  setClaimMessage: (msg: string) => void;
   /** 发送找回密码验证码，返回邮件发送状态 */
   sendResetCode: (identifier: string) => Promise<{ email_sent: boolean; support_hint: string | null }>;
   /** 重置密码（验证码+新密码），成功后自动登录 */

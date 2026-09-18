@@ -12,7 +12,6 @@ export interface LoginFormProps {
   loginForm: { identifier: string; password: string };
   setLoginForm: React.Dispatch<React.SetStateAction<{ identifier: string; password: string }>>;
   authError: string;
-  claimMessage: string | null;
   onForgotPassword: (email: string) => void;
 }
 
@@ -20,7 +19,6 @@ export function LoginForm({
   loginForm,
   setLoginForm,
   authError,
-  claimMessage,
   onForgotPassword,
 }: LoginFormProps) {
   const { t } = useLocale();
@@ -54,11 +52,6 @@ export function LoginForm({
       {authError && (
         <p className="text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg p-3">
           {authError}
-        </p>
-      )}
-      {claimMessage && (
-        <p className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-100 rounded-lg p-3">
-          {claimMessage}
         </p>
       )}
       <Button

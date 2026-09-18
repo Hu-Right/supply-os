@@ -40,7 +40,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export function ProfileContent() {
   const { t } = useLocale();
-  const { authUser, isVip, logout, claimMessage, refreshAuth } = useAuth();
+  const { authUser, isVip, logout, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
@@ -163,12 +163,6 @@ export function ProfileContent() {
           {t("authLogout") || "退出"}
         </button>
       </div>
-
-      {claimMessage && (
-        <p className="text-xs font-medium text-success-700 bg-success-50 border border-success-200 rounded-lg p-3">
-          {claimMessage}
-        </p>
-      )}
     </div>
   );
 }
