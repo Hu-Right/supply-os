@@ -239,6 +239,28 @@ export function EnterpriseInfoCard({
         </p>
       )}
 
+      {/* 营业执照 */}
+      {(() => {
+        const licenseUrl = row.license_url ? String(row.license_url) : "";
+        if (!licenseUrl) return null;
+        return (
+          <section>
+            <GroupTitle>{t("authEnterpriseLicense") || "营业执照"}</GroupTitle>
+            <div className="border border-border rounded-md overflow-hidden bg-white p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-40 h-28 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
+                  <img src={licenseUrl} alt="营业执照" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
+                  <p className="text-xs text-muted-foreground mt-1">点击图片可查看大图</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
       <section>
         <GroupTitle>{t("settingsBasicInfo") || "基本信息"}</GroupTitle>
         <InfoTable cells={basicCells} />
