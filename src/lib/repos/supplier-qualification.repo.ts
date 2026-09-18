@@ -135,14 +135,17 @@ export class SupplierQualificationRepo {
 
   /**
    * 注册后回溯关联：按手机号查找 user_id IS NULL 的孤立诊断记录，
+   * 匹配 phone 列或 contact_info 列（兼容迁移前旧数据），
    * 回写 user_id 并同步 crm_users.qualification_id。
    * @returns 关联的记录数（0 = 无匹配孤立记录）
    */
   async backfillByPhone(phone: string, userId: number): Promise<number> {
-    // 查找所有该手机号的孤立记录
+    // 查找所有该手机号的孤立记录（phone 列优先，contact_info 列回退）
     const [rows] = await this.pool.execute<RowDataPacket[]>(
-      `SELECT id FROM crm_supplier_qualification WHERE phone = ? AND user_id IS NULL ORDER BY id DESC`,
-      [phone],
+      `SELECT id FROM crm_supplier_qualification
+       WHERE user_id IS NULL AND (phone = ? OR contact_info = ?)
+       ORDER BY id DESC`,
+      [phone, phone],
     );
     if (rows.length === 0) return 0;
 

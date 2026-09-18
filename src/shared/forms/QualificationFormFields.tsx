@@ -283,11 +283,13 @@ export function QualificationFormFields({
         {form.bid_willingness === "是" && (
           <div className="mt-3 p-3 rounded-lg bg-teal-50 border border-teal-100">
             <Input
-              type="text"
+              type="tel"
+              inputMode="tel"
               value={form.contact_info}
-              onChange={(e) => update("contact_info", e.target.value)}
+              onChange={(e) => update("contact_info", e.target.value.replace(/\D/g, "").slice(0, 11))}
               placeholder={ph(PLACEHOLDER_KEYS.contactInfo)}
-              className="bg-white"
+              maxLength={11}
+              className="bg-white tracking-widest"
             />
           </div>
         )}

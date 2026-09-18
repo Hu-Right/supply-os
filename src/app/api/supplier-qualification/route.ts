@@ -49,6 +49,14 @@ export const POST = withRoute(async (req: NextRequest) => {
     }
   }
 
+  // ★ 投标意愿=是时，contact_info 必须为有效手机号
+  if (body.bid_willingness === "是" && body.contact_info) {
+    const phone = String(body.contact_info).trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      routeError(400, EC_INVALID_PARAMS, "联系人手机号格式不正确");
+    }
+  }
+
   const toArray = (v: unknown) => Array.isArray(v) ? v.join(", ") : String(v || "");
   const ip = extractClientIp(req);
   const repo = new SupplierQualificationRepo(getPool());
