@@ -12,15 +12,15 @@ import { getContext } from "@/lib/db/context";
 import { mapSupplierRow } from "@/lib/services/suppliers";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
+import { parseSupplierId } from "@/lib/utils/supplier-id";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params;
-    const rawId = id.replace(/^sup-db-/, "");
-    const numericId = Number(rawId);
+    const numericId = parseSupplierId(id);
 
-    if (!Number.isFinite(numericId) || numericId < 1) {
+    if (!numericId) {
       routeError(400, EC_INVALID_PARAMS, `无效的供应商 ID: ${id}`);
     }
 
