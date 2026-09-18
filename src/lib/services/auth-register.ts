@@ -35,7 +35,6 @@ export interface RegisterUserParams {
   code: string;
   /** 已大写的邀请码（Cookie 回退由路由完成） */
   inviteCode: string;
-  userType: "personal" | "enterprise";
   /** 注册界面语言（决定自动昵称语种） */
   locale?: string;
   /** 合规审计字段 */
@@ -59,7 +58,6 @@ export async function registerUser(
   params: RegisterUserParams,
 ): Promise<RegisterUserResult> {
   const { displayName, targetPhone, password: pw, code, inviteCode } = params;
-  const userType = params.userType;
 
   // 密码策略（40006）
   const pwCheck = validatePassword(pw);
@@ -94,7 +92,6 @@ export async function registerUser(
     // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
     nickname: generateNickname(params.locale),
     password_hash: await hashPassword(pw),
-    user_type: userType,
     phone: targetPhone,
     referral_code: inviteCode,
     referral_employee_id: referralEmployeeId ?? undefined,
@@ -106,7 +103,7 @@ export async function registerUser(
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
   // 仅在邀请码有效时递增 KPI 归属计数
   if (referralEmployeeId) {
-    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
+    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "enterprise");
   }
 
   // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）——按 id 定位
