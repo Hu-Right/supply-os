@@ -87,9 +87,9 @@ export function NextStepsPanel({
         if (onUploadMaterials) {
           onUploadMaterials();
         } else if (!isLoggedIn) {
-          router.push(`/auth/login?redirect=/supplier-qualification?notice_id=${notice.id}`);
+          router.push(`/auth/login?redirect=/procurement/qualification%3Fnotice_id%3D${notice.id}`);
         } else {
-          router.push(`/supplier-qualification?notice_id=${notice.id}`);
+          router.push(`/procurement/qualification?notice_id=${notice.id}`);
         }
       },
     },

@@ -1,9 +1,8 @@
 /**
  * POST /api/supplier-qualification — 统一供应商评估提交
  *
- * 三个入口共用：
+ * 两个入口共用：
  *   - 资质测试独立页（source=qualification，默认）
- *   - 企业注册弹窗（source=registration，携带 phone + invitation_code）
  *   - 扫码诊断独立页（source=diagnosis）
  *
  * 所有数据统一写入 crm_supplier_qualification 表。
