@@ -60,6 +60,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "无法获取供应商名称");
   }
 
+  // 检查供应商是否已被认领
+  if (supplier && String((supplier as any).claim_status || "") === "pending") {
+    routeError(400, EC_INVALID_PARAMS, "该供应商正在被认领中，请稍后再试");
+  }
+
+  // 计算 7 天后的过期时间
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAtStr = expiresAt.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
+
   try {
     const id = await ctx.supplier.claimRepo.insertClaim({
       userId: auth.userId,
@@ -70,8 +79,24 @@ export const POST = withRoute(async (req: NextRequest) => {
       contactPhone: str(body.contactPhone ?? body.contact_phone, 50),
       contactEmail: str(body.contactEmail ?? body.contact_email, 190),
       businessLicenseNo: str(body.businessLicenseNo ?? body.business_license_no, 100),
+      expiresAt: expiresAtStr,
     });
-    return NextResponse.json({ success: true, id, status: "pending", message: "认领申请已提交，请等待审核" }, { status: 201 });
+
+    // ★ 立即临时绑定：用户 ↔ 供应商
+    await ctx.user.usersRepo.bindSupplier(auth.userId, supplierId, "verified");
+
+    // ★ 标记供应商为认领中
+    const pool = (await import("@/lib/db/pool")).getPool();
+    await pool.execute(
+      `UPDATE supplier SET claim_status = 'pending' WHERE id = ?`,
+      [supplierId],
+    );
+
+    return NextResponse.json({
+      success: true, id, status: "pending",
+      expires_at: expiresAtStr,
+      message: "认领成功，请前往企业信息页完善资料并上传营业执照",
+    }, { status: 201 });
   } catch (err) {
     console.error("[supplier-claims POST]", err);
     routeError(500, 50000, "认领申请提交失败");

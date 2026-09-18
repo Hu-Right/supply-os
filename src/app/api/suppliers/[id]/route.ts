@@ -52,7 +52,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);
     }
 
-    // 检查该供应商是否已被用户认领
+    // 检查该供应商是否已被认领（永久绑定或临时绑定中）
     let claimed = false;
     try {
       const pool = (await import("@/lib/db/pool")).getPool();
@@ -60,7 +60,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         `SELECT COUNT(*) AS cnt FROM crm_users WHERE supplier_id = ?`,
         [numericId],
       );
-      claimed = Number((rows as any)[0]?.cnt || 0) > 0;
+      const userBound = Number((rows as any)[0]?.cnt || 0) > 0;
+      const claimPending = String((row as any).claim_status || "") === "pending";
+      claimed = userBound || claimPending;
     } catch {
       // 查询失败不影响主流程
     }
