@@ -11,7 +11,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Building2, Globe, Send, MapPin,
+  Building2, Globe, Send, MapPin, ShieldCheck,
 } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
@@ -20,6 +20,7 @@ import { emitAppEvent } from "@/core/events";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
 import { SupplierContactModal } from "@/features/supplier";
+import { SupplierClaimModal } from "./SupplierClaimModal";
 import type { Supplier } from "@/types";
 import {
   CapabilityPanel, ProductsPanel, CertsPanel,
@@ -53,6 +54,7 @@ export function SupplierProfilePage() {
   const [contactModal, setContactModal] = useState<{
     status: SupplierContactStatus; contact: SupplierContact | null;
   } | null>(null);
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   const name = supplier ? pickLocale(locale, supplier.nameZh, supplier.nameEn) : "";
   const products = supplier ? pickLocale(locale, supplier.mainProductsZh, supplier.mainProductsEn) ?? [] : [];
@@ -124,9 +126,20 @@ export function SupplierProfilePage() {
                 </p>
               </div>
             </div>
-            <Button onClick={handleContact} variant="primary" className="shrink-0 px-6 py-3 text-sm font-bold gap-2">
-              <Send className="w-4 h-4" />{t("profile_sendInquiry")}
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              {userId && (
+                <Button
+                  onClick={() => setShowClaimModal(true)}
+                  variant="outline"
+                  className="px-4 py-3 text-sm font-bold gap-2 border-teal-200 text-teal-700 hover:bg-teal-50"
+                >
+                  <ShieldCheck className="w-4 h-4" />认领该企业
+                </Button>
+              )}
+              <Button onClick={handleContact} variant="primary" className="px-6 py-3 text-sm font-bold gap-2">
+                <Send className="w-4 h-4" />{t("profile_sendInquiry")}
+              </Button>
+            </div>
           </div>
 
           {/* ══ Tab 导航 ═══ */}
@@ -176,6 +189,15 @@ export function SupplierProfilePage() {
 
       {contactModal && supplier && (
         <SupplierContactModal supplier={supplier} status={contactModal.status} contact={contactModal.contact} onClose={() => setContactModal(null)} />
+      )}
+
+      {showClaimModal && supplier && (
+        <SupplierClaimModal
+          supplierId={Number(supplier.id)}
+          companyName={name}
+          onClose={() => setShowClaimModal(false)}
+          onSuccess={() => setShowClaimModal(false)}
+        />
       )}
     </>
   );
