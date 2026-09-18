@@ -7,8 +7,9 @@
  *              明确告知两种身份的区别和不可转换性。
  */
 "use client";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Building2, Package, ArrowRight } from "lucide-react";
+import { AlertTriangle, Building2, Package, ArrowRight, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth/useUserId";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
@@ -21,12 +22,23 @@ export function IdentityChoiceBanner() {
   const { bound, loading: entLoading } = useEnterpriseInfo();
   const { hasPool, loading: poolLoading } = useHasSupplierPool(userId);
 
-  // 未登录或已选择身份 → 不显示
-  if (!userId || entLoading || poolLoading || bound || hasPool) return null;
+  const [dismissed, setDismissed] = useState(false);
+
+  // 未登录、已选择身份、或已关闭 → 不显示
+  if (!userId || entLoading || poolLoading || bound || hasPool || dismissed) return null;
 
   return (
     <div className="mx-auto max-w-5xl px-4 pt-6">
-      <div className="rounded-2xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 shadow-sm">
+      <div className="relative rounded-2xl border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 shadow-sm">
+        {/* 关闭按钮 */}
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="absolute top-3 right-3 p-1 rounded-lg text-blue-400 hover:text-blue-700 hover:bg-blue-100 transition-colors"
+          aria-label="关闭"
+        >
+          <X className="w-4 h-4" />
+        </button>
         {/* 标题行 */}
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className="w-5 h-5 text-blue-600" />
