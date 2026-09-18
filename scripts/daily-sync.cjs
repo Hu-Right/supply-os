@@ -17,7 +17,7 @@
  *   SYNC_TARGET_PASSWORD   目标库密码
  *
  * 同步策略:
- *   全部 4 张表使用水位线增量 upsert（INSERT ... ON DUPLICATE KEY UPDATE）
+ *   全部 3 张表使用水位线增量 upsert（INSERT ... ON DUPLICATE KEY UPDATE）
  *   水位线按批持久化到 .sync-watermark.json，中断后从断点继续
  *   update_time 水位线按列原生类型读写比较（DATETIME 字符串 / Unix 秒整数）
  *   DATETIME 列以原值字符串同步与比较（dateStrings），不做时区转换
@@ -52,9 +52,7 @@ const SYNC_TABLES = [
   'crm_bid_opportunities',
   'crm_bid_notice_unspsc_codes',
   'crm_bid_opportunity_unspsc_candidates',
-  // 中标数据表（由 scripts/crawl-awards/ 爬虫写入）
-  'crm_bid_awards',
-  'crm_bid_award_winners',
+  // crm_bid_awards / crm_bid_award_winners 无需同步——数据本身就在云端库中
 ];
 
 const BATCH_SIZE = 200;

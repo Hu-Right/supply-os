@@ -33,6 +33,7 @@ import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiScoreCard } from "../AiScoreCard";
 import { useAiScore } from "../../hooks/useAiScore";
+import { AwardHistoryTab } from "./AwardHistoryTab";
 import { PlaceholderTab } from "./PlaceholderTab";
 import type { PlaceholderTabType } from "./PlaceholderTab";
 
@@ -224,13 +225,7 @@ export function NoticeDetail({
             )}
 
             {activeTab === "history" && (
-              <PlaceholderTab
-                tabType={"history" as PlaceholderTabType}
-                tier="pro"
-                hasAccess={hasProAccess}
-                upgradePath="/membership"
-                noticeContext={{ country: notice.country, noticeType: notice.notice_type }}
-              />
+              <AwardHistoryTab noticeId={noticeId} />
             )}
 
             {activeTab === "similar" && (

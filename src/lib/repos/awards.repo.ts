@@ -275,6 +275,126 @@ export class AwardsRepo {
     return rows as Array<{ name: string; country: string | null; count: number; total_usd: number }>;
   }
 
+  // ══════════ 同类品类中标历史 ══════════
+
+  /**
+   * 按 UNSPSC 前缀查询同类品类中标历史
+   * 返回：汇总统计 + 按国家分布 + 中标商排行 + 最近记录
+   */
+  async getByUnspscCodes(unspscPrefixes: string[]): Promise<{
+    total: number;
+    total_value_usd: number;
+    by_country: Array<{ country: string; count: number; total_usd: number }>;
+    top_winners: Array<{
+      name: string; name_cn: string | null; country: string | null;
+      count: number; total_usd: number;
+    }>;
+    recent_awards: Array<{
+      id: number; title: string; title_cn: string | null;
+      agency: string | null; country: string | null;
+      award_date: string | null; contract_value_usd: number | null;
+      currency: string; category: string | null;
+      winners: Array<{ name: string; name_cn: string | null; country: string | null }>;
+    }>;
+  }> {
+    if (unspscPrefixes.length === 0) {
+      return { total: 0, total_value_usd: 0, by_country: [], top_winners: [], recent_awards: [] };
+    }
+
+    // 构建 UNSPSC 前缀匹配条件（LIKE '{prefix}%'）
+    const likeClauses = unspscPrefixes.map(() => "a.unspsc_code LIKE ?").join(" OR ");
+    const likeValues = unspscPrefixes.map((p) => `${p}%`);
+
+    // 1. 汇总
+    const [totalRows] = await this.pool.query(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(a.contract_value_usd), 0) AS total_value_usd
+       FROM crm_bid_awards a WHERE ${likeClauses}`,
+      likeValues,
+    ) as [RowDataPacket[], unknown];
+    const total = Number(totalRows[0]?.total || 0);
+    const total_value_usd = Number(totalRows[0]?.total_value_usd || 0);
+
+    if (total === 0) {
+      return { total: 0, total_value_usd: 0, by_country: [], top_winners: [], recent_awards: [] };
+    }
+
+    // 2. 按国家分布
+    const [countryRows] = await this.pool.query(
+      `SELECT a.country, COUNT(*) AS count, COALESCE(SUM(a.contract_value_usd), 0) AS total_usd
+       FROM crm_bid_awards a
+       WHERE (${likeClauses}) AND a.country IS NOT NULL
+       GROUP BY a.country ORDER BY total_usd DESC LIMIT 20`,
+      likeValues,
+    ) as [RowDataPacket[], unknown];
+
+    // 3. 中标商排行（JOIN winners 表）
+    const [winnerRows] = await this.pool.query(
+      `SELECT w.winner_name AS name, w.winner_name_cn AS name_cn, w.winner_country AS country,
+              COUNT(*) AS count, COALESCE(SUM(a.contract_value_usd), 0) AS total_usd
+       FROM crm_bid_award_winners w
+       JOIN crm_bid_awards a ON a.id = w.award_id
+       WHERE (${likeClauses})
+       GROUP BY w.winner_name, w.winner_name_cn, w.winner_country
+       ORDER BY total_usd DESC LIMIT 20`,
+      likeValues,
+    ) as [RowDataPacket[], unknown];
+
+    // 4. 最近 10 条中标记录（含中标商）
+    const [recentRows] = await this.pool.query(
+      `SELECT a.id, a.title, a.title_cn, a.agency, a.country,
+              a.award_date, a.contract_value_usd, a.currency, a.category
+       FROM crm_bid_awards a
+       WHERE ${likeClauses}
+       ORDER BY a.award_date DESC LIMIT 10`,
+      likeValues,
+    ) as [RowDataPacket[], unknown];
+
+    // 批量查最近记录的中标商
+    const recentIds = recentRows.map((r) => Number(r.id));
+    let winnerMap = new Map<number, Array<{ name: string; name_cn: string | null; country: string | null }>>();
+    if (recentIds.length > 0) {
+      const placeholders = recentIds.map(() => "?").join(",");
+      const [winnersForRecent] = await this.pool.query(
+        `SELECT award_id, winner_name, winner_name_cn, winner_country
+         FROM crm_bid_award_winners WHERE award_id IN (${placeholders})`,
+        recentIds,
+      ) as [RowDataPacket[], unknown];
+      for (const w of winnersForRecent) {
+        const aid = Number(w.award_id);
+        if (!winnerMap.has(aid)) winnerMap.set(aid, []);
+        winnerMap.get(aid)!.push({
+          name: w.winner_name,
+          name_cn: w.winner_name_cn ?? null,
+          country: w.winner_country ?? null,
+        });
+      }
+    }
+
+    const recent_awards = recentRows.map((r) => ({
+      id: Number(r.id),
+      title: r.title,
+      title_cn: r.title_cn ?? null,
+      agency: r.agency ?? null,
+      country: r.country ?? null,
+      award_date: r.award_date ?? null,
+      contract_value_usd: r.contract_value_usd != null ? Number(r.contract_value_usd) : null,
+      currency: r.currency || "USD",
+      category: r.category ?? null,
+      winners: winnerMap.get(Number(r.id)) || [],
+    }));
+
+    return {
+      total,
+      total_value_usd,
+      by_country: countryRows as Array<{ country: string; count: number; total_usd: number }>,
+      top_winners: winnerRows as Array<{
+        name: string; name_cn: string | null; country: string | null;
+        count: number; total_usd: number;
+      }>,
+      recent_awards,
+    };
+  }
+
   // ══════════ 写入（爬虫使用） ══════════
 
   /**
