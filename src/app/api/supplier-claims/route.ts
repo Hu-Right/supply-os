@@ -10,6 +10,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { createClaimWithBinding } from "@/lib/services/supplier-claim";
 
 const str = (v: unknown, max: number): string =>
   String(v ?? "").trim().slice(0, max);
@@ -71,7 +72,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   const expiresAtStr = expiresAt.toISOString().replace("T", " ").replace(/\.\d+Z$/, "");
 
   try {
-    const id = await ctx.supplier.claimRepo.insertClaim({
+    const result = await createClaimWithBinding(ctx, {
       userId: auth.userId,
       supplierId,
       companyName,
@@ -83,19 +84,9 @@ export const POST = withRoute(async (req: NextRequest) => {
       expiresAt: expiresAtStr,
     });
 
-    // ★ 立即临时绑定：用户 ↔ 供应商
-    await ctx.user.usersRepo.bindSupplier(auth.userId, supplierId, "verified");
-
-    // ★ 标记供应商为认领中
-    const pool = (await import("@/lib/db/pool")).getPool();
-    await pool.execute(
-      `UPDATE supplier SET claim_status = 'pending' WHERE id = ?`,
-      [supplierId],
-    );
-
     return NextResponse.json({
-      success: true, id, status: "pending",
-      expires_at: expiresAtStr,
+      success: true, id: result.claimId, status: "pending",
+      expires_at: result.expiresAt,
       message: "认领成功，请前往企业信息页完善资料并上传营业执照",
     }, { status: 201 });
   } catch (err) {
