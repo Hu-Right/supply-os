@@ -11,7 +11,7 @@ export const SCORE_SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采�
 ## 评分原则
 1. 每个维度 0-100 分，基于公告原文事实和企业画像数据，不可臆造。
 2. 信息缺失时给保守分（40-60），不要给极端分。
-3. 综合分 = 7 维度加权平均（资质20% 经验15% 认证15% 地域10% 规模15% 交期10% 价格15%）。
+3. 综合分 = 7 维度加权平均，权重根据公告类型动态调整（见用户提示词中的权重说明）。
 4. 每个维度必须给出结构化证据：
    - reason：一句话总结（50字内），格式"企业侧 vs 公告侧 → 结论"。
    - matched：数组，列出"企业已具备且公告认可/要求"的具体匹配项（2-4条，每条20字内）。无则空数组。
@@ -48,6 +48,79 @@ export const SCORE_DIMENSIONS = [
 
 export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
 
+/** 维度中文名映射 */
+const DIMENSION_LABELS: Record<ScoreDimension, string> = {
+  qualification: "资质匹配",
+  experience: "经验匹配",
+  certification: "认证覆盖",
+  region: "地域适配",
+  scale: "规模匹配",
+  delivery: "交期适配",
+  price: "价格竞争力",
+};
+
+/** 根据公告类型获取维度权重 */
+export function getDimensionWeights(noticeType?: string): Record<ScoreDimension, number> {
+  const type = String(noticeType || "").toLowerCase();
+
+  // 工程类：重资质、重地域、轻价格
+  if (type.includes("工程") || type.includes("construction") || type.includes("works")) {
+    return {
+      qualification: 0.30,
+      experience: 0.15,
+      certification: 0.15,
+      region: 0.20,
+      scale: 0.10,
+      delivery: 0.10,
+      price: 0.10,
+    };
+  }
+
+  // 货物类：重价格、重认证、轻地域
+  if (type.includes("货物") || type.includes("goods") || type.includes("supply") || type.includes("采购")) {
+    return {
+      qualification: 0.15,
+      experience: 0.15,
+      certification: 0.20,
+      region: 0.10,
+      scale: 0.15,
+      delivery: 0.10,
+      price: 0.25,
+    };
+  }
+
+  // 服务类：重地域、重资质、轻规模
+  if (type.includes("服务") || type.includes("service") || type.includes("consulting")) {
+    return {
+      qualification: 0.25,
+      experience: 0.20,
+      certification: 0.10,
+      region: 0.25,
+      scale: 0.05,
+      delivery: 0.10,
+      price: 0.15,
+    };
+  }
+
+  // 默认权重（通用）
+  return {
+    qualification: 0.20,
+    experience: 0.15,
+    certification: 0.15,
+    region: 0.10,
+    scale: 0.15,
+    delivery: 0.10,
+    price: 0.15,
+  };
+}
+
+/** 生成权重说明文本 */
+function buildWeightText(weights: Record<ScoreDimension, number>): string {
+  return Object.entries(weights)
+    .map(([key, value]) => `${DIMENSION_LABELS[key as ScoreDimension]}${Math.round(value * 100)}%`)
+    .join(" ");
+}
+
 /** 单个维度的结构化证据 */
 export interface DimensionDetail {
   reason: string;
@@ -73,7 +146,11 @@ export function buildScoreUserPrompt(
   supplier: Record<string, unknown> | null,
 ): string {
   const line = (label: string, value: unknown) =>
-    `- ${label}：${String(value ?? "").trim() || "未列出"}`;
+    `- ${label}：${String(value ?? "").trim() || "未提供"}`;
+
+  // 根据公告类型动态调整权重
+  const weights = getDimensionWeights(String(notice.notice_type || ""));
+  const weightText = buildWeightText(weights);
 
   const parts: string[] = ["## 招标公告要求"];
   parts.push(line("标题", notice.title));
@@ -110,7 +187,9 @@ export function buildScoreUserPrompt(
       parts.push(line("国际化能力", intlParts.join(" | ")));
     }
 
-    parts.push("\n请从 7 个维度评估我参与本标的适配度，输出 JSON 评分。");
+    parts.push(`\n请从 7 个维度评估我参与本标的适配度。`);
+    parts.push(`综合分 = 加权平均（${weightText}）。`);
+    parts.push("输出 JSON 评分。");
   } else {
     parts.push("\n（未绑定企业画像，请基于公告要求给出通用基准分。）");
   }
