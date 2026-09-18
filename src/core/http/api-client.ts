@@ -205,17 +205,19 @@ export async function api<T>(
   }
 
   // P3-15 安全修复：仅在有 body 时才附加 Content-Type，GET/HEAD 请求不携带无意义的 Content-Type
+  // FormData 特殊处理：不设置 Content-Type（浏览器自动添加 boundary），不 JSON.stringify
   const hasBody = body !== undefined;
+  const isFormData = body instanceof FormData;
   const res = await fetch(url, {
     ...init,
     signal,
     credentials: "same-origin", // B2【P1】同域请求自动携带 HttpOnly Cookie（Refresh Token）
     headers: {
-      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+      ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
       ...authHeaders,
       ...(init.headers as Record<string, string>),
     },
-    body: hasBody ? JSON.stringify(body) : undefined,
+    body: hasBody ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
   const durationMs = Math.round(performance.now() - startTime);
@@ -250,11 +252,11 @@ export async function api<T>(
         signal,
         credentials: "same-origin", // B2【P1】重试请求同样携带 HttpOnly Cookie
         headers: {
-          ...(hasBody ? { "Content-Type": "application/json" } : {}),
+          ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
           Authorization: `Bearer ${newToken}`,
           ...(init.headers as Record<string, string>),
         },
-        body: hasBody ? JSON.stringify(body) : undefined,
+        body: hasBody ? (isFormData ? body : JSON.stringify(body)) : undefined,
       });
       if (retryRes.ok) return retryRes.json();
       // 刷新后仍然 401：若原始响应含业务 code，透传服务端消息（如权限不足）
