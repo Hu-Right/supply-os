@@ -23,6 +23,8 @@ export interface SupplierDirectoryRow {
   industry: string | null;
   certification: string | null;
   type: string | null;
+  /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
+  data_quality_score?: number | string | null;
 }
 
 export class SupplierDirectoryRepo {
@@ -33,7 +35,8 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
               province, city,
-              contact, phone, email, products, industry, certification, type
+              contact, phone, email, products, industry, certification, type,
+              data_quality_score
        FROM supplier
        WHERE company <> '测试' AND merged_id IS NULL
          AND (verify_status = 'done' OR verify_status IS NULL)
@@ -93,7 +96,8 @@ export class SupplierDirectoryRepo {
 
     // 分页数据查询
     const [rows] = await this.pool.query(
-      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, certification, type
+      `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, certification, type,
+              data_quality_score
        FROM supplier
        WHERE ${whereSql}
        ORDER BY id DESC
@@ -108,7 +112,8 @@ export class SupplierDirectoryRepo {
   async findById(id: number): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type
+              contact, phone, email, products, industry, certification, type,
+              data_quality_score
        FROM supplier
        WHERE id = ? AND (verify_status = 'done' OR verify_status IS NULL)
        LIMIT 1`,
