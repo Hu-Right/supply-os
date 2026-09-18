@@ -7,7 +7,8 @@
  *              填写联系方式后提交到 POST /api/supplier-claims。
  */
 import { useState } from "react";
-import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, ArrowRight, Clock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 
@@ -20,6 +21,7 @@ interface SupplierClaimModalProps {
 
 export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess }: SupplierClaimModalProps) {
   const { t } = useLocale();
+  const router = useRouter();
   const [form, setForm] = useState({
     contactName: "",
     contactPhone: "",
@@ -28,6 +30,7 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
 
   const handleSubmit = async () => {
     if (!form.contactName.trim()) {
@@ -41,7 +44,7 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
     setError("");
     setSubmitting(true);
     try {
-      await api("/api/supplier-claims", {
+      const res: { expires_at?: string } = await api("/api/supplier-claims", {
         method: "POST",
         body: {
           supplier_id: supplierId,
@@ -50,11 +53,8 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
           contact_phone: form.contactPhone.trim(),
         },
       });
+      setExpiresAt(res.expires_at || "");
       setSuccess(true);
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "提交失败，请稍后重试");
     } finally {
@@ -81,18 +81,42 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
         </div>
 
         {success ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="rounded-lg bg-teal-50 border border-teal-200 px-4 py-3 text-sm text-teal-700">
-              认领申请已提交，我们将尽快审核。审核通过后，该企业将绑定到您的账号。
+              <p className="font-medium">认领成功！该企业已临时绑定到您的账号。</p>
+              <p className="text-xs text-teal-600 mt-1">
+                请在 <strong>7 天内</strong>前往企业信息页完善资料并上传营业执照，逾期将自动解除绑定。
+              </p>
             </div>
             <p className="text-xs text-slate-500">企业：{companyName}</p>
+            {expiresAt && (
+              <p className="text-xs text-slate-400 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> 过期时间：{expiresAt}
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { onSuccess(); onClose(); router.push("/settings/enterprise"); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-teal-600 text-white hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+              >
+                前往完善企业信息 <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { onSuccess(); onClose(); }}
+                className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                稍后再说
+              </button>
+            </div>
           </div>
         ) : (
           <>
             <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600">
               <p className="font-medium text-slate-800">{companyName}</p>
               <p className="text-xs text-slate-500 mt-1">
-                填写您的联系方式，提交认领申请。审核通过后，该企业将绑定到您的账号。
+                填写联系方式后，该企业将立即临时绑定到您的账号。请在 7 天内完善企业信息并上传营业执照。
               </p>
             </div>
 
@@ -151,7 +175,7 @@ export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess
                 disabled={submitting}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50 transition-colors"
               >
-                {submitting ? "提交中…" : "提交认领申请"}
+                {submitting ? "提交中…" : "确认认领"}
               </button>
               <button
                 type="button"
