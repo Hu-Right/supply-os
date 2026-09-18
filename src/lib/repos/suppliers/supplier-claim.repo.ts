@@ -35,13 +35,16 @@ export class SupplierClaimRepo {
     return Number((result as RowDataPacket).insertId);
   }
 
-  /** 查询某用户对某供应商的认领记录（最新一条） */
+  /**
+   * 查询某用户对某供应商的【有效】认领记录（最新一条）。
+   * 仅 pending/approved 算有效：rejected/expired 是终态，不应阻断用户重新认领。
+   */
   async findByUserAndSupplier(userId: number, supplierId: number): Promise<{
     id: number; status: string; created_at: string | null; expires_at: string | null;
   } | null> {
     const [rows] = await this.pool.execute<RowDataPacket[]>(
       `SELECT id, status, created_at, expires_at FROM crm_supplier_claims
-       WHERE user_id = ? AND supplier_id = ?
+       WHERE user_id = ? AND supplier_id = ? AND status IN ('pending', 'approved')
        ORDER BY id DESC LIMIT 1`,
       [userId, supplierId],
     );

@@ -7,13 +7,14 @@
  *              编辑保存 PUT（已绑定更新该行）/ POST（未绑定新建并绑定）。
  *              与诊断/审核链路（SupplierRegisterModal）完全剥离。
  */
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { api } from "@/core/http";
 import { Button } from "@/shared/ui";
 import { Clock, AlertTriangle } from "lucide-react";
+import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
@@ -27,48 +28,11 @@ export default function EnterpriseSettingsClient() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const enterprise = useEnterpriseInfo();
-
-  // 认领过期倒计时
-  const [claimExpiry, setClaimExpiry] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState("");
-
-  useEffect(() => {
-    // 获取当前用户的认领过期时间
-    if (!authUser?.id || !enterprise.bound || !enterprise.enterprise?.id) return;
-    (async () => {
-      try {
-        const res: { data?: { expires_at?: string } } = await api("/api/supplier-claims?supplier_id=" + enterprise.enterprise!.id);
-        if (res.data?.expires_at) {
-          setClaimExpiry(res.data.expires_at);
-        }
-      } catch {
-        // 忽略
-      }
-    })();
-  }, [authUser?.id, enterprise.bound, enterprise.enterprise?.id]);
-
-  useEffect(() => {
-    if (!claimExpiry) return;
-    const timer = setInterval(() => {
-      const diff = new Date(claimExpiry).getTime() - Date.now();
-      if (diff <= 0) {
-        setCountdown("已过期");
-        clearInterval(timer);
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
-    }, 60000);
-    // 立即执行一次
-    const diff = new Date(claimExpiry).getTime() - Date.now();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
-    return () => clearInterval(timer);
-  }, [claimExpiry]);
+  const { claimExpiry, countdown } = useClaimExpiry(
+    authUser?.id,
+    enterprise.enterprise?.id ? Number(enterprise.enterprise.id) : undefined,
+    enterprise.bound,
+  );
 
   // 未登录：登录引导
   if (!authUser) {

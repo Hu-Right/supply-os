@@ -9,12 +9,12 @@
  *              表现层独立于旧共享组件样式，直接用 Tailwind 原生类实现。
  */
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { User, LogOut, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
-import { api } from "@/core/http";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
+import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
@@ -45,52 +45,15 @@ export function ProfileContent() {
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
-
-  // 认领过期倒计时
-  const [claimExpiry, setClaimExpiry] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState("");
+  const { claimExpiry, countdown } = useClaimExpiry(
+    authUser?.id,
+    enterprise.enterprise?.id ? Number(enterprise.enterprise.id) : undefined,
+    enterprise.bound,
+  );
 
   useEffect(() => {
     void refreshAuth();
   }, [refreshAuth]);
-
-  useEffect(() => {
-    // 获取当前用户的认领过期时间
-    if (!authUser?.id || !enterprise.bound || !enterprise.enterprise?.id) return;
-    (async () => {
-      try {
-        const res: { data?: { expires_at?: string } } = await api("/api/supplier-claims?supplier_id=" + enterprise.enterprise!.id);
-        if (res.data?.expires_at) {
-          setClaimExpiry(res.data.expires_at);
-        }
-      } catch {
-        // 忽略
-      }
-    })();
-  }, [authUser?.id, enterprise.bound, enterprise.enterprise?.id]);
-
-  useEffect(() => {
-    if (!claimExpiry) return;
-    const timer = setInterval(() => {
-      const diff = new Date(claimExpiry).getTime() - Date.now();
-      if (diff <= 0) {
-        setCountdown("已过期");
-        clearInterval(timer);
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
-    }, 60000);
-    // 立即执行一次
-    const diff = new Date(claimExpiry).getTime() - Date.now();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
-    return () => clearInterval(timer);
-  }, [claimExpiry]);
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
