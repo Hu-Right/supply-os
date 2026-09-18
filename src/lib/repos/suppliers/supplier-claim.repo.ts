@@ -32,4 +32,22 @@ export class SupplierClaimRepo {
     );
     return Number((result as RowDataPacket).insertId);
   }
+
+  /** 查询某用户对某供应商的认领记录（最新一条） */
+  async findByUserAndSupplier(userId: number, supplierId: number): Promise<{
+    id: number; status: string; created_at: string | null;
+  } | null> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT id, status, created_at FROM crm_supplier_claims
+       WHERE user_id = ? AND supplier_id = ?
+       ORDER BY id DESC LIMIT 1`,
+      [userId, supplierId],
+    );
+    if (!rows[0]) return null;
+    return {
+      id: Number(rows[0].id),
+      status: String(rows[0].status || "pending"),
+      created_at: rows[0].created_at ? String(rows[0].created_at) : null,
+    };
+  }
 }
