@@ -56,9 +56,11 @@ async function downloadBuffer(url: string): Promise<Buffer | null> {
 /** PDF → 文本 */
 async function extractPdf(buf: Buffer): Promise<string> {
   try {
-    // pdf-parse 是 CJS 模块，动态 require
-    const pdfParse = require("pdf-parse");
-    const result = await pdfParse(buf);
+    // pdf-parse v2 导出 PDFParse 类（非函数），CJS 模块动态 require
+    const { PDFParse } = require("pdf-parse");
+    const parser = new PDFParse({ data: new Uint8Array(buf) });
+    const result = await parser.getText();
+    await parser.destroy();
     return String(result.text || "").trim();
   } catch {
     return "";
