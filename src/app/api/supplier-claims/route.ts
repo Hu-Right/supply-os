@@ -118,7 +118,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     const claim = await ctx.supplier.claimRepo.findByUserAndSupplier(auth.userId, supplierId);
     return NextResponse.json({
       success: true,
-      data: claim ? { id: claim.id, status: claim.status, created_at: claim.created_at } : null,
+      data: claim ? { id: claim.id, status: claim.status, created_at: claim.created_at, expires_at: claim.expires_at } : null,
     });
   } catch (err) {
     console.error("[supplier-claims GET]", err);

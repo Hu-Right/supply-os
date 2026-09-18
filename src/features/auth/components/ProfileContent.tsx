@@ -56,15 +56,17 @@ export function ProfileContent() {
 
   useEffect(() => {
     // 获取当前用户的认领过期时间
-    if (authUser?.id && enterprise.bound && enterprise.enterprise?.id) {
-      api<{ expires_at?: string }>("/api/supplier-claims?supplier_id=" + enterprise.enterprise.id)
-        .then((res) => {
-          if (res.expires_at) {
-            setClaimExpiry(res.expires_at);
-          }
-        })
-        .catch(() => {});
-    }
+    if (!authUser?.id || !enterprise.bound || !enterprise.enterprise?.id) return;
+    (async () => {
+      try {
+        const res: { data?: { expires_at?: string } } = await api("/api/supplier-claims?supplier_id=" + enterprise.enterprise!.id);
+        if (res.data?.expires_at) {
+          setClaimExpiry(res.data.expires_at);
+        }
+      } catch {
+        // 忽略
+      }
+    })();
   }, [authUser?.id, enterprise.bound, enterprise.enterprise?.id]);
 
   useEffect(() => {
