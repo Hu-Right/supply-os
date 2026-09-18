@@ -60,7 +60,7 @@ export function RfqPlaza() {
 
   // 加载 UNSPSC 一级分类
   useEffect(() => {
-    fetchUnspscIndustries("zh").then(setL1Options).catch((e) => { console.warn("[RfqPlaza] UNSPSC 分类加载失败:", e); setL1Options([]); });
+    fetchUnspscIndustries().then(setL1Options).catch((e) => { console.warn("[RfqPlaza] UNSPSC 分类加载失败:", e); setL1Options([]); });
   }, []);
 
   // 构建查询参数

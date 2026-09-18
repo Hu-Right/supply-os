@@ -55,12 +55,12 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
   // inferredTick 确保即使 L1 不变也强制重新拉取选项列表。
   const [inferredTick, setInferredTick] = useState(0);
 
-  // 一级行业选项：接口有缓存，弹窗打开即加载；locale 入依赖，切语言重拉界面语言译文
+  // 一级行业选项：接口有缓存，弹窗打开即加载
   useEffect(() => {
-    fetchUnspscIndustries(locale)
+    fetchUnspscIndustries()
       .then(setIndustryOptions)
       .catch(() => setIndustryOptions([]));
-  }, [locale]);
+  }, []);
 
   // 选定一级后加载二级选项（仅用于下拉展示，不改动已选值）
   useEffect(() => {
@@ -68,10 +68,10 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
       setSubOptions([]);
       return;
     }
-    fetchUnspscChildren(prefLevel1, locale)
+    fetchUnspscChildren(prefLevel1)
       .then(setSubOptions)
       .catch(() => setSubOptions([]));
-  }, [prefLevel1, locale, inferredTick]);
+  }, [prefLevel1, inferredTick]);
 
   // 选定二级后加载三级选项（仅用于下拉展示，不改动已选值）
   useEffect(() => {
@@ -79,10 +79,10 @@ export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
       setSubOptions2([]);
       return;
     }
-    fetchUnspscChildren(prefLevel2, locale)
+    fetchUnspscChildren(prefLevel2)
       .then(setSubOptions2)
       .catch(() => setSubOptions2([]));
-  }, [prefLevel2, locale]);
+  }, [prefLevel2]);
 
   // 手动改选一级：二/三级随之失效
   const handlePrefLevel1Change = useCallback((value: string) => {

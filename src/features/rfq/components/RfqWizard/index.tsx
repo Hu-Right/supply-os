@@ -80,12 +80,12 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
   const [l2Options, setL2Options] = useState<UnspscOption[]>([]);
 
   useEffect(() => {
-    fetchUnspscIndustries("zh").then(setL1Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L1 加载失败:", e); setL1Options([]); });
+    fetchUnspscIndustries().then(setL1Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L1 加载失败:", e); setL1Options([]); });
   }, []);
 
   useEffect(() => {
     if (!form.categoryL1) { setL2Options([]); return; }
-    fetchUnspscChildren(form.categoryL1, "zh").then(setL2Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L2 加载失败:", e); setL2Options([]); });
+    fetchUnspscChildren(form.categoryL1).then(setL2Options).catch((e) => { console.warn("[RfqWizard] UNSPSC L2 加载失败:", e); setL2Options([]); });
   }, [form.categoryL1]);
 
   // ── 省市区级联 ──

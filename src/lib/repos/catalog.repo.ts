@@ -122,8 +122,8 @@ export class CatalogRepo {
     return rows as CertificationRow[];
   }
 
-  /** 查询 UNSPSC 层级（含译文缓存） */
-  async listUnspscWithTranslation(sql: string, params: unknown[]): Promise<UnspscRow[]> {
+  /** 查询 UNSPSC 层级 */
+  async listUnspsc(sql: string, params: unknown[]): Promise<UnspscRow[]> {
     const [rows] = await this.pool.query(sql, params);
     return rows as UnspscRow[];
   }
@@ -135,29 +135,6 @@ export class CatalogRepo {
       [id],
     );
     return (rows as UnspscRow[])[0] ?? null;
-  }
-
-  /** 批量写入 UNSPSC 译文缓存
-   *  P3-10 性能修复：多行 VALUES 单语句批量 upsert，替代逐条 INSERT（N 次往返 → 1 次） */
-  async upsertUnspscTranslations(
-    entries: { codeId: number; lang: string; titleTr: string; model: string }[],
-  ): Promise<void> {
-    if (entries.length === 0) return;
-    const BATCH = 200;
-    for (let i = 0; i < entries.length; i += BATCH) {
-      const batch = entries.slice(i, i + BATCH);
-      const valuesSql = batch.map(() => "(?, ?, ?, ?)").join(", ");
-      const params: unknown[] = [];
-      for (const entry of batch) {
-        params.push(entry.codeId, entry.lang, entry.titleTr, entry.model);
-      }
-      await this.pool.query(
-        `INSERT INTO crm_unspsc_translations (code_id, lang, title_tr, model)
-         VALUES ${valuesSql}
-         ON DUPLICATE KEY UPDATE title_tr = VALUES(title_tr), model = VALUES(model)`,
-        params,
-      );
-    }
   }
 
   /** UNSPSC 关键词搜索 */

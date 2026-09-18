@@ -11,24 +11,12 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (!parentId) {
     routeError(400, EC_INVALID_PARAMS, "请提供分类 ID");
   }
-  const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase() || "";
   const catalogRepo = getContext().catalogRepo;
 
-  let rows: unknown[];
-  if (lang && ["fr", "ru", "es", "ar"].includes(lang)) {
-    rows = await catalogRepo.listUnspscWithTranslation(
-      `SELECT u.id, u.title_zh, u.title, u.code, u.parent_id, u.level, tr.title_tr AS title_i18n
-       FROM crm_unspsc_codes u
-       LEFT JOIN crm_unspsc_translations tr ON tr.code_id = u.id AND tr.lang = ?
-       WHERE u.parent_id = ? ORDER BY u.code`,
-      [lang, parentId],
-    );
-  } else {
-    rows = await catalogRepo.listUnspscWithTranslation(
-      `SELECT u.id, u.title_zh, u.title, u.code, u.parent_id, u.level FROM crm_unspsc_codes u WHERE u.parent_id = ? ORDER BY u.code`,
-      [parentId],
-    );
-  }
+  const rows = await catalogRepo.listUnspsc(
+    "SELECT id, title_zh, title, code, parent_id, level FROM crm_unspsc_codes WHERE parent_id = ? ORDER BY code",
+    [parentId],
+  );
 
   return NextResponse.json(rows);
 });

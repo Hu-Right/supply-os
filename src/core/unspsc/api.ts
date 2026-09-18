@@ -6,7 +6,7 @@
  * @description UNSPSC 类目获取（跨 auth/procurement/training 模块共用的领域服务）。
  *              自 features/procurement/api 上移；请求统一走 core/http 的 apiCached（5 分钟 TTL）。
  */
-import { api, apiCached, buildQuery } from "@/core/http";
+import { api, apiCached } from "@/core/http";
 import type { UnspscOption, DictionaryItem } from "./types";
 
 /** 智能推断结果：完整 UNSPSC 路径（L1→L5）+ 匹配标题 */
@@ -27,23 +27,14 @@ export interface SmartInferCandidate extends SmartInferResult {
   score: number;
 }
 
-// 需要向后端请求译文的界面语言（zh/en 直接用类目表原列，不传 lang）
-const UNSPSC_API_LANGS = new Set(["fr", "ru", "es", "ar"]);
-
-/** 认证列表（准静态字典，与类目同属 catalog 域，收敛为唯一实现） */
 export const fetchCertifications = () => api<DictionaryItem[]>("/api/certifications");
 
-export const fetchUnspscIndustries = (locale?: string) => {
-  const lang = locale && UNSPSC_API_LANGS.has(locale) ? `?lang=${encodeURIComponent(locale)}` : "";
-  return apiCached<UnspscOption[]>(`/api/unspsc/industries${lang}`);
+export const fetchUnspscIndustries = () => {
+  return apiCached<UnspscOption[]>("/api/unspsc/industries");
 };
 
-export const fetchUnspscChildren = (parentId: string, locale?: string) => {
-  const qs = buildQuery({
-    parent_id: parentId,
-    lang: locale && UNSPSC_API_LANGS.has(locale) ? locale : undefined,
-  });
-  return apiCached<UnspscOption[]>(`/api/unspsc/children?${qs}`);
+export const fetchUnspscChildren = (parentId: string) => {
+  return apiCached<UnspscOption[]>(`/api/unspsc/children?parent_id=${encodeURIComponent(parentId)}`);
 };
 
 /** 智能推断 UNSPSC 类目：输入主营业务关键词。
