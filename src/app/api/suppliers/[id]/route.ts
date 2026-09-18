@@ -13,13 +13,6 @@ import { mapSupplierRow } from "@/lib/services/suppliers";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_NOT_FOUND, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
-/** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
-function isSparseRecord(row: { products?: string | null; industry?: string | null }): boolean {
-  const products = String(row.products ?? "").trim();
-  const industry = String(row.industry ?? "").trim();
-  return products === "" && industry === "";
-}
-
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
@@ -32,21 +25,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    let row = await ctx.supplier.directoryRepo.findById(numericId);
-
-    // 防重兜底：当前记录关键字段全空时，按公司名查找数据更完整的同公司记录
-    if (row && isSparseRecord(row)) {
-      const companyName = String(row.company ?? "").trim();
-      if (companyName) {
-        const betterRow = await ctx.supplier.directoryRepo.findByCompanyBest(companyName);
-        if (betterRow && betterRow.id !== row.id) {
-          console.warn(
-            `[suppliers/:id] id=${numericId} 记录字段为空，回退到同公司 id=${betterRow.id}（${companyName}）`,
-          );
-          row = betterRow;
-        }
-      }
-    }
+    let row = await ctx.supplier.directoryRepo.findByIdWithFallback(numericId);
 
     if (!row) {
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);

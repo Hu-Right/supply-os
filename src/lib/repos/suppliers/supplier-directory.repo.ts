@@ -280,6 +280,28 @@ export class SupplierDirectoryRepo {
   }
 
   /**
+   * 按 ID 查询供应商，若记录关键字段为空则自动回退到同公司更完整记录
+   * （应对外部同步产生空字段重复记录）
+   */
+  async findByIdWithFallback(supplierId: number): Promise<SupplierDirectoryRow | null> {
+    let row = await this.findById(supplierId);
+    if (row) {
+      const products = String(row.products ?? "").trim();
+      const industry = String(row.industry ?? "").trim();
+      if (products === "" && industry === "") {
+        const companyName = String(row.company ?? "").trim();
+        if (companyName) {
+          const betterRow = await this.findByCompanyBest(companyName);
+          if (betterRow && betterRow.id !== row.id) {
+            row = await this.findById(Number(betterRow.id));
+          }
+        }
+      }
+    }
+    return row;
+  }
+
+  /**
    * 更新供应商的营业执照 URL，返回旧的 license_url（用于清理旧文件）
    */
   async updateLicenseUrl(supplierId: number, licenseUrl: string): Promise<string | null> {
