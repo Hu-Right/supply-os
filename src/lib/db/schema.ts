@@ -145,6 +145,7 @@ import { migration as m075 } from "./migrations/075-ai-summary-6-dimensions";
 import { migration as m077 } from "./migrations/077-ai-score-columns";
 import { migration as m076 } from "./migrations/076-open-api-keys-usage";
 import { migration as m078 } from "./migrations/078-bid-awards-tables";
+import { migration as m079 } from "./migrations/079-user-last-login";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -154,7 +155,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
-  m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078,
+  m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079,
 ];
 
 /**

@@ -214,4 +214,12 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
+  /** 更新最后登录时间——按 user_id */
+  async updateLastLoginById(userId: number): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_users SET last_login_at = NOW() WHERE id = ?",
+      [userId],
+    );
+  }
+
 }

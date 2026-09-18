@@ -33,6 +33,7 @@ export interface UserRow {
   qualification_id: number | null;
   created_at: Date;
   updated_at: Date | null;
+  last_login_at: Date | null;
 }
 
 export interface SubscriptionRow {
