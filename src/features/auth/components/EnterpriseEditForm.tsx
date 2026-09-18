@@ -244,6 +244,10 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
     for (const r of REQUIRED_KEYS) {
       if (!(values[r.key] || "").trim()) missing.push(t(r.labelKey) || r.fallback);
     }
+    // 营业执照必填
+    if (!localLicenseUrl) {
+      missing.push(t("authEnterpriseLicense") || "营业执照");
+    }
     if (missing.length) {
       setFormError(`${t("authEnterpriseRequiredMissing") || "请填写必填项"}：${missing.join("、")}`);
       return;
@@ -262,7 +266,10 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
     <div className="space-y-6">
       {/* 营业执照上传 */}
       <section>
-        <GroupTitle>{t("authEnterpriseLicense") || "营业执照"}</GroupTitle>
+        <GroupTitle>
+          {t("authEnterpriseLicense") || "营业执照"}
+          <span className="ml-0.5 text-danger-500" aria-hidden="true">*</span>
+        </GroupTitle>
         <div className="border border-border rounded-md overflow-hidden bg-white p-4">
           {localLicenseUrl ? (
             <div className="flex items-center gap-4">
