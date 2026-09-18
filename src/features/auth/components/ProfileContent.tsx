@@ -9,10 +9,11 @@
  *              表现层独立于旧共享组件样式，直接用 Tailwind 原生类实现。
  */
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { User, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import { User, LogOut, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { api } from "@/core/http";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
@@ -45,9 +46,49 @@ export function ProfileContent() {
   const router = useRouter();
   const enterprise = useEnterpriseInfo();
 
+  // 认领过期倒计时
+  const [claimExpiry, setClaimExpiry] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState("");
+
   useEffect(() => {
     void refreshAuth();
   }, [refreshAuth]);
+
+  useEffect(() => {
+    // 获取当前用户的认领过期时间
+    if (authUser?.id && enterprise.bound && enterprise.enterprise?.id) {
+      api<{ expires_at?: string }>("/api/supplier-claims?supplier_id=" + enterprise.enterprise.id)
+        .then((res) => {
+          if (res.expires_at) {
+            setClaimExpiry(res.expires_at);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [authUser?.id, enterprise.bound, enterprise.enterprise?.id]);
+
+  useEffect(() => {
+    if (!claimExpiry) return;
+    const timer = setInterval(() => {
+      const diff = new Date(claimExpiry).getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdown("已过期");
+        clearInterval(timer);
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
+    }, 60000);
+    // 立即执行一次
+    const diff = new Date(claimExpiry).getTime() - Date.now();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    setCountdown(`${days}天 ${hours}小时 ${mins}分钟`);
+    return () => clearInterval(timer);
+  }, [claimExpiry]);
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
@@ -67,6 +108,27 @@ export function ProfileContent() {
 
   return (
     <div className="space-y-7 w-full">
+      {/* 认领过期倒计时横幅 */}
+      {claimExpiry && countdown && countdown !== "已过期" && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="font-medium">企业认领待完善</span>
+          <span className="text-xs text-amber-600">请在 <strong>{countdown}</strong> 内前往企业信息页完善资料并上传营业执照</span>
+          <button
+            type="button"
+            onClick={() => router.push("/settings/enterprise")}
+            className="ml-auto text-xs font-medium text-amber-700 hover:text-amber-900 underline"
+          >
+            前往完善 →
+          </button>
+        </div>
+      )}
+      {countdown === "已过期" && (
+        <div className="flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">
+          <Clock className="w-4 h-4 shrink-0" />
+          <span>认领已过期，绑定已自动解除。如需绑定请重新认领。</span>
+        </div>
+      )}
       {/* ── 基本信息 ── */}
       <section>
         <SectionTitle>{t("settingsBasicInfo") || "基本信息"}</SectionTitle>
