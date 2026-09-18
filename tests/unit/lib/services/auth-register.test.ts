@@ -59,7 +59,6 @@ const baseParams = {
   password: TEST_FIXTURE_PASSWORD,
   code: "123456",
   inviteCode: "",
-  userType: "personal" as const,
   clientIp: "1.2.3.4",
   userAgent: "test",
 };
@@ -144,7 +143,7 @@ describe("registerUser", () => {
       },
     });
     await registerUser(ctx, { ...baseParams, inviteCode: "GOOD" });
-    expect(inc).toHaveBeenCalledWith(7, "personal");
+    expect(inc).toHaveBeenCalledWith(7, "enterprise");
   });
 
   it("合规日志失败不阻断主流程", async () => {
