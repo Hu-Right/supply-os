@@ -56,6 +56,19 @@ vi.mock("@/features/payment", () => ({
   MyRecordsPanel: () => <div data-testid="my-records" />,
 }));
 
+let mockEnterpriseBound = false;
+let mockEnterpriseData: Record<string, unknown> | null = null;
+vi.mock("@/features/auth/hooks/useEnterpriseInfo", () => ({
+  useEnterpriseInfo: () => ({
+    bound: mockEnterpriseBound,
+    linkStatus: mockEnterpriseBound ? "verified" : "none",
+    enterprise: mockEnterpriseData,
+    loading: false,
+    error: null,
+    retry: vi.fn(),
+  }),
+}));
+
 import { ProfileContent } from "@/features/auth/components/ProfileContent";
 
 describe("ProfileContent", () => {
@@ -64,6 +77,8 @@ describe("ProfileContent", () => {
     mockRefreshAuth.mockClear();
     mockAuthUser = { nickname: "测试昵称", email: "test@example.com", supplier_id: 42 };
     mockIsVip = true;
+    mockEnterpriseBound = false;
+    mockEnterpriseData = null;
   });
 
   it("已登录渲染账号信息卡（昵称 + 邮箱 + 会员徽章）", () => {
@@ -87,8 +102,26 @@ describe("ProfileContent", () => {
     render(<ProfileContent />);
     // 退出行标题 + 按钮均含 authLogout，允许多个匹配
     expect(screen.getAllByText("authLogout").length).toBeGreaterThan(0);
-    // supplier_id=42 → 已认证文案 key
-    expect(screen.getByText("authSupplierVerified")).toBeInTheDocument();
+    // 未绑定企业 → 显示“未绑定”
+    expect(screen.getByText("authSupplierPending")).toBeInTheDocument();
+  });
+
+  it("供应商状态同步企业认证进度（已认证/审核中/已驳回）", () => {
+    // 审核中
+    mockEnterpriseBound = true;
+    mockEnterpriseData = { verify_status: "processing" };
+    const { rerender } = render(<ProfileContent />);
+    expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
+
+    // 已认证
+    mockEnterpriseData = { verify_status: "done" };
+    rerender(<ProfileContent />);
+    expect(screen.getByText("authEnterpriseVerifyApproved")).toBeInTheDocument();
+
+    // 已驳回
+    mockEnterpriseData = { verify_status: "rejected", check_note: "资料不全" };
+    rerender(<ProfileContent />);
+    expect(screen.getByText("authEnterpriseVerifyRejected")).toBeInTheDocument();
   });
 
   it("非 VIP 显示免费会员徽章兜底", () => {

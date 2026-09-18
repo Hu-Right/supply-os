@@ -20,6 +20,7 @@ import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
+import { useEnterpriseInfo } from "../hooks/useEnterpriseInfo";
 
 /** 基本信息内联单元：灰标签：值（同一行） */
 function InfoItem({ label, value }: { label: string; value: string }) {
@@ -42,6 +43,7 @@ export function ProfileContent() {
   const { authUser, isVip, logout, claimMessage, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
   const router = useRouter();
+  const enterprise = useEnterpriseInfo();
 
   useEffect(() => {
     void refreshAuth();
@@ -49,6 +51,14 @@ export function ProfileContent() {
 
   const tierBadgeText = isVip ? tierLabel || t("authVipMember") : t("authFreeMember");
   const openNotice = (noticeId: number) => router.push(`/procurement?notice_id=${noticeId}`);
+
+  // ★ 供应商认证状态：从企业信息页同一数据源读取，保证两页展示一致
+  const verifyStatus = enterprise.enterprise
+    ? String(enterprise.enterprise.verify_status || "")
+    : "";
+  const checkNote = enterprise.enterprise
+    ? String(enterprise.enterprise.check_note || "")
+    : "";
 
   if (!authUser) return null;
 
@@ -66,14 +76,29 @@ export function ProfileContent() {
               <InfoItem label={t("authNicknameTitle") || "用户名称"} value={authUser.nickname || "-"} />
               <InfoItem label={t("authEmailTitle") || "联系邮箱"} value={authUser.email || "-"} />
               <InfoItem label={t("authAccountType") || "账户属性"} value={tierBadgeText} />
-              <InfoItem
-                label={t("authSupplierStatus") || "供应商状态"}
-                value={
-                  authUser.supplier_id
-                    ? t("authSupplierVerified", { id: authUser.supplier_id })
-                    : t("authSupplierPending")
-                }
-              />
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span className="text-xs text-muted-foreground shrink-0">{t("authSupplierStatus") || "供应商状态"}：</span>
+                {!enterprise.bound ? (
+                  <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
+                ) : verifyStatus === "done" ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded border border-success-200 bg-success-50 text-success-700 text-xs font-medium">
+                    {t("authEnterpriseVerifyApproved") || "已认证"}
+                  </span>
+                ) : verifyStatus === "processing" ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-xs font-medium">
+                    {t("authEnterpriseVerifyProcessing") || "审核中"}
+                  </span>
+                ) : verifyStatus === "rejected" ? (
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded border border-danger-200 bg-danger-50 text-danger-700 text-xs font-medium"
+                    title={checkNote || undefined}
+                  >
+                    {t("authEnterpriseVerifyRejected") || "已驳回"}
+                  </span>
+                ) : (
+                  <span className="text-sm text-foreground">{authUser.supplier_id ? `已绑定 #${authUser.supplier_id}` : "-"}</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
