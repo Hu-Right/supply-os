@@ -32,7 +32,10 @@ import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
 import { AiScoreCard } from "../AiScoreCard";
+import { AiMatchCard } from "../AiMatchCard";
 import { useAiScore } from "../../hooks/useAiScore";
+import { useAiMatch } from "../../hooks/useAiMatch";
+import { useHasSupplier } from "../../hooks/useHasSupplier";
 import { AwardHistoryTab } from "./AwardHistoryTab";
 import { PlaceholderTab } from "./PlaceholderTab";
 import type { PlaceholderTabType } from "./PlaceholderTab";
@@ -70,6 +73,8 @@ export function NoticeDetail({
   const noticeId = (notice as { id?: number }).id;
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn);
   const aiScore = useAiScore(noticeId);
+  const aiMatch = useAiMatch(noticeId);
+  const hasSupplier = useHasSupplier(userId);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
 
@@ -215,13 +220,24 @@ export function NoticeDetail({
             )}
 
             {activeTab === "ai-score" && (
-              <AiScoreCard
-                data={aiScore.data}
-                loading={aiScore.loading}
-                error={aiScore.error}
-                onStart={() => aiScore.triggerScore(false)}
-                onRegenerate={() => aiScore.triggerScore(true)}
-              />
+              hasSupplier ? (
+                <AiScoreCard
+                  data={aiScore.data}
+                  loading={aiScore.loading}
+                  error={aiScore.error}
+                  onStart={() => aiScore.triggerScore(false)}
+                  onRegenerate={() => aiScore.triggerScore(true)}
+                />
+              ) : (
+                <AiMatchCard
+                  data={aiMatch.data}
+                  loading={aiMatch.loading}
+                  error={aiMatch.error}
+                  onStart={() => aiMatch.triggerMatch(false)}
+                  onRegenerate={() => aiMatch.triggerMatch(true)}
+                  onGoToPool={() => router.push("/settings/supplier-pool")}
+                />
+              )
             )}
 
             {activeTab === "history" && (
