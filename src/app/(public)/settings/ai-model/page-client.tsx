@@ -141,7 +141,7 @@ export default function AiModelSettingsClient() {
         >
           {PRESET_LLM_MODELS.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.providerName} · {p.model} — {p.description}
+              {p.model}
             </option>
           ))}
           <option value={CUSTOM_PRESET_ID}>
