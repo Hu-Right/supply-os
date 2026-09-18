@@ -9,7 +9,7 @@
  *              遵循 WorldMapChart 模式：动态导入 echarts、resize 监听、dispose 清理。
  */
 import { useEffect, useRef, useState } from "react";
-import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info } from "lucide-react";
+import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiScoreData } from "../api/ai-score";
 
@@ -66,6 +66,7 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
   const chartRef = useRef<HTMLDivElement>(null);
   const echartsRef = useRef<any>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [reasoningOpen, setReasoningOpen] = useState(false);
 
   const toggle = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
 
@@ -212,6 +213,30 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
           <p className="text-sm text-slate-700 mt-3 leading-6">{overallVerdict(data!.overall, t)}</p>
         </div>
       </div>
+
+      {/* 思维链推理过程 */}
+      {data!.reasoning && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => setReasoningOpen(!reasoningOpen)}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg bg-purple-50/60 border border-purple-100 hover:bg-purple-50 transition-colors text-left"
+          >
+            <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+            <span className="text-xs font-bold text-purple-700 flex-1">
+              {t("aiScoreReasoning") || "AI 分析推理过程"}
+            </span>
+            <ChevronRight className={`w-3.5 h-3.5 text-purple-400 transition-transform duration-300 ${reasoningOpen ? "rotate-90" : ""}`} />
+          </button>
+          <div className={`grid transition-all duration-300 ease-in-out ${reasoningOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+            <div className="overflow-hidden">
+              <div className="px-3 pb-3 pt-2">
+                <p className="text-xs text-slate-600 leading-5 whitespace-pre-wrap">{data!.reasoning}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 维度明细：进度条 + 可展开的评判标准与证据 */}
       <div className="space-y-1">

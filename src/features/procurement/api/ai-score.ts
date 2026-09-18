@@ -20,6 +20,8 @@ export interface AiScoreData {
   price: number;
   overall: number;
   details: Record<string, DimensionDetail>;
+  /** 思维链推理过程文本 */
+  reasoning: string;
   cached: boolean;
 }
 
