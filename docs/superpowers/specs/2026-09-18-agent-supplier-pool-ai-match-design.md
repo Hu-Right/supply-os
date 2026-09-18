@@ -1,0 +1,188 @@
+# 外贸员供应商资源库 + AI 智能匹配 设计文档
+
+## 概述
+
+为个人用户（外贸从业者/外贸员）新增"供应商资源库 + AI 智能匹配"功能。外贸员在平台上维护自己合作的工厂列表，AI 根据公告要求和工厂画像数据，从资源库中推荐最合适的 Top N 供应商。
+
+### 背景
+
+当前 AI 适配评分模块仅服务于绑定供应商的企业用户（7 维度结构化评分），个人用户（`user_type = 'personal'`）未绑定企业画像时，评分退化为无意义的"通用基准分"。
+
+外贸员的核心场景：面对多家合作工厂，需要快速判断"哪个工厂适合投这个标"。
+
+### 设计原则
+
+- **极简录入**：外贸员只需提供公司名称 + 填写机会诊断表（14 字段），其余数据由平台自动补充
+- **数据复用**：关联平台供应商目录，已有数据自动继承；无记录时后台 AI 补全
+- **手动触发**：AI 匹配必须由用户点击按钮触发（与现有 AI 分析功能一致）
+- **企业用户不受影响**：已绑定供应商的企业用户继续使用现有单供应商 AI 评分
+
+## 数据模型
+
+### 新增表：`crm_user_supplier_pool`
+
+外贸员私有供应商资源库，关联用户与供应商/诊断数据。
+
+```sql
+CREATE TABLE IF NOT EXISTS crm_user_supplier_pool (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL COMMENT '所属外贸员',
+  supplier_id BIGINT UNSIGNED NULL COMMENT '关联 supplier 表（平台匹配到时有值）',
+  qualification_id BIGINT UNSIGNED NULL COMMENT '关联 crm_supplier_qualification 表',
+  source VARCHAR(20) NOT NULL DEFAULT 'diagnosis' COMMENT '来源: platform/diagnosis',
+  notes TEXT NULL COMMENT '外贸员私有备注',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_user_supplier (user_id, supplier_id),
+  UNIQUE KEY uk_user_qualification (user_id, qualification_id),
+  KEY idx_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+**两种数据来源：**
+
+| source | 说明 | supplier_id | qualification_id |
+|--------|------|-------------|-----------------|
+| `platform` | 从平台供应商目录添加 | 有值（关联 supplier 表） | 有值（如已有诊断记录） |
+| `diagnosis` | 外贸员填写诊断表后创建 | 自动创建 supplier 记录后回填 | 有值（诊断表写入） |
+
+### 数据流
+
+```
+外贸员输入公司名称
+       ↓
+  平台供应商目录搜索
+       ↓
+  ┌── 匹配到 ──→ supplier_id 关联，继承 supplier 表数据
+  │                检查 crm_supplier_qualification 是否有诊断记录
+  │                ├── 有 → qualification_id 关联，数据就绪
+  │                └── 无 → 引导填写诊断表
+  │
+  └── 未匹配到 ──→ 在 supplier 表创建基础记录（仅 company 字段）
+                    外贸员填写机会诊断表（14 字段）
+                    写入 crm_supplier_qualification
+                    回填 supplier_id + qualification_id
+                    后台触发 AI 数据补全（复用 enrich 机制）
+```
+
+### 诊断表字段（已有，复用）
+
+`crm_supplier_qualification` 14 字段：
+- company_name, company_website, founding_year, employee_count
+- industry, other_industry, main_product, export_scale
+- certifications, other_certifications, service_countries
+- overseas_companies, ungm_status, english_team
+- payment_terms, bid_willingness, contact_info
+
+## AI 智能匹配逻辑
+
+### 评分维度
+
+复用现有 7 维度评分体系（资质匹配/经验匹配/认证覆盖/地域适配/规模匹配/交期适配/价格竞争力），但评估视角从"我的企业"转变为"我合作的工厂"。
+
+### 匹配流程
+
+1. 获取外贸员资源库中所有供应商（JOIN supplier + crm_supplier_qualification 获取完整画像）
+2. 对每个供应商，复用 `buildScoreUserPrompt(notice, supplierProfile)` 构建 prompt
+3. 批量调用 LLM 进行 7 维度评分（复用 `callLlmForScore`）
+4. 按 `overall` 降序排列，返回 Top 3
+5. 每个推荐供应商附带：综合分 + 7 维度分数 + 匹配项/差距项 + 推理过程
+
+### 性能优化
+
+当资源库供应商数量 > 5 时，先用规则引擎粗筛（基于 UNSPSC 行业匹配度），只对 Top 5 候选做 LLM 精评，控制成本和延迟。
+
+### 缓存策略
+
+匹配结果（Top 3 供应商的评分数据）存储在 `crm_notice_ai_summaries` 表中，以 `user_id + notice_id` 为缓存键。新增 `match_results` JSON 字段存储完整的 Top 3 排行数据（每个供应商的 id、公司名、7 维度分数、综合分、匹配项、差距项），`score_overall` 存储最高分。支持重新匹配强制刷新。
+
+## API 端点
+
+### 供应商资源库 CRUD
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/user/supplier-pool` | GET | 列出我的供应商资源库（含诊断状态） |
+| `/api/user/supplier-pool` | POST | 添加供应商（平台匹配 or 诊断表提交） |
+| `/api/user/supplier-pool/[id]` | PATCH | 编辑备注 |
+| `/api/user/supplier-pool/[id]` | DELETE | 移除供应商 |
+
+### AI 智能匹配
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/notices/[id]/ai-match` | POST | 触发 AI 智能匹配（手动） |
+| `/api/notices/[id]/ai-match` | GET | 获取匹配结果缓存 |
+
+## 前端组件
+
+### 1. 供应商资源库管理页
+
+路径：`/settings/supplier-pool`
+
+功能：
+- 列表展示所有合作工厂（公司名、行业、诊断状态、备注）
+- "添加合作工厂"按钮 → 输入公司名称 → 搜索平台目录
+  - 匹配到：显示企业摘要，确认添加
+  - 未匹配到：引导填写机会诊断表（复用 `QualificationFormFields` 组件）
+- 每行支持：编辑备注、查看诊断详情、移除
+
+### 2. AI 匹配结果卡片
+
+改造 `AiScoreCard` 组件，个人用户看到多供应商排行版：
+
+- **未匹配状态**：引导按钮"AI 智能匹配"
+- **匹配结果**：Top 3 供应商推荐排行
+  - 每个供应商卡片：公司名 + 综合分 + 等级标签
+  - 核心优势（matched 项）+ 主要短板（gaps 项）
+  - 可展开查看完整 7 维度进度条 + 评判标准 + 评分依据
+- **空状态**：引导"你还没有添加合作工厂，去建立资源库"
+
+### 3. 用户分流
+
+在公告详情页的 AI 评分 Tab 中：
+- 企业用户（`supplier_id` 有值）→ 现有单供应商 AiScoreCard
+- 个人用户（`supplier_id` 为空）→ 新的多供应商匹配卡片 AiMatchCard
+
+## 复用现有基础设施
+
+| 组件 | 复用方式 |
+|------|---------|
+| `QualificationFormFields` | 诊断表表单组件，外贸员为每个工厂填写 |
+| `submitSupplierQualification` API | 诊断表提交，写入 crm_supplier_qualification |
+| `supplier-directory.repo.ts` | 平台供应商目录搜索 |
+| `ai-score/prompt.ts` | 评分 prompt 模板 |
+| `ai-score/llm-client.ts` | LLM 调用客户端 |
+| `ai-summary.repo.ts` | 评分缓存读写 |
+| `AiScoreCard` UI 模式 | 雷达图 + 维度进度条 + 展开证据 |
+| `enrichRunner` | 后台 AI 数据补全（新供应商无数据时） |
+
+## 文件清单
+
+### 新增文件
+
+- `src/lib/db/migrations/083-user-supplier-pool.ts` — 数据库迁移
+- `src/lib/repos/user-supplier-pool.repo.ts` — 资源库数据访问层
+- `src/app/api/user/supplier-pool/route.ts` — 资源库 CRUD API
+- `src/app/api/user/supplier-pool/[id]/route.ts` — 单条编辑/删除 API
+- `src/app/api/notices/[id]/ai-match/route.ts` — AI 匹配 API
+- `src/lib/services/ai-match/index.ts` — AI 匹配服务编排
+- `src/app/(public)/settings/supplier-pool/page.tsx` — 资源库管理页（Shell）
+- `src/app/(public)/settings/supplier-pool/page-client.tsx` — 资源库管理页（Client）
+- `src/features/procurement/components/AiMatchCard.tsx` — AI 匹配结果卡片
+- `src/features/procurement/hooks/useAiMatch.ts` — AI 匹配数据 Hook
+- `src/features/procurement/api/ai-match.ts` — AI 匹配 API 客户端
+
+### 修改文件
+
+- `src/lib/db/schema.ts` — 注册新迁移
+- `src/features/procurement/components/AiScoreCard.tsx` — 添加用户类型判断，分流企业/个人
+- `src/app/(public)/settings/layout.tsx` — 添加"供应商资源库"导航项
+- `src/core/i18n/locales/*/common.json` — 新增 i18n key（6 语言）
+
+## 约束与边界
+
+1. **手动触发**：AI 匹配必须由用户点击触发，不自动调用 LLM
+2. **资源库上限**：每个用户最多添加 50 个合作工厂（防滥用）
+3. **LLM 成本控制**：资源库 > 5 个供应商时启用规则粗筛，只对 Top 5 做 LLM 精评
+4. **企业用户无感**：已绑定供应商的用户继续使用现有评分，不受新功能影响
+5. **数据隔离**：每个外贸员只能看到自己的资源库，不跨用户共享
