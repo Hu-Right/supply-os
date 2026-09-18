@@ -81,7 +81,9 @@ export function ProfileContent() {
               <InfoItem label={t("authAccountType") || "账户属性"} value={tierBadgeText} />
               <div className="flex items-baseline gap-1.5 min-w-0">
                 <span className="text-xs text-muted-foreground shrink-0">{t("authSupplierStatus") || "供应商状态"}：</span>
-                {!enterprise.bound ? (
+                {enterprise.loading ? (
+                  <span className="inline-block w-16 h-4 rounded bg-secondary-200 animate-pulse" />
+                ) : !enterprise.bound ? (
                   <span className="text-sm text-muted-foreground">{t("authSupplierPending") || "未绑定"}</span>
                 ) : verifyStatus === "done" ? (
                   <span className="inline-flex items-center gap-1.5 min-w-0">
