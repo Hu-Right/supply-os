@@ -28,8 +28,6 @@ export interface SupplierQualificationInput {
   bid_willingness: string;
   contact_info: string | null;
   ip: string;
-  /** 提交者手机号（用于注册后回溯关联） */
-  phone?: string | null;
   /** 关联用户（注册后回写） */
   user_id?: number | null;
   /** 推荐员工（KPI 归属） */
@@ -60,7 +58,6 @@ export interface SupplierQualificationRecord extends RowDataPacket {
   contact_info: string | null;
   audit_status: string;
   ip: string;
-  phone: string | null;
   user_id: number | null;
   referral_employee_id: number | null;
   source: string;
@@ -86,9 +83,9 @@ export class SupplierQualificationRepo {
         (company_name, company_website, founding_year, employee_count, industry, other_industry,
          main_product, export_scale, certifications, other_certifications,
          service_countries, overseas_companies, ungm_status, english_team,
-         payment_terms, bid_willingness, contact_info, audit_status, ip, phone,
+         payment_terms, bid_willingness, contact_info, audit_status, ip,
          user_id, referral_employee_id, source, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, NOW())`,
       [
         data.company_name,
         data.company_website,
@@ -108,7 +105,6 @@ export class SupplierQualificationRepo {
         data.bid_willingness,
         data.contact_info,
         data.ip,
-        data.phone ?? null,
         data.user_id ?? null,
         data.referral_employee_id ?? null,
         data.source ?? "qualification",
@@ -135,17 +131,15 @@ export class SupplierQualificationRepo {
 
   /**
    * 注册后回溯关联：按手机号查找 user_id IS NULL 的孤立诊断记录，
-   * 匹配 phone 列或 contact_info 列（兼容迁移前旧数据），
-   * 回写 user_id 并同步 crm_users.qualification_id。
+   * 通过 contact_info 列匹配（该字段已改为收集手机号）。
    * @returns 关联的记录数（0 = 无匹配孤立记录）
    */
   async backfillByPhone(phone: string, userId: number): Promise<number> {
-    // 查找所有该手机号的孤立记录（phone 列优先，contact_info 列回退）
     const [rows] = await this.pool.execute<RowDataPacket[]>(
       `SELECT id FROM crm_supplier_qualification
-       WHERE user_id IS NULL AND (phone = ? OR contact_info = ?)
+       WHERE user_id IS NULL AND contact_info = ?
        ORDER BY id DESC`,
-      [phone, phone],
+      [phone],
     );
     if (rows.length === 0) return 0;
 
