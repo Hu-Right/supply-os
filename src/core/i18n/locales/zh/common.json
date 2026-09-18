@@ -133,6 +133,8 @@
   "supplierPoolDiagGuide": "完善诊断信息可提升匹配准确度",
   "supplierPoolFull": "资源库已满（上限 50 个）",
   "supplierPoolDuplicate": "该供应商已在资源库中",
+  "supplierPoolEnterpriseDenied": "供应商资源库仅对外贸员开放",
+  "supplierPoolEnterpriseDeniedHint": "您已绑定企业，请使用企业身份进行 AI 适配评分。",
   "aiMatchTitle": "AI 智能匹配",
   "aiMatchIntro": "AI 将从你的供应商资源库中推荐最合适的工厂",
   "aiMatchStart": "开始匹配",

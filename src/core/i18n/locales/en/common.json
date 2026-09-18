@@ -133,6 +133,8 @@
   "supplierPoolDiagGuide": "Complete diagnostic info for better matching accuracy",
   "supplierPoolFull": "Pool is full (max 50)",
   "supplierPoolDuplicate": "Supplier already in pool",
+  "supplierPoolEnterpriseDenied": "Supplier Pool is only for trade agents",
+  "supplierPoolEnterpriseDeniedHint": "You have bound an enterprise. Use AI scoring with your enterprise profile instead.",
   "aiMatchTitle": "AI Smart Match",
   "aiMatchIntro": "AI will recommend the best factories from your supplier pool",
   "aiMatchStart": "Start Matching",
