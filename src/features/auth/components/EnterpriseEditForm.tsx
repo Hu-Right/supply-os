@@ -13,6 +13,7 @@ import { useState, useRef } from "react";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
+import { compressImage, blobToFile } from "@/lib/utils/image-compress";
 import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
@@ -213,8 +214,17 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
     setUploadError("");
     setUploading(true);
     try {
+      // 客户端压缩（减少上传体积和存储成本）
+      const compressedBlob = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.8,
+        targetType: "image/jpeg", // 统一转为 JPEG 以获得更好压缩率
+      });
+      const compressedFile = blobToFile(compressedBlob, file.name);
+
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", compressedFile);
       const res: { url: string } = await api("/api/user/enterprise/license-upload", {
         method: "POST",
         body: formData,
