@@ -70,6 +70,15 @@ export interface SupplierPromptFields {
   type?: string;
   /** 企业简介 */
   intro?: string;
+  // 诊断表字段
+  employee_count?: string;
+  export_scale?: string;
+  service_countries?: string;
+  overseas_companies?: string;
+  ungm_status?: string;
+  english_team?: string;
+  payment_terms?: string;
+  bid_willingness?: string;
 }
 
 function line(label: string, value: unknown, fallback = "未列出"): string {
@@ -112,9 +121,23 @@ export function buildUserPrompt(
     parts.push(line("资质证书", supplier.certification, "未填写"));
     parts.push(line("所在地区", [supplier.country, supplier.city].filter(Boolean).join(" ")));
     parts.push(line("经营类型", supplier.type));
+    parts.push(line("员工规模", supplier.employee_count));
     if (supplier.intro) {
       parts.push(line("企业简介", truncate(supplier.intro, 500)));
     }
+
+    // 国际化能力（诊断表数据）
+    const intlParts: string[] = [];
+    if (supplier.export_scale) intlParts.push(`出口规模: ${supplier.export_scale}`);
+    if (supplier.service_countries) intlParts.push(`服务国家: ${supplier.service_countries}`);
+    if (supplier.overseas_companies) intlParts.push(`海外公司: ${supplier.overseas_companies}`);
+    if (supplier.ungm_status) intlParts.push(`UNGM: ${supplier.ungm_status}`);
+    if (supplier.english_team) intlParts.push(`英文团队: ${supplier.english_team}`);
+    if (supplier.payment_terms) intlParts.push(`付款条件: ${supplier.payment_terms}`);
+    if (intlParts.length > 0) {
+      parts.push(line("国际化能力", intlParts.join(" | ")));
+    }
+
     parts.push("\n请结合我的企业画像，分析我是否适合参与本标，并给出 6 个维度的适配分析。");
   } else {
     parts.push("\n（该企业未绑定供应商画像，请给出通用投标分析。）");

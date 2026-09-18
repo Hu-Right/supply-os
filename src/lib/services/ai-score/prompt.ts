@@ -95,7 +95,21 @@ export function buildScoreUserPrompt(
     parts.push(line("注册资本", supplier.registered_capital));
     parts.push(line("成立日期", supplier.established_at));
     parts.push(line("经营类型", supplier.type));
+    parts.push(line("员工规模", supplier.employee_count));
     if (supplier.intro) parts.push(line("企业简介", String(supplier.intro).slice(0, 300)));
+
+    // 国际化能力（诊断表数据）
+    const intlParts: string[] = [];
+    if (supplier.export_scale) intlParts.push(`出口规模: ${supplier.export_scale}`);
+    if (supplier.service_countries) intlParts.push(`服务国家: ${supplier.service_countries}`);
+    if (supplier.overseas_companies) intlParts.push(`海外公司: ${supplier.overseas_companies}`);
+    if (supplier.ungm_status) intlParts.push(`UNGM: ${supplier.ungm_status}`);
+    if (supplier.english_team) intlParts.push(`英文团队: ${supplier.english_team}`);
+    if (supplier.payment_terms) intlParts.push(`付款条件: ${supplier.payment_terms}`);
+    if (intlParts.length > 0) {
+      parts.push(line("国际化能力", intlParts.join(" | ")));
+    }
+
     parts.push("\n请从 7 个维度评估我参与本标的适配度，输出 JSON 评分。");
   } else {
     parts.push("\n（未绑定企业画像，请基于公告要求给出通用基准分。）");
