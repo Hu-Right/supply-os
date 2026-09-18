@@ -118,6 +118,7 @@ export async function getOrGenerateAiScore(
       price: cached.score_price ?? 0,
       overall: cached.score_overall ?? 0,
       details: cached.score_reasons ? JSON.parse(cached.score_reasons) : {},
+      reasoning: cached.score_reasoning || "",
       cached: true,
     };
   }
@@ -157,6 +158,7 @@ export async function getOrGenerateAiScore(
     price: data.price,
     overall: data.overall,
     reasons: JSON.stringify(data.details),
+    reasoning: data.reasoning || "",
     model: result!.model,
     providerBaseUrl: config!.base_url,
   });

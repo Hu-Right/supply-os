@@ -89,12 +89,12 @@ export class AiSummaryRepo {
   // ── AI 适配评分 ──
 
   /** 查评分缓存 */
-  async findScore(userId: number, noticeId: number): Promise<(AiSummaryRow & { score_reasons: string | null }) | null> {
+  async findScore(userId: number, noticeId: number): Promise<(AiSummaryRow & { score_reasons: string | null; score_reasoning: string | null }) | null> {
     const [rows] = await this.pool.query(
       "SELECT * FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
       [userId, noticeId],
     );
-    return (rows as (AiSummaryRow & { score_reasons: string | null })[])[0] ?? null;
+    return (rows as (AiSummaryRow & { score_reasons: string | null; score_reasoning: string | null })[])[0] ?? null;
   }
 
   /** UPSERT 评分 */
@@ -103,14 +103,15 @@ export class AiSummaryRepo {
     qualification: number; experience: number; certification: number;
     region: number; scale: number; delivery: number; price: number;
     overall: number; reasons: string;
+    reasoning?: string;
     model: string; providerBaseUrl: string;
   }): Promise<void> {
     await this.pool.query(
       `INSERT INTO crm_notice_ai_summaries
          (user_id, notice_id, model, provider_base_url,
           score_qualification, score_experience, score_certification,
-          score_region, score_scale, score_delivery, score_price, score_overall, score_reasons)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          score_region, score_scale, score_delivery, score_price, score_overall, score_reasons, score_reasoning)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          score_qualification = VALUES(score_qualification),
          score_experience = VALUES(score_experience),
@@ -121,12 +122,13 @@ export class AiSummaryRepo {
          score_price = VALUES(score_price),
          score_overall = VALUES(score_overall),
          score_reasons = VALUES(score_reasons),
+         score_reasoning = VALUES(score_reasoning),
          created_at = CURRENT_TIMESTAMP`,
       [
         input.userId, input.noticeId, input.model, input.providerBaseUrl,
         input.qualification, input.experience, input.certification,
         input.region, input.scale, input.delivery, input.price,
-        input.overall, input.reasons,
+        input.overall, input.reasons, input.reasoning || null,
       ],
     );
   }

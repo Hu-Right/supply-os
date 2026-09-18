@@ -15,9 +15,15 @@ export interface LlmCredentials {
   model: string;
 }
 
-/** 解析 LLM 返回文本为评分对象 */
-export function parseAiScoreResponse(content: string): AiScoreRaw {
-  const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+/** 解析 LLM 返回文本为评分对象（含推理过程） */
+export function parseAiScoreResponse(content: string): AiScoreRaw & { reasoning: string } {
+  // 提取推理过程（JSON 块之前的文本）
+  const jsonStart = content.search(/\{[\s]*"(?:qualification|experience)"/);
+  const backtickPrefix = new RegExp("^```[\\s\\S]*?\\n?");
+  const rawReasoning = jsonStart > 0 ? content.slice(0, jsonStart).trim() : "";
+  const reasoning = rawReasoning ? rawReasoning.replace(backtickPrefix, "").trim() : "";
+
+  const cleaned = content.replace(/^[\s\S]*?(?=\{)/, "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
@@ -60,6 +66,7 @@ export function parseAiScoreResponse(content: string): AiScoreRaw {
     price: num(o.price),
     overall: num(o.overall),
     details,
+    reasoning,
   };
 }
 
