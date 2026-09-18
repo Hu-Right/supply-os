@@ -106,6 +106,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       bid_willingness: String(body.bid_willingness).trim(),
       contact_info: String(body.contact_info || "").trim() || null,
       ip,
+      phone: body.phone ? String(body.phone).trim() : null,
       user_id: userId,
       referral_employee_id: referralEmployeeId,
       source,

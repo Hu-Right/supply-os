@@ -13,9 +13,11 @@
  *              不再依赖 user_key 列做查询。
  */
 import type { AppContext } from "../db/context";
+import { getPool } from "../db/pool";
 import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
+import { SupplierQualificationRepo } from "../repos/supplier-qualification.repo";
 
 /**
  * 将 ISO 8601 时间戳转换为 MySQL DATETIME 格式
@@ -101,6 +103,16 @@ export async function registerUser(
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
   // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
+
+  // ★ 回溯关联：检查该手机号是否有未关联的诊断评估记录（扫码场景常见）
+  // 失败不阻断注册主流程
+  try {
+    const qualRepo = new SupplierQualificationRepo(getPool());
+    await qualRepo.backfillByPhone(targetPhone, newUserId);
+  } catch (backfillErr) {
+    console.warn("[register] 诊断记录回溯关联失败:", (backfillErr as Error).message);
+  }
+
   // 仅在邀请码有效时递增 KPI 归属计数
   if (referralEmployeeId) {
     await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "enterprise");

@@ -16,6 +16,14 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
   };
 });
 
+const mockBackfillByPhone = vi.fn().mockResolvedValue(0);
+vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
+  SupplierQualificationRepo: function (this: any) {
+    Object.assign(this, { backfillByPhone: mockBackfillByPhone });
+  },
+}));
+vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
+
 import { registerUser } from "@/lib/services/auth-register";
 import { issueTokenPair } from "@/lib/services/auth";
 
@@ -185,5 +193,21 @@ describe("registerUser", () => {
     });
     await registerUser(ctx, baseParams);
     expect(markPhoneVerifiedById).toHaveBeenCalledWith(77);
+  });
+
+  it("注册成功后回溯关联诊断记录（按手机号）", async () => {
+    mockBackfillByPhone.mockResolvedValueOnce(2);
+    const ctx = makeCtx();
+    await registerUser(ctx, baseParams);
+    expect(mockBackfillByPhone).toHaveBeenCalledWith("13800000000", 99);
+  });
+
+  it("回溯关联失败不阻断注册", async () => {
+    mockBackfillByPhone.mockRejectedValueOnce(new Error("db error"));
+    const ctx = makeCtx();
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await registerUser(ctx, baseParams);
+    expect(result.payload).toBeTruthy();
+    spy.mockRestore();
   });
 });
