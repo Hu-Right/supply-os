@@ -121,14 +121,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（手机号必填，邮箱绑定在注册后个人中心完成）
    * Register (phone required; email binding is done post-registration in profile)
    */
-  const register = useCallback(async ({ password, displayName, claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
+  const register = useCallback(async ({ password, displayName, verifyCode, invitationCode, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
         body: {
           password, display_name: displayName, verify_code: verifyCode,
-          invitation_code: invitationCode, user_type: userType, phone,
+          invitation_code: invitationCode, phone,
           // 默认昵称按注册界面语言生成（服务端 generateNickname 白名单内回退）
           locale,
           // ── 合规审计：协议同意记录 ──
@@ -143,27 +143,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
-
-      // 提交供应商绑定申请（注册成功后携带新签发的 JWT，api() 自动附加）
-      // 注：注册流程已移除邮箱收集，contact_email 留空，用户可在个人中心绑定邮箱后补充
-      if (claim) {
-        await api("/api/supplier-claims", {
-          method: "POST",
-          body: {
-            company_name: claim.companyName,
-            supplier_type: claim.supplierType,
-            contact_name: claim.contactName || displayName,
-            contact_phone: claim.contactPhone,
-            business_license_no: claim.businessLicenseNo,
-          },
-        });
-        // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
-        setClaimMessage(t("authRegisterClaimSubmitted"));
-      }
     } finally {
       setIsAuthLoading(false);
     }
-  }, [persistAuthUser, locale, t]);
+  }, [persistAuthUser, locale]);
 
   /**
    * 登出

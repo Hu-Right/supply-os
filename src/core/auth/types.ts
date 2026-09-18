@@ -18,10 +18,8 @@ export type { AuthUser };
 export interface RegisterOptions {
   password: string;
   displayName?: string;
-  claim?: SupplierClaimForm;
   verifyCode?: string;
   invitationCode?: string;
-  userType?: string;
   phone?: string;
   /** 用户同意的协议版本号（如 "V2.0"），用于审计追踪 */
   agreementVersion?: string;
