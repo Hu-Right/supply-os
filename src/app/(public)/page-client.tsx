@@ -20,6 +20,7 @@ import {
   WorldMapSection,
   ContentColumns,
   AboutSection,
+  IdentityChoiceBanner,
 } from "@/features/home";
 import { ErrorBoundary } from "@/shared/ui";
 
@@ -46,6 +47,7 @@ export default function PageClient() {
     <ErrorBoundary fallback={<HomeErrorFallback />}>
       <div className="min-h-screen bg-white">
         <HeroSection />
+        <IdentityChoiceBanner />
         <StatsWall />
         <HotTopicsSection />
         <WorldMapSection />
