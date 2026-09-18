@@ -9,7 +9,7 @@
  *              遵循 WorldMapChart 模式：动态导入 echarts、resize 监听、dispose 清理。
  */
 import { useEffect, useRef, useState } from "react";
-import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight } from "lucide-react";
+import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiScoreData } from "../api/ai-score";
 
@@ -67,8 +67,33 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
   const echartsRef = useRef<any>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   const toggle = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
+
+  // 评分中计时器
+  useEffect(() => {
+    if (!loading) { setElapsed(0); return; }
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [loading]);
+
+  /** 将原始错误信息映射为用户友好的提示 */
+  const friendlyError = (raw: string): string => {
+    if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
+      return t("aiScoreErrorAuth") || "登录已过期，请重新登录后再试。";
+    if (raw.includes("403") || raw.includes("Forbidden"))
+      return t("aiScoreErrorLocked") || "请先解锁本公告，再进行 AI 评分。";
+    if (raw.includes("LLM_HTTP_429") || raw.includes("rate"))
+      return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
+    if (raw.includes("LLM_HTTP_5") || raw.includes("timeout") || raw.includes("network"))
+      return t("aiScoreErrorNetwork") || "AI 服务暂时不可用，请稍后重试。";
+    if (raw.includes("LLM_BAD_JSON") || raw.includes("LLM_BAD_SHAPE") || raw.includes("LLM_EMPTY"))
+      return t("aiScoreErrorFormat") || "AI 返回结果格式异常，请重试或检查模型配置。";
+    if (raw.includes("NOTICE_NOT_FOUND"))
+      return t("aiScoreErrorNotice") || "公告不存在或已下架。";
+    return t("aiScoreErrorGeneric") || "AI 评分过程中出现错误，请稍后重试。";
+  };
 
   // ECharts 雷达图初始化
   useEffect(() => {
@@ -139,36 +164,49 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
     );
   }
 
-  // 加载中
+  // 加载中：明确的"评分中"动效面板（旋转+计时）
   if (loading) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Target className="w-5 h-5 text-purple-600" />
-          <h3 className="text-base font-extrabold text-slate-900">
-            {t("detail_tabAiScore") || "AI 适配评分"}
-          </h3>
+      <section className="rounded-2xl border border-purple-200 bg-purple-50/40 p-6">
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-6 h-6 text-purple-600 animate-spin shrink-0" />
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900">
+              {t("detail_tabAiScore") || "AI 适配评分"}
+              <span className="ml-2 text-sm font-bold text-purple-700">
+                {t("aiScoreAnalyzing") || "AI 正在评分中"}
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              {t("aiScoreAnalyzingHint") || "正在结合公告要求与企业画像进行 7 维度适配评估，通常需要 20-60 秒，请稍候…"}
+              <span className="ml-1 font-mono text-purple-600">{elapsed}s</span>
+            </p>
+          </div>
         </div>
-        <div className="animate-pulse space-y-3">
-          <div className="h-48 rounded-xl bg-slate-100" />
-          <div className="h-4 w-3/4 bg-slate-100 rounded" />
-          <div className="h-4 w-1/2 bg-slate-100 rounded" />
+        <div className="mt-4 space-y-2 animate-pulse">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-3 rounded bg-purple-100/70" style={{ width: `${90 - i * 15}%` }} />
+          ))}
         </div>
       </section>
     );
   }
 
-  // 错误
+  // 错误：友好提示
   if (error) {
     return (
       <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-center">
         <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-        <p className="text-sm text-rose-700 mb-4">{error}</p>
+        <h3 className="text-base font-extrabold text-rose-800 mb-2">
+          {t("aiScoreError") || "AI 评分失败"}
+        </h3>
+        <p className="text-sm text-rose-700 mb-4">{friendlyError(error)}</p>
         <button
           type="button"
           onClick={onRegenerate}
           className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 px-4 py-2 text-sm font-bold transition-colors"
         >
+          <RefreshCw className="w-3.5 h-3.5" />
           {t("procurement_aiSummaryRetry") || "重试"}
         </button>
       </section>
