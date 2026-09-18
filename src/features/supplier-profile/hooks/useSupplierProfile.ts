@@ -12,23 +12,28 @@ export interface UseSupplierProfileReturn {
   supplier: Supplier | null;
   loading: boolean;
   error: string | null;
+  /** 该供应商是否已被用户认领 */
+  claimed: boolean;
 }
 
 export function useSupplierProfile(lang: string, id: string): UseSupplierProfileReturn {
   const [supplier, setSupplier] = useState<Supplier | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setClaimed(false);
 
     fetchSupplierById(lang, id)
-      .then((data) => {
+      .then((data: any) => {
         if (cancelled) return;
         setSupplier(data);
+        setClaimed(!!data.claimed);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -42,5 +47,5 @@ export function useSupplierProfile(lang: string, id: string): UseSupplierProfile
     return () => { cancelled = true; };
   }, [lang, id]);
 
-  return { supplier, loading, error };
+  return { supplier, loading, error, claimed };
 }

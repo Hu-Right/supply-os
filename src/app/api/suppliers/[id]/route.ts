@@ -52,7 +52,20 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);
     }
 
-    return NextResponse.json(mapSupplierRow(row));
+    // 检查该供应商是否已被用户认领
+    let claimed = false;
+    try {
+      const pool = (await import("@/lib/db/pool")).getPool();
+      const [rows] = await pool.query(
+        `SELECT COUNT(*) AS cnt FROM crm_users WHERE supplier_id = ?`,
+        [numericId],
+      );
+      claimed = Number((rows as any)[0]?.cnt || 0) > 0;
+    } catch {
+      // 查询失败不影响主流程
+    }
+
+    return NextResponse.json({ ...mapSupplierRow(row), claimed });
   } catch (err) {
     console.error("[suppliers/:id GET]", err);
     routeError(500, EC_INTERNAL_ERROR, "查询供应商失败");

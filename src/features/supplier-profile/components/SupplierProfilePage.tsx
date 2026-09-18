@@ -48,7 +48,7 @@ export function SupplierProfilePage() {
   const params = useParams();
   const id = String(params?.id ?? "");
 
-  const { supplier, loading } = useSupplierProfile(locale, id);
+  const { supplier, loading, claimed } = useSupplierProfile(locale, id);
 
   const [activeTab, setActiveTab] = useState("capability");
   const [contactModal, setContactModal] = useState<{
@@ -127,7 +127,7 @@ export function SupplierProfilePage() {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
-              {userId && (
+              {userId && !claimed && (
                 <Button
                   onClick={() => setShowClaimModal(true)}
                   variant="outline"
