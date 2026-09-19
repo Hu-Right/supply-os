@@ -33,6 +33,7 @@ scripts/*
 !scripts/prerender.ts
 !scripts/deploy.sh
 !scripts/check-i18n.ts
+!scripts/check-no-admin-routes.mjs
 runtime/
 backups/
 bin/
