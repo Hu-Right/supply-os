@@ -25,7 +25,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     const ctx = getContext();
-    let row = await ctx.supplier.directoryRepo.findByIdWithFallback(numericId);
+    const row = await ctx.supplier.directoryRepo.findByIdWithFallback(numericId);
 
     if (!row) {
       routeError(404, EC_NOT_FOUND, `供应商不存在: ${numericId}`);

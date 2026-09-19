@@ -353,7 +353,7 @@ export class AwardsRepo {
 
     // 批量查最近记录的中标商
     const recentIds = recentRows.map((r) => Number(r.id));
-    let winnerMap = new Map<number, Array<{ name: string; name_cn: string | null; country: string | null }>>();
+    const winnerMap = new Map<number, Array<{ name: string; name_cn: string | null; country: string | null }>>();
     if (recentIds.length > 0) {
       const placeholders = recentIds.map(() => "?").join(",");
       const [winnersForRecent] = await this.pool.query(
