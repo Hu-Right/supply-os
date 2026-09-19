@@ -97,8 +97,7 @@ registerInvalidateCallback(invalidateUnifiedSearchCache);
  * @param raw 路由层解析的原始参数
  *
  * 架构约束：搜索链路只读宽表已缓存译文，绝不触发翻译请求。
- * 译文生产统一收敛到两条路径：定时任务（translation/auto.ts）与
- * 详情页按需翻译（/api/notices/:id/translation）。
+ * 译文生产统一收敛到详情页按需翻译（/api/notices/:id/translation）。
  */
 export async function searchUnified(
   pool: Pool,

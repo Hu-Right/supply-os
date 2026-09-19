@@ -3,7 +3,6 @@
  *
  * @module lib/lifecycle/background
  * @description Phase 2 第一档后台任务（10min+ 级）统一入口：
- *              - 自动翻译
  *              - 报告缓存清理
  *              - 5 类定时器
  *
@@ -11,7 +10,6 @@
  *              按迁移计划中期外置为独立 worker，不在这里启动。
  */
 import type { Pool } from "mysql2/promise";
-import { startAutoTranslate } from "../services/translation/auto";
 import { startReportCacheCleanup } from "../services/reportCacheCleanup";
 import { startAllTimers } from "./timers";
 import { closePool } from "../db/pool";
@@ -21,15 +19,6 @@ export interface BackgroundHandle {
 }
 
 export function startBackgroundTasks(dbPool: Pool): BackgroundHandle {
-  // ── 自动翻译（可配置关闭）──
-  const stopAutoTranslate = startAutoTranslate(dbPool, {
-    enabled: String(process.env.NOTICE_AUTO_TRANSLATE ?? "on").toLowerCase() !== "off",
-    intervalMs: Number(process.env.NOTICE_AUTO_TRANSLATE_INTERVAL_MS || 10 * 60 * 1000),
-    maxPerRun: Number(process.env.NOTICE_AUTO_TRANSLATE_MAX || 300),
-    descMaxChars: Number(process.env.NOTICE_AUTO_TRANSLATE_DESC_MAX_CHARS || 8000),
-    dailyCharBudget: Number(process.env.NOTICE_AUTO_TRANSLATE_DAILY_CHARS || 7_000_000),
-  });
-
   // ── 月度报告缓存清理 ──
   const stopReportCacheCleanup = startReportCacheCleanup({
     enabled: String(process.env.REPORT_CACHE_CLEANUP ?? "on").toLowerCase() !== "off",
@@ -41,7 +30,6 @@ export function startBackgroundTasks(dbPool: Pool): BackgroundHandle {
 
   return {
     stop() {
-      stopAutoTranslate();
       stopReportCacheCleanup();
       timersHandle.stop();
     },
