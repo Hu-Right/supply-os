@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "备注已保存",
   "supplierPoolNotesSaveFailed": "保存失败，请稍后重试",
   "supplierPoolRemoveTitle": "移除合作工厂",
-  "supplierPoolRemoveConfirm": "确定移除「{name}」吗？移除后 AI 智能匹配将不再包含该工厂。"
+  "supplierPoolRemoveConfirm": "确定移除「{name}」吗？移除后 AI 智能匹配将不再包含该工厂。",
+  "supplierPoolSearching": "搜索中…",
+  "supplierPoolCandidatesTitle": "平台目录候选（点选添加）",
+  "supplierPoolAlreadyInPool": "已添加",
+  "supplierPoolNoCandidate": "没有匹配的平台供应商",
+  "supplierPoolCreateAnyway": "未找到匹配？仍要添加「{name}」"
 }

@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "Notes enregistrées",
   "supplierPoolNotesSaveFailed": "Échec de la sauvegarde des notes. Veuillez réessayer plus tard.",
   "supplierPoolRemoveTitle": "Retirer une usine",
-  "supplierPoolRemoveConfirm": "Retirer « {name} » ? Elle ne figurera plus dans le matching IA."
+  "supplierPoolRemoveConfirm": "Retirer « {name} » ? Elle ne figurera plus dans le matching IA.",
+  "supplierPoolSearching": "Recherche…",
+  "supplierPoolCandidatesTitle": "Candidats de l'annuaire (cliquer pour ajouter)",
+  "supplierPoolAlreadyInPool": "Ajouté",
+  "supplierPoolNoCandidate": "Aucun fournisseur d'annuaire correspondant",
+  "supplierPoolCreateAnyway": "Aucun résultat ? Ajouter « {name} » quand même"
 }

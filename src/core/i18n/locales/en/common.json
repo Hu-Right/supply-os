@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "Notes saved",
   "supplierPoolNotesSaveFailed": "Failed to save notes. Please try again later.",
   "supplierPoolRemoveTitle": "Remove Factory",
-  "supplierPoolRemoveConfirm": "Remove \"{name}\"? It will no longer appear in AI smart matching."
+  "supplierPoolRemoveConfirm": "Remove \"{name}\"? It will no longer appear in AI smart matching.",
+  "supplierPoolSearching": "Searching…",
+  "supplierPoolCandidatesTitle": "Directory candidates (click to add)",
+  "supplierPoolAlreadyInPool": "Added",
+  "supplierPoolNoCandidate": "No matching directory supplier",
+  "supplierPoolCreateAnyway": "No match? Add \"{name}\" anyway"
 }

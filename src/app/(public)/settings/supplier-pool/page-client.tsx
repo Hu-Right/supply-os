@@ -41,6 +41,11 @@ export default function SupplierPoolPageClient() {
   /** 待移除的资源库行（ConfirmDialog 的目标） */
   const [removing, setRemoving] = useState<PoolItem | null>(null);
   const [removeLoading, setRemoveLoading] = useState(false);
+  /** 候选搜索（两段式添加：先选候选，无命中才手动新建） */
+  const [candidates, setCandidates] = useState<Array<{ id: number; company: string; industry: string; in_pool: number }>>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [addByIdLoading, setAddByIdLoading] = useState<number | null>(null);
 
   const fetchList = useCallback(async () => {
     if (!userId) return;
@@ -57,6 +62,31 @@ export default function SupplierPoolPageClient() {
   }, [userId]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
+
+  // 候选防抖搜索：输入 ≥2 字触发，300ms 静默后请求
+  useEffect(() => {
+    const kw = companyName.trim();
+    if (!showAdd || kw.length < 2) {
+      setCandidates([]);
+      setSearched(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api<{ candidates: typeof candidates }>(
+          `/api/user/supplier-pool/search?q=${encodeURIComponent(kw)}`,
+        );
+        if (!cancelled) setCandidates(res.candidates || []);
+      } catch {
+        if (!cancelled) setCandidates([]);
+      } finally {
+        if (!cancelled) { setSearching(false); setSearched(true); }
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); setSearching(false); };
+  }, [companyName, showAdd]);
 
   const handleAdd = async () => {
     if (!companyName.trim()) return;
@@ -77,6 +107,27 @@ export default function SupplierPoolPageClient() {
       setAddError(true);
     }
     setAddLoading(false);
+  };
+
+  /** 候选确认添加：按点选的 supplierId 精确入库，不做模糊猜测 */
+  const handleAddById = async (supplierId: number, companyNameStr: string) => {
+    setAddByIdLoading(supplierId);
+    try {
+      await api("/api/user/supplier-pool", {
+        method: "POST",
+        body: { supplierId },
+      });
+      toast.success((t("supplierPoolAddSuccess") || "添加成功") + "：" + companyNameStr);
+      setShowAdd(false);
+      setCompanyName("");
+      setCandidates([]);
+      setSearched(false);
+      fetchList();
+    } catch (err: any) {
+      toast.error(err?.message || "添加失败");
+    } finally {
+      setAddByIdLoading(null);
+    }
   };
 
   const handleRemove = async () => {
@@ -166,6 +217,61 @@ export default function SupplierPoolPageClient() {
               {addMessage}
             </p>
           )}
+
+          {/* 候选列表：平台目录命中项点选确认，避免模糊匹配误加 */}
+          {companyName.trim().length >= 2 && (
+            <div className="space-y-1">
+              {searching && (
+                <p className="text-2xs text-slate-400">{t("supplierPoolSearching") || "搜索中…"}</p>
+              )}
+              {!searching && candidates.length > 0 && (
+                <>
+                  <p className="text-2xs font-bold text-slate-500">
+                    {t("supplierPoolCandidatesTitle") || "平台目录候选（点选添加）"}
+                  </p>
+                  {candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={!!c.in_pool || addByIdLoading !== null}
+                      onClick={() => handleAddById(c.id, c.company)}
+                      className="w-full flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left hover:border-purple-300 hover:bg-purple-50/40 disabled:opacity-60 disabled:hover:border-slate-200 disabled:hover:bg-white transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{c.company}</p>
+                        {c.industry && <p className="text-2xs text-slate-500">{c.industry}</p>}
+                      </div>
+                      {c.in_pool ? (
+                        <span className="text-2xs text-emerald-600 border border-emerald-200 bg-emerald-50 rounded px-1.5 py-0.5">
+                          {t("supplierPoolAlreadyInPool") || "已添加"}
+                        </span>
+                      ) : (
+                        <span className="text-2xs text-purple-600 font-bold">
+                          {addByIdLoading === c.id ? "…" : (t("supplierPoolAdd") || "添加")}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </>
+              )}
+              {!searching && searched && candidates.length === 0 && (
+                <p className="text-2xs text-slate-400">
+                  {t("supplierPoolNoCandidate") || "没有匹配的平台供应商"}
+                </p>
+              )}
+              {!searching && companyName.trim() && (
+                <button
+                  type="button"
+                  onClick={handleAdd}
+                  disabled={addLoading}
+                  className="w-full flex items-center justify-center gap-1 rounded-lg border border-dashed border-purple-300 bg-white px-3 py-2 text-2xs font-bold text-purple-600 hover:bg-purple-50/40 disabled:opacity-50 transition-colors"
+                >
+                  {addLoading ? "…" : (t("supplierPoolCreateAnyway") || "未找到匹配？仍要添加「{name}」").replace("{name}", companyName.trim())}
+                </button>
+              )}
+            </div>
+          )}
+
           <p className="text-2xs text-slate-500">
             {t("supplierPoolAddHint") || "输入公司名称后，系统会自动匹配平台供应商目录。未匹配到的公司会创建基础记录，你可以后续补充诊断信息。"}
           </p>

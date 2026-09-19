@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "تم حفظ الملاحظات",
   "supplierPoolNotesSaveFailed": "فشل حفظ الملاحظات، يرجى المحاولة لاحقًا.",
   "supplierPoolRemoveTitle": "إزالة مصنع",
-  "supplierPoolRemoveConfirm": "هل تريد إزالة «{name}»؟ لن يظهر بعد الآن في المطابقة الذكية للذكاء الاصطناعي."
+  "supplierPoolRemoveConfirm": "هل تريد إزالة «{name}»؟ لن يظهر بعد الآن في المطابقة الذكية للذكاء الاصطناعي.",
+  "supplierPoolSearching": "جارٍ البحث…",
+  "supplierPoolCandidatesTitle": "مرشحو الدليل (انقر للإضافة)",
+  "supplierPoolAlreadyInPool": "تمت الإضافة",
+  "supplierPoolNoCandidate": "لا يوجد مورد مطابق في الدليل",
+  "supplierPoolCreateAnyway": "لا توجد مطابقة؟ أضف «{name}» على أي حال"
 }

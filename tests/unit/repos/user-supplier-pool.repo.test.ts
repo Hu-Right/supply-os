@@ -95,27 +95,27 @@ describe("UserSupplierPoolRepo.countDiagnosisPending", () => {
 describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排所需）", () => {
   const row = { id: 10, company: "工厂A", industry: "电子" };
 
-  it("findVerifiedByCompany 精确命中 → 只发一条查询", async () => {
-    const mockQuery = vi.fn().mockResolvedValue([[row]]);
+  it("findVerifiedByCompany 命中 → 返回含 in_pool 标记的单条结果", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[{ ...row, in_pool: 0 }]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
     const found = await repo.findVerifiedByCompany("工厂A");
-    expect(found).toEqual({ id: 10, company: "工厂A", industry: "电子" });
+    expect(found).toEqual({ id: 10, company: "工厂A", industry: "电子", in_pool: 0 });
     expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery.mock.calls[0][1][0]).toBe("%工厂A%");
   });
 
-  it("精确未命中 → 回退模糊 LIKE，且通配符已转义", async () => {
-    const mockQuery = vi.fn()
-      .mockResolvedValueOnce([[]])
-      .mockResolvedValueOnce([[{ id: 11, company: "工厂A有限公司", industry: "" }]]);
+  it("候选搜索：LIKE 通配符已转义", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[{ id: 11, company: "工厂A有限公司", industry: "", in_pool: 1 }]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    const found = await repo.findVerifiedByCompany("50%折扣_厂");
-    expect(found?.id).toBe(11);
-    const likeParam = mockQuery.mock.calls[1][1][0] as string;
-    // % 与 _ 必须被反斜杠转义，避免用户输入充当 LIKE 通配符
-    expect(likeParam).toBe("%50" + String.fromCharCode(92) + "%折扣" + String.fromCharCode(92) + "_厂%");
+    const rows = await repo.searchVerifiedByCompany("50%折扣_厂", 8, 100);
+    expect(rows[0]).toEqual({ id: 11, company: "工厂A有限公司", industry: "", in_pool: 1 });
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toContain("LEFT JOIN crm_user_supplier_pool");
+    expect(params[0]).toBe(100);
+    expect(params[1]).toBe("%50\\%折扣\\_厂%");
   });
 
-  it("精确与模糊均未命中 → null", async () => {
+  it("未命中 → null", async () => {
     const mockQuery = vi.fn().mockResolvedValue([[]]);
     const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
     await expect(repo.findVerifiedByCompany("不存在")).resolves.toBeNull();

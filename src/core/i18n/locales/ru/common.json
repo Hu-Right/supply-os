@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "Заметки сохранены",
   "supplierPoolNotesSaveFailed": "Не удалось сохранить заметки. Повторите попытку позже.",
   "supplierPoolRemoveTitle": "Удалить завод",
-  "supplierPoolRemoveConfirm": "Удалить «{name}»? Завод больше не будет участвовать в интеллектуальном подборе AI."
+  "supplierPoolRemoveConfirm": "Удалить «{name}»? Завод больше не будет участвовать в интеллектуальном подборе AI.",
+  "supplierPoolSearching": "Поиск…",
+  "supplierPoolCandidatesTitle": "Кандидаты из каталога (нажмите, чтобы добавить)",
+  "supplierPoolAlreadyInPool": "Добавлено",
+  "supplierPoolNoCandidate": "Нет совпадений в каталоге",
+  "supplierPoolCreateAnyway": "Нет совпадений? Всё равно добавить «{name}»"
 }

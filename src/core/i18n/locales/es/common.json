@@ -238,5 +238,10 @@
   "supplierPoolNotesSaved": "Notas guardadas",
   "supplierPoolNotesSaveFailed": "No se pudieron guardar las notas. Inténtelo de nuevo más tarde.",
   "supplierPoolRemoveTitle": "Eliminar fábrica",
-  "supplierPoolRemoveConfirm": "¿Eliminar «{name}»? Ya no aparecerá en la coincidencia inteligente de IA."
+  "supplierPoolRemoveConfirm": "¿Eliminar «{name}»? Ya no aparecerá en la coincidencia inteligente de IA.",
+  "supplierPoolSearching": "Buscando…",
+  "supplierPoolCandidatesTitle": "Candidatos del directorio (clic para añadir)",
+  "supplierPoolAlreadyInPool": "Añadido",
+  "supplierPoolNoCandidate": "Sin proveedores coincidentes en el directorio",
+  "supplierPoolCreateAnyway": "¿Sin coincidencias? Añadir «{name}» de todos modos"
 }

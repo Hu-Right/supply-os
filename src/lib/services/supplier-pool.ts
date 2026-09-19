@@ -13,7 +13,7 @@ export const MAX_POOL_SIZE = 50;
 
 export type AddSupplierPoolResult =
   | { ok: true; poolId: number; source: "platform" | "manual"; supplierId: number }
-  | { ok: false; reason: "pool_full" | "duplicate" };
+  | { ok: false; reason: "pool_full" | "duplicate" | "not_found" };
 
 /** 主入口：按公司名添加供应商（平台匹配 or 复用/创建 pending 记录） */
 export async function addSupplierToPool(
@@ -61,4 +61,34 @@ export async function addSupplierToPool(
   } finally {
     conn.release();
   }
+}
+
+/** 候选确认入口：用户在候选列表中点选指定供应商后按 id 添加（不做模糊猜测） */
+export async function addSupplierByIdToPool(
+  pool: Pool,
+  userId: number,
+  supplierId: number,
+): Promise<AddSupplierPoolResult> {
+  const repo = new UserSupplierPoolRepo(pool);
+
+  const count = await repo.countByUser(userId);
+  if (count >= MAX_POOL_SIZE) {
+    return { ok: false, reason: "pool_full" };
+  }
+
+  const matched = await repo.findVerifiedById(supplierId);
+  if (!matched) {
+    return { ok: false, reason: "not_found" };
+  }
+  const qualificationId = await repo.findLatestQualificationId(matched.id);
+  const poolId = await repo.addFromPlatform(userId, matched.id, qualificationId);
+  if (!poolId) {
+    return { ok: false, reason: "duplicate" };
+  }
+  return { ok: true, poolId, source: "platform", supplierId: matched.id };
+}
+
+/** 候选搜索：供添加前预览平台目录（含"已在资源库"标记） */
+export function searchPoolCandidates(pool: Pool, userId: number, keyword: string, limit = 8) {
+  return new UserSupplierPoolRepo(pool).searchVerifiedByCompany(keyword.trim(), limit, userId);
 }
