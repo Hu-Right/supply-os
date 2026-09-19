@@ -37,6 +37,7 @@ const SOURCE = {
   user: process.env.SYNC_SOURCE_USER || 'root',
   password: process.env.SYNC_SOURCE_PASSWORD || '123456',
   database: 'crm',
+  charset: 'utf8mb4', // 编码红线：跨库同步禁止依赖驱动默认字符集（docs/i18n-encoding-standard.md §2.3）
 };
 
 const TARGET = {
@@ -45,6 +46,7 @@ const TARGET = {
   user: process.env.SYNC_TARGET_USER || 'root',
   password: process.env.SYNC_TARGET_PASSWORD || 'tempPass2026',
   database: 'crm',
+  charset: 'utf8mb4',
 };
 
 const SYNC_TABLES = [
