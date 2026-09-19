@@ -10,6 +10,7 @@ import { useLocale } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
 import { ProfileContent } from "@/features/auth/components/ProfileContent";
+import { MyRecordsPanel } from "@/features/payment";
 
 export default function ProfileSettingsClient() {
   const { authUser } = useAuth();
@@ -32,5 +33,5 @@ export default function ProfileSettingsClient() {
     );
   }
 
-  return <ProfileContent />;
+  return <ProfileContent MyRecordsPanel={MyRecordsPanel} />;
 }

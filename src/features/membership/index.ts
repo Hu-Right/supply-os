@@ -18,6 +18,6 @@ export type { UseMembershipPaymentOptions } from "./hooks/useMembershipPayment";
 export { useMembershipStatus } from "@/shared/hooks/useMembershipStatus";
 export type { UseMembershipStatusReturn } from "@/shared/hooks/useMembershipStatus";
 
-// 组件：被 procurement/NoticeDetailSidebar 等外部模块引用
-export { MembershipStatusPanel } from "./components/MembershipStatusPanel";
-export type { MembershipStatusPanelProps } from "./components/MembershipStatusPanel";
+// 组件：已提升至 shared（红线 #3 解耦），此处向后兼容 re-export
+export { MembershipStatusPanel } from "@/shared/components/MembershipStatusPanel";
+export type { MembershipStatusPanelProps } from "@/shared/components/MembershipStatusPanel";

@@ -10,5 +10,5 @@
 export { default as SupplierPage } from "./pages/SupplierPage";
 export { fetchSuppliers, fetchSupplierById, fetchSupplierContact } from "./api";
 export type { SupplierContact, SupplierContactStatus } from "./api";
-export { SupplierContactModal } from "./components/SupplierContactModal";
-export type { SupplierContactModalProps } from "./components/SupplierContactModal";
+export { SupplierContactModal } from "@/shared/components/SupplierContactModal";
+export type { SupplierContactModalProps } from "@/shared/components/SupplierContactModal";

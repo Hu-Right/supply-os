@@ -12,8 +12,8 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Building2, Package, ArrowRight, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth/useUserId";
-import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
-import { useHasSupplierPool } from "@/features/procurement/hooks/useHasSupplierPool";
+import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
 
 export function IdentityChoiceBanner() {
   const { t } = useLocale();

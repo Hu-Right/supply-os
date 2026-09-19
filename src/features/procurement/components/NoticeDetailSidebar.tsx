@@ -12,10 +12,10 @@ import { Bell, Heart, Lock, Crown, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button, Card } from "@/shared/ui";
-// ARCH-P2-解耦（2026-09-05）：dynamic import 消除 procurement→membership 硬依赖
+// ARCH-P2-解耦：组件提升至 shared 后，dynamic import 直连 shared（保留代码分割），彻底消除 procurement→membership 硬依赖
 import dynamic from "next/dynamic";
 const MembershipStatusPanel = dynamic(
-  () => import("@/features/membership").then(m => ({ default: m.MembershipStatusPanel })),
+  () => import("@/shared/components/MembershipStatusPanel").then((m) => ({ default: m.MembershipStatusPanel })),
   { ssr: false },
 );
 import type { NoticeItem, MembershipStatus } from "../types";

@@ -9,13 +9,12 @@
  *              表现层独立于旧共享组件样式，直接用 Tailwind 原生类实现。
  */
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, type ComponentType } from "react";
 import { User, LogOut, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
-import { MyRecordsPanel } from "@/features/payment";
 import { IndustryPrefsForm } from "./IndustryPrefsForm";
 import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
@@ -39,7 +38,15 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-medium text-foreground mb-3">{children}</h2>;
 }
 
-export function ProfileContent() {
+export interface ProfileContentProps {
+  /**
+   * 「我的记录」面板组件（由 app 层从 payment 特性注入）。
+   * 架构解耦（红线 #3）：auth 不再硬依赖 @/features/payment，改由上层组合。
+   */
+  MyRecordsPanel?: ComponentType<{ onOpenNotice: (id: number) => void }>;
+}
+
+export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
   const { t } = useLocale();
   const { authUser, isVip, logout, refreshAuth } = useAuth();
   const { tierLabel } = useMembershipTier();
@@ -167,7 +174,7 @@ export function ProfileContent() {
       <section>
         <SectionTitle>{t("settingsMyRecords") || "我的记录"}</SectionTitle>
         <div className="bg-secondary-50 border border-border rounded-lg px-6 py-5">
-          <MyRecordsPanel onOpenNotice={openNotice} />
+          {MyRecordsPanel ? <MyRecordsPanel onOpenNotice={openNotice} /> : null}
         </div>
       </section>
 

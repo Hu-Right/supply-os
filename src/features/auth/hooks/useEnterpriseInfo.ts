@@ -1,69 +1,8 @@
 /**
- * 企业信息取数 Hook（企业表 crm_suppliers）
- * Enterprise Info Hook
+ * 向后兼容 re-export：企业信息取数 Hook 已提升至 shared/hooks/useEnterpriseInfo
+ * （架构解耦红线 #3：消除 home→auth 跨 feature 硬依赖）。
+ * auth 内部与 settings 页面沿用此路径导入，行为不变。
  *
  * @module features/auth/hooks/useEnterpriseInfo
- * @description 调用 GET /api/user/enterprise（后端按 crm_users.supplier_id 关联
- *              crm_suppliers 企业表）获取当前用户企业信息。未绑定返回 bound=false。
- *              提供 loading/error/retry。
  */
-import { useCallback, useEffect, useState } from "react";
-import { api } from "@/core/http";
-
-/** 企业信息（crm_suppliers 整行透传，键为 snake_case 列名） */
-export type EnterpriseInfo = Record<string, unknown>;
-
-interface EnterpriseResponse {
-  bound: boolean;
-  linkStatus: string;
-  enterprise: EnterpriseInfo | null;
-}
-
-export interface UseEnterpriseInfoReturn {
-  bound: boolean;
-  linkStatus: string;
-  enterprise: EnterpriseInfo | null;
-  loading: boolean;
-  error: string | null;
-  retry: () => void;
-}
-
-export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
-  const [bound, setBound] = useState(false);
-  const [linkStatus, setLinkStatus] = useState("none");
-  const [enterprise, setEnterprise] = useState<EnterpriseInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    api<{ code: number; data: EnterpriseResponse }>("/api/user/enterprise")
-      .then((res) => {
-        if (cancelled) return;
-        const d = res.data;
-        setBound(!!d?.bound);
-        setLinkStatus(d?.linkStatus || "none");
-        setEnterprise(d?.enterprise ?? null);
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setBound(false);
-          setEnterprise(null);
-          setError(e instanceof Error ? e.message : "load-failed");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [nonce]);
-
-  const retry = useCallback(() => setNonce((n) => n + 1), []);
-
-  return { bound, linkStatus, enterprise, loading, error, retry };
-}
+export * from "@/shared/hooks/useEnterpriseInfo";

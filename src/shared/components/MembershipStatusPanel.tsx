@@ -2,10 +2,13 @@
  * 会员权益状态面板
  * Membership Status Panel
  *
- * @module features/membership/components/MembershipStatusPanel
+ * @module shared/components/MembershipStatusPanel
  * @description 综合展示用户所有权益的汇总与分层明细。
  *              顶部显示总可用解锁次数，下方按优先级分层展示各权益来源。
  *              Displays total unlock count and layered breakdown by benefit source.
+ *              架构解耦：原 features/membership/components 提升至 shared，供
+ *              membership 与 procurement（公告侧边栏）共享，消除 procurement→membership
+ *              跨 feature 硬依赖（红线 #3）。仅依赖 core/shared/@types。
  */
 
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
@@ -51,13 +54,6 @@ export function MembershipStatusPanel({
   // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
   const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
   const hasSingleCard = singleCards.length > 0;
-
-  // 根据最佳权益类型决定主色调
-  const themeColor = hasSubscription
-    ? "amber"
-    : hasSingleCard
-      ? "blue"
-      : "slate";
 
   const bgGradient = hasSubscription
     ? "from-amber-50 to-orange-50"

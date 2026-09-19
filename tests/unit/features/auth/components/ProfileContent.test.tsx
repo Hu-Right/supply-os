@@ -52,9 +52,9 @@ vi.mock("@/features/auth/components/IndustryPrefsForm", () => ({
 vi.mock("@/features/auth/components/AccountBenefitsCard", () => ({
   AccountBenefitsCard: () => <div data-testid="benefits-card" />,
 }));
-vi.mock("@/features/payment", () => ({
-  MyRecordsPanel: () => <div data-testid="my-records" />,
-}));
+
+// 「我的记录」面板现由 app 层通过 prop 注入（红线 #3 解耦），测试同样以 prop 传入桩件
+const MyRecordsStub = () => <div data-testid="my-records" />;
 
 let mockEnterpriseBound = false;
 let mockEnterpriseData: Record<string, unknown> | null = null;
@@ -89,13 +89,18 @@ describe("ProfileContent", () => {
   });
 
   it("渲染全部子区块（昵称/手机/邮箱/行业偏好/我的记录）", () => {
-    render(<ProfileContent />);
+    render(<ProfileContent MyRecordsPanel={MyRecordsStub} />);
     expect(screen.getByTestId("nickname-editor")).toBeInTheDocument();
     expect(screen.getByTestId("phone-binding")).toBeInTheDocument();
     expect(screen.getByTestId("email-binding")).toBeInTheDocument();
     expect(screen.getByTestId("industry-prefs")).toBeInTheDocument();
     expect(screen.getByTestId("my-records")).toBeInTheDocument();
     expect(screen.getByTestId("benefits-card")).toBeInTheDocument();
+  });
+
+  it("未注入「我的记录」面板时不渲染 my-records（prop 注入契约）", () => {
+    render(<ProfileContent />);
+    expect(screen.queryByTestId("my-records")).not.toBeInTheDocument();
   });
 
   it("渲染供应商认证状态与退出登录按钮", () => {

@@ -18,7 +18,7 @@ import type { Supplier } from "@/types";
 import { SupplierCard } from "../../components/SupplierCard";
 import { SupplierCardSkeleton } from "../../components/SupplierCardSkeleton";
 import { SupplierRegisterModal } from "../../components/SupplierRegisterModal";
-import { SupplierContactModal, type SupplierContactStatus } from "../../components/SupplierContactModal";
+import { SupplierContactModal, type SupplierContactStatus } from "@/shared/components/SupplierContactModal";
 import { LoadingOverlay } from "@/shared/ui";
 import { Button } from "@/shared/ui";
 import { fetchSupplierContact, type SupplierContact } from "../../api";

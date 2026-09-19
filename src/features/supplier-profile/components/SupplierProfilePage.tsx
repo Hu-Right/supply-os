@@ -19,7 +19,7 @@ import { Button, Badge, EmptyState } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { useSupplierProfile } from "../hooks/useSupplierProfile";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
-import { SupplierContactModal } from "@/features/supplier";
+import { SupplierContactModal } from "@/shared/components/SupplierContactModal";
 import { SupplierClaimModal } from "./SupplierClaimModal";
 import type { Supplier } from "@/types";
 import {

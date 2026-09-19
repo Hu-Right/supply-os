@@ -2,9 +2,11 @@
  * 供应商联络弹窗
  * Supplier Contact Modal
  *
- * @module features/supplier/components/SupplierContactModal
+ * @module shared/components/SupplierContactModal
  * @description 替代原生 alert 的联络交互弹窗：VIP 门槛提示 / 加载中 / 联系方式展示 / 失败提示
  *              Contact modal replacing native alert: VIP gate / loading / contact info / error
+ *              架构解耦：原 features/supplier/components 提升至 shared，供 supplier 与
+ *              supplier-profile 共享，消除 supplier-profile→supplier 跨 feature 硬依赖（红线 #3）。
  */
 
 import { Crown, User, Mail, Phone, AlertCircle } from "lucide-react";
@@ -14,7 +16,7 @@ import type { Supplier } from "@/types";
 import type { SupplierContact, SupplierContactStatus } from "@/shared/api/supplier";
 import { emitAppEvent } from "@/core/events";
 
-// re-export：供存量内部消费者（SupplierPage）保持导入路径不变
+// re-export：供消费者从本模块直接取 SupplierContactStatus
 export type { SupplierContactStatus };
 
 export type SupplierContactModalProps = {
