@@ -11,8 +11,9 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
+import { hasEnterpriseBinding } from "@/lib/services/identity";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -32,8 +33,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
 
-    // 解锁校验
+    // 身份互斥（ADR-0001）：AI 智能匹配基于供应商资源库，仅对外贸员（未绑定企业）账号开放
     const ctx = getContext();
+    if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
+      routeError(403, EC_FORBIDDEN, "已绑定企业的账号请使用企业 AI 适配评分，智能匹配仅对外贸员开放");
+    }
+
+    // 解锁校验
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
 

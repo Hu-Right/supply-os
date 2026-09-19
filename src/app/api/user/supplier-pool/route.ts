@@ -10,9 +10,10 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
+import { hasEnterpriseBinding } from "@/lib/services/identity";
+import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
 
 const MAX_POOL_SIZE = 50;
 
@@ -29,6 +30,13 @@ async function invalidateMatchCacheSafely(dbPool: Pool, userId: number): Promise
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
+
+  // 身份互斥（ADR-0001）：已绑定企业账号的资源库恒为空。
+  // 返回空列表而非 403——useHasSupplierPool 会对所有登录用户发本请求，403 只会制造噪声。
+  if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
+    return NextResponse.json({ code: 0, message: "ok", data: { list: [] } });
+  }
+
   const repo = new UserSupplierPoolRepo(ctx.dbPool);
   const items = await repo.listByUser(auth.userId);
   return NextResponse.json({ code: 0, message: "ok", data: { list: items } });
@@ -43,6 +51,12 @@ export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const body = await parseJson(req, addBodySchema);
   const ctx = getContext();
+
+  // 身份互斥（ADR-0001）：已绑定企业账号不可使用供应商资源库（前端 settings 页拦截之外的强制点）
+  if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
+    routeError(403, EC_FORBIDDEN, "已绑定企业的账号不可使用供应商资源库，请先在企业身份下使用 AI 适配评分");
+  }
+
   const poolRepo = new UserSupplierPoolRepo(ctx.dbPool);
 
   // 检查上限
