@@ -228,5 +228,7 @@
   "authEnterpriseIndustryPh": "企业所属行业，用于精准匹配采购需求",
   "authEnterpriseCertificationsPh": "例如：ISO9001、CE。资质认证有助于提升匹配度",
   "authEnterpriseProductsPh": "主营产品或服务，帮助采购方快速了解您的供应能力",
-  "authEnterpriseIntroPh": "简要介绍企业背景、核心优势和主要业务方向"
+  "authEnterpriseIntroPh": "简要介绍企业背景、核心优势和主要业务方向",
+  "aiMatchDiagHint": "有 {n} 家合作工厂未完善诊断信息，补全后匹配更精准",
+  "aiMatchDiagAction": "去完善"
 }

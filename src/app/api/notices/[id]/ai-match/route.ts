@@ -14,6 +14,8 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
 import { hasEnterpriseBinding } from "@/lib/services/identity";
+import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
+import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -21,6 +23,33 @@ const bodySchema = z.object({
 
 /** 单次匹配内部要并发调用多次 LLM（最多 5 家），按用户限流：10 分钟 6 次 */
 const AI_MATCH_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
+
+/** GET /api/notices/:id/ai-match — 只读匹配缓存（不触发生成、不消耗 LLM），用于进详情页回读历史结果 */
+export const GET = withRoute<{ params: Promise<{ id: string }> }>(
+  async (req, { params }) => {
+    const auth = await requireUserKeyOrThrow(req);
+    const { id } = await params;
+    const noticeId = Number(id);
+    if (!Number.isFinite(noticeId) || noticeId <= 0) {
+      routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
+    }
+    const ctx = getContext();
+    const [cached, diagPending] = await Promise.all([
+      new AiSummaryRepo(ctx.dbPool).findMatch(auth.userId, noticeId),
+      new UserSupplierPoolRepo(ctx.dbPool).countDiagnosisPending(auth.userId),
+    ]);
+    if (!cached?.match_results) {
+      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, diagPending } });
+    }
+    try {
+      const parsed = JSON.parse(cached.match_results);
+      if (Array.isArray(parsed)) {
+        return NextResponse.json({ code: 0, message: "ok", data: { cached: true, top: parsed, diagPending } });
+      }
+    } catch { /* 缓存损坏按无缓存处理 */ }
+    return NextResponse.json({ code: 0, message: "ok", data: { cached: false, diagPending } });
+  },
+);
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {

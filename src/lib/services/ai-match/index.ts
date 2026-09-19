@@ -29,6 +29,8 @@ export interface AiMatchResult {
   evaluated: number;
   /** 评估失败的数量（>0 且 top 为空 = 全部失败，前端按错误态呈现） */
   failed: number;
+  /** 资源库中缺诊断资料的工厂数（实时统计，用于"补全提升准确度"提示） */
+  diagPending: number;
 }
 
 const TOP_N = 3;
@@ -81,7 +83,11 @@ export async function getOrGenerateAiMatch(
       try {
         const parsed = JSON.parse(cached.match_results);
         if (Array.isArray(parsed)) {
-          return { top: parsed, cached: true, poolSize: parsed.length, evaluated: parsed.length, failed: 0 };
+          return {
+            top: parsed, cached: true,
+            poolSize: parsed.length, evaluated: parsed.length, failed: 0,
+            diagPending: await poolRepo.countDiagnosisPending(userId),
+          };
         }
       } catch { /* 数据损坏，继续重新生成 */ }
     }
@@ -90,7 +96,7 @@ export async function getOrGenerateAiMatch(
   // 获取资源库供应商画像
   const suppliers = await poolRepo.fetchSupplierProfiles(userId);
   if (suppliers.length === 0) {
-    return { top: [], cached: false, poolSize: 0, evaluated: 0, failed: 0 };
+    return { top: [], cached: false, poolSize: 0, evaluated: 0, failed: 0, diagPending: 0 };
   }
 
   // 获取公告
@@ -146,13 +152,14 @@ export async function getOrGenerateAiMatch(
   scored.sort((a, b) => b.overall - a.overall || a.pool_id - b.pool_id);
   const top = scored.slice(0, TOP_N);
 
-  // 写入缓存（match_results 独立列，仅存 Top N 排行 JSON，不再污染评分 score_* 列）
+  // 写入缓存（match_results 独立列，仅存 Top N 排行 JSON，不再污染评分 score_* 列；
+  // 附带每家工厂的整体推理过程，供前端展开展示）
   if (top.length > 0) {
     await summaryRepo.upsertMatch({
       userId, noticeId,
       matchResults: JSON.stringify(top.map((s) => ({
         pool_id: s.pool_id, supplier_id: s.supplier_id, company: s.company,
-        overall: s.overall, details: s.details,
+        overall: s.overall, details: s.details, reasoning: s.reasoning,
       }))),
       model: config.model,
       providerBaseUrl: config.base_url,
@@ -164,5 +171,6 @@ export async function getOrGenerateAiMatch(
     poolSize: suppliers.length,
     evaluated: scored.length + failed,
     failed,
+    diagPending: await poolRepo.countDiagnosisPending(userId),
   };
 }

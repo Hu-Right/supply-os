@@ -147,6 +147,18 @@ export class UserSupplierPoolRepo {
     return Number((rows as RowDataPacket[])[0]?.cnt ?? 0);
   }
 
+  /** 统计资源库中缺诊断资料的工厂数（LEFT JOIN 落空即待完善），用于匹配结果页的补全提示 */
+  async countDiagnosisPending(userId: number): Promise<number> {
+    const [rows] = await this.pool.query(
+      `SELECT COUNT(*) AS cnt
+       FROM crm_user_supplier_pool p
+       LEFT JOIN crm_supplier_qualification q ON q.id = p.qualification_id
+       WHERE p.user_id = ? AND p.supplier_id IS NOT NULL AND q.id IS NULL`,
+      [userId],
+    );
+    return Number((rows as RowDataPacket[])[0]?.cnt ?? 0);
+  }
+
   /** 回写诊断记录关联 */
   async linkQualification(userId: number, poolId: number, qualificationId: number): Promise<void> {
     await this.pool.execute(

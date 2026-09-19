@@ -228,5 +228,7 @@
   "supplierPoolEnterpriseDeniedHint": "Vous avez lié une entreprise. Utilisez le scoring IA avec votre profil entreprise.",
   "enterprisePoolDenied": "Vous avez créé un pool de fournisseurs. La page entreprise n'est plus disponible.",
   "enterprisePoolDeniedHint": "Les identités agent et entreprise sont exclusives. Videz d'abord votre pool de fournisseurs pour changer.",
-  "aiMatchIntro": "L'IA recommandera les usines les plus adaptées de votre pool de fournisseurs"
+  "aiMatchIntro": "L'IA recommandera les usines les plus adaptées de votre pool de fournisseurs",
+  "aiMatchDiagHint": "Usines de votre pool sans diagnostic complété : {n}. Complétez pour un matching plus précis.",
+  "aiMatchDiagAction": "Compléter"
 }

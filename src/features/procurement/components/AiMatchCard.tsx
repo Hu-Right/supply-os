@@ -15,6 +15,8 @@ import type { AiMatchData, MatchedSupplier } from "../api/ai-match";
 export interface AiMatchCardProps {
   data: AiMatchData | null;
   loading: boolean;
+  /** 历史缓存回读中（true 且无数据时显示骨架屏，避免引导按钮闪烁） */
+  cacheLoading?: boolean;
   error: string | null;
   onStart: () => void;
   onRegenerate: () => void;
@@ -60,7 +62,7 @@ function rankBadge(rank: number) {
   return "bg-amber-700/60 text-white";
 }
 
-export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoToPool }: AiMatchCardProps) {
+export function AiMatchCard({ data, loading, cacheLoading, error, onStart, onRegenerate, onGoToPool }: AiMatchCardProps) {
   const { t } = useLocale();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -79,6 +81,24 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
     }
     return t("aiScoreErrorGeneric") || "AI 匹配过程中出现错误，请稍后重试。";
   };
+
+  // 缓存回读中：与匹配中共用骨架屏，避免"先闪引导按钮再出结果"
+  if (cacheLoading && !data && !loading && !error) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Target className="w-5 h-5 text-purple-600" />
+          <h3 className="text-base font-extrabold text-slate-900">
+            {t("aiMatchTitle") || "AI 智能匹配"}
+          </h3>
+        </div>
+        <div className="animate-pulse space-y-3">
+          <div className="h-20 rounded-xl bg-slate-100" />
+          <div className="h-20 rounded-xl bg-slate-100" />
+        </div>
+      </section>
+    );
+  }
 
   // 未触发状态：引导按钮
   if (!data && !loading && !error) {
@@ -248,6 +268,23 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
         </div>
       )}
 
+      {/* 诊断补全提示：池中有工厂缺诊断资料时引导补全（提升后续匹配准确度） */}
+      {data.top.length > 0 && (data.diagPending ?? 0) > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <p className="text-2xs text-amber-700 flex-1 leading-4">
+            {(t("aiMatchDiagHint") || "有 {n} 家合作工厂未完善诊断信息，补全后匹配更精准").replace("{n}", String(data.diagPending))}
+          </p>
+          <button
+            type="button"
+            onClick={onGoToPool}
+            className="shrink-0 rounded border border-amber-300 bg-white px-2 py-0.5 text-2xs font-bold text-amber-700 hover:bg-amber-50 transition-colors"
+          >
+            {t("aiMatchDiagAction") || "去完善"}
+          </button>
+        </div>
+      )}
+
       {/* Top N 供应商列表 */}
       <div className="space-y-3">
         {data.top.map((supplier, idx) => (
@@ -315,6 +352,15 @@ function SupplierCard({
       <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
         <div className="overflow-hidden">
           <div className="px-4 pb-4 pt-2 space-y-2 border-t border-slate-100">
+            {/* 整体推理过程（新缓存才携带；旧缓存无此字段则不展示） */}
+            {supplier.reasoning && (
+              <div className="rounded-md bg-purple-50/60 border border-purple-100 px-2.5 py-2">
+                <p className="text-2xs font-bold text-purple-700 mb-1">
+                  {t("aiScoreReasoning") || "AI 分析推理过程"}
+                </p>
+                <p className="text-2xs text-slate-600 leading-4 whitespace-pre-wrap">{supplier.reasoning}</p>
+              </div>
+            )}
             {/* 匹配项 + 差距项摘要 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
               {/* 核心优势 */}

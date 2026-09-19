@@ -80,3 +80,14 @@ describe("UserSupplierPoolRepo", () => {
     expect(result[0].company).toBe("工厂A");
   });
 });
+
+describe("UserSupplierPoolRepo.countDiagnosisPending", () => {
+  it("统计缺诊断资料的工厂数", async () => {
+    const mockQuery = vi.fn();
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    mockQuery.mockResolvedValue([[{ cnt: 3 }]]);
+    const count = await repo.countDiagnosisPending(100);
+    expect(count).toBe(3);
+    expect(mockQuery.mock.calls[0][0]).toContain("q.id IS NULL");
+  });
+});

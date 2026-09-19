@@ -5,13 +5,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { findMatch, upsertMatch, findScore, upsertScore, findActiveByUser, fetchSupplierProfiles, callLlmForScore } = vi.hoisted(() => ({
+const { findMatch, upsertMatch, findScore, upsertScore, findActiveByUser, fetchSupplierProfiles, countDiagnosisPending, callLlmForScore } = vi.hoisted(() => ({
   findMatch: vi.fn(),
   upsertMatch: vi.fn(),
   findScore: vi.fn(),
   upsertScore: vi.fn(),
   findActiveByUser: vi.fn(),
   fetchSupplierProfiles: vi.fn(),
+  countDiagnosisPending: vi.fn(),
   callLlmForScore: vi.fn(),
 }));
 
@@ -29,7 +30,7 @@ vi.mock("@/lib/repos/llm-config.repo", () => ({
 
 vi.mock("@/lib/repos/user-supplier-pool.repo", () => ({
   UserSupplierPoolRepo: function (this: any) {
-    Object.assign(this, { fetchSupplierProfiles });
+    Object.assign(this, { fetchSupplierProfiles, countDiagnosisPending });
   },
 }));
 
@@ -56,6 +57,7 @@ beforeEach(() => {
   findActiveByUser.mockResolvedValue({ id: 1, base_url: "https://x", api_key: "enc", model: "m" });
   callLlmForScore.mockResolvedValue({ data: llmData, model: "m" });
   upsertMatch.mockResolvedValue(undefined);
+  countDiagnosisPending.mockResolvedValue(2);
 });
 
 describe("getOrGenerateAiMatch 缓存分键", () => {
@@ -64,16 +66,20 @@ describe("getOrGenerateAiMatch 缓存分键", () => {
     const res = await getOrGenerateAiMatch({} as any, 1, 2, false);
     expect(res.cached).toBe(true);
     expect(res.top[0].overall).toBe(88);
+    expect(res.diagPending).toBe(2);
     expect(findScore).not.toHaveBeenCalled();
     expect(callLlmForScore).not.toHaveBeenCalled();
   });
 
-  it("生成后写 match_results，不触碰评分列", async () => {
+  it("生成后写 match_results（含整体 reasoning），不触碰评分列", async () => {
     findMatch.mockResolvedValue(null);
     fetchSupplierProfiles.mockResolvedValue([supplierRow]);
     const res = await getOrGenerateAiMatch(noticePool(), 1, 2, false);
     expect(res.top).toHaveLength(1);
+    expect(res.diagPending).toBe(2);
     expect(upsertMatch).toHaveBeenCalledTimes(1);
+    const cached = JSON.parse(upsertMatch.mock.calls[0][0].matchResults);
+    expect(cached[0].reasoning).toBe("r");
     expect(upsertScore).not.toHaveBeenCalled();
     expect(findScore).not.toHaveBeenCalled();
   });
@@ -144,6 +150,7 @@ describe("getOrGenerateAiMatch 并发评估与失败处理", () => {
     expect(res.poolSize).toBe(0);
     expect(res.evaluated).toBe(0);
     expect(res.failed).toBe(0);
+    expect(res.diagPending).toBe(0);
     expect(callLlmForScore).not.toHaveBeenCalled();
   });
 });

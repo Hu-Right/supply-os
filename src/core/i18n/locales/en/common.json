@@ -228,5 +228,7 @@
   "authEnterpriseIndustryPh": "Industry sector for precise procurement demand matching",
   "authEnterpriseCertificationsPh": "e.g. ISO9001, CE. Certifications help improve match rate",
   "authEnterpriseProductsPh": "Main products/services to help buyers quickly understand your supply capability",
-  "authEnterpriseIntroPh": "Brief introduction of company background, core strengths and main business direction"
+  "authEnterpriseIntroPh": "Brief introduction of company background, core strengths and main business direction",
+  "aiMatchDiagHint": "{n} factories in your pool lack diagnosis info. Complete it for more accurate matching.",
+  "aiMatchDiagAction": "Complete"
 }

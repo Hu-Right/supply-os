@@ -228,5 +228,7 @@
   "supplierPoolEnterpriseDeniedHint": "Ha vinculado una empresa. Use la puntuación IA con su perfil de empresa.",
   "enterprisePoolDenied": "Ha creado un pool de proveedores. La página de información de empresa ya no está disponible.",
   "enterprisePoolDeniedHint": "Las identidades de agente y empresa son excluyentes. Para cambiar, vacíe primero su pool de proveedores.",
-  "aiMatchIntro": "La IA recomendará las fábricas más adecuadas de su pool de proveedores"
+  "aiMatchIntro": "La IA recomendará las fábricas más adecuadas de su pool de proveedores",
+  "aiMatchDiagHint": "{n} fábricas de su pool no tienen diagnóstico completo. Complételo para un emparejamiento más preciso.",
+  "aiMatchDiagAction": "Completar"
 }

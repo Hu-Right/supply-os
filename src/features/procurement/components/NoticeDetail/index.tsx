@@ -232,6 +232,7 @@ export function NoticeDetail({
                 <AiMatchCard
                   data={aiMatch.data}
                   loading={aiMatch.loading}
+                  cacheLoading={aiMatch.cacheLoading}
                   error={aiMatch.error}
                   onStart={() => aiMatch.triggerMatch(false)}
                   onRegenerate={() => aiMatch.triggerMatch(true)}

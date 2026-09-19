@@ -2,7 +2,7 @@
  * AI 智能匹配前端 API
  * @module features/procurement/api/ai-match
  */
-import { getAuthToken } from "@/core/http";
+import { api } from "@/core/http";
 import type { DimensionDetail } from "./ai-score";
 
 export interface MatchedSupplier {
@@ -30,25 +30,26 @@ export interface AiMatchData {
   evaluated: number;
   /** 评估失败的数量（>0 且 top 为空 = 全部失败） */
   failed: number;
+  /** 资源库中缺诊断资料的工厂数（补全提示） */
+  diagPending: number;
 }
 
-/** 触发 AI 智能匹配 */
+/** GET 回读匹配缓存（不触发生成、不消耗 LLM）；无缓存返回 { cached: false } */
+export async function fetchAiMatchCache(
+  noticeId: number,
+): Promise<{ cached: boolean; top?: MatchedSupplier[]; diagPending: number }> {
+  return api<{ cached: boolean; top?: MatchedSupplier[]; diagPending: number }>(
+    `/api/notices/${noticeId}/ai-match`,
+  );
+}
+
+/** 触发 AI 智能匹配（POST；手动触发，缓存优先） */
 export async function fetchAiMatch(
   noticeId: number,
   forceRegenerate = false,
 ): Promise<AiMatchData> {
-  const authToken = getAuthToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-
-  const res = await fetch(`/api/notices/${noticeId}/ai-match`, {
+  return api<AiMatchData>(`/api/notices/${noticeId}/ai-match`, {
     method: "POST",
-    headers,
-    credentials: "same-origin",
-    body: JSON.stringify({ forceRegenerate }),
+    body: { forceRegenerate },
   });
-
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  return json.data as AiMatchData;
 }
