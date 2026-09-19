@@ -10,6 +10,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
 
@@ -17,9 +18,14 @@ const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
 });
 
+/** 单次匹配内部要并发调用多次 LLM（最多 5 家），按用户限流：10 分钟 6 次 */
+const AI_MATCH_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
+
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
-  async (req: NextRequest, { params }) => {
+  async (req, { params }) => {
     const auth = await requireUserKeyOrThrow(req);
+    const rl = checkRateLimit(req, AI_MATCH_RATE, () => `ai_match:${auth.userId}`);
+    if (rl) return rl;
     const { id } = await params;
     const noticeId = Number(id);
     if (!Number.isFinite(noticeId) || noticeId <= 0) {

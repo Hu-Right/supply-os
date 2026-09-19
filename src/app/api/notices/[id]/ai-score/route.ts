@@ -10,6 +10,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getOrGenerateAiScore } from "@/lib/services/ai-score";
 
@@ -17,9 +18,14 @@ const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
 });
 
+/** LLM 生成成本高（20-60s/次），按用户限流：10 分钟 6 次（含强制重新评分） */
+const AI_SCORE_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
+
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
     const auth = await requireUserKeyOrThrow(req);
+    const rl = checkRateLimit(req, AI_SCORE_RATE, () => `ai_score:${auth.userId}`);
+    if (rl) return rl;
     const { id } = await params;
     const noticeId = Number(id);
     if (!Number.isFinite(noticeId) || noticeId <= 0) {

@@ -12,6 +12,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
@@ -19,6 +20,9 @@ import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
 });
+
+/** LLM 生成成本高（20-60s/次），仅限流 POST 生成路径（GET 只读缓存不消耗 LLM）：10 分钟 6 次 */
+const AI_SUMMARY_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
 
 /** GET：只读缓存，用于进页面时判断是否已有历史分析（不消耗 LLM） */
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -53,6 +57,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
     const auth = await requireUserKeyOrThrow(req);
+    const rl = checkRateLimit(req, AI_SUMMARY_RATE, () => `ai_summary:${auth.userId}`);
+    if (rl) return rl;
     const { id } = await params;
     const noticeId = Number(id);
     if (!Number.isFinite(noticeId) || noticeId <= 0) {
