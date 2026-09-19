@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
+import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
@@ -125,6 +126,19 @@ export const POST = withRoute(async (req: NextRequest) => {
         await repo.linkUserQualification(userId, id);
       } catch {
         // 回写失败不阻断提交
+      }
+    }
+
+    // 资源库回填打通（P0-1）：外贸员从“我的供应商资源库”为池中工厂填写诊断表时携带 poolId，
+    // 将新诊断记录关联回 crm_user_supplier_pool.qualification_id，使 fetchSupplierProfiles 的
+    // LEFT JOIN 能取到诊断字段（激活原死代码 linkQualification）。
+    // linkQualification 的 WHERE 含 user_id，天然防越权改他人资源库行。
+    const poolId = Number(body.poolId) || 0;
+    if (userId && poolId) {
+      try {
+        await new UserSupplierPoolRepo(getPool()).linkQualification(userId, poolId, id);
+      } catch (err) {
+        console.error("[supplier-qualification] 资源库诊断关联回写失败:", err instanceof Error ? err.message : err);
       }
     }
 
