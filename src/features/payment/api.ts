@@ -22,6 +22,7 @@ export type { OrderInfo } from "@/types/payment";
 // ── feature 级查询 API（以下为 features/payment 私有）──
 
 import { api, apiCached, buildQuery } from "@/core/http";
+import { pickNoticeApiLang } from "@/shared/constants/langs";
 
 /**
  * 关联公告摘要（订单/解锁记录列表内嵌）
@@ -109,15 +110,14 @@ export async function fetchOrders(params: {
   return api<PagedResult<OrderRecord>>(`/api/payment/orders?${qs}`);
 }
 
-// 本地差异 #18：库内存在中文原文公告，en 也需请求译文（英文原文由服务端内容检测直通返回，不耗 API）
-const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
+// 本地差异 #18：lang 白名单已收敛至 shared/constants/langs（SSOT）
 
 /**
  * 查询用户解锁记录（分页）
  * Fetch user's unlock records (paged)
  *
- * @remarks 传入 locale（zh/fr/ru/es/ar）时后端附带公告标题译文 title_i18n，
- *          与公告详情翻译共用缓存；en 为原文语言不传 lang。
+ * @remarks 传入 locale（zh/en/fr/ru/es/ar）且命中白名单时后端附带公告标题译文 title_i18n，
+ *          与公告详情翻译共用缓存（lang 白名单见 shared/constants/langs）。
  */
 export async function fetchUnlocks(params: {
   page?: number;
@@ -127,7 +127,7 @@ export async function fetchUnlocks(params: {
   const qs = buildQuery({
     page: params.page,
     limit: params.limit,
-    lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,
+    lang: pickNoticeApiLang(params.locale),
   });
   // P0 性能优化：使用 apiCached 去重并发请求（StrictMode 下 effect 双重执行）
   // 回滚：将 apiCached 替换回 api，删除第二个参数

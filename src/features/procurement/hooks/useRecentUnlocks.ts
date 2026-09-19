@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from "react";
 import { apiCached, buildQuery } from "@/core/http";
+import { pickNoticeApiLang } from "@/shared/constants/langs";
 
 /** 解锁记录（与 payment/api UnlockRecord 对齐） */
 export interface UnlockRecord {
@@ -24,9 +25,6 @@ export interface UnlockRecord {
   } | null;
 }
 
-/** 本地差异 #18：与 features/payment/api 对齐 */
-const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
-
 /** 查询用户解锁记录 */
 async function fetchUnlocks(params: {
   page?: number;
@@ -36,7 +34,7 @@ async function fetchUnlocks(params: {
   const qs = buildQuery({
     page: params.page,
     limit: params.limit,
-    lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,
+    lang: pickNoticeApiLang(params.locale),
   });
   return apiCached<{ total: number; list: UnlockRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
 }

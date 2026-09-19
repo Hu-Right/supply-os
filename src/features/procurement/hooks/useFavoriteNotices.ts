@@ -9,10 +9,8 @@
  */
 import { useEffect, useState } from "react";
 import { api } from "@/core/http";
+import { pickNoticeApiLang } from "@/shared/constants/langs";
 import type { NoticeFavoriteEntry } from "../api";
-
-/** 与 RecentUnlocks 的翻译语言白名单口径一致 */
-const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
 
 /** 拉取收藏公告；favoriteIds 内容或 locale 变化时刷新 */
 export function useFavoriteNotices(
@@ -30,7 +28,8 @@ export function useFavoriteNotices(
       return;
     }
     let cancelled = false;
-    const lang = locale && NOTICE_API_LANGS.has(locale) ? `&lang=${locale}` : "";
+    const apiLang = pickNoticeApiLang(locale);
+    const lang = apiLang ? `&lang=${apiLang}` : "";
     api<{ list: NoticeFavoriteEntry[] }>(`/api/notices/favorites?limit=${limit}${lang}`)
       .then((res) => {
         if (!cancelled) setItems(res.list || []);
