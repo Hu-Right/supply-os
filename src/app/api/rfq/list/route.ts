@@ -10,17 +10,10 @@ import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { formatDeadlineDateYMD } from "@/shared/utils/format";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
-
-/** deadline_sec → ISO 日期 yyyy-MM-dd */
-function formatDeadline(deadlineSec: number): string {
-  if (!deadlineSec || deadlineSec <= 0) return "";
-  const d = new Date(deadlineSec * 1000);
-  if (isNaN(d.getTime())) return "";
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-}
 
 /** estimated_value + currency → 展示文案 */
 function formatBudget(value: number, currency: string): string {
@@ -113,7 +106,7 @@ export const GET = withRoute(async (req: NextRequest) => {
         budgetDisplay: formatBudget(Number(row.estimated_value) || 0, String(row.currency || "CNY")),
         budgetUsd: Number(row.estimated_value) || 0,
         currency: String(row.currency || "CNY"),
-        deadline: formatDeadline(Number(row.deadline_sec) || 0),
+        deadline: formatDeadlineDateYMD(Number(row.deadline_sec) || 0, { utc: true, emptyText: "" }),
         responses: 0,
         boosted: Boolean(row.is_featured),
       };

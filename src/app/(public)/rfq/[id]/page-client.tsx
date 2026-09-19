@@ -17,6 +17,7 @@ import {
 
 import { api } from "@/core/http";
 import { Button, Card } from "@/shared/ui";
+import { formatDeadlineDateYMD } from "@/shared/utils/format";
 
 interface RfqDetail {
   id: number;
@@ -46,12 +47,6 @@ const STATUS_LABELS: Record<string, string> = {
   published: "已发布",
   closed: "已关闭",
 };
-
-function formatDeadline(sec: number): string {
-  if (!sec) return "长期有效";
-  const d = new Date(sec * 1000);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 function formatBudget(d: RfqDetail): string {
   if (d.budgetConfidential) return "面议（预算保密）";
@@ -134,7 +129,7 @@ export default function RfqDetailPageClient() {
         <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-secondary-400">
           <span className="flex items-center gap-1">
             <CalendarClock className="w-3.5 h-3.5" />
-            报价截止：{formatDeadline(detail.deadlineSec)}
+            报价截止：{formatDeadlineDateYMD(detail.deadlineSec)}
           </span>
           {detail.publishedDate && (
             <span className="flex items-center gap-1">

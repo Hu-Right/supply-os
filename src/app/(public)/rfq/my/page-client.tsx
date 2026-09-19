@@ -14,6 +14,7 @@ import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { Button, EmptyState } from "@/shared/ui";
+import { formatDeadlineDateYMD } from "@/shared/utils/format";
 
 interface MyRfq {
   id: number;
@@ -36,12 +37,6 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 function formatBudget(v: number): string {
   if (!v || v <= 0) return "预算保密";
   return `USD ${Math.round(v)} 万`;
-}
-
-function formatDeadline(sec: number): string {
-  if (!sec || sec <= 0) return "长期有效";
-  const d = new Date(sec * 1000);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
 export default function MyRfqPageClient() {
@@ -164,7 +159,7 @@ export default function MyRfqPageClient() {
                         <FileText className="w-3.5 h-3.5" /> {formatBudget(rfq.budgetUsd)}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" /> 截止 {formatDeadline(rfq.deadlineSec)}
+                        <Clock className="w-3.5 h-3.5" /> 截止 {formatDeadlineDateYMD(rfq.deadlineSec, { utc: true })}
                       </span>
                       {rfq.country && <span>{rfq.country}</span>}
                     </div>
