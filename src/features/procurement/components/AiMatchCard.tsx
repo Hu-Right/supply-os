@@ -73,7 +73,7 @@ export function AiMatchCard({ data, loading, cacheLoading, error, onStart, onReg
     if (raw.includes("429") || raw.includes("rate")) {
       return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
     }
-    if (raw.includes("403") || raw.includes("core_locked")) {
+    if (raw.includes("403") || raw.includes("core_locked") || raw.includes("锁定") || raw.includes("解锁")) {
       return t("aiScoreErrorLocked") || "请先解锁本公告，再进行 AI 匹配。";
     }
     if (raw.includes("401") || raw.includes("LLM_NOT_CONFIGURED")) {

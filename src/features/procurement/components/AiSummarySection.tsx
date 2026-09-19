@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Sparkles,
   Loader2,
+  Lock,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useEffect, useState } from "react";
@@ -39,6 +40,10 @@ export interface AiSummarySectionProps {
   /** 点击"开始分析"的回调 */
   onStart?: () => void;
   onRegenerate?: () => void;
+  /** 公告处于锁定态（未解锁）：不开放"开始分析"，改为引导解锁 */
+  locked?: boolean;
+  /** 点击"解锁查看"的回调 */
+  onRequestUnlock?: () => void;
 }
 
 interface SummaryItem {
@@ -58,6 +63,8 @@ export function AiSummarySection({
   onConfigure,
   onStart,
   onRegenerate,
+  locked = false,
+  onRequestUnlock,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
 
@@ -121,6 +128,32 @@ export function AiSummarySection({
             <div key={i} className="h-3 rounded bg-teal-100/70" style={{ width: `${90 - i * 15}%` }} />
           ))}
         </div>
+      </section>
+    );
+  }
+
+  // 锁定态：AI 摘要端点强制"登录+解锁"，锁定必 403 core_locked。
+  // 与翻译一致（ARCH-P0）：锁定态不开放"开始分析"，改为引导解锁，避免"点了才报错"。
+  if (locked && !hasData) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Lock className="w-5 h-5 text-slate-400" />
+          <h3 className="text-base font-extrabold text-slate-900">
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
+          </h3>
+        </div>
+        <p className="text-sm text-slate-500 mb-4">
+          {t("detail_aiSummaryErrorLocked") || "请先解锁本公告，再进行 AI 分析。"}
+        </p>
+        <button
+          type="button"
+          onClick={onRequestUnlock}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+        >
+          <Lock className="w-4 h-4" />
+          {t("procurement_unlockToViewFull") || "解锁查看完整信息"}
+        </button>
       </section>
     );
   }

@@ -8,7 +8,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LlmConfigRepo } from "../../repos/llm-config.repo";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { encryptApiKey } from "./crypto";
-import { callLlmForSummary, callLlmForSummaryStream } from "./llm-client";
+import { callLlmForSummary, callLlmForSummaryStream, parseAiSummaryResponse } from "./llm-client";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
 import { extractAttachmentsText } from "./doc-extractor";
 import {
@@ -224,13 +224,16 @@ export async function* streamAiSummary(
     supplier,
   );
 
-  // 流式调用 LLM，逐 token yield
+  // 流式调用 LLM，逐 token yield；同时累积完整文本，结束后落库缓存。
+  // 修复：此前流式路径不持久化，导致"开始分析"结果刷新后丢失、按钮复现。
+  let accumulated = "";
   try {
     for await (const chunk of callLlmForSummaryStream(
       creds,
       SYSTEM_PROMPT,
       userPrompt,
     )) {
+      accumulated += chunk;
       yield chunk;
     }
   } catch (err) {
@@ -238,6 +241,24 @@ export async function* streamAiSummary(
     yield JSON.stringify({ error: msg });
     return;
   }
+
+  // 持久化：解析累积文本为 6 维度并 upsert，使下次进入直接命中缓存。
+  // 解析/落库失败静默降级（结果已推送给前端，本次不缓存，下次可重试）。
+  try {
+    const data = parseAiSummaryResponse(accumulated);
+    await summaryRepo.upsert({
+      userId,
+      noticeId,
+      coreDeliverables: data.coreDeliverables,
+      keyQualifications: data.keyQualifications,
+      paymentCycle: data.paymentCycle,
+      competitiveLandscape: data.competitiveLandscape,
+      bidStrategy: data.bidStrategy,
+      riskAlerts: data.riskAlerts,
+      model: creds.model,
+      providerBaseUrl: creds.baseUrl,
+    });
+  } catch { /* 忽略：不影响已流式返回的内容 */ }
 }
 
 /** 保存用户 LLM 配置（api_key 加密后落库） */

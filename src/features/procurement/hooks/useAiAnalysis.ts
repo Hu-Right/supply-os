@@ -3,6 +3,8 @@
  * @module features/procurement/hooks/useAiAnalysis
  * @description 流式拉取 AI 摘要（SSE 逐 token）。noticeId 变化自动触发。
  *              缓存命中时一次性填充；未命中时逐字流式渲染。
+ *              锁定态（isUnlocked=false）不发任何请求：AI 摘要端点强制"登录+解锁"，
+ *              锁定必 403 core_locked（与 useNoticeTranslation 的 ARCH-P0 处理一致）。
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -40,6 +42,8 @@ function tryParsePartialJson(text: string): Partial<AiSummaryData> {
 export function useAiAnalysis(
   noticeId: number | undefined,
   isLoggedIn: boolean,
+  /** 公告是否已解锁：未解锁时不加载缓存、不开放分析（后端必 403 core_locked） */
+  isUnlocked = true,
 ): UseAiAnalysisReturn {
   const [data, setData] = useState<AiSummaryData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -122,9 +126,10 @@ export function useAiAnalysis(
   }, []);
 
   // 进入详情：检查 LLM 配置 + 自动加载历史缓存（有缓存直接展示，无缓存才显示开始按钮）
+  // 锁定态直接复位并早退：不发 llm-config/缓存请求，避免必败的 403 core_locked
   useEffect(() => {
     abortRef.current = false;
-    if (!noticeId || !isLoggedIn) {
+    if (!noticeId || !isLoggedIn || !isUnlocked) {
       setData(null); setLlmConfigured(false); setLoading(false); setStreaming(false);
       return;
     }
@@ -153,13 +158,13 @@ export function useAiAnalysis(
       }
     })();
     return () => { cancelled = true; abortRef.current = true; };
-  }, [noticeId, isLoggedIn]);
+  }, [noticeId, isLoggedIn, isUnlocked]);
 
   const triggerAnalysis = useCallback((force = false) => {
-    if (!noticeId) return;
+    if (!noticeId || !isUnlocked) return;
     abortRef.current = false;
     void run(noticeId, force);
-  }, [noticeId, run]);
+  }, [noticeId, isUnlocked, run]);
 
   return { data, loading, streaming, error, cached, llmConfigured, triggerAnalysis };
 }

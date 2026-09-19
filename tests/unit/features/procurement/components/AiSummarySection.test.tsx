@@ -24,6 +24,16 @@ describe("AiSummarySection", () => {
     expect(screen.getByText("detail_aiSummaryStart")).toBeInTheDocument();
   });
 
+  it("锁定态显示引导解锁面板而非开始分析按钮", () => {
+    const onRequestUnlock = vi.fn();
+    render(<AiSummarySection data={null} llmConfigured locked onRequestUnlock={onRequestUnlock} />);
+    expect(screen.getByText("detail_aiSummaryTitle")).toBeInTheDocument();
+    expect(screen.getByText("detail_aiSummaryErrorLocked")).toBeInTheDocument();
+    expect(screen.getByText("procurement_unlockToViewFull")).toBeInTheDocument();
+    // 锁定态不得出现"开始分析"按钮（点击必 403 core_locked）
+    expect(screen.queryByText("detail_aiSummaryStart")).not.toBeInTheDocument();
+  });
+
   it("未配置 LLM 且无数据时显示引导卡片", () => {
     render(<AiSummarySection data={null} llmConfigured={false} />);
     expect(screen.getByText("procurement_aiSummaryNeedConfig")).toBeInTheDocument();

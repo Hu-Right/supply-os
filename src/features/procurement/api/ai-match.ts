@@ -38,9 +38,11 @@ export interface AiMatchData {
 export async function fetchAiMatchCache(
   noticeId: number,
 ): Promise<{ cached: boolean; top?: MatchedSupplier[]; diagPending: number }> {
-  return api<{ cached: boolean; top?: MatchedSupplier[]; diagPending: number }>(
+  // 后端统一包 { code, message, data } envelope，api() 不自动解包——需取 res.data
+  const res = await api<{ code: number; data: { cached: boolean; top?: MatchedSupplier[]; diagPending: number } }>(
     `/api/notices/${noticeId}/ai-match`,
   );
+  return res.data;
 }
 
 /** 触发 AI 智能匹配（POST；手动触发，缓存优先） */
@@ -48,8 +50,9 @@ export async function fetchAiMatch(
   noticeId: number,
   forceRegenerate = false,
 ): Promise<AiMatchData> {
-  return api<AiMatchData>(`/api/notices/${noticeId}/ai-match`, {
+  const res = await api<{ code: number; data: AiMatchData }>(`/api/notices/${noticeId}/ai-match`, {
     method: "POST",
     body: { forceRegenerate },
   });
+  return res.data;
 }

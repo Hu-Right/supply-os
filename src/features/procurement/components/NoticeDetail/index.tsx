@@ -71,7 +71,10 @@ export function NoticeDetail({
   const userId = useUserId();
   const router = useRouter();
   const noticeId = (notice as { id?: number }).id;
-  const aiSummary = useAiAnalysis(noticeId, isLoggedIn);
+  // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）。
+  // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
+  const coreUnlocked = notice.core_locked === false;
+  const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked);
   const aiScore = useAiScore(noticeId);
   const aiMatch = useAiMatch(noticeId);
   const hasSupplier = useHasSupplier(userId);
@@ -88,9 +91,6 @@ export function NoticeDetail({
   useEffect(() => {
     setActiveTab("summary");
   }, [notice.id]);
-
-  // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）
-  const coreUnlocked = notice.core_locked === false;
 
   // 翻译：锁定态不发起请求——/translation 同属付费墙闸口（ARCH-P0 2026-09-05），
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
@@ -169,8 +169,10 @@ export function NoticeDetail({
                   streaming={aiSummary.streaming}
                   error={aiSummary.error}
                   llmConfigured={aiSummary.llmConfigured}
+                  locked={!coreUnlocked}
                   onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
+                  onRequestUnlock={() => onUnlock(notice)}
                   onRegenerate={() => aiSummary.triggerAnalysis(true)}
                 />
 
