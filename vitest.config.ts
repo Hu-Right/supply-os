@@ -71,6 +71,9 @@ export default defineConfig({
         "src/lib/services/ai-summary/llm-client.ts",
         "src/lib/services/ai-summary/prompt.ts",
 
+        // ── src/lib/services/ai-match — 匹配候选粗筛纯逻辑 ──
+        "src/lib/services/ai-match/pre-filter.ts",
+
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
 
