@@ -29,7 +29,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 - **认证**：`supply_os_auth_user`（AuthContext 持有）+ `supply_os_auth_token`（api-client 持有）；401 由 api-client 广播 `supply-os:unauthorized`，AuthContext 订阅处理（单向依赖 + 事件回传，无环）。
 - **服务端状态**：无 react-query；`api-client` 模块级 TTL 缓存（5 分钟/容量 200/飞行中去重）承担 query 层。
 - **支付**：`lib/payment/PaymentService` + provider 策略（mock/alipay/wechat）；回调路由 F20（TRADE_CLOSED → reverse）；状态机白名单 F19（仅 pending 可流转）。相关决策见 `docs/adr/`。
-- **搜索**：`lib/services/search-sync`（宽表同步）与 `lib/services/search-orchestrator`（查询编排）双向依赖已知（评估报告 A2），改造需先解环。
+- **搜索**：`lib/services/search-sync`（宽表同步）与 `lib/services/search-orchestrator`（查询编排）**已解环**（A2/ARCH-P3，2026-09-05）：orchestrator 注册缓存失效回调供 sync 完成后调用，二者互相引用改为「回调 + 无依赖叶子模块直引」，不再经 barrel 回环。新代码禁止重新引入二者的直接 import。
 
 ## 测试与门禁
 
@@ -41,7 +41,8 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 
 - 错误反馈：表单内联校验错误 → 组件 message state；跨组件/异步操作结果 → sonner toast。
 - 安全：出站 URL 仅 http/https 公网（`OutboundUrlSchema`）；DB 配置经 zod 校验（`DbConfigSchema`）；SQL 一律参数绑定；日志文件名过 basename；出站 MySQL 连接禁 multipleStatements。
-- 新 API 路由：纯 service 委托 + 错误 envelope `{code, message}`（4xx/5xx），成功返回裸载荷（2xx）。
+- 新 API 路由：纯 service 委托（route 仅鉴权/参数校验/编排调用，业务 SQL 下沉 `lib/services`，不得在 route 内 `new XxxRepo()` 直连）+ 错误 envelope `{code, message}`（4xx/5xx），成功默认返回裸载荷（2xx）。
+  - **已知例外（待统一）**：AI 相关端点（`/api/notices/[id]/ai-score|ai-match|ai-summary` 等，约 11 个）仍返回 `{code:0, message, data}` 三字段信封，客户端按端点解包。因涉及全部消费方解析链，信封统一列为后续项，暂不改动 wire 格式。
 
 ### Hooks 命名与职责约定
 
