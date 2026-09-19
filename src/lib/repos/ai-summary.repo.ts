@@ -177,4 +177,12 @@ export class AiSummaryRepo {
       [input.userId, input.noticeId, input.model, input.providerBaseUrl, input.matchResults],
     );
   }
+
+  /** 按用户失效全部匹配缓存（资源库增删供应商后，旧匹配结果不再可信） */
+  async removeMatchByUser(userId: number): Promise<void> {
+    await this.pool.query(
+      "UPDATE crm_notice_ai_summaries SET match_results = NULL WHERE user_id = ?",
+      [userId],
+    );
+  }
 }

@@ -12,8 +12,18 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
+import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 
 const MAX_POOL_SIZE = 50;
+
+/** 资源库变更后失效该用户的匹配缓存（失败不影响主流程，仅记录日志） */
+async function invalidateMatchCacheSafely(dbPool: Pool, userId: number): Promise<void> {
+  try {
+    await new AiSummaryRepo(dbPool).removeMatchByUser(userId);
+  } catch (err) {
+    console.error("[supplier-pool] 匹配缓存失效失败:", err instanceof Error ? err.message : err);
+  }
+}
 
 /** GET: 列出我的供应商资源库 */
 export const GET = withRoute(async (req: NextRequest) => {
@@ -53,6 +63,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     if (!poolId) {
       routeError(400, 40021, "该供应商已在你的资源库中");
     }
+    await invalidateMatchCacheSafely(ctx.dbPool, auth.userId);
     return NextResponse.json({ code: 0, message: "ok", data: { poolId, source: "platform", supplierId: matched.id } });
   }
 
@@ -63,6 +74,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   );
   const newSupplierId = Number((insertResult as any).insertId);
   const poolId = await poolRepo.addManual(auth.userId, newSupplierId);
+  await invalidateMatchCacheSafely(ctx.dbPool, auth.userId);
   return NextResponse.json({ code: 0, message: "ok", data: { poolId, source: "manual", supplierId: newSupplierId } });
 });
 

@@ -11,6 +11,17 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
+import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
+import type { Pool } from "mysql2/promise";
+
+/** 资源库变更后失效该用户的匹配缓存（失败不影响主流程，仅记录日志） */
+async function invalidateMatchCacheSafely(dbPool: Pool, userId: number): Promise<void> {
+  try {
+    await new AiSummaryRepo(dbPool).removeMatchByUser(userId);
+  } catch (err) {
+    console.error("[supplier-pool] 匹配缓存失效失败:", err instanceof Error ? err.message : err);
+  }
+}
 
 const patchBodySchema = z.object({
   notes: z.string().max(500),
@@ -45,6 +56,7 @@ export const DELETE = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const repo = new UserSupplierPoolRepo(ctx.dbPool);
     await repo.remove(auth.userId, poolId);
+    await invalidateMatchCacheSafely(ctx.dbPool, auth.userId);
     return NextResponse.json({ code: 0, message: "ok" });
   },
 );
