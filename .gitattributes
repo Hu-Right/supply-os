@@ -1,0 +1,38 @@
+# 编码红线（docs/i18n-encoding-standard.md §2.1）：
+# 文本一律 LF 入库，防止 Windows core.autocrlf 与编码探测引入整文件 diff/GBK 污染。
+* text=auto eol=lf
+
+# 二进制文件：禁止 Git 做换行/编码转换
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.doc binary
+*.docx binary
+*.xlsx binary
+*.exe binary
+*.dll binary
+*.so binary
+*.wasm binary
+
+# 文档/数据文本：显式声明按文本处理（内容本身必须 UTF-8）
+*.md text eol=lf
+*.json text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
