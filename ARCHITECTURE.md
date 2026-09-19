@@ -23,6 +23,7 @@ src/lib        服务端唯一树：db / repos / services / payment / middleware
 2. `src/core` 不 import features/lib/app（http↔auth 通过 `supply-os:*` 事件总线反向感知，禁止直接 import 环）；
 3. `src/features` 不直接 import `@/lib/**`（服务端树），客户端一律经 `@/core/http` 的 `api()/apiCached()` 走 HTTP；feature 间禁止硬依赖，共享逻辑提升至 `shared/` 或经 `core/events` 事件总线解耦；
 4. 服务端唯一入口：`src/lib/**` + `src/instrumentation.ts`（无第二个服务端树）。
+5. **禁止管理员专用路由**：不得存在 `/api/admin/*` 等「以路径区分权限」的管理端接口，代码中也不得硬编码 admin 路径（历史上 `requireAdmin` 机制已于提交 `18d0d4fe` 彻底移除，不得复活）。审核 / 发布 / Key 管理等运营类操作一律走**统一业务 API + 服务端鉴权中间件**（如 `requireUserKeyOrThrow` + 显式权限判定），或由**内部服务 / 受控后台系统**直接维护数据，前端不暴露管理接口。确需临时运维入口时，必须同时满足：环境变量开关 + IP 白名单 + 审计日志，且不得以 `/api/admin/*` 形式落地。
 
 ## 关键机制
 
