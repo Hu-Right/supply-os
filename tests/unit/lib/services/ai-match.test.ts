@@ -34,11 +34,14 @@ vi.mock("@/lib/repos/user-supplier-pool.repo", () => ({
   },
 }));
 
-vi.mock("@/lib/services/ai-summary/crypto", () => ({ decryptApiKey: () => "plain-key" }));
+vi.mock("@/lib/services/ai-summary/crypto", () => ({ decryptApiKey: vi.fn(() => "plain-key") }));
 
 vi.mock("@/lib/services/ai-score/llm-client", () => ({ callLlmForScore }));
 
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
+import { decryptApiKey } from "@/lib/services/ai-summary/crypto";
+
+const decryptMock = vi.mocked(decryptApiKey);
 
 const noticePool = () => ({
   query: vi.fn()
@@ -152,5 +155,43 @@ describe("getOrGenerateAiMatch 并发评估与失败处理", () => {
     expect(res.failed).toBe(0);
     expect(res.diagPending).toBe(0);
     expect(callLlmForScore).not.toHaveBeenCalled();
+  });
+});
+
+describe("getOrGenerateAiMatch 错误与缓存损坏分支", () => {
+  it("缓存 JSON 损坏 → 视为无缓存重新生成", async () => {
+    findMatch.mockResolvedValue({ match_results: "{broken json" });
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    const res = await getOrGenerateAiMatch(noticePool(), 1, 2, false);
+    expect(res.cached).toBe(false);
+    expect(callLlmForScore).toHaveBeenCalledTimes(1);
+  });
+
+  it("缓存内容非数组 → 视为无缓存重新生成", async () => {
+    findMatch.mockResolvedValue({ match_results: JSON.stringify({ legacy: true }) });
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    const res = await getOrGenerateAiMatch(noticePool(), 1, 2, false);
+    expect(res.cached).toBe(false);
+  });
+
+  it("LLM 配置缺失 → 40001 errLlmNotConfigured", async () => {
+    findMatch.mockResolvedValue(null);
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    findActiveByUser.mockResolvedValue(null);
+    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+  });
+
+  it("API Key 解密失败 → 40001 errLlmNotConfigured", async () => {
+    findMatch.mockResolvedValue(null);
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    decryptMock.mockImplementationOnce(() => { throw new Error("bad key"); });
+    await expect(getOrGenerateAiMatch(noticePool(), 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40001 });
+  });
+
+  it("公告不存在 → 404 errNoticeNotFound", async () => {
+    findMatch.mockResolvedValue(null);
+    fetchSupplierProfiles.mockResolvedValue([supplierRow]);
+    const emptyPool = { query: vi.fn().mockResolvedValue([[]]) } as any;
+    await expect(getOrGenerateAiMatch(emptyPool, 1, 2, false)).rejects.toMatchObject({ status: 404, code: 40006 });
   });
 });

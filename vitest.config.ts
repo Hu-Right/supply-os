@@ -74,6 +74,15 @@ export default defineConfig({
         // ── src/lib/services/ai-match — 匹配候选粗筛纯逻辑 ──
         "src/lib/services/ai-match/pre-filter.ts",
 
+        // ── AI 评分/匹配/身份/资源库 — 服务编排（有测试）──
+        "src/lib/services/ai-match/index.ts",
+        "src/lib/services/ai-score/index.ts",
+        "src/lib/services/ai-score/llm-client.ts",
+        "src/lib/services/ai-score/prompt.ts",
+        "src/lib/services/identity.ts",
+        "src/lib/services/supplier-pool.ts",
+        "src/lib/repos/user-supplier-pool.repo.ts",
+
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
 

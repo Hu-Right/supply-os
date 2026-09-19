@@ -91,3 +91,70 @@ describe("UserSupplierPoolRepo.countDiagnosisPending", () => {
     expect(mockQuery.mock.calls[0][0]).toContain("q.id IS NULL");
   });
 });
+
+describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排所需）", () => {
+  const row = { id: 10, company: "工厂A", industry: "电子" };
+
+  it("findVerifiedByCompany 精确命中 → 只发一条查询", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[row]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    const found = await repo.findVerifiedByCompany("工厂A");
+    expect(found).toEqual({ id: 10, company: "工厂A", industry: "电子" });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it("精确未命中 → 回退模糊 LIKE，且通配符已转义", async () => {
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce([[]])
+      .mockResolvedValueOnce([[{ id: 11, company: "工厂A有限公司", industry: "" }]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    const found = await repo.findVerifiedByCompany("50%折扣_厂");
+    expect(found?.id).toBe(11);
+    const likeParam = mockQuery.mock.calls[1][1][0] as string;
+    // % 与 _ 必须被反斜杠转义，避免用户输入充当 LIKE 通配符
+    expect(likeParam).toBe("%50" + String.fromCharCode(92) + "%折扣" + String.fromCharCode(92) + "_厂%");
+  });
+
+  it("精确与模糊均未命中 → null", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await expect(repo.findVerifiedByCompany("不存在")).resolves.toBeNull();
+  });
+
+  it("findPendingByExactCompany 命中/未命中", async () => {
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce([[{ id: 44 }]])
+      .mockResolvedValueOnce([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await expect(repo.findPendingByExactCompany("工厂B")).resolves.toEqual({ id: 44 });
+    await expect(repo.findPendingByExactCompany("工厂B")).resolves.toBeNull();
+    expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'pending'");
+  });
+
+  it("findLatestQualificationId 返回最新诊断 id / 无记录返回 null", async () => {
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce([[{ id: 99 }]])
+      .mockResolvedValueOnce([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await expect(repo.findLatestQualificationId(10)).resolves.toBe(99);
+    await expect(repo.findLatestQualificationId(10)).resolves.toBeNull();
+  });
+
+  it("createPendingSupplier 插入 pending 基础记录", async () => {
+    const mockExecute = vi.fn().mockResolvedValue([{ insertId: 66 }]);
+    const repo = new UserSupplierPoolRepo({ execute: mockExecute } as any);
+    const id = await repo.createPendingSupplier("工厂C");
+    expect(id).toBe(66);
+    expect(mockExecute.mock.calls[0][0]).toContain("verify_status"); expect(mockExecute.mock.calls[0][1]).toEqual(["工厂C"]);
+    expect(mockExecute.mock.calls[0][1]).toEqual(["工厂C"]);
+  });
+
+  it("addFromPlatform/addManual 支持事务连接执行", async () => {
+    const connExecute = vi.fn().mockResolvedValue([{ insertId: 5 }]);
+    const conn = { execute: connExecute };
+    const repo = new UserSupplierPoolRepo({} as any);
+    await repo.addFromPlatform(1, 10, null, conn as any);
+    await repo.addManual(1, 10, conn as any);
+    expect(connExecute).toHaveBeenCalledTimes(2);
+  });
+});
