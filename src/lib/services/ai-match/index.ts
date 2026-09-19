@@ -93,7 +93,7 @@ export async function getOrGenerateAiMatch(
   if (!config) errLlmNotConfigured();
 
   let apiKey: string;
-  try { apiKey = decryptApiKey(config!.api_key); } catch { errLlmNotConfigured(); }
+  try { apiKey = decryptApiKey(config.api_key); } catch { errLlmNotConfigured(); }
 
   // 当供应商 > 5 时粗筛（取前 N 个，后续迭代可加入 UNSPSC 行业匹配度粗筛）
   let candidates = suppliers;
@@ -107,7 +107,7 @@ export async function getOrGenerateAiMatch(
     const userPrompt = buildScoreUserPrompt(notice as any, supplier);
     try {
       const result = await callLlmForScore(
-        { baseUrl: config!.base_url, apiKey, model: config!.model },
+        { baseUrl: config.base_url, apiKey, model: config.model },
         SCORE_SYSTEM_PROMPT,
         userPrompt,
       );
@@ -142,8 +142,8 @@ export async function getOrGenerateAiMatch(
         pool_id: s.pool_id, supplier_id: s.supplier_id, company: s.company,
         overall: s.overall, details: s.details,
       }))),
-      model: config!.model,
-      providerBaseUrl: config!.base_url,
+      model: config.model,
+      providerBaseUrl: config.base_url,
     });
   }
 

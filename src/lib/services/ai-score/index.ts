@@ -133,12 +133,12 @@ export async function getOrGenerateAiScore(
   const userPrompt = buildScoreUserPrompt(notice as any, supplier);
 
   let apiKey: string;
-  try { apiKey = decryptApiKey(config!.api_key); } catch { errLlmNotConfigured(); }
+  try { apiKey = decryptApiKey(config.api_key); } catch { errLlmNotConfigured(); }
 
-  let result;
+  let result: Awaited<ReturnType<typeof callLlmForScore>>;
   try {
     result = await callLlmForScore(
-      { baseUrl: config!.base_url, apiKey, model: config!.model },
+      { baseUrl: config.base_url, apiKey, model: config.model },
       SCORE_SYSTEM_PROMPT,
       userPrompt,
     );
@@ -146,7 +146,7 @@ export async function getOrGenerateAiScore(
     errLlmCallFailed(err instanceof Error ? err.message : String(err));
   }
 
-  const data = result!.data;
+  const data = result.data;
   await summaryRepo.upsertScore({
     userId, noticeId,
     qualification: data.qualification,
@@ -159,8 +159,8 @@ export async function getOrGenerateAiScore(
     overall: data.overall,
     reasons: JSON.stringify(data.details),
     reasoning: data.reasoning || "",
-    model: result!.model,
-    providerBaseUrl: config!.base_url,
+    model: result.model,
+    providerBaseUrl: config.base_url,
   });
 
   return { ...data, cached: false };

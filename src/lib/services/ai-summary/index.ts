@@ -144,7 +144,7 @@ export async function getOrGenerateAiSummary(
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) errNoticeNotFound();
-  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase!);
+  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase);
 
   // 附件文本提取（静默降级）
   const attachmentsText = await extractAttachmentsText(notice.documents).catch(() => "");
@@ -157,12 +157,12 @@ export async function getOrGenerateAiSummary(
   );
 
   let apiKey: string;
-  try { apiKey = decryptApiKey(config!.api_key); } catch { errLlmNotConfigured(); }
+  try { apiKey = decryptApiKey(config.api_key); } catch { errLlmNotConfigured(); }
 
-  let result;
+  let result: Awaited<ReturnType<typeof callLlmForSummary>>;
   try {
     result = await callLlmForSummary(
-      { baseUrl: config!.base_url, apiKey, model: config!.model },
+      { baseUrl: config.base_url, apiKey, model: config.model },
       SYSTEM_PROMPT,
       userPrompt,
     );
@@ -174,19 +174,19 @@ export async function getOrGenerateAiSummary(
 
   await summaryRepo.upsert({
     userId, noticeId,
-    coreDeliverables: result!.data.coreDeliverables,
-    keyQualifications: result!.data.keyQualifications,
-    paymentCycle: result!.data.paymentCycle,
-    competitiveLandscape: result!.data.competitiveLandscape,
-    bidStrategy: result!.data.bidStrategy,
-    riskAlerts: result!.data.riskAlerts,
-    model: result!.model,
-    providerBaseUrl: config!.base_url,
-    inputTokens: result!.inputTokens,
-    outputTokens: result!.outputTokens,
+    coreDeliverables: result.data.coreDeliverables,
+    keyQualifications: result.data.keyQualifications,
+    paymentCycle: result.data.paymentCycle,
+    competitiveLandscape: result.data.competitiveLandscape,
+    bidStrategy: result.data.bidStrategy,
+    riskAlerts: result.data.riskAlerts,
+    model: result.model,
+    providerBaseUrl: config.base_url,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
   });
 
-  return toResult(null, false, result!.model, result!.inputTokens, result!.outputTokens);
+  return toResult(null, false, result.model, result.inputTokens, result.outputTokens);
 }
 
 /** 流式入口：返回 AsyncIterable<string>，逐 token 推送 JSON 片段 */
@@ -218,7 +218,7 @@ export async function* streamAiSummary(
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) { yield JSON.stringify({ error: "NOTICE_NOT_FOUND" }); return; }
-  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase!);
+  const notice = await enrichFromOpportunity(pool, noticeId, noticeBase);
 
   const attachmentsText = await extractAttachmentsText(notice.documents).catch(() => "");
   const supplier = await fetchSupplierProfile(pool, userId);
@@ -229,12 +229,12 @@ export async function* streamAiSummary(
   );
 
   let apiKey: string;
-  try { apiKey = decryptApiKey(config!.api_key); } catch { yield JSON.stringify({ error: "LLM_NOT_CONFIGURED" }); return; }
+  try { apiKey = decryptApiKey(config.api_key); } catch { yield JSON.stringify({ error: "LLM_NOT_CONFIGURED" }); return; }
 
   // 流式调用 LLM，逐 token yield
   try {
     for await (const chunk of callLlmForSummaryStream(
-      { baseUrl: config!.base_url, apiKey, model: config!.model },
+      { baseUrl: config.base_url, apiKey, model: config.model },
       SYSTEM_PROMPT,
       userPrompt,
     )) {
