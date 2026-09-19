@@ -17,7 +17,7 @@ import {
 
 import { api } from "@/core/http";
 import { Button, Card } from "@/shared/ui";
-import { formatDeadlineDateYMD } from "@/shared/utils/format";
+import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 
 interface RfqDetail {
   id: number;
@@ -52,9 +52,7 @@ function formatBudget(d: RfqDetail): string {
   if (d.budgetConfidential) return "面议（预算保密）";
   const budget = d.budget ?? 0;
   if (!budget) return "面议";
-  const symbol: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
-  const sym = symbol[d.currency] || d.currency;
-  return `${sym}${budget}`;
+  return `${currencySymbol(d.currency)}${budget}`;
 }
 
 function TermItem({ icon: Icon, label, value }: {

@@ -90,3 +90,12 @@ export function formatDeadlineDateYMD(
   const day = utc ? d.getUTCDate() : d.getDate();
   return `${year}-${pad2(month + 1)}-${pad2(day)}`;
 }
+
+/**
+ * 货币代码 → 展示符号（未知代码回退原码）。
+ * 收编 rfq 详情页与列表路由逐字重复的 symbol 映射（SSOT）。
+ */
+export function currencySymbol(code: string): string {
+  const map: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
+  return map[code] || code;
+}

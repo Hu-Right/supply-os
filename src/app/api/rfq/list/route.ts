@@ -10,7 +10,7 @@ import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 import { withRoute } from "@/lib/middleware/route-handler";
-import { formatDeadlineDateYMD } from "@/shared/utils/format";
+import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
@@ -18,9 +18,7 @@ const MYSQL_TIMEOUT_MS = 10_000;
 /** estimated_value + currency → 展示文案 */
 function formatBudget(value: number, currency: string): string {
   if (!value || value <= 0) return "预算保密";
-  const symbol: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
-  const sym = symbol[currency] || currency;
-  return `${sym}${Math.round(value)}`;
+  return `${currencySymbol(currency)}${Math.round(value)}`;
 }
 
 export const GET = withRoute(async (req: NextRequest) => {
