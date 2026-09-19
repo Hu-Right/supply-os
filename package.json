@@ -30,7 +30,7 @@
     "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/perf-budget-check.ts",
     "seed:test-db": "npx tsx scripts/seed-test-db.ts",
-    "pre-push": "npm run check:encoding && npm run typecheck && npm run lint && npm run test && npm run build"
+    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
