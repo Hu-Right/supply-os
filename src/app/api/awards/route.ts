@@ -4,6 +4,7 @@
  * @module app/api/awards/route
  * @description 提供中标记录的分页查询、统计摘要等接口。
  *              供 award-intelligence 前端页面消费。
+ *              薄壳路由：参数解析 + service 委托（编排下沉 lib/services/awards.service）。
  *
  * 端点:
  *   GET /api/awards          — 分页查询中标记录
@@ -12,11 +13,13 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
+import { listAwards } from "@/lib/services/awards.service";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/awards — 分页查询中标记录 */
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
 
   const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -31,34 +34,19 @@ export async function GET(req: NextRequest) {
   const sortBy = (searchParams.get("sort_by") as "award_date" | "contract_value_usd") || "award_date";
   const sortDir = (searchParams.get("sort_dir") as "asc" | "desc") || "desc";
 
-  try {
-    const ctx = getContext();
-    const result = await ctx.awardsRepo.list({
-      page,
-      pageSize,
-      agency,
-      country,
-      keyword,
-      dateFrom,
-      dateTo,
-      minAmount,
-      maxAmount,
-      sortBy,
-      sortDir,
-    });
+  const result = await listAwards(getContext().dbPool, {
+    page,
+    pageSize,
+    agency,
+    country,
+    keyword,
+    dateFrom,
+    dateTo,
+    minAmount,
+    maxAmount,
+    sortBy,
+    sortDir,
+  });
 
-    return NextResponse.json({
-      items: result.items,
-      total: result.total,
-      page,
-      page_size: pageSize,
-      total_pages: Math.ceil(result.total / pageSize),
-    });
-  } catch (err) {
-    console.error("[/api/awards] 查询失败:", err);
-    return NextResponse.json(
-      { error: "查询中标数据失败", items: [], total: 0 },
-      { status: 500 },
-    );
-  }
-}
+  return NextResponse.json(result);
+});
