@@ -56,7 +56,9 @@ async function downloadBuffer(url: string): Promise<Buffer | null> {
 /** PDF → 文本 */
 async function extractPdf(buf: Buffer): Promise<string> {
   try {
-    // pdf-parse v2 导出 PDFParse 类（非函数），CJS 模块动态 require
+    // pdf-parse v2 为 CJS 类型（.d.cts）+ 命名类导出：惰性 require 避免本模块每次被 import 即加载重依赖，
+    // 且置于 try/catch 内对缺依赖做优雅降级（顶层 import 会急切加载并失去降级；动态 import 对 CJS interop 不稳定）。
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PDFParse } = require("pdf-parse");
     const parser = new PDFParse({ data: new Uint8Array(buf) });
     const result = await parser.getText();
@@ -70,6 +72,8 @@ async function extractPdf(buf: Buffer): Promise<string> {
 /** DOCX → 文本 */
 async function extractDocx(buf: Buffer): Promise<string> {
   try {
+    // mammoth 无类型声明：同 extractPdf，重 DOCX 解析器按需惰性加载 + 缺依赖优雅降级。
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mammoth = require("mammoth");
     const result = await mammoth.extractRawText({ buffer: buf });
     return String(result.value || "").trim();
