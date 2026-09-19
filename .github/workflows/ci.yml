@@ -29,6 +29,9 @@ jobs:
       - name: Lint (encoding + eslint)
         run: npm run lint
 
+      - name: i18n key consistency (6 locales, zh baseline)
+        run: npm run check-i18n
+
       - name: Unit tests + coverage gate (90%)
         run: npm run test:unit && npm run test:coverage-gate -- coverage/unit 90
 
