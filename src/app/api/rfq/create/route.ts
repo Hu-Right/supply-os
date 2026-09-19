@@ -5,6 +5,7 @@
  * @description 将前端 RFQ 向导表单数据写入 crm_bid_notices（notice_type='RFQ', entry_source='platform'）。
  *              需登录（JWT）。支持 draft / published 两种初始状态。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
@@ -63,7 +64,7 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "联系邮箱格式无效");
   }
 
-  const status = body.status === "published" ? "published" : "draft";
+  const status = body.status === RFQ_STATUS.PUBLISHED ? RFQ_STATUS.PUBLISHED : RFQ_STATUS.DRAFT;
   const budgetConfidential = Boolean(body.budget_confidential);
   const budget = Number(body.budget) || 0;
   const currency = str(body.currency || "CNY", 10);

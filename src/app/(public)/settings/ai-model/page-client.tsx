@@ -31,6 +31,8 @@ export default function AiModelSettingsClient() {
     apiKey: "",
     model: PRESET_LLM_MODELS[0].model,
   });
+  /** BYOK 数据出站授权（合规：后端保存时强制校验并写入同意审计日志） */
+  const [outboundConsent, setOutboundConsent] = useState(false);
 
   const isCustom = selectedPresetId === CUSTOM_PRESET_ID;
   const currentPreset = useMemo(
@@ -86,6 +88,10 @@ export default function AiModelSettingsClient() {
       setMessage("请填写 API Key");
       return;
     }
+    if (!outboundConsent) {
+      setMessage("请先勾选数据出站授权");
+      return;
+    }
     setSaving(true);
     setMessage("");
     try {
@@ -96,6 +102,7 @@ export default function AiModelSettingsClient() {
           baseUrl: form.baseUrl.trim(),
           apiKey: form.apiKey.trim(),
           model: form.model.trim(),
+          outboundConsent: true,
         },
       });
       setMessage("保存成功");
@@ -218,6 +225,24 @@ export default function AiModelSettingsClient() {
           onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
           placeholder={existing?.configured ? "重新填写以更新 Key" : "sk-..."}
         />
+      </div>
+
+      {/* BYOK 数据出站告知与授权（合规） */}
+      <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 space-y-2">
+        <p className="text-[11px] text-amber-800 leading-4">
+          使用自有 API Key 时，公告原文及企业/工厂画像数据将发送至您所配置的第三方模型服务端点（如 OpenAI、DeepSeek）。该服务由您自行选择与控制，请确认其隐私政策。
+        </p>
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5 accent-teal-600"
+            checked={outboundConsent}
+            onChange={(e) => setOutboundConsent(e.target.checked)}
+          />
+          <span className="text-[11px] font-bold text-amber-900 leading-4">
+            我知晓并同意将上述数据发送至我配置的模型服务端点
+          </span>
+        </label>
       </div>
 
       {message && (

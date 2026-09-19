@@ -1,3 +1,4 @@
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 /**
  * 公告过期判定统一常量
  * Unified notice expiry constants
@@ -36,11 +37,11 @@ export const DEADLINE_SEC_EXPR = "n.deadline_sec";
  *       平台用户发布的 RFQ 在通过审核前（draft / pending_review）不得对外可见。
  *       注意：rfq_status 对爬虫历史行为 NULL，用 IFNULL 兜底。
  */
-export const PLATFORM_PUBLISHED_ONLY = "(n.entry_source <> 'platform' OR IFNULL(n.rfq_status, '') = 'published')";
+export const PLATFORM_PUBLISHED_ONLY = `(n.entry_source <> 'platform' OR IFNULL(n.rfq_status, '') = ${JSON.stringify(RFQ_STATUS.PUBLISHED)})`;
 
 /** 同上，无表别名版本（单表查询） */
 export const PLATFORM_PUBLISHED_ONLY_NO_ALIAS =
-  "(entry_source <> 'platform' OR IFNULL(rfq_status, '') = 'published')";
+  `(entry_source <> 'platform' OR IFNULL(rfq_status, '') = ${JSON.stringify(RFQ_STATUS.PUBLISHED)})`;
 
 /**
  * 有效公告 WHERE 片段（n. 别名）—— MySQL 查询主口径

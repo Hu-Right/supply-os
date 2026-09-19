@@ -13,6 +13,7 @@
  *
  *              从 wide-row-builder.ts 拆出，职责单一：只负责对账，不负责数据构建。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import type { Pool, RowDataPacket } from "mysql2/promise";
 
 // ── 对账日志节流（同一类型 30 分钟内不重复输出，避免高频刷屏）──
@@ -93,7 +94,7 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
         `SELECT ns.id FROM crm_notice_search ns
          LEFT JOIN crm_bid_notices n ON n.id = ns.id
          WHERE n.id IS NULL
-            OR (n.entry_source = 'platform' AND IFNULL(n.rfq_status, '') <> 'published')
+            OR (n.entry_source = 'platform' AND IFNULL(n.rfq_status, '') <> ${JSON.stringify(RFQ_STATUS.PUBLISHED)})
          LIMIT 5000`,
       );
       const ghosts = ghostRows as RowDataPacket[];

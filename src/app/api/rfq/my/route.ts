@@ -4,6 +4,7 @@
  * @module app/api/rfq/my/route
  * @description 需登录。返回当前用户创建的所有 RFQ（含 draft/published/closed）。
  */
+import { RFQ_STATUS, RFQ_USER_FILTERABLE_STATUSES } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
@@ -23,7 +24,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const conditions: string[] = ["n.user_id = ?", "n.notice_type = 'RFQ'"];
   const params: unknown[] = [auth.userId];
 
-  if (status === "draft" || status === "published" || status === "closed" || status === "pending_review") {
+  if ([status].every((s) => (RFQ_USER_FILTERABLE_STATUSES as readonly string[]).includes(s))) {
     conditions.push("n.rfq_status = ?");
     params.push(status);
   }
@@ -48,7 +49,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     country: String(row.country || ""),
     budgetUsd: Number(row.estimated_value) || 0,
     deadlineSec: Number(row.deadline_sec) || 0,
-    status: String(row.rfq_status || "draft"),
+    status: String(row.rfq_status || RFQ_STATUS.DRAFT),
     publishedDate: row.published_date ? String(row.published_date) : null,
     createdAt: row.created_at ? String(row.created_at) : null,
   }));

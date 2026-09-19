@@ -5,6 +5,7 @@
  * @description 从 crm_bid_notices 查询 entry_source='platform' AND notice_type='RFQ' AND rfq_status='published' 的记录。
  *              替代旧版前端 PLAZA_RFQS 静态数组。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
@@ -40,7 +41,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const conditions: string[] = [
     "n.notice_type = 'RFQ'",
     "n.entry_source = 'platform'",
-    "n.rfq_status = 'published'",
+    `n.rfq_status = ${RFQ_STATUS.PUBLISHED}`,
     "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))",
   ];
   const params: unknown[] = [];

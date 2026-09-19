@@ -4,6 +4,7 @@
  * @module app/api/rfq/[id]/withdraw/route
  * @description 仅创建者可操作。published → closed。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
@@ -30,10 +31,10 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const row = (existing as RowDataPacket[])[0];
     if (!row) routeError(404, 40002, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) routeError(403, 40003, "无权操作此 RFQ");
-    if (row.rfq_status !== "published" && row.rfq_status !== "pending_review") routeError(400, 40004, "仅已发布或待审核的 RFQ 可撤回");
+    if (row.rfq_status !== RFQ_STATUS.PUBLISHED && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) routeError(400, 40004, "仅已发布或待审核的 RFQ 可撤回");
 
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = 'closed' WHERE id = ? AND user_id = ?`,
+      `UPDATE crm_bid_notices SET rfq_status = ${RFQ_STATUS.CLOSED} WHERE id = ? AND user_id = ?`,
       [rfqId, auth.userId],
     );
 

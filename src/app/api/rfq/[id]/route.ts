@@ -8,6 +8,7 @@
  *              PATCH：仅创建者可操作。仅 draft / pending_review 状态可编辑。
  *              编辑后状态回退为 draft（需重新提交审核）。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
@@ -67,7 +68,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
 
     const isOwner = userId !== null && Number(row.user_id) === userId;
-    if (row.rfq_status !== "published" && !isOwner) {
+    if (row.rfq_status !== RFQ_STATUS.PUBLISHED && !isOwner) {
       routeError(404, EC_NOT_FOUND, "RFQ 不存在或未公开");
     }
 
@@ -79,7 +80,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         id: Number(row.id),
         title: String(row.title || ""),
         description: String(row.description || ""),
-        status: String(row.rfq_status || "draft"),
+        status: String(row.rfq_status || RFQ_STATUS.DRAFT),
         categoryL1: String(row.category_l1_name || ""),
         categoryL2: String(row.category_l2_name || ""),
         province: String(row.province_name || ""),
@@ -133,7 +134,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const row = (existing as RowDataPacket[])[0];
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
-    if (row.rfq_status !== "draft" && row.rfq_status !== "pending_review") {
+    if (row.rfq_status !== RFQ_STATUS.DRAFT && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) {
       routeError(400, EC_INVALID_PARAMS, "仅草稿或待审核状态可编辑");
     }
 
@@ -253,7 +254,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     }
 
     // 编辑后状态回退为 draft
-    updates.push("rfq_status = 'draft'");
+    updates.push(`rfq_status = ${RFQ_STATUS.DRAFT}`);
 
     const [result] = await pool.query(
       `UPDATE crm_bid_notices SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`,

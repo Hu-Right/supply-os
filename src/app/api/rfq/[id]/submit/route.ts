@@ -4,6 +4,7 @@
  * @module app/api/rfq/[id]/submit/route
  * @description 仅 RFQ 创建者（user_id 匹配）可将 draft → published。
  */
+import { RFQ_STATUS } from "@/shared/constants/rfq";
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
@@ -26,7 +27,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, 40002, "请求体非法 JSON");
     }
 
-    const newStatus = body.status === "published" ? "published" : "pending_review";
+    const newStatus = body.status === RFQ_STATUS.PUBLISHED ? RFQ_STATUS.PUBLISHED : RFQ_STATUS.PENDING_REVIEW;
 
     const pool = getPool();
 
@@ -41,7 +42,7 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (Number(row.user_id) !== auth.userId) {
       routeError(403, 40004, "无权操作此 RFQ");
     }
-    if (row.rfq_status === "published" && newStatus === "published") {
+    if (row.rfq_status === RFQ_STATUS.PUBLISHED && newStatus === RFQ_STATUS.PUBLISHED) {
       // 幂等：已发布的不再重复更新
       return NextResponse.json({ code: 0, message: "ok", already_published: true });
     }
