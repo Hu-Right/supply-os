@@ -105,9 +105,17 @@ export async function getOrGenerateAiScore(
 
   if (forceRegenerate) await summaryRepo.removeScore(userId, noticeId);
 
-  // 缓存命中
+  // 缓存命中：仅当评分列已写入才算命中。
+  // 避免“仅有摘要 / 仅有匹配”的空评分行（score_* 为 NULL）被误判为已评分而返回全 0。
   const cached = await summaryRepo.findScore(userId, noticeId);
-  if (cached) {
+  if (cached && cached.score_overall != null) {
+    let details = {} as AiScoreResult["details"];
+    try {
+      const parsed = cached.score_reasons ? JSON.parse(cached.score_reasons) : {};
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        details = parsed as AiScoreResult["details"];
+      }
+    } catch { /* 非预期格式，保持空对象 */ }
     return {
       qualification: cached.score_qualification ?? 0,
       experience: cached.score_experience ?? 0,
@@ -117,7 +125,7 @@ export async function getOrGenerateAiScore(
       delivery: cached.score_delivery ?? 0,
       price: cached.score_price ?? 0,
       overall: cached.score_overall ?? 0,
-      details: cached.score_reasons ? JSON.parse(cached.score_reasons) : {},
+      details,
       reasoning: cached.score_reasoning || "",
       cached: true,
     };

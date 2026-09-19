@@ -133,15 +133,48 @@ export class AiSummaryRepo {
     );
   }
 
-  /** 删除评分缓存 */
+  /** 删除评分缓存（清空全部评分列，含 score_reasoning，避免残留脏数据） */
   async removeScore(userId: number, noticeId: number): Promise<void> {
     await this.pool.query(
       `UPDATE crm_notice_ai_summaries SET
          score_qualification = NULL, score_experience = NULL, score_certification = NULL,
          score_region = NULL, score_scale = NULL, score_delivery = NULL,
-         score_price = NULL, score_overall = NULL, score_reasons = NULL
+         score_price = NULL, score_overall = NULL, score_reasons = NULL, score_reasoning = NULL
        WHERE user_id = ? AND notice_id = ?`,
       [userId, noticeId],
+    );
+  }
+
+  // ── AI 智能匹配（match_results 独立列，与评分 score_reasons 分键，避免互相踩踏） ──
+
+  /** 查匹配缓存（无 match_results 则返回 null） */
+  async findMatch(
+    userId: number,
+    noticeId: number,
+  ): Promise<{ match_results: string; model: string } | null> {
+    const [rows] = await this.pool.query(
+      "SELECT match_results, model FROM crm_notice_ai_summaries WHERE user_id = ? AND notice_id = ? LIMIT 1",
+      [userId, noticeId],
+    );
+    const row = (rows as { match_results: string | null; model: string }[])[0];
+    return row?.match_results ? { match_results: row.match_results, model: row.model } : null;
+  }
+
+  /** UPSERT 匹配结果（仅写 match_results + 模型信息，绝不触碰评分列） */
+  async upsertMatch(input: {
+    userId: number; noticeId: number; matchResults: string;
+    model: string; providerBaseUrl: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO crm_notice_ai_summaries
+         (user_id, notice_id, model, provider_base_url, match_results)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         match_results = VALUES(match_results),
+         model = VALUES(model),
+         provider_base_url = VALUES(provider_base_url),
+         created_at = CURRENT_TIMESTAMP`,
+      [input.userId, input.noticeId, input.model, input.providerBaseUrl, input.matchResults],
     );
   }
 }

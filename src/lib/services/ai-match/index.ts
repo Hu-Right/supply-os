@@ -64,17 +64,16 @@ export async function getOrGenerateAiMatch(
   const configRepo = new LlmConfigRepo(pool);
   const poolRepo = new UserSupplierPoolRepo(pool);
 
-  // 检查缓存（score_reasons 字段存储 match_results JSON）
+  // 检查缓存（match_results 独立列，与评分 score_reasons 分键，互不覆盖）
   if (!forceRegenerate) {
-    const cached = await summaryRepo.findScore(userId, noticeId);
-    if (cached?.score_reasons) {
+    const cached = await summaryRepo.findMatch(userId, noticeId);
+    if (cached?.match_results) {
       try {
-        const parsed = JSON.parse(cached.score_reasons);
-        // 判断是否为匹配结果（含 top 数组）还是单供应商评分（含 details 对象）
+        const parsed = JSON.parse(cached.match_results);
         if (Array.isArray(parsed)) {
           return { top: parsed, cached: true };
         }
-      } catch { /* 非匹配结果，继续生成 */ }
+      } catch { /* 数据损坏，继续重新生成 */ }
     }
   }
 
@@ -126,19 +125,11 @@ export async function getOrGenerateAiMatch(
   scored.sort((a, b) => b.overall - a.overall);
   const top = scored.slice(0, TOP_N);
 
-  // 写入缓存（score_reasons 字段存储 Top 3 排行 JSON 数组）
+  // 写入缓存（match_results 独立列，仅存 Top N 排行 JSON，不再污染评分 score_* 列）
   if (top.length > 0) {
-    await summaryRepo.upsertScore({
+    await summaryRepo.upsertMatch({
       userId, noticeId,
-      qualification: top[0].qualification,
-      experience: top[0].experience,
-      certification: top[0].certification,
-      region: top[0].region,
-      scale: top[0].scale,
-      delivery: top[0].delivery,
-      price: top[0].price,
-      overall: top[0].overall,
-      reasons: JSON.stringify(top.map((s) => ({
+      matchResults: JSON.stringify(top.map((s) => ({
         pool_id: s.pool_id, supplier_id: s.supplier_id, company: s.company,
         overall: s.overall, details: s.details,
       }))),
