@@ -66,6 +66,20 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
 
   const toggle = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
 
+  /** 错误映射：限流/解锁/通用，避免直接暴露 HTTP 状态码 */
+  const friendlyError = (raw: string): string => {
+    if (raw.includes("429") || raw.includes("rate")) {
+      return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
+    }
+    if (raw.includes("403") || raw.includes("core_locked")) {
+      return t("aiScoreErrorLocked") || "请先解锁本公告，再进行 AI 匹配。";
+    }
+    if (raw.includes("401") || raw.includes("LLM_NOT_CONFIGURED")) {
+      return t("aiScoreErrorAuth") || "登录已过期或未配置 AI 模型，请检查后再试。";
+    }
+    return t("aiScoreErrorGeneric") || "AI 匹配过程中出现错误，请稍后重试。";
+  };
+
   // 未触发状态：引导按钮
   if (!data && !loading && !error) {
     return (
@@ -113,7 +127,7 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
     return (
       <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-center">
         <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-        <p className="text-sm text-rose-700 mb-4">{error}</p>
+        <p className="text-sm text-rose-700 mb-4">{friendlyError(error)}</p>
         <button
           type="button"
           onClick={onRegenerate}
@@ -125,25 +139,73 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
     );
   }
 
-  // 空结果（资源库为空）
+  // 空结果三态：资源库为空 / 评估全部失败 / 其他未生成
   if (!data || data.top.length === 0) {
+    const poolSize = data?.poolSize ?? 0;
+    const failed = data?.failed ?? 0;
+
+    // 资源库为空：引导建立资源库
+    if (poolSize === 0) {
+      return (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+          <p className="text-sm text-slate-500 mb-4">
+            {t("aiMatchEmpty") || "你还没有添加合作工厂，去建立资源库"}
+          </p>
+          <button
+            type="button"
+            onClick={onGoToPool}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 text-sm font-bold transition-colors"
+          >
+            {t("aiMatchGoToPool") || "去建立资源库"}
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </section>
+      );
+    }
+
+    // 有资源库但全部评估失败：错误态 + 重试
+    if (failed > 0) {
+      return (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 text-center">
+          <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
+          <p className="text-sm text-rose-700 mb-4">
+            {(t("aiMatchAllFailed") || "{n} 家工厂评估失败，请稍后重试").replace("{n}", String(failed))}
+          </p>
+          <button
+            type="button"
+            onClick={onRegenerate}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 px-4 py-2 text-sm font-bold transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t("procurement_aiSummaryRetry") || "重试"}
+          </button>
+        </section>
+      );
+    }
+
+    // 兜底：有候选但未能生成结果
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
         <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
         <p className="text-sm text-slate-500 mb-4">
-          {t("aiMatchEmpty") || "你还没有添加合作工厂，去建立资源库"}
+          {t("aiMatchNoResult") || "未能生成匹配结果，请重新匹配"}
         </p>
         <button
           type="button"
-          onClick={onGoToPool}
+          onClick={onRegenerate}
           className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 text-sm font-bold transition-colors"
         >
-          {t("aiMatchGoToPool") || "去建立资源库"}
-          <ArrowRight className="w-4 h-4" />
+          <RefreshCw className="w-3.5 h-3.5" />
+          {t("procurement_aiSummaryRetry") || "重试"}
         </button>
       </section>
     );
   }
+
+  // 评估范围披露：粗筛生效时告知用户实际参与评估的数量（缓存结果无此元数据，不展示）
+  const showPrefilterNote = !data.cached && data.poolSize > data.evaluated;
+  const showPartialFailed = !data.cached && data.failed > 0;
 
   // 有结果：Top N 供应商排行
   return (
@@ -165,6 +227,26 @@ export function AiMatchCard({ data, loading, error, onStart, onRegenerate, onGoT
           {t("aiMatchRegenerate") || "重新匹配"}
         </button>
       </div>
+
+      {/* 评估范围与失败披露 */}
+      {(showPrefilterNote || showPartialFailed) && (
+        <div className="mb-3 space-y-1">
+          {showPrefilterNote && (
+            <p className="text-2xs text-slate-500 flex items-center gap-1">
+              <Info className="w-3 h-3 text-slate-400 shrink-0" />
+              {(t("aiMatchPrefilterNote") || "资源库共 {total} 家，已按行业相关性筛选 {evaluated} 家参与评估")
+                .replace("{total}", String(data.poolSize))
+                .replace("{evaluated}", String(data.evaluated))}
+            </p>
+          )}
+          {showPartialFailed && (
+            <p className="text-2xs text-amber-600 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+              {(t("aiMatchPartialFailed") || "{n} 家工厂评估失败已跳过，可重新匹配").replace("{n}", String(data.failed))}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Top N 供应商列表 */}
       <div className="space-y-3">

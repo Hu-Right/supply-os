@@ -24,6 +24,12 @@ export interface MatchedSupplier {
 export interface AiMatchData {
   top: MatchedSupplier[];
   cached: boolean;
+  /** 资源库供应商总数（缓存命中时等于 top 数量） */
+  poolSize: number;
+  /** 本次实际送入 LLM 评估的数量 */
+  evaluated: number;
+  /** 评估失败的数量（>0 且 top 为空 = 全部失败） */
+  failed: number;
 }
 
 /** 触发 AI 智能匹配 */
