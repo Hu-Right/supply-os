@@ -207,6 +207,15 @@ export default function SupplierPoolPageClient() {
                   )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <a
+                    href={`/procurement/qualification?poolId=${item.pool_id}`}
+                    className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded transition-colors"
+                    title={item.has_qualification
+                      ? (t("supplierPoolUpdateDiag") || "更新诊断表")
+                      : (t("supplierPoolFillDiag") || "填写诊断表")}
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                  </a>
                   <button
                     onClick={() => { setEditingId(item.pool_id); setEditNotes(item.notes || ""); }}
                     className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded transition-colors"

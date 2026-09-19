@@ -30,6 +30,8 @@ export interface SupplierQualificationForm {
   contact_info: string | null;
   /** 员工推广归因：ref_code Cookie 解析出的邀请码 */
   invitation_code?: string;
+  /** 资源库回填：从“我的供应商资源库”为池中工厂填写时携带，登录态下回写 pool.qualification_id */
+  poolId?: number;
 }
 
 export const submitSupplierQualification = (data: SupplierQualificationForm) =>
