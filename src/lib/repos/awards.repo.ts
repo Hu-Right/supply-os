@@ -4,7 +4,9 @@
  *
  * @module repos/awards.repo
  * @description 提供中标记录的查询、写入、统计等操作。
- *              数据来源于爬虫脚本（scripts/crawl-awards/）写入的 crm_bid_awards 表。
+ *              数据存于 crm_bid_awards 表；历史采集脚本 scripts/crawl-awards/ 已于
+ *              2026-09-19 移除（未入仓库的本地脚本），后续采集如需恢复参照本 repo
+ *              的列结构重建写入链路。
  */
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
