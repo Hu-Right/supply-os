@@ -158,3 +158,40 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     expect(connExecute).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("searchVerifiedByCompany / findVerifiedById 边界", () => {
+  it("不带 userId → 不 JOIN 资源库表，params 仅关键词", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await repo.searchVerifiedByCompany("工厂", 8);
+    const [sql, params] = mockQuery.mock.calls[0];
+    expect(sql).not.toContain("LEFT JOIN crm_user_supplier_pool");
+    expect(params).toEqual(["%工厂%"]);
+  });
+
+  it("limit 钳制到 1-20：0 归为默认 8，50 归为 20", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await repo.searchVerifiedByCompany("工厂", 0);
+    expect(mockQuery.mock.calls[0][0]).toContain("LIMIT 8");
+    await repo.searchVerifiedByCompany("工厂", 50);
+    expect(mockQuery.mock.calls[1][0]).toContain("LIMIT 20");
+  });
+
+  it("行字段为 NULL → company/industry/in_pool 兜底", async () => {
+    const mockQuery = vi.fn().mockResolvedValue([[{ id: 7, company: null, industry: null, in_pool: null }]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    const rows = await repo.searchVerifiedByCompany("工厂", 8, 1);
+    expect(rows[0]).toEqual({ id: 7, company: "", industry: "", in_pool: 0 });
+  });
+
+  it("findVerifiedById 命中/未命中/仅认证可见", async () => {
+    const mockQuery = vi.fn()
+      .mockResolvedValueOnce([[{ id: 10, company: "工厂A", industry: "电子" }]])
+      .mockResolvedValueOnce([[]]);
+    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
+    await expect(repo.findVerifiedById(10)).resolves.toEqual({ id: 10, company: "工厂A", industry: "电子" });
+    await expect(repo.findVerifiedById(10)).resolves.toBeNull();
+    expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'done' OR verify_status IS NULL");
+  });
+});

@@ -5,43 +5,15 @@
  *              复用 ai-summary 的数据获取逻辑（公告+供应商画像）。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { LlmConfigRepo } from "../../repos/llm-config.repo";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
-import { decryptApiKey } from "../ai-summary/crypto";
 import { callLlmForScore } from "./llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "./prompt";
-import { errLlmNotConfigured, errNoticeNotFound, errLlmCallFailed } from "../ai-summary/errors";
+import { errLlmCallFailed, errNoticeNotFound } from "../ai-summary/errors";
+import { fetchNoticeContext, type NoticeContext } from "../ai/shared/notice-context";
+import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 
 export interface AiScoreResult extends AiScoreRaw {
   cached: boolean;
-}
-
-/** 公告评分所需字段 */
-async function fetchNoticeForScore(pool: Pool, noticeId: number): Promise<RowDataPacket | null> {
-  const [rows] = await pool.query(
-    `SELECT n.id, n.title, n.notice_type, n.country, n.deadline, n.estimated_value
-     FROM crm_bid_notices n WHERE n.id = ? LIMIT 1`,
-    [noticeId],
-  );
-  const base = (rows as RowDataPacket[])[0];
-  if (!base) return null;
-
-  // 机会表补充资格条件
-  const [oppRows] = await pool.query(
-    `SELECT o.eligibility, o.technical_hurdles, o.supplier_conditions
-     FROM crm_bid_opportunities o
-     WHERE o.source_notice_id = (SELECT notice_id FROM crm_bid_notices WHERE id = ? LIMIT 1)
-       AND (o.is_qualified = 1 OR o.status = 1 OR o.audit_status = 1)
-     LIMIT 1`,
-    [noticeId],
-  );
-  const opp = (oppRows as RowDataPacket[])[0];
-  return {
-    ...base,
-    eligibility: opp?.eligibility || "",
-    technical_hurdles: opp?.technical_hurdles || "",
-    supplier_conditions: opp?.supplier_conditions || "",
-  };
 }
 
 /** 供应商画像（含评分所需扩展字段，JOIN 诊断表获取国际化能力数据） */
@@ -101,7 +73,6 @@ export async function getOrGenerateAiScore(
   forceRegenerate = false,
 ): Promise<AiScoreResult> {
   const summaryRepo = new AiSummaryRepo(pool);
-  const configRepo = new LlmConfigRepo(pool);
 
   if (forceRegenerate) await summaryRepo.removeScore(userId, noticeId);
 
@@ -131,25 +102,17 @@ export async function getOrGenerateAiScore(
     };
   }
 
-  const config = await configRepo.findActiveByUser(userId);
-  if (!config) errLlmNotConfigured();
+  const creds = await resolveLlmCredentials(pool, userId);
 
-  const notice = await fetchNoticeForScore(pool, noticeId);
+  const notice = await fetchNoticeContext(pool, noticeId);
   if (!notice) errNoticeNotFound();
 
   const supplier = await fetchSupplierForScore(pool, userId);
-  const userPrompt = buildScoreUserPrompt(notice as any, supplier);
-
-  let apiKey: string;
-  try { apiKey = decryptApiKey(config.api_key); } catch { errLlmNotConfigured(); }
+  const userPrompt = buildScoreUserPrompt(notice as unknown as Record<string, unknown>, supplier);
 
   let result: Awaited<ReturnType<typeof callLlmForScore>>;
   try {
-    result = await callLlmForScore(
-      { baseUrl: config.base_url, apiKey, model: config.model },
-      SCORE_SYSTEM_PROMPT,
-      userPrompt,
-    );
+    result = await callLlmForScore(creds, SCORE_SYSTEM_PROMPT, userPrompt);
   } catch (err) {
     errLlmCallFailed(err instanceof Error ? err.message : String(err));
   }
@@ -168,7 +131,7 @@ export async function getOrGenerateAiScore(
     reasons: JSON.stringify(data.details),
     reasoning: data.reasoning || "",
     model: result.model,
-    providerBaseUrl: config.base_url,
+    providerBaseUrl: creds.baseUrl,
   });
 
   return { ...data, cached: false };

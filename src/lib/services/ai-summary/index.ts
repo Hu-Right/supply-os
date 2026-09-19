@@ -7,13 +7,14 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LlmConfigRepo } from "../../repos/llm-config.repo";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
-import { encryptApiKey, decryptApiKey } from "./crypto";
+import { encryptApiKey } from "./crypto";
 import { callLlmForSummary, callLlmForSummaryStream } from "./llm-client";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
 import { extractAttachmentsText } from "./doc-extractor";
 import {
-  errLlmNotConfigured, errNoticeNotFound, errLlmCallFailed, errLlmBadFormat,
+  errNoticeNotFound, errLlmCallFailed, errLlmBadFormat,
 } from "./errors";
+import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 
 export interface AiSummaryResult {
   coreDeliverables: string;
@@ -132,15 +133,13 @@ export async function getOrGenerateAiSummary(
   forceRegenerate = false,
 ): Promise<AiSummaryResult> {
   const summaryRepo = new AiSummaryRepo(pool);
-  const configRepo = new LlmConfigRepo(pool);
 
   if (forceRegenerate) await summaryRepo.remove(userId, noticeId);
 
   const cached = await summaryRepo.find(userId, noticeId);
   if (cached) return toResult(cached, true, cached.model || "", cached.input_tokens ?? null, cached.output_tokens ?? null);
 
-  const config = await configRepo.findActiveByUser(userId);
-  if (!config) errLlmNotConfigured();
+  const creds = await resolveLlmCredentials(pool, userId);
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) errNoticeNotFound();
@@ -156,16 +155,9 @@ export async function getOrGenerateAiSummary(
     supplier,
   );
 
-  let apiKey: string;
-  try { apiKey = decryptApiKey(config.api_key); } catch { errLlmNotConfigured(); }
-
   let result: Awaited<ReturnType<typeof callLlmForSummary>>;
   try {
-    result = await callLlmForSummary(
-      { baseUrl: config.base_url, apiKey, model: config.model },
-      SYSTEM_PROMPT,
-      userPrompt,
-    );
+    result = await callLlmForSummary(creds, SYSTEM_PROMPT, userPrompt);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg === "LLM_BAD_JSON" || msg === "LLM_BAD_SHAPE") errLlmBadFormat();
@@ -181,7 +173,7 @@ export async function getOrGenerateAiSummary(
     bidStrategy: result.data.bidStrategy,
     riskAlerts: result.data.riskAlerts,
     model: result.model,
-    providerBaseUrl: config.base_url,
+    providerBaseUrl: creds.baseUrl,
     inputTokens: result.inputTokens,
     outputTokens: result.outputTokens,
   });
@@ -196,7 +188,6 @@ export async function* streamAiSummary(
   noticeId: number,
 ): AsyncIterable<string> {
   const summaryRepo = new AiSummaryRepo(pool);
-  const configRepo = new LlmConfigRepo(pool);
 
   // 缓存命中：一次性推送完整 JSON
   const cached = await summaryRepo.find(userId, noticeId);
@@ -213,8 +204,13 @@ export async function* streamAiSummary(
     return;
   }
 
-  const config = await configRepo.findActiveByUser(userId);
-  if (!config) { yield JSON.stringify({ error: "LLM_NOT_CONFIGURED" }); return; }
+  let creds;
+  try {
+    creds = await resolveLlmCredentials(pool, userId);
+  } catch {
+    yield JSON.stringify({ error: "LLM_NOT_CONFIGURED" });
+    return;
+  }
 
   const noticeBase = await fetchNoticeForPrompt(pool, noticeId);
   if (!noticeBase) { yield JSON.stringify({ error: "NOTICE_NOT_FOUND" }); return; }
@@ -228,13 +224,10 @@ export async function* streamAiSummary(
     supplier,
   );
 
-  let apiKey: string;
-  try { apiKey = decryptApiKey(config.api_key); } catch { yield JSON.stringify({ error: "LLM_NOT_CONFIGURED" }); return; }
-
   // 流式调用 LLM，逐 token yield
   try {
     for await (const chunk of callLlmForSummaryStream(
-      { baseUrl: config.base_url, apiKey, model: config.model },
+      creds,
       SYSTEM_PROMPT,
       userPrompt,
     )) {

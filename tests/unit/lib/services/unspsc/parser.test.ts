@@ -81,3 +81,51 @@ describe("padUnspscPrefix", () => {
     expect(padUnspscPrefix("")).toBe("00000000");
   });
 });
+
+describe("normalizeUnspscCodes 深层分支", () => {
+  it("对象无有效码 → 递归其属性值", () => {
+    const r = normalizeUnspscCodes([{ child: { code: "CODE 43211500", name: "硬件" } }]);
+    expect(r.length).toBeGreaterThan(0);
+  });
+
+  it("重复码只保留首次出现", () => {
+    const r = normalizeUnspscCodes([{ code: "10101500", name: "A" }, { code: "10101500", name: "B" }]);
+    expect(r).toHaveLength(1);
+  });
+
+  it("名称回退：无 name 时取 description", () => {
+    const r = normalizeUnspscCodes([{ code: "10101500", description: "Servers" }]);
+    expect(r[0]?.name).toBe("Servers");
+  });
+
+  it("数组内混有字符串项 → 亦提取其中数字序列", () => {
+    const r = normalizeUnspscCodes(["备注 43211500"]);
+    expect(r.map((x) => x.code)).toEqual(["43211500"]);
+  });
+
+  it("达到 20 上限后停止访问后续项", () => {
+    const items = Array.from({ length: 40 }, (_, i) => ({ code: `${String(1000 + i)}0000`, name: `n${i}` }));
+    expect(normalizeUnspscCodes(items)).toHaveLength(20);
+  });
+});
+
+describe("unspscPrefixFromCode 边界", () => {
+  it("中间段全 00 → 截到首个非 00 段", () => {
+    expect(unspscPrefixFromCode("10101000")).toBe("101010");
+    expect(unspscPrefixFromCode("10000000")).toBe("10");
+  });
+
+  it("全 00 → 保留前两位", () => {
+    expect(unspscPrefixFromCode("00000000")).toBe("00");
+  });
+
+  it("不足 8 位的数字串原样返回", () => {
+    expect(unspscPrefixFromCode("1234")).toBe("1234");
+  });
+});
+
+describe("padUnspscPrefix 超长截断", () => {
+  it("超过 8 位 → 截到 8 位", () => {
+    expect(padUnspscPrefix("1010150010")).toBe("10101500");
+  });
+});

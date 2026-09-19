@@ -189,3 +189,18 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
     expect(res.overall).toBe(75);
   });
 });
+
+describe("getOrGenerateAiScore 画像缺失边界", () => {
+  it("crm_users 行缺失 → supplier_id 兜底 0，无画像仍可生成", async () => {
+    findScore.mockResolvedValue(null);
+    const pool = {
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ id: 1, title: "T", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]])
+        .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]])
+        .mockResolvedValueOnce([[]]),
+    } as any;
+    const res = await getOrGenerateAiScore(pool, 1, 2, false);
+    expect(res.cached).toBe(false);
+    expect(callLlmForScore).toHaveBeenCalledTimes(1);
+  });
+});
