@@ -4,11 +4,13 @@
  */
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Building2, AlertCircle, Trash2, Edit3, Check, X, ShieldAlert } from "lucide-react";
+import { Plus, Building2, AlertCircle, Trash2, Edit3, Check, X, ShieldAlert, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth/useUserId";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
 import { api } from "@/core/http";
+import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
 interface PoolItem {
   pool_id: number;
@@ -28,6 +30,7 @@ export default function SupplierPoolPageClient() {
   const { bound, loading: enterpriseLoading } = useEnterpriseInfo();
   const [items, setItems] = useState<PoolItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [addLoading, setAddLoading] = useState(false);
@@ -35,14 +38,22 @@ export default function SupplierPoolPageClient() {
   const [addError, setAddError] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
+  /** 待移除的资源库行（ConfirmDialog 的目标） */
+  const [removing, setRemoving] = useState<PoolItem | null>(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
 
   const fetchList = useCallback(async () => {
     if (!userId) return;
+    setListError(false);
     try {
       const res = await api<{ list: PoolItem[] }>("/api/user/supplier-pool");
       setItems(res.list || []);
-    } catch { /* ignore */ }
-    setLoading(false);
+    } catch {
+      // 加载失败必须与空态区分：显示错误态 + 重试，而非伪装成"暂无工厂"
+      setListError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [userId]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
@@ -68,11 +79,19 @@ export default function SupplierPoolPageClient() {
     setAddLoading(false);
   };
 
-  const handleRemove = async (poolId: number) => {
+  const handleRemove = async () => {
+    if (!removing) return;
+    setRemoveLoading(true);
     try {
-      await api(`/api/user/supplier-pool/${poolId}`, { method: "DELETE" });
+      await api(`/api/user/supplier-pool/${removing.pool_id}`, { method: "DELETE" });
+      toast.success(t("supplierPoolRemoveSuccess") || "已移除");
+      setRemoving(null);
       fetchList();
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      toast.error(err?.message || t("supplierPoolRemoveFailed") || "移除失败，请稍后重试");
+    } finally {
+      setRemoveLoading(false);
+    }
   };
 
   const handleSaveNotes = async (poolId: number) => {
@@ -81,9 +100,12 @@ export default function SupplierPoolPageClient() {
         method: "PATCH",
         body: { notes: editNotes },
       });
+      toast.success(t("supplierPoolNotesSaved") || "备注已保存");
       setEditingId(null);
       fetchList();
-    } catch { /* ignore */ }
+    } catch (err: any) {
+      toast.error(err?.message || t("supplierPoolNotesSaveFailed") || "保存失败，请稍后重试");
+    }
   };
 
   // 企业用户无权访问
@@ -155,6 +177,21 @@ export default function SupplierPoolPageClient() {
         <div className="animate-pulse space-y-2">
           {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-slate-100" />)}
         </div>
+      ) : listError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-8 text-center">
+          <AlertCircle className="w-10 h-10 text-rose-400 mx-auto mb-3" />
+          <p className="text-sm text-rose-700 mb-4">
+            {t("supplierPoolLoadFailed") || "资源库加载失败，请稍后重试"}
+          </p>
+          <button
+            type="button"
+            onClick={fetchList}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white hover:bg-rose-50 text-rose-700 px-4 py-2 text-sm font-bold transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            {t("supplierPoolRetry") || "重试"}
+          </button>
+        </div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-8 text-center">
           <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -224,7 +261,7 @@ export default function SupplierPoolPageClient() {
                     <Edit3 className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => handleRemove(item.pool_id)}
+                    onClick={() => setRemoving(item)}
                     className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
                     title={t("supplierPoolRemove") || "移除"}
                   >
@@ -236,6 +273,23 @@ export default function SupplierPoolPageClient() {
           ))}
         </div>
       )}
+
+      {/* 移除二次确认 */}
+      <ConfirmDialog
+        open={!!removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={handleRemove}
+        variant="danger"
+        loading={removeLoading}
+        title={t("supplierPoolRemoveTitle") || "移除合作工厂"}
+        description={
+          removing
+            ? (t("supplierPoolRemoveConfirm") || "确定移除「{name}」吗？移除后 AI 智能匹配将不再包含该工厂。")
+              .replace("{name}", removing.company || "未知")
+            : ""
+        }
+        confirmLabel={t("supplierPoolRemove") || "移除"}
+      />
     </div>
   );
 }

@@ -230,5 +230,13 @@
   "enterprisePoolDeniedHint": "Les identités agent et entreprise sont exclusives. Videz d'abord votre pool de fournisseurs pour changer.",
   "aiMatchIntro": "L'IA recommandera les usines les plus adaptées de votre pool de fournisseurs",
   "aiMatchDiagHint": "Usines de votre pool sans diagnostic complété : {n}. Complétez pour un matching plus précis.",
-  "aiMatchDiagAction": "Compléter"
+  "aiMatchDiagAction": "Compléter",
+  "supplierPoolLoadFailed": "Échec du chargement du pool. Veuillez réessayer plus tard.",
+  "supplierPoolRetry": "Réessayer",
+  "supplierPoolRemoveSuccess": "Supprimé",
+  "supplierPoolRemoveFailed": "Échec de la suppression. Veuillez réessayer plus tard.",
+  "supplierPoolNotesSaved": "Notes enregistrées",
+  "supplierPoolNotesSaveFailed": "Échec de la sauvegarde des notes. Veuillez réessayer plus tard.",
+  "supplierPoolRemoveTitle": "Retirer une usine",
+  "supplierPoolRemoveConfirm": "Retirer « {name} » ? Elle ne figurera plus dans le matching IA."
 }

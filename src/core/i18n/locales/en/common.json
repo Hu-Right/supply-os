@@ -230,5 +230,13 @@
   "authEnterpriseProductsPh": "Main products/services to help buyers quickly understand your supply capability",
   "authEnterpriseIntroPh": "Brief introduction of company background, core strengths and main business direction",
   "aiMatchDiagHint": "{n} factories in your pool lack diagnosis info. Complete it for more accurate matching.",
-  "aiMatchDiagAction": "Complete"
+  "aiMatchDiagAction": "Complete",
+  "supplierPoolLoadFailed": "Failed to load your supplier pool. Please try again later.",
+  "supplierPoolRetry": "Retry",
+  "supplierPoolRemoveSuccess": "Removed",
+  "supplierPoolRemoveFailed": "Failed to remove. Please try again later.",
+  "supplierPoolNotesSaved": "Notes saved",
+  "supplierPoolNotesSaveFailed": "Failed to save notes. Please try again later.",
+  "supplierPoolRemoveTitle": "Remove Factory",
+  "supplierPoolRemoveConfirm": "Remove \"{name}\"? It will no longer appear in AI smart matching."
 }

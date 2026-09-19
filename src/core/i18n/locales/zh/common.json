@@ -230,5 +230,13 @@
   "authEnterpriseProductsPh": "主营产品或服务，帮助采购方快速了解您的供应能力",
   "authEnterpriseIntroPh": "简要介绍企业背景、核心优势和主要业务方向",
   "aiMatchDiagHint": "有 {n} 家合作工厂未完善诊断信息，补全后匹配更精准",
-  "aiMatchDiagAction": "去完善"
+  "aiMatchDiagAction": "去完善",
+  "supplierPoolLoadFailed": "资源库加载失败，请稍后重试",
+  "supplierPoolRetry": "重试",
+  "supplierPoolRemoveSuccess": "已移除",
+  "supplierPoolRemoveFailed": "移除失败，请稍后重试",
+  "supplierPoolNotesSaved": "备注已保存",
+  "supplierPoolNotesSaveFailed": "保存失败，请稍后重试",
+  "supplierPoolRemoveTitle": "移除合作工厂",
+  "supplierPoolRemoveConfirm": "确定移除「{name}」吗？移除后 AI 智能匹配将不再包含该工厂。"
 }

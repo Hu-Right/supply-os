@@ -230,5 +230,13 @@
   "enterprisePoolDeniedHint": "هوية الوكيل وهوية المؤسسة متعارضان. إذا أردت التبديل، امسح مكتبة الموردين أولًا.",
   "aiMatchIntro": "سيقترح الذكاء الاصطناعي المصانع الأنسب من مكتبة مورديك",
   "aiMatchDiagHint": "{n} من المصانع في مكتبتك بدون معلومات تشخيص مكتملة، أكملها للحصول على مطابقة أدق.",
-  "aiMatchDiagAction": "إكمال"
+  "aiMatchDiagAction": "إكمال",
+  "supplierPoolLoadFailed": "فشل تحميل مكتبة الموردين، يرجى المحاولة لاحقًا.",
+  "supplierPoolRetry": "إعادة المحاولة",
+  "supplierPoolRemoveSuccess": "تمت الإزالة",
+  "supplierPoolRemoveFailed": "فشلت الإزالة، يرجى المحاولة لاحقًا.",
+  "supplierPoolNotesSaved": "تم حفظ الملاحظات",
+  "supplierPoolNotesSaveFailed": "فشل حفظ الملاحظات، يرجى المحاولة لاحقًا.",
+  "supplierPoolRemoveTitle": "إزالة مصنع",
+  "supplierPoolRemoveConfirm": "هل تريد إزالة «{name}»؟ لن يظهر بعد الآن في المطابقة الذكية للذكاء الاصطناعي."
 }

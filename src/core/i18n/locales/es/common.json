@@ -230,5 +230,13 @@
   "enterprisePoolDeniedHint": "Las identidades de agente y empresa son excluyentes. Para cambiar, vacíe primero su pool de proveedores.",
   "aiMatchIntro": "La IA recomendará las fábricas más adecuadas de su pool de proveedores",
   "aiMatchDiagHint": "{n} fábricas de su pool no tienen diagnóstico completo. Complételo para un emparejamiento más preciso.",
-  "aiMatchDiagAction": "Completar"
+  "aiMatchDiagAction": "Completar",
+  "supplierPoolLoadFailed": "No se pudo cargar su pool de proveedores. Inténtelo de nuevo más tarde.",
+  "supplierPoolRetry": "Reintentar",
+  "supplierPoolRemoveSuccess": "Eliminado",
+  "supplierPoolRemoveFailed": "No se pudo eliminar. Inténtelo de nuevo más tarde.",
+  "supplierPoolNotesSaved": "Notas guardadas",
+  "supplierPoolNotesSaveFailed": "No se pudieron guardar las notas. Inténtelo de nuevo más tarde.",
+  "supplierPoolRemoveTitle": "Eliminar fábrica",
+  "supplierPoolRemoveConfirm": "¿Eliminar «{name}»? Ya no aparecerá en la coincidencia inteligente de IA."
 }

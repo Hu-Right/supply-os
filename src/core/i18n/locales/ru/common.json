@@ -230,5 +230,13 @@
   "enterprisePoolDeniedHint": "Роли агента и предприятия взаимоисключающи. Для переключения сначала очистите библиотеку поставщиков.",
   "aiMatchIntro": "ИИ порекомендует наиболее подходящие заводы из вашей библиотеки поставщиков",
   "aiMatchDiagHint": "У {n} заводов в пуле не заполнена диагностика. Заполните её для более точного подбора.",
-  "aiMatchDiagAction": "Заполнить"
+  "aiMatchDiagAction": "Заполнить",
+  "supplierPoolLoadFailed": "Не удалось загрузить пул поставщиков. Повторите попытку позже.",
+  "supplierPoolRetry": "Повторить",
+  "supplierPoolRemoveSuccess": "Удалено",
+  "supplierPoolRemoveFailed": "Не удалось удалить. Повторите попытку позже.",
+  "supplierPoolNotesSaved": "Заметки сохранены",
+  "supplierPoolNotesSaveFailed": "Не удалось сохранить заметки. Повторите попытку позже.",
+  "supplierPoolRemoveTitle": "Удалить завод",
+  "supplierPoolRemoveConfirm": "Удалить «{name}»? Завод больше не будет участвовать в интеллектуальном подборе AI."
 }
