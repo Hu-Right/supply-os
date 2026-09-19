@@ -16,39 +16,8 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import { apiCached, buildQuery } from "@/core/http";
 import { Button } from "@/shared/ui";
-
-/** 解锁记录（与 payment/api UnlockRecord 对齐） */
-interface UnlockRecord {
-  user_id: number;
-  notice_id: number;
-  unlock_type: string;
-  price: number;
-  unlocked_at?: string | null;
-  notice?: {
-    title?: string | null;
-    title_i18n?: string | null;
-    deadline_expired?: boolean | null;
-  } | null;
-}
-
-/** 本地差异 #18：与 features/payment/api 对齐 */
-const NOTICE_API_LANGS = new Set(["zh", "en", "fr", "ru", "es", "ar"]);
-
-/** 查询用户解锁记录（从 features/payment/api 内联，行为一致） */
-async function fetchUnlocks(params: {
-  page?: number;
-  limit?: number;
-  locale?: string;
-}): Promise<{ total: number; list: UnlockRecord[] }> {
-  const qs = buildQuery({
-    page: params.page,
-    limit: params.limit,
-    lang: params.locale && NOTICE_API_LANGS.has(params.locale) ? params.locale : undefined,
-  });
-  return apiCached<{ total: number; list: UnlockRecord[] }>(`/api/payment/unlocks?${qs}`, 5 * 60 * 1000);
-}
+import { useRecentUnlocks } from "../hooks/useRecentUnlocks";
 
 export interface RecentUnlocksProps {
   userId: number;
@@ -57,23 +26,12 @@ export interface RecentUnlocksProps {
 
 export function RecentUnlocks({ userId, onOpenNotice }: RecentUnlocksProps) {
   const { t, locale } = useLocale();
-  const [records, setRecords] = useState<UnlockRecord[]>([]);
+  const { records } = useRecentUnlocks(userId, locale);
   const [showOriginal, setShowOriginal] = useState(false);
 
+  // 用户/语言切换时回到译文视图（展示层局部状态）
   useEffect(() => {
-    let cancelled = false;
     setShowOriginal(false);
-    fetchUnlocks({ limit: 3, locale })
-      .then((res) => {
-        if (!cancelled) setRecords(res.list || []);
-      })
-      .catch((e) => {
-        console.warn("[RecentUnlocks] 解锁记录加载失败:", e);
-        if (!cancelled) setRecords([]);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, [userId, locale]);
 
   if (records.length === 0) return null;
