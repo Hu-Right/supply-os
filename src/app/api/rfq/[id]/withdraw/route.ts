@@ -34,8 +34,8 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     if (row.rfq_status !== RFQ_STATUS.PUBLISHED && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) routeError(400, 40004, "仅已发布或待审核的 RFQ 可撤回");
 
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = ${RFQ_STATUS.CLOSED} WHERE id = ? AND user_id = ?`,
-      [rfqId, auth.userId],
+      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
+      [RFQ_STATUS.CLOSED, rfqId, auth.userId],
     );
 
     if ((result as ResultSetHeader).affectedRows === 0) {

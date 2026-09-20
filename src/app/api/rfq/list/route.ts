@@ -38,13 +38,14 @@ export const GET = withRoute(async (req: NextRequest) => {
   const pool = getPool();
 
   // ── WHERE ──
+  // 状态值必须参数化：裸拼 `rfq_status = published` 会被 MySQL 当作列名（ER_BAD_FIELD_ERROR）
   const conditions: string[] = [
     "n.notice_type = 'RFQ'",
     "n.entry_source = 'platform'",
-    `n.rfq_status = ${RFQ_STATUS.PUBLISHED}`,
+    "n.rfq_status = ?",
     "(n.deadline_sec = 0 OR n.deadline_sec >= UNIX_TIMESTAMP(NOW()))",
   ];
-  const params: unknown[] = [];
+  const params: unknown[] = [RFQ_STATUS.PUBLISHED];
 
   if (q) {
     conditions.push("(n.title LIKE ? OR LEFT(n.description, 500) LIKE ?)");
@@ -67,7 +68,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`RFQ list timeout ${MYSQL_TIMEOUT_MS}ms`)), MYSQL_TIMEOUT_MS));
 
-    const [countRows, dataRows] = await Promise.all([
+    const [countResult, dataResult] = await Promise.all([
       Promise.race([pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
@@ -84,10 +85,12 @@ export const GET = withRoute(async (req: NextRequest) => {
         ),
         timeout,
       ]),
-    ]) as [RowDataPacket[], RowDataPacket[]];
+    ]);
+    // pool.query 的 Promise 解析为 [rows, fields] 元组；取每个结果的 [0] 才是真实行数组
+    const countRows = (countResult as [RowDataPacket[], unknown])[0];
+    const rows = (dataResult as [RowDataPacket[], unknown])[0];
 
-    const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
-    const rows = dataRows as RowDataPacket[];
+    const total = Number(countRows[0]?.total || 0);
 
     const items = rows.map((row) => {
       const province = String(row.province_name || "");

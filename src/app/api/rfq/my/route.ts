@@ -31,19 +31,23 @@ export const GET = withRoute(async (req: NextRequest) => {
 
   const whereSql = conditions.join(" AND ");
 
-  const [countRows, dataRows] = await Promise.all([
+  // pool.query 的 Promise 解析为 [rows, fields] 元组；Promise.all 结果是
+  // [[rows1,fields1],[rows2,fields2]]，必须取每个结果的 [0] 才是真实行数组。
+  const [countRes, dataRes] = await Promise.all([
     pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params),
     pool.query(
       `SELECT n.id, n.title, n.country, n.estimated_value, n.deadline_sec,
-              n.rfq_status, n.published_date, n.created_at
+              n.rfq_status, n.published_date, n.create_time
        FROM crm_bid_notices n WHERE ${whereSql}
        ORDER BY n.id DESC LIMIT ? OFFSET ?`,
       [...params, pageSize, offset],
     ),
-  ]) as [RowDataPacket[], RowDataPacket[]];
+  ]);
+  const countRows = countRes[0] as RowDataPacket[];
+  const dataRows = dataRes[0] as RowDataPacket[];
 
-  const total = Number((countRows as RowDataPacket[])[0]?.total || 0);
-  const items = (dataRows as RowDataPacket[]).map((row) => ({
+  const total = Number(countRows[0]?.total || 0);
+  const items = dataRows.map((row) => ({
     id: Number(row.id),
     title: String(row.title || ""),
     country: String(row.country || ""),
@@ -51,7 +55,7 @@ export const GET = withRoute(async (req: NextRequest) => {
     deadlineSec: Number(row.deadline_sec) || 0,
     status: String(row.rfq_status || RFQ_STATUS.DRAFT),
     publishedDate: row.published_date ? String(row.published_date) : null,
-    createdAt: row.created_at ? String(row.created_at) : null,
+    createdAt: row.create_time != null ? String(row.create_time) : null,
   }));
 
   return NextResponse.json({ items, total, page, page_size: pageSize });
