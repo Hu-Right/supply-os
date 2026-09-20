@@ -34,6 +34,8 @@ export interface AppEventMap {
   "supply-os:membership-changed": void;
   "supply-os:crm-refresh": void;
   "supply-os:industry-prefs-updated": void;
+  "supply-os:supplier-pool-changed": void;
+  "supply-os:enterprise-changed": void;
   "supply-os:open-supplier-register": void;
   "supply-os:open-training-register": void;
 }

@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/core/http";
+import { onAppEvent } from "@/core/events";
 
 /** 企业信息（crm_suppliers 整行透传，键为 snake_case 列名） */
 export type EnterpriseInfo = Record<string, unknown>;
@@ -66,6 +67,18 @@ export function useEnterpriseInfo(): UseEnterpriseInfoReturn {
   }, [nonce]);
 
   const retry = useCallback(() => setNonce((n) => n + 1), []);
+
+  // 跨实例同步：身份两侧任一变更（企业绑定/解绑、供应商资源库增删）后，所有订阅者
+  // （settings layout 排他显隐、home 顶部身份引导卡片）即时重取 bound，避免不及时排他。
+  // 事件仅由写操作端点派发（非取数本身），不会形成回环。
+  useEffect(() => {
+    const offEnt = onAppEvent("supply-os:enterprise-changed", () => setNonce((n) => n + 1));
+    const offPool = onAppEvent("supply-os:supplier-pool-changed", () => setNonce((n) => n + 1));
+    return () => {
+      offEnt();
+      offPool();
+    };
+  }, []);
 
   return { bound, linkStatus, enterprise, loading, error, retry };
 }

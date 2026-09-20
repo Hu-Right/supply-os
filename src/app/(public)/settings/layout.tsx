@@ -24,18 +24,22 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const pathname = usePathname();
   const { t } = useLocale();
   const userId = useUserId();
-  const { bound, loading: entLoading } = useEnterpriseInfo();
-  const { hasPool, loading: poolLoading } = useHasSupplierPool(userId);
+  const { bound, loading: entLoading, error: entError } = useEnterpriseInfo();
+  const { hasPool, loading: poolLoading, error: poolError } = useHasSupplierPool(userId);
 
-  // 互斥逻辑：绑定了企业→隐藏资源库；添加了供应商→隐藏企业信息；都没做→都显示
+  // 互斥逻辑：绑定了企业→只显示企业信息；建了资源库→只显示供应商库；都没做→两个都显示（供选择）。
+  // 身份未确定（loading/error）期间：互斥项一律先不渲染，只留固定项（个人信息/AI 模型配置），
+  // 身份确定后再显示对应的那一个——不闪两个、也不摆骨架占位等多余元素。
+  const identityUncertain = entLoading || poolLoading || !!entError || !!poolError;
   const filterNav = (item: typeof NAV_ITEMS[number]) => {
+    if (item.exclusive && identityUncertain) return false;
     if (item.exclusive === "enterprise" && hasPool) return false;
     if (item.exclusive === "pool" && bound) return false;
     return true;
   };
 
-  // 未选择身份状态：两者都未绑定，显示引导横幅
-  const isUncommitted = !entLoading && !poolLoading && !bound && !hasPool && !!userId;
+  // 未选择身份状态：两者都未绑定且身份状态已确定，才显示引导横幅
+  const isUncommitted = !identityUncertain && !bound && !hasPool && !!userId;
 
   return (
     // 居左布局：侧栏固定左侧，内容区向右铺满（参考智谱用户中心），不居中不限宽

@@ -76,6 +76,8 @@ export default function EnterpriseSettingsClient() {
       }
       setEditing(false);
       enterprise.retry();
+      // 通知全局：企业身份已变更 → 同步刷新资源库判定与 settings 排他/顶部引导卡片
+      emitAppEvent("supply-os:enterprise-changed");
     } catch (e) {
       setMessage(e instanceof Error ? e.message : (t("authEnterpriseSaveFailed") || "保存失败"));
     } finally {

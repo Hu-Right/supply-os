@@ -10,6 +10,7 @@ import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth/useUserId";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
 import { api } from "@/core/http";
+import { emitAppEvent } from "@/core/events";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 
 interface PoolItem {
@@ -51,8 +52,8 @@ export default function SupplierPoolPageClient() {
     if (!userId) return;
     setListError(false);
     try {
-      const res = await api<{ list: PoolItem[] }>("/api/user/supplier-pool");
-      setItems(res.list || []);
+      const res = await api<{ data?: { list?: PoolItem[] } }>("/api/user/supplier-pool");
+      setItems(res.data?.list || []);
     } catch {
       // 加载失败必须与空态区分：显示错误态 + 重试，而非伪装成"暂无工厂"
       setListError(true);
@@ -75,10 +76,10 @@ export default function SupplierPoolPageClient() {
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await api<{ candidates: typeof candidates }>(
+        const res = await api<{ data?: { candidates?: typeof candidates } }>(
           `/api/user/supplier-pool/search?q=${encodeURIComponent(kw)}`,
         );
-        if (!cancelled) setCandidates(res.candidates || []);
+        if (!cancelled) setCandidates(res.data?.candidates || []);
       } catch {
         if (!cancelled) setCandidates([]);
       } finally {
@@ -102,6 +103,8 @@ export default function SupplierPoolPageClient() {
       setCompanyName("");
       setShowAdd(false);
       fetchList();
+      // 通知全局：资源库已变更 → useHasSupplierPool 重取，settings 排他与顶部引导卡片即时更新
+      emitAppEvent("supply-os:supplier-pool-changed");
     } catch (err: any) {
       setAddMessage(err?.message || "添加失败");
       setAddError(true);
@@ -123,6 +126,7 @@ export default function SupplierPoolPageClient() {
       setCandidates([]);
       setSearched(false);
       fetchList();
+      emitAppEvent("supply-os:supplier-pool-changed");
     } catch (err: any) {
       toast.error(err?.message || "添加失败");
     } finally {
@@ -138,6 +142,7 @@ export default function SupplierPoolPageClient() {
       toast.success(t("supplierPoolRemoveSuccess") || "已移除");
       setRemoving(null);
       fetchList();
+      emitAppEvent("supply-os:supplier-pool-changed");
     } catch (err: any) {
       toast.error(err?.message || t("supplierPoolRemoveFailed") || "移除失败，请稍后重试");
     } finally {
