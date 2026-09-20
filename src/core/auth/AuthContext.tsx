@@ -95,16 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser, t]);
 
   /**
-   * 登录（仅手机号）
-   * Login (phone only)
+   * 登录（手机号或已绑定邮箱，identifier 双轨）
+   * Login (phone or bound email)
    */
-  const login = useCallback(async (phone: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     setIsAuthLoading(true);
     try {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
       const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: { identifier: phone, password },
+        body: { identifier, password },
       });
       // 存储 Access Token + Refresh Token（Refresh Token 同时经 HttpOnly Cookie + localStorage 降级存储）
       if (data.token) {

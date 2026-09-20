@@ -198,7 +198,8 @@ export class UsersRepo {
   }
 
   /** 按手机号或邮箱查找用户（登录鉴权专用，含 password_hash）
-   *  登录已限制为仅手机号，此处保留邮箱查找以兼容历史数据 */
+   *  登录凭证为双轨：手机号，或已绑定邮箱（含注册后在个人中心补绑的邮箱，
+   *  产品决策 2026-09：邮箱对所有绑定用户开放登录，非仅历史用户兼容） */
   async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
     const isPhone = /^1[3-9]\d{9}$/.test(identifier);
     if (isPhone) {

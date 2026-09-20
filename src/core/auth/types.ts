@@ -40,8 +40,8 @@ export interface AuthContextValue {
   authReady: boolean;
   /** 认证操作加载中（登录/注册/刷新） */
   isAuthLoading: boolean;
-  /** 登录（仅手机号） */
-  login: (phone: string, password: string) => Promise<void>;
+  /** 登录（手机号或已绑定邮箱） */
+  login: (identifier: string, password: string) => Promise<void>;
   /** 注册（options 对象模式，消除位置参数顺序依赖） */
   register: (options: RegisterOptions) => Promise<void>;
   /** 登出 */

@@ -16,8 +16,8 @@ export const DRAFT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface AuthFormState {
   displayName: string;
-  identifier: string; // 登录用：手机号
-  email: string; // 注册用：选填邮箱（仅用于通知，不作为登录凭证）
+  identifier: string; // 登录用：手机号或已绑定邮箱
+  email: string; // 注册用：选填邮箱（通知用途；注册不落库，绑定邮箱后亦可作登录凭证）
   phone: string; // 注册用：必填手机号
   password: string;
   invitationCode: string;
