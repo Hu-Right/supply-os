@@ -4,7 +4,8 @@
  * 指纹只允许依赖「构建宽表时真正读过的输入」，且不得依赖宽表自身当前值 ——
  * 这是「修复后必然收敛」的前提。测试锁定的是这些依赖边界，而非 MD5 结果值。
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import type { Pool } from "mysql2/promise";
 import { WIDE_FP_EXPR, FP_SLICE_SIZE, FP_SLICES_PER_ROUND } from "@/lib/services/search-sync/wide-fingerprint";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
 
@@ -68,5 +69,52 @@ describe("WIDE_FP_EXPR", () => {
   it("切片参数为正整数（对账轮转成本上限）", () => {
     expect(FP_SLICE_SIZE).toBeGreaterThan(0);
     expect(FP_SLICES_PER_ROUND).toBeGreaterThan(0);
+  });
+});
+
+describe("detectWideFingerprintDrift", () => {
+  /**
+   * 窗口算法契约：先取窗口边界（成本恒定），再在窗口内比较指纹。
+   * 游标存于模块内，用 resetModules 保证用例互不干扰。
+   */
+  it("返回差异 id，游标逐轮推进，到表尾归零", async () => {
+    vi.resetModules();
+    const mod = await import("@/lib/services/search-sync/wide-fingerprint");
+
+    const windows: Array<Array<Record<string, unknown>>> = [
+      [{ lo: 100, hi: 900 }], // 第一轮窗口
+      [],                     // 第二轮：无更大行 → 游标归零并结束
+      [{ lo: 5, hi: 9 }],     // 第三次调用：应从头开始
+    ];
+    const drift: Array<Array<Record<string, unknown>>> = [[{ id: 120 }, { id: 300 }]];
+    const calls: Array<{ sql: string; params: unknown[] }> = [];
+    const query = vi.fn(async (sql: string, params: unknown = null) => {
+      const s = String(sql);
+      calls.push({ sql: s, params: params as unknown[] });
+      if (/MIN\(id\) AS lo/.test(s)) return [windows.shift() ?? []];
+      if (/BETWEEN \? AND \?/.test(s)) return [drift.shift() ?? []];
+      return [[]];
+    });
+    const pool = { query } as unknown as Pool;
+
+    expect(await mod.detectWideFingerprintDrift(pool)).toEqual([120, 300]);
+    const winParams = () =>
+      calls.filter((c) => /MIN\(id\) AS lo/.test(c.sql)).map((c) => c.params[0]);
+    // 第一轮从 0 开始，第二轮接上一窗口上界
+    expect(winParams()).toEqual([0, 900]);
+
+    // 表尾已至 → 游标归零，下一次从头清扫
+    expect(await mod.detectWideFingerprintDrift(pool)).toEqual([]);
+    expect(winParams()).toEqual([0, 900, 0, 9]);
+  });
+
+  it("只发 SELECT（对账不修复宽表 —— I1）", async () => {
+    vi.resetModules();
+    const mod = await import("@/lib/services/search-sync/wide-fingerprint");
+    const query = vi.fn(async (sql: string) => [String(sql).includes("MIN(id)") ? [{ lo: 1, hi: 2 }] : []]);
+    await mod.detectWideFingerprintDrift({ query } as unknown as Pool);
+    for (const c of query.mock.calls) {
+      expect(/^\s*SELECT/i.test(String(c[0]))).toBe(true);
+    }
   });
 });

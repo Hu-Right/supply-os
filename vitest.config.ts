@@ -32,9 +32,17 @@ export default defineConfig({
         "src/lib/utils/json.ts",
         "src/lib/utils/normalize.ts",
         "src/lib/utils/notice-expired.ts",
+        "src/lib/utils/notice-field-limits.ts",
+        "src/lib/utils/notice-qualified.ts",
         "src/lib/utils/ip.ts",
         "src/lib/utils/fileSniff.ts",
         "src/lib/utils/auth-cookies-next.ts",
+
+        // ── src/lib/services/search-sync — 宽表构建/对账/指纹（红线 #6 单一写入者）──
+        "src/lib/services/search-sync/wide-row-builder.ts",
+        "src/lib/services/search-sync/wide-row-reconcile.ts",
+        "src/lib/services/search-sync/wide-fingerprint.ts",
+        "src/lib/services/search-visibility/purge.ts",
 
         // ── src/lib/middleware — 认证中间件 ──
         "src/lib/middleware/auth.ts",
