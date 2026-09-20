@@ -40,7 +40,7 @@ export function Step2BusinessTerms({ form, errors, update, citiesList, districts
         </div>
       </Field>
 
-      <Field label="交付地点" required error={errors.province}>
+      <Field label="交付地点" required error={errors.provinceId}>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <SearchableSelect
             options={chinaProvinces.map((p) => ({ value: Number(p.code), label: p.name }))}

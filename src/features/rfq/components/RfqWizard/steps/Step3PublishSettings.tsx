@@ -17,9 +17,11 @@ export interface Step3Props {
   termsOpen: boolean;
   setTermsOpen: (open: boolean) => void;
   setStep: (step: number) => void;
+  /** 已选 UNSPSC 分类的中文名称（一级 / 二级），供发布前摘要核对 */
+  categoryDisplay: string;
 }
 
-export function Step3PublishSettings({ form, errors, update, termsOpen, setTermsOpen, setStep }: Step3Props) {
+export function Step3PublishSettings({ form, errors, update, termsOpen, setTermsOpen, setStep, categoryDisplay }: Step3Props) {
   return (
     <div className="space-y-5">
       <Field label="可见范围" required>
@@ -109,7 +111,7 @@ export function Step3PublishSettings({ form, errors, update, termsOpen, setTerms
         </div>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
           <SummaryItem label="需求标题" value={form.title} onEdit={() => setStep(0)} />
-          <SummaryItem label="产品分类" value={[form.categoryL1, form.categoryL2].filter(Boolean).join(" / ")} onEdit={() => setStep(0)} />
+          <SummaryItem label="产品分类" value={categoryDisplay} onEdit={() => setStep(0)} />
           <SummaryItem label="预算" value={form.budgetConfidential ? "保密" : form.budget ? `${form.budget} 万元` : ""} onEdit={() => setStep(1)} />
           <SummaryItem label="交付地点" value={[form.provinceName, form.cityName, form.districtName, form.address].filter(Boolean).join(" ")} onEdit={() => setStep(1)} />
           <SummaryItem label="报价截止" value={form.deadline || ""} onEdit={() => setStep(1)} />

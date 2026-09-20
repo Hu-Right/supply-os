@@ -66,7 +66,7 @@ export default function MyRfqPageClient() {
     if (!confirm("确认撤回此采购需求？撤回后将不再展示在需求广场。")) return;
     setWithdrawing(id);
     try {
-      await api(`/api/rfq/${id}/withdraw`, { method: "PATCH", body: JSON.stringify({}) });
+      await api(`/api/rfq/${id}/withdraw`, { method: "PATCH", body: {} });
       fetchList();
     } catch (err) {
       alert((err as Error).message || "撤回失败");

@@ -12,6 +12,7 @@
  *              提交已接入 /api/rfq/create，附件 P2 接入 OSS 预签名直传。
  */
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle, Check, ChevronDown, ChevronLeft, Lock, Send,
 } from "lucide-react";
@@ -121,6 +122,13 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     setErrors((prev) => ({ ...prev, categoryL2: "" }));
   }
 
+  /** 产品分类展示文案：由 UNSPSC 选项把已选 id 映射为中文名称（供第三步摘要核对） */
+  const categoryDisplay = (() => {
+    const pick = (opts: UnspscOption[], id: string) => opts.find((o) => String(o.id) === String(id));
+    const label = (o?: UnspscOption) => (o ? o.title_zh || o.title || o.code : "");
+    return [label(pick(l1Options, form.categoryL1)), label(pick(l2Options, form.categoryL2))].filter(Boolean).join(" / ");
+  })();
+
   // ── 校验 ──
   function validateStep(s: number): FieldErrors {
     const e: FieldErrors = {};
@@ -136,10 +144,14 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     if (s === 1) {
       if (!form.deadline) e.deadline = "请选择报价截止时间";
       else if (form.deadline < tomorrowIso()) e.deadline = "截止时间至少在 24 小时以后";
-      if (!form.provinceId) e.province = "请选择省份";
+      if (!form.provinceId) e.provinceId = "请选择省份";
+      if (!form.incoterm) e.incoterm = "请选择贸易术语";
+      if (!form.deliveryTime.trim()) e.deliveryTime = "请填写交付时间";
       if (!form.budgetConfidential) {
         const budget = form.budget.trim();
         if (!budget) e.budget = "请填写预算金额，或勾选'预算保密'";
+        else if (!Number.isFinite(Number(budget)) || Number(budget) <= 0)
+          e.budget = "请输入有效的预算金额（大于 0 的数字）";
       }
     }
     if (s === 2) {
@@ -183,9 +195,10 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
     }
     setSubmitting(true);
     try {
+      // api() 内部已 JSON.stringify，body 直接传对象（切勿二次 stringify）
       const res = await api<{ code: number; data: { id: number } }>("/api/rfq/create", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           title: form.title.trim(),
           description: form.description.trim(),
           budget: form.budgetConfidential ? 0 : Number(form.budget) || 0,
@@ -206,11 +219,11 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
           contact_email: form.contactEmail,
           contact_phone: form.contactPhone,
           status: "draft",
-        }),
+        },
       });
       const rfqId = res.data?.id;
       if (!rfqId) throw new Error("创建失败");
-      await api(`/api/rfq/${rfqId}/submit`, { method: "PATCH", body: JSON.stringify({}) });
+      await api(`/api/rfq/${rfqId}/submit`, { method: "PATCH", body: {} });
       setSubmitted(true);
     } catch (err) {
       const msg = (err as Error).message || "";
@@ -231,9 +244,14 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         </div>
         <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
         <p className="text-sm text-secondary-500 mb-6">平台审核通过后将自动展示在需求广场，您可以随时在"我的采购需求"中查看或编辑。</p>
-        <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
-          发布新需求
-        </Button>
+        <div className="flex items-center justify-center gap-3">
+          <Button asChild variant="outline">
+            <Link href="/rfq/my">查看我的采购需求</Link>
+          </Button>
+          <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
+            发布新需求
+          </Button>
+        </div>
       </div>
     );
   }
@@ -260,6 +278,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         <Step3PublishSettings
           form={form} errors={errors} update={update}
           termsOpen={termsOpen} setTermsOpen={setTermsOpen} setStep={setStep}
+          categoryDisplay={categoryDisplay}
         />
       )}
 
