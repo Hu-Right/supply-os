@@ -7,6 +7,8 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { PLATFORM_PUBLISHED_ONLY_NO_ALIAS } from "@/lib/utils/notice-expired";
+import { WIDE_LIMITS } from "@/lib/utils/notice-field-limits";
+import { qualifiedOppWhere } from "@/lib/utils/notice-qualified";
 
 export class NoticeDetailRepo {
   constructor(private pool: Pool) {}
@@ -76,8 +78,12 @@ export class NoticeDetailRepo {
   /**
    * SEO 详情页公开字段（/procurement/notice/[id] SSR 用）。
    * 字段集 = findPreview 口径 + deadline/estimated_value/country/notice_type，
-   * 描述与搜索列表同口径截断 300 字符 —— 全文/联系人/文档仍是解锁后内容，
+   * 描述与搜索列表同口径截断 WIDE_LIMITS.lockedTeaser —— 全文/联系人/文档仍是解锁后内容，
    * 严禁在此查询中放宽（会被 SSR 进 HTML 泄露给未付费用户与爬虫）。
+   *
+   * 描述来源与宽表构建的 DESC_SOURCE_EXPR 同语义（机会表优先、主表兜底），
+   * 但不 JOIN 机会表而是用相关子查询取一行：改成 JOIN 会改变查询形状与性能特征。
+   * 合格机会谓词与长度常量均为共享出口（I2），两者不会各写一份。
    */
   async findSeoDetail(noticeId: number): Promise<RowDataPacket | null> {
     const [rows] = await this.pool.query(
@@ -87,17 +93,17 @@ export class NoticeDetailRepo {
          LEFT(COALESCE(
            (SELECT opp.description FROM crm_bid_opportunities opp
             WHERE opp.source_notice_id = n.notice_id
-              AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+              AND ${qualifiedOppWhere("opp")}
             LIMIT 1),
            n.description
-         ), 300) AS description,
+         ), ${WIDE_LIMITS.lockedTeaser}) AS description,
          CASE WHEN LENGTH(COALESCE(
            (SELECT opp.description FROM crm_bid_opportunities opp
             WHERE opp.source_notice_id = n.notice_id
-              AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+              AND ${qualifiedOppWhere("opp")}
             LIMIT 1),
            n.description
-         )) > 300 THEN 1 ELSE 0 END AS description_truncated
+         )) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated
        FROM crm_bid_notices n WHERE n.id = ? AND ${PLATFORM_PUBLISHED_ONLY_NO_ALIAS} LIMIT 1`,
       [noticeId],
     );

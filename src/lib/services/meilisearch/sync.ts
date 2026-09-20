@@ -7,6 +7,7 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { classifyAgencyType } from "../agency/index";
 import { normalizeNoticeType } from "../../utils/notice-type";
+import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
 import { segmentZh } from "./segmentZh";
 
@@ -45,7 +46,7 @@ function buildSyncDocFromWideTable(r: any) {
   const langFields: Record<string, string> = {};
   for (const lang of SUPPORTED_LANGS) {
     langFields[`title_${lang}`] = String(r[`title_${lang}`] || "");
-    const rawDesc = (String(r[`description_${lang}`] || "")).slice(0, 2000);
+    const rawDesc = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
     // 仅中文字段需要 jieba 分词预处理
     langFields[`description_${lang}`] = lang === "zh" ? segmentZh(rawDesc) : rawDesc;
   }
@@ -60,7 +61,7 @@ function buildSyncDocFromWideTable(r: any) {
     notice_id: String(r.notice_id || ""),
     reference: String(r.reference || ""),
     title: String(r.title || ""),
-    description: (String(r.description || "")).slice(0, 2000),
+    description: truncate(r.description, WIDE_LIMITS.description),
     // 宽表已存储标准化后的值；此处再经 normalizeNoticeType 幂等归一（纵深防御，
     // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）
     country: String(r.country_std || ""),

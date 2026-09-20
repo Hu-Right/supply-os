@@ -7,21 +7,12 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LRUCache } from "lru-cache";
+import { qualifiedOppWhere } from "../../utils/notice-qualified";
 
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
-// 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
-// findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
-// 注意：status 列为 tinyint(1=won)，不可用字符串 'won' 比较（UPDATE 严格模式会报截断错误）
-/**
- * 合格机会谓词（跨模块唯一口径出口）。
- * 精选判定（本文件）与宽表同步 JOIN（services/search-sync/wide-row-builder）共用，
- * 保证「详情页描述来源」与「搜索索引描述来源」取自同一批机会行。
- * @param alias 表别名，空串表示无别名
- */
-export const qualifiedOppWhere = (alias = "") => {
-  const p = alias ? `${alias}.` : "";
-  return `(${p}is_qualified = 1 OR ${p}status = 1 OR ${p}audit_status = 1)`;
-};
+// 合格机会口径已下沉至 utils/notice-qualified（repos 与 services 共用，避免反向依赖），
+// 本文件重导出以兼容既有消费方，口径仍为单一事实源。
+export { qualifiedOppWhere };
 
 // ── [精选功能重新启用 2026-07-31] ──
 // FEATURED_NOTICE_EXISTS 判定常量恢复启用（原 2026-07-29 临时注释停用）。

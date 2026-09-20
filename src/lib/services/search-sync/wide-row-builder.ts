@@ -12,7 +12,7 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
-import { qualifiedOppWhere } from "../notices/featured";
+import { qualifiedOppWhere } from "../../utils/notice-qualified";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
 import { WIDE_FP_EXPR } from "./wide-fingerprint";
 
