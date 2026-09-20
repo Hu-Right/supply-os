@@ -12,9 +12,12 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
-import { qualifiedOppWhere } from "../../utils/notice-qualified";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
 import { WIDE_FP_EXPR } from "./wide-fingerprint";
+// JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
+import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
+
+export { WIDE_OPP_JOIN, WIDE_SYNC_JOIN };
 
 // ── 支持的语言列表 ──
 export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
@@ -36,16 +39,8 @@ export const WIDE_SYNC_SELECT = `
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries
 `;
-/** 机会表合格行 JOIN 片段（别名 opp），供宽表主查询与翻译批量查询共用；
- *  谓词由 notices/featured 的 qualifiedOppWhere 唯一派生，与精选判定同口径（I2） */
-export const WIDE_OPP_JOIN = `
-  LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
-    AND ${qualifiedOppWhere("opp")}
-`;
-export const WIDE_SYNC_JOIN = `
-  FROM crm_bid_notices n
-  ${WIDE_OPP_JOIN}
-`;
+/** 机会表合格行 JOIN 片段与主查询 JOIN 均定义于 wide-sync-sql（叶子模块），
+ *  此处重导出仅为保持既有导入路径兼容（避免 builder ↔ fingerprint 循环依赖） */
 
 // ── 批量查询翻译（按 notice_id 列表查询所有语言）──
 /** 单条语言的译文携带 model，供 buildWideRow 判定是否同语言直通 */

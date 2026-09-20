@@ -5,7 +5,12 @@
  * 三件事（均为幂等、分批、可重跑）：
  * 1. crm_notice_search 增加 sync_src_hash CHAR(32) —— 宽表内容与输入快照的一致性指纹，
  *    由 buildWideRow 同快照写入（宽表因此不需要任何 UPDATE，单一写入者成立）。
- *    MySQL 8.0.12+ INSTANT ADD COLUMN 仅改元数据（与 030 同类判断）；列已存在则跳过。
+ *    【必须 ALGORITHM=INSTANT】实测（MySQL 8.0.46 / 宽表 462,018 行）：本表因历史多次
+ *    ALTER 已不能走 INSTANT（row version 耗尽），不加限制时 InnoDB 会静默退化为
+ *    copy to tmp table：实测跑了 22 分钟并持 SHARED_NO_WRITE，连带阻塞应用 8 条宽表写入
+ *    排队等元数据锁。因此本迁移显式指定 ALGORITHM=INSTANT，不允许时直接报错（绝不静默
+ *    降级），并要求改走停服窗口手动执行；同时将会话 lock_wait_timeout 调短，
+ *    避免自己长时间占据 MDL 队列而挡住在线流量。
  * 2. 清理历史被写坏的 precise_levelN：对账曾把 candidate_code 原码写进语义为
  *    「UNSPSC 五级 ID 串」的列（D5）。做法是**清空含非数字字符的值**而非猜测映射，
  *    清空后由构建路径（loadPreciseByNoticeIds 经字典解析）按 ID 重新填回。
@@ -29,7 +34,7 @@ import { type Migration } from "./runner";
 /** 每批处理行数：无界 UPDATE 会长时间持行锁，分批保证可中断可重跑 */
 const BATCH = 5000;
 
-/** 幂等加列（自建探测而非 ensureColumn：需同时验证列存在性与输出可读日志） */
+/** 幂等加列（自建探测而非 ensureColumn：需要显式 ALGORITHM=INSTANT 并定制等待超时） */
 async function addFingerprintColumn(dbPool: Pool): Promise<void> {
   const [rows] = await dbPool.query(
     `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
@@ -39,12 +44,26 @@ async function addFingerprintColumn(dbPool: Pool): Promise<void> {
     console.log("[migration-087] sync_src_hash 已存在，跳过加列");
     return;
   }
-  await dbPool.query(
-    `ALTER TABLE crm_notice_search
-       ADD COLUMN sync_src_hash CHAR(32) NOT NULL DEFAULT ''
-       COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改'`,
-  );
-  console.log("[migration-087] crm_notice_search.sync_src_hash 已添加");
+  // 最多等 5 秒拿元数据锁；拿不到就失败退出，不让启动过程把在线查询堆在 MDL 队列里
+  await dbPool.query("SET SESSION lock_wait_timeout = 5");
+  try {
+    await dbPool.query(
+      `ALTER TABLE crm_notice_search
+         ADD COLUMN sync_src_hash CHAR(32) NOT NULL DEFAULT ''
+         COMMENT '宽表内容与输入快照的一致性指纹，由 buildWideRow 同快照写入，对账只比对不修改'
+         ALGORITHM=INSTANT`,
+    );
+    console.log("[migration-087] crm_notice_search.sync_src_hash 已添加（INSTANT）");
+  } catch (err) {
+    throw new Error(
+      "[migration-087] 加列无法以 ALGORITHM=INSTANT 完成（本表因历史多次 ALTER 已耗尽 row version）。\n" +
+      "  严禁降级为在线 COPY（实测会持锁数十分钟并阻塞应用宽表写入）。\n" +
+      "  请改走停服窗口手动执行：pm2 stop → 去掉 ALGORITHM=INSTANT 重跑本条 ALTER → pm2 start。\n" +
+      `  原始错误：${(err as Error).message}`,
+      // 保留原始错误链（cause），供上层日志输出驱动层原始报错
+      { cause: err },
+    );
+  }
 }
 
 /** 分批清空被写坏的 precise_levelN（含非数字/非逗号字符 = 原码污染） */

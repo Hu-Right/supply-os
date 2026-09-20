@@ -25,7 +25,8 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS } from "../../utils/notice-field-limits";
-import { WIDE_OPP_JOIN } from "./wide-row-builder";
+// 从叶子模块导入，不得从 wide-row-builder 导入（builder 已依赖本模块的 WIDE_FP_EXPR，会成环）
+import { WIDE_OPP_JOIN } from "./wide-sync-sql";
 
 /** 字段分隔符：ASCII 单元分隔符（0x1f），业务文本中不出现，避免拼接歧义 */
 const SEP = "CHAR(31 USING utf8mb4)";

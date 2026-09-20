@@ -1,6 +1,7 @@
 /**
  * 迁移 087 行为契约：
  * - 指纹列加列前先探测 INFORMATION_SCHEMA（幂等，重复执行安全）
+ * - 加列必须 ALGORITHM=INSTANT + 短 lock_wait_timeout（不允许时报错而非静默降级持锁）
  * - 存量纠偏全部分批（LIMIT 批次循环），不得对 46 万行表发无界 UPDATE
  * - 不触碰 crm_bid_notices 的列/索引结构（重活留停服窗口，见 spec I4 步骤 B）
  */
@@ -9,7 +10,7 @@ import type { Pool } from "mysql2/promise";
 
 import { migration } from "@/lib/db/migrations/087-wide-table-sync-fingerprint";
 
-function makePool(opts: { columnExists?: boolean; affected?: number[] } = {}) {
+function makePool(opts: { columnExists?: boolean; affected?: number[]; alterThrows?: string } = {}) {
   const calls: Array<{ sql: string; params?: unknown }> = [];
   const affected = opts.affected ?? [0];
   let updateIdx = 0;
@@ -19,6 +20,7 @@ function makePool(opts: { columnExists?: boolean; affected?: number[] } = {}) {
     if (/INFORMATION_SCHEMA/i.test(s)) {
       return [[{ total: opts.columnExists ? 1 : 0 }]];
     }
+    if (/^\s*ALTER/i.test(s) && opts.alterThrows) throw new Error(opts.alterThrows);
     if (/^\s*UPDATE/i.test(s)) {
       return [{ affectedRows: affected[Math.min(updateIdx++, affected.length - 1)] ?? 0 }];
     }
@@ -47,11 +49,20 @@ describe("migration 087", () => {
     expect(calls.map((c) => c.sql).join("\n")).not.toMatch(/ALTER TABLE/i);
   });
 
-  it("列不存在时加列为 CHAR(32) NOT NULL DEFAULT ''", async () => {
+  it("列不存在时加列为 CHAR(32) NOT NULL DEFAULT ''，并强制 ALGORITHM=INSTANT", async () => {
     const { pool, calls } = makePool({ columnExists: false });
     await migration.up(pool);
     const alter = calls.find((c) => /ALTER TABLE crm_notice_search/i.test(c.sql));
     expect(alter?.sql).toMatch(/sync_src_hash\s+CHAR\(32\)\s+NOT NULL\s+DEFAULT ''/i);
+    // 静默退化为 copy to tmp table 会持锁数十分钟并阻塞应用宽表写入（现网实测）
+    expect(alter?.sql).toMatch(/ALGORITHM\s*=\s*INSTANT/i);
+    // 同会话内限定元数据锁等待，不把在线查询堆在队列里
+    expect(calls.some((c) => /lock_wait_timeout/i.test(c.sql))).toBe(true);
+  });
+
+  it("无法 INSTANT 时报错并给出停服指引，绝不静默降级重跑", async () => {
+    const { pool } = makePool({ columnExists: false, alterThrows: "ALGORITHM=INSTANT is not supported" });
+    await expect(migration.up(pool)).rejects.toThrow(/停服窗口/);
   });
 
   it("所有 UPDATE 均带 LIMIT（分批，禁止无界更新）", async () => {
