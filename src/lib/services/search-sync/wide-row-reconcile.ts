@@ -120,6 +120,46 @@ export async function reconcileGhostRows(pool: Pool): Promise<number[]> {
   }
 }
 
+/** 平台公告状态漂移检测结果：toSync 应公开可见但宽表缺行；toPurge 不可见但宽表残留 */
+export interface PlatformDrift {
+  toSync: number[];
+  toPurge: number[];
+}
+
+/**
+ * 平台公告状态漂移检测（D2 修复，只检测不修复 —— I1）
+ *
+ * 背景：宽表增量同步是 `id > watermark` 的纯新行扫描，而审核通过由站外后台直接写库
+ *      （红线 5 允许的「受控后台直接维护数据」），老行 rfq_status 变 published 后
+ *      其 id 早已在水位之下，永远不会被增量拉取。
+ *
+ * 口径：可见性 = `entry_source='platform'` 且 `rfq_status='published'`，与
+ *      lib/utils/notice-expired 的 PLATFORM_PUBLISHED_ONLY 完全一致；
+ *      过期不改变可见性（过期行由 deadline_sec 在查询侧过滤），故不纳入本检测。
+ *
+ * 成本：走 idx_entry_source（迁移 069），平台行数量为「用户发布量」级（远小于爬虫存量）。
+ */
+export async function detectPlatformStatusDrift(pool: Pool): Promise<PlatformDrift> {
+  const [rows] = await pool.query(
+    `SELECT n.id, ns.id AS wide_id
+     FROM crm_bid_notices n
+     LEFT JOIN crm_notice_search ns ON ns.id = n.id
+     WHERE n.entry_source = 'platform'
+       AND (
+         (IFNULL(n.rfq_status, '') = ${JSON.stringify(RFQ_STATUS.PUBLISHED)} AND ns.id IS NULL)
+         OR (IFNULL(n.rfq_status, '') <> ${JSON.stringify(RFQ_STATUS.PUBLISHED)} AND ns.id IS NOT NULL)
+       )
+     LIMIT 500`,
+  );
+  const toSync: number[] = [];
+  const toPurge: number[] = [];
+  for (const r of rows as RowDataPacket[]) {
+    if (r.wide_id == null) toSync.push(Number(r.id));
+    else toPurge.push(Number(r.id));
+  }
+  return { toSync, toPurge };
+}
+
 /**
  * is_featured 对账：同步主表的 is_featured 状态到宽表
  */
