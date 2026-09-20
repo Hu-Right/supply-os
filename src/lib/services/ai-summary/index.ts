@@ -189,9 +189,9 @@ export async function* streamAiSummary(
 ): AsyncIterable<string> {
   const summaryRepo = new AiSummaryRepo(pool);
 
-  // 缓存命中：一次性推送完整 JSON
+  // 缓存命中且内容非空才一次性推送完整 JSON；空/损坏记录（历史误存的空结果）视为未命中，继续重新生成并覆盖
   const cached = await summaryRepo.find(userId, noticeId);
-  if (cached) {
+  if (cached && String(cached.core_deliverables || "").trim()) {
     const full = JSON.stringify({
       coreDeliverables: cached.core_deliverables || "",
       keyQualifications: cached.key_qualifications || "",
@@ -243,21 +243,24 @@ export async function* streamAiSummary(
   }
 
   // 持久化：解析累积文本为 6 维度并 upsert，使下次进入直接命中缓存。
-  // 解析/落库失败静默降级（结果已推送给前端，本次不缓存，下次可重试）。
+  // 仅在解析出"有实际内容"的结果时落库——避免把 LLM 偶发的空/无效响应存成缓存，
+  // 否则下次流式命中该空记录会"一闪而过"却无任何反馈。解析/落库失败静默降级。
   try {
     const data = parseAiSummaryResponse(accumulated);
-    await summaryRepo.upsert({
-      userId,
-      noticeId,
-      coreDeliverables: data.coreDeliverables,
-      keyQualifications: data.keyQualifications,
-      paymentCycle: data.paymentCycle,
-      competitiveLandscape: data.competitiveLandscape,
-      bidStrategy: data.bidStrategy,
-      riskAlerts: data.riskAlerts,
-      model: creds.model,
-      providerBaseUrl: creds.baseUrl,
-    });
+    if (String(data.coreDeliverables || "").trim()) {
+      await summaryRepo.upsert({
+        userId,
+        noticeId,
+        coreDeliverables: data.coreDeliverables,
+        keyQualifications: data.keyQualifications,
+        paymentCycle: data.paymentCycle,
+        competitiveLandscape: data.competitiveLandscape,
+        bidStrategy: data.bidStrategy,
+        riskAlerts: data.riskAlerts,
+        model: creds.model,
+        providerBaseUrl: creds.baseUrl,
+      });
+    }
   } catch { /* 忽略：不影响已流式返回的内容 */ }
 }
 

@@ -89,6 +89,29 @@ describe("streamAiSummary 持久化", () => {
     });
   });
 
+  it("缓存记录内容为空 → 不命中缓存，重新生成并落库", async () => {
+    find.mockResolvedValue({
+      core_deliverables: "", key_qualifications: "", payment_cycle: "",
+      competitive_landscape: "", bid_strategy: "", risk_alerts: "", model: "m",
+    });
+    callLlmStream.mockImplementation(async function* () {
+      yield JSON.stringify({ coreDeliverables: "新内容", keyQualifications: "KQ", paymentCycle: "PC", competitiveLandscape: "CL", bidStrategy: "BS", riskAlerts: "RA" });
+    });
+    for await (const _c of streamAiSummary(pool(), 7, 1)) { /* consume */ }
+    expect(callLlmStream).toHaveBeenCalledTimes(1);
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert.mock.calls[0][0].coreDeliverables).toBe("新内容");
+  });
+
+  it("LLM 返回合法 JSON 但内容为空 → 不落库（避免污染缓存）", async () => {
+    find.mockResolvedValue(null);
+    callLlmStream.mockImplementation(async function* () {
+      yield JSON.stringify({ coreDeliverables: "", keyQualifications: "", paymentCycle: "", competitiveLandscape: "", bidStrategy: "", riskAlerts: "" });
+    });
+    for await (const _c of streamAiSummary(pool(), 7, 1)) { /* consume */ }
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it("LLM 输出非法 JSON：解析失败静默降级，不落库", async () => {
     find.mockResolvedValue(null);
     callLlmStream.mockImplementation(async function* () {

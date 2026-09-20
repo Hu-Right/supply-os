@@ -81,7 +81,8 @@ export function useAiAnalysis(
           let ok = false;
           try {
             const parsed = JSON.parse(fullJson);
-            if (parsed.coreDeliverables !== undefined) {
+            // 要求 coreDeliverables 有实际内容才算成功；空字符串视为无效（避免"一闪而过"无反馈）
+            if (parsed.coreDeliverables !== undefined && String(parsed.coreDeliverables || "").trim()) {
               setData({
                 coreDeliverables: parsed.coreDeliverables,
                 keyQualifications: parsed.keyQualifications,
