@@ -13,8 +13,12 @@ export {
 } from "./wide-row-builder";
 
 // 对账层（只检测；修复统一走 syncWideIds / purgeNoticeSearch）
-export { reconcileDeadlineSec, detectPlatformStatusDrift } from "./wide-row-reconcile";
+export {
+  detectDeadlineDrift, detectPlatformStatusDrift, reconcileGhostRows,
+  WIDE_DEADLINE_EXPR,
+} from "./wide-row-reconcile";
 export type { PlatformDrift } from "./wide-row-reconcile";
+export { detectWideFingerprintDrift, WIDE_FP_EXPR } from "./wide-fingerprint";
 
 // 同步调度层（对外门面）
 export {
