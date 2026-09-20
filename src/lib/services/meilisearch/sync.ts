@@ -365,10 +365,12 @@ export async function incrementalSync(
  * 修复：is_active/is_featured 从 crm_bid_notices 主表读取（权威数据源），
  *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
  *
- * 索引残留清理：宽表与主表均不存在的 ID（主表已删除、ghost 行已清理），
- *       从 Meilisearch 索引中删除对应文档，避免已删除公告仍可被搜到。
- *       安全边界：仅当 ID 同时缺席宽表与主表才删除——主表存在但宽表缺行
- *       属于同步不一致，交由对账修复，不误删索引文档。
+ * 索引残留清理：宽表缺行的公告，按三档口径决定是否删除索引文档：
+ *       主表也不存在 → 删（公告已真删除）；
+ *       主表存在但不满足平台公告公开可见口径（entry_source='platform' 且非 published）→ 删；
+ *       主表存在且可见 → 不删，属宽表同步不一致，交由对账修复，不误删索引文档。
+ *       （D1 修复：旧实现要求「同时缺席宽表与主表」才删，导致已撤回/待审核的平台公告
+ *        在 ghost 对账删除宽表行后，索引文档永久残留可搜。）
  */
 export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number; deleted: number }> {
   const client = getClient();
@@ -395,18 +397,25 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       const batch = ids.slice(i, i + SQL_BATCH_SIZE);
       const placeholders = batch.map(() => "?").join(",");
 
-      // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值）
+      // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值 + 可见性判定列）
       const [wideRows, statusRows] = await Promise.all([
         pool.query(WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`, batch),
-        pool.query(`SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${placeholders})`, batch),
+        pool.query(
+          `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec,
+                  entry_source, IFNULL(rfq_status, '') AS rfq_status
+           FROM crm_bid_notices WHERE id IN (${placeholders})`,
+          batch,
+        ),
       ]);
 
-      // 构建主表状态映射
-      const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
+      // 构建主表状态映射；visible 与 lib/utils/notice-expired 的 PLATFORM_PUBLISHED_ONLY 同口径
+      const statusMap = new Map<number, { is_featured: number; deadline_sec: number; visible: boolean }>();
       for (const row of (statusRows[0] as RowDataPacket[])) {
+        const entrySource = String(row.entry_source ?? "crawl");
         statusMap.set(Number(row.id), {
           is_featured: row.is_featured ? 1 : 0,
           deadline_sec: Number(row.deadline_sec) || 0,
+          visible: entrySource !== "platform" || row.rfq_status === "published",
         });
       }
 
@@ -427,9 +436,13 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
         totalSynced += docs.length;
       }
 
-      // ── 索引残留清理：宽表与主表均不存在的 ID → 删除 Meilisearch 文档 ──
+      // ── 索引残留清理（D1）：宽表缺行时，按主表存在性与公开可见口径决定是否删文档 ──
       const wideIdSet = new Set((wideRows[0] as RowDataPacket[]).map((r) => Number(r.id)));
-      const ghostBatchIds = batch.filter((id) => !wideIdSet.has(id) && !statusMap.has(id));
+      const ghostBatchIds = batch.filter((id) => {
+        if (wideIdSet.has(id)) return false;
+        const st = statusMap.get(id);
+        return !st || !st.visible;
+      });
       if (ghostBatchIds.length > 0) {
         await client.index(INDEX_NAME).deleteDocuments(ghostBatchIds);
         totalDeleted += ghostBatchIds.length;
