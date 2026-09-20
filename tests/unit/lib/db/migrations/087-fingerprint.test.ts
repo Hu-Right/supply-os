@@ -56,6 +56,13 @@ describe("migration 087", () => {
     expect(alter?.sql).toMatch(/sync_src_hash\s+CHAR\(32\)\s+NOT NULL\s+DEFAULT ''/i);
     // 静默退化为 copy to tmp table 会持锁数十分钟并阻塞应用宽表写入（现网实测）
     expect(alter?.sql).toMatch(/ALGORITHM\s*=\s*INSTANT/i);
+    /**
+     * 回归护栏：ALGORITHM 是 alter_option 列表项，与前一子句之间缺逗号会直接
+     * syntax error（MySQL 8.0.46 实测），而本迁移处于启动必跑的 schemaPhase，
+     * 一条逗号就能让整个服务起不来。
+     */
+    expect(alter?.sql.replace(/\s+/g, " ")).toMatch(/'\s*,\s*ALGORITHM=INSTANT\s*$/i);
+    expect(alter?.sql).not.toMatch(/'\s+ALGORITHM=/i);
     // 同会话内限定元数据锁等待，不把在线查询堆在队列里
     expect(calls.some((c) => /lock_wait_timeout/i.test(c.sql))).toBe(true);
   });
