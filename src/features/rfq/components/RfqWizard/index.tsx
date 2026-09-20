@@ -12,7 +12,7 @@
  *              提交已接入 /api/rfq/create，附件 P2 接入 OSS 预签名直传。
  */
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle, Check, ChevronDown, ChevronLeft, Lock, Send,
 } from "lucide-react";
@@ -64,6 +64,9 @@ export function RfqWizard({ initialData, authContact }: RfqWizardProps) {
 }
 
 function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
+  // 注意：不用 Button asChild + Link——React 19 的 Children.toArray 不再过滤 false 子节点，
+  // 会与 Radix Slot 单元素约束冲突导致渲染报错；改用 router.push 导航。
+  const router = useRouter();
   const initialForm: RfqFormState = {
     ...initialData,
     description: initialData.description || DESCRIPTION_TEMPLATE,
@@ -245,9 +248,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
         <p className="text-sm text-secondary-500 mb-6">平台审核通过后将自动展示在需求广场，您可以随时在"我的采购需求"中查看或编辑。</p>
         <div className="flex items-center justify-center gap-3">
-          <Button asChild variant="outline">
-            <Link href="/rfq/my">查看我的采购需求</Link>
-          </Button>
+          <Button variant="outline" onClick={() => router.push("/rfq/my")}>查看我的采购需求</Button>
           <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
             发布新需求
           </Button>
