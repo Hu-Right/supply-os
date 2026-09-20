@@ -124,6 +124,7 @@
   "authEnterpriseManage": "Manage Enterprise",
   "settingsEnterprise": "Enterprise",
   "settingsSupplierPool": "Supplier Pool",
+    "settingsMyRfq": "My RFQs",
   "supplierPoolTitle": "Supplier Pool",
   "supplierPoolAdd": "Add Factory",
   "supplierPoolAddSuccess": "Added successfully",

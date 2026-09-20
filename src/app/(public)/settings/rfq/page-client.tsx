@@ -1,11 +1,13 @@
 "use client";
 
 /**
- * 我的采购需求 — 客户端组件
- * My RFQs — Client Component
+ * 我的采购需求 — 账户设置子页
+ * My RFQs — Settings Sub-page
  *
- * @module app/(public)/rfq/my/page-client
- * @description 列表 + 状态筛选 + 撤回操作。需登录。
+ * @module app/(public)/settings/rfq/page-client
+ * @description 采购方查看自己发布的 RFQ 审批进展与调整入口：
+ *              列表 + 状态筛选（含审核未通过）+ 编辑重提 + 撤回。需登录。
+ *              由门户 /rfq/my 迁入（管理动作收进账户设置，审核操作仍在后台）。
  */
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -14,13 +16,15 @@ import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { Button, EmptyState } from "@/shared/ui";
-import { formatDeadlineDateYMD } from "@/shared/utils/format";
+import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 
 interface MyRfq {
   id: number;
+  reference: string;
   title: string;
   country: string;
   budgetUsd: number;
+  currency: string;
   deadlineSec: number;
   status: string;
   publishedDate: string | null;
@@ -31,15 +35,25 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   draft: { label: "草稿", color: "bg-slate-100 text-slate-600 border-slate-200" },
   pending_review: { label: "待审核", color: "bg-amber-50 text-amber-700 border-amber-200" },
   published: { label: "已发布", color: "bg-teal-50 text-teal-700 border-teal-200" },
+  rejected: { label: "审核未通过", color: "bg-rose-50 text-rose-700 border-rose-200" },
   closed: { label: "已撤回", color: "bg-rose-50 text-rose-600 border-rose-200" },
 };
 
-function formatBudget(v: number): string {
+function formatBudget(v: number, currency: string): string {
   if (!v || v <= 0) return "预算保密";
-  return `USD ${Math.round(v)} 万`;
+  // 平台预算以“万元”为单位，与需求广场（/api/rfq/list）同口径展示
+  return `${currencySymbol(currency || "CNY")}${Math.round(v)} 万`;
 }
 
-export default function MyRfqPageClient() {
+/** create_time（epoch 秒 bigint 字符串）→ yyyy-MM-dd；无效值返回空 */
+function formatCreatedDate(createdAt: string | null): string {
+  const sec = Number(createdAt);
+  if (!sec || !Number.isFinite(sec)) return "";
+  const d = new Date(sec * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export default function MyRfqSettingsClient() {
   const router = useRouter();
   const { authUser } = useAuth();
   const [items, setItems] = useState<MyRfq[]>([]);
@@ -91,7 +105,7 @@ export default function MyRfqPageClient() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">我的采购需求</h1>
+          <h2 className="text-xl font-extrabold text-slate-900">我的采购需求</h2>
           <p className="text-xs text-slate-500 mt-1">共 {total} 条需求</p>
         </div>
         <div className="flex gap-2">
@@ -100,6 +114,7 @@ export default function MyRfqPageClient() {
             { value: "pending_review", label: "待审核" },
             { value: "published", label: "已发布" },
             { value: "draft", label: "草稿" },
+            { value: "rejected", label: "审核未通过" },
             { value: "closed", label: "已撤回" },
           ].map((tab) => (
             <button
@@ -145,18 +160,23 @@ export default function MyRfqPageClient() {
                         {statusInfo.label}
                       </span>
                       <span className="text-2xs text-slate-400">
-                        #{rfq.id}
+                        {rfq.reference || `#${rfq.id}`}
                       </span>
                       {rfq.publishedDate && (
                         <span className="text-2xs text-slate-400">
                           发布于 {rfq.publishedDate}
                         </span>
                       )}
+                      {!rfq.publishedDate && rfq.status !== "published" && formatCreatedDate(rfq.createdAt) && (
+                        <span className="text-2xs text-slate-400">
+                          创建于 {formatCreatedDate(rfq.createdAt)}
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-sm font-bold text-slate-900 truncate">{rfq.title}</h3>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
                       <span className="flex items-center gap-1">
-                        <FileText className="w-3.5 h-3.5" /> {formatBudget(rfq.budgetUsd)}
+                        <FileText className="w-3.5 h-3.5" /> {formatBudget(rfq.budgetUsd, rfq.currency)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" /> 截止 {formatDeadlineDateYMD(rfq.deadlineSec, { utc: true })}
@@ -165,11 +185,11 @@ export default function MyRfqPageClient() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {(rfq.status === "draft" || rfq.status === "pending_review") && (
+                    {(rfq.status === "draft" || rfq.status === "pending_review" || rfq.status === "rejected") && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/rfq/${rfq.id}/edit`)}
+                        onClick={() => router.push(`/settings/rfq/${rfq.id}/edit`)}
                         className="gap-1"
                       >
                         <Pencil className="w-3.5 h-3.5" /> 编辑

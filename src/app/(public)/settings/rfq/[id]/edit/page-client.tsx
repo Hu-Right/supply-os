@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * RFQ 编辑页
- * RFQ Edit Page
+ * RFQ 编辑页 — 账户设置子页
+ * RFQ Edit Page — Settings Sub-page
  *
- * @module app/(public)/rfq/[id]/edit/page-client
- * @description 仅创建者、仅 draft / pending_review 状态可编辑。
+ * @module app/(public)/settings/rfq/[id]/edit/page-client
+ * @description 仅创建者、仅 draft / pending_review / rejected 状态可编辑
+ *              （rejected 可修改后重新提审，与列表页"编辑"入口口径一致）。
  *              保存走 PATCH /api/rfq/[id]（编辑后状态回退 draft），
  *              "保存并提交审核" 追加 PATCH /submit 回到 pending_review。
+ *              由门户 /rfq/[id]/edit 迁入；api() body 直传对象（勿再 stringify）。
  */
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -46,6 +48,8 @@ const CURRENCIES = [
   { value: "HKD", label: "港币 (HKD)" },
 ];
 
+const EDITABLE_STATUSES = ["draft", "pending_review", "rejected"];
+
 function secToDateInput(sec: number): string {
   if (!sec) return "";
   const d = new Date(sec * 1000);
@@ -59,7 +63,7 @@ function label(text: string) {
 const inputCls =
   "w-full rounded-lg border border-secondary-200 bg-white px-3 py-2 text-sm text-secondary-900 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100";
 
-export default function RfqEditPageClient() {
+export default function RfqEditSettingsPageClient() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params?.id;
@@ -84,8 +88,8 @@ export default function RfqEditPageClient() {
           setDenied("仅创建者可编辑此需求");
           return;
         }
-        if (d.status !== "draft" && d.status !== "pending_review") {
-          setDenied("仅草稿或待审核状态可编辑");
+        if (!EDITABLE_STATUSES.includes(d.status)) {
+          setDenied("仅草稿、待审核或审核未通过状态可编辑");
           return;
         }
         setData(d);
@@ -106,7 +110,7 @@ export default function RfqEditPageClient() {
     try {
       await api(`/api/rfq/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           title: data.title,
           description: data.description,
           deadline,
@@ -121,12 +125,12 @@ export default function RfqEditPageClient() {
           contact_name: data.contactName,
           contact_email: data.contactEmail,
           contact_phone: data.contactPhone,
-        }),
+        },
       });
       if (withSubmit) {
-        await api(`/api/rfq/${id}/submit`, { method: "PATCH", body: JSON.stringify({}) });
+        await api(`/api/rfq/${id}/submit`, { method: "PATCH", body: {} });
       }
-      router.push("/rfq/my");
+      router.push("/settings/rfq");
     } catch (err) {
       setError((err as Error).message || "保存失败");
     } finally {
@@ -143,7 +147,7 @@ export default function RfqEditPageClient() {
       <div className="max-w-xl mx-auto py-16 text-center space-y-4">
         <Lock className="w-10 h-10 text-secondary-300 mx-auto" />
         <p className="text-sm text-secondary-500">{denied || "需求不存在"}</p>
-        <Button variant="outline" size="sm" onClick={() => router.push("/rfq/my")}>返回我的需求</Button>
+        <Button variant="outline" size="sm" onClick={() => router.push("/settings/rfq")}>返回我的需求</Button>
       </div>
     );
   }
@@ -151,7 +155,7 @@ export default function RfqEditPageClient() {
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <h1 className="text-xl font-extrabold text-secondary-900">编辑采购需求</h1>
+        <h2 className="text-xl font-extrabold text-secondary-900">编辑采购需求</h2>
         <p className="text-xs text-secondary-400 mt-1">
           #{data.id} · 保存后将回到草稿状态，可重新提交审核
         </p>
@@ -290,7 +294,7 @@ export default function RfqEditPageClient() {
           <Button size="sm" variant="outline" disabled={saving} onClick={() => save(false)}>
             仅保存草稿
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => router.push("/rfq/my")}>取消</Button>
+          <Button size="sm" variant="ghost" onClick={() => router.push("/settings/rfq")}>取消</Button>
         </div>
       </Card>
     </div>

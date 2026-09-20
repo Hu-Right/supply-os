@@ -1,20 +1,11 @@
 /**
- * 我的采购需求 — 管理页
- * My RFQs — Management Page
- *
+ * 我的采购需求 — 旧门户路由
  * @module app/(public)/rfq/my
+ * @description 管理功能已迁入账户设置 /settings/rfq，此处仅做永久跳转，
+ *              兼容历史链接（wizard 旧版、外部收藏、后台通知文案）。
  */
-import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
-import MyRfqPageClient from "./page-client";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "我的采购需求 | RFQ 管理",
-  description: "查看和管理您发布的采购需求",
-  robots: { index: false, follow: false },
-  alternates: { canonical: absoluteUrl("/rfq/my") },
-};
-
-export default function MyRfqPage() {
-  return <MyRfqPageClient />;
+export default function MyRfqLegacyPage() {
+  redirect("/settings/rfq");
 }

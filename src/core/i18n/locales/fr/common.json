@@ -110,6 +110,7 @@
   "authEnterpriseManage": "Gérer l'entreprise",
   "settingsEnterprise": "Entreprise",
   "settingsSupplierPool": "Pool fournisseurs",
+    "settingsMyRfq": "Mes demandes d'achat",
   "supplierPoolTitle": "Pool fournisseurs",
   "supplierPoolAdd": "Ajouter usine",
   "supplierPoolAddSuccess": "Ajouté",

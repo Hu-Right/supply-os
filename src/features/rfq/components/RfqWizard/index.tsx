@@ -248,7 +248,7 @@ function RfqWizardForm({ initialData, authContact }: RfqWizardProps) {
         <h3 className="text-lg font-extrabold text-secondary-900 mb-2">采购需求已提交</h3>
         <p className="text-sm text-secondary-500 mb-6">平台审核通过后将自动展示在需求广场，您可以随时在"我的采购需求"中查看或编辑。</p>
         <div className="flex items-center justify-center gap-3">
-          <Button variant="outline" onClick={() => router.push("/rfq/my")}>查看我的采购需求</Button>
+          <Button variant="outline" onClick={() => router.push("/settings/rfq")}>查看我的采购需求</Button>
           <Button variant="primary" onClick={() => { setSubmitted(false); setForm(DEFAULT_RFQ_FORM); setStep(0); }}>
             发布新需求
           </Button>

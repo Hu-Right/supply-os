@@ -6,7 +6,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, User, Building2, Package, AlertTriangle } from "lucide-react";
+import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
 import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
@@ -15,6 +15,7 @@ import { useUserId } from "@/core/auth/useUserId";
 
 const NAV_ITEMS = [
   { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
+  { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
   { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2, exclusive: "enterprise" as const },
   { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package, exclusive: "pool" as const },
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
