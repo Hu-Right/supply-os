@@ -12,6 +12,8 @@ import { normalizeNoticeType } from "../../utils/notice-type";
 import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
+import { qualifiedOppWhere } from "../notices/featured";
+import { DESC_SOURCE_EXPR, WIDE_LIMITS } from "../../utils/notice-field-limits";
 
 // ── 支持的语言列表 ──
 export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
@@ -24,18 +26,23 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 export const WIDE_SYNC_SELECT = `
   SELECT n.id, n.notice_id, n.reference, n.title,
-         COALESCE(opp.description, n.description) AS description,
+         ${DESC_SOURCE_EXPR} AS description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
          n.published_date, n.entry_source,
-         opp.description_cn, LEFT(opp.bid_overview, 200) AS bid_overview,
+         opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries
+`;
+/** 机会表合格行 JOIN 片段（别名 opp），供宽表主查询与翻译批量查询共用；
+ *  谓词由 notices/featured 的 qualifiedOppWhere 唯一派生，与精选判定同口径（I2） */
+export const WIDE_OPP_JOIN = `
+  LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
+    AND ${qualifiedOppWhere("opp")}
 `;
 export const WIDE_SYNC_JOIN = `
   FROM crm_bid_notices n
-  LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
-    AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+  ${WIDE_OPP_JOIN}
 `;
 
 // ── 批量查询翻译（按 notice_id 列表查询所有语言）──
@@ -44,15 +51,15 @@ export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[
   const result = new Map<number, Record<string, { title: string; description: string }>>();
   
   const placeholders = noticeIds.map(() => "?").join(",");
-  // LEFT JOIN 原始公告表：当 model = 'skip-same-lang' 时，原文即目标语言，
+  // LEFT JOIN 原始公告表：当 model = same-lang-passthrough（原文即目标语言）时，
   // 用原始标题/内容填充宽表对应语言字段，避免 title_en 等字段留空。
+  // 机会行 JOIN 与描述来源均复用宽表同一常量，保证两处算出的 orig_desc 与宽表 description 一致。
   const [rows] = await pool.query(
     `SELECT t.notice_id, t.lang, t.title_tr, t.description_tr, t.model,
-            n.title AS orig_title, LEFT(COALESCE(opp.description, n.description), 2000) AS orig_desc
+            n.title AS orig_title, LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.description}) AS orig_desc
      FROM crm_notice_translations t
      LEFT JOIN crm_bid_notices n ON n.id = t.notice_id
-     LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
-       AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+     ${WIDE_OPP_JOIN}
      WHERE t.notice_id IN (${placeholders})`,
     noticeIds,
   );
