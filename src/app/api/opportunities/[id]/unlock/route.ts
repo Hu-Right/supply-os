@@ -10,6 +10,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
+import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 import {
   EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND,
@@ -45,7 +46,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     try {
       const result = await executeOpportunityUnlock(
-        { dbPool, opportunitiesRepo: oppsRepo, membershipRepo },
+        { dbPool, opportunitiesRepo: oppsRepo, membershipRepo, unlockRepo: new NoticeUnlockRepo(dbPool) },
         {
           userId: auth.userId,
           opportunityId,
