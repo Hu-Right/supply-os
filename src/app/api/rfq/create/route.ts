@@ -139,9 +139,11 @@ export const POST = withRoute(async (req: NextRequest) => {
     const insertId = (result as ResultSetHeader).insertId;
 
     // 公告编号：平台 RFQ 此前不写 reference/notice_id（全 NULL），导致列表/详情/宽表
-    // 无编号可追溯。统一生成 RFQ-{id 12 位补零}（与迁移 085 存量回填同格式），
-    // reference 与 notice_id 同值（id 唯一→两者唯一）。
-    const ref = `RFQ-${String(insertId).padStart(12, "0")}`;
+    // 无编号可追溯。生成 OSRFQ-{id 12位补零}，reference 与 notice_id 同值（id 唯一→两者唯一）。
+    // 前缀用 OSRFQ- 而非 RFQ-：爬虫存量里已有 5 条外部编号以 RFQ- 开头（如 RFQ-CPD-26-012），
+    // 共命名空间存在唯一键撞号与 daily-sync ODKU 静默覆盖风险；OSRFQ- 为外部编号体系结构上
+    // 不可能出现的形态（实测全库 0 条），实现数学级隔离。存量迁移见 085/086。
+    const ref = `OSRFQ-${String(insertId).padStart(12, "0")}`;
     await pool.query(
       `UPDATE crm_bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
       [ref, ref, insertId],

@@ -61,7 +61,7 @@ export type FieldErrors = Record<string, string>;
 /** 需求广场卡片（数据来自 GET /api/rfq/list） */
 export interface PlazaRfq {
   id: number;
-  /** 公告编号（平台生成：RFQ-{id}），用于追溯引用 */
+  /** 公告编号（平台生成：OSRFQ-{id}），用于追溯引用 */
   reference?: string;
   /** 一级行业（用于行业筛选，对齐 UNSPSC 一级分类） */
   industry: string;
