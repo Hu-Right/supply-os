@@ -13,7 +13,8 @@ import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
 import { qualifiedOppWhere } from "../notices/featured";
-import { DESC_SOURCE_EXPR, WIDE_LIMITS } from "../../utils/notice-field-limits";
+import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
+import { WIDE_FP_EXPR } from "./wide-fingerprint";
 
 // ── 支持的语言列表 ──
 export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
@@ -26,11 +27,12 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
 export const WIDE_SYNC_SELECT = `
   SELECT n.id, n.notice_id, n.reference, n.title,
+         ${WIDE_FP_EXPR} AS sync_src_hash,
          ${DESC_SOURCE_EXPR} AS description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
          n.estimated_value, n.documents, n.procurement_files,
-         n.published_date, n.entry_source,
+         n.published_date, n.entry_source, n.category_l1_id, n.category_l2_id,
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries
 `;
@@ -46,36 +48,38 @@ export const WIDE_SYNC_JOIN = `
 `;
 
 // ── 批量查询翻译（按 notice_id 列表查询所有语言）──
-export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[]): Promise<Map<number, Record<string, { title: string; description: string }>>> {
+/** 单条语言的译文携带 model，供 buildWideRow 判定是否同语言直通 */
+export interface WideTranslation {
+  title: string;
+  description: string;
+  model: string;
+}
+
+/**
+ * 取各语言译文原始列（不做任何语义加工）。
+ * 同语言直通的原文回填规则只存在于 buildWideRow 一处（I2），
+ * 因此本函数不再 JOIN 主表/机会表，也不在此处拿原文替位。
+ */
+export async function loadTranslationsByNoticeIds(pool: Pool, noticeIds: number[]): Promise<Map<number, Record<string, WideTranslation>>> {
   if (noticeIds.length === 0) return new Map();
-  const result = new Map<number, Record<string, { title: string; description: string }>>();
-  
+  const result = new Map<number, Record<string, WideTranslation>>();
+
   const placeholders = noticeIds.map(() => "?").join(",");
-  // LEFT JOIN 原始公告表：当 model = same-lang-passthrough（原文即目标语言）时，
-  // 用原始标题/内容填充宽表对应语言字段，避免 title_en 等字段留空。
-  // 机会行 JOIN 与描述来源均复用宽表同一常量，保证两处算出的 orig_desc 与宽表 description 一致。
   const [rows] = await pool.query(
-    `SELECT t.notice_id, t.lang, t.title_tr, t.description_tr, t.model,
-            n.title AS orig_title, LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.description}) AS orig_desc
-     FROM crm_notice_translations t
-     LEFT JOIN crm_bid_notices n ON n.id = t.notice_id
-     ${WIDE_OPP_JOIN}
-     WHERE t.notice_id IN (${placeholders})`,
+    `SELECT notice_id, lang, title_tr, description_tr, model
+     FROM crm_notice_translations
+     WHERE notice_id IN (${placeholders})`,
     noticeIds,
   );
-  
+
   for (const row of rows as RowDataPacket[]) {
     const nid = Number(row.notice_id);
     if (!result.has(nid)) result.set(nid, {});
     const entry = result.get(nid)!;
-    const isSkipSameLang = String(row.model || "") === "skip-same-lang";
     entry[String(row.lang)] = {
-      title: isSkipSameLang
-        ? String(row.orig_title || row.title_tr || "")
-        : String(row.title_tr || ""),
-      description: isSkipSameLang
-        ? String(row.orig_desc || row.description_tr || "")
-        : String(row.description_tr || ""),
+      title: String(row.title_tr || ""),
+      description: String(row.description_tr || ""),
+      model: String(row.model || ""),
     };
   }
   return result;
@@ -268,7 +272,7 @@ export function buildWideRow(
   r: any,
   aliasMap: Map<string, string>,
   unspsc?: Record<string, string>,
-  translations?: Record<string, { title: string; description: string }>,
+  translations?: Record<string, WideTranslation>,
   precise?: Record<string, string>,
 ): Record<string, any> {
   const agency = String(r.agency || "").trim();
@@ -299,27 +303,28 @@ export function buildWideRow(
   const deadlineSec = isNaN(rawDeadline) || rawDeadline < 0 ? 0 : rawDeadline;
 
   // 构建多语言翻译字段
-  // PERF: 所有 description_* 截断到 2000 字符，与 TEXT 列类型的实际使用上限对齐
-  // 避免存储过长内容，确保查询性能
+  // PERF: 所有 description_* 截断到 WIDE_LIMITS.description，与 TEXT 列实际使用上限对齐
   const langFields: Record<string, string> = {};
   for (const lang of SUPPORTED_LANGS) {
     const tr = translations?.[lang];
-    // 精选公告的中文使用人工拆解的 description_cn
-    if (lang === "zh" && r.is_featured && r.description_cn) {
-      langFields[`title_${lang}`] = String(tr?.title || "").slice(0, 1000);
-      langFields[`description_${lang}`] = String(r.description_cn || "").slice(0, 2000);
-    } else {
-      langFields[`title_${lang}`] = String(tr?.title || "").slice(0, 1000);
-      langFields[`description_${lang}`] = String(tr?.description || "").slice(0, 2000);
-    }
+    // 同语言直通：管道只缓存了标题（description_tr 为 NULL），描述回填原文而非留空
+    const sameLangNoDesc = !!tr && tr.model === TRANSLATION_MODEL.SAME_LANG && !tr.description;
+    const descForLang =
+      lang === "zh" && r.is_featured && r.description_cn
+        ? String(r.description_cn)
+        : sameLangNoDesc
+          ? String(r.description ?? "")
+          : String(tr?.description ?? "");
+    langFields[`title_${lang}`] = truncate(tr?.title ?? "", WIDE_LIMITS.title);
+    langFields[`description_${lang}`] = truncate(descForLang, WIDE_LIMITS.description);
   }
 
   return {
     id: Number(r.id),
     notice_id: String(r.notice_id || "").slice(0, 100),
-    title: String(r.title || "").slice(0, 1000),
-    reference: String(r.reference || "").slice(0, 200),
-    description: String(r.description || "").slice(0, 2000),
+    title: String(r.title || "").slice(0, WIDE_LIMITS.title),
+    reference: String(r.reference || "").slice(0, WIDE_LIMITS.reference),
+    description: String(r.description || "").slice(0, WIDE_LIMITS.description),
     ...langFields,
     country_std: countryStd,
     agency_std: agencyStd,
@@ -329,22 +334,28 @@ export function buildWideRow(
     estimated_value: parseDecimalValue(r.estimated_value),
     is_featured: r.is_featured ? 1 : 0,
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
-    unspsc_level1: (unspsc?.level1 || "").slice(0, 2000),
-    unspsc_level2: (unspsc?.level2 || "").slice(0, 2000),
-    unspsc_level3: (unspsc?.level3 || "").slice(0, 2000),
-    unspsc_level4: (unspsc?.level4 || "").slice(0, 2000),
-    unspsc_level5: (unspsc?.level5 || "").slice(0, 2000),
+    unspsc_level1: (unspsc?.level1 || "").slice(0, WIDE_LIMITS.unspscList),
+    unspsc_level2: (unspsc?.level2 || "").slice(0, WIDE_LIMITS.unspscList),
+    unspsc_level3: (unspsc?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
+    unspsc_level4: (unspsc?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
+    unspsc_level5: (unspsc?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
     // 精准码列：仅存 approved 精准码，不回填原标签（mode=prefs 专用，无精准码则不匹配）
-    precise_level1: (precise?.level1 || "").slice(0, 2000),
-    precise_level2: (precise?.level2 || "").slice(0, 2000),
-    precise_level3: (precise?.level3 || "").slice(0, 2000),
-    precise_level4: (precise?.level4 || "").slice(0, 2000),
-    precise_level5: (precise?.level5 || "").slice(0, 2000),
-    description_cn: String(r.description_cn || "").slice(0, 500),
-    bid_overview: String(r.bid_overview || "").slice(0, 200),
+    precise_level1: (precise?.level1 || "").slice(0, WIDE_LIMITS.unspscList),
+    precise_level2: (precise?.level2 || "").slice(0, WIDE_LIMITS.unspscList),
+    precise_level3: (precise?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
+    precise_level4: (precise?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
+    precise_level5: (precise?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
+    description_cn: String(r.description_cn || "").slice(0, WIDE_LIMITS.descriptionCn),
+    bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
     documents_count: docs.length,
     published_date: String(r.published_date || "").slice(0, 50),
+    // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
+    // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
+    sync_src_hash: String(r.sync_src_hash || ""),
+    // 平台公告自填分类（主表列，随快照带出供 UNSPSC 兜底优先级使用）
+    category_l1_id: r.category_l1_id != null ? Number(r.category_l1_id) : null,
+    category_l2_id: r.category_l2_id != null ? Number(r.category_l2_id) : null,
   };
 }
 
@@ -386,7 +397,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
     "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
-    "published_date",
+    "published_date", "sync_src_hash",
   ];
   
   const placeholders = allColumns.map(() => "?").join(", ");
@@ -405,7 +416,7 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
         row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
-        row.published_date,
+        row.published_date, row.sync_src_hash,
       );
     }
     await pool.query(

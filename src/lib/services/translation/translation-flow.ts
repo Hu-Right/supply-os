@@ -17,6 +17,7 @@ import {
 } from "./notice";
 import { findQualifiedOpportunityForNotice } from "../notices/index";
 import { syncWideIds } from "../search-sync/index";
+import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 
 /** 通用路径返回的翻译载荷 */
 type TranslationPayload = Awaited<ReturnType<typeof getTranslatedNoticeDetail>>;
@@ -72,7 +73,7 @@ export async function getNoticeTranslation(
           const srcLang = detectSourceLang(title, "") ?? undefined;
           // 原文已是中文：直接缓存标题，零 API 成本
           if (srcLang === "zh") {
-            await translationRepo.upsertTranslation(noticeId, "zh", title, null, "same-lang-passthrough");
+            await translationRepo.upsertTranslation(noticeId, "zh", title, null, TRANSLATION_MODEL.SAME_LANG);
             // 通过统一路径同步宽表
             void syncWideIds(pool, [noticeId]).catch(() => {});
           } else {
@@ -80,7 +81,7 @@ export async function getNoticeTranslation(
             void (async () => {
               try {
                 const result = await translateNoticeViaChain(title, "", "zh", srcLang);
-                if (result.provider !== "same-lang-passthrough" && result.translations[0]) {
+                if (result.provider !== TRANSLATION_MODEL.SAME_LANG && result.translations[0]) {
                   await translationRepo.upsertTranslation(noticeId, "zh", result.translations[0], null, result.provider);
                   void syncWideIds(pool, [noticeId]).catch(() => {});
                 }
