@@ -17,9 +17,11 @@
  *      须停服窗口执行，见 spec I4 步骤 B 的 runbook）。
  *
  * 指纹初值：新列为 ''，与实时指纹必然不等 → 上线后由 detectWideFingerprintDrift 轮转
- *          逐批重建；如需一次刷齐可走既有快路径（停服 → TRUNCATE crm_notice_search →
- *          fullBackfill 重建，见 ARCHITECTURE/运维约定），本迁移内不做长事务回填，
- *          避免与在线流量争抢元数据锁。
+ *          逐批重建（首次相当于一轮全表重导）。【重要】本项同时修掉历史第二作者在宽表
+ *          留下的错值（D4 实测 8,367 行）：因为只能检测输入侧漂移的指纹无法发现
+ *          「宽表内容被旁路改坏」，而 '' 初值强制了这一次全量重导，由单一写入者重建全部行。
+ *          如需一次刷齐也可走既有快路径（停服 → TRUNCATE crm_notice_search → fullBackfill 重建），
+ *          本迁移内不做长事务回填，避免与在线流量争抢元数据锁。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { type Migration } from "./runner";
