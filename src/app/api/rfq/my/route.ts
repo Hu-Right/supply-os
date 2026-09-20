@@ -36,7 +36,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const [countRes, dataRes] = await Promise.all([
     pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params),
     pool.query(
-      `SELECT n.id, n.title, n.country, n.estimated_value, n.deadline_sec,
+      `SELECT n.id, n.reference, n.title, n.country, n.estimated_value, n.currency, n.deadline_sec,
               n.rfq_status, n.published_date, n.create_time
        FROM crm_bid_notices n WHERE ${whereSql}
        ORDER BY n.id DESC LIMIT ? OFFSET ?`,
@@ -49,12 +49,17 @@ export const GET = withRoute(async (req: NextRequest) => {
   const total = Number(countRows[0]?.total || 0);
   const items = dataRows.map((row) => ({
     id: Number(row.id),
+    reference: String(row.reference || ""),
     title: String(row.title || ""),
     country: String(row.country || ""),
+    // 注意：平台 RFQ 的 estimated_value 为“万元”数值（币种见 currency），
+    // 字段名 budgetUsd 为历史残留命名（plaza 预算区间筛选复用），勿按美元字面理解。
     budgetUsd: Number(row.estimated_value) || 0,
+    currency: String(row.currency || "CNY"),
     deadlineSec: Number(row.deadline_sec) || 0,
     status: String(row.rfq_status || RFQ_STATUS.DRAFT),
-    publishedDate: row.published_date ? String(row.published_date) : null,
+    // 发布日仅在已发布时有意义（历史脏数据：旧版 create 在草稿期就写了 CURDATE）
+    publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
     createdAt: row.create_time != null ? String(row.create_time) : null,
   }));
 

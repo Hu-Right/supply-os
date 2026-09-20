@@ -50,8 +50,13 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, 40005, "已撤回的 RFQ 无法重新提交");
     }
 
+    // 发布时间语义：只有真正转为 published 才写 published_date（审核通过时点），
+    // 创建/提交审核阶段保持 NULL，前端“发布于”仅在已发布时展示。
+    const setClause = newStatus === RFQ_STATUS.PUBLISHED
+      ? `rfq_status = ?, published_date = CURDATE()`
+      : `rfq_status = ?`;
     const [result] = await pool.query(
-      `UPDATE crm_bid_notices SET rfq_status = ? WHERE id = ? AND user_id = ?`,
+      `UPDATE crm_bid_notices SET ${setClause} WHERE id = ? AND user_id = ?`,
       [newStatus, rfqId, auth.userId],
     );
 

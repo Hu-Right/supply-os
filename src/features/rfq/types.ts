@@ -61,6 +61,8 @@ export type FieldErrors = Record<string, string>;
 /** 需求广场卡片（数据来自 GET /api/rfq/list） */
 export interface PlazaRfq {
   id: number;
+  /** 公告编号（平台生成：RFQ-{id}），用于追溯引用 */
+  reference?: string;
   /** 一级行业（用于行业筛选，对齐 UNSPSC 一级分类） */
   industry: string;
   /** 展示用标签文案 */
@@ -76,7 +78,7 @@ export interface PlazaRfq {
   /** 二级分类名称 */
   categoryL2?: string;
   budgetDisplay: string;
-  /** 预算中枢（万美元），用于预算区间筛选 */
+  /** 预算数值（万元，币种见 currency）；字段名为历史残留，用于预算区间筛选 */
   budgetUsd: number;
   /** 币种代码 */
   currency: string;

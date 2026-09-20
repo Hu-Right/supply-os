@@ -97,15 +97,17 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     // deadline_sec 是 crm_bid_notices 的 STORED 生成列（迁移 009：基于 deadline_ts 自动折算），
     // 不可显式写入；改为写入基色列 deadline_ts（秒）与展示列 deadline（ISO 日期串）。
+    // 时间语义：create_time = 创建时刻；published_date 不在创建时写（审核通过转
+    // published 时才由 submit/后台写入），避免草稿/待审核阶段误显“发布于”。
     const [result] = await pool.query(
       `INSERT INTO crm_bid_notices
         (title, description, country, province_name, category_l1_id, category_l2_id,
-         notice_type, deadline, deadline_ts,
-         estimated_value, currency, published_date, rfq_status,
+         notice_type, deadline, deadline_ts, create_time,
+         estimated_value, currency, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
          contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
+       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'platform',
                ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
@@ -116,6 +118,7 @@ export const POST = withRoute(async (req: NextRequest) => {
         categoryL2Id,
         deadline,
         deadlineSec,
+        Math.floor(Date.now() / 1000),
         estimatedValue,
         currency,
         status,
@@ -134,6 +137,15 @@ export const POST = withRoute(async (req: NextRequest) => {
     );
 
     const insertId = (result as ResultSetHeader).insertId;
+
+    // 公告编号：平台 RFQ 此前不写 reference/notice_id（全 NULL），导致列表/详情/宽表
+    // 无编号可追溯。统一生成 RFQ-{id 12 位补零}（与迁移 085 存量回填同格式），
+    // reference 与 notice_id 同值（id 唯一→两者唯一）。
+    const ref = `RFQ-${String(insertId).padStart(12, "0")}`;
+    await pool.query(
+      `UPDATE crm_bid_notices SET reference = ?, notice_id = ? WHERE id = ?`,
+      [ref, ref, insertId],
+    );
 
     return NextResponse.json(
       { code: 0, message: "ok", data: { id: insertId } },

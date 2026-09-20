@@ -47,7 +47,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const pool = getPool();
     const [rows] = await pool.query(
-      `SELECT n.id, n.title, n.description, n.country, n.province_name,
+      `SELECT n.id, n.reference, n.title, n.description, n.country, n.province_name,
               n.category_l1_id, n.category_l2_id,
               c1.title_zh AS category_l1_name,
               c2.title_zh AS category_l2_name,
@@ -78,6 +78,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       message: "ok",
       data: {
         id: Number(row.id),
+        reference: String(row.reference || ""),
         title: String(row.title || ""),
         description: String(row.description || ""),
         status: String(row.rfq_status || RFQ_STATUS.DRAFT),
@@ -94,7 +95,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
         supplierReqs: String(row.supplier_reqs || "").split(",").filter(Boolean),
         visibility: String(row.visibility || "public"),
         deadlineSec: Number(row.deadline_sec) || 0,
-        publishedDate: row.published_date ? String(row.published_date) : null,
+        // 发布日仅对已发布记录输出（旧数据可能在草稿期就写了 published_date）
+        publishedDate: String(row.rfq_status) === RFQ_STATUS.PUBLISHED && row.published_date ? String(row.published_date) : null,
         isOwner,
         // 联系方式仅创建者可见（编辑回显用）
         ...(isOwner ? {
@@ -134,8 +136,8 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
     const row = (existing as RowDataPacket[])[0];
     if (!row) routeError(404, EC_NOT_FOUND, "RFQ 不存在");
     if (Number(row.user_id) !== auth.userId) routeError(403, EC_FORBIDDEN, "无权操作此 RFQ");
-    if (row.rfq_status !== RFQ_STATUS.DRAFT && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW) {
-      routeError(400, EC_INVALID_PARAMS, "仅草稿或待审核状态可编辑");
+    if (row.rfq_status !== RFQ_STATUS.DRAFT && row.rfq_status !== RFQ_STATUS.PENDING_REVIEW && row.rfq_status !== RFQ_STATUS.REJECTED) {
+      routeError(400, EC_INVALID_PARAMS, "仅草稿、待审核或审核未通过状态可编辑");
     }
 
     // ── 构建 UPDATE 字段 ──

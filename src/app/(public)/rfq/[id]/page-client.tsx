@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  Building2, CalendarClock, FileText, Globe2, Landmark,
+  Building2, CalendarClock, FileText, Globe2, Hash, Landmark,
   MapPin, ShieldCheck, Truck, Wallet,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ import { formatDeadlineDateYMD, currencySymbol } from "@/shared/utils/format";
 
 interface RfqDetail {
   id: number;
+  reference: string;
   title: string;
   description: string;
   status: string;
@@ -45,6 +46,7 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "草稿",
   pending_review: "待审核",
   published: "已发布",
+  rejected: "审核未通过",
   closed: "已关闭",
 };
 
@@ -52,7 +54,8 @@ function formatBudget(d: RfqDetail): string {
   if (d.budgetConfidential) return "面议（预算保密）";
   const budget = d.budget ?? 0;
   if (!budget) return "面议";
-  return `${currencySymbol(d.currency)}${budget}`;
+  // 平台预算以“万元”为单位，与广场/设置页同口径
+  return `${currencySymbol(d.currency)}${budget} 万`;
 }
 
 function TermItem({ icon: Icon, label, value }: {
@@ -125,6 +128,12 @@ export default function RfqDetailPageClient() {
           {detail.title}
         </h1>
         <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-secondary-400">
+          {detail.reference && (
+            <span className="flex items-center gap-1">
+              <Hash className="w-3.5 h-3.5" />
+              公告编号 {detail.reference}
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <CalendarClock className="w-3.5 h-3.5" />
             报价截止：{formatDeadlineDateYMD(detail.deadlineSec)}

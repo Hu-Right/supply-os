@@ -16,10 +16,10 @@ import type { RowDataPacket } from "mysql2/promise";
 
 const MYSQL_TIMEOUT_MS = 10_000;
 
-/** estimated_value + currency → 展示文案 */
+/** estimated_value + currency → 展示文案（平台预算以“万元”为单位，与设置页口径一致） */
 function formatBudget(value: number, currency: string): string {
   if (!value || value <= 0) return "预算保密";
-  return `${currencySymbol(currency)}${Math.round(value)}`;
+  return `${currencySymbol(currency)}${Math.round(value)} 万`;
 }
 
 export const GET = withRoute(async (req: NextRequest) => {
@@ -72,7 +72,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       Promise.race([pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${whereSql}`, params), timeout]),
       Promise.race([
         pool.query(
-          `SELECT n.id, n.title, n.country, n.province_name,
+          `SELECT n.id, n.reference, n.title, n.country, n.province_name,
                   n.category_l1_id, n.category_l2_id,
                   c1.title_zh AS category_l1_name,
                   c2.title_zh AS category_l2_name,
@@ -97,6 +97,7 @@ export const GET = withRoute(async (req: NextRequest) => {
       const catL1 = String(row.category_l1_name || "");
       return {
         id: Number(row.id),
+        reference: String(row.reference || ""),
         industry: catL1,
         tag: catL1,
         title: String(row.title || ""),

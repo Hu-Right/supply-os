@@ -64,6 +64,7 @@
  *              061-chat-queue-assignment               客服队列分配
  *              062-user-id-migration                   user_id 内部化（B类表加列+唯一键重建+索引）
  *              065-user-key-collation-uk-notice        user_key collation 统一 + uk_user_notice 重建（062 补漏）
+ *              085-rfq-platform-field-backfill        平台 RFQ 存量修复：编号回填/发布时间与创建时间语义
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -151,6 +152,7 @@ import { migration as m081 } from "./migrations/081-supplier-claim-enhancement";
 import { migration as m082 } from "./migrations/082-ai-score-reasoning";
 import { migration as m083 } from "./migrations/083-user-supplier-pool";
 import { migration as m084 } from "./migrations/084-ai-match-results";
+import { migration as m085 } from "./migrations/085-rfq-platform-field-backfill";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -160,7 +162,7 @@ const ALL_MIGRATIONS: Migration[] = [
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
-  m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079, m080, m081, m082, m083, m084,
+  m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079, m080, m081, m082, m083, m084, m085,
 ];
 
 /**
