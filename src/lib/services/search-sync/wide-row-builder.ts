@@ -264,7 +264,20 @@ function normalizeBeneficiaryCountries(raw: string): string {
     const canonical = normalizeCountry(name); // 归一化为英文标准名
     return COUNTRY_NAME_ZH[canonical] || canonical; // 查中文名，未命中保留英文
   }).filter(Boolean);
-  return translated.join(", ").slice(0, 300);
+  return translated.join(", ").slice(0, WIDE_LIMITS.beneficiary);
+}
+
+// ── 逗号 id 串合并去重（外部标签 + 平台自填分类）──
+/** 保持外部数据在前、平台自填分类在后的稳定顺序 */
+function mergeIdLists(...lists: Array<string | number | null | undefined>): string {
+  const out: string[] = [];
+  for (const l of lists) {
+    for (const part of String(l ?? "").split(",")) {
+      const v = part.trim();
+      if (v && !out.includes(v)) out.push(v);
+    }
+  }
+  return out.join(",");
 }
 
 // ── 宽表行构建 ──
@@ -321,7 +334,7 @@ export function buildWideRow(
 
   return {
     id: Number(r.id),
-    notice_id: String(r.notice_id || "").slice(0, 100),
+    notice_id: String(r.notice_id || "").slice(0, WIDE_LIMITS.noticeId),
     title: String(r.title || "").slice(0, WIDE_LIMITS.title),
     reference: String(r.reference || "").slice(0, WIDE_LIMITS.reference),
     description: String(r.description || "").slice(0, WIDE_LIMITS.description),
@@ -334,8 +347,11 @@ export function buildWideRow(
     estimated_value: parseDecimalValue(r.estimated_value),
     is_featured: r.is_featured ? 1 : 0,
     entry_source: String(r.entry_source || "crawl").slice(0, 20),
-    unspsc_level1: (unspsc?.level1 || "").slice(0, WIDE_LIMITS.unspscList),
-    unspsc_level2: (unspsc?.level2 || "").slice(0, WIDE_LIMITS.unspscList),
+    // UNSPSC 维度：桥接表（爬虫侧拥有）为权威，平台公告的自填分类（主表 category_l*_id）
+    // 在读取侧合并进来 —— 不回写桥接表（该表由爬虫侧拥有，写它会造成双源）。
+    // 只合并 1/2 级（表单口径），3-5 级保持外部标签。
+    unspsc_level1: mergeIdLists(unspsc?.level1, r.category_l1_id).slice(0, WIDE_LIMITS.unspscList),
+    unspsc_level2: mergeIdLists(unspsc?.level2, r.category_l2_id).slice(0, WIDE_LIMITS.unspscList),
     unspsc_level3: (unspsc?.level3 || "").slice(0, WIDE_LIMITS.unspscList),
     unspsc_level4: (unspsc?.level4 || "").slice(0, WIDE_LIMITS.unspscList),
     unspsc_level5: (unspsc?.level5 || "").slice(0, WIDE_LIMITS.unspscList),
@@ -349,7 +365,7 @@ export function buildWideRow(
     bid_overview: String(r.bid_overview || "").slice(0, WIDE_LIMITS.bidOverview),
     beneficiary_countries: normalizeBeneficiaryCountries(String(r.beneficiary_countries || "")),
     documents_count: docs.length,
-    published_date: String(r.published_date || "").slice(0, 50),
+    published_date: String(r.published_date || "").slice(0, WIDE_LIMITS.publishedDate),
     // 指纹：与内容同快照由 SQL 侧唯一表达式算出，此处只透传不计算（I1）。
     // 缺失时落空串 → 与实时指纹不等 → 下一轮对账自动重建（自愈，无需人工刷）。
     sync_src_hash: String(r.sync_src_hash || ""),

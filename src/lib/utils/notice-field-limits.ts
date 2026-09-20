@@ -38,6 +38,8 @@ export const WIDE_LIMITS = {
   noticeId: 100,
   /** 受援助国串列 VARCHAR(300) */
   beneficiary: 300,
+  /** 发布日期列（主表/宽表均为短字符串日期）*/
+  publishedDate: 50,
   /** 宽表 UNSPSC/precise 各级 ID 串列 TEXT，实际使用上限 2000 */
   unspscList: 2000,
   /** 平台公告标题上下限（与 RfqWizard 前端校验同一常量，消除双口径） */
