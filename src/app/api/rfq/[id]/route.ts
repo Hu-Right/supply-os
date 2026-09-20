@@ -162,8 +162,9 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       if (deadlineSec <= Math.floor(Date.now() / 1000)) {
         routeError(400, EC_INVALID_PARAMS, "截止时间必须晚于当前时间");
       }
-      updates.push("deadline_sec = ?");
-      updateParams.push(deadlineSec);
+      // deadline_sec 为生成列不可写；写基线 deadline_ts + 展示 deadline
+      updates.push("deadline = ?", "deadline_ts = ?");
+      updateParams.push(deadline, deadlineSec);
     }
 
     if (body.budget !== undefined || body.budget_confidential !== undefined || body.currency !== undefined) {
@@ -253,8 +254,9 @@ export const PATCH = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无有效更新字段");
     }
 
-    // 编辑后状态回退为 draft
-    updates.push(`rfq_status = ${RFQ_STATUS.DRAFT}`);
+    // 编辑后状态回退为 draft（参数化：裸拼 draft 会被 MySQL 当作列名）
+    updates.push("rfq_status = ?");
+    updateParams.push(RFQ_STATUS.DRAFT);
 
     const [result] = await pool.query(
       `UPDATE crm_bid_notices SET ${updates.join(", ")} WHERE id = ? AND user_id = ?`,

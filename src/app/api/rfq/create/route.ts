@@ -95,15 +95,17 @@ export const POST = withRoute(async (req: NextRequest) => {
   const pool = getPool();
 
   try {
+    // deadline_sec 是 crm_bid_notices 的 STORED 生成列（迁移 009：基于 deadline_ts 自动折算），
+    // 不可显式写入；改为写入基色列 deadline_ts（秒）与展示列 deadline（ISO 日期串）。
     const [result] = await pool.query(
       `INSERT INTO crm_bid_notices
         (title, description, country, province_name, category_l1_id, category_l2_id,
-         notice_type, deadline_sec,
+         notice_type, deadline, deadline_ts,
          estimated_value, currency, published_date, rfq_status,
          contact_email, contact_phone, user_id, entry_source,
          contact_name, budget_confidential,
          incoterm, delivery_time, delivery_address, payment_terms, supplier_reqs, visibility)
-       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
+       VALUES (?, ?, ?, ?, ?, ?, 'RFQ', ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, 'platform',
                ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
@@ -112,6 +114,7 @@ export const POST = withRoute(async (req: NextRequest) => {
         provinceName,
         categoryL1Id,
         categoryL2Id,
+        deadline,
         deadlineSec,
         estimatedValue,
         currency,
