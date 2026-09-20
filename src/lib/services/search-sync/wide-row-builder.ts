@@ -13,7 +13,7 @@ import { classifyAgencyType } from "../agency/index";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
 import { normalizeCountry } from "../../utils/countryNormalize";
 import { DESC_SOURCE_EXPR, WIDE_LIMITS, TRANSLATION_MODEL, truncate } from "../../utils/notice-field-limits";
-import { WIDE_FP_EXPR } from "./wide-fingerprint";
+import { WIDE_FP_EXPR, WIDE_FP_COLUMN } from "./wide-fingerprint";
 // JOIN 片段来自叶子模块 wide-sync-sql：不得在本文件定义后再被 fingerprint 反向导入（会成环）
 import { WIDE_OPP_JOIN, WIDE_SYNC_JOIN } from "./wide-sync-sql";
 
@@ -28,9 +28,17 @@ export const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 // ── 同步 SQL（含所有语言翻译，不含 UNSPSC）──
 // 注意：不再查询 is_active，因为搜索过滤只用 deadline_sec 实时判断
-export const WIDE_SYNC_SELECT = `
+/**
+ * 宽表主查询 SELECT（字段顺序与 buildWideRow 读取的 key 一致）。
+ *
+ * @param withFp 是否包指纹列。必须跟随 `isFingerprintColumn()` 结果：
+ *   迁移 087 需在生产维护窗口才能执行，列不存在时多带这一列会让整批 SELECT 报错，
+ *   并被外层 try/catch 吞成 warning（同步静默停摆）。
+ */
+export function wideSyncSelect(withFp: boolean): string {
+  return `
   SELECT n.id, n.notice_id, n.reference, n.title,
-         ${WIDE_FP_EXPR} AS sync_src_hash,
+         ${withFp ? `${WIDE_FP_EXPR} AS ${WIDE_FP_COLUMN},` : ""}
          ${DESC_SOURCE_EXPR} AS description,
          n.country, n.agency, n.notice_type, n.deadline_sec,
          n.is_featured,
@@ -39,6 +47,7 @@ export const WIDE_SYNC_SELECT = `
          opp.description_cn, LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
          opp.beneficiary_countries
 `;
+}
 /** 机会表合格行 JOIN 片段与主查询 JOIN 均定义于 wide-sync-sql（叶子模块），
  *  此处重导出仅为保持既有导入路径兼容（避免 builder ↔ fingerprint 循环依赖） */
 
@@ -392,8 +401,16 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
   return aliasMap;
 }
 
-// ── 批量写入宽表 ──
-export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): Promise<number> {
+// ── 批量写入宽表（宽表业务内容的唯一写入路径，I1）──
+/**
+ * @param withFp 是否写 sync_src_hash 列（由 isFingerprintColumn() 决定）。
+ *   列缺失时必须传 false，否则整批 upsert 报 Unknown column。
+ */
+export async function upsertWideRows(
+  pool: Pool,
+  rows: Record<string, any>[],
+  withFp: boolean,
+): Promise<number> {
   if (rows.length === 0) return 0;
   const BATCH = 500;
   let totalSynced = 0;
@@ -408,7 +425,9 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
     "unspsc_level1", "unspsc_level2", "unspsc_level3", "unspsc_level4", "unspsc_level5",
     "precise_level1", "precise_level2", "precise_level3", "precise_level4", "precise_level5",
     "description_cn", "bid_overview", "beneficiary_countries", "documents_count",
-    "published_date", "sync_src_hash",
+    "published_date",
+    // 指纹列随内容同一行写入（同快照），因此不需要任何后续 UPDATE
+    ...(withFp ? [WIDE_FP_COLUMN] : []),
   ];
   
   const placeholders = allColumns.map(() => "?").join(", ");
@@ -427,7 +446,8 @@ export async function upsertWideRows(pool: Pool, rows: Record<string, any>[]): P
         row.unspsc_level1, row.unspsc_level2, row.unspsc_level3, row.unspsc_level4, row.unspsc_level5,
         row.precise_level1, row.precise_level2, row.precise_level3, row.precise_level4, row.precise_level5,
         row.description_cn, row.bid_overview, row.beneficiary_countries, row.documents_count,
-        row.published_date, row.sync_src_hash,
+        row.published_date,
+        ...(withFp ? [row[WIDE_FP_COLUMN]] : []),
       );
     }
     await pool.query(

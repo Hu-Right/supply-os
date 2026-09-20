@@ -31,6 +31,53 @@ import { WIDE_OPP_JOIN } from "./wide-sync-sql";
 /** 字段分隔符：ASCII 单元分隔符（0x1f），业务文本中不出现，避免拼接歧义 */
 const SEP = "CHAR(31 USING utf8mb4)";
 
+/** 指纹列名（宽表 crm_notice_search） */
+export const WIDE_FP_COLUMN = "sync_src_hash";
+
+let _fpColOk: boolean | null = null;
+let _fpColExpires = 0;
+const FP_COL_TTL = 5 * 60 * 1000;
+
+/**
+ * 指纹列是否已存在（5 分钟缓存）—— 所有读写该列的路径必须先问它。
+ *
+ * 为何必需：迁移 087 要在生产维护窗口才能执行（本表现阶段无法 ALGORITHM=INSTANT），
+ * 而代码可能先/后于它部署。若直接 SELECT/写入不存在的列，宽表同步会每 5 秒报错
+ * 并被外层 try/catch 吞成 warning —— 属于静默坏掉。因此列缺失时整体降级为
+ * 「不选指纹、不写指纹、不做内容级对账」，行为回到本次重构前的状态（不会更差）。
+ *
+ * 探测失败（权限/网络抖动）一律按「缺失」处理：宁可降级，不行差。
+ */
+export async function isFingerprintColumn(pool: Pool): Promise<boolean> {
+  if (_fpColOk !== null && Date.now() < _fpColExpires) return _fpColOk;
+  let ok: boolean;
+  try {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND COLUMN_NAME = ?`,
+      [WIDE_FP_COLUMN],
+    );
+    ok = Number((rows as RowDataPacket[])[0]?.total || 0) > 0;
+  } catch {
+    ok = false;
+  }
+  if (!ok && _fpColOk !== false) {
+    console.warn(
+      `[wide-fingerprint] ${WIDE_FP_COLUMN} 列缺失（迁移 087 未执行）` +
+      "→ 指纹写入与内容级对账自动降级关闭；加列后无需改代码，缓存过期即自动启用",
+    );
+  }
+  _fpColOk = ok;
+  _fpColExpires = Date.now() + FP_COL_TTL;
+  return ok;
+}
+
+/** 仅供测试：清除列存在性缓存，保证用例互不污染 */
+export function __resetFingerprintColumnCache(): void {
+  _fpColOk = null;
+  _fpColExpires = 0;
+}
+
 /**
  * 宽表源指纹 SQL 表达式（依赖别名 n = crm_bid_notices、opp = crm_bid_opportunities，
  * 与 WIDE_OPP_JOIN 同构）。全库唯一定义点：WIDE_SYNC_SELECT 与本文件的漂移检测都拼
@@ -91,6 +138,8 @@ let _fpCursor = 0;
  * 只扫前 2000 id」是同一类窗口算法缺陷。先取窗口后，每轮扫描行数恒定为 FP_SLICE_SIZE。
  */
 export async function detectWideFingerprintDrift(pool: Pool): Promise<number[]> {
+  // 列缺失时不做内容级对账（降级），也不发任何查询
+  if (!(await isFingerprintColumn(pool))) return [];
   const ids: number[] = [];
   for (let i = 0; i < FP_SLICES_PER_ROUND; i++) {
     // 1) 取本轮窗口边界（走宽表主键序，成本恒定）
@@ -114,7 +163,7 @@ export async function detectWideFingerprintDrift(pool: Pool): Promise<number[]> 
        ${WIDE_OPP_JOIN}
        INNER JOIN crm_notice_search ns ON ns.id = n.id
        WHERE ns.id BETWEEN ? AND ?
-         AND ${WIDE_FP_EXPR} <> ns.sync_src_hash`,
+         AND ${WIDE_FP_EXPR} <> ns.${WIDE_FP_COLUMN}`,
       [win.lo, win.hi],
     );
     for (const r of rows as RowDataPacket[]) ids.push(Number(r.id));

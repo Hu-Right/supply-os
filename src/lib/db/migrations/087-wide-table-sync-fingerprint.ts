@@ -2,7 +2,15 @@
  * 087: 宽表源指纹列 + 存量纠偏
  * wide-table-sync-fingerprint
  *
- * 三件事（均为幂等、分批、可重跑）：
+ * 【当前状态：已编写但未注册到 schema.ts】
+ * 原因：生产宽表（46.2 万行）现阶段无法 ALGORITHM=INSTANT，加列必须安排维护窗口。
+ * 运行期代码已做「列缺失则自动降级」（见 search-sync/wide-fingerprint.ts 的
+ * isFingerprintColumn），所以本迁移未执行时本地与线上都能正常启动、宽表同步正常，
+ * 只是暂时无内容级（指纹）对账 —— 与重构前的生产行为一致，不会更差。
+ * 加列完成后把 schema.ts 里的 m087 import 与数组项恢复即可（本迁移幂等：列存在则跳过）。
+ *
+ * 四件事（均为幂等、分批、可重跑）：
+ * 0. 删除宽表上库外遗留的 FULLTEXT 死索引（不删则 InnoDB 拒绝 INSTANT 加列，只能停服 COPY）。
  * 1. crm_notice_search 增加 sync_src_hash CHAR(32) —— 宽表内容与输入快照的一致性指纹，
  *    由 buildWideRow 同快照写入（宽表因此不需要任何 UPDATE，单一写入者成立）。
  *    【必须 ALGORITHM=INSTANT】注意语法：ALGORITHM 是 alter_option 列表项，
@@ -34,6 +42,42 @@ import { type Migration } from "./runner";
 
 /** 每批处理行数：无界 UPDATE 会长时间持行锁，分批保证可中断可重跑 */
 const BATCH = 5000;
+
+/** 与 runner.assertValidIdentifier 同款白名单（该函数未导出，索引名要拼进 DDL，必须校验） */
+function safeIndexName(name: string): string {
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+    throw new Error(`[migration-087] 非法索引名，拒绝拼接 DDL: ${name}`);
+  }
+  return name;
+}
+
+/**
+ * Step 0：删除宽表上残留的 FULLTEXT 索引（否则 Step 1 的 INSTANT 加列会被 InnoDB 直接拒绝）。
+ *
+ * 为何可以删（2026-09-20 取证）：
+ * - 现网宽表 crm_notice_search 上存在 FULLTEXT 索引 ft_search_en，但它**不由本仓库任何迁移创建**
+ *   （011 建的是 ft_search_all，026 已删除），属库外手工/历史遗留；
+ * - 本仓库代码里的 MATCH...AGAINST 全部打在 crm_bid_notices 与 crm_notice_translations 上
+ *   （search-orchestrator/mysql-fallback.ts），无任何查询命中宽表全文索引；
+ * - 与 026 对 ft_search_all 的判定同类：Meilisearch 接管搜索后的死索引。
+ *
+ * 为何不担心在线影响：DROP FULLTEXT INDEX 是 INPLACE 且允许并发 DML，配 LOCK=NONE；
+ * 而保留它则只能走 COPY 全表重建（49.4 万行 / 647MB 数据 + 94MB 索引）并禁写数十分钟。
+ */
+async function dropDeadFulltextIndexes(dbPool: Pool): Promise<string[]> {
+  const [rows] = await dbPool.query(
+    `SELECT DISTINCT INDEX_NAME FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND INDEX_TYPE = 'FULLTEXT'`,
+  );
+  const names = (rows as RowDataPacket[]).map((r) => safeIndexName(String(r.INDEX_NAME)));
+  for (const name of names) {
+    console.log(`[migration-087] 删除宽表死全文索引 ${name}（INPLACE + 允许并发 DML）…`);
+    await dbPool.query(
+      `ALTER TABLE crm_notice_search DROP INDEX ${name}, ALGORITHM=INPLACE, LOCK=NONE`,
+    );
+  }
+  return names;
+}
 
 /** 幂等加列（自建探测而非 ensureColumn：需要显式 ALGORITHM=INSTANT 并定制等待超时） */
 async function addFingerprintColumn(dbPool: Pool): Promise<void> {
@@ -112,11 +156,14 @@ export const migration: Migration = {
   version: 87,
   name: "wide-table-sync-fingerprint",
   async up(dbPool: Pool) {
+    // Step 0 必须先于加列：宽表若有 FULLTEXT 索引，InnoDB 会直接拒绝 INSTANT 加列
+    const droppedFt = await dropDeadFulltextIndexes(dbPool);
     await addFingerprintColumn(dbPool);
     const cleaned = await cleanPollutedPreciseCodes(dbPool);
     const refFilled = await backfillPlatformReference(dbPool);
     console.log(
-      `[migration-087] 完成：precise_levelN 原码清理 ${cleaned} 条，平台编号补齐 ${refFilled} 条`,
+      `[migration-087] 完成：死全文索引清理 ${droppedFt.length} 个，` +
+        `precise_levelN 原码清理 ${cleaned} 条，平台编号补齐 ${refFilled} 条`,
     );
   },
 };

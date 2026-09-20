@@ -16,14 +16,14 @@ import { requestIndexRebuild } from "../search-common/rebuild-trigger";
 import { invalidateSearchCache } from "../search-common/sync-events";
 import { PLATFORM_PUBLISHED_ONLY } from "../../utils/notice-expired";
 import {
-  WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
+  wideSyncSelect, WIDE_SYNC_JOIN,
   loadAliasMap, loadTranslationsByNoticeIds, loadUnspscByNoticeIds, loadPreciseByNoticeIds,
   buildWideRow, upsertWideRows,
 } from "./wide-row-builder";
 import {
   detectDeadlineDrift, reconcileGhostRows, detectPlatformStatusDrift,
 } from "./wide-row-reconcile";
-import { detectWideFingerprintDrift } from "./wide-fingerprint";
+import { detectWideFingerprintDrift, isFingerprintColumn } from "./wide-fingerprint";
 import { purgeNoticeSearch } from "../search-visibility";
 
 /**
@@ -36,11 +36,14 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
   let lastId = 0;
   let totalSynced = 0;
   const BATCH = 200;  // [内存优化] 从 500 降至 200，降低 8G 服务器宽表回填时的内存峰值
+  // 指纹列存在性一次解析（迁移 087 未执行时自动降级，不选也不写该列）
+  const withFp = await isFingerprintColumn(pool);
+  const selectSql = wideSyncSelect(withFp);
 
   try {
     while (true) {
       const [rows] = await pool.query(
-        WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT ?",
+        selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT ?",
         [lastId, BATCH],
       );
       const rawRows = rows as RowDataPacket[];
@@ -60,7 +63,7 @@ export async function fullBackfill(pool: Pool): Promise<{ synced: number; elapse
         translationsMap.get(Number(r.id)),
         preciseMap.get(String(r.notice_id)),
       ));
-      const synced = await upsertWideRows(pool, wideRows);
+      const synced = await upsertWideRows(pool, wideRows, withFp);
       totalSynced += synced;
       lastId = rawRows[rawRows.length - 1].id;
 
@@ -83,10 +86,12 @@ export async function incrementalWideSync(
   watermark: number,
 ): Promise<{ synced: number; newWatermark: number }> {
   const aliasMap = await loadAliasMap(pool);
+  const withFp = await isFingerprintColumn(pool);
+  const selectSql = wideSyncSelect(withFp);
 
   try {
     const [newRows] = await pool.query(
-      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT 5000",
+      selectSql + WIDE_SYNC_JOIN + " WHERE n.id > ? AND " + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC LIMIT 5000",
       [watermark],
     );
 
@@ -107,7 +112,7 @@ export async function incrementalWideSync(
       translationsMap.get(Number(r.id)),
       preciseMap.get(String(r.notice_id)),
     ));
-    const synced = await upsertWideRows(pool, wideRows);
+    const synced = await upsertWideRows(pool, wideRows, withFp);
     // [阶段0 A4-1] 宽表已更新：失效搜索结果缓存。外部 CRM 管道的新数据经本函数入库，
     // 此前仅在 syncWideIds 级联处失效缓存，导致新公告最长 5 分钟内不出现在带缓存的搜索结果中
     if (synced > 0) invalidateSearchCache();
@@ -125,11 +130,13 @@ export async function incrementalWideSync(
 export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: number }> {
   if (ids.length === 0) return { synced: 0 };
   const aliasMap = await loadAliasMap(pool);
+  const withFp = await isFingerprintColumn(pool);
+  const selectSql = wideSyncSelect(withFp);
 
   try {
     const placeholders = ids.map(() => "?").join(",");
     const [rows] = await pool.query(
-      WIDE_SYNC_SELECT + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) AND ` + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC",
+      selectSql + WIDE_SYNC_JOIN + ` WHERE n.id IN (${placeholders}) AND ` + PLATFORM_PUBLISHED_ONLY + " ORDER BY n.id ASC",
       ids,
     );
     const noticeIds = (rows as RowDataPacket[]).map((r) => String(r.notice_id));
@@ -145,7 +152,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
       translationsMap.get(Number(r.id)),
       preciseMap.get(String(r.notice_id)),
     ));
-    const synced = await upsertWideRows(pool, wideRows);
+    const synced = await upsertWideRows(pool, wideRows, withFp);
     // 宽表已更新：失效搜索结果缓存，确保下次列表请求读到最新译文
     if (synced > 0) invalidateSearchCache();
     // 级联同步 Meilisearch：宽表更新后必须同步到索引，避免数据断链。

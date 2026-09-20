@@ -1,5 +1,6 @@
 /**
  * 迁移 087 行为契约：
+ * - Step 0 先删除宽表 FULLTEXT 死索引（否则 InnoDB 拒绝 INSTANT 加列），且必须在线安全
  * - 指纹列加列前先探测 INFORMATION_SCHEMA（幂等，重复执行安全）
  * - 加列必须 ALGORITHM=INSTANT + 短 lock_wait_timeout（不允许时报错而非静默降级持锁）
  * - 存量纠偏全部分批（LIMIT 批次循环），不得对 46 万行表发无界 UPDATE
@@ -10,17 +11,27 @@ import type { Pool } from "mysql2/promise";
 
 import { migration } from "@/lib/db/migrations/087-wide-table-sync-fingerprint";
 
-function makePool(opts: { columnExists?: boolean; affected?: number[]; alterThrows?: string } = {}) {
+function makePool(opts: {
+  columnExists?: boolean;
+  affected?: number[];
+  alterThrows?: string;
+  fulltextIndexes?: string[];
+} = {}) {
   const calls: Array<{ sql: string; params?: unknown }> = [];
   const affected = opts.affected ?? [0];
   let updateIdx = 0;
   const query = vi.fn(async (sql: string, params?: unknown) => {
     const s = String(sql);
     calls.push({ sql: s, params });
+    // 两条探测查询必须分开返回：STATISTICS 给索引名，COLUMNS 给存在性
+    if (/INDEX_TYPE = 'FULLTEXT'/i.test(s)) {
+      return [(opts.fulltextIndexes ?? ["ft_search_en"]).map((n) => ({ INDEX_NAME: n }))];
+    }
     if (/INFORMATION_SCHEMA/i.test(s)) {
       return [[{ total: opts.columnExists ? 1 : 0 }]];
     }
-    if (/^\s*ALTER/i.test(s) && opts.alterThrows) throw new Error(opts.alterThrows);
+    // 只让加列语句失败（DROP 索引也以 ALTER TABLE 开头，不能误伤）
+    if (/ADD COLUMN/i.test(s) && opts.alterThrows) throw new Error(opts.alterThrows);
     if (/^\s*UPDATE/i.test(s)) {
       return [{ affectedRows: affected[Math.min(updateIdx++, affected.length - 1)] ?? 0 }];
     }
@@ -43,16 +54,17 @@ describe("migration 087", () => {
     expect(probe?.sql).toContain("crm_notice_search");
   });
 
-  it("列已存在时不再发 ALTER（重复执行零副作用）", async () => {
-    const { pool, calls } = makePool({ columnExists: true });
+  it("列已存在时不再发 ADD COLUMN（重复执行零副作用）", async () => {
+    const { pool, calls } = makePool({ columnExists: true, fulltextIndexes: [] });
     await migration.up(pool);
-    expect(calls.map((c) => c.sql).join("\n")).not.toMatch(/ALTER TABLE/i);
+    expect(calls.map((c) => c.sql).join("\n")).not.toMatch(/ADD COLUMN/i);
   });
 
   it("列不存在时加列为 CHAR(32) NOT NULL DEFAULT ''，并强制 ALGORITHM=INSTANT", async () => {
     const { pool, calls } = makePool({ columnExists: false });
     await migration.up(pool);
-    const alter = calls.find((c) => /ALTER TABLE crm_notice_search/i.test(c.sql));
+    // 必须锁定加列那一条（DROP 索引同为 `ALTER TABLE crm_notice_search` 开头）
+    const alter = calls.find((c) => /ADD COLUMN sync_src_hash/i.test(c.sql));
     expect(alter?.sql).toMatch(/sync_src_hash\s+CHAR\(32\)\s+NOT NULL\s+DEFAULT ''/i);
     // 静默退化为 copy to tmp table 会持锁数十分钟并阻塞应用宽表写入（现网实测）
     expect(alter?.sql).toMatch(/ALGORITHM\s*=\s*INSTANT/i);
@@ -78,6 +90,30 @@ describe("migration 087", () => {
     const updates = calls.filter((c) => /UPDATE\s+crm_notice_search/i.test(c.sql));
     expect(updates.length).toBeGreaterThan(0);
     for (const u of updates) expect(u.sql).toMatch(/LIMIT\s+\d+/i);
+  });
+
+  it("先删宽表 FULLTEXT 死索引，再加列（顺序颠倒会被 InnoDB 拒绝 INSTANT）", async () => {
+    const { pool, calls } = makePool({ fulltextIndexes: ["ft_search_en"] });
+    await migration.up(pool);
+    const sqls = calls.map((c) => c.sql);
+    const dropAt = sqls.findIndex((s) => /DROP INDEX ft_search_en/i.test(s));
+    const addAt = sqls.findIndex((s) => /ADD COLUMN sync_src_hash/i.test(s));
+    expect(dropAt).toBeGreaterThanOrEqual(0);
+    expect(addAt).toBeGreaterThan(dropAt);
+    // 删索引必须在线：INPLACE + 允许并发 DML
+    expect(sqls[dropAt]).toMatch(/ALGORITHM\s*=\s*INPLACE/i);
+    expect(sqls[dropAt]).toMatch(/LOCK\s*=\s*NONE/i);
+  });
+
+  it("无 FULLTEXT 索引时不发任何 DROP（幂等，不伤存量库）", async () => {
+    const { pool, calls } = makePool({ fulltextIndexes: [] });
+    await migration.up(pool);
+    expect(calls.map((c) => c.sql).join("\n")).not.toMatch(/DROP INDEX/i);
+  });
+
+  it("索引名不在白名单内时拒绝拼 DDL（防注入）", async () => {
+    const { pool } = makePool({ fulltextIndexes: ["a; DROP TABLE x --"] });
+    await expect(migration.up(pool)).rejects.toThrow(/非法索引名/);
   });
 
   it("不修改 crm_bid_notices 结构（无 ALTER TABLE crm_bid_notices）", async () => {

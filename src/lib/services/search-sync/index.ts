@@ -7,7 +7,7 @@
 
 // 数据构建层
 export {
-  SUPPORTED_LANGS, WIDE_SYNC_SELECT, WIDE_SYNC_JOIN,
+  SUPPORTED_LANGS, wideSyncSelect, WIDE_SYNC_JOIN,
   loadTranslationsByNoticeIds, loadUnspscByNoticeIds,
   buildWideRow, loadAliasMap, upsertWideRows,
 } from "./wide-row-builder";
@@ -18,7 +18,9 @@ export {
   WIDE_DEADLINE_EXPR,
 } from "./wide-row-reconcile";
 export type { PlatformDrift } from "./wide-row-reconcile";
-export { detectWideFingerprintDrift, WIDE_FP_EXPR } from "./wide-fingerprint";
+export {
+  detectWideFingerprintDrift, WIDE_FP_EXPR, WIDE_FP_COLUMN, isFingerprintColumn,
+} from "./wide-fingerprint";
 
 // 同步调度层（对外门面）
 export {

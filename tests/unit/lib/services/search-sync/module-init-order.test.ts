@@ -18,14 +18,14 @@ describe("模块初始化顺序", () => {
     const fp = await import("@/lib/services/search-sync/wide-fingerprint");
     const builder = await import("@/lib/services/search-sync/wide-row-builder");
     expect(fp.WIDE_FP_EXPR.startsWith("MD5(")).toBe(true);
-    expect(builder.WIDE_SYNC_SELECT).toContain(fp.WIDE_FP_EXPR);
+    expect(builder.wideSyncSelect(true)).toContain(fp.WIDE_FP_EXPR);
     expect(builder.WIDE_SYNC_JOIN).toContain("crm_bid_opportunities");
   });
 
   it("以 builder 为入口：指纹表达式同样完整可用", async () => {
     const builder = await import("@/lib/services/search-sync/wide-row-builder");
     const fp = await import("@/lib/services/search-sync/wide-fingerprint");
-    expect(builder.WIDE_SYNC_SELECT).toContain(fp.WIDE_FP_EXPR);
+    expect(builder.wideSyncSelect(true)).toContain(fp.WIDE_FP_EXPR);
     expect(typeof builder.buildWideRow).toBe("function");
     expect(typeof fp.detectWideFingerprintDrift).toBe("function");
   });

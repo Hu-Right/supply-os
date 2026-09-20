@@ -91,6 +91,8 @@ describe("detectWideFingerprintDrift", () => {
     const query = vi.fn(async (sql: string, params: unknown = null) => {
       const s = String(sql);
       calls.push({ sql: s, params: params as unknown[] });
+      // 列存在性探测（降级开关）必须先回答“有”，否则检测直接返回空
+      if (/INNODB_TABLES|INFORMATION_SCHEMA\.COLUMNS/i.test(s)) return [[{ total: 1 }]];
       if (/MIN\(id\) AS lo/.test(s)) return [windows.shift() ?? []];
       if (/BETWEEN \? AND \?/.test(s)) return [drift.shift() ?? []];
       return [[]];
@@ -111,10 +113,47 @@ describe("detectWideFingerprintDrift", () => {
   it("只发 SELECT（对账不修复宽表 —— I1）", async () => {
     vi.resetModules();
     const mod = await import("@/lib/services/search-sync/wide-fingerprint");
-    const query = vi.fn(async (sql: string) => [String(sql).includes("MIN(id)") ? [{ lo: 1, hi: 2 }] : []]);
+    const query = vi.fn(async (sql: string) => [
+      /INFORMATION_SCHEMA\.COLUMNS/i.test(String(sql))
+        ? [{ total: 1 }]
+        : String(sql).includes("MIN(id)")
+          ? [{ lo: 1, hi: 2 }]
+          : [],
+    ]);
     await mod.detectWideFingerprintDrift({ query } as unknown as Pool);
     for (const c of query.mock.calls) {
       expect(/^\s*SELECT/i.test(String(c[0]))).toBe(true);
     }
+  });
+
+  /**
+   * 降级开关：迁移 087 要在生产维护窗口才能执行，列不存在时
+   * 不得发出任何引用该列的查询（否则整轮对账报错，被外层 catch 吞成 warning）。
+   */
+  it("指纹列缺失时直接返回空且不发出任何漂移查询", async () => {
+    vi.resetModules();
+    const mod = await import("@/lib/services/search-sync/wide-fingerprint");
+    const query = vi.fn(async (_sql: string) => [[{ total: 0 }]]);
+    const pool = { query } as unknown as Pool;
+
+    expect(await mod.detectWideFingerprintDrift(pool)).toEqual([]);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(String(query.mock.calls[0][0])).toMatch(/INFORMATION_SCHEMA\.COLUMNS/i);
+
+    // 探测结果被缓存：第二次不再查库
+    expect(await mod.detectWideFingerprintDrift(pool)).toEqual([]);
+    expect(query).toHaveBeenCalledTimes(1);
+
+    // 列存在时正常进入窗口查询（每轮 2 个切片：第一个窗口有差异，第二个为空）
+    mod.__resetFingerprintColumnCache();
+    let windowsLeft = 1;
+    const query2 = vi.fn(async (sql: string) => [
+      /INFORMATION_SCHEMA\.COLUMNS/i.test(String(sql))
+        ? [{ total: 1 }]
+        : String(sql).includes("MIN(id)")
+          ? (windowsLeft-- > 0 ? [{ lo: 1, hi: 9 }] : [])
+          : [{ id: 5 }],
+    ]);
+    expect(await mod.detectWideFingerprintDrift({ query: query2 } as unknown as Pool)).toEqual([5]);
   });
 });
