@@ -12,8 +12,9 @@ export {
   buildWideRow, loadAliasMap, upsertWideRows,
 } from "./wide-row-builder";
 
-// 对账层
-export { reconcileDeadlineSec } from "./wide-row-reconcile";
+// 对账层（只检测；修复统一走 syncWideIds / purgeNoticeSearch）
+export { reconcileDeadlineSec, detectPlatformStatusDrift } from "./wide-row-reconcile";
+export type { PlatformDrift } from "./wide-row-reconcile";
 
 // 同步调度层（对外门面）
 export {

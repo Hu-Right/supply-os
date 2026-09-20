@@ -23,7 +23,9 @@ import {
 import {
   reconcileDeadlineSec, reconcileGhostRows, reconcileIsFeatured,
   reconcileTranslations, reconcilePreciseCodes, reconcileContentDrift,
+  detectPlatformStatusDrift,
 } from "./wide-row-reconcile";
+import { purgeNoticeSearch } from "../search-visibility";
 
 /**
  * 全量回填宽表
@@ -282,6 +284,18 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
   const fullReconcileTimer = setInterval(async () => {
     if (stopped) return;
     try {
+      // 平台公告状态漂移：审核通过 → 定向重建入宽表；撤回/驳回 → 走可见性清除出口
+      // （先修可见性再做 ghost 清理，避免同一行两个路径争抢删除）
+      const { toSync: platformSyncIds, toPurge: platformPurgeIds } = await detectPlatformStatusDrift(pool);
+      if (platformPurgeIds.length > 0) {
+        await purgeNoticeSearch(pool, platformPurgeIds);
+        console.log(`[wide-table] 平台公告状态对账：清除不可见行 ${platformPurgeIds.length} 条`);
+      }
+      if (platformSyncIds.length > 0) {
+        await syncWideIds(pool, platformSyncIds);
+        console.log(`[wide-table] 平台公告状态对账：补建宽表行 ${platformSyncIds.length} 条`);
+      }
+
       // Ghost 行清理
       const ghostIds = await reconcileGhostRows(pool);
       // is_featured 对账
@@ -293,8 +307,13 @@ export function startWideTableSync(pool: Pool, options: { intervalMs?: number; r
       // P1-18 内容漂移对账：主表 title/description 变更后宽表滞后修复
       const contentDriftIds = await reconcileContentDrift(pool);
 
-      // 合并变更 ID 并同步到 Meilisearch
-      const allChangedIds = [...new Set([...ghostIds, ...featuredIds, ...translationIds, ...preciseIds, ...contentDriftIds])];
+      // 合并变更 ID 并同步到 Meilisearch（平台补建行一并纳入，保证索引侧覆盖）
+      const allChangedIds = [
+        ...new Set([
+          ...ghostIds, ...featuredIds, ...translationIds, ...preciseIds, ...contentDriftIds,
+          ...platformSyncIds,
+        ]),
+      ];
       if (allChangedIds.length > 0) {
         if (!isMeiliHealthy()) await tryRecover().catch(() => false);
         if (isMeiliHealthy()) {
