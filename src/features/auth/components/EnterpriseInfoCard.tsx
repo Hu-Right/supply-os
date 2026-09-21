@@ -209,7 +209,7 @@ export function EnterpriseInfoCard({
               {t("authEnterpriseVerifyApproved") || "已认证"}
             </span>
           )}
-          {verifyStatus === "processing" && (
+          {verifyStatus === "pending" && (
             <span className="px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-2xs">
               {t("authEnterpriseVerifyProcessing") || "审核中"}
             </span>

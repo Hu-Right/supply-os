@@ -86,7 +86,7 @@ describe("EnterpriseInfoCard", () => {
 
   it("认证标三态：审核中/已认证/已驳回", () => {
     const { rerender } = render(
-      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "processing" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
+      <EnterpriseInfoCard enterprise={{ ...mockRow, verify_status: "pending" }} loading={false} error={null} onRetry={noop} onBind={noop} />,
     );
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 

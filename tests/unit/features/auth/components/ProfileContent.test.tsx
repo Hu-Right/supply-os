@@ -114,7 +114,7 @@ describe("ProfileContent", () => {
   it("供应商状态同步企业认证进度（已认证/审核中/已驳回）", () => {
     // 审核中
     mockEnterpriseBound = true;
-    mockEnterpriseData = { verify_status: "processing" };
+    mockEnterpriseData = { verify_status: "pending" };
     const { rerender } = render(<ProfileContent />);
     expect(screen.getByText("authEnterpriseVerifyProcessing")).toBeInTheDocument();
 

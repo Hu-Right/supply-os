@@ -128,7 +128,7 @@ export function ProfileContent({ MyRecordsPanel }: ProfileContentProps = {}) {
                       {t("authEnterpriseVerifyApproved") || "已认证"}
                     </span>
                   </span>
-                ) : verifyStatus === "processing" ? (
+                ) : verifyStatus === "pending" ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded border border-accent-200 bg-accent-50 text-accent-700 text-xs font-medium">
                     {t("authEnterpriseVerifyProcessing") || "审核中"}
                   </span>
