@@ -51,6 +51,41 @@ export const WIDE_LIMITS = {
 } as const;
 
 /**
+ * 国际公共采购结构化列（迁移 088 加在 crm_bid_opportunities）—— 全库唯一定义点。
+ *
+ * 为何抽成常量而非在各处手写列名：这批列要被**机会表 SELECT**（featured.ts）、
+ * **详情合并**（notices/index.ts）、**类型**（types/procurement.ts）三处消费，
+ * 任何一处漏列就会静默变 null。列表在此一次声明，其余三处均从此派生。
+ *
+ * 不进宽表：这些是详情级字段，不属于搜索投影；搜索侧由 opp.description 经
+ * DESC_SOURCE_EXPR 进入宽表 description 与六语列（见 spec I1/I2）。
+ */
+export const INTL_PROCUREMENT_COLUMNS = [
+  "procurement_procedure",
+  "prequalification_required",
+  "lot_structure",
+  "contract_form",
+  "consortium_rule",
+  "bid_validity_days",
+  "submission_mode",
+  "submission_requirement",
+  "submission_address",
+  "funding_agency",
+  "evaluation_method",
+  "language_requirement",
+  "execution_period",
+  "local_content",
+  "eshs_requirements",
+  "eligible_countries",
+  "key_dates",
+] as const;
+
+export type IntlProcurementColumn = (typeof INTL_PROCUREMENT_COLUMNS)[number];
+
+/** 逗号拼接后的 SELECT 片段（仅此一处拼接，避免列清单第二份） */
+export const INTL_PROCUREMENT_SELECT_LIST = INTL_PROCUREMENT_COLUMNS.join(", ");
+
+/**
  * 描述来源表达式：机会表（qualified/审核通过）优先，主表兜底。
  * 与 featured.ts 的合格机会谓词共用同一 opp 别名，确保「详情页展示的描述」与
  * 「宽表/索引里被搜到的描述」永远取自同一行，不再出现两路径互写。

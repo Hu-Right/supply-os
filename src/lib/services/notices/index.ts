@@ -5,6 +5,7 @@
 import { safeJson, preferValue } from "../../utils/json";
 import { normalizeContactRows, normalizeDocumentRows } from "../../utils/normalize";
 import { normalizeUnspscCodes } from "../unspsc/index";
+import { INTL_PROCUREMENT_COLUMNS, type IntlProcurementColumn } from "../../utils/notice-field-limits";
 
 // Re-export 精选逻辑
 export {
@@ -12,6 +13,20 @@ export {
   findQualifiedOpportunityForNotice,
   refreshFeaturedColumn,
 } from "./featured";
+
+/**
+ * 国际公共采购结构化字段透出：仅从机会行取（公告主表无这些列），
+ * 无机会行时返回 null 值集合而非缺键，保证前端渲染不依赖字段存在性判断。
+ * 列清单从 INTL_PROCUREMENT_COLUMNS 派生 —— 加列只改单一事实源，此处自动跟随。
+ */
+function buildIntlProcurement(opportunity?: Record<string, unknown> | null) {
+  const out = {} as Record<IntlProcurementColumn, string | number | null>;
+  for (const col of INTL_PROCUREMENT_COLUMNS) {
+    const v = opportunity?.[col];
+    out[col] = v === undefined || v === null ? null : (v as string | number);
+  }
+  return out;
+}
 
 export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: any) {
   const detailSource = opportunity ? "opportunity" : "notice";
@@ -32,9 +47,13 @@ export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportun
     country: preferValue(opportunity?.country, notice.country),
     deadline: preferValue(opportunity?.deadline, notice.deadline),
     deadline_ts: preferValue(opportunity?.deadline_ts, notice.deadline_ts),
+    // 截止时刻的 IANA 时区（国际标为 09:30 当地时间等非整日截止，无时区即无法正确倒计时）
+    deadline_timezone: preferValue(opportunity?.deadline_timezone, notice.deadline_timezone) || "",
     estimated_value: preferValue(opportunity?.estimated_value, notice.estimated_value),
     description,
     description_cn: opportunity?.description_cn || "",
+    description_other: opportunity?.description_other || "",
+    intl_procurement: buildIntlProcurement(opportunity),
     bid_overview: opportunity?.bid_overview || "",
     supplier_conditions: opportunity?.supplier_conditions || "",
     eligibility: opportunity?.eligibility || "",
