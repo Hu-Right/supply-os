@@ -60,6 +60,27 @@ const SYNC_TABLES = [
 const BATCH_SIZE = 200;
 // update_time 可能的数值列类型（存 Unix 秒，如 crm_bid_notices）
 const NUMERIC_TYPES = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'float', 'double', 'decimal']);
+
+/**
+ * 非破坏式合并列（人工/官方收录侧拥有）
+ *
+ * 背景：本脚本的 ODKU 默认把「除主键外全部列」写成 `col = VALUES(col)`。内网源库一旦补建
+ * 同名列但值为 NULL/空串，每轮同步都会把云端已填好的值整体抹掉（与 spec D9 同一机理，
+ * 只是作用域从平台行扩到人工列）。迁移 088 的 17 个国际采购列正是这种形态：由平台侧
+ * 人工精编/官方收录写入，爬虫管道不产出其内容。
+ *
+ * 规则：数值列只在「源值为 NULL」时保留目标值（0 是合法业务值，如
+ * prequalification_required=0 表示不需资格预审，不得当空处理）；字符串列额外把空串视作未提供。
+ */
+const NON_DESTRUCTIVE_COLUMNS = {
+  crm_bid_opportunities: [
+    'procurement_procedure', 'prequalification_required', 'lot_structure', 'contract_form',
+    'consortium_rule', 'bid_validity_days', 'submission_mode', 'submission_requirement',
+    'submission_address', 'funding_agency', 'evaluation_method', 'language_requirement',
+    'execution_period', 'local_content', 'eshs_requirements', 'eligible_countries', 'key_dates',
+  ],
+};
+
 const SYNC_INTERVAL = Number(process.env.SYNC_INTERVAL_MS || 3600000); // 默认 1 小时
 const LOG_FILE = path.join(__dirname, 'daily-sync.log');
 const WATERMARK_FILE = path.join(__dirname, '.sync-watermark.json');
@@ -212,8 +233,17 @@ async function syncTable(source, target, table, watermark, onWatermark) {
   const utIsNumeric = hasUpdateTime && NUMERIC_TYPES.has(colTypes['update_time']);
   const colList = colNames.map(c => `\`${c}\``).join(', ');
   const updateCols = colNames.filter(c => !pkCols.includes(c));
+  // 人工/官方收录列走非破坏式合并，其余列保持既有「源库直通覆盖」语义
+  const keepCols = new Set(NON_DESTRUCTIVE_COLUMNS[table] || []);
   const updateClause = updateCols.length > 0
-    ? updateCols.map(c => `\`${c}\` = VALUES(\`${c}\`)`).join(', ')
+    ? updateCols.map(c => {
+        if (!keepCols.has(c)) return `\`${c}\` = VALUES(\`${c}\`)`;
+        // 数值列：仅 NULL 算未提供（0 是合法值）；字符串列：NULL 与空串都算未提供
+        const emptyTest = NUMERIC_TYPES.has(colTypes[c])
+          ? `VALUES(\`${c}\`) IS NULL`
+          : `(VALUES(\`${c}\`) IS NULL OR VALUES(\`${c}\`) = '')`;
+        return `\`${c}\` = IF(${emptyTest}, \`${c}\`, VALUES(\`${c}\`))`;
+      }).join(', ')
     : `\`${pkCol}\` = VALUES(\`${pkCol}\`)`;
 
   // 提取 ID 水位线和更新时间水位线
