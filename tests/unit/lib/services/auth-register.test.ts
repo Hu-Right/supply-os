@@ -54,7 +54,7 @@ function makeCtx(overrides: Record<string, any> = {}) {
       },
       membershipRepo: {},
     },
-    supplier: { registrationRepo: {} },
+    supplier: { directoryRepo: {} },
   } as any;
 }
 

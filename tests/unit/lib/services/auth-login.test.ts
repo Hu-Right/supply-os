@@ -30,7 +30,7 @@ function makeCtx(overrides: Record<string, any> = {}) {
       membershipRepo: {},
       authRepo: { insertRefreshToken: vi.fn() },
     },
-    supplier: { registrationRepo: {} },
+    supplier: { directoryRepo: {} },
   } as any;
 }
 

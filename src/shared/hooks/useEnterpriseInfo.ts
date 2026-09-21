@@ -1,10 +1,10 @@
 /**
- * 企业信息取数 Hook（企业表 crm_suppliers）
+ * 企业信息取数 Hook（企业表 supplier）
  * Enterprise Info Hook
  *
  * @module shared/hooks/useEnterpriseInfo
  * @description 调用 GET /api/user/enterprise（后端按 crm_users.supplier_id 关联
- *              crm_suppliers 企业表）获取当前用户企业信息。未绑定返回 bound=false。
+ *              supplier 企业表）获取当前用户企业信息。未绑定返回 bound=false。
  *              提供 loading/error/retry。
  *              架构解耦：原 features/auth/hooks 提升至 shared，供 auth/home/settings
  *              多方共享，消除 home→auth 跨 feature 硬依赖（红线 #3）。
@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/core/http";
 import { onAppEvent } from "@/core/events";
 
-/** 企业信息（crm_suppliers 整行透传，键为 snake_case 列名） */
+/** 企业信息（supplier 整行透传，键为 snake_case 列名） */
 export type EnterpriseInfo = Record<string, unknown>;
 
 interface EnterpriseResponse {

@@ -22,7 +22,7 @@ describe("GET /api/auth/user", () => {
     vi.clearAllMocks();
     vi.mocked(getContext).mockReturnValue({
       user: { usersRepo: { findProfileById: vi.fn() }, membershipRepo: {} },
-      supplier: { registrationRepo: {} },
+      supplier: { directoryRepo: {} },
     } as any);
   });
 

@@ -18,6 +18,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (!user) {
     routeError(404, 40044, "用户不存在");
   }
-  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
   return NextResponse.json({ success: true, user: payload });
 });

@@ -116,7 +116,7 @@ describe("buildUserResponse", () => {
     findCurrentBestPlan: vi.fn().mockResolvedValue(null),
   };
   const mockSupplierRepo = {
-    findBasicInfo: vi.fn().mockResolvedValue(null),
+    findAuthInfoById: vi.fn().mockResolvedValue(null),
   };
 
   it("基础用户 → 返回完整响应体", async () => {

@@ -33,7 +33,6 @@ import {
 } from "../repos/notices/index";
 import {
   SupplierDirectoryRepo,
-  SupplierRegistrationRepo,
   SupplierClaimRepo,
 } from "../repos/suppliers/index";
 import { CatalogRepo } from "../repos/catalog.repo";
@@ -84,7 +83,6 @@ export type UserContext = {
 export type SupplierContext = {
   dbPool: Pool;
   directoryRepo: SupplierDirectoryRepo;
-  registrationRepo: SupplierRegistrationRepo;
   claimRepo: SupplierClaimRepo;
 };
 
@@ -133,7 +131,6 @@ export function getContext(): AppContext {
   const favoriteRepo = new NoticeFavoriteRepo(dbPool);
 
   const directoryRepo = new SupplierDirectoryRepo(dbPool);
-  const registrationRepo = new SupplierRegistrationRepo(dbPool);
   const claimRepo = new SupplierClaimRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
@@ -203,7 +200,7 @@ export function getContext(): AppContext {
       paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,
     },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
-    supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
+    supplier: { dbPool, directoryRepo, claimRepo },
     opportunitiesRepo,
     catalogRepo,
     openApiRepo,

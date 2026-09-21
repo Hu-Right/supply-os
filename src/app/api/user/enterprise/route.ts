@@ -140,7 +140,7 @@ export const POST = withRoute(async (req) => {
   // ── 新建：审核中 + 自注册来源 ──
   const newId = await repo.insertEnterprise(
     { ...(body as Record<string, unknown>), company: companyName, name_confirmed: companyName },
-    { verify_status: "processing", source_channel: "self_register" },
+    { verify_status: "pending", source_channel: "self_register" },
   );
   if (!newId) {
     routeError(500, EC_INVALID_PARAMS, "企业信息创建失败");

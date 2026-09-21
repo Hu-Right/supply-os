@@ -149,7 +149,7 @@ export async function registerUser(
 
   // 响应统一走 buildUserResponse 收口（隐私整改）：
   // 只返回昵称（不返回 display_name 真实姓名），手机号脱敏（修复原响应返回明文手机号）
-  const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
 
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, createdUser.id); } catch { /* JWT_SECRET 未配置 */ }

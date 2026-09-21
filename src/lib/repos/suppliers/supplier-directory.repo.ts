@@ -193,7 +193,7 @@ export class SupplierDirectoryRepo {
     const sets = cols.map((c) => `${c} = ?`).join(", ");
     // ★ 用户编辑后一律重置为审核中，需管理员重新确认
     await this.pool.query(
-      `UPDATE supplier SET ${sets}, verify_status = 'processing' WHERE id = ?`,
+      `UPDATE supplier SET ${sets}, verify_status = 'pending' WHERE id = ?`,
       [...cols.map((c) => data[c]), id],
     );
   }
@@ -238,6 +238,7 @@ export class SupplierDirectoryRepo {
     verified: number;
     withCertification: number;
     international: number;
+    unspscMatched: number;
   }> {
     const [allRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier",
@@ -251,12 +252,37 @@ export class SupplierDirectoryRepo {
     const [intlRows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
     );
+    // 已认证 且 匹配了 UNSPSC 的供应商数（JOIN 桥接表 crm_supplier_unspsc_interests）
+    const [unspscRows] = await this.pool.query(
+      `SELECT COUNT(DISTINCT u.supplier_id) as total
+       FROM crm_supplier_unspsc_interests u
+       JOIN supplier s ON s.id = u.supplier_id
+       WHERE s.verify_status = 'done' AND s.company <> '测试' AND s.merged_id IS NULL`,
+    );
     return {
       searchable: (allRows as any[])[0]?.total ?? 0,
       verified: (verifiedRows as any[])[0]?.total ?? 0,
       withCertification: (certRows as any[])[0]?.total ?? 0,
       international: (intlRows as any[])[0]?.total ?? 0,
+      unspscMatched: (unspscRows as any[])[0]?.total ?? 0,
     };
+  }
+
+  /** 已通过后台审核的供应商总数（registered 统计口径：verify_status='done'，排除测试与已合并记录） */
+  async countApproved(): Promise<number> {
+    const [rows] = await this.pool.query(
+      "SELECT COUNT(*) as total FROM supplier WHERE verify_status = 'done' AND company <> '测试' AND merged_id IS NULL",
+    );
+    return Number((rows as any[])[0]?.total ?? 0);
+  }
+
+  /** 按 id 查供应商行业（auth 响应组装用，不受审核状态过滤；supplier 无 industry_id 列） */
+  async findAuthInfoById(id: number): Promise<RowDataPacket | null> {
+    const [rows] = await this.pool.query(
+      "SELECT id, industry FROM supplier WHERE id = ? LIMIT 1",
+      [id],
+    );
+    return (rows as RowDataPacket[])[0] ?? null;
   }
 
   /**

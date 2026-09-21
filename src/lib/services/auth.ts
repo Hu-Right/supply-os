@@ -6,7 +6,7 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import type { MembershipRepo } from "../repos/membership.repo";
-import type { SupplierRegistrationRepo } from "../repos/suppliers/supplier-registration.repo";
+import type { SupplierDirectoryRepo } from "../repos/suppliers/supplier-directory.repo";
 import type { AuthRepo } from "../repos/auth.repo";
 import type { UserRow } from "../repos/types";
 import { maskPhone, maskName } from "../utils/mask";
@@ -145,14 +145,14 @@ export interface AuthUserResponse {
 export async function buildUserResponse(
   user: UserRow | Partial<UserRow>,
   membershipRepo: MembershipRepo,
-  registrationRepo: SupplierRegistrationRepo,
+  directoryRepo: SupplierDirectoryRepo,
 ): Promise<AuthUserResponse> {
   // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
   const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
   const [memberState, supplierRow] = await Promise.all([
     resolveMembershipState(membershipRepo, user.id!),
     needSupplier
-      ? registrationRepo.findBasicInfo(Number(user.supplier_id))
+      ? directoryRepo.findAuthInfoById(Number(user.supplier_id))
       : Promise.resolve(null),
   ]);
   const supplier = supplierRow as Record<string, unknown> | null;
@@ -169,7 +169,7 @@ export async function buildUserResponse(
     membership_tier: tier,
     account_status: user.account_status ?? "pending",
     supplier_id: (supplier?.id as number) || null,
-    supplier_industry_id: (supplier?.industry_id as number) || null,
+    supplier_industry_id: null, // supplier 表无 industry_id 列（UNSPSC 映射不再随登录响应下发）
     supplier_industry: (supplier?.industry as string) || null,
     phone: user.phone ? maskPhone(user.phone) : null,
     phone_verified: user.phone_verified ?? 0,

@@ -1,18 +1,15 @@
 /**
  * GET  /api/suppliers — 供应商目录列表（公开，支持分页/全量模式）
- * POST /api/suppliers — 供应商入驻注册（需认证）
  *
  * @module app/api/suppliers/route
  * @description GET 返回的 items 已通过 mapSupplierRow 映射为前端 Supplier DTO，
  *              含联系方式脱敏。DB 查询失败时返回空结构（非 500），前端显示空状态而非白屏。
- *              POST 编排已下沉 lib/services/suppliers.ts（A4）。
+ *              供应商入驻注册已统一迁移至 POST /api/user/enterprise（写 supplier 表）。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { getContext } from "@/lib/db/context";
-import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
-import { withRoute, parseJson } from "@/lib/middleware/route-handler";
-import { mapSupplierRow, registerCrmSupplier } from "@/lib/services/suppliers";
+import { withRoute } from "@/lib/middleware/route-handler";
+import { mapSupplierRow } from "@/lib/services/suppliers";
 import type { SupplierDirectoryRow } from "@/lib/repos/suppliers";
 import type { Supplier } from "@/types";
 
@@ -50,22 +47,4 @@ export const GET = withRoute(async (req: NextRequest) => {
     }
     return NextResponse.json([]);
   }
-});
-
-const registerSchema = z.object({
-  nameZh: z.string({ error: "请填写供应商中文名称" }).trim().min(1, "请填写供应商中文名称"),
-  contactPerson: z.string().optional(),
-  contactPhone: z.string().optional(),
-  contactEmail: z.string().optional(),
-  mainProductsZh: z.array(z.string()).optional(),
-  industryZh: z.string().optional(),
-  complianceLabelsZh: z.array(z.string()).optional(),
-});
-
-export const POST = withRoute(async (req: NextRequest) => {
-  await requireUserKeyOrThrow(req);
-  const body = await parseJson(req, registerSchema);
-
-  const supplier = await registerCrmSupplier(getContext().supplier.registrationRepo, body);
-  return NextResponse.json(supplier, { status: 201 });
 });

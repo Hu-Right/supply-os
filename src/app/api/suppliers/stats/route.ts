@@ -9,7 +9,7 @@ export const GET = withRoute(async () => {
   try {
     const ctx = getContext();
     const stats = await ctx.supplier.directoryRepo.getStats();
-    const registered = await ctx.supplier.registrationRepo.countAll();
+    const registered = await ctx.supplier.directoryRepo.countApproved();
 
     return NextResponse.json({
       ...stats,
@@ -23,6 +23,7 @@ export const GET = withRoute(async () => {
       withCertification: 0,
       international: 0,
       registered: 0,
+      unspscMatched: 0,
     });
   }
 });
