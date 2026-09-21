@@ -58,9 +58,29 @@ describe("fetchNoticeContext", () => {
 });
 
 describe("resolveLlmCredentials", () => {
-  it("配置存在且解密成功 → 返回凭据", async () => {
+  it("配置存在且解密成功 → 返回凭据（自定义端点落全默认档位）", async () => {
     const creds = await resolveLlmCredentials({} as any, 1);
-    expect(creds).toEqual({ baseUrl: "https://x", apiKey: "plain-key", model: "m" });
+    expect(creds).toEqual({
+      baseUrl: "https://x", apiKey: "plain-key", model: "m",
+      summaryTimeoutMs: 60_000, scoreTimeoutMs: 30_000, supportsTemperature: true,
+    });
+  });
+
+  it("命中预置档位（v4-pro）→ 凭据挂载长档评分超时", async () => {
+    findActiveByUser.mockResolvedValue({
+      base_url: "https://api.deepseek.com", api_key: "enc", model: "deepseek-v4-pro",
+    });
+    const creds = await resolveLlmCredentials({} as any, 1);
+    expect(creds.scoreTimeoutMs).toBe(90_000);
+    expect(creds.supportsTemperature).toBe(true);
+  });
+
+  it("命中预置档位（gpt-6-astra）→ 标记不支持 temperature", async () => {
+    findActiveByUser.mockResolvedValue({
+      base_url: "https://api.openai.com/v1", api_key: "enc", model: "gpt-6-astra",
+    });
+    const creds = await resolveLlmCredentials({} as any, 1);
+    expect(creds.supportsTemperature).toBe(false);
   });
 
   it("配置缺失 → 40001 errLlmNotConfigured", async () => {

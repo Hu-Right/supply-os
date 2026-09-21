@@ -77,6 +77,8 @@ export default defineConfig({
         // ── src/lib/services/ai-summary — AI 拆标摘要纯逻辑子模块 ──
         "src/lib/services/ai-summary/crypto.ts",
         "src/lib/services/ai-summary/llm-client.ts",
+        "src/lib/services/ai-summary/llm-profile.ts",
+        "src/lib/services/ai-summary/test-connection.ts",
         "src/lib/services/ai-summary/prompt.ts",
 
         // ── src/lib/services/ai-match — 匹配候选粗筛纯逻辑 ──
