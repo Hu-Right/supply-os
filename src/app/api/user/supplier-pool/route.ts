@@ -12,9 +12,8 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
-import { hasEnterpriseBinding } from "@/lib/services/identity";
 import { addSupplierToPool, addSupplierByIdToPool } from "@/lib/services/supplier-pool";
-import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 资源库变更后失效该用户的匹配缓存（失败不影响主流程，仅记录日志） */
 async function invalidateMatchCacheSafely(dbPool: Pool, userId: number): Promise<void> {
@@ -30,12 +29,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
 
-  // 身份互斥（ADR-0001）：已绑定企业账号的资源库恒为空。
-  // 返回空列表而非 403——useHasSupplierPool 会对所有登录用户发本请求，403 只会制造噪声。
-  if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
-    return NextResponse.json({ code: 0, message: "ok", data: { list: [] } });
-  }
-
+  // V2（ADR-0004）：企业账号也可拥有并使用供应商资源库，不再按身份返回空列表。
   const repo = new UserSupplierPoolRepo(ctx.dbPool);
   const items = await repo.listByUser(auth.userId);
   return NextResponse.json({ code: 0, message: "ok", data: { list: items } });
@@ -55,11 +49,6 @@ export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
   const body = await parseJson(req, addBodySchema);
   const ctx = getContext();
-
-  // 身份互斥（ADR-0001）：已绑定企业账号不可使用供应商资源库（前端 settings 页拦截之外的强制点）
-  if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
-    routeError(403, EC_FORBIDDEN, "已绑定企业的账号不可使用供应商资源库，请先在企业身份下使用 AI 适配评分");
-  }
 
   const result = body.supplierId !== undefined
     ? await addSupplierByIdToPool(ctx.dbPool, auth.userId, body.supplierId)

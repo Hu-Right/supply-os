@@ -8,7 +8,6 @@ import { Plus, Building2, AlertCircle, Trash2, Edit3, Check, X, ShieldAlert, Ref
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useUserId } from "@/core/auth/useUserId";
-import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
@@ -28,7 +27,6 @@ interface PoolItem {
 export default function SupplierPoolPageClient() {
   const { t } = useLocale();
   const userId = useUserId();
-  const { bound, loading: enterpriseLoading } = useEnterpriseInfo();
   const [items, setItems] = useState<PoolItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState(false);
@@ -164,20 +162,7 @@ export default function SupplierPoolPageClient() {
     }
   };
 
-  // 企业用户无权访问
-  if (!enterpriseLoading && bound) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-8 text-center">
-        <ShieldAlert className="w-10 h-10 text-amber-500 mx-auto mb-3" />
-        <p className="text-sm font-bold text-amber-800 mb-1">
-          {t("supplierPoolEnterpriseDenied") || "供应商资源库仅对外贸员开放"}
-        </p>
-        <p className="text-2xs text-amber-600">
-          {t("supplierPoolEnterpriseDeniedHint") || "您已绑定企业，请使用企业身份进行 AI 适配评分。"}
-        </p>
-      </div>
-    );
-  }
+  // V2（ADR-0004）：企业用户也可拥有供应商资源库，不再拦截本页。
 
   return (
     <div className="space-y-6">

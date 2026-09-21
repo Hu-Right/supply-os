@@ -14,8 +14,7 @@ import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
-import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
-import { hasSupplierPool } from "@/lib/services/identity";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 判断记录是否缺少关键字段（外部同步可能产生空字段重复记录） */
 function isSparseRecord(row: Record<string, unknown> | null): boolean {
@@ -107,11 +106,7 @@ export const POST = withRoute(async (req) => {
   const auth = await requireUserKeyOrThrow(req);
   const ctx = getContext();
 
-  // 身份互斥（ADR-0001）：已建立供应商资源库（外贸员身份）的账号不可再绑定企业——先用先占
-  if (await hasSupplierPool(ctx.dbPool, auth.userId)) {
-    routeError(403, EC_FORBIDDEN, "您已建立供应商资源库，如需绑定企业请先清空资源库");
-  }
-
+  // V2（ADR-0004 取代 ADR-0001）：已建供应商资源库的账号也可绑定企业（两种身份不再互斥）。
   const repo = ctx.supplier.directoryRepo;
   const body = await parseJson(req, enterpriseBodySchema);
 

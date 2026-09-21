@@ -5,15 +5,14 @@
  * @description 从用户供应商资源库中推荐 Top N 最匹配公告的供应商。
  *              缓存优先，forceRegenerate 强制重新匹配。需要解锁校验。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_FORBIDDEN, EC_VIP_ONLY } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_VIP_ONLY } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
-import { hasEnterpriseBinding } from "@/lib/services/identity";
 import { hasFeature } from "@/lib/services/benefit-matrix";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
@@ -63,11 +62,9 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
 
-    // 身份互斥（ADR-0001）：AI 智能匹配基于供应商资源库，仅对外贸员（未绑定企业）账号开放
+    // V2 权益（ADR-0004 取代 ADR-0001）：智能匹配不再按身份封锁，仅保留下面“解锁 + 专业版档位”两道门；
+    // 企业账号也可建立供应商资源库并使用智能匹配。
     const ctx = getContext();
-    if (await hasEnterpriseBinding(ctx.dbPool, auth.userId)) {
-      routeError(403, EC_FORBIDDEN, "已绑定企业的账号请使用企业 AI 适配评分，智能匹配仅对外贸员开放");
-    }
 
     // 解锁校验
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);

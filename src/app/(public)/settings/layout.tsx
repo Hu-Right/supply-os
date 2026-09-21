@@ -28,17 +28,8 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   const { bound, loading: entLoading, error: entError } = useEnterpriseInfo();
   const { hasPool, loading: poolLoading, error: poolError } = useHasSupplierPool(userId);
 
-  // 互斥逻辑：绑定了企业→只显示企业信息；建了资源库→只显示供应商库；都没做→两个都显示（供选择）。
-  // 身份未确定（loading/error）期间：互斥项一律先不渲染，只留固定项（个人信息/AI 模型配置），
-  // 身份确定后再显示对应的那一个——不闪两个、也不摆骨架占位等多余元素。
+  // 身份未确定（loading/error）期间不弹引导横幅，避免闪现。
   const identityUncertain = entLoading || poolLoading || !!entError || !!poolError;
-  const filterNav = (item: typeof NAV_ITEMS[number]) => {
-    if (item.exclusive && identityUncertain) return false;
-    if (item.exclusive === "enterprise" && hasPool) return false;
-    if (item.exclusive === "pool" && bound) return false;
-    return true;
-  };
-
   // 未选择身份状态：两者都未绑定且身份状态已确定，才显示引导横幅
   const isUncommitted = !identityUncertain && !bound && !hasPool && !!userId;
 
@@ -63,9 +54,6 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                 <strong>{t("settingsIdentityAgent") || "外贸员"}</strong>
                 {t("settingsIdentityAgentDesc") || "（我代理多家工厂，帮他们匹配采购机会）。"}
               </p>
-              <p className="text-xs font-bold text-rose-600">
-                {t("settingsIdentityWarning") || "⚠ 一旦选择并提交了信息，身份将不可转换，请谨慎选择。"}
-              </p>
             </div>
           </div>
         </div>
@@ -74,7 +62,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
         {/* 左侧导航（移动端横向 Tab） */}
         <nav className="flex md:flex-col gap-1 overflow-x-auto">
           <p className="hidden md:block text-2xs text-muted-foreground px-3 mb-2">{t("settingsNavGroup") || "设置"}</p>
-          {NAV_ITEMS.filter(filterNav).map((item) => {
+          {NAV_ITEMS.map((item) => {
             const active = pathname.startsWith(item.href);
             const Icon = item.icon;
             return (

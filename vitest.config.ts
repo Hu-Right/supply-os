@@ -91,7 +91,6 @@ export default defineConfig({
         "src/lib/services/ai-score/prompt.ts",
         "src/lib/services/ai/shared/notice-context.ts",
         "src/lib/services/ai/shared/llm-credentials.ts",
-        "src/lib/services/identity.ts",
         "src/lib/services/supplier-pool.ts",
         "src/lib/repos/user-supplier-pool.repo.ts",
 
