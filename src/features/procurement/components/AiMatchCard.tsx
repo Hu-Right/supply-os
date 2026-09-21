@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ArrowRight, Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiMatchData, MatchedSupplier } from "../api/ai-match";
+import { vipGateMessage } from "../api/notice-gate";
 
 export interface AiMatchCardProps {
   data: AiMatchData | null;
@@ -70,6 +71,9 @@ export function AiMatchCard({ data, loading, cacheLoading, error, onStart, onReg
 
   /** 错误映射：限流/解锁/通用，避免直接暴露 HTTP 状态码 */
   const friendlyError = (raw: string): string => {
+    // 档位不足（V2）：优先于通用 403，避免把“升级”误报成“请解锁”
+    const vip = vipGateMessage(raw);
+    if (vip) return vip;
     if (raw.includes("429") || raw.includes("rate")) {
       return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
     }

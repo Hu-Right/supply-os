@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { fetchAiMatch, fetchAiMatchCache, type AiMatchData } from "../api/ai-match";
+import { gateErrorToken } from "../api/notice-gate";
 
 export interface UseAiMatchReturn {
   data: AiMatchData | null;
@@ -49,7 +50,7 @@ export function useAiMatch(noticeId: number | undefined): UseAiMatchReturn {
     setError(null);
     fetchAiMatch(noticeId, force)
       .then((d) => setData(d))
-      .catch((err) => setError(err instanceof Error ? err.message : "匹配失败"))
+      .catch((err) => setError(gateErrorToken(err)))
       .finally(() => setLoading(false));
   }, [noticeId]);
 

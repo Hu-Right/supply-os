@@ -147,7 +147,7 @@ export function QualificationTab({ notice, coreUnlocked, isVip }: QualificationT
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            {t("detail_qualUnlockHint") || "升级会员或单次解锁即可查看完整资格条件"}
+            {t("detail_qualUnlockHint") || "购买会员并解锁本公告即可查看完整资格条件"}
           </p>
         )}
       </section>

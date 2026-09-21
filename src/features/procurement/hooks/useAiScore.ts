@@ -5,6 +5,7 @@
  */
 import { useCallback, useState } from "react";
 import { fetchAiScore, type AiScoreData } from "../api/ai-score";
+import { gateErrorToken } from "../api/notice-gate";
 
 export interface UseAiScoreReturn {
   data: AiScoreData | null;
@@ -24,7 +25,7 @@ export function useAiScore(noticeId: number | undefined): UseAiScoreReturn {
     setError(null);
     fetchAiScore(noticeId, force)
       .then((d) => setData(d))
-      .catch((err) => setError(err instanceof Error ? err.message : "评分失败"))
+      .catch((err) => setError(gateErrorToken(err)))
       .finally(() => setLoading(false));
   }, [noticeId]);
 

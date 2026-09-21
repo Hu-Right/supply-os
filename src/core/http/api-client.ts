@@ -71,9 +71,16 @@ if (typeof window !== "undefined") {
 /**
  * API 错误类
  * API Error Class
+ * code/detail：后端统一 envelope 的业务错误码与附加字段（如 required_rank/feature），
+ * 供上层区分“档位不足 vs 未解锁”等同类 HTTP 403 的不同语义（V2 权益门控）。
  */
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+    public code?: number,
+    public detail?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -269,7 +276,7 @@ export async function api<T>(
         throw new ApiError(401, "Unauthorized");
       }
       const err = await retryRes.json().catch(() => ({}));
-      throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`);
+      throw new ApiError(retryRes.status, err.message || err.error || `Request failed: ${retryRes.status}`, err.code, err);
     }
 
     // 刷新失败：Access Token 过期且 Refresh Token 双通道均不可用，
@@ -294,7 +301,7 @@ export async function api<T>(
     } else {
       console.warn(`[api-client] ${method} ${endpoint} → ${res.status} 无错误码 message=${friendlyMsg}`);
     }
-    throw new ApiError(res.status, friendlyMsg);
+    throw new ApiError(res.status, friendlyMsg, err.code, err);
   }
 
   return res.json();

@@ -85,7 +85,7 @@ export function FilesTab({ notice, coreUnlocked, isVip }: FilesTabProps) {
           </p>
         ) : (
           <p className="text-xs text-amber-600 bg-amber-100/40 rounded-lg px-3 py-2 text-center">
-            {t("detail_filesUnlockHint") || "升级会员或单次解锁即可获取全部招标文件"}
+            {t("detail_filesUnlockHint") || "购买会员并解锁本公告即可获取全部招标文件"}
           </p>
         )}
       </section>

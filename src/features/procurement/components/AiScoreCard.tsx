@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight, Loader2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiScoreData } from "../api/ai-score";
+import { vipGateMessage } from "../api/notice-gate";
 
 export interface AiScoreCardProps {
   data: AiScoreData | null;
@@ -80,6 +81,9 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
 
   /** 将原始错误信息映射为用户友好的提示 */
   const friendlyError = (raw: string): string => {
+    // 档位不足（V2）：优先于通用 403，避免把“升级”误报成“请解锁”
+    const vip = vipGateMessage(raw);
+    if (vip) return vip;
     if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
       return t("aiScoreErrorAuth") || "登录已过期，请重新登录后再试。";
     if (raw.includes("403") || raw.includes("Forbidden"))

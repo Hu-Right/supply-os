@@ -2,7 +2,7 @@
  * AI 适配评分前端 API
  * @module features/procurement/api/ai-score
  */
-import { api, getAuthToken } from "@/core/http";
+import { api } from "@/core/http";
 
 export interface DimensionDetail {
   reason: string;
@@ -25,25 +25,14 @@ export interface AiScoreData {
   cached: boolean;
 }
 
-/** 获取/生成 AI 适配评分 */
+/** 获取/生成 AI 适配评分（走 api()：失败抛 ApiError，携业务码供区分档位闸门 vs 解锁闸门） */
 export async function fetchAiScore(
   noticeId: number,
   forceRegenerate = false,
 ): Promise<AiScoreData> {
-  const authToken = getAuthToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-
-  const res = await fetch(`/api/notices/${noticeId}/ai-score`, {
+  const res = await api<{ code: number; data: AiScoreData }>(`/api/notices/${noticeId}/ai-score`, {
     method: "POST",
-    headers,
-    credentials: "same-origin",
-    body: JSON.stringify({ forceRegenerate }),
+    body: { forceRegenerate },
   });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const json = await res.json();
-  return json.data as AiScoreData;
+  return res.data;
 }
