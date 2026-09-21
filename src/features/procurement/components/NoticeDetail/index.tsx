@@ -37,8 +37,6 @@ import { useAiScore } from "../../hooks/useAiScore";
 import { useAiMatch } from "../../hooks/useAiMatch";
 import { useHasSupplier } from "../../hooks/useHasSupplier";
 import { AwardHistoryTab } from "./AwardHistoryTab";
-import { PlaceholderTab } from "./PlaceholderTab";
-import type { PlaceholderTabType } from "./PlaceholderTab";
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -132,10 +130,6 @@ export function NoticeDetail({
   const deadlineText = notice.deadline || t("procurement_noDeadline");
   const budgetText = notice.estimated_value || t("procurement_budgetPending");
   const typeLabel = typeKey ? t(typeKey) : notice.notice_type || "-";
-
-  // Tab 权益校验
-  const hasMemberAccess = isVip || coreUnlocked;
-  const hasProAccess = isVip;
 
   return (
     <div className="space-y-5">
