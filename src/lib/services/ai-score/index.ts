@@ -8,7 +8,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { callLlmForScore } from "./llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "./prompt";
-import { errLlmCallFailed, errNoticeNotFound } from "../ai-summary/errors";
+import { errLlmCallFailed, errNoticeNotFound, errSupplierProfileRequired } from "../ai-summary/errors";
 import { fetchNoticeContext, type NoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 
@@ -108,6 +108,8 @@ export async function getOrGenerateAiScore(
   if (!notice) errNoticeNotFound();
 
   const supplier = await fetchSupplierForScore(pool, userId);
+  // 无企业主体/画像 → 没有可评估对象，早返回友好提示，避免拿 null 画像跑出一份无意义评分。
+  if (!supplier) errSupplierProfileRequired();
   const userPrompt = buildScoreUserPrompt(notice as unknown as Record<string, unknown>, supplier);
 
   let result: Awaited<ReturnType<typeof callLlmForScore>>;

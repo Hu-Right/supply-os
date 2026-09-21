@@ -84,6 +84,10 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
     // 档位不足（V2）：优先于通用 403，避免把“升级”误报成“请解锁”
     const vip = vipGateMessage(raw);
     if (vip) return vip;
+    // 缺企业画像（未绑定/无资料）：引导去完善企业信息，而非笼统“AI 错误”（中文字面兑底，待六语本地化）
+    if (raw.includes("SUPPLIER_PROFILE_REQUIRED")) {
+      return "请先在设置中绑定/完善企业信息，再进行 AI 适配评分。";
+    }
     if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
       return t("aiScoreErrorAuth") || "登录已过期，请重新登录后再试。";
     if (raw.includes("403") || raw.includes("Forbidden"))

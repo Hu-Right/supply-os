@@ -143,7 +143,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
     expect(upsertScore.mock.calls[0][0]).toMatchObject({ userId: 1, noticeId: 2, overall: 75, model: "m" });
   });
 
-  it("用户未绑定企业（supplier_id=0）→ 无画像仍可生成", async () => {
+  it("用户未绑定企业（supplier_id=0）→ 无评估对象，报 SUPPLIER_PROFILE_REQUIRED 不生成", async () => {
     findScore.mockResolvedValue(null);
     const pool = {
       query: vi.fn()
@@ -151,12 +151,11 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
         .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]])
         .mockResolvedValueOnce([[{ supplier_id: 0 }]]),
     } as any;
-    const res = await getOrGenerateAiScore(pool, 1, 2, false);
-    expect(res.cached).toBe(false);
-    expect(callLlmForScore).toHaveBeenCalledTimes(1);
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
+    expect(callLlmForScore).not.toHaveBeenCalled();
   });
 
-  it("supplier 表无记录 → 画像为 null，流程不中断", async () => {
+  it("supplier 表无记录（悬挂 supplier_id）→ 无画像对象，报 SUPPLIER_PROFILE_REQUIRED", async () => {
     findScore.mockResolvedValue(null);
     const pool = {
       query: vi.fn()
@@ -165,8 +164,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
         .mockResolvedValueOnce([[{ supplier_id: 10 }]])
         .mockResolvedValueOnce([[]]),
     } as any;
-    const res = await getOrGenerateAiScore(pool, 1, 2, false);
-    expect(res.cached).toBe(false);
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
   });
 
   it("画像字段全为 NULL → 逐字段空串兜底", async () => {
@@ -191,7 +189,7 @@ describe("getOrGenerateAiScore 错误与格式守卫", () => {
 });
 
 describe("getOrGenerateAiScore 画像缺失边界", () => {
-  it("crm_users 行缺失 → supplier_id 兜底 0，无画像仍可生成", async () => {
+  it("crm_users 行缺失 → supplier_id 兜底 0，无评估对象报 SUPPLIER_PROFILE_REQUIRED", async () => {
     findScore.mockResolvedValue(null);
     const pool = {
       query: vi.fn()
@@ -199,8 +197,6 @@ describe("getOrGenerateAiScore 画像缺失边界", () => {
         .mockResolvedValueOnce([[{ eligibility: "", technical_hurdles: "", supplier_conditions: "" }]])
         .mockResolvedValueOnce([[]]),
     } as any;
-    const res = await getOrGenerateAiScore(pool, 1, 2, false);
-    expect(res.cached).toBe(false);
-    expect(callLlmForScore).toHaveBeenCalledTimes(1);
+    await expect(getOrGenerateAiScore(pool, 1, 2, false)).rejects.toMatchObject({ status: 400, code: 40009 });
   });
 });
