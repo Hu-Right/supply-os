@@ -10,7 +10,7 @@
  *              key (no numeric-id indirection).
  */
 import {
-  Home, Globe, Trophy, Users, LayoutGrid, BookOpen, GraduationCap, Briefcase, FileText,
+  Home, Globe, Trophy, Users, LayoutGrid, FileText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { LocaleKey } from "@/core/i18n";
@@ -32,7 +32,10 @@ export const NAV_TABS: NavTab[] = [
   { path: "/supplier", labelKey: "navSupplierLibrary", shortLabelKey: "navShortSuppliers", icon: Users },
   { path: "/services", labelKey: "navBiddingServices", icon: LayoutGrid },
   { path: "/rfq", labelKey: "navRFQ", shortLabelKey: "navShortRFQ", icon: FileText },
-  { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
-  { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
-  { path: "/crm", labelKey: "navWorkbench", shortLabelKey: "navShortWorkbench", icon: Briefcase, alert: true },
+  // ── 暂时下架：知识中心 /learning、研修班 /training、工作台 /crm ──
+  // 按需求不在页面导航挂载（工作台尚未完善）；页面文件与直接网址均保留，未删除。
+  // 恢复方式：取消以下三行注释，并把 BookOpen / GraduationCap / Briefcase 补回上方 lucide-react 导入。
+  // { path: "/learning", labelKey: "navKnowledgeCenter", shortLabelKey: "navShortKnowledge", icon: BookOpen },
+  // { path: "/training", labelKey: "navTraining", shortLabelKey: "navShortTraining", icon: GraduationCap },
+  // { path: "/crm", labelKey: "navWorkbench", shortLabelKey: "navShortWorkbench", icon: Briefcase, alert: true },
 ];

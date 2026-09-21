@@ -40,10 +40,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/`, changeFrequency: "daily", priority: 1.0 },
     { url: `${BASE_URL}/procurement`, changeFrequency: "daily", priority: 0.9 },
     { url: `${BASE_URL}/supplier`, changeFrequency: "weekly", priority: 0.8 },
-    { url: `${BASE_URL}/training`, changeFrequency: "weekly", priority: 0.8 },
+    // /training（研修班）、/learning（知识中心）暂时下架，不再对搜索引擎公开收录（页面文件仍保留、直接网址可达）。
     { url: `${BASE_URL}/membership`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/services`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${BASE_URL}/learning`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/procurement/qualification`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${BASE_URL}/terms`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
