@@ -9,6 +9,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Check, MessageCircle, QrCode } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import type { ServiceCatalogItem } from "../data/service-catalog";
 
 export interface ServiceCardProps {
@@ -16,6 +17,7 @@ export interface ServiceCardProps {
 }
 
 export function ServiceCard({ item }: ServiceCardProps) {
+  const { t } = useLocale();
   const [showQr, setShowQr] = useState(false);
 
   return (
@@ -32,7 +34,7 @@ export function ServiceCard({ item }: ServiceCardProps) {
         </span>
       </div>
 
-      <p className="mt-1 text-2xs text-slate-400">服务方式：{item.mode}</p>
+      <p className="mt-1 text-2xs text-slate-400">{t("svcServiceMode")}{item.mode}</p>
 
       <ul className="mt-3 space-y-1.5 flex-1">
         {item.benefits.map((b, i) => (
@@ -51,7 +53,7 @@ export function ServiceCard({ item }: ServiceCardProps) {
           aria-expanded={showQr}
         >
           <MessageCircle className="w-4 h-4" />
-          {showQr ? "收起二维码" : "扫码联系顾问 · 获取报价"}
+          {showQr ? t("svcCtaClose") : t("svcCtaOpen")}
         </button>
         {showQr && (
           <div className="mt-3 flex flex-col items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 p-4">
@@ -65,7 +67,7 @@ export function ServiceCard({ item }: ServiceCardProps) {
             />
             <p className="flex items-center gap-1 text-2xs text-slate-500 text-center">
               <QrCode className="w-3 h-3" />
-              微信扫码添加顾问，说明所需服务即可获取定制报价。
+              {t("svcQrHint")}
             </p>
           </div>
         )}

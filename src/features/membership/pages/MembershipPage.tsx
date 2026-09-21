@@ -22,10 +22,10 @@ import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { SERVICE_CATALOG } from "../data/service-catalog";
 
 type MembershipTab = "personal" | "enterprise" | "services";
-const MEMBERSHIP_TABS: { key: MembershipTab; label: string }[] = [
-  { key: "personal", label: "个人会员" },
-  { key: "enterprise", label: "企业会员" },
-  { key: "services", label: "增值服务" },
+const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
+  { key: "personal", labelKey: "tabPersonal" },
+  { key: "enterprise", labelKey: "tabEnterprise" },
+  { key: "services", labelKey: "tabServices" },
 ];
 
 export default function MembershipPage() {
@@ -61,9 +61,9 @@ export default function MembershipPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
       {/* ══ 深色页头 ═══ */}
       <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-8 mb-6">
-        <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">会员与套餐</h1>
+        <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">{t("membershipHeroTitle")}</h1>
         <p className="text-slate-400 text-sm max-w-3xl">
-          按个人用户、专业投标人、企业团队与深度合作客户设计分层权益。
+          {t("membershipHeroDesc")}
         </p>
       </section>
 
@@ -77,7 +77,7 @@ export default function MembershipPage() {
               tab === tb.key ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
             }`}
           >
-            {tb.label}
+            {t(tb.labelKey)}
           </button>
         ))}
       </div>
@@ -87,9 +87,9 @@ export default function MembershipPage() {
         <section className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
-              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">增值服务与专家顾问</h2>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("servicesSectionTitle")}</h2>
               <p className="text-base text-slate-600 max-w-2xl mx-auto">
-                人工与定制类服务：投标辅助、市场调研、AI 写标书、商务谈判、KA、合规、API 对接等，扫码联系顾问获取专属方案与报价。
+                {t("servicesSectionDesc")}
               </p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -169,7 +169,7 @@ export default function MembershipPage() {
                   {/* 企业 Tab：企业版留资服务卡（不走支付） */}
                   {tab === "enterprise" && enterpriseServices.length > 0 && (
                     <div className="mt-12">
-                      <h3 className="text-lg font-extrabold text-slate-900 mb-5 text-center">企业专属增值服务</h3>
+                      <h3 className="text-lg font-extrabold text-slate-900 mb-5 text-center">{t("enterpriseServicesTitle")}</h3>
                       <div className="grid gap-5 sm:grid-cols-2 max-w-3xl mx-auto">
                         {enterpriseServices.map((item) => (
                           <ServiceCard key={item.id} item={item} />
@@ -185,23 +185,23 @@ export default function MembershipPage() {
           {/* ═ 为什么升级会员 ═══ */}
           {!loading && tabPlans.length > 0 && (
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
-              <h2 className="text-xl font-extrabold text-slate-900 mb-6">为什么要升级会员</h2>
+              <h2 className="text-xl font-extrabold text-slate-900 mb-6">{t("whyUpgradeTitle")}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {[
-                  { icon: Rocket, title: "更快看到订单", desc: "更多商机与实时提醒，第一时间抢占全球采购先机。" },
-                  { icon: Search, title: "更深拿到信息", desc: "解锁附件、下载原文与中标情报，让投标更有把握。" },
-                  { icon: TrendingUp, title: "更高提高投标效率", desc: "AI评分、批量导出、团队协作，把更多时间用在赢单上。" },
-                  { icon: Headphones, title: "更自然连接顾问服务", desc: "专属顾问答疑与行业资源，帮助你少走弯路、少踩坑。" },
+                  { icon: Rocket, titleKey: "whyUpgrade1Title", descKey: "whyUpgrade1Desc" },
+                  { icon: Search, titleKey: "whyUpgrade2Title", descKey: "whyUpgrade2Desc" },
+                  { icon: TrendingUp, titleKey: "whyUpgrade3Title", descKey: "whyUpgrade3Desc" },
+                  { icon: Headphones, titleKey: "whyUpgrade4Title", descKey: "whyUpgrade4Desc" },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div key={item.title} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
+                    <div key={item.titleKey} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
                       <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
                         <Icon className="w-5 h-5 text-teal-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-extrabold text-slate-900 mb-1">{item.title}</h3>
-                        <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+                        <h3 className="text-sm font-extrabold text-slate-900 mb-1">{t(item.titleKey)}</h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">{t(item.descKey)}</p>
                       </div>
                     </div>
                   );
