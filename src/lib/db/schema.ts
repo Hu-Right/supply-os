@@ -162,6 +162,7 @@ import { migration as m086 } from "./migrations/086-rfq-reference-prefix-os-isol
 // 因此无论本行是否启用，本地与线上都能正常启动且不会写不存在的列。
 // 窗口内加列完成后，重新加回 import 与 ALL_MIGRATIONS 末尾的 m087 即可（幂等：列存在则跳过）。
 // import { migration as m087 } from "./migrations/087-wide-table-sync-fingerprint";
+import { migration as m088 } from "./migrations/088-opportunity-intl-procurement-columns";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -172,6 +173,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
   m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079, m080, m081, m082, m083, m084, m085, m086,
+  // m088：机会表国际采购结构化列（实测 INSTANT 385ms）
+  m088,
 ];
 
 /**
