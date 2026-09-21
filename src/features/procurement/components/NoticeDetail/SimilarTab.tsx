@@ -1,18 +1,17 @@
 /**
- * 相似机会 Tab：同国家/同类型的真实公告推荐
- * Similar Opportunities Tab — real recommendations via unified-search
+ * 相似机会 Tab：按 UNSPSC 品类语义相似的真实公告推荐
+ * Similar Opportunities Tab — UNSPSC category similarity
  *
  * @module features/procurement/components/NoticeDetail/SimilarTab
- * @description 用 unified-search 按 国家+采购类型 拉取最新公告，排除当前公告后取前 4 条；
- *              精确筛选命中不足时回退仅按国家，仍为空则展示引导回列表的空态。
- *              公告列表级 UNSPSC 码与搜索端 code_id（级联节点 id）不同源，故不参与筛选。
+ * @description 调 /api/notices/:id/similar 取共享 UNSPSC 类目的活跃公告（最多 6 条）。
+ *              无同类时服务端返回空数组，前端展示引导回列表的空态（不做兜底、不补齐）。
  */
 import { useEffect, useState } from "react";
 import { ArrowRight, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
-import { fetchUnifiedSearch } from "../../api";
+import { fetchSimilarNotices } from "../../api";
 import { formatDeadlineZh } from "../../utils/formatDeadlineZh";
 import type { NoticeItem } from "../../types";
 
@@ -22,7 +21,7 @@ interface SimilarTabProps {
   onOpen: (notice: NoticeItem) => void;
 }
 
-const SIMILAR_COUNT = 4;
+const SIMILAR_LIMIT = 6;
 
 export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   const { t, locale } = useLocale();
@@ -32,57 +31,24 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
   const [exhausted, setExhausted] = useState(false);
 
   useEffect(() => {
+    if (notice.id == null) { setItems([]); setExhausted(true); setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setExhausted(false);
     setItems([]);
 
-    const base = {
-      mode: "default" as const,
-      page: 1,
-      pageSize: SIMILAR_COUNT + 1,
-      locale,
-      sort: "latest",
-    };
-    // 命中剔除当前公告后截断
-    const pick = (res: { items?: NoticeItem[] }) =>
-      (res.items || []).filter((n) => n.id !== notice.id).slice(0, SIMILAR_COUNT);
-    const byCountry = () => fetchUnifiedSearch({ ...base, country: notice.country || "" });
-
-    const run: Promise<{ items?: NoticeItem[] } | void> = notice.notice_type
-      ? fetchUnifiedSearch({ ...base, country: notice.country || "", noticeType: notice.notice_type }).then(
-          (res): Promise<{ items?: NoticeItem[] } | void> => {
-            const hits = pick(res);
-            if (cancelled) return Promise.resolve();
-            // 精确筛选有足够命中直接用；不足半数再按国家放宽兜底
-            if (hits.length >= SIMILAR_COUNT / 2) {
-              setItems(hits);
-              setLoading(false);
-              return Promise.resolve();
-            }
-            return byCountry();
-          },
-        )
-      : byCountry();
-
-    run
+    fetchSimilarNotices(notice.id, SIMILAR_LIMIT, locale)
       .then((res) => {
-        if (cancelled || !res) return;
-        const hits = pick(res);
+        if (cancelled) return;
+        const hits = res.items || [];
         setItems(hits);
         setExhausted(hits.length === 0);
       })
-      .catch(() => {
-        if (!cancelled) setExhausted(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch(() => { if (!cancelled) setExhausted(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [notice.id, notice.country, notice.notice_type, locale]);
+    return () => { cancelled = true; };
+  }, [notice.id, locale]);
 
   const metaLine = (item: NoticeItem) => {
     const country = getCountryDisplayName(item.country || "", locale);
@@ -101,7 +67,7 @@ export function SimilarTab({ notice, onOpen }: SimilarTabProps) {
 
       {loading && (
         <div className="space-y-2">
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-16 rounded-xl bg-slate-100 animate-pulse" />
           ))}
         </div>
