@@ -14,6 +14,7 @@ const INITIAL_STATS: SupplierStats = {
   withCertification: 0,
   international: 0,
   registered: 0,
+  unspscMatched: 0,
 };
 
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000;

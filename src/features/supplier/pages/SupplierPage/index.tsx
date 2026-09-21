@@ -96,7 +96,7 @@ export default function SupplierPage() {
   const realStats = useSupplierStats();
   const animSearchable = useCountUp(realStats.searchable);
   const animVerified = useCountUp(realStats.verified);
-  const animUnspsc = useCountUp(realStats.international);
+  const animUnspsc = useCountUp(realStats.unspscMatched);
 
   return (
     <div className="space-y-6">
