@@ -164,6 +164,7 @@ import { migration as m086 } from "./migrations/086-rfq-reference-prefix-os-isol
 // import { migration as m087 } from "./migrations/087-wide-table-sync-fingerprint";
 import { migration as m088 } from "./migrations/088-opportunity-intl-procurement-columns";
 import { migration as m089 } from "./migrations/089-ingest-intl-tender-el-menzel";
+import { migration as m090 } from "./migrations/090-membership-plans-v2";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -176,6 +177,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079, m080, m081, m082, m083, m084, m085, m086,
   // m088：机会表国际采购结构化列（实测 INSTANT 385ms）；m089：用它收录第一条真实国际标
   m088, m089,
+  // m090：会员套餐体系切换 V2（对齐 260921 报价表：旧套餐下架/无引用物理删除，新 4 档上架，benefit_rank 门控）
+  m090,
 ];
 
 /**

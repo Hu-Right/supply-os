@@ -61,6 +61,8 @@ export interface MembershipPlanRow {
   plan_type: string;
   is_active: number;
   sort_order: number;
+  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业 */
+  benefit_rank?: number;
 }
 
 export interface EntitlementRow {

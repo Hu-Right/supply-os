@@ -25,6 +25,8 @@ export interface CurrentBestPlanRow {
   plan_name: string;
   price: number;
   unlock_quota: number;
+  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业，功能门控单一事实源 */
+  benefit_rank: number;
   /** 该权益已使用次数（subscription-only 场景为 0，由调用方按解锁流水补算） */
   quota_used: number;
   quota_total: number | null;
@@ -38,7 +40,7 @@ export class MembershipRepo {
   /** 查询全部激活的会员套餐 */
   async findActivePlans(): Promise<MembershipPlanRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type
+      `SELECT plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, benefit_rank
        FROM crm_membership_plans
        WHERE is_active = 1
        ORDER BY sort_order, id`,
@@ -136,13 +138,13 @@ export class MembershipRepo {
   /**
    * 查询用户当前最优周期性套餐（升级场景）
    * 仅统计有配额、非单次卡的活跃权益；无权益时回退至活跃订阅。
-   * 按套餐价格倒序取最高者，价格相同取最新。
+   * V2（migration 090）：按 benefit_rank 倒序取最高档（档位为门控唯一事实源），同档取最新。
    */
   async findCurrentBestPlan(userId: number): Promise<CurrentBestPlanRow | null> {
     // 优先：未升级的活跃权益（配额型套餐）
     const [entRows] = await this.pool.query(
       `SELECT e.id AS entitlement_id, e.source_order_no, e.plan_code, e.quota_total, e.quota_used, e.started_at, e.expires_at,
-              p.name AS plan_name, p.price, p.unlock_quota,
+              p.name AS plan_name, p.price, p.unlock_quota, p.benefit_rank,
               (SELECT s.id FROM crm_user_subscriptions s
                 WHERE s.user_id = ? AND s.status = 'active' AND s.plan_code = e.plan_code
                   AND (s.expires_at IS NULL OR s.expires_at > NOW())
@@ -156,7 +158,7 @@ export class MembershipRepo {
          AND (e.expires_at IS NULL OR e.expires_at > NOW())
          AND p.price > 0
          AND p.plan_type <> 'single'
-       ORDER BY p.price DESC, e.id DESC
+       ORDER BY p.benefit_rank DESC, e.id DESC
        LIMIT 1`,
       [userId, userId],
     );
@@ -170,6 +172,7 @@ export class MembershipRepo {
         plan_name: String(ent.plan_name),
         price: Number(ent.price || 0),
         unlock_quota: Number(ent.unlock_quota || 0),
+        benefit_rank: Number(ent.benefit_rank ?? 0),
         quota_used: Number(ent.quota_used || 0),
         quota_total: ent.quota_total != null ? Number(ent.quota_total) : null,
         started_at: ent.started_at ?? null,
@@ -180,7 +183,7 @@ export class MembershipRepo {
     // 回退：活跃订阅（如 billing/subscribe 仅写订阅不发权益）
     const [subRows] = await this.pool.query(
       `SELECT s.id AS subscription_id, s.plan_code, s.started_at, s.expires_at,
-              p.name AS plan_name, p.price, p.unlock_quota
+              p.name AS plan_name, p.price, p.unlock_quota, p.benefit_rank
        FROM crm_user_subscriptions s
        INNER JOIN crm_membership_plans p ON p.plan_code = s.plan_code
        WHERE s.user_id = ?
@@ -188,7 +191,7 @@ export class MembershipRepo {
          AND (s.expires_at IS NULL OR s.expires_at > NOW())
          AND p.price > 0
          AND p.plan_type <> 'single'
-       ORDER BY p.price DESC, s.id DESC
+       ORDER BY p.benefit_rank DESC, s.id DESC
        LIMIT 1`,
       [userId],
     );
@@ -202,6 +205,7 @@ export class MembershipRepo {
         plan_name: String(sub.plan_name),
         price: Number(sub.price || 0),
         unlock_quota: Number(sub.unlock_quota || 0),
+        benefit_rank: Number(sub.benefit_rank ?? 0),
         quota_used: 0,
         quota_total: null,
         started_at: sub.started_at ?? null,

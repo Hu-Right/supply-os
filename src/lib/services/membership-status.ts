@@ -21,6 +21,7 @@ import type { MembershipRepo, CurrentBestPlanRow } from "../repos/membership.rep
 import type { SubscriptionRow, EntitlementRow } from "../repos/types";
 import type { MembershipTier } from "@/shared/constants/membership";
 import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
+import { resolveBenefitRank } from "./benefit-matrix";
 
 /** 用户会员状态快照（免费/付费配额、订阅、权益、VIP 判定一次算清） */
 export interface MembershipState {
@@ -28,6 +29,8 @@ export interface MembershipState {
   isVip: boolean;
   /** 与前端 membership_tier 契约对齐 */
   tier: MembershipTier;
+  /** 权益档位（0免费/1体验/2标准/3专业/4企业，migration 090）：功能门控单一事实源 */
+  benefitRank: number;
   freeQuota: number;
   freeUsed: number;
   freeRemaining: number;
@@ -89,6 +92,7 @@ export async function resolveMembershipState(
   return {
     isVip,
     tier: isVip ? MEMBERSHIP_TIER.VIP : MEMBERSHIP_TIER.FREE,
+    benefitRank: resolveBenefitRank(currentBest),
     freeQuota,
     freeUsed,
     freeRemaining: Math.max(0, freeQuota - freeUsed),

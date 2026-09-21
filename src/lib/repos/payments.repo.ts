@@ -387,49 +387,4 @@ export class PaymentsRepo {
     const row = (rows as RowDataPacket[])[0];
     return row ? { amount: Number(row.amount || 0), status: row.status } : null;
   }
-
-  /**
-   * 首单特惠资格检查：用户是否从未购买过任何单次解锁（single_* 系列）。
-   *
-   * 业务规则（产品决策 2026-08-30）：
-   * - 匹配所有 single_* 套餐（不限 single_99）
-   * - pending 也计入——防止"先开单不付款再开第二单"绕过首单限制
-   * - 用于首单特惠资格判定和前端套餐列表展示
-   */
-  async hasSingleUnlockRecord(userId: number): Promise<boolean> {
-    const [rows] = await this.pool.query(
-      "SELECT 1 FROM crm_payment_orders WHERE user_id = ? AND plan_code LIKE 'single_%' AND status IN ('pending','paid') LIMIT 1",
-      [userId],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
-
-  /**
-   * 可抵扣的 single_99 源订单查找（首单特惠抵扣逻辑）。
-   *
-   * 业务规则（产品决策 2026-08-30）：
-   * - 仅限 single_99 套餐（single_199 历史买家不参与抵扣）
-   * - 已支付且 paid_at 在 7 天内（抵扣窗口期）
-   * - 未被任何非 closed 订单通过 original_order_no 引用过（一单只能抵扣一次）
-   * - 用于首单特惠升级时的金额抵扣计算
-   */
-  async findDeductibleSingleOrder(userId: number): Promise<{ order_no: string; amount: number; paid_at: Date } | null> {
-    const [rows] = await this.pool.query(
-      `SELECT o.order_no, o.amount, o.paid_at
-       FROM crm_payment_orders o
-       WHERE o.user_id = ? AND o.plan_code = 'single_99' AND o.status = 'paid'
-         AND o.paid_at >= NOW() - INTERVAL 7 DAY
-         AND NOT EXISTS (
-           SELECT 1 FROM crm_payment_orders o2
-           WHERE o2.original_order_no = o.order_no AND o2.status <> 'closed'
-         )
-       ORDER BY o.paid_at DESC
-       LIMIT 1`,
-      [userId],
-    );
-    const row = (rows as RowDataPacket[])[0];
-    return row
-      ? { order_no: row.order_no as string, amount: Number(row.amount || 0), paid_at: row.paid_at as Date }
-      : null;
-  }
 }

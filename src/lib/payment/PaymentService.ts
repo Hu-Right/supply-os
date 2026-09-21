@@ -103,7 +103,6 @@ export class PaymentService {
     let currency: string;
     let originalOrderNo: string | null = null;
     let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
-    let deductionSnapshot: { source_order_no: string; source_amount: number; base_price: number } | null = null;
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
     // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
@@ -115,13 +114,6 @@ export class PaymentService {
       amount = Number(plan.price);
       planName = String(plan.name || planCode);
       currency = plan.currency || "CNY";
-
-      // ── 首单特惠资格（single_99，2026-08-30）──
-      // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
-      if (planCode === "single_99") {
-        const hasRecord = await this.repo.hasSingleUnlockRecord(userId!);
-        if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
-      }
 
       // ── 升级订单：校验升级资格并计算差价 ──
       if (orderType === "upgrade") {
@@ -144,30 +136,10 @@ export class PaymentService {
       } else if (amount <= 0) {
         throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
       }
-
-      // ── 首单抵扣（2026-08-30 产品决策）：购标讯个人会员时，7 天内已支付的
-      // single_99 订单金额自动抵扣（799-99=700）。快照锁价与升级差价同哲学：
-      // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
-      // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
-      if (planCode === "annual_799" && orderType === "new") {
-        const source = await this.repo.findDeductibleSingleOrder(userId!);
-        if (source && source.amount > 0) {
-          amount = Math.max(0, amount - source.amount);
-          originalOrderNo = source.order_no;
-          deductionSnapshot = {
-            source_order_no: source.order_no,
-            source_amount: source.amount,
-            base_price: Number(plan.price),
-          };
-        }
-      }
     }
 
-    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建；
-    // annual_799 抵扣单同理（抵扣窗口/资格在下单时判定，复用旧 pending 会把
-    // 带抵扣与不带抵扣的单据互相覆盖）；single_99 首单资格同样按当次判定
-    const isPromotionalOrder = planCode === "annual_799" || planCode === "single_99";
-    const existingOrder = orderType === "upgrade" || isPromotionalOrder
+    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
+    const existingOrder = orderType === "upgrade"
       ? null
       : await this.repo.findPendingOrder({
           userId: userId!, planCode, provider, noticeId,
@@ -195,7 +167,6 @@ export class PaymentService {
       notice_id: noticeId,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
-      ...(deductionSnapshot ? { deduction: deductionSnapshot } : {}),
     });
 
     if (existingOrder) {

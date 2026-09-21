@@ -44,14 +44,12 @@ export async function reverseFulfilledOrder(
       return { found: true, reversed: false };
     }
 
-    // 抵扣关联护栏（2026-08-30 首单抵扣配套）：本单退款若已被其他已支付订单
-    // 通过 original_order_no 引用（single_99 已被拿去抵扣 annual_799 且会员已
-    // 发货），自动回收会留下"退回 99 元、700 元会员照常保有"的套利口子——
-    // 不回收权益，标记 refunded 并告警转人工核处
+    // 抵扣/升级关联护栏：本单退款若已被其他订单通过 original_order_no 引用
+    // （如升级单以本单为源、已按差价发货），自动回收会留下"退回源单、
+    // 目标单照常保有"的套利口子——不回收权益，标记 refunded 并告警转人工核处
     const [linkedRows] = await conn.query(
-      // P0 套利修复：pending 的抵扣单也必须拦截——只查 paid 会漏掉
-      // "已付 single_99 → 下 annual_799 抵扣单(pending) → 退 single_99 →
-      // 再付 pending 单"的 99 元套利链路，与 findDeductibleSingleOrder 口径对齐
+      // P0 套利修复：pending 的关联单也必须拦截——只查 paid 会漏掉
+      // "源单待退 → 关联单已开 pending → 退源单 → 再付 pending 单"的套利链路
       "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1",
       [orderNo],
     );
