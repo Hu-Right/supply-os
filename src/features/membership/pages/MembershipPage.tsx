@@ -22,19 +22,10 @@ import { useMembershipPayment } from "../hooks/useMembershipPayment";
 export default function MembershipPage() {
   const searchParams = useSearchParams();
   const { t } = useLocale();
-  const { authUser, isVip } = useAuth();
+  const { isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans: allPlans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
-
-  // 单次解锁卡互斥显示（同商品两档价）
-  const plans = (() => {
-    const s99 = allPlans.find((p) => p.plan_code === "single_99");
-    const s199 = allPlans.find((p) => p.plan_code === "single_199");
-    if (!s99 || !s199) return allPlans;
-    const showFirstPrice = authUser ? s99.first_purchase_eligible === true : true;
-    return allPlans.filter((p) => p.plan_code !== (showFirstPrice ? "single_199" : "single_99"));
-  })();
+  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
 
   // 支付/升级逻辑已下沉至 hook
   const {

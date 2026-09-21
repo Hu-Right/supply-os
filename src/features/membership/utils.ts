@@ -5,12 +5,14 @@
  * @module features/membership/utils
  */
 import {
-  Crown, Zap, Star, Briefcase, Check, Users, Globe, Building2,
+  Crown, Zap, Star, Briefcase, Check, Building2,
+  Sparkles, Radar, FileCheck2, Download, TrendingUp, FileText, Bot, Bell, Handshake,
 } from "lucide-react";
 import type { MembershipPlan } from "@/types";
 // A2 strict 修复：翻译函数类型统一从 useLocale 派生（带键联合类型），
 // 原 (key: string) => string 在 strictFunctionTypes 下与真实 t 函数不兼容。
 import type { useLocale } from "@/core/i18n";
+import { COMPARISON_ROWS, comparisonRowEnabled } from "@/lib/services/benefit-matrix";
 
 /** i18n 翻译函数类型（与 useLocale 返回值中的 t 保持一致） */
 type TranslateFn = ReturnType<typeof useLocale>["t"];
@@ -23,13 +25,6 @@ export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }>
   manual: { icon: Briefcase, gradient: "from-emerald-500 to-teal-500" },
 };
 
-/** 套餐原价映射（用于展示首单优惠等促销信息） */
-export const ORIGINAL_PRICES: Record<string, number> = {
-  annual_799: 1999,
-  // 首单特惠（2026-08-30）：99 元首单价展示 199 划线价；资格不符的登录用户
-  // 由 MembershipPage 直接过滤该卡片，服务端 PaymentService 双重校验
-  single_99: 199,
-};
 
 /**
  * 从套餐名称提取等级标签（个人版/基础版/旗舰版/至尊版），不匹配时兜底 VIP。
@@ -73,61 +68,32 @@ export function splitDescription(desc: string | undefined): string[] {
   return parts.length > 0 ? parts : [desc];
 }
 
+/** 对比矩阵行 key → 卡片 chip 图标/配色（V2 权益体系） */
+const FEATURE_ICON: Record<string, { icon: typeof Check; color: string; bg: string }> = {
+  summary: { icon: Sparkles, color: "text-teal-600", bg: "bg-teal-100/80" },
+  similar: { icon: Radar, color: "text-cyan-600", bg: "bg-cyan-100/80" },
+  qualification: { icon: FileCheck2, color: "text-blue-600", bg: "bg-blue-100/80" },
+  files: { icon: Download, color: "text-indigo-600", bg: "bg-indigo-100/80" },
+  award_history: { icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-100/80" },
+  report: { icon: FileText, color: "text-violet-600", bg: "bg-violet-100/80" },
+  ai_score: { icon: Bot, color: "text-fuchsia-600", bg: "bg-fuchsia-100/80" },
+  industry_push: { icon: Bell, color: "text-amber-600", bg: "bg-amber-100/80" },
+  enterprise_profile: { icon: Building2, color: "text-rose-600", bg: "bg-rose-100/80" },
+  consortium: { icon: Handshake, color: "text-orange-600", bg: "bg-orange-100/80" },
+};
+
 /**
- * 各套餐等级的差异化特色特性
+ * 根据套餐生成差异化权益 chip 列表。
+ * V2：不再按 plan_code 硬编码映射，而是从对比矩阵 SSOT（COMPARISON_ROWS）
+ * 取该档位（benefit_rank）已启用的布尔权益——与详情页闸门/对比表同源。
+ * label 优先用已有 i18n 键，否则以中文字面兑底（待六语本地化）。
  */
-export function getPlanFeatures(planCode: string): { icon: typeof Check; color: string; bg: string; label: string }[] {
-  const tier = (() => {
-    if (planCode === "annual_16800") return "enterprise_flagship";
-    if (planCode === "annual_26800") return "enterprise_premium";
-    if (planCode === "annual_8800" || planCode === "annual_manual_8800" || planCode === "annual_8") return "annual_basic";
-    if (planCode === "annual_5600") return "enterprise_basic";
-    if (planCode === "annual_799") return "personal";
-    if (planCode.startsWith("single")) return "single";
-    if (planCode.startsWith("personal") || planCode.startsWith("trial")) return "personal";
-    if (planCode.startsWith("enterprise_premium")) return "enterprise_premium";
-    if (planCode.startsWith("enterprise_flagship")) return "enterprise_flagship";
-    if (planCode.startsWith("enterprise")) return "enterprise_basic";
-    if (planCode.startsWith("annual")) return "annual";
-    if (planCode.startsWith("week")) return "personal";
-    return "single";
-  })();
-
-  const features: Record<string, { icon: typeof Check; color: string; bg: string; label: string }[]> = {
-    single: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-    ],
-    personal: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
-    ],
-    enterprise_basic: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonSupplierLibrary" },
-    ],
-    enterprise_flagship: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Globe, color: "text-purple-600", bg: "bg-purple-100/80", label: "comparisonUngmReg" },
-    ],
-    enterprise_premium: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Crown, color: "text-rose-600", bg: "bg-rose-100/80", label: "comparisonBidSupport" },
-    ],
-    annual_basic: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
-      { icon: Building2, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonSupplierLibrary" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonDedicatedSupport" },
-    ],
-    annual: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonContractSign" },
-    ],
-  };
-
-  return features[tier] || features.single;
+export function getPlanFeatures(
+  plan: MembershipPlan,
+): { icon: typeof Check; color: string; bg: string; label: string }[] {
+  const rank = Number(plan.benefit_rank ?? 0);
+  return COMPARISON_ROWS.filter((r) => !r.render && comparisonRowEnabled(rank, r)).map((r) => ({
+    ...(FEATURE_ICON[r.key] ?? { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80" }),
+    label: r.i18nKey ?? r.label,
+  }));
 }

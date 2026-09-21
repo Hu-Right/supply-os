@@ -17,8 +17,8 @@ export interface MembershipPlan {
   unlock_quota: number;
   free_quota: number;
   plan_type: string;
-  /** 仅 single_99 行携带：当前用户是否具备首单特惠资格（服务端判定） */
-  first_purchase_eligible?: boolean;
+  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业，功能门控单一事实源 */
+  benefit_rank?: number;
 }
 
 export interface MembershipStatus {

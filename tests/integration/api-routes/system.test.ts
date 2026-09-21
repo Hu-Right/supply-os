@@ -170,67 +170,24 @@ describe("GET /api/system/links", () => {
 // ── 测试用例：/api/membership/plans ──────────────────────────────────────────
 
 const PLAN_ROWS = [
-  { plan_code: "single_99", name: "单篇解锁", price: "99.00", plan_type: "single" },
-  { plan_code: "vip_m", name: "VIP 月度", price: "199.00", plan_type: "subscription" },
+  { plan_code: "personal_std_999", name: "个人标准版", price: "999.00", plan_type: "subscription", benefit_rank: 2 },
+  { plan_code: "enterprise_8800", name: "企业年度会员", price: "8800.00", plan_type: "subscription", benefit_rank: 4 },
 ];
 
-function stubPlansQueries(hasSingleRecord: boolean) {
-  poolQuery.mockImplementation(async (sql: string) => {
-    if (sql.includes("crm_membership_plans")) return [PLAN_ROWS];
-    if (sql.includes("crm_payment_orders")) return [hasSingleRecord ? [{ "1": 1 }] : []];
-    return [[]];
-  });
-}
-
 describe("GET /api/membership/plans", () => {
-  it("未登录 → 返回套餐列表，不附加首单特惠字段", async () => {
-    stubPlansQueries(false);
+  it("返回启用中套餐列表（含 benefit_rank），原样透传", async () => {
+    poolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes("crm_membership_plans")) return [PLAN_ROWS];
+      return [[]];
+    });
     const { GET } = await import("@/app/api/membership/plans/route");
     const req = new NextRequest("http://localhost:3000/api/membership/plans");
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(2);
-    expect(body[0].plan_code).toBe("single_99");
-    expect(body[0]).not.toHaveProperty("first_purchase_eligible");
-  });
-
-  it("登录 + 无 single 解锁记录 → single_99 附加 first_purchase_eligible=true", async () => {
-    stubPlansQueries(false);
-    const { verifyAccessToken } = await import("@/lib/services/jwt");
-    vi.mocked(verifyAccessToken).mockReturnValue({
-      type: "access",
-      uid: 101,
-    } as never);
-
-    const { GET } = await import("@/app/api/membership/plans/route");
-    const req = new NextRequest("http://localhost:3000/api/membership/plans", {
-      headers: { authorization: "Bearer valid-token" },
-    });
-    const res = await GET(req);
-    const body = await res.json();
-    const single = body.find((p: { plan_code: string }) => p.plan_code === "single_99");
-    expect(single.first_purchase_eligible).toBe(true);
-    // 其他套餐不附加
-    expect(body.find((p: { plan_code: string }) => p.plan_code === "vip_m")).not.toHaveProperty(
-      "first_purchase_eligible",
-    );
-  });
-
-  it("登录 + 已有 single 解锁记录 → first_purchase_eligible=false", async () => {
-    stubPlansQueries(true);
-    const { verifyAccessToken } = await import("@/lib/services/jwt");
-    vi.mocked(verifyAccessToken).mockReturnValue({
-      type: "access",
-      uid: 101,
-    } as never);
-
-    const { GET } = await import("@/app/api/membership/plans/route");
-    const req = new NextRequest("http://localhost:3000/api/membership/plans", {
-      headers: { authorization: "Bearer valid-token" },
-    });
-    const body = await (await GET(req)).json();
-    expect(body.find((p: { plan_code: string }) => p.plan_code === "single_99").first_purchase_eligible).toBe(false);
+    expect(body[0].plan_code).toBe("personal_std_999");
+    expect(body[0].benefit_rank).toBe(2);
   });
 });
 

@@ -14,8 +14,7 @@ export type { MembershipPlan, MembershipStatus, UpgradePreview };
 
 /**
  * 拉取启用中的会员套餐列表（带内存缓存）
- * force：登录态调用方传 true 跳过缓存——首单资格标记（first_purchase_eligible）
- * 依赖登录态，复用未登录缓存会把两档价卡片同时放出来（2026-08-30 修复）
+ * force：登录态调用方传 true 跳过缓存，确保拿到与当前身份一致的套餐/权益视图。
  */
 export const fetchMembershipPlans = (force = false) =>
   apiCached<MembershipPlan[]>("/api/membership/plans", undefined, undefined, force);

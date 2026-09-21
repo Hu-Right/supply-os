@@ -3,9 +3,9 @@
  * Plan Comparison Table Component
  *
  * @module features/membership/components/PlanComparisonTable
- * @description 根据实际传入的套餐动态生成权益对比表。
- *              基础数据（额度、有效期）从 plan 对象读取，
- *              增值服务数据从配置映射读取。
+ * @description 权益矩阵展示——行/档位判定全部来自 lib/services/benefit-matrix（SSOT），
+ *              与后端闸门完全同源，杜绝组件内再各自拼装档位逻辑。
+ *              V2（2026-09-21）：由 benefit_rank 驱动（旧按 plan_code→tier 的映射已废弃）。
  */
 
 import { useState, Fragment, useMemo } from "react";
@@ -13,84 +13,17 @@ import { Check, X, Filter } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { ToggleButton } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
+import { COMPARISON_ROWS, comparisonRowEnabled, type ComparisonRow } from "@/lib/services/benefit-matrix";
 
 interface PlanComparisonTableProps {
   plans: MembershipPlan[];
 }
 
-/**
- * 套餐等级映射
- * 按 plan_code 精确匹配，确保各套餐正确映射到对应权益层级
- *
- * 数据库实际 plan_code 列表：
- *   single_89, single_199          → single
- *   trial_99_3, annual_799         → personal
- *   week_299_21, annual_5600       → enterprise_basic
- *   annual_8800, annual_manual_8800, annual_8 → annual_basic
- *   annual_16800                   → enterprise_flagship
- *   annual_26800                   → enterprise_premium
- */
-function getPlanTier(planCode: string): string {
-  // 精确匹配（优先）
-  if (planCode === "annual_16800") return "enterprise_flagship";
-  if (planCode === "annual_26800") return "enterprise_premium";
-  if (planCode === "annual_8800" || planCode === "annual_manual_8800" || planCode === "annual_8") return "annual_basic";
-  if (planCode === "annual_5600") return "enterprise_basic";
-  if (planCode === "annual_799") return "personal";
-  
-  // 前缀匹配（兜底）
-  if (planCode.startsWith("single")) return "single";
-  if (planCode.startsWith("personal") || planCode.startsWith("trial")) return "personal";
-  if (planCode.startsWith("enterprise_premium")) return "enterprise_premium";
-  if (planCode.startsWith("enterprise_flagship")) return "enterprise_flagship";
-  if (planCode.startsWith("enterprise")) return "enterprise_basic";
-  if (planCode.startsWith("annual")) return "annual";
-  if (planCode.startsWith("week")) return "personal";
-  return "single";
-}
-
-/**
- * 增值服务特性定义
- * annual_basic: 年度会员基础版（annual_8800）— 仅有外贸交流群 + 专属客服
- * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 企业合同/对公/发票
- */
-const ADDITIONAL_SERVICES: { key: string; labelKey: string; tiers: Record<string, boolean> }[] = [
-  {
-    key: "trade_group",
-    labelKey: "comparisonTradeGroup",
-    tiers: { personal: true, enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true, annual: true },
-  },
-  {
-    key: "supplier_library",
-    labelKey: "comparisonSupplierLibrary",
-    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true },
-  },
-  {
-    key: "dedicated_support",
-    labelKey: "comparisonDedicatedSupport",
-    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true, annual: true },
-  },
-  {
-    key: "private_group",
-    labelKey: "comparisonPrivateGroup",
-    tiers: { enterprise_flagship: true, enterprise_premium: true, annual: true },
-  },
-  {
-    key: "ungm_reg",
-    labelKey: "comparisonUngmReg",
-    tiers: { enterprise_flagship: true, enterprise_premium: true },
-  },
-  {
-    key: "bid_support",
-    labelKey: "comparisonBidSupport",
-    tiers: { enterprise_premium: true },
-  },
-  {
-    key: "contract_sign",
-    labelKey: "comparisonContractSign",
-    tiers: { enterprise_flagship: true, enterprise_premium: true, annual: true },
-  },
-];
+/** 分组 → 复用的已有 i18n 表头键 */
+const GROUP_HEADER_KEY: Record<ComparisonRow["group"], string> = {
+  core: "comparisonCoreBenefits",
+  advanced: "comparisonAdditionalServices",
+};
 
 export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
   const { t } = useLocale();
@@ -98,59 +31,35 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
 
   const planCodes = plans.map((p) => p.plan_code);
 
-  const comparisonRows = useMemo(() => {
-    // 核心权益 — 从 plan 对象直接读取
-    const coreFeatures = [
-      {
-        key: "unlock_quota",
-        labelKey: "comparisonUnlockQuota",
-        values: Object.fromEntries(plans.map((p) => [
-          p.plan_code,
-          p.unlock_quota >= 9999 ? (t("membershipUnlimited") as string) : `${p.unlock_quota}${t("membershipUnlocks")}`,
-        ])),
-      },
-      {
-        key: "validity",
-        labelKey: "comparisonValidity",
-        values: Object.fromEntries(plans.map((p) => [
-          p.plan_code,
-          p.duration_days ? `${p.duration_days}${t("membershipDays")}` : (t("membershipValidityPermanent") as string),
-        ])),
-      },
-      {
-        key: "original_link",
-        labelKey: "comparisonOriginalLink",
-        values: Object.fromEntries(plans.map((p) => [p.plan_code, true])),
-      },
-      {
-        key: "doc_download",
-        labelKey: "comparisonDocDownload",
-        values: Object.fromEntries(plans.map((p) => [p.plan_code, true])),
-      },
-      {
-        key: "report",
-        labelKey: "comparisonReport",
-        values: Object.fromEntries(plans.map((p) => [p.plan_code, true])),
-      },
-    ];
+  const groups = useMemo(() => {
+    // 单行 × 单套餐 → 展示值（额度/有效期为字符串，其余为布尔门控）
+    const cellValue = (plan: MembershipPlan, row: ComparisonRow): string | boolean => {
+      if (row.render === "quota") {
+        return plan.unlock_quota >= 9999
+          ? (t("membershipUnlimited") as string)
+          : `${plan.unlock_quota}${t("membershipUnlocks")}`;
+      }
+      if (row.render === "validity") {
+        return plan.duration_days
+          ? `${plan.duration_days}${t("membershipDays")}`
+          : (t("membershipValidityPermanent") as string);
+      }
+      return comparisonRowEnabled(Number(plan.benefit_rank ?? 0), row);
+    };
 
-    // 增值服务 — 从 tier 映射读取
-    const additionalFeatures = ADDITIONAL_SERVICES.map((svc) => ({
-      key: svc.key,
-      labelKey: svc.labelKey,
-      values: Object.fromEntries(plans.map((p) => {
-        const tier = getPlanTier(p.plan_code);
-        return [p.plan_code, svc.tiers[tier] ?? false];
+    const order: ComparisonRow["group"][] = ["core", "advanced"];
+    return order.map((group) => ({
+      group,
+      categoryKey: GROUP_HEADER_KEY[group],
+      features: COMPARISON_ROWS.filter((r) => r.group === group).map((row) => ({
+        key: row.key,
+        label: row.i18nKey ? (t(row.i18nKey) as string) : row.label,
+        values: Object.fromEntries(plans.map((p) => [p.plan_code, cellValue(p, row)])),
       })),
     }));
-
-    return [
-      { category: "core", categoryKey: "comparisonCoreBenefits", features: coreFeatures },
-      { category: "additional", categoryKey: "comparisonAdditionalServices", features: additionalFeatures },
-    ];
   }, [plans, t]);
 
-  const filterFeatures = (features: { key: string; labelKey: string; values: Record<string, string | boolean> }[]) => {
+  const filterFeatures = (features: { key: string; label: string; values: Record<string, string | boolean> }[]) => {
     if (!showDiffOnly) return features;
     return features.filter((feature) => {
       const values = planCodes.map((code) => feature.values[code]);
@@ -215,19 +124,19 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
             </tr>
           </thead>
           <tbody>
-            {comparisonRows.map((category, catIdx) => {
+            {groups.map((category, catIdx) => {
               const filteredFeatures = filterFeatures(category.features);
               if (filteredFeatures.length === 0) return null;
 
               return (
-                <Fragment key={category.category}>
+                <Fragment key={category.group}>
                   {catIdx > 0 && <tr><td colSpan={plans.length + 1} className="h-3" /></tr>}
                   <tr className="bg-slate-50/60 border-b border-slate-200/40">
                     <td
                       colSpan={plans.length + 1}
                       className="px-6 py-2.5 text-3xs font-bold text-slate-400 uppercase tracking-widest"
                     >
-                      {t(category.categoryKey as any)}
+                      {t(category.categoryKey as never)}
                     </td>
                   </tr>
                   {filteredFeatures.map((feature, featIdx) => (
@@ -238,7 +147,7 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
                       }`}
                     >
                       <td className="sticky left-0 z-10 bg-inherit px-6 py-3.5 text-sm font-medium text-slate-700">
-                        {t(feature.labelKey as any)}
+                        {feature.label}
                       </td>
                       {planCodes.map((code) => (
                         <td key={code} className="px-4 py-3.5 text-center">
