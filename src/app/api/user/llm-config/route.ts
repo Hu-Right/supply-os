@@ -13,8 +13,8 @@ import { LlmConfigRepo } from "@/lib/repos/llm-config.repo";
 import { saveLlmConfig } from "@/lib/services/ai-summary";
 import { extractClientIp } from "@/lib/utils/ip";
 
-/** 出站 URL 校验：仅允许 https 公网地址（拒绝环回/私有/保留段） */
-const OutboundUrl = z.string().url().refine(
+/** 出站 URL 校验：仅允许 https 公网地址（拒绝环回/私有/保留段）；供子路由（/test）复用同一合规口径 */
+export const OutboundUrl = z.string().url().refine(
   (u) => /^https:\/\/(?!localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|0\.)[a-zA-Z0-9.-]+(:\d+)?/.test(u),
   { message: "Base URL 必须为 HTTPS 公网地址" },
 );

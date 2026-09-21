@@ -134,3 +134,25 @@ export interface LlmConfigData {
 /** 获取用户 LLM 配置状态 */
 export const fetchLlmConfig = () =>
   api<{ code: number; data: LlmConfigData }>("/api/user/llm-config");
+
+export interface LlmTestResult {
+  ok: boolean;
+  model?: string;
+  latencyMs?: number;
+}
+
+/**
+ * LLM 连接测试探测（max_tokens=1 最小调用）。
+ * 不传 payload → 重测已存配置；传表单值 → 测试未保存的新配置（需携授权勾选）。
+ * 失败时服务端已将厂商错误码翻译为中文提示，api() 以 ApiError.message 透传。
+ */
+export const testLlmConnection = (payload?: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  outboundConsent: boolean;
+}) =>
+  api<{ code: number; data: LlmTestResult }>("/api/user/llm-config/test", {
+    method: "POST",
+    body: payload ?? {},
+  });
