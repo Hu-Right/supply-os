@@ -9,7 +9,7 @@
  *              遵循 WorldMapChart 模式：动态导入 echarts、resize 监听、dispose 清理。
  */
 import { useEffect, useRef, useState } from "react";
-import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight, Loader2 } from "lucide-react";
+import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight, Loader2, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiScoreData } from "../api/ai-score";
 import { vipGateMessage } from "../api/notice-gate";
@@ -196,6 +196,21 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
             <div key={i} className="h-3 rounded bg-purple-100/70" style={{ width: `${90 - i * 15}%` }} />
           ))}
         </div>
+      </section>
+    );
+  }
+
+  // 档位不足（V2）：以琥珀色“需升级”引导卡呈现，而非红色错误态（与历史中标一致）
+  const vipLock = error ? vipGateMessage(error) : null;
+  if (vipLock) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 text-center">
+        <Lock className="w-8 h-8 text-amber-600 mx-auto mb-3" />
+        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("detail_tabAiScore") || "AI 适配评分"}为会员专享权益</h3>
+        <p className="text-sm text-amber-700 mb-4">{vipLock}</p>
+        <a href="/membership" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors">
+          查看会员套餐
+        </a>
       </section>
     );
   }

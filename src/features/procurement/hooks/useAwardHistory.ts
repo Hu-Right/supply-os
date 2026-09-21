@@ -9,6 +9,7 @@
  */
 import { useCallback, useState } from "react";
 import { api } from "@/core/http";
+import { gateErrorToken } from "../api/notice-gate";
 
 // ── 类型定义 ──
 
@@ -77,7 +78,7 @@ export function useAwardHistory(noticeId: number | undefined): UseAwardHistoryRe
         setData(resp.data);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "获取中标历史失败");
+        setError(gateErrorToken(err));
       })
       .finally(() => {
         setLoading(false);

@@ -10,11 +10,12 @@
 import { useEffect } from "react";
 import {
   TrendingUp, Globe, Users, DollarSign, Calendar,
-  AlertCircle, Loader2, Database,
+  AlertCircle, Loader2, Database, Lock,
 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { useAwardHistory, type AwardHistoryData } from "../../hooks/useAwardHistory";
+import { vipGateMessage } from "../../api/notice-gate";
 
 interface AwardHistoryTabProps {
   noticeId: number | undefined;
@@ -266,6 +267,28 @@ export function AwardHistoryTab({ noticeId }: AwardHistoryTabProps) {
           <Loader2 className="w-8 h-8 text-teal-500 animate-spin mx-auto mb-3" />
           <p className="text-sm font-bold text-slate-600">正在查询同类品类历史中标数据...</p>
           <p className="text-2xs text-slate-400 mt-1">基于 UNSPSC 编码匹配，可能需要数秒</p>
+        </div>
+      </section>
+    );
+  }
+
+  // 档位不足（V2/EC_VIP_ONLY）：以“需升级”引导态展示，而非当作“查询失败”
+  const vipLock = error ? vipGateMessage(error) : null;
+  if (vipLock) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 overflow-hidden">
+        <div className="p-8 text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-100 mb-4">
+            <Lock className="w-7 h-7 text-amber-600" />
+          </div>
+          <h3 className="text-base font-extrabold text-amber-800 mb-2">历史中标为会员专享权益</h3>
+          <p className="text-sm text-amber-700 mb-4">{vipLock}</p>
+          <a
+            href="/membership"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors"
+          >
+            查看会员套餐
+          </a>
         </div>
       </section>
     );

@@ -17,6 +17,8 @@ import { COMPARISON_ROWS, comparisonRowEnabled, type ComparisonRow } from "@/lib
 
 interface PlanComparisonTableProps {
   plans: MembershipPlan[];
+  /** 当前用户已持有的最优周期性套餐 code（高亮该列）；无则不高亮 */
+  currentPlanCode?: string | null;
 }
 
 /** 分组 → 复用的已有 i18n 表头键 */
@@ -25,7 +27,7 @@ const GROUP_HEADER_KEY: Record<ComparisonRow["group"], string> = {
   advanced: "comparisonAdditionalServices",
 };
 
-export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
+export function PlanComparisonTable({ plans, currentPlanCode }: PlanComparisonTableProps) {
   const { t } = useLocale();
   const [showDiffOnly, setShowDiffOnly] = useState(false);
 
@@ -113,14 +115,24 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
               <th className="sticky left-0 z-10 bg-white/90 backdrop-blur-sm px-6 py-4 text-left text-sm font-bold text-slate-900 min-w-[180px]">
                 {t("membershipComparisonFeature")}
               </th>
-              {plans.map((plan) => (
-                <th
-                  key={plan.plan_code}
-                  className="px-4 py-4 text-center text-sm font-bold text-slate-900 min-w-[110px]"
-                >
-                  <span className="text-xs text-slate-500 font-medium">{plan.name}</span>
-                </th>
-              ))}
+              {plans.map((plan) => {
+                const isCurrent = !!currentPlanCode && plan.plan_code === currentPlanCode;
+                return (
+                  <th
+                    key={plan.plan_code}
+                    className={`px-4 py-4 text-center text-sm font-bold min-w-[110px] ${
+                      isCurrent ? "bg-teal-50/70 text-teal-800" : "text-slate-900"
+                    }`}
+                  >
+                    <span className="block text-xs font-medium text-slate-500">{plan.name}</span>
+                    {isCurrent && (
+                      <span className="mt-1 inline-block rounded-full bg-teal-600 text-white text-3xs font-bold px-2 py-0.5">
+                        {t("membershipCurrentPlan")}
+                      </span>
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -150,7 +162,12 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
                         {feature.label}
                       </td>
                       {planCodes.map((code) => (
-                        <td key={code} className="px-4 py-3.5 text-center">
+                        <td
+                          key={code}
+                          className={`px-4 py-3.5 text-center ${
+                            !!currentPlanCode && code === currentPlanCode ? "bg-teal-50/40" : ""
+                          }`}
+                        >
                           {renderValue(feature.values[code] ?? false)}
                         </td>
                       ))}

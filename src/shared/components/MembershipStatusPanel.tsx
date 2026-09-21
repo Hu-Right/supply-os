@@ -91,7 +91,7 @@ export function MembershipStatusPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2">
             <span className={`text-2xl font-extrabold ${totalRemaining > 0 ? "text-slate-900" : "text-red-600"}`}>
-              {totalRemaining}
+              {totalRemaining >= 9999 ? t("membershipUnlimited") : totalRemaining}
             </span>
             <span className="text-xs text-slate-500">{t("statusPanelTotalUnlocks")}</span>
           </div>

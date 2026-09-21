@@ -172,7 +172,7 @@ export default function MembershipPage() {
               {t("membershipPlansDesc")}
             </p>
           </div>
-          <PlanComparisonTable plans={plans} />
+          <PlanComparisonTable plans={plans} currentPlanCode={currentPlanCode} />
         </section>
       )}
 

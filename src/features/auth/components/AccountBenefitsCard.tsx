@@ -106,10 +106,16 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
         <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalUnlocks")}</p>
       </div>
       <div className="flex items-baseline gap-1 mb-2">
-        <span className={`text-xl font-semibold ${totalRemaining > 0 ? "text-foreground" : "text-danger-600"}`}>
-          {totalRemaining}
-        </span>
-        <span className="text-xs text-muted-foreground">{t("statusPanelTimes")}</span>
+        {totalRemaining >= 9999 ? (
+          <span className="text-xl font-semibold text-foreground">{t("membershipUnlimited")}</span>
+        ) : (
+          <>
+            <span className={`text-xl font-semibold ${totalRemaining > 0 ? "text-foreground" : "text-danger-600"}`}>
+              {totalRemaining}
+            </span>
+            <span className="text-xs text-muted-foreground">{t("statusPanelTimes")}</span>
+          </>
+        )}
       </div>
 
       {/* 分层明细 */}
