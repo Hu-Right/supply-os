@@ -1,17 +1,16 @@
 /**
  * 迁移 090 membership-plans-v2 结构契约测试
  *
- * @description 用 mock Pool 断言 090 的 SQL 编排符合 V2 切换设计：
- *              新增 benefit_rank 列、补插悬挂兼容行、旧套餐下架赋 rank、
- *              带引用守卫的物理删除、free 行改造、新 4 档上架；
- *              并验证 up() 可重复执行（幂等：仅重复发送相同幂等 SQL，不抛错）。
- *              真实库效果已在生产切换窗口实测（在售仅剩 5 档）。
+ * @description 用 mock Pool 断言 090 的 SQL 编排符合 V2 全量作废切换设计（2026-09-21 用户裁决：
+ *              旧权益不做到期过渡、一律作废）：新增 benefit_rank 列、旧 code 订阅/权益关闭、
+ *              失去订阅的用户降级 free、旧套餐行物理删除（无条件，含悬挂 code）、
+ *              free 行改造、新 4 档上架；并验证 up() 可重复执行（幂等）。
  */
 import { describe, it, expect, vi } from "vitest";
-import { migration } from "@/lib/db/migrations/090-membership-plans-v2";
+import { migration, LEGACY_PLAN_CODES } from "@/lib/db/migrations/090-membership-plans-v2";
 
 function makePool() {
-  const executed: string[] = [];
+  const executed: Array<{ sql: string; params?: unknown[] }> = [];
   const queried: string[] = [];
   const pool = {
     // ensureColumn 的存在性探测：total=0 → 触发一次 ALTER ADD COLUMN
@@ -20,13 +19,18 @@ function makePool() {
       if (/INFORMATION_SCHEMA\.COLUMNS/i.test(sql)) return [[{ total: 0 }], []];
       return [[], []];
     }),
-    execute: vi.fn(async (sql: string) => {
-      executed.push(sql);
+    execute: vi.fn(async (sql: string, params?: unknown[]) => {
+      executed.push({ sql, params });
       return [{}, []];
     }),
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { pool: pool as any, executed, queried };
+}
+
+/** 按片段匹配已执行语句（占位符 SQL 无法按 code 匹配，改按表+动作定位） */
+function findExec(executed: Array<{ sql: string; params?: unknown[] }>, re: RegExp) {
+  return executed.find((e) => re.test(e.sql));
 }
 
 describe("migration 090 · membership-plans-v2", () => {
@@ -41,56 +45,60 @@ describe("migration 090 · membership-plans-v2", () => {
     expect(queried.some((s) => /ADD COLUMN benefit_rank/i.test(s))).toBe(true);
   });
 
-  it("补插悬挂历史 code 兼容行（trial_99_3/trial_3/s/manual_full_unlock）", async () => {
+  it("旧 code 的活跃订阅与权益全部关闭（closed，参数含全部旧 code 含悬挂）", async () => {
     const { pool, executed } = makePool();
     await migration.up(pool);
-    const compat = executed.find((s) => /INSERT IGNORE/i.test(s) && /manual_full_unlock/.test(s));
-    expect(compat).toBeDefined();
-    for (const code of ["trial_99_3", "trial_3", "'s'", "manual_full_unlock"]) {
-      expect(compat!).toContain(code);
+    const subClose = findExec(executed, /UPDATE crm_user_subscriptions SET status = 'closed'/i);
+    const entClose = findExec(executed, /UPDATE crm_user_entitlements SET status = 'closed'/i);
+    expect(subClose).toBeDefined();
+    expect(entClose).toBeDefined();
+    for (const e of [subClose!, entClose!]) {
+      expect(e.sql).toContain("status = 'active'");
+      // 占位符数量与参数一一对应，参数即全量旧 code
+      expect((e.sql.match(/\?/g) || []).length).toBe(LEGACY_PLAN_CODES.length);
+      expect(e.params).toEqual(LEGACY_PLAN_CODES);
     }
   });
 
-  it("旧套餐下架并按映射赋 rank（CASE 覆盖 4/2/1 档）", async () => {
+  it("失去活跃订阅的 VIP 用户降级 free（与每日兜底任务同口径）", async () => {
     const { pool, executed } = makePool();
     await migration.up(pool);
-    const deact = executed.find((s) => /SET is_active = 0/i.test(s));
-    expect(deact).toBeDefined();
-    expect(deact).toContain("benefit_rank = CASE");
-    expect(deact).toContain("THEN 4");
-    expect(deact).toContain("THEN 2");
-    expect(deact).toContain("THEN 1");
-    // 新 4 档被排除在下架之外
-    expect(deact).toContain("personal_trial_129");
+    const demote = findExec(executed, /UPDATE crm_users/i);
+    expect(demote).toBeDefined();
+    expect(demote!.sql).toMatch(/membership_tier = 'free'/i);
+    expect(demote!.sql).toContain("NOT EXISTS");
+    expect(demote!.sql).toContain("crm_user_subscriptions");
+    expect(demote!.sql).toContain("expires_at > NOW()");
   });
 
-  it("物理删除带三重引用守卫（订阅/权益/订单任一存在即保留）", async () => {
+  it("旧套餐行无条件物理删除（全量作废，无引用守卫，参数含悬挂 code）", async () => {
     const { pool, executed } = makePool();
     await migration.up(pool);
-    const del = executed.find((s) => /^\s*DELETE p FROM crm_membership_plans/i.test(s));
+    const del = findExec(executed, /DELETE FROM crm_membership_plans/i);
     expect(del).toBeDefined();
-    expect(del).toContain("NOT EXISTS (SELECT 1 FROM crm_user_subscriptions");
-    expect(del).toContain("NOT EXISTS (SELECT 1 FROM crm_user_entitlements");
-    expect(del).toContain("NOT EXISTS (SELECT 1 FROM crm_payment_orders");
+    expect(del!.sql).not.toContain("NOT EXISTS");
+    expect((del!.sql.match(/\?/g) || []).length).toBe(LEGACY_PLAN_CODES.length);
+    expect(del!.params).toEqual(LEGACY_PLAN_CODES);
   });
 
   it("free 行改造为免费注册体验档", async () => {
     const { pool, executed } = makePool();
     await migration.up(pool);
-    const free = executed.find((s) => /免费注册体验/.test(s) && /WHERE plan_code = 'free'/.test(s));
+    const free = findExec(executed, /免费注册体验/);
     expect(free).toBeDefined();
-    expect(free).toContain("benefit_rank = 0");
+    expect(free!.sql).toContain("WHERE plan_code = 'free'");
+    expect(free!.sql).toContain("benefit_rank = 0");
   });
 
   it("新 4 档上架 INSERT IGNORE", async () => {
     const { pool, executed } = makePool();
     await migration.up(pool);
-    const ins = executed.find(
-      (s) => /INSERT IGNORE/i.test(s) && /personal_pro_1299/.test(s) && /enterprise_8800/.test(s),
-    );
+    const ins = findExec(executed, /INSERT IGNORE INTO crm_membership_plans/);
     expect(ins).toBeDefined();
+    expect(ins!.sql).toContain("personal_pro_1299");
+    expect(ins!.sql).toContain("enterprise_8800");
     for (const code of ["personal_trial_129", "personal_std_999", "personal_pro_1299", "enterprise_8800"]) {
-      expect(ins!).toContain(code);
+      expect(ins!.sql).toContain(code);
     }
   });
 
