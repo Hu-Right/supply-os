@@ -28,6 +28,19 @@ describe("findSimilarNoticeIds", () => {
     const ids = await findSimilarNoticeIds(pool, 1, 6);
     expect(ids).toEqual(["A", "B"]);
   });
+
+  it("候选查询按当前码自身层级匹配（方案C），不再用 L1/L2 大类 OR", async () => {
+    const { pool, query } = makePool([
+      [/FROM crm_bid_notices n\s+WHERE n\.id/, [{ notice_id: "CUR" }]],
+      [/FROM crm_bid_notice_unspsc_codes WHERE notice_id/, [{ level1_id: "1", level2_id: "", level3_id: "", level4_id: "", level5_id: "" }]],
+      [/peer/, []],
+    ]);
+    await findSimilarNoticeIds(pool, 1, 6);
+    const peerCall = query.mock.calls.find((c) => /peer/.test(String(c[0])));
+    const peerSql = String(peerCall?.[0] || "");
+    expect(peerSql).toContain("cur.level = 4 AND peer.level4_id = cur.level4_id");
+    expect(peerSql).not.toContain("cur.level1_id IS NOT NULL");
+  });
 });
 
 describe("findSimilarNotices", () => {

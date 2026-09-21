@@ -27,6 +27,7 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
   const currentRows = curRows as BridgeRow[];
   if (currentRows.length === 0) return []; // 无码（含平台 RFQ）→ 空，不兜底
 
+  // 方案C：候选按「当前码自身层级」匹配，避免用 L1/L2 大类引发共现爆炸（结果稳定且更精准）
   const [peerRows] = await pool.query(
     `SELECT peer.notice_id AS notice_id,
             peer.level1_id AS level1_id, peer.level2_id AS level2_id, peer.level3_id AS level3_id,
@@ -35,11 +36,11 @@ export async function findSimilarNoticeIds(pool: Pool, noticeDbId: number, limit
      FROM crm_bid_notice_unspsc_codes cur
      JOIN crm_bid_notice_unspsc_codes peer
        ON peer.notice_id <> cur.notice_id
-      AND ( (cur.level1_id IS NOT NULL AND cur.level1_id <> '' AND peer.level1_id = cur.level1_id)
-         OR (cur.level2_id IS NOT NULL AND cur.level2_id <> '' AND peer.level2_id = cur.level2_id)
-         OR (cur.level3_id IS NOT NULL AND cur.level3_id <> '' AND peer.level3_id = cur.level3_id)
-         OR (cur.level4_id IS NOT NULL AND cur.level4_id <> '' AND peer.level4_id = cur.level4_id)
-         OR (cur.level5_id IS NOT NULL AND cur.level5_id <> '' AND peer.level5_id = cur.level5_id) )
+      AND ( (cur.level = 5 AND peer.level5_id = cur.level5_id)
+         OR (cur.level = 4 AND peer.level4_id = cur.level4_id)
+         OR (cur.level = 3 AND peer.level3_id = cur.level3_id)
+         OR (cur.level = 2 AND peer.level2_id = cur.level2_id)
+         OR (cur.level = 1 AND peer.level1_id = cur.level1_id) )
      JOIN crm_bid_notices n ON n.notice_id = peer.notice_id
      WHERE cur.notice_id = ? AND ${ACTIVE_NOTICE_WHERE}
      LIMIT 2000`,
