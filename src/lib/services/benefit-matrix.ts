@@ -140,16 +140,16 @@ export interface ComparisonRow {
 export const COMPARISON_ROWS: ComparisonRow[] = [
   { key: "quota", group: "core", i18nKey: "comparisonUnlockQuota", label: "解锁额度", render: "quota" },
   { key: "validity", group: "core", i18nKey: "comparisonValidity", label: "有效期", render: "validity" },
-  { key: "summary", group: "core", label: "AI 采购摘要", feature: "summary" },
-  { key: "similar", group: "core", label: "相似机会推荐", feature: "similar" },
-  { key: "qualification", group: "core", label: "资格条件查看", feature: "qualification" },
+  { key: "summary", group: "core", i18nKey: "comparisonSummary", label: "AI 采购摘要", feature: "summary" },
+  { key: "similar", group: "core", i18nKey: "comparisonSimilar", label: "相似机会推荐", feature: "similar" },
+  { key: "qualification", group: "core", i18nKey: "comparisonQualification", label: "资格条件查看", feature: "qualification" },
   { key: "files", group: "core", i18nKey: "comparisonDocDownload", label: "原始文件下载", feature: "files" },
-  { key: "award_history", group: "core", label: "历史中标查询", feature: "award_history" },
+  { key: "award_history", group: "core", i18nKey: "comparisonAwardHistory", label: "历史中标查询", feature: "award_history" },
   { key: "report", group: "advanced", i18nKey: "comparisonReport", label: "中文解析报告", minRank: BENEFIT_RANK.PRO },
-  { key: "ai_score", group: "advanced", label: "AI 适配评分", feature: "ai_score" },
-  { key: "industry_push", group: "advanced", label: "按行业精准推送", minRank: BENEFIT_RANK.PRO },
-  { key: "enterprise_profile", group: "advanced", label: "企业画像智能匹配", minRank: BENEFIT_RANK.ENTERPRISE },
-  { key: "consortium", group: "advanced", label: "参与联合体投标", minRank: BENEFIT_RANK.ENTERPRISE },
+  { key: "ai_score", group: "advanced", i18nKey: "comparisonAiScore", label: "AI 适配评分", feature: "ai_score" },
+  { key: "industry_push", group: "advanced", i18nKey: "comparisonIndustryPush", label: "按行业精准推送", minRank: BENEFIT_RANK.PRO },
+  { key: "enterprise_profile", group: "advanced", i18nKey: "comparisonEnterpriseProfile", label: "企业画像智能匹配", minRank: BENEFIT_RANK.ENTERPRISE },
+  { key: "consortium", group: "advanced", i18nKey: "comparisonConsortium", label: "参与联合体投标", minRank: BENEFIT_RANK.ENTERPRISE },
 ];
 
 /**
