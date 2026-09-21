@@ -229,18 +229,6 @@ export class PaymentsRepo {
     return (rows as RowDataPacket[]).length > 0;
   }
 
-  /** 事务内检查用户是否已有活跃订阅（同套餐）—— 幂等防护 */
-  async hasActiveSubscriptionInTransaction(conn: PoolConnection, userId: number, planCode: string): Promise<boolean> {
-    const [rows] = await conn.query(
-      `SELECT id FROM crm_user_subscriptions
-       WHERE user_id = ? AND plan_code = ? AND status = 'active'
-         AND (expires_at IS NULL OR expires_at > NOW())
-       LIMIT 1`,
-      [userId, planCode],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
-
   /** 事务内创建订阅 */
   async createSubscriptionInTransaction(conn: PoolConnection, userId: number, planCode: string, days: number | null): Promise<void> {
     await conn.execute(

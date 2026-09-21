@@ -47,7 +47,6 @@ vi.mock("@/lib/services/membership-status", () => ({
 }));
 vi.mock("@/lib/services/membership-upgrade", () => ({
   previewUpgrade: vi.fn(),
-  extractTierLabel: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -245,6 +244,7 @@ describe("GET /api/membership/upgrade/preview", () => {
 
 const MEMBER_STATE = {
   tier: "vip",
+  benefitRank: 3,
   freeQuota: 5,
   freeUsed: 1,
   freeRemaining: 4,
@@ -252,7 +252,7 @@ const MEMBER_STATE = {
   paidQuotaTotal: 10,
   paidQuotaUsed: 3,
   paidQuotaRemaining: 7,
-  currentBest: { plan_code: "vip_m", plan_name: "VIP 月度", price: "199.00" },
+  currentBest: { plan_code: "personal_pro_1299", plan_name: "个人专业版", price: "1299.00" },
   activeSubscriptions: [],
   entitlements: {},
 };
@@ -273,8 +273,6 @@ describe("GET /api/membership/status", () => {
     } as never);
     const { resolveMembershipState } = await import("@/lib/services/membership-status");
     vi.mocked(resolveMembershipState).mockResolvedValue(MEMBER_STATE as never);
-    const { extractTierLabel } = await import("@/lib/services/membership-upgrade");
-    vi.mocked(extractTierLabel).mockReturnValue("月度VIP" as never);
 
     const { GET } = await import("@/app/api/membership/status/route");
     const req = new NextRequest("http://localhost:3000/api/membership/status", {
@@ -286,11 +284,12 @@ describe("GET /api/membership/status", () => {
     expect(body).toMatchObject({
       user_id: 101,
       membership_tier: "vip",
+      benefit_rank: 3,
       free_remaining: 4,
       paid_quota_remaining: 7,
-      current_plan_code: "vip_m",
-      current_plan_tier_label: "月度VIP",
-      current_plan_price: 199,
+      current_plan_code: "personal_pro_1299",
+      current_plan_tier_label: "个人专业版",
+      current_plan_price: 1299,
     });
     expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101);
   });

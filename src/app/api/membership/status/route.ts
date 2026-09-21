@@ -10,7 +10,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
 
   const { resolveMembershipState } = await import("@/lib/services/membership-status");
-  const { extractTierLabel } = await import("@/lib/services/membership-upgrade");
+  const { extractTierLabel } = await import("@/shared/constants/membership");
   const membershipRepo = getContext().user.membershipRepo;
   const state = await resolveMembershipState(membershipRepo, auth.userId);
 

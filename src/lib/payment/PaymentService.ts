@@ -77,13 +77,14 @@ export class PaymentService {
    *
    * 编排：学习类 plan_code 拒绝并委托 LearningPaymentService → 服务端定价
    * （金额一律取 DB/套餐配置，请求体 amount 不参与定价，审查 F2）→
-   * single_99 首单特惠资格（曾购含 pending 即 409，产品决策 2026-08-30）→
-   * 升级差价计算与快照（审查 F23）→ 首单抵扣（annual_799，799-99=700）→
-   * 生成订单号 + 渠道支付链接 + 落库（pending）。
+   * 升级差价计算与快照（审查 F23）→ 生成订单号 + 渠道支付链接 + 落库（pending）。
    *
-   * @throws SINGLE_FIRST_PURCHASE_ONLY / UPGRADE_NOT_SUPPORTED /
-   *         NO_ACTIVE_PLAN_TO_UPGRADE / ALREADY_ON_TARGET_PLAN /
-   *         CANNOT_DOWNGRADE / FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
+   * V2 权益（2026-09-21）：single_99 首单特惠与 annual_799 首单抵扣随旧套餐下架一并移除，
+   * 新套餐体系（129/999/1299/8800）无促销规则。
+   *
+   * @throws UPGRADE_NOT_SUPPORTED / NO_ACTIVE_PLAN_TO_UPGRADE /
+   *         ALREADY_ON_TARGET_PLAN / CANNOT_DOWNGRADE /
+   *         FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
    */
   async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
     const userId = request.user_id;

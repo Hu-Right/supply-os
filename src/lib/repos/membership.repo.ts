@@ -233,20 +233,6 @@ export class MembershipRepo {
     return (rows as EntitlementRow[])[0] ?? null;
   }
 
-  /** 事务内检查用户是否有活跃订阅 */
-  async hasActiveSubscriptionInTransaction(
-    conn: PoolConnection, userId: number,
-  ): Promise<boolean> {
-    const [rows] = await conn.query(
-      `SELECT id FROM crm_user_subscriptions
-       WHERE user_id = ? AND status = 'active'
-         AND (expires_at IS NULL OR expires_at > NOW())
-       LIMIT 1`,
-      [userId],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
-
   /**
    * 事务内悲观锁查询用户的活跃订阅（含套餐解锁配额）。
    * P0-2 修复：无权益但有订阅的解锁路径必须按套餐配额封顶，

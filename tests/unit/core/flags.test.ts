@@ -64,7 +64,6 @@ describe("core/flags", () => {
         "SUPPLIER_LIBRARY_ENHANCED",
         "SUPPLIER_PROFILE",
         "AWARD_INTELLIGENCE",
-        "MEMBERSHIP_TIERS_V2",
         "CRM_AUTH_GUARD",
         "SAVED_SEARCH",
         "RFQ",
