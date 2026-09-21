@@ -15,9 +15,18 @@ import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
+import { ServiceCard } from "../components/ServiceCard";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
+import { SERVICE_CATALOG } from "../data/service-catalog";
+
+type MembershipTab = "personal" | "enterprise" | "services";
+const MEMBERSHIP_TABS: { key: MembershipTab; label: string }[] = [
+  { key: "personal", label: "个人会员" },
+  { key: "enterprise", label: "企业会员" },
+  { key: "services", label: "增值服务" },
+];
 
 export default function MembershipPage() {
   const searchParams = useSearchParams();
@@ -35,6 +44,14 @@ export default function MembershipPage() {
   } = useMembershipPayment({ noticeId, currentPlanCode });
 
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
+  const [tab, setTab] = useState<MembershipTab>("personal");
+
+  // 按档位分流：企业档(rank>=4)归“企业会员” Tab，其余（体验/标准/专业）归“个人会员” Tab。
+  const tabPlans = plans.filter((p) =>
+    tab === "enterprise" ? Number(p.benefit_rank ?? 0) >= 4 : Number(p.benefit_rank ?? 0) < 4,
+  );
+  const enterpriseServices = SERVICE_CATALOG.filter((s) => s.group === "enterprise");
+  const serviceCatalog = SERVICE_CATALOG.filter((s) => s.group === "services");
 
   const handleToggle = (planCode: string) => {
     setExpandedPlanCode((prev) => (prev === planCode ? null : planCode));
@@ -50,130 +67,164 @@ export default function MembershipPage() {
         </p>
       </section>
 
-      {/* ══ Tab导航 ══ */}
+      {/* ══ Tab 导航（功能化）══ */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
-        {["个人会员", "企业会员", "增值服务"].map((tab, i) => (
+        {MEMBERSHIP_TABS.map((tb) => (
           <button
-            key={tab}
-            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors ${
-              i === 0 ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
+              tab === tb.key ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
             }`}
           >
-            {tab}
+            {tb.label}
           </button>
         ))}
-        <span className="ml-2 text-xs text-amber-600 font-bold flex items-center gap-1">
-          💎 年付更优惠 最高可省 20%
-        </span>
       </div>
 
-      {/* 套餐卡片区域 */}
-      <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-              {t("membershipPlansTitle")}
-            </h2>
-            <p className="text-base text-slate-600 max-w-xl mx-auto">
-              {t("membershipPlansDesc")}
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="flex flex-col gap-4 max-w-3xl mx-auto">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm px-6 py-5 shadow-lg animate-pulse">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 bg-slate-200/60 rounded-xl shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="h-5 bg-slate-200/60 rounded w-1/3 mb-2" />
-                      <div className="h-8 bg-slate-200/60 rounded w-1/4" />
-                    </div>
-                    <div className="h-8 w-8 bg-slate-200/60 rounded-full" />
-                  </div>
-                </div>
+      {tab === "services" ? (
+        /* 增值服务 Tab：报价表三~十大类留资卡（不走支付） */
+        <section className="py-2">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">增值服务与专家顾问</h2>
+              <p className="text-base text-slate-600 max-w-2xl mx-auto">
+                人工与定制类服务：投标辅助、市场调研、AI 写标书、商务谈判、KA、合规、API 对接等，扫码联系顾问获取专属方案与报价。
+              </p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {serviceCatalog.map((item) => (
+                <ServiceCard key={item.id} item={item} />
               ))}
             </div>
-          ) : error ? (
-            <div className="text-center py-20">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+        </section>
+      ) : (
+        <>
+          {/* 套餐卡片区域 */}
+          <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+                  {t("membershipPlansTitle")}
+                </h2>
+                <p className="text-base text-slate-600 max-w-xl mx-auto">
+                  {t("membershipPlansDesc")}
+                </p>
               </div>
-              <p className="text-slate-600 text-lg mb-2">{error}</p>
-              <Button
-                type="button"
-                variant="link"
-                onClick={() => window.location.reload()}
-                className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
-              >
-                重新加载
-              </Button>
-            </div>
-          ) : plans.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4 max-w-3xl mx-auto" data-testid="plan-list">
-              {plans.map((plan) => (
-                <PlanCard
-                  key={plan.plan_code}
-                  plan={plan}
-                  isVip={isVip}
-                  currentPlanPrice={currentPlanPrice}
-                  currentPlanCode={currentPlanCode}
-                  expanded={expandedPlanCode === plan.plan_code}
-                  onToggle={() => handleToggle(plan.plan_code)}
-                  onBuy={buyPlan}
-                  onUpgrade={startUpgrade}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
 
-      {/* ═ 为什么升级会员 ═══ */}
-      {!loading && plans.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
-          <h2 className="text-xl font-extrabold text-slate-900 mb-6">为什么要升级会员</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {[
-              { icon: Rocket, title: "更快看到订单", desc: "更多商机与实时提醒，第一时间抢占全球采购先机。" },
-              { icon: Search, title: "更深拿到信息", desc: "解锁附件、下载原文与中标情报，让投标更有把握。" },
-              { icon: TrendingUp, title: "更高提高投标效率", desc: "AI评分、批量导出、团队协作，把更多时间用在赢单上。" },
-              { icon: Headphones, title: "更自然连接顾问服务", desc: "专属顾问答疑与行业资源，帮助你少走弯路、少踩坑。" },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
-                  <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
-                    <Icon className="w-5 h-5 text-teal-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold text-slate-900 mb-1">{item.title}</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
-                  </div>
+              {loading ? (
+                <div className="flex flex-col gap-4 max-w-3xl mx-auto">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm px-6 py-5 shadow-lg animate-pulse">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 bg-slate-200/60 rounded-xl shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="h-5 bg-slate-200/60 rounded w-1/3 mb-2" />
+                          <div className="h-8 bg-slate-200/60 rounded w-1/4" />
+                        </div>
+                        <div className="h-8 w-8 bg-slate-200/60 rounded-full" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              ) : error ? (
+                <div className="text-center py-20">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-600" />
+                  </div>
+                  <p className="text-slate-600 text-lg mb-2">{error}</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => window.location.reload()}
+                    className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
+                  >
+                    重新加载
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-4 max-w-3xl mx-auto" data-testid="plan-list">
+                    {tabPlans.map((plan) => (
+                      <PlanCard
+                        key={plan.plan_code}
+                        plan={plan}
+                        isVip={isVip}
+                        currentPlanPrice={currentPlanPrice}
+                        currentPlanCode={currentPlanCode}
+                        expanded={expandedPlanCode === plan.plan_code}
+                        onToggle={() => handleToggle(plan.plan_code)}
+                        onBuy={buyPlan}
+                        onUpgrade={startUpgrade}
+                      />
+                    ))}
+                    {tabPlans.length === 0 && (
+                      <div className="text-center py-12">
+                        <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
+                      </div>
+                    )}
+                  </div>
 
-      {/* 权益对比表区域 */}
-      {!loading && plans.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-              {t("membershipComparisonTitle")}
-            </h2>
-            <p className="text-base text-slate-600 max-w-xl mx-auto">
-              {t("membershipPlansDesc")}
-            </p>
-          </div>
-          <PlanComparisonTable plans={plans} currentPlanCode={currentPlanCode} />
-        </section>
+                  {/* 企业 Tab：企业版留资服务卡（不走支付） */}
+                  {tab === "enterprise" && enterpriseServices.length > 0 && (
+                    <div className="mt-12">
+                      <h3 className="text-lg font-extrabold text-slate-900 mb-5 text-center">企业专属增值服务</h3>
+                      <div className="grid gap-5 sm:grid-cols-2 max-w-3xl mx-auto">
+                        {enterpriseServices.map((item) => (
+                          <ServiceCard key={item.id} item={item} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* ═ 为什么升级会员 ═══ */}
+          {!loading && tabPlans.length > 0 && (
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+              <h2 className="text-xl font-extrabold text-slate-900 mb-6">为什么要升级会员</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {[
+                  { icon: Rocket, title: "更快看到订单", desc: "更多商机与实时提醒，第一时间抢占全球采购先机。" },
+                  { icon: Search, title: "更深拿到信息", desc: "解锁附件、下载原文与中标情报，让投标更有把握。" },
+                  { icon: TrendingUp, title: "更高提高投标效率", desc: "AI评分、批量导出、团队协作，把更多时间用在赢单上。" },
+                  { icon: Headphones, title: "更自然连接顾问服务", desc: "专属顾问答疑与行业资源，帮助你少走弯路、少踩坑。" },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.title} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                        <Icon className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-extrabold text-slate-900 mb-1">{item.title}</h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* 权益对比表区域 */}
+          {!loading && tabPlans.length > 0 && (
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+                  {t("membershipComparisonTitle")}
+                </h2>
+                <p className="text-base text-slate-600 max-w-xl mx-auto">
+                  {t("membershipPlansDesc")}
+                </p>
+              </div>
+              <PlanComparisonTable plans={plans} currentPlanCode={currentPlanCode} />
+            </section>
+          )}
+        </>
       )}
 
       {/* 升级确认弹窗 */}
