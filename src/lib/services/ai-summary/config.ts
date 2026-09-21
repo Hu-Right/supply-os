@@ -8,6 +8,7 @@
  *              新增模型时务必与 PUT /api/user/llm-config 的 OutboundUrl 校验保持一致
  *              （仅 https、非私有/环回地址），否则保存会被 zod 拒绝。
  */
+import type { LlmProfile } from "./llm-profile";
 
 export interface PresetLlmModel {
   /** 下拉选项唯一标识（同时作为 matchPresetByConfig 反查依据） */
@@ -22,6 +23,8 @@ export interface PresetLlmModel {
   description: string;
   /** 申请 API Key 的入口链接（可选） */
   docsUrl?: string;
+  /** 服务端调用档位（超时/参数兼容）；前端组件不读取，见 llm-profile.ts */
+  profile?: LlmProfile;
 }
 
 /** 自定义模式哨兵 id，前端下拉末尾固定展示 */
@@ -58,6 +61,7 @@ export const PRESET_LLM_MODELS: readonly PresetLlmModel[] = [
     model: "deepseek-v4-pro",
     description: "DeepSeek V4 Pro · 旗舰思考模型，复杂拆标与风险判定更稳",
     docsUrl: "https://platform.deepseek.com/",
+    profile: { scoreTimeoutMs: 90_000 },
   },
   {
     id: "qwen3.8-max",
@@ -66,6 +70,7 @@ export const PRESET_LLM_MODELS: readonly PresetLlmModel[] = [
     model: "qwen3.8-max",
     description: "通义千问 Qwen3.8-Max · 阿里中文旗舰，招投标语料表现优秀",
     docsUrl: "https://bailian.console.aliyun.com/",
+    profile: { scoreTimeoutMs: 90_000 },
   },
   {
     id: "glm-5.3",
@@ -74,6 +79,7 @@ export const PRESET_LLM_MODELS: readonly PresetLlmModel[] = [
     model: "glm-5.3",
     description: "智谱 GLM-5.3 · 最新旗舰，1M 上下文，Agent 与长程任务能力强",
     docsUrl: "https://open.bigmodel.cn/",
+    profile: { scoreTimeoutMs: 90_000 },
   },
   {
     id: "kimi-k3",
@@ -82,6 +88,7 @@ export const PRESET_LLM_MODELS: readonly PresetLlmModel[] = [
     model: "kimi-k3",
     description: "Kimi K3 · 2.8T 参数旗舰，1M 上下文，可整份招标文件直读",
     docsUrl: "https://platform.moonshot.cn/",
+    profile: { scoreTimeoutMs: 90_000 },
   },
   {
     id: "gpt-6-astra",
@@ -90,6 +97,8 @@ export const PRESET_LLM_MODELS: readonly PresetLlmModel[] = [
     model: "gpt-6-astra",
     description: "OpenAI GPT-6 Astra · 当前旗舰，1.05M 上下文（需海外支付渠道）",
     docsUrl: "https://platform.openai.com/docs/models",
+    // 新版 OpenAI 模型对 temperature 等非标准采样参数返回 400，探测与正式调用均不携带
+    profile: { scoreTimeoutMs: 120_000, supportsTemperature: false },
   },
 ];
 

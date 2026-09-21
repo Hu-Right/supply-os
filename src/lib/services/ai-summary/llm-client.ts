@@ -4,10 +4,13 @@
  * @description 支持非流式（缓存回填）和流式 SSE（逐 token 推送）两种模式。
  *              流式模式返回 AsyncIterable<string>，逐块 yield 原始文本片段。
  *              复用 translation 层的 fetchWithTimeout（SSRF 净化）。
+ *              凭证类型与 ai-score 共用（超时/temperature 按模型档位适配）。
  */
 import { fetchWithTimeout } from "../translation/fetchWithTimeout";
+import { DEFAULT_SUMMARY_TIMEOUT_MS } from "./llm-profile";
+import type { LlmCredentials } from "../ai-score/llm-client";
 
-const LLM_TIMEOUT_MS = 60_000; // 流式需要更长超时
+export type { LlmCredentials };
 
 export interface AiSummaryRaw {
   coreDeliverables: string;
@@ -23,12 +26,6 @@ export interface LlmCallResult {
   model: string;
   inputTokens: number | null;
   outputTokens: number | null;
-}
-
-export interface LlmCredentials {
-  baseUrl: string;
-  apiKey: string;
-  model: string;
 }
 
 /** 解析 LLM 返回文本为 6 维度对象（容错 markdown 围栏与前后杂讯） */
@@ -66,22 +63,23 @@ export async function callLlmForSummary(
   userPrompt: string,
 ): Promise<LlmCallResult> {
   const baseUrl = creds.baseUrl.replace(/\/+$/, "");
+  const payload: Record<string, unknown> = {
+    model: creds.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    stream: false,
+  };
+  if (creds.supportsTemperature !== false) payload.temperature = 0.3;
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${creds.apiKey}`,
     },
-    body: JSON.stringify({
-      model: creds.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: false,
-      temperature: 0.3,
-    }),
-  }, LLM_TIMEOUT_MS);
+    body: JSON.stringify(payload),
+  }, creds.summaryTimeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS);
 
   if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
   const body: any = await res.json();
@@ -106,22 +104,23 @@ export async function* callLlmForSummaryStream(
   userPrompt: string,
 ): AsyncIterable<string> {
   const baseUrl = creds.baseUrl.replace(/\/+$/, "");
+  const payload: Record<string, unknown> = {
+    model: creds.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    stream: true,
+  };
+  if (creds.supportsTemperature !== false) payload.temperature = 0.3;
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${creds.apiKey}`,
     },
-    body: JSON.stringify({
-      model: creds.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: true,
-      temperature: 0.3,
-    }),
-  }, LLM_TIMEOUT_MS);
+    body: JSON.stringify(payload),
+  }, creds.summaryTimeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS);
 
   if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
   if (!res.body) throw new Error("LLM_NO_BODY");

@@ -4,15 +4,20 @@
  * @description 调用 OpenAI 兼容端点获取 7 维度评分 JSON。
  */
 import { fetchWithTimeout } from "../translation/fetchWithTimeout";
+import { DEFAULT_SCORE_TIMEOUT_MS } from "../ai-summary/llm-profile";
 import type { AiScoreRaw, ScoreDimension, DimensionDetail } from "./prompt";
 import { SCORE_DIMENSIONS } from "./prompt";
-
-const LLM_TIMEOUT_MS = 30_000;
 
 export interface LlmCredentials {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 非流式摘要超时（毫秒），由模型档位挂载；缺省 60s（历史行为） */
+  summaryTimeoutMs?: number;
+  /** 评分/匹配调用超时（毫秒），由模型档位挂载；缺省 30s（历史行为） */
+  scoreTimeoutMs?: number;
+  /** 端点是否接受 temperature，false 时请求体不携带（仅显式传 false 才剔除） */
+  supportsTemperature?: boolean;
 }
 
 /** 解析 LLM 返回文本为评分对象（含推理过程） */
@@ -70,29 +75,30 @@ export function parseAiScoreResponse(content: string): AiScoreRaw & { reasoning:
   };
 }
 
-/** 调用 OpenAI 兼容端点获取评分 */
+/** 调用 OpenAI 兼容端点获取评分（超时/temperature 按凭证挂载的模型档位适配） */
 export async function callLlmForScore(
   creds: LlmCredentials,
   systemPrompt: string,
   userPrompt: string,
 ): Promise<{ data: AiScoreRaw; model: string }> {
   const baseUrl = creds.baseUrl.replace(/\/+$/, "");
+  const payload: Record<string, unknown> = {
+    model: creds.model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    stream: false,
+  };
+  if (creds.supportsTemperature !== false) payload.temperature = 0.2;
   const res = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${creds.apiKey}`,
     },
-    body: JSON.stringify({
-      model: creds.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: false,
-      temperature: 0.2,
-    }),
-  }, LLM_TIMEOUT_MS);
+    body: JSON.stringify(payload),
+  }, creds.scoreTimeoutMs ?? DEFAULT_SCORE_TIMEOUT_MS);
 
   if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
   const body: any = await res.json();
