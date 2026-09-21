@@ -11,9 +11,10 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
-import { EC_INVALID_PARAMS, EC_FORBIDDEN } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_FORBIDDEN, EC_VIP_ONLY } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
 import { hasEnterpriseBinding } from "@/lib/services/identity";
+import { hasFeature } from "@/lib/services/benefit-matrix";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 
@@ -71,6 +72,15 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     // 解锁校验
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+
+    // 档位闸门：AI 匹配与 AI 适配评分同属专业版（1299）起享权益（V2 权益 2026-09-21）
+    const current = await ctx.user.membershipRepo.findCurrentBestPlan(auth.userId);
+    if (!hasFeature(Number(current?.benefit_rank ?? 0), "ai_score")) {
+      routeError(403, EC_VIP_ONLY, "AI 智能匹配为专业版权益", {
+        feature: "ai_score",
+        required_rank: 3,
+      });
+    }
 
     const body = await parseJson(req, bodySchema);
     const result = await getOrGenerateAiMatch(ctx.dbPool, auth.userId, noticeId, body.forceRegenerate);

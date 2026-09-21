@@ -6,6 +6,9 @@
  * @description GET 仅查缓存：有则返回 {cached:true,data}，无则 {cached:false}，不调 LLM。
  *              POST 缓存优先；forceRegenerate=true 强制重新生成。
  *              业务逻辑委托 lib/services/ai-summary。
+ *              V2 权益（2026-09-21）：摘要不再要求解锁——免费档（rank0）可看脱敏版
+ *              （采购内容完整+资格条件截断，其余维度锁定），体验档及以上完整。
+ *              生成走用户 BYOK 大模型凭证，平台无边际成本。
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -16,6 +19,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { BENEFIT_RANK, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -23,6 +27,12 @@ const bodySchema = z.object({
 
 /** LLM 生成成本高（20-60s/次），仅限流 POST 生成路径（GET 只读缓存不消耗 LLM）：10 分钟 6 次 */
 const AI_SUMMARY_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
+
+/** 免费档脱敏判定（1 次查询解析当前档位） */
+async function isFreeRank(userId: number): Promise<boolean> {
+  const current = await getContext().user.membershipRepo.findCurrentBestPlan(userId);
+  return Number(current?.benefit_rank ?? 0) < BENEFIT_RANK.TRIAL;
+}
 
 /** GET：只读缓存，用于进页面时判断是否已有历史分析（不消耗 LLM） */
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -39,18 +49,19 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!cached || !cached.core_deliverables) {
       return NextResponse.json({ code: 0, message: "ok", data: { cached: false } });
     }
-    return NextResponse.json({
-      code: 0, message: "ok",
-      data: {
-        cached: true,
-        coreDeliverables: cached.core_deliverables || "",
-        keyQualifications: cached.key_qualifications || "",
-        paymentAndCycle: cached.payment_cycle || "",
-        competitiveLandscape: cached.competitive_landscape || "",
-        bidStrategy: cached.bid_strategy || "",
-        riskAlerts: cached.risk_alerts || "",
-      },
-    });
+    const full = {
+      cached: true,
+      coreDeliverables: cached.core_deliverables || "",
+      keyQualifications: cached.key_qualifications || "",
+      paymentCycle: cached.payment_cycle || "",
+      competitiveLandscape: cached.competitive_landscape || "",
+      bidStrategy: cached.bid_strategy || "",
+      riskAlerts: cached.risk_alerts || "",
+    };
+    const data = (await isFreeRank(auth.userId))
+      ? { ...maskSummaryForFree(full), masked: true }
+      : full;
+    return NextResponse.json({ code: 0, message: "ok", data });
   },
 );
 
@@ -65,14 +76,12 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
 
-    // 解锁校验：AI 摘要属于公告完整内容的一部分，未解锁不可访问
-    const ctx = getContext();
-    const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
-    if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
-
     const body = await parseJson(req, bodySchema);
-    const pool = ctx.dbPool;
+    const pool = getContext().dbPool;
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
-    return NextResponse.json({ code: 0, message: "ok", data: result });
+    const data = (await isFreeRank(auth.userId))
+      ? { ...maskSummaryForFree(result), masked: true }
+      : result;
+    return NextResponse.json({ code: 0, message: "ok", data });
   },
 );
