@@ -125,6 +125,16 @@ export const fetchUnifiedSearch = (params: {
   return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
 };
 
+/**
+ * 相似公告（按 UNSPSC 品类语义相似，最多 limit 条；无同类返回空数组，服务端不做兜底）
+ */
+export const fetchSimilarNotices = (
+  noticeId: number, limit = 6, locale?: string, signal?: AbortSignal,
+): Promise<NoticeResponse> => {
+  const qs = buildQuery({ limit, locale });
+  return apiCached<NoticeResponse>(`/api/notices/${noticeId}/similar?${qs}`, 60 * 1000, signal);
+};
+
 // ── 收藏（用户私有书签） ──
 
 /** 收藏/取消收藏（toggle，返回切换后的状态） */

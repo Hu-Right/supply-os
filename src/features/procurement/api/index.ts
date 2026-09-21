@@ -21,6 +21,7 @@ export {
   fetchNoticeTranslation,
   downloadNoticeReport,
   fetchUnifiedSearch,
+  fetchSimilarNotices,
   toggleNoticeFavorite,
   fetchNoticeFavoriteIds,
   fetchNoticeFavorites,
