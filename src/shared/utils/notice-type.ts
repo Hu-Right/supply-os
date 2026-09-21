@@ -47,6 +47,11 @@ const CODE_MAP: Record<string, LocaleKey> = {
   FRAMEWORK: "procurement_type_framework",
   DIRECT_CONTRACTING: "procurement_type_direct_contracting",
   REQUEST: "procurement_type_request",
+  // 法语原生短代码（与 lib/utils/notice-type 的 SHORT_CODES 同步）
+  AO: "procurement_type_itb",
+  AOI: "procurement_type_itb",
+  AOD: "procurement_type_itb",
+  AOM: "procurement_type_itb",
 };
 
 // 子串规则按优先级排列：
@@ -56,13 +61,13 @@ const CODE_MAP: Record<string, LocaleKey> = {
 // EOI 先于资格预审（"意向表达…预审阶段"归 EOI），
 // RFQ/RFP/资格预审先于 ITB（"报价请求…重新招标"归 RFQ）
 const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
-  ["procurement_type_rfq", /quotation|报价|询价/],
-  ["procurement_type_rfp", /\brfp\b|proposal|提案|建议书/],
+  ["procurement_type_rfq", /quotation|报价|询价|demande\s+de\s+cotation|demande\s+de\s+prix/],
+  ["procurement_type_rfp", /\brfp\b|proposal|提案|建议书|demande\s+de\s+propositions/],
   ["procurement_type_prequalification", /pre[\s-]?qualif|qualification|资格预审/],
   ["procurement_type_consultant", /consultant|顾问/],
   ["procurement_type_rfi", /request for information|信息征询/],
   ["procurement_type_gpn", /general procurement notice/],
-  ["procurement_type_contract_award", /contract award|award notice|授标|中标/],
+  ["procurement_type_contract_award", /contract award|award notice|授标|中标|attribution\s+du\s+marche|avis\s+dattribution/],
   // 长尾采购类型：多供应商清单 / 框架协议 / 直接 contracting / 供应商名单
   ["procurement_type_multi_use_list", /multi[\s-]?use list|qualified supplier|vendor list|供应商名单|多用途清单/],
   // 竞争性对话（EU Competitive Dialogue）- 必须在 competitive 之前，避免 "competitive dialogue" 被误匹配
@@ -95,10 +100,10 @@ const PATTERN_RULES: Array<[LocaleKey, RegExp]> = [
   ["procurement_type_shortlist", /shortlist|short list|短名单/],
   // ITB 提前至 framework/EOI/request 之前：避免 "Request for Bid" 被 request 误匹配、
   // "投标邀请书(ITB)-框架协议" 被 framework("框架协议") 或 EOI("意向表达") 误匹配
-  ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/],
+  ["procurement_type_itb", /\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标|appels?\s+doffres|avis\s+dappel/],
   ["procurement_type_framework", /framework agreement|framework|standing offer|框架协议/],
   ["procurement_type_direct_contracting", /direct contract|direct procurement|直接合同|直接采购/],
-  ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b/],
+  ["procurement_type_eoi", /expression of interest|express of interest|意向表达|意向征集|\beoi\b|manifestation\s+dinteret/],
   ["procurement_type_request", /request for(?! information)|征询请求|采购请求/],
   ["procurement_type_other", /\bother\b|其他/],
 ];
@@ -112,7 +117,14 @@ export function noticeTypeKey(raw: string | undefined | null): LocaleKey | null 
   if (exact) return exact;
 
   // 归一化：小写 + 下划线/连字符/括号等转空格，让 \b 边界对 snake_case 生效
-  const normalized = trimmed.toLowerCase().replace(/[_\-–—()（）./\\]/g, " ");
+  // 重音与撇号剥离与 lib/utils/notice-type 保持同款（法语原生值不剥即落 OTHER 兜底）
+  const normalized = trimmed
+    .toLowerCase()
+    .replace(/[_\-–—()（）./\\]/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2019\u02bc']/g, "")
+    .replace(/\s+/g, " ");
   for (const [key, pattern] of PATTERN_RULES) {
     if (pattern.test(normalized)) return key;
   }

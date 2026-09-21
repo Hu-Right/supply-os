@@ -34,24 +34,37 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
     SUBCONTRACT: "SUBCONTRACT", QUAL_SYSTEM: "QUAL_SYSTEM",
     SHORTLIST: "SHORTLIST", FRAMEWORK: "FRAMEWORK",
     DIRECT_CONTRACTING: "DIRECT_CONTRACTING", REQUEST: "REQUEST",
+    // 法语原生采购类型（UNGM / AfD / 北非与西非公共采购的主流形态）：
+    // Appel d'offres 系列均为一场招标，归 ITB；AO 与 AOI 只差“国际”限定，同类。
+    AO: "ITB", AOI: "ITB", AOD: "ITB", AOM: "ITB",
   };
   if (SHORT_CODES[upper]) return SHORT_CODES[upper];
 
   // [口径一致性修复] 分隔符归一化：与前端 noticeTypeKey 完全同款字符集
   //（下划线/连字符/全角横线/括号/点/斜杠 → 空格），使 \b 单词边界对
   // snake_case 及 "consultation(PMC)" 等粘连形态生效
-  const spaced = raw.replace(/[_\-–—()（）./\\]+/g, " ");
+  //
+  // 重音与撇号剥离（与前端同步新增）：国际公共采购大量值为原生法语
+  //（Appel d'offres、Demande de cotation、Manifestation d'intérêt），不剥 accents
+  // 则整批落 OTHER、类型筛选完全命中不到；剥后对原有英/西/中文规则无影响
+  //（原有规则均为不含重音的前缀或词干）。
+  const spaced = raw
+    .replace(/[_\-–—()（）./\\]+/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u2019\u02bc']/g, "")
+    .replace(/\s+/g, " ");
 
   // ── 高优先级：具体类型先于通用类型（与前端 PATTERN_RULES 优先级对齐）──
-  if (/expression of interest|express of interest|意向表达|意向征集|兴趣征询|\beoi\b/i.test(spaced)) return "EOI";
-  if (/quotation|报价|询价/i.test(spaced)) return "RFQ";
-  if (/\brfp\b|proposal|提案|建议书/i.test(spaced)) return "RFP";
+  if (/expression of interest|express of interest|意向表达|意向征集|兴趣征询|\beoi\b|manifestation\s+dinteret/i.test(spaced)) return "EOI";
+  if (/quotation|报价|询价|demande\s+de\s+cotation|demande\s+de\s+prix/i.test(spaced)) return "RFQ";
+  if (/\brfp\b|proposal|提案|建议书|demande\s+de\s+propositions/i.test(spaced)) return "RFP";
   if (/pre[\s-]?qualif|qualification|资格预审/i.test(spaced)) return "PQ";
   if (/consultant|顾问/i.test(spaced)) return "IC";
   // sources sought（美国 SAM 市场调研公告）语义等同信息征询
   if (/request for information|sources sought|信息征询|\brfi\b/i.test(spaced)) return "RFI";
   if (/general procurement notice|\bgpn\b/i.test(spaced)) return "GPN";
-  if (/contract award|award notice|授标|中标/i.test(spaced)) return "AWARD";
+  if (/contract award|award notice|授标|中标|attribution\s+du\s+marche|avis\s+dattribution/i.test(spaced)) return "AWARD";
   
   // ── 扩展类型（与前端 PATTERN_RULES 对齐；具体规则先于通用规则）──
   // presolicitation（招标预告）语义属事前信息通知，须在 solicitation 规则前
@@ -100,7 +113,8 @@ export function normalizeNoticeType(raw: string | null | undefined): string {
   if (/suministro|\bsupplies\b/i.test(spaced)) return "SUPPLIES";
   if (/\bobras\b|construcci|\bworks\b/i.test(spaced)) return "WORKS";
   // ITB 放在较后位置（与前端对齐）：tenders?|bids? 在 framework/EOI/request 之后
-  if (/\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标/i.test(spaced)) return "ITB";
+  // 法语「Appel d'offres / Avis d'appel」系同为招标，归同一桶
+  if (/\btenders?\b|\bbids?\b|\bitb\b|\bitt\b|招标|投标|appels?\s+doffres|avis\s+dappel/i.test(spaced)) return "ITB";
   
   return "OTHER";
 }
