@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ArrowRight, Building2, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiMatchData, MatchedSupplier } from "../api/ai-match";
-import { vipGateMessage } from "../api/notice-gate";
+import { parseVipRank, rankToTierKey } from "../api/notice-gate";
 
 export interface AiMatchCardProps {
   data: AiMatchData | null;
@@ -69,11 +69,8 @@ export function AiMatchCard({ data, loading, cacheLoading, error, onStart, onReg
 
   const toggle = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }));
 
-  /** 错误映射：限流/解锁/通用，避免直接暴露 HTTP 状态码 */
+  /** 错误映射：限流/解锁/通用，避免直接暴露 HTTP 状态码（档位不足由上方琥珀引导卡接管） */
   const friendlyError = (raw: string): string => {
-    // 档位不足（V2）：优先于通用 403，避免把“升级”误报成“请解锁”
-    const vip = vipGateMessage(raw);
-    if (vip) return vip;
     if (raw.includes("429") || raw.includes("rate")) {
       return t("aiScoreErrorRate") || "AI 服务请求过于频繁，请稍后再试。";
     }
@@ -146,16 +143,18 @@ export function AiMatchCard({ data, loading, cacheLoading, error, onStart, onReg
     );
   }
 
-  // 档位不足（V2）：以琥珀色“需升级”引导卡呈现，而非红色错误态（与历史中标一致）
-  const vipLock = error ? vipGateMessage(error) : null;
-  if (vipLock) {
+  // 档位不足（V2）：以琥珀色“需升级”引导卡呈现（六语），而非红色错误态
+  const gateRank = error ? parseVipRank(error) : null;
+  if (gateRank !== null) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 text-center">
         <Lock className="w-8 h-8 text-amber-600 mx-auto mb-3" />
-        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("aiMatchTitle") || "AI 智能匹配"}为会员专享权益</h3>
-        <p className="text-sm text-amber-700 mb-4">{vipLock}</p>
+        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("aiGateMatchTitle")}</h3>
+        <p className="text-sm text-amber-700 mb-4">
+          {t("aiGateUpgradeSummary", { tier: t(rankToTierKey(gateRank)) })}
+        </p>
         <a href="/membership" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors">
-          查看会员套餐
+          {t("aiGateViewPlans")}
         </a>
       </section>
     );

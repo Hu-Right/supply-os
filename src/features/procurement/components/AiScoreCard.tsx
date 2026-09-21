@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { Target, RefreshCw, AlertTriangle, Sparkles, ChevronDown, Info, ChevronRight, Loader2, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import type { AiScoreData } from "../api/ai-score";
-import { vipGateMessage } from "../api/notice-gate";
+import { parseVipRank, rankToTierKey } from "../api/notice-gate";
 
 export interface AiScoreCardProps {
   data: AiScoreData | null;
@@ -79,14 +79,11 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
     return () => clearInterval(id);
   }, [loading]);
 
-  /** 将原始错误信息映射为用户友好的提示 */
+  /** 将原始错误信息映射为用户友好的提示（档位不足由上方琥珀引导卡接管） */
   const friendlyError = (raw: string): string => {
-    // 档位不足（V2）：优先于通用 403，避免把“升级”误报成“请解锁”
-    const vip = vipGateMessage(raw);
-    if (vip) return vip;
-    // 缺企业画像（未绑定/无资料）：引导去完善企业信息，而非笼统“AI 错误”（中文字面兑底，待六语本地化）
+    // 缺企业画像（未绑定/无资料）：引导去完善企业信息
     if (raw.includes("SUPPLIER_PROFILE_REQUIRED")) {
-      return "请先在设置中绑定/完善企业信息，再进行 AI 适配评分。";
+      return t("aiGateNeedProfile");
     }
     if (raw.includes("401") || raw.includes("Unauthorized") || raw.includes("LLM_NOT_CONFIGURED"))
       return t("aiScoreErrorAuth") || "登录已过期，请重新登录后再试。";
@@ -200,16 +197,18 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
     );
   }
 
-  // 档位不足（V2）：以琥珀色“需升级”引导卡呈现，而非红色错误态（与历史中标一致）
-  const vipLock = error ? vipGateMessage(error) : null;
-  if (vipLock) {
+  // 档位不足（V2）：以琥珀色“需升级”引导卡呈现（六语），而非红色错误态
+  const gateRank = error ? parseVipRank(error) : null;
+  if (gateRank !== null) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 text-center">
         <Lock className="w-8 h-8 text-amber-600 mx-auto mb-3" />
-        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("detail_tabAiScore") || "AI 适配评分"}为会员专享权益</h3>
-        <p className="text-sm text-amber-700 mb-4">{vipLock}</p>
+        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("aiGateScoreTitle")}</h3>
+        <p className="text-sm text-amber-700 mb-4">
+          {t("aiGateUpgradeSummary", { tier: t(rankToTierKey(gateRank)) })}
+        </p>
         <a href="/membership" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors">
-          查看会员套餐
+          {t("aiGateViewPlans")}
         </a>
       </section>
     );

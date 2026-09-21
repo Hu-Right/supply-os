@@ -15,7 +15,7 @@ import {
 import { useLocale } from "@/core/i18n";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 import { useAwardHistory, type AwardHistoryData } from "../../hooks/useAwardHistory";
-import { vipGateMessage } from "../../api/notice-gate";
+import { parseVipRank, rankToTierKey } from "../../api/notice-gate";
 
 interface AwardHistoryTabProps {
   noticeId: number | undefined;
@@ -250,6 +250,7 @@ function RecentAwardsSection({ data }: { data: AwardHistoryData }) {
 
 /** 主组件 */
 export function AwardHistoryTab({ noticeId }: AwardHistoryTabProps) {
+  const { t } = useLocale();
   const { data, loading, error, triggerFetch } = useAwardHistory(noticeId);
 
   // Tab 切换到时自动触发请求
@@ -272,22 +273,24 @@ export function AwardHistoryTab({ noticeId }: AwardHistoryTabProps) {
     );
   }
 
-  // 档位不足（V2/EC_VIP_ONLY）：以“需升级”引导态展示，而非当作“查询失败”
-  const vipLock = error ? vipGateMessage(error) : null;
-  if (vipLock) {
+  // 档位不足（V2/EC_VIP_ONLY）：以“需升级”引导态展示（六语），而非当作“查询失败”
+  const gateRank = error ? parseVipRank(error) : null;
+  if (gateRank !== null) {
     return (
       <section className="rounded-2xl border border-amber-200 bg-amber-50/50 overflow-hidden">
         <div className="p-8 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-100 mb-4">
             <Lock className="w-7 h-7 text-amber-600" />
           </div>
-          <h3 className="text-base font-extrabold text-amber-800 mb-2">历史中标为会员专享权益</h3>
-          <p className="text-sm text-amber-700 mb-4">{vipLock}</p>
+          <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("aiGateAwardTitle")}</h3>
+          <p className="text-sm text-amber-700 mb-4">
+            {t("aiGateUpgradeSummary", { tier: t(rankToTierKey(gateRank)) })}
+          </p>
           <a
             href="/membership"
             className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors"
           >
-            查看会员套餐
+            {t("aiGateViewPlans")}
           </a>
         </div>
       </section>

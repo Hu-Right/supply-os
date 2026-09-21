@@ -22,9 +22,20 @@ const RANK_TIER: Record<number, string> = {
   4: "企业年度会员",
 };
 
-/** 档位 → 中文等级名（0 或未知归为「更高会员等级」） */
+/** 档位 → 中文等级名（无 i18n 环下境的兑底） */
 export function rankToTierName(rank: number): string {
   return RANK_TIER[rank] ?? "更高会员等级";
+}
+
+/** 档位 → 六语 tier 键（组件用 t() 取对应语言等级名） */
+const RANK_TIER_KEY: Record<number, string> = {
+  1: "tierTrial",
+  2: "tierStd",
+  3: "tierPro",
+  4: "tierEnterprise",
+};
+export function rankToTierKey(rank: number): string {
+  return RANK_TIER_KEY[rank] ?? "tierHigher";
 }
 
 /**
@@ -45,11 +56,19 @@ export function gateErrorToken(err: unknown): string {
 }
 
 /**
- * 若 raw 为 VIP 档位 token → 返回「升级 X 版」文案；否则返回 null（交调用方走通用映射）。
- * 文案暂以中文字面兜底（与详情页/对比表 V2 文案本地化专轮一致处理）。
+ * 若 raw 为 VIP 档位 token → 返回所需档位 rank；否则返回 null（交调用方走通用映射）。
+ * 组件据 rank 用 t("aiGateUpgradeSummary", { tier: t(rankToTierKey(rank)) }) 本地化渲染。
+ */
+export function parseVipRank(raw: string): number | null {
+  if (!raw.startsWith(`${VIP_PREFIX}|`)) return null;
+  return Number(raw.split("|")[1] || 0);
+}
+
+/**
+ * 保留：旧接口，返回中文兑底升级文案（无 React/t 环境时用）。新代码应用 parseVipRank + t()。
  */
 export function vipGateMessage(raw: string): string | null {
-  if (!raw.startsWith(`${VIP_PREFIX}|`)) return null;
-  const rank = Number(raw.split("|")[1] || 0);
+  const rank = parseVipRank(raw);
+  if (rank === null) return null;
   return `此功能为${rankToTierName(rank)}权益，升级后即可使用。`;
 }
