@@ -75,8 +75,8 @@ export async function registerUser(
     referralEmployeeId = inviteValidation.employee_id!;
   }
 
-  // ── 短信验证码校验 ──
-  const codeRecord = await ctx.user.authRepo.findLatestActiveCode(targetPhone, "registration", targetPhone);
+  // ── 短信验证码校验：以手机号为唯一锚点（注册时账号不存在，不依赖 user_key/user_id） ──
+  const codeRecord = await ctx.user.authRepo.findLatestActiveCodeByPhone(targetPhone, "registration");
   if (!codeRecord) throw new RouteError(400, 40007, "验证码无效，请重新获取");
   if (codeRecord.attempts >= 5) throw new RouteError(429, 40029, "尝试次数过多，请重新获取验证码");
   if (codeRecord.code !== hashVerificationCode(code)) {
@@ -101,6 +101,8 @@ export async function registerUser(
   if (!newUserId) throw new RouteError(400, 40008, "注册失败，请稍后重试");
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
+  // 注册成功 → 回填该验证码行的 user_id，建立「码 ↔ 账号」审计关联（未注册则不回填，保持 NULL）
+  await ctx.user.authRepo.backfillCodeUserId(codeRecord.id, newUserId);
   // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
 

@@ -23,26 +23,18 @@ export class AuthRepo {
 
   // ── crm_password_resets：验证码生命周期 ────────────────────────────────────
 
-  /** 失效某用户某类型下所有未使用的验证码（M-3：发新码前作废旧码） */
-  async invalidateUnusedCodes(userIdOrKey: number | string, codeType: string): Promise<void> {
-    if (typeof userIdOrKey === "number") {
-      await this.pool.execute(
-        "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
-        [userIdOrKey, codeType],
-      );
-    } else {
-      // 注册场景（永久设计，非过渡态）：验证码创建于用户行之前，尚无 userId，只能按 user_key 失效
-      await this.pool.execute(
-        "UPDATE crm_password_resets SET used = 1 WHERE user_key = ? AND code_type = ? AND used = 0",
-        [userIdOrKey, codeType],
-      );
-    }
+  /** 失效某用户某类型下所有未使用的验证码（M-3：发新码前作废旧码）
+   *  仅登录态场景使用（发码时已知 user_id）；注册场景以 phone 为锚点，不走此路径。 */
+  async invalidateUnusedCodes(userId: number, codeType: string): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_password_resets SET used = 1 WHERE user_id = ? AND code_type = ? AND used = 0",
+      [userId, codeType],
+    );
   }
 
-  /** 创建验证码记录，返回自增 id（phone 仅手机渠道传入） */
+  /** 创建验证码记录，返回自增 id（phone 仅手机渠道传入；user_key 列已退役） */
   async createResetCode(params: {
     userId?: number | null;
-    userKey?: string;
     codeHash: string;
     codeType: string;
     expiresAt: Date;
@@ -50,27 +42,56 @@ export class AuthRepo {
     phone?: string;
   }): Promise<number> {
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_password_resets (user_id, user_key, phone, code, code_type, expires_at, ip)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [params.userId ?? null, params.userKey ?? null, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
+      `INSERT INTO crm_password_resets (user_id, phone, code, code_type, expires_at, ip)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [params.userId ?? null, params.phone ?? null, params.codeHash, params.codeType, params.expiresAt, params.ip],
     );
     return (result as ResultSetHeader).insertId;
   }
 
-  /** 查询最新一条有效（未使用且未过期）验证码；phone 非空时附加手机号匹配 */
+  /** 查询最新一条有效（未使用且未过期）验证码（按 user_id 锚点）；phone 非空时附加手机号匹配 */
   async findLatestActiveCode(
-    userIdOrKey: number | string,
+    userId: number,
     codeType: string,
     phone?: string,
   ): Promise<AuthCodeRow | null> {
-    const isUserId = typeof userIdOrKey === "number";
     const sql = `SELECT id, code, expires_at, attempts
        FROM crm_password_resets
-       WHERE ${isUserId ? "user_id" : "user_key"} = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
+       WHERE user_id = ? AND ${phone ? "phone = ? AND " : ""}code_type = ? AND used = 0 AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 1`;
-    const args = phone ? [userIdOrKey, phone, codeType] : [userIdOrKey, codeType];
+    const args = phone ? [userId, phone, codeType] : [userId, codeType];
     const [rows] = await this.pool.query(sql, args);
     return (rows as AuthCodeRow[])[0] ?? null;
+  }
+
+  /**
+   * 注册场景：以「手机号」为唯一锚点查最新有效验证码。
+   * 注册时账号尚不存在，验证码天然应锚定在投递目标（手机号）上，
+   * user_key / user_id 均不参与查询（user_id 待注册成功后回填）。
+   */
+  async findLatestActiveCodeByPhone(
+    phone: string,
+    codeType: string,
+  ): Promise<AuthCodeRow | null> {
+    const [rows] = await this.pool.query(
+      `SELECT id, code, expires_at, attempts
+         FROM crm_password_resets
+         WHERE phone = ? AND code_type = ? AND used = 0 AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 1`,
+      [phone, codeType],
+    );
+    return (rows as AuthCodeRow[])[0] ?? null;
+  }
+
+  /**
+   * 注册成功后回填验证码行的 user_id，建立「码 ↔ 账号」审计关联。
+   * 未注册（验证码未被成功核销）则不调用，该行 user_id 保持 NULL。
+   */
+  async backfillCodeUserId(resetId: number, userId: number): Promise<void> {
+    await this.pool.execute(
+      "UPDATE crm_password_resets SET user_id = ? WHERE id = ?",
+      [userId, resetId],
+    );
   }
 
   /** 查询验证码记录绑定的手机号（短信重置渠道的身份一致性校验用） */
