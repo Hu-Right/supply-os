@@ -7,6 +7,7 @@
  *              每个指标带数字跳动动画。
  */
 import { Search, Globe, TrendingUp, ShieldCheck } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import { useCountUp } from "@/shared/hooks/useCountUp";
 import { useHomeStats } from "../hooks/useHomeStats";
 import { formatPlainNumber } from "@/shared/utils/format";
@@ -30,13 +31,14 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
 
 /** 实时数字墙 — 消费 useHomeStats，纯展示组件 */
 export function StatsWall() {
+  const { t } = useLocale();
   const { noticeActive, noticeTodayNew, countryCount, certifiedSupplierCount } = useHomeStats();
 
   const stats = [
-    { label: "采购机会总量", value: noticeActive, sub: "实时更新", icon: Globe, color: "text-teal-600" },
-    { label: "每日新增机会", value: noticeTodayNew, sub: "今日新增", icon: TrendingUp, color: "text-blue-600" },
-    { label: "数据源 / API", value: countryCount, sub: "政府 & 国际组织", icon: Search, color: "text-purple-600" },
-    { label: "认证供应商", value: certifiedSupplierCount, sub: "企业资质已核验", icon: ShieldCheck, color: "text-emerald-600" },
+    { label: t("homeStatTotal"), value: noticeActive, sub: t("homeStatTotalSub"), icon: Globe, color: "text-teal-600" },
+    { label: t("homeStatDaily"), value: noticeTodayNew, sub: t("homeStatDailySub"), icon: TrendingUp, color: "text-blue-600" },
+    { label: t("homeStatSources"), value: countryCount, sub: t("homeStatSourcesSub"), icon: Search, color: "text-purple-600" },
+    { label: t("homeStatSuppliers"), value: certifiedSupplierCount, sub: t("homeStatSuppliersSub"), icon: ShieldCheck, color: "text-emerald-600" },
   ];
 
   return (

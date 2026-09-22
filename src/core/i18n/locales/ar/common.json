@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "تمت الإضافة",
   "supplierPoolNoCandidate": "لا يوجد مورد مطابق في الدليل",
   "supplierPoolCreateAnyway": "لا توجد مطابقة؟ أضف «{name}» على أي حال",
-  "navMembership": "العضوية"
+  "navMembership": "العضوية",
+  "homeHeroTitle": "منصة فرص المشتريات العامة العالمية وسلاسل التوريد العابرة للحدود",
+  "homeHeroDesc": "نجمع فرص المشتريات العامة والمؤسسات الكبيرة حول العالم، مع تحديث فوري.",
+  "homeSearchLabel": "البحث عن فرص المشتريات",
+  "homeSearchPlaceholder": "الموضوع / الكلمة الرئيسية للمنتج / UNSPSC / المنطقة / الجهة المشتريَة",
+  "homeSearchBtn": "بحث",
+  "homeHotSearchLabel": "عمليات البحث الشائعة:",
+  "homeStatTotal": "إجمالي الفرص",
+  "homeStatTotalSub": "تحديث فوري",
+  "homeStatDaily": "فرص جديدة اليوم",
+  "homeStatDailySub": "أُضيفت اليوم",
+  "homeStatSources": "مصادر البيانات / API",
+  "homeStatSourcesSub": "حكومات ومنظمات دولية",
+  "homeStatSuppliers": "موردون معتمدون",
+  "homeStatSuppliersSub": "ملفات الشركات موثّقة"
 }

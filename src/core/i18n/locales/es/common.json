@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "Añadido",
   "supplierPoolNoCandidate": "Sin proveedores coincidentes en el directorio",
   "supplierPoolCreateAnyway": "¿Sin coincidencias? Añadir «{name}» de todos modos",
-  "navMembership": "Membresía"
+  "navMembership": "Membresía",
+  "homeHeroTitle": "Plataforma de oportunidades de contratación pública global y cadenas de suministro transfronterizas",
+  "homeHeroDesc": "Agregamos oportunidades de contratación pública y de grandes instituciones en todo el mundo, actualizadas en tiempo real.",
+  "homeSearchLabel": "Buscar oportunidades de contratación",
+  "homeSearchPlaceholder": "Tema / palabra clave de producto / UNSPSC / región / organismo de compra",
+  "homeSearchBtn": "Buscar",
+  "homeHotSearchLabel": "Búsquedas populares:",
+  "homeStatTotal": "Oportunidades totales",
+  "homeStatTotalSub": "Actualización en tiempo real",
+  "homeStatDaily": "Nuevas hoy",
+  "homeStatDailySub": "Añadidas hoy",
+  "homeStatSources": "Fuentes de datos / API",
+  "homeStatSourcesSub": "Gobiernos y organizaciones internacionales",
+  "homeStatSuppliers": "Proveedores certificados",
+  "homeStatSuppliersSub": "Credenciales de empresa verificadas"
 }

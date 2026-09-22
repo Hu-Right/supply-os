@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "Added",
   "supplierPoolNoCandidate": "No matching directory supplier",
   "supplierPoolCreateAnyway": "No match? Add \"{name}\" anyway",
-  "navMembership": "Membership"
+  "navMembership": "Membership",
+  "homeHeroTitle": "Global Public Procurement & Cross-border Supply Chain Opportunities Platform",
+  "homeHeroDesc": "Aggregating public and large-institution procurement opportunities worldwide, updated in real time.",
+  "homeSearchLabel": "Search procurement opportunities",
+  "homeSearchPlaceholder": "Topic / product keyword / UNSPSC / region / procuring agency",
+  "homeSearchBtn": "Search",
+  "homeHotSearchLabel": "Trending:",
+  "homeStatTotal": "Total opportunities",
+  "homeStatTotalSub": "Updated in real time",
+  "homeStatDaily": "New today",
+  "homeStatDailySub": "Added today",
+  "homeStatSources": "Data sources / APIs",
+  "homeStatSourcesSub": "Governments & intl. organizations",
+  "homeStatSuppliers": "Certified suppliers",
+  "homeStatSuppliersSub": "Verified company credentials"
 }

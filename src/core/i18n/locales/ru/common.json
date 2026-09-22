@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "Добавлено",
   "supplierPoolNoCandidate": "Нет совпадений в каталоге",
   "supplierPoolCreateAnyway": "Нет совпадений? Всё равно добавить «{name}»",
-  "navMembership": "Участие"
+  "navMembership": "Участие",
+  "homeHeroTitle": "Платформа возможностей глобальных госзакупок и трансграничных цепочек поставок",
+  "homeHeroDesc": "Агрегируем возможности государственных и крупных институциональных закупок по всему миру, обновление в реальном времени.",
+  "homeSearchLabel": "Поиск закупочных возможностей",
+  "homeSearchPlaceholder": "Тема / ключевое слово продукта / UNSPSC / регион / закупающая организация",
+  "homeSearchBtn": "Поиск",
+  "homeHotSearchLabel": "Популярные запросы:",
+  "homeStatTotal": "Всего возможностей",
+  "homeStatTotalSub": "Обновляется в реальном времени",
+  "homeStatDaily": "Новых за сегодня",
+  "homeStatDailySub": "Добавлено сегодня",
+  "homeStatSources": "Источники данных / API",
+  "homeStatSourcesSub": "Правительства и международные организации",
+  "homeStatSuppliers": "Сертифицированные поставщики",
+  "homeStatSuppliersSub": "Данные компании проверены"
 }

@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "Ajouté",
   "supplierPoolNoCandidate": "Aucun fournisseur d'annuaire correspondant",
   "supplierPoolCreateAnyway": "Aucun résultat ? Ajouter « {name} » quand même",
-  "navMembership": "Adhésion"
+  "navMembership": "Adhésion",
+  "homeHeroTitle": "Plateforme d'opportunités de marchés publics mondiaux et de chaînes d'approvisionnement transfrontalières",
+  "homeHeroDesc": "Nous agrégeons les opportunités de marchés publics et de grandes institutions dans le monde, mises à jour en temps réel.",
+  "homeSearchLabel": "Rechercher des opportunités",
+  "homeSearchPlaceholder": "Sujet / mot-clé produit / UNSPSC / région / organisme acheteur",
+  "homeSearchBtn": "Rechercher",
+  "homeHotSearchLabel": "Recherches populaires :",
+  "homeStatTotal": "Total des opportunités",
+  "homeStatTotalSub": "Mise à jour en temps réel",
+  "homeStatDaily": "Nouvelles aujourd'hui",
+  "homeStatDailySub": "Ajoutées aujourd'hui",
+  "homeStatSources": "Sources de données / API",
+  "homeStatSourcesSub": "Gouvernements et organisations internationales",
+  "homeStatSuppliers": "Fournisseurs certifiés",
+  "homeStatSuppliersSub": "Identité d'entreprise vérifiée"
 }

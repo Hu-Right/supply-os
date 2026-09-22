@@ -17,7 +17,7 @@ import { Search } from "lucide-react";
 /** Hero 区 — 采购机会搜索 + 热门标签 */
 export function HeroSection() {
   const router = useRouter();
-  const { locale } = useLocale();
+  const { t, locale } = useLocale();
   const [query, setQuery] = useState("");
   const { topics: hotTags } = useHotTopics();
 
@@ -54,16 +54,16 @@ export function HeroSection() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
         {/* 标题区 */}
         <h1 className="text-3xl md:text-4xl font-extrabold text-white mb-2">
-          全球公共采购与跨境供应链机会平台
+          {t("homeHeroTitle")}
         </h1>
         <p className="text-slate-400 text-sm mb-8 max-w-2xl">
-          聚合全球公共与大型机构采购机会，数据实时更新。
+          {t("homeHeroDesc")}
         </p>
 
         {/* 搜索入口 */}
         <div className="bg-[#162236] rounded-xl border border-[#1e3a5f] p-6 max-w-3xl">
           <div className="mb-3">
-            <span className="text-white font-bold text-sm">搜索采购机会</span>
+            <span className="text-white font-bold text-sm">{t("homeSearchLabel")}</span>
           </div>
           <div className="flex mb-3">
             <div className="relative flex-1">
@@ -73,7 +73,7 @@ export function HeroSection() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                placeholder="搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构"
+                placeholder={t("homeSearchPlaceholder")}
                 className="w-full bg-white border border-r-0 border-slate-200 rounded-l-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
@@ -81,11 +81,11 @@ export function HeroSection() {
               onClick={handleSearch}
               className="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2.5 rounded-r-lg text-sm font-bold transition-colors whitespace-nowrap border border-teal-600"
             >
-              搜索商机
+              {t("homeSearchBtn")}
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-1">
-            <span className="text-slate-500 text-xs">热门搜索：</span>
+            <span className="text-slate-500 text-xs">{t("homeHotSearchLabel")}</span>
             {hotTags_list.map((tag, idx) => (
               <span key={tag} className="inline-flex items-center gap-1">
                 {idx > 0 && <span className="text-slate-600 text-xs">/</span>}

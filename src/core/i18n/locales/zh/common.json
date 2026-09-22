@@ -240,5 +240,19 @@
   "supplierPoolAlreadyInPool": "已添加",
   "supplierPoolNoCandidate": "没有匹配的平台供应商",
   "supplierPoolCreateAnyway": "未找到匹配？仍要添加「{name}」",
-  "navMembership": "会员套餐"
+  "navMembership": "会员套餐",
+  "homeHeroTitle": "全球公共采购与跨境供应链机会平台",
+  "homeHeroDesc": "聚合全球公共与大型机构采购机会，数据实时更新。",
+  "homeSearchLabel": "搜索采购机会",
+  "homeSearchPlaceholder": "搜索采购主题 / 产品关键词 / UNSPSC / 地区 / 采购机构",
+  "homeSearchBtn": "搜索商机",
+  "homeHotSearchLabel": "热门搜索：",
+  "homeStatTotal": "采购机会总量",
+  "homeStatTotalSub": "实时更新",
+  "homeStatDaily": "每日新增机会",
+  "homeStatDailySub": "今日新增",
+  "homeStatSources": "数据源 / API",
+  "homeStatSourcesSub": "政府 & 国际组织",
+  "homeStatSuppliers": "认证供应商",
+  "homeStatSuppliersSub": "企业资质已核验"
 }
