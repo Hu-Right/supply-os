@@ -8,6 +8,11 @@
 const REFRESH_COOKIE_NAME = "supply_os_refresh_token";
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 天（秒）
 
+/** NextRequest 携带的 cookies API 结构（标准 Request 无此属性，用于安全收窄） */
+interface RequestWithCookies {
+  cookies?: { get: (name: string) => { value?: string } | string | undefined };
+}
+
 /** 构建 Set-Cookie 头字符串 */
 function buildCookieHeader(name: string, value: string, maxAgeSec: number): string {
   const parts = [
@@ -34,8 +39,9 @@ export function clearRefreshCookieOnResponse(response: Response): void {
 /** 从 NextRequest 读取 Refresh Token Cookie */
 export function readRefreshCookieFromRequest(req: Request): string {
   // NextRequest 的 cookies API
-  if ("cookies" in req && typeof (req as any).cookies?.get === "function") {
-    const cookie = (req as any).cookies.get(REFRESH_COOKIE_NAME);
+  const withCookies = req as Request & RequestWithCookies;
+  if ("cookies" in req && typeof withCookies.cookies?.get === "function") {
+    const cookie = withCookies.cookies.get(REFRESH_COOKIE_NAME);
     if (cookie) return typeof cookie === "string" ? cookie : cookie.value || "";
   }
   // 回退：手动解析 Cookie 头

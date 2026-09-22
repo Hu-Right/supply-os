@@ -5,15 +5,16 @@
 import path from "path";
 import { safeJson } from "./json";
 
-export function normalizeContactRows(...sources: any[]) {
+export function normalizeContactRows(...sources: unknown[]) {
   const rows: Array<{ name: string; title: string; email: string; phone: string }> = [];
   const seen = new Set<string>();
-  const add = (contact: any) => {
+  const add = (contact: unknown) => {
     if (!contact || typeof contact !== "object") return;
-    const email = String(contact.email || contact.mail || "").trim();
-    const phone = String(contact.phone || contact.tel || contact.telephone || "").trim();
-    const name = String(contact.name || contact.person || contact.contact || [contact.firstName, contact.lastName].filter(Boolean).join(" ")).trim();
-    const title = String(contact.title || contact.role || "").trim();
+    const c = contact as Record<string, unknown>;
+    const email = String(c.email || c.mail || "").trim();
+    const phone = String(c.phone || c.tel || c.telephone || "").trim();
+    const name = String(c.name || c.person || c.contact || [c.firstName, c.lastName].filter(Boolean).join(" ")).trim();
+    const title = String(c.title || c.role || "").trim();
     const key = `${email.toLowerCase()}|${phone}|${name.toLowerCase()}`;
     if (key === "||" || seen.has(key)) return;
     seen.add(key);
@@ -27,17 +28,18 @@ export function normalizeContactRows(...sources: any[]) {
   return rows;
 }
 
-export function normalizeDocumentRows(...sources: any[]) {
-  const rows: any[] = [];
+export function normalizeDocumentRows(...sources: unknown[]): Array<Record<string, unknown>> {
+  const rows: Array<Record<string, unknown>> = [];
   const seen = new Set<string>();
-  const add = (doc: any) => {
+  const add = (doc: unknown) => {
     if (!doc || typeof doc !== "object") return;
-    const url = String(doc.url || doc.href || doc.link || doc.downloadUrl || "").trim();
-    const name = String(doc.name || doc.title || doc.fileName || doc.filename || "").trim() || (url ? path.basename(url.split("?")[0]) : "");
+    const d = doc as Record<string, unknown>;
+    const url = String(d.url || d.href || d.link || d.downloadUrl || "").trim();
+    const name = String(d.name || d.title || d.fileName || d.filename || "").trim() || (url ? path.basename(url.split("?")[0]) : "");
     const key = `${url.toLowerCase()}|${name.toLowerCase()}`;
     if (key === "|" || seen.has(key)) return;
     seen.add(key);
-    rows.push({ ...doc, url, name });
+    rows.push({ ...d, url, name });
   };
 
   for (const source of sources) {
