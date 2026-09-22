@@ -166,6 +166,7 @@ import { migration as m088 } from "./migrations/088-opportunity-intl-procurement
 import { migration as m089 } from "./migrations/089-ingest-intl-tender-el-menzel";
 import { migration as m090 } from "./migrations/090-membership-plans-v2";
 import { migration as m091 } from "./migrations/091-sync-watermark-table";
+import { migration as m092 } from "./migrations/092-benefit-system-tables";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -182,6 +183,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m090,
   // m091：爬虫同步水位线控制表（应用内爬虫同步任务读写，替代 .sync-watermark.json 文件）
   m091,
+  // m092：权益体系正式表组（旁路新建 8 表，旧三表不动；阶段二服务层切读需人工闸口）
+  m092,
 ];
 
 /**
