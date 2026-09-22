@@ -486,6 +486,7 @@
   "detail_procurementType": "Type de passation",
   "detail_budgetAmount": "Budget/Montant",
   "detail_noticeId": "Référence de l'avis",
+  "detail_tabListAria": "Onglets d'informations de l'avis",
   "detail_tabSummary": "Résumé",
   "detail_tabQualification": "Qualifications",
   "detail_tabOriginalFiles": "Fichiers originaux",

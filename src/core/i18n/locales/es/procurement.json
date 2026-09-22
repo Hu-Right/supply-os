@@ -486,6 +486,7 @@
   "detail_procurementType": "Tipo de contratación",
   "detail_budgetAmount": "Presupuesto/Monto",
   "detail_noticeId": "Número de aviso",
+  "detail_tabListAria": "Pestañas de información del aviso",
   "detail_tabSummary": "Resumen",
   "detail_tabQualification": "Calificaciones",
   "detail_tabOriginalFiles": "Archivos originales",

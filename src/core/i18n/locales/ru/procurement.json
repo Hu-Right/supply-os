@@ -486,6 +486,7 @@
   "detail_procurementType": "Тип закупки",
   "detail_budgetAmount": "Бюджет/Сумма",
   "detail_noticeId": "Номер извещения",
+  "detail_tabListAria": "Вкладки информации об объявлении",
   "detail_tabSummary": "Сводка",
   "detail_tabQualification": "Квалификации",
   "detail_tabOriginalFiles": "Оригинальные файлы",

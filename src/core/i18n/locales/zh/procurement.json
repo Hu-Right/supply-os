@@ -534,6 +534,7 @@
   "detail_procurementType": "采购类型",
   "detail_budgetAmount": "预算/金额",
   "detail_noticeId": "公告编号",
+  "detail_tabListAria": "公告信息标签页",
   "detail_tabSummary": "采购摘要",
   "detail_tabQualification": "资格条件",
   "detail_tabOriginalFiles": "原始文件",

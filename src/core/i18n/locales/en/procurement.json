@@ -534,6 +534,7 @@
   "detail_procurementType": "Procurement Type",
   "detail_budgetAmount": "Budget/Amount",
   "detail_noticeId": "Notice ID",
+  "detail_tabListAria": "Notice information tabs",
   "detail_tabSummary": "Summary",
   "detail_tabQualification": "Qualifications",
   "detail_tabOriginalFiles": "Original Files",

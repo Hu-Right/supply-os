@@ -28,6 +28,7 @@ import { getCountdown } from "@/shared/utils/countdown";
 
 import { DetailHeader } from "./DetailHeader";
 import { DetailTabs } from "./DetailTabs";
+import { tabPanelId, tabTriggerId } from "./utils";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
@@ -154,8 +155,14 @@ export function NoticeDetail({
 
         {/* ═══ 双栏布局：左（Tab 内容）+ 右（下一步动作） ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-          {/* ── 左栏：根据 activeTab 切换内容 ── */}
-          <main className="min-w-0 space-y-6 pb-24 md:pb-0">
+          {/* ── 左栏：根据 activeTab 切换内容（ARIA tabpanel 与 DetailTabs 联动）── */}
+          <main
+            role="tabpanel"
+            id={tabPanelId(activeTab)}
+            aria-labelledby={tabTriggerId(activeTab)}
+            tabIndex={0}
+            className="min-w-0 space-y-6 pb-24 md:pb-0"
+          >
             {activeTab === "summary" && (
               <>
                 <AiSummarySection

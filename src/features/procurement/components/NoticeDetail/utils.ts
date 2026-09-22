@@ -31,3 +31,10 @@ export const TIER_BADGE_STYLE: Record<string, string> = {
   std: "bg-indigo-50 text-indigo-700 border-indigo-200",
   pro: "bg-purple-50 text-purple-700 border-purple-200",
 };
+
+/**
+ * ARIA Tabs id 单一事实源（spec 2026-09-21）：Tab 条与内容区共用，
+ * 保证 aria-controls / aria-labelledby 联动不断链。
+ */
+export const tabTriggerId = (key: string) => `detail-tab-${key}`;
+export const tabPanelId = (key: string) => `detail-tabpanel-${key}`;
