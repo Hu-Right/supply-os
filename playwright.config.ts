@@ -34,14 +34,18 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // 移动端专用冒烟用例（RTL/窄屏溢出）不在桌面 project 重复跑
+      testIgnore: /mobile-rtl-style-smoke/,
     },
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"] },
+      testIgnore: /mobile-rtl-style-smoke/,
     },
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
+      testIgnore: /mobile-rtl-style-smoke/,
     },
     // 移动端回归
     {
