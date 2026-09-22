@@ -1,7 +1,7 @@
 /**
  * AI 适配评分 Prompt 模板测试
  * @module tests/unit/lib/services/ai-score/prompt.test.ts
- * @description 动态权重分支 + 用户提示词组装（画像缺失/完整/国际化能力）。
+ * @description 动态权重分支 + 用户提示词组装（画像缺失/完整/国际化能力）+ self/candidate 视角。
  */
 import { describe, it, expect } from "vitest";
 import { getDimensionWeights, buildScoreUserPrompt } from "@/lib/services/ai-score/prompt";
@@ -86,5 +86,24 @@ describe("buildScoreUserPrompt 画像组装", () => {
     const p = buildScoreUserPrompt(notice, s);
     expect(p).toContain("出口规模: 800万");
     expect(p).not.toContain("UNGM:");
+  });
+});
+
+describe("buildScoreUserPrompt perspective 视角切换", () => {
+  const notice = { title: "T", notice_type: "RFQ", country: "CN", estimated_value: 1, deadline: "d", eligibility: "", technical_hurdles: "", supplier_conditions: "" };
+  const supplier = { company: "某公司", industry: "电子", products: "P" };
+
+  it("默认 self 视角使用「我的企业画像」与第一人称指令", () => {
+    const p = buildScoreUserPrompt(notice, supplier);
+    expect(p).toContain("我的企业画像");
+    expect(p).toContain("评估我参与本标的适配度");
+    expect(p).not.toContain("候选供应商画像");
+  });
+
+  it("candidate 视角使用「候选供应商画像」与第三人称指令", () => {
+    const p = buildScoreUserPrompt(notice, supplier, "candidate");
+    expect(p).toContain("候选供应商画像");
+    expect(p).toContain("评估该供应商承接本标的的适配度");
+    expect(p).not.toContain("我的企业画像");
   });
 });

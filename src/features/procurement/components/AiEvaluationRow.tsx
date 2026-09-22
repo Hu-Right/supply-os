@@ -6,13 +6,13 @@
  * @description 渲染「供应商 × 公告 适配评估」中的单个候选（自己 / 工厂 / 友商）：
  *              排名 + 公司名 + self 高亮徽标 + 综合分 + 可展开（推理 / 优势短板 / 7 维进度条 / 证据）。
  *              行内按数据权限给入口：self 可「编辑基本信息」；友商/工厂仅可「编辑诊断表」。
- *              画像不完整时给补全提示。与 AiMatchCard 的 SupplierCard 渲染范式保持一致。
+ *              画像不完整时给补全提示。采用与旧匹配卡一致的进度条式行渲染（逐行多实体不宜各挂雷达）。
  */
 import { useState } from "react";
 import { ChevronDown, Info, Sparkles, Building2, Pencil, Star } from "lucide-react";
 import type { MatchedSupplier } from "../api/ai-match";
 
-/** 7 维度定义（与 AiScoreCard/AiMatchCard 同一套，label/criteria 复用既有 i18n 键） */
+/** 7 维度定义（与评分链路同一套，label/criteria 复用既有 i18n 键） */
 export const EVAL_DIMENSIONS = [
   { key: "qualification", labelKey: "aiScoreQualification", labelDefault: "资质匹配",
     criteriaKey: "aiScoreCriteriaQualification", criteriaDefault: "企业营业执照、行业资质 vs 公告投标门槛的覆盖程度" },

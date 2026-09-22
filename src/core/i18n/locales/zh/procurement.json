@@ -537,7 +537,7 @@
   "detail_tabSummary": "采购摘要",
   "detail_tabQualification": "资格条件",
   "detail_tabOriginalFiles": "原始文件",
-  "detail_tabAiScore": "AI适配评分",
+  "detail_tabAiScore": "AI 适配评估",
   "detail_tabHistory": "历史中标",
   "detail_tabSimilar": "相似机会",
   "detail_aiScoreDesc": "AI 将根据贵司资质与本标要求进行多维度匹配评分，帮助您快速判断投标可行性。",
