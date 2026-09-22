@@ -19,7 +19,7 @@ export const viewNotice = (noticeId: number) =>
   api(`/api/notices/${noticeId}/view`, {
     method: "POST",
     body: {},
-  }).catch(() => undefined);
+  }).catch((e) => console.warn("[Notices] 浏览记录上报失败:", e));
 
 export const unlockNotice = (
   noticeId: number,
@@ -48,9 +48,9 @@ export const fetchNoticePreview = (noticeId: number): Promise<Partial<NoticeItem
   return apiCached<Partial<NoticeItem>>(`/api/notices/${noticeId}/preview`, 10 * 60 * 1000);
 };
 
-export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string }> => {
+export const fetchNoticeContent = (noticeId: number): Promise<{ description: string; title: string; description_cn: string; original_description?: string }> => {
   const url = `/api/notices/${noticeId}/content`;
-  return apiCached<{ description: string; title: string; description_cn: string }>(url, 10 * 60 * 1000);
+  return apiCached<{ description: string; title: string; description_cn: string; original_description?: string }>(url, 10 * 60 * 1000);
 };
 
 export const fetchUnlockedNoticeIds = async (): Promise<number[]> => {
@@ -100,6 +100,8 @@ export const fetchUnifiedSearch = (params: {
   noticeType?: string;
   featured?: boolean;
   sort?: string;
+  budgetMin?: number;
+  budgetMax?: number;
 }, signal?: AbortSignal): Promise<NoticeResponse> => {
   // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
   const qs = buildQuery({
@@ -117,6 +119,48 @@ export const fetchUnifiedSearch = (params: {
     notice_type: params.noticeType,
     featured: params.featured ? "1" : undefined,
     sort: params.sort && params.sort !== "latest" ? params.sort : undefined,
+    budget_min: params.budgetMin?.toString(),
+    budget_max: params.budgetMax?.toString(),
   });
   return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
 };
+
+/**
+ * 相似公告（按 UNSPSC 品类语义相似，最多 limit 条；无同类返回空数组，服务端不做兜底）
+ */
+export const fetchSimilarNotices = (
+  noticeId: number, limit = 6, locale?: string, signal?: AbortSignal,
+): Promise<NoticeResponse> => {
+  const qs = buildQuery({ limit, locale });
+  return apiCached<NoticeResponse>(`/api/notices/${noticeId}/similar?${qs}`, 60 * 1000, signal);
+};
+
+// ── 收藏（用户私有书签） ──
+
+/** 收藏/取消收藏（toggle，返回切换后的状态） */
+export const toggleNoticeFavorite = (noticeId: number) =>
+  api<{ favorited: boolean }>(`/api/notices/${noticeId}/favorite`, { method: "POST" });
+
+/** 用户已收藏的公告 id 集合（状态回显，不走缓存保证即时性） */
+export const fetchNoticeFavoriteIds = () =>
+  api<{ ids: number[] }>("/api/notices/favorites/ids");
+
+/** 我的收藏（分页，按收藏时间倒序） */
+export interface NoticeFavoriteEntry {
+  id: number;
+  reference?: string | null;
+  title: string;
+  title_i18n?: string | null;
+  country?: string | null;
+  notice_type?: string | null;
+  agency?: string | null;
+  deadline?: string | null;
+  deadline_ts?: number | null;
+  estimated_value?: string | null;
+  favorited_at?: string;
+}
+
+export const fetchNoticeFavorites = (params: { page?: number; limit?: number } = {}) =>
+  api<{ total: number; page: number; limit: number; list: NoticeFavoriteEntry[] }>(
+    `/api/notices/favorites?page=${params.page ?? 1}&limit=${params.limit ?? 20}`,
+  );

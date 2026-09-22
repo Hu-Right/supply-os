@@ -8,8 +8,9 @@ import { analyzeCss } from "../../../scripts/lib/css-compat.mjs";
 
 let root;
 before(async () => {
+  const entries = Array.isArray(config.plugins) ? config.plugins : Object.entries(config.plugins);
   const plugins = await Promise.all(
-    config.plugins.map(async (entry) => {
+    entries.map(async (entry) => {
       const [name, options] = Array.isArray(entry) ? entry : [entry, {}];
       return (await import(name)).default(options);
     })
@@ -18,7 +19,7 @@ before(async () => {
   const css = await readFile(source, "utf8");
   root = (
     await postcss(plugins).process(
-      css + '\n@source inline("text-start ps-9 start-0 me-2 bg-gradient-to-r bg-gradient-to-br");',
+      css + '\n@source inline("text-start ps-9 start-0 me-2 bg-gradient-to-r bg-gradient-to-br bg-neutral-{50,{100..900..100},950}");',
       { from: fileURLToPath(source) }
     )
   ).root;
@@ -38,6 +39,11 @@ test("保留传统渐变方向回退", () => {
   const positions = values("--tw-gradient-position");
   assert.ok(positions.includes("to right"));
   assert.ok(positions.includes("to bottom right"));
+});
+test("中性色全色阶生成可静态解析的 sRGB 回退", () => {
+  for (const shade of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]) {
+    assert.ok(values(`--color-neutral-${shade}`).some((value) => /^rgb\(/.test(value)));
+  }
 });
 test("真实管线产物满足回退门禁", () => {
   assert.deepEqual(analyzeCss(root.toString()).errors, []);

@@ -154,8 +154,8 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
             className="w-full"
           />
           <Input
-            value={form.typeInput}
-            onChange={(e) => form.setTypeInput(e.target.value)}
+            value={form.noticeTypeInput}
+            onChange={(e) => form.setNoticeTypeInput(e.target.value)}
             placeholder={t("procurement_noticeTypePlaceholder")}
             aria-label={t("procurement_noticeTypePlaceholder")}
             dir="auto"

@@ -196,12 +196,12 @@ export function IndustryPrefsForm() {
 
   return (
     /* 我的默认行业 — 公采页进入时按此偏好默认筛选（本地差异 #5 配套 UI） */
-    <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+    <div className="bg-secondary-50 border border-border rounded-xl p-5">
       <div className="flex items-baseline justify-between">
-        <h4 className="text-sm font-extrabold text-slate-900">
+        <h4 className="text-sm font-medium text-foreground">
           {t("authIndustryPrefLabel")}
         </h4>
-        <p className="text-3xs text-slate-400">
+        <p className="text-2xs text-muted-foreground">
           {t("authIndustryPrefRequiredHint")}
         </p>
       </div>
@@ -215,7 +215,7 @@ export function IndustryPrefsForm() {
           className="bg-white"
         />
         {inferLoading && (
-          <p className="mt-1 text-3xs text-slate-400">{t("authMainBusinessMatching") || "匹配中..."}</p>
+          <p className="mt-1 text-2xs text-muted-foreground">{t("authMainBusinessMatching") || "匹配中..."}</p>
         )}
         {!inferLoading && inferCandidates.length > 0 && (
           <UnspscInferCandidates
@@ -226,7 +226,7 @@ export function IndustryPrefsForm() {
           />
         )}
         {!inferLoading && inferCandidates.length === 0 && inferSearched && (
-          <p className="mt-1 text-3xs text-amber-600">
+          <p className="mt-1 text-2xs text-accent-600">
             {t("authMainBusinessNoMatch")}
           </p>
         )}
@@ -265,17 +265,15 @@ export function IndustryPrefsForm() {
         </Button>
         {/* 未选满前两级时按钮旁给出引导，选满后自动消失 */}
         {(!prefLevel1 || !prefLevel2) && (
-          <p className="text-xs font-bold text-amber-600">
+          <p className="text-xs font-medium text-accent-600">
             {t("authIndustryPrefSaveHint")}
           </p>
         )}
       </div>
       {prefMessage && (
         <p
-          className={`mt-3 text-xs font-bold rounded-lg p-3 border ${
-            prefMessageIsError
-              ? "text-rose-600 bg-rose-50 border-rose-100"
-              : "text-teal-700 bg-teal-50 border-teal-100"
+          className={`mt-3 text-xs font-medium ${
+            prefMessageIsError ? "text-danger-600" : "text-success-600"
           }`}
         >
           {prefMessage}

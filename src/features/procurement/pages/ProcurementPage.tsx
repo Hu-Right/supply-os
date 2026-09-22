@@ -1,30 +1,35 @@
 import { useRef, useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronDown, Crown, Search, SlidersHorizontal, Target } from "lucide-react";
+import { ChevronDown, Crown, Search, Target, Download, LayoutList, LayoutGrid } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
+import { flags } from "@/core/flags";
 import { unlockNotice } from "../api";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-// 子路径导入（A3）：绕过 payment barrel，避免 PaymentModal/PaymentModalCore/MyRecordsPanel
-// 全套被静态拉进 procurement 首屏 chunk
-import { RecentUnlocks } from "@/features/payment/components/RecentUnlocks";
+import { RecentUnlocks } from "../components/RecentUnlocks";
+import { FavoriteNotices } from "../components/FavoriteNotices";
 import type { NoticeItem } from "../types";
 import { NoticeDetail } from "../components/NoticeDetail";
 import { UnspcsSelector } from "../components/UnspcsSelector";
 import { NoticeSearchBar } from "../components/NoticeSearchBar";
+import { AdvancedSearchPanel } from "../components/AdvancedSearchPanel";
+import { EnhancedNoticeList } from "../components/EnhancedNoticeList";
 import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
+import { ListingStatsBar } from "../components/ListingStatsBar";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
+import { useListingStats } from "../hooks/useListingStats";
 import { NOTICE_PAGE_SIZE } from "../constants";
 import { useIndustryPrefs } from "../hooks/useIndustryPrefs";
 import { useNoticeFeedback } from "../hooks/useNoticeFeedback";
 import { useNoticeActions } from "../hooks/useNoticeActions";
+import { getCountryDisplayName } from "@/shared/data/countryNames";
 
 export default function ProcurementPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { authUser, isVip, refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -41,6 +46,9 @@ export default function ProcurementPage() {
   const [page, setPage] = useState(1);
   const [selectedNotice, setSelectedNotice] = useState<NoticeItem | null>(null);
   const [unspscExpanded, setUnspscExpanded] = useState(false);
+
+  // ── 规模条数据（已提取至 hook） ──
+  const listingStats = useListingStats();
 
   // ── 行业偏好三级降级 ──
   const {
@@ -98,13 +106,7 @@ export default function ProcurementPage() {
     setSelectedNotice,
     trackClick: feedback.trackClick,
     trackDetailOpen: feedback.trackDetailOpen,
-    refreshAuth,
   });
-
-  // 同步当前详情页公告 ID 到支付 hook：非 VIP 侧边栏常驻面板需要此 ID 创建订单
-  useEffect(() => {
-    actions.setCurrentNoticeId(selectedNotice?.id ?? null);
-  }, [selectedNotice?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── P0-8 安全修复：监听支付成功事件，自动解锁公告 ──
   useEffect(() => {
@@ -142,13 +144,14 @@ export default function ProcurementPage() {
         detailLoading={actions.detailLoadingId === selectedNotice.id}
         onBack={() => {
           feedback.reportDetailExit();
-          actions.closePaywall();
           actions.setDetailLoadingId(null);
           setSelectedNotice(null);
         }}
         onExpressInterest={actions.handleExpressInterest}
         onUnlock={(n: NoticeItem) => actions.handleUnlockNotice(n)}
-        onPayUnlock={actions.handlePayUnlock}
+        onOpenNotice={actions.openNotice}
+        favorited={actions.isFavorite(selectedNotice.id)}
+        onToggleFavorite={() => void actions.toggleFavorite(selectedNotice.id)}
       />
       </Suspense>
       </>
@@ -162,34 +165,32 @@ export default function ProcurementPage() {
     {/* 搜索/筛选操作全屏蒙层：仅非首次加载时显示，阻断交互 */}
     <LoadingOverlay visible={search.result.loading && firstLoadDoneRef.current} />
     <div className="space-y-5">
-      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-              <Crown className="w-5 h-5 text-amber-500" />
-              {t("procurement_poolTitle")}
-            </h3>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-bold whitespace-nowrap">
-              {t("procurement_total")} {search.result.total} {t("procurement_items")}
-            </span>
-            <span className="px-3 py-1.5 rounded-full bg-amber-50 text-amber-700 font-bold">
-              {t("statusPanelTotalUnlocks")} {actions.totalRemaining} {t("procurement_items")}
-            </span>
-          </div>
-        </div>
+      {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
+      <ListingStatsBar stats={listingStats} />
 
+      <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="p-5 space-y-4">
-          <NoticeSearchBar
-            form={search.form}
-            query={search.query}
-            countries={search.result.countries}
-            agencies={search.result.agencies}
-            applySearch={search.actions.applySearch}
-            clearSearch={search.actions.clearSearch}
-            toggleFeatured={search.actions.toggleFeatured}
-          />
+          {flags.ADVANCED_SEARCH ? (
+            <AdvancedSearchPanel
+              form={search.form}
+              query={search.query}
+              countries={search.result.countries}
+              agencies={search.result.agencies}
+              applySearch={search.actions.applySearch}
+              clearSearch={search.actions.clearSearch}
+              toggleFeatured={search.actions.toggleFeatured}
+            />
+          ) : (
+            <NoticeSearchBar
+              form={search.form}
+              query={search.query}
+              countries={search.result.countries}
+              agencies={search.result.agencies}
+              applySearch={search.actions.applySearch}
+              clearSearch={search.actions.clearSearch}
+              toggleFeatured={search.actions.toggleFeatured}
+            />
+          )}
 
           {/* 行业分类（UNSPSC 五级联动）——默认折叠，点击展开 */}
           <div className="border-t border-slate-100 pt-4">
@@ -254,12 +255,69 @@ export default function ProcurementPage() {
       </section>
 
       <section className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-        <div className="flex items-center justify-between mb-4 text-xs text-slate-500">
-          <span className="inline-flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-            {t("procurement_currentPage")} {page} / {search.result.totalPages} {t("procurement_page")},{" "}
-            {t("procurement_eachPage")} {search.result.serverPageSize} {t("procurement_items")}
-          </span>
+        {/* 结果头部：结果数 + 已筛条件 + 排序/导出/视图 */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-extrabold text-slate-900">
+              {t("procurement_resultsCount", { count: (search.query.hasSearch ? search.result.total : (listingStats.active || search.result.total)).toLocaleString() })}
+            </span>
+            {/* 已筛条件标签 */}
+            {(search.query.activeCountry || search.query.activeQ) && (
+              <>
+                <span className="text-xs text-slate-400">{t("procurement_filteredConditions")}</span>
+                {search.query.activeCountry && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
+                    {t("procurement_country")}: {getCountryDisplayName(search.query.activeCountry, locale)}
+                  </span>
+                )}
+                {search.query.activeQ && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs text-teal-700 font-medium">
+                    {search.query.activeQ}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={search.actions.clearSearch}
+                  className="text-xs text-slate-400 hover:text-teal-600 font-medium underline"
+                >
+                  {t("procurement_clearAll")}
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            {/* 排序下拉 */}
+            <select
+              value={search.query.activeSort}
+              onChange={(e) => {
+                const v = e.target.value;
+                search.actions.applySearch(v === "latest" ? "latest" : v === "deadline" ? "deadline" : "deadline_farthest");
+              }}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 focus:border-teal-400 outline-none cursor-pointer"
+            >
+              <option value="latest">{t("procurement_sortByLatest")}</option>
+              <option value="deadline">{t("procurement_sortByDeadline")}</option>
+              <option value="deadline_farthest">{t("procurement_sortByDeadlineFarthest")}</option>
+            </select>
+            {/* 导出列表 */}
+            <button
+              type="button"
+              onClick={() => alert(t("procurement_comingSoon"))}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              {t("procurement_exportList")}
+            </button>
+            {/* 视图切换 */}
+            <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+              <button type="button" className="p-1.5 bg-teal-50 text-teal-700" aria-label="列表视图">
+                <LayoutList className="w-3.5 h-3.5" />
+              </button>
+              <button type="button" className="p-1.5 bg-white text-slate-400 hover:text-slate-600" aria-label="网格视图">
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* 自动筛选提示条：偏好/推荐模式的状态告知（纯信息展示，无操作入口）
@@ -278,6 +336,9 @@ export default function ProcurementPage() {
           </div>
         )}
 
+        {userId && actions.favoriteIds.size > 0 && (
+          <FavoriteNotices favoriteIds={actions.favoriteIds} onOpenNotice={actions.openNoticeById} />
+        )}
         {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
@@ -285,18 +346,35 @@ export default function ProcurementPage() {
         {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
         {search.result.loading && search.result.items.length === 0
           ? <NoticeListSkeleton count={NOTICE_PAGE_SIZE} />
-          : <NoticeList
-              items={search.result.items}
-              loading={search.result.loading}
-              page={page}
-              totalPages={search.result.totalPages}
-              serverPageSize={search.result.serverPageSize}
-              total={search.result.total}
-              setPage={setPage}
-              openNotice={actions.openNotice}
-              feedbackEnabled={feedback.feedbackEnabled}
-              observeCard={feedback.observeCard}
-            />
+          : flags.ADVANCED_SEARCH
+            ? <EnhancedNoticeList
+                items={search.result.items}
+                loading={search.result.loading}
+                page={page}
+                totalPages={search.result.totalPages}
+                serverPageSize={search.result.serverPageSize}
+                total={search.result.total}
+                setPage={setPage}
+                openNotice={actions.openNotice}
+                feedbackEnabled={feedback.feedbackEnabled}
+                observeCard={feedback.observeCard}
+                favoriteIds={actions.favoriteIds}
+                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
+              />
+            : <NoticeList
+                items={search.result.items}
+                loading={search.result.loading}
+                page={page}
+                totalPages={search.result.totalPages}
+                serverPageSize={search.result.serverPageSize}
+                total={search.result.total}
+                setPage={setPage}
+                openNotice={actions.openNotice}
+                feedbackEnabled={feedback.feedbackEnabled}
+                observeCard={feedback.observeCard}
+                favoriteIds={actions.favoriteIds}
+                onToggleFavorite={(id) => void actions.toggleFavorite(id)}
+              />
         }
       </section>
     </div>

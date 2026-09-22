@@ -34,14 +34,6 @@ export const BROWSER_TITLE = {
 
 /** 各页面多语言 metadata 注册表 */
 const PAGE_METADATA: Record<string, Record<Locale, PageMetadata>> = {
-  showroom: {
-    zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台海外展厅：法兰克福、迪拜、内罗毕、圣保罗、洛杉矶、胡志明市六大永久展示中心。" },
-    en: { title: BROWSER_TITLE.en, description: "Yunjing international procurement platform: 6 permanent overseas showrooms across Frankfurt, Dubai, Nairobi, Sao Paulo, Los Angeles, Ho Chi Minh City." },
-    fr: { title: BROWSER_TITLE.fr, description: "6 showrooms permanents à l'étranger: Francfort, Dubaï, Nairobi, São Paulo, Los Angeles, Hô Chi Minh-Ville." },
-    ru: { title: BROWSER_TITLE.ru, description: "6 постоянных зарубежных выставочных залов: Франкфурт, Дубай, Найроби, Сан-Паулу, Лос-Анджелес, Хошимин." },
-    es: { title: BROWSER_TITLE.es, description: "6 salas de exhibición permanentes en el extranjero: Fráncfort, Dubái, Nairobi, São Paulo, Los Ángeles, Ciudad Ho Chi Minh." },
-    ar: { title: BROWSER_TITLE.ar, description: "6 معارض دائمة في الخارج: فرانكفورت، دبي، نيروبي، ساو باولو، لوس أنجلوس، هو تشي منه." },
-  },
   procurement: {
     zh: { title: BROWSER_TITLE.zh, description: "云境·国际采购平台：搜索联合国机构、各国政府及国际组织的招标与采购公告。" },
     en: { title: BROWSER_TITLE.en, description: "Search bidding and procurement notices from UN agencies, governments, and international organizations." },

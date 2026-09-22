@@ -264,6 +264,22 @@ export async function buildFilterPlan(
     digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);
   }
 
+  // ── 预算范围（estimated_value 为 VARCHAR 存数值字符串，CAST 为 DECIMAL 比较）──
+  if (p.budgetMin != null || p.budgetMax != null) {
+    if (p.budgetMin != null) {
+      meiliFilters.push(`estimated_value_num >= ${p.budgetMin}`);
+      mysqlWhere.push("CAST(n.estimated_value AS DECIMAL(20,2)) >= ?");
+      mysqlParams.push(p.budgetMin);
+      digestParts.push(`budgetMin:${p.budgetMin}`);
+    }
+    if (p.budgetMax != null) {
+      meiliFilters.push(`estimated_value_num <= ${p.budgetMax}`);
+      mysqlWhere.push("CAST(n.estimated_value AS DECIMAL(20,2)) <= ?");
+      mysqlParams.push(p.budgetMax);
+      digestParts.push(`budgetMax:${p.budgetMax}`);
+    }
+  }
+
   return {
     meiliFilters,
     mysqlWhere,

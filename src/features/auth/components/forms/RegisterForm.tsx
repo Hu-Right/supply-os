@@ -4,30 +4,19 @@
  *
  * @module features/auth/components/forms/RegisterForm
  */
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Input, Button, SelectableCard } from "@/shared/ui";
+import { Input, Button } from "@/shared/ui";
 import { PASSWORD_MIN_LENGTH } from "@/shared/auth/passwordPolicy";
 import { useLocale } from "@/core/i18n";
-import type { AuthFormState, ClaimFormState } from "../../hooks/useAuthForm";
+import type { AuthFormState } from "../../hooks/useAuthForm";
 import type { useRegisterCode } from "../../hooks/useRegisterCode";
-import type { QualificationFormState } from "@/shared/forms/QualificationFormFields";
-import EnterpriseQualificationForm from "../EnterpriseQualificationForm";
-
-/** 检测浏览器是否存在 ref_code Cookie（推荐链接自动带入） */
-function detectRefCookie(): boolean {
-  if (typeof document === "undefined") return false;
-  return /(?:^|;\s*)ref_code=/.test(document.cookie);
-}
 
 export interface RegisterFormProps {
   authForm: AuthFormState;
   setAuthForm: React.Dispatch<React.SetStateAction<AuthFormState>>;
-  claimForm: ClaimFormState;
-  setClaimForm: React.Dispatch<React.SetStateAction<ClaimFormState>>;
   authError: string;
   registerCode: ReturnType<typeof useRegisterCode>;
-  onQualificationChange?: (data: Record<string, string | string[]>) => void;
   /** 用户是否已勾选同意协议 */
   agreedToTerms: boolean;
   /** 设置同意协议状态 */
@@ -37,11 +26,8 @@ export interface RegisterFormProps {
 export function RegisterForm({
   authForm,
   setAuthForm,
-  claimForm,
-  setClaimForm,
   authError,
   registerCode,
-  onQualificationChange,
   agreedToTerms,
   setAgreedToTerms,
 }: RegisterFormProps) {
@@ -49,56 +35,13 @@ export function RegisterForm({
 
   // ★ 检测推荐链接 Cookie：SSR 返回 false，客户端 mount 后检测真实值，避免 hydration mismatch
   const [hasRefCookie, setHasRefCookie] = useState(false);
-  useEffect(() => { setHasRefCookie(detectRefCookie()); }, []);
-
-  // ★ 用 ref 追踪上一次同步的 companyName，避免 claimForm.companyName 进入
-  // useCallback 依赖数组后与 setClaimForm 形成闭环，触发 React error #300
-  const prevCompanyNameRef = useRef(claimForm.companyName);
-  const handleQualificationChange = useCallback((data: QualificationFormState) => {
-    onQualificationChange?.(data as unknown as Record<string, string | string[]>);
-    // 仅当 companyName 实际变化时才同步，避免无效更新
-    if (data.company_name !== prevCompanyNameRef.current) {
-      prevCompanyNameRef.current = String(data.company_name);
-      setClaimForm((prev) => ({ ...prev, companyName: prevCompanyNameRef.current }));
-    }
-  }, [onQualificationChange, setClaimForm]);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    setHasRefCookie(/(?:^|;\s*)ref_code=/.test(document.cookie));
+  }, []);
 
   return (
     <div className="space-y-3">
-      {/* 注册类型选择 */}
-      <div className="grid grid-cols-2 gap-3">
-        <SelectableCard
-          selected={authForm.userType === "personal"}
-          onClick={() => setAuthForm({ ...authForm, userType: "personal" })}
-          className="p-3 text-center"
-        >
-          <div className="text-lg font-bold">👤</div>
-          <div className={`text-sm font-bold ${authForm.userType === "personal" ? "text-teal-700" : "text-slate-600"}`}>
-            {t("authRegisterTypePersonal") || "个人注册"}
-          </div>
-          <div className="text-2xs text-slate-400 mt-1">{t("authRegisterTypePersonalDesc") || "外贸从业者"}</div>
-        </SelectableCard>
-        <SelectableCard
-          selected={authForm.userType === "enterprise"}
-          onClick={() => setAuthForm({ ...authForm, userType: "enterprise" })}
-          className="p-3 text-center"
-        >
-          <div className="text-lg font-bold">🏢</div>
-          <div className={`text-sm font-bold ${authForm.userType === "enterprise" ? "text-teal-700" : "text-slate-600"}`}>
-            {t("authRegisterTypeEnterprise") || "企业注册"}
-          </div>
-          <div className="text-2xs text-slate-400 mt-1">{t("authRegisterTypeEnterpriseDesc") || "供应商入驻"}</div>
-        </SelectableCard>
-      </div>
-
-      {/* 企业诊断表单（仅企业注册显示，纯信息收集） */}
-      {authForm.userType === "enterprise" && (
-        <EnterpriseQualificationForm
-          registrationPhone={authForm.phone}
-          onFormChange={handleQualificationChange}
-        />
-      )}
-
       {/* 姓名（必填） */}
       <div className="space-y-1">
         <Input

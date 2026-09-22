@@ -43,9 +43,9 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
 
   if (loading || !authUser) {
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-3 animate-pulse">
-        <div className="h-3 bg-slate-200 rounded w-1/3 mb-2" />
-        <div className="h-4 bg-slate-200 rounded w-2/3" />
+      <div className="bg-secondary-50 border border-border rounded-xl p-4 animate-pulse">
+        <div className="h-3 bg-secondary-200 rounded w-1/3 mb-2" />
+        <div className="h-4 bg-secondary-200 rounded w-2/3" />
       </div>
     );
   }
@@ -53,16 +53,16 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   if (!membership) {
     // 数据加载失败，显示无权益状态
     return (
-      <div className="bg-white border border-slate-200 rounded-lg p-3">
-        <div className="flex items-center gap-1.5 text-slate-500 mb-1">
+      <div className="bg-secondary-50 border border-border rounded-xl p-4">
+        <div className="flex items-center gap-1.5 text-muted-foreground mb-1">
           <Lock className="w-3.5 h-3.5" />
-          <p className="font-black text-xs">{t("statusPanelNoEntitlement")}</p>
+          <p className="font-medium text-xs">{t("statusPanelNoEntitlement")}</p>
         </div>
         <Button
           onClick={() => onViewPlans ? onViewPlans() : router.push("/membership")}
           variant="link"
           size="sm"
-          className="px-0 text-amber-600 hover:text-amber-700 text-xs"
+          className="px-0 text-primary-600 hover:text-primary-700 text-xs"
         >
           {t("statusPanelUpgradeBtn")} →
         </Button>
@@ -91,47 +91,48 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
     }
   };
 
-  // 根据最佳权益类型决定主色调
+  // 根据最佳权益类型决定图标与强调色（单一强调色，不用渐变）
   const themeIcon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
-  const themeColor = hasSubscription ? "text-amber-600" : hasSingleCard ? "text-blue-600" : "text-slate-500";
-  const themeBg = hasSubscription
-    ? "from-amber-50 to-orange-50 border-amber-200/60"
-    : hasSingleCard
-      ? "from-blue-50 to-cyan-50 border-blue-200/60"
-      : "bg-white border-slate-200";
+  const themeColor = hasSubscription ? "text-accent-600" : hasSingleCard ? "text-primary-600" : "text-muted-foreground";
 
   return (
-    <div className={`bg-gradient-to-br ${themeBg} border rounded-lg p-3`}>
+    <div className="bg-secondary-50 border border-border rounded-xl p-4">
       {/* 顶部：总可用次数 */}
       <div className="flex items-center gap-1.5 mb-2">
         {(() => {
           const Icon = themeIcon;
           return <Icon className={`w-3.5 h-3.5 ${themeColor}`} />;
         })()}
-        <p className="font-black text-xs text-slate-600">{t("statusPanelTotalUnlocks")}</p>
+        <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalUnlocks")}</p>
       </div>
       <div className="flex items-baseline gap-1 mb-2">
-        <span className={`text-xl font-extrabold ${totalRemaining > 0 ? "text-slate-900" : "text-red-600"}`}>
-          {totalRemaining}
-        </span>
-        <span className="text-xs text-slate-500">{t("statusPanelTimes")}</span>
+        {totalRemaining >= 9999 ? (
+          <span className="text-xl font-semibold text-foreground">{t("membershipUnlimited")}</span>
+        ) : (
+          <>
+            <span className={`text-xl font-semibold ${totalRemaining > 0 ? "text-foreground" : "text-danger-600"}`}>
+              {totalRemaining}
+            </span>
+            <span className="text-xs text-muted-foreground">{t("statusPanelTimes")}</span>
+          </>
+        )}
       </div>
 
       {/* 分层明细 */}
-      <div className="space-y-1 pt-2 border-t border-slate-200/40">
+      <div className="space-y-1 pt-2 border-t border-border">
         {/* 订阅会员 */}
         {hasSubscription && (
           <div className="flex items-center gap-1.5 text-3xs">
-            <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
-            <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
-            <span className="text-slate-600 truncate">{subscriptions[0].plan_name || subscriptions[0].plan_code}</span>
+            <Crown className="w-3 h-3 text-accent-500 flex-shrink-0" />
+            <span className="font-medium text-foreground">{t("statusPanelSubscriptionTitle")}</span>
+            <span className="text-muted-foreground truncate">{subscriptions[0].plan_name || subscriptions[0].plan_code}</span>
             {subscriptions[0].expires_at ? (
-              <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+              <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
                 <Clock className="w-2.5 h-2.5" />
                 {formatDateShort(subscriptions[0].expires_at)}
               </span>
             ) : (
-              <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+              <span className="flex items-center gap-0.5 text-success-600 ml-auto">
                 <InfinityIcon className="w-2.5 h-2.5" />
               </span>
             )}
@@ -141,17 +142,17 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
         {/* 单次解锁卡（汇总） */}
         {hasSingleCard && (
           <div className="flex items-center gap-1.5 text-3xs">
-            <Zap className="w-3 h-3 text-blue-500 flex-shrink-0" />
-            <span className="font-bold text-slate-700">
+            <Zap className="w-3 h-3 text-primary-500 flex-shrink-0" />
+            <span className="font-medium text-foreground">
               {t("statusPanelEntitlementCards", { count: singleCards.length })}
             </span>
-            <span className="text-slate-600">{singleCardRemaining} {t("statusPanelTimes")}</span>
+            <span className="text-muted-foreground">{singleCardRemaining} {t("statusPanelTimes")}</span>
             {singleCards.some(e => !e.expires_at) ? (
-              <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+              <span className="flex items-center gap-0.5 text-success-600 ml-auto">
                 <InfinityIcon className="w-2.5 h-2.5" />
               </span>
             ) : (
-              <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+              <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
                 <Clock className="w-2.5 h-2.5" />
                 {formatDateShort(singleCards[0].expires_at!)}
               </span>
@@ -166,7 +167,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
           onClick={handleViewPlans}
           variant="link"
           size="sm"
-          className="w-full mt-2 px-0 text-amber-600 hover:text-amber-700 text-center"
+          className="w-full mt-2 px-0 text-primary-600 hover:text-primary-700 text-center"
         >
           {t("statusPanelUpgradeBtn")} →
         </Button>

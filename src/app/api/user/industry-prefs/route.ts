@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
@@ -29,7 +30,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   try {
     body = await req.json();
   } catch {
-    routeError(400, 40000, "请求数据格式错误");
+    routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
 
   const levels = [1, 2, 3, 4, 5].map((n) => {

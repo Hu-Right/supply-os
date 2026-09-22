@@ -10,10 +10,14 @@
 // 页面
 export { default as MembershipPage } from "./pages/MembershipPage";
 
-// Hook：被 auth/AccountPanel 等外部模块引用
-export { useMembershipTier } from "./hooks/useMembershipTier";
-export type { UseMembershipTierReturn } from "./hooks/useMembershipTier";
+// Hook：权威实现已提升至 shared 层，此处 re-export 保持兼容
+export { useMembershipTier } from "@/shared/hooks/useMembershipTier";
+export type { UseMembershipTierReturn } from "@/shared/hooks/useMembershipTier";
+export { useMembershipPayment } from "./hooks/useMembershipPayment";
+export type { UseMembershipPaymentOptions } from "./hooks/useMembershipPayment";
+export { useMembershipStatus } from "@/shared/hooks/useMembershipStatus";
+export type { UseMembershipStatusReturn } from "@/shared/hooks/useMembershipStatus";
 
-// 组件：被 procurement/NoticeDetailSidebar 等外部模块引用
-export { MembershipStatusPanel } from "./components/MembershipStatusPanel";
-export type { MembershipStatusPanelProps } from "./components/MembershipStatusPanel";
+// 组件：已提升至 shared（红线 #3 解耦），此处向后兼容 re-export
+export { MembershipStatusPanel } from "@/shared/components/MembershipStatusPanel";
+export type { MembershipStatusPanelProps } from "@/shared/components/MembershipStatusPanel";

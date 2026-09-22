@@ -151,23 +151,52 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
 
   // 6. 支付维护（payment-maintenance）：
   //    a) 超时未支付订单每 60 分钟关闭一次（支付宝侧 timeout_express 30 分钟，DB 侧延后 2 小时兜底），
-  //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭
+  //       避免 pending 订单永久滞留；PAYMENT_MAINTENANCE_ENABLED=off 关闭。
+  //       订单已按业务拆分为三张物理表，需逐表清扫：
+  //         · crm_payment_orders（会员）：created_at 超 2 小时 → closed
+  //         · learning_orders（学习）  ：created_at 超 2 小时 → closed（该表无独立过期列）
+  //         · training_orders（培训）   ：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
   //    b) 会员身份兜底降级：每日 04:30 将"已无生效订阅"的 VIP 用户 membership_tier 回落为 free
   //       （线上身份以 resolveMembershipState 实时计算为准，此任务仅消除落库列的滞后）
   let paymentMaintenanceTimer: NodeJS.Timeout | null = null;
   let paymentTierSyncTimer: NodeJS.Timeout | null = null;
   if (String(process.env.PAYMENT_MAINTENANCE_ENABLED ?? "on").toLowerCase() !== "off") {
+    // 三张订单表的超时清理语句；逐表 try/catch，单表失败不影响其余表
+    const STALE_ORDER_CLEANUPS: Array<{ table: string; label: string; sql: string }> = [
+      {
+        table: "crm_payment_orders",
+        label: "会员订单",
+        sql: `UPDATE crm_payment_orders SET status = 'closed'
+              WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
+      },
+      {
+        table: "learning_orders",
+        label: "学习订单",
+        sql: `UPDATE learning_orders SET status = 'closed'
+              WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
+      },
+      {
+        table: "training_orders",
+        label: "培训订单",
+        sql: `UPDATE training_orders SET status = 'expired'
+              WHERE status = 'pending' AND expires_at < NOW()`,
+      },
+    ];
     const closeStalePendingOrders = async () => {
-      try {
-        const [ret] = await dbPool.query(
-          `UPDATE crm_payment_orders SET status = 'closed'
-           WHERE status = 'pending' AND created_at < NOW() - INTERVAL 2 HOUR`,
-        );
-        const affected = (ret as { affectedRows?: number }).affectedRows ?? 0;
-        if (affected > 0) console.log(`[payment-maintenance] 已关闭 ${affected} 笔超时未支付订单`);
-      } catch (e) {
-        console.error("[payment-maintenance] 关闭超时订单失败（不影响下次扫描）:", (e as Error).message);
+      let total = 0;
+      for (const { table, label, sql } of STALE_ORDER_CLEANUPS) {
+        try {
+          const [ret] = await dbPool.query(sql);
+          const affected = (ret as { affectedRows?: number }).affectedRows ?? 0;
+          if (affected > 0) {
+            total += affected;
+            console.log(`[payment-maintenance] 已关闭 ${label}（${table}）超时未支付订单 ${affected} 笔`);
+          }
+        } catch (e) {
+          console.error(`[payment-maintenance] 关闭 ${label} 超时订单失败（不影响其他表/下次扫描）:`, (e as Error).message);
+        }
       }
+      if (total > 0) console.log(`[payment-maintenance] 本次累计清理 ${total} 笔超时未支付订单`);
     };
     const demoteExpiredVipTier = async () => {
       try {

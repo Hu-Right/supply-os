@@ -77,17 +77,8 @@ function countCommaItems(s: string): number {
   return s.split(/[,，;；\s]+/).filter((x) => x.trim().length > 0).length;
 }
 
-/** 国际认证关键词（用于区分"国际通用"与"国内"认证） */
-const INTL_CERT_KEYWORDS = [
-  "ISO", "CE", "MDR", "UKCA", "UL", "FCC", "FDA", "CPC",
-  "PSE", "MIC", "KC", "SABER", "BIS", "EAC", "RCM", "ISED",
-  "CSA", "INMETRO", "TISI", "SNI", "SONCAP", "G-Mark",
-  "IATF", "SA8000", "HACCP", "ISO22000", "ISO13485",
-];
-
-function isIntlCert(cert: string): boolean {
-  return INTL_CERT_KEYWORDS.some((kw) => cert.includes(kw));
-}
+// D1-2 SSOT 修复：国际认证识别统一引用 shared/constants/certifications
+import { isIntlCert } from "@/shared/constants/certifications";
 
 // ── 10 维度评分函数 ──
 
@@ -109,7 +100,7 @@ function scoreVendorProfile(f: QualificationScoreInput): Omit<DimensionScore, "n
 }
 
 function scoreEnglishEvidence(f: QualificationScoreInput): Omit<DimensionScore, "no" | "name" | "nameEn" | "weight"> {
-  const intlCerts = f.certifications.filter(isIntlCert).length;
+  const intlCerts = f.certifications.filter(c => isIntlCert(c)).length;
 
   if (f.english_team === "尚不具备" && intlCerts === 0) {
     return { rawScore: 0, weightedScore: 0, evidenceSource: "表单", scoringBasis: "无英文团队，无国际认证", needsManualReview: false };
@@ -155,7 +146,7 @@ function scoreMandatoryDocs(f: QualificationScoreInput): Omit<DimensionScore, "n
 }
 
 function scoreComplianceGovernance(f: QualificationScoreInput): Omit<DimensionScore, "no" | "name" | "nameEn" | "weight"> {
-  const intlCerts = f.certifications.filter(isIntlCert).length;
+  const intlCerts = f.certifications.filter(c => isIntlCert(c)).length;
   const ungmLevel = f.ungm_status;
 
   if (ungmLevel === "未注册" && intlCerts === 0) {

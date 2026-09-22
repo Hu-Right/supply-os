@@ -9,10 +9,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
 
 export const POST = withRoute(async (req: NextRequest) => {
   await requireUserKeyOrThrow(req);
+
+  // ARCH-P3（2026-09-05）：限流补全 — 培训报名写端点，IP 维度 10min/5
+  const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 5 }, () => `training_reg:${extractClientIp(req)}`);
+  if (rl) return rl;
 
   const body = await req.json();
   const ctx = getContext();
@@ -30,8 +35,9 @@ export const POST = withRoute(async (req: NextRequest) => {
       );
       const row = (rows as Array<{ title_zh: string | null }>)[0];
       industryName = row?.title_zh || "";
-    } catch {
+    } catch (e) {
       // 查询失败不影响报名主流程，industry 留空
+      console.warn("[training/register] UNSPSC 行业查询失败:", (e as Error).message);
     }
   }
 

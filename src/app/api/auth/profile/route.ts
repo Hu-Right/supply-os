@@ -36,6 +36,6 @@ export const PUT = withRoute(async (req: NextRequest) => {
   const user = await ctx.user.usersRepo.findProfileById(auth.userId);
   if (!user) routeError(404, 40044, "用户不存在");
 
-  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
   return NextResponse.json({ success: true, user: payload });
 });

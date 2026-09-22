@@ -5,21 +5,19 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { extractUserKey } from "@/lib/middleware/auth";
-import { getPool } from "@/lib/db/pool";
-import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
+import { listPurchasedMaterialIds } from "@/lib/services/learning-service";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const { userId } = await extractUserKey(req);
   if (!userId) {
     return NextResponse.json({ material_ids: [] });
   }
 
   try {
-    const pool = getPool();
-    const repo = new LearningMaterialsRepo(pool);
-    const materialIds = await repo.findPurchasedMaterialIds(userId);
+    const materialIds = await listPurchasedMaterialIds(userId);
     return NextResponse.json({ material_ids: materialIds });
   } catch {
     return NextResponse.json({ material_ids: [] });
   }
-}
+});

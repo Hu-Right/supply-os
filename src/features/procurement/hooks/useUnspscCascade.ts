@@ -45,7 +45,7 @@ export function useUnspscCascade({ locale }: UseUnspscCascadeOptions): UseUnspsc
         return;
       }
       try {
-        const industries = await fetchUnspscIndustries(locale);
+        const industries = await fetchUnspscIndustries();
         if (!cancelled) {
           const arr = Array.isArray(industries) ? industries : [];
           if (arr.length > 0) writeUnspscCache(locale, arr);
@@ -71,14 +71,14 @@ export function useUnspscCascade({ locale }: UseUnspscCascadeOptions): UseUnspsc
     (async () => {
       const nextLevels: UnspscOption[][] = [[], [], [], [], []];
       try {
-        const industries = await fetchUnspscIndustries(locale);
+        const industries = await fetchUnspscIndustries();
         nextLevels[0] = Array.isArray(industries) ? industries : [];
       } catch {
         nextLevels[0] = [];
       }
       for (let i = 0; i < 4 && selectedIds[i]; i += 1) {
         try {
-          const children = await fetchUnspscChildren(selectedIds[i], locale);
+          const children = await fetchUnspscChildren(selectedIds[i]);
           nextLevels[i + 1] = Array.isArray(children) ? children : [];
         } catch {
           nextLevels[i + 1] = [];
@@ -97,7 +97,7 @@ export function useUnspscCascade({ locale }: UseUnspscCascadeOptions): UseUnspsc
 
     if (value && levelIndex < 4) {
       try {
-        const children = await fetchUnspscChildren(value, locale);
+        const children = await fetchUnspscChildren(value);
         setLevels((prev) => {
           const next = prev.map((list, index) => (index <= levelIndex ? list : []));
           next[levelIndex + 1] = Array.isArray(children) ? children : [];

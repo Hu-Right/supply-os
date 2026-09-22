@@ -27,4 +27,18 @@ export interface Supplier {
   contactEmail: string;
   contactPhone: string;
   status: "approved" | "pending" | "rejected";
+  /** 会员等级标签（认证会员/金牌会员/推荐） */
+  membershipTier?: "certified" | "gold" | "recommended";
+  /** 资料完整度百分比 (0-100) */
+  dataCompleteness?: number;
+  /** UNSPSC 编码 */
+  unspscCode?: string;
+  /** 能力标签（准时交付 98%、24h响应等） */
+  capabilityTags?: string[];
+  /** 企业认证（ISO 9001, CE, TÜV 等） */
+  certifications?: string[];
+  /** 公司图片 URL */
+  imageUrl?: string;
+  /** 企业类型标签（工厂/贸易商） */
+  companyType?: "factory" | "trader";
 }

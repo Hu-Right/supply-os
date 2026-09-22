@@ -3,13 +3,14 @@
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
+import { withRoute } from "@/lib/middleware/route-handler";
 
 interface FooterLink { id: number; name: string; url: string; icon: string }
 
 let linksCache: { items: FooterLink[]; ts: number } | null = null;
 const LINKS_CACHE_TTL = 30 * 60 * 1000;
 
-export async function GET() {
+export const GET = withRoute(async () => {
   try {
     const now = Date.now();
     if (linksCache && now - linksCache.ts < LINKS_CACHE_TTL) {
@@ -24,4 +25,4 @@ export async function GET() {
   } catch {
     return NextResponse.json([]);
   }
-}
+});

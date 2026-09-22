@@ -1,0 +1,178 @@
+/**
+ * 会员权益状态面板
+ * Membership Status Panel
+ *
+ * @module shared/components/MembershipStatusPanel
+ * @description 综合展示用户所有权益的汇总与分层明细。
+ *              顶部显示总可用解锁次数，下方按优先级分层展示各权益来源。
+ *              Displays total unlock count and layered breakdown by benefit source.
+ *              架构解耦：原 features/membership/components 提升至 shared，供
+ *              membership 与 procurement（公告侧边栏）共享，消除 procurement→membership
+ *              跨 feature 硬依赖（红线 #3）。仅依赖 core/shared/@types。
+ */
+
+// Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
+import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
+import { formatDateShort } from "@/shared/utils/format";
+import type { MembershipStatus } from "@/types";
+
+export interface MembershipStatusPanelProps {
+  membership: MembershipStatus | null;
+  /** 总可用解锁次数（由 Hook 计算） */
+  totalRemaining: number;
+  /** 是否已登录 */
+  isLoggedIn: boolean;
+  /** 可选：公告 ID（用于跳转套餐页时携带） */
+  noticeId?: number;
+  /** 紧凑模式（用于侧边栏） */
+  compact?: boolean;
+}
+
+export function MembershipStatusPanel({
+  membership,
+  totalRemaining,
+  isLoggedIn,
+  noticeId,
+  compact = false,
+}: MembershipStatusPanelProps) {
+  const { t } = useLocale();
+  const router = useRouter();
+
+  // 未登录或无数据时不展示
+  if (!isLoggedIn || !membership) return null;
+
+  const handleGoToPlans = () => {
+    router.push(noticeId ? `/membership?notice_id=${noticeId}` : "/membership");
+  };
+
+  const entitlements = membership.entitlements ?? [];
+  const subscriptions = membership.active_subscriptions ?? [];
+  const hasSubscription = subscriptions.length > 0;
+  // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
+  const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
+  const hasSingleCard = singleCards.length > 0;
+
+  const bgGradient = hasSubscription
+    ? "from-amber-50 to-orange-50"
+    : hasSingleCard
+      ? "from-blue-50 to-cyan-50"
+      : "from-slate-50 to-slate-50/30";
+
+  const borderColor = hasSubscription
+    ? "border-amber-200/60"
+    : hasSingleCard
+      ? "border-blue-200/60"
+      : "border-slate-200/60";
+
+  const iconBg = hasSubscription
+    ? "bg-amber-100"
+    : hasSingleCard
+      ? "bg-blue-100"
+      : "bg-slate-100";
+
+  const iconColor = hasSubscription
+    ? "text-amber-600"
+    : hasSingleCard
+      ? "text-blue-600"
+      : "text-slate-500";
+
+  const Icon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
+
+  return (
+    <div className={`rounded-xl border ${borderColor} bg-gradient-to-r ${bgGradient} ${compact ? "p-3" : "p-4"}`}>
+      {/* 顶部：总可用解锁次数 */}
+      <div className="flex items-start gap-3">
+        <div className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg ${iconBg}`}>
+          <Icon className={`w-5 h-5 ${iconColor}`} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline gap-2">
+            <span className={`text-2xl font-extrabold ${totalRemaining > 0 ? "text-slate-900" : "text-red-600"}`}>
+              {totalRemaining >= 9999 ? t("membershipUnlimited") : totalRemaining}
+            </span>
+            <span className="text-xs text-slate-500">{t("statusPanelTotalUnlocks")}</span>
+          </div>
+          {!compact && totalRemaining === 0 && (
+            <Button
+              onClick={handleGoToPlans}
+              variant="link"
+              size="sm"
+              className="mt-1 px-0 text-amber-600 hover:text-amber-700"
+            >
+              {t("statusPanelUpgradeBtn")} →
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* 分层明细 */}
+      <div className="mt-3 pt-3 border-t border-slate-200/40 space-y-1.5">
+        {/* 订阅会员 */}
+        {/* P3-16 安全修复：active_subscriptions 后端已过滤过期项，isExpired 分支为死代码已清理 */}
+        {hasSubscription && subscriptions.map((sub, idx) => {
+          const displayName = sub.plan_name || sub.plan_code;
+          return (
+            <div key={`sub-${sub.plan_code}-${idx}`} className="flex items-center gap-2 text-xs">
+              <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
+              <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
+              <span className="text-slate-600">{displayName}</span>
+              {sub.expires_at ? (
+                <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+                  <Clock className="w-3 h-3" />
+                  {formatDateShort(sub.expires_at)}
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+                  <InfinityIcon className="w-3 h-3" />
+                  {t("statusPanelPermanent")}
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* 单次解锁卡（汇总显示） */}
+        {hasSingleCard && (
+          <div className="flex items-center gap-2 text-xs">
+            <Zap className="w-3 h-3 text-blue-500 flex-shrink-0" />
+            <span className="font-bold text-slate-700">
+              {t("statusPanelEntitlementCards", { count: singleCards.length })}
+            </span>
+            <span className="text-slate-600">
+              {singleCards.reduce((sum, e) => sum + Number(e.quota_remaining || 0), 0)} {t("statusPanelTimes")}
+            </span>
+            {/* 显示有效期范围 */}
+            {(() => {
+              const permanentCount = singleCards.filter(e => !e.expires_at).length;
+              const datedCards = singleCards.filter(e => e.expires_at);
+              if (permanentCount > 0) {
+                return (
+                  <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+                    <InfinityIcon className="w-3 h-3" />
+                    {permanentCount > 1 ? `${permanentCount} ${t("statusPanelPermanent")}` : t("statusPanelPermanent")}
+                  </span>
+                );
+              }
+              if (datedCards.length > 0) {
+                const earliest = datedCards.reduce((min, e) =>
+                  e.expires_at && (!min || e.expires_at < min) ? e.expires_at : min, null as string | null);
+                return (
+                  <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+                    <Clock className="w-3 h-3" />
+                    {formatDateShort(earliest!)}
+                  </span>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+MembershipStatusPanel.displayName = "MembershipStatusPanel";

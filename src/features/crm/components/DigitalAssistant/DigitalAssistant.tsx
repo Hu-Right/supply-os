@@ -17,7 +17,7 @@ import { useQueueInfo } from "../../hooks/useQueueInfo";
 import { attachmentMarkerFromMetadata } from "../../hooks/useDigitalAssistant";
 import { ChatWindow } from "./ChatWindow";
 import type { Supplier } from "@/types";
-import { OPPORTUNITIES } from "@/data";
+import { ACTIVE_OPPORTUNITIES } from "../../constants";
 
 /** 播放提示音（Web Audio API） */
 let _audioCtx: AudioContext | null = null;
@@ -82,7 +82,7 @@ export function DigitalAssistant({
     pendingRating,
     submitRating,
     skipRating,
-  } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: OPPORTUNITIES });
+  } = useDigitalAssistant({ leadCount, activeLeadCount, suppliers, opportunities: ACTIVE_OPPORTUNITIES });
 
   // SSE 回调：收到远端消息时追加到对话流 + 通知提示
   const handleSSEMessage = useCallback(
@@ -275,25 +275,9 @@ export function DigitalAssistant({
 
             {/* ── 对话区域 ── */}
             <ChatWindow
-              messages={messages}
-              mode={mode}
-              isThinking={isThinking}
-              onSend={sendMessage}
-              onQuickAction={triggerQuickAction}
-              queueInfo={queueInfo}
-              pendingRating={pendingRating}
-              onSubmitRating={submitRating}
-              onSkipRating={skipRating}
-              matchPhase={matchPhase}
-              matchReport={matchReport}
-              suppliers={suppliers}
-              opportunities={OPPORTUNITIES}
-              matchSupplier={matchSupplier}
-              matchOpportunity={matchOpportunity}
-              onSetMatchSupplier={setMatchSupplier}
-              onSetMatchOpportunity={setMatchOpportunity}
-              onTriggerMatch={triggerMatch}
-              onResetMatch={resetMatch}
+              chatState={{ messages, mode, isThinking }}
+              chatActions={{ onSend: sendMessage, onQuickAction: triggerQuickAction, queueInfo, pendingRating, onSubmitRating: submitRating, onSkipRating: skipRating }}
+              matchProps={{ matchPhase, matchReport, suppliers, opportunities: ACTIVE_OPPORTUNITIES, matchSupplier, matchOpportunity, onSetMatchSupplier: setMatchSupplier, onSetMatchOpportunity: setMatchOpportunity, onTriggerMatch: triggerMatch, onResetMatch: resetMatch }}
             />
           </div>
         </>

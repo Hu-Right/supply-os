@@ -15,7 +15,7 @@
 import { NextRequest } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { verifyChatTicket } from "@/lib/services/chatTicket";
-import { sessionOwnedBy } from "@/lib/repos/chat.repo";
+import { sessionOwnedBy } from "@/lib/services/chat-service";
 import { SSE_POLL_INTERVAL_MS, SSE_HEARTBEAT_INTERVAL_MS, SSE_MAX_IDLE_MS } from "@/shared/constants/time";
 
 /** 轮询间隔（毫秒） */

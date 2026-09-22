@@ -1,9 +1,8 @@
 /**
  * POST /api/supplier-qualification — 统一供应商评估提交
  *
- * 三个入口共用：
+ * 两个入口共用：
  *   - 资质测试独立页（source=qualification，默认）
- *   - 企业注册弹窗（source=registration，携带 phone + invitation_code）
  *   - 扫码诊断独立页（source=diagnosis）
  *
  * 所有数据统一写入 crm_supplier_qualification 表。
@@ -15,10 +14,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getContext } from "@/lib/db/context";
 import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.repo";
+import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { extractUserKey } from "@/lib/middleware/auth";
+import { EC_INVALID_PARAMS, EC_INTERNAL_ERROR } from "@/shared/constants/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withRoute(async (req: NextRequest) => {
   // 公开端点限流（审查 F33）：防垃圾数据灌库
   const rl = checkRateLimit(req, { windowMs: 10 * 60_000, maxAttempts: 10 },
     (r) => `sq:${extractClientIp(r)}`);
@@ -28,7 +31,7 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
+    routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
 
   // 必填校验（company_website 为选填，与前端 QualificationFormFields 保持一致）
@@ -43,7 +46,15 @@ export async function POST(req: NextRequest) {
   for (const [field, label] of required) {
     const val = body[field];
     if (!val || (Array.isArray(val) && val.length === 0)) {
-      return NextResponse.json({ code: 40000, message: `${label}为必填项` }, { status: 400 });
+      routeError(400, EC_INVALID_PARAMS, `${label}为必填项`);
+    }
+  }
+
+  // ★ 投标意愿=是时，contact_info 必须为有效手机号
+  if (body.bid_willingness === "是" && body.contact_info) {
+    const phone = String(body.contact_info).trim();
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      routeError(400, EC_INVALID_PARAMS, "联系人手机号格式不正确");
     }
   }
 
@@ -56,8 +67,13 @@ export async function POST(req: NextRequest) {
   let userId: number | null = null;
   let referralEmployeeId: number | null = null;
 
-  // 通过手机号查找用户 ID（纯 phone 字段，user_key 兼容已移除）
-  if (body.phone) {
+  // ★ 用户关联优先级：JWT Token > 手机号匹配 > null（孤立记录）
+  // 已登录用户通过 api() 自动附加 JWT，直接从 Token 提取 userId，最可靠
+  const auth = await extractUserKey(req);
+  if (auth.userId) {
+    userId = auth.userId;
+  } else if (body.phone) {
+    // 回退：未登录场景（扫码诊断），通过手机号反查用户
     try {
       const ctx = getContext();
       const user = await ctx.user.usersRepo.findByPhone(String(body.phone).trim());
@@ -113,9 +129,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 资源库回填打通（P0-1）：外贸员从“我的供应商资源库”为池中工厂填写诊断表时携带 poolId，
+    // 将新诊断记录关联回 crm_user_supplier_pool.qualification_id，使 fetchSupplierProfiles 的
+    // LEFT JOIN 能取到诊断字段（激活原死代码 linkQualification）。
+    // linkQualification 的 WHERE 含 user_id，天然防越权改他人资源库行。
+    const poolId = Number(body.poolId) || 0;
+    if (userId && poolId) {
+      try {
+        await new UserSupplierPoolRepo(getPool()).linkQualification(userId, poolId, id);
+      } catch (err) {
+        console.error("[supplier-qualification] 资源库诊断关联回写失败:", err instanceof Error ? err.message : err);
+      }
+    }
+
     return NextResponse.json({ success: true, id, qualification_id: id, message: "提交成功，我们将尽快审核" }, { status: 201 });
   } catch (err) {
     console.error("[supplier-qualification]", err);
-    return NextResponse.json({ code: 50000, message: "提交失败" }, { status: 500 });
+    routeError(500, EC_INTERNAL_ERROR, "提交失败");
   }
-}
+});

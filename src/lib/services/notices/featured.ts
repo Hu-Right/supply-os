@@ -7,15 +7,13 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { LRUCache } from "lru-cache";
+import { qualifiedOppWhere } from "../../utils/notice-qualified";
+import { INTL_PROCUREMENT_SELECT_LIST } from "../../utils/notice-field-limits";
 
 // ── 精选池判定（T-A1，本地差异 #14：A.2）──
-// 合格机会口径单一事实源：is_qualified / won / 审核通过 三条任一。
-// findQualifiedOpportunityForNotice 与精选 EXISTS 共用本函数，口径永不分叉
-// 注意：status 列为 tinyint(1=won)，不可用字符串 'won' 比较（UPDATE 严格模式会报截断错误）
-const qualifiedOppWhere = (alias = "") => {
-  const p = alias ? `${alias}.` : "";
-  return `(${p}is_qualified = 1 OR ${p}status = 1 OR ${p}audit_status = 1)`;
-};
+// 合格机会口径已下沉至 utils/notice-qualified（repos 与 services 共用，避免反向依赖），
+// 本文件重导出以兼容既有消费方，口径仍为单一事实源。
+export { qualifiedOppWhere };
 
 // ── [精选功能重新启用 2026-07-31] ──
 // FEATURED_NOTICE_EXISTS 判定常量恢复启用（原 2026-07-29 临时注释停用）。
@@ -98,13 +96,16 @@ export async function findQualifiedOpportunityForNotice(dbPool: Pool, notice: No
 }
 
 async function queryQualifiedOpportunity(dbPool: Pool, notice: NoticeIdentity) {
+  // 国际采购结构化列从 utils/notice-field-limits 的单一清单派生（漏列即静默变 null，故不手写）
   const fields = `
     id, source_notice_id, source_url, title, reference, notice_type, registration_level,
     agency, agency_full, country, beneficiary_countries, published_date, deadline, deadline_ts,
-    estimated_value, description, description_cn, bid_overview, supplier_conditions,
+    deadline_timezone, estimated_value, description, description_cn, description_other,
+    bid_overview, supplier_conditions,
     eligibility, technical_hurdles, industry, unspsc_codes, thresholds, difficulty,
     contacts, documents, external_links, ai_products, ai_analysis, status, priority,
-    audit_status, review_status, is_qualified, product_code
+    audit_status, review_status, is_qualified, product_code,
+    ${INTL_PROCUREMENT_SELECT_LIST}
   `;
   const qualifiedWhere = qualifiedOppWhere();
 

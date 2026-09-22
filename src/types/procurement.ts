@@ -24,6 +24,8 @@ export interface NoticeListItem {
   deadline?: string;
   /** Unix 时间戳（秒或毫秒），供前端时区转换使用 */
   deadline_ts?: number | string;
+  /** 主表入库时间（宽表无此列，detail-fetch 二次查询合并），NEW 标签判定用 */
+  create_time?: string;
   estimated_value?: string;
   description?: string;
   source_url?: string;
@@ -61,6 +63,35 @@ export interface NoticeListItem {
   beneficiary_countries?: string;
 }
 
+/**
+ * 国际公共采购结构化字段（详情级，仅来源于机会表 crm_bid_opportunities，迁移 088）。
+ *
+ * 键集必须与 `src/lib/utils/notice-field-limits.ts` 的 `INTL_PROCUREMENT_COLUMNS` 完全一致；
+ * 本文件不 import lib（types 层为叶子），一致性由
+ * `tests/unit/lib/utils/intl-procurement-columns.test.ts` 断言集合相等守住。
+ */
+export type IntlProcurementKey =
+  | "procurement_procedure"
+  | "prequalification_required"
+  | "lot_structure"
+  | "contract_form"
+  | "consortium_rule"
+  | "bid_validity_days"
+  | "submission_mode"
+  | "submission_requirement"
+  | "submission_address"
+  | "funding_agency"
+  | "evaluation_method"
+  | "language_requirement"
+  | "execution_period"
+  | "local_content"
+  | "eshs_requirements"
+  | "eligible_countries"
+  | "key_dates";
+
+/** 无机会行时各键存在但值为 null（不缺键，前端无需做字段存在性判断） */
+export type NoticeIntlProcurement = Partial<Record<IntlProcurementKey, string | number | null>>;
+
 /** 解锁详情级字段（由 /api/notices/:id/detail 补充） */
 export interface NoticeDetailFields {
   url?: string;
@@ -77,6 +108,29 @@ export interface NoticeDetailFields {
   report_available?: boolean;
   /** 报告下载路径 */
   report_url?: string;
+  /** 供应商投标条件 */
+  supplier_conditions?: string;
+  /** 资格要求 */
+  eligibility?: string;
+  /** 技术门槛 */
+  technical_hurdles?: string;
+  /** AI 识别产品清单 */
+  ai_products?: unknown;
+  /** AI 深度分析 */
+  ai_analysis?: Record<string, unknown>;
+  /** 产品编码 */
+  product_code?: string;
+  /** 截止时间（国际标含时刻，如 "2026-10-28 09:30:00"）：已由 NoticeListItem 声明，此处不重复 */
+  /** 截止时刻的 IANA 时区（如 Africa/Casablanca）；无它则非整日截止无法正确倒计时 */
+  deadline_timezone?: string;
+  /** 非中文非英文原文摘要（如法语），用于「查看原文」与译文校对 */
+  description_other?: string;
+  /** 国际采购程序与担保条款（迁移 088 列）；无机会行时各键为 null */
+  intl_procurement?: NoticeIntlProcurement;
+  /** 完整原文（供"查看原文"切换使用；主表 description 仅存标题） */
+  original_description?: string;
+  /** 描述是否被 SQL 截断（300 字符），用于前端显示 ... 提示 */
+  description_truncated?: number | boolean;
 }
 
 /** 解锁后的完整公告（列表字段 + 详情字段） */

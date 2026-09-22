@@ -22,10 +22,10 @@ export interface NoticeDescriptionSectionProps {
   /** 当前显示译文（决定是否展示译文声明） */
   showTranslated: boolean;
   toggleOriginal: () => void;
-  /** 依据内容优先级规则计算后的展示描述
-   * A2 strict 修复：上游计算结果可能为 undefined（无描述数据），放宽类型；
-   * JSX 渲染 undefined 为空白，与原运行时行为一致。 */
+  /** 依据内容优先级规则计算后的展示描述 */
   displayDescription: string | undefined;
+  /** 描述是否被截断（SQL LEFT 300），用于显示 ... 提示 */
+  descriptionTruncated?: boolean;
 }
 
 export function NoticeDescriptionSection({
@@ -36,6 +36,7 @@ export function NoticeDescriptionSection({
   showTranslated,
   toggleOriginal,
   displayDescription,
+  descriptionTruncated,
 }: NoticeDescriptionSectionProps) {
   const { t } = useLocale();
   return (
@@ -65,6 +66,7 @@ export function NoticeDescriptionSection({
       </div>
       <p dir="auto" className="text-sm text-slate-600 leading-7 whitespace-pre-line break-words">
         {displayDescription || t("procurement_noDesc")}
+        {descriptionTruncated && <span className="text-slate-400">...</span>}
       </p>
       {showTranslated && (
         <p className="text-3xs text-slate-400 mt-2">{t("procurement_translateNote")}</p>

@@ -35,15 +35,15 @@ export function AppFooter({ activeTab: _a, onSwitchTab: _s, onOpenConsult: _c }:
   useEffect(() => {
     apiCached<{ bah: string }>("/api/system/icp", 60 * 60 * 1000)
       .then((data) => { if (data.bah) setIcp(data.bah); })
-      .catch(() => undefined);
+      .catch((e) => console.warn("[AppFooter] ICP 加载失败:", e));
     apiCached<FooterLink[]>("/api/system/links", 30 * 60 * 1000)
       .then((data) => { if (Array.isArray(data)) setLinks(data); })
-      .catch(() => undefined);
+      .catch((e) => console.warn("[AppFooter] 页脚链接加载失败:", e));
   }, []);
 
   return (
     <footer className="hidden md:block bg-slate-100 border-t border-slate-200 py-6 text-xs text-slate-400">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
+      <div className="px-4 flex items-center justify-between">
         {/* 左侧：版权信息 + ICP 备案 */}
         <p className="flex items-center gap-2">
           <span>{t("footerCopyright")}</span>

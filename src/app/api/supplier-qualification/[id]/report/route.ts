@@ -11,6 +11,7 @@ import { SupplierQualificationRepo } from "@/lib/repos/supplier-qualification.re
 import { generateReadinessPdf } from "@/lib/services/supplier-readiness-pdf";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { maskPhone } from "@/lib/utils/mask";
 import type { QualificationScoreInput } from "@/lib/services/scoring";
 
 /**
@@ -37,7 +38,8 @@ function toScoreInput(row: Record<string, unknown>): QualificationScoreInput {
     english_team: String(row.english_team ?? ""),
     payment_terms: String(row.payment_terms ?? ""),
     bid_willingness: String(row.bid_willingness ?? ""),
-    contact_info: row.contact_info ? String(row.contact_info) : "",
+    // 合规：报告 PDF 会被下载/转发分享，联系方式（手机号/微信）输出前一律脱敏
+    contact_info: row.contact_info ? maskPhone(row.contact_info) : "",
   };
 }
 

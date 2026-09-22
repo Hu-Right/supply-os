@@ -6,8 +6,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { getNoticeAgencies } from "@/lib/services/notice-search";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   const lang = req.nextUrl.searchParams.get("lang")?.toLowerCase()
     || req.nextUrl.searchParams.get("locale")?.toLowerCase()
     || "en";
@@ -27,4 +28,4 @@ export async function GET(req: NextRequest) {
       },
     });
   }
-}
+});

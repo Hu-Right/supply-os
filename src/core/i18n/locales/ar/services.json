@@ -53,7 +53,7 @@
   "consultFormPhone": "الهاتف / WhatsApp *",
   "consultCompanyPlaceholder": "أدخل اسم الشركة الكامل",
   "consultPersonPlaceholder": "مثال: أحمد محمد",
-  "consultPhonePlaceholder": "+86 138-xxxx-xxxx",
+  "consultPhonePlaceholder": "هاتف التواصل",
   "consultNotesPlaceholder": "مثال: ننتج تغليفًا طبيًا ونحتاج إلى إرشاد UN Level 1.",
   "formRequired": "يرجى ملء هذا الحقل",
   "formSubmitFailed": "فشل الإرسال، يرجى المحاولة لاحقاً"

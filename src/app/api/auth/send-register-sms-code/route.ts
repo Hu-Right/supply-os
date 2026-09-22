@@ -48,9 +48,9 @@ export const POST = withRoute(async (req: NextRequest) => {
   const code = String(crypto.randomInt(100000, 1000000));
   const expiresAt = new Date(Date.now() + VERIFICATION_CODE_EXPIRES_MS);
 
-  // 存入验证码表（user_key 用手机号，code_type 区分注册场景）
+  // 存入验证码表：注册场景以「手机号」为唯一锚点（user_key 不再写；user_id 此时无账号故留空），
+  // code_type 区分注册场景；注册成功后由 auth-register 回填 user_id 建立码↔账号审计关联。
   const resetId = await ctx.user.authRepo.createResetCode({
-    userKey: targetPhone,
     phone: targetPhone,
     codeHash: hashVerificationCode(code),
     codeType: "registration",

@@ -32,8 +32,11 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Bolivia": "玻利维亚",
   "Plurinational State of Bolivia": "玻利维亚",
   "Bolivia, Plurinational State of": "玻利维亚",
+  "Venezuela": "委内瑞拉",
   "Bolivarian Republic of Venezuela": "委内瑞拉",
+  "Venezuela, Bolivarian Republic of": "委内瑞拉",
   "Bosnia and Herzegovina": "波黑",
+  "Bosnia and Herz.": "波黑",
   "Botswana": "博茨瓦纳",
   "Brazil": "巴西",
   "Brasil": "巴西",
@@ -47,6 +50,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Cameroon": "喀麦隆",
   "Canada": "加拿大",
   "Central African Republic": "中非共和国",
+  "Central African Rep.": "中非共和国",
   "Chad": "乍得",
   "Chile": "智利",
   "China": "中国",
@@ -61,6 +65,12 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Congo, Republic of": "刚果（布）",
   "Congo, Democratic Republic of the": "刚果（金）",
   "Congo, The Democratic Republic of the": "刚果（金）", // ISO 3166 标准格式
+  "Congo, Democratic Rep": "刚果（金）",
+  "Congo, Dem. Rep.": "刚果（金）",
+  "DR Congo": "刚果（金）",
+  "Congo (Kinshasa)": "刚果（金）",
+  "Congo (Brazzaville)": "刚果（布）",
+  "Rep. of Congo": "刚果（布）",
   "Democratic Republic of the Congo": "刚果（金）",
   "DRC": "刚果（金）",
   "COD": "刚果（金）",
@@ -70,26 +80,31 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Croatia": "克罗地亚",
   "Cuba": "古巴",
   "Cyprus": "塞浦路斯",
-  "Czech Republic": "捷克",
   "Czechia": "捷克",
+  "Czech Republic": "捷克",
   // ── D ──
   "Denmark": "丹麦",
   "Djibouti": "吉布提",
   "Dominica": "多米尼克",
   "Dominican Republic": "多米尼加",
+  "Dominican Rep.": "多米尼加",
   // ── E ──
   "Ecuador": "厄瓜多尔",
   "Egypt": "埃及",
   "El Salvador": "萨尔瓦多",
   "Equatorial Guinea": "赤道几内亚",
+  "Eq. Guinea": "赤道几内亚",
   "Eritrea": "厄立特里亚",
   "Estonia": "爱沙尼亚",
   "Eswatini": "斯威士兰",
+  "eSwatini": "斯威士兰",
   "Ethiopia": "埃塞俄比亚",
   // ── F ──
   "Fiji": "斐济",
+  "Falkland Is.": "福克兰群岛",
   "Finland": "芬兰",
   "France": "法国",
+  "Fr. S. Antarctic Lands": "法属南部领地",
   // ── G ──
   "Gabon": "加蓬",
   "Gambia": "冈比亚",
@@ -127,13 +142,13 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Kazakhstan": "哈萨克斯坦",
   "Kenya": "肯尼亚",
   "Kiribati": "基里巴斯",
+  "North Korea": "朝鲜",
   "Korea, Democratic People's Republic of": "朝鲜",
   "Democratic People's Republic of Korea": "朝鲜",
-  "North Korea": "朝鲜",
   "D.P.R.K": "朝鲜",
+  "South Korea": "韩国",
   "Korea, Republic of": "韩国",
   "Republic of Korea": "韩国",
-  "South Korea": "韩国",
   "R.O.K": "韩国",
   "Kuwait": "科威特",
   "Kyrgyzstan": "吉尔吉斯斯坦",
@@ -240,6 +255,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Slovak Republic": "斯洛伐克",
   "Slovenia": "斯洛文尼亚",
   "Solomon Islands": "所罗门群岛",
+  "Solomon Is.": "所罗门群岛",
   "Somalia": "索马里",
   "South Africa": "南非",
   "ZAF": "南非",
@@ -248,6 +264,7 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Afrique du Sud": "南非",     // 法语
   "Suid-Afrika": "南非",        // 南非荷兰语
   "South Sudan": "南苏丹",
+  "S. Sudan": "南苏丹",
   "Spain": "西班牙",
   "Sri Lanka": "斯里兰卡",
   "LKA": "斯里兰卡",
@@ -257,7 +274,9 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Switzerland": "瑞士",
   "Syria": "叙利亚",
   "Syrian Arab Republic": "叙利亚",
-  // ── T ──
+  "Western Sahara": "西撒哈拉",
+  "W. Sahara": "西撒哈拉",
+  "Puerto Rico": "波多黎各",
   "Taiwan": "中国台湾",
   "Taiwan, Province of China": "中国台湾",
   "Republic of China": "中国台湾",
@@ -305,8 +324,6 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Uzbekistan": "乌兹别克斯坦",
   // ── V ──
   "Vanuatu": "瓦努阿图",
-  "Venezuela": "委内瑞拉",
-  "Venezuela, Bolivarian Republic of": "委内瑞拉",
   "Vietnam": "越南",
   "Viet Nam": "越南",
   "VNM": "越南",
@@ -325,7 +342,13 @@ export const COUNTRY_NAME_ZH: Record<string, string> = {
   "Macao": "中国澳门",
   "Macao SAR": "中国澳门",
   "Macao SAR, China": "中国澳门",
-  // ── 区域分组 / 特殊标记 ──
+  "Antarctica": "南极洲",
+  "N. Cyprus": "北塞浦路斯",
+  "Somaliland": "索马里兰",
+  "French Guiana": "法属圭亚那",
+  "West Bank": "约旦河西岸",
+  "Bougainville": "布干维尔",
+  // ─ 区域分组 / 特殊标记 ──
   "Eastern and Southern Africa": "东部和南部非洲",
   "Western and Central Africa": "西部和中部非洲",
   "Southwest Indian Ocean": "西南印度洋",
@@ -967,11 +990,22 @@ export function getCountryDisplayName(englishName: string, locale: string): stri
 
 /**
  * 获取国家的英文原名（用于中文环境下显示英文辅助信息）
- * 当数据库已存储中文名时，反向查找英文原名
+ * 支持数据库原始值、中文名、英文标准名等多种输入
  */
 export function getCountryEnglishName(rawName: string): string {
-  // 如果已经是英文（不在中文映射表中），直接返回
-  if (!COUNTRY_NAME_ZH[rawName]) return rawName;
-  // 如果中文名在反向映射表中，返回英文
-  return ZH_TO_EN[rawName] ?? rawName;
+  // Step 1: 如果是数据库原始值（如 "Congo, Democratic Rep"），先归一化到中文名
+  const zhName = COUNTRY_NAME_ZH[rawName];
+  if (zhName) {
+    // Step 2: 中文名反查英文标准名
+    return ZH_TO_EN[zhName] ?? zhName;
+  }
+  // Step 3: 大小写不敏感匹配
+  const lower = rawName.toLowerCase();
+  for (const [key, zh] of Object.entries(COUNTRY_NAME_ZH)) {
+    if (key.toLowerCase() === lower) {
+      return ZH_TO_EN[zh] ?? zh;
+    }
+  }
+  // Step 4: 如果已经是英文标准名，直接返回
+  return rawName;
 }

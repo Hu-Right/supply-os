@@ -47,7 +47,6 @@ vi.mock("@/lib/services/membership-status", () => ({
 }));
 vi.mock("@/lib/services/membership-upgrade", () => ({
   previewUpgrade: vi.fn(),
-  extractTierLabel: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -66,7 +65,7 @@ afterEach(() => {
 describe("GET /api/system/version", () => {
   it("返回版本号（无需认证）", async () => {
     const { GET } = await import("@/app/api/system/version/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("version");
@@ -75,7 +74,7 @@ describe("GET /api/system/version", () => {
   it("BUILD_ID 环境变量优先于文件读取", async () => {
     vi.stubEnv("BUILD_ID", "build-abc-123");
     const { GET } = await import("@/app/api/system/version/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body.version).toBe("build-abc-123");
   });
@@ -90,7 +89,7 @@ describe("GET /api/system/version", () => {
     }
     try {
       const { GET } = await import("@/app/api/system/version/route");
-      const res = await GET();
+      const res = await GET(new NextRequest("http://localhost/api/test"));
       const body = await res.json();
       expect(body.version).toBe("9.9.9-test");
     } finally {
@@ -106,7 +105,7 @@ describe("GET /api/system/icp", () => {
   it("DB 查询异常 → 降级返回空 bah", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ bah: "" });
   });
@@ -114,7 +113,7 @@ describe("GET /api/system/icp", () => {
   it("查询成功 → 返回备案号并设置缓存", async () => {
     poolQuery.mockResolvedValue([[{ bah: "京ICP备2026-test号" }]]);
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ bah: "京ICP备2026-test号" });
     expect(res.headers.get("Cache-Control")).toContain("max-age=600");
@@ -123,7 +122,7 @@ describe("GET /api/system/icp", () => {
   it("TTL 内再次请求 → 命中缓存（DB 异常也不影响返回）", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/icp/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(await res.json()).toMatchObject({ bah: "京ICP备2026-test号" });
     expect(res.headers.get("Cache-Control")).toContain("max-age=600");
   });
@@ -135,7 +134,7 @@ describe("GET /api/system/links", () => {
   it("DB 查询异常 → 降级返回空数组", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
   });
@@ -148,7 +147,7 @@ describe("GET /api/system/links", () => {
       ],
     ]);
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body).toEqual([
       { id: 1, name: "微信", url: "https://weixin.qq.com", icon: "wechat" },
@@ -160,7 +159,7 @@ describe("GET /api/system/links", () => {
   it("TTL 内再次请求 → 命中缓存", async () => {
     poolQuery.mockRejectedValue(new Error("db down"));
     const { GET } = await import("@/app/api/system/links/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     const body = await res.json();
     expect(body).toHaveLength(2);
     expect(res.headers.get("Cache-Control")).toContain("max-age=1800");
@@ -170,67 +169,24 @@ describe("GET /api/system/links", () => {
 // ── 测试用例：/api/membership/plans ──────────────────────────────────────────
 
 const PLAN_ROWS = [
-  { plan_code: "single_99", name: "单篇解锁", price: "99.00", plan_type: "single" },
-  { plan_code: "vip_m", name: "VIP 月度", price: "199.00", plan_type: "subscription" },
+  { plan_code: "personal_std_999", name: "个人标准版", price: "999.00", plan_type: "subscription", benefit_rank: 2 },
+  { plan_code: "enterprise_8800", name: "企业年度会员", price: "8800.00", plan_type: "subscription", benefit_rank: 4 },
 ];
 
-function stubPlansQueries(hasSingleRecord: boolean) {
-  poolQuery.mockImplementation(async (sql: string) => {
-    if (sql.includes("crm_membership_plans")) return [PLAN_ROWS];
-    if (sql.includes("crm_payment_orders")) return [hasSingleRecord ? [{ "1": 1 }] : []];
-    return [[]];
-  });
-}
-
 describe("GET /api/membership/plans", () => {
-  it("未登录 → 返回套餐列表，不附加首单特惠字段", async () => {
-    stubPlansQueries(false);
+  it("返回启用中套餐列表（含 benefit_rank），原样透传", async () => {
+    poolQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes("crm_membership_plans")) return [PLAN_ROWS];
+      return [[]];
+    });
     const { GET } = await import("@/app/api/membership/plans/route");
     const req = new NextRequest("http://localhost:3000/api/membership/plans");
     const res = await GET(req);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(2);
-    expect(body[0].plan_code).toBe("single_99");
-    expect(body[0]).not.toHaveProperty("first_purchase_eligible");
-  });
-
-  it("登录 + 无 single 解锁记录 → single_99 附加 first_purchase_eligible=true", async () => {
-    stubPlansQueries(false);
-    const { verifyAccessToken } = await import("@/lib/services/jwt");
-    vi.mocked(verifyAccessToken).mockReturnValue({
-      type: "access",
-      uid: 101,
-    } as never);
-
-    const { GET } = await import("@/app/api/membership/plans/route");
-    const req = new NextRequest("http://localhost:3000/api/membership/plans", {
-      headers: { authorization: "Bearer valid-token" },
-    });
-    const res = await GET(req);
-    const body = await res.json();
-    const single = body.find((p: { plan_code: string }) => p.plan_code === "single_99");
-    expect(single.first_purchase_eligible).toBe(true);
-    // 其他套餐不附加
-    expect(body.find((p: { plan_code: string }) => p.plan_code === "vip_m")).not.toHaveProperty(
-      "first_purchase_eligible",
-    );
-  });
-
-  it("登录 + 已有 single 解锁记录 → first_purchase_eligible=false", async () => {
-    stubPlansQueries(true);
-    const { verifyAccessToken } = await import("@/lib/services/jwt");
-    vi.mocked(verifyAccessToken).mockReturnValue({
-      type: "access",
-      uid: 101,
-    } as never);
-
-    const { GET } = await import("@/app/api/membership/plans/route");
-    const req = new NextRequest("http://localhost:3000/api/membership/plans", {
-      headers: { authorization: "Bearer valid-token" },
-    });
-    const body = await (await GET(req)).json();
-    expect(body.find((p: { plan_code: string }) => p.plan_code === "single_99").first_purchase_eligible).toBe(false);
+    expect(body[0].plan_code).toBe("personal_std_999");
+    expect(body[0].benefit_rank).toBe(2);
   });
 });
 
@@ -288,6 +244,7 @@ describe("GET /api/membership/upgrade/preview", () => {
 
 const MEMBER_STATE = {
   tier: "vip",
+  benefitRank: 3,
   freeQuota: 5,
   freeUsed: 1,
   freeRemaining: 4,
@@ -295,7 +252,7 @@ const MEMBER_STATE = {
   paidQuotaTotal: 10,
   paidQuotaUsed: 3,
   paidQuotaRemaining: 7,
-  currentBest: { plan_code: "vip_m", plan_name: "VIP 月度", price: "199.00" },
+  currentBest: { plan_code: "personal_pro_1299", plan_name: "个人专业版", price: "1299.00" },
   activeSubscriptions: [],
   entitlements: {},
 };
@@ -316,8 +273,6 @@ describe("GET /api/membership/status", () => {
     } as never);
     const { resolveMembershipState } = await import("@/lib/services/membership-status");
     vi.mocked(resolveMembershipState).mockResolvedValue(MEMBER_STATE as never);
-    const { extractTierLabel } = await import("@/lib/services/membership-upgrade");
-    vi.mocked(extractTierLabel).mockReturnValue("月度VIP" as never);
 
     const { GET } = await import("@/app/api/membership/status/route");
     const req = new NextRequest("http://localhost:3000/api/membership/status", {
@@ -329,11 +284,12 @@ describe("GET /api/membership/status", () => {
     expect(body).toMatchObject({
       user_id: 101,
       membership_tier: "vip",
+      benefit_rank: 3,
       free_remaining: 4,
       paid_quota_remaining: 7,
-      current_plan_code: "vip_m",
-      current_plan_tier_label: "月度VIP",
-      current_plan_price: 199,
+      current_plan_code: "personal_pro_1299",
+      current_plan_tier_label: "个人专业版",
+      current_plan_price: 1299,
     });
     expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101);
   });
@@ -366,7 +322,7 @@ describe("GET /api/membership/status", () => {
 describe("GET /api/catalog/country-name-map", () => {
   it("返回国家名映射", async () => {
     const { GET } = await import("@/app/api/catalog/country-name-map/route");
-    const res = await GET();
+    const res = await GET(new NextRequest("http://localhost/api/test"));
     expect(res.status).toBe(200);
     const body = await res.json();
     // 响应结构：{ data: { countries: {...}, countryNameZh: {...} } } 或 { countries: {...} }

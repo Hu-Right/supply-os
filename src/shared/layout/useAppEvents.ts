@@ -14,6 +14,8 @@ export interface AppEventHandlers {
   onConsult: () => void;
   onPay: (detail: PayEventDetail) => void;
   onOpenTrainingRegister: () => void;
+  /** 账户入口：已登录跳设置页 / 未登录开登录弹窗（登录后重定向设置页） */
+  onOpenAccount: () => void;
 }
 
 export function useAppEvents(handlers: AppEventHandlers) {
@@ -26,7 +28,7 @@ export function useAppEvents(handlers: AppEventHandlers) {
     const unsubs = [
       onAppEvent("supply-os:require-login", () => handlers.onRequireLogin()),
       onAppEvent("supply-os:require-vip", () => handlers.onRequireLogin()),
-      onAppEvent("supply-os:open-account", () => handlers.onRequireLogin()),
+      onAppEvent("supply-os:open-account", () => handlers.onOpenAccount()),
       onAppEvent("supply-os:consult", () => handlers.onConsult()),
       onAppEvent("supply-os:pay", (detail) => { if (detail) handlers.onPay(detail); }),
       onAppEvent("supply-os:open-training-register", () => handlers.onOpenTrainingRegister()),

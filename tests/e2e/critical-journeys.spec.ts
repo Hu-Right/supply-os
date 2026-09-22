@@ -6,6 +6,13 @@
  *              需要真实运行的应用实例和测试数据库。
  *              CI 中由 e2e.yml 工作流自动执行。
  *
+ * 选择器约定：
+ *   - 页面识别使用「内容锚点」（标志性 heading/控件）而非 document.title——
+ *     全站浏览器标题为统一的 BROWSER_TITLE 三段式品牌标题（src/lib/i18n/metadata.ts），
+ *     不携带页面级语义；
+ *   - 控件定位使用 role + 可访问名（Playwright 最佳实践），
+ *     不依赖 input[type] / data-testid 等实现细节，且不受渲染语言外的属性影响。
+ *
  * 运行方式：
  *   npx playwright test --config=playwright.config.ts
  *   npm run test:e2e
@@ -51,16 +58,33 @@ test.describe("供应商目录旅程", () => {
     const mainContent = page.getByRole("main");
     await expect(mainContent).toBeVisible({ timeout: 10_000 });
 
-    // 验证筛选控件存在（主内容区内的搜索输入框）
-    const searchInput = mainContent.locator('input[type="text"], input[type="search"]').first();
-    await expect(searchInput).toBeVisible();
+    // 验证筛选控件存在（关键词输入框 + 搜索按钮，role 语义定位）
+    await expect(
+      mainContent.getByRole("textbox", { name: /请输入产品/ }),
+    ).toBeVisible();
+    await expect(
+      mainContent.getByRole("button", { name: "搜索供应商" }),
+    ).toBeVisible();
   });
 
-  test("供应商注册弹窗：通过事件触发", async ({ page }) => {
+  test("供应商注册入口可见", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/supplier`);
 
-    // 供应商注册通过事件触发，验证页面可正常加载
-    await expect(page).toHaveTitle(/Supplier/i);
+    // 页面锚点：目录标题
+    await expect(
+      page.getByRole("heading", { name: "中国及国际供采供应商目录" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // 注册入口：桌面端 banner 与主内容各有一个（限定 main 作用域避免 strict 冲突）；
+    // 移动端导航折叠进抽屉，仅校验主内容区操作按钮存在
+    const registerCta = page
+      .getByRole("main")
+      .getByRole("button", { name: "注册成为全球采购供应商" });
+    if (test.info().project.name.startsWith("mobile")) {
+      await expect(page.getByRole("main").getByRole("button").first()).toBeVisible();
+    } else {
+      await expect(registerCta).toBeVisible();
+    }
   });
 });
 
@@ -71,40 +95,46 @@ test.describe("供应商目录旅程", () => {
 test.describe("公采资质旅程", () => {
   test("查看资质测试页面", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/procurement/qualification`);
-    // 页面应正常加载
-    await expect(page).toHaveTitle(/Procurement|Qualification|资质/i);
+    // 页面锚点：资质诊断表单标题
+    await expect(
+      page.getByRole("heading", { name: "企业全球采购机会诊断" }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 旅程 3：投标流程（搜索 → 查看 → 解锁）
+// 旅程 3：投标流程（搜索 → 查看）
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe("投标流程旅程", () => {
   test("搜索公告 → 查看结果列表", async ({ page }) => {
-    // Step 1: 进入采购公告搜索
+    // Step 1: 进入采购公告搜索（高级搜索面板，ADVANCED_SEARCH 已上线）
     await page.goto(`${TEST_BASE_URL}/procurement`);
-    await expect(page.locator('[data-testid="search-input"]')).toBeVisible({ timeout: 10_000 });
-
-    // Step 2: 输入搜索关键词
-    await page.fill('[data-testid="search-input"]', "construction");
-    await page.keyboard.press("Enter");
-
-    // Step 3: 等待搜索结果（搜索区域可见）
-    await expect(page.locator('[data-testid="search-results"]')).toBeVisible({
-      timeout: 15_000,
+    const keywordInput = page.getByRole("textbox", {
+      name: /输入产品、项目、机构、UNSPSC关键词/,
     });
+    await expect(keywordInput).toBeVisible({ timeout: 10_000 });
+
+    // Step 2: 输入搜索关键词并触发搜索
+    await keywordInput.fill("construction");
+    await page.getByRole("button", { name: "搜索", exact: true }).click();
+
+    // Step 3: 结果列表有内容（卡片以 level-4 标题呈现）
+    await expect(
+      page.getByRole("heading", { level: 4 }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("搜索结果 → 公告卡片可见", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/procurement`);
 
-    // 等待搜索输入框和结果区域加载
-    await expect(page.locator('[data-testid="search-input"]')).toBeVisible({ timeout: 10_000 });
-
-    // 等待公告卡片加载（至少一个可见）
-    const noticeCard = page.locator('[data-testid="notice-card"]').first();
-    await expect(noticeCard).toBeVisible({ timeout: 15_000 });
+    // 等待高级搜索面板与结果列表加载（公告卡片以 level-4 标题呈现）
+    await expect(
+      page.getByRole("textbox", { name: /输入产品、项目、机构、UNSPSC关键词/ }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("heading", { level: 4 }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
 
@@ -144,8 +174,10 @@ test.describe("学习中心旅程", () => {
   test("查看学习中心页面 → 资料列表可见", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/learning`);
 
-    // 页面标题验证
-    await expect(page).toHaveTitle(/Learning|学习/i);
+    // 页面锚点：知识中心标题
+    await expect(
+      page.getByRole("heading", { name: "常采公采知识培训中心" }),
+    ).toBeVisible({ timeout: 10_000 });
 
     // 验证页面内容加载（学习资料区域）
     await expect(page.locator("h3").first()).toBeVisible({ timeout: 10_000 });
@@ -154,15 +186,11 @@ test.describe("学习中心旅程", () => {
   test("学习中心 → 资料卡片展示", async ({ page }) => {
     await page.goto(`${TEST_BASE_URL}/learning`);
 
-    // 等待页面加载完成
-    await expect(page).toHaveTitle(/Learning/i);
-
-    // 验证学习资料区域存在
-    const learningSection = page.locator("text=学习资料").first();
-    // 如果找不到中文，尝试英文
-    if (!await learningSection.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await expect(page.locator("h3").first()).toBeVisible();
-    }
+    // 页面锚点：学习区标题 + 资料区域
+    await expect(
+      page.getByRole("heading", { name: "联合国采购与国际投标学习区" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator("h3").first()).toBeVisible();
   });
 });
 

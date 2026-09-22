@@ -18,6 +18,8 @@ export {
 } from "./stats";
 export { refreshNoticeCountries, getNoticeCountries, expandCountryAliases, expandCountryAllForms } from "./countries";
 export { refreshNoticeAgencies, getNoticeAgencies, getAgencyCacheData } from "./agencies";
+export { getHotTopics, clearHotTopicsCache } from "./hot-topics";
+export type { HotTopics, HotIndustryItem } from "./hot-topics";
 export {
   noticeSearchCache, featuredCountCache,
   searchCacheKey, countCacheKey,

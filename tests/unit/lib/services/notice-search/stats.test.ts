@@ -98,12 +98,15 @@ describe("refreshNoticeStats", () => {
 
 describe("getNoticeStats", () => {
   it("返回统计数据", async () => {
+    // 与实现查询序列一致：raw → active → bridged → featured → deadline30 → docs
     const mockPool = {
       query: vi.fn()
         .mockResolvedValueOnce([[{ total: 200 }]])  // raw
         .mockResolvedValueOnce([[{ total: 100 }]])  // active
         .mockResolvedValueOnce([[{ total: 50 }]])   // bridged
-        .mockResolvedValueOnce([[{ total: 10 }]]),  // featured
+        .mockResolvedValueOnce([[{ total: 10 }]])   // featured
+        .mockResolvedValueOnce([[{ total: 20 }]])   // 未来 30 天截止
+        .mockResolvedValueOnce([[{ total: 80 }]]),  // 含原始文件
     };
     const result = await getNoticeStats(mockPool as any);
     expect(result.raw).toBe(200);
@@ -111,6 +114,9 @@ describe("getNoticeStats", () => {
     expect(result.bridged).toBe(50);
     expect(result.featured).toBe(10);
     expect(result.bridge_gap).toBe(50);
+    expect(result.deadline_in_30d).toBe(20);
+    expect(result.with_original_docs).toBe(80);
+    clearStatsCache();
   });
 });
 

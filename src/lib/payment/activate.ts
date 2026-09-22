@@ -1,11 +1,12 @@
 /**
- * 真实支付履约 + 订阅开通
- * Real payment fulfillment + subscription activation
+ * 真实支付履约
+ * Real payment fulfillment
  *
  * @module lib/payment/activate
  * @description ARCH-P3a（2026-08-31）：从 fulfillment.ts 拆分。
- *              - activatePaidOrder: 真实支付回调履约（事务版，悲观锁）
- *              - activateSubscription: 订阅开通
+ *              activatePaidOrder: 真实支付回调履约（事务版，悲观锁）。
+ *              V2 权益（2026-09-21）：activateSubscription 随 /api/billing/subscribe
+ *              路由的消亡一并删除（新套餐体系只有支付下单一条履约路径）。
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
@@ -96,38 +97,4 @@ export async function activatePaidOrder(
   } finally {
     conn.release();
   }
-}
-
-// ── 订阅开通 ──────────────────────────────────────────────────────────────────
-
-/**
- * 开通订阅（POST /api/billing/subscribe）：查在售套餐 + 写订阅 + 升 VIP。
- * 套餐以 crm_membership_plans 为唯一事实源（与下单路径 findActivePlan 口径对齐）；
- * 套餐不存在或已下架时返回 null（路由返回 404 PLAN_NOT_FOUND）。
- * 事务封装：createSubscription + promoteToVip 原子执行。
- */
-export async function activateSubscription(
-  repo: PaymentsRepo,
-  membership: MembershipRepo,
-  params: { userId: number; planCode: string },
-): Promise<{ planCode: string; price: number; quota: number } | null> {
-  const plan = await membership.findPlanByCode(params.planCode);
-  if (!plan) return null;
-  const conn = await repo.getConnection();
-  try {
-    await conn.beginTransaction();
-    await repo.createSubscriptionInTransaction(conn, params.userId, params.planCode, plan.duration_days ?? null);
-    await repo.promoteToVipInTransaction(conn, params.userId);
-    await conn.commit();
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
-  return {
-    planCode: params.planCode,
-    price: Number(plan.price),
-    quota: Math.max(1, Number(plan.unlock_quota || 1)),
-  };
 }

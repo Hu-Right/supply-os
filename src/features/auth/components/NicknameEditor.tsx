@@ -1,13 +1,13 @@
 /**
- * 昵称编辑组件
- * Nickname Editor Component
+ * 昵称编辑行 — 智谱行式（实心圆图标 + 右侧实心按钮）
+ * Nickname Editor Row
  *
  * @module features/auth/components/NicknameEditor
- * @description 账号面板中的对外展示名（昵称）管理块：展示当前昵称 + 行内编辑保存。
- *              与 PhoneBinding/EmailBinding 同构（逻辑在 useNicknameEditor hook）。
+ * @description 安全设置行：实心品牌圆图标 + 标题/当前值灰描述 + 右侧实心「修改」；
+ *              编辑态行内展开输入与保存/取消。逻辑在 useNicknameEditor。
  */
 import { UserPen } from "lucide-react";
-import { Button, Input } from "@/shared/ui";
+import { Input } from "@/shared/ui";
 import { useNicknameEditor } from "../hooks/useNicknameEditor";
 
 export function NicknameEditor() {
@@ -17,72 +17,65 @@ export function NicknameEditor() {
   } = useNicknameEditor();
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <UserPen className="w-4 h-4 text-teal-600" />
-        <h4 className="text-sm font-extrabold text-slate-900">{t("authNicknameTitle") || "昵称"}</h4>
+    <div className="px-6 py-4">
+      <div className="flex items-center gap-4">
+        <span className="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center shrink-0">
+          <UserPen className="w-4 h-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">{t("authNicknameTitle") || "昵称"}</p>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {view === "idle" ? (currentNickname || "-") : (t("authNicknameHint") || "昵称是对外展示名")}
+          </p>
+        </div>
+        {view === "idle" && (
+          <button
+            type="button"
+            onClick={handleEdit}
+            className="px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0"
+          >
+            {t("authNicknameEdit") || "修改"}
+          </button>
+        )}
       </div>
 
-      {view === "idle" && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-600">
-            {t("authNicknameCurrent") || "当前昵称"}: <span className="font-bold text-slate-900">{currentNickname || "-"}</span>
-          </p>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            {t("authNicknameHint") || "昵称是对外展示名，不会公开您的真实姓名"}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleEdit}
-            className="bg-white gap-1"
-          >
-            <UserPen className="w-3 h-3" />
-            {t("authNicknameEdit") || "修改昵称"}
-          </Button>
-        </div>
-      )}
-
       {view === "editing" && (
-        <div className="space-y-3">
+        <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in">
           <Input
             type="text"
             value={draft}
             maxLength={40}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={t("authNicknamePlaceholder") || "请输入昵称（1-40 个字符）"}
-            className="bg-white"
+            className="bg-white max-w-sm"
           />
           <div className="flex gap-2">
-            <Button
+            <button
               type="button"
-              variant="primary"
-              size="sm"
               disabled={loading}
               onClick={handleSave}
-              className="py-2 text-xs font-black"
+              className="px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors disabled:opacity-50"
             >
               {loading ? (t("authNicknameSaving") || "保存中…") : (t("authNicknameSave") || "保存")}
-            </Button>
-            <Button
+            </button>
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => setView("idle")}
-              className="bg-white"
+              className="px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors"
             >
               {t("authNicknameCancel") || "取消"}
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
       {message && (
-        <p className={`text-xs font-bold rounded-lg p-2.5 border ${isError ? "text-rose-700 bg-rose-50 border-rose-200" : "text-emerald-700 bg-emerald-50 border-emerald-200"}`}>
+        <p className={`mt-2 sm:pl-14 text-xs font-medium ${isError ? "text-danger-600" : "text-success-600"}`}>
           {message}
         </p>
       )}
     </div>
   );
 }
+
+NicknameEditor.displayName = "NicknameEditor";

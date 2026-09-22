@@ -2,12 +2,19 @@ import { describe, it, expect } from "vitest";
 import { mergeBidReportRow, bidReportFileName } from "@/lib/services/bid-report/merge";
 
 describe("mergeBidReportRow", () => {
-  it("opportunity 字段优先", () => {
+  it("opportunity 字段优先（reference 例外：公告官方编号优先）", () => {
     const notice = { id: 1, title: "Notice Title", reference: "REF-001" };
     const opp = { id: 2, title: "Opp Title", reference: "REF-002" };
     const row = mergeBidReportRow(notice, opp);
     expect(row.id).toBe(2);
     expect(row.title).toBe("Opp Title");
+    expect(row.reference).toBe("REF-001");
+  });
+
+  it("notice 无 reference → 兜底取 opp reference", () => {
+    const notice = { id: 1, reference: "" };
+    const opp = { id: 2, reference: "REF-002" };
+    const row = mergeBidReportRow(notice, opp);
     expect(row.reference).toBe("REF-002");
   });
 

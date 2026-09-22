@@ -25,6 +25,10 @@ export interface NoticeListProps {
   openNotice: (notice: NoticeItem) => void;
   feedbackEnabled: boolean;
   observeCard: (el: HTMLElement | null, noticeId: number) => void;
+  /** 已收藏公告 id 集合（卡片书签状态回显） */
+  favoriteIds?: Set<number>;
+  /** 收藏/取消收藏；未提供时卡片隐藏收藏按钮 */
+  onToggleFavorite?: (noticeId: number) => void;
 }
 
 // P0 性能优化：React.memo 避免翻页/筛选时列表组件不必要重渲染
@@ -39,6 +43,8 @@ export const NoticeList = memo(function NoticeList({
   openNotice,
   feedbackEnabled,
   observeCard,
+  favoriteIds,
+  onToggleFavorite,
 }: NoticeListProps) {
   const { t } = useLocale();
 
@@ -52,6 +58,8 @@ export const NoticeList = memo(function NoticeList({
             onClick={openNotice}
             // [dismiss/收藏功能临时禁用 2026-07-30] 反馈按钮 props 已移除
             observe={feedbackEnabled ? observeCard : undefined}
+            favorited={favoriteIds?.has(item.id)}
+            onToggleFavorite={onToggleFavorite}
           />
         ))}
       </div>

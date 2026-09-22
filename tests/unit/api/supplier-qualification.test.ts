@@ -18,15 +18,23 @@ vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
 }));
 vi.mock("@/lib/middleware/rateLimiter", () => ({ checkRateLimit: vi.fn(() => null) }));
 vi.mock("@/lib/utils/ip", () => ({ extractClientIp: vi.fn(() => "1.2.3.4") }));
+vi.mock("@/lib/services/jwt", () => ({
+  verifyAccessToken: vi.fn(() => { throw new Error("no-token"); }),
+}));
 
 import { POST } from "@/app/api/supplier-qualification/route";
 import { getContext } from "@/lib/db/context";
+import { verifyAccessToken } from "@/lib/services/jwt";
 
-function makeReq(body: unknown) {
+function makeReq(body: unknown, jwtUserId?: number) {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (jwtUserId) {
+    headers["authorization"] = `Bearer fake-token-${jwtUserId}`;
+  }
   return new NextRequest("http://localhost/api/supplier-qualification", {
     method: "POST",
     body: typeof body === "string" ? body : JSON.stringify(body),
-    headers: { "content-type": "application/json" },
+    headers,
   });
 }
 
@@ -134,5 +142,18 @@ describe("POST /api/supplier-qualification", () => {
     mockRepoInstance.linkUserQualification = vi.fn();
     await POST(makeReq(validBody));
     expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ source: "qualification" }));
+  });
+
+  it("JWT 认证 → 直接从 Token 关联用户（优先于 phone）", async () => {
+    vi.mocked(verifyAccessToken).mockReturnValueOnce({ uid: 99 } as any);
+    const insertFn = vi.fn().mockResolvedValue(42);
+    const linkFn = vi.fn().mockResolvedValue(undefined);
+    mockRepoInstance.insertQualification = insertFn;
+    mockRepoInstance.linkUserQualification = linkFn;
+    // 即使 body 带不同 phone，JWT userId 应优先
+    const res = await POST(makeReq({ ...validBody, phone: "13900000000" }, 99));
+    expect(res.status).toBe(201);
+    expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ user_id: 99 }));
+    expect(linkFn).toHaveBeenCalledWith(99, 42);
   });
 });

@@ -27,9 +27,10 @@ jobs:
         run: npm run typecheck
 
       - name: Lint (encoding + eslint)
-        # 已知 6 个存量 error 位于已应用迁移文件的模板插值 SQL（013/030），重构属后续批次
-        continue-on-error: true
         run: npm run lint
+
+      - name: i18n key consistency (6 locales, zh baseline)
+        run: npm run check-i18n
 
       - name: Unit tests + coverage gate (90%)
         run: npm run test:unit && npm run test:coverage-gate -- coverage/unit 90
@@ -45,6 +46,27 @@ jobs:
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
 
+  css-compat:
+    name: CSS 降编译 · 产物静态门禁
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: CSS 管线及门禁正反例（含 RTL 逻辑属性/渐变回退/级联层展开）
+        run: npm run test:css-compat
+      - name: 生产构建及 CSS 产物门禁
+        # build 末尾自动执行 check:css-compat，对真实 .next/static 产物做 AST 门禁
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PAYMENT_MODE: live
+          JWT_SECRET: ci-build-dummy-secret
+
   browser-compat:
     name: CSS 回退 · 移动端生产产物冒烟
     runs-on: ubuntu-latest
@@ -56,9 +78,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: CSS 管线及门禁正反例
-        run: npm run test:css-compat
-      - name: 生产构建及 CSS 门禁
+      - name: 生产构建（供样式冒烟服务真实产物）
         run: npm run build
         env:
           NODE_ENV: production

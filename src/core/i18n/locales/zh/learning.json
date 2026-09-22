@@ -59,5 +59,6 @@
   "learningCoreContent": "核心内容",
   "buyMaterialBtn": "购买资料",
   "learningBundleTitle": "📦 打包优惠购买",
-  "learningContentLocked": "购买后可查看完整内容与下载"
+  "learningContentLocked": "购买后可查看完整内容与下载",
+  "learningContentLoadedFailed": "内容加载失败，请刷新重试"
 }

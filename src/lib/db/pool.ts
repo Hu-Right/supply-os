@@ -39,6 +39,9 @@ export function getPool(): Pool {
     user: cfg.user,
     password: cfg.password,
     database: cfg.database,
+    // 编码红线（docs/i18n-encoding-standard.md §2.3）：连接层字符集必须显式声明，
+    // 不依赖驱动默认值；dateStrings 因影响面大另行回归后变更，不在此同批引入
+    charset: "utf8mb4",
     waitForConnections: true,
     connectionLimit: Number(process.env.DB_POOL_LIMIT || 20),
     enableKeepAlive: true,
@@ -53,4 +56,17 @@ export function getPool(): Pool {
   // 不缓存会导致每次 getPool() 新建一个连接池且永不回收，耗尽 MySQL 连接
   globalForDb._pool = pool;
   return pool;
+}
+
+/**
+ * 关闭数据库连接池（优雅退出时调用）。
+ * 等待所有活跃查询完成后释放连接，避免 MySQL 端出现僵尸 Sleep 连接。
+ */
+export async function closePool(): Promise<void> {
+  if (globalForDb._pool) {
+    console.log("[db-pool] 正在关闭连接池…");
+    await globalForDb._pool.end();
+    globalForDb._pool = undefined;
+    console.log("[db-pool] 连接池已关闭");
+  }
 }

@@ -48,3 +48,54 @@ export function formatDateShort(dateStr: string): string {
     return dateStr;
   }
 }
+
+/**
+ * 紧凑数字格式化：≥10000 → "X.X万+"，否则 "N,NNN+"。
+ * 用于首页规模数字墙、平台介绍指标等场景。
+ * （原 StatsWall/AboutSection 各自重复定义的 formatNumber）
+ */
+export function formatCompactNumber(num: number): string {
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1)}万+`;
+  }
+  return num.toLocaleString() + "+";
+}
+
+/**
+ * 纯数字格式化（不带+后缀）：用于需要精确数值的场景。
+ */
+export function formatPlainNumber(num: number): string {
+  return num.toLocaleString();
+}
+
+/**
+ * 截止时间（Unix 秒）→ "yyyy-MM-dd"。收编 rfq 三处逐字重复的 formatDeadline。
+ * 关键：各调用点原语义不一致（本地时区 vs UTC、空值回退文案 vs 空串），
+ * 因此以选项显式保留差异，避免隐式改变展示结果。
+ *
+ * @param deadlineSec - Unix 秒级时间戳（<=0 或无效视为空）
+ * @param opts.utc - 按 UTC 取值（默认 false，即浏览器本地时区）
+ * @param opts.emptyText - 空/无效时的回退文案（默认 "长期有效"）
+ */
+export function formatDeadlineDateYMD(
+  deadlineSec: number | null | undefined,
+  opts: { utc?: boolean; emptyText?: string } = {},
+): string {
+  const { utc = false, emptyText = "长期有效" } = opts;
+  if (!deadlineSec || deadlineSec <= 0) return emptyText;
+  const d = new Date(deadlineSec * 1000);
+  if (Number.isNaN(d.getTime())) return emptyText;
+  const year = utc ? d.getUTCFullYear() : d.getFullYear();
+  const month = utc ? d.getUTCMonth() : d.getMonth();
+  const day = utc ? d.getUTCDate() : d.getDate();
+  return `${year}-${pad2(month + 1)}-${pad2(day)}`;
+}
+
+/**
+ * 货币代码 → 展示符号（未知代码回退原码）。
+ * 收编 rfq 详情页与列表路由逐字重复的 symbol 映射（SSOT）。
+ */
+export function currencySymbol(code: string): string {
+  const map: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€", GBP: "£", JPY: "¥", HKD: "HK$" };
+  return map[code] || code;
+}

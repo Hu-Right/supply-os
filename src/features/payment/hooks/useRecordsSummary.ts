@@ -24,6 +24,8 @@ export type UseRecordsSummaryReturn = {
   unlocksFirst: UnlockRecord | null;
   /** 是否加载中 */
   loading: boolean;
+  /** 错误信息（null = 成功） */
+  error: string | null;
   /** 手动刷新摘要 */
   refresh: () => void;
 };
@@ -38,6 +40,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
   const [ordersFirst, setOrdersFirst] = useState<OrderRecord | null>(null);
   const [unlocksFirst, setUnlocksFirst] = useState<UnlockRecord | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const requestSeq = useRef(0);
 
   const load = useCallback(() => {
@@ -51,6 +54,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
     const seq = requestSeq.current + 1;
     requestSeq.current = seq;
     setLoading(true);
+    setError(null);
 
     Promise.allSettled([
       fetchOrders({ page: 1, limit: 1 }),
@@ -58,13 +62,21 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
     ])
       .then(([ordersResult, unlocksResult]) => {
         if (seq !== requestSeq.current) return;
+        const errors: string[] = [];
         if (ordersResult.status === "fulfilled") {
           setOrdersTotal(Number(ordersResult.value.total || 0));
           setOrdersFirst(ordersResult.value.list?.[0] ?? null);
+        } else {
+          errors.push("orders");
         }
         if (unlocksResult.status === "fulfilled") {
           setUnlocksTotal(Number(unlocksResult.value.total || 0));
           setUnlocksFirst(unlocksResult.value.list?.[0] ?? null);
+        } else {
+          errors.push("unlocks");
+        }
+        if (errors.length > 0) {
+          setError(`${errors.join(", ")} 加载失败`);
         }
       })
       .finally(() => {
@@ -82,6 +94,7 @@ export function useRecordsSummary(userId: number | undefined): UseRecordsSummary
     ordersFirst,
     unlocksFirst,
     loading,
+    error,
     refresh: load,
   };
 }

@@ -1,7 +1,7 @@
 /**
  * 005: 翻译相关表
  * crm_notice_translations, crm_opportunity_translations, crm_translation_state,
- * crm_supplier_translations, crm_unspsc_translations
+ * crm_supplier_translations
  */
 import type { Pool } from "mysql2/promise";
 import type { Migration } from "./runner";
@@ -77,18 +77,5 @@ export const migration: Migration = {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    // UNSPSC 类目译文
-    await dbPool.query(`
-      CREATE TABLE IF NOT EXISTS crm_unspsc_translations (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        code_id INT NOT NULL,
-        lang VARCHAR(10) NOT NULL,
-        title_tr VARCHAR(255) NULL,
-        model VARCHAR(60) NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_code_lang (code_id, lang),
-        KEY idx_unspsc_tr_lang (lang)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    `);
   },
 };

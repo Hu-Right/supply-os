@@ -8,8 +8,10 @@ import { getContext } from "@/lib/db/context";
 import { getPool } from "@/lib/db/pool";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { extractClientIp } from "@/lib/utils/ip";
+import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
-export async function POST(req: NextRequest) {
+export const POST = withRoute(async (req: NextRequest) => {
   const rl = checkRateLimit(req, { windowMs: 60_000, maxAttempts: 30 },
     (r) => `dl_track:${extractClientIp(r)}`);
   if (rl) return rl;
@@ -18,12 +20,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ code: 40000, message: "请求数据格式错误" }, { status: 400 });
+    routeError(400, EC_INVALID_PARAMS, "请求数据格式错误");
   }
   const materialId = String(body.material_id || "").trim().slice(0, 60);
   const fileName = String(body.file_name || "").trim().slice(0, 120);
   if (!materialId) {
-    return NextResponse.json({ code: 40000, message: "缺少资料 ID" }, { status: 400 });
+    routeError(400, EC_INVALID_PARAMS, "缺少资料 ID");
   }
 
   const ctx = getContext();
@@ -37,9 +39,10 @@ export async function POST(req: NextRequest) {
       "UPDATE crm_learning_materials SET downloads_count = downloads_count + 1 WHERE material_id = ?",
       [materialId],
     );
-  } catch {
+  } catch (e) {
     // 非关键路径：即使同步失败也不影响下载追踪
+    console.warn("[downloads/track] 同步 downloads_count 失败:", (e as Error).message);
   }
 
   return NextResponse.json({ success: true, count });
-}
+});

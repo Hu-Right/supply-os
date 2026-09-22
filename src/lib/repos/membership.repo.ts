@@ -25,6 +25,8 @@ export interface CurrentBestPlanRow {
   plan_name: string;
   price: number;
   unlock_quota: number;
+  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业，功能门控单一事实源 */
+  benefit_rank: number;
   /** 该权益已使用次数（subscription-only 场景为 0，由调用方按解锁流水补算） */
   quota_used: number;
   quota_total: number | null;
@@ -38,7 +40,7 @@ export class MembershipRepo {
   /** 查询全部激活的会员套餐 */
   async findActivePlans(): Promise<MembershipPlanRow[]> {
     const [rows] = await this.pool.query(
-      `SELECT plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type
+      `SELECT plan_code, name, description, price, currency, duration_days, unlock_quota, free_quota, plan_type, benefit_rank
        FROM crm_membership_plans
        WHERE is_active = 1
        ORDER BY sort_order, id`,
@@ -136,13 +138,13 @@ export class MembershipRepo {
   /**
    * 查询用户当前最优周期性套餐（升级场景）
    * 仅统计有配额、非单次卡的活跃权益；无权益时回退至活跃订阅。
-   * 按套餐价格倒序取最高者，价格相同取最新。
+   * V2（migration 090）：按 benefit_rank 倒序取最高档（档位为门控唯一事实源），同档取最新。
    */
   async findCurrentBestPlan(userId: number): Promise<CurrentBestPlanRow | null> {
     // 优先：未升级的活跃权益（配额型套餐）
     const [entRows] = await this.pool.query(
       `SELECT e.id AS entitlement_id, e.source_order_no, e.plan_code, e.quota_total, e.quota_used, e.started_at, e.expires_at,
-              p.name AS plan_name, p.price, p.unlock_quota,
+              p.name AS plan_name, p.price, p.unlock_quota, p.benefit_rank,
               (SELECT s.id FROM crm_user_subscriptions s
                 WHERE s.user_id = ? AND s.status = 'active' AND s.plan_code = e.plan_code
                   AND (s.expires_at IS NULL OR s.expires_at > NOW())
@@ -156,7 +158,7 @@ export class MembershipRepo {
          AND (e.expires_at IS NULL OR e.expires_at > NOW())
          AND p.price > 0
          AND p.plan_type <> 'single'
-       ORDER BY p.price DESC, e.id DESC
+       ORDER BY p.benefit_rank DESC, e.id DESC
        LIMIT 1`,
       [userId, userId],
     );
@@ -170,6 +172,7 @@ export class MembershipRepo {
         plan_name: String(ent.plan_name),
         price: Number(ent.price || 0),
         unlock_quota: Number(ent.unlock_quota || 0),
+        benefit_rank: Number(ent.benefit_rank ?? 0),
         quota_used: Number(ent.quota_used || 0),
         quota_total: ent.quota_total != null ? Number(ent.quota_total) : null,
         started_at: ent.started_at ?? null,
@@ -180,7 +183,7 @@ export class MembershipRepo {
     // 回退：活跃订阅（如 billing/subscribe 仅写订阅不发权益）
     const [subRows] = await this.pool.query(
       `SELECT s.id AS subscription_id, s.plan_code, s.started_at, s.expires_at,
-              p.name AS plan_name, p.price, p.unlock_quota
+              p.name AS plan_name, p.price, p.unlock_quota, p.benefit_rank
        FROM crm_user_subscriptions s
        INNER JOIN crm_membership_plans p ON p.plan_code = s.plan_code
        WHERE s.user_id = ?
@@ -188,7 +191,7 @@ export class MembershipRepo {
          AND (s.expires_at IS NULL OR s.expires_at > NOW())
          AND p.price > 0
          AND p.plan_type <> 'single'
-       ORDER BY p.price DESC, s.id DESC
+       ORDER BY p.benefit_rank DESC, s.id DESC
        LIMIT 1`,
       [userId],
     );
@@ -202,6 +205,7 @@ export class MembershipRepo {
         plan_name: String(sub.plan_name),
         price: Number(sub.price || 0),
         unlock_quota: Number(sub.unlock_quota || 0),
+        benefit_rank: Number(sub.benefit_rank ?? 0),
         quota_used: 0,
         quota_total: null,
         started_at: sub.started_at ?? null,
@@ -229,20 +233,6 @@ export class MembershipRepo {
     return (rows as EntitlementRow[])[0] ?? null;
   }
 
-  /** 事务内检查用户是否有活跃订阅 */
-  async hasActiveSubscriptionInTransaction(
-    conn: PoolConnection, userId: number,
-  ): Promise<boolean> {
-    const [rows] = await conn.query(
-      `SELECT id FROM crm_user_subscriptions
-       WHERE user_id = ? AND status = 'active'
-         AND (expires_at IS NULL OR expires_at > NOW())
-       LIMIT 1`,
-      [userId],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
-
   /**
    * 事务内悲观锁查询用户的活跃订阅（含套餐解锁配额）。
    * P0-2 修复：无权益但有订阅的解锁路径必须按套餐配额封顶，
@@ -250,9 +240,9 @@ export class MembershipRepo {
    */
   async findActiveSubscriptionForUpdate(
     conn: PoolConnection, userId: number,
-  ): Promise<{ id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null } | null> {
+  ): Promise<{ id: number; plan_code: string; started_at: Date | null; expires_at: Date | null; unlock_quota: number | null } | null> {
     const [rows] = await conn.query(
-      `SELECT s.id, s.plan_code, s.started_at, p.unlock_quota
+      `SELECT s.id, s.plan_code, s.started_at, s.expires_at, p.unlock_quota
        FROM crm_user_subscriptions s
        LEFT JOIN crm_membership_plans p ON p.plan_code = s.plan_code
        WHERE s.user_id = ? AND s.status = 'active'
@@ -263,8 +253,34 @@ export class MembershipRepo {
       [userId],
     );
     const row = (rows as RowDataPacket[])[0] as
-      | { id: number; plan_code: string; started_at: Date | null; unlock_quota: number | null }
+      | { id: number; plan_code: string; started_at: Date | null; expires_at: Date | null; unlock_quota: number | null }
       | undefined;
     return row ?? null;
+  }
+
+  /**
+   * 事务内懒补建权益（带已用次数），返回自增 id。
+   * 用于"有订阅无权益"的历史缺口数据：解锁时按需物化权益，
+   * 使配额发放/消耗统一落在权益表（quota_used 为唯一记账源）。
+   */
+  async insertEntitlementWithUsedInTransaction(
+    conn: PoolConnection,
+    params: {
+      userId: number; sourceOrderNo: string; planCode: string;
+      quotaTotal: number; quotaUsed: number;
+      startedAt: Date | null; expiresAt: Date | null;
+    },
+  ): Promise<number> {
+    const [result] = await conn.execute(
+      `INSERT INTO crm_user_entitlements
+         (user_id, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [
+        params.userId, params.sourceOrderNo, params.planCode,
+        params.quotaTotal, params.quotaUsed,
+        params.startedAt ?? new Date(), params.expiresAt,
+      ],
+    );
+    return Number((result as { insertId?: number }).insertId ?? 0);
   }
 }

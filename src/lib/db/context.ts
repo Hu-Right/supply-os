@@ -9,6 +9,7 @@ import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
 import { LearningPaymentService } from "../payment/learning-payment";
+import { TrainingPaymentService } from "../payment/TrainingPaymentService";
 import { PaymentOrchestrator } from "../payment/orchestrator";
 import { MockProvider } from "../payment/MockProvider";
 import { AlipayProvider } from "../payment/AlipayProvider";
@@ -28,19 +29,20 @@ import {
   NoticeTranslationRepo,
   NoticeInteractionRepo,
   NoticeFeedbackRepo,
+  NoticeFavoriteRepo,
 } from "../repos/notices/index";
 import {
   SupplierDirectoryRepo,
-  SupplierRegistrationRepo,
   SupplierClaimRepo,
 } from "../repos/suppliers/index";
 import { CatalogRepo } from "../repos/catalog.repo";
+import { OpenApiRepo } from "../repos/open-api.repo";
+import { AwardsRepo } from "../repos/awards.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
 import { ChatRepo } from "../repos/chat.repo";
 import { TrainingRepo, SystemRepo } from "../repos/training.repo";
-import { AdminRepo } from "../repos/admin.repo";
 
 /** 公告域上下文 */
 export type NoticeContext = {
@@ -50,6 +52,7 @@ export type NoticeContext = {
   translationRepo: NoticeTranslationRepo;
   interactionRepo: NoticeInteractionRepo;
   feedbackRepo: NoticeFeedbackRepo;
+  favoriteRepo: NoticeFavoriteRepo;
 };
 
 /** 支付域上下文 */
@@ -57,6 +60,7 @@ export type PaymentContext = {
   dbPool: Pool;
   paymentService: PaymentService;
   learningPaymentService: LearningPaymentService;
+  trainingPaymentService: TrainingPaymentService; // ARCH-PN 新增
   orchestrator: PaymentOrchestrator;
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
@@ -79,15 +83,7 @@ export type UserContext = {
 export type SupplierContext = {
   dbPool: Pool;
   directoryRepo: SupplierDirectoryRepo;
-  registrationRepo: SupplierRegistrationRepo;
   claimRepo: SupplierClaimRepo;
-};
-
-/** 管理运维域上下文 */
-export type AdminContext = {
-  dbPool: Pool;
-  adminRepo: AdminRepo;
-  usersRepo: UsersRepo;
 };
 
 export type AppContext = {
@@ -96,9 +92,10 @@ export type AppContext = {
   payment: PaymentContext;
   user: UserContext;
   supplier: SupplierContext;
-  admin: AdminContext;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
+  openApiRepo: OpenApiRepo;
+  awardsRepo: AwardsRepo;
   leadsRepo: LeadsRepo;
   chatRepo: ChatRepo;
   trainingRepo: TrainingRepo;
@@ -131,26 +128,29 @@ export function getContext(): AppContext {
   const translationRepo = new NoticeTranslationRepo(dbPool);
   const interactionRepo = new NoticeInteractionRepo(dbPool);
   const feedbackRepo = new NoticeFeedbackRepo(dbPool);
+  const favoriteRepo = new NoticeFavoriteRepo(dbPool);
 
   const directoryRepo = new SupplierDirectoryRepo(dbPool);
-  const registrationRepo = new SupplierRegistrationRepo(dbPool);
   const claimRepo = new SupplierClaimRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
+  const openApiRepo = new OpenApiRepo(dbPool);
+  const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
   const chatRepo = new ChatRepo(dbPool);
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
-  const adminRepo = new AdminRepo(dbPool);
 
   const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
+  const trainingPaymentService = new TrainingPaymentService(trainingRepo); // ARCH-PN 新增
   const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo);
 
-  // ARCH-B+（2026-09-04）：策略注册同步至 orchestrator 和 learningPaymentService
-  // PaymentService.initDefault() 仅注册到自身，需通过 orchestrator 统一分发
+  // ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
+  // orchestrator.registerStrategy() 内部自动向 paymentService / learningPaymentService
+  // 注入策略解析闭包，无需再分别调用各子服务的 registerStrategy()。
   orchestrator.registerStrategy("mock", new MockProvider());
   if (paymentMode === "live") {
     const alipayAppId = process.env.ALIPAY_APP_ID || "";
@@ -184,18 +184,27 @@ export function getContext(): AppContext {
     }
   }
 
+  // ARCH-PN（2026-09-11）：培训支付服务策略解析器注入
+  // （orchestrator 不直接持有 trainingPaymentService，需在此处手动注入）
+  trainingPaymentService.setStrategyResolver({
+    getStrategy: (p) => orchestrator.getStrategy(p),
+    hasStrategy: (p) => orchestrator.hasStrategy(p),
+    paymentMode,
+  });
+
   const ctx: AppContext = {
     dbPool,
-    notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo },
+    notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
-      dbPool, paymentService, learningPaymentService, orchestrator, paymentMode,
+      dbPool, paymentService, learningPaymentService, trainingPaymentService, orchestrator, paymentMode,
       paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,
     },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
-    supplier: { dbPool, directoryRepo, registrationRepo, claimRepo },
-    admin: { dbPool, adminRepo, usersRepo },
+    supplier: { dbPool, directoryRepo, claimRepo },
     opportunitiesRepo,
     catalogRepo,
+    openApiRepo,
+    awardsRepo,
     leadsRepo,
     chatRepo,
     trainingRepo,

@@ -45,7 +45,7 @@ export interface NoticeRecommendResult {
 /**
  * 推荐主入口。
  * 架构约束：推荐链路只读已有译文缓存，绝不触发翻译请求。
- * 译文生产统一收敛到定时任务（translation/auto.ts）与详情页按需翻译。
+ * 译文生产统一收敛到详情页按需翻译。
  */
 export async function recommendNotices(
   pool: Pool, userId: number, page: number, pageSize: number,
@@ -112,7 +112,8 @@ export async function recommendNotices(
     [rows] = await pool.query(
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
          n.deadline, n.deadline_ts, n.estimated_value, n.agency, n.is_featured,
-         LEFT(n.description, 300) AS description, n.documents, n.procurement_files,
+         LEFT(MAX(opp_desc.description), 300) AS description,
+         CASE WHEN LENGTH(MAX(opp_desc.description)) > 300 THEN 1 ELSE 0 END AS description_truncated, n.documents, n.procurement_files,
          ${trSelect} ${treSelect} MAX(opp_desc.description_cn) AS description_cn,
          LEFT(MAX(opp_desc.bid_overview), 200) AS bid_overview,
          MAX(opp_desc.beneficiary_countries) AS beneficiary_countries,

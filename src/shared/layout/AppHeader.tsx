@@ -40,14 +40,15 @@ export interface AppHeaderProps {
   mobileMenuOpen: boolean;
   setMobileMenuOpen: (open: boolean) => void;
   onSwitchTab: (path: string) => void;
-  onOpenAuth: () => void;
+  /** 账户入口：已登录跳 /settings/profile，未登录开登录弹窗 */
+  onOpenAccount: () => void;
   /** 会员等级标签（由 app 层调用 useMembershipTier 获取后传入，避免 shared→features 违规） */
   tierLabel: string;
 }
 
 export function AppHeader({
   tabs, activeTab,
-  mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAuth,
+  mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAccount,
   tierLabel,
 }: AppHeaderProps) {
   const { t } = useLocale();
@@ -85,7 +86,7 @@ export function AppHeader({
   return (
     <>
       <header suppressHydrationWarning className="sticky top-0 z-40 bg-white/95 border-b border-secondary-200/80 shadow-xs backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
+        <div className="px-4 sm:px-6 lg:px-8 py-3.5 flex justify-between items-center">
           {/* 左侧：汉堡菜单 + 品牌标识 */}
           <div className="flex items-center min-w-0 space-x-3">
             {/* 移动端汉堡菜单按钮（左侧） */}
@@ -110,7 +111,7 @@ export function AppHeader({
           </div>
           {/* 右侧：用户操作区 */}
           <div className="flex items-center space-x-3 shrink-0">
-            <button onClick={onOpenAuth}
+            <button onClick={onOpenAccount}
               className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${isVip ? "bg-accent-100 text-accent-800 border border-accent-300" : "bg-secondary-100 text-secondary-500 border border-secondary-200 hover:bg-secondary-200"}`}>
               <Crown className="w-3.5 h-3.5" />
               <span className="hidden md:inline">{authUser ? `${authUser.nickname || authUser.email} · ${vipDisplayLabel}` : t("guestLevel")}</span>
@@ -132,21 +133,43 @@ export function AppHeader({
       />
 
       {/* DESKTOP NAV */}
-      <nav className="hidden md:block bg-secondary-900 text-secondary-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div ref={navScrollRef} className="flex gap-1.5 py-2 overflow-x-auto scrollbar-none">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.path;
-              return (
-                <Link key={tab.path} href={tab.path} scroll={false}
-                  className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-primary-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-accent-500/10 text-accent-400 border border-accent-500/25 hover:bg-accent-500/20" : "hover:bg-secondary-800 text-secondary-300"}`}>
-                  <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-accent-400 animate-pulse" : ""}`} />
-                  <span>{tab.label}</span>
-                  {tab.alert && <span className="w-2 h-2 rounded-full bg-danger-500 animate-ping inline-block" />}
-                </Link>
-              );
-            })}
+      <nav className="hidden md:block bg-[#0c1929] text-secondary-200 relative overflow-hidden">
+        {/* 地球装饰背景图 */}
+        <img
+          src="/earth.png?v=2"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute -right-[5%] top-1/2 -translate-y-1/2 h-[160%] w-auto object-contain opacity-20"
+          style={{
+            maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 30%, black 60%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 30%, black 60%)",
+          }}
+        />
+        <div className="px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex items-center justify-between py-2">
+            {/* 左侧：导航 Tabs */}
+            <div ref={navScrollRef} className="flex gap-1.5 overflow-x-auto scrollbar-none">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.path;
+                return (
+                  <Link key={tab.path} href={tab.path} scroll={false}
+                    className={`flex shrink-0 items-center space-x-2 whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-all active:scale-95 ${isActive ? "bg-primary-600 text-white shadow-md font-semibold" : tab.highlight ? "bg-accent-500/10 text-accent-400 border border-accent-500/25 hover:bg-accent-500/20" : "hover:bg-secondary-800 text-secondary-300"}`}>
+                    <Icon className={`w-4 h-4 ${tab.highlight && !isActive ? "text-accent-400 animate-pulse" : ""}`} />
+                    <span>{tab.label}</span>
+                    {tab.alert && <span className="w-2 h-2 rounded-full bg-danger-500 animate-ping inline-block" />}
+                  </Link>
+                );
+              })}
+            </div>
+            {/* 右侧：会员套餐按钮 */}
+            <Link
+              href="/membership"
+              className="shrink-0 flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold border-2 border-amber-500 bg-slate-900/80 text-amber-400 hover:bg-slate-800 transition-colors ml-3 backdrop-blur-sm"
+            >
+              <Crown className="w-4 h-4" />
+              {t("navMembership")}
+            </Link>
           </div>
         </div>
       </nav>
@@ -157,10 +180,14 @@ export function AppHeader({
 /** 构建主导航 tabs 配置（以 NAV_TABS 为单一数据源，路径作为 Tab 标识） */
 export function useNavTabs() {
   const { t } = useLocale();
+  const { authUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  const tabs: AppTab[] = NAV_TABS.map((tab) => ({
+  // CRM 仅登录后可见：未登录时从导航中移除（文档要求"CRM 退出公开导航"）
+  const visibleTabs = NAV_TABS.filter((tab) => tab.path !== "/crm" || !!authUser);
+
+  const tabs: AppTab[] = visibleTabs.map((tab) => ({
     path: tab.path,
     label: t(tab.labelKey),
     icon: tab.icon,
@@ -168,12 +195,11 @@ export function useNavTabs() {
     highlight: tab.highlight,
   }));
 
-  // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /membership/xxx）
+  // 当前路由匹配对应 Tab（支持子路由前缀匹配，如 /procurement/notice/xxx）
   const activeTab = (() => {
     const p = pathname;
     const hit = NAV_TABS.find((tab) => p === tab.path || p.startsWith(`${tab.path}/`));
-    if (hit) return hit.path;
-    return "/showroom";
+    return hit ? hit.path : "";
   })();
 
   const switchMainTab = (path: string) => {

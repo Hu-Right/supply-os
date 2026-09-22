@@ -32,6 +32,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const oppsRepo = ctx.opportunitiesRepo;
 
+    // ARCH-P0（2026-09-05）：付费墙闸口 — 商机译文属解锁后内容
+    // 与 notices/[id]/translation 对齐：未解锁一律 403 core_locked
+    const unlock = await oppsRepo.findExistingUnlock(auth.userId, opportunityId);
+    if (!unlock) routeError(403, 40013, "机会已锁定，请先解锁", { core_locked: true });
+
     const cachedRow = await oppsRepo.findTranslationCache(opportunityId, lang);
     if (cachedRow && cachedRow.title_tr && cachedRow.description_tr) {
       return NextResponse.json({ lang, title: cachedRow.title_tr, description: cachedRow.description_tr, cached: true });

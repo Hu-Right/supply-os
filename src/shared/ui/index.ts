@@ -29,6 +29,8 @@ export type { InputProps } from "./Input";
 export { Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 
+export { SearchableSelect } from "./SearchableSelect";
+
 export { Select } from "./Select";
 export type { SelectProps } from "./Select";
 
@@ -52,6 +54,9 @@ export type { SpinnerProps } from "./Spinner";
 
 export { ErrorBoundary, setErrorReporter } from "./ErrorBoundary";
 export type { ErrorBoundaryProps } from "./ErrorBoundary";
+
+export { PageErrorFallback } from "./PageErrorFallback";
+export type { PageErrorFallbackProps } from "./PageErrorFallback";
 
 export { Pagination } from "./Pagination";
 export type { PaginationProps, PaginationLabels } from "./Pagination";
@@ -80,3 +85,16 @@ export type { TooltipProps } from "./Tooltip";
 
 export { default as WechatQRModal } from "./WechatQRModal";
 export type { WechatQRModalProps } from "./WechatQRModal";
+
+export { CountryFlag, lookupCountryIso2 } from "./CountryFlag";
+
+export { StatusBadge } from "./StatusBadge";
+export type { StatusBadgeProps } from "./StatusBadge";
+
+export { HotTagBar } from "./HotTagBar";
+export type { HotTagBarProps, HotTagItem } from "./HotTagBar";
+
+export { Calendar } from "./Calendar";
+export type { CalendarProps } from "./Calendar";
+
+export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./Popover";

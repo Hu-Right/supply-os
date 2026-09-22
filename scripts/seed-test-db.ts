@@ -211,18 +211,19 @@ async function seedTestNotices(pool: mysql2.Pool) {
 }
 
 async function seedTestSuppliers(pool: mysql2.Pool) {
-  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM crm_suppliers");
+  const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM supplier WHERE company = ?", ["E2E Test Supplier Co."]);
   const total = Number((countRows as { total: number }[])[0]?.total || 0);
   if (total > 0) return;
 
+  // 写入一条已审核通过的供应商（supplier 为供应商唯一数据源）
   await pool.execute(
-    "INSERT IGNORE INTO crm_suppliers (user_key, company_name, country, industry, status, created_at) VALUES (?, ?, ?, ?, ?, NOW())",
+    "INSERT IGNORE INTO supplier (company, country, industry, verify_status, addtime) VALUES (?, ?, ?, ?, ?)",
     [
-    "e2e-vip@test.com",
     "E2E Test Supplier Co.",
     "China",
     "Construction",
-    "active",
+    "done",
+    Math.floor(Date.now() / 1000),
   ]);
   console.log("[seed-test-db] 测试供应商种子数据写入完成");
 }

@@ -14,7 +14,7 @@ import Image from "next/image";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
 import { Modal, Button } from "@/shared/ui";
-import { TRAINING_GALLERY_CATEGORIES } from "@/data/training-content";
+import { TRAINING_GALLERY_CATEGORIES } from "../constants";
 
 const ROTATE_INTERVAL = 3000;
 

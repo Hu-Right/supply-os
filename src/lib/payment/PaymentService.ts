@@ -9,15 +9,12 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
-import { MockProvider } from "./MockProvider";
-import { AlipayProvider } from "./AlipayProvider";
-import { WechatProvider } from "./WechatProvider";
 import { activatePaidOrder } from "./fulfillment";
 import { reverseFulfilledOrder } from "./reverse";
 import { fulfillMockPayment } from "./mock";
-import { isParseablePrivateKey } from "./keys";
 import { SITE_URL } from "../services/seo/site";
 import { ORDER_STATUS } from "@/shared/constants/order-status";
+import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 
 /**
  * return_url 白名单（审查 F26）：仅接受本站相对路径或与 SITE_URL 同源的
@@ -35,7 +32,9 @@ function sanitizeReturnUrl(url: string): string {
 }
 
 export class PaymentService {
-  private strategies: Map<PaymentProviderName, PaymentStrategy> = new Map();
+  /** 策略解析器（由 Orchestrator 注入） */
+  private getStrategyFn: ((provider: PaymentProviderName) => PaymentStrategy) | null = null;
+  private hasStrategyFn: ((provider: PaymentProviderName) => boolean) | null = null;
 
   constructor(
     private paymentsRepo?: PaymentsRepo,
@@ -50,19 +49,27 @@ export class PaymentService {
     return this.paymentsRepo;
   }
 
-  registerStrategy(provider: PaymentProviderName, strategy: PaymentStrategy): void {
-    this.strategies.set(provider, strategy);
+  /**
+   * 注入策略解析器（由 Orchestrator.registerStrategy 调用）
+   * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理，
+   * 子服务通过 resolver 延迟获取策略，不再各自维护 strategies Map。
+   */
+  setStrategyResolver(opts: {
+    getStrategy: (provider: PaymentProviderName) => PaymentStrategy;
+    hasStrategy: (provider: PaymentProviderName) => boolean;
+  }): void {
+    this.getStrategyFn = opts.getStrategy;
+    this.hasStrategyFn = opts.hasStrategy;
   }
 
   /** 渠道是否已注册（config-status 等可用性判定的唯一依据） */
   hasStrategy(provider: PaymentProviderName): boolean {
-    return this.strategies.has(provider);
+    return this.hasStrategyFn?.(provider) ?? false;
   }
 
   getStrategy(provider: PaymentProviderName): PaymentStrategy {
-    const strategy = this.strategies.get(provider);
-    if (!strategy) throw new Error(`Unsupported payment provider: ${provider}`);
-    return strategy;
+    if (!this.getStrategyFn) throw new Error("PaymentService: strategy resolver not initialized");
+    return this.getStrategyFn(provider);
   }
 
   /**
@@ -70,13 +77,14 @@ export class PaymentService {
    *
    * 编排：学习类 plan_code 拒绝并委托 LearningPaymentService → 服务端定价
    * （金额一律取 DB/套餐配置，请求体 amount 不参与定价，审查 F2）→
-   * single_99 首单特惠资格（曾购含 pending 即 409，产品决策 2026-08-30）→
-   * 升级差价计算与快照（审查 F23）→ 首单抵扣（annual_799，799-99=700）→
-   * 生成订单号 + 渠道支付链接 + 落库（pending）。
+   * 升级差价计算与快照（审查 F23）→ 生成订单号 + 渠道支付链接 + 落库（pending）。
    *
-   * @throws SINGLE_FIRST_PURCHASE_ONLY / UPGRADE_NOT_SUPPORTED /
-   *         NO_ACTIVE_PLAN_TO_UPGRADE / ALREADY_ON_TARGET_PLAN /
-   *         CANNOT_DOWNGRADE / FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
+   * V2 权益（2026-09-21）：single_99 首单特惠与 annual_799 首单抵扣随旧套餐下架一并移除，
+   * 新套餐体系（129/999/1299/8800）无促销规则。
+   *
+   * @throws UPGRADE_NOT_SUPPORTED / NO_ACTIVE_PLAN_TO_UPGRADE /
+   *         ALREADY_ON_TARGET_PLAN / CANNOT_DOWNGRADE /
+   *         FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
    */
   async createOrder(request: CreateOrderRequest): Promise<OrderInfo> {
     const userId = request.user_id;
@@ -96,7 +104,6 @@ export class PaymentService {
     let currency: string;
     let originalOrderNo: string | null = null;
     let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
-    let deductionSnapshot: { source_order_no: string; source_amount: number; base_price: number } | null = null;
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
     // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
@@ -108,13 +115,6 @@ export class PaymentService {
       amount = Number(plan.price);
       planName = String(plan.name || planCode);
       currency = plan.currency || "CNY";
-
-      // ── 首单特惠资格（single_99，2026-08-30）──
-      // 曾购/持有任何 single_% 订单（含 pending，防并发开单绕过）即拒绝
-      if (planCode === "single_99") {
-        const hasRecord = await this.repo.hasSingleUnlockRecord(userId!);
-        if (hasRecord) throw new Error("SINGLE_FIRST_PURCHASE_ONLY");
-      }
 
       // ── 升级订单：校验升级资格并计算差价 ──
       if (orderType === "upgrade") {
@@ -137,30 +137,10 @@ export class PaymentService {
       } else if (amount <= 0) {
         throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
       }
-
-      // ── 首单抵扣（2026-08-30 产品决策）：购标讯个人会员时，7 天内已支付的
-      // single_99 订单金额自动抵扣（799-99=700）。快照锁价与升级差价同哲学：
-      // 下单那一刻确定抵扣，履约期不重算（第 7 天 23:59 下单仍享）。
-      // 决策 1：仅 single_99 源可抵扣，历史 single_199 买家不参与。
-      if (planCode === "annual_799" && orderType === "new") {
-        const source = await this.repo.findDeductibleSingleOrder(userId!);
-        if (source && source.amount > 0) {
-          amount = Math.max(0, amount - source.amount);
-          originalOrderNo = source.order_no;
-          deductionSnapshot = {
-            source_order_no: source.order_no,
-            source_amount: source.amount,
-            base_price: Number(plan.price),
-          };
-        }
-      }
     }
 
-    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建；
-    // annual_799 抵扣单同理（抵扣窗口/资格在下单时判定，复用旧 pending 会把
-    // 带抵扣与不带抵扣的单据互相覆盖）；single_99 首单资格同样按当次判定
-    const isPromotionalOrder = planCode === "annual_799" || planCode === "single_99";
-    const existingOrder = orderType === "upgrade" || isPromotionalOrder
+    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
+    const existingOrder = orderType === "upgrade"
       ? null
       : await this.repo.findPendingOrder({
           userId: userId!, planCode, provider, noticeId,
@@ -188,7 +168,6 @@ export class PaymentService {
       notice_id: noticeId,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
-      ...(deductionSnapshot ? { deduction: deductionSnapshot } : {}),
     });
 
     if (existingOrder) {
@@ -230,56 +209,19 @@ export class PaymentService {
   }
 
   /**
-   * 查询订单状态：先查 DB，pending 订单向支付渠道发起网关查询，
-   * 渠道侧已支付则触发履约激活（幂等）。用于用户主动查询与支付回跳核对。
+   * 查询订单状态（使用统一查询管道）。
+   * ARCH-PN（2026-09-11）：委托 queryOrderWithGatewayPoll 管道，
+   * 消除与 LearningPaymentService.queryOrder() 的重复逻辑。
    */
   async queryOrder(orderNo: string, providerTradeNo?: string): Promise<OrderStatusResult> {
-    const dbOrder = await this.repo.findByOrderNo(orderNo);
-    if (!dbOrder) return { order_no: orderNo, status: ORDER_STATUS.CLOSED };
-
-    if (dbOrder.status === ORDER_STATUS.PENDING && dbOrder.provider) {
-      try {
-        const strategy = this.getStrategy(dbOrder.provider as PaymentProviderName);
-        const result = await strategy.queryOrderStatus(orderNo, providerTradeNo);
-        if (result.status === ORDER_STATUS.PAID) {
-          await this.activatePaidOrder(orderNo, result.provider_trade_no);
-          return {
-            ...result,
-            order_no: orderNo,
-            provider: dbOrder.provider as PaymentProviderName,
-            plan_code: dbOrder.plan_code,
-            amount: Number(dbOrder.amount || 0),
-            currency: dbOrder.currency || "CNY",
-            notice_id: dbOrder.notice_id || null,
-          };
-        }
-        if (result.status !== "pending") {
-          return {
-            ...result,
-            order_no: orderNo,
-            provider: dbOrder.provider as PaymentProviderName,
-            plan_code: dbOrder.plan_code,
-            amount: Number(dbOrder.amount || 0),
-            currency: dbOrder.currency || "CNY",
-            notice_id: dbOrder.notice_id || null,
-          };
-        }
-      } catch {
-        // Keep the database status when provider polling is unavailable.
-      }
-    }
-
-    return {
-      order_no: dbOrder.order_no,
-      status: dbOrder.status as import("../types/payment").PaymentOrderStatus,
-      notice_id: dbOrder.notice_id || null,
-      provider: dbOrder.provider as PaymentProviderName,
-      plan_code: dbOrder.plan_code,
-      amount: Number(dbOrder.amount || 0),
-      currency: dbOrder.currency || "CNY",
-      provider_trade_no: dbOrder.provider_trade_no || undefined,
-      paid_at: dbOrder.paid_at ? new Date(dbOrder.paid_at).toISOString() : undefined,
-    };
+    const result = await queryOrderWithGatewayPoll({
+      findOrder: () => this.repo.findByOrderNo(orderNo),
+      getStrategy: (p) => this.getStrategy(p),
+      onFulfill: (no, tradeNo) => this.activatePaidOrder(no, tradeNo),
+      orderNo,
+      providerTradeNo,
+    });
+    return result as OrderStatusResult;
   }
 
   /**
@@ -391,46 +333,12 @@ export class PaymentService {
     return found;
   }
 
-  static initDefault(paymentsRepo: PaymentsRepo, paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
-    const service = new PaymentService(paymentsRepo, membershipRepo);
-    service.registerStrategy("mock", new MockProvider());
-
-    if (paymentMode === "live") {
-      const alipayAppId = process.env.ALIPAY_APP_ID || "";
-      const alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || "";
-      // 密钥可解析才注册：占位符/示例值视为未开通，避免下单时才在签名环节失败
-      if (alipayAppId && isParseablePrivateKey(alipayPrivateKey)) {
-        service.registerStrategy(
-          "alipay",
-          new AlipayProvider({
-            appId: alipayAppId,
-            privateKey: alipayPrivateKey,
-            publicKey: process.env.ALIPAY_PUBLIC_KEY || "",
-            notifyUrl: process.env.ALIPAY_NOTIFY_URL || "",
-            sandbox: process.env.ALIPAY_SANDBOX === "true",
-          }),
-        );
-      } else if (alipayAppId) {
-        console.warn("[PaymentService] 支付宝私钥无法解析（占位符或格式错误），alipay 渠道未注册");
-      }
-
-      const wechatAppId = process.env.WECHAT_APP_ID || "";
-      const wechatMchId = process.env.WECHAT_MCH_ID || process.env.WECHAT_MERCHANT_ID || "";
-      if (wechatAppId && wechatMchId) {
-        service.registerStrategy(
-          "wechat",
-          new WechatProvider({
-            appId: wechatAppId,
-            mchId: wechatMchId,
-            apiV3Key: process.env.WECHAT_API_V3_KEY || "",
-            privateKey: process.env.WECHAT_PRIVATE_KEY || "",
-            notifyUrl: process.env.WECHAT_NOTIFY_URL || "",
-            sandbox: false,
-          }),
-        );
-      }
-    }
-
-    return service;
+  /**
+   * 创建 PaymentService 实例（不注册策略）。
+   * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理，
+   * 此方法仅创建服务实例，策略通过 setStrategyResolver 延迟注入。
+   */
+  static initDefault(paymentsRepo: PaymentsRepo, _paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
+    return new PaymentService(paymentsRepo, membershipRepo);
   }
 }

@@ -24,12 +24,13 @@ function makeCtx(overrides: Record<string, any> = {}) {
       usersRepo: {
         findAuthByIdentifier: vi.fn().mockResolvedValue(null),
         updatePasswordById: vi.fn().mockResolvedValue(undefined),
+        updateLastLoginById: vi.fn().mockResolvedValue(undefined),
         ...overrides.usersRepo,
       },
       membershipRepo: {},
       authRepo: { insertRefreshToken: vi.fn() },
     },
-    supplier: { registrationRepo: {} },
+    supplier: { directoryRepo: {} },
   } as any;
 }
 

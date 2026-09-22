@@ -38,10 +38,11 @@ function makeService(material: ReturnType<typeof makeMaterial> | null) {
     const mod = await import("@/lib/payment/learning-payment");
     const LearningPaymentServiceCtor = mod.LearningPaymentService;
     const svc = new LearningPaymentServiceCtor(learningOrdersRepo, learningMaterialsRepo);
-    svc.registerStrategy("mock", {
+    const _s = {
       createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "data:image/png;base64,x" }),
       queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
-    } as never);
+    } as never;
+    svc.setStrategyResolver({ getStrategy: () => _s });
     return svc;
   } };
 }

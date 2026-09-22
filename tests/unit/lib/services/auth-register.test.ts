@@ -16,6 +16,14 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
   };
 });
 
+const mockBackfillByPhone = vi.fn().mockResolvedValue(0);
+vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
+  SupplierQualificationRepo: function (this: any) {
+    Object.assign(this, { backfillByPhone: mockBackfillByPhone });
+  },
+}));
+vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
+
 import { registerUser } from "@/lib/services/auth-register";
 import { issueTokenPair } from "@/lib/services/auth";
 
@@ -33,8 +41,9 @@ function makeCtx(overrides: Record<string, any> = {}) {
         ...overrides.usersRepo,
       },
       authRepo: {
-        findLatestActiveCode: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 }),
+        findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 }),
         markCodeUsed: vi.fn(),
+        backfillCodeUserId: vi.fn(),
         incrementCodeAttempts: vi.fn(),
         recordConsentLog: vi.fn(),
         ...overrides.authRepo,
@@ -46,7 +55,7 @@ function makeCtx(overrides: Record<string, any> = {}) {
       },
       membershipRepo: {},
     },
-    supplier: { registrationRepo: {} },
+    supplier: { directoryRepo: {} },
   } as any;
 }
 
@@ -59,7 +68,6 @@ const baseParams = {
   password: TEST_FIXTURE_PASSWORD,
   code: "123456",
   inviteCode: "",
-  userType: "personal" as const,
   clientIp: "1.2.3.4",
   userAgent: "test",
 };
@@ -90,7 +98,7 @@ describe("registerUser", () => {
 
   it("验证码不存在 → 400/40007", async () => {
     const ctx = makeCtx({
-      authRepo: { findLatestActiveCode: vi.fn().mockResolvedValue(null) },
+      authRepo: { findLatestActiveCodeByPhone: vi.fn().mockResolvedValue(null) },
     });
     await expect(registerUser(ctx, baseParams))
       .rejects.toMatchObject({ status: 400, code: 40007 });
@@ -100,7 +108,7 @@ describe("registerUser", () => {
     const inc = vi.fn();
     const ctx = makeCtx({
       authRepo: {
-        findLatestActiveCode: vi.fn().mockResolvedValue({ id: 1, code: "hash:999999", attempts: 0 }),
+        findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:999999", attempts: 0 }),
         incrementCodeAttempts: inc,
       },
     });
@@ -112,7 +120,7 @@ describe("registerUser", () => {
   it("验证码尝试过多 → 429/40029", async () => {
     const ctx = makeCtx({
       authRepo: {
-        findLatestActiveCode: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 5 }),
+        findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 5 }),
       },
     });
     await expect(registerUser(ctx, baseParams))
@@ -135,6 +143,24 @@ describe("registerUser", () => {
     expect(result.refreshToken).toBe("refresh");
   });
 
+  it("注册成功 → 以手机号锚点查码并回填 user_id", async () => {
+    const finder = vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 });
+    const backfill = vi.fn();
+    const ctx = makeCtx({
+      authRepo: {
+        findLatestActiveCodeByPhone: finder,
+        markCodeUsed: vi.fn(),
+        backfillCodeUserId: backfill,
+        recordConsentLog: vi.fn(),
+      },
+    });
+    await registerUser(ctx, baseParams);
+    // 锤点为手机号（非 user_key/user_id）
+    expect(finder).toHaveBeenCalledWith("13800000000", "registration");
+    // 注册成功（create 返回 99）后回填码行的 user_id
+    expect(backfill).toHaveBeenCalledWith(1, 99);
+  });
+
   it("有效邀请码 → 递增 KPI", async () => {
     const inc = vi.fn();
     const ctx = makeCtx({
@@ -144,13 +170,13 @@ describe("registerUser", () => {
       },
     });
     await registerUser(ctx, { ...baseParams, inviteCode: "GOOD" });
-    expect(inc).toHaveBeenCalledWith(7, "personal");
+    expect(inc).toHaveBeenCalledWith(7, "enterprise");
   });
 
   it("合规日志失败不阻断主流程", async () => {
     const ctx = makeCtx({
       authRepo: {
-        findLatestActiveCode: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 }),
+        findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 }),
         markCodeUsed: vi.fn(),
         recordConsentLog: vi.fn().mockRejectedValue(new Error("db")),
       },
@@ -186,5 +212,21 @@ describe("registerUser", () => {
     });
     await registerUser(ctx, baseParams);
     expect(markPhoneVerifiedById).toHaveBeenCalledWith(77);
+  });
+
+  it("注册成功后回溯关联诊断记录（按手机号）", async () => {
+    mockBackfillByPhone.mockResolvedValueOnce(2);
+    const ctx = makeCtx();
+    await registerUser(ctx, baseParams);
+    expect(mockBackfillByPhone).toHaveBeenCalledWith("13800000000", 99);
+  });
+
+  it("回溯关联失败不阻断注册", async () => {
+    mockBackfillByPhone.mockRejectedValueOnce(new Error("db error"));
+    const ctx = makeCtx();
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await registerUser(ctx, baseParams);
+    expect(result.payload).toBeTruthy();
+    spy.mockRestore();
   });
 });

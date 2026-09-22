@@ -52,7 +52,7 @@ export class NoticeTranslationRepo {
     return (rows as RowDataPacket[]).length > 0;
   }
 
-  /** 英文中枢兜底 upsert（已有字段不被 null 覆盖） */
+  /** 英文中枢兜底 upsert（已有字段不被 null 覆盖；model 必须同步写入，否则中枢行仍指向上一次 provider） */
   async upsertEnPivotTranslation(
     noticeId: number,
     titleTr: string | null,
@@ -64,7 +64,8 @@ export class NoticeTranslationRepo {
        VALUES (?, 'en', ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          title_tr = COALESCE(VALUES(title_tr), title_tr),
-         description_tr = COALESCE(VALUES(description_tr), description_tr)`,
+         description_tr = COALESCE(VALUES(description_tr), description_tr),
+         model = VALUES(model)`,
       [noticeId, titleTr, descriptionTr, model],
     );
   }

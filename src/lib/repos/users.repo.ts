@@ -29,6 +29,14 @@ export class UsersRepo {
     return (rows as Partial<UserRow>[])[0] ?? null;
   }
 
+  /** 绑定/更新用户的企业关联（supplier_id + 绑定状态） */
+  async bindSupplier(userId: number, supplierId: number, status = "verified"): Promise<void> {
+    await this.pool.query(
+      "UPDATE crm_users SET supplier_id = ?, supplier_link_status = ? WHERE id = ?",
+      [supplierId, status, userId],
+    );
+  }
+
   /** 按 user_id 查找用户（完整行，含 phone/email 等；供已认证路由使用） */
   async findById(userId: number): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
@@ -190,7 +198,8 @@ export class UsersRepo {
   }
 
   /** 按手机号或邮箱查找用户（登录鉴权专用，含 password_hash）
-   *  登录已限制为仅手机号，此处保留邮箱查找以兼容历史数据 */
+   *  登录凭证为双轨：手机号，或已绑定邮箱（含注册后在个人中心补绑的邮箱，
+   *  产品决策 2026-09：邮箱对所有绑定用户开放登录，非仅历史用户兼容） */
   async findAuthByIdentifier(identifier: string): Promise<UserRow | null> {
     const isPhone = /^1[3-9]\d{9}$/.test(identifier);
     if (isPhone) {
@@ -206,15 +215,12 @@ export class UsersRepo {
     return (rows as UserRow[])[0] ?? null;
   }
 
-  /**
-   * N6 收敛（2026-08-20）+ user_id 迁移 Phase 0（2026-09-03）：
-   * 管理员通道更换邮箱——按 user_id 定位。换邮箱不影响任何历史数据查询。
-   * 登录兼容：findByEmail / findByIdentifier 已按 email 查找，新邮箱登录直接生效。
-   */
-  async updateUserEmailById(userId: number, newEmail: string): Promise<void> {
+  /** 更新最后登录时间——按 user_id */
+  async updateLastLoginById(userId: number): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET email = ?, email_verified = 0, updated_at = NOW() WHERE id = ?",
-      [newEmail.toLowerCase(), userId],
+      "UPDATE crm_users SET last_login_at = NOW() WHERE id = ?",
+      [userId],
     );
   }
+
 }

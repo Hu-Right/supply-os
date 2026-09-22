@@ -102,10 +102,10 @@ describe("getPaymentTips — 分平台文案", () => {
 });
 
 describe("mapPaymentError — 钱路错误码映射", () => {
-  it("400 未匹配的业务错误 → 保留原始消息便于排查", () => {
+  it("400 未匹配的业务错误 → 统一中文兜底，不透传技术消息", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const err = new ApiError(400, "自定义业务错误 XYZ");
-    expect(mapPaymentError(err)).toBe("自定义业务错误 XYZ");
+    expect(mapPaymentError(err)).toBe("请求参数有误，请检查后重试");
     expect(warnSpy).toHaveBeenCalledWith("[mapPaymentError] 未匹配的 400 错误:", "自定义业务错误 XYZ");
     warnSpy.mockRestore();
   });

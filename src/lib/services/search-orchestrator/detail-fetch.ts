@@ -5,10 +5,14 @@
  * @module server/services/search-orchestrator/detail-fetch
  * @description Meilisearch 只返回 ID，本模块按 ID 列表从 MySQL 取完整字段。
  *              宽表优先（零 JOIN），宽表未就绪回退多表 JOIN。保持 FIELD() 顺序与传入一致。
+ *              两条路径的摘要长度与描述来源均引用 utils 层常量，与宽表构建同一口径（I2）：
+ *              降级路径历史上自带第三份 COALESCE 副本，曾与宽表路径展示不同描述。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 // A2 解环：直接从无依赖叶子模块导入，不经过 search-sync barrel（避免循环回环）
-import { isWideTableReady } from "../search-sync/wide-table-readiness";
+import { isWideTableReady } from "../search-common/wide-table-readiness";
+import { WIDE_LIMITS, DESC_SOURCE_EXPR } from "../../utils/notice-field-limits";
+import { qualifiedOppWhere } from "../../utils/notice-qualified";
 
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
@@ -34,10 +38,11 @@ export async function fetchDetailsByIds(
       `SELECT id, notice_id, reference, title, notice_type_std AS notice_type,
          country_std AS country, agency_std AS agency, agency_group,
          NULLIF(deadline_sec, 0) AS deadline_sec, NULLIF(deadline_sec, 0) AS deadline_ts,
-         estimated_value, is_featured,
-         LEFT(description, 300) AS description,
-         ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, 500) AS description_i18n,
-         title_en, LEFT(description_en, 500) AS description_en,
+         estimated_value, is_featured, entry_source,
+         LEFT(description, ${WIDE_LIMITS.lockedTeaser}) AS description,
+         CASE WHEN LENGTH(description) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
+         ${i18nTitleExpr} AS title_i18n, LEFT(${i18nDescExpr}, ${WIDE_LIMITS.i18nTeaser}) AS description_i18n,
+         title_en, LEFT(description_en, ${WIDE_LIMITS.i18nTeaser}) AS description_en,
          description_cn, bid_overview, beneficiary_countries,
          documents_count AS breakdown_file_count,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5
@@ -46,25 +51,34 @@ export async function fetchDetailsByIds(
        ORDER BY FIELD(id, ${ids.map(() => "?").join(",")})`,
       [...ids, ...ids],
     );
-    return rows as RowDataPacket[];
+    // 模块02 NEW 标签：create_time 在主表（宽表无此列）。按 PK 二次查询后在内存合并，
+    // 不在宽表 SELECT 上 JOIN——两表 title/description 等列同名，JOIN 会引入歧义。
+    const [timeRows] = await pool.query(
+      `SELECT id, create_time FROM crm_bid_notices WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ids,
+    );
+    const timeMap = new Map<number, unknown>();
+    for (const r of timeRows as RowDataPacket[]) timeMap.set(Number(r.id), r.create_time);
+    return (rows as RowDataPacket[]).map((r) => ({ ...r, create_time: timeMap.get(Number(r.id)) ?? null }));
   }
 
   // 回退路径：原始多表 JOIN（宽表未就绪）
   const [rows] = await pool.query(
-    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
+    `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country, n.create_time,
        n.deadline, n.deadline_ts, n.deadline_sec, n.estimated_value, n.agency,
        n.is_featured, n.documents, n.procurement_files,
-       LEFT(n.description, 300) AS description,
+       LEFT(${DESC_SOURCE_EXPR}, ${WIDE_LIMITS.lockedTeaser}) AS description,
+       CASE WHEN LENGTH(${DESC_SOURCE_EXPR}) > ${WIDE_LIMITS.lockedTeaser} THEN 1 ELSE 0 END AS description_truncated,
        tr.title_tr AS title_i18n, tr.description_tr AS description_i18n,
        tre.title_tr AS title_en, tre.description_tr AS description_en,
        opp.description_cn,
-       LEFT(opp.bid_overview, 200) AS bid_overview,
+       LEFT(opp.bid_overview, ${WIDE_LIMITS.bidOverview}) AS bid_overview,
        opp.beneficiary_countries
      FROM crm_bid_notices n
      LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?
      LEFT JOIN crm_notice_translations tre ON tre.notice_id = n.id AND tre.lang = 'en'
      LEFT JOIN crm_bid_opportunities opp ON opp.source_notice_id = n.notice_id
-       AND (opp.is_qualified = 1 OR opp.status = 1 OR opp.audit_status = 1)
+       AND ${qualifiedOppWhere("opp")}
      WHERE n.id IN (${ids.map(() => "?").join(",")})
      ORDER BY FIELD(n.id, ${ids.map(() => "?").join(",")})`,
     [locale || null, ...ids, ...ids],

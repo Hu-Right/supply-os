@@ -2,7 +2,7 @@
  * /r/[code] — 员工推广扫码落地页（客户端）
  *
  * 用户扫码后在浏览器中设置 ref_code + qr_auto_open Cookie，
- * 然后跳转到 /showroom。采用客户端实现确保 Cookie 100% 写入成功。
+ * 然后跳转到首页。采用客户端实现确保 Cookie 100% 写入成功。
  */
 "use client";
 
@@ -19,9 +19,9 @@ export default function ReferralPage() {
     const rawCode = Array.isArray(params.code) ? params.code[0] : params.code;
     const normalized = (rawCode || "").trim().toUpperCase();
 
-    // 格式校验失败 → 直接跳 showroom（不带弹窗信号）
+    // 格式校验失败 → 直接跳首页（不带弹窗信号）
     if (!CODE_PATTERN.test(normalized)) {
-      router.replace("/showroom");
+      router.replace("/");
       return;
     }
 
@@ -33,8 +33,8 @@ export default function ReferralPage() {
     document.cookie = `ref_code=${encodeURIComponent(normalized)}; path=/; expires=${expires.toUTCString()}; SameSite=lax`;
     document.cookie = `qr_auto_open=1; path=/; SameSite=lax`;
 
-    // 立即跳转到展厅页
-    router.replace("/showroom");
+    // 立即跳转到首页
+    router.replace("/");
   }, [params.code, router]);
 
   return null;

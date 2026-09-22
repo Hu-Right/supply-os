@@ -59,5 +59,6 @@
   "learningCoreContent": "المحتوى الأساسي",
   "buyMaterialBtn": "شراء الملف",
   "learningBundleTitle": " شراء حزمة بخصم",
-  "learningContentLocked": "قم بالشراء لعرض المحتوى الكامل والتنزيل"
+  "learningContentLocked": "قم بالشراء لعرض المحتوى الكامل والتنزيل",
+  "learningContentLoadedFailed": "فشل تحميل المحتوى، يرجى التحديث والمحاولة مرة أخرى"
 }

@@ -14,7 +14,7 @@ import type { Pool } from "mysql2/promise";
 import { fullSync, incrementalSync, getLastSyncedId, getDocCount, hasHasDeadlineField } from "../meilisearch";
 import { getWideTableCount } from "../meilisearch/sync";
 import { isHealthy, tryRecover } from "../meilisearch/client";
-import { tryRunPendingRebuild, requestIndexRebuild } from "../search-orchestrator/rebuild-trigger";
+import { tryRunPendingRebuild, requestIndexRebuild } from "../search-common/rebuild-trigger";
 
 export interface SyncOptions {
   /** 增量同步间隔（毫秒），默认 1 分钟 */

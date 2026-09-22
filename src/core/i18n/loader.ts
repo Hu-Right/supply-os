@@ -21,7 +21,7 @@ const loaded = new Set<string>();
 export async function loadLanguage(lang: Locale): Promise<Record<string, string>> {
   if (loaded.has(lang)) return {};
 
-  const [common, procurement, auth, payment, membership, crm, supplier, showroom, services, learning, training] =
+  const [common, procurement, auth, payment, membership, crm, supplier, services, learning, training] =
     await Promise.all([
       import(`./locales/${lang}/common.json`),
       import(`./locales/${lang}/procurement.json`),
@@ -30,7 +30,6 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
       import(`./locales/${lang}/membership.json`),
       import(`./locales/${lang}/crm.json`),
       import(`./locales/${lang}/supplier.json`),
-      import(`./locales/${lang}/showroom.json`),
       import(`./locales/${lang}/services.json`),
       import(`./locales/${lang}/learning.json`),
       import(`./locales/${lang}/training.json`),
@@ -44,7 +43,6 @@ export async function loadLanguage(lang: Locale): Promise<Record<string, string>
     ...membership.default,
     ...crm.default,
     ...supplier.default,
-    ...showroom.default,
     ...services.default,
     ...learning.default,
     ...training.default,

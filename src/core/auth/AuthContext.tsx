@@ -3,15 +3,15 @@
  * Authentication Context
  *
  * @module core/auth/AuthContext
- * @description 认证状态管理 + 业务方法（登录/注册/登出/刷新/供应商绑定）。
+ * @description 认证状态管理 + 业务方法（登录/注册/登出/刷新）。
  *              弹窗 UI 状态不在这里，由 App 层管理。
- *              Authentication state management + business methods (login/register/logout/refresh/supplier claim).
+ *              Authentication state management + business methods (login/register/logout/refresh).
  *              Modal UI state is NOT here, managed by App layer.
  */
 
 import { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { AuthUser } from "@/types/auth";
-import type { AuthContextValue, SupplierClaimForm, RegisterOptions } from "./types";
+import type { AuthContextValue, RegisterOptions } from "./types";
 // 双轨制退役（轨道C）：认证链路全部走统一请求层 api()，
 // 获得 401 自动刷新重试、性能指标采集与统一错误语义（原裸 fetch 双通道已移除）。
 import { setAuthTokens, clearAuthTokens, clearApiCache, api, ApiError } from "@/core/http";
@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isVip, setIsVip] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [claimMessage, setClaimMessage] = useState("");
   /** 认证初始化完成标志：localStorage 恢复 + 可选 refresh 完成后才为 true */
   const [authReady, setAuthReady] = useState(false);
 
@@ -96,16 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [persistAuthUser, t]);
 
   /**
-   * 登录（仅手机号）
-   * Login (phone only)
+   * 登录（手机号或已绑定邮箱，identifier 双轨）
+   * Login (phone or bound email)
    */
-  const login = useCallback(async (phone: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     setIsAuthLoading(true);
     try {
       // api() 非 2xx 时抛出 ApiError（message = 服务端 error 字段），与原语义一致
       const data = await api<AuthResponse>("/api/auth/login", {
         method: "POST",
-        body: { identifier: phone, password },
+        body: { identifier, password },
       });
       // 存储 Access Token + Refresh Token（Refresh Token 同时经 HttpOnly Cookie + localStorage 降级存储）
       if (data.token) {
@@ -121,14 +120,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * 注册（手机号必填，邮箱绑定在注册后个人中心完成）
    * Register (phone required; email binding is done post-registration in profile)
    */
-  const register = useCallback(async ({ password, displayName, claim, verifyCode, invitationCode, userType, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
+  const register = useCallback(async ({ password, displayName, verifyCode, invitationCode, phone, agreementVersion, agreementAcceptedAt }: RegisterOptions) => {
     setIsAuthLoading(true);
     try {
       const data = await api<AuthResponse>("/api/auth/register", {
         method: "POST",
         body: {
           password, display_name: displayName, verify_code: verifyCode,
-          invitation_code: invitationCode, user_type: userType, phone,
+          invitation_code: invitationCode, phone,
           // 默认昵称按注册界面语言生成（服务端 generateNickname 白名单内回退）
           locale,
           // ── 合规审计：协议同意记录 ──
@@ -143,27 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // 响应式更新，无需 reload
       persistAuthUser(data.user);
-
-      // 提交供应商绑定申请（注册成功后携带新签发的 JWT，api() 自动附加）
-      // 注：注册流程已移除邮箱收集，contact_email 留空，用户可在个人中心绑定邮箱后补充
-      if (claim) {
-        await api("/api/supplier-claims", {
-          method: "POST",
-          body: {
-            company_name: claim.companyName,
-            supplier_type: claim.supplierType,
-            contact_name: claim.contactName || displayName,
-            contact_phone: claim.contactPhone,
-            business_license_no: claim.businessLicenseNo,
-          },
-        });
-        // 对齐原版注册路径文案（手动绑定路径仍展示实时状态）
-        setClaimMessage(t("authRegisterClaimSubmitted"));
-      }
     } finally {
       setIsAuthLoading(false);
     }
-  }, [persistAuthUser, locale, t]);
+  }, [persistAuthUser, locale]);
 
   /**
    * 登出
@@ -182,45 +164,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authUserRef.current = null;
     setAuthUser(null);
     setIsVip(false);
-    setClaimMessage("");
     window.localStorage.removeItem(AUTH_USER_KEY);
     clearAuthTokens();
     // B1 配套（2026-08-20）：解锁列表/详情等身份相关接口已不再携带 user_key 缓存隔离，
     // 登出时统一清空 API 缓存，防止下一账号命中前账号的缓存数据
     clearApiCache();
   }, []);
-
-  /**
-   * 提交供应商绑定申请
-   * Submit supplier claim application
-   */
-  const submitSupplierClaim = useCallback(async (claim: SupplierClaimForm) => {
-    if (!authUserRef.current) {
-      setClaimMessage(t("authLoginRequiredForBind"));
-      return;
-    }
-
-    setClaimMessage("");
-    setIsAuthLoading(true);
-    try {
-      const data = await api<{ status?: string }>("/api/supplier-claims", {
-        method: "POST",
-        body: {
-          company_name: claim.companyName,
-          supplier_type: claim.supplierType,
-          contact_name: claim.contactName,
-          contact_phone: claim.contactPhone,
-          contact_email: authUserRef.current.email,
-          business_license_no: claim.businessLicenseNo,
-        },
-      });
-      setClaimMessage(`绑定申请已提交，状态：${data.status}`);
-    } catch (err: unknown) {
-      setClaimMessage((err as Error).message || t("authBindFailed"));
-    } finally {
-      setIsAuthLoading(false);
-    }
-  }, [t]);
 
   /**
    * 发送找回密码验证码
@@ -305,12 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshAuth,
-    submitSupplierClaim,
-    claimMessage,
-    setClaimMessage,
     sendResetCode,
     resetPassword,
-  }), [authUser, isVip, authReady, isAuthLoading, login, register, logout, refreshAuth, submitSupplierClaim, claimMessage, sendResetCode, resetPassword]);
+  }), [authUser, isVip, authReady, isAuthLoading, login, register, logout, refreshAuth, sendResetCode, resetPassword]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

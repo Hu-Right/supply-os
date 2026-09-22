@@ -11,7 +11,6 @@
 import { useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useLocale } from "@/core/i18n";
-import { emitAppEvent } from "@/core/events";
 import { ApiError, clearApiCache } from "@/core/http";
 import type { NoticeItem } from "../types";
 import { viewNotice, unlockNotice, expressInterest } from "../api";
@@ -33,8 +32,6 @@ export interface UseNoticeHandlersOptions {
   membership: UseNoticeMembershipReturn;
   /** 解锁集合与详情加载（useNoticeUnlock） */
   unlock: UseNoticeUnlockReturn;
-  /** 打开付费墙（useNoticePayment） */
-  openPaywall: (notice: NoticeItem) => void;
   /** 未登录时的回调（弹出登录） */
   onRequireLogin: () => void;
   setActionMessage: (message: string) => void;
@@ -42,7 +39,6 @@ export interface UseNoticeHandlersOptions {
 
 export interface UseNoticeHandlersReturn {
   openNotice: (notice: NoticeItem) => Promise<void>;
-  handlePayUnlock: (notice: NoticeItem) => void;
   handleUnlockNotice: (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => Promise<boolean>;
   handleExpressInterest: (notice: NoticeItem, interestType: "interested" | "subscribed") => Promise<void>;
 }
@@ -55,7 +51,6 @@ export function useNoticeHandlers({
   trackDetailOpen,
   membership,
   unlock,
-  openPaywall,
   onRequireLogin,
   setActionMessage,
 }: UseNoticeHandlersOptions): UseNoticeHandlersReturn {
@@ -90,39 +85,18 @@ export function useNoticeHandlers({
     // 锁定态渐进式预览：并行拉取机构名/分类标签等有限预览字段（无敏感数据）
     if (!alreadyUnlocked) void loadNoticePreview(notice);
     // 全文内容加载：搜索 SQL 截断 description 为 300 字符，本请求替换为完整原文，
-    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义
-    loadNoticeContent(notice);
+    // 确保详情页原文与译文（翻译 API 使用全文）长度一致，"查看原文"开关有意义。
+    // 仅解锁态发起：/content 自 2026-09-05 起属付费墙闸口（ARCH-P0），锁定态发起必 403；
+    // 解锁成功后全文由 loadNoticeDetail 的 detail 载荷合并，无需在此补发。
+    if (alreadyUnlocked || notice.core_locked === false) loadNoticeContent(notice);
     // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
     // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
   }, [
     userId, isVip, t,
     onRequireLogin, trackClick, trackDetailOpen,
-    isUnlocked, setSelectedNotice, setActionMessage, openPaywall,
+    isUnlocked, setSelectedNotice, setActionMessage,
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,
   ]);
-
-  // 单条公告付费买断：派发真实支付事件（携带 notice_id + 回跳地址）
-  const handlePayUnlock = async (notice: NoticeItem) => {
-    if (!userId) {
-      onRequireLogin();
-      return;
-    }
-    // P1-10 安全修复：套餐码与价格从后端在售套餐动态获取，不再硬编码——
-    // 套餐上下架/调价时无需发版；single_99 首单价仅在用户具备资格时选用
-    // （服务端 plans 接口附 first_purchase_eligible），否则回退标准 single_199
-    const plans = await membership.loadPaidPlans();
-    const singleFirst = plans.find((p) => p.plan_code === "single_99");
-    const singleStandard = plans.find((p) => p.plan_code === "single_199" && p.plan_type === "single");
-    const singlePlan = singleFirst?.first_purchase_eligible === true ? singleFirst : singleStandard;
-    emitAppEvent("supply-os:pay", {
-      code: singlePlan?.plan_code || "single_199",
-      name: t("procurement_singleUnlockName"),
-      price: Number(singlePlan?.price ?? 199),
-      currency: "CNY",
-      noticeId: notice.id,
-      returnUrl: `${window.location.origin}/procurement`,
-    });
-  };
 
   const handleUnlockNotice = async (notice: NoticeItem, unlockType?: "free" | "single" | "subscription") => {
     if (!userId) {
@@ -133,7 +107,6 @@ export function useNoticeHandlers({
     // 免费试用已移除：无显式类型时一律走订阅配额，配额不足由服务端 402 拦截
     if (!unlockType && !canUsePaidQuota) {
       setActionMessage(t("procurement_paidQuotaRequired"));
-      openPaywall(notice);
       return false;
     }
 
@@ -147,7 +120,6 @@ export function useNoticeHandlers({
       setDetailLoadingId((prev) => (prev === notice.id ? null : prev));
       if (err instanceof ApiError && err.status === 402) {
         setActionMessage(t("procurement_paidQuotaRequired"));
-        openPaywall(notice);
       } else {
         setActionMessage(t("procurement_unlockFail"));
       }
@@ -180,8 +152,7 @@ export function useNoticeHandlers({
 
     setActionMessage(interestType === "subscribed" ? t("procurement_subscribedSuccess") : t("procurement_actionSuccess"));
     await refreshMembership();
-    openPaywall(notice);
   };
 
-  return { openNotice, handlePayUnlock, handleUnlockNotice, handleExpressInterest };
+  return { openNotice, handleUnlockNotice, handleExpressInterest };
 }

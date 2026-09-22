@@ -10,7 +10,7 @@
 import type { Pool } from "mysql2/promise";
 import { syncNoticeIds, isHealthy } from "../meilisearch/index";
 import { tryRecover } from "../meilisearch/client";
-import { logSyncCascade } from "../search-orchestrator/metrics";
+import { logSyncCascade } from "../search-common/metrics";
 
 interface RetryEntry {
   id: number;

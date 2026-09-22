@@ -31,13 +31,13 @@ export const EC_INTERNAL_ERROR = 50000;
 export const EC_INVALID_CODE = 40007;
 
 /** 密码错误 / 账号状态异常（Account issue） */
-export const EC_ACCOUNT_ISSUE = 40003;
+export const EC_ACCOUNT_ISSUE = 40013;
 
 /** 手机号格式/绑定问题（Phone binding issue） */
 export const EC_PHONE_ISSUE = 40011;
 
 /** 邮箱格式/绑定问题（Email binding issue） */
-export const EC_EMAIL_ISSUE = 40010;
+export const EC_EMAIL_ISSUE = 40014;
 
 /** 已注册 / 重复操作（Duplicate operation） */
 export const EC_DUPLICATE = 40008;
@@ -46,7 +46,7 @@ export const EC_DUPLICATE = 40008;
 export const EC_VIP_ONLY = 40041;
 
 /** 翻译服务不可用（Translation service unavailable） */
-export const EC_TRANSLATION_UNAVAILABLE = 50001;
+export const EC_TRANSLATION_UNAVAILABLE = 50002;
 
 /** 公告不存在（Notice not found — 翻译/内容/预览场景） */
 export const EC_NOTICE_NOT_FOUND = 40006;
@@ -79,7 +79,22 @@ export const EC_TRAINING_ORDER_NOT_PAID = 40020;
 export const EC_TRAINING_PARTICIPANTS_INVALID = 40021;
 
 /** 学员数量不匹配 */
-export const EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH = 40022;
+export const EC_TRAINING_PARTICIPANTS_COUNT_MISMATCH = 40023;
+
+/** 课程不存在或已下架 */
+export const EC_TRAINING_COURSE_NOT_FOUND = 40030;
+
+/** 课程价格配置异常 */
+export const EC_TRAINING_COURSE_PRICE_INVALID = 40032;
+
+/** 培训支付渠道暂不可用 */
+export const EC_TRAINING_PAYMENT_UNAVAILABLE = 40034;
+
+/** 所选期次不存在 */
+export const EC_TRAINING_SCHEDULE_NOT_FOUND = 40033;
+
+/** 期次名额已满 */
+export const EC_TRAINING_SCHEDULE_CAPACITY_EXCEEDED = 40035;
 
 /** 公告不存在（404 语义版本，与 EC_NOTICE_NOT_FOUND 40006 共存供不同场景选用） */
 export const EC_NOTICE_NOT_FOUND_404 = 40404;
@@ -107,6 +122,18 @@ export const EC_NO_VALID_ACTIONS = 40005;
 
 /** 会话不存在 */
 export const EC_SESSION_REQUIRED = 40002;
+
+/** API Key 无效或已 revoked */
+export const EC_API_KEY_INVALID = 40101;
+
+/** API Key 已过期 */
+export const EC_API_KEY_EXPIRED = 40102;
+
+/** API Key 已暂停 */
+export const EC_API_KEY_SUSPENDED = 40302;
+
+/** API 每日配额已用完 */
+export const EC_API_QUOTA_EXCEEDED = 42901;
 
 // ── 分页限制常量（Pagination Limits）───────────────────────────────────────────
 

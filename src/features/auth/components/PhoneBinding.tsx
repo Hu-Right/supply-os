@@ -1,14 +1,19 @@
 /**
- * 手机号绑定组件
- * Phone Binding Component
+ * 手机号绑定行 — 智谱行式（实心圆图标 + 右侧实心蓝/红按钮）
+ * Phone Binding Row
  *
  * @module features/auth/components/PhoneBinding
- * @description 用户手机号绑定 / 换绑 / 解绑管理面板。
- *              逻辑已提取至 usePhoneBinding hook。
+ * @description 安全设置行：实心品牌圆图标 + 标题/ masked 值灰描述 + 右侧实心
+ *              「换绑/解绑/绑定」；编辑态行内展开。逻辑在 usePhoneBinding。
  */
-import { Smartphone, ShieldCheck, Unlink } from "lucide-react";
-import { Button, Input } from "@/shared/ui";
+import { Smartphone, ShieldCheck } from "lucide-react";
+import { Input } from "@/shared/ui";
 import { usePhoneBinding } from "../hooks/usePhoneBinding";
+
+const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
+const btnRed = "px-4 py-1.5 rounded-md bg-danger-600 text-white text-xs font-medium hover:bg-danger-700 transition-colors shrink-0 disabled:opacity-50";
+const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
+const btnSend = "px-3 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors shrink-0 whitespace-nowrap disabled:opacity-50";
 
 export function PhoneBinding() {
   const {
@@ -18,223 +23,129 @@ export function PhoneBinding() {
     handleSendCode, handleBind, handleRebind, handleUnbind, resetState,
   } = usePhoneBinding();
 
+  const sendLabel = () =>
+    countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode");
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Smartphone className="w-4 h-4 text-teal-600" />
-        <h4 className="text-sm font-extrabold text-slate-900">{t("authPhoneTitle")}</h4>
-        {hasPhone && isVerified && (
-          <span className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-            <ShieldCheck className="w-3 h-3" />
-            {t("authPhoneVerified")}
-          </span>
+    <div className="px-6 py-4">
+      <div className="flex items-center gap-4">
+        <span className="w-10 h-10 rounded-full bg-brand-500 text-white flex items-center justify-center shrink-0">
+          <Smartphone className="w-4 h-4" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground">{t("authPhoneTitle")}</p>
+            {hasPhone && isVerified && (
+              <span className="inline-flex items-center gap-1 text-2xs font-medium text-success-600">
+                <ShieldCheck className="w-3 h-3" />
+                {t("authPhoneVerified")}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {hasPhone ? <span className="font-mono">{currentPhone}</span> : t("authPhoneNotBound")}
+          </p>
+        </div>
+        {hasPhone && view === "idle" && (
+          <div className="flex gap-2 shrink-0">
+            <button type="button" className={btnBlue}
+              onClick={() => { setView("rebinding"); resetState(); }}>
+              {t("authPhoneRebind")}
+            </button>
+            <button type="button" className={btnRed}
+              onClick={() => { setView("unbinding"); resetState(); }}>
+              {t("authPhoneUnbind")}
+            </button>
+          </div>
+        )}
+        {!hasPhone && view === "idle" && (
+          <button type="button" className={btnBlue}
+            onClick={() => { setView("binding"); resetState(); }}>
+            {t("authPhoneBindAction")}
+          </button>
         )}
       </div>
 
-      {/* 已绑定状态 */}
-      {hasPhone && view === "idle" && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-600">
-            {t("authPhoneBound")}: <span className="font-mono font-bold text-slate-900">{currentPhone}</span>
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => { setView("rebinding"); resetState(); }}
-              className="bg-white text-slate-700 hover:bg-slate-100"
-            >
-              {t("authPhoneRebind")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => { setView("unbinding"); resetState(); }}
-              className="bg-white border-rose-200 text-rose-600 hover:bg-rose-50 gap-1"
-            >
-              <Unlink className="w-3 h-3" />
-              {t("authPhoneUnbind")}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* 未绑定状态 */}
-      {!hasPhone && view === "idle" && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500">{t("authPhoneNotBound")}</p>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => { setView("binding"); resetState(); }}
-            className="py-2 text-xs font-black"
-          >
-            {t("authPhoneBindAction")}
-          </Button>
-        </div>
-      )}
-
-      {/* 绑定表单 */}
       {view === "binding" && (
-        <div className="space-y-3">
-          <Input
-            type="tel"
-            value={phone}
+        <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in max-w-md">
+          <Input type="tel" value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-            placeholder={t("authPhoneBindPlaceholder")}
-            className="bg-white"
-          />
+            placeholder={t("authPhoneBindPlaceholder")} className="bg-white" />
           <div className="flex gap-2">
-            <Input
-              type="text"
-              value={code}
+            <Input type="text" value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder={t("authPhoneCodePlaceholder")}
-              maxLength={6}
-              className="flex-1 bg-white tracking-widest"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loading || countdown > 0}
-              onClick={() => handleSendCode("bind")}
-              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
-            >
-              {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </Button>
+              placeholder={t("authPhoneCodePlaceholder")} maxLength={6}
+              className="flex-1 bg-white tracking-widest" />
+            <button type="button" className={btnSend} disabled={loading || countdown > 0}
+              onClick={() => handleSendCode("bind")}>
+              {sendLabel()}
+            </button>
           </div>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={loading || !phone || !code}
-              onClick={handleBind}
-              className="py-2 text-xs font-black"
-            >
+            <button type="button" className={btnBlue} disabled={loading || !phone || !code} onClick={handleBind}>
               {t("authPhoneBind")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => { setView("idle"); resetState(); }}
-              className="py-2 text-xs bg-white"
-            >
+            </button>
+            <button type="button" className={btnPlain} onClick={() => { setView("idle"); resetState(); }}>
               {t("cancel")}
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* 换绑表单 */}
       {view === "rebinding" && (
-        <div className="space-y-3">
-          <Input
-            type="tel"
-            value={phone}
+        <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in max-w-md">
+          <Input type="tel" value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
-            placeholder={t("authPhoneNewPlaceholder")}
-            className="bg-white"
-          />
+            placeholder={t("authPhoneNewPlaceholder")} className="bg-white" />
           <div className="flex gap-2">
-            <Input
-              type="text"
-              value={code}
+            <Input type="text" value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder={t("authPhoneCodePlaceholder")}
-              maxLength={6}
-              className="flex-1 bg-white tracking-widest"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loading || countdown > 0}
-              onClick={() => handleSendCode("rebind")}
-              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
-            >
-              {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </Button>
+              placeholder={t("authPhoneCodePlaceholder")} maxLength={6}
+              className="flex-1 bg-white tracking-widest" />
+            <button type="button" className={btnSend} disabled={loading || countdown > 0}
+              onClick={() => handleSendCode("rebind")}>
+              {sendLabel()}
+            </button>
           </div>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={loading || !phone || !code}
-              onClick={handleRebind}
-              className="py-2 text-xs font-black"
-            >
+            <button type="button" className={btnBlue} disabled={loading || !phone || !code} onClick={handleRebind}>
               {t("authPhoneRebindConfirm")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => { setView("idle"); resetState(); }}
-              className="py-2 text-xs bg-white"
-            >
+            </button>
+            <button type="button" className={btnPlain} onClick={() => { setView("idle"); resetState(); }}>
               {t("cancel")}
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* 解绑表单 */}
       {view === "unbinding" && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-600">
-            {t("authPhoneUnbindHint")}: <span className="font-mono font-bold">{currentPhone}</span>
+        <div className="mt-3 sm:pl-14 space-y-2 animate-fade-in max-w-md">
+          <p className="text-xs text-muted-foreground">
+            {t("authPhoneUnbindHint")}: <span className="font-mono font-medium text-foreground">{currentPhone}</span>
           </p>
           <div className="flex gap-2">
-            <Input
-              type="text"
-              value={code}
+            <Input type="text" value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder={t("authPhoneCodePlaceholder")}
-              maxLength={6}
-              className="flex-1 bg-white tracking-widest"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={loading || countdown > 0}
-              onClick={() => handleSendCode("unbind")}
-              className="shrink-0 py-2 border-teal-200 text-teal-600 hover:bg-teal-50 whitespace-nowrap"
-            >
-              {countdown > 0 ? `${countdown}s` : loading ? t("authForgotSending") : t("authPhoneSendCode")}
-            </Button>
+              placeholder={t("authPhoneCodePlaceholder")} maxLength={6}
+              className="flex-1 bg-white tracking-widest" />
+            <button type="button" className={btnSend} disabled={loading || countdown > 0}
+              onClick={() => handleSendCode("unbind")}>
+              {sendLabel()}
+            </button>
           </div>
           <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="danger"
-              disabled={loading || !code}
-              onClick={handleUnbind}
-              className="py-2 text-xs font-black"
-            >
+            <button type="button" className={btnRed} disabled={loading || !code} onClick={handleUnbind}>
               {t("authPhoneUnbindConfirm")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => { setView("idle"); resetState(); }}
-              className="py-2 text-xs bg-white"
-            >
+            </button>
+            <button type="button" className={btnPlain} onClick={() => { setView("idle"); resetState(); }}>
               {t("cancel")}
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* 消息提示 */}
       {message && (
-        <p className={`text-xs font-bold rounded-lg p-3 border ${
-          isError
-            ? "text-rose-600 bg-rose-50 border-rose-100"
-            : "text-teal-700 bg-teal-50 border-teal-100"
-        }`}>
+        <p className={`mt-2 sm:pl-14 text-xs font-medium ${isError ? "text-danger-600" : "text-success-600"}`}>
           {message}
         </p>
       )}

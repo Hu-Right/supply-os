@@ -32,9 +32,18 @@ export default defineConfig({
         "src/lib/utils/json.ts",
         "src/lib/utils/normalize.ts",
         "src/lib/utils/notice-expired.ts",
+        "src/lib/utils/notice-field-limits.ts",
+        "src/lib/utils/notice-qualified.ts",
         "src/lib/utils/ip.ts",
         "src/lib/utils/fileSniff.ts",
         "src/lib/utils/auth-cookies-next.ts",
+
+        // ── src/lib/services/search-sync — 宽表构建/对账/指纹（红线 #6 单一写入者）──
+        "src/lib/services/search-sync/wide-row-builder.ts",
+        "src/lib/services/search-sync/wide-row-reconcile.ts",
+        "src/lib/services/search-sync/wide-fingerprint.ts",
+        "src/lib/services/search-sync/crawler-sync-sql.ts",
+        "src/lib/services/search-visibility/purge.ts",
 
         // ── src/lib/middleware — 认证中间件 ──
         "src/lib/middleware/auth.ts",
@@ -49,11 +58,14 @@ export default defineConfig({
         "src/lib/services/recommend/scoring.ts",
         "src/lib/services/recommend/text-similarity.ts",
 
+        // ── src/lib/services/search-common — 搜索共享纯逻辑子模块 ──
+        "src/lib/services/search-common/metrics.ts",
+        "src/lib/services/search-common/rebuild-trigger.ts",
+        "src/lib/services/search-common/wide-table-readiness.ts",
+
         // ── src/lib/services/search-orchestrator — 纯逻辑子模块 ──
-        "src/lib/services/search-orchestrator/metrics.ts",
         "src/lib/services/search-orchestrator/params.ts",
         "src/lib/services/search-orchestrator/format.ts",
-        "src/lib/services/search-orchestrator/rebuild-trigger.ts",
 
         // ── src/lib/services/unspsc — 纯函数 ──
         "src/lib/services/unspsc/parser.ts",
@@ -62,6 +74,26 @@ export default defineConfig({
         "src/lib/services/notice-search/agencies/translate.ts",
         "src/lib/services/notice-search/cache.ts",
         "src/lib/services/notice-search/stats.ts",
+
+        // ── src/lib/services/ai-summary — AI 拆标摘要纯逻辑子模块 ──
+        "src/lib/services/ai-summary/crypto.ts",
+        "src/lib/services/ai-summary/llm-client.ts",
+        "src/lib/services/ai-summary/llm-profile.ts",
+        "src/lib/services/ai-summary/test-connection.ts",
+        "src/lib/services/ai-summary/prompt.ts",
+
+        // ── src/lib/services/ai-match — 匹配候选粗筛纯逻辑 ──
+        "src/lib/services/ai-match/pre-filter.ts",
+
+        // ── AI 评分/匹配/身份/资源库 — 服务编排（有测试）──
+        "src/lib/services/ai-match/index.ts",
+        "src/lib/services/ai-score/index.ts",
+        "src/lib/services/ai-score/llm-client.ts",
+        "src/lib/services/ai-score/prompt.ts",
+        "src/lib/services/ai/shared/notice-context.ts",
+        "src/lib/services/ai/shared/llm-credentials.ts",
+        "src/lib/services/supplier-pool.ts",
+        "src/lib/repos/user-supplier-pool.repo.ts",
 
         // ── src/lib/services/translation — 超时守护 ──
         "src/lib/services/translation/fetchWithTimeout.ts",
@@ -96,6 +128,7 @@ export default defineConfig({
 
         // ── src/core — 纯逻辑模块（有测试）──
         "src/core/events/events.ts",
+        "src/core/flags.ts",
         "src/core/http/buildQuery.ts",
         "src/core/i18n/detectScript.ts",
         "src/core/i18n/pickLocale.ts",
@@ -109,9 +142,15 @@ export default defineConfig({
         // ── src/features/training — 组件（有测试）──
         "src/features/training/components/TrainingPaymentModal.tsx",
 
+        // ── src/features/auth — 组件（有测试）──
+        "src/features/auth/components/ProfileContent.tsx",
+        "src/features/auth/components/EnterpriseInfoCard.tsx",
+        "src/features/auth/components/EnterpriseEditForm.tsx",
+
         // ── src/shared — 纯逻辑 + 组件（有测试）──
         "src/shared/auth/**/*.ts",
         "src/shared/utils/cn.ts",
+        "src/shared/utils/unixTs.ts",
         "src/shared/ui/Button.tsx",
         "src/shared/ui/Badge.tsx",
         "src/shared/ui/Input.tsx",

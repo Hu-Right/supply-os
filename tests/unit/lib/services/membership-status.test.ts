@@ -133,6 +133,7 @@ describe("resolveMembershipState — §2.0 语义裁决固化", () => {
       plan_name: "标讯企业会员-旗舰版",
       price: 999,
       unlock_quota: 100,
+      benefit_rank: 4,
       quota_used: 0,
       quota_total: null,
       started_at: null,
@@ -146,6 +147,7 @@ describe("resolveMembershipState — §2.0 语义裁决固化", () => {
     expect(state.isVip).toBe(true);
     expect(state.activeSubscriptions).toHaveLength(2);
     expect(state.currentBest?.plan_code).toBe("annual"); // 最优套餐透传（升级判断依据）
+    expect(state.benefitRank).toBe(4); // V2：档位取自 currentBest.benefit_rank（门控 SSOT）
   });
 
   it("画像 7：免费套餐订阅（DB 存在活跃订阅行）→ isVip=true（规则派生语义钉住）", async () => {

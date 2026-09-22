@@ -128,4 +128,29 @@ export class SupplierQualificationRepo {
       [qualificationId, userId],
     );
   }
+
+  /**
+   * 注册后回溯关联：按手机号查找 user_id IS NULL 的孤立诊断记录，
+   * 通过 contact_info 列匹配（该字段已改为收集手机号）。
+   * @returns 关联的记录数（0 = 无匹配孤立记录）
+   */
+  async backfillByPhone(phone: string, userId: number): Promise<number> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>(
+      `SELECT id FROM crm_supplier_qualification
+       WHERE user_id IS NULL AND contact_info = ?
+       ORDER BY id DESC`,
+      [phone],
+    );
+    if (rows.length === 0) return 0;
+
+    const ids = rows.map((r) => r.id);
+    // 批量回写 user_id
+    await this.pool.execute(
+      `UPDATE crm_supplier_qualification SET user_id = ? WHERE id IN (${ids.map(() => "?").join(",")})`,
+      [userId, ...ids],
+    );
+    // 回写最新一条的 qualification_id 到 crm_users
+    await this.linkUserQualification(userId, ids[0]);
+    return rows.length;
+  }
 }

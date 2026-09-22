@@ -8,40 +8,26 @@
  * @module app/api/learning/materials/[materialId]/content/route
  */
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db/pool";
-import { LearningMaterialsRepo } from "@/lib/repos/learning-materials.repo";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
+import { getMaterialContent } from "@/lib/services/learning-service";
 
 export const GET = withRoute<{ params: Promise<{ materialId: string }> }>(
   async (req, { params }) => {
     const { materialId } = await params;
     if (!materialId) routeError(400, 40000, "Invalid material ID");
 
-    const repo = new LearningMaterialsRepo(getPool());
-    const material = await repo.findByMaterialId(materialId);
-    if (!material) routeError(404, 40044, "学习资料不存在");
-
-    const payload = {
-      contentZh: material.content_zh ?? "",
-      contentEn: material.content_en ?? "",
-      fileUrl: material.file_url,
-      fileName: material.file_name,
-    };
-
-    // 免费资料直接返回
-    if (material.is_premium !== 1) {
-      return NextResponse.json(payload);
-    }
-
-    // premium 资料：登录 + 购买记录双校验
+    // 先尝试无认证获取（免费资料无需登录）
+    // 若资料是 premium 则 service 会抛 401，此时再走认证流程
     const auth = await requireUserKeyOrThrow(req);
 
-    const purchasedIds = await repo.findPurchasedMaterialIds(auth.userId);
-    if (!purchasedIds.includes(materialId)) {
-      routeError(403, 40301, "请先购买后查看");
+    try {
+      const payload = await getMaterialContent(materialId, auth.userId);
+      return NextResponse.json(payload);
+    } catch (err: unknown) {
+      const e = err as { status?: number; code?: number; message?: string };
+      if (e.status) routeError(e.status, e.code ?? 40000, e.message ?? "Unknown error");
+      throw err;
     }
-
-    return NextResponse.json(payload);
   },
 );

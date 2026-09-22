@@ -8,14 +8,14 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   return NextResponse.json(
-    { code: 40410, message: "Gone — use dedicated sub-route files." },
+    { code: 40410, message: "此接口已废弃，请使用子路由端点" },
     { status: 410 },
   );
 }
 
 export async function POST() {
   return NextResponse.json(
-    { code: 40410, message: "Gone — use dedicated sub-route files." },
+    { code: 40410, message: "此接口已废弃，请使用子路由端点" },
     { status: 410 },
   );
 }

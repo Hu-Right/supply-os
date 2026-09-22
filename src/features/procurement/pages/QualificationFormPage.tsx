@@ -37,10 +37,14 @@ export default function QualificationFormPage() {
   const [qualificationId, setQualificationId] = useState<number | null>(null);
   // 员工推广扫码归因：读取 /r/[code] 写入的 ref_code Cookie
   const [refCode, setRefCode] = useState<string | null>(null);
+  // 资源库回填：从资源库页携带 ?poolId= 进入时，提交后回写该资源库行的诊断关联
+  const [poolId, setPoolId] = useState<number | null>(null);
 
   useEffect(() => {
     const match = document.cookie.match(/(?:^|;\s*)ref_code=([^;]+)/);
     if (match) setRefCode(decodeURIComponent(match[1]).toUpperCase());
+    const pm = window.location.search.match(/[?&]poolId=(\d+)/);
+    if (pm) setPoolId(Number(pm[1]));
   }, []);
 
   const options = useMemo(() => ({
@@ -98,6 +102,8 @@ export default function QualificationFormPage() {
         contact_info: form.contact_info.trim() || null,
         // 员工推广归因：将 ref_code Cookie 作为邀请码传递后端，解析为 employee_id
         ...(refCode ? { invitation_code: refCode } : {}),
+        // 资源库回填：登录态下携带 poolId，后端据此回写 crm_user_supplier_pool.qualification_id
+        ...(poolId ? { poolId } : {}),
       });
       setQualificationId(res.id);
       toast.success(t("qualSuccessTitle"));

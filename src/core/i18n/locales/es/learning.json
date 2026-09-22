@@ -59,5 +59,6 @@
   "learningCoreContent": "Contenido principal",
   "buyMaterialBtn": "Comprar material",
   "learningBundleTitle": " Compra de paquete con descuento",
-  "learningContentLocked": "Compre para desbloquear el contenido completo y la descarga"
+  "learningContentLocked": "Compre para desbloquear el contenido completo y la descarga",
+  "learningContentLoadedFailed": "Error al cargar el contenido, actualice e inténtelo de nuevo"
 }

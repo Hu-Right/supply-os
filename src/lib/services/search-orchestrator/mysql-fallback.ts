@@ -43,7 +43,12 @@ function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
   };
 }
 
-/** ORDER BY 映射（与 Meilisearch 排序语义对齐） */
+/** ORDER BY 映射（与 Meilisearch 排序语义对齐）
+ * deadline_sec=0（长期有效/无截止日）的排序策略：
+ *   - deadline（最近截止）：(=0) ASC → permanent 在后
+ *   - deadline_farthest（截至最远）：(=0) ASC → permanent 在后
+ *     有截止日内按 deadline_sec DESC 降序，最远截止日排最前；permanent 排末尾
+ */
 export function buildOrderBy(p: UnifiedSearchParams): string {
   // MySQL 默认开启反斜杠转义：必须先转义 \ 再转义 '，否则 q 含 \ 时
   // 字符串字面量被破坏（查询必坏，且构成 ORDER BY 注入面）
@@ -59,7 +64,8 @@ export function buildOrderBy(p: UnifiedSearchParams): string {
   if (p.sort === "deadline_farthest") {
     return `${refBoost}(n.deadline_sec = 0) ASC, n.deadline_sec DESC, n.id DESC`;
   }
-  return `${refBoost}n.id DESC`;
+  // latest：无截止日期的公告始终排在最后（与 deadline/deadline_farthest 口径一致）
+  return `${refBoost}(n.deadline_sec = 0) ASC, n.id DESC`;
 }
 
 /**

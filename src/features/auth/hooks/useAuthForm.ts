@@ -5,9 +5,7 @@
  * @module features/auth/hooks/useAuthForm
  */
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
 import { useAuth } from "@/core/auth";
-import type { SupplierClaimForm } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
@@ -18,25 +16,16 @@ export const DRAFT_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 export interface AuthFormState {
   displayName: string;
-  identifier: string; // 登录用：手机号
-  email: string; // 注册用：选填邮箱（仅用于通知，不作为登录凭证）
+  identifier: string; // 登录用：手机号或已绑定邮箱
+  email: string; // 注册用：选填邮箱（通知用途；注册不落库，绑定邮箱后亦可作登录凭证）
   phone: string; // 注册用：必填手机号
   password: string;
   invitationCode: string;
-  userType: "personal" | "enterprise";
-}
-
-export interface ClaimFormState {
-  companyName: string;
-  supplierType: string;
-  contactName: string;
-  contactPhone: string;
-  businessLicenseNo: string;
 }
 
 export function useAuthForm(onSuccess: () => void, initialMode: "login" | "register" = "login") {
   const { t } = useLocale();
-  const { login, register, claimMessage } = useAuth();
+  const { login, register } = useAuth();
 
   // 初始模式由调用方注入（扫码推广场景 layout-shell 传 "register"）
   const [authMode, setAuthMode] = useState<"login" | "register">(initialMode);
@@ -58,24 +47,16 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       }
       return {
         displayName: "", identifier: "", email: "", phone: "",
-        password: "", invitationCode: prefilledCode, userType: "enterprise",
+        password: "", invitationCode: prefilledCode,
       };
     })(),
     { excludeKeys: ["password"] as (keyof AuthFormState)[], ttlMs: DRAFT_TTL_MS },
   );
 
-  // ★ 企业供应商绑定表单 — 同样持久化
-  const [claimForm, setClaimForm, clearClaimDraft] = usePersistedFormState<ClaimFormState>(
-    "draft:auth_claim",
-    { companyName: "", supplierType: "domestic", contactName: "", contactPhone: "", businessLicenseNo: "" },
-    { ttlMs: DRAFT_TTL_MS },
-  );
-
   // ★ 切换模式时清空当前表单，切换到注册时从草稿恢复
   useEffect(() => {
     if (authMode === "login") {
-      setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "", userType: "enterprise" });
-      setClaimForm({ companyName: "", supplierType: "domestic", contactName: "", contactPhone: "", businessLicenseNo: "" });
+      setAuthForm({ displayName: "", identifier: "", email: "", phone: "", password: "", invitationCode: "" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authMode]);
@@ -86,7 +67,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     prefLevel1: string | null,
     prefLevel2: string | null,
     prefLevel3: string | null,
-    qualificationData?: Record<string, string | string[]> | null,
   ): Promise<void> => {
     setAuthError("");
 
@@ -131,39 +111,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
       }
     }
 
-    // 企业注册才需要公司名称
-    if (authMode === "register" && authForm.userType === "enterprise" && !claimForm.companyName.trim()) {
-      setAuthError(t("authCompanyNameRequired"));
-      return;
-    }
-
-    // ★ 降级读取企业资质诊断数据：若 EnterpriseQualificationForm 挂载回调尚未同步 ref，直接从 localStorage 恢复
-    let qualData = qualificationData;
-    if (authMode === "register" && authForm.userType === "enterprise" && (!qualData || Object.keys(qualData).length === 0)) {
-      try {
-        const raw = window.localStorage.getItem("draft:auth_qualification");
-        if (raw) qualData = JSON.parse(raw) as Record<string, string | string[]>;
-      } catch { /* 静默降级 */ }
-    }
-
-    // 企业注册时校验诊断表单必填字段，缺失则阻断注册流程
-    if (authMode === "register" && authForm.userType === "enterprise" && qualData) {
-      const qualLabels: Record<string, string> = {
-        company_name: "企业名称", industry: "所属行业", main_product: "主营产品",
-        export_scale: "出口/国际业务规模", certifications: "资质证书",
-        service_countries: "售后点/服务站/维修点", overseas_companies: "海外分公司/投资公司",
-        ungm_status: "UNGM注册状态", english_team: "英文团队能力",
-        payment_terms: "账期接受度", bid_willingness: "投标意愿",
-      };
-      for (const [field, label] of Object.entries(qualLabels)) {
-        const val = qualData[field];
-        if (!val || (Array.isArray(val) && val.length === 0)) {
-          setAuthError(`企业诊断表单：${label}为必填项，请补全后重新提交`);
-          return;
-        }
-      }
-    }
-
     // 行业偏好注册时不在表单中收集（注册后可在账户面板选填），不做必选校验
 
     try {
@@ -181,17 +128,15 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         await register({
           password,
           displayName: authForm.displayName,
-          claim: authForm.userType === "enterprise" && claimForm.companyName.trim() ? { ...claimForm, supplierType: claimForm.supplierType as SupplierClaimForm["supplierType"] } : undefined,
           verifyCode: registerVerifyCode,
           invitationCode: authForm.invitationCode.trim(),
-          userType: authForm.userType,
           phone,
           // ── 合规审计：记录用户同意协议的版本与时间 ──
           agreementVersion: "V2.0",
           agreementAcceptedAt: new Date().toISOString(),
         });
         // 行业偏好为注册后的可选项：仅在用户实际选择过（前两级齐全）时保存
-        if (authForm.userType === "enterprise" && prefLevel1 && prefLevel2) {
+        if (prefLevel1 && prefLevel2) {
           await saveIndustryPrefs({
             level1_id: Number(prefLevel1),
             level2_id: Number(prefLevel2),
@@ -200,30 +145,9 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
             level5_id: null,
           });
         }
-        // 企业注册时提交完整 14 字段诊断数据到统一评估表
-        if (authForm.userType === "enterprise" && qualData && Object.keys(qualData).length > 0) {
-          try {
-            const { api: apiFetch } = await import("@/core/http");
-            await apiFetch("/api/supplier-qualification", {
-              method: "POST",
-              body: {
-                ...qualData,        // 完整 14 字段透传
-                source: "registration",
-                phone,                       // 关联用户（crm_users.user_key 列退役收尾：字段名从 user_key 重命名为 phone）
-                invitation_code: authForm.invitationCode.trim(), // 解析员工 ID（KPI 归属）
-              },
-            });
-          } catch (err) {
-            // 资质诊断数据提交失败不应阻断注册主流程，但必须记录并通知用户
-            console.error("[auth] 企业诊断数据提交失败:", err);
-            toast.error("账号注册成功，但企业资质诊断数据提交失败，请稍后重试或联系客服");
-          }
-        }
         onSuccess();
-        // 注册成功，清除所有草稿（含企业资质诊断表单）
+        // 注册成功，清除草稿
         clearAuthDraft();
-        clearClaimDraft();
-        try { window.localStorage.removeItem("draft:auth_qualification"); } catch { /* 静默降级 */ }
       }
     } catch (err: any) {
       setAuthError(err.message || t("authLoginFailed"));
@@ -240,9 +164,6 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     setAuthForm,
     loginForm,
     setLoginForm,
-    claimForm,
-    setClaimForm,
-    claimMessage,
     submitAuth,
     agreedToTerms,
     setAgreedToTerms,

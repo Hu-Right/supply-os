@@ -4,182 +4,172 @@
  *
  * @module features/membership/pages/MembershipPage
  * @description 从数据库动态获取套餐信息，支持 1-5+ 个套餐的自适应展示。
- *              子模块：utils（工具函数）、hooks（数据加载）、components（卡片组件）。
+ *              支付/升级逻辑已下沉至 useMembershipPayment hook。
  */
 
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { emitAppEvent } from "@/core/events";
-import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
+import { ServiceCard } from "../components/ServiceCard";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
-import { fetchUpgradePreview } from "../api";
-import { getGridCols } from "../utils";
-import type { MembershipPlan, UpgradePreview } from "@/types";
+import { useMembershipPayment } from "../hooks/useMembershipPayment";
+import { SERVICE_CATALOG } from "../data/service-catalog";
+
+type MembershipTab = "plans" | "services";
+const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
+  { key: "plans", labelKey: "tabPlans" },
+  { key: "services", labelKey: "tabServices" },
+];
 
 export default function MembershipPage() {
   const searchParams = useSearchParams();
   const { t } = useLocale();
-  const { authUser, isVip } = useAuth();
+  const { isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans: allPlans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
 
-  // 会员卡目录直接来自数据库（useMembershipData 已过滤 free 档）；
-  // 旧 single_99/single_199「同商品两档价」互斥逻辑随该档从库下架一并移除。
-  const plans = allPlans;
+  // 支付/升级逻辑已下沉至 hook
+  const {
+    buyPlan, startUpgrade, confirmUpgrade,
+    upgradeModalOpen, closeUpgradeModal,
+    upgradePreview, upgradeLoading, upgradeTargetPlan,
+  } = useMembershipPayment({ noticeId, currentPlanCode });
 
-  // ── 升级弹窗状态 ──
-  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
-  const [upgradeLoading, setUpgradeLoading] = useState(false);
-  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<MembershipPlan | null>(null);
+  const [tab, setTab] = useState<MembershipTab>("plans");
 
-  const handleBuyPlan = (plan: MembershipPlan) => {
-    if (!authUser) {
-      emitAppEvent("supply-os:require-login");
-      return;
-    }
-
-    emitAppEvent("supply-os:pay", {
-      code: plan.plan_code,
-      name: plan.name,
-      price: Number(plan.price),
-      currency: plan.currency || "CNY",
-      noticeId: noticeId ? Number(noticeId) : undefined,
-      returnUrl: noticeId
-        ? `${window.location.origin}/procurement?notice_id=${noticeId}`
-        : `${window.location.origin}/membership`,
-    });
-  };
-
-  /** 点击"升级"按钮：拉取升级预览并打开确认弹窗 */
-  const handleUpgradePlan = (plan: MembershipPlan) => {
-    if (!authUser) {
-      emitAppEvent("supply-os:require-login");
-      return;
-    }
-    setUpgradeTargetPlan(plan);
-    setUpgradeModalOpen(true);
-    setUpgradeLoading(true);
-    setUpgradePreview(null);
-    fetchUpgradePreview(plan.plan_code)
-      .then(setUpgradePreview)
-      .catch(() => setUpgradePreview({
-        can_upgrade: false,
-        reason: "PREVIEW_LOAD_FAILED",
-        current_plan: null,
-        target_plan: null,
-        quota_used: 0,
-        price_difference: 0,
-        remaining_after_upgrade: 0,
-        expires_at_unchanged: true,
-      }))
-      .finally(() => setUpgradeLoading(false));
-  };
-
-  /** 确认升级：关闭预览弹窗，触发带 upgrade 标记的支付流程 */
-  const handleConfirmUpgrade = () => {
-    if (!upgradePreview?.can_upgrade || !upgradeTargetPlan) return;
-    setUpgradeModalOpen(false);
-    emitAppEvent("supply-os:pay", {
-      code: upgradeTargetPlan.plan_code,
-      name: upgradeTargetPlan.name,
-      price: upgradePreview.price_difference,
-      currency: upgradeTargetPlan.currency || "CNY",
-      noticeId: noticeId ? Number(noticeId) : undefined,
-      returnUrl: noticeId
-        ? `${window.location.origin}/procurement?notice_id=${noticeId}`
-        : `${window.location.origin}/membership`,
-      orderType: "upgrade",
-      originalPlanCode: currentPlanCode || "",
-    });
-  };
-
-  const gridCols = getGridCols(plans.length);
+  // V2 简化：不再分“个人/企业”两个 Tab，四档订阅（129/999/1299/8800）同列一个“会员套餐”Tab；
+  // 增值服务（含企业版 ¥199/单留资项）统一归入“增值服务”Tab。
+  const tabPlans = plans;
+  const serviceCatalog = SERVICE_CATALOG;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
-      {/* 套餐卡片区域 */}
-      <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-              {t("membershipPlansTitle")}
-            </h2>
-            <p className="text-base text-slate-600 max-w-xl mx-auto">
-              {t("membershipPlansDesc")}
-            </p>
-          </div>
+      {/* ══ Tab 导航（功能化）══ */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        {MEMBERSHIP_TABS.map((tb) => (
+          <button
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
+            className={`px-5 py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
+              tab === tb.key ? "bg-teal-600 text-white" : "bg-white border border-slate-200 text-slate-600 hover:border-teal-300"
+            }`}
+          >
+            {t(tb.labelKey)}
+          </button>
+        ))}
+      </div>
 
-          {loading ? (
-            <div className={`grid ${gridCols} gap-5`}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm p-6 shadow-lg animate-pulse">
-                  <div className="h-10 w-10 bg-slate-200/60 rounded-xl mb-5" />
-                  <div className="h-5 bg-slate-200/60 rounded w-3/4 mb-3" />
-                  <div className="h-10 bg-slate-200/60 rounded w-1/2 mb-5" />
-                  <div className="h-3.5 bg-slate-200/60 rounded w-full mb-2" />
-                  <div className="h-3.5 bg-slate-200/60 rounded w-5/6 mb-6" />
-                  <div className="h-11 bg-slate-200/60 rounded-xl w-full" />
-                </div>
+      {tab === "services" ? (
+        /* 增值服务 Tab：报价表三~十大类留资卡（不走支付） */
+        <section className="py-2">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("servicesSectionTitle")}</h2>
+              <p className="text-base text-slate-600 max-w-2xl mx-auto">
+                {t("servicesSectionDesc")}
+              </p>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {serviceCatalog.map((item) => (
+                <ServiceCard key={item.id} item={item} />
               ))}
             </div>
-          ) : error ? (
-            <div className="text-center py-20">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
-                <AlertCircle className="w-8 h-8 text-red-600" />
-              </div>
-              <p className="text-slate-600 text-lg mb-2">{error}</p>
-              <Button
-                type="button"
-                variant="link"
-                onClick={() => window.location.reload()}
-                className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
-              >
-                重新加载
-              </Button>
-            </div>
-          ) : plans.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
-            </div>
-          ) : (
-            <div className={`grid ${gridCols} gap-5`} data-testid="plan-list">
-              {plans.map((plan) => (
-                <PlanCard
-                  key={plan.plan_code}
-                  plan={plan}
-                  isVip={isVip}
-                  currentPlanPrice={currentPlanPrice}
-                  currentPlanCode={currentPlanCode}
-                  onBuy={handleBuyPlan}
-                  onUpgrade={handleUpgradePlan}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 权益对比表区域 */}
-      {!loading && plans.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-              {t("membershipComparisonTitle")}
-            </h2>
-            <p className="text-base text-slate-600 max-w-xl mx-auto">
-              {t("membershipPlansDesc")}
-            </p>
           </div>
-          <PlanComparisonTable plans={plans} />
         </section>
+      ) : (
+        <>
+          {/* 套餐卡片区域 */}
+          <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
+                  {t("membershipPlansTitle")}
+                </h2>
+                <p className="text-base text-slate-600 max-w-xl mx-auto">
+                  {t("membershipPlansDesc")}
+                </p>
+              </div>
+
+              {loading ? (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-72 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="text-center py-20">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-4">
+                    <AlertCircle className="w-8 h-8 text-red-600" />
+                  </div>
+                  <p className="text-slate-600 text-lg mb-2">{error}</p>
+                  <Button
+                    type="button"
+                    variant="link"
+                    onClick={() => window.location.reload()}
+                    className="px-0 text-sm font-medium cursor-pointer hover:text-teal-700"
+                  >
+                    重新加载
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto" data-testid="plan-list">
+                    {tabPlans.map((plan) => (
+                      <PlanCard
+                        key={plan.plan_code}
+                        plan={plan}
+                        isVip={isVip}
+                        currentPlanPrice={currentPlanPrice}
+                        currentPlanCode={currentPlanCode}
+                        onBuy={buyPlan}
+                        onUpgrade={startUpgrade}
+                      />
+                    ))}
+                    {tabPlans.length === 0 && (
+                      <div className="text-center py-12">
+                        <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* ═ 为什么升级会员 ═══ */}
+          {!loading && tabPlans.length > 0 && (
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
+              <h2 className="text-xl font-extrabold text-slate-900 mb-6">{t("whyUpgradeTitle")}</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {[
+                  { icon: Rocket, titleKey: "whyUpgrade1Title", descKey: "whyUpgrade1Desc" },
+                  { icon: Search, titleKey: "whyUpgrade2Title", descKey: "whyUpgrade2Desc" },
+                  { icon: TrendingUp, titleKey: "whyUpgrade3Title", descKey: "whyUpgrade3Desc" },
+                  { icon: Headphones, titleKey: "whyUpgrade4Title", descKey: "whyUpgrade4Desc" },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.titleKey} className="flex items-start gap-4 bg-white rounded-xl border border-slate-200 p-5">
+                      <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                        <Icon className="w-5 h-5 text-teal-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-extrabold text-slate-900 mb-1">{t(item.titleKey)}</h3>
+                        <p className="text-xs text-slate-500 leading-relaxed">{t(item.descKey)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {/* 升级确认弹窗 */}
@@ -189,8 +179,8 @@ export default function MembershipPage() {
         loading={upgradeLoading}
         submitting={false}
         currency={upgradeTargetPlan?.currency || "CNY"}
-        onClose={() => setUpgradeModalOpen(false)}
-        onConfirm={handleConfirmUpgrade}
+        onClose={closeUpgradeModal}
+        onConfirm={confirmUpgrade}
       />
     </div>
   );

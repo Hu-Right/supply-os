@@ -15,6 +15,7 @@ import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/noti
 import type { MembershipRepo } from "../repos/membership.repo";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
 import { decayUserInterestCodes } from "./recommend/index";
+import { ensureConsumableEntitlement, consumeEntitlementQuota, UnlockQuotaError } from "./unlock-quota";
 
 // ── 解锁 ──────────────────────────────────────────────────────────────────────
 
@@ -74,30 +75,18 @@ export async function executeUnlock(
     }
 
     if (unlockType === "subscription" || unlockType === "single") {
-      // P1-7 安全修复：SELECT FOR UPDATE 防止并发配额超卖
-      const ent = await membershipRepo.findAndLockEntitlement(conn, userId);
-      if (ent) {
-        consumedEntitlementId = Number(ent.id);
-      } else if (unlockType === "subscription") {
-        // P1-6 安全修复：subscription 类型兼容活跃订阅——有有效订阅即放行，不强制要求 entitlement
-        // P0-2 配额封顶修复：无权益纯订阅路径不得无限解锁——
-        // 锁定订阅行（序列化并发）并按套餐 unlock_quota 校验订阅期内累计解锁数
-        const sub = await membershipRepo.findActiveSubscriptionForUpdate(conn, userId);
-        if (!sub) {
+      // 共享配额记账口径（unlock-quota）：FOR UPDATE 权益行锁；无权益纯订阅
+      // （历史缺口数据）按套餐配额封顶并懒补建物化权益，记账永远落在权益表
+      try {
+        consumedEntitlementId = await ensureConsumableEntitlement(
+          conn, { membershipRepo, unlockRepo }, { userId, unlockType },
+        );
+      } catch (quotaErr) {
+        if (quotaErr instanceof UnlockQuotaError) {
           await conn.rollback();
-          throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+          throw new QuotaExceededError(quotaErr.code);
         }
-        const quota = Number(sub.unlock_quota ?? 0);
-        if (Number.isFinite(quota) && quota > 0) {
-          const used = await unlockRepo.countSubscriptionUnlocksSince(conn, userId, sub.started_at);
-          if (used >= quota) {
-            await conn.rollback();
-            throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
-          }
-        }
-      } else {
-        await conn.rollback();
-        throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+        throw quotaErr;
       }
     }
 
@@ -106,13 +95,16 @@ export async function executeUnlock(
       userId, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
     });
 
-    // 消耗配额
+    // 消耗配额（条件 UPDATE + affectedRows 复核，并发耗尽/升级替代则回滚）
     if (consumedEntitlementId) {
-      // P1-7 安全修复：检查 affectedRows，若为 0 说明配额已被并发消耗
-      const affected = await unlockRepo.consumeEntitlementInTransaction(conn, consumedEntitlementId);
-      if (affected === 0) {
-        await conn.rollback();
-        throw new QuotaExceededError("PAID_QUOTA_REQUIRED");
+      try {
+        await consumeEntitlementQuota(conn, unlockRepo, consumedEntitlementId);
+      } catch (consumeErr) {
+        if (consumeErr instanceof UnlockQuotaError) {
+          await conn.rollback();
+          throw new QuotaExceededError(consumeErr.code);
+        }
+        throw consumeErr;
       }
     }
 
@@ -120,7 +112,7 @@ export async function executeUnlock(
 
     // 事务外：更新兴趣码（非关键路径，失败不影响解锁）
     if (userId) {
-      await persistUserInterestCodes(dbPool, userId, snapshot, "unlock_order", 2.50).catch(() => {});
+      await persistUserInterestCodes(dbPool, userId, snapshot, "unlock_order", 2.50).catch((e) => console.warn("[notice-actions] persistUserInterestCodes failed (non-critical):", e));
     }
     return { alreadyUnlocked: false, unlockType };
   } catch (err: unknown) {

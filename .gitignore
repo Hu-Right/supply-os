@@ -32,8 +32,9 @@ scripts/*
 !scripts/perf-budget-check.ts
 !scripts/prerender.ts
 !scripts/deploy.sh
+!scripts/check-i18n.ts
+!scripts/check-no-admin-routes.mjs
 !scripts/css-compat-gate.mjs
-!scripts/serve-style-smoke.mjs
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs
@@ -80,6 +81,9 @@ Desktop.ini
 *.woff2
 *.ttf
 *.eot
+
+# ===== 本地参考材料（设计样图/规划文档，非生产文件，仅保留在本地） =====
+OS页面重构/
 
 # —— 以上规则的例外：项目运行必需的静态资源 ——
 !public/fonts/**

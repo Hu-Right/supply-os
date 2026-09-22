@@ -82,7 +82,7 @@ export function useNoticeMembership({
   // 套餐展示由后端 is_active 控制，前端不再硬编码过滤
   // 过滤 plan_type === 'manual' 的套餐（人工顾问服务），此类套餐仅在会员专区展示，
   // 不出现在采购详情页的自助支付面板中
-  // P1-10 修复：返回套餐数组（而非 void），供 handlePayUnlock 动态取 single 套餐的 code/price
+  // P1-10 修复：返回套餐数组（而非 void），套餐上下架/调价时无需发版
   // P2-2：useCallback 稳定引用
   const loadPaidPlans = useCallback((): Promise<MembershipPlan[]> => {
     if (paidPlans.length > 0) return Promise.resolve(paidPlans);

@@ -21,6 +21,7 @@ import type { MembershipRepo, CurrentBestPlanRow } from "../repos/membership.rep
 import type { SubscriptionRow, EntitlementRow } from "../repos/types";
 import type { MembershipTier } from "@/shared/constants/membership";
 import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
+import { resolveBenefitRank } from "./benefit-matrix";
 
 /** 用户会员状态快照（免费/付费配额、订阅、权益、VIP 判定一次算清） */
 export interface MembershipState {
@@ -28,6 +29,8 @@ export interface MembershipState {
   isVip: boolean;
   /** 与前端 membership_tier 契约对齐 */
   tier: MembershipTier;
+  /** 权益档位（0免费/1体验/2标准/3专业/4企业，migration 090）：功能门控单一事实源 */
+  benefitRank: number;
   freeQuota: number;
   freeUsed: number;
   freeRemaining: number;
@@ -67,14 +70,17 @@ export async function resolveMembershipState(
     membershipRepo.findActiveEntitlements(userId),
   ]);
 
-  const paidQuotaTotal = entitlements.reduce((sum, item) => sum + Number(item.quota_total || 0), 0);
-  const paidQuotaUsed = entitlements.reduce((sum, item) => sum + Number(item.quota_used || 0), 0);
+  const entQuotaTotal = entitlements.reduce((sum, item) => sum + Number(item.quota_total || 0), 0);
+  const entQuotaUsed = entitlements.reduce((sum, item) => sum + Number(item.quota_used || 0), 0);
   const entitlementRemaining = entitlements.reduce((sum, item) => sum + Number(item.quota_remaining || 0), 0);
-  // 订阅配额：从活跃订阅的 plan unlock_quota 汇总，减去已使用的付费解锁次数
+  // 订阅配额：从活跃订阅的 plan unlock_quota 汇总，减去已使用的付费解锁次数（仅作无权益时的回退口径）
   const subscriptionQuota = subs.reduce((sum, sub) => sum + (Number(sub.unlock_quota) || 0), 0);
   const subscriptionRemaining = Math.max(0, subscriptionQuota - paidUnlocks);
-  // 总付费剩余 = 单次卡剩余 + 订阅剩余
-  const paidQuotaRemaining = entitlementRemaining + subscriptionRemaining;
+  // 权益为配额唯一权威源；仅当无任何权益记录（历史仅订阅数据）时回退订阅口径，避免双轨重复计算
+  const hasEntitlement = entitlements.length > 0;
+  const paidQuotaTotal = hasEntitlement ? entQuotaTotal : subscriptionQuota;
+  const paidQuotaUsed = hasEntitlement ? entQuotaUsed : paidUnlocks;
+  const paidQuotaRemaining = hasEntitlement ? entitlementRemaining : subscriptionRemaining;
 
   // 当前最优周期性套餐（供升级判断与 VIP 等级标签展示）
   const currentBest = await membershipRepo.findCurrentBestPlan(userId);
@@ -86,11 +92,12 @@ export async function resolveMembershipState(
   return {
     isVip,
     tier: isVip ? MEMBERSHIP_TIER.VIP : MEMBERSHIP_TIER.FREE,
+    benefitRank: resolveBenefitRank(currentBest),
     freeQuota,
     freeUsed,
     freeRemaining: Math.max(0, freeQuota - freeUsed),
     paidUnlocks,
-    paidQuotaTotal: paidQuotaTotal + subscriptionQuota,
+    paidQuotaTotal,
     paidQuotaUsed,
     paidQuotaRemaining,
     entitlementRemaining,

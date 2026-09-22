@@ -15,6 +15,7 @@ import { Download, ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } fr
 import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
+import { downloadFile } from "@/core/http";
 import { Button } from "@/shared/ui";
 import type { NoticeAttachment, NoticeContact, NoticeItem } from "../types";
 import { downloadNoticeReport } from "../api";
@@ -87,8 +88,8 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
 
   const handleDownloadReport = () => {
     if (!notice.report_url) return;
-    void downloadNoticeReport(notice.report_url).catch(() => {
-      // 下载失败（如会话失效）静默降级：端点自身会做鉴权与解锁校验
+    void downloadNoticeReport(notice.report_url).catch((e) => {
+      console.warn("[NoticeDetails] 报告下载失败:", e);
     });
   };
 
@@ -251,19 +252,25 @@ export function NoticeUnlockedDetails({ notice }: NoticeUnlockedDetailsProps) {
                 <span dir="auto" className="font-bold text-slate-700 truncate">
                   {name}
                 </span>
-                <ExternalLink className="w-4 h-4 shrink-0 text-blue-600" />
+                <Download className="w-4 h-4 shrink-0 text-blue-600" />
               </>
             );
             return url ? (
-              <a
+              <button
                 key={`${name}-${index}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
+                type="button"
+                onClick={() => {
+                  void downloadFile(url, name).catch((e) => {
+                    console.warn("[NoticeDetails] 附件下载失败，降级为浏览器直接打开:", e);
+                    // 后端代理也失败 → 降级为浏览器直接打开（新标签页），
+                    // 由浏览器自身处理下载 / 预览行为。
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  });
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2 hover:border-blue-200 cursor-pointer text-left"
               >
                 {row}
-              </a>
+              </button>
             ) : (
               <span
                 key={`${name}-${index}`}

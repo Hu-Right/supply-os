@@ -13,9 +13,11 @@
  *              不再依赖 user_key 列做查询。
  */
 import type { AppContext } from "../db/context";
+import { getPool } from "../db/pool";
 import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
+import { backfillQualificationByPhone } from "./registration-backfill";
 
 /**
  * 将 ISO 8601 时间戳转换为 MySQL DATETIME 格式
@@ -35,7 +37,6 @@ export interface RegisterUserParams {
   code: string;
   /** 已大写的邀请码（Cookie 回退由路由完成） */
   inviteCode: string;
-  userType: "personal" | "enterprise";
   /** 注册界面语言（决定自动昵称语种） */
   locale?: string;
   /** 合规审计字段 */
@@ -59,7 +60,6 @@ export async function registerUser(
   params: RegisterUserParams,
 ): Promise<RegisterUserResult> {
   const { displayName, targetPhone, password: pw, code, inviteCode } = params;
-  const userType = params.userType;
 
   // 密码策略（40006）
   const pwCheck = validatePassword(pw);
@@ -75,8 +75,8 @@ export async function registerUser(
     referralEmployeeId = inviteValidation.employee_id!;
   }
 
-  // ── 短信验证码校验 ──
-  const codeRecord = await ctx.user.authRepo.findLatestActiveCode(targetPhone, "registration", targetPhone);
+  // ── 短信验证码校验：以手机号为唯一锚点（注册时账号不存在，不依赖 user_key/user_id） ──
+  const codeRecord = await ctx.user.authRepo.findLatestActiveCodeByPhone(targetPhone, "registration");
   if (!codeRecord) throw new RouteError(400, 40007, "验证码无效，请重新获取");
   if (codeRecord.attempts >= 5) throw new RouteError(429, 40029, "尝试次数过多，请重新获取验证码");
   if (codeRecord.code !== hashVerificationCode(code)) {
@@ -94,7 +94,6 @@ export async function registerUser(
     // 展示名与真实姓名分离：昵称按注册界面语言自动生成（用户后续可在个人中心自定义）
     nickname: generateNickname(params.locale),
     password_hash: await hashPassword(pw),
-    user_type: userType,
     phone: targetPhone,
     referral_code: inviteCode,
     referral_employee_id: referralEmployeeId ?? undefined,
@@ -102,11 +101,17 @@ export async function registerUser(
   if (!newUserId) throw new RouteError(400, 40008, "注册失败，请稍后重试");
 
   await ctx.user.authRepo.markCodeUsed(codeRecord.id);
+  // 注册成功 → 回填该验证码行的 user_id，建立「码 ↔ 账号」审计关联（未注册则不回填，保持 NULL）
+  await ctx.user.authRepo.backfillCodeUserId(codeRecord.id, newUserId);
   // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
+
+  // ★ 回溯关联：检查该手机号是否有未关联的诊断评估记录（扫码场景常见）
+  await backfillQualificationByPhone(targetPhone, newUserId);
+
   // 仅在邀请码有效时递增 KPI 归属计数
   if (referralEmployeeId) {
-    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, userType);
+    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "enterprise");
   }
 
   // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）——按 id 定位
@@ -146,7 +151,7 @@ export async function registerUser(
 
   // 响应统一走 buildUserResponse 收口（隐私整改）：
   // 只返回昵称（不返回 display_name 真实姓名），手机号脱敏（修复原响应返回明文手机号）
-  const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  const payload = await buildUserResponse(createdUser, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
 
   let tokens: { token: string; refresh_token: string } | null = null;
   try { tokens = await issueTokenPair(ctx.user.authRepo, createdUser.id); } catch { /* JWT_SECRET 未配置 */ }

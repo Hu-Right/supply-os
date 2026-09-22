@@ -26,51 +26,42 @@ import { HistoryPanel } from "./HistoryPanel";
 import { QuickActions } from "./QuickActions";
 import { RatingCard } from "./RatingCard";
 
+// D4-3 Props 收敛：将 18 个平铺 props 分为 3 个语义对象，降低接口复杂度
 type ChatWindowProps = {
-  messages: ChatMessage[];
-  mode: AssistantMode;
-  isThinking: boolean;
-  onSend: (content: string, attachment?: AttachmentMeta) => void;
-  onQuickAction: (action: QuickActionType) => void;
-  /** 排队信息（waiting 态轮询，P1） */
-  queueInfo: QueueInfo;
-  /** 待评价的已结束人工会话 ID（非 null 时显示评价卡片，P1） */
-  pendingRating: number | null;
-  onSubmitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
-  onSkipRating: () => void;
-  // ── AI 撮合 ──
-  matchPhase: MatchPhase;
-  matchReport: string;
-  suppliers: Supplier[];
-  opportunities: Opportunity[];
-  matchSupplier: Supplier | null;
-  matchOpportunity: Opportunity | null;
-  onSetMatchSupplier: (s: Supplier | null) => void;
-  onSetMatchOpportunity: (o: Opportunity | null) => void;
-  onTriggerMatch: () => void;
-  onResetMatch: () => void;
+  /** 对话状态：消息列表 + 模式 + 思考中 */
+  chatState: {
+    messages: ChatMessage[];
+    mode: AssistantMode;
+    isThinking: boolean;
+  };
+  /** 对话操作：发送消息 + 快捷操作 + 排队/评价 */
+  chatActions: {
+    onSend: (content: string, attachment?: AttachmentMeta) => void;
+    onQuickAction: (action: QuickActionType) => void;
+    queueInfo: QueueInfo;
+    pendingRating: number | null;
+    onSubmitRating: (score: number, tag?: string, comment?: string) => Promise<void>;
+    onSkipRating: () => void;
+  };
+  /** AI 撮合 props（直接透传给 ChatMessageList） */
+  matchProps: {
+    matchPhase: MatchPhase;
+    matchReport: string;
+    suppliers: Supplier[];
+    opportunities: Opportunity[];
+    matchSupplier: Supplier | null;
+    matchOpportunity: Opportunity | null;
+    onSetMatchSupplier: (s: Supplier | null) => void;
+    onSetMatchOpportunity: (o: Opportunity | null) => void;
+    onTriggerMatch: () => void;
+    onResetMatch: () => void;
+  };
 };
 
-export function ChatWindow({
-  messages,
-  mode,
-  isThinking,
-  onSend,
-  onQuickAction,
-  queueInfo,
-  pendingRating,
-  onSubmitRating,
-  onSkipRating,
-  matchPhase,
-  matchReport,
-  suppliers,
-  opportunities,
-  matchSupplier,
-  matchOpportunity,
-  onSetMatchSupplier,
-  onSetMatchOpportunity,
-  onTriggerMatch,
-}: ChatWindowProps) {
+export function ChatWindow({ chatState, chatActions, matchProps }: ChatWindowProps) {
+  const { messages, mode, isThinking } = chatState;
+  const { onSend, onQuickAction, queueInfo, pendingRating, onSubmitRating, onSkipRating } = chatActions;
+  const { matchPhase, matchReport, suppliers, opportunities, matchSupplier, matchOpportunity, onSetMatchSupplier, onSetMatchOpportunity, onTriggerMatch } = matchProps;
   const { t } = useLocale();
 
   // ── 历史会话查看（P1，仅 AI 态入口；自包含状态，不污染会话流） ──

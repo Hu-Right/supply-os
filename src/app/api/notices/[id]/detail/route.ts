@@ -23,7 +23,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const [unlock, notice] = await Promise.all([
       unlockRepo.findUnlock(auth.userId, noticeId),
-      detailRepo.findDetail(noticeId),
+      detailRepo.findDetailPublished(noticeId),
     ]);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
     if (!notice) routeError(404, 40044, "公告不存在");

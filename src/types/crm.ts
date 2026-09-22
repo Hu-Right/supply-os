@@ -38,4 +38,6 @@ export interface Opportunity {
   descriptionZh: string;
   descriptionEn: string;
   subscribersCount: number;
+  status: "active" | "closed" | "cancelled";
+  createdAt: string;
 }

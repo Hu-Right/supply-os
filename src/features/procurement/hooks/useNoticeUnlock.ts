@@ -32,7 +32,7 @@ export interface UseNoticeUnlockReturn {
   loadNoticeDetail: (notice: NoticeItem) => Promise<void>;
   /** 拉取锁定态有限预览（机构名/分类标签；VIP 另含机构全称与发布日期）并合并进当前选中项 */
   loadNoticePreview: (notice: NoticeItem) => Promise<void>;
-  /** 拉取公告全文内容（公开·不受锁定状态限制）替换搜索结果截断的 description */
+  /** 拉取公告全文内容替换搜索结果截断的 description；仅解锁态可调用（/content 属付费墙闸口，ARCH-P0 2026-09-05） */
   loadNoticeContent: (notice: NoticeItem) => void;
   /** 按 id 打开公告详情（列表内已有则复用，否则以最小对象占位再合并拓展详情） */
   openNoticeById: (id: number) => Promise<void>;
@@ -77,7 +77,19 @@ export function useNoticeUnlock({
     }
     try {
       const detail = await fetchNoticeDetail(notice.id);
-      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...detail } : prev));
+      setSelectedNotice((prev) => {
+        if (!prev || prev.id !== notice.id) return prev;
+        // 显式重置数组字段，防止前一个公告的数据残留
+        return {
+          ...prev,
+          ...detail,
+          documents: detail.documents ?? [],
+          procurement_files: detail.procurement_files ?? [],
+          external_links: detail.external_links ?? [],
+          contacts: detail.contacts ?? [],
+          unspsc_codes: detail.unspsc_codes ?? [],
+        };
+      });
       markUnlocked(notice.id);
     } catch {
       // 未解锁或加载失败：保留列表数据，不阻断详情页
@@ -92,7 +104,17 @@ export function useNoticeUnlock({
     if (!userId) return;
     try {
       const preview = await fetchNoticePreview(notice.id);
-      setSelectedNotice((prev) => (prev && prev.id === notice.id ? { ...prev, ...preview } : prev));
+      setSelectedNotice((prev) => {
+        if (!prev || prev.id !== notice.id) return prev;
+        // 预览接口不返回数组字段，显式清空防止残留
+        return {
+          ...prev,
+          ...preview,
+          documents: [],
+          procurement_files: [],
+          external_links: [],
+        };
+      });
     } catch {
       // 预览为增强项：失败保留列表数据
     }
@@ -114,12 +136,14 @@ export function useNoticeUnlock({
                 title: content.title,
                 // description_cn 确保中文环境下详情页立即显示中文，无需等待翻译 API
                 ...(content.description_cn ? { description_cn: content.description_cn } : {}),
+                // 完整原文供"查看原文"切换（主表 description 仅存标题）
+                ...(content.original_description ? { original_description: content.original_description } : {}),
               }
             : prev,
         );
       })
-      .catch(() => {
-        // 全文加载失败：保留截断版本，不阻断详情页
+      .catch((e) => {
+        console.warn("[NoticeUnlock] 全文加载失败，保留截断版本:", e);
       });
   }, [setSelectedNotice]);
 

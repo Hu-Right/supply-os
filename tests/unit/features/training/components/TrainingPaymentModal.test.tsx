@@ -40,9 +40,8 @@ vi.mock("@/features/training/api", () => ({
   saveTrainingParticipants: (...args: unknown[]) => mockSaveTrainingParticipants(...args),
 }));
 
-// PaymentModalCore mock：渲染简化版，保留关键 props 验证
-// 组件改用子路径导入（A3：绕过 payment barrel 避免 chunk 击穿），mock 路径同步
-vi.mock("@/features/payment/components/PaymentModalCore", () => ({
+// PaymentModalCore mock：已提升至 shared 层，mock 路径同步更新
+vi.mock("@/shared/components/PaymentModalCore", () => ({
   default: (props: {
     amount: number;
     currency: string;

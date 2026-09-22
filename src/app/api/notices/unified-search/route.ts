@@ -10,6 +10,7 @@ import { extractClientIp } from "@/lib/utils/ip";
 import { searchUnified } from "@/lib/services/search-orchestrator";
 import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
+import { withRoute } from "@/lib/middleware/route-handler";
 
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
@@ -32,10 +33,12 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     featuredOnly: sp.get("featured") === "1",
     sort: get("sort", "latest"),
     codeId: getInt("code_id") || getInt("industry_id"),
+    budgetMin: sp.get("budget_min") ? Number(sp.get("budget_min")) : undefined,
+    budgetMax: sp.get("budget_max") ? Number(sp.get("budget_max")) : undefined,
   };
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async (req: NextRequest) => {
   // 公开端点限流：防止脚本无成本打满连接池（降级路径一次 COUNT + FULLTEXT UNION）
   const rateLimitResponse = checkRateLimit(req, {
     windowMs: 60_000,
@@ -50,4 +53,4 @@ export async function GET(req: NextRequest) {
   const pool = getPool();
   const result = await searchUnified(pool, params);
   return NextResponse.json({ ...result, page_size: result.pageSize });
-}
+});

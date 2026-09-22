@@ -1,17 +1,21 @@
 /**
- * 商机解锁编排（审查报告 F10）
+ * 商机解锁编排（审查报告 F10 + 配额口径对齐 2026-09-19）
  *
- * 与公告解锁 executeUnlock（notice-actions.ts）同构：
- * 事务 + FOR UPDATE 权益行锁 + 条件 UPDATE 配额 + affectedRows 复核 +
- * uk_user_opportunity 唯一键 ER_DUP_ENTRY 幂等。
- * 此前路由实现从不消耗 quota_used（一次解锁卡可无限解锁）且免费额度
- * 检查在事务外存在 TOCTOU。
+ * 与公告解锁 executeUnlock（notice-actions.ts）共享 unlock-quota 唯一记账口径：
+ * 事务 + FOR UPDATE 权益行锁 + 无权益纯订阅按套餐配额封顶并懒补建物化权益 +
+ * 条件 UPDATE 配额 + affectedRows 复核 + uk_user_opportunity 唯一键 ER_DUP_ENTRY 幂等。
+ * 历史两次分叉：① 早期路由实现从不消耗 quota_used（一次解锁卡可无限解锁）且
+ * 免费额度检查在事务外存在 TOCTOU（F10 修复）；② F10 版本对"有订阅无权益"
+ * 仍保留"有活跃订阅即放行、不扣任何配额"的无限放行漏洞（本次修复：对齐公告
+ * 路径的封顶+物化权益语义，订阅配额池对公告/商机是同一份，不得路径分叉）。
  *
  * @module lib/services/opportunity-unlock
  */
 import type { Pool } from "mysql2/promise";
 import type { OpportunitiesRepo } from "../repos/opportunities.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
+import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
+import { ensureConsumableEntitlement, consumeEntitlementQuota, UnlockQuotaError } from "./unlock-quota";
 import { persistUserInterestCodes } from "./unspsc/interest";
 
 /** 解锁业务失败：code 供路由映射为用户可见文案（FREE_LIMIT_REACHED/PAID_QUOTA_REQUIRED） */
@@ -25,6 +29,8 @@ export interface OpportunityUnlockDeps {
   dbPool: Pool;
   opportunitiesRepo: OpportunitiesRepo;
   membershipRepo: MembershipRepo;
+  /** 解锁流水/配额消费 repo（共享 unlock-quota 口径的承载体） */
+  unlockRepo: NoticeUnlockRepo;
 }
 
 export interface OpportunityUnlockParams {
@@ -39,20 +45,20 @@ export interface OpportunityUnlockParams {
 /**
  * 执行商机解锁（事务编排，与公告解锁 executeUnlock 同构）。
  *
- * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → FOR UPDATE 权益行锁 →
- * 插入解锁记录（唯一键 ER_DUP_ENTRY 兜底幂等）→ 条件 UPDATE 消耗配额 +
- * affectedRows 复核防超卖 → 商机计数+1）→ 提交 → 事务外写兴趣码（非关键路径，
- * userId=0 跳过）。
+ * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → 共享配额口径取权益行
+ * （FOR UPDATE，含无权益纯订阅的封顶+物化）→ 插入解锁记录（唯一键
+ * ER_DUP_ENTRY 兜底幂等）→ 条件 UPDATE 消耗配额 + affectedRows 复核防超卖 →
+ * 商机计数+1）→ 提交 → 事务外写兴趣码（非关键路径，userId=0 跳过）。
  *
  * @throws OpportunityUnlockError FREE_LIMIT_REACHED（免费解锁已移除，服务端硬闸）
- *         | PAID_QUOTA_REQUIRED（无可用权益且不满足订阅放行 / 并发配额耗尽）
+ *         | PAID_QUOTA_REQUIRED（无可用权益且无满足配额的订阅 / 并发配额耗尽）
  * @returns alreadyUnlocked=true 表示并发请求已完成解锁（幂等成功语义）
  */
 export async function executeOpportunityUnlock(
   deps: OpportunityUnlockDeps,
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
-  const { dbPool, opportunitiesRepo, membershipRepo } = deps;
+  const { dbPool, opportunitiesRepo, membershipRepo, unlockRepo } = deps;
   const { userId, opportunityId, unlockType, price, snapshotJson } = params;
 
   // 快速路径：无锁预检，减少事务冲突
@@ -82,35 +88,19 @@ export async function executeOpportunityUnlock(
       throw new OpportunityUnlockError("FREE_LIMIT_REACHED");
     }
 
-    // 付费解锁：FOR UPDATE 锁定权益行，防并发配额超卖
+    // 付费解锁：共享公告路径的配额记账口径（FOR UPDATE 权益行锁；无权益纯订阅
+    // 按套餐配额封顶并懒补建物化权益），杜绝"有订阅即无限放行"的路径分叉
     if (unlockType === "subscription" || unlockType === "single") {
-      const [entRows] = await conn.query(
-        `SELECT id, plan_code, quota_total, quota_used
-         FROM crm_user_entitlements
-         WHERE user_id = ? AND status = 'active' AND is_upgraded = 0 AND quota_total > quota_used
-           AND (expires_at IS NULL OR expires_at > NOW())
-         ORDER BY expires_at IS NULL DESC, expires_at ASC, id ASC LIMIT 1
-         FOR UPDATE`,
-        [userId],
-      );
-      const ent = (entRows as Array<{ id: number }>)[0];
-      if (ent) {
-        consumedEntitlementId = Number(ent.id);
-      } else if (unlockType === "subscription") {
-        // 与公告解锁一致：subscription 兼容活跃订阅（有有效订阅即放行）
-        const [subRows] = await conn.query(
-          `SELECT id FROM crm_user_subscriptions
-           WHERE user_id = ? AND status = 'active' AND (expires_at IS NULL OR expires_at > NOW())
-           LIMIT 1`,
-          [userId],
+      try {
+        consumedEntitlementId = await ensureConsumableEntitlement(
+          conn, { membershipRepo, unlockRepo }, { userId, unlockType },
         );
-        if ((subRows as unknown[]).length === 0) {
+      } catch (quotaErr) {
+        if (quotaErr instanceof UnlockQuotaError) {
           await conn.rollback();
           throw new OpportunityUnlockError("PAID_QUOTA_REQUIRED");
         }
-      } else {
-        await conn.rollback();
-        throw new OpportunityUnlockError("PAID_QUOTA_REQUIRED");
+        throw quotaErr;
       }
     }
 
@@ -122,15 +112,16 @@ export async function executeOpportunityUnlock(
       [userId, opportunityId, unlockType, price, snapshotJson],
     );
 
-    // 消耗配额：条件 UPDATE + affectedRows 复核（并发耗尽则回滚）
+    // 消耗配额：条件 UPDATE + affectedRows 复核（并发耗尽/并发升级替代则回滚）
     if (consumedEntitlementId) {
-      const [updateResult] = await conn.query(
-        "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
-        [consumedEntitlementId],
-      );
-      if ((updateResult as { affectedRows?: number }).affectedRows === 0) {
-        await conn.rollback();
-        throw new OpportunityUnlockError("PAID_QUOTA_REQUIRED");
+      try {
+        await consumeEntitlementQuota(conn, unlockRepo, consumedEntitlementId);
+      } catch (consumeErr) {
+        if (consumeErr instanceof UnlockQuotaError) {
+          await conn.rollback();
+          throw new OpportunityUnlockError("PAID_QUOTA_REQUIRED");
+        }
+        throw consumeErr;
       }
     }
 

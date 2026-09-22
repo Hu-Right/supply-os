@@ -41,6 +41,8 @@
       }
     ],
     "incremental": true,
+    // 增量缓存移出仓库根目录，保持根目录整洁（缓存属构建产物，随 node_modules 忽略）
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo",
     "esModuleInterop": true,
     "resolveJsonModule": true
   },

@@ -10,6 +10,7 @@ import type { NoticeTranslationRepo } from "../../repos/notices/notice-translati
 import { preferValue } from "../../utils/json";
 import { findQualifiedOpportunityForNotice } from "../notices";
 import { syncWideIds } from "../search-sync/index";
+import { TRANSLATION_MODEL } from "../../utils/notice-field-limits";
 
 export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
   zh: "Simplified Chinese",
@@ -103,7 +104,7 @@ export function translateNoticeViaChain(
   const detected = sourceLang ?? detectSourceLang(title, description) ?? "en";
   const alreadyTargetLang = detected === lang;
   if (alreadyTargetLang) {
-    return Promise.resolve({ translations: [title, description], provider: "same-lang-passthrough" });
+    return Promise.resolve({ translations: [title, description], provider: TRANSLATION_MODEL.SAME_LANG });
   }
   return translateViaChain([title, description], detected, lang);
 }
@@ -203,7 +204,7 @@ async function handleFullCacheHit(
       pendingStale.finally(() => pendingNoticeTranslations.delete(pendingKeyStale)).catch(() => undefined);
     }
     const { translations: staleTr, provider: staleProvider } = await pendingStale;
-    if (staleProvider !== "same-lang-passthrough") {
+    if (staleProvider !== TRANSLATION_MODEL.SAME_LANG) {
       await translationRepo.updateTranslationDescription(noticeId, lang, staleTr[1], staleProvider);
     }
     return { lang, title: cachedRow.title_tr, description: staleTr[1], cached: false, source: "opp_retranslate" };
@@ -230,7 +231,7 @@ async function handleTitleOnlyCache(
       try {
         const descSourceLang = detectSourceLang("", String(descSource)) ?? undefined;
         const descOnlyResult = await translateNoticeViaChain("", String(descSource), lang, descSourceLang);
-        if (descOnlyResult.provider !== "same-lang-passthrough" && descOnlyResult.translations[1]) {
+        if (descOnlyResult.provider !== TRANSLATION_MODEL.SAME_LANG && descOnlyResult.translations[1]) {
           await translationRepo.updateTranslationDescription(noticeId, lang, descOnlyResult.translations[1], descOnlyResult.provider);
         }
       } catch { /* 异步补翻失败不影响用户 */ }
@@ -250,7 +251,7 @@ async function handleTitleOnlyCache(
   }
   const { translations: descTranslations, provider: descProvider } = await pendingDesc;
   const descTr = descTranslations[1];
-  if (descProvider === "same-lang-passthrough") {
+  if (descProvider === TRANSLATION_MODEL.SAME_LANG) {
     return { lang, title: cachedRow.title_tr, description: descTr, cached: false, passthrough: true };
   }
   await translationRepo.updateTranslationDescription(noticeId, lang, descTr, descProvider);
@@ -279,7 +280,7 @@ async function handleFullTranslation(
   // ── 快速路径：中文 + description_cn + 原文已是中文标题 → 零 API 调用 ──
   if (zhDescCn && detectedSourceLang === "zh") {
     // 标题已是中文，无需翻译；仅缓存标题（description_cn 不存入翻译缓存表）
-    await translationRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, "same-lang-passthrough");
+    await translationRepo.upsertTranslation(noticeId, "zh", String(notice.title || ""), null, TRANSLATION_MODEL.SAME_LANG);
     // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
     void syncWideIds(dbPool, [noticeId]).catch(() => {});
     return { lang: "zh", title: String(notice.title || ""), description: zhDescCn, cached: false, source: "description_cn", passthrough: true };
@@ -291,7 +292,7 @@ async function handleFullTranslation(
     void (async () => {
       try {
         const titleResult = await translateNoticeViaChain(String(notice.title || ""), "", lang, detectedSourceLang);
-        if (titleResult.provider !== "same-lang-passthrough" && titleResult.translations[0]) {
+        if (titleResult.provider !== TRANSLATION_MODEL.SAME_LANG && titleResult.translations[0]) {
           await translationRepo.upsertTranslation(noticeId, lang, titleResult.translations[0], null, titleResult.provider);
           // 通过统一路径同步宽表（宽表写入单一路径：syncWideIds）
           void syncWideIds(dbPool, [noticeId]).catch(() => {});
@@ -313,13 +314,13 @@ async function handleFullTranslation(
   const { translations, provider, degradedFrom } = await pending;
   // [优化] passthrough（同语言直通）不输出 info 级日志，避免搜索补翻场景频繁刷日志。
   // 仅在实际调用翻译链时输出日志（有调试价值）。
-  if (provider !== "same-lang-passthrough") {
+  if (provider !== TRANSLATION_MODEL.SAME_LANG) {
     console.log(
       `[translate] target=notice:${noticeId} lang=${lang} provider=${provider} ms=${Date.now() - started} degraded=${degradedFrom?.join(",") || "-"}`
     );
   }
 
-  if (provider === "same-lang-passthrough") {
+  if (provider === TRANSLATION_MODEL.SAME_LANG) {
     // [修复] 缓存直通结果，打破"搜索→补翻→直通→不缓存→下次搜索再补翻"的死循环。
     // 原文已是目标语言，缓存后下次搜索直接命中分支 1（缓存命中），不再进入翻译链。
     const descToCachePass = zhDescCn ? null : (translations[1] || null);
@@ -342,8 +343,11 @@ async function handleFullTranslation(
         pendingNoticeTranslations.set(enPendingKey, enPromise);
         enPromise.finally(() => pendingNoticeTranslations.delete(enPendingKey)).catch(() => undefined);
         const enResult = await enPromise;
-        if (enResult.provider !== "same-lang-passthrough") {
-          await translationRepo.upsertEnPivotTranslation(noticeId, enResult.translations[0] || null, enResult.translations[1] || null, enResult.provider);
+        if (enResult.provider !== TRANSLATION_MODEL.SAME_LANG) {
+          // 中枢行 model 写 EN_PIVOT 而非 provider 名：使宽表/排查时能区分「真翻译」与「中枢补足」（D14）
+          await translationRepo.upsertEnPivotTranslation(
+            noticeId, enResult.translations[0] || null, enResult.translations[1] || null, TRANSLATION_MODEL.EN_PIVOT,
+          );
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

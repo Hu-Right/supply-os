@@ -26,8 +26,10 @@ export interface ModalProps {
   children: ReactNode;
   /** 是否显示关闭按钮 */
   showClose?: boolean;
-  /** 自定义类名 */
+  /** 自定义类名（作用于内容区） */
   className?: string;
+  /** 遮罩层自定义类名 */
+  overlayClassName?: string;
   /** 是否允许点击遮罩层关闭（默认 true） */
   closeOnBackdrop?: boolean;
   /** 是否允许 ESC 键关闭（默认 true） */
@@ -43,6 +45,7 @@ export function Modal({
   children,
   showClose = true,
   className,
+  overlayClassName,
   closeOnBackdrop = true,
   closeOnEsc = true,
   closeOnDrag = true,
@@ -72,7 +75,7 @@ export function Modal({
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-secondary-900/60 backdrop-blur-xs" />
+        <DialogPrimitive.Overlay className={cn("fixed inset-0 z-50 bg-secondary-900/60 backdrop-blur-xs", overlayClassName)} />
         <DialogPrimitive.Content
           onEscapeKeyDown={closeOnEsc ? undefined : (e) => e.preventDefault()}
           onInteractOutside={closeOnBackdrop ? undefined : (e) => e.preventDefault()}

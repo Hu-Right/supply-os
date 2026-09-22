@@ -131,6 +131,11 @@ export function buildNoticeIndexSettings(): Record<string, unknown> {
       "deadline_sec",
       "is_featured",
       "reference",
+      // 预算区间筛选（filter-builder 生成 estimated_value_num >= / <= 过滤，
+      // 缺此字段会导致 Meili 报未知属性错并整体降级 MySQL CAST 全表扫描）
+      "estimated_value_num",
+      // 「含原始文件」筛选依据（宽表 documents_count）
+      "documents_count",
       "level1_id",
       "level2_id",
       "level3_id",
@@ -151,6 +156,31 @@ export function buildNoticeIndexSettings(): Record<string, unknown> {
       "exactness",
       "sort",
     ],
+    // ── 中文分词升级（Meilisearch 1.8 起提供原生 CJK 分词能力，替代 jieba 手动预处理）──
+    // 配置 CJK 语言（zho）即启用引擎内置中文分词，索引与查询两侧口径对称；
+    // 其余语言仅获得对应停用词/词法处理，拉丁/西里尔/阿拉伯字段不受影响。
+    // 注意：不再手动设置 stopWords——显式设置会覆盖内置停用词表，交由语言配置管理。
+    // 字段版本：v1.11 起 `configuredLanguages` 被重命名为 `localizedAttributes`（v1.12 彻底移除旧名），
+    // 且格式由语言码数组改为「按属性模式分组」的对象数组，故此处使用 localizedAttributes。
+    localizedAttributes: [
+      { attributePatterns: ["*"], locales: ["zho", "eng", "fra", "rus", "spa", "ara"] },
+    ],
+    // 领域专有名词：作为单一词条解析，避免被原生分词器过度切分降低召回。
+    dictionary: [
+      "联合国采购",
+      "联合国",
+      "世界粮食计划署",
+      "联合国开发计划署",
+      "联合国儿童基金会",
+      "世界卫生组织",
+      "采购机会",
+      "投标资格",
+    ],
+    // 检索侧仅取 id（meiliQuery/getLastSyncedId 均 attributesToRetrieve:["id"]），
+    // 收敛 displayedAttributes 可显著缩减索引体积、加快 swap 后加载。
+    displayedAttributes: ["id"],
+    // 服务端搜索熔断：低于客户端 5s 超时，高负载时返回部分结果而非整体降级 MySQL。
+    searchCutoffMs: Number(process.env.MEILI_SEARCH_CUTOFF_MS || 4000),
     pagination: {
       maxTotalHits: MAX_TOTAL_HITS,
     },

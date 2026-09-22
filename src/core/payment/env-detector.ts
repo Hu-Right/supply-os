@@ -197,9 +197,9 @@ export function mapPaymentError(err: unknown): string {
       if (message.includes("期次") || message.includes("schedule") || message.includes("已不可用")) {
         return "所选期次已不可用，请刷新页面后重试";
       }
-      // 其他 400 业务错误：保留原始消息（便于排查），不再兜底为"支付创建失败"
+      // 其他 400 业务错误：不再透传原始技术消息，统一中文兜底
       console.warn("[mapPaymentError] 未匹配的 400 错误:", message);
-      return message || "请求参数有误，请检查后重试";
+      return "请求参数有误，请检查后重试";
     }
   }
   if (message.includes("Unsupported payment provider") || message === "PAYMENT_PROVIDER_UNAVAILABLE") {

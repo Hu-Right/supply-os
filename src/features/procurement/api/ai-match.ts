@@ -1,0 +1,67 @@
+/**
+ * AI 智能匹配前端 API
+ * @module features/procurement/api/ai-match
+ */
+import { api } from "@/core/http";
+import type { DimensionDetail } from "./ai-score";
+
+export interface MatchedSupplier {
+  /** 资源库行 id；self 行为 null */
+  pool_id: number | null;
+  supplier_id: number;
+  company: string;
+  /** 是否为用户自己绑定的企业 */
+  isSelf: boolean;
+  /** 候选来源 */
+  source: "self" | "pool";
+  /** 基本信息是否完整 */
+  baseComplete: boolean;
+  /** 诊断表是否已填 */
+  diagComplete: boolean;
+  qualification: number;
+  experience: number;
+  certification: number;
+  region: number;
+  scale: number;
+  delivery: number;
+  price: number;
+  overall: number;
+  details: Record<string, DimensionDetail>;
+  reasoning: string;
+}
+
+export interface AiMatchData {
+  top: MatchedSupplier[];
+  cached: boolean;
+  /** 资源库供应商总数（缓存命中时等于 top 数量） */
+  poolSize: number;
+  /** 本次实际送入 LLM 评估的数量 */
+  evaluated: number;
+  /** 评估失败的数量（>0 且 top 为空 = 全部失败） */
+  failed: number;
+  /** 资源库中缺诊断资料的工厂数（补全提示） */
+  diagPending: number;
+}
+
+/** GET 回读匹配缓存（不触发生成、不消耗 LLM）；无缓存返回 { cached: false } */
+export async function fetchAiMatchCache(
+  noticeId: number,
+): Promise<{ cached: boolean; top?: MatchedSupplier[]; diagPending: number }> {
+  // 后端统一包 { code, message, data } envelope，api() 不自动解包——需取 res.data
+  const res = await api<{ code: number; data: { cached: boolean; top?: MatchedSupplier[]; diagPending: number } }>(
+    `/api/notices/${noticeId}/ai-match`,
+  );
+  return res.data;
+}
+
+/** 触发 AI 智能匹配（POST；手动触发，缓存优先） */
+export async function fetchAiMatch(
+  noticeId: number,
+  forceRegenerate = false,
+): Promise<AiMatchData> {
+  const res = await api<{ code: number; data: AiMatchData }>(`/api/notices/${noticeId}/ai-match`, {
+    method: "POST",
+    body: { forceRegenerate },
+  });
+  return res.data;
+}

@@ -7,8 +7,8 @@
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { classifyAgencyType } from "../agency/index";
 import { normalizeNoticeType } from "../../utils/notice-type";
+import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
-import { segmentZh } from "./segmentZh";
 
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
@@ -41,16 +41,14 @@ const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 function buildSyncDocFromWideTable(r: any) {
   // 构建多语言翻译字段
   // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
-  // 中文 zh 字段在写入前执行 jieba 分词，解决 Meilisearch 中文分词缺失问题
+  // 中文分词交由 Meilisearch 原生 configuredLanguages（见 client.ts）统一处理，
+  // 索引与查询两侧口径对称；不再做 jieba 手动预处理（旧实现仅切索引侧、查询侧不分词，
+  // 且 jieba 原生模块缺失时静默降级，导致两侧行为漂移）。
   const langFields: Record<string, string> = {};
   for (const lang of SUPPORTED_LANGS) {
     langFields[`title_${lang}`] = String(r[`title_${lang}`] || "");
-    const rawDesc = (String(r[`description_${lang}`] || "")).slice(0, 2000);
-    // 仅中文字段需要 jieba 分词预处理
-    langFields[`description_${lang}`] = lang === "zh" ? segmentZh(rawDesc) : rawDesc;
+    langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
   }
-  // 中文标题同样需要分词（标题中的关键词需被正确切分）
-  langFields["title_zh"] = segmentZh(langFields["title_zh"]);
 
   // UNSPSC：宽表存储为逗号分隔字符串，转为数组
   const parseUnspsc = (val: any): string[] => val ? String(val).split(",").filter(Boolean) : [];
@@ -60,7 +58,7 @@ function buildSyncDocFromWideTable(r: any) {
     notice_id: String(r.notice_id || ""),
     reference: String(r.reference || ""),
     title: String(r.title || ""),
-    description: (String(r.description || "")).slice(0, 2000),
+    description: truncate(r.description, WIDE_LIMITS.description),
     // 宽表已存储标准化后的值；此处再经 normalizeNoticeType 幂等归一（纵深防御，
     // 与推荐链路/宽表构建同一函数同一口径，防止历史存量 std 漂移入索引）
     country: String(r.country_std || ""),
@@ -71,6 +69,10 @@ function buildSyncDocFromWideTable(r: any) {
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
     is_featured: r.is_featured ? 1 : 0,
+    // 预算区间可筛数值（宽表 estimated_value 为 DECIMAL，转 number 入 filterable）
+    estimated_value_num: Number(r.estimated_value) || 0,
+    // 「含原始文件」筛选依据
+    documents_count: Number(r.documents_count) || 0,
     ...langFields,
     level1_id: parseUnspsc(r.unspsc_level1),
     level2_id: parseUnspsc(r.unspsc_level2),
@@ -91,7 +93,7 @@ function buildSyncDocFromWideTable(r: any) {
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_std, agency_std, agency_group, notice_type_std,
-         deadline_sec, is_featured,
+         deadline_sec, is_featured, estimated_value, documents_count,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
          title_zh, description_zh, title_en, description_en,
@@ -365,10 +367,12 @@ export async function incrementalSync(
  * 修复：is_active/is_featured 从 crm_bid_notices 主表读取（权威数据源），
  *       不依赖宽表（宽表更新可能失败或被增量同步覆盖，导致 Meilisearch 状态不一致）
  *
- * 索引残留清理：宽表与主表均不存在的 ID（主表已删除、ghost 行已清理），
- *       从 Meilisearch 索引中删除对应文档，避免已删除公告仍可被搜到。
- *       安全边界：仅当 ID 同时缺席宽表与主表才删除——主表存在但宽表缺行
- *       属于同步不一致，交由对账修复，不误删索引文档。
+ * 索引残留清理：宽表缺行的公告，按三档口径决定是否删除索引文档：
+ *       主表也不存在 → 删（公告已真删除）；
+ *       主表存在但不满足平台公告公开可见口径（entry_source='platform' 且非 published）→ 删；
+ *       主表存在且可见 → 不删，属宽表同步不一致，交由对账修复，不误删索引文档。
+ *       （D1 修复：旧实现要求「同时缺席宽表与主表」才删，导致已撤回/待审核的平台公告
+ *        在 ghost 对账删除宽表行后，索引文档永久残留可搜。）
  */
 export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced: number; deleted: number }> {
   const client = getClient();
@@ -395,18 +399,25 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
       const batch = ids.slice(i, i + SQL_BATCH_SIZE);
       const placeholders = batch.map(() => "?").join(",");
 
-      // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值）
+      // 并行查询：宽表（主要字段）+ 主表（is_featured/deadline_sec 权威值 + 可见性判定列）
       const [wideRows, statusRows] = await Promise.all([
         pool.query(WIDE_TABLE_SYNC_SQL + ` WHERE id IN (${placeholders}) ORDER BY id ASC`, batch),
-        pool.query(`SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec FROM crm_bid_notices WHERE id IN (${placeholders})`, batch),
+        pool.query(
+          `SELECT id, is_featured, COALESCE(deadline_sec, 0) AS deadline_sec,
+                  entry_source, IFNULL(rfq_status, '') AS rfq_status
+           FROM crm_bid_notices WHERE id IN (${placeholders})`,
+          batch,
+        ),
       ]);
 
-      // 构建主表状态映射
-      const statusMap = new Map<number, { is_featured: number; deadline_sec: number }>();
+      // 构建主表状态映射；visible 与 lib/utils/notice-expired 的 PLATFORM_PUBLISHED_ONLY 同口径
+      const statusMap = new Map<number, { is_featured: number; deadline_sec: number; visible: boolean }>();
       for (const row of (statusRows[0] as RowDataPacket[])) {
+        const entrySource = String(row.entry_source ?? "crawl");
         statusMap.set(Number(row.id), {
           is_featured: row.is_featured ? 1 : 0,
           deadline_sec: Number(row.deadline_sec) || 0,
+          visible: entrySource !== "platform" || row.rfq_status === "published",
         });
       }
 
@@ -427,9 +438,13 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
         totalSynced += docs.length;
       }
 
-      // ── 索引残留清理：宽表与主表均不存在的 ID → 删除 Meilisearch 文档 ──
+      // ── 索引残留清理（D1）：宽表缺行时，按主表存在性与公开可见口径决定是否删文档 ──
       const wideIdSet = new Set((wideRows[0] as RowDataPacket[]).map((r) => Number(r.id)));
-      const ghostBatchIds = batch.filter((id) => !wideIdSet.has(id) && !statusMap.has(id));
+      const ghostBatchIds = batch.filter((id) => {
+        if (wideIdSet.has(id)) return false;
+        const st = statusMap.get(id);
+        return !st || !st.visible;
+      });
       if (ghostBatchIds.length > 0) {
         await client.index(INDEX_NAME).deleteDocuments(ghostBatchIds);
         totalDeleted += ghostBatchIds.length;

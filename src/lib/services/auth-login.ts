@@ -49,7 +49,9 @@ export async function loginWithPassword(
     await ctx.user.usersRepo.updatePasswordById(user.id, newHash, "bcrypt");
   }
 
-  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.registrationRepo);
+  await ctx.user.usersRepo.updateLastLoginById(user.id);
+
+  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
   try {
     tokens = await issueTokenPair(ctx.user.authRepo, user.id);

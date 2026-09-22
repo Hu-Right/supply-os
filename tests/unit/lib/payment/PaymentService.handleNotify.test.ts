@@ -28,11 +28,12 @@ function makeRepo(orderAmount: { amount: number; status: string } | null) {
 async function getService(repo: PaymentsRepo, verifyResult: Record<string, unknown>) {
   const { PaymentService: Svc } = await import("@/lib/payment/PaymentService");
   const svc = new Svc(repo, undefined);
-  svc.registerStrategy("mock", {
+  const _s = {
     createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "x" }),
     queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
     verifyCallback: vi.fn().mockResolvedValue(verifyResult),
-  } as never);
+  } as never;
+  svc.setStrategyResolver({ getStrategy: () => _s, hasStrategy: () => true });
   return svc;
 }
 

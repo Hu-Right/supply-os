@@ -12,6 +12,10 @@
 /** 中国标准时间偏移：UTC+8（毫秒） */
 const CST_OFFSET_MS = 8 * 60 * 60 * 1000;
 
+// 秒/毫秒归一化收敛（2026-09-12）：判别谓词统一由 shared/utils/unixTs 提供，
+// 消除与 countdown/NoticeCard 的历史边界分叉（1e12 归属）
+import { toUnixMs } from "@/shared/utils/unixTs";
+
 /**
  * 将日期字符串或时间戳格式化为中文时间（精确到时分，CST 时区）
  * @param deadline - 日期字符串（ISO 格式，UTC）
@@ -26,10 +30,8 @@ export function formatDeadlineZh(
   let date: Date;
 
   if (deadlineTs != null && deadlineTs !== "") {
-    let ts = typeof deadlineTs === "string" ? Number(deadlineTs) : deadlineTs;
+    const ts = toUnixMs(deadlineTs);
     if (isNaN(ts) || ts === 0) return deadline || ""; // 0 = 无截止日期（NULL 哨兵值），不显示为 1970 年
-    // 秒级时间戳转毫秒（大于 10^12 视为毫秒级）
-    if (ts < 1e12) ts = ts * 1000;
     date = new Date(ts);
   } else if (deadline) {
     // 回退：将 deadline 字符串按 UTC 解析

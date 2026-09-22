@@ -63,13 +63,13 @@ vi.mock("@/lib/db/context", () => ({
       paymentService: {
         hasStrategy: vi.fn().mockReturnValue(true),
         getStrategy: vi.fn().mockReturnValue(mockStrategy),
-        registerStrategy: vi.fn(),
+        setStrategyResolver: vi.fn(),
         createOrder: vi.fn(),
       },
       learningPaymentService: {
         hasStrategy: vi.fn().mockReturnValue(true),
         getStrategy: vi.fn().mockReturnValue(mockStrategy),
-        registerStrategy: vi.fn(),
+        setStrategyResolver: vi.fn(),
         createOrder: vi.fn().mockResolvedValue({
           order_no: "LE20260904TEST001",
           provider: "mock",
@@ -80,6 +80,11 @@ vi.mock("@/lib/db/context", () => ({
           status: "pending",
           created_at: new Date().toISOString(),
         }),
+      },
+      trainingPaymentService: {
+        setStrategyResolver: vi.fn(),
+        createOrder: vi.fn(),
+        queryOrder: vi.fn(),
       },
       orchestrator: {
         registerStrategy: vi.fn(),

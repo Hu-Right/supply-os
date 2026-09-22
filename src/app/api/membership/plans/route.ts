@@ -1,28 +1,16 @@
 /**
  * GET /api/membership/plans — 套餐列表（公开）
  *
- * 登录态下为 single_99 行附加 first_purchase_eligible（首单特惠资格，
- * 服务端 hasSingleUnlockRecord 判定），前端据此置灰/隐藏首单价入口；
- * 未登录不附加（保持公开负载最小）。
+ * V2（2026-09-21）：返回启用中的订阅套餐（free + 个人体验/标准/专业 + 企业年度），
+ * 每行含 benefit_rank（功能门控档位，前端据此渲染权益）。旧的 single_99 首单特惠
+ * 资格附加逻辑已随单次卡一并退役（无单次卡、无首单促销）。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
-import { extractUserKey } from "@/lib/middleware/auth";
+import { withRoute } from "@/lib/middleware/route-handler";
 
-export async function GET(req: NextRequest) {
+export const GET = withRoute(async () => {
   const ctx = getContext();
   const rows = await ctx.user.membershipRepo.findActivePlans();
-
-  const { authViaJwt, userId } = await extractUserKey(req);
-  let eligible: boolean | null = null;
-  if (authViaJwt && userId) {
-    eligible = !(await ctx.payment.paymentsRepo.hasSingleUnlockRecord(userId));
-  }
-
-  const plans = rows.map((row) =>
-    row.plan_code === "single_99" && eligible !== null
-      ? { ...row, first_purchase_eligible: eligible }
-      : row,
-  );
-  return NextResponse.json(plans, { headers: { "Cache-Control": "no-store" } });
-}
+  return NextResponse.json(rows, { headers: { "Cache-Control": "no-store" } });
+});

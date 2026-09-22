@@ -5,12 +5,14 @@
  * @module features/membership/utils
  */
 import {
-  Crown, Zap, Star, Briefcase, Check, Users, Globe, Building2,
+  Crown, Zap, Star, Briefcase, Check, Building2,
+  Sparkles, Radar, FileCheck2, Download, TrendingUp, FileText, Bot, Bell, Handshake,
 } from "lucide-react";
 import type { MembershipPlan } from "@/types";
 // A2 strict 修复：翻译函数类型统一从 useLocale 派生（带键联合类型），
 // 原 (key: string) => string 在 strictFunctionTypes 下与真实 t 函数不兼容。
 import type { useLocale } from "@/core/i18n";
+import { COMPARISON_ROWS, comparisonRowEnabled, BENEFIT_RANK } from "@/lib/services/benefit-matrix";
 
 /** i18n 翻译函数类型（与 useLocale 返回值中的 t 保持一致） */
 type TranslateFn = ReturnType<typeof useLocale>["t"];
@@ -22,25 +24,6 @@ export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }>
   subscription: { icon: Crown, gradient: "from-amber-500 to-orange-500" },
   manual: { icon: Briefcase, gradient: "from-emerald-500 to-teal-500" },
 };
-
-/**
- * 套餐等级映射（对齐当前数据库 4 档付费套餐）。
- * 供卡片特色列表与权益对比表共用，避免两处各自维护前缀兜底而串档。
- *   personal_trial_129 → trial      个人体验版（10 条）
- *   personal_std_999   → standard   个人标准版（100 条）
- *   personal_pro_1299  → pro        个人专业版（不限量 + AI）
- *   enterprise_8800    → enterprise 企业年度会员（不限量 + 企业画像）
- */
-export type PlanTier = "trial" | "standard" | "pro" | "enterprise";
-
-export function getPlanTier(planCode: string): PlanTier {
-  if (planCode.startsWith("enterprise")) return "enterprise";
-  if (planCode.startsWith("personal_pro")) return "pro";
-  if (planCode.startsWith("personal_std")) return "standard";
-  if (planCode.startsWith("personal_trial")) return "trial";
-  // 兜底：未识别的个人/试用类归最低档
-  return "trial";
-}
 
 /** 根据套餐数量计算响应式网格列数 */
 export function getGridCols(count: number): string {
@@ -54,7 +37,7 @@ export function getGridCols(count: number): string {
 /** 格式化配额显示 */
 export function formatQuota(plan: MembershipPlan, t: TranslateFn): string {
   if (plan.unlock_quota >= 9999) return t("membershipUnlimited");
-  return `${plan.unlock_quota}${t("membershipUnlocks")}`;
+  return `${plan.unlock_quota} ${t("membershipUnlocks")}`;
 }
 
 /**
@@ -68,38 +51,40 @@ export function splitDescription(desc: string | undefined): string[] {
   return parts.length > 0 ? parts : [desc];
 }
 
+/** 对比矩阵行 key → 卡片 chip 图标/配色（V2 权益体系） */
+const FEATURE_ICON: Record<string, { icon: typeof Check; color: string; bg: string }> = {
+  summary: { icon: Sparkles, color: "text-teal-600", bg: "bg-teal-100/80" },
+  similar: { icon: Radar, color: "text-cyan-600", bg: "bg-cyan-100/80" },
+  qualification: { icon: FileCheck2, color: "text-blue-600", bg: "bg-blue-100/80" },
+  files: { icon: Download, color: "text-indigo-600", bg: "bg-indigo-100/80" },
+  award_history: { icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-100/80" },
+  report: { icon: FileText, color: "text-violet-600", bg: "bg-violet-100/80" },
+  ai_score: { icon: Bot, color: "text-fuchsia-600", bg: "bg-fuchsia-100/80" },
+  industry_push: { icon: Bell, color: "text-amber-600", bg: "bg-amber-100/80" },
+  enterprise_profile: { icon: Building2, color: "text-rose-600", bg: "bg-rose-100/80" },
+  consortium: { icon: Handshake, color: "text-orange-600", bg: "bg-orange-100/80" },
+};
+
 /**
- * 各套餐卡特色标签（对齐当前数据库 4 档套餐的真实卖点）。
- * label 为 i18n 键，渲染处经 t() 翻译；按 getPlanTier 分档，四档互不串档。
+ * 根据套餐生成差异化权益 chip 列表。
+ * V2：不再按 plan_code 硬编码映射，而是从对比矩阵 SSOT（COMPARISON_ROWS）
+ * 取该档位（benefit_rank）已启用的布尔权益——与详情页闸门/对比表同源。
+ * label 优先用已有 i18n 键，否则以中文字面兑底（待六语本地化）。
  */
-export function getPlanFeatures(planCode: string): { icon: typeof Check; color: string; bg: string; label: string }[] {
-  const feat = (
-    label: string,
-    icon: typeof Check = Check,
-    color = "text-teal-600",
-    bg = "bg-teal-100/80",
-  ) => ({ icon, color, bg, label });
+export function getPlanFeatures(
+  plan: MembershipPlan,
+): { icon: typeof Check; color: string; bg: string; label: string }[] {
+  const rank = Number(plan.benefit_rank ?? 0);
+  return COMPARISON_ROWS.filter((r) => !r.render && comparisonRowEnabled(rank, r)).map((r) => ({
+    ...(FEATURE_ICON[r.key] ?? { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80" }),
+    label: r.i18nKey ?? r.label,
+  }));
+}
 
-  const features: Record<PlanTier, { icon: typeof Check; color: string; bg: string; label: string }[]> = {
-    trial: [
-      feat("comparisonRawNotice"),
-      feat("comparisonQualification", Globe, "text-purple-600", "bg-purple-100/80"),
-    ],
-    standard: [
-      feat("comparisonRawNotice"),
-      feat("comparisonBidHistory", Users, "text-blue-600", "bg-blue-100/80"),
-    ],
-    pro: [
-      feat("comparisonAiScoring", Zap, "text-amber-600", "bg-amber-100/80"),
-      feat("comparisonReport"),
-      feat("comparisonIndustryPush", Globe, "text-purple-600", "bg-purple-100/80"),
-    ],
-    enterprise: [
-      feat("comparisonEnterpriseProfile", Building2, "text-rose-600", "bg-rose-100/80"),
-      feat("comparisonConsortiumBid", Users, "text-blue-600", "bg-blue-100/80"),
-      feat("comparisonContractSign", Briefcase, "text-amber-600", "bg-amber-100/80"),
-    ],
-  };
-
-  return features[getPlanTier(planCode)];
+/**
+ * 推荐档判定：个人专业版（PRO）为最佳性价比档，卡片高亮 + 角标。
+ * 与权益矩阵同源（BENEFIT_RANK.PRO），缺 benefit_rank 视为非推荐。
+ */
+export function isRecommendedPlan(plan: MembershipPlan): boolean {
+  return Number(plan.benefit_rank ?? -1) === BENEFIT_RANK.PRO;
 }

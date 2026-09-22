@@ -30,6 +30,9 @@ export interface UnifiedSearchParams {
   sort: "deadline" | "latest" | "deadline_farthest";
   /** UNSPSC 类目 ID（default 模式来自 URL code_id） */
   codeId: number;
+  /** 预算范围过滤（USD，estimated_value 列） */
+  budgetMin?: number;
+  budgetMax?: number;
 }
 
 /** 统一搜索结果（与前端 NoticeResponse 对齐） */

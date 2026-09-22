@@ -59,5 +59,6 @@
   "learningCoreContent": "Основное содержание",
   "buyMaterialBtn": "Купить материал",
   "learningBundleTitle": " Пакетная покупка со скидкой",
-  "learningContentLocked": "Купите, чтобы открыть полный доступ к материалам и загрузке"
+  "learningContentLocked": "Купите, чтобы открыть полный доступ к материалам и загрузке",
+  "learningContentLoadedFailed": "Ошибка загрузки контента, обновите страницу и попробуйте снова"
 }

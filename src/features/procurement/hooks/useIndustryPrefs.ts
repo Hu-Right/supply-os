@@ -72,7 +72,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     const { fetchUnspscChildren } = await import("@/core/unspsc/api");
     const childRequests: Promise<UnspscOption[]>[] = [];
     for (let i = 0; i < 4 && path[i]; i += 1) {
-      childRequests.push(fetchUnspscChildren(path[i], locale).catch(() => []));
+      childRequests.push(fetchUnspscChildren(path[i]).catch(() => []));
     }
     const childResults = await Promise.all(childRequests);
     if (exitSeqRef.current !== entrySeq) return;
@@ -189,7 +189,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       const title =
         locale === "zh"
           ? opt.title_zh || opt.title || opt.name
-          : opt.title_i18n || opt.title_en || opt.title || opt.name || opt.title_zh;
+          : opt.title_en || opt.title || opt.name || opt.title_zh;
       if (title) names.push(title);
     });
     return names.join(" / ");

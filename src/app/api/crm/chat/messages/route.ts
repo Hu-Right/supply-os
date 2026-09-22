@@ -13,7 +13,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit, getRateLimitPersistDir } from "@/lib/middleware/rateLimiter";
 import { chatMessageSendSchema, sanitizeMetadata } from "@/lib/validators/chat";
-import { sessionOwnedBy } from "@/lib/repos/chat.repo";
+import { sessionOwnedBy } from "@/lib/services/chat-service";
 import path from "path";
 import { ONE_MINUTE_MS } from "@/shared/constants/time";
 import { EC_INVALID_REQUEST, EC_NOT_FOUND, EC_FORBIDDEN } from "@/shared/constants/api";

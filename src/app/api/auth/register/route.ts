@@ -10,6 +10,8 @@ import { getContext } from "@/lib/db/context";
 import { withRoute, parseJson } from "@/lib/middleware/route-handler";
 import { registerUser } from "@/lib/services/auth-register";
 import { setRefreshCookieOnResponse } from "@/lib/utils/auth-cookies-next";
+import { checkRateLimit } from "@/lib/middleware/rateLimiter";
+import { extractClientIp } from "@/lib/utils/ip";
 
 // 字段顺序即校验优先级（zod issues[0] 与原实现的报错顺序一致）
 const registerSchema = z.object({
@@ -18,7 +20,6 @@ const registerSchema = z.object({
   password: z.string({ error: "密码不能为空" }).min(1, "密码不能为空"),
   verify_code: z.string({ error: "请输入短信验证码" }).min(1, "请输入短信验证码"),
   invitation_code: z.string().optional(),
-  user_type: z.string().optional(),
   locale: z.string().optional(),
   agreement_version: z.string().optional(),
   agreement_accepted_at: z.string().optional(),
@@ -28,6 +29,14 @@ export const POST = withRoute(async (req: NextRequest) => {
   const body = await parseJson(req, registerSchema, {
     display_name: 40000, phone: 40011, password: 40001, verify_code: 40005,
   });
+
+  // 限流：IP + 手机号双维度，防批量注册攻击/短信通道消耗
+  const rlIp = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 5 },
+    (r) => `register-ip:${extractClientIp(r)}`);
+  if (rlIp) return rlIp;
+  const rlPhone = checkRateLimit(req, { windowMs: 15 * 60_000, maxAttempts: 3 },
+    () => `register-phone:${body.phone}`);
+  if (rlPhone) return rlPhone;
 
   // ★ 邀请码优先级：手动填写 > Cookie ref_code（推荐链接自动带入）
   let inviteCode = String(body.invitation_code || "").trim().toUpperCase();
@@ -48,7 +57,6 @@ export const POST = withRoute(async (req: NextRequest) => {
     password: body.password,
     code: body.verify_code,
     inviteCode,
-    userType: body.user_type === "personal" ? "personal" : "enterprise",
     locale: body.locale,
     agreementVersion: body.agreement_version,
     agreementAcceptedAt: body.agreement_accepted_at,

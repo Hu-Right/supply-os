@@ -64,6 +64,9 @@
  *              061-chat-queue-assignment               客服队列分配
  *              062-user-id-migration                   user_id 内部化（B类表加列+唯一键重建+索引）
  *              065-user-key-collation-uk-notice        user_key collation 统一 + uk_user_notice 重建（062 补漏）
+ *              085-rfq-platform-field-backfill        平台 RFQ 存量修复：编号回填/发布时间与创建时间语义
+ *              086-rfq-reference-prefix-os-isolation  平台 RFQ 编号前缀 RFQ-→OSRFQ-（与外部编号数学级隔离）
+ *              （087 已编写但暂不注册：宽表加列需先在生产维护窗口完成，见 migrations/087 头注释）
  */
 import type { Pool } from "mysql2/promise";
 import { runMigrations, type Migration } from "./migrations/runner";
@@ -135,6 +138,34 @@ import { migration as m065 } from "./migrations/065-user-key-collation-uk-notice
 import { migration as m066 } from "./migrations/066-user-key-nullable-relax";
 import { migration as m067 } from "./migrations/067-consent-log-user-id";
 import { migration as m068 } from "./migrations/068-drop-crm-users-user-key";
+import { migration as m069 } from "./migrations/069-rfq-columns";
+import { migration as m070 } from "./migrations/070-wide-table-entry-source";
+import { migration as m071 } from "./migrations/071-rfq-business-terms";
+import { migration as m072 } from "./migrations/072-ai-summary";
+import { migration as m073 } from "./migrations/073-notice-favorites";
+import { migration as m074 } from "./migrations/074-supplier-english-name";
+import { migration as m075 } from "./migrations/075-ai-summary-6-dimensions";
+import { migration as m077 } from "./migrations/077-ai-score-columns";
+import { migration as m076 } from "./migrations/076-open-api-keys-usage";
+import { migration as m078 } from "./migrations/078-bid-awards-tables";
+import { migration as m079 } from "./migrations/079-user-last-login";
+import { migration as m080 } from "./migrations/080-drop-unspsc-translations";
+import { migration as m081 } from "./migrations/081-supplier-claim-enhancement";
+import { migration as m082 } from "./migrations/082-ai-score-reasoning";
+import { migration as m083 } from "./migrations/083-user-supplier-pool";
+import { migration as m084 } from "./migrations/084-ai-match-results";
+import { migration as m085 } from "./migrations/085-rfq-platform-field-backfill";
+import { migration as m086 } from "./migrations/086-rfq-reference-prefix-os-isolation";
+// m087（宽表源指纹列）开发已备，但**故意不注册**：
+// 生产宽表（46.2 万行）当前无法 ALGORITHM=INSTANT，加列必须安排维护窗口；
+// 而运行期代码已做成「列缺失则自动降级」（见 search-sync/wide-fingerprint.ts），
+// 因此无论本行是否启用，本地与线上都能正常启动且不会写不存在的列。
+// 窗口内加列完成后，重新加回 import 与 ALL_MIGRATIONS 末尾的 m087 即可（幂等：列存在则跳过）。
+// import { migration as m087 } from "./migrations/087-wide-table-sync-fingerprint";
+import { migration as m088 } from "./migrations/088-opportunity-intl-procurement-columns";
+import { migration as m089 } from "./migrations/089-ingest-intl-tender-el-menzel";
+import { migration as m090 } from "./migrations/090-membership-plans-v2";
+import { migration as m091 } from "./migrations/091-sync-watermark-table";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -144,7 +175,13 @@ const ALL_MIGRATIONS: Migration[] = [
   m022, m023, m024, m025, m026, m027, m028, m029, m030, m031,
   m032, m033, m034, m035, m036,
   m037, m038, m039, m040, m041, m042, m043, m044, m045, m046, m047, m048, m049, m050, m051, m052, m053, m054, m055, m056, m057, m058, m059,
-  m060, m061, m062, m063, m064, m065, m066, m067, m068,
+  m060, m061, m062, m063, m064, m065, m066, m067, m068, m069, m070, m071, m072, m073, m074, m075, m076, m077, m078, m079, m080, m081, m082, m083, m084, m085, m086,
+  // m088：机会表国际采购结构化列（实测 INSTANT 385ms）；m089：用它收录第一条真实国际标
+  m088, m089,
+  // m090：会员套餐体系切换 V2（对齐 260921 报价表：旧套餐下架/无引用物理删除，新 4 档上架，benefit_rank 门控）
+  m090,
+  // m091：爬虫同步水位线控制表（应用内爬虫同步任务读写，替代 .sync-watermark.json 文件）
+  m091,
 ];
 
 /**

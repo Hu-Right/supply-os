@@ -1,11 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { extractTierLabel, previewUpgrade } from "@/lib/services/membership-upgrade";
+import { previewUpgrade } from "@/lib/services/membership-upgrade";
+import { extractTierLabel } from "@/shared/constants/membership";
 import type { MembershipRepo } from "@/lib/repos/membership.repo";
 
 describe("extractTierLabel", () => {
   it("含连字符 → 取末段", () => {
     expect(extractTierLabel("标讯企业会员-基础版")).toBe("基础版");
     expect(extractTierLabel("标讯企业会员-旗舰版")).toBe("旗舰版");
+  });
+
+  it("V2 套餐名：已以'版'结尾 → 原样返回", () => {
+    expect(extractTierLabel("个人体验版")).toBe("个人体验版");
+    expect(extractTierLabel("个人标准版")).toBe("个人标准版");
+    expect(extractTierLabel("个人专业版")).toBe("个人专业版");
+  });
+
+  it("V2 套餐名：会员后缀 → 去'会员'加'版'，企业前缀收敛为'企业版'", () => {
+    expect(extractTierLabel("企业年度会员")).toBe("企业版");
+    expect(extractTierLabel("免费注册体验")).toBe("免费注册体验版");
   });
 
   it("不含连字符 → 去前缀后缀加 '版'", () => {

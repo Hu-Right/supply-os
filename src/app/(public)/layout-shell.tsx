@@ -10,8 +10,8 @@
  *              所有子组件已通过 next/navigation 适配，无需 shim。
  */
 
-import { lazy, Suspense, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
@@ -69,7 +69,20 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     onOpenTrainingRegister,
   } = useAppModals();
   const { tabs, activeTab, switchMainTab } = useNavTabs();
-  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister });
+  const router = useRouter();
+
+  // 账户入口意图：已登录直接跳设置页；未登录打开登录弹窗，登录成功后重定向到设置页
+  const [authRedirectOnSuccess, setAuthRedirectOnSuccess] = useState(false);
+  const onOpenAccount = useCallback(() => {
+    if (authUser) {
+      router.push("/settings/profile");
+    } else {
+      setAuthRedirectOnSuccess(true);
+      setShowAuthModal(true);
+    }
+  }, [authUser, router, setShowAuthModal]);
+
+  useAppEvents({ onRequireLogin, onConsult, onPay, onOpenTrainingRegister, onOpenAccount });
   useVersionCheck();
 
   // ★ 扫码推广自动弹出注册弹窗：检测 /r/[code] 中转页写入的 qr_auto_open Cookie
@@ -118,10 +131,10 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
         onSwitchTab={switchMainTab}
-        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenAccount={onOpenAccount}
         tierLabel={tierLabel}
       />
-      <main className={isTrainingPage ? "flex-1 w-full" : "flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6"}>
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6">
         <SessionBanner />
         {children}
       </main>
@@ -135,6 +148,15 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
             onClose={() => {
               setShowAuthModal(false);
               setQrRegisterMode(false);
+            }}
+            onSuccess={() => {
+              setShowAuthModal(false);
+              setQrRegisterMode(false);
+              // 仅当从账户入口（头像/open-account）触发登录时才重定向到设置页
+              if (authRedirectOnSuccess) {
+                setAuthRedirectOnSuccess(false);
+                router.push("/settings/profile");
+              }
             }}
           />
         </Suspense>

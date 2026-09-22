@@ -15,7 +15,7 @@ import { UserRound, Trophy, GraduationCap, BadgeCheck, HeartHandshake, Award, Us
 import Image from "next/image";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { SectionTitle } from "./landing-ui";
-import { TRAINING_INSTRUCTORS, TRAINING_TEAM } from "@/data/training-content";
+import { TRAINING_INSTRUCTORS, TRAINING_TEAM } from "../constants";
 
 /** 竖椭圆头像（空路径 → 藏青剪影占位） */
 function Avatar({ src, alt, className }: { src: string; alt: string; className: string }) {

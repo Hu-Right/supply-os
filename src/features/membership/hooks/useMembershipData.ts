@@ -43,8 +43,7 @@ export function useMembershipData(): UseMembershipDataReturn {
     let alive = true;
 
     Promise.all([
-      // 登录态强制跳过缓存：first_purchase_eligible 依赖登录态，
-      // 复用未登录缓存会让 99/199 两卡同时出现（2026-08-30 修复）
+      // 登录态强制跳过缓存：确保拿到与当前身份一致的套餐/权益视图（V2）
       fetchPlans(Boolean(authUser)),
       // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
       // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status

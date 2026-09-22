@@ -7,13 +7,14 @@
  *              Manages CRM page data fetching, AI matching, subscription logic
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { api } from "@/core/http";
-import { OPPORTUNITIES } from "@/data";
-import { fetchSuppliers } from "@/features/supplier";
+import { ACTIVE_OPPORTUNITIES } from "../constants";
+// ARCH-P2-解耦（2026-09-05）：fetchSuppliers 内联为 core/http 直连，
+// 消除 crm→supplier 跨 feature 硬依赖（原函数仅一行 api() 调用）
 import type { Lead, Supplier, Opportunity } from "@/types";
 import { useAiMatch } from "./useAiMatch";
 import { onAppEvent } from "@/core/events";
@@ -75,7 +76,7 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
       } catch {
         setLeads([]);
       }
-      const suppliers = await fetchSuppliers(locale).catch(() => [] as Supplier[]);
+      const suppliers = await api<Supplier[]>(`/api/suppliers?lang=${encodeURIComponent(locale)}`).catch((e) => { console.warn("[CRM] 供应商列表加载失败:", e); return [] as Supplier[]; });
       setDbSuppliers(suppliers);
       // 首次加载：无跨页带入时默认选中拉取列表首条（列表为空则不预选）
       if (preselectFirstSupplier && !autoMatchSupplier && suppliers.length > 0) {
@@ -88,25 +89,35 @@ export function useCrmData(options: UseCrmDataOptions = {}): UseCrmDataReturn {
     }
   };
 
-  // Initial data load + default AI match selections
+  // Initial data load + default AI match selections（有意仅挂载时执行一次：
+  // fetchData/aiMatch 每次渲染重建，autoMatchSupplier 为对象引用，
+  // 纳入依赖会随任意渲染反复拉取数据并重复触发自动撮合）
   useEffect(() => {
     fetchData(true);
     // 跨页带入的供应商优先于默认列表首条
     if (autoMatchSupplier) {
       aiMatch.setSelectedSupplier(autoMatchSupplier);
     }
-    if (OPPORTUNITIES.length > 0) {
-      aiMatch.setSelectedOpportunity(OPPORTUNITIES[0]);
+    if (ACTIVE_OPPORTUNITIES.length > 0) {
+      aiMatch.setSelectedOpportunity(ACTIVE_OPPORTUNITIES[0]);
     }
     // 自动执行一次 AI 撮合（商机取默认首条，对齐原版行为）
-    if (autoMatchSupplier && OPPORTUNITIES.length > 0) {
-      aiMatch.triggerMatch(autoMatchSupplier, OPPORTUNITIES[0]);
+    if (autoMatchSupplier && ACTIVE_OPPORTUNITIES.length > 0) {
+      aiMatch.triggerMatch(autoMatchSupplier, ACTIVE_OPPORTUNITIES[0]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // latest-ref：事件处理器始终调用最新一帧的 fetchData，
+  // 避免闭包捕获首帧 fetchData（其中 locale 为挂载时旧值）
+  const fetchDataRef = useRef(fetchData);
+  useEffect(() => {
+    fetchDataRef.current = fetchData;
+  });
 
   // 展厅/供应商入驻成功后刷新线索池（对齐原版提交成功即 fetchData 的行为）
   useEffect(() => {
-    return onAppEvent("supply-os:crm-refresh", () => fetchData());
+    return onAppEvent("supply-os:crm-refresh", () => fetchDataRef.current());
   }, []);
 
   // Trigger AI matching (delegates to useAiMatch)

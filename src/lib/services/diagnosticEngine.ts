@@ -7,6 +7,8 @@
  *              纯函数，可前后端共用。
  */
 import type { QualificationScoreInput, ScoringResult } from "./scoring";
+// D1-2 SSOT 修复：国际认证识别统一引用 shared/constants/certifications
+import { isIntlCert } from "@/shared/constants/certifications";
 
 // ── 输出类型 ──
 
@@ -70,9 +72,7 @@ function countItems(s: string): number {
 
 function hasContent(s: string): boolean { return !!s && s.trim().length > 0; }
 
-const INTL_CERTS = ["ISO9001","ISO14001","ISO45001","CE","UL","FCC","FDA","IATF","SA8000","ISO22000","ISO13485","MDR","UKCA","PSE","KC","SABER","BIS","EAC","RCM","ISED","CSA","INMETRO","TISI","SNI","SONCAP","HACCP"];
-
-function isIntlCert(name: string): boolean { return INTL_CERTS.some(k => name.includes(k)); }
+// INTL_CERTS 已提升至 shared/constants/certifications（isIntlCert）
 
 // ── UNSPSC 预定义映射 ──
 
@@ -125,7 +125,7 @@ function matchUnspsc(mainProduct: string): UnspscMapping[] {
 export function generateDiagnosticReport(input: QualificationScoreInput, scoring: ScoringResult, id?: number, assessDate?: string): DiagnosticReport {
   const date = assessDate || new Date().toISOString().slice(0, 10);
   const certCount = input.certifications.length;
-  const intlCertCount = input.certifications.filter(isIntlCert).length;
+  const intlCertCount = input.certifications.filter(c => isIntlCert(c)).length;
   const serviceCount = countItems(input.service_countries);
   const overseasCount = countItems(input.overseas_companies);
   const hasEnglish = input.english_team !== "尚不具备";
