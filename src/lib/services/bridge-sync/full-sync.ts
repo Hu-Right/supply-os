@@ -9,7 +9,7 @@
  *              性能优化：启动时加载 UNSPSC 类目树到内存缓存，消除逐行 N+1 查询。
  *              缓存加载失败时自动降级到逐行查询模式。
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import {
   type UnspscCodeRow,
   normalizeUnspscCodes,
@@ -56,7 +56,7 @@ function prepareBridgeRowsFromCache(row: RowDataPacket, _fk: string): BridgeRowT
 
 /** 批量 upsert 桥接表（单条 SQL 替代 N 次逐行 INSERT） */
 async function batchUpsertBridgeRows(
-  dbPool: any, bridgeTable: string, fk: string, rows: BridgeRowToInsert[],
+  dbPool: Pool, bridgeTable: string, fk: string, rows: BridgeRowToInsert[],
 ): Promise<number> {
   if (rows.length === 0) return 0;
   const BATCH = 500;
@@ -64,7 +64,7 @@ async function batchUpsertBridgeRows(
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     const placeholders = batch.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?)").join(",");
-    const params: any[] = [];
+    const params: unknown[] = [];
     for (const row of batch) {
       params.push(row.fkValue, row.codeId, row.code, row.level,
         row.level1_id, row.level2_id, row.level3_id, row.level4_id, row.level5_id);
@@ -88,7 +88,7 @@ async function batchUpsertBridgeRows(
  * 单行写入 bridge 表（降级路径：缓存不可用时逐行查询）
  * 每码需 7 次 SQL（1 次码查找 + 6 次路径回溯 + 1 次写入），已被批量路径替代
  */
-async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string, row: RowDataPacket) {
+async function syncUnspscBridgeRow(dbPool: Pool, bridgeTable: string, fk: string, row: RowDataPacket) {
   const codes = normalizeUnspscCodes(row.unspsc_codes);
   for (const item of codes) {
     const rawCode = String(item?.code || item || "").replace(/\D/g, "").slice(0, 8);
@@ -121,7 +121,7 @@ async function syncUnspscBridgeRow(dbPool: any, bridgeTable: string, fk: string,
  * 全量回填 bridge 表：跳过已有记录，分批处理所有数据，避免内存溢出
  * 专为后台异步调用设计，不阻塞服务启动
  */
-export async function syncUnspscBridgeFull(dbPool: any, source: "opportunity" | "notice"): Promise<{ processed: number; skipped: number }> {
+export async function syncUnspscBridgeFull(dbPool: Pool, source: "opportunity" | "notice"): Promise<{ processed: number; skipped: number }> {
   const sourceTable = source === "opportunity" ? "crm_bid_opportunities" : "crm_bid_notices";
   const bridgeTable = source === "opportunity" ? "crm_bid_opportunity_unspsc_codes" : "crm_bid_notice_unspsc_codes";
   const fk = source === "opportunity" ? "opportunity_id" : "notice_id";

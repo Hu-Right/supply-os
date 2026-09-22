@@ -20,23 +20,24 @@ export type UnspscCodeRow = {
 /**
  * 归一化 UNSPSC 码：从 JSON 字符串/对象/数组中提取所有有效码
  */
-export function normalizeUnspscCodes(value: any) {
+export function normalizeUnspscCodes(value: unknown) {
   const source = safeJson(value);
   const found = new Map<string, { code: string; name: string }>();
 
-  const visit = (item: any) => {
+  const visit = (item: unknown) => {
     if (!item || found.size >= 20) return;
     if (Array.isArray(item)) {
       item.forEach(visit);
       return;
     }
     if (typeof item === "object") {
-      const codeText = String(item.code || "");
+      const o = item as Record<string, unknown>;
+      const codeText = String(o.code || "");
       const matches = codeText.match(/\b\d{2}(?:\d{2}){0,3}\b/g) || [];
       for (const code of matches) {
-        if (!found.has(code)) found.set(code, { code, name: String(item.name || item.description || "") });
+        if (!found.has(code)) found.set(code, { code, name: String(o.name || o.description || "") });
       }
-      if (matches.length === 0) Object.values(item).forEach(visit);
+      if (matches.length === 0) Object.values(o).forEach(visit);
       return;
     }
     const matches = String(item).match(/\b\d{2}(?:\d{2}){0,3}\b/g) || [];

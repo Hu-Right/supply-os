@@ -6,6 +6,7 @@
  * @description 构建公告搜索的 UNSPSC 类目筛选 SQL 片段，
  *              以及降级路径查询（缓存不可用时的逐行 SQL 回溯）。
  */
+import type { Pool } from "mysql2/promise";
 import type { UnspscCodeRow } from "./parser";
 
 /**
@@ -20,7 +21,7 @@ import type { UnspscCodeRow } from "./parser";
  * 而非 id（自增主键），JOIN 口径必须用 n.notice_id。
  * 实测验证：n.notice_id JOIN 命中 60,492 条公告，n.id JOIN 仅命中 5,907 条（丢失 90%）。
  */
-export async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
+export async function buildNoticeUnspscFilter(dbPool: Pool, codeId: number) {
   if (!codeId) return { sql: "", params: [] as unknown[] };
 
   const [codeRows] = await dbPool.query(
@@ -57,7 +58,7 @@ export async function buildNoticeUnspscFilter(dbPool: any, codeId: number) {
  * 逐行查询回溯 UNSPSC 类目路径（降级路径：缓存不可用时使用）
  * 每码需 6 次 SQL，已被批量路径（getPathFromCache）替代
  */
-export async function getUnspscPath(dbPool: any, codeId: number) {
+export async function getUnspscPath(dbPool: Pool, codeId: number) {
   const path: Record<string, number | null> = {
     level1_id: null,
     level2_id: null,

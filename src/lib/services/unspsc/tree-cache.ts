@@ -7,7 +7,7 @@
  *              crm_unspsc_codes 全表约 10K-15K 条记录，内存占用 ~1-2 MB。
  *              类目树是联合国标准分类，几乎不变；缓存在全量回填开始时一次性加载。
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 interface CachedUnspscNode {
   id: number;
@@ -22,7 +22,7 @@ let _unspscCodeToId: Map<string, number> | null = null;
 /**
  * 加载 UNSPSC 类目树到内存（幂等：已加载则直接返回 true）
  */
-export async function loadUnspscCache(dbPool: any): Promise<boolean> {
+export async function loadUnspscCache(dbPool: Pool): Promise<boolean> {
   if (_unspscTreeById && _unspscCodeToId) return true;
   try {
     const [rows] = await dbPool.query("SELECT id, code, level, parent_id FROM crm_unspsc_codes");

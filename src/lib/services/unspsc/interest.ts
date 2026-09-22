@@ -6,6 +6,7 @@
  * @description 用户兴趣码写入数据库（含白名单校验与权重上限）。
  *              依赖 parser 模块的前缀展开函数。
  */
+import type { Pool } from "mysql2/promise";
 import type { UnspscCodeRow } from "./parser";
 import { expandUnspscInterestPrefixes, padUnspscPrefix } from "./parser";
 
@@ -35,9 +36,9 @@ const INTEREST_WEIGHT_CAP = 500;
  * @param weight - 权重增量
  */
 export async function persistUserInterestCodes(
-  dbPool: any,
+  dbPool: Pool,
   userId: number,
-  snapshot: any[],
+  snapshot: Array<{ code?: unknown }>,
   source: string,
   weight: number,
 ) {
