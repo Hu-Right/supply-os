@@ -286,6 +286,7 @@ function mergeIdLists(...lists: Array<string | number | null | undefined>): stri
 
 // ── 宽表行构建 ──
 export function buildWideRow(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表映射函数：源行动态多列 + 测试以扁平 mock 传参，收敛为具体类型会破坏既有测试契约
   r: any,
   aliasMap: Map<string, string>,
   unspsc?: Record<string, string>,
@@ -408,7 +409,7 @@ export async function loadAliasMap(pool: Pool): Promise<Map<string, string>> {
  */
 export async function upsertWideRows(
   pool: Pool,
-  rows: Record<string, any>[],
+  rows: Record<string, unknown>[],
   withFp: boolean,
 ): Promise<number> {
   if (rows.length === 0) return 0;
@@ -436,7 +437,7 @@ export async function upsertWideRows(
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     const batchPlaceholders = batch.map(() => `(${placeholders})`).join(",");
-    const params: any[] = [];
+    const params: unknown[] = [];
     for (const row of batch) {
       params.push(
         row.id, row.notice_id, row.title, row.reference, row.description,

@@ -102,7 +102,7 @@ export async function mysqlFallback(
     const [countResult, idResult] = await Promise.all([
       Promise.race([pool.query(countSql, queryParams), timeout]),
       Promise.race([pool.query(idSql, idParams), timeout]),
-    ]) as [any, any];
+    ]);
 
     const total = Number((countResult[0] as RowDataPacket[])[0]?.total || 0);
     const ids = (idResult[0] as RowDataPacket[]).map((r) => Number(r.id)).filter(Boolean);

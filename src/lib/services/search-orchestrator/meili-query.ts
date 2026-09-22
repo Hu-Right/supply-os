@@ -12,6 +12,15 @@ import type { UnifiedSearchParams, MeiliHitResult } from "./types";
 
 const SEARCH_TIMEOUT_MS = 5000;
 
+/** Meilisearch 单次检索响应中被消费的字段子集（规避 SDK 分页联合类型不直接暴露 totalHits 的问题） */
+type MeiliSearchOutcome = {
+  hits?: Array<{ id?: unknown }>;
+  totalHits?: number | null;
+  estimatedTotalHits?: number | null;
+};
+/** multiSearch 响应子集 */
+type MeiliMultiOutcome = { results?: MeiliSearchOutcome[] };
+
 /** 排序参数 → Meilisearch sort 数组
  * deadline_sec=0（长期有效/无截止日）的排序策略：
  *   - deadline（最近截止）：has_deadline:desc → 有截止日的在前，permanent 在后
@@ -70,9 +79,9 @@ export async function meiliQuery(
       timeoutId = setTimeout(() => reject(new Error(`Meilisearch search timeout after ${SEARCH_TIMEOUT_MS}ms`)), SEARCH_TIMEOUT_MS);
     });
     try {
-      const result = await Promise.race([searchPromise, timeoutPromise]) as any;
+      const result = (await Promise.race([searchPromise, timeoutPromise])) as MeiliSearchOutcome | null;
       if (result === null) return null;
-      const ids = result.hits.map((h: any) => Number(h.id)).filter(Boolean);
+      const ids = (result.hits ?? []).map((h) => Number(h.id)).filter(Boolean);
       const preciseTotal = result.totalHits ?? null;
       const estimatedTotal = result.estimatedTotalHits ?? ids.length;
       return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
@@ -130,10 +139,10 @@ export async function meiliMultiQuery(
       );
     });
     try {
-      const response = await Promise.race([searchPromise, timeoutPromise]) as any;
+      const response = (await Promise.race([searchPromise, timeoutPromise])) as MeiliMultiOutcome | null;
       if (!response?.results) return null;
-      return (response.results as any[]).map((r) => {
-        const ids = r.hits?.map((h: any) => Number(h.id)).filter(Boolean) ?? [];
+      return response.results.map((r) => {
+        const ids = r.hits?.map((h) => Number(h.id)).filter(Boolean) ?? [];
         const preciseTotal = r.totalHits ?? null;
         const estimatedTotal = r.estimatedTotalHits ?? ids.length;
         return { ids, total: preciseTotal ?? estimatedTotal, totalIsPrecise: preciseTotal !== null };
