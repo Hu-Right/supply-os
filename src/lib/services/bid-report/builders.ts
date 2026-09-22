@@ -156,7 +156,7 @@ export function kvTable(rows: Array<[string, string]>): Table {
 }
 
 /** BoQ 工程量表（蓝底表头 + 斑马纹行） */
-export function boqTable(products: any[]): Table {
+export function boqTable(products: unknown[]): Table {
   const headers: Array<[number, string]> = [
     [400, "序号"],
     [2000, "产品/服务名称"],
@@ -178,15 +178,13 @@ export function boqTable(products: any[]): Table {
     ),
   });
 
-  const dataRows = products.map((product, idx) => {
+  const dataRows = products.map((raw, idx) => {
     const fill = idx % 2 === 1 ? "F5F8FF" : "FFFFFF";
-    const name = typeof product === "string" ? product : safe(product?.name || product?.product);
-    const scope =
-      typeof product === "object" && product !== null
-        ? safe(product.scope || product.description || product.spec)
-        : "";
-    const qty = typeof product === "object" && product !== null ? safe(product.quantity ?? product.qty ?? "1") : "1";
-    const unit = typeof product === "object" && product !== null ? safe(product.unit || "套") : "套";
+    const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : undefined;
+    const name = typeof raw === "string" ? raw : safe(obj?.name || obj?.product);
+    const scope = obj ? safe(obj.scope || obj.description || obj.spec) : "";
+    const qty = obj ? safe(obj.quantity ?? obj.qty ?? "1") : "1";
+    const unit = obj ? safe(obj.unit || "套") : "套";
     const cells: Array<[number, string]> = [
       [400, String(idx + 1)],
       [2000, name],
@@ -216,9 +214,9 @@ export function boqTable(products: any[]): Table {
 }
 
 /** AI 深度分析块（summary / tech_specs / risks / advantages + 未知键遍历） */
-export function aiAnalysisBlocks(aiAnalysis: Record<string, any>): Array<Paragraph | Table> {
+export function aiAnalysisBlocks(aiAnalysis: Record<string, unknown>): Array<Paragraph | Table> {
   const blocks: Array<Paragraph | Table> = [];
-  const asText = (v: any) => (Array.isArray(v) ? v.join("\n") : String(v ?? ""));
+  const asText = (v: unknown) => (Array.isArray(v) ? v.join("\n") : String(v ?? ""));
   if (aiAnalysis.summary) {
     blocks.push(h2("AI 深度分析摘要"), ...bodyText(asText(aiAnalysis.summary)));
   }

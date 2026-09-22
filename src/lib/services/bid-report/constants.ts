@@ -54,7 +54,7 @@ export const GREEN3 = "375623";
 export const TABLE_BLUE = "2E4099";
 export const BORDER_GREY = "D8D8D8";
 
-export type Row = Record<string, any>;
+export type Row = Record<string, unknown>;
 
 /** 安全字符串（对应 PHP safe()）：null/false/undefined 归空串 */
 export function safe(v: unknown): string {
@@ -63,8 +63,8 @@ export function safe(v: unknown): string {
 }
 
 /** 对象型 JSON 字段解码（ai_analysis 等）：对象直通、字符串解析、其余回退 {} */
-export function safeObj(value: any): Record<string, any> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value;
+export function safeObj(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
   if (typeof value === "string") {
     try {
       const parsed = JSON.parse(value);

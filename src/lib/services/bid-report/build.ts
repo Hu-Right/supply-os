@@ -10,7 +10,7 @@ import {
   Table,
   TextRun,
 } from "docx";
-import { PLATFORMS, INDUSTRY_MAP, SONG, safe, type Row } from "./constants";
+import { PLATFORMS, INDUSTRY_MAP, SONG, safe, safeObj, type Row } from "./constants";
 import { title0, h1, h2, line, bodyText, bullet, kvTable, boqTable, aiAnalysisBlocks, formatNow } from "./builders";
 
 /**
@@ -52,9 +52,9 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
     ["注册级别要求 (Registration Level)", safe(row.registration_level)],
     ["行业 (Industry)", safe(INDUSTRY_MAP[safe(row.industry)] ?? row.industry)],
   ];
-  const unspscCodes = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
+  const unspscCodes: Array<{ code?: string; name?: string }> = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
   const unspscStr = unspscCodes
-    .map((c: any) => safe(c?.code) + (c?.name ? ` — ${c.name}` : ""))
+    .map((c) => safe(c?.code) + (c?.name ? ` — ${c.name}` : ""))
     .filter(Boolean)
     .join("；");
   if (unspscStr) infoRows.push(["UNSPSC 编码分类", unspscStr]);
@@ -84,10 +84,10 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
   const bidOverview = safe(row.bid_overview);
   children.push(...bodyText(bidOverview && bidOverview !== "-" ? bidOverview : safe(row.description)));
   if (safe(row.description_cn)) {
-    children.push(h2("2.1 采购描述（中文）"), ...bodyText(row.description_cn));
+    children.push(h2("2.1 采购描述（中文）"), ...bodyText(safe(row.description_cn)));
   }
   if (safe(row.description_other)) {
-    children.push(h2("2.2 采购描述（其他语言）"), ...bodyText(row.description_other));
+    children.push(h2("2.2 采购描述（其他语言）"), ...bodyText(safe(row.description_other)));
   }
 
   // ══════════ 三、采购清单与工程量表 (BoQ) ══════════
@@ -110,7 +110,7 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
   if (techHurdles && techHurdles !== "-") {
     children.push(...bodyText(techHurdles));
   }
-  const aiAnalysis = row.ai_analysis && typeof row.ai_analysis === "object" ? row.ai_analysis : {};
+  const aiAnalysis = safeObj(row.ai_analysis);
   if (Object.keys(aiAnalysis).length > 0) {
     children.push(...aiAnalysisBlocks(aiAnalysis));
   }
@@ -199,7 +199,7 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
     }
   }
   if (safe(row.training_link)) {
-    children.push(h2("6.2 研修班关联点"), ...bodyText(row.training_link));
+    children.push(h2("6.2 研修班关联点"), ...bodyText(safe(row.training_link)));
   }
 
   // ══════════ 七、针对当前阶段的推进建议 ══════════
@@ -214,7 +214,7 @@ export async function buildBidReportDocx(row: Row): Promise<Buffer> {
   suggestions.forEach((suggestion, i) => children.push(bullet(`${i + 1}. ${suggestion}`)));
 
   if (safe(row.remark)) {
-    children.push(h2("内部备注"), ...bodyText(row.remark));
+    children.push(h2("内部备注"), ...bodyText(safe(row.remark)));
   }
 
   // ══════════ 页脚：生成时间 + 声明 ══════════

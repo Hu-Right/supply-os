@@ -2,7 +2,7 @@
  * bid-report 纯文本预览生成
  * Preview text generation for bid reports
  */
-import { PLATFORMS, INDUSTRY_MAP, safe, type Row } from "./constants";
+import { PLATFORMS, INDUSTRY_MAP, safe, safeObj, type Row } from "./constants";
 
 /** 报告预览段落 */
 export interface ReportPreviewSection {
@@ -20,13 +20,13 @@ export function estimateFullReportCharCount(row: Row): number {
   const platform = PLATFORMS[platformKey] || platformKey.toUpperCase();
   const reference = safe(row.reference);
   const title = safe(row.title);
-  const unspscCodes = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
+  const unspscCodes: Array<{ code?: string; name?: string }> = Array.isArray(row.unspsc_codes) ? row.unspsc_codes : [];
   const aiProducts = Array.isArray(row.ai_products) ? row.ai_products : [];
-  const aiAnalysis = row.ai_analysis && typeof row.ai_analysis === "object" ? row.ai_analysis : {};
+  const aiAnalysis = safeObj(row.ai_analysis);
   const documents = Array.isArray(row.documents) ? row.documents : [];
   const externalLinks = Array.isArray(row.external_links) ? row.external_links : [];
   const contacts = Array.isArray(row.contacts) ? row.contacts : [];
-  const asText = (v: any) => (Array.isArray(v) ? v.join("\n") : String(v ?? ""));
+  const asText = (v: unknown) => (Array.isArray(v) ? v.join("\n") : String(v ?? ""));
   let total = 0;
 
   // 封面
@@ -45,7 +45,7 @@ export function estimateFullReportCharCount(row: Row): number {
     ["行业 (Industry)", safe(INDUSTRY_MAP[safe(row.industry)] ?? row.industry)],
   ];
   for (const [label, value] of infoFields) total += label.length + 2 + value.length;
-  const unspscStr = unspscCodes.map((c: any) => safe(c?.code) + (c?.name ? ` — ${c.name}` : "")).filter(Boolean).join("；");
+  const unspscStr = unspscCodes.map((c) => safe(c?.code) + (c?.name ? ` — ${c.name}` : "")).filter(Boolean).join("；");
   if (unspscStr) total += "UNSPSC 编码分类".length + 2 + unspscStr.length;
   if (safe(row.product_code)) total += "产品编码".length + 2 + safe(row.product_code).length;
   total += `国际贸易条款 (Incoterms)：${safe(row.incoterms) || "未注明"}`.length;
@@ -84,11 +84,11 @@ export function estimateFullReportCharCount(row: Row): number {
   if (aiAnalysis.tech_specs) total += "技术规格解析".length + asText(aiAnalysis.tech_specs).length;
   if (aiAnalysis.risks) {
     const risks = Array.isArray(aiAnalysis.risks) ? aiAnalysis.risks : [aiAnalysis.risks];
-    total += "主要风险点".length + risks.reduce((sum: number, r: any) => sum + (typeof r === "string" ? r.length : JSON.stringify(r).length) + 2, 0);
+    total += "主要风险点".length + risks.reduce((sum: number, r: unknown) => sum + (typeof r === "string" ? r.length : JSON.stringify(r).length) + 2, 0);
   }
   if (aiAnalysis.advantages) {
     const adv = Array.isArray(aiAnalysis.advantages) ? aiAnalysis.advantages : [aiAnalysis.advantages];
-    total += "竞争优势建议".length + adv.reduce((sum: number, a: any) => sum + (typeof a === "string" ? a.length : JSON.stringify(a).length) + 2, 0);
+    total += "竞争优势建议".length + adv.reduce((sum: number, a: unknown) => sum + (typeof a === "string" ? a.length : JSON.stringify(a).length) + 2, 0);
   }
   if (documents.length > 0) {
     total += "4.1 招标附件文件清单".length;
