@@ -335,9 +335,14 @@ export async function apiCached<T>(
 
   // 飞行中请求去重：同一端点已有未完成的请求，复用其 Promise
   // P1-13 安全修复：有 signal 的请求不复用，防止 AbortSignal 泄漏给其他调用方
-  const pending = pendingRequests.get(endpoint);
-  if (pending && !signal) {
-    return pending.promise as Promise<T>;
+  // force 模式同样不复用：调用方显式要求绕过缓存拿最新，若复用可能命中上一次
+  // 被孤儿化、永不 settle 的 in-flight promise（dev 热更新/连接半开场景），
+  // 会让本次请求一起卡死（会员页骨架屏不消失即此症状）。
+  if (!force) {
+    const pending = pendingRequests.get(endpoint);
+    if (pending && !signal) {
+      return pending.promise as Promise<T>;
+    }
   }
 
   // 发起请求并缓存 Promise，防止并发穿透
