@@ -33,9 +33,11 @@ export interface UpgradePreviewResult {
 }
 
 /**
- * 从套餐名称提取等级标签（个人版/基础版/旗舰版/至尊版），不匹配时兜底 VIP。
+ * 从套餐名称提取等级标签，不匹配时兜底 VIP。
  * - 含连字符：取末段（如 "标讯企业会员-旗舰版" → "旗舰版"）
- * - 不含连字符：去 "标讯" 前缀与 "会员" 后缀再加 "版"（如 "标讯个人会员" → "个人版"）
+ * - 不含连字符：去 "标讯" 前缀与 "会员" 后缀；若结果已以 "版" 结尾则原样返回，
+ *   否则补 "版"（如 "标讯个人会员" → "个人版"；新命名 "个人体验版" → "个人体验版"，
+ *   修复此前拼成 "个人体验版版" 的双"版" bug）。
  */
 export function extractTierLabel(planName: string | null | undefined): string {
   if (!planName) return "VIP";
@@ -44,7 +46,7 @@ export function extractTierLabel(planName: string | null | undefined): string {
     if (suffix) return suffix;
   }
   const core = planName.replace(/^标讯/, "").replace(/会员$/, "").trim();
-  if (core) return `${core}版`;
+  if (core) return core.endsWith("版") ? core : `${core}版`;
   return "VIP";
 }
 

@@ -21,6 +21,13 @@ describe("extractTierLabel", () => {
   it("纯英文套餐名 → 去标讯/会员后加版", () => {
     expect(extractTierLabel("Enterprise")).toBe("Enterprise版");
   });
+
+  it("新命名已含'版' → 不重复拼接（修复双'版' bug）", () => {
+    expect(extractTierLabel("个人体验版")).toBe("个人体验版");
+    expect(extractTierLabel("个人标准版")).toBe("个人标准版");
+    expect(extractTierLabel("个人专业版")).toBe("个人专业版");
+    expect(extractTierLabel("企业年度会员")).toBe("企业年度版");
+  });
 });
 
 describe("previewUpgrade", () => {
