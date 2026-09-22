@@ -45,8 +45,9 @@
 - **普通用户池（`subscription_id NULL`）**：免费档=普通用户权益的计量落点——旧体系免费用量靠解锁流水 `COUNT(*)` 终身累计（不可周期重置、不可多权益化），新体系统一成账本行：`subscription_id=NULL + benefit_code=免费额度权益 + period`（如 monthly 月度重置），与付费池走**同一套扣减函数**，无平行实现。
 - **`benefit_code` 泛化计量**：旧体系只有"解锁"一种额度；本表按权益码分池——`notice_view`（标讯条数）、`ai_tender_analysis`（AI 单）、`expert_consult`（咨询次数）、`tech_support`（支持次数）各自独立记账，互不挪用。
 - **`quota_total = -1`**：矩阵格为"不限"时物化的直传行；消费路径先判 `-1` 短路放行，不写 `quota_used`。展示层"不限"文案由该值直出，**不再从大数字反推**。
+- **幂等发放只抬不降，但 `-1` 必须优先于比较结果**：同一 `uk_pool` 重发时只允许 `quota_total` 变大、绝不重置 `quota_used`（否则续费/重放回调会把已花完的额度洗回满格）。但表达式不能写成 `GREATEST(quota_total, :new)`——`GREATEST(100, -1)` 等于 100，同周期重发"不限"时会被旧的正数额度顶掉（用户付了不限量却只拿到小池）。正确写法：`IF(:new = -1 OR quota_total = -1, -1, GREATEST(quota_total, :new))`。要清零用量只能推进 `period_starts_at` 开新周期行。
 - **`period`**：矩阵里"配额/优惠"（AI 单标解析 ADVISOR 格）与 06 章"月度 1 次咨询"的落点——周期配额是**账本属性**，不是权益矩阵值；矩阵格声明"有配额"，本表声明"配额多少、何时重置"。
-- **`status='frozen'`**：订阅退款/违规冻结时批量置位，消费判定恒含 `status='active'`。
+- **`status='frozen'`**：订阅退款/违规冻结时批量置位，消费判定恒含 `status='active'`。退款路径的"冻池 + 订阅置 `refunded`"**必须同一事务**（见订单表文档 §7 对 `refunded` 的同样要求），不得拆成两个依赖调用方顺序的写入。
 
 ## 4. 枚举类型说明：`status`
 
@@ -62,7 +63,7 @@
 | 索引名 | 列 | 类型 | 设计意图 |
 |---|---|---|---|
 | `PRIMARY` | `id` | 主键 | 扣减 `FOR UPDATE` 锁定点查 |
-| `uk_pool` | `(subscription_id, seat_user_id, benefit_code, period_starts_at)` | 唯一 | 一池一周期一行 + 惰性建行幂等 |
+| `uk_pool` | `(subscription_pool_key, seat_user_id, benefit_code, period_starts_at)` | 唯一 | 一池一周期一行 + 惰性建行幂等（`subscription_pool_key` 是生成列，非 `subscription_id` 本身） |
 | `idx_consume` | `(seat_user_id, benefit_code, status, period_starts_at)` | 复合 | 消费主查询："该用户该权益当前周期可消费行" |
 | `idx_subscription` | `(subscription_id, status)` | 复合 | 订阅生灭时批量开池/冻结 |
 
