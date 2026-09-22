@@ -23,7 +23,7 @@ export interface NoticeSearchParams {
 }
 
 export interface NoticeSearchResult {
-  items: any[];
+  items: unknown[];
   total: number;
   page: number;
   pageSize: number;

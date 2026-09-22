@@ -6,7 +6,7 @@
  * @description 统计表（crm_notice_stats）的刷新与查询、is_active 预计算列的定期回填。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { NoticeSearchParams, NoticeStatsResult } from "./types";
 import {
   clearCountCaches, setCountCache,
@@ -58,7 +58,7 @@ export async function getStatsCount(pool: Pool, key: string): Promise<number | n
       "SELECT stat_value FROM crm_notice_stats WHERE stat_key = ?",
       [key]
     );
-    const arr = rows as any[];
+    const arr = rows as RowDataPacket[];
     return arr.length > 0 ? Number(arr[0].stat_value) : null;
   } catch {
     return null;
@@ -77,13 +77,13 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     const [totalRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices WHERE ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`
     );
-    const activeTotal = Number((totalRows as any[])[0]?.cnt || 0);
+    const activeTotal = Number((totalRows as RowDataPacket[])[0]?.cnt || 0);
 
     const [featuredRows] = await pool.query(
       `SELECT COUNT(*) AS cnt FROM crm_bid_notices
        WHERE is_featured = 1 AND ${ACTIVE_NOTICE_WHERE_NO_ALIAS}`
     );
-    const featuredTotal = Number((featuredRows as any[])[0]?.cnt || 0);
+    const featuredTotal = Number((featuredRows as RowDataPacket[])[0]?.cnt || 0);
 
     const [countryRows] = await pool.query(
       `SELECT country, COUNT(*) AS cnt FROM crm_bid_notices
@@ -100,8 +100,8 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     const entries: [string, number][] = [
       [`active_total${STATS_KEY_VER}`, activeTotal],
       [`featured${STATS_KEY_VER}`, featuredTotal],
-      ...(countryRows as any[]).map((r: any) => [`country:${r.country}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
-      ...(agencyRows as any[]).map((r: any) => [`agency:${r.agency}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
+      ...(countryRows as RowDataPacket[]).map((r) => [`country:${r.country}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
+      ...(agencyRows as RowDataPacket[]).map((r) => [`agency:${r.agency}${STATS_KEY_VER}` as string, Number(r.cnt)] as [string, number]),
     ];
 
     for (const [key, value] of entries) {
@@ -122,10 +122,10 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
     featuredCountCache.total = featuredTotal;
     featuredCountCache.expires = Date.now() + FEATURED_COUNT_CACHE_TTL;
     setCountCache(countCacheKey({ ...defaultParams, featuredOnly: true }), false, featuredTotal);
-    for (const row of countryRows as any[]) {
+    for (const row of countryRows as RowDataPacket[]) {
       setCountCache(countCacheKey({ ...defaultParams, country: row.country }), false, Number(row.cnt));
     }
-    for (const row of agencyRows as any[]) {
+    for (const row of agencyRows as RowDataPacket[]) {
       setCountCache(countCacheKey({ ...defaultParams, agency: row.agency }), false, Number(row.cnt));
     }
 
@@ -136,7 +136,7 @@ export async function refreshNoticeStats(pool: Pool): Promise<void> {
         `DELETE FROM crm_notice_stats WHERE stat_key NOT LIKE ?`,
         [`%${STATS_KEY_VER}`]
       );
-      const deleted = (delResult as any).affectedRows || 0;
+      const deleted = (delResult as ResultSetHeader).affectedRows || 0;
       if (deleted > 0) {
         console.log(`[notice-stats] 清理旧版本 key: ${deleted} 条`);
       }
