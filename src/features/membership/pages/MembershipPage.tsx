@@ -50,14 +50,6 @@ export default function MembershipPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
-      {/* ══ 深色页头 ═══ */}
-      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 rounded-2xl px-5 sm:px-6 py-8 mb-6">
-        <h1 className="text-2xl md:text-3xl font-extrabold text-white mb-2">{t("membershipHeroTitle")}</h1>
-        <p className="text-slate-400 text-sm max-w-3xl">
-          {t("membershipHeroDesc")}
-        </p>
-      </section>
-
       {/* ══ Tab 导航（功能化）══ */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {MEMBERSHIP_TABS.map((tb) => (
