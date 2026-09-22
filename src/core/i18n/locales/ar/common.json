@@ -271,5 +271,22 @@
   "homeViewAllSuppliers": "عرض كل الموردين →",
   "homeViewAllRfq": "عرض كل طلبات RFQ →",
   "homeHotIndustries": "القطاعات الشائعة",
-  "homeWorldMapTitle": "خريطة الفرص العالمية"
+  "homeWorldMapTitle": "خريطة الفرص العالمية",
+  "homeUpgradeRegTitle": "سجّل لفتح مزيد من الفرص وموارد الموردين",
+  "homeUpgradeTagline": "اكتشاف أبكر · بيانات أشمل · تحويل أعلى",
+  "homeRegisterFree": "تسجيل مجاني",
+  "homeCurrentPlanLabel": "الباقة الحالية: ",
+  "homeManageDesc": "جدّد أو ارقِ الباقة لفتح مزيد من المزايا",
+  "homeManagePlan": "إدارة الباقة",
+  "homeUpgradeTitle": "ارْقَ العضوية لفتح مزيد من الفرص وموارد الموردين",
+  "homeUpBenefit1": "تصفّح غير محدود",
+  "homeUpBenefit1Sub": "عرض كل الفرص دون حد",
+  "homeUpBenefit2": "فتح جهات الاتصال",
+  "homeUpBenefit2Sub": "الحصول على بيانات تواصل المشتري",
+  "homeUpBenefit3": "تصفية متقدمة وتصدير",
+  "homeUpBenefit3Sub": "تصدير البيانات وتحليل مخصص",
+  "homeUpBenefit4": "مستشار مخصص",
+  "homeUpBenefit4Sub": "مرافقة تقديم 1 لـ 1",
+  "homeLearnBenefits": "تعرّف على مزايا العضوية",
+  "homeUpgradeNow": "الترقية الآن"
 }

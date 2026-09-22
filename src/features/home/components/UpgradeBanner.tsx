@@ -11,10 +11,12 @@ import {
   Crown, Search, Unlock, Filter, ArrowRight,
 } from "lucide-react";
 import { useAuth } from "@/core/auth";
+import { useLocale } from "@/core/i18n";
 import { useMembershipStatus } from "@/shared/hooks/useMembershipStatus";
 
 /** 会员升级横幅（根据登录态差异化） */
 export const UpgradeBanner = memo(function UpgradeBanner() {
+  const { t } = useLocale();
   const { authUser, authReady } = useAuth();
   const { planName, loading: membershipLoading } = useMembershipStatus(!!authUser);
 
@@ -26,12 +28,12 @@ export const UpgradeBanner = memo(function UpgradeBanner() {
           <div className="flex items-center gap-4">
             <Crown className="w-12 h-12 text-amber-400" />
             <div>
-              <h3 className="text-lg font-extrabold text-white">注册解锁更多商机与供应商资源</h3>
-              <p className="text-sm text-slate-300">更早发现 · 更全数据 · 更高转化</p>
+              <h3 className="text-lg font-extrabold text-white">{t("homeUpgradeRegTitle")}</h3>
+              <p className="text-sm text-slate-300">{t("homeUpgradeTagline")}</p>
             </div>
           </div>
           <a href="/membership" className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors whitespace-nowrap">
-            免费注册
+            {t("homeRegisterFree")}
           </a>
         </div>
       </section>
@@ -46,12 +48,12 @@ export const UpgradeBanner = memo(function UpgradeBanner() {
           <div className="flex items-center gap-4">
             <Crown className="w-12 h-12 text-amber-400" />
             <div>
-              <h3 className="text-lg font-extrabold text-white">当前套餐：{planName}</h3>
-              <p className="text-sm text-slate-300">续费或升级套餐，解锁更多权益</p>
+              <h3 className="text-lg font-extrabold text-white">{t("homeCurrentPlanLabel")}{planName}</h3>
+              <p className="text-sm text-slate-300">{t("homeManageDesc")}</p>
             </div>
           </div>
           <a href="/membership" className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors whitespace-nowrap">
-            管理套餐
+            {t("homeManagePlan")}
           </a>
         </div>
       </section>
@@ -68,19 +70,19 @@ export const UpgradeBanner = memo(function UpgradeBanner() {
             <Crown className="w-12 h-12 text-amber-400 shrink-0 mt-1" />
             <div>
               <h3 className="text-xl font-extrabold text-white mb-1">
-                升级会员，解锁更多商机与供应商资源
+                {t("homeUpgradeTitle")}
               </h3>
-              <p className="text-sm text-slate-300">更早发现 · 更全数据 · 更高转化</p>
+              <p className="text-sm text-slate-300">{t("homeUpgradeTagline")}</p>
             </div>
           </div>
           {/* 右侧：4权益点 + CTA */}
           <div className="flex flex-col items-end gap-4">
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               {[
-                { icon: Search, label: "无限查看商机", sub: "全平台商机不限量查看" },
-                { icon: Unlock, label: "联系方式解锁", sub: "获取采购方联系方式" },
-                { icon: Filter, label: "高级筛选与导出", sub: "数据导出与自定义分析" },
-                { icon: Crown, label: "专属顾问服务", sub: "1对1投标辅导" },
+                { icon: Search, label: t("homeUpBenefit1"), sub: t("homeUpBenefit1Sub") },
+                { icon: Unlock, label: t("homeUpBenefit2"), sub: t("homeUpBenefit2Sub") },
+                { icon: Filter, label: t("homeUpBenefit3"), sub: t("homeUpBenefit3Sub") },
+                { icon: Crown, label: t("homeUpBenefit4"), sub: t("homeUpBenefit4Sub") },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -96,10 +98,10 @@ export const UpgradeBanner = memo(function UpgradeBanner() {
             </div>
             <div className="flex items-center gap-4">
               <a href="/membership" className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors">
-                了解会员权益 <ArrowRight className="w-3 h-3" />
+                {t("homeLearnBenefits")} <ArrowRight className="w-3 h-3" />
               </a>
               <a href="/membership" className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold text-sm transition-colors whitespace-nowrap shadow-lg shadow-amber-500/20">
-                立即升级会员
+                {t("homeUpgradeNow")}
               </a>
             </div>
           </div>

@@ -271,5 +271,22 @@
   "homeViewAllSuppliers": "Ver todos los proveedores →",
   "homeViewAllRfq": "Ver todas las cotizaciones →",
   "homeHotIndustries": "Sectores populares",
-  "homeWorldMapTitle": "Mapa global de oportunidades"
+  "homeWorldMapTitle": "Mapa global de oportunidades",
+  "homeUpgradeRegTitle": "Regístrese para desbloquear más oportunidades y recursos",
+  "homeUpgradeTagline": "Detectar antes · Datos más completos · Mayor conversión",
+  "homeRegisterFree": "Registro gratis",
+  "homeCurrentPlanLabel": "Plan actual: ",
+  "homeManageDesc": "Renueve o mejore su plan para desbloquear más beneficios",
+  "homeManagePlan": "Gestionar plan",
+  "homeUpgradeTitle": "Mejore su plan para desbloquear más oportunidades y recursos",
+  "homeUpBenefit1": "Consulta ilimitada",
+  "homeUpBenefit1Sub": "Vea todas las oportunidades sin límite",
+  "homeUpBenefit2": "Contactos desbloqueados",
+  "homeUpBenefit2Sub": "Obtenga los datos del comprador",
+  "homeUpBenefit3": "Filtro avanzado y exportación",
+  "homeUpBenefit3Sub": "Exportación de datos y análisis personalizado",
+  "homeUpBenefit4": "Asesor dedicado",
+  "homeUpBenefit4Sub": "Guía de licitación 1 a 1",
+  "homeLearnBenefits": "Conocer las ventajas",
+  "homeUpgradeNow": "Mejorar ahora"
 }

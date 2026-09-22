@@ -271,5 +271,22 @@
   "homeViewAllSuppliers": "查看全部供应商 →",
   "homeViewAllRfq": "查看全部 RFQ →",
   "homeHotIndustries": "热门行业",
-  "homeWorldMapTitle": "全球商机分布"
+  "homeWorldMapTitle": "全球商机分布",
+  "homeUpgradeRegTitle": "注册解锁更多商机与供应商资源",
+  "homeUpgradeTagline": "更早发现 · 更全数据 · 更高转化",
+  "homeRegisterFree": "免费注册",
+  "homeCurrentPlanLabel": "当前套餐：",
+  "homeManageDesc": "续费或升级套餐，解锁更多权益",
+  "homeManagePlan": "管理套餐",
+  "homeUpgradeTitle": "升级会员，解锁更多商机与供应商资源",
+  "homeUpBenefit1": "无限查看商机",
+  "homeUpBenefit1Sub": "全平台商机不限量查看",
+  "homeUpBenefit2": "联系方式解锁",
+  "homeUpBenefit2Sub": "获取采购方联系方式",
+  "homeUpBenefit3": "高级筛选与导出",
+  "homeUpBenefit3Sub": "数据导出与自定义分析",
+  "homeUpBenefit4": "专属顾问服务",
+  "homeUpBenefit4Sub": "1对1投标辅导",
+  "homeLearnBenefits": "了解会员权益",
+  "homeUpgradeNow": "立即升级会员"
 }

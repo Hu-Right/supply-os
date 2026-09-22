@@ -271,5 +271,22 @@
   "homeViewAllSuppliers": "View all suppliers →",
   "homeViewAllRfq": "View all RFQs →",
   "homeHotIndustries": "Popular industries",
-  "homeWorldMapTitle": "Global opportunities map"
+  "homeWorldMapTitle": "Global opportunities map",
+  "homeUpgradeRegTitle": "Register to unlock more opportunities and supplier resources",
+  "homeUpgradeTagline": "Find earlier · See more · Convert better",
+  "homeRegisterFree": "Register free",
+  "homeCurrentPlanLabel": "Current plan: ",
+  "homeManageDesc": "Renew or upgrade to unlock more benefits",
+  "homeManagePlan": "Manage plan",
+  "homeUpgradeTitle": "Upgrade to unlock more opportunities and supplier resources",
+  "homeUpBenefit1": "Unlimited browsing",
+  "homeUpBenefit1Sub": "View all opportunities without limits",
+  "homeUpBenefit2": "Contact unlock",
+  "homeUpBenefit2Sub": "Get buyer contact details",
+  "homeUpBenefit3": "Advanced filter & export",
+  "homeUpBenefit3Sub": "Data export and custom analysis",
+  "homeUpBenefit4": "Dedicated consultant",
+  "homeUpBenefit4Sub": "1-on-1 bid guidance",
+  "homeLearnBenefits": "Learn about membership",
+  "homeUpgradeNow": "Upgrade now"
 }
