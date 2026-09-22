@@ -18,6 +18,7 @@ import { isParseablePrivateKey } from "../payment/keys";
 import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
+import { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import { LearningOrdersRepo } from "../repos/learning-orders.repo";
@@ -92,6 +93,8 @@ export type AppContext = {
   payment: PaymentContext;
   user: UserContext;
   supplier: SupplierContext;
+  /** 权益体系新表组（crm_benefit_catalog / crm_plan_* / crm_benefit_quotas）读层 */
+  benefitSystemRepo: BenefitSystemRepo;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   openApiRepo: OpenApiRepo;
@@ -134,6 +137,7 @@ export function getContext(): AppContext {
   const claimRepo = new SupplierClaimRepo(dbPool);
 
   const catalogRepo = new CatalogRepo(dbPool);
+  const benefitSystemRepo = new BenefitSystemRepo(dbPool);
   const openApiRepo = new OpenApiRepo(dbPool);
   const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
@@ -201,6 +205,7 @@ export function getContext(): AppContext {
     },
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo },
+    benefitSystemRepo,
     opportunitiesRepo,
     catalogRepo,
     openApiRepo,

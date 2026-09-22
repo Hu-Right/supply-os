@@ -1,0 +1,324 @@
+/**
+ * 权益体系读层（阶段二·地基）
+ * Benefit System Repository (read side)
+ *
+ * @module repos/benefit-system.repo
+ * @description 数据源**只有**迁移 092 建的 8 张权益体系表：
+ *              crm_benefit_catalog / crm_plan_catalog / crm_plan_benefits
+ *              crm_plan_subscriptions / crm_benefit_quotas / crm_subscription_seats。
+ *
+ *              纪律（勿加回来）：
+ *              - 不读写旧三表（crm_membership_plans / crm_user_subscriptions /
+ *                crm_user_entitlements），也不设"旧 feature key → 新权益码"的翻译层：
+ *                矩阵一行一格 + level_dict 存 docx 单元格原文，本身就是完整表述；
+ *              - 不存在"档位数字"概念：门控判定按权益自身的 value_kind 取值比较
+ *                （bool 看 0/1、enum 看是否 >0、quota 看 -1/0/正数、amount 看是否包含）；
+ *              - 额度**扣减**不在本模块（写路径待与支付回调同批切换），本模块只提供
+ *                读取、判定与对比表渲染所需的值。
+ */
+import type { Pool, RowDataPacket } from "mysql2/promise";
+
+export type BenefitKind = "bool" | "enum" | "quota" | "amount";
+
+/** 权益定义行（crm_benefit_catalog） */
+export interface BenefitDefRow {
+  benefit_code: string;
+  name_zh: string;
+  group_code: string;
+  value_kind: BenefitKind;
+  /** 枚举行：层级整数 → docx 单元格原文；其余为 null */
+  level_dict: Record<string, string> | null;
+  is_consumable: number;
+  requires_subscription: number;
+  gate_key: string | null;
+  sort_order: number;
+}
+
+/** 套餐商品行（crm_plan_catalog） */
+export interface PlanCatalogRow {
+  plan_code: string;
+  name_en: string;
+  name_zh: string;
+  positioning_zh: string;
+  price: string;
+  price_mode: "fixed" | "contact" | "free";
+  price_incl_tax: number | null;
+  currency: string;
+  billing_period_days: number | null;
+  seat_limit: number;
+  commercial_tier: string;
+  cta_i18n_key: string;
+  badge: string;
+  sort_order: number;
+}
+
+/** 矩阵单格原始值（crm_plan_benefits） */
+export interface MatrixCellRow {
+  plan_code: string;
+  benefit_code: string;
+  value_level: number | null;
+  value_num: number | null;
+  value_amount: string | null;
+  note_zh: string | null;
+}
+
+/** 解析后的格子：原始值 + 可直接渲染的原文表述 */
+export interface ResolvedCell {
+  plan_code: string;
+  benefit_code: string;
+  kind: BenefitKind;
+  /** 该 kind 下的原始数值（bool/enum=层级、quota=数量或 -1/0、amount=金额字符串） */
+  raw: number | string;
+  /** 是否"该档享有" */
+  enabled: boolean;
+  /** 展示文本：枚举行 = docx 原文，布尔行 = ✓/—，额度行 = 数字/不限/—，金额行 = ¥x/包含 */
+  display: string;
+  note: string | null;
+}
+
+/** 用户当前生效套餐（owner 与席位成员同一解析链） */
+export interface ActivePlanRow {
+  subscription_id: number;
+  plan_code: string;
+  seat_limit: number;
+  expires_at: Date | null;
+  /** owner=本人购买的订阅；member=作为他人订阅的席位成员 */
+  seat_role: "owner" | "member";
+}
+
+/** 额度池余额（crm_benefit_quotas 当前周期行） */
+export interface QuotaBalanceRow {
+  benefit_code: string;
+  scope: "subscription" | "seat";
+  quota_total: number;
+  quota_used: number;
+  period: "none" | "monthly" | "yearly";
+  period_starts_at: Date;
+  /** -1 表示不限（remaining 无意义，恒 null） */
+  remaining: number | null;
+}
+
+/** 对比表：官网价格页/后台矩阵编辑器共用 */
+export interface ComparisonTable {
+  plans: PlanCatalogRow[];
+  rows: Array<{ benefit: BenefitDefRow; cells: Record<string, ResolvedCell> }>;
+}
+
+/**
+ * 把一格原始值解析成"是否享有 + 展示原文"。纯函数，便于单测与前端复用。
+ * 取值口径与库内注释一一对应，不做任何跨体系换算。
+ */
+export function resolveCell(
+  def: Pick<BenefitDefRow, "benefit_code" | "value_kind" | "level_dict">,
+  cell: MatrixCellRow,
+): ResolvedCell {
+  const kind = def.value_kind;
+  if (kind === "bool" || kind === "enum") {
+    const level = Number(cell.value_level ?? 0);
+    const display =
+      kind === "bool" ? (level >= 1 ? "✓" : "—") : String(def.level_dict?.[String(level)] ?? level);
+    return {
+      plan_code: cell.plan_code,
+      benefit_code: cell.benefit_code,
+      kind,
+      raw: level,
+      enabled: level > 0,
+      display,
+      note: cell.note_zh,
+    };
+  }
+  if (kind === "quota") {
+    const num = Number(cell.value_num ?? 0);
+    return {
+      plan_code: cell.plan_code,
+      benefit_code: cell.benefit_code,
+      kind,
+      raw: num,
+      // 0 = 该档明确无额度（如普通用户 0 条）；-1 = 不限；正数 = 有额度
+      enabled: num !== 0,
+      display: num === -1 ? "不限" : num === 0 ? "—" : String(num),
+      note: cell.note_zh,
+    };
+  }
+  const amount = Number(cell.value_amount ?? 0);
+  return {
+    plan_code: cell.plan_code,
+    benefit_code: cell.benefit_code,
+    kind,
+    raw: cell.value_amount ?? "0.00",
+    enabled: cell.value_amount !== null,
+    display: amount === 0 ? "包含" : `¥${amount.toFixed(2)}`,
+    note: cell.note_zh,
+  };
+}
+
+export class BenefitSystemRepo {
+  constructor(private pool: Pool) {}
+
+  /** 在售套餐（含 free 行的排除：free 不售卖，is_active=0） */
+  async listActivePlans(): Promise<PlanCatalogRow[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
+              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order
+         FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
+    );
+    return rows as PlanCatalogRow[];
+  }
+
+  /** 启用的权益定义（矩阵行序 = group_code + sort_order） */
+  async listBenefits(): Promise<BenefitDefRow[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT benefit_code, name_zh, group_code, value_kind, level_dict, is_consumable,
+              requires_subscription, gate_key, sort_order
+         FROM crm_benefit_catalog WHERE is_active = 1 ORDER BY group_code, sort_order`,
+    );
+    return (rows as Array<Record<string, unknown>>).map((r) => ({
+      ...r,
+      level_dict: typeof r.level_dict === "string" ? JSON.parse(r.level_dict) : (r.level_dict as Record<string, string> | null),
+    })) as BenefitDefRow[];
+  }
+
+  /** 按套餐取全部格子（一次查询，供详情页/对比表/后台编辑器复用） */
+  async loadCells(planCodes?: string[]): Promise<MatrixCellRow[]> {
+    const params: unknown[] = [];
+    let where = "";
+    if (planCodes && planCodes.length > 0) {
+      where = `WHERE plan_code IN (${planCodes.map(() => "?").join(",")})`;
+      params.push(...planCodes);
+    }
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT plan_code, benefit_code, value_level, value_num, value_amount, note_zh
+         FROM crm_plan_benefits ${where} ORDER BY plan_code, benefit_code`,
+      params,
+    );
+    return rows as MatrixCellRow[];
+  }
+
+  /**
+   * 组装对比表：行=权益、列=套餐，每格给"是否享有 + 原文展示 + 边界说明"。
+   * 缺格不静默补默认值——直接在该格标 `∅`，由调用方按不完整处理（矩阵必须显式全填）。
+   */
+  async buildComparisonTable(includeFree = false): Promise<ComparisonTable> {
+    const [plans, defs, cells] = await Promise.all([this.listActivePlans(), this.listBenefits(), this.loadCells()]);
+    const shownPlans = includeFree ? plans : plans.filter((p) => p.price_mode !== "free");
+    const byKey = new Map(cells.map((c) => [`${c.plan_code}|${c.benefit_code}`, c]));
+    const planCodes = shownPlans.map((p) => p.plan_code);
+
+    const rows = defs.map((benefit) => {
+      const out: Record<string, ResolvedCell> = {};
+      for (const planCode of planCodes) {
+        const cell = byKey.get(`${planCode}|${benefit.benefit_code}`);
+        out[planCode] = cell
+          ? resolveCell(benefit, cell)
+          : {
+              plan_code: planCode,
+              benefit_code: benefit.benefit_code,
+              kind: benefit.value_kind,
+              raw: 0,
+              enabled: false,
+              display: "∅",
+              note: "矩阵缺格：该套餐未声明此权益，必须显式补值",
+            };
+      }
+      return { benefit, cells: out };
+    });
+    return { plans: shownPlans, rows };
+  }
+
+  /**
+   * 解析用户当前生效套餐：本人订阅 + 作为他人席位成员的订阅，取目录横向序最高的一档。
+   * 无生效订阅返回 null —— 调用方按"普通用户"处理（享 requires_subscription=0 的权益）。
+   */
+  async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT x.subscription_id, x.plan_code, x.seat_limit, x.expires_at, x.seat_role, x.sort_order
+         FROM (
+           SELECT s.id AS subscription_id, s.plan_code, s.seat_limit, s.expires_at,
+                  'owner' AS seat_role, p.sort_order
+             FROM crm_plan_subscriptions s
+             JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
+            WHERE s.owner_user_id = ? AND s.status = 'active'
+              AND (s.expires_at IS NULL OR s.expires_at > NOW())
+           UNION ALL
+           SELECT s.id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order
+             FROM crm_subscription_seats st
+             JOIN crm_plan_subscriptions s ON s.id = st.subscription_id
+             JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
+            WHERE st.member_user_id = ? AND st.status = 'active' AND st.is_owner = 0
+              AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
+         ) x
+        ORDER BY x.sort_order DESC, x.subscription_id DESC
+        LIMIT 1`,
+      [userId, userId],
+    );
+    return (rows as ActivePlanRow[])[0] ?? null;
+  }
+
+  /** 某套餐对某权益的取值（未定义该格时返回 null，不猜默认值） */
+  async getCell(planCode: string, benefitCode: string): Promise<ResolvedCell | null> {
+    const [def, cells] = await Promise.all([this.getBenefit(benefitCode), this.loadCells([planCode])]);
+    if (!def) return null;
+    const cell = cells.find((c) => c.benefit_code === benefitCode);
+    return cell ? resolveCell(def, cell) : null;
+  }
+
+  async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT benefit_code, name_zh, group_code, value_kind, level_dict, is_consumable,
+              requires_subscription, gate_key, sort_order
+         FROM crm_benefit_catalog WHERE benefit_code = ? AND is_active = 1`,
+      [benefitCode],
+    );
+    const r = (rows as Array<Record<string, unknown>>)[0];
+    if (!r) return null;
+    return {
+      ...r,
+      level_dict: typeof r.level_dict === "string" ? JSON.parse(r.level_dict) : (r.level_dict as Record<string, string> | null),
+    } as BenefitDefRow;
+  }
+
+  /**
+   * 门控判定：该用户能否使用某权益。普通用户（无生效订阅）只看 requires_subscription=0 的行。
+   * 这是全库唯一门控入口——调用方不得再自行拼装档位比较。
+   */
+  async isEntitled(userId: number | null, benefitCode: string): Promise<boolean> {
+    const def = await this.getBenefit(benefitCode);
+    if (!def) return false;
+    if (!userId) return def.requires_subscription === 0;
+
+    const plan = await this.findActivePlanForUser(userId);
+    if (!plan) return def.requires_subscription === 0;
+
+    const cell = await this.getCell(plan.plan_code, benefitCode);
+    return cell?.enabled ?? false;
+  }
+
+  /**
+   * 额度池余额（每个权益取当前周期最新一行）。
+   * subscriptionId 传 null = 查普通用户池（subscription_id IS NULL），NULL 安全比较。
+   */
+  async listQuotaBalances(userId: number, subscriptionId: number | null): Promise<QuotaBalanceRow[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT benefit_code, scope, quota_total, quota_used, period, period_starts_at
+         FROM crm_benefit_quotas
+        WHERE seat_user_id = ? AND subscription_id <=> ? AND status = 'active'
+        ORDER BY benefit_code, period_starts_at DESC`,
+      [userId, subscriptionId],
+    );
+    const latest = new Map<string, QuotaBalanceRow>();
+    for (const r of rows as Array<Record<string, unknown>>) {
+      if (latest.has(String(r.benefit_code))) continue; // 已按周期倒序，首见即当前周期
+      const total = Number(r.quota_total);
+      latest.set(String(r.benefit_code), {
+        benefit_code: String(r.benefit_code),
+        scope: r.scope as QuotaBalanceRow["scope"],
+        quota_total: total,
+        quota_used: Number(r.quota_used),
+        period: r.period as QuotaBalanceRow["period"],
+        period_starts_at: r.period_starts_at as Date,
+        remaining: total === -1 ? null : total - Number(r.quota_used),
+      });
+    }
+    return [...latest.values()];
+  }
+}
