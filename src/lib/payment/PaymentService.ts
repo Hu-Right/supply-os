@@ -238,7 +238,7 @@ export class PaymentService {
    */
   async handleNotify(
     provider: PaymentProviderName,
-    rawBody: any,
+    rawBody: Record<string, unknown>,
     signature: string,
   ): Promise<{ success: boolean; order_no: string; message?: string }> {
     const strategy = this.getStrategy(provider);

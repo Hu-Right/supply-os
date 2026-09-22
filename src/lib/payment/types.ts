@@ -19,7 +19,7 @@ export interface PaymentStrategy {
     pay_url: string;
     qr_code_url?: string;
   }>;
-  verifyCallback(rawBody: any, signature: string): Promise<{
+  verifyCallback(rawBody: Record<string, unknown>, signature: string): Promise<{
     verified: boolean;
     order_no: string;
     provider_trade_no: string;

@@ -99,7 +99,7 @@ export class WechatProvider implements PaymentStrategy {
     };
   }
 
-  async verifyCallback(rawBody: any, _signature: string): Promise<{
+  async verifyCallback(rawBody: Record<string, unknown>, _signature: string): Promise<{
     verified: boolean;
     order_no: string;
     provider_trade_no: string;
@@ -115,8 +115,8 @@ export class WechatProvider implements PaymentStrategy {
     );
     return {
       verified: false,
-      order_no: rawBody?.out_trade_no || "",
-      provider_trade_no: rawBody?.transaction_id || "",
+      order_no: String(rawBody?.out_trade_no || ""),
+      provider_trade_no: String(rawBody?.transaction_id || ""),
       amount: 0,
     };
   }

@@ -50,7 +50,7 @@ export class MockProvider implements PaymentStrategy {
   }
 
   async verifyCallback(
-    _rawBody: any,
+    _rawBody: Record<string, unknown>,
     _signature: string,
   ): Promise<{
     verified: boolean;

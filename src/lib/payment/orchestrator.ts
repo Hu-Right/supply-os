@@ -107,7 +107,7 @@ export class PaymentOrchestrator {
    */
   async handleNotify(
     provider: PaymentProviderName,
-    rawBody: unknown,
+    rawBody: Record<string, unknown>,
     signature: string,
   ): Promise<{ success: boolean; order_no: string; message?: string }> {
     const strategy = this.getStrategy(provider);

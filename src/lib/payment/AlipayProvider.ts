@@ -102,16 +102,16 @@ export class AlipayProvider implements PaymentStrategy {
    * @param rawBody - 回调请求体（含 sign/sign_type 等字段）
    * @param _signature - 保留参数（实际验签由 SDK checkNotifySign 从 rawBody 内提取 sign 字段完成）
    */
-  async verifyCallback(rawBody: any, _signature: string): Promise<{
+  async verifyCallback(rawBody: Record<string, unknown>, _signature: string): Promise<{
     verified: boolean;
     order_no: string;
     provider_trade_no: string;
     amount: number;
     tradeStatus?: string;
   }> {
-    const order_no = rawBody?.out_trade_no || "";
-    const provider_trade_no = rawBody?.trade_no || "";
-    const amount = parseFloat(rawBody?.total_amount || "0");
+    const order_no = String(rawBody?.out_trade_no || "");
+    const provider_trade_no = String(rawBody?.trade_no || "");
+    const amount = parseFloat(String(rawBody?.total_amount || "0"));
 
     // P0-2 安全修复：公钥缺失时 fail-closed，拒绝验签（防止伪造回调免费履约）
     if (!this.sdk.config.alipayPublicKey || !this.appId) {
