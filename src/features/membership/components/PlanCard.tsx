@@ -8,7 +8,7 @@ import { ArrowRight, ArrowUpCircle, Check } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
-import { PLAN_CONFIG, ORIGINAL_PRICES, formatQuota, splitDescription, getPlanFeatures } from "../utils";
+import { PLAN_CONFIG, formatQuota, splitDescription, getPlanFeatures } from "../utils";
 
 export interface PlanCardProps {
   plan: MembershipPlan;
@@ -60,21 +60,7 @@ export function PlanCard({
             {plan.duration_days && plan.duration_days >= 360 ? (
               <span className="text-sm text-slate-500 font-medium">/{t("membershipYear")}</span>
             ) : null}
-            {ORIGINAL_PRICES[plan.plan_code] && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-600 text-3xs font-semibold border border-blue-100">
-                {t("firstOrderDiscount")}
-              </span>
-            )}
           </div>
-          {ORIGINAL_PRICES[plan.plan_code] && (
-            <div className="mt-1">
-              <span className="text-sm text-slate-400 line-through">
-                {plan.currency === "CNY" ? "¥" : "$"}
-                {ORIGINAL_PRICES[plan.plan_code].toLocaleString()}
-                {plan.duration_days && plan.duration_days >= 360 ? `/${t("membershipYear")}` : ""}
-              </span>
-            </div>
-          )}
           <div className="mt-1">
             {plan.duration_days ? (
               <span className="text-xs text-slate-500 font-medium">

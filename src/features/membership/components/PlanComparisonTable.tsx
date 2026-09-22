@@ -13,82 +13,55 @@ import { Check, X, Filter } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { ToggleButton } from "@/shared/ui";
 import type { MembershipPlan } from "@/types";
+import { getPlanTier } from "../utils";
 
 interface PlanComparisonTableProps {
   plans: MembershipPlan[];
 }
 
 /**
- * 套餐等级映射
- * 按 plan_code 精确匹配，确保各套餐正确映射到对应权益层级
- *
- * 数据库实际 plan_code 列表：
- *   single_89, single_199          → single
- *   trial_99_3, annual_799         → personal
- *   week_299_21, annual_5600       → enterprise_basic
- *   annual_8800, annual_manual_8800, annual_8 → annual_basic
- *   annual_16800                   → enterprise_flagship
- *   annual_26800                   → enterprise_premium
+ * 套餐等级映射已统一迁至 ../utils（getPlanTier），与卡片特色列表共用，避免两处前缀兜底串档。
  */
-function getPlanTier(planCode: string): string {
-  // 精确匹配（优先）
-  if (planCode === "annual_16800") return "enterprise_flagship";
-  if (planCode === "annual_26800") return "enterprise_premium";
-  if (planCode === "annual_8800" || planCode === "annual_manual_8800" || planCode === "annual_8") return "annual_basic";
-  if (planCode === "annual_5600") return "enterprise_basic";
-  if (planCode === "annual_799") return "personal";
-  
-  // 前缀匹配（兜底）
-  if (planCode.startsWith("single")) return "single";
-  if (planCode.startsWith("personal") || planCode.startsWith("trial")) return "personal";
-  if (planCode.startsWith("enterprise_premium")) return "enterprise_premium";
-  if (planCode.startsWith("enterprise_flagship")) return "enterprise_flagship";
-  if (planCode.startsWith("enterprise")) return "enterprise_basic";
-  if (planCode.startsWith("annual")) return "annual";
-  if (planCode.startsWith("week")) return "personal";
-  return "single";
-}
 
 /**
- * 增值服务特性定义
- * annual_basic: 年度会员基础版（annual_8800）— 仅有外贸交流群 + 专属客服
- * annual: 年度会员完整版（其他 annual_* 套餐）— 含一对一服务群 + 企业合同/对公/发票
+ * 增值服务特性定义（按当前数据库 4 档套餐 tier 驱动勾选）
+ *   trial=个人体验版  standard=个人标准版  pro=个人专业版  enterprise=企业年度会员
  */
 const ADDITIONAL_SERVICES: { key: string; labelKey: string; tiers: Record<string, boolean> }[] = [
   {
-    key: "trade_group",
-    labelKey: "comparisonTradeGroup",
-    tiers: { personal: true, enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true, annual: true },
+    key: "report",
+    labelKey: "comparisonReport",
+    tiers: { pro: true, enterprise: true },
   },
   {
-    key: "supplier_library",
-    labelKey: "comparisonSupplierLibrary",
-    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true },
+    key: "bid_history",
+    labelKey: "comparisonBidHistory",
+    tiers: { standard: true, pro: true, enterprise: true },
   },
   {
-    key: "dedicated_support",
-    labelKey: "comparisonDedicatedSupport",
-    tiers: { enterprise_basic: true, enterprise_flagship: true, enterprise_premium: true, annual_basic: true, annual: true },
+    key: "ai_scoring",
+    labelKey: "comparisonAiScoring",
+    tiers: { pro: true, enterprise: true },
   },
   {
-    key: "private_group",
-    labelKey: "comparisonPrivateGroup",
-    tiers: { enterprise_flagship: true, enterprise_premium: true, annual: true },
+    key: "industry_push",
+    labelKey: "comparisonIndustryPush",
+    tiers: { pro: true, enterprise: true },
   },
   {
-    key: "ungm_reg",
-    labelKey: "comparisonUngmReg",
-    tiers: { enterprise_flagship: true, enterprise_premium: true },
+    key: "enterprise_profile",
+    labelKey: "comparisonEnterpriseProfile",
+    tiers: { enterprise: true },
   },
   {
-    key: "bid_support",
-    labelKey: "comparisonBidSupport",
-    tiers: { enterprise_premium: true },
+    key: "consortium_bid",
+    labelKey: "comparisonConsortiumBid",
+    tiers: { enterprise: true },
   },
   {
     key: "contract_sign",
     labelKey: "comparisonContractSign",
-    tiers: { enterprise_flagship: true, enterprise_premium: true, annual: true },
+    tiers: { enterprise: true },
   },
 ];
 
@@ -125,11 +98,6 @@ export function PlanComparisonTable({ plans }: PlanComparisonTableProps) {
       {
         key: "doc_download",
         labelKey: "comparisonDocDownload",
-        values: Object.fromEntries(plans.map((p) => [p.plan_code, true])),
-      },
-      {
-        key: "report",
-        labelKey: "comparisonReport",
         values: Object.fromEntries(plans.map((p) => [p.plan_code, true])),
       },
     ];

@@ -30,17 +30,9 @@ export default function MembershipPage() {
 
   const { plans: allPlans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
 
-  // 单次解锁卡是同一商品的两档价（2026-08-30）：互斥显示一张卡——
-  // 未登录或首单资格命中 → single_99（带 199 划线价首单角标）；
-  // 登录且资格不符 → 仅 single_199 标准卡；登录但资格标记缺失（缓存时序）→ 按 199 兜底。
-  // 修复：此前 99/199 两卡并排展示，与"同一商品两档价"的产品语义不符。
-  const plans = (() => {
-    const s99 = allPlans.find((p) => p.plan_code === "single_99");
-    const s199 = allPlans.find((p) => p.plan_code === "single_199");
-    if (!s99 || !s199) return allPlans;
-    const showFirstPrice = authUser ? s99.first_purchase_eligible === true : true;
-    return allPlans.filter((p) => p.plan_code !== (showFirstPrice ? "single_199" : "single_99"));
-  })();
+  // 会员卡目录直接来自数据库（useMembershipData 已过滤 free 档）；
+  // 旧 single_99/single_199「同商品两档价」互斥逻辑随该档从库下架一并移除。
+  const plans = allPlans;
 
   // ── 升级弹窗状态 ──
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);

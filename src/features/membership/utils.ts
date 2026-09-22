@@ -23,28 +23,23 @@ export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }>
   manual: { icon: Briefcase, gradient: "from-emerald-500 to-teal-500" },
 };
 
-/** 套餐原价映射（用于展示首单优惠等促销信息） */
-export const ORIGINAL_PRICES: Record<string, number> = {
-  annual_799: 1999,
-  // 首单特惠（2026-08-30）：99 元首单价展示 199 划线价；资格不符的登录用户
-  // 由 MembershipPage 直接过滤该卡片，服务端 PaymentService 双重校验
-  single_99: 199,
-};
-
 /**
- * 从套餐名称提取等级标签（个人版/基础版/旗舰版/至尊版），不匹配时兜底 VIP。
- * - 含连字符：取末段（如 "标讯企业会员-旗舰版" → "旗舰版"）
- * - 不含连字符：去 "标讯" 前缀与 "会员" 后缀再加 "版"（如 "标讯个人会员" → "个人版"）
+ * 套餐等级映射（对齐当前数据库 4 档付费套餐）。
+ * 供卡片特色列表与权益对比表共用，避免两处各自维护前缀兜底而串档。
+ *   personal_trial_129 → trial      个人体验版（10 条）
+ *   personal_std_999   → standard   个人标准版（100 条）
+ *   personal_pro_1299  → pro        个人专业版（不限量 + AI）
+ *   enterprise_8800    → enterprise 企业年度会员（不限量 + 企业画像）
  */
-export function extractTierLabel(planName: string | null | undefined): string {
-  if (!planName) return "VIP";
-  if (planName.includes("-")) {
-    const suffix = planName.split("-").pop()?.trim();
-    if (suffix) return suffix;
-  }
-  const core = planName.replace(/^标讯/, "").replace(/会员$/, "").trim();
-  if (core) return `${core}版`;
-  return "VIP";
+export type PlanTier = "trial" | "standard" | "pro" | "enterprise";
+
+export function getPlanTier(planCode: string): PlanTier {
+  if (planCode.startsWith("enterprise")) return "enterprise";
+  if (planCode.startsWith("personal_pro")) return "pro";
+  if (planCode.startsWith("personal_std")) return "standard";
+  if (planCode.startsWith("personal_trial")) return "trial";
+  // 兜底：未识别的个人/试用类归最低档
+  return "trial";
 }
 
 /** 根据套餐数量计算响应式网格列数 */
@@ -74,60 +69,37 @@ export function splitDescription(desc: string | undefined): string[] {
 }
 
 /**
- * 各套餐等级的差异化特色特性
+ * 各套餐卡特色标签（对齐当前数据库 4 档套餐的真实卖点）。
+ * label 为 i18n 键，渲染处经 t() 翻译；按 getPlanTier 分档，四档互不串档。
  */
 export function getPlanFeatures(planCode: string): { icon: typeof Check; color: string; bg: string; label: string }[] {
-  const tier = (() => {
-    if (planCode === "annual_16800") return "enterprise_flagship";
-    if (planCode === "annual_26800") return "enterprise_premium";
-    if (planCode === "annual_8800" || planCode === "annual_manual_8800" || planCode === "annual_8") return "annual_basic";
-    if (planCode === "annual_5600") return "enterprise_basic";
-    if (planCode === "annual_799") return "personal";
-    if (planCode.startsWith("single")) return "single";
-    if (planCode.startsWith("personal") || planCode.startsWith("trial")) return "personal";
-    if (planCode.startsWith("enterprise_premium")) return "enterprise_premium";
-    if (planCode.startsWith("enterprise_flagship")) return "enterprise_flagship";
-    if (planCode.startsWith("enterprise")) return "enterprise_basic";
-    if (planCode.startsWith("annual")) return "annual";
-    if (planCode.startsWith("week")) return "personal";
-    return "single";
-  })();
+  const feat = (
+    label: string,
+    icon: typeof Check = Check,
+    color = "text-teal-600",
+    bg = "bg-teal-100/80",
+  ) => ({ icon, color, bg, label });
 
-  const features: Record<string, { icon: typeof Check; color: string; bg: string; label: string }[]> = {
-    single: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
+  const features: Record<PlanTier, { icon: typeof Check; color: string; bg: string; label: string }[]> = {
+    trial: [
+      feat("comparisonRawNotice"),
+      feat("comparisonQualification", Globe, "text-purple-600", "bg-purple-100/80"),
     ],
-    personal: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
+    standard: [
+      feat("comparisonRawNotice"),
+      feat("comparisonBidHistory", Users, "text-blue-600", "bg-blue-100/80"),
     ],
-    enterprise_basic: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonSupplierLibrary" },
+    pro: [
+      feat("comparisonAiScoring", Zap, "text-amber-600", "bg-amber-100/80"),
+      feat("comparisonReport"),
+      feat("comparisonIndustryPush", Globe, "text-purple-600", "bg-purple-100/80"),
     ],
-    enterprise_flagship: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Globe, color: "text-purple-600", bg: "bg-purple-100/80", label: "comparisonUngmReg" },
-    ],
-    enterprise_premium: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Crown, color: "text-rose-600", bg: "bg-rose-100/80", label: "comparisonBidSupport" },
-    ],
-    annual_basic: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonTradeGroup" },
-      { icon: Building2, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonSupplierLibrary" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonDedicatedSupport" },
-    ],
-    annual: [
-      { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80", label: "comparisonOriginalLink" },
-      { icon: Users, color: "text-blue-600", bg: "bg-blue-100/80", label: "comparisonPrivateGroup" },
-      { icon: Briefcase, color: "text-amber-600", bg: "bg-amber-100/80", label: "comparisonContractSign" },
+    enterprise: [
+      feat("comparisonEnterpriseProfile", Building2, "text-rose-600", "bg-rose-100/80"),
+      feat("comparisonConsortiumBid", Users, "text-blue-600", "bg-blue-100/80"),
+      feat("comparisonContractSign", Briefcase, "text-amber-600", "bg-amber-100/80"),
     ],
   };
 
-  return features[tier] || features.single;
+  return features[getPlanTier(planCode)];
 }
