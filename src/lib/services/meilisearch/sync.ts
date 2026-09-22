@@ -5,6 +5,7 @@
  * @module server/services/meilisearch/sync
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { TasksOrBatchesQuery } from "meilisearch";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
@@ -37,7 +38,7 @@ async function _getAliasMap(pool: Pool): Promise<Map<string, string>> {
 const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 
 /** 构建同步文档（从宽表行）：宽表已包含标准化字段和翻译，无需额外处理 */
-function buildSyncDocFromWideTable(r: any) {
+function buildSyncDocFromWideTable(r: RowDataPacket) {
   // 构建多语言翻译字段
   // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
   // 中文分词交由 Meilisearch 原生 configuredLanguages（见 client.ts）统一处理，
@@ -50,7 +51,7 @@ function buildSyncDocFromWideTable(r: any) {
   }
 
   // UNSPSC：宽表存储为逗号分隔字符串，转为数组
-  const parseUnspsc = (val: any): string[] => val ? String(val).split(",").filter(Boolean) : [];
+  const parseUnspsc = (val: unknown): string[] => val ? String(val).split(",").filter(Boolean) : [];
 
   return {
     id: Number(r.id),
@@ -156,7 +157,7 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
     } catch {
       // 幂等：已存在或任务冲突忽略
     }
-    await client.index(TMP_INDEX).updateSettings(buildNoticeIndexSettings() as any);
+    await client.index(TMP_INDEX).updateSettings(buildNoticeIndexSettings());
     console.log(`[meilisearch] fullSync: 构建临时索引 ${TMP_INDEX}（旧索引保持可查）...`);
 
     // ── Step 2：从宽表分批写入临时索引 ──
@@ -195,11 +196,12 @@ export async function fullSync(pool: Pool): Promise<{ synced: number; elapsed: n
       }
       // 失败任务检查：全新 tmp 索引上出现任何 failed 任务均属异常（文档被拒/超限）
       try {
-        const failed = await client.tasks.getTasks({ indexUids: [TMP_INDEX], statuses: ["failed"] } as any);
-        const failedCount = (failed.results as unknown[]).length;
+        const failed = await client.tasks.getTasks({ indexUids: [TMP_INDEX], statuses: ["failed"] } as TasksOrBatchesQuery);
+        const failedResults = failed.results ?? [];
+        const failedCount = failedResults.length;
         if (failedCount > 0) {
-          const firstErr = (failed.results as any[])[0]?.error;
-          throw new Error(`TMP_INDEX_TASK_FAILURES(${failedCount}): ${String(firstErr?.message || firstErr || "unknown")}`);
+          const errMsg = failedResults[0]?.error?.message || "unknown";
+          throw new Error(`TMP_INDEX_TASK_FAILURES(${failedCount}): ${String(errMsg)}`);
         }
       } catch (e) {
         if ((e as Error).message.startsWith("TMP_INDEX_TASK_FAILURES")) throw e;
@@ -277,7 +279,7 @@ export async function incrementalSync(
       [watermark]
     );
 
-    let updatedRaw: any[] = [];
+    let updatedRaw: RowDataPacket[] = [];
     try {
       const [updatedRows] = await pool.query(
         WIDE_TABLE_SYNC_SQL +
@@ -290,7 +292,7 @@ export async function incrementalSync(
     }
 
     // 合并去重
-    const rawMap = new Map<number, any>();
+    const rawMap = new Map<number, RowDataPacket>();
     for (const r of newRows as RowDataPacket[]) rawMap.set(r.id, r);
     for (const r of updatedRaw) rawMap.set(r.id, r);
 
@@ -462,7 +464,7 @@ export async function syncNoticeIds(pool: Pool, ids: number[]): Promise<{ synced
 export async function getMysqlActiveCount(pool: Pool): Promise<number> {
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_bid_notices");
-    return Number((rows as any[])[0]?.cnt || 0);
+    return Number((rows as RowDataPacket[])[0]?.cnt || 0);
   } catch {
     return 0;
   }
@@ -472,7 +474,7 @@ export async function getMysqlActiveCount(pool: Pool): Promise<number> {
 export async function getWideTableCount(pool: Pool): Promise<number> {
   try {
     const [rows] = await pool.query("SELECT COUNT(*) AS cnt FROM crm_notice_search");
-    return Number((rows as any[])[0]?.cnt || 0);
+    return Number((rows as RowDataPacket[])[0]?.cnt || 0);
   } catch {
     return 0;
   }

@@ -5,7 +5,7 @@
  * @module lib/services/meilisearch/client
  * @description 使用 globalThis 缓存客户端，防止 Next.js 热重载导致重复初始化。
  */
-import { Meilisearch } from "meilisearch";
+import { Meilisearch, type Settings } from "meilisearch";
 
 const INDEX_NAME = "notices";
 const MAX_TOTAL_HITS = Number(process.env.MEILI_MAX_TOTAL_HITS || "10000000");
@@ -112,7 +112,7 @@ export function getIndexName(): string {
  * P2-13：抽出为共享函数，供 ensureIndex 与 fullSync 的临时索引共同使用，
  * 保证 swapIndexes 切换后新索引设置与旧索引完全一致。
  */
-export function buildNoticeIndexSettings(): Record<string, unknown> {
+export function buildNoticeIndexSettings(): Settings {
   // 支持的语言列表（扩展语言只需在此添加）
   const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
   const langFields = SUPPORTED_LANGS.flatMap(lang => [`title_${lang}`, `description_${lang}`]);
@@ -216,7 +216,7 @@ export async function ensureIndex(): Promise<boolean> {
     const index = client.index(INDEX_NAME);
     // P2-13：设置与 fullSync 临时索引同源（buildNoticeIndexSettings），
     // 保证 swapIndexes 切换后设置完全一致
-    await index.updateSettings(buildNoticeIndexSettings() as any);
+    await index.updateSettings(buildNoticeIndexSettings());
     return true;
   } catch (err) {
     console.warn("[meilisearch] ensureIndex failed:", (err as Error).message);
@@ -293,7 +293,7 @@ export async function hasHasDeadlineField(): Promise<boolean> {
   if (!client || !healthy) return false;
   try {
     const stats = await client.index(INDEX_NAME).getStats();
-    return !!(stats as any).fieldDistribution?.has_deadline;
+    return !!(stats as { fieldDistribution?: Record<string, unknown> }).fieldDistribution?.has_deadline;
   } catch {
     return false;
   }
