@@ -21,10 +21,9 @@ import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { SERVICE_CATALOG } from "../data/service-catalog";
 
-type MembershipTab = "personal" | "enterprise" | "services";
+type MembershipTab = "plans" | "services";
 const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
-  { key: "personal", labelKey: "tabPersonal" },
-  { key: "enterprise", labelKey: "tabEnterprise" },
+  { key: "plans", labelKey: "tabPlans" },
   { key: "services", labelKey: "tabServices" },
 ];
 
@@ -44,14 +43,12 @@ export default function MembershipPage() {
   } = useMembershipPayment({ noticeId, currentPlanCode });
 
   const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
-  const [tab, setTab] = useState<MembershipTab>("personal");
+  const [tab, setTab] = useState<MembershipTab>("plans");
 
-  // 按档位分流：企业档(rank>=4)归“企业会员” Tab，其余（体验/标准/专业）归“个人会员” Tab。
-  const tabPlans = plans.filter((p) =>
-    tab === "enterprise" ? Number(p.benefit_rank ?? 0) >= 4 : Number(p.benefit_rank ?? 0) < 4,
-  );
-  const enterpriseServices = SERVICE_CATALOG.filter((s) => s.group === "enterprise");
-  const serviceCatalog = SERVICE_CATALOG.filter((s) => s.group === "services");
+  // V2 简化：不再分“个人/企业”两个 Tab，四档订阅（129/999/1299/8800）同列一个“会员套餐”Tab；
+  // 增值服务（含企业版 ¥199/单留资项）统一归入“增值服务”Tab。
+  const tabPlans = plans;
+  const serviceCatalog = SERVICE_CATALOG;
 
   const handleToggle = (planCode: string) => {
     setExpandedPlanCode((prev) => (prev === planCode ? null : planCode));
@@ -165,18 +162,6 @@ export default function MembershipPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* 企业 Tab：企业版留资服务卡（不走支付） */}
-                  {tab === "enterprise" && enterpriseServices.length > 0 && (
-                    <div className="mt-12">
-                      <h3 className="text-lg font-extrabold text-slate-900 mb-5 text-center">{t("enterpriseServicesTitle")}</h3>
-                      <div className="grid gap-5 sm:grid-cols-2 max-w-3xl mx-auto">
-                        {enterpriseServices.map((item) => (
-                          <ServiceCard key={item.id} item={item} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>
