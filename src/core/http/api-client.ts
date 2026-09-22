@@ -344,20 +344,25 @@ export async function apiCached<T>(
 
   // 飞行中请求去重：同一端点已有未完成的请求，复用其 Promise
   // P1-13 安全修复：有 signal 的请求不复用，防止 AbortSignal 泄漏给其他调用方
+  // 强制刷新必须发起新请求，不能被旧的飞行中请求阻塞。
   const pending = pendingRequests.get(endpoint);
-  if (pending && !signal) {
+  if (pending && !signal && !force) {
     return pending.promise as Promise<T>;
   }
 
   // 发起请求并缓存 Promise，防止并发穿透
   const promise = api<T>(endpoint, { signal }).then((data) => {
-    evictCacheIfNeeded();
-    cache.set(endpoint, { data, timestamp: Date.now() });
-    pendingRequests.delete(endpoint);
+    // 共享请求只有仍持有复用记录时才回写，避免晚到的旧响应覆盖强制刷新结果。
+    if (signal || pendingRequests.get(endpoint)?.promise === promise) {
+      evictCacheIfNeeded();
+      cache.set(endpoint, { data, timestamp: Date.now() });
+    }
     return data;
-  }).catch((err) => {
-    pendingRequests.delete(endpoint);
-    throw err;
+  }).finally(() => {
+    // 仅清除自己的记录，失败的旧请求和独立 signal 请求不能移除新请求。
+    if (pendingRequests.get(endpoint)?.promise === promise) {
+      pendingRequests.delete(endpoint);
+    }
   });
   // 只有无 signal 的请求才加入 pending 复用池
   if (!signal) {
