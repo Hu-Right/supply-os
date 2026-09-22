@@ -19,7 +19,7 @@
  *
  *              需要 MySQL 8.0.29+（支持 INSTANT 修改 VIRTUAL 生成列表达式）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { Migration } from "./runner";
 
 /** 安全修改生成列：STORED → VIRTUAL + 新公式 */
@@ -34,7 +34,7 @@ async function migrateDeadlineSec(dbPool: Pool, table: string): Promise<void> {
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'deadline_sec'`,
       [table],
     );
-    const colInfo = (cols as any[])[0];
+    const colInfo = (cols as RowDataPacket[])[0];
     if (!colInfo) {
       console.log(`[migration-028] ${table}.deadline_sec 不存在，跳过`);
       return;
@@ -86,11 +86,11 @@ export const migration: Migration = {
         `SELECT 1 FROM INFORMATION_SCHEMA.TABLES
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search'`,
       );
-      if ((tables as any[]).length > 0) {
+      if ((tables as RowDataPacket[]).length > 0) {
         const [result] = await dbPool.query(
           `UPDATE crm_notice_search SET deadline_sec = 0 WHERE deadline_sec > 4000000000`,
         );
-        const affected = (result as any).affectedRows || 0;
+        const affected = (result as ResultSetHeader).affectedRows || 0;
         if (affected > 0) {
           console.log(`[migration-028] 修复宽表 ${affected} 条 deadline_sec 溢出记录`);
         }

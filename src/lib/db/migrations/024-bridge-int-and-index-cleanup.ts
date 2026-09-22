@@ -51,7 +51,7 @@ export const migration: Migration = {
         "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
         [TABLE],
       );
-      if ((tables as any[]).length === 0) {
+      if ((tables as RowDataPacket[]).length === 0) {
         console.log("[migration-024] crm_bid_notice_unspsc_codes 不存在，跳过");
         return;
       }

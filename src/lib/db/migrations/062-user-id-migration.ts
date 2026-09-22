@@ -13,7 +13,7 @@
  *
  *              回填由 backfills.ts → backfillUserIds() 在启动阶段完成（幂等、分批限速）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { ensureColumn, ensureIndex, type Migration } from "./runner";
 
 export const migration: Migration = {
@@ -82,7 +82,7 @@ export const migration: Migration = {
          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
         [table, oldIndex],
       );
-      if (Number((idxRows as any[])[0]?.total || 0) > 0) {
+      if (Number((idxRows as RowDataPacket[])[0]?.total || 0) > 0) {
         await dbPool.query(`ALTER TABLE \`${table}\` DROP INDEX \`${oldIndex}\``);
       }
       // 创建新索引（ensureIndex 幂等；DDL 不含反引号以通过 assertSafeDdlFragment）

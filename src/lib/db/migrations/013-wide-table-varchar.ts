@@ -15,7 +15,7 @@
  *              2. 逐列 ALTER（每列一次全表重建，共 7 次）
  *              3. 幂等安全：已完成的列自动跳过
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { Migration } from "./runner";
 
 const MAX_LEN = 2000;
@@ -30,7 +30,7 @@ export const migration: Migration = {
     const [tables] = await dbPool.query(
       "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'crm_notice_search'"
     );
-    if ((tables as any[]).length === 0) {
+    if ((tables as RowDataPacket[]).length === 0) {
       console.log("[migration-013] crm_notice_search 不存在，跳过");
       return;
     }
@@ -49,7 +49,7 @@ export const migration: Migration = {
           `UPDATE crm_notice_search SET ${col} = LEFT(${col}, ?) WHERE CHAR_LENGTH(${col}) > ? LIMIT ?`,
           [MAX_LEN, MAX_LEN, BATCH_SIZE]
         );
-        const affected = (result as any).affectedRows || 0;
+        const affected = (result as ResultSetHeader).affectedRows || 0;
         totalTruncated += affected;
         if (affected < BATCH_SIZE) break;
       }
@@ -70,7 +70,7 @@ export const migration: Migration = {
            AND column_name = ?`,
         [col]
       );
-      const colInfo = (cols as any[])[0];
+      const colInfo = (cols as RowDataPacket[])[0];
       if (!colInfo) continue;
 
       // 已经是 TEXT 则跳过

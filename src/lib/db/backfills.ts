@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { isParseablePrivateKey, normalizePem } from "../payment/keys";
 
 /**
@@ -14,11 +14,11 @@ import { isParseablePrivateKey, normalizePem } from "../payment/keys";
  *
  * 完全可删除时机：确认所有调用方已移除后（当前仅 lifecycle/phases.ts）。
  */
-export async function backfillUserIds(_dbPool: any): Promise<void> {
+export async function backfillUserIds(_dbPool: Pool): Promise<void> {
   // no-op: crm_users.user_key 列已由迁移 068 删除，回填任务退役
 }
 
-export async function backfillUnspscCodeIds(dbPool: any) {
+export async function backfillUnspscCodeIds(dbPool: Pool) {
   for (const table of ["crm_bid_notice_unspsc_codes", "crm_bid_opportunity_unspsc_codes"]) {
     await dbPool.execute(
       `UPDATE ${table} bridge
@@ -37,7 +37,7 @@ export async function backfillUnspscCodeIds(dbPool: any) {
  * 幂等：仅更新非 NULL 行，清洗完成后后续执行零影响行。
  * @returns 受影响行数（>0 时调用方应失效统一搜索缓存）
  */
-export async function backfillIndustryPrefsL45Null(dbPool: any): Promise<number> {
+export async function backfillIndustryPrefsL45Null(dbPool: Pool): Promise<number> {
   const [result] = await dbPool.execute(
     `UPDATE crm_user_industry_prefs
      SET level4_id = NULL, level5_id = NULL
@@ -46,7 +46,7 @@ export async function backfillIndustryPrefsL45Null(dbPool: any): Promise<number>
   return Number((result as { affectedRows?: number })?.affectedRows || 0);
 }
 
-export async function hydratePaymentEnvFromDb(dbPool: any) {
+export async function hydratePaymentEnvFromDb(dbPool: Pool) {
   const [rows] = await dbPool.query(
     `SELECT provider, mode, app_id, notify_url, return_url, public_key, private_key_ref, is_active
      FROM crm_payment_provider_configs

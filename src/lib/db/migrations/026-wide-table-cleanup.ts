@@ -66,7 +66,7 @@ export const migration: Migration = {
         "SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
         [TABLE],
       );
-      if ((tables as any[]).length === 0) {
+      if ((tables as RowDataPacket[]).length === 0) {
         console.log("[migration-026] crm_notice_search 不存在，跳过");
         return;
       }
@@ -126,9 +126,9 @@ export const migration: Migration = {
       try {
         console.log(`[migration-026] 创建新索引 ${name}…`);
         await dbPool.query(ddl);
-      } catch (err: any) {
+      } catch (err) {
         // 索引已存在（幂等安全）
-        if (err.code === "ER_DUP_KEYNAME") {
+        if ((err as { code?: string }).code === "ER_DUP_KEYNAME") {
           console.log(`[migration-026] ${name} 已存在，跳过`);
         } else {
           console.warn(`[migration-026] 创建 ${name} 失败:`, (err as Error).message);

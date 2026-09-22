@@ -6,7 +6,7 @@
  * 支持参考号/编号的精确匹配快速路径（< 1ms），
  * 避免全文搜索分词差异导致的搜索结果不一致。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { type Migration } from "./runner";
 
 async function ensureIndex(pool: Pool, table: string, indexName: string, ddl: string) {
@@ -15,7 +15,7 @@ async function ensureIndex(pool: Pool, table: string, indexName: string, ddl: st
      WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ? LIMIT 1`,
     [table, indexName],
   );
-  if ((rows as any[]).length === 0) {
+  if ((rows as RowDataPacket[]).length === 0) {
     await pool.query(ddl);
   }
 }

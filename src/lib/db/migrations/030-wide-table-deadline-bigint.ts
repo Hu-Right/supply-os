@@ -12,7 +12,7 @@
  *              2. 从主表 crm_bid_notices 回填被错误归零的记录
  *              3. 后续增量同步 / 对账自动恢复正常值
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { Migration } from "./runner";
 
 export const migration: Migration = {
@@ -24,7 +24,7 @@ export const migration: Migration = {
       `SELECT 1 FROM INFORMATION_SCHEMA.TABLES
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search'`,
     );
-    if ((tables as any[]).length === 0) {
+    if ((tables as RowDataPacket[]).length === 0) {
       console.log("[migration-030] crm_notice_search 不存在，跳过");
       return;
     }
@@ -35,7 +35,7 @@ export const migration: Migration = {
       `SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_notice_search' AND COLUMN_NAME = 'deadline_sec'`,
     );
-    const currentType = (cols as any[])[0]?.DATA_TYPE || "";
+    const currentType = (cols as RowDataPacket[])[0]?.DATA_TYPE || "";
     if (currentType === "bigint") {
       console.log("[migration-030] deadline_sec 已是 BIGINT，跳过 DDL");
     } else {
@@ -53,7 +53,7 @@ export const migration: Migration = {
        INNER JOIN crm_bid_notices n ON n.id = ns.id
        WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0`,
     );
-    const toFix = Number((before as any[])[0]?.cnt || 0);
+    const toFix = Number((before as RowDataPacket[])[0]?.cnt || 0);
     
     if (toFix > 0) {
       console.log(`[migration-030] 发现 ${toFix} 条被错误归零的记录，开始回填…`);
@@ -67,7 +67,7 @@ export const migration: Migration = {
            WHERE ns.deadline_sec = 0 AND n.deadline_sec > 0
            LIMIT 5000`,
         );
-        const affected = (result as any).affectedRows || 0;
+        const affected = (result as ResultSetHeader).affectedRows || 0;
         totalFixed += affected;
         if (affected < 5000) break;
       }
