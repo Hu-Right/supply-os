@@ -9,7 +9,6 @@ import { classifyAgencyType } from "../agency/index";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
-import { segmentZh } from "./segmentZh";
 
 // NULL deadline 的哨兵值：0（纪元起点）
 const NULL_DEADLINE_SENTINEL = 0;
@@ -42,16 +41,14 @@ const SUPPORTED_LANGS = ["zh", "en", "fr", "ru", "es", "ar"];
 function buildSyncDocFromWideTable(r: any) {
   // 构建多语言翻译字段
   // description 截断为 2000 字符以控制索引大小（关键词可能出现在较深位置）
-  // 中文 zh 字段在写入前执行 jieba 分词，解决 Meilisearch 中文分词缺失问题
+  // 中文分词交由 Meilisearch 原生 configuredLanguages（见 client.ts）统一处理，
+  // 索引与查询两侧口径对称；不再做 jieba 手动预处理（旧实现仅切索引侧、查询侧不分词，
+  // 且 jieba 原生模块缺失时静默降级，导致两侧行为漂移）。
   const langFields: Record<string, string> = {};
   for (const lang of SUPPORTED_LANGS) {
     langFields[`title_${lang}`] = String(r[`title_${lang}`] || "");
-    const rawDesc = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
-    // 仅中文字段需要 jieba 分词预处理
-    langFields[`description_${lang}`] = lang === "zh" ? segmentZh(rawDesc) : rawDesc;
+    langFields[`description_${lang}`] = truncate(r[`description_${lang}`] ?? "", WIDE_LIMITS.description);
   }
-  // 中文标题同样需要分词（标题中的关键词需被正确切分）
-  langFields["title_zh"] = segmentZh(langFields["title_zh"]);
 
   // UNSPSC：宽表存储为逗号分隔字符串，转为数组
   const parseUnspsc = (val: any): string[] => val ? String(val).split(",").filter(Boolean) : [];
@@ -72,6 +69,10 @@ function buildSyncDocFromWideTable(r: any) {
     deadline_sec: r.deadline_sec ? Number(r.deadline_sec) : NULL_DEADLINE_SENTINEL,
     has_deadline: r.deadline_sec ? 1 : 0, // 排序辅助：NULL 截止日期排到最后（has_deadline:desc 优先）
     is_featured: r.is_featured ? 1 : 0,
+    // 预算区间可筛数值（宽表 estimated_value 为 DECIMAL，转 number 入 filterable）
+    estimated_value_num: Number(r.estimated_value) || 0,
+    // 「含原始文件」筛选依据
+    documents_count: Number(r.documents_count) || 0,
     ...langFields,
     level1_id: parseUnspsc(r.unspsc_level1),
     level2_id: parseUnspsc(r.unspsc_level2),
@@ -92,7 +93,7 @@ function buildSyncDocFromWideTable(r: any) {
 const WIDE_TABLE_SYNC_SQL = `
   SELECT id, notice_id, reference, title, description,
          country_std, agency_std, agency_group, notice_type_std,
-         deadline_sec, is_featured,
+         deadline_sec, is_featured, estimated_value, documents_count,
          unspsc_level1, unspsc_level2, unspsc_level3, unspsc_level4, unspsc_level5,
          precise_level1, precise_level2, precise_level3, precise_level4, precise_level5,
          title_zh, description_zh, title_en, description_en,
