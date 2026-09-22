@@ -19,6 +19,14 @@ export const DbConfigSchema = z.object({
 
 export type DbConfig = z.infer<typeof DbConfigSchema>;
 
+/**
+ * 爬虫源库连接配置：结构与主库完全一致（SYNC_SOURCE_* 经同一约束校验）。
+ * "缺省即禁用"的判定在 source-pool 层完成（SYNC_SOURCE_HOST 为空则不建池），
+ * 因此这里复用同一 schema，仅作为语义命名区分。
+ */
+export const SourceDbConfigSchema = DbConfigSchema;
+export type SourceDbConfig = DbConfig;
+
 /** 校验数据库连接配置，非法即 throw（zod ZodError，附中文问题列表） */
 export function assertValidDbConfig(cfg: DbConfigInput): DbConfig {
   return DbConfigSchema.parse(cfg);

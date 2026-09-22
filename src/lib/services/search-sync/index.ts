@@ -34,6 +34,12 @@ export { isWideTableReady } from "./wide-table-readiness";
 export { startSearchSync } from "./meili-index-sync";
 export type { SyncOptions } from "./meili-index-sync";
 
+// 爬虫库 → 主表 同步层（应用内定时，替代独立 daily-sync.cjs cron）
+export { runCrawlerSyncOnce, syncTable, SYNC_TABLES } from "./crawler-sync";
+export type { Watermark, CrawlerSyncResult } from "./crawler-sync";
+export { startCrawlerSync } from "./crawler-sync-scheduler";
+export type { CrawlerSyncOptions } from "./crawler-sync-scheduler";
+
 // 同步队列层（统一调度按 ID 同步请求）
 export {
   enqueue, processQueue, clearQueue, getQueueSize, startQueueProcessor,

@@ -165,6 +165,7 @@ import { migration as m086 } from "./migrations/086-rfq-reference-prefix-os-isol
 import { migration as m088 } from "./migrations/088-opportunity-intl-procurement-columns";
 import { migration as m089 } from "./migrations/089-ingest-intl-tender-el-menzel";
 import { migration as m090 } from "./migrations/090-membership-plans-v2";
+import { migration as m091 } from "./migrations/091-sync-watermark-table";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -179,6 +180,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m088, m089,
   // m090：会员套餐体系切换 V2（对齐 260921 报价表：旧套餐下架/无引用物理删除，新 4 档上架，benefit_rank 门控）
   m090,
+  // m091：爬虫同步水位线控制表（应用内爬虫同步任务读写，替代 .sync-watermark.json 文件）
+  m091,
 ];
 
 /**

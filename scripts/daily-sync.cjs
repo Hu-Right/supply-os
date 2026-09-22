@@ -1,4 +1,9 @@
 /**
+ * ⚠️ 已停用自动运行（2026-09-22）：本脚本的「爬虫库 → 主表」增量同步逻辑已迁入应用内定时任务
+ *    （src/lib/services/search-sync/crawler-sync.ts + crawler-sync-scheduler.ts，由 instrumentation 拉起）。
+ *    请在部署层移除对本脚本的 cron / 定时调用，避免与应用内同步形成「两个写入者并发 ODKU 主表」。
+ *    本文件仅保留作手动应急兜底（如应用内同步异常时人工补跑一轮）。
+ *
  * 内网爬虫数据 → 线上生产库 定时增量同步
  *
  * 用法:

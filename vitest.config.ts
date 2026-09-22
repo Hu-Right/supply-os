@@ -42,6 +42,7 @@ export default defineConfig({
         "src/lib/services/search-sync/wide-row-builder.ts",
         "src/lib/services/search-sync/wide-row-reconcile.ts",
         "src/lib/services/search-sync/wide-fingerprint.ts",
+        "src/lib/services/search-sync/crawler-sync-sql.ts",
         "src/lib/services/search-visibility/purge.ts",
 
         // ── src/lib/middleware — 认证中间件 ──
