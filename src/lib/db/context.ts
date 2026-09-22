@@ -19,6 +19,7 @@ import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
 import { MembershipRepo } from "../repos/membership.repo";
 import { BenefitSystemRepo } from "../repos/benefit-system.repo";
+import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import { LearningOrdersRepo } from "../repos/learning-orders.repo";
@@ -95,6 +96,8 @@ export type AppContext = {
   supplier: SupplierContext;
   /** 权益体系新表组（crm_benefit_catalog / crm_plan_* / crm_benefit_quotas）读层 */
   benefitSystemRepo: BenefitSystemRepo;
+  /** 权益体系写层：订阅事实 + 额度账本（crm_plan_subscriptions / crm_benefit_quotas / crm_subscription_seats） */
+  benefitWriteRepo: BenefitWriteRepo;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;
   openApiRepo: OpenApiRepo;
@@ -138,6 +141,7 @@ export function getContext(): AppContext {
 
   const catalogRepo = new CatalogRepo(dbPool);
   const benefitSystemRepo = new BenefitSystemRepo(dbPool);
+  const benefitWriteRepo = new BenefitWriteRepo();
   const openApiRepo = new OpenApiRepo(dbPool);
   const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
@@ -206,6 +210,7 @@ export function getContext(): AppContext {
     user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo },
     benefitSystemRepo,
+    benefitWriteRepo,
     opportunitiesRepo,
     catalogRepo,
     openApiRepo,

@@ -20,6 +20,12 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 
 export type BenefitKind = "bool" | "enum" | "quota" | "amount";
 
+/**
+ * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
+ * 未订阅用户能享到什么，唯一事实源就是这一列（见 isEntitled）。
+ */
+export const FREE_PLAN_CODE = "free";
+
 /** 权益定义行（crm_benefit_catalog） */
 export interface BenefitDefRow {
   benefit_code: string;
@@ -79,6 +85,8 @@ export interface ResolvedCell {
 /** 用户当前生效套餐（owner 与席位成员同一解析链） */
 export interface ActivePlanRow {
   subscription_id: number;
+  /** 订阅归属人：共享额度池（scope='subscription'）记在主账号名下 */
+  owner_user_id: number;
   plan_code: string;
   seat_limit: number;
   expires_at: Date | null;
@@ -107,32 +115,43 @@ export interface ComparisonTable {
 /**
  * 把一格原始值解析成"是否享有 + 展示原文"。纯函数，便于单测与前端复用。
  * 取值口径与库内注释一一对应，不做任何跨体系换算。
+ *
+ * 异常值一律标 `∅` 而不是编一个能看的文案：枚举行超出 level_dict 的层级、
+ * amount 行缺 value_amount，都是"矩阵/字典存不一致"，必须浮出来让人补值；
+ * 拿整数或"包含"去兜底，会把数据缺陷变成官网上一句看不出来的错话。
  */
 export function resolveCell(
   def: Pick<BenefitDefRow, "benefit_code" | "value_kind" | "level_dict">,
   cell: MatrixCellRow,
 ): ResolvedCell {
   const kind = def.value_kind;
-  if (kind === "bool" || kind === "enum") {
+  const base = { plan_code: cell.plan_code, benefit_code: cell.benefit_code, kind };
+
+  if (kind === "bool") {
     const level = Number(cell.value_level ?? 0);
-    const display =
-      kind === "bool" ? (level >= 1 ? "✓" : "—") : String(def.level_dict?.[String(level)] ?? level);
-    return {
-      plan_code: cell.plan_code,
-      benefit_code: cell.benefit_code,
-      kind,
-      raw: level,
-      enabled: level > 0,
-      display,
-      note: cell.note_zh,
-    };
+    return { ...base, kind, raw: level, enabled: level > 0, display: level >= 1 ? "✓" : "—", note: cell.note_zh };
   }
+
+  if (kind === "enum") {
+    const level = Number(cell.value_level ?? 0);
+    const text = def.level_dict?.[String(level)];
+    if (text === undefined) {
+      return {
+        ...base,
+        raw: level,
+        // 层级 >0 是矩阵明说了的"该档有此权益"，门控不因展示无法渲染而误拒
+        enabled: level > 0,
+        display: "∅",
+        note: `枚举越界：level_dict 无层级 ${level} 的文档原文，必须补字典项（不得拿整数充当文案）`,
+      };
+    }
+    return { ...base, raw: level, enabled: level > 0, display: text, note: cell.note_zh };
+  }
+
   if (kind === "quota") {
     const num = Number(cell.value_num ?? 0);
     return {
-      plan_code: cell.plan_code,
-      benefit_code: cell.benefit_code,
-      kind,
+      ...base,
       raw: num,
       // 0 = 该档明确无额度（如普通用户 0 条）；-1 = 不限；正数 = 有额度
       enabled: num !== 0,
@@ -140,13 +159,22 @@ export function resolveCell(
       note: cell.note_zh,
     };
   }
-  const amount = Number(cell.value_amount ?? 0);
+
+  if (cell.value_amount === null || cell.value_amount === undefined) {
+    return {
+      ...base,
+      raw: "0.00",
+      enabled: false,
+      display: "∅",
+      note: "amount 行缺 value_amount：与 chk_one_value 矛盾，必须显式补值（0.00 才是「包含」）",
+    };
+  }
+  const amount = Number(cell.value_amount);
   return {
-    plan_code: cell.plan_code,
-    benefit_code: cell.benefit_code,
-    kind,
-    raw: cell.value_amount ?? "0.00",
-    enabled: cell.value_amount !== null,
+    ...base,
+    raw: cell.value_amount,
+    // 金额行有值即"该档可按此价获得"（0.00=包含，正数=会员价），不存跨档换算
+    enabled: true,
     display: amount === 0 ? "包含" : `¥${amount.toFixed(2)}`,
     note: cell.note_zh,
   };
@@ -231,16 +259,16 @@ export class BenefitSystemRepo {
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT x.subscription_id, x.plan_code, x.seat_limit, x.expires_at, x.seat_role, x.sort_order
+      `SELECT x.subscription_id, x.owner_user_id, x.plan_code, x.seat_limit, x.expires_at, x.seat_role, x.sort_order
          FROM (
-           SELECT s.id AS subscription_id, s.plan_code, s.seat_limit, s.expires_at,
+           SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at,
                   'owner' AS seat_role, p.sort_order
              FROM crm_plan_subscriptions s
              JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
             WHERE s.owner_user_id = ? AND s.status = 'active'
               AND (s.expires_at IS NULL OR s.expires_at > NOW())
            UNION ALL
-           SELECT s.id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order
+           SELECT s.id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order
              FROM crm_subscription_seats st
              JOIN crm_plan_subscriptions s ON s.id = st.subscription_id
              JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
@@ -278,19 +306,25 @@ export class BenefitSystemRepo {
   }
 
   /**
-   * 门控判定：该用户能否使用某权益。普通用户（无生效订阅）只看 requires_subscription=0 的行。
-   * 这是全库唯一门控入口——调用方不得再自行拼装档位比较。
+   * 门控判定：该用户能否使用某权益。这是全库唯一门控入口——调用方不得再自行拼装档位比较。
+   *
+   * 未登录与"无生效订阅"一律读 `free` 档那一列（价格文档「普通用户」列的逐字录入），
+   * 它是唯一的未订阅基线事实源。
+   *
+   * 修订缘由（2026-09-22，真库数据暴露）：此前按 `requires_subscription = 0` 直接判可用，
+   * 会误放 `tech_support`、`procurement_consult`——两行 `requires_subscription` 为 0，
+   * 但全档额度都是 0，按旧逻辑未订阅用户被判"可用"而实际一条也用不到。
+   * 故 `requires_subscription` 退回为描述性字段（该权益是否需要订阅才可能享有），不再参与判定。
+   * 缺格不猜默认值：矩阵未声明即判不享有。
    */
   async isEntitled(userId: number | null, benefitCode: string): Promise<boolean> {
     const def = await this.getBenefit(benefitCode);
     if (!def) return false;
-    if (!userId) return def.requires_subscription === 0;
 
-    const plan = await this.findActivePlanForUser(userId);
-    if (!plan) return def.requires_subscription === 0;
-
-    const cell = await this.getCell(plan.plan_code, benefitCode);
-    return cell?.enabled ?? false;
+    const plan = userId ? await this.findActivePlanForUser(userId) : null;
+    const cells = await this.loadCells([plan?.plan_code ?? FREE_PLAN_CODE]);
+    const cell = cells.find((c) => c.benefit_code === benefitCode);
+    return cell ? resolveCell(def, cell).enabled : false;
   }
 
   /**
