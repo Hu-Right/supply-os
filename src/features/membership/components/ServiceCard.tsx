@@ -20,24 +20,24 @@ export interface ServiceCardProps {
 export function ServiceCard({ item }: ServiceCardProps) {
   const { t } = useLocale();
   const [showQr, setShowQr] = useState(false);
-  const base = `serviceCatalog.${item.id}`;
-  const benefits = Array.from({ length: item.benefitCount }, (_, i) => t(`${base}.b${i}`));
+  const base = `svc_${item.id}_`;
+  const benefits = Array.from({ length: item.benefitCount }, (_, i) => t(`${base}b${i}`));
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="inline-block text-3xs font-bold uppercase tracking-widest text-teal-600 mb-1">
-            {t(`${base}.cat`)}
+            {t(`${base}cat`)}
           </span>
-          <h3 className="text-base font-extrabold text-slate-900 leading-tight">{t(`${base}.name`)}</h3>
+          <h3 className="text-base font-extrabold text-slate-900 leading-tight">{t(`${base}name`)}</h3>
         </div>
         <span className="shrink-0 rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700">
-          {t(`${base}.price`)}
+          {t(`${base}price`)}
         </span>
       </div>
 
-      <p className="mt-1 text-2xs text-slate-400">{t("svcServiceMode")}{t(`${base}.mode`)}</p>
+      <p className="mt-1 text-2xs text-slate-400">{t("svcServiceMode")}{t(`${base}mode`)}</p>
 
       <ul className="mt-3 space-y-1.5 flex-1">
         {benefits.map((b, i) => (

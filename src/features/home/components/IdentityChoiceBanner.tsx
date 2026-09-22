@@ -3,8 +3,8 @@
  * Identity Choice Banner for Homepage
  *
  * @module features/home/components/IdentityChoiceBanner
- * @description 登录用户未选择身份时，在首页显示引导横幅，
- *              明确告知两种身份的区别和不可转换性。
+ * @description 登录用户尚未完善企业信息与供应商资源库时，在首页显示引导横幅，
+ *              提供两个快捷入口。V2/ADR-0004：两种身份不再互斥，可任选其一或都完善。
  */
 "use client";
 import { useState } from "react";
@@ -89,11 +89,6 @@ export function IdentityChoiceBanner() {
             </span>
           </button>
         </div>
-
-        {/* 警告 */}
-        <p className="text-xs font-bold text-rose-600">
-          {t("settingsIdentityWarning") || "⚠ 一旦选择并提交了信息，身份将不可转换，请谨慎选择。"}
-        </p>
       </div>
     </div>
   );
