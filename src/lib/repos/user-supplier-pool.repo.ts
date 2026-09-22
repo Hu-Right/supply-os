@@ -3,7 +3,7 @@
  * @module lib/repos/user-supplier-pool.repo
  * @description crm_user_supplier_pool 表 CRUD + JOIN 查询。
  */
-import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 /** 事务执行器：池或同一连接（事务内必须传连接，保证读写同会话） */
 type Executor = Pool | PoolConnection;
@@ -52,7 +52,7 @@ export class UserSupplierPoolRepo {
        VALUES (?, ?, ?, 'platform')`,
       [userId, supplierId, qualificationId],
     );
-    return Number((result as any).insertId ?? 0);
+    return Number((result as ResultSetHeader).insertId ?? 0);
   }
 
   /** 手动添加（supplier_id 有值，指向新创建的 supplier 记录） */
@@ -62,7 +62,7 @@ export class UserSupplierPoolRepo {
        VALUES (?, ?, 'manual')`,
       [userId, supplierId],
     );
-    return Number((result as any).insertId ?? 0);
+    return Number((result as ResultSetHeader).insertId ?? 0);
   }
 
   /** 创建 pending 基础供应商记录（仅 company，不进公共目录），返回新行 id */
@@ -71,7 +71,7 @@ export class UserSupplierPoolRepo {
       "INSERT INTO supplier (company, verify_status, created_at) VALUES (?, 'pending', NOW())",
       [company],
     );
-    return Number((result as any).insertId ?? 0);
+    return Number((result as ResultSetHeader).insertId ?? 0);
   }
 
   /** 按公司名查找平台目录中已认证的供应商（精确优先，其次模糊；LIKE 通配符已转义） */

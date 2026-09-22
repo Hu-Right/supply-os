@@ -62,7 +62,7 @@ export class OpportunitiesRepo {
   /** 未过期商机列表；codeId > 0 时按对应 UNSPSC 级别过滤 */
   async listOpportunities(codeId: number): Promise<OpportunityListItemRow[]> {
     const where: string[] = [ACTIVE_OPP_WHERE];
-    const params: any[] = [];
+    const params: number[] = [];
     let join = "";
     if (codeId) {
       const code = await this.findUnspscCodeById(codeId);

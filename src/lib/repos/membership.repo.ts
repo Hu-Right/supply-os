@@ -162,7 +162,7 @@ export class MembershipRepo {
        LIMIT 1`,
       [userId, userId],
     );
-    const ent = (entRows as any[])[0];
+    const ent = (entRows as RowDataPacket[])[0];
     if (ent) {
       return {
         entitlement_id: Number(ent.entitlement_id),
@@ -195,7 +195,7 @@ export class MembershipRepo {
        LIMIT 1`,
       [userId],
     );
-    const sub = (subRows as any[])[0];
+    const sub = (subRows as RowDataPacket[])[0];
     if (sub) {
       return {
         entitlement_id: null,

@@ -62,7 +62,7 @@ export class SupplierDirectoryRepo {
       "merged_id IS NULL",
       "(verify_status = 'done' OR verify_status IS NULL)",
     ];
-    const values: any[] = [];
+    const values: string[] = [];
 
     if (search) {
       conditions.push("company LIKE ?");
@@ -92,7 +92,7 @@ export class SupplierDirectoryRepo {
       `SELECT COUNT(*) as total FROM supplier WHERE ${whereSql}`,
       values,
     );
-    const total = (countRows as any[])[0]?.total ?? 0;
+    const total = (countRows as RowDataPacket[])[0]?.total ?? 0;
 
     // 分页数据查询
     const [rows] = await this.pool.query(
@@ -260,11 +260,11 @@ export class SupplierDirectoryRepo {
        WHERE s.verify_status = 'done' AND s.company <> '测试' AND s.merged_id IS NULL`,
     );
     return {
-      searchable: (allRows as any[])[0]?.total ?? 0,
-      verified: (verifiedRows as any[])[0]?.total ?? 0,
-      withCertification: (certRows as any[])[0]?.total ?? 0,
-      international: (intlRows as any[])[0]?.total ?? 0,
-      unspscMatched: (unspscRows as any[])[0]?.total ?? 0,
+      searchable: (allRows as RowDataPacket[])[0]?.total ?? 0,
+      verified: (verifiedRows as RowDataPacket[])[0]?.total ?? 0,
+      withCertification: (certRows as RowDataPacket[])[0]?.total ?? 0,
+      international: (intlRows as RowDataPacket[])[0]?.total ?? 0,
+      unspscMatched: (unspscRows as RowDataPacket[])[0]?.total ?? 0,
     };
   }
 
@@ -273,7 +273,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       "SELECT COUNT(*) as total FROM supplier WHERE verify_status = 'done' AND company <> '测试' AND merged_id IS NULL",
     );
-    return Number((rows as any[])[0]?.total ?? 0);
+    return Number((rows as RowDataPacket[])[0]?.total ?? 0);
   }
 
   /** 按 id 查供应商行业（auth 响应组装用，不受审核状态过滤；supplier 无 industry_id 列） */
@@ -294,13 +294,13 @@ export class SupplierDirectoryRepo {
       `SELECT COUNT(*) AS cnt FROM crm_users WHERE supplier_id = ?`,
       [supplierId],
     );
-    const userBound = Number((userRows as any[])[0]?.cnt || 0) > 0;
+    const userBound = Number((userRows as RowDataPacket[])[0]?.cnt || 0) > 0;
 
     const [supRows] = await this.pool.query(
       `SELECT claim_status FROM supplier WHERE id = ?`,
       [supplierId],
     );
-    const claimPending = String((supRows as any[])[0]?.claim_status || "") === "pending";
+    const claimPending = String((supRows as RowDataPacket[])[0]?.claim_status || "") === "pending";
 
     return userBound || claimPending;
   }
@@ -335,7 +335,7 @@ export class SupplierDirectoryRepo {
       `SELECT license_url FROM supplier WHERE id = ?`,
       [supplierId],
     );
-    const oldUrl = (rows as any[])[0]?.license_url || null;
+    const oldUrl = (rows as RowDataPacket[])[0]?.license_url || null;
 
     await this.pool.execute(
       `UPDATE supplier SET license_url = ? WHERE id = ?`,
