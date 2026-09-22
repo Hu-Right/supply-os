@@ -7,11 +7,13 @@
  *              避免 WorldMapChart 内部重复请求 /api/notices/countries。
  */
 import { Globe } from "lucide-react";
+import { useLocale } from "@/core/i18n";
 import { WorldMapChart } from "@/shared/ui/charts/WorldMapChart";
 import { useHomeStats } from "../hooks/useHomeStats";
 
 /** 全球商机地图区块 */
 export function WorldMapSection() {
+  const { t } = useLocale();
   const { countries } = useHomeStats();
 
   return (
@@ -20,7 +22,7 @@ export function WorldMapSection() {
         <div className="mb-6">
           <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
             <Globe className="w-5 h-5 text-teal-600" />
-            全球商机分布
+            {t("homeWorldMapTitle")}
           </h2>
         </div>
         <WorldMapChart countries={countries} />

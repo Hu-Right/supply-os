@@ -269,5 +269,7 @@
   "homeViewDetail": "查看详情",
   "homeViewAllNotices": "查看全部商机 →",
   "homeViewAllSuppliers": "查看全部供应商 →",
-  "homeViewAllRfq": "查看全部 RFQ →"
+  "homeViewAllRfq": "查看全部 RFQ →",
+  "homeHotIndustries": "热门行业",
+  "homeWorldMapTitle": "全球商机分布"
 }

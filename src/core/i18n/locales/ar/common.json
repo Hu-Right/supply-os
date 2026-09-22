@@ -269,5 +269,7 @@
   "homeViewDetail": "عرض التفاصيل",
   "homeViewAllNotices": "عرض كل الفرص →",
   "homeViewAllSuppliers": "عرض كل الموردين →",
-  "homeViewAllRfq": "عرض كل طلبات RFQ →"
+  "homeViewAllRfq": "عرض كل طلبات RFQ →",
+  "homeHotIndustries": "القطاعات الشائعة",
+  "homeWorldMapTitle": "خريطة الفرص العالمية"
 }

@@ -11,7 +11,7 @@ import { useHotTopics } from "../hooks/useHotTopics";
 
 /** 热门行业 — 真实计数 */
 export function HotTopicsSection() {
-  const { locale } = useLocale();
+  const { t, locale } = useLocale();
   const { topics } = useHotTopics();
 
   if (!topics || !topics.industries?.length) return null;
@@ -29,7 +29,7 @@ export function HotTopicsSection() {
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-6 border-b border-slate-100">
       <div className="max-w-[1600px] mx-auto flex items-start gap-3">
-        <span className="shrink-0 w-24 text-xs font-bold text-slate-500 mt-1.5">热门行业</span>
+        <span className="shrink-0 w-24 text-xs font-bold text-slate-500 mt-1.5">{t("homeHotIndustries")}</span>
         <div className="flex flex-wrap gap-2">
           {items.map((item) => (
             <a

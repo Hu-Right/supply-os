@@ -269,5 +269,7 @@
   "homeViewDetail": "Ver detalles",
   "homeViewAllNotices": "Ver todas las oportunidades →",
   "homeViewAllSuppliers": "Ver todos los proveedores →",
-  "homeViewAllRfq": "Ver todas las cotizaciones →"
+  "homeViewAllRfq": "Ver todas las cotizaciones →",
+  "homeHotIndustries": "Sectores populares",
+  "homeWorldMapTitle": "Mapa global de oportunidades"
 }

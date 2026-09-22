@@ -269,5 +269,7 @@
   "homeViewDetail": "Подробнее",
   "homeViewAllNotices": "Все возможности →",
   "homeViewAllSuppliers": "Все поставщики →",
-  "homeViewAllRfq": "Все RFQ →"
+  "homeViewAllRfq": "Все RFQ →",
+  "homeHotIndustries": "Популярные отрасли",
+  "homeWorldMapTitle": "Карта мировых возможностей"
 }

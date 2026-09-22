@@ -269,5 +269,7 @@
   "homeViewDetail": "View details",
   "homeViewAllNotices": "View all opportunities →",
   "homeViewAllSuppliers": "View all suppliers →",
-  "homeViewAllRfq": "View all RFQs →"
+  "homeViewAllRfq": "View all RFQs →",
+  "homeHotIndustries": "Popular industries",
+  "homeWorldMapTitle": "Global opportunities map"
 }
