@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "Кандидаты из каталога (нажмите, чтобы добавить)",
   "supplierPoolAlreadyInPool": "Добавлено",
   "supplierPoolNoCandidate": "Нет совпадений в каталоге",
-  "supplierPoolCreateAnyway": "Нет совпадений? Всё равно добавить «{name}»"
+  "supplierPoolCreateAnyway": "Нет совпадений? Всё равно добавить «{name}»",
+  "navMembership": "Участие"
 }

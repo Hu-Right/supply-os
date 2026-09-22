@@ -477,6 +477,8 @@
   "detail_qualShowZh": "Show Chinese",
   "detail_qualShowOriginal": "Show Original",
   "aiScoreIntro": "AI evaluates your fit for this bid across 7 dimensions to help you quickly assess bid feasibility.",
+  "aiScoreScopeHint": "Evaluated entity: your own company",
+  "aiMatchScopeHint": "Recommended from: factories in your supplier pool",
   "aiScoreStart": "Start Scoring",
   "aiScoreRegenerate": "Re-score",
   "aiScoreOverall": "Overall Fit Score",
@@ -586,5 +588,13 @@
   "procurement_aiSummaryGoConfig": "Configure AI Model",
   "procurement_aiSummaryError": "AI Analysis Failed",
   "procurement_aiSummaryRetry": "Retry",
-  "procurement_aiSummaryRegenerate": "Re-analyze"
+  "procurement_aiSummaryRegenerate": "Re-analyze",
+  "aiScoreError": "AI scoring failed",
+  "aiScoreErrorAuth": "Your session expired or the AI model isn't configured — sign in and configure it again.",
+  "aiScoreErrorLocked": "Please unlock this notice before running AI scoring.",
+  "aiScoreErrorRate": "AI service is busy (rate-limited); please try again later.",
+  "aiScoreErrorNetwork": "AI service temporarily unavailable; please try again later.",
+  "aiScoreErrorFormat": "AI returned an unexpected format; please retry or check the model settings.",
+  "aiScoreErrorNotice": "This notice does not exist or has been removed.",
+  "aiScoreErrorGeneric": "An error occurred during AI scoring; please try again later."
 }

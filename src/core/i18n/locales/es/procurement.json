@@ -551,6 +551,8 @@
   "detail_qualShowZh": "Mostrar en chino",
   "detail_qualShowOriginal": "Mostrar original",
   "aiScoreIntro": "La IA evalúa su adecuación a esta licitación en 7 dimensiones para ayudarle a valorar rápidamente la viabilidad de la oferta.",
+  "aiScoreScopeHint": "Sujeto evaluado: su propia empresa",
+  "aiMatchScopeHint": "Recomendado de: fábricas en su pool de proveedores",
   "aiScoreStart": "Iniciar puntuación",
   "aiScoreRegenerate": "Volver a puntuar",
   "aiScoreOverall": "Puntuación global de adecuación",
@@ -586,5 +588,13 @@
   "detail_aiSummaryErrorNetwork": "Servicio de IA no disponible temporalmente. Inténtelo de nuevo más tarde.",
   "detail_aiSummaryErrorFormat": "Format de respuesta de IA anómalo. Reinténtelo o revise la configuración del modelo.",
   "detail_aiSummaryErrorNotice": "El anuncio no existe o fue retirado.",
-  "detail_aiSummaryErrorGeneric": "Se produjo un error durante el análisis de IA. Inténtelo de nuevo más tarde."
+  "detail_aiSummaryErrorGeneric": "Se produjo un error durante el análisis de IA. Inténtelo de nuevo más tarde.",
+  "aiScoreError": "Error de puntuación con IA",
+  "aiScoreErrorAuth": "La sesión expiró o el modelo de IA no está configurado; inicie sesión y configúrelo.",
+  "aiScoreErrorLocked": "Desbloquee este anuncio antes de ejecutar la puntuación con IA.",
+  "aiScoreErrorRate": "Servicio de IA saturado (límite alcanzado); inténtelo más tarde.",
+  "aiScoreErrorNetwork": "Servicio de IA no disponible temporalmente; inténtelo más tarde.",
+  "aiScoreErrorFormat": "La IA devolvió un formato inesperado; reinténtelo o revise la configuración.",
+  "aiScoreErrorNotice": "Este anuncio no existe o fue retirado.",
+  "aiScoreErrorGeneric": "Ocurrió un error durante la puntuación con IA; inténtelo más tarde."
 }

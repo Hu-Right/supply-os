@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "Directory candidates (click to add)",
   "supplierPoolAlreadyInPool": "Added",
   "supplierPoolNoCandidate": "No matching directory supplier",
-  "supplierPoolCreateAnyway": "No match? Add \"{name}\" anyway"
+  "supplierPoolCreateAnyway": "No match? Add \"{name}\" anyway",
+  "navMembership": "Membership"
 }

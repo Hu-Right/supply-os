@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "Candidats de l'annuaire (cliquer pour ajouter)",
   "supplierPoolAlreadyInPool": "Ajouté",
   "supplierPoolNoCandidate": "Aucun fournisseur d'annuaire correspondant",
-  "supplierPoolCreateAnyway": "Aucun résultat ? Ajouter « {name} » quand même"
+  "supplierPoolCreateAnyway": "Aucun résultat ? Ajouter « {name} » quand même",
+  "navMembership": "Adhésion"
 }

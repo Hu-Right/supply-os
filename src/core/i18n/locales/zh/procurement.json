@@ -477,6 +477,8 @@
   "detail_qualShowZh": "显示中文",
   "detail_qualShowOriginal": "显示原文",
   "aiScoreIntro": "AI 将从 7 个维度评估贵司与本标的适配度，帮助您快速判断投标可行性。",
+  "aiScoreScopeHint": "评估主体：你自己的公司",
+  "aiMatchScopeHint": "推荐对象：你资源库里的工厂",
   "aiScoreStart": "开始评分",
   "aiScoreRegenerate": "重新评分",
   "aiScoreOverall": "综合适配分",
@@ -586,5 +588,13 @@
   "procurement_aiSummaryGoConfig": "去配置 AI 模型",
   "procurement_aiSummaryError": "AI 分析失败",
   "procurement_aiSummaryRetry": "重试",
-  "procurement_aiSummaryRegenerate": "重新分析"
+  "procurement_aiSummaryRegenerate": "重新分析",
+  "aiScoreError": "AI 评分失败",
+  "aiScoreErrorAuth": "登录已过期或未配置 AI 模型，请重新登录并配置。",
+  "aiScoreErrorLocked": "请先解锁本公告，再进行 AI 评分。",
+  "aiScoreErrorRate": "AI 服务请求过于频繁，请稍后再试。",
+  "aiScoreErrorNetwork": "AI 服务暂时不可用，请稍后重试。",
+  "aiScoreErrorFormat": "AI 返回结果格式异常，请重试或检查模型配置。",
+  "aiScoreErrorNotice": "公告不存在或已下架。",
+  "aiScoreErrorGeneric": "AI 评分过程中出现错误，请稍后重试。"
 }

@@ -551,6 +551,8 @@
   "detail_qualShowZh": "Afficher en chinois",
   "detail_qualShowOriginal": "Afficher l'original",
   "aiScoreIntro": "L'IA évalue votre adéquation à cet appel d'offres selon 7 dimensions pour vous aider à juger rapidement la faisabilité de l'offre.",
+  "aiScoreScopeHint": "Entité évaluée : votre propre entreprise",
+  "aiMatchScopeHint": "Recommandé parmi : les usines de votre pool de fournisseurs",
   "aiScoreStart": "Lancer la notation",
   "aiScoreRegenerate": "Re-noter",
   "aiScoreOverall": "Score global d'adéquation",
@@ -586,5 +588,13 @@
   "detail_aiSummaryErrorNetwork": "Service IA temporairement indisponible. Veuillez réessayer plus tard.",
   "detail_aiSummaryErrorFormat": "Format de réponse IA anormal. Réessayez ou vérifiez la configuration du modèle.",
   "detail_aiSummaryErrorNotice": "L'avis n'existe pas ou a été retiré.",
-  "detail_aiSummaryErrorGeneric": "Une erreur est survenue pendant l'analyse IA. Veuillez réessayer plus tard."
+  "detail_aiSummaryErrorGeneric": "Une erreur est survenue pendant l'analyse IA. Veuillez réessayer plus tard.",
+  "aiScoreError": "Échec du score IA",
+  "aiScoreErrorAuth": "Session expirée ou modèle IA non configuré — reconnectez-vous et configurez-le.",
+  "aiScoreErrorLocked": "Débloquez cet avis avant de lancer le score IA.",
+  "aiScoreErrorRate": "Service IA surchargé (limite atteinte) ; réessayez plus tard.",
+  "aiScoreErrorNetwork": "Service IA temporairement indisponible ; réessayez plus tard.",
+  "aiScoreErrorFormat": "Le service IA a renvoyé un format inattendu ; réessayez ou vérifiez la configuration.",
+  "aiScoreErrorNotice": "Cet avis n'existe pas ou a été retiré.",
+  "aiScoreErrorGeneric": "Une erreur est survenue lors du score IA ; réessayez plus tard."
 }

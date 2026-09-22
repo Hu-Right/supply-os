@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "平台目录候选（点选添加）",
   "supplierPoolAlreadyInPool": "已添加",
   "supplierPoolNoCandidate": "没有匹配的平台供应商",
-  "supplierPoolCreateAnyway": "未找到匹配？仍要添加「{name}」"
+  "supplierPoolCreateAnyway": "未找到匹配？仍要添加「{name}」",
+  "navMembership": "会员套餐"
 }

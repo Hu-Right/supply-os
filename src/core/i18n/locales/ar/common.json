@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "مرشحو الدليل (انقر للإضافة)",
   "supplierPoolAlreadyInPool": "تمت الإضافة",
   "supplierPoolNoCandidate": "لا يوجد مورد مطابق في الدليل",
-  "supplierPoolCreateAnyway": "لا توجد مطابقة؟ أضف «{name}» على أي حال"
+  "supplierPoolCreateAnyway": "لا توجد مطابقة؟ أضف «{name}» على أي حال",
+  "navMembership": "العضوية"
 }

@@ -239,5 +239,6 @@
   "supplierPoolCandidatesTitle": "Candidatos del directorio (clic para añadir)",
   "supplierPoolAlreadyInPool": "Añadido",
   "supplierPoolNoCandidate": "Sin proveedores coincidentes en el directorio",
-  "supplierPoolCreateAnyway": "¿Sin coincidencias? Añadir «{name}» de todos modos"
+  "supplierPoolCreateAnyway": "¿Sin coincidencias? Añadir «{name}» de todos modos",
+  "navMembership": "Membresía"
 }
