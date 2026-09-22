@@ -292,6 +292,7 @@ export function buildWideRow(
   unspsc?: Record<string, string>,
   translations?: Record<string, WideTranslation>,
   precise?: Record<string, string>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 宽表行含动态列（title_<lang>/description_<lang>）与多种计算列，返回具体类型会破坏以扁平 mock 断言字段前缀的既有测试
 ): Record<string, any> {
   const agency = String(r.agency || "").trim();
   // 共享 normalizeCountry 始终返回英文标准名（含子国家归并、脏数据清理）
