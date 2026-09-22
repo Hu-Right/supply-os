@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
+import { Button } from "@/shared/ui";
 import type { NoticeItem } from "../types";
 
 /** 步骤权益层级 */
@@ -145,7 +146,7 @@ export function NextStepsPanel({
   ];
 
   return (
-    <aside className="rounded-2xl border border-slate-200 bg-white p-4 sticky top-24">
+    <aside className="rounded-2xl border border-slate-200 bg-white p-4">
       <h3 className="text-sm font-extrabold text-slate-900 mb-3">
         {t("detail_nextStepsTitle") || "下一步动作"}
       </h3>
@@ -177,48 +178,38 @@ export function NextStepsPanel({
         })}
       </div>
 
-      {/* 操作按钮组 */}
-      <div className="mt-3 pt-3 border-t border-slate-200 flex gap-2">
-        <button
-          onClick={() => onExpressInterest?.("interested")}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white py-2 text-xs font-semibold transition-colors"
-        >
-          <Heart className="w-3.5 h-3.5" />
-          {t("procurement_interested") || "感兴趣"}
-        </button>
-        <button
-          onClick={() => onExpressInterest?.("subscribed")}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white py-2 text-xs font-semibold transition-colors"
-        >
-          <Bell className="w-3.5 h-3.5 text-amber-300" />
-          {t("procurement_subscribeNotice") || "订阅商机"}
-        </button>
-        <button
+      {/* 操作按钮组：仅桌面右列显示；移动端由固定底栏（NoticeDetailSidebar）承担，隐藏避免重复 */}
+      <div className="mt-3 pt-3 border-t border-slate-200 hidden md:flex gap-2">
+        <Button onClick={() => onExpressInterest?.("interested")} variant="primary" className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs">
+          <Heart className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">{t("procurement_interested") || "感兴趣"}</span>
+        </Button>
+        <Button onClick={() => onExpressInterest?.("subscribed")} variant="dark" className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs">
+          <Bell className="w-3.5 h-3.5 shrink-0 text-amber-300" />
+          <span className="truncate">{t("procurement_subscribeNotice") || "订阅商机"}</span>
+        </Button>
+        <Button
           onClick={() => (canUsePaidQuota ? onUnlock?.() : router.push(`/membership?notice_id=${notice.id}`))}
-          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-colors ${
-            canUsePaidQuota
-              ? "border border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
-              : "bg-amber-500 hover:bg-amber-600 text-white"
-          }`}
+          variant={canUsePaidQuota ? "secondary" : "cta"}
+          className="flex-1 min-w-0 gap-1.5 px-2 py-2 text-xs"
         >
-          {canUsePaidQuota ? <Lock className="w-3.5 h-3.5" /> : <Crown className="w-3.5 h-3.5" />}
-          {canUsePaidQuota
-            ? (t("procurement_memberUnlock") || "会员查看")
-            : (t("procurement_upgradeToUnlock") || "升级会员解锁")}
-        </button>
+          {canUsePaidQuota ? <Lock className="w-3.5 h-3.5 shrink-0" /> : <Crown className="w-3.5 h-3.5 shrink-0" />}
+          <span className="truncate">{canUsePaidQuota ? (t("procurement_memberUnlock") || "会员查看") : (t("procurement_upgradeToUnlock") || "升级会员解锁")}</span>
+        </Button>
       </div>
 
-      {/* 非 VIP 用户：底部升级提示 */}
+      {/* 非 VIP 用户：底部升级提示（移动端由固定底栏承担，隐藏） */}
       {!isVip && (
-        <div className="mt-3 pt-3 border-t border-slate-200">
-          <button
+        <div className="mt-3 pt-3 border-t border-slate-200 hidden md:block">
+          <Button
             onClick={() => router.push(`/membership?notice_id=${notice.id}`)}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white py-3 font-bold text-sm transition-colors"
+            variant="dark"
+            className="w-full rounded-xl py-3 text-sm"
           >
             <Crown className="w-4 h-4" />
             <Briefcase className="w-4 h-4" />
             {t("detail_upgradeUnlock") || "升级会员，解锁完整执行信息"}
-          </button>
+          </Button>
         </div>
       )}
     </aside>

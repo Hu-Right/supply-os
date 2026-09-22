@@ -170,11 +170,13 @@ export function AiEvaluationPanel({
   const showPartialFailed = !data.cached && data.failed > 0;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
       {/* 头部 */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-start gap-2">
-          <Target className="w-5 h-5 text-purple-600 mt-0.5" />
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50">
+            <Target className="w-4 h-4 text-purple-600" />
+          </span>
           <div>
             <h3 className="text-base font-extrabold text-slate-900">
               {t("aiEvalTitle") || "供应商 × 公告 适配评估"}

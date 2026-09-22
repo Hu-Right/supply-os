@@ -34,6 +34,12 @@ import { SimilarTab } from "./SimilarTab";
 import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
 import { AwardHistoryTab } from "./AwardHistoryTab";
+// 会员状态卡：与侧边栏同源，从 shared 动态引入（保留代码分割 + 规避 procurement→membership 硬依赖）
+import dynamic from "next/dynamic";
+const MembershipStatusPanel = dynamic(
+  () => import("@/shared/components/MembershipStatusPanel").then((m) => ({ default: m.MembershipStatusPanel })),
+  { ssr: false },
+);
 
 interface NoticeDetailProps {
   notice: NoticeDetailItem;
@@ -236,12 +242,21 @@ export function NoticeDetail({
           {/* ── 右栏：下一步动作面板（首屏可见） ── */}
           {/* onJoinCrm 不接订阅动作：四步引导的"加入CRM跟进"保持字面行为（跳转 /crm），
               订阅商机按钮是 interest_type=subscribed 的唯一入口，避免同一请求两个入口 */}
-          <NextStepsPanel
-            notice={notice} isLoggedIn={isLoggedIn} isVip={isVip}
-            canUsePaidQuota={canUsePaidQuota}
-            onUnlock={() => onUnlock(notice)}
-            onExpressInterest={(type) => onExpressInterest(notice, type)}
-          />
+          <div className="space-y-4 lg:sticky lg:top-24">
+            <MembershipStatusPanel
+              membership={membership}
+              totalRemaining={totalRemaining}
+              isLoggedIn={isLoggedIn}
+              noticeId={notice.id}
+              compact
+            />
+            <NextStepsPanel
+              notice={notice} isLoggedIn={isLoggedIn} isVip={isVip}
+              canUsePaidQuota={canUsePaidQuota}
+              onUnlock={() => onUnlock(notice)}
+              onExpressInterest={(type) => onExpressInterest(notice, type)}
+            />
+          </div>
         </div>
       </article>
 

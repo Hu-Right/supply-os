@@ -108,7 +108,7 @@ export function AiEvaluationRow({ supplier, rank, t, onEditBase, onEditDiag }: A
       {/* 展开：权限入口 + 推理 + 优势/短板 + 7 维明细 */}
       <div className={`grid transition-all duration-300 ease-in-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
         <div className="overflow-hidden">
-          <div className="px-4 pb-4 pt-2 space-y-2 border-t border-slate-100">
+          <div className="px-4 pb-4 pt-2 space-y-2.5 border-t border-slate-100">
             {/* 数据权限入口：self 改基本信息；友商/工厂仅改诊断表 */}
             {(isSelf ? onEditBase : onEditDiag) && (
               <div className="flex items-center gap-2 pt-1">
