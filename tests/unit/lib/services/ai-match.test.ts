@@ -70,6 +70,13 @@ const selfPool = () => ({
 } as any);
 
 const supplierRow = { pool_id: 5, supplier_id: 10, company: "工厂A", industry: "电子", products: "P" };
+/** LED 公告的 3 查询池（超出部分落在 vi.fn() 缺省 undefined，供 fail-safe 用例验证退化路径） */
+const ledPoolFor = (_n: number) => ({
+  query: vi.fn()
+    .mockResolvedValueOnce([[{ id: 1, title: "LED 显示屏采购项目", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]])
+    .mockResolvedValueOnce(noticeOpp)
+    .mockResolvedValueOnce([[{ supplier_id: 0 }]]),
+} as any);
 const llmData = {
   qualification: 60, experience: 60, certification: 60, region: 60,
   scale: 60, delivery: 60, price: 60, overall: 88, details: {}, reasoning: "r",
@@ -211,6 +218,55 @@ describe("并发评估与失败处理", () => {
     expect(res.evaluated).toBe(5); // 粗筛后仅 5 家进入 LLM
     expect(res.failed).toBe(0);
     expect(res.top[0].company).toBe("LED");
+  });
+
+  it("粗筛接入 UNSPSC：编码命中者压过纯词项匹配者入选精评并排第", async () => {
+    findMatch.mockResolvedValue(null);
+    const industries = ["纺织", "家具", "LED", "五金", "玩具", "食品", "化工"];
+    // 食品（supplier_id 105，pool_id 6）无任何词项重叠，但 L5 编码命中公告；
+    // 家具（supplier_id 101）仅靠标题词项命中。旧版纯词项行为家具必排第 一 → 本用例对旧实现为 RED
+    fetchSupplierProfiles.mockResolvedValue(
+      industries.map((industry, i) => ({ pool_id: i + 1, supplier_id: 100 + i, company: industry, industry, products: "P" })),
+    );
+    const pool = {
+      query: vi.fn()
+        .mockResolvedValueOnce([[{ id: 1, title: "家具采购项目", notice_type: "RFQ", country: "CN", deadline: 0, estimated_value: 0 }]])
+        .mockResolvedValueOnce(noticeOpp)
+        .mockResolvedValueOnce([[{ supplier_id: 0 }]])
+        // loader 查询 1：公告桥接行（L5 码 900）
+        .mockResolvedValueOnce([[{ level1_id: "", level2_id: "", level3_id: "", level4_id: "", level5_id: "900" }]])
+        // loader 查询 2：食品(105) 兴趣码链行命中同 id
+        .mockResolvedValueOnce([[{ supplier_id: 105, n0: 900, l0: 5, n1: null, l1: null, n2: null, l2: null, n3: null, l3: null, n4: null, l4: null }]]),
+    } as any;
+    callLlmForScore.mockImplementation(async (_c: unknown, _s: unknown, userPrompt: string) => ({
+      data: { ...llmData, overall: userPrompt.includes("公司名称：食品") ? 90 : 40 },
+      model: "m",
+    }));
+    const res = await getOrGenerateAiMatch(pool, 1, 2, false);
+    expect(res.evaluated).toBe(5);
+    expect(res.top[0].company).toBe("食品"); // 编码档位主导入选，LLM 高分后排第
+    // 粗筛只管入选：词项命中的家具仍在 5 家内，零信号末位的玩具/化工被挤出
+    const companies = res.top.map((s) => s.company);
+    expect(companies).toContain("家具");
+    expect(companies).not.toContain("玩具");
+    expect(companies).not.toContain("化工");
+  });
+
+  it("UNSPSC 数据查询不可达（mock 缺省）→ fail-safe 退化纯词项，主流程不中断", async () => {
+    findMatch.mockResolvedValue(null);
+    const industries = ["纺织", "家具", "LED", "五金", "玩具", "食品", "化工"];
+    fetchSupplierProfiles.mockResolvedValue(
+      industries.map((industry, i) => ({ pool_id: i + 1, supplier_id: 100 + i, company: industry, industry, products: "P" })),
+    );
+    // 仅提供前 3 次查询：loader 两条查询落在 vi.fn() 缺省 undefined → 抛错→catch→空映射
+    callLlmForScore.mockImplementation(async (_c: unknown, _s: unknown, userPrompt: string) => ({
+      data: { ...llmData, overall: userPrompt.includes("公司名称：LED") ? 90 : 40 },
+      model: "m",
+    }));
+    const res = await getOrGenerateAiMatch(ledPoolFor(1), 1, 2, false);
+    expect(res.evaluated).toBe(5);
+    expect(res.failed).toBe(0);
+    expect(res.top[0].company).toBe("LED"); // 纯词项旧行为
   });
 
   it("资源库为空且未绑定企业 → 空结果且元数据全零，不触达 LLM", async () => {
