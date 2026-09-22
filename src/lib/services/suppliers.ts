@@ -4,6 +4,7 @@
  */
 
 import { Supplier } from "../types/supplier";
+import type { SupplierDirectoryRow } from "../repos/suppliers";
 import { maskPhone, maskEmail, splitListField } from "../utils/mask";
 import { getCountryDisplayName, getCountryEnglishName } from "../data/countryNames";
 
@@ -12,13 +13,13 @@ import { getCountryDisplayName, getCountryEnglishName } from "../data/countryNam
 // 与后台管理端展示完全一致；此前应用层 12 字段加权算法已废弃删除。
 
 /** DB decimal 列读出可能是字符串，统一转 0-100 数值 */
-function readQualityScore(row: any): number {
+function readQualityScore(row: SupplierDirectoryRow): number {
   const n = Number(row?.data_quality_score);
   return Number.isFinite(n) ? Math.min(Math.max(n, 0), 100) : 0;
 }
 
 //  supplier 行 → 前端 Supplier DTO 映射与联系方式脱敏 ──
-export function mapSupplierRow(row: any): Supplier {
+export function mapSupplierRow(row: SupplierDirectoryRow): Supplier {
   const industryZh =
     String(row.industry || "").trim() || splitListField(row.products)[0] || "其他";
   const productsZh = splitListField(row.products);

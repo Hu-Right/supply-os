@@ -28,6 +28,7 @@ function buildIntlProcurement(opportunity?: Record<string, unknown> | null) {
   return out;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 多源异构 payload 归一化：notice/unlock/opportunity 来自不同表的松散行，返回体字段随来源变化，收敛会连锁 route 与测试 cast
 export function normalizeNoticeDetailPayload(notice: any, unlock?: any, opportunity?: any) {
   const detailSource = opportunity ? "opportunity" : "notice";
   // 联系人只认结构化字段，无数据即为空，不从 description 文本猜测抽取
