@@ -8,6 +8,7 @@
  *              - 过期认领清理（解除绑定 + 重置状态）
  *              避免 API 路由层直接操作多张表。
  */
+import type { ResultSetHeader } from "mysql2/promise";
 import type { AppContext } from "../db/context";
 import { getPool } from "../db/pool";
 
@@ -70,5 +71,5 @@ export async function releaseExpiredClaims(): Promise<number> {
          c.status = 'expired'
      WHERE c.status = 'pending' AND c.expires_at < NOW()`,
   );
-  return Number((result as any).affectedRows);
+  return Number((result as ResultSetHeader).affectedRows);
 }

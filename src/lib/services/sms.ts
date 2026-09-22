@@ -23,8 +23,13 @@ export function getSmsResetTemplateCode(): string | undefined {
   return SMS_TEMPLATE_CODE_RESET;
 }
 
+/** 阿里云 SMS 客户端最小结构（仅消费 sendSms，规避 SDK 类型面） */
+interface AliyunSmsClient {
+  sendSms(request: unknown): Promise<{ body?: { code?: string; message?: string } }>;
+}
+
 // 阿里云客户端懒加载单例
-let _aliyunClient: any = null;
+let _aliyunClient: AliyunSmsClient | null = null;
 
 /** 是否已配置短信服务（mock 模式始终可用） */
 export function isSmsConfigured(): boolean {
@@ -33,7 +38,7 @@ export function isSmsConfigured(): boolean {
 }
 
 /** 获取或创建阿里云 SMS 客户端（dysmsapi — 短信服务） */
-async function getAliyunClient(): Promise<any> {
+async function getAliyunClient(): Promise<AliyunSmsClient> {
   if (_aliyunClient) return _aliyunClient;
 
   try {

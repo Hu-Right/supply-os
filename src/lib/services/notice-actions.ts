@@ -154,7 +154,7 @@ export async function processFeedback(
   if (linkedActions.length) {
     const noticeIds = Array.from(new Set(linkedActions.map((item) => item.noticeId)));
     const noticeRows = await detailRepo.findUnspscSnapshots(noticeIds);
-    const snapshotById = new Map<number, any[]>();
+    const snapshotById = new Map<number, Array<{ code: string; name: string }>>();
     for (const row of noticeRows) snapshotById.set(Number(row.id), normalizeUnspscCodes(row.unspsc_codes));
     for (const item of linkedActions) {
       const snapshot = snapshotById.get(item.noticeId);

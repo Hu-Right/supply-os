@@ -7,7 +7,7 @@
  *              保证幂等——重跑同日不翻倍。默认全量重算（当前 views 表仅数百行）；量大后传 sinceDays 增量：
  *              注意增量窗口必须覆盖整天（DATE(viewed_at) 粒度），否则边界日会被窗口内的部分计数覆盖
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 /**
  * 汇总公告日浏览量
@@ -16,7 +16,7 @@ import type { RowDataPacket } from "mysql2/promise";
  * @param sinceDays - 汇总最近 N 天（默认 0 表示全量）
  * @returns 影响行数
  */
-export async function rollupNoticeViewDaily(dbPool: any, sinceDays = 0): Promise<{ affected: number }> {
+export async function rollupNoticeViewDaily(dbPool: Pool, sinceDays = 0): Promise<{ affected: number }> {
   const windowWhere = sinceDays > 0 ? "AND viewed_at >= CURDATE() - INTERVAL ? DAY" : "";
   const params = sinceDays > 0 ? [sinceDays] : [];
   const [result] = await dbPool.query(

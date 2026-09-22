@@ -9,7 +9,7 @@
  *              实施注记：初版单条巨型 SQL（逐行相关 NOT EXISTS）在 10.8 万 × 58 万行上实测 20 分钟不返回，
  *              已拆为三条简单查询：主表单遍聚合 + 派生表 LEFT JOIN（走桥接 uk_notice_code 索引）+ 独立去重统计
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 /**
  * 采集数据质量快照
@@ -17,7 +17,7 @@ import type { RowDataPacket } from "mysql2/promise";
  * @param dbPool - 数据库连接池
  * @returns 采集的指标数据
  */
-export async function captureDataQualitySnapshot(dbPool: any) {
+export async function captureDataQualitySnapshot(dbPool: Pool) {
   // P1 性能优化：使用生成列 deadline_sec 替代表达式
   // ① 主表单遍聚合（无子查询）
   const [baseRows] = await dbPool.query(

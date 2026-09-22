@@ -199,7 +199,7 @@ Output (JSON array[${texts.length}]):`;
     }),
   }, DEEPSEEK_TIMEOUT_MS);
   if (!res.ok) throw new Error(`DEEPSEEK_HTTP_${res.status}`);
-  const data: any = await res.json();
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const content = String(data?.choices?.[0]?.message?.content ?? "").trim();
   if (!content) throw new Error("DEEPSEEK_EMPTY");
   // 容错提取 JSON 数组：先剥 markdown 围栏，再尝试从混合文本中定位 [...]

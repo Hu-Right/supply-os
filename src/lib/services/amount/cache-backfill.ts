@@ -6,7 +6,7 @@
  * @description 本地差异 #10：金额缓存回填。noticeIds 给定=懒填充（推荐当页缺失行，量小）；
  *              未给定=admin 批量回填一批（≤batchLimit 行，短事务、可中断续跑——按缓存缺失/过版续扫）
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { AMOUNT_PARSE_VERSION, parseEstimatedValue } from "./parser";
 
 /**
@@ -17,7 +17,7 @@ import { AMOUNT_PARSE_VERSION, parseEstimatedValue } from "./parser";
  * @param batchLimit - 批量限制（默认 2000）
  * @returns 处理结果
  */
-export async function backfillNoticeAmountCache(dbPool: any, noticeIds?: number[], batchLimit = 2000): Promise<{ processed: number }> {
+export async function backfillNoticeAmountCache(dbPool: Pool, noticeIds?: number[], batchLimit = 2000): Promise<{ processed: number }> {
   const idFilter = noticeIds && noticeIds.length ? `AND n.id IN (${noticeIds.map(() => "?").join(",")})` : "";
   const [rows] = await dbPool.query(
     `SELECT n.id, n.estimated_value, n.country
@@ -29,7 +29,7 @@ export async function backfillNoticeAmountCache(dbPool: any, noticeIds?: number[
   );
   const pending = rows as RowDataPacket[];
   if (!pending.length) return { processed: 0 };
-  const values: any[] = [];
+  const values: (number | string | null)[] = [];
   for (const row of pending) {
     const parsed = parseEstimatedValue(row.estimated_value, row.country);
     values.push(
