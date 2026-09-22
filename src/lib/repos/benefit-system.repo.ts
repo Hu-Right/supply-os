@@ -56,6 +56,8 @@ export interface PlanCatalogRow {
   cta_i18n_key: string;
   badge: string;
   sort_order: number;
+  /** 1=在售。列表查询已按 is_active 过滤，单档取回时必须带出，否则"已下架"与"不存在"无法区分 */
+  is_active: number;
 }
 
 /** 矩阵单格原始值（crm_plan_benefits） */
@@ -187,10 +189,24 @@ export class BenefitSystemRepo {
   async listActivePlans(): Promise<PlanCatalogRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
-              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order
+              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active
          FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
     return rows as PlanCatalogRow[];
+  }
+
+  /**
+   * 按码取单个套餐，**不过滤 is_active**：履约需要区分"目录里根本没这个码"
+   * 与"码存在但已下架/不可自助成交"，两者对客户与对账的含义不同。
+   */
+  async getPlan(planCode: string): Promise<PlanCatalogRow | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
+              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active
+         FROM crm_plan_catalog WHERE plan_code = ? LIMIT 1`,
+      [planCode],
+    );
+    return (rows as PlanCatalogRow[])[0] ?? null;
   }
 
   /** 启用的权益定义（矩阵行序 = group_code + sort_order） */
