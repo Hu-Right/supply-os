@@ -7,6 +7,7 @@
  *              绝对扣减会失效）；GREATEST(0.01) 下限保护，weight 永不降为 ≤0（画像可转向但不清零）。
  *              对该用户展开前缀命中的所有 source 行统一衰减（跨来源同码一并降权）
  */
+import type { Pool } from "mysql2/promise";
 import { expandUnspscInterestPrefixes } from "../unspsc/index";
 
 /**
@@ -18,7 +19,7 @@ import { expandUnspscInterestPrefixes } from "../unspsc/index";
  * @param factor - 衰减因子（默认 0.5）
  */
 export async function decayUserInterestCodes(
-  dbPool: any,
+  dbPool: Pool,
   userId: number,
   snapshot: Array<{ code?: unknown }>,
   factor = 0.5,

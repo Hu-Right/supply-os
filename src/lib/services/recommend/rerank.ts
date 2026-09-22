@@ -11,7 +11,7 @@ const HIGH_VALUE_USD = 1_000_000;
 /**
  * MMR 页内重排：reco_score 与已选公告 UNSPSC 码 Jaccard 相似度的权衡
  */
-export function mmrRerankPage(pageRows: any[]): any[] {
+export function mmrRerankPage(pageRows: Array<Record<string, unknown>>): Array<Record<string, unknown>> {
   if (pageRows.length <= 2) return pageRows;
   const codeSets = pageRows.map((row) => new Set(String(row.codes_concat || "").split(",").filter(Boolean)));
   const jaccard = (a: Set<string>, b: Set<string>) => {
@@ -37,7 +37,7 @@ export function mmrRerankPage(pageRows: any[]): any[] {
 /**
  * 推荐原因标注：L4 行业命中 > 临期 > 高价值，最多两条
  */
-export function buildRecoReasons(row: any, nowSec: number): string[] {
+export function buildRecoReasons(row: Record<string, unknown>, nowSec: number): string[] {
   const reasons: string[] = [];
   const deadlineSec = row.deadline_ts == null ? null
     : Number(row.deadline_ts) > 100000000000 ? Math.floor(Number(row.deadline_ts) / 1000) : Number(row.deadline_ts);

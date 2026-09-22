@@ -7,7 +7,7 @@
  *              含权重画像 A/B、金额偏好、解锁关键词文本加分与 MMR 去重；
  *              无兴趣信号时回退按截止时间排序。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { Pool, QueryResult, RowDataPacket } from "mysql2/promise";
 import { normalizeDocumentRows } from "../../utils/normalize";
 import {
   recomputeRecoWeightProfile,
@@ -107,7 +107,7 @@ export async function recommendNotices(
   const trSelect = locale ? "tr.title_tr AS title_i18n, tr.description_tr AS description_i18n," : "";
   const treSelect = "tre.title_tr AS title_en, tre.description_tr AS description_en,";
 
-  let rows: any;
+  let rows: QueryResult;
   try {
     [rows] = await pool.query(
       `SELECT n.id, n.notice_id, n.reference, n.title, n.notice_type, n.country,
@@ -158,7 +158,7 @@ export async function recommendNotices(
       // "SuministrosAdquisición"），搜索路径读宽表 notice_type_std 已归一化，
       // 推荐路径直取原始值导致前端徽章原样展示外语脏值——此处复用与宽表
       // 同口径的 normalizeNoticeType 对齐（脏值归 OTHER，前端展示 i18n“其他”）
-      ...rest, notice_type: normalizeNoticeType(row.notice_type),
+      ...rest, notice_type: normalizeNoticeType(row.notice_type as string | null | undefined),
       match_score: Number(row.match_score || 0), reco_score: Number(row.reco_score || 0),
       reco_reasons: buildRecoReasons(row, nowSec), organization: null, source_url: null,
       unspsc_codes: [], core_locked: true,

@@ -8,7 +8,7 @@
  *              候选集内（当页 pageSize 条）纯内存 Jaccard 计算，禁止 FULLTEXT（外部表只读，约束 1）。
  *              零解锁历史用户 keywords=null → 加分恒 0，排序与上线前恒等（验收口径）
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { CACHE_TTL_MEDIUM_MS } from "@/shared/constants/time";
 
 const TEXT_STOPWORDS = new Set([
@@ -67,7 +67,7 @@ const USER_KEYWORDS_TTL_MS = CACHE_TTL_MEDIUM_MS;
  * @param userId - 内部用户 ID
  * @returns 关键词集合，无历史记录返回 null
  */
-export async function getUserUnlockKeywords(dbPool: any, userId: number): Promise<Set<string> | null> {
+export async function getUserUnlockKeywords(dbPool: Pick<Pool, "query">, userId: number): Promise<Set<string> | null> {
   const cached = userUnlockKeywordsCache.get(userId);
   if (cached && cached.expires > Date.now()) return cached.keywords;
   if (userUnlockKeywordsCache.size > 2000) userUnlockKeywordsCache.clear(); // 简易防膨胀

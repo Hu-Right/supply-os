@@ -17,7 +17,7 @@ export interface RecallResult {
 
 export interface RecallClauses {
   bridgeWhere: string;
-  params: any[];
+  params: (string | number)[];
 }
 
 /** 截断 UNSPSC 码尾部冗余 "00" 段，得到有效显著前缀 */
@@ -57,7 +57,7 @@ export function processInterestCodes(
   }
 
   const clauses: string[] = [];
-  const params: any[] = [];
+  const params: (string | number)[] = [];
   for (const level of [2, 3, 4, 5]) {
     const ids = Array.from(new Set(recallIdsByLevel[level]));
     if (ids.length === 0) continue;
@@ -80,7 +80,7 @@ export function processInterestCodes(
 export async function deadlineFallback(
   pool: Pool, page: number, pageSize: number, offset: number,
   locale?: string,
-): Promise<{ items: any[]; total: number; page: number; pageSize: number; fallback: string }> {
+): Promise<{ items: Array<Record<string, unknown>>; total: number; page: number; pageSize: number; fallback: string }> {
   const [cntRows] = await pool.query(`SELECT COUNT(*) AS total FROM crm_bid_notices n WHERE ${ACTIVE_NOTICE_WHERE}`);
   const cntRow = (cntRows as RowDataPacket[])[0];
   const trJoin = locale ? "LEFT JOIN crm_notice_translations tr ON tr.notice_id = n.id AND tr.lang = ?" : "";

@@ -10,7 +10,7 @@
  *              五权重总和恒 1；无显式反馈用户不建档案行（推荐端点缺行走全局默认，行为恒等——验收口径）。
  *              触发：推荐请求发现档案缺失/超 24h 时 fire-and-forget 异步重算，无定时器（约束 6）
  */
-import type { RowDataPacket } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 
 const recoWeightRefreshing = new Set<number>();
 const RECO_REFRESH_TIMEOUT = 30_000; // 安全超时：30s 后自动解锁，防止 DB 挂起导致永久阻塞
@@ -21,7 +21,7 @@ const RECO_REFRESH_TIMEOUT = 30_000; // 安全超时：30s 后自动解锁，防
  * @param dbPool - 数据库连接池
  * @param userId - 内部用户 ID
  */
-export async function recomputeRecoWeightProfile(dbPool: any, userId: number): Promise<void> {
+export async function recomputeRecoWeightProfile(dbPool: Pool, userId: number): Promise<void> {
   if (recoWeightRefreshing.has(userId)) return; // 并发请求下同一用户只跑一次
   recoWeightRefreshing.add(userId);
   const safetyTimer = setTimeout(() => recoWeightRefreshing.delete(userId), RECO_REFRESH_TIMEOUT);
