@@ -28,7 +28,7 @@ export interface ApiKeyAuthResult {
   dailyQuota: number;
 }
 
-/** 对明文 Key 做 SHA-256 哈希（与 repo 层一致） */
+/** 对明文 Key 做 SHA-256 哈希，用于匹配数据库中的密钥摘要。 */
 function hashKey(plaintext: string): string {
   return createHash("sha256").update(plaintext).digest("hex");
 }
