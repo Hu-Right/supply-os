@@ -7,7 +7,7 @@
  */
 import { test, expect, type Locator, type Page } from "@playwright/test";
 
-const HOME = "/showroom";
+const HOME = "/";
 const menuNames = { zh: "打开菜单", ar: "فتح القائمة" };
 
 function watchResources(page: Page) {
@@ -92,7 +92,7 @@ test.describe("移动端 · RTL · 样式生效冒烟", () => {
         await expect(page.locator("html")).toHaveAttribute("lang", locale);
         await assertStyles(page, resources);
         await assertInputDirection(page, locale === "ar" ? "rtl" : "ltr");
-        const gradient = page.getByRole("main").locator("button.bg-gradient-to-r").first();
+        const gradient = page.getByRole("main").locator(".bg-gradient-to-r").first();
         await expect(gradient).not.toHaveCSS("background-image", "none");
         for (const width of [320, 390]) {
           await page.setViewportSize({ width, height: 844 });
@@ -115,7 +115,7 @@ test.describe("移动端 · RTL · 样式生效冒烟", () => {
         .click();
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
       await assertInputDirection(page, locale === "ar" ? "rtl" : "ltr");
-      const label = page.locator('nav:visible a[href="/showroom"] span.text-start');
+      const label = page.locator('nav:visible a[href="/procurement"] span.text-start');
       await expect(label).toHaveCSS("text-align", "start");
       await expect(label).toHaveCSS("direction", locale === "ar" ? "rtl" : "ltr");
     }
@@ -147,7 +147,7 @@ test.describe("移动端 · RTL · 样式生效冒烟", () => {
       return count;
     });
     expect(removed).toBeGreaterThan(0);
-    const gradient = page.getByRole("main").locator("button.bg-gradient-to-r").first();
+    const gradient = page.getByRole("main").locator(".bg-gradient-to-r").first();
     await expect(gradient).not.toHaveCSS("background-image", "none");
     await expect(gradient).not.toHaveCSS("--tw-gradient-position", /oklab/);
   });

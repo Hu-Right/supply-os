@@ -8,7 +8,7 @@ const appDir = resolve(".next/server/app");
 const staticDir = resolve(".next/static");
 const publicDir = resolve("public");
 const port = Number(process.env.STYLE_SMOKE_PORT || 4173);
-await access(resolve(appDir, "showroom.html"));
+await access(resolve(appDir, "index.html"));
 const version = (await readFile(".next/BUILD_ID", "utf8")).trim();
 const fixtures = {
   "/api/system/icp": { bah: "" },
@@ -19,6 +19,14 @@ const fixtures = {
     regions: { Asia: "亚洲" },
     zhToEn: { 中国: "China" },
   },
+  // 新首页（/）首屏数据接口只读样例：形状与各消费 hook 的解析口径对齐，
+  // 空数据即可满足样式冒烟（不校验业务内容，只确保不触发 5xx 与前端 pageerror）。
+  "/api/notices/hot-topics": { countries: [], industries: [] },
+  "/api/notices/stats": { active: 0, todayNew: 0, yesterdayNew: 0 },
+  "/api/notices/countries": [],
+  "/api/suppliers": { items: [], total: 0, page: 1, pageSize: 20 },
+  "/api/notices/unified-search": { items: [], total: 0, page: 1, pageSize: 20 },
+  "/api/user/enterprise": { code: 0, data: { bound: false, linkStatus: "none", enterprise: null } },
 };
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -57,7 +65,7 @@ const server = createServer(async (request, response) => {
       path = pathname.slice("/_next/static".length);
     } else if (!extname(pathname)) {
       base = appDir;
-      path = `${pathname === "/" ? "/showroom" : pathname}${request.headers.rsc === "1" ? ".rsc" : ".html"}`;
+      path = `${pathname === "/" ? "/index" : pathname}${request.headers.rsc === "1" ? ".rsc" : ".html"}`;
     }
     const file = resolve(base, `.${path}`);
     if (!file.startsWith(`${base}${sep}`)) {

@@ -13,7 +13,7 @@ export default defineConfig(config, {
     ? undefined
     : {
         command: "node scripts/serve-style-smoke.mjs",
-        url: `${baseURL}/showroom`,
+        url: `${baseURL}/`,
         reuseExistingServer: false,
         timeout: 30_000,
       },
