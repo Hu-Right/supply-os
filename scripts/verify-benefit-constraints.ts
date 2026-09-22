@@ -29,9 +29,38 @@ const COUNT_SQL = `SELECT (SELECT COUNT(*) FROM crm_benefit_catalog) a, (SELECT 
 /** 静态目录表（已写入 docx 数据）与事实表（必须永远空）分开断言 */
 const STATIC_KEYS = ["a", "b", "c", "g"] as const;
 const FACT_KEYS = ["d", "e", "f", "h"] as const;
+
+/**
+ * 期望的目录形状（2026-09-23 实测值）。
+ * 下面只自比“本轮探针数据未泄漏”，并不能挡住目录被增删；这里钉住绝对值，
+ * 改动 docx 抄录结果时必须同步改这里并说明原因。
+ */
+const EXPECTED_STATIC = { benefits: 20, plans: 7, cells: 140, services: 15 };
 const [baseRows] = await conn.query(COUNT_SQL);
 const baseline = (baseRows as Record<string, number>[])[0];
 console.log("[baseline] 当前库内行数（静态目录已录入，事实表应为 0）:", baseline);
+
+let shapeOk = true;
+for (const [key, want] of [["a", EXPECTED_STATIC.benefits], ["b", EXPECTED_STATIC.plans], ["c", EXPECTED_STATIC.cells], ["g", EXPECTED_STATIC.services]] as const) {
+  if (Number(baseline[key]) !== want) {
+    console.log(`  ✗ 目录数量漂移 ${key}: 库内 ${baseline[key]} / 预期 ${want}`);
+    shapeOk = false;
+  }
+}
+// 矩阵闭合：每个在售套餐 × 每条启用权益恰有一格（缺格=上线后该档该权益渲染不出来）
+const [holeRows] = await conn.query(
+  `SELECT COUNT(*) n FROM crm_plan_catalog pc CROSS JOIN crm_benefit_catalog bc
+     LEFT JOIN crm_plan_benefits mb ON mb.plan_code = pc.plan_code AND mb.benefit_code = bc.benefit_code
+    WHERE mb.id IS NULL`,
+);
+const holes = Number((holeRows as { n: number }[])[0].n);
+if (holes !== 0) {
+  console.log(`  ✗ 矩阵缺格 ${holes} 处`);
+  shapeOk = false;
+}
+if (shapeOk) {
+  console.log(`  ✓ 目录形状与预期一致：${EXPECTED_STATIC.benefits} 权益 × ${EXPECTED_STATIC.plans} 套餐 = ${EXPECTED_STATIC.cells} 格、缺格 0、服务 ${EXPECTED_STATIC.services}`);
+}
 
 let pass = 0;
 let fail = 0;
