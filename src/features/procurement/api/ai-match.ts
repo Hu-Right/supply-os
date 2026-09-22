@@ -6,9 +6,18 @@ import { api } from "@/core/http";
 import type { DimensionDetail } from "./ai-score";
 
 export interface MatchedSupplier {
-  pool_id: number;
+  /** 资源库行 id；self 行为 null */
+  pool_id: number | null;
   supplier_id: number;
   company: string;
+  /** 是否为用户自己绑定的企业 */
+  isSelf: boolean;
+  /** 候选来源 */
+  source: "self" | "pool";
+  /** 基本信息是否完整 */
+  baseComplete: boolean;
+  /** 诊断表是否已填 */
+  diagComplete: boolean;
   qualification: number;
   experience: number;
   certification: number;

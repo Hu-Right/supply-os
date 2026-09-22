@@ -147,10 +147,14 @@ export interface AiScoreRaw {
   reasoning: string;
 }
 
+/** 评估视角：self = 评“我自己”（适配评分）；candidate = 评“候选工厂/友商”（统一评估） */
+export type ScorePerspective = "self" | "candidate";
+
 /** 组装评分用户提示词（复用公告+供应商画像数据） */
 export function buildScoreUserPrompt(
   notice: Record<string, unknown>,
   supplier: Record<string, unknown> | null,
+  perspective: ScorePerspective = "self",
 ): string {
   const line = (label: string, value: unknown) =>
     `- ${label}：${String(value ?? "").trim() || "未提供"}`;
@@ -170,7 +174,7 @@ export function buildScoreUserPrompt(
   parts.push(line("供应商条件", notice.supplier_conditions));
 
   if (supplier && String(supplier.company || "").trim()) {
-    parts.push("\n## 我的企业画像");
+    parts.push(perspective === "self" ? "\n## 我的企业画像" : "\n## 候选供应商画像");
     parts.push(line("公司名称", supplier.company));
     parts.push(line("所属行业", supplier.industry));
     parts.push(line("主营产品", supplier.products));
@@ -194,7 +198,11 @@ export function buildScoreUserPrompt(
       parts.push(line("国际化能力", intlParts.join(" | ")));
     }
 
-    parts.push(`\n请从 7 个维度评估我参与本标的适配度。`);
+    parts.push(
+      perspective === "self"
+        ? `\n请从 7 个维度评估我参与本标的适配度。`
+        : `\n请从 7 个维度评估该供应商承接本标的的适配度。`,
+    );
     parts.push(`综合分 = 加权平均（${weightText}）。`);
     parts.push("输出 JSON 评分。");
   } else {

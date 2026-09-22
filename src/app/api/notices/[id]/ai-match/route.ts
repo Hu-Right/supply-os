@@ -1,9 +1,9 @@
 /**
- * POST /api/notices/:id/ai-match — AI 智能匹配
+ * POST /api/notices/:id/ai-match — 供应商适配统一评估
  *
  * @module app/api/notices/[id]/ai-match/route
- * @description 从用户供应商资源库中推荐 Top N 最匹配公告的供应商。
- *              缓存优先，forceRegenerate 强制重新匹配。需要解锁校验。
+ * @description 统一评估：候选 = {我绑定的自己} ∪ {资源库工厂/友商}，同一 7 维引擎逐一打分后排序。
+ *              缓存优先，forceRegenerate 强制重评。需要解锁校验 + 专业版档位。
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";

@@ -242,11 +242,16 @@ export function AiScoreCard({ data, loading, error, onStart, onRegenerate }: AiS
     <section className="rounded-2xl border border-slate-200 bg-white p-5">
       {/* 头部 */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Target className="w-5 h-5 text-purple-600" />
-          <h3 className="text-base font-extrabold text-slate-900">
-            {t("detail_tabAiScore") || "AI 适配评分"}
-          </h3>
+        <div className="flex items-start gap-2">
+          <Target className="w-5 h-5 text-purple-600 mt-0.5" />
+          <div>
+            <h3 className="text-base font-extrabold text-slate-900">
+              {t("detail_tabAiScore") || "AI 适配评分"}
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {t("aiScoreScopeHint") || "评估主体：你自己的公司"}
+            </p>
+          </div>
         </div>
         <button
           type="button"

@@ -31,11 +31,8 @@ import { DetailTabs } from "./DetailTabs";
 import { QualificationTab } from "./QualificationTab";
 import { FilesTab } from "./FilesTab";
 import { SimilarTab } from "./SimilarTab";
-import { AiScoreCard } from "../AiScoreCard";
-import { AiMatchCard } from "../AiMatchCard";
-import { useAiScore } from "../../hooks/useAiScore";
+import { AiEvaluationPanel } from "../AiEvaluationPanel";
 import { useAiMatch } from "../../hooks/useAiMatch";
-import { useHasSupplier } from "../../hooks/useHasSupplier";
 import { AwardHistoryTab } from "./AwardHistoryTab";
 
 interface NoticeDetailProps {
@@ -73,9 +70,7 @@ export function NoticeDetail({
   // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
   const coreUnlocked = notice.core_locked === false;
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked);
-  const aiScore = useAiScore(noticeId);
   const aiMatch = useAiMatch(noticeId);
-  const hasSupplier = useHasSupplier(userId);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
 
@@ -216,29 +211,17 @@ export function NoticeDetail({
             )}
 
             {activeTab === "ai-score" && (
-              <div className="space-y-6">
-                {/* V2（ADR-0004）：②适配评分（需企业主体）与①智能匹配（需资源库）不再按身份二选一，
-                    同页共存：有企业主体则展示评分卡；智能匹配对所有用户展示（空库自带“去资源库”引导），
-                    是否可用由“专业版档位 + 有无数据”在各自链路内决定。 */}
-                {hasSupplier && (
-                  <AiScoreCard
-                    data={aiScore.data}
-                    loading={aiScore.loading}
-                    error={aiScore.error}
-                    onStart={() => aiScore.triggerScore(false)}
-                    onRegenerate={() => aiScore.triggerScore(true)}
-                  />
-                )}
-                <AiMatchCard
-                  data={aiMatch.data}
-                  loading={aiMatch.loading}
-                  cacheLoading={aiMatch.cacheLoading}
-                  error={aiMatch.error}
-                  onStart={() => aiMatch.triggerMatch(false)}
-                  onRegenerate={() => aiMatch.triggerMatch(true)}
-                  onGoToPool={() => router.push("/settings/supplier-pool")}
-                />
-              </div>
+              <AiEvaluationPanel
+                data={aiMatch.data}
+                loading={aiMatch.loading}
+                cacheLoading={aiMatch.cacheLoading}
+                error={aiMatch.error}
+                onStart={() => aiMatch.triggerMatch(false)}
+                onRegenerate={() => aiMatch.triggerMatch(true)}
+                onGoToPool={() => router.push("/settings/supplier-pool")}
+                onGoToEnterprise={() => router.push("/settings/enterprise")}
+                onEditDiag={() => router.push("/settings/supplier-pool")}
+              />
             )}
 
             {activeTab === "history" && (

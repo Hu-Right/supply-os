@@ -16,8 +16,8 @@ export interface AiScoreResult extends AiScoreRaw {
   cached: boolean;
 }
 
-/** 供应商画像（含评分所需扩展字段，JOIN 诊断表获取国际化能力数据） */
-async function fetchSupplierForScore(pool: Pool, userId: number) {
+/** 供应商画像（含评分所需扩展字段，JOIN 诊断表获取国际化能力数据）。导出供统一评估服务复用。 */
+export async function fetchSupplierForScore(pool: Pool, userId: number) {
   const [userRows] = await pool.query(
     "SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1",
     [userId],

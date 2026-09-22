@@ -16,8 +16,8 @@ import { useUserId } from "@/core/auth/useUserId";
 const NAV_ITEMS = [
   { href: "/settings/profile", labelKey: "settingsProfile", icon: User },
   { href: "/settings/rfq", labelKey: "settingsMyRfq", icon: ClipboardList },
-  { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2, exclusive: "enterprise" as const },
-  { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package, exclusive: "pool" as const },
+  { href: "/settings/enterprise", labelKey: "settingsEnterprise", icon: Building2 },
+  { href: "/settings/supplier-pool", labelKey: "settingsSupplierPool", icon: Package },
   { href: "/settings/ai-model", labelKey: "settingsAiModel", icon: Cpu },
 ];
 

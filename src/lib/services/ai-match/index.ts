@@ -1,23 +1,42 @@
 /**
- * AI 智能匹配服务
+ * AI 供应商适配统一评估服务
  * @module lib/services/ai-match
- * @description 从用户供应商资源库中推荐 Top N 最匹配公告的供应商。
- *              复用 ai-score 的 prompt 模板和 LLM 调用链。
+ * @description 统一评估面板后端：候选集 = {我绑定的自己} ∪ {资源库工厂/友商}（按 supplier_id 去重），
+ *              复用 ai-score 的同一套 7 维评分引擎逐一打分，按综合分排序（self 不截断）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "../../repos/user-supplier-pool.repo";
 import { callLlmForScore } from "../ai-score/llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "../ai-score/prompt";
+import { fetchSupplierForScore } from "../ai-score";
 import { errNoticeNotFound } from "../ai-summary/errors";
 import { fetchNoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 import { preFilterSuppliers } from "./pre-filter";
 
 export interface MatchedSupplier extends AiScoreRaw {
-  pool_id: number;
+  /** 资源库行 id；self 行为 null */
+  pool_id: number | null;
   supplier_id: number;
   company: string;
+  /** 是否为用户自己绑定的企业（高亮标识） */
+  isSelf: boolean;
+  /** 候选来源 */
+  source: "self" | "pool";
+  /** 基本信息（supplier 主表）是否完整 */
+  baseComplete: boolean;
+  /** 诊断表（qualification）是否已填 */
+  diagComplete: boolean;
+}
+
+/** 画像完整度启发式判定（驱动前端补全提示） */
+function completeness(p: Record<string, unknown>): { baseComplete: boolean; diagComplete: boolean } {
+  const base =
+    !!String(p.company || "").trim() && !!String(p.industry || "").trim() && !!String(p.products || "").trim();
+  const diagKeys = ["employee_count", "export_scale", "service_countries", "overseas_companies", "ungm_status", "english_team", "payment_terms"];
+  const diag = diagKeys.some((k) => !!String(p[k] || "").trim());
+  return { baseComplete: base, diagComplete: diag };
 }
 
 export interface AiMatchResult {
@@ -33,12 +52,11 @@ export interface AiMatchResult {
   diagPending: number;
 }
 
-const TOP_N = 3;
 const PRE_FILTER_LIMIT = 5;
 /** LLM 并发调用上限：5 个候选按 3 并发分两批，替代串行等待 */
 const LLM_CONCURRENCY = 3;
 
-/** 主入口：AI 智能匹配 */
+/** 主入口：统一评估（self + 资源库候选） */
 export async function getOrGenerateAiMatch(
   pool: Pool,
   userId: number,
@@ -49,65 +67,85 @@ export async function getOrGenerateAiMatch(
   const poolRepo = new UserSupplierPoolRepo(pool);
 
   // 检查缓存（match_results 独立列，与评分 score_reasons 分键，互不覆盖）
+  // 版本位：仅当每项都带 isSelf 字段才视为新版结构命中，旧版（无 isSelf）自动重生成。
   if (!forceRegenerate) {
     const cached = await summaryRepo.findMatch(userId, noticeId);
     if (cached?.match_results) {
       try {
         const parsed = JSON.parse(cached.match_results);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.every((i) => i && typeof i.isSelf === "boolean")) {
           return {
             top: parsed, cached: true,
             poolSize: parsed.length, evaluated: parsed.length, failed: 0,
             diagPending: await poolRepo.countDiagnosisPending(userId),
           };
         }
-      } catch { /* 数据损坏，继续重新生成 */ }
+      } catch { /* 数据损坏/旧版格式，继续重新生成 */ }
     }
   }
 
-  // 获取资源库供应商画像
-  const suppliers = await poolRepo.fetchSupplierProfiles(userId);
-  if (suppliers.length === 0) {
+  // 公告上下文
+  const notice = await fetchNoticeContext(pool, noticeId);
+  if (!notice) errNoticeNotFound();
+  // LLM 配置
+  const creds = await resolveLlmCredentials(pool, userId);
+
+  // self：绑定的企业主体（owner 画像：基本信息 + owner 诊断）
+  const [uRows] = await pool.query("SELECT supplier_id FROM crm_users WHERE id = ? LIMIT 1", [userId]);
+  const selfSupplierId = Number((uRows as RowDataPacket[])[0]?.supplier_id || 0);
+  const selfProfile = selfSupplierId ? await fetchSupplierForScore(pool, userId) : null;
+
+  // pool：资源库工厂/友商（目录基本信息 + 我关联的诊断），排除与 self 同一家避免重复
+  const poolProfilesRaw = await poolRepo.fetchSupplierProfiles(userId);
+  const poolProfiles = poolProfilesRaw.filter((s) => Number(s.supplier_id) !== selfSupplierId);
+
+  // 超精评上限先粗筛（self 不参与粗筛、始终保留）
+  const poolForEval =
+    poolProfiles.length > PRE_FILTER_LIMIT
+      ? preFilterSuppliers(notice as never, poolProfiles, PRE_FILTER_LIMIT).candidates
+      : poolProfiles;
+
+  type Cand = { profile: Record<string, unknown>; supplierId: number; poolId: number | null; isSelf: boolean };
+  const cands: Cand[] = [];
+  if (selfProfile && selfSupplierId) {
+    cands.push({ profile: selfProfile as unknown as Record<string, unknown>, supplierId: selfSupplierId, poolId: null, isSelf: true });
+  }
+  for (const s of poolForEval) {
+    cands.push({ profile: s, supplierId: Number(s.supplier_id), poolId: Number(s.pool_id), isSelf: false });
+  }
+
+  if (cands.length === 0) {
     return { top: [], cached: false, poolSize: 0, evaluated: 0, failed: 0, diagPending: 0 };
   }
 
-  // 获取公告
-  const notice = await fetchNoticeContext(pool, noticeId);
-  if (!notice) errNoticeNotFound();
-
-  // 获取 LLM 配置并解密 API Key（共享层）
-  const creds = await resolveLlmCredentials(pool, userId);
-
-  // 资源库超过精评上限时，按行业/产品词项与公告文本的重叠度粗筛，
-  // 只对得分最高的候选做 LLM 精评（零重叠时保持资源库原有顺序）
-  let candidates = suppliers;
-  if (suppliers.length > PRE_FILTER_LIMIT) {
-    candidates = preFilterSuppliers(notice as any, suppliers, PRE_FILTER_LIMIT).candidates;
-  }
-
-  // 并发批量评分：单家失败不阻塞其余，失败计数返回（全部失败时前端按错误态呈现）
+  // 并发批量评分：单家失败不阻塞其余，失败计数返回
   const scored: MatchedSupplier[] = [];
   let failed = 0;
-  for (let i = 0; i < candidates.length; i += LLM_CONCURRENCY) {
-    const batch = candidates.slice(i, i + LLM_CONCURRENCY);
+  for (let i = 0; i < cands.length; i += LLM_CONCURRENCY) {
+    const batch = cands.slice(i, i + LLM_CONCURRENCY);
     const settled = await Promise.allSettled(
-      batch.map(async (supplier) => ({
-        supplier,
+      batch.map(async (c) => ({
+        c,
         result: await callLlmForScore(
           creds,
           SCORE_SYSTEM_PROMPT,
-          buildScoreUserPrompt(notice as any, supplier),
+          buildScoreUserPrompt(notice as unknown as Record<string, unknown>, c.profile, c.isSelf ? "self" : "candidate"),
         ),
       })),
     );
     for (const item of settled) {
       if (item.status === "fulfilled") {
-        const { supplier, result } = item.value;
+        const { c, result } = item.value;
+        const comp = completeness(c.profile);
         scored.push({
           ...result.data,
-          pool_id: Number(supplier.pool_id),
-          supplier_id: Number(supplier.supplier_id),
-          company: String(supplier.company || ""),
+          pool_id: c.poolId,
+          supplier_id: c.supplierId,
+          company: String(c.profile.company || ""),
+          isSelf: c.isSelf,
+          source: c.isSelf ? "self" : "pool",
+          baseComplete: comp.baseComplete,
+          diagComplete: comp.diagComplete,
         });
       } else {
         failed += 1;
@@ -116,18 +154,24 @@ export async function getOrGenerateAiMatch(
     }
   }
 
-  // 排序取 Top N（同分按 pool_id 升序，保证结果可复现）
-  scored.sort((a, b) => b.overall - a.overall || a.pool_id - b.pool_id);
-  const top = scored.slice(0, TOP_N);
+  // 排序：综合分降序；同分 self 优先，再按 supplier_id 升序（保证可复现）
+  scored.sort(
+    (a, b) =>
+      b.overall - a.overall ||
+      Number(b.isSelf) - Number(a.isSelf) ||
+      a.supplier_id - b.supplier_id,
+  );
+  // self 不截断：展示全部已评估候选（≤ 5 池 + 1 self）
+  const top = scored;
 
-  // 写入缓存（match_results 独立列，仅存 Top N 排行 JSON，不再污染评分 score_* 列；
-  // 附带每家工厂的整体推理过程，供前端展开展示）
+  // 写入缓存（match_results 独立列，携带 isSelf/source/完整度标记）
   if (top.length > 0) {
     await summaryRepo.upsertMatch({
       userId, noticeId,
       matchResults: JSON.stringify(top.map((s) => ({
         pool_id: s.pool_id, supplier_id: s.supplier_id, company: s.company,
         overall: s.overall, details: s.details, reasoning: s.reasoning,
+        isSelf: s.isSelf, source: s.source, baseComplete: s.baseComplete, diagComplete: s.diagComplete,
       }))),
       model: creds.model,
       providerBaseUrl: creds.baseUrl,
@@ -136,7 +180,7 @@ export async function getOrGenerateAiMatch(
 
   return {
     top, cached: false,
-    poolSize: suppliers.length,
+    poolSize: poolProfiles.length + (selfProfile ? 1 : 0),
     evaluated: scored.length + failed,
     failed,
     diagPending: await poolRepo.countDiagnosisPending(userId),
