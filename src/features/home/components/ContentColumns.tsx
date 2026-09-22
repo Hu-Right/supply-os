@@ -92,9 +92,9 @@ export const ContentColumns = memo(function ContentColumns() {
         {/* 热门商机 */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-extrabold text-slate-900">今日热门商机</h3>
+            <h3 className="text-base font-extrabold text-slate-900">{t("homeHotTitle")}</h3>
             <a href="/procurement" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
-              更多 &gt;
+              {t("homeMore")} &gt;
             </a>
           </div>
           <div className="flex-1">
@@ -102,7 +102,7 @@ export const ContentColumns = memo(function ContentColumns() {
               items={hotNotices}
               loading={loading}
               maxHeight={380}
-              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无热门商机"}
+              emptyText={hasError ? t("homeLoadFailed") : t("homeEmptyHot")}
               renderItem={(notice: HomeNoticeItem) => (
                 <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
                   <div className="flex items-center gap-2">
@@ -122,10 +122,10 @@ export const ContentColumns = memo(function ContentColumns() {
                   </p>
                   <div className="flex items-center justify-between mt-2">
                     {notice.estimated_value && notice.estimated_value !== '0.00' ? (
-                      <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
+                      <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{displayNoticeBudget(notice.estimated_value)}</span>
                     ) : <span />}
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
-                      查看详情
+                      {t("homeViewDetail")}
                     </span>
                   </div>
                 </a>
@@ -133,16 +133,16 @@ export const ContentColumns = memo(function ContentColumns() {
             />
           </div>
           <a href="/procurement" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
-            查看全部商机 →
+            {t("homeViewAllNotices")}
           </a>
         </div>
 
         {/* 优质供应商 */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-extrabold text-slate-900">优质供应商推荐</h3>
+            <h3 className="text-base font-extrabold text-slate-900">{t("homeSuppliersTitle")}</h3>
             <a href="/supplier" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
-              更多 &gt;
+              {t("homeMore")} &gt;
             </a>
           </div>
           <div className="flex-1">
@@ -150,7 +150,7 @@ export const ContentColumns = memo(function ContentColumns() {
               items={suppliers}
               loading={loading}
               maxHeight={380}
-              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无推荐供应商"}
+              emptyText={hasError ? t("homeLoadFailed") : t("homeEmptySuppliers")}
               renderItem={(supplier: {
                 id: string; nameZh: string; countryZh: string; cityZh: string; industryZh: string;
                 complianceLabelsZh: string[]; mainProductsZh: string[]; status: string;
@@ -171,7 +171,7 @@ export const ContentColumns = memo(function ContentColumns() {
                         </p>
                         {supplier.status === "approved" && (
                           <span className="shrink-0 px-1.5 py-0.5 rounded border border-teal-200 bg-teal-50 text-2xs font-bold text-teal-700">
-                            认证供应商
+                            {t("homeCertSupplier")}
                           </span>
                         )}
                       </div>
@@ -199,7 +199,7 @@ export const ContentColumns = memo(function ContentColumns() {
                       {(supplier.mainProductsZh ?? []).slice(0, 3).join(" · ")}
                     </p>
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
-                      查看详情
+                      {t("homeViewDetail")}
                     </span>
                   </div>
                 </a>
@@ -207,16 +207,16 @@ export const ContentColumns = memo(function ContentColumns() {
             />
           </div>
           <a href="/supplier" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
-            查看全部供应商 →
+            {t("homeViewAllSuppliers")}
           </a>
         </div>
 
         {/* 最新 RFQ 询价公告（真数据：统一搜索 notice_type=RFQ） */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-extrabold text-slate-900">最新 RFQ 询价</h3>
+            <h3 className="text-base font-extrabold text-slate-900">{t("homeRfqTitle")}</h3>
             <a href="/procurement?notice_type=RFQ" className="text-xs text-slate-400 hover:text-teal-600 font-semibold transition-colors">
-              更多 &gt;
+              {t("homeMore")} &gt;
             </a>
           </div>
           <div className="flex-1">
@@ -224,12 +224,12 @@ export const ContentColumns = memo(function ContentColumns() {
               items={rfqNotices}
               loading={loading}
               maxHeight={380}
-              emptyText={hasError ? "加载失败，请稍后刷新重试" : "暂无 RFQ 询价公告"}
+              emptyText={hasError ? t("homeLoadFailed") : t("homeEmptyRfq")}
               renderItem={(notice: HomeNoticeItem) => (
                 <a key={notice.id} href={`/procurement?notice_id=${notice.id}`} className="block group py-4">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded border border-blue-200 bg-blue-50 text-2xs font-bold text-blue-700">
-                      询价公告 (RFQ)
+                      {t("homeRfqBadge")}
                     </span>
                     <span className="ml-auto text-xs text-slate-400 shrink-0">{displayDeadlineLabel(notice.deadline_sec)}</span>
                   </div>
@@ -241,10 +241,10 @@ export const ContentColumns = memo(function ContentColumns() {
                   </p>
                   <div className="flex items-center justify-between mt-2">
                     {notice.estimated_value && notice.estimated_value !== '0.00' ? (
-                      <span className="text-sm font-semibold text-slate-800">预算：{displayNoticeBudget(notice.estimated_value)}</span>
+                      <span className="text-sm font-semibold text-slate-800">{t("homeBudgetPrefix")}{displayNoticeBudget(notice.estimated_value)}</span>
                     ) : <span />}
                     <span className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 group-hover:border-blue-400 group-hover:text-blue-700 transition-colors">
-                      查看详情
+                      {t("homeViewDetail")}
                     </span>
                   </div>
                 </a>
@@ -252,7 +252,7 @@ export const ContentColumns = memo(function ContentColumns() {
             />
           </div>
           <a href="/procurement?notice_type=RFQ" className="mt-5 text-center text-sm font-bold text-teal-600 hover:underline block">
-            查看全部RFQ →
+            {t("homeViewAllRfq")}
           </a>
         </div>
       </div>

@@ -254,5 +254,20 @@
   "homeStatSources": "Data sources / APIs",
   "homeStatSourcesSub": "Governments & intl. organizations",
   "homeStatSuppliers": "Certified suppliers",
-  "homeStatSuppliersSub": "Verified company credentials"
+  "homeStatSuppliersSub": "Verified company credentials",
+  "homeHotTitle": "Trending opportunities today",
+  "homeMore": "More",
+  "homeLoadFailed": "Failed to load, please refresh and retry",
+  "homeEmptyHot": "No trending opportunities",
+  "homeSuppliersTitle": "Featured suppliers",
+  "homeEmptySuppliers": "No featured suppliers",
+  "homeCertSupplier": "Certified supplier",
+  "homeRfqTitle": "Latest RFQs",
+  "homeRfqBadge": "RFQ",
+  "homeEmptyRfq": "No RFQ notices",
+  "homeBudgetPrefix": "Budget: ",
+  "homeViewDetail": "View details",
+  "homeViewAllNotices": "View all opportunities →",
+  "homeViewAllSuppliers": "View all suppliers →",
+  "homeViewAllRfq": "View all RFQs →"
 }

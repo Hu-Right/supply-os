@@ -254,5 +254,20 @@
   "homeStatSources": "Sources de données / API",
   "homeStatSourcesSub": "Gouvernements et organisations internationales",
   "homeStatSuppliers": "Fournisseurs certifiés",
-  "homeStatSuppliersSub": "Identité d'entreprise vérifiée"
+  "homeStatSuppliersSub": "Identité d'entreprise vérifiée",
+  "homeHotTitle": "Opportunités du jour",
+  "homeMore": "Plus",
+  "homeLoadFailed": "Échec du chargement, veuillez rafraîchir",
+  "homeEmptyHot": "Aucune opportunité en tendance",
+  "homeSuppliersTitle": "Fournisseurs recommandés",
+  "homeEmptySuppliers": "Aucun fournisseur recommandé",
+  "homeCertSupplier": "Fournisseur certifié",
+  "homeRfqTitle": "Derniers RFQ",
+  "homeRfqBadge": "Demande de cotation (RFQ)",
+  "homeEmptyRfq": "Aucun RFQ",
+  "homeBudgetPrefix": "Budget : ",
+  "homeViewDetail": "Voir les détails",
+  "homeViewAllNotices": "Voir toutes les opportunités →",
+  "homeViewAllSuppliers": "Voir tous les fournisseurs →",
+  "homeViewAllRfq": "Voir tous les RFQ →"
 }

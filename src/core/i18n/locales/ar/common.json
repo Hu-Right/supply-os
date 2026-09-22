@@ -254,5 +254,20 @@
   "homeStatSources": "مصادر البيانات / API",
   "homeStatSourcesSub": "حكومات ومنظمات دولية",
   "homeStatSuppliers": "موردون معتمدون",
-  "homeStatSuppliersSub": "ملفات الشركات موثّقة"
+  "homeStatSuppliersSub": "ملفات الشركات موثّقة",
+  "homeHotTitle": "فرص اليوم الرائجة",
+  "homeMore": "المزيد",
+  "homeLoadFailed": "تعذّر التحميل، يرجى التحديث والمحاولة لاحقًا",
+  "homeEmptyHot": "لا توجد فرص رائجة",
+  "homeSuppliersTitle": "موردون موصى بهم",
+  "homeEmptySuppliers": "لا يوجد موردون موصى بهم",
+  "homeCertSupplier": "مورد معتمد",
+  "homeRfqTitle": "أحدث طلبات RFQ",
+  "homeRfqBadge": "طلب عرض سعر (RFQ)",
+  "homeEmptyRfq": "لا توجد طلبات RFQ",
+  "homeBudgetPrefix": "الميزانية: ",
+  "homeViewDetail": "عرض التفاصيل",
+  "homeViewAllNotices": "عرض كل الفرص →",
+  "homeViewAllSuppliers": "عرض كل الموردين →",
+  "homeViewAllRfq": "عرض كل طلبات RFQ →"
 }

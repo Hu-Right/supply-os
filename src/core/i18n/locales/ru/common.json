@@ -254,5 +254,20 @@
   "homeStatSources": "Источники данных / API",
   "homeStatSourcesSub": "Правительства и международные организации",
   "homeStatSuppliers": "Сертифицированные поставщики",
-  "homeStatSuppliersSub": "Данные компании проверены"
+  "homeStatSuppliersSub": "Данные компании проверены",
+  "homeHotTitle": "Трендовые возможности сегодня",
+  "homeMore": "Ещё",
+  "homeLoadFailed": "Не удалось загрузить; обновите и повторите",
+  "homeEmptyHot": "Нет трендовых возможностей",
+  "homeSuppliersTitle": "Рекомендуемые поставщики",
+  "homeEmptySuppliers": "Нет рекомендуемых поставщиков",
+  "homeCertSupplier": "Сертифицированный поставщик",
+  "homeRfqTitle": "Последние RFQ-запросы",
+  "homeRfqBadge": "Запрос котировок (RFQ)",
+  "homeEmptyRfq": "Нет RFQ-запросов",
+  "homeBudgetPrefix": "Бюджет: ",
+  "homeViewDetail": "Подробнее",
+  "homeViewAllNotices": "Все возможности →",
+  "homeViewAllSuppliers": "Все поставщики →",
+  "homeViewAllRfq": "Все RFQ →"
 }
