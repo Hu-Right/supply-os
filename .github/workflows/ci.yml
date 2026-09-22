@@ -44,3 +44,8 @@ jobs:
           NODE_ENV: production
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
+
+      - name: CSS browser-compat gate (post-build)
+        # 校验 Tailwind v4 新语法已被 postcss-preset-env 降编译，
+        # 防止旧 WebView（如手机百度）整站丢样式回归
+        run: npm run check:css-compat
