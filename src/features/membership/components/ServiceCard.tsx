@@ -62,7 +62,7 @@ export function ServiceCard({ item }: ServiceCardProps) {
           <div className="mt-3 flex flex-col items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 p-4">
             <Image
               src="/wechat-service-qr.png"
-              alt="客服微信二维码"
+              alt={t("svcQrAlt")}
               width={140}
               height={140}
               className="rounded-lg"

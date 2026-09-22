@@ -37,7 +37,7 @@ export function getGridCols(count: number): string {
 /** 格式化配额显示 */
 export function formatQuota(plan: MembershipPlan, t: TranslateFn): string {
   if (plan.unlock_quota >= 9999) return t("membershipUnlimited");
-  return `${plan.unlock_quota}${t("membershipUnlocks")}`;
+  return `${plan.unlock_quota} ${t("membershipUnlocks")}`;
 }
 
 /**

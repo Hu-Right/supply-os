@@ -34,7 +34,7 @@
   "membershipRemainingQuota": "Remaining Free Quota",
   "membershipRecommended": "Recommended",
   "membershipDays": "days",
-  "membershipYear": "/year",
+  "membershipYear": "year",
   "membershipValidityPermanent": "Permanent",
   "membershipUnlimited": "Unlimited",
   "membershipUnlocks": "unlocks",
@@ -210,5 +210,6 @@
   "svc_api_data_mode": "Per interface package",
   "svc_api_data_b0": "Country/industry/customs data interface packages",
   "svc_api_data_b1": "Similar-opportunity recommendation API, integrates with CRM/ERP",
-  "svc_api_data_b2": "Priced by your content needs"
+  "svc_api_data_b2": "Priced by your content needs",
+  "svcQrAlt": "WeChat service QR code"
 }

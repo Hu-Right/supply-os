@@ -78,7 +78,7 @@ export function PlanCard({
           <div className="mt-0.5">
             {plan.duration_days ? (
               <span className="text-xs text-slate-500 font-medium">
-                {plan.duration_days}{t("membershipDays")} · {formatQuota(plan, t)}
+                {plan.duration_days} {t("membershipDays")} · {formatQuota(plan, t)}
               </span>
             ) : (
               <span className="text-xs text-slate-500 font-medium">

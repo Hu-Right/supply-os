@@ -39,11 +39,11 @@ export function PlanComparisonTable({ plans, currentPlanCode }: PlanComparisonTa
       if (row.render === "quota") {
         return plan.unlock_quota >= 9999
           ? (t("membershipUnlimited") as string)
-          : `${plan.unlock_quota}${t("membershipUnlocks")}`;
+          : `${plan.unlock_quota} ${t("membershipUnlocks")}`;
       }
       if (row.render === "validity") {
         return plan.duration_days
-          ? `${plan.duration_days}${t("membershipDays")}`
+          ? `${plan.duration_days} ${t("membershipDays")}`
           : (t("membershipValidityPermanent") as string);
       }
       return comparisonRowEnabled(Number(plan.benefit_rank ?? 0), row);

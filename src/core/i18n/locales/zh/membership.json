@@ -210,5 +210,6 @@
   "svc_api_data_mode": "按接口包",
   "svc_api_data_b0": "按国家、行业、海关数据接口打包提供",
   "svc_api_data_b1": "相似机会推荐接口，可对接企业 CRM/ERP",
-  "svc_api_data_b2": "根据企业需求内容报价"
+  "svc_api_data_b2": "根据企业需求内容报价",
+  "svcQrAlt": "客服微信二维码"
 }

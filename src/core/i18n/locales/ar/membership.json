@@ -34,7 +34,7 @@
   "membershipRemainingQuota": "الحصة المجانية المتبقية",
   "membershipRecommended": "موصى به",
   "membershipDays": "يومًا",
-  "membershipYear": "/سنة",
+  "membershipYear": "سنة",
   "membershipValidityPermanent": "صالح دائمًا",
   "membershipUnlimited": "غير محدود",
   "membershipUnlocks": "عمليات فتح",
@@ -210,5 +210,6 @@
   "svc_api_data_mode": "لكل حزمة واجهات",
   "svc_api_data_b0": "حزم واجهات حسب البلد والقطاع والجمارك",
   "svc_api_data_b1": "واجهة توصية بالفرص المشابهة، قابلة للربط مع CRM/ERP",
-  "svc_api_data_b2": "يُسعّر حسب محتوى احتياجك"
+  "svc_api_data_b2": "يُسعّر حسب محتوى احتياجك",
+  "svcQrAlt": "رمز QR لخدمة ويتشات"
 }

@@ -34,7 +34,7 @@
   "membershipRemainingQuota": "Оставшаяся бесплатная квота",
   "membershipRecommended": "Рекомендуется",
   "membershipDays": "дней",
-  "membershipYear": "/год",
+  "membershipYear": "год",
   "membershipValidityPermanent": "Бессрочно",
   "membershipUnlimited": "Безлимитно",
   "membershipUnlocks": "разблокировок",
@@ -210,5 +210,6 @@
   "svc_api_data_mode": "За пакет интерфейсов",
   "svc_api_data_b0": "Пакеты интерфейсов по странам, отраслям и таможням",
   "svc_api_data_b1": "API рекомендаций похожих возможностей, интеграция с CRM/ERP",
-  "svc_api_data_b2": "Стоимость по вашему содержательному запросу"
+  "svc_api_data_b2": "Стоимость по вашему содержательному запросу",
+  "svcQrAlt": "QR-код сервиса в WeChat"
 }
