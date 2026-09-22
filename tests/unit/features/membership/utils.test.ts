@@ -26,26 +26,28 @@ const labelsOf = (rank: number) => getPlanFeatures(plan(rank)).map((f) => f.labe
 describe("getPlanFeatures 按 benefit_rank 生成权益 chip", () => {
   it("体验档(1)：含摘要/相似/资格/文件，不含历史中标与 AI 评分", () => {
     const l = labelsOf(1);
-    expect(l).toEqual(expect.arrayContaining(["AI 采购摘要", "相似机会推荐", "资格条件查看", "comparisonDocDownload"]));
-    expect(l).not.toContain("历史中标查询");
-    expect(l).not.toContain("AI 适配评分");
+    expect(l).toEqual(
+      expect.arrayContaining(["comparisonSummary", "comparisonSimilar", "comparisonQualification", "comparisonDocDownload"]),
+    );
+    expect(l).not.toContain("comparisonAwardHistory");
+    expect(l).not.toContain("comparisonAiScore");
   });
 
   it("标准档(2)：解锁历史中标，仍不含 AI 评分", () => {
     const l = labelsOf(2);
-    expect(l).toContain("历史中标查询");
-    expect(l).not.toContain("AI 适配评分");
+    expect(l).toContain("comparisonAwardHistory");
+    expect(l).not.toContain("comparisonAiScore");
   });
 
   it("专业档(3)：解锁 AI 评分/解析报告/行业推送，不含企业画像", () => {
     const l = labelsOf(3);
-    expect(l).toEqual(expect.arrayContaining(["AI 适配评分", "comparisonReport", "按行业精准推送"]));
-    expect(l).not.toContain("企业画像智能匹配");
+    expect(l).toEqual(expect.arrayContaining(["comparisonAiScore", "comparisonReport", "comparisonIndustryPush"]));
+    expect(l).not.toContain("comparisonEnterpriseProfile");
   });
 
   it("企业档(4)：含企业画像智能匹配与联合体投标", () => {
     const l = labelsOf(4);
-    expect(l).toEqual(expect.arrayContaining(["企业画像智能匹配", "参与联合体投标"]));
+    expect(l).toEqual(expect.arrayContaining(["comparisonEnterpriseProfile", "comparisonConsortium"]));
   });
 
   it("档位单调性：更高档 chip 集合包含低档全部", () => {
