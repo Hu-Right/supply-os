@@ -13,7 +13,6 @@ import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-reac
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { PlanComparisonTable } from "../components/PlanComparisonTable";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
@@ -42,17 +41,12 @@ export default function MembershipPage() {
     upgradePreview, upgradeLoading, upgradeTargetPlan,
   } = useMembershipPayment({ noticeId, currentPlanCode });
 
-  const [expandedPlanCode, setExpandedPlanCode] = useState<string | null>(null);
   const [tab, setTab] = useState<MembershipTab>("plans");
 
   // V2 简化：不再分“个人/企业”两个 Tab，四档订阅（129/999/1299/8800）同列一个“会员套餐”Tab；
   // 增值服务（含企业版 ¥199/单留资项）统一归入“增值服务”Tab。
   const tabPlans = plans;
   const serviceCatalog = SERVICE_CATALOG;
-
-  const handleToggle = (planCode: string) => {
-    setExpandedPlanCode((prev) => (prev === planCode ? null : planCode));
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
@@ -111,18 +105,9 @@ export default function MembershipPage() {
               </div>
 
               {loading ? (
-                <div className="flex flex-col gap-4 max-w-3xl mx-auto">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto">
                   {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="rounded-2xl border border-slate-200/60 bg-white/60 backdrop-blur-sm px-6 py-5 shadow-lg animate-pulse">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-slate-200/60 rounded-xl shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="h-5 bg-slate-200/60 rounded w-1/3 mb-2" />
-                          <div className="h-8 bg-slate-200/60 rounded w-1/4" />
-                        </div>
-                        <div className="h-8 w-8 bg-slate-200/60 rounded-full" />
-                      </div>
-                    </div>
+                    <div key={i} className="h-72 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
                   ))}
                 </div>
               ) : error ? (
@@ -142,7 +127,7 @@ export default function MembershipPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-4 max-w-3xl mx-auto" data-testid="plan-list">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto" data-testid="plan-list">
                     {tabPlans.map((plan) => (
                       <PlanCard
                         key={plan.plan_code}
@@ -150,8 +135,6 @@ export default function MembershipPage() {
                         isVip={isVip}
                         currentPlanPrice={currentPlanPrice}
                         currentPlanCode={currentPlanCode}
-                        expanded={expandedPlanCode === plan.plan_code}
-                        onToggle={() => handleToggle(plan.plan_code)}
                         onBuy={buyPlan}
                         onUpgrade={startUpgrade}
                       />
@@ -169,7 +152,7 @@ export default function MembershipPage() {
 
           {/* ═ 为什么升级会员 ═══ */}
           {!loading && tabPlans.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
               <h2 className="text-xl font-extrabold text-slate-900 mb-6">{t("whyUpgradeTitle")}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {[
@@ -192,21 +175,6 @@ export default function MembershipPage() {
                   );
                 })}
               </div>
-            </section>
-          )}
-
-          {/* 权益对比表区域 */}
-          {!loading && tabPlans.length > 0 && (
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-              <div className="text-center mb-10">
-                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-                  {t("membershipComparisonTitle")}
-                </h2>
-                <p className="text-base text-slate-600 max-w-xl mx-auto">
-                  {t("membershipPlansDesc")}
-                </p>
-              </div>
-              <PlanComparisonTable plans={plans} currentPlanCode={currentPlanCode} />
             </section>
           )}
         </>

@@ -5,7 +5,7 @@
  *              不得再出现 V2 报价表里不存在的旧标签（外贸交流群/供应商库入驻等）。
  */
 import { describe, it, expect } from "vitest";
-import { getPlanFeatures } from "@/features/membership/utils";
+import { getPlanFeatures, isRecommendedPlan } from "@/features/membership/utils";
 import type { MembershipPlan } from "@/types";
 
 function plan(rank: number): MembershipPlan {
@@ -64,4 +64,14 @@ describe("getPlanFeatures 按 benefit_rank 生成权益 chip", () => {
       expect(all).not.toContain(stale);
     }
   });
+});
+
+describe("isRecommendedPlan", () => {
+  it("专业档(3)为推荐档", () => expect(isRecommendedPlan(plan(3))).toBe(true));
+  it("其余档非推荐", () => {
+    expect(isRecommendedPlan(plan(1))).toBe(false);
+    expect(isRecommendedPlan(plan(4))).toBe(false);
+  });
+  it("缺 benefit_rank 视为非推荐", () =>
+    expect(isRecommendedPlan({ ...plan(3), benefit_rank: undefined })).toBe(false));
 });

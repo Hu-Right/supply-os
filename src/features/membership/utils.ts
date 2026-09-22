@@ -12,7 +12,7 @@ import type { MembershipPlan } from "@/types";
 // A2 strict 修复：翻译函数类型统一从 useLocale 派生（带键联合类型），
 // 原 (key: string) => string 在 strictFunctionTypes 下与真实 t 函数不兼容。
 import type { useLocale } from "@/core/i18n";
-import { COMPARISON_ROWS, comparisonRowEnabled } from "@/lib/services/benefit-matrix";
+import { COMPARISON_ROWS, comparisonRowEnabled, BENEFIT_RANK } from "@/lib/services/benefit-matrix";
 
 /** i18n 翻译函数类型（与 useLocale 返回值中的 t 保持一致） */
 type TranslateFn = ReturnType<typeof useLocale>["t"];
@@ -79,4 +79,12 @@ export function getPlanFeatures(
     ...(FEATURE_ICON[r.key] ?? { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80" }),
     label: r.i18nKey ?? r.label,
   }));
+}
+
+/**
+ * 推荐档判定：个人专业版（PRO）为最佳性价比档，卡片高亮 + 角标。
+ * 与权益矩阵同源（BENEFIT_RANK.PRO），缺 benefit_rank 视为非推荐。
+ */
+export function isRecommendedPlan(plan: MembershipPlan): boolean {
+  return Number(plan.benefit_rank ?? -1) === BENEFIT_RANK.PRO;
 }
