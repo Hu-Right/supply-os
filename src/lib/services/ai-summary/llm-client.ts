@@ -82,7 +82,10 @@ export async function callLlmForSummary(
   }, creds.summaryTimeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS);
 
   if (!res.ok) throw new Error(`LLM_HTTP_${res.status}`);
-  const body: any = await res.json();
+  const body = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
   const content = String(body?.choices?.[0]?.message?.content ?? "").trim();
   if (!content) throw new Error("LLM_EMPTY");
   const data = parseAiSummaryResponse(content);

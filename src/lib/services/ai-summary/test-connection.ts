@@ -89,8 +89,8 @@ export async function testLlmConnection(input: TestConnectionInput): Promise<Tes
       const bodyText = await res.text().catch(() => "");
       return { ok: false, error: translateProbeError(res.status) + snippet(bodyText), latencyMs };
     }
-    const data: any = await res.json().catch(() => null);
-    const echoModel = typeof data?.model === "string" && data.model ? data.model : model;
+    const data = (await res.json().catch(() => null)) as { model?: string } | null;
+    const echoModel = typeof data?.model === "string" && data?.model ? data?.model : model;
     return { ok: true, model: echoModel, latencyMs };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

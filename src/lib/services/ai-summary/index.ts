@@ -9,7 +9,7 @@ import { LlmConfigRepo } from "../../repos/llm-config.repo";
 import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { encryptApiKey } from "./crypto";
 import { callLlmForSummary, callLlmForSummaryStream, parseAiSummaryResponse } from "./llm-client";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt";
+import { SYSTEM_PROMPT, buildUserPrompt, type NoticePromptFields } from "./prompt";
 import { extractAttachmentsText } from "./doc-extractor";
 import {
   errNoticeNotFound, errLlmCallFailed, errLlmBadFormat,
@@ -151,7 +151,7 @@ export async function getOrGenerateAiSummary(
   const supplier = await fetchSupplierProfile(pool, userId);
 
   const userPrompt = buildUserPrompt(
-    { ...notice, attachments_text: attachmentsText } as any,
+    { ...notice, attachments_text: attachmentsText } as unknown as NoticePromptFields,
     supplier,
   );
 
@@ -220,7 +220,7 @@ export async function* streamAiSummary(
   const supplier = await fetchSupplierProfile(pool, userId);
 
   const userPrompt = buildUserPrompt(
-    { ...notice, attachments_text: attachmentsText } as any,
+    { ...notice, attachments_text: attachmentsText } as unknown as NoticePromptFields,
     supplier,
   );
 
