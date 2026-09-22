@@ -1,92 +1,183 @@
 /**
  * E2E 冒烟：移动端布局 + RTL + 「样式是否真的生效」
  *
- * @description 针对「手机内置浏览器（如百度 App）整站无样式」这类回归的自动化防线。
- *              三件事：
- *                1) 全局样式表确实加载并被浏览器应用（用 globals.css 里的纯声明作为探针）；
- *                2) 移动端窄视口下无横向溢出（防止小屏左右滑动）；
- *                3) 阿拉伯语（ar）下 html[dir] 正确切换为 rtl（六语言含 RTL）。
- *
- *              仅在移动端 project 下运行（见 playwright.config.ts 对桌面 project 的 testIgnore）。
- *              说明：Playwright 内置 Chromium 为新版内核，无法直接复现「旧内核丢样式」；
- *              旧内核兼容由构建期 postcss-preset-env 降编译保证，本用例守住的是
- *              「样式表正常加载 + 布局无回归」这条功能基线。
+ * 检查冷加载与刷新资源、关键控件几何布局和真实语言切换。
+ * npm run test:e2e:styles 使用真实生产 HTML/CSS/JS、隔离的只读 API 样例。
+ * 此套件不连接业务数据库，不替代完整 API E2E 或旧百度内核的真机验收。
  */
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
-const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const HOME = "/showroom";
+const menuNames = { zh: "打开菜单", ar: "فتح القائمة" };
 
-/** 通过 Cookie 预置语言（middleware 读 supply_os_locale，客户端 LocaleProvider 同步 html lang/dir） */
-async function seedLocale(page: import("@playwright/test").Page, locale: string) {
-  await page.context().addCookies([
-    { name: "supply_os_locale", value: locale, url: BASE_URL },
-  ]);
+function watchResources(page: Page) {
+  const css = new Set<string>();
+  const failures: string[] = [];
+  page.on("pageerror", (error) => failures.push(`JavaScript: ${error.message}`));
+  page.on("requestfailed", (request) => {
+    if (request.url().includes("/_next/static/")) {
+      failures.push(`${request.url()}: ${request.failure()?.errorText}`);
+    }
+  });
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.startsWith("/api/") && response.status() >= 500) {
+      failures.push(`API 样例缺失或服务异常：${response.status()} ${url.pathname}`);
+    }
+    if (!url.pathname.startsWith("/_next/static/")) return;
+    if (response.status() >= 400) failures.push(`${response.status()} ${url.pathname}`);
+    if (url.pathname.endsWith(".css")) {
+      const mime = response.headers()["content-type"] ?? "";
+      if (!/^text\/css(?:;|$)/i.test(mime)) failures.push(`CSS MIME 错误：${mime} ${url.pathname}`);
+      if (response.ok() && /^text\/css(?:;|$)/i.test(mime)) css.add(response.url());
+    }
+  });
+  return { css, failures };
+}
+
+async function assertStyles(page: Page, resources: ReturnType<typeof watchResources>) {
+  const input = page.getByRole("main").locator('input[type="text"]').first();
+  await expect(input).toBeVisible();
+  await expect(input).toHaveCSS("border-top-width", "1px");
+  await expect(input).toHaveCSS("padding-inline-start", "36px");
+  await expect(page.locator("header")).toHaveCSS("position", "sticky");
+  const links = await page
+    .locator('link[rel="stylesheet"]')
+    .evaluateAll((nodes) => nodes.map((node) => (node as HTMLLinkElement).href));
+  expect(links.length).toBeGreaterThan(0);
+  for (const href of links)
+    expect(resources.css.has(href), `未收到有效 CSS 响应：${href}`).toBe(true);
+  expect(resources.failures).toEqual([]);
+}
+
+async function assertWithinViewport(locator: Locator) {
+  const boxes = await locator.evaluateAll((nodes) =>
+    nodes.flatMap((node) => {
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) return [];
+      return [{ tag: node.tagName, left: rect.left, right: rect.right, viewport: innerWidth }];
+    })
+  );
+  expect(boxes.length).toBeGreaterThan(0);
+  for (const box of boxes) {
+    expect(box.left, `${box.tag} 左侧被裁剪`).toBeGreaterThanOrEqual(-1);
+    expect(box.right, `${box.tag} 右侧被裁剪`).toBeLessThanOrEqual(box.viewport + 1);
+  }
+}
+
+async function assertInputDirection(page: Page, direction: "ltr" | "rtl") {
+  const input = page.getByRole("main").locator('input[type="text"]').first();
+  await expect(input).toHaveCSS("direction", direction);
+  await expect(input).toHaveCSS(direction === "rtl" ? "padding-right" : "padding-left", "36px");
+  const inputBox = await input.boundingBox();
+  const iconBox = await input.locator("..").locator("svg").first().boundingBox();
+  expect(inputBox).not.toBeNull();
+  expect(iconBox).not.toBeNull();
+  const edgeDistance =
+    direction === "rtl"
+      ? inputBox!.x + inputBox!.width - iconBox!.x - iconBox!.width
+      : iconBox!.x - inputBox!.x;
+  expect(edgeDistance).toBeGreaterThanOrEqual(10);
+  expect(edgeDistance).toBeLessThanOrEqual(16);
 }
 
 test.describe("移动端 · RTL · 样式生效冒烟", () => {
-  test.beforeEach(async ({ page }) => {
-    // 固定窄视口，保证「无横向溢出」断言在不同 project 下都确定
-    await page.setViewportSize({ width: 390, height: 844 });
-  });
-
-  test("全局样式表已加载并生效（探针：html overflow-x = hidden）", async ({ page }) => {
-    await seedLocale(page, "zh");
-    await page.goto(`${BASE_URL}${HOME}`, { waitUntil: "domcontentloaded" });
-
-    const probe = await page.evaluate(() => {
-      // globals.css 里有一条无争议的纯声明： html,body { overflow-x: hidden }
-      const overflowX = getComputedStyle(document.documentElement).overflowX;
-      // 统计所有可访问样式表里的规则总数，确认 CSS 真正被解析注入
-      let ruleCount = 0;
-      for (const sheet of Array.from(document.styleSheets)) {
-        try {
-          ruleCount += sheet.cssRules?.length ?? 0;
-        } catch {
-          /* 跨域样式表读取 cssRules 会抛错，忽略 */
+  for (const locale of ["zh", "ar"] as const) {
+    test(`${locale}：冷加载及刷新后的 CSS、布局与图标方向`, async ({ page, context, baseURL }) => {
+      await context.addCookies([{ name: "supply_os_locale", value: locale, url: baseURL! }]);
+      const resources = watchResources(page);
+      await page.goto(HOME, { waitUntil: "load" });
+      for (const round of ["cold", "reload"]) {
+        if (round === "reload") await page.reload({ waitUntil: "load" });
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        await assertStyles(page, resources);
+        await assertInputDirection(page, locale === "ar" ? "rtl" : "ltr");
+        const gradient = page.getByRole("main").locator("button.bg-gradient-to-r").first();
+        await expect(gradient).not.toHaveCSS("background-image", "none");
+        for (const width of [320, 390]) {
+          await page.setViewportSize({ width, height: 844 });
+          await assertWithinViewport(
+            page.locator("main input, main select, main button, main h2, header button")
+          );
         }
       }
-      const linkTags = document.querySelectorAll('link[rel="stylesheet"]').length;
-      return { overflowX, ruleCount, linkTags };
     });
+  }
 
-    expect(probe.linkTags, "应至少注入一个 <link rel=stylesheet>").toBeGreaterThan(0);
-    expect(probe.ruleCount, "样式表规则数过少，疑似 CSS 未生效").toBeGreaterThan(100);
-    expect(probe.overflowX, "globals.css 未生效（探针规则缺失）").toBe("hidden");
+  test("真实菜单切换 zh → ar → zh，文字与输入图标同步镜像", async ({ page, context, baseURL }) => {
+    await context.addCookies([{ name: "supply_os_locale", value: "zh", url: baseURL! }]);
+    const resources = watchResources(page);
+    await page.goto(HOME, { waitUntil: "load" });
+    await page.getByRole("button", { name: menuNames.zh, exact: true }).click();
+    for (const locale of ["ar", "zh"] as const) {
+      await page
+        .getByRole("button", { name: locale === "ar" ? "العربية" : "中文", exact: true })
+        .click();
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await assertInputDirection(page, locale === "ar" ? "rtl" : "ltr");
+      const label = page.locator('nav:visible a[href="/showroom"] span.text-start');
+      await expect(label).toHaveCSS("text-align", "start");
+      await expect(label).toHaveCSS("direction", locale === "ar" ? "rtl" : "ltr");
+    }
+    expect(resources.failures).toEqual([]);
   });
 
-  test("移动端窄视口无横向溢出", async ({ page }) => {
-    await seedLocale(page, "zh");
-    await page.goto(`${BASE_URL}${HOME}`, { waitUntil: "networkidle" });
-
-    const overflow = await page.evaluate(() => {
-      const doc = document.documentElement;
-      // 允许 1px 的舍入误差
-      return doc.scrollWidth - window.innerWidth;
+  test("移除渐变增强分支后，真实回退仍绘制背景", async ({ page }) => {
+    await page.goto(HOME, { waitUntil: "load" });
+    const removed = await page.evaluate(() => {
+      let count = 0;
+      function removeEnhancements(group: CSSStyleSheet | CSSGroupingRule) {
+        for (let i = group.cssRules.length - 1; i >= 0; i--) {
+          const rule = group.cssRules[i];
+          if (
+            rule instanceof CSSSupportsRule &&
+            rule.conditionText.includes("linear-gradient") &&
+            rule.conditionText.includes("oklab")
+          ) {
+            group.deleteRule(i);
+            count++;
+          } else if (rule instanceof CSSGroupingRule) {
+            removeEnhancements(rule);
+          }
+        }
+      }
+      for (const sheet of document.styleSheets) {
+        if (sheet.href && new URL(sheet.href).origin === location.origin) removeEnhancements(sheet);
+      }
+      return count;
     });
-    expect(overflow, `页面出现 ${overflow}px 横向溢出`).toBeLessThanOrEqual(1);
+    expect(removed).toBeGreaterThan(0);
+    const gradient = page.getByRole("main").locator("button.bg-gradient-to-r").first();
+    await expect(gradient).not.toHaveCSS("background-image", "none");
+    await expect(gradient).not.toHaveCSS("--tw-gradient-position", /oklab/);
   });
 
-  test("阿拉伯语（ar）下正确切换为 RTL", async ({ page }) => {
-    await seedLocale(page, "ar");
-    await page.goto(`${BASE_URL}${HOME}`, { waitUntil: "domcontentloaded" });
+  test("裁剪反例：overflow hidden 不能掩盖超宽控件", async ({ page }) => {
+    await page.goto(HOME, { waitUntil: "load" });
+    const input = page.getByRole("main").locator('input[type="text"]').first();
+    await input.evaluate((element) => {
+      element.style.width = "200vw";
+    });
+    await expect(assertWithinViewport(input)).rejects.toThrow("右侧被裁剪");
+  });
 
-    // dir 由客户端 useEffect 异步写入，等待其收敛为 rtl
-    await page.waitForFunction(
-      () => document.documentElement.getAttribute("dir") === "rtl",
-      undefined,
-      { timeout: 10_000 },
+  test("资源断言能识别错误的 CSS MIME", async ({ page }) => {
+    const resources = watchResources(page);
+    await page.route("**/_next/static/**/*.css", (route) =>
+      route.fulfill({ status: 200, contentType: "text/html", body: "not CSS" })
     );
+    await page.goto(HOME, { waitUntil: "load" });
+    expect(resources.css.size).toBe(0);
+    expect(resources.failures.some((failure) => failure.includes("CSS MIME 错误"))).toBe(true);
+  });
 
-    const state = await page.evaluate(() => ({
-      dir: document.documentElement.getAttribute("dir"),
-      lang: document.documentElement.getAttribute("lang"),
-      // RTL 下样式表仍应生效（探针规则不受方向影响）
-      overflowX: getComputedStyle(document.documentElement).overflowX,
-    }));
-
-    expect(state.dir).toBe("rtl");
-    expect(state.lang).toBe("ar");
-    expect(state.overflowX).toBe("hidden");
+  test("资源断言能识别 CSS 404，防止测试假绿", async ({ page }) => {
+    const resources = watchResources(page);
+    await page.route("**/_next/static/**/*.css", (route) =>
+      route.fulfill({ status: 404, contentType: "text/html", body: "missing CSS" })
+    );
+    await page.goto(HOME, { waitUntil: "load" });
+    expect(resources.css.size).toBe(0);
+    expect(resources.failures.some((failure) => failure.includes("404"))).toBe(true);
   });
 });

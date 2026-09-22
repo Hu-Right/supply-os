@@ -32,6 +32,11 @@ scripts/*
 !scripts/perf-budget-check.ts
 !scripts/prerender.ts
 !scripts/deploy.sh
+!scripts/css-compat-gate.mjs
+!scripts/serve-style-smoke.mjs
+!scripts/lib/
+scripts/lib/*
+!scripts/lib/css-compat.mjs
 runtime/
 backups/
 bin/

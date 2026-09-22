@@ -45,7 +45,36 @@ jobs:
           PAYMENT_MODE: live
           JWT_SECRET: ci-build-dummy-secret
 
-      - name: CSS browser-compat gate (post-build)
-        # 校验 Tailwind v4 新语法已被 postcss-preset-env 降编译，
-        # 防止旧 WebView（如手机百度）整站丢样式回归
-        run: npm run check:css-compat
+  browser-compat:
+    name: CSS 回退 · 移动端生产产物冒烟
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: CSS 管线及门禁正反例
+        run: npm run test:css-compat
+      - name: 生产构建及 CSS 门禁
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PAYMENT_MODE: live
+          JWT_SECRET: ci-build-dummy-secret
+      - name: 安装移动端测试内核
+        run: npx playwright install --with-deps chromium webkit
+      - name: 检查同一份产物的资源、窄屏布局与 RTL
+        # 直接服务刚构建的 HTML/CSS/JS；只读 API 样例隔离数据库，非完整后端 E2E。
+        run: npm run test:e2e:styles
+      - name: 保存浏览器失败证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-compat-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
