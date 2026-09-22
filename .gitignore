@@ -34,6 +34,10 @@ scripts/*
 !scripts/deploy.sh
 !scripts/check-i18n.ts
 !scripts/check-no-admin-routes.mjs
+!scripts/css-compat-gate.mjs
+!scripts/lib/
+scripts/lib/*
+!scripts/lib/css-compat.mjs
 runtime/
 backups/
 bin/

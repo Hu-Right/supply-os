@@ -1,5 +1,46 @@
 @import "tailwindcss";
 
+/* 渐变参数存于变量时不会自动降编译：先给传统方向，再按能力增强插值空间。 */
+@utility bg-gradient-to-r {
+  --tw-gradient-position: to right;
+  @supports (background-image: linear-gradient(in oklab, red, blue)) {
+    --tw-gradient-position: to right in oklab;
+  }
+}
+@utility bg-gradient-to-b {
+  --tw-gradient-position: to bottom;
+  @supports (background-image: linear-gradient(in oklab, red, blue)) {
+    --tw-gradient-position: to bottom in oklab;
+  }
+}
+@utility bg-gradient-to-t {
+  --tw-gradient-position: to top;
+  @supports (background-image: linear-gradient(in oklab, red, blue)) {
+    --tw-gradient-position: to top in oklab;
+  }
+}
+@utility bg-gradient-to-br {
+  --tw-gradient-position: to bottom right;
+  @supports (background-image: linear-gradient(in oklab, red, blue)) {
+    --tw-gradient-position: to bottom right in oklab;
+  }
+}
+@utility bg-gradient-to-tr {
+  --tw-gradient-position: to top right;
+  @supports (background-image: linear-gradient(in oklab, red, blue)) {
+    --tw-gradient-position: to top right in oklab;
+  }
+}
+
+/* 关键图标/轮播按钮居中：仅在不支持独立 translate 的内核使用传统变换。 */
+@layer utilities {
+  @supports not (translate: 0) {
+    .-translate-y-1\/2 {
+      transform: translateY(-50%);
+    }
+  }
+}
+
 /* P0-4 移动端修复：防止小屏幕下水平溢出导致可左右滑动 */
 html,
 body {
@@ -66,6 +107,19 @@ input[type="number"] {
  * 保留原始色例外（装饰性渐变端点/点缀）：cyan、indigo、violet、purple
  */
 @theme {
+  /* 零色度的 none 色相改为等价的 0，让中性色可被 PostCSS 静态降级。 */
+  --color-neutral-50: oklch(98.5% 0 0);
+  --color-neutral-100: oklch(97% 0 0);
+  --color-neutral-200: oklch(92.2% 0 0);
+  --color-neutral-300: oklch(87% 0 0);
+  --color-neutral-400: oklch(70.8% 0 0);
+  --color-neutral-500: oklch(55.6% 0 0);
+  --color-neutral-600: oklch(43.9% 0 0);
+  --color-neutral-700: oklch(37.1% 0 0);
+  --color-neutral-800: oklch(26.9% 0 0);
+  --color-neutral-900: oklch(20.5% 0 0);
+  --color-neutral-950: oklch(14.5% 0 0);
+
   /* 品牌色 primary（teal） */
   --color-primary-50: #f0fdfa;
   --color-primary-100: #ccfbf1;

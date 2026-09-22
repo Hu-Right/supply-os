@@ -49,8 +49,9 @@ elif [ -f .env ]; then
 fi
 
 # 3.3 复制静态资源（standalone 模式不会自动复制 .next/static）
-cp -r .next/static .next/standalone/.next/static
-echo "[deploy] 已复制静态资源 → standalone"
+cp -rT .next/static .next/standalone/.next/static
+node scripts/css-compat-gate.mjs .next/standalone/.next/static
+echo "[deploy] 已复制并检查静态资源 → standalone"
 
 # 3.4 复制 public 目录（字体、图片等静态文件）
 #     使用 -T 将目标视为目录，避免 cp -r 在目标已存在时嵌套为 public/public/

@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --port 3000 --hostname 0.0.0.0",
-    "build": "next build",
+    "build": "next build && npm run check:css-compat",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['dist','server.js'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "lint": "npm run check:encoding && node scripts/check-no-admin-routes.mjs && npm run check:wide-ssot && eslint src/",
@@ -18,6 +18,8 @@
     "check:encoding": "node scripts/check-mojibake.mjs",
     "check:no-admin": "node scripts/check-no-admin-routes.mjs",
     "check:wide-ssot": "node scripts/check-wide-table-ssot.mjs",
+    "check:css-compat": "node scripts/css-compat-gate.mjs",
+    "test:css-compat": "node --test tests/unit/scripts/*.test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -32,7 +34,7 @@
     "test:ci": "npm run test:unit && npm run test:coverage-gate -- coverage/unit 90 85 && npm run test:integration:coverage && npm run test:coverage-gate -- coverage/integration 80",
     "perf:check": "npx tsx scripts/perf-budget-check.ts",
     "seed:test-db": "npx tsx scripts/seed-test-db.ts",
-    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run build"
+    "pre-push": "npm run check:encoding && npm run check-i18n && npm run typecheck && npm run lint && npm run test && npm run test:css-compat && npm run build"
   },
   "dependencies": {
     "@alicloud/dypnsapi20170525": "^2.0.0",
@@ -100,12 +102,16 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.10",
+    "browserslist": "^4.29.0",
     "esbuild": "^0.25.0",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^29.1.1",
     "mammoth": "^1.12.0",
     "msw": "^2.15.0",
+    "postcss-preset-env": "^11.5.3",
+    "postcss-selector-parser": "7.1.6",
+    "postcss-value-parser": "4.2.0",
     "prettier": "^3.9.6",
     "sharp": "^0.35.3",
     "tailwindcss": "^4.1.14",
