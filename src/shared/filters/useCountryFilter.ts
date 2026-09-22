@@ -22,7 +22,7 @@ export interface UseCountryFilterParams {
 }
 
 export function useCountryFilter({
-  countries, value, onChange, locale, placeholder,
+  countries, value, onChange, locale,
 }: UseCountryFilterParams) {
   const [focused, setFocused] = useState(false);
   const [query, setQuery] = useState("");

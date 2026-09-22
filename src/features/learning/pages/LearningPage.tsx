@@ -20,9 +20,9 @@ import type { LearningMaterial } from "@/types";
 import { emitAppEvent, type PayEventDetail } from "@/core/events";
 
 export default function LearningPage() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const { authUser } = useAuth();
-  const { materials, bundles, purchasedIds, loading, refreshPurchased, bumpDownloadCount } = useLearningMaterials();
+  const { materials, bundles, purchasedIds, loading, bumpDownloadCount } = useLearningMaterials();
 
   // premium 资料的 fileUrl 不随列表下发（审查 F4）：为空时按需向
   // /content 端点获取（服务端校验登录 + 购买记录）

@@ -11,7 +11,7 @@
  *              and bid breakdown suggestions.
  */
 
-import { Download, ExternalLink, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { Download, ListChecks, Mail, Phone, ShieldCheck, User } from "lucide-react";
 import type { ReactNode } from "react";
 import { useOptionalAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";

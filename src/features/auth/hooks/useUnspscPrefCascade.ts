@@ -13,7 +13,6 @@
  *              level-change handlers (level-1 change clears levels 2/3, etc.).
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocale } from "@/core/i18n";
 import {
   fetchUnspscIndustries,
   fetchUnspscChildren,
@@ -40,8 +39,6 @@ export interface UseUnspscPrefCascadeReturn {
 }
 
 export function useUnspscPrefCascade(): UseUnspscPrefCascadeReturn {
-  const { locale } = useLocale();
-
   const [industryOptions, setIndustryOptions] = useState<UnspscOption[]>([]);
   const [subOptions, setSubOptions] = useState<UnspscOption[]>([]);
   const [subOptions2, setSubOptions2] = useState<UnspscOption[]>([]);

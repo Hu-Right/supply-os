@@ -25,7 +25,7 @@ import { fetchUnspscIndustries, fetchUnspscChildren, type UnspscOption } from "@
 import { DEFAULT_RFQ_FORM } from "../../constants";
 import type { FieldErrors, RfqFormState } from "../../types";
 
-import { DESCRIPTION_TEMPLATE, STEP_META, MAX_FILE_SIZE, MAX_FILE_COUNT } from "./constants";
+import { DESCRIPTION_TEMPLATE, STEP_META } from "./constants";
 import { tomorrowIso } from "./utils";
 import { StepIndicator } from "./ui/StepIndicator";
 import { useLocationData } from "./hooks/useLocationData";

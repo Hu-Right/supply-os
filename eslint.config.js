@@ -58,8 +58,18 @@ export default tseslint.config(
     },
     rules: {
       // 由 @typescript-eslint 版本接管（识别类型感知场景下的合法未使用参数）
+      // 尊重项目既有 `_` 前缀约定：以 _ 开头的形参/变量/捕获错误视为「故意未用」，不告警
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "after-used",
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
       // 存量代码大量使用 any（tsconfig 已注释约束新增代码），ESLint 侧不阻断，渐进收敛
       "@typescript-eslint/no-explicit-any": "off",
       // 空 catch 在本项目中广泛用于静默降级（网络/缓存类操作），不阻断

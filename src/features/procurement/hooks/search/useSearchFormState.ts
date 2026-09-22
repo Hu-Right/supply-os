@@ -4,7 +4,7 @@
  *
  * @module features/procurement/hooks/search/useSearchFormState
  */
-import { useCallback, useReducer, useEffect } from "react";
+import { useCallback, useReducer } from "react";
 import { useSearchParams } from "next/navigation";
 import { searchFormReducer, type SearchFormState } from "../searchFormReducer";
 

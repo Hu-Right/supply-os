@@ -429,8 +429,8 @@ export async function refreshNoticeAgencies(pool: Pool): Promise<AgencyCacheItem
         item.i18n = { ...item.i18n, zh: typeZh };
       } else {
         const agencyName = item.agency;
-        if (/[_\.]/.test(agencyName)) {
-          const codePart = agencyName.split(/[_\.]/)[0];
+        if (/[_.]/.test(agencyName)) {
+          const codePart = agencyName.split(/[_.]/)[0];
           const codeTypeZh = buildZhFromKeywords(codePart);
           if (codeTypeZh) {
             item.i18n = { ...item.i18n, zh: `${codeTypeZh}（采购系统）` };

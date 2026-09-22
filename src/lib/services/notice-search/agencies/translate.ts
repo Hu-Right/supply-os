@@ -117,7 +117,7 @@ export function extractCountryFromName(name: string): string | null {
     const re = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
     if (re.test(upper)) return zh;
   }
-  const isoMatch = upper.match(/[_\.]([A-Z]{2})(?:[_\.]|$)/);
+  const isoMatch = upper.match(/[_.]([A-Z]{2})(?:[_.]|$)/);
   if (isoMatch) {
     const isoCode = isoMatch[1];
     const countryZh = COUNTRY_ZH[isoCode];

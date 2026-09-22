@@ -48,14 +48,12 @@ export interface AppHeaderProps {
 
 export function AppHeader({
   tabs, activeTab,
-  mobileMenuOpen, setMobileMenuOpen, onSwitchTab, onOpenAccount,
+  mobileMenuOpen, setMobileMenuOpen, onOpenAccount,
   tierLabel,
 }: AppHeaderProps) {
   const { t } = useLocale();
   const { authUser, isVip } = useAuth();
   const navScrollRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
-  const router = useRouter();
 
   // 动态本地时间（每秒刷新）
   // ★ 初始化为空字符串 + suppressHydrationWarning，彻底避免 SSR/CSR 时间戳不一致导致 hydration mismatch

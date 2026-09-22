@@ -10,7 +10,7 @@
 import { useRouter } from "next/navigation";
 import { Bookmark, Share2, Factory, Store } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
-import { Button, Card, Badge } from "@/shared/ui";
+import { Button, Card } from "@/shared/ui";
 import type { Supplier } from "@/types";
 
 export interface SupplierCardProps {
@@ -26,7 +26,7 @@ const TIER_BADGE: Record<string, { bg: string; text: string; border: string; lab
   recommended: { bg: "bg-rose-500", text: "text-white", border: "border-rose-500", labelKey: "supplierRecommended" },
 };
 
-export function SupplierCard({ supplier, onAiMatch, onContact }: SupplierCardProps) {
+export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const { t, locale } = useLocale();
   const router = useRouter();
 

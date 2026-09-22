@@ -26,7 +26,6 @@ import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentProviderName } from "../types/payment";
 import type { PaymentStrategy } from "./types";
 import { resolvePaymentProvider } from "./pipeline/provider-resolver";
-import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 import { fulfillInTransaction } from "./pipeline/fulfill-template";
 import { TRAINING_FULFILL_ALLOWED } from "./pipeline/state-machine";
 import { TRAINING_ORDER_EXPIRES_MS } from "@/shared/constants/time";

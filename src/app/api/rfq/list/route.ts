@@ -33,7 +33,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   const province = String(sp.get("province") || "").trim().slice(0, 50);
   const categoryL1 = sp.get("category_l1") ? Number(sp.get("category_l1")) : undefined;
   const sort = sp.get("sort") === "deadline" ? "deadline" : sp.get("sort") === "budget" ? "budget" : "newest";
-  const locale = String(sp.get("locale") || "zh");
 
   const pool = getPool();
 

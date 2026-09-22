@@ -13,7 +13,6 @@ import { activatePaidOrder } from "./fulfillment";
 import { reverseFulfilledOrder } from "./reverse";
 import { fulfillMockPayment } from "./mock";
 import { SITE_URL } from "../services/seo/site";
-import { ORDER_STATUS } from "@/shared/constants/order-status";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 
 /**

@@ -290,9 +290,6 @@ export async function translateViaChain(
   const assemble = (translated: Map<number, string>): string[] =>
     texts.map((text, index) => translated.get(index) ?? text);
 
-  // 降级轨迹：记录被跳过的上游通道及原因，供调用方打结构化日志
-  const degraded: string[] = [];
-
   // ── DeepSeek Flash (V4.1) 单通道 ──
   try {
     // 合并请求：所有段一次过 DeepSeek（各段独立 protectTerms，占位符互不干扰）

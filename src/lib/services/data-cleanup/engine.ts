@@ -80,7 +80,7 @@ function sleep(ms: number): Promise<void> {
 export async function countStaleData(
   pool: Pool,
   target: CleanupTarget,
-  includeExpired = false,
+  _includeExpired = false,
 ): Promise<{ tableTotal: number; orphanRows: number; expiredRows: number }> {
   const [totalRows] = await pool.query(`SELECT COUNT(*) AS cnt FROM ${target.table}`);
   const tableTotal = Number((totalRows as RowDataPacket[])[0].cnt);

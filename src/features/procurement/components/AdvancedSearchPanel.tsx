@@ -104,7 +104,6 @@ export function AdvancedSearchPanel({
   countries,
   agencies,
   applySearch,
-  clearSearch,
   toggleFeatured: _toggleFeatured,
 }: AdvancedSearchPanelProps) {
   const { t } = useLocale();
@@ -125,12 +124,6 @@ export function AdvancedSearchPanel({
     e.preventDefault();
     applySearch();
   }, [applySearch]);
-
-  const handleClear = useCallback(() => {
-    setBudgetMin("");
-    setBudgetMax("");
-    clearSearch();
-  }, [clearSearch]);
 
   return (
     <form

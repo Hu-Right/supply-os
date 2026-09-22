@@ -1,7 +1,7 @@
 /**
  * GET /api/unspsc/industries — UNSPSC 一级行业分类（10min 缓存）
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute } from "@/lib/middleware/route-handler";
 

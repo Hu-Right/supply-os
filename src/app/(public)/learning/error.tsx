@@ -11,7 +11,7 @@ export default function LearningError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  // eslint-disable-next-line no-console
+   
   console.error("[LearningError]", error);
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">

@@ -20,7 +20,6 @@ import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { findLearningBundle } from "../data/learning-bundles";
 import { getPool } from "../db/pool";
-import { ORDER_STATUS } from "@/shared/constants/order-status";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 
 export class LearningPaymentService {

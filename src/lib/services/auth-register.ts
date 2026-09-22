@@ -13,7 +13,6 @@
  *              不再依赖 user_key 列做查询。
  */
 import type { AppContext } from "../db/context";
-import { getPool } from "../db/pool";
 import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";

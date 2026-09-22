@@ -26,7 +26,7 @@ export const NOTICE_TRANSLATION_LANGS: Record<string, string> = {
 // 原文已是目标语言时直通返回（杜绝"中文翻译为中文"的无效 API 调用），
 // 中文原文走链时源语言标 zh（翻译链方向正确）。与前端 src/core/i18n/detectScript.ts 同构。
 type ContentScript = "cjk" | "cyrillic" | "arabic" | "latin" | "unknown";
-const NOTICE_LANG_SCRIPT: Record<string, ContentScript> = {
+const _NOTICE_LANG_SCRIPT: Record<string, ContentScript> = {
   zh: "cjk",
   ru: "cyrillic",
   ar: "arabic",

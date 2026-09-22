@@ -21,7 +21,6 @@ import { useSupplierProfile } from "../hooks/useSupplierProfile";
 import { fetchSupplierContact, type SupplierContact, type SupplierContactStatus } from "@/shared/api/supplier";
 import { SupplierContactModal } from "@/shared/components/SupplierContactModal";
 import { SupplierClaimModal } from "./SupplierClaimModal";
-import type { Supplier } from "@/types";
 import {
   CapabilityPanel, ProductsPanel, CertsPanel,
   ProcurementPanel, OverseasPanel, OpportunitiesPanel,

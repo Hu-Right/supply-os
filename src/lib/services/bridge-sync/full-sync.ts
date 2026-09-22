@@ -9,7 +9,7 @@
  *              性能优化：启动时加载 UNSPSC 类目树到内存缓存，消除逐行 N+1 查询。
  *              缓存加载失败时自动降级到逐行查询模式。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
 import {
   type UnspscCodeRow,
   normalizeUnspscCodes,
@@ -34,7 +34,7 @@ interface BridgeRowToInsert {
 }
 
 /** 从内存缓存准备单条源记录的桥接行（0 次 SQL） */
-function prepareBridgeRowsFromCache(row: RowDataPacket, fk: string): BridgeRowToInsert[] {
+function prepareBridgeRowsFromCache(row: RowDataPacket, _fk: string): BridgeRowToInsert[] {
   const codes = normalizeUnspscCodes(row.unspsc_codes);
   const result: BridgeRowToInsert[] = [];
   for (const item of codes) {

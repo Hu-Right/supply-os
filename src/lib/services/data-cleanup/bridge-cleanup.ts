@@ -16,7 +16,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { createLogger } from "../../utils/fileLogger";
-import { type CleanupTarget, type CleanupOptions, type CleanupStats, runStaleDataCleanup, countStaleData } from "./engine";
+import { type CleanupTarget, type CleanupOptions, type CleanupStats, runStaleDataCleanup } from "./engine";
 
 const logger = createLogger("bridge-cleanup");
 
@@ -38,7 +38,7 @@ export interface BridgeCleanupStats extends CleanupStats {}
  */
 export async function countStaleBridgeRows(
   pool: Pool,
-  includeExpired = false,
+  _includeExpired = false,
 ): Promise<{ bridgeTotal: number; orphanRows: number; expiredRows: number }> {
   const [totalRows] = await pool.query(
     "SELECT COUNT(*) AS cnt FROM crm_bid_notice_unspsc_codes",

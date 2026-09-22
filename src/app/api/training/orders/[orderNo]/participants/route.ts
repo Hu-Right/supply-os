@@ -2,7 +2,7 @@
  * GET  /api/training/orders/:orderNo/participants — 查询学员信息
  * POST /api/training/orders/:orderNo/participants — 保存学员信息
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

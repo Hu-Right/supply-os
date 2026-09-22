@@ -11,7 +11,7 @@
  */
 
 /** 判断 IP 是否为回环/私有内网地址（可信代理的典型来源） */
-function isPrivateOrLoopback(ip: string): boolean {
+function _isPrivateOrLoopback(ip: string): boolean {
   return (
     ip === "127.0.0.1" ||
     ip === "::1" ||

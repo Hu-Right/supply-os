@@ -5,7 +5,6 @@
  * @module features/crm/components/CrmSidebar
  * @description 工作台左侧导航：菜单项 + AI 额度 + 团队成员 + 升级按钮
  */
-import { useState } from "react";
 import {
   LayoutDashboard, Briefcase, Sparkles, CalendarDays,
   Users, FolderOpen, Headphones, Settings,

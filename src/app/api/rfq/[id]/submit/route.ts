@@ -5,7 +5,7 @@
  * @description 仅 RFQ 创建者（user_id 匹配）可将 draft → published。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

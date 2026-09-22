@@ -9,7 +9,7 @@ import { AiSummaryRepo } from "../../repos/ai-summary.repo";
 import { callLlmForScore } from "./llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "./prompt";
 import { errLlmCallFailed, errNoticeNotFound, errSupplierProfileRequired } from "../ai-summary/errors";
-import { fetchNoticeContext, type NoticeContext } from "../ai/shared/notice-context";
+import { fetchNoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
 
 export interface AiScoreResult extends AiScoreRaw {

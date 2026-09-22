@@ -8,7 +8,7 @@
  *              Radix Popover 提供无障碍性 + 定位；cmdk 提供搜索过滤。
  */
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";

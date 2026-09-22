@@ -9,7 +9,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, ArrowRight, Clock } from "lucide-react";
-import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 
 interface SupplierClaimModalProps {
@@ -20,7 +19,6 @@ interface SupplierClaimModalProps {
 }
 
 export function SupplierClaimModal({ supplierId, companyName, onClose, onSuccess }: SupplierClaimModalProps) {
-  const { t } = useLocale();
   const router = useRouter();
   const [form, setForm] = useState({
     contactName: "",

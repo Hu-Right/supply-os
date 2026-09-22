@@ -12,7 +12,6 @@
 
 import dynamic from "next/dynamic";
 import { useAuth } from "@/core/auth";
-import { useLocale } from "@/core/i18n";
 import { Button, ErrorBoundary, PageErrorFallback } from "@/shared/ui";
 import { emitAppEvent } from "@/core/events";
 import { Briefcase, BarChart3, Calendar, FileText, Users } from "lucide-react";
@@ -31,8 +30,6 @@ const CrmDashboard = dynamic(
 
 /** CRM 产品介绍页 — 未登录访客可见 */
 function CrmLandingPage() {
-  const { t } = useLocale();
-
   const features = [
     {
       icon: BarChart3,

@@ -56,7 +56,7 @@ function buildEnglishFallback(item: AgencyCacheItem): string {
     return enLabel || agency.replace(/_INTL$/, "").replace(/_/g, " ");
   }
   // 国家级国际类型（如 "Brazil Committees"）：拆出国家 + 类型
-  for (const [countryEn, countryZh] of Object.entries(COUNTRY_ZH)) {
+  for (const [countryEn] of Object.entries(COUNTRY_ZH)) {
     if (agency.startsWith(countryEn + " ")) {
       const typePart = agency.slice(countryEn.length + 1);
       const typeKey = _singularToIntlKey[typePart.toLowerCase()];

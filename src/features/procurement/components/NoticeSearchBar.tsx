@@ -38,8 +38,6 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
   countries,
   agencies,
   applySearch,
-  clearSearch,
-  toggleFeatured,
 }: NoticeSearchBarProps) {
   const { t, locale } = useLocale();
   // P0-3 移动端修复：高级筛选默认折叠，减少首屏滚动高度

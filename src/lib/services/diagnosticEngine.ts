@@ -127,7 +127,6 @@ export function generateDiagnosticReport(input: QualificationScoreInput, scoring
   const certCount = input.certifications.length;
   const intlCertCount = input.certifications.filter(c => isIntlCert(c)).length;
   const serviceCount = countItems(input.service_countries);
-  const overseasCount = countItems(input.overseas_companies);
   const hasEnglish = input.english_team !== "尚不具备";
   const hasExport = input.export_scale !== "尚未出口";
   const hasUngm = input.ungm_status !== "未注册";

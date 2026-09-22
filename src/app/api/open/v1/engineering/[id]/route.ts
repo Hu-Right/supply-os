@@ -6,7 +6,7 @@
  *              认证方式：X-API-Key 请求头。
  *              仅 pro 档可访问详情端点，basic 档返回 403。
  */
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { authenticateOpenApiKey } from "@/lib/middleware/open-api-auth";

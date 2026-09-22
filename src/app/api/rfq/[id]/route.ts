@@ -9,7 +9,7 @@
  *              编辑后状态回退为 draft（需重新提交审核）。
  */
 import { RFQ_STATUS } from "@/shared/constants/rfq";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db/pool";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";

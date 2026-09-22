@@ -11,7 +11,7 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
@@ -105,10 +105,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       }
     }
   }, [setShowAuthModal]);
-
-  // 研修班落地页 + 资质表单：main 全宽
-  const pathname = usePathname();
-  const isTrainingPage = pathname === "/training" || pathname === "/procurement/qualification";
 
   const handlePaymentSuccess = () => {
     if (paymentPlan?.noticeId) emitAppEvent("supply-os:notice-paid", { noticeId: paymentPlan.noticeId });

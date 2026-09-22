@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Crown, Search, Target, Download, LayoutList, LayoutGrid } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
@@ -31,7 +31,6 @@ import { getCountryDisplayName } from "@/shared/data/countryNames";
 export default function ProcurementPage() {
   const { t, locale } = useLocale();
   const { authUser, isVip, refreshAuth } = useAuth();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const userId = useUserId();
 

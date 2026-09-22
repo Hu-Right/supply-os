@@ -10,7 +10,6 @@ import type { Pool } from "mysql2/promise";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/index";
 import { refreshNoticeStats, refreshNoticeCountries, refreshNoticeAgencies } from "../services/notice-search/index";
 import { searchUnified, type RawSearchParams } from "../services/search-orchestrator/index";
-import { syncNoticeIds, isHealthy as isMeiliHealthy } from "../services/meilisearch/index";
 
 export interface WarmupDeps {
   dbPool: Pool;

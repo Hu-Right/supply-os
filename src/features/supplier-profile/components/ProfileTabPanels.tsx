@@ -206,7 +206,7 @@ export function ProcurementPanel({ unspsc: _unspsc, certs, completeness, t }: Pa
 
 // ── 海外展厅 ──
 
-export function OverseasPanel({ country, city, t }: PanelProps & { country: string; city: string }) {
+export function OverseasPanel({ country, t }: PanelProps & { country: string; city: string }) {
   return (
     <Card className="p-5">
       <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">

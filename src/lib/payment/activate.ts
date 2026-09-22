@@ -9,8 +9,6 @@
  *              路由的消亡一并删除（新套餐体系只有支付下单一条履约路径）。
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
-import type { MembershipRepo } from "../repos/membership.repo";
-import type { PaymentOrderRow } from "../repos/types";
 import { performUpgradeInTransaction } from "./upgrade";
 
 // ── 真实支付回调履约（事务版） ────────────────────────────────────────────────

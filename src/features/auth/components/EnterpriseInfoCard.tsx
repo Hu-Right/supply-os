@@ -109,7 +109,7 @@ function InfoTable({ cells }: { cells: Cell[] }) {
 }
 
 export function EnterpriseInfoCard({
-  enterprise, linkStatus, loading, error, onRetry, onBind,
+  enterprise, loading, error, onRetry, onBind,
 }: EnterpriseInfoCardProps) {
   const { t } = useLocale();
 

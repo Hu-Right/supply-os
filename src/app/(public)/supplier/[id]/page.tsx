@@ -18,6 +18,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   };
 }
 
-export default function SupplierProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default function SupplierProfilePage() {
   return <PageClient />;
 }

@@ -14,7 +14,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
-import { NAVY, GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
+import { GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
 import { submitSupplierQualification } from "../api/qualification";
 import { ApiError } from "@/core/http";
 import {
@@ -34,7 +34,7 @@ export default function QualificationFormPage() {
   const [form, setForm] = useState<QualificationFormState>(INITIAL_QUALIFICATION_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [qualificationId, setQualificationId] = useState<number | null>(null);
+  const [, setQualificationId] = useState<number | null>(null);
   // 员工推广扫码归因：读取 /r/[code] 写入的 ref_code Cookie
   const [refCode, setRefCode] = useState<string | null>(null);
   // 资源库回填：从资源库页携带 ?poolId= 进入时，提交后回写该资源库行的诊断关联

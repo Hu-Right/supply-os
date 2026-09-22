@@ -11,7 +11,7 @@
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 import { COUNTRY_NAME_ZH } from "../../data/countryNames";
-import { normalizeCountry, UPPER_TO_CANONICAL } from "../../utils/countryNormalize";
+import { normalizeCountry } from "../../utils/countryNormalize";
 import { ACTIVE_NOTICE_WHERE } from "../../utils/notice-expired";
 
 let noticeCountriesCache: { data: Array<{ country: string; count: number }> } | null = null;

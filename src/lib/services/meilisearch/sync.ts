@@ -5,7 +5,6 @@
  * @module server/services/meilisearch/sync
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
-import { classifyAgencyType } from "../agency/index";
 import { normalizeNoticeType } from "../../utils/notice-type";
 import { WIDE_LIMITS, truncate } from "../../utils/notice-field-limits";
 import { getClient, isHealthy, getIndexName, buildNoticeIndexSettings } from "./client";
@@ -17,7 +16,7 @@ const NULL_DEADLINE_SENTINEL = 0;
 let _aliasMapCache: Map<string, string> | null = null;
 let _aliasMapExpires = 0;
 
-async function getAliasMap(pool: Pool): Promise<Map<string, string>> {
+async function _getAliasMap(pool: Pool): Promise<Map<string, string>> {
   if (_aliasMapCache && Date.now() < _aliasMapExpires) return _aliasMapCache;
   const aliasMap = new Map<string, string>();
   try {

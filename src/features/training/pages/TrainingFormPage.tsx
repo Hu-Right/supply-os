@@ -29,7 +29,7 @@ import {
 } from "@/shared/data/qualificationOptions";
 
 export default function TrainingFormPage() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const [form, setForm] = useState<QualificationFormState>(INITIAL_QUALIFICATION_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [qualificationId, setQualificationId] = useState<number | null>(null);

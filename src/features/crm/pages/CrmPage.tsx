@@ -7,11 +7,10 @@
  *              不含静态数据和内联 UI。子组件：CrmSidebar / CrmFunnelChart /
  *              CrmFeatureCards / DigitalAssistant + 内联统计卡/AI评估区。
  */
-import { useLocale } from "@/core/i18n";
 import { useState, useEffect } from "react";
 import {
   Briefcase, Clock, CheckSquare, TrendingUp,
-  Sparkles, Info, ChevronDown,
+  Info,
 } from "lucide-react";
 import type { Supplier } from "@/types";
 import { useCrmData } from "../hooks/useCrmData";
@@ -21,7 +20,6 @@ import { CrmFunnelChart } from "../components/CrmFunnelChart";
 import { CrmFeatureCards } from "../components/CrmFeatureCards";
 
 export default function CrmPage() {
-  const { t } = useLocale();
   const [activeNav, setActiveNav] = useState("overview");
   const [autoMatchSupplier, setAutoMatchSupplier] = useState<Supplier | null>(null);
 
@@ -39,12 +37,8 @@ export default function CrmPage() {
   const {
     leads,
     totalSuppliersList,
-    matchSelectedSupplier,
-    matchSelectedOpportunity,
     isAiMatching,
     aiReport,
-    setMatchSelectedSupplier,
-    setMatchSelectedOpportunity,
     triggerAiMatchmaking,
   } = useCrmData({ autoMatchSupplier });
 

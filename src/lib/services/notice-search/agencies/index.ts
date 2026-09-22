@@ -6,7 +6,7 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { AgencyCacheItem } from "../types";
-import { getNoticeAgencies as _getNoticeAgencies, getAgencyCacheData, clearAgenciesCache, setAgencyCacheData } from "./cache";
+import { getNoticeAgencies as _getNoticeAgencies, getAgencyCacheData, clearAgenciesCache } from "./cache";
 import { refreshNoticeAgencies as _refreshNoticeAgencies } from "./query";
 
 // Re-export

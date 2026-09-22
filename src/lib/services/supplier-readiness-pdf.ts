@@ -12,9 +12,9 @@ import "server-only";
 import path from "path";
 import fs from "fs";
 import PDFDocument from "pdfkit";
-import type { ScoringResult, QualificationScoreInput } from "./scoring";
+import type { QualificationScoreInput } from "./scoring";
 import { scoreQualification } from "./scoring";
-import { generateDiagnosticReport, type DiagnosticReport } from "./diagnosticEngine";
+import { generateDiagnosticReport } from "./diagnosticEngine";
 
 // ── 类型 ──
 
