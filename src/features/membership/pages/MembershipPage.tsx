@@ -11,6 +11,8 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { useAuth } from "@/core/auth";
+import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
@@ -18,8 +20,9 @@ import { ContactQrModal } from "../components/ContactQrModal";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
-import { SERVICE_CATALOG } from "../data/service-catalog";
-import { groupPlansByAudience } from "../utils";
+import { useServiceCatalog } from "../hooks/useServiceCatalog";
+import { groupPlansByAudience, groupServicesByCategory, serviceDisplayName } from "../utils";
+import type { ServiceCatalogRow } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
 const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
@@ -30,7 +33,8 @@ const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
 
 export default function MembershipPage() {
   const searchParams = useSearchParams();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const { authUser } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
   const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
@@ -45,7 +49,32 @@ export default function MembershipPage() {
   const [tab, setTab] = useState<MembershipTab>("personal");
 
   const { personal, enterprise } = groupPlansByAudience(plans);
-  const serviceCatalog = SERVICE_CATALOG;
+  const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
+  const groupedServices = groupServicesByCategory(services);
+
+  const GROUP_TITLE_KEY: Record<string, string> = {
+    pro_service: "svcGroupProService",
+    advisory: "svcGroupAdvisory",
+    api_license: "svcGroupApi",
+  };
+
+  /** 有价服务：未登录→登录引导；已登录→发 supply-os:pay（与套餐同一支付弹窗） */
+  const handleServicePay = (row: ServiceCatalogRow) => {
+    if (!authUser) {
+      emitAppEvent("supply-os:require-login");
+      return;
+    }
+    if (row.standard_price == null || Number(row.standard_price) <= 0) return;
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    emitAppEvent("supply-os:pay", {
+      code: row.service_code,
+      name: serviceDisplayName(row, locale),
+      price: Number(row.standard_price),
+      currency: row.currency || "CNY",
+      noticeId: noticeId ? Number(noticeId) : undefined,
+      returnUrl: `${origin}/membership`,
+    });
+  };
 
   const isPlanTab = tab !== "services";
   const currentPlans = tab === "personal" ? personal : tab === "enterprise" ? enterprise : [];
@@ -70,18 +99,38 @@ export default function MembershipPage() {
       </div>
 
       {tab === "services" ? (
-        /* 增值服务 Tab：保持现状（非自助订阅服务型 SKU） */
+        /* 订制服务 Tab：读 crm_service_catalog，按 category 分组渲染 */
         <section className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("servicesSectionTitle")}</h2>
               <p className="text-base text-slate-600 max-w-2xl mx-auto">{t("servicesSectionDesc")}</p>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {serviceCatalog.map((item) => (
-                <ServiceCard key={item.id} item={item} />
+
+            {servicesLoading && <p className="py-16 text-center text-sm text-slate-400">{t("servicesLoading")}</p>}
+            {servicesError && !servicesLoading && (
+              <div className="py-16 text-center">
+                <p className="text-sm text-slate-500">{t("servicesError")}</p>
+                <button type="button" onClick={reloadServices} className="mt-2 cursor-pointer text-xs font-bold text-teal-600 hover:underline">
+                  {t("servicesRetry")}
+                </button>
+              </div>
+            )}
+            {!servicesLoading && !servicesError && Object.keys(groupedServices).length === 0 && (
+              <p className="py-16 text-center text-sm text-slate-400">{t("servicesEmpty")}</p>
+            )}
+
+            {!servicesLoading &&
+              Object.entries(groupedServices).map(([cat, rows]) => (
+                <div key={cat} className="mb-12">
+                  <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">{t(GROUP_TITLE_KEY[cat] ?? cat)}</h3>
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {rows.map((row) => (
+                      <ServiceCard key={row.service_code} row={row} onPay={handleServicePay} />
+                    ))}
+                  </div>
+                </div>
               ))}
-            </div>
           </div>
         </section>
       ) : (
