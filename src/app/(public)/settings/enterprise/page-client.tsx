@@ -17,7 +17,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
-import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
+import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
 

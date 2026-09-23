@@ -9,8 +9,8 @@ import { usePathname } from "next/navigation";
 import { Cpu, User, Building2, Package, AlertTriangle, ClipboardList } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { cn } from "@/shared/utils/cn";
-import { useEnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
-import { useHasSupplierPool } from "@/features/procurement/hooks/useHasSupplierPool";
+import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
+import { useHasSupplierPool } from "@/shared/hooks/useHasSupplierPool";
 import { useUserId } from "@/core/auth/useUserId";
 
 const NAV_ITEMS = [

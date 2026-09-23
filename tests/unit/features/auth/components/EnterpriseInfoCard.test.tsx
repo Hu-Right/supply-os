@@ -6,7 +6,7 @@ vi.mock("@/core/i18n", () => ({
 }));
 
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
-import type { EnterpriseInfo } from "@/features/auth/hooks/useEnterpriseInfo";
+import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 // supplier 企业表整行（snake_case 列名）
 const mockRow: EnterpriseInfo = {

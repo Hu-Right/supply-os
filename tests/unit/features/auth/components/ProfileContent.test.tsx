@@ -58,7 +58,7 @@ const MyRecordsStub = () => <div data-testid="my-records" />;
 
 let mockEnterpriseBound = false;
 let mockEnterpriseData: Record<string, unknown> | null = null;
-vi.mock("@/features/auth/hooks/useEnterpriseInfo", () => ({
+vi.mock("@/shared/hooks/useEnterpriseInfo", () => ({
   useEnterpriseInfo: () => ({
     bound: mockEnterpriseBound,
     linkStatus: mockEnterpriseBound ? "verified" : "none",

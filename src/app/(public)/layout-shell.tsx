@@ -13,7 +13,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
-import { useMembershipTier } from "@/features/membership/hooks/useMembershipTier";
+import { useMembershipTier } from "@/shared/hooks/useMembershipTier";
 import { emitAppEvent } from "@/core/events";
 import {
   SessionBanner,

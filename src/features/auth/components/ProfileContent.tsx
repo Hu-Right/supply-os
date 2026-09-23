@@ -20,7 +20,7 @@ import { PhoneBinding } from "./PhoneBinding";
 import { EmailBinding } from "./EmailBinding";
 import { NicknameEditor } from "./NicknameEditor";
 import { AccountBenefitsCard } from "./AccountBenefitsCard";
-import { useEnterpriseInfo } from "../hooks/useEnterpriseInfo";
+import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 /** 基本信息内联单元：灰标签：值（同一行） */
 function InfoItem({ label, value }: { label: string; value: string }) {

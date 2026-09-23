@@ -14,7 +14,7 @@ import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
 import { compressImage, blobToFile } from "@/lib/utils/image-compress";
-import type { EnterpriseInfo } from "../hooks/useEnterpriseInfo";
+import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0 disabled:opacity-50";
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
