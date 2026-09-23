@@ -5,8 +5,8 @@
  * 1. 落库顺序与快照来源（席位、开池都必须在订阅之后，seat_limit/currency 取目录快照）；
  * 2. 三条拒绝路径必须"发 SQL 之前就拒"，且不可自助成交的档位（contact / 已下架）逐一分清；
  * 3. expires_at 走 DB 时钟（DATE_ADD），永久档不发这条查询；
- * 4. 目录口径矛盾（price_incl_tax 全 NULL 却写着"未定前禁止开单"）必须冒出来，
- *    而不是静默放行或静默停摆。
+ * 4. 含税口径未定（price_incl_tax=NULL）不得阻断自助成交——迁移 093 已修订列注释
+ *    抹平「未定前禁止开单」与决策记录的互斥；但矩阵缺格等异常必须透传到 anomalies。
  */
 import { describe, it, expect, vi } from "vitest";
 import { GrantError, grantSubscriptionForPlan } from "@/lib/payment/benefit-grant";
@@ -157,12 +157,12 @@ describe("grantSubscriptionForPlan · 拒绝路径不得留下半成品", () => 
   });
 });
 
-describe("grantSubscriptionForPlan · 矛盾必须冒出来", () => {
-  it("price_incl_tax 为 NULL：照常履约但必须回报口径冲突（注释要求未定前禁止开单）", async () => {
+describe("grantSubscriptionForPlan · 异常必须冒出来", () => {
+  it("含税口径未定（price_incl_tax=NULL）：不得阻断成交，也不再报异（迁移 093 已仲裁）", async () => {
     const { deps } = makeDeps({ plan: plan({ price_incl_tax: null }) });
     const r = await grantSubscriptionForPlan(deps, makeConn().conn, base);
     expect(r.subscriptionId).toBe(501);
-    expect(r.anomalies.join(" ")).toContain("禁止开单");
+    expect(r.anomalies).toEqual([]);
   });
 
   it("矩阵缺格/异常格由写层透传，不在履约层悄悄吞掉", async () => {

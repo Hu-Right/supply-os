@@ -57,12 +57,22 @@ export interface GrantParams {
 }
 
 /**
+ * 新表组履约依赖（双轨调用方与履约服务共用同一类型）。
+ * 由 AppContext 装配，随订单的 plan_code 属于哪套目录而被选择性消费：
+ * 新目录码走 grantSubscriptionForPlan，旧码单继续走旧三表履约链。
+ */
+export interface BenefitFulfillDeps {
+  catalog: BenefitSystemRepo;
+  write: BenefitWriteRepo;
+}
+
+/**
  * 成交履约：写订阅事实 + 主账号席位 + 按矩阵开额度池。
  * 必须在调用方的支付事务内执行（传入已开启事务的 PoolConnection），
  * 本函数不自开事务——履约与"订单置 paid"必须同生共死。
  */
 export async function grantSubscriptionForPlan(
-  deps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo },
+  deps: BenefitFulfillDeps,
   conn: PoolConnection,
   params: GrantParams,
 ): Promise<GrantResult> {
@@ -82,13 +92,10 @@ export async function grantSubscriptionForPlan(
   }
 
   const anomalies: string[] = [];
-  // 目录列注释规定"含税口径未定前禁止开单"，而当前 7 档该列全为 NULL：
-  // 直接按注释执行会让自助支付整体停摆，此处不静默放行也不静默锁死——照常履约但把矛盾冒出来。
-  if (plan.price_incl_tax === null || plan.price_incl_tax === undefined) {
-    anomalies.push(
-      `crm_plan_catalog.price_incl_tax 为 NULL：列注释要求「未定前禁止开单」，本单已放行——需业务补齐含税口径或修订该注释`,
-    );
-  }
+  // price_incl_tax 为 NULL 不阻断成交也不再报异：迁移 093 已把该列注释里
+  // 「未定前禁止开单」这句与决策记录互斥的话修订为「仅作报价参考、不得开票」。
+  // 开票限制属财务与发票系统的闸门，不由商品目录的一列注释充当；本表 NULL 仍可自助成交。
+  // （留此注释是为了防有人把这句当脏数据又把异常加回来）
 
   const expiresAt = await resolveExpiry(conn, plan);
   const subscriptionId = await write.insertSubscription(conn, {

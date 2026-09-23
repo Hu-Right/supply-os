@@ -68,6 +68,9 @@ const DDL: Record<(typeof BENEFIT_SYSTEM_TABLES)[number], string> = {
       COMMENT='权益目录表：定义系统内每一种权益的名称、取值类型与层级含义，是套餐权益矩阵和额度账本的前置字典'`,
 
   // 2. 套餐目录：六档商品行（价格/周期/席位/层级/角标），权益内容一律不在这张表
+  //    注意：本文件是已执行迁移的历史记录，不回头改它的 SQL 字符串；
+  //    其中 price_incl_tax 的列注释「未定前禁止开单」与总览 §5.2 决策互斥，
+  //    已由迁移 093 修订。新环境按 092 → 093 顺序执行即得到终态口径。
   crm_plan_catalog: `
     CREATE TABLE IF NOT EXISTS crm_plan_catalog (
       plan_code           VARCHAR(64)   NOT NULL COMMENT '套餐稳定机器码，下架不复用',

@@ -27,7 +27,7 @@
 | `positioning_zh` | `VARCHAR(255)` | 否 | — | 核心定位一句话（矩阵"核心定位"行） |
 | `price` | `DECIMAL(10,2)` | 否 | — | 官网价；`price_mode='free'` 时必为 `0.00`；`NULL` 不允许——**"联系销售"不是价格未知，见 `price_mode`** |
 | `price_mode` | `ENUM('fixed','contact','free')` | 否 | `'fixed'` | `fixed`=明码标价可自助支付；`contact`=联系销售（ENTERPRISE 档，`price` 存 `0.00` 且**不得**用于展示/计费）；`free`=普通用户档（不售卖、不得建订阅，取代旧体系 free 行） |
-| `price_incl_tax` | `TINYINT(1)` | 是 | NULL | 含税口径：1=含税/0=未税/NULL=未定（docx 09 章第 1 条裁决前恒 NULL，付款页强校验非 NULL 才允许开单） |
+| `price_incl_tax` | `TINYINT(1)` | 是 | NULL | 含税口径：1=含税/0=未税/NULL=未定（docx 09 章未裁决前恒 NULL）。**NULL 只限制开票、不限制自助成交**：原列注释「未定前禁止开单」与本表 7 行全 NULL 并存时等价于“无档可卖”，与总览 §5.2 决策互斥，已由迁移 093 修订为本口径 |
 | `currency` | `VARCHAR(10)` | 否 | `'CNY'` | 币种 |
 | `billing_period_days` | `INT` | 是 | NULL | 计费周期天数（365=年付；NULL=一次性/按合同交付） |
 | `seat_limit` | `INT` | 否 | `1` | 席位上限；`-1`=自定义（ENTERPRISE 合同定）；**没有"建议"值，只有硬上限**（超席位加购走服务订购，不在订阅行内改数） |

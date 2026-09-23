@@ -167,6 +167,7 @@ import { migration as m089 } from "./migrations/089-ingest-intl-tender-el-menzel
 import { migration as m090 } from "./migrations/090-membership-plans-v2";
 import { migration as m091 } from "./migrations/091-sync-watermark-table";
 import { migration as m092 } from "./migrations/092-benefit-system-tables";
+import { migration as m093 } from "./migrations/093-plan-tax-comment";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -185,6 +186,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m091,
   // m092：权益体系正式表组（旁路新建 8 表，旧三表不动；阶段二服务层切读需人工闸口）
   m092,
+  // m093：修订 crm_plan_catalog.price_incl_tax 列注释——旧注释「未定前禁止开单」与总览 §5.2 决策互斥（7 档全 NULL 会导致无档可卖）
+  m093,
 ];
 
 /**
