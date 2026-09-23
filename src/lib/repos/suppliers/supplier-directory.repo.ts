@@ -328,9 +328,9 @@ export class SupplierDirectoryRepo {
   }
 
   /**
-   * 更新供应商的营业执照 URL，返回旧的 license_url（用于清理旧文件）
+   * 更新供应商的营业执照 URL（传 null 表示移除），返回旧的 license_url（用于清理旧文件）
    */
-  async updateLicenseUrl(supplierId: number, licenseUrl: string): Promise<string | null> {
+  async updateLicenseUrl(supplierId: number, licenseUrl: string | null): Promise<string | null> {
     const [rows] = await this.pool.query(
       `SELECT license_url FROM supplier WHERE id = ?`,
       [supplierId],

@@ -98,3 +98,6 @@ export { Calendar } from "./Calendar";
 export type { CalendarProps } from "./Calendar";
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor } from "./Popover";
+
+export { AuthLicenseImage } from "./AuthLicenseImage";
+export type { AuthLicenseImageProps } from "./AuthLicenseImage";

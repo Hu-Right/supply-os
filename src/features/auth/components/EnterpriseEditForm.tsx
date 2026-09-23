@@ -13,6 +13,7 @@ import { useState, useRef } from "react";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { api } from "@/core/http";
+import { AuthLicenseImage } from "@/shared/ui";
 import { compressImage, blobToFile } from "@/lib/utils/image-compress";
 import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
@@ -259,6 +260,8 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
       if (k === "country" || k === "country_code") continue;
       payload[k] = v;
     }
+    // 执照以保存为单一入口：提交当前本地执照 URL（空串 = 移除）
+    payload.license_url = localLicenseUrl;
     onSubmit(payload);
   };
 
@@ -274,7 +277,7 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
           {localLicenseUrl ? (
             <div className="flex items-center gap-4">
               <div className="w-32 h-24 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
-                <img src={localLicenseUrl} alt="营业执照" className="w-full h-full object-contain" />
+                <AuthLicenseImage url={localLicenseUrl} alt="营业执照" className="w-full h-full object-contain" />
               </div>
               <div className="flex-1 space-y-2">
                 <p className="text-xs text-success-600 font-medium">营业执照已上传</p>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("@/core/i18n", () => ({
@@ -6,6 +6,16 @@ vi.mock("@/core/i18n", () => ({
 }));
 
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
+
+// AuthLicenseImage 会拉取执照图（jsdom 无 fetch/createObjectURL）：桩为永不 resolve，
+// 使其确定性地停在 loading，避免测试结束后异步 setState 触发 act 告警。
+const originalFetch = globalThis.fetch;
+beforeEach(() => {
+  globalThis.fetch = vi.fn(() => new Promise(() => {})) as unknown as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 describe("EnterpriseEditForm", () => {
   it("渲染分组编辑表格与保存/取消按钮", () => {

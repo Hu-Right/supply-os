@@ -30,6 +30,7 @@ scripts/*
 !scripts/seed-test-db.ts
 !scripts/perf-budget-check.ts
 !scripts/deploy.sh
+!scripts/migrate-licenses-to-runtime.mjs
 !scripts/check-i18n.ts
 !scripts/check-no-admin-routes.mjs
 !scripts/css-compat-gate.mjs

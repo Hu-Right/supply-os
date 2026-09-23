@@ -58,6 +58,11 @@ echo "[deploy] 已复制并检查静态资源 → standalone"
 cp -rT public .next/standalone/public/
 echo "[deploy] 已复制 public → standalone"
 
+# 3.5 营业执照等运行期上传目录（方案 A：存于仓库根 runtime/，不在 public/ 内，
+#     因此不受上面 cp -rT 整体替换 public 影响，跨部署持久。git reset --hard 亦不波及 gitignore 的 runtime/。）
+mkdir -p "${APP_DIR}/runtime/uploads/license"
+echo "[deploy] 已确保 runtime/uploads/license 持久目录存在"
+
 # 3.6 nodejieba 词典文件（Next.js standalone 不会自动复制原生模块的 dict 资源，
 #     缺失时 Meilisearch 全量重建触发 nodejieba 分词 → FATAL 崩溃 → PM2 无限重启）
 if [ -d node_modules/nodejieba/submodules/cppjieba/dict ]; then

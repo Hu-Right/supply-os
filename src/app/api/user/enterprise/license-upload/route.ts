@@ -1,22 +1,23 @@
 /**
- * POST /api/user/enterprise/license-upload — 上传营业执照图片
+ * POST /api/user/enterprise/license-upload — 上传营业执照图片（仅存字节）
  *
  * @module app/api/user/enterprise/license-upload/route
- * @description 接收营业执照图片（multipart/form-data），保存到 public/uploads/license/，
- *              返回图片 URL。同时更新 supplier 表的 license_url 字段。
+ * @description 接收营业执照图片（multipart/form-data），落盘到仓库根 runtime/uploads/license/
+ *              （不在 public/ 内：standalone 部署每次 cp -rT 替换 public 会抹掉运行时文件），
+ *              返回鉴权 URL。**不直接写库**——回写 supplier.license_url 与旧文件清理
+ *              统一由企业保存端点（POST/PUT /api/user/enterprise）作为单一入口处理，
+ *              从而覆盖新建入驻（上传时尚无 supplier_id）与移除等场景。
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
-import { saveUploadedFile, deleteFile } from "@/lib/services/file-upload";
+import { saveUploadedFile, licenseUploadDir, LICENSE_URL_PREFIX } from "@/lib/services/file-upload";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export const POST = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const ctx = getContext();
 
   const contentType = req.headers.get("content-type") || "";
   if (!contentType.includes("multipart/form-data")) {
@@ -30,28 +31,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "请选择要上传的文件");
   }
 
-  // 保存文件
+  // 仅保存文件（绝对目录 → 仓库根 runtime/，不受 standalone cwd 与重新部署影响）
   const { url: licenseUrl } = await saveUploadedFile(file, {
-    uploadDir: "uploads/license",
+    uploadDir: licenseUploadDir(),
     filenamePrefix: `license_${auth.userId}`,
     allowedTypes: ALLOWED_TYPES,
+    urlPrefix: LICENSE_URL_PREFIX,
   });
-
-  // 更新用户绑定的供应商的 license_url，并删除旧文件
-  const user = await ctx.user.usersRepo.findProfileById(auth.userId);
-  if (user?.supplier_id) {
-    const supplierId = Number(user.supplier_id);
-    const oldUrl = await ctx.supplier.directoryRepo.updateLicenseUrl(supplierId, licenseUrl);
-
-    // 删除旧文件（如果存在且与新文件不同）
-    if (oldUrl && oldUrl !== licenseUrl) {
-      try {
-        await deleteFile(oldUrl);
-      } catch (err) {
-        console.warn("[license-upload] 删除旧执照文件失败:", (err as Error).message);
-      }
-    }
-  }
 
   return NextResponse.json({ success: true, url: licenseUrl });
 });

@@ -10,6 +10,7 @@
  */
 import { Building2 } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { AuthLicenseImage } from "@/shared/ui";
 import type { EnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
@@ -249,7 +250,7 @@ export function EnterpriseInfoCard({
               return (
                 <div className="flex items-center gap-4">
                   <div className="w-40 h-28 rounded border border-border overflow-hidden bg-secondary-50 flex items-center justify-center">
-                    <img src={licenseUrl} alt="营业执照" className="w-full h-full object-contain" />
+                    <AuthLicenseImage url={licenseUrl} alt="营业执照" className="w-full h-full object-contain" />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs text-success-600 font-medium">营业执照已上传</p>
