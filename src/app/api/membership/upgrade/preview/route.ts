@@ -14,6 +14,6 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (!targetPlanCode) {
     routeError(400, 40000, "请指定目标套餐");
   }
-  const result = await previewUpgrade(getContext().user.membershipRepo, auth.userId, targetPlanCode);
+  const result = await previewUpgrade(getContext().benefitSystemRepo, auth.userId, targetPlanCode);
   return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
 });

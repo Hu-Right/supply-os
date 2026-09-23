@@ -5,7 +5,7 @@
 
 import crypto from "crypto";
 import bcrypt from "bcrypt";
-import type { MembershipRepo } from "../repos/membership.repo";
+import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import type { SupplierDirectoryRepo } from "../repos/suppliers/supplier-directory.repo";
 import type { AuthRepo } from "../repos/auth.repo";
 import type { UserRow } from "../repos/types";
@@ -125,7 +125,7 @@ export interface AuthUserResponse {
   email: string;
   /** 对外展示名（昵称）。真实姓名 display_name 不进入任何 API 响应（隐私收口） */
   nickname: string;
-  membership_tier: string;
+  has_subscription: boolean;
   account_status: string;
   supplier_id: number | null;
   supplier_industry_id: number | null;
@@ -144,21 +144,19 @@ export interface AuthUserResponse {
  */
 export async function buildUserResponse(
   user: UserRow | Partial<UserRow>,
-  membershipRepo: MembershipRepo,
+  catalog: BenefitSystemRepo,
   directoryRepo: SupplierDirectoryRepo,
 ): Promise<AuthUserResponse> {
   // P3-10 性能修复：会员状态与供应商信息查询并行化（原串行两次往返 → 一次）
   const needSupplier = Boolean(user.supplier_id) && user.supplier_link_status === "verified";
   const [memberState, supplierRow] = await Promise.all([
-    resolveMembershipState(membershipRepo, user.id!),
+    resolveMembershipState(catalog, user.id!),
     needSupplier
       ? directoryRepo.findAuthInfoById(Number(user.supplier_id))
       : Promise.resolve(null),
   ]);
   const supplier = supplierRow as Record<string, unknown> | null;
-  // N1 收敛（2026-08-20）：tier 取自唯一端口 resolveMembershipState（订阅 OR 付费剩余配额 > 0），
-  // 修复原"仅看订阅"口径下，仅购买单次解锁卡的用户登录态被误判为 free 的分叉问题。
-  const tier = memberState.tier;
+  const hasSubscription = memberState.subscription !== null;
   // 展示名收口：只输出昵称。窗口期兜底（代码先上、060 回填未跑时 nickname 为 NULL）——
   // 此时以姓名掩码临时展示，回填完成后此分支自然不再命中，可在稳定后移除。
   const nickname = user.nickname || maskName(user.display_name ?? "");
@@ -166,7 +164,7 @@ export async function buildUserResponse(
     id: user.id!,
     email: user.email ?? "",
     nickname,
-    membership_tier: tier,
+    has_subscription: hasSubscription,
     account_status: user.account_status ?? "pending",
     supplier_id: (supplier?.id as number) || null,
     supplier_industry_id: null, // supplier 表无 industry_id 列（UNSPSC 映射不再随登录响应下发）

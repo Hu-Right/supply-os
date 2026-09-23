@@ -76,7 +76,7 @@ export const POST = withRoute(async (req: NextRequest) => {
   await ctx.user.authRepo.markCodeUsed(record.id);
 
   // 自动登录
-  const payload = await buildUserResponse(user, ctx.user.membershipRepo, ctx.supplier.directoryRepo);
+  const payload = await buildUserResponse(user, ctx.benefitSystemRepo, ctx.supplier.directoryRepo);
   let tokens: { token: string; refresh_token: string } | null = null;
   try {
     tokens = await issueTokenPair(ctx.user.authRepo, user.id!);

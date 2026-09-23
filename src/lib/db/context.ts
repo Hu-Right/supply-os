@@ -17,7 +17,6 @@ import { WechatProvider } from "../payment/WechatProvider";
 import { isParseablePrivateKey } from "../payment/keys";
 import { UsersRepo } from "../repos/users.repo";
 import { AuthRepo } from "../repos/auth.repo";
-import { MembershipRepo } from "../repos/membership.repo";
 import { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
@@ -68,7 +67,6 @@ export type PaymentContext = {
   paymentsRepo: PaymentsRepo;
   learningOrdersRepo: LearningOrdersRepo;
   paymentHistoryRepo: PaymentHistoryRepo;
-  membershipRepo: MembershipRepo;
 };
 
 /** 用户域上下文 */
@@ -76,7 +74,6 @@ export type UserContext = {
   dbPool: Pool;
   usersRepo: UsersRepo;
   authRepo: AuthRepo;
-  membershipRepo: MembershipRepo;
   userPrefsRepo: UserPrefsRepo;
   invitationRepo: InvitationRepo;
 };
@@ -122,7 +119,6 @@ export function getContext(): AppContext {
 
   const usersRepo = new UsersRepo(dbPool);
   const authRepo = new AuthRepo(dbPool);
-  const membershipRepo = new MembershipRepo(dbPool);
   const paymentsRepo = new PaymentsRepo(dbPool);
   const paymentHistoryRepo = new PaymentHistoryRepo(dbPool);
   const learningOrdersRepo = new LearningOrdersRepo(dbPool);
@@ -151,7 +147,7 @@ export function getContext(): AppContext {
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
 
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo, {
+  const paymentService = new PaymentService(paymentsRepo, {
     catalog: benefitSystemRepo,
     write: benefitWriteRepo,
   });
@@ -211,9 +207,9 @@ export function getContext(): AppContext {
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
       dbPool, paymentService, learningPaymentService, trainingPaymentService, orchestrator, paymentMode,
-      paymentsRepo, learningOrdersRepo, paymentHistoryRepo, membershipRepo,
+      paymentsRepo, learningOrdersRepo, paymentHistoryRepo,
     },
-    user: { dbPool, usersRepo, authRepo, membershipRepo, userPrefsRepo, invitationRepo },
+    user: { dbPool, usersRepo, authRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo },
     benefitSystemRepo,
     benefitWriteRepo,

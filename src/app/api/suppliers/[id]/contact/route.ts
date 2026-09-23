@@ -6,7 +6,6 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { resolveMembershipState } from "@/lib/services/membership-status";
-import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -22,8 +21,8 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const { directoryRepo } = ctx.supplier;
 
     // VIP 校验
-    const memberState = await resolveMembershipState(ctx.user.membershipRepo, auth.userId);
-    if (memberState.tier === MEMBERSHIP_TIER.FREE) {
+    const memberState = await resolveMembershipState(ctx.benefitSystemRepo, auth.userId);
+    if (!memberState.subscription) {
       routeError(403, 40003, "需要 VIP 会员才能查看联系方式");
     }
 

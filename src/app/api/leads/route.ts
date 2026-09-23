@@ -20,8 +20,8 @@ export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
 
   const ctx = getContext();
-  const state = await resolveMembershipState(ctx.user.membershipRepo, auth.userId);
-  if (!state.isVip) {
+  const state = await resolveMembershipState(ctx.benefitSystemRepo, auth.userId);
+  if (!state.subscription) {
     routeError(403, 40041, "线索视图仅对 VIP 会员开放");
   }
 

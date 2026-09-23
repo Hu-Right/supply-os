@@ -17,7 +17,6 @@ import type { AuthContextValue, RegisterOptions } from "./types";
 import { setAuthTokens, clearAuthTokens, clearApiCache, api, ApiError } from "@/core/http";
 import { useLocale } from "@/core/i18n";
 import { onAppEvent } from "@/core/events";
-import { MEMBERSHIP_TIER } from "@/shared/constants/membership";
 
 /** 认证接口响应（登录/注册/重置密码共用：JWT Access Token + 用户信息；
  * Refresh Token 同时经 HttpOnly Cookie + 响应体下发，客户端双存储） */
@@ -58,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistAuthUser = useCallback((user: AuthUser) => {
     authUserRef.current = user;
     setAuthUser(user);
-    setIsVip(user.membership_tier === MEMBERSHIP_TIER.VIP);
+    setIsVip(user.has_subscription === true);
     // P2 容错：localStorage 满或隐私模式下可能抛异常，不阻断登录主流程
     // 隐私约束：此处只允许持久化脱敏后字段（昵称 nickname、掩码 phone），禁止存真实姓名
     try {
@@ -235,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // 会员等级变更：支付成功后服务端更新 membership_tier，此处刷新缓存
+  // 支付完成后重新获取生效订阅状态
   useEffect(() => {
     return onAppEvent("supply-os:membership-changed", () => {
       refreshAuth().catch(() => {
