@@ -168,6 +168,7 @@ import { migration as m090 } from "./migrations/090-membership-plans-v2";
 import { migration as m091 } from "./migrations/091-sync-watermark-table";
 import { migration as m092 } from "./migrations/092-benefit-system-tables";
 import { migration as m093 } from "./migrations/093-plan-tax-comment";
+import { migration as m094 } from "./migrations/094-drop-old-benefit-tables";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -188,6 +189,8 @@ const ALL_MIGRATIONS: Migration[] = [
   m092,
   // m093：修订 crm_plan_catalog.price_incl_tax 列注释——旧注释「未定前禁止开单」与总览 §5.2 决策互斥（7 档全 NULL 会导致无档可卖）
   m093,
+  // m094：退役删除旧权益三表（阶段二收口）——服务层已切读新表组（生产已切换）；带新表哨兵前置 + 冷备份 + 逐表幂等
+  m094,
 ];
 
 /**
