@@ -3,13 +3,14 @@
  *
  * @module lib/services/auth-login
  * @description 收口"密码登录"的多仓库编排：凭据校验（含恒时防时序）、
- *              账号状态闸门、哈希升级、用户载荷构建、Token 签发。
+ *              弱哈希账号重置闸门、账号状态闸门、用户载荷构建、Token 签发。
  *              路由层只保留：限流、请求解析、Refresh Cookie 写入。
  *              业务失败以 RouteError（lib 级业务错误，含 status/code 元数据）抛出。
  */
 import type { AppContext } from "../db/context";
 import { RouteError } from "../middleware/route-handler";
-import { verifyPassword, needsUpgrade, buildUserResponse, hashPassword, issueTokenPair } from "./auth";
+import { EC_AUTH_REQUIRED, EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
+import { verifyPassword, buildUserResponse, issueTokenPair } from "./auth";
 
 // 恒时验证用的固定 bcrypt 哈希（对应用户不存在时的时序攻击防护）
 const DUMMY_BCRYPT_HASH = "$2b$12$AAAAAAAAAAAAAAAAAAAAAAOqGHn2kLJ3xQ4y5m6n7p8r9s0t1u2v3w";
@@ -22,7 +23,7 @@ export interface LoginPasswordResult {
   refreshToken: string | null;
 }
 
-/** 密码登录编排：校验 + 状态闸门 + 哈希升级 + 载荷 + Token 签发 */
+/** 密码登录编排：校验 + 重置闸门 + 状态闸门 + 载荷 + Token 签发 */
 export async function loginWithPassword(
   ctx: AppContext,
   params: { identifier: string; password: string },
@@ -31,22 +32,25 @@ export async function loginWithPassword(
 
   const user = await ctx.user.usersRepo.findAuthByIdentifier(identifier);
 
-  const hashType = user?.password_hash_type ?? "sha256";
   if (!user || !user.password_hash) {
     // 恒时验证防时序攻击
-    await verifyPassword(password || "", DUMMY_BCRYPT_HASH, "bcrypt");
-    throw new RouteError(401, 40042, "账号或密码错误");
+    await verifyPassword(password || "", DUMMY_BCRYPT_HASH);
+    throw new RouteError(401, EC_AUTH_REQUIRED, "账号或密码错误");
   }
-  if (!(await verifyPassword(password || "", user.password_hash, hashType))) {
-    throw new RouteError(401, 40042, "账号或密码错误");
+  // SHA-256 弱哈希已退役：不再校验旧密码，存量账号一律引导先重置。
+  // 重置成功写入 bcrypt 后自然恢复登录；403 语义避开 api-client 401 刷新重试路径。
+  if (user.password_hash_type !== "bcrypt") {
+    throw new RouteError(
+      403,
+      EC_PASSWORD_RESET_REQUIRED,
+      "为保障账号安全，请先通过「忘记密码」设置新密码后再登录",
+    );
+  }
+  if (!(await verifyPassword(password || "", user.password_hash))) {
+    throw new RouteError(401, EC_AUTH_REQUIRED, "账号或密码错误");
   }
   if (user.account_status === "disabled" || user.account_status === "rejected") {
     throw new RouteError(403, 40003, "账号未通过审核或已停用");
-  }
-
-  if (needsUpgrade(hashType)) {
-    const newHash = await hashPassword(password);
-    await ctx.user.usersRepo.updatePasswordById(user.id, newHash, "bcrypt");
   }
 
   await ctx.user.usersRepo.updateLastLoginById(user.id);

@@ -1,17 +1,9 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
-import { hashPasswordLegacy, hashVerificationCode, needsUpgrade, verifyPassword, hashPassword, generateNickname } from "@/lib/services/auth";
+import { hashVerificationCode, verifyPassword, hashPassword, generateNickname } from "@/lib/services/auth";
 import crypto from "crypto";
 
 beforeAll(() => {
   process.env.JWT_SECRET = "test-secret-key-for-unit-tests-only";
-});
-
-describe("hashPasswordLegacy", () => {
-  it("SHA-256 哈希输出", () => {
-    const hash = hashPasswordLegacy("password123");
-    const expected = crypto.createHash("sha256").update("password123").digest("hex");
-    expect(hash).toBe(expected);
-  });
 });
 
 describe("hashVerificationCode", () => {
@@ -22,26 +14,11 @@ describe("hashVerificationCode", () => {
   });
 });
 
-describe("needsUpgrade", () => {
-  it("非 bcrypt → 需要升级", () => {
-    expect(needsUpgrade("sha256")).toBe(true);
-  });
-  it("bcrypt → 无需升级", () => {
-    expect(needsUpgrade("bcrypt")).toBe(false);
-  });
-});
-
 describe("verifyPassword", () => {
-  it("bcrypt 类型 → 正确验证", async () => {
+  it("bcrypt 哈希 → 正确验证", async () => {
     const hashed = await hashPassword("test1234");
-    expect(await verifyPassword("test1234", hashed, "bcrypt")).toBe(true);
-    expect(await verifyPassword("wrong", hashed, "bcrypt")).toBe(false);
-  });
-
-  it("sha256 类型 → 兼容验证", async () => {
-    const hashed = hashPasswordLegacy("mypassword");
-    expect(await verifyPassword("mypassword", hashed, "sha256")).toBe(true);
-    expect(await verifyPassword("wrong", hashed, "sha256")).toBe(false);
+    expect(await verifyPassword("test1234", hashed)).toBe(true);
+    expect(await verifyPassword("wrong", hashed)).toBe(false);
   });
 });
 

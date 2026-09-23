@@ -9,6 +9,7 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { saveIndustryPrefs } from "@/core/api/industry-prefs";
 import { validatePassword } from "@/shared/auth/passwordPolicy";
+import { EC_PASSWORD_RESET_REQUIRED } from "@/shared/constants/api";
 import { usePersistedFormState } from "@/shared/hooks/usePersistedFormState";
 
 /** 草稿过期时间：3 天，超过后自动清除 */
@@ -30,6 +31,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
   // 初始模式由调用方注入（扫码推广场景 layout-shell 传 "register"）
   const [authMode, setAuthMode] = useState<"login" | "register">(initialMode);
   const [authError, setAuthError] = useState("");
+  /** 存量弱哈希账号命中重置闸门（403/40043）：由容器自动切换到找回密码视图 */
+  const [needPasswordReset, setNeedPasswordReset] = useState(false);
   /** 用户是否主动勾选同意协议（默认 false，不得预先勾选） */
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
@@ -150,6 +153,12 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
         clearAuthDraft();
       }
     } catch (err: any) {
+      // SHA-256 已退役：存量账号不再校验旧密码，服务端返回 403/40043 引导重置
+      if (err?.code === EC_PASSWORD_RESET_REQUIRED) {
+        setNeedPasswordReset(true);
+        setAuthError(t("authErrPasswordResetRequired"));
+        return;
+      }
       setAuthError(err.message || t("authLoginFailed"));
     }
   };
@@ -160,6 +169,8 @@ export function useAuthForm(onSuccess: () => void, initialMode: "login" | "regis
     setAuthMode,
     authError,
     setAuthError,
+    needPasswordReset,
+    setNeedPasswordReset,
     authForm,
     setAuthForm,
     loginForm,

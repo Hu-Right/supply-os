@@ -2,7 +2,7 @@
  * POST /api/auth/login 集成测试
  *
  * @description 覆盖登录路由全部分支：参数校验、双维度限流、
- *              用户查找、密码验证、账号状态、哈希升级、token 签发与降级。
+ *              用户查找、密码验证、弱哈希重置闸门、账号状态、token 签发与降级。
  *              Mock DB Pool 与 auth 服务层（服务内部逻辑由单测覆盖）；
  *              rateLimiter / extractClientIp / cookie 工具走真实实现。
  */
@@ -32,7 +32,6 @@ vi.mock("@/lib/db/pool", () => ({
 
 vi.mock("@/lib/services/auth", () => ({
   verifyPassword: vi.fn(),
-  needsUpgrade: vi.fn(),
   buildUserResponse: vi.fn(),
   hashPassword: vi.fn(),
   issueTokenPair: vi.fn(),
@@ -94,7 +93,7 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(401);
     expect(await res.json()).toMatchObject({ code: 40042 });
     // 恒时验证：使用固定 dummy hash + bcrypt（密码为用户实际输入）
-    expect(verifyPassword).toHaveBeenCalledWith("pw", expect.stringContaining("$2b$12$"), "bcrypt");
+    expect(verifyPassword).toHaveBeenCalledWith("pw", expect.stringContaining("$2b$12$"));
   });
 
   it("密码错误 → 401", async () => {
@@ -117,34 +116,20 @@ describe("POST /api/auth/login", () => {
     expect(await res.json()).toMatchObject({ code: 40003 });
   });
 
-  it("sha256 旧哈希 → 升级为 bcrypt 后签发 token 并设置 Refresh Cookie", async () => {
-    const { verifyPassword, needsUpgrade, hashPassword, buildUserResponse, issueTokenPair } =
-      await import("@/lib/services/auth");
-    vi.mocked(verifyPassword).mockResolvedValue(true);
-    vi.mocked(needsUpgrade).mockReturnValue(true);
-    vi.mocked(hashPassword).mockResolvedValue("$2b$12$newhash");
-    vi.mocked(buildUserResponse).mockResolvedValue({ id: 1, nickname: "Test" } as never);
-    vi.mocked(issueTokenPair).mockResolvedValue({ token: "atk-123", refresh_token: "rtk-456" });
+  it("sha256 弱哈希账号 → 403 引导先重置密码（不再校验旧密码）", async () => {
+    const { verifyPassword } = await import("@/lib/services/auth");
     poolQuery.mockResolvedValue([[{ ...AUTH_USER_ROW, password_hash_type: "sha256" }]]);
 
     const res = await callLogin({ identifier: "user-1@test.com", password: "pw" });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ success: true, token: "atk-123" });
-    // 哈希升级入库（updatePasswordById 参数顺序：newHash, hashType, userId）
-    expect(poolExecute).toHaveBeenCalledWith(
-      expect.stringContaining("UPDATE crm_users"),
-      ["$2b$12$newhash", "bcrypt", 1],
-    );
-    // Refresh Cookie 设置（真实 cookie 工具）
-    expect(res.headers.get("set-cookie")).toContain("supply_os_refresh_token=rtk-456");
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: 40043 });
+    expect(verifyPassword).not.toHaveBeenCalled(); // 弱哈希不参与任何密码比对
   });
 
   it("issueTokenPair 抛错 → 静默降级，返回 200 但无 token 无 Cookie", async () => {
-    const { verifyPassword, needsUpgrade, buildUserResponse, issueTokenPair } =
+    const { verifyPassword, buildUserResponse, issueTokenPair } =
       await import("@/lib/services/auth");
     vi.mocked(verifyPassword).mockResolvedValue(true);
-    vi.mocked(needsUpgrade).mockReturnValue(false);
     vi.mocked(buildUserResponse).mockResolvedValue({ id: 1, nickname: "Test" } as never);
     vi.mocked(issueTokenPair).mockRejectedValue(new Error("JWT_SECRET_NOT_CONFIGURED"));
     poolQuery.mockResolvedValue([[AUTH_USER_ROW]]);

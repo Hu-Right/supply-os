@@ -47,6 +47,17 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.authMode, cascade.resetCascade]);
 
+  // ★ 存量弱哈希账号：登录命中重置闸门（403/40043）后自动切入找回密码视图，
+  //   账号预填登录标识；提示文案沿用 auth.authError（视图内顶部展示）
+  useEffect(() => {
+    if (auth.needPasswordReset) {
+      forgot.setForgotIdentifier(auth.loginForm.identifier.trim());
+      setForgotView(true);
+      auth.setNeedPasswordReset(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.needPasswordReset]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (forgotView) {
@@ -83,10 +94,17 @@ export function LoginRegisterForm({ onSuccess, initialMode }: LoginRegisterFormP
 
       {/* 找回密码视图 */}
       {forgotView && (
-        <ForgotPasswordForm
-          forgot={forgot}
-          onBack={() => setForgotView(false)}
-        />
+        <>
+          {auth.authError && (
+            <p className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
+              {auth.authError}
+            </p>
+          )}
+          <ForgotPasswordForm
+            forgot={forgot}
+            onBack={() => setForgotView(false)}
+          />
+        </>
       )}
 
       {/* 登录 / 注册表单 */}

@@ -9,7 +9,6 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
   return {
     ...actual,
     verifyPassword: vi.fn(),
-    hashPassword: vi.fn().mockResolvedValue("new-bcrypt-hash"),
     buildUserResponse: vi.fn().mockResolvedValue({ id: 1, email: "u@t.com", nickname: "Test" }),
     issueTokenPair: vi.fn().mockResolvedValue({ token: "access", refresh_token: "refresh" }),
   };
@@ -100,18 +99,17 @@ describe("loginWithPassword", () => {
     expect(result.refreshToken).toBe("refresh");
   });
 
-  it("旧哈希算法 → 自动升级为 bcrypt", async () => {
-    const updatePw = vi.fn();
+  it("存量弱哈希账号 → 403 引导重置（不再校验旧密码）", async () => {
     const ctx = makeCtx({
       usersRepo: {
         findAuthByIdentifier: vi.fn().mockResolvedValue({
           id: 1, password_hash: "old-sha", password_hash_type: "sha256", account_status: "active",
         }),
-        updatePasswordById: updatePw,
       },
     });
-    await loginWithPassword(ctx, { identifier: "u@t.com", password: "ok" });
-    expect(updatePw).toHaveBeenCalledWith(1, "new-bcrypt-hash", "bcrypt");
+    await expect(loginWithPassword(ctx, { identifier: "u@t.com", password: "ok" }))
+      .rejects.toMatchObject({ status: 403, code: 40043 });
+    expect(verifyPassword).not.toHaveBeenCalled(); // 弱哈希不参与任何密码比对
   });
 
   it("JWT 签发失败 → 静默降级（token=null）", async () => {

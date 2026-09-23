@@ -18,6 +18,9 @@ export const EC_INVALID_REQUEST = 40022;
 /** 认证失败 / 未登录（Authentication required） */
 export const EC_AUTH_REQUIRED = 40042;
 
+/** 存量弱哈希账号已停止密码校验，须先通过"忘记密码"重置后登录（403 语义，避开 401 刷新重试路径） */
+export const EC_PASSWORD_RESET_REQUIRED = 40043;
+
 /** 无权限 / 越权（Forbidden / ownership mismatch） */
 export const EC_FORBIDDEN = 40003;
 
