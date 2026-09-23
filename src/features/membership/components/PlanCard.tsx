@@ -33,6 +33,7 @@ export function PlanCard({
   const recommended = isRecommendedPlan(plan);
   const isContact = plan.price_mode === "contact";
   const symbol = plan.currency === "CNY" ? "¥" : "$";
+  const audienceLabel = plan.audience === "enterprise" ? t("planAudienceEnterprise") : t("planAudiencePersonal");
 
   // 升级判断：存在可升级的固定价订阅，且本卡明码价高于当前订阅价（数据驱动，不硬编码）
   const hasUpgradeablePlan = Boolean(currentPlanCode) && Number(currentPlanPrice || 0) > 0;
@@ -67,6 +68,9 @@ export function PlanCard({
           recommended ? "from-amber-500 to-amber-600" : "from-primary-500 to-primary-600"
         }`}
       >
+        <span className="mb-1 inline-block rounded-full bg-white/20 px-2 py-0.5 text-2xs font-bold uppercase tracking-wide text-white">
+          {audienceLabel}
+        </span>
         <h3 className="text-base font-extrabold leading-tight">{plan.name_zh}</h3>
         {plan.positioning_zh && <p className="mt-1 text-xs text-white/85 line-clamp-2">{plan.positioning_zh}</p>}
       </div>
@@ -75,7 +79,7 @@ export function PlanCard({
       <div className="px-5 pt-4">
         <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-center">
           {isContact ? (
-            <span className="text-xl font-extrabold tracking-tight text-slate-900">{t("membershipContactSales")}</span>
+            <span className="text-xl font-extrabold tracking-tight text-slate-900">{t("membershipContactConsult")}</span>
           ) : (
             <span className="text-2xl font-extrabold tracking-tight text-slate-900">
               {symbol}
@@ -120,7 +124,7 @@ export function PlanCard({
             onClick={() => onBuy(plan)}
             className="w-full rounded-xl py-2.5 text-sm"
           >
-            {t("membershipContactSales")}
+            {t("membershipContactConsult")}
             <ArrowRight className="w-4 h-4" />
           </Button>
         ) : isUpgradeTarget ? (
