@@ -22,7 +22,7 @@ export class UsersRepo {
   /** 按 user_id 查找用户（仅返回登录/展示所需字段）——Token 刷新 uid 优先路径使用 */
   async findProfileById(userId: number): Promise<Partial<UserRow> | null> {
     const [rows] = await this.pool.query(
-      `SELECT id, email, email_verified, phone, phone_verified, display_name, nickname, membership_tier, account_status, supplier_id, supplier_link_status
+      `SELECT id, email, email_verified, phone, phone_verified, display_name, nickname, account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE id = ? LIMIT 1`,
       [userId],
     );
@@ -50,7 +50,7 @@ export class UsersRepo {
   async findAuthByPhone(phone: string): Promise<UserRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
-              membership_tier, account_status, supplier_id, supplier_link_status
+              account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE phone = ? LIMIT 1`,
       [phone],
     );
@@ -60,6 +60,8 @@ export class UsersRepo {
   /**
    * 创建用户（INSERT ONLY，不覆盖已有记录），返回自增 id（0 表示失败）。
    * 迁移 068 已 DROP COLUMN crm_users.user_key，INSERT 不再包含该列。
+   * membership_tier 已随影子表重构退役（scripts/shadow-users-phase1.mjs），会员身份
+   * 一律以 resolveMembershipState 实时读 crm_plan_subscriptions / crm_subscription_seats 为准。
    */
   async create(data: {
     email: string | null;
@@ -73,10 +75,11 @@ export class UsersRepo {
     referral_employee_id?: number;
   }): Promise<number> {
     const hashType = data.password_hash_type ?? "bcrypt";
-    const userType = data.user_type ?? "enterprise";
+    // 注册 KPI「个人起步 · 认证转企业」：起步一律 personal，认证通过后由后台翻转（见注册KPI口径设计文档 §3.2）
+    const userType = data.user_type ?? "personal";
     const [result] = await this.pool.execute(
-      `INSERT INTO crm_users (email, display_name, nickname, password_hash, password_hash_type, membership_tier, account_status, user_type, phone, referral_code, referral_employee_id)
-       VALUES (?, ?, ?, ?, ?, 'free', 'pending', ?, ?, ?, ?)`,
+      `INSERT INTO crm_users (email, display_name, nickname, password_hash, password_hash_type, account_status, user_type, phone, referral_code, referral_employee_id)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
       [data.email, data.display_name, data.nickname ?? null, data.password_hash, hashType, userType, data.phone ?? null, data.referral_code ?? null, data.referral_employee_id ?? null],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);
@@ -106,19 +109,11 @@ export class UsersRepo {
     );
   }
 
-  /** 更新昵称（不触碰密码；nickname_source=2 标记用户自定义）——按 user_id */
+  /** 更新昵称（不触碰密码）——按 user_id */
   async updateProfileById(userId: number, nickname: string): Promise<void> {
     await this.pool.execute(
-      "UPDATE crm_users SET nickname = ?, nickname_source = 2, updated_at = NOW() WHERE id = ?",
+      "UPDATE crm_users SET nickname = ?, updated_at = NOW() WHERE id = ?",
       [nickname, userId],
-    );
-  }
-
-  /** 更新会员等级——按 user_id */
-  async updateMembershipTierById(userId: number, tier: string): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_users SET membership_tier = ?, updated_at = NOW() WHERE id = ?",
-      [tier, userId],
     );
   }
 
@@ -208,7 +203,7 @@ export class UsersRepo {
     // 历史邮箱用户兼容：按 email 查找
     const [rows] = await this.pool.query(
       `SELECT id, email, phone, phone_verified, display_name, nickname, password_hash, password_hash_type, email_verified,
-              membership_tier, account_status, supplier_id, supplier_link_status
+              account_status, supplier_id, supplier_link_status
        FROM crm_users WHERE email = ? LIMIT 1`,
       [identifier.toLowerCase()],
     );

@@ -161,7 +161,7 @@ describe("registerUser", () => {
     expect(backfill).toHaveBeenCalledWith(1, 99);
   });
 
-  it("有效邀请码 → 递增 KPI", async () => {
+  it("有效邀请码 → 递增 KPI（注册 KPI「个人起步」口径：先记个人桶）", async () => {
     const inc = vi.fn();
     const ctx = makeCtx({
       invitationRepo: {
@@ -170,7 +170,7 @@ describe("registerUser", () => {
       },
     });
     await registerUser(ctx, { ...baseParams, inviteCode: "GOOD" });
-    expect(inc).toHaveBeenCalledWith(7, "enterprise");
+    expect(inc).toHaveBeenCalledWith(7, "personal");
   });
 
   it("合规日志失败不阻断主流程", async () => {

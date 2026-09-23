@@ -6,7 +6,7 @@
  * 不做"旧套餐到期自然过渡"：
  * - 全部旧 plan_code（含悬挂 code）物理删除；
  * - 引用旧 code 的活跃订阅/权益一律置 closed（存量持有人按新五档重新购买）；
- * - 由此失去活跃订阅的用户 membership_tier 落回 free；
+ * - 由此失去活跃订阅的用户 membership_tier 落回 free（该列存在时；已随影子表重构退役的环境跳过）；
  * - 支付订单历史保留（订单表只是流水，删除套餐行不影响其查询，仅不显示套餐名）。
  *
  * 新体系五档：免费注册(rank0) → 个人体验版129(rank1) → 个人标准版999(rank2, +历史中标)
@@ -63,17 +63,25 @@ export const migration: Migration = {
       LEGACY_PLAN_CODES,
     );
 
-    // 3. 失去活跃订阅的用户落回 free（与每日降级兜底任务同口径，立即生效）
-    await dbPool.execute(`
-      UPDATE crm_users u
-      SET u.membership_tier = 'free'
-      WHERE u.membership_tier = 'vip'
-        AND NOT EXISTS (
-          SELECT 1 FROM crm_user_subscriptions s
-          WHERE s.user_id = u.id AND s.status = 'active'
-            AND (s.expires_at IS NULL OR s.expires_at > NOW())
-        )
-    `);
+    // 3. 失去活跃订阅的用户落回 free（与切换时点每日降级兜底同口径，立即生效）。
+    //    membership_tier 已按影子表目标结构退役（scripts/shadow-users-phase1.mjs）：
+    //    全新环境（001 起即无此列）与完成 RENAME 切换的环境跳过本步，仅存量未切换环境执行。
+    const [tierCol] = await dbPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'crm_users' AND COLUMN_NAME = 'membership_tier'`,
+    );
+    if ((tierCol as unknown[]).length > 0) {
+      await dbPool.execute(`
+        UPDATE crm_users u
+        SET u.membership_tier = 'free'
+        WHERE u.membership_tier = 'vip'
+          AND NOT EXISTS (
+            SELECT 1 FROM crm_user_subscriptions s
+            WHERE s.user_id = u.id AND s.status = 'active'
+              AND (s.expires_at IS NULL OR s.expires_at > NOW())
+          )
+      `);
+    }
 
     // 4. 旧套餐行物理删除（订阅/权益已在上两步收口；订单表仅存 code 字符串，不受影响）
     await dbPool.execute(

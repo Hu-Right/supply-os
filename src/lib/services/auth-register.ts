@@ -108,9 +108,9 @@ export async function registerUser(
   // ★ 回溯关联：检查该手机号是否有未关联的诊断评估记录（扫码场景常见）
   await backfillQualificationByPhone(targetPhone, newUserId);
 
-  // 仅在邀请码有效时递增 KPI 归属计数
+  // 仅在邀请码有效时递增 KPI 归属计数（注册 KPI「个人起步」：认证转企业由后台审核事件翻转）
   if (referralEmployeeId) {
-    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "enterprise");
+    await ctx.user.invitationRepo.incrementMonthlyActual(referralEmployeeId, "personal");
   }
 
   // 取回创建后的用户行（payload 组装 + 同意日志 user_id 双写均需要）——按 id 定位

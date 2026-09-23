@@ -26,7 +26,6 @@ export const migration: Migration = {
         email VARCHAR(190) NULL,
         display_name VARCHAR(190) NULL,
         password_hash VARCHAR(128) NULL,
-        membership_tier VARCHAR(40) NOT NULL DEFAULT 'free',
         account_status VARCHAR(30) NOT NULL DEFAULT 'pending',
         supplier_id BIGINT UNSIGNED NULL,
         supplier_link_status VARCHAR(30) NOT NULL DEFAULT 'none',
@@ -35,9 +34,9 @@ export const migration: Migration = {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
     await ensureColumn(dbPool, "crm_users", "password_hash", "password_hash VARCHAR(128) NULL AFTER display_name");
-    await ensureColumn(dbPool, "crm_users", "membership_tier", "membership_tier VARCHAR(40) NOT NULL DEFAULT 'free' AFTER password_hash");
-    await ensureColumn(dbPool, "crm_users", "account_status", "account_status VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER membership_tier");
-    await ensureColumn(dbPool, "crm_users", "supplier_id", "supplier_id BIGINT UNSIGNED NULL AFTER membership_tier");
+    // membership_tier 已随影子表重构退役（scripts/shadow-users-phase1.mjs），不再建列
+    await ensureColumn(dbPool, "crm_users", "account_status", "account_status VARCHAR(30) NOT NULL DEFAULT 'pending' AFTER password_hash");
+    await ensureColumn(dbPool, "crm_users", "supplier_id", "supplier_id BIGINT UNSIGNED NULL AFTER account_status");
     await ensureColumn(dbPool, "crm_users", "supplier_link_status", "supplier_link_status VARCHAR(30) NOT NULL DEFAULT 'none' AFTER supplier_id");
     await ensureIndex(dbPool, "crm_users", "idx_supplier_link", "CREATE INDEX idx_supplier_link ON crm_users (supplier_id, supplier_link_status)");
 
