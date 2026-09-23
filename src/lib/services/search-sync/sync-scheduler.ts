@@ -187,7 +187,7 @@ export async function syncWideIds(pool: Pool, ids: number[]): Promise<{ synced: 
 }
 
 // 宽表就绪检查已抽至无依赖叶子模块（A2 解环），此处重导出维持调用方兼容
-export { isWideTableReady } from "./wide-table-readiness";
+export { isWideTableReady } from "../search-common/wide-table-readiness";
 
 /**
  * 启动宽表增量同步定时器

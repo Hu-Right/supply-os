@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { logPerf, recordFallback, logSyncCascade } from "@/lib/services/search-orchestrator/metrics";
-import type { PerfLogEntry } from "@/lib/services/search-orchestrator/metrics";
+import { logPerf, recordFallback, logSyncCascade } from "@/lib/services/search-common/metrics";
+import type { PerfLogEntry } from "@/lib/services/search-common/metrics";
 
 const baseEntry: PerfLogEntry = {
   mode: "default",

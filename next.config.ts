@@ -60,17 +60,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "i18next", "react-i18next"],
   },
-  // 根路由：新首页上线后不再重定向到 /showroom
-  // 旧版 301 已注释，/showroom 仍可通过导航访问
-  // async redirects() {
-  //   return [
-  //     {
-  //       source: "/",
-  //       destination: "/showroom",
-  //       permanent: true,
-  //     },
-  //   ];
-  // },
   // 安全头：CSP 收紧 + 标准安全头
   async headers() {
     return [

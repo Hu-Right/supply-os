@@ -13,7 +13,7 @@ import {
   requestIndexRebuild,
   isRebuildRequested,
   tryRunPendingRebuild,
-} from "@/lib/services/search-orchestrator/rebuild-trigger";
+} from "@/lib/services/search-common/rebuild-trigger";
 
 const mockFullSync = vi.mocked(fullSync);
 const mockIsHealthy = vi.mocked(isHealthy);

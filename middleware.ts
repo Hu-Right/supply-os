@@ -8,7 +8,6 @@
  *              只能读取请求头，无法读取中间件设置的响应头。
  *
  *              注意：Next.js 要求 middleware 必须位于项目根目录。
- *              旧的 src/proxy.ts 因不在正确位置而未生效。
  */
 import { NextRequest, NextResponse } from "next/server";
 
