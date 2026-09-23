@@ -21,6 +21,14 @@ const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-med
 const btnPlain = "px-4 py-1.5 rounded-md bg-white border border-border text-xs font-medium text-foreground hover:bg-secondary-50 transition-colors shrink-0";
 const inputCls = "w-full px-2 py-1.5 rounded border border-border bg-white text-xs text-foreground focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 outline-none";
 
+/** 认领建议候选（/api/user/enterprise/suggest 返回，仅目录公开字段） */
+interface ClaimSuggestion {
+  id: number;
+  company: string;
+  country: string | null;
+  industry: string | null;
+}
+
 export interface EnterpriseEditFormProps {
   /** 编辑态初始值（已绑定行）；新建传 null */
   initial: EnterpriseInfo | null;
@@ -31,6 +39,8 @@ export interface EnterpriseEditFormProps {
   licenseUrl?: string | null;
   /** 执照上传成功回调 */
   onLicenseUploaded?: (url: string) => void;
+  /** 用户点击候选企业「去认领」时上抛（认领弹窗由外层统一挂） */
+  onClaimRequest?: (supplier: { id: number; company: string }) => void;
 }
 
 interface OptionDef { value: string; labelKey: string; fallback: string }
@@ -103,13 +113,16 @@ function GroupTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded }: EnterpriseEditFormProps) {
+export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licenseUrl, onLicenseUploaded, onClaimRequest }: EnterpriseEditFormProps) {
   const { t } = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [localLicenseUrl, setLocalLicenseUrl] = useState(licenseUrl || "");
   const [formError, setFormError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<ClaimSuggestion[]>([]);
+  const [suggestDismissed, setSuggestDismissed] = useState(false);
+  const suggestCheckedRef = useRef("");
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = { province: "", city: "" };
     for (const group of [BASIC_FIELDS, CONTACT_FIELDS, BUSINESS_FIELDS]) {
@@ -125,6 +138,23 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
   });
 
   const set = (key: string, v: string) => setValues((s) => ({ ...s, [key]: v }));
+
+  // 认领引导：仅未绑定新建时，公司名失焦查库内已认证同名/近似企业（查询失败静默，不阻断填写）
+  const checkCompanySuggest = async (raw: string) => {
+    if (initial) return;
+    const name = raw.trim();
+    if (name.length < 2 || name === suggestCheckedRef.current) return;
+    suggestCheckedRef.current = name;
+    try {
+      const res = await api<{ matches: ClaimSuggestion[] }>(
+        `/api/user/enterprise/suggest?name=${encodeURIComponent(name)}`,
+      );
+      setSuggestions(res?.matches ?? []);
+      setSuggestDismissed(false);
+    } catch {
+      /* 建议接口失败不打断填写 */
+    }
+  };
 
   // 必填字段 Set（用于 label 星号标识）
   const requiredKeys = new Set(REQUIRED_KEYS.map((r) => r.key));
@@ -162,6 +192,7 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
               className={inputCls}
               value={values[f.key] || ""}
               onChange={(e) => set(f.key, e.target.value)}
+              onBlur={f.key === "company" ? () => checkCompanySuggest(values.company) : undefined}
               placeholder={ph}
             />
           )}
@@ -267,6 +298,40 @@ export function EnterpriseEditForm({ initial, saving, onSubmit, onCancel, licens
 
   return (
     <div className="space-y-6">
+      {/* 认领引导：库内已有认证同名/近似企业时提示，提示但不阻断 */}
+      {suggestions.length > 0 && !suggestDismissed && (
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2">
+          <p className="text-xs font-medium text-brand-700">
+            {t("authEnterpriseClaimHint") || "供应商库中已存在以下已认证企业，认领通过后即可完成绑定："}
+          </p>
+          <ul className="space-y-1">
+            {suggestions.map((s) => (
+              <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="text-foreground truncate">
+                  {s.company}
+                  {s.country ? <span className="text-muted-foreground"> · {s.country}</span> : null}
+                  {s.industry ? <span className="text-muted-foreground"> · {s.industry}</span> : null}
+                </span>
+                <button
+                  type="button"
+                  className="text-xs font-medium text-brand-600 hover:text-brand-700 shrink-0 cursor-pointer"
+                  onClick={() => onClaimRequest?.({ id: Number(s.id), company: String(s.company ?? "") })}
+                >
+                  {t("authEnterpriseClaimAction") || "去认领"}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+            onClick={() => setSuggestDismissed(true)}
+          >
+            {t("authEnterpriseClaimDismiss") || "都不是我的公司，继续填写"}
+          </button>
+        </div>
+      )}
+
       {/* 营业执照上传 */}
       <section>
         <GroupTitle>

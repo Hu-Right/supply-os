@@ -6,7 +6,9 @@
  *   GET  按 crm_users.supplier_id 关联 supplier 企业表，返回整行（SELECT * 透传），
  *        供前端分组表格渲染（有则展示、无则 -）；含防重兜底。
  *   PUT  已绑定：按 supplier 最终表可编辑列白名单 UPDATE 该行（企业信息编辑）。
- *   POST 未绑定：INSERT 新 supplier 行并回写 crm_users.supplier_id 完成绑定。
+ *   POST 未绑定：先防重（credit_code 优先、其次公司名）——命中**已认证**行不绑定，
+ *        返回 claimRequired 引导走认领审核；命中未认证行直接绑定已有行；
+ *        均未命中则 INSERT 新 supplier 行并回写 crm_users.supplier_id 完成绑定。
  *        填写字段与 supplier 最终表结构一致（所见即所填），与诊断/审核链路剥离。
  */
 import { NextResponse } from "next/server";
@@ -148,14 +150,27 @@ export const POST = withRoute(async (req) => {
 
   // ── 防重：已存在则绑定已有行，不新建 ──
   let existingId = 0;
+  let existingVerified = false;
   const creditCode = String(body.credit_code || "").trim();
   if (creditCode) {
     const byCredit = await repo.findByCreditCode(creditCode);
-    if (byCredit) existingId = Number(byCredit.id);
+    if (byCredit) {
+      existingId = Number(byCredit.id);
+      existingVerified = byCredit.verify_status === "done";
+    }
   }
   if (!existingId) {
     const byCompany = await repo.findByCompanyBest(companyName);
-    if (byCompany) existingId = Number(byCompany.id);
+    if (byCompany) {
+      existingId = Number(byCompany.id);
+      existingVerified = byCompany.verify_status === "done";
+    }
+  }
+
+  // 已认证企业不秒绑：绑定权与归属需审核背书，返回 claimRequired 由前端引导走认领流程
+  // （认领通过 → claim approved，后台据此完成注册 KPI「个人→企业」翻转）
+  if (existingId && existingVerified) {
+    return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, claimRequired: true } });
   }
 
   if (existingId) {

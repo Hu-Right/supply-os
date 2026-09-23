@@ -17,6 +17,7 @@ import { Clock, AlertTriangle } from "lucide-react";
 import { useClaimExpiry } from "@/shared/hooks/useClaimExpiry";
 import { EnterpriseInfoCard } from "@/features/auth/components/EnterpriseInfoCard";
 import { EnterpriseEditForm } from "@/features/auth/components/EnterpriseEditForm";
+import { SupplierClaimModal } from "@/features/supplier-profile/components/SupplierClaimModal";
 import { useEnterpriseInfo } from "@/shared/hooks/useEnterpriseInfo";
 
 const btnBlue = "px-4 py-1.5 rounded-md bg-brand-600 text-white text-xs font-medium hover:bg-brand-700 transition-colors shrink-0";
@@ -27,6 +28,7 @@ export default function EnterpriseSettingsClient() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [claimTarget, setClaimTarget] = useState<{ id: number; company: string } | null>(null);
   const enterprise = useEnterpriseInfo();
   const { claimExpiry, countdown } = useClaimExpiry(
     authUser?.id,
@@ -50,6 +52,17 @@ export default function EnterpriseSettingsClient() {
 
   // V2（ADR-0004）：企业信息与供应商资源库不再互斥，已建库也可进入本页绑定/编辑企业。
 
+  /** 认领提交成功（含表单引导与 POST claimRequired 两条路径）：临时绑定已建立，刷新后保存走 PUT 并入该行 */
+  const handleClaimSuccess = () => {
+    setClaimTarget(null);
+    enterprise.retry();
+    emitAppEvent("supply-os:enterprise-changed");
+    setMessage(
+      t("authEnterpriseClaimSubmitted") ||
+        "认领申请已提交，请在 7 天内完善企业信息并上传营业执照，审核通过后完成绑定",
+    );
+  };
+
   const handleSubmit = async (values: Record<string, string>) => {
     setSaving(true);
     setMessage(null);
@@ -57,7 +70,18 @@ export default function EnterpriseSettingsClient() {
       if (enterprise.bound) {
         await api("/api/user/enterprise", { method: "PUT", body: values });
       } else {
-        await api("/api/user/enterprise", { method: "POST", body: values });
+        const res = await api<{ supplierId?: number; claimRequired?: boolean }>("/api/user/enterprise", {
+          method: "POST",
+          body: values,
+        });
+        // 命中已认证企业：不落库、不退出编辑态，引导认领；认领提交后保存走 PUT 并入该行
+        if (res?.claimRequired && res.supplierId) {
+          setMessage(
+            t("authEnterpriseClaimRequired") || "该企业已通过平台认证，请通过认领流程完成绑定",
+          );
+          setClaimTarget({ id: Number(res.supplierId), company: String(values.company || "") });
+          return;
+        }
       }
       setEditing(false);
       enterprise.retry();
@@ -114,6 +138,7 @@ export default function EnterpriseSettingsClient() {
           onSubmit={handleSubmit}
           onCancel={() => setEditing(false)}
           licenseUrl={enterprise.enterprise?.license_url ? String(enterprise.enterprise.license_url) : null}
+          onClaimRequest={setClaimTarget}
         />
       ) : (
         <EnterpriseInfoCard
@@ -123,6 +148,16 @@ export default function EnterpriseSettingsClient() {
           error={enterprise.error}
           onRetry={enterprise.retry}
           onBind={() => setEditing(true)}
+        />
+      )}
+
+      {/* 认领弹窗（表单候选引导 / POST claimRequired 两条路径共用） */}
+      {claimTarget && (
+        <SupplierClaimModal
+          supplierId={claimTarget.id}
+          companyName={claimTarget.company}
+          onClose={() => setClaimTarget(null)}
+          onSuccess={handleClaimSuccess}
         />
       )}
     </div>

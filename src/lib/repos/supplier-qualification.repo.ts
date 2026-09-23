@@ -121,17 +121,10 @@ export class SupplierQualificationRepo {
     );
   }
 
-  /** 回写 crm_users.qualification_id（用户账号关联评估记录） */
-  async linkUserQualification(userId: number, qualificationId: number): Promise<void> {
-    await this.pool.execute(
-      `UPDATE crm_users SET qualification_id = ? WHERE id = ?`,
-      [qualificationId, userId],
-    );
-  }
-
   /**
    * 注册后回溯关联：按手机号查找 user_id IS NULL 的孤立诊断记录，
    * 通过 contact_info 列匹配（该字段已改为收集手机号）。
+   * 用户↔诊断的唯一事实源即本表 user_id 列，不再向 crm_users 回写冗余指针。
    * @returns 关联的记录数（0 = 无匹配孤立记录）
    */
   async backfillByPhone(phone: string, userId: number): Promise<number> {
@@ -144,13 +137,11 @@ export class SupplierQualificationRepo {
     if (rows.length === 0) return 0;
 
     const ids = rows.map((r) => r.id);
-    // 批量回写 user_id
+    // 批量回写 user_id（用户↔诊断关系的唯一存贮处）
     await this.pool.execute(
       `UPDATE crm_supplier_qualification SET user_id = ? WHERE id IN (${ids.map(() => "?").join(",")})`,
       [userId, ...ids],
     );
-    // 回写最新一条的 qualification_id 到 crm_users
-    await this.linkUserQualification(userId, ids[0]);
     return rows.length;
   }
 }

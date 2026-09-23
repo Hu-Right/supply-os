@@ -23,6 +23,8 @@ export interface SupplierDirectoryRow {
   industry: string | null;
   certification: string | null;
   type: string | null;
+  /** 认证状态：done=已认证 / pending=审核中（防重分支据此区分「转认领 / 直接绑定」） */
+  verify_status?: string | null;
   /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
   data_quality_score?: number | string | null;
 }
@@ -174,11 +176,11 @@ export class SupplierDirectoryRepo {
     return Number((result as RowDataPacket).insertId);
   }
 
-  /** 按统一社会信用代码查企业（注册防重优先键） */
+  /** 按统一社会信用代码查企业（注册防重优先键）；verify_status 供防重分支区分「已认证→转认领 / 未认证→直接绑定」 */
   async findByCreditCode(creditCode: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type
+              contact, phone, email, products, industry, certification, type, verify_status
        FROM supplier WHERE credit_code = ? AND merged_id IS NULL LIMIT 1`,
       [creditCode],
     );
@@ -208,7 +210,7 @@ export class SupplierDirectoryRepo {
   async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
-              contact, phone, email, products, industry, certification, type
+              contact, phone, email, products, industry, certification, type, verify_status
        FROM supplier
        WHERE company = ? AND merged_id IS NULL
        ORDER BY (
@@ -221,6 +223,31 @@ export class SupplierDirectoryRepo {
       [companyName],
     );
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+  }
+
+  /**
+   * 企业名模糊建议（认领引导用）：仅已认证、未合并行，前缀命中优先、资料完整度次之。
+   * 只回目录公开字段（无联系人/电话/邮箱），供登录态 autocomplete，不可当目录检索用。
+   */
+  async findVerifiedByNameSimilar(
+    name: string,
+    limit = 5,
+  ): Promise<Array<Pick<SupplierDirectoryRow, "id" | "company" | "country" | "industry">>> {
+    const escaped = name.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const [rows] = await this.pool.query(
+      `SELECT id, company, country, industry
+       FROM supplier
+       WHERE verify_status = 'done' AND merged_id IS NULL
+         AND (company LIKE ? OR company LIKE ?)
+       ORDER BY (company LIKE ?) DESC,
+                (
+         CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END +
+         CASE WHEN industry IS NOT NULL AND industry <> '' THEN 1 ELSE 0 END
+       ) DESC, id DESC
+       LIMIT ?`,
+      [`${escaped}%`, `%${escaped}%`, `${escaped}%`, limit],
+    );
+    return rows as Array<Pick<SupplierDirectoryRow, "id" | "company" | "country" | "industry">>;
   }
 
   /** 供应商明文联系方式（VIP 端点） */

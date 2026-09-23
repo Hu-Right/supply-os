@@ -120,14 +120,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       source,
     });
 
-    // 自动回写：当 phone 已解析到用户时，将 qualification_id 关联到 crm_users
-    if (userId) {
-      try {
-        await repo.linkUserQualification(userId, id);
-      } catch {
-        // 回写失败不阻断提交
-      }
-    }
+    // 用户归属已随 insertQualification 写入本记录 user_id；不再向 crm_users 回写冗余指针。
 
     // 资源库回填打通（P0-1）：外贸员从“我的供应商资源库”为池中工厂填写诊断表时携带 poolId，
     // 将新诊断记录关联回 crm_user_supplier_pool.qualification_id，使 fetchSupplierProfiles 的

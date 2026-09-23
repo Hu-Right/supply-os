@@ -2,7 +2,7 @@
   "supplierMgmtTitle": "Catalogue des fournisseurs nationaux et internationaux",
   "domesticSuppliers": "Usines OEM de qualité (filtre par secteur)",
   "internationalSuppliers": "Fournisseurs internationaux enregistrés (par code UNSPSC)",
-  "registerSupplierBtn": "Demander la revue de qualification fournisseur",
+  "registerSupplierBtn": "Revue de qualification fournisseur",
   "registerSupplierBtnShort": "Qualification",
   "supplierType": "Type de fournisseur",
   "supplierTypeDomestic": "Usine OEM nationale",

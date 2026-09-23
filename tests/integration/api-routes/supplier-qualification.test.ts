@@ -7,9 +7,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { insertQualification, linkUserQualification, linkQualification, extractUserKey } = vi.hoisted(() => ({
+const { insertQualification, linkQualification, extractUserKey } = vi.hoisted(() => ({
   insertQualification: vi.fn(),
-  linkUserQualification: vi.fn(),
   linkQualification: vi.fn(),
   extractUserKey: vi.fn(),
 }));
@@ -23,7 +22,7 @@ vi.mock("@/lib/middleware/rateLimiter", () => ({ checkRateLimit: () => undefined
 vi.mock("@/lib/middleware/auth", () => ({ extractUserKey }));
 vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
   SupplierQualificationRepo: function (this: any) {
-    Object.assign(this, { insertQualification, linkUserQualification });
+    Object.assign(this, { insertQualification });
   },
 }));
 vi.mock("@/lib/repos/user-supplier-pool.repo", () => ({
@@ -54,7 +53,6 @@ async function call(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   insertQualification.mockResolvedValue(555);
-  linkUserQualification.mockResolvedValue(undefined);
   linkQualification.mockResolvedValue(undefined);
 });
 

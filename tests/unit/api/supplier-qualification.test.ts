@@ -11,7 +11,6 @@ vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
 vi.mock("@/lib/db/context", () => ({ getContext: vi.fn() }));
 const mockRepoInstance = {
   insertQualification: vi.fn().mockResolvedValue(42),
-  linkUserQualification: vi.fn().mockResolvedValue(undefined),
 };
 vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
   SupplierQualificationRepo: function (this: any) { Object.assign(this, mockRepoInstance); },
@@ -90,19 +89,19 @@ describe("POST /api/supplier-qualification", () => {
     expect(body.qualification_id).toBe(42);
   });
 
-  it("带 phone → 关联用户并回写", async () => {
-    const linkFn = vi.fn().mockResolvedValue(undefined);
+  it("带 phone → 反查用户并写入诊断记录 user_id", async () => {
     vi.mocked(getContext).mockReturnValue({
       user: {
         usersRepo: { findByPhone: vi.fn().mockResolvedValue({ id: 7 }) },
         invitationRepo: { findByCode: vi.fn().mockResolvedValue(null) },
       },
     } as any);
-    mockRepoInstance.insertQualification = vi.fn().mockResolvedValue(42);
-    mockRepoInstance.linkUserQualification = linkFn;
+    const insertFn = vi.fn().mockResolvedValue(42);
+    mockRepoInstance.insertQualification = insertFn;
     const res = await POST(makeReq({ ...validBody, phone: "13800000000" }));
     expect(res.status).toBe(201);
-    expect(linkFn).toHaveBeenCalledWith(7, 42);
+    // 归属唯一事实源是 crm_supplier_qualification.user_id，不再回写 crm_users 冗余指针
+    expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ user_id: 7 }));
   });
 
   it("带 invitation_code → 解析推荐员工 ID", async () => {
@@ -129,7 +128,6 @@ describe("POST /api/supplier-qualification", () => {
 
   it("DB 插入失败 → 500/50000", async () => {
     mockRepoInstance.insertQualification = vi.fn().mockRejectedValue(new Error("DB down"));
-    mockRepoInstance.linkUserQualification = vi.fn();
     vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(makeReq(validBody));
     expect(res.status).toBe(500);
@@ -139,7 +137,6 @@ describe("POST /api/supplier-qualification", () => {
   it("source 默认为 qualification", async () => {
     const insertFn = vi.fn().mockResolvedValue(42);
     mockRepoInstance.insertQualification = insertFn;
-    mockRepoInstance.linkUserQualification = vi.fn();
     await POST(makeReq(validBody));
     expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ source: "qualification" }));
   });
@@ -147,13 +144,10 @@ describe("POST /api/supplier-qualification", () => {
   it("JWT 认证 → 直接从 Token 关联用户（优先于 phone）", async () => {
     vi.mocked(verifyAccessToken).mockReturnValueOnce({ uid: 99 } as any);
     const insertFn = vi.fn().mockResolvedValue(42);
-    const linkFn = vi.fn().mockResolvedValue(undefined);
     mockRepoInstance.insertQualification = insertFn;
-    mockRepoInstance.linkUserQualification = linkFn;
     // 即使 body 带不同 phone，JWT userId 应优先
     const res = await POST(makeReq({ ...validBody, phone: "13900000000" }, 99));
     expect(res.status).toBe(201);
     expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ user_id: 99 }));
-    expect(linkFn).toHaveBeenCalledWith(99, 42);
   });
 });
