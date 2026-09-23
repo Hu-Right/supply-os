@@ -44,3 +44,17 @@ export function getPlanQuotaDisplay(
   const row = table.rows.find((r) => r.benefit.benefit_code === benefitCode);
   return row?.cells[planCode]?.display ?? null;
 }
+
+/** 按派生受众把套餐分为个人版 / 企业版两组（缺失 audience 归企业版，与后端兜底一致）。 */
+export function groupPlansByAudience(plans: PlanCatalogRow[]): {
+  personal: PlanCatalogRow[];
+  enterprise: PlanCatalogRow[];
+} {
+  const personal: PlanCatalogRow[] = [];
+  const enterprise: PlanCatalogRow[] = [];
+  for (const p of plans) {
+    if (p.audience === "personal") personal.push(p);
+    else enterprise.push(p);
+  }
+  return { personal, enterprise };
+}
