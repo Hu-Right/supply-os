@@ -67,6 +67,15 @@ export const POST = withRoute(
           returnUrl: String(body.return_url || ""),
           clientIp: clientIp,
         });
+      } else if (planCode.startsWith("svc_")) {
+        // 增值服务一次性下单：读 crm_service_catalog 定价、写 crm_service_orders（不动会员核心）
+        result = await ctx.payment.servicePaymentService.createOrder({
+          userId: auth.userId,
+          serviceCode: planCode,
+          provider,
+          returnUrl: String(body.return_url || ""),
+          clientIp: clientIp,
+        });
       } else {
         result = await paymentService.createOrder({
           user_id: auth.userId,
@@ -113,6 +122,8 @@ export const POST = withRoute(
             ? "学习资料不存在或已下架"
             : raw.includes("BUNDLE_NOT_FOUND")
               ? "打包套餐不存在或已下架"
+              : raw.includes("SERVICE_UNAVAILABLE")
+                ? "该服务暂不支持在线下单"
               : raw.includes("SINGLE_FIRST_PURCHASE_ONLY")
                 ? "首单特惠仅限首次购买，请选择标准单次解锁"
                 : "创建订单失败，请稍后重试";

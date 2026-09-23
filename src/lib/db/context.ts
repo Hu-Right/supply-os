@@ -9,6 +9,7 @@ import type { Pool } from "mysql2/promise";
 import { getPool } from "./pool";
 import { PaymentService } from "../payment/PaymentService";
 import { LearningPaymentService } from "../payment/learning-payment";
+import { ServicePaymentService } from "../payment/service-payment";
 import { TrainingPaymentService } from "../payment/TrainingPaymentService";
 import { PaymentOrchestrator } from "../payment/orchestrator";
 import { MockProvider } from "../payment/MockProvider";
@@ -22,6 +23,7 @@ import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { PaymentsRepo } from "../repos/payments.repo";
 import { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import { LearningOrdersRepo } from "../repos/learning-orders.repo";
+import { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import { LearningMaterialsRepo } from "../repos/learning-materials.repo";
 import { OpportunitiesRepo } from "../repos/opportunities.repo";
 import {
@@ -66,6 +68,8 @@ export type PaymentContext = {
   paymentMode: "live" | "mock";
   paymentsRepo: PaymentsRepo;
   learningOrdersRepo: LearningOrdersRepo;
+  servicePaymentService: ServicePaymentService;
+  serviceOrdersRepo: ServiceOrdersRepo;
   paymentHistoryRepo: PaymentHistoryRepo;
 };
 
@@ -122,6 +126,7 @@ export function getContext(): AppContext {
   const paymentsRepo = new PaymentsRepo(dbPool);
   const paymentHistoryRepo = new PaymentHistoryRepo(dbPool);
   const learningOrdersRepo = new LearningOrdersRepo(dbPool);
+  const serviceOrdersRepo = new ServiceOrdersRepo(dbPool);
   const learningMaterialsRepo = new LearningMaterialsRepo(dbPool);
   const opportunitiesRepo = new OpportunitiesRepo(dbPool);
 
@@ -152,8 +157,9 @@ export function getContext(): AppContext {
     write: benefitWriteRepo,
   });
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
+  const servicePaymentService = new ServicePaymentService(serviceOrdersRepo, dbPool);
   const trainingPaymentService = new TrainingPaymentService(trainingRepo); // ARCH-PN 新增
-  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo, {
+  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, servicePaymentService, serviceOrdersRepo, paymentHistoryRepo, {
     catalog: benefitSystemRepo,
     write: benefitWriteRepo,
   });
@@ -206,8 +212,8 @@ export function getContext(): AppContext {
     dbPool,
     notice: { dbPool, detailRepo, unlockRepo, translationRepo, interactionRepo, feedbackRepo, favoriteRepo },
     payment: {
-      dbPool, paymentService, learningPaymentService, trainingPaymentService, orchestrator, paymentMode,
-      paymentsRepo, learningOrdersRepo, paymentHistoryRepo,
+      dbPool, paymentService, learningPaymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
+      paymentsRepo, learningOrdersRepo, serviceOrdersRepo, paymentHistoryRepo,
     },
     user: { dbPool, usersRepo, authRepo, userPrefsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo },
