@@ -138,12 +138,22 @@ await expectOk("补上 level_dict 后可插入", () =>
 );
 
 console.log("[3] 额度账本：普通用户池（subscription_id NULL）+ 生成列唯一键");
+// 探针必须显式钉死 period_starts_at：该列 DEFAULT CURRENT_TIMESTAMP 是**语句级**取值，
+// 两条 INSERT 靠默认值会相差秒级，uk_pool（含周期起点）视其为两个周期而不冲突——
+// 2026-09-23 教训：本项误报"约束失效"正是没钉周期起点，约束本身经诊断实为活性正常。
 await expectOk("subscription_id NULL 可插入", () =>
-  conn.execute(`INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total) VALUES (NULL,900001,'__t_notice',3)`),
+  conn.execute(
+    `INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total,period_starts_at)
+     VALUES (NULL,900001,'__t_notice',3,'2026-01-01 00:00:00')`,
+  ),
 );
 await expectReject(
   "同池同周期重复插入被 uk_pool 拒绝（证明 NULL 也参与唯一约束）",
-  () => conn.execute(`INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total) VALUES (NULL,900001,'__t_notice',3)`),
+  () =>
+    conn.execute(
+      `INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total,period_starts_at)
+       VALUES (NULL,900001,'__t_notice',3,'2026-01-01 00:00:00')`,
+    ),
   /uk_pool|Duplicate entry/i,
 );
 const [gen] = await conn.query(
