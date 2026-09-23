@@ -2,10 +2,9 @@
  * NoticeDetail 工具函数和常量
  * @module features/procurement/components/NoticeDetail/utils
  *
- * V2 权益（2026-09-21）：tier 为各模块最低可用档位的展示标注（与后端
- * lib/services/benefit-matrix.ts 的 FEATURE_REQUIRED_RANK 一致）：
- * summary/similar 免费；qualification/files 会员（解锁语义，计额度）；
- * history 标准版（999）；ai-score 专业版（1299）。
+ * tier 仅为各 Tab 角标的展示标注，不是门控事实源：各模块的真实可见性/解锁
+ * 由服务端按 crm_plan_benefits 矩阵逐格判定（见 lib/repos/benefit-system.repo
+ * 与各 notices/[id]/* 路由），前端不再据此推导档位数字。
  */
 
 /** Tab 定义 */

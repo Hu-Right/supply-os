@@ -3,9 +3,11 @@
  * Notice Unlock Repository
  *
  * @module server/repos/notices/notice-unlock.repo
- * @description 操作 crm_opportunity_unlocks + crm_user_entitlements 表。
+ * @description 只操作 crm_opportunity_unlocks 表（解锁流水：访问授权与审计明细）。
+ *              额度记账已迁移至 crm_benefit_quotas（唯一扣减口径见 lib/services/unlock-quota.ts），
+ *              本 repo 不再读写旧表 crm_user_entitlements。
  */
-import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 
 export class NoticeUnlockRepo {
   constructor(private pool: Pool) {}
@@ -37,22 +39,6 @@ export class NoticeUnlockRepo {
     return (rows as RowDataPacket[])[0] ?? null;
   }
 
-  /**
-   * 事务内统计用户已消耗的 subscription 类型解锁次数。
-   * P0-2 修复配套：无权益纯订阅解锁路径据此按套餐 unlock_quota 封顶。
-   * 调用方须已对该用户的订阅行 FOR UPDATE，防并发超卖。
-   * since 为 null 时经 COALESCE 落到 1970-01-01，即不限周期全量计数。
-   */
-  async countSubscriptionUnlocksSince(
-    conn: PoolConnection, userId: number, since: Date | null,
-  ): Promise<number> {
-    const [rows] = await conn.query(
-      "SELECT COUNT(*) AS cnt FROM crm_opportunity_unlocks WHERE user_id = ? AND unlock_type = 'subscription' AND unlocked_at >= COALESCE(?, '1970-01-01')",
-      [userId, since],
-    );
-    return Number((rows as RowDataPacket[])[0]?.cnt || 0);
-  }
-
   /** 写入解锁流水 */
   async insertUnlock(params: {
     userId: number;
@@ -66,14 +52,6 @@ export class NoticeUnlockRepo {
         (user_id, notice_id, unlock_type, price, unlocked_at, unspsc_codes_snapshot)
        VALUES (?, ?, ?, ?, NOW(), ?)`,
       [params.userId, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
-    );
-  }
-
-  /** 消耗一份付费配额（配额不足或权益已升级时不更新） */
-  async consumeEntitlement(entitlementId: number): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used AND is_upgraded = 0",
-      [entitlementId],
     );
   }
 
@@ -101,16 +79,5 @@ export class NoticeUnlockRepo {
        VALUES (?, ?, ?, ?, NOW(), ?)`,
       [params.userId, params.noticeId, params.unlockType, params.price, params.unspscSnapshot],
     );
-  }
-
-  /** 事务内消耗配额，返回 affectedRows（0 表示配额已被并发消耗） */
-  async consumeEntitlementInTransaction(
-    conn: PoolConnection, entitlementId: number,
-  ): Promise<number> {
-    const [result] = await conn.query(
-      "UPDATE crm_user_entitlements SET quota_used = quota_used + 1, updated_at = NOW() WHERE id = ? AND quota_total > quota_used",
-      [entitlementId],
-    );
-    return (result as ResultSetHeader).affectedRows;
   }
 }

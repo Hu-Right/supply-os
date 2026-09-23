@@ -14,6 +14,7 @@ import { syncWideIds } from "../services/search-sync/index";
 import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { rollupNoticeViewDaily } from "../services/amount/view-rollup";
+import { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import {
   FEATURED_REFRESH_INTERVAL_MS, STATS_REFRESH_INTERVAL_MS,
   PAYMENT_MAINTENANCE_INTERVAL_MS,
@@ -56,7 +57,7 @@ export interface TimersHandle {
  * 3. 国家/机构缓存每日凌晨 5 点定时刷新
  * 4. 桥接表脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
  * 5. 附属数据（翻译表 + 宽表）脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
- * 6. 支付维护：超时未支付订单每小时关闭 + 无生效订阅的 VIP 会员身份每日 04:30 兜底降级
+ * 6. 支付维护：超时未支付订单每小时关闭 + 新体系订阅到期扫描 + 无生效订阅的 VIP 会员身份每日 04:30 兜底降级
  */
 export function startAllTimers(deps: TimersDeps): TimersHandle {
   const { dbPool } = deps;
@@ -157,7 +158,8 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
   //         · learning_orders（学习）  ：created_at 超 2 小时 → closed（该表无独立过期列）
   //         · training_orders（培训）   ：expires_at 到期 → expired（与懒过期语义一致，保留迟到付款复活通道）
   //    b) 会员身份兜底降级：每日 04:30 将"已无生效订阅"的 VIP 用户 membership_tier 回落为 free
-  //       （线上身份以 resolveMembershipState 实时计算为准，此任务仅消除落库列的滞后）
+  //       （线上身份以 resolveMembershipState 实时计算为准，此任务仅消除落库列的滞后；存量判定读新表 crm_plan_subscriptions）
+  //    c) 权益体系新账本到期扫描（启动后一次 + 每日）：新表组过期订阅整批置 expired 并冻结其额度池
   let paymentMaintenanceTimer: NodeJS.Timeout | null = null;
   let paymentTierSyncTimer: NodeJS.Timeout | null = null;
   if (String(process.env.PAYMENT_MAINTENANCE_ENABLED ?? "on").toLowerCase() !== "off") {
@@ -200,13 +202,15 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     };
     const demoteExpiredVipTier = async () => {
       try {
+        // 单轨事实源：会员真身 = 新体系有无 active 订阅（crm_plan_subscriptions），
+        // 本任务仅消除 crm_users.membership_tier 落库列的滞后，不再读旧表 crm_user_subscriptions。
         const [ret] = await dbPool.query(
           `UPDATE crm_users u
            SET u.membership_tier = 'free'
            WHERE u.membership_tier = 'vip'
              AND NOT EXISTS (
-               SELECT 1 FROM crm_user_subscriptions s
-               WHERE s.user_id = u.id
+               SELECT 1 FROM crm_plan_subscriptions s
+               WHERE s.owner_user_id = u.id
                  AND s.status = 'active'
                  AND (s.expires_at IS NULL OR s.expires_at > NOW())
              )`,
@@ -217,14 +221,27 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
         console.error("[payment-maintenance] 会员身份兜底降级失败:", (e as Error).message);
       }
     };
+    // c) 权益体系新账本到期扫描：active 且 expires_at 已过的订阅整批改 expired 并冻结其额度池。
+    //    门控读路径本按 expires_at 实时判定，此任务使 crm_plan_subscriptions/crm_benefit_quotas
+    //    的落库状态与账本口径对齐（升级承接、退款冻池依赖 expired/frozen 语义），勿删。
+    const expireOverdueBenefitSubs = async () => {
+      try {
+        const ids = await new BenefitWriteRepo().expireOverdueSubscriptions(dbPool);
+        if (ids.length > 0) console.log(`[payment-maintenance] 已到期 ${ids.length} 条新体系订阅并冻结其额度池`);
+      } catch (e) {
+        console.error("[payment-maintenance] 新体系订阅到期扫描失败（不影响其他任务/下次扫描）:", (e as Error).message);
+      }
+    };
     // 启动时立即异步处理一次存量（不阻塞启动）
-    // 延迟 15s/20s 执行，与翻译/清理任务错开
+    // 延迟 15s/20s/25s 执行，与翻译/清理任务错开；到期扫描先于降级，使降级读到 expired 后的真实态
     setTimeout(() => { void closeStalePendingOrders(); }, 15_000);
-    setTimeout(() => { void demoteExpiredVipTier(); }, 20_000);
+    setTimeout(() => { void expireOverdueBenefitSubs(); }, 20_000);
+    setTimeout(() => { void demoteExpiredVipTier(); }, 25_000);
     paymentMaintenanceTimer = setInterval(() => {
       void closeStalePendingOrders();
     }, PAYMENT_MAINTENANCE_INTERVAL_MS);
     paymentTierSyncTimer = scheduleDailyAt(4, async () => {
+      await expireOverdueBenefitSubs();
       await demoteExpiredVipTier();
     });
   }

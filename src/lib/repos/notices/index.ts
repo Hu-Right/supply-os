@@ -5,7 +5,7 @@
  * @module server/repos/notices
  * @description 按职责拆分的公告子 Repo 统一导出：
  *              - notice-detail: crm_bid_notices（详情/预览/翻译源）
- *              - notice-unlock: crm_opportunity_unlocks + crm_user_entitlements
+ *              - notice-unlock: crm_opportunity_unlocks（解锁流水；额度记账见 crm_benefit_quotas）
  *              - notice-translation: crm_notice_translations
  *              - notice-interaction: crm_user_notice_views + crm_notice_interests
  *              - notice-feedback: crm_user_reco_feedback + crm_user_search_log
