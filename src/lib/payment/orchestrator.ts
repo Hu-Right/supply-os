@@ -21,6 +21,8 @@ import type { PaymentService } from "./PaymentService";
 import type { LearningPaymentService } from "./learning-payment";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
+import type { ServicePaymentService } from "./service-payment";
+import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
 import type { BenefitFulfillDeps } from "./benefit-grant";
@@ -30,7 +32,7 @@ import { fulfillTrainingOrder, reverseTrainingOrder, fulfillMockTrainingOrder } 
 export interface NormalizedOrder {
   order_no: string; // 订单编号
   user_id: number; // 内部用户 ID
-  business_type: "membership" | "learning" | "training"; // ARCH-PN：业务类型
+  business_type: "membership" | "learning" | "training" | "service"; // ARCH-PN：业务类型
   provider: string; // 支付渠道
   plan_code: string; // 套餐代码
   notice_id: number | null; // 解锁的资料 ID
@@ -49,10 +51,12 @@ export const ORDER_PREFIX = {
   MEMBERSHIP: "SO",
   LEARNING: "LE",
   TRAINING: "TR",
+  SERVICE: "SV",
 } as const;
 
 // 根据订单号判断支付订单的类型
-export function getOrderBusiness(orderNo: string): "membership" | "learning" | "training" | "unknown" {
+export function getOrderBusiness(orderNo: string): "membership" | "learning" | "training" | "service" | "unknown" {
+  if (orderNo.startsWith(ORDER_PREFIX.SERVICE)) return "service";
   if (orderNo.startsWith(ORDER_PREFIX.LEARNING)) return "learning";
   if (orderNo.startsWith(ORDER_PREFIX.TRAINING)) return "training";
   if (orderNo.startsWith(ORDER_PREFIX.MEMBERSHIP)) return "membership";
@@ -69,6 +73,8 @@ export class PaymentOrchestrator {
     private paymentsRepo: PaymentsRepo,
     private learningOrdersRepo: LearningOrdersRepo,
     private trainingRepo: TrainingRepo,
+    private servicePaymentService: ServicePaymentService,
+    private serviceOrdersRepo: ServiceOrdersRepo,
     private paymentHistoryRepo: PaymentHistoryRepo,
     /** 权益体系双轨：会员履约/逆向的新表组依赖（与 PaymentService 同一实例，由 AppContext 注入） */
     private benefitDeps: BenefitFulfillDeps,
@@ -88,6 +94,9 @@ export class PaymentOrchestrator {
       hasStrategy: (p) => this.hasStrategy(p),
     });
     this.learningPaymentService.setStrategyResolver({
+      getStrategy: (p) => this.getStrategy(p),
+    });
+    this.servicePaymentService.setStrategyResolver({
       getStrategy: (p) => this.getStrategy(p),
     });
   }
@@ -168,6 +177,18 @@ export class PaymentOrchestrator {
         return { success: true, order_no: verifyResult.order_no };
       }
 
+      case "service": {
+        const dbOrder = await this.serviceOrdersRepo.findOrderAmount(verifyResult.order_no);
+        if (!dbOrder) {
+          return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
+        }
+        if (Number(dbOrder.amount) > 0 && Math.abs(Number(dbOrder.amount) - callbackAmount) > 0.01) {
+          return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
+        }
+        await this.servicePaymentService.fulfillOrder(verifyResult.order_no);
+        return { success: true, order_no: verifyResult.order_no };
+      }
+
       case "membership":
       default: {
         // ARCH-PN（2026-09-11）：会员订单不再重复走 PaymentService.handleNotify（验签已在上方完成），
@@ -204,6 +225,8 @@ export class PaymentOrchestrator {
           paid_at: order.paid_at ? new Date(order.paid_at).toISOString() : null,
         };
       }
+      case "service":
+        return this.servicePaymentService.queryOrder(orderNo);
       case "membership":
       default:
         return this.paymentService.queryOrder(orderNo, providerTradeNo);
@@ -236,6 +259,13 @@ export class PaymentOrchestrator {
           message: result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
         };
       }
+      case "service": {
+        const result = await this.servicePaymentService.reverseOrder(orderNo);
+        if (!result.found) {
+          return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
+        }
+        return { success: true, order_no: orderNo, message: result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION" };
+      }
       case "membership":
       default: {
         const { reverseFulfilledOrder } = await import("./reverse");
@@ -267,6 +297,10 @@ export class PaymentOrchestrator {
         const result = await fulfillMockTrainingOrder(this.trainingRepo, orderNo, rawNotify);
         return { found: result.found, business };
       }
+      case "service": {
+        const result = await this.servicePaymentService.fulfillMockOrder(orderNo);
+        return { found: result.found, business };
+      }
       case "membership":
       default: {
         const found = await this.paymentService.fulfillMockMembershipOrder(orderNo, rawNotify);
@@ -287,6 +321,10 @@ export class PaymentOrchestrator {
         const order = await this.trainingRepo.findOrderByNo(orderNo);
         return order ? { user_id: order.user_id!, status: order.status } : null;
       }
+      case "service": {
+        const order = await this.serviceOrdersRepo.findByOrderNo(orderNo);
+        return order ? { user_id: order.user_id, status: order.status } : null;
+      }
       case "membership":
       default: {
         const order = await this.paymentsRepo.findByOrderNo(orderNo);
@@ -304,7 +342,7 @@ export class PaymentOrchestrator {
     provider_trade_no: string | null; paid_at: Date | string | null;
     created_at: Date | string; updated_at: Date | string | null;
     notice_id?: number | null; expires_at?: Date | string | null;
-  }, businessType: "membership" | "learning" | "training"): NormalizedOrder {
+  }, businessType: "membership" | "learning" | "training" | "service"): NormalizedOrder {
     return {
       order_no: row.order_no,
       user_id: row.user_id ?? 0,
@@ -332,16 +370,18 @@ export class PaymentOrchestrator {
   ): Promise<{ total: number; list: NormalizedOrder[] }> {
     const statusParam = status && status !== "all" ? status : "";
 
-    const [membershipOrders, learningOrders, trainingOrders, membershipTotal, learningTotal, trainingTotal] = await Promise.all([
+    const [membershipOrders, learningOrders, trainingOrders, serviceOrders, membershipTotal, learningTotal, trainingTotal, serviceTotal] = await Promise.all([
       this.paymentHistoryRepo.listOrders(userId, statusParam, 9999, 0),
       this.learningOrdersRepo.findByUserId(userId, statusParam),
       this.trainingRepo.findOrdersByUserId(userId, statusParam),
+      this.serviceOrdersRepo.findByUserId(userId, statusParam),
       this.paymentHistoryRepo.countOrders(userId, statusParam),
       this.learningOrdersRepo.countByUserId(userId, statusParam),
       this.trainingRepo.countOrdersByUserId(userId, statusParam),
+      this.serviceOrdersRepo.countByUserId(userId, statusParam),
     ]);
 
-    const total = membershipTotal + learningTotal + trainingTotal;
+    const total = membershipTotal + learningTotal + trainingTotal + serviceTotal;
 
     const all = [
       ...membershipOrders.map((o) => this.normalizeOrder(o, "membership")),
@@ -353,6 +393,13 @@ export class PaymentOrchestrator {
         paid_at: o.paid_at, created_at: o.created_at as unknown as Date,
         updated_at: null, expires_at: o.expires_at ?? null,
       }, "training")),
+      ...serviceOrders.map((o) => this.normalizeOrder({
+        order_no: o.order_no, user_id: o.user_id, provider: "service",
+        plan_code: o.service_code, amount: o.amount_total,
+        currency: o.currency, status: o.status, provider_trade_no: null,
+        paid_at: o.paid_at, created_at: o.created_at, updated_at: null,
+        notice_id: null, expires_at: null,
+      }, "service")),
     ];
 
     all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
