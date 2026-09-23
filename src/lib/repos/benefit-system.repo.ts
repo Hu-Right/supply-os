@@ -109,7 +109,7 @@ export class BenefitSystemRepo {
               billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active
          FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
-    return rows as PlanCatalogRow[];
+    return (rows as PlanCatalogRow[]).map((r) => ({ ...r, audience: deriveAudience(r.commercial_tier) }));
   }
 
   /**
@@ -123,7 +123,8 @@ export class BenefitSystemRepo {
          FROM crm_plan_catalog WHERE plan_code = ? LIMIT 1`,
       [planCode],
     );
-    return (rows as PlanCatalogRow[])[0] ?? null;
+    const row = (rows as PlanCatalogRow[])[0] ?? null;
+    return row ? { ...row, audience: deriveAudience(row.commercial_tier) } : null;
   }
 
   /** 启用的权益定义（矩阵行序 = group_code + sort_order） */
