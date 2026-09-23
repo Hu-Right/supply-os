@@ -39,6 +39,7 @@ export const migration: Migration = {
     await ensureColumn(dbPool, "crm_users", "supplier_id", "supplier_id BIGINT UNSIGNED NULL AFTER account_status");
     await ensureColumn(dbPool, "crm_users", "supplier_link_status", "supplier_link_status VARCHAR(30) NOT NULL DEFAULT 'none' AFTER supplier_id");
     await ensureIndex(dbPool, "crm_users", "idx_supplier_link", "CREATE INDEX idx_supplier_link ON crm_users (supplier_id, supplier_link_status)");
+    await ensureIndex(dbPool, "crm_users", "idx_created_at", "CREATE INDEX idx_created_at ON crm_users (created_at)");
 
     // 培训注册表
     await dbPool.query(`

@@ -4,8 +4,10 @@
  *
  * 隐私整改（docs/用户昵称化与隐私保护技术方案.md）：
  * - 新增 nickname 列作为唯一对外展示名；display_name 列保留存真实姓名，从 API 响应中退场
- * - nickname_source 区分自动生成（1）与用户自定义（2），回填脚本以 NULL + source=1 幂等补齐
  * - 回填前备份 display_name 原值（双保险，backup 表幂等可重跑）
+ *
+ * （曾新增 nickname_source 元标记列，已随影子表重构退役——无业务读取方，
+ *   见 scripts/shadow-users-phase1.mjs，本迁移不再建列。）
  */
 import type { Pool } from "mysql2/promise";
 import { ensureColumn, type Migration } from "./runner";
@@ -20,12 +22,7 @@ export const migration: Migration = {
       "nickname",
       "nickname VARCHAR(100) NULL AFTER display_name",
     );
-    await ensureColumn(
-      dbPool,
-      "crm_users",
-      "nickname_source",
-      "nickname_source TINYINT NOT NULL DEFAULT 1 COMMENT '1=auto-generated, 2=user-set' AFTER nickname",
-    );
+    // （原 nickname_source 元标记列已退役不再建，见文件头说明。）
 
     // 回滚保险：备份 display_name 原值（幂等：主键 INSERT IGNORE，重跑不重复）
     await dbPool.query(`

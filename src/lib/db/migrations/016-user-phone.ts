@@ -29,11 +29,14 @@ export const migration: Migration = {
     );
 
     // 唯一索引：同一手机号不能被多个用户绑定
+    // （索引名 uk_phone 对齐影子表目标结构 scripts/shadow-users-phase1.mjs；
+    //   存量环境的历史双索引 idx_users_phone/idx_users_phone_unique 由阶段三
+    //   RENAME 切换收敛，本迁移只决定全新环境的出生结构。）
     await ensureIndex(
       dbPool,
       "crm_users",
-      "idx_users_phone",
-      "CREATE UNIQUE INDEX idx_users_phone ON crm_users (phone)",
+      "uk_phone",
+      "CREATE UNIQUE INDEX uk_phone ON crm_users (phone)",
     );
   },
 };
