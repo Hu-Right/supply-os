@@ -76,18 +76,20 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
       "price_paid",
       "currency",
       "seat_limit",
+      "started_at",
       "expires_at",
     ]) {
       expect(calls[0].sql).toContain(col);
     }
-    expect(calls[0].params).toEqual([42, "business", "ALI-20260922-0001", 8800, "CNY", 3, new Date(1800000000000)]);
+    // started_at 缺省传 null → SQL 端 COALESCE(?, NOW())；列为 …, seat_limit, started_at, expires_at
+    expect(calls[0].params).toEqual([42, "business", "ALI-20260922-0001", 8800, "CNY", 3, null, new Date(1800000000000)]);
   });
 
   it("无期限订阅传 NULL 而不是伪造远期时间", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     await repo.insertSubscription(db, base);
-    expect(calls[0].params[6]).toBeNull();
+    expect(calls[0].params[7]).toBeNull();
   });
 
   it("三条守卫都在发出 SQL 之前拦住（空订单号 / 负金额 / free 档）", async () => {
@@ -120,6 +122,7 @@ describe("openQuotaPool · 幂等发放", () => {
     expect(sql).toContain("ON DUPLICATE KEY UPDATE");
     expect(sql).toContain("GREATEST(quota_total, ?)");
     expect(sql).not.toContain("quota_used =");
+    expect(sql).not.toMatch(/status\s*=\s*'active'/);
     // 同一个额度值绑定三次：插入位 + IF 比较位 + GREATEST 比较位（不用 VALUES() 以避开 8.0.20 弃用写法）
     expect(calls[0].params.filter((p) => p === 100)).toHaveLength(3);
     expect(sql).not.toContain("VALUES(");
@@ -221,6 +224,8 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
 
     const sql = calls[0].sql;
     expect(sql).toContain("subscription_id <=> ?");
+    expect(sql).toContain("scope = 'subscription'");
+    expect(sql).toContain("period_starts_at <= NOW()");
     expect(sql).toContain("FOR UPDATE");
     expect(sql).toContain("ORDER BY period_starts_at DESC");
     // 关键：一旦出现 status 过滤，耗尽的池会查不到 → 调用方误开新池 = 凭空发额度
@@ -275,6 +280,7 @@ describe("expireOverdueSubscriptions / freezePoolsOfSubscription · 到期与冻
 
     expect(calls).toHaveLength(3);
     expect(calls[0].sql).toContain("SELECT id FROM crm_plan_subscriptions");
+    expect(calls[0].sql).toContain("FOR UPDATE");
     expect(calls[1].sql).toContain("UPDATE crm_benefit_quotas");
     expect(calls[1].sql).toContain("status = 'frozen'");
     expect(calls[2].sql).toContain("status = 'expired'");

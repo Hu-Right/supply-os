@@ -13,7 +13,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import type { PoolConnection } from "mysql2/promise";
-import type { ActivePlanRow, BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
+import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
+import type { ActivePlanRow } from "@/types/membership";
 import type { BenefitWriteRepo, LockedPoolRow } from "@/lib/repos/benefit-write.repo";
 import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "@/lib/services/unlock-quota";
 

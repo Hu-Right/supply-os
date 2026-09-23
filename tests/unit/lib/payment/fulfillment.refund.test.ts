@@ -1,123 +1,55 @@
-/**
- * 退款逆向回收测试（审查报告 F20）
- * TRADE_CLOSED 通知 → reverseFulfilledOrder 按订单类型回收已发放权益。
- */
 import { describe, it, expect, vi } from "vitest";
-import type { PoolConnection } from "mysql2/promise";
+import { reverseFulfilledOrder } from "@/lib/payment/reverse";
 import type { PaymentsRepo } from "@/lib/repos/payments.repo";
+import type { BenefitFulfillDeps } from "@/lib/payment/benefit-grant";
 
-vi.mock("server-only", () => ({}));
-
-function makeOrder(over: Partial<Record<string, unknown>> = {}) {
-  return {
-    order_no: "SO20260830TEST",
-    user_key: "13800000000",
-    plan_code: "annual_8",
-    order_type: "new",
-    status: "paid",
-    ...over,
+function env(status = "paid", subscriptionId: number | null = 11, linked = false) {
+  const statements: string[] = [];
+  const conn = { beginTransaction: vi.fn(), commit: vi.fn(), rollback: vi.fn(), release: vi.fn(),
+    query: vi.fn(async () => [linked ? [{ order_no: "SO2" }] : []]),
+    execute: vi.fn(async (sql: string) => { statements.push(sql); return [{ affectedRows: 1 }]; }),
   };
+  const order = { order_no: "SO1", user_id: 7, status, plan_code: "pro" };
+  const repo = { getConnection: vi.fn(async () => conn), findOrderForUpdate: vi.fn(async () => order) };
+  const write = {
+    findSubscriptionIdBySourceOrder: vi.fn(async () => subscriptionId),
+    findSubscriptionForUpdate: vi.fn(async () => ({ id: 11, owner_user_id: 7, replaced_by_id: null })),
+    refundSubscription: vi.fn(async () => ({ frozenPools: 1 })),
+    freezePoolsOfSubscription: vi.fn(),
+  };
+  const deps = { write, catalog: {} } as unknown as BenefitFulfillDeps;
+  const run = () => reverseFulfilledOrder(repo as unknown as PaymentsRepo, "SO1", deps);
+  return { run, conn, repo, statements, write };
 }
 
-function makeEnv(order: ReturnType<typeof makeOrder> | null, flagAffectedRows = 1, linkedOrder: { order_no: string } | null = null) {
-  const executed: Array<{ sql: string; params: unknown[] }> = [];
-  const conn = {
-    beginTransaction: vi.fn().mockResolvedValue(undefined),
-    commit: vi.fn().mockResolvedValue(undefined),
-    rollback: vi.fn().mockResolvedValue(undefined),
-    release: vi.fn(),
-    execute: vi.fn(async (sql: string, params?: unknown[]) => {
-      executed.push({ sql, params: params ?? [] });
-      return [{ affectedRows: flagAffectedRows }];
-    }),
-    query: vi.fn(async (sql: string, params?: unknown[]) => {
-      executed.push({ sql, params: params ?? [] });
-      // mysql2 返回 [rows, fields]；抵扣关联查询按需返回行，其余返回空集
-      if (sql.includes("original_order_no")) {
-        return [linkedOrder ? [linkedOrder] : []];
-      }
-      return [[]];
-    }),
-  } as unknown as PoolConnection;
-  const repo = {
-    getConnection: vi.fn().mockResolvedValue(conn),
-    findOrderForUpdate: vi.fn().mockResolvedValue(order),
-  } as unknown as PaymentsRepo;
-  return { conn, repo, executed };
-}
-
-const hasSql = (executed: Array<{ sql: string }>, fragment: string) =>
-  executed.some((e) => e.sql.includes(fragment));
-
-describe("reverseFulfilledOrder 退款逆向（F20）", () => {
-  it("会员套餐订单：权益与订阅标记 refunded，无其他活跃订阅时降级 free", async () => {
-    const { repo, executed } = makeEnv(makeOrder());
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    expect(result).toEqual({ found: true, reversed: true });
-    expect(hasSql(executed, "SET status = 'refunded'")).toBe(true);
-    expect(hasSql(executed, "crm_user_entitlements")).toBe(true);
-    expect(hasSql(executed, "crm_user_subscriptions")).toBe(true);
-    expect(hasSql(executed, "membership_tier = 'free'")).toBe(true);
-    expect(hasSql(executed, "crm_learning_material_purchases")).toBe(false);
+describe("新账本退款", () => {
+  it("按订单来源锁订阅并原子退款，不猜测最近订阅", async () => {
+    const e = env();
+    expect(await e.run()).toMatchObject({ found: true, reversed: true });
+    expect(e.write.findSubscriptionIdBySourceOrder).toHaveBeenCalledWith(e.conn, "SO1");
+    expect(e.write.refundSubscription).toHaveBeenCalledWith(e.conn, 11);
+    expect(e.statements.join(" ")).not.toMatch(/crm_user_subscriptions|crm_user_entitlements|membership_tier/);
+    expect(e.conn.commit).toHaveBeenCalledOnce();
   });
-
-  it("学习资料订单：删除购买记录，不触达权益/订阅", async () => {
-    const { repo, executed } = makeEnv(makeOrder({ plan_code: "material_training-doc-01" }));
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    expect(result.reversed).toBe(true);
-    expect(hasSql(executed, "DELETE FROM crm_learning_material_purchases")).toBe(true);
-    expect(hasSql(executed, "crm_user_entitlements")).toBe(false);
-    expect(hasSql(executed, "crm_user_subscriptions")).toBe(false);
+  it.each(["pending", "refunded", "closed"])("状态%s不重复回收", async status => {
+    const e = env(status);
+    expect(await e.run()).toMatchObject({ reversed: false });
+    expect(e.write.refundSubscription).not.toHaveBeenCalled();
   });
-
-  it("升级订单：标记 refunded 但不自动回滚权益（转人工）", async () => {
-    const { repo, executed } = makeEnv(makeOrder({ order_type: "upgrade" }));
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    expect(result.reversed).toBe(true);
-    expect(hasSql(executed, "SET status = 'refunded'")).toBe(true);
-    expect(hasSql(executed, "crm_user_entitlements")).toBe(false);
+  it("已付款但缺订阅时显式报错，不回退旧表", async () => {
+    const e = env("paid", null);
+    await expect(e.run()).rejects.toThrow("REFUND_SUBSCRIPTION_NOT_FOUND");
+    expect(e.conn.rollback).toHaveBeenCalledOnce();
+    expect(e.conn.commit).not.toHaveBeenCalled();
   });
-
-  it("非 paid 状态（重复通知/未支付）：幂等跳过，不产生任何写入", async () => {
-    const { repo, executed } = makeEnv(makeOrder({ status: "refunded" }));
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    expect(result).toEqual({ found: true, reversed: false });
-    expect(executed).toHaveLength(0);
+  it("冻池失败回滚订单状态", async () => {
+    const e = env(); e.write.refundSubscription.mockRejectedValueOnce(new Error("FREEZE_FAILED"));
+    await expect(e.run()).rejects.toThrow("FREEZE_FAILED");
+    expect(e.conn.rollback).toHaveBeenCalledOnce();
   });
-
-  it("订单不存在：found=false", async () => {
-    const { repo } = makeEnv(null);
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO-NOT-EXIST");
-    expect(result).toEqual({ found: false, reversed: false });
-  });
-
-  it("订单标记条件更新未命中（并发已处理）：幂等跳过", async () => {
-    const { repo, executed } = makeEnv(makeOrder(), 0);
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    expect(result).toEqual({ found: true, reversed: false });
-    expect(executed).toHaveLength(1);
-  });
-
-  it("被抵扣引用的源订单（首单抵扣配套）：标记 refunded 但权益保留转人工", async () => {
-    const { repo, executed } = makeEnv(makeOrder({ plan_code: "single_99" }), 1, { order_no: "SO-MEMBER-700" });
-    const { reverseFulfilledOrder } = await import("@/lib/payment/fulfillment");
-    const result = await reverseFulfilledOrder(repo, "SO20260830TEST");
-
-    // 订单已标 refunded，但不应出现权益回收/购买记录删除/降级 SQL
-    expect(result).toEqual({ found: true, reversed: false });
-    expect(hasSql(executed, "SET status = 'refunded'")).toBe(true);
-    expect(hasSql(executed, "crm_learning_material_purchases")).toBe(false);
-    expect(hasSql(executed, "membership_tier = 'free'")).toBe(false);
+  it("存在关联资金订单时回收权益但明确待人工核对", async () => {
+    const e = env("paid", 11, true);
+    expect(await e.run()).toMatchObject({ found: true, reversed: false, review_required: true });
+    expect(e.write.refundSubscription).toHaveBeenCalledOnce();
   });
 });

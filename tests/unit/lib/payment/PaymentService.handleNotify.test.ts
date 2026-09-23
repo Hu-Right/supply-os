@@ -13,11 +13,14 @@ import type { PaymentsRepo } from "@/lib/repos/payments.repo";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/payment/reverse", () => ({ reverseFulfilledOrder: vi.fn() }));
-vi.mock("@/lib/payment/fulfillment", () => ({ activatePaidOrder: vi.fn() }));
+vi.mock("@/lib/payment/activate", () => ({ activatePaidOrder: vi.fn() }));
 
 import { reverseFulfilledOrder } from "@/lib/payment/reverse";
-import { activatePaidOrder } from "@/lib/payment/fulfillment";
+import { activatePaidOrder } from "@/lib/payment/activate";
 import { PaymentService } from "@/lib/payment/PaymentService";
+
+/** 权益履约依赖桩：新构造必须注入，handleNotify/reverse 均原样透传本对象。 */
+const benefitDeps = { catalog: {}, write: {} } as never;
 
 function makeRepo(orderAmount: { amount: number; status: string } | null) {
   return {
@@ -27,7 +30,7 @@ function makeRepo(orderAmount: { amount: number; status: string } | null) {
 
 async function getService(repo: PaymentsRepo, verifyResult: Record<string, unknown>) {
   const { PaymentService: Svc } = await import("@/lib/payment/PaymentService");
-  const svc = new Svc(repo, undefined);
+  const svc = new Svc(repo, benefitDeps);
   const _s = {
     createPaymentUrl: async () => ({ pay_url: "/pay", qr_code_url: "x" }),
     queryOrderStatus: async () => ({ order_no: "", status: "pending" }),
@@ -58,8 +61,8 @@ describe("PaymentService.handleNotify", () => {
     vi.mocked(reverseFulfilledOrder).mockResolvedValue({ found: true, reversed: true });
     const svc = await getService(repo, { verified: false, order_no: "SO1", tradeStatus: "TRADE_CLOSED" });
     const result = await svc.handleNotify("mock", {}, "sig");
-    // 第 4 参 = 权益体系双轨依赖：未注入时必须透传 undefined（旧路径不变）
-    expect(reverseFulfilledOrder).toHaveBeenCalledWith(repo, "SO1", undefined);
+    // 第 3 参 = 权益履约依赖：构造注入后必须原样透传
+    expect(reverseFulfilledOrder).toHaveBeenCalledWith(repo, "SO1", benefitDeps);
     expect(result).toMatchObject({ success: true, order_no: "SO1", message: "REFUND_REVERSED" });
     expect(activatePaidOrder).not.toHaveBeenCalled();
   });
@@ -115,8 +118,8 @@ describe("PaymentService.handleNotify", () => {
     const svc = await getService(repo, { verified: true, order_no: "SO1", amount: "99.005", provider_trade_no: "T9" });
     const result = await svc.handleNotify("mock", {}, "sig");
     expect(result).toMatchObject({ success: true, order_no: "SO1" });
-    // activatePaidOrder(repo, orderNo, providerTradeNo, benefitDeps)；未注入双轨依赖时为 undefined
-    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9", undefined);
+    // activatePaidOrder(repo, orderNo, providerTradeNo, benefitDeps)
+    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9", benefitDeps);
   });
 
   it("验签通过但缺 order_no → ORDER_NO_MISSING", async () => {

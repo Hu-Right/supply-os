@@ -24,7 +24,7 @@ function makePool(queryResult: unknown[][]) {
 function makeConn() {
   return {
     query: vi.fn(async () => [[]]) as QueryFn,
-    execute: vi.fn(async () => [{}]) as QueryFn,
+    execute: vi.fn(async () => [{ affectedRows: 1 }]) as QueryFn,
   } as unknown as PoolConnection & { query: QueryFn; execute: QueryFn };
 }
 
@@ -50,7 +50,7 @@ describe("PaymentsRepo 查询方法", () => {
     const { pool, query } = makePool([[]]);
     const repo = new PaymentsRepo(pool);
     await repo.findPendingOrder({ userId: 101, planCode: "single_99", provider: "mock", noticeId: null });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("(notice_id <=> ?)"), [101, "single_99", "mock", null]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("notice_id <=> ?"), [101, "single_99", "mock", null]);
   });
 });
 
@@ -86,47 +86,6 @@ describe("PaymentsRepo 订单写入", () => {
     expect(params[5]).toBe("SO1");
     expect(params[6]).toBe(5);
   });
-
-  it("markAsPaid：providerTradeNo 为 null 时 COALESCE 保留原交易号", async () => {
-    const { pool, execute } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    await repo.markAsPaid("SO1", null);
-    const [sql, params] = execute.mock.calls[0];
-    expect(sql).toContain("COALESCE(?, provider_trade_no)");
-    expect(params).toEqual([null, "SO1"]);
-  });
-});
-
-describe("PaymentsRepo 权益与订阅（履约侧）", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("insertEntitlement：durationDays=null 时 expires_at 写 NULL 且参数 4 个", async () => {
-    const { pool, execute } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    await repo.insertEntitlement({ userId: 101, orderNo: "SO1", planCode: "annual_799", quotaTotal: 100, durationDays: null });
-    const [sql, params] = execute.mock.calls[0];
-    expect(sql).not.toContain("DATE_ADD");
-    expect(sql).toContain("'active'");
-    expect(params).toEqual([101, "SO1", "annual_799", 100]);
-  });
-
-  it("insertEntitlement：durationDays=365 时 DATE_ADD 绑定天数参数", async () => {
-    const { pool, execute } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    await repo.insertEntitlement({ userId: 101, orderNo: "SO1", planCode: "annual_799", quotaTotal: 100, durationDays: 365 });
-    const [sql, params] = execute.mock.calls[0];
-    expect(sql).toContain("DATE_ADD(NOW(), INTERVAL ? DAY)");
-    expect(params).toEqual([101, "SO1", "annual_799", 100, 365]);
-  });
-
-  it("createSubscription：days=null 永不过期分支", async () => {
-    const { pool, execute } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    await repo.createSubscription(101, "annual_8800", null);
-    const [sql, params] = execute.mock.calls[0];
-    expect(sql).toContain("expires_at");
-    expect(params).toEqual([101, "annual_8800"]);
-  });
 });
 
 describe("PaymentsRepo 事务方法（状态机不变量）", () => {
@@ -139,24 +98,5 @@ describe("PaymentsRepo 事务方法（状态机不变量）", () => {
     await repo.markAsPaidInTransaction(conn, "SO1", "TRADE-1");
     const [sql] = conn.execute.mock.calls[0];
     expect(sql).toContain("AND status = 'pending'");
-  });
-
-  it("hasEntitlementForOrder：行数>0 → true", async () => {
-    const conn = makeConn();
-    conn.query.mockResolvedValueOnce([[{ id: 1 }]]);
-    const { pool } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    expect(await repo.hasEntitlementForOrder(conn, "SO1")).toBe(true);
-  });
-
-  it("markEntitlementUpgradedInTransaction：写 is_upgraded=1 且保留 quota_used", async () => {
-    const conn = makeConn();
-    const { pool } = makePool([[]]);
-    const repo = new PaymentsRepo(pool);
-    await repo.markEntitlementUpgradedInTransaction(conn, 7);
-    const [sql, params] = conn.execute.mock.calls[0];
-    expect(sql).toContain("is_upgraded = 1");
-    expect(sql).not.toContain("quota_used");
-    expect(params).toEqual([7]);
   });
 });

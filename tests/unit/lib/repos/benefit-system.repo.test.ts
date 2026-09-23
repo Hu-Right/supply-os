@@ -152,9 +152,9 @@ describe("findActivePlanForUser · 订阅与席位同链", () => {
 
   it("额度池按 NULL 安全比较查普通用户池，并只留每权益当前周期一行", async () => {
     const { repo, calls } = makePool(() => [
-      { benefit_code: "notice_view", scope: "subscription", quota_total: -1, quota_used: 0, period: "yearly", period_starts_at: new Date(2) },
-      { benefit_code: "notice_view", scope: "subscription", quota_total: 10, quota_used: 3, period: "yearly", period_starts_at: new Date(1) },
-      { benefit_code: "tech_support", scope: "subscription", quota_total: 12, quota_used: 5, period: "none", period_starts_at: new Date(3) },
+      { benefit_code: "notice_view", scope: "subscription", status: "active", quota_total: -1, quota_used: 0, period: "yearly", period_starts_at: new Date(2) },
+      { benefit_code: "notice_view", scope: "subscription", status: "active", quota_total: 10, quota_used: 3, period: "yearly", period_starts_at: new Date(1) },
+      { benefit_code: "tech_support", scope: "subscription", status: "active", quota_total: 12, quota_used: 5, period: "none", period_starts_at: new Date(3) },
     ]);
     const rows = await repo.listQuotaBalances(42, null);
     expect(calls[0]).toContain("subscription_id <=> ?");

@@ -10,7 +10,8 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { GrantError, grantSubscriptionForPlan } from "@/lib/payment/benefit-grant";
-import type { BenefitSystemRepo, PlanCatalogRow } from "@/lib/repos/benefit-system.repo";
+import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
+import type { PlanCatalogRow } from "@/types";
 
 const plan = (over: Partial<PlanCatalogRow> = {}): PlanCatalogRow => ({
   plan_code: "business",
@@ -94,14 +95,16 @@ describe("grantSubscriptionForPlan · 正常履约", () => {
     expect(order[1]).toContain("/2400.5/");
   });
 
-  it("币种缺省取目录快照，显式传入优先", async () => {
+  it("币种缺省取目录快照；显式传入不一致必须拒（AMOUNT_INVALID）", async () => {
     const a = makeDeps();
     await grantSubscriptionForPlan(a.deps, makeConn().conn, base);
     expect(a.order[1]).toContain("/CNY/");
 
     const b = makeDeps();
-    await grantSubscriptionForPlan(b.deps, makeConn().conn, { ...base, currency: "USD" });
-    expect(b.order[1]).toContain("/USD/");
+    await expect(grantSubscriptionForPlan(b.deps, makeConn().conn, { ...base, currency: "USD" })).rejects.toMatchObject({
+      code: "AMOUNT_INVALID",
+    });
+    expect(b.order).toEqual([]);
   });
 
   it("永久档（billing_period_days=NULL）不发 DATE_ADD，expires_at 为 null", async () => {
@@ -162,21 +165,21 @@ describe("grantSubscriptionForPlan · 异常必须冒出来", () => {
     const { deps } = makeDeps({ plan: plan({ price_incl_tax: null }) });
     const r = await grantSubscriptionForPlan(deps, makeConn().conn, base);
     expect(r.subscriptionId).toBe(501);
-    expect(r.anomalies).toEqual([]);
+    expect(r.grantedBenefits).toEqual(["notice_view"]);
   });
 
   it("矩阵缺格/异常格由写层透传，不在履约层悄悄吞掉", async () => {
     const { deps } = makeDeps({
       grant: { granted: ["notice_view"], anomalies: ["tech_support：矩阵缺格（套餐 business 未声明额度），不发池"] },
     });
-    const r = await grantSubscriptionForPlan(deps, makeConn().conn, base);
-    expect(r.grantedBenefits).toEqual(["notice_view"]);
-    expect(r.anomalies.join(" ")).toContain("矩阵缺格");
+    await expect(grantSubscriptionForPlan(deps, makeConn().conn, base)).rejects.toMatchObject({
+      code: "MATRIX_INVALID",
+    });
   });
 
-  it("口径干净时 anomalies 必须为空——避免真问题被固定噪音淹没", async () => {
+  it("口径干净时正常开池——避免真问题被固定噪音淹没", async () => {
     const { deps } = makeDeps();
     const r = await grantSubscriptionForPlan(deps, makeConn().conn, base);
-    expect(r.anomalies).toEqual([]);
+    expect(r.grantedBenefits).toEqual(["notice_view"]);
   });
 });

@@ -108,12 +108,12 @@ describe("generateNickname", () => {
 
 describe("buildUserResponse", () => {
   const mockMembershipRepo = {
-    getFreeQuota: vi.fn().mockResolvedValue(5),
-    countFreeUnlocks: vi.fn().mockResolvedValue(0),
-    findActiveSubscriptions: vi.fn().mockResolvedValue([]),
-    countPaidUnlocks: vi.fn().mockResolvedValue(0),
-    findActiveEntitlements: vi.fn().mockResolvedValue([]),
-    findCurrentBestPlan: vi.fn().mockResolvedValue(null),
+    findActivePlanForUser: vi.fn().mockResolvedValue(null),
+    getPlan: vi.fn(async (code: string) => ({
+      plan_code: code, name_zh: code, price: "0", currency: "CNY",
+      price_mode: code === "free" ? "free" : "fixed", is_active: 1,
+    })),
+    listQuotaBalances: vi.fn().mockResolvedValue([]),
   };
   const mockSupplierRepo = {
     findAuthInfoById: vi.fn().mockResolvedValue(null),
@@ -133,7 +133,7 @@ describe("buildUserResponse", () => {
     const result = await buildUserResponse(user, mockMembershipRepo as any, mockSupplierRepo as any);
     expect(result.id).toBe(1);
     expect(result.email).toBe("user@test.com");
-    expect(result.membership_tier).toBe("free");
+    expect(result.has_subscription).toBe(false);
     expect(result.phone).toBeTruthy();
     expect(result.phone_verified).toBe(1);
   });

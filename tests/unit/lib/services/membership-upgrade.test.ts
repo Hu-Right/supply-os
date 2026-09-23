@@ -1,110 +1,35 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { previewUpgrade } from "@/lib/services/membership-upgrade";
-import { extractTierLabel } from "@/shared/constants/membership";
-import type { MembershipRepo } from "@/lib/repos/membership.repo";
-
-describe("extractTierLabel", () => {
-  it("含连字符 → 取末段", () => {
-    expect(extractTierLabel("标讯企业会员-基础版")).toBe("基础版");
-    expect(extractTierLabel("标讯企业会员-旗舰版")).toBe("旗舰版");
+import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
+function fixture(over: { member?: boolean; active?: boolean; missing?: boolean; mode?: string; target?: number; used?: number; quota?: number } = {}) {
+  const repo = {
+    findActivePlanForUser: vi.fn(async () => over.active === false ? null : { subscription_id: 1, owner_user_id: 7, plan_code: "starter", seat_role: over.member ? "member" : "owner", source_order_no: "SO1" }),
+    getPlan: vi.fn(async (code: string) => over.missing ? null : ({ plan_code: code, price: code === "starter" ? "129.00" : String(over.target ?? 999), currency: "CNY", is_active: 1, price_mode: over.mode ?? "fixed" })),
+    getCell: vi.fn(async () => ({ raw: over.quota ?? 100 })),
+    listQuotaBalances: vi.fn(async () => [{ benefit_code: "notice_view", quota_used: over.used ?? 8, status: "active" }]),
+  };
+  return repo as unknown as BenefitSystemRepo;
+}
+describe("新目录升级预览", () => {
+  it("差价和剩余取新目录与账本", async () => {
+    expect(await previewUpgrade(fixture(), 7, "pro")).toMatchObject({ can_upgrade: true, price_difference: 870, quota_used: 8, remaining_after_upgrade: 92 });
   });
-
-  it("V2 套餐名：已以'版'结尾 → 原样返回", () => {
-    expect(extractTierLabel("个人体验版")).toBe("个人体验版");
-    expect(extractTierLabel("个人标准版")).toBe("个人标准版");
-    expect(extractTierLabel("个人专业版")).toBe("个人专业版");
+  it("无限额度remaining为null", async () => {
+    expect((await previewUpgrade(fixture({ quota: -1 }), 7, "pro")).remaining_after_upgrade).toBeNull();
   });
-
-  it("V2 套餐名：会员后缀 → 去'会员'加'版'，企业前缀收敛为'企业版'", () => {
-    expect(extractTierLabel("企业年度会员")).toBe("企业版");
-    expect(extractTierLabel("免费注册体验")).toBe("免费注册体验版");
+  it.each([
+    [{ active: false }, "NO_ACTIVE_PLAN"], [{ member: true }, "SUBSCRIPTION_OWNER_REQUIRED"],
+    [{ missing: true }, "TARGET_PLAN_NOT_FOUND"], [{ mode: "contact" }, "TARGET_PLAN_NOT_UPGRADABLE"],
+    [{ mode: "free" }, "TARGET_PLAN_NOT_UPGRADABLE"], [{ target: 100 }, "CANNOT_DOWNGRADE"],
+    [{ used: 101 }, "UPGRADE_QUOTA_INVALID"],
+  ] as const)("拒绝条件%o", async (over, reason) => {
+    expect(await previewUpgrade(fixture(over), 7, "pro")).toMatchObject({ can_upgrade: false, reason });
   });
-
-  it("不含连字符 → 去前缀后缀加 '版'", () => {
-    expect(extractTierLabel("标讯个人会员")).toBe("个人版");
+  it("同档不重复升级", async () => {
+    expect((await previewUpgrade(fixture(), 7, "starter")).reason).toBe("ALREADY_ON_TARGET_PLAN");
   });
-
-  it("null/undefined → VIP", () => {
-    expect(extractTierLabel(null)).toBe("VIP");
-    expect(extractTierLabel(undefined)).toBe("VIP");
-    expect(extractTierLabel("")).toBe("VIP");
-  });
-
-  it("纯英文套餐名 → 去标讯/会员后加版", () => {
-    expect(extractTierLabel("Enterprise")).toBe("Enterprise版");
-  });
-});
-
-describe("previewUpgrade", () => {
-  function makeMockRepo(data: {
-    plan?: { plan_code: string; name: string; price: number; unlock_quota: number; is_active: number } | null;
-    currentBest?: {
-      plan_code: string; plan_name: string; price: number; unlock_quota: number;
-      quota_used: number; started_at: Date | null; expires_at: Date | null;
-    } | null;
-  }): MembershipRepo {
-    return {
-      findPlanByCode: async () => data.plan ?? null,
-      findCurrentBestPlan: async () => data.currentBest ?? null,
-    } as unknown as MembershipRepo;
-  }
-
-  it("目标套餐不存在 → TARGET_PLAN_NOT_FOUND", async () => {
-    const repo = makeMockRepo({ plan: null });
-    const result = await previewUpgrade(repo, 1, "annual");
-    expect(result.can_upgrade).toBe(false);
-    expect(result.reason).toBe("TARGET_PLAN_NOT_FOUND");
-  });
-
-  it("无活跃套餐 → NO_ACTIVE_PLAN", async () => {
-    const repo = makeMockRepo({
-      plan: { plan_code: "annual", name: "年费会员", price: 799, unlock_quota: 100, is_active: 1 },
-      currentBest: null,
-    });
-    const result = await previewUpgrade(repo, 1, "annual");
-    expect(result.can_upgrade).toBe(false);
-    expect(result.reason).toBe("NO_ACTIVE_PLAN");
-  });
-
-  it("已是目标套餐 → ALREADY_ON_TARGET_PLAN", async () => {
-    const repo = makeMockRepo({
-      plan: { plan_code: "basic", name: "基础版", price: 100, unlock_quota: 10, is_active: 1 },
-      currentBest: {
-        plan_code: "basic", plan_name: "基础版", price: 100, unlock_quota: 10,
-        quota_used: 3, started_at: new Date(), expires_at: null,
-      },
-    });
-    const result = await previewUpgrade(repo, 1, "basic");
-    expect(result.can_upgrade).toBe(false);
-    expect(result.reason).toBe("ALREADY_ON_TARGET_PLAN");
-  });
-
-  it("降级场景 → CANNOT_DOWNGRADE", async () => {
-    const repo = makeMockRepo({
-      plan: { plan_code: "basic", name: "基础版", price: 100, unlock_quota: 10, is_active: 1 },
-      currentBest: {
-        plan_code: "premium", plan_name: "高级版", price: 500, unlock_quota: 50,
-        quota_used: 10, started_at: new Date(), expires_at: null,
-      },
-    });
-    const result = await previewUpgrade(repo, 1, "basic");
-    expect(result.can_upgrade).toBe(false);
-    expect(result.reason).toBe("CANNOT_DOWNGRADE");
-  });
-
-  it("正常升级 → 计算差价和剩余额度", async () => {
-    const repo = makeMockRepo({
-      plan: { plan_code: "premium", name: "高级版", price: 500, unlock_quota: 50, is_active: 1 },
-      currentBest: {
-        plan_code: "basic", plan_name: "基础版", price: 100, unlock_quota: 10,
-        quota_used: 3, started_at: new Date("2026-01-01"), expires_at: new Date("2026-12-31"),
-      },
-    });
-    const result = await previewUpgrade(repo, 1, "premium");
-    expect(result.can_upgrade).toBe(true);
-    expect(result.price_difference).toBe(400);
-    expect(result.remaining_after_upgrade).toBe(47); // 50 - 3
-    expect(result.quota_used).toBe(3);
-    expect(result.expires_at_unchanged).toBe(true);
+  it("查询异常直接抛出", async () => {
+    const r = fixture(); vi.mocked(r.getPlan).mockRejectedValueOnce(new Error("DB_DOWN"));
+    await expect(previewUpgrade(r, 7, "pro")).rejects.toThrow("DB_DOWN");
   });
 });

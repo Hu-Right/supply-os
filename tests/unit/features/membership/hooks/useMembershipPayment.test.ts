@@ -24,10 +24,11 @@ vi.mock("@/features/membership/api", () => ({
 
 const mockPlan = {
   plan_code: "radar",
-  name: "雷达版",
+  name_zh: "雷达版",
   price: "799",
   currency: "CNY",
-} as unknown as import("@/types").MembershipPlan;
+  price_mode: "fixed",
+} as unknown as import("@/types").PlanCatalogRow;
 
 describe("useMembershipPayment", () => {
   beforeEach(() => {
