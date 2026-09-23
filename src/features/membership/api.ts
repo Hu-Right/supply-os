@@ -13,4 +13,5 @@ export {
   fetchPlans,
   fetchMembershipStatus,
   fetchUpgradePreview,
+  fetchServices,
 } from "@/core/api/membership";

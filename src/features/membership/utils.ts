@@ -58,3 +58,25 @@ export function groupPlansByAudience(plans: PlanCatalogRow[]): {
   }
   return { personal, enterprise };
 }
+
+/** 订制服务分支：standard_price 非空且 >0 → 收费下单；否则 → 客服码。 */
+export type ServiceBranch = "pay" | "consult";
+export function resolveServiceBranch(row: { standard_price: string | null }): ServiceBranch {
+  const n = row.standard_price == null ? NaN : Number(row.standard_price);
+  return Number.isFinite(n) && n > 0 ? "pay" : "consult";
+}
+
+/** 服务名本地化：zh 取 name_zh，其余取 name_en（设计 B6）。 */
+export function serviceDisplayName(row: { name_zh: string; name_en: string }, lang: string): string {
+  return lang.toLowerCase().startsWith("zh") ? row.name_zh : row.name_en;
+}
+
+/** 按 category 分组，固定展示顺序：专业增值 → 顾问 → API 授权；丢弃空分组。 */
+export function groupServicesByCategory<T extends { category: string }>(rows: T[]): Record<string, T[]> {
+  const order = ["pro_service", "advisory", "api_license"];
+  const grouped: Record<string, T[]> = {};
+  for (const cat of order) grouped[cat] = [];
+  for (const r of rows) (grouped[r.category] ??= []).push(r);
+  for (const k of Object.keys(grouped)) if (grouped[k].length === 0) delete grouped[k];
+  return grouped;
+}

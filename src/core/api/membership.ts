@@ -8,9 +8,9 @@
  *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
  */
 import { api, apiCached } from "@/core/http";
-import type { ComparisonTable, MembershipStatus, UpgradePreview } from "@/types";
+import type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow } from "@/types";
 
-export type { ComparisonTable, MembershipStatus, UpgradePreview };
+export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow };
 
 /**
  * 拉取官网六卡 + 原生权益矩阵（带内存缓存）。
@@ -22,6 +22,10 @@ export const fetchMembershipPlans = (force = false) =>
 
 /** 兼容别名：fetchPlans = fetchMembershipPlans */
 export const fetchPlans = fetchMembershipPlans;
+
+/** 拉取订制服务目录（crm_service_catalog 快照，带内存缓存）。 */
+export const fetchServices = (force = false) =>
+  apiCached<ServiceCatalogRow[]>("/api/membership/services", undefined, undefined, force);
 
 // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
 /** 查询用户会员状态（配额/订阅/到期） */
