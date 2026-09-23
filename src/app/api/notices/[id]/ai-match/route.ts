@@ -13,7 +13,6 @@ import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { EC_INVALID_PARAMS, EC_VIP_ONLY } from "@/shared/constants/api";
 import { getOrGenerateAiMatch } from "@/lib/services/ai-match";
-import { hasFeature } from "@/lib/services/benefit-matrix";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 
@@ -70,12 +69,11 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
 
-    // 档位闸门：AI 匹配与 AI 适配评分同属专业版（1299）起享权益（V2 权益 2026-09-21）
-    const current = await ctx.user.membershipRepo.findCurrentBestPlan(auth.userId);
-    if (!hasFeature(Number(current?.benefit_rank ?? 0), "ai_score")) {
-      routeError(403, EC_VIP_ONLY, "AI 智能匹配为专业版权益", {
-        feature: "ai_score",
-        required_rank: 3,
+    // 权益闸门：AI 智能匹配按矩阵 ai_match 行判定（价格文档为唯一事实源，不再比档位）
+    if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {
+      routeError(403, EC_VIP_ONLY, "AI 智能匹配为该档不包含的权益", {
+        feature: "ai_match",
+        benefit_code: "ai_match",
       });
     }
 

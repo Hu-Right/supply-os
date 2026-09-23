@@ -87,6 +87,15 @@ const FREE_SUMMARY_PREVIEW: Partial<Record<SummaryDimension, number>> = {
   keyQualifications: 200,
 };
 
+/**
+ * 采购摘要的权益码与"完整"层级。
+ * 层级含义的权威定义在库内 crm_benefit_catalog.level_dict
+ * （1=部分脱敏 / 2=完整），此处只引用数字不重复写文字，避免文案两处存放。
+ * 免费档取 L1：服务端脱敏（高价值维度整段置空），与 xlsx 逐字一致。
+ */
+export const AI_SUMMARY_BENEFIT = "ai_summary";
+export const AI_SUMMARY_FULL_LEVEL = 2;
+
 export interface MaskableSummary {
   coreDeliverables: string;
   keyQualifications: string;

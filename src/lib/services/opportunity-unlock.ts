@@ -13,9 +13,9 @@
  */
 import type { Pool } from "mysql2/promise";
 import type { OpportunitiesRepo } from "../repos/opportunities.repo";
-import type { MembershipRepo } from "../repos/membership.repo";
-import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
-import { ensureConsumableEntitlement, consumeEntitlementQuota, UnlockQuotaError } from "./unlock-quota";
+import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
+import type { BenefitWriteRepo, LockedPoolRow } from "../repos/benefit-write.repo";
+import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "./unlock-quota";
 import { persistUserInterestCodes } from "./unspsc/interest";
 
 /** 解锁业务失败：code 供路由映射为用户可见文案（FREE_LIMIT_REACHED/PAID_QUOTA_REQUIRED） */
@@ -28,9 +28,8 @@ export class OpportunityUnlockError extends Error {
 export interface OpportunityUnlockDeps {
   dbPool: Pool;
   opportunitiesRepo: OpportunitiesRepo;
-  membershipRepo: MembershipRepo;
-  /** 解锁流水/配额消费 repo（共享 unlock-quota 口径的承载体） */
-  unlockRepo: NoticeUnlockRepo;
+  /** 配额判定/消耗的共享口径依赖（新账本：crm_benefit_quotas 的 notice_view 池） */
+  quotaDeps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo };
 }
 
 export interface OpportunityUnlockParams {
@@ -45,10 +44,10 @@ export interface OpportunityUnlockParams {
 /**
  * 执行商机解锁（事务编排，与公告解锁 executeUnlock 同构）。
  *
- * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → 共享配额口径取权益行
- * （FOR UPDATE，含无权益纯订阅的封顶+物化）→ 插入解锁记录（唯一键
- * ER_DUP_ENTRY 兜底幂等）→ 条件 UPDATE 消耗配额 + affectedRows 复核防超卖 →
- * 商机计数+1）→ 提交 → 事务外写兴趣码（非关键路径，userId=0 跳过）。
+ * 流程：无锁预检幂等 → 事务（复查幂等 → free 硬闸 → 共享配额口径锁定
+ * notice_view 池行（FOR UPDATE）→ 插入解锁记录（唯一键 ER_DUP_ENTRY 兜底幂等）
+ * → 条件 UPDATE 消耗配额 + affectedRows 复核防超卖 → 商机计数+1）
+ * → 提交 → 事务外写兴趣码（非关键路径，userId=0 跳过）。
  *
  * @throws OpportunityUnlockError FREE_LIMIT_REACHED（免费解锁已移除，服务端硬闸）
  *         | PAID_QUOTA_REQUIRED（无可用权益且无满足配额的订阅 / 并发配额耗尽）
@@ -58,7 +57,7 @@ export async function executeOpportunityUnlock(
   deps: OpportunityUnlockDeps,
   params: OpportunityUnlockParams,
 ): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
-  const { dbPool, opportunitiesRepo, membershipRepo, unlockRepo } = deps;
+  const { dbPool, opportunitiesRepo, quotaDeps } = deps;
   const { userId, opportunityId, unlockType, price, snapshotJson } = params;
 
   // 快速路径：无锁预检，减少事务冲突
@@ -67,7 +66,7 @@ export async function executeOpportunityUnlock(
   }
 
   const conn = await dbPool.getConnection();
-  let consumedEntitlementId: number | null = null;
+  let consumedPool: LockedPoolRow | null = null;
   try {
     await conn.beginTransaction();
 
@@ -88,13 +87,11 @@ export async function executeOpportunityUnlock(
       throw new OpportunityUnlockError("FREE_LIMIT_REACHED");
     }
 
-    // 付费解锁：共享公告路径的配额记账口径（FOR UPDATE 权益行锁；无权益纯订阅
-    // 按套餐配额封顶并懒补建物化权益），杜绝"有订阅即无限放行"的路径分叉
+    // 付费解锁：共享公告路径的配额记账口径（FOR UPDATE 锁住 notice_view 池行，
+    // 额度取自矩阵格），杜绝"有订阅即无限放行"的路径分叉
     if (unlockType === "subscription" || unlockType === "single") {
       try {
-        consumedEntitlementId = await ensureConsumableEntitlement(
-          conn, { membershipRepo, unlockRepo }, { userId, unlockType },
-        );
+        consumedPool = await ensureConsumableQuota(conn, quotaDeps, { userId });
       } catch (quotaErr) {
         if (quotaErr instanceof UnlockQuotaError) {
           await conn.rollback();
@@ -112,10 +109,10 @@ export async function executeOpportunityUnlock(
       [userId, opportunityId, unlockType, price, snapshotJson],
     );
 
-    // 消耗配额：条件 UPDATE + affectedRows 复核（并发耗尽/并发升级替代则回滚）
-    if (consumedEntitlementId) {
+    // 消耗配额：行锁 + 条件 UPDATE 复核（并发耗尽或池被冻结则回滚）
+    if (consumedPool) {
       try {
-        await consumeEntitlementQuota(conn, unlockRepo, consumedEntitlementId);
+        await consumeQuota(conn, quotaDeps, consumedPool);
       } catch (consumeErr) {
         if (consumeErr instanceof UnlockQuotaError) {
           await conn.rollback();

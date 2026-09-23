@@ -10,7 +10,6 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
-import { NoticeUnlockRepo } from "@/lib/repos/notices/notice-unlock.repo";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 import {
   EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND,
@@ -26,19 +25,14 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const { id } = await params;
     const opportunityId = Number(id);
     const ctx = getContext();
-    const { opportunitiesRepo: oppsRepo, dbPool } = ctx;
-    const membershipRepo = ctx.payment.membershipRepo;
+    const { opportunitiesRepo: oppsRepo, dbPool, benefitSystemRepo, benefitWriteRepo } = ctx;
 
     const body = await req.json();
     const unlockType = body.unlock_type === "subscription" || body.unlock_type === "single"
       ? body.unlock_type : "free";
 
-    let price = 0;
-    if (unlockType === "single") {
-      const plans = await membershipRepo.findActivePlans();
-      const singlePlan = plans.find((p) => p.plan_type === "single");
-      price = Number(singlePlan?.price || 0);
-    }
+    // 单价快照恒 0：一次性解锁卡已下架，新目录无一次性形态，配额消耗改记额度池
+    const price = 0;
 
     const opp = await oppsRepo.findById(opportunityId);
     if (!opp) routeError(404, EC_OPPORTUNITY_NOT_FOUND, "机会不存在");
@@ -46,7 +40,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     try {
       const result = await executeOpportunityUnlock(
-        { dbPool, opportunitiesRepo: oppsRepo, membershipRepo, unlockRepo: new NoticeUnlockRepo(dbPool) },
+        { dbPool, opportunitiesRepo: oppsRepo, quotaDeps: { catalog: benefitSystemRepo, write: benefitWriteRepo } },
         {
           userId: auth.userId,
           opportunityId,

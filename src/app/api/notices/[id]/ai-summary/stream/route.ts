@@ -12,7 +12,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getOrGenerateAiSummary, streamAiSummary } from "@/lib/services/ai-summary";
-import { BENEFIT_RANK, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -25,9 +25,9 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const ctx = getContext();
 
-    // 免费档：非流式生成 + 整体脱敏 + 单条推送
-    const current = await ctx.user.membershipRepo.findCurrentBestPlan(auth.userId);
-    if (Number(current?.benefit_rank ?? 0) < BENEFIT_RANK.TRIAL) {
+    // 部分脱敏档：非流式生成 + 整体脱敏 + 单条推送（按矩阵 ai_summary 层级判定）
+    const summaryLevel = await ctx.benefitSystemRepo.levelForUser(auth.userId, AI_SUMMARY_BENEFIT);
+    if (summaryLevel < AI_SUMMARY_FULL_LEVEL) {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {

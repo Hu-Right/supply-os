@@ -13,7 +13,6 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS, EC_VIP_ONLY } from "@/shared/constants/api";
 import { getAwardHistoryForNotice } from "@/lib/services/awards.service";
-import { hasFeature } from "@/lib/services/benefit-matrix";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +25,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
 
-    // 档位闸门：历史中标为标准版（999）起享权益（单一事实源 benefit-matrix）
+    // 权益闸门：历史中标对应矩阵 history_notice_db（历史标讯库）行
     const ctx = getContext();
-    const current = await ctx.user.membershipRepo.findCurrentBestPlan(auth.userId);
-    if (!hasFeature(Number(current?.benefit_rank ?? 0), "award_history")) {
-      routeError(403, EC_VIP_ONLY, "历史中标为标准版及以上权益", {
-        feature: "award_history",
-        required_rank: 2,
+    if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "history_notice_db"))) {
+      routeError(403, EC_VIP_ONLY, "历史中标查询为该档不包含的权益", {
+        feature: "history_notice_db",
+        benefit_code: "history_notice_db",
       });
     }
 

@@ -12,10 +12,12 @@ import type { NoticeDetailRepo } from "../repos/notices/notice-detail.repo";
 import type { NoticeUnlockRepo } from "../repos/notices/notice-unlock.repo";
 import type { NoticeInteractionRepo } from "../repos/notices/notice-interaction.repo";
 import type { NoticeFeedbackRepo, RecoFeedbackItem } from "../repos/notices/notice-feedback.repo";
-import type { MembershipRepo } from "../repos/membership.repo";
+import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
+import type { BenefitWriteRepo } from "../repos/benefit-write.repo";
 import { normalizeUnspscCodes, persistUserInterestCodes } from "./unspsc/index";
 import { decayUserInterestCodes } from "./recommend/index";
-import { ensureConsumableEntitlement, consumeEntitlementQuota, UnlockQuotaError } from "./unlock-quota";
+import { ensureConsumableQuota, consumeQuota, UnlockQuotaError } from "./unlock-quota";
+import type { LockedPoolRow } from "../repos/benefit-write.repo";
 
 // ── 解锁 ──────────────────────────────────────────────────────────────────────
 
@@ -37,10 +39,15 @@ export interface UnlockResult {
  * 从 routes/notices/actions.routes.ts 下沉，路由层不再管理事务。
  */
 export async function executeUnlock(
-  ctx: { detailRepo: NoticeDetailRepo; unlockRepo: NoticeUnlockRepo; dbPool: Pool; membershipRepo: MembershipRepo },
+  ctx: {
+    detailRepo: NoticeDetailRepo;
+    unlockRepo: NoticeUnlockRepo;
+    dbPool: Pool;
+    quotaDeps: { catalog: BenefitSystemRepo; write: BenefitWriteRepo };
+  },
   params: UnlockParams,
 ): Promise<UnlockResult> {
-  const { detailRepo, unlockRepo, dbPool, membershipRepo } = ctx;
+  const { detailRepo, unlockRepo, dbPool, quotaDeps } = ctx;
   const { userId, noticeId, unlockType, price } = params;
 
   // 快速路径：先检查是否已解锁（无锁，减少事务冲突）
@@ -55,7 +62,7 @@ export async function executeUnlock(
 
   // 使用事务保证配额检查 + 插入的原子性
   const conn = await dbPool.getConnection();
-  let consumedEntitlementId: number | null = null;
+  let consumedPool: LockedPoolRow | null = null;
   try {
     await conn.beginTransaction();
 
@@ -75,12 +82,10 @@ export async function executeUnlock(
     }
 
     if (unlockType === "subscription" || unlockType === "single") {
-      // 共享配额记账口径（unlock-quota）：FOR UPDATE 权益行锁；无权益纯订阅
-      // （历史缺口数据）按套餐配额封顶并懒补建物化权益，记账永远落在权益表
+      // 共享配额记账口径（unlock-quota）：FOR UPDATE 锁住 notice_view 池行，
+      // 额度取自矩阵格 value_num，不在代码里写数字
       try {
-        consumedEntitlementId = await ensureConsumableEntitlement(
-          conn, { membershipRepo, unlockRepo }, { userId, unlockType },
-        );
+        consumedPool = await ensureConsumableQuota(conn, quotaDeps, { userId });
       } catch (quotaErr) {
         if (quotaErr instanceof UnlockQuotaError) {
           await conn.rollback();
@@ -95,10 +100,10 @@ export async function executeUnlock(
       userId, noticeId, unlockType, price, unspscSnapshot: JSON.stringify(snapshot),
     });
 
-    // 消耗配额（条件 UPDATE + affectedRows 复核，并发耗尽/升级替代则回滚）
-    if (consumedEntitlementId) {
+    // 消耗配额（行锁 + 条件 UPDATE 复核，并发耗尽或池被冻结则回滚）
+    if (consumedPool) {
       try {
-        await consumeEntitlementQuota(conn, unlockRepo, consumedEntitlementId);
+        await consumeQuota(conn, quotaDeps, consumedPool);
       } catch (consumeErr) {
         if (consumeErr instanceof UnlockQuotaError) {
           await conn.rollback();

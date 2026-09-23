@@ -15,7 +15,8 @@ import { NoticeDetailRepo } from "@/lib/repos/notices/notice-detail.repo";
 import { NoticeTranslationRepo } from "@/lib/repos/notices/notice-translation.repo";
 import { NoticeFeedbackRepo } from "@/lib/repos/notices/notice-feedback.repo";
 import { NoticeFavoriteRepo } from "@/lib/repos/notices/notice-favorite.repo";
-import { MembershipRepo } from "@/lib/repos/membership.repo";
+import { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
+import { BenefitWriteRepo } from "@/lib/repos/benefit-write.repo";
 import {
   submitInterest,
   executeUnlock,
@@ -117,20 +118,16 @@ export async function unlockNotice(params: {
 }): Promise<{ alreadyUnlocked: boolean; unlockType: string }> {
   const pool = getPool();
 
-  let price = 0;
-  if (params.unlockType === "single") {
-    const membershipRepo = new MembershipRepo(pool);
-    const plans = await membershipRepo.findActivePlans();
-    const singlePlan = plans.find((p) => p.plan_type === "single");
-    price = Number(singlePlan?.price || 0);
-  }
+  // 单价快照：一次性解锁卡已下架（旧 single_89 is_active=0），新目录无"一次性商品"形态，
+  // 因此解锁流水的 price 恒为 0（额度消耗已改记 crm_benefit_quotas，不再以单价计量）。
+  const price = 0;
 
   return executeUnlock(
     {
       detailRepo: new NoticeDetailRepo(pool),
       unlockRepo: new NoticeUnlockRepo(pool),
       dbPool: pool,
-      membershipRepo: new MembershipRepo(pool),
+      quotaDeps: { catalog: new BenefitSystemRepo(pool), write: new BenefitWriteRepo() },
     },
     { userId: params.userId, noticeId: params.noticeId, unlockType: params.unlockType, price },
   );

@@ -344,6 +344,20 @@ export class BenefitSystemRepo {
   }
 
   /**
+   * 用户当前生效档位在某枚举行上的层级（未订阅一律按 free 档）。
+   *
+   * 只服务 bool/enum 行的服务端分支（典型：摘要"部分脱敏 / 完整"）。
+   * 计量型权益的余量一律以 crm_benefit_quotas 池为准，不得拿本方法代替——
+   * 矩阵 value_num 是"应发额度"，池是"已剩额度"，两者不是一回事。
+   */
+  async levelForUser(userId: number | null, benefitCode: string): Promise<number> {
+    const plan = userId ? await this.findActivePlanForUser(userId) : null;
+    const cells = await this.loadCells([plan?.plan_code ?? FREE_PLAN_CODE]);
+    const cell = cells.find((c) => c.benefit_code === benefitCode);
+    return cell ? Number(cell.value_level ?? 0) : 0;
+  }
+
+  /**
    * 额度池余额（每个权益取当前周期最新一行）。
    * subscriptionId 传 null = 查普通用户池（subscription_id IS NULL），NULL 安全比较。
    */

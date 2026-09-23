@@ -19,7 +19,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
-import { BENEFIT_RANK, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -28,10 +28,10 @@ const bodySchema = z.object({
 /** LLM 生成成本高（20-60s/次），仅限流 POST 生成路径（GET 只读缓存不消耗 LLM）：10 分钟 6 次 */
 const AI_SUMMARY_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
 
-/** 免费档脱敏判定（1 次查询解析当前档位） */
-async function isFreeRank(userId: number): Promise<boolean> {
-  const current = await getContext().user.membershipRepo.findCurrentBestPlan(userId);
-  return Number(current?.benefit_rank ?? 0) < BENEFIT_RANK.TRIAL;
+/** 摘要脱敏判定：按矩阵 ai_summary 行的层级（1=部分脱敏 / 2=完整），不再比档位 */
+async function shouldMaskSummary(userId: number): Promise<boolean> {
+  const level = await getContext().benefitSystemRepo.levelForUser(userId, AI_SUMMARY_BENEFIT);
+  return level < AI_SUMMARY_FULL_LEVEL;
 }
 
 /** GET：只读缓存，用于进页面时判断是否已有历史分析（不消耗 LLM） */
@@ -58,7 +58,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       bidStrategy: cached.bid_strategy || "",
       riskAlerts: cached.risk_alerts || "",
     };
-    const data = (await isFreeRank(auth.userId))
+    const data = (await shouldMaskSummary(auth.userId))
       ? { ...maskSummaryForFree(full), masked: true }
       : full;
     return NextResponse.json({ code: 0, message: "ok", data });
@@ -79,7 +79,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const body = await parseJson(req, bodySchema);
     const pool = getContext().dbPool;
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
-    const data = (await isFreeRank(auth.userId))
+    const data = (await shouldMaskSummary(auth.userId))
       ? { ...maskSummaryForFree(result), masked: true }
       : result;
     return NextResponse.json({ code: 0, message: "ok", data });
