@@ -71,7 +71,7 @@ export class PaymentOrchestrator {
     private trainingRepo: TrainingRepo,
     private paymentHistoryRepo: PaymentHistoryRepo,
     /** 权益体系双轨：会员履约/逆向的新表组依赖（与 PaymentService 同一实例，由 AppContext 注入） */
-    private benefitDeps?: BenefitFulfillDeps,
+    private benefitDeps: BenefitFulfillDeps,
   ) {}
 
   // ── 渠道策略注册（唯一注册中心） ──────────────────────────────────────────
@@ -179,7 +179,7 @@ export class PaymentOrchestrator {
         if (dbOrder.amount > 0 && Math.abs(dbOrder.amount - callbackAmount) > 0.01) {
           return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
         }
-        const { activatePaidOrder } = await import("./fulfillment");
+        const { activatePaidOrder } = await import("./activate");
         await activatePaidOrder(this.paymentsRepo, verifyResult.order_no, verifyResult.provider_trade_no, this.benefitDeps);
         return { success: true, order_no: verifyResult.order_no };
       }
@@ -245,7 +245,7 @@ export class PaymentOrchestrator {
         }
         return {
           success: true, order_no: orderNo,
-          message: result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
+          message: result.review_required ? "REFUND_REVIEW_REQUIRED" : result.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
         };
       }
     }

@@ -8,11 +8,10 @@ import type {
 } from "../types/payment";
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
-import type { MembershipRepo } from "../repos/membership.repo";
+import { previewUpgrade } from "../services/membership-upgrade";
 import type { BenefitFulfillDeps } from "./benefit-grant";
-import { activatePaidOrder } from "./fulfillment";
+import { activatePaidOrder } from "./activate";
 import { reverseFulfilledOrder } from "./reverse";
-import { fulfillMockPayment } from "./mock";
 import { SITE_URL } from "../services/seo/site";
 import { queryOrderWithGatewayPoll } from "./pipeline/query-pipeline";
 
@@ -36,20 +35,7 @@ export class PaymentService {
   private getStrategyFn: ((provider: PaymentProviderName) => PaymentStrategy) | null = null;
   private hasStrategyFn: ((provider: PaymentProviderName) => boolean) | null = null;
 
-  constructor(
-    private paymentsRepo?: PaymentsRepo,
-    private membershipRepo?: MembershipRepo,
-    /** 权益体系双轨：新表组履约依赖（AppContext 注入；缺省时全部订单走旧三表路径） */
-    private benefitDeps?: BenefitFulfillDeps,
-  ) {}
-
-  /** 获取 paymentsRepo（未初始化时抛出明确错误） */
-  private get repo(): PaymentsRepo {
-    if (!this.paymentsRepo) {
-      throw new Error("PaymentService: paymentsRepo is required for this operation");
-    }
-    return this.paymentsRepo;
-  }
+  constructor(private repo: PaymentsRepo, private benefitDeps: BenefitFulfillDeps) {}
 
   /**
    * 注入策略解析器（由 Orchestrator.registerStrategy 调用）
@@ -105,32 +91,32 @@ export class PaymentService {
     let planName: string;
     let currency: string;
     let originalOrderNo: string | null = null;
-    let upgradeSnapshot: { target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
+    let upgradeSnapshot: { subscription_id: number; target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
     // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
     if (isLearningOrder) {
       throw new Error("LEARNING_ORDERS_DELEGATED");
     } else {
-      const plan = await this.repo.findActivePlan(planCode);
+      const plan = await this.benefitDeps.catalog.getPlan(planCode);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
+      if (Number(plan.is_active) !== 1 || plan.price_mode !== "fixed") throw new Error("PLAN_NOT_SELLABLE");
       amount = Number(plan.price);
-      planName = String(plan.name || planCode);
-      currency = plan.currency || "CNY";
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("AMOUNT_INVALID");
+      planName = plan.name_zh;
+      currency = plan.currency;
 
       // ── 升级订单：校验升级资格并计算差价 ──
       if (orderType === "upgrade") {
-        if (!this.membershipRepo) throw new Error("UPGRADE_NOT_SUPPORTED");
-        const current = await this.membershipRepo.findCurrentBestPlan(userId!);
-        if (!current) throw new Error("NO_ACTIVE_PLAN_TO_UPGRADE");
-        if (current.plan_code === planCode) throw new Error("ALREADY_ON_TARGET_PLAN");
-        if (Number(plan.price) <= Number(current.price)) throw new Error("CANNOT_DOWNGRADE");
-        amount = Math.max(0, Number(plan.price) - Number(current.price));
-        originalOrderNo = current.source_order_no;
-        if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+        const preview = await previewUpgrade(this.benefitDeps.catalog, userId, planCode);
+        if (!preview.can_upgrade || !preview.subscription || !preview.current_plan) throw new Error(preview.reason ?? "UPGRADE_SOURCE_INVALID");
+        const current = preview.current_plan;
+        amount = preview.price_difference;
+        originalOrderNo = preview.subscription.source_order_no;
         // 差价快照（审查 F23）：履约时校验目标套餐价与当前权益价未漂移，
         // 漂移则拒绝自动履约转人工
         upgradeSnapshot = {
+          subscription_id: preview.subscription.subscription_id,
           target_plan_code: planCode,
           target_price: Number(plan.price),
           current_plan_code: current.plan_code,
@@ -219,7 +205,7 @@ export class PaymentService {
     const result = await queryOrderWithGatewayPoll({
       findOrder: () => this.repo.findByOrderNo(orderNo),
       getStrategy: (p) => this.getStrategy(p),
-      onFulfill: (no, tradeNo) => this.activatePaidOrder(no, tradeNo),
+      onFulfill: async (no, tradeNo) => { await activatePaidOrder(this.repo, no, tradeNo, this.benefitDeps); },
       orderNo,
       providerTradeNo,
     });
@@ -259,7 +245,7 @@ export class PaymentService {
       return {
         success: true,
         order_no: verifyResult.order_no,
-        message: refundResult.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
+        message: refundResult.review_required ? "REFUND_REVIEW_REQUIRED" : refundResult.reversed ? "REFUND_REVERSED" : "REFUND_NO_ACTION",
       };
     }
     if (!verifyResult.verified) {
@@ -293,13 +279,8 @@ export class PaymentService {
       }
     }
 
-    await this.activatePaidOrder(verifyResult.order_no, verifyResult.provider_trade_no);
+    await activatePaidOrder(this.repo, verifyResult.order_no, verifyResult.provider_trade_no, this.benefitDeps);
     return { success: true, order_no: verifyResult.order_no };
-  }
-
-  /** 激活已支付订单（委托至 fulfillment 模块，携新表组履约依赖走双轨） */
-  private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
-    return activatePaidOrder(this.repo, orderNo, providerTradeNo, this.benefitDeps);
   }
 
   private makeOrderNo(): string {
@@ -330,17 +311,7 @@ export class PaymentService {
    * ARCH-B+（2026-09-01）：供 Orchestrator 路由调用
    */
   async fulfillMockMembershipOrder(orderNo: string, rawNotify: string): Promise<boolean> {
-    if (!this.paymentsRepo || !this.membershipRepo) return false;
-    const { found } = await fulfillMockPayment(this.paymentsRepo, this.membershipRepo, { orderNo, rawNotify }, this.benefitDeps);
-    return found;
+    return activatePaidOrder(this.repo, orderNo, undefined, this.benefitDeps, rawNotify);
   }
 
-  /**
-   * 创建 PaymentService 实例（不注册策略）。
-   * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理，
-   * 此方法仅创建服务实例，策略通过 setStrategyResolver 延迟注入。
-   */
-  static initDefault(paymentsRepo: PaymentsRepo, _paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo, benefitDeps?: BenefitFulfillDeps): PaymentService {
-    return new PaymentService(paymentsRepo, membershipRepo, benefitDeps);
-  }
 }

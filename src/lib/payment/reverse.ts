@@ -1,128 +1,52 @@
-/**
- * 退款逆向回收
- * Refund reversal
- *
- * @module lib/payment/reverse
- * @description ARCH-P3a（2026-08-31）：从 fulfillment.ts 拆分。
- *              - reverseFulfilledOrder: 全额退款/交易关闭后逆向回收已发放权益
- *              权益体系双轨（2026-09-23）：传入 benefitDeps 后，凡在 crm_plan_subscriptions
- *              有 source_order_no 锚点的订单一律走新账本逆向（冻池+订阅置 refunded，
- *              同一事务），不再碰旧三表；无锚点者才是旧套餐单，继续旧回收链。
- */
+/** 支付逆向只按真实订单来源回收新订阅及额度，不推测或复活历史订阅。 */
+import type { RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { BenefitFulfillDeps } from "./benefit-grant";
 
-/**
- * 全额退款/交易关闭（TRADE_CLOSED）后按订单类型逆向回收已发放权益：
- * - 学习资料（material_/bundle_）：删除 crm_learning_material_purchases 购买记录
- * - 会员套餐（single/bundle/subscription 新购）：权益 status→refunded、
- *   订阅 status→refunded，无其他活跃订阅时 membership_tier 降级 free
- * - 升级订单（upgrade）：差价链路复杂，仅标记 refunded 并告警转人工
- * 幂等：仅 paid 订单可逆向，重复通知无副作用。
- */
 export async function reverseFulfilledOrder(
-  paymentsRepo: PaymentsRepo,
+  payments: PaymentsRepo,
   orderNo: string,
-  benefit?: BenefitFulfillDeps,
-): Promise<{ found: boolean; reversed: boolean }> {
-  const conn = await paymentsRepo.getConnection();
+  benefit: BenefitFulfillDeps,
+): Promise<{ found: boolean; reversed: boolean; review_required?: boolean }> {
+  const conn = await payments.getConnection();
   try {
     await conn.beginTransaction();
-
-    const order = await paymentsRepo.findOrderForUpdate(conn, orderNo);
-    if (!order) {
-      await conn.commit();
-      return { found: false, reversed: false };
-    }
-    // 幂等 + 状态机：只有 paid 订单存在已发放权益可回收
-    if (order.status !== "paid") {
-      await conn.commit();
-      return { found: true, reversed: false };
-    }
-
-    const [flagResult] = await conn.execute(
-      "UPDATE crm_payment_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'",
-      [orderNo],
+    const order = await payments.findOrderForUpdate(conn, orderNo);
+    if (!order) { await conn.commit(); return { found: false, reversed: false }; }
+    if (order.status !== "paid") { await conn.commit(); return { found: true, reversed: false }; }
+    const subscriptionId = await benefit.write.findSubscriptionIdBySourceOrder(conn, orderNo);
+    if (subscriptionId === null) throw new Error("REFUND_SUBSCRIPTION_NOT_FOUND");
+    const subscription = await benefit.write.findSubscriptionForUpdate(conn, subscriptionId);
+    if (!subscription || subscription.owner_user_id !== order.user_id) throw new Error("REFUND_SUBSCRIPTION_MISMATCH");
+    const [linked] = await conn.query<RowDataPacket[]>(
+      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1", [orderNo],
     );
-    if ((flagResult as { affectedRows?: number }).affectedRows === 0) {
-      await conn.commit();
-      return { found: true, reversed: false };
+    await benefit.write.refundSubscription(conn, subscriptionId);
+    // 源单退款时沿替代链冻结后续权益；后续订单的资金处置留人工，不自动退差价或恢复旧池。
+    let nextId = subscription.replaced_by_id;
+    const seen = new Set([subscriptionId]);
+    while (nextId !== null && nextId !== undefined) {
+      if (seen.has(nextId)) throw new Error("SUBSCRIPTION_REPLACEMENT_CYCLE");
+      seen.add(nextId);
+      const next = await benefit.write.findSubscriptionForUpdate(conn, nextId);
+      if (!next || next.owner_user_id !== order.user_id) throw new Error("REFUND_SUBSCRIPTION_MISMATCH");
+      await benefit.write.freezePoolsOfSubscription(conn, nextId);
+      await conn.execute("UPDATE crm_plan_subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = ? AND status <> 'refunded'", [nextId]);
+      nextId = next.replaced_by_id;
     }
-
-    // 抵扣/升级关联护栏：本单退款若已被其他订单通过 original_order_no 引用
-    // （如升级单以本单为源、已按差价发货），自动回收会留下"退回源单、
-    // 目标单照常保有"的套利口子——不回收权益，标记 refunded 并告警转人工核处
-    const [linkedRows] = await conn.query(
-      // P0 套利修复：pending 的关联单也必须拦截——只查 paid 会漏掉
-      // "源单待退 → 关联单已开 pending → 退源单 → 再付 pending 单"的套利链路
-      "SELECT order_no FROM crm_payment_orders WHERE original_order_no = ? AND status IN ('pending','paid') LIMIT 1",
-      [orderNo],
+    const [updated] = await conn.execute<ResultSetHeader>(
+      "UPDATE crm_payment_orders SET status = 'refunded', updated_at = NOW() WHERE order_no = ? AND status = 'paid'", [orderNo],
     );
-    const linkedOrder = (linkedRows as Array<{ order_no: string }>)[0];
-    if (linkedOrder) {
-      await conn.commit();
-      console.error(
-        `[refund] 订单已被抵扣引用（linked_order_no=${linkedOrder.order_no}），权益保留转人工核处: order_no=${orderNo}`,
-      );
-      return { found: true, reversed: false };
-    }
-
-    // 权益体系双轨：该单在新表组履过约（订阅事实可按订单号命中）→ 逆向只走新账本。
-    // refundSubscription 把"冻池+订阅置 refunded"包进同一事务，与上方订单 refunded
-    // 标记同生共死；新体系不再维护 crm_users.membership_tier（会员身份=有无 active 订阅）。
-    if (benefit) {
-      const subscriptionId = await benefit.write.findSubscriptionIdBySourceOrder(conn, orderNo);
-      if (subscriptionId !== null) {
-        await benefit.write.refundSubscription(conn, subscriptionId);
-        await conn.commit();
-        console.log(`[refund] 新表组逆向完成: order_no=${orderNo}, subscription=${subscriptionId}`);
-        return { found: true, reversed: true };
-      }
-    }
-
-    if (order.plan_code.startsWith("material_") || order.plan_code.startsWith("bundle_")) {
-      // ARCH-B+（2026-09-01）：学习资料订单已拆分至 learning_orders 表，
-      // 退款由 LearningPaymentService.reverseOrder 独立处理。
-      // 此处仅回滚 crm_payment_orders 中的历史数据（向后兼容）。
-      await conn.execute(
-        "DELETE FROM crm_learning_material_purchases WHERE order_no = ? AND user_id = ?",
-        [orderNo, order.user_id],
-      );
-    } else if (order.order_type === "upgrade") {
-      // 升级订单承接链复杂（补差价/次数保留/有效期追溯），不自动回滚：
-      // 订单已标记 refunded，权益保留并告警转人工核处
-      console.error(
-        `[refund] 升级订单退款需人工核处: order_no=${orderNo}, user_id=${order.user_id}`,
-      );
-    } else {
-      await conn.execute(
-        "UPDATE crm_user_entitlements SET status = 'refunded', updated_at = NOW() WHERE source_order_no = ? AND status = 'active'",
-        [orderNo],
-      );
-      // 订阅表无 source_order_no：按用户+套餐回退最近一份活跃订阅
-      await conn.execute(
-        "UPDATE crm_user_subscriptions SET status = 'refunded' WHERE user_id = ? AND plan_code = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1",
-        [order.user_id, order.plan_code],
-      );
-      // 无其他活跃订阅则降级会员等级
-      await conn.execute(
-        `UPDATE crm_users u SET u.membership_tier = 'free'
-         WHERE u.id = ?
-           AND NOT EXISTS (
-             SELECT 1 FROM crm_user_subscriptions s
-             WHERE s.user_id = u.id AND s.status = 'active'
-               AND (s.expires_at IS NULL OR s.expires_at > NOW())
-           )`,
-        [order.user_id],
-      );
-    }
-
+    if (updated.affectedRows !== 1) throw new Error("REFUND_ORDER_CONFLICT");
     await conn.commit();
-    console.log(`[refund] 订单退款逆向完成: order_no=${orderNo}, plan=${order.plan_code}`);
+    if (linked.length || seen.size > 1) {
+      console.error(`[refund] 已冻结关联权益，资金链需人工核对：${orderNo}`);
+      return { found: true, reversed: false, review_required: true };
+    }
     return { found: true, reversed: true };
-  } catch (err) {
+  } catch (error) {
     await conn.rollback();
-    throw err;
+    throw error;
   } finally {
     conn.release();
   }

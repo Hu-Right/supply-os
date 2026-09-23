@@ -1,378 +1,100 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- *
- * 支付订单数据访问层
- * Payments Repository
- *
- * @module repos/payments.repo
- * @description ARCH-P4b（2026-09-01）：查询视图方法（countOrders/listOrders/
- *              countUnlocks/listUnlocks/upsertNoticeTranslation）已拆至
- *              payment-history.repo.ts。本 Repo 聚焦订单 CRUD + 履约事务。
- */
-import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
-import type { MembershipPlanRow, PaymentOrderRow } from "./types";
+/** 支付订单数据访问；套餐和权益不属于本 Repo。 */
+import type { Pool, PoolConnection, ResultSetHeader } from "mysql2/promise";
+import type { PaymentOrderRow } from "./types";
 
-// 向后兼容：历史查询类型 re-export（新代码应从 payment-history.repo 导入）
-export type { OrderHistoryRow, UnlockHistoryRow } from "./payment-history.repo";
-
-/** 支付渠道配置行（config-status 展示用） */
 export interface PaymentProviderConfigRow {
-  provider: string;
-  mode: string;
-  app_id: string | null;
-  merchant_id: string | null;
-  notify_url: string | null;
-  is_active: number;
+  provider: string; mode: string; app_id: string | null;
+  merchant_id: string | null; notify_url: string | null; is_active: number;
 }
 
 export class PaymentsRepo {
   constructor(private pool: Pool) {}
+  getConnection(): Promise<PoolConnection> { return this.pool.getConnection(); }
 
-  /** 获取数据库连接（事务场景使用） */
-  getConnection(): Promise<PoolConnection> {
-    return this.pool.getConnection();
-  }
-
-  /** 按订单号查询订单 */
   async findByOrderNo(orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
-      `SELECT order_no, user_id, provider, plan_code, order_type, original_order_no, amount, currency, status, notice_id,
-              provider_trade_no, pay_url, paid_at, created_at, updated_at, raw_request, raw_notify
-       FROM crm_payment_orders WHERE order_no = ? LIMIT 1`,
-      [orderNo],
+      `SELECT id, order_no, user_id, provider, plan_code, order_type, original_order_no, amount, currency, status,
+              notice_id, provider_trade_no, pay_url, qr_code_url, paid_at, created_at, updated_at, raw_request, raw_notify
+         FROM crm_payment_orders WHERE order_no = ? LIMIT 1`, [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  /** 查找用户待支付订单（同 plan + provider + notice 组合） */
-  async findPendingOrder(params: {
-    userId: number;
-    planCode: string;
-    provider: string;
-    noticeId: number | null;
-  }): Promise<PaymentOrderRow | null> {
+  async findPendingOrder(p: { userId: number; planCode: string; provider: string; noticeId: number | null }): Promise<PaymentOrderRow | null> {
     const [rows] = await this.pool.query(
       `SELECT order_no, provider, plan_code, amount, currency, status, notice_id, pay_url, qr_code_url
-       FROM crm_payment_orders
-       WHERE user_id = ? AND plan_code = ? AND provider = ? AND status = 'pending' AND (notice_id <=> ?)
-       ORDER BY id DESC LIMIT 1`,
-      [params.userId, params.planCode, params.provider, params.noticeId],
+         FROM crm_payment_orders WHERE user_id = ? AND plan_code = ? AND provider = ?
+          AND status = 'pending' AND notice_id <=> ? ORDER BY id DESC LIMIT 1`,
+      [p.userId, p.planCode, p.provider, p.noticeId],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  /** 创建支付订单 */
-  async createOrder(data: {
-    userId: number;
-    orderNo: string;
-    provider: string;
-    planCode: string;
-    noticeId: number | null;
-    amount: number;
-    currency: string;
-    payUrl: string | null;
-    qrCodeUrl: string | null;
-    rawRequest: string;
-    /** 订单类型：'new'（新购，默认）/ 'upgrade'（升级补差） */
-    orderType?: string;
-    /** 升级订单关联的原订单号 */
-    originalOrderNo?: string | null;
+  async createOrder(p: {
+    userId: number; orderNo: string; provider: string; planCode: string; noticeId: number | null;
+    amount: number; currency: string; payUrl: string | null; qrCodeUrl: string | null; rawRequest: string;
+    orderType?: string; originalOrderNo?: string | null;
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_payment_orders
         (user_id, order_no, provider, plan_code, order_type, original_order_no, notice_id, amount, currency, status, pay_url, qr_code_url, raw_request, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NOW())`,
-      [
-        data.userId, data.orderNo, data.provider, data.planCode,
-        data.orderType || "new", data.originalOrderNo ?? null,
-        data.noticeId, data.amount, data.currency, data.payUrl, data.qrCodeUrl, data.rawRequest,
-      ],
+      [p.userId, p.orderNo, p.provider, p.planCode, p.orderType ?? "new", p.originalOrderNo ?? null,
+        p.noticeId, p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.rawRequest],
     );
   }
 
-  /** 更新待支付订单（复用已有订单号） */
-  async updatePendingOrder(orderNo: string, data: {
-    amount: number;
-    currency: string;
-    payUrl: string | null;
-    qrCodeUrl: string | null;
-    rawRequest: string;
+  async updatePendingOrder(orderNo: string, p: {
+    amount: number; currency: string; payUrl: string | null; qrCodeUrl: string | null; rawRequest: string;
   }): Promise<void> {
-    await this.pool.execute(
-      `UPDATE crm_payment_orders
-       SET amount = ?, currency = ?, pay_url = ?, qr_code_url = ?, raw_request = ?, updated_at = NOW()
-       WHERE order_no = ? AND status = 'pending'`,
-      [data.amount, data.currency, data.payUrl, data.qrCodeUrl, data.rawRequest, orderNo],
+    const [updated] = await this.pool.execute<ResultSetHeader>(
+      `UPDATE crm_payment_orders SET amount = ?, currency = ?, pay_url = ?, qr_code_url = ?, raw_request = ?, updated_at = NOW()
+        WHERE order_no = ? AND status = 'pending'`,
+      [p.amount, p.currency, p.payUrl, p.qrCodeUrl, p.rawRequest, orderNo],
     );
+    if (updated.affectedRows !== 1) throw new Error("ORDER_STATE_CONFLICT");
   }
 
-  /** 标记订单为已支付 */
-  async markAsPaid(orderNo: string, providerTradeNo: string | null): Promise<void> {
-    await this.pool.execute(
-      `UPDATE crm_payment_orders
-       SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ?`,
-      [providerTradeNo, orderNo],
-    );
-  }
-
-  /** 创建用户订阅（days 为 null 时不过期） */
-  async createSubscription(userId: number, planCode: string, days: number | null): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_user_subscriptions (user_id, plan_code, status, started_at, expires_at)
-       VALUES (?, ?, 'active', NOW(), ${days ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"})`,
-      days ? [userId, planCode, days] : [userId, planCode],
-    );
-  }
-
-  /** 提升用户为 VIP */
-  async promoteToVip(userId: number): Promise<void> {
-    await this.pool.execute("UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE id = ?", [userId]);
-  }
-
-  /** 发放解锁额度（days 为 null 时不过期） */
-  async insertEntitlement(params: {
-    userId: number;
-    orderNo: string;
-    planCode: string;
-    quotaTotal: number;
-    durationDays: number | null;
-  }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_user_entitlements
-        (user_id, source_order_no, plan_code, quota_total, quota_used, started_at, expires_at, status)
-       VALUES (?, ?, ?, ?, 0, NOW(), ${params.durationDays ? "DATE_ADD(NOW(), INTERVAL ? DAY)" : "NULL"}, 'active')`,
-      params.durationDays
-        ? [params.userId, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userId, params.orderNo, params.planCode, params.quotaTotal],
-    );
-  }
-
-  /** 记录支付带来的公告订阅（幂等 upsert） */
-  async upsertNoticeInterest(userId: number, noticeId: number): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source)
-       VALUES (?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-      [userId, noticeId],
-    );
-  }
-
-  /** mock 支付落库（覆写交易号与原始通知体） */
-  async markAsMockPaid(orderNo: string, rawNotify: string): Promise<void> {
-    await this.pool.execute(
-      `UPDATE crm_payment_orders
-       SET status = 'paid', provider_trade_no = ?, raw_notify = ?, paid_at = NOW(), updated_at = NOW()
-       WHERE order_no = ?`,
-      [`MOCK-${orderNo}`, rawNotify, orderNo],
-    );
-  }
-
-  /** 查询活跃支付渠道配置（config-status 展示用） */
   async listActiveProviderConfigs(): Promise<PaymentProviderConfigRow[]> {
     const [rows] = await this.pool.query(
       `SELECT provider, mode, app_id, merchant_id, notify_url, is_active
-       FROM crm_payment_provider_configs
-       WHERE is_active = 1
-       ORDER BY provider, id DESC`,
+         FROM crm_payment_provider_configs WHERE is_active = 1 ORDER BY provider, id DESC`,
     );
     return rows as PaymentProviderConfigRow[];
   }
 
-  // ── 事务支持方法（接受 PoolConnection 用于 activatePaidOrder 事务）──
-
-  /** 查询活跃计划详情 */
-  async findActivePlan(planCode: string): Promise<MembershipPlanRow | null> {
-    const [rows] = await this.pool.query(
-      `SELECT plan_code, name, price, currency, unlock_quota, duration_days, plan_type
-       FROM crm_membership_plans WHERE plan_code = ? AND is_active = 1 LIMIT 1`,
-      [planCode],
-    );
-    return (rows as MembershipPlanRow[])[0] ?? null;
-  }
-
-  /** 悲观锁查询订单（事务内使用） */
   async findOrderForUpdate(conn: PoolConnection, orderNo: string): Promise<PaymentOrderRow | null> {
     const [rows] = await conn.query(
-      "SELECT user_id, plan_code, order_type, original_order_no, notice_id, amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE",
-      [orderNo],
+      `SELECT id, order_no, user_id, provider, plan_code, order_type, original_order_no, notice_id, amount, currency,
+              status, raw_request, paid_at FROM crm_payment_orders WHERE order_no = ? LIMIT 1 FOR UPDATE`, [orderNo],
     );
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
-  /** 事务内标记订单已支付（仅 pending 可流转，防止 closed/refunded 被复活，审查 F19） */
-  async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, providerTradeNo: string | null): Promise<void> {
-    await conn.execute(
-      `UPDATE crm_payment_orders
-       SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no), paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-       WHERE order_no = ? AND status = 'pending'`,
-      [providerTradeNo, orderNo],
+  async markAsPaidInTransaction(conn: PoolConnection, orderNo: string, tradeNo: string | null): Promise<void> {
+    const [updated] = await conn.execute<ResultSetHeader>(
+      `UPDATE crm_payment_orders SET status = 'paid', provider_trade_no = COALESCE(?, provider_trade_no),
+              paid_at = COALESCE(paid_at, NOW()), updated_at = NOW() WHERE order_no = ? AND status = 'pending'`, [tradeNo, orderNo],
     );
+    if (updated.affectedRows !== 1) throw new Error("ORDER_STATE_CONFLICT");
   }
 
-  /** 事务内查询计划详情 */
-  async findPlanInTransaction(conn: PoolConnection, planCode: string): Promise<MembershipPlanRow | null> {
-    const [rows] = await conn.query(
-      "SELECT plan_code, unlock_quota, duration_days, plan_type FROM crm_membership_plans WHERE plan_code = ? LIMIT 1",
-      [planCode],
-    );
-    return (rows as MembershipPlanRow[])[0] ?? null;
-  }
-
-  /** 检查是否已有来自该订单的权益（事务内） */
-  async hasEntitlementForOrder(conn: PoolConnection, orderNo: string): Promise<boolean> {
-    const [rows] = await conn.query(
-      "SELECT id FROM crm_user_entitlements WHERE source_order_no = ? LIMIT 1",
-      [orderNo],
-    );
-    return (rows as RowDataPacket[]).length > 0;
-  }
-
-  /** 事务内创建订阅 */
-  async createSubscriptionInTransaction(conn: PoolConnection, userId: number, planCode: string, days: number | null): Promise<void> {
-    await conn.execute(
-      `INSERT INTO crm_user_subscriptions
-        (user_id, plan_code, status, started_at${days ? ", expires_at" : ""})
-       VALUES (?, ?, 'active', NOW()${days ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""})`,
-      days ? [userId, planCode, days] : [userId, planCode],
-    );
-  }
-
-  /** 事务内发放权益 */
-  async insertEntitlementInTransaction(conn: PoolConnection, params: {
-    userId: number; orderNo: string; planCode: string; quotaTotal: number; durationDays: number | null;
-  }): Promise<void> {
-    await conn.execute(
-      `INSERT INTO crm_user_entitlements
-        (user_id, source_order_no, plan_code, quota_total, quota_used, started_at${params.durationDays ? ", expires_at" : ""}, status)
-       VALUES (?, ?, ?, ?, 0, NOW()${params.durationDays ? ", DATE_ADD(NOW(), INTERVAL ? DAY)" : ""}, 'active')`,
-      params.durationDays
-        ? [params.userId, params.orderNo, params.planCode, params.quotaTotal, params.durationDays]
-        : [params.userId, params.orderNo, params.planCode, params.quotaTotal],
-    );
-  }
-
-  /** 事务内提升 VIP */
-  async promoteToVipInTransaction(conn: PoolConnection, userId: number): Promise<void> {
-    await conn.execute(
-      "UPDATE crm_users SET membership_tier = 'vip', updated_at = NOW() WHERE id = ?",
-      [userId],
-    );
-  }
-
-  /** 事务内 mock 支付落库 */
   async markAsMockPaidInTransaction(conn: PoolConnection, orderNo: string, rawNotify: string): Promise<void> {
-    await conn.execute(
-      `UPDATE crm_payment_orders
-       SET status = 'paid', provider_trade_no = ?, raw_notify = ?, paid_at = NOW(), updated_at = NOW()
-       WHERE order_no = ?`,
-      [`MOCK-${orderNo}`, rawNotify, orderNo],
+    const [updated] = await conn.execute<ResultSetHeader>(
+      `UPDATE crm_payment_orders SET status = 'paid', provider_trade_no = ?, raw_notify = ?, paid_at = NOW(), updated_at = NOW()
+        WHERE order_no = ? AND status = 'pending' AND provider = 'mock'`, [`MOCK-${orderNo}`, rawNotify, orderNo],
     );
+    if (updated.affectedRows !== 1) throw new Error("ORDER_STATE_CONFLICT");
   }
 
-  /** 事务内记录公告订阅兴趣 */
   async upsertNoticeInterestInTransaction(conn: PoolConnection, userId: number, noticeId: number): Promise<void> {
-    await conn.execute(
-      `INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source)
-       VALUES (?, ?, 'subscribed', 'payment')
-       ON DUPLICATE KEY UPDATE updated_at = NOW()`,
-      [userId, noticeId],
-    );
+    await conn.execute(`INSERT INTO crm_notice_interests (user_id, notice_id, interest_type, source)
+      VALUES (?, ?, 'subscribed', 'payment') ON DUPLICATE KEY UPDATE updated_at = NOW()`, [userId, noticeId]);
   }
 
-  // ── 套餐升级事务方法（供 fulfillUpgradeOrder 使用）──
-
-  /** 事务内标记旧权益已被升级替代（保留 quota_used 供审计追溯） */
-  async markEntitlementUpgradedInTransaction(conn: PoolConnection, entitlementId: number): Promise<void> {
-    await conn.execute(
-      "UPDATE crm_user_entitlements SET is_upgraded = 1, updated_at = NOW() WHERE id = ?",
-      [entitlementId],
-    );
-  }
-
-  /**
-   * 事务内发放升级后的新权益
-   * 继承原权益的 quota_used（次数保留）与 started_at/expires_at（有效期追溯）
-   */
-  async insertUpgradedEntitlementInTransaction(conn: PoolConnection, params: {
-    userId: number;
-    orderNo: string;
-    planCode: string;
-    quotaTotal: number;
-    quotaUsed: number;
-    upgradedFromEntitlementId: number | null;
-    startedAt: Date | null;
-    expiresAt: Date | null;
-  }): Promise<void> {
-    await conn.execute(
-      `INSERT INTO crm_user_entitlements
-        (user_id, source_order_no, upgraded_from_entitlement_id, plan_code,
-         quota_total, quota_used, started_at, expires_at, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-      [
-        params.userId, params.orderNo, params.upgradedFromEntitlementId,
-        params.planCode, params.quotaTotal, params.quotaUsed,
-        params.startedAt || new Date(), params.expiresAt,
-      ],
-    );
-  }
-
-  /** 事务内变更订阅的套餐（升级后 plan_code 指向新套餐，有效期不变） */
-  async updateSubscriptionPlanInTransaction(conn: PoolConnection, subscriptionId: number, newPlanCode: string): Promise<void> {
-    await conn.execute(
-      "UPDATE crm_user_subscriptions SET plan_code = ? WHERE id = ?",
-      [newPlanCode, subscriptionId],
-    );
-  }
-
-  /**
-   * 事务内悲观锁查询待升级的原权益
-   * 取用户当前最高价、非目标套餐、未被升级的活跃权益（锁定防并发重复升级）
-   */
-  async findBestEntitlementForUpgradeInTransaction(
-    conn: PoolConnection,
-    userId: number,
-    targetPlanCode: string,
-  ): Promise<{ id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } | null> {
-    const [rows] = await conn.query(
-      `SELECT e.id, e.plan_code, p.price, e.quota_used, e.started_at, e.expires_at
-       FROM crm_user_entitlements e
-       INNER JOIN crm_membership_plans p ON p.plan_code = e.plan_code
-       WHERE e.user_id = ? AND e.status = 'active' AND e.is_upgraded = 0
-         AND e.plan_code <> ?
-         AND (e.expires_at IS NULL OR e.expires_at > NOW())
-       ORDER BY p.price DESC, e.id DESC
-       LIMIT 1
-       FOR UPDATE`,
-      [userId, targetPlanCode],
-    );
-    return (rows as RowDataPacket[])[0] as { id: number; plan_code: string; price: number; quota_used: number; started_at: Date; expires_at: Date | null } ?? null;
-  }
-
-  /** 事务内查询用户可升级的活跃订阅（最新一条非目标套餐的活跃订阅） */
-  async findUpgradeableSubscriptionInTransaction(
-    conn: PoolConnection,
-    userId: number,
-    targetPlanCode: string,
-  ): Promise<{ id: number } | null> {
-    const [rows] = await conn.query(
-      `SELECT id FROM crm_user_subscriptions
-       WHERE user_id = ? AND status = 'active' AND plan_code <> ?
-         AND (expires_at IS NULL OR expires_at > NOW())
-       ORDER BY id DESC LIMIT 1`,
-      [userId, targetPlanCode],
-    );
-    return (rows as RowDataPacket[])[0] as { id: number } ?? null;
-  }
-
-  /** 查询订单金额（回调金额校验用） */
   async findOrderAmount(orderNo: string): Promise<{ amount: number; status: string } | null> {
-    const [rows] = await this.pool.query(
-      "SELECT amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1",
-      [orderNo],
-    );
-    const row = (rows as RowDataPacket[])[0];
-    return row ? { amount: Number(row.amount || 0), status: row.status } : null;
+    const [rows] = await this.pool.query("SELECT amount, status FROM crm_payment_orders WHERE order_no = ? LIMIT 1", [orderNo]);
+    const row = (rows as Array<{ amount: string | number; status: string }>)[0];
+    return row ? { amount: Number(row.amount), status: row.status } : null;
   }
 }

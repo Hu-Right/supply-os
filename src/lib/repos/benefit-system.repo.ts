@@ -17,103 +17,14 @@
  *                履约/退款写入在 benefit-write.repo.ts（已与支付回调双轨接线：
  *                新目录码只走新表组）；本模块只提供读取、判定与对比表渲染所需的值。
  */
-import type { Pool, RowDataPacket } from "mysql2/promise";
-
-export type BenefitKind = "bool" | "enum" | "quota" | "amount";
+import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
+import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, ComparisonTable } from "@/types/membership";
 
 /**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
  * 未订阅用户能享到什么，唯一事实源就是这一列（见 isEntitled）。
  */
 export const FREE_PLAN_CODE = "free";
-
-/** 权益定义行（crm_benefit_catalog） */
-export interface BenefitDefRow {
-  benefit_code: string;
-  name_zh: string;
-  group_code: string;
-  value_kind: BenefitKind;
-  /** 枚举行：层级整数 → docx 单元格原文；其余为 null */
-  level_dict: Record<string, string> | null;
-  is_consumable: number;
-  requires_subscription: number;
-  gate_key: string | null;
-  sort_order: number;
-}
-
-/** 套餐商品行（crm_plan_catalog） */
-export interface PlanCatalogRow {
-  plan_code: string;
-  name_en: string;
-  name_zh: string;
-  positioning_zh: string;
-  price: string;
-  price_mode: "fixed" | "contact" | "free";
-  price_incl_tax: number | null;
-  currency: string;
-  billing_period_days: number | null;
-  seat_limit: number;
-  commercial_tier: string;
-  cta_i18n_key: string;
-  badge: string;
-  sort_order: number;
-  /** 1=在售。列表查询已按 is_active 过滤，单档取回时必须带出，否则"已下架"与"不存在"无法区分 */
-  is_active: number;
-}
-
-/** 矩阵单格原始值（crm_plan_benefits） */
-export interface MatrixCellRow {
-  plan_code: string;
-  benefit_code: string;
-  value_level: number | null;
-  value_num: number | null;
-  value_amount: string | null;
-  note_zh: string | null;
-}
-
-/** 解析后的格子：原始值 + 可直接渲染的原文表述 */
-export interface ResolvedCell {
-  plan_code: string;
-  benefit_code: string;
-  kind: BenefitKind;
-  /** 该 kind 下的原始数值（bool/enum=层级、quota=数量或 -1/0、amount=金额字符串） */
-  raw: number | string;
-  /** 是否"该档享有" */
-  enabled: boolean;
-  /** 展示文本：枚举行 = docx 原文，布尔行 = ✓/—，额度行 = 数字/不限/—，金额行 = ¥x/包含 */
-  display: string;
-  note: string | null;
-}
-
-/** 用户当前生效套餐（owner 与席位成员同一解析链） */
-export interface ActivePlanRow {
-  subscription_id: number;
-  /** 订阅归属人：共享额度池（scope='subscription'）记在主账号名下 */
-  owner_user_id: number;
-  plan_code: string;
-  seat_limit: number;
-  expires_at: Date | null;
-  /** owner=本人购买的订阅；member=作为他人订阅的席位成员 */
-  seat_role: "owner" | "member";
-}
-
-/** 额度池余额（crm_benefit_quotas 当前周期行） */
-export interface QuotaBalanceRow {
-  benefit_code: string;
-  scope: "subscription" | "seat";
-  quota_total: number;
-  quota_used: number;
-  period: "none" | "monthly" | "yearly";
-  period_starts_at: Date;
-  /** -1 表示不限（remaining 无意义，恒 null） */
-  remaining: number | null;
-}
-
-/** 对比表：官网价格页/后台矩阵编辑器共用 */
-export interface ComparisonTable {
-  plans: PlanCatalogRow[];
-  rows: Array<{ benefit: BenefitDefRow; cells: Record<string, ResolvedCell> }>;
-}
 
 /**
  * 把一格原始值解析成"是否享有 + 展示原文"。纯函数，便于单测与前端复用。
@@ -184,7 +95,7 @@ export function resolveCell(
 }
 
 export class BenefitSystemRepo {
-  constructor(private pool: Pool) {}
+  constructor(private pool: Pool | PoolConnection) {}
 
   /** 在售套餐（含 free 行的排除：free 不售卖，is_active=0） */
   async listActivePlans(): Promise<PlanCatalogRow[]> {
@@ -245,7 +156,10 @@ export class BenefitSystemRepo {
    */
   async buildComparisonTable(includeFree = false): Promise<ComparisonTable> {
     const [plans, defs, cells] = await Promise.all([this.listActivePlans(), this.listBenefits(), this.loadCells()]);
-    const shownPlans = includeFree ? plans : plans.filter((p) => p.price_mode !== "free");
+    const free = includeFree ? await this.getPlan(FREE_PLAN_CODE) : null;
+    // 免费档不售卖、不进官网六卡：两条分支都以「排除 free」为基线，仅 includeFree 时再显式前置取回，
+    // 不依赖 listActivePlans 的 is_active 过滤兜底（防目录脏数据让 free 漏进官网）。
+    const shownPlans = free ? [free, ...plans.filter((p) => p.plan_code !== FREE_PLAN_CODE)] : plans.filter((p) => p.plan_code !== FREE_PLAN_CODE);
     const byKey = new Map(cells.map((c) => [`${c.plan_code}|${c.benefit_code}`, c]));
     const planCodes = shownPlans.map((p) => p.plan_code);
 
@@ -276,16 +190,17 @@ export class BenefitSystemRepo {
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT x.subscription_id, x.owner_user_id, x.plan_code, x.seat_limit, x.expires_at, x.seat_role, x.sort_order
+      `SELECT x.*
          FROM (
            SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at,
-                  'owner' AS seat_role, p.sort_order
+                  'owner' AS seat_role, p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
              FROM crm_plan_subscriptions s
              JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
             WHERE s.owner_user_id = ? AND s.status = 'active'
               AND (s.expires_at IS NULL OR s.expires_at > NOW())
            UNION ALL
-           SELECT s.id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order
+           SELECT s.id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order,
+                             s.started_at, s.source_order_no, s.price_paid, s.currency
              FROM crm_subscription_seats st
              JOIN crm_plan_subscriptions s ON s.id = st.subscription_id
              JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
@@ -364,10 +279,11 @@ export class BenefitSystemRepo {
    */
   async listQuotaBalances(userId: number, subscriptionId: number | null): Promise<QuotaBalanceRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT benefit_code, scope, quota_total, quota_used, period, period_starts_at
+      `SELECT benefit_code, scope, quota_total, quota_used, status, period, period_starts_at
          FROM crm_benefit_quotas
-        WHERE seat_user_id = ? AND subscription_id <=> ? AND status = 'active'
-        ORDER BY benefit_code, period_starts_at DESC`,
+        WHERE seat_user_id = ? AND subscription_id <=> ? AND scope = 'subscription'
+          AND period_starts_at <= NOW()
+        ORDER BY benefit_code, period_starts_at DESC, id DESC`,
       [userId, subscriptionId],
     );
     const latest = new Map<string, QuotaBalanceRow>();
@@ -379,9 +295,10 @@ export class BenefitSystemRepo {
         scope: r.scope as QuotaBalanceRow["scope"],
         quota_total: total,
         quota_used: Number(r.quota_used),
+        status: r.status as QuotaBalanceRow["status"],
         period: r.period as QuotaBalanceRow["period"],
         period_starts_at: r.period_starts_at as Date,
-        remaining: total === -1 ? null : total - Number(r.quota_used),
+        remaining: r.status === "active" ? (total === -1 ? null : Math.max(0, total - Number(r.quota_used))) : 0,
       });
     }
     return [...latest.values()];

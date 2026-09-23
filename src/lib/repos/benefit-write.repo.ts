@@ -39,6 +39,19 @@ export interface LockedPoolRow {
   status: "active" | "exhausted" | "frozen" | "expired";
 }
 
+export interface LockedSubscriptionRow {
+  id: number;
+  owner_user_id: number;
+  plan_code: string;
+  source_order_no: string;
+  currency: string;
+  status: string;
+  is_current: number;
+  started_at: Date;
+  expires_at: Date | null;
+  replaced_by_id: number | null;
+}
+
 /** 扣减结果：三态显式返回，由调用方翻译成业务错误码 */
 export type ConsumeResult = "unlimited" | "consumed" | "denied";
 
@@ -59,13 +72,24 @@ export interface NewSubscriptionParams {
   /** 席位上限快照，取自目录（-1=合同自定义） */
   seatLimit: number;
   /** 到期时间；null=永久。必须由调用方按目录 billing_period_days 算好后传入 */
-  expiresAt: Date | null;
+  expiresAt: Date | string | null;
+  startedAt?: Date | string;
 }
 
 /**
  * 订阅与额度池写入。所有方法都接受 Db：需要在履约事务内持锁时传 PoolConnection。
  */
 export class BenefitWriteRepo {
+  /** 所有订阅写操作先锁订阅，再锁额度池，统一并发顺序。 */
+  async findSubscriptionForUpdate(conn: PoolConnection, id: number): Promise<LockedSubscriptionRow | null> {
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT id, owner_user_id, plan_code, source_order_no, currency, status, started_at, expires_at, replaced_by_id,
+              (status = 'active' AND (expires_at IS NULL OR expires_at > NOW())) AS is_current
+         FROM crm_plan_subscriptions WHERE id = ? FOR UPDATE`, [id],
+    );
+    return (rows[0] as LockedSubscriptionRow | undefined) ?? null;
+  }
+
   /**
    * 多语句写入的事务包装：传入 PoolConnection 则视为调用方已有事务（不自开 BEGIN/COMMIT），
    * 传入 Pool 则自取连接并包一个事务——否则多条语句各自autocommit，
@@ -117,8 +141,8 @@ export class BenefitWriteRepo {
     const [res] = await db.execute<ResultSetHeader>(
       `INSERT INTO crm_plan_subscriptions
         (owner_user_id, plan_code, source_order_no, price_paid, currency, seat_limit, status, started_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', NOW(), ?)`,
-      [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.seatLimit, p.expiresAt],
+       VALUES (?, ?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
+      [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.seatLimit, p.startedAt ?? null, p.expiresAt],
     );
     return res.insertId;
   }
@@ -160,9 +184,10 @@ export class BenefitWriteRepo {
    */
   async findSubscriptionIdBySourceOrder(db: Db, sourceOrderNo: string): Promise<number | null> {
     const [rows] = await db.query<RowDataPacket[]>(
-      `SELECT id FROM crm_plan_subscriptions WHERE source_order_no = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+      `SELECT id FROM crm_plan_subscriptions WHERE source_order_no = ? ORDER BY id FOR UPDATE`,
       [sourceOrderNo],
     );
+    if (rows.length > 1) throw new Error("DUPLICATE_ORDER_SUBSCRIPTION");
     const r = (rows as Array<{ id: number | string }>)[0];
     return r ? Number(r.id) : null;
   }
@@ -198,7 +223,8 @@ export class BenefitWriteRepo {
     return this.inTx(db, async (conn) => {
       const [rows] = await conn.query<RowDataPacket[]>(
         `SELECT id FROM crm_plan_subscriptions
-          WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= NOW()`,
+          WHERE status = 'active' AND expires_at IS NOT NULL AND expires_at <= NOW()
+                    ORDER BY id FOR UPDATE`,
       );
       const ids = (rows as Array<{ id: number }>).map((r) => Number(r.id));
       if (ids.length === 0) return [];
@@ -263,7 +289,7 @@ export class BenefitWriteRepo {
                'active')
        ON DUPLICATE KEY UPDATE
          quota_total = IF(? = -1 OR quota_total = -1, -1, GREATEST(quota_total, ?)),
-         status = 'active'`,
+         status = IF(status = 'exhausted' AND (quota_total = -1 OR quota_total > quota_used), 'active', status)`,
       [
         p.subscriptionId,
         p.seatUserId,
@@ -307,7 +333,7 @@ export class BenefitWriteRepo {
       const total = Number(cell.value_num);
       // 必须显式判 null/undefined：Number(null) === 0 且 0 是有限值，
       // 只靠 isFinite 会把「额度未配置」静默当成「发 0 额度」记成已发放。
-      if (cell.value_num === null || cell.value_num === undefined || !Number.isFinite(total)) {
+      if (cell.value_num === null || cell.value_num === undefined || !Number.isInteger(total) || total < -1) {
         anomalies.push(`${def.benefit_code}：value_num 非数值（${String(cell.value_num)}），不发池`);
         continue;
       }
@@ -336,7 +362,8 @@ export class BenefitWriteRepo {
       `SELECT id, subscription_id, seat_user_id, benefit_code, quota_total, quota_used, status
          FROM crm_benefit_quotas
         WHERE seat_user_id = ? AND subscription_id <=> ? AND benefit_code = ?
-        ORDER BY period_starts_at DESC
+          AND scope = 'subscription' AND period_starts_at <= NOW()
+        ORDER BY period_starts_at DESC, id DESC
         LIMIT 1
         FOR UPDATE`,
       [p.seatUserId, p.subscriptionId, p.benefitCode],
