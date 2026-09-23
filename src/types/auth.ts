@@ -13,7 +13,7 @@ export interface AuthUser {
   email: string;
   /** 对外展示名（昵称）。真实姓名不进入任何 API 响应（隐私收口） */
   nickname?: string;
-  membership_tier?: "free" | "vip" | string;
+  has_subscription: boolean;
   supplier_id?: number | null;
   supplier_industry_id?: number | null;
   supplier_industry?: string | null;

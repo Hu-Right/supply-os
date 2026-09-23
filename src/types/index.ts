@@ -29,4 +29,4 @@ export type {
   PaymentProviderConfig,
 } from "./payment";
 export type { NoticeItem, NoticeListItem, NoticeDetailItem, NoticeDetailFields, NoticeContact, NoticeAttachment, NoticeResponse } from "./procurement";
-export type { MembershipPlan, MembershipStatus, UpgradePreview } from "./membership";
+export type { PlanCatalogRow, MembershipStatus, UpgradePreview, ComparisonTable, QuotaBalanceRow, ResolvedCell } from "./membership";

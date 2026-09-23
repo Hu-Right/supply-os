@@ -1,80 +1,99 @@
-/**
- * 会员体系类型
- * Membership Types
- *
- * @module types/membership
- * @description 会员商品套餐（可购买的会员方案）与会员状态（配额/订阅/到期）
- *              Membership product plans (purchasable packages) and membership status (quota/subscription/expiry)
- */
+/** 权益体系的共享数据契约；字段直接对应目录、矩阵、订阅和账本。 */
+export type BenefitKind = "bool" | "enum" | "quota" | "amount";
 
-export interface MembershipPlan {
+export interface BenefitDefRow {
+  benefit_code: string;
+  name_zh: string;
+  group_code: string;
+  value_kind: BenefitKind;
+  level_dict: Record<string, string> | null;
+  is_consumable: number;
+  requires_subscription: number;
+  gate_key: string | null;
+  sort_order: number;
+}
+
+export interface PlanCatalogRow {
   plan_code: string;
-  name: string;
-  description?: string;
-  price: number;
+  name_en: string;
+  name_zh: string;
+  positioning_zh: string;
+  price: string;
+  price_mode: "fixed" | "contact" | "free";
+  price_incl_tax: number | null;
   currency: string;
-  duration_days?: number | null;
-  unlock_quota: number;
-  free_quota: number;
-  plan_type: string;
-  /** 权益档位（migration 090）：0免费/1体验/2标准/3专业/4企业，功能门控单一事实源 */
-  benefit_rank?: number;
+  billing_period_days: number | null;
+  seat_limit: number;
+  commercial_tier: string;
+  cta_i18n_key: string;
+  badge: string;
+  sort_order: number;
+  is_active: number;
+}
+
+export interface MatrixCellRow {
+  plan_code: string;
+  benefit_code: string;
+  value_level: number | null;
+  value_num: number | null;
+  value_amount: string | null;
+  note_zh: string | null;
+}
+
+export interface ResolvedCell {
+  plan_code: string;
+  benefit_code: string;
+  kind: BenefitKind;
+  raw: number | string;
+  enabled: boolean;
+  display: string;
+  note: string | null;
+}
+
+export interface ActivePlanRow {
+  subscription_id: number;
+  owner_user_id: number;
+  plan_code: string;
+  source_order_no: string;
+  price_paid: string;
+  currency: string;
+  seat_limit: number;
+  started_at: Date | string;
+  expires_at: Date | string | null;
+  seat_role: "owner" | "member";
+}
+
+export interface QuotaBalanceRow {
+  benefit_code: string;
+  scope: "subscription" | "seat";
+  quota_total: number;
+  quota_used: number;
+  status: "active" | "exhausted" | "frozen" | "expired";
+  period: "none" | "monthly" | "yearly";
+  period_starts_at: Date | string;
+  /** 不限为 null，其余取该池可消费余额。 */
+  remaining: number | null;
+}
+
+export interface ComparisonTable {
+  plans: PlanCatalogRow[];
+  rows: Array<{ benefit: BenefitDefRow; cells: Record<string, ResolvedCell> }>;
 }
 
 export interface MembershipStatus {
-  membership_tier: string;
-  free_quota: number;
-  free_used: number;
-  free_remaining: number;
-  paid_unlocks: number;
-  paid_quota_total?: number;
-  paid_quota_used?: number;
-  paid_quota_remaining?: number;
-  /** 当前最优周期性权益的套餐 code（升级判断依据） */
-  current_plan_code?: string | null;
-  /** 当前最优周期性权益的套餐名称（VIP 等级标签提取依据） */
-  current_plan_name?: string | null;
-  /** 当前套餐等级标签（个人版/基础版/旗舰版/至尊版，兜底 VIP） */
-  current_plan_tier_label?: string | null;
-  /** 当前套餐价格（升级差价计算依据） */
-  current_plan_price?: number | null;
-  active_subscriptions?: Array<{ plan_code: string; plan_name?: string; status: string; expires_at?: string | null }>;
-  entitlements?: Array<{
-    id: number;
-    plan_code: string;
-    quota_total: number;
-    quota_used: number;
-    quota_remaining: number;
-    expires_at?: string | null;
-  }>;
+  plan: PlanCatalogRow;
+  subscription: ActivePlanRow | null;
+  quotas: QuotaBalanceRow[];
 }
 
-/** 升级预览信息（GET /api/membership/upgrade/preview 响应） */
 export interface UpgradePreview {
-  /** 是否允许升级 */
   can_upgrade: boolean;
-  /** 不允许升级的原因（can_upgrade=false 时有值） */
   reason: string | null;
-  current_plan: {
-    plan_code: string;
-    name: string;
-    price: number;
-    unlock_quota: number;
-    started_at?: string | null;
-    expires_at?: string | null;
-  } | null;
-  target_plan: {
-    plan_code: string;
-    name: string;
-    price: number;
-    unlock_quota: number;
-  } | null;
-  /** 当前权益已使用次数 */
+  current_plan: PlanCatalogRow | null;
+  target_plan: PlanCatalogRow | null;
+  subscription: ActivePlanRow | null;
   quota_used: number;
-  /** 需补交差价 */
   price_difference: number;
-  /** 升级后剩余可用次数（target_quota - quota_used） */
-  remaining_after_upgrade: number;
-  /** 升级后有效期不变 */
+  remaining_after_upgrade: number | null;
   expires_at_unchanged: boolean;
 }

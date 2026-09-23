@@ -8,16 +8,17 @@
  *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
  */
 import { api, apiCached } from "@/core/http";
-import type { MembershipPlan, MembershipStatus, UpgradePreview } from "@/types";
+import type { ComparisonTable, MembershipStatus, UpgradePreview } from "@/types";
 
-export type { MembershipPlan, MembershipStatus, UpgradePreview };
+export type { ComparisonTable, MembershipStatus, UpgradePreview };
 
 /**
- * 拉取启用中的会员套餐列表（带内存缓存）
- * force：登录态调用方传 true 跳过缓存，确保拿到与当前身份一致的套餐/权益视图。
+ * 拉取官网六卡 + 原生权益矩阵（带内存缓存）。
+ * 新体系下 /api/membership/plans 返回服务端解析好的对比表（plans 列 + rows 逐格）。
+ * force：登录态调用方传 true 跳过缓存，确保拿到与当前身份一致的视图。
  */
 export const fetchMembershipPlans = (force = false) =>
-  apiCached<MembershipPlan[]>("/api/membership/plans", undefined, undefined, force);
+  apiCached<ComparisonTable>("/api/membership/plans", undefined, undefined, force);
 
 /** 兼容别名：fetchPlans = fetchMembershipPlans */
 export const fetchPlans = fetchMembershipPlans;
