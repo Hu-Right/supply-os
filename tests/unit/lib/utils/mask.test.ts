@@ -92,4 +92,30 @@ describe("splitListField", () => {
     expect(splitListField("")).toEqual([]);
     expect(splitListField(null)).toEqual([]);
   });
+
+  it("括号内的逗号/顿号不切分（认证名含地区描述）", () => {
+    // 真实数据：东莞市瑞信医疗用品有限公司 certification 列
+    const raw =
+      "ISO13485 医疗器械质量体系, CE认证（欧盟）, FDA认证（美国，医疗/食品）, MDR认证（欧盟，医疗）、GMP";
+    expect(splitListField(raw)).toEqual([
+      "ISO13485 医疗器械质量体系",
+      "CE认证（欧盟）",
+      "FDA认证（美国，医疗/食品）",
+      "MDR认证（欧盟，医疗）",
+      "GMP",
+    ]);
+  });
+
+  it("括号内含顿号也保持完整（CSA 类多地区描述）", () => {
+    const raw = "UL认证（美国）, CSA认证（加拿大，电气、建材、医疗）, EAC认证（俄罗斯/欧亚）";
+    expect(splitListField(raw)).toEqual([
+      "UL认证（美国）",
+      "CSA认证（加拿大，电气、建材、医疗）",
+      "EAC认证（俄罗斯/欧亚）",
+    ]);
+  });
+
+  it("半角括号内的分隔符同样不切分", () => {
+    expect(splitListField("A(1,2), B")).toEqual(["A(1,2)", "B"]);
+  });
 });

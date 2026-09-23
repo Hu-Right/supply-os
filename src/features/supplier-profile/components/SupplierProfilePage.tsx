@@ -61,7 +61,7 @@ export function SupplierProfilePage() {
   const industryName = supplier ? pickLocale(locale, supplier.industryZh, supplier.industryEn) : "";
   const city = supplier ? pickLocale(locale, supplier.cityZh, supplier.cityEn) : "";
   const completeness = supplier?.dataCompleteness ?? 0;
-  const certs = supplier?.certifications ?? [];
+  const certs = supplier?.complianceLabelsZh ?? [];
   const unspsc = supplier?.unspscCode || supplier?.ungmCode || "";
   const tier = supplier?.membershipTier;
 

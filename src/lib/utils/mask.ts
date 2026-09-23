@@ -32,10 +32,29 @@ export function maskName(raw: unknown): string {
   return name.charAt(0) + "*".repeat(Math.min(name.length - 1, 2));
 }
 
-// 逗号/顿号等分隔的原始字符串切分为去空数组
+// 逗号/顿号等分隔的原始字符串切分为去空数组。
+// 括号（全角/半角）内部的分隔符不参与切分，避免把「FDA认证（美国，医疗/食品）」
+// 「CSA认证（加拿大，电气、建材、医疗）」这类名称里的逗号/顿号误当成条目分隔符。
 export function splitListField(raw: unknown): string[] {
-  return String(raw || "")
-    .split(/[,，、;；]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const s = String(raw || "");
+  const separators = new Set([",", "，", "、", ";", "；"]);
+  const items: string[] = [];
+  let buf = "";
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === "（" || ch === "(") {
+      depth += 1;
+      buf += ch;
+    } else if (ch === "）" || ch === ")") {
+      if (depth > 0) depth -= 1;
+      buf += ch;
+    } else if (depth === 0 && separators.has(ch)) {
+      items.push(buf);
+      buf = "";
+    } else {
+      buf += ch;
+    }
+  }
+  items.push(buf);
+  return items.map((item) => item.trim()).filter(Boolean);
 }
