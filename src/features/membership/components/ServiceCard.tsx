@@ -1,80 +1,102 @@
 /**
- * 增值服务留资卡（非自助订阅套餐）
- * Service lead card — 报价表服务型 SKU：只展示品类与权益，CTA 扫码联系顾问，不走支付
+ * 订制服务卡片（DB 驱动 · 重做版）
  *
  * @module features/membership/components/ServiceCard
- * @description 文案全走 i18n：t(`serviceCatalog.<id>.<field>`)，benefitCount 条权益 b0..bN。
+ * @description 数据源 crm_service_catalog 行。价格移到标题下方独立行（根治长价挤标题）；
+ *              分类归组由父级按 category 呈现，卡片不再逐张打撞词标签。
+ *              分支：standard_price 非空 → 「立即支付」(实心, 由父级 onPay 发 supply-os:pay)；
+ *                    为空 → 「扫码咨询」(描边, 弹 ContactQrModal)。
  */
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
-import { Check, MessageCircle, QrCode } from "lucide-react";
 import { useLocale } from "@/core/i18n";
-import type { ServiceCatalogItem } from "../data/service-catalog";
+import { resolveServiceBranch, serviceDisplayName } from "../utils";
+import { ContactQrModal } from "./ContactQrModal";
+import type { ServiceCatalogRow } from "@/types/membership";
 
 export interface ServiceCardProps {
-  item: ServiceCatalogItem;
+  row: ServiceCatalogRow;
+  /** 有价分支：父级负责登录判断 + emit supply-os:pay */
+  onPay: (row: ServiceCatalogRow) => void;
 }
 
-export function ServiceCard({ item }: ServiceCardProps) {
-  const { t } = useLocale();
-  const [showQr, setShowQr] = useState(false);
-  const base = `svc_${item.id}_`;
-  const benefits = Array.from({ length: item.benefitCount }, (_, i) => t(`${base}b${i}`));
+const SUFFIX_KEY: Record<string, string> = {
+  per_unit: "svcPerUnit",
+  per_time: "svcPerTime",
+  per_year: "svcPerYear",
+  project: "svcPerProject",
+};
+
+const NO_PRICE_LABEL: Record<string, string> = {
+  token: "svcLabelToken",
+  quote: "svcLabelQuote",
+  contact: "svcLabelContact",
+};
+
+export function ServiceCard({ row, onPay }: ServiceCardProps) {
+  const { t, locale } = useLocale();
+  const [consultOpen, setConsultOpen] = useState(false);
+  const branch = resolveServiceBranch(row);
+  const name = serviceDisplayName(row, locale);
+  const hasPrice = branch === "pay";
+  const suffixKey = SUFFIX_KEY[row.price_mode];
+  const note = locale.toLowerCase().startsWith("zh") ? row.deliverable_note_zh : null;
+  const amount = row.standard_price == null ? 0 : Number(row.standard_price);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className="inline-block text-3xs font-bold uppercase tracking-widest text-teal-600 mb-1">
-            {t(`${base}cat`)}
-          </span>
-          <h3 className="text-base font-extrabold text-slate-900 leading-tight">{t(`${base}name`)}</h3>
+    <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+      {/* 标题行：只放标题，价格不再挤同一行（修 KA 竖排） */}
+      <h3 className="text-base font-extrabold leading-tight text-slate-900">{name}</h3>
+
+      {/* 价格独立成行，有层级 */}
+      {hasPrice ? (
+        <div className="mt-2 flex items-baseline gap-1">
+          {row.price_from === 1 && (
+            <span className="text-xs font-semibold text-slate-500">{t("svcPriceFrom")}</span>
+          )}
+          <span className="text-2xl font-black text-slate-900">¥{amount.toLocaleString()}</span>
+          {suffixKey && <span className="text-xs font-semibold text-slate-500">{t(suffixKey)}</span>}
         </div>
-        <span className="shrink-0 rounded-lg bg-slate-50 border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700">
-          {t(`${base}price`)}
+      ) : (
+        <div className="mt-2">
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+            {t(NO_PRICE_LABEL[row.price_mode] ?? "svcLabelQuote")}
+          </span>
+        </div>
+      )}
+
+      {row.member_discount > 0 && (
+        <span className="mt-2 inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+          {t("svcMemberExclusive")}
         </span>
-      </div>
+      )}
 
-      <p className="mt-1 text-2xs text-slate-400">{t("svcServiceMode")}{t(`${base}mode`)}</p>
+      {note && <p className="mt-3 text-sm leading-relaxed text-slate-600">{note}</p>}
 
-      <ul className="mt-3 space-y-1.5 flex-1">
-        {benefits.map((b, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs text-slate-600 leading-relaxed">
-            <Check className="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={() => setShowQr((v) => !v)}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 text-sm font-bold transition-colors cursor-pointer"
-          aria-expanded={showQr}
-        >
-          <MessageCircle className="w-4 h-4" />
-          {showQr ? t("svcCtaClose") : t("svcCtaOpen")}
-        </button>
-        {showQr && (
-          <div className="mt-3 flex flex-col items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 p-4">
-            <Image
-              src="/wechat-service-qr.png"
-              alt={t("svcQrAlt")}
-              width={140}
-              height={140}
-              className="rounded-lg"
-              unoptimized
-            />
-            <p className="flex items-center gap-1 text-2xs text-slate-500 text-center">
-              <QrCode className="w-3 h-3" />
-              {t("svcQrHint")}
-            </p>
-          </div>
+      {/* CTA：主次分明（有价实心 / 无价描边） */}
+      <div className="mt-auto pt-4">
+        {hasPrice ? (
+          <button
+            type="button"
+            onClick={() => onPay(row)}
+            className="w-full cursor-pointer rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-teal-700"
+          >
+            {t("svcCtaPay")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConsultOpen((v) => !v)}
+            aria-expanded={consultOpen}
+            className="w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+          >
+            {t("svcCtaConsult")}
+          </button>
         )}
       </div>
+
+      <ContactQrModal open={consultOpen} onClose={() => setConsultOpen(false)} />
     </div>
   );
 }
