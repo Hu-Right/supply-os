@@ -144,7 +144,7 @@ export function NoticeDetail({
           favorited={favorited} onToggleFavorite={onToggleFavorite}
         />
 
-        <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} />
+        <DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} gates={membership?.gates} coreUnlocked={coreUnlocked} />
 
         {/* ═══ 操作消息 ═══ */}
         {actionMessage && (

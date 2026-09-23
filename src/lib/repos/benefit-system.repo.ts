@@ -18,7 +18,7 @@
  *                新目录码只走新表组）；本模块只提供读取、判定与对比表渲染所需的值。
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
-import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, ComparisonTable } from "@/types/membership";
+import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, GateState, ComparisonTable } from "@/types/membership";
 
 /**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
@@ -302,5 +302,42 @@ export class BenefitSystemRepo {
       });
     }
     return [...latest.values()];
+  }
+
+  /**
+   * 详情页等展示用的权益门控状态：对每个 active 权益给出——
+   *   free（免费档即含）/ included（当前套餐已含）/ upgrade（升到某在售固定档可得）/
+   *   contact（仅联系销售档可得）。'unlock'（需解锁本条公告）由消费方结合是否已解锁自行判定，
+   *   此处只给“当前套餐能否解锁”（notice_view → included/upgrade）。全部由矩阵驱动，
+   *   避免前端再维护一套与矩阵可能漂移的硬编码档位。
+   */
+  async resolveGates(userId: number | null): Promise<Record<string, GateState>> {
+    const plan = userId ? await this.findActivePlanForUser(userId) : null;
+    const planCode = plan?.plan_code ?? FREE_PLAN_CODE;
+    const [defs, cells, activePlans] = await Promise.all([
+      this.listBenefits(),
+      this.loadCells(),
+      this.listActivePlans(),
+    ]);
+    const byKey = new Map(cells.map((c) => [`${c.plan_code}|${c.benefit_code}`, c]));
+    const enabledIn = (pc: string, code: string): boolean => {
+      const def = defs.find((d) => d.benefit_code === code);
+      const cell = byKey.get(`${pc}|${code}`);
+      return !!def && !!cell && resolveCell(def, cell).enabled;
+    };
+    // 自助可购（fixed）档：命中则“可升级”；仅联系销售档能拿则“需联系”。
+    const fixedPlans = activePlans.filter((p) => p.price_mode === "fixed").map((p) => p.plan_code);
+    const gates: Record<string, GateState> = {};
+    for (const def of defs) {
+      const code = def.benefit_code;
+      if (enabledIn(planCode, code)) {
+        gates[code] = planCode === FREE_PLAN_CODE ? "free" : "included";
+      } else if (fixedPlans.some((pc) => enabledIn(pc, code))) {
+        gates[code] = "upgrade";
+      } else {
+        gates[code] = "contact";
+      }
+    }
+    return gates;
   }
 }

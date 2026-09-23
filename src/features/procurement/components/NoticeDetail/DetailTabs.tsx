@@ -8,16 +8,28 @@
  * automatic activation：移焦点即激活，与点击语义一致）。
  */
 import { useRef, type KeyboardEvent } from "react";
-import { DETAIL_TABS, TIER_BADGE_STYLE, tabTriggerId, tabPanelId } from "./utils";
+import type { GateState } from "@/types";
+import {
+  DETAIL_TABS,
+  GATE_BADGE_STYLE,
+  GATE_LABEL_KEY,
+  deriveTabGateState,
+  tabTriggerId,
+  tabPanelId,
+} from "./utils";
 
 interface DetailTabsProps {
   activeTab: string;
   setActiveTab: (key: string) => void;
   /** i18n */
   t: (key: string) => string;
+  /** 服务端按矩阵下发的权益门控状态（benefit_code -> GateState）；缺省时角标保守展示。 */
+  gates: Record<string, GateState> | undefined;
+  /** 本条公告是否已解锁（决定 unlock 类 Tab 的角标）。 */
+  coreUnlocked: boolean;
 }
 
-export function DetailTabs({ activeTab, setActiveTab, t }: DetailTabsProps) {
+export function DetailTabs({ activeTab, setActiveTab, t, gates, coreUnlocked }: DetailTabsProps) {
   const tablistRef = useRef<HTMLDivElement>(null);
 
   /** 循环移动焦点并激活（automatic activation） */
@@ -49,6 +61,7 @@ export function DetailTabs({ activeTab, setActiveTab, t }: DetailTabsProps) {
     >
       {DETAIL_TABS.map((tab) => {
         const isActive = activeTab === tab.key;
+        const state = deriveTabGateState(tab, gates, coreUnlocked);
         return (
           <button
             key={tab.key}
@@ -66,8 +79,8 @@ export function DetailTabs({ activeTab, setActiveTab, t }: DetailTabsProps) {
             }`}
           >
             {t(tab.labelKey)}
-            <span className={`px-1.5 py-0.5 rounded text-2xs font-bold border ${TIER_BADGE_STYLE[tab.tier]}`}>
-              {t(tab.tierLabelKey)}
+            <span className={`px-1.5 py-0.5 rounded text-2xs font-bold border ${GATE_BADGE_STYLE[state]}`}>
+              {t(GATE_LABEL_KEY[state])}
             </span>
           </button>
         );

@@ -80,10 +80,19 @@ export interface ComparisonTable {
   rows: Array<{ benefit: BenefitDefRow; cells: Record<string, ResolvedCell> }>;
 }
 
+/**
+ * 权益门控状态（由服务端按矩阵算出，供详情页 Tab 角标等展示消费）：
+ *   free 免费可看 / included 当前套餐已含 / unlock 需解锁本条公告 /
+ *   upgrade 需升级至在售档 / contact 需联系销售。
+ */
+export type GateState = "free" | "included" | "unlock" | "upgrade" | "contact";
+
 export interface MembershipStatus {
   plan: PlanCatalogRow;
   subscription: ActivePlanRow | null;
   quotas: QuotaBalanceRow[];
+  /** 各权益对当前用户的门控状态（benefit_code -> GateState）；服务端下发，前端不复制档位常量。 */
+  gates?: Record<string, GateState>;
 }
 
 export interface UpgradePreview {

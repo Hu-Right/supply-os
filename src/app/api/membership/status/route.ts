@@ -7,6 +7,6 @@ import { resolveMembershipState } from "@/lib/services/membership-status";
 
 export const GET = withRoute(async (req: NextRequest) => {
   const auth = await requireUserKeyOrThrow(req);
-  const state = await resolveMembershipState(getContext().benefitSystemRepo, auth.userId);
+  const state = await resolveMembershipState(getContext().benefitSystemRepo, auth.userId, true);
   return NextResponse.json(state, { headers: { "Cache-Control": "no-store" } });
 });

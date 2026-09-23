@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 import { DetailTabs } from "@/features/procurement/components/NoticeDetail/DetailTabs";
+import type { GateState } from "@/types";
 import {
   DETAIL_TABS,
+  deriveTabGateState,
   tabTriggerId,
   tabPanelId,
 } from "@/features/procurement/components/NoticeDetail/utils";
@@ -11,7 +13,15 @@ import {
 const t = (key: string) => key;
 
 const renderTabs = (activeTab = "summary", setActiveTab = vi.fn()) => {
-  render(<DetailTabs activeTab={activeTab} setActiveTab={setActiveTab} t={t} />);
+  render(
+    <DetailTabs
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      t={t}
+      gates={undefined}
+      coreUnlocked={false}
+    />,
+  );
   return setActiveTab;
 };
 
@@ -85,5 +95,37 @@ describe("DetailTabs（ARIA Tabs / 键盘导航，spec 2026-09-21）", () => {
     const setActiveTab = renderTabs("summary");
     fireEvent.click(screen.getByRole("tab", { name: /detail_tabHistory/ }));
     expect(setActiveTab).toHaveBeenCalledWith("history");
+  });
+});
+
+describe("deriveTabGateState（服务端矩阵 gates → Tab 角标状态）", () => {
+  const byKey = (k: string) => DETAIL_TABS.find((tab) => tab.key === k)!;
+
+  it("benefit 类：直接采用 gates 下发的状态", () => {
+    const gates: Record<string, GateState> = {
+      ai_match: "upgrade",
+      history_notice_db: "upgrade",
+      similar_opportunity: "free",
+    };
+    expect(deriveTabGateState(byKey("ai-score"), gates, false)).toBe("upgrade");
+    expect(deriveTabGateState(byKey("history"), gates, false)).toBe("upgrade");
+    expect(deriveTabGateState(byKey("similar"), gates, false)).toBe("free");
+  });
+
+  it("同类权益不再出现互相矛盾的档位标签（ai-score 与 history 同 gate）", () => {
+    const gates: Record<string, GateState> = { ai_match: "upgrade", history_notice_db: "upgrade" };
+    expect(deriveTabGateState(byKey("ai-score"), gates, false)).toBe(
+      deriveTabGateState(byKey("history"), gates, false),
+    );
+  });
+
+  it("unlock 类：已解锁→included；未解锁且有额度→unlock；无额度→upgrade", () => {
+    expect(deriveTabGateState(byKey("files"), { notice_view: "included" }, true)).toBe("included");
+    expect(deriveTabGateState(byKey("files"), { notice_view: "included" }, false)).toBe("unlock");
+    expect(deriveTabGateState(byKey("files"), { notice_view: "upgrade" }, false)).toBe("upgrade");
+  });
+
+  it("缺 gates 数据时保守回退 upgrade", () => {
+    expect(deriveTabGateState(byKey("summary"), undefined, false)).toBe("upgrade");
   });
 });
