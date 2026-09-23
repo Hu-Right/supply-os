@@ -9,17 +9,17 @@
 
 export { default as PaymentModal } from "./components/PaymentModal";
 export { default } from "./components/PaymentModal";
-export { default as PaymentModalCore } from "./components/PaymentModalCore";
+export { default as PaymentModalCore } from "@/shared/components/PaymentModalCore";
 export type {
   PaymentModalCoreProps,
   PaymentModalOrder,
   PaymentModalTexts,
   PaymentModalStep,
-} from "./components/PaymentModalCore";
+} from "@/shared/components/PaymentModalCore";
 export { useOrderHistory } from "./hooks/useOrderHistory";
 export type { PurchaseTab, UseOrderHistoryReturn } from "./hooks/useOrderHistory";
-export { usePaymentPolling } from "./hooks/usePaymentPolling";
-export type { UsePaymentPollingCallbacks, UsePaymentPollingOptions, UsePaymentPollingReturn } from "./hooks/usePaymentPolling";
+export { usePaymentPolling } from "@/shared/hooks/usePaymentPolling";
+export type { UsePaymentPollingCallbacks, UsePaymentPollingOptions, UsePaymentPollingReturn } from "@/shared/hooks/usePaymentPolling";
 export { MyRecordsPanel } from "./components/MyRecordsPanel";
 export { RecentUnlocks } from "./components/RecentUnlocks";
 export type { RecentUnlocksProps } from "./components/RecentUnlocks";

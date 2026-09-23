@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 import { useLocale } from "@/core/i18n";
-import PaymentModalCore from "./PaymentModalCore";
+import PaymentModalCore from "@/shared/components/PaymentModalCore";
 import { createOrder, getOrderStatus } from "../api";
 
 type PaymentModalProps = {
