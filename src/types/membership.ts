@@ -25,6 +25,8 @@ export interface PlanCatalogRow {
   billing_period_days: number | null;
   seat_limit: number;
   commercial_tier: string;
+  /** 派生受众分区（非 DB 列）：commercial_tier L1/L2=personal，其余=enterprise */
+  audience: "personal" | "enterprise";
   cta_i18n_key: string;
   badge: string;
   sort_order: number;

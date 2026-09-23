@@ -94,6 +94,11 @@ export function resolveCell(
   };
 }
 
+/** 由商业层级派生受众分区：仅 L1/L2 为个人版，其余（含未知）归企业版。 */
+export function deriveAudience(commercialTier: string): "personal" | "enterprise" {
+  return commercialTier === "L1" || commercialTier === "L2" ? "personal" : "enterprise";
+}
+
 export class BenefitSystemRepo {
   constructor(private pool: Pool | PoolConnection) {}
 

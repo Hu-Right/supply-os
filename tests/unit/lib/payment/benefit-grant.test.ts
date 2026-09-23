@@ -25,6 +25,7 @@ const plan = (over: Partial<PlanCatalogRow> = {}): PlanCatalogRow => ({
   billing_period_days: 365,
   seat_limit: 3,
   commercial_tier: "L3",
+  audience: "enterprise",
   cta_i18n_key: "ctaX",
   badge: "none",
   sort_order: 4,
