@@ -138,9 +138,12 @@ await expectOk("补上 level_dict 后可插入", () =>
 );
 
 console.log("[3] 额度账本：普通用户池（subscription_id NULL）+ 生成列唯一键");
-// 探针必须显式钉死 period_starts_at：该列 DEFAULT CURRENT_TIMESTAMP 是**语句级**取值，
-// 两条 INSERT 靠默认值会相差秒级，uk_pool（含周期起点）视其为两个周期而不冲突——
-// 2026-09-23 教训：本项误报"约束失效"正是没钉周期起点，约束本身经诊断实为活性正常。
+// 探针必须显式钉死 period_starts_at：uk_pool 含该列，而它 DEFAULT CURRENT_TIMESTAMP 逐条求值，
+// 两条 INSERT 靠默认值会落在不同秒 → 被当成两个周期而互不冲突。
+// 2026-09-23 本项报红时先被判为“约束失效的误报”——约束确实活着，但**结论只说对一半**：
+// 正因周期起点参与唯一键，开池 SQL 拿 NOW() 当起点时，幂等就只在同一秒内成立
+//（真库实测：同池跨秒重发两次 → 两行、quota_total 由 3 变 6），支付回调重试即为翻倍发额度。
+// 所以下面既验“同周期重复确实拦得住”，也把“不同起点=两个满额池”这个反证钉在原地。
 await expectOk("subscription_id NULL 可插入", () =>
   conn.execute(
     `INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total,period_starts_at)
@@ -156,6 +159,26 @@ await expectReject(
     ),
   /uk_pool|Duplicate entry/i,
 );
+// 反证：同一池两个不同的周期起点就是两行满额池（额度合计翻倍）。唯一键按定义工作，
+// 但它保不了“周期起点没算成确定值”的开池 SQL——确定的起点由 openQuotaPool 按 period 推导，
+// 那条资金不变式另有真库跨秒验证与单测守住。
+await expectOk("同池两个不同周期起点会成了两个满额池（幂等只能靠确定起点）", async () => {
+  await conn.execute(
+    `INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total,period,period_starts_at)
+     VALUES (NULL,900006,'__t_notice',3,'none','2026-01-01 00:00:00')`,
+  );
+  await conn.execute(
+    `INSERT INTO crm_benefit_quotas (subscription_id,seat_user_id,benefit_code,quota_total,period,period_starts_at)
+     VALUES (NULL,900006,'__t_notice',3,'none','2026-02-01 00:00:00')`,
+  );
+  const [r] = await conn.query(
+    `SELECT COUNT(*) n, COALESCE(SUM(quota_total),0) t FROM crm_benefit_quotas WHERE seat_user_id=900006`,
+  );
+  const row = (r as { n: number; t: number }[])[0];
+  if (Number(row.n) !== 2 || Number(row.t) !== 6) {
+    throw new Error(`预期两行、额度合计 6（即翻倍现场），实际 ${row.n} 行 / ${row.t}`);
+  }
+});
 const [gen] = await conn.query(
   `SELECT subscription_pool_key k FROM crm_benefit_quotas WHERE subscription_id IS NULL AND seat_user_id=900001 LIMIT 1`,
 );

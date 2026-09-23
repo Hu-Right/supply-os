@@ -17,7 +17,6 @@ import { reverseFulfilledOrder } from "@/lib/payment/reverse";
 import type { PaymentsRepo } from "@/lib/repos/payments.repo";
 import type { MembershipRepo } from "@/lib/repos/membership.repo";
 import type { BenefitSystemRepo, PlanCatalogRow } from "@/lib/repos/benefit-system.repo";
-import type { BenefitWriteRepo } from "@/lib/repos/benefit-write.repo";
 
 vi.mock("server-only", () => ({}));
 
