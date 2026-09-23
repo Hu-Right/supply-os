@@ -142,10 +142,10 @@ export class AuthRepo {
 
   // ── crm_refresh_tokens：Refresh Token 生命周期 ─────────────────────────────
 
-  /** 入库新签发的 Refresh Token 哈希（纯 user_id 路径，user_key 列写 NULL） */
+  /** 入库新签发的 Refresh Token 哈希（纯 user_id 路径；user_key 退役列已于迁移 095 DROP） */
   async insertRefreshToken(userId: number, tokenHash: string, expiresAt: Date): Promise<void> {
     await this.pool.execute(
-      "INSERT INTO crm_refresh_tokens (user_id, user_key, token_hash, expires_at) VALUES (?, NULL, ?, ?)",
+      "INSERT INTO crm_refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)",
       [userId, tokenHash, expiresAt],
     );
   }

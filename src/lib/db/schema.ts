@@ -169,6 +169,7 @@ import { migration as m091 } from "./migrations/091-sync-watermark-table";
 import { migration as m092 } from "./migrations/092-benefit-system-tables";
 import { migration as m093 } from "./migrations/093-plan-tax-comment";
 import { migration as m094 } from "./migrations/094-drop-old-benefit-tables";
+import { migration as m095 } from "./migrations/095-refresh-tokens-slim";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -191,6 +192,9 @@ const ALL_MIGRATIONS: Migration[] = [
   m093,
   // m094：退役删除旧权益三表（阶段二收口）——服务层已切读新表组（生产已切换）；带新表哨兵前置 + 冷备份 + 逐表幂等
   m094,
+  // m095：crm_refresh_tokens 结构精简（删退役列 user_key + idx_user_key）+ 全量清空重建，自增 id 从 1 起始
+  //       配套：auth.repo.insertRefreshToken 的 INSERT 已移除 user_key 列（迁移与代码同批上线）
+  m095,
 ];
 
 /**
