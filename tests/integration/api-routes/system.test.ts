@@ -295,7 +295,7 @@ describe("GET /api/membership/status", () => {
     expect(body.plan.plan_code).toBe("personal_pro_1299");
     expect(body.subscription.plan_code).toBe("personal_pro_1299");
     expect(body.quotas[0].remaining).toBe(7);
-    expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101);
+    expect(resolveMembershipState).toHaveBeenCalledWith(expect.anything(), 101, true);
   });
 
   it("认证 + 无当前套餐 → 回落 free 基线、subscription 为 null", async () => {
