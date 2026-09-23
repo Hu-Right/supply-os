@@ -3,7 +3,7 @@
  * Supplier Registration Modal (Enterprise Diagnosis — Modal Variant)
  *
  * @module features/supplier/components/SupplierRegisterModal
- * @description 供应商管理页"注册成为全球采购供应商"按钮弹出的信息收集弹窗。
+ * @description 供应商管理页"申请成为认证供应商（需审核）"按钮弹出的信息收集弹窗。
  *              14 字段渲染委托给 shared/forms/QualificationFormFields，
  *              提交逻辑与入库路径与企业全球采购机会诊断完全一致：
  *              POST /api/supplier-qualification → crm_supplier_qualification 表。
