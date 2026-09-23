@@ -108,3 +108,19 @@ export interface UpgradePreview {
   remaining_after_upgrade: number | null;
   expires_at_unchanged: boolean;
 }
+
+/** 增值服务目录行（crm_service_catalog，is_active=1）— 前端订制服务 Tab 渲染契约 */
+export interface ServiceCatalogRow {
+  service_code: string;
+  category: string;
+  name_zh: string;
+  name_en: string;
+  price_mode: string;
+  standard_price: string | null;
+  price_from: number;
+  currency: string;
+  sale_mode: string;
+  member_discount: number;
+  deliverable_note_zh: string | null;
+  sort_order: number;
+}

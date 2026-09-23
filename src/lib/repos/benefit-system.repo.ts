@@ -18,7 +18,7 @@
  *                新目录码只走新表组）；本模块只提供读取、判定与对比表渲染所需的值。
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
-import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, GateState, ComparisonTable } from "@/types/membership";
+import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, GateState, ComparisonTable, ServiceCatalogRow } from "@/types/membership";
 
 /**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
@@ -110,6 +110,18 @@ export class BenefitSystemRepo {
          FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
     return (rows as PlanCatalogRow[]).map((r) => ({ ...r, audience: deriveAudience(r.commercial_tier) }));
+  }
+
+  /** 读取启用中的增值服务目录（订制服务 Tab 唯一数据源）。 */
+  async listActiveServices(): Promise<ServiceCatalogRow[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT service_code, category, name_zh, name_en, price_mode, standard_price, price_from,
+              currency, sale_mode, member_discount, deliverable_note_zh, sort_order
+         FROM crm_service_catalog
+        WHERE is_active = 1
+        ORDER BY category, sort_order`,
+    );
+    return rows as ServiceCatalogRow[];
   }
 
   /**
