@@ -62,6 +62,7 @@ export function MyRecordsPanel({ onOpenNotice }: MyRecordsPanelProps) {
       if (planCode.startsWith("material_")) return t("myRecordsLearningMaterial");
       if (planCode.startsWith("bundle_")) return t("myRecordsLearningBundle");
       if (planCode.startsWith("training_course_")) return t("myRecordsTraining");
+      if (planCode.startsWith("svc_")) return t("myRecordsServiceOrder");
       return t("myRecordsMembershipOrder");
     }
     if (row.notice_id) return String(row.notice_id);

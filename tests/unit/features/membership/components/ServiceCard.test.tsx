@@ -13,7 +13,7 @@ import { ServiceCard } from "@/features/membership/components/ServiceCard";
 const row = (over: Partial<ServiceCatalogRow>): ServiceCatalogRow => ({
   service_code: "svc_x", category: "pro_service", name_zh: "AI 单标解析", name_en: "AI Tender",
   price_mode: "per_unit", standard_price: "199.00", price_from: 0, currency: "CNY",
-  sale_mode: "self", member_discount: 0, deliverable_note_zh: "说明", sort_order: 1, ...over,
+  sale_mode: "self", member_discount: "none", deliverable_note_zh: "说明", sort_order: 1, ...over,
 });
 
 beforeEach(() => vi.clearAllMocks());

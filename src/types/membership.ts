@@ -120,7 +120,7 @@ export interface ServiceCatalogRow {
   price_from: number;
   currency: string;
   sale_mode: string;
-  member_discount: number;
+  member_discount: "none" | "any_plan" | "unlimited_plus";
   deliverable_note_zh: string | null;
   sort_order: number;
 }

@@ -12,6 +12,7 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { PaymentStrategy } from "./types";
 import type { PaymentProviderName } from "../types/payment";
 import type { ServiceOrdersRepo } from "../repos/service-orders.repo";
+import { SITE_URL } from "../services/seo/site";
 
 export interface ServiceCreateOrderResult {
   order_no: string;
@@ -29,6 +30,7 @@ interface ServicePriceRow {
   currency: string;
   sale_mode: string;
   is_active: number;
+  name_zh: string;
 }
 
 export class ServicePaymentService {
@@ -57,7 +59,7 @@ export class ServicePaymentService {
     const { userId, serviceCode, provider } = params;
 
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT standard_price, currency, sale_mode, is_active
+      `SELECT standard_price, currency, sale_mode, is_active, name_zh
          FROM crm_service_catalog WHERE service_code = ? LIMIT 1`,
       [serviceCode],
     );
@@ -69,8 +71,10 @@ export class ServicePaymentService {
     const amount = Number(svc.standard_price);
     const orderNo = this.makeOrderNo();
     const strategy = this.getStrategy(provider);
+    // return_url 同源白名单（对齐审查 F26）+ 拼 order_no；描述用人类可读品名
+    const returnUrl = this.appendUrlParams(this.sanitizeReturnUrl(params.returnUrl || ""), { order_no: orderNo });
     const { pay_url, qr_code_url } = await strategy.createPaymentUrl(
-      orderNo, amount, `service_${serviceCode}`, params.returnUrl || "", params.clientIp,
+      orderNo, amount, svc.name_zh || serviceCode, returnUrl, params.clientIp,
     );
     const currency = svc.currency || "CNY";
 
@@ -92,9 +96,22 @@ export class ServicePaymentService {
   } | null> {
     const st = await this.ordersRepo.queryStatus(orderNo);
     if (!st) return null;
+    let status = st.status;
+    let paidAt = st.paid_at;
+    // mock 通道无异步回调：DB 仍 pending 时回查 mock 网关，命中则补标 paid（真实渠道靠 handleNotify 回写 DB）
+    if (status === "pending") {
+      try {
+        const gw = await this.getStrategy("mock").queryOrderStatus(orderNo);
+        if (gw.status === "paid") {
+          await this.ordersRepo.markPaid(orderNo);
+          status = "paid";
+          paidAt = new Date();
+        }
+      } catch { /* mock 未注册或查询失败：以 DB 状态为准 */ }
+    }
     return {
-      order_no: orderNo, status: st.status, amount: Number(st.amount_total),
-      currency: "CNY", paid_at: st.paid_at ? new Date(st.paid_at).toISOString() : null,
+      order_no: orderNo, status, amount: Number(st.amount_total),
+      currency: "CNY", paid_at: paidAt ? new Date(paidAt).toISOString() : null,
     };
   }
 
@@ -123,5 +140,27 @@ export class ServicePaymentService {
     const now = new Date();
     const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
     return `SV${datePart}${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
+  }
+
+  /** return_url 白名单（对齐 PaymentService F26）：仅同源，外域丢弃。 */
+  private sanitizeReturnUrl(url: string): string {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url, SITE_URL);
+      if (parsed.origin !== new URL(SITE_URL).origin) return "";
+      return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return "";
+    }
+  }
+
+  private appendUrlParams(url: string, params: Record<string, string | number>): string {
+    if (!url) return "";
+    const query = Object.entries(params)
+      .filter(([, v]) => String(v) !== "")
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join("&");
+    if (!query) return url;
+    return url.includes("?") ? `${url}&${query}` : `${url}?${query}`;
   }
 }

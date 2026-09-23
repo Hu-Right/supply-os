@@ -15,7 +15,7 @@ const resolver = { getStrategy: () => strategy };
 function svcPool(standardPrice: string | null, isActive = 1) {
   return {
     query: vi.fn().mockResolvedValue([[{
-      standard_price: standardPrice, currency: "CNY", sale_mode: "self", is_active: isActive,
+      standard_price: standardPrice, currency: "CNY", sale_mode: "self", is_active: isActive, name_zh: "AI 单标解析",
     }]]),
   } as unknown as Pool;
 }
@@ -74,5 +74,17 @@ describe("ServicePaymentService", () => {
     const svc = new ServicePaymentService(repo as never, svcPool("199.00"));
     await svc.fulfillOrder("SV1");
     expect(repo.markPaid).toHaveBeenCalledWith("SV1");
+  });
+
+  it("queryOrder：DB pending + mock 网关 paid → 回查并补标 paid", async () => {
+    const repo = makeRepo();
+    repo.queryStatus.mockResolvedValue({ status: "pending", amount_total: "199.00", paid_at: null });
+    const qs = vi.fn().mockResolvedValue({ status: "paid" });
+    const svc = new ServicePaymentService(repo as never, svcPool("199.00"));
+    svc.setStrategyResolver({ getStrategy: () => ({ queryOrderStatus: qs } as unknown as PaymentStrategy) });
+    const r = await svc.queryOrder("SV1");
+    expect(qs).toHaveBeenCalledWith("SV1");
+    expect(repo.markPaid).toHaveBeenCalledWith("SV1");
+    expect(r?.status).toBe("paid");
   });
 });

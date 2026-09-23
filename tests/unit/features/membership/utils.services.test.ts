@@ -5,7 +5,7 @@ import type { ServiceCatalogRow } from "@/types/membership";
 const row = (over: Partial<ServiceCatalogRow>): ServiceCatalogRow => ({
   service_code: "svc_x", category: "pro_service", name_zh: "中文", name_en: "EN",
   price_mode: "per_unit", standard_price: null, price_from: 0, currency: "CNY",
-  sale_mode: "self", member_discount: 0, deliverable_note_zh: null, sort_order: 1, ...over,
+  sale_mode: "self", member_discount: "none", deliverable_note_zh: null, sort_order: 1, ...over,
 });
 
 describe("resolveServiceBranch", () => {

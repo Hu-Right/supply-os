@@ -66,7 +66,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
         </div>
       )}
 
-      {row.member_discount > 0 && (
+      {row.member_discount !== "none" && (
         <span className="mt-2 inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
           {t("svcMemberExclusive")}
         </span>

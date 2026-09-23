@@ -63,6 +63,7 @@
   "myRecordsUnlocksDesc": "Manage procurements with full details already viewable",
   "myRecordsUnlocksHint": "Click to open the unlocked procurement list",
     "myRecordsLearningMaterial": "Learning Material",
+    "myRecordsServiceOrder": "Service order",
     "myRecordsLearningBundle": "Material Bundle",
     "myRecordsTraining": "Training Workshop",
       "myRecordsMembershipOrder": "Membership Order",
