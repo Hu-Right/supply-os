@@ -26,16 +26,13 @@ pnpm-debug.log*
 *.swp
 *.swo
 scripts/*
-!scripts/setup-meilisearch.ps1
 !scripts/coverage-gate.mjs
 !scripts/seed-test-db.ts
 !scripts/perf-budget-check.ts
-!scripts/prerender.ts
 !scripts/deploy.sh
 !scripts/check-i18n.ts
 !scripts/check-no-admin-routes.mjs
 !scripts/css-compat-gate.mjs
-!scripts/verify-benefit-constraints.ts
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs
@@ -83,9 +80,6 @@ Desktop.ini
 *.ttf
 *.eot
 
-# ===== 本地参考材料（设计样图/规划文档，非生产文件，仅保留在本地） =====
-OS页面重构/
-
 # —— 以上规则的例外：项目运行必需的静态资源 ——
 !public/fonts/**
 !public/wechat-service-qr.png
@@ -99,7 +93,6 @@ OS页面重构/
 # docs/*（非 docs/）才能让下方 !docs/adr/ 否则规则生效——git 不进入被整目录排除的路径
 docs/*
 !docs/adr/
-!docs/数据库设计/
 要求.md
 .superpowers/
 生成报告.txt
