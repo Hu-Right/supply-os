@@ -122,6 +122,21 @@ for (const [t, c] of FORBID) {
   } catch (e) { if (e.code !== "ER_NO_SUCH_TABLE") throw e; }
 }
 
+// ── 0.5 清理上一轮 2.5 步补回的副本外键 ──
+// 首轮无遗留；重跑时子副本上的 __p3 外键会挡住父副本的 DROP（ER_FK_CANNOT_DROP_PARENT），
+// 导致本脚本无法幂等重执行。判据用「子表名以 __new 结尾」而非约束名后缀，避免命名漂移漏清。
+// 副本上的外键只可能由本脚本 2.5 步创建（CREATE TABLE ... LIKE 不复制外键），故全清是安全的。
+const [staleFk] = await pool.query(
+  `SELECT TABLE_NAME AS child, CONSTRAINT_NAME AS cname
+     FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS
+    WHERE TABLE_SCHEMA=? AND CONSTRAINT_TYPE='FOREIGN KEY' AND TABLE_NAME LIKE '%\\_\\_new'`,
+  [DB],
+);
+for (const f of staleFk) {
+  await pool.query(`ALTER TABLE \`${f.child}\` DROP FOREIGN KEY \`${f.cname}\``);
+}
+console.log(`[0.5] 清理遗留副本外键 ${staleFk.length} 条（幂等重跑前置）`);
+
 // ── 1. 归档表：无法映射的悬挂引用逐条留证 ──
 await pool.query(`DROP TABLE IF EXISTS \`${AUDIT}\``);
 await pool.query(`

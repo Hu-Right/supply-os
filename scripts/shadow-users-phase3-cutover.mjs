@@ -326,10 +326,17 @@ if (!DO_EXECUTE) {
   const nc = await colsOf("crm_users");
   if (nc.length !== uc.length) die(`切换后 crm_users 列数 ${nc.length} ≠ 预期 ${uc.length}`);
   if (await count("crm_users") !== N) die("切换后 crm_users 行数与对齐值不符");
-  const [[ai]] = await pool.query(
+  // 自增值必须读表定义（SHOW CREATE TABLE）：information_schema.TABLES.AUTO_INCREMENT 是统计缓存，
+  // 换名后会残留旧表的值（实测切换后 I_S 报 178 而表定义实为 100），拿它判断撞号会得出错误结论。
+  const [[aiRow]] = await pool.query("SHOW CREATE TABLE `crm_users`");
+  const aiDdl = Number((/AUTO_INCREMENT=(\d+)/.exec(aiRow["Create Table"] || "") || [])[1] ?? -1);
+  if (aiDdl < 0) die("无法从表定义解析 crm_users 的 AUTO_INCREMENT，拒绝判断撞号");
+  const [[aiIs]] = await pool.query(
     `SELECT AUTO_INCREMENT ai FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME='crm_users'`, [DB]);
-  if (Number(ai.ai) <= N) die(`crm_users AUTO_INCREMENT=${ai.ai} 未超过 ${N}，新注册会撞号`);
-  console.log(`   ✓ crm_users：${nc.length} 列 / ${N} 行 / AUTO_INCREMENT=${Number(ai.ai)}（新用户从此起编，不会再出现空洞）`);
+  if (Number(aiIs.ai) !== aiDdl)
+    console.log(`   ⚠ I_S 统计缓存=${aiIs.ai} 与表定义=${aiDdl} 不一致（换名后常见，以表定义为准）`);
+  if (aiDdl <= N) die(`crm_users 下一个自增 id=${aiDdl} 未超过 ${N}，新注册会撞号`);
+  console.log(`   ✓ crm_users：${nc.length} 列 / ${N} 行 / 下一个 id=${aiDdl}（取自表定义，大于 ${N} 即不会撞号）`);
 
   // 引用完整性：切换后所有指向 crm_users 的引用必须 100% 可解析（哨兵/NULL 除外）
   let broken = 0;
