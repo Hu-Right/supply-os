@@ -1,10 +1,10 @@
 /**
- * 会员套餐详情页面
- * Membership Plans Detail Page
+ * 会员套餐详情页面（个人版 / 企业版 / 增值服务 三分区）
+ * Membership Plans Detail Page — Personal / Enterprise / Services tabs
  *
  * @module features/membership/pages/MembershipPage
- * @description 从数据库动态获取套餐信息，支持 1-5+ 个套餐的自适应展示。
- *              支付/升级逻辑已下沉至 useMembershipPayment hook。
+ * @description 套餐按后端派生的 audience 分个人版/企业版两个 Tab 渲染，增值服务 Tab 保持现有服务型 SKU；
+ *              支付/升级/联系咨询逻辑下沉至 useMembershipPayment。
  */
 
 import { useState } from "react";
@@ -14,14 +14,17 @@ import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
+import { ContactQrModal } from "../components/ContactQrModal";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { SERVICE_CATALOG } from "../data/service-catalog";
+import { groupPlansByAudience } from "../utils";
 
-type MembershipTab = "plans" | "services";
+type MembershipTab = "personal" | "enterprise" | "services";
 const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
-  { key: "plans", labelKey: "tabPlans" },
+  { key: "personal", labelKey: "tabPersonal" },
+  { key: "enterprise", labelKey: "tabEnterprise" },
   { key: "services", labelKey: "tabServices" },
 ];
 
@@ -32,23 +35,26 @@ export default function MembershipPage() {
 
   const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
 
-  // 支付/升级逻辑已下沉至 hook
   const {
     buyPlan, startUpgrade, confirmUpgrade,
     upgradeModalOpen, closeUpgradeModal,
     upgradePreview, upgradeLoading, upgradeTargetPlan,
+    contactQrOpen, closeContactQr,
   } = useMembershipPayment({ noticeId, currentPlanCode });
 
-  const [tab, setTab] = useState<MembershipTab>("plans");
+  const [tab, setTab] = useState<MembershipTab>("personal");
 
-  // V2 简化：不再分“个人/企业”两个 Tab，四档订阅（129/999/1299/8800）同列一个“会员套餐”Tab；
-  // 增值服务（含企业版 ¥199/单留资项）统一归入“增值服务”Tab。
-  const tabPlans = plans;
+  const { personal, enterprise } = groupPlansByAudience(plans);
   const serviceCatalog = SERVICE_CATALOG;
+
+  const isPlanTab = tab !== "services";
+  const currentPlans = tab === "personal" ? personal : tab === "enterprise" ? enterprise : [];
+  const sectionTitleKey = tab === "personal" ? "membershipPlansPersonalTitle" : "membershipPlansEnterpriseTitle";
+  const sectionDescKey = tab === "personal" ? "membershipPlansPersonalDesc" : "membershipPlansEnterpriseDesc";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/20">
-      {/* ══ Tab 导航（功能化）══ */}
+      {/* ══ Tab 导航 ══ */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {MEMBERSHIP_TABS.map((tb) => (
           <button
@@ -64,14 +70,12 @@ export default function MembershipPage() {
       </div>
 
       {tab === "services" ? (
-        /* 增值服务 Tab：报价表三~十大类留资卡（不走支付） */
+        /* 增值服务 Tab：保持现状（非自助订阅服务型 SKU） */
         <section className="py-2">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-10">
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t("servicesSectionTitle")}</h2>
-              <p className="text-base text-slate-600 max-w-2xl mx-auto">
-                {t("servicesSectionDesc")}
-              </p>
+              <p className="text-base text-slate-600 max-w-2xl mx-auto">{t("servicesSectionDesc")}</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {serviceCatalog.map((item) => (
@@ -82,21 +86,17 @@ export default function MembershipPage() {
         </section>
       ) : (
         <>
-          {/* 套餐卡片区域 */}
+          {/* 套餐卡片区域（个人版 / 企业版） */}
           <section className="bg-gradient-to-b from-slate-50/80 to-white py-16 pb-20">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center mb-10">
-                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">
-                  {t("membershipPlansTitle")}
-                </h2>
-                <p className="text-base text-slate-600 max-w-xl mx-auto">
-                  {t("membershipPlansDesc")}
-                </p>
+                <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-3">{t(sectionTitleKey)}</h2>
+                <p className="text-base text-slate-600 max-w-xl mx-auto">{t(sectionDescKey)}</p>
               </div>
 
               {loading ? (
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto">
-                  {[1, 2, 3, 4].map((i) => (
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
+                  {[1, 2, 3].map((i) => (
                     <div key={i} className="h-72 rounded-2xl border border-slate-200/60 bg-slate-100/70 animate-pulse" />
                   ))}
                 </div>
@@ -117,9 +117,9 @@ export default function MembershipPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto" data-testid="plan-list">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto" data-testid="plan-list">
                     {comparison &&
-                      tabPlans.map((plan) => (
+                      currentPlans.map((plan) => (
                         <PlanCard
                           key={plan.plan_code}
                           plan={plan}
@@ -130,7 +130,7 @@ export default function MembershipPage() {
                           onUpgrade={startUpgrade}
                         />
                       ))}
-                    {tabPlans.length === 0 && (
+                    {currentPlans.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
                       </div>
@@ -142,7 +142,7 @@ export default function MembershipPage() {
           </section>
 
           {/* ═ 为什么升级会员 ═══ */}
-          {!loading && tabPlans.length > 0 && (
+          {isPlanTab && !loading && currentPlans.length > 0 && (
             <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
               <h2 className="text-xl font-extrabold text-slate-900 mb-6">{t("whyUpgradeTitle")}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -181,6 +181,9 @@ export default function MembershipPage() {
         onClose={closeUpgradeModal}
         onConfirm={confirmUpgrade}
       />
+
+      {/* 联系咨询客服码弹窗 */}
+      <ContactQrModal open={contactQrOpen} onClose={closeContactQr} />
     </div>
   );
 }
