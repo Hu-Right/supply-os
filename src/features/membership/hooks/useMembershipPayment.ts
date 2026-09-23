@@ -48,6 +48,11 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<PlanCatalogRow | null>(null);
 
+  // ── 联系咨询客服码弹窗状态 ──
+  const [contactQrOpen, setContactQrOpen] = useState(false);
+  const openContactQr = useCallback(() => setContactQrOpen(true), []);
+  const closeContactQr = useCallback(() => setContactQrOpen(false), []);
+
   /** 构建支付 returnUrl */
   const buildReturnUrl = useCallback(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -56,13 +61,16 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
       : `${origin}/membership`;
   }, [noticeId]);
 
-  /** 直接购买套餐 */
+  /** 点击「立即购买 / 联系咨询」：contact 档弹客服码（不登录/不下单）；fixed 档走支付 */
   const buyPlan = useCallback((plan: PlanCatalogRow) => {
+    if (plan.price_mode === "contact") {
+      openContactQr();
+      return;
+    }
     if (!authUser) {
       emitAppEvent("supply-os:require-login");
       return;
     }
-    // contact 档（ENTERPRISE 等）不进入自助支付：后端对非 fixed 一律拒单转商务。
     if (plan.price_mode !== "fixed") return;
     emitAppEvent("supply-os:pay", {
       code: plan.plan_code,
@@ -72,7 +80,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
       noticeId: noticeId ? Number(noticeId) : undefined,
       returnUrl: buildReturnUrl(),
     });
-  }, [authUser, noticeId, buildReturnUrl]);
+  }, [authUser, noticeId, buildReturnUrl, openContactQr]);
 
   /** 点击"升级"：拉取升级预览并打开确认弹窗 */
   const startUpgrade = useCallback((plan: PlanCatalogRow) => {
@@ -128,5 +136,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     upgradeLoading,
     upgradeError,
     upgradeTargetPlan,
+    contactQrOpen,
+    closeContactQr,
   };
 }

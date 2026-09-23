@@ -132,4 +132,28 @@ describe("useMembershipPayment", () => {
     act(() => { result.current.closeUpgradeModal(); });
     expect(result.current.upgradeModalOpen).toBe(false);
   });
+
+  const contactPlan = {
+    plan_code: "enterprise", name_zh: "机构/API版", price: "0", currency: "CNY", price_mode: "contact",
+  } as unknown as import("@/types").PlanCatalogRow;
+
+  it("contact 档 buyPlan 打开客服码、不触发 pay/require-login（游客亦可）", () => {
+    mockAuthUser.mockReturnValue(null);
+    const { result } = renderHook(() => useMembershipPayment());
+
+    act(() => { result.current.buyPlan(contactPlan); });
+
+    expect(result.current.contactQrOpen).toBe(true);
+    expect(mockEmitAppEvent).not.toHaveBeenCalledWith("supply-os:pay", expect.anything());
+    expect(mockEmitAppEvent).not.toHaveBeenCalledWith("supply-os:require-login");
+  });
+
+  it("closeContactQr 关闭客服码", () => {
+    mockAuthUser.mockReturnValue({ id: "u" });
+    const { result } = renderHook(() => useMembershipPayment());
+    act(() => { result.current.buyPlan(contactPlan); });
+    expect(result.current.contactQrOpen).toBe(true);
+    act(() => { result.current.closeContactQr(); });
+    expect(result.current.contactQrOpen).toBe(false);
+  });
 });
