@@ -7,9 +7,13 @@
  *              activatePaidOrder: 真实支付回调履约（事务版，悲观锁）。
  *              V2 权益（2026-09-21）：activateSubscription 随 /api/billing/subscribe
  *              路由的消亡一并删除（新套餐体系只有支付下单一条履约路径）。
+ *              权益体系双轨（2026-09-23）：传入 benefitDeps 后，plan_code 命中新目录
+ *              （crm_plan_catalog）的订单一律走新表组履约（订阅事实+席位+按矩阵开池），
+ *              未命中者继续旧三表路径；新旧码集合不相交，一单只落一本账，不是双写。
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
 import { performUpgradeInTransaction } from "./upgrade";
+import { grantSubscriptionForPlan, type BenefitFulfillDeps } from "./benefit-grant";
 
 // ── 真实支付回调履约（事务版） ────────────────────────────────────────────────
 
@@ -21,6 +25,7 @@ export async function activatePaidOrder(
   paymentsRepo: PaymentsRepo,
   orderNo: string,
   providerTradeNo?: string,
+  benefit?: BenefitFulfillDeps,
 ): Promise<void> {
   const conn = await paymentsRepo.getConnection();
   try {
@@ -35,6 +40,28 @@ export async function activatePaidOrder(
     if (order.status !== "pending") { await conn.commit(); return; }
 
     await paymentsRepo.markAsPaidInTransaction(conn, orderNo, providerTradeNo || null);
+
+    // 权益体系双轨（阶段二）：新目录码只走新表组履约，绝不碰旧三表。
+    // 失败一律抛出回滚（订单留在 pending、回调报 failure 供平台重试/告警），
+    // "订单置 paid 但不履约"是旧体系的病根，新链路不沿袭 silent-commit。
+    if (benefit) {
+      const newPlan = await benefit.catalog.getPlan(order.plan_code);
+      if (newPlan) {
+        if (order.order_type === "upgrade") {
+          // 新体系的升级承接（linkReplacedSubscription）尚未接入选款：新目录码的
+          // 升级单只可能来自未来收银台扩容忘了同步本闸口——抛错显眼优于拿旧链补差
+          throw new Error(`UPGRADE_ON_NEW_CATALOG_NOT_WIRED: ${orderNo} (${order.plan_code})`);
+        }
+        await grantSubscriptionForPlan(benefit, conn, {
+          userId: order.user_id!,
+          orderNo,
+          planCode: order.plan_code,
+          pricePaid: Number(order.amount || 0),
+        });
+        await conn.commit();
+        return;
+      }
+    }
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
     // 由 LearningPaymentService.fulfillOrder 独立履约，不再经过此函数。

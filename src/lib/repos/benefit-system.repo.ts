@@ -13,8 +13,9 @@
  *                矩阵一行一格 + level_dict 存 docx 单元格原文，本身就是完整表述；
  *              - 不存在"档位数字"概念：门控判定按权益自身的 value_kind 取值比较
  *                （bool 看 0/1、enum 看是否 >0、quota 看 -1/0/正数、amount 看是否包含）；
- *              - 额度**扣减**不在本模块（写路径待与支付回调同批切换），本模块只提供
- *                读取、判定与对比表渲染所需的值。
+ *              - 额度**扣减**不在本模块：扣减路径在 unlock-quota.ts（已切新账本），
+ *                履约/退款写入在 benefit-write.repo.ts（已与支付回调双轨接线：
+ *                新目录码只走新表组）；本模块只提供读取、判定与对比表渲染所需的值。
  */
 import type { Pool, RowDataPacket } from "mysql2/promise";
 

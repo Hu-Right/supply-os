@@ -9,6 +9,7 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import type { MembershipRepo } from "../repos/membership.repo";
+import type { BenefitFulfillDeps } from "./benefit-grant";
 import { activatePaidOrder } from "./fulfillment";
 import { reverseFulfilledOrder } from "./reverse";
 import { fulfillMockPayment } from "./mock";
@@ -38,6 +39,8 @@ export class PaymentService {
   constructor(
     private paymentsRepo?: PaymentsRepo,
     private membershipRepo?: MembershipRepo,
+    /** 权益体系双轨：新表组履约依赖（AppContext 注入；缺省时全部订单走旧三表路径） */
+    private benefitDeps?: BenefitFulfillDeps,
   ) {}
 
   /** 获取 paymentsRepo（未初始化时抛出明确错误） */
@@ -249,7 +252,7 @@ export class PaymentService {
       if (!verifyResult.order_no) {
         return { success: false, order_no: "", message: "ORDER_NO_MISSING" };
       }
-      const refundResult = await reverseFulfilledOrder(this.repo, verifyResult.order_no);
+      const refundResult = await reverseFulfilledOrder(this.repo, verifyResult.order_no, this.benefitDeps);
       if (!refundResult.found) {
         return { success: false, order_no: verifyResult.order_no, message: "ORDER_NOT_FOUND" };
       }
@@ -294,9 +297,9 @@ export class PaymentService {
     return { success: true, order_no: verifyResult.order_no };
   }
 
-  /** 激活已支付订单（委托至 fulfillment 模块） */
+  /** 激活已支付订单（委托至 fulfillment 模块，携新表组履约依赖走双轨） */
   private async activatePaidOrder(orderNo: string, providerTradeNo?: string): Promise<void> {
-    return activatePaidOrder(this.repo, orderNo, providerTradeNo);
+    return activatePaidOrder(this.repo, orderNo, providerTradeNo, this.benefitDeps);
   }
 
   private makeOrderNo(): string {
@@ -328,7 +331,7 @@ export class PaymentService {
    */
   async fulfillMockMembershipOrder(orderNo: string, rawNotify: string): Promise<boolean> {
     if (!this.paymentsRepo || !this.membershipRepo) return false;
-    const { found } = await fulfillMockPayment(this.paymentsRepo, this.membershipRepo, { orderNo, rawNotify });
+    const { found } = await fulfillMockPayment(this.paymentsRepo, this.membershipRepo, { orderNo, rawNotify }, this.benefitDeps);
     return found;
   }
 
@@ -337,7 +340,7 @@ export class PaymentService {
    * ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理，
    * 此方法仅创建服务实例，策略通过 setStrategyResolver 延迟注入。
    */
-  static initDefault(paymentsRepo: PaymentsRepo, _paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo): PaymentService {
-    return new PaymentService(paymentsRepo, membershipRepo);
+  static initDefault(paymentsRepo: PaymentsRepo, _paymentMode: "mock" | "live" = "mock", membershipRepo?: MembershipRepo, benefitDeps?: BenefitFulfillDeps): PaymentService {
+    return new PaymentService(paymentsRepo, membershipRepo, benefitDeps);
   }
 }

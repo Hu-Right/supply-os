@@ -153,6 +153,21 @@ export class BenefitWriteRepo {
   }
 
   /**
+   * 逆向/对账锚点：按成交订单号定位订阅（FOR UPDATE 配合调用方事务）。
+   * source_order_no 是普通索引——"一单一订"由订单状态机的履约幂等保证，
+   * 取最新一行并持行锁，防退款与重放的履约回调各自读到"未落账"。
+   * @returns null = 该单不是新表组履约（旧套餐单，走旧三表逆向链）
+   */
+  async findSubscriptionIdBySourceOrder(db: Db, sourceOrderNo: string): Promise<number | null> {
+    const [rows] = await db.query<RowDataPacket[]>(
+      `SELECT id FROM crm_plan_subscriptions WHERE source_order_no = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+      [sourceOrderNo],
+    );
+    const r = (rows as Array<{ id: number | string }>)[0];
+    return r ? Number(r.id) : null;
+  }
+
+  /**
    * 退款：订阅置 refunded 并同事务冻结其额度池。
    * 两步必须原子：只改订阅状态会留下"单子已退、池子还能扣"的窗口，
    * 把冻结动作指望调用方记得做就是埋错误；传 Pool 时自开事务，传 PoolConnection 则并入调用方事务。
@@ -209,6 +224,15 @@ export class BenefitWriteRepo {
    *
    * 抬额表达式必须特判 -1：`GREATEST(100, -1)` 等于 100，若只写 GREATEST，
    * 同周期重发时"不限"会被旧的正数额度顶掉，用户付了不限量却只拿到小池。
+   *
+   * 【幂等成立的前提：周期起点必须是确定值】uk_pool 包含 period_starts_at，
+   * 而该列默认 CURRENT_TIMESTAMP 是**逐行求值**的。若此处写 NOW()，同一池隔一秒
+   * 重发就不撞唯一键 → 另开一行满额池（本库实测：同池两次开池 quota_total 由 3 变 6）。
+   * 放到支付链路上就是：回调重试一次用户额度翻倍；已耗尽的用户重试一次直接白送一份新池。
+   * 因此周期起点改由 period 推导：
+   *   - monthly/yearly → 本月月首 / 本年年初（本身就是确定值）；
+   *   - none（终身或订阅生命周期）→ 订阅的 started_at（该订阅内恒定），
+   *     普通用户池（subscription_id 为 NULL）→ 哨兵 1970-01-01 表示终身。
    * @param subscriptionId null = 普通用户池（免费档计量权益）
    */
   async openQuotaPool(
@@ -220,14 +244,23 @@ export class BenefitWriteRepo {
       benefitCode: string;
       quotaTotal: number;
       period?: "none" | "monthly" | "yearly";
-      /** 周期起点；缺省 NOW()。同一 period_starts_at 重复调用 = 只补额度不洗用量 */
+      /** 显式指定周期起点（周期重置时由调用方推进行号）；缺省按 period 推导确定值 */
       periodStartsAt?: Date | null;
     },
   ): Promise<void> {
+    const period = p.period ?? "none";
     await db.execute(
       `INSERT INTO crm_benefit_quotas
         (subscription_id, seat_user_id, scope, benefit_code, quota_total, quota_used, period, period_starts_at, status)
-       VALUES (?, ?, ?, ?, ?, 0, ?, COALESCE(?, NOW()), 'active')
+       VALUES (?, ?, ?, ?, ?, 0, ?,
+               COALESCE(?,
+                 CASE ?
+                   WHEN 'monthly' THEN DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')
+                   WHEN 'yearly'  THEN DATE_FORMAT(NOW(), '%Y-01-01 00:00:00')
+                   ELSE IFNULL((SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?),
+                               '1970-01-01 00:00:00')
+                 END),
+               'active')
        ON DUPLICATE KEY UPDATE
          quota_total = IF(? = -1 OR quota_total = -1, -1, GREATEST(quota_total, ?)),
          status = 'active'`,
@@ -237,8 +270,10 @@ export class BenefitWriteRepo {
         p.scope ?? "subscription",
         p.benefitCode,
         p.quotaTotal,
-        p.period ?? "none",
+        period,
         p.periodStartsAt ?? null,
+        period,
+        p.subscriptionId,
         p.quotaTotal,
         p.quotaTotal,
       ],

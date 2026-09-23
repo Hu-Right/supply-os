@@ -90,7 +90,8 @@ describe("PaymentService.queryOrder", () => {
       queryStatus: { order_no: "SO1", status: "paid", provider_trade_no: "T9" },
     });
     const result = await svc.queryOrder("SO1");
-    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9");
+    // 双轨依赖未注入 → 第 4 参透传 undefined，旧履约链行为不变
+    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9", undefined);
     expect(result).toMatchObject({ status: "paid", plan_code: "annual_799", amount: 799 });
   });
 
@@ -232,7 +233,7 @@ describe("PaymentService — return_url 白名单与渠道注册", () => {
     const svc = new PaymentService(makeRepo(null), makeMembershipRepo({ plan_code: "vip_m" }));
     expect(await svc.fulfillMockMembershipOrder("SO1", "raw")).toBe(true);
     expect(fulfillMockPayment).toHaveBeenCalledWith(
-      expect.anything(), expect.anything(), { orderNo: "SO1", rawNotify: "raw" },
+      expect.anything(), expect.anything(), { orderNo: "SO1", rawNotify: "raw" }, undefined,
     );
 
     const bare = new PaymentService(makeRepo(null));

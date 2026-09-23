@@ -58,7 +58,8 @@ describe("PaymentService.handleNotify", () => {
     vi.mocked(reverseFulfilledOrder).mockResolvedValue({ found: true, reversed: true });
     const svc = await getService(repo, { verified: false, order_no: "SO1", tradeStatus: "TRADE_CLOSED" });
     const result = await svc.handleNotify("mock", {}, "sig");
-    expect(reverseFulfilledOrder).toHaveBeenCalledWith(repo, "SO1");
+    // 第 4 参 = 权益体系双轨依赖：未注入时必须透传 undefined（旧路径不变）
+    expect(reverseFulfilledOrder).toHaveBeenCalledWith(repo, "SO1", undefined);
     expect(result).toMatchObject({ success: true, order_no: "SO1", message: "REFUND_REVERSED" });
     expect(activatePaidOrder).not.toHaveBeenCalled();
   });
@@ -114,8 +115,8 @@ describe("PaymentService.handleNotify", () => {
     const svc = await getService(repo, { verified: true, order_no: "SO1", amount: "99.005", provider_trade_no: "T9" });
     const result = await svc.handleNotify("mock", {}, "sig");
     expect(result).toMatchObject({ success: true, order_no: "SO1" });
-    // activatePaidOrder(repo, orderNo, providerTradeNo)
-    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9");
+    // activatePaidOrder(repo, orderNo, providerTradeNo, benefitDeps)；未注入双轨依赖时为 undefined
+    expect(activatePaidOrder).toHaveBeenCalledWith(repo, "SO1", "T9", undefined);
   });
 
   it("验签通过但缺 order_no → ORDER_NO_MISSING", async () => {

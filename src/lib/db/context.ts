@@ -151,10 +151,16 @@ export function getContext(): AppContext {
   const trainingRepo = new TrainingRepo(dbPool);
   const systemRepo = new SystemRepo(dbPool);
 
-  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo);
+  const paymentService = PaymentService.initDefault(paymentsRepo, paymentMode as "mock" | "live", membershipRepo, {
+    catalog: benefitSystemRepo,
+    write: benefitWriteRepo,
+  });
   const learningPaymentService = new LearningPaymentService(learningOrdersRepo, learningMaterialsRepo);
   const trainingPaymentService = new TrainingPaymentService(trainingRepo); // ARCH-PN 新增
-  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo);
+  const orchestrator = new PaymentOrchestrator(paymentService, learningPaymentService, paymentsRepo, learningOrdersRepo, trainingRepo, paymentHistoryRepo, {
+    catalog: benefitSystemRepo,
+    write: benefitWriteRepo,
+  });
 
   // ARCH-PN（2026-09-11）：策略注册收归 Orchestrator 统一管理。
   // orchestrator.registerStrategy() 内部自动向 paymentService / learningPaymentService

@@ -409,6 +409,65 @@ describe("openQuotaPool · 不限额度的抬额语义（缺陷 2 复现）", ()
   });
 });
 
+/**
+ * 缺陷 7：周期起点必须是确定值。
+ * uk_pool 含 period_starts_at，而该列默认 CURRENT_TIMESTAMP 逐行求值——
+ * 写 NOW() 会使“幂等开池”仅在同一秒内成立，跨秒重发另开一行满额池
+ * （本库实测同池两次 quota_total 由 3 变 6），到支付链路上就是回调重试翻倍发额度。
+ */
+describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
+  it("不得用裸 NOW() 当周期起点，否则撞不到唯一键", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb();
+    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    expect(calls[0].sql).not.toMatch(/COALESCE\(\?, NOW\(\)\)/);
+  });
+
+  it("period=none 时起点锁定到订阅自身的 started_at，普通用户池用终身哨兵", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb();
+    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    const sql = calls[0].sql;
+    expect(sql).toContain("SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?");
+    expect(sql).toContain("'1970-01-01 00:00:00'");
+    // 子查询用的 subscription_id 必须真的绑上：漏绑就等于把所有池子锁到同一个哨兵上
+    expect(calls[0].params[8]).toBe(9);
+  });
+
+  it("monthly / yearly 的起点由 DB 算周期首而非行级时间戳，且 period 绑两次", async () => {
+    const repo = new BenefitWriteRepo();
+    for (const [period, frag] of [
+      ["monthly", "'%Y-%m-01 00:00:00'"],
+      ["yearly", "'%Y-01-01 00:00:00'"],
+    ] as const) {
+      const { db, calls } = makeDb();
+      await repo.openQuotaPool(db, {
+        subscriptionId: 9, seatUserId: 42, benefitCode: "procurement_consult", quotaTotal: 12, period,
+      });
+      expect(calls[0].sql).toContain(frag);
+      expect(calls[0].params.filter((x) => x === period)).toHaveLength(2);
+    }
+  });
+
+  it("显式传 periodStartsAt 仍优先使用（周期重置要能推进行号）", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb();
+    const anchor = new Date("2026-10-01T00:00:00Z");
+    await repo.openQuotaPool(db, {
+      subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 5, periodStartsAt: anchor,
+    });
+    expect(calls[0].params[6]).toBe(anchor);
+  });
+
+  it("参数个数与占位符个数始终相等", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb();
+    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    const placeholders = (calls[0].sql.match(/\?/g) ?? []).length;
+    expect(calls[0].params).toHaveLength(placeholders);
+  });
+});
+
 describe("insertSubscription · 套餐码守卫（缺陷 5 复现）", () => {
   it("空或纯空格 plan_code 在发 SQL 前就被拒，而不是依赖外键报错", async () => {
     const repo = new BenefitWriteRepo();
@@ -483,6 +542,7 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
     await repo.consumeLockedPool(db, pool({ id: 1 }));
     await repo.freezePoolsOfSubscription(db, 1);
     await repo.linkReplacedSubscription(db, { oldSubscriptionId: 1, newSubscriptionId: 2 });
+    await repo.findSubscriptionIdBySourceOrder(db, "ALI-20260923-0009");
     await repo.refundSubscription(db, 1);
     await repo.expireOverdueSubscriptions(db);
 
@@ -501,5 +561,26 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
       "crm_plan_subscriptions",
       "crm_subscription_seats",
     ]);
+  });
+});
+
+describe("findSubscriptionIdBySourceOrder · 逆向/对账锚点查询", () => {
+  it("命中：取最新行、持行锁，BIGINT 字符串归一为 number", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb({ rows: [{ id: "101" }] });
+    const id = await repo.findSubscriptionIdBySourceOrder(db, "ALI-20260923-0001");
+
+    expect(id).toBe(101);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].sql).toContain("FROM crm_plan_subscriptions");
+    expect(calls[0].sql).toContain("source_order_no = ?");
+    expect(calls[0].sql).toContain("FOR UPDATE");
+    expect(calls[0].params).toEqual(["ALI-20260923-0001"]);
+  });
+
+  it("未命中返回 null（旧套餐单据此走旧三表逆向链），不得被误归为 0", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db } = makeDb({ rows: [] });
+    expect(await repo.findSubscriptionIdBySourceOrder(db, "SO-LEGACY")).toBeNull();
   });
 });

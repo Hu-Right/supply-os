@@ -5,8 +5,12 @@
  * @module lib/payment/reverse
  * @description ARCH-P3a（2026-08-31）：从 fulfillment.ts 拆分。
  *              - reverseFulfilledOrder: 全额退款/交易关闭后逆向回收已发放权益
+ *              权益体系双轨（2026-09-23）：传入 benefitDeps 后，凡在 crm_plan_subscriptions
+ *              有 source_order_no 锚点的订单一律走新账本逆向（冻池+订阅置 refunded，
+ *              同一事务），不再碰旧三表；无锚点者才是旧套餐单，继续旧回收链。
  */
 import type { PaymentsRepo } from "../repos/payments.repo";
+import type { BenefitFulfillDeps } from "./benefit-grant";
 
 /**
  * 全额退款/交易关闭（TRADE_CLOSED）后按订单类型逆向回收已发放权益：
@@ -19,6 +23,7 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 export async function reverseFulfilledOrder(
   paymentsRepo: PaymentsRepo,
   orderNo: string,
+  benefit?: BenefitFulfillDeps,
 ): Promise<{ found: boolean; reversed: boolean }> {
   const conn = await paymentsRepo.getConnection();
   try {
@@ -60,6 +65,19 @@ export async function reverseFulfilledOrder(
         `[refund] 订单已被抵扣引用（linked_order_no=${linkedOrder.order_no}），权益保留转人工核处: order_no=${orderNo}`,
       );
       return { found: true, reversed: false };
+    }
+
+    // 权益体系双轨：该单在新表组履过约（订阅事实可按订单号命中）→ 逆向只走新账本。
+    // refundSubscription 把"冻池+订阅置 refunded"包进同一事务，与上方订单 refunded
+    // 标记同生共死；新体系不再维护 crm_users.membership_tier（会员身份=有无 active 订阅）。
+    if (benefit) {
+      const subscriptionId = await benefit.write.findSubscriptionIdBySourceOrder(conn, orderNo);
+      if (subscriptionId !== null) {
+        await benefit.write.refundSubscription(conn, subscriptionId);
+        await conn.commit();
+        console.log(`[refund] 新表组逆向完成: order_no=${orderNo}, subscription=${subscriptionId}`);
+        return { found: true, reversed: true };
+      }
     }
 
     if (order.plan_code.startsWith("material_") || order.plan_code.startsWith("bundle_")) {

@@ -23,6 +23,7 @@ import type { PaymentsRepo } from "../repos/payments.repo";
 import type { LearningOrdersRepo } from "../repos/learning-orders.repo";
 import type { TrainingRepo } from "../repos/training.repo";
 import type { PaymentHistoryRepo } from "../repos/payment-history.repo";
+import type { BenefitFulfillDeps } from "./benefit-grant";
 import { fulfillTrainingOrder, reverseTrainingOrder, fulfillMockTrainingOrder } from "../services/training-payment";
 
 /** 聚合后的统一订单行 */
@@ -69,6 +70,8 @@ export class PaymentOrchestrator {
     private learningOrdersRepo: LearningOrdersRepo,
     private trainingRepo: TrainingRepo,
     private paymentHistoryRepo: PaymentHistoryRepo,
+    /** 权益体系双轨：会员履约/逆向的新表组依赖（与 PaymentService 同一实例，由 AppContext 注入） */
+    private benefitDeps?: BenefitFulfillDeps,
   ) {}
 
   // ── 渠道策略注册（唯一注册中心） ──────────────────────────────────────────
@@ -177,7 +180,7 @@ export class PaymentOrchestrator {
           return { success: false, order_no: verifyResult.order_no, message: "AMOUNT_MISMATCH" };
         }
         const { activatePaidOrder } = await import("./fulfillment");
-        await activatePaidOrder(this.paymentsRepo, verifyResult.order_no, verifyResult.provider_trade_no);
+        await activatePaidOrder(this.paymentsRepo, verifyResult.order_no, verifyResult.provider_trade_no, this.benefitDeps);
         return { success: true, order_no: verifyResult.order_no };
       }
     }
@@ -236,7 +239,7 @@ export class PaymentOrchestrator {
       case "membership":
       default: {
         const { reverseFulfilledOrder } = await import("./reverse");
-        const result = await reverseFulfilledOrder(this.paymentsRepo, orderNo);
+        const result = await reverseFulfilledOrder(this.paymentsRepo, orderNo, this.benefitDeps);
         if (!result.found) {
           return { success: false, order_no: orderNo, message: "ORDER_NOT_FOUND" };
         }
