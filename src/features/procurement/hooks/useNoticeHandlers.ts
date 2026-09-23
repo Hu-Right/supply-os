@@ -45,7 +45,6 @@ export interface UseNoticeHandlersReturn {
 
 export function useNoticeHandlers({
   userId,
-  isVip,
   setSelectedNotice,
   trackClick,
   trackDetailOpen,
@@ -92,7 +91,7 @@ export function useNoticeHandlers({
     // P2-2：useCallback 稳定引用（上游依赖均已 useCallback 化），
     // NoticeCard 的 React.memo 不再被每次渲染重建的 openNotice 击穿
   }, [
-    userId, isVip, t,
+    userId,
     onRequireLogin, trackClick, trackDetailOpen,
     isUnlocked, setSelectedNotice, setActionMessage,
     setDetailLoadingId, refreshMembership, loadNoticeDetail, loadNoticePreview, loadNoticeContent,

@@ -7,7 +7,7 @@
  *              选择状态与 supply-os:industry-prefs-updated 事件订阅。
  *              ARCH-P3b（2026-08-31）：UNSPSC 级联逻辑拆分至 useUnspscCascade.ts。
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { onAppEvent } from "@/core/events";
 import { clearApiCache } from "@/core/http";
@@ -65,7 +65,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
   /**
    * 按偏好路径预选级联并切 prefs 模式
    */
-  const applyPrefsPath = async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
+  const applyPrefsPath = useCallback(async (prefs: { level1_id?: number | null; level2_id?: number | null; level3_id?: number | null }) => {
     const path = [prefs.level1_id, prefs.level2_id, prefs.level3_id, null, null]
       .map((id) => (id ? String(id) : ""));
     const entrySeq = exitSeqRef.current;
@@ -84,7 +84,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
     setPrefsPath(path);
     setSelectedIds(["", "", "", "", ""]);
     setPrefsMode("prefs");
-  };
+  }, [setLevels, setSelectedIds]);
 
   /**
    * 恢复行业匹配
@@ -164,7 +164,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
         setPrefsMode((prev) => prev === "loading" ? "default" : prev);
       }
     });
-  }, [userId, prefsMode, prefsRefreshTick]);
+  }, [userId, prefsMode, prefsRefreshTick, applyPrefsPath, setLevels, setPage, setSelectedIds]);
 
   useEffect(() => {
     const onPrefsUpdated = () => {
@@ -178,7 +178,7 @@ export function useIndustryPrefs(options: UseIndustryPrefsOptions): UseIndustryP
       clearApiCache("/api/notices");
     };
     return onAppEvent("supply-os:industry-prefs-updated", onPrefsUpdated);
-  }, [userId]);
+  }, [userId, setLevels, setPage, setSelectedIds]);
 
   const prefsBannerName = useMemo(() => {
     const names: string[] = [];

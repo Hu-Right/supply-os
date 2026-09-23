@@ -156,7 +156,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       prevSearchKeyForDebounceRef.current = "";
       prevDeepestCodeIdForSkipRef.current = "";
     };
-  }, [deepestCodeId, page, prefsMode, query.searchKey, query.hasOtherSearch, locale, userId, query.hasSearch]);
+  }, [deepestCodeId, page, prefsMode, query, locale, userId, t, variantRef]);
 
   // 分页预取（统一端点）
   // [F4 优化] prefs 模式同样预取：此前因最慢模式无预取导致翻页始终冷请求
@@ -194,7 +194,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       sort: query.activeSort,
       locale,
     }).catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
-  }, [page, totalPages, items.length, loading, prefsMode, userId, query.hasOtherSearch, query.searchKey]);
+  }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale, deepestCodeId]);
 
   return {
     items,

@@ -62,7 +62,7 @@ export function useSearchFormState(): {
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
   const setNoticeTypeInput = useCallback((v: string) => dispatchForm({ type: "set_notice_type", payload: v }), []);
 
-  const syncFromUrl = (params: {
+  const syncFromUrl = useCallback((params: {
     q: string;
     country: string;
     agency: string;
@@ -72,11 +72,11 @@ export function useSearchFormState(): {
     noticeType: string;
   }) => {
     dispatchForm({ type: "sync", payload: params });
-  };
+  }, []);
 
-  const clear = () => {
+  const clear = useCallback(() => {
     dispatchForm({ type: "clear" });
-  };
+  }, []);
 
   return {
     formState,

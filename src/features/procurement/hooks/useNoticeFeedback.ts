@@ -188,7 +188,7 @@ export function useNoticeFeedback(options: UseNoticeFeedbackOptions): UseNoticeF
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [selectedNotice, feedbackEnabled, userId]);
+  }, [selectedNotice, feedbackEnabled, userId, variantRef]);
 
   return {
     feedbackEnabled,

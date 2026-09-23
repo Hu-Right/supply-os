@@ -122,9 +122,10 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
     variantRef,
   });
 
-  // URL 外部变化时同步表单草稿
+  // URL 外部变化时同步表单草稿（syncFromUrl 已由 useSearchFormState 稳定化）
+  const { syncFromUrl } = form;
   useEffect(() => {
-    form.syncFromUrl({
+    syncFromUrl({
       q: query.activeQ,
       country: query.activeCountry,
       agency: query.activeAgency,
@@ -133,7 +134,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       window: query.activeWindow,
       noticeType: query.activeNoticeType,
     });
-  }, [query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType]);
+  }, [syncFromUrl, query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType]);
 
   // 组件挂载时立即从 URL 同步表单状态
   useEffect(() => {
