@@ -4,8 +4,9 @@
  * @module app/api/notices/[id]/award-history/route
  * @description 薄壳路由：参数校验 + service 委托（lib/services/awards.service）。
  *              公告 UNSPSC → 同类品类历史中标（采购次数/总额/国家分布/中标商排行/最近记录）。
- *              V2 权益（2026-09-21）：标准档（benefit_rank≥2）专享，此前该接口无鉴权，
- *              UI 标"专业版"但公开可调，属越权漏洞，已补闸门。
+ *              权益闸门（2026-09-23 切权益体系）：按矩阵 history_notice_db（历史标讯库）行逐格判定，
+ *              未订阅一律读 free 列基线（见 benefitSystemRepo.isEntitled）。此前该接口无鉴权、
+ *              UI 标"专业版"却公开可调，属越权漏洞，已补闸门。
  */
 import { NextResponse } from "next/server";
 import { getContext } from "@/lib/db/context";

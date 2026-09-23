@@ -4,8 +4,9 @@
  * @module app/api/notices/[id]/ai-score/route
  * @description 7 维度适配评分。缓存优先，forceRegenerate 强制重新评分。
  *              需要解锁校验（与 /detail 一致）。
- *              V2 权益（2026-09-21）：专业档（benefit_rank≥3）专享，企业绑定账号
- *              服务端已自动走企业画像版（ai-score）与个人匹配版（ai-match）分支。
+ *              权益闸门（2026-09-23 切权益体系）：先过解锁校验，再按矩阵 ai_match 行逐格判定
+ *              （AI 适配评分与 AI 智能匹配共用该权益，价格文档只列一项 AI 匹配能力）。
+ *              企业绑定账号服务端已自动走企业画像版（ai-score）与个人匹配版（ai-match）分支。
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
