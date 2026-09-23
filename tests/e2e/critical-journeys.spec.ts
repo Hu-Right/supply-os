@@ -79,7 +79,7 @@ test.describe("供应商目录旅程", () => {
     // 移动端导航折叠进抽屉，仅校验主内容区操作按钮存在
     const registerCta = page
       .getByRole("main")
-      .getByRole("button", { name: "申请成为认证供应商（需审核）" });
+      .getByRole("button", { name: "申请供应商资质评审" });
     if (test.info().project.name.startsWith("mobile")) {
       await expect(page.getByRole("main").getByRole("button").first()).toBeVisible();
     } else {
