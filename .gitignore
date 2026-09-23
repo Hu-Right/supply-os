@@ -34,6 +34,12 @@ scripts/*
 !scripts/check-i18n.ts
 !scripts/check-no-admin-routes.mjs
 !scripts/css-compat-gate.mjs
+# 用户主表 crm_users 影子表蓝绿切换的三阶段工具（ADR-0003）：
+# 切换步骤本身依赖这些脚本执行，不入版本控制就等于切换流程只存在于单机，
+# 机器故障/换人接手即丢失。与已跟踪的 shadow-wide-phase*.ts 同一先例。
+!scripts/shadow-users-phase1.mjs
+!scripts/shadow-users-phase2-align.mjs
+!scripts/shadow-users-phase3-cutover.mjs
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs
