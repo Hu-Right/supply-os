@@ -4,7 +4,7 @@
 // Notice-related types share the single source of truth in `@/types`; re-exported here for feature-local use.
 export type { NoticeItem, NoticeListItem, NoticeDetailItem, NoticeDetailFields, NoticeContact, NoticeAttachment, NoticeResponse } from "@/types";
 // 会员类型同样以 `@/types` 为单一事实源
-export type { MembershipPlan, MembershipStatus } from "@/types";
+export type { PlanCatalogRow, MembershipStatus } from "@/types";
 
 // UNSPSC 类型以 @/core/unspsc 为单一事实源，此处 re-export 供 feature 内部复用
 export type { UnspscOption } from "@/core/unspsc";

@@ -10,7 +10,6 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AlertCircle, Rocket, Search, TrendingUp, Headphones } from "lucide-react";
-import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
@@ -29,10 +28,9 @@ const MEMBERSHIP_TABS: { key: MembershipTab; labelKey: string }[] = [
 export default function MembershipPage() {
   const searchParams = useSearchParams();
   const { t } = useLocale();
-  const { isVip } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
 
   // 支付/升级逻辑已下沉至 hook
   const {
@@ -120,17 +118,18 @@ export default function MembershipPage() {
               ) : (
                 <>
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 max-w-7xl mx-auto" data-testid="plan-list">
-                    {tabPlans.map((plan) => (
-                      <PlanCard
-                        key={plan.plan_code}
-                        plan={plan}
-                        isVip={isVip}
-                        currentPlanPrice={currentPlanPrice}
-                        currentPlanCode={currentPlanCode}
-                        onBuy={buyPlan}
-                        onUpgrade={startUpgrade}
-                      />
-                    ))}
+                    {comparison &&
+                      tabPlans.map((plan) => (
+                        <PlanCard
+                          key={plan.plan_code}
+                          plan={plan}
+                          table={comparison}
+                          currentPlanPrice={currentPlanPrice}
+                          currentPlanCode={currentPlanCode}
+                          onBuy={buyPlan}
+                          onUpgrade={startUpgrade}
+                        />
+                      ))}
                     {tabPlans.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>

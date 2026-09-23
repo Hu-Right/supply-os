@@ -37,9 +37,9 @@ export function useMembershipStatus(isLoggedIn: boolean): UseMembershipStatusRet
     }
     setLoading(true);
     setError(null);
-    api<{ current_plan_name: string | null }>("/api/membership/status")
+    api<{ plan?: { name_zh?: string } | null }>("/api/membership/status")
       .then((data) => {
-        setPlanName(data.current_plan_name);
+        setPlanName(data.plan?.name_zh ?? null);
         setError(null);
       })
       .catch((err) => {

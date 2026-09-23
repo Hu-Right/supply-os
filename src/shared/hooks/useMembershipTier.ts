@@ -53,10 +53,12 @@ export function useMembershipTier(): UseMembershipTierReturn {
     };
   }, [authUser]);
 
+  // 新体系：会员状态 = { plan, subscription, quotas }；普通用户（无订阅）不算 VIP。
+  const hasSubscription = Boolean(status?.subscription);
   return {
-    tierLabel: status?.current_plan_tier_label || "",
-    currentPlanCode: status?.current_plan_code ?? null,
-    currentPlanPrice: status?.current_plan_price ?? null,
-    currentPlanName: status?.current_plan_name ?? null,
+    tierLabel: hasSubscription ? status?.plan.name_zh || "" : "",
+    currentPlanCode: hasSubscription ? status?.plan.plan_code ?? null : null,
+    currentPlanPrice: hasSubscription ? Number(status?.plan.price) : null,
+    currentPlanName: status?.plan?.name_zh ?? null,
   };
 }

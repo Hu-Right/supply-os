@@ -1,90 +1,46 @@
 /**
- * 会员套餐工具函数
- * Membership Plan Utilities
+ * 会员套餐卡片展示工具（新权益体系）
+ * Membership plan card utilities — reads the server-resolved comparison matrix.
  *
  * @module features/membership/utils
+ * @description 六卡的 ✓/✗ 权益清单与额度展示一律读取 `/api/membership/plans` 返回的
+ *              服务端解析矩阵（ComparisonTable）：enabled/display 由后端按矩阵逐格算好，
+ *              前端不再维护 benefit_rank / COMPARISON_ROWS 客户端副本（旧客户端 SSOT 退役）。
  */
-import {
-  Crown, Zap, Star, Briefcase, Check, Building2,
-  Sparkles, Radar, FileCheck2, Download, TrendingUp, FileText, Bot, Bell, Handshake,
-} from "lucide-react";
-import type { MembershipPlan } from "@/types";
-// A2 strict 修复：翻译函数类型统一从 useLocale 派生（带键联合类型），
-// 原 (key: string) => string 在 strictFunctionTypes 下与真实 t 函数不兼容。
-import type { useLocale } from "@/core/i18n";
-import { COMPARISON_ROWS, comparisonRowEnabled, BENEFIT_RANK } from "@/lib/services/benefit-matrix";
+import type { ComparisonTable, PlanCatalogRow, ResolvedCell } from "@/types";
 
-/** i18n 翻译函数类型（与 useLocale 返回值中的 t 保持一致） */
-type TranslateFn = ReturnType<typeof useLocale>["t"];
-
-/** 套餐特性配置 — 覆盖所有 plan_type */
-export const PLAN_CONFIG: Record<string, { icon: typeof Zap; gradient: string }> = {
-  single: { icon: Zap, gradient: "from-blue-500 to-cyan-500" },
-  bundle: { icon: Star, gradient: "from-violet-500 to-purple-500" },
-  subscription: { icon: Crown, gradient: "from-amber-500 to-orange-500" },
-  manual: { icon: Briefcase, gradient: "from-emerald-500 to-teal-500" },
-};
-
-/** 根据套餐数量计算响应式网格列数 */
-export function getGridCols(count: number): string {
-  if (count <= 1) return "grid-cols-1 max-w-md mx-auto";
-  if (count === 2) return "grid-cols-1 sm:grid-cols-2 max-w-2xl mx-auto";
-  if (count === 3) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto";
-  if (count === 4) return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
-  return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5";
-}
-
-/** 格式化配额显示 */
-export function formatQuota(plan: MembershipPlan, t: TranslateFn): string {
-  if (plan.unlock_quota >= 9999) return t("membershipUnlimited");
-  return `${plan.unlock_quota} ${t("membershipUnlocks")}`;
+/** 卡片权益 chip：一行权益在本档的解析结果 + 中文行名。 */
+export interface PlanFeatureChip {
+  benefit_code: string;
+  label: string;
+  cell: ResolvedCell;
 }
 
 /**
- * 将描述文本按 ②③④⑤ 编号分割为多行
- * A2 strict 修复：MembershipPlan.description 可能为 undefined，形参如实放宽；
- * 下方 !desc 守卫已覆盖空值路径，行为不变。
+ * 推荐档判定：官网角标 `most_popular`（结构化字段驱动，前端零硬编码）。
+ * 对应 crm_plan_catalog.badge 枚举，与旧体系按 benefit_rank 硬编码 PRO 档同源退役。
  */
-export function splitDescription(desc: string | undefined): string[] {
-  if (!desc) return [];
-  const parts = desc.split(/\n|①|②|③|④|⑤|⑥|⑦|⑧|⑨/).map((s) => s.trim()).filter(Boolean);
-  return parts.length > 0 ? parts : [desc];
-}
-
-/** 对比矩阵行 key → 卡片 chip 图标/配色（V2 权益体系） */
-const FEATURE_ICON: Record<string, { icon: typeof Check; color: string; bg: string }> = {
-  summary: { icon: Sparkles, color: "text-teal-600", bg: "bg-teal-100/80" },
-  similar: { icon: Radar, color: "text-cyan-600", bg: "bg-cyan-100/80" },
-  qualification: { icon: FileCheck2, color: "text-blue-600", bg: "bg-blue-100/80" },
-  files: { icon: Download, color: "text-indigo-600", bg: "bg-indigo-100/80" },
-  award_history: { icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-100/80" },
-  report: { icon: FileText, color: "text-violet-600", bg: "bg-violet-100/80" },
-  ai_score: { icon: Bot, color: "text-fuchsia-600", bg: "bg-fuchsia-100/80" },
-  industry_push: { icon: Bell, color: "text-amber-600", bg: "bg-amber-100/80" },
-  enterprise_profile: { icon: Building2, color: "text-rose-600", bg: "bg-rose-100/80" },
-  consortium: { icon: Handshake, color: "text-orange-600", bg: "bg-orange-100/80" },
-};
-
-/**
- * 根据套餐生成差异化权益 chip 列表。
- * V2：不再按 plan_code 硬编码映射，而是从对比矩阵 SSOT（COMPARISON_ROWS）
- * 取该档位（benefit_rank）已启用的布尔权益——与详情页闸门/对比表同源。
- * label 优先用已有 i18n 键，否则以中文字面兑底（待六语本地化）。
- */
-export function getPlanFeatures(
-  plan: MembershipPlan,
-): { icon: typeof Check; color: string; bg: string; label: string }[] {
-  const rank = Number(plan.benefit_rank ?? 0);
-  return COMPARISON_ROWS.filter((r) => !r.render && comparisonRowEnabled(rank, r)).map((r) => ({
-    ...(FEATURE_ICON[r.key] ?? { icon: Check, color: "text-teal-600", bg: "bg-teal-100/80" }),
-    label: r.i18nKey ?? r.label,
-  }));
+export function isRecommendedPlan(plan: PlanCatalogRow): boolean {
+  return plan.badge === "most_popular";
 }
 
 /**
- * 推荐档判定：个人专业版（PRO）为最佳性价比档，卡片高亮 + 角标。
- * 与权益矩阵同源（BENEFIT_RANK.PRO），缺 benefit_rank 视为非推荐。
+ * 卡片 ✓/✗ 权益清单：取对比矩阵中 bool/enum 行（计量额度、金额行由价格块与额度池另行展示）。
+ * 缺格（cell 不存在）不猜默认值——直接过滤，由矩阵完整性在服务端兜底。
  */
-export function isRecommendedPlan(plan: MembershipPlan): boolean {
-  return Number(plan.benefit_rank ?? -1) === BENEFIT_RANK.PRO;
+export function getPlanFeatureChips(table: ComparisonTable, planCode: string): PlanFeatureChip[] {
+  return table.rows
+    .filter((r) => r.benefit.value_kind === "bool" || r.benefit.value_kind === "enum")
+    .map((r) => ({ benefit_code: r.benefit.benefit_code, label: r.benefit.name_zh, cell: r.cells[planCode] }))
+    .filter((chip) => chip.cell != null);
+}
+
+/** 取某档在指定计量权益（默认解锁额度 notice_view）上的展示原文（如「不限」/「10」）。 */
+export function getPlanQuotaDisplay(
+  table: ComparisonTable,
+  planCode: string,
+  benefitCode = "notice_view",
+): string | null {
+  const row = table.rows.find((r) => r.benefit.benefit_code === benefitCode);
+  return row?.cells[planCode]?.display ?? null;
 }

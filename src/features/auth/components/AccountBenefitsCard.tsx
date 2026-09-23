@@ -9,12 +9,13 @@
 
 import { useEffect, useState } from "react";
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
-import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Crown, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
+import { unlockRemaining } from "@/shared/utils/membership-view";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatus } from "@/types";
 
@@ -70,18 +71,11 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
     );
   }
 
-  const entitlements = membership.entitlements ?? [];
-  const subscriptions = membership.active_subscriptions ?? [];
-  const paidRemaining = Number(membership.paid_quota_remaining || 0);
-  // 注意：paidRemaining（paid_quota_remaining）由后端从 entitlements 汇总得出，
-  // 已包含所有单次解锁卡的剩余配额，不应再额外加 entitlementRemaining，否则会重复计算
-  const totalRemaining = paidRemaining;
-  // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
-  const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
-  const hasSubscription = subscriptions.length > 0;
-  const hasSingleCard = singleCards.length > 0;
-  // singleCardRemaining 仅用于显示，不参与 totalRemaining 计算
-  const singleCardRemaining = singleCards.reduce((sum, e) => sum + Number(e.quota_remaining || 0), 0);
+  const subscription = membership.subscription;
+  const plan = membership.plan;
+  const hasSubscription = Boolean(subscription);
+  // 总可用解锁：读额度账本 notice_view 池（“不限”归一为 9999）
+  const totalRemaining = unlockRemaining(membership.quotas);
 
   const handleViewPlans = () => {
     if (onViewPlans) {
@@ -91,9 +85,9 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
     }
   };
 
-  // 根据最佳权益类型决定图标与强调色（单一强调色，不用渐变）
-  const themeIcon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
-  const themeColor = hasSubscription ? "text-accent-600" : hasSingleCard ? "text-primary-600" : "text-muted-foreground";
+  // 根据是否有效订阅决定图标与强调色（单一强调色，不用渐变）
+  const themeIcon = hasSubscription ? Crown : Lock;
+  const themeColor = hasSubscription ? "text-accent-600" : "text-muted-foreground";
 
   return (
     <div className="bg-secondary-50 border border-border rounded-xl p-4">
@@ -118,43 +112,21 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
         )}
       </div>
 
-      {/* 分层明细 */}
+      {/* 分层明细：当前有效订阅（普通用户无订阅则不展示） */}
       <div className="space-y-1 pt-2 border-t border-border">
-        {/* 订阅会员 */}
-        {hasSubscription && (
+        {hasSubscription && subscription && (
           <div className="flex items-center gap-1.5 text-3xs">
             <Crown className="w-3 h-3 text-accent-500 flex-shrink-0" />
             <span className="font-medium text-foreground">{t("statusPanelSubscriptionTitle")}</span>
-            <span className="text-muted-foreground truncate">{subscriptions[0].plan_name || subscriptions[0].plan_code}</span>
-            {subscriptions[0].expires_at ? (
+            <span className="text-muted-foreground truncate">{plan.name_zh}</span>
+            {subscription.expires_at ? (
               <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
                 <Clock className="w-2.5 h-2.5" />
-                {formatDateShort(subscriptions[0].expires_at)}
+                {formatDateShort(subscription.expires_at)}
               </span>
             ) : (
               <span className="flex items-center gap-0.5 text-success-600 ml-auto">
                 <InfinityIcon className="w-2.5 h-2.5" />
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* 单次解锁卡（汇总） */}
-        {hasSingleCard && (
-          <div className="flex items-center gap-1.5 text-3xs">
-            <Zap className="w-3 h-3 text-primary-500 flex-shrink-0" />
-            <span className="font-medium text-foreground">
-              {t("statusPanelEntitlementCards", { count: singleCards.length })}
-            </span>
-            <span className="text-muted-foreground">{singleCardRemaining} {t("statusPanelTimes")}</span>
-            {singleCards.some(e => !e.expires_at) ? (
-              <span className="flex items-center gap-0.5 text-success-600 ml-auto">
-                <InfinityIcon className="w-2.5 h-2.5" />
-              </span>
-            ) : (
-              <span className="flex items-center gap-0.5 text-muted-foreground ml-auto">
-                <Clock className="w-2.5 h-2.5" />
-                {formatDateShort(singleCards[0].expires_at!)}
               </span>
             )}
           </div>

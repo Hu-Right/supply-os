@@ -12,7 +12,7 @@
  */
 
 // Infinity 图标重命名避免遮蔽全局 Infinity（no-shadow-restricted-names）
-import { Crown, Zap, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Crown, Lock, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
@@ -48,42 +48,19 @@ export function MembershipStatusPanel({
     router.push(noticeId ? `/membership?notice_id=${noticeId}` : "/membership");
   };
 
-  const entitlements = membership.entitlements ?? [];
-  const subscriptions = membership.active_subscriptions ?? [];
-  const hasSubscription = subscriptions.length > 0;
-  // 过滤出真正的单次解锁卡（plan_code 以 single_ 开头），排除订阅制会员的配额
-  const singleCards = entitlements.filter(e => e.plan_code.startsWith('single_'));
-  const hasSingleCard = singleCards.length > 0;
+  const subscription = membership.subscription;
+  const plan = membership.plan;
+  const hasSubscription = Boolean(subscription);
 
-  const bgGradient = hasSubscription
-    ? "from-amber-50 to-orange-50"
-    : hasSingleCard
-      ? "from-blue-50 to-cyan-50"
-      : "from-slate-50 to-slate-50/30";
-
-  const borderColor = hasSubscription
-    ? "border-amber-200/60"
-    : hasSingleCard
-      ? "border-blue-200/60"
-      : "border-slate-200/60";
-
-  const iconBg = hasSubscription
-    ? "bg-amber-100"
-    : hasSingleCard
-      ? "bg-blue-100"
-      : "bg-slate-100";
-
-  const iconColor = hasSubscription
-    ? "text-amber-600"
-    : hasSingleCard
-      ? "text-blue-600"
-      : "text-slate-500";
-
-  const Icon = hasSubscription ? Crown : hasSingleCard ? Zap : Lock;
+  const bgGradient = hasSubscription ? "from-amber-50 to-orange-50" : "from-slate-50 to-slate-50/30";
+  const borderColor = hasSubscription ? "border-amber-200/60" : "border-slate-200/60";
+  const iconBg = hasSubscription ? "bg-amber-100" : "bg-slate-100";
+  const iconColor = hasSubscription ? "text-amber-600" : "text-slate-500";
+  const Icon = hasSubscription ? Crown : Lock;
 
   return (
     <div className={`rounded-xl border ${borderColor} bg-gradient-to-r ${bgGradient} ${compact ? "p-3" : "p-4"}`}>
-      {/* 顶部：总可用解锁次数 */}
+      {/* 顶部：总可用解锁次数（额度账本 notice_view 池） */}
       <div className="flex items-start gap-3">
         <div className={`flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-lg ${iconBg}`}>
           <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -108,69 +85,27 @@ export function MembershipStatusPanel({
         </div>
       </div>
 
-      {/* 分层明细 */}
-      <div className="mt-3 pt-3 border-t border-slate-200/40 space-y-1.5">
-        {/* 订阅会员 */}
-        {/* P3-16 安全修复：active_subscriptions 后端已过滤过期项，isExpired 分支为死代码已清理 */}
-        {hasSubscription && subscriptions.map((sub, idx) => {
-          const displayName = sub.plan_name || sub.plan_code;
-          return (
-            <div key={`sub-${sub.plan_code}-${idx}`} className="flex items-center gap-2 text-xs">
-              <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
-              <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
-              <span className="text-slate-600">{displayName}</span>
-              {sub.expires_at ? (
-                <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
-                  <Clock className="w-3 h-3" />
-                  {formatDateShort(sub.expires_at)}
-                </span>
-              ) : (
-                <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                  <InfinityIcon className="w-3 h-3" />
-                  {t("statusPanelPermanent")}
-                </span>
-              )}
-            </div>
-          );
-        })}
-
-        {/* 单次解锁卡（汇总显示） */}
-        {hasSingleCard && (
+      {/* 分层明细：当前有效订阅（普通用户无订阅则不展示此段） */}
+      {hasSubscription && subscription && (
+        <div className="mt-3 pt-3 border-t border-slate-200/40 space-y-1.5">
           <div className="flex items-center gap-2 text-xs">
-            <Zap className="w-3 h-3 text-blue-500 flex-shrink-0" />
-            <span className="font-bold text-slate-700">
-              {t("statusPanelEntitlementCards", { count: singleCards.length })}
-            </span>
-            <span className="text-slate-600">
-              {singleCards.reduce((sum, e) => sum + Number(e.quota_remaining || 0), 0)} {t("statusPanelTimes")}
-            </span>
-            {/* 显示有效期范围 */}
-            {(() => {
-              const permanentCount = singleCards.filter(e => !e.expires_at).length;
-              const datedCards = singleCards.filter(e => e.expires_at);
-              if (permanentCount > 0) {
-                return (
-                  <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
-                    <InfinityIcon className="w-3 h-3" />
-                    {permanentCount > 1 ? `${permanentCount} ${t("statusPanelPermanent")}` : t("statusPanelPermanent")}
-                  </span>
-                );
-              }
-              if (datedCards.length > 0) {
-                const earliest = datedCards.reduce((min, e) =>
-                  e.expires_at && (!min || e.expires_at < min) ? e.expires_at : min, null as string | null);
-                return (
-                  <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
-                    <Clock className="w-3 h-3" />
-                    {formatDateShort(earliest!)}
-                  </span>
-                );
-              }
-              return null;
-            })()}
+            <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" />
+            <span className="font-bold text-slate-700">{t("statusPanelSubscriptionTitle")}</span>
+            <span className="text-slate-600">{plan.name_zh}</span>
+            {subscription.expires_at ? (
+              <span className="flex items-center gap-0.5 text-slate-400 ml-auto">
+                <Clock className="w-3 h-3" />
+                {formatDateShort(subscription.expires_at)}
+              </span>
+            ) : (
+              <span className="flex items-center gap-0.5 text-emerald-600 ml-auto">
+                <InfinityIcon className="w-3 h-3" />
+                {t("statusPanelPermanent")}
+              </span>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

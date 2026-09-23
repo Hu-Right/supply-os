@@ -70,30 +70,29 @@ export function UpgradeConfirmModal({
             {/* 当前套餐 */}
             <div className="rounded-xl bg-slate-50 border border-slate-200/60 p-3.5">
               <p className="text-3xs font-bold text-slate-400 uppercase">{t("upgradeCurrentPlan")}</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">{preview.current_plan?.name}</p>
+              <p className="text-sm font-bold text-slate-800 mt-1">{preview.current_plan?.name_zh}</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                {t("upgradeUsed")}：{preview.quota_used} / {preview.current_plan?.unlock_quota} {t("statusPanelTimes")}
+                {t("upgradeUsed")}：{preview.quota_used} {t("statusPanelTimes")}
               </p>
             </div>
 
             {/* 目标套餐 */}
             <div className="rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/60 p-3.5">
               <p className="text-3xs font-bold text-amber-600 uppercase">{t("upgradeTargetPlan")}</p>
-              <p className="text-sm font-bold text-slate-900 mt-1">{preview.target_plan?.name}</p>
+              <p className="text-sm font-bold text-slate-900 mt-1">{preview.target_plan?.name_zh}</p>
               <div className="mt-1.5 space-y-0.5">
                 <p className="text-xs text-slate-600">
-                  {t("upgradeTargetQuota")}：{preview.target_plan?.unlock_quota} {t("statusPanelTimes")}
-                </p>
-                <p className="text-xs text-slate-600">
                   {t("upgradeRemaining")}：
-                  <span className="font-bold text-amber-700">{preview.remaining_after_upgrade}</span>
+                  <span className="font-bold text-amber-700">
+                    {preview.remaining_after_upgrade === null ? t("membershipUnlimited") : preview.remaining_after_upgrade}
+                  </span>
                   {" "}{t("statusPanelTimes")}
                 </p>
                 <p className="text-xs text-slate-600 inline-flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {t("upgradeValidity")}：{t("upgradeValidityUnchanged")}
-                  {preview.current_plan?.expires_at && (
-                    <span className="text-slate-400">（{formatDateShort(preview.current_plan.expires_at)}）</span>
+                  {preview.subscription?.expires_at && (
+                    <span className="text-slate-400">（{formatDateShort(preview.subscription.expires_at)}）</span>
                   )}
                 </p>
               </div>

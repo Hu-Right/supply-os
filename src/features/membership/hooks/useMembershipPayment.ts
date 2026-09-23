@@ -15,7 +15,7 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 import { fetchUpgradePreview } from "../api";
-import type { MembershipPlan, UpgradePreview } from "@/types";
+import type { PlanCatalogRow, UpgradePreview } from "@/types";
 
 /** 升级预览加载失败时的兜底值 */
 const FALLBACK_PREVIEW: UpgradePreview = {
@@ -23,6 +23,7 @@ const FALLBACK_PREVIEW: UpgradePreview = {
   reason: "PREVIEW_LOAD_FAILED",
   current_plan: null,
   target_plan: null,
+  subscription: null,
   quota_used: 0,
   price_difference: 0,
   remaining_after_upgrade: 0,
@@ -45,7 +46,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   const [upgradePreview, setUpgradePreview] = useState<UpgradePreview | null>(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
-  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<MembershipPlan | null>(null);
+  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<PlanCatalogRow | null>(null);
 
   /** 构建支付 returnUrl */
   const buildReturnUrl = useCallback(() => {
@@ -56,14 +57,16 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   }, [noticeId]);
 
   /** 直接购买套餐 */
-  const buyPlan = useCallback((plan: MembershipPlan) => {
+  const buyPlan = useCallback((plan: PlanCatalogRow) => {
     if (!authUser) {
       emitAppEvent("supply-os:require-login");
       return;
     }
+    // contact 档（ENTERPRISE 等）不进入自助支付：后端对非 fixed 一律拒单转商务。
+    if (plan.price_mode !== "fixed") return;
     emitAppEvent("supply-os:pay", {
       code: plan.plan_code,
-      name: plan.name,
+      name: plan.name_zh,
       price: Number(plan.price),
       currency: plan.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
@@ -72,7 +75,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
   }, [authUser, noticeId, buildReturnUrl]);
 
   /** 点击"升级"：拉取升级预览并打开确认弹窗 */
-  const startUpgrade = useCallback((plan: MembershipPlan) => {
+  const startUpgrade = useCallback((plan: PlanCatalogRow) => {
     if (!authUser) {
       emitAppEvent("supply-os:require-login");
       return;
@@ -101,7 +104,7 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
     setUpgradeModalOpen(false);
     emitAppEvent("supply-os:pay", {
       code: upgradeTargetPlan.plan_code,
-      name: upgradeTargetPlan.name,
+      name: upgradeTargetPlan.name_zh,
       price: upgradePreview.price_difference,
       currency: upgradeTargetPlan.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
