@@ -14,7 +14,7 @@ import { useOptionalAuth, useUserId } from "@/core/auth";
 import type { NoticeItem, NoticeDetailItem, MembershipStatus } from "../../types";
 import { useNoticeTranslation } from "../../hooks/useNoticeTranslation";
 import { useAiAnalysis } from "../../hooks/useAiAnalysis";
-import { noticeTypeKey } from "../../notice-type";
+import { noticeTypeKey } from "@/shared/utils/notice-type";
 import { collectBreakdownFiles } from "../NoticeUnlockedDetails";
 import { ReportUnavailableBanner } from "../ReportUnavailableBanner";
 import { NoticeDescriptionSection } from "../NoticeDescriptionSection";

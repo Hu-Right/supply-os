@@ -14,7 +14,7 @@ import { Bookmark } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { Button, Card, Badge, CountryFlag } from "@/shared/ui";
 import type { NoticeItem } from "../types";
-import { noticeTypeKey } from "../notice-type";
+import { noticeTypeKey } from "@/shared/utils/notice-type";
 import { formatDeadlineZh } from "../utils/formatDeadlineZh";
 import { getCountryDisplayName } from "@/shared/data/countryNames";
 // 秒/毫秒归一化 + 日历剩余天数（2026-09-12 收敛）：与 formatDeadlineZh 的

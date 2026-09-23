@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { GREEN, GREEN_HOVER, BG_LIGHT } from "@/shared/constants/colors";
-import { submitSupplierQualification } from "../api/qualification";
+import { submitSupplierQualification } from "@/shared/api/qualification";
 import { ApiError } from "@/core/http";
 import {
   QualificationFormFields,
