@@ -9,13 +9,13 @@ on:
 jobs:
   quality-gate:
     name: Typecheck · Lint · Tests · Coverage Gates · Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -48,11 +48,11 @@ jobs:
 
   css-compat:
     name: CSS 降编译 · 产物静态门禁
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -69,11 +69,11 @@ jobs:
 
   browser-compat:
     name: CSS 回退 · 移动端生产产物冒烟
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -91,7 +91,7 @@ jobs:
         run: npm run test:e2e:styles
       - name: 保存浏览器失败证据
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: browser-compat-results
           path: |
