@@ -62,8 +62,16 @@ export function parseDiagnosisPayload(body: Record<string, unknown>): ParseResul
   const supplierId = Number.isFinite(rawId) && rawId > 0 ? Math.trunc(rawId) : null;
 
   const answers: DiagnosisAnswers = {};
+  // 答案一律嵌在 `body.answers` 里，与 shared/api/diagnosis 的 submitDiagnosis 请求体同形。
+  // 刻意**不做**「兼容扁平」的 `body.answers ?? body` 兜底：两套形状同时合法会把这次
+  // 前后端漂移再藏一次——单测按扁平构造、真实前端按嵌套发送，两边都绿而线上一提交就 400。
+  const rawAnswers = body.answers;
+  if (typeof rawAnswers !== "object" || rawAnswers === null || Array.isArray(rawAnswers)) {
+    return { ok: false, fieldKey: "answers", reason: "missing" };
+  }
+  const bag = rawAnswers as Record<string, unknown>;
   for (const field of DIAGNOSIS_FIELDS) {
-    const result = validateField(field, body[field.key]);
+    const result = validateField(field, bag[field.key]);
     if (!result.ok) return { ok: false, fieldKey: field.key, reason: result.reason };
     answers[field.key] = result.value;
   }

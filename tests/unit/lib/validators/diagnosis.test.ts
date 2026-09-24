@@ -10,13 +10,21 @@ import { parseDiagnosisPayload } from "@/lib/validators/diagnosis";
 import { maskCreditCode } from "@/lib/repos/suppliers/supplier-directory.repo";
 import { DIAGNOSIS_FIELDS } from "@/shared/constants/diagnosis-dimensions";
 
+/** 请求体根层只认这几个信封字段，其余 overrides 均视为答案字段（归入 answers） */
+const TOP_LEVEL = new Set(["companyName", "company_name", "supplierId", "supplier_id"]);
+
 function validBody(overrides: Record<string, unknown> = {}) {
-  const body: Record<string, unknown> = { companyName: "浙江某某科技有限公司" };
+  const answers: Record<string, unknown> = {};
   for (const f of DIAGNOSIS_FIELDS) {
-    body[f.key] =
+    answers[f.key] =
       f.kind === "multi" ? [...(f.options ?? [])].slice(0, 2) : f.kind === "text" ? "德国, 法国" : f.options![1];
   }
-  return { ...body, ...overrides };
+  const top: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(overrides)) {
+    if (TOP_LEVEL.has(k)) top[k] = v;
+    else answers[k] = v;
+  }
+  return { companyName: "浙江某某科技有限公司", ...top, answers };
 }
 
 describe("parseDiagnosisPayload", () => {
@@ -55,6 +63,18 @@ describe("parseDiagnosisPayload", () => {
   it("requires a company name before anything else", () => {
     const r = parseDiagnosisPayload(validBody({ companyName: "   " }));
     expect(r).toMatchObject({ ok: false, fieldKey: "company_name", reason: "missing" });
+  });
+
+  // 真实缺陷回归钉：校验器曾从请求体**根层**取 19 个答案，而前端发的是嵌套 `answers`，
+  // 导致答齐了仍回 400「english_evidence_level 为必答题」。扁平与嵌套不得同时合法，
+  // 否则这类漂移只会由下一轮真机提交暴露。
+  it("rejects a FLAT body instead of silently accepting a second wire shape", () => {
+    const flat: Record<string, unknown> = { companyName: "浙江某某科技有限公司" };
+    for (const f of DIAGNOSIS_FIELDS) {
+      flat[f.key] = f.kind === "multi" ? [] : f.kind === "text" ? "德国" : f.options![1];
+    }
+    const r = parseDiagnosisPayload(flat);
+    expect(r).toMatchObject({ ok: false, fieldKey: "answers", reason: "missing" });
   });
 });
 

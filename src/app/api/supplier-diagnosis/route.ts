@@ -42,7 +42,17 @@ export const POST = withRoute(async (req: NextRequest) => {
   }
 
   const parsed = parseDiagnosisPayload(body as Record<string, unknown>);
-  if (!parsed.ok) routeError(400, EC_INVALID_PARAMS, `${parsed.fieldKey} ${REASON_TEXT[parsed.reason] ?? "非法"}`);
+  if (!parsed.ok) {
+    // fieldKey=answers 是「请求体形状不对」而不是「某道题没答」：两者必须分报。
+    // 之前的坑就是：形状不匹配却报「english_evidence_level 为必答题」，把排查方向带偏。
+    routeError(
+      400,
+      EC_INVALID_PARAMS,
+      parsed.fieldKey === "answers"
+        ? "请求体缺少 answers 对象（前后端契约不匹配）"
+        : `${parsed.fieldKey} ${REASON_TEXT[parsed.reason] ?? "非法"}`,
+    );
+  }
   const { companyName, supplierId: claimedId, answers } = parsed.payload;
 
   const ctx = getContext();
@@ -70,6 +80,13 @@ export const POST = withRoute(async (req: NextRequest) => {
     }
   }
   if (!supplierId) routeError(500, EC_INTERNAL_ERROR, "企业档案创建失败，请稍后重试");
+
+  // 认领提示只对「这不是你的企业」成立：当前账号已绑定该主体时他就是主人，
+  // 再提示“请走执照审核认领”是误报（真机案例：vip@qq.com 已绑 18296、claim_status=verified）。
+  if (claimRequired) {
+    const me = await ctx.user.usersRepo.findProfileById(auth.userId);
+    if (Number(me?.supplier_id ?? 0) === supplierId) claimRequired = false;
+  }
 
   const profileBits = (await directory.findProfileBits(supplierId)) ?? { dataQualityScore: null, infoChecked: false };
   const scoring = scoreDiagnosis({ answers, supplier: profileBits });
