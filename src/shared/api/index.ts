@@ -5,4 +5,4 @@
  * @module shared/api
  */
 export * from "./supplier";
-export * from "./qualification";
+export * from "./diagnosis";
