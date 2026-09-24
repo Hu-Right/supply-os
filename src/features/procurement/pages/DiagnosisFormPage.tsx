@@ -9,7 +9,7 @@
  *              未登录时本页只出示登录引导——真正的写入闸门在 API（规范 N4），这里只是体验。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { emitAppEvent } from "@/core/events";
 import { CheckCircle2, Download, Loader2, Pencil, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
@@ -72,9 +72,6 @@ function ResultView({
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-slate-800">
                 {t(`diagDim${d.no}`)}
-                <span className="ml-2 text-2xs font-normal text-slate-400">
-                  {d.weightedScore}/{d.weight}
-                </span>
               </p>
               <p dir="ltr" className="mt-0.5 text-2xs leading-relaxed text-slate-500">{d.scoringBasis}</p>
             </div>
@@ -103,15 +100,18 @@ function ResultView({
 
 export default function DiagnosisFormPage() {
   const { t } = useLocale();
-  const router = useRouter();
   const { authUser, authReady, isAuthLoading } = useAuth();
   const form = useDiagnosisForm();
   const [mine, setMine] = useState<MyDiagnosis[]>([]);
   const [loadingMine, setLoadingMine] = useState(false);
 
   const goLogin = useCallback(() => {
-    router.push(`/auth/login?redirect=${encodeURIComponent("/procurement/diagnosis")}`);
-  }, [router]);
+    // 本项目没有登录路由（全站登录是 (public)/layout-shell 里的全局 AuthModal 弹窗），
+    // 而 router.push("/auth/login") 会直接 404。改派 require-login 事件开弹窗：
+    // 登录成功后 AuthContext 的 user 变化会让本页面重渲染，Gate 自动切到表单，
+    // 用户全程没离开过诊断页——不需要也不存在 redirect 参数回跳机制。
+    emitAppEvent("supply-os:require-login");
+  }, []);
 
   useEffect(() => {
     if (!authReady || !authUser) return;

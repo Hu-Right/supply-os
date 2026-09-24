@@ -19,6 +19,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { emitAppEvent } from "@/core/events";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import type { NoticeItem } from "../types";
@@ -88,8 +89,9 @@ export function NextStepsPanel({
         if (onUploadMaterials) {
           onUploadMaterials();
         } else if (!isLoggedIn) {
-          // 诊断表 v2 不收 notice_id（旧版传了也被表单页静默丢弃），登录后回同一个诊断页
-          router.push(`/auth/login?redirect=${encodeURIComponent("/procurement/diagnosis")}`);
+          // 全站登录是 layout-shell 里的 AuthModal 弹窗，没有 /auth/login 路由（历史写法会 404）。
+          // 弹窗登录后用户仍停留在详情页，需再次点击「上传资料」进入诊断页。
+          emitAppEvent("supply-os:require-login");
         } else {
           router.push("/procurement/diagnosis");
         }
@@ -106,7 +108,7 @@ export function NextStepsPanel({
         if (onUnlock) {
           onUnlock();
         } else if (!isLoggedIn) {
-          router.push(`/auth/login?redirect=/procurement?notice_id=${notice.id}`);
+          emitAppEvent("supply-os:require-login");
         } else {
           router.push(`/membership?notice_id=${notice.id}`);
         }
@@ -138,7 +140,7 @@ export function NextStepsPanel({
         if (onJoinCrm) {
           onJoinCrm();
         } else if (!isLoggedIn) {
-          router.push(`/auth/login?redirect=/crm`);
+          emitAppEvent("supply-os:require-login");
         } else {
           router.push(`/crm`);
         }
