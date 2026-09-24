@@ -3,7 +3,9 @@
  * @module lib/services/ai-summary/prompt
  * @description 6 维度结构化分析：核心交付/资质门槛/商务要素/竞争格局/投标策略/风险提示。
  *              支持附件内容摘要和企业简介注入。描述截断 4000 字。
+ *              能力部分的数据源已切到 v2 诊断表，与评分 prompt 共用同一份字段清单与短标签。
  */
+import { DIAGNOSIS_AI_LABEL_ZH, diagnosisItemsOf } from "../ai/shared/supplier-profile";
 
 export const SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采购投标顾问，专精联合国及国际公共采购。
 
@@ -59,8 +61,8 @@ export interface NoticePromptFields {
   [key: string]: unknown;
 }
 
-/** 供应商画像字段子集 */
-export interface SupplierPromptFields {
+/** 供应商画像字段子集（基本信息 + v2 诊断列扁平下发） */
+export interface SupplierPromptFields extends Record<string, string | undefined> {
   company?: string;
   industry?: string;
   products?: string;
@@ -70,15 +72,6 @@ export interface SupplierPromptFields {
   type?: string;
   /** 企业简介 */
   intro?: string;
-  // 诊断表字段
-  employee_count?: string;
-  export_scale?: string;
-  service_countries?: string;
-  overseas_companies?: string;
-  ungm_status?: string;
-  english_team?: string;
-  payment_terms?: string;
-  bid_willingness?: string;
 }
 
 function line(label: string, value: unknown, fallback = "未列出"): string {
@@ -121,22 +114,20 @@ export function buildUserPrompt(
     parts.push(line("资质证书", supplier.certification, "未填写"));
     parts.push(line("所在地区", [supplier.country, supplier.city].filter(Boolean).join(" ")));
     parts.push(line("经营类型", supplier.type));
-    parts.push(line("员工规模", supplier.employee_count));
     if (supplier.intro) {
       parts.push(line("企业简介", truncate(supplier.intro, 500)));
     }
 
-    // 国际化能力（诊断表数据）
-    const intlParts: string[] = [];
-    if (supplier.export_scale) intlParts.push(`出口规模: ${supplier.export_scale}`);
-    if (supplier.service_countries) intlParts.push(`服务国家: ${supplier.service_countries}`);
-    if (supplier.overseas_companies) intlParts.push(`海外公司: ${supplier.overseas_companies}`);
-    if (supplier.ungm_status) intlParts.push(`UNGM: ${supplier.ungm_status}`);
-    if (supplier.english_team) intlParts.push(`英文团队: ${supplier.english_team}`);
-    if (supplier.payment_terms) intlParts.push(`付款条件: ${supplier.payment_terms}`);
-    if (intlParts.length > 0) {
-      parts.push(line("国际化能力", intlParts.join(" | ")));
-    }
+    // 企业能力诊断（v2 结构化自述）：字段清单与评分 prompt 同一来源，不各抄一份
+    const diagItems = diagnosisItemsOf(supplier as Record<string, unknown>);
+    parts.push(
+      diagItems.length > 0
+        ? line(
+            "企业能力诊断（v2）",
+            diagItems.map(([column, value]) => `${DIAGNOSIS_AI_LABEL_ZH[column] ?? column}: ${value}`).join(" | "),
+          )
+        : line("企业能力诊断（v2）", "未填写，能力相关判断请标注为「缺少依据」"),
+    );
 
     parts.push("\n请结合我的企业画像，分析我是否适合参与本标，并给出 6 个维度的适配分析。");
   } else {

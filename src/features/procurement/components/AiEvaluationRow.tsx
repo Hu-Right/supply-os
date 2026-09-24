@@ -12,22 +12,26 @@ import { useState } from "react";
 import { ChevronDown, Info, Sparkles, Building2, Pencil, Star } from "lucide-react";
 import type { MatchedSupplier } from "../api/ai-match";
 
-/** 7 维度定义（与评分链路同一套，label/criteria 复用既有 i18n 键） */
+/**
+ * 7 维度定义（key 与评分链路、score_* 列名同一套，勿改名）。
+ * label/criteria 已按 v2 诊断表字段重述：每个维度的判据都能对应到 crm_supplier_diagnosis 的具体列，
+ * 与 ai-score/prompt.ts 的 DIMENSION_V2_SOURCES 保持同一语义（那边负责把字段喂给模型，这边负责把口径展示给用户）。
+ */
 export const EVAL_DIMENSIONS = [
-  { key: "qualification", labelKey: "aiScoreQualification", labelDefault: "资质匹配",
-    criteriaKey: "aiScoreCriteriaQualification", criteriaDefault: "企业营业执照、行业资质 vs 公告投标门槛的覆盖程度" },
-  { key: "experience", labelKey: "aiScoreExperience", labelDefault: "经验匹配",
-    criteriaKey: "aiScoreCriteriaExperience", criteriaDefault: "主营产品/业务经验 vs 采购内容的相关性与业绩积累" },
-  { key: "certification", labelKey: "aiScoreCertification", labelDefault: "认证覆盖",
-    criteriaKey: "aiScoreCriteriaCertification", criteriaDefault: "ISO/CE 等体系认证 vs 公告强制认证要求的匹配度" },
-  { key: "region", labelKey: "aiScoreRegion", labelDefault: "地域适配",
-    criteriaKey: "aiScoreCriteriaRegion", criteriaDefault: "企业所在地 vs 采购国/交付地/本地化或属地要求" },
-  { key: "scale", labelKey: "aiScoreScale", labelDefault: "规模匹配",
-    criteriaKey: "aiScoreCriteriaScale", criteriaDefault: "注册资本/成立年限/企业体量 vs 项目预算规模" },
-  { key: "delivery", labelKey: "aiScoreDelivery", labelDefault: "交期适配",
-    criteriaKey: "aiScoreCriteriaDelivery", criteriaDefault: "产能与交付能力 vs 公告交付周期/里程碑要求" },
-  { key: "price", labelKey: "aiScorePrice", labelDefault: "价格竞争力",
-    criteriaKey: "aiScoreCriteriaPrice", criteriaDefault: "经营类型(工厂/贸易商)与成本结构 vs 采购预算/价格敏感度" },
+  { key: "qualification", labelKey: "aiScoreQualification", labelDefault: "资质与合规",
+    criteriaKey: "aiScoreCriteriaQualification", criteriaDefault: "UNGM 注册级别、合规专岗与整改机制、可即时提供的英文投标资料 vs 公告资格与合规要求" },
+  { key: "experience", labelKey: "aiScoreExperience", labelDefault: "投标履历",
+    criteriaKey: "aiScoreCriteriaExperience", criteriaDefault: "近 24 个月投标进展与中标记录、最近投标金额量级、技术响应与已交付案例 vs 公告业绩门槛" },
+  { key: "certification", labelKey: "aiScoreCertification", labelDefault: "强制文件覆盖",
+    criteriaKey: "aiScoreCriteriaCertification", criteriaDefault: "可即时提供的强制文件（英文营业执照、ISO体系证、第三方检测报告、原产地证等）vs 公告强制文件清单" },
+  { key: "region", labelKey: "aiScoreRegion", labelDefault: "交付地域可达",
+    criteriaKey: "aiScoreCriteriaRegion", criteriaDefault: "能否交付至项目现场国、售后服务点国家、海外分公司国家 vs 公告交付地与本地化要求" },
+  { key: "scale", labelKey: "aiScoreScale", labelDefault: "规模与团队",
+    criteriaKey: "aiScoreCriteriaScale", criteriaDefault: "出口/国际业务规模、投标团队与台账、熟悉的采购文件体系 vs 项目预算与实施体量" },
+  { key: "delivery", labelKey: "aiScoreDelivery", labelDefault: "交付与提交受控",
+    criteriaKey: "aiScoreCriteriaDelivery", criteriaDefault: "标书提交前复核流程、英文答疑能力 vs 公告交付周期、澄清会与里程碑要求" },
+  { key: "price", labelKey: "aiScorePrice", labelDefault: "成本与报价条款",
+    criteriaKey: "aiScoreCriteriaPrice", criteriaDefault: "成本核算方式、FOB/CIF/DDP 报价能力、可否接受 30 天以上账期 vs 公告预算与付款条款" },
 ] as const;
 
 /** 分数 → 颜色/等级 */

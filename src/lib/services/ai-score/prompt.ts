@@ -1,28 +1,36 @@
 /**
- * AI 适配评分 Prompt 模板 v2
+ * AI 适配评分 Prompt 模板 v3（判据改挂 v2 诊断表）
  * @module lib/services/ai-score/prompt
- * @description 7 维度结构化评分：资质/经验/认证/地域/规模/交期/价格。
- *              输出 JSON：7 维度分数 + 综合分 + 每维度结构化证据
- *              （reason 总结 + matched 匹配项 + gaps 差距项）。
+ * @description 7 维度结构化评分：资质合规 / 投标履历 / 强制文件 / 地域可达 / 规模团队 / 交付受控 / 成本条款。
+ *              输出 JSON：7 维度分数 + 综合分 + 每维度结构化证据（reason + matched + gaps）。
+ *
+ *              v3 的关键变化：每个维度的**判据字段**明确钉到 `crm_supplier_diagnosis` 的具体列，
+ *              模型不再靠"企业简介"猜能力；`DIMENSION_V2_SOURCES` 是这份映射的唯一出处，
+ *              并由单元测试钉住「19 列不重不漏」，防止加题后某一题从未进过 prompt。
+ *
+ *              维度 key（qualification/experience/...）**刻意不改名**：它们同时是
+ *              `crm_ai_summary.score_*` 列名、缓存 JSON 的键、LLM 输出契约与前端进度条 key，
+ *              改名的代价是一次数据迁移，而收益只是命名好看 —— 语义靠 label/criteria/判据重述即可。
  */
+import { DIAGNOSIS_AI_LABEL_ZH, diagnosisItemsOf } from "../ai/shared/supplier-profile";
 
 export const SCORE_SYSTEM_PROMPT = `你是一位拥有 15 年经验的国际采购投标顾问。根据招标公告要求和供应商企业画像，从 7 个维度评估该供应商参与本标的适配度。
 
 ## 评分原则
-1. 每个维度 0-100 分，基于公告原文事实和企业画像数据，不可造。
-2. 信息缺失时给保守分（40-60），不要给极端分。
+1. 每个维度 0-100 分，只能引用「企业画像」与「企业能力诊断」里出现的事实，不可编造。
+2. 每个维度下方已标注该维度依据的诊断字段。字段标注为"未答"或缺失时给保守分（40-60），不要给极端分，也不要把"未答"当成"不具备"。
 3. 综合分 = 7 维度加权平均，权重根据公告类型动态调整（见用户提示词中的权重说明）。
 4. 每个维度必须给出结构化证据：
    - reason：一句话总结（50字内），格式"企业侧 vs 公告侧 → 结论"。
    - matched：数组，列出"企业已具备且公告认可/要求"的具体匹配项（2-4条，每条20字内）。无则空数组。
    - gaps：数组，列出"公告要求但企业缺失/不足"的具体差距项（0-3条，每条20字内）。无则空数组。
-   证据必须具体到事实（如"企业有ISO9001""公告要求本地供应商"），不可泛泛而谈。
+   证据必须具体到事实（如"有中标记录""缺第三方检测报告""公告要求本地代理"），不可泛泛而谈。
 
 ## 输出格式
 先输出一段完整的分析推理过程（300-500字，中文），逐维度分析企业的优势与不足，然后输出 JSON 评分。
 
 分析推理过程格式示例：
-"本标为工程类采购，资质和地域权重较高。企业具备ISO9001认证，满足基本资质要求，但缺少具体的工程业绩案例..."
+"本标为工程类采购，资质和地域权重较高。企业 UNGM 已达 Level 1 且有合规专岗，满足基本资质要求，但近 24 个月无中标记录、且无法直接交付至项目国..."
 
 JSON 格式（严格输出，不要输出任何额外解释或 markdown）：
 {
@@ -45,7 +53,7 @@ JSON 格式（严格输出，不要输出任何额外解释或 markdown）：
   }
 }`;
 
-/** 评分维度 key 列表 */
+/** 评分维度 key 列表（同时是 score_* 列名与缓存 JSON 键，勿改名） */
 export const SCORE_DIMENSIONS = [
   "qualification", "experience", "certification",
   "region", "scale", "delivery", "price",
@@ -53,16 +61,33 @@ export const SCORE_DIMENSIONS = [
 
 export type ScoreDimension = (typeof SCORE_DIMENSIONS)[number];
 
-/** 维度中文名映射 */
+/** 维度中文名映射（v2 语义重述；同时用于 prompt 里的权重说明） */
 const DIMENSION_LABELS: Record<ScoreDimension, string> = {
-  qualification: "资质匹配",
-  experience: "经验匹配",
-  certification: "认证覆盖",
-  region: "地域适配",
-  scale: "规模匹配",
-  delivery: "交期适配",
-  price: "价格竞争力",
+  qualification: "资质与合规",
+  experience: "投标履历",
+  certification: "强制文件覆盖",
+  region: "交付地域可达",
+  scale: "规模与团队",
+  delivery: "交付与提交受控",
+  price: "成本与报价条款",
 };
+
+/**
+ * 每个维度的判据字段 = crm_supplier_diagnosis 的列名。
+ * 除 bid_willingness（纯意向、不计分）外，19 列必须在此被引用且互不复用。
+ */
+export const DIMENSION_V2_SOURCES: Record<ScoreDimension, readonly string[]> = {
+  qualification: ["ungm_status", "compliance_governance", "english_evidence_level"],
+  experience: ["tender_experience", "tender_amount_band", "technical_response"],
+  certification: ["mandatory_docs"],
+  region: ["deliver_to_site", "service_countries", "overseas_companies"],
+  scale: ["export_scale", "team_discipline", "procurement_frameworks"],
+  delivery: ["submission_control", "english_meeting_capability"],
+  price: ["cost_pricing", "incoterms_capability", "payment_terms"],
+};
+
+/** 不计入任何维度、但仍需作为背景呈现的列 */
+const UNSCORED_COLUMNS = ["bid_willingness"] as const;
 
 /** 根据公告类型获取维度权重 */
 export function getDimensionWeights(noticeType?: string): Record<ScoreDimension, number> {
@@ -150,6 +175,32 @@ export interface AiScoreRaw {
 /** 评估视角：self = 评“我自己”（适配评分）；candidate = 评“候选工厂/友商”（统一评估） */
 export type ScorePerspective = "self" | "candidate";
 
+/**
+ * 企业能力诊断块：逐维度列出其判据字段的实际取值。
+ * 未做诊断时明确写"未填写"，让模型走保守分分支，而不是拿空字符串当事实。
+ */
+function buildDiagnosisLines(supplier: Record<string, unknown>): string[] {
+  const filled = new Map(diagnosisItemsOf(supplier));
+
+  if (filled.size === 0) {
+    return [
+      "\n## 企业能力诊断（v2）",
+      "- 未填写诊断表：各维度判据字段均视为缺失，按保守分（40-60）评分，并在 gaps 中标注「缺少能力诊断依据」。",
+    ];
+  }
+
+  const lines: string[] = ["\n## 企业能力诊断（v2 结构化自述，逐维度标注判据）"];
+  for (const dim of SCORE_DIMENSIONS) {
+    const parts = DIMENSION_V2_SOURCES[dim].map(
+      (column) => `${DIAGNOSIS_AI_LABEL_ZH[column] ?? column}=${filled.get(column) ?? "未答"}`,
+    );
+    lines.push(`- ${DIMENSION_LABELS[dim]}（${dim}）依据：${parts.join("；")}`);
+  }
+  const extra = UNSCORED_COLUMNS.filter((c) => filled.has(c)).map((c) => `${DIAGNOSIS_AI_LABEL_ZH[c]}=${filled.get(c)}`);
+  if (extra.length > 0) lines.push(`- 背景（不计分）：${extra.join("；")}`);
+  return lines;
+}
+
 /** 组装评分用户提示词（复用公告+供应商画像数据） */
 export function buildScoreUserPrompt(
   notice: Record<string, unknown>,
@@ -178,25 +229,14 @@ export function buildScoreUserPrompt(
     parts.push(line("公司名称", supplier.company));
     parts.push(line("所属行业", supplier.industry));
     parts.push(line("主营产品", supplier.products));
-    parts.push(line("资质证书", supplier.certification));
+    parts.push(line("资质证书（主数据）", supplier.certification));
     parts.push(line("所在地区", [supplier.country, supplier.city].filter(Boolean).join(" ")));
     parts.push(line("注册资本", supplier.registered_capital));
     parts.push(line("成立日期", supplier.established_at));
     parts.push(line("经营类型", supplier.type));
-    parts.push(line("员工规模", supplier.employee_count));
     if (supplier.intro) parts.push(line("企业简介", String(supplier.intro).slice(0, 300)));
 
-    // 国际化能力（诊断表数据）
-    const intlParts: string[] = [];
-    if (supplier.export_scale) intlParts.push(`出口规模: ${supplier.export_scale}`);
-    if (supplier.service_countries) intlParts.push(`服务国家: ${supplier.service_countries}`);
-    if (supplier.overseas_companies) intlParts.push(`海外公司: ${supplier.overseas_companies}`);
-    if (supplier.ungm_status) intlParts.push(`UNGM: ${supplier.ungm_status}`);
-    if (supplier.english_team) intlParts.push(`英文团队: ${supplier.english_team}`);
-    if (supplier.payment_terms) intlParts.push(`付款条件: ${supplier.payment_terms}`);
-    if (intlParts.length > 0) {
-      parts.push(line("国际化能力", intlParts.join(" | ")));
-    }
+    parts.push(...buildDiagnosisLines(supplier));
 
     parts.push(
       perspective === "self"

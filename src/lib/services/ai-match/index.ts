@@ -10,6 +10,7 @@ import { UserSupplierPoolRepo } from "../../repos/user-supplier-pool.repo";
 import { callLlmForScore } from "../ai-score/llm-client";
 import { SCORE_SYSTEM_PROMPT, buildScoreUserPrompt, type AiScoreRaw } from "../ai-score/prompt";
 import { fetchSupplierForScore } from "../ai-score";
+import { diagnosisItemsOf } from "../ai/shared/supplier-profile";
 import { errNoticeNotFound } from "../ai-summary/errors";
 import { fetchNoticeContext } from "../ai/shared/notice-context";
 import { resolveLlmCredentials } from "../ai/shared/llm-credentials";
@@ -27,7 +28,7 @@ export interface MatchedSupplier extends AiScoreRaw {
   source: "self" | "pool";
   /** 基本信息（supplier 主表）是否完整 */
   baseComplete: boolean;
-  /** 诊断表（qualification）是否已填 */
+  /** 诊断表（v2 crm_supplier_diagnosis）是否已填 */
   diagComplete: boolean;
 }
 
@@ -35,9 +36,9 @@ export interface MatchedSupplier extends AiScoreRaw {
 function completeness(p: Record<string, unknown>): { baseComplete: boolean; diagComplete: boolean } {
   const base =
     !!String(p.company || "").trim() && !!String(p.industry || "").trim() && !!String(p.products || "").trim();
-  const diagKeys = ["employee_count", "export_scale", "service_countries", "overseas_companies", "ungm_status", "english_team", "payment_terms"];
-  const diag = diagKeys.some((k) => !!String(p[k] || "").trim());
-  return { baseComplete: base, diagComplete: diag };
+  // 诊断列改由 v2 SSOT 列清单派生（diagnosisItemsOf），不再手写 v1 键名列表：
+  // 上一版这里挂着 employee_count/english_team 等已不存在的列，会让 diagComplete 恒为 false。
+  return { baseComplete: base, diagComplete: diagnosisItemsOf(p).length > 0 };
 }
 
 export interface AiMatchResult {

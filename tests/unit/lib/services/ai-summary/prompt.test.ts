@@ -97,16 +97,18 @@ describe("buildUserPrompt 分支覆盖", () => {
     expect(p).not.toContain("企业简介");
   });
 
-  it("国际化能力字段全空 → 不输出国际化能力行", () => {
+  it("无 v2 诊断取值 → 能力诊断行明确标注未填写（不把空串当事实）", () => {
     const s = { ...fullSupplier, export_scale: "", service_countries: "", overseas_companies: "", ungm_status: "", english_team: "", payment_terms: "" };
     const p = buildUserPrompt(notice, s);
-    expect(p).not.toContain("国际化能力");
+    expect(p).toContain("企业能力诊断（v2）：未填写");
   });
 
-  it("国际化能力部分存在 → 逐项输出", () => {
-    const s = { ...fullSupplier, export_scale: "", service_countries: "KE,UG", overseas_companies: "", ungm_status: "", english_team: "", payment_terms: "" };
+  it("v2 诊断有值 → 只拼有值项并标出 v2 字段名，不再走未填写分支", () => {
+    const s = { ...fullSupplier, service_countries: "KE,UG" };
     const p = buildUserPrompt(notice, s);
-    expect(p).toContain("服务国家: KE,UG");
-    expect(p).not.toContain("出口规模");
+    expect(p).toContain("企业能力诊断（v2）");
+    expect(p).toContain("售后服务点国家: KE,UG");
+    expect(p).not.toContain("未填写，能力相关判断");
+    expect(p).not.toContain("国际化能力"); // v1 聚合行已退役
   });
 });
