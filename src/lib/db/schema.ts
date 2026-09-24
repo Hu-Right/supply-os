@@ -170,6 +170,7 @@ import { migration as m092 } from "./migrations/092-benefit-system-tables";
 import { migration as m093 } from "./migrations/093-plan-tax-comment";
 import { migration as m094 } from "./migrations/094-drop-old-benefit-tables";
 import { migration as m095 } from "./migrations/095-refresh-tokens-slim";
+import { migration as m096 } from "./migrations/096-supplier-diagnosis";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -195,6 +196,9 @@ const ALL_MIGRATIONS: Migration[] = [
   // m095：crm_refresh_tokens 结构精简（删退役列 user_key + idx_user_key）+ 全量清空重建，自增 id 从 1 起始
   //       配套：auth.repo.insertRefreshToken 的 INSERT 已移除 user_key 列（迁移与代码同批上线）
   m095,
+  // m096：供应商投标能力诊断表 v2（旁路新建 crm_supplier_diagnosis，旧表 crm_supplier_qualification 一行不改）
+  //       10 维度 19 题，企业基础信息不入本表；口径见 docs/superpowers/specs/2026-09-24-供应商诊断表统一规范设计.md
+  m096,
 ];
 
 /**
