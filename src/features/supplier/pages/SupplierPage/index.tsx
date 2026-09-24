@@ -13,11 +13,9 @@ import { ChevronDown, Building2, MapPin, Briefcase } from "lucide-react";
 import { useLocale, pickLocale } from "@/core/i18n";
 import { useAuth, useUserId } from "@/core/auth";
 import { markPageStart, markPageEnd, useRenderTimer } from "@/core/perf";
-import { onAppEvent } from "@/core/events";
 import type { Supplier } from "@/types";
 import { SupplierCard } from "../../components/SupplierCard";
 import { SupplierCardSkeleton } from "../../components/SupplierCardSkeleton";
-import { SupplierRegisterModal } from "../../components/SupplierRegisterModal";
 import { SupplierContactModal, type SupplierContactStatus } from "@/shared/components/SupplierContactModal";
 import { LoadingOverlay } from "@/shared/ui";
 import { Button } from "@/shared/ui";
@@ -54,7 +52,6 @@ export default function SupplierPage() {
   });
 
   // ── 弹窗状态 ──
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [contactModal, setContactModal] = useState<{
     supplier: Supplier; status: SupplierContactStatus; contact: SupplierContact | null;
   } | null>(null);
@@ -69,10 +66,6 @@ export default function SupplierPage() {
     }
   }, [loading, suppliers.length]);
   useRenderTimer("SupplierPage", [loading, suppliers.length]);
-
-  useEffect(() => {
-    return onAppEvent("supply-os:open-supplier-register", () => setShowRegisterModal(true));
-  }, []);
 
   // ── 操作处理 ──
   const handleAiMatch = (supplier: Supplier) => {
@@ -202,12 +195,6 @@ export default function SupplierPage() {
       )}
 
       {/* ═══ 弹窗 ═══ */}
-      {showRegisterModal && (
-        <SupplierRegisterModal
-          onClose={() => setShowRegisterModal(false)}
-          onRegistered={() => { setShowRegisterModal(false); }}
-        />
-      )}
       {contactModal && (
         <SupplierContactModal
           supplier={contactModal.supplier}

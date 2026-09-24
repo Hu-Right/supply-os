@@ -15,7 +15,6 @@ import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 interface PoolItem {
   pool_id: number;
   supplier_id: number | null;
-  qualification_id: number | null;
   company: string;
   industry: string;
   has_qualification: number;
@@ -341,7 +340,7 @@ export default function SupplierPoolPageClient() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <a
-                    href={`/procurement/qualification?poolId=${item.pool_id}`}
+                    href="/procurement/diagnosis"
                     className="p-1.5 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded transition-colors"
                     title={item.has_qualification
                       ? (t("supplierPoolUpdateDiag") || "更新诊断表")

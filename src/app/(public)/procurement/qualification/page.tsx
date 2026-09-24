@@ -1,27 +1,14 @@
 /**
- * /procurement/qualification — ISR (revalidate: 3600)
+ * /procurement/qualification — 旧版初筛问卷地址（已退役，301 到 v2 诊断页）
+ *
+ * @description 地址保留并重定向，避免已分发的二维码/链接失效；URL 里的 query 不透传 ——
+ *              v1 的 notice_id / poolId 参数在新版没有对应语义（透传反而误导），
+ *              新版按"登录用户 + 公司主体"定位诊断记录。
  */
-import type { Metadata } from "next";
-import { absoluteUrl } from "@/lib/services/seo/site";
-import { BROWSER_TITLE } from "@/lib/i18n/metadata";
-import PageClient from "./page-client";
+import { redirect } from "next/navigation";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: BROWSER_TITLE.zh,
-  description: "云境·国际采购平台供应商资质认证：申请成为平台认证供应商，获取联合国及全球政府采购投标资格。",
-  openGraph: {
-    title: BROWSER_TITLE.zh,
-    description: "申请成为认证供应商，获取全球政府采购投标资格。",
-    type: "website",
-  },
-  alternates: {
-    canonical: absoluteUrl("/procurement/qualification"),
-    languages: { "x-default": absoluteUrl("/procurement/qualification") },
-  },
-};
-
-export default function QualificationPage() {
-  return <PageClient />;
+export default function LegacyQualificationPage() {
+  redirect("/procurement/diagnosis");
 }

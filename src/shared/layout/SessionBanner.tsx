@@ -4,15 +4,15 @@
  *
  * @module shared/layout/SessionBanner
  * @description 各主 Tab 顶部的动态摘要横幅（对齐远端 "Dynamic header summary banner"）：
- *              按当前路由切换的标题/副标题 + 右侧动作按钮
- *              （入驻展厅 / 初筛问卷 / 注册供应商 / 返回公采，及常驻的预约顾问）。
- *              页面内注册表单通过全局事件触发，保持 feature 模块自包含。
+ *              按当前路由切换的标题/副标题 + 右侧动作按钮（去诊断 / 注册供应商 / 返回公采，
+ *              及常驻的预约顾问）。诊断入口已收敛到 /procurement/diagnosis（v2，登录后可填），
+ *              不再在本页弹旧版 14 字段问卷弹窗。
  *              Dynamic per-route summary banner above the main workspace. Page-owned
  *              register forms are triggered via global events to keep features self-contained.
  */
 
 import { usePathname, useRouter } from "next/navigation";
-import { BookOpen, MessageSquare, Plus } from "lucide-react";
+import { MessageSquare, Plus } from "lucide-react";
 import { useLocale, type LocaleKey } from "@/core/i18n";
 import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
@@ -55,21 +55,12 @@ export function SessionBanner() {
       <div className="flex flex-col sm:flex-row flex-wrap gap-2.5 shrink-0 w-full md:w-auto">
         {pathname === "/supplier" && (
           <button
-            onClick={() => emitAppEvent("supply-os:open-supplier-register")}
+            onClick={() => router.push("/procurement/diagnosis")}
             className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-transparent text-white rounded-xl text-sm font-semibold shadow-sm hover:translate-y-[-1px] transition-transform cursor-pointer min-h-[44px] flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t("registerSupplierBtn")}</span>
             <span className="sm:hidden">{t("registerSupplierBtnShort")}</span>
-          </button>
-        )}
-        {pathname === "/procurement" && (
-          <button
-            onClick={() => router.push("/procurement/qualification")}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-semibold shadow-xs cursor-pointer min-h-[44px] flex-shrink-0"
-          >
-            <BookOpen className="w-4 h-4 text-orange-100" />
-            <span>{t("procurementScreeningBtn")}</span>
           </button>
         )}
         <Button

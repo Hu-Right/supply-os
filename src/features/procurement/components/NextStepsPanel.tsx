@@ -88,9 +88,10 @@ export function NextStepsPanel({
         if (onUploadMaterials) {
           onUploadMaterials();
         } else if (!isLoggedIn) {
-          router.push(`/auth/login?redirect=/procurement/qualification%3Fnotice_id%3D${notice.id}`);
+          // 诊断表 v2 不收 notice_id（旧版传了也被表单页静默丢弃），登录后回同一个诊断页
+          router.push(`/auth/login?redirect=${encodeURIComponent("/procurement/diagnosis")}`);
         } else {
-          router.push(`/procurement/qualification?notice_id=${notice.id}`);
+          router.push("/procurement/diagnosis");
         }
       },
     },
