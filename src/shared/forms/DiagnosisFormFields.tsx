@@ -111,7 +111,6 @@ export function DiagnosisFormFields(props: Props) {
               {dim.no}
             </span>
             {t(`diagDim${dim.no}`)}
-            <span className="ml-2 text-2xs font-normal text-slate-400">{t("diagWeightTag")} {dim.weight}</span>
           </h3>
           <div className="space-y-5">
             {DIAGNOSIS_FIELDS.filter((f) => f.dimensionNo === dim.no).map((field) => (

@@ -7,7 +7,7 @@
  *              调用方拿到的直接是 data 内容 —— 这正是 v1 供应商资源库踩过的坑
  *              （前端读顶层 res.list 恒空），这里在出口处一次性解决。
  */
-import { api, downloadFile } from "@/core/http";
+import { api } from "@/core/http";
 
 interface Envelope<T> {
   code: number;
@@ -28,6 +28,8 @@ export interface DiagnosisCandidate {
   businessType: string;
   verified: boolean;
   claimPending: boolean;
+  /** 已被其他用户/账户绑定（存在 crm_users 关联记录且非当前用户）；弹窗据此提示「该公司已被绑定」 */
+  bound: boolean;
 }
 
 export interface DiagnosisDimensionResult {
@@ -89,12 +91,4 @@ export function fetchMyDiagnoses(): Promise<MyDiagnosis[]> {
   return api<Envelope<{ list: MyDiagnosis[] }>>("/api/supplier-diagnosis/mine").then(
     (res) => res?.data?.list ?? [],
   );
-}
-
-/**
- * 下载诊断报告 PDF。
- * 必须走 downloadFile（带 Bearer）：<a> 直链携带不了 Authorization 头，会被 401 拦下。
- */
-export function downloadDiagnosisReport(id: number, companyName: string): Promise<void> {
-  return downloadFile(`/api/supplier-diagnosis/${id}/report`, `能力诊断报告_${companyName}.pdf`);
 }

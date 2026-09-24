@@ -542,9 +542,9 @@
   "diagDialogRethink": "重新输入公司名称",
   "diagBadgeVerified": "已认证",
   "diagBadgeClaimPending": "认领审核中",
+  "diagBadgeBound": "已被绑定",
   "diagAutoScored": "系统自动评估",
   "diagDim1Hint": "这一项来自企业档案的完整度与人工核对状态，不占用答题。想提高它，请到设置页补全官网、统一社会信用代码、成立日期等资料。",
-  "diagWeightTag": "权重",
   "diagWillingnessNotScored": "此题仅作合作意愿记录，不计入诊断得分。",
   "diagErrFieldRequired": "此题为必答",
   "diagErrCompanyTooShort": "请输入至少 2 个字符的公司名称",
@@ -562,6 +562,8 @@
   "diagNextStepClaim": "该企业已通过认证并归属他人。请到企业信息页发起认领，审核通过后资料即归你维护。",
   "diagNextStepProfile": "补全企业档案能直接提升「档案就绪度」这一维度的得分。",
   "diagGoEnterprise": "去企业信息页",
-  "diagEditAnother": "再诊断一家公司",
-  "diagDownloadReport": "下载诊断报告 PDF"
+  "diagReportLockedTitle": "获取完整诊断报告",
+  "diagReportLockedDesc": "本次诊断已得出综合总分。完整的分维度评估、证据与改进建议报告，请添加客服微信，由客服为你发送报告文件。",
+  "diagContactQrAlt": "客服微信二维码",
+  "diagContactQrHint": "扫码添加客服微信，获取完整诊断报告"
 }

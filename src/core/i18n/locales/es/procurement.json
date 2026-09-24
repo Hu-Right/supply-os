@@ -542,9 +542,9 @@
   "diagDialogRethink": "Introducir otro nombre",
   "diagBadgeVerified": "Verificada",
   "diagBadgeClaimPending": "Reclamación en revisión",
+  "diagBadgeBound": "Ya vinculada",
   "diagAutoScored": "Evaluado automáticamente",
   "diagDim1Hint": "Esta dimensión depende de la completitud y verificación del perfil de empresa; mejórela en Ajustes (web, código de crédito, fecha).",
-  "diagWeightTag": "Ponderación",
   "diagWillingnessNotScored": "Se registra solo como intención; no puntúa.",
   "diagErrFieldRequired": "Pregunta obligatoria",
   "diagErrCompanyTooShort": "Introduzca al menos 2 caracteres",
@@ -562,6 +562,8 @@
   "diagNextStepClaim": "Esta empresa está verificada y vinculada a otra cuenta. Inicie una reclamación en Datos de la empresa.",
   "diagNextStepProfile": "Completar el perfil de empresa sube directamente la dimensión de preparación.",
   "diagGoEnterprise": "Ir a Datos de la empresa",
-  "diagEditAnother": "Diagnosticar otra empresa",
-  "diagDownloadReport": "Descargar informe PDF"
+  "diagReportLockedTitle": "Obtén el informe completo",
+  "diagReportLockedDesc": "Tu puntuación global se muestra arriba. Para recibir el informe completo (puntuaciones por dimensión, evidencias y recomendaciones), añade a nuestro servicio en WeChat y te enviaremos el archivo.",
+  "diagContactQrAlt": "Código QR de WeChat del servicio de atención",
+  "diagContactQrHint": "Escanea para añadirnos en WeChat y recibir el informe completo"
 }

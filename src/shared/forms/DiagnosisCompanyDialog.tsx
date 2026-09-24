@@ -43,6 +43,7 @@ export function DiagnosisCompanyDialog({ open, candidates, t, onClose, onConfirm
                   {c.englishName && <p className="truncate text-2xs text-slate-400">{c.englishName}</p>}
                   <p className="mt-1 text-2xs text-slate-500">{identityLine(c)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {c.bound && <Badge variant="error">{t("diagBadgeBound")}</Badge>}
                     {c.verified && <Badge variant="success">{t("diagBadgeVerified")}</Badge>}
                     {c.claimPending && <Badge variant="warning">{t("diagBadgeClaimPending")}</Badge>}
                   </div>

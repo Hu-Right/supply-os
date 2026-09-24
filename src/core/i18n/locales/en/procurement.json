@@ -542,9 +542,9 @@
   "diagDialogRethink": "Re-enter company name",
   "diagBadgeVerified": "Verified",
   "diagBadgeClaimPending": "Claim under review",
+  "diagBadgeBound": "Already linked",
   "diagAutoScored": "Auto-scored",
   "diagDim1Hint": "This dimension comes from your company profile's completeness and verification status — no question here. Improve it in Settings by adding website, credit code, founding date, etc.",
-  "diagWeightTag": "Weight",
   "diagWillingnessNotScored": "Recorded as intent only; not part of the score.",
   "diagErrFieldRequired": "Required",
   "diagErrCompanyTooShort": "Enter a company name of at least 2 characters",
@@ -562,6 +562,8 @@
   "diagNextStepClaim": "This company is verified and already belongs to another account. Start a claim from the Company Info page; after review you can maintain it.",
   "diagNextStepProfile": "Completing your company profile directly raises the profile-readiness dimension.",
   "diagGoEnterprise": "Go to Company Info",
-  "diagEditAnother": "Diagnose another company",
-  "diagDownloadReport": "Download PDF report"
+  "diagReportLockedTitle": "Get the full report",
+  "diagReportLockedDesc": "Your overall score is shown above. For the complete report with per-dimension scores, evidence and recommendations, add our service on WeChat and we will send you the file.",
+  "diagContactQrAlt": "Customer service WeChat QR code",
+  "diagContactQrHint": "Scan to add us on WeChat and get the full report"
 }

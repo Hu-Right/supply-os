@@ -25,7 +25,7 @@ export const GET = withRoute(async (req: NextRequest) => {
   if (keyword.length < 2) routeError(400, EC_INVALID_PARAMS, "公司名称至少 2 个字符");
 
   try {
-    const rows = await getContext().supplier.directoryRepo.findDiagnosisCandidatesByName(keyword, 5);
+    const rows = await getContext().supplier.directoryRepo.findDiagnosisCandidatesByName(keyword, 5, auth.userId);
     return NextResponse.json({
       code: 0,
       message: "ok",
@@ -43,6 +43,8 @@ export const GET = withRoute(async (req: NextRequest) => {
           businessType: r.business_type ?? "",
           verified: String(r.verify_status ?? "") === "done",
           claimPending: String(r.claim_status ?? "") === "pending",
+          // 已被其他用户/账户绑定（已在 repo 层排除当前用户），供弹窗提示「该公司已被绑定」
+          bound: Number(r.bound) === 1,
         })),
       },
     });

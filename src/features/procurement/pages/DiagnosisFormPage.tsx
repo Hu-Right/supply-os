@@ -9,13 +9,14 @@
  *              未登录时本页只出示登录引导——真正的写入闸门在 API（规范 N4），这里只是体验。
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { emitAppEvent } from "@/core/events";
-import { CheckCircle2, Download, Loader2, Pencil, Send } from "lucide-react";
+import { CheckCircle2, Loader2, Pencil, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale } from "@/core/i18n";
 import { useAuth } from "@/core/auth";
 import { Button, Input } from "@/shared/ui";
-import { downloadDiagnosisReport, fetchMyDiagnoses, type DiagnosisCandidate, type MyDiagnosis } from "@/shared/api/diagnosis";
+import { fetchMyDiagnoses, type DiagnosisCandidate, type MyDiagnosis } from "@/shared/api/diagnosis";
 import { useDiagnosisForm } from "@/shared/forms/useDiagnosisForm";
 import { DiagnosisFormFields } from "@/shared/forms/DiagnosisFormFields";
 import { DiagnosisCompanyDialog } from "@/shared/forms/DiagnosisCompanyDialog";
@@ -31,27 +32,16 @@ function Gate({ t, onLogin }: { t: (k: string) => string; onLogin: () => void })
 }
 
 function ResultView({
-  t, form, onEditAnother,
+  t, form,
 }: {
   t: (k: string) => string;
   form: ReturnType<typeof useDiagnosisForm>;
-  onEditAnother: () => void;
 }) {
   const r = form.result;
-  const [downloading, setDownloading] = useState(false);
   if (!r) return null;
-  const download = async () => {
-    setDownloading(true);
-    try {
-      await downloadDiagnosisReport(r.id, form.form.company || "company");
-    } catch {
-      toast.error(t("diagErrorNetwork"));
-    } finally {
-      setDownloading(false);
-    }
-  };
   return (
     <div className="space-y-4">
+      {/* 仅展示综合总分与等级：分维度明细报告改由客服人工触达后发送 */}
       <div className="rounded-2xl border border-teal-200 bg-teal-50/60 p-5 text-center">
         <CheckCircle2 className="mx-auto h-9 w-9 text-teal-600" />
         <p className="mt-2 text-base font-black text-slate-900">{t("diagSuccessTitle")}</p>
@@ -63,21 +53,22 @@ function ResultView({
         )}
       </div>
 
-      <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {r.dimensions.map((d) => (
-          <li key={d.no} className="flex items-start gap-3 px-4 py-3">
-            <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-2xs font-bold text-slate-600">
-              {d.no}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-slate-800">
-                {t(`diagDim${d.no}`)}
-              </p>
-              <p dir="ltr" className="mt-0.5 text-2xs leading-relaxed text-slate-500">{d.scoringBasis}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {/* 完整诊断报告需联系客服获取：展示客服二维码，由客服人工发送报告文件 */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 text-center">
+        <p className="text-sm font-bold text-slate-800">{t("diagReportLockedTitle")}</p>
+        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-500">
+          {t("diagReportLockedDesc")}
+        </p>
+        <Image
+          src="/wechat-service-qr.png"
+          alt={t("diagContactQrAlt")}
+          width={160}
+          height={160}
+          unoptimized
+          className="mx-auto mt-4 h-40 w-40 rounded-xl border border-slate-200"
+        />
+        <p className="mt-2 text-2xs text-slate-400">{t("diagContactQrHint")}</p>
+      </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <p className="text-sm font-bold text-slate-800">{t("diagNextStepTitle")}</p>
@@ -85,13 +76,9 @@ function ResultView({
           {r.claim_required ? t("diagNextStepClaim") : t("diagNextStepProfile")}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" variant="cta" loading={downloading} onClick={download}>
-            <Download className="h-3.5 w-3.5" /> {t("diagDownloadReport")}
-          </Button>
           <Button size="sm" variant="secondary" onClick={() => window.location.assign("/settings/enterprise")}>
             {t("diagGoEnterprise")}
           </Button>
-          <Button size="sm" variant="outline" onClick={onEditAnother}>{t("diagEditAnother")}</Button>
         </div>
       </div>
     </div>
@@ -146,7 +133,7 @@ export default function DiagnosisFormPage() {
   }
   if (!authUser) return <Gate t={t} onLogin={goLogin} />;
 
-  if (form.result) return <div className="mx-auto max-w-3xl px-4 py-8"><ResultView t={t} form={form} onEditAnother={form.reset} /></div>;
+  if (form.result) return <div className="mx-auto max-w-3xl px-4 py-8"><ResultView t={t} form={form} /></div>;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -166,21 +153,9 @@ export default function DiagnosisFormPage() {
                     {item.score_total ?? "-"} / 100 · {new Date(item.submitted_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={t("diagDownloadReport")}
-                    onClick={() => {
-                      downloadDiagnosisReport(item.id, item.company_name).catch(() => toast.error(t("diagErrorNetwork")));
-                    }}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => startEdit(item)}>
-                    <Pencil className="h-3.5 w-3.5" /> {t("diagEdit")}
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" className="shrink-0" onClick={() => startEdit(item)}>
+                  <Pencil className="h-3.5 w-3.5" /> {t("diagEdit")}
+                </Button>
               </li>
             ))}
           </ul>

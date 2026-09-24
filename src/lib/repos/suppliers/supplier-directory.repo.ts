@@ -48,6 +48,8 @@ export interface CompanyCandidateRow extends RowDataPacket {
   credit_code: string | null;
   verify_status: string | null;
   claim_status: string | null;
+  /** 是否已被**其他**用户/账户绑定（crm_users.supplier_id 命中且非当前用户）；0/1 */
+  bound: number;
 }
 
 /** 统一社会信用代码绕码：前 4 + **** + 后 4；短于 8 位只输出全绕码，不回原文 */
@@ -261,16 +263,29 @@ export class SupplierDirectoryRepo {
    * `verify_status='done'`，无法区分「XX 科技有限公司」与其分公司/同名主体（要靠省市、
    * 法人、信用代码掩码辨认），也会漏掉存量无审核状态的可认领行。
    * 口径：排除已合并行、前缀命中优先、按信用代码与资料完整度次优，避免把拼凑行推给用户。
+   * `bound`：附带「是否已被其他用户/账户绑定」标记（crm_users.supplier_id 命中且非 excludeUserId），
+   * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
    */
-  async findDiagnosisCandidatesByName(keyword: string, limit = 5): Promise<CompanyCandidateRow[]> {
+  async findDiagnosisCandidatesByName(
+    keyword: string,
+    limit = 5,
+    excludeUserId = 0,
+  ): Promise<CompanyCandidateRow[]> {
     const kw = String(keyword ?? "").trim();
     if (!kw) return [];
     const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 10);
+    // excludeUserId 归一为非负整数：0 表示不排除任何用户（任意绑定都计为 bound）
+    const uid = Number.isFinite(excludeUserId) && excludeUserId > 0 ? Math.trunc(excludeUserId) : 0;
     // 与 findVerifiedByNameSimilar 同口径转义 LIKE 通配符，否则用户输入 % 会退化为全表匹配
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
       `SELECT id, company, english_name, type, business_type, province, city,
-              established_at, legal_rep, credit_code, verify_status, claim_status
+              established_at, legal_rep, credit_code, verify_status, claim_status,
+              EXISTS(
+                SELECT 1 FROM crm_users cu
+                 WHERE cu.supplier_id = supplier.id
+                   AND cu.id <> ?
+              ) AS bound
          FROM supplier
         WHERE company LIKE ?
           AND merged_id IS NULL
@@ -278,7 +293,8 @@ export class SupplierDirectoryRepo {
         ORDER BY (credit_code IS NOT NULL AND credit_code <> '') DESC,
                  data_quality_score DESC, id DESC
         LIMIT ?`,
-      [`${escaped}%`, safeLimit],
+      // 占位符按出现顺序：EXISTS 内的 excludeUserId 先于 LIKE，再于 LIMIT
+      [uid, `${escaped}%`, safeLimit],
     );
     return rows as CompanyCandidateRow[];
   }

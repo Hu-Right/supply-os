@@ -542,9 +542,9 @@
   "diagDialogRethink": "أدخل اسمًا آخر",
   "diagBadgeVerified": "موثّقة",
   "diagBadgeClaimPending": "الملف قيد المراجعة",
+  "diagBadgeBound": "مرتبطة بالفعل",
   "diagAutoScored": "يُقيَّم تلقائيًا",
   "diagDim1Hint": "هذا المحور يأتي من اكتمال ملف الشركة وتوثيقه، فلا سؤال هنا؛ حسّنه من الإعدادات بإضافة الموقع ورمز الاعتماد وتاريخ التأسيس.",
-  "diagWeightTag": "الوزن",
   "diagWillingnessNotScored": "تُسجَّل كنية فقط ولا تدخل في الدرجة.",
   "diagErrFieldRequired": "هذا السؤال إلزامي",
   "diagErrCompanyTooShort": "أدخل اسمًا من حرفين على الأقل",
@@ -562,6 +562,8 @@
   "diagNextStepClaim": "هذه الشركة موثّقة وترتبط بحساب آخر؛ ابدأ مطالبة من صفحة بيانات الشركة.",
   "diagNextStepProfile": "استكمال ملف الشركة يرفع مباشرة محور جاهزية الملف.",
   "diagGoEnterprise": "اذهب إلى بيانات الشركة",
-  "diagEditAnother": "شخّص شركة أخرى",
-  "diagDownloadReport": "تنزيل تقرير PDF"
+  "diagReportLockedTitle": "الحصول على التقرير الكامل",
+  "diagReportLockedDesc": "تظهر درجتك الإجمالية أعلاه. للحصول على التقرير الكامل (درجات كل محور والأدلة والتوصيات)، أضِفنا على WeChat وسيرسل لك فريق الخدمة الملف.",
+  "diagContactQrAlt": "رمز WeChat لخدمة العملاء",
+  "diagContactQrHint": "امسح الرمز لإضافتنا على WeChat والحصول على التقرير الكامل"
 }
