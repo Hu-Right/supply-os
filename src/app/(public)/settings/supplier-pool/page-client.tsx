@@ -11,6 +11,7 @@ import { useUserId } from "@/core/auth/useUserId";
 import { api } from "@/core/http";
 import { emitAppEvent } from "@/core/events";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
+import { SUPPLIER_POOL_MAX_SIZE } from "@/shared/constants/supplier-pool";
 
 interface PoolItem {
   pool_id: number;
@@ -163,16 +164,32 @@ export default function SupplierPoolPageClient() {
 
   // V2（ADR-0004）：企业用户也可拥有供应商资源库，不再拦截本页。
 
+  // 已达上限：列表数 >= 共享常量（与后端限流同源），用于展示与禁用添加入口
+  const atLimit = items.length >= SUPPLIER_POOL_MAX_SIZE;
+  const countText = (t("supplierPoolCount") || "已添加 {count} / {max} 家")
+    .replace("{count}", String(items.length))
+    .replace("{max}", String(SUPPLIER_POOL_MAX_SIZE));
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-foreground">
-          {t("supplierPoolTitle") || "供应商资源库"}
-        </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-bold text-foreground">
+            {t("supplierPoolTitle") || "供应商资源库"}
+          </h2>
+          {/* 计数：达上限时标红，与后端 40020 拒绝口径一致 */}
+          {!loading && !listError && (
+            <p className={`mt-0.5 text-2xs font-medium ${atLimit ? "text-rose-600" : "text-slate-500"}`}>
+              {countText}
+            </p>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setShowAdd(!showAdd)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+          disabled={atLimit}
+          title={atLimit ? (t("supplierPoolLimitReached") || "已达上限，请移除不用的供应商后再添加") : undefined}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 text-sm font-bold transition-colors"
         >
           <Plus className="w-4 h-4" />
           {t("supplierPoolAdd") || "添加合作工厂"}

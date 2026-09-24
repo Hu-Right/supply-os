@@ -12,7 +12,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler";
 import { UserSupplierPoolRepo } from "@/lib/repos/user-supplier-pool.repo";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
-import { addSupplierToPool, addSupplierByIdToPool } from "@/lib/services/supplier-pool";
+import { addSupplierToPool, addSupplierByIdToPool, MAX_POOL_SIZE } from "@/lib/services/supplier-pool";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 
 /** 资源库变更后失效该用户的匹配缓存（失败不影响主流程，仅记录日志） */
@@ -56,7 +56,7 @@ export const POST = withRoute(async (req: NextRequest) => {
 
   if (!result.ok) {
     if (result.reason === "pool_full") {
-      routeError(400, 40020, "资源库已满（上限 50 个），请移除不用的供应商后再添加");
+      routeError(400, 40020, `资源库已满（上限 ${MAX_POOL_SIZE} 个），请移除不用的供应商后再添加`);
     }
     if (result.reason === "not_found") {
       routeError(400, EC_INVALID_PARAMS, "供应商不存在或未通过认证");

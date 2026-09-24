@@ -33,6 +33,12 @@ const ConsultForm = lazy(() => import("@/shared/forms").then((m) => ({ default: 
 const TrainingRegisterForm = lazy(() =>
   import("@/features/training/components/TrainingRegisterForm").then((m) => ({ default: m.default })),
 );
+// 新用户引导弹窗（右下角）：已登录且未绑定企业/未建资源库时提示完善企业信息
+const EnterpriseOnboardingModal = lazy(() =>
+  import("@/features/auth/components/EnterpriseOnboardingModal").then((m) => ({
+    default: m.EnterpriseOnboardingModal,
+  })),
+);
 
 /** 模态框加载骨架屏 - 移动端弱网环境下提供视觉反馈 */
 function ModalSkeleton() {
@@ -181,6 +187,13 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
             onClose={() => setShowPaymentModal(false)}
             onPaymentSuccess={handlePaymentSuccess}
           />
+        </Suspense>
+      )}
+
+      {/* 新用户引导弹窗：仅登录后挂载，避免未登录触发企业/资源库取数 */}
+      {authUser && (
+        <Suspense fallback={null}>
+          <EnterpriseOnboardingModal />
         </Suspense>
       )}
 

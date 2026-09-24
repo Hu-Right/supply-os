@@ -7,9 +7,10 @@
  */
 import type { Pool } from "mysql2/promise";
 import { UserSupplierPoolRepo } from "../repos/user-supplier-pool.repo";
+import { SUPPLIER_POOL_MAX_SIZE } from "@/shared/constants/supplier-pool";
 
-/** 资源库容量上限（防滥用） */
-export const MAX_POOL_SIZE = 50;
+/** 资源库容量上限（防滥用）：单个账号可绑定的供应商/合作工厂数量上限，与前端展示同源 */
+export const MAX_POOL_SIZE = SUPPLIER_POOL_MAX_SIZE;
 
 export type AddSupplierPoolResult =
   | { ok: true; poolId: number; source: "platform" | "manual"; supplierId: number }
