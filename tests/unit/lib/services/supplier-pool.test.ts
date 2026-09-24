@@ -6,12 +6,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
-  countByUser, findVerifiedByCompany, findLatestQualificationId, addFromPlatform,
+  countByUser, findVerifiedByCompany, addFromPlatform,
   findPendingByExactCompany, createPendingSupplier, addManual,
 } = vi.hoisted(() => ({
   countByUser: vi.fn(),
   findVerifiedByCompany: vi.fn(),
-  findLatestQualificationId: vi.fn(),
   addFromPlatform: vi.fn(),
   findPendingByExactCompany: vi.fn(),
   createPendingSupplier: vi.fn(),
@@ -21,7 +20,7 @@ const {
 vi.mock("@/lib/repos/user-supplier-pool.repo", () => ({
   UserSupplierPoolRepo: function (this: any) {
     Object.assign(this, {
-      countByUser, findVerifiedByCompany, findLatestQualificationId, addFromPlatform,
+      countByUser, findVerifiedByCompany, addFromPlatform,
       findPendingByExactCompany, createPendingSupplier, addManual,
     });
   },
@@ -58,13 +57,12 @@ describe("addSupplierToPool", () => {
     expect(pool.getConnection).not.toHaveBeenCalled();
   });
 
-  it("平台目录命中 → 关联最新诊断记录，返回 platform", async () => {
+  it("平台目录命中 → 直接按 supplier_id 入池（诊断关系由自然键推导，不再回写旧指针）", async () => {
     findVerifiedByCompany.mockResolvedValue({ id: 10, company: "工厂A", industry: "电子" });
-    findLatestQualificationId.mockResolvedValue(33);
     const { pool } = makePool();
     const res = await addSupplierToPool(pool, 1, "工厂A");
     expect(res).toEqual({ ok: true, poolId: 7, source: "platform", supplierId: 10 });
-    expect(addFromPlatform).toHaveBeenCalledWith(1, 10, 33);
+    expect(addFromPlatform).toHaveBeenCalledWith(1, 10);
     expect(pool.getConnection).not.toHaveBeenCalled();
   });
 

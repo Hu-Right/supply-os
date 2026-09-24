@@ -32,8 +32,7 @@ export async function addSupplierToPool(
   // ── 平台目录匹配：supplier_id 关联，继承全部数据（单条 INSERT IGNORE，天然原子） ──
   const matched = await repo.findVerifiedByCompany(name);
   if (matched) {
-    const qualificationId = await repo.findLatestQualificationId(matched.id);
-    const poolId = await repo.addFromPlatform(userId, matched.id, qualificationId);
+    const poolId = await repo.addFromPlatform(userId, matched.id);
     if (!poolId) {
       return { ok: false, reason: "duplicate" };
     }
@@ -80,8 +79,7 @@ export async function addSupplierByIdToPool(
   if (!matched) {
     return { ok: false, reason: "not_found" };
   }
-  const qualificationId = await repo.findLatestQualificationId(matched.id);
-  const poolId = await repo.addFromPlatform(userId, matched.id, qualificationId);
+  const poolId = await repo.addFromPlatform(userId, matched.id);
   if (!poolId) {
     return { ok: false, reason: "duplicate" };
   }

@@ -24,12 +24,14 @@ describe("UserSupplierPoolRepo", () => {
     expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
-  it("addFromPlatform 插入平台匹配记录", async () => {
+  it("addFromPlatform 插入平台匹配记录（不再写已退役的 qualification_id 旧指针）", async () => {
     mockExecute.mockResolvedValue([{ insertId: 5 }]);
-    await repo.addFromPlatform(100, 10, 20);
+    await repo.addFromPlatform(100, 10);
     expect(mockExecute).toHaveBeenCalledTimes(1);
     const sql = mockExecute.mock.calls[0][0];
     expect(sql).toContain("INSERT IGNORE INTO crm_user_supplier_pool");
+    expect(sql).not.toContain("qualification_id");
+    expect(mockExecute.mock.calls[0][1]).toEqual([100, 10]);
   });
 
   it("addManual 插入手动添加记录", async () => {
@@ -60,14 +62,6 @@ describe("UserSupplierPoolRepo", () => {
     mockQuery.mockResolvedValue([[{ cnt: 3 }]]);
     const count = await repo.countByUser(100);
     expect(count).toBe(3);
-  });
-
-  it("linkQualification 回写诊断记录关联", async () => {
-    mockExecute.mockResolvedValue([{ affectedRows: 1 }]);
-    await repo.linkQualification(100, 5, 99);
-    expect(mockExecute).toHaveBeenCalledTimes(1);
-    const sql = mockExecute.mock.calls[0][0];
-    expect(sql).toContain("qualification_id = ?");
   });
 
   it("fetchSupplierProfiles 获取供应商完整画像", async () => {
@@ -131,15 +125,6 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'pending'");
   });
 
-  it("findLatestQualificationId 返回最新诊断 id / 无记录返回 null", async () => {
-    const mockQuery = vi.fn()
-      .mockResolvedValueOnce([[{ id: 99 }]])
-      .mockResolvedValueOnce([[]]);
-    const repo = new UserSupplierPoolRepo({ query: mockQuery } as any);
-    await expect(repo.findLatestQualificationId(10)).resolves.toBe(99);
-    await expect(repo.findLatestQualificationId(10)).resolves.toBeNull();
-  });
-
   it("createPendingSupplier 插入 pending 基础记录", async () => {
     const mockExecute = vi.fn().mockResolvedValue([{ insertId: 66 }]);
     const repo = new UserSupplierPoolRepo({ execute: mockExecute } as any);
@@ -153,7 +138,7 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     const connExecute = vi.fn().mockResolvedValue([{ insertId: 5 }]);
     const conn = { execute: connExecute };
     const repo = new UserSupplierPoolRepo({} as any);
-    await repo.addFromPlatform(1, 10, null, conn as any);
+    await repo.addFromPlatform(1, 10, conn as any);
     await repo.addManual(1, 10, conn as any);
     expect(connExecute).toHaveBeenCalledTimes(2);
   });

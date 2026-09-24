@@ -4,6 +4,7 @@
  * @description crm_user_supplier_pool 表 CRUD + JOIN 查询。
  */
 import type { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { diagnosisColumnSelect } from "@/shared/constants/diagnosis-dimensions";
 
 /** 事务执行器：池或同一连接（事务内必须传连接，保证读写同会话） */
 type Executor = Pool | PoolConnection;
@@ -11,9 +12,9 @@ type Executor = Pool | PoolConnection;
 export interface PoolSupplierItem {
   pool_id: number;
   supplier_id: number | null;
-  qualification_id: number | null;
   company: string;
   industry: string;
+  /** 是否已有 v2 诊断（按 user_id + supplier_id 自然键判定，不再依赖 pool.qualification_id 旧指针） */
   has_qualification: number;
   notes: string | null;
   source: string;
@@ -30,14 +31,14 @@ export class UserSupplierPoolRepo {
   /** 列出用户资源库（JOIN supplier 获取公司名和行业） */
   async listByUser(userId: number): Promise<PoolSupplierItem[]> {
     const [rows] = await this.pool.query(
-      `SELECT p.id AS pool_id, p.supplier_id, p.qualification_id,
+      `SELECT p.id AS pool_id, p.supplier_id,
               COALESCE(s.company, '') AS company,
               COALESCE(s.industry, '') AS industry,
               CASE WHEN q.id IS NOT NULL THEN 1 ELSE 0 END AS has_qualification,
               p.notes, p.source, p.created_at
        FROM crm_user_supplier_pool p
        LEFT JOIN supplier s ON s.id = p.supplier_id
-       LEFT JOIN crm_supplier_qualification q ON q.id = p.qualification_id
+       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ?
        ORDER BY p.created_at DESC`,
       [userId],
@@ -45,12 +46,14 @@ export class UserSupplierPoolRepo {
     return (rows as RowDataPacket[]) as PoolSupplierItem[];
   }
 
-  /** 从平台目录添加（supplier_id 有值；conn 用于事务，下同） */
-  async addFromPlatform(userId: number, supplierId: number, qualificationId: number | null, conn?: PoolConnection): Promise<number> {
+  /** 从平台目录添加（supplier_id 有值；conn 用于事务，下同）
+   *  不再写 pool.qualification_id：v2 诊断按 (user_id, supplier_id) 自然键关联，
+   *  旧列留着但恒为 NULL（库表列退役不 DROP，避免不可逆结构变更）。 */
+  async addFromPlatform(userId: number, supplierId: number, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
-      `INSERT IGNORE INTO crm_user_supplier_pool (user_id, supplier_id, qualification_id, source)
-       VALUES (?, ?, ?, 'platform')`,
-      [userId, supplierId, qualificationId],
+      `INSERT IGNORE INTO crm_user_supplier_pool (user_id, supplier_id, source)
+       VALUES (?, ?, 'platform')`,
+      [userId, supplierId],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);
   }
@@ -126,18 +129,6 @@ export class UserSupplierPoolRepo {
     return row ? { id: Number(row.id) } : null;
   }
 
-  /** 查找供应商关联的最新一条诊断记录 id（经 crm_users.supplier_id 反查） */
-  async findLatestQualificationId(supplierId: number): Promise<number | null> {
-    const [rows] = await this.pool.query(
-      `SELECT q.id FROM crm_supplier_qualification q
-       INNER JOIN crm_users u ON u.id = q.user_id
-       WHERE u.supplier_id = ?
-       ORDER BY q.id DESC LIMIT 1`,
-      [supplierId],
-    );
-    return (rows as RowDataPacket[])[0]?.id ?? null;
-  }
-
   /** 更新备注 */
   async updateNotes(userId: number, poolId: number, notes: string): Promise<void> {
     await this.pool.execute(
@@ -163,38 +154,30 @@ export class UserSupplierPoolRepo {
     return Number((rows as RowDataPacket[])[0]?.cnt ?? 0);
   }
 
-  /** 统计资源库中缺诊断资料的工厂数（LEFT JOIN 落空即待完善），用于匹配结果页的补全提示 */
+  /** 统计资源库中尚未做过 v2 诊断的工厂数（LEFT JOIN 落空即待完善），用于匹配结果页的补全提示 */
   async countDiagnosisPending(userId: number): Promise<number> {
     const [rows] = await this.pool.query(
       `SELECT COUNT(*) AS cnt
        FROM crm_user_supplier_pool p
-       LEFT JOIN crm_supplier_qualification q ON q.id = p.qualification_id
+       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ? AND p.supplier_id IS NOT NULL AND q.id IS NULL`,
       [userId],
     );
     return Number((rows as RowDataPacket[])[0]?.cnt ?? 0);
   }
 
-  /** 回写诊断记录关联 */
-  async linkQualification(userId: number, poolId: number, qualificationId: number): Promise<void> {
-    await this.pool.execute(
-      "UPDATE crm_user_supplier_pool SET qualification_id = ? WHERE id = ? AND user_id = ?",
-      [qualificationId, poolId, userId],
-    );
-  }
-
-  /** 获取资源库中供应商的完整画像（用于 AI 匹配） */
+  /** 获取资源库中供应商的完整画像（用于 AI 匹配）
+   *  诊断列走与 ai/shared/supplier-profile 同一份 SSOT（diagnosisColumnSelect），
+   *  两个取数口一旦列集漂移，候选工厂与自家企业的 LLM 评分就不再可比。 */
   async fetchSupplierProfiles(userId: number): Promise<Record<string, unknown>[]> {
     const [rows] = await this.pool.query(
       `SELECT p.id AS pool_id, s.id AS supplier_id,
               s.company, s.industry, s.products, s.certification,
               s.country, s.city, s.type, s.registered_capital, s.established_at, s.intro,
-              q.employee_count, q.export_scale, q.service_countries,
-              q.overseas_companies, q.ungm_status, q.english_team,
-              q.payment_terms, q.bid_willingness
+              ${diagnosisColumnSelect("q")}
        FROM crm_user_supplier_pool p
        INNER JOIN supplier s ON s.id = p.supplier_id
-       LEFT JOIN crm_supplier_qualification q ON q.id = p.qualification_id
+       LEFT JOIN crm_supplier_diagnosis q ON q.supplier_id = p.supplier_id AND q.user_id = p.user_id
        WHERE p.user_id = ? AND p.supplier_id IS NOT NULL`,
       [userId],
     );

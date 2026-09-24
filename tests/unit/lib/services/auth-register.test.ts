@@ -16,12 +16,8 @@ vi.mock("@/lib/services/auth", async (importOriginal) => {
   };
 });
 
-const mockBackfillByPhone = vi.fn().mockResolvedValue(0);
-vi.mock("@/lib/repos/supplier-qualification.repo", () => ({
-  SupplierQualificationRepo: function (this: any) {
-    Object.assign(this, { backfillByPhone: mockBackfillByPhone });
-  },
-}));
+// 旧版“注册时按手机号回溯关联 crm_supplier_qualification”已随 v1 诊断表退役，
+// 故不再 mock SupplierQualificationRepo；诊断现在只在登录态下按 (user_id, supplier_id) 写入。
 vi.mock("@/lib/db/pool", () => ({ getPool: vi.fn(() => ({})) }));
 
 import { registerUser } from "@/lib/services/auth-register";
@@ -214,19 +210,9 @@ describe("registerUser", () => {
     expect(markPhoneVerifiedById).toHaveBeenCalledWith(77);
   });
 
-  it("注册成功后回溯关联诊断记录（按手机号）", async () => {
-    mockBackfillByPhone.mockResolvedValueOnce(2);
+  it("注册不再触碰已退役的 v1 诊断回溯（无副作用即可完成注册）", async () => {
     const ctx = makeCtx();
-    await registerUser(ctx, baseParams);
-    expect(mockBackfillByPhone).toHaveBeenCalledWith("13800000000", 99);
-  });
-
-  it("回溯关联失败不阻断注册", async () => {
-    mockBackfillByPhone.mockRejectedValueOnce(new Error("db error"));
-    const ctx = makeCtx();
-    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = await registerUser(ctx, baseParams);
-    expect(result.payload).toBeTruthy();
-    spy.mockRestore();
+    const res = await registerUser(ctx, baseParams);
+    expect(res.payload).toBeTruthy();
   });
 });

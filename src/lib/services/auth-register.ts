@@ -16,7 +16,6 @@ import type { AppContext } from "../db/context";
 import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
-import { backfillQualificationByPhone } from "./registration-backfill";
 
 /**
  * 将 ISO 8601 时间戳转换为 MySQL DATETIME 格式
@@ -104,9 +103,6 @@ export async function registerUser(
   await ctx.user.authRepo.backfillCodeUserId(codeRecord.id, newUserId);
   // 按 user_id 标记手机已验证（原按 user_key 路径已退役）
   await ctx.user.usersRepo.markPhoneVerifiedById(newUserId);
-
-  // ★ 回溯关联：检查该手机号是否有未关联的诊断评估记录（扫码场景常见）
-  await backfillQualificationByPhone(targetPhone, newUserId);
 
   // 仅在邀请码有效时递增 KPI 归属计数（注册 KPI「个人起步」：认证转企业由后台审核事件翻转）
   if (referralEmployeeId) {
