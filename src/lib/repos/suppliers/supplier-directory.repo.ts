@@ -29,6 +29,35 @@ export interface SupplierDirectoryRow {
   data_quality_score?: number | string | null;
 }
 
+/**
+ * 诊断入口「是不是这家公司」弹窗的候选行。
+ * 字段集是安全红线（规范 N9）：只允许识别性字段，**绝不能包含**
+ * contact / phone / email / address / registered_* / license_url，否则一个尚未
+ * 验证身份的地推现场用户就能把别人企业的联系方式看走。
+ */
+export interface CompanyCandidateRow extends RowDataPacket {
+  id: number;
+  company: string | null;
+  english_name: string | null;
+  type: string | null;
+  business_type: string | null;
+  province: string | null;
+  city: string | null;
+  established_at: string | null;
+  legal_rep: string | null;
+  credit_code: string | null;
+  verify_status: string | null;
+  claim_status: string | null;
+}
+
+/** 统一社会信用代码绕码：前 4 + **** + 后 4；短于 8 位只输出全绕码，不回原文 */
+export function maskCreditCode(value: string | null | undefined): string {
+  const v = String(value ?? "").trim();
+  if (!v) return "";
+  if (v.length <= 8) return "****";
+  return `${v.slice(0, 4)}****${v.slice(-4)}`;
+}
+
 export class SupplierDirectoryRepo {
   constructor(private pool: Pool) {}
 
@@ -223,6 +252,54 @@ export class SupplierDirectoryRepo {
       [companyName],
     );
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
+  }
+
+  /**
+   * 诊断入口「是不是贵公司」候选（需要比认领自动补全更多的识别字段）。
+   *
+   * 为何不复用 `findVerifiedByNameSimilar`：它只回 id/company/country/industry 且严格限定
+   * `verify_status='done'`，无法区分「XX 科技有限公司」与其分公司/同名主体（要靠省市、
+   * 法人、信用代码掩码辨认），也会漏掉存量无审核状态的可认领行。
+   * 口径：排除已合并行、前缀命中优先、按信用代码与资料完整度次优，避免把拼凑行推给用户。
+   */
+  async findDiagnosisCandidatesByName(keyword: string, limit = 5): Promise<CompanyCandidateRow[]> {
+    const kw = String(keyword ?? "").trim();
+    if (!kw) return [];
+    const safeLimit = Math.min(Math.max(Number(limit) || 5, 1), 10);
+    // 与 findVerifiedByNameSimilar 同口径转义 LIKE 通配符，否则用户输入 % 会退化为全表匹配
+    const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const [rows] = await this.pool.query<CompanyCandidateRow[]>(
+      `SELECT id, company, english_name, type, business_type, province, city,
+              established_at, legal_rep, credit_code, verify_status, claim_status
+         FROM supplier
+        WHERE company LIKE ?
+          AND merged_id IS NULL
+          AND (verify_status = 'done' OR verify_status IS NULL)
+        ORDER BY (credit_code IS NOT NULL AND credit_code <> '') DESC,
+                 data_quality_score DESC, id DESC
+        LIMIT ?`,
+      [`${escaped}%`, safeLimit],
+    );
+    return rows as CompanyCandidateRow[];
+  }
+
+  /**
+   * 取诊断评分 D1 所需的主数据片段。
+   * `data_quality_score` 是生成列（20 字段非空各计 5 分），`info_checked` 是人工核对标记；
+   * 本方法不走 verify_status 过滤，因为刚建档的行依然是 D1 的正当评价对象。
+   */
+  async findProfileBits(supplierId: number): Promise<{ dataQualityScore: number | null; infoChecked: boolean } | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT data_quality_score, info_checked FROM supplier WHERE id = ? LIMIT 1`,
+      [supplierId],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    const q = row.data_quality_score;
+    return {
+      dataQualityScore: q === null || q === undefined ? null : Number(q),
+      infoChecked: Number(row.info_checked ?? 0) === 1,
+    };
   }
 
   /**
