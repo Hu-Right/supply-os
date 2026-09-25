@@ -152,5 +152,11 @@
   "servicesLoading": "加载中…",
   "servicesError": "服务加载失败",
   "servicesRetry": "重试",
-  "servicesEmpty": "暂无可用服务"
+  "servicesEmpty": "暂无可用服务",
+  "entCompanionTag": "人工服务",
+  "entCompanionPriceNote": "一次一单 · 人工对接",
+  "entCompanionBullet1": "顾问 1:1 对接，明确贵司能力与方向",
+  "entCompanionBullet2": "人工筛选并推送符合的国际公共采购机会",
+  "entCompanionBullet3": "无需自行海选，适合初涉国际公采的企业",
+  "entCompanionCta": "下单并预约顾问"
 }

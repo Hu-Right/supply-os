@@ -482,6 +482,8 @@
   "detail_aiSummaryClickStart": "Haga clic en el botón: la IA generará un análisis de adecuación de 6 dimensiones para esta licitación según el perfil de su empresa.",
   "detail_aiSummaryErrorAuth": "Sesión expirada. Inicie sesión de nuevo e inténtelo otra vez.",
   "detail_aiSummaryErrorLocked": "Desbloquee este anuncio antes de ejecutar el análisis IA.",
+  "detail_aiSummaryUpgradeHint": "Su plan solo muestra el texto original del anuncio. Mejore a Pro o superior para desbloquear el resumen IA y la traducción.",
+  "detail_aiSummaryUpgradeCta": "Mejorar para desbloquear IA",
   "detail_aiSummaryErrorRate": "Demasiadas solicitudes al servicio de IA. Inténtelo más tarde.",
   "detail_aiSummaryErrorNetwork": "Servicio de IA no disponible temporalmente. Inténtelo de nuevo más tarde.",
   "detail_aiSummaryErrorFormat": "Format de respuesta de IA anómalo. Reinténtelo o revise la configuración del modelo.",

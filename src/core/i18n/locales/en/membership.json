@@ -152,5 +152,11 @@
   "servicesLoading": "Loading…",
   "servicesError": "Failed to load services",
   "servicesRetry": "Retry",
-  "servicesEmpty": "No services available"
+  "servicesEmpty": "No services available",
+  "entCompanionTag": "Manual Service",
+  "entCompanionPriceNote": "Per engagement · human-assisted",
+  "entCompanionBullet1": "1:1 advisor onboarding to clarify your capability and focus",
+  "entCompanionBullet2": "Hand-curated UN procurement opportunities matched to your company",
+  "entCompanionBullet3": "No self-searching required — ideal for first-time international bidders",
+  "entCompanionCta": "Order & book an advisor"
 }

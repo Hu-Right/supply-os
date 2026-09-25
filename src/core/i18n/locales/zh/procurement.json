@@ -473,6 +473,8 @@
   "detail_aiSummaryClickStart": "点击按钮，AI 将结合您的企业画像生成本标 6 维度适配分析。",
   "detail_aiSummaryErrorAuth": "登录已过期，请重新登录后再试。",
   "detail_aiSummaryErrorLocked": "请先解锁本公告，再进行 AI 分析。",
+  "detail_aiSummaryUpgradeHint": "当前套餐仅支持查看公告原文，升级至专业版及以上可解锁 AI 拆标摘要与中文译文。",
+  "detail_aiSummaryUpgradeCta": "升级解锁 AI 能力",
   "detail_aiSummaryErrorRate": "AI 服务请求过于频繁，请稍后再试。",
   "detail_aiSummaryErrorNetwork": "AI 服务暂时不可用，请稍后重试。",
   "detail_aiSummaryErrorFormat": "AI 返回结果格式异常，请重试或检查模型配置。",

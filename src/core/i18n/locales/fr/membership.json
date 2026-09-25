@@ -152,5 +152,11 @@
   "servicesLoading": "Chargement…",
   "servicesError": "Échec du chargement des services",
   "servicesRetry": "Réessayer",
-  "servicesEmpty": "Aucun service disponible"
+  "servicesEmpty": "Aucun service disponible",
+  "entCompanionTag": "Service manuel",
+  "entCompanionPriceNote": "Par mission · accompagnement humain",
+  "entCompanionBullet1": "Conseiller 1:1 pour cerner les capacités et l'orientation de votre entreprise",
+  "entCompanionBullet2": "Appels d'offres internationaux sélectionnés à la main pour votre société",
+  "entCompanionBullet3": "Aucune recherche manuelle — idéal pour les nouveaux soumissionnaires",
+  "entCompanionCta": "Commander et réserver un conseiller"
 }
