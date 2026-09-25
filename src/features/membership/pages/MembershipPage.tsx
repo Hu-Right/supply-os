@@ -16,12 +16,13 @@ import { emitAppEvent } from "@/core/events";
 import { Button } from "@/shared/ui";
 import { PlanCard } from "../components/PlanCard";
 import { ServiceCard } from "../components/ServiceCard";
+import { EnterpriseCompanionCard } from "../components/EnterpriseCompanionCard";
 import { ContactQrModal } from "../components/ContactQrModal";
 import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
-import { groupPlansByAudience, groupServicesByCategory, serviceDisplayName } from "../utils";
+import { groupPlansByAudience, groupServicesByCategory, serviceDisplayName, pickEnterpriseTabServices } from "../utils";
 import type { ServiceCatalogRow } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
@@ -51,6 +52,8 @@ export default function MembershipPage() {
   const { personal, enterprise } = groupPlansByAudience(plans);
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
   const groupedServices = groupServicesByCategory(services);
+  // 企业 Tab 额外并列的服务卡（199 人工找单）：非订阅档，从服务目录按集中常量取。
+  const enterpriseServices = tab === "enterprise" ? pickEnterpriseTabServices(services) : [];
 
   const GROUP_TITLE_KEY: Record<string, string> = {
     pro_service: "svcGroupProService",
@@ -166,7 +169,7 @@ export default function MembershipPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto" data-testid="plan-list">
+                  <div className="grid grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto" data-testid="plan-list">
                     {comparison &&
                       currentPlans.map((plan) => (
                         <PlanCard
@@ -184,6 +187,10 @@ export default function MembershipPage() {
                         <p className="text-slate-500 text-lg">{t("membershipNoPlans")}</p>
                       </div>
                     )}
+                    {/* 企业 Tab：与订阅卡并列的人工服务卡（199，同一视觉语言） */}
+                    {enterpriseServices.map((row) => (
+                      <EnterpriseCompanionCard key={row.service_code} row={row} onPay={handleServicePay} />
+                    ))}
                   </div>
                 </>
               )}

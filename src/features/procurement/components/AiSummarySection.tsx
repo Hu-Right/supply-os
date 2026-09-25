@@ -44,6 +44,10 @@ export interface AiSummarySectionProps {
   locked?: boolean;
   /** 点击"解锁查看"的回调 */
   onRequestUnlock?: () => void;
+  /** 已解锁但当前档位不含 AI 摘要权益（低档只看原文）：引导升级 */
+  upgradeLocked?: boolean;
+  /** 点击"升级解锁 AI 能力"的回调 */
+  onUpgrade?: () => void;
 }
 
 interface SummaryItem {
@@ -65,6 +69,8 @@ export function AiSummarySection({
   onRegenerate,
   locked = false,
   onRequestUnlock,
+  upgradeLocked = false,
+  onUpgrade,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
 
@@ -128,6 +134,31 @@ export function AiSummarySection({
             <div key={i} className="h-3 rounded bg-teal-100/70" style={{ width: `${90 - i * 15}%` }} />
           ))}
         </div>
+      </section>
+    );
+  }
+
+  // 低档已解锁但无 AI 权益：引导升级（区别于未解锁的"引导解锁"）。
+  if (upgradeLocked && !hasData) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Lock className="w-5 h-5 text-slate-400" />
+          <h3 className="text-base font-extrabold text-slate-900">
+            {t("detail_aiSummaryTitle") || "AI 拆标摘要"}
+          </h3>
+        </div>
+        <p className="text-sm text-slate-500 mb-4">
+          {t("detail_aiSummaryUpgradeHint") || "当前套餐仅支持查看公告原文，升级至专业版及以上可解锁 AI 拆标摘要与中文译文。"}
+        </p>
+        <button
+          type="button"
+          onClick={onUpgrade}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 text-sm font-bold transition-colors"
+        >
+          <Sparkles className="w-4 h-4" />
+          {t("detail_aiSummaryUpgradeCta") || "升级解锁 AI 能力"} →
+        </button>
       </section>
     );
   }

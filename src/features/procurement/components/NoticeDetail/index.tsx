@@ -70,7 +70,12 @@ export function NoticeDetail({
   // 锁定态：core_locked === false 为已解锁（列表标记或 /detail 合并结果）。
   // 上移至 hooks 之前：AI 摘要与翻译一致，锁定态不发请求/不开放"开始分析"（后端必 403 core_locked）。
   const coreUnlocked = notice.core_locked === false;
-  const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked);
+  // 档位中文能力（服务端按矩阵下发 gates）：notice_translation 控译文、ai_summary 控 AI 摘要。
+  // free/included 才算当前用户享有；其余（upgrade/contact/unlock）一律回落原文。
+  const gates = membership?.gates;
+  const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
+  const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
+  const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
   const aiMatch = useAiMatch(noticeId);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
@@ -90,20 +95,23 @@ export function NoticeDetail({
   // 锁定态发起必 403 core_locked；锁定面板标题来自列表 i18n 字段，无需译文。
   // 解锁后 core_locked 翻转为 false，钩子自动补发。
   const { translation, displayTitle: hookDisplayTitle, translating, failed, showOriginal, toggleOriginal } = useNoticeTranslation(
-    coreUnlocked ? (notice as { id?: number }).id : undefined, locale,
+    coreUnlocked && canSeeChinese ? (notice as { id?: number }).id : undefined, locale,
     `${notice.title || ""}\n${notice.description || ""}`,
-    locale === "zh" ? (notice.title_i18n || undefined) : undefined,
+    canSeeChinese && locale === "zh" ? (notice.title_i18n || undefined) : undefined,
   );
-  // 标题回退链：hook 译文 > 列表 i18n 标题（锁定态 seed 未注入时兜底）> 原文
-  // 修复：锁定态详情页跳过 title_i18n 导致中文环境下标题显示英文的问题
-  const displayTitle = hookDisplayTitle || notice.title_i18n || notice.title;
-  const displayDescription = showOriginal
+  // 标题回退链：无中文能力→原文标题；否则 hook 译文 > 列表 i18n 标题 > 原文
+  const displayTitle = canSeeChinese
+    ? (hookDisplayTitle || notice.title_i18n || notice.title)
+    : notice.title;
+  const displayDescription = !canSeeChinese
     ? (notice.original_description || notice.description)
-    : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
-  const descResolved = locale === "zh" && !!notice.description_cn;
-  const showTranslating = translating && !descResolved;
-  // 切换按钮可见性：API 译文 或 description_cn 直出均视为"有译文"
-  const hasTranslation = !!translation || descResolved;
+    : showOriginal
+      ? (notice.original_description || notice.description)
+      : (locale === "zh" && notice.description_cn) || translation?.description || notice.description;
+  const descResolved = canSeeChinese && locale === "zh" && !!notice.description_cn;
+  const showTranslating = canSeeChinese && translating && !descResolved;
+  // 切换按钮可见性：需有中文能力且有译文（API 译文 或 description_cn 直出）
+  const hasTranslation = canSeeChinese && (!!translation || descResolved);
 
   // 锁定态展示项
   const showSkeleton = !coreUnlocked && !!detailLoading;
@@ -166,6 +174,8 @@ export function NoticeDetail({
                   error={aiSummary.error}
                   llmConfigured={aiSummary.llmConfigured}
                   locked={!coreUnlocked}
+                  upgradeLocked={coreUnlocked && !aiSummaryEnabled}
+                  onUpgrade={() => router.push("/membership")}
                   onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
                   onRequestUnlock={() => onUnlock(notice)}

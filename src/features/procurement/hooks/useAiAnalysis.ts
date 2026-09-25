@@ -44,6 +44,8 @@ export function useAiAnalysis(
   isLoggedIn: boolean,
   /** 公告是否已解锁：未解锁时不加载缓存、不开放分析（后端必 403 core_locked） */
   isUnlocked = true,
+  /** 当前档位是否含 AI 摘要权益（矩阵 ai_summary）：false 时不请求、不生成（低档只看原文） */
+  entitled = true,
 ): UseAiAnalysisReturn {
   const [data, setData] = useState<AiSummaryData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -130,7 +132,7 @@ export function useAiAnalysis(
   // 锁定态直接复位并早退：不发 llm-config/缓存请求，避免必败的 403 core_locked
   useEffect(() => {
     abortRef.current = false;
-    if (!noticeId || !isLoggedIn || !isUnlocked) {
+    if (!noticeId || !isLoggedIn || !isUnlocked || !entitled) {
       setData(null); setLlmConfigured(false); setLoading(false); setStreaming(false);
       return;
     }
@@ -159,13 +161,13 @@ export function useAiAnalysis(
       }
     })();
     return () => { cancelled = true; abortRef.current = true; };
-  }, [noticeId, isLoggedIn, isUnlocked]);
+  }, [noticeId, isLoggedIn, isUnlocked, entitled]);
 
   const triggerAnalysis = useCallback((force = false) => {
-    if (!noticeId || !isUnlocked) return;
+    if (!noticeId || !isUnlocked || !entitled) return;
     abortRef.current = false;
     void run(noticeId, force);
-  }, [noticeId, isUnlocked, run]);
+  }, [noticeId, isUnlocked, entitled, run]);
 
   return { data, loading, streaming, error, cached, llmConfigured, triggerAnalysis };
 }

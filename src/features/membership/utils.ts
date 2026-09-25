@@ -45,6 +45,21 @@ export function getPlanQuotaDisplay(
   return row?.cells[planCode]?.display ?? null;
 }
 
+/**
+ * 企业 Tab 内与订阅卡并列展示的服务 SKU（集中声明，避免在页面里散落硬编码 service_code）。
+ * 语义：企业版收敛为「199 人工找单（服务）+ 8800 企业智能版（订阅）」两档，199 非订阅故走服务目录。
+ */
+export const ENTERPRISE_TAB_SERVICE_CODES: readonly string[] = ["svc_manual_bid_match"];
+
+/** 取应在企业 Tab 展示的服务行（按集中常量筛选，保持常量声明顺序）。 */
+export function pickEnterpriseTabServices<T extends { service_code: string }>(
+  services: T[],
+): T[] {
+  return ENTERPRISE_TAB_SERVICE_CODES.map((code) => services.find((s) => s.service_code === code)).filter(
+    (s): s is T => s != null,
+  );
+}
+
 /** 按派生受众把套餐分为个人版 / 企业版两组（缺失 audience 归企业版，与后端兜底一致）。 */
 export function groupPlansByAudience(plans: PlanCatalogRow[]): {
   personal: PlanCatalogRow[];
