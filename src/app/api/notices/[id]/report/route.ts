@@ -11,6 +11,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
   buildBidReportDocx,
   mergeBidReportRow,
@@ -42,6 +43,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
 
     const unlock = await unlockRepo.findUnlock(userId, noticeId);
     if (!unlock) routeError(403, EC_ACCESS_FORBIDDEN, "公告已锁定，请先解锁", { core_locked: true });
+
+    // 中文报告属"中文能力"资产：仅含 notice_translation 权益的档位（1299+）可下载（2026-09-25 权益重设计）
+    if (!(await ctx.benefitSystemRepo.isEntitled(userId, NOTICE_TRANSLATION_BENEFIT))) {
+      routeError(403, EC_ACCESS_FORBIDDEN, "当前套餐不包含中文报告下载", { feature: NOTICE_TRANSLATION_BENEFIT });
+    }
 
     const notice = await detailRepo.findDetailPublished(noticeId);
     if (!notice) routeError(404, EC_NOTICE_NOT_FOUND_404, "公告不存在");

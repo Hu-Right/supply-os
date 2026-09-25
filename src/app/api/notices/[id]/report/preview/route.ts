@@ -8,6 +8,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import {
   buildBidReportPreviewText,
   estimateFullReportCharCount,
@@ -48,9 +49,12 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const sections = buildBidReportPreviewText(row, lang);
     const total_report_chars = estimateFullReportCharCount(row);
 
-    // 未解锁用户服务端截断 sections 内容
+    // 中文报告属"中文能力"资产：无 notice_translation 权益（129/999 等）即使已解锁，预览也降级为截断 teaser（2026-09-25 权益重设计）
+    const canSeeChineseReport = await ctx.benefitSystemRepo.isEntitled(userId, NOTICE_TRANSLATION_BENEFIT);
+
+    // 未解锁或无中文能力权益：服务端截断 sections 内容
     const MAX_CHARS_PER_SECTION = 500;
-    const safeSections = unlock
+    const safeSections = unlock && canSeeChineseReport
       ? sections
       : sections.map((s: { heading: string; body: string }) => ({
           ...s,
