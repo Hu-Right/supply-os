@@ -18,6 +18,8 @@ export interface UseAiAnalysisReturn {
   streaming: boolean;
   error: string | null;
   cached: boolean;
+  /** 当前展示为服务端脱敏 teaser（低档）：驱动"升级看完整"内联提示 */
+  masked: boolean;
   llmConfigured: boolean;
   triggerAnalysis: (forceRegenerate?: boolean) => void;
 }
@@ -52,6 +54,7 @@ export function useAiAnalysis(
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cached, setCached] = useState(false);
+  const [masked, setMasked] = useState(false);
   const [llmConfigured, setLlmConfigured] = useState(false);
   const abortRef = useRef(false);
 
@@ -62,6 +65,7 @@ export function useAiAnalysis(
     setError(null);
     setData(null);
     setCached(false);
+    setMasked(false);
 
     let accumulated = "";
 
@@ -94,6 +98,7 @@ export function useAiAnalysis(
                 riskAlerts: parsed.riskAlerts,
               });
               setCached(true);
+              setMasked(!!parsed.masked);
               ok = true;
             }
           } catch { /* 落入降级 */ }
@@ -155,6 +160,7 @@ export function useAiAnalysis(
             riskAlerts: cachedData.riskAlerts,
           });
           setCached(true);
+          setMasked(!!cachedData.masked);
         }
       } catch {
         if (!cancelled) setLlmConfigured(false);
@@ -169,5 +175,5 @@ export function useAiAnalysis(
     void run(noticeId, force);
   }, [noticeId, isUnlocked, entitled, run]);
 
-  return { data, loading, streaming, error, cached, llmConfigured, triggerAnalysis };
+  return { data, loading, streaming, error, cached, masked, llmConfigured, triggerAnalysis };
 }

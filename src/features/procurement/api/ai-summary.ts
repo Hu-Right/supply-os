@@ -23,6 +23,8 @@ export interface AiSummaryResponse {
   riskAlerts: string;
   model: string;
   cached: boolean;
+  /** 服务端按矩阵 ai_summary 层级判定：true=部分脱敏 teaser（低档），前端据此显示"升级看完整"提示 */
+  masked?: boolean;
   inputTokens: number | null;
   outputTokens: number | null;
 }

@@ -46,6 +46,8 @@ export interface AiSummarySectionProps {
   onRequestUnlock?: () => void;
   /** 已解锁但当前档位不含 AI 摘要权益（低档只看原文）：引导升级 */
   upgradeLocked?: boolean;
+  /** 当前展示为服务端脱敏 teaser（低档 ai_summary=1）：底部内联"升级看完整"提示 */
+  masked?: boolean;
   /** 点击"升级解锁 AI 能力"的回调 */
   onUpgrade?: () => void;
 }
@@ -70,6 +72,7 @@ export function AiSummarySection({
   locked = false,
   onRequestUnlock,
   upgradeLocked = false,
+  masked = false,
   onUpgrade,
 }: AiSummarySectionProps) {
   const { t } = useLocale();
@@ -330,6 +333,23 @@ export function AiSummarySection({
           </div>
         ))}
       </div>
+
+      {/* 脱敏 teaser：内联"升级看完整"提示（低档 ai_summary=1） */}
+      {masked && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-teal-200 bg-teal-50/60 px-4 py-3">
+          <p className="text-xs text-teal-800 font-medium">
+            {t("detail_aiSummaryTeaserHint") || "以上为部分内容预览，升级至无限版解锁完整六维分析与中文译文。"}
+          </p>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 text-xs font-bold transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {t("detail_aiSummaryUpgradeCta") || "升级解锁 AI 能力"}
+          </button>
+        </div>
+      )}
 
       {/* 底部操作：重新分析 */}
       {!streaming && hasData && (

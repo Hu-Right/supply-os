@@ -176,6 +176,7 @@ export function NoticeDetail({
                   llmConfigured={aiSummary.llmConfigured}
                   locked={!coreUnlocked}
                   upgradeLocked={coreUnlocked && !aiSummaryEnabled}
+                  masked={aiSummary.masked}
                   onUpgrade={() => router.push("/membership")}
                   onStart={() => aiSummary.triggerAnalysis(false)}
                   onConfigure={() => router.push("/settings/ai-model")}
