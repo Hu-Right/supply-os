@@ -139,6 +139,7 @@ export function useAiAnalysis(
     abortRef.current = false;
     if (!noticeId || !isLoggedIn || !isUnlocked || !entitled) {
       setData(null); setLlmConfigured(false); setLoading(false); setStreaming(false);
+      setMasked(false); setCached(false); setError(null);
       return;
     }
     let cancelled = false;

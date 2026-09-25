@@ -18,7 +18,7 @@ import { withRoute, routeError, parseJson } from "@/lib/middleware/route-handler
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
-import { EC_INVALID_PARAMS } from "@/shared/constants/api";
+import { EC_INVALID_PARAMS, EC_ACCESS_FORBIDDEN } from "@/shared/constants/api";
 import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
@@ -85,7 +85,7 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
     const level = await summaryLevel(auth.userId);
     // 低档不允许生成摘要（只看原文）：服务端拒绝，不消耗 LLM
     if (level < AI_SUMMARY_MIN_VIEW_LEVEL) {
-      routeError(403, EC_INVALID_PARAMS, "当前套餐不包含 AI 摘要，仅可查看原文", { feature: AI_SUMMARY_BENEFIT });
+      routeError(403, EC_ACCESS_FORBIDDEN, "当前套餐不包含 AI 摘要，仅可查看原文", { feature: AI_SUMMARY_BENEFIT });
     }
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
     const data = level < AI_SUMMARY_FULL_LEVEL

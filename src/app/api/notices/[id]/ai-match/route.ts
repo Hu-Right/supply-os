@@ -33,6 +33,10 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       routeError(400, EC_INVALID_PARAMS, "无效的公告 ID");
     }
     const ctx = getContext();
+    // 走法②：无 ai_match 权益（低档）即使有历史缓存也不回读，防直接打接口绕过（与 POST 门控对称）
+    if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, "ai_match"))) {
+      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, locked: true } });
+    }
     const [cached, diagPending] = await Promise.all([
       new AiSummaryRepo(ctx.dbPool).findMatch(auth.userId, noticeId),
       new UserSupplierPoolRepo(ctx.dbPool).countDiagnosisPending(auth.userId),
