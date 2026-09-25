@@ -13,6 +13,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { NOTICE_TRANSLATION_LANGS } from "@/lib/services/translation/notice";
+import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import { fetchNoticeTranslation } from "@/lib/services/notice-service";
 
 // ── GET /api/notices/[id]/translation — 公告翻译 ──
@@ -36,6 +37,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     const ctx = getContext();
     const unlock = await ctx.notice.unlockRepo.findUnlock(auth.userId, noticeId);
     if (!unlock) routeError(403, 40013, "公告已锁定，请先解锁", { core_locked: true });
+
+    // 档位门控（2026-09-24）：译文按矩阵 notice_translation 判定，129/999 等低档只给原文，不产出译文
+    if (!(await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT))) {
+      routeError(403, 40013, "当前套餐不包含译文，仅可查看原文", { feature: NOTICE_TRANSLATION_BENEFIT });
+    }
 
     const result = await fetchNoticeTranslation(noticeId, lang);
     return NextResponse.json(result);

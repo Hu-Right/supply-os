@@ -38,6 +38,15 @@ const FREE_SUMMARY_PREVIEW: Partial<Record<SummaryDimension, number>> = {
  */
 export const AI_SUMMARY_BENEFIT = "ai_summary";
 export const AI_SUMMARY_FULL_LEVEL = 2;
+/** 低于此层级（=0，如 starter/pro）完全不展示摘要（只看原文）；=1 脱敏试读（free）；>=2 完整。 */
+export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
+
+/**
+ * 公告译文权益码（bool）：/translation、/content 的 description_cn、前端「查看译文」切换的档位门控来源。
+ * 矩阵取值：free/starter/pro=0（只看原文，无译文），unlimited 及以上=1（含中文报告）。
+ * 与 ai_summary / ai_match 同属「中文/AI 加工能力」，1299+ 才解锁。
+ */
+export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";
 
 export interface MaskableSummary {
   coreDeliverables: string;

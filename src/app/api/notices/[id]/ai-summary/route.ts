@@ -19,7 +19,7 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { getOrGenerateAiSummary } from "@/lib/services/ai-summary";
 import { AiSummaryRepo } from "@/lib/repos/ai-summary.repo";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
-import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 const bodySchema = z.object({
   forceRegenerate: z.boolean().optional().default(false),
@@ -28,10 +28,9 @@ const bodySchema = z.object({
 /** LLM 生成成本高（20-60s/次），仅限流 POST 生成路径（GET 只读缓存不消耗 LLM）：10 分钟 6 次 */
 const AI_SUMMARY_RATE = { windowMs: 10 * 60_000, maxAttempts: 6 };
 
-/** 摘要脱敏判定：按矩阵 ai_summary 行的层级（1=部分脱敏 / 2=完整），不再比档位 */
-async function shouldMaskSummary(userId: number): Promise<boolean> {
-  const level = await getContext().benefitSystemRepo.levelForUser(userId, AI_SUMMARY_BENEFIT);
-  return level < AI_SUMMARY_FULL_LEVEL;
+/** 摘要展示层级：按矩阵 ai_summary 行判定（0=不展示/1=部分脱敏/2=完整），不再比档位 */
+async function summaryLevel(userId: number): Promise<number> {
+  return getContext().benefitSystemRepo.levelForUser(userId, AI_SUMMARY_BENEFIT);
 }
 
 /** GET：只读缓存，用于进页面时判断是否已有历史分析（不消耗 LLM） */
@@ -45,6 +44,11 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     }
     const ctx = getContext();
     const repo = new AiSummaryRepo(ctx.dbPool);
+    const level = await summaryLevel(auth.userId);
+    // 低档（level<1）完全不展示摘要：不读缓存，直接回 locked（只看原文）
+    if (level < AI_SUMMARY_MIN_VIEW_LEVEL) {
+      return NextResponse.json({ code: 0, message: "ok", data: { cached: false, locked: true } });
+    }
     const cached = await repo.find(auth.userId, noticeId);
     if (!cached || !cached.core_deliverables) {
       return NextResponse.json({ code: 0, message: "ok", data: { cached: false } });
@@ -58,7 +62,7 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
       bidStrategy: cached.bid_strategy || "",
       riskAlerts: cached.risk_alerts || "",
     };
-    const data = (await shouldMaskSummary(auth.userId))
+    const data = level < AI_SUMMARY_FULL_LEVEL
       ? { ...maskSummaryForFree(full), masked: true }
       : full;
     return NextResponse.json({ code: 0, message: "ok", data });
@@ -78,8 +82,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const body = await parseJson(req, bodySchema);
     const pool = getContext().dbPool;
+    const level = await summaryLevel(auth.userId);
+    // 低档不允许生成摘要（只看原文）：服务端拒绝，不消耗 LLM
+    if (level < AI_SUMMARY_MIN_VIEW_LEVEL) {
+      routeError(403, EC_INVALID_PARAMS, "当前套餐不包含 AI 摘要，仅可查看原文", { feature: AI_SUMMARY_BENEFIT });
+    }
     const result = await getOrGenerateAiSummary(pool, auth.userId, noticeId, body.forceRegenerate);
-    const data = (await shouldMaskSummary(auth.userId))
+    const data = level < AI_SUMMARY_FULL_LEVEL
       ? { ...maskSummaryForFree(result), masked: true }
       : result;
     return NextResponse.json({ code: 0, message: "ok", data });

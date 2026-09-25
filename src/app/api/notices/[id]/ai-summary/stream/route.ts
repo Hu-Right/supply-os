@@ -12,7 +12,7 @@ import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { EC_INVALID_PARAMS } from "@/shared/constants/api";
 import { getOrGenerateAiSummary, streamAiSummary } from "@/lib/services/ai-summary";
-import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
+import { AI_SUMMARY_BENEFIT, AI_SUMMARY_FULL_LEVEL, AI_SUMMARY_MIN_VIEW_LEVEL, maskSummaryForFree } from "@/lib/services/benefit-matrix";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -25,8 +25,22 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const ctx = getContext();
 
-    // 部分脱敏档：非流式生成 + 整体脱敏 + 单条推送（按矩阵 ai_summary 层级判定）
     const summaryLevel = await ctx.benefitSystemRepo.levelForUser(auth.userId, AI_SUMMARY_BENEFIT);
+
+    // 低档（level<1）：不生成不推送摘要，只回 locked（只看原文），不消耗 LLM
+    if (summaryLevel < AI_SUMMARY_MIN_VIEW_LEVEL) {
+      const enc = new TextEncoder();
+      const lockedStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(enc.encode(`data: ${JSON.stringify({ locked: true })}\n\n`));
+          controller.enqueue(enc.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+      return sseResponse(lockedStream);
+    }
+
+    // 部分脱敏档：非流式生成 + 整体脱敏 + 单条推送（按矩阵 ai_summary 层级判定）
     if (summaryLevel < AI_SUMMARY_FULL_LEVEL) {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({

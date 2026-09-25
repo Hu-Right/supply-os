@@ -14,6 +14,7 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { findQualifiedOpportunityForNotice } from "@/lib/services/notices/featured";
+import { NOTICE_TRANSLATION_BENEFIT } from "@/lib/services/benefit-matrix";
 import { preferValue } from "@/lib/utils/json";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
@@ -37,7 +38,9 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     // 从机会表取完整描述（主表 description 仅存标题，完整原文在 crm_bid_opportunities）
     const opportunity = await findQualifiedOpportunityForNotice(ctx.dbPool, notice);
     const fullDescription = String(preferValue(opportunity?.description, notice.description) || "");
-    const descriptionCn = String(opportunity?.description_cn || "");
+    // 档位门控（2026-09-24）：description_cn 属中文内容，无 notice_translation 权益时置空，前端回落原文
+    const canSeeTranslation = await ctx.benefitSystemRepo.isEntitled(auth.userId, NOTICE_TRANSLATION_BENEFIT);
+    const descriptionCn = canSeeTranslation ? String(opportunity?.description_cn || "") : "";
     
     return NextResponse.json({
       description: fullDescription,

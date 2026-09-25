@@ -171,6 +171,7 @@ import { migration as m093 } from "./migrations/093-plan-tax-comment";
 import { migration as m094 } from "./migrations/094-drop-old-benefit-tables";
 import { migration as m095 } from "./migrations/095-refresh-tokens-slim";
 import { migration as m096 } from "./migrations/096-supplier-diagnosis";
+import { migration as m097 } from "./migrations/097-plans-chinese-gating";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -199,6 +200,9 @@ const ALL_MIGRATIONS: Migration[] = [
   // m096：供应商投标能力诊断表 v2（旁路新建 crm_supplier_diagnosis，旧表 crm_supplier_qualification 一行不改）
   //       10 维度 19 题，企业基础信息不入本表；口径见 docs/superpowers/specs/2026-09-24-供应商诊断表统一规范设计.md
   m096,
+  // m097：会员套餐调整——新增 notice_translation 中文能力权益、starter/pro 收紧为只看原文（AI/翻译关）、
+  //       企业版收敛为 199(人工找单服务)+8800（advisor/enterprise 下架）；须同步 verify-benefit-constraints 绝对值
+  m097,
 ];
 
 /**
