@@ -172,6 +172,7 @@ import { migration as m094 } from "./migrations/094-drop-old-benefit-tables";
 import { migration as m095 } from "./migrations/095-refresh-tokens-slim";
 import { migration as m096 } from "./migrations/096-supplier-diagnosis";
 import { migration as m097 } from "./migrations/097-plans-chinese-gating";
+import { migration as m098 } from "./migrations/098-benefit-matrix-redesign";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -203,6 +204,9 @@ const ALL_MIGRATIONS: Migration[] = [
   // m097：会员套餐调整——新增 notice_translation 中文能力权益、starter/pro 收紧为只看原文（AI/翻译关）、
   //       企业版收敛为 199(人工找单服务)+8800（advisor/enterprise 下架）；须同步 verify-benefit-constraints 绝对值
   m097,
+  // m098：权益体系重设计——ai_summary 三态收紧（free=0/starter,pro=teaser）、收藏/监控拆分改名、
+  //       甲类+人人可用 8 项移出矩阵（is_active=0）；不增删行，verify-benefit-constraints 绝对值不变
+  m098,
 ];
 
 /**
