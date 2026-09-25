@@ -22,7 +22,7 @@ import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
-import { groupPlansByAudience, groupServicesByCategory, serviceDisplayName, pickEnterpriseTabServices } from "../utils";
+import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, pickEnterpriseTabServices } from "../utils";
 import type { ServiceCatalogRow } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
@@ -51,7 +51,8 @@ export default function MembershipPage() {
 
   const { personal, enterprise } = groupPlansByAudience(plans);
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
-  const groupedServices = groupServicesByCategory(services);
+  // 订制服务 Tab：只展示 advisory + api_license（pro_service 归企业 Tab）
+  const groupedServices = pickServiceTabGroups(groupServicesByCategory(services));
   // 企业 Tab 额外并列的服务卡（199 人工找单）：非订阅档，从服务目录按集中常量取。
   const enterpriseServices = tab === "enterprise" ? pickEnterpriseTabServices(services) : [];
 

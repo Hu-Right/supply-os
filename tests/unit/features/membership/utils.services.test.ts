@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveServiceBranch, serviceDisplayName, groupServicesByCategory } from "@/features/membership/utils";
+import { resolveServiceBranch, serviceDisplayName, groupServicesByCategory, pickServiceTabGroups } from "@/features/membership/utils";
 import type { ServiceCatalogRow } from "@/types/membership";
 
 const row = (over: Partial<ServiceCatalogRow>): ServiceCatalogRow => ({
@@ -28,5 +28,20 @@ describe("groupServicesByCategory", () => {
     ]);
     expect(Object.keys(g)).toEqual(["pro_service", "advisory", "api_license"]);
     expect(g.pro_service).toHaveLength(1);
+  });
+});
+
+describe("pickServiceTabGroups", () => {
+  it("只保留 advisory + api_license，丢弃 pro_service", () => {
+    const g = groupServicesByCategory([
+      row({ category: "advisory" }), row({ category: "pro_service" }), row({ category: "api_license" }),
+    ]);
+    const picked = pickServiceTabGroups(g);
+    expect(Object.keys(picked).sort()).toEqual(["advisory", "api_license"]);
+    expect(picked.pro_service).toBeUndefined();
+  });
+  it("无允许类别时返回空对象", () => {
+    const picked = pickServiceTabGroups({ pro_service: [row({ category: "pro_service" })] });
+    expect(Object.keys(picked)).toHaveLength(0);
   });
 });

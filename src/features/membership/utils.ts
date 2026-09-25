@@ -95,3 +95,14 @@ export function groupServicesByCategory<T extends { category: string }>(rows: T[
   for (const k of Object.keys(grouped)) if (grouped[k].length === 0) delete grouped[k];
   return grouped;
 }
+
+/**
+ * 订制服务 Tab 允许展示的服务类别（2026-09-25 权益重设计）：
+ * 只留顾问服务(advisory) + API 数据授权(api_license)；pro_service（如 199 人工找单）归企业 Tab，不在此列。
+ */
+export const SERVICE_TAB_CATEGORIES: readonly string[] = ["advisory", "api_license"];
+
+/** 从已分组的服务里只保留订制服务 Tab 允许的类别（保持入参已有顺序）。 */
+export function pickServiceTabGroups<T>(grouped: Record<string, T[]>): Record<string, T[]> {
+  return Object.fromEntries(Object.entries(grouped).filter(([cat]) => SERVICE_TAB_CATEGORIES.includes(cat)));
+}
