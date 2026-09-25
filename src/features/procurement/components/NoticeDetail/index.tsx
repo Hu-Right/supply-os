@@ -75,8 +75,9 @@ export function NoticeDetail({
   const gates = membership?.gates;
   const canSeeChinese = gates?.notice_translation === "free" || gates?.notice_translation === "included";
   const aiSummaryEnabled = gates?.ai_summary === "free" || gates?.ai_summary === "included";
+  const aiMatchEnabled = gates?.ai_match === "free" || gates?.ai_match === "included";
   const aiSummary = useAiAnalysis(noticeId, isLoggedIn, coreUnlocked, aiSummaryEnabled);
-  const aiMatch = useAiMatch(noticeId);
+  const aiMatch = useAiMatch(noticeId, aiMatchEnabled);
   const [activeTab, setActiveTab] = useState("summary");
   const [countdown, setCountdown] = useState(getCountdown(notice.deadline_ts));
 
@@ -233,6 +234,7 @@ export function NoticeDetail({
                 loading={aiMatch.loading}
                 cacheLoading={aiMatch.cacheLoading}
                 error={aiMatch.error}
+                upgradeLocked={!aiMatchEnabled}
                 onStart={() => aiMatch.triggerMatch(false)}
                 onRegenerate={() => aiMatch.triggerMatch(true)}
                 onGoToPool={() => router.push("/settings/supplier-pool")}

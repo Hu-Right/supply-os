@@ -17,15 +17,16 @@ export interface UseAiMatchReturn {
   triggerMatch: (forceRegenerate?: boolean) => void;
 }
 
-export function useAiMatch(noticeId: number | undefined): UseAiMatchReturn {
+export function useAiMatch(noticeId: number | undefined, entitled = true): UseAiMatchReturn {
   const [data, setData] = useState<AiMatchData | null>(null);
   const [loading, setLoading] = useState(false);
   const [cacheLoading, setCacheLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 进页面回读缓存：命中则直接呈现历史匹配结果，未命中保持引导态
+  // 无 ai_match 权益（低档走法②）时不发缓存请求，避免"点了才 403"
   useEffect(() => {
-    if (!noticeId) return;
+    if (!noticeId || !entitled) return;
     let cancelled = false;
     setCacheLoading(true);
     fetchAiMatchCache(noticeId)
@@ -42,17 +43,17 @@ export function useAiMatch(noticeId: number | undefined): UseAiMatchReturn {
       .catch(() => { /* 回读失败保持引导态，用户点击时仍会走 POST */ })
       .finally(() => { if (!cancelled) setCacheLoading(false); });
     return () => { cancelled = true; };
-  }, [noticeId]);
+  }, [noticeId, entitled]);
 
   const triggerMatch = useCallback((force = false) => {
-    if (!noticeId) return;
+    if (!noticeId || !entitled) return;
     setLoading(true);
     setError(null);
     fetchAiMatch(noticeId, force)
       .then((d) => setData(d))
       .catch((err) => setError(gateErrorToken(err)))
       .finally(() => setLoading(false));
-  }, [noticeId]);
+  }, [noticeId, entitled]);
 
   return { data, loading, cacheLoading, error, triggerMatch };
 }

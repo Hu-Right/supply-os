@@ -30,10 +30,13 @@ export interface AiEvaluationPanelProps {
   onGoToEnterprise: () => void;
   /** 友商/工厂行：去资源库补全诊断表 */
   onEditDiag: () => void;
+  /** 已解锁但当前档位不含 ai_match 权益（低档走法②）：进 Tab 即显示升级引导，不露任何评分数据 */
+  upgradeLocked?: boolean;
 }
 
 export function AiEvaluationPanel({
   data, loading, cacheLoading, error, onStart, onRegenerate, onGoToPool, onGoToEnterprise, onEditDiag,
+  upgradeLocked = false,
 }: AiEvaluationPanelProps) {
   const { t } = useLocale();
 
@@ -46,6 +49,22 @@ export function AiEvaluationPanel({
       return t("aiScoreErrorAuth") || "登录已过期或未配置 AI 模型，请检查后再试。";
     return t("aiScoreErrorGeneric") || "AI 评估过程中出现错误，请稍后重试。";
   };
+
+  // 低档无 ai_match 权益（走法②）：进 Tab 即升级引导，不发请求、不露候选/分数
+  if (upgradeLocked && !data) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-6 text-center">
+        <Lock className="w-8 h-8 text-amber-600 mx-auto mb-3" />
+        <h3 className="text-base font-extrabold text-amber-800 mb-2">{t("aiGateMatchTitle")}</h3>
+        <p className="text-sm text-amber-700 mb-4">
+          {t("aiEvalUpgradeHint") || "当前套餐仅支持查看公告原文，升级至无限版及以上可解锁 AI 适配评估。"}
+        </p>
+        <a href="/membership" className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 text-sm font-bold transition-colors">
+          {t("aiGateViewPlans")}
+        </a>
+      </section>
+    );
+  }
 
   // 缓存回读中：与评估中共用骨架屏，避免"先闪引导按钮再出结果"
   if (cacheLoading && !data && !loading && !error) {
