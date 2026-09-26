@@ -11,36 +11,67 @@ import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { UnifiedSearchParams, FilterPlan } from "./types";
 import { ACTIVE_NOTICE_WHERE, ACTIVE_NOTICE_WHERE_NO_ALIAS } from "../../utils/notice-expired";
 import { escapeLikeWildcard } from "../../utils/normalize";
+import { parseAdvancedQuery, hasAdvancedSyntax, toBooleanModeQuery } from "../../../shared/utils/advanced-syntax";
 
 const MYSQL_TIMEOUT_MS = 15000;
 
 /** 关键词 UNION 子查询（中文 FULLTEXT + 译文 LIKE 兜底；英文三路 FULLTEXT）
  * 注意：子查询内表别名为 n2/sn，必须用无别名版 ACTIVE 口径；
  *       派生表无法引用外层别名 n，否则报 Unknown column 'n.deadline_ts' */
-function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
+export function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
   const isChinese = /[一-鿿]/.test(q);
-  const likeQ = `%${escapeLikeWildcard(q)}%`;
-  if (isChinese) {
+  // 普通查询：保持既有 SQL 形状逐字节不变（现网降级语义不因本期改动漂移）
+  if (!hasAdvancedSyntax(q)) {
+    const likeQ = `%${escapeLikeWildcard(q)}%`;
+    if (isChinese) {
+      return {
+        sql:
+          "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+          " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+          " UNION " +
+          "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)",
+        params: [q, likeQ, likeQ],
+      };
+    }
     return {
       sql:
         "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
-        " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+        " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
         " UNION " +
-        "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)",
-      params: [q, likeQ, likeQ],
+        "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+        " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
+        " UNION " +
+        "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)",
+      params: [q, q, q],
     };
   }
-  return {
-    sql:
-      "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
-      " AND MATCH(n2.title, n2.reference) AGAINST(? IN BOOLEAN MODE)" +
-      " UNION " +
-      "SELECT sn.id FROM crm_bid_notices sn WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
-      " AND MATCH(sn.description) AGAINST(? IN BOOLEAN MODE)" +
-      " UNION " +
-      "SELECT qen.notice_id FROM crm_notice_translations qen WHERE qen.lang = 'en' AND MATCH(qen.title_tr, qen.description_tr) AGAINST(? IN BOOLEAN MODE)",
-    params: [q, q, q],
-  };
+
+  // 高级语法路径（spec §3.2）：FULLTEXT 吃 +/-/"短语"，译文 LIKE 分支
+  // 正向匹配包含词与短语、排除词 NOT LIKE（title/description 双列）
+  const parsed = parseAdvancedQuery(q);
+  const boolQ = toBooleanModeQuery(parsed);
+  const posTokens = [...parsed.includes, ...parsed.phrases];
+  const posParams = posTokens.flatMap((t) => {
+    const like = `%${escapeLikeWildcard(t)}%`;
+    return [like, like];
+  });
+  const negParams = parsed.excludes.flatMap((t) => {
+    const like = `%${escapeLikeWildcard(t)}%`;
+    return [like, like];
+  });
+  const posSql = posTokens.map(() => "(title_tr LIKE ? OR description_tr LIKE ?)").join(" OR ");
+  const negSql = parsed.excludes.map(() => "(title_tr NOT LIKE ? AND description_tr NOT LIKE ?)").join(" AND ");
+  const likeWhere = [posSql, negSql].filter(Boolean).map((s) => `(${s})`).join(" AND ");
+  const likeBranch = posTokens.length
+    ? ` UNION SELECT qtr.notice_id FROM crm_notice_translations qtr WHERE qtr.lang = '${isChinese ? "zh" : "en"}' AND ${likeWhere}`
+    : "";
+  const likeParams = [...posParams, ...negParams];
+
+  const sql =
+    "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
+    " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
+    likeBranch;
+  return { sql, params: [boolQ, ...likeParams] };
 }
 
 /** ORDER BY 映射（与 Meilisearch 排序语义对齐）
