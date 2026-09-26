@@ -12,7 +12,7 @@ import type { RawSearchParams } from "@/lib/services/search-orchestrator/params"
 import { getPool } from "@/lib/db/pool";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { getContext } from "@/lib/db/context";
-import { resolveAdvancedQuery } from "@/shared/utils/advanced-syntax";
+import { resolveAdvancedQuery, hasAdvancedSyntax } from "@/shared/utils/advanced-syntax";
 
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
@@ -55,7 +55,9 @@ export const GET = withRoute(async (req: NextRequest) => {
   // 高级语法档位门控（spec §3.3）：含 -排除/"短语" 时按 advanced_keyword_search 判档，
   // 无权益剥离降级（普通多词 AND 是既有行为，不受影响）；匿名恒按 free 口径
   const ctx = getContext();
-  const entitled = auth.userId
+  // 前置 hasAdvancedSyntax：q 无高级语法时跳过权益查询（3 条串行查询在最热公共端点上不能白跑）；
+  // 无语法 → entitled=false → resolveAdvancedQuery 原样透传，语义不变
+  const entitled = auth.userId && hasAdvancedSyntax(params.q ?? "")
     ? await ctx.benefitSystemRepo.isEntitled(auth.userId, "advanced_keyword_search")
     : false;
   const decision = resolveAdvancedQuery(params.q ?? "", entitled);
