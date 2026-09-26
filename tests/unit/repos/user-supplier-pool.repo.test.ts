@@ -125,13 +125,20 @@ describe("UserSupplierPoolRepo 目录查找与 pending 去重（service 编排�
     expect(mockQuery.mock.calls[0][0]).toContain("verify_status = 'pending'");
   });
 
-  it("createPendingSupplier 插入 pending 基础记录", async () => {
+  it("createPendingSupplier 插入 pending 基础记录（时间用 addtime，不得写不存在的 created_at）", async () => {
     const mockExecute = vi.fn().mockResolvedValue([{ insertId: 66 }]);
     const repo = new UserSupplierPoolRepo({ execute: mockExecute } as any);
     const id = await repo.createPendingSupplier("工厂C");
     expect(id).toBe(66);
-    expect(mockExecute.mock.calls[0][0]).toContain("verify_status"); expect(mockExecute.mock.calls[0][1]).toEqual(["工厂C"]);
+    const sql = mockExecute.mock.calls[0][0] as string;
+    expect(sql).toContain("verify_status");
     expect(mockExecute.mock.calls[0][1]).toEqual(["工厂C"]);
+    // ★ 回归护栏：实库 supplier 无 created_at / updated_at（写上去就是 1054 → 添加资源库 500），
+    //   录入时间只能落在 addtime；本断言钉住上次踩过的坑。
+    expect(sql).toContain("addtime");
+    expect(sql).toContain("UNIX_TIMESTAMP()");
+    expect(sql).not.toMatch(/\bcreated_at\b/);
+    expect(sql).not.toMatch(/\bupdated_at\b/);
   });
 
   it("addFromPlatform/addManual 支持事务连接执行", async () => {

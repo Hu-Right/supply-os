@@ -174,6 +174,7 @@ import { migration as m096 } from "./migrations/096-supplier-diagnosis";
 import { migration as m097 } from "./migrations/097-plans-chinese-gating";
 import { migration as m098 } from "./migrations/098-benefit-matrix-redesign";
 import { migration as m099 } from "./migrations/099-consent-log-birth-structure";
+import { migration as m100 } from "./migrations/100-supplier-dedup-indexes";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -209,9 +210,12 @@ const ALL_MIGRATIONS: Migration[] = [
   //       甲类+人人可用 8 项移出矩阵（is_active=0）；不增删行，verify-benefit-constraints 绝对值不变
   m098,
   // m099：crm_consent_log 出生结构（该表此前无建表迁移，全新环境重放到 066/067 会 ER_NO_SUCH_TABLE）；
-  //       出生结构即终态（无 user_key / consent_timestamp），已部署库为 no-op，
-  //       活表物理删除走 scripts/consent-log-shadow-phase1/2（人工闸口），详见该迁移头注与 ADR-0003
+  //       出生结构即终态（无 user_key / consent_timestamp / source_page），已部署库为 no-op，
+  //       活表物理删除已走 scripts/consent-log-shadow-phase1/2（人工闸口·2026-09-26 已切换），详见该迁移头注与 ADR-0003
   m099,
+  // m100：supplier 防重入口补索引（credit_code 全列 + company 前缀 64）——企业注册防重此前无索引可用，
+  //       在线 INPLACE/LOCK=NONE + 同会话 5s 锁等待；已在 prod 由脚本先行建立，本迁移对 prod 是 no-op
+  m100,
 ];
 
 /**

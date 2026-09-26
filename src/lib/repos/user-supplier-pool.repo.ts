@@ -68,10 +68,20 @@ export class UserSupplierPoolRepo {
     return Number((result as ResultSetHeader).insertId ?? 0);
   }
 
-  /** 创建 pending 基础供应商记录（仅 company，不进公共目录），返回新行 id */
+  /**
+   * 创建 pending 基础供应商记录（仅 company，不进公共目录），返回新行 id
+   *
+   * ★ 时间列必须是 `addtime`（INT  unix 秒）而不是 `created_at`：2026-09-26 实测
+   *   `supplier` 共 54 列且**不存在 created_at / updated_at**（INFORMATION_SCHEMA 与 SHOW COLUMNS
+   *   双向对异，且 SELECT created_at 直接报 ER_BAD_FIELD_ERROR）——旧写法在这里会直接抛 1054，
+   *   而调用方 supplier-pool.ts 只特判 ER_DUP_ENTRY，其余 throw → “往资源库添加一家目录里
+   *   不存在的公司”整个功能 500（实库 crm_user_supplier_pool 行数 = 0，与“从未成功过”一致）。
+   *   另：本表其余 NOT NULL 列均带默认值（已用事务内试写—回滚验证），因此只写三列合法。
+   *   addtime 也是门户企业卡片“录入时间”真正读的那一列。
+   */
   async createPendingSupplier(company: string, conn?: PoolConnection): Promise<number> {
     const [result] = await this.exec(conn).execute(
-      "INSERT INTO supplier (company, verify_status, created_at) VALUES (?, 'pending', NOW())",
+      "INSERT INTO supplier (company, verify_status, addtime) VALUES (?, 'pending', UNIX_TIMESTAMP())",
       [company],
     );
     return Number((result as ResultSetHeader).insertId ?? 0);

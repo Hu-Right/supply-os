@@ -155,10 +155,19 @@ export class SupplierDirectoryRepo {
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
   }
 
-  /** 按 ID 查询单条供应商全字段（企业信息表格用，含工商/联系/地址等列） */
+  /**
+   * 按 ID 查询单条供应商的「门户列白名单」（企业信息表格 / 编辑回填用）。
+   *
+   * ★ 历史上这里是 `SELECT *`——本表 54 列由 supply-os 与 intelligence-daily 两仓库共享，
+   *   整行透传会把「库里现在有什么」直接变成「前端拿到什么」：站外一旦加列/改名/改类型，
+   *   故障会以「页面字段突然变 undefined」的形式在用户面前暴露，而不是在变更当场被发现；
+   *   反过来我们想退役一列时，也无法判断前端有没有在读。钉成显式白名单后，边界可审计。
+   *   新增消费字段必须同时登记到 PORTAL_COLUMNS（否则接口不会返回该键）。
+   */
   async findFullById(id: number): Promise<Record<string, unknown> | null> {
+    const cols = SupplierDirectoryRepo.PORTAL_COLUMNS.map((c) => `\`${c}\``).join(", ");
     const [rows] = await this.pool.query(
-      "SELECT * FROM supplier WHERE id = ? LIMIT 1",
+      `SELECT ${cols} FROM supplier WHERE id = ? LIMIT 1`,
       [id],
     );
     return ((rows as Record<string, unknown>[])[0]) ?? null;
@@ -171,6 +180,24 @@ export class SupplierDirectoryRepo {
     "registered_phone", "registered_email", "website", "legal_rep",
     "established_at", "registered_capital", "credit_code", "industry",
     "type", "business_type", "certification", "products", "intro", "remark",
+  ] as const;
+
+  /**
+   * 门户读列白名单 = EDITABLE_COLUMNS（表单可编辑列，编辑回填必需）
+   *                 + 8 个门户另外要用的状态/展示列。
+   *
+   * 追加理由逐个可查：
+   *   id / verify_status / claim_status / coop_status / check_note / data_quality_score / addtime
+   *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及「重复合并排除」以外的展示字段；
+   *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
+   * 本表其余 11 列（business_scope / source_url / merged_id / product_keywords / unspsc_*
+   *   / enrich_* / webcheck_* / info_check / industry_id / tenant_id / …）门户**不读也不写**，
+   *   属站外域；完整台账见 docs/数据库设计/supplier-供应商目录主表.md。
+   */
+  static readonly PORTAL_COLUMNS = [
+    ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
+    "id", "verify_status", "claim_status", "coop_status", "check_note",
+    "data_quality_score", "addtime", "license_url",
   ] as const;
 
   /** 过滤输入到白名单列（忽略未知键、统一转字符串/null） */
