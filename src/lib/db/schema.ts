@@ -173,6 +173,7 @@ import { migration as m095 } from "./migrations/095-refresh-tokens-slim";
 import { migration as m096 } from "./migrations/096-supplier-diagnosis";
 import { migration as m097 } from "./migrations/097-plans-chinese-gating";
 import { migration as m098 } from "./migrations/098-benefit-matrix-redesign";
+import { migration as m099 } from "./migrations/099-consent-log-birth-structure";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -207,6 +208,10 @@ const ALL_MIGRATIONS: Migration[] = [
   // m098：权益体系重设计——ai_summary 三态收紧（free=0/starter,pro=teaser）、收藏/监控拆分改名、
   //       甲类+人人可用 8 项移出矩阵（is_active=0）；不增删行，verify-benefit-constraints 绝对值不变
   m098,
+  // m099：crm_consent_log 出生结构（该表此前无建表迁移，全新环境重放到 066/067 会 ER_NO_SUCH_TABLE）；
+  //       出生结构即终态（无 user_key / consent_timestamp），已部署库为 no-op，
+  //       活表物理删除走 scripts/consent-log-shadow-phase1/2（人工闸口），详见该迁移头注与 ADR-0003
+  m099,
 ];
 
 /**

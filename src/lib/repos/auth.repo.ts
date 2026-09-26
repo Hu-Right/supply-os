@@ -182,32 +182,44 @@ export class AuthRepo {
   // ── crm_consent_log：协议同意审计日志（P0 合规） ─────────────────────────────
 
   /**
-   * 记录用户协议同意日志（纯 user_id 路径，user_key 列写 NULL）
-   * 对应表 crm_consent_log（需提前建表，见 docs/04 技术需求清单第四节）
+   * 记录用户协议同意日志（纯 user_id 路径）。
+   *
+   * 结构事实源：`src/lib/db/migrations/099-consent-log-birth-structure.ts`（全新环境出生结构）
+   *   + `scripts/consent-log-shadow-phase1/2`（已部署库的影子表蓝绿切换），表级/列级注释见
+   *   `docs/数据库设计/crm_consent_log-协议同意审计表.md`。
+   *
+   * 已退役列（不得再出现在本 INSERT 中，否则切换后报 Unknown column）：
+   *   - `user_key`：身份锚点已于迁移 068 统一到 user_id，实库 155 行全部为 NULL；
+   *   - `consent_timestamp`：客户端传来的 ISO 串仅被剥掉 T/Z 就落库，未做时区换算，
+   *     实库 155 行恒比 `created_at` 早 8 小时（28800 秒）——是错值而非事实。
+   *   - `source_page`：全仓对本表零处 SELECT，155 行恒为 register，且与 `consent_type` 完全同义
+   *     （注册→terms/privacy，AI 设置页→llm_outbound_data），不携带任何额外信息。
+   * 「同意时间」的时间事实由服务端生成的 `created_at` 唯一承担。
+   *
+   * ⚠ 迁移与代码同批上线：切换前旧表 `consent_timestamp` 为 NOT NULL 无默认值，
+   *   本 INSERT 不写该列会报 1364；切换后旧列不存在，写该列会报 Unknown column。
+   *   两个方向的窗口期都只会丢失同意日志（调用方 catch 不阻断注册），
+   *   因此结构切换必须与本次代码发版安排在同一窗口内完成。
    */
   async recordConsentLog(params: {
     userId: number;
-    consentType: string;   // terms / privacy / marketing / cookie
+    consentType: string;   // terms / privacy / marketing / cookie / llm_outbound_data
     documentVersion: string;
     action: string;        // agree / withdraw / re-agree
-    timestamp: string;     // ISO 8601
     ipAddress: string;
     userAgent: string;
-    sourcePage: string;    // register / checkout / profile
   }): Promise<void> {
     await this.pool.execute(
       `INSERT INTO crm_consent_log
-        (user_id, user_key, consent_type, document_version, action, consent_timestamp, ip_address, user_agent, source_page)
-       VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        (user_id, consent_type, document_version, action, ip_address, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         params.userId,
         params.consentType,
         params.documentVersion,
         params.action,
-        params.timestamp,
         params.ipAddress,
         params.userAgent,
-        params.sourcePage,
       ],
     );
   }

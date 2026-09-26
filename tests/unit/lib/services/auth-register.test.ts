@@ -169,6 +169,30 @@ describe("registerUser", () => {
     expect(inc).toHaveBeenCalledWith(7, "personal");
   });
 
+  it("合规同意日志：terms + privacy 两条，且入参不再携带已退役列", async () => {
+    const consent = vi.fn();
+    const ctx = makeCtx({
+      authRepo: {
+        findLatestActiveCodeByPhone: vi.fn().mockResolvedValue({ id: 1, code: "hash:123456", attempts: 0 }),
+        markCodeUsed: vi.fn(),
+        backfillCodeUserId: vi.fn(),
+        recordConsentLog: consent,
+      },
+    });
+    // 客户端仍会传 agreementAcceptedAt（旧前端契约），但 crm_consent_log.consent_timestamp 已退役：
+    // 落库时间事实由服务端 created_at 承担，因此该值不得再向下传递。
+    await registerUser(ctx, { ...baseParams, agreementVersion: "V3.0", agreementAcceptedAt: "2026-09-26T01:02:03.000Z" });
+
+    expect(consent).toHaveBeenCalledTimes(2);
+    expect(consent.mock.calls.map((c) => c[0].consentType).sort()).toEqual(["privacy", "terms"]);
+    for (const [arg] of consent.mock.calls) {
+      expect(arg).not.toHaveProperty("timestamp");
+      expect(arg).not.toHaveProperty("userKey");
+      expect(arg).not.toHaveProperty("sourcePage");
+      expect(arg).toMatchObject({ userId: 99, action: "agree", documentVersion: "V3.0" });
+    }
+  });
+
   it("合规日志失败不阻断主流程", async () => {
     const ctx = makeCtx({
       authRepo: {

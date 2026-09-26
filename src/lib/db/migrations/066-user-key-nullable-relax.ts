@@ -15,7 +15,7 @@
  *
  * 放宽后须重跑 backfillUserIds 观察期对账（真孤儿行 user_id 保持 NULL，属已删用户）。
  */
-import type { Pool } from "mysql2/promise";
+import type { Pool, RowDataPacket } from "mysql2/promise";
 import type { Migration } from "./runner";
 
 /** 表 → user_key 列长度（保留各表现有定义，仅放松 NOT NULL） */
@@ -38,16 +38,40 @@ const TABLES: Array<{ name: string; length: number }> = [
   { name: "learning_orders", length: 190 },
 ];
 
+/**
+ * 列存在性守卫（INFORMATION_SCHEMA.COLUMNS 同时覆盖「表不存在」与「表在但无该列」两种情况）。
+ * crm_consent_log 即属此类：它长期没有建表迁移（直到 099 才补上出生结构），
+ * 全新环境重放到本迁移时表还不存在，直接 ALTER 会 ER_NO_SUCH_TABLE 中断启动。
+ * 已部署环境该列存在，行为与原来逐字等价。
+ */
+async function columnExists(dbPool: Pool, table: string, column: string): Promise<boolean> {
+  const [rows] = await dbPool.query(
+    `SELECT COUNT(*) AS total FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column],
+  );
+  return Number((rows as RowDataPacket[])[0]?.total || 0) > 0;
+}
+
 export const migration: Migration = {
   version: 66,
   name: "user-key-nullable-relax",
   async up(dbPool: Pool) {
+    const skipped: string[] = [];
     for (const { name, length } of TABLES) {
+      if (!(await columnExists(dbPool, name, "user_key"))) {
+        // 无 user_key 列可放松（表尚未出生或列已退役）——跳过而非抛错
+        skipped.push(name);
+        continue;
+      }
       await dbPool.query(
         `ALTER TABLE \`${name}\` MODIFY \`user_key\` VARCHAR(${length}) ` +
         `CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL`
       );
     }
-    console.log("[migration-066] 业务表 user_key 列已全部放松为可空（14 表）");
+    console.log(
+      "[migration-066] 业务表 user_key 列已全部放松为可空"
+        + (skipped.length > 0 ? `（跳过无该列/无表者：${skipped.join(", ")}）` : "（14 表）"),
+    );
   },
 };

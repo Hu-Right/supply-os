@@ -72,10 +72,8 @@ export const PUT = withRoute(async (req) => {
       consentType: "llm_outbound_data",
       documentVersion: "V1.0",
       action: "agree",
-      timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
       ipAddress: extractClientIp(req),
       userAgent: req.headers.get("user-agent") || "",
-      sourcePage: "/settings/ai-model",
     });
   } catch (err) {
     console.error("[llm-config] 出站授权审计记录失败:", err instanceof Error ? err.message : err);

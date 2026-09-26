@@ -40,6 +40,10 @@ scripts/*
 !scripts/shadow-users-phase1.mjs
 !scripts/shadow-users-phase2-align.mjs
 !scripts/shadow-users-phase3-cutover.mjs
+# crm_consent_log 影子表蓝绿切换两阶段工具（ADR-0003）：同上先例——切换步骤依赖这些脚本执行，
+# 不入版本控制就等于流程只存在于单机；阶段二的两个确认位闸口也必须能被后人原样复用。
+!scripts/consent-log-shadow-phase1.mjs
+!scripts/consent-log-shadow-phase2-cutover.mjs
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs

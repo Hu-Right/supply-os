@@ -132,6 +132,25 @@ export async function ensureColumn(dbPool: Pool, table: string, column: string, 
   }
 }
 
+/**
+ * 表存在才加列。
+ * 用于守卫「目标表由账本之外或更晚的迁移动态出生」的历史迁移：ensureColumn 只查列不查表，
+ * 表不存在时 `ALTER TABLE ... ADD COLUMN` 直接 ER_NO_SUCH_TABLE 使启动中断
+ * （典型例子：crm_consent_log 长期无建表迁移，067 就对它 ADD COLUMN，直至 099 才补上出生结构）。
+ */
+export async function ensureColumnIfTableExists(dbPool: Pool, table: string, column: string, ddl: string) {
+  assertValidIdentifier(table, "table");
+  assertValidIdentifier(column, "column");
+  const [tableRows] = await dbPool.query(
+    `SELECT COUNT(*) AS total
+     FROM INFORMATION_SCHEMA.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+    [table]
+  );
+  if (Number((tableRows as RowDataPacket[])[0]?.total || 0) === 0) return;
+  await ensureColumn(dbPool, table, column, ddl);
+}
+
 export async function ensureColumnType(dbPool: Pool, table: string, column: string, ddl: string) {
   assertValidIdentifier(table, "table");
   assertValidIdentifier(column, "column");

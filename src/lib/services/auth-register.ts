@@ -17,14 +17,6 @@ import { RouteError } from "../middleware/route-handler";
 import { hashPassword, hashVerificationCode, issueTokenPair, generateNickname, buildUserResponse } from "./auth";
 import { validatePassword } from "../utils/passwordPolicy";
 
-/**
- * 将 ISO 8601 时间戳转换为 MySQL DATETIME 格式
- * MySQL 不接受 'T'/'Z' 字符，需要 'YYYY-MM-DD HH:MM:SS' 格式
- */
-function toMysqlDatetime(isoString: string): string {
-  return isoString.replace("T", " ").replace("Z", "").split(".")[0];
-}
-
 export interface RegisterUserParams {
   /** 已 trim 的真实姓名（必填） */
   displayName: string;
@@ -39,6 +31,11 @@ export interface RegisterUserParams {
   locale?: string;
   /** 合规审计字段 */
   agreementVersion?: string;
+  /**
+   * 客户端声明的协议同意时刻（ISO 8601）。**不再入库**：crm_consent_log.consent_timestamp 列已退役
+   * （原实现只剥 T/Z 不做时区换算，落库值恒早 8 小时），同意时间以服务端 created_at 为唯一事实。
+   * 保留入参仅为兼容旧前端契约，勿误以为可从本字段取证。
+   */
   agreementAcceptedAt?: string;
   clientIp: string;
   userAgent: string;
@@ -116,29 +113,25 @@ export async function registerUser(
   }
 
   // ── 合规审计：记录用户协议同意日志（P0）——失败不阻断主流程 ──
-  // 纯 user_id 路径（迁移 068 已 DROP crm_users.user_key，crm_consent_log.user_key 写 NULL）
-  // 时间戳格式转换：ISO 8601 → MySQL DATETIME（MySQL 不接受 'T'/'Z' 格式）
-  const consentTimestamp = toMysqlDatetime(params.agreementAcceptedAt || new Date().toISOString());
+  // 纯 user_id 路径（迁移 068 已 DROP crm_users.user_key；本表 user_key / consent_timestamp
+  // 两列已随影子表切换退役（另有 source_page，与 consent_type 同义），同意时间以服务端 created_at
+  // 为唯一事实，发生场景由 consent_type 定位，见 auth.repo.recordConsentLog）
   try {
     await ctx.user.authRepo.recordConsentLog({
       userId: createdUser.id,
       consentType: "terms",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",
-      timestamp: consentTimestamp,
       ipAddress: params.clientIp,
       userAgent: params.userAgent,
-      sourcePage: "register",
     });
     await ctx.user.authRepo.recordConsentLog({
       userId: createdUser.id,
       consentType: "privacy",
       documentVersion: params.agreementVersion || "V2.0",
       action: "agree",
-      timestamp: consentTimestamp,
       ipAddress: params.clientIp,
       userAgent: params.userAgent,
-      sourcePage: "register",
     });
   } catch (consentErr) {
     console.error("[register] consent log write failed:", (consentErr as Error).message);
