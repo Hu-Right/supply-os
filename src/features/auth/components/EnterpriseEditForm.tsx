@@ -64,7 +64,10 @@ const SUPPLIER_TYPE_OPTIONS: OptionDef[] = [
 
 const BASIC_FIELDS: FieldDef[] = [
   { key: "company", labelKey: "authEnterpriseName", fallback: "企业名称", placeholderKey: "authEnterpriseNamePh" },
-  { key: "english_name", labelKey: "authEnterpriseEnglishName", fallback: "企业英文法务名", placeholderKey: "authEnterpriseEnglishNamePh" },
+  // english_name（企业英文法务名）输入框已于 2026-09-26 撤下：实库 67,747 行（含已绑定的 9 家
+  // 企业）该列一行都没填过；而它又藏在「绑定完成后的编辑态」里，曝光面极窄。
+  // supplier.english_name 列本身保留（站外表不动结构），后端写权限也没砍
+  // （EDITABLE_COLUMNS / PUT schema / PORTAL_COLUMNS 仍含该列）：要搬进企业认证主流程，重新登记一行即可。
   { key: "province", labelKey: "authEnterpriseProvince", fallback: "省份", placeholderKey: "authEnterpriseProvincePh" },
   { key: "city", labelKey: "authEnterpriseCity", fallback: "城市", placeholderKey: "authEnterpriseCityPh" },
   { key: "address", labelKey: "authEnterpriseBizAddress", fallback: "经营地址", full: true, placeholderKey: "authEnterpriseBizAddressPh" },

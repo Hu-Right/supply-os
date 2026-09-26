@@ -170,7 +170,8 @@ export function EnterpriseInfoCard({
   const basicCells: Cell[] = [
     { label: t("authEnterpriseId") || "ID", value: sv(row, "id") },
     { label: t("authEnterpriseNameConfirmed") || "确认后公司名", value: companyName },
-    { label: t("authEnterpriseEnglishName") || "企业英文法务名", value: sv(row, "english_name") },
+    // 企业英文法务名格子已于 2026-09-26 撤下：supplier.english_name 实库 67,747 行全空，
+    // 保留则这一行永远是个“-”；接口仍会返回该键（PORTAL_COLUMNS 未动），要恢复直接加回一行。
     { label: t("authEnterpriseProvince") || "省份", value: sv(row, "province") },
     { label: t("authEnterpriseCity") || "城市", value: sv(row, "city") },
     { label: t("authEnterpriseBizAddress") || "经营地址", value: sv(row, "address"), full: true },
