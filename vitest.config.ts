@@ -107,6 +107,10 @@ export default defineConfig({
         "src/lib/services/membership-upgrade.ts",
         "src/lib/services/chatTicket.ts",
 
+        // ── src/lib — 关键词组（词库）仓储与服务（有测试）──
+        "src/lib/repos/keyword-groups.repo.ts",
+        "src/lib/services/keyword-groups.ts",
+
         // ── src/lib/services/amount — 金额解析 ──
         "src/lib/services/amount/parser.ts",
 
@@ -151,6 +155,7 @@ export default defineConfig({
         "src/shared/auth/**/*.ts",
         "src/shared/utils/cn.ts",
         "src/shared/utils/unixTs.ts",
+        "src/shared/utils/advanced-syntax.ts",
         "src/shared/ui/Button.tsx",
         "src/shared/ui/Badge.tsx",
         "src/shared/ui/Input.tsx",
