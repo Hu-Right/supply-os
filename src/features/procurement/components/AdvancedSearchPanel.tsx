@@ -14,9 +14,10 @@
  *
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
-import { useState, useCallback, type FormEvent } from "react";
-import { Search, Calendar as CalendarIcon, Plus, X } from "lucide-react";
+import { useState, useCallback, useEffect, type FormEvent } from "react";
+import { Search, Calendar as CalendarIcon, Plus, X, Lock } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { fetchKeywordGroups, type KeywordGroup } from "@/core/api/keywordGroups";
 import { MAX_KEYWORD_ROWS, type TermMode } from "@/shared/utils/advanced-syntax";
 import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
@@ -96,6 +97,59 @@ function DateRangePicker({
   );
 }
 
+/** 词组选择器 — 企业版权益（product_keyword_lib），匿名/失败降级为锁定态 */
+function KeywordGroupPicker({ onPick }: { onPick: (terms: string[]) => void }) {
+  const { t } = useLocale();
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ entitled: boolean; groups: KeywordGroup[] } | null>(null);
+
+  // 任何失败（含匿名 401）统一降级为未授权空态，面板不做鉴权逻辑
+  const load = useCallback(async () => {
+    try { setData(await fetchKeywordGroups()); } catch { setData({ entitled: false, groups: [] }); }
+  }, []);
+  useEffect(() => { if (open) void load(); }, [open, load]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button type="button" data-testid="kw-group-picker"
+          className="text-xs font-bold text-teal-700 hover:text-teal-800">
+          {t("procurement_myKeywordGroups") || "我的词组"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2" align="end">
+        {!data ? null : !data.entitled ? (
+          <div className="px-2 py-3 text-center">
+            <Lock className="w-4 h-4 text-amber-600 mx-auto mb-2" />
+            <p className="text-xs text-slate-500 mb-2">{t("procurement_kwGroupsLocked")}</p>
+            <a href="/membership" className="text-xs font-bold text-amber-700 hover:underline">
+              {t("procurement_advancedDegradedCta")}
+            </a>
+          </div>
+        ) : data.groups.length === 0 ? (
+          <a href="/settings/keyword-library" className="block px-2 py-3 text-center text-xs text-slate-500 hover:text-teal-700">
+            {t("procurement_manageKeywordGroups")}
+          </a>
+        ) : (
+          <div className="max-h-56 overflow-y-auto">
+            {data.groups.map((g) => (
+              <button key={g.id} type="button"
+                onClick={() => { onPick(g.terms); setOpen(false); }}
+                className="w-full text-left px-2 py-2 rounded-md text-sm hover:bg-secondary-50">
+                {g.name}
+                <span className="block text-2xs text-slate-400 truncate">{g.terms.join("、")}</span>
+              </button>
+            ))}
+            <a href="/settings/keyword-library" className="block px-2 py-2 text-xs text-teal-700 hover:underline">
+              {t("procurement_manageKeywordGroups")}
+            </a>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {}
 
 /** 高级搜索面板 — 两行搜索布局（设计图 1:1 还原） */
@@ -125,6 +179,13 @@ export function AdvancedSearchPanel({
     e.preventDefault();
     applySearch();
   }, [applySearch]);
+
+  // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
+  const pickGroup = useCallback((terms: string[]) => {
+    form.replaceRows(
+      terms.slice(0, MAX_KEYWORD_ROWS).map((term, i) => ({ id: i + 1, term, mode: "include" as const })),
+    );
+  }, [form]);
 
   return (
     <form
@@ -249,9 +310,12 @@ export function AdvancedSearchPanel({
 
       {/* ══ 高级关键词行：包含/排除/精确短语（advanced_keyword_search，1299+）══ */}
       <div>
-        <label className="block text-xs font-bold text-slate-500 mb-1.5">
-          {t("procurement_keywordRows") || "更多关键词"}
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="block text-xs font-bold text-slate-500">
+            {t("procurement_keywordRows") || "更多关键词"}
+          </label>
+          <KeywordGroupPicker onPick={pickGroup} />
+        </div>
         <div className="space-y-2">
           {form.termRows.map((row) => (
             <div key={row.id} className="flex items-center gap-2">
