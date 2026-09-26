@@ -7,6 +7,7 @@
 import { useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
+import { composeQ } from "@/shared/utils/advanced-syntax";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";
@@ -65,7 +66,9 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     clearApiCache("/api/notices");
 
     const next: Record<string, string> = {};
-    if (inputs.qInput.trim()) next.q = inputs.qInput.trim();
+    // 高级关键词行合成：主关键词 + 包含/排除/短语行 → q（与 Task 2 共享语法一致，服务端截断 200）
+    const composedQ = composeQ(inputs.qInput, inputs.termRows);
+    if (composedQ) next.q = composedQ;
     if (inputs.countryInput) next.country = inputs.countryInput;
     if (inputs.agencyInput) next.agency = inputs.agencyInput;
     if (inputs.fromInput) next.deadline_from = inputs.fromInput;

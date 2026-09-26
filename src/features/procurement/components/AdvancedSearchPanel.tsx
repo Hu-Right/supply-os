@@ -15,8 +15,9 @@
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
 import { useState, useCallback, type FormEvent } from "react";
-import { Search, Calendar as CalendarIcon } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Plus, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
+import { MAX_KEYWORD_ROWS, type TermMode } from "@/shared/utils/advanced-syntax";
 import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
@@ -244,6 +245,53 @@ export function AdvancedSearchPanel({
             />
           </div>
         </div>
+      </div>
+
+      {/* ══ 高级关键词行：包含/排除/精确短语（advanced_keyword_search，1299+）══ */}
+      <div>
+        <label className="block text-xs font-bold text-slate-500 mb-1.5">
+          {t("procurement_keywordRows") || "更多关键词"}
+        </label>
+        <div className="space-y-2">
+          {form.termRows.map((row) => (
+            <div key={row.id} className="flex items-center gap-2">
+              <Input
+                value={row.term}
+                onChange={(e) => form.setRowTerm(row.id, e.target.value)}
+                placeholder={t("procurement_keywordPlaceholder") || "输入关键词"}
+                className="flex-1"
+              />
+              <Select
+                value={row.mode}
+                onChange={(e) => form.setRowMode(row.id, e.target.value as TermMode)}
+                className="w-28 shrink-0"
+              >
+                <option value="include">{t("procurement_kwModeInclude")}</option>
+                <option value="exclude">{t("procurement_kwModeExclude")}</option>
+                <option value="phrase">{t("procurement_kwModePhrase")}</option>
+              </Select>
+              <button
+                type="button"
+                onClick={() => form.removeRow(row.id)}
+                className="text-slate-400 hover:text-rose-500 transition-colors shrink-0"
+                aria-label="remove"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        {form.termRows.length < MAX_KEYWORD_ROWS && (
+          <button
+            type="button"
+            onClick={form.addRow}
+            data-testid="kw-row-add"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t("procurement_addKeywordRow") || "添加关键词"}
+          </button>
+        )}
       </div>
     </form>
   );

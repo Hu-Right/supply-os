@@ -7,6 +7,7 @@
 import { useCallback, useReducer } from "react";
 import { useSearchParams } from "next/navigation";
 import { searchFormReducer, type SearchFormState } from "../searchFormReducer";
+import { parseQ, type TermRow, type TermMode } from "@/shared/utils/advanced-syntax";
 
 export interface SearchFormInputs {
   qInput: string;
@@ -16,6 +17,7 @@ export interface SearchFormInputs {
   toInput: string;
   windowInput: string;
   noticeTypeInput: string;
+  termRows: TermRow[];
 }
 
 export interface SearchFormSetters {
@@ -26,6 +28,11 @@ export interface SearchFormSetters {
   setToInput: (value: string) => void;
   setWindowInput: (value: string) => void;
   setNoticeTypeInput: (value: string) => void;
+  addRow: () => void;
+  removeRow: (id: number) => void;
+  replaceRows: (rows: TermRow[]) => void;
+  setRowTerm: (id: number, term: string) => void;
+  setRowMode: (id: number, mode: TermMode) => void;
 }
 
 export function useSearchFormState(): {
@@ -44,15 +51,20 @@ export function useSearchFormState(): {
   clear: () => void;
 } {
   const searchParams = useSearchParams();
-  const [formState, dispatchForm] = useReducer(searchFormReducer, {
-    q: searchParams.get("q") || "",
-    country: searchParams.get("country") || "",
-    agency: searchParams.get("agency") || "",
-    from: searchParams.get("deadline_from") || "",
-    to: searchParams.get("deadline_to") || "",
-    window: searchParams.get("deadline_within_days") || "",
-    noticeType: searchParams.get("notice_type") || "",
-  });
+  // URL q 含高级语法（-排除词 / "短语"）时按 Task 2 共享语法回填为普通词 + 关键词行
+  const [formState, dispatchForm] = useReducer(searchFormReducer, (() => {
+    const { plain, rows } = parseQ(searchParams.get("q") || "");
+    return {
+      q: plain,
+      country: searchParams.get("country") || "",
+      agency: searchParams.get("agency") || "",
+      from: searchParams.get("deadline_from") || "",
+      to: searchParams.get("deadline_to") || "",
+      window: searchParams.get("deadline_within_days") || "",
+      noticeType: searchParams.get("notice_type") || "",
+      termRows: rows,
+    };
+  })());
 
   const setQInput = useCallback((v: string) => dispatchForm({ type: "set_q", payload: v }), []);
   const setCountryInput = useCallback((v: string) => dispatchForm({ type: "set_country", payload: v }), []);
@@ -61,6 +73,11 @@ export function useSearchFormState(): {
   const setToInput = useCallback((v: string) => dispatchForm({ type: "set_to", payload: v }), []);
   const setWindowInput = useCallback((v: string) => dispatchForm({ type: "set_window", payload: v }), []);
   const setNoticeTypeInput = useCallback((v: string) => dispatchForm({ type: "set_notice_type", payload: v }), []);
+  const addRow = useCallback(() => dispatchForm({ type: "add_row" }), []);
+  const removeRow = useCallback((id: number) => dispatchForm({ type: "remove_row", payload: id }), []);
+  const replaceRows = useCallback((rows: TermRow[]) => dispatchForm({ type: "replace_rows", payload: rows }), []);
+  const setRowTerm = useCallback((id: number, term: string) => dispatchForm({ type: "set_row_term", payload: { id, term } }), []);
+  const setRowMode = useCallback((id: number, mode: TermMode) => dispatchForm({ type: "set_row_mode", payload: { id, mode } }), []);
 
   const syncFromUrl = useCallback((params: {
     q: string;
@@ -71,7 +88,9 @@ export function useSearchFormState(): {
     window: string;
     noticeType: string;
   }) => {
-    dispatchForm({ type: "sync", payload: params });
+    // URL q 先过高级语法解析再入草稿：排除词/短语落 termRows，普通词落 q
+    const parsed = parseQ(params.q);
+    dispatchForm({ type: "sync", payload: { ...params, q: parsed.plain, termRows: parsed.rows } });
   }, []);
 
   const clear = useCallback(() => {
@@ -88,6 +107,7 @@ export function useSearchFormState(): {
       toInput: formState.to,
       windowInput: formState.window,
       noticeTypeInput: formState.noticeType,
+      termRows: formState.termRows,
     },
     setters: {
       setQInput,
@@ -97,6 +117,11 @@ export function useSearchFormState(): {
       setToInput,
       setWindowInput,
       setNoticeTypeInput,
+      addRow,
+      removeRow,
+      replaceRows,
+      setRowTerm,
+      setRowMode,
     },
     syncFromUrl,
     clear,

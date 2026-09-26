@@ -13,6 +13,7 @@
 import { useEffect, useRef } from "react";
 import { clearApiCache } from "@/core/http";
 import type { NoticeItem, PrefsMode } from "../types";
+import type { TermRow } from "@/shared/utils/advanced-syntax";
 import { useSearchDropdowns } from "./useSearchDropdowns";
 import { useSearchFormState } from "./search/useSearchFormState";
 import { useSearchQuery } from "./search/useSearchQuery";
@@ -66,6 +67,12 @@ export interface UseNoticeSearchReturn {
     setWindowInput: (value: string) => void;
     noticeTypeInput: string;
     setNoticeTypeInput: (value: string) => void;
+    termRows: TermRow[];
+    addRow: () => void;
+    removeRow: (id: number) => void;
+    replaceRows: (rows: TermRow[]) => void;
+    setRowTerm: (id: number, term: string) => void;
+    setRowMode: (id: number, mode: "include" | "exclude" | "phrase") => void;
   };
   result: {
     countries: Array<{ country: string; count: number }>;
@@ -198,6 +205,12 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       setWindowInput: form.setters.setWindowInput,
       noticeTypeInput: form.inputs.noticeTypeInput,
       setNoticeTypeInput: form.setters.setNoticeTypeInput,
+      termRows: form.inputs.termRows,
+      addRow: form.setters.addRow,
+      removeRow: form.setters.removeRow,
+      replaceRows: form.setters.replaceRows,
+      setRowTerm: form.setters.setRowTerm,
+      setRowMode: form.setters.setRowMode,
     },
     result: {
       countries,

@@ -9,9 +9,15 @@
 // 2026-08-28：公采公告使用 NOTICE_PAGE_SIZE = 10，PAGE_SIZE 保留为共享常量（9）
 export { PAGE_SIZE } from "../constants";
 
+// Task 8 高级关键词行：消费 Task 2 共享语法工具（composeQ/parseQ 的状态载体）
+import { MAX_KEYWORD_ROWS, type TermRow, type TermMode } from "@/shared/utils/advanced-syntax";
+
 // PERF 优化：关键词最大长度——与服务端 parseOptionalString(q, 200) 对齐，
 // 前端截断避免发送超长字符串导致 Meilisearch/MySQL FULLTEXT 解析开销激增
 const MAX_Q_LENGTH = 200;
+
+// 关键词行单词条最大长度
+const MAX_TERM_LENGTH = 50;
 
 export interface SearchFormState {
   q: string;
@@ -21,12 +27,18 @@ export interface SearchFormState {
   to: string;
   window: string;
   noticeType: string;
+  termRows: TermRow[];
 }
 
 export type SearchFormAction =
   | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_notice_type"; payload: string }
   | { type: "sync"; payload: SearchFormState }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "add_row" }
+  | { type: "remove_row"; payload: number }
+  | { type: "replace_rows"; payload: TermRow[] }
+  | { type: "set_row_term"; payload: { id: number; term: string } }
+  | { type: "set_row_mode"; payload: { id: number; mode: TermMode } };
 
 export function searchFormReducer(state: SearchFormState, action: SearchFormAction): SearchFormState {
   switch (action.type) {
@@ -38,7 +50,28 @@ export function searchFormReducer(state: SearchFormState, action: SearchFormActi
     case "set_window": return { ...state, window: action.payload };
     case "set_notice_type": return { ...state, noticeType: action.payload };
     case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", noticeType: "" };
+    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", noticeType: "", termRows: [] };
+    case "add_row": {
+      if (state.termRows.length >= MAX_KEYWORD_ROWS) return state;
+      const nextId = state.termRows.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+      return { ...state, termRows: [...state.termRows, { id: nextId, term: "", mode: "include" }] };
+    }
+    case "remove_row":
+      return { ...state, termRows: state.termRows.filter((r) => r.id !== action.payload) };
+    case "replace_rows":
+      return { ...state, termRows: action.payload.slice(0, MAX_KEYWORD_ROWS) };
+    case "set_row_term":
+      return {
+        ...state,
+        termRows: state.termRows.map((r) =>
+          r.id === action.payload.id ? { ...r, term: action.payload.term.slice(0, MAX_TERM_LENGTH) } : r),
+      };
+    case "set_row_mode":
+      return {
+        ...state,
+        termRows: state.termRows.map((r) =>
+          r.id === action.payload.id ? { ...r, mode: action.payload.mode } : r),
+      };
     default: return state;
   }
 }
