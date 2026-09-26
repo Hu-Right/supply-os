@@ -25,5 +25,6 @@ describe("buildKeywordUnion", () => {
     const { sql, params } = buildKeywordUnion("-battery");
     expect(params[0]).toBe("-battery");
     expect(sql).not.toContain("LIKE");
+    expect(params).toEqual(["-battery"]);
   });
 });

@@ -15,7 +15,10 @@ import { parseAdvancedQuery, hasAdvancedSyntax, toBooleanModeQuery } from "../..
 
 const MYSQL_TIMEOUT_MS = 15000;
 
-/** 关键词 UNION 子查询（中文 FULLTEXT + 译文 LIKE 兜底；英文三路 FULLTEXT）
+/** 关键词 UNION 子查询（双路径）
+ * 普通查询：保持既有 SQL 逐字节不变（中文 FULLTEXT + 译文 LIKE 兜底；英文三路 FULLTEXT）；
+ * 高级语法路径（仅应急降级+有权益用户）：FULLTEXT 吃 +/-/"短语"，
+ *   译文 LIKE 正向匹配包含词/短语、排除词 NOT LIKE，纯排除查询无 LIKE 分支。
  * 注意：子查询内表别名为 n2/sn，必须用无别名版 ACTIVE 口径；
  *       派生表无法引用外层别名 n，否则报 Unknown column 'n.deadline_ts' */
 export function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
@@ -65,7 +68,7 @@ export function buildKeywordUnion(q: string): { sql: string; params: unknown[] }
   const likeBranch = posTokens.length
     ? ` UNION SELECT qtr.notice_id FROM crm_notice_translations qtr WHERE qtr.lang = '${isChinese ? "zh" : "en"}' AND ${likeWhere}`
     : "";
-  const likeParams = [...posParams, ...negParams];
+  const likeParams = likeBranch ? [...posParams, ...negParams] : [];
 
   const sql =
     "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
