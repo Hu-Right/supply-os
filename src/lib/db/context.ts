@@ -42,6 +42,7 @@ import { CatalogRepo } from "../repos/catalog.repo";
 import { OpenApiRepo } from "../repos/open-api.repo";
 import { AwardsRepo } from "../repos/awards.repo";
 import { UserPrefsRepo } from "../repos/user-prefs.repo";
+import { KeywordGroupsRepo } from "../repos/keyword-groups.repo";
 import { LeadsRepo } from "../repos/leads.repo";
 import { InvitationRepo } from "../repos/invitation.repo";
 import { ChatRepo } from "../repos/chat.repo";
@@ -79,6 +80,7 @@ export type UserContext = {
   usersRepo: UsersRepo;
   authRepo: AuthRepo;
   userPrefsRepo: UserPrefsRepo;
+  keywordGroupsRepo: KeywordGroupsRepo;
   invitationRepo: InvitationRepo;
 };
 
@@ -146,6 +148,7 @@ export function getContext(): AppContext {
   const openApiRepo = new OpenApiRepo(dbPool);
   const awardsRepo = new AwardsRepo(dbPool);
   const userPrefsRepo = new UserPrefsRepo(dbPool);
+  const keywordGroupsRepo = new KeywordGroupsRepo(dbPool);
   const invitationRepo = new InvitationRepo(dbPool);
   const leadsRepo = new LeadsRepo(dbPool);
   const chatRepo = new ChatRepo(dbPool);
@@ -215,7 +218,7 @@ export function getContext(): AppContext {
       dbPool, paymentService, learningPaymentService, trainingPaymentService, servicePaymentService, orchestrator, paymentMode,
       paymentsRepo, learningOrdersRepo, serviceOrdersRepo, paymentHistoryRepo,
     },
-    user: { dbPool, usersRepo, authRepo, userPrefsRepo, invitationRepo },
+    user: { dbPool, usersRepo, authRepo, userPrefsRepo, keywordGroupsRepo, invitationRepo },
     supplier: { dbPool, directoryRepo, claimRepo },
     benefitSystemRepo,
     benefitWriteRepo,
