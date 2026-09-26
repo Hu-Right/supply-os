@@ -240,6 +240,8 @@
   "procurement_previewUnlockNow": "Unlock Now",
   "procurement_advancedFilter": "Filters",
   "procurement_searchTimeout": "Search timed out. Please try again later.",
+  "procurement_advancedDegradedHint": "Advanced syntax in your query (excluded words, exact phrases) is not active yet — upgrade to Unlimited/Business to unlock",
+  "procurement_advancedDegradedCta": "Upgrade to unlock",
   "procurement_loadFailed": "Failed to load procurement notices.",
   "procurement_actionFailed": "Action failed. Please try again later.",
   "procurement_paidQuotaRequired": "Unlock quota exhausted. Upgrade to a membership plan to continue unlocking.",

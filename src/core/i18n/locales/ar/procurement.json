@@ -239,6 +239,8 @@
   "procurement_previewUnlockNow": "فتح الآن",
   "procurement_advancedFilter": "التصفية",
   "procurement_searchTimeout": "انتهت مهلة البحث، يرجى المحاولة لاحقاً",
+  "procurement_advancedDegradedHint": "الصيغة المتقدمة في بحثك (الكلمات المستبعدة، العبارات الدقيقة) لم تُفعَّل بعد — قم بالترقية إلى الخطة غير المحدودة/الأعمال لاستخدامها",
+  "procurement_advancedDegradedCta": "الترقية لفتح القيود",
   "procurement_loadFailed": "فشل تحميل إعلانات المشتريات",
   "procurement_actionFailed": "فشل الإجراء، يرجى المحاولة لاحقاً",
   "procurement_paidQuotaRequired": "انتهت حصة فتح القيود. قم بالترقية إلى العضوية لمتابعة فتح القيود.",

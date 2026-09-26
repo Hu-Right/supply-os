@@ -239,6 +239,8 @@
   "procurement_previewUnlockNow": "Desbloquear ahora",
   "procurement_advancedFilter": "Filtros",
   "procurement_searchTimeout": "La búsqueda ha tardado demasiado. Inténtelo de nuevo.",
+  "procurement_advancedDegradedHint": "La sintaxis avanzada de su búsqueda (palabras excluidas, frases exactas) aún no está activa: mejore a Ilimitado/Empresa para desbloquearla",
+  "procurement_advancedDegradedCta": "Mejorar para desbloquear",
   "procurement_loadFailed": "Error al cargar los anuncios de contratación.",
   "procurement_actionFailed": "Error en la operación. Inténtelo de nuevo.",
   "procurement_paidQuotaRequired": "Cuota de desbloqueo agotada. Mejore a un plan de membresía para continuar desbloqueando.",

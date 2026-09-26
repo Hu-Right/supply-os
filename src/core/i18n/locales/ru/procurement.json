@@ -239,6 +239,8 @@
   "procurement_previewUnlockNow": "Разблокировать сейчас",
   "procurement_advancedFilter": "Фильтры",
   "procurement_searchTimeout": "Превышено время поиска. Повторите попытку.",
+  "procurement_advancedDegradedHint": "Расширенный синтаксис в вашем запросе (исключённые слова, точные фразы) пока не действует — оформите тариф «Безлимитный/Бизнес», чтобы включить его",
+  "procurement_advancedDegradedCta": "Повысить тариф",
   "procurement_loadFailed": "Не удалось загрузить закупочные объявления.",
   "procurement_actionFailed": "Ошибка операции. Повторите попытку.",
   "procurement_paidQuotaRequired": "Квота разблокировок исчерпана. Оформите подписку, чтобы продолжить разблокировку.",

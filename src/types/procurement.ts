@@ -169,4 +169,6 @@ export interface NoticeResponse {
   page_size?: number;
   /** T-B10（本地差异 #15）：A/B 分桶标记（仅推荐端点返回），反馈埋点原样回传 */
   variant?: string;
+  /** 高级语法被降级剥离（未订阅 advanced_keyword_search）——仅 unified-search 降级时返回 */
+  advanced_degraded?: boolean;
 }

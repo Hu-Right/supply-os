@@ -240,6 +240,8 @@
   "procurement_previewUnlockNow": "立即解锁",
   "procurement_advancedFilter": "高级筛选",
   "procurement_searchTimeout": "搜索超时，请稍后重试",
+  "procurement_advancedDegradedHint": "搜索词中的高级语法（排除词、精确短语）尚未生效——升级到无限版/企业版可用",
+  "procurement_advancedDegradedCta": "升级解锁",
   "procurement_loadFailed": "加载公告失败，请稍后重试",
   "procurement_actionFailed": "操作失败，请稍后重试",
   "procurement_paidQuotaRequired": "解锁额度不足，升级会员后可继续解锁查看。",

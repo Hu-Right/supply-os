@@ -20,6 +20,7 @@ import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { ListingStatsBar } from "../components/ListingStatsBar";
+import { AdvancedDegradedBanner } from "../components/AdvancedDegradedBanner";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useListingStats } from "../hooks/useListingStats";
 import { NOTICE_PAGE_SIZE } from "../constants";
@@ -166,6 +167,7 @@ export default function ProcurementPage() {
     <div className="space-y-5">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
+      {search.result.advancedDegraded && <AdvancedDegradedBanner />}
 
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="p-5 space-y-4">

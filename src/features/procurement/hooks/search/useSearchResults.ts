@@ -24,6 +24,7 @@ export interface SearchResultsOptions {
 export interface SearchResults {
   items: NoticeItem[];
   total: number;
+  advancedDegraded: boolean;
   serverPageSize: number;
   totalPages: number;
   loading: boolean;
@@ -37,6 +38,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [advancedDegraded, setAdvancedDegraded] = useState(false);
   const [serverPageSize, setServerPageSize] = useState(NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -89,6 +91,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     noticesRequestSeq.current = requestSeq;
     setLoading(true);
     setError("");
+    setAdvancedDegraded(false);
 
     debounceTimerRef.current = setTimeout(() => {
       timeoutTimerRef.current = setTimeout(() => {
@@ -132,6 +135,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));
+          setAdvancedDegraded(json.advanced_degraded === true);
           setServerPageSize(nextPageSize);
         })
         .catch((err) => {
@@ -199,6 +203,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   return {
     items,
     total,
+    advancedDegraded,
     serverPageSize,
     totalPages,
     loading,

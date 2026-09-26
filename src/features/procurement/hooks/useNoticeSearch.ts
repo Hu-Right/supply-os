@@ -72,6 +72,7 @@ export interface UseNoticeSearchReturn {
     agencies: Array<{ agency: string; count: number }>;
     items: NoticeItem[];
     total: number;
+    advancedDegraded: boolean;
     serverPageSize: number;
     totalPages: number;
     loading: boolean;
@@ -203,6 +204,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       agencies,
       items: results.items,
       total: results.total,
+      advancedDegraded: results.advancedDegraded,
       serverPageSize: results.serverPageSize,
       totalPages: results.totalPages,
       loading: results.loading,

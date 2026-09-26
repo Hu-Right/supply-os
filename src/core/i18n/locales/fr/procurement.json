@@ -239,6 +239,8 @@
   "procurement_previewUnlockNow": "Débloquer maintenant",
   "procurement_advancedFilter": "Filtres",
   "procurement_searchTimeout": "Le délai de recherche est dépassé. Veuillez réessayer.",
+  "procurement_advancedDegradedHint": "La syntaxe avancée de votre recherche (mots exclus, expressions exactes) n'est pas encore active — passez à Illimité/Business pour la débloquer",
+  "procurement_advancedDegradedCta": "Mettre à niveau pour débloquer",
   "procurement_loadFailed": "Échec du chargement des avis de marché.",
   "procurement_actionFailed": "Échec de l'opération. Veuillez réessayer.",
   "procurement_paidQuotaRequired": "Quota de déblocage épuisé. Passez à un abonnement pour continuer à débloquer.",
