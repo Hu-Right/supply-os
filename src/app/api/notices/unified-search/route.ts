@@ -11,6 +11,8 @@ import { searchUnified } from "@/lib/services/search-orchestrator";
 import type { RawSearchParams } from "@/lib/services/search-orchestrator/params";
 import { getPool } from "@/lib/db/pool";
 import { withRoute } from "@/lib/middleware/route-handler";
+import { getContext } from "@/lib/db/context";
+import { resolveAdvancedQuery } from "@/shared/utils/advanced-syntax";
 
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
@@ -50,7 +52,20 @@ export const GET = withRoute(async (req: NextRequest) => {
   const params = parseSearchParams(req);
   // 身份参数仅传 userId（crm_users.user_key 列退役收尾）
   params.userId = auth.userId || undefined;
+  // 高级语法档位门控（spec §3.3）：含 -排除/"短语" 时按 advanced_keyword_search 判档，
+  // 无权益剥离降级（普通多词 AND 是既有行为，不受影响）；匿名恒按 free 口径
+  const ctx = getContext();
+  const entitled = auth.userId
+    ? await ctx.benefitSystemRepo.isEntitled(auth.userId, "advanced_keyword_search")
+    : false;
+  const decision = resolveAdvancedQuery(params.q ?? "", entitled);
+  params.q = decision.q;
+  const advancedDegraded = decision.degraded;
   const pool = getPool();
   const result = await searchUnified(pool, params);
-  return NextResponse.json({ ...result, page_size: result.pageSize });
+  return NextResponse.json({
+    ...result,
+    page_size: result.pageSize,
+    ...(advancedDegraded ? { advanced_degraded: true as const } : {}),
+  });
 });
