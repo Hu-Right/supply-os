@@ -51,6 +51,8 @@ export class KeywordGroupsRepo {
     const sets: string[] = [];
     // ExecuteValues 联合类型未从 mysql2/promise 导出，按实参口径收窄为 (string | number)[]
     const params: (string | number)[] = [];
+    // 防注入边界：sets 只允许追加下面两处编译期常量字面量，列名/SQL 片段永不接收用户输入；
+    // 用户值（name/terms/userId/id）一律经 params 走 ? 占位符（prepared statement）
     if (patch.name !== undefined) { sets.push("name = ?"); params.push(patch.name); }
     if (patch.terms !== undefined) { sets.push("terms = ?"); params.push(JSON.stringify(patch.terms)); }
     if (!sets.length) return true;
