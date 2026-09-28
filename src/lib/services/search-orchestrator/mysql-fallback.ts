@@ -15,25 +15,44 @@ import { parseAdvancedQuery, hasAdvancedSyntax, toBooleanModeQuery } from "../..
 
 const MYSQL_TIMEOUT_MS = 15000;
 
-/** 关键词 UNION 子查询（双路径）
- * 普通查询：保持既有 SQL 逐字节不变（中文 FULLTEXT + 译文 LIKE 兜底；英文三路 FULLTEXT）；
+/** 关键词 UNION 子查询（双路径 × 匹配模式）
+ * 英文普通查询：保持既有 SQL 逐字节不变（三路 FULLTEXT）。
+ * 中文普通查询（本期修正）：词间按 matchMode 显式组合（all=加 + 前缀硬 AND，any=不加保持可选），
+ *   译文兜底改逐词 LIKE。原实现对多词中文用整串 LIKE（'%医疗 建筑%'）实测恒 0 命中，
+ *   且 FULLTEXT 不带操作符时 MySQL 布尔模式按“词可选”求值（OR），与 Meili 主路径硬 AND 不一致。
  * 高级语法路径（仅应急降级+有权益用户）：FULLTEXT 吃 +/-/"短语"，
- *   译文 LIKE 正向匹配包含词/短语、排除词 NOT LIKE，纯排除查询无 LIKE 分支。
+ *   译文 LIKE 正向匹配包含词/短语（matchMode=all 时为 AND；此前恒用 OR，会把降级结果放大一个量级）、
+ *   排除词 NOT LIKE，纯排除查询无 LIKE 分支。
  * 注意：子查询内表别名为 n2/sn，必须用无别名版 ACTIVE 口径；
  *       派生表无法引用外层别名 n，否则报 Unknown column 'n.deadline_ts' */
-export function buildKeywordUnion(q: string): { sql: string; params: unknown[] } {
+export function buildKeywordUnion(
+  q: string,
+  matchMode: "all" | "any" = "all",
+): { sql: string; params: unknown[] } {
   const isChinese = /[一-鿿]/.test(q);
-  // 普通查询：保持既有 SQL 形状逐字节不变（现网降级语义不因本期改动漂移）
+  // 包含词之间的连接词：all=硬 AND（与 Meili matchingStrategy:"all" 同源），any=OR
+  const conj = matchMode === "any" ? " OR " : " AND ";
+  const likePair = (t: string): string[] => {
+    const like = `%${escapeLikeWildcard(t)}%`;
+    return [like, like];
+  };
+
   if (!hasAdvancedSyntax(q)) {
-    const likeQ = `%${escapeLikeWildcard(q)}%`;
     if (isChinese) {
+      const tokens = q.trim().split(/\s+/).filter(Boolean);
+      const boolQ = matchMode === "any" ? q : tokens.map((t) => `+${t}`).join(" ");
+      const params: unknown[] = [boolQ];
+      for (const t of tokens) params.push(...likePair(t));
+      const likeSql = tokens
+        .map(() => "(qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)")
+        .join(conj);
       return {
         sql:
           "SELECT n2.id FROM crm_bid_notices n2 WHERE " + ACTIVE_NOTICE_WHERE_NO_ALIAS +
           " AND MATCH(n2.title, n2.reference, n2.description) AGAINST(? IN BOOLEAN MODE)" +
           " UNION " +
-          "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND (qzh.title_tr LIKE ? OR qzh.description_tr LIKE ?)",
-        params: [q, likeQ, likeQ],
+          "SELECT qzh.notice_id FROM crm_notice_translations qzh WHERE qzh.lang = 'zh' AND " + likeSql,
+        params,
       };
     }
     return {
@@ -50,19 +69,20 @@ export function buildKeywordUnion(q: string): { sql: string; params: unknown[] }
   }
 
   // 高级语法路径（spec §3.2）：FULLTEXT 吃 +/-/"短语"，译文 LIKE 分支
-  // 正向匹配包含词与短语、排除词 NOT LIKE（title/description 双列）
+  // 正向匹配包含词与短语（按 conj 组合）、排除词 NOT LIKE（title/description 双列）
   const parsed = parseAdvancedQuery(q);
-  const boolQ = toBooleanModeQuery(parsed);
+  const boolQ =
+    matchMode === "any"
+      ? [
+          ...parsed.includes,
+          ...parsed.phrases.map((p) => `"${p.replace(/"/g, "")}"`),
+          ...parsed.excludes.map((w) => `-${w.replace(/"/g, "")}`),
+        ].join(" ")
+      : toBooleanModeQuery(parsed);
   const posTokens = [...parsed.includes, ...parsed.phrases];
-  const posParams = posTokens.flatMap((t) => {
-    const like = `%${escapeLikeWildcard(t)}%`;
-    return [like, like];
-  });
-  const negParams = parsed.excludes.flatMap((t) => {
-    const like = `%${escapeLikeWildcard(t)}%`;
-    return [like, like];
-  });
-  const posSql = posTokens.map(() => "(title_tr LIKE ? OR description_tr LIKE ?)").join(" OR ");
+  const posParams = posTokens.flatMap(likePair);
+  const negParams = parsed.excludes.flatMap((t) => likePair(t));
+  const posSql = posTokens.map(() => "(title_tr LIKE ? OR description_tr LIKE ?)").join(conj);
   const negSql = parsed.excludes.map(() => "(title_tr NOT LIKE ? AND description_tr NOT LIKE ?)").join(" AND ");
   const likeWhere = [posSql, negSql].filter(Boolean).map((s) => `(${s})`).join(" AND ");
   const likeBranch = posTokens.length
@@ -117,7 +137,7 @@ export async function mysqlFallback(
   let fromSql: string;
   const queryParams: unknown[] = [];
   if (p.q) {
-    const kw = buildKeywordUnion(p.q);
+    const kw = buildKeywordUnion(p.q, p.matchMode ?? "all");
     fromSql = `crm_bid_notices n INNER JOIN (${kw.sql}) _kw ON _kw.id = n.id`;
     queryParams.push(...kw.params);
   } else {
