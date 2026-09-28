@@ -9,6 +9,7 @@ import type {
 import type { PaymentStrategy } from "./types";
 import type { PaymentsRepo } from "../repos/payments.repo";
 import { previewUpgrade } from "../services/membership-upgrade";
+import type { PlanCatalogRow } from "@/types/membership";
 import type { BenefitFulfillDeps } from "./benefit-grant";
 import { activatePaidOrder } from "./activate";
 import { reverseFulfilledOrder } from "./reverse";
@@ -70,6 +71,12 @@ export class PaymentService {
    * V2 权益（2026-09-21）：single_99 首单特惠与 annual_799 首单抵扣随旧套餐下架一并移除，
    * 新套餐体系（129/999/1299/8800）无促销规则。
    *
+   * 260928 报价表（迁移 104）带来的**两条不是促销、而是商品属性**的抵扣规则，在此落实：
+   * 1) 「7天内升级版本，可全额抵扣」——由 crm_plan_catalog.upgrade_credit_days 驱动，
+   *    资格判定在 previewUpgrade（超窗口 → UPGRADE_CREDIT_WINDOW_CLOSED，不得走 upgrade 单）；
+   * 2) 「199 升级年包可全额抵扣」——由 crm_service_catalog.credit_to_annual_plan 驱动，
+   *    在 applyAnnualPlanCredit 核销一张已成交且未被引用的服务单。
+   *
    * @throws UPGRADE_NOT_SUPPORTED / NO_ACTIVE_PLAN_TO_UPGRADE /
    *         ALREADY_ON_TARGET_PLAN / CANNOT_DOWNGRADE /
    *         FREE_PLAN_NO_PAYMENT_REQUIRED / LEARNING_ORDERS_DELEGATED
@@ -92,6 +99,8 @@ export class PaymentService {
     let currency: string;
     let originalOrderNo: string | null = null;
     let upgradeSnapshot: { subscription_id: number; target_plan_code: string; target_price: number; current_plan_code: string; current_price: number } | null = null;
+    /** 年包抵扣快照（文档「199 升级年包可全额抵扣」）；无可用抵扣单时为 null。 */
+    let annualCredit: { credit_order_no: string; credit_amount: number; payable: number } | null = null;
 
     // ARCH-B+（2026-09-01）：学习资料 / 打包套餐订单已拆分至 learning_orders 表，
     // 由 LearningPaymentService 独立处理。此处拒绝学习类 plan_code。
@@ -122,13 +131,20 @@ export class PaymentService {
           current_plan_code: current.plan_code,
           current_price: Number(current.price),
         };
-      } else if (amount <= 0) {
-        throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+      } else {
+        if (amount <= 0) throw new Error("FREE_PLAN_NO_PAYMENT_REQUIRED");
+        // ── 年包抵扣：把已成交的 1:1 人工找单服务单金额折抵进本次年付套餐购买 ──
+        annualCredit = await this.applyAnnualPlanCredit({ userId: userId!, plan, currency });
+        if (annualCredit) {
+          amount = annualCredit.payable;
+          originalOrderNo = annualCredit.credit_order_no;
+        }
       }
     }
 
-    // 升级订单差价随使用量实时变化，不复用历史 pending 订单，始终新建
-    const existingOrder = orderType === "upgrade"
+    // 升级订单差价随使用量实时变化不复用历史 pending 单；抵扣单也不复用，因为
+    // updatePendingOrder 不回写 original_order_no，复用会让一张 199 服务单被反复核销。
+    const existingOrder = orderType === "upgrade" || annualCredit
       ? null
       : await this.repo.findPendingOrder({
           userId: userId!, planCode, provider, noticeId,
@@ -156,6 +172,7 @@ export class PaymentService {
       notice_id: noticeId,
       amount,
       ...(upgradeSnapshot ? { upgrade_snapshot: upgradeSnapshot } : {}),
+      ...(annualCredit ? { annual_plan_credit_snapshot: annualCredit } : {}),
     });
 
     if (existingOrder) {
@@ -193,6 +210,37 @@ export class PaymentService {
       status: "pending",
       notice_id: noticeId,
       created_at: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * 年包抵扣（文档 199 行「升级年包可全额抵扣」）。
+   *
+   * 生效条件：新购（非 upgrade）+ 明码可自助支付 + 年付（billing_period_days ≥ 360）
+   * + 有一张已成交且未被任何 pending/paid 订单引用的可抵扣服务单。
+   * 抵扣额取**服务单的成交快照单价**（不是目录现价）：承诺在成交时已作出，后续调价不追溯。
+   * 币种不一致不抵扣（跨币种折价无依据）；抵扣后金额不大于 0 也不抵扣（抵扣不是白送渠道）。
+   */
+  private async applyAnnualPlanCredit(p: {
+    userId: number;
+    plan: PlanCatalogRow;
+    currency: string;
+  }): Promise<{ credit_order_no: string; credit_amount: number; payable: number } | null> {
+    const period = Number(p.plan.billing_period_days ?? 0);
+    if (!Number.isFinite(period) || period < 360) return null;
+
+    const credit = await this.repo.findUsableAnnualPlanCredit(p.userId);
+    if (!credit || credit.currency !== p.currency) return null;
+
+    const priceCents = Math.round(Number(p.plan.price) * 100);
+    const creditCents = Math.round(Number(credit.amount) * 100);
+    if (!Number.isFinite(priceCents) || !Number.isFinite(creditCents)) return null;
+    if (creditCents <= 0 || creditCents >= priceCents) return null;
+
+    return {
+      credit_order_no: credit.order_no,
+      credit_amount: creditCents / 100,
+      payable: (priceCents - creditCents) / 100,
     };
   }
 

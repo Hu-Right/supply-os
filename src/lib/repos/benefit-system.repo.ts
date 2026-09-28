@@ -106,7 +106,8 @@ export class BenefitSystemRepo {
   async listActivePlans(): Promise<PlanCatalogRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
-              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active
+              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
+              upgrade_credit_days
          FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
     return (rows as PlanCatalogRow[]).map((r) => ({ ...r, audience: deriveAudience(r.commercial_tier) }));
@@ -116,7 +117,7 @@ export class BenefitSystemRepo {
   async listActiveServices(): Promise<ServiceCatalogRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT service_code, category, name_zh, name_en, price_mode, standard_price, price_from,
-              currency, sale_mode, member_discount, deliverable_note_zh, sort_order
+              currency, sale_mode, member_discount, credit_to_annual_plan, deliverable_note_zh, sort_order
          FROM crm_service_catalog
         WHERE is_active = 1
         ORDER BY category, sort_order`,
@@ -131,7 +132,8 @@ export class BenefitSystemRepo {
   async getPlan(planCode: string): Promise<PlanCatalogRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
-              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active
+              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
+              upgrade_credit_days
          FROM crm_plan_catalog WHERE plan_code = ? LIMIT 1`,
       [planCode],
     );

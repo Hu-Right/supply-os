@@ -30,6 +30,33 @@ export class PaymentsRepo {
     return (rows as PaymentOrderRow[])[0] ?? null;
   }
 
+  /**
+   * 找一张可用（已成交且未被核销）的「年包抵扣」服务单——承载 260928 报价表「199 升级年包可
+   * 全额抵扣」：crm_service_catalog.credit_to_annual_plan=1 的服务成交单，可折抵一次年付套餐购买。
+   *
+   * 不另建中间表（多写者风险），核销锚点直接用本 Repo 已有的 original_order_no 列：
+   * 抵扣单落库时把服务单号写进 crm_payment_orders.original_order_no，于是「已被 pending/paid
+   * 订单引用」= 已核销。不要求服务行仍 is_active——承诺在成交时已作出，后续下架不该没收抵扣权。
+   */
+  async findUsableAnnualPlanCredit(userId: number): Promise<{ order_no: string; amount: string; currency: string } | null> {
+    const [rows] = await this.pool.query(
+      `SELECT so.order_no, so.unit_price_snapshot AS amount, so.currency
+         FROM crm_service_orders so
+         JOIN crm_service_catalog sc ON sc.service_code = so.service_code
+        WHERE so.user_id = ?
+          AND sc.credit_to_annual_plan = 1
+          AND so.status = 'paid'
+          AND so.unit_price_snapshot > 0
+          AND NOT EXISTS (
+                SELECT 1 FROM crm_payment_orders po
+                 WHERE po.original_order_no = so.order_no AND po.status IN ('pending','paid')
+          )
+        ORDER BY so.id ASC LIMIT 1`,
+      [userId],
+    );
+    return ((rows as Array<{ order_no: string; amount: string; currency: string }>)[0]) ?? null;
+  }
+
   async createOrder(p: {
     userId: number; orderNo: string; provider: string; planCode: string; noticeId: number | null;
     amount: number; currency: string; payUrl: string | null; qrCodeUrl: string | null; rawRequest: string;

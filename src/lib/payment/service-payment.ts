@@ -6,6 +6,11 @@
  *              复用同一 PaymentStrategy 出码；回调/mock 命中仅把 crm_service_orders 标为 paid，
  *              不做额度/订阅发放（设计 B4）。表无 provider/trade_no/expiry 列 → 查询走 DB status。
  *              返回结构与 learning 下单一致，供 /api/payment/orders 路由统一后处理。
+ *
+ *              成交方式闸口（2026-09-28 对齐 260928 报价表）：sale_mode 是成交形态的唯一事实源
+ *              —— 只有 'self' 能进自助支付；'lead'（留资）/'contract'（合同成交）一律拒绝下单并
+ *              转预约顾问。此前只按「有无 standard_price」判定，使文档写「按需报价/定制报价/面议」
+ *              的陪跑、KA、API 等也能被直接刷卡，既越权又把「起」价当成一口价。
  */
 import crypto from "crypto";
 import type { Pool, RowDataPacket } from "mysql2/promise";
@@ -66,6 +71,11 @@ export class ServicePaymentService {
     const svc = rows[0] as ServicePriceRow | undefined;
     if (!svc || svc.is_active !== 1 || svc.standard_price === null || Number(svc.standard_price) <= 0) {
       throw new Error("SERVICE_UNAVAILABLE");
+    }
+    // 预约制商品（留资/合同成交）不得自助支付：前端已把按钮换成「预约顾问」，
+    // 这里再档一道，防绕过前端直打 /api/payment/orders。
+    if (svc.sale_mode !== "self") {
+      throw new Error("SERVICE_ADVISORY_ONLY");
     }
 
     const amount = Number(svc.standard_price);

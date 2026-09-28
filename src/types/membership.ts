@@ -31,6 +31,12 @@ export interface PlanCatalogRow {
   badge: string;
   sort_order: number;
   is_active: number;
+  /**
+   * 升级全额抵扣窗口天数（m104，来源 260928 报价表 129/999 行）：
+   * 自订阅生效起 N 天内升级按补差价（=已付款全额抵扣，且一次付款只能抵扣一次）；
+   * 超窗口不给抵扣路径，按目标档原价新购。NULL=本档不承诺抵扣（沿用补差价）。
+   */
+  upgrade_credit_days: number | null;
 }
 
 export interface MatrixCellRow {
@@ -95,6 +101,21 @@ export interface MembershipStatus {
   quotas: QuotaBalanceRow[];
   /** 各权益对当前用户的门控状态（benefit_code -> GateState）；服务端下发，前端不复制档位常量。 */
   gates?: Record<string, GateState>;
+  /**
+   * 升级全额抵扣窗口（仅当前档声明了 upgrade_credit_days 时下发）：
+   * 服务端与 previewUpgrade 同一口径算好，前端只读不算，不往客户端拄 7 天/档位常量。
+   */
+  upgrade_credit?: { days: number; open: boolean; deadline_at: string | null };
+}
+
+/**
+ * 可用的年包抵扣单（文档「199 升级年包可全额抵扣」）：服务端从 crm_service_orders
+ * 找出一张已成交且未被任何 pending/paid 订单引用的可抵扣单，金额取成交快照单价。
+ */
+export interface AnnualPlanCredit {
+  source_order_no: string;
+  amount: number;
+  currency: string;
 }
 
 export interface UpgradePreview {
@@ -104,9 +125,16 @@ export interface UpgradePreview {
   target_plan: PlanCatalogRow | null;
   subscription: ActivePlanRow | null;
   quota_used: number;
+  /** 应付金额：抵扣成立时 = 目标价 − 当前档标价；抵扣资格不成立时 = 目标档原价（即 new_purchase_price）。 */
   price_difference: number;
   remaining_after_upgrade: number | null;
   expires_at_unchanged: boolean;
+  /** 当前档声明的抵扣窗口天数（NULL=无窗口约束，沿用补差价）。 */
+  credit_days: number | null;
+  /** 抵扣窗口的截止时间（ISO）；无窗口约束时为 null。 */
+  credit_deadline_at: string | null;
+  /** 抵扣资格不成立时改走的「原价新购」金额（= 目标档标价）；可抵扣时为 null。 */
+  new_purchase_price: number | null;
 }
 
 /** 增值服务目录行（crm_service_catalog，is_active=1）— 前端订制服务 Tab 渲染契约 */
@@ -121,6 +149,8 @@ export interface ServiceCatalogRow {
   currency: string;
   sale_mode: string;
   member_discount: "none" | "any_plan" | "unlimited_plus";
+  /** 1=成交单可在购买年付套餐时全额抵扣本单金额（文档「升级年包可全额抵扣」，m104）。 */
+  credit_to_annual_plan: number;
   deliverable_note_zh: string | null;
   sort_order: number;
 }
