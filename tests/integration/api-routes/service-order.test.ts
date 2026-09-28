@@ -43,7 +43,7 @@ describe("POST /api/payment/orders — svc_ 分支", () => {
       pay_url: "/pay/mock", qr_code_url: "https://qr", status: "pending", created_at: new Date().toISOString(),
     });
     const { POST } = await import("@/app/api/payment/orders/route");
-    const res = await POST(post({ plan_code: "svc_ai_tender_analysis", provider: "mock" }));
+    const res = await POST(post({ plan_code: "svc_manual_bid_match", provider: "mock" }));
     expect(createOrder).toHaveBeenCalled();
     expect(res.status).toBe(201);
     const body = await res.json();
@@ -53,7 +53,7 @@ describe("POST /api/payment/orders — svc_ 分支", () => {
   it("服务不可用（抛 SERVICE_UNAVAILABLE）→ 400", async () => {
     createOrder.mockRejectedValue(new Error("SERVICE_UNAVAILABLE"));
     const { POST } = await import("@/app/api/payment/orders/route");
-    const res = await POST(post({ plan_code: "svc_ai_bid_writing", provider: "mock" }));
+    const res = await POST(post({ plan_code: "svc_compliance_retainer", provider: "mock" }));
     expect(res.status).toBe(400);
   });
 });

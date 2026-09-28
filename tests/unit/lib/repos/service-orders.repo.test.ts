@@ -11,7 +11,7 @@ describe("ServiceOrdersRepo", () => {
     const query = vi.fn().mockResolvedValue([{ insertId: 7 }]);
     const repo = new ServiceOrdersRepo(makePool(query));
     const id = await repo.createOrder({
-      orderNo: "SV20260923A1", userId: 5, serviceCode: "svc_ai_tender_analysis",
+      orderNo: "SV20260923A1", userId: 5, serviceCode: "svc_manual_bid_match",
       unitPrice: "199.00", amountTotal: "199.00", currency: "CNY", saleMode: "self",
     });
     expect(id).toBe(7);

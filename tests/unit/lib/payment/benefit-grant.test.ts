@@ -23,6 +23,7 @@ const plan = (over: Partial<PlanCatalogRow> = {}): PlanCatalogRow => ({
   price_incl_tax: 1,
   currency: "CNY",
   billing_period_days: 365,
+  upgrade_credit_days: null,
   seat_limit: 3,
   commercial_tier: "L3",
   audience: "enterprise",
