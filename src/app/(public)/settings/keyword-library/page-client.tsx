@@ -116,6 +116,7 @@ export default function KeywordLibraryPageClient() {
             onChange={(e) => setTermsText(e.target.value)}
             placeholder={t("settingsKwTermsPlaceholder")}
             rows={3}
+            className="resize-none"
           />
           <p className="text-2xs text-slate-400">{t("settingsKwTermsHint", { max: MAX_TERMS_PER_GROUP })}</p>
           <p className="text-2xs text-slate-400">{t("settingsKwGroupsLimit", { max: MAX_GROUPS_PER_USER })}</p>
