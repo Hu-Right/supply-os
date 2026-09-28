@@ -40,7 +40,10 @@ export function CapabilityPanel({ supplier, products, completeness, certs, count
           <Building2 className="w-5 h-5 text-teal-600" />{t("profile_capabilityTitle")}
         </h3>
         <div className="space-y-1">
-          <InfoRow label={t("profile_companyScale")} value={supplier.companyType === "factory" ? t("supplierFactory") : t("supplierTrader")} />
+          <InfoRow
+            label={t("profile_companyScale")}
+            value={supplier.companyType === "factory" ? t("supplierFactory") : supplier.companyType === "trader" ? t("supplierTrader") : "—"}
+          />
           <InfoRow label={t("profile_annualCapacity")} value="—" />
           <InfoRow label={t("profile_mainProducts")} value={products.length > 0 ? products.join(" / ") : <span className="text-slate-300">—</span>} />
           <InfoRow label={t("profile_exportCountries")} value={country || <span className="text-slate-300">—</span>} />

@@ -36,7 +36,8 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
   const tags = supplier.capabilityTags ?? [];
   const completeness = supplier.dataCompleteness ?? 0;
   const unspsc = supplier.unspscCode || supplier.ungmCode || "";
-  const companyType = supplier.companyType || (supplier.type === "domestic" ? "factory" : "trader");
+  // 类型徽章只认真实业务身份（business_type_code），无码不显示——不再用国内外猜测兜底
+  const companyType = supplier.companyType;
   const tier = supplier.membershipTier;
   const tierStyle = tier ? TIER_BADGE[tier] : null;
 
@@ -83,10 +84,12 @@ export function SupplierCard({ supplier, onContact }: SupplierCardProps) {
         {/* 公司名 + 类型 */}
         <div className="flex items-start justify-between gap-2">
           <h4 className="text-sm font-extrabold text-slate-900 line-clamp-1 flex-1">{name}</h4>
-          <span className="shrink-0 text-2xs text-slate-500 font-medium flex items-center gap-1">
-            {companyType === "factory" ? <Factory className="w-3 h-3" /> : <Store className="w-3 h-3" />}
-            {companyType === "factory" ? t("supplierFactory") : t("supplierTrader")}
-          </span>
+          {companyType && (
+            <span className="shrink-0 text-2xs text-slate-500 font-medium flex items-center gap-1">
+              {companyType === "factory" ? <Factory className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+              {companyType === "factory" ? t("supplierFactory") : t("supplierTrader")}
+            </span>
+          )}
         </div>
 
         {/* 核心产品 */}

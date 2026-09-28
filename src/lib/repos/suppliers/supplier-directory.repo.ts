@@ -23,6 +23,8 @@ export interface SupplierDirectoryRow {
   industry: string | null;
   certification: string | null;
   type: string | null;
+  /** 业务身份枚举：manufacturer=工厂 / trader=贸易商（卡片徽章与「工厂/贸易商」维度同源；其余值不展示） */
+  business_type_code?: string | null;
   /** 认证状态：done=已认证 / pending=审核中（防重分支据此区分「转认领 / 直接绑定」） */
   verify_status?: string | null;
   /** 资料完整度（DB 生成列，20 字段非空各计 5 分，与后台同口径） */
@@ -78,6 +80,7 @@ export class SupplierDirectoryRepo {
       `SELECT id, company, country, country_code,
               province, city,
               contact, phone, email, products, industry, certification, type,
+              business_type_code,
               data_quality_score
        FROM supplier
        WHERE company <> '测试'
@@ -138,6 +141,7 @@ export class SupplierDirectoryRepo {
     // 分页数据查询
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city, contact, phone, email, products, industry, certification, type,
+              business_type_code,
               data_quality_score
        FROM supplier
        WHERE ${whereSql}
@@ -154,6 +158,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry, certification, type,
+              business_type_code,
               data_quality_score
        FROM supplier
        WHERE id = ? AND (verify_status = 'done' OR verify_status IS NULL)
