@@ -4,5 +4,10 @@
  *
  * @module features/services/constants
  */
-export { SERVICES, SUCCESS_STORIES } from "@/data/services";
-export type { ServiceItem, SuccessStoryItem, ServicePhase } from "@/data/services";
+export {
+  SERVICES, SUCCESS_STORIES, ECO_PARTNERS, ECO_PARTNER_CATEGORIES,
+} from "@/data/services";
+export type {
+  ServiceItem, SuccessStoryItem, ServicePhase,
+  EcoPartnerItem, EcoPartnerCategory, EcoPartnerStatus,
+} from "@/data/services";

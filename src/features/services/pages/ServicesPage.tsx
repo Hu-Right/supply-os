@@ -3,12 +3,13 @@
  * Services Page — Module 08 Design Mockup 100% Restore
  *
  * @module features/services/pages/ServicesPage
- * @description 按设计图还原：深色Hero + 4步生命周期步骤条 + 6张服务卡片 + 信任条 + 核心内容模块 + 变现动作 + 价值卡片 + 底部标语
+ * @description 按设计图还原：深色Hero + 4步生命周期步骤条 + 6张服务卡片 + 第三方服务生态 + 信任条
  */
 
 import { SERVICES } from "@/data/services";
 import { ServicesHero } from "../components/ServicesHero";
 import { ServiceCardGrid } from "../components/ServiceCardGrid";
+import { PartnerEcosystem } from "../components/PartnerEcosystem";
 import { TrustBar } from "../components/TrustBar";
 
 export default function ServicesPage() {
@@ -19,6 +20,9 @@ export default function ServicesPage() {
 
       {/* 6张服务卡片（3×2网格） */}
       <ServiceCardGrid services={SERVICES} />
+
+      {/* 第三方服务生态（邀约入驻伙伴：合规/履约/售后/本地化运营） */}
+      <PartnerEcosystem />
 
       {/* 信任条 */}
       <TrustBar />

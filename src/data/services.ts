@@ -105,6 +105,60 @@ export const SERVICES: ServiceItem[] = [
   },
 ];
 
+/** 生态伙伴服务类别 */
+export type EcoPartnerCategory = "compliance" | "fulfillment" | "after-sales" | "localization";
+
+/** 生态伙伴合作状态：live 已入驻 / in-talks 洽谈中 */
+export type EcoPartnerStatus = "live" | "in-talks";
+
+/** 第三方生态伙伴（邀约入驻制） */
+export interface EcoPartnerItem {
+  /** 伙伴名称（中文） */
+  name: string;
+  /** 伙伴名称（英文/原文） */
+  nameEn: string;
+  /** 服务类别 */
+  category: EcoPartnerCategory;
+  /** 服务能力简述 */
+  scope: string;
+  /** 覆盖区域 */
+  regions: string;
+  /** 合作状态 */
+  status: EcoPartnerStatus;
+}
+
+/** 生态伙伴类目标签（分区类目条展示用） */
+export const ECO_PARTNER_CATEGORIES: { key: EcoPartnerCategory; label: string }[] = [
+  { key: "compliance", label: "合规准入" },
+  { key: "fulfillment", label: "履约交付" },
+  { key: "after-sales", label: "售后服务" },
+  { key: "localization", label: "本地化运营" },
+];
+
+/**
+ * 第三方生态伙伴列表
+ * Eco Partners List — 邀约入驻制；洽谈中伙伴先以品牌墙形式展示，
+ * 签约后将 status 置为 live 并补充服务详情（后续可迁 API）。
+ */
+export const ECO_PARTNERS: EcoPartnerItem[] = [
+  {
+    name: "富士康",
+    nameEn: "Foxconn",
+    category: "localization",
+    scope: "海外本地化生产与供应链落地，助力满足当地市场准入要求",
+    regions: "全球产能布局",
+    status: "in-talks",
+  },
+  {
+    name: "小米全球售后服务",
+    nameEn: "Xiaomi Global After-Sales Service",
+    category: "after-sales",
+    scope: "海外售后服务网络对接，覆盖维修网点与备件体系",
+    regions: "全球服务网点",
+    status: "in-talks",
+  },
+];
+
 /**
  * 成功案例列表
  * Success Stories List
