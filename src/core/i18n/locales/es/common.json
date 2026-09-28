@@ -119,6 +119,7 @@
   "settingsKwLockedDesc": "«Mis grupos de palabras clave» guarda tus palabras clave habituales para aplicar el grupo completo con un clic en el panel de búsqueda. Tu plan actual no incluye esta ventaja.",
   "settingsKwBenefit1": "Guarda las categorías que sigues como grupo, p. ej. «almacenamiento solar», «equipamiento médico»",
   "settingsKwBenefit2": "Aplica un grupo con un clic desde el panel de búsqueda, coincidiendo con cualquier palabra clave",
+  "settingsKwTermSpaceHint": "Los términos con espacios ({terms}) se buscan como frase exacta (palabras adyacentes); use una coma o un salto de línea para buscarlos por separado.",
   "settingsKwCreate": "Crear",
   "settingsKwSave": "Guardar",
   "settingsKwCancel": "Cancelar",

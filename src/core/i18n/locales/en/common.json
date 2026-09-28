@@ -138,6 +138,7 @@
   "settingsKwLockedDesc": "“My keyword groups” saves your frequent procurement keywords so you can apply a whole group in the search panel with one click. Your current plan does not include this benefit.",
   "settingsKwBenefit1": "Save the categories you follow as a group, e.g. “solar energy storage”, “medical equipment”",
   "settingsKwBenefit2": "Apply a group from the search panel in one click, matched on any keyword",
+  "settingsKwTermSpaceHint": "Terms with spaces ({terms}) are matched as an exact phrase (words must appear adjacent); use a comma or a new line to search them separately.",
   "settingsKwCreate": "Create",
   "settingsKwSave": "Save",
   "settingsKwCancel": "Cancel",

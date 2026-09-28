@@ -59,6 +59,11 @@ export default function KeywordLibraryPageClient() {
   const parseTerms = () => splitTerms(termsText);
   // 切词实时预览（只读），输入不花钱但让用户看清会被切成哪几个词
   const termsPreview = useMemo(() => splitTerms(termsText), [termsText]);
+  /**
+   * 含空格的词：搜索侧 composeQ 会把它们包成"精确短语"（整句必须逐字相邻），
+   * 而不是两个并列词——这是用户最常见的隐性失手点，预览里单独标黄并指名列出。
+   */
+  const spaceyTerms = useMemo(() => termsPreview.filter((s) => /\s/.test(s)), [termsPreview]);
 
   const handleSubmit = async () => {
     setError("");
@@ -173,7 +178,11 @@ export default function KeywordLibraryPageClient() {
             <div className="flex flex-wrap items-center gap-1.5" data-testid="kw-terms-preview">
               {termsPreview.map((term) => (
                 <span key={term}
-                  className="inline-flex items-center max-w-[12rem] truncate rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700">
+                  className={`inline-flex items-center max-w-[12rem] truncate rounded-md border px-2 py-1 text-xs font-bold ${
+                    /\s/.test(term)
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-slate-200 bg-slate-50 text-slate-700"
+                  }`}>
                   {term}
                 </span>
               ))}
@@ -181,6 +190,11 @@ export default function KeywordLibraryPageClient() {
                 {termsPreview.length}/{MAX_TERMS_PER_GROUP}
               </span>
             </div>
+          )}
+          {spaceyTerms.length > 0 && (
+            <p className="text-2xs leading-5 text-amber-600" data-testid="kw-terms-space-hint">
+              {t("settingsKwTermSpaceHint", { terms: spaceyTerms.join("、") })}
+            </p>
           )}
           <p className="text-2xs text-slate-400">{t("settingsKwGroupsLimit", { max: MAX_GROUPS_PER_USER })}</p>
           {error && <p className="text-xs text-rose-600">{error}</p>}
