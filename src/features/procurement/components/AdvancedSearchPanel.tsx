@@ -14,11 +14,11 @@
  *
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
-import { useState, useCallback, useEffect, type FormEvent } from "react";
-import { Search, Calendar as CalendarIcon, Plus, X } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo, type FormEvent } from "react";
+import { Search, Calendar as CalendarIcon, Plus, Minus, Quote, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { fetchKeywordGroups, type KeywordGroup } from "@/core/api/keywordGroups";
-import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode } from "@/shared/utils/advanced-syntax";
+import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode, type TermRow } from "@/shared/utils/advanced-syntax";
 import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
@@ -164,6 +164,70 @@ function KeywordGroupPicker({
   );
 }
 
+/** chip 点击时的模式循环：包含 → 排除 → 精确短语（非「包含」受 advanced_keyword_search 门控） */
+const MODE_CYCLE: TermMode[] = ["include", "exclude", "phrase"];
+
+/** 三色区分模式：图标+颜色即语义，无需额外说明文字占用高度 */
+const MODE_CHIP_STYLE: Record<TermMode, string> = {
+  include: "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
+  exclude: "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+  phrase: "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100",
+};
+
+function ModeGlyph({ mode }: { mode: TermMode }) {
+  if (mode === "exclude") return <Minus className="w-3 h-3 shrink-0" />;
+  if (mode === "phrase") return <Quote className="w-3 h-3 shrink-0" />;
+  return <Plus className="w-3 h-3 shrink-0" />;
+}
+
+/**
+ * 关键词标签（chip）— 方案 B：用一个输入框承载全部关键词，
+ * 替代旧版「一行 Input + 一行 Select」的行列表（旧结构 8 行约 380px 纵向空间）。
+ * 点标签本体循环切换模式（仍走 handleRowMode 权益门控，转化入口不丢），点 × 删除。
+ */
+function KeywordChip({
+  row,
+  modeLabel,
+  cycleTitle,
+  removeLabel,
+  onCycle,
+  onRemove,
+}: {
+  row: TermRow;
+  modeLabel: string;
+  cycleTitle: string;
+  removeLabel: string;
+  onCycle: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      data-testid={`kw-chip-${row.id}`}
+      className={`inline-flex items-center rounded-md border text-xs font-bold transition-colors ${MODE_CHIP_STYLE[row.mode]}`}
+    >
+      <button
+        type="button"
+        onClick={onCycle}
+        title={cycleTitle}
+        aria-label={`${row.term} · ${modeLabel}`}
+        className="inline-flex items-center gap-1 max-w-[11rem] ps-2 py-1.5 rounded-s-md outline-none focus-visible:ring-1 focus-visible:ring-teal-400"
+      >
+        <ModeGlyph mode={row.mode} />
+        <span className="truncate">{row.term}</span>
+      </button>
+      <button
+        type="button"
+        data-testid={`kw-chip-remove-${row.id}`}
+        onClick={onRemove}
+        aria-label={removeLabel}
+        className="px-1.5 py-1.5 rounded-e-md opacity-50 hover:opacity-100 outline-none"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </span>
+  );
+}
+
 export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {
   /** 服务端 gates 派生：当前用户是否享有 advanced_keyword_search（排除/精确短语）。默认 true 保持旧渲染。 */
   advancedSearchEntitled?: boolean;
@@ -198,6 +262,47 @@ export function AdvancedSearchPanel({
     },
     [advancedSearchEntitled, form],
   );
+
+  // ── 关键词 chip 输入（方案 B）───
+  const [draft, setDraft] = useState("");
+
+  // 只渲染非空行：空占位行本就参与不了 composeQ（其内部跳过空串），chip 形态下直接不显示
+  const chips = useMemo(() => form.termRows.filter((r) => r.term.trim() !== ""), [form.termRows]);
+
+  /**
+   * 提交草稿为「包含」chip：按中英文逗号切分（支持一次粘贴一串）、大小写不敏感去重、
+   * 受 MAX_KEYWORD_ROWS 上限约束。走 replace_rows 单次 dispatch（与 pickGroup 同口径），
+   * 规避「先 add_row 再拿新 id」的时序问题；空占位行在此被自然丢弃。
+   */
+  const commitTerms = useCallback(
+    (raw: string) => {
+      const parts = raw.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
+      if (parts.length === 0) return;
+      const kept: TermRow[] = form.termRows.filter((r) => r.term.trim() !== "");
+      for (const term of parts) {
+        if (kept.length >= MAX_KEYWORD_ROWS) break;
+        const lower = term.toLowerCase();
+        if (kept.some((r) => r.term.trim().toLowerCase() === lower)) continue;
+        const nextId = kept.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+        kept.push({ id: nextId, term, mode: "include" });
+      }
+      form.replaceRows(kept);
+    },
+    [form],
+  );
+
+  // 失焦即结算：用户打完字直接点「搜索」时 blur 先于 submit 触发，草稿不会丢
+  const flushDraft = useCallback(() => {
+    if (draft.trim() === "") return;
+    commitTerms(draft);
+    setDraft("");
+  }, [draft, commitTerms]);
+
+  const modeLabels: Record<TermMode, string> = {
+    include: t("procurement_kwModeInclude"),
+    exclude: t("procurement_kwModeExclude"),
+    phrase: t("procurement_kwModePhrase"),
+  };
 
   // ── 预算金额本地状态 ───
   const [budgetMin, setBudgetMin] = useState("");
@@ -376,47 +481,56 @@ export function AdvancedSearchPanel({
             <KeywordGroupPicker onPick={pickGroup} entitled={keywordLibEntitled} onLocked={() => setGate("kwlib")} />
           </div>
         </div>
-        <div className="space-y-2">
-          {form.termRows.map((row) => (
-            <div key={row.id} className="flex items-center gap-2">
-              <Input
-                value={row.term}
-                onChange={(e) => form.setRowTerm(row.id, e.target.value)}
-                placeholder={t("procurement_keywordPlaceholder") || "输入关键词"}
-                className="flex-1"
-              />
-              <Select
-                value={row.mode}
-                data-testid="kw-row-mode"
-                onChange={(e) => handleRowMode(row.id, e.target.value as TermMode)}
-                className="w-28 shrink-0"
-              >
-                <option value="include">{t("procurement_kwModeInclude")}</option>
-                <option value="exclude">{t("procurement_kwModeExclude")}</option>
-                <option value="phrase">{t("procurement_kwModePhrase")}</option>
-              </Select>
-              <button
-                type="button"
-                onClick={() => form.removeRow(row.id)}
-                className="text-slate-400 hover:text-rose-500 transition-colors shrink-0"
-                aria-label="remove"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+        {/* 关键词 chip 容器：一个框承载全部关键词，高度不随关键词数量线性增长 */}
+        <div
+          title={t("procurement_kwChipUsage")}
+          className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 transition-colors focus-within:border-teal-400 focus-within:ring-1 focus-within:ring-teal-400"
+        >
+          {chips.map((row) => (
+            <KeywordChip
+              key={row.id}
+              row={row}
+              modeLabel={modeLabels[row.mode]}
+              cycleTitle={t("procurement_kwChipUsage")}
+              removeLabel={t("procurement_kwChipRemove")}
+              onCycle={() =>
+                handleRowMode(row.id, MODE_CYCLE[(MODE_CYCLE.indexOf(row.mode) + 1) % MODE_CYCLE.length])
+              }
+              onRemove={() => form.removeRow(row.id)}
+            />
           ))}
-        </div>
-        {form.termRows.length < MAX_KEYWORD_ROWS && (
-          <button
-            type="button"
-            onClick={form.addRow}
-            data-testid="kw-row-add"
-            className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
+          <input
+            type="text"
+            data-testid="kw-chip-input"
+            value={draft}
+            onChange={(e) => {
+              const v = e.target.value;
+              // 逗号（中英文均可）即时切分入库
+              if (/[,，]/.test(v)) { commitTerms(v); setDraft(""); }
+              else { setDraft(v); }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                // 阻止表单提交：否则每确认一个关键词就发起一次搜索
+                e.preventDefault();
+                flushDraft();
+              } else if (e.key === "Backspace" && draft === "" && chips.length > 0) {
+                form.removeRow(chips[chips.length - 1].id);
+              }
+            }}
+            onBlur={flushDraft}
+            placeholder={t("procurement_kwChipPlaceholder")}
+            aria-label={t("procurement_kwChipPlaceholder")}
+            className="flex-1 min-w-[9rem] bg-transparent py-1 text-sm outline-none placeholder:text-slate-400"
+          />
+          {/* 上限可见：达上限时转琥珀色提示已满，不额外占用高度 */}
+          <span
+            data-testid="kw-chip-count"
+            className={`shrink-0 pe-0.5 text-2xs font-bold ${chips.length >= MAX_KEYWORD_ROWS ? "text-amber-600" : "text-slate-400"}`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            {t("procurement_addKeywordRow") || "添加关键词"}
-          </button>
-        )}
+            {chips.length}/{MAX_KEYWORD_ROWS}
+          </span>
+        </div>
       </div>
 
       {/* 升级引导弹窗：无权益触发高级行/词库时弹出（取代内嵌锁定态与后端降级横幅） */}
