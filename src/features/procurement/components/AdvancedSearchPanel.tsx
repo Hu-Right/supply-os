@@ -315,7 +315,24 @@ export function AdvancedSearchPanel({
           <label className="block text-xs font-bold text-slate-500">
             {t("procurement_keywordRows") || "更多关键词"}
           </label>
-          <KeywordGroupPicker onPick={pickGroup} />
+          <div className="flex items-center gap-3">
+            {/* 匹配模式切换：全部命中（AND）/ 任一命中（OR），人人可用 */}
+            <button
+              type="button"
+              data-testid="match-mode-toggle"
+              onClick={() => form.setMatchMode(form.matchMode === "all" ? "any" : "all")}
+              aria-pressed={form.matchMode === "any"}
+              title={form.matchMode === "all" ? t("procurement_matchAllHint") : t("procurement_matchAnyHint")}
+              className={`text-xs font-bold px-2.5 py-1 rounded-md border transition-colors ${
+                form.matchMode === "any"
+                  ? "text-teal-800 border-teal-300 bg-teal-50 hover:bg-teal-100"
+                  : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50"
+              }`}
+            >
+              {form.matchMode === "all" ? t("procurement_matchAll") : t("procurement_matchAny")}
+            </button>
+            <KeywordGroupPicker onPick={pickGroup} />
+          </div>
         </div>
         <div className="space-y-2">
           {form.termRows.map((row) => (
