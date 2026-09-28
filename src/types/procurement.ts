@@ -171,6 +171,6 @@ export interface NoticeResponse {
   variant?: string;
   /** 高级语法被降级剥离（未订阅 advanced_keyword_search）——仅 unified-search 降级时返回 */
   advanced_degraded?: boolean;
-  /** 硬 AND 结果过少时已自动放宽为 OR（任一命中）——仅放宽时返回 */
+  /** 硬 AND 零结果时已自动放宽为 OR（任一命中）——仅放宽时返回；前端必须显式告知用户 AND 命中为 0 */
   match_relaxed?: boolean;
 }

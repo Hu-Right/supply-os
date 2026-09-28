@@ -47,7 +47,7 @@ export interface UnifiedSearchResult {
   variant?: string;
   /** no_prefs=无行业偏好 / no_match=无匹配 / mysql_degraded=MySQL 应急降级 / none=正常 */
   fallback?: "no_prefs" | "no_match" | "mysql_degraded" | "none";
-  /** 硬 AND 结果过少时自动放宽为 OR 的标志（仅放宽时出现） */
+  /** 硬 AND 零结果时自动放宽为 OR 的标志（仅放宽时出现） */
   match_relaxed?: boolean;
 }
 
