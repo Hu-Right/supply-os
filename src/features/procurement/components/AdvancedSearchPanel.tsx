@@ -334,13 +334,17 @@ export function AdvancedSearchPanel({
   // 而不是交集条件。面板默认 all 会让多词求交集——生产实测真实词组「工程」四词单独各数百至数千条，
   // 但硬 AND 交集为 **0 条**（OR 约 8.4 千条），等于“存了词组一点就空”。
   // 用户若确实要收紧为交集，仍可手动点回「全部匹配」（零结果时会被放宽闸口兜底）。
-  // 注：与面板其他草稿控件一致，选词组不自动发起搜索，需用户点「搜索」提交。
+  // 选词组本身就是一个明确的查询意图，所以直接提交，不再要求用户多点一次「搜索」。
   const pickGroup = useCallback((terms: string[]) => {
-    form.replaceRows(
-      terms.slice(0, MAX_KEYWORD_ROWS).map((term, i) => ({ id: i + 1, term, mode: "include" as const })),
-    );
+    const rows: TermRow[] = terms
+      .slice(0, MAX_KEYWORD_ROWS)
+      .map((term, i) => ({ id: i + 1, term, mode: "include" }));
+    form.replaceRows(rows);
     form.setMatchMode("any");
-  }, [form]);
+    // 关键：上面两个 dispatch 是异步的，此刻 applySearch 读到的 inputs 仍是旧快照，
+    // 必须把新草稿作为 overrides 显式传入，否则 URL 会丢词组且匹配模式仍是 all。
+    applySearch(undefined, { termRows: rows, matchMode: "any" });
+  }, [form, applySearch]);
 
   return (
     <form

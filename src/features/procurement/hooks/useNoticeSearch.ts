@@ -17,7 +17,7 @@ import type { TermRow } from "@/shared/utils/advanced-syntax";
 import { useSearchDropdowns } from "./useSearchDropdowns";
 import { useSearchFormState } from "./search/useSearchFormState";
 import { useSearchQuery } from "./search/useSearchQuery";
-import { useSearchActions } from "./search/useSearchActions";
+import { useSearchActions, type SearchActions } from "./search/useSearchActions";
 import { useSearchResults } from "./search/useSearchResults";
 // N7 收敛（2026-08-20）：PAGE_SIZE 统一从 ../constants 导入
 import { NOTICE_PAGE_SIZE } from "../constants";
@@ -88,11 +88,12 @@ export interface UseNoticeSearchReturn {
     error: string;
     setError: (message: string) => void;
   };
-  actions: {
-    applySearch: (sortOverride?: "deadline" | "latest" | "deadline_farthest") => void;
-    clearSearch: () => void;
-    toggleFeatured: () => void;
-  };
+  /**
+   * 搜索动作：从 useSearchActions 导出的 SearchActions 派生，不在此手抄签名（手抄会随签名演进形成漂移）。
+   * markUserSubmitted 是内部门控标记，不对外暴露；用 Omit 而非 Pick 的理由是：
+   * 以后给 SearchActions 新增动作而忘了在此暴露时，类型会直接报错而不是静默漏掉。
+   */
+  actions: Omit<SearchActions, "markUserSubmitted">;
 }
 
 export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearchReturn {

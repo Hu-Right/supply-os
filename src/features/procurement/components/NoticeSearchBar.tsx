@@ -25,9 +25,14 @@ export interface NoticeSearchBarProps {
   query: UseNoticeSearchReturn["query"];
   countries: Array<{ country: string; count: number }>;
   agencies: Array<{ agency: string; count: number }>;
-  applySearch: (sortOverride?: "deadline" | "latest" | "deadline_farthest") => void;
-  clearSearch: () => void;
-  toggleFeatured: () => void;
+  /**
+   * 搜索动作：全部从 useNoticeSearch 的返回类型派生，不在组件层手抄签名。
+   * 此前 applySearch/clearSearch/toggleFeatured 是手写副本，上游一改签名
+   * 这里就会形成“tsc 报 Expected 0-1 arguments”的漂移。
+   */
+  applySearch: UseNoticeSearchReturn["actions"]["applySearch"];
+  clearSearch: UseNoticeSearchReturn["actions"]["clearSearch"];
+  toggleFeatured: UseNoticeSearchReturn["actions"]["toggleFeatured"];
 }
 
 // P0 性能优化：React.memo 避免翻页/列表刷新时搜索栏重渲染

@@ -7,7 +7,7 @@
 import { useCallback, useRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { clearApiCache } from "@/core/http";
-import { composeQ } from "@/shared/utils/advanced-syntax";
+import { composeQ, type TermRow } from "@/shared/utils/advanced-syntax";
 import type { NoticeItem, PrefsMode } from "../../types";
 import type { SearchFormInputs } from "./useSearchFormState";
 import type { SearchQuery } from "./useSearchQuery";
@@ -24,8 +24,23 @@ export interface SearchActionsOptions {
   onClear?: () => void;
 }
 
+/**
+ * 提交时的草稿覆盖项。
+ * form 的 dispatch 是异步的：刚 replaceRows / setMatchMode 就立即 applySearch，
+ * 函数内读到的 inputs 仍是旧快照，会把刚改的草稿丢在 URL 外。
+ * 因此「改状态 + 立刻查」的动作（如选词组即搜索）必须把新草稿显式传进来。
+ */
+export interface SearchOverrides {
+  qInput?: string;
+  termRows?: TermRow[];
+  matchMode?: "all" | "any";
+}
+
 export interface SearchActions {
-  applySearch: (sortOverride?: "deadline" | "latest" | "deadline_farthest") => void;
+  applySearch: (
+    sortOverride?: "deadline" | "latest" | "deadline_farthest",
+    overrides?: SearchOverrides,
+  ) => void;
   clearSearch: () => void;
   toggleFeatured: () => void;
   markUserSubmitted: () => void;
@@ -61,13 +76,20 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     userSubmittedRef.current = true;
   }, []);
 
-  const applySearch = useCallback((sortOverride?: "deadline" | "latest" | "deadline_farthest") => {
+  const applySearch = useCallback((
+    sortOverride?: "deadline" | "latest" | "deadline_farthest",
+    overrides?: SearchOverrides,
+  ) => {
     userSubmittedRef.current = true;
     clearApiCache("/api/notices");
 
     const next: Record<string, string> = {};
+    // 草稿来源：优先取显式覆盖（适用于刚 dispatch 完就提交的场景），否则取当前表单快照
+    const qInput = overrides?.qInput ?? inputs.qInput;
+    const termRows = overrides?.termRows ?? inputs.termRows;
+    const matchMode = overrides?.matchMode ?? inputs.matchMode;
     // 高级关键词行合成：主关键词 + 包含/排除/短语行 → q（与 Task 2 共享语法一致，服务端截断 200）
-    const composedQ = composeQ(inputs.qInput, inputs.termRows);
+    const composedQ = composeQ(qInput, termRows);
     if (composedQ) next.q = composedQ;
     if (inputs.countryInput) next.country = inputs.countryInput;
     if (inputs.agencyInput) next.agency = inputs.agencyInput;
@@ -80,7 +102,7 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
     // 匹配模式：仅显式选 any（任一命中）时写入 URL，默认 all 不写（保持 URL 简洁）
-    if (inputs.matchMode === "any") next.match_mode = "any";
+    if (matchMode === "any") next.match_mode = "any";
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "latest") next.sort = sortValue;
     if (prefsMode === "default") {
