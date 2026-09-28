@@ -38,7 +38,6 @@ export interface SupplierDirectoryRow {
 export interface CompanyCandidateRow extends RowDataPacket {
   id: number;
   company: string | null;
-  english_name: string | null;
   type: string | null;
   business_type: string | null;
   province: string | null;
@@ -63,7 +62,7 @@ export function maskCreditCode(value: string | null | undefined): string {
 export class SupplierDirectoryRepo {
   constructor(private pool: Pool) {}
 
-  /** 供应商目录（排除测试数据与已合并记录，仅展示审批通过，最新 500 家） */
+  /** 供应商目录（排除测试数据，仅展示审批通过，最新 500 家） */
   async listDirectory(): Promise<SupplierDirectoryRow[]> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code,
@@ -71,7 +70,7 @@ export class SupplierDirectoryRepo {
               contact, phone, email, products, industry, certification, type,
               data_quality_score
        FROM supplier
-       WHERE company <> '测试' AND merged_id IS NULL
+       WHERE company <> '测试'
          AND (verify_status = 'done' OR verify_status IS NULL)
        ORDER BY id DESC
        LIMIT 500`,
@@ -92,7 +91,6 @@ export class SupplierDirectoryRepo {
     // ── WHERE 条件构建 ──
     const conditions: string[] = [
       "company <> '测试'",
-      "merged_id IS NULL",
       "(verify_status = 'done' OR verify_status IS NULL)",
     ];
     const values: string[] = [];
@@ -175,7 +173,7 @@ export class SupplierDirectoryRepo {
 
   /** 企业信息可编辑列白名单（与 supplier 最终表结构一致） */
   static readonly EDITABLE_COLUMNS = [
-    "company", "english_name", "name_confirmed", "country", "country_code", "province", "city",
+    "company", "name_confirmed", "country", "country_code", "province", "city",
     "address", "registered_address", "contact", "position", "phone", "email",
     "registered_phone", "registered_email", "website", "legal_rep",
     "established_at", "registered_capital", "credit_code", "industry",
@@ -188,11 +186,12 @@ export class SupplierDirectoryRepo {
    *
    * 追加理由逐个可查：
    *   id / verify_status / claim_status / coop_status / check_note / data_quality_score / addtime
-   *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及「重复合并排除」以外的展示字段；
+   *     —— EnterpriseInfoCard 的状态徽章、完整度与录入时间、以及以外的展示字段；
    *   license_url —— 企业详情展示执照 + 保存时协调旧文件；
-   * 本表其余 11 列（business_scope / source_url / merged_id / product_keywords / unspsc_*
-   *   / enrich_* / webcheck_* / info_check / industry_id / tenant_id / …）门户**不读也不写**，
-   *   属站外域；完整台账见 docs/数据库设计/supplier-供应商目录主表.md。
+   * 2026-09 影子表重建时本表删 6 列（merged_id / english_name / webcheck_status /
+   *   webcheck_at / last_match_at / unspsc_matched_at），重复档案物理清除，
+   *   历史上的 `merged_id IS NULL` 假门禁随之全部摘除；english_name 全库恒空已退役。
+   *   完整台账见 docs/数据库设计/supplier-供应商目录主表.md。
    */
   static readonly PORTAL_COLUMNS = [
     ...SupplierDirectoryRepo.EDITABLE_COLUMNS,
@@ -239,7 +238,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry, certification, type, verify_status
-       FROM supplier WHERE credit_code = ? AND merged_id IS NULL LIMIT 1`,
+       FROM supplier WHERE credit_code = ? LIMIT 1`,
       [creditCode],
     );
     return ((rows as SupplierDirectoryRow[])[0]) ?? null;
@@ -263,14 +262,13 @@ export class SupplierDirectoryRepo {
    *
    * 当 supplier 表存在同一公司的多条记录时（外部同步可能产生空字段重复记录），
    * 优先返回关键字段（products/industry/phone/certification）填充最多的那条。
-   * 排除已合并记录（merged_id IS NOT NULL）。
    */
   async findByCompanyBest(companyName: string): Promise<SupplierDirectoryRow | null> {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, country_code, province, city,
               contact, phone, email, products, industry, certification, type, verify_status
        FROM supplier
-       WHERE company = ? AND merged_id IS NULL
+       WHERE company = ?
        ORDER BY (
          CASE WHEN products IS NOT NULL AND products <> '' THEN 1 ELSE 0 END +
          CASE WHEN industry IS NOT NULL AND industry <> '' THEN 1 ELSE 0 END +
@@ -289,7 +287,7 @@ export class SupplierDirectoryRepo {
    * 为何不复用 `findVerifiedByNameSimilar`：它只回 id/company/country/industry 且严格限定
    * `verify_status='done'`，无法区分「XX 科技有限公司」与其分公司/同名主体（要靠省市、
    * 法人、信用代码掩码辨认），也会漏掉存量无审核状态的可认领行。
-   * 口径：排除已合并行、前缀命中优先、按信用代码与资料完整度次优，避免把拼凑行推给用户。
+   * 口径：前缀命中优先、按信用代码与资料完整度次优，避免把拼凑行推给用户。
    * `bound`：附带「是否已被其他用户/账户绑定」标记（crm_users.supplier_id 命中且非 excludeUserId），
    * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
    */
@@ -306,7 +304,7 @@ export class SupplierDirectoryRepo {
     // 与 findVerifiedByNameSimilar 同口径转义 LIKE 通配符，否则用户输入 % 会退化为全表匹配
     const escaped = kw.replace(/[\\%_]/g, (c) => `\\${c}`);
     const [rows] = await this.pool.query<CompanyCandidateRow[]>(
-      `SELECT id, company, english_name, type, business_type, province, city,
+      `SELECT id, company, type, business_type, province, city,
               established_at, legal_rep, credit_code, verify_status, claim_status,
               EXISTS(
                 SELECT 1 FROM crm_users cu
@@ -315,7 +313,6 @@ export class SupplierDirectoryRepo {
               ) AS bound
          FROM supplier
         WHERE company LIKE ?
-          AND merged_id IS NULL
           AND (verify_status = 'done' OR verify_status IS NULL)
         ORDER BY (credit_code IS NOT NULL AND credit_code <> '') DESC,
                  data_quality_score DESC, id DESC
@@ -346,7 +343,7 @@ export class SupplierDirectoryRepo {
   }
 
   /**
-   * 企业名模糊建议（认领引导用）：仅已认证、未合并行，前缀命中优先、资料完整度次之。
+   * 企业名模糊建议（认领引导用）：仅已认证行，前缀命中优先、资料完整度次之。
    * 只回目录公开字段（无联系人/电话/邮箱），供登录态 autocomplete，不可当目录检索用。
    */
   async findVerifiedByNameSimilar(
@@ -357,7 +354,7 @@ export class SupplierDirectoryRepo {
     const [rows] = await this.pool.query(
       `SELECT id, company, country, industry
        FROM supplier
-       WHERE verify_status = 'done' AND merged_id IS NULL
+       WHERE verify_status = 'done'
          AND (company LIKE ? OR company LIKE ?)
        ORDER BY (company LIKE ?) DESC,
                 (
@@ -391,20 +388,20 @@ export class SupplierDirectoryRepo {
       "SELECT COUNT(*) as total FROM supplier",
     );
     const [verifiedRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     const [certRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE certification IS NOT NULL AND certification <> '' AND company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     const [intlRows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND merged_id IS NULL AND (verify_status = 'done' OR verify_status IS NULL)",
+      "SELECT COUNT(*) as total FROM supplier WHERE country_code IS NOT NULL AND country_code <> '' AND country_code <> 'CN' AND company <> '测试' AND (verify_status = 'done' OR verify_status IS NULL)",
     );
     // 已认证 且 匹配了 UNSPSC 的供应商数（JOIN 桥接表 crm_supplier_unspsc_interests）
     const [unspscRows] = await this.pool.query(
       `SELECT COUNT(DISTINCT u.supplier_id) as total
        FROM crm_supplier_unspsc_interests u
        JOIN supplier s ON s.id = u.supplier_id
-       WHERE s.verify_status = 'done' AND s.company <> '测试' AND s.merged_id IS NULL`,
+       WHERE s.verify_status = 'done' AND s.company <> '测试'`,
     );
     return {
       searchable: (allRows as RowDataPacket[])[0]?.total ?? 0,
@@ -415,10 +412,10 @@ export class SupplierDirectoryRepo {
     };
   }
 
-  /** 已通过后台审核的供应商总数（registered 统计口径：verify_status='done'，排除测试与已合并记录） */
+  /** 已通过后台审核的供应商总数（registered 统计口径：verify_status='done'，排除测试记录） */
   async countApproved(): Promise<number> {
     const [rows] = await this.pool.query(
-      "SELECT COUNT(*) as total FROM supplier WHERE verify_status = 'done' AND company <> '测试' AND merged_id IS NULL",
+      "SELECT COUNT(*) as total FROM supplier WHERE verify_status = 'done' AND company <> '测试'",
     );
     return Number((rows as RowDataPacket[])[0]?.total ?? 0);
   }

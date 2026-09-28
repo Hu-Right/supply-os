@@ -44,6 +44,11 @@ scripts/*
 # 不入版本控制就等于流程只存在于单机；阶段二的两个确认位闸口也必须能被后人原样复用。
 !scripts/consent-log-shadow-phase1.mjs
 !scripts/consent-log-shadow-phase2-cutover.mjs
+# supplier 供应商主表影子重建三阶段工具（2026-09，ADR-0003）：同上先例——删 7 列/物理吸收
+# 裁决 duplicate/id 重排的执行步骤依赖这些脚本，不入版本控制等于流程只存在于单机。
+!scripts/supplier-shadow-phase1.mjs
+!scripts/supplier-shadow-phase2-align.mjs
+!scripts/supplier-shadow-phase3-cutover.mjs
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs

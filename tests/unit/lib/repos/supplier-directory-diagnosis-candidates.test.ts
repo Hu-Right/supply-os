@@ -32,8 +32,6 @@ describe("SupplierDirectoryRepo.findDiagnosisCandidatesByName", () => {
     expect(sql).toContain("FROM crm_users cu");
     expect(sql).toContain("cu.supplier_id = supplier.id");
     expect(sql).toContain("cu.id <> ?");
-    // 已合并行仍被排除，候选口径不变
-    expect(sql).toContain("merged_id IS NULL");
     // 占位符严格按出现顺序：EXISTS 内的 excludeUserId 先于 LIKE，再于 LIMIT
     expect(params[0]).toBe(42);
     expect(params[1]).toBe("深圳\\%某%"); // 用户输入的 % 被转义为 \%

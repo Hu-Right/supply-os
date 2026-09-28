@@ -21,7 +21,6 @@ function candidate(over: Partial<DiagnosisCandidate> = {}): DiagnosisCandidate {
   return {
     supplierId: 1,
     company: "深圳某科技有限公司",
-    englishName: "",
     province: "广东",
     city: "深圳",
     establishedAt: "",

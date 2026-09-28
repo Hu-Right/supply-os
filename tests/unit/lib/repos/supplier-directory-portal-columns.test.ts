@@ -1,7 +1,9 @@
 /**
  * supplier 门户读列白名单测试（断掉历史上的 `SELECT *` 整行透传）
  * @module tests/unit/lib/repos/supplier-directory-portal-columns.test.ts
- * @description supplier 是 supply-os 与 intelligence-daily 共用的 54 列外部表。
+ * @description supplier 是 supply-os 与 intelligence-daily 共用的外部表
+ *              （2026-09 影子表重建后 48 列：删 merged_id/english_name/webcheck_status/
+ *              webcheck_at/last_match_at/unspsc_matched_at，重复档案物理清除）。
  *              findFullById 的结果会经 GET /api/user/enterprise 直达前端，历史上是 `SELECT *`：
  *              站外加列/改名会以「前端字段突然 undefined」的形式暴露，而不是在变更当场被发现。
  *              本测试钉三件事：

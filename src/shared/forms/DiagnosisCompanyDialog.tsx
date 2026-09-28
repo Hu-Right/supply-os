@@ -40,7 +40,6 @@ export function DiagnosisCompanyDialog({ open, candidates, t, onClose, onConfirm
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-slate-800">{c.company}</p>
-                  {c.englishName && <p className="truncate text-2xs text-slate-400">{c.englishName}</p>}
                   <p className="mt-1 text-2xs text-slate-500">{identityLine(c)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {c.bound && <Badge variant="error">{t("diagBadgeBound")}</Badge>}

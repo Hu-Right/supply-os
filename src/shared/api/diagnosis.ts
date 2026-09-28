@@ -19,7 +19,6 @@ interface Envelope<T> {
 export interface DiagnosisCandidate {
   supplierId: number;
   company: string;
-  englishName: string;
   province: string;
   city: string;
   establishedAt: string;

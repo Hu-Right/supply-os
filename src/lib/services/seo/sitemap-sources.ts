@@ -47,7 +47,7 @@ export async function fetchSitemapNotices(pool?: Pool): Promise<SitemapNoticeRow
 }
 
 /**
- * 供应商目录（排除测试数据与已合并记录）。
+ * 供应商目录（排除测试数据）。
  * supplier 表为外部只读表，无 updated_at —— 以 addtime 作为 lastModified。
  */
 export async function fetchSitemapSuppliers(pool?: Pool): Promise<SitemapSupplierRow[]> {
@@ -55,7 +55,7 @@ export async function fetchSitemapSuppliers(pool?: Pool): Promise<SitemapSupplie
   const [rows] = await db.query(
     `SELECT id, addtime
      FROM supplier
-     WHERE merged_id IS NULL AND company <> '测试'
+     WHERE company <> '测试'
      ORDER BY id DESC
      LIMIT ${SUPPLIER_LIMIT}`,
   );

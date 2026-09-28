@@ -33,7 +33,6 @@ export const GET = withRoute(async (req: NextRequest) => {
         list: rows.map((r) => ({
           supplierId: Number(r.id),
           company: r.company ?? "",
-          englishName: r.english_name ?? "",
           province: r.province ?? "",
           city: r.city ?? "",
           establishedAt: r.established_at ?? "",
