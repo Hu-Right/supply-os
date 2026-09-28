@@ -40,6 +40,10 @@ const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number
 const RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
 const RESULT_CACHE_MAX = 500;
 
+// 软 AND 自动放宽阈值：硬 AND 命中数 0<total<该值时，自动用 OR 再查一次并采用更多结果
+// （对齐同类招标平台"别漏"体验；置 0 即关闭放宽，恢复纯硬 AND 行为）
+const RELAX_THRESHOLD = 5;
+
 // ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──
 const _inflight = new Map<string, Promise<UnifiedSearchResult>>();
 
@@ -234,13 +238,25 @@ async function _searchCore(
   let ids: number[];
   let total: number; // 初始值在 if/else 中始终被覆盖
   let path: SearchPath = "meili";
+  let matchRelaxed = false;
   const meiliStart = Date.now();
-  const meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize);
+  let meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, p.matchMode ?? "all");
   const meiliMs = Date.now() - meiliStart;
 
   if (meiliResult) {
     ids = meiliResult.ids;
     total = meiliResult.total;
+    // 软 AND 自动放宽：硬 AND 命中过少（0<total<阈值）且用户未显式选 any 时，
+    // 用 OR（allOptional）再查一次；仅当放宽后结果更多才采用，避免反而变少
+    if (p.q && p.matchMode !== "any" && total > 0 && total < RELAX_THRESHOLD) {
+      const relaxed = await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, "any");
+      if (relaxed && relaxed.total > total) {
+        meiliResult = relaxed;
+        ids = relaxed.ids;
+        total = relaxed.total;
+        matchRelaxed = true;
+      }
+    }
     // [P1-B] 空索引防护：total=0 且索引文档数异常低（如 fullSync 失败后残留的
     // 空索引）时，判定为索引不完整而非"无匹配"——降级 MySQL 并触发重建，
     // 避免向用户返回假空结果。docCount 带 60s 缓存，正常无匹配搜索零额外开销。
@@ -306,6 +322,7 @@ async function _searchCore(
     page: p.page,
     pageSize: p.pageSize,
     fallback: path === "mysql" ? "mysql_degraded" : "none",
+    ...(matchRelaxed ? { match_relaxed: true } : {}),
   };
   cacheSet(cacheKey, result);
 

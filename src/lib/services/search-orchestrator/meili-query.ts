@@ -8,6 +8,7 @@
  */
 import { getClient, isHealthy, getIndexName, markUnhealthy, tryRecover } from "../meilisearch/client";
 import { MEILI_ACTIVE_FILTER } from "../../utils/notice-expired";
+import type { MatchingStrategies } from "meilisearch";
 import type { UnifiedSearchParams, MeiliHitResult } from "./types";
 
 const SEARCH_TIMEOUT_MS = 5000;
@@ -38,6 +39,7 @@ function buildSortArr(sort: UnifiedSearchParams["sort"]): string[] {
  * 执行 Meilisearch 检索。
  * @param q 关键词（空串 = 纯筛选浏览）
  * @param meiliFilters filter-builder 产出的 filter 数组（不含基础 ACTIVE filter）
+ * @param matchMode 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中，映射 allOptional）
  * @returns 检索结果；Meilisearch 不可用/失败返回 null
  */
 export async function meiliQuery(
@@ -46,6 +48,7 @@ export async function meiliQuery(
   sort: UnifiedSearchParams["sort"],
   page: number,
   pageSize: number,
+  matchMode: "all" | "any" = "all",
 ): Promise<MeiliHitResult | null> {
   const client = getClient();
   if (!client) return null;
@@ -71,7 +74,9 @@ export async function meiliQuery(
       limit: pageSize,
       offset,
       attributesToRetrieve: ["id"],
-      matchingStrategy: "all",
+      // all=所有词必须命中（硬 AND）；any=命中任一词即可（OR）。
+      // SDK 类型未声明 allOptional，但服务端（实测 1.52）支持且 search() 原样透传 body，故断言绕过
+      matchingStrategy: (matchMode === "any" ? "allOptional" : "all") as unknown as MatchingStrategies,
     });
 
     let timeoutId: ReturnType<typeof setTimeout> | undefined;

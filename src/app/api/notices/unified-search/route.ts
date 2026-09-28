@@ -37,6 +37,7 @@ function parseSearchParams(req: NextRequest): RawSearchParams {
     codeId: getInt("code_id") || getInt("industry_id"),
     budgetMin: sp.get("budget_min") ? Number(sp.get("budget_min")) : undefined,
     budgetMax: sp.get("budget_max") ? Number(sp.get("budget_max")) : undefined,
+    matchMode: get("match_mode"),
   };
 }
 

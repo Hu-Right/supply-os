@@ -30,6 +30,8 @@ export interface RawSearchParams {
   codeId?: number;
   budgetMin?: number;
   budgetMax?: number;
+  /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
+  matchMode?: string;
 }
 
 /**
@@ -71,6 +73,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     codeId: Math.max(Math.floor(raw.codeId || 0), 0),
     budgetMin: raw.budgetMin != null && raw.budgetMin >= 0 ? Math.floor(raw.budgetMin) : undefined,
     budgetMax: raw.budgetMax != null && raw.budgetMax >= 0 ? Math.floor(raw.budgetMax) : undefined,
+    matchMode: raw.matchMode === "any" ? "any" : "all",
   };
 }
 
@@ -85,6 +88,6 @@ export function searchCacheKey(p: UnifiedSearchParams): string {
     p.mode, p.userId ?? "guest", p.page, p.pageSize, p.locale,
     p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
-    p.sort, p.codeId, p.budgetMin ?? "", p.budgetMax ?? "",
+    p.sort, p.codeId, p.budgetMin ?? "", p.budgetMax ?? "", p.matchMode ?? "all",
   ].join("|");
 }
