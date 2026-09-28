@@ -251,7 +251,7 @@
   "procurement_matchAny": "任一匹配",
   "procurement_matchAllHint": "当前：所有关键词都要命中（更精准）",
   "procurement_matchAnyHint": "当前：命中任意一个关键词即可（更全面）",
-  "procurement_matchRelaxedHint": "精确匹配结果较少，已扩展为「任一关键词命中」以展示更多结果",
+  "procurement_matchRelaxedHint": "没有同时命中全部关键词的结果，已扩展为「任一关键词命中」",
   "procurement_loadFailed": "加载公告失败，请稍后重试",
   "procurement_actionFailed": "操作失败，请稍后重试",
   "procurement_paidQuotaRequired": "解锁额度不足，升级会员后可继续解锁查看。",

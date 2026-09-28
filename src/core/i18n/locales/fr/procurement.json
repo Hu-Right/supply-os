@@ -250,7 +250,7 @@
   "procurement_matchAny": "Au moins un",
   "procurement_matchAllHint": "Actuel : tous les mots-clés doivent correspondre (plus précis)",
   "procurement_matchAnyHint": "Actuel : au moins un mot-clé correspond (plus large)",
-  "procurement_matchRelaxedHint": "Peu de correspondances exactes — élargi à « au moins un mot-clé » pour plus de résultats",
+  "procurement_matchRelaxedHint": "Aucun résultat ne correspond à tous les mots-clés — élargi à « au moins un mot-clé »",
   "procurement_loadFailed": "Échec du chargement des avis de marché.",
   "procurement_actionFailed": "Échec de l'opération. Veuillez réessayer.",
   "procurement_paidQuotaRequired": "Quota de déblocage épuisé. Passez à un abonnement pour continuer à débloquer.",

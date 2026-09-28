@@ -40,9 +40,7 @@ const resultCache = new Map<string, { data: UnifiedSearchResult; expires: number
 const RESULT_CACHE_TTL = CACHE_TTL_STANDARD_MS;
 const RESULT_CACHE_MAX = 500;
 
-// 软 AND 自动放宽阈值：硬 AND 命中数 0<total<该值时，自动用 OR 再查一次并采用更多结果
-// （对齐同类招标平台"别漏"体验；置 0 即关闭放宽，恢复纯硬 AND 行为）
-const RELAX_THRESHOLD = 5;
+// 软 AND 放宽已改为「仅零结果触发」，无需阈值常量；闸口见 _searchCore 末尾的统一判定。
 
 // ── B6 优化：single-flight 飞行中请求去重（同参数并发请求共享同一 Promise）──
 const _inflight = new Map<string, Promise<UnifiedSearchResult>>();
@@ -240,23 +238,12 @@ async function _searchCore(
   let path: SearchPath = "meili";
   let matchRelaxed = false;
   const meiliStart = Date.now();
-  let meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, p.matchMode ?? "all");
+  const meiliResult = isFullSyncRunning() ? null : await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, p.matchMode ?? "all");
   const meiliMs = Date.now() - meiliStart;
 
   if (meiliResult) {
     ids = meiliResult.ids;
     total = meiliResult.total;
-    // 软 AND 自动放宽：硬 AND 命中过少（0<total<阈值）且用户未显式选 any 时，
-    // 用 OR（allOptional）再查一次；仅当放宽后结果更多才采用，避免反而变少
-    if (p.q && p.matchMode !== "any" && total > 0 && total < RELAX_THRESHOLD) {
-      const relaxed = await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, "any");
-      if (relaxed && relaxed.total > total) {
-        meiliResult = relaxed;
-        ids = relaxed.ids;
-        total = relaxed.total;
-        matchRelaxed = true;
-      }
-    }
     // [P1-B] 空索引防护：total=0 且索引文档数异常低（如 fullSync 失败后残留的
     // 空索引）时，判定为索引不完整而非"无匹配"——降级 MySQL 并触发重建，
     // 避免向用户返回假空结果。docCount 带 60s 缓存，正常无匹配搜索零额外开销。
@@ -288,6 +275,23 @@ async function _searchCore(
     ids = fb.ids;
     total = fb.total;
     path = "mysql";
+  }
+
+  // ── 统一软 AND 放宽闸口：仅当硬 AND 零结果时，才以 OR 重查一次 ──
+  // 本期收紧：原口径为「0<total<5 即放宽」，实测多词中文 AND=28 / OR=5469（相差 195 倍）——
+  // 少而准的结果会被海量弱相关覆盖，用户感知为“搜索变烂”；AND 命中非 0 时一律不再放宽，
+  // 把控制权留给搜索框的「全部/任一匹配」手动开关与高级语法。
+  // 置于两条引擎路径之后统一判定：避免 Meili 与 MySQL 各写一份口径，
+  // 也防止「Meili 空索引已降级且拿到结果」后被重复放宽。
+  if (p.q && p.matchMode !== "any" && total === 0) {
+    const relaxed = path === "meili"
+      ? await meiliQuery(p.q, plan.meiliFilters, p.sort, p.page, p.pageSize, "any")
+      : await mysqlFallback(pool, { ...p, matchMode: "any" }, plan);
+    if (relaxed && relaxed.total > 0) {
+      ids = relaxed.ids;
+      total = relaxed.total;
+      matchRelaxed = true;
+    }
   }
 
   if (ids.length === 0) {

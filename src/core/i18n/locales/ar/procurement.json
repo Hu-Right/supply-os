@@ -250,7 +250,7 @@
   "procurement_matchAny": "مطابقة أي",
   "procurement_matchAllHint": "حاليًا: يجب أن تطابق جميع الكلمات المفتاحية (أدق)",
   "procurement_matchAnyHint": "حاليًا: تكفي مطابقة أي كلمة مفتاحية (أشمل)",
-  "procurement_matchRelaxedHint": "نتائج المطابقة الدقيقة قليلة — تم التوسيع إلى «أي كلمة مفتاحية» لعرض المزيد",
+  "procurement_matchRelaxedHint": "لا توجد نتائج تطابق كل الكلمات المفتاحية — تم التوسيع إلى «أي كلمة مفتاحية»",
   "procurement_loadFailed": "فشل تحميل إعلانات المشتريات",
   "procurement_actionFailed": "فشل الإجراء، يرجى المحاولة لاحقاً",
   "procurement_paidQuotaRequired": "انتهت حصة فتح القيود. قم بالترقية إلى العضوية لمتابعة فتح القيود.",

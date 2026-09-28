@@ -251,7 +251,7 @@
   "procurement_matchAny": "Match any",
   "procurement_matchAllHint": "Current: all keywords must match (more precise)",
   "procurement_matchAnyHint": "Current: any single keyword matches (broader)",
-  "procurement_matchRelaxedHint": "Few exact matches — expanded to “any keyword” to show more results",
+  "procurement_matchRelaxedHint": "No results match all keywords — expanded to “any keyword” to show more results",
   "procurement_loadFailed": "Failed to load procurement notices.",
   "procurement_actionFailed": "Action failed. Please try again later.",
   "procurement_paidQuotaRequired": "Unlock quota exhausted. Upgrade to a membership plan to continue unlocking.",
