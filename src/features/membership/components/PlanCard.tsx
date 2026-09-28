@@ -24,10 +24,17 @@ export interface PlanCardProps {
   onBuy: (plan: PlanCatalogRow) => void;
   /** 升级回调（卡片套餐价格高于当前订阅时触发） */
   onUpgrade?: (plan: PlanCatalogRow) => void;
+  /**
+   * 当前订阅的升级全额抵扣窗口是否仍开着（服务端按目录 upgrade_credit_days 算好下发）：
+   * false = 已过窗口，不给「升级补差价」入口，改走按原价新购；null/undefined = 本档无窗口约束（沿用升级补差价）。
+   */
+  upgradeCreditOpen?: boolean | null;
+  /** 抵扣窗口天数（仅用于窗口已过时的文案说明；取自服务端下发，前端不写 7 天常量） */
+  upgradeCreditDays?: number | null;
 }
 
 export function PlanCard({
-  plan, table, currentPlanPrice, currentPlanCode, onBuy, onUpgrade,
+  plan, table, currentPlanPrice, currentPlanCode, onBuy, onUpgrade, upgradeCreditOpen, upgradeCreditDays,
 }: PlanCardProps) {
   const { t } = useLocale();
   const recommended = isRecommendedPlan(plan);
@@ -38,7 +45,10 @@ export function PlanCard({
   // 升级判断：存在可升级的固定价订阅，且本卡明码价高于当前订阅价（数据驱动，不硬编码）
   const hasUpgradeablePlan = Boolean(currentPlanCode) && Number(currentPlanPrice || 0) > 0;
   const priceDiff = Number(plan.price) - Number(currentPlanPrice || 0);
-  const isUpgradeTarget = !isContact && hasUpgradeablePlan && priceDiff > 0;
+  const higherThanCurrent = hasUpgradeablePlan && priceDiff > 0;
+  // 抵扣窗口已关：不能再走「升级补差价」（那条路径会冻结旧订阅），改按原价新购，旧会员继续有效至到期
+  const creditWindowClosed = higherThanCurrent && upgradeCreditOpen === false;
+  const isUpgradeTarget = !isContact && higherThanCurrent && !creditWindowClosed;
 
   // ✓/✗ 权益清单：读矩阵 bool/enum 行；额度行由价格块下方 quotaDisplay 展示
   const chips = getPlanFeatureChips(table, plan.plan_code);
@@ -138,6 +148,21 @@ export function PlanCard({
             {t("upgradeBtn")} {symbol}
             {priceDiff.toLocaleString()}
           </Button>
+        ) : creditWindowClosed ? (
+          <div className="w-full space-y-1.5">
+            <Button
+              type="button"
+              variant="cta"
+              onClick={() => onBuy(plan)}
+              className="w-full rounded-xl py-2.5 text-sm"
+            >
+              {t("upgradeBuyNewBtn")}
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+            <p className="text-2xs leading-relaxed text-slate-500">
+              {t("upgradeCreditClosedNote", { days: upgradeCreditDays ?? "", price: `${symbol}${Number(plan.price).toLocaleString()}` })}
+            </p>
+          </div>
         ) : hasUpgradeablePlan ? (
           <div className="w-full rounded-xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50 to-teal-50 py-2.5 text-center">
             <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700">

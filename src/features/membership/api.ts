@@ -7,11 +7,12 @@
  *              本文件改为 re-export 保持存量导入路径兼容。
  *              新代码应直接从 @/core/api/membership 导入。
  */
-export type { ComparisonTable, MembershipStatus, UpgradePreview } from "@/core/api/membership";
+export type { ComparisonTable, MembershipStatus, UpgradePreview, AnnualPlanCredit } from "@/core/api/membership";
 export {
   fetchMembershipPlans,
   fetchPlans,
   fetchMembershipStatus,
   fetchUpgradePreview,
   fetchServices,
+  fetchAnnualPlanCredit,
 } from "@/core/api/membership";

@@ -22,7 +22,7 @@ import { UpgradeConfirmModal } from "../components/UpgradeConfirmModal";
 import { useMembershipData } from "../hooks/useMembershipData";
 import { useMembershipPayment } from "../hooks/useMembershipPayment";
 import { useServiceCatalog } from "../hooks/useServiceCatalog";
-import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, pickEnterpriseTabServices } from "../utils";
+import { groupPlansByAudience, groupServicesByCategory, pickServiceTabGroups, serviceDisplayName, resolveServiceBranch, pickEnterpriseTabServices } from "../utils";
 import type { ServiceCatalogRow } from "@/types/membership";
 
 type MembershipTab = "personal" | "enterprise" | "services";
@@ -38,20 +38,21 @@ export default function MembershipPage() {
   const { authUser } = useAuth();
   const noticeId = searchParams.get("notice_id");
 
-  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice } = useMembershipData();
+  const { plans, comparison, loading, error, currentPlanCode, currentPlanPrice, upgradeCredit, annualCredit } = useMembershipData();
 
   const {
     buyPlan, startUpgrade, confirmUpgrade,
     upgradeModalOpen, closeUpgradeModal,
     upgradePreview, upgradeLoading, upgradeTargetPlan,
     contactQrOpen, closeContactQr,
-  } = useMembershipPayment({ noticeId, currentPlanCode });
+  } = useMembershipPayment({ noticeId, currentPlanCode, annualCredit });
 
   const [tab, setTab] = useState<MembershipTab>("personal");
 
   const { personal, enterprise } = groupPlansByAudience(plans);
   const { services, loading: servicesLoading, error: servicesError, reload: reloadServices } = useServiceCatalog();
-  // 订制服务 Tab：只展示 advisory + api_license（pro_service 归企业 Tab）
+  // 订制服务 Tab：260928 报价表列的 12 行服务全部可达（三类全放），
+  // 仅把已在企业 Tab 以档位卡呈现的 199 人工找单剔除（同一商品不重复上架）。
   const groupedServices = pickServiceTabGroups(groupServicesByCategory(services));
   // 企业 Tab 额外并列的服务卡（199 人工找单）：非订阅档，从服务目录按集中常量取。
   const enterpriseServices = tab === "enterprise" ? pickEnterpriseTabServices(services) : [];
@@ -68,7 +69,8 @@ export default function MembershipPage() {
       emitAppEvent("supply-os:require-login");
       return;
     }
-    if (row.standard_price == null || Number(row.standard_price) <= 0) return;
+    // 与 ServiceCard / service-payment 同一判定：非 self 成交形态不下单（弹顾问码）
+    if (resolveServiceBranch(row) !== "pay") return;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     emitAppEvent("supply-os:pay", {
       code: row.service_code,
@@ -179,6 +181,8 @@ export default function MembershipPage() {
                           table={comparison}
                           currentPlanPrice={currentPlanPrice}
                           currentPlanCode={currentPlanCode}
+                          upgradeCreditOpen={upgradeCredit?.open ?? null}
+                          upgradeCreditDays={upgradeCredit?.days ?? null}
                           onBuy={buyPlan}
                           onUpgrade={startUpgrade}
                         />
@@ -193,6 +197,15 @@ export default function MembershipPage() {
                       <EnterpriseCompanionCard key={row.service_code} row={row} onPay={handleServicePay} />
                     ))}
                   </div>
+
+                  {/* 年包抵扣预告：服务端发现可用的 199 成交单时才出现，与下单时真实核销同一口径 */}
+                  {annualCredit && Number(annualCredit.amount) > 0 && (
+                    <p className="mx-auto mt-4 max-w-7xl text-xs font-semibold text-teal-700" data-testid="annual-credit-hint">
+                      {t("annualCreditHint", {
+                        amount: `${annualCredit.currency === "CNY" ? "¥" : "$"}${Number(annualCredit.amount).toLocaleString()}`,
+                      })}
+                    </p>
+                  )}
                 </>
               )}
             </div>
@@ -228,7 +241,7 @@ export default function MembershipPage() {
         </>
       )}
 
-      {/* 升级确认弹窗 */}
+      {/* 升级确认弹窗（抵扣窗口已过时走 onNewPurchase：按目标档原价新购，不动旧订阅） */}
       <UpgradeConfirmModal
         open={upgradeModalOpen}
         preview={upgradePreview}
@@ -237,6 +250,10 @@ export default function MembershipPage() {
         currency={upgradeTargetPlan?.currency || "CNY"}
         onClose={closeUpgradeModal}
         onConfirm={confirmUpgrade}
+        onNewPurchase={() => {
+          closeUpgradeModal();
+          if (upgradeTargetPlan) buyPlan(upgradeTargetPlan);
+        }}
       />
 
       {/* 联系咨询客服码弹窗 */}

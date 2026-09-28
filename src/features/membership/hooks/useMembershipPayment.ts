@@ -15,7 +15,7 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/core/auth";
 import { emitAppEvent } from "@/core/events";
 import { fetchUpgradePreview } from "../api";
-import type { PlanCatalogRow, UpgradePreview } from "@/types";
+import type { AnnualPlanCredit, PlanCatalogRow, UpgradePreview } from "@/types";
 
 /** 升级预览加载失败时的兜底值 */
 const FALLBACK_PREVIEW: UpgradePreview = {
@@ -28,6 +28,9 @@ const FALLBACK_PREVIEW: UpgradePreview = {
   price_difference: 0,
   remaining_after_upgrade: 0,
   expires_at_unchanged: true,
+  credit_days: null,
+  credit_deadline_at: null,
+  new_purchase_price: null,
 };
 
 export interface UseMembershipPaymentOptions {
@@ -35,10 +38,15 @@ export interface UseMembershipPaymentOptions {
   noticeId?: string | null;
   /** 当前用户已持有的套餐 code */
   currentPlanCode?: string | null;
+  /**
+   * 可用的年包抵扣单（文档「199 升级年包可全额抵扣」，服务端下发）：
+   * 只用于把弹窗展示价与真实应付对齐；核销与最终金额由支付服务端下单时再算一次。
+   */
+  annualCredit?: AnnualPlanCredit | null;
 }
 
 export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) {
-  const { noticeId, currentPlanCode } = options;
+  const { noticeId, currentPlanCode, annualCredit } = options;
   const { authUser } = useAuth();
 
   // ── 升级弹窗状态 ──
@@ -72,15 +80,25 @@ export function useMembershipPayment(options: UseMembershipPaymentOptions = {}) 
       return;
     }
     if (plan.price_mode !== "fixed") return;
+    // 年付档（billing_period_days 非空且 >= 360）才吃年包抵扣；与 applyAnnualPlanCredit 同口径，
+    // 仅用于展示金额对齐（真实核销在服务端下单时重算）。
+    const period = Number(plan.billing_period_days ?? 0);
+    const credit =
+      annualCredit && annualCredit.currency === (plan.currency || "CNY") && period >= 360
+        ? Number(annualCredit.amount)
+        : 0;
+    const priceCents = Math.round(Number(plan.price) * 100);
+    const creditCents = Math.round(credit * 100);
+    const payable = creditCents > 0 && creditCents < priceCents ? (priceCents - creditCents) / 100 : Number(plan.price);
     emitAppEvent("supply-os:pay", {
       code: plan.plan_code,
       name: plan.name_zh,
-      price: Number(plan.price),
+      price: payable,
       currency: plan.currency || "CNY",
       noticeId: noticeId ? Number(noticeId) : undefined,
       returnUrl: buildReturnUrl(),
     });
-  }, [authUser, noticeId, buildReturnUrl, openContactQr]);
+  }, [authUser, noticeId, buildReturnUrl, openContactQr, annualCredit]);
 
   /** 点击"升级"：拉取升级预览并打开确认弹窗 */
   const startUpgrade = useCallback((plan: PlanCatalogRow) => {

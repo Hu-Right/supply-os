@@ -21,10 +21,12 @@ export interface UpgradeConfirmModalProps {
   currency: string;
   onClose: () => void;
   onConfirm: () => void;
+  /** 抵扣窗口已过时的兼容出路：关掉弹窗并按目标档原价走新购支付 */
+  onNewPurchase?: () => void;
 }
 
 export function UpgradeConfirmModal({
-  open, preview, loading, submitting, currency, onClose, onConfirm,
+  open, preview, loading, submitting, currency, onClose, onConfirm, onNewPurchase = () => {},
 }: UpgradeConfirmModalProps) {
   const { t } = useLocale();
 
@@ -58,11 +60,34 @@ export function UpgradeConfirmModal({
           </div>
         ) : !preview.can_upgrade ? (
           <div className="py-8 text-center">
-            <p className="text-sm text-red-600 font-semibold">
-              {t("upgradeNotAvailable")}
-            </p>
-            {preview.reason && (
-              <p className="text-xs text-slate-500 mt-1.5">{preview.reason}</p>
+            {preview.reason === "UPGRADE_CREDIT_WINDOW_CLOSED" ? (
+              /* 抵扣窗口已过：不是「不能升级」，而是不再享受全额抵扣 → 引导按原价新购（旧档不被动） */
+              <>
+                <p className="text-sm font-semibold text-amber-700">
+                  {t("upgradeCreditClosedNote", {
+                    days: preview.credit_days ?? "",
+                    price: `${symbol}${Number(preview.new_purchase_price ?? preview.target_plan?.price ?? 0).toLocaleString()}`,
+                  })}
+                </p>
+                <Button
+                  type="button"
+                  variant="cta"
+                  onClick={() => onNewPurchase()}
+                  disabled={submitting}
+                  className="mt-4 rounded-xl px-5 py-2.5 text-sm"
+                >
+                  {t("upgradeBuyNewBtn")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-red-600 font-semibold">
+                  {t("upgradeNotAvailable")}
+                </p>
+                {preview.reason && (
+                  <p className="text-xs text-slate-500 mt-1.5">{preview.reason}</p>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -98,13 +123,21 @@ export function UpgradeConfirmModal({
               </div>
             </div>
 
-            {/* 差价 */}
+            {/* 差价 / 应付（窗口内=补差价，等价于已付款全额抵扣） */}
             <div className="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-3">
               <span className="text-xs font-semibold text-slate-300">{t("upgradePriceDiff")}</span>
               <span className="text-lg font-extrabold text-amber-400">
                 {symbol}{preview.price_difference.toLocaleString()}
               </span>
             </div>
+            {preview.credit_deadline_at && (
+              <p className="text-2xs text-slate-500">
+                {t("upgradeCreditDeadline", {
+                  days: preview.credit_days ?? "",
+                  deadline: formatDateShort(preview.credit_deadline_at),
+                })}
+              </p>
+            )}
           </div>
         )}
       </div>

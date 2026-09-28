@@ -74,11 +74,18 @@ export function groupPlansByAudience(plans: PlanCatalogRow[]): {
   return { personal, enterprise };
 }
 
-/** 订制服务分支：standard_price 非空且 >0 → 收费下单；否则 → 客服码。 */
+/** 订制服务卡的两条成交分支：自助支付 / 预约顾问。 */
 export type ServiceBranch = "pay" | "consult";
-export function resolveServiceBranch(row: { standard_price: string | null }): ServiceBranch {
+
+/**
+ * 订制服务分支：只有 sale_mode='self' 且有正标价才走自助支付；
+ * lead/contract（留资、合同成交）与 token/quote/contact 无价行一律「预约顾问」。
+ * 与 lib/payment/service-payment 的成交方式闸口同口径（判定字段全部来自目录行，
+ * 前端不复制价格/档位常量）。
+ */
+export function resolveServiceBranch(row: { standard_price: string | null; sale_mode: string }): ServiceBranch {
   const n = row.standard_price == null ? NaN : Number(row.standard_price);
-  return Number.isFinite(n) && n > 0 ? "pay" : "consult";
+  return row.sale_mode === "self" && Number.isFinite(n) && n > 0 ? "pay" : "consult";
 }
 
 /** 服务名本地化：zh 取 name_zh，其余取 name_en（设计 B6）。 */
@@ -86,9 +93,9 @@ export function serviceDisplayName(row: { name_zh: string; name_en: string }, la
   return lang.toLowerCase().startsWith("zh") ? row.name_zh : row.name_en;
 }
 
-/** 按 category 分组，固定展示顺序：专业增值 → 顾问 → API 授权；丢弃空分组。 */
+/** 按 category 分组，固定展示顺序对齐 260928 报价表板块（顾问年包 → 专业增值 → API 授权）；丢弃空分组。 */
 export function groupServicesByCategory<T extends { category: string }>(rows: T[]): Record<string, T[]> {
-  const order = ["pro_service", "advisory", "api_license"];
+  const order = ["advisory", "pro_service", "api_license"];
   const grouped: Record<string, T[]> = {};
   for (const cat of order) grouped[cat] = [];
   for (const r of rows) (grouped[r.category] ??= []).push(r);
@@ -97,12 +104,25 @@ export function groupServicesByCategory<T extends { category: string }>(rows: T[
 }
 
 /**
- * 订制服务 Tab 允许展示的服务类别（2026-09-25 权益重设计）：
- * 只留顾问服务(advisory) + API 数据授权(api_license)；pro_service（如 199 人工找单）归企业 Tab，不在此列。
+ * 订制服务 Tab 允许展示的服务类别（2026-09-28 与文档对齐）：
+ * 文档列的 12 行服务都必须能点到，故三类全放（旧白名单只留 advisory + api_license，
+ * 使合规/调研/拆解报告等 pro_service 行成了「文档在售、官网买不到」的死数据）。
  */
-export const SERVICE_TAB_CATEGORIES: readonly string[] = ["advisory", "api_license"];
+export const SERVICE_TAB_CATEGORIES: readonly string[] = ["advisory", "pro_service", "api_license"];
 
-/** 从已分组的服务里只保留订制服务 Tab 允许的类别（保持入参已有顺序）。 */
-export function pickServiceTabGroups<T>(grouped: Record<string, T[]>): Record<string, T[]> {
-  return Object.fromEntries(Object.entries(grouped).filter(([cat]) => SERVICE_TAB_CATEGORIES.includes(cat)));
+/**
+ * 服务 Tab 分组过滤：保留允许类别，并把已在企业 Tab 以档位卡呈现的 service_code 剔除
+ * —— 同一商品不在两个 Tab 重复上架（199 人工找单只出现在企业 Tab）。
+ */
+export function pickServiceTabGroups<T extends { service_code: string }>(
+  grouped: Record<string, T[]>,
+  excludeServiceCodes: readonly string[] = ENTERPRISE_TAB_SERVICE_CODES,
+): Record<string, T[]> {
+  const excluded = new Set(excludeServiceCodes);
+  return Object.fromEntries(
+    Object.entries(grouped)
+      .filter(([cat]) => SERVICE_TAB_CATEGORIES.includes(cat))
+      .map(([cat, rows]) => [cat, rows.filter((r) => !excluded.has(r.service_code))])
+      .filter(([, rows]) => rows.length > 0),
+  );
 }

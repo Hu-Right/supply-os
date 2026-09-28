@@ -8,9 +8,9 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "@/core/auth";
-import { fetchPlans, fetchMembershipStatus } from "../api";
+import { fetchPlans, fetchMembershipStatus, fetchAnnualPlanCredit } from "../api";
 import { unlockRemaining } from "@/shared/utils/membership-view";
-import type { ComparisonTable, MembershipStatus, PlanCatalogRow } from "@/types";
+import type { AnnualPlanCredit, ComparisonTable, MembershipStatus, PlanCatalogRow } from "@/types";
 
 export interface UseMembershipDataReturn {
   /** 六卡商品行（来自对比矩阵 plans 列，服务端已排除 free） */
@@ -28,6 +28,10 @@ export interface UseMembershipDataReturn {
   currentPlanPrice: number | null;
   /** 当前生效套餐名称（含普通用户 free 档） */
   currentPlanName: string | null;
+  /** 升级全额抵扣窗口（服务端下发；当前档无窗口承诺时为 null） */
+  upgradeCredit: MembershipStatus["upgrade_credit"] | null;
+  /** 可用的年包抵扣单（文档「199 升级年包可全额抵扣」；无则 null） */
+  annualCredit: AnnualPlanCredit | null;
 }
 
 export function useMembershipData(): UseMembershipDataReturn {
@@ -35,6 +39,7 @@ export function useMembershipData(): UseMembershipDataReturn {
   const [plans, setPlans] = useState<PlanCatalogRow[]>([]);
   const [comparison, setComparison] = useState<ComparisonTable | null>(null);
   const [membership, setMembership] = useState<MembershipStatus | null>(null);
+  const [annualCredit, setAnnualCredit] = useState<AnnualPlanCredit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,12 +52,15 @@ export function useMembershipData(): UseMembershipDataReturn {
       // SSOT 修复：走 apiCached 与 useMembershipTier 共享同一份缓存，
       // 避免 MembershipPage 与 AppHeader 各发一次 /api/membership/status
       authUser ? fetchMembershipStatus(true).catch(() => null) : Promise.resolve(null),
+      // 年包抵扣单：只用于把年付卡展示价与真实应付对齐，定价以支付服务端下单时重算为准
+      authUser ? fetchAnnualPlanCredit().catch(() => null) : Promise.resolve(null),
     ])
-      .then(([table, status]) => {
+      .then(([table, status, credit]) => {
         if (!alive) return;
         setComparison(table ?? null);
         setPlans(Array.isArray(table?.plans) ? table.plans : []);
         setMembership(status);
+        setAnnualCredit(credit ?? null);
         setError(null);
       })
       .catch(() => {
@@ -60,6 +68,7 @@ export function useMembershipData(): UseMembershipDataReturn {
           setError("套餐数据加载失败，请稍后重试");
           setPlans([]);
           setComparison(null);
+          setAnnualCredit(null);
         }
       })
       .finally(() => {
@@ -86,5 +95,7 @@ export function useMembershipData(): UseMembershipDataReturn {
     currentPlanCode,
     currentPlanPrice,
     currentPlanName: membership?.plan?.name_zh ?? null,
+    upgradeCredit: membership?.upgrade_credit ?? null,
+    annualCredit,
   };
 }

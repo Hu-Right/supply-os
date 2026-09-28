@@ -8,9 +8,9 @@
  *              会员套餐/状态/升级预览的网络请求以本文件为单一事实源。
  */
 import { api, apiCached } from "@/core/http";
-import type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow } from "@/types";
+import type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow, AnnualPlanCredit } from "@/types";
 
-export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow };
+export type { ComparisonTable, MembershipStatus, UpgradePreview, ServiceCatalogRow, AnnualPlanCredit };
 
 /**
  * 拉取官网六卡 + 原生权益矩阵（带内存缓存）。
@@ -41,3 +41,9 @@ export async function fetchUpgradePreview(targetPlanCode: string): Promise<Upgra
     `/api/membership/upgrade/preview?target_plan_code=${encodeURIComponent(targetPlanCode)}`,
   );
 }
+
+/**
+ * 查当前可用的年包抵扣单（文档「199 升级年包可全额抵扣」）；无可用单返回 null。
+ * 不缓存：抵扣权会被另一张订单核销，缓存就会把“已花掉”的抵扣再显示一次。
+ */
+export const fetchAnnualPlanCredit = () => api<AnnualPlanCredit | null>("/api/membership/credits");
