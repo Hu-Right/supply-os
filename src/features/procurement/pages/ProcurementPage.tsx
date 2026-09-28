@@ -167,7 +167,6 @@ export default function ProcurementPage() {
     <div className="space-y-5">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
-      {search.result.matchRelaxed && <MatchRelaxedHint />}
 
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
         <div className="p-5 space-y-4">
@@ -345,6 +344,10 @@ export default function ProcurementPage() {
         {userId && <RecentUnlocks userId={userId} onOpenNotice={actions.openNoticeById} />}
 
         {search.result.error && <div className="p-3 rounded-lg bg-rose-50 text-rose-700 text-sm font-bold mb-4">{search.result.error}</div>}
+
+        {/* 放宽说明必须贴着结果列表：此前置于搜索面板上方，用户先看到「共 N 条」再看解释，
+            易误读为硬 AND 命中数；放宽仅在 AND 零结果时触发，文案以「未找到…」直述零命中 */}
+        {search.result.matchRelaxed && <MatchRelaxedHint />}
 
         {/* 首次加载显示骨架屏（数量对齐 NOTICE_PAGE_SIZE），后续搜索由 LoadingOverlay 覆盖 */}
         {search.result.loading && search.result.items.length === 0

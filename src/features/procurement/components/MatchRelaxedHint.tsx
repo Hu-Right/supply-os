@@ -1,9 +1,12 @@
 /**
- * 匹配放宽提示条 — 硬 AND 零结果自动放宽为 OR 后的轻量引导
+ * 匹配放宽说明条 — 硬 AND 零结果自动放宽为 OR 时的诚实告知
  * Match Relaxed Hint
  *
  * @module features/procurement/components/MatchRelaxedHint
- * @description match_relaxed=true 时显示：无任何「全部命中」结果，已改展「任一命中」。
+ * @description match_relaxed=true 时显示。必须明说两件事：
+ *              ① 未找到同时包含全部关键词的公告（不粉饰为「有结果」）；
+ *              ② 下列列表里的公告只包含其中部分关键词。
+ *              位置必须贴着结果列表（而非搜索面板上方），否则用户先看到「共 N 条」再看到解释。
  *              放宽闸口仅在 AND total=0 时触发（非「结果过少」），文案需与此口径一致。
  *              配色用 sky（蓝）区别于高级语法降级的 amber（橙）引导条，避免语义混淆。
  */
