@@ -15,7 +15,7 @@ import { useAuth } from "@/core/auth";
 import { useLocale } from "@/core/i18n";
 import { Button } from "@/shared/ui";
 import { formatDateShort } from "@/shared/utils/format";
-import { unlockRemaining } from "@/shared/utils/membership-view";
+import { unlockRemaining, isUnlimitedQuota } from "@/shared/utils/membership-view";
 import { fetchMembershipStatus } from "@/core/api/membership";
 import type { MembershipStatus } from "@/types";
 
@@ -74,7 +74,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
   const subscription = membership.subscription;
   const plan = membership.plan;
   const hasSubscription = Boolean(subscription);
-  // 总可用解锁：读额度账本 notice_view 池（“不限”归一为 9999）
+  // 总可用解锁：读额度账本 notice_view 池（“不限”归一为 UNLIMITED_QUOTA=-1）
   const totalRemaining = unlockRemaining(membership.quotas);
 
   const handleViewPlans = () => {
@@ -100,7 +100,7 @@ export function AccountBenefitsCard({ onViewPlans }: AccountBenefitsCardProps) {
         <p className="font-medium text-xs text-muted-foreground">{t("statusPanelTotalUnlocks")}</p>
       </div>
       <div className="flex items-baseline gap-1 mb-2">
-        {totalRemaining >= 9999 ? (
+        {isUnlimitedQuota(totalRemaining) ? (
           <span className="text-xl font-semibold text-foreground">{t("membershipUnlimited")}</span>
         ) : (
           <>

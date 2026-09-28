@@ -20,7 +20,7 @@ export interface UseMembershipDataReturn {
   membership: MembershipStatus | null;
   loading: boolean;
   error: string | null;
-  /** 总可用解锁次数（额度账本 notice_view 池，"不限"归一为 9999） */
+  /** 总可用解锁次数（额度账本 notice_view 池，"不限"归一为 UNLIMITED_QUOTA=-1） */
   totalRemaining: number;
   /** 当前有效订阅套餐 code（无订阅 = null，升级判断依据） */
   currentPlanCode: string | null;
