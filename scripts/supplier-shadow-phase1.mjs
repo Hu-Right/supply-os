@@ -23,9 +23,13 @@
  *     任一不符即非零退出。
  *
  * 用法：
- *   node scripts/supplier-shadow-phase1.mjs            # dry-run：只打印计划与预检结果
- *   node scripts/supplier-shadow-phase1.mjs --apply    # 写库：吸收 + 建表 + 回填 + 校验
- *   node scripts/supplier-shadow-phase1.mjs --apply --delta  # 补增量（窗口内二次执行）
+ *   node scripts/supplier-shadow-phase1.mjs                      # dry-run：只打印计划与预检结果
+ *   node scripts/supplier-shadow-phase1.mjs --apply              # 写库：吸收 + 建表 + 回填 + 校验
+ *   node scripts/supplier-shadow-phase1.mjs --apply --delta      # 补新增行（idmap 已存在时）
+ *   node scripts/supplier-shadow-phase1.mjs --apply --delta --refresh
+ *       # 切换窗口用：补新增 + 全量重灌影子表内容。
+ *       # supplier 无 updated_at，建表到切换之间被 UPDATE 的行（改资料/审核/AI补全）
+ *       # 不会自动进影子表，切换前必须 --refresh 重灌一遍，否则丢失这些更新。
  */
 import fs from "fs";
 import path from "path";
@@ -36,6 +40,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "out");
 const APPLY = process.argv.includes("--apply");
 const DELTA = process.argv.includes("--delta");
+const REFRESH = process.argv.includes("--refresh");
 
 const env = Object.fromEntries(
   fs
@@ -209,7 +214,10 @@ if (!APPLY) {
 
 // ── 1. 吸收 duplicate 行（先备份后写；幂等：已打标行自动跳过）──
 fs.mkdirSync(OUT_DIR, { recursive: true });
-const backup = { generatedAt: new Date().toISOString(), reviewTable: REVIEW_TABLE, absorbed: [], survivorPatches: [], refMoves: [], droppedConflicts: [] };
+const backup = { generatedAt: new Date().toISOString(), reviewTable: REVIEW_TABLE, absorbed: [], survivorPatches: [], refMoves: [], droppedConflicts: [], orphanDuplicates: [] };
+const backupPath = path.join(OUT_DIR, `supplier-shadow-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+// 每处理一行就落盘一次：中途失败时已完成的部分不丢（本次吸收发现原设计"结尾才写盘"会在崩溃时全丢）
+const flushBackup = () => fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
 
 //  survivor 链解析：survivor 自己也被判 duplicate 时追到根
 function resolveSurvivor(id) {
@@ -238,9 +246,16 @@ for (const row of dupRows) {
   if (dup === surv) continue;
 
   const [[dupLive]] = await pool.query(`SELECT * FROM supplier WHERE id = ?`, [dup]);
-  if (!dupLive || (dupLive.merged_id !== null && Number(dupLive.merged_id) !== 0)) continue; // 已吸收
+  if (!dupLive || (dupLive.merged_id !== null && Number(dupLive.merged_id) !== 0)) continue; // 已吸收或已删除
   const [[survLive]] = await pool.query(`SELECT * FROM supplier WHERE id = ?`, [surv]);
-  if (!survLive) fail(`duplicate 行 #${dup} 的 survivor #${surv} 不存在，人工核查`);
+  if (!survLive) {
+    // 9-22 换表清洗删掉了部分裁决保留行（794 查无/残片/测试类），本行因此成为该实体唯一存档：
+    // 不吸收（无法并入不存在的行）、不删除，保留为独立行并随影子表进入新表。
+    backup.orphanDuplicates.push({ dup, missingSurvivor: surv, supplierRow: dupLive });
+    console.warn(`[1] 跳过 #${dup}「${String(dupLive.company).slice(0, 30)}」（裁决保留行 #${surv} 已不存在，保留为独立行）`);
+    flushBackup();
+    continue;
+  }
 
   // 备份写前快照（缺表跳过）
   const dupRefs = {};
@@ -248,7 +263,8 @@ for (const row of dupRows) {
     dupRefs[`${rc.table}.${rc.column}`] = await snapshotRows(rc.table, rc.column, [dup]);
   }
   backup.absorbed.push({ dup, survivor: surv, supplierRow: dupLive, refs: dupRefs });
-  backup.survivorPatches.push({ id: surv, before: survLive });
+  // 浅拷贝：survLive 随后会被补齐逻辑原地改写，直接存引用会让 before 快照变成 after
+  backup.survivorPatches.push({ id: surv, before: { ...survLive } });
 
   // ① FILLABLE 空字段补齐（公司名/枚举类不动）
   for (const f of FILLABLE) {
@@ -316,6 +332,7 @@ for (const row of dupRows) {
   await pool.query(`UPDATE supplier SET merged_id = ? WHERE id = ?`, [surv, dup]);
   absorbedNow += 1;
   console.log(`[1] 吸收 #${dup} → 保留行 #${surv}`);
+  flushBackup();
 }
 
 if (dupIds.length === 0) console.log("[1] 无 duplicate 裁决需要吸收");
@@ -369,7 +386,7 @@ if (!DELTA) {
     await pool.query(`ALTER TABLE \`${NEW_TABLE}\` DROP COLUMN \`${c}\``);
   }
 }
-console.log(`[3] 影子表 ${NEW_TABLE} 就绪（${DELTA ? "DELTA 复用" : "CREATE LIKE 后删 6 列"}）`);
+console.log(`[3] 影子表 ${NEW_TABLE} 就绪（${DELTA ? "DELTA 复用" : `CREATE LIKE 后删 ${DROPPED_COLUMNS.length} 列`}）`);
 
 // ── 4. 回填（含行级变换；DELTA 只补未拷贝行）──
 const transformExpr = {
@@ -379,10 +396,27 @@ const transformExpr = {
   business_type:
     "CASE WHEN (s.`business_type` IS NULL OR s.`business_type` = '') AND s.`type` IS NOT NULL AND s.`type` NOT IN ('foreign','domestic') THEN s.`type` ELSE s.`business_type` END",
 };
+// business_type_code 的期望值：源表已有 code 则沿用；否则按"变换后 business_type"经与
+// normalizeBusinessType 等价的 SQL 规则派生（三个 REGEXP 优先级与 BUSINESS_TYPE_RULES 一致，
+// MySQL ci 排序规则对应 JS 的 /i）。没有这个表达式，逐列比对会拿派生值对源表 NULL 误报全量不一致。
+const BT_EXPECT = transformExpr.business_type;
+transformExpr.business_type_code =
+  `CASE WHEN s.\`business_type_code\` IS NOT NULL THEN s.\`business_type_code\` ` +
+  `WHEN TRIM(${BT_EXPECT}) IS NULL OR TRIM(${BT_EXPECT}) = '' THEN NULL ` +
+  `WHEN ${BT_EXPECT} REGEXP '制造商|生产商|制造|生产厂家|工厂|生产型|自产|OEM|ODM' THEN 'manufacturer' ` +
+  `WHEN ${BT_EXPECT} REGEXP '贸易|商贸|进出口|外贸|经销|分销|批发|代理商|供应链' THEN 'trader' ` +
+  `WHEN ${BT_EXPECT} REGEXP '服务|咨询|科技|软件|信息技术|传媒|传播|金融|租赁|物流|检测|认证机构' THEN 'service_provider' ` +
+  `ELSE 'other' END`;
 const colList = nonGenCols.map(q).join(", ");
 const colSelect = nonGenCols.map((c) => transformExpr[c] ?? `s.\`${c}\``).join(", ");
 {
-  const copiedClause = DELTA
+  // --refresh：清空影子表内容后全量重灌（supplier 无 updated_at，无法按行检测更新，
+  // 窗口切换前用它保证影子表与源表零差异；影子表重灌期间线上仍读旧表，无感）
+  if (DELTA && REFRESH) {
+    await pool.query(`DELETE FROM \`${NEW_TABLE}\``);
+    console.log("[4] REFRESH：影子表内容已清空，即将全量重灌");
+  }
+  const copiedClause = DELTA && !REFRESH
     ? ` AND NOT EXISTS (SELECT 1 FROM ${NEW_TABLE} n WHERE n.id = m.new_id)`
     : "";
   // 幂等：非 DELTA 时新表刚建为空；DELTA 时只补缺失行（idmap 保证 id 唯一，无需 IGNORE，
@@ -396,20 +430,33 @@ const colSelect = nonGenCols.map((c) => transformExpr[c] ?? `s.\`${c}\``).join("
   );
   console.log(`[4] 回填影响行数=${ret.affectedRows}`);
 }
-// business_type_code 重派生（仅 business_type 非空而枚举缺失的行；与 dimensions.ts 同规则）
+// business_type_code 重派生（仅 business_type 非空而枚举缺失的行；与 dimensions.ts 同规则）。
+// 必须批量执行：type 洗净后约 3.8 万行 business_type 被填充，逐行 UPDATE 在 SSH 隧道上要一个多小时
+const deriveStart = Date.now();
 {
   const [needDerive] = await pool.query(
     `SELECT id, business_type FROM \`${NEW_TABLE}\`
       WHERE business_type_code IS NULL AND business_type IS NOT NULL AND business_type <> ''`,
   );
-  let derived = 0;
+  const byCode = new Map();
   for (const r of needDerive) {
     const code = normalizeBusinessType(r.business_type);
     if (!code) continue;
-    await pool.query(`UPDATE \`${NEW_TABLE}\` SET business_type_code = ? WHERE id = ?`, [code, r.id]);
-    derived += 1;
+    if (!byCode.has(code)) byCode.set(code, []);
+    byCode.get(code).push(Number(r.id));
   }
-  console.log(`[4] business_type_code 派生 ${derived} 行`);
+  let derived = 0;
+  for (const [code, ids] of byCode) {
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      await pool.query(
+        `UPDATE \`${NEW_TABLE}\` SET business_type_code = ? WHERE id IN (${chunk.map(() => "?").join(",")})`,
+        [code, ...chunk],
+      );
+      derived += chunk.length;
+    }
+  }
+  console.log(`[4] business_type_code 派生 ${derived} 行（${((Date.now() - deriveStart) / 1000).toFixed(1)}s）`);
 }
 
 // ── 5. 校验 ──
@@ -437,23 +484,36 @@ const [[mismatch]] = await pool.query(
 if (Number(mismatch.bad) !== 0) fail(`${mismatch.bad} 行逐列比对不一致，影子表数据不可信`);
 console.log(`[5] 逐列比对 0 差异（${nonGenCols.length} 列，含 4 个变换列按期望值）`);
 
-// 分值守恒：唯一允许的分差是 province='CN' 被置 NULL 的行（原值虚高 5 分档）
-const [[scoreBad]] = await pool.query(
-  `SELECT COUNT(*) bad
+// 分值守恒：资料完整度是 20 基列的生成列，本次重建有两类**预期内**的分值变化：
+//   A) province='CN' 污染置 NULL → 失一列（-5 档）
+//   B) type 越域值搬入空 business_type → 得一列（+5 档，数据归位：同一事实从仅占 type
+//      变为 type/business_type 各归其位，非虚增）
+//   C) type 原为空 → 归一后必有值 → 得一列（个位数行）
+// 除此之外分值必须逐行一致，否则影子表数据不可信。
+{
+  const [[brk]] = await pool.query(
+    `SELECT
+       SUM(NOT (n.data_quality_score <=> u.data_quality_score)) AS changed,
+       SUM(u.province <=> 'CN') AS provFixed,
+       SUM((u.business_type IS NULL OR u.business_type = '') AND u.type IS NOT NULL AND u.type NOT IN ('foreign','domestic')) AS btGained,
+       SUM(u.type IS NULL OR u.type = '') AS typeGained
      FROM supplier u
      JOIN \`${MAP_TABLE}\` m ON m.old_id = u.id
-     JOIN \`${NEW_TABLE}\` n ON n.id = m.new_id
-    WHERE NOT (n.data_quality_score <=> u.data_quality_score)
-      AND NOT (u.province <=> 'CN')`,
-);
-if (Number(scoreBad.bad) !== 0) fail(`${scoreBad.bad} 行资料完整度分值在预期之外变化`);
-{
-  const [[provRows]] = await pool.query(
-    `SELECT COUNT(*) n FROM supplier u
-       JOIN \`${MAP_TABLE}\` m ON m.old_id = u.id
-      WHERE u.province <=> 'CN'`,
+     JOIN \`${NEW_TABLE}\` n ON n.id = m.new_id`,
   );
-  console.log(`[5] 分值守恒通过（province='CN' 修复行 ${Number(provRows.n)} 行分值下降属预期）`);
+  console.log(`[5] 分值变化 ${Number(brk.changed)} 行（预期构成：province 修复 ${Number(brk.provFixed)} / business_type 归位 ${Number(brk.btGained)} / type 补空 ${Number(brk.typeGained)}）`);
+  const [[scoreBad]] = await pool.query(
+    `SELECT COUNT(*) bad
+       FROM supplier u
+       JOIN \`${MAP_TABLE}\` m ON m.old_id = u.id
+       JOIN \`${NEW_TABLE}\` n ON n.id = m.new_id
+      WHERE NOT (n.data_quality_score <=> u.data_quality_score)
+        AND NOT (u.province <=> 'CN')
+        AND NOT ((u.business_type IS NULL OR u.business_type = '') AND u.type IS NOT NULL AND u.type NOT IN ('foreign','domestic'))
+        AND NOT (u.type IS NULL OR u.type = '')`,
+  );
+  if (Number(scoreBad.bad) !== 0) fail(`${scoreBad.bad} 行资料完整度分值在预期之外变化`);
+  console.log("[5] 分值守恒通过：全部变化落在上述三类预期内");
 }
 
 // AUTO_INCREMENT 收口
@@ -468,10 +528,9 @@ if (Number(scoreBad.bad) !== 0) fail(`${scoreBad.bad} 行资料完整度分值�
   }
 }
 
-// 备份落盘
-const backupPath = path.join(OUT_DIR, `supplier-shadow-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
-fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2));
-console.log(`[5] 吸收动作备份 → ${backupPath}（吸收 ${backup.absorbed.length} 行 / 冲突归档 ${backup.droppedConflicts.length} 条）`);
+// 备份最终落盘（循环内已逐行增量写）
+flushBackup();
+console.log(`[5] 吸收动作备份 → ${backupPath}（吸收 ${backup.absorbed.length} 行 / 冲突归档 ${backup.droppedConflicts.length} 条 / 孤儿保留 ${backup.orphanDuplicates.length} 行）`);
 
 console.log(`\n✅ 阶段一完成：${NEW_TABLE}（${nonGenCols.length + genCols.length + 1} 列、id 1..${Number(newStat.total)}）与 ${MAP_TABLE} 就绪，supplier 本体仅发生 duplicate 吸收写。`);
 console.log("   下一步：阶段二 supplier-shadow-phase2-align.mjs 级联改写下游引用 → 阶段三 phase3 原子 RENAME。");
