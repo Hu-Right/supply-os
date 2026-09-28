@@ -24,7 +24,6 @@ export interface SearchResultsOptions {
 export interface SearchResults {
   items: NoticeItem[];
   total: number;
-  advancedDegraded: boolean;
   matchRelaxed: boolean;
   serverPageSize: number;
   totalPages: number;
@@ -39,7 +38,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
 
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [advancedDegraded, setAdvancedDegraded] = useState(false);
   const [matchRelaxed, setMatchRelaxed] = useState(false);
   const [serverPageSize, setServerPageSize] = useState(NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
@@ -93,7 +91,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     noticesRequestSeq.current = requestSeq;
     setLoading(true);
     setError("");
-    setAdvancedDegraded(false);
     setMatchRelaxed(false);
 
     debounceTimerRef.current = setTimeout(() => {
@@ -139,7 +136,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
           variantRef.current = typeof json.variant === "string" ? json.variant : undefined;
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));
-          setAdvancedDegraded(json.advanced_degraded === true);
           setMatchRelaxed(json.match_relaxed === true);
           setServerPageSize(nextPageSize);
         })
@@ -209,7 +205,6 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   return {
     items,
     total,
-    advancedDegraded,
     matchRelaxed,
     serverPageSize,
     totalPages,
