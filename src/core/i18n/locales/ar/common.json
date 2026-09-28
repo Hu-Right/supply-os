@@ -115,6 +115,7 @@
   "settingsKwNamePlaceholder": "اسم المجموعة، مثل: عواكس الطاقة الشمسية",
   "settingsKwTermsPlaceholder": "كلمة مفتاحية واحدة في كل سطر، أو افصل بينها بفواصل",
   "settingsKwTermsHint": "حتى {max} كلمة، ولا تزيد الكلمة الواحدة عن 50 حرفًا",
+  "settingsKwGroupsLimit": "حتى {max} مجموعات لكل حساب",
   "settingsKwCreate": "إنشاء",
   "settingsKwSave": "حفظ",
   "settingsKwCancel": "إلغاء",

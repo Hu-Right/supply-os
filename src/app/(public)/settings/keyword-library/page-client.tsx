@@ -15,7 +15,7 @@ import {
   fetchKeywordGroups, createKeywordGroup, updateKeywordGroup, deleteKeywordGroup,
   type KeywordGroup,
 } from "@/core/api/keywordGroups";
-import { MAX_TERMS_PER_GROUP } from "@/lib/services/keyword-groups";
+import { MAX_TERMS_PER_GROUP, MAX_GROUPS_PER_USER } from "@/lib/services/keyword-groups";
 
 export default function KeywordLibraryPageClient() {
   const { t } = useLocale();
@@ -118,9 +118,10 @@ export default function KeywordLibraryPageClient() {
             rows={3}
           />
           <p className="text-2xs text-slate-400">{t("settingsKwTermsHint", { max: MAX_TERMS_PER_GROUP })}</p>
+          <p className="text-2xs text-slate-400">{t("settingsKwGroupsLimit", { max: MAX_GROUPS_PER_USER })}</p>
           {error && <p className="text-xs text-rose-600">{error}</p>}
           <div className="flex gap-2">
-            <Button onClick={handleSubmit} disabled={!name.trim() || !parseTerms().length}>
+            <Button onClick={handleSubmit} disabled={!name.trim() || !parseTerms().length || (!editingId && groups.length >= MAX_GROUPS_PER_USER)}>
               {editingId ? t("settingsKwSave") : t("settingsKwCreate")}
             </Button>
             {editingId && (
@@ -133,7 +134,12 @@ export default function KeywordLibraryPageClient() {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h2 className="text-base font-extrabold text-slate-800 mb-4">{t("settingsKwListTitle")}</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base font-extrabold text-slate-800">{t("settingsKwListTitle")}</h2>
+          <span className={`text-xs font-bold ${groups.length >= MAX_GROUPS_PER_USER ? "text-rose-600" : "text-slate-400"}`}>
+            {groups.length} / {MAX_GROUPS_PER_USER}
+          </span>
+        </div>
         {groups.length === 0 ? (
           <p className="text-sm text-slate-400">{t("settingsKwEmpty")}</p>
         ) : (

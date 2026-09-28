@@ -134,6 +134,7 @@
   "settingsKwNamePlaceholder": "Group name, e.g. Solar Inverters",
   "settingsKwTermsPlaceholder": "One keyword per line, or separated by commas",
   "settingsKwTermsHint": "Up to {max} terms, each no more than 50 characters",
+  "settingsKwGroupsLimit": "Up to {max} groups per account",
   "settingsKwCreate": "Create",
   "settingsKwSave": "Save",
   "settingsKwCancel": "Cancel",

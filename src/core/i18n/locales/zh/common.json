@@ -134,6 +134,7 @@
   "settingsKwNamePlaceholder": "词组名称，如：光伏逆变器",
   "settingsKwTermsPlaceholder": "每行一个关键词，也可用逗号分隔",
   "settingsKwTermsHint": "最多 {max} 个词，每个词不超过 50 字",
+  "settingsKwGroupsLimit": "每人最多 {max} 个词组",
   "settingsKwCreate": "创建",
   "settingsKwSave": "保存",
   "settingsKwCancel": "取消",

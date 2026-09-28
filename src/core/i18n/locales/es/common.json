@@ -115,6 +115,7 @@
   "settingsKwNamePlaceholder": "Nombre del grupo, p. ej.: inversores solares",
   "settingsKwTermsPlaceholder": "Una palabra clave por línea, o separadas por comas",
   "settingsKwTermsHint": "Máximo {max} términos, cada uno de hasta 50 caracteres",
+  "settingsKwGroupsLimit": "Hasta {max} grupos por cuenta",
   "settingsKwCreate": "Crear",
   "settingsKwSave": "Guardar",
   "settingsKwCancel": "Cancelar",

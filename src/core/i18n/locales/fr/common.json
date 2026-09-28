@@ -115,6 +115,7 @@
   "settingsKwNamePlaceholder": "Nom du groupe, ex. : onduleurs solaires",
   "settingsKwTermsPlaceholder": "Un mot-clé par ligne, ou séparés par des virgules",
   "settingsKwTermsHint": "Jusqu'à {max} mots, chacun de 50 caractères maximum",
+  "settingsKwGroupsLimit": "Jusqu'à {max} groupes par compte",
   "settingsKwCreate": "Créer",
   "settingsKwSave": "Enregistrer",
   "settingsKwCancel": "Annuler",

@@ -115,6 +115,7 @@
   "settingsKwNamePlaceholder": "Название группы, напр.: солнечные инверторы",
   "settingsKwTermsPlaceholder": "По одному ключевому слову в строке или через запятую",
   "settingsKwTermsHint": "Не более {max} слов, каждое — до 50 символов",
+  "settingsKwGroupsLimit": "До {max} групп на аккаунт",
   "settingsKwCreate": "Создать",
   "settingsKwSave": "Сохранить",
   "settingsKwCancel": "Отмена",
