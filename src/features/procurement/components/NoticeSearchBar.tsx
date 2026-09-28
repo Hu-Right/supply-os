@@ -65,6 +65,21 @@ export const NoticeSearchBar = memo(function NoticeSearchBar({
           data-testid="search-input"
         />
         <div className="flex items-center gap-2 min-w-0">
+          {/* 关键词匹配模式切换：全部命中（AND）/ 任一命中（OR） */}
+          <button
+            type="button"
+            data-testid="match-mode-toggle"
+            onClick={() => form.setMatchMode(form.matchMode === "all" ? "any" : "all")}
+            aria-pressed={form.matchMode === "any"}
+            title={form.matchMode === "all" ? t("procurement_matchAllHint") : t("procurement_matchAnyHint")}
+            className={`shrink-0 whitespace-nowrap text-xs font-bold px-2.5 py-2 rounded-lg border transition-colors ${
+              form.matchMode === "any"
+                ? "text-teal-800 border-teal-300 bg-teal-50 hover:bg-teal-100"
+                : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50"
+            }`}
+          >
+            {form.matchMode === "all" ? t("procurement_matchAll") : t("procurement_matchAny")}
+          </button>
           <Select
             value={query.activeSort}
             onChange={(e) => {

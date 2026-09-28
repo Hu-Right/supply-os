@@ -73,6 +73,8 @@ export interface UseNoticeSearchReturn {
     replaceRows: (rows: TermRow[]) => void;
     setRowTerm: (id: number, term: string) => void;
     setRowMode: (id: number, mode: "include" | "exclude" | "phrase") => void;
+    matchMode: "all" | "any";
+    setMatchMode: (mode: "all" | "any") => void;
   };
   result: {
     countries: Array<{ country: string; count: number }>;
@@ -80,6 +82,7 @@ export interface UseNoticeSearchReturn {
     items: NoticeItem[];
     total: number;
     advancedDegraded: boolean;
+    matchRelaxed: boolean;
     serverPageSize: number;
     totalPages: number;
     loading: boolean;
@@ -141,8 +144,9 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       to: query.activeTo,
       window: query.activeWindow,
       noticeType: query.activeNoticeType,
+      matchMode: query.activeMatchMode,
     });
-  }, [syncFromUrl, query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType]);
+  }, [syncFromUrl, query.activeQ, query.activeCountry, query.activeAgency, query.activeFrom, query.activeTo, query.activeWindow, query.activeNoticeType, query.activeMatchMode]);
 
   // 组件挂载时立即从 URL 同步表单状态
   useEffect(() => {
@@ -154,6 +158,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       to: query.activeTo,
       window: query.activeWindow,
       noticeType: query.activeNoticeType,
+      matchMode: query.activeMatchMode,
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -211,6 +216,8 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       replaceRows: form.setters.replaceRows,
       setRowTerm: form.setters.setRowTerm,
       setRowMode: form.setters.setRowMode,
+      matchMode: form.inputs.matchMode,
+      setMatchMode: form.setters.setMatchMode,
     },
     result: {
       countries,
@@ -218,6 +225,7 @@ export function useNoticeSearch(options: UseNoticeSearchOptions): UseNoticeSearc
       items: results.items,
       total: results.total,
       advancedDegraded: results.advancedDegraded,
+      matchRelaxed: results.matchRelaxed,
       serverPageSize: results.serverPageSize,
       totalPages: results.totalPages,
       loading: results.loading,

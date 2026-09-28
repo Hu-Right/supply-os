@@ -79,6 +79,8 @@ export function useSearchActions(options: SearchActionsOptions): SearchActions {
     if (deepestCodeId) next.code_id = deepestCodeId;
     if (query.activeBudgetMin) next.budget_min = query.activeBudgetMin;
     if (query.activeBudgetMax) next.budget_max = query.activeBudgetMax;
+    // 匹配模式：仅显式选 any（任一命中）时写入 URL，默认 all 不写（保持 URL 简洁）
+    if (inputs.matchMode === "any") next.match_mode = "any";
     const sortValue = sortOverride ?? query.activeSort;
     if (sortValue !== "latest") next.sort = sortValue;
     if (prefsMode === "default") {

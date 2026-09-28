@@ -28,10 +28,13 @@ export interface SearchFormState {
   window: string;
   noticeType: string;
   termRows: TermRow[];
+  /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
+  matchMode: "all" | "any";
 }
 
 export type SearchFormAction =
   | { type: "set_q" | "set_country" | "set_agency" | "set_from" | "set_to" | "set_window" | "set_notice_type"; payload: string }
+  | { type: "set_match_mode"; payload: "all" | "any" }
   | { type: "sync"; payload: SearchFormState }
   | { type: "clear" }
   | { type: "add_row" }
@@ -49,8 +52,9 @@ export function searchFormReducer(state: SearchFormState, action: SearchFormActi
     case "set_to": return { ...state, to: action.payload };
     case "set_window": return { ...state, window: action.payload };
     case "set_notice_type": return { ...state, noticeType: action.payload };
+    case "set_match_mode": return { ...state, matchMode: action.payload };
     case "sync": return { ...action.payload };
-    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", noticeType: "", termRows: [] };
+    case "clear": return { q: "", country: "", agency: "", from: "", to: "", window: "", noticeType: "", termRows: [], matchMode: "all" };
     case "add_row": {
       if (state.termRows.length >= MAX_KEYWORD_ROWS) return state;
       const nextId = state.termRows.reduce((m, r) => Math.max(m, r.id), 0) + 1;

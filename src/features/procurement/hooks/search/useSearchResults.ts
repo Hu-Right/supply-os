@@ -25,6 +25,7 @@ export interface SearchResults {
   items: NoticeItem[];
   total: number;
   advancedDegraded: boolean;
+  matchRelaxed: boolean;
   serverPageSize: number;
   totalPages: number;
   loading: boolean;
@@ -39,6 +40,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [total, setTotal] = useState(0);
   const [advancedDegraded, setAdvancedDegraded] = useState(false);
+  const [matchRelaxed, setMatchRelaxed] = useState(false);
   const [serverPageSize, setServerPageSize] = useState(NOTICE_PAGE_SIZE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +94,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     setLoading(true);
     setError("");
     setAdvancedDegraded(false);
+    setMatchRelaxed(false);
 
     debounceTimerRef.current = setTimeout(() => {
       timeoutTimerRef.current = setTimeout(() => {
@@ -125,6 +128,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
         budgetMax: query.activeBudgetMax ? Number(query.activeBudgetMax) : undefined,
         sort: query.activeSort,
         locale,
+        matchMode: query.activeMatchMode,
       }, controller.signal);
 
       request
@@ -136,6 +140,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
           setItems(Array.isArray(json.items) ? json.items : []);
           setTotal(Number(json.total || 0));
           setAdvancedDegraded(json.advanced_degraded === true);
+          setMatchRelaxed(json.match_relaxed === true);
           setServerPageSize(nextPageSize);
         })
         .catch((err) => {
@@ -197,6 +202,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
       budgetMax: query.activeBudgetMax ? Number(query.activeBudgetMax) : undefined,
       sort: query.activeSort,
       locale,
+      matchMode: query.activeMatchMode,
     }).catch((e) => { console.warn("[useSearchResults] prefetch failed (non-critical):", e); });
   }, [page, totalPages, items.length, loading, prefsMode, userId, query, locale, deepestCodeId]);
 
@@ -204,6 +210,7 @@ export function useSearchResults(options: SearchResultsOptions): SearchResults {
     items,
     total,
     advancedDegraded,
+    matchRelaxed,
     serverPageSize,
     totalPages,
     loading,

@@ -18,6 +18,7 @@ export interface SearchFormInputs {
   windowInput: string;
   noticeTypeInput: string;
   termRows: TermRow[];
+  matchMode: "all" | "any";
 }
 
 export interface SearchFormSetters {
@@ -33,6 +34,7 @@ export interface SearchFormSetters {
   replaceRows: (rows: TermRow[]) => void;
   setRowTerm: (id: number, term: string) => void;
   setRowMode: (id: number, mode: TermMode) => void;
+  setMatchMode: (mode: "all" | "any") => void;
 }
 
 export function useSearchFormState(): {
@@ -47,6 +49,7 @@ export function useSearchFormState(): {
     to: string;
     window: string;
     noticeType: string;
+    matchMode: "all" | "any";
   }) => void;
   clear: () => void;
 } {
@@ -63,6 +66,7 @@ export function useSearchFormState(): {
       window: searchParams.get("deadline_within_days") || "",
       noticeType: searchParams.get("notice_type") || "",
       termRows: rows,
+      matchMode: (searchParams.get("match_mode") === "any" ? "any" : "all") as "all" | "any",
     };
   })());
 
@@ -78,6 +82,7 @@ export function useSearchFormState(): {
   const replaceRows = useCallback((rows: TermRow[]) => dispatchForm({ type: "replace_rows", payload: rows }), []);
   const setRowTerm = useCallback((id: number, term: string) => dispatchForm({ type: "set_row_term", payload: { id, term } }), []);
   const setRowMode = useCallback((id: number, mode: TermMode) => dispatchForm({ type: "set_row_mode", payload: { id, mode } }), []);
+  const setMatchMode = useCallback((mode: "all" | "any") => dispatchForm({ type: "set_match_mode", payload: mode }), []);
 
   const syncFromUrl = useCallback((params: {
     q: string;
@@ -87,6 +92,7 @@ export function useSearchFormState(): {
     to: string;
     window: string;
     noticeType: string;
+    matchMode: "all" | "any";
   }) => {
     // URL q 先过高级语法解析再入草稿：排除词/短语落 termRows，普通词落 q
     const parsed = parseQ(params.q);
@@ -108,6 +114,7 @@ export function useSearchFormState(): {
       windowInput: formState.window,
       noticeTypeInput: formState.noticeType,
       termRows: formState.termRows,
+      matchMode: formState.matchMode,
     },
     setters: {
       setQInput,
@@ -122,6 +129,7 @@ export function useSearchFormState(): {
       replaceRows,
       setRowTerm,
       setRowMode,
+      setMatchMode,
     },
     syncFromUrl,
     clear,

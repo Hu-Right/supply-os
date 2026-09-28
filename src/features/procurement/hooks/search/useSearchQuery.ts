@@ -19,6 +19,8 @@ export interface SearchQuery {
   activeFeatured: boolean;
   activeBudgetMin: string;
   activeBudgetMax: string;
+  /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
+  activeMatchMode: "all" | "any";
   hasSearch: boolean;
   hasOtherSearch: boolean;
   searchKey: string;
@@ -40,6 +42,7 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
   const activeFeatured = searchParams.get("featured") === "1";
   const activeBudgetMin = searchParams.get("budget_min") || "";
   const activeBudgetMax = searchParams.get("budget_max") || "";
+  const activeMatchMode: "all" | "any" = searchParams.get("match_mode") === "any" ? "any" : "all";
 
   const hasSearch = Boolean(
     activeQ || activeCountry || activeAgency || activeFrom || activeTo ||
@@ -55,7 +58,7 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeBudgetMin || activeBudgetMax
   );
 
-  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}`;
+  const searchKey = `${activeQ}|${activeCountry}|${activeAgency}|${activeFrom}|${activeTo}|${activeSort}|${activeWindow}|${activeNoticeType}|${activeFeatured ? "1" : ""}|${deepestCodeId}|${activeBudgetMin}|${activeBudgetMax}|${activeMatchMode}`;
 
   return useMemo(() => ({
     activeQ,
@@ -69,8 +72,9 @@ export function useSearchQuery(deepestCodeId: string): SearchQuery {
     activeFeatured,
     activeBudgetMin,
     activeBudgetMax,
+    activeMatchMode,
     hasSearch,
     hasOtherSearch,
     searchKey,
-  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, hasSearch, hasOtherSearch, searchKey]);
+  }), [activeQ, activeCountry, activeAgency, activeFrom, activeTo, activeSort, activeWindow, activeNoticeType, activeFeatured, activeBudgetMin, activeBudgetMax, activeMatchMode, hasSearch, hasOtherSearch, searchKey]);
 }

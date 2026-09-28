@@ -102,6 +102,8 @@ export const fetchUnifiedSearch = (params: {
   sort?: string;
   budgetMin?: number;
   budgetMax?: number;
+  /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
+  matchMode?: "all" | "any";
 }, signal?: AbortSignal): Promise<NoticeResponse> => {
   // B1 legacy 退役（2026-08-19）：user_key 兜底参数已删除，身份由 JWT 承载（api() 自动携带）
   const qs = buildQuery({
@@ -121,6 +123,7 @@ export const fetchUnifiedSearch = (params: {
     sort: params.sort && params.sort !== "latest" ? params.sort : undefined,
     budget_min: params.budgetMin?.toString(),
     budget_max: params.budgetMax?.toString(),
+    match_mode: params.matchMode === "any" ? "any" : undefined,
   });
   return apiCached<NoticeResponse>(`/api/notices/unified-search?${qs}`, 60 * 1000, signal);
 };
