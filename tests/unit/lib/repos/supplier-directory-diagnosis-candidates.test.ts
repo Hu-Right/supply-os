@@ -6,7 +6,9 @@
  *                 并用 cu.id <> ? 排除当前用户（自己的企业不该提示「已被绑定」）；
  *              2. 占位符按出现顺序排布：excludeUserId 先于 LIKE，再于 LIMIT，避免错序；
  *              3. excludeUserId 缺省时归一为 0（不排除任何用户，任意绑定都计为 bound）；
- *              4. 用户输入的 % 必须转义，沿用认领建议同口径。
+ *              4. 用户输入的 % 必须转义，沿用认领建议同口径；
+ *              5. 不按 verify_status 过滤：pending 行（爬虫同步整库）同样是诊断候选，
+ *                 一旦加回过滤，整库在诊断入口不可见。
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SupplierDirectoryRepo } from "@/lib/repos/suppliers/supplier-directory.repo";
@@ -44,6 +46,13 @@ describe("SupplierDirectoryRepo.findDiagnosisCandidatesByName", () => {
     const [, params] = mockQuery.mock.calls[0];
     expect(params[0]).toBe(0);
     expect(params[1]).toBe("北京%");
+  });
+
+  it("整库候选：不按 verify_status 过滤（pending 行同样是诊断对象）", async () => {
+    await repo.findDiagnosisCandidatesByName("深圳", 5, 42);
+    const [sql] = mockQuery.mock.calls[0];
+    // SELECT 列里带出 verify_status 供前端展示，但 WHERE 不得再出现审核状态条件
+    expect(sql).not.toMatch(/WHERE[\s\S]*(verify_status\s*=|verify_status\s+IS)/);
   });
 
   it("空关键词直接返回空数组，不打库", async () => {

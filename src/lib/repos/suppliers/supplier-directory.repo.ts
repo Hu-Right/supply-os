@@ -288,6 +288,9 @@ export class SupplierDirectoryRepo {
    * `verify_status='done'`，无法区分「XX 科技有限公司」与其分公司/同名主体（要靠省市、
    * 法人、信用代码掩码辨认），也会漏掉存量无审核状态的可认领行。
    * 口径：前缀命中优先、按信用代码与资料完整度次优，避免把拼凑行推给用户。
+   * 不按 verify_status 过滤：库里绝大多数行是爬虫同步的 pending（done 仅个位数），一旦过滤，
+   * 整库在诊断入口不可见；pending 行同样是 D1 的正当评价对象（与 findProfileBits /
+   * findByCompanyBest 同口径），脱敏由 /api/suppliers/similar 的字段白名单 + 掩码保证。
    * `bound`：附带「是否已被其他用户/账户绑定」标记（crm_users.supplier_id 命中且非 excludeUserId），
    * 供「检测并确认主体」弹窗提示「该公司已被绑定」，避免用户对已归属企业重复认领。
    */
@@ -313,7 +316,6 @@ export class SupplierDirectoryRepo {
               ) AS bound
          FROM supplier
         WHERE company LIKE ?
-          AND (verify_status = 'done' OR verify_status IS NULL)
         ORDER BY (credit_code IS NOT NULL AND credit_code <> '') DESC,
                  data_quality_score DESC, id DESC
         LIMIT ?`,
