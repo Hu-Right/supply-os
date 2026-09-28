@@ -21,7 +21,6 @@ export interface DiagnosisRow extends RowDataPacket {
   user_id: number;
   supplier_id: number;
   company_name: string;
-  audit_status: string;
   schema_version: number;
   score_total: number | null;
   score_grade: string | null;
@@ -29,7 +28,6 @@ export interface DiagnosisRow extends RowDataPacket {
   scored_at: Date | null;
   ip: string | null;
   submitted_at: Date;
-  reviewed_at: Date | null;
   updated_at: Date | null;
 }
 

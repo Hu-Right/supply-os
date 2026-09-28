@@ -25,7 +25,6 @@ export const GET = withRoute(async (req: NextRequest) => {
           id: Number(r.id),
           supplier_id: Number(r.supplier_id),
           company_name: r.company_name,
-          audit_status: r.audit_status,
           schema_version: Number(r.schema_version),
           score_total: r.score_total === null ? null : Number(r.score_total),
           score_grade: r.score_grade,

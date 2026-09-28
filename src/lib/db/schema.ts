@@ -177,6 +177,7 @@ import { migration as m099 } from "./migrations/099-consent-log-birth-structure"
 import { migration as m100 } from "./migrations/100-supplier-dedup-indexes";
 import { migration as m101 } from "./migrations/101-product-keyword-groups";
 import { migration as m102 } from "./migrations/102-supplier-claim-expiry";
+import { migration as m103 } from "./migrations/103-supplier-diagnosis-audit-retired";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -224,6 +225,9 @@ const ALL_MIGRATIONS: Migration[] = [
   // m102：认领 7 天有效期数据修复——存量 pending 认领回填 expires_at（此前从未写过，
   //       释放调度器无从判定过期），无主体的历史认领置 expired
   m102,
+  // m103：诊断审核退役——crm_supplier_diagnosis 移除 audit_status/reject_reason/reviewed_at
+  // （2026-09-28 审核退役；幂等：影子换表已完成的库仅登记版本）
+  m103,
 ];
 
 /**

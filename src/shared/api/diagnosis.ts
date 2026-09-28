@@ -59,7 +59,6 @@ export interface MyDiagnosis {
   id: number;
   supplier_id: number;
   company_name: string;
-  audit_status: string;
   schema_version: number;
   score_total: number | null;
   score_grade: string | null;
