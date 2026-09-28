@@ -8,7 +8,7 @@
  *   释放语句的 JOIN 命中）直接置 expired，不再无限占用"有效认领"口径。
  */
 import type { Pool } from "mysql2/promise";
-import { type Migration } from "./runner";
+import type { Migration } from "./runner";
 
 export const migration: Migration = {
   version: 102,

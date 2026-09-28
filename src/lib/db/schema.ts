@@ -178,6 +178,7 @@ import { migration as m100 } from "./migrations/100-supplier-dedup-indexes";
 import { migration as m101 } from "./migrations/101-product-keyword-groups";
 import { migration as m102 } from "./migrations/102-supplier-claim-expiry";
 import { migration as m103 } from "./migrations/103-supplier-diagnosis-audit-retired";
+import { migration as m104 } from "./migrations/104-pricing-doc-alignment";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -228,6 +229,10 @@ const ALL_MIGRATIONS: Migration[] = [
   // m103：诊断审核退役——crm_supplier_diagnosis 移除 audit_status/reject_reason/reviewed_at
   // （2026-09-28 审核退役；幂等：影子换表已完成的库仅登记版本）
   m103,
+  // m104：价格文档对齐（docs/云境产品服务权益报价表_260928.xlsx）——7 档改名、新增升级抵扣窗口列、
+  //       1299 下发推送权益、服务目录按文档重构为 12 行并新增年包抵扣标记列；
+  //       ⚠️ 改 crm_service_catalog 绝对数量，须同步 scripts/verify-benefit-constraints.ts EXPECTED_STATIC
+  m104,
 ];
 
 /**
