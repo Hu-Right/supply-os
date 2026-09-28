@@ -329,10 +329,17 @@ export function AdvancedSearchPanel({
 
   // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
   // 语义：一行=一个字面单位；含空格的词经 composeQ 规范化为整词短语，与手动 include 行同口径
+  //
+  // 同时把匹配模式切到「任一命中」：一个词组是用户关注领域的**并列召回集**（建筑 OR 医疗 OR 学校），
+  // 而不是交集条件。面板默认 all 会让多词求交集——生产实测真实词组「工程」四词单独各数百至数千条，
+  // 但硬 AND 交集为 **0 条**（OR 约 8.4 千条），等于“存了词组一点就空”。
+  // 用户若确实要收紧为交集，仍可手动点回「全部匹配」（零结果时会被放宽闸口兜底）。
+  // 注：与面板其他草稿控件一致，选词组不自动发起搜索，需用户点「搜索」提交。
   const pickGroup = useCallback((terms: string[]) => {
     form.replaceRows(
       terms.slice(0, MAX_KEYWORD_ROWS).map((term, i) => ({ id: i + 1, term, mode: "include" as const })),
     );
+    form.setMatchMode("any");
   }, [form]);
 
   return (
