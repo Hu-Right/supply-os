@@ -22,12 +22,20 @@
  *                 「按注册行业精准推送」（098 曾把它收回到仅 8800）。
  *
  *              4) crm_service_catalog 重构为文档 12 行服务（订阅 4 行走 crm_plan_catalog）：
- *                 - 改名/改口径 8 行（品名与交付说明逐字对齐文档 C/F 列）；
+ *                 - 改名/改口径 8 行：品名取 C 列原文、交付口径取 F 列原文，D/E 列的价格与期限
+ *                   只在字段无法承载时原样附加；**G 列「销售话术」一律不入表**（它是推销用语，不是
+ *                   交付承诺）。初版曾把 G 列话术与 docx 内容混进 F 位（含一句两份文档都没有的
+ *                   「成功费另订合同」），改完常量后用下方 applyServiceCopy 重刷数据修正（纯文案不占迁移号）；
+ *                   注：交付口径与价格/期限补充用「｜」分段（前者取 F 列、后者取 D/E 列原文），
+ *                   为的是可被逐字包含校验判定；唯一一处非逐字：F 列「条款谈判支持条；」中的
+ *                   「条」为文档录入笔误，落地时删去。
  *                 - 补 4 行文档有、系统无：拆解报告(¥500 起–3,000/单)、KA 定制、企业合规常年指导、
  *                   API 数据接口服务（文档只写「定制报价」，故 4 档明码 API 合并为一行 contact）；
  *                 - 删 8 行文档没有：199 AI单标解析、500/次投标技术支持、3000/年技术支持包、
  *                   专业人工标书、API STARTER/PRO/BUSINESS/ENTERPRISE；
- *                 - 16800 专家咨询年包解除 12 次额度绑定（文档 E 列＝不限额度）；
+ *                 - 16800 属「专家顾问」产品板块，E 列「不限额度（顾问咨询）」是人工顾问服务的
+ *                   交付描述，不在系统里记次数额度；实测该行在本迁移前就没有 grant 绑定（改前
+ *                   唯一带绑定的是被删的 svc_tech_support_pack → tech_support）；
  *                 - 新增 credit_to_annual_plan：承载文档「199 升级年包可全额抵扣」，成交单在
  *                   购买年付档时由支付服务端核销（不建第二张表，避免多写者）。
  *                 - member_discount 全部归 'none'：文档没有任何折扣承诺，而系统本就未实现折后价，
@@ -103,13 +111,13 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "① 1对1人工匹配订单 ② 升级年包可全额抵扣（购买年付套餐时自动核销本单金额）",
+    "① 1对1人工匹配订单 ② 升级年包可全额抵扣",
     20,
   ],
   [
     "svc_bid_doc_analysis",
     "pro_service",
-    "投标辅助·标讯深度拆解报告",
+    "投标辅助，标讯深度拆解报告",
     "Bid Document Breakdown Report",
     "per_unit",
     500.0,
@@ -120,7 +128,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "¥500–¥3,000/单，按标的额匹配收费：① 原始标讯文档拆解报告 ② 投标解析报告 + 投标指南 ③ 类似案例分析 + 业主分析",
+    "① 原始标讯文档拆解报告 ② 投标解析报告+投标指南 ③ 类似案例分析+业主分析｜500元~3,000元/单",
     30,
   ],
   [
@@ -137,7 +145,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "¥1,280 起/1 个方向，出具市场调研分析报告；可选方向：国别、区域、竞争对手、发标方业主调研、成功案例分析、废标分析诊断、报价评测等（可多选，量大优惠）",
+    "① 按选择方向定制服务，出具市场调研分析报告 ② 可选方向：国别、区域、竞争对手、发标方业主调研、成功案例分析、废标分析诊断、报价评测等（可多选）",
     40,
   ],
   [
@@ -154,7 +162,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "自主选择大模型（Kimi / DeepSeek / ChatGPT / Gemini），按消耗 token 自主付费，用多少付多少",
+    "① 自主选择大模型（Kimi/DeepSeek/ChatGPT/Gemini） ② 根据消耗token自主付费，用多少付多少",
     50,
   ],
   [
@@ -171,7 +179,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "按需报价（差旅费另计）：专业顾问辅助商务谈判，提供报价策略与条款谈判支持，从业主采购方（平台规则）视角辅助谈判",
+    "① 专业顾问辅助商务谈判 ② 报价策略、条款谈判支持；从业主采购方（平台规则）视角辅助商务谈判｜按需报价（差旅费另计）",
     60,
   ],
   [
@@ -205,7 +213,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "定制报价（按公司整体打包）：企业参与国际采购的全流程合规指导，合规顾问全年护航",
+    "① 企业参与国际采购的全流程合规指导｜按公司",
     80,
   ],
   [
@@ -222,7 +230,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     365,
-    "① 1对1专家咨询服务 ② 采购方平台规则咨询 ③ 订单判断、资质合规、投标避坑等顾问服务（顾问咨询不限额度）",
+    "① 1对1专家咨询服务 ② 采购方平台规则咨询 ③ 订单判断、资质合规、投标避坑等顾问服务｜不限额度（顾问咨询）",
     90,
   ],
   [
@@ -256,7 +264,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "① 1对1专家全程陪跑 ② 辅助投标全流程：选单、标书、合规、报价、谈判全程带；复杂项目另报价，成功费另订合同",
+    "① 1对1专家全程陪跑 ② 辅助投标全流程：选单、标书、合规、报价、谈判全程带",
     110,
   ],
   [
@@ -273,7 +281,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "前置服务费：标的额 0.3%–1%；中标后提成 3%–10%。含合规服务 + 国际合规顾问缩短合规时间、投标全链路一站式服务，价格面议、按需定制，具体以合同为准",
+    "① 合规服务+国际合规顾问，缩短合规时间 ② 投标全链路服务（一站式）｜前置服务费：标的额0.3%–1%，中标后提成3%–10%",
     120,
   ],
   [
@@ -290,7 +298,7 @@ const SERVICES: ServiceRow[] = [
     null,
     "none",
     null,
-    "定制报价（按接口包）：按国家、行业、海关数据接口打包提供，可对接企业 CRM/ERP；根据企业需求内容报价",
+    "① 按照国家、行业、海关数据接口打包提供 ② 根据企业需求内容报价｜按接口包",
     130,
   ],
 ];
@@ -569,6 +577,46 @@ export async function applyData(dbPool: Pool): Promise<void> {
     `[migration-104] 已对齐 260928 报价表：${PLAN_RENAMES.length} 档改名、${CREDIT_WINDOW_DAYS.length} 档挂抵扣窗口、` +
       `1299 推送下发、服务目录 ${TARGET_SERVICE_COUNT} 行在售（删除 ${deletable.length}、降级 ${referenced.length}）、199 年包抵扣已启用`
   );
+}
+
+/**
+ * 服务目录的「品名 + 交付口径」权威文本（直接取自上方 SERVICES，不另写一份文案，避免漂移）。
+ * 字段序：0=service_code、2=name_zh、13=deliverable_note_zh。
+ */
+export const SERVICE_COPY: Array<{ code: string; nameZh: string; noteZh: string }> = SERVICES.map((r) => ({
+  code: r[0],
+  nameZh: r[2],
+  noteZh: r[13],
+}));
+
+/**
+ * 只重刷品名与交付口径两列（供一次性数据修正脚本复用，不为纯文案新开迁移号）。
+ *
+ * 为什么需要单独一个函数：104 已在 schema_migrations 记账、runner 永不再跑它，所以改完常量的
+ * 文案要靠本函数把已跑过旧版 104 的库重刷一遍（纯文案不占迁移号）。文案只有一份——钉在 SERVICES
+ * 里，104 全量重建与只刷文案两条路径共用。本函数幂等：文本已正确的库跑上它是空转。
+ * 末尾逐字回读（只忽略空白，标点计入），不相等就 throw，不允许“改了但没改对”。
+ */
+export async function applyServiceCopy(db: Pool): Promise<void> {
+  for (const { code, nameZh, noteZh } of SERVICE_COPY) {
+    await db.execute(`UPDATE crm_service_catalog SET name_zh = ?, deliverable_note_zh = ? WHERE service_code = ?`, [nameZh, noteZh, code]);
+  }
+  const rows = (await db.query(`SELECT service_code, name_zh, deliverable_note_zh FROM crm_service_catalog`)) as unknown as [
+    Array<{ service_code: string; name_zh: string; deliverable_note_zh: string | null }>,
+  ];
+  const byCode = new Map(rows[0].map((r) => [r.service_code, r]));
+  const squeeze = (s: string) => s.replace(/\s+/g, "");
+  const bad: string[] = [];
+  for (const { code, nameZh, noteZh } of SERVICE_COPY) {
+    const row = byCode.get(code);
+    if (!row) {
+      bad.push(`${code} 行不存在`);
+      continue;
+    }
+    if (squeeze(row.name_zh) !== squeeze(nameZh)) bad.push(`${code} 品名未逐字落位`);
+    if (squeeze(row.deliverable_note_zh ?? "") !== squeeze(noteZh)) bad.push(`${code} 交付口径未逐字落位`);
+  }
+  if (bad.length > 0) throw new Error(`[migration-104] 服务文案逐字校验未通过：\n  - ${bad.join("\n  - ")}`);
 }
 
 export const migration: Migration = {
