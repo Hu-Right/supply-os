@@ -47,7 +47,9 @@ export function parseAdvancedQuery(q: string): ParsedQuery {
       if (word) excludes.push(word);
       continue;
     }
-    const word = stripQuotes(token).trim();
+    // 剥前导 +：用户直觉写的 `+词` 等价于默认包含（空格已是 AND），不剥会漏进词面，
+    // 降级时拼成 `++词` 破坏 MySQL 布尔查询、且译文 LIKE 会去找字面 + 号恒不命中
+    const word = stripQuotes(token).replace(/^\++/, "").trim();
     if (word && word !== "-") includes.push(word);
   }
   return { includes, excludes, phrases };
@@ -96,7 +98,7 @@ export function composeQ(qInput: string, rows: TermRow[]): string {
       if (!cleaned) continue;
       if (/\s/.test(cleaned)) parts.push(`"${cleaned}"`); // 多词 → 整词短语
       else {
-        const word = cleaned.replace(/^-+/, "");          // 单词 → 去前导 -，防泄漏成排除
+        const word = cleaned.replace(/^[-+]+/, "");      // 单词 → 去前导 - 与 +，防泄漏成排除或疩形 ++ 布尔串
         if (word) parts.push(word);
       }
     }

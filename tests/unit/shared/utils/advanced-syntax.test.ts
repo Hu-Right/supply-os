@@ -114,3 +114,31 @@ describe("composeQ include 规范化（词组库/手动行统一口径）", () =
     expect(composeQ("solar -battery", [])).toBe("solar -battery");
   });
 });
+
+/**
+ * 用户直觉写的 `+词`（MySQL 布尔风格）必须归一为普通包含词：
+ * 不剥会漏进词面，降级时拼成 `++词` 破坏布尔查询，且译文 LIKE 会去找字面 + 号恒不命中。
+ */
+describe("前导 + 归一（+词 ≡ 默认包含）", () => {
+  it("parseAdvancedQuery：+前缀剥除，不进 excludes/phrases", () => {
+    expect(parseAdvancedQuery("+医疗 +建筑 -学校")).toEqual({
+      includes: ["医疗", "建筑"],
+      excludes: ["学校"],
+      phrases: [],
+    });
+  });
+  it("toBooleanModeQuery：不再出现 ++ 疩形串", () => {
+    expect(toBooleanModeQuery(parseAdvancedQuery("+医疗 +建筑 -学校"))).toBe("+医疗 +建筑 -学校");
+  });
+  it("与不带 + 的写法语义等价", () => {
+    expect(toBooleanModeQuery(parseAdvancedQuery("+医疗 +建筑 -学校")))
+      .toBe(toBooleanModeQuery(parseAdvancedQuery("医疗 建筑 -学校")));
+  });
+  it("孤立 + 被忽略；内部 + 保留（只剥前导）", () => {
+    expect(parseAdvancedQuery("+ -医疗").includes).toEqual([]);
+    expect(parseAdvancedQuery("a+b").includes).toEqual(["a+b"]);
+  });
+  it("composeQ：include 行的前导 + 一并剥除", () => {
+    expect(composeQ("", [{ id: 1, term: "+医疗", mode: "include" }])).toBe("医疗");
+  });
+});
