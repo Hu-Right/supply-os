@@ -11,6 +11,7 @@ const initialState: SearchFormState = {
   window: "",
   noticeType: "",
   termRows: [],
+  matchMode: "all",
 };
 
 describe("searchFormReducer", () => {
@@ -50,6 +51,12 @@ describe("searchFormReducer", () => {
     expect(state.noticeType).toBe("ITB");
   });
 
+  it("set_match_mode → 切换匹配模式", () => {
+    expect(searchFormReducer(initialState, { type: "set_match_mode", payload: "any" }).matchMode).toBe("any");
+    const anyState = { ...initialState, matchMode: "any" as const };
+    expect(searchFormReducer(anyState, { type: "set_match_mode", payload: "all" }).matchMode).toBe("all");
+  });
+
   it("sync → 完全替换状态", () => {
     const newState: SearchFormState = {
       q: "test",
@@ -60,6 +67,7 @@ describe("searchFormReducer", () => {
       window: "30d",
       noticeType: "ITB",
       termRows: [],
+      matchMode: "any",
     };
     const state = searchFormReducer(initialState, { type: "sync", payload: newState });
     expect(state).toEqual(newState);
@@ -69,7 +77,7 @@ describe("searchFormReducer", () => {
     const dirty: SearchFormState = {
       q: "test", country: "US", agency: "UNDP",
       from: "2026-01-01", to: "2026-12-31", window: "30d", noticeType: "ITB",
-      termRows: [],
+      termRows: [], matchMode: "any",
     };
     const state = searchFormReducer(dirty, { type: "clear" });
     expect(state).toEqual(initialState);

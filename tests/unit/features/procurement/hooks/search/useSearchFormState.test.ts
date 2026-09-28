@@ -176,6 +176,7 @@ describe("useSearchFormState", () => {
         to: "2026-09-30",
         window: "90",
         noticeType: "EOI",
+        matchMode: "any",
       }));
 
       expect(result.current.inputs.qInput).toBe("new value");
@@ -185,6 +186,7 @@ describe("useSearchFormState", () => {
       expect(result.current.inputs.toInput).toBe("2026-09-30");
       expect(result.current.inputs.windowInput).toBe("90");
       expect(result.current.inputs.noticeTypeInput).toBe("EOI");
+      expect(result.current.inputs.matchMode).toBe("any");
     });
 
     it("空字符串覆盖旧值", () => {
@@ -199,6 +201,7 @@ describe("useSearchFormState", () => {
         to: "",
         window: "",
         noticeType: "",
+        matchMode: "all",
       }));
 
       expect(result.current.inputs.qInput).toBe("");
