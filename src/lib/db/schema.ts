@@ -176,6 +176,7 @@ import { migration as m098 } from "./migrations/098-benefit-matrix-redesign";
 import { migration as m099 } from "./migrations/099-consent-log-birth-structure";
 import { migration as m100 } from "./migrations/100-supplier-dedup-indexes";
 import { migration as m101 } from "./migrations/101-product-keyword-groups";
+import { migration as m102 } from "./migrations/102-supplier-claim-expiry";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -220,6 +221,9 @@ const ALL_MIGRATIONS: Migration[] = [
   // m101：产品关键词组表（product_keyword_lib 权益载体）——用户私有词组 JSON 单表，
   //       照 073 收藏表模板；每组 1–20 词/每人 10 组上限由服务层校验
   m101,
+  // m102：认领 7 天有效期数据修复——存量 pending 认领回填 expires_at（此前从未写过，
+  //       释放调度器无从判定过期），无主体的历史认领置 expired
+  m102,
 ];
 
 /**

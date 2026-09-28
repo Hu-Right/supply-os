@@ -64,18 +64,4 @@ export class SupplierClaimRepo {
       [licenseUrl, claimId],
     );
   }
-
-  /** 清理过期认领：解除用户绑定 + 重置供应商 claim_status */
-  async releaseExpiredClaims(): Promise<number> {
-    const [result] = await this.pool.execute(
-      `UPDATE crm_supplier_claims c
-       JOIN crm_users u ON u.id = c.user_id
-       JOIN supplier s ON s.id = c.supplier_id
-       SET u.supplier_id = NULL, u.supplier_link_status = 'none',
-           s.claim_status = NULL,
-           c.status = 'expired'
-       WHERE c.status = 'pending' AND c.expires_at < NOW()`,
-    );
-    return Number((result as RowDataPacket).affectedRows);
-  }
 }

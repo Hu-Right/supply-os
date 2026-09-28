@@ -15,6 +15,7 @@ import { cleanupStaleNoticeBridge } from "../services/data-cleanup";
 import { cleanupStaleNoticeData } from "../services/data-cleanup";
 import { rollupNoticeViewDaily } from "../services/amount/view-rollup";
 import { BenefitWriteRepo } from "../repos/benefit-write.repo";
+import { releaseExpiredClaims } from "../services/supplier-claim";
 import {
   FEATURED_REFRESH_INTERVAL_MS, STATS_REFRESH_INTERVAL_MS,
   PAYMENT_MAINTENANCE_INTERVAL_MS,
@@ -58,6 +59,8 @@ export interface TimersHandle {
  * 4. 桥接表脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
  * 5. 附属数据（翻译表 + 宽表）脏数据定时清理（默认每 24 小时；启动时立即异步清理一次存量）
  * 6. 支付维护：超时未支付订单每小时关闭 + 新体系订阅到期扫描 + 无生效订阅的 VIP 会员身份每日 04:30 兜底降级
+ * 7. 供应商认领 7 天有效期释放：过期 pending 认领解绑 + 主体归池（默认每 1 小时扫描；
+ *    启动时延迟 25s 先跑一次存量）
  */
 export function startAllTimers(deps: TimersDeps): TimersHandle {
   const { dbPool } = deps;
@@ -222,6 +225,28 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
     });
   }
 
+  // 7. 供应商认领 7 天有效期释放（CLAIM_EXPIRY_ENABLED=off 关闭；CLAIM_EXPIRY_INTERVAL_HOURS
+  //    控制间隔，默认 1 小时）。此前该清理从未被调度，过期认领永久占用主体排他期。
+  let claimExpiryTimer: NodeJS.Timeout | null = null;
+  if (String(process.env.CLAIM_EXPIRY_ENABLED ?? "on").toLowerCase() !== "off") {
+    const claimExpiryIntervalHours = Math.max(1, Number(process.env.CLAIM_EXPIRY_INTERVAL_HOURS || 1));
+    const runClaimExpiry = async () => {
+      try {
+        const released = await releaseExpiredClaims(dbPool);
+        if (released > 0) {
+          console.log(`[claim-expiry] 已释放 ${released} 条过期认领（解绑用户 + 主体归池）`);
+        }
+      } catch (e) {
+        console.error("[claim-expiry] 释放失败（不影响下次扫描）:", (e as Error).message);
+      }
+    };
+    // 启动时立即异步处理一次存量（不阻塞启动），延迟 25s 与支付/清理任务错开
+    setTimeout(() => { void runClaimExpiry(); }, 25_000);
+    claimExpiryTimer = setInterval(() => {
+      void runClaimExpiry();
+    }, claimExpiryIntervalHours * 3600 * 1000);
+  }
+
   return {
     stop() {
       clearInterval(featuredRefreshTimer);
@@ -232,6 +257,7 @@ export function startAllTimers(deps: TimersDeps): TimersHandle {
       if (dataCleanupTimer) clearInterval(dataCleanupTimer);
       if (paymentMaintenanceTimer) clearInterval(paymentMaintenanceTimer);
       if (paymentTierSyncTimer) clearTimeout(paymentTierSyncTimer);
+      if (claimExpiryTimer) clearInterval(claimExpiryTimer);
     },
   };
 }
