@@ -181,6 +181,7 @@ export function AdvancedSearchPanel({
   }, [applySearch]);
 
   // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
+  // 语义：一行=一个字面单位；含空格的词经 composeQ 规范化为整词短语，与手动 include 行同口径
   const pickGroup = useCallback((terms: string[]) => {
     form.replaceRows(
       terms.slice(0, MAX_KEYWORD_ROWS).map((term, i) => ({ id: i + 1, term, mode: "include" as const })),
