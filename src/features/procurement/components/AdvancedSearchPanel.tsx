@@ -15,14 +15,15 @@
  *              通过 FEATURE_ADVANCED_SEARCH flag 控制新旧面板切换。
  */
 import { useState, useCallback, useEffect, type FormEvent } from "react";
-import { Search, Calendar as CalendarIcon, Plus, X, Lock } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Plus, X } from "lucide-react";
 import { useLocale } from "@/core/i18n";
 import { fetchKeywordGroups, type KeywordGroup } from "@/core/api/keywordGroups";
-import { MAX_KEYWORD_ROWS, type TermMode } from "@/shared/utils/advanced-syntax";
+import { MAX_KEYWORD_ROWS, composeQ, hasAdvancedSyntax, type TermMode } from "@/shared/utils/advanced-syntax";
 import { Input, Calendar, Select, Popover, PopoverTrigger, PopoverContent } from "@/shared/ui";
 import { CountryFilter } from "@/shared/filters/CountryFilter";
 import { AgencyFilter } from "@/shared/filters/AgencyFilter";
 import type { NoticeSearchBarProps } from "./NoticeSearchBar";
+import { UpgradeGateModal } from "./UpgradeGateModal";
 
 /** 公告类型选项（复用现有 notice_type 归一化体系，标签显示为"采购方式"） */
 const NOTICE_TYPE_OPTIONS = [
@@ -97,17 +98,38 @@ function DateRangePicker({
   );
 }
 
-/** 词组选择器 — 企业版权益（product_keyword_lib），匿名/失败降级为锁定态 */
-function KeywordGroupPicker({ onPick }: { onPick: (terms: string[]) => void }) {
+/** 词组选择器 — product_keyword_lib 权益；无权益时点击触发升级弹窗（不再内嵌锁定态） */
+function KeywordGroupPicker({
+  onPick,
+  entitled,
+  onLocked,
+}: {
+  onPick: (terms: string[]) => void;
+  entitled: boolean;
+  onLocked: () => void;
+}) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<{ entitled: boolean; groups: KeywordGroup[] } | null>(null);
 
-  // 任何失败（含匿名 401）统一降级为未授权空态，面板不做鉴权逻辑
   const load = useCallback(async () => {
     try { setData(await fetchKeywordGroups()); } catch { setData({ entitled: false, groups: [] }); }
   }, []);
   useEffect(() => { if (open) void load(); }, [open, load]);
+
+  // 无权益：不进入词库弹层，点击即弹升级框（门控判定来自服务端 gates，前端不猜档位）
+  if (!entitled) {
+    return (
+      <button
+        type="button"
+        data-testid="kw-group-picker"
+        onClick={onLocked}
+        className="text-xs font-bold text-teal-700 hover:text-teal-800"
+      >
+        {t("procurement_myKeywordGroups") || "我的词组"}
+      </button>
+    );
+  }
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -118,15 +140,7 @@ function KeywordGroupPicker({ onPick }: { onPick: (terms: string[]) => void }) {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="end">
-        {!data ? null : !data.entitled ? (
-          <div className="px-2 py-3 text-center">
-            <Lock className="w-4 h-4 text-amber-600 mx-auto mb-2" />
-            <p className="text-xs text-slate-500 mb-2">{t("procurement_kwGroupsLocked")}</p>
-            <a href="/membership" className="text-xs font-bold text-amber-700 hover:underline">
-              {t("procurement_advancedDegradedCta")}
-            </a>
-          </div>
-        ) : data.groups.length === 0 ? (
+        {!data ? null : data.groups.length === 0 ? (
           <a href="/settings/keyword-library" className="block px-2 py-3 text-center text-xs text-slate-500 hover:text-teal-700">
             {t("procurement_manageKeywordGroups")}
           </a>
@@ -150,7 +164,12 @@ function KeywordGroupPicker({ onPick }: { onPick: (terms: string[]) => void }) {
   );
 }
 
-export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {}
+export interface AdvancedSearchPanelProps extends NoticeSearchBarProps {
+  /** 服务端 gates 派生：当前用户是否享有 advanced_keyword_search（排除/精确短语）。默认 true 保持旧渲染。 */
+  advancedSearchEntitled?: boolean;
+  /** 服务端 gates 派生：当前用户是否享有 product_keyword_lib（我的词组）。默认 true 保持旧渲染。 */
+  keywordLibEntitled?: boolean;
+}
 
 /** 高级搜索面板 — 两行搜索布局（设计图 1:1 还原） */
 export function AdvancedSearchPanel({
@@ -160,8 +179,25 @@ export function AdvancedSearchPanel({
   agencies,
   applySearch,
   toggleFeatured: _toggleFeatured,
+  advancedSearchEntitled = true,
+  keywordLibEntitled = true,
 }: AdvancedSearchPanelProps) {
   const { t } = useLocale();
+
+  // 升级门控弹窗状态：null=关；"advanced"=高级关键词行未授权；"kwlib"=词库未授权
+  const [gate, setGate] = useState<null | "advanced" | "kwlib">(null);
+
+  // 关键词行模式切换门控：非"包含"且无 advanced_keyword_search → 弹升级框并回退（不写入状态）
+  const handleRowMode = useCallback(
+    (rowId: number, mode: TermMode) => {
+      if (mode !== "include" && !advancedSearchEntitled) {
+        setGate("advanced");
+        return;
+      }
+      form.setRowMode(rowId, mode);
+    },
+    [advancedSearchEntitled, form],
+  );
 
   // ── 预算金额本地状态 ───
   const [budgetMin, setBudgetMin] = useState("");
@@ -177,8 +213,14 @@ export function AdvancedSearchPanel({
 
   const handleFormSubmit = useCallback((e: FormEvent) => {
     e.preventDefault();
+    // 主框直接手打/粘贴的高级语法（-排除 / "短语"，及含空格被 composeQ 规范成短语的 include 行）：
+    // 无 advanced_keyword_search 权益 → 弹升级框并中断提交（与后端静默剥离双保险，防绕过 UI）
+    if (!advancedSearchEntitled && hasAdvancedSyntax(composeQ(form.qInput, form.termRows))) {
+      setGate("advanced");
+      return;
+    }
     applySearch();
-  }, [applySearch]);
+  }, [advancedSearchEntitled, form.qInput, form.termRows, applySearch]);
 
   // 词组选择：整组替换为包含模式行（走 replace_rows 规避批量 dispatch 时序问题）
   // 语义：一行=一个字面单位；含空格的词经 composeQ 规范化为整词短语，与手动 include 行同口径
@@ -331,7 +373,7 @@ export function AdvancedSearchPanel({
             >
               {form.matchMode === "all" ? t("procurement_matchAll") : t("procurement_matchAny")}
             </button>
-            <KeywordGroupPicker onPick={pickGroup} />
+            <KeywordGroupPicker onPick={pickGroup} entitled={keywordLibEntitled} onLocked={() => setGate("kwlib")} />
           </div>
         </div>
         <div className="space-y-2">
@@ -345,7 +387,8 @@ export function AdvancedSearchPanel({
               />
               <Select
                 value={row.mode}
-                onChange={(e) => form.setRowMode(row.id, e.target.value as TermMode)}
+                data-testid="kw-row-mode"
+                onChange={(e) => handleRowMode(row.id, e.target.value as TermMode)}
                 className="w-28 shrink-0"
               >
                 <option value="include">{t("procurement_kwModeInclude")}</option>
@@ -375,6 +418,15 @@ export function AdvancedSearchPanel({
           </button>
         )}
       </div>
+
+      {/* 升级引导弹窗：无权益触发高级行/词库时弹出（取代内嵌锁定态与后端降级横幅） */}
+      <UpgradeGateModal
+        open={gate !== null}
+        onClose={() => setGate(null)}
+        title={gate === "kwlib" ? t("procurement_upgradeGateKwLibTitle") : t("procurement_upgradeGateAdvancedTitle")}
+        description={gate === "kwlib" ? t("procurement_upgradeGateKwLibDesc") : t("procurement_upgradeGateAdvancedDesc")}
+        ctaLabel={t("procurement_upgradeGateViewPlans")}
+      />
     </form>
   );
 }

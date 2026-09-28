@@ -20,7 +20,6 @@ import { Button, LoadingOverlay, ToggleButton } from "@/shared/ui";
 import { NoticeList } from "../components/NoticeList";
 import { NoticeListSkeleton } from "../components/NoticeListSkeleton";
 import { ListingStatsBar } from "../components/ListingStatsBar";
-import { AdvancedDegradedBanner } from "../components/AdvancedDegradedBanner";
 import { MatchRelaxedHint } from "../components/MatchRelaxedHint";
 import { useNoticeSearch } from "../hooks/useNoticeSearch";
 import { useListingStats } from "../hooks/useListingStats";
@@ -168,7 +167,6 @@ export default function ProcurementPage() {
     <div className="space-y-5">
       {/* 模块02 深色页头：库存感 + 实时规模条（已提取为独立组件） */}
       <ListingStatsBar stats={listingStats} />
-      {search.result.advancedDegraded && <AdvancedDegradedBanner />}
       {search.result.matchRelaxed && <MatchRelaxedHint />}
 
       <section className="bg-white border border-slate-200 rounded-2xl shadow-xs">
@@ -182,6 +180,8 @@ export default function ProcurementPage() {
               applySearch={search.actions.applySearch}
               clearSearch={search.actions.clearSearch}
               toggleFeatured={search.actions.toggleFeatured}
+              advancedSearchEntitled={actions.membership?.gates?.advanced_keyword_search === "free" || actions.membership?.gates?.advanced_keyword_search === "included"}
+              keywordLibEntitled={actions.membership?.gates?.product_keyword_lib === "free" || actions.membership?.gates?.product_keyword_lib === "included"}
             />
           ) : (
             <NoticeSearchBar
