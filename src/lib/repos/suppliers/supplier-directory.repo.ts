@@ -51,6 +51,16 @@ export interface CompanyCandidateRow extends RowDataPacket {
   bound: number;
 }
 
+/** 认领归属细查结果（getClaimOwnership 的返回结构） */
+export interface ClaimOwnership {
+  /** 当前用户自己已绑定该主体（即归属人） */
+  selfBound: boolean;
+  /** 其他账户已绑定该主体（已归属，无法再认领） */
+  boundByOther: boolean;
+  /** 该主体处于认领处理中（claim_status='pending'，排他期内） */
+  claimPending: boolean;
+}
+
 /** 统一社会信用代码绕码：前 4 + **** + 后 4；短于 8 位只输出全绕码，不回原文 */
 export function maskCreditCode(value: string | null | undefined): string {
   const v = String(value ?? "").trim();
@@ -432,23 +442,37 @@ export class SupplierDirectoryRepo {
   }
 
   /**
-   * 检查供应商是否已被认领（永久绑定或临时绑定中）
-   * @returns true 表示已被认领，不可再次认领
+   * 认领归属细查：区分「自己已绑定 / 他人已绑定 / 认领处理中」三种状态，
+   * 供重复认领的精确拒绝文案（旧口径只有一个布尔，文案只能笼统说"正在被认领中"）。
+   * userId 传 0 表示不区分自己/他人（mine 恒为 0，任意绑定都计入 boundByOther）。
    */
-  async isClaimed(supplierId: number): Promise<boolean> {
-    const [userRows] = await this.pool.query(
-      `SELECT COUNT(*) AS cnt FROM crm_users WHERE supplier_id = ?`,
-      [supplierId],
+  async getClaimOwnership(supplierId: number, userId: number): Promise<ClaimOwnership> {
+    const [boundRows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT SUM(id <> ?) AS others, SUM(id = ?) AS mine
+         FROM crm_users WHERE supplier_id = ?`,
+      [userId, userId, supplierId],
     );
-    const userBound = Number((userRows as RowDataPacket[])[0]?.cnt || 0) > 0;
+    const bound = boundRows[0] as { others: number | null; mine: number | null } | undefined;
 
-    const [supRows] = await this.pool.query(
+    const [supRows] = await this.pool.query<RowDataPacket[]>(
       `SELECT claim_status FROM supplier WHERE id = ?`,
       [supplierId],
     );
-    const claimPending = String((supRows as RowDataPacket[])[0]?.claim_status || "") === "pending";
 
-    return userBound || claimPending;
+    return {
+      selfBound: Number(bound?.mine ?? 0) > 0,
+      boundByOther: Number(bound?.others ?? 0) > 0,
+      claimPending: String((supRows as RowDataPacket[])[0]?.claim_status || "") === "pending",
+    };
+  }
+
+  /**
+   * 检查供应商是否已被认领（任一账户绑定或认领处理中）
+   * @returns true 表示已被认领，不可再次认领
+   */
+  async isClaimed(supplierId: number): Promise<boolean> {
+    const ownership = await this.getClaimOwnership(supplierId, 0);
+    return ownership.selfBound || ownership.boundByOther || ownership.claimPending;
   }
 
   /**

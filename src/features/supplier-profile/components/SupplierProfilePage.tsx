@@ -42,7 +42,7 @@ const PROFILE_TABS = [
 
 export function SupplierProfilePage() {
   const { t, locale } = useLocale();
-  const { isVip } = useAuth();
+  const { isVip, authUser } = useAuth();
   const userId = useUserId();
   const params = useParams();
   const id = String(params?.id ?? "");
@@ -126,6 +126,12 @@ export function SupplierProfilePage() {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
+              {userId && claimed && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-400">
+                  <ShieldCheck className="w-4 h-4" />
+                  {Number(authUser?.supplier_id ?? 0) === Number(supplier.id) ? "我已认领" : "已被认领"}
+                </span>
+              )}
               {userId && !claimed && (
                 <Button
                   onClick={() => setShowClaimModal(true)}

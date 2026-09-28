@@ -61,10 +61,18 @@ export const POST = withRoute(async (req: NextRequest) => {
     routeError(400, EC_INVALID_PARAMS, "无法获取供应商名称");
   }
 
-  // 检查供应商是否已被认领
-  const isClaimed = await ctx.supplier.directoryRepo.isClaimed(supplierId);
-  if (isClaimed) {
-    routeError(400, EC_INVALID_PARAMS, "该供应商正在被认领中，请稍后再试");
+  // ── 排他检查：已被认领的主体直接拒绝，不进入 7 天排他期 ──
+  // 区分三种状态给准确文案：旧口径的「正在被认领中，请稍后再试」会误导用户以为
+  // 等一等就能认领成功——归属一旦确定就是终态，重试无用。
+  const ownership = await ctx.supplier.directoryRepo.getClaimOwnership(supplierId, auth.userId);
+  if (ownership.selfBound) {
+    routeError(400, EC_INVALID_PARAMS, "您已绑定该企业，无需重复认领");
+  }
+  if (ownership.boundByOther) {
+    routeError(400, EC_INVALID_PARAMS, "该公司已被其他账户认领，无法重复认领");
+  }
+  if (ownership.claimPending) {
+    routeError(400, EC_INVALID_PARAMS, "该公司已有认领申请正在处理中，暂不能重复认领");
   }
 
   // 计算 7 天后的过期时间

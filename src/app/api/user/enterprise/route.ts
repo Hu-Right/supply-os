@@ -173,7 +173,14 @@ export const POST = withRoute(async (req) => {
     return NextResponse.json({ code: 0, message: "ok", data: { supplierId: existingId, claimRequired: true } });
   }
 
+  // 未认证主体的复用绑定同样受认领排他约束：已被他人认领/他人认领处理中的公司
+  // 不能在这里直接绑走（与 POST /api/supplier-claims 同一口径）。
+  // 自己已绑定的行属于重复保存资料，放行。
   if (existingId) {
+    const ownership = await repo.getClaimOwnership(existingId, auth.userId);
+    if (!ownership.selfBound && (ownership.boundByOther || ownership.claimPending)) {
+      routeError(400, EC_INVALID_PARAMS, "该公司已被其他账户认领，无法绑定");
+    }
     await ctx.user.usersRepo.bindSupplier(auth.userId, existingId, "verified");
     if ("license_url" in body) {
       await reconcileLicense(repo, existingId, body.license_url ?? null);
