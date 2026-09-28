@@ -30,7 +30,7 @@ describe("createKeywordGroup 编排", () => {
     expect(r).toEqual({ ok: false, reason: "forbidden" });
     expect(repo.create).not.toHaveBeenCalled();
   });
-  it("满 50 组 → pool_full", async () => {
+  it("满 10 组 → pool_full", async () => {
     const repo = makeRepo();
     repo.countByUser.mockResolvedValue(MAX_GROUPS_PER_USER);
     const r = await createKeywordGroup(repo as any, makeBenefit(true), 7, { name: "n", terms: ["a"] });

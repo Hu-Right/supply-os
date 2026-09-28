@@ -218,7 +218,7 @@ const ALL_MIGRATIONS: Migration[] = [
   //       在线 INPLACE/LOCK=NONE + 同会话 5s 锁等待；已在 prod 由脚本先行建立，本迁移对 prod 是 no-op
   m100,
   // m101：产品关键词组表（product_keyword_lib 权益载体）——用户私有词组 JSON 单表，
-  //       照 073 收藏表模板；每组 1–20 词/每人 50 组上限由服务层校验
+  //       照 073 收藏表模板；每组 1–20 词/每人 10 组上限由服务层校验
   m101,
 ];
 

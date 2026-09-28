@@ -36,7 +36,7 @@ export const POST = withRoute(async (req: NextRequest) => {
       routeError(403, EC_VIP_ONLY, "产品关键词库为企业版权益", { feature: "product_keyword_lib" });
     }
     if (result.reason === "pool_full") {
-      routeError(400, EC_INVALID_PARAMS, "词组数量已达上限（50 组），请删除不用的词组后再创建");
+      routeError(400, EC_INVALID_PARAMS, "词组数量已达上限（10 组），请删除不用的词组后再创建");
     }
     if (result.reason === "duplicate") {
       routeError(400, EC_INVALID_REQUEST, "已存在同名词组");
