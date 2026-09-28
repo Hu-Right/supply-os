@@ -86,3 +86,31 @@ describe("composeQ / parseQ（前端往返）", () => {
     expect(composeQ(r.plain, r.rows)).toBe(q);
   });
 });
+
+describe("composeQ include 规范化（词组库/手动行统一口径）", () => {
+  it("含空格的 include 词 → 整词短语", () => {
+    expect(composeQ("", [{ id: 1, term: "solar panel", mode: "include" }])).toBe('"solar panel"');
+  });
+  it("前导 - 的 include 单词 → 剥离为普通词（不泄漏成排除）", () => {
+    expect(composeQ("", [{ id: 1, term: "-battery", mode: "include" }])).toBe("battery");
+  });
+  it("内部引号的 include 词 → 去引号", () => {
+    expect(composeQ("", [{ id: 1, term: 'a"b', mode: "include" }])).toBe("ab");
+  });
+  it("纯引号/空白词 → 跳过", () => {
+    expect(composeQ("", [{ id: 1, term: '"', mode: "include" }])).toBe("");
+    expect(composeQ("", [{ id: 1, term: "   ", mode: "include" }])).toBe("");
+  });
+  it("词组多词与手动多行 include 产出一致", () => {
+    const rows = [
+      { id: 1, term: "光伏", mode: "include" as const },
+      { id: 2, term: "solar panel", mode: "include" as const },
+    ];
+    expect(composeQ("", rows)).toBe('光伏 "solar panel"');
+  });
+  it("回归：exclude/phrase 行与 qInput 自由文本行为不变", () => {
+    expect(composeQ("", [{ id: 1, term: "battery", mode: "exclude" }])).toBe("-battery");
+    expect(composeQ("", [{ id: 1, term: "water supply", mode: "phrase" }])).toBe('"water supply"');
+    expect(composeQ("solar -battery", [])).toBe("solar -battery");
+  });
+});

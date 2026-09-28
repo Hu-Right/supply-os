@@ -90,7 +90,16 @@ export function composeQ(qInput: string, rows: TermRow[]): string {
     if (!term) continue;
     if (r.mode === "exclude") parts.push(`-${term}`);
     else if (r.mode === "phrase") parts.push(`"${term.replace(/"/g, "")}"`);
-    else parts.push(term);
+    else {
+      // include：一行/一词组项是一个字面单位，规范化到 q 语言（与手动 include 行同口径）
+      const cleaned = term.replace(/"/g, "");
+      if (!cleaned) continue;
+      if (/\s/.test(cleaned)) parts.push(`"${cleaned}"`); // 多词 → 整词短语
+      else {
+        const word = cleaned.replace(/^-+/, "");          // 单词 → 去前导 -，防泄漏成排除
+        if (word) parts.push(word);
+      }
+    }
   }
   return parts.filter(Boolean).join(" ").slice(0, MAX_Q_LENGTH);
 }
