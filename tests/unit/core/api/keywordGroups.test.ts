@@ -138,3 +138,54 @@ describe("写操作后缓存失效", () => {
     expect(r.groups[0].name).toBe("词组2");
   });
 });
+
+/**
+ * 跨标签页一致性：apiCached 的 Map 是**每标签页各一份**的模块级缓存，
+ * 在 A 页写完词组，B 页的缓存不会自动作废（旧行为：最长脏到 TTL 自然过期）。
+ */
+describe("跨标签页失效广播", () => {
+  const CROSS_TAB_KEY = "supply-os:kw-groups:invalidated-at";
+  /** 模拟其他标签页发出的 storage 事件（浏览器不会在源标签页自触，故需手工扮对端） */
+  const fireStorageEvent = (key: string | null = CROSS_TAB_KEY) =>
+    window.dispatchEvent(new StorageEvent("storage", { key, newValue: String(Date.now()) }));
+
+  beforeEach(() => {
+    window.localStorage.removeItem(CROSS_TAB_KEY);
+  });
+
+  it("写成功时敲下 localStorage 水位键，供其他标签页监听", async () => {
+    fetchMock.mockResolvedValue(Response.json({ code: 0, message: "ok", data: { id: 5 } }));
+    await createKeywordGroup("新词组", ["a"]);
+    expect(window.localStorage.getItem(CROSS_TAB_KEY)).toBeTruthy();
+  });
+
+  it("其他标签页写入后，本标签页下一次读重新发请求", async () => {
+    fetchMock.mockResolvedValueOnce(envelope(1)).mockResolvedValueOnce(envelope(2));
+    await fetchKeywordGroups();
+    expect(readCalls()).toBe(1);
+
+    // 对端标签页写了词组：本标签页缓存必须作废，不能继续脏读
+    fireStorageEvent();
+    const r = await fetchKeywordGroups();
+    expect(readCalls()).toBe(2);
+    expect(r.groups[0].name).toBe("词组2");
+  });
+
+  it("无关 key 的 storage 事件不误伤词组缓存", async () => {
+    fetchMock.mockResolvedValue(envelope(1));
+    await fetchKeywordGroups();
+    expect(readCalls()).toBe(1);
+
+    fireStorageEvent("some-other-feature-key");
+    await fetchKeywordGroups();
+    expect(readCalls()).toBe(1);
+  });
+
+  it("写失败不得广播（未落库的变更不该让对端重拉）", async () => {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({ code: 40001, message: "词组数量已达上限" }, { status: 400 }),
+    );
+    await expect(createKeywordGroup("超限", ["a"])).rejects.toThrow();
+    expect(window.localStorage.getItem(CROSS_TAB_KEY)).toBeNull();
+  });
+});

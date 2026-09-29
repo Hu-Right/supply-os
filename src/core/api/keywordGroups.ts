@@ -23,12 +23,37 @@ interface Envelope<T> { code: number; message: string; data: T; }
 const ENDPOINT = "/api/user/keyword-groups";
 
 /**
- * 失效「我的词组」读缓存。
- * 三个写接口内部自动调用；跨账号切换时由持有 userId 的调用方显式调用
- * （与 useNoticeSearch 清 /api/notices 同一口径）。
+ * 跨标签页失效水位键：只存时间戳，不存任何业务数据。
+ * apiCached 的缓存是模块级 Map = **每个标签页各一份**，只在写接口里 clearApiCache
+ * 只能清掉发起写的那个标签页，对端标签页会继续脏读到 TTL 过期。
+ * 浏览器原生保证 storage 事件不在源标签页自触，故接收端不需再广播，无回环风险。
+ */
+const CROSS_TAB_KEY = "supply-os:kw-groups:invalidated-at";
+
+/**
+ * 失效「我的词组」读缓存（仅本标签页）。
+ * 三个写接口内部自动调用并跨标签页广播；跨账号切换时由持有 userId 的调用方
+ * 显式调用（与 useNoticeSearch 清 /api/notices 同一口径）。
  */
 export function invalidateKeywordGroups(): void {
   clearApiCache(ENDPOINT);
+}
+
+/** 写成功后：清本标签页缓存，并敲水位键通知其他标签页 */
+function invalidateAcrossTabs(): void {
+  invalidateKeywordGroups();
+  try {
+    window.localStorage.setItem(CROSS_TAB_KEY, String(Date.now()));
+  } catch {
+    // 隐私模式 / 配额满：退化为本标签页失效，其他标签页最长脏到 TTL 自然过期
+  }
+}
+
+if (typeof window !== "undefined") {
+  // 与 api-client 的跨标签页 Token 同步同一机制
+  window.addEventListener("storage", (e: StorageEvent) => {
+    if (e.key === CROSS_TAB_KEY) invalidateKeywordGroups();
+  });
 }
 
 /**
@@ -55,7 +80,7 @@ export async function createKeywordGroup(name: string, terms: string[]): Promise
     method: "POST",
     body: { name, terms },
   });
-  invalidateKeywordGroups();
+  invalidateAcrossTabs();
   return res.data;
 }
 
@@ -64,10 +89,10 @@ export async function updateKeywordGroup(
   patch: { name?: string; terms?: string[] },
 ): Promise<void> {
   await api(`${ENDPOINT}/${id}`, { method: "PATCH", body: patch });
-  invalidateKeywordGroups();
+  invalidateAcrossTabs();
 }
 
 export async function deleteKeywordGroup(id: number): Promise<void> {
   await api(`${ENDPOINT}/${id}`, { method: "DELETE" });
-  invalidateKeywordGroups();
+  invalidateAcrossTabs();
 }
