@@ -13,6 +13,7 @@ import { getPool } from "@/lib/db/pool";
 import { withRoute } from "@/lib/middleware/route-handler";
 import { getContext } from "@/lib/db/context";
 import { resolveAdvancedQuery, hasAdvancedSyntax } from "@/shared/utils/advanced-syntax";
+import { resolveIndustryScope } from "@/lib/services/industry-scope";
 
 function parseSearchParams(req: NextRequest): RawSearchParams {
   const sp = req.nextUrl.searchParams;
@@ -56,6 +57,16 @@ export const GET = withRoute(async (req: NextRequest) => {
   // 高级语法档位门控（spec §3.3）：含 -排除/"短语" 时按 advanced_keyword_search 判档，
   // 无权益剥离降级（普通多词 AND 是既有行为，不受影响）；匿名恒按 free 口径
   const ctx = getContext();
+  // 行业墙（2026-09-29「8,800元/行业」口径）：企业年度会员（industry_scoped 档）只能浏览
+  // 其绑定一级类目下的公告。强制过滤由服务端注入 forcedLevel1Id（客户端传参不可覆盖）；
+  // 匿名/普通档不墙，演示档走 all_category_access 旁路，被墙档未绑行业暂不墙（needsIndustry 引导）。
+  const scope = await resolveIndustryScope(getPool(), ctx.benefitSystemRepo, auth.userId || null);
+  if (scope.scoped) {
+    params.forcedLevel1Id = String(scope.level1Id);
+    // 被墙用户的推荐流收编进 prefs 管道（其行业画像必然存在——被墙前提是已绑行业），
+    // 保证强制过滤对推荐结果同样生效
+    if (params.mode === "recommended") params.mode = "prefs";
+  }
   // 前置 hasAdvancedSyntax：q 无高级语法时跳过权益查询（3 条串行查询在最热公共端点上不能白跑）；
   // 无语法 → entitled=false → resolveAdvancedQuery 原样透传，语义不变
   const entitled = auth.userId && hasAdvancedSyntax(params.q ?? "")
@@ -70,5 +81,6 @@ export const GET = withRoute(async (req: NextRequest) => {
     ...result,
     page_size: result.pageSize,
     ...(advancedDegraded ? { advanced_degraded: true as const } : {}),
+    ...(scope.needsIndustry ? { needs_industry_selection: true as const } : {}),
   });
 });

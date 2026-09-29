@@ -32,6 +32,7 @@ import { requestIndexRebuild } from "../search-common/rebuild-trigger";
 import { registerInvalidateCallback } from "../search-common/sync-events";
 import { recommendNotices } from "../recommend/index";
 import { invalidateProfileCache } from "../industry-profile/resolve";
+import { noticeInCategory } from "../industry-scope";
 import { getNoticeAgencies, getAgencyCacheData } from "../notice-search/agencies/index";
 import { CACHE_TTL_STANDARD_MS } from "@/shared/constants/time";
 
@@ -166,9 +167,13 @@ async function _searchCore(
   }
 
   // ── 参考号精确匹配快速路径 ──
+  // 行业墙：被墙用户即使拿到精确参考号，类目外的公告也不走快速路径直出，
+  // 落回主管道由强制 level1 过滤自然滤掉（不能在这里 403——搜索语义应是无结果而非报错）。
   if (p.q && p.mode === "default") {
     const refId = await referenceFastPath(pool, p.q);
-    if (refId) {
+    const wallOk = !refId || !p.forcedLevel1Id
+      || (await noticeInCategory(pool, refId, Number(p.forcedLevel1Id)));
+    if (refId && wallOk) {
       const details = await fetchDetailsByIds(pool, [refId], p.locale);
       const items = formatItems(details, p.locale);
       const result: UnifiedSearchResult = { items, total: 1, page: 1, pageSize: p.pageSize, fallback: "none" };

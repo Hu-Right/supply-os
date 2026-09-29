@@ -9,8 +9,10 @@ import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { unlockNotice, NoticeNotFoundError, QuotaExceededError } from "@/lib/services/notice-service";
 import {
-  EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED,
+  EC_NOTICE_NOT_FOUND, EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OUT_OF_CATEGORY,
 } from "@/shared/constants/api";
+import { canAccessNotice } from "@/lib/services/industry-scope";
+import { getContext } from "@/lib/db/context";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -24,6 +26,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const { id } = await params;
     const noticeId = Number(id);
+    // 行业墙：被行业限定档位的用户只能解锁其绑定一级类目内的公告（8,800元/行业口径）
+    {
+      const ctx = getContext();
+      if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId))) {
+        routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { out_of_category: true });
+      }
+    }
     // 空请求体/非法 JSON 返回 400 而非 500（body 可缺省，缺省按 free 解锁处理）
     let body: { unlock_type?: string };
     try {

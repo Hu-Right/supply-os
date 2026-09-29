@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
   isEntitled: vi.fn(),
   searchUnified: vi.fn(),
+  findActivePlan: vi.fn(),
+  resolveProfile: vi.fn(),
 }));
 
 vi.mock("@/lib/middleware/auth", () => ({
@@ -26,7 +28,16 @@ vi.mock("@/lib/db/pool", () => ({
   getPool: () => ({}),
 }));
 vi.mock("@/lib/db/context", () => ({
-  getContext: () => ({ benefitSystemRepo: { isEntitled: mocks.isEntitled } }),
+  getContext: () => ({
+    benefitSystemRepo: {
+      isEntitled: mocks.isEntitled,
+      findActivePlanForUser: mocks.findActivePlan,
+    },
+  }),
+}));
+vi.mock("@/lib/services/industry-profile/resolve", () => ({
+  resolveUserIndustryProfile: mocks.resolveProfile,
+  invalidateProfileCache: vi.fn(),
 }));
 vi.mock("@/lib/services/search-orchestrator", () => ({
   searchUnified: mocks.searchUnified,
@@ -40,6 +51,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.checkRateLimit.mockReturnValue(null);
   mocks.searchUnified.mockResolvedValue({ items: [], total: 0, pageSize: 10 });
+  // 默认无生效订阅 → 行业墙不启动（墙注入行为由专属用例覆盖）
+  mocks.findActivePlan.mockResolvedValue(null);
 });
 
 function makeReq(url = URL_WITH_EXCLUDE) {
@@ -101,5 +114,35 @@ describe("unified-search 高级语法档位门控（路由级）", () => {
     expect(mocks.isEntitled).not.toHaveBeenCalled();
     expectUnifiedCalledOnceWithQ("solar panel");
     expect(body).not.toHaveProperty("advanced_degraded");
+  });
+
+  it("行业墙：被限定档位用户注入 forcedLevel1Id，recommended 收编进 prefs 管道", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
+    // industry_scoped=1（business）、all_category_access=0（非演示档）
+    mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
+    mocks.resolveProfile.mockResolvedValue({ userId: 7, levelIds: [101, 100901, null, null, null] });
+
+    const res = await GET(makeReq("http://localhost:3000/api/notices/unified-search?mode=recommended&page=1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchUnified).toHaveBeenCalledTimes(1);
+    expect(mocks.searchUnified.mock.calls[0][1]).toMatchObject({ mode: "prefs", forcedLevel1Id: "101" });
+    expect(body.needs_industry_selection).toBeUndefined();
+  });
+
+  it("行业墙：被限定档位未绑行业 → 不注入，带 needs_industry_selection 引导标志", async () => {
+    mocks.extractUserKey.mockResolvedValue({ userId: 7, authViaJwt: true });
+    mocks.findActivePlan.mockResolvedValue({ plan_code: "business" });
+    mocks.isEntitled.mockImplementation(async (_uid: number, code: string) => code === "industry_scoped");
+    mocks.resolveProfile.mockResolvedValue(null);
+
+    const res = await GET(makeReq());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mocks.searchUnified.mock.calls[0][1]).not.toHaveProperty("forcedLevel1Id");
+    expect(body.needs_industry_selection).toBe(true);
   });
 });

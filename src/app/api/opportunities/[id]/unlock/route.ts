@@ -12,8 +12,9 @@ import { checkRateLimit } from "@/lib/middleware/rateLimiter";
 import { normalizeUnspscCodes } from "@/lib/services/unspsc/parser";
 import { executeOpportunityUnlock, OpportunityUnlockError } from "@/lib/services/opportunity-unlock";
 import {
-  EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND,
+  EC_FREE_LIMIT_REACHED, EC_PAID_QUOTA_REQUIRED, EC_OPPORTUNITY_NOT_FOUND, EC_OUT_OF_CATEGORY,
 } from "@/shared/constants/api";
+import { resolveIndustryScope, opportunityInCategory } from "@/lib/services/industry-scope";
 
 export const POST = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -36,6 +37,13 @@ export const POST = withRoute<{ params: Promise<{ id: string }> }>(
 
     const opp = await oppsRepo.findById(opportunityId);
     if (!opp) routeError(404, EC_OPPORTUNITY_NOT_FOUND, "机会不存在");
+    // 行业墙：被行业限定档位的用户只能解锁其绑定一级类目内的商机（8,800元/行业口径）
+    {
+      const scope = await resolveIndustryScope(dbPool, benefitSystemRepo, auth.userId);
+      if (scope.scoped && !(await opportunityInCategory(dbPool, opportunityId, scope.level1Id!))) {
+        routeError(403, EC_OUT_OF_CATEGORY, "该商机不在您订阅的行业范围内", { out_of_category: true });
+      }
+    }
     const snapshot = normalizeUnspscCodes(opp.unspsc_codes);
 
     try {

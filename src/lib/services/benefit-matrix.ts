@@ -48,6 +48,16 @@ export const AI_SUMMARY_MIN_VIEW_LEVEL = 1;
  */
 export const NOTICE_TRANSLATION_BENEFIT = "notice_translation";
 
+/**
+ * 内部语义权益（bool，2026-09-29）：驱动行业可见性墙，不在官网对比表/gates 下发中出现
+ * （展示隔离见 BenefitSystemRepo.listBenefits 的黑名单），仅供服务端 isEntitled 判定：
+ * - industry_scoped：该档按一级类目收窄数据范围（当前仅 business=1，"8,800元/行业"口径）；
+ * - all_category_access：旁路行业限定看全量（internal_demo=1，演示/内部档专用）。
+ */
+export const INDUSTRY_SCOPED_BENEFIT = "industry_scoped";
+export const ALL_CATEGORY_ACCESS_BENEFIT = "all_category_access";
+export const INTERNAL_MATRIX_BENEFITS = [INDUSTRY_SCOPED_BENEFIT, ALL_CATEGORY_ACCESS_BENEFIT] as const;
+
 export interface MaskableSummary {
   coreDeliverables: string;
   keyQualifications: string;

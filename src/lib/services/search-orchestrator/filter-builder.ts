@@ -264,6 +264,18 @@ export async function buildFilterPlan(
     digestParts.push(`unspsc:L${unspsc.level}=${unspsc.id}:${unspsc.precise ? "precise" : "ted"}`);
   }
 
+  // ── 行业墙强制一级类目（industry-scope 注入，客户端不可传）──
+  // 与用户自选 codeId 叠加 AND：被墙用户即使在 URL 里换类目/翻页，也翻不出订阅行业外；
+  // fixed（levelN_id，TED 标签覆盖全量）而非 precise——墙是数据口径，不依赖人工审核候选码。
+  if (p.forcedLevel1Id) {
+    meiliFilters.push(`level1_id = "${escapeFilter(p.forcedLevel1Id)}"`);
+    mysqlWhere.push(
+      `EXISTS (SELECT 1 FROM crm_notice_search ns WHERE ns.id = n.id AND FIND_IN_SET(?, ns.unspsc_level1))`,
+    );
+    mysqlParams.push(p.forcedLevel1Id);
+    digestParts.push(`wall:L1=${p.forcedLevel1Id}`);
+  }
+
   // ── 预算范围（estimated_value 为 VARCHAR 存数值字符串，CAST 为 DECIMAL 比较）──
   if (p.budgetMin != null || p.budgetMax != null) {
     if (p.budgetMin != null) {

@@ -9,6 +9,8 @@ import { getContext } from "@/lib/db/context";
 import { requireUserKeyOrThrow } from "@/lib/middleware/auth";
 import { withRoute, routeError } from "@/lib/middleware/route-handler";
 import { normalizeNoticeDetailPayload, findQualifiedOpportunityForNotice } from "@/lib/services/notices";
+import { canAccessNotice } from "@/lib/services/industry-scope";
+import { EC_OUT_OF_CATEGORY } from "@/shared/constants/api";
 
 export const GET = withRoute<{ params: Promise<{ id: string }> }>(
   async (req, { params }) => {
@@ -19,6 +21,10 @@ export const GET = withRoute<{ params: Promise<{ id: string }> }>(
     if (!noticeId) routeError(400, 40000, "无效的公告 ID");
 
     const ctx = getContext();
+  // 行业墙：被行业限定档位的用户只能访问其绑定一级类目内的公告（8,800元/行业口径）
+  if (!(await canAccessNotice(ctx.dbPool, ctx.benefitSystemRepo, auth.userId, noticeId))) {
+    routeError(403, EC_OUT_OF_CATEGORY, "该公告不在您订阅的行业范围内", { out_of_category: true });
+  }
     const { detailRepo, unlockRepo } = ctx.notice;
 
     const [unlock, notice] = await Promise.all([

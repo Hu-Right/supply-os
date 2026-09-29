@@ -28,6 +28,8 @@ export interface RawSearchParams {
   featuredOnly?: boolean;
   sort?: string;
   codeId?: number;
+  /** 行业墙强制一级类目（服务端 industry-scope 注入；不接受客户端传参） */
+  forcedLevel1Id?: string;
   budgetMin?: number;
   budgetMax?: number;
   /** 关键词匹配模式：all=硬 AND（默认），any=OR（任一命中） */
@@ -71,6 +73,7 @@ export function validateParams(raw: RawSearchParams): UnifiedSearchParams {
     featuredOnly: !!raw.featuredOnly,
     sort,
     codeId: Math.max(Math.floor(raw.codeId || 0), 0),
+    forcedLevel1Id: raw.forcedLevel1Id ? String(raw.forcedLevel1Id) : undefined,
     budgetMin: raw.budgetMin != null && raw.budgetMin >= 0 ? Math.floor(raw.budgetMin) : undefined,
     budgetMax: raw.budgetMax != null && raw.budgetMax >= 0 ? Math.floor(raw.budgetMax) : undefined,
     matchMode: raw.matchMode === "any" ? "any" : "all",
@@ -89,5 +92,6 @@ export function searchCacheKey(p: UnifiedSearchParams): string {
     p.q.toLowerCase().trim(), p.country.toUpperCase(), p.agency, p.deadlineFrom, p.deadlineTo,
     p.deadlineWithinDays, p.noticeType, p.featuredOnly ? "1" : "",
     p.sort, p.codeId, p.budgetMin ?? "", p.budgetMax ?? "", p.matchMode ?? "all",
+    p.forcedLevel1Id ?? "",
   ].join("|");
 }

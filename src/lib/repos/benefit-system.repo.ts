@@ -3,9 +3,9 @@
  * Benefit System Repository (read side)
  *
  * @module repos/benefit-system.repo
- * @description 数据源**只有**迁移 092 建的 8 张权益体系表：
+ * @description 数据源**只有**迁移 092 建的 7 张权益体系表：
  *              crm_benefit_catalog / crm_plan_catalog / crm_plan_benefits
- *              crm_plan_subscriptions / crm_benefit_quotas / crm_subscription_seats。
+ *              crm_plan_subscriptions / crm_benefit_quotas。
  *
  *              纪律（勿加回来）：
  *              - 不读写旧三表（crm_membership_plans / crm_user_subscriptions /
@@ -19,6 +19,7 @@
  */
 import type { Pool, PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { BenefitDefRow, PlanCatalogRow, MatrixCellRow, ResolvedCell, ActivePlanRow, QuotaBalanceRow, GateState, ComparisonTable, ServiceCatalogRow } from "@/types/membership";
+import { INTERNAL_MATRIX_BENEFITS } from "@/lib/services/benefit-matrix";
 
 /**
  * 未订阅基线档位码：`free` 列是价格文档「普通用户」列的逐字录入，
@@ -106,7 +107,7 @@ export class BenefitSystemRepo {
   async listActivePlans(): Promise<PlanCatalogRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
-              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
+              billing_period_days, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
               upgrade_credit_days
          FROM crm_plan_catalog WHERE is_active = 1 ORDER BY sort_order`,
     );
@@ -132,7 +133,7 @@ export class BenefitSystemRepo {
   async getPlan(planCode: string): Promise<PlanCatalogRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT plan_code, name_en, name_zh, positioning_zh, price, price_mode, price_incl_tax, currency,
-              billing_period_days, seat_limit, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
+              billing_period_days, commercial_tier, cta_i18n_key, badge, sort_order, is_active,
               upgrade_credit_days
          FROM crm_plan_catalog WHERE plan_code = ? LIMIT 1`,
       [planCode],
@@ -141,12 +142,18 @@ export class BenefitSystemRepo {
     return row ? { ...row, audience: deriveAudience(row.commercial_tier) } : null;
   }
 
-  /** 启用的权益定义（矩阵行序 = group_code + sort_order） */
+  /** 启用的权益定义（矩阵行序 = group_code + sort_order）。
+   *  内部语义权益（industry_scoped/all_category_access）不进本清单：它们只被服务端
+   *  isEntitled 按码直查（getBenefit 不过滤），不应出现在官网对比表与 gates 下发里。 */
   async listBenefits(): Promise<BenefitDefRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT benefit_code, name_zh, group_code, value_kind, level_dict, is_consumable,
               requires_subscription, gate_key, sort_order
-         FROM crm_benefit_catalog WHERE is_active = 1 ORDER BY group_code, sort_order`,
+         FROM crm_benefit_catalog
+        WHERE is_active = 1
+          AND benefit_code NOT IN (${INTERNAL_MATRIX_BENEFITS.map(() => "?").join(",")})
+        ORDER BY group_code, sort_order`,
+      [...INTERNAL_MATRIX_BENEFITS],
     );
     return (rows as Array<Record<string, unknown>>).map((r) => ({
       ...r,
@@ -205,31 +212,20 @@ export class BenefitSystemRepo {
   }
 
   /**
-   * 解析用户当前生效套餐：本人订阅 + 作为他人席位成员的订阅，取目录横向序最高的一档。
+   * 解析用户当前生效套餐：本人名下 active 且未过期的订阅，取目录横向序最高的一档。
    * 无生效订阅返回 null —— 调用方按"普通用户"处理（享 requires_subscription=0 的权益）。
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT x.*
-         FROM (
-           SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at,
-                  'owner' AS seat_role, p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
-             FROM crm_plan_subscriptions s
-             JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
-            WHERE s.owner_user_id = ? AND s.status = 'active'
-              AND (s.expires_at IS NULL OR s.expires_at > NOW())
-           UNION ALL
-           SELECT s.id, s.owner_user_id, s.plan_code, s.seat_limit, s.expires_at, 'member', p.sort_order,
-                             s.started_at, s.source_order_no, s.price_paid, s.currency
-             FROM crm_subscription_seats st
-             JOIN crm_plan_subscriptions s ON s.id = st.subscription_id
-             JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
-            WHERE st.member_user_id = ? AND st.status = 'active' AND st.is_owner = 0
-              AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > NOW())
-         ) x
-        ORDER BY x.sort_order DESC, x.subscription_id DESC
+      `SELECT s.id AS subscription_id, s.owner_user_id, s.plan_code, s.expires_at,
+              p.sort_order, s.started_at, s.source_order_no, s.price_paid, s.currency
+         FROM crm_plan_subscriptions s
+         JOIN crm_plan_catalog p ON p.plan_code = s.plan_code
+        WHERE s.owner_user_id = ? AND s.status = 'active'
+          AND (s.expires_at IS NULL OR s.expires_at > NOW())
+        ORDER BY p.sort_order DESC, s.id DESC
         LIMIT 1`,
-      [userId, userId],
+      [userId],
     );
     return (rows as ActivePlanRow[])[0] ?? null;
   }
@@ -299,9 +295,9 @@ export class BenefitSystemRepo {
    */
   async listQuotaBalances(userId: number, subscriptionId: number | null): Promise<QuotaBalanceRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT benefit_code, scope, quota_total, quota_used, status, period, period_starts_at
+      `SELECT benefit_code, quota_total, quota_used, status, period, period_starts_at
          FROM crm_benefit_quotas
-        WHERE seat_user_id = ? AND subscription_id <=> ? AND scope = 'subscription'
+        WHERE user_id = ? AND subscription_id <=> ?
           AND period_starts_at <= NOW()
         ORDER BY benefit_code, period_starts_at DESC, id DESC`,
       [userId, subscriptionId],
@@ -312,7 +308,6 @@ export class BenefitSystemRepo {
       const total = Number(r.quota_total);
       latest.set(String(r.benefit_code), {
         benefit_code: String(r.benefit_code),
-        scope: r.scope as QuotaBalanceRow["scope"],
         quota_total: total,
         quota_used: Number(r.quota_used),
         status: r.status as QuotaBalanceRow["status"],

@@ -48,6 +48,9 @@ export const EC_DUPLICATE = 40008;
 /** VIP 专属功能（VIP-only feature） */
 export const EC_VIP_ONLY = 40041;
 
+/** 公告不在用户订阅的行业范围内（行业墙，2026-09-29「8,800元/行业」口径） */
+export const EC_OUT_OF_CATEGORY = 40045;
+
 /** 翻译服务不可用（Translation service unavailable） */
 export const EC_TRANSLATION_UNAVAILABLE = 50002;
 
