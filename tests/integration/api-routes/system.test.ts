@@ -261,7 +261,7 @@ const PRO_PLAN = { plan_code: "personal_pro_1299", name_en: "PRO", name_zh: "个
 const FREE_PLAN = { plan_code: "free", name_en: "FREE", name_zh: "普通用户", positioning_zh: "免费", price: "0.00", price_mode: "free", price_incl_tax: "0.00", currency: "CNY", billing_period_days: 0, commercial_tier: "L1", cta_i18n_key: "cta_free", badge: "none", sort_order: 0, is_active: 0 };
 const ACTIVE_SUB = { subscription_id: 51, owner_user_id: 101, plan_code: "personal_pro_1299", expires_at: new Date("2030-01-01"), seat_role: "owner", sort_order: 4, started_at: new Date("2026-01-01"), source_order_no: "SO_TEST_1", price_paid: "1299.00", currency: "CNY", status: "active" };
 const QUOTA_BALANCES = [
-  { benefit_code: "notice_view", scope: "subscription", quota_total: 10, quota_used: 3, status: "active", period: "none", period_starts_at: new Date("2026-01-01"), remaining: 7 },
+  { benefit_code: "notice_view", quota_total: 10, quota_used: 3, status: "active", period_starts_at: new Date("2026-01-01"), remaining: 7 },
 ];
 
 describe("GET /api/membership/status", () => {

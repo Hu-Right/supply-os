@@ -149,17 +149,22 @@ describe("findActivePlanForUser · 本人订阅解析", () => {
     expect(sql).toMatch(/expires_at IS NULL OR s\.expires_at > NOW\(\)/);
   });
 
-  it("额度池按 NULL 安全比较查普通用户池，并只留每权益当前周期一行", async () => {
+  it("额度池按 subscription_pool_key 查普通用户池（NULL 归一为 0），并只留每权益当前代次一行", async () => {
     const { repo, calls } = makePool(() => [
-      { benefit_code: "notice_view", status: "active", quota_total: -1, quota_used: 0, period: "yearly", period_starts_at: new Date(2) },
-      { benefit_code: "notice_view", status: "active", quota_total: 10, quota_used: 3, period: "yearly", period_starts_at: new Date(1) },
-      { benefit_code: "tech_support", status: "active", quota_total: 12, quota_used: 5, period: "none", period_starts_at: new Date(3) },
+      { benefit_code: "notice_view", status: "active", quota_total: -1, quota_used: 0, period_starts_at: new Date(2) },
+      { benefit_code: "notice_view", status: "active", quota_total: 10, quota_used: 3, period_starts_at: new Date(1) },
+      { benefit_code: "tech_support", status: "active", quota_total: 12, quota_used: 5, period_starts_at: new Date(3) },
     ]);
     const rows = await repo.listQuotaBalances(42, null);
-    expect(calls[0]).toContain("subscription_id <=> ?");
+    // 谓词必须走生成列等值，才能让 uk_pool 最左前缀完整命中（idx_consume 已随精简退场）
+    expect(calls[0]).toContain("subscription_pool_key = ?");
+    expect(calls[0]).not.toContain("<=>");
+    expect(calls[0]).not.toContain("period,");
+    // 普通用户池的 pool_key 哨兵：null → 0，且参数顺序为 [poolKey, userId]
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ benefit_code: "notice_view", quota_total: -1, remaining: null });
     expect(rows[1]).toMatchObject({ benefit_code: "tech_support", quota_used: 5, remaining: 7 });
+    expect("period" in rows[0]).toBe(false);
   });
 });
 

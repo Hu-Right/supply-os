@@ -74,8 +74,9 @@ export interface QuotaBalanceRow {
   benefit_code: string;
   quota_total: number;
   quota_used: number;
-  status: "active" | "exhausted" | "frozen" | "expired";
-  period: "none" | "monthly" | "yearly";
+  /** 池状态：扣满置 exhausted，退款/升级承接置 frozen；订阅过期由 crm_plan_subscriptions 表达 */
+  status: "active" | "exhausted" | "frozen";
+  /** 当前发放代次起点（幂等锚点：订阅池=该订阅 started_at，普通用户池=1970-01-01 终身哨兵） */
   period_starts_at: Date | string;
   /** 不限为 null，其余取该池可消费余额。 */
   remaining: number | null;

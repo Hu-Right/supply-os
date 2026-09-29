@@ -212,7 +212,7 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
 });
 
 describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
-  it("锁当前周期行：NULL 安全比较 + FOR UPDATE，且不过滤状态", async () => {
+  it("锁当前代次行：按 subscription_pool_key 等值 + FOR UPDATE，且不过滤状态", async () => {
     const repo = new BenefitWriteRepo();
     const { conn, calls } = makeConn([
       {
@@ -232,10 +232,15 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
     });
 
     const sql = calls[0].sql;
-    expect(sql).toContain("subscription_id <=> ?");
+    // 谓词走生成列等值：uk_pool 最左前缀 (pool_key, user_id, benefit_code, period_starts_at)
+    // 完整命中，故 idx_consume 已随本次精简删除（NULL 安全比较 <=> 用不上唯一键）
+    expect(sql).toContain("subscription_pool_key = ?");
+    expect(sql).not.toContain("<=>");
     expect(sql).toContain("period_starts_at <= NOW()");
     expect(sql).toContain("FOR UPDATE");
     expect(sql).toContain("ORDER BY period_starts_at DESC");
+    // 普通用户池（subscriptionId=null）必须归一为哨兵 0，且参数顺序为 [poolKey, userId, benefitCode]
+    expect(calls[0].params).toEqual([0, 42, "notice_view"]);
     // 关键：一旦出现 status 过滤，耗尽的池会查不到 → 调用方误开新池 = 凭空发额度
     expect(sql).not.toMatch(/WHERE.*status\s*=/);
     expect(locked).toMatchObject({ id: 5, status: "exhausted", subscription_id: null });
@@ -250,7 +255,8 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
 
   it("非 active 池不扣（exhausted / frozen 一律拒），且不发 SQL", async () => {
     const repo = new BenefitWriteRepo();
-    for (const st of ["exhausted", "frozen", "expired"] as const) {
+    // status 取值域已收窄为三值：订阅过期由 crm_plan_subscriptions 表达，池侧不存在 expired
+    for (const st of ["exhausted", "frozen"] as const) {
       const { db, calls } = makeDb();
       expect(await repo.consumeLockedPool(db, pool({ status: st }))).toBe("denied");
       expect(calls).toHaveLength(0);
@@ -412,20 +418,20 @@ describe("openQuotaPool · 不限额度的抬额语义（缺陷 2 复现）", ()
 });
 
 /**
- * 缺陷 7：周期起点必须是确定值。
- * uk_pool 含 period_starts_at，而该列默认 CURRENT_TIMESTAMP 逐行求值——
+ * 缺陷 7：代次起点必须是确定值。
+ * uk_pool 含 period_starts_at，而该列在终态结构里故意无默认值——
  * 写 NOW() 会使“幂等开池”仅在同一秒内成立，跨秒重发另开一行满额池
  * （本库实测同池两次 quota_total 由 3 变 6），到支付链路上就是回调重试翻倍发额度。
  */
-describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
-  it("不得用裸 NOW() 当周期起点，否则撞不到唯一键", async () => {
+describe("openQuotaPool · 代次起点确定性（缺陷 7 复现）", () => {
+  it("不得用裸 NOW() 当起点，否则撞不到唯一键", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
     expect(calls[0].sql).not.toMatch(/COALESCE\(\?, NOW\(\)\)/);
   });
 
-  it("period=none 时起点锁定到订阅自身的 started_at，普通用户池用终身哨兵", async () => {
+  it("起点锁定到订阅自身的 started_at，普通用户池用终身哨兵", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
@@ -433,32 +439,26 @@ describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
     expect(sql).toContain("SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?");
     expect(sql).toContain("'1970-01-01 00:00:00'");
     // 子查询用的 subscription_id 必须真的绑上：漏绑就等于把所有池子锁到同一个哨兵上
-    expect(calls[0].params[7]).toBe(9);
+    expect(calls[0].params[5]).toBe(9);
   });
 
-  it("monthly / yearly 的起点由 DB 算周期首而非行级时间戳，且 period 绑两次", async () => {
+  it("period 列已随精简退场：INSERT 列清单与 SQL 均不得再出现该列", async () => {
     const repo = new BenefitWriteRepo();
-    for (const [period, frag] of [
-      ["monthly", "'%Y-%m-01 00:00:00'"],
-      ["yearly", "'%Y-01-01 00:00:00'"],
-    ] as const) {
-      const { db, calls } = makeDb();
-      await repo.openQuotaPool(db, {
-        subscriptionId: 9, userId: 42, benefitCode: "procurement_consult", quotaTotal: 12, period,
-      });
-      expect(calls[0].sql).toContain(frag);
-      expect(calls[0].params.filter((x) => x === period)).toHaveLength(2);
-    }
+    const { db, calls } = makeDb();
+    await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    const sql = calls[0].sql;
+    expect(sql).not.toMatch(/\bperiod\b(?!_starts_at)/);
+    expect(sql).toContain("quota_used, period_starts_at, status)");
   });
 
-  it("显式传 periodStartsAt 仍优先使用（周期重置要能推进行号）", async () => {
+  it("显式传 periodStartsAt 仍优先使用（开新一代次要能推进行号）", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     const anchor = new Date("2026-10-01T00:00:00Z");
     await repo.openQuotaPool(db, {
       subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 5, periodStartsAt: anchor,
     });
-    expect(calls[0].params[5]).toBe(anchor);
+    expect(calls[0].params[4]).toBe(anchor);
   });
 
   it("参数个数与占位符个数始终相等", async () => {

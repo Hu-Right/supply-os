@@ -287,28 +287,27 @@ export class BenefitSystemRepo {
   }
 
   /**
-   * 额度池余额（每个权益取当前周期最新一行）。
-   * subscriptionId 传 null = 查普通用户池（subscription_id IS NULL），NULL 安全比较。
+   * 额度池余额（每个权益取当前代次最新一行）。
+   * subscriptionId 传 null = 查普通用户池（谓词按 subscription_pool_key 等值，普通用户池归一为 0）。
    */
   async listQuotaBalances(userId: number, subscriptionId: number | null): Promise<QuotaBalanceRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT benefit_code, quota_total, quota_used, status, period, period_starts_at
+      `SELECT benefit_code, quota_total, quota_used, status, period_starts_at
          FROM crm_benefit_quotas
-        WHERE user_id = ? AND subscription_id <=> ?
+        WHERE subscription_pool_key = ? AND user_id = ?
           AND period_starts_at <= NOW()
         ORDER BY benefit_code, period_starts_at DESC, id DESC`,
-      [userId, subscriptionId],
+      [subscriptionId ?? 0, userId],
     );
     const latest = new Map<string, QuotaBalanceRow>();
     for (const r of rows as Array<Record<string, unknown>>) {
-      if (latest.has(String(r.benefit_code))) continue; // 已按周期倒序，首见即当前周期
+      if (latest.has(String(r.benefit_code))) continue; // 已按代次倒序，首见即当前代次
       const total = Number(r.quota_total);
       latest.set(String(r.benefit_code), {
         benefit_code: String(r.benefit_code),
         quota_total: total,
         quota_used: Number(r.quota_used),
         status: r.status as QuotaBalanceRow["status"],
-        period: r.period as QuotaBalanceRow["period"],
         period_starts_at: r.period_starts_at as Date,
         remaining: r.status === "active" ? (total === -1 ? null : Math.max(0, total - Number(r.quota_used))) : 0,
       });

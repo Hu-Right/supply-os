@@ -19,7 +19,7 @@
  *              - `quota_total = -1` 表示不限，**永不写消耗**（库内 chk_usage 约束
  *                `quota_used BETWEEN 0 AND GREATEST(quota_total,0)` 在 -1 时要求 used 恒为 0）；
  *              - `quota_total = 0` 是"该档明确无额度"的显式账，照常建行，扣减必失败；
- *              - 同周期重复发放只抬额度不重置已用量（要清零必须开新一周期行），
+ *              - 同代次重复发放只抬额度不重置已用量（要清零必须开新一代次行），
  *                避免续费/重放回调把已花掉的额度洗回满格。
  */
 import type { Pool, PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
@@ -28,7 +28,7 @@ import type { BenefitSystemRepo } from "./benefit-system.repo";
 /** 事务内外通用执行器：定时任务传 pool，履约链路传事务连接 */
 export type Db = Pool | PoolConnection;
 
-/** 被行锁锁定的当前周期额度池行 */
+/** 被行锁锁定的当前代次额度池行 */
 export interface LockedPoolRow {
   id: number;
   subscription_id: number | null;
@@ -36,7 +36,7 @@ export interface LockedPoolRow {
   benefit_code: string;
   quota_total: number;
   quota_used: number;
-  status: "active" | "exhausted" | "frozen" | "expired";
+  status: "active" | "exhausted" | "frozen";
 }
 
 export interface LockedSubscriptionRow {
@@ -234,16 +234,16 @@ export class BenefitWriteRepo {
    * 开/抬一个额度池（幂等：撞 uk_pool 时只抬额度、绝不修改 quota_used）。
    *
    * 抬额表达式必须特判 -1：`GREATEST(100, -1)` 等于 100，若只写 GREATEST，
-   * 同周期重发时"不限"会被旧的正数额度顶掉，用户付了不限量却只拿到小池。
+   * 同代次重发时"不限"会被旧的正数额度顶掉，用户付了不限量却只拿到小池。
    *
-   * 【幂等成立的前提：周期起点必须是确定值】uk_pool 包含 period_starts_at，
-   * 而该列默认 CURRENT_TIMESTAMP 是**逐行求值**的。若此处写 NOW()，同一池隔一秒
+   * 【幂等成立的前提：代次起点必须是确定值】uk_pool 包含 period_starts_at，
+   * 而该列在终态结构里**故意没有默认值**：写 NOW() 或依赖行级时间戳，同一池隔一秒
    * 重发就不撞唯一键 → 另开一行满额池（本库实测：同池两次开池 quota_total 由 3 变 6）。
    * 放到支付链路上就是：回调重试一次用户额度翻倍；已耗尽的用户重试一次直接白送一份新池。
-   * 因此周期起点改由 period 推导：
-   *   - monthly/yearly → 本月月首 / 本年年初（本身就是确定值）；
-   *   - none（终身或订阅生命周期）→ 订阅的 started_at（该订阅内恒定），
-   *     普通用户池（subscription_id 为 NULL）→ 哨兵 1970-01-01 表示终身。
+   * 因此起点固定推导为：
+   *   - 订阅池 → 该订阅的 started_at（该订阅内恒定）；
+   *   - 普通用户池（subscription_id 为 NULL）→ 哨兵 1970-01-01 表示终身。
+   * 要开新一代次（如未来真做周期重置）由调用方显式传 periodStartsAt。
    * @param subscriptionId null = 普通用户池（免费档计量权益）
    */
   async openQuotaPool(
@@ -253,23 +253,16 @@ export class BenefitWriteRepo {
       userId: number;
       benefitCode: string;
       quotaTotal: number;
-      period?: "none" | "monthly" | "yearly";
-      /** 显式指定周期起点（周期重置时由调用方推进行号）；缺省按 period 推导确定值 */
+      /** 显式指定代次起点（开新一代次时用）；缺省按订阅 started_at / 终身哨兵推导 */
       periodStartsAt?: Date | null;
     },
   ): Promise<void> {
-    const period = p.period ?? "none";
     await db.execute(
       `INSERT INTO crm_benefit_quotas
-        (subscription_id, user_id, benefit_code, quota_total, quota_used, period, period_starts_at, status)
-       VALUES (?, ?, ?, ?, 0, ?,
-               COALESCE(?,
-                 CASE ?
-                   WHEN 'monthly' THEN DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')
-                   WHEN 'yearly'  THEN DATE_FORMAT(NOW(), '%Y-01-01 00:00:00')
-                   ELSE IFNULL((SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?),
-                               '1970-01-01 00:00:00')
-                 END),
+        (subscription_id, user_id, benefit_code, quota_total, quota_used, period_starts_at, status)
+       VALUES (?, ?, ?, ?, 0,
+               COALESCE(?, IFNULL((SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?),
+                                  '1970-01-01 00:00:00')),
                'active')
        ON DUPLICATE KEY UPDATE
          quota_total = IF(? = -1 OR quota_total = -1, -1, GREATEST(quota_total, ?)),
@@ -279,9 +272,7 @@ export class BenefitWriteRepo {
         p.userId,
         p.benefitCode,
         p.quotaTotal,
-        period,
         p.periodStartsAt ?? null,
-        period,
         p.subscriptionId,
         p.quotaTotal,
         p.quotaTotal,
@@ -330,9 +321,10 @@ export class BenefitWriteRepo {
   }
 
   /**
-   * 取该用户该权益"当前周期"的池行并持行锁；不过滤状态，由调用方判 active/exhausted/frozen。
+   * 取该用户该权益"当前代次"的池行并持行锁；不过滤状态，由调用方判 active/exhausted/frozen。
    * 若只捞 active，则额度耗尽的行会"消失"，调用方会误开新池 → 等于凭空发额度。
-   * @param subscriptionId null = 普通用户池；NULL 安全比较 <=>
+   * 谓词走 `subscription_pool_key` 等值（普通用户池归一为 0），使 uk_pool 最左前缀完整命中。
+   * @param subscriptionId null = 普通用户池
    */
   async findAndLockCurrentPool(
     conn: PoolConnection,
@@ -341,12 +333,12 @@ export class BenefitWriteRepo {
     const [rows] = await conn.query<RowDataPacket[]>(
       `SELECT id, subscription_id, user_id, benefit_code, quota_total, quota_used, status
          FROM crm_benefit_quotas
-        WHERE user_id = ? AND subscription_id <=> ? AND benefit_code = ?
+        WHERE subscription_pool_key = ? AND user_id = ? AND benefit_code = ?
           AND period_starts_at <= NOW()
         ORDER BY period_starts_at DESC, id DESC
         LIMIT 1
         FOR UPDATE`,
-      [p.userId, p.subscriptionId, p.benefitCode],
+      [p.subscriptionId ?? 0, p.userId, p.benefitCode],
     );
     const r = (rows as Array<Record<string, unknown>>)[0];
     if (!r) return null;
@@ -385,7 +377,7 @@ export class BenefitWriteRepo {
   }
 
   /**
-   * 冻结某订阅名下的全部额度池（升级承接时用）；已 expired 的行不动，保留历史。
+   * 冻结某订阅名下的全部额度池（升级承接时用）。
    * 退款路径请用 refundSubscription，它会把"冻池 + 置 refunded"包在同一事务里。
    */
   async freezePoolsOfSubscription(db: Db, subscriptionId: number): Promise<number> {

@@ -181,6 +181,7 @@ import { migration as m103 } from "./migrations/103-supplier-diagnosis-audit-ret
 import { migration as m104 } from "./migrations/104-pricing-doc-alignment";
 import { migration as m105 } from "./migrations/105-benefit-quotas-rebuild";
 import { migration as m106 } from "./migrations/106-benefit-catalog-sort-order-unique";
+import { migration as m107 } from "./migrations/107-benefit-quotas-shadow-phase1";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -244,6 +245,11 @@ const ALL_MIGRATIONS: Migration[] = [
   //       代码发布与表切换得以解耦。幂等：已是终态直接跳过；自检不过则抛错不启动。
   //       ⚠️ 本迁移引用 group_code/is_active，仅在影子表切换前的 12 列结构上有意义
   m106,
+  // m107：额度账本精简 · 影子表阶段一（ADR-0003）——只建 crm_benefit_quotas__new 终态结构
+  //       （去 period、去 idx_consume、status 收窄为三值、period_starts_at 去默认值），
+  //       旧表不碰、生产读写仍走旧表；切换由 scripts/benefit-quotas-shadow-phase2-cutover.mjs
+  //       在人工闸口下执行（本迁移不自动换表名）。
+  m107,
 ];
 
 /**
