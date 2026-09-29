@@ -49,9 +49,17 @@ scripts/*
 !scripts/supplier-shadow-phase1.mjs
 !scripts/supplier-shadow-phase2-align.mjs
 !scripts/supplier-shadow-phase3-cutover.mjs
+# crm_benefit_catalog 列精简影子表两阶段工具（2026-09-29，ADR-0003）：同上先例——
+# 删 6 列 + sort_order 重编号 + 外键重建全靠这两个脚本执行，不入版本控制等于切换流程只存在于单机。
+!scripts/benefit-catalog-shadow-phase1.mjs
+!scripts/benefit-catalog-shadow-phase2-cutover.mjs
+# 主表 sort_order 重编号（切换前置，方案 §1.2）：回滚靠它，必须与阶段脚本同处版本控制
+!scripts/benefit-catalog-renumber-main.mjs
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs
+# 影子表切换的唯一映射表（阶段一/重编号/回滚三处共用，不可各写一份）
+!scripts/lib/benefit-catalog-sort-map.mjs
 runtime/
 backups/
 bin/
