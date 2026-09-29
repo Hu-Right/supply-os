@@ -347,14 +347,14 @@ if (Number(eligibleStat.n) === 0) fail("入选行为 0，中止");
 if (DELTA) {
   const [[mapped]] = await pool.query(`SELECT COUNT(*) n FROM \`${MAP_TABLE}\``);
   console.log(`[2] DELTA 模式：idmap 已有 ${Number(mapped.n)} 行，追加未映射的入选行`);
-  const [[nextId]] = await pool.query(`SELECT COALESCE(MAX(new_id),0) m FROM \`${MAP_TABLE}\``);
+  const [[nextIdRow]] = await pool.query(`SELECT COALESCE(MAX(new_id),0) m FROM \`${MAP_TABLE}\``);
   await pool.query(
     `INSERT INTO \`${MAP_TABLE}\` (old_id, new_id, company)
      SELECT id, (? + ROW_NUMBER() OVER (ORDER BY id)), company
        FROM supplier s
       WHERE ${eligibleWhere}
         AND NOT EXISTS (SELECT 1 FROM \`${MAP_TABLE}\` m WHERE m.old_id = s.id)`,
-    [Number(nextId[0].m)],
+    [Number(nextIdRow.m)],
   );
 } else {
   await pool.query(`DROP TABLE IF EXISTS \`${MAP_TABLE}\``);

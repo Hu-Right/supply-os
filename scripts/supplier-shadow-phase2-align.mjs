@@ -72,7 +72,7 @@ async function tableExists(table) {
 
 // ── 0. 前置状态（本库不存在的引用表跳过并登记，口径与 phase1 的 ACTIVE_REFS 一致）──
 const MUST_ACTIVE = [];
-for (const rc of MUST_ACTIVE) {
+for (const rc of MUST) {
   if (await tableExists(rc.table)) MUST_ACTIVE.push(rc);
   else console.log(`[0] 引用表 ${rc.table} 在本库不存在，跳过`);
 }
