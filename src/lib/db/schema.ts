@@ -179,6 +179,7 @@ import { migration as m101 } from "./migrations/101-product-keyword-groups";
 import { migration as m102 } from "./migrations/102-supplier-claim-expiry";
 import { migration as m103 } from "./migrations/103-supplier-diagnosis-audit-retired";
 import { migration as m104 } from "./migrations/104-pricing-doc-alignment";
+import { migration as m105 } from "./migrations/105-benefit-quotas-rebuild";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -233,6 +234,10 @@ const ALL_MIGRATIONS: Migration[] = [
   //       1299 下发推送权益、服务目录按文档重构为 12 行并新增年包抵扣标记列；
   //       ⚠️ 改 crm_service_catalog 绝对数量，须同步 scripts/verify-benefit-constraints.ts EXPECTED_STATIC
   m104,
+  // m105：权益额度账本 crm_benefit_quotas 从头重建为无残列终态（席位退役迁移化：清 scope、seat_user_id→user_id），
+  //       保守精简保留 period/period_starts_at 与生成列 subscription_pool_key；DROP+CREATE 空表使 id 从 1 起、
+  //       quota_used 归零（池按需懒物化重建）。⚠️ 破坏性：清空该表全部行，仅因无外部付费用户才安全
+  m105,
 ];
 
 /**
