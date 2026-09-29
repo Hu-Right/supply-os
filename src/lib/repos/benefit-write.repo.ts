@@ -290,9 +290,11 @@ export class BenefitWriteRepo {
   }
 
   /**
-   * 按矩阵为某套餐发放全部可消耗额度池。
-   * 只认 `is_consumable = 1` 且 `value_kind = 'quota'` 的行——可消耗但不是 quota 属配置异常，
-   * 记入 anomalies 交调用方报警，不静默跳过（静默跳过会让"发了额度"与"矩阵写的额度"两本账不一致）。
+   * 按矩阵为某套餐发放额度池。
+   * 计量型权益的判据**唯一**为 `value_kind = 'quota'`（原 `is_consumable` 列已随目录精简退役，
+   * 它与 quota 本来同构，并存只会多出一个可以说谎的事实源）。
+   * 矩阵缺格与 `value_num` 非数值一律记入 anomalies 交调用方报警，不静默跳过
+   * （静默跳过会让"发了额度"与"矩阵写的额度"两本账不一致）。
    */
   async grantQuotaPoolsForPlan(
     db: Db,
@@ -303,11 +305,7 @@ export class BenefitWriteRepo {
     const granted: string[] = [];
     const anomalies: string[] = [];
 
-    for (const def of defs.filter((d) => Number(d.is_consumable) === 1)) {
-      if (def.value_kind !== "quota") {
-        anomalies.push(`${def.benefit_code}：is_consumable=1 但 value_kind=${def.value_kind}，无法计量`);
-        continue;
-      }
+    for (const def of defs.filter((d) => d.value_kind === "quota")) {
       const cell = cells.find((c) => c.benefit_code === def.benefit_code);
       if (!cell) {
         anomalies.push(`${def.benefit_code}：矩阵缺格（套餐 ${p.planCode} 未声明额度），不发池`);

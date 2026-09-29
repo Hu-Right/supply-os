@@ -166,7 +166,6 @@ describe("findActivePlanForUser · 本人订阅解析", () => {
 describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列）", () => {
   const def = (over: Record<string, unknown>) => ({
     benefit_code: "global_search",
-    requires_subscription: 0,
     value_kind: "bool",
     level_dict: null,
     ...over,
@@ -182,7 +181,7 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
     expect(calls.some((s) => s.includes("crm_plan_benefits"))).toBe(true);
   });
 
-  it("误放回归：requires_subscription=0 但 free 档额度为 0 → 不享有", async () => {
+  it("误放回归：不需订阅但 free 档额度为 0 → 不享有", async () => {
     // tech_support / procurement_consult 即此类：不需订阅，但全档额度都是 0。
     // 旧实现按 requires_subscription=0 直接判可用，把人放进了用不到的门。
     const { repo } = makePool((sql) => {
@@ -194,11 +193,11 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
     expect(await repo.isEntitled(42, "tech_support")).toBe(false);
   });
 
-  it("requires_subscription=1 也不再直接判死：改由 free 列说了算", async () => {
+  it("目录标记不再直接判死：取值改由 free 列说了算", async () => {
     const responder = (freeNum: number) =>
       makePool((sql) => {
         if (sql.includes("crm_benefit_catalog")) {
-          return [def({ benefit_code: "notice_view", requires_subscription: 1, value_kind: "quota" })];
+          return [def({ benefit_code: "notice_view", value_kind: "quota" })];
         }
         return [{ plan_code: "free", benefit_code: "notice_view", value_num: freeNum }];
       });
@@ -212,7 +211,7 @@ describe("isEntitled · 门控唯一入口（未订阅基线 = free 档那一列
   it("有生效订阅时按本档矩阵格取值，0 额度格判为不享有", async () => {
     const { repo } = makePool((sql) => {
       if (sql.includes("crm_benefit_catalog")) {
-        return [def({ benefit_code: "notice_view", requires_subscription: 1, value_kind: "quota" })];
+        return [def({ benefit_code: "notice_view", value_kind: "quota" })];
       }
       if (sql.includes("crm_plan_subscriptions")) return [{ plan_code: "starter", subscription_id: 9 }];
       return [{ plan_code: "starter", benefit_code: "notice_view", value_num: 0 }];

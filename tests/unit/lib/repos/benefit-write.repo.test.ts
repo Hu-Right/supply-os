@@ -146,19 +146,18 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
       loadCells: async () => cells,
     }) as unknown as BenefitSystemRepo;
 
-  const quotaDef = (code: string, consumable: number, kind = "quota") => ({
+  const def = (code: string, kind = "quota") => ({
     benefit_code: code,
     value_kind: kind,
-    is_consumable: consumable,
   });
 
-  it("只发 is_consumable=1 的额度类权益；-1 与 0 都落显式行", async () => {
+  it("只发 value_kind=quota 的权益；-1 与 0 都落显式行", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     const res = await repo.grantQuotaPoolsForPlan(
       db,
       catalogWith(
-        [quotaDef("notice_view", 1), quotaDef("ai_match", 0), quotaDef("tech_support", 1)],
+        [def("notice_view"), def("ai_match", "enum"), def("tech_support")],
         [
           { plan_code: "unlimited", benefit_code: "notice_view", value_num: -1 },
           { plan_code: "unlimited", benefit_code: "tech_support", value_num: 0 },
@@ -175,15 +174,28 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
     expect(calls.every((c) => c.sql.includes("crm_benefit_quotas"))).toBe(true);
   });
 
+  it("非 quota 行不发池：即使矩阵里有格子也不能越权开额度", async () => {
+    const repo = new BenefitWriteRepo();
+    const { db, calls } = makeDb();
+    const res = await repo.grantQuotaPoolsForPlan(
+      db,
+      catalogWith([def("ai_summary", "enum")], [{ plan_code: "pro", benefit_code: "ai_summary", value_num: 99 }]),
+      { planCode: "pro", subscriptionId: 9, userId: 42 },
+    );
+
+    expect(res.granted).toEqual([]);
+    expect(calls).toHaveLength(0);
+  });
+
   it("配置异常必须浮出水面而不是静默跳过", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     const res = await repo.grantQuotaPoolsForPlan(
       db,
       catalogWith(
-        [quotaDef("weird", 1, "bool"), quotaDef("missing", 1), quotaDef("nullnum", 1)],
+        [def("missing"), def("nullnum")],
         [
-          // weird 可消耗但非额度类；nullnum 格子存在但 value_num 为 null；missing 无格子
+          // nullnum 格子存在但 value_num 为 null；missing 无格子
           { plan_code: "pro", benefit_code: "nullnum", value_num: null },
           { plan_code: "pro", benefit_code: "unrelated", value_num: 5 },
         ],
@@ -192,8 +204,7 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
     );
 
     expect(res.granted).toEqual([]);
-    expect(res.anomalies).toHaveLength(3);
-    expect(res.anomalies[0]).toContain("value_kind=bool");
+    expect(res.anomalies).toHaveLength(2);
     expect(res.anomalies.some((a) => a.includes("矩阵缺格"))).toBe(true);
     expect(res.anomalies.some((a) => a.includes("value_num 非数值"))).toBe(true);
     expect(calls).toHaveLength(0);

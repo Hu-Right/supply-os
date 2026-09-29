@@ -1,15 +1,17 @@
 /** 权益体系的共享数据契约；字段直接对应目录、矩阵、订阅和账本。 */
 export type BenefitKind = "bool" | "enum" | "quota" | "amount";
 
+/**
+ * 权益目录行。本接口只描述「代码要读的列」，不是库表全列的镜像：
+ * 目录精简后 group_code / is_consumable / requires_subscription / gate_key / is_active
+ * 均不再由本仓读取（计量型权益的判据唯一为 value_kind==='quota'）。
+ */
 export interface BenefitDefRow {
   benefit_code: string;
   name_zh: string;
-  group_code: string;
   value_kind: BenefitKind;
   level_dict: Record<string, string> | null;
-  is_consumable: number;
-  requires_subscription: number;
-  gate_key: string | null;
+  /** 矩阵行全局唯一展示顺序（库内由 uk_benefit_sort 保证） */
   sort_order: number;
 }
 

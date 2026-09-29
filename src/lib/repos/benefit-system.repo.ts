@@ -142,17 +142,15 @@ export class BenefitSystemRepo {
     return row ? { ...row, audience: deriveAudience(row.commercial_tier) } : null;
   }
 
-  /** 启用的权益定义（矩阵行序 = group_code + sort_order）。
+  /** 矩阵行定义（行序 = sort_order，库内已保证全局唯一）。
    *  内部语义权益（industry_scoped/all_category_access）不进本清单：它们只被服务端
    *  isEntitled 按码直查（getBenefit 不过滤），不应出现在官网对比表与 gates 下发里。 */
   async listBenefits(): Promise<BenefitDefRow[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT benefit_code, name_zh, group_code, value_kind, level_dict, is_consumable,
-              requires_subscription, gate_key, sort_order
+      `SELECT benefit_code, name_zh, value_kind, level_dict, sort_order
          FROM crm_benefit_catalog
-        WHERE is_active = 1
-          AND benefit_code NOT IN (${INTERNAL_MATRIX_BENEFITS.map(() => "?").join(",")})
-        ORDER BY group_code, sort_order`,
+        WHERE benefit_code NOT IN (${INTERNAL_MATRIX_BENEFITS.map(() => "?").join(",")})
+        ORDER BY sort_order, benefit_code`,
       [...INTERNAL_MATRIX_BENEFITS],
     );
     return (rows as Array<Record<string, unknown>>).map((r) => ({
@@ -213,7 +211,7 @@ export class BenefitSystemRepo {
 
   /**
    * 解析用户当前生效套餐：本人名下 active 且未过期的订阅，取目录横向序最高的一档。
-   * 无生效订阅返回 null —— 调用方按"普通用户"处理（享 requires_subscription=0 的权益）。
+   * 无生效订阅返回 null —— 调用方按「普通用户」处理，取值基线一律落 free 档那一列。
    */
   async findActivePlanForUser(userId: number): Promise<ActivePlanRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
@@ -240,9 +238,8 @@ export class BenefitSystemRepo {
 
   async getBenefit(benefitCode: string): Promise<BenefitDefRow | null> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT benefit_code, name_zh, group_code, value_kind, level_dict, is_consumable,
-              requires_subscription, gate_key, sort_order
-         FROM crm_benefit_catalog WHERE benefit_code = ? AND is_active = 1`,
+      `SELECT benefit_code, name_zh, value_kind, level_dict, sort_order
+         FROM crm_benefit_catalog WHERE benefit_code = ?`,
       [benefitCode],
     );
     const r = (rows as Array<Record<string, unknown>>)[0];

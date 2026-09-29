@@ -174,7 +174,7 @@ const PLAN_CATALOG_ROWS = [
   { plan_code: "enterprise_8800", name_en: "ENT", name_zh: "企业年度会员", positioning_zh: "企业", price: "8800.00", price_mode: "fixed", price_incl_tax: "8800.00", currency: "CNY", billing_period_days: 365, commercial_tier: "L6", cta_i18n_key: "cta_ent", badge: "best_value", sort_order: 5, is_active: 1 },
 ];
 const BENEFIT_DEF_ROWS = [
-  { benefit_code: "notice_view", name_zh: "标讯解锁额度", group_code: "core", value_kind: "quota", level_dict: null, is_consumable: 1, requires_subscription: 1, gate_key: null, sort_order: 1 },
+  { benefit_code: "notice_view", name_zh: "标讯解锁额度", value_kind: "quota", level_dict: null, sort_order: 1 },
 ];
 const MATRIX_CELL_ROWS = [
   { plan_code: "personal_std_999", benefit_code: "notice_view", value_level: null, value_num: 100, value_amount: null, note_zh: "100 条" },
