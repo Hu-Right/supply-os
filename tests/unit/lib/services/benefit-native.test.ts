@@ -20,7 +20,7 @@ describe("会员原生契约", () => {
     expect(Object.keys(state).sort()).toEqual(["plan", "quotas", "subscription"]);
   });
   it("成员只读所属订阅共享池，耗尽余额不使订阅身份消失", async () => {
-    const subscription = { subscription_id: 21, owner_user_id: 4, plan_code: "pro", seat_role: "member" };
+    const subscription = { subscription_id: 21, owner_user_id: 4, plan_code: "pro" };
     const repo = catalog(subscription);
     const state = await resolveMembershipState(repo as unknown as BenefitSystemRepo, 7);
     expect(state.subscription).toEqual(subscription);
