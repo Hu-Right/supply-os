@@ -180,6 +180,7 @@ import { migration as m102 } from "./migrations/102-supplier-claim-expiry";
 import { migration as m103 } from "./migrations/103-supplier-diagnosis-audit-retired";
 import { migration as m104 } from "./migrations/104-pricing-doc-alignment";
 import { migration as m105 } from "./migrations/105-benefit-quotas-rebuild";
+import { migration as m106 } from "./migrations/106-benefit-catalog-sort-order-unique";
 
 /** 所有迁移（按版本号排序） */
 const ALL_MIGRATIONS: Migration[] = [
@@ -238,6 +239,11 @@ const ALL_MIGRATIONS: Migration[] = [
   //       保守精简保留 period/period_starts_at 与生成列 subscription_pool_key；DROP+CREATE 空表使 id 从 1 起、
   //       quota_used 归零（池按需懒物化重建）。⚠️ 破坏性：清空该表全部行，仅因无外部付费用户才安全
   m105,
+  // m106：权益目录 sort_order 重编号为全局唯一（影子表切换前置）——终态没有 group_code，
+  //       行序只能按 sort_order 排；本迁移把"组内把手"重编为全局序号，使两种 ORDER BY 逐行同序，
+  //       代码发布与表切换得以解耦。幂等：已是终态直接跳过；自检不过则抛错不启动。
+  //       ⚠️ 本迁移引用 group_code/is_active，仅在影子表切换前的 12 列结构上有意义
+  m106,
 ];
 
 /**
