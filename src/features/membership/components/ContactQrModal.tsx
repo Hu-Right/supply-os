@@ -14,9 +14,14 @@ import { Modal } from "@/shared/ui";
 export interface ContactQrModalProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * 提示文案覆盖。默认 `contactQrHint` 是为「机构/API 版」套餐 CTA 写的（文案里点名 API 方案），
+   * 服务卡共用本弹窗时必须传自己的商品语境，否则点「投标辅助」也会被告知获取 API 版报价。
+   */
+  hint?: string;
 }
 
-export function ContactQrModal({ open, onClose }: ContactQrModalProps) {
+export function ContactQrModal({ open, onClose, hint }: ContactQrModalProps) {
   const { t } = useLocale();
   if (!open) return null;
   return (
@@ -32,7 +37,7 @@ export function ContactQrModal({ open, onClose }: ContactQrModalProps) {
         />
         <p className="flex items-start gap-1.5 text-xs text-slate-500 text-center leading-relaxed">
           <QrCode className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>{t("contactQrHint")}</span>
+          <span>{hint ?? t("contactQrHint")}</span>
         </p>
         <button
           type="button"

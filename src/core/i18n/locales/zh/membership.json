@@ -78,6 +78,7 @@
   "membershipContactConsult": "联系咨询",
   "contactQrTitle": "扫码联系顾问",
   "contactQrHint": "微信扫描二维码添加顾问，获取机构/API 版方案与报价。",
+  "contactQrHintService": "微信扫描二维码添加顾问，说明「{name}」的具体需求，顾问会给出方案与报价。",
   "contactQrClose": "关闭",
   "servicesSectionTitle": "订制服务与专家顾问",
   "servicesSectionDesc": "人工与定制类服务：投标辅助、市场调研、AI 写标书、商务谈判、KA、合规、API 对接等，扫码联系顾问获取专属方案与报价。",

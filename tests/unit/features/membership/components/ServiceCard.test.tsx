@@ -3,9 +3,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { ServiceCatalogRow } from "@/types/membership";
 
-vi.mock("@/core/i18n", () => ({ useLocale: () => ({ t: (k: string) => k, locale: "zh" }) }));
+vi.mock("@/core/i18n", () => ({
+  useLocale: () => ({
+    t: (k: string, p?: { name?: string }) => (p?.name ? `${k}:${p.name}` : k),
+    locale: "zh",
+  }),
+}));
 vi.mock("@/features/membership/components/ContactQrModal", () => ({
-  ContactQrModal: ({ open }: { open: boolean }) => (open ? <div>QR-MODAL</div> : null),
+  // DEFAULT-HINT 代表调用方没传 hint，弹窗会回落到「机构/API 版」默认文案——那是错的。
+  ContactQrModal: ({ open, hint }: { open: boolean; hint?: string }) =>
+    open ? (
+      <div>
+        <span>QR-MODAL</span>
+        <span data-testid="qr-hint">{hint ?? "DEFAULT-HINT"}</span>
+      </div>
+    ) : null,
 }));
 
 import { ServiceCard } from "@/features/membership/components/ServiceCard";
@@ -49,6 +61,22 @@ describe("ServiceCard", () => {
     expect(screen.getByText("svcLabelQuote")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /svcCtaConsult/ }));
     expect(screen.getByText("QR-MODAL")).toBeInTheDocument();
+  });
+
+  // 同一个弹窗被 12 张服务卡共用，默认文案是为「机构/API 版」套餐 CTA 写的；
+  // 服务卡必须传自己的商品语境，否则点「投标辅助」也会被告知去拿 API 报价。
+  it("预约顾问弹窗文案带本商品名，不回落到机构/API 版默认文案", () => {
+    render(
+      <ServiceCard
+        row={row({ service_code: "svc_bid_doc_analysis", name_zh: "投标辅助，标讯深度拆解报告", standard_price: "500.00", price_from: 1 })}
+        onPay={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /svcCtaConsult/ }));
+    const hint = screen.getByTestId("qr-hint").textContent ?? "";
+    expect(hint).not.toBe("DEFAULT-HINT");
+    expect(hint).toContain("contactQrHintService");
+    expect(hint).toContain("投标辅助，标讯深度拆解报告");
   });
 
   // 260928 报价表：这类商品是「按需报价/面议」，即使目录存了参考起价也不能出现自助支付按钮

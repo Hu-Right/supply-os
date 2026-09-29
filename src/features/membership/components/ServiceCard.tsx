@@ -100,7 +100,11 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
         )}
       </div>
 
-      <ContactQrModal open={consultOpen} onClose={() => setConsultOpen(false)} />
+      <ContactQrModal
+        open={consultOpen}
+        onClose={() => setConsultOpen(false)}
+        hint={t("contactQrHintService", { name })}
+      />
     </div>
   );
 }

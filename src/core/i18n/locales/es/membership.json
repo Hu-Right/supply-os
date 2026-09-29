@@ -78,6 +78,7 @@
   "membershipContactConsult": "Contactar asesor",
   "contactQrTitle": "Escanea para contactar a un asesor",
   "contactQrHint": "Escanea el QR de WeChat para añadir a un asesor y obtener una propuesta y presupuesto para el plan Institución/API.",
+  "contactQrHintService": "Escanea el QR de WeChat para añadir a un asesor y explicar tus necesidades sobre {name}; te enviaremos una propuesta y presupuesto.",
   "contactQrClose": "Cerrar",
   "servicesSectionTitle": "Servicios a medida y consultores",
   "servicesSectionDesc": "Servicios manuales y personalizados: apoyo en licitaciones, estudio de mercado, redacción de ofertas con IA, negociación comercial, KA, cumplimiento e integración API, entre otros. Escanee para contactar a un asesor y obtener un presupuesto.",

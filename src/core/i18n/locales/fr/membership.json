@@ -78,6 +78,7 @@
   "membershipContactConsult": "Contacter un conseiller",
   "contactQrTitle": "Scannez pour contacter un conseiller",
   "contactQrHint": "Scannez le QR WeChat pour ajouter un conseiller et obtenir une proposition et un devis pour l'offre Institution/API.",
+  "contactQrHintService": "Scannez le QR WeChat pour ajouter un conseiller et décrire votre besoin concernant {name} ; nous vous enverrons une proposition et un devis.",
   "contactQrClose": "Fermer",
   "servicesSectionTitle": "Services sur mesure et conseillers",
   "servicesSectionDesc": "Services manuels et sur mesure : aide à la soumission, étude de marché, rédaction de offre par IA, négociation commerciale, KA, conformité, intégration API, etc. Scannez pour contacter un conseiller et obtenir un devis.",
