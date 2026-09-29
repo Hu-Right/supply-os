@@ -25,6 +25,14 @@ const mojibakePatterns = [
 const SELF = path.resolve("scripts/check-mojibake.mjs");
 
 const ignoredDirs = new Set(["node_modules", "dist", ".git"]);
+// 一次性切换/同步作业落盘的数据备份与日志（scripts/out、scripts/backups）：
+// 存的是库里的原文快照，不是源码，且其中供应商名称/经营范围会命中
+// “铸”等乱码候选字（属合法用字），入扫必然误报。按绝对路径精确排除，
+// 不用目录名全局匹配，以免将来真叫 out/backups 的源码目录被静默跳过。
+const ignoredPaths = new Set([
+  path.resolve("scripts/out"),
+  path.resolve("scripts/backups"),
+]);
 const failures = [];
 
 function walk(target) {
@@ -32,6 +40,7 @@ function walk(target) {
   const stat = fs.statSync(target);
   if (stat.isDirectory()) {
     if (ignoredDirs.has(path.basename(target))) return;
+    if (ignoredPaths.has(path.resolve(target))) return;
     for (const item of fs.readdirSync(target)) walk(path.join(target, item));
     return;
   }

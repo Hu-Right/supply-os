@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 服务器端部署脚本（裸装）：拉取最新代码 → 安装依赖 → 构建 → 重启应用（pm2）
-# 由 GitHub Actions（.github/workflows/deploy.yml）通过 SSH 调用，
-# 也可在服务器上手动执行：bash scripts/deploy.sh
+# 当前部署方式：登录服务器手动执行 `bash scripts/deploy.sh`（无自动触发）。
+# 历史上曾由 GitHub Actions（.github/workflows/deploy.yml）触发，该 workflow 已在
+# commit 50fe133b「remove .github ... and CI workflows」中删除，仓库内已无任何 CI 入口。
 set -euo pipefail
 
 # 部署目录、应用名与分支（可通过环境变量覆盖）

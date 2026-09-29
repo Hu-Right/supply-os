@@ -26,6 +26,7 @@ pnpm-debug.log*
 *.swp
 *.swo
 scripts/*
+# ===== 构建 / 部署 / 校验管线调用（缺一即流程断，属运行必需）=====
 !scripts/coverage-gate.mjs
 !scripts/seed-test-db.ts
 !scripts/perf-budget-check.ts
@@ -34,32 +35,29 @@ scripts/*
 !scripts/check-i18n.ts
 !scripts/check-no-admin-routes.mjs
 !scripts/css-compat-gate.mjs
-# 用户主表 crm_users 影子表蓝绿切换的三阶段工具（ADR-0003）：
-# 切换步骤本身依赖这些脚本执行，不入版本控制就等于切换流程只存在于单机，
-# 机器故障/换人接手即丢失。与已跟踪的 shadow-wide-phase*.ts 同一先例。
-!scripts/shadow-users-phase1.mjs
-!scripts/shadow-users-phase2-align.mjs
-!scripts/shadow-users-phase3-cutover.mjs
-# crm_consent_log 影子表蓝绿切换两阶段工具（ADR-0003）：同上先例——切换步骤依赖这些脚本执行，
-# 不入版本控制就等于流程只存在于单机；阶段二的两个确认位闸口也必须能被后人原样复用。
-!scripts/consent-log-shadow-phase1.mjs
-!scripts/consent-log-shadow-phase2-cutover.mjs
-# supplier 供应商主表影子重建三阶段工具（2026-09，ADR-0003）：同上先例——删 7 列/物理吸收
-# 裁决 duplicate/id 重排的执行步骤依赖这些脚本，不入版本控制等于流程只存在于单机。
-!scripts/supplier-shadow-phase1.mjs
-!scripts/supplier-shadow-phase2-align.mjs
-!scripts/supplier-shadow-phase3-cutover.mjs
-# crm_benefit_catalog 列精简影子表两阶段工具（2026-09-29，ADR-0003）：同上先例——
-# 删 6 列 + sort_order 重编号 + 外键重建全靠这两个脚本执行，不入版本控制等于切换流程只存在于单机。
-!scripts/benefit-catalog-shadow-phase1.mjs
-!scripts/benefit-catalog-shadow-phase2-cutover.mjs
-# 主表 sort_order 重编号（切换前置，方案 §1.2）：回滚靠它，必须与阶段脚本同处版本控制
-!scripts/benefit-catalog-renumber-main.mjs
+# 以下 4 个早于本白名单机制就已入索引，一直靠「已跟踪」隐身携带（改了不出现在
+# git status、换机 clone 拿不到）。补齐规则使索引与工作区口径一致：
+# check-mojibake → npm run check:encoding（lint / pre-push 第一步）
+# check-wide-table-ssot → npm run check:wide-ssot
+# serve-style-smoke → playwright.styles.config.ts 的 webServer
+# daily-sync → 数据库同步权威实现，自动调度已停用，保留作手动应急兜底
+!scripts/check-mojibake.mjs
+!scripts/check-wide-table-ssot.mjs
+!scripts/serve-style-smoke.mjs
+!scripts/daily-sync.cjs
+# scripts/lib 下只放行 css-compat-gate 的实际依赖。
+# 顺序不可改：必须先用 !scripts/lib/ 让 git 进入该目录，再整体忽略内容、单独放行文件；
+# 若只写 scripts/lib/*，css-compat.mjs 会被目录级忽略吃掉（已实测）。
 !scripts/lib/
 scripts/lib/*
 !scripts/lib/css-compat.mjs
-# 影子表切换的唯一映射表（阶段一/重编号/回滚三处共用，不可各写一份）
-!scripts/lib/benefit-catalog-sort-map.mjs
+# 权益约束静态校验探针：非构建/部署必需，跑的是生产库，停止跟踪（本地文件保留）
+scripts/verify-benefit-constraints.ts
+# ===== 以下为一次性数据库切换工具（ADR-0003 影子表蓝绿切换）=====
+# 历史上曾按「切换流程不能只存在于单机」的理由白名单放行；截至 2026-09-29
+# users / consent_log / supplier / benefit_catalog 四套切换均已收尾，这些脚本
+# 不再属于「项目运行必需」，按非必要不上传原则停止跟踪（git rm --cached，本地文件保留）。
+# 若将来再做同类切换，参照 docs/adr/0003 与仍然跟踪中的历史阶段脚本写法重新放行。
 runtime/
 backups/
 bin/
