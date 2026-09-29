@@ -4,7 +4,7 @@
  *
  * @module features/membership/components/PlanCard
  * @description 新权益体系：卡片直接消费服务端解析好的 ComparisonTable——
- *              卡头/价格/席位读 crm_plan_catalog 商品属性，✓/✗ 权益清单读矩阵逐格，
+ *              卡头/价格读 crm_plan_catalog 商品属性，✓/✗ 权益清单读矩阵逐格，
  *              推荐角标读 badge（前端零硬编码，不再按 benefit_rank 拼档位）。
  */
 import { ArrowRight, ArrowUpCircle, Check, X, Sparkles } from "lucide-react";

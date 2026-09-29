@@ -2,7 +2,7 @@
  * 履约服务单测（benefit-grant）
  *
  * 锁四件事：
- * 1. 落库顺序与快照来源（席位、开池都必须在订阅之后，seat_limit/currency 取目录快照）；
+ * 1. 落库顺序与快照来源（开池必须在订阅之后，currency 取目录快照；席位体系已退役）；
  * 2. 三条拒绝路径必须"发 SQL 之前就拒"，且不可自助成交的档位（contact / 已下架）逐一分清；
  * 3. expires_at 走 DB 时钟（DATE_ADD），永久档不发这条查询；
  * 4. 含税口径未定（price_incl_tax=NULL）不得阻断自助成交——迁移 093 已修订列注释
@@ -24,7 +24,6 @@ const plan = (over: Partial<PlanCatalogRow> = {}): PlanCatalogRow => ({
   currency: "CNY",
   billing_period_days: 365,
   upgrade_credit_days: null,
-  seat_limit: 3,
   commercial_tier: "L3",
   audience: "enterprise",
   cta_i18n_key: "ctaX",
@@ -52,13 +51,10 @@ function makeDeps(opts: { plan?: PlanCatalogRow | null; grant?: { granted: strin
     getPlan: vi.fn(async () => (opts.plan === undefined ? plan() : opts.plan)),
   } as unknown as BenefitSystemRepo;
   const write = {
-    insertSubscription: vi.fn(async (_db: unknown, p: { seatLimit: number; currency?: string; sourceOrderNo: string; pricePaid: number }) => {
+    insertSubscription: vi.fn(async (_db: unknown, p: { currency?: string; sourceOrderNo: string; pricePaid: number }) => {
       order.push("insertSubscription");
-      order.push(`sub:${p.sourceOrderNo}/${p.pricePaid}/${p.currency}/${p.seatLimit}`);
+      order.push(`sub:${p.sourceOrderNo}/${p.pricePaid}/${p.currency}`);
       return 501;
-    }),
-    ensureOwnerSeat: vi.fn(async (_db: unknown, p: { subscriptionId: number; ownerUserId: number }) => {
-      order.push(`seat:${p.subscriptionId}/${p.ownerUserId}`);
     }),
     grantQuotaPoolsForPlan: vi.fn(async () => {
       order.push("grantPools");
@@ -71,20 +67,17 @@ function makeDeps(opts: { plan?: PlanCatalogRow | null; grant?: { granted: strin
 const base = { userId: 42, orderNo: "ALI-20260923-0001", planCode: "business", pricePaid: 8800 };
 
 describe("grantSubscriptionForPlan · 正常履约", () => {
-  it("顺序：订阅 → 主账号席位 → 按矩阵开池", async () => {
+  it("顺序：订阅 → 按矩阵开池", async () => {
     const { deps, order } = makeDeps();
     const { conn, calls } = makeConn();
     const r = await grantSubscriptionForPlan(deps, conn, base);
 
     expect(order).toEqual([
       "insertSubscription",
-      "sub:ALI-20260923-0001/8800/CNY/3",
-      "seat:501/42",
+      "sub:ALI-20260923-0001/8800/CNY",
       "grantPools",
     ]);
     expect(r.subscriptionId).toBe(501);
-    // 席位与开池都挂在刚插入的订阅上：顺序错就会开出一张无主池
-    expect(order.indexOf("seat:501/42")).toBeLessThan(order.indexOf("grantPools"));
     // expires_at 由 DB 时钟算，不用应用 new Date()
     expect(calls[0].sql).toContain("DATE_ADD(NOW(), INTERVAL ? DAY)");
     expect(calls[0].params).toEqual([365]);
@@ -100,7 +93,7 @@ describe("grantSubscriptionForPlan · 正常履约", () => {
   it("币种缺省取目录快照；显式传入不一致必须拒（AMOUNT_INVALID）", async () => {
     const a = makeDeps();
     await grantSubscriptionForPlan(a.deps, makeConn().conn, base);
-    expect(a.order[1]).toContain("/CNY/");
+    expect(a.order[1]).toContain("/CNY");
 
     const b = makeDeps();
     await expect(grantSubscriptionForPlan(b.deps, makeConn().conn, { ...base, currency: "USD" })).rejects.toMatchObject({

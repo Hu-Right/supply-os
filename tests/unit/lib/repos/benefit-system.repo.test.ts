@@ -131,30 +131,29 @@ describe("buildComparisonTable · 完整性", () => {
   });
 });
 
-describe("findActivePlanForUser · 订阅与席位同链", () => {
-  it("SQL 只引用新表组，且 owner/席位成员两条来源都覆盖", async () => {
+describe("findActivePlanForUser · 本人订阅解析", () => {
+  it("SQL 只引用新表组（席位体系已退役，仅本人订阅一条来源）", async () => {
     const { repo, calls } = makePool(() => []);
     await repo.findActivePlanForUser(42);
     const sql = calls[0];
-    for (const t of ["crm_plan_subscriptions", "crm_subscription_seats", "crm_plan_catalog"]) {
+    for (const t of ["crm_plan_subscriptions", "crm_plan_catalog"]) {
       expect(sql).toContain(t);
     }
-    // 兼容/映射层回流的守门断言：读层一旦出现旧表名即为违约
-    for (const legacy of ["crm_membership_plans", "crm_user_subscriptions", "crm_user_entitlements"]) {
+    // 兼容/映射层回流的守门断言：读层一旦出现旧表名或已退役的席位表即为违约
+    for (const legacy of ["crm_membership_plans", "crm_user_subscriptions", "crm_user_entitlements", "crm_subscription_seats"]) {
       expect(sql).not.toContain(legacy);
     }
-    expect(sql).toContain("UNION ALL");
-    expect(sql).toContain("st.is_owner = 0");
-    // 共享额度池记在主账号名下，解析链必须带出 owner_user_id
+    expect(sql).not.toContain("UNION ALL");
+    // 解析链必须带出 owner_user_id（额度池记在订阅主账号名下）
     expect(sql).toContain("s.owner_user_id");
     expect(sql).toMatch(/expires_at IS NULL OR s\.expires_at > NOW\(\)/);
   });
 
   it("额度池按 NULL 安全比较查普通用户池，并只留每权益当前周期一行", async () => {
     const { repo, calls } = makePool(() => [
-      { benefit_code: "notice_view", scope: "subscription", status: "active", quota_total: -1, quota_used: 0, period: "yearly", period_starts_at: new Date(2) },
-      { benefit_code: "notice_view", scope: "subscription", status: "active", quota_total: 10, quota_used: 3, period: "yearly", period_starts_at: new Date(1) },
-      { benefit_code: "tech_support", scope: "subscription", status: "active", quota_total: 12, quota_used: 5, period: "none", period_starts_at: new Date(3) },
+      { benefit_code: "notice_view", status: "active", quota_total: -1, quota_used: 0, period: "yearly", period_starts_at: new Date(2) },
+      { benefit_code: "notice_view", status: "active", quota_total: 10, quota_used: 3, period: "yearly", period_starts_at: new Date(1) },
+      { benefit_code: "tech_support", status: "active", quota_total: 12, quota_used: 5, period: "none", period_starts_at: new Date(3) },
     ]);
     const rows = await repo.listQuotaBalances(42, null);
     expect(calls[0]).toContain("subscription_id <=> ?");

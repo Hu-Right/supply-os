@@ -61,7 +61,7 @@ export class UsersRepo {
    * 创建用户（INSERT ONLY，不覆盖已有记录），返回自增 id（0 表示失败）。
    * 迁移 068 已 DROP COLUMN crm_users.user_key，INSERT 不再包含该列。
    * membership_tier 已随影子表重构退役（scripts/shadow-users-phase1.mjs），会员身份
-   * 一律以 resolveMembershipState 实时读 crm_plan_subscriptions / crm_subscription_seats 为准。
+   * 一律以 resolveMembershipState 实时读 crm_plan_subscriptions 为准。
    */
   async create(data: {
     email: string | null;

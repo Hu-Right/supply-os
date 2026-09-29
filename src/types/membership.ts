@@ -23,7 +23,6 @@ export interface PlanCatalogRow {
   price_incl_tax: number | null;
   currency: string;
   billing_period_days: number | null;
-  seat_limit: number;
   commercial_tier: string;
   /** 派生受众分区（非 DB 列）：commercial_tier L1/L2=personal，其余=enterprise */
   audience: "personal" | "enterprise";
@@ -65,15 +64,12 @@ export interface ActivePlanRow {
   source_order_no: string;
   price_paid: string;
   currency: string;
-  seat_limit: number;
   started_at: Date | string;
   expires_at: Date | string | null;
-  seat_role: "owner" | "member";
 }
 
 export interface QuotaBalanceRow {
   benefit_code: string;
-  scope: "subscription" | "seat";
   quota_total: number;
   quota_used: number;
   status: "active" | "exhausted" | "frozen" | "expired";

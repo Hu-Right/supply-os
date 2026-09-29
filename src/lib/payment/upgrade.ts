@@ -35,7 +35,7 @@ export async function performUpgradeInTransaction(
   }
   const [pools] = await conn.query<RowDataPacket[]>(
     `SELECT benefit_code, quota_used, status FROM crm_benefit_quotas
-      WHERE subscription_id = ? AND scope = 'subscription' AND period_starts_at <= NOW()
+      WHERE subscription_id = ? AND period_starts_at <= NOW()
       ORDER BY benefit_code, period_starts_at DESC, id DESC FOR UPDATE`, [sourceId],
   );
   const granted = await grantSubscriptionForPlan(deps, conn, {
@@ -49,7 +49,7 @@ export async function performUpgradeInTransaction(
     seen.add(row.benefit_code);
     if (row.status !== "active" && row.status !== "exhausted") throw new Error("UPGRADE_SOURCE_INVALID");
     const pool = await deps.write.findAndLockCurrentPool(conn, {
-      subscriptionId: granted.subscriptionId, seatUserId: source.owner_user_id, benefitCode: row.benefit_code,
+      subscriptionId: granted.subscriptionId, userId: source.owner_user_id, benefitCode: row.benefit_code,
     });
     if (!pool || (pool.quota_total !== -1 && pool.quota_total < Number(row.quota_used))) throw new Error("UPGRADE_QUOTA_INVALID");
     const used = pool.quota_total === -1 ? 0 : Number(row.quota_used);
@@ -59,11 +59,6 @@ export async function performUpgradeInTransaction(
     );
     if (updated.affectedRows !== 1) throw new Error("UPGRADE_QUOTA_INVALID");
   }
-  // 成员身份随升级承接；主账号由履约服务创建。目标档席位不足时拒绝整单。
-  const [seatCount] = await conn.query<RowDataPacket[]>("SELECT COUNT(*) AS n FROM crm_subscription_seats WHERE subscription_id = ? AND status = 'active'", [sourceId]);
-  if (target.seat_limit !== -1 && Number(seatCount[0]?.n ?? 0) > target.seat_limit) throw new Error("UPGRADE_SEAT_LIMIT");
-  await conn.execute(`INSERT INTO crm_subscription_seats (subscription_id, member_user_id, is_owner, status, joined_at)
-    SELECT ?, member_user_id, 0, 'active', NOW() FROM crm_subscription_seats WHERE subscription_id = ? AND status = 'active' AND is_owner = 0`, [granted.subscriptionId, sourceId]);
   await deps.write.freezePoolsOfSubscription(conn, sourceId);
   await deps.write.linkReplacedSubscription(conn, { oldSubscriptionId: sourceId, newSubscriptionId: granted.subscriptionId });
 }

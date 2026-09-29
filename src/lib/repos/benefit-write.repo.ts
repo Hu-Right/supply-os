@@ -3,8 +3,8 @@
  * Benefit System Write Repository
  *
  * @module repos/benefit-write.repo
- * @description 只写迁移 092 建的 4 张事实/账本表：
- *              crm_plan_subscriptions / crm_benefit_quotas / crm_subscription_seats。
+ * @description 只写迁移 092 建的 2 张事实/账本表：
+ *              crm_plan_subscriptions / crm_benefit_quotas。
  *              目录侧（套餐、权益、矩阵）一律经 BenefitSystemRepo 读，不在本模块复制口径。
  *
  *              纪律（勿加回来）：
@@ -32,7 +32,7 @@ export type Db = Pool | PoolConnection;
 export interface LockedPoolRow {
   id: number;
   subscription_id: number | null;
-  seat_user_id: number;
+  user_id: number;
   benefit_code: string;
   quota_total: number;
   quota_used: number;
@@ -69,8 +69,6 @@ export interface NewSubscriptionParams {
   /** 实付金额（升级补差时不等于目录标价），财务口径快照 */
   pricePaid: number;
   currency?: string;
-  /** 席位上限快照，取自目录（-1=合同自定义） */
-  seatLimit: number;
   /** 到期时间；null=永久。必须由调用方按目录 billing_period_days 算好后传入 */
   expiresAt: Date | string | null;
   startedAt?: Date | string;
@@ -140,24 +138,11 @@ export class BenefitWriteRepo {
     }
     const [res] = await db.execute<ResultSetHeader>(
       `INSERT INTO crm_plan_subscriptions
-        (owner_user_id, plan_code, source_order_no, price_paid, currency, seat_limit, status, started_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
-      [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.seatLimit, p.startedAt ?? null, p.expiresAt],
+        (owner_user_id, plan_code, source_order_no, price_paid, currency, status, started_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, 'active', COALESCE(?, NOW()), ?)`,
+      [p.ownerUserId, p.planCode, orderNo, p.pricePaid, p.currency ?? "CNY", p.startedAt ?? null, p.expiresAt],
     );
     return res.insertId;
-  }
-
-  /**
-   * 保证"每条订阅恰有一行主账号席位"，使不变式 席位数 = 行数 恒成立。
-   * 撞 uk_sub_member 时只复活状态，不新增行。
-   */
-  async ensureOwnerSeat(db: Db, params: { subscriptionId: number; ownerUserId: number }): Promise<void> {
-    await db.execute(
-      `INSERT INTO crm_subscription_seats (subscription_id, member_user_id, is_owner, status, joined_at)
-       VALUES (?, ?, 1, 'active', NOW())
-       ON DUPLICATE KEY UPDATE status = 'active', removed_at = NULL`,
-      [params.subscriptionId, params.ownerUserId],
-    );
   }
 
   /**
@@ -265,8 +250,7 @@ export class BenefitWriteRepo {
     db: Db,
     p: {
       subscriptionId: number | null;
-      seatUserId: number;
-      scope?: "subscription" | "seat";
+      userId: number;
       benefitCode: string;
       quotaTotal: number;
       period?: "none" | "monthly" | "yearly";
@@ -277,8 +261,8 @@ export class BenefitWriteRepo {
     const period = p.period ?? "none";
     await db.execute(
       `INSERT INTO crm_benefit_quotas
-        (subscription_id, seat_user_id, scope, benefit_code, quota_total, quota_used, period, period_starts_at, status)
-       VALUES (?, ?, ?, ?, ?, 0, ?,
+        (subscription_id, user_id, benefit_code, quota_total, quota_used, period, period_starts_at, status)
+       VALUES (?, ?, ?, ?, 0, ?,
                COALESCE(?,
                  CASE ?
                    WHEN 'monthly' THEN DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')
@@ -292,8 +276,7 @@ export class BenefitWriteRepo {
          status = IF(status = 'exhausted' AND (quota_total = -1 OR quota_total > quota_used), 'active', status)`,
       [
         p.subscriptionId,
-        p.seatUserId,
-        p.scope ?? "subscription",
+        p.userId,
         p.benefitCode,
         p.quotaTotal,
         period,
@@ -314,7 +297,7 @@ export class BenefitWriteRepo {
   async grantQuotaPoolsForPlan(
     db: Db,
     catalog: BenefitSystemRepo,
-    p: { planCode: string; subscriptionId: number | null; seatUserId: number },
+    p: { planCode: string; subscriptionId: number | null; userId: number },
   ): Promise<GrantResult> {
     const [defs, cells] = await Promise.all([catalog.listBenefits(), catalog.loadCells([p.planCode])]);
     const granted: string[] = [];
@@ -339,8 +322,7 @@ export class BenefitWriteRepo {
       }
       await this.openQuotaPool(db, {
         subscriptionId: p.subscriptionId,
-        seatUserId: p.seatUserId,
-        scope: "subscription",
+        userId: p.userId,
         benefitCode: def.benefit_code,
         quotaTotal: total,
       });
@@ -356,24 +338,24 @@ export class BenefitWriteRepo {
    */
   async findAndLockCurrentPool(
     conn: PoolConnection,
-    p: { seatUserId: number; benefitCode: string; subscriptionId: number | null },
+    p: { userId: number; benefitCode: string; subscriptionId: number | null },
   ): Promise<LockedPoolRow | null> {
     const [rows] = await conn.query<RowDataPacket[]>(
-      `SELECT id, subscription_id, seat_user_id, benefit_code, quota_total, quota_used, status
+      `SELECT id, subscription_id, user_id, benefit_code, quota_total, quota_used, status
          FROM crm_benefit_quotas
-        WHERE seat_user_id = ? AND subscription_id <=> ? AND benefit_code = ?
-          AND scope = 'subscription' AND period_starts_at <= NOW()
+        WHERE user_id = ? AND subscription_id <=> ? AND benefit_code = ?
+          AND period_starts_at <= NOW()
         ORDER BY period_starts_at DESC, id DESC
         LIMIT 1
         FOR UPDATE`,
-      [p.seatUserId, p.subscriptionId, p.benefitCode],
+      [p.userId, p.subscriptionId, p.benefitCode],
     );
     const r = (rows as Array<Record<string, unknown>>)[0];
     if (!r) return null;
     return {
       id: Number(r.id),
       subscription_id: r.subscription_id === null ? null : Number(r.subscription_id),
-      seat_user_id: Number(r.seat_user_id),
+      user_id: Number(r.user_id),
       benefit_code: String(r.benefit_code),
       quota_total: Number(r.quota_total),
       quota_used: Number(r.quota_used),

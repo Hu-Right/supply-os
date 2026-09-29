@@ -99,7 +99,7 @@ export type AppContext = {
   supplier: SupplierContext;
   /** 权益体系新表组（crm_benefit_catalog / crm_plan_* / crm_benefit_quotas）读层 */
   benefitSystemRepo: BenefitSystemRepo;
-  /** 权益体系写层：订阅事实 + 额度账本（crm_plan_subscriptions / crm_benefit_quotas / crm_subscription_seats） */
+  /** 权益体系写层：订阅事实 + 额度账本（crm_plan_subscriptions / crm_benefit_quotas） */
   benefitWriteRepo: BenefitWriteRepo;
   opportunitiesRepo: OpportunitiesRepo;
   catalogRepo: CatalogRepo;

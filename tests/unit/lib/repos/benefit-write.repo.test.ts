@@ -43,7 +43,7 @@ function makeConn(rows: unknown[] = []) {
 const pool = (over: Partial<LockedPoolRow> = {}): LockedPoolRow => ({
   id: 5,
   subscription_id: 9,
-  seat_user_id: 42,
+  user_id: 42,
   benefit_code: "notice_view",
   quota_total: 10,
   quota_used: 3,
@@ -57,11 +57,10 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
     planCode: "business",
     sourceOrderNo: "ALI-20260922-0001",
     pricePaid: 8800,
-    seatLimit: 3,
     expiresAt: null,
   };
 
-  it("列清单完整：订单号、实付、席位快照全部落列", async () => {
+  it("列清单完整：订单号、实付等全部落列", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb({ insertId: 101 });
     const id = await repo.insertSubscription(db, { ...base, expiresAt: new Date(1800000000000) });
@@ -75,21 +74,20 @@ describe("insertSubscription · 订阅事实准入守卫", () => {
       "source_order_no",
       "price_paid",
       "currency",
-      "seat_limit",
       "started_at",
       "expires_at",
     ]) {
       expect(calls[0].sql).toContain(col);
     }
-    // started_at 缺省传 null → SQL 端 COALESCE(?, NOW())；列为 …, seat_limit, started_at, expires_at
-    expect(calls[0].params).toEqual([42, "business", "ALI-20260922-0001", 8800, "CNY", 3, null, new Date(1800000000000)]);
+    // started_at 缺省传 null → SQL 端 COALESCE(?, NOW())；列为 …, currency, started_at, expires_at
+    expect(calls[0].params).toEqual([42, "business", "ALI-20260922-0001", 8800, "CNY", null, new Date(1800000000000)]);
   });
 
   it("无期限订阅传 NULL 而不是伪造远期时间", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
     await repo.insertSubscription(db, base);
-    expect(calls[0].params[7]).toBeNull();
+    expect(calls[0].params[6]).toBeNull();
   });
 
   it("三条守卫都在发出 SQL 之前拦住（空订单号 / 负金额 / free 档）", async () => {
@@ -113,7 +111,7 @@ describe("openQuotaPool · 幂等发放", () => {
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, {
       subscriptionId: 9,
-      seatUserId: 42,
+      userId: 42,
       benefitCode: "notice_view",
       quotaTotal: 100,
     });
@@ -133,7 +131,7 @@ describe("openQuotaPool · 幂等发放", () => {
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, {
       subscriptionId: null,
-      seatUserId: 42,
+      userId: 42,
       benefitCode: "notice_view",
       quotaTotal: 0,
     });
@@ -166,7 +164,7 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
           { plan_code: "unlimited", benefit_code: "tech_support", value_num: 0 },
         ],
       ),
-      { planCode: "unlimited", subscriptionId: 9, seatUserId: 42 },
+      { planCode: "unlimited", subscriptionId: 9, userId: 42 },
     );
 
     expect(res.granted).toEqual(["notice_view", "tech_support"]);
@@ -190,7 +188,7 @@ describe("grantQuotaPoolsForPlan · 按矩阵发池", () => {
           { plan_code: "pro", benefit_code: "unrelated", value_num: 5 },
         ],
       ),
-      { planCode: "pro", subscriptionId: 9, seatUserId: 42 },
+      { planCode: "pro", subscriptionId: 9, userId: 42 },
     );
 
     expect(res.granted).toEqual([]);
@@ -209,7 +207,7 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
       {
         id: 5,
         subscription_id: null,
-        seat_user_id: 42,
+        user_id: 42,
         benefit_code: "notice_view",
         quota_total: 0,
         quota_used: 0,
@@ -217,14 +215,13 @@ describe("findAndLockCurrentPool / consumeLockedPool · 扣减持复", () => {
       },
     ]);
     const locked = await repo.findAndLockCurrentPool(conn, {
-      seatUserId: 42,
+      userId: 42,
       benefitCode: "notice_view",
       subscriptionId: null,
     });
 
     const sql = calls[0].sql;
     expect(sql).toContain("subscription_id <=> ?");
-    expect(sql).toContain("scope = 'subscription'");
     expect(sql).toContain("period_starts_at <= NOW()");
     expect(sql).toContain("FOR UPDATE");
     expect(sql).toContain("ORDER BY period_starts_at DESC");
@@ -301,18 +298,6 @@ describe("expireOverdueSubscriptions / freezePoolsOfSubscription · 到期与冻
     await repo.freezePoolsOfSubscription(db, 9);
     expect(calls[0].sql).toContain("status IN ('active', 'exhausted')");
     expect(calls[0].sql).toContain("WHERE subscription_id = ?");
-  });
-});
-
-describe("ensureOwnerSeat · 席位不变式", () => {
-  it("主账号占一行 is_owner=1 席位，撞唯一键只复活不新增", async () => {
-    const repo = new BenefitWriteRepo();
-    const { db, calls } = makeDb();
-    await repo.ensureOwnerSeat(db, { subscriptionId: 9, ownerUserId: 42 });
-    expect(calls[0].sql).toContain("INSERT INTO crm_subscription_seats");
-    expect(calls[0].sql).toContain("is_owner, status");
-    expect(calls[0].sql).toContain("ON DUPLICATE KEY UPDATE status = 'active', removed_at = NULL");
-    expect(calls[0].params).toEqual([9, 42]);
   });
 });
 
@@ -396,7 +381,7 @@ describe("openQuotaPool · 不限额度的抬额语义（缺陷 2 复现）", ()
     const { db, calls } = makeDb();
     await repo.openQuotaPool(db, {
       subscriptionId: 9,
-      seatUserId: 42,
+      userId: 42,
       benefitCode: "notice_view",
       quotaTotal: -1,
     });
@@ -410,7 +395,7 @@ describe("openQuotaPool · 不限额度的抬额语义（缺陷 2 复现）", ()
   it("正数额度仍不得降级现有额度", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
-    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 50 });
+    await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 50 });
     expect(calls[0].sql).toContain("GREATEST(quota_total, ?)");
   });
 });
@@ -425,19 +410,19 @@ describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
   it("不得用裸 NOW() 当周期起点，否则撞不到唯一键", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
-    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
     expect(calls[0].sql).not.toMatch(/COALESCE\(\?, NOW\(\)\)/);
   });
 
   it("period=none 时起点锁定到订阅自身的 started_at，普通用户池用终身哨兵", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
-    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
     const sql = calls[0].sql;
     expect(sql).toContain("SELECT s.started_at FROM crm_plan_subscriptions s WHERE s.id = ?");
     expect(sql).toContain("'1970-01-01 00:00:00'");
     // 子查询用的 subscription_id 必须真的绑上：漏绑就等于把所有池子锁到同一个哨兵上
-    expect(calls[0].params[8]).toBe(9);
+    expect(calls[0].params[7]).toBe(9);
   });
 
   it("monthly / yearly 的起点由 DB 算周期首而非行级时间戳，且 period 绑两次", async () => {
@@ -448,7 +433,7 @@ describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
     ] as const) {
       const { db, calls } = makeDb();
       await repo.openQuotaPool(db, {
-        subscriptionId: 9, seatUserId: 42, benefitCode: "procurement_consult", quotaTotal: 12, period,
+        subscriptionId: 9, userId: 42, benefitCode: "procurement_consult", quotaTotal: 12, period,
       });
       expect(calls[0].sql).toContain(frag);
       expect(calls[0].params.filter((x) => x === period)).toHaveLength(2);
@@ -460,15 +445,15 @@ describe("openQuotaPool · 周期起点确定性（缺陷 7 复现）", () => {
     const { db, calls } = makeDb();
     const anchor = new Date("2026-10-01T00:00:00Z");
     await repo.openQuotaPool(db, {
-      subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 5, periodStartsAt: anchor,
+      subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 5, periodStartsAt: anchor,
     });
-    expect(calls[0].params[6]).toBe(anchor);
+    expect(calls[0].params[5]).toBe(anchor);
   });
 
   it("参数个数与占位符个数始终相等", async () => {
     const repo = new BenefitWriteRepo();
     const { db, calls } = makeDb();
-    await repo.openQuotaPool(db, { subscriptionId: 9, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 100 });
+    await repo.openQuotaPool(db, { subscriptionId: 9, userId: 42, benefitCode: "notice_view", quotaTotal: 100 });
     const placeholders = (calls[0].sql.match(/\?/g) ?? []).length;
     expect(calls[0].params).toHaveLength(placeholders);
   });
@@ -485,7 +470,6 @@ describe("insertSubscription · 套餐码守卫（缺陷 5 复现）", () => {
           planCode: bad,
           sourceOrderNo: "ORD-1",
           pricePaid: 129,
-          seatLimit: 1,
           expiresAt: null,
         }),
       ).rejects.toThrow(/拒绝/);
@@ -533,17 +517,15 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
       planCode: "starter",
       sourceOrderNo: "ORD-1",
       pricePaid: 129,
-      seatLimit: 1,
       expiresAt: null,
     };
 
     await repo.insertSubscription(db, sub);
-    await repo.ensureOwnerSeat(db, { subscriptionId: 1, ownerUserId: 42 });
-    await repo.openQuotaPool(db, { subscriptionId: 1, seatUserId: 42, benefitCode: "notice_view", quotaTotal: 10 });
+    await repo.openQuotaPool(db, { subscriptionId: 1, userId: 42, benefitCode: "notice_view", quotaTotal: 10 });
     await repo.grantQuotaPoolsForPlan(
       db,
       { listBenefits: async () => [], loadCells: async () => [] } as unknown as BenefitSystemRepo,
-      { planCode: "starter", subscriptionId: 1, seatUserId: 42 },
+      { planCode: "starter", subscriptionId: 1, userId: 42 },
     );
     await repo.consumeLockedPool(db, pool({ id: 1 }));
     await repo.freezePoolsOfSubscription(db, 1);
@@ -562,10 +544,10 @@ describe("反向守门 · 写路径不得触碰旧三表", () => {
         .map((c) => (c.sql.match(/(?:INTO|UPDATE|FROM) (crm_[a-z_]+)/) || [])[1])
         .filter(Boolean) as string[],
     );
+    // 席位表已退役，写路径只剩订阅与额度两张表
     expect([...targets].sort()).toEqual([
       "crm_benefit_quotas",
       "crm_plan_subscriptions",
-      "crm_subscription_seats",
     ]);
   });
 });

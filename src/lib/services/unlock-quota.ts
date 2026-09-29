@@ -51,8 +51,8 @@ export async function ensureConsumableQuota(
   const { userId } = params;
 
   const active = await catalog.findActivePlanForUser(userId);
-  // 池记在订阅主账号名下（企业档共享池语义），席位成员消耗同一份额度
-  const seatUserId = active?.owner_user_id ?? userId;
+  // 池记在订阅主账号名下（本人订阅；无订阅 = 普通用户池记本人）
+  const poolUserId = active?.owner_user_id ?? userId;
   const subscriptionId = active?.subscription_id ?? null;
   const planCode = active?.plan_code ?? FREE_PLAN_CODE;
 
@@ -66,7 +66,7 @@ export async function ensureConsumableQuota(
   }
 
   let pool = await write.findAndLockCurrentPool(conn, {
-    seatUserId,
+    userId: poolUserId,
     benefitCode: NOTICE_VIEW_BENEFIT,
     subscriptionId,
   });
@@ -74,12 +74,12 @@ export async function ensureConsumableQuota(
     // 首次消耗时按矩阵值开池（幂等：撞唯一键只抬不降，不重置 quota_used）
     await write.openQuotaPool(conn, {
       subscriptionId,
-      seatUserId,
+      userId: poolUserId,
       benefitCode: NOTICE_VIEW_BENEFIT,
       quotaTotal,
     });
     pool = await write.findAndLockCurrentPool(conn, {
-      seatUserId,
+      userId: poolUserId,
       benefitCode: NOTICE_VIEW_BENEFIT,
       subscriptionId,
     });

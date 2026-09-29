@@ -88,7 +88,7 @@ function makeEnv(opts: {
 
 const ACTIVE = { subscription_id: 55, owner_user_id: 101, plan_code: "starter" } as unknown as ActivePlanRow;
 const POOL = {
-  id: 900, subscription_id: 55, seat_user_id: 101, benefit_code: "notice_view",
+  id: 900, subscription_id: 55, user_id: 101, benefit_code: "notice_view",
   quota_total: 10, quota_used: 0, status: "active",
 } as unknown as LockedPoolRow;
 const params0 = () => ({ userId: 101, opportunityId: 42, unlockType: "single" as const, price: 99, snapshotJson: "{}" });

@@ -28,6 +28,14 @@
  *              → plan_subscriptions → benefit_quotas → subscription_seats
  *              → service_catalog → service_orders。
  *
+ *              ⚠️ 席位体系已退役（2026-09-29）：生产库已**直接**（未迁移化，按用户决策）
+ *              DROP crm_subscription_seats、DROP crm_plan_catalog/crm_plan_subscriptions.seat_limit、
+ *              DROP crm_benefit_quotas.scope 并将 seat_user_id 改名 user_id——因当前订阅者
+ *              全为内部人员、权益均经后台发放，数据可重写。两仓运行代码已不再引用上述结构；
+ *              本文件 SQL 字符串按"历史记录不回改"纪律保留原样，新环境重放 092 会得到
+ *              无害的席位残列/残表（无代码引用），与 verify-benefit-constraints.ts 的
+ *              期望计数差异同属已知漂移。
+ *
  *              幂等：全部 CREATE TABLE IF NOT EXISTS，可安全重跑；末尾结构自检防"半套"表组。
  */
 import type { Pool } from "mysql2/promise";

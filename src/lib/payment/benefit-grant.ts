@@ -1,4 +1,4 @@
-/** 支付履约：一条订阅、主账号席位及完整的矩阵额度；必须处于支付事务中。 */
+/** 支付履约：一条订阅及完整的矩阵额度；必须处于支付事务中。 */
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import type { BenefitSystemRepo } from "../repos/benefit-system.repo";
 import type { BenefitWriteRepo } from "../repos/benefit-write.repo";
@@ -59,12 +59,10 @@ export async function grantSubscriptionForPlan(
   }
   const subscriptionId = await write.insertSubscription(conn, {
     ownerUserId: params.userId, planCode: plan.plan_code, sourceOrderNo: orderNo,
-    pricePaid: params.pricePaid, currency: params.currency ?? plan.currency,
-    seatLimit: Number(plan.seat_limit), startedAt: params.startedAt, expiresAt,
+    pricePaid: params.pricePaid, currency: params.currency ?? plan.currency, startedAt: params.startedAt, expiresAt,
   });
-  await write.ensureOwnerSeat(conn, { subscriptionId, ownerUserId: params.userId });
   const grant = await write.grantQuotaPoolsForPlan(conn, catalog, {
-    planCode: plan.plan_code, subscriptionId, seatUserId: params.userId,
+    planCode: plan.plan_code, subscriptionId, userId: params.userId,
   });
   if (grant.anomalies.length) throw new GrantError("MATRIX_INVALID", grant.anomalies.join("；"));
   return { subscriptionId, planCode: plan.plan_code, expiresAt, grantedBenefits: grant.granted };

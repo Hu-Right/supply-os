@@ -170,8 +170,8 @@ describe("GET /api/system/links", () => {
 // 新契约：路由原样透传服务端组装的 ComparisonTable { plans, rows }（免费档不进官网六卡）。
 
 const PLAN_CATALOG_ROWS = [
-  { plan_code: "personal_std_999", name_en: "STD", name_zh: "个人标准版", positioning_zh: "标准", price: "999.00", price_mode: "fixed", price_incl_tax: "999.00", currency: "CNY", billing_period_days: 365, seat_limit: 1, commercial_tier: "L3", cta_i18n_key: "cta_std", badge: "none", sort_order: 2, is_active: 1 },
-  { plan_code: "enterprise_8800", name_en: "ENT", name_zh: "企业年度会员", positioning_zh: "企业", price: "8800.00", price_mode: "fixed", price_incl_tax: "8800.00", currency: "CNY", billing_period_days: 365, seat_limit: 5, commercial_tier: "L6", cta_i18n_key: "cta_ent", badge: "best_value", sort_order: 5, is_active: 1 },
+  { plan_code: "personal_std_999", name_en: "STD", name_zh: "个人标准版", positioning_zh: "标准", price: "999.00", price_mode: "fixed", price_incl_tax: "999.00", currency: "CNY", billing_period_days: 365, commercial_tier: "L3", cta_i18n_key: "cta_std", badge: "none", sort_order: 2, is_active: 1 },
+  { plan_code: "enterprise_8800", name_en: "ENT", name_zh: "企业年度会员", positioning_zh: "企业", price: "8800.00", price_mode: "fixed", price_incl_tax: "8800.00", currency: "CNY", billing_period_days: 365, commercial_tier: "L6", cta_i18n_key: "cta_ent", badge: "best_value", sort_order: 5, is_active: 1 },
 ];
 const BENEFIT_DEF_ROWS = [
   { benefit_code: "notice_view", name_zh: "标讯解锁额度", group_code: "core", value_kind: "quota", level_dict: null, is_consumable: 1, requires_subscription: 1, gate_key: null, sort_order: 1 },
@@ -257,9 +257,9 @@ describe("GET /api/membership/upgrade/preview", () => {
 // ── 测试用例：/api/membership/status ─────────────────────────────────────────
 // 新契约：resolveMembershipState 返回 { plan, subscription, quotas }，路由原样透传。
 
-const PRO_PLAN = { plan_code: "personal_pro_1299", name_en: "PRO", name_zh: "个人专业版", positioning_zh: "专业", price: "1299.00", price_mode: "fixed", price_incl_tax: "1299.00", currency: "CNY", billing_period_days: 365, seat_limit: 1, commercial_tier: "L4", cta_i18n_key: "cta_pro", badge: "most_popular", sort_order: 4, is_active: 1 };
-const FREE_PLAN = { plan_code: "free", name_en: "FREE", name_zh: "普通用户", positioning_zh: "免费", price: "0.00", price_mode: "free", price_incl_tax: "0.00", currency: "CNY", billing_period_days: 0, seat_limit: 1, commercial_tier: "L1", cta_i18n_key: "cta_free", badge: "none", sort_order: 0, is_active: 0 };
-const ACTIVE_SUB = { subscription_id: 51, owner_user_id: 101, plan_code: "personal_pro_1299", seat_limit: 1, expires_at: new Date("2030-01-01"), seat_role: "owner", sort_order: 4, started_at: new Date("2026-01-01"), source_order_no: "SO_TEST_1", price_paid: "1299.00", currency: "CNY", status: "active" };
+const PRO_PLAN = { plan_code: "personal_pro_1299", name_en: "PRO", name_zh: "个人专业版", positioning_zh: "专业", price: "1299.00", price_mode: "fixed", price_incl_tax: "1299.00", currency: "CNY", billing_period_days: 365, commercial_tier: "L4", cta_i18n_key: "cta_pro", badge: "most_popular", sort_order: 4, is_active: 1 };
+const FREE_PLAN = { plan_code: "free", name_en: "FREE", name_zh: "普通用户", positioning_zh: "免费", price: "0.00", price_mode: "free", price_incl_tax: "0.00", currency: "CNY", billing_period_days: 0, commercial_tier: "L1", cta_i18n_key: "cta_free", badge: "none", sort_order: 0, is_active: 0 };
+const ACTIVE_SUB = { subscription_id: 51, owner_user_id: 101, plan_code: "personal_pro_1299", expires_at: new Date("2030-01-01"), seat_role: "owner", sort_order: 4, started_at: new Date("2026-01-01"), source_order_no: "SO_TEST_1", price_paid: "1299.00", currency: "CNY", status: "active" };
 const QUOTA_BALANCES = [
   { benefit_code: "notice_view", scope: "subscription", quota_total: 10, quota_used: 3, status: "active", period: "none", period_starts_at: new Date("2026-01-01"), remaining: 7 },
 ];

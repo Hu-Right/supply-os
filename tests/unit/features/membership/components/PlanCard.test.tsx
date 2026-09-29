@@ -14,7 +14,7 @@ const noop = () => {};
 const mk = (over: Partial<PlanCatalogRow>): PlanCatalogRow =>
   ({
     plan_code: "p", name_zh: "名", positioning_zh: "位", price: "100", price_mode: "fixed",
-    currency: "CNY", billing_period_days: 365, seat_limit: 1, commercial_tier: "L1",
+    currency: "CNY", billing_period_days: 365, commercial_tier: "L1",
     badge: "none", audience: "personal", ...over,
   }) as PlanCatalogRow;
 

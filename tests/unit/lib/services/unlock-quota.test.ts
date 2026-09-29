@@ -8,7 +8,7 @@
  *    （free.notice_view=0 是 migration 058 的裁决结果，属"零额度"而非"未配置"）；
  * 3. 池不存在时才按矩阵值开一次（幂等抬额），已存在绝不重复开——否则等于把
  *    "已用量"与"应发量"两本账搅在一起；
- * 4. 池记在订阅主账号名下：席位成员消耗同一份额度；
+ * 4. 池记在订阅主账号名下（本人订阅；席位体系已退役，2026-09-29）；
  * 5. 扣减由 consumeLockedPool 的 affectedRows 复核裁决，denied 即抛。
  */
 import { describe, it, expect, vi } from "vitest";
@@ -24,7 +24,7 @@ const pool = (over: Partial<LockedPoolRow> = {}): LockedPoolRow =>
   ({
     id: 900,
     subscription_id: 55,
-    seat_user_id: 101,
+    user_id: 101,
     benefit_code: "notice_view",
     quota_total: 10,
     quota_used: 0,
@@ -62,12 +62,12 @@ describe("ensureConsumableQuota · 额度只从矩阵取", () => {
     const got = await ensureConsumableQuota(conn, deps, { userId: 101 });
 
     expect(write.openQuotaPool).toHaveBeenCalledWith(conn, {
-      subscriptionId: 55, seatUserId: 101, benefitCode: "notice_view", quotaTotal: 10,
+      subscriptionId: 55, userId: 101, benefitCode: "notice_view", quotaTotal: 10,
     });
     expect(got.id).toBe(900);
     // 锁定查的是矩阵档位对应的订阅与主账号，不是"当前登录用户自己的订阅"
     expect(write.findAndLockCurrentPool).toHaveBeenLastCalledWith(conn, {
-      seatUserId: 101, benefitCode: "notice_view", subscriptionId: 55,
+      userId: 101, benefitCode: "notice_view", subscriptionId: 55,
     });
   });
 
@@ -75,17 +75,6 @@ describe("ensureConsumableQuota · 额度只从矩阵取", () => {
     const { deps, write } = makeDeps({ active: starter, pools: [pool()] });
     await ensureConsumableQuota(conn, deps, { userId: 101 });
     expect(write.openQuotaPool).not.toHaveBeenCalled();
-  });
-
-  it("席位成员消耗主账号同一份池：seat_user_id 取 owner_user_id，subscription_id 取所属订阅", async () => {
-    const seatOfOther = {
-      subscription_id: 77, owner_user_id: 9, plan_code: "business",
-    } as unknown as ActivePlanRow;
-    const { deps, write } = makeDeps({ active: seatOfOther, matrixCells: [{ benefit_code: "notice_view", value_num: -1 }], pools: [pool({ subscription_id: 77, seat_user_id: 9 })] });
-    await ensureConsumableQuota(conn, deps, { userId: 101 });
-    expect(write.findAndLockCurrentPool).toHaveBeenLastCalledWith(conn, {
-      seatUserId: 9, benefitCode: "notice_view", subscriptionId: 77,
-    });
   });
 
   it("不限档（value_num=-1）：照常开池，额度原样写 -1 不做换算", async () => {

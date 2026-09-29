@@ -24,7 +24,7 @@ function fakePool(rows: unknown[]) {
 describe("BenefitSystemRepo audience 派生", () => {
   const base = {
     name_en: "X", name_zh: "x", positioning_zh: "x", price: "1", price_mode: "fixed",
-    price_incl_tax: 1, currency: "CNY", billing_period_days: 365, seat_limit: 1,
+    price_incl_tax: 1, currency: "CNY", billing_period_days: 365,
     cta_i18n_key: "cta", badge: "none", sort_order: 1, is_active: 1,
   };
   it("listActivePlans 为每行补 audience", async () => {

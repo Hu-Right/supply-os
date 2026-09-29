@@ -5,7 +5,7 @@ import type { BenefitSystemRepo } from "@/lib/repos/benefit-system.repo";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function fixture(over: {
-  member?: boolean; active?: boolean; missing?: boolean; mode?: string; target?: number; used?: number; quota?: number;
+  active?: boolean; missing?: boolean; mode?: string; target?: number; used?: number; quota?: number;
   /** 当前订阅生效至今的天数（抵扣窗口判定依据） */ startedDaysAgo?: number;
   /** 当前档声明的全额抵扣窗口天数；null=文档未承诺抵扣（沿用补差价） */ creditDays?: number | null;
   /** 直接塞入不可解析的 started_at（脏数据保守路径） */ badStarted?: boolean;
@@ -13,7 +13,7 @@ function fixture(over: {
   const creditDays = over.creditDays === undefined ? 7 : over.creditDays;
   const startedAt = over.badStarted ? "not-a-date" : new Date(Date.now() - (over.startedDaysAgo ?? 0) * DAY_MS);
   const repo = {
-    findActivePlanForUser: vi.fn(async () => over.active === false ? null : { subscription_id: 1, owner_user_id: 7, plan_code: "starter", seat_role: over.member ? "member" : "owner", source_order_no: "SO1", started_at: startedAt }),
+    findActivePlanForUser: vi.fn(async () => over.active === false ? null : { subscription_id: 1, owner_user_id: 7, plan_code: "starter", source_order_no: "SO1", started_at: startedAt }),
     getPlan: vi.fn(async (code: string) => over.missing ? null : ({
       plan_code: code, price: code === "starter" ? "129.00" : String(over.target ?? 999), currency: "CNY",
       is_active: 1, price_mode: over.mode ?? "fixed",
@@ -69,7 +69,7 @@ describe("新目录升级预览", () => {
       .toMatchObject({ can_upgrade: false, reason: "UPGRADE_CREDIT_WINDOW_CLOSED", price_difference: 999 });
   });
   it.each([
-    [{ active: false }, "NO_ACTIVE_PLAN"], [{ member: true }, "SUBSCRIPTION_OWNER_REQUIRED"],
+    [{ active: false }, "NO_ACTIVE_PLAN"],
     [{ missing: true }, "TARGET_PLAN_NOT_FOUND"], [{ mode: "contact" }, "TARGET_PLAN_NOT_UPGRADABLE"],
     [{ mode: "free" }, "TARGET_PLAN_NOT_UPGRADABLE"], [{ target: 100 }, "CANNOT_DOWNGRADE"],
     [{ used: 101 }, "UPGRADE_QUOTA_INVALID"],

@@ -53,7 +53,6 @@ export async function previewUpgrade(catalog: BenefitSystemRepo, userId: number,
   const subscription = await catalog.findActivePlanForUser(userId);
   result.subscription = subscription;
   if (!subscription) return { ...result, reason: "NO_ACTIVE_PLAN" };
-  if (subscription.seat_role !== "owner" || subscription.owner_user_id !== userId) return { ...result, reason: "SUBSCRIPTION_OWNER_REQUIRED" };
   if (subscription.plan_code === targetPlanCode) return { ...result, reason: "ALREADY_ON_TARGET_PLAN" };
   const current = await catalog.getPlan(subscription.plan_code);
   if (!current) throw new Error("PLAN_NOT_FOUND");
