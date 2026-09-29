@@ -40,10 +40,13 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
   const [consultOpen, setConsultOpen] = useState(false);
   const branch = resolveServiceBranch(row);
   const name = serviceDisplayName(row, locale);
-  const hasPrice = branch === "pay";
   const suffixKey = SUFFIX_KEY[row.price_mode];
   const note = locale.toLowerCase().startsWith("zh") ? row.deliverable_note_zh : null;
   const amount = row.standard_price == null ? 0 : Number(row.standard_price);
+  // 价格锚点与成交分支是两件事：文档写明「N 元起」的行（拆解报告 500~3,000/单、定制调研 1,280 起、
+  // 单项目陪跑 26,800 起）即使只能预约询价，也要把起点价显示出来；而「面议/按需报价」类（price_from=0
+  // 且非自助，如 KA）不能把参考价当成交价展示，仍用「定制报价」标签。
+  const showPrice = amount > 0 && (branch === "pay" || row.price_from === 1);
 
   return (
     <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
@@ -51,7 +54,7 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
       <h3 className="text-base font-extrabold leading-tight text-slate-900">{name}</h3>
 
       {/* 价格独立成行，有层级 */}
-      {hasPrice ? (
+      {showPrice ? (
         <div className="mt-2 flex items-baseline gap-1">
           {row.price_from === 1 && (
             <span className="text-xs font-semibold text-slate-500">{t("svcPriceFrom")}</span>
@@ -75,9 +78,9 @@ export function ServiceCard({ row, onPay }: ServiceCardProps) {
 
       {note && <p className="mt-3 text-sm leading-relaxed text-slate-600">{note}</p>}
 
-      {/* CTA：主次分明（有价实心 / 无价描边） */}
+      {/* CTA：主次分明（可自助支付实心 / 需顾问接洽描边） */}
       <div className="mt-auto pt-4">
-        {hasPrice ? (
+        {branch === "pay" ? (
           <button
             type="button"
             onClick={() => onPay(row)}

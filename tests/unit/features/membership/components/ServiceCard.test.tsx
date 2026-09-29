@@ -33,6 +33,17 @@ describe("ServiceCard", () => {
     expect(screen.getByText("svcPriceFrom")).toBeInTheDocument();
   });
 
+  // 报价表「500元~3,000元/单」类行：价格锚点要显示，但收款不能落在底价。
+  it("起点价行：仍显示「起 ¥500」但按钮是「预约顾问」，不走 onPay", () => {
+    const onPay = vi.fn();
+    render(<ServiceCard row={row({ standard_price: "500.00", price_from: 1 })} onPay={onPay} />);
+    expect(screen.getByText("svcPriceFrom")).toBeInTheDocument();
+    expect(screen.getByText(/500/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /svcCtaPay/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /svcCtaConsult/ }));
+    expect(onPay).not.toHaveBeenCalled();
+  });
+
   it("无价：显示定制报价标签，点「预约顾问」开客服码", () => {
     render(<ServiceCard row={row({ standard_price: null, price_mode: "quote" })} onPay={vi.fn()} />);
     expect(screen.getByText("svcLabelQuote")).toBeInTheDocument();

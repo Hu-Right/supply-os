@@ -78,12 +78,16 @@ export function groupPlansByAudience(plans: PlanCatalogRow[]): {
 export type ServiceBranch = "pay" | "consult";
 
 /**
- * 订制服务分支：只有 sale_mode='self' 且有正标价才走自助支付；
+ * 订制服务分支：只有「sale_mode='self' + 有正标价 + 非起点价」才走自助支付；
  * lead/contract（留资、合同成交）与 token/quote/contact 无价行一律「预约顾问」。
- * 与 lib/payment/service-payment 的成交方式闸口同口径（判定字段全部来自目录行，
- * 前端不复制价格/档位常量）。
+ * 与 lib/payment/service-payment 的闸口同口径（判定字段全部来自目录行，前端不复制常量）。
+ *
+ * 其中 `price_from = 1` 是报价表里「N 元起 / 500元~3,000元按标的额」这类**起点价**的标记：
+ * 真实价格取决于标的额、调研方向数等变量，按底价直接收款属于错卖（少收的部分无法补收），
+ * 所以即便它是 self 且有标价，也必须转顾问询价。
  */
-export function resolveServiceBranch(row: { standard_price: string | null; sale_mode: string }): ServiceBranch {
+export function resolveServiceBranch(row: { standard_price: string | null; sale_mode: string; price_from: number }): ServiceBranch {
+  if (Number(row.price_from) === 1) return "consult";
   const n = row.standard_price == null ? NaN : Number(row.standard_price);
   return row.sale_mode === "self" && Number.isFinite(n) && n > 0 ? "pay" : "consult";
 }

@@ -38,6 +38,10 @@
  *                   唯一带绑定的是被删的 svc_tech_support_pack → tech_support）；
  *                 - 新增 credit_to_annual_plan：承载文档「199 升级年包可全额抵扣」，成交单在
  *                   购买年付档时由支付服务端核销（不建第二张表，避免多写者）。
+ *                 - 起点价行（拆解报告「500元~3,000元/单」、定制调研「1,280 元起/1 个方向」）
+ *                   成交方式定为 lead：价格要按标的额与方向数谈定，按底价自助收款属于错卖；
+ *                   前端 resolveServiceBranch 与服务端 service-payment 均以 price_from=1 为不变量，
+ *                   防止日后有人把 sale_mode 改回 self 又把底价直接收走；
  *                 - member_discount 全部归 'none'：文档没有任何折扣承诺，而系统本就未实现折后价，
  *                   留着「会员专享」标签是对客虚假提示。
  *
@@ -122,7 +126,7 @@ const SERVICES: ServiceRow[] = [
     "per_unit",
     500.0,
     1,
-    "self",
+    "lead",
     0,
     null,
     null,
@@ -139,7 +143,7 @@ const SERVICES: ServiceRow[] = [
     "per_unit",
     1280.0,
     1,
-    "self",
+    "lead",
     0,
     null,
     null,

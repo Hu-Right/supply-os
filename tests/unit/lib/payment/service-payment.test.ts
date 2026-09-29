@@ -12,10 +12,10 @@ const strategy: PaymentStrategy = {
 const resolver = { getStrategy: () => strategy };
 
 /** pool.query 解析出目录定价行 */
-function svcPool(standardPrice: string | null, isActive = 1, saleMode = "self") {
+function svcPool(standardPrice: string | null, isActive = 1, saleMode = "self", priceFrom = 0) {
   return {
     query: vi.fn().mockResolvedValue([[{
-      standard_price: standardPrice, currency: "CNY", sale_mode: saleMode, is_active: isActive, name_zh: "AI 单标解析",
+      standard_price: standardPrice, currency: "CNY", sale_mode: saleMode, price_from: priceFrom, is_active: isActive, name_zh: "标讯深度拆解报告",
     }]]),
   } as unknown as Pool;
 }
@@ -75,6 +75,24 @@ describe("ServicePaymentService", () => {
     const svc = new ServicePaymentService(repo as never, svcPool("880.00", 1, "lead"));
     svc.setStrategyResolver(resolver);
     await expect(svc.createOrder({ userId: 5, serviceCode: "svc_x", provider: "mock" })).rejects.toThrow("SERVICE_ADVISORY_ONLY");
+  });
+
+  // 起点价（文档「500元~3,000元/单」、「1,280 元起/1 个方向」）：即使 sale_mode=self 且有标价，
+  // 也不能按底价收款——真实价格要按标的额/方向数谈定，少收部分无法补收。
+  it("起点价（price_from=1）的 self 有价服务 → 拒绝按底价下单", async () => {
+    const repo = makeRepo();
+    const svc = new ServicePaymentService(repo as never, svcPool("500.00", 1, "self", 1));
+    svc.setStrategyResolver(resolver);
+    await expect(svc.createOrder({ userId: 5, serviceCode: "svc_bid_doc_analysis", provider: "mock" })).rejects.toThrow("SERVICE_ADVISORY_ONLY");
+    expect(repo.createOrder).not.toHaveBeenCalled();
+  });
+
+  it("固定价（price_from=0）的 self 服务 → 仍可自助下单，不被起点价不变量误伤", async () => {
+    const repo = makeRepo();
+    const svc = new ServicePaymentService(repo as never, svcPool("880.00", 1, "self", 0));
+    svc.setStrategyResolver(resolver);
+    const r = await svc.createOrder({ userId: 5, serviceCode: "svc_compliance_guidance", provider: "mock" });
+    expect(r.amount).toBe(880);
   });
 
   it("queryOrder 读 DB status", async () => {

@@ -17,6 +17,10 @@ describe("resolveServiceBranch", () => {
     expect(resolveServiceBranch(row({ standard_price: "9800.00", price_mode: "contact", sale_mode: "contract" }))).toBe("consult"));
   it("lead 有价 → consult", () => expect(resolveServiceBranch(row({ standard_price: "500.00", sale_mode: "lead" }))).toBe("consult"));
   it("self 无价 → consult", () => expect(resolveServiceBranch(row({ standard_price: null }))).toBe("consult"));
+  // 报价表写成「500元~3,000元/单」「1,280 元起/1 个方向」的行：标价只是起点，
+  // 按它直接收款会把应谈的价格少掉，所以一律走预约顾问（与服务端闸口同一条不变量）。
+  it("self 有价但起点价（price_from=1）→ consult", () =>
+    expect(resolveServiceBranch(row({ standard_price: "500.00", price_from: 1 }))).toBe("consult"));
   it("self 0 价 → consult", () => expect(resolveServiceBranch(row({ standard_price: "0.00" }))).toBe("consult"));
 });
 

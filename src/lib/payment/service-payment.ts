@@ -34,6 +34,7 @@ interface ServicePriceRow {
   standard_price: string | null;
   currency: string;
   sale_mode: string;
+  price_from: number;
   is_active: number;
   name_zh: string;
 }
@@ -64,7 +65,7 @@ export class ServicePaymentService {
     const { userId, serviceCode, provider } = params;
 
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT standard_price, currency, sale_mode, is_active, name_zh
+      `SELECT standard_price, currency, sale_mode, price_from, is_active, name_zh
          FROM crm_service_catalog WHERE service_code = ? LIMIT 1`,
       [serviceCode],
     );
@@ -74,7 +75,8 @@ export class ServicePaymentService {
     }
     // 预约制商品（留资/合同成交）不得自助支付：前端已把按钮换成「预约顾问」，
     // 这里再档一道，防绕过前端直打 /api/payment/orders。
-    if (svc.sale_mode !== "self") {
+    // 起点价（price_from=1，文档「N 元起 / 按标的额谈价」）同样不得自助：按底价收款是错卖。
+    if (svc.sale_mode !== "self" || Number(svc.price_from) === 1) {
       throw new Error("SERVICE_ADVISORY_ONLY");
     }
 
